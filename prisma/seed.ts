@@ -33,6 +33,14 @@ const TUTORS = [
   { id: "tutor-bob", englishName: "Bob Liu", email: "bob@example.edu", active: true },
   { id: "tutor-carol", englishName: "Carol Wang", email: "carol@example.edu", active: true },
   { id: "tutor-david", englishName: "David Zhao", email: null, active: false },
+  // Example of a self-signed-up tutor awaiting admin activation.
+  { id: "tutor-evan", englishName: "Evan Tutor", email: "evan@example.edu", active: false },
+];
+
+// Recurring room blackout periods (fixed ids so the seed stays idempotent).
+const ROOM_BLOCKS = [
+  { id: "block-library-mon", roomId: "room-library", dayOfWeek: 1, start: "15:30", end: "16:30", reason: "Book club" },
+  { id: "block-a101-wed", roomId: "room-a101", dayOfWeek: 3, start: "16:00", end: "17:00", reason: "Faculty meeting" },
 ];
 
 const COURSES = [
@@ -193,6 +201,28 @@ async function main() {
     });
   }
 
+  // --- Room blackout periods -------------------------------------------------
+  for (const b of ROOM_BLOCKS) {
+    await db.roomUnavailability.upsert({
+      where: { id: b.id },
+      update: {
+        roomId: b.roomId,
+        dayOfWeek: b.dayOfWeek,
+        startMin: hm(b.start),
+        endMin: hm(b.end),
+        reason: b.reason,
+      },
+      create: {
+        id: b.id,
+        roomId: b.roomId,
+        dayOfWeek: b.dayOfWeek,
+        startMin: hm(b.start),
+        endMin: hm(b.end),
+        reason: b.reason,
+      },
+    });
+  }
+
   // --- Pairings (with rostered tutees) ---------------------------------------
   const pairings = [
     {
@@ -273,6 +303,9 @@ async function main() {
   const users = [
     { id: "user-admin", name: "Admin", email: "admin@example.edu", role: "ADMIN" as const, tutorId: null },
     { id: "user-alice", name: "Alice Chen", email: "alice@example.edu", role: "TUTOR" as const, tutorId: "tutor-alice" },
+    { id: "user-bob", name: "Bob Liu", email: "bob@example.edu", role: "TUTOR" as const, tutorId: "tutor-bob" },
+    // Evan's tutor record is inactive — signing in shows the pending-approval gate.
+    { id: "user-evan", name: "Evan Tutor", email: "evan@example.edu", role: "TUTOR" as const, tutorId: "tutor-evan" },
   ];
   for (const u of users) {
     await db.user.upsert({
@@ -286,6 +319,34 @@ async function main() {
         tutorId: u.tutorId,
         passwordHash,
       },
+    });
+  }
+
+  // --- Tutor application (in INTERVIEW, Alice is head) -----------------------
+  await db.tutorApplication.upsert({
+    where: { id: "app-fiona" },
+    update: { name: "Fiona Applicant", email: "fiona@example.edu", status: "INTERVIEW" },
+    create: {
+      id: "app-fiona",
+      name: "Fiona Applicant",
+      email: "fiona@example.edu",
+      status: "INTERVIEW",
+      courseIntents: {
+        create: [
+          { courseId: "course-math", taken: true, grade: "A" },
+          { courseId: "course-physics", taken: true, grade: "5 (AP)" },
+        ],
+      },
+    },
+  });
+  for (const a of [
+    { tutorId: "tutor-alice", isHead: true },
+    { tutorId: "tutor-bob", isHead: false },
+  ]) {
+    await db.interviewAssignment.upsert({
+      where: { applicationId_tutorId: { applicationId: "app-fiona", tutorId: a.tutorId } },
+      update: { isHead: a.isHead },
+      create: { applicationId: "app-fiona", tutorId: a.tutorId, isHead: a.isHead },
     });
   }
 

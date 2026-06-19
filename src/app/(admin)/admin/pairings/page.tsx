@@ -1,9 +1,10 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { api } from "~/trpc/react";
 import { DAY_NAMES, hmToMin, minToHm } from "~/lib/time";
+import { RoomGrid } from "~/app/_components/room-grid";
 
 type PairingForm = {
   id: string | null;
@@ -96,8 +97,16 @@ export default function PairingsPage() {
     <div className="space-y-6">
       <h1 className="page-title">Pairings</h1>
 
-      {/* Room x day grid */}
-      <RoomGrid pairings={pairings.data ?? []} />
+      {/* Slot × room schedule grid */}
+      <section>
+        <h2 className="mb-2 font-semibold text-slate-900">Room schedule</h2>
+        <RoomGrid
+          rooms={(rooms.data ?? []).map((r) => ({ id: r.id, name: r.name }))}
+          slots={(timeSlots.data ?? []).filter((s) => s.active)}
+          pairings={pairings.data ?? []}
+          blocks={(rooms.data ?? []).flatMap((r) => r.unavailabilities)}
+        />
+      </section>
 
       {/* Create / edit form */}
       <section className="card p-5">
@@ -306,77 +315,3 @@ function Select({
   );
 }
 
-type GridPairing = {
-  id: string;
-  subject: string;
-  dayOfWeek: number;
-  startMin: number;
-  endMin: number;
-  roomId: string | null;
-  room: { name: string } | null;
-  tutor: { englishName: string };
-};
-
-function RoomGrid({ pairings }: { pairings: GridPairing[] }) {
-  const days = [1, 2, 3, 4, 5];
-  const rooms = useMemo(() => {
-    const map = new Map<string, string>();
-    for (const p of pairings) {
-      if (p.room) map.set(p.roomId!, p.room.name);
-    }
-    return [...map.entries()].sort((a, b) => a[1].localeCompare(b[1]));
-  }, [pairings]);
-
-  const cell = (roomId: string | null, day: number) =>
-    pairings.filter((p) => p.roomId === roomId && p.dayOfWeek === day);
-
-  return (
-    <section className="card overflow-x-auto p-4">
-      <h2 className="font-semibold text-slate-900">Room grid (Mon–Fri)</h2>
-      <table className="mt-2 w-full border-collapse text-xs">
-        <thead>
-          <tr>
-            <th className="border border-slate-200 p-2 text-left">Room</th>
-            {days.map((d) => (
-              <th key={d} className="border border-slate-200 p-2">
-                {DAY_NAMES[d]}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rooms.map(([roomId, roomName]) => (
-            <tr key={roomId}>
-              <td className="border border-slate-200 p-2 font-medium">{roomName}</td>
-              {days.map((d) => (
-                <td key={d} className="border border-slate-200 p-2 align-top">
-                  {cell(roomId, d).map((p) => (
-                    <div key={p.id} className="mb-1">
-                      {minToHm(p.startMin)} {p.subject} ({p.tutor.englishName})
-                    </div>
-                  ))}
-                </td>
-              ))}
-            </tr>
-          ))}
-          {pairings.some((p) => !p.roomId) && (
-            <tr>
-              <td className="border border-slate-200 p-2 font-medium text-slate-400">
-                No room
-              </td>
-              {days.map((d) => (
-                <td key={d} className="border border-slate-200 p-2 align-top">
-                  {cell(null, d).map((p) => (
-                    <div key={p.id} className="mb-1">
-                      {minToHm(p.startMin)} {p.subject} ({p.tutor.englishName})
-                    </div>
-                  ))}
-                </td>
-              ))}
-            </tr>
-          )}
-        </tbody>
-      </table>
-    </section>
-  );
-}

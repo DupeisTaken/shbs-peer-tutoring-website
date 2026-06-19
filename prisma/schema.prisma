@@ -115,12 +115,13 @@ model Tutor {
   active      Boolean  @default(true)
   createdAt   DateTime @default(now())
 
-  user               User?
-  pairings           Pairing[]
-  sessions           Session[]
-  adjustments        ServiceHourAdjustment[]
-  meetingAttendances MeetingAttendance[]
-  availabilities     TutorAvailability[]
+  user                 User?
+  pairings             Pairing[]
+  sessions             Session[]
+  adjustments          ServiceHourAdjustment[]
+  meetingAttendances   MeetingAttendance[]
+  availabilities       TutorAvailability[]
+  interviewAssignments InterviewAssignment[]
 }
 
 /// A subject offered for tutoring. The catalog is managed by admins; tutees pick a
@@ -131,8 +132,9 @@ model Course {
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  firstChoiceTutees  Tutee[] @relation("TuteeFirstChoice")
-  secondChoiceTutees Tutee[] @relation("TuteeSecondChoice")
+  firstChoiceTutees  Tutee[]                   @relation("TuteeFirstChoice")
+  secondChoiceTutees Tutee[]                   @relation("TuteeSecondChoice")
+  applicationIntents ApplicationCourseIntent[]
 }
 
 model Tutee {
@@ -212,6 +214,23 @@ model Room {
   name      String    @unique
   pairings  Pairing[]
   createdAt DateTime  @default(now())
+
+  unavailabilities RoomUnavailability[]
+}
+
+/// A recurring weekly period during which a room cannot be used (e.g. another class).
+/// Surfaced on the room grid so coordinators don't schedule pairings into a blocked slot.
+model RoomUnavailability {
+  id        String   @id @default(cuid())
+  roomId    String
+  room      Room     @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  dayOfWeek Int // 1 = Monday .. 7 = Sunday
+  startMin  Int // minutes from midnight
+  endMin    Int
+  reason    String?
+  createdAt DateTime @default(now())
+
+  @@index([roomId])
 }
 
 model Pairing {
@@ -352,6 +371,66 @@ model ServiceHourAdjustment {
   tutor   Tutor  @relation(fields: [tutorId], references: [id])
 
   @@index([tutorId, month])
+}
+
+// ----------------------------------------------------------------------------
+// Tutor applications + interview workflow
+//
+// Prospective tutors apply via the public form (no login is created). Admins assign up
+// to three existing tutors as interviewers — one marked head — and the head schedules the
+// interview time, which surfaces on each interviewer's dashboard.
+// ----------------------------------------------------------------------------
+
+enum TutorApplicationStatus {
+  PENDING // submitted, awaiting interviewer assignment
+  INTERVIEW // interviewers assigned / scheduling
+  ACCEPTED
+  REJECTED
+}
+
+model TutorApplication {
+  id              String                 @id @default(cuid())
+  name            String
+  /// Contact email. SCAFFOLDING: future email-based 2FA / verification codes for the
+  /// applicant would be sent here (see src/server/auth/two-factor.ts); not wired yet.
+  email           String
+  contactVerified Boolean                @default(false)
+  status          TutorApplicationStatus @default(PENDING)
+  /// Interview time, coordinated by the head interviewer.
+  interviewAt     DateTime?
+  createdAt       DateTime               @default(now())
+
+  courseIntents ApplicationCourseIntent[]
+  interviewers  InterviewAssignment[]
+
+  @@index([status])
+}
+
+/// One intended tutoring course on an application (max 3 enforced in the form/mutation),
+/// with whether the applicant has taken it and the grade / AP score they received.
+model ApplicationCourseIntent {
+  id            String           @id @default(cuid())
+  applicationId String
+  application   TutorApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  courseId      String
+  course        Course           @relation(fields: [courseId], references: [id])
+  taken         Boolean          @default(false)
+  grade         String? // grade received or AP score, when taken
+
+  @@index([applicationId])
+}
+
+/// Join: a tutor assigned to interview an applicant. Exactly one per application is head.
+model InterviewAssignment {
+  applicationId String
+  application   TutorApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  tutorId       String
+  tutor         Tutor            @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  isHead        Boolean          @default(false)
+  createdAt     DateTime         @default(now())
+
+  @@id([applicationId, tutorId])
+  @@index([tutorId])
 }
 
 model PolicyFile {

@@ -20,19 +20,140 @@ function StatusBadge({ status }: { status: Status }) {
 
 type SlotLite = { id: string; label: string; dayOfWeek: number; startMin: number; endMin: number };
 
-function availabilitySummary(
-  availabilities: { slot: SlotLite }[],
-): string {
+function availabilitySummary(availabilities: { slot: SlotLite }[]): string {
   if (availabilities.length === 0) return "—";
   return availabilities
     .map((a) => `${DAY_NAMES[a.slot.dayOfWeek]} ${minToHm(a.slot.startMin)}`)
     .join(", ");
 }
 
+type PendingTuteeData = {
+  id: string;
+  englishName: string;
+  gradeLevel: string | null;
+  email: string | null;
+  phone: string | null;
+  signedRulebook: boolean;
+  signatureName: string | null;
+  firstChoice: { name: string } | null;
+  secondChoice: { name: string } | null;
+  availabilities: { slot: SlotLite }[];
+};
+
+/** A pending signup with inline approve / assign-to-tutor / decline controls. */
+function PendingTutee({
+  tutee,
+  tutors,
+  terms,
+  onChanged,
+}: {
+  tutee: PendingTuteeData;
+  tutors: { id: string; englishName: string; active: boolean }[];
+  terms: { id: string; name: string; active: boolean }[];
+  onChanged: () => Promise<unknown> | void;
+}) {
+  const activeTerm = terms.find((t) => t.active) ?? terms[0];
+  const [tutorId, setTutorId] = useState("");
+  const [termId, setTermId] = useState(activeTerm?.id ?? "");
+
+  const assign = api.admin.assignTuteeToTutor.useMutation({ onSuccess: () => onChanged() });
+  const setStatus = api.admin.setTuteeStatus.useMutation({ onSuccess: () => onChanged() });
+  const del = api.admin.deleteTutee.useMutation({ onSuccess: () => onChanged() });
+
+  return (
+    <div className="rounded-lg border border-slate-200 p-4">
+      <div className="flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0 space-y-1">
+          <p className="font-medium text-slate-900">
+            {tutee.englishName}
+            {tutee.gradeLevel ? ` · Grade ${tutee.gradeLevel}` : ""}
+          </p>
+          <p className="muted">
+            Courses: <span className="text-slate-700">{tutee.firstChoice?.name ?? "—"}</span>
+            {tutee.secondChoice ? ` / ${tutee.secondChoice.name}` : ""}
+          </p>
+          <p className="muted">Available: {availabilitySummary(tutee.availabilities)}</p>
+          <p className="muted">
+            {tutee.email ?? "no email"}
+            {tutee.phone ? ` · ${tutee.phone}` : ""}
+          </p>
+          <p className="muted">
+            Signed: {tutee.signedRulebook ? `✓ ${tutee.signatureName ?? ""}` : "— not signed"}
+          </p>
+        </div>
+        <button
+          className="btn-danger btn-sm shrink-0"
+          onClick={() => {
+            if (confirm(`Decline and delete ${tutee.englishName}'s request?`))
+              del.mutate({ id: tutee.id });
+          }}
+        >
+          Decline
+        </button>
+      </div>
+
+      {/* Assign to a tutor (creates the pairing; the tutor then picks the time slot). */}
+      <div className="mt-3 flex flex-wrap items-end gap-2 border-t border-slate-100 pt-3">
+        <label className="space-y-1">
+          <span className="label">Assign to tutor</span>
+          <select
+            value={tutorId}
+            onChange={(e) => setTutorId(e.target.value)}
+            className="select w-48"
+          >
+            <option value="">Select tutor…</option>
+            {tutors
+              .filter((t) => t.active)
+              .map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.englishName}
+                </option>
+              ))}
+          </select>
+        </label>
+        {terms.length > 1 && (
+          <label className="space-y-1">
+            <span className="label">Term</span>
+            <select
+              value={termId}
+              onChange={(e) => setTermId(e.target.value)}
+              className="select w-40"
+            >
+              {terms.map((t) => (
+                <option key={t.id} value={t.id}>
+                  {t.name}
+                </option>
+              ))}
+            </select>
+          </label>
+        )}
+        <button
+          className="btn-primary btn-sm"
+          disabled={!tutorId || !termId || assign.isPending}
+          onClick={() => assign.mutate({ tuteeId: tutee.id, tutorId, termId })}
+        >
+          {assign.isPending ? "Assigning…" : "Assign & activate"}
+        </button>
+        <button
+          className="btn-secondary btn-sm"
+          onClick={() => setStatus.mutate({ id: tutee.id, status: "ACTIVE" })}
+        >
+          Approve only
+        </button>
+      </div>
+      {(assign.error ?? del.error) && (
+        <p className="mt-2 text-sm text-red-600">{(assign.error ?? del.error)?.message}</p>
+      )}
+    </div>
+  );
+}
+
 export default function TuteesPage() {
   const utils = api.useUtils();
   const tutees = api.admin.tutees.useQuery();
   const courses = api.admin.courses.useQuery();
+  const tutors = api.admin.tutors.useQuery();
+  const terms = api.admin.terms.useQuery();
 
   const invalidate = () => utils.admin.tutees.invalidate();
   const create = api.admin.createTutee.useMutation({ onSuccess: invalidate });
@@ -55,12 +176,9 @@ export default function TuteesPage() {
       <div>
         <h1 className="page-title">Tutees</h1>
         <p className="muted mt-1">
-          Public signups arrive as <span className="badge-amber">pending</span>. Review,
-          then approve and assign them to a tutor on the{" "}
-          <a href="/admin/pairings" className="link">
-            Pairings
-          </a>{" "}
-          page.
+          Public signups arrive as <span className="badge-amber">pending</span>. Assign each
+          to a tutor here — that creates the pairing and the tutor picks the time slot from
+          their own dashboard.
         </p>
       </div>
 
@@ -72,49 +190,15 @@ export default function TuteesPage() {
           </h2>
           <div className="mt-3 space-y-3">
             {pending.map((t) => (
-              <div
+              <PendingTutee
                 key={t.id}
-                className="flex flex-wrap items-start justify-between gap-3 rounded-lg border border-slate-200 p-4"
-              >
-                <div className="min-w-0 space-y-1">
-                  <p className="font-medium text-slate-900">
-                    {t.englishName}
-                    {t.gradeLevel ? ` · Grade ${t.gradeLevel}` : ""}
-                  </p>
-                  <p className="muted">
-                    Courses: <span className="text-slate-700">{t.firstChoice?.name ?? "—"}</span>
-                    {t.secondChoice ? ` / ${t.secondChoice.name}` : ""}
-                  </p>
-                  <p className="muted">Available: {availabilitySummary(t.availabilities)}</p>
-                  <p className="muted">
-                    {t.email ?? "no email"}
-                    {t.phone ? ` · ${t.phone}` : ""}
-                  </p>
-                  <p className="muted">
-                    Signed: {t.signedRulebook ? `✓ ${t.signatureName ?? ""}` : "— not signed"}
-                  </p>
-                </div>
-                <div className="flex shrink-0 gap-2">
-                  <button
-                    className="btn-primary btn-sm"
-                    onClick={() => setStatus.mutate({ id: t.id, status: "ACTIVE" })}
-                  >
-                    Approve
-                  </button>
-                  <button
-                    className="btn-danger btn-sm"
-                    onClick={() => {
-                      if (confirm(`Decline and delete ${t.englishName}'s request?`))
-                        del.mutate({ id: t.id });
-                    }}
-                  >
-                    Decline
-                  </button>
-                </div>
-              </div>
+                tutee={t}
+                tutors={tutors.data ?? []}
+                terms={terms.data ?? []}
+                onChanged={invalidate}
+              />
             ))}
           </div>
-          {del.error && <p className="mt-2 text-sm text-red-600">{del.error.message}</p>}
         </section>
       )}
 

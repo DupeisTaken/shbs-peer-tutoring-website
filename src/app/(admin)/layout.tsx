@@ -19,6 +19,7 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
     items: [
       { href: "/admin/tutors", label: "Tutors" },
       { href: "/admin/tutees", label: "Tutees" },
+      { href: "/admin/applications", label: "Tutor applications" },
     ],
   },
   {

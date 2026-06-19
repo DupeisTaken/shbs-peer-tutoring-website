@@ -26,6 +26,7 @@ const MEETING_STATUS = [
 ] as const;
 const ADJUSTMENT_TYPE = ["PUNISHMENT", "EXTRA"] as const;
 const TUTEE_STATUS = ["PENDING", "ACTIVE", "INACTIVE"] as const;
+const TUTOR_APP_STATUS = ["PENDING", "INTERVIEW", "ACCEPTED", "REJECTED"] as const;
 
 export const adminRouter = createTRPCRouter({
   // --------------------------------------------------------------------------
@@ -49,7 +50,14 @@ export const adminRouter = createTRPCRouter({
     }),
   ),
   rooms: adminProcedure.query(({ ctx }) =>
-    ctx.db.room.findMany({ orderBy: { name: "asc" } }),
+    ctx.db.room.findMany({
+      orderBy: { name: "asc" },
+      include: {
+        unavailabilities: {
+          orderBy: [{ dayOfWeek: "asc" }, { startMin: "asc" }],
+        },
+      },
+    }),
   ),
   terms: adminProcedure.query(({ ctx }) =>
     ctx.db.term.findMany({ orderBy: { createdAt: "desc" } }),
@@ -325,6 +333,58 @@ export const adminRouter = createTRPCRouter({
       }),
     ),
 
+  /**
+   * Review action: assign a tutee to a tutor. Creates a pairing (subject defaults to the
+   * tutee's first-choice course) in the given term and marks the tutee ACTIVE. The tutor
+   * then picks the default time slot from their own dashboard.
+   */
+  assignTuteeToTutor: adminProcedure
+    .input(
+      z.object({
+        tuteeId: cuid,
+        tutorId: cuid,
+        termId: cuid,
+        subject: z.string().trim().min(1).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const tutee = await ctx.db.tutee.findUnique({
+        where: { id: input.tuteeId },
+        select: { id: true, firstChoice: { select: { name: true } } },
+      });
+      if (!tutee) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Tutee not found." });
+      }
+      const subject = input.subject ?? tutee.firstChoice?.name;
+      if (!subject) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "No subject: pick a course for this tutee or pass a subject.",
+        });
+      }
+
+      return ctx.db.$transaction(async (tx) => {
+        const pairing = await tx.pairing.create({
+          data: {
+            tutorId: input.tutorId,
+            termId: input.termId,
+            subject,
+            // Placeholder schedule — the tutor sets the real time when they pick a slot.
+            dayOfWeek: 1,
+            startMin: 15 * 60 + 30,
+            endMin: 16 * 60 + 30,
+            tutees: { create: [{ tuteeId: input.tuteeId }] },
+          },
+          select: { id: true },
+        });
+        await tx.tutee.update({
+          where: { id: input.tuteeId },
+          data: { status: "ACTIVE" },
+        });
+        return pairing;
+      });
+    }),
+
   /** Quick status change (e.g. approve a PENDING signup → ACTIVE). */
   setTuteeStatus: adminProcedure
     .input(z.object({ id: cuid, status: z.enum(TUTEE_STATUS) }))
@@ -453,6 +513,40 @@ export const adminRouter = createTRPCRouter({
     }),
 
   // --------------------------------------------------------------------------
+  // Room unavailability (recurring weekly blackout periods, shown on the grid)
+  // --------------------------------------------------------------------------
+  createRoomUnavailability: adminProcedure
+    .input(
+      z.object({
+        roomId: cuid,
+        dayOfWeek: z.number().int().min(1).max(7),
+        startMin: z.number().int().min(0).max(1439),
+        endMin: z.number().int().min(1).max(1440),
+        reason: z.string().trim().max(200).optional(),
+      }),
+    )
+    .mutation(({ ctx, input }) => {
+      if (input.endMin <= input.startMin) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "End must be after start." });
+      }
+      return ctx.db.roomUnavailability.create({
+        data: {
+          roomId: input.roomId,
+          dayOfWeek: input.dayOfWeek,
+          startMin: input.startMin,
+          endMin: input.endMin,
+          reason: blankToNull(input.reason),
+        },
+      });
+    }),
+
+  deleteRoomUnavailability: adminProcedure
+    .input(z.object({ id: cuid }))
+    .mutation(({ ctx, input }) =>
+      ctx.db.roomUnavailability.delete({ where: { id: input.id } }),
+    ),
+
+  // --------------------------------------------------------------------------
   // Tutor meetings + attendance (P / EA / UA / X)
   // --------------------------------------------------------------------------
   meetings: adminProcedure.query(({ ctx }) =>
@@ -563,6 +657,78 @@ export const adminRouter = createTRPCRouter({
     .input(z.object({ id: cuid }))
     .mutation(({ ctx, input }) =>
       ctx.db.serviceHourAdjustment.delete({ where: { id: input.id } }),
+    ),
+
+  // --------------------------------------------------------------------------
+  // Tutor applications + interview assignment
+  // --------------------------------------------------------------------------
+  tutorApplications: adminProcedure.query(({ ctx }) =>
+    ctx.db.tutorApplication.findMany({
+      orderBy: [{ status: "asc" }, { createdAt: "desc" }],
+      include: {
+        courseIntents: {
+          include: { course: { select: { name: true } } },
+        },
+        interviewers: {
+          include: { tutor: { select: { id: true, englishName: true } } },
+        },
+      },
+    }),
+  ),
+
+  /** Assign up to three tutors (one head) to interview an applicant; moves it to INTERVIEW. */
+  assignInterviewers: adminProcedure
+    .input(
+      z.object({
+        applicationId: cuid,
+        tutorIds: z.array(cuid).min(1, "Pick at least one interviewer").max(3),
+        headTutorId: cuid,
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const tutorIds = [...new Set(input.tutorIds)];
+      if (!tutorIds.includes(input.headTutorId)) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "The head must be one of the assigned interviewers.",
+        });
+      }
+      const found = await ctx.db.tutor.count({ where: { id: { in: tutorIds } } });
+      if (found !== tutorIds.length) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Unknown tutor selected." });
+      }
+
+      return ctx.db.$transaction(async (tx) => {
+        await tx.interviewAssignment.deleteMany({
+          where: { applicationId: input.applicationId },
+        });
+        await tx.interviewAssignment.createMany({
+          data: tutorIds.map((tutorId) => ({
+            applicationId: input.applicationId,
+            tutorId,
+            isHead: tutorId === input.headTutorId,
+          })),
+        });
+        return tx.tutorApplication.update({
+          where: { id: input.applicationId },
+          data: { status: "INTERVIEW" },
+        });
+      });
+    }),
+
+  setApplicationStatus: adminProcedure
+    .input(z.object({ id: cuid, status: z.enum(TUTOR_APP_STATUS) }))
+    .mutation(({ ctx, input }) =>
+      ctx.db.tutorApplication.update({
+        where: { id: input.id },
+        data: { status: input.status },
+      }),
+    ),
+
+  deleteApplication: adminProcedure
+    .input(z.object({ id: cuid }))
+    .mutation(({ ctx, input }) =>
+      ctx.db.tutorApplication.delete({ where: { id: input.id } }),
     ),
 
   // --------------------------------------------------------------------------

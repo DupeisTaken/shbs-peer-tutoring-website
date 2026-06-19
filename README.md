@@ -52,31 +52,43 @@ provider — is future work.
 
 ### Routes
 
-- `/` — public landing page (links to sign-in and tutee signup).
+- `/` — public landing page with three CTAs: request a tutor, apply to tutor, sign in.
 - `/signup` — **public** tutee signup form: name, first/second course choice (from the
   admin-managed catalog), available time slots, and a typed rulebook signature. Creates a
   `PENDING` tutee for an admin to review and assign.
+- `/tutor-signup` — **public** tutor *application*: name, contact email, and up to three
+  intended courses (with whether taken + grade/AP score). Creates a `PENDING`
+  `TutorApplication` — **no login is created**; the admin team reviews and arranges an
+  interview.
 - `/signin` — public email + password sign-in form.
-- `/dashboard` — tutor home (any signed-in tutor): live monthly service hours, pairings,
-  availability picker, and the attendance submission form, all on one page.
-- `/admin/*` — management area (coordinator/admin): tutors, tutees, courses, time slots,
-  rooms, pairings, submissions, meetings, adjustments, punishments, users, and the monthly
-  summary.
+- `/dashboard` — tutor home (any signed-in tutor): live monthly service hours, pairings
+  (with default-slot picker), availability, the attendance form, interviews they're on the
+  panel for, and the room schedule — all on one page.
+- `/admin/*` — management area (coordinator/admin): tutors, tutees, tutor applications,
+  courses, time slots, rooms, pairings, submissions, meetings, adjustments, punishments,
+  users, and the monthly summary.
 
 Route gating is handled by `src/middleware.ts` (Edge); the tRPC procedures
 (`src/server/api/routers/`) enforce role and ownership checks server-side.
 
 ### Tutee signup & scheduling
 
-Students request help through the public `/signup` form. A submission becomes a `PENDING`
-`Tutee` (with course choices, availability, and a rulebook signature) that admins review on
-the Tutees screen, approve, and assign to a tutor via a pairing.
+Students request help through the public `/signup` form → a `PENDING` `Tutee`. On the Tutees
+screen an admin **assigns the tutee to a tutor inline** (one click), which creates the pairing
+and flips the tutee to `ACTIVE`. The **tutor then picks the default time slot** for that
+pairing from their own dashboard (slots stay reference-only — actual session times are entered
+on each attendance submission).
 
-Scheduling is built around an admin-managed **time-slot catalog** (`/admin/timeslots`).
-Tutors mark which slots they can teach (on their dashboard) and tutees pick their available
-slots at signup; a pairing can reference a slot as its default. Time slots are
-**reference-only** — the actual session start/end times are still entered on each attendance
-submission. The **course catalog** (`/admin/courses`) is the list of subjects offered.
+Prospective tutors apply through the public `/tutor-signup` form (intended courses + grades).
+On the **Tutor applications** screen an admin assigns up to three interviewers (one marked
+**head**); the head schedules the interview time from their dashboard, and the interview shows
+up for every panelist. Applications never create logins — tutor accounts are made by an admin.
+
+Scheduling is built around an admin-managed **time-slot catalog** (`/admin/timeslots`) and a
+**course catalog** (`/admin/courses`). Tutors and tutees mark availability against the slots.
+Rooms can have recurring **unavailability periods** (`/admin/rooms`); the slot×room **room
+grid** (on the Pairings page, and read-only on the tutor dashboard) shows occupancy and blocked
+cells.
 
 ### Service hours
 

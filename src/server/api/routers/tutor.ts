@@ -28,6 +28,7 @@ export const tutorRouter = createTRPCRouter({
       include: {
         room: true,
         term: true,
+        timeSlot: true,
         tutees: { include: { tutee: true } },
       },
     });
@@ -218,5 +219,155 @@ export const tutorRouter = createTRPCRouter({
         }),
       ]);
       return { ok: true, count: validIds.length };
+    }),
+
+  /** The signed-in tutor's own domain record (used to gate the pending-approval state). */
+  me: tutorProcedure.query(({ ctx }) =>
+    ctx.db.tutor.findUniqueOrThrow({
+      where: { id: ctx.session.tutorId },
+      select: { id: true, englishName: true, active: true, email: true },
+    }),
+  ),
+
+  /**
+   * Set (or clear) the default reference time slot for one of the caller's pairings.
+   * Row-scoped: the pairing MUST belong to this tutor. Choosing a slot copies its
+   * day/start/end onto the pairing so attendance defaults follow the slot.
+   */
+  setPairingSlot: tutorProcedure
+    .input(z.object({ pairingId: z.string().min(1), slotId: z.string().min(1).nullable() }))
+    .mutation(async ({ ctx, input }) => {
+      const pairing = await ctx.db.pairing.findFirst({
+        where: { id: input.pairingId, tutorId: ctx.session.tutorId },
+        select: { id: true },
+      });
+      if (!pairing) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Pairing not found for this tutor." });
+      }
+
+      if (input.slotId === null) {
+        return ctx.db.pairing.update({
+          where: { id: pairing.id },
+          data: { timeSlotId: null },
+        });
+      }
+
+      const slot = await ctx.db.timeSlot.findFirst({
+        where: { id: input.slotId, active: true },
+        select: { dayOfWeek: true, startMin: true, endMin: true },
+      });
+      if (!slot) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Time slot not found." });
+      }
+      return ctx.db.pairing.update({
+        where: { id: pairing.id },
+        data: {
+          timeSlotId: input.slotId,
+          dayOfWeek: slot.dayOfWeek,
+          startMin: slot.startMin,
+          endMin: slot.endMin,
+        },
+      });
+    }),
+
+  /**
+   * Read-only schedule for the room grid on the tutor page: rooms, the active slot catalog,
+   * every scheduled pairing (room + slot occupancy), and room blackout periods. This is
+   * non-sensitive scheduling data (no tutee PII), shown so tutors can see room assignments.
+   */
+  schedule: tutorProcedure.query(async ({ ctx }) => {
+    const [rooms, slots, pairings, blocks] = await Promise.all([
+      ctx.db.room.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+      ctx.db.timeSlot.findMany({
+        where: { active: true },
+        orderBy: [{ dayOfWeek: "asc" }, { startMin: "asc" }],
+        select: { id: true, label: true, dayOfWeek: true, startMin: true, endMin: true },
+      }),
+      ctx.db.pairing.findMany({
+        select: {
+          id: true,
+          subject: true,
+          dayOfWeek: true,
+          startMin: true,
+          endMin: true,
+          tutorId: true,
+          roomId: true,
+          timeSlotId: true,
+          tutor: { select: { englishName: true } },
+        },
+      }),
+      ctx.db.roomUnavailability.findMany({
+        select: { id: true, roomId: true, dayOfWeek: true, startMin: true, endMin: true, reason: true },
+      }),
+    ]);
+    return { rooms, slots, pairings, blocks, myTutorId: ctx.session.tutorId };
+  }),
+
+  // --------------------------------------------------------------------------
+  // Tutor-applicant interviews (this tutor is an assigned interviewer)
+  // --------------------------------------------------------------------------
+
+  /** Applications the signed-in tutor is assigned to interview, with candidate details. */
+  myInterviews: tutorProcedure.query(async ({ ctx }) => {
+    const assignments = await ctx.db.interviewAssignment.findMany({
+      where: { tutorId: ctx.session.tutorId },
+      orderBy: { application: { createdAt: "desc" } },
+      select: {
+        isHead: true,
+        application: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            status: true,
+            interviewAt: true,
+            courseIntents: {
+              select: {
+                taken: true,
+                grade: true,
+                course: { select: { name: true } },
+              },
+            },
+            interviewers: {
+              select: { isHead: true, tutor: { select: { englishName: true } } },
+            },
+          },
+        },
+      },
+    });
+    return assignments.map((a) => ({ isHead: a.isHead, ...a.application }));
+  }),
+
+  /**
+   * Set the interview time for an application. Only the HEAD interviewer of that
+   * application may do this (row-scoped check on the caller's tutorId + isHead).
+   */
+  setInterviewTime: tutorProcedure
+    .input(
+      z.object({
+        applicationId: z.string().min(1),
+        interviewAt: z.coerce.date().nullable(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const assignment = await ctx.db.interviewAssignment.findUnique({
+        where: {
+          applicationId_tutorId: {
+            applicationId: input.applicationId,
+            tutorId: ctx.session.tutorId,
+          },
+        },
+        select: { isHead: true },
+      });
+      if (!assignment?.isHead) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only the head interviewer can set the interview time.",
+        });
+      }
+      return ctx.db.tutorApplication.update({
+        where: { id: input.applicationId },
+        data: { interviewAt: input.interviewAt },
+      });
     }),
 });

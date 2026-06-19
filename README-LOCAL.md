@@ -74,10 +74,12 @@ npm run db:seed     # sample data + dev login accounts (needed to sign in locall
 `prisma/seed.ts` is idempotent (fixed ids + upserts), so it's safe to re-run. It also
 creates **dev login accounts** so you can actually sign in:
 
-| Email               | Role    | Password       |
-| ------------------- | ------- | -------------- |
-| `admin@example.edu` | `ADMIN` | `Password123!` |
-| `alice@example.edu` | `TUTOR` | `Password123!` |
+| Email               | Role    | Password       | Notes                                  |
+| ------------------- | ------- | -------------- | -------------------------------------- |
+| `admin@example.edu` | `ADMIN` | `Password123!` |                                        |
+| `alice@example.edu` | `TUTOR` | `Password123!` | head interviewer on a seeded applicant |
+| `bob@example.edu`   | `TUTOR` | `Password123!` |                                        |
+| `evan@example.edu`  | `TUTOR` | `Password123!` | inactive tutor → pending-approval gate |
 
 These exist only for local development — change `DEV_PASSWORD` in `prisma/seed.ts` (and
 don't seed them) before any real deployment. Use `npm run db:studio` to browse the data
@@ -97,9 +99,15 @@ Open http://localhost:3000, sign in at `/signin` with a seeded account (e.g.
 tutors land on their combined `/dashboard` (hours, pairings, availability, and the
 attendance form on one page).
 
-Try the **public tutee signup** at http://localhost:3000/signup — no login required. It
-uses the seeded course and time-slot catalogs and creates a `PENDING` tutee that appears
-for review under **Admin → Tutees** (the seed also includes one example pending signup).
+Try the public forms (no login required):
+
+- **Tutee signup** at `/signup` → creates a `PENDING` tutee under **Admin → Tutees**, where
+  you can assign it to a tutor in one click (the seed includes one example pending signup).
+  The assigned tutor then picks the slot on their dashboard.
+- **Tutor application** at `/tutor-signup` → creates a `PENDING` application under
+  **Admin → Tutor applications**, where you assign up to three interviewers (one head). Sign
+  in as the head (`alice@example.edu`) to schedule the interview from the dashboard — the
+  seed wires Alice as head of one applicant.
 
 ## 5. Run the tests
 

@@ -3,27 +3,146 @@
 import { useState } from "react";
 
 import { api } from "~/trpc/react";
+import { DAY_NAMES, hmToMin, minToHm } from "~/lib/time";
+
+type Block = {
+  id: string;
+  dayOfWeek: number;
+  startMin: number;
+  endMin: number;
+  reason: string | null;
+};
+
+function RoomCard({
+  room,
+  onChanged,
+}: {
+  room: { id: string; name: string; unavailabilities: Block[] };
+  onChanged: () => Promise<unknown> | void;
+}) {
+  const update = api.admin.updateRoom.useMutation({ onSuccess: () => onChanged() });
+  const del = api.admin.deleteRoom.useMutation({ onSuccess: () => onChanged() });
+  const addBlock = api.admin.createRoomUnavailability.useMutation({
+    onSuccess: () => onChanged(),
+  });
+  const delBlock = api.admin.deleteRoomUnavailability.useMutation({
+    onSuccess: () => onChanged(),
+  });
+
+  const [day, setDay] = useState(1);
+  const [start, setStart] = useState("12:00");
+  const [end, setEnd] = useState("13:00");
+  const [reason, setReason] = useState("");
+
+  return (
+    <div className="card p-4">
+      <div className="flex items-center justify-between gap-3">
+        <input
+          defaultValue={room.name}
+          className="input max-w-xs"
+          onBlur={(e) => {
+            if (e.target.value.trim() && e.target.value !== room.name)
+              update.mutate({ id: room.id, name: e.target.value.trim() });
+          }}
+        />
+        <button onClick={() => del.mutate({ id: room.id })} className="link-danger">
+          Delete room
+        </button>
+      </div>
+      {del.error && <p className="mt-1 text-sm text-red-600">{del.error.message}</p>}
+
+      {/* Blackout periods */}
+      <div className="mt-3 border-t border-slate-100 pt-3">
+        <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
+          Unavailable periods
+        </p>
+        {room.unavailabilities.length === 0 ? (
+          <p className="muted mt-1">Always available.</p>
+        ) : (
+          <ul className="mt-1 flex flex-wrap gap-2">
+            {room.unavailabilities.map((b) => (
+              <li
+                key={b.id}
+                className="flex items-center gap-2 rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-600"
+              >
+                {DAY_NAMES[b.dayOfWeek]} {minToHm(b.startMin)}–{minToHm(b.endMin)}
+                {b.reason ? ` · ${b.reason}` : ""}
+                <button
+                  onClick={() => delBlock.mutate({ id: b.id })}
+                  className="text-red-600 hover:text-red-700"
+                  aria-label="Remove period"
+                >
+                  ✕
+                </button>
+              </li>
+            ))}
+          </ul>
+        )}
+
+        <form
+          className="mt-2 flex flex-wrap items-end gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            addBlock.mutate({
+              roomId: room.id,
+              dayOfWeek: day,
+              startMin: hmToMin(start),
+              endMin: hmToMin(end),
+              reason: reason.trim() || undefined,
+            });
+            setReason("");
+          }}
+        >
+          <select
+            value={day}
+            onChange={(e) => setDay(Number(e.target.value))}
+            className="select w-28"
+          >
+            {[1, 2, 3, 4, 5, 6, 7].map((d) => (
+              <option key={d} value={d}>
+                {DAY_NAMES[d]}
+              </option>
+            ))}
+          </select>
+          <input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="input w-28" />
+          <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className="input w-28" />
+          <input
+            value={reason}
+            onChange={(e) => setReason(e.target.value)}
+            placeholder="Reason (optional)"
+            className="input w-40"
+          />
+          <button className="btn-secondary btn-sm">Block</button>
+        </form>
+        {addBlock.error && (
+          <p className="mt-1 text-sm text-red-600">{addBlock.error.message}</p>
+        )}
+      </div>
+    </div>
+  );
+}
 
 export default function RoomsPage() {
   const utils = api.useUtils();
   const rooms = api.admin.rooms.useQuery();
+  const invalidate = () => utils.admin.rooms.invalidate();
   const [name, setName] = useState("");
   const create = api.admin.createRoom.useMutation({
     onSuccess: async () => {
       setName("");
-      await utils.admin.rooms.invalidate();
+      await invalidate();
     },
-  });
-  const update = api.admin.updateRoom.useMutation({
-    onSuccess: () => utils.admin.rooms.invalidate(),
-  });
-  const del = api.admin.deleteRoom.useMutation({
-    onSuccess: () => utils.admin.rooms.invalidate(),
   });
 
   return (
     <div className="space-y-6">
-      <h1 className="page-title">Rooms</h1>
+      <div>
+        <h1 className="page-title">Rooms</h1>
+        <p className="muted mt-1">
+          Add classrooms and mark recurring periods when they can&apos;t be used. Blocked
+          periods show up on the pairings room grid.
+        </p>
+      </div>
 
       <form
         className="flex flex-wrap gap-2"
@@ -38,30 +157,16 @@ export default function RoomsPage() {
           placeholder="New room name"
           className="input max-w-xs"
         />
-        <button className="btn-primary">Add</button>
+        <button className="btn-primary">Add room</button>
       </form>
       {create.error && <p className="text-sm text-red-600">{create.error.message}</p>}
 
-      <div className="card overflow-hidden">
-        <ul className="divide-y divide-slate-100">
-          {(rooms.data ?? []).map((r) => (
-            <li key={r.id} className="flex items-center justify-between gap-3 px-4 py-3">
-              <input
-                defaultValue={r.name}
-                className="input max-w-xs"
-                onBlur={(e) => {
-                  if (e.target.value.trim() && e.target.value !== r.name)
-                    update.mutate({ id: r.id, name: e.target.value.trim() });
-                }}
-              />
-              <button onClick={() => del.mutate({ id: r.id })} className="link-danger">
-                Delete
-              </button>
-            </li>
-          ))}
-        </ul>
+      <div className="space-y-4">
+        {(rooms.data ?? []).map((r) => (
+          <RoomCard key={r.id} room={r} onChanged={invalidate} />
+        ))}
+        {rooms.data?.length === 0 && <p className="muted">No rooms yet.</p>}
       </div>
-      {del.error && <p className="text-sm text-red-600">{del.error.message}</p>}
     </div>
   );
 }

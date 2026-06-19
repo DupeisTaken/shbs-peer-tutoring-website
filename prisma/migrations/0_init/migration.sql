@@ -20,6 +20,9 @@ CREATE TYPE "MeetingAttendanceStatus" AS ENUM ('PRESENT', 'EXCUSED_ABSENT', 'UNE
 CREATE TYPE "AdjustmentType" AS ENUM ('PUNISHMENT', 'EXTRA');
 
 -- CreateEnum
+CREATE TYPE "TutorApplicationStatus" AS ENUM ('PENDING', 'INTERVIEW', 'ACCEPTED', 'REJECTED');
+
+-- CreateEnum
 CREATE TYPE "VerificationPurpose" AS ENUM ('LOGIN_2FA');
 
 -- CreateTable
@@ -128,6 +131,19 @@ CREATE TABLE "Room" (
 );
 
 -- CreateTable
+CREATE TABLE "RoomUnavailability" (
+    "id" TEXT NOT NULL,
+    "roomId" TEXT NOT NULL,
+    "dayOfWeek" INTEGER NOT NULL,
+    "startMin" INTEGER NOT NULL,
+    "endMin" INTEGER NOT NULL,
+    "reason" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "RoomUnavailability_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Pairing" (
     "id" TEXT NOT NULL,
     "subject" TEXT NOT NULL,
@@ -229,6 +245,40 @@ CREATE TABLE "ServiceHourAdjustment" (
 );
 
 -- CreateTable
+CREATE TABLE "TutorApplication" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "contactVerified" BOOLEAN NOT NULL DEFAULT false,
+    "status" "TutorApplicationStatus" NOT NULL DEFAULT 'PENDING',
+    "interviewAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "TutorApplication_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ApplicationCourseIntent" (
+    "id" TEXT NOT NULL,
+    "applicationId" TEXT NOT NULL,
+    "courseId" TEXT NOT NULL,
+    "taken" BOOLEAN NOT NULL DEFAULT false,
+    "grade" TEXT,
+
+    CONSTRAINT "ApplicationCourseIntent_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "InterviewAssignment" (
+    "applicationId" TEXT NOT NULL,
+    "tutorId" TEXT NOT NULL,
+    "isHead" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "InterviewAssignment_pkey" PRIMARY KEY ("applicationId","tutorId")
+);
+
+-- CreateTable
 CREATE TABLE "PolicyFile" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -280,6 +330,9 @@ CREATE INDEX "TuteeAvailability_slotId_idx" ON "TuteeAvailability"("slotId");
 CREATE UNIQUE INDEX "Room_name_key" ON "Room"("name");
 
 -- CreateIndex
+CREATE INDEX "RoomUnavailability_roomId_idx" ON "RoomUnavailability"("roomId");
+
+-- CreateIndex
 CREATE INDEX "Pairing_tutorId_idx" ON "Pairing"("tutorId");
 
 -- CreateIndex
@@ -310,6 +363,15 @@ CREATE INDEX "Punishment_tuteeId_idx" ON "Punishment"("tuteeId");
 CREATE INDEX "ServiceHourAdjustment_tutorId_month_idx" ON "ServiceHourAdjustment"("tutorId", "month");
 
 -- CreateIndex
+CREATE INDEX "TutorApplication_status_idx" ON "TutorApplication"("status");
+
+-- CreateIndex
+CREATE INDEX "ApplicationCourseIntent_applicationId_idx" ON "ApplicationCourseIntent"("applicationId");
+
+-- CreateIndex
+CREATE INDEX "InterviewAssignment_tutorId_idx" ON "InterviewAssignment"("tutorId");
+
+-- CreateIndex
 CREATE INDEX "EmailVerificationCode_userId_idx" ON "EmailVerificationCode"("userId");
 
 -- AddForeignKey
@@ -332,6 +394,9 @@ ALTER TABLE "TuteeAvailability" ADD CONSTRAINT "TuteeAvailability_tuteeId_fkey" 
 
 -- AddForeignKey
 ALTER TABLE "TuteeAvailability" ADD CONSTRAINT "TuteeAvailability_slotId_fkey" FOREIGN KEY ("slotId") REFERENCES "TimeSlot"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "RoomUnavailability" ADD CONSTRAINT "RoomUnavailability_roomId_fkey" FOREIGN KEY ("roomId") REFERENCES "Room"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Pairing" ADD CONSTRAINT "Pairing_tutorId_fkey" FOREIGN KEY ("tutorId") REFERENCES "Tutor"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
@@ -377,6 +442,18 @@ ALTER TABLE "Punishment" ADD CONSTRAINT "Punishment_tuteeId_fkey" FOREIGN KEY ("
 
 -- AddForeignKey
 ALTER TABLE "ServiceHourAdjustment" ADD CONSTRAINT "ServiceHourAdjustment_tutorId_fkey" FOREIGN KEY ("tutorId") REFERENCES "Tutor"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ApplicationCourseIntent" ADD CONSTRAINT "ApplicationCourseIntent_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "TutorApplication"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "ApplicationCourseIntent" ADD CONSTRAINT "ApplicationCourseIntent_courseId_fkey" FOREIGN KEY ("courseId") REFERENCES "Course"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "InterviewAssignment" ADD CONSTRAINT "InterviewAssignment_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "TutorApplication"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "InterviewAssignment" ADD CONSTRAINT "InterviewAssignment_tutorId_fkey" FOREIGN KEY ("tutorId") REFERENCES "Tutor"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "EmailVerificationCode" ADD CONSTRAINT "EmailVerificationCode_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;

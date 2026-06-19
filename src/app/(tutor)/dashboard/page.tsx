@@ -1,18 +1,42 @@
 import { auth } from "~/server/auth";
 import { api } from "~/trpc/server";
-import { DAY_NAMES, minToHm } from "~/lib/time";
 import { AttendanceForm } from "~/app/(tutor)/_components/attendance-form";
 import { AvailabilityEditor } from "~/app/(tutor)/_components/availability-editor";
+import { TutorPairings } from "~/app/(tutor)/_components/tutor-pairings";
+import { MyInterviews } from "~/app/(tutor)/_components/my-interviews";
+import { RoomGrid } from "~/app/_components/room-grid";
 
 export default async function TutorDashboard() {
   const session = await auth();
-  const [pairings, total] = await Promise.all([
-    api.tutor.myPairings(),
+  const me = await api.tutor.me();
+
+  // Pending tutors (self-signed-up, not yet activated) get a limited view.
+  if (!me.active) {
+    return (
+      <div className="mx-auto max-w-2xl space-y-6 px-4 py-10">
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-4 text-amber-800">
+          <p className="font-semibold">Your tutor account is pending approval.</p>
+          <p className="mt-1 text-sm">
+            A coordinator will activate your account shortly. In the meantime you can set the
+            time slots you&apos;re available for below.
+          </p>
+        </div>
+        <section className="card p-5">
+          <h2 className="font-semibold text-slate-900">My availability</h2>
+          <p className="muted mt-1 mb-3">Mark the time slots you can teach.</p>
+          <AvailabilityEditor />
+        </section>
+      </div>
+    );
+  }
+
+  const [total, schedule] = await Promise.all([
     api.tutor.myMonthlyTotal(),
+    api.tutor.schedule(),
   ]);
 
   return (
-    <div className="mx-auto max-w-4xl space-y-8 px-4 py-8">
+    <div className="mx-auto max-w-5xl space-y-8 px-4 py-8">
       {/* Header + monthly total */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
@@ -37,23 +61,11 @@ export default async function TutorDashboard() {
         <div className="space-y-6 lg:col-span-2">
           <section className="card p-5">
             <h2 className="font-semibold text-slate-900">My pairings</h2>
-            <ul className="mt-3 divide-y divide-slate-100">
-              {pairings.length === 0 && (
-                <li className="py-3 text-sm text-slate-500">No pairings yet.</li>
-              )}
-              {pairings.map((p) => (
-                <li key={p.id} className="py-3">
-                  <p className="font-medium text-slate-900">{p.subject}</p>
-                  <p className="muted">
-                    {DAY_NAMES[p.dayOfWeek]} {minToHm(p.startMin)}–{minToHm(p.endMin)}
-                    {p.room ? ` · ${p.room.name}` : ""}
-                  </p>
-                  <p className="muted">
-                    {p.tutees.map((t) => t.tutee.englishName).join(", ")}
-                  </p>
-                </li>
-              ))}
-            </ul>
+            <p className="muted mt-1 mb-2">
+              Pick the default time slot for each pairing (you still enter actual session
+              times when submitting attendance).
+            </p>
+            <TutorPairings />
           </section>
 
           <section className="card p-5">
@@ -75,6 +87,22 @@ export default async function TutorDashboard() {
           <AttendanceForm />
         </section>
       </div>
+
+      {/* Interviews this tutor is on the panel for (self-hides when none) */}
+      <MyInterviews />
+
+      {/* Room assignments (read-only schedule grid; your pairings are highlighted) */}
+      <section className="space-y-2">
+        <h2 className="font-semibold text-slate-900">Room schedule</h2>
+        <p className="muted">Your pairings are highlighted. Blocked cells are unavailable rooms.</p>
+        <RoomGrid
+          rooms={schedule.rooms}
+          slots={schedule.slots}
+          pairings={schedule.pairings}
+          blocks={schedule.blocks}
+          highlightTutorId={schedule.myTutorId}
+        />
+      </section>
     </div>
   );
 }
