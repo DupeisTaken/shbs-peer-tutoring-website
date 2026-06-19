@@ -9,6 +9,9 @@ export const metadata = {
 export default function TutorSignupPage() {
   return (
     <main className="mx-auto min-h-screen max-w-2xl px-4 py-12">
+      <Link href="/" className="link text-sm">
+        ← Back to main page
+      </Link>
       <div className="mb-8 text-center">
         <h1 className="page-title">Apply to become a peer tutor</h1>
         <p className="muted mt-2">

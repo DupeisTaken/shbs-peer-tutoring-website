@@ -57,9 +57,11 @@ provider — is future work.
   admin-managed catalog), available time slots, and a typed rulebook signature. Creates a
   `PENDING` tutee for an admin to review and assign.
 - `/tutor-signup` — **public** tutor *application*: name, contact email, and up to three
-  intended courses (with whether taken + grade/AP score). Creates a `PENDING`
-  `TutorApplication` — **no login is created**; the admin team reviews and arranges an
-  interview.
+  intended courses. For each course the applicant reports how they're qualified — took the
+  class (+ grade), holds an AP score (only offered for AP-tagged courses, and only entered
+  once they confirm they have one), and/or self-studied it (+ a note on how they qualify).
+  Creates a `PENDING` `TutorApplication` — **no login is created**; the admin team reviews
+  and arranges an interview.
 - `/signin` — public email + password sign-in form.
 - `/dashboard` — tutor home (any signed-in tutor): live monthly service hours, pairings
   (with default-slot picker), availability, the attendance form, interviews they're on the
@@ -85,7 +87,9 @@ On the **Tutor applications** screen an admin assigns up to three interviewers (
 up for every panelist. Applications never create logins — tutor accounts are made by an admin.
 
 Scheduling is built around an admin-managed **time-slot catalog** (`/admin/timeslots`) and a
-**course catalog** (`/admin/courses`). Tutors and tutees mark availability against the slots.
+**course catalog** (`/admin/courses`, each course tagged AP / Honors / Standard — the tag
+gates the AP-score field on tutor applications). Tutors and tutees mark availability against
+the slots.
 Rooms can have recurring **unavailability periods** (`/admin/rooms`); the slot×room **room
 grid** (on the Pairings page, and read-only on the tutor dashboard) shows occupancy and blocked
 cells.

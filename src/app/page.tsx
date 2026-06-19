@@ -49,7 +49,7 @@ export default async function Home() {
             />
             <ActionCard
               href="/signin"
-              title="Sign in"
+              title="Team sign-in"
               body="Existing tutors, coordinators, and admins sign in here."
               cta="Tutor / admin login"
             />

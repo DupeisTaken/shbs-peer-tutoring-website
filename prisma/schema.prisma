@@ -94,6 +94,13 @@ enum AdjustmentType {
   EXTRA // adds hours
 }
 
+/// Difficulty/track label shown on each catalog course.
+enum CourseTag {
+  AP
+  HONORS
+  STANDARD
+}
+
 model Term {
   id        String         @id @default(cuid())
   quarter   Quarter
@@ -127,10 +134,12 @@ model Tutor {
 /// A subject offered for tutoring. The catalog is managed by admins; tutees pick a
 /// first (required) and optional second choice from it on the public signup form.
 model Course {
-  id        String   @id @default(cuid())
-  name      String   @unique
-  active    Boolean  @default(true)
-  createdAt DateTime @default(now())
+  id        String    @id @default(cuid())
+  name      String    @unique
+  /// Track label (AP / Honors / Standard). Gates the AP-score field on tutor applications.
+  tag       CourseTag @default(STANDARD)
+  active    Boolean   @default(true)
+  createdAt DateTime  @default(now())
 
   firstChoiceTutees  Tutee[]                   @relation("TuteeFirstChoice")
   secondChoiceTutees Tutee[]                   @relation("TuteeSecondChoice")
@@ -415,7 +424,13 @@ model ApplicationCourseIntent {
   courseId      String
   course        Course           @relation(fields: [courseId], references: [id])
   taken         Boolean          @default(false)
-  grade         String? // grade received or AP score, when taken
+  grade         String? // class grade received, when taken
+  /// Whether the applicant has an AP score for this (AP-tagged) course.
+  hasApScore    Boolean          @default(false)
+  apScore       String? // AP score, only when hasApScore
+  /// Whether the applicant self-studied this course instead of taking the class.
+  selfStudied   Boolean          @default(false)
+  selfStudyNote String? // how they qualify / what they achieved, when selfStudied
 
   @@index([applicationId])
 }

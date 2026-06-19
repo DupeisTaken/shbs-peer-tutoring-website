@@ -20,6 +20,9 @@ CREATE TYPE "MeetingAttendanceStatus" AS ENUM ('PRESENT', 'EXCUSED_ABSENT', 'UNE
 CREATE TYPE "AdjustmentType" AS ENUM ('PUNISHMENT', 'EXTRA');
 
 -- CreateEnum
+CREATE TYPE "CourseTag" AS ENUM ('AP', 'HONORS', 'STANDARD');
+
+-- CreateEnum
 CREATE TYPE "TutorApplicationStatus" AS ENUM ('PENDING', 'INTERVIEW', 'ACCEPTED', 'REJECTED');
 
 -- CreateEnum
@@ -67,6 +70,7 @@ CREATE TABLE "Tutor" (
 CREATE TABLE "Course" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
+    "tag" "CourseTag" NOT NULL DEFAULT 'STANDARD',
     "active" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -264,6 +268,10 @@ CREATE TABLE "ApplicationCourseIntent" (
     "courseId" TEXT NOT NULL,
     "taken" BOOLEAN NOT NULL DEFAULT false,
     "grade" TEXT,
+    "hasApScore" BOOLEAN NOT NULL DEFAULT false,
+    "apScore" TEXT,
+    "selfStudied" BOOLEAN NOT NULL DEFAULT false,
+    "selfStudyNote" TEXT,
 
     CONSTRAINT "ApplicationCourseIntent_pkey" PRIMARY KEY ("id")
 );

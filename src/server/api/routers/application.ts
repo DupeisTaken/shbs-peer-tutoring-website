@@ -11,12 +11,12 @@ const cuid = z.string().min(1);
  * from the admin-managed catalog.
  */
 export const applicationRouter = createTRPCRouter({
-  /** Active courses for the application's course pickers. */
+  /** Active courses for the application's course pickers (with their track tag). */
   options: publicProcedure.query(({ ctx }) =>
     ctx.db.course.findMany({
       where: { active: true },
       orderBy: { name: "asc" },
-      select: { id: true, name: true },
+      select: { id: true, name: true, tag: true },
     }),
   ),
 
@@ -29,9 +29,15 @@ export const applicationRouter = createTRPCRouter({
           .array(
             z.object({
               courseId: cuid,
+              // Took the class — class grade, only meaningful when taken.
               taken: z.boolean(),
-              // Grade received / AP score, only meaningful when taken.
               grade: z.string().trim().max(20).optional(),
+              // Has an AP score — the score, only meaningful when hasApScore.
+              hasApScore: z.boolean(),
+              apScore: z.string().trim().max(20).optional(),
+              // Self-studied — how they qualify, only meaningful when selfStudied.
+              selfStudied: z.boolean(),
+              selfStudyNote: z.string().trim().max(500).optional(),
             }),
           )
           .min(1, "Pick at least one course")
@@ -46,11 +52,12 @@ export const applicationRouter = createTRPCRouter({
 
       const valid = await ctx.db.course.findMany({
         where: { id: { in: courseIds }, active: true },
-        select: { id: true },
+        select: { id: true, tag: true },
       });
       if (valid.length !== courseIds.length) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid course selection." });
       }
+      const tagById = new Map(valid.map((c) => [c.id, c.tag]));
 
       await ctx.db.tutorApplication.create({
         data: {
@@ -58,11 +65,22 @@ export const applicationRouter = createTRPCRouter({
           email: input.email.trim().toLowerCase(),
           status: "PENDING",
           courseIntents: {
-            create: input.courses.map((c) => ({
-              courseId: c.courseId,
-              taken: c.taken,
-              grade: c.taken && c.grade?.trim() ? c.grade.trim() : null,
-            })),
+            create: input.courses.map((c) => {
+              // AP score only applies to AP-tagged courses.
+              const apEligible = tagById.get(c.courseId) === "AP";
+              const hasApScore = apEligible && c.hasApScore;
+              const selfStudyNote =
+                c.selfStudied && c.selfStudyNote?.trim() ? c.selfStudyNote.trim() : null;
+              return {
+                courseId: c.courseId,
+                taken: c.taken,
+                grade: c.taken && c.grade?.trim() ? c.grade.trim() : null,
+                hasApScore,
+                apScore: hasApScore && c.apScore?.trim() ? c.apScore.trim() : null,
+                selfStudied: c.selfStudied,
+                selfStudyNote,
+              };
+            }),
           },
         },
       });

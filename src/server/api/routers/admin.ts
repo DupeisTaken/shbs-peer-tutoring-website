@@ -27,6 +27,7 @@ const MEETING_STATUS = [
 const ADJUSTMENT_TYPE = ["PUNISHMENT", "EXTRA"] as const;
 const TUTEE_STATUS = ["PENDING", "ACTIVE", "INACTIVE"] as const;
 const TUTOR_APP_STATUS = ["PENDING", "INTERVIEW", "ACCEPTED", "REJECTED"] as const;
+const courseTag = z.enum(["AP", "HONORS", "STANDARD"]);
 
 export const adminRouter = createTRPCRouter({
   // --------------------------------------------------------------------------
@@ -410,15 +411,24 @@ export const adminRouter = createTRPCRouter({
   // Course catalog (subjects offered; tutees pick first/second choice at signup)
   // --------------------------------------------------------------------------
   createCourse: adminProcedure
-    .input(z.object({ name: z.string().trim().min(1) }))
-    .mutation(({ ctx, input }) => ctx.db.course.create({ data: { name: input.name } })),
+    .input(z.object({ name: z.string().trim().min(1), tag: courseTag.optional() }))
+    .mutation(({ ctx, input }) =>
+      ctx.db.course.create({ data: { name: input.name, tag: input.tag ?? "STANDARD" } }),
+    ),
 
   updateCourse: adminProcedure
-    .input(z.object({ id: cuid, name: z.string().trim().min(1), active: z.boolean() }))
+    .input(
+      z.object({
+        id: cuid,
+        name: z.string().trim().min(1),
+        tag: courseTag,
+        active: z.boolean(),
+      }),
+    )
     .mutation(({ ctx, input }) =>
       ctx.db.course.update({
         where: { id: input.id },
-        data: { name: input.name, active: input.active },
+        data: { name: input.name, tag: input.tag, active: input.active },
       }),
     ),
 
@@ -667,7 +677,7 @@ export const adminRouter = createTRPCRouter({
       orderBy: [{ status: "asc" }, { createdAt: "desc" }],
       include: {
         courseIntents: {
-          include: { course: { select: { name: true } } },
+          include: { course: { select: { name: true, tag: true } } },
         },
         interviewers: {
           include: { tutor: { select: { id: true, englishName: true } } },

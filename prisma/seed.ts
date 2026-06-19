@@ -44,11 +44,11 @@ const ROOM_BLOCKS = [
 ];
 
 const COURSES = [
-  { id: "course-math", name: "Mathematics" },
-  { id: "course-physics", name: "Physics" },
-  { id: "course-english", name: "English" },
-  { id: "course-chemistry", name: "Chemistry" },
-  { id: "course-biology", name: "Biology" },
+  { id: "course-math", name: "Mathematics", tag: "STANDARD" as const },
+  { id: "course-physics", name: "Physics", tag: "AP" as const },
+  { id: "course-english", name: "English", tag: "HONORS" as const },
+  { id: "course-chemistry", name: "Chemistry", tag: "AP" as const },
+  { id: "course-biology", name: "Biology", tag: "STANDARD" as const },
 ];
 
 // Reference time-slot catalog (label + day + HH:MM start/end).
@@ -112,7 +112,7 @@ async function main() {
   for (const course of COURSES) {
     await db.course.upsert({
       where: { id: course.id },
-      update: { name: course.name },
+      update: { name: course.name, tag: course.tag },
       create: course,
     });
   }
@@ -334,7 +334,14 @@ async function main() {
       courseIntents: {
         create: [
           { courseId: "course-math", taken: true, grade: "A" },
-          { courseId: "course-physics", taken: true, grade: "5 (AP)" },
+          // Physics is AP-tagged: demonstrate an AP score.
+          { courseId: "course-physics", taken: true, grade: "A", hasApScore: true, apScore: "5" },
+          // Self-studied path with a qualification note.
+          {
+            courseId: "course-biology",
+            selfStudied: true,
+            selfStudyNote: "Completed an online MIT OCW course; regional science-fair finalist.",
+          },
         ],
       },
     },

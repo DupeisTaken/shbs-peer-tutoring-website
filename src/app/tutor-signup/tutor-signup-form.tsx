@@ -4,9 +4,31 @@ import { useState } from "react";
 
 import { api } from "~/trpc/react";
 
-type CourseRow = { courseId: string; taken: boolean; grade: string };
+type CourseRow = {
+  courseId: string;
+  taken: boolean;
+  grade: string;
+  hasApScore: boolean;
+  apScore: string;
+  selfStudied: boolean;
+  selfStudyNote: string;
+};
 
-const emptyRow: CourseRow = { courseId: "", taken: false, grade: "" };
+const emptyRow: CourseRow = {
+  courseId: "",
+  taken: false,
+  grade: "",
+  hasApScore: false,
+  apScore: "",
+  selfStudied: false,
+  selfStudyNote: "",
+};
+
+const TAG_LABEL: Record<string, string> = {
+  AP: "AP",
+  HONORS: "Honors",
+  STANDARD: "Standard",
+};
 
 export function TutorSignupForm() {
   const options = api.application.options.useQuery();
@@ -58,6 +80,10 @@ export function TutorSignupForm() {
               courseId: r.courseId,
               taken: r.taken,
               grade: r.taken ? r.grade.trim() || undefined : undefined,
+              hasApScore: r.hasApScore,
+              apScore: r.hasApScore ? r.apScore.trim() || undefined : undefined,
+              selfStudied: r.selfStudied,
+              selfStudyNote: r.selfStudied ? r.selfStudyNote.trim() || undefined : undefined,
             })),
         });
       }}
@@ -83,63 +109,125 @@ export function TutorSignupForm() {
       <div>
         <p className="label">Courses you want to tutor (up to 3) *</p>
         <p className="muted mb-2">
-          For each, tell us whether you&apos;ve taken it and the grade or AP score you earned.
+          For each, tell us how you&apos;re qualified: whether you&apos;ve taken the class, hold
+          an AP score (AP courses only), and/or self-studied it.
         </p>
         <div className="space-y-3">
           {rows.map((row, i) => {
             const usedElsewhere = rows
               .filter((_, idx) => idx !== i)
               .map((r) => r.courseId);
+            const selected = courses.find((c) => c.id === row.courseId);
+            const isAp = selected?.tag === "AP";
             return (
               <div
                 key={i}
-                className="flex flex-wrap items-end gap-2 rounded-lg border border-slate-200 p-3"
+                className="space-y-3 rounded-lg border border-slate-200 p-3"
               >
-                <label className="space-y-1">
-                  <span className="label">Course</span>
-                  <select
-                    className="select w-48"
-                    value={row.courseId}
-                    onChange={(e) => setRow(i, { courseId: e.target.value })}
-                  >
-                    <option value="">Select…</option>
-                    {courses
-                      .filter((c) => c.id === row.courseId || !usedElsewhere.includes(c.id))
-                      .map((c) => (
-                        <option key={c.id} value={c.id}>
-                          {c.name}
-                        </option>
-                      ))}
-                  </select>
-                </label>
-                <label className="flex items-center gap-2 pb-2 text-sm text-slate-700">
-                  <input
-                    type="checkbox"
-                    checked={row.taken}
-                    onChange={(e) => setRow(i, { taken: e.target.checked })}
-                  />
-                  I&apos;ve taken this
-                </label>
-                {row.taken && (
+                <div className="flex flex-wrap items-end gap-2">
                   <label className="space-y-1">
-                    <span className="label">Grade / AP score</span>
-                    <input
-                      className="input w-36"
-                      value={row.grade}
-                      onChange={(e) => setRow(i, { grade: e.target.value })}
-                      placeholder="e.g. A / 5"
-                    />
+                    <span className="label">Course</span>
+                    <select
+                      className="select w-48"
+                      value={row.courseId}
+                      onChange={(e) =>
+                        // Reset the AP-score flag if the new course isn't AP.
+                        setRow(i, { courseId: e.target.value, hasApScore: false, apScore: "" })
+                      }
+                    >
+                      <option value="">Select…</option>
+                      {courses
+                        .filter((c) => c.id === row.courseId || !usedElsewhere.includes(c.id))
+                        .map((c) => (
+                          <option key={c.id} value={c.id}>
+                            {c.name} ({TAG_LABEL[c.tag] ?? c.tag})
+                          </option>
+                        ))}
+                    </select>
                   </label>
+                  {selected && (
+                    <span className="badge-slate mb-2">{TAG_LABEL[selected.tag] ?? selected.tag}</span>
+                  )}
+                  {rows.length > 1 && (
+                    <button
+                      type="button"
+                      className="link-danger mb-2 ml-auto text-sm"
+                      onClick={() => removeRow(i)}
+                    >
+                      Remove
+                    </button>
+                  )}
+                </div>
+
+                {/* Qualification paths */}
+                <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
+                  <label className="flex items-center gap-2 text-sm text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={row.taken}
+                      onChange={(e) => setRow(i, { taken: e.target.checked })}
+                    />
+                    I&apos;ve taken this class
+                  </label>
+                  {row.taken && (
+                    <label className="space-y-1">
+                      <span className="label">Grade earned</span>
+                      <input
+                        className="input w-32"
+                        value={row.grade}
+                        onChange={(e) => setRow(i, { grade: e.target.value })}
+                        placeholder="e.g. A"
+                      />
+                    </label>
+                  )}
+                </div>
+
+                {isAp && (
+                  <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
+                    <label className="flex items-center gap-2 text-sm text-slate-700">
+                      <input
+                        type="checkbox"
+                        checked={row.hasApScore}
+                        onChange={(e) => setRow(i, { hasApScore: e.target.checked })}
+                      />
+                      I have an AP score
+                    </label>
+                    {/* AP score entry is only enabled once they say they have one. */}
+                    <label className="space-y-1">
+                      <span className="label">AP score</span>
+                      <input
+                        className="input w-32"
+                        value={row.apScore}
+                        disabled={!row.hasApScore}
+                        onChange={(e) => setRow(i, { apScore: e.target.value })}
+                        placeholder="1–5"
+                      />
+                    </label>
+                  </div>
                 )}
-                {rows.length > 1 && (
-                  <button
-                    type="button"
-                    className="link-danger pb-2 text-sm"
-                    onClick={() => removeRow(i)}
-                  >
-                    Remove
-                  </button>
-                )}
+
+                <div className="space-y-2">
+                  <label className="flex items-center gap-2 text-sm text-slate-700">
+                    <input
+                      type="checkbox"
+                      checked={row.selfStudied}
+                      onChange={(e) => setRow(i, { selfStudied: e.target.checked })}
+                    />
+                    I self-studied this course
+                  </label>
+                  {row.selfStudied && (
+                    <label className="block space-y-1">
+                      <span className="label">How do you qualify / what have you achieved?</span>
+                      <textarea
+                        className="textarea w-full"
+                        rows={2}
+                        value={row.selfStudyNote}
+                        onChange={(e) => setRow(i, { selfStudyNote: e.target.value })}
+                        placeholder="e.g. completed an online course, competition results, portfolio…"
+                      />
+                    </label>
+                  )}
+                </div>
               </div>
             );
           })}

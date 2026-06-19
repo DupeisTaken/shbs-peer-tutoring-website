@@ -24,7 +24,15 @@ type Application = {
   email: string;
   status: Status;
   interviewAt: Date | null;
-  courseIntents: { taken: boolean; grade: string | null; course: { name: string } }[];
+  courseIntents: {
+    taken: boolean;
+    grade: string | null;
+    hasApScore: boolean;
+    apScore: string | null;
+    selfStudied: boolean;
+    selfStudyNote: string | null;
+    course: { name: string; tag: string };
+  }[];
   interviewers: { isHead: boolean; tutor: { id: string; englishName: string } }[];
 };
 
@@ -96,12 +104,23 @@ function ApplicationCard({
 
       {/* Course intents */}
       <ul className="mt-3 flex flex-wrap gap-2">
-        {app.courseIntents.map((ci, i) => (
-          <li key={i} className="rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-700">
-            {ci.course.name}
-            {ci.taken ? ` · taken (${ci.grade ?? "n/a"})` : " · not taken"}
-          </li>
-        ))}
+        {app.courseIntents.map((ci, i) => {
+          const quals: string[] = [];
+          if (ci.taken) quals.push(`took class (${ci.grade ?? "n/a"})`);
+          if (ci.hasApScore) quals.push(`AP ${ci.apScore ?? "n/a"}`);
+          if (ci.selfStudied) quals.push(`self-studied: ${ci.selfStudyNote ?? "n/a"}`);
+          return (
+            <li
+              key={i}
+              className="rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-700"
+            >
+              <span className="font-medium">{ci.course.name}</span>
+              <span className="text-slate-400"> ({ci.course.tag.toLowerCase()})</span>
+              {" · "}
+              {quals.length ? quals.join(" · ") : "no qualification given"}
+            </li>
+          );
+        })}
       </ul>
 
       {/* Interviewer assignment (up to 3, one head) */}
