@@ -1,0 +1,7 @@
+# Caddy auto-issues and renews a Let's Encrypt certificate for $DOMAIN and
+# reverse-proxies to the internal `app` service. The DNS A record for $DOMAIN
+# must point at this server before the first start (so the ACME challenge passes).
+
+{$DOMAIN} {
+	reverse_proxy app:3000
+}

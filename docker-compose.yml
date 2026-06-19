@@ -1,0 +1,62 @@
+# Production stack: app + postgres + caddy.
+# Secrets/config come from .env (see .env.example). Only Caddy publishes ports (80/443).
+
+services:
+  app:
+    # Prebuilt image from CI (GHCR). `docker compose up` pulls it; `--build` builds locally.
+    image: ${APP_IMAGE:-ghcr.io/OWNER/shbs-peer-tutoring-website:latest}
+    build:
+      context: .
+      dockerfile: Dockerfile
+    env_file:
+      - .env
+    environment:
+      NODE_ENV: production
+      # App talks to the db service over the internal network.
+      DATABASE_URL: postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@db:5432/${POSTGRES_DB}
+      # Behind Caddy's TLS-terminating proxy.
+      AUTH_TRUST_HOST: "true"
+      AUTH_URL: https://${DOMAIN}
+    expose:
+      - "3000" # internal only — NOT published to the host
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    # Port 5432 is intentionally NOT published — the database is reachable only
+    # on the internal Compose network.
+    restart: unless-stopped
+
+  caddy:
+    image: caddy:2-alpine
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy-data:/data # certificates / ACME state
+      - caddy-config:/config
+    depends_on:
+      - app
+    restart: unless-stopped
+
+volumes:
+  db-data:
+  caddy-data:
+  caddy-config:

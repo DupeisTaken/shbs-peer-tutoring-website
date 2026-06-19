@@ -1,0 +1,180 @@
+import { TRPCError } from "@trpc/server";
+import { z } from "zod";
+
+import { createTRPCRouter, tutorProcedure } from "~/server/api/trpc";
+import { computeSessionHours, monthKey } from "~/lib/service-hours";
+
+const ATTENDANCE_STATUS = [
+  "PRESENT",
+  "RESCHEDULED",
+  "EXTRA_SESSION",
+  "TUTOR_ABSENT",
+  "TUTEE_ABSENT_EXCUSED",
+  "TUTEE_ABSENT_UNEXCUSED",
+] as const;
+
+const rating = z.number().int().min(1).max(5).optional();
+const monthInput = z
+  .string()
+  .regex(/^\d{4}-\d{2}$/)
+  .optional();
+
+export const tutorRouter = createTRPCRouter({
+  /** The signed-in tutor's pairings, with rostered tutees, room and term. */
+  myPairings: tutorProcedure.query(async ({ ctx }) => {
+    return ctx.db.pairing.findMany({
+      where: { tutorId: ctx.session.tutorId },
+      orderBy: [{ dayOfWeek: "asc" }, { startMin: "asc" }],
+      include: {
+        room: true,
+        term: true,
+        tutees: { include: { tutee: true } },
+      },
+    });
+  }),
+
+  /** The signed-in tutor's attendance submissions (optionally filtered by month). */
+  mySessions: tutorProcedure
+    .input(z.object({ month: monthInput }).optional())
+    .query(async ({ ctx, input }) => {
+      return ctx.db.session.findMany({
+        where: {
+          tutorId: ctx.session.tutorId,
+          ...(input?.month ? { month: input.month } : {}),
+        },
+        orderBy: { date: "desc" },
+        include: {
+          pairing: { select: { subject: true } },
+          tutees: { include: { tutee: { select: { englishName: true } } } },
+        },
+      });
+    }),
+
+  /**
+   * Live monthly service-hour total for the signed-in tutor:
+   *   SUM(shCount) - PUNISHMENT adjustments + EXTRA adjustments.
+   */
+  myMonthlyTotal: tutorProcedure
+    .input(z.object({ month: monthInput }).optional())
+    .query(async ({ ctx, input }) => {
+      const month = input?.month ?? monthKey(new Date());
+
+      const [sessionAgg, adjustments] = await Promise.all([
+        ctx.db.session.aggregate({
+          where: { tutorId: ctx.session.tutorId, month },
+          _sum: { shCount: true },
+        }),
+        ctx.db.serviceHourAdjustment.findMany({
+          where: { tutorId: ctx.session.tutorId, month },
+          select: { type: true, amount: true },
+        }),
+      ]);
+
+      const earned = sessionAgg._sum.shCount ?? 0;
+      const punishments = adjustments
+        .filter((a) => a.type === "PUNISHMENT")
+        .reduce((sum, a) => sum + a.amount, 0);
+      const extras = adjustments
+        .filter((a) => a.type === "EXTRA")
+        .reduce((sum, a) => sum + a.amount, 0);
+
+      return {
+        month,
+        earned,
+        punishments,
+        extras,
+        total: earned - punishments + extras,
+      };
+    }),
+
+  /**
+   * Submit one attendance record. Service hours are computed server-side and stored on the row.
+   * Row-scoped: the pairing must belong to the caller, and every selected tutee must be on
+   * that pairing's roster.
+   */
+  submitAttendance: tutorProcedure
+    .input(
+      z.object({
+        pairingId: z.string().min(1),
+        date: z.coerce.date(),
+        status: z.enum(ATTENDANCE_STATUS),
+        tuteeIds: z.array(z.string().min(1)).min(1),
+        // Optional overrides; default to the pairing's scheduled time.
+        startMin: z.number().int().min(0).max(1439).optional(),
+        endMin: z.number().int().min(1).max(1440).optional(),
+        ratingPreparedness: rating,
+        ratingParticipation: rating,
+        ratingUnderstanding: rating,
+        ratingBehavior: rating,
+        ratingProgress: rating,
+        comments: z.string().max(2000).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Row scoping: the pairing must belong to this tutor.
+      const pairing = await ctx.db.pairing.findFirst({
+        where: { id: input.pairingId, tutorId: ctx.session.tutorId },
+        include: { tutees: { select: { tuteeId: true } } },
+      });
+      if (!pairing) {
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Pairing not found for this tutor.",
+        });
+      }
+
+      // Every selected tutee must be on this pairing's roster.
+      const roster = new Set(pairing.tutees.map((t) => t.tuteeId));
+      const uniqueTuteeIds = [...new Set(input.tuteeIds)];
+      for (const id of uniqueTuteeIds) {
+        if (!roster.has(id)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Selected tutee is not on this pairing.",
+          });
+        }
+      }
+
+      const startMin = input.startMin ?? pairing.startMin;
+      const endMin = input.endMin ?? pairing.endMin;
+      if (endMin <= startMin) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "End time must be after start time.",
+        });
+      }
+
+      const computed = computeSessionHours({
+        status: input.status,
+        tuteeCount: uniqueTuteeIds.length,
+        startMin,
+        endMin,
+        date: input.date,
+      });
+
+      return ctx.db.session.create({
+        data: {
+          pairingId: pairing.id,
+          tutorId: ctx.session.tutorId,
+          date: input.date,
+          status: input.status,
+          startMin,
+          endMin,
+          ratingPreparedness: input.ratingPreparedness,
+          ratingParticipation: input.ratingParticipation,
+          ratingUnderstanding: input.ratingUnderstanding,
+          ratingBehavior: input.ratingBehavior,
+          ratingProgress: input.ratingProgress,
+          comments: input.comments,
+          month: computed.month,
+          durationMin: computed.durationMin,
+          shFactor: computed.shFactor,
+          shCount: computed.shCount,
+          tutees: {
+            create: uniqueTuteeIds.map((tuteeId) => ({ tuteeId })),
+          },
+        },
+        select: { id: true, month: true, shCount: true },
+      });
+    }),
+});

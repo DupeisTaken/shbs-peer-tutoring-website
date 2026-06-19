@@ -1,0 +1,14 @@
+node_modules
+.next
+.git
+.github
+generated
+npm-debug.log*
+*.log
+.env
+.env*.local
+README.md
+README-DEPLOY.md
+.vscode
+.idea
+coverage
