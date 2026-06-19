@@ -6,6 +6,7 @@ import { useForm } from "react-hook-form";
 import { z } from "zod";
 
 import { api } from "~/trpc/react";
+import { hmToMin, minToHm } from "~/lib/time";
 
 const STATUSES = [
   { value: "PRESENT", label: "Present" },
@@ -42,16 +43,6 @@ const formSchema = z.object({
 });
 
 type FormValues = z.infer<typeof formSchema>;
-
-function hmToMin(hhmm: string): number {
-  const [h, m] = hhmm.split(":").map(Number);
-  return (h ?? 0) * 60 + (m ?? 0);
-}
-function minToHm(min: number): string {
-  const h = Math.floor(min / 60);
-  const m = min % 60;
-  return `${String(h).padStart(2, "0")}:${String(m).padStart(2, "0")}`;
-}
 
 export function AttendanceForm() {
   const utils = api.useUtils();
@@ -114,26 +105,20 @@ export function AttendanceForm() {
   };
 
   if (pairingsQuery.isLoading) {
-    return <p className="text-gray-500">Loading your pairings…</p>;
+    return <p className="muted">Loading your pairings…</p>;
   }
   if (pairings.length === 0) {
     return (
-      <p className="text-gray-500">
-        You have no pairings yet. Ask an admin to set one up.
-      </p>
+      <p className="muted">You have no pairings yet. Ask an admin to set one up.</p>
     );
   }
 
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {/* Pairing */}
-      <div>
-        <label className="block text-sm font-medium">Pairing</label>
-        <select
-          {...register("pairingId")}
-          className="mt-1 w-full rounded border px-3 py-2"
-          defaultValue=""
-        >
+      <div className="space-y-1">
+        <label className="label">Pairing</label>
+        <select {...register("pairingId")} className="select" defaultValue="">
           <option value="" disabled>
             Select a pairing…
           </option>
@@ -145,48 +130,37 @@ export function AttendanceForm() {
           ))}
         </select>
         {errors.pairingId && (
-          <p className="mt-1 text-sm text-red-600">{errors.pairingId.message}</p>
+          <p className="text-sm text-red-600">{errors.pairingId.message}</p>
         )}
       </div>
 
       {/* Tutees (from the pairing roster only — not free text) */}
       {selectedPairing && (
         <fieldset>
-          <legend className="text-sm font-medium">Tutees present</legend>
+          <legend className="label">Tutees present</legend>
           <div className="mt-1 space-y-1">
             {selectedPairing.tutees.map((t) => (
-              <label key={t.tuteeId} className="flex items-center gap-2">
-                <input
-                  type="checkbox"
-                  value={t.tuteeId}
-                  {...register("tuteeIds")}
-                />
+              <label key={t.tuteeId} className="flex items-center gap-2 text-sm">
+                <input type="checkbox" value={t.tuteeId} {...register("tuteeIds")} />
                 {t.tutee.englishName}
               </label>
             ))}
           </div>
           {errors.tuteeIds && (
-            <p className="mt-1 text-sm text-red-600">{errors.tuteeIds.message}</p>
+            <p className="text-sm text-red-600">{errors.tuteeIds.message}</p>
           )}
         </fieldset>
       )}
 
       {/* Date + status */}
       <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium">Date</label>
-          <input
-            type="date"
-            {...register("date")}
-            className="mt-1 w-full rounded border px-3 py-2"
-          />
+        <div className="space-y-1">
+          <label className="label">Date</label>
+          <input type="date" {...register("date")} className="input" />
         </div>
-        <div>
-          <label className="block text-sm font-medium">Status</label>
-          <select
-            {...register("status")}
-            className="mt-1 w-full rounded border px-3 py-2"
-          >
+        <div className="space-y-1">
+          <label className="label">Status</label>
+          <select {...register("status")} className="select">
             {STATUSES.map((s) => (
               <option key={s.value} value={s.value}>
                 {s.label}
@@ -198,36 +172,24 @@ export function AttendanceForm() {
 
       {/* Time */}
       <div className="grid grid-cols-2 gap-4">
-        <div>
-          <label className="block text-sm font-medium">Start</label>
-          <input
-            type="time"
-            {...register("startTime")}
-            className="mt-1 w-full rounded border px-3 py-2"
-          />
+        <div className="space-y-1">
+          <label className="label">Start</label>
+          <input type="time" {...register("startTime")} className="input" />
         </div>
-        <div>
-          <label className="block text-sm font-medium">End</label>
-          <input
-            type="time"
-            {...register("endTime")}
-            className="mt-1 w-full rounded border px-3 py-2"
-          />
+        <div className="space-y-1">
+          <label className="label">End</label>
+          <input type="time" {...register("endTime")} className="input" />
         </div>
       </div>
 
       {/* Ratings */}
       <fieldset>
-        <legend className="text-sm font-medium">Ratings (1–5, optional)</legend>
+        <legend className="label">Ratings (1–5, optional)</legend>
         <div className="mt-1 grid grid-cols-2 gap-3 sm:grid-cols-3">
           {RATING_FIELDS.map(([name, label]) => (
-            <div key={name}>
-              <label className="block text-xs text-gray-600">{label}</label>
-              <select
-                {...register(name)}
-                className="mt-1 w-full rounded border px-2 py-1"
-                defaultValue=""
-              >
+            <div key={name} className="space-y-1">
+              <label className="block text-xs text-slate-500">{label}</label>
+              <select {...register(name)} className="select" defaultValue="">
                 <option value="">—</option>
                 {[1, 2, 3, 4, 5].map((n) => (
                   <option key={n} value={n}>
@@ -241,37 +203,23 @@ export function AttendanceForm() {
       </fieldset>
 
       {/* Comments */}
-      <div>
-        <label className="block text-sm font-medium">Comments</label>
-        <textarea
-          {...register("comments")}
-          rows={3}
-          className="mt-1 w-full rounded border px-3 py-2"
-        />
+      <div className="space-y-1">
+        <label className="label">Comments</label>
+        <textarea {...register("comments")} rows={3} className="textarea" />
       </div>
 
       <div className="flex items-center gap-3">
-        <button
-          type="submit"
-          disabled={submit.isPending}
-          className="rounded bg-indigo-600 px-5 py-2 font-semibold text-white disabled:opacity-50"
-        >
+        <button type="submit" disabled={submit.isPending} className="btn-primary">
           {submit.isPending ? "Submitting…" : "Submit attendance"}
         </button>
-        {submit.isSuccess && (
-          <span className="text-sm text-green-600">Saved.</span>
-        )}
+        {submit.isSuccess && <span className="text-sm text-green-600">Saved.</span>}
         {submit.error && (
           <span className="text-sm text-red-600">{submit.error.message}</span>
         )}
       </div>
 
       {submit.isSuccess && (
-        <button
-          type="button"
-          onClick={() => reset()}
-          className="text-sm text-indigo-600 underline"
-        >
+        <button type="button" onClick={() => reset()} className="link text-sm">
           Submit another
         </button>
       )}

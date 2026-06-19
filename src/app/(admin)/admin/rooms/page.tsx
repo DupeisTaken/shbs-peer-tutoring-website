@@ -22,11 +22,11 @@ export default function RoomsPage() {
   });
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold">Rooms</h1>
+    <div className="space-y-6">
+      <h1 className="page-title">Rooms</h1>
 
       <form
-        className="mt-4 flex gap-2"
+        className="flex flex-wrap gap-2"
         onSubmit={(e) => {
           e.preventDefault();
           if (name.trim()) create.mutate({ name: name.trim() });
@@ -36,35 +36,32 @@ export default function RoomsPage() {
           value={name}
           onChange={(e) => setName(e.target.value)}
           placeholder="New room name"
-          className="rounded border px-3 py-2"
+          className="input max-w-xs"
         />
-        <button className="rounded bg-indigo-600 px-4 py-2 font-semibold text-white">
-          Add
-        </button>
+        <button className="btn-primary">Add</button>
       </form>
-      {create.error && <p className="mt-1 text-sm text-red-600">{create.error.message}</p>}
+      {create.error && <p className="text-sm text-red-600">{create.error.message}</p>}
 
-      <ul className="mt-6 divide-y rounded-lg border bg-white">
-        {(rooms.data ?? []).map((r) => (
-          <li key={r.id} className="flex items-center justify-between p-3">
-            <input
-              defaultValue={r.name}
-              className="rounded border px-2 py-1"
-              onBlur={(e) => {
-                if (e.target.value.trim() && e.target.value !== r.name)
-                  update.mutate({ id: r.id, name: e.target.value.trim() });
-              }}
-            />
-            <button
-              onClick={() => del.mutate({ id: r.id })}
-              className="text-sm text-red-600 hover:underline"
-            >
-              Delete
-            </button>
-          </li>
-        ))}
-      </ul>
-      {del.error && <p className="mt-2 text-sm text-red-600">{del.error.message}</p>}
+      <div className="card overflow-hidden">
+        <ul className="divide-y divide-slate-100">
+          {(rooms.data ?? []).map((r) => (
+            <li key={r.id} className="flex items-center justify-between gap-3 px-4 py-3">
+              <input
+                defaultValue={r.name}
+                className="input max-w-xs"
+                onBlur={(e) => {
+                  if (e.target.value.trim() && e.target.value !== r.name)
+                    update.mutate({ id: r.id, name: e.target.value.trim() });
+                }}
+              />
+              <button onClick={() => del.mutate({ id: r.id })} className="link-danger">
+                Delete
+              </button>
+            </li>
+          ))}
+        </ul>
+      </div>
+      {del.error && <p className="text-sm text-red-600">{del.error.message}</p>}
     </div>
   );
 }

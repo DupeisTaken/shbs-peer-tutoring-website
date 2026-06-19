@@ -28,8 +28,10 @@ Internet ──443/80──▶ caddy ──▶ app:3000 ──▶ db:5432
    Caddy's Let's Encrypt challenge succeeds.
 
 Sign-in is email + password (no external identity provider to register). Note that there is
-no self-service sign-up yet: the first admin account is created by the seed or directly, and
-admins create further accounts. Email-based 2FA is scaffolded but not yet implemented.
+no self-service sign-up for *staff/tutor logins*: the first admin account is created by the
+seed or directly, and admins create further accounts. (Students do have a public, no-login
+tutee signup form at `/signup`, which only creates `PENDING` tutee records for admin review —
+not login accounts.) Email-based 2FA is scaffolded but not yet implemented.
 
 ## 2. Host setup (once)
 

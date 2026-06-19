@@ -11,14 +11,13 @@ import { monthKey } from "~/lib/service-hours";
 const monthInput = z.string().regex(/^\d{4}-\d{2}$/);
 const cuid = z.string().min(1);
 
-const ATTENDANCE_STATUS = [
-  "PRESENT",
-  "RESCHEDULED",
-  "EXTRA_SESSION",
-  "TUTOR_ABSENT",
-  "TUTEE_ABSENT_EXCUSED",
-  "TUTEE_ABSENT_UNEXCUSED",
-] as const;
+/** Trim a string and collapse empty/whitespace-only values to null. */
+function blankToNull(value?: string | null): string | null {
+  const trimmed = value?.trim();
+  if (!trimmed) return null;
+  return trimmed;
+}
+
 const MEETING_STATUS = [
   "PRESENT",
   "EXCUSED_ABSENT",
@@ -26,6 +25,7 @@ const MEETING_STATUS = [
   "EXEMPT",
 ] as const;
 const ADJUSTMENT_TYPE = ["PUNISHMENT", "EXTRA"] as const;
+const TUTEE_STATUS = ["PENDING", "ACTIVE", "INACTIVE"] as const;
 
 export const adminRouter = createTRPCRouter({
   // --------------------------------------------------------------------------
@@ -35,13 +35,32 @@ export const adminRouter = createTRPCRouter({
     ctx.db.tutor.findMany({ orderBy: { englishName: "asc" } }),
   ),
   tutees: adminProcedure.query(({ ctx }) =>
-    ctx.db.tutee.findMany({ orderBy: { englishName: "asc" } }),
+    ctx.db.tutee.findMany({
+      orderBy: [{ status: "asc" }, { englishName: "asc" }],
+      include: {
+        firstChoice: { select: { id: true, name: true } },
+        secondChoice: { select: { id: true, name: true } },
+        availabilities: {
+          include: {
+            slot: { select: { id: true, label: true, dayOfWeek: true, startMin: true, endMin: true } },
+          },
+        },
+      },
+    }),
   ),
   rooms: adminProcedure.query(({ ctx }) =>
     ctx.db.room.findMany({ orderBy: { name: "asc" } }),
   ),
   terms: adminProcedure.query(({ ctx }) =>
     ctx.db.term.findMany({ orderBy: { createdAt: "desc" } }),
+  ),
+  courses: adminProcedure.query(({ ctx }) =>
+    ctx.db.course.findMany({ orderBy: { name: "asc" } }),
+  ),
+  timeSlots: adminProcedure.query(({ ctx }) =>
+    ctx.db.timeSlot.findMany({
+      orderBy: [{ dayOfWeek: "asc" }, { startMin: "asc" }],
+    }),
   ),
 
   // --------------------------------------------------------------------------
@@ -54,6 +73,7 @@ export const adminRouter = createTRPCRouter({
         tutor: true,
         room: true,
         term: true,
+        timeSlot: true,
         tutees: { include: { tutee: true } },
       },
     }),
@@ -65,6 +85,7 @@ export const adminRouter = createTRPCRouter({
         tutorId: cuid,
         termId: cuid,
         roomId: cuid.optional(),
+        timeSlotId: cuid.optional(),
         subject: z.string().min(1),
         dayOfWeek: z.number().int().min(1).max(7),
         startMin: z.number().int().min(0).max(1439),
@@ -89,6 +110,7 @@ export const adminRouter = createTRPCRouter({
         tutorId: cuid,
         termId: cuid,
         roomId: cuid.nullable().optional(),
+        timeSlotId: cuid.nullable().optional(),
         subject: z.string().min(1),
         dayOfWeek: z.number().int().min(1).max(7),
         startMin: z.number().int().min(0).max(1439),
@@ -100,7 +122,7 @@ export const adminRouter = createTRPCRouter({
       if (input.endMin <= input.startMin) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "End must be after start." });
       }
-      const { id, tuteeIds, roomId, ...data } = input;
+      const { id, tuteeIds, roomId, timeSlotId, ...data } = input;
       // Replace roster atomically.
       return ctx.db.$transaction(async (tx) => {
         await tx.pairingTutee.deleteMany({ where: { pairingId: id } });
@@ -109,6 +131,7 @@ export const adminRouter = createTRPCRouter({
           data: {
             ...data,
             roomId: roomId ?? null,
+            timeSlotId: timeSlotId ?? null,
             tutees: { create: tuteeIds.map((tuteeId) => ({ tuteeId })) },
           },
         });
@@ -245,14 +268,166 @@ export const adminRouter = createTRPCRouter({
     ),
 
   createTutee: adminProcedure
-    .input(z.object({ englishName: z.string().min(1) }))
-    .mutation(({ ctx, input }) => ctx.db.tutee.create({ data: input })),
+    .input(
+      z.object({
+        englishName: z.string().trim().min(1),
+        email: z.string().email().nullable().optional(),
+        phone: z.string().trim().nullable().optional(),
+        gradeLevel: z.string().trim().nullable().optional(),
+        notes: z.string().trim().nullable().optional(),
+        status: z.enum(TUTEE_STATUS).default("ACTIVE"),
+        firstChoiceId: cuid.nullable().optional(),
+        secondChoiceId: cuid.nullable().optional(),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      ctx.db.tutee.create({
+        data: {
+          englishName: input.englishName,
+          email: blankToNull(input.email)?.toLowerCase() ?? null,
+          phone: blankToNull(input.phone),
+          gradeLevel: blankToNull(input.gradeLevel),
+          notes: blankToNull(input.notes),
+          status: input.status,
+          firstChoiceId: input.firstChoiceId ?? null,
+          secondChoiceId: input.secondChoiceId ?? null,
+        },
+      }),
+    ),
 
   updateTutee: adminProcedure
-    .input(z.object({ id: cuid, englishName: z.string().min(1) }))
+    .input(
+      z.object({
+        id: cuid,
+        englishName: z.string().trim().min(1),
+        email: z.string().email().nullable().optional(),
+        phone: z.string().trim().nullable().optional(),
+        gradeLevel: z.string().trim().nullable().optional(),
+        notes: z.string().trim().nullable().optional(),
+        status: z.enum(TUTEE_STATUS),
+        firstChoiceId: cuid.nullable().optional(),
+        secondChoiceId: cuid.nullable().optional(),
+      }),
+    )
     .mutation(({ ctx, input }) =>
-      ctx.db.tutee.update({ where: { id: input.id }, data: { englishName: input.englishName } }),
+      ctx.db.tutee.update({
+        where: { id: input.id },
+        data: {
+          englishName: input.englishName,
+          email: blankToNull(input.email)?.toLowerCase() ?? null,
+          phone: blankToNull(input.phone),
+          gradeLevel: blankToNull(input.gradeLevel),
+          notes: blankToNull(input.notes),
+          status: input.status,
+          firstChoiceId: input.firstChoiceId ?? null,
+          secondChoiceId: input.secondChoiceId ?? null,
+        },
+      }),
     ),
+
+  /** Quick status change (e.g. approve a PENDING signup → ACTIVE). */
+  setTuteeStatus: adminProcedure
+    .input(z.object({ id: cuid, status: z.enum(TUTEE_STATUS) }))
+    .mutation(({ ctx, input }) =>
+      ctx.db.tutee.update({ where: { id: input.id }, data: { status: input.status } }),
+    ),
+
+  deleteTutee: adminProcedure
+    .input(z.object({ id: cuid }))
+    .mutation(async ({ ctx, input }) => {
+      const sessions = await ctx.db.sessionTutee.count({ where: { tuteeId: input.id } });
+      if (sessions > 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Cannot delete a tutee with attendance history. Set them inactive instead.",
+        });
+      }
+      await ctx.db.pairingTutee.deleteMany({ where: { tuteeId: input.id } });
+      return ctx.db.tutee.delete({ where: { id: input.id } });
+    }),
+
+  // --------------------------------------------------------------------------
+  // Course catalog (subjects offered; tutees pick first/second choice at signup)
+  // --------------------------------------------------------------------------
+  createCourse: adminProcedure
+    .input(z.object({ name: z.string().trim().min(1) }))
+    .mutation(({ ctx, input }) => ctx.db.course.create({ data: { name: input.name } })),
+
+  updateCourse: adminProcedure
+    .input(z.object({ id: cuid, name: z.string().trim().min(1), active: z.boolean() }))
+    .mutation(({ ctx, input }) =>
+      ctx.db.course.update({
+        where: { id: input.id },
+        data: { name: input.name, active: input.active },
+      }),
+    ),
+
+  deleteCourse: adminProcedure
+    .input(z.object({ id: cuid }))
+    .mutation(async ({ ctx, input }) => {
+      const used = await ctx.db.tutee.count({
+        where: { OR: [{ firstChoiceId: input.id }, { secondChoiceId: input.id }] },
+      });
+      if (used > 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Course is chosen by one or more tutees. Mark it inactive instead.",
+        });
+      }
+      return ctx.db.course.delete({ where: { id: input.id } });
+    }),
+
+  // --------------------------------------------------------------------------
+  // Time-slot catalog (reference scheduling; tutors/tutees mark availability)
+  // --------------------------------------------------------------------------
+  createTimeSlot: adminProcedure
+    .input(
+      z.object({
+        label: z.string().trim().min(1),
+        dayOfWeek: z.number().int().min(1).max(7),
+        startMin: z.number().int().min(0).max(1439),
+        endMin: z.number().int().min(1).max(1440),
+      }),
+    )
+    .mutation(({ ctx, input }) => {
+      if (input.endMin <= input.startMin) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "End must be after start." });
+      }
+      return ctx.db.timeSlot.create({ data: input });
+    }),
+
+  updateTimeSlot: adminProcedure
+    .input(
+      z.object({
+        id: cuid,
+        label: z.string().trim().min(1),
+        dayOfWeek: z.number().int().min(1).max(7),
+        startMin: z.number().int().min(0).max(1439),
+        endMin: z.number().int().min(1).max(1440),
+        active: z.boolean(),
+      }),
+    )
+    .mutation(({ ctx, input }) => {
+      if (input.endMin <= input.startMin) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "End must be after start." });
+      }
+      const { id, ...data } = input;
+      return ctx.db.timeSlot.update({ where: { id }, data });
+    }),
+
+  deleteTimeSlot: adminProcedure
+    .input(z.object({ id: cuid }))
+    .mutation(async ({ ctx, input }) => {
+      const used = await ctx.db.pairing.count({ where: { timeSlotId: input.id } });
+      if (used > 0) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Slot is referenced by a pairing. Mark it inactive instead.",
+        });
+      }
+      // Tutor/tutee availability rows cascade-delete with the slot.
+      return ctx.db.timeSlot.delete({ where: { id: input.id } });
+    }),
 
   createRoom: adminProcedure
     .input(z.object({ name: z.string().min(1) }))

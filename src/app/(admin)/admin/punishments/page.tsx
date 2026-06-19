@@ -16,11 +16,11 @@ export default function PunishmentsPage() {
   const [reason, setReason] = useState("");
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold">Punishments (per tutee)</h1>
+    <div className="space-y-6">
+      <h1 className="page-title">Punishments (per tutee)</h1>
 
       <form
-        className="mt-4 flex flex-wrap items-end gap-2"
+        className="flex flex-wrap items-end gap-2"
         onSubmit={(e) => {
           e.preventDefault();
           if (tuteeId) create.mutate({ tuteeId, reason: reason.trim() || undefined });
@@ -29,7 +29,7 @@ export default function PunishmentsPage() {
         <select
           value={tuteeId}
           onChange={(e) => setTuteeId(e.target.value)}
-          className="rounded border px-3 py-2"
+          className="select max-w-xs"
         >
           <option value="">Tutee…</option>
           {(tutees.data ?? []).map((t) => (
@@ -42,40 +42,37 @@ export default function PunishmentsPage() {
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           placeholder="Reason (optional)"
-          className="rounded border px-3 py-2"
+          className="input max-w-xs"
         />
-        <button className="rounded bg-indigo-600 px-4 py-2 font-semibold text-white">
-          Add
-        </button>
+        <button className="btn-primary">Add</button>
       </form>
 
-      <table className="mt-6 w-full border-collapse rounded-lg border bg-white text-sm">
-        <thead>
-          <tr className="border-b text-left text-gray-500">
-            <th className="p-3">Date</th>
-            <th className="p-3">Tutee</th>
-            <th className="p-3">Reason</th>
-            <th className="p-3"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {(list.data ?? []).map((p) => (
-            <tr key={p.id} className="border-b">
-              <td className="p-3">{new Date(p.date).toLocaleDateString()}</td>
-              <td className="p-3">{p.tutee.englishName}</td>
-              <td className="p-3">{p.reason}</td>
-              <td className="p-3 text-right">
-                <button
-                  onClick={() => del.mutate({ id: p.id })}
-                  className="text-red-600 hover:underline"
-                >
-                  Delete
-                </button>
-              </td>
+      <div className="card overflow-hidden">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Tutee</th>
+              <th>Reason</th>
+              <th></th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {(list.data ?? []).map((p) => (
+              <tr key={p.id}>
+                <td>{new Date(p.date).toLocaleDateString()}</td>
+                <td>{p.tutee.englishName}</td>
+                <td>{p.reason}</td>
+                <td className="text-right">
+                  <button onClick={() => del.mutate({ id: p.id })} className="link-danger">
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

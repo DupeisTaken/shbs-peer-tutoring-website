@@ -1,6 +1,7 @@
 import Link from "next/link";
 
 import { auth } from "~/server/auth";
+import { SignOutButton } from "~/app/_components/sign-out-button";
 
 export default async function Home() {
   const session = await auth();
@@ -9,42 +10,41 @@ export default async function Home() {
   const homeHref = isElevated ? "/admin" : "/dashboard";
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center bg-gradient-to-b from-[#1e1b4b] to-[#0f172a] text-white">
-      <div className="container flex max-w-2xl flex-col items-center justify-center gap-8 px-4 py-16 text-center">
-        <h1 className="text-4xl font-extrabold tracking-tight sm:text-5xl">
-          SHBS Peer Tutoring
+    <main className="flex min-h-screen flex-col items-center justify-center px-4">
+      <div className="w-full max-w-2xl text-center">
+        <span className="badge-slate mb-4">SHBS Peer Tutoring</span>
+        <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
+          Peer tutoring, organized.
         </h1>
-        <p className="text-lg text-white/70">
-          Attendance, pairings, and service-hour tracking for peer tutors.
+        <p className="mx-auto mt-4 max-w-xl text-lg text-slate-600">
+          Pairings, attendance, and service-hour tracking for tutors — and a simple way
+          for students to request help.
         </p>
 
-        {session?.user ? (
-          <div className="flex flex-col items-center gap-4">
-            <p className="text-white/80">
-              Signed in as <span className="font-semibold">{session.user.name}</span>
-            </p>
-            <div className="flex gap-3">
-              <Link
-                href={homeHref}
-                className="rounded-full bg-white/15 px-8 py-3 font-semibold transition hover:bg-white/25"
-              >
+        <div className="mt-8 flex flex-wrap items-center justify-center gap-3">
+          {session?.user ? (
+            <>
+              <Link href={homeHref} className="btn-primary">
                 {isElevated ? "Go to admin →" : "Go to dashboard →"}
               </Link>
-              <Link
-                href="/api/auth/signout"
-                className="rounded-full bg-white/10 px-8 py-3 font-semibold transition hover:bg-white/20"
-              >
-                Sign out
+              <SignOutButton className="btn-secondary" />
+            </>
+          ) : (
+            <>
+              <Link href="/signup" className="btn-primary">
+                Request a tutor
               </Link>
-            </div>
-          </div>
-        ) : (
-          <Link
-            href="/signin"
-            className="rounded-full bg-white/15 px-10 py-3 font-semibold transition hover:bg-white/25"
-          >
-            Sign in
-          </Link>
+              <Link href="/signin" className="btn-secondary">
+                Tutor / staff sign in
+              </Link>
+            </>
+          )}
+        </div>
+
+        {session?.user && (
+          <p className="muted mt-6">
+            Signed in as <span className="font-medium text-slate-700">{session.user.name}</span>
+          </p>
         )}
       </div>
     </main>

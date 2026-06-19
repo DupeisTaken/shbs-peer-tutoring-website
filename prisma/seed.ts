@@ -35,14 +35,44 @@ const TUTORS = [
   { id: "tutor-david", englishName: "David Zhao", email: null, active: false },
 ];
 
-const TUTEES = [
-  { id: "tutee-emma", englishName: "Emma Sun" },
-  { id: "tutee-frank", englishName: "Frank Wu" },
-  { id: "tutee-grace", englishName: "Grace Lin" },
-  { id: "tutee-henry", englishName: "Henry Xu" },
-  { id: "tutee-ivy", englishName: "Ivy Yang" },
-  { id: "tutee-jack", englishName: "Jack Zhou" },
+const COURSES = [
+  { id: "course-math", name: "Mathematics" },
+  { id: "course-physics", name: "Physics" },
+  { id: "course-english", name: "English" },
+  { id: "course-chemistry", name: "Chemistry" },
+  { id: "course-biology", name: "Biology" },
 ];
+
+// Reference time-slot catalog (label + day + HH:MM start/end).
+const TIME_SLOTS = [
+  { id: "slot-mon-a", label: "Mon block A", dayOfWeek: 1, start: "15:30", end: "16:30" },
+  { id: "slot-tue-a", label: "Tue block A", dayOfWeek: 2, start: "15:30", end: "16:30" },
+  { id: "slot-wed-a", label: "Wed block A", dayOfWeek: 3, start: "16:00", end: "17:00" },
+  { id: "slot-thu-a", label: "Thu block A", dayOfWeek: 4, start: "15:30", end: "16:30" },
+  { id: "slot-fri-a", label: "Fri block A", dayOfWeek: 5, start: "15:00", end: "16:15" },
+];
+
+const TUTEES = [
+  { id: "tutee-emma", englishName: "Emma Sun", gradeLevel: "9", status: "ACTIVE" as const, firstChoiceId: "course-math" },
+  { id: "tutee-frank", englishName: "Frank Wu", gradeLevel: "10", status: "ACTIVE" as const, firstChoiceId: "course-math" },
+  { id: "tutee-grace", englishName: "Grace Lin", gradeLevel: "9", status: "ACTIVE" as const, firstChoiceId: "course-physics" },
+  { id: "tutee-henry", englishName: "Henry Xu", gradeLevel: "11", status: "ACTIVE" as const, firstChoiceId: "course-english" },
+  { id: "tutee-ivy", englishName: "Ivy Yang", gradeLevel: "10", status: "ACTIVE" as const, firstChoiceId: "course-english" },
+  { id: "tutee-jack", englishName: "Jack Zhou", gradeLevel: "12", status: "ACTIVE" as const, firstChoiceId: "course-english" },
+];
+
+// One example of a public self-signup awaiting admin review.
+const PENDING_SIGNUP = {
+  id: "tutee-pending-kate",
+  englishName: "Kate Park",
+  gradeLevel: "9",
+  email: "kate@example.edu",
+  status: "PENDING" as const,
+  firstChoiceId: "course-chemistry",
+  secondChoiceId: "course-biology",
+  signatureName: "Kate Park",
+  slotIds: ["slot-tue-a", "slot-thu-a"],
+};
 
 async function main() {
   // --- Term ------------------------------------------------------------------
@@ -70,12 +100,96 @@ async function main() {
     });
   }
 
+  // --- Courses ---------------------------------------------------------------
+  for (const course of COURSES) {
+    await db.course.upsert({
+      where: { id: course.id },
+      update: { name: course.name },
+      create: course,
+    });
+  }
+
+  // --- Time slots ------------------------------------------------------------
+  for (const slot of TIME_SLOTS) {
+    await db.timeSlot.upsert({
+      where: { id: slot.id },
+      update: {
+        label: slot.label,
+        dayOfWeek: slot.dayOfWeek,
+        startMin: hm(slot.start),
+        endMin: hm(slot.end),
+      },
+      create: {
+        id: slot.id,
+        label: slot.label,
+        dayOfWeek: slot.dayOfWeek,
+        startMin: hm(slot.start),
+        endMin: hm(slot.end),
+      },
+    });
+  }
+
   // --- Tutees ----------------------------------------------------------------
   for (const tutee of TUTEES) {
     await db.tutee.upsert({
       where: { id: tutee.id },
-      update: { englishName: tutee.englishName },
+      update: {
+        englishName: tutee.englishName,
+        gradeLevel: tutee.gradeLevel,
+        status: tutee.status,
+        firstChoiceId: tutee.firstChoiceId,
+      },
       create: tutee,
+    });
+  }
+
+  // --- Pending public signup (with availability) -----------------------------
+  await db.tutee.upsert({
+    where: { id: PENDING_SIGNUP.id },
+    update: {
+      englishName: PENDING_SIGNUP.englishName,
+      gradeLevel: PENDING_SIGNUP.gradeLevel,
+      email: PENDING_SIGNUP.email,
+      status: PENDING_SIGNUP.status,
+      firstChoiceId: PENDING_SIGNUP.firstChoiceId,
+      secondChoiceId: PENDING_SIGNUP.secondChoiceId,
+      signedRulebook: true,
+      signatureName: PENDING_SIGNUP.signatureName,
+      signedAt: new Date(),
+    },
+    create: {
+      id: PENDING_SIGNUP.id,
+      englishName: PENDING_SIGNUP.englishName,
+      gradeLevel: PENDING_SIGNUP.gradeLevel,
+      email: PENDING_SIGNUP.email,
+      status: PENDING_SIGNUP.status,
+      firstChoiceId: PENDING_SIGNUP.firstChoiceId,
+      secondChoiceId: PENDING_SIGNUP.secondChoiceId,
+      signedRulebook: true,
+      signatureName: PENDING_SIGNUP.signatureName,
+      signedAt: new Date(),
+    },
+  });
+  for (const slotId of PENDING_SIGNUP.slotIds) {
+    await db.tuteeAvailability.upsert({
+      where: { tuteeId_slotId: { tuteeId: PENDING_SIGNUP.id, slotId } },
+      update: {},
+      create: { tuteeId: PENDING_SIGNUP.id, slotId },
+    });
+  }
+
+  // --- Tutor availability ----------------------------------------------------
+  const tutorAvailability: { tutorId: string; slotId: string }[] = [
+    { tutorId: "tutor-alice", slotId: "slot-mon-a" },
+    { tutorId: "tutor-alice", slotId: "slot-wed-a" },
+    { tutorId: "tutor-bob", slotId: "slot-wed-a" },
+    { tutorId: "tutor-carol", slotId: "slot-fri-a" },
+  ];
+  for (const a of tutorAvailability) {
+    await db.tutorAvailability.upsert({
+      where: { tutorId_slotId: { tutorId: a.tutorId, slotId: a.slotId } },
+      update: {},
+      create: a,
     });
   }
 
@@ -89,6 +203,7 @@ async function main() {
       start: "15:30",
       end: "16:30",
       roomId: "room-a101",
+      timeSlotId: "slot-mon-a",
       tuteeIds: ["tutee-emma", "tutee-frank"],
     },
     {
@@ -99,6 +214,7 @@ async function main() {
       start: "16:00",
       end: "17:00",
       roomId: "room-b201",
+      timeSlotId: "slot-wed-a",
       tuteeIds: ["tutee-grace"],
     },
     {
@@ -109,6 +225,7 @@ async function main() {
       start: "15:00",
       end: "16:15",
       roomId: "room-library",
+      timeSlotId: "slot-fri-a",
       tuteeIds: ["tutee-henry", "tutee-ivy", "tutee-jack"],
     },
   ];
@@ -124,6 +241,7 @@ async function main() {
         tutorId: p.tutorId,
         termId: term.id,
         roomId: p.roomId,
+        timeSlotId: p.timeSlotId,
       },
       create: {
         id: p.id,
@@ -134,6 +252,7 @@ async function main() {
         tutorId: p.tutorId,
         termId: term.id,
         roomId: p.roomId,
+        timeSlotId: p.timeSlotId,
       },
     });
 
@@ -171,8 +290,10 @@ async function main() {
   }
 
   console.log(
-    `Seeded: 1 term, ${ROOMS.length} rooms, ${TUTORS.length} tutors, ${TUTEES.length} tutees, ` +
-      `${pairings.length} pairings, ${users.length} login users (password "${DEV_PASSWORD}").`,
+    `Seeded: 1 term, ${ROOMS.length} rooms, ${COURSES.length} courses, ` +
+      `${TIME_SLOTS.length} time slots, ${TUTORS.length} tutors, ` +
+      `${TUTEES.length} active tutees + 1 pending signup, ${pairings.length} pairings, ` +
+      `${users.length} login users (password "${DEV_PASSWORD}").`,
   );
 }
 

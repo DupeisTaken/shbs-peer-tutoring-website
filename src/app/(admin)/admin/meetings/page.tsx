@@ -25,11 +25,11 @@ export default function MeetingsPage() {
   const [selected, setSelected] = useState<string | null>(null);
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold">Tutor meetings</h1>
+    <div className="space-y-6">
+      <h1 className="page-title">Tutor meetings</h1>
 
       <form
-        className="mt-4 flex flex-wrap items-end gap-2"
+        className="flex flex-wrap items-end gap-2"
         onSubmit={(e) => {
           e.preventDefault();
           if (title.trim()) {
@@ -42,48 +42,45 @@ export default function MeetingsPage() {
           value={title}
           onChange={(e) => setTitle(e.target.value)}
           placeholder="Meeting title"
-          className="rounded border px-3 py-2"
+          className="input max-w-xs"
         />
         <input
           type="date"
           value={date}
           onChange={(e) => setDate(e.target.value)}
-          className="rounded border px-3 py-2"
+          className="input max-w-[12rem]"
         />
-        <button className="rounded bg-indigo-600 px-4 py-2 font-semibold text-white">
-          Create
-        </button>
+        <button className="btn-primary">Create</button>
       </form>
 
-      <ul className="mt-6 divide-y rounded-lg border bg-white">
-        {(meetings.data ?? []).map((m) => (
-          <li key={m.id} className="p-3">
-            <div className="flex items-center justify-between">
-              <button
-                onClick={() => setSelected(selected === m.id ? null : m.id)}
-                className="text-left font-medium hover:text-indigo-600"
-              >
-                {m.title} · {new Date(m.date).toLocaleDateString()}
-              </button>
-              <button
-                onClick={() => del.mutate({ id: m.id })}
-                className="text-sm text-red-600 hover:underline"
-              >
-                Delete
-              </button>
-            </div>
-            {selected === m.id && (
-              <AttendanceEditor
-                meetingId={m.id}
-                tutors={tutors.data ?? []}
-                current={Object.fromEntries(
-                  m.attendances.map((a) => [a.tutorId, a.status]),
-                )}
-              />
-            )}
-          </li>
-        ))}
-      </ul>
+      <div className="card overflow-hidden">
+        <ul className="divide-y divide-slate-100">
+          {(meetings.data ?? []).map((m) => (
+            <li key={m.id} className="px-4 py-3">
+              <div className="flex items-center justify-between gap-3">
+                <button
+                  onClick={() => setSelected(selected === m.id ? null : m.id)}
+                  className="text-left font-medium text-slate-900 hover:text-indigo-600"
+                >
+                  {m.title} · {new Date(m.date).toLocaleDateString()}
+                </button>
+                <button onClick={() => del.mutate({ id: m.id })} className="link-danger">
+                  Delete
+                </button>
+              </div>
+              {selected === m.id && (
+                <AttendanceEditor
+                  meetingId={m.id}
+                  tutors={tutors.data ?? []}
+                  current={Object.fromEntries(
+                    m.attendances.map((a) => [a.tutorId, a.status]),
+                  )}
+                />
+              )}
+            </li>
+          ))}
+        </ul>
+      </div>
     </div>
   );
 }
@@ -106,17 +103,17 @@ function AttendanceEditor({
   });
 
   return (
-    <div className="mt-3 rounded border bg-gray-50 p-3">
+    <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
       <div className="grid grid-cols-1 gap-2 sm:grid-cols-2">
         {tutors.map((t) => (
-          <label key={t.id} className="flex items-center justify-between gap-2">
+          <label key={t.id} className="flex items-center justify-between gap-2 text-sm">
             <span>{t.englishName}</span>
             <select
               value={draft[t.id] ?? ""}
               onChange={(e) =>
                 setDraft((d) => ({ ...d, [t.id]: e.target.value as MeetingStatus }))
               }
-              className="rounded border px-2 py-1"
+              className="select w-24"
             >
               <option value="">—</option>
               {MEETING_STATUS.map((s) => (
@@ -135,7 +132,7 @@ function AttendanceEditor({
             .map(([tutorId, status]) => ({ tutorId, status }));
           save.mutate({ meetingId, entries });
         }}
-        className="mt-3 rounded bg-indigo-600 px-4 py-2 text-sm font-semibold text-white"
+        className="btn-primary btn-sm mt-3"
       >
         {save.isPending ? "Saving…" : "Save attendance"}
       </button>

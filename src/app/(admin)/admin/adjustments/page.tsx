@@ -20,11 +20,11 @@ export default function AdjustmentsPage() {
   const [reason, setReason] = useState("");
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold">Service-hour adjustments</h1>
+    <div className="space-y-6">
+      <h1 className="page-title">Service-hour adjustments</h1>
 
       <form
-        className="mt-4 flex flex-wrap items-end gap-2"
+        className="flex flex-wrap items-end gap-2"
         onSubmit={(e) => {
           e.preventDefault();
           const amt = Number(amount);
@@ -41,7 +41,7 @@ export default function AdjustmentsPage() {
         <select
           value={tutorId}
           onChange={(e) => setTutorId(e.target.value)}
-          className="rounded border px-3 py-2"
+          className="select max-w-xs"
         >
           <option value="">Tutor…</option>
           {(tutors.data ?? []).map((t) => (
@@ -54,12 +54,12 @@ export default function AdjustmentsPage() {
           type="month"
           value={month}
           onChange={(e) => setMonth(e.target.value)}
-          className="rounded border px-3 py-2"
+          className="input max-w-[12rem]"
         />
         <select
           value={type}
           onChange={(e) => setType(e.target.value as "PUNISHMENT" | "EXTRA")}
-          className="rounded border px-3 py-2"
+          className="select"
         >
           <option value="EXTRA">Extra (+)</option>
           <option value="PUNISHMENT">Punishment (−)</option>
@@ -70,51 +70,48 @@ export default function AdjustmentsPage() {
           min="0"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          className="w-24 rounded border px-3 py-2"
+          className="input w-24"
         />
         <input
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           placeholder="Reason (optional)"
-          className="rounded border px-3 py-2"
+          className="input max-w-xs"
         />
-        <button className="rounded bg-indigo-600 px-4 py-2 font-semibold text-white">
-          Add
-        </button>
+        <button className="btn-primary">Add</button>
       </form>
-      {create.error && <p className="mt-1 text-sm text-red-600">{create.error.message}</p>}
+      {create.error && <p className="text-sm text-red-600">{create.error.message}</p>}
 
-      <table className="mt-6 w-full border-collapse rounded-lg border bg-white text-sm">
-        <thead>
-          <tr className="border-b text-left text-gray-500">
-            <th className="p-3">Tutor</th>
-            <th className="p-3">Month</th>
-            <th className="p-3">Type</th>
-            <th className="p-3 text-right">Amount</th>
-            <th className="p-3">Reason</th>
-            <th className="p-3"></th>
-          </tr>
-        </thead>
-        <tbody>
-          {(list.data ?? []).map((a) => (
-            <tr key={a.id} className="border-b">
-              <td className="p-3">{a.tutor.englishName}</td>
-              <td className="p-3">{a.month}</td>
-              <td className="p-3">{a.type}</td>
-              <td className="p-3 text-right">{a.amount.toFixed(1)}</td>
-              <td className="p-3">{a.reason}</td>
-              <td className="p-3 text-right">
-                <button
-                  onClick={() => del.mutate({ id: a.id })}
-                  className="text-red-600 hover:underline"
-                >
-                  Delete
-                </button>
-              </td>
+      <div className="card overflow-hidden">
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>Tutor</th>
+              <th>Month</th>
+              <th>Type</th>
+              <th className="text-right">Amount</th>
+              <th>Reason</th>
+              <th></th>
             </tr>
-          ))}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {(list.data ?? []).map((a) => (
+              <tr key={a.id}>
+                <td>{a.tutor.englishName}</td>
+                <td>{a.month}</td>
+                <td className="text-slate-500">{a.type}</td>
+                <td className="text-right">{a.amount.toFixed(1)}</td>
+                <td>{a.reason}</td>
+                <td className="text-right">
+                  <button onClick={() => del.mutate({ id: a.id })} className="link-danger">
+                    Delete
+                  </button>
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

@@ -52,14 +52,31 @@ provider — is future work.
 
 ### Routes
 
-- `/` — public landing page with sign-in.
+- `/` — public landing page (links to sign-in and tutee signup).
+- `/signup` — **public** tutee signup form: name, first/second course choice (from the
+  admin-managed catalog), available time slots, and a typed rulebook signature. Creates a
+  `PENDING` tutee for an admin to review and assign.
 - `/signin` — public email + password sign-in form.
-- `/dashboard`, `/attendance` — tutor area (any signed-in user).
-- `/admin/*` — management area (coordinator/admin): tutors, tutees, rooms, pairings,
-  submissions, meetings, adjustments, punishments, users, and the monthly summary.
+- `/dashboard` — tutor home (any signed-in tutor): live monthly service hours, pairings,
+  availability picker, and the attendance submission form, all on one page.
+- `/admin/*` — management area (coordinator/admin): tutors, tutees, courses, time slots,
+  rooms, pairings, submissions, meetings, adjustments, punishments, users, and the monthly
+  summary.
 
 Route gating is handled by `src/middleware.ts` (Edge); the tRPC procedures
 (`src/server/api/routers/`) enforce role and ownership checks server-side.
+
+### Tutee signup & scheduling
+
+Students request help through the public `/signup` form. A submission becomes a `PENDING`
+`Tutee` (with course choices, availability, and a rulebook signature) that admins review on
+the Tutees screen, approve, and assign to a tutor via a pairing.
+
+Scheduling is built around an admin-managed **time-slot catalog** (`/admin/timeslots`).
+Tutors mark which slots they can teach (on their dashboard) and tutees pick their available
+slots at signup; a pairing can reference a slot as its default. Time slots are
+**reference-only** — the actual session start/end times are still entered on each attendance
+submission. The **course catalog** (`/admin/courses`) is the list of subjects offered.
 
 ### Service hours
 
@@ -128,11 +145,14 @@ commented list. The essentials:
 ```
 src/
   app/                 # Next.js App Router
-    (tutor)/           # dashboard + attendance (signed-in users)
+    _components/       # shared UI (nav link, sign-out button)
+    signup/            # public tutee signup form
+    (tutor)/           # combined tutor dashboard (hours, pairings, availability, attendance)
     (admin)/admin/     # roster & program management (coordinator/admin)
     api/               # Auth.js + tRPC route handlers
+  styles/globals.css   # Tailwind + shared design-system classes (.btn, .card, .input, …)
   server/
-    api/routers/       # tRPC routers (tutor, admin) + tests
+    api/routers/       # tRPC routers (tutor, tutee, admin) + tests
     auth/              # Auth.js config (Credentials/password, role/JWT logic)
                        #   password.ts (scrypt) + two-factor.ts (2FA scaffolding)
     email/sender.ts    # provider-agnostic email seam (scaffolding)

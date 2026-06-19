@@ -177,4 +177,46 @@ export const tutorRouter = createTRPCRouter({
         select: { id: true, month: true, shCount: true },
       });
     }),
+
+  // --------------------------------------------------------------------------
+  // Availability: the tutor marks which catalog time slots they can teach.
+  // Slots are reference-only; admins use them when assigning tutees/pairings.
+  // --------------------------------------------------------------------------
+
+  /** The active time-slot catalog plus the slot ids the signed-in tutor has selected. */
+  myAvailability: tutorProcedure.query(async ({ ctx }) => {
+    const [slots, selected] = await Promise.all([
+      ctx.db.timeSlot.findMany({
+        where: { active: true },
+        orderBy: [{ dayOfWeek: "asc" }, { startMin: "asc" }],
+        select: { id: true, label: true, dayOfWeek: true, startMin: true, endMin: true },
+      }),
+      ctx.db.tutorAvailability.findMany({
+        where: { tutorId: ctx.session.tutorId },
+        select: { slotId: true },
+      }),
+    ]);
+    return { slots, selectedSlotIds: selected.map((s) => s.slotId) };
+  }),
+
+  /** Replace the signed-in tutor's availability with the given set of slot ids. */
+  setAvailability: tutorProcedure
+    .input(z.object({ slotIds: z.array(z.string().min(1)) }))
+    .mutation(async ({ ctx, input }) => {
+      const slotIds = [...new Set(input.slotIds)];
+      // Ignore any inactive/unknown slots defensively.
+      const valid = await ctx.db.timeSlot.findMany({
+        where: { id: { in: slotIds }, active: true },
+        select: { id: true },
+      });
+      const validIds = valid.map((s) => s.id);
+
+      await ctx.db.$transaction([
+        ctx.db.tutorAvailability.deleteMany({ where: { tutorId: ctx.session.tutorId } }),
+        ctx.db.tutorAvailability.createMany({
+          data: validIds.map((slotId) => ({ tutorId: ctx.session.tutorId, slotId })),
+        }),
+      ]);
+      return { ok: true, count: validIds.length };
+    }),
 });

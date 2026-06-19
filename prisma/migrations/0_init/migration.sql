@@ -8,6 +8,9 @@ CREATE TYPE "Role" AS ENUM ('TUTOR', 'COORDINATOR', 'ADMIN');
 CREATE TYPE "Quarter" AS ENUM ('Q3', 'Q4');
 
 -- CreateEnum
+CREATE TYPE "TuteeStatus" AS ENUM ('PENDING', 'ACTIVE', 'INACTIVE');
+
+-- CreateEnum
 CREATE TYPE "AttendanceStatus" AS ENUM ('PRESENT', 'RESCHEDULED', 'EXTRA_SESSION', 'TUTOR_ABSENT', 'TUTEE_ABSENT_EXCUSED', 'TUTEE_ABSENT_UNEXCUSED');
 
 -- CreateEnum
@@ -58,12 +61,61 @@ CREATE TABLE "Tutor" (
 );
 
 -- CreateTable
+CREATE TABLE "Course" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "active" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Course_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Tutee" (
     "id" TEXT NOT NULL,
     "englishName" TEXT NOT NULL,
+    "email" TEXT,
+    "phone" TEXT,
+    "gradeLevel" TEXT,
+    "notes" TEXT,
+    "status" "TuteeStatus" NOT NULL DEFAULT 'ACTIVE',
+    "firstChoiceId" TEXT,
+    "secondChoiceId" TEXT,
+    "signedRulebook" BOOLEAN NOT NULL DEFAULT false,
+    "signatureName" TEXT,
+    "signedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Tutee_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "TimeSlot" (
+    "id" TEXT NOT NULL,
+    "label" TEXT NOT NULL,
+    "dayOfWeek" INTEGER NOT NULL,
+    "startMin" INTEGER NOT NULL,
+    "endMin" INTEGER NOT NULL,
+    "active" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "TimeSlot_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "TutorAvailability" (
+    "tutorId" TEXT NOT NULL,
+    "slotId" TEXT NOT NULL,
+
+    CONSTRAINT "TutorAvailability_pkey" PRIMARY KEY ("tutorId","slotId")
+);
+
+-- CreateTable
+CREATE TABLE "TuteeAvailability" (
+    "tuteeId" TEXT NOT NULL,
+    "slotId" TEXT NOT NULL,
+
+    CONSTRAINT "TuteeAvailability_pkey" PRIMARY KEY ("tuteeId","slotId")
 );
 
 -- CreateTable
@@ -86,6 +138,7 @@ CREATE TABLE "Pairing" (
     "tutorId" TEXT NOT NULL,
     "termId" TEXT NOT NULL,
     "roomId" TEXT,
+    "timeSlotId" TEXT,
 
     CONSTRAINT "Pairing_pkey" PRIMARY KEY ("id")
 );
@@ -209,6 +262,21 @@ CREATE UNIQUE INDEX "User_tutorId_key" ON "User"("tutorId");
 CREATE UNIQUE INDEX "Tutor_email_key" ON "Tutor"("email");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "Course_name_key" ON "Course"("name");
+
+-- CreateIndex
+CREATE INDEX "Tutee_status_idx" ON "Tutee"("status");
+
+-- CreateIndex
+CREATE INDEX "TimeSlot_dayOfWeek_startMin_idx" ON "TimeSlot"("dayOfWeek", "startMin");
+
+-- CreateIndex
+CREATE INDEX "TutorAvailability_slotId_idx" ON "TutorAvailability"("slotId");
+
+-- CreateIndex
+CREATE INDEX "TuteeAvailability_slotId_idx" ON "TuteeAvailability"("slotId");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Room_name_key" ON "Room"("name");
 
 -- CreateIndex
@@ -248,6 +316,24 @@ CREATE INDEX "EmailVerificationCode_userId_idx" ON "EmailVerificationCode"("user
 ALTER TABLE "User" ADD CONSTRAINT "User_tutorId_fkey" FOREIGN KEY ("tutorId") REFERENCES "Tutor"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "Tutee" ADD CONSTRAINT "Tutee_firstChoiceId_fkey" FOREIGN KEY ("firstChoiceId") REFERENCES "Course"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Tutee" ADD CONSTRAINT "Tutee_secondChoiceId_fkey" FOREIGN KEY ("secondChoiceId") REFERENCES "Course"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TutorAvailability" ADD CONSTRAINT "TutorAvailability_tutorId_fkey" FOREIGN KEY ("tutorId") REFERENCES "Tutor"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TutorAvailability" ADD CONSTRAINT "TutorAvailability_slotId_fkey" FOREIGN KEY ("slotId") REFERENCES "TimeSlot"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TuteeAvailability" ADD CONSTRAINT "TuteeAvailability_tuteeId_fkey" FOREIGN KEY ("tuteeId") REFERENCES "Tutee"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TuteeAvailability" ADD CONSTRAINT "TuteeAvailability_slotId_fkey" FOREIGN KEY ("slotId") REFERENCES "TimeSlot"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "Pairing" ADD CONSTRAINT "Pairing_tutorId_fkey" FOREIGN KEY ("tutorId") REFERENCES "Tutor"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -255,6 +341,9 @@ ALTER TABLE "Pairing" ADD CONSTRAINT "Pairing_termId_fkey" FOREIGN KEY ("termId"
 
 -- AddForeignKey
 ALTER TABLE "Pairing" ADD CONSTRAINT "Pairing_roomId_fkey" FOREIGN KEY ("roomId") REFERENCES "Room"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Pairing" ADD CONSTRAINT "Pairing_timeSlotId_fkey" FOREIGN KEY ("timeSlotId") REFERENCES "TimeSlot"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "PairingTutee" ADD CONSTRAINT "PairingTutee_pairingId_fkey" FOREIGN KEY ("pairingId") REFERENCES "Pairing"("id") ON DELETE CASCADE ON UPDATE CASCADE;

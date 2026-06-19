@@ -49,10 +49,12 @@ export const authConfig = {
     signIn: "/signin",
   },
   callbacks: {
-    /** Used by the middleware: the landing and sign-in pages are public; everything else requires sign-in. */
+    /** Used by the middleware: the landing, sign-in, and public tutee signup pages are
+     *  public; everything else requires sign-in. */
     authorized({ auth, request }) {
       const { pathname } = request.nextUrl;
-      if (pathname === "/" || pathname === "/signin") return true;
+      const PUBLIC = ["/", "/signin", "/signup"];
+      if (PUBLIC.includes(pathname)) return true;
       return !!auth?.user;
     },
     /** Expose role + tutorId (decoded from the JWT) on the session. Pure — no DB access. */

@@ -9,39 +9,29 @@ export function SignInForm() {
 
   return (
     <form action={formAction} className="flex w-full flex-col gap-4">
-      <label className="flex flex-col gap-1 text-left text-sm">
-        <span className="text-white/70">Email</span>
-        <input
-          name="email"
-          type="email"
-          required
-          autoComplete="email"
-          className="rounded-lg border border-white/15 bg-white/5 px-4 py-2 text-white outline-none focus:border-white/40"
-        />
+      <label className="space-y-1">
+        <span className="label">Email</span>
+        <input name="email" type="email" required autoComplete="email" className="input" />
       </label>
 
-      <label className="flex flex-col gap-1 text-left text-sm">
-        <span className="text-white/70">Password</span>
+      <label className="space-y-1">
+        <span className="label">Password</span>
         <input
           name="password"
           type="password"
           required
           autoComplete="current-password"
-          className="rounded-lg border border-white/15 bg-white/5 px-4 py-2 text-white outline-none focus:border-white/40"
+          className="input"
         />
       </label>
 
       {error && (
-        <p role="alert" className="text-sm text-red-300">
+        <p role="alert" className="text-sm text-red-600">
           {error}
         </p>
       )}
 
-      <button
-        type="submit"
-        disabled={pending}
-        className="mt-2 rounded-full bg-white/15 px-8 py-3 font-semibold transition hover:bg-white/25 disabled:opacity-50"
-      >
+      <button type="submit" disabled={pending} className="btn-primary mt-1 w-full">
         {pending ? "Signing in…" : "Sign in"}
       </button>
     </form>

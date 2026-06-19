@@ -15,20 +15,20 @@ export default function SubmissionsPage() {
   });
 
   return (
-    <div>
-      <h1 className="text-2xl font-bold">Submissions</h1>
+    <div className="space-y-6">
+      <h1 className="page-title">Submissions</h1>
 
-      <div className="mt-4 flex flex-wrap gap-3">
+      <div className="flex flex-wrap gap-3">
         <input
           type="month"
           value={month}
           onChange={(e) => setMonth(e.target.value)}
-          className="rounded border px-3 py-2"
+          className="input max-w-[12rem]"
         />
         <select
           value={tutorId}
           onChange={(e) => setTutorId(e.target.value)}
-          className="rounded border px-3 py-2"
+          className="select max-w-xs"
         >
           <option value="">All tutors</option>
           {(tutors.data ?? []).map((t) => (
@@ -39,39 +39,39 @@ export default function SubmissionsPage() {
         </select>
       </div>
 
-      <table className="mt-6 w-full border-collapse rounded-lg border bg-white text-sm">
-        <thead>
-          <tr className="border-b text-left text-gray-500">
-            <th className="p-3">Date</th>
-            <th className="p-3">Tutor</th>
-            <th className="p-3">Subject</th>
-            <th className="p-3">Status</th>
-            <th className="p-3">Tutees</th>
-            <th className="p-3 text-right">SH</th>
-          </tr>
-        </thead>
-        <tbody>
-          {(sessions.data ?? []).map((s) => (
-            <tr key={s.id} className="border-b">
-              <td className="p-3">{new Date(s.date).toLocaleDateString()}</td>
-              <td className="p-3">{s.tutor.englishName}</td>
-              <td className="p-3">{s.pairing.subject}</td>
-              <td className="p-3">{s.status}</td>
-              <td className="p-3">
-                {s.tutees.map((t) => t.tutee.englishName).join(", ")}
-              </td>
-              <td className="p-3 text-right">{s.shCount.toFixed(1)}</td>
-            </tr>
-          ))}
-          {sessions.data?.length === 0 && (
+      <div className="card overflow-hidden">
+        <table className="data-table">
+          <thead>
             <tr>
-              <td colSpan={6} className="p-4 text-gray-500">
-                No submissions for this filter.
-              </td>
+              <th>Date</th>
+              <th>Tutor</th>
+              <th>Subject</th>
+              <th>Status</th>
+              <th>Tutees</th>
+              <th className="text-right">SH</th>
             </tr>
-          )}
-        </tbody>
-      </table>
+          </thead>
+          <tbody>
+            {(sessions.data ?? []).map((s) => (
+              <tr key={s.id}>
+                <td>{new Date(s.date).toLocaleDateString()}</td>
+                <td>{s.tutor.englishName}</td>
+                <td>{s.pairing.subject}</td>
+                <td className="text-slate-500">{s.status}</td>
+                <td>{s.tutees.map((t) => t.tutee.englishName).join(", ")}</td>
+                <td className="text-right">{s.shCount.toFixed(1)}</td>
+              </tr>
+            ))}
+            {sessions.data?.length === 0 && (
+              <tr>
+                <td colSpan={6} className="text-slate-500">
+                  No submissions for this filter.
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </table>
+      </div>
     </div>
   );
 }

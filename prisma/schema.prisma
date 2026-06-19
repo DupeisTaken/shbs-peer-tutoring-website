@@ -62,6 +62,14 @@ enum Quarter {
   Q4
 }
 
+/// Lifecycle of a tutee record. Public self-signups start PENDING and are reviewed by
+/// an admin (who assigns them to a tutor); admins create tutees as ACTIVE directly.
+enum TuteeStatus {
+  PENDING
+  ACTIVE
+  INACTIVE
+}
+
 /// Status of a single attendance submission.
 enum AttendanceStatus {
   PRESENT
@@ -112,16 +120,91 @@ model Tutor {
   sessions           Session[]
   adjustments        ServiceHourAdjustment[]
   meetingAttendances MeetingAttendance[]
+  availabilities     TutorAvailability[]
+}
+
+/// A subject offered for tutoring. The catalog is managed by admins; tutees pick a
+/// first (required) and optional second choice from it on the public signup form.
+model Course {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  firstChoiceTutees  Tutee[] @relation("TuteeFirstChoice")
+  secondChoiceTutees Tutee[] @relation("TuteeSecondChoice")
 }
 
 model Tutee {
-  id          String   @id @default(cuid())
+  id          String      @id @default(cuid())
   englishName String
-  createdAt   DateTime @default(now())
+  email       String?
+  phone       String?
+  gradeLevel  String?
+  notes       String?
+  status      TuteeStatus @default(ACTIVE)
 
-  pairings    PairingTutee[]
-  sessions    SessionTutee[]
-  punishments Punishment[]
+  // Course preferences chosen on the signup form (first required, second optional).
+  firstChoiceId  String?
+  firstChoice    Course? @relation("TuteeFirstChoice", fields: [firstChoiceId], references: [id])
+  secondChoiceId String?
+  secondChoice   Course? @relation("TuteeSecondChoice", fields: [secondChoiceId], references: [id])
+
+  // Electronic signature: the tutee types their name to agree to the rulebook.
+  signedRulebook Boolean   @default(false)
+  signatureName  String?
+  signedAt       DateTime?
+
+  createdAt DateTime @default(now())
+
+  availabilities TuteeAvailability[]
+  pairings       PairingTutee[]
+  sessions       SessionTutee[]
+  punishments    Punishment[]
+
+  @@index([status])
+}
+
+/// A reusable named time slot (e.g. "Mon 3:30–4:30"). The catalog is admin-managed.
+/// Tutors and tutees mark which slots they are available for; a Pairing may reference
+/// one as its default/reference time. Slots are reference-only — actual session times
+/// are still entered on each attendance submission.
+model TimeSlot {
+  id        String   @id @default(cuid())
+  label     String
+  dayOfWeek Int // 1 = Monday .. 7 = Sunday
+  startMin  Int // minutes from midnight
+  endMin    Int
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  pairings            Pairing[]
+  tutorAvailabilities TutorAvailability[]
+  tuteeAvailabilities TuteeAvailability[]
+
+  @@index([dayOfWeek, startMin])
+}
+
+/// Join: the time slots a tutor has marked themselves available for.
+model TutorAvailability {
+  tutorId String
+  tutor   Tutor    @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  slotId  String
+  slot    TimeSlot @relation(fields: [slotId], references: [id], onDelete: Cascade)
+
+  @@id([tutorId, slotId])
+  @@index([slotId])
+}
+
+/// Join: the time slots a tutee selected as available on the signup form.
+model TuteeAvailability {
+  tuteeId String
+  tutee   Tutee    @relation(fields: [tuteeId], references: [id], onDelete: Cascade)
+  slotId  String
+  slot    TimeSlot @relation(fields: [slotId], references: [id], onDelete: Cascade)
+
+  @@id([tuteeId, slotId])
+  @@index([slotId])
 }
 
 model Room {
@@ -139,12 +222,16 @@ model Pairing {
   endMin    Int
   createdAt DateTime @default(now())
 
-  tutorId String
-  tutor   Tutor   @relation(fields: [tutorId], references: [id])
-  termId  String
-  term    Term    @relation(fields: [termId], references: [id])
-  roomId  String?
-  room    Room?   @relation(fields: [roomId], references: [id])
+  tutorId    String
+  tutor      Tutor     @relation(fields: [tutorId], references: [id])
+  termId     String
+  term       Term      @relation(fields: [termId], references: [id])
+  roomId     String?
+  room       Room?     @relation(fields: [roomId], references: [id])
+  // Optional reference to the catalog time slot this pairing was scheduled into.
+  // Reference-only: the day/start/end above remain the source of truth.
+  timeSlotId String?
+  timeSlot   TimeSlot? @relation(fields: [timeSlotId], references: [id])
 
   tutees   PairingTutee[]
   sessions Session[]

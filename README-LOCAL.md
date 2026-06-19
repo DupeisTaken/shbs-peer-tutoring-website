@@ -94,7 +94,12 @@ npm run dev         # http://localhost:3000
 
 Open http://localhost:3000, sign in at `/signin` with a seeded account (e.g.
 `admin@example.edu` / `Password123!`). Admins/coordinators land in the `/admin` area;
-tutors land on their dashboard.
+tutors land on their combined `/dashboard` (hours, pairings, availability, and the
+attendance form on one page).
+
+Try the **public tutee signup** at http://localhost:3000/signup — no login required. It
+uses the seeded course and time-slot catalogs and creates a `PENDING` tutee that appears
+for review under **Admin → Tutees** (the seed also includes one example pending signup).
 
 ## 5. Run the tests
 

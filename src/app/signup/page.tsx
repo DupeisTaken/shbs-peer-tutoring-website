@@ -1,0 +1,30 @@
+import Link from "next/link";
+
+import { SignupForm } from "./signup-form";
+
+export const metadata = {
+  title: "Request a tutor · SHBS Peer Tutoring",
+};
+
+export default function SignupPage() {
+  return (
+    <main className="mx-auto min-h-screen max-w-2xl px-4 py-12">
+      <div className="mb-8 text-center">
+        <h1 className="page-title">Request a peer tutor</h1>
+        <p className="muted mt-2">
+          Tell us what you&apos;d like help with and when you&apos;re free. A coordinator
+          will review your request and match you with a tutor.
+        </p>
+      </div>
+
+      <SignupForm />
+
+      <p className="muted mt-6 text-center">
+        Already have an account?{" "}
+        <Link href="/signin" className="link">
+          Sign in
+        </Link>
+      </p>
+    </main>
+  );
+}
