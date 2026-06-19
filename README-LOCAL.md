@@ -95,7 +95,8 @@ npm run dev         # http://localhost:3000
 ```
 
 Open http://localhost:3000, sign in at `/signin` with a seeded account (e.g.
-`admin@example.edu` / `Password123!`). Admins/coordinators land in the `/admin` area;
+`admin@example.edu` / `Password123!`). Admins/coordinators land in the **SHBS Peer Tutoring
+Team** management area (`/admin`);
 tutors land on their combined `/dashboard` (hours, pairings, availability, and the
 attendance form on one page).
 

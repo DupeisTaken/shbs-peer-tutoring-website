@@ -70,7 +70,7 @@ export default async function AdminLayout({
       <header className="border-b border-slate-200 bg-white lg:hidden">
         <div className="flex items-center justify-between px-4 py-3">
           <Link href="/admin" className="font-bold text-slate-900">
-            SHBS Admin
+            SHBS Peer Tutoring Team
           </Link>
           <SignOutButton className="btn-secondary btn-sm" />
         </div>
@@ -89,7 +89,7 @@ export default async function AdminLayout({
           <div className="sticky top-6 space-y-6">
             <div className="px-3">
               <Link href="/admin" className="text-lg font-bold text-slate-900">
-                SHBS Admin
+                SHBS Peer Tutoring Team
               </Link>
               <p className="muted mt-0.5 truncate text-xs">
                 {session.user.name} · {session.role}

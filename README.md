@@ -52,7 +52,7 @@ provider — is future work.
 
 ### Routes
 
-- `/` — public landing page with three CTAs: request a tutor, apply to tutor, sign in.
+- `/` — public landing page with three CTAs: request a tutor, apply to tutor, and team sign-in.
 - `/signup` — **public** tutee signup form: name, first/second course choice (from the
   admin-managed catalog), available time slots, and a typed rulebook signature. Creates a
   `PENDING` tutee for an admin to review and assign.
@@ -62,13 +62,13 @@ provider — is future work.
   once they confirm they have one), and/or self-studied it (+ a note on how they qualify).
   Creates a `PENDING` `TutorApplication` — **no login is created**; the admin team reviews
   and arranges an interview.
-- `/signin` — public email + password sign-in form.
+- `/signin` — public email + password **team sign-in** form (tutors, coordinators, admins).
 - `/dashboard` — tutor home (any signed-in tutor): live monthly service hours, pairings
   (with default-slot picker), availability, the attendance form, interviews they're on the
   panel for, and the room schedule — all on one page.
-- `/admin/*` — management area (coordinator/admin): tutors, tutees, tutor applications,
-  courses, time slots, rooms, pairings, submissions, meetings, adjustments, punishments,
-  users, and the monthly summary.
+- `/admin/*` — the **SHBS Peer Tutoring Team** management area (coordinator/admin): tutors,
+  tutees, tutor applications, courses, time slots, rooms, pairings, submissions, meetings,
+  adjustments, punishments, users, and the monthly summary.
 
 Route gating is handled by `src/middleware.ts` (Edge); the tRPC procedures
 (`src/server/api/routers/`) enforce role and ownership checks server-side.
