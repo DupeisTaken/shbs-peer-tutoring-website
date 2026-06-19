@@ -4,11 +4,11 @@ import { type Metadata } from "next";
 import { Geist } from "next/font/google";
 
 import { TRPCReactProvider } from "~/trpc/react";
+import { APP_TITLE } from "~/lib/branding";
 
 export const metadata: Metadata = {
-  title: "SHBS Peer Tutoring",
-  description:
-    "Pairings, attendance, and service-hour tracking for the SHBS peer-tutoring program.",
+  title: APP_TITLE,
+  description: `Pairings, attendance, and service-hour tracking for the ${APP_TITLE} program.`,
   icons: [{ rel: "icon", url: "/favicon.ico" }],
 };
 

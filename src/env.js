@@ -27,7 +27,11 @@ export const env = createEnv({
    * `NEXT_PUBLIC_`.
    */
   client: {
-    // NEXT_PUBLIC_CLIENTVAR: z.string(),
+    // Display titles (branding). Override in .env to rebrand without code changes;
+    // see src/lib/branding.ts. Public title is used everywhere students see the app;
+    // team title brands the tutor/coordinator/admin management area.
+    NEXT_PUBLIC_APP_TITLE: z.string().min(1).default("SHBS Peer Tutoring"),
+    NEXT_PUBLIC_TEAM_TITLE: z.string().min(1).default("SHBS Peer Tutoring Team"),
   },
 
   /**
@@ -39,6 +43,8 @@ export const env = createEnv({
     AUTH_BOOTSTRAP_ADMIN_EMAILS: process.env.AUTH_BOOTSTRAP_ADMIN_EMAILS,
     DATABASE_URL: process.env.DATABASE_URL,
     NODE_ENV: process.env.NODE_ENV,
+    NEXT_PUBLIC_APP_TITLE: process.env.NEXT_PUBLIC_APP_TITLE,
+    NEXT_PUBLIC_TEAM_TITLE: process.env.NEXT_PUBLIC_TEAM_TITLE,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

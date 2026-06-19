@@ -1,9 +1,10 @@
 import Link from "next/link";
 
 import { SignupForm } from "./signup-form";
+import { APP_TITLE } from "~/lib/branding";
 
 export const metadata = {
-  title: "Request a tutor · SHBS Peer Tutoring",
+  title: `Request a tutor · ${APP_TITLE}`,
 };
 
 export default function SignupPage() {

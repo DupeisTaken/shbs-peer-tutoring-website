@@ -4,6 +4,7 @@ import { redirect } from "next/navigation";
 import { auth } from "~/server/auth";
 import { NavLink } from "~/app/_components/nav-link";
 import { SignOutButton } from "~/app/_components/sign-out-button";
+import { TEAM_TITLE } from "~/lib/branding";
 
 const ELEVATED_ROLES = ["ADMIN", "COORDINATOR"];
 
@@ -70,7 +71,7 @@ export default async function AdminLayout({
       <header className="border-b border-slate-200 bg-white lg:hidden">
         <div className="flex items-center justify-between px-4 py-3">
           <Link href="/admin" className="font-bold text-slate-900">
-            SHBS Peer Tutoring Team
+            {TEAM_TITLE}
           </Link>
           <SignOutButton className="btn-secondary btn-sm" />
         </div>
@@ -89,7 +90,7 @@ export default async function AdminLayout({
           <div className="sticky top-6 space-y-6">
             <div className="px-3">
               <Link href="/admin" className="text-lg font-bold text-slate-900">
-                SHBS Peer Tutoring Team
+                {TEAM_TITLE}
               </Link>
               <p className="muted mt-0.5 truncate text-xs">
                 {session.user.name} · {session.role}

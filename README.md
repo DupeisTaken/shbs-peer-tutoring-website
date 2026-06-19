@@ -136,6 +136,12 @@ commented list. The essentials:
 | `AUTH_SECRET`                  | Session/JWT signing secret (`npx auth secret`).          |
 | `AUTH_BOOTSTRAP_ADMIN_EMAILS`  | Comma-separated emails granted `ADMIN` on first sign-in. |
 | `DATABASE_URL`                 | PostgreSQL connection string.                            |
+| `NEXT_PUBLIC_APP_TITLE`        | Public brand title (default `SHBS Peer Tutoring`).       |
+| `NEXT_PUBLIC_TEAM_TITLE`       | Team/admin-area title (default `SHBS Peer Tutoring Team`).|
+
+Branding: the two `NEXT_PUBLIC_*` titles let you rebrand without code changes — they're
+read through `src/lib/branding.ts` and fall back to the defaults above. Because they're
+`NEXT_PUBLIC_*`, they're inlined at build time, so rebuild after changing them.
 
 ## Scripts
 

@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 
 import { api } from "~/trpc/react";
 import { DAY_NAMES, minToHm } from "~/lib/time";
+import { APP_TITLE } from "~/lib/branding";
 
 export function SignupForm() {
   const options = api.tutee.signupOptions.useQuery();
@@ -207,7 +208,7 @@ export function SignupForm() {
             onChange={(e) => setAgreed(e.target.checked)}
           />
           <span className="text-slate-700">
-            I have read and agree to abide by the SHBS Peer Tutoring rulebook.
+            I have read and agree to abide by the {APP_TITLE} rulebook.
           </span>
         </label>
         <label className="mt-3 block space-y-1">

@@ -2,6 +2,7 @@ import Link from "next/link";
 
 import { auth } from "~/server/auth";
 import { SignOutButton } from "~/app/_components/sign-out-button";
+import { APP_TITLE } from "~/lib/branding";
 
 export default async function Home() {
   const session = await auth();
@@ -12,7 +13,7 @@ export default async function Home() {
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-3xl text-center">
-        <span className="badge-slate mb-4">SHBS Peer Tutoring</span>
+        <span className="badge-slate mb-4">{APP_TITLE}</span>
         <h1 className="text-4xl font-extrabold tracking-tight text-slate-900 sm:text-5xl">
           Peer tutoring, organized.
         </h1>
