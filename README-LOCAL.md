@@ -102,6 +102,10 @@ attendance form on one page).
 
 Switch the interface language any time with the **EN / 中文** toggle in the header.
 
+The dev server logs each tRPC call's real handler time as `[trpc] <type> <path> <ms>` —
+handy for spotting a slow query. (Unlike the T3 default, there's no artificial request delay
+unless you set `TRPC_DEV_DELAY=true`, so the numbers reflect true DB + compute cost.)
+
 Try the public forms (no login required):
 
 - **Tutee signup** at `/signup` → creates a `PENDING` tutee that queues under

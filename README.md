@@ -158,6 +158,23 @@ middleware is untouched). Config is in `src/i18n/request.ts`; client-safe consta
 `src/i18n/config.ts`. Orgs can re-word the app without editing the files by setting the
 `MESSAGES_OVERRIDE` env to a JSON object that is deep-merged over the active locale.
 
+### Performance
+
+Aggregations run **in the database**, not in Node: per-tutee attendance/discipline stats
+(`admin.tuteeStats`) and the per-tutor monthly totals (`admin.monthlySummary`) use Prisma
+`groupBy`, so they return roughly one row per tutor/tutee rather than pulling every session
+or card row into memory — they stay cheap as history grows. History-spanning lists default to
+a window (e.g. submissions default to the current month) instead of loading everything.
+
+Reads are tuned with React Query: a 30 s default `staleTime`, raised to a few minutes for the
+rarely-changing reference catalogs (courses, terms, rooms, time slots — `REFERENCE_STALE_TIME`).
+Mutations call `invalidate()`, so edits still refetch immediately regardless of `staleTime`.
+
+Every tRPC procedure's real handler time is logged in dev (`[trpc] <type> <path> <ms>` — see
+`timingMiddleware` in `src/server/api/trpc.ts`). The T3 starter's artificial request delay is
+**opt-in** via `TRPC_DEV_DELAY=true` (off by default) so local dev isn't slowed and the timing
+log reflects true DB + compute cost.
+
 ## Getting started
 
 Prerequisites: **Node 20+**, **npm**, and a **PostgreSQL** database.
@@ -191,6 +208,7 @@ commented list. The essentials:
 | `NEXT_PUBLIC_APP_TITLE`        | Public brand title (default `SHBS Peer Tutoring`).       |
 | `NEXT_PUBLIC_TEAM_TITLE`       | Team/admin-area title (default `SHBS Peer Tutoring Team`).|
 | `MESSAGES_OVERRIDE`            | Optional JSON deep-merged over locale messages (white-label copy). |
+| `TRPC_DEV_DELAY`               | Dev only: `true` injects a 100–500ms delay per tRPC call (waterfall debugging). Off by default. |
 
 Branding: the two `NEXT_PUBLIC_*` titles let you rebrand without code changes — they're
 read through `src/lib/branding.ts` and fall back to the defaults above. Because they're
