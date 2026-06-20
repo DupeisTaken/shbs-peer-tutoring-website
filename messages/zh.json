@@ -5,6 +5,33 @@
     "saved": "已保存。",
     "language": "语言"
   },
+  "landing": {
+    "nav": {
+      "requestTutor": "申请辅导",
+      "becomeTutor": "成为辅导员",
+      "teamSignin": "团队登录"
+    },
+    "tagline": "朋辈辅导项目",
+    "heroTitle": "一起学习，共同成长。",
+    "intro": "占位介绍——这里放一段关于 {appTitle} 项目的简短介绍。说明面向的对象、可以获得哪些科目的帮助，以及朋辈辅导员如何发挥作用。请用正式的项目简介替换此文字。",
+    "ctaPrimary": "申请辅导",
+    "ctaSecondary": "成为辅导员",
+    "features": {
+      "students": {
+        "title": "面向学生",
+        "body": "占位——报名后即可在你选择的科目上与朋辈辅导员配对，时间由你安排。"
+      },
+      "tutors": {
+        "title": "面向辅导员",
+        "body": "占位——分享你的知识，提升自身能力，并为每节辅导课获得服务时数。"
+      },
+      "team": {
+        "title": "面向团队",
+        "body": "占位——在一个平台上统筹配对、考勤、面试与服务时数。"
+      }
+    },
+    "footer": "占位页脚——© {appTitle}。"
+  },
   "dashboard": {
     "greeting": "你好，{name}",
     "subtitle": "提交考勤并管理你的空闲时间。",

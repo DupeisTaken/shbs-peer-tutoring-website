@@ -5,6 +5,33 @@
     "saved": "Saved.",
     "language": "Language"
   },
+  "landing": {
+    "nav": {
+      "requestTutor": "Request a tutor",
+      "becomeTutor": "Become a tutor",
+      "teamSignin": "Team sign-in"
+    },
+    "tagline": "Peer Tutoring Program",
+    "heroTitle": "Learn together. Grow together.",
+    "intro": "Placeholder introduction — a short paragraph about the {appTitle} program goes here. Describe who it's for, what students can get help with, and how peer tutors make a difference. Replace this copy with the real program overview.",
+    "ctaPrimary": "Request a tutor",
+    "ctaSecondary": "Become a tutor",
+    "features": {
+      "students": {
+        "title": "For students",
+        "body": "Placeholder — sign up to be matched with a peer tutor in the subjects you choose, at times that work for you."
+      },
+      "tutors": {
+        "title": "For tutors",
+        "body": "Placeholder — share what you know, build your skills, and earn service hours for every session you run."
+      },
+      "team": {
+        "title": "For the team",
+        "body": "Placeholder — coordinate pairings, attendance, interviews, and service hours from one place."
+      }
+    },
+    "footer": "Placeholder footer — © {appTitle}."
+  },
   "dashboard": {
     "greeting": "Hi, {name}",
     "subtitle": "Submit attendance and manage your availability.",
