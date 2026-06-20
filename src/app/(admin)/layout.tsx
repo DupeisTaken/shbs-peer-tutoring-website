@@ -15,7 +15,10 @@ type NavItem = { href: string; label: string; exact?: boolean; adminOnly?: boole
 const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
   {
     title: "Overview",
-    items: [{ href: "/admin", label: "Dashboard", exact: true }],
+    items: [
+      { href: "/admin", label: "Dashboard", exact: true },
+      { href: "/admin/announcements", label: "Announcements" },
+    ],
   },
   {
     title: "People",
@@ -41,12 +44,16 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
       { href: "/admin/summary", label: "Monthly summary" },
       { href: "/admin/meetings", label: "Meetings" },
       { href: "/admin/adjustments", label: "Adjustments" },
+      { href: "/admin/cards", label: "Discipline · cards" },
       { href: "/admin/punishments", label: "Punishments" },
     ],
   },
   {
     title: "Administration",
-    items: [{ href: "/admin/users", label: "Users & roles", adminOnly: true }],
+    items: [
+      { href: "/admin/policies", label: "Policy documents" },
+      { href: "/admin/users", label: "Users & roles", adminOnly: true },
+    ],
   },
 ];
 

@@ -330,6 +330,19 @@ CREATE TABLE "PolicyFile" (
 );
 
 -- CreateTable
+CREATE TABLE "PolicyDocument" (
+    "id" TEXT NOT NULL,
+    "slug" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "body" TEXT NOT NULL,
+    "version" TEXT,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+    "updatedById" TEXT,
+
+    CONSTRAINT "PolicyDocument_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "DisciplinaryCard" (
     "id" TEXT NOT NULL,
     "tuteeId" TEXT NOT NULL,
@@ -471,6 +484,9 @@ CREATE INDEX "InterviewAssignment_tutorId_idx" ON "InterviewAssignment"("tutorId
 CREATE INDEX "InterviewVote_tutorId_idx" ON "InterviewVote"("tutorId");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "PolicyDocument_slug_key" ON "PolicyDocument"("slug");
+
+-- CreateIndex
 CREATE INDEX "DisciplinaryCard_tuteeId_idx" ON "DisciplinaryCard"("tuteeId");
 
 -- CreateIndex
@@ -580,6 +596,9 @@ ALTER TABLE "InterviewVote" ADD CONSTRAINT "InterviewVote_applicationId_fkey" FO
 
 -- AddForeignKey
 ALTER TABLE "InterviewVote" ADD CONSTRAINT "InterviewVote_tutorId_fkey" FOREIGN KEY ("tutorId") REFERENCES "Tutor"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PolicyDocument" ADD CONSTRAINT "PolicyDocument_updatedById_fkey" FOREIGN KEY ("updatedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "DisciplinaryCard" ADD CONSTRAINT "DisciplinaryCard_tuteeId_fkey" FOREIGN KEY ("tuteeId") REFERENCES "Tutee"("id") ON DELETE CASCADE ON UPDATE CASCADE;

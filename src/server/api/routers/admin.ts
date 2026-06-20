@@ -792,4 +792,143 @@ export const adminRouter = createTRPCRouter({
     .mutation(({ ctx, input }) =>
       ctx.db.user.update({ where: { id: input.userId }, data: { role: input.role } }),
     ),
+
+  // --------------------------------------------------------------------------
+  // Policy documents (editable handbooks)
+  // --------------------------------------------------------------------------
+  policies: adminProcedure.query(({ ctx }) =>
+    ctx.db.policyDocument.findMany({
+      orderBy: { slug: "asc" },
+      select: {
+        id: true,
+        slug: true,
+        title: true,
+        body: true,
+        version: true,
+        updatedAt: true,
+        updatedBy: { select: { name: true, email: true } },
+      },
+    }),
+  ),
+
+  updatePolicy: adminProcedure
+    .input(
+      z.object({
+        id: cuid,
+        title: z.string().trim().min(1).max(200),
+        version: z.string().trim().max(40).nullable().optional(),
+        body: z.string().min(1),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      ctx.db.policyDocument.update({
+        where: { id: input.id },
+        data: {
+          title: input.title,
+          version: input.version?.trim() ? input.version.trim() : null,
+          body: input.body,
+          updatedById: ctx.session.user.id,
+        },
+      }),
+    ),
+
+  // --------------------------------------------------------------------------
+  // Announcements (broadcast to tutors)
+  // --------------------------------------------------------------------------
+  announcements: adminProcedure.query(({ ctx }) =>
+    ctx.db.announcement.findMany({
+      orderBy: [{ active: "desc" }, { pinned: "desc" }, { createdAt: "desc" }],
+      select: {
+        id: true,
+        title: true,
+        body: true,
+        pinned: true,
+        active: true,
+        createdAt: true,
+        createdBy: { select: { name: true } },
+        _count: { select: { acks: true } },
+      },
+    }),
+  ),
+
+  createAnnouncement: adminProcedure
+    .input(
+      z.object({
+        title: z.string().trim().min(1).max(200),
+        body: z.string().trim().min(1).max(5000),
+        pinned: z.boolean().default(false),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      ctx.db.announcement.create({
+        data: {
+          title: input.title,
+          body: input.body,
+          pinned: input.pinned,
+          createdById: ctx.session.user.id,
+        },
+      }),
+    ),
+
+  updateAnnouncement: adminProcedure
+    .input(
+      z.object({
+        id: cuid,
+        title: z.string().trim().min(1).max(200).optional(),
+        body: z.string().trim().min(1).max(5000).optional(),
+        pinned: z.boolean().optional(),
+        active: z.boolean().optional(),
+      }),
+    )
+    .mutation(({ ctx, input }) => {
+      const { id, ...rest } = input;
+      return ctx.db.announcement.update({ where: { id }, data: rest });
+    }),
+
+  deleteAnnouncement: adminProcedure
+    .input(z.object({ id: cuid }))
+    .mutation(({ ctx, input }) =>
+      ctx.db.announcement.delete({ where: { id: input.id } }),
+    ),
+
+  // --------------------------------------------------------------------------
+  // Disciplinary cards (team recheck of yellow/red cards)
+  // --------------------------------------------------------------------------
+  disciplinaryCards: adminProcedure.query(({ ctx }) =>
+    ctx.db.disciplinaryCard.findMany({
+      orderBy: [{ reviewStatus: "asc" }, { createdAt: "desc" }],
+      select: {
+        id: true,
+        color: true,
+        source: true,
+        reason: true,
+        reviewStatus: true,
+        reviewNote: true,
+        createdAt: true,
+        tutee: { select: { id: true, englishName: true } },
+        issuedByTutor: { select: { englishName: true } },
+        session: { select: { date: true } },
+      },
+    }),
+  ),
+
+  reviewCard: adminProcedure
+    .input(
+      z.object({
+        id: cuid,
+        reviewStatus: z.enum(["VALID", "INVALID"]),
+        reviewNote: z.string().trim().max(500).optional(),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      ctx.db.disciplinaryCard.update({
+        where: { id: input.id },
+        data: {
+          reviewStatus: input.reviewStatus,
+          reviewNote: input.reviewNote?.trim() ? input.reviewNote.trim() : null,
+          reviewedById: ctx.session.user.id,
+          reviewedAt: new Date(),
+        },
+      }),
+    ),
 });

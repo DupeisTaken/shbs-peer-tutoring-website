@@ -63,6 +63,8 @@ model User {
   announcementAcks AnnouncementAck[]
   // Disciplinary cards this user (admin) reviewed (flagged valid/invalid).
   cardReviews      DisciplinaryCard[] @relation("CardReviewer")
+  // Policy documents this user (admin) last edited.
+  policyEdits      PolicyDocument[]   @relation("PolicyEditor")
 
   createdAt DateTime @default(now())
 }
@@ -512,6 +514,20 @@ model PolicyFile {
   name       String
   path       String // stored file path or URL
   uploadedAt DateTime @default(now())
+}
+
+/// An editable policy document (e.g. the tutor / tutee handbooks). Body is Markdown, edited
+/// in the admin area (/admin/policies) and seeded from the published handbooks.
+model PolicyDocument {
+  id          String   @id @default(cuid())
+  /// Stable key, e.g. "tutor-policy" / "tutee-policy".
+  slug        String   @unique
+  title       String
+  body        String // Markdown
+  version     String?
+  updatedAt   DateTime @updatedAt
+  updatedById String?
+  updatedBy   User?    @relation("PolicyEditor", fields: [updatedById], references: [id])
 }
 
 // ----------------------------------------------------------------------------

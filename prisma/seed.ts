@@ -6,6 +6,7 @@
  */
 import { PrismaClient } from "../generated/prisma";
 import { hashPassword } from "../src/server/auth/password";
+import { TUTEE_POLICY, TUTOR_POLICY } from "./policies";
 
 const db = new PrismaClient();
 
@@ -457,6 +458,20 @@ async function main() {
   ];
   for (const c of cards) {
     await db.disciplinaryCard.upsert({ where: { id: c.id }, update: c, create: c });
+  }
+
+  // --- Policy documents (editable in /admin/policies) ------------------------
+  const policies = [
+    { slug: "tutor-policy", title: "Peer Tutoring Tutor Policy", version: "v.2025.10.13M", body: TUTOR_POLICY },
+    { slug: "tutee-policy", title: "Peer Tutoring Tutee Policy", version: "v.2025.04.25M", body: TUTEE_POLICY },
+  ];
+  for (const p of policies) {
+    await db.policyDocument.upsert({
+      where: { slug: p.slug },
+      // Don't clobber admin edits on re-seed: only set the body when first created.
+      update: { title: p.title, version: p.version },
+      create: p,
+    });
   }
 
   console.log(

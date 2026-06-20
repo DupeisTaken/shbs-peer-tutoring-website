@@ -103,6 +103,9 @@
   .badge-slate {
     @apply badge bg-slate-100 text-slate-600;
   }
+  .badge-red {
+    @apply badge bg-red-100 text-red-700;
+  }
 
   /* Navigation ------------------------------------------------------------ */
   .nav-link {
