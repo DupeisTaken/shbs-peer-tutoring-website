@@ -9,6 +9,7 @@ import {
 import { monthKey } from "~/lib/service-hours";
 import { defaultUsername, ensureUniqueUsername } from "~/server/auth/username";
 import { promoteApplicantToTutor } from "~/server/tutors/promote";
+import { notifyTutors, notifyUsers } from "~/server/notifications/create";
 
 const monthInput = z.string().regex(/^\d{4}-\d{2}$/);
 const cuid = z.string().min(1);
@@ -713,7 +714,7 @@ export const adminRouter = createTRPCRouter({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Unknown tutor selected." });
       }
 
-      return ctx.db.$transaction(async (tx) => {
+      const result = await ctx.db.$transaction(async (tx) => {
         await tx.interviewAssignment.deleteMany({
           where: { applicationId: input.applicationId },
         });
@@ -729,6 +730,13 @@ export const adminRouter = createTRPCRouter({
           data: { status: "INTERVIEW" },
         });
       });
+      // Notify the assigned panelists.
+      await notifyTutors(tutorIds, {
+        title: "You're on an interview panel",
+        body: `Applicant: ${result.name}`,
+        link: "/dashboard",
+      });
+      return result;
     }),
 
   setApplicationStatus: adminProcedure
@@ -844,16 +852,26 @@ export const adminRouter = createTRPCRouter({
         pinned: z.boolean().default(false),
       }),
     )
-    .mutation(({ ctx, input }) =>
-      ctx.db.announcement.create({
+    .mutation(async ({ ctx, input }) => {
+      const announcement = await ctx.db.announcement.create({
         data: {
           title: input.title,
           body: input.body,
           pinned: input.pinned,
           createdById: ctx.session.user.id,
         },
-      }),
-    ),
+      });
+      // Notify everyone else of the new announcement.
+      const users = await ctx.db.user.findMany({
+        where: { id: { not: ctx.session.user.id } },
+        select: { id: true },
+      });
+      await notifyUsers(
+        users.map((u) => u.id),
+        { title: `📣 ${input.title}`, body: input.body, link: "/dashboard" },
+      );
+      return announcement;
+    }),
 
   updateAnnouncement: adminProcedure
     .input(

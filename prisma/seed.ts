@@ -474,6 +474,19 @@ async function main() {
     });
   }
 
+  // --- Demo notification -----------------------------------------------------
+  await db.notification.upsert({
+    where: { id: "notif-demo" },
+    update: {},
+    create: {
+      id: "notif-demo",
+      userId: "user-alice",
+      title: "📣 Welcome back — Q3 pairings are live",
+      body: "Confirm your session times this week.",
+      link: "/dashboard",
+    },
+  });
+
   console.log(
     `Seeded: 1 term, ${ROOMS.length} rooms, ${COURSES.length} courses, ` +
       `${TIME_SLOTS.length} time slots, ${TUTORS.length} tutors, ` +

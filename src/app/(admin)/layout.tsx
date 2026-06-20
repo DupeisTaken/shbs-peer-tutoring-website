@@ -6,6 +6,7 @@ import { db } from "~/server/db";
 import { NavLink } from "~/app/_components/nav-link";
 import { SignOutButton } from "~/app/_components/sign-out-button";
 import { UserAvatar } from "~/app/_components/user-avatar";
+import { NotificationBell } from "~/app/_components/notification-bell";
 import { TEAM_TITLE } from "~/lib/branding";
 
 const ELEVATED_ROLES = ["ADMIN", "COORDINATOR"];
@@ -87,12 +88,15 @@ export default async function AdminLayout({
           <Link href="/admin" className="font-bold text-slate-900">
             {TEAM_TITLE}
           </Link>
-          <UserAvatar
-            name={session.user.name ?? "User"}
-            username={me?.tutor?.username}
-            email={me?.email}
-            role={session.role}
-          />
+          <div className="flex items-center gap-3">
+            <NotificationBell />
+            <UserAvatar
+              name={session.user.name ?? "User"}
+              username={me?.tutor?.username}
+              email={me?.email}
+              role={session.role}
+            />
+          </div>
         </div>
         <nav className="flex gap-1 overflow-x-auto px-2 pb-2">
           {NAV_SECTIONS.flatMap((s) => s.items)
@@ -108,9 +112,12 @@ export default async function AdminLayout({
         <aside className="hidden w-56 shrink-0 lg:block">
           <div className="sticky top-6 space-y-6">
             <div className="px-3">
-              <Link href="/admin" className="text-lg font-bold text-slate-900">
-                {TEAM_TITLE}
-              </Link>
+              <div className="flex items-center justify-between gap-2">
+                <Link href="/admin" className="text-lg font-bold text-slate-900">
+                  {TEAM_TITLE}
+                </Link>
+                <NotificationBell />
+              </div>
               <p className="muted mt-0.5 truncate text-xs">
                 {session.user.name} · {session.role}
               </p>

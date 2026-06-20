@@ -65,8 +65,25 @@ model User {
   cardReviews      DisciplinaryCard[] @relation("CardReviewer")
   // Policy documents this user (admin) last edited.
   policyEdits      PolicyDocument[]   @relation("PolicyEditor")
+  // In-app notifications addressed to this user.
+  notifications    Notification[]
 
   createdAt DateTime @default(now())
+}
+
+/// A lightweight in-app notification for any user (tutor / coordinator / admin).
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  title     String
+  body      String?
+  /// Optional in-app link the notification points to (e.g. "/dashboard").
+  link      String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId, readAt])
 }
 
 // ----------------------------------------------------------------------------
