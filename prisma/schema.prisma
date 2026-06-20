@@ -41,6 +41,11 @@ model User {
   /// sign-in. Not yet enforced anywhere.
   twoFactorEnabled Boolean @default(false)
 
+  /// Set when the user completes first-login onboarding (`/onboarding/email`): they
+  /// confirm the contact email their sign-in codes go to (email-2FA setup is scaffolded).
+  /// Null = onboarding not done yet; the tutor shell routes them to the gate.
+  emailVerifiedAt DateTime?
+
   role Role @default(TUTOR)
 
   // Optional link to the domain Tutor record (matched by email at first sign-in).
@@ -49,6 +54,15 @@ model User {
 
   /// SCAFFOLDING — future email 2FA codes (see EmailVerificationCode). Unused for now.
   verificationCodes EmailVerificationCode[]
+
+  /// SCAFFOLDING — forgot-password reset tokens (see PasswordResetToken).
+  passwordResets PasswordResetToken[]
+
+  // Announcements this user (admin) broadcast, and the ones they've acknowledged.
+  announcements    Announcement[]    @relation("AnnouncementAuthor")
+  announcementAcks AnnouncementAck[]
+  // Disciplinary cards this user (admin) reviewed (flagged valid/invalid).
+  cardReviews      DisciplinaryCard[] @relation("CardReviewer")
 
   createdAt DateTime @default(now())
 }
@@ -115,7 +129,18 @@ model Term {
 
 model Tutor {
   id          String   @id @default(cuid())
+  /// Split name. `englishName` is kept as the canonical display name (= "First Last")
+  /// so the many places that render it don't change.
+  firstName   String?
+  lastName    String?
   englishName String
+  /// Free-text alternative name(s) — full Unicode (e.g. 简体中文 / 漢字 / etc.). Display only;
+  /// shown alongside englishName. No charset restriction is applied anywhere.
+  alternativeNames String?
+  /// Login handle — default is first initial + full last name (e.g. "jsmith"), lowercased.
+  /// Unique; lets a tutor sign in with username OR email. Resolved to the User via the
+  /// `user` relation in the Credentials authorize().
+  username    String?  @unique
   /// Work/school email. Used to link the Tutor to a User account at first sign-in
   /// (User.email is matched against this).
   email       String?  @unique
@@ -129,6 +154,11 @@ model Tutor {
   meetingAttendances   MeetingAttendance[]
   availabilities       TutorAvailability[]
   interviewAssignments InterviewAssignment[]
+  // Disciplinary cards this tutor issued, interview votes they cast, and applications
+  // they decided as head interviewer.
+  issuedCards          DisciplinaryCard[]    @relation("CardIssuer")
+  interviewVotes       InterviewVote[]
+  applicationDecisions TutorApplication[]    @relation("AppDecider")
 }
 
 /// A subject offered for tutoring. The catalog is managed by admins; tutees pick a
@@ -151,6 +181,8 @@ model Tutee {
   englishName String
   email       String?
   phone       String?
+  /// Free-text "how can we reach you?" captured on the public signup form (required there).
+  preferredContact String?
   gradeLevel  String?
   notes       String?
   status      TuteeStatus @default(ACTIVE)
@@ -172,6 +204,7 @@ model Tutee {
   pairings       PairingTutee[]
   sessions       SessionTutee[]
   punishments    Punishment[]
+  cards          DisciplinaryCard[]
 
   @@index([status])
 }
@@ -312,6 +345,8 @@ model Session {
   tutor     Tutor   @relation(fields: [tutorId], references: [id])
 
   tutees SessionTutee[]
+  // Disciplinary cards requested via this attendance submission's survey.
+  cards  DisciplinaryCard[]
 
   @@index([tutorId, month])
   @@index([pairingId])
@@ -403,14 +438,23 @@ model TutorApplication {
   /// Contact email. SCAFFOLDING: future email-based 2FA / verification codes for the
   /// applicant would be sent here (see src/server/auth/two-factor.ts); not wired yet.
   email           String
+  /// Free-text "how can we reach you?" captured on the public application form (required there).
+  preferredContact String?
   contactVerified Boolean                @default(false)
   status          TutorApplicationStatus @default(PENDING)
   /// Interview time, coordinated by the head interviewer.
   interviewAt     DateTime?
+  /// Head interviewer's final decision: recorded on the head's page with a brief comment.
+  /// The per-panelist tally lives in `votes`; `status` reflects the outcome (ACCEPTED/REJECTED).
+  decisionComment   String?
+  decidedAt         DateTime?
+  decidedByTutorId  String?
+  decidedByTutor    Tutor?    @relation("AppDecider", fields: [decidedByTutorId], references: [id])
   createdAt       DateTime               @default(now())
 
   courseIntents ApplicationCourseIntent[]
   interviewers  InterviewAssignment[]
+  votes         InterviewVote[]
 
   @@index([status])
 }
@@ -448,11 +492,111 @@ model InterviewAssignment {
   @@index([tutorId])
 }
 
+/// One panelist's vote on an applicant after the demonstration (accept = simple majority
+/// admits; the head breaks ties). The head reads the tally + comments before deciding.
+model InterviewVote {
+  applicationId String
+  application   TutorApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
+  tutorId       String
+  tutor         Tutor            @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  accept        Boolean
+  comment       String?
+  createdAt     DateTime         @default(now())
+
+  @@id([applicationId, tutorId])
+  @@index([tutorId])
+}
+
 model PolicyFile {
   id         String   @id @default(cuid())
   name       String
   path       String // stored file path or URL
   uploadedAt DateTime @default(now())
+}
+
+// ----------------------------------------------------------------------------
+// Discipline — tutee yellow/red cards (the "punishment" system in the policy)
+//
+// Tutors request cards via the attendance survey (source TUTOR, with a required reason),
+// and the team rechecks each, flagging it VALID or INVALID. The system also auto-issues
+// cards from attendance (source AUTO, e.g. unexcused absence -> red). Standing is derived
+// from VALID cards: 3 yellows count as 1 red, and 2 reds = removal-pending. The escalation
+// tally is computed (see src/lib/discipline.ts), not materialized, to avoid double counting.
+// ----------------------------------------------------------------------------
+
+enum CardColor {
+  YELLOW
+  RED
+}
+
+/// Where a card came from: a tutor's survey request, or automatic policy issuance.
+enum CardSource {
+  TUTOR
+  AUTO
+}
+
+/// Team review state of a card. TUTOR cards start PENDING (await recheck); AUTO cards are
+/// created VALID (rule-based) but can still be flagged INVALID on appeal.
+enum CardReviewStatus {
+  PENDING
+  VALID
+  INVALID
+}
+
+model DisciplinaryCard {
+  id           String           @id @default(cuid())
+  tuteeId      String
+  tutee        Tutee            @relation(fields: [tuteeId], references: [id], onDelete: Cascade)
+  color        CardColor
+  source       CardSource       @default(TUTOR)
+  /// Required justification: the tutor's comment, or the auto-issue reason.
+  reason       String?
+  reviewStatus CardReviewStatus @default(PENDING)
+  reviewNote   String?
+  reviewedAt   DateTime?
+  reviewedById String?
+  reviewedBy   User?            @relation("CardReviewer", fields: [reviewedById], references: [id])
+  // For TUTOR-sourced cards: who requested it and via which attendance submission.
+  issuedByTutorId String?
+  issuedByTutor   Tutor?        @relation("CardIssuer", fields: [issuedByTutorId], references: [id])
+  sessionId       String?
+  session         Session?      @relation(fields: [sessionId], references: [id])
+  createdAt    DateTime         @default(now())
+
+  @@index([tuteeId])
+  @@index([reviewStatus])
+}
+
+// ----------------------------------------------------------------------------
+// Announcements — broadcast by the team, shown to tutors on every login until acknowledged
+// ----------------------------------------------------------------------------
+
+model Announcement {
+  id          String   @id @default(cuid())
+  title       String
+  body        String
+  /// Pinned announcements stay surfaced even after acknowledgement.
+  pinned      Boolean  @default(false)
+  active      Boolean  @default(true)
+  createdById String?
+  createdBy   User?    @relation("AnnouncementAuthor", fields: [createdById], references: [id])
+  createdAt   DateTime @default(now())
+
+  acks AnnouncementAck[]
+
+  @@index([active])
+}
+
+/// Records that a user dismissed/acknowledged an announcement (so it stops popping on login).
+model AnnouncementAck {
+  announcementId String
+  announcement   Announcement @relation(fields: [announcementId], references: [id], onDelete: Cascade)
+  userId         String
+  user           User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+  ackedAt        DateTime     @default(now())
+
+  @@id([announcementId, userId])
+  @@index([userId])
 }
 
 // ----------------------------------------------------------------------------
@@ -465,7 +609,8 @@ model PolicyFile {
 
 enum VerificationPurpose {
   LOGIN_2FA // emailed one-time code as a login second factor
-  // Future: PASSWORD_RESET, EMAIL_CHANGE, ...
+  PASSWORD_RESET // forgot-password reset (see PasswordResetToken)
+  // Future: EMAIL_CHANGE, ...
 }
 
 /// A short-lived, single-use one-time code emailed to a user as a second factor.
@@ -480,6 +625,22 @@ model EmailVerificationCode {
   consumedAt DateTime?
   attempts   Int                 @default(0)
   createdAt  DateTime            @default(now())
+
+  @@index([userId])
+}
+
+/// A short-lived, single-use password-reset token for the forgot-password flow.
+/// Only the token *hash* is stored — the plaintext goes in the emailed reset link.
+/// The token logic (issue/verify) is implemented in src/server/auth/password-reset.ts;
+/// email DELIVERY is scaffolded only (no provider wired up — see src/server/email/sender.ts).
+model PasswordResetToken {
+  id         String    @id @default(cuid())
+  userId     String
+  user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  tokenHash  String    @unique
+  expiresAt  DateTime
+  consumedAt DateTime?
+  createdAt  DateTime  @default(now())
 
   @@index([userId])
 }

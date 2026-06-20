@@ -33,6 +33,7 @@ type PendingTuteeData = {
   gradeLevel: string | null;
   email: string | null;
   phone: string | null;
+  preferredContact: string | null;
   signedRulebook: boolean;
   signatureName: string | null;
   firstChoice: { name: string } | null;
@@ -77,6 +78,9 @@ function PendingTutee({
             {tutee.email ?? "no email"}
             {tutee.phone ? ` · ${tutee.phone}` : ""}
           </p>
+          {tutee.preferredContact && (
+            <p className="muted">Reach: {tutee.preferredContact}</p>
+          )}
           <p className="muted">
             Signed: {tutee.signedRulebook ? `✓ ${tutee.signatureName ?? ""}` : "— not signed"}
           </p>
@@ -321,7 +325,9 @@ export default function TuteesPage() {
                   {t.secondChoice ? ` / ${t.secondChoice.name}` : ""}
                 </td>
                 <td className="text-slate-600">{availabilitySummary(t.availabilities)}</td>
-                <td className="text-slate-600">{t.email ?? t.phone ?? "—"}</td>
+                <td className="text-slate-600">
+                  {t.preferredContact ?? t.email ?? t.phone ?? "—"}
+                </td>
                 <td>
                   <div className="flex items-center gap-2">
                     <StatusBadge status={t.status} />

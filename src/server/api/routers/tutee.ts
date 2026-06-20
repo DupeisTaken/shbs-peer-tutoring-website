@@ -43,6 +43,11 @@ export const tuteeRouter = createTRPCRouter({
         englishName: z.string().trim().min(1, "Name is required").max(120),
         email: z.string().email().optional().or(z.literal("")),
         phone: z.string().trim().max(40).optional(),
+        preferredContact: z
+          .string()
+          .trim()
+          .min(1, "Tell us how to reach you")
+          .max(200),
         gradeLevel: z.string().trim().max(40).optional(),
         firstChoiceId: cuid,
         secondChoiceId: cuid.optional().or(z.literal("")),
@@ -88,6 +93,7 @@ export const tuteeRouter = createTRPCRouter({
           englishName: input.englishName,
           email: blankToNull(input.email)?.toLowerCase() ?? null,
           phone: blankToNull(input.phone),
+          preferredContact: input.preferredContact,
           gradeLevel: blankToNull(input.gradeLevel),
           status: "PENDING",
           firstChoiceId: input.firstChoiceId,

@@ -53,7 +53,14 @@ export const authConfig = {
      *  public; everything else requires sign-in. */
     authorized({ auth, request }) {
       const { pathname } = request.nextUrl;
-      const PUBLIC = ["/", "/signin", "/signup", "/tutor-signup"];
+      const PUBLIC = [
+        "/",
+        "/signin",
+        "/signup",
+        "/tutor-signup",
+        "/forgot-password",
+        "/reset-password",
+      ];
       if (PUBLIC.includes(pathname)) return true;
       return !!auth?.user;
     },

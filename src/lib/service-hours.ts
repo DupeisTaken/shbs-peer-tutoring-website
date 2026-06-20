@@ -25,15 +25,51 @@ export function shFactor(status: AttendanceStatus, tuteeCount: number): number {
 }
 
 /**
+ * Rounds a duration (minutes) to the nearest half-hour: a <=10 min leftover within the hour
+ * rounds down, otherwise up. Shared by session and interview hour math.
+ */
+export function roundToHalfHour(durationMin: number): number {
+  const hours = durationMin / 60;
+  const leftover = durationMin % 60;
+  return leftover <= 10 ? Math.floor(hours * 2) / 2 : Math.ceil(hours * 2) / 2;
+}
+
+/**
  * Rounds duration to the nearest half-hour (a <=10 min leftover rounds down, otherwise up)
  * and multiplies by the factor.
  */
 export function shCount(durationMin: number, factor: number): number {
-  const hours = durationMin / 60;
-  const leftover = durationMin % 60;
-  const rounded =
-    leftover <= 10 ? Math.floor(hours * 2) / 2 : Math.ceil(hours * 2) / 2;
-  return rounded * factor;
+  return roundToHalfHour(durationMin) * factor;
+}
+
+/**
+ * Service hours a tutor earns for interviewing a tutor applicant: equal to the interview
+ * duration (rounded to the nearest half-hour), per the tutor policy.
+ */
+export function interviewServiceHours(durationMin: number): number {
+  return roundToHalfHour(durationMin);
+}
+
+/**
+ * Service-hour deduction amounts from the tutor policy (Section IV).
+ * These reduce a tutor's accrued total; surfaced as PUNISHMENT-type adjustments in the recap.
+ */
+export const DEDUCTION = {
+  /** Per tutor absence beyond the per-semester limit. */
+  OVER_LIMIT_ABSENCE: 0.25,
+  /** Per unexcused tutor absence from a session. */
+  UNEXCUSED_TUTOR_ABSENCE: 1,
+  /** Per unexcused weekly-meeting absence. */
+  MISSED_MEETING_UNEXCUSED: 0.125,
+} as const;
+
+/** Tutors may not exceed this many total absences per semester before deductions apply. */
+export const ABSENCE_LIMIT_PER_SEMESTER = 3;
+
+/** Deduction for total absences beyond the per-semester limit. */
+export function overLimitAbsenceDeduction(totalAbsences: number): number {
+  const over = Math.max(0, totalAbsences - ABSENCE_LIMIT_PER_SEMESTER);
+  return over * DEDUCTION.OVER_LIMIT_ABSENCE;
 }
 
 /** "YYYY-MM" bucket for a date, used to group monthly totals. */

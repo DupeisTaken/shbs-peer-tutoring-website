@@ -22,6 +22,7 @@ type Application = {
   id: string;
   name: string;
   email: string;
+  preferredContact: string | null;
   status: Status;
   interviewAt: Date | null;
   courseIntents: {
@@ -73,6 +74,9 @@ function ApplicationCard({
             {app.name} <StatusBadge status={app.status} />
           </p>
           <p className="muted">{app.email}</p>
+          {app.preferredContact && (
+            <p className="muted text-xs">Reach: {app.preferredContact}</p>
+          )}
         </div>
         <div className="flex items-center gap-2">
           {app.status !== "ACCEPTED" && (

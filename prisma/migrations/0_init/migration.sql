@@ -1,3 +1,6 @@
+warn The configuration property `package.json#prisma` is deprecated and will be removed in Prisma 7. Please migrate to a Prisma config file (e.g., `prisma.config.ts`).
+For more information, see: https://pris.ly/prisma-config
+
 -- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
 
@@ -26,7 +29,16 @@ CREATE TYPE "CourseTag" AS ENUM ('AP', 'HONORS', 'STANDARD');
 CREATE TYPE "TutorApplicationStatus" AS ENUM ('PENDING', 'INTERVIEW', 'ACCEPTED', 'REJECTED');
 
 -- CreateEnum
-CREATE TYPE "VerificationPurpose" AS ENUM ('LOGIN_2FA');
+CREATE TYPE "CardColor" AS ENUM ('YELLOW', 'RED');
+
+-- CreateEnum
+CREATE TYPE "CardSource" AS ENUM ('TUTOR', 'AUTO');
+
+-- CreateEnum
+CREATE TYPE "CardReviewStatus" AS ENUM ('PENDING', 'VALID', 'INVALID');
+
+-- CreateEnum
+CREATE TYPE "VerificationPurpose" AS ENUM ('LOGIN_2FA', 'PASSWORD_RESET');
 
 -- CreateTable
 CREATE TABLE "User" (
@@ -35,6 +47,7 @@ CREATE TABLE "User" (
     "email" TEXT NOT NULL,
     "passwordHash" TEXT,
     "twoFactorEnabled" BOOLEAN NOT NULL DEFAULT false,
+    "emailVerifiedAt" TIMESTAMP(3),
     "role" "Role" NOT NULL DEFAULT 'TUTOR',
     "tutorId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -58,7 +71,11 @@ CREATE TABLE "Term" (
 -- CreateTable
 CREATE TABLE "Tutor" (
     "id" TEXT NOT NULL,
+    "firstName" TEXT,
+    "lastName" TEXT,
     "englishName" TEXT NOT NULL,
+    "alternativeNames" TEXT,
+    "username" TEXT,
     "email" TEXT,
     "active" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -83,6 +100,7 @@ CREATE TABLE "Tutee" (
     "englishName" TEXT NOT NULL,
     "email" TEXT,
     "phone" TEXT,
+    "preferredContact" TEXT,
     "gradeLevel" TEXT,
     "notes" TEXT,
     "status" "TuteeStatus" NOT NULL DEFAULT 'ACTIVE',
@@ -253,9 +271,13 @@ CREATE TABLE "TutorApplication" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "email" TEXT NOT NULL,
+    "preferredContact" TEXT,
     "contactVerified" BOOLEAN NOT NULL DEFAULT false,
     "status" "TutorApplicationStatus" NOT NULL DEFAULT 'PENDING',
     "interviewAt" TIMESTAMP(3),
+    "decisionComment" TEXT,
+    "decidedAt" TIMESTAMP(3),
+    "decidedByTutorId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "TutorApplication_pkey" PRIMARY KEY ("id")
@@ -287,6 +309,17 @@ CREATE TABLE "InterviewAssignment" (
 );
 
 -- CreateTable
+CREATE TABLE "InterviewVote" (
+    "applicationId" TEXT NOT NULL,
+    "tutorId" TEXT NOT NULL,
+    "accept" BOOLEAN NOT NULL,
+    "comment" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "InterviewVote_pkey" PRIMARY KEY ("applicationId","tutorId")
+);
+
+-- CreateTable
 CREATE TABLE "PolicyFile" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
@@ -294,6 +327,46 @@ CREATE TABLE "PolicyFile" (
     "uploadedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "PolicyFile_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "DisciplinaryCard" (
+    "id" TEXT NOT NULL,
+    "tuteeId" TEXT NOT NULL,
+    "color" "CardColor" NOT NULL,
+    "source" "CardSource" NOT NULL DEFAULT 'TUTOR',
+    "reason" TEXT,
+    "reviewStatus" "CardReviewStatus" NOT NULL DEFAULT 'PENDING',
+    "reviewNote" TEXT,
+    "reviewedAt" TIMESTAMP(3),
+    "reviewedById" TEXT,
+    "issuedByTutorId" TEXT,
+    "sessionId" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "DisciplinaryCard_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Announcement" (
+    "id" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "body" TEXT NOT NULL,
+    "pinned" BOOLEAN NOT NULL DEFAULT false,
+    "active" BOOLEAN NOT NULL DEFAULT true,
+    "createdById" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Announcement_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "AnnouncementAck" (
+    "announcementId" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "ackedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "AnnouncementAck_pkey" PRIMARY KEY ("announcementId","userId")
 );
 
 -- CreateTable
@@ -310,11 +383,26 @@ CREATE TABLE "EmailVerificationCode" (
     CONSTRAINT "EmailVerificationCode_pkey" PRIMARY KEY ("id")
 );
 
+-- CreateTable
+CREATE TABLE "PasswordResetToken" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "tokenHash" TEXT NOT NULL,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "consumedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "PasswordResetToken_pkey" PRIMARY KEY ("id")
+);
+
 -- CreateIndex
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "User_tutorId_key" ON "User"("tutorId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Tutor_username_key" ON "Tutor"("username");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Tutor_email_key" ON "Tutor"("email");
@@ -380,7 +468,28 @@ CREATE INDEX "ApplicationCourseIntent_applicationId_idx" ON "ApplicationCourseIn
 CREATE INDEX "InterviewAssignment_tutorId_idx" ON "InterviewAssignment"("tutorId");
 
 -- CreateIndex
+CREATE INDEX "InterviewVote_tutorId_idx" ON "InterviewVote"("tutorId");
+
+-- CreateIndex
+CREATE INDEX "DisciplinaryCard_tuteeId_idx" ON "DisciplinaryCard"("tuteeId");
+
+-- CreateIndex
+CREATE INDEX "DisciplinaryCard_reviewStatus_idx" ON "DisciplinaryCard"("reviewStatus");
+
+-- CreateIndex
+CREATE INDEX "Announcement_active_idx" ON "Announcement"("active");
+
+-- CreateIndex
+CREATE INDEX "AnnouncementAck_userId_idx" ON "AnnouncementAck"("userId");
+
+-- CreateIndex
 CREATE INDEX "EmailVerificationCode_userId_idx" ON "EmailVerificationCode"("userId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "PasswordResetToken_tokenHash_key" ON "PasswordResetToken"("tokenHash");
+
+-- CreateIndex
+CREATE INDEX "PasswordResetToken_userId_idx" ON "PasswordResetToken"("userId");
 
 -- AddForeignKey
 ALTER TABLE "User" ADD CONSTRAINT "User_tutorId_fkey" FOREIGN KEY ("tutorId") REFERENCES "Tutor"("id") ON DELETE SET NULL ON UPDATE CASCADE;
@@ -452,6 +561,9 @@ ALTER TABLE "Punishment" ADD CONSTRAINT "Punishment_tuteeId_fkey" FOREIGN KEY ("
 ALTER TABLE "ServiceHourAdjustment" ADD CONSTRAINT "ServiceHourAdjustment_tutorId_fkey" FOREIGN KEY ("tutorId") REFERENCES "Tutor"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "TutorApplication" ADD CONSTRAINT "TutorApplication_decidedByTutorId_fkey" FOREIGN KEY ("decidedByTutorId") REFERENCES "Tutor"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "ApplicationCourseIntent" ADD CONSTRAINT "ApplicationCourseIntent_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "TutorApplication"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -464,5 +576,35 @@ ALTER TABLE "InterviewAssignment" ADD CONSTRAINT "InterviewAssignment_applicatio
 ALTER TABLE "InterviewAssignment" ADD CONSTRAINT "InterviewAssignment_tutorId_fkey" FOREIGN KEY ("tutorId") REFERENCES "Tutor"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "InterviewVote" ADD CONSTRAINT "InterviewVote_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "TutorApplication"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "InterviewVote" ADD CONSTRAINT "InterviewVote_tutorId_fkey" FOREIGN KEY ("tutorId") REFERENCES "Tutor"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "DisciplinaryCard" ADD CONSTRAINT "DisciplinaryCard_tuteeId_fkey" FOREIGN KEY ("tuteeId") REFERENCES "Tutee"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "DisciplinaryCard" ADD CONSTRAINT "DisciplinaryCard_reviewedById_fkey" FOREIGN KEY ("reviewedById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "DisciplinaryCard" ADD CONSTRAINT "DisciplinaryCard_issuedByTutorId_fkey" FOREIGN KEY ("issuedByTutorId") REFERENCES "Tutor"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "DisciplinaryCard" ADD CONSTRAINT "DisciplinaryCard_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "Session"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Announcement" ADD CONSTRAINT "Announcement_createdById_fkey" FOREIGN KEY ("createdById") REFERENCES "User"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "AnnouncementAck" ADD CONSTRAINT "AnnouncementAck_announcementId_fkey" FOREIGN KEY ("announcementId") REFERENCES "Announcement"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "AnnouncementAck" ADD CONSTRAINT "AnnouncementAck_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "EmailVerificationCode" ADD CONSTRAINT "EmailVerificationCode_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PasswordResetToken" ADD CONSTRAINT "PasswordResetToken_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 

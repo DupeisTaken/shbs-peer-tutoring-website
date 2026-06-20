@@ -15,13 +15,13 @@ export async function signInAction(
 ): Promise<string | undefined> {
   try {
     await signIn("credentials", {
-      email: formData.get("email"),
+      identifier: formData.get("identifier"),
       password: formData.get("password"),
       redirectTo: "/",
     });
   } catch (error) {
     if (error instanceof AuthError) {
-      return "Invalid email or password.";
+      return "Invalid username/email or password.";
     }
     throw error; // re-throw the success redirect (NEXT_REDIRECT)
   }

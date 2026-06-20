@@ -7,6 +7,7 @@ import {
   createTRPCRouter,
 } from "~/server/api/trpc";
 import { monthKey } from "~/lib/service-hours";
+import { defaultUsername, ensureUniqueUsername } from "~/server/auth/username";
 
 const monthInput = z.string().regex(/^\d{4}-\d{2}$/);
 const cuid = z.string().min(1);
@@ -241,40 +242,68 @@ export const adminRouter = createTRPCRouter({
   createTutor: adminProcedure
     .input(
       z.object({
-        englishName: z.string().min(1),
+        firstName: z.string().trim().min(1),
+        lastName: z.string().trim().min(1),
+        // Free-text, full Unicode (e.g. Chinese name) — no charset restriction.
+        alternativeNames: z.string().trim().max(200).optional(),
         email: z.string().email().optional(),
         active: z.boolean().default(true),
       }),
     )
-    .mutation(({ ctx, input }) =>
-      ctx.db.tutor.create({
+    .mutation(async ({ ctx, input }) => {
+      const username = await ensureUniqueUsername(
+        defaultUsername(input.firstName, input.lastName),
+      );
+      return ctx.db.tutor.create({
         data: {
-          englishName: input.englishName,
+          firstName: input.firstName,
+          lastName: input.lastName,
+          englishName: `${input.firstName} ${input.lastName}`,
+          alternativeNames: input.alternativeNames?.trim()
+            ? input.alternativeNames.trim()
+            : null,
+          username,
           active: input.active,
           email: input.email?.trim() ? input.email.trim().toLowerCase() : null,
         },
-      }),
-    ),
+      });
+    }),
 
   updateTutor: adminProcedure
     .input(
       z.object({
         id: cuid,
-        englishName: z.string().min(1),
+        firstName: z.string().trim().min(1),
+        lastName: z.string().trim().min(1),
+        alternativeNames: z.string().trim().max(200).nullable().optional(),
+        // Admin may override the auto-generated handle; blank regenerates the default.
+        username: z.string().trim().optional(),
         email: z.string().email().nullable().optional(),
         active: z.boolean(),
       }),
     )
-    .mutation(({ ctx, input }) =>
-      ctx.db.tutor.update({
+    .mutation(async ({ ctx, input }) => {
+      const trimmedUsername = input.username?.trim();
+      const desired =
+        trimmedUsername && trimmedUsername.length > 0
+          ? trimmedUsername
+          : defaultUsername(input.firstName, input.lastName);
+      const username = await ensureUniqueUsername(desired, input.id);
+      return ctx.db.tutor.update({
         where: { id: input.id },
         data: {
-          englishName: input.englishName,
+          firstName: input.firstName,
+          lastName: input.lastName,
+          englishName: `${input.firstName} ${input.lastName}`,
+          alternativeNames: input.alternativeNames?.trim()
+            ? input.alternativeNames.trim()
+            : null,
+          username,
           active: input.active,
           email: input.email?.trim() ? input.email.trim().toLowerCase() : null,
         },
-      }),
-    ),
+      });
+    }),
 
   createTutee: adminProcedure
     .input(

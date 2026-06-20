@@ -2,8 +2,10 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 
 import { auth } from "~/server/auth";
+import { db } from "~/server/db";
 import { NavLink } from "~/app/_components/nav-link";
 import { SignOutButton } from "~/app/_components/sign-out-button";
+import { UserAvatar } from "~/app/_components/user-avatar";
 import { TEAM_TITLE } from "~/lib/branding";
 
 const ELEVATED_ROLES = ["ADMIN", "COORDINATOR"];
@@ -62,6 +64,11 @@ export default async function AdminLayout({
   if (!session?.user) redirect("/signin");
   if (!ELEVATED_ROLES.includes(session.role)) redirect("/");
 
+  const me = await db.user.findUnique({
+    where: { id: session.user.id },
+    select: { email: true, tutor: { select: { username: true } } },
+  });
+
   const isAdmin = session.role === "ADMIN";
   const visible = (item: NavItem) => !item.adminOnly || isAdmin;
 
@@ -73,7 +80,12 @@ export default async function AdminLayout({
           <Link href="/admin" className="font-bold text-slate-900">
             {TEAM_TITLE}
           </Link>
-          <SignOutButton className="btn-secondary btn-sm" />
+          <UserAvatar
+            name={session.user.name ?? "User"}
+            username={me?.tutor?.username}
+            email={me?.email}
+            role={session.role}
+          />
         </div>
         <nav className="flex gap-1 overflow-x-auto px-2 pb-2">
           {NAV_SECTIONS.flatMap((s) => s.items)

@@ -1,14 +1,17 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { auth } from "~/server/auth";
-import { SignOutButton } from "~/app/_components/sign-out-button";
 import { APP_TITLE } from "~/lib/branding";
 
 export default async function Home() {
+  // Signed-in users skip the landing page and go straight to their area.
   const session = await auth();
-  const isElevated =
-    session?.role === "ADMIN" || session?.role === "COORDINATOR";
-  const homeHref = isElevated ? "/admin" : "/dashboard";
+  if (session?.user) {
+    const isElevated =
+      session.role === "ADMIN" || session.role === "COORDINATOR";
+    redirect(isElevated ? "/admin" : "/dashboard");
+  }
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-4 py-12">
@@ -22,40 +25,27 @@ export default async function Home() {
           students to request help.
         </p>
 
-        {session?.user ? (
-          <div className="mt-10 flex flex-col items-center gap-4">
-            <Link href={homeHref} className="btn-primary">
-              {isElevated ? "Go to admin →" : "Go to dashboard →"}
-            </Link>
-            <p className="muted">
-              Signed in as{" "}
-              <span className="font-medium text-slate-700">{session.user.name}</span>
-            </p>
-            <SignOutButton className="btn-secondary btn-sm" />
-          </div>
-        ) : (
-          <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
-            <ActionCard
-              href="/signup"
-              title="Request a tutor"
-              body="Students: sign up for help and pick your courses and availability."
-              cta="Tutee signup"
-              primary
-            />
-            <ActionCard
-              href="/tutor-signup"
-              title="Become a tutor"
-              body="Apply to tutor: pick your courses and grades; we'll arrange an interview."
-              cta="Tutor application"
-            />
-            <ActionCard
-              href="/signin"
-              title="Team sign-in"
-              body="Existing tutors, coordinators, and admins sign in here."
-              cta="Tutor / admin login"
-            />
-          </div>
-        )}
+        <div className="mt-10 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <ActionCard
+            href="/signup"
+            title="Request a tutor"
+            body="Students: sign up for help and pick your courses and availability."
+            cta="Tutee signup"
+            primary
+          />
+          <ActionCard
+            href="/tutor-signup"
+            title="Become a tutor"
+            body="Apply to tutor: pick your courses and grades; we'll arrange an interview."
+            cta="Tutor application"
+          />
+          <ActionCard
+            href="/signin"
+            title="Team sign-in"
+            body="Existing tutors, coordinators, and admins sign in here."
+            cta="Tutor / admin login"
+          />
+        </div>
       </div>
     </main>
   );

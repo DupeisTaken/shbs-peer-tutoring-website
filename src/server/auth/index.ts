@@ -16,7 +16,8 @@ function bootstrapAdminEmails(): string[] {
 }
 
 const credentialsSchema = z.object({
-  email: z.string().email(),
+  // Username or email — resolved against User.email or the linked Tutor.username.
+  identifier: z.string().min(1),
   password: z.string().min(1),
 });
 
@@ -35,21 +36,24 @@ const {
   providers: [
     Credentials({
       credentials: {
-        email: { label: "Email", type: "email" },
+        identifier: { label: "Username or email", type: "text" },
         password: { label: "Password", type: "password" },
       },
       /**
-       * Verify email + password against the database. Returns the user on success or
-       * `null` on any failure (Auth.js surfaces a generic CredentialsSignin error — we
-       * never reveal whether the email or the password was wrong).
+       * Verify identifier (username OR email) + password against the database. Returns the
+       * user on success or `null` on any failure (Auth.js surfaces a generic CredentialsSignin
+       * error — we never reveal whether the identifier or the password was wrong).
        */
       async authorize(raw) {
         const parsed = credentialsSchema.safeParse(raw);
         if (!parsed.success) return null;
 
-        const email = parsed.data.email.toLowerCase();
-        const user = await db.user.findUnique({
-          where: { email },
+        const identifier = parsed.data.identifier.trim().toLowerCase();
+        // Match either the login email or the linked Tutor's username.
+        const user = await db.user.findFirst({
+          where: {
+            OR: [{ email: identifier }, { tutor: { username: identifier } }],
+          },
           select: { id: true, name: true, email: true, passwordHash: true },
         });
         if (!user?.passwordHash) return null;

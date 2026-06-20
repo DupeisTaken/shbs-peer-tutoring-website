@@ -14,6 +14,7 @@ export function SignupForm() {
   const [gradeLevel, setGradeLevel] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
+  const [preferredContact, setPreferredContact] = useState("");
   const [firstChoiceId, setFirstChoiceId] = useState("");
   const [secondChoiceId, setSecondChoiceId] = useState("");
   const [slotIds, setSlotIds] = useState<string[]>([]);
@@ -41,6 +42,7 @@ export function SignupForm() {
 
   const canSubmit =
     englishName.trim() &&
+    preferredContact.trim() &&
     firstChoiceId &&
     slotIds.length > 0 &&
     signatureName.trim() &&
@@ -69,6 +71,7 @@ export function SignupForm() {
           englishName: englishName.trim(),
           email: email.trim() || undefined,
           phone: phone.trim() || undefined,
+          preferredContact: preferredContact.trim(),
           gradeLevel: gradeLevel.trim() || undefined,
           firstChoiceId,
           secondChoiceId: secondChoiceId || undefined,
@@ -116,6 +119,21 @@ export function SignupForm() {
           />
         </label>
       </div>
+
+      {/* Preferred contact — make it unmistakable how to reach this student. */}
+      <label className="space-y-1">
+        <span className="label">How can we reach you? *</span>
+        <input
+          className="input"
+          value={preferredContact}
+          onChange={(e) => setPreferredContact(e.target.value)}
+          placeholder="e.g. text me at 555-123-4567, or email me (best after 4pm)"
+          required
+        />
+        <span className="muted text-xs">
+          Tell us the best way and time to contact you about your tutoring match.
+        </span>
+      </label>
 
       {/* Course choices */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

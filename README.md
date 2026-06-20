@@ -40,29 +40,45 @@ record (matched by email) so tutors see their own pairings.
 
 ### Authentication
 
-Sign-in is **email + password** (Auth.js Credentials provider; passwords are hashed
-server-side with scrypt — `src/server/auth/password.ts`). Sessions are JWTs carrying the
-user's `role` and `tutorId`.
+Sign-in is **username or email + password** (Auth.js Credentials provider; passwords are
+hashed server-side with scrypt — `src/server/auth/password.ts`). The identifier is matched
+against `User.email` or the linked `Tutor.username`. Sessions are JWTs carrying the user's
+`role` and `tutorId`.
 
-**Email-based 2FA (one-time codes) is scaffolded but not implemented.** The schema
-(`User.twoFactorEnabled`, `EmailVerificationCode`), the second-factor seam
-(`src/server/auth/two-factor.ts`), and a provider-agnostic email seam
-(`src/server/email/sender.ts`) are in place; wiring them up — and choosing an email
-provider — is future work.
+Each tutor has a **username** (default: first initial + last name, e.g. `jsmith`), managed
+on the admin Tutors screen and usable as an alternate sign-in identifier
+(`src/server/auth/username.ts`).
+
+On a tutor's **first sign-in** they're routed to `/onboarding/email` to confirm the contact
+email their sign-in codes go to and opt into email 2FA, then on to the dashboard
+(`User.emailVerifiedAt` records completion so it doesn't repeat).
+
+**Email-based 2FA (one-time codes) is scaffolded but not implemented**, and the
+**forgot-password** flow's token logic is implemented but **email delivery is scaffolded**
+(no provider wired up). The schema (`User.twoFactorEnabled`, `EmailVerificationCode`,
+`PasswordResetToken`), the seams (`src/server/auth/two-factor.ts`,
+`src/server/auth/password-reset.ts`), and a provider-agnostic email seam
+(`src/server/email/sender.ts`) are in place; choosing an email provider is future work.
 
 ### Routes
 
 - `/` — public landing page with three CTAs: request a tutor, apply to tutor, and team sign-in.
-- `/signup` — **public** tutee signup form: name, first/second course choice (from the
-  admin-managed catalog), available time slots, and a typed rulebook signature. Creates a
-  `PENDING` tutee for an admin to review and assign.
-- `/tutor-signup` — **public** tutor *application*: name, contact email, and up to three
-  intended courses. For each course the applicant reports how they're qualified — took the
+- `/signup` — **public** tutee signup form: name, contact details (including a required
+  free-text "how can we reach you?"), first/second course choice (from the admin-managed
+  catalog), available time slots, and a typed rulebook signature. Creates a `PENDING` tutee
+  for an admin to review and assign.
+- `/tutor-signup` — **public** tutor *application*: name, contact email, a required
+  "how can we reach you?" field, and up to three intended courses. For each course the applicant reports how they're qualified — took the
   class (+ grade), holds an AP score (only offered for AP-tagged courses, and only entered
   once they confirm they have one), and/or self-studied it (+ a note on how they qualify).
   Creates a `PENDING` `TutorApplication` — **no login is created**; the admin team reviews
   and arranges an interview.
-- `/signin` — public email + password **team sign-in** form (tutors, coordinators, admins).
+- `/signin` — public **team sign-in** form (username or email + password) for tutors,
+  coordinators, and admins, with a **forgot-password** link.
+- `/forgot-password`, `/reset-password` — public password-reset flow (token logic works;
+  email delivery is scaffolded — the reset link is logged server-side in dev).
+- `/onboarding/email` — first-login gate where a new tutor confirms their contact email
+  and 2FA preference before reaching the dashboard.
 - `/dashboard` — tutor home (any signed-in tutor): live monthly service hours, pairings
   (with default-slot picker), availability, the attendance form, interviews they're on the
   panel for, and the room schedule — all on one page.

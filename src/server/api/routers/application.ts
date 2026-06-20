@@ -25,6 +25,11 @@ export const applicationRouter = createTRPCRouter({
       z.object({
         name: z.string().trim().min(1, "Name is required").max(120),
         email: z.string().email(),
+        preferredContact: z
+          .string()
+          .trim()
+          .min(1, "Tell us how to reach you")
+          .max(200),
         courses: z
           .array(
             z.object({
@@ -63,6 +68,7 @@ export const applicationRouter = createTRPCRouter({
         data: {
           name: input.name,
           email: input.email.trim().toLowerCase(),
+          preferredContact: input.preferredContact,
           status: "PENDING",
           courseIntents: {
             create: input.courses.map((c) => {

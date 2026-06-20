@@ -18,6 +18,11 @@ export default async function SignInPage() {
         <p className="muted mt-1">Tutors, coordinators, and admins sign in to continue.</p>
         <div className="card mt-6 p-6 text-left">
           <SignInForm />
+          <p className="mt-4 text-right text-sm">
+            <Link href="/forgot-password" className="link">
+              Forgot password?
+            </Link>
+          </p>
         </div>
         <p className="muted mt-6">
           Looking for a tutor?{" "}

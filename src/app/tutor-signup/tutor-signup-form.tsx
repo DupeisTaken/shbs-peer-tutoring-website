@@ -36,6 +36,7 @@ export function TutorSignupForm() {
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [preferredContact, setPreferredContact] = useState("");
   const [rows, setRows] = useState<CourseRow[]>([{ ...emptyRow }]);
 
   const courses = options.data ?? [];
@@ -49,6 +50,7 @@ export function TutorSignupForm() {
   const canSubmit =
     name.trim() &&
     email.trim() &&
+    preferredContact.trim() &&
     chosen.length >= 1 &&
     new Set(chosen).size === chosen.length &&
     !submit.isPending;
@@ -74,6 +76,7 @@ export function TutorSignupForm() {
         submit.mutate({
           name: name.trim(),
           email: email.trim(),
+          preferredContact: preferredContact.trim(),
           courses: rows
             .filter((r) => r.courseId)
             .map((r) => ({
@@ -105,6 +108,21 @@ export function TutorSignupForm() {
           />
         </label>
       </div>
+
+      {/* Preferred contact — make it unmistakable how to reach this applicant. */}
+      <label className="space-y-1">
+        <span className="label">How can we reach you? *</span>
+        <input
+          className="input"
+          value={preferredContact}
+          onChange={(e) => setPreferredContact(e.target.value)}
+          placeholder="e.g. text me at 555-123-4567, or email me (best after 4pm)"
+          required
+        />
+        <span className="muted text-xs">
+          The best way and time to reach you about your application and interview.
+        </span>
+      </label>
 
       <div>
         <p className="label">Courses you want to tutor (up to 3) *</p>

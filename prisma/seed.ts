@@ -29,13 +29,13 @@ const ROOMS = [
 ];
 
 const TUTORS = [
-  { id: "tutor-alice", englishName: "Alice Chen", email: "alice@example.edu", active: true },
-  { id: "tutor-bob", englishName: "Bob Liu", email: "bob@example.edu", active: true },
-  { id: "tutor-carol", englishName: "Carol Wang", email: "carol@example.edu", active: true },
-  { id: "tutor-david", englishName: "David Zhao", email: null, active: false },
+  { id: "tutor-alice", firstName: "Alice", lastName: "Chen", altNames: "陈爱丽", username: "achen", email: "alice@example.edu", active: true },
+  { id: "tutor-bob", firstName: "Bob", lastName: "Liu", altNames: "刘波", username: "bliu", email: "bob@example.edu", active: true },
+  { id: "tutor-carol", firstName: "Carol", lastName: "Wang", altNames: null, username: "cwang", email: "carol@example.edu", active: true },
+  { id: "tutor-david", firstName: "David", lastName: "Zhao", altNames: "赵大卫", username: "dzhao", email: null, active: false },
   // Example of a self-signed-up tutor awaiting admin activation.
-  { id: "tutor-evan", englishName: "Evan Tutor", email: "evan@example.edu", active: false },
-];
+  { id: "tutor-evan", firstName: "Evan", lastName: "Tutor", altNames: null, username: "etutor", email: "evan@example.edu", active: false },
+].map((t) => ({ ...t, englishName: `${t.firstName} ${t.lastName}` }));
 
 // Recurring room blackout periods (fixed ids so the seed stays idempotent).
 const ROOM_BLOCKS = [
@@ -75,6 +75,7 @@ const PENDING_SIGNUP = {
   englishName: "Kate Park",
   gradeLevel: "9",
   email: "kate@example.edu",
+  preferredContact: "Text me at 555-0100 after 4pm",
   status: "PENDING" as const,
   firstChoiceId: "course-chemistry",
   secondChoiceId: "course-biology",
@@ -103,8 +104,25 @@ async function main() {
   for (const tutor of TUTORS) {
     await db.tutor.upsert({
       where: { id: tutor.id },
-      update: { englishName: tutor.englishName, email: tutor.email, active: tutor.active },
-      create: tutor,
+      update: {
+        firstName: tutor.firstName,
+        lastName: tutor.lastName,
+        englishName: tutor.englishName,
+        alternativeNames: tutor.altNames,
+        username: tutor.username,
+        email: tutor.email,
+        active: tutor.active,
+      },
+      create: {
+        id: tutor.id,
+        firstName: tutor.firstName,
+        lastName: tutor.lastName,
+        englishName: tutor.englishName,
+        alternativeNames: tutor.altNames,
+        username: tutor.username,
+        email: tutor.email,
+        active: tutor.active,
+      },
     });
   }
 
@@ -158,6 +176,7 @@ async function main() {
       englishName: PENDING_SIGNUP.englishName,
       gradeLevel: PENDING_SIGNUP.gradeLevel,
       email: PENDING_SIGNUP.email,
+      preferredContact: PENDING_SIGNUP.preferredContact,
       status: PENDING_SIGNUP.status,
       firstChoiceId: PENDING_SIGNUP.firstChoiceId,
       secondChoiceId: PENDING_SIGNUP.secondChoiceId,
@@ -170,6 +189,7 @@ async function main() {
       englishName: PENDING_SIGNUP.englishName,
       gradeLevel: PENDING_SIGNUP.gradeLevel,
       email: PENDING_SIGNUP.email,
+      preferredContact: PENDING_SIGNUP.preferredContact,
       status: PENDING_SIGNUP.status,
       firstChoiceId: PENDING_SIGNUP.firstChoiceId,
       secondChoiceId: PENDING_SIGNUP.secondChoiceId,
@@ -307,10 +327,18 @@ async function main() {
     // Evan's tutor record is inactive — signing in shows the pending-approval gate.
     { id: "user-evan", name: "Evan Tutor", email: "evan@example.edu", role: "TUTOR" as const, tutorId: "tutor-evan" },
   ];
+  // Seeded users are pre-onboarded (emailVerifiedAt set) so local sign-in goes straight
+  // to the dashboard; the first-login email gate only triggers for genuinely new accounts.
   for (const u of users) {
     await db.user.upsert({
       where: { email: u.email },
-      update: { name: u.name, role: u.role, tutorId: u.tutorId, passwordHash },
+      update: {
+        name: u.name,
+        role: u.role,
+        tutorId: u.tutorId,
+        passwordHash,
+        emailVerifiedAt: new Date(),
+      },
       create: {
         id: u.id,
         name: u.name,
@@ -318,6 +346,7 @@ async function main() {
         role: u.role,
         tutorId: u.tutorId,
         passwordHash,
+        emailVerifiedAt: new Date(),
       },
     });
   }
@@ -325,11 +354,17 @@ async function main() {
   // --- Tutor application (in INTERVIEW, Alice is head) -----------------------
   await db.tutorApplication.upsert({
     where: { id: "app-fiona" },
-    update: { name: "Fiona Applicant", email: "fiona@example.edu", status: "INTERVIEW" },
+    update: {
+      name: "Fiona Applicant",
+      email: "fiona@example.edu",
+      preferredContact: "Email me, or call 555-0142 on weekends",
+      status: "INTERVIEW",
+    },
     create: {
       id: "app-fiona",
       name: "Fiona Applicant",
       email: "fiona@example.edu",
+      preferredContact: "Email me, or call 555-0142 on weekends",
       status: "INTERVIEW",
       courseIntents: {
         create: [
@@ -355,6 +390,73 @@ async function main() {
       update: { isHead: a.isHead },
       create: { applicationId: "app-fiona", tutorId: a.tutorId, isHead: a.isHead },
     });
+  }
+
+  // --- Interview votes (panelists' accept/reject + comment) -------------------
+  for (const v of [
+    { tutorId: "tutor-alice", accept: true, comment: "Strong, well-structured demo." },
+    { tutorId: "tutor-bob", accept: true, comment: "Clear explanations; good rapport." },
+  ]) {
+    await db.interviewVote.upsert({
+      where: { applicationId_tutorId: { applicationId: "app-fiona", tutorId: v.tutorId } },
+      update: { accept: v.accept, comment: v.comment },
+      create: { applicationId: "app-fiona", tutorId: v.tutorId, accept: v.accept, comment: v.comment },
+    });
+  }
+
+  // --- Announcements (shown to tutors on every login until acknowledged) ------
+  await db.announcement.upsert({
+    where: { id: "ann-welcome" },
+    update: {
+      title: "Welcome back — Q3 pairings are live",
+      body: "Please confirm your session times with your tutees this week and submit attendance within 24h of each session.",
+      pinned: true,
+      active: true,
+      createdById: "user-admin",
+    },
+    create: {
+      id: "ann-welcome",
+      title: "Welcome back — Q3 pairings are live",
+      body: "Please confirm your session times with your tutees this week and submit attendance within 24h of each session.",
+      pinned: true,
+      active: true,
+      createdById: "user-admin",
+    },
+  });
+
+  // --- Disciplinary cards (yellow/red; see src/lib/discipline.ts) -------------
+  const cards = [
+    {
+      id: "card-frank-y1",
+      tuteeId: "tutee-frank",
+      color: "YELLOW" as const,
+      source: "TUTOR" as const,
+      reason: "Did not complete assigned practice set.",
+      reviewStatus: "VALID" as const,
+      issuedByTutorId: "tutor-alice",
+      reviewedById: "user-admin",
+      reviewedAt: new Date(),
+    },
+    {
+      id: "card-frank-y2",
+      tuteeId: "tutee-frank",
+      color: "YELLOW" as const,
+      source: "TUTOR" as const,
+      reason: "No response to messages for 24h+.",
+      reviewStatus: "PENDING" as const,
+      issuedByTutorId: "tutor-alice",
+    },
+    {
+      id: "card-grace-r1",
+      tuteeId: "tutee-grace",
+      color: "RED" as const,
+      source: "AUTO" as const,
+      reason: "Unexcused absence (auto-issued).",
+      reviewStatus: "VALID" as const,
+    },
+  ];
+  for (const c of cards) {
+    await db.disciplinaryCard.upsert({ where: { id: c.id }, update: c, create: c });
   }
 
   console.log(

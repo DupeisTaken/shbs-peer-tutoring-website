@@ -22,13 +22,6 @@ export default function SignupPage() {
       </div>
 
       <SignupForm />
-
-      <p className="muted mt-6 text-center">
-        Already have an account?{" "}
-        <Link href="/signin" className="link">
-          Sign in
-        </Link>
-      </p>
     </main>
   );
 }

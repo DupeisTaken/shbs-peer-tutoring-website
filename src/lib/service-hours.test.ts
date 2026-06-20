@@ -1,8 +1,13 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  ABSENCE_LIMIT_PER_SEMESTER,
   computeSessionHours,
+  DEDUCTION,
+  interviewServiceHours,
   monthKey,
+  overLimitAbsenceDeduction,
+  roundToHalfHour,
   shCount,
   shFactor,
 } from "./service-hours";
@@ -49,6 +54,33 @@ describe("shCount rounding", () => {
   it("the 10/11 minute boundary is the rounding pivot", () => {
     expect(shCount(10, 1)).toBe(0); // leftover 10 -> floor(0.33h*2)/2 = 0
     expect(shCount(11, 1)).toBe(0.5); // leftover 11 -> ceil -> 0.5
+  });
+});
+
+describe("interviewServiceHours", () => {
+  it("equals the interview duration rounded to the nearest half-hour", () => {
+    expect(interviewServiceHours(60)).toBe(1);
+    expect(interviewServiceHours(20)).toBe(0.5); // 15-20 min demo -> 0.5h
+    expect(interviewServiceHours(45)).toBe(1); // leftover 45 -> ceil to 1.0h
+  });
+});
+
+describe("roundToHalfHour", () => {
+  it("matches the session rounding pivot at 10/11 minutes", () => {
+    expect(roundToHalfHour(70)).toBe(1); // leftover 10 -> down
+    expect(roundToHalfHour(71)).toBe(1.5); // leftover 11 -> up
+  });
+});
+
+describe("overLimitAbsenceDeduction", () => {
+  it("is zero up to and including the per-semester limit", () => {
+    expect(overLimitAbsenceDeduction(0)).toBe(0);
+    expect(overLimitAbsenceDeduction(ABSENCE_LIMIT_PER_SEMESTER)).toBe(0);
+  });
+
+  it("deducts 0.25h for each absence beyond the limit", () => {
+    expect(overLimitAbsenceDeduction(4)).toBe(DEDUCTION.OVER_LIMIT_ABSENCE);
+    expect(overLimitAbsenceDeduction(6)).toBeCloseTo(0.75);
   });
 });
 

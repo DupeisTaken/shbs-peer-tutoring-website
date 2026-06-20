@@ -10,8 +10,14 @@ export function SignInForm() {
   return (
     <form action={formAction} className="flex w-full flex-col gap-4">
       <label className="space-y-1">
-        <span className="label">Email</span>
-        <input name="email" type="email" required autoComplete="email" className="input" />
+        <span className="label">Username or email</span>
+        <input
+          name="identifier"
+          type="text"
+          required
+          autoComplete="username"
+          className="input"
+        />
       </label>
 
       <label className="space-y-1">
