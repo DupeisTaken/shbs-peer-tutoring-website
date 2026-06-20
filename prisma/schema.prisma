@@ -205,6 +205,10 @@ model Tutor {
   /// (User.email is matched against this).
   email       String?  @unique
   active      Boolean  @default(true)
+  /// School grade (e.g. 9–12). Increments by one when the program refreshes across a school
+  /// year; G12 tutors graduate (archived) at that point. Class-of year is derived from this +
+  /// the active school year. See src/lib/period.ts.
+  gradeLevel  Int?
   createdAt   DateTime @default(now())
 
   user                 User?

@@ -110,13 +110,16 @@
       "phLastName": "姓氏",
       "phAltNames": "别名 例如 中文名",
       "phEmail": "邮箱（选填）",
+      "phGrade": "年级",
       "addTutor": "添加导师",
       "colFirstName": "名字",
       "colLastName": "姓氏",
       "colAltNames": "别名",
       "colUsername": "用户名",
       "colEmail": "邮箱",
-      "colActive": "启用"
+      "colGrade": "年级",
+      "colActive": "启用",
+      "classOf": "{year} 届"
     },
     "tutees": {
       "title": "学员名册",
@@ -285,13 +288,24 @@
       "effectPending": "清空待处理的学员报名队列（归档为停用）。",
       "effectTutees": "归档所有当前已配对的学员——他们需要重新报名才能继续。",
       "effectPairings": "清空当前配对面板（过往配对与出勤保留在历史中）。",
+      "effectAvailability": "提示你确认哪些在职导师仍然可用。",
+      "effectGraduate": "G12 导师毕业，所有导师升一个年级。",
       "effectHoursReset": "为学期 {semester} 重新开始一份服务时数 / 出勤统计。",
       "effectHoursKeep": "继续累计服务时数（仍是同一学期）。",
       "confirmLabel": "输入 REFRESH 以确认此项目级操作。",
       "confirmPlaceholder": "REFRESH",
+      "reviewButton": "审核导师可用情况并刷新 →",
       "refreshButton": "刷新到 {name}",
       "refreshing": "刷新中…",
-      "done": "已刷新到 {name}。归档了 {count} 名学员。"
+      "done": "已刷新到 {name}。归档了 {count} 名学员。",
+      "doneGrad": "{graduated} 名导师毕业；{aged} 名导师升一个年级。",
+      "modalTitle": "{name} 的导师可用情况",
+      "modalIntro": "确认哪些在职导师将继续参与。未勾选的导师将被归档。",
+      "modalGradNote": "新学年：G12 导师毕业，所有导师升一个年级。",
+      "available": "可用",
+      "graduating": "毕业",
+      "noActiveTutors": "暂无需审核的在职导师。",
+      "cancel": "取消"
     },
     "audit": {
       "title": "审计日志",

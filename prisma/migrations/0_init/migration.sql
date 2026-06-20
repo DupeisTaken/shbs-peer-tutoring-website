@@ -118,6 +118,7 @@ CREATE TABLE "Tutor" (
     "username" TEXT,
     "email" TEXT,
     "active" BOOLEAN NOT NULL DEFAULT true,
+    "gradeLevel" INTEGER,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Tutor_pkey" PRIMARY KEY ("id")

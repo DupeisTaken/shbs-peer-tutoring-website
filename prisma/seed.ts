@@ -116,7 +116,12 @@ const TUTORS = [
   // Inactive tutors — signing in shows the pending-approval gate.
   { id: "tutor-evan", firstName: "Evan", lastName: "Tutor", altNames: null, username: "etutor", email: "evan@example.edu", active: false, role: "TUTOR" as Role },
   { id: "tutor-oscar", firstName: "Oscar", lastName: "Brown", altNames: null, username: "obrown", email: "oscar@example.edu", active: false, role: "TUTOR" as Role },
-].map((t) => ({ ...t, englishName: `${t.firstName} ${t.lastName}` }));
+].map((t, i) => ({
+  ...t,
+  englishName: `${t.firstName} ${t.lastName}`,
+  // Demo grades cycling 9–12 (some G12s so a year-refresh shows graduation/aging).
+  gradeLevel: 9 + (i % 4),
+}));
 
 const TUTEES = [
   { id: "tutee-emma", englishName: "Emma Sun", gradeLevel: "9", firstChoiceId: "course-math" },
@@ -308,7 +313,7 @@ async function main() {
 
   // --- Tutors ----------------------------------------------------------------
   for (const t of TUTORS) {
-    const data = { firstName: t.firstName, lastName: t.lastName, englishName: t.englishName, alternativeNames: t.altNames, username: t.username, email: t.email, active: t.active };
+    const data = { firstName: t.firstName, lastName: t.lastName, englishName: t.englishName, alternativeNames: t.altNames, username: t.username, email: t.email, active: t.active, gradeLevel: t.gradeLevel };
     await db.tutor.upsert({ where: { id: t.id }, update: data, create: { id: t.id, ...data } });
   }
 

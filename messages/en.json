@@ -139,13 +139,16 @@
       "phLastName": "Last name",
       "phAltNames": "Alt. name(s) e.g. 中文名",
       "phEmail": "Email (optional)",
+      "phGrade": "Grade",
       "addTutor": "Add tutor",
       "colFirstName": "First Name",
       "colLastName": "Last Name",
       "colAltNames": "Alt. Name(s)",
       "colUsername": "Username",
       "colEmail": "Email",
-      "colActive": "Active"
+      "colGrade": "Grade",
+      "colActive": "Active",
+      "classOf": "Class of {year}"
     },
     "tutees": {
       "title": "Tutee Roster",
@@ -314,13 +317,24 @@
       "effectPending": "Clears the pending tutee signup queue (archived to inactive).",
       "effectTutees": "Archives all currently paired tutees — they must sign up again to continue.",
       "effectPairings": "Clears the current pairings board (past pairings + attendance stay in history).",
+      "effectAvailability": "Prompts you to confirm which active tutors are still available.",
+      "effectGraduate": "Graduates G12 tutors and advances every tutor one grade.",
       "effectHoursReset": "Starts a fresh service-hour / attendance total for semester {semester}.",
       "effectHoursKeep": "Keeps service hours accumulating (still the same semester).",
       "confirmLabel": "Type REFRESH to confirm this program-wide action.",
       "confirmPlaceholder": "REFRESH",
+      "reviewButton": "Review tutor availability & refresh →",
       "refreshButton": "Refresh to {name}",
       "refreshing": "Refreshing…",
-      "done": "Refreshed to {name}. Archived {count} tutee(s)."
+      "done": "Refreshed to {name}. Archived {count} tutee(s).",
+      "doneGrad": "Graduated {graduated}; advanced {aged} tutor(s) a grade.",
+      "modalTitle": "Tutor Availability for {name}",
+      "modalIntro": "Confirm which active tutors are continuing. Anyone left unchecked will be archived.",
+      "modalGradNote": "New school year: G12 tutors graduate and everyone advances a grade.",
+      "available": "Available",
+      "graduating": "Graduating",
+      "noActiveTutors": "No active tutors to review.",
+      "cancel": "Cancel"
     },
     "audit": {
       "title": "Audit Log",

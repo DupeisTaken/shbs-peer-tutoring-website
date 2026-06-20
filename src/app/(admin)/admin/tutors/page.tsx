@@ -4,16 +4,25 @@ import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
+import { graduationYear } from "~/lib/period";
+import { REFERENCE_STALE_TIME } from "~/lib/query";
 import { SortHeader, useSort, compare } from "~/app/_components/sortable";
 
 export default function TutorsPage() {
   const t = useTranslations();
+  // Alias: the row map below shadows `t` with the tutor record, so use `tt` for translations there.
+  const tt = t;
   const utils = api.useUtils();
   const tutors = api.admin.tutors.useQuery();
+  const currentPeriod = api.admin.currentPeriod.useQuery(undefined, {
+    staleTime: REFERENCE_STALE_TIME,
+  });
+  const schoolYear = currentPeriod.data?.schoolYear;
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [altNames, setAltNames] = useState("");
   const [email, setEmail] = useState("");
+  const [grade, setGrade] = useState("");
 
   const sort = useSort("lastName");
 
@@ -24,6 +33,7 @@ export default function TutorsPage() {
       setLastName("");
       setAltNames("");
       setEmail("");
+      setGrade("");
       await invalidate();
     },
   });
@@ -40,6 +50,8 @@ export default function TutorsPage() {
           return compare(a.username ?? "", b.username ?? "") * dir;
         case "email":
           return compare(a.email ?? "", b.email ?? "") * dir;
+        case "grade":
+          return ((a.gradeLevel ?? 0) - (b.gradeLevel ?? 0)) * dir;
         case "active":
           return (Number(a.active) - Number(b.active)) * dir;
         case "lastName":
@@ -66,6 +78,7 @@ export default function TutorsPage() {
               lastName: lastName.trim(),
               alternativeNames: altNames.trim() || undefined,
               email: email.trim() || undefined,
+              gradeLevel: grade.trim() ? Number(grade) : undefined,
             });
         }}
       >
@@ -94,6 +107,15 @@ export default function TutorsPage() {
           placeholder={t("admin.tutors.phEmail")}
           className="input max-w-xs"
         />
+        <input
+          value={grade}
+          onChange={(e) => setGrade(e.target.value)}
+          type="number"
+          min={6}
+          max={12}
+          placeholder={t("admin.tutors.phGrade")}
+          className="input w-24"
+        />
         <button className="btn-primary" disabled={create.isPending}>
           {t("admin.tutors.addTutor")}
         </button>
@@ -109,6 +131,7 @@ export default function TutorsPage() {
               <th>{t("admin.tutors.colAltNames")}</th>
               <SortHeader sort={sort} sortKey="username">{t("admin.tutors.colUsername")}</SortHeader>
               <SortHeader sort={sort} sortKey="email">{t("admin.tutors.colEmail")}</SortHeader>
+              <SortHeader sort={sort} sortKey="grade">{t("admin.tutors.colGrade")}</SortHeader>
               <SortHeader sort={sort} sortKey="active">{t("admin.tutors.colActive")}</SortHeader>
             </tr>
           </thead>
@@ -127,6 +150,7 @@ export default function TutorsPage() {
                 alternativeNames: string | null;
                 username: string;
                 email: string | null;
+                gradeLevel: number | null;
                 active: boolean;
               }>) =>
                 update.mutate({
@@ -139,6 +163,8 @@ export default function TutorsPage() {
                       : t.alternativeNames,
                   username: patch.username ?? t.username ?? undefined,
                   email: patch.email !== undefined ? patch.email : t.email,
+                  gradeLevel:
+                    patch.gradeLevel !== undefined ? patch.gradeLevel : t.gradeLevel,
                   active: patch.active ?? t.active,
                 });
               return (
@@ -198,6 +224,28 @@ export default function TutorsPage() {
                         if (v !== (t.email ?? "")) save({ email: v || null });
                       }}
                     />
+                  </td>
+                  <td>
+                    <input
+                      defaultValue={t.gradeLevel ?? ""}
+                      type="number"
+                      min={6}
+                      max={12}
+                      placeholder="—"
+                      className="input w-16"
+                      onBlur={(e) => {
+                        const raw = e.target.value.trim();
+                        const v = raw === "" ? null : Number(raw);
+                        if (v !== (t.gradeLevel ?? null)) save({ gradeLevel: v });
+                      }}
+                    />
+                    {t.gradeLevel != null && schoolYear && (
+                      <span className="muted ml-1 text-xs whitespace-nowrap">
+                        {tt("admin.tutors.classOf", {
+                          year: graduationYear(t.gradeLevel, schoolYear),
+                        })}
+                      </span>
+                    )}
                   </td>
                   <td>
                     <input

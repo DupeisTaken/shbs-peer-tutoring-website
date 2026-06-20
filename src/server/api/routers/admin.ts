@@ -15,6 +15,7 @@ import {
   QUARTERS,
   type Quarter,
   crossesSemester,
+  crossesYear,
   nextPeriod,
   quarterSemester,
   semesterQuarters,
@@ -377,6 +378,10 @@ export const adminRouter = createTRPCRouter({
           { schoolYear: active.schoolYear, quarter: active.quarter },
           np,
         ),
+        crossesYear: crossesYear(
+          { schoolYear: active.schoolYear, quarter: active.quarter },
+          np,
+        ),
       },
     };
   }),
@@ -503,14 +508,25 @@ export const adminRouter = createTRPCRouter({
    * when the refresh crosses a semester boundary. Requires typing REFRESH to confirm.
    */
   refresh: adminProcedure
-    .input(z.object({ confirm: z.string() }))
+    .input(
+      z.object({
+        confirm: z.string(),
+        // Active tutors the crew marked unavailable in the semester-rollover review — archived.
+        // Ignored unless the refresh actually crosses a semester.
+        unavailableTutorIds: z.array(cuid).optional(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       if (input.confirm.trim().toUpperCase() !== "REFRESH") {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Type REFRESH to confirm." });
       }
       const active = await getActivePeriod(ctx.db);
-      const np = nextPeriod({ schoolYear: active.schoolYear, quarter: active.quarter });
+      const from = { schoolYear: active.schoolYear, quarter: active.quarter };
+      const np = nextPeriod(from);
       const name = `${np.schoolYear} ${np.quarter}`;
+      const semesterCross = crossesSemester(from, np);
+      const yearCross = crossesYear(from, np);
+      const unavailableIds = semesterCross ? [...new Set(input.unavailableTutorIds ?? [])] : [];
 
       const out = await ctx.db.$transaction(async (tx) => {
         await tx.term.updateMany({ where: { active: true }, data: { active: false } });
@@ -519,21 +535,68 @@ export const adminRouter = createTRPCRouter({
           update: { active: true },
           create: { schoolYear: np.schoolYear, quarter: np.quarter, name, active: true },
         });
-        const archived = await tx.tutee.updateMany({
+        const tutees = await tx.tutee.updateMany({
           where: { status: { in: ["PENDING", "ACTIVE"] } },
           data: { status: "INACTIVE" },
         });
-        return { termId: term.id, archived: archived.count };
+
+        // Semester rollover: archive tutors the crew flagged as no longer available.
+        let archivedUnavailable = 0;
+        if (unavailableIds.length > 0) {
+          const r = await tx.tutor.updateMany({
+            where: { id: { in: unavailableIds }, active: true },
+            data: { active: false },
+          });
+          archivedUnavailable = r.count;
+        }
+
+        // Year rollover: G12 (and up) graduate -> archived; everyone else ages up one grade.
+        let graduated = 0;
+        let aged = 0;
+        if (yearCross) {
+          const grad = await tx.tutor.updateMany({
+            where: { active: true, gradeLevel: { gte: 12 } },
+            data: { active: false },
+          });
+          graduated = grad.count;
+          const age = await tx.tutor.updateMany({
+            where: { active: true, gradeLevel: { not: null } },
+            data: { gradeLevel: { increment: 1 } },
+          });
+          aged = age.count;
+        }
+
+        return {
+          termId: term.id,
+          archivedTutees: tutees.count,
+          archivedUnavailable,
+          graduated,
+          aged,
+        };
       });
 
       await recordAudit({
         userId: ctx.session.user.id,
         userName: ctx.session.user.name,
-        action: `Refreshed program to ${name} — archived ${out.archived} tutee(s); cleared current pairings`,
+        action:
+          `Refreshed program to ${name} — archived ${out.archivedTutees} tutee(s)` +
+          (out.archivedUnavailable ? `, ${out.archivedUnavailable} unavailable tutor(s)` : "") +
+          (yearCross ? `, graduated ${out.graduated} tutor(s), aged up ${out.aged}` : "") +
+          "; cleared current pairings",
         entity: "Term",
         entityId: out.termId,
       });
-      return { schoolYear: np.schoolYear, quarter: np.quarter, name, archivedTutees: out.archived };
+      return {
+        schoolYear: np.schoolYear,
+        quarter: np.quarter,
+        name,
+        crossedSemester: semesterCross,
+        crossedYear: yearCross,
+        archivedTutees: out.archivedTutees,
+        archivedUnavailableTutors: out.archivedUnavailable,
+        graduatedTutors: out.graduated,
+        agedTutors: out.aged,
+      };
     }),
 
   // --------------------------------------------------------------------------
@@ -547,6 +610,7 @@ export const adminRouter = createTRPCRouter({
         // Free-text, full Unicode (e.g. Chinese name) — no charset restriction.
         alternativeNames: z.string().trim().max(200).optional(),
         email: z.string().email().optional(),
+        gradeLevel: z.number().int().min(6).max(12).nullable().optional(),
         active: z.boolean().default(true),
       }),
     )
@@ -564,6 +628,7 @@ export const adminRouter = createTRPCRouter({
             : null,
           username,
           active: input.active,
+          gradeLevel: input.gradeLevel ?? null,
           email: input.email?.trim() ? input.email.trim().toLowerCase() : null,
         },
       });
@@ -579,6 +644,7 @@ export const adminRouter = createTRPCRouter({
         // Admin may override the auto-generated handle; blank regenerates the default.
         username: z.string().trim().optional(),
         email: z.string().email().nullable().optional(),
+        gradeLevel: z.number().int().min(6).max(12).nullable().optional(),
         active: z.boolean(),
       }),
     )
@@ -600,6 +666,7 @@ export const adminRouter = createTRPCRouter({
             : null,
           username,
           active: input.active,
+          ...(input.gradeLevel === undefined ? {} : { gradeLevel: input.gradeLevel }),
           email: input.email?.trim() ? input.email.trim().toLowerCase() : null,
         },
       });

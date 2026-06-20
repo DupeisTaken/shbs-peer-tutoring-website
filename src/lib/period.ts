@@ -78,6 +78,22 @@ export function crossesSemester(from: Period, to: Period): boolean {
   );
 }
 
+/** True when advancing crosses into a new school year (Q4 -> next year's Q1). */
+export function crossesYear(from: Period, to: Period): boolean {
+  return from.schoolYear !== to.schoolYear;
+}
+
+/** Last (spring) calendar year of a "YY-YY" school year, e.g. "25-26" -> 2026. */
+export function schoolYearEndYear(schoolYear: string): number {
+  const m = /^(\d{2})-(\d{2})$/.exec(schoolYear);
+  return m ? 2000 + Number(m[2]) : NaN;
+}
+
+/** Graduating ("class of") year for a grade in a given school year. G12 of "25-26" -> 2026. */
+export function graduationYear(gradeLevel: number, schoolYear: string): number {
+  return schoolYearEndYear(schoolYear) + (12 - gradeLevel);
+}
+
 /** Best-guess school year for a date, assuming the year starts in August. */
 export function schoolYearForDate(date: Date): string {
   const y = date.getFullYear();
