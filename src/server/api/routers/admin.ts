@@ -507,7 +507,8 @@ export const adminRouter = createTRPCRouter({
    * hours / attendance are period-stamped and untouched — the "this semester" total just rolls over
    * when the refresh crosses a semester boundary. Requires typing REFRESH to confirm.
    */
-  refresh: adminProcedure
+  // ADMIN only — a refresh is destructive and program-wide (coordinators can view but not run it).
+  refresh: adminOnlyProcedure
     .input(
       z.object({
         confirm: z.string(),
