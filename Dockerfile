@@ -7,8 +7,9 @@ FROM node:22-alpine AS deps
 WORKDIR /app
 # openssl + libc6-compat are needed by Prisma's engines on Alpine.
 RUN apk add --no-cache libc6-compat openssl
-COPY package.json package-lock.json ./
-# Schema is needed because our `postinstall` runs `prisma generate`.
+# .npmrc carries legacy-peer-deps=true (next-auth v5 ⇄ nodemailer optional-peer clash), so
+# `npm ci` needs it to resolve. Schema is needed because `postinstall` runs `prisma generate`.
+COPY package.json package-lock.json .npmrc ./
 COPY prisma ./prisma
 RUN npm ci
 
