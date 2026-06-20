@@ -206,70 +206,8 @@ export default function TuteesPage() {
         </p>
       </div>
 
-      {/* View toggle */}
-      <div className="flex gap-2">
-        <button
-          className={view === "tutees" ? "btn-primary btn-sm" : "btn-secondary btn-sm"}
-          onClick={() => setView("tutees")}
-        >
-          Tutees
-        </button>
-        <button
-          className={view === "tutors" ? "btn-primary btn-sm" : "btn-secondary btn-sm"}
-          onClick={() => setView("tutors")}
-        >
-          Tutors &amp; pairings
-        </button>
-      </div>
-
-      {view === "tutors" && (
-        <section className="card overflow-hidden">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>Tutor</th>
-                <th>Subject</th>
-                <th>Day / time</th>
-                <th>Time slot</th>
-                <th>Paired tutees</th>
-              </tr>
-            </thead>
-            <tbody>
-              {(tutors.data ?? []).flatMap((tutor) => {
-                const tps = pairingsByTutor.get(tutor.id) ?? [];
-                if (tps.length === 0) {
-                  return [
-                    <tr key={tutor.id}>
-                      <td className="font-medium text-slate-800">{tutor.englishName}</td>
-                      <td colSpan={4} className="text-slate-400">
-                        no pairings
-                      </td>
-                    </tr>,
-                  ];
-                }
-                return tps.map((p, i) => (
-                  <tr key={p.id}>
-                    <td className="font-medium text-slate-800">
-                      {i === 0 ? tutor.englishName : ""}
-                    </td>
-                    <td>{p.subject}</td>
-                    <td className="text-slate-600">
-                      {DAY_NAMES[p.dayOfWeek]} {minToHm(p.startMin)}–{minToHm(p.endMin)}
-                    </td>
-                    <td className="text-slate-600">{p.timeSlot?.label ?? "—"}</td>
-                    <td className="text-slate-600">
-                      {p.tutees.map((t) => t.tutee.englishName).join(", ") || "—"}
-                    </td>
-                  </tr>
-                ));
-              })}
-            </tbody>
-          </table>
-        </section>
-      )}
-
-      {/* Pending review */}
-      {view === "tutees" && pending.length > 0 && (
+      {/* Pending review (always visible) */}
+      {pending.length > 0 && (
         <section className="card p-5">
           <h2 className="font-semibold text-slate-900">
             Pending signups <span className="badge-amber ml-1">{pending.length}</span>
@@ -289,8 +227,7 @@ export default function TuteesPage() {
         </section>
       )}
 
-      {/* Manual add */}
-      {view === "tutees" && (
+      {/* Manual add (always visible) */}
       <section className="card p-5">
         <h2 className="font-semibold text-slate-900">Add a tutee</h2>
         <form
@@ -364,6 +301,67 @@ export default function TuteesPage() {
           <button className="btn-primary">Add</button>
         </form>
       </section>
+
+      {/* Bottom table — toggled between the tutee list and the tutor/pairings view */}
+      <div className="flex gap-2">
+        <button
+          className={view === "tutees" ? "btn-primary btn-sm" : "btn-secondary btn-sm"}
+          onClick={() => setView("tutees")}
+        >
+          Tutees
+        </button>
+        <button
+          className={view === "tutors" ? "btn-primary btn-sm" : "btn-secondary btn-sm"}
+          onClick={() => setView("tutors")}
+        >
+          Tutors &amp; pairings
+        </button>
+      </div>
+
+      {view === "tutors" && (
+        <section className="card overflow-hidden">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Tutor</th>
+                <th>Subject</th>
+                <th>Day / time</th>
+                <th>Time slot</th>
+                <th>Paired tutees</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(tutors.data ?? []).flatMap((tutor) => {
+                const tps = pairingsByTutor.get(tutor.id) ?? [];
+                if (tps.length === 0) {
+                  return [
+                    <tr key={tutor.id}>
+                      <td className="font-medium text-slate-800">{tutor.englishName}</td>
+                      <td colSpan={4} className="text-slate-400">
+                        no pairings
+                      </td>
+                    </tr>,
+                  ];
+                }
+                return tps.map((p, i) => (
+                  <tr key={p.id}>
+                    <td className="font-medium text-slate-800">
+                      {i === 0 ? tutor.englishName : ""}
+                    </td>
+                    <td>{p.subject}</td>
+                    <td className="text-slate-600">
+                      {DAY_NAMES[p.dayOfWeek]} {minToHm(p.startMin)}–{minToHm(p.endMin)}
+                    </td>
+                    <td className="text-slate-600">{p.timeSlot?.label ?? "TBD"}</td>
+                    <td className="text-slate-600">
+                      {p.tutees.map((t) => t.tutee.englishName).join(", ") || "—"}
+                    </td>
+                  </tr>
+                ));
+              })}
+            </tbody>
+          </table>
+        </section>
       )}
 
       {/* All tutees */}

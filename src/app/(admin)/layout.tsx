@@ -18,6 +18,7 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
     title: "Overview",
     items: [
       { href: "/admin", label: "Dashboard", exact: true },
+      { href: "/admin/activity", label: "Activity" },
       { href: "/admin/announcements", label: "Announcements" },
     ],
   },

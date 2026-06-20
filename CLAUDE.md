@@ -56,6 +56,29 @@ your changes (`generated/prisma/`) and move on.
   (`.btn`, `.card`, `.input`, `.select`, `.label`, `.link`, `.badge-*`, …). Reuse these
   rather than ad-hoc utility soup. Tailwind v4 needs `@utility` for `@apply`-able bases.
 
+## Admin design philosophies (apply to every new feature)
+
+These are product principles the admin area must uphold — honor them whenever you add data
+or actions:
+
+1. **Full visibility.** Every record and every state must be viewable somewhere under
+   `/admin`. If you add a model or a status, add (or extend) an admin page that shows it.
+   Don't leave data that only exists in the DB with no admin surface.
+2. **Revertibility.** Every mutating action must have a way to undo it from the UI — an
+   inverse control (toggle, delete, re-decide, status change), not a one-way door. Prefer
+   reversible operations: use `active` flags / status transitions over hard deletes; guard
+   destructive deletes when rows are referenced (see `deleteCourse`). When an action has a
+   non-obvious inverse, make it explicit (e.g. reverting an ACCEPTED application: deactivate
+   the auto-created tutor on `/admin/tutors`). A full audit/undo trail is future work — until
+   then, ensure a manual revert path exists and document it.
+3. **Unified status surface.** `/admin/activity` is the single pane of glass — the live status
+   of every request type (tutee signups, tutor applications, interview decisions, discipline
+   cards, attendance surveys). When you add a new request/queue, surface its count + items
+   there too, each linking to the page that actions it.
+
+Process requests earliest-first where a queue exists (e.g. tutee signups are ordered by
+submission time). See the `admin-philosophies` memory for the rationale.
+
 ## Security rules (do not break)
 
 - **Public forms never create logins.** `/signup` (tutee) and `/tutor-signup` (tutor
