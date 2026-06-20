@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 import { api } from "~/trpc/react";
 import { DAY_NAMES, minToHm } from "~/lib/time";
 
@@ -8,6 +10,7 @@ import { DAY_NAMES, minToHm } from "~/lib/time";
  * Picking a slot copies its day/time onto the pairing (server-side, scoped to the caller).
  */
 export function TutorPairings() {
+  const t = useTranslations();
   const utils = api.useUtils();
   const pairings = api.tutor.myPairings.useQuery();
   const availability = api.tutor.myAvailability.useQuery();
@@ -17,10 +20,10 @@ export function TutorPairings() {
 
   const slots = availability.data?.slots ?? [];
 
-  if (pairings.isLoading) return <p className="muted">Loading…</p>;
+  if (pairings.isLoading) return <p className="muted">{t("tutor.pairings.loading")}</p>;
   const list = pairings.data ?? [];
   if (list.length === 0) {
-    return <p className="muted">No pairings yet. A coordinator will assign you tutees.</p>;
+    return <p className="muted">{t("tutor.pairings.empty")}</p>;
   }
 
   return (
@@ -35,11 +38,19 @@ export function TutorPairings() {
             </span>
           </p>
           <p className="muted">
-            Tutees: {p.tutees.map((t) => t.tutee.englishName).join(", ") || "none yet"}
-            {p.room ? ` · Room ${p.room.name}` : " · No room assigned"}
+            {t("tutor.pairings.tutees", {
+              names:
+                p.tutees.map((x) => x.tutee.englishName).join(", ") ||
+                t("tutor.pairings.noTuteesYet"),
+            })}
+            {p.room
+              ? t("tutor.pairings.room", { room: p.room.name })
+              : t("tutor.pairings.noRoom")}
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">
-            <span className="text-xs font-medium text-slate-500">Default time slot:</span>
+            <span className="text-xs font-medium text-slate-500">
+              {t("tutor.pairings.defaultSlotLabel")}
+            </span>
             <select
               value={p.timeSlotId ?? ""}
               onChange={(e) =>
@@ -47,7 +58,7 @@ export function TutorPairings() {
               }
               className="select w-auto"
             >
-              <option value="">— not set —</option>
+              <option value="">{t("tutor.pairings.notSet")}</option>
               {slots.map((s) => (
                 <option key={s.id} value={s.id}>
                   {s.label} · {DAY_NAMES[s.dayOfWeek]} {minToHm(s.startMin)}–{minToHm(s.endMin)}

@@ -24,7 +24,7 @@ export function AnnouncementsBanner() {
   if (unacked.length === 0 && pinnedAcked.length === 0) return null;
 
   return (
-    <section className="space-y-3" aria-label="Announcements">
+    <section className="space-y-3" aria-label={t("tutor.announcements.label")}>
       {unacked.map((a) => (
         <div
           key={a.id}
@@ -35,7 +35,9 @@ export function AnnouncementsBanner() {
               <p className="font-semibold text-indigo-900">
                 📣 {a.title}
                 {a.pinned && (
-                  <span className="badge-slate ml-2 align-middle text-[10px]">pinned</span>
+                  <span className="badge-slate ml-2 align-middle text-[10px]">
+                    {t("tutor.announcements.pinned")}
+                  </span>
                 )}
               </p>
               <p className="mt-1 text-sm whitespace-pre-line text-indigo-800">{a.body}</p>

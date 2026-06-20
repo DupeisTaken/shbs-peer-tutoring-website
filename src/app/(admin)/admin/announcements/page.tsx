@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { api } from "~/trpc/react";
@@ -22,6 +23,7 @@ function AnnouncementCard({
   a: Announcement;
   onChanged: () => void;
 }) {
+  const t = useTranslations();
   const [title, setTitle] = useState(a.title);
   const [body, setBody] = useState(a.body);
   const update = api.admin.updateAnnouncement.useMutation({ onSuccess: onChanged });
@@ -37,9 +39,9 @@ function AnnouncementCard({
           value={title}
           onChange={(e) => setTitle(e.target.value)}
         />
-        {a.pinned && <span className="badge-slate">pinned</span>}
+        {a.pinned && <span className="badge-slate">{t("admin.announcements.badge.pinned")}</span>}
         <span className={a.active ? "badge-green" : "badge-slate"}>
-          {a.active ? "active" : "inactive"}
+          {a.active ? t("admin.announcements.badge.active") : t("admin.announcements.badge.inactive")}
         </span>
       </div>
       <textarea
@@ -54,31 +56,32 @@ function AnnouncementCard({
           disabled={!dirty || !title.trim() || !body.trim() || update.isPending}
           onClick={() => update.mutate({ id: a.id, title: title.trim(), body: body.trim() })}
         >
-          Save
+          {t("admin.announcements.card.save")}
         </button>
         <button
           className="btn-secondary btn-sm"
           onClick={() => update.mutate({ id: a.id, pinned: !a.pinned })}
         >
-          {a.pinned ? "Unpin" : "Pin"}
+          {a.pinned ? t("admin.announcements.card.unpin") : t("admin.announcements.card.pin")}
         </button>
         <button
           className="btn-secondary btn-sm"
           onClick={() => update.mutate({ id: a.id, active: !a.active })}
         >
-          {a.active ? "Deactivate" : "Reactivate"}
+          {a.active ? t("admin.announcements.card.deactivate") : t("admin.announcements.card.reactivate")}
         </button>
         <span className="muted text-xs">
-          {a._count.acks} dismissed · {new Date(a.createdAt).toLocaleDateString()}
+          {t("admin.announcements.card.dismissed", { count: a._count.acks })} ·{" "}
+          {new Date(a.createdAt).toLocaleDateString()}
           {a.createdBy?.name ? ` · ${a.createdBy.name}` : ""}
         </span>
         <button
           className="link-danger ml-auto text-sm"
           onClick={() => {
-            if (confirm("Delete this announcement?")) del.mutate({ id: a.id });
+            if (confirm(t("admin.announcements.card.confirmDelete"))) del.mutate({ id: a.id });
           }}
         >
-          Delete
+          {t("admin.announcements.card.delete")}
         </button>
       </div>
     </div>
@@ -86,6 +89,7 @@ function AnnouncementCard({
 }
 
 export default function AnnouncementsPage() {
+  const t = useTranslations();
   const utils = api.useUtils();
   const announcements = api.admin.announcements.useQuery();
   const invalidate = () => utils.admin.announcements.invalidate();
@@ -105,25 +109,22 @@ export default function AnnouncementsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="page-title">Announcements</h1>
-        <p className="muted mt-1">
-          Broadcast to tutors. Each shows on their dashboard on every login until they
-          dismiss it; pinned ones stay visible.
-        </p>
+        <h1 className="page-title">{t("admin.announcements.title")}</h1>
+        <p className="muted mt-1">{t("admin.announcements.subtitle")}</p>
       </div>
 
       <section className="card space-y-3 p-5">
-        <h2 className="font-semibold text-slate-900">New announcement</h2>
+        <h2 className="font-semibold text-slate-900">{t("admin.announcements.new.title")}</h2>
         <input
           className="input w-full"
-          placeholder="Title"
+          placeholder={t("admin.announcements.new.titlePlaceholder")}
           value={title}
           onChange={(e) => setTitle(e.target.value)}
         />
         <textarea
           className="textarea w-full"
           rows={3}
-          placeholder="Message…"
+          placeholder={t("admin.announcements.new.messagePlaceholder")}
           value={body}
           onChange={(e) => setBody(e.target.value)}
         />
@@ -134,7 +135,7 @@ export default function AnnouncementsPage() {
               checked={pinned}
               onChange={(e) => setPinned(e.target.checked)}
             />
-            Pin (stays visible after dismissal)
+            {t("admin.announcements.new.pinLabel")}
           </label>
           <button
             className="btn-primary btn-sm"
@@ -143,7 +144,7 @@ export default function AnnouncementsPage() {
               create.mutate({ title: title.trim(), body: body.trim(), pinned })
             }
           >
-            {create.isPending ? "Posting…" : "Broadcast"}
+            {create.isPending ? t("admin.announcements.new.posting") : t("admin.announcements.new.broadcast")}
           </button>
         </div>
       </section>
@@ -153,7 +154,7 @@ export default function AnnouncementsPage() {
           <AnnouncementCard key={a.id} a={a} onChanged={invalidate} />
         ))}
         {announcements.data?.length === 0 && (
-          <p className="muted">No announcements yet.</p>
+          <p className="muted">{t("admin.announcements.empty")}</p>
         )}
       </div>
     </div>

@@ -1,9 +1,10 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
-import { DAY_NAMES, hmToMin, minToHm } from "~/lib/time";
+import { DAY_NAMES, minToHm } from "~/lib/time";
 import { RoomGrid } from "~/app/_components/room-grid";
 
 type PairingForm = {
@@ -13,9 +14,6 @@ type PairingForm = {
   roomId: string;
   timeSlotId: string;
   subject: string;
-  dayOfWeek: number;
-  startTime: string;
-  endTime: string;
   tuteeIds: string[];
 };
 
@@ -26,13 +24,11 @@ const EMPTY: PairingForm = {
   roomId: "",
   timeSlotId: "",
   subject: "",
-  dayOfWeek: 1,
-  startTime: "15:30",
-  endTime: "16:30",
   tuteeIds: [],
 };
 
 export default function PairingsPage() {
+  const t = useTranslations();
   const utils = api.useUtils();
   const pairings = api.admin.pairings.useQuery();
   const tutors = api.admin.tutors.useQuery();
@@ -51,39 +47,22 @@ export default function PairingsPage() {
   const set = <K extends keyof PairingForm>(k: K, v: PairingForm[K]) =>
     setForm((f) => ({ ...f, [k]: v }));
 
-  const activeSlots = (timeSlots.data ?? []).filter((s) => s.active || s.id === form.timeSlotId);
-
-  // Picking a reference slot conveniently pre-fills day/start/end (still editable).
-  const pickSlot = (slotId: string) => {
-    const slot = (timeSlots.data ?? []).find((s) => s.id === slotId);
-    setForm((f) => ({
-      ...f,
-      timeSlotId: slotId,
-      ...(slot
-        ? {
-            dayOfWeek: slot.dayOfWeek,
-            startTime: minToHm(slot.startMin),
-            endTime: minToHm(slot.endMin),
-          }
-        : {}),
-    }));
-  };
+  const activeSlots = (timeSlots.data ?? []).filter(
+    (s) => s.active || s.id === form.timeSlotId,
+  );
 
   const submit = () => {
     const base = {
       tutorId: form.tutorId,
       termId: form.termId,
       roomId: form.roomId || undefined,
-      timeSlotId: form.timeSlotId || undefined,
+      timeSlotId: form.timeSlotId,
       subject: form.subject,
-      dayOfWeek: form.dayOfWeek,
-      startMin: hmToMin(form.startTime),
-      endMin: hmToMin(form.endTime),
       tuteeIds: form.tuteeIds,
     };
     if (form.id) {
       update.mutate(
-        { ...base, id: form.id, roomId: form.roomId || null, timeSlotId: form.timeSlotId || null },
+        { ...base, id: form.id, roomId: form.roomId || null },
         { onSuccess: () => setForm(EMPTY) },
       );
     } else {
@@ -95,11 +74,11 @@ export default function PairingsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="page-title">Pairings</h1>
+      <h1 className="page-title">{t("admin.pairings.title")}</h1>
 
       {/* Slot × room schedule grid */}
       <section>
-        <h2 className="mb-2 font-semibold text-slate-900">Room schedule</h2>
+        <h2 className="section-title mb-2">{t("admin.pairings.roomSchedule")}</h2>
         <RoomGrid
           rooms={(rooms.data ?? []).map((r) => ({ id: r.id, name: r.name }))}
           slots={(timeSlots.data ?? []).filter((s) => s.active)}
@@ -110,89 +89,57 @@ export default function PairingsPage() {
 
       {/* Create / edit form */}
       <section className="card p-5">
-        <h2 className="font-semibold text-slate-900">
-          {editing ? "Edit pairing" : "New pairing"}
+        <h2 className="section-title">
+          {editing ? t("admin.pairings.editPairing") : t("admin.pairings.newPairing")}
         </h2>
+        <p className="muted mt-1">{t("admin.pairings.slotHelp")}</p>
         <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
           <Select
-            label="Tutor"
+            label={t("admin.pairings.tutor")}
             value={form.tutorId}
             onChange={(v) => set("tutorId", v)}
             options={(tutors.data ?? []).map((t) => ({ value: t.id, label: t.englishName }))}
           />
           <Select
-            label="Term"
+            label={t("admin.pairings.term")}
             value={form.termId}
             onChange={(v) => set("termId", v)}
             options={(terms.data ?? []).map((t) => ({ value: t.id, label: t.name }))}
           />
           <Select
-            label="Room (optional)"
+            label={t("admin.pairings.roomOptional")}
             value={form.roomId}
             onChange={(v) => set("roomId", v)}
             options={[
-              { value: "", label: "— none —" },
+              { value: "", label: t("admin.pairings.none") },
               ...(rooms.data ?? []).map((r) => ({ value: r.id, label: r.name })),
             ]}
           />
           <Select
-            label="Time slot (optional, reference)"
+            label={t("admin.pairings.timeSlot")}
             value={form.timeSlotId}
-            onChange={pickSlot}
+            onChange={(v) => set("timeSlotId", v)}
             options={[
-              { value: "", label: "— none —" },
+              { value: "", label: t("admin.pairings.selectSlot") },
               ...activeSlots.map((s) => ({
                 value: s.id,
                 label: `${s.label} · ${DAY_NAMES[s.dayOfWeek]} ${minToHm(s.startMin)}–${minToHm(s.endMin)}`,
               })),
             ]}
           />
-          <label className="space-y-1 text-sm">
-            <span className="label">Subject</span>
+          <label className="space-y-1 text-sm sm:col-span-2">
+            <span className="label">{t("admin.pairings.subject")}</span>
             <input
               value={form.subject}
               onChange={(e) => set("subject", e.target.value)}
+              placeholder={t("admin.pairings.subjectPlaceholder")}
               className="input"
             />
           </label>
-          <label className="space-y-1 text-sm">
-            <span className="label">Day</span>
-            <select
-              value={form.dayOfWeek}
-              onChange={(e) => set("dayOfWeek", Number(e.target.value))}
-              className="select"
-            >
-              {[1, 2, 3, 4, 5, 6, 7].map((d) => (
-                <option key={d} value={d}>
-                  {DAY_NAMES[d]}
-                </option>
-              ))}
-            </select>
-          </label>
-          <div className="flex gap-2">
-            <label className="flex-1 space-y-1 text-sm">
-              <span className="label">Start</span>
-              <input
-                type="time"
-                value={form.startTime}
-                onChange={(e) => set("startTime", e.target.value)}
-                className="input"
-              />
-            </label>
-            <label className="flex-1 space-y-1 text-sm">
-              <span className="label">End</span>
-              <input
-                type="time"
-                value={form.endTime}
-                onChange={(e) => set("endTime", e.target.value)}
-                className="input"
-              />
-            </label>
-          </div>
         </div>
 
         <fieldset className="mt-3">
-          <legend className="label">Tutees</legend>
+          <legend className="label">{t("admin.pairings.tutees")}</legend>
           <div className="mt-1 grid grid-cols-2 gap-1 sm:grid-cols-3">
             {(tutees.data ?? []).map((t) => (
               <label key={t.id} className="flex items-center gap-2 text-sm">
@@ -217,14 +164,14 @@ export default function PairingsPage() {
         <div className="mt-4 flex items-center gap-3">
           <button
             onClick={submit}
-            disabled={!form.tutorId || !form.termId || !form.subject}
+            disabled={!form.tutorId || !form.termId || !form.subject || !form.timeSlotId}
             className="btn-primary"
           >
-            {editing ? "Save changes" : "Create pairing"}
+            {editing ? t("admin.pairings.saveChanges") : t("admin.pairings.createPairing")}
           </button>
           {editing && (
             <button onClick={() => setForm(EMPTY)} className="link text-sm">
-              Cancel
+              {t("admin.pairings.cancel")}
             </button>
           )}
           {error && <span className="text-sm text-red-600">{error.message}</span>}
@@ -236,12 +183,12 @@ export default function PairingsPage() {
         <table className="data-table">
           <thead>
             <tr>
-              <th>Subject</th>
-              <th>Tutor</th>
-              <th>When</th>
-              <th>Slot</th>
-              <th>Room</th>
-              <th>Tutees</th>
+              <th>{t("admin.pairings.colSubject")}</th>
+              <th>{t("admin.pairings.colTutor")}</th>
+              <th>{t("admin.pairings.colWhen")}</th>
+              <th>{t("admin.pairings.colSlot")}</th>
+              <th>{t("admin.pairings.colRoom")}</th>
+              <th>{t("admin.pairings.colTutees")}</th>
               <th></th>
             </tr>
           </thead>
@@ -266,18 +213,15 @@ export default function PairingsPage() {
                         roomId: p.roomId ?? "",
                         timeSlotId: p.timeSlotId ?? "",
                         subject: p.subject,
-                        dayOfWeek: p.dayOfWeek,
-                        startTime: minToHm(p.startMin),
-                        endTime: minToHm(p.endMin),
                         tuteeIds: p.tutees.map((t) => t.tuteeId),
                       })
                     }
                     className="link mr-3"
                   >
-                    Edit
+                    {t("admin.pairings.edit")}
                   </button>
                   <button onClick={() => del.mutate({ id: p.id })} className="link-danger">
-                    Delete
+                    {t("admin.pairings.delete")}
                   </button>
                 </td>
               </tr>
@@ -314,4 +258,3 @@ function Select({
     </label>
   );
 }
-

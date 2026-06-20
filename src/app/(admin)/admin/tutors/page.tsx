@@ -1,16 +1,21 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
+import { SortHeader, useSort, compare } from "~/app/_components/sortable";
 
 export default function TutorsPage() {
+  const t = useTranslations();
   const utils = api.useUtils();
   const tutors = api.admin.tutors.useQuery();
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [altNames, setAltNames] = useState("");
   const [email, setEmail] = useState("");
+
+  const sort = useSort("lastName");
 
   const invalidate = () => utils.admin.tutors.invalidate();
   const create = api.admin.createTutor.useMutation({
@@ -24,14 +29,31 @@ export default function TutorsPage() {
   });
   const update = api.admin.updateTutor.useMutation({ onSuccess: invalidate });
 
+  const rows = useMemo(() => {
+    const data = tutors.data ?? [];
+    const dir = sort.dir === "asc" ? 1 : -1;
+    return [...data].sort((a, b) => {
+      switch (sort.key) {
+        case "firstName":
+          return compare(a.firstName ?? a.englishName, b.firstName ?? b.englishName) * dir;
+        case "username":
+          return compare(a.username ?? "", b.username ?? "") * dir;
+        case "email":
+          return compare(a.email ?? "", b.email ?? "") * dir;
+        case "active":
+          return (Number(a.active) - Number(b.active)) * dir;
+        case "lastName":
+        default:
+          return compare(a.lastName ?? a.englishName, b.lastName ?? b.englishName) * dir;
+      }
+    });
+  }, [tutors.data, sort.key, sort.dir]);
+
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="page-title">Tutors</h1>
-        <p className="muted mt-1">
-          A tutor&apos;s email links them to their login account at first sign-in. The
-          username (default: first initial + last name) is an alternate sign-in identifier.
-        </p>
+        <h1 className="page-title">{t("admin.tutors.title")}</h1>
+        <p className="muted mt-1">{t("admin.tutors.help")}</p>
       </div>
 
       <form
@@ -50,30 +72,30 @@ export default function TutorsPage() {
         <input
           value={firstName}
           onChange={(e) => setFirstName(e.target.value)}
-          placeholder="First name"
+          placeholder={t("admin.tutors.phFirstName")}
           className="input max-w-[10rem]"
         />
         <input
           value={lastName}
           onChange={(e) => setLastName(e.target.value)}
-          placeholder="Last name"
+          placeholder={t("admin.tutors.phLastName")}
           className="input max-w-[10rem]"
         />
         <input
           value={altNames}
           onChange={(e) => setAltNames(e.target.value)}
-          placeholder="Alt. name(s) e.g. 中文名"
+          placeholder={t("admin.tutors.phAltNames")}
           className="input max-w-[12rem]"
         />
         <input
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           type="email"
-          placeholder="Email (optional)"
+          placeholder={t("admin.tutors.phEmail")}
           className="input max-w-xs"
         />
         <button className="btn-primary" disabled={create.isPending}>
-          Add tutor
+          {t("admin.tutors.addTutor")}
         </button>
       </form>
       {create.error && <p className="text-sm text-red-600">{create.error.message}</p>}
@@ -82,16 +104,16 @@ export default function TutorsPage() {
         <table className="data-table">
           <thead>
             <tr>
-              <th>First name</th>
-              <th>Last name</th>
-              <th>Alt. name(s)</th>
-              <th>Username</th>
-              <th>Email</th>
-              <th>Active</th>
+              <SortHeader sort={sort} sortKey="firstName">{t("admin.tutors.colFirstName")}</SortHeader>
+              <SortHeader sort={sort} sortKey="lastName">{t("admin.tutors.colLastName")}</SortHeader>
+              <th>{t("admin.tutors.colAltNames")}</th>
+              <SortHeader sort={sort} sortKey="username">{t("admin.tutors.colUsername")}</SortHeader>
+              <SortHeader sort={sort} sortKey="email">{t("admin.tutors.colEmail")}</SortHeader>
+              <SortHeader sort={sort} sortKey="active">{t("admin.tutors.colActive")}</SortHeader>
             </tr>
           </thead>
           <tbody>
-            {(tutors.data ?? []).map((t) => {
+            {rows.map((t) => {
               // Fall back to splitting englishName for any legacy row missing first/last.
               const [efirst, ...erest] = t.englishName.trim().split(/\s+/);
               const restJoined = erest.join(" ");

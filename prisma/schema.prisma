@@ -398,6 +398,11 @@ model Session {
 
   createdAt DateTime @default(now())
 
+  // When a tutor runs several courses in one combined block, each course gets its own Session
+  // sharing this id (the primary session's id). The block's clock time is counted once — on the
+  // primary session — so merged siblings carry shCount 0. Null for a standalone session.
+  mergeGroupId String?
+
   pairingId String
   pairing   Pairing @relation(fields: [pairingId], references: [id])
   tutorId   String
@@ -409,6 +414,7 @@ model Session {
 
   @@index([tutorId, month])
   @@index([pairingId])
+  @@index([mergeGroupId])
 }
 
 /// Join table: the tutees covered by a particular attendance submission.

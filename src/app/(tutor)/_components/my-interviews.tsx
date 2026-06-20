@@ -17,6 +17,7 @@ function toLocalInput(d: Date | null): string {
 type Status = "PENDING" | "INTERVIEW" | "ACCEPTED" | "REJECTED";
 
 function HeadScheduler({ applicationId, current }: { applicationId: string; current: Date | null }) {
+  const t = useTranslations();
   const utils = api.useUtils();
   const [value, setValue] = useState(toLocalInput(current));
   const save = api.tutor.setInterviewTime.useMutation({
@@ -38,9 +39,11 @@ function HeadScheduler({ applicationId, current }: { applicationId: string; curr
           save.mutate({ applicationId, interviewAt: value ? new Date(value) : null })
         }
       >
-        {save.isPending ? "Saving…" : "Set time"}
+        {save.isPending ? t("tutor.interviews.saving") : t("tutor.interviews.setTime")}
       </button>
-      {save.isSuccess && <span className="text-sm text-green-600">Saved.</span>}
+      {save.isSuccess && (
+        <span className="text-sm text-green-600">{t("tutor.interviews.saved")}</span>
+      )}
     </div>
   );
 }
@@ -52,6 +55,7 @@ function VoteForm({
   applicationId: string;
   myVote: { accept: boolean; comment: string | null } | null;
 }) {
+  const t = useTranslations();
   const utils = api.useUtils();
   const [comment, setComment] = useState(myVote?.comment ?? "");
   const cast = api.tutor.castInterviewVote.useMutation({
@@ -62,7 +66,7 @@ function VoteForm({
     <div className="mt-2 space-y-2">
       <input
         className="input w-full"
-        placeholder="Optional comment on your vote"
+        placeholder={t("tutor.interviews.voteCommentPlaceholder")}
         value={comment}
         onChange={(e) => setComment(e.target.value)}
       />
@@ -74,7 +78,7 @@ function VoteForm({
             cast.mutate({ applicationId, accept: true, comment: comment.trim() || undefined })
           }
         >
-          👍 Accept
+          👍 {t("tutor.interviews.accept")}
         </button>
         <button
           className={`btn-sm ${myVote?.accept === false ? "btn-primary" : "btn-secondary"}`}
@@ -83,11 +87,15 @@ function VoteForm({
             cast.mutate({ applicationId, accept: false, comment: comment.trim() || undefined })
           }
         >
-          👎 Reject
+          👎 {t("tutor.interviews.reject")}
         </button>
         {myVote && (
           <span className="muted text-xs">
-            Your vote: {myVote.accept ? "accept" : "reject"}
+            {t("tutor.interviews.yourVote", {
+              vote: myVote.accept
+                ? t("tutor.interviews.voteAccept")
+                : t("tutor.interviews.voteReject"),
+            })}
           </span>
         )}
       </div>
@@ -112,6 +120,7 @@ function HeadDecision({
   decidedBy: string | null;
   expectedUpdatedAt: Date;
 }) {
+  const t = useTranslations();
   const utils = api.useUtils();
   const [comment, setComment] = useState("");
   const decide = api.tutor.decideInterview.useMutation({
@@ -123,18 +132,22 @@ function HeadDecision({
   // Simple majority admits; on a tie the head's own vote breaks it (policy §VII.4).
   const majority =
     tally.accepts > tally.rejects
-      ? "accept"
+      ? t("tutor.interviews.majorityAccept")
       : tally.rejects > tally.accepts
-        ? "reject"
+        ? t("tutor.interviews.majorityReject")
         : headVote
-          ? `${headVote.accept ? "accept" : "reject"} (head breaks tie)`
-          : "tie — cast your vote to break it";
+          ? headVote.accept
+            ? t("tutor.interviews.majorityAcceptHeadTie")
+            : t("tutor.interviews.majorityRejectHeadTie")
+          : t("tutor.interviews.majorityTie");
 
   if (decided) {
     return (
       <div className="mt-2 rounded-md bg-slate-50 p-2 text-sm">
         <span className={status === "ACCEPTED" ? "badge-green" : "badge-red"}>
-          {status.toLowerCase()}
+          {status === "ACCEPTED"
+            ? t("tutor.interviews.statusAccepted")
+            : t("tutor.interviews.statusRejected")}
         </span>
         {decisionComment && <span className="ml-2 text-slate-700">“{decisionComment}”</span>}
         {decidedBy && <span className="muted ml-1 text-xs">— {decidedBy}</span>}
@@ -145,15 +158,18 @@ function HeadDecision({
   return (
     <div className="mt-2 space-y-2 border-t border-slate-100 pt-2">
       <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
-        Head decision
+        {t("tutor.interviews.headDecision")}
       </p>
       <p className="muted text-xs">
-        Tally: {tally.accepts} accept · {tally.rejects} reject (majority: {majority}). Record
-        the final decision with a brief comment.
+        {t("tutor.interviews.tally", {
+          accepts: tally.accepts,
+          rejects: tally.rejects,
+          majority,
+        })}
       </p>
       <input
         className="input w-full"
-        placeholder="Brief comment on your decision (required)"
+        placeholder={t("tutor.interviews.decisionCommentPlaceholder")}
         value={comment}
         onChange={(e) => setComment(e.target.value)}
       />
@@ -165,7 +181,7 @@ function HeadDecision({
             decide.mutate({ applicationId, accept: true, comment: comment.trim(), expectedUpdatedAt })
           }
         >
-          Approve
+          {t("tutor.interviews.approve")}
         </button>
         <button
           className="btn-secondary btn-sm"
@@ -174,7 +190,7 @@ function HeadDecision({
             decide.mutate({ applicationId, accept: false, comment: comment.trim(), expectedUpdatedAt })
           }
         >
-          Reject
+          {t("tutor.interviews.reject")}
         </button>
         {decide.error && <span className="text-sm text-red-600">{decide.error.message}</span>}
       </div>
@@ -192,10 +208,7 @@ export function MyInterviews() {
   return (
     <section className="card p-5">
       <h2 className="font-semibold text-slate-900">{t("dashboard.interviews.title")}</h2>
-      <p className="muted mt-1 mb-3">
-        Applicants you&apos;re on the panel for. Cast your vote after the demo; the head
-        records the final decision.
-      </p>
+      <p className="muted mt-1 mb-3">{t("tutor.interviews.help")}</p>
       <div className="space-y-3">
         {list.map((a) => {
           const votes = a.votes;
@@ -205,7 +218,9 @@ export function MyInterviews() {
                 <p className="font-medium text-slate-900">
                   {a.name}
                   {a.isHead && (
-                    <span className="badge ml-2 bg-indigo-100 text-indigo-700">you are head</span>
+                    <span className="badge ml-2 bg-indigo-100 text-indigo-700">
+                      {t("tutor.interviews.youAreHead")}
+                    </span>
                   )}
                 </p>
                 <p className="muted">{a.email}</p>
@@ -215,16 +230,22 @@ export function MyInterviews() {
                 {a.courseIntents.map((ci, i) => (
                   <li key={i} className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
                     {ci.course.name}
-                    {ci.taken ? ` · ${ci.grade ?? "taken"}` : " · not taken"}
+                    {ci.taken
+                      ? ` · ${ci.grade ?? t("tutor.interviews.taken")}`
+                      : ` · ${t("tutor.interviews.notTaken")}`}
                   </li>
                 ))}
               </ul>
 
               <p className="muted mt-2">
-                Panel:{" "}
-                {a.interviewers
-                  .map((x) => `${x.tutor.englishName}${x.isHead ? " (head)" : ""}`)
-                  .join(", ")}
+                {t("tutor.interviews.panel", {
+                  members: a.interviewers
+                    .map(
+                      (x) =>
+                        `${x.tutor.englishName}${x.isHead ? ` ${t("tutor.interviews.headSuffix")}` : ""}`,
+                    )
+                    .join(", "),
+                })}
               </p>
 
               {a.isHead ? (
@@ -232,8 +253,10 @@ export function MyInterviews() {
               ) : (
                 <p className="muted mt-2">
                   {a.interviewAt
-                    ? `Scheduled: ${new Date(a.interviewAt).toLocaleString()}`
-                    : "Awaiting the head to schedule a time."}
+                    ? t("tutor.interviews.scheduled", {
+                        time: new Date(a.interviewAt).toLocaleString(),
+                      })
+                    : t("tutor.interviews.awaitingSchedule")}
                 </p>
               )}
 
@@ -267,7 +290,9 @@ export function MyInterviews() {
               {!a.isHead && (a.status === "ACCEPTED" || a.status === "REJECTED") && (
                 <div className="mt-2 rounded-md bg-slate-50 p-2 text-sm">
                   <span className={a.status === "ACCEPTED" ? "badge-green" : "badge-red"}>
-                    {a.status.toLowerCase()}
+                    {a.status === "ACCEPTED"
+                      ? t("tutor.interviews.statusAccepted")
+                      : t("tutor.interviews.statusRejected")}
                   </span>
                   {a.decisionComment && (
                     <span className="ml-2 text-slate-700">“{a.decisionComment}”</span>

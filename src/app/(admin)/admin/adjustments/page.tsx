@@ -1,11 +1,13 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { api } from "~/trpc/react";
 import { currentMonth } from "~/lib/time";
 
 export default function AdjustmentsPage() {
+  const t = useTranslations();
   const utils = api.useUtils();
   const tutors = api.admin.tutors.useQuery();
   const list = api.admin.adjustments.useQuery({});
@@ -22,11 +24,8 @@ export default function AdjustmentsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="page-title">Tutor hour adjustments</h1>
-        <p className="muted mt-1 text-sm">
-          Add extra hours or apply a punishment (deduction) to a tutor for a given month.
-          (Tutee yellow/red cards live under Tutee discipline.)
-        </p>
+        <h1 className="page-title">{t("admin.adjustments.title")}</h1>
+        <p className="muted mt-1 text-sm">{t("admin.adjustments.subtitle")}</p>
       </div>
 
       <form
@@ -49,7 +48,7 @@ export default function AdjustmentsPage() {
           onChange={(e) => setTutorId(e.target.value)}
           className="select max-w-xs"
         >
-          <option value="">Tutor…</option>
+          <option value="">{t("admin.adjustments.form.tutorPlaceholder")}</option>
           {(tutors.data ?? []).map((t) => (
             <option key={t.id} value={t.id}>
               {t.englishName}
@@ -67,8 +66,8 @@ export default function AdjustmentsPage() {
           onChange={(e) => setType(e.target.value as "PUNISHMENT" | "EXTRA")}
           className="select"
         >
-          <option value="EXTRA">Extra (+)</option>
-          <option value="PUNISHMENT">Punishment (−)</option>
+          <option value="EXTRA">{t("admin.adjustments.form.typeExtra")}</option>
+          <option value="PUNISHMENT">{t("admin.adjustments.form.typePunishment")}</option>
         </select>
         <input
           type="number"
@@ -81,10 +80,10 @@ export default function AdjustmentsPage() {
         <input
           value={reason}
           onChange={(e) => setReason(e.target.value)}
-          placeholder="Reason (optional)"
+          placeholder={t("admin.adjustments.form.reasonPlaceholder")}
           className="input max-w-xs"
         />
-        <button className="btn-primary">Add</button>
+        <button className="btn-primary">{t("admin.adjustments.form.add")}</button>
       </form>
       {create.error && <p className="text-sm text-red-600">{create.error.message}</p>}
 
@@ -92,11 +91,11 @@ export default function AdjustmentsPage() {
         <table className="data-table">
           <thead>
             <tr>
-              <th>Tutor</th>
-              <th>Month</th>
-              <th>Type</th>
-              <th className="text-right">Amount</th>
-              <th>Reason</th>
+              <th>{t("admin.adjustments.table.tutor")}</th>
+              <th>{t("admin.adjustments.table.month")}</th>
+              <th>{t("admin.adjustments.table.type")}</th>
+              <th className="text-right">{t("admin.adjustments.table.amount")}</th>
+              <th>{t("admin.adjustments.table.reason")}</th>
               <th></th>
             </tr>
           </thead>
@@ -105,12 +104,12 @@ export default function AdjustmentsPage() {
               <tr key={a.id}>
                 <td>{a.tutor.englishName}</td>
                 <td>{a.month}</td>
-                <td className="text-slate-500">{a.type}</td>
+                <td className="text-slate-500">{t(`admin.adjustments.typeLabel.${a.type}`)}</td>
                 <td className="text-right">{a.amount.toFixed(1)}</td>
                 <td>{a.reason}</td>
                 <td className="text-right">
                   <button onClick={() => del.mutate({ id: a.id })} className="link-danger">
-                    Delete
+                    {t("admin.adjustments.table.delete")}
                   </button>
                 </td>
               </tr>

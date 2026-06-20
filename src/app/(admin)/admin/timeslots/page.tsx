@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { DAY_NAMES, hmToMin, minToHm } from "~/lib/time";
@@ -8,6 +9,7 @@ import { DAY_NAMES, hmToMin, minToHm } from "~/lib/time";
 const EMPTY = { label: "", dayOfWeek: 1, startTime: "15:30", endTime: "16:30" };
 
 export default function TimeSlotsPage() {
+  const t = useTranslations();
   const utils = api.useUtils();
   const slots = api.admin.timeSlots.useQuery();
   const [form, setForm] = useState(EMPTY);
@@ -25,12 +27,8 @@ export default function TimeSlotsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="page-title">Time slots</h1>
-        <p className="muted mt-1">
-          A shared catalog of meeting times. Tutors and tutees mark availability against
-          these; pairings can reference one. Slots are reference-only — actual session
-          times are still entered on each attendance submission.
-        </p>
+        <h1 className="page-title">{t("admin.timeslots.title")}</h1>
+        <p className="muted mt-1">{t("admin.timeslots.description")}</p>
       </div>
 
       <form
@@ -47,16 +45,16 @@ export default function TimeSlotsPage() {
         }}
       >
         <label className="space-y-1">
-          <span className="label">Label</span>
+          <span className="label">{t("admin.timeslots.label")}</span>
           <input
             value={form.label}
             onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
-            placeholder="e.g. Mon block A"
+            placeholder={t("admin.timeslots.labelPlaceholder")}
             className="input"
           />
         </label>
         <label className="space-y-1">
-          <span className="label">Day</span>
+          <span className="label">{t("admin.timeslots.day")}</span>
           <select
             value={form.dayOfWeek}
             onChange={(e) => setForm((f) => ({ ...f, dayOfWeek: Number(e.target.value) }))}
@@ -70,7 +68,7 @@ export default function TimeSlotsPage() {
           </select>
         </label>
         <label className="space-y-1">
-          <span className="label">Start</span>
+          <span className="label">{t("admin.timeslots.start")}</span>
           <input
             type="time"
             value={form.startTime}
@@ -79,7 +77,7 @@ export default function TimeSlotsPage() {
           />
         </label>
         <label className="space-y-1">
-          <span className="label">End</span>
+          <span className="label">{t("admin.timeslots.end")}</span>
           <input
             type="time"
             value={form.endTime}
@@ -87,7 +85,7 @@ export default function TimeSlotsPage() {
             className="input"
           />
         </label>
-        <button className="btn-primary">Add slot</button>
+        <button className="btn-primary">{t("admin.timeslots.addSlot")}</button>
       </form>
       {(create.error ?? del.error) && (
         <p className="text-sm text-red-600">{(create.error ?? del.error)?.message}</p>
@@ -97,10 +95,10 @@ export default function TimeSlotsPage() {
         <table className="data-table">
           <thead>
             <tr>
-              <th>Label</th>
-              <th>Day</th>
-              <th>Time</th>
-              <th>Active</th>
+              <th>{t("admin.timeslots.colLabel")}</th>
+              <th>{t("admin.timeslots.colDay")}</th>
+              <th>{t("admin.timeslots.colTime")}</th>
+              <th>{t("admin.timeslots.colActive")}</th>
               <th></th>
             </tr>
           </thead>
@@ -147,7 +145,7 @@ export default function TimeSlotsPage() {
                 </td>
                 <td className="text-right">
                   <button className="link-danger" onClick={() => del.mutate({ id: s.id })}>
-                    Delete
+                    {t("admin.timeslots.delete")}
                   </button>
                 </td>
               </tr>
@@ -155,7 +153,7 @@ export default function TimeSlotsPage() {
             {slots.data?.length === 0 && (
               <tr>
                 <td colSpan={5} className="text-slate-500">
-                  No time slots yet.
+                  {t("admin.timeslots.empty")}
                 </td>
               </tr>
             )}

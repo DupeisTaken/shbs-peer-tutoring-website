@@ -101,6 +101,9 @@ export const tutorRouter = createTRPCRouter({
       z
         .object({
           pairingId: z.string().min(1),
+          // Other pairings (courses) run in the same combined block. Each becomes its own
+          // Session linked by mergeGroupId; the block's clock time is counted once.
+          mergePairingIds: z.array(z.string().min(1)).max(5).optional(),
           date: z.coerce.date(),
           // Tutor's own status (did the session happen?) + reason when absent.
           tutorStatus: z.enum(TUTOR_STATUS),
@@ -174,45 +177,59 @@ export const tutorRouter = createTRPCRouter({
         }),
     )
     .mutation(async ({ ctx, input }) => {
-      // Row scoping: the pairing must belong to this tutor.
-      const pairing = await ctx.db.pairing.findFirst({
-        where: { id: input.pairingId, tutorId: ctx.session.tutorId },
+      const tutorId = ctx.session.tutorId;
+      // The block can cover several courses (pairings). Primary first, then the merged ones.
+      const mergeIds = [...new Set(input.mergePairingIds ?? [])].filter(
+        (id) => id !== input.pairingId,
+      );
+      const allPairingIds = [input.pairingId, ...mergeIds];
+
+      // Row scoping: every pairing in the block must belong to this tutor.
+      const found = await ctx.db.pairing.findMany({
+        where: { id: { in: allPairingIds }, tutorId },
         include: { tutees: { select: { tuteeId: true } } },
       });
-      if (!pairing) {
+      const primary = found.find((p) => p.id === input.pairingId);
+      if (!primary || found.length !== allPairingIds.length) {
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Pairing not found for this tutor.",
         });
       }
+      // Keep the requested order: primary, then merges as given.
+      const ordered = [primary, ...mergeIds.map((id) => found.find((p) => p.id === id)!)];
 
-      // Every listed tutee must be on this pairing's roster (de-duplicated by tuteeId).
-      const roster = new Set(pairing.tutees.map((t) => t.tuteeId));
-      const tuteeRows = [
-        ...new Map(input.tutees.map((t) => [t.tuteeId, t])).values(),
-      ];
+      // Roster per pairing + the union across the whole block.
+      const rosterByPairing = new Map(
+        found.map((p) => [p.id, new Set(p.tutees.map((t) => t.tuteeId))]),
+      );
+      const unionRoster = new Set<string>();
+      for (const set of rosterByPairing.values()) for (const id of set) unionRoster.add(id);
+
+      // Every listed tutee must be on at least one pairing in the block (de-duplicated).
+      const tuteeRows = [...new Map(input.tutees.map((t) => [t.tuteeId, t])).values()];
       for (const t of tuteeRows) {
-        if (!roster.has(t.tuteeId)) {
+        if (!unionRoster.has(t.tuteeId)) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "Selected tutee is not on this pairing.",
+            message: "Selected tutee is not on any of these pairings.",
           });
         }
       }
 
-      // Any carded tutee must also be on this pairing's roster.
+      // Any carded tutee must also be in the block's roster.
       const cardRequests = input.cards ?? [];
       for (const c of cardRequests) {
-        if (!roster.has(c.tuteeId)) {
+        if (!unionRoster.has(c.tuteeId)) {
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "Cannot card a tutee who is not on this pairing.",
+            message: "Cannot card a tutee who is not on these pairings.",
           });
         }
       }
 
-      const startMin = input.startMin ?? pairing.startMin;
-      const endMin = input.endMin ?? pairing.endMin;
+      const startMin = input.startMin ?? primary.startMin;
+      const endMin = input.endMin ?? primary.endMin;
       if (endMin <= startMin) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -220,6 +237,7 @@ export const tutorRouter = createTRPCRouter({
         });
       }
 
+      // Service hours for the block are computed once from the shared window.
       const computed = computeSessionHours({
         tutorStatus: input.tutorStatus,
         tuteeStatuses: tuteeRows.map((t) => t.status),
@@ -227,82 +245,106 @@ export const tutorRouter = createTRPCRouter({
         endMin,
         date: input.date,
       });
+      const merged = ordered.length > 1;
 
-      const session = await ctx.db.session.create({
-        data: {
-          pairingId: pairing.id,
-          tutorId: ctx.session.tutorId,
-          date: input.date,
-          tutorStatus: input.tutorStatus,
-          tutorAbsentReason:
-            input.tutorStatus === "TUTOR_ABSENT"
-              ? (input.tutorAbsentReason?.trim() ?? null)
-              : null,
-          startMin,
-          endMin,
-          ratingPreparedness: input.ratingPreparedness,
-          ratingParticipation: input.ratingParticipation,
-          ratingUnderstanding: input.ratingUnderstanding,
-          ratingBehavior: input.ratingBehavior,
-          ratingProgress: input.ratingProgress,
-          comments: input.comments,
-          month: computed.month,
-          durationMin: computed.durationMin,
-          shFactor: computed.shFactor,
-          shCount: computed.shCount,
-          tutees: {
-            create: tuteeRows.map((t) => ({
-              tuteeId: t.tuteeId,
-              status: t.status,
-              absenceReason:
-                t.status === "EXCUSED_ABSENT" ? (t.absenceReason?.trim() ?? null) : null,
-            })),
-          },
-        },
-        select: { id: true, month: true, shCount: true },
-      });
+      const ratings = {
+        ratingPreparedness: input.ratingPreparedness,
+        ratingParticipation: input.ratingParticipation,
+        ratingUnderstanding: input.ratingUnderstanding,
+        ratingBehavior: input.ratingBehavior,
+        ratingProgress: input.ratingProgress,
+      };
 
-      // Disciplinary cards from this survey:
-      //  - tutor-requested cards -> PENDING (team rechecks), with the required reason;
-      //  - auto-issued: each UNEXCUSED_ABSENT tutee -> RED (created VALID per policy; still
-      //    appealable / flaggable INVALID by the team).
-      const cardRows: {
-        tuteeId: string;
-        color: "YELLOW" | "RED";
-        source: "TUTOR" | "AUTO";
-        reason: string;
-        reviewStatus: "PENDING" | "VALID";
-        issuedByTutorId: string | null;
-        sessionId: string;
-      }[] = cardRequests.map((c) => ({
-        tuteeId: c.tuteeId,
-        color: c.color,
-        source: "TUTOR",
-        reason: c.reason,
-        reviewStatus: "PENDING",
-        issuedByTutorId: ctx.session.tutorId,
-        sessionId: session.id,
-      }));
+      return ctx.db.$transaction(async (tx) => {
+        const sessionIds: string[] = [];
+        let primaryId = "";
+        for (const [i, p] of ordered.entries()) {
+          const isPrimary = i === 0;
+          const roster = rosterByPairing.get(p.id)!;
+          const rows = tuteeRows.filter((t) => roster.has(t.tuteeId));
+          // The block's clock time counts once — on the primary session. Siblings carry 0 hours.
+          const created = await tx.session.create({
+            data: {
+              pairingId: p.id,
+              tutorId,
+              date: input.date,
+              tutorStatus: input.tutorStatus,
+              tutorAbsentReason:
+                input.tutorStatus === "TUTOR_ABSENT"
+                  ? (input.tutorAbsentReason?.trim() ?? null)
+                  : null,
+              startMin,
+              endMin,
+              ...ratings,
+              comments: input.comments,
+              month: computed.month,
+              durationMin: computed.durationMin,
+              shFactor: isPrimary ? computed.shFactor : 0,
+              shCount: isPrimary ? computed.shCount : 0,
+              tutees: {
+                create: rows.map((t) => ({
+                  tuteeId: t.tuteeId,
+                  status: t.status,
+                  absenceReason:
+                    t.status === "EXCUSED_ABSENT" ? (t.absenceReason?.trim() ?? null) : null,
+                })),
+              },
+            },
+            select: { id: true },
+          });
+          if (isPrimary) primaryId = created.id;
+          sessionIds.push(created.id);
+        }
 
-      for (const t of tuteeRows) {
-        if (t.status === "UNEXCUSED_ABSENT") {
-          cardRows.push({
-            tuteeId: t.tuteeId,
-            color: "RED",
-            source: "AUTO",
-            reason: "Unexcused absence (auto-issued).",
-            reviewStatus: "VALID",
-            issuedByTutorId: ctx.session.tutorId,
-            sessionId: session.id,
+        // Link merged siblings under the primary session's id as the group key.
+        if (merged) {
+          await tx.session.updateMany({
+            where: { id: { in: sessionIds } },
+            data: { mergeGroupId: primaryId },
           });
         }
-      }
 
-      if (cardRows.length > 0) {
-        await ctx.db.disciplinaryCard.createMany({ data: cardRows });
-      }
+        // Disciplinary cards for the whole block, attached to the primary session and
+        // de-duplicated by tutee (so a merged block can't double-card the same person):
+        //  - tutor-requested -> PENDING (team rechecks), with the required reason;
+        //  - auto-issued: each UNEXCUSED_ABSENT tutee -> RED (created VALID per policy).
+        const autoRed = new Set(
+          tuteeRows.filter((t) => t.status === "UNEXCUSED_ABSENT").map((t) => t.tuteeId),
+        );
+        const cardRows: {
+          tuteeId: string;
+          color: "YELLOW" | "RED";
+          source: "TUTOR" | "AUTO";
+          reason: string;
+          reviewStatus: "PENDING" | "VALID";
+          issuedByTutorId: string | null;
+          sessionId: string;
+        }[] = [
+          ...cardRequests.map((c) => ({
+            tuteeId: c.tuteeId,
+            color: c.color,
+            source: "TUTOR" as const,
+            reason: c.reason,
+            reviewStatus: "PENDING" as const,
+            issuedByTutorId: tutorId,
+            sessionId: primaryId,
+          })),
+          ...[...autoRed].map((tuteeId) => ({
+            tuteeId,
+            color: "RED" as const,
+            source: "AUTO" as const,
+            reason: "Unexcused absence (auto-issued).",
+            reviewStatus: "VALID" as const,
+            issuedByTutorId: tutorId,
+            sessionId: primaryId,
+          })),
+        ];
+        if (cardRows.length > 0) {
+          await tx.disciplinaryCard.createMany({ data: cardRows });
+        }
 
-      return session;
+        return { id: primaryId, month: computed.month, shCount: computed.shCount };
+      });
     }),
 
   // --------------------------------------------------------------------------

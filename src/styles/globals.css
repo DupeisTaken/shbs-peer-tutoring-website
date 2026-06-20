@@ -1,8 +1,11 @@
 @import "tailwindcss" source("../");
 
 @theme {
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif,
+  --font-sans: var(--font-inter), ui-sans-serif, system-ui, sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+  /* Editorial serif for headings — gives the app a more formal voice. */
+  --font-serif: var(--font-fraunces), ui-serif, Georgia, Cambria, "Times New Roman",
+    serif;
 
   /* Brand palette (indigo). Keep in sync with usages of `indigo-600` in components. */
   --color-brand: oklch(0.51 0.23 277);
@@ -11,6 +14,14 @@
 @layer base {
   body {
     @apply bg-slate-50 text-slate-900 antialiased;
+    font-feature-settings: "cv11", "ss01";
+  }
+
+  /* Headings carry the serif display face for a formal, editorial register. */
+  h1,
+  h2,
+  h3 {
+    @apply font-serif;
   }
 }
 
@@ -70,7 +81,11 @@
     @apply rounded-xl border border-slate-200 bg-white shadow-sm;
   }
   .page-title {
-    @apply text-2xl font-bold tracking-tight text-slate-900;
+    @apply font-serif text-2xl font-semibold tracking-tight text-slate-900;
+  }
+  /* Section heading inside a card/panel — serif, smaller than the page title. */
+  .section-title {
+    @apply font-serif text-lg font-semibold tracking-tight text-slate-900;
   }
   .muted {
     @apply text-sm text-slate-500;

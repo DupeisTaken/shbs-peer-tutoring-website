@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { DAY_NAMES, minToHm } from "~/lib/time";
@@ -45,28 +46,35 @@ function RequestCard({
   termId: string;
   onChanged: () => Promise<unknown> | void;
 }) {
+  const t = useTranslations();
   const assign = api.admin.assignSignup.useMutation({
     onSuccess: () => onChanged(),
     onError: () => onChanged(), // refresh on a stale-write conflict
   });
   const del = api.admin.deleteTutee.useMutation({ onSuccess: () => onChanged() });
 
-  // One tutor pick per offered course choice (keyed by subject name).
-  const choices = [tutee.firstChoice, tutee.secondChoice].filter(
-    (c): c is { id: string; name: string } => !!c,
-  );
+  // Always show both choice positions; a position the tutee left blank renders grayed/disabled
+  // so the request stays in the queue and the admin can still assign whatever was provided.
+  const positions = [
+    { key: "first", label: t("admin.requests.firstChoice"), course: tutee.firstChoice },
+    { key: "second", label: t("admin.requests.secondChoice"), course: tutee.secondChoice },
+  ];
   const [picks, setPicks] = useState<Record<string, string>>({});
 
-  const activeTutors = tutors.filter((t) => t.active);
+  const activeTutors = tutors.filter((tu) => tu.active);
   const tutorLabel = (id: string) => {
-    const t = activeTutors.find((x) => x.id === id);
+    const tu = activeTutors.find((x) => x.id === id);
     const w = workload[id] ?? { pairings: 0, tutees: 0 };
-    return `${t?.englishName ?? "?"} — ${w.pairings} pairings · ${w.tutees} tutees`;
+    return t("admin.requests.tutorWorkload", {
+      name: tu?.englishName ?? "?",
+      pairings: w.pairings,
+      tutees: w.tutees,
+    });
   };
 
-  const assignments = choices
-    .filter((c) => picks[c.name])
-    .map((c) => ({ subject: c.name, tutorId: picks[c.name]! }));
+  const assignments = positions
+    .filter((p) => p.course && picks[p.course.name])
+    .map((p) => ({ subject: p.course!.name, tutorId: picks[p.course!.name]! }));
 
   return (
     <div className="rounded-lg border border-slate-200 p-4">
@@ -75,48 +83,72 @@ function RequestCard({
           <p className="font-medium text-slate-900">
             <span className="badge-slate mr-2">#{order}</span>
             {tutee.englishName}
-            {tutee.gradeLevel ? ` · Grade ${tutee.gradeLevel}` : ""}
+            {tutee.gradeLevel ? ` · ${t("admin.requests.grade", { grade: tutee.gradeLevel })}` : ""}
           </p>
-          <p className="muted text-xs">Submitted {new Date(tutee.createdAt).toLocaleString()}</p>
-          <p className="muted">Available: {availability(tutee.availabilities)}</p>
-          {tutee.preferredContact && <p className="muted">Reach: {tutee.preferredContact}</p>}
+          <p className="muted text-xs">
+            {t("admin.requests.submitted", { when: new Date(tutee.createdAt).toLocaleString() })}
+          </p>
           <p className="muted">
-            Signed: {tutee.signedRulebook ? `✓ ${tutee.signatureName ?? ""}` : "— not signed"}
+            {t("admin.requests.available", { list: availability(tutee.availabilities) })}
+          </p>
+          {tutee.preferredContact && (
+            <p className="muted">{t("admin.requests.reach", { contact: tutee.preferredContact })}</p>
+          )}
+          <p className="muted">
+            {tutee.signedRulebook
+              ? t("admin.requests.signed", { name: tutee.signatureName ?? "" })
+              : t("admin.requests.notSigned")}
           </p>
         </div>
         <button
           className="btn-danger btn-sm shrink-0"
           onClick={() => {
-            if (confirm(`Decline and delete ${tutee.englishName}'s request?`))
+            if (confirm(t("admin.requests.declineConfirm", { name: tutee.englishName })))
               del.mutate({ id: tutee.id });
           }}
         >
-          Decline
+          {t("admin.requests.decline")}
         </button>
       </div>
 
       {/* Assign each course choice to a tutor (workload shown in the dropdown). */}
       <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
-        {choices.length === 0 && <p className="muted text-sm">No course choice on file.</p>}
-        {choices.map((c, i) => (
-          <div key={c.id} className="flex flex-wrap items-center gap-2">
-            <span className="w-44 text-sm text-slate-700">
-              {i === 0 ? "1st choice" : "2nd choice"}: <span className="font-medium">{c.name}</span>
-            </span>
-            <select
-              className="select w-72"
-              value={picks[c.name] ?? ""}
-              onChange={(e) => setPicks((p) => ({ ...p, [c.name]: e.target.value }))}
+        {positions.map((p) => {
+          const filled = !!p.course;
+          return (
+            <div
+              key={p.key}
+              className={`flex flex-wrap items-center gap-2 ${filled ? "" : "opacity-50"}`}
             >
-              <option value="">— assign to tutor —</option>
-              {activeTutors.map((t) => (
-                <option key={t.id} value={t.id}>
-                  {tutorLabel(t.id)}
+              <span className="w-44 text-sm text-slate-700">
+                {p.label}:{" "}
+                {filled ? (
+                  <span className="font-medium">{p.course!.name}</span>
+                ) : (
+                  <span className="text-slate-400">{t("admin.requests.notProvided")}</span>
+                )}
+              </span>
+              <select
+                className="select w-72"
+                disabled={!filled}
+                value={filled ? (picks[p.course!.name] ?? "") : ""}
+                onChange={(e) =>
+                  filled && setPicks((prev) => ({ ...prev, [p.course!.name]: e.target.value }))
+                }
+              >
+                <option value="">
+                  {filled ? t("admin.requests.assignToTutor") : t("admin.requests.notProvided")}
                 </option>
-              ))}
-            </select>
-          </div>
-        ))}
+                {filled &&
+                  activeTutors.map((tu) => (
+                    <option key={tu.id} value={tu.id}>
+                      {tutorLabel(tu.id)}
+                    </option>
+                  ))}
+              </select>
+            </div>
+          );
+        })}
         <div className="flex items-center gap-3 pt-1">
           <button
             className="btn-primary btn-sm"
@@ -130,7 +162,7 @@ function RequestCard({
               })
             }
           >
-            {assign.isPending ? "Assigning…" : "Assign & activate"}
+            {assign.isPending ? t("admin.requests.assigning") : t("admin.requests.assignActivate")}
           </button>
           {assign.error && <span className="text-sm text-red-600">{assign.error.message}</span>}
           {(del.error ?? null) && <span className="text-sm text-red-600">{del.error?.message}</span>}
@@ -141,6 +173,7 @@ function RequestCard({
 }
 
 export default function RequestsPage() {
+  const t = useTranslations();
   const utils = api.useUtils();
   const tutees = api.admin.tutees.useQuery();
   const tutors = api.admin.tutors.useQuery();
@@ -175,23 +208,18 @@ export default function RequestsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="page-title">Signup requests (tutees)</h1>
-        <p className="muted mt-1">
-          Public tutee signups awaiting allocation, processed earliest-first. Assign each course
-          choice to a tutor — that creates the pairing and the tutor then picks the time slot.
-        </p>
+        <h1 className="page-title">{t("admin.requests.title")}</h1>
+        <p className="muted mt-1">{t("admin.requests.help")}</p>
       </div>
 
-      {!activeTerm && (
-        <p className="text-sm text-red-600">Create a term first so requests can be assigned.</p>
-      )}
+      {!activeTerm && <p className="text-sm text-red-600">{t("admin.requests.noTerm")}</p>}
 
       <div className="space-y-3">
         {activeTerm &&
-          pending.map((t, i) => (
+          pending.map((t2, i) => (
             <RequestCard
-              key={t.id}
-              tutee={t}
+              key={t2.id}
+              tutee={t2}
               order={i + 1}
               tutors={tutors.data ?? []}
               workload={workload}
@@ -199,7 +227,7 @@ export default function RequestsPage() {
               onChanged={invalidate}
             />
           ))}
-        {pending.length === 0 && <p className="muted">No pending signups. 🎉</p>}
+        {pending.length === 0 && <p className="muted">{t("admin.requests.empty")}</p>}
       </div>
     </div>
   );

@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 
@@ -25,6 +26,7 @@ const emptyRow: CourseRow = {
 };
 
 export function TutorSignupForm() {
+  const t = useTranslations();
   const options = api.application.options.useQuery();
   const submit = api.application.submit.useMutation();
 
@@ -52,10 +54,9 @@ export function TutorSignupForm() {
   if (submit.isSuccess) {
     return (
       <div className="card p-8 text-center">
-        <h2 className="text-xl font-semibold text-slate-900">Application received 🎉</h2>
+        <h2 className="text-xl font-semibold text-slate-900">{t("public.tutorSignup.successTitle")}</h2>
         <p className="muted mt-2">
-          Thanks, {name.trim()}. The coordinator team will review your application and arrange
-          an interview. We&apos;ll reach you at {email.trim()}.
+          {t("public.tutorSignup.successBody", { name: name.trim(), email: email.trim() })}
         </p>
       </div>
     );
@@ -87,11 +88,11 @@ export function TutorSignupForm() {
     >
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className="space-y-1">
-          <span className="label">Full name *</span>
+          <span className="label">{t("public.tutorSignup.fields.fullName")}</span>
           <input className="input" value={name} onChange={(e) => setName(e.target.value)} required />
         </label>
         <label className="space-y-1">
-          <span className="label">Contact email *</span>
+          <span className="label">{t("public.tutorSignup.fields.email")}</span>
           <input
             type="email"
             className="input"
@@ -105,24 +106,23 @@ export function TutorSignupForm() {
 
       {/* Preferred contact — make it unmistakable how to reach this applicant. */}
       <label className="space-y-1">
-        <span className="label">How can we reach you? *</span>
+        <span className="label">{t("public.tutorSignup.fields.preferredContact")}</span>
         <input
           className="input"
           value={preferredContact}
           onChange={(e) => setPreferredContact(e.target.value)}
-          placeholder="e.g. text me at 555-123-4567, or email me (best after 4pm)"
+          placeholder={t("public.tutorSignup.placeholders.preferredContact")}
           required
         />
         <span className="muted text-xs">
-          The best way and time to reach you about your application and interview.
+          {t("public.tutorSignup.help.preferredContact")}
         </span>
       </label>
 
       <div>
-        <p className="label">Courses you want to tutor (up to 3) *</p>
+        <p className="label">{t("public.tutorSignup.fields.courses")}</p>
         <p className="muted mb-2">
-          For each, tell us how you&apos;re qualified: whether you&apos;ve taken the class, hold
-          an AP score (AP courses only), and/or self-studied it.
+          {t("public.tutorSignup.coursesHelp")}
         </p>
         <div className="space-y-3">
           {rows.map((row, i) => {
@@ -138,7 +138,7 @@ export function TutorSignupForm() {
               >
                 <div className="flex flex-wrap items-end gap-2">
                   <label className="space-y-1">
-                    <span className="label">Course</span>
+                    <span className="label">{t("public.tutorSignup.fields.course")}</span>
                     <select
                       className="select w-48"
                       value={row.courseId}
@@ -147,7 +147,7 @@ export function TutorSignupForm() {
                         setRow(i, { courseId: e.target.value, hasApScore: false, apScore: "" })
                       }
                     >
-                      <option value="">Select…</option>
+                      <option value="">{t("public.tutorSignup.placeholders.selectCourse")}</option>
                       {courses
                         .filter((c) => c.id === row.courseId || !usedElsewhere.includes(c.id))
                         .map((c) => (
@@ -167,7 +167,7 @@ export function TutorSignupForm() {
                       className="link-danger mb-2 ml-auto text-sm"
                       onClick={() => removeRow(i)}
                     >
-                      Remove
+                      {t("public.tutorSignup.remove")}
                     </button>
                   )}
                 </div>
@@ -180,16 +180,16 @@ export function TutorSignupForm() {
                       checked={row.taken}
                       onChange={(e) => setRow(i, { taken: e.target.checked })}
                     />
-                    I&apos;ve taken this class
+                    {t("public.tutorSignup.qual.taken")}
                   </label>
                   {row.taken && (
                     <label className="space-y-1">
-                      <span className="label">Grade earned</span>
+                      <span className="label">{t("public.tutorSignup.fields.grade")}</span>
                       <input
                         className="input w-32"
                         value={row.grade}
                         onChange={(e) => setRow(i, { grade: e.target.value })}
-                        placeholder="e.g. A"
+                        placeholder={t("public.tutorSignup.placeholders.grade")}
                       />
                     </label>
                   )}
@@ -203,17 +203,17 @@ export function TutorSignupForm() {
                         checked={row.hasApScore}
                         onChange={(e) => setRow(i, { hasApScore: e.target.checked })}
                       />
-                      I have an AP score
+                      {t("public.tutorSignup.qual.hasApScore")}
                     </label>
                     {/* AP score entry is only enabled once they say they have one. */}
                     <label className="space-y-1">
-                      <span className="label">AP score</span>
+                      <span className="label">{t("public.tutorSignup.fields.apScore")}</span>
                       <input
                         className="input w-32"
                         value={row.apScore}
                         disabled={!row.hasApScore}
                         onChange={(e) => setRow(i, { apScore: e.target.value })}
-                        placeholder="1–5"
+                        placeholder={t("public.tutorSignup.placeholders.apScore")}
                       />
                     </label>
                   </div>
@@ -226,17 +226,17 @@ export function TutorSignupForm() {
                       checked={row.selfStudied}
                       onChange={(e) => setRow(i, { selfStudied: e.target.checked })}
                     />
-                    I self-studied this course
+                    {t("public.tutorSignup.qual.selfStudied")}
                   </label>
                   {row.selfStudied && (
                     <label className="block space-y-1">
-                      <span className="label">How do you qualify / what have you achieved?</span>
+                      <span className="label">{t("public.tutorSignup.fields.selfStudyNote")}</span>
                       <textarea
                         className="textarea w-full"
                         rows={2}
                         value={row.selfStudyNote}
                         onChange={(e) => setRow(i, { selfStudyNote: e.target.value })}
-                        placeholder="e.g. completed an online course, competition results, portfolio…"
+                        placeholder={t("public.tutorSignup.placeholders.selfStudyNote")}
                       />
                     </label>
                   )}
@@ -247,7 +247,7 @@ export function TutorSignupForm() {
         </div>
         {rows.length < 3 && (
           <button type="button" className="link mt-2 text-sm" onClick={addRow}>
-            + Add another course
+            {t("public.tutorSignup.addCourse")}
           </button>
         )}
       </div>
@@ -259,7 +259,7 @@ export function TutorSignupForm() {
       )}
 
       <button type="submit" className="btn-primary w-full" disabled={!canSubmit}>
-        {submit.isPending ? "Submitting…" : "Submit application"}
+        {submit.isPending ? t("public.tutorSignup.submitting") : t("public.tutorSignup.submit")}
       </button>
     </form>
   );

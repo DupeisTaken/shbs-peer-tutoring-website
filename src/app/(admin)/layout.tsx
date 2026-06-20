@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
@@ -12,53 +13,53 @@ import { TEAM_TITLE } from "~/lib/branding";
 
 const ELEVATED_ROLES = ["ADMIN", "COORDINATOR"];
 
-type NavItem = { href: string; label: string; exact?: boolean; adminOnly?: boolean };
+type NavItem = { href: string; labelKey: string; exact?: boolean; adminOnly?: boolean };
 
-const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
+const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
   {
-    title: "Overview",
+    titleKey: "admin.nav.sections.overview",
     items: [
-      { href: "/admin", label: "Dashboard", exact: true },
-      { href: "/admin/activity", label: "Activity" },
-      { href: "/admin/announcements", label: "Announcements" },
+      { href: "/admin", labelKey: "admin.nav.links.dashboard", exact: true },
+      { href: "/admin/activity", labelKey: "admin.nav.links.activity" },
+      { href: "/admin/announcements", labelKey: "admin.nav.links.announcements" },
     ],
   },
   {
     // Everything tutor-facing.
-    title: "Tutors",
+    titleKey: "admin.nav.sections.tutors",
     items: [
-      { href: "/admin/tutors", label: "Tutor roster" },
-      { href: "/admin/applications", label: "Tutor applications" },
-      { href: "/admin/meetings", label: "Tutor meetings" },
-      { href: "/admin/summary", label: "Service hours" },
-      { href: "/admin/adjustments", label: "Hour adjustments" },
+      { href: "/admin/tutors", labelKey: "admin.nav.links.tutorRoster" },
+      { href: "/admin/applications", labelKey: "admin.nav.links.tutorApplications" },
+      { href: "/admin/meetings", labelKey: "admin.nav.links.tutorMeetings" },
+      { href: "/admin/summary", labelKey: "admin.nav.links.serviceHours" },
+      { href: "/admin/adjustments", labelKey: "admin.nav.links.hourAdjustments" },
     ],
   },
   {
     // Everything tutee-facing.
-    title: "Tutees",
+    titleKey: "admin.nav.sections.tutees",
     items: [
-      { href: "/admin/tutees", label: "Tutee roster" },
-      { href: "/admin/requests", label: "Signup requests" },
-      { href: "/admin/cards", label: "Tutee discipline" },
+      { href: "/admin/tutees", labelKey: "admin.nav.links.tuteeRoster" },
+      { href: "/admin/requests", labelKey: "admin.nav.links.signupRequests" },
+      { href: "/admin/cards", labelKey: "admin.nav.links.tuteeDiscipline" },
     ],
   },
   {
-    title: "Scheduling & records",
+    titleKey: "admin.nav.sections.schedulingRecords",
     items: [
-      { href: "/admin/pairings", label: "Pairings" },
-      { href: "/admin/submissions", label: "Attendance" },
-      { href: "/admin/timeslots", label: "Time slots" },
-      { href: "/admin/courses", label: "Courses & levels" },
-      { href: "/admin/rooms", label: "Rooms" },
+      { href: "/admin/pairings", labelKey: "admin.nav.links.pairings" },
+      { href: "/admin/submissions", labelKey: "admin.nav.links.attendance" },
+      { href: "/admin/timeslots", labelKey: "admin.nav.links.timeSlots" },
+      { href: "/admin/courses", labelKey: "admin.nav.links.coursesLevels" },
+      { href: "/admin/rooms", labelKey: "admin.nav.links.rooms" },
     ],
   },
   {
-    title: "Administration",
+    titleKey: "admin.nav.sections.administration",
     items: [
-      { href: "/admin/policies", label: "Policy documents" },
-      { href: "/admin/audit", label: "Audit log" },
-      { href: "/admin/users", label: "Users & roles", adminOnly: true },
+      { href: "/admin/policies", labelKey: "admin.nav.links.policyDocuments" },
+      { href: "/admin/audit", labelKey: "admin.nav.links.auditLog" },
+      { href: "/admin/users", labelKey: "admin.nav.links.usersRoles", adminOnly: true },
     ],
   },
 ];
@@ -73,6 +74,7 @@ export default async function AdminLayout({
   children: React.ReactNode;
 }) {
   const session = await auth();
+  const t = await getTranslations();
 
   if (!session?.user) redirect("/signin");
   if (!ELEVATED_ROLES.includes(session.role)) redirect("/");
@@ -108,7 +110,12 @@ export default async function AdminLayout({
           {NAV_SECTIONS.flatMap((s) => s.items)
             .filter(visible)
             .map((item) => (
-              <NavLink key={item.href} {...item} />
+              <NavLink
+                key={item.href}
+                href={item.href}
+                label={t(item.labelKey)}
+                exact={item.exact}
+              />
             ))}
         </nav>
       </header>
@@ -134,13 +141,18 @@ export default async function AdminLayout({
                 const items = section.items.filter(visible);
                 if (items.length === 0) return null;
                 return (
-                  <div key={section.title}>
+                  <div key={section.titleKey}>
                     <p className="px-3 pb-1 text-xs font-semibold tracking-wide text-slate-400 uppercase">
-                      {section.title}
+                      {t(section.titleKey)}
                     </p>
                     <div className="space-y-0.5">
                       {items.map((item) => (
-                        <NavLink key={item.href} {...item} />
+                        <NavLink
+                          key={item.href}
+                          href={item.href}
+                          label={t(item.labelKey)}
+                          exact={item.exact}
+                        />
                       ))}
                     </div>
                   </div>

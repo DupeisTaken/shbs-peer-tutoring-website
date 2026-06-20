@@ -1,11 +1,14 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 import { api } from "~/trpc/react";
 
 const ROLES = ["TUTOR", "COORDINATOR", "ADMIN"] as const;
 type RoleValue = (typeof ROLES)[number];
 
 export default function UsersPage() {
+  const t = useTranslations();
   const utils = api.useUtils();
   const users = api.admin.users.useQuery();
   const setRole = api.admin.setUserRole.useMutation({
@@ -15,20 +18,18 @@ export default function UsersPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="page-title">Users &amp; roles</h1>
-        <p className="muted mt-1">
-          Administrators only. Roles take effect on the user&apos;s next sign-in.
-        </p>
+        <h1 className="page-title">{t("admin.users.title")}</h1>
+        <p className="muted mt-1">{t("admin.users.subtitle")}</p>
       </div>
 
       <div className="card overflow-hidden">
         <table className="data-table">
           <thead>
             <tr>
-              <th>Name</th>
-              <th>Email</th>
-              <th>Linked tutor</th>
-              <th>Role</th>
+              <th>{t("admin.users.columns.name")}</th>
+              <th>{t("admin.users.columns.email")}</th>
+              <th>{t("admin.users.columns.linkedTutor")}</th>
+              <th>{t("admin.users.columns.role")}</th>
             </tr>
           </thead>
           <tbody>
@@ -47,7 +48,7 @@ export default function UsersPage() {
                   >
                     {ROLES.map((r) => (
                       <option key={r} value={r}>
-                        {r}
+                        {t(`admin.users.roles.${r}`)}
                       </option>
                     ))}
                   </select>
@@ -57,7 +58,7 @@ export default function UsersPage() {
             {users.data?.length === 0 && (
               <tr>
                 <td colSpan={4} className="text-slate-500">
-                  No users have signed in yet.
+                  {t("admin.users.empty")}
                 </td>
               </tr>
             )}

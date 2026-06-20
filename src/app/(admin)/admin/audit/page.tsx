@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 import { api } from "~/trpc/react";
 
 /**
@@ -7,6 +9,7 @@ import { api } from "~/trpc/react";
  * click (see src/server/audit/log.ts). Supports the revertibility philosophy in CLAUDE.md.
  */
 export default function AuditPage() {
+  const t = useTranslations();
   const utils = api.useUtils();
   const log = api.admin.auditLog.useQuery();
   const undo = api.admin.undoAudit.useMutation({
@@ -18,20 +21,17 @@ export default function AuditPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="page-title">Audit log</h1>
-        <p className="muted mt-1">
-          Recent admin actions. Reversible ones can be undone here; others have a manual
-          inverse on their own page.
-        </p>
+        <h1 className="page-title">{t("admin.audit.title")}</h1>
+        <p className="muted mt-1">{t("admin.audit.subtitle")}</p>
       </div>
 
       <div className="card overflow-hidden">
         <table className="data-table">
           <thead>
             <tr>
-              <th>When</th>
-              <th>Who</th>
-              <th>Action</th>
+              <th>{t("admin.audit.columns.when")}</th>
+              <th>{t("admin.audit.columns.who")}</th>
+              <th>{t("admin.audit.columns.action")}</th>
               <th></th>
             </tr>
           </thead>
@@ -44,7 +44,7 @@ export default function AuditPage() {
                 <td className="text-slate-600">{e.userName ?? "—"}</td>
                 <td className="text-slate-800">
                   {e.action}
-                  {e.undone && <span className="badge-slate ml-2">undone</span>}
+                  {e.undone && <span className="badge-slate ml-2">{t("admin.audit.undone")}</span>}
                 </td>
                 <td className="text-right">
                   {e.undoData != null && !e.undone ? (
@@ -53,7 +53,7 @@ export default function AuditPage() {
                       disabled={undo.isPending}
                       onClick={() => undo.mutate({ id: e.id })}
                     >
-                      Undo
+                      {t("admin.audit.undo")}
                     </button>
                   ) : (
                     <span className="muted text-xs">—</span>
@@ -64,7 +64,7 @@ export default function AuditPage() {
             {entries.length === 0 && (
               <tr>
                 <td colSpan={4} className="text-slate-500">
-                  No actions recorded yet.
+                  {t("admin.audit.empty")}
                 </td>
               </tr>
             )}

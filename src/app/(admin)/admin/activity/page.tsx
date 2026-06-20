@@ -2,6 +2,7 @@
 
 import { Children } from "react";
 import Link from "next/link";
+import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 
@@ -12,6 +13,7 @@ import { api } from "~/trpc/react";
  * note in CLAUDE.md.
  */
 export default function ActivityPage() {
+  const t = useTranslations();
   const tutees = api.admin.tutees.useQuery();
   const apps = api.admin.tutorApplications.useQuery();
   const cards = api.admin.disciplinaryCards.useQuery();
@@ -29,34 +31,36 @@ export default function ActivityPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="page-title">Activity</h1>
-        <p className="muted mt-1">
-          Current status of every request across the program. Each item links to where you can
-          act on it.
-        </p>
+        <h1 className="page-title">{t("admin.activity.title")}</h1>
+        <p className="muted mt-1">{t("admin.activity.subtitle")}</p>
       </div>
 
       {/* Summary counters */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Counter label="Pending signups" value={pendingTutees.length} href="/admin/requests" />
-        <Counter label="Open applications" value={openApps.length} href="/admin/applications" />
-        <Counter label="Cards to review" value={pendingCards.length} href="/admin/cards" />
+        <Counter label={t("admin.activity.counters.pendingSignups")} value={pendingTutees.length} href="/admin/requests" />
+        <Counter label={t("admin.activity.counters.openApplications")} value={openApps.length} href="/admin/applications" />
+        <Counter label={t("admin.activity.counters.cardsToReview")} value={pendingCards.length} href="/admin/cards" />
         <Counter
-          label="Recent surveys"
+          label={t("admin.activity.counters.recentSurveys")}
           value={recentSessions.length}
           href="/admin/submissions"
         />
       </div>
 
       {/* Tutee signups */}
-      <Panel title="Tutee signup requests" href="/admin/requests" empty="No pending signups.">
-        {pendingTutees.map((t, i) => (
-          <Row key={t.id}>
+      <Panel
+        title={t("admin.activity.panels.tuteeSignups.title")}
+        href="/admin/requests"
+        empty={t("admin.activity.panels.tuteeSignups.empty")}
+        manageLabel={t("admin.activity.manage")}
+      >
+        {pendingTutees.map((tutee, i) => (
+          <Row key={tutee.id}>
             <span className="badge-slate">#{i + 1}</span>
-            <span className="font-medium text-slate-800">{t.englishName}</span>
-            <span className="muted text-xs">{t.firstChoice?.name ?? "—"}</span>
+            <span className="font-medium text-slate-800">{tutee.englishName}</span>
+            <span className="muted text-xs">{tutee.firstChoice?.name ?? "—"}</span>
             <span className="muted ml-auto text-xs">
-              {new Date(t.createdAt).toLocaleString()}
+              {new Date(tutee.createdAt).toLocaleString()}
             </span>
           </Row>
         ))}
@@ -64,33 +68,41 @@ export default function ActivityPage() {
 
       {/* Tutor applications */}
       <Panel
-        title="Tutor applications"
+        title={t("admin.activity.panels.tutorApplications.title")}
         href="/admin/applications"
-        empty="No open applications."
+        empty={t("admin.activity.panels.tutorApplications.empty")}
+        manageLabel={t("admin.activity.manage")}
       >
         {openApps.map((a) => (
           <Row key={a.id}>
             <span className="font-medium text-slate-800">{a.name}</span>
             <span className="badge-amber">{a.status.toLowerCase()}</span>
             <span className="muted text-xs">
-              {a.votes.length} vote{a.votes.length === 1 ? "" : "s"}
+              {t("admin.activity.panels.tutorApplications.votes", { count: a.votes.length })}
             </span>
             <span className="muted ml-auto text-xs">
-              {a.interviewers.length} panelist{a.interviewers.length === 1 ? "" : "s"}
+              {t("admin.activity.panels.tutorApplications.panelists", { count: a.interviewers.length })}
             </span>
           </Row>
         ))}
       </Panel>
 
       {/* Card issues */}
-      <Panel title="Discipline cards to review" href="/admin/cards" empty="Nothing to review.">
+      <Panel
+        title={t("admin.activity.panels.cards.title")}
+        href="/admin/cards"
+        empty={t("admin.activity.panels.cards.empty")}
+        manageLabel={t("admin.activity.manage")}
+      >
         {pendingCards.map((c) => (
           <Row key={c.id}>
             <span>{c.color === "RED" ? "🟥" : "🟨"}</span>
             <span className="font-medium text-slate-800">{c.tutee.englishName}</span>
             <span className="muted truncate text-xs">{c.reason ?? "—"}</span>
             <span className="muted ml-auto text-xs">
-              {c.source === "AUTO" ? "auto" : (c.issuedByTutor?.englishName ?? "tutor")}
+              {c.source === "AUTO"
+                ? t("admin.activity.panels.cards.auto")
+                : (c.issuedByTutor?.englishName ?? t("admin.activity.panels.cards.tutor"))}
             </span>
           </Row>
         ))}
@@ -98,9 +110,10 @@ export default function ActivityPage() {
 
       {/* Attendance surveys */}
       <Panel
-        title="Recent attendance surveys"
+        title={t("admin.activity.panels.surveys.title")}
         href="/admin/submissions"
-        empty="No surveys yet."
+        empty={t("admin.activity.panels.surveys.empty")}
+        manageLabel={t("admin.activity.manage")}
       >
         {recentSessions.map((s) => (
           <Row key={s.id}>
@@ -108,7 +121,7 @@ export default function ActivityPage() {
             <span className="font-medium text-slate-800">{s.tutor.englishName}</span>
             <span className="muted text-xs">{s.pairing.subject}</span>
             <span className="text-xs text-slate-500">{s.tutorStatus}</span>
-            <span className="muted ml-auto text-xs">{s.shCount.toFixed(1)} h</span>
+            <span className="muted ml-auto text-xs">{t("admin.activity.panels.surveys.hours", { hours: s.shCount.toFixed(1) })}</span>
           </Row>
         ))}
       </Panel>
@@ -132,11 +145,13 @@ function Panel({
   title,
   href,
   empty,
+  manageLabel,
   children,
 }: {
   title: string;
   href: string;
   empty: string;
+  manageLabel: string;
   children: React.ReactNode;
 }) {
   const hasItems = Children.toArray(children).length > 0;
@@ -145,7 +160,7 @@ function Panel({
       <div className="flex items-center justify-between px-5 py-3">
         <h2 className="font-semibold text-slate-900">{title}</h2>
         <Link href={href} className="link text-sm">
-          Manage →
+          {manageLabel}
         </Link>
       </div>
       <div className="divide-y divide-slate-100 px-5 pb-3">

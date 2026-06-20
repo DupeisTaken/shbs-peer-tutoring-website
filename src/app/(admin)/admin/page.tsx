@@ -1,9 +1,11 @@
 import Link from "next/link";
+import { getTranslations } from "next-intl/server";
 
 import { api } from "~/trpc/server";
 import { currentMonth } from "~/lib/time";
 
 export default async function AdminHome() {
+  const t = await getTranslations();
   const [pairings, summary, tutees, sessions] = await Promise.all([
     api.admin.pairings(),
     api.admin.monthlySummary(),
@@ -19,21 +21,21 @@ export default async function AdminHome() {
 
   return (
     <div className="space-y-8">
-      <h1 className="page-title">Dashboard</h1>
+      <h1 className="page-title">{t("admin.dashboard.title")}</h1>
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
-        <Stat label="Pairings" value={pairings.length} href="/admin/pairings" />
-        <Stat label="Active tutors" value={activeTutors} href="/admin/tutors" />
-        <Stat label="Active tutees" value={activeTutees} href="/admin/tutees" />
+        <Stat label={t("admin.dashboard.stats.pairings")} value={pairings.length} href="/admin/pairings" />
+        <Stat label={t("admin.dashboard.stats.activeTutors")} value={activeTutors} href="/admin/tutors" />
+        <Stat label={t("admin.dashboard.stats.activeTutees")} value={activeTutees} href="/admin/tutees" />
         <Stat
-          label="Pending signups"
+          label={t("admin.dashboard.stats.pendingSignups")}
           value={pendingTutees}
           href="/admin/tutees"
           highlight={pendingTutees > 0}
         />
         <Stat
-          label={`Service hours · ${currentMonth()}`}
+          label={t("admin.dashboard.stats.serviceHours", { month: currentMonth() })}
           value={totalHours.toFixed(1)}
           href="/admin/summary"
         />
@@ -41,9 +43,9 @@ export default async function AdminHome() {
 
       {pendingTutees > 0 && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
-          {pendingTutees} tutee signup{pendingTutees === 1 ? "" : "s"} awaiting review.{" "}
+          {t("admin.dashboard.pendingBanner", { count: pendingTutees })}{" "}
           <Link href="/admin/requests" className="font-semibold underline">
-            Review now →
+            {t("admin.dashboard.reviewNow")}
           </Link>
         </div>
       )}
@@ -51,19 +53,19 @@ export default async function AdminHome() {
       {/* Recent submissions */}
       <section className="card overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3">
-          <h2 className="font-semibold text-slate-900">Recent submissions</h2>
+          <h2 className="font-semibold text-slate-900">{t("admin.dashboard.recentSubmissions.title")}</h2>
           <Link href="/admin/submissions" className="link text-sm">
-            View all →
+            {t("admin.dashboard.recentSubmissions.viewAll")}
           </Link>
         </div>
         <table className="data-table">
           <thead>
             <tr>
-              <th>Date</th>
-              <th>Tutor</th>
-              <th>Subject</th>
-              <th>Status</th>
-              <th className="text-right">SH</th>
+              <th>{t("admin.dashboard.recentSubmissions.columns.date")}</th>
+              <th>{t("admin.dashboard.recentSubmissions.columns.tutor")}</th>
+              <th>{t("admin.dashboard.recentSubmissions.columns.subject")}</th>
+              <th>{t("admin.dashboard.recentSubmissions.columns.status")}</th>
+              <th className="text-right">{t("admin.dashboard.recentSubmissions.columns.sh")}</th>
             </tr>
           </thead>
           <tbody>
@@ -79,7 +81,7 @@ export default async function AdminHome() {
             {recent.length === 0 && (
               <tr>
                 <td colSpan={5} className="text-slate-500">
-                  No submissions yet.
+                  {t("admin.dashboard.recentSubmissions.empty")}
                 </td>
               </tr>
             )}

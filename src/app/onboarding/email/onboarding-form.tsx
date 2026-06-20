@@ -1,10 +1,12 @@
 "use client";
 
 import { useActionState } from "react";
+import { useTranslations } from "next-intl";
 
 import { completeOnboardingAction } from "./actions";
 
 export function OnboardingForm({ defaultEmail }: { defaultEmail: string }) {
+  const t = useTranslations();
   const [error, formAction, pending] = useActionState(
     completeOnboardingAction,
     undefined,
@@ -13,7 +15,7 @@ export function OnboardingForm({ defaultEmail }: { defaultEmail: string }) {
   return (
     <form action={formAction} className="flex w-full flex-col gap-4">
       <label className="space-y-1">
-        <span className="label">Contact email</span>
+        <span className="label">{t("auth.onboarding.fields.email")}</span>
         <input
           name="email"
           type="email"
@@ -22,13 +24,11 @@ export function OnboardingForm({ defaultEmail }: { defaultEmail: string }) {
           autoComplete="email"
           className="input"
         />
-        <span className="muted text-xs">
-          We&apos;ll send your sign-in verification codes here.
-        </span>
+        <span className="muted text-xs">{t("auth.onboarding.help.email")}</span>
       </label>
 
       <label className="space-y-1">
-        <span className="label">New password</span>
+        <span className="label">{t("auth.onboarding.fields.newPassword")}</span>
         <input
           name="password"
           type="password"
@@ -37,11 +37,11 @@ export function OnboardingForm({ defaultEmail }: { defaultEmail: string }) {
           autoComplete="new-password"
           className="input"
         />
-        <span className="muted text-xs">At least 8 characters. Replaces the temporary one.</span>
+        <span className="muted text-xs">{t("auth.onboarding.help.newPassword")}</span>
       </label>
 
       <label className="space-y-1">
-        <span className="label">Confirm new password</span>
+        <span className="label">{t("auth.onboarding.fields.confirmPassword")}</span>
         <input
           name="confirm"
           type="password"
@@ -54,10 +54,7 @@ export function OnboardingForm({ defaultEmail }: { defaultEmail: string }) {
 
       <label className="flex items-start gap-2 text-sm text-slate-700">
         <input type="checkbox" name="enable2fa" defaultChecked className="mt-1" />
-        <span>
-          Enable email two-factor authentication (recommended). A one-time code will be
-          emailed at sign-in once email delivery is configured.
-        </span>
+        <span>{t("auth.onboarding.enable2fa")}</span>
       </label>
 
       {error && (
@@ -67,7 +64,7 @@ export function OnboardingForm({ defaultEmail }: { defaultEmail: string }) {
       )}
 
       <button type="submit" disabled={pending} className="btn-primary mt-1 w-full">
-        {pending ? "Saving…" : "Confirm and continue"}
+        {pending ? t("auth.onboarding.saving") : t("auth.onboarding.submit")}
       </button>
     </form>
   );

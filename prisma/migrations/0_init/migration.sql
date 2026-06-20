@@ -1,6 +1,3 @@
-warn The configuration property `package.json#prisma` is deprecated and will be removed in Prisma 7. Please migrate to a Prisma config file (e.g., `prisma.config.ts`).
-For more information, see: https://pris.ly/prisma-config
-
 -- CreateSchema
 CREATE SCHEMA IF NOT EXISTS "public";
 
@@ -251,6 +248,7 @@ CREATE TABLE "Session" (
     "shFactor" INTEGER NOT NULL,
     "shCount" DOUBLE PRECISION NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "mergeGroupId" TEXT,
     "pairingId" TEXT NOT NULL,
     "tutorId" TEXT NOT NULL,
 
@@ -501,6 +499,9 @@ CREATE INDEX "Session_tutorId_month_idx" ON "Session"("tutorId", "month");
 
 -- CreateIndex
 CREATE INDEX "Session_pairingId_idx" ON "Session"("pairingId");
+
+-- CreateIndex
+CREATE INDEX "Session_mergeGroupId_idx" ON "Session"("mergeGroupId");
 
 -- CreateIndex
 CREATE INDEX "SessionTutee_tuteeId_idx" ON "SessionTutee"("tuteeId");

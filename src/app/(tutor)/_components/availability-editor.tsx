@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 
+import { useTranslations } from "next-intl";
+
 import { api } from "~/trpc/react";
 import { DAY_NAMES, minToHm } from "~/lib/time";
 
@@ -10,6 +12,7 @@ import { DAY_NAMES, minToHm } from "~/lib/time";
  * admins use availability when assigning tutees and building pairings.
  */
 export function AvailabilityEditor() {
+  const t = useTranslations();
   const utils = api.useUtils();
   const query = api.tutor.myAvailability.useQuery();
   const save = api.tutor.setAvailability.useMutation({
@@ -39,9 +42,9 @@ export function AvailabilityEditor() {
       cur.includes(id) ? cur.filter((s) => s !== id) : [...cur, id],
     );
 
-  if (query.isLoading) return <p className="muted">Loading time slots…</p>;
+  if (query.isLoading) return <p className="muted">{t("tutor.availability.loading")}</p>;
   if (slots.length === 0)
-    return <p className="muted">No time slots have been published yet.</p>;
+    return <p className="muted">{t("tutor.availability.empty")}</p>;
 
   return (
     <div className="space-y-3">
@@ -85,9 +88,11 @@ export function AvailabilityEditor() {
           onClick={() => save.mutate({ slotIds: selected })}
           disabled={save.isPending}
         >
-          {save.isPending ? "Saving…" : "Save availability"}
+          {save.isPending ? t("tutor.availability.saving") : t("tutor.availability.save")}
         </button>
-        {save.isSuccess && <span className="text-sm text-green-600">Saved.</span>}
+        {save.isSuccess && (
+          <span className="text-sm text-green-600">{t("tutor.availability.saved")}</span>
+        )}
       </div>
     </div>
   );

@@ -2,18 +2,20 @@
 
 import Link from "next/link";
 import { useActionState } from "react";
+import { useTranslations } from "next-intl";
 
 import { resetPasswordAction } from "./actions";
 
 export function ResetPasswordForm({ token }: { token: string }) {
+  const t = useTranslations();
   const [state, formAction, pending] = useActionState(resetPasswordAction, undefined);
 
   if (state?.ok) {
     return (
       <div className="space-y-4 text-center">
-        <p className="text-slate-700">Your password has been reset. You can sign in now.</p>
+        <p className="text-slate-700">{t("auth.reset.success")}</p>
         <Link href="/signin" className="btn-primary inline-block">
-          Go to sign in
+          {t("auth.reset.goToSignIn")}
         </Link>
       </div>
     );
@@ -24,7 +26,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
       <input type="hidden" name="token" value={token} />
 
       <label className="space-y-1">
-        <span className="label">New password</span>
+        <span className="label">{t("auth.reset.fields.newPassword")}</span>
         <input
           name="password"
           type="password"
@@ -36,7 +38,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
       </label>
 
       <label className="space-y-1">
-        <span className="label">Confirm new password</span>
+        <span className="label">{t("auth.reset.fields.confirmPassword")}</span>
         <input
           name="confirm"
           type="password"
@@ -54,7 +56,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
       )}
 
       <button type="submit" disabled={pending} className="btn-primary mt-1 w-full">
-        {pending ? "Saving…" : "Set new password"}
+        {pending ? t("auth.reset.saving") : t("auth.reset.submit")}
       </button>
     </form>
   );

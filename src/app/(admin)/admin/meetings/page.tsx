@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 
@@ -13,6 +14,7 @@ const MEETING_STATUS = [
 type MeetingStatus = (typeof MEETING_STATUS)[number]["value"];
 
 export default function MeetingsPage() {
+  const t = useTranslations();
   const utils = api.useUtils();
   const meetings = api.admin.meetings.useQuery();
   const tutors = api.admin.tutors.useQuery();
@@ -26,7 +28,7 @@ export default function MeetingsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="page-title">Tutor meetings</h1>
+      <h1 className="page-title">{t("admin.meetings.title")}</h1>
 
       <form
         className="flex flex-wrap items-end gap-2"
@@ -41,7 +43,7 @@ export default function MeetingsPage() {
         <input
           value={title}
           onChange={(e) => setTitle(e.target.value)}
-          placeholder="Meeting title"
+          placeholder={t("admin.meetings.titlePlaceholder")}
           className="input max-w-xs"
         />
         <input
@@ -50,7 +52,7 @@ export default function MeetingsPage() {
           onChange={(e) => setDate(e.target.value)}
           className="input max-w-[12rem]"
         />
-        <button className="btn-primary">Create</button>
+        <button className="btn-primary">{t("admin.meetings.create")}</button>
       </form>
 
       <div className="card overflow-hidden">
@@ -65,7 +67,7 @@ export default function MeetingsPage() {
                   {m.title} · {new Date(m.date).toLocaleDateString()}
                 </button>
                 <button onClick={() => del.mutate({ id: m.id })} className="link-danger">
-                  Delete
+                  {t("admin.meetings.delete")}
                 </button>
               </div>
               {selected === m.id && (
@@ -94,6 +96,7 @@ function AttendanceEditor({
   tutors: { id: string; englishName: string }[];
   current: Record<string, string>;
 }) {
+  const t = useTranslations();
   const utils = api.useUtils();
   const [draft, setDraft] = useState<Record<string, MeetingStatus>>(
     () => current as Record<string, MeetingStatus>,
@@ -134,9 +137,11 @@ function AttendanceEditor({
         }}
         className="btn-primary btn-sm mt-3"
       >
-        {save.isPending ? "Saving…" : "Save attendance"}
+        {save.isPending ? t("admin.meetings.saving") : t("admin.meetings.saveAttendance")}
       </button>
-      {save.isSuccess && <span className="ml-2 text-sm text-green-600">Saved.</span>}
+      {save.isSuccess && (
+        <span className="ml-2 text-sm text-green-600">{t("admin.meetings.saved")}</span>
+      )}
     </div>
   );
 }

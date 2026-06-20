@@ -1,4 +1,5 @@
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
@@ -26,17 +27,16 @@ export default async function OnboardingEmailPage() {
   const isElevated = session.role === "ADMIN" || session.role === "COORDINATOR";
   if (user?.emailVerifiedAt) redirect(isElevated ? "/admin" : "/dashboard");
 
+  const t = await getTranslations();
+
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-4 py-12">
       <div className="w-full max-w-sm text-center">
-        <span className="badge-slate mb-3">Welcome to {APP_TITLE}</span>
+        <span className="badge-slate mb-3">{t("auth.onboarding.welcome", { appTitle: APP_TITLE })}</span>
         <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
-          Set up your account
+          {t("auth.onboarding.title")}
         </h1>
-        <p className="muted mt-1">
-          One quick step before your dashboard — confirm your email and choose your own
-          password (replacing any temporary one).
-        </p>
+        <p className="muted mt-1">{t("auth.onboarding.intro")}</p>
         <div className="card mt-6 p-6 text-left">
           <OnboardingForm defaultEmail={user?.email ?? ""} />
         </div>

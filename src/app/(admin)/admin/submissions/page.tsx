@@ -1,11 +1,13 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { currentMonth } from "~/lib/time";
 
 export default function SubmissionsPage() {
+  const t = useTranslations();
   const [month, setMonth] = useState(currentMonth());
   const [tutorId, setTutorId] = useState("");
   const tutors = api.admin.tutors.useQuery();
@@ -16,7 +18,7 @@ export default function SubmissionsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="page-title">Submissions</h1>
+      <h1 className="page-title">{t("admin.submissions.title")}</h1>
 
       <div className="flex flex-wrap gap-3">
         <input
@@ -30,7 +32,7 @@ export default function SubmissionsPage() {
           onChange={(e) => setTutorId(e.target.value)}
           className="select max-w-xs"
         >
-          <option value="">All tutors</option>
+          <option value="">{t("admin.submissions.allTutors")}</option>
           {(tutors.data ?? []).map((t) => (
             <option key={t.id} value={t.id}>
               {t.englishName}
@@ -43,12 +45,12 @@ export default function SubmissionsPage() {
         <table className="data-table">
           <thead>
             <tr>
-              <th>Date</th>
-              <th>Tutor</th>
-              <th>Subject</th>
-              <th>Status</th>
-              <th>Tutees</th>
-              <th className="text-right">SH</th>
+              <th>{t("admin.submissions.colDate")}</th>
+              <th>{t("admin.submissions.colTutor")}</th>
+              <th>{t("admin.submissions.colSubject")}</th>
+              <th>{t("admin.submissions.colStatus")}</th>
+              <th>{t("admin.submissions.colTutees")}</th>
+              <th className="text-right">{t("admin.submissions.colSH")}</th>
             </tr>
           </thead>
           <tbody>
@@ -65,7 +67,7 @@ export default function SubmissionsPage() {
             {sessions.data?.length === 0 && (
               <tr>
                 <td colSpan={6} className="text-slate-500">
-                  No submissions for this filter.
+                  {t("admin.submissions.empty")}
                 </td>
               </tr>
             )}

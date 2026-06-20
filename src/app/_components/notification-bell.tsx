@@ -2,6 +2,8 @@
 
 import Link from "next/link";
 
+import { useTranslations } from "next-intl";
+
 import { api } from "~/trpc/react";
 
 /**
@@ -9,6 +11,7 @@ import { api } from "~/trpc/react";
  * Available to all roles; uses a native <details> so it needs no extra client wiring.
  */
 export function NotificationBell() {
+  const t = useTranslations();
   const utils = api.useUtils();
   const list = api.notification.list.useQuery();
   const unread = api.notification.unreadCount.useQuery();
@@ -27,7 +30,7 @@ export function NotificationBell() {
   return (
     <details className="group relative">
       <summary className="relative flex cursor-pointer list-none items-center [&::-webkit-details-marker]:hidden">
-        <span className="text-xl" aria-label="Notifications">
+        <span className="text-xl" aria-label={t("components.notifications.title")}>
           🔔
         </span>
         {count > 0 && (
@@ -39,16 +42,20 @@ export function NotificationBell() {
 
       <div className="absolute right-0 z-20 mt-2 w-72 rounded-lg border border-slate-200 bg-white shadow-lg">
         <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
-          <span className="text-sm font-semibold text-slate-900">Notifications</span>
+          <span className="text-sm font-semibold text-slate-900">
+            {t("components.notifications.title")}
+          </span>
           {count > 0 && (
             <button className="link text-xs" onClick={() => markAll.mutate()}>
-              Mark all read
+              {t("components.notifications.markAllRead")}
             </button>
           )}
         </div>
         <ul className="max-h-80 overflow-y-auto">
           {items.length === 0 && (
-            <li className="px-3 py-4 text-center text-sm text-slate-400">Nothing yet.</li>
+            <li className="px-3 py-4 text-center text-sm text-slate-400">
+              {t("components.notifications.empty")}
+            </li>
           )}
           {items.map((n) => {
             const inner = (

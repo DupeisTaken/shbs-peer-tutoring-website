@@ -24,6 +24,21 @@ function blankToNull(value?: string | null): string | null {
   return trimmed;
 }
 
+/**
+ * Look up a time slot and return its day/start/end. Pairings are scheduled by slot, so the
+ * slot is the source of truth for the schedule — fail loudly if it's missing.
+ */
+async function resolveSlot(
+  db: { timeSlot: { findUnique: (args: { where: { id: string } }) => Promise<{ dayOfWeek: number; startMin: number; endMin: number } | null> } },
+  timeSlotId: string,
+) {
+  const slot = await db.timeSlot.findUnique({ where: { id: timeSlotId } });
+  if (!slot) {
+    throw new TRPCError({ code: "BAD_REQUEST", message: "Pick a valid time slot." });
+  }
+  return slot;
+}
+
 const MEETING_STATUS = [
   "PRESENT",
   "EXCUSED_ABSENT",
@@ -208,21 +223,25 @@ export const adminRouter = createTRPCRouter({
         tutorId: cuid,
         termId: cuid,
         roomId: cuid.optional(),
-        timeSlotId: cuid.optional(),
+        // Pairings are scheduled by picking a published time slot — the slot is the single
+        // source of truth for day/start/end (no free-form time entry).
+        timeSlotId: cuid,
         subject: z.string().min(1),
-        dayOfWeek: z.number().int().min(1).max(7),
-        startMin: z.number().int().min(0).max(1439),
-        endMin: z.number().int().min(1).max(1440),
         tuteeIds: z.array(cuid).default([]),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      if (input.endMin <= input.startMin) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "End must be after start." });
-      }
-      const { tuteeIds, ...data } = input;
+      const slot = await resolveSlot(ctx.db, input.timeSlotId);
+      const { tuteeIds, timeSlotId, ...data } = input;
       return ctx.db.pairing.create({
-        data: { ...data, tutees: { create: tuteeIds.map((tuteeId) => ({ tuteeId })) } },
+        data: {
+          ...data,
+          timeSlotId,
+          dayOfWeek: slot.dayOfWeek,
+          startMin: slot.startMin,
+          endMin: slot.endMin,
+          tutees: { create: tuteeIds.map((tuteeId) => ({ tuteeId })) },
+        },
       });
     }),
 
@@ -233,20 +252,15 @@ export const adminRouter = createTRPCRouter({
         tutorId: cuid,
         termId: cuid,
         roomId: cuid.nullable().optional(),
-        timeSlotId: cuid.nullable().optional(),
+        timeSlotId: cuid,
         subject: z.string().min(1),
-        dayOfWeek: z.number().int().min(1).max(7),
-        startMin: z.number().int().min(0).max(1439),
-        endMin: z.number().int().min(1).max(1440),
         tuteeIds: z.array(cuid),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      if (input.endMin <= input.startMin) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "End must be after start." });
-      }
+      const slot = await resolveSlot(ctx.db, input.timeSlotId);
       const { id, tuteeIds, roomId, timeSlotId, ...data } = input;
-      // Replace roster atomically.
+      // Replace roster atomically; day/start/end follow the chosen slot.
       return ctx.db.$transaction(async (tx) => {
         await tx.pairingTutee.deleteMany({ where: { pairingId: id } });
         return tx.pairing.update({
@@ -254,7 +268,10 @@ export const adminRouter = createTRPCRouter({
           data: {
             ...data,
             roomId: roomId ?? null,
-            timeSlotId: timeSlotId ?? null,
+            timeSlotId,
+            dayOfWeek: slot.dayOfWeek,
+            startMin: slot.startMin,
+            endMin: slot.endMin,
             tutees: { create: tuteeIds.map((tuteeId) => ({ tuteeId })) },
           },
         });

@@ -1,12 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { DAY_NAMES, minToHm } from "~/lib/time";
 import { APP_TITLE } from "~/lib/branding";
 
 export function SignupForm() {
+  const t = useTranslations();
   const options = api.tutee.signupOptions.useQuery();
   const submit = api.tutee.requestSignup.useMutation();
 
@@ -52,10 +54,9 @@ export function SignupForm() {
   if (submit.isSuccess) {
     return (
       <div className="card p-8 text-center">
-        <h2 className="text-xl font-semibold text-slate-900">Request received 🎉</h2>
+        <h2 className="text-xl font-semibold text-slate-900">{t("public.signup.successTitle")}</h2>
         <p className="muted mt-2">
-          Thanks, {englishName.trim()}. A coordinator will review your request and be in
-          touch about your tutor and schedule.
+          {t("public.signup.successBody", { name: englishName.trim() })}
         </p>
       </div>
     );
@@ -84,7 +85,7 @@ export function SignupForm() {
       {/* Identity */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className="space-y-1">
-          <span className="label">Full name *</span>
+          <span className="label">{t("public.signup.fields.fullName")}</span>
           <input
             className="input"
             value={englishName}
@@ -93,16 +94,16 @@ export function SignupForm() {
           />
         </label>
         <label className="space-y-1">
-          <span className="label">Grade level</span>
+          <span className="label">{t("public.signup.fields.gradeLevel")}</span>
           <input
             className="input"
             value={gradeLevel}
             onChange={(e) => setGradeLevel(e.target.value)}
-            placeholder="e.g. 10"
+            placeholder={t("public.signup.placeholders.gradeLevel")}
           />
         </label>
         <label className="space-y-1">
-          <span className="label">Email</span>
+          <span className="label">{t("public.signup.fields.email")}</span>
           <input
             type="email"
             className="input"
@@ -111,7 +112,7 @@ export function SignupForm() {
           />
         </label>
         <label className="space-y-1">
-          <span className="label">Phone</span>
+          <span className="label">{t("public.signup.fields.phone")}</span>
           <input
             className="input"
             value={phone}
@@ -122,30 +123,30 @@ export function SignupForm() {
 
       {/* Preferred contact — make it unmistakable how to reach this student. */}
       <label className="space-y-1">
-        <span className="label">How can we reach you? *</span>
+        <span className="label">{t("public.signup.fields.preferredContact")}</span>
         <input
           className="input"
           value={preferredContact}
           onChange={(e) => setPreferredContact(e.target.value)}
-          placeholder="e.g. text me at 555-123-4567, or email me (best after 4pm)"
+          placeholder={t("public.signup.placeholders.preferredContact")}
           required
         />
         <span className="muted text-xs">
-          Tell us the best way and time to contact you about your tutoring match.
+          {t("public.signup.help.preferredContact")}
         </span>
       </label>
 
       {/* Course choices */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className="space-y-1">
-          <span className="label">Course — first choice *</span>
+          <span className="label">{t("public.signup.fields.firstChoice")}</span>
           <select
             className="select"
             value={firstChoiceId}
             onChange={(e) => setFirstChoiceId(e.target.value)}
             required
           >
-            <option value="">Select a course…</option>
+            <option value="">{t("public.signup.placeholders.selectCourse")}</option>
             {courses.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -154,13 +155,13 @@ export function SignupForm() {
           </select>
         </label>
         <label className="space-y-1">
-          <span className="label">Course — second choice (optional)</span>
+          <span className="label">{t("public.signup.fields.secondChoice")}</span>
           <select
             className="select"
             value={secondChoiceId}
             onChange={(e) => setSecondChoiceId(e.target.value)}
           >
-            <option value="">— none —</option>
+            <option value="">{t("public.signup.options.none")}</option>
             {courses
               .filter((c) => c.id !== firstChoiceId)
               .map((c) => (
@@ -174,9 +175,9 @@ export function SignupForm() {
 
       {/* Availability */}
       <fieldset>
-        <legend className="label">Your available time slots *</legend>
+        <legend className="label">{t("public.signup.fields.availability")}</legend>
         {slots.length === 0 ? (
-          <p className="muted mt-1">No time slots are published yet. Please check back later.</p>
+          <p className="muted mt-1">{t("public.signup.noSlots")}</p>
         ) : (
           <div className="mt-2 space-y-3">
             {slotsByDay.map(([day, daySlots]) => (
@@ -226,16 +227,16 @@ export function SignupForm() {
             onChange={(e) => setAgreed(e.target.checked)}
           />
           <span className="text-slate-700">
-            I have read and agree to abide by the {APP_TITLE} rulebook.
+            {t("public.signup.agree", { appTitle: APP_TITLE })}
           </span>
         </label>
         <label className="mt-3 block space-y-1">
-          <span className="label">Electronic signature * (type your full name)</span>
+          <span className="label">{t("public.signup.fields.signature")}</span>
           <input
             className="input"
             value={signatureName}
             onChange={(e) => setSignatureName(e.target.value)}
-            placeholder="Your full name"
+            placeholder={t("public.signup.placeholders.signature")}
             required
           />
         </label>
@@ -248,7 +249,7 @@ export function SignupForm() {
       )}
 
       <button type="submit" className="btn-primary w-full" disabled={!canSubmit}>
-        {submit.isPending ? "Submitting…" : "Submit request"}
+        {submit.isPending ? t("public.signup.submitting") : t("public.signup.submit")}
       </button>
     </form>
   );

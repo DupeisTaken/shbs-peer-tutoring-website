@@ -20,15 +20,14 @@ export default async function TutorDashboard() {
       <div className="mx-auto max-w-2xl space-y-6 px-4 py-10">
         <AnnouncementsBanner />
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-4 text-amber-800">
-          <p className="font-semibold">Your tutor account is pending approval.</p>
-          <p className="mt-1 text-sm">
-            A coordinator will activate your account shortly. In the meantime you can set the
-            time slots you&apos;re available for below.
-          </p>
+          <p className="font-semibold">{t("tutor.dashboard.pending.title")}</p>
+          <p className="mt-1 text-sm">{t("tutor.dashboard.pending.body")}</p>
         </div>
         <section className="card p-5">
-          <h2 className="font-semibold text-slate-900">My availability</h2>
-          <p className="muted mt-1 mb-3">Mark the time slots you can teach.</p>
+          <h2 className="font-semibold text-slate-900">
+            {t("tutor.dashboard.availability.title")}
+          </h2>
+          <p className="muted mt-1 mb-3">{t("tutor.dashboard.availability.help")}</p>
           <AvailabilityEditor />
         </section>
       </div>
@@ -59,9 +58,11 @@ export default async function TutorDashboard() {
           </p>
           <p className="text-3xl font-bold text-slate-900">{total.total.toFixed(1)} h</p>
           <p className="muted">
-            {total.earned.toFixed(1)} earned
-            {total.extras > 0 && ` + ${total.extras.toFixed(1)} extra`}
-            {total.punishments > 0 && ` − ${total.punishments.toFixed(1)} penalty`}
+            {t("tutor.dashboard.hours.earned", { earned: total.earned.toFixed(1) })}
+            {total.extras > 0 &&
+              ` ${t("tutor.dashboard.hours.extra", { extra: total.extras.toFixed(1) })}`}
+            {total.punishments > 0 &&
+              ` ${t("tutor.dashboard.hours.penalty", { penalty: total.punishments.toFixed(1) })}`}
           </p>
         </div>
       </div>

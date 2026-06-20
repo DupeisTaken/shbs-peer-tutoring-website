@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { disciplineStanding } from "~/lib/discipline";
@@ -58,6 +59,7 @@ type Card = {
 const dot = (color: "YELLOW" | "RED") => (color === "RED" ? "🟥" : "🟨");
 
 function PendingCard({ card, onChanged }: { card: Card; onChanged: () => void }) {
+  const t = useTranslations();
   const [note, setNote] = useState("");
   const review = api.admin.reviewCard.useMutation({
     onSuccess: onChanged,
@@ -71,7 +73,11 @@ function PendingCard({ card, onChanged }: { card: Card; onChanged: () => void })
           <p className="font-medium text-slate-900">
             {dot(card.color)} {card.tutee.englishName}
             <span className="muted ml-2 text-xs">
-              {card.source === "AUTO" ? "auto-issued" : `by ${card.issuedByTutor?.englishName ?? "tutor"}`}
+              {card.source === "AUTO"
+                ? t("admin.cards.autoIssued")
+                : t("admin.cards.issuedBy", {
+                    name: card.issuedByTutor?.englishName ?? t("admin.cards.tutor"),
+                  })}
               {card.session ? ` · ${new Date(card.session.date).toLocaleDateString()}` : ""}
             </span>
           </p>
@@ -81,7 +87,7 @@ function PendingCard({ card, onChanged }: { card: Card; onChanged: () => void })
       <div className="mt-2 flex flex-wrap items-center gap-2">
         <input
           className="input min-w-[12rem] flex-1"
-          placeholder="Review note (optional)"
+          placeholder={t("admin.cards.reviewNotePlaceholder")}
           value={note}
           onChange={(e) => setNote(e.target.value)}
         />
@@ -97,7 +103,7 @@ function PendingCard({ card, onChanged }: { card: Card; onChanged: () => void })
             })
           }
         >
-          Valid
+          {t("admin.cards.valid")}
         </button>
         <button
           className="btn-secondary btn-sm"
@@ -111,7 +117,7 @@ function PendingCard({ card, onChanged }: { card: Card; onChanged: () => void })
             })
           }
         >
-          Invalid
+          {t("admin.cards.invalid")}
         </button>
       </div>
       {review.error && <p className="mt-1 text-sm text-red-600">{review.error.message}</p>}
@@ -120,6 +126,7 @@ function PendingCard({ card, onChanged }: { card: Card; onChanged: () => void })
 }
 
 export default function CardsPage() {
+  const t = useTranslations();
   const utils = api.useUtils();
   const cards = api.admin.disciplinaryCards.useQuery();
   const invalidate = () => utils.admin.disciplinaryCards.invalidate();
@@ -150,32 +157,26 @@ export default function CardsPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="page-title">Tutee discipline</h1>
-        <p className="muted mt-1">
-          Yellow/red cards issued to tutees. Recheck tutor-requested cards and flag each valid
-          or invalid. Standing counts only valid cards (3 yellow = 1 red; 2 reds =
-          removal-pending).
-        </p>
+        <h1 className="page-title">{t("admin.cards.title")}</h1>
+        <p className="muted mt-1">{t("admin.cards.intro")}</p>
       </div>
 
       <section className="card p-5">
         <h2 className="font-semibold text-slate-900">
-          Pending review <span className="badge-amber ml-1">{pending.length}</span>
+          {t("admin.cards.pendingReview")}{" "}
+          <span className="badge-amber ml-1">{pending.length}</span>
         </h2>
         <div className="mt-3 space-y-3">
           {pending.map((c) => (
             <PendingCard key={c.id} card={c} onChanged={invalidate} />
           ))}
-          {pending.length === 0 && <p className="muted">Nothing awaiting review.</p>}
+          {pending.length === 0 && <p className="muted">{t("admin.cards.nothingPending")}</p>}
         </div>
       </section>
 
       <section className="card p-5">
-        <h2 className="font-semibold text-slate-900">Tutee standing</h2>
-        <p className="muted mt-1 text-xs">
-          🟥 fills 3 slots, 🟨 fills 1 (only valid cards). A full 6 = removal pending. Click a
-          name for the card details.
-        </p>
+        <h2 className="font-semibold text-slate-900">{t("admin.cards.standingHeading")}</h2>
+        <p className="muted mt-1 text-xs">{t("admin.cards.standingHelp")}</p>
         <div className="mt-3 divide-y divide-slate-100">
           {standings.map((s) => (
             <details key={s.id} className="group py-2">
@@ -185,15 +186,15 @@ export default function CardsPage() {
                 </span>
                 <DisciplineSlots validRed={s.validRed} validYellow={s.validYellow} />
                 {s.removalPending ? (
-                  <span className="badge-red">removal pending</span>
+                  <span className="badge-red">{t("admin.cards.standing.removalPending")}</span>
                 ) : s.effectiveReds >= 1 ? (
-                  <span className="badge-amber">on warning</span>
+                  <span className="badge-amber">{t("admin.cards.standing.onWarning")}</span>
                 ) : (
-                  <span className="badge-slate">ok</span>
+                  <span className="badge-slate">{t("admin.cards.standing.ok")}</span>
                 )}
                 {s.pendingYellow + s.pendingRed > 0 && (
                   <span className="muted text-xs">
-                    {s.pendingYellow + s.pendingRed} pending review
+                    {t("admin.cards.pendingCount", { n: s.pendingYellow + s.pendingRed })}
                   </span>
                 )}
               </summary>
@@ -209,8 +210,10 @@ export default function CardsPage() {
                       {c.reason ?? "—"}
                     </span>{" "}
                     <span className="text-slate-400">
-                      · {c.reviewStatus.toLowerCase()} ·{" "}
-                      {c.source === "AUTO" ? "auto" : (c.issuedByTutor?.englishName ?? "tutor")}
+                      · {t(`admin.cards.reviewStatus.${c.reviewStatus}`)} ·{" "}
+                      {c.source === "AUTO"
+                        ? t("admin.cards.auto")
+                        : (c.issuedByTutor?.englishName ?? t("admin.cards.tutor"))}
                       {c.session ? ` · ${new Date(c.session.date).toLocaleDateString()}` : ""}
                     </span>
                   </li>
@@ -219,7 +222,7 @@ export default function CardsPage() {
             </details>
           ))}
           {standings.length === 0 && (
-            <p className="muted py-2">No cards on record.</p>
+            <p className="muted py-2">{t("admin.cards.noCardsOnRecord")}</p>
           )}
         </div>
       </section>
@@ -229,19 +232,19 @@ export default function CardsPage() {
         <details className="group">
           <summary className="flex cursor-pointer items-center gap-2 [&::-webkit-details-marker]:hidden">
             <span className="text-slate-400 group-open:rotate-90">▸</span>
-            <h2 className="font-semibold text-slate-900">Card history</h2>
+            <h2 className="font-semibold text-slate-900">{t("admin.cards.historyHeading")}</h2>
             <span className="badge-slate">{all.length}</span>
           </summary>
           <div className="mt-3 overflow-x-auto">
             <table className="data-table">
               <thead>
                 <tr>
-                  <th>Date</th>
-                  <th>Tutee</th>
-                  <th>Card</th>
-                  <th>Reason</th>
-                  <th>Source</th>
-                  <th>Status</th>
+                  <th>{t("admin.cards.table.date")}</th>
+                  <th>{t("admin.cards.table.tutee")}</th>
+                  <th>{t("admin.cards.table.card")}</th>
+                  <th>{t("admin.cards.table.reason")}</th>
+                  <th>{t("admin.cards.table.source")}</th>
+                  <th>{t("admin.cards.table.status")}</th>
                 </tr>
               </thead>
               <tbody>
@@ -256,7 +259,9 @@ export default function CardsPage() {
                       <td>{dot(c.color)}</td>
                       <td className="text-slate-600">{c.reason ?? "—"}</td>
                       <td className="text-slate-500">
-                        {c.source === "AUTO" ? "auto" : (c.issuedByTutor?.englishName ?? "tutor")}
+                        {c.source === "AUTO"
+                          ? t("admin.cards.auto")
+                          : (c.issuedByTutor?.englishName ?? t("admin.cards.tutor"))}
                       </td>
                       <td>
                         <span
@@ -268,7 +273,7 @@ export default function CardsPage() {
                                 : "badge-amber"
                           }
                         >
-                          {c.reviewStatus.toLowerCase()}
+                          {t(`admin.cards.reviewStatus.${c.reviewStatus}`)}
                         </span>
                       </td>
                     </tr>
@@ -276,7 +281,7 @@ export default function CardsPage() {
                 {all.length === 0 && (
                   <tr>
                     <td colSpan={6} className="text-slate-500">
-                      No cards yet.
+                      {t("admin.cards.tableEmpty")}
                     </td>
                   </tr>
                 )}

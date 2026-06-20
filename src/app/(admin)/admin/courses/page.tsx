@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
 
 import { api } from "~/trpc/react";
@@ -18,6 +19,7 @@ function parseCsv(text: string): { name: string; level?: string }[] {
 }
 
 export default function CoursesPage() {
+  const t = useTranslations();
   const utils = api.useUtils();
   const courses = api.admin.courses.useQuery();
   const levels = api.admin.courseLevels.useQuery();
@@ -36,7 +38,7 @@ export default function CoursesPage() {
   });
   const importCourses = api.admin.importCourses.useMutation({
     onSuccess: async (r) => {
-      setImportMsg(`Imported ${r.created} of ${r.received} (duplicates skipped).`);
+      setImportMsg(t("admin.courses.import.result", { created: r.created, received: r.received }));
       if (fileRef.current) fileRef.current.value = "";
       await invalidate();
     },
@@ -67,7 +69,7 @@ export default function CoursesPage() {
   const onCsv = async (file: File) => {
     const rows = parseCsv(await file.text());
     if (rows.length === 0) {
-      setImportMsg("No course rows found in that file.");
+      setImportMsg(t("admin.courses.import.empty"));
       return;
     }
     importCourses.mutate({ courses: rows });
@@ -76,20 +78,14 @@ export default function CoursesPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="page-title">Courses &amp; levels</h1>
-        <p className="muted mt-1">
-          Subjects tutees can request. Levels are an admin-managed catalogue; a level marked
-          “AP-scored” lets its courses carry an AP exam score on tutor applications.
-        </p>
+        <h1 className="page-title">{t("admin.courses.title")}</h1>
+        <p className="muted mt-1">{t("admin.courses.subtitle")}</p>
       </div>
 
       {/* Levels */}
       <section className="card p-5">
-        <h2 className="font-semibold text-slate-900">Levels</h2>
-        <p className="muted mt-1 text-xs">
-          Difficulty tracks a course can belong to. Mark a level <b>AP-scored</b> to let its
-          courses carry an AP exam score on tutor applications.
-        </p>
+        <h2 className="font-semibold text-slate-900">{t("admin.courses.levels.title")}</h2>
+        <p className="muted mt-1 text-xs">{t("admin.courses.levels.description")}</p>
         <div className="mt-3 space-y-2">
           {levelList.map((l) => (
             <div
@@ -110,16 +106,16 @@ export default function CoursesPage() {
                   checked={l.apScored}
                   onChange={(e) => updateLevel.mutate({ id: l.id, apScored: e.target.checked })}
                 />
-                AP-scored
+                {t("admin.courses.levels.apScored")}
               </label>
               <button
                 className="link-danger ml-auto text-sm"
                 onClick={() => {
-                  if (confirm(`Delete level "${l.name}"? Its courses keep existing but lose it.`))
+                  if (confirm(t("admin.courses.levels.confirmDelete", { name: l.name })))
                     delLevel.mutate({ id: l.id });
                 }}
               >
-                Remove
+                {t("admin.courses.levels.remove")}
               </button>
             </div>
           ))}
@@ -137,10 +133,10 @@ export default function CoursesPage() {
             <input
               value={newLevel}
               onChange={(e) => setNewLevel(e.target.value)}
-              placeholder="Add a level (e.g. Honors)"
+              placeholder={t("admin.courses.levels.addPlaceholder")}
               className="input h-8 max-w-[12rem]"
             />
-            <button className="btn-secondary btn-sm">Add level</button>
+            <button className="btn-secondary btn-sm">{t("admin.courses.levels.add")}</button>
           </form>
         </div>
       </section>
@@ -161,22 +157,22 @@ export default function CoursesPage() {
           <input
             value={name}
             onChange={(e) => setName(e.target.value)}
-            placeholder="New course name"
+            placeholder={t("admin.courses.add.namePlaceholder")}
             className="input max-w-xs"
           />
           <select className="select w-40" value={levelId} onChange={(e) => setLevelId(e.target.value)}>
-            <option value="">— no level —</option>
+            <option value="">{t("admin.courses.noLevel")}</option>
             {levelList.map((l) => (
               <option key={l.id} value={l.id}>
                 {l.name}
               </option>
             ))}
           </select>
-          <button className="btn-primary">Add course</button>
+          <button className="btn-primary">{t("admin.courses.add.submit")}</button>
         </form>
 
         <label className="btn-secondary btn-sm cursor-pointer">
-          {importCourses.isPending ? "Importing…" : "Upload CSV"}
+          {importCourses.isPending ? t("admin.courses.import.importing") : t("admin.courses.import.upload")}
           <input
             ref={fileRef}
             type="file"
@@ -190,8 +186,8 @@ export default function CoursesPage() {
         </label>
       </div>
       <p className="muted text-xs">
-        CSV format: one course per line as <code>name,level</code> (level matched by name; a
-        header row is optional).
+        {t("admin.courses.import.formatPrefix")} <code>name,level</code>{" "}
+        {t("admin.courses.import.formatSuffix")}
       </p>
       {importMsg && <p className="text-sm text-green-600">{importMsg}</p>}
       {create.error && <p className="text-sm text-red-600">{create.error.message}</p>}
@@ -200,13 +196,13 @@ export default function CoursesPage() {
       {/* Batch toolbar */}
       {selected.size > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2">
-          <span className="text-sm font-medium text-indigo-800">{selected.size} selected</span>
+          <span className="text-sm font-medium text-indigo-800">{t("admin.courses.batch.selected", { count: selected.size })}</span>
           <select
             className="select w-40"
             value={batchLevel}
             onChange={(e) => setBatchLevel(e.target.value)}
           >
-            <option value="">— no level —</option>
+            <option value="">{t("admin.courses.noLevel")}</option>
             {levelList.map((l) => (
               <option key={l.id} value={l.id}>
                 {l.name}
@@ -218,22 +214,22 @@ export default function CoursesPage() {
             disabled={batch.isPending}
             onClick={() => batch.mutate({ ids: [...selected], levelId: batchLevel || null })}
           >
-            Set level
+            {t("admin.courses.batch.setLevel")}
           </button>
           <button
             className="btn-secondary btn-sm"
             onClick={() => batch.mutate({ ids: [...selected], active: true })}
           >
-            Activate
+            {t("admin.courses.batch.activate")}
           </button>
           <button
             className="btn-secondary btn-sm"
             onClick={() => batch.mutate({ ids: [...selected], active: false })}
           >
-            Deactivate
+            {t("admin.courses.batch.deactivate")}
           </button>
           <button className="link text-sm" onClick={() => setSelected(new Set())}>
-            Clear
+            {t("admin.courses.batch.clear")}
           </button>
         </div>
       )}
@@ -251,9 +247,9 @@ export default function CoursesPage() {
                   }
                 />
               </th>
-              <th>Name</th>
-              <th>Level</th>
-              <th>Active</th>
+              <th>{t("admin.courses.table.name")}</th>
+              <th>{t("admin.courses.table.level")}</th>
+              <th>{t("admin.courses.table.active")}</th>
               <th></th>
             </tr>
           </thead>
@@ -291,7 +287,7 @@ export default function CoursesPage() {
                       })
                     }
                   >
-                    <option value="">—</option>
+                    <option value="">{t("admin.courses.table.noLevelShort")}</option>
                     {levelList.map((l) => (
                       <option key={l.id} value={l.id}>
                         {l.name}
@@ -310,7 +306,7 @@ export default function CoursesPage() {
                 </td>
                 <td className="text-right">
                   <button className="link-danger" onClick={() => del.mutate({ id: c.id })}>
-                    Delete
+                    {t("admin.courses.table.delete")}
                   </button>
                 </td>
               </tr>
@@ -318,7 +314,7 @@ export default function CoursesPage() {
             {list.length === 0 && (
               <tr>
                 <td colSpan={5} className="text-slate-500">
-                  No courses yet.
+                  {t("admin.courses.table.empty")}
                 </td>
               </tr>
             )}

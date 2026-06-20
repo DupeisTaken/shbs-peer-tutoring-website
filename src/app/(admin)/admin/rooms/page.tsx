@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { DAY_NAMES, hmToMin, minToHm } from "~/lib/time";
@@ -20,6 +21,7 @@ function RoomCard({
   room: { id: string; name: string; unavailabilities: Block[] };
   onChanged: () => Promise<unknown> | void;
 }) {
+  const t = useTranslations();
   const update = api.admin.updateRoom.useMutation({ onSuccess: () => onChanged() });
   const del = api.admin.deleteRoom.useMutation({ onSuccess: () => onChanged() });
   const addBlock = api.admin.createRoomUnavailability.useMutation({
@@ -46,7 +48,7 @@ function RoomCard({
           }}
         />
         <button onClick={() => del.mutate({ id: room.id })} className="link-danger">
-          Delete room
+          {t("admin.rooms.deleteRoom")}
         </button>
       </div>
       {del.error && <p className="mt-1 text-sm text-red-600">{del.error.message}</p>}
@@ -54,10 +56,10 @@ function RoomCard({
       {/* Blackout periods */}
       <div className="mt-3 border-t border-slate-100 pt-3">
         <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
-          Unavailable periods
+          {t("admin.rooms.unavailablePeriods")}
         </p>
         {room.unavailabilities.length === 0 ? (
-          <p className="muted mt-1">Always available.</p>
+          <p className="muted mt-1">{t("admin.rooms.alwaysAvailable")}</p>
         ) : (
           <ul className="mt-1 flex flex-wrap gap-2">
             {room.unavailabilities.map((b) => (
@@ -70,7 +72,7 @@ function RoomCard({
                 <button
                   onClick={() => delBlock.mutate({ id: b.id })}
                   className="text-red-600 hover:text-red-700"
-                  aria-label="Remove period"
+                  aria-label={t("admin.rooms.removePeriod")}
                 >
                   ✕
                 </button>
@@ -109,10 +111,10 @@ function RoomCard({
           <input
             value={reason}
             onChange={(e) => setReason(e.target.value)}
-            placeholder="Reason (optional)"
+            placeholder={t("admin.rooms.reasonPlaceholder")}
             className="input w-40"
           />
-          <button className="btn-secondary btn-sm">Block</button>
+          <button className="btn-secondary btn-sm">{t("admin.rooms.block")}</button>
         </form>
         {addBlock.error && (
           <p className="mt-1 text-sm text-red-600">{addBlock.error.message}</p>
@@ -123,6 +125,7 @@ function RoomCard({
 }
 
 export default function RoomsPage() {
+  const t = useTranslations();
   const utils = api.useUtils();
   const rooms = api.admin.rooms.useQuery();
   const invalidate = () => utils.admin.rooms.invalidate();
@@ -137,11 +140,8 @@ export default function RoomsPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="page-title">Rooms</h1>
-        <p className="muted mt-1">
-          Add classrooms and mark recurring periods when they can&apos;t be used. Blocked
-          periods show up on the pairings room grid.
-        </p>
+        <h1 className="page-title">{t("admin.rooms.title")}</h1>
+        <p className="muted mt-1">{t("admin.rooms.description")}</p>
       </div>
 
       <form
@@ -154,10 +154,10 @@ export default function RoomsPage() {
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
-          placeholder="New room name"
+          placeholder={t("admin.rooms.namePlaceholder")}
           className="input max-w-xs"
         />
-        <button className="btn-primary">Add room</button>
+        <button className="btn-primary">{t("admin.rooms.addRoom")}</button>
       </form>
       {create.error && <p className="text-sm text-red-600">{create.error.message}</p>}
 
@@ -165,7 +165,7 @@ export default function RoomsPage() {
         {(rooms.data ?? []).map((r) => (
           <RoomCard key={r.id} room={r} onChanged={invalidate} />
         ))}
-        {rooms.data?.length === 0 && <p className="muted">No rooms yet.</p>}
+        {rooms.data?.length === 0 && <p className="muted">{t("admin.rooms.empty")}</p>}
       </div>
     </div>
   );

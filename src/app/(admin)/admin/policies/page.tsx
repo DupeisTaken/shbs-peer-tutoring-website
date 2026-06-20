@@ -1,5 +1,6 @@
 "use client";
 
+import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { api } from "~/trpc/react";
@@ -15,6 +16,7 @@ type PolicyDoc = {
 };
 
 function PolicyEditor({ doc, onSaved }: { doc: PolicyDoc; onSaved: () => void }) {
+  const t = useTranslations();
   const [title, setTitle] = useState(doc.title);
   const [version, setVersion] = useState(doc.version ?? "");
   const [body, setBody] = useState(doc.body);
@@ -34,13 +36,15 @@ function PolicyEditor({ doc, onSaved }: { doc: PolicyDoc; onSaved: () => void })
           className="input max-w-[10rem]"
           value={version}
           onChange={(e) => setVersion(e.target.value)}
-          placeholder="version"
+          placeholder={t("admin.policies.editor.versionPlaceholder")}
         />
       </div>
       <p className="muted text-xs">
-        Slug <code>{doc.slug}</code> · Markdown · last edited{" "}
-        {new Date(doc.updatedAt).toLocaleString()}
-        {doc.updatedBy ? ` by ${doc.updatedBy.name ?? doc.updatedBy.email}` : ""}
+        {t("admin.policies.editor.slugLabel")} <code>{doc.slug}</code>{" "}
+        {t("admin.policies.editor.lastEdited", { date: new Date(doc.updatedAt).toLocaleString() })}
+        {doc.updatedBy
+          ? " " + t("admin.policies.editor.editedBy", { who: doc.updatedBy.name ?? doc.updatedBy.email })
+          : ""}
       </p>
       <textarea
         className="textarea w-full font-mono text-xs"
@@ -61,10 +65,10 @@ function PolicyEditor({ doc, onSaved }: { doc: PolicyDoc; onSaved: () => void })
             })
           }
         >
-          {update.isPending ? "Saving…" : "Save"}
+          {update.isPending ? t("admin.policies.editor.saving") : t("admin.policies.editor.save")}
         </button>
         {update.isSuccess && !dirty && (
-          <span className="text-sm text-green-600">Saved.</span>
+          <span className="text-sm text-green-600">{t("admin.policies.editor.saved")}</span>
         )}
         {update.error && <span className="text-sm text-red-600">{update.error.message}</span>}
       </div>
@@ -73,6 +77,7 @@ function PolicyEditor({ doc, onSaved }: { doc: PolicyDoc; onSaved: () => void })
 }
 
 export default function PoliciesPage() {
+  const t = useTranslations();
   const utils = api.useUtils();
   const policies = api.admin.policies.useQuery();
   const invalidate = () => utils.admin.policies.invalidate();
@@ -80,19 +85,16 @@ export default function PoliciesPage() {
   return (
     <div className="space-y-6">
       <div>
-        <h1 className="page-title">Policy documents</h1>
-        <p className="muted mt-1">
-          Edit the tutor and tutee handbooks. Written in Markdown; the saved copy is the
-          source of truth.
-        </p>
+        <h1 className="page-title">{t("admin.policies.title")}</h1>
+        <p className="muted mt-1">{t("admin.policies.subtitle")}</p>
       </div>
 
-      {policies.isLoading && <p className="muted">Loading…</p>}
+      {policies.isLoading && <p className="muted">{t("admin.policies.loading")}</p>}
       {(policies.data ?? []).map((doc) => (
         <PolicyEditor key={doc.id} doc={doc} onSaved={invalidate} />
       ))}
       {policies.data?.length === 0 && (
-        <p className="muted">No policy documents yet. Run the seed to create them.</p>
+        <p className="muted">{t("admin.policies.empty")}</p>
       )}
     </div>
   );
