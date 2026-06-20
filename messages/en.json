@@ -3,7 +3,19 @@
     "dismiss": "Dismiss",
     "save": "Save",
     "saved": "Saved.",
-    "language": "Language"
+    "language": "Language",
+    "backToMain": "← Back to main page"
+  },
+  "auth": {
+    "signinTitle": "Team sign-in",
+    "signinSubtitle": "Tutors, coordinators, and admins sign in to continue.",
+    "identifier": "Username or email",
+    "password": "Password",
+    "signIn": "Sign in",
+    "signingIn": "Signing in…",
+    "forgotPassword": "Forgot password?",
+    "lookingForTutor": "Looking for a tutor?",
+    "requestOne": "Request one here"
   },
   "landing": {
     "nav": {

@@ -3,7 +3,19 @@
     "dismiss": "知道了",
     "save": "保存",
     "saved": "已保存。",
-    "language": "语言"
+    "language": "语言",
+    "backToMain": "← 返回主页"
+  },
+  "auth": {
+    "signinTitle": "团队登录",
+    "signinSubtitle": "辅导员、协调员和管理员登录以继续。",
+    "identifier": "用户名或邮箱",
+    "password": "密码",
+    "signIn": "登录",
+    "signingIn": "正在登录…",
+    "forgotPassword": "忘记密码？",
+    "lookingForTutor": "需要辅导员？",
+    "requestOne": "点此申请"
   },
   "landing": {
     "nav": {
