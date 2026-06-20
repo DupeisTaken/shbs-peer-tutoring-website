@@ -5,7 +5,7 @@ import { createTRPCRouter, tutorProcedure } from "~/server/api/trpc";
 import { computeSessionHours, monthKey } from "~/lib/service-hours";
 import { promoteApplicantToTutor } from "~/server/tutors/promote";
 
-const TUTOR_STATUS = ["PRESENT", "RESCHEDULED", "TUTOR_ABSENT"] as const;
+const TUTOR_STATUS = ["PRESENT", "RESCHEDULED", "EXTRA", "TUTOR_ABSENT"] as const;
 const TUTEE_STATUS = ["PRESENT", "EXCUSED_ABSENT", "UNEXCUSED_ABSENT"] as const;
 
 const rating = z.number().int().min(1).max(5).optional();
@@ -154,9 +154,10 @@ export const tutorRouter = createTRPCRouter({
               });
             }
           }
-          // Ratings are required when a session was actually held with a present tutee.
+          // Ratings are required when a session was actually held with a present tutee
+          // (present / rescheduled / extra — anything but a tutor absence).
           const held =
-            val.tutorStatus === "PRESENT" &&
+            val.tutorStatus !== "TUTOR_ABSENT" &&
             val.tutees.some((tt) => tt.status === "PRESENT");
           if (held) {
             for (const key of RATING_KEYS) {

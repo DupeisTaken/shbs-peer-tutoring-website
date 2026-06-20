@@ -90,6 +90,7 @@ enum TuteeStatus {
 enum SessionTutorStatus {
   PRESENT
   RESCHEDULED
+  EXTRA
   TUTOR_ABSENT
 }
 

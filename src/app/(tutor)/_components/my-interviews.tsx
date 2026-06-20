@@ -98,12 +98,14 @@ function HeadDecision({
   applicationId,
   status,
   tally,
+  headVote,
   decisionComment,
   decidedBy,
 }: {
   applicationId: string;
   status: Status;
   tally: { accepts: number; rejects: number };
+  headVote: { accept: boolean; comment: string | null } | null;
   decisionComment: string | null;
   decidedBy: string | null;
 }) {
@@ -114,8 +116,15 @@ function HeadDecision({
   });
 
   const decided = status === "ACCEPTED" || status === "REJECTED";
+  // Simple majority admits; on a tie the head's own vote breaks it (policy §VII.4).
   const majority =
-    tally.accepts > tally.rejects ? "accept" : tally.rejects > tally.accepts ? "reject" : "tie";
+    tally.accepts > tally.rejects
+      ? "accept"
+      : tally.rejects > tally.accepts
+        ? "reject"
+        : headVote
+          ? `${headVote.accept ? "accept" : "reject"} (head breaks tie)`
+          : "tie — cast your vote to break it";
 
   if (decided) {
     return (
@@ -240,6 +249,7 @@ export function MyInterviews() {
                   applicationId={a.id}
                   status={a.status}
                   tally={a.tally}
+                  headVote={a.myVote}
                   decisionComment={a.decisionComment}
                   decidedBy={a.decidedByTutor?.englishName ?? null}
                 />

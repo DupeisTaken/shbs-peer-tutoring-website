@@ -36,6 +36,7 @@ type PendingTuteeData = {
   preferredContact: string | null;
   signedRulebook: boolean;
   signatureName: string | null;
+  createdAt: Date;
   firstChoice: { name: string } | null;
   secondChoice: { name: string } | null;
   availabilities: { slot: SlotLite }[];
@@ -44,11 +45,13 @@ type PendingTuteeData = {
 /** A pending signup with inline approve / assign-to-tutor / decline controls. */
 function PendingTutee({
   tutee,
+  order,
   tutors,
   terms,
   onChanged,
 }: {
   tutee: PendingTuteeData;
+  order: number;
   tutors: { id: string; englishName: string; active: boolean }[];
   terms: { id: string; name: string; active: boolean }[];
   onChanged: () => Promise<unknown> | void;
@@ -66,8 +69,12 @@ function PendingTutee({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0 space-y-1">
           <p className="font-medium text-slate-900">
+            <span className="badge-slate mr-2">#{order}</span>
             {tutee.englishName}
             {tutee.gradeLevel ? ` · Grade ${tutee.gradeLevel}` : ""}
+          </p>
+          <p className="muted text-xs">
+            Submitted {new Date(tutee.createdAt).toLocaleString()}
           </p>
           <p className="muted">
             Courses: <span className="text-slate-700">{tutee.firstChoice?.name ?? "—"}</span>
@@ -158,6 +165,8 @@ export default function TuteesPage() {
   const courses = api.admin.courses.useQuery();
   const tutors = api.admin.tutors.useQuery();
   const terms = api.admin.terms.useQuery();
+  const pairings = api.admin.pairings.useQuery();
+  const [view, setView] = useState<"tutees" | "tutors">("tutees");
 
   const invalidate = () => utils.admin.tutees.invalidate();
   const create = api.admin.createTutee.useMutation({ onSuccess: invalidate });
@@ -171,32 +180,106 @@ export default function TuteesPage() {
   const [secondChoiceId, setSecondChoiceId] = useState("");
 
   const all = tutees.data ?? [];
-  const pending = all.filter((t) => t.status === "PENDING");
+  // Earliest submissions first — they're processed with priority.
+  const pending = all
+    .filter((t) => t.status === "PENDING")
+    .sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt));
   const rest = all.filter((t) => t.status !== "PENDING");
   const courseList = courses.data ?? [];
+
+  // Group pairings by tutor for the tutor-centric view.
+  const pairingsByTutor = new Map<string, typeof pairings.data>();
+  for (const p of pairings.data ?? []) {
+    const arr = pairingsByTutor.get(p.tutorId) ?? [];
+    arr.push(p);
+    pairingsByTutor.set(p.tutorId, arr);
+  }
 
   return (
     <div className="space-y-8">
       <div>
         <h1 className="page-title">Tutees</h1>
         <p className="muted mt-1">
-          Public signups arrive as <span className="badge-amber">pending</span>. Assign each
-          to a tutor here — that creates the pairing and the tutor picks the time slot from
-          their own dashboard.
+          Public signups arrive as <span className="badge-amber">pending</span>, processed
+          earliest-first. Assign each to a tutor here — that creates the pairing and the tutor
+          picks the time slot from their own dashboard.
         </p>
       </div>
 
+      {/* View toggle */}
+      <div className="flex gap-2">
+        <button
+          className={view === "tutees" ? "btn-primary btn-sm" : "btn-secondary btn-sm"}
+          onClick={() => setView("tutees")}
+        >
+          Tutees
+        </button>
+        <button
+          className={view === "tutors" ? "btn-primary btn-sm" : "btn-secondary btn-sm"}
+          onClick={() => setView("tutors")}
+        >
+          Tutors &amp; pairings
+        </button>
+      </div>
+
+      {view === "tutors" && (
+        <section className="card overflow-hidden">
+          <table className="data-table">
+            <thead>
+              <tr>
+                <th>Tutor</th>
+                <th>Subject</th>
+                <th>Day / time</th>
+                <th>Time slot</th>
+                <th>Paired tutees</th>
+              </tr>
+            </thead>
+            <tbody>
+              {(tutors.data ?? []).flatMap((tutor) => {
+                const tps = pairingsByTutor.get(tutor.id) ?? [];
+                if (tps.length === 0) {
+                  return [
+                    <tr key={tutor.id}>
+                      <td className="font-medium text-slate-800">{tutor.englishName}</td>
+                      <td colSpan={4} className="text-slate-400">
+                        no pairings
+                      </td>
+                    </tr>,
+                  ];
+                }
+                return tps.map((p, i) => (
+                  <tr key={p.id}>
+                    <td className="font-medium text-slate-800">
+                      {i === 0 ? tutor.englishName : ""}
+                    </td>
+                    <td>{p.subject}</td>
+                    <td className="text-slate-600">
+                      {DAY_NAMES[p.dayOfWeek]} {minToHm(p.startMin)}–{minToHm(p.endMin)}
+                    </td>
+                    <td className="text-slate-600">{p.timeSlot?.label ?? "—"}</td>
+                    <td className="text-slate-600">
+                      {p.tutees.map((t) => t.tutee.englishName).join(", ") || "—"}
+                    </td>
+                  </tr>
+                ));
+              })}
+            </tbody>
+          </table>
+        </section>
+      )}
+
       {/* Pending review */}
-      {pending.length > 0 && (
+      {view === "tutees" && pending.length > 0 && (
         <section className="card p-5">
           <h2 className="font-semibold text-slate-900">
             Pending signups <span className="badge-amber ml-1">{pending.length}</span>
           </h2>
           <div className="mt-3 space-y-3">
-            {pending.map((t) => (
+            {pending.map((t, i) => (
               <PendingTutee
                 key={t.id}
                 tutee={t}
+                order={i + 1}
                 tutors={tutors.data ?? []}
                 terms={terms.data ?? []}
                 onChanged={invalidate}
@@ -207,6 +290,7 @@ export default function TuteesPage() {
       )}
 
       {/* Manual add */}
+      {view === "tutees" && (
       <section className="card p-5">
         <h2 className="font-semibold text-slate-900">Add a tutee</h2>
         <form
@@ -280,8 +364,10 @@ export default function TuteesPage() {
           <button className="btn-primary">Add</button>
         </form>
       </section>
+      )}
 
       {/* All tutees */}
+      {view === "tutees" && (
       <section className="card overflow-hidden">
         <table className="data-table">
           <thead>
@@ -363,6 +449,7 @@ export default function TuteesPage() {
           </tbody>
         </table>
       </section>
+      )}
     </div>
   );
 }

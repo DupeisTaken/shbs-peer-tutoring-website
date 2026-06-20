@@ -11,7 +11,17 @@ import { hmToMin, minToHm } from "~/lib/time";
 const TUTOR_STATUSES = [
   { value: "PRESENT", label: "Present" },
   { value: "RESCHEDULED", label: "Rescheduled" },
+  { value: "EXTRA", label: "Extra session" },
   { value: "TUTOR_ABSENT", label: "Tutor absent" },
+] as const;
+
+/** Likert anchors shown under each 1–5 rating scale. */
+const LIKERT = [
+  { value: 1, label: "Poor" },
+  { value: 2, label: "Fair" },
+  { value: 3, label: "Good" },
+  { value: 4, label: "Great" },
+  { value: 5, label: "Excellent" },
 ] as const;
 
 const TUTEE_STATUSES = [
@@ -99,7 +109,8 @@ export function AttendanceForm() {
   const tutorStatus = watch("tutorStatus") as TutorStatus;
   const pairings = pairingsQuery.data ?? [];
   const selectedPairing = pairings.find((p) => p.id === selectedPairingId);
-  const held = tutorStatus === "PRESENT";
+  // Tutee attendance is tracked for any held session (present / rescheduled / extra).
+  const held = tutorStatus !== "TUTOR_ABSENT";
 
   // When the pairing changes, default the time fields, reset per-tutee state + cards.
   useEffect(() => {
@@ -139,7 +150,8 @@ export function AttendanceForm() {
       setFormError("Give a reason for each excused absence.");
       return;
     }
-    const sessionHeld = status === "PRESENT" && tutees.some((t) => t.status === "PRESENT");
+    const sessionHeld =
+      status !== "TUTOR_ABSENT" && tutees.some((t) => t.status === "PRESENT");
     if (
       sessionHeld &&
       [
@@ -310,25 +322,31 @@ export function AttendanceForm() {
         </fieldset>
       )}
 
-      {/* Ratings (required when a session was held) */}
+      {/* Ratings (required when a session was held) — likert scales */}
       {held && (
-        <fieldset>
-          <legend className="label">Ratings (1–5) *</legend>
-          <div className="mt-1 grid grid-cols-2 gap-3 sm:grid-cols-3">
-            {RATING_FIELDS.map(([name, label]) => (
-              <div key={name} className="space-y-1">
-                <label className="block text-xs text-slate-500">{label}</label>
-                <select {...register(name)} className="select" defaultValue="">
-                  <option value="">—</option>
-                  {[1, 2, 3, 4, 5].map((n) => (
-                    <option key={n} value={n}>
-                      {n}
-                    </option>
-                  ))}
-                </select>
+        <fieldset className="space-y-3">
+          <legend className="label">Ratings *</legend>
+          {RATING_FIELDS.map(([name, label]) => (
+            <div key={name}>
+              <p className="text-xs font-medium text-slate-600">{label}</p>
+              <div className="mt-1 flex flex-wrap gap-1">
+                {LIKERT.map((opt) => (
+                  <label
+                    key={opt.value}
+                    className="flex cursor-pointer items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50 has-[:checked]:text-indigo-700"
+                  >
+                    <input
+                      type="radio"
+                      value={opt.value}
+                      {...register(name)}
+                      className="accent-indigo-600"
+                    />
+                    {opt.value} · {opt.label}
+                  </label>
+                ))}
               </div>
-            ))}
-          </div>
+            </div>
+          ))}
         </fieldset>
       )}
 

@@ -4,15 +4,15 @@
  * time and stored on the Session row.
  */
 
-/** The tutor's own status for a session (did it happen?). */
-export type SessionTutorStatus = "PRESENT" | "RESCHEDULED" | "TUTOR_ABSENT";
+/** The tutor's own status for a session. Anything but TUTOR_ABSENT counts as held. */
+export type SessionTutorStatus = "PRESENT" | "RESCHEDULED" | "EXTRA" | "TUTOR_ABSENT";
 /** A single tutee's attendance at a held session. */
 export type TuteeAttendanceStatus = "PRESENT" | "EXCUSED_ABSENT" | "UNEXCUSED_ABSENT";
 
 /**
  * Multiplier applied to the rounded hours, from the split tutor/tutee statuses (policy §III).
- * - Tutor not present (rescheduled or absent): 0 — the session didn't happen.
- * - All tutees excused-absent: 0 — no session effectively ran.
+ * - Tutor absent: 0 — the session didn't happen.
+ * - Held (present / rescheduled / extra) but every tutee excused-absent: 0.
  * - Otherwise: 1 (prep + the tutor's own time) + the number of PRESENT tutees. Unexcused
  *   absences don't add to the count but still leave the tutor the baseline credit.
  */
@@ -20,7 +20,7 @@ export function sessionFactor(
   tutorStatus: SessionTutorStatus,
   tuteeStatuses: readonly TuteeAttendanceStatus[],
 ): number {
-  if (tutorStatus !== "PRESENT") return 0;
+  if (tutorStatus === "TUTOR_ABSENT") return 0;
   const present = tuteeStatuses.filter((s) => s === "PRESENT").length;
   const unexcused = tuteeStatuses.filter((s) => s === "UNEXCUSED_ABSENT").length;
   if (present === 0 && unexcused === 0) return 0; // everyone excused -> no credit

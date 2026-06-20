@@ -725,7 +725,7 @@ export const adminRouter = createTRPCRouter({
     .input(
       z.object({
         applicationId: cuid,
-        tutorIds: z.array(cuid).min(1, "Pick at least one interviewer").max(3),
+        tutorIds: z.array(cuid).min(1, "Pick at least one interviewer").max(8),
         headTutorId: cuid,
       }),
     )

@@ -27,9 +27,15 @@ export function TutorPairings() {
     <ul className="divide-y divide-slate-100">
       {list.map((p) => (
         <li key={p.id} className="py-3">
-          <p className="font-medium text-slate-900">{p.subject}</p>
+          <p className="font-medium text-slate-900">
+            {p.subject}
+            <span className="muted font-normal">
+              {" · "}
+              {DAY_NAMES[p.dayOfWeek]} {minToHm(p.startMin)}–{minToHm(p.endMin)}
+            </span>
+          </p>
           <p className="muted">
-            {p.tutees.map((t) => t.tutee.englishName).join(", ") || "No tutees yet"}
+            Tutees: {p.tutees.map((t) => t.tutee.englishName).join(", ") || "none yet"}
             {p.room ? ` · Room ${p.room.name}` : " · No room assigned"}
           </p>
           <div className="mt-2 flex flex-wrap items-center gap-2">

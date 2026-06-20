@@ -53,8 +53,9 @@ function ApplicationCard({
   const setStatus = api.admin.setApplicationStatus.useMutation({ onSuccess: () => onChanged() });
   const del = api.admin.deleteApplication.useMutation({ onSuccess: () => onChanged() });
 
-  // Seed the three interviewer slots and head from any existing assignment.
-  const initial = [0, 1, 2].map((i) => app.interviewers[i]?.tutor.id ?? "");
+  // Seed panelist slots from any existing assignment (at least one empty slot).
+  const initial =
+    app.interviewers.length > 0 ? app.interviewers.map((x) => x.tutor.id) : [""];
   const [picks, setPicks] = useState<string[]>(initial);
   const [head, setHead] = useState<string>(
     app.interviewers.find((x) => x.isHead)?.tutor.id ?? "",
@@ -150,7 +151,7 @@ function ApplicationCard({
                   setPicks((p) => p.map((v, idx) => (idx === i ? e.target.value : v)))
                 }
               >
-                <option value="">— interviewer {i + 1} —</option>
+                <option value="">— panelist {i + 1} —</option>
                 {activeTutors
                   .filter((t) => t.id === pick || !picks.includes(t.id))
                   .map((t) => (
@@ -169,8 +170,26 @@ function ApplicationCard({
                 />
                 head
               </label>
+              {picks.length > 1 && (
+                <button
+                  type="button"
+                  className="link-danger text-sm"
+                  onClick={() => setPicks((p) => p.filter((_, idx) => idx !== i))}
+                >
+                  remove
+                </button>
+              )}
             </div>
           ))}
+          {picks.length < 8 && (
+            <button
+              type="button"
+              className="link text-sm"
+              onClick={() => setPicks((p) => [...p, ""])}
+            >
+              + Add panelist
+            </button>
+          )}
         </div>
         <div className="mt-2 flex items-center gap-3">
           <button

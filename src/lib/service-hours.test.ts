@@ -13,9 +13,13 @@ import {
 } from "./service-hours";
 
 describe("sessionFactor", () => {
-  it("is 0 when the tutor wasn't present (rescheduled or absent)", () => {
-    expect(sessionFactor("RESCHEDULED", ["PRESENT", "PRESENT"])).toBe(0);
+  it("is 0 only when the tutor was absent", () => {
     expect(sessionFactor("TUTOR_ABSENT", ["PRESENT"])).toBe(0);
+  });
+
+  it("rescheduled and extra sessions still earn (held with present tutees)", () => {
+    expect(sessionFactor("RESCHEDULED", ["PRESENT", "PRESENT"])).toBe(3);
+    expect(sessionFactor("EXTRA", ["PRESENT"])).toBe(2);
   });
 
   it("is 1 + number of present tutees when the tutor is present", () => {
