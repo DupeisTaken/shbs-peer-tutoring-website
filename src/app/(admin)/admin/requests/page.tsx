@@ -37,14 +37,12 @@ function RequestCard({
   order,
   tutors,
   workload,
-  termId,
   onChanged,
 }: {
   tutee: PendingTutee;
   order: number;
   tutors: { id: string; englishName: string; active: boolean }[];
   workload: Workload;
-  termId: string;
   onChanged: () => Promise<unknown> | void;
 }) {
   const t = useTranslations();
@@ -157,7 +155,6 @@ function RequestCard({
             onClick={() =>
               assign.mutate({
                 tuteeId: tutee.id,
-                termId,
                 expectedUpdatedAt: tutee.updatedAt,
                 assignments,
               })
@@ -178,13 +175,15 @@ export default function RequestsPage() {
   const utils = api.useUtils();
   const tutees = api.admin.tutees.useQuery();
   const tutors = api.admin.tutors.useQuery();
-  const terms = api.admin.terms.useQuery(undefined, { staleTime: REFERENCE_STALE_TIME });
+  const currentPeriod = api.admin.currentPeriod.useQuery(undefined, {
+    staleTime: REFERENCE_STALE_TIME,
+  });
   const pairings = api.admin.pairings.useQuery();
 
   const invalidate = () =>
     Promise.all([utils.admin.tutees.invalidate(), utils.admin.pairings.invalidate()]);
 
-  const activeTerm = (terms.data ?? []).find((t) => t.active) ?? terms.data?.[0];
+  const hasPeriod = !!currentPeriod.data;
 
   // Earliest first — processed with priority.
   const pending = useMemo(
@@ -213,10 +212,10 @@ export default function RequestsPage() {
         <p className="muted mt-1">{t("admin.requests.help")}</p>
       </div>
 
-      {!activeTerm && <p className="text-sm text-red-600">{t("admin.requests.noTerm")}</p>}
+      {!hasPeriod && <p className="text-sm text-red-600">{t("admin.requests.noTerm")}</p>}
 
       <div className="space-y-3">
-        {activeTerm &&
+        {hasPeriod &&
           pending.map((t2, i) => (
             <RequestCard
               key={t2.id}
@@ -224,7 +223,6 @@ export default function RequestsPage() {
               order={i + 1}
               tutors={tutors.data ?? []}
               workload={workload}
-              termId={activeTerm.id}
               onChanged={invalidate}
             />
           ))}

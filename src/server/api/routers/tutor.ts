@@ -2,7 +2,9 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { createTRPCRouter, tutorProcedure } from "~/server/api/trpc";
-import { computeSessionHours, monthKey } from "~/lib/service-hours";
+import { computeSessionHours } from "~/lib/service-hours";
+import { semesterQuarters } from "~/lib/period";
+import { getActivePeriodOrNull } from "~/server/period";
 import { promoteApplicantToTutor } from "~/server/tutors/promote";
 import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
 
@@ -23,10 +25,10 @@ const monthInput = z
   .optional();
 
 export const tutorRouter = createTRPCRouter({
-  /** The signed-in tutor's pairings, with rostered tutees, room and term. */
+  /** The signed-in tutor's *current* pairings (active program period), with tutees/room/term. */
   myPairings: tutorProcedure.query(async ({ ctx }) => {
     return ctx.db.pairing.findMany({
-      where: { tutorId: ctx.session.tutorId },
+      where: { tutorId: ctx.session.tutorId, term: { active: true } },
       orderBy: [{ dayOfWeek: "asc" }, { startMin: "asc" }],
       include: {
         room: true,
@@ -55,41 +57,55 @@ export const tutorRouter = createTRPCRouter({
     }),
 
   /**
-   * Live monthly service-hour total for the signed-in tutor:
+   * Live service-hour total for the signed-in tutor, scoped to the **current semester** (hours
+   * accumulate across the semester's two quarters and reset when a new semester begins):
    *   SUM(shCount) - PUNISHMENT adjustments + EXTRA adjustments.
    */
-  myMonthlyTotal: tutorProcedure
-    .input(z.object({ month: monthInput }).optional())
-    .query(async ({ ctx, input }) => {
-      const month = input?.month ?? monthKey(new Date());
-
-      const [sessionAgg, adjustments] = await Promise.all([
-        ctx.db.session.aggregate({
-          where: { tutorId: ctx.session.tutorId, month },
-          _sum: { shCount: true },
-        }),
-        ctx.db.serviceHourAdjustment.findMany({
-          where: { tutorId: ctx.session.tutorId, month },
-          select: { type: true, amount: true },
-        }),
-      ]);
-
-      const earned = sessionAgg._sum.shCount ?? 0;
-      const punishments = adjustments
-        .filter((a) => a.type === "PUNISHMENT")
-        .reduce((sum, a) => sum + a.amount, 0);
-      const extras = adjustments
-        .filter((a) => a.type === "EXTRA")
-        .reduce((sum, a) => sum + a.amount, 0);
-
+  myMonthlyTotal: tutorProcedure.query(async ({ ctx }) => {
+    const active = await getActivePeriodOrNull(ctx.db);
+    if (!active) {
       return {
-        month,
-        earned,
-        punishments,
-        extras,
-        total: earned - punishments + extras,
+        periodLabel: null,
+        schoolYear: null,
+        semester: null,
+        earned: 0,
+        punishments: 0,
+        extras: 0,
+        total: 0,
       };
-    }),
+    }
+    const where = {
+      tutorId: ctx.session.tutorId,
+      schoolYear: active.schoolYear,
+      quarter: { in: semesterQuarters(active.semester) },
+    };
+
+    const [sessionAgg, adjustments] = await Promise.all([
+      ctx.db.session.aggregate({ where, _sum: { shCount: true } }),
+      ctx.db.serviceHourAdjustment.findMany({
+        where,
+        select: { type: true, amount: true },
+      }),
+    ]);
+
+    const earned = sessionAgg._sum.shCount ?? 0;
+    const punishments = adjustments
+      .filter((a) => a.type === "PUNISHMENT")
+      .reduce((sum, a) => sum + a.amount, 0);
+    const extras = adjustments
+      .filter((a) => a.type === "EXTRA")
+      .reduce((sum, a) => sum + a.amount, 0);
+
+    return {
+      periodLabel: `${active.schoolYear} ${active.semester}`,
+      schoolYear: active.schoolYear,
+      semester: active.semester,
+      earned,
+      punishments,
+      extras,
+      total: earned - punishments + extras,
+    };
+  }),
 
   /**
    * Submit one attendance record. Service hours are computed server-side and stored on the row.
@@ -187,7 +203,11 @@ export const tutorRouter = createTRPCRouter({
       // Row scoping: every pairing in the block must belong to this tutor.
       const found = await ctx.db.pairing.findMany({
         where: { id: { in: allPairingIds }, tutorId },
-        include: { tutees: { select: { tuteeId: true } } },
+        include: {
+          tutees: { select: { tuteeId: true } },
+          // The session is stamped with this pairing's program period (for semester-scoped hours).
+          term: { select: { schoolYear: true, quarter: true } },
+        },
       });
       const primary = found.find((p) => p.id === input.pairingId);
       if (!primary || found.length !== allPairingIds.length) {
@@ -278,6 +298,9 @@ export const tutorRouter = createTRPCRouter({
               ...ratings,
               comments: input.comments,
               month: computed.month,
+              // Program period this session counts toward (from the pairing's term).
+              schoolYear: p.term.schoolYear,
+              quarter: p.term.quarter,
               durationMin: computed.durationMin,
               shFactor: isPrimary ? computed.shFactor : 0,
               shCount: isPrimary ? computed.shCount : 0,

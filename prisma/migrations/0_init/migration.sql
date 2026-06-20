@@ -5,7 +5,7 @@ CREATE SCHEMA IF NOT EXISTS "public";
 CREATE TYPE "Role" AS ENUM ('TUTOR', 'COORDINATOR', 'ADMIN');
 
 -- CreateEnum
-CREATE TYPE "Quarter" AS ENUM ('Q3', 'Q4');
+CREATE TYPE "Quarter" AS ENUM ('Q1', 'Q2', 'Q3', 'Q4');
 
 -- CreateEnum
 CREATE TYPE "TuteeStatus" AS ENUM ('PENDING', 'ACTIVE', 'INACTIVE');
@@ -97,6 +97,7 @@ CREATE TABLE "CourseLevel" (
 -- CreateTable
 CREATE TABLE "Term" (
     "id" TEXT NOT NULL,
+    "schoolYear" TEXT NOT NULL,
     "quarter" "Quarter" NOT NULL,
     "name" TEXT NOT NULL,
     "startDate" TIMESTAMP(3),
@@ -244,6 +245,8 @@ CREATE TABLE "Session" (
     "ratingProgress" INTEGER,
     "comments" TEXT,
     "month" TEXT NOT NULL,
+    "schoolYear" TEXT NOT NULL,
+    "quarter" "Quarter" NOT NULL,
     "durationMin" INTEGER NOT NULL,
     "shFactor" INTEGER NOT NULL,
     "shCount" DOUBLE PRECISION NOT NULL,
@@ -290,6 +293,8 @@ CREATE TABLE "MeetingAttendance" (
 CREATE TABLE "ServiceHourAdjustment" (
     "id" TEXT NOT NULL,
     "month" TEXT NOT NULL,
+    "schoolYear" TEXT NOT NULL,
+    "quarter" "Quarter" NOT NULL,
     "type" "AdjustmentType" NOT NULL,
     "amount" DOUBLE PRECISION NOT NULL,
     "reason" TEXT,
@@ -459,6 +464,9 @@ CREATE INDEX "Notification_userId_readAt_idx" ON "Notification"("userId", "readA
 CREATE UNIQUE INDEX "CourseLevel_name_key" ON "CourseLevel"("name");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "Term_schoolYear_quarter_key" ON "Term"("schoolYear", "quarter");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Tutor_username_key" ON "Tutor"("username");
 
 -- CreateIndex
@@ -498,6 +506,12 @@ CREATE INDEX "PairingTutee_tuteeId_idx" ON "PairingTutee"("tuteeId");
 CREATE INDEX "Session_tutorId_month_idx" ON "Session"("tutorId", "month");
 
 -- CreateIndex
+CREATE INDEX "Session_tutorId_schoolYear_quarter_idx" ON "Session"("tutorId", "schoolYear", "quarter");
+
+-- CreateIndex
+CREATE INDEX "Session_schoolYear_quarter_idx" ON "Session"("schoolYear", "quarter");
+
+-- CreateIndex
 CREATE INDEX "Session_pairingId_idx" ON "Session"("pairingId");
 
 -- CreateIndex
@@ -514,6 +528,9 @@ CREATE UNIQUE INDEX "MeetingAttendance_meetingId_tutorId_key" ON "MeetingAttenda
 
 -- CreateIndex
 CREATE INDEX "ServiceHourAdjustment_tutorId_month_idx" ON "ServiceHourAdjustment"("tutorId", "month");
+
+-- CreateIndex
+CREATE INDEX "ServiceHourAdjustment_tutorId_schoolYear_quarter_idx" ON "ServiceHourAdjustment"("tutorId", "schoolYear", "quarter");
 
 -- CreateIndex
 CREATE INDEX "TutorApplication_status_idx" ON "TutorApplication"("status");

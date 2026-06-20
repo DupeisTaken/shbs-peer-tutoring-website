@@ -2,19 +2,18 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
 import { api } from "~/trpc/server";
-import { currentMonth } from "~/lib/time";
 
 export default async function AdminHome() {
   const t = await getTranslations();
   const [pairings, summary, tutees, sessions] = await Promise.all([
     api.admin.pairings(),
-    api.admin.monthlySummary(),
+    api.admin.periodSummary(),
     api.admin.tutees(),
     api.admin.sessions(),
   ]);
 
   const activeTutors = summary.rows.filter((r) => r.active).length;
-  const totalHours = summary.rows.reduce((s, r) => s + r.total, 0);
+  const totalHours = summary.totals.total;
   const pendingTutees = tutees.filter((t) => t.status === "PENDING").length;
   const activeTutees = tutees.filter((t) => t.status === "ACTIVE").length;
   const recent = sessions.slice(0, 8);
@@ -35,7 +34,7 @@ export default async function AdminHome() {
           highlight={pendingTutees > 0}
         />
         <Stat
-          label={t("admin.dashboard.stats.serviceHours", { month: currentMonth() })}
+          label={t("admin.dashboard.stats.serviceHours", { month: summary.scope.label })}
           value={totalHours.toFixed(1)}
           href="/admin/summary"
         />

@@ -21,6 +21,7 @@ const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
     items: [
       { href: "/admin", labelKey: "admin.nav.links.dashboard", exact: true },
       { href: "/admin/activity", labelKey: "admin.nav.links.activity" },
+      { href: "/admin/history", labelKey: "admin.nav.links.history" },
       { href: "/admin/announcements", labelKey: "admin.nav.links.announcements" },
     ],
   },
@@ -57,6 +58,7 @@ const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
   {
     titleKey: "admin.nav.sections.administration",
     items: [
+      { href: "/admin/program", labelKey: "admin.nav.links.program" },
       { href: "/admin/policies", labelKey: "admin.nav.links.policyDocuments" },
       { href: "/admin/audit", labelKey: "admin.nav.links.auditLog" },
       { href: "/admin/users", labelKey: "admin.nav.links.usersRoles", adminOnly: true },

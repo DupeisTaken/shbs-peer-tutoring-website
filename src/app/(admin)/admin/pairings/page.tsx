@@ -11,7 +11,6 @@ import { RoomGrid } from "~/app/_components/room-grid";
 type PairingForm = {
   id: string | null;
   tutorId: string;
-  termId: string;
   roomId: string;
   timeSlotId: string;
   subject: string;
@@ -21,7 +20,6 @@ type PairingForm = {
 const EMPTY: PairingForm = {
   id: null,
   tutorId: "",
-  termId: "",
   roomId: "",
   timeSlotId: "",
   subject: "",
@@ -35,7 +33,6 @@ export default function PairingsPage() {
   const tutors = api.admin.tutors.useQuery();
   const tutees = api.admin.tutees.useQuery();
   const rooms = api.admin.rooms.useQuery(undefined, { staleTime: REFERENCE_STALE_TIME });
-  const terms = api.admin.terms.useQuery(undefined, { staleTime: REFERENCE_STALE_TIME });
   const timeSlots = api.admin.timeSlots.useQuery(undefined, { staleTime: REFERENCE_STALE_TIME });
 
   const invalidate = () => utils.admin.pairings.invalidate();
@@ -55,7 +52,6 @@ export default function PairingsPage() {
   const submit = () => {
     const base = {
       tutorId: form.tutorId,
-      termId: form.termId,
       roomId: form.roomId || undefined,
       timeSlotId: form.timeSlotId,
       subject: form.subject,
@@ -100,12 +96,6 @@ export default function PairingsPage() {
             value={form.tutorId}
             onChange={(v) => set("tutorId", v)}
             options={(tutors.data ?? []).map((t) => ({ value: t.id, label: t.englishName }))}
-          />
-          <Select
-            label={t("admin.pairings.term")}
-            value={form.termId}
-            onChange={(v) => set("termId", v)}
-            options={(terms.data ?? []).map((t) => ({ value: t.id, label: t.name }))}
           />
           <Select
             label={t("admin.pairings.roomOptional")}
@@ -165,7 +155,7 @@ export default function PairingsPage() {
         <div className="mt-4 flex items-center gap-3">
           <button
             onClick={submit}
-            disabled={!form.tutorId || !form.termId || !form.subject || !form.timeSlotId}
+            disabled={!form.tutorId || !form.subject || !form.timeSlotId}
             className="btn-primary"
           >
             {editing ? t("admin.pairings.saveChanges") : t("admin.pairings.createPairing")}
@@ -210,7 +200,6 @@ export default function PairingsPage() {
                       setForm({
                         id: p.id,
                         tutorId: p.tutorId,
-                        termId: p.termId,
                         roomId: p.roomId ?? "",
                         timeSlotId: p.timeSlotId ?? "",
                         subject: p.subject,

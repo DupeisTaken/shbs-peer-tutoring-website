@@ -184,7 +184,9 @@
       "links": {
         "dashboard": "仪表板",
         "activity": "动态",
+        "history": "历史",
         "announcements": "公告",
+        "program": "项目与刷新",
         "tutorRoster": "导师名册",
         "tutorApplications": "导师申请",
         "tutorMeetings": "导师会议",
@@ -245,12 +247,51 @@
     },
     "summary": {
       "title": "导师服务时数",
-      "subtitleAllTime": "各导师的全部累计时数。",
-      "subtitleMonthly": "各导师的月度汇总。",
-      "showAllHistory": "显示全部历史",
-      "showingAllHistory": "正在显示全部历史",
+      "subtitleMonthly": "各导师的服务时数。",
+      "scope": "本学期 · {label}",
+      "viewHistory": "查看历史 →",
       "inactive": "（已停用）",
-      "columns": { "tutor": "导师", "earned": "已获得", "extras": "额外", "penalties": "扣减", "total": "总计" }
+      "columns": { "tutor": "导师", "sessions": "课时", "earned": "已获得", "extras": "额外", "penalties": "扣减", "total": "总计" }
+    },
+    "history": {
+      "title": "项目历史",
+      "subtitle": "查看任意过往季度、学期或学年的服务时数与出勤。",
+      "schoolYear": "学年",
+      "scope": "时段",
+      "wholeYear": "整个学年",
+      "s1": "S1（Q1+Q2）",
+      "s2": "S2（Q3+Q4）",
+      "inactive": "（已停用）",
+      "noData": "该时段暂无记录。",
+      "columns": { "tutor": "导师", "sessions": "课时", "earned": "已获得", "extras": "额外", "penalties": "扣减", "total": "总计" },
+      "totals": {
+        "total": "总时数",
+        "earned": "已获得",
+        "sessions": "课时",
+        "present": "出席",
+        "excused": "请假",
+        "unexcused": "无故缺席"
+      }
+    },
+    "program": {
+      "title": "项目与刷新",
+      "subtitle": "当前时段，以及让项目滚动到下一阶段的季度刷新。",
+      "loading": "加载中…",
+      "noPeriod": "暂无活动的项目时段。请先创建或运行种子。",
+      "currentPeriod": "当前时段",
+      "semester": "学期 {semester}",
+      "refreshHeading": "刷新到下一季度",
+      "advancesTo": "此操作会将项目推进到 {name}，并：",
+      "effectPending": "清空待处理的学员报名队列（归档为停用）。",
+      "effectTutees": "归档所有当前已配对的学员——他们需要重新报名才能继续。",
+      "effectPairings": "清空当前配对面板（过往配对与出勤保留在历史中）。",
+      "effectHoursReset": "为学期 {semester} 重新开始一份服务时数 / 出勤统计。",
+      "effectHoursKeep": "继续累计服务时数（仍是同一学期）。",
+      "confirmLabel": "输入 REFRESH 以确认此项目级操作。",
+      "confirmPlaceholder": "REFRESH",
+      "refreshButton": "刷新到 {name}",
+      "refreshing": "刷新中…",
+      "done": "已刷新到 {name}。归档了 {count} 名学员。"
     },
     "audit": {
       "title": "审计日志",

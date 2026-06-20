@@ -11,6 +11,15 @@ import { defaultUsername, ensureUniqueUsername } from "~/server/auth/username";
 import { promoteApplicantToTutor } from "~/server/tutors/promote";
 import { notifyTutors, notifyUsers } from "~/server/notifications/create";
 import { standingFromCounts } from "~/lib/discipline";
+import {
+  QUARTERS,
+  type Quarter,
+  crossesSemester,
+  nextPeriod,
+  quarterSemester,
+  semesterQuarters,
+} from "~/lib/period";
+import { getActivePeriod, getActivePeriodOrNull } from "~/server/period";
 import { applyUndo, recordAudit } from "~/server/audit/log";
 import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
 
@@ -227,8 +236,11 @@ export const adminRouter = createTRPCRouter({
   // --------------------------------------------------------------------------
   // Pairings (+ room grid)
   // --------------------------------------------------------------------------
+  // "Current pairings" = those in the active term. A program refresh activates a new term, so
+  // the board clears automatically; past terms' pairings remain for history but aren't shown here.
   pairings: adminProcedure.query(({ ctx }) =>
     ctx.db.pairing.findMany({
+      where: { term: { active: true } },
       orderBy: [{ dayOfWeek: "asc" }, { startMin: "asc" }],
       include: {
         tutor: true,
@@ -244,7 +256,6 @@ export const adminRouter = createTRPCRouter({
     .input(
       z.object({
         tutorId: cuid,
-        termId: cuid,
         roomId: cuid.optional(),
         // Pairings are scheduled by picking a published time slot — the slot is the single
         // source of truth for day/start/end (no free-form time entry).
@@ -254,12 +265,16 @@ export const adminRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const slot = await resolveSlot(ctx.db, input.timeSlotId);
-      const { tuteeIds, timeSlotId, ...data } = input;
+      // New pairings always belong to the active program period.
+      const [slot, period] = await Promise.all([
+        resolveSlot(ctx.db, input.timeSlotId),
+        getActivePeriod(ctx.db),
+      ]);
+      const { tuteeIds, ...data } = input;
       return ctx.db.pairing.create({
         data: {
           ...data,
-          timeSlotId,
+          termId: period.termId,
           dayOfWeek: slot.dayOfWeek,
           startMin: slot.startMin,
           endMin: slot.endMin,
@@ -273,7 +288,6 @@ export const adminRouter = createTRPCRouter({
       z.object({
         id: cuid,
         tutorId: cuid,
-        termId: cuid,
         roomId: cuid.nullable().optional(),
         timeSlotId: cuid,
         subject: z.string().min(1),
@@ -282,7 +296,7 @@ export const adminRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const slot = await resolveSlot(ctx.db, input.timeSlotId);
-      const { id, tuteeIds, roomId, timeSlotId, ...data } = input;
+      const { id, tuteeIds, roomId, ...data } = input;
       // Replace roster atomically; day/start/end follow the chosen slot.
       return ctx.db.$transaction(async (tx) => {
         await tx.pairingTutee.deleteMany({ where: { pairingId: id } });
@@ -291,7 +305,6 @@ export const adminRouter = createTRPCRouter({
           data: {
             ...data,
             roomId: roomId ?? null,
-            timeSlotId,
             dayOfWeek: slot.dayOfWeek,
             startMin: slot.startMin,
             endMin: slot.endMin,
@@ -343,61 +356,184 @@ export const adminRouter = createTRPCRouter({
     }),
 
   // --------------------------------------------------------------------------
-  // Per-tutor monthly summary
+  // Program period (current quarter/semester) + history
   // --------------------------------------------------------------------------
-  monthlySummary: adminProcedure
+  /** The active period plus a preview of what the next refresh would advance to. */
+  currentPeriod: adminProcedure.query(async ({ ctx }) => {
+    const active = await getActivePeriodOrNull(ctx.db);
+    if (!active) return null;
+    const np = nextPeriod({ schoolYear: active.schoolYear, quarter: active.quarter });
+    return {
+      schoolYear: active.schoolYear,
+      quarter: active.quarter,
+      semester: active.semester,
+      name: active.name,
+      next: {
+        schoolYear: np.schoolYear,
+        quarter: np.quarter,
+        semester: quarterSemester(np.quarter),
+        name: `${np.schoolYear} ${np.quarter}`,
+        crossesSemester: crossesSemester(
+          { schoolYear: active.schoolYear, quarter: active.quarter },
+          np,
+        ),
+      },
+    };
+  }),
+
+  /** Every program period on record (one per quarter ever activated) — for history selectors. */
+  periods: adminProcedure.query(({ ctx }) =>
+    ctx.db.term.findMany({
+      orderBy: [{ schoolYear: "desc" }, { quarter: "desc" }],
+      select: { schoolYear: true, quarter: true, active: true },
+    }),
+  ),
+
+  /**
+   * Per-tutor service hours + program attendance for a period. Scope resolution:
+   *   quarter given -> that quarter; else semester given -> that semester's two quarters;
+   *   else a schoolYear given (no semester/quarter) -> the whole year;
+   *   else (no input) -> the active period's current semester (the live "this semester" view).
+   */
+  periodSummary: adminProcedure
     .input(
       z
-        .object({ month: monthInput.optional(), allTime: z.boolean().optional() })
+        .object({
+          schoolYear: z.string().optional(),
+          semester: z.enum(["S1", "S2"]).optional(),
+          quarter: z.enum(QUARTERS).optional(),
+        })
         .optional(),
     )
     .query(async ({ ctx, input }) => {
-      const allTime = input?.allTime ?? false;
-      const month = input?.month ?? monthKey(new Date());
-      // All-time totals drop the month filter entirely.
-      const monthFilter = allTime ? {} : { month };
-      const [tutors, sessionSums, adjustments] = await Promise.all([
+      const active = await getActivePeriod(ctx.db);
+      const schoolYear = input?.schoolYear ?? active.schoolYear;
+      let quarters: Quarter[];
+      let label: string;
+      if (input?.quarter) {
+        quarters = [input.quarter];
+        label = `${schoolYear} ${input.quarter}`;
+      } else if (input?.semester) {
+        quarters = semesterQuarters(input.semester);
+        label = `${schoolYear} ${input.semester}`;
+      } else if (input?.schoolYear) {
+        quarters = [...QUARTERS];
+        label = schoolYear;
+      } else {
+        quarters = semesterQuarters(active.semester);
+        label = `${schoolYear} ${active.semester}`;
+      }
+      const periodWhere = { schoolYear, quarter: { in: quarters } };
+
+      const [tutors, sessionAgg, adjustments, attendance] = await Promise.all([
         ctx.db.tutor.findMany({ orderBy: { englishName: "asc" } }),
         ctx.db.session.groupBy({
           by: ["tutorId"],
-          where: monthFilter,
+          where: periodWhere,
           _sum: { shCount: true },
+          _count: { _all: true },
         }),
         ctx.db.serviceHourAdjustment.groupBy({
           by: ["tutorId", "type"],
-          where: monthFilter,
+          where: periodWhere,
           _sum: { amount: true },
+        }),
+        ctx.db.sessionTutee.groupBy({
+          by: ["status"],
+          where: { session: periodWhere },
+          _count: { _all: true },
         }),
       ]);
 
-      const earnedByTutor = new Map(
-        sessionSums.map((s) => [s.tutorId, s._sum.shCount ?? 0]),
-      );
-      const punishmentByTutor = new Map<string, number>();
-      const extraByTutor = new Map<string, number>();
+      const earnedBy = new Map(sessionAgg.map((s) => [s.tutorId, s._sum.shCount ?? 0]));
+      const sessionsBy = new Map(sessionAgg.map((s) => [s.tutorId, s._count._all]));
+      const punishBy = new Map<string, number>();
+      const extraBy = new Map<string, number>();
       for (const a of adjustments) {
-        const target = a.type === "PUNISHMENT" ? punishmentByTutor : extraByTutor;
+        const target = a.type === "PUNISHMENT" ? punishBy : extraBy;
         target.set(a.tutorId, (target.get(a.tutorId) ?? 0) + (a._sum.amount ?? 0));
       }
 
-      return {
-        month: allTime ? "all" : month,
-        allTime,
-        rows: tutors.map((t) => {
-          const earned = earnedByTutor.get(t.id) ?? 0;
-          const punishments = punishmentByTutor.get(t.id) ?? 0;
-          const extras = extraByTutor.get(t.id) ?? 0;
-          return {
-            tutorId: t.id,
-            englishName: t.englishName,
-            active: t.active,
-            earned,
-            punishments,
-            extras,
-            total: earned - punishments + extras,
-          };
+      const rows = tutors.map((t) => {
+        const earned = earnedBy.get(t.id) ?? 0;
+        const punishments = punishBy.get(t.id) ?? 0;
+        const extras = extraBy.get(t.id) ?? 0;
+        return {
+          tutorId: t.id,
+          englishName: t.englishName,
+          active: t.active,
+          earned,
+          extras,
+          punishments,
+          total: earned - punishments + extras,
+          sessions: sessionsBy.get(t.id) ?? 0,
+        };
+      });
+
+      const att = { present: 0, excused: 0, unexcused: 0 };
+      for (const g of attendance) {
+        if (g.status === "PRESENT") att.present = g._count._all;
+        else if (g.status === "EXCUSED_ABSENT") att.excused = g._count._all;
+        else att.unexcused = g._count._all;
+      }
+
+      const totals = rows.reduce(
+        (acc, r) => ({
+          earned: acc.earned + r.earned,
+          extras: acc.extras + r.extras,
+          punishments: acc.punishments + r.punishments,
+          total: acc.total + r.total,
+          sessions: acc.sessions + r.sessions,
         }),
+        { earned: 0, extras: 0, punishments: 0, total: 0, sessions: 0 },
+      );
+
+      return {
+        scope: { schoolYear, quarters, label },
+        rows,
+        totals: { ...totals, ...att },
       };
+    }),
+
+  /**
+   * Refresh the program: advance to the next quarter (Q4 -> next year's Q1), clear the current
+   * pairings (the new term starts empty; past pairings + their attendance stay for history), and
+   * archive every pending/active tutee to INACTIVE so they must sign up again to continue. Service
+   * hours / attendance are period-stamped and untouched — the "this semester" total just rolls over
+   * when the refresh crosses a semester boundary. Requires typing REFRESH to confirm.
+   */
+  refresh: adminProcedure
+    .input(z.object({ confirm: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      if (input.confirm.trim().toUpperCase() !== "REFRESH") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Type REFRESH to confirm." });
+      }
+      const active = await getActivePeriod(ctx.db);
+      const np = nextPeriod({ schoolYear: active.schoolYear, quarter: active.quarter });
+      const name = `${np.schoolYear} ${np.quarter}`;
+
+      const out = await ctx.db.$transaction(async (tx) => {
+        await tx.term.updateMany({ where: { active: true }, data: { active: false } });
+        const term = await tx.term.upsert({
+          where: { schoolYear_quarter: { schoolYear: np.schoolYear, quarter: np.quarter } },
+          update: { active: true },
+          create: { schoolYear: np.schoolYear, quarter: np.quarter, name, active: true },
+        });
+        const archived = await tx.tutee.updateMany({
+          where: { status: { in: ["PENDING", "ACTIVE"] } },
+          data: { status: "INACTIVE" },
+        });
+        return { termId: term.id, archived: archived.count };
+      });
+
+      await recordAudit({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name,
+        action: `Refreshed program to ${name} — archived ${out.archived} tutee(s); cleared current pairings`,
+        entity: "Term",
+        entityId: out.termId,
+      });
+      return { schoolYear: np.schoolYear, quarter: np.quarter, name, archivedTutees: out.archived };
     }),
 
   // --------------------------------------------------------------------------
@@ -588,15 +724,16 @@ export const adminRouter = createTRPCRouter({
     .input(
       z.object({
         tuteeId: cuid,
-        termId: cuid,
         expectedUpdatedAt,
         assignments: z
           .array(z.object({ subject: z.string().trim().min(1), tutorId: cuid }))
           .min(1, "Pick a tutor for at least one course"),
       }),
     )
-    .mutation(({ ctx, input }) =>
-      ctx.db.$transaction(async (tx) => {
+    .mutation(async ({ ctx, input }) => {
+      // New pairings land in the active program period.
+      const period = await getActivePeriod(ctx.db);
+      return ctx.db.$transaction(async (tx) => {
         // Concurrency guard: only one coordinator may assign a still-PENDING signup. The
         // version match + PENDING status both must hold, or another coordinator got there first.
         const flip = await tx.tutee.updateMany({
@@ -609,7 +746,7 @@ export const adminRouter = createTRPCRouter({
           await tx.pairing.create({
             data: {
               tutorId: a.tutorId,
-              termId: input.termId,
+              termId: period.termId,
               subject: a.subject,
               // Placeholder schedule — the tutor sets the real time when they pick a slot.
               dayOfWeek: 1,
@@ -620,8 +757,8 @@ export const adminRouter = createTRPCRouter({
           });
         }
         return { ok: true };
-      }),
-    ),
+      });
+    }),
 
   /** Quick status change (e.g. approve a PENDING signup → ACTIVE). */
   setTuteeStatus: adminProcedure
@@ -955,9 +1092,13 @@ export const adminRouter = createTRPCRouter({
         reason: z.string().optional(),
       }),
     )
-    .mutation(({ ctx, input }) =>
-      ctx.db.serviceHourAdjustment.create({ data: input }),
-    ),
+    .mutation(async ({ ctx, input }) => {
+      // Stamp the active program period so the adjustment counts toward the right semester.
+      const period = await getActivePeriod(ctx.db);
+      return ctx.db.serviceHourAdjustment.create({
+        data: { ...input, schoolYear: period.schoolYear, quarter: period.quarter },
+      });
+    }),
 
   deleteAdjustment: adminProcedure
     .input(z.object({ id: cuid }))

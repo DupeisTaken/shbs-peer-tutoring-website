@@ -113,6 +113,8 @@ model Notification {
 // ----------------------------------------------------------------------------
 
 enum Quarter {
+  Q1
+  Q2
   Q3
   Q4
 }
@@ -168,16 +170,21 @@ model CourseLevel {
   courses Course[]
 }
 
+/// A program period = one quarter of a school year. Exactly one is `active` at a time (the
+/// "current period"); refreshing creates + activates the next quarter's term. See src/lib/period.ts.
 model Term {
-  id        String         @id @default(cuid())
-  quarter   Quarter
-  name      String // e.g. "2025-2026 Q3"
-  startDate DateTime?
-  endDate   DateTime?
-  active    Boolean        @default(false)
-  pairings  Pairing[]
-  meetings  TutorMeeting[]
-  createdAt DateTime       @default(now())
+  id         String         @id @default(cuid())
+  schoolYear String // "25-26"
+  quarter    Quarter
+  name       String // e.g. "25-26 Q3"
+  startDate  DateTime?
+  endDate    DateTime?
+  active     Boolean        @default(false)
+  pairings   Pairing[]
+  meetings   TutorMeeting[]
+  createdAt  DateTime       @default(now())
+
+  @@unique([schoolYear, quarter])
 }
 
 model Tutor {
@@ -392,6 +399,10 @@ model Session {
 
   // Derived, computed server-side at submit time and stored on the row.
   month       String // "YYYY-MM"
+  // Program period this session counts toward (stamped from the pairing's term). Service hours
+  // are scoped by semester (derived from the quarter); see src/lib/period.ts.
+  schoolYear  String // "25-26"
+  quarter     Quarter
   durationMin Int
   shFactor    Int
   shCount     Float
@@ -413,6 +424,8 @@ model Session {
   cards  DisciplinaryCard[]
 
   @@index([tutorId, month])
+  @@index([tutorId, schoolYear, quarter])
+  @@index([schoolYear, quarter])
   @@index([pairingId])
   @@index([mergeGroupId])
 }
@@ -459,17 +472,21 @@ model MeetingAttendance {
 /// Per-tutor, per-month service-hour adjustment feeding the monthly total
 /// (monthly total = SUM(shCount) - PUNISHMENT amounts + EXTRA amounts).
 model ServiceHourAdjustment {
-  id        String         @id @default(cuid())
-  month     String // "YYYY-MM"
-  type      AdjustmentType
-  amount    Float
-  reason    String?
-  createdAt DateTime       @default(now())
+  id         String         @id @default(cuid())
+  month      String // "YYYY-MM"
+  // Program period the adjustment counts toward (stamped from the active term at creation).
+  schoolYear String // "25-26"
+  quarter    Quarter
+  type       AdjustmentType
+  amount     Float
+  reason     String?
+  createdAt  DateTime       @default(now())
 
   tutorId String
   tutor   Tutor  @relation(fields: [tutorId], references: [id])
 
   @@index([tutorId, month])
+  @@index([tutorId, schoolYear, quarter])
 }
 
 // ----------------------------------------------------------------------------

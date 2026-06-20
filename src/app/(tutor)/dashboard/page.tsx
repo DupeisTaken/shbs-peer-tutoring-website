@@ -54,7 +54,8 @@ export default async function TutorDashboard() {
         </div>
         <div className="card px-5 py-3 text-right">
           <p className="text-xs font-medium tracking-wide text-slate-500 uppercase">
-            {t("dashboard.hours.title")} · {total.month}
+            {t("dashboard.hours.title")}
+            {total.periodLabel ? ` · ${total.periodLabel}` : ""}
           </p>
           <p className="text-3xl font-bold text-slate-900">{total.total.toFixed(1)} h</p>
           <p className="muted">

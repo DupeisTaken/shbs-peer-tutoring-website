@@ -293,8 +293,8 @@ async function main() {
   // --- Term ------------------------------------------------------------------
   const term = await db.term.upsert({
     where: { id: "term-2025-q3" },
-    update: { name: "2025-2026 Q3", quarter: "Q3", active: true },
-    create: { id: "term-2025-q3", name: "2025-2026 Q3", quarter: "Q3", active: true },
+    update: { name: "25-26 Q3", schoolYear: "25-26", quarter: "Q3", active: true },
+    create: { id: "term-2025-q3", name: "25-26 Q3", schoolYear: "25-26", quarter: "Q3", active: true },
   });
 
   // --- Rooms + blackout periods ----------------------------------------------
@@ -394,7 +394,8 @@ async function main() {
       startMin: hm(s.start), endMin: hm(s.end),
       ratingPreparedness: r, ratingParticipation: r, ratingUnderstanding: r, ratingBehavior: r, ratingProgress: r,
       comments: s.comments ?? null,
-      month: computed.month, durationMin: computed.durationMin, shFactor: computed.shFactor, shCount: computed.shCount,
+      month: computed.month, schoolYear: term.schoolYear, quarter: term.quarter,
+      durationMin: computed.durationMin, shFactor: computed.shFactor, shCount: computed.shCount,
       pairingId: s.pairingId, tutorId: s.tutorId,
     };
     await db.session.upsert({ where: { id: s.id }, update: data, create: { id: s.id, ...data } });
@@ -428,7 +429,7 @@ async function main() {
     { id: "adj-karen-pun", tutorId: "tutor-karen", type: "PUNISHMENT" as const, amount: 0.25, reason: "Late attendance submission." },
   ];
   for (const a of adjustments) {
-    const data = { month, type: a.type, amount: a.amount, reason: a.reason, tutorId: a.tutorId };
+    const data = { month, schoolYear: term.schoolYear, quarter: term.quarter, type: a.type, amount: a.amount, reason: a.reason, tutorId: a.tutorId };
     await db.serviceHourAdjustment.upsert({ where: { id: a.id }, update: data, create: { id: a.id, ...data } });
   }
 

@@ -213,7 +213,9 @@
       "links": {
         "dashboard": "Dashboard",
         "activity": "Activity",
+        "history": "History",
         "announcements": "Announcements",
+        "program": "Program & Refresh",
         "tutorRoster": "Tutor Roster",
         "tutorApplications": "Tutor Applications",
         "tutorMeetings": "Tutor Meetings",
@@ -274,12 +276,51 @@
     },
     "summary": {
       "title": "Tutor Service Hours",
-      "subtitleAllTime": "All-time totals per tutor.",
-      "subtitleMonthly": "Monthly summary per tutor.",
-      "showAllHistory": "Show all history",
-      "showingAllHistory": "Showing all history",
+      "subtitleMonthly": "Per-tutor service hours.",
+      "scope": "Current semester · {label}",
+      "viewHistory": "View history →",
       "inactive": "(inactive)",
-      "columns": { "tutor": "Tutor", "earned": "Earned", "extras": "Extras", "penalties": "Penalties", "total": "Total" }
+      "columns": { "tutor": "Tutor", "sessions": "Sessions", "earned": "Earned", "extras": "Extras", "penalties": "Penalties", "total": "Total" }
+    },
+    "history": {
+      "title": "Program History",
+      "subtitle": "Service hours and attendance for any past quarter, semester, or school year.",
+      "schoolYear": "School year",
+      "scope": "Period",
+      "wholeYear": "Whole year",
+      "s1": "S1 (Q1+Q2)",
+      "s2": "S2 (Q3+Q4)",
+      "inactive": "(inactive)",
+      "noData": "No activity recorded for this period.",
+      "columns": { "tutor": "Tutor", "sessions": "Sessions", "earned": "Earned", "extras": "Extras", "penalties": "Penalties", "total": "Total" },
+      "totals": {
+        "total": "Total hours",
+        "earned": "Earned",
+        "sessions": "Sessions",
+        "present": "Present",
+        "excused": "Excused",
+        "unexcused": "Unexcused"
+      }
+    },
+    "program": {
+      "title": "Program & Refresh",
+      "subtitle": "The current period and the quarterly refresh that rolls the program over.",
+      "loading": "Loading…",
+      "noPeriod": "No active program period. Seed or create one first.",
+      "currentPeriod": "Current period",
+      "semester": "Semester {semester}",
+      "refreshHeading": "Refresh to the Next Quarter",
+      "advancesTo": "This advances the program to {name} and:",
+      "effectPending": "Clears the pending tutee signup queue (archived to inactive).",
+      "effectTutees": "Archives all currently paired tutees — they must sign up again to continue.",
+      "effectPairings": "Clears the current pairings board (past pairings + attendance stay in history).",
+      "effectHoursReset": "Starts a fresh service-hour / attendance total for semester {semester}.",
+      "effectHoursKeep": "Keeps service hours accumulating (still the same semester).",
+      "confirmLabel": "Type REFRESH to confirm this program-wide action.",
+      "confirmPlaceholder": "REFRESH",
+      "refreshButton": "Refresh to {name}",
+      "refreshing": "Refreshing…",
+      "done": "Refreshed to {name}. Archived {count} tutee(s)."
     },
     "audit": {
       "title": "Audit Log",

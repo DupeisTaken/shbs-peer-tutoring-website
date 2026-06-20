@@ -56,7 +56,7 @@ async function cleanup() {
 
 beforeAll(async () => {
   await cleanup();
-  await db.term.create({ data: { id: TERM, name: "Test Term", quarter: "Q3" } });
+  await db.term.create({ data: { id: TERM, name: "Test Term", schoolYear: "25-26", quarter: "Q3", active: true } });
   await db.tutor.createMany({
     data: [
       { id: TUTOR_A, englishName: "Tutor A" },
@@ -157,8 +157,8 @@ describe("row-level scoping (the critical rule)", () => {
   });
 
   it("the monthly total reflects only the caller's own sessions", async () => {
-    const aTotal = await caller(session(TUTOR_A)).tutor.myMonthlyTotal({ month: "2026-06" });
-    const bTotal = await caller(session(TUTOR_B)).tutor.myMonthlyTotal({ month: "2026-06" });
+    const aTotal = await caller(session(TUTOR_A)).tutor.myMonthlyTotal();
+    const bTotal = await caller(session(TUTOR_B)).tutor.myMonthlyTotal();
 
     expect(aTotal.earned).toBeGreaterThanOrEqual(2);
     expect(bTotal.earned).toBe(0);
