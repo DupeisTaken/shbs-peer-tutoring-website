@@ -11,12 +11,16 @@ const cuid = z.string().min(1);
  * from the admin-managed catalog.
  */
 export const applicationRouter = createTRPCRouter({
-  /** Active courses for the application's course pickers (with their track tag). */
+  /** Active courses for the application's course pickers (with their level). */
   options: publicProcedure.query(({ ctx }) =>
     ctx.db.course.findMany({
       where: { active: true },
       orderBy: { name: "asc" },
-      select: { id: true, name: true, tag: true },
+      select: {
+        id: true,
+        name: true,
+        level: { select: { name: true, apScored: true } },
+      },
     }),
   ),
 
@@ -57,12 +61,13 @@ export const applicationRouter = createTRPCRouter({
 
       const valid = await ctx.db.course.findMany({
         where: { id: { in: courseIds }, active: true },
-        select: { id: true, tag: true },
+        select: { id: true, level: { select: { apScored: true } } },
       });
       if (valid.length !== courseIds.length) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid course selection." });
       }
-      const tagById = new Map(valid.map((c) => [c.id, c.tag]));
+      // A course can carry an AP score only if its level is flagged apScored.
+      const apEligibleById = new Map(valid.map((c) => [c.id, c.level?.apScored ?? false]));
 
       await ctx.db.tutorApplication.create({
         data: {
@@ -72,8 +77,8 @@ export const applicationRouter = createTRPCRouter({
           status: "PENDING",
           courseIntents: {
             create: input.courses.map((c) => {
-              // AP score only applies to AP-tagged courses.
-              const apEligible = tagById.get(c.courseId) === "AP";
+              // AP score only applies to courses whose level is AP-scored.
+              const apEligible = apEligibleById.get(c.courseId) === true;
               const hasApScore = apEligible && c.hasApScore;
               const selfStudyNote =
                 c.selfStudied && c.selfStudyNote?.trim() ? c.selfStudyNote.trim() : null;

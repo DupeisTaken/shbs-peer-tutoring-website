@@ -44,12 +44,18 @@ const ROOM_BLOCKS = [
   { id: "block-a101-wed", roomId: "room-a101", dayOfWeek: 3, start: "16:00", end: "17:00", reason: "Faculty meeting" },
 ];
 
+const LEVELS = [
+  { id: "level-ap", name: "AP", rank: 0, apScored: true },
+  { id: "level-honors", name: "Honors", rank: 1, apScored: false },
+  { id: "level-standard", name: "Standard", rank: 2, apScored: false },
+];
+
 const COURSES = [
-  { id: "course-math", name: "Mathematics", tag: "STANDARD" as const },
-  { id: "course-physics", name: "Physics", tag: "AP" as const },
-  { id: "course-english", name: "English", tag: "HONORS" as const },
-  { id: "course-chemistry", name: "Chemistry", tag: "AP" as const },
-  { id: "course-biology", name: "Biology", tag: "STANDARD" as const },
+  { id: "course-math", name: "Mathematics", levelId: "level-standard" },
+  { id: "course-physics", name: "Physics", levelId: "level-ap" },
+  { id: "course-english", name: "English", levelId: "level-honors" },
+  { id: "course-chemistry", name: "Chemistry", levelId: "level-ap" },
+  { id: "course-biology", name: "Biology", levelId: "level-standard" },
 ];
 
 // Reference time-slot catalog (label + day + HH:MM start/end).
@@ -127,11 +133,18 @@ async function main() {
     });
   }
 
-  // --- Courses ---------------------------------------------------------------
+  // --- Course levels + courses -----------------------------------------------
+  for (const level of LEVELS) {
+    await db.courseLevel.upsert({
+      where: { id: level.id },
+      update: { name: level.name, rank: level.rank, apScored: level.apScored },
+      create: level,
+    });
+  }
   for (const course of COURSES) {
     await db.course.upsert({
       where: { id: course.id },
-      update: { name: course.name, tag: course.tag },
+      update: { name: course.name, levelId: course.levelId },
       create: course,
     });
   }

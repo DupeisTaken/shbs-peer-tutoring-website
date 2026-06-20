@@ -132,11 +132,18 @@ enum AdjustmentType {
   EXTRA // adds hours
 }
 
-/// Difficulty/track label shown on each catalog course.
-enum CourseTag {
-  AP
-  HONORS
-  STANDARD
+/// Admin-managed difficulty/track levels (e.g. AP / Honors / Standard). `apScored` marks a
+/// level whose courses can carry an AP exam score — it gates the AP-score field on tutor
+/// applications. `rank` orders the catalogue.
+model CourseLevel {
+  id        String   @id @default(cuid())
+  name      String   @unique
+  rank      Int      @default(0)
+  apScored  Boolean  @default(false)
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
+
+  courses Course[]
 }
 
 model Term {
@@ -188,12 +195,13 @@ model Tutor {
 /// A subject offered for tutoring. The catalog is managed by admins; tutees pick a
 /// first (required) and optional second choice from it on the public signup form.
 model Course {
-  id        String    @id @default(cuid())
-  name      String    @unique
-  /// Track label (AP / Honors / Standard). Gates the AP-score field on tutor applications.
-  tag       CourseTag @default(STANDARD)
-  active    Boolean   @default(true)
-  createdAt DateTime  @default(now())
+  id        String   @id @default(cuid())
+  name      String   @unique
+  /// Difficulty/track level from the admin-managed catalogue (CourseLevel). Optional.
+  levelId   String?
+  level     CourseLevel? @relation(fields: [levelId], references: [id])
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now())
 
   firstChoiceTutees  Tutee[]                   @relation("TuteeFirstChoice")
   secondChoiceTutees Tutee[]                   @relation("TuteeSecondChoice")

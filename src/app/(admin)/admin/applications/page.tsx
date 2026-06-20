@@ -32,7 +32,7 @@ type Application = {
     apScore: string | null;
     selfStudied: boolean;
     selfStudyNote: string | null;
-    course: { name: string; tag: string };
+    course: { name: string; level: { name: string } | null };
   }[];
   interviewers: { isHead: boolean; tutor: { id: string; englishName: string } }[];
   votes: { accept: boolean; comment: string | null; tutor: { englishName: string } }[];
@@ -123,7 +123,9 @@ function ApplicationCard({
               className="rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-700"
             >
               <span className="font-medium">{ci.course.name}</span>
-              <span className="text-slate-400"> ({ci.course.tag.toLowerCase()})</span>
+              {ci.course.level && (
+                <span className="text-slate-400"> ({ci.course.level.name})</span>
+              )}
               {" · "}
               {quals.length ? quals.join(" · ") : "no qualification given"}
             </li>

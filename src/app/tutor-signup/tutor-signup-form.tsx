@@ -24,12 +24,6 @@ const emptyRow: CourseRow = {
   selfStudyNote: "",
 };
 
-const TAG_LABEL: Record<string, string> = {
-  AP: "AP",
-  HONORS: "Honors",
-  STANDARD: "Standard",
-};
-
 export function TutorSignupForm() {
   const options = api.application.options.useQuery();
   const submit = api.application.submit.useMutation();
@@ -136,7 +130,7 @@ export function TutorSignupForm() {
               .filter((_, idx) => idx !== i)
               .map((r) => r.courseId);
             const selected = courses.find((c) => c.id === row.courseId);
-            const isAp = selected?.tag === "AP";
+            const isAp = selected?.level?.apScored ?? false;
             return (
               <div
                 key={i}
@@ -158,13 +152,14 @@ export function TutorSignupForm() {
                         .filter((c) => c.id === row.courseId || !usedElsewhere.includes(c.id))
                         .map((c) => (
                           <option key={c.id} value={c.id}>
-                            {c.name} ({TAG_LABEL[c.tag] ?? c.tag})
+                            {c.name}
+                            {c.level ? ` (${c.level.name})` : ""}
                           </option>
                         ))}
                     </select>
                   </label>
-                  {selected && (
-                    <span className="badge-slate mb-2">{TAG_LABEL[selected.tag] ?? selected.tag}</span>
+                  {selected?.level && (
+                    <span className="badge-slate mb-2">{selected.level.name}</span>
                   )}
                   {rows.length > 1 && (
                     <button

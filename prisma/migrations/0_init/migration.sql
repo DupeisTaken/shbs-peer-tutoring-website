@@ -26,9 +26,6 @@ CREATE TYPE "MeetingAttendanceStatus" AS ENUM ('PRESENT', 'EXCUSED_ABSENT', 'UNE
 CREATE TYPE "AdjustmentType" AS ENUM ('PUNISHMENT', 'EXTRA');
 
 -- CreateEnum
-CREATE TYPE "CourseTag" AS ENUM ('AP', 'HONORS', 'STANDARD');
-
--- CreateEnum
 CREATE TYPE "TutorApplicationStatus" AS ENUM ('PENDING', 'INTERVIEW', 'ACCEPTED', 'REJECTED');
 
 -- CreateEnum
@@ -72,6 +69,18 @@ CREATE TABLE "Notification" (
 );
 
 -- CreateTable
+CREATE TABLE "CourseLevel" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "rank" INTEGER NOT NULL DEFAULT 0,
+    "apScored" BOOLEAN NOT NULL DEFAULT false,
+    "active" BOOLEAN NOT NULL DEFAULT true,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "CourseLevel_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
 CREATE TABLE "Term" (
     "id" TEXT NOT NULL,
     "quarter" "Quarter" NOT NULL,
@@ -103,7 +112,7 @@ CREATE TABLE "Tutor" (
 CREATE TABLE "Course" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
-    "tag" "CourseTag" NOT NULL DEFAULT 'STANDARD',
+    "levelId" TEXT,
     "active" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -426,6 +435,9 @@ CREATE UNIQUE INDEX "User_tutorId_key" ON "User"("tutorId");
 CREATE INDEX "Notification_userId_readAt_idx" ON "Notification"("userId", "readAt");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "CourseLevel_name_key" ON "CourseLevel"("name");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "Tutor_username_key" ON "Tutor"("username");
 
 -- CreateIndex
@@ -520,6 +532,9 @@ ALTER TABLE "User" ADD CONSTRAINT "User_tutorId_fkey" FOREIGN KEY ("tutorId") RE
 
 -- AddForeignKey
 ALTER TABLE "Notification" ADD CONSTRAINT "Notification_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Course" ADD CONSTRAINT "Course_levelId_fkey" FOREIGN KEY ("levelId") REFERENCES "CourseLevel"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "Tutee" ADD CONSTRAINT "Tutee_firstChoiceId_fkey" FOREIGN KEY ("firstChoiceId") REFERENCES "Course"("id") ON DELETE SET NULL ON UPDATE CASCADE;
