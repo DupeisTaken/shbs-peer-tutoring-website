@@ -24,31 +24,33 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
     ],
   },
   {
-    title: "People",
+    // Everything tutor-facing.
+    title: "Tutors",
     items: [
-      { href: "/admin/tutors", label: "Tutors" },
-      { href: "/admin/tutees", label: "Tutees" },
+      { href: "/admin/tutors", label: "Tutor roster" },
       { href: "/admin/applications", label: "Tutor applications" },
+      { href: "/admin/meetings", label: "Tutor meetings" },
+      { href: "/admin/summary", label: "Service hours" },
+      { href: "/admin/adjustments", label: "Hour adjustments" },
     ],
   },
   {
-    title: "Scheduling",
+    // Everything tutee-facing.
+    title: "Tutees",
+    items: [
+      { href: "/admin/tutees", label: "Tutee roster" },
+      { href: "/admin/requests", label: "Signup requests" },
+      { href: "/admin/cards", label: "Tutee discipline" },
+    ],
+  },
+  {
+    title: "Scheduling & records",
     items: [
       { href: "/admin/pairings", label: "Pairings" },
+      { href: "/admin/submissions", label: "Attendance" },
       { href: "/admin/timeslots", label: "Time slots" },
-      { href: "/admin/courses", label: "Courses" },
+      { href: "/admin/courses", label: "Courses & levels" },
       { href: "/admin/rooms", label: "Rooms" },
-    ],
-  },
-  {
-    title: "Records",
-    items: [
-      { href: "/admin/submissions", label: "Submissions" },
-      { href: "/admin/summary", label: "Monthly summary" },
-      { href: "/admin/meetings", label: "Meetings" },
-      { href: "/admin/adjustments", label: "Adjustments" },
-      { href: "/admin/cards", label: "Discipline · cards" },
-      { href: "/admin/punishments", label: "Punishments" },
     ],
   },
   {

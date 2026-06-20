@@ -302,19 +302,26 @@ export const adminRouter = createTRPCRouter({
   // Per-tutor monthly summary
   // --------------------------------------------------------------------------
   monthlySummary: adminProcedure
-    .input(z.object({ month: monthInput.optional() }).optional())
+    .input(
+      z
+        .object({ month: monthInput.optional(), allTime: z.boolean().optional() })
+        .optional(),
+    )
     .query(async ({ ctx, input }) => {
+      const allTime = input?.allTime ?? false;
       const month = input?.month ?? monthKey(new Date());
+      // All-time totals drop the month filter entirely.
+      const monthFilter = allTime ? {} : { month };
       const [tutors, sessionSums, adjustments] = await Promise.all([
         ctx.db.tutor.findMany({ orderBy: { englishName: "asc" } }),
         ctx.db.session.groupBy({
           by: ["tutorId"],
-          where: { month },
+          where: monthFilter,
           _sum: { shCount: true },
         }),
         ctx.db.serviceHourAdjustment.groupBy({
           by: ["tutorId", "type"],
-          where: { month },
+          where: monthFilter,
           _sum: { amount: true },
         }),
       ]);
@@ -330,7 +337,8 @@ export const adminRouter = createTRPCRouter({
       }
 
       return {
-        month,
+        month: allTime ? "all" : month,
+        allTime,
         rows: tutors.map((t) => {
           const earned = earnedByTutor.get(t.id) ?? 0;
           const punishments = punishmentByTutor.get(t.id) ?? 0;
@@ -526,6 +534,45 @@ export const adminRouter = createTRPCRouter({
         return pairing;
       });
     }),
+
+  /**
+   * Assign a pending signup's course choices to tutors in one go — e.g. their first choice
+   * (Chemistry) to tutor A and second choice (Biology) to tutor B. Creates a pairing per
+   * assignment and flips the tutee ACTIVE. Each tutor then picks the real time slot.
+   */
+  assignSignup: adminProcedure
+    .input(
+      z.object({
+        tuteeId: cuid,
+        termId: cuid,
+        assignments: z
+          .array(z.object({ subject: z.string().trim().min(1), tutorId: cuid }))
+          .min(1, "Pick a tutor for at least one course"),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      ctx.db.$transaction(async (tx) => {
+        for (const a of input.assignments) {
+          await tx.pairing.create({
+            data: {
+              tutorId: a.tutorId,
+              termId: input.termId,
+              subject: a.subject,
+              // Placeholder schedule — the tutor sets the real time when they pick a slot.
+              dayOfWeek: 1,
+              startMin: 15 * 60 + 30,
+              endMin: 16 * 60 + 30,
+              tutees: { create: [{ tuteeId: input.tuteeId }] },
+            },
+          });
+        }
+        await tx.tutee.update({
+          where: { id: input.tuteeId },
+          data: { status: "ACTIVE" },
+        });
+        return { ok: true };
+      }),
+    ),
 
   /** Quick status change (e.g. approve a PENDING signup → ACTIVE). */
   setTuteeStatus: adminProcedure

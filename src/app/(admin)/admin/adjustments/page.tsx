@@ -21,7 +21,13 @@ export default function AdjustmentsPage() {
 
   return (
     <div className="space-y-6">
-      <h1 className="page-title">Service-hour adjustments</h1>
+      <div>
+        <h1 className="page-title">Tutor hour adjustments</h1>
+        <p className="muted mt-1 text-sm">
+          Add extra hours or apply a punishment (deduction) to a tutor for a given month.
+          (Tutee yellow/red cards live under Tutee discipline.)
+        </p>
+      </div>
 
       <form
         className="flex flex-wrap items-end gap-2"

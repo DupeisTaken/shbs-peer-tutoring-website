@@ -42,7 +42,7 @@ export default async function AdminHome() {
       {pendingTutees > 0 && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
           {pendingTutees} tutee signup{pendingTutees === 1 ? "" : "s"} awaiting review.{" "}
-          <Link href="/admin/tutees" className="font-semibold underline">
+          <Link href="/admin/requests" className="font-semibold underline">
             Review now →
           </Link>
         </div>

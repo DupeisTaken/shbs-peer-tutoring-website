@@ -38,7 +38,7 @@ export default function ActivityPage() {
 
       {/* Summary counters */}
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Counter label="Pending signups" value={pendingTutees.length} href="/admin/tutees" />
+        <Counter label="Pending signups" value={pendingTutees.length} href="/admin/requests" />
         <Counter label="Open applications" value={openApps.length} href="/admin/applications" />
         <Counter label="Cards to review" value={pendingCards.length} href="/admin/cards" />
         <Counter
@@ -49,7 +49,7 @@ export default function ActivityPage() {
       </div>
 
       {/* Tutee signups */}
-      <Panel title="Tutee signup requests" href="/admin/tutees" empty="No pending signups.">
+      <Panel title="Tutee signup requests" href="/admin/requests" empty="No pending signups.">
         {pendingTutees.map((t, i) => (
           <Row key={t.id}>
             <span className="badge-slate">#{i + 1}</span>
