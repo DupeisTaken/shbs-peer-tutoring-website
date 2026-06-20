@@ -36,6 +36,10 @@ model User {
   /// scrypt password hash (see src/server/auth/password.ts). Null until a password is set.
   passwordHash String?
 
+  /// True for auto-provisioned accounts that signed in with the shared default password —
+  /// the first-login onboarding forces a real password (and email) before the dashboard.
+  mustChangePassword Boolean @default(false)
+
   /// SCAFFOLDING for future email-based 2FA — see src/server/auth/two-factor.ts.
   /// When true, an emailed one-time code will be required as a second factor at
   /// sign-in. Not yet enforced anywhere.

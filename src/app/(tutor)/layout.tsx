@@ -24,16 +24,18 @@ export default async function TutorLayout({
   if (!session?.user) redirect("/signin");
   if (!session.tutorId) redirect("/");
 
-  // First-login gate: unverified users confirm their contact email + 2FA first.
+  // First-login gate: confirm contact email + set a real password (auto-provisioned
+  // accounts arrive on the shared default with mustChangePassword).
   const me = await db.user.findUnique({
     where: { id: session.user.id },
     select: {
       email: true,
       emailVerifiedAt: true,
+      mustChangePassword: true,
       tutor: { select: { username: true } },
     },
   });
-  if (!me?.emailVerifiedAt) redirect("/onboarding/email");
+  if (!me?.emailVerifiedAt || me.mustChangePassword) redirect("/onboarding/email");
 
   return (
     <div className="min-h-screen">

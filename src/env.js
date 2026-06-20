@@ -13,6 +13,9 @@ export const env = createEnv({
         : z.string().optional(),
     // Optional: comma-separated emails granted ADMIN on sign-in (bootstrap, no DB editing).
     AUTH_BOOTSTRAP_ADMIN_EMAILS: z.string().optional(),
+    // Shared temporary password for auto-provisioned tutor logins (accepted applicants).
+    // They sign in with this once, then must set their own password + email on first login.
+    TUTOR_DEFAULT_PASSWORD: z.string().min(1).default("ChangeMe!123"),
     // NOTE: email-based 2FA (future) will add an email-provider config here once a
     // provider is chosen — see src/server/email/sender.ts.
     DATABASE_URL: z.string().url(),
@@ -41,6 +44,7 @@ export const env = createEnv({
   runtimeEnv: {
     AUTH_SECRET: process.env.AUTH_SECRET,
     AUTH_BOOTSTRAP_ADMIN_EMAILS: process.env.AUTH_BOOTSTRAP_ADMIN_EMAILS,
+    TUTOR_DEFAULT_PASSWORD: process.env.TUTOR_DEFAULT_PASSWORD,
     DATABASE_URL: process.env.DATABASE_URL,
     NODE_ENV: process.env.NODE_ENV,
     NEXT_PUBLIC_APP_TITLE: process.env.NEXT_PUBLIC_APP_TITLE,

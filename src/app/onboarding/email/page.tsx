@@ -31,11 +31,11 @@ export default async function OnboardingEmailPage() {
       <div className="w-full max-w-sm text-center">
         <span className="badge-slate mb-3">Welcome to {APP_TITLE}</span>
         <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
-          Confirm your email
+          Set up your account
         </h1>
         <p className="muted mt-1">
-          One quick step before your dashboard — confirm where we can reach you and set up
-          two-factor sign-in.
+          One quick step before your dashboard — confirm your email and choose your own
+          password (replacing any temporary one).
         </p>
         <div className="card mt-6 p-6 text-left">
           <OnboardingForm defaultEmail={user?.email ?? ""} />

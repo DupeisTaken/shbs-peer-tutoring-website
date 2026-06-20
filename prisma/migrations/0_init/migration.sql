@@ -46,6 +46,7 @@ CREATE TABLE "User" (
     "name" TEXT,
     "email" TEXT NOT NULL,
     "passwordHash" TEXT,
+    "mustChangePassword" BOOLEAN NOT NULL DEFAULT false,
     "twoFactorEnabled" BOOLEAN NOT NULL DEFAULT false,
     "emailVerifiedAt" TIMESTAMP(3),
     "role" "Role" NOT NULL DEFAULT 'TUTOR',

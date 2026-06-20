@@ -27,6 +27,31 @@ export function OnboardingForm({ defaultEmail }: { defaultEmail: string }) {
         </span>
       </label>
 
+      <label className="space-y-1">
+        <span className="label">New password</span>
+        <input
+          name="password"
+          type="password"
+          required
+          minLength={8}
+          autoComplete="new-password"
+          className="input"
+        />
+        <span className="muted text-xs">At least 8 characters. Replaces the temporary one.</span>
+      </label>
+
+      <label className="space-y-1">
+        <span className="label">Confirm new password</span>
+        <input
+          name="confirm"
+          type="password"
+          required
+          minLength={8}
+          autoComplete="new-password"
+          className="input"
+        />
+      </label>
+
       <label className="flex items-start gap-2 text-sm text-slate-700">
         <input type="checkbox" name="enable2fa" defaultChecked className="mt-1" />
         <span>
