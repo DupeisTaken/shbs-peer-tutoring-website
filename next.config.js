@@ -3,6 +3,9 @@
  * for Docker builds.
  */
 import "./src/env.js";
+import createNextIntlPlugin from "next-intl/plugin";
+
+const withNextIntl = createNextIntlPlugin();
 
 /** @type {import("next").NextConfig} */
 const config = {
@@ -13,4 +16,4 @@ const config = {
   outputFileTracingRoot: import.meta.dirname,
 };
 
-export default config;
+export default withNextIntl(config);

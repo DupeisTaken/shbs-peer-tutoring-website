@@ -32,9 +32,6 @@ export const env = createEnv({
     // team title brands the tutor/coordinator/admin management area.
     NEXT_PUBLIC_APP_TITLE: z.string().min(1).default("SHBS Peer Tutoring"),
     NEXT_PUBLIC_TEAM_TITLE: z.string().min(1).default("SHBS Peer Tutoring Team"),
-    // Optional JSON object of UI-string overrides for translation / white-labelling.
-    // See src/lib/strings.ts. Empty = use the English defaults.
-    NEXT_PUBLIC_STRINGS: z.string().default(""),
   },
 
   /**
@@ -48,7 +45,6 @@ export const env = createEnv({
     NODE_ENV: process.env.NODE_ENV,
     NEXT_PUBLIC_APP_TITLE: process.env.NEXT_PUBLIC_APP_TITLE,
     NEXT_PUBLIC_TEAM_TITLE: process.env.NEXT_PUBLIC_TEAM_TITLE,
-    NEXT_PUBLIC_STRINGS: process.env.NEXT_PUBLIC_STRINGS,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

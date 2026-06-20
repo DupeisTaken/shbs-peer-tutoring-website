@@ -1,0 +1,34 @@
+{
+  "common": {
+    "dismiss": "知道了",
+    "save": "保存",
+    "saved": "已保存。",
+    "language": "语言"
+  },
+  "dashboard": {
+    "greeting": "你好，{name}",
+    "subtitle": "提交考勤并管理你的空闲时间。",
+    "hours": {
+      "title": "服务时数"
+    },
+    "interviews": {
+      "title": "待进行的面试"
+    },
+    "pairings": {
+      "title": "我的配对",
+      "help": "为每个配对选择默认时间段（提交考勤时仍需填写实际上课时间）。"
+    },
+    "availability": {
+      "title": "我的空闲时间",
+      "help": "勾选你可以授课的时间段，方便协调员安排。"
+    },
+    "attendance": {
+      "title": "提交考勤",
+      "help": "为你的某个配对记录一节课，服务时数会自动计算。"
+    },
+    "schedule": {
+      "title": "教室安排",
+      "help": "高亮的是你的配对；灰色格子为不可用的教室。"
+    }
+  }
+}

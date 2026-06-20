@@ -2,8 +2,9 @@
 
 import { useState } from "react";
 
+import { useTranslations } from "next-intl";
+
 import { api } from "~/trpc/react";
-import { t } from "~/lib/strings";
 
 /** Convert a Date to the value a <input type="datetime-local"> expects (local time). */
 function toLocalInput(d: Date | null): string {
@@ -175,6 +176,7 @@ function HeadDecision({
 }
 
 export function MyInterviews() {
+  const t = useTranslations();
   const interviews = api.tutor.myInterviews.useQuery();
   const list = interviews.data ?? [];
 

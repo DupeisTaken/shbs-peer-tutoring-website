@@ -1,5 +1,7 @@
 "use client";
 
+import { useTranslations } from "next-intl";
+
 import { api } from "~/trpc/react";
 
 /**
@@ -8,6 +10,7 @@ import { api } from "~/trpc/react";
  * visible (as a quieter note) even after acknowledgement.
  */
 export function AnnouncementsBanner() {
+  const t = useTranslations();
   const utils = api.useUtils();
   const announcements = api.tutor.myAnnouncements.useQuery();
   const ack = api.tutor.acknowledgeAnnouncement.useMutation({
@@ -45,7 +48,7 @@ export function AnnouncementsBanner() {
               disabled={ack.isPending}
               onClick={() => ack.mutate({ announcementId: a.id })}
             >
-              Dismiss
+              {t("common.dismiss")}
             </button>
           </div>
         </div>

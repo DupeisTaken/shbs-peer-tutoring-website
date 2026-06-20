@@ -1,0 +1,34 @@
+{
+  "common": {
+    "dismiss": "Dismiss",
+    "save": "Save",
+    "saved": "Saved.",
+    "language": "Language"
+  },
+  "dashboard": {
+    "greeting": "Hi, {name}",
+    "subtitle": "Submit attendance and manage your availability.",
+    "hours": {
+      "title": "Service hours"
+    },
+    "interviews": {
+      "title": "Interviews to conduct"
+    },
+    "pairings": {
+      "title": "My pairings",
+      "help": "Pick the default time slot for each pairing (you still enter actual session times when submitting attendance)."
+    },
+    "availability": {
+      "title": "My availability",
+      "help": "Mark the time slots you can teach. These help coordinators schedule you."
+    },
+    "attendance": {
+      "title": "Submit attendance",
+      "help": "Record a session for one of your pairings. Service hours are computed automatically."
+    },
+    "schedule": {
+      "title": "Room schedule",
+      "help": "Your pairings are highlighted. Blocked cells are unavailable rooms."
+    }
+  }
+}

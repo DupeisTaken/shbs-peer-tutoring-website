@@ -5,12 +5,14 @@ import { AttendanceForm } from "~/app/(tutor)/_components/attendance-form";
 import { AvailabilityEditor } from "~/app/(tutor)/_components/availability-editor";
 import { TutorPairings } from "~/app/(tutor)/_components/tutor-pairings";
 import { MyInterviews } from "~/app/(tutor)/_components/my-interviews";
+import { getTranslations } from "next-intl/server";
+
 import { RoomGrid } from "~/app/_components/room-grid";
-import { t } from "~/lib/strings";
 
 export default async function TutorDashboard() {
   const session = await auth();
   const me = await api.tutor.me();
+  const t = await getTranslations();
 
   // Pending tutors (self-signed-up, not yet activated) get a limited view.
   if (!me.active) {

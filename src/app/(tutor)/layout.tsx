@@ -5,6 +5,7 @@ import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { UserAvatar } from "~/app/_components/user-avatar";
 import { NotificationBell } from "~/app/_components/notification-bell";
+import { LanguageSwitcher } from "~/app/_components/language-switcher";
 import { APP_TITLE } from "~/lib/branding";
 
 /**
@@ -43,6 +44,7 @@ export default async function TutorLayout({
           </Link>
           <div className="flex items-center gap-4">
             <span className="muted hidden sm:inline">{session.user.name}</span>
+            <LanguageSwitcher />
             <NotificationBell />
             <UserAvatar
               name={session.user.name ?? "Tutor"}

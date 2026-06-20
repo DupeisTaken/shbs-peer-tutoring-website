@@ -7,6 +7,7 @@ import { NavLink } from "~/app/_components/nav-link";
 import { SignOutButton } from "~/app/_components/sign-out-button";
 import { UserAvatar } from "~/app/_components/user-avatar";
 import { NotificationBell } from "~/app/_components/notification-bell";
+import { LanguageSwitcher } from "~/app/_components/language-switcher";
 import { TEAM_TITLE } from "~/lib/branding";
 
 const ELEVATED_ROLES = ["ADMIN", "COORDINATOR"];
@@ -90,6 +91,7 @@ export default async function AdminLayout({
             {TEAM_TITLE}
           </Link>
           <div className="flex items-center gap-3">
+            <LanguageSwitcher />
             <NotificationBell />
             <UserAvatar
               name={session.user.name ?? "User"}
