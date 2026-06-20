@@ -18,6 +18,12 @@ export const env = createEnv({
     TUTOR_DEFAULT_PASSWORD: z.string().min(1).default("ChangeMe!123"),
     // NOTE: email-based 2FA (future) will add an email-provider config here once a
     // provider is chosen — see src/server/email/sender.ts.
+    // Opt-in: inject an artificial 100–500ms delay into every tRPC call in dev (the T3
+    // starter default) to surface request waterfalls. Off by default so local dev is snappy.
+    TRPC_DEV_DELAY: z
+      .enum(["true", "false"])
+      .default("false")
+      .transform((v) => v === "true"),
     DATABASE_URL: z.string().url(),
     NODE_ENV: z
       .enum(["development", "test", "production"])
@@ -45,6 +51,7 @@ export const env = createEnv({
     AUTH_SECRET: process.env.AUTH_SECRET,
     AUTH_BOOTSTRAP_ADMIN_EMAILS: process.env.AUTH_BOOTSTRAP_ADMIN_EMAILS,
     TUTOR_DEFAULT_PASSWORD: process.env.TUTOR_DEFAULT_PASSWORD,
+    TRPC_DEV_DELAY: process.env.TRPC_DEV_DELAY,
     DATABASE_URL: process.env.DATABASE_URL,
     NODE_ENV: process.env.NODE_ENV,
     NEXT_PUBLIC_APP_TITLE: process.env.NEXT_PUBLIC_APP_TITLE,

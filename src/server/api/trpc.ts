@@ -11,6 +11,7 @@ import { initTRPC, TRPCError } from "@trpc/server";
 import superjson from "superjson";
 import { ZodError } from "zod";
 
+import { env } from "~/env";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 
@@ -79,24 +80,26 @@ export const createCallerFactory = t.createCallerFactory;
 export const createTRPCRouter = t.router;
 
 /**
- * Middleware for timing procedure execution and adding an artificial delay in development.
+ * Middleware that times procedure execution. The measurement starts *after* the optional
+ * artificial dev delay, so the logged number is the procedure's real handler cost (DB +
+ * compute) — what you'd see in production — not network/waterfall simulation.
  *
- * You can remove this if you don't like it, but it can help catch unwanted waterfalls by simulating
- * network latency that would occur in production but not in local development.
+ * The artificial delay (the T3 starter's waterfall-detector) is opt-in via `TRPC_DEV_DELAY=true`;
+ * it's off by default so local dev isn't slowed by 100–500ms on every call.
  */
-const timingMiddleware = t.middleware(async ({ next, path }) => {
-  const start = Date.now();
-
-  if (t._config.isDev) {
-    // artificial delay in dev
+const timingMiddleware = t.middleware(async ({ next, path, type }) => {
+  if (t._config.isDev && env.TRPC_DEV_DELAY) {
     const waitMs = Math.floor(Math.random() * 400) + 100;
     await new Promise((resolve) => setTimeout(resolve, waitMs));
   }
 
+  const start = Date.now();
   const result = await next();
+  const ms = Date.now() - start;
 
-  const end = Date.now();
-  console.log(`[TRPC] ${path} took ${end - start}ms to execute`);
+  if (t._config.isDev) {
+    console.log(`[trpc] ${type.padEnd(8)} ${path} ${result.ok ? "ok " : "ERR"} ${ms}ms`);
+  }
 
   return result;
 });
