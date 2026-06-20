@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { DAY_NAMES, minToHm } from "~/lib/time";
+import { REFERENCE_STALE_TIME } from "~/lib/query";
 
 type SlotLite = { id: string; label: string; dayOfWeek: number; startMin: number; endMin: number };
 
@@ -177,7 +178,7 @@ export default function RequestsPage() {
   const utils = api.useUtils();
   const tutees = api.admin.tutees.useQuery();
   const tutors = api.admin.tutors.useQuery();
-  const terms = api.admin.terms.useQuery();
+  const terms = api.admin.terms.useQuery(undefined, { staleTime: REFERENCE_STALE_TIME });
   const pairings = api.admin.pairings.useQuery();
 
   const invalidate = () =>

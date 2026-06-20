@@ -5,13 +5,14 @@ import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { DAY_NAMES, hmToMin, minToHm } from "~/lib/time";
+import { REFERENCE_STALE_TIME } from "~/lib/query";
 
 const EMPTY = { label: "", dayOfWeek: 1, startTime: "15:30", endTime: "16:30" };
 
 export default function TimeSlotsPage() {
   const t = useTranslations();
   const utils = api.useUtils();
-  const slots = api.admin.timeSlots.useQuery();
+  const slots = api.admin.timeSlots.useQuery(undefined, { staleTime: REFERENCE_STALE_TIME });
   const [form, setForm] = useState(EMPTY);
 
   const invalidate = () => utils.admin.timeSlots.invalidate();

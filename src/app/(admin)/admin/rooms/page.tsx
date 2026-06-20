@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { DAY_NAMES, hmToMin, minToHm } from "~/lib/time";
+import { REFERENCE_STALE_TIME } from "~/lib/query";
 
 type Block = {
   id: string;
@@ -127,7 +128,7 @@ function RoomCard({
 export default function RoomsPage() {
   const t = useTranslations();
   const utils = api.useUtils();
-  const rooms = api.admin.rooms.useQuery();
+  const rooms = api.admin.rooms.useQuery(undefined, { staleTime: REFERENCE_STALE_TIME });
   const invalidate = () => utils.admin.rooms.invalidate();
   const [name, setName] = useState("");
   const create = api.admin.createRoom.useMutation({

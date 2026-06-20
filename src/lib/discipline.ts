@@ -40,24 +40,20 @@ export interface DisciplineStanding {
   removalPending: boolean;
 }
 
-/** Compute a tutee's disciplinary standing from their card list. */
-export function disciplineStanding(cards: readonly CardLike[]): DisciplineStanding {
-  let validYellow = 0;
-  let validRed = 0;
-  let pendingYellow = 0;
-  let pendingRed = 0;
+/** Pre-tallied valid/pending yellow and red counts (e.g. from a DB `GROUP BY`). */
+export interface CardCounts {
+  validYellow: number;
+  validRed: number;
+  pendingYellow: number;
+  pendingRed: number;
+}
 
-  for (const card of cards) {
-    if (card.reviewStatus === "VALID") {
-      if (card.color === "YELLOW") validYellow++;
-      else validRed++;
-    } else if (card.reviewStatus === "PENDING") {
-      if (card.color === "YELLOW") pendingYellow++;
-      else pendingRed++;
-    }
-    // INVALID cards are ignored.
-  }
-
+/**
+ * Compute standing from already-tallied counts. The escalation rules (3 yellow -> 1 red,
+ * 2 reds -> removal) live here so both the card-list and grouped-count paths agree.
+ */
+export function standingFromCounts(counts: CardCounts): DisciplineStanding {
+  const { validYellow, validRed, pendingYellow, pendingRed } = counts;
   const effectiveReds = validRed + Math.floor(validYellow / YELLOW_PER_RED);
   const yellowsTowardNextRed = validYellow % YELLOW_PER_RED;
 
@@ -70,4 +66,22 @@ export function disciplineStanding(cards: readonly CardLike[]): DisciplineStandi
     yellowsTowardNextRed,
     removalPending: effectiveReds >= REDS_FOR_REMOVAL,
   };
+}
+
+/** Compute a tutee's disciplinary standing from their card list. */
+export function disciplineStanding(cards: readonly CardLike[]): DisciplineStanding {
+  const counts: CardCounts = { validYellow: 0, validRed: 0, pendingYellow: 0, pendingRed: 0 };
+
+  for (const card of cards) {
+    if (card.reviewStatus === "VALID") {
+      if (card.color === "YELLOW") counts.validYellow++;
+      else counts.validRed++;
+    } else if (card.reviewStatus === "PENDING") {
+      if (card.color === "YELLOW") counts.pendingYellow++;
+      else counts.pendingRed++;
+    }
+    // INVALID cards are ignored.
+  }
+
+  return standingFromCounts(counts);
 }

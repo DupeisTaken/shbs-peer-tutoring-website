@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { useRef, useState } from "react";
 
 import { api } from "~/trpc/react";
+import { REFERENCE_STALE_TIME } from "~/lib/query";
 
 /** Parse a simple "name,level" CSV (optional header row) into rows. */
 function parseCsv(text: string): { name: string; level?: string }[] {
@@ -21,7 +22,7 @@ function parseCsv(text: string): { name: string; level?: string }[] {
 export default function CoursesPage() {
   const t = useTranslations();
   const utils = api.useUtils();
-  const courses = api.admin.courses.useQuery();
+  const courses = api.admin.courses.useQuery(undefined, { staleTime: REFERENCE_STALE_TIME });
   const levels = api.admin.courseLevels.useQuery();
 
   const invalidate = () =>

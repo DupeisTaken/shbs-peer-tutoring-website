@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { DAY_NAMES, minToHm } from "~/lib/time";
+import { REFERENCE_STALE_TIME } from "~/lib/query";
 import { SortHeader, useSort, compare } from "~/app/_components/sortable";
 
 const STATUSES = ["PENDING", "ACTIVE", "INACTIVE"] as const;
@@ -62,7 +63,7 @@ export default function TuteesPage() {
   const t = useTranslations();
   const utils = api.useUtils();
   const tutees = api.admin.tutees.useQuery();
-  const courses = api.admin.courses.useQuery();
+  const courses = api.admin.courses.useQuery(undefined, { staleTime: REFERENCE_STALE_TIME });
   const tutors = api.admin.tutors.useQuery();
   const pairings = api.admin.pairings.useQuery();
   const stats = api.admin.tuteeStats.useQuery();

@@ -10,7 +10,7 @@ import { monthKey } from "~/lib/service-hours";
 import { defaultUsername, ensureUniqueUsername } from "~/server/auth/username";
 import { promoteApplicantToTutor } from "~/server/tutors/promote";
 import { notifyTutors, notifyUsers } from "~/server/notifications/create";
-import { disciplineStanding } from "~/lib/discipline";
+import { standingFromCounts } from "~/lib/discipline";
 import { applyUndo, recordAudit } from "~/server/audit/log";
 import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
 
@@ -56,12 +56,17 @@ export const adminRouter = createTRPCRouter({
   tutors: adminProcedure.query(({ ctx }) =>
     ctx.db.tutor.findMany({ orderBy: { englishName: "asc" } }),
   ),
-  /** Per-tutee stats for the admin tutees view: session attendance + discipline standing. */
+  /**
+   * Per-tutee stats for the admin tutees view: session attendance + discipline standing.
+   * Aggregated in Postgres (two `GROUP BY`s) so this returns ~one row per tutee instead of
+   * pulling every session-tutee / card row into Node — keeps it cheap as history grows.
+   */
   tuteeStats: adminProcedure.query(async ({ ctx }) => {
-    const [sessionTutees, cards] = await Promise.all([
-      ctx.db.sessionTutee.findMany({ select: { tuteeId: true, status: true } }),
-      ctx.db.disciplinaryCard.findMany({
-        select: { tuteeId: true, color: true, reviewStatus: true },
+    const [sessionGroups, cardGroups] = await Promise.all([
+      ctx.db.sessionTutee.groupBy({ by: ["tuteeId", "status"], _count: { _all: true } }),
+      ctx.db.disciplinaryCard.groupBy({
+        by: ["tuteeId", "color", "reviewStatus"],
+        _count: { _all: true },
       }),
     ]);
 
@@ -70,25 +75,43 @@ export const adminRouter = createTRPCRouter({
       present: number;
       excused: number;
       unexcused: number;
-      cards: { color: "YELLOW" | "RED"; reviewStatus: "PENDING" | "VALID" | "INVALID" }[];
+      validYellow: number;
+      validRed: number;
+      pendingYellow: number;
+      pendingRed: number;
     };
     const byTutee = new Map<string, Agg>();
     const get = (id: string): Agg => {
       const existing = byTutee.get(id);
       if (existing) return existing;
-      const fresh: Agg = { sessions: 0, present: 0, excused: 0, unexcused: 0, cards: [] };
+      const fresh: Agg = {
+        sessions: 0, present: 0, excused: 0, unexcused: 0,
+        validYellow: 0, validRed: 0, pendingYellow: 0, pendingRed: 0,
+      };
       byTutee.set(id, fresh);
       return fresh;
     };
 
-    for (const st of sessionTutees) {
-      const e = get(st.tuteeId);
-      e.sessions++;
-      if (st.status === "PRESENT") e.present++;
-      else if (st.status === "EXCUSED_ABSENT") e.excused++;
-      else e.unexcused++;
+    for (const g of sessionGroups) {
+      const e = get(g.tuteeId);
+      const n = g._count._all;
+      e.sessions += n;
+      if (g.status === "PRESENT") e.present += n;
+      else if (g.status === "EXCUSED_ABSENT") e.excused += n;
+      else e.unexcused += n;
     }
-    for (const c of cards) get(c.tuteeId).cards.push({ color: c.color, reviewStatus: c.reviewStatus });
+    for (const g of cardGroups) {
+      const e = get(g.tuteeId);
+      const n = g._count._all;
+      if (g.reviewStatus === "VALID") {
+        if (g.color === "YELLOW") e.validYellow += n;
+        else e.validRed += n;
+      } else if (g.reviewStatus === "PENDING") {
+        if (g.color === "YELLOW") e.pendingYellow += n;
+        else e.pendingRed += n;
+      }
+      // INVALID cards are ignored (don't count toward standing).
+    }
 
     const result: Record<
       string,
@@ -104,7 +127,7 @@ export const adminRouter = createTRPCRouter({
       }
     > = {};
     for (const [id, e] of byTutee) {
-      const s = disciplineStanding(e.cards);
+      const s = standingFromCounts(e);
       result[id] = {
         sessions: e.sessions,
         present: e.present,
@@ -301,11 +324,14 @@ export const adminRouter = createTRPCRouter({
         .object({ tutorId: cuid.optional(), month: monthInput.optional() })
         .optional(),
     )
-    .query(({ ctx, input }) =>
-      ctx.db.session.findMany({
+    .query(({ ctx, input }) => {
+      // Default to the current month so this never loads the program's entire history.
+      // The submissions page lets a coordinator pick any month; broader views get pagination later.
+      const month = input?.month ?? monthKey(new Date());
+      return ctx.db.session.findMany({
         where: {
+          month,
           ...(input?.tutorId ? { tutorId: input.tutorId } : {}),
-          ...(input?.month ? { month: input.month } : {}),
         },
         orderBy: { date: "desc" },
         include: {
@@ -313,8 +339,8 @@ export const adminRouter = createTRPCRouter({
           pairing: { select: { subject: true } },
           tutees: { include: { tutee: { select: { englishName: true } } } },
         },
-      }),
-    ),
+      });
+    }),
 
   // --------------------------------------------------------------------------
   // Per-tutor monthly summary

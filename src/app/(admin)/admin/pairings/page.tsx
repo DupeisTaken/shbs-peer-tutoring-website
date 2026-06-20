@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { DAY_NAMES, minToHm } from "~/lib/time";
+import { REFERENCE_STALE_TIME } from "~/lib/query";
 import { RoomGrid } from "~/app/_components/room-grid";
 
 type PairingForm = {
@@ -33,9 +34,9 @@ export default function PairingsPage() {
   const pairings = api.admin.pairings.useQuery();
   const tutors = api.admin.tutors.useQuery();
   const tutees = api.admin.tutees.useQuery();
-  const rooms = api.admin.rooms.useQuery();
-  const terms = api.admin.terms.useQuery();
-  const timeSlots = api.admin.timeSlots.useQuery();
+  const rooms = api.admin.rooms.useQuery(undefined, { staleTime: REFERENCE_STALE_TIME });
+  const terms = api.admin.terms.useQuery(undefined, { staleTime: REFERENCE_STALE_TIME });
+  const timeSlots = api.admin.timeSlots.useQuery(undefined, { staleTime: REFERENCE_STALE_TIME });
 
   const invalidate = () => utils.admin.pairings.invalidate();
   const create = api.admin.createPairing.useMutation({ onSuccess: invalidate });
