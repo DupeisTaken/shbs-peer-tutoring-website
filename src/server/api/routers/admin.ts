@@ -637,37 +637,8 @@ export const adminRouter = createTRPCRouter({
     }),
 
   // --------------------------------------------------------------------------
-  // Punishments (per tutee)
-  // --------------------------------------------------------------------------
-  punishments: adminProcedure.query(({ ctx }) =>
-    ctx.db.punishment.findMany({
-      orderBy: { date: "desc" },
-      include: { tutee: { select: { englishName: true } } },
-    }),
-  ),
-
-  createPunishment: adminProcedure
-    .input(
-      z.object({
-        tuteeId: cuid,
-        reason: z.string().optional(),
-        date: z.coerce.date().optional(),
-      }),
-    )
-    .mutation(({ ctx, input }) =>
-      ctx.db.punishment.create({
-        data: { tuteeId: input.tuteeId, reason: input.reason, date: input.date },
-      }),
-    ),
-
-  deletePunishment: adminProcedure
-    .input(z.object({ id: cuid }))
-    .mutation(({ ctx, input }) =>
-      ctx.db.punishment.delete({ where: { id: input.id } }),
-    ),
-
-  // --------------------------------------------------------------------------
-  // Service-hour adjustments (per tutor, per month)
+  // Service-hour adjustments (per tutor, per month). Tutor "punishments" are PUNISHMENT-type
+  // adjustments (they deduct hours); tutee discipline lives in the card system instead.
   // --------------------------------------------------------------------------
   adjustments: adminProcedure
     .input(z.object({ month: monthInput.optional() }).optional())

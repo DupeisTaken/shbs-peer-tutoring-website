@@ -3,7 +3,43 @@
 import { useMemo, useState } from "react";
 
 import { api } from "~/trpc/react";
-import { type CardLike, disciplineStanding } from "~/lib/discipline";
+import { disciplineStanding } from "~/lib/discipline";
+
+/**
+ * Six-slot discipline meter: a red card fills 3 slots, a yellow fills 1 (so 3 yellow = 1 red,
+ * and a full 6 = 2 reds = removal). Only VALID cards count.
+ */
+function DisciplineSlots({ validRed, validYellow }: { validRed: number; validYellow: number }) {
+  let red = validRed * 3;
+  let yellow = validYellow;
+  const slots = Array.from({ length: 6 }, () => {
+    if (red > 0) {
+      red--;
+      return "red";
+    }
+    if (yellow > 0) {
+      yellow--;
+      return "yellow";
+    }
+    return "empty";
+  });
+  return (
+    <span className="inline-flex gap-1 align-middle">
+      {slots.map((s, i) => (
+        <span
+          key={i}
+          className={`h-4 w-4 rounded-sm border ${
+            s === "red"
+              ? "border-red-600 bg-red-500"
+              : s === "yellow"
+                ? "border-amber-500 bg-amber-400"
+                : "border-slate-200 bg-slate-100"
+          }`}
+        />
+      ))}
+    </span>
+  );
+}
 
 type Card = {
   id: string;
@@ -78,14 +114,21 @@ export default function CardsPage() {
 
   // Group by tutee and compute standing from VALID cards (3 yellow = 1 red, 2 red = removal).
   const standings = useMemo(() => {
-    const byTutee = new Map<string, { name: string; cards: CardLike[] }>();
+    const byTutee = new Map<string, { name: string; cards: Card[] }>();
     for (const c of all) {
       const entry = byTutee.get(c.tutee.id) ?? { name: c.tutee.englishName, cards: [] };
-      entry.cards.push({ color: c.color, reviewStatus: c.reviewStatus });
+      entry.cards.push(c);
       byTutee.set(c.tutee.id, entry);
     }
     return [...byTutee.entries()]
-      .map(([id, v]) => ({ id, name: v.name, ...disciplineStanding(v.cards) }))
+      .map(([id, v]) => ({
+        id,
+        name: v.name,
+        cards: v.cards,
+        ...disciplineStanding(
+          v.cards.map((c) => ({ color: c.color, reviewStatus: c.reviewStatus })),
+        ),
+      }))
       .sort((a, b) => b.effectiveReds - a.effectiveReds);
   }, [all]);
 
@@ -111,49 +154,58 @@ export default function CardsPage() {
         </div>
       </section>
 
-      <section className="card overflow-hidden">
-        <div className="p-5 pb-0">
-          <h2 className="font-semibold text-slate-900">Tutee standing</h2>
+      <section className="card p-5">
+        <h2 className="font-semibold text-slate-900">Tutee standing</h2>
+        <p className="muted mt-1 text-xs">
+          🟥 fills 3 slots, 🟨 fills 1 (only valid cards). A full 6 = removal pending. Click a
+          name for the card details.
+        </p>
+        <div className="mt-3 divide-y divide-slate-100">
+          {standings.map((s) => (
+            <details key={s.id} className="group py-2">
+              <summary className="flex cursor-pointer flex-wrap items-center gap-3 [&::-webkit-details-marker]:hidden">
+                <span className="w-40 truncate font-medium text-slate-800 group-open:text-indigo-700">
+                  {s.name}
+                </span>
+                <DisciplineSlots validRed={s.validRed} validYellow={s.validYellow} />
+                {s.removalPending ? (
+                  <span className="badge-red">removal pending</span>
+                ) : s.effectiveReds >= 1 ? (
+                  <span className="badge-amber">on warning</span>
+                ) : (
+                  <span className="badge-slate">ok</span>
+                )}
+                {s.pendingYellow + s.pendingRed > 0 && (
+                  <span className="muted text-xs">
+                    {s.pendingYellow + s.pendingRed} pending review
+                  </span>
+                )}
+              </summary>
+              <ul className="mt-2 ml-1 space-y-1">
+                {s.cards.map((c) => (
+                  <li key={c.id} className="text-xs text-slate-600">
+                    {dot(c.color)}{" "}
+                    <span
+                      className={
+                        c.reviewStatus === "INVALID" ? "text-slate-400 line-through" : ""
+                      }
+                    >
+                      {c.reason ?? "—"}
+                    </span>{" "}
+                    <span className="text-slate-400">
+                      · {c.reviewStatus.toLowerCase()} ·{" "}
+                      {c.source === "AUTO" ? "auto" : (c.issuedByTutor?.englishName ?? "tutor")}
+                      {c.session ? ` · ${new Date(c.session.date).toLocaleDateString()}` : ""}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            </details>
+          ))}
+          {standings.length === 0 && (
+            <p className="muted py-2">No cards on record.</p>
+          )}
         </div>
-        <table className="data-table mt-3">
-          <thead>
-            <tr>
-              <th>Tutee</th>
-              <th>Valid 🟨</th>
-              <th>Valid 🟥</th>
-              <th>Effective reds</th>
-              <th>Pending</th>
-              <th>Status</th>
-            </tr>
-          </thead>
-          <tbody>
-            {standings.map((s) => (
-              <tr key={s.id}>
-                <td className="font-medium text-slate-800">{s.name}</td>
-                <td>{s.validYellow}</td>
-                <td>{s.validRed}</td>
-                <td>{s.effectiveReds}</td>
-                <td className="text-slate-500">{s.pendingYellow + s.pendingRed}</td>
-                <td>
-                  {s.removalPending ? (
-                    <span className="badge-red">removal pending</span>
-                  ) : s.effectiveReds >= 1 ? (
-                    <span className="badge-amber">on warning</span>
-                  ) : (
-                    <span className="badge-slate">ok</span>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {standings.length === 0 && (
-              <tr>
-                <td colSpan={6} className="text-slate-500">
-                  No cards on record.
-                </td>
-              </tr>
-            )}
-          </tbody>
-        </table>
       </section>
     </div>
   );

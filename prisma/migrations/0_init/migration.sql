@@ -249,17 +249,6 @@ CREATE TABLE "MeetingAttendance" (
 );
 
 -- CreateTable
-CREATE TABLE "Punishment" (
-    "id" TEXT NOT NULL,
-    "reason" TEXT,
-    "date" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    "tuteeId" TEXT NOT NULL,
-
-    CONSTRAINT "Punishment_pkey" PRIMARY KEY ("id")
-);
-
--- CreateTable
 CREATE TABLE "ServiceHourAdjustment" (
     "id" TEXT NOT NULL,
     "month" TEXT NOT NULL,
@@ -472,9 +461,6 @@ CREATE INDEX "MeetingAttendance_tutorId_idx" ON "MeetingAttendance"("tutorId");
 CREATE UNIQUE INDEX "MeetingAttendance_meetingId_tutorId_key" ON "MeetingAttendance"("meetingId", "tutorId");
 
 -- CreateIndex
-CREATE INDEX "Punishment_tuteeId_idx" ON "Punishment"("tuteeId");
-
--- CreateIndex
 CREATE INDEX "ServiceHourAdjustment_tutorId_month_idx" ON "ServiceHourAdjustment"("tutorId", "month");
 
 -- CreateIndex
@@ -575,9 +561,6 @@ ALTER TABLE "MeetingAttendance" ADD CONSTRAINT "MeetingAttendance_meetingId_fkey
 
 -- AddForeignKey
 ALTER TABLE "MeetingAttendance" ADD CONSTRAINT "MeetingAttendance_tutorId_fkey" FOREIGN KEY ("tutorId") REFERENCES "Tutor"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
-
--- AddForeignKey
-ALTER TABLE "Punishment" ADD CONSTRAINT "Punishment_tuteeId_fkey" FOREIGN KEY ("tuteeId") REFERENCES "Tutee"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "ServiceHourAdjustment" ADD CONSTRAINT "ServiceHourAdjustment_tutorId_fkey" FOREIGN KEY ("tutorId") REFERENCES "Tutor"("id") ON DELETE RESTRICT ON UPDATE CASCADE;

@@ -6,7 +6,8 @@ attendance submissions, tutor-meeting tracking, and automatic service-hour accou
 Tutors sign in, see their schedule, and submit attendance with quality ratings for each
 session. The app derives service hours from each submission and rolls them up by month.
 Coordinators and admins manage the roster (tutors, tutees, rooms, pairings, terms),
-run tutor meetings, apply per-tutor hour adjustments, record tutee punishments, and
+run tutor meetings, apply per-tutor hour adjustments and punishments, review tutee
+discipline cards, and
 review the monthly summary.
 
 ## Stack

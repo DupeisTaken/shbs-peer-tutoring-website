@@ -210,7 +210,6 @@ model Tutee {
   availabilities TuteeAvailability[]
   pairings       PairingTutee[]
   sessions       SessionTutee[]
-  punishments    Punishment[]
   cards          DisciplinaryCard[]
 
   @@index([status])
@@ -399,19 +398,6 @@ model MeetingAttendance {
 
   @@unique([meetingId, tutorId])
   @@index([tutorId])
-}
-
-/// A penalty recorded against a tutee (distinct from tutor service-hour adjustments).
-model Punishment {
-  id        String   @id @default(cuid())
-  reason    String?
-  date      DateTime @default(now())
-  createdAt DateTime @default(now())
-
-  tuteeId String
-  tutee   Tutee  @relation(fields: [tuteeId], references: [id])
-
-  @@index([tuteeId])
 }
 
 /// Per-tutor, per-month service-hour adjustment feeding the monthly total
