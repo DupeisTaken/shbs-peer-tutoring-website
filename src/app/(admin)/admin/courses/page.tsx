@@ -83,34 +83,28 @@ export default function CoursesPage() {
         </p>
       </div>
 
-      {/* Level catalogue */}
+      {/* Levels */}
       <section className="card p-5">
-        <h2 className="font-semibold text-slate-900">Level catalogue</h2>
-        <div className="mt-3 flex flex-wrap items-center gap-2">
+        <h2 className="font-semibold text-slate-900">Levels</h2>
+        <p className="muted mt-1 text-xs">
+          Difficulty tracks a course can belong to. Mark a level <b>AP-scored</b> to let its
+          courses carry an AP exam score on tutor applications.
+        </p>
+        <div className="mt-3 space-y-2">
           {levelList.map((l) => (
             <div
               key={l.id}
-              className="flex items-center gap-2 rounded-lg border border-slate-200 px-2 py-1"
+              className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 px-3 py-2"
             >
               <input
                 defaultValue={l.name}
-                className="input h-8 w-28"
+                className="input h-8 max-w-[10rem]"
                 onBlur={(e) => {
                   const v = e.target.value.trim();
                   if (v && v !== l.name) updateLevel.mutate({ id: l.id, name: v });
                 }}
               />
-              <input
-                type="number"
-                defaultValue={l.rank}
-                className="input h-8 w-14"
-                title="rank"
-                onBlur={(e) => {
-                  const v = Number(e.target.value);
-                  if (v !== l.rank) updateLevel.mutate({ id: l.id, rank: v });
-                }}
-              />
-              <label className="flex items-center gap-1 text-xs text-slate-600">
+              <label className="flex items-center gap-2 text-sm text-slate-600">
                 <input
                   type="checkbox"
                   checked={l.apScored}
@@ -119,18 +113,18 @@ export default function CoursesPage() {
                 AP-scored
               </label>
               <button
-                className="link-danger text-xs"
+                className="link-danger ml-auto text-sm"
                 onClick={() => {
-                  if (confirm(`Delete level "${l.name}"? Courses keep existing but lose it.`))
+                  if (confirm(`Delete level "${l.name}"? Its courses keep existing but lose it.`))
                     delLevel.mutate({ id: l.id });
                 }}
               >
-                ✕
+                Remove
               </button>
             </div>
           ))}
           <form
-            className="flex items-center gap-1"
+            className="flex items-center gap-2 pt-1"
             onSubmit={(e) => {
               e.preventDefault();
               if (newLevel.trim())
@@ -143,10 +137,10 @@ export default function CoursesPage() {
             <input
               value={newLevel}
               onChange={(e) => setNewLevel(e.target.value)}
-              placeholder="New level"
-              className="input h-8 w-28"
+              placeholder="Add a level (e.g. Honors)"
+              className="input h-8 max-w-[12rem]"
             />
-            <button className="btn-secondary btn-sm">Add</button>
+            <button className="btn-secondary btn-sm">Add level</button>
           </form>
         </div>
       </section>

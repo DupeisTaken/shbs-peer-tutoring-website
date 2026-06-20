@@ -135,10 +135,11 @@ export default function CardsPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="page-title">Discipline · cards</h1>
+        <h1 className="page-title">Tutee discipline</h1>
         <p className="muted mt-1">
-          Recheck tutor-requested cards and flag each valid or invalid. Standing counts only
-          valid cards (3 yellow = 1 red; 2 reds = removal-pending).
+          Yellow/red cards issued to tutees. Recheck tutor-requested cards and flag each valid
+          or invalid. Standing counts only valid cards (3 yellow = 1 red; 2 reds =
+          removal-pending).
         </p>
       </div>
 
@@ -206,6 +207,68 @@ export default function CardsPage() {
             <p className="muted py-2">No cards on record.</p>
           )}
         </div>
+      </section>
+
+      {/* Full history (collapsed by default) */}
+      <section className="card p-5">
+        <details className="group">
+          <summary className="flex cursor-pointer items-center gap-2 [&::-webkit-details-marker]:hidden">
+            <span className="text-slate-400 group-open:rotate-90">▸</span>
+            <h2 className="font-semibold text-slate-900">Card history</h2>
+            <span className="badge-slate">{all.length}</span>
+          </summary>
+          <div className="mt-3 overflow-x-auto">
+            <table className="data-table">
+              <thead>
+                <tr>
+                  <th>Date</th>
+                  <th>Tutee</th>
+                  <th>Card</th>
+                  <th>Reason</th>
+                  <th>Source</th>
+                  <th>Status</th>
+                </tr>
+              </thead>
+              <tbody>
+                {[...all]
+                  .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
+                  .map((c) => (
+                    <tr key={c.id}>
+                      <td className="text-xs text-slate-500">
+                        {new Date(c.createdAt).toLocaleDateString()}
+                      </td>
+                      <td className="text-slate-700">{c.tutee.englishName}</td>
+                      <td>{dot(c.color)}</td>
+                      <td className="text-slate-600">{c.reason ?? "—"}</td>
+                      <td className="text-slate-500">
+                        {c.source === "AUTO" ? "auto" : (c.issuedByTutor?.englishName ?? "tutor")}
+                      </td>
+                      <td>
+                        <span
+                          className={
+                            c.reviewStatus === "VALID"
+                              ? "badge-green"
+                              : c.reviewStatus === "INVALID"
+                                ? "badge-slate"
+                                : "badge-amber"
+                          }
+                        >
+                          {c.reviewStatus.toLowerCase()}
+                        </span>
+                      </td>
+                    </tr>
+                  ))}
+                {all.length === 0 && (
+                  <tr>
+                    <td colSpan={6} className="text-slate-500">
+                      No cards yet.
+                    </td>
+                  </tr>
+                )}
+              </tbody>
+            </table>
+          </div>
+        </details>
       </section>
     </div>
   );
