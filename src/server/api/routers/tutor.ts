@@ -413,10 +413,12 @@ export const tutorRouter = createTRPCRouter({
   // Tutor-applicant interviews (this tutor is an assigned interviewer)
   // --------------------------------------------------------------------------
 
-  /** Applications the signed-in tutor is assigned to interview, with candidate details. */
+  /** Applications the signed-in tutor is assigned to interview, with candidate details,
+   *  the panel's votes, and the head's final decision. */
   myInterviews: tutorProcedure.query(async ({ ctx }) => {
+    const myTutorId = ctx.session.tutorId;
     const assignments = await ctx.db.interviewAssignment.findMany({
-      where: { tutorId: ctx.session.tutorId },
+      where: { tutorId: myTutorId },
       orderBy: { application: { createdAt: "desc" } },
       select: {
         isHead: true,
@@ -427,6 +429,9 @@ export const tutorRouter = createTRPCRouter({
             email: true,
             status: true,
             interviewAt: true,
+            decisionComment: true,
+            decidedAt: true,
+            decidedByTutor: { select: { englishName: true } },
             courseIntents: {
               select: {
                 taken: true,
@@ -437,11 +442,29 @@ export const tutorRouter = createTRPCRouter({
             interviewers: {
               select: { isHead: true, tutor: { select: { englishName: true } } },
             },
+            votes: {
+              select: {
+                tutorId: true,
+                accept: true,
+                comment: true,
+                tutor: { select: { englishName: true } },
+              },
+            },
           },
         },
       },
     });
-    return assignments.map((a) => ({ isHead: a.isHead, ...a.application }));
+    return assignments.map((a) => {
+      const myVote = a.application.votes.find((v) => v.tutorId === myTutorId) ?? null;
+      const accepts = a.application.votes.filter((v) => v.accept).length;
+      const rejects = a.application.votes.length - accepts;
+      return {
+        isHead: a.isHead,
+        ...a.application,
+        myVote: myVote ? { accept: myVote.accept, comment: myVote.comment } : null,
+        tally: { accepts, rejects },
+      };
+    });
   }),
 
   /**
@@ -474,6 +497,91 @@ export const tutorRouter = createTRPCRouter({
       return ctx.db.tutorApplication.update({
         where: { id: input.applicationId },
         data: { interviewAt: input.interviewAt },
+      });
+    }),
+
+  /**
+   * Cast (or update) the caller's interview vote for an application. Any assigned panelist
+   * may vote; row-scoped to applications the caller is actually on the panel for.
+   */
+  castInterviewVote: tutorProcedure
+    .input(
+      z.object({
+        applicationId: z.string().min(1),
+        accept: z.boolean(),
+        comment: z.string().trim().max(500).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const assignment = await ctx.db.interviewAssignment.findUnique({
+        where: {
+          applicationId_tutorId: {
+            applicationId: input.applicationId,
+            tutorId: ctx.session.tutorId,
+          },
+        },
+        select: { tutorId: true },
+      });
+      if (!assignment) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You are not on this interview panel.",
+        });
+      }
+      const comment = input.comment?.trim() ? input.comment.trim() : null;
+      return ctx.db.interviewVote.upsert({
+        where: {
+          applicationId_tutorId: {
+            applicationId: input.applicationId,
+            tutorId: ctx.session.tutorId,
+          },
+        },
+        update: { accept: input.accept, comment },
+        create: {
+          applicationId: input.applicationId,
+          tutorId: ctx.session.tutorId,
+          accept: input.accept,
+          comment,
+        },
+      });
+    }),
+
+  /**
+   * Record the head interviewer's final decision (accept -> ACCEPTED, reject -> REJECTED),
+   * with a required brief comment. Only the HEAD of the panel may decide.
+   */
+  decideInterview: tutorProcedure
+    .input(
+      z.object({
+        applicationId: z.string().min(1),
+        accept: z.boolean(),
+        comment: z.string().trim().min(1, "Add a brief comment").max(500),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const assignment = await ctx.db.interviewAssignment.findUnique({
+        where: {
+          applicationId_tutorId: {
+            applicationId: input.applicationId,
+            tutorId: ctx.session.tutorId,
+          },
+        },
+        select: { isHead: true },
+      });
+      if (!assignment?.isHead) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only the head interviewer can record the decision.",
+        });
+      }
+      return ctx.db.tutorApplication.update({
+        where: { id: input.applicationId },
+        data: {
+          status: input.accept ? "ACCEPTED" : "REJECTED",
+          decisionComment: input.comment,
+          decidedAt: new Date(),
+          decidedByTutorId: ctx.session.tutorId,
+        },
       });
     }),
 });

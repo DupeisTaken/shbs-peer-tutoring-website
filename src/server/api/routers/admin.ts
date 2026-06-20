@@ -711,6 +711,10 @@ export const adminRouter = createTRPCRouter({
         interviewers: {
           include: { tutor: { select: { id: true, englishName: true } } },
         },
+        votes: {
+          select: { accept: true, comment: true, tutor: { select: { englishName: true } } },
+        },
+        decidedByTutor: { select: { englishName: true } },
       },
     }),
   ),

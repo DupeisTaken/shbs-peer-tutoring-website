@@ -35,6 +35,9 @@ type Application = {
     course: { name: string; tag: string };
   }[];
   interviewers: { isHead: boolean; tutor: { id: string; englishName: string } }[];
+  votes: { accept: boolean; comment: string | null; tutor: { englishName: string } }[];
+  decisionComment: string | null;
+  decidedByTutor: { englishName: string } | null;
 };
 
 function ApplicationCard({
@@ -183,6 +186,39 @@ function ApplicationCard({
           {assign.error && <span className="text-sm text-red-600">{assign.error.message}</span>}
         </div>
       </div>
+
+      {/* Panel votes + head decision (recorded on the head's dashboard) */}
+      {(app.votes.length > 0 || app.decisionComment) && (
+        <div className="mt-4 border-t border-slate-100 pt-3">
+          <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
+            Votes &amp; decision
+          </p>
+          {app.votes.length > 0 ? (
+            <>
+              <p className="muted mt-1 text-sm">
+                {app.votes.filter((v) => v.accept).length} accept ·{" "}
+                {app.votes.filter((v) => !v.accept).length} reject
+              </p>
+              <ul className="mt-1 space-y-0.5">
+                {app.votes.map((v, i) => (
+                  <li key={i} className="text-xs text-slate-600">
+                    {v.accept ? "👍" : "👎"} {v.tutor.englishName}
+                    {v.comment ? ` — ${v.comment}` : ""}
+                  </li>
+                ))}
+              </ul>
+            </>
+          ) : (
+            <p className="muted mt-1 text-sm">No votes yet.</p>
+          )}
+          {app.decisionComment && (
+            <p className="mt-2 text-sm text-slate-700">
+              Decision: &ldquo;{app.decisionComment}&rdquo;
+              {app.decidedByTutor ? ` — ${app.decidedByTutor.englishName} (head)` : ""}
+            </p>
+          )}
+        </div>
+      )}
     </div>
   );
 }
