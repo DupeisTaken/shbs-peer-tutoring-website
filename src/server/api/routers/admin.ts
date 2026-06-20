@@ -10,6 +10,7 @@ import { monthKey } from "~/lib/service-hours";
 import { defaultUsername, ensureUniqueUsername } from "~/server/auth/username";
 import { promoteApplicantToTutor } from "~/server/tutors/promote";
 import { notifyTutors, notifyUsers } from "~/server/notifications/create";
+import { disciplineStanding } from "~/lib/discipline";
 
 const monthInput = z.string().regex(/^\d{4}-\d{2}$/);
 const cuid = z.string().min(1);
@@ -38,6 +39,69 @@ export const adminRouter = createTRPCRouter({
   tutors: adminProcedure.query(({ ctx }) =>
     ctx.db.tutor.findMany({ orderBy: { englishName: "asc" } }),
   ),
+  /** Per-tutee stats for the admin tutees view: session attendance + discipline standing. */
+  tuteeStats: adminProcedure.query(async ({ ctx }) => {
+    const [sessionTutees, cards] = await Promise.all([
+      ctx.db.sessionTutee.findMany({ select: { tuteeId: true, status: true } }),
+      ctx.db.disciplinaryCard.findMany({
+        select: { tuteeId: true, color: true, reviewStatus: true },
+      }),
+    ]);
+
+    type Agg = {
+      sessions: number;
+      present: number;
+      excused: number;
+      unexcused: number;
+      cards: { color: "YELLOW" | "RED"; reviewStatus: "PENDING" | "VALID" | "INVALID" }[];
+    };
+    const byTutee = new Map<string, Agg>();
+    const get = (id: string): Agg => {
+      const existing = byTutee.get(id);
+      if (existing) return existing;
+      const fresh: Agg = { sessions: 0, present: 0, excused: 0, unexcused: 0, cards: [] };
+      byTutee.set(id, fresh);
+      return fresh;
+    };
+
+    for (const st of sessionTutees) {
+      const e = get(st.tuteeId);
+      e.sessions++;
+      if (st.status === "PRESENT") e.present++;
+      else if (st.status === "EXCUSED_ABSENT") e.excused++;
+      else e.unexcused++;
+    }
+    for (const c of cards) get(c.tuteeId).cards.push({ color: c.color, reviewStatus: c.reviewStatus });
+
+    const result: Record<
+      string,
+      {
+        sessions: number;
+        present: number;
+        excused: number;
+        unexcused: number;
+        validYellow: number;
+        validRed: number;
+        effectiveReds: number;
+        removalPending: boolean;
+      }
+    > = {};
+    for (const [id, e] of byTutee) {
+      const s = disciplineStanding(e.cards);
+      result[id] = {
+        sessions: e.sessions,
+        present: e.present,
+        excused: e.excused,
+        unexcused: e.unexcused,
+        validYellow: s.validYellow,
+        validRed: s.validRed,
+        effectiveReds: s.effectiveReds,
+        removalPending: s.removalPending,
+      };
+    }
+    return result;
+  }),
+
   tutees: adminProcedure.query(({ ctx }) =>
     ctx.db.tutee.findMany({
       orderBy: [{ status: "asc" }, { englishName: "asc" }],

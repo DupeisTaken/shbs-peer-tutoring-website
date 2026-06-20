@@ -18,6 +18,43 @@ function StatusBadge({ status }: { status: Status }) {
   return <span className={cls}>{status.toLowerCase()}</span>;
 }
 
+type TuteeStat = {
+  sessions: number;
+  present: number;
+  validYellow: number;
+  validRed: number;
+  effectiveReds: number;
+  removalPending: boolean;
+};
+
+/** Two table cells: session attendance (present/total) and discipline standing. */
+function StatsCells({ s }: { s?: TuteeStat }) {
+  if (!s) {
+    return (
+      <>
+        <td className="text-slate-400">—</td>
+        <td className="text-slate-400">—</td>
+      </>
+    );
+  }
+  return (
+    <>
+      <td className="text-slate-600">
+        {s.present}/{s.sessions}
+      </td>
+      <td>
+        {s.removalPending ? (
+          <span className="badge-red">removal</span>
+        ) : (
+          <span className={s.effectiveReds >= 1 ? "badge-amber" : "muted text-xs"}>
+            {s.validRed}🟥 {s.validYellow}🟨
+          </span>
+        )}
+      </td>
+    </>
+  );
+}
+
 type SlotLite = { id: string; label: string; dayOfWeek: number; startMin: number; endMin: number };
 
 function availabilitySummary(availabilities: { slot: SlotLite }[]): string {
@@ -166,6 +203,7 @@ export default function TuteesPage() {
   const tutors = api.admin.tutors.useQuery();
   const terms = api.admin.terms.useQuery();
   const pairings = api.admin.pairings.useQuery();
+  const stats = api.admin.tuteeStats.useQuery();
   const [view, setView] = useState<"tutees" | "tutors">("tutees");
 
   const invalidate = () => utils.admin.tutees.invalidate();
@@ -373,7 +411,8 @@ export default function TuteesPage() {
               <th>Name</th>
               <th>Grade</th>
               <th>Courses</th>
-              <th>Availability</th>
+              <th>Sessions</th>
+              <th>Discipline</th>
               <th>Contact</th>
               <th>Status</th>
               <th></th>
@@ -408,7 +447,7 @@ export default function TuteesPage() {
                   {t.firstChoice?.name ?? "—"}
                   {t.secondChoice ? ` / ${t.secondChoice.name}` : ""}
                 </td>
-                <td className="text-slate-600">{availabilitySummary(t.availabilities)}</td>
+                <StatsCells s={stats.data?.[t.id]} />
                 <td className="text-slate-600">
                   {t.preferredContact ?? t.email ?? t.phone ?? "—"}
                 </td>
@@ -439,7 +478,7 @@ export default function TuteesPage() {
             ))}
             {rest.length === 0 && (
               <tr>
-                <td colSpan={7} className="text-slate-500">
+                <td colSpan={8} className="text-slate-500">
                   No active tutees yet.
                 </td>
               </tr>
