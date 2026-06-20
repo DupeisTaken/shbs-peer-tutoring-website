@@ -36,6 +36,14 @@ your changes (`generated/prisma/`) and move on.
   public/student-facing brand; `TEAM_TITLE` (default "SHBS Peer Tutoring Team") brands
   the tutor/coordinator/admin area. They're `NEXT_PUBLIC_*` (so they work in client
   components too) and inlined at build time — **rebuild after changing them.**
+- **All user-facing text must be translatable — never hardcode UI copy.** Add a key to
+  `DEFAULT_STRINGS` in `~/lib/strings.ts` and render it with `t("area.key")` (supports
+  `{placeholder}` interpolation), in both server and client components. This lets the app
+  be translated / white-labelled for other orgs via the `NEXT_PUBLIC_STRINGS` env override
+  (a JSON map of key→text, merged over the defaults at build time) with no code changes.
+  Use dot-namespaced keys by area (e.g. `dashboard.attendance.title`). Give every section/
+  field an explicit title string. (Migrating the remaining hardcoded strings is in progress —
+  always route new/edited copy through `t()`.)
 - **Env vars are validated in `src/env.js`** (`@t3-oss/env-nextjs`). Add server vars to
   `server`, public vars to `client` (must be `NEXT_PUBLIC_*`), and wire **both** into
   `runtimeEnv`. Give defaults so the app runs unconfigured.

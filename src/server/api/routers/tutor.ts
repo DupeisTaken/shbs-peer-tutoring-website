@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { createTRPCRouter, tutorProcedure } from "~/server/api/trpc";
 import { computeSessionHours, monthKey } from "~/lib/service-hours";
+import { promoteApplicantToTutor } from "~/server/tutors/promote";
 
 const ATTENDANCE_STATUS = [
   "PRESENT",
@@ -574,7 +575,13 @@ export const tutorRouter = createTRPCRouter({
           message: "Only the head interviewer can record the decision.",
         });
       }
-      return ctx.db.tutorApplication.update({
+
+      const prev = await ctx.db.tutorApplication.findUnique({
+        where: { id: input.applicationId },
+        select: { status: true },
+      });
+
+      const updated = await ctx.db.tutorApplication.update({
         where: { id: input.applicationId },
         data: {
           status: input.accept ? "ACCEPTED" : "REJECTED",
@@ -583,5 +590,11 @@ export const tutorRouter = createTRPCRouter({
           decidedByTutorId: ctx.session.tutorId,
         },
       });
+
+      // On the transition to ACCEPTED, add the applicant to the tutors list.
+      if (input.accept && prev?.status !== "ACCEPTED") {
+        await promoteApplicantToTutor(input.applicationId);
+      }
+      return updated;
     }),
 });

@@ -8,6 +8,7 @@ import {
 } from "~/server/api/trpc";
 import { monthKey } from "~/lib/service-hours";
 import { defaultUsername, ensureUniqueUsername } from "~/server/auth/username";
+import { promoteApplicantToTutor } from "~/server/tutors/promote";
 
 const monthInput = z.string().regex(/^\d{4}-\d{2}$/);
 const cuid = z.string().min(1);
@@ -761,12 +762,21 @@ export const adminRouter = createTRPCRouter({
 
   setApplicationStatus: adminProcedure
     .input(z.object({ id: cuid, status: z.enum(TUTOR_APP_STATUS) }))
-    .mutation(({ ctx, input }) =>
-      ctx.db.tutorApplication.update({
+    .mutation(async ({ ctx, input }) => {
+      const prev = await ctx.db.tutorApplication.findUnique({
+        where: { id: input.id },
+        select: { status: true },
+      });
+      const updated = await ctx.db.tutorApplication.update({
         where: { id: input.id },
         data: { status: input.status },
-      }),
-    ),
+      });
+      // On the transition to ACCEPTED, add the applicant to the tutors list.
+      if (input.status === "ACCEPTED" && prev?.status !== "ACCEPTED") {
+        await promoteApplicantToTutor(input.id);
+      }
+      return updated;
+    }),
 
   deleteApplication: adminProcedure
     .input(z.object({ id: cuid }))

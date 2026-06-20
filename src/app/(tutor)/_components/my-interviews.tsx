@@ -3,6 +3,7 @@
 import { useState } from "react";
 
 import { api } from "~/trpc/react";
+import { t } from "~/lib/strings";
 
 /** Convert a Date to the value a <input type="datetime-local"> expects (local time). */
 function toLocalInput(d: Date | null): string {
@@ -172,7 +173,7 @@ export function MyInterviews() {
 
   return (
     <section className="card p-5">
-      <h2 className="font-semibold text-slate-900">Interviews to conduct</h2>
+      <h2 className="font-semibold text-slate-900">{t("dashboard.interviews.title")}</h2>
       <p className="muted mt-1 mb-3">
         Applicants you&apos;re on the panel for. Cast your vote after the demo; the head
         records the final decision.

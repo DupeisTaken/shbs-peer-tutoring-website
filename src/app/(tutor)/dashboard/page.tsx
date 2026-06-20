@@ -6,6 +6,7 @@ import { AvailabilityEditor } from "~/app/(tutor)/_components/availability-edito
 import { TutorPairings } from "~/app/(tutor)/_components/tutor-pairings";
 import { MyInterviews } from "~/app/(tutor)/_components/my-interviews";
 import { RoomGrid } from "~/app/_components/room-grid";
+import { t } from "~/lib/strings";
 
 export default async function TutorDashboard() {
   const session = await auth();
@@ -45,12 +46,14 @@ export default async function TutorDashboard() {
       {/* Header + monthly service-hour earnings */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
-          <h1 className="page-title">Hi, {session?.user?.name}</h1>
-          <p className="muted mt-1">Submit attendance and manage your availability.</p>
+          <h1 className="page-title">
+            {t("dashboard.greeting", { name: session?.user?.name ?? "" })}
+          </h1>
+          <p className="muted mt-1">{t("dashboard.subtitle")}</p>
         </div>
         <div className="card px-5 py-3 text-right">
           <p className="text-xs font-medium tracking-wide text-slate-500 uppercase">
-            Service hours · {total.month}
+            {t("dashboard.hours.title")} · {total.month}
           </p>
           <p className="text-3xl font-bold text-slate-900">{total.total.toFixed(1)} h</p>
           <p className="muted">
@@ -68,38 +71,32 @@ export default async function TutorDashboard() {
         {/* Pairings + availability */}
         <div className="space-y-6 lg:col-span-2">
           <section className="card p-5">
-            <h2 className="font-semibold text-slate-900">My pairings</h2>
-            <p className="muted mt-1 mb-2">
-              Pick the default time slot for each pairing (you still enter actual session
-              times when submitting attendance).
-            </p>
+            <h2 className="font-semibold text-slate-900">{t("dashboard.pairings.title")}</h2>
+            <p className="muted mt-1 mb-2">{t("dashboard.pairings.help")}</p>
             <TutorPairings />
           </section>
 
           <section className="card p-5">
-            <h2 className="font-semibold text-slate-900">My availability</h2>
-            <p className="muted mt-1 mb-3">
-              Mark the time slots you can teach. These help coordinators schedule you.
-            </p>
+            <h2 className="font-semibold text-slate-900">
+              {t("dashboard.availability.title")}
+            </h2>
+            <p className="muted mt-1 mb-3">{t("dashboard.availability.help")}</p>
             <AvailabilityEditor />
           </section>
         </div>
 
         {/* Attendance form */}
         <section className="card p-5 lg:col-span-3">
-          <h2 className="font-semibold text-slate-900">Submit attendance</h2>
-          <p className="muted mt-1 mb-4">
-            Record a session for one of your pairings. Service hours are computed
-            automatically.
-          </p>
+          <h2 className="font-semibold text-slate-900">{t("dashboard.attendance.title")}</h2>
+          <p className="muted mt-1 mb-4">{t("dashboard.attendance.help")}</p>
           <AttendanceForm />
         </section>
       </div>
 
       {/* Room assignments (read-only schedule grid; your pairings are highlighted) */}
       <section className="space-y-2">
-        <h2 className="font-semibold text-slate-900">Room schedule</h2>
-        <p className="muted">Your pairings are highlighted. Blocked cells are unavailable rooms.</p>
+        <h2 className="font-semibold text-slate-900">{t("dashboard.schedule.title")}</h2>
+        <p className="muted">{t("dashboard.schedule.help")}</p>
         <RoomGrid
           rooms={schedule.rooms}
           slots={schedule.slots}
