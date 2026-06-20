@@ -12,6 +12,7 @@ import { promoteApplicantToTutor } from "~/server/tutors/promote";
 import { notifyTutors, notifyUsers } from "~/server/notifications/create";
 import { disciplineStanding } from "~/lib/discipline";
 import { applyUndo, recordAudit } from "~/server/audit/log";
+import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
 
 const monthInput = z.string().regex(/^\d{4}-\d{2}$/);
 const cuid = z.string().min(1);
@@ -545,6 +546,7 @@ export const adminRouter = createTRPCRouter({
       z.object({
         tuteeId: cuid,
         termId: cuid,
+        expectedUpdatedAt,
         assignments: z
           .array(z.object({ subject: z.string().trim().min(1), tutorId: cuid }))
           .min(1, "Pick a tutor for at least one course"),
@@ -552,6 +554,14 @@ export const adminRouter = createTRPCRouter({
     )
     .mutation(({ ctx, input }) =>
       ctx.db.$transaction(async (tx) => {
+        // Concurrency guard: only one coordinator may assign a still-PENDING signup. The
+        // version match + PENDING status both must hold, or another coordinator got there first.
+        const flip = await tx.tutee.updateMany({
+          where: { id: input.tuteeId, status: "PENDING", updatedAt: input.expectedUpdatedAt },
+          data: { status: "ACTIVE" },
+        });
+        if (flip.count === 0) staleConflict();
+
         for (const a of input.assignments) {
           await tx.pairing.create({
             data: {
@@ -566,26 +576,23 @@ export const adminRouter = createTRPCRouter({
             },
           });
         }
-        await tx.tutee.update({
-          where: { id: input.tuteeId },
-          data: { status: "ACTIVE" },
-        });
         return { ok: true };
       }),
     ),
 
   /** Quick status change (e.g. approve a PENDING signup → ACTIVE). */
   setTuteeStatus: adminProcedure
-    .input(z.object({ id: cuid, status: z.enum(TUTEE_STATUS) }))
+    .input(z.object({ id: cuid, status: z.enum(TUTEE_STATUS), expectedUpdatedAt }))
     .mutation(async ({ ctx, input }) => {
       const prev = await ctx.db.tutee.findUniqueOrThrow({
         where: { id: input.id },
         select: { status: true, englishName: true },
       });
-      const updated = await ctx.db.tutee.update({
-        where: { id: input.id },
+      const updated = await ctx.db.tutee.updateMany({
+        where: { id: input.id, updatedAt: input.expectedUpdatedAt },
         data: { status: input.status },
       });
+      if (updated.count === 0) staleConflict();
       if (prev.status !== input.status) {
         await recordAudit({
           userId: ctx.session.user.id,
@@ -596,7 +603,7 @@ export const adminRouter = createTRPCRouter({
           undo: { kind: "tutee.status", payload: { id: input.id, status: prev.status } },
         });
       }
-      return updated;
+      return { ok: true };
     }),
 
   deleteTutee: adminProcedure
@@ -945,6 +952,7 @@ export const adminRouter = createTRPCRouter({
         applicationId: cuid,
         tutorIds: z.array(cuid).min(1, "Pick at least one interviewer").max(8),
         headTutorId: cuid,
+        expectedUpdatedAt,
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -955,12 +963,23 @@ export const adminRouter = createTRPCRouter({
           message: "The head must be one of the assigned interviewers.",
         });
       }
+      const app = await ctx.db.tutorApplication.findUnique({
+        where: { id: input.applicationId },
+        select: { name: true },
+      });
+      if (!app) throw new TRPCError({ code: "NOT_FOUND", message: "Application not found." });
       const found = await ctx.db.tutor.count({ where: { id: { in: tutorIds } } });
       if (found !== tutorIds.length) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Unknown tutor selected." });
       }
 
-      const result = await ctx.db.$transaction(async (tx) => {
+      await ctx.db.$transaction(async (tx) => {
+        // Concurrency guard on the application — rolls back the panel edit on a stale write.
+        const upd = await tx.tutorApplication.updateMany({
+          where: { id: input.applicationId, updatedAt: input.expectedUpdatedAt },
+          data: { status: "INTERVIEW" },
+        });
+        if (upd.count === 0) staleConflict();
         await tx.interviewAssignment.deleteMany({
           where: { applicationId: input.applicationId },
         });
@@ -971,31 +990,28 @@ export const adminRouter = createTRPCRouter({
             isHead: tutorId === input.headTutorId,
           })),
         });
-        return tx.tutorApplication.update({
-          where: { id: input.applicationId },
-          data: { status: "INTERVIEW" },
-        });
       });
       // Notify the assigned panelists.
       await notifyTutors(tutorIds, {
         title: "You're on an interview panel",
-        body: `Applicant: ${result.name}`,
+        body: `Applicant: ${app.name}`,
         link: "/dashboard",
       });
-      return result;
+      return { ok: true };
     }),
 
   setApplicationStatus: adminProcedure
-    .input(z.object({ id: cuid, status: z.enum(TUTOR_APP_STATUS) }))
+    .input(z.object({ id: cuid, status: z.enum(TUTOR_APP_STATUS), expectedUpdatedAt }))
     .mutation(async ({ ctx, input }) => {
       const prev = await ctx.db.tutorApplication.findUnique({
         where: { id: input.id },
         select: { status: true },
       });
-      const updated = await ctx.db.tutorApplication.update({
-        where: { id: input.id },
+      const updated = await ctx.db.tutorApplication.updateMany({
+        where: { id: input.id, updatedAt: input.expectedUpdatedAt },
         data: { status: input.status },
       });
+      if (updated.count === 0) staleConflict();
       // On the transition to ACCEPTED, add the applicant to the tutors list.
       if (input.status === "ACCEPTED" && prev?.status !== "ACCEPTED") {
         await promoteApplicantToTutor(input.id);
@@ -1010,7 +1026,7 @@ export const adminRouter = createTRPCRouter({
           undo: { kind: "application.status", payload: { id: input.id, status: prev.status } },
         });
       }
-      return updated;
+      return { ok: true };
     }),
 
   deleteApplication: adminProcedure
@@ -1184,6 +1200,7 @@ export const adminRouter = createTRPCRouter({
         reviewStatus: true,
         reviewNote: true,
         createdAt: true,
+        updatedAt: true,
         tutee: { select: { id: true, englishName: true } },
         issuedByTutor: { select: { englishName: true } },
         session: { select: { date: true } },
@@ -1197,6 +1214,7 @@ export const adminRouter = createTRPCRouter({
         id: cuid,
         reviewStatus: z.enum(["VALID", "INVALID"]),
         reviewNote: z.string().trim().max(500).optional(),
+        expectedUpdatedAt,
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -1204,8 +1222,8 @@ export const adminRouter = createTRPCRouter({
         where: { id: input.id },
         select: { reviewStatus: true, reviewNote: true, tutee: { select: { englishName: true } } },
       });
-      const updated = await ctx.db.disciplinaryCard.update({
-        where: { id: input.id },
+      const res = await ctx.db.disciplinaryCard.updateMany({
+        where: { id: input.id, updatedAt: input.expectedUpdatedAt },
         data: {
           reviewStatus: input.reviewStatus,
           reviewNote: input.reviewNote?.trim() ? input.reviewNote.trim() : null,
@@ -1213,6 +1231,7 @@ export const adminRouter = createTRPCRouter({
           reviewedAt: new Date(),
         },
       });
+      if (res.count === 0) staleConflict();
       await recordAudit({
         userId: ctx.session.user.id,
         userName: ctx.session.user.name,
@@ -1224,7 +1243,7 @@ export const adminRouter = createTRPCRouter({
           payload: { id: input.id, reviewStatus: prev.reviewStatus, reviewNote: prev.reviewNote },
         },
       });
-      return updated;
+      return { ok: true };
     }),
 
   // --------------------------------------------------------------------------

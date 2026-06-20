@@ -102,6 +102,7 @@ function HeadDecision({
   headVote,
   decisionComment,
   decidedBy,
+  expectedUpdatedAt,
 }: {
   applicationId: string;
   status: Status;
@@ -109,11 +110,13 @@ function HeadDecision({
   headVote: { accept: boolean; comment: string | null } | null;
   decisionComment: string | null;
   decidedBy: string | null;
+  expectedUpdatedAt: Date;
 }) {
   const utils = api.useUtils();
   const [comment, setComment] = useState("");
   const decide = api.tutor.decideInterview.useMutation({
     onSuccess: () => utils.tutor.myInterviews.invalidate(),
+    onError: () => utils.tutor.myInterviews.invalidate(),
   });
 
   const decided = status === "ACCEPTED" || status === "REJECTED";
@@ -158,14 +161,18 @@ function HeadDecision({
         <button
           className="btn-primary btn-sm"
           disabled={!comment.trim() || decide.isPending}
-          onClick={() => decide.mutate({ applicationId, accept: true, comment: comment.trim() })}
+          onClick={() =>
+            decide.mutate({ applicationId, accept: true, comment: comment.trim(), expectedUpdatedAt })
+          }
         >
           Approve
         </button>
         <button
           className="btn-secondary btn-sm"
           disabled={!comment.trim() || decide.isPending}
-          onClick={() => decide.mutate({ applicationId, accept: false, comment: comment.trim() })}
+          onClick={() =>
+            decide.mutate({ applicationId, accept: false, comment: comment.trim(), expectedUpdatedAt })
+          }
         >
           Reject
         </button>
@@ -254,6 +261,7 @@ export function MyInterviews() {
                   headVote={a.myVote}
                   decisionComment={a.decisionComment}
                   decidedBy={a.decidedByTutor?.englishName ?? null}
+                  expectedUpdatedAt={a.updatedAt}
                 />
               )}
               {!a.isHead && (a.status === "ACCEPTED" || a.status === "REJECTED") && (

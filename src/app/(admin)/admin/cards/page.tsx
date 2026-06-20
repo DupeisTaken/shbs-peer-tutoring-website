@@ -49,6 +49,7 @@ type Card = {
   reviewStatus: "PENDING" | "VALID" | "INVALID";
   reviewNote: string | null;
   createdAt: Date;
+  updatedAt: Date;
   tutee: { id: string; englishName: string };
   issuedByTutor: { englishName: string } | null;
   session: { date: Date } | null;
@@ -58,7 +59,10 @@ const dot = (color: "YELLOW" | "RED") => (color === "RED" ? "🟥" : "🟨");
 
 function PendingCard({ card, onChanged }: { card: Card; onChanged: () => void }) {
   const [note, setNote] = useState("");
-  const review = api.admin.reviewCard.useMutation({ onSuccess: onChanged });
+  const review = api.admin.reviewCard.useMutation({
+    onSuccess: onChanged,
+    onError: onChanged, // refresh on a stale-write conflict so the version updates
+  });
 
   return (
     <div className="rounded-lg border border-slate-200 p-3">
@@ -85,7 +89,12 @@ function PendingCard({ card, onChanged }: { card: Card; onChanged: () => void })
           className="btn-secondary btn-sm"
           disabled={review.isPending}
           onClick={() =>
-            review.mutate({ id: card.id, reviewStatus: "VALID", reviewNote: note || undefined })
+            review.mutate({
+              id: card.id,
+              reviewStatus: "VALID",
+              reviewNote: note || undefined,
+              expectedUpdatedAt: card.updatedAt,
+            })
           }
         >
           Valid
@@ -94,12 +103,18 @@ function PendingCard({ card, onChanged }: { card: Card; onChanged: () => void })
           className="btn-secondary btn-sm"
           disabled={review.isPending}
           onClick={() =>
-            review.mutate({ id: card.id, reviewStatus: "INVALID", reviewNote: note || undefined })
+            review.mutate({
+              id: card.id,
+              reviewStatus: "INVALID",
+              reviewNote: note || undefined,
+              expectedUpdatedAt: card.updatedAt,
+            })
           }
         >
           Invalid
         </button>
       </div>
+      {review.error && <p className="mt-1 text-sm text-red-600">{review.error.message}</p>}
     </div>
   );
 }

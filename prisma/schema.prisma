@@ -253,6 +253,9 @@ model Tutee {
   signedAt       DateTime?
 
   createdAt DateTime @default(now())
+  /// Optimistic-concurrency token: high-risk mutations pass the value they read and are
+  /// rejected if it changed (another coordinator acted first). See src/server/concurrency.ts.
+  updatedAt DateTime @updatedAt
 
   availabilities TuteeAvailability[]
   pairings       PairingTutee[]
@@ -497,6 +500,8 @@ model TutorApplication {
   decidedByTutorId  String?
   decidedByTutor    Tutor?    @relation("AppDecider", fields: [decidedByTutorId], references: [id])
   createdAt       DateTime               @default(now())
+  /// Optimistic-concurrency token (see src/server/concurrency.ts).
+  updatedAt       DateTime               @updatedAt
 
   courseIntents ApplicationCourseIntent[]
   interviewers  InterviewAssignment[]
@@ -622,6 +627,8 @@ model DisciplinaryCard {
   sessionId       String?
   session         Session?      @relation(fields: [sessionId], references: [id])
   createdAt    DateTime         @default(now())
+  /// Optimistic-concurrency token (see src/server/concurrency.ts).
+  updatedAt    DateTime         @updatedAt
 
   @@index([tuteeId])
   @@index([reviewStatus])

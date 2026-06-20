@@ -4,6 +4,7 @@ import { z } from "zod";
 import { createTRPCRouter, tutorProcedure } from "~/server/api/trpc";
 import { computeSessionHours, monthKey } from "~/lib/service-hours";
 import { promoteApplicantToTutor } from "~/server/tutors/promote";
+import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
 
 const TUTOR_STATUS = ["PRESENT", "RESCHEDULED", "EXTRA", "TUTOR_ABSENT"] as const;
 const TUTEE_STATUS = ["PRESENT", "EXCUSED_ABSENT", "UNEXCUSED_ABSENT"] as const;
@@ -485,6 +486,7 @@ export const tutorRouter = createTRPCRouter({
             name: true,
             email: true,
             status: true,
+            updatedAt: true,
             interviewAt: true,
             decisionComment: true,
             decidedAt: true,
@@ -613,6 +615,7 @@ export const tutorRouter = createTRPCRouter({
         applicationId: z.string().min(1),
         accept: z.boolean(),
         comment: z.string().trim().min(1, "Add a brief comment").max(500),
+        expectedUpdatedAt,
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -637,8 +640,9 @@ export const tutorRouter = createTRPCRouter({
         select: { status: true },
       });
 
-      const updated = await ctx.db.tutorApplication.update({
-        where: { id: input.applicationId },
+      // Concurrency guard — rejected if the application changed since it was loaded.
+      const res = await ctx.db.tutorApplication.updateMany({
+        where: { id: input.applicationId, updatedAt: input.expectedUpdatedAt },
         data: {
           status: input.accept ? "ACCEPTED" : "REJECTED",
           decisionComment: input.comment,
@@ -646,11 +650,12 @@ export const tutorRouter = createTRPCRouter({
           decidedByTutorId: ctx.session.tutorId,
         },
       });
+      if (res.count === 0) staleConflict();
 
       // On the transition to ACCEPTED, add the applicant to the tutors list.
       if (input.accept && prev?.status !== "ACCEPTED") {
         await promoteApplicantToTutor(input.applicationId);
       }
-      return updated;
+      return { ok: true };
     }),
 });

@@ -152,6 +152,7 @@ CREATE TABLE "Tutee" (
     "signatureName" TEXT,
     "signedAt" TIMESTAMP(3),
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Tutee_pkey" PRIMARY KEY ("id")
 );
@@ -313,6 +314,7 @@ CREATE TABLE "TutorApplication" (
     "decidedAt" TIMESTAMP(3),
     "decidedByTutorId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "TutorApplication_pkey" PRIMARY KEY ("id")
 );
@@ -390,6 +392,7 @@ CREATE TABLE "DisciplinaryCard" (
     "issuedByTutorId" TEXT,
     "sessionId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "DisciplinaryCard_pkey" PRIMARY KEY ("id")
 );

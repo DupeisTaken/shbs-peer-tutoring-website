@@ -24,6 +24,7 @@ type Application = {
   email: string;
   preferredContact: string | null;
   status: Status;
+  updatedAt: Date;
   interviewAt: Date | null;
   courseIntents: {
     taken: boolean;
@@ -52,8 +53,14 @@ function ApplicationCard({
   onChanged: () => Promise<unknown> | void;
 }) {
   const [open, setOpen] = useState(false);
-  const assign = api.admin.assignInterviewers.useMutation({ onSuccess: () => onChanged() });
-  const setStatus = api.admin.setApplicationStatus.useMutation({ onSuccess: () => onChanged() });
+  const assign = api.admin.assignInterviewers.useMutation({
+    onSuccess: () => onChanged(),
+    onError: () => onChanged(),
+  });
+  const setStatus = api.admin.setApplicationStatus.useMutation({
+    onSuccess: () => onChanged(),
+    onError: () => onChanged(),
+  });
   const del = api.admin.deleteApplication.useMutation({ onSuccess: () => onChanged() });
 
   // Exactly three fixed panelist slots, seeded from any existing assignment.
@@ -96,7 +103,13 @@ function ApplicationCard({
           {app.status !== "ACCEPTED" && (
             <button
               className="btn-secondary btn-sm"
-              onClick={() => setStatus.mutate({ id: app.id, status: "ACCEPTED" })}
+              onClick={() =>
+                setStatus.mutate({
+                  id: app.id,
+                  status: "ACCEPTED",
+                  expectedUpdatedAt: app.updatedAt,
+                })
+              }
             >
               Accept
             </button>
@@ -104,7 +117,13 @@ function ApplicationCard({
           {app.status !== "REJECTED" && (
             <button
               className="btn-secondary btn-sm"
-              onClick={() => setStatus.mutate({ id: app.id, status: "REJECTED" })}
+              onClick={() =>
+                setStatus.mutate({
+                  id: app.id,
+                  status: "REJECTED",
+                  expectedUpdatedAt: app.updatedAt,
+                })
+              }
             >
               Reject
             </button>
@@ -194,7 +213,12 @@ function ApplicationCard({
                 className="btn-primary btn-sm"
                 disabled={!canAssign}
                 onClick={() =>
-                  assign.mutate({ applicationId: app.id, tutorIds: chosen, headTutorId: head })
+                  assign.mutate({
+                    applicationId: app.id,
+                    tutorIds: chosen,
+                    headTutorId: head,
+                    expectedUpdatedAt: app.updatedAt,
+                  })
                 }
               >
                 {assign.isPending ? "Saving…" : "Save panel"}

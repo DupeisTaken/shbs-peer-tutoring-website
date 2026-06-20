@@ -68,7 +68,10 @@ export default function TuteesPage() {
   const invalidate = () => utils.admin.tutees.invalidate();
   const create = api.admin.createTutee.useMutation({ onSuccess: invalidate });
   const update = api.admin.updateTutee.useMutation({ onSuccess: invalidate });
-  const setStatus = api.admin.setTuteeStatus.useMutation({ onSuccess: invalidate });
+  const setStatus = api.admin.setTuteeStatus.useMutation({
+    onSuccess: invalidate,
+    onError: invalidate, // refresh on a stale-write conflict
+  });
   const del = api.admin.deleteTutee.useMutation({ onSuccess: invalidate });
 
   const [name, setName] = useState("");
@@ -303,7 +306,11 @@ export default function TuteesPage() {
                       <select
                         value={t.status}
                         onChange={(e) =>
-                          setStatus.mutate({ id: t.id, status: e.target.value as Status })
+                          setStatus.mutate({
+                            id: t.id,
+                            status: e.target.value as Status,
+                            expectedUpdatedAt: t.updatedAt,
+                          })
                         }
                         className="select w-28"
                       >

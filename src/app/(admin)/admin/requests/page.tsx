@@ -15,6 +15,7 @@ type PendingTutee = {
   phone: string | null;
   preferredContact: string | null;
   createdAt: Date;
+  updatedAt: Date;
   signedRulebook: boolean;
   signatureName: string | null;
   firstChoice: { id: string; name: string } | null;
@@ -44,7 +45,10 @@ function RequestCard({
   termId: string;
   onChanged: () => Promise<unknown> | void;
 }) {
-  const assign = api.admin.assignSignup.useMutation({ onSuccess: () => onChanged() });
+  const assign = api.admin.assignSignup.useMutation({
+    onSuccess: () => onChanged(),
+    onError: () => onChanged(), // refresh on a stale-write conflict
+  });
   const del = api.admin.deleteTutee.useMutation({ onSuccess: () => onChanged() });
 
   // One tutor pick per offered course choice (keyed by subject name).
@@ -117,7 +121,14 @@ function RequestCard({
           <button
             className="btn-primary btn-sm"
             disabled={assignments.length === 0 || assign.isPending}
-            onClick={() => assign.mutate({ tuteeId: tutee.id, termId, assignments })}
+            onClick={() =>
+              assign.mutate({
+                tuteeId: tutee.id,
+                termId,
+                expectedUpdatedAt: tutee.updatedAt,
+                assignments,
+              })
+            }
           >
             {assign.isPending ? "Assigning…" : "Assign & activate"}
           </button>
