@@ -8,26 +8,29 @@ import {
   monthKey,
   overLimitAbsenceDeduction,
   roundToHalfHour,
+  sessionFactor,
   shCount,
-  shFactor,
 } from "./service-hours";
 
-describe("shFactor", () => {
-  it("unexcused tutee absence counts as 1 (tutor still showed up)", () => {
-    expect(shFactor("TUTEE_ABSENT_UNEXCUSED", 1)).toBe(1);
-    expect(shFactor("TUTEE_ABSENT_UNEXCUSED", 3)).toBe(1);
+describe("sessionFactor", () => {
+  it("is 0 when the tutor wasn't present (rescheduled or absent)", () => {
+    expect(sessionFactor("RESCHEDULED", ["PRESENT", "PRESENT"])).toBe(0);
+    expect(sessionFactor("TUTOR_ABSENT", ["PRESENT"])).toBe(0);
   });
 
-  it("excused tutee absence and tutor absence count as 0", () => {
-    expect(shFactor("TUTEE_ABSENT_EXCUSED", 2)).toBe(0);
-    expect(shFactor("TUTOR_ABSENT", 2)).toBe(0);
+  it("is 1 + number of present tutees when the tutor is present", () => {
+    expect(sessionFactor("PRESENT", ["PRESENT"])).toBe(2); // 1 tutee -> 2
+    expect(sessionFactor("PRESENT", ["PRESENT", "PRESENT"])).toBe(3); // group of 2 -> 3
   });
 
-  it("otherwise returns tuteeCount + 1", () => {
-    expect(shFactor("PRESENT", 1)).toBe(2); // 1 tutee -> 2
-    expect(shFactor("PRESENT", 2)).toBe(3); // group of 2 -> 3
-    expect(shFactor("RESCHEDULED", 1)).toBe(2);
-    expect(shFactor("EXTRA_SESSION", 3)).toBe(4);
+  it("an unexcused absence leaves the tutor the baseline credit of 1", () => {
+    expect(sessionFactor("PRESENT", ["UNEXCUSED_ABSENT"])).toBe(1);
+    expect(sessionFactor("PRESENT", ["PRESENT", "UNEXCUSED_ABSENT"])).toBe(2);
+  });
+
+  it("is 0 when every tutee is excused-absent (no session effectively ran)", () => {
+    expect(sessionFactor("PRESENT", ["EXCUSED_ABSENT"])).toBe(0);
+    expect(sessionFactor("PRESENT", ["EXCUSED_ABSENT", "EXCUSED_ABSENT"])).toBe(0);
   });
 });
 
@@ -95,8 +98,8 @@ describe("monthKey", () => {
 describe("computeSessionHours", () => {
   it("derives every stored field for a 1-hour group of 2", () => {
     const r = computeSessionHours({
-      status: "PRESENT",
-      tuteeCount: 2,
+      tutorStatus: "PRESENT",
+      tuteeStatuses: ["PRESENT", "PRESENT"],
       startMin: 930, // 15:30
       endMin: 990, // 16:30
       date: new Date("2026-06-15T00:00:00Z"),
@@ -111,8 +114,8 @@ describe("computeSessionHours", () => {
 
   it("yields zero hours for an excused absence regardless of duration", () => {
     const r = computeSessionHours({
-      status: "TUTEE_ABSENT_EXCUSED",
-      tuteeCount: 1,
+      tutorStatus: "PRESENT",
+      tuteeStatuses: ["EXCUSED_ABSENT"],
       startMin: 900,
       endMin: 990,
       date: new Date("2026-06-15T00:00:00Z"),

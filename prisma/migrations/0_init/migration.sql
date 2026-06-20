@@ -14,7 +14,10 @@ CREATE TYPE "Quarter" AS ENUM ('Q3', 'Q4');
 CREATE TYPE "TuteeStatus" AS ENUM ('PENDING', 'ACTIVE', 'INACTIVE');
 
 -- CreateEnum
-CREATE TYPE "AttendanceStatus" AS ENUM ('PRESENT', 'RESCHEDULED', 'EXTRA_SESSION', 'TUTOR_ABSENT', 'TUTEE_ABSENT_EXCUSED', 'TUTEE_ABSENT_UNEXCUSED');
+CREATE TYPE "SessionTutorStatus" AS ENUM ('PRESENT', 'RESCHEDULED', 'TUTOR_ABSENT');
+
+-- CreateEnum
+CREATE TYPE "TuteeAttendanceStatus" AS ENUM ('PRESENT', 'EXCUSED_ABSENT', 'UNEXCUSED_ABSENT');
 
 -- CreateEnum
 CREATE TYPE "MeetingAttendanceStatus" AS ENUM ('PRESENT', 'EXCUSED_ABSENT', 'UNEXCUSED_ABSENT', 'EXEMPT');
@@ -193,7 +196,8 @@ CREATE TABLE "PairingTutee" (
 CREATE TABLE "Session" (
     "id" TEXT NOT NULL,
     "date" TIMESTAMP(3) NOT NULL,
-    "status" "AttendanceStatus" NOT NULL,
+    "tutorStatus" "SessionTutorStatus" NOT NULL DEFAULT 'PRESENT',
+    "tutorAbsentReason" TEXT,
     "startMin" INTEGER NOT NULL,
     "endMin" INTEGER NOT NULL,
     "ratingPreparedness" INTEGER,
@@ -217,6 +221,8 @@ CREATE TABLE "Session" (
 CREATE TABLE "SessionTutee" (
     "sessionId" TEXT NOT NULL,
     "tuteeId" TEXT NOT NULL,
+    "status" "TuteeAttendanceStatus" NOT NULL DEFAULT 'PRESENT',
+    "absenceReason" TEXT,
 
     CONSTRAINT "SessionTutee_pkey" PRIMARY KEY ("sessionId","tuteeId")
 );

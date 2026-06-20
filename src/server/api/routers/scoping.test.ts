@@ -102,8 +102,9 @@ describe("row-level scoping (the critical rule)", () => {
       caller(session(TUTOR_B)).tutor.submitAttendance({
         pairingId: PAIRING_A, // belongs to A
         date: new Date("2026-06-15T00:00:00Z"),
-        status: "PRESENT",
-        tuteeIds: [TUTEE_1],
+        tutorStatus: "PRESENT",
+        tutees: [{ tuteeId: TUTEE_1, status: "PRESENT" }],
+        comments: "ok",
       }),
     );
     expect(code).toBe("NOT_FOUND");
@@ -114,8 +115,9 @@ describe("row-level scoping (the critical rule)", () => {
       caller(session(TUTOR_A)).tutor.submitAttendance({
         pairingId: PAIRING_A,
         date: new Date("2026-06-15T00:00:00Z"),
-        status: "PRESENT",
-        tuteeIds: [TUTEE_2], // not on the roster
+        tutorStatus: "PRESENT",
+        tutees: [{ tuteeId: TUTEE_2, status: "PRESENT" }], // not on the roster
+        comments: "ok",
       }),
     );
     expect(code).toBe("BAD_REQUEST");
@@ -135,8 +137,14 @@ describe("row-level scoping (the critical rule)", () => {
     const created = await caller(session(TUTOR_A)).tutor.submitAttendance({
       pairingId: PAIRING_A,
       date: new Date("2026-06-15T00:00:00Z"),
-      status: "PRESENT",
-      tuteeIds: [TUTEE_1],
+      tutorStatus: "PRESENT",
+      tutees: [{ tuteeId: TUTEE_1, status: "PRESENT" }],
+      comments: "ok",
+      ratingPreparedness: 5,
+      ratingParticipation: 5,
+      ratingUnderstanding: 5,
+      ratingBehavior: 5,
+      ratingProgress: 5,
     });
 
     const row = await db.session.findUniqueOrThrow({ where: { id: created.id } });

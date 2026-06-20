@@ -57,7 +57,7 @@ export default function SubmissionsPage() {
                 <td>{new Date(s.date).toLocaleDateString()}</td>
                 <td>{s.tutor.englishName}</td>
                 <td>{s.pairing.subject}</td>
-                <td className="text-slate-500">{s.status}</td>
+                <td className="text-slate-500">{s.tutorStatus}</td>
                 <td>{s.tutees.map((t) => t.tutee.englishName).join(", ")}</td>
                 <td className="text-right">{s.shCount.toFixed(1)}</td>
               </tr>

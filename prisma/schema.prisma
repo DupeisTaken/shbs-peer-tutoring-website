@@ -86,14 +86,18 @@ enum TuteeStatus {
   INACTIVE
 }
 
-/// Status of a single attendance submission.
-enum AttendanceStatus {
+/// The tutor's own status for a session (whether the session was held).
+enum SessionTutorStatus {
   PRESENT
   RESCHEDULED
-  EXTRA_SESSION
   TUTOR_ABSENT
-  TUTEE_ABSENT_EXCUSED
-  TUTEE_ABSENT_UNEXCUSED
+}
+
+/// A single tutee's attendance at a held session.
+enum TuteeAttendanceStatus {
+  PRESENT
+  EXCUSED_ABSENT
+  UNEXCUSED_ABSENT
 }
 
 /// Tutor meeting attendance: P / EA / UA / X.
@@ -316,9 +320,12 @@ model PairingTutee {
 
 /// One attendance submission for a pairing meeting.
 model Session {
-  id     String           @id @default(cuid())
+  id     String             @id @default(cuid())
   date   DateTime
-  status AttendanceStatus
+  /// The tutor's own status (did the session happen?). Tutee attendance is per-tutee on
+  /// SessionTutee. A reason is captured when the tutor was absent.
+  tutorStatus       SessionTutorStatus @default(PRESENT)
+  tutorAbsentReason String?
 
   // Start/end captured at submission (defaults from the pairing, may be overridden).
   startMin Int
@@ -360,6 +367,9 @@ model SessionTutee {
   session   Session @relation(fields: [sessionId], references: [id], onDelete: Cascade)
   tuteeId   String
   tutee     Tutee   @relation(fields: [tuteeId], references: [id])
+  /// This tutee's attendance at the session; a reason is captured when excused-absent.
+  status        TuteeAttendanceStatus @default(PRESENT)
+  absenceReason String?
 
   @@id([sessionId, tuteeId])
   @@index([tuteeId])

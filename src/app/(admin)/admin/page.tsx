@@ -72,7 +72,7 @@ export default async function AdminHome() {
                 <td>{new Date(s.date).toLocaleDateString()}</td>
                 <td>{s.tutor.englishName}</td>
                 <td>{s.pairing.subject}</td>
-                <td className="text-slate-500">{s.status}</td>
+                <td className="text-slate-500">{s.tutorStatus}</td>
                 <td className="text-right">{s.shCount.toFixed(1)}</td>
               </tr>
             ))}

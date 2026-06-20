@@ -4,24 +4,27 @@
  * time and stored on the Session row.
  */
 
-export type AttendanceStatus =
-  | "PRESENT"
-  | "RESCHEDULED"
-  | "EXTRA_SESSION"
-  | "TUTOR_ABSENT"
-  | "TUTEE_ABSENT_EXCUSED"
-  | "TUTEE_ABSENT_UNEXCUSED";
+/** The tutor's own status for a session (did it happen?). */
+export type SessionTutorStatus = "PRESENT" | "RESCHEDULED" | "TUTOR_ABSENT";
+/** A single tutee's attendance at a held session. */
+export type TuteeAttendanceStatus = "PRESENT" | "EXCUSED_ABSENT" | "UNEXCUSED_ABSENT";
 
 /**
- * Multiplier applied to the rounded hours.
- * - Unexcused tutee absence: 1 (tutor still showed up, credited as if solo).
- * - Excused tutee absence or tutor absent: 0 (no credit).
- * - Otherwise: tuteeCount + 1 (1 tutee -> 2, group of 2 -> 3, ...).
+ * Multiplier applied to the rounded hours, from the split tutor/tutee statuses (policy §III).
+ * - Tutor not present (rescheduled or absent): 0 — the session didn't happen.
+ * - All tutees excused-absent: 0 — no session effectively ran.
+ * - Otherwise: 1 (prep + the tutor's own time) + the number of PRESENT tutees. Unexcused
+ *   absences don't add to the count but still leave the tutor the baseline credit.
  */
-export function shFactor(status: AttendanceStatus, tuteeCount: number): number {
-  if (status === "TUTEE_ABSENT_UNEXCUSED") return 1;
-  if (status === "TUTEE_ABSENT_EXCUSED" || status === "TUTOR_ABSENT") return 0;
-  return tuteeCount + 1; // 1 tutee → 2, group of 2 → 3
+export function sessionFactor(
+  tutorStatus: SessionTutorStatus,
+  tuteeStatuses: readonly TuteeAttendanceStatus[],
+): number {
+  if (tutorStatus !== "PRESENT") return 0;
+  const present = tuteeStatuses.filter((s) => s === "PRESENT").length;
+  const unexcused = tuteeStatuses.filter((s) => s === "UNEXCUSED_ABSENT").length;
+  if (present === 0 && unexcused === 0) return 0; // everyone excused -> no credit
+  return 1 + present;
 }
 
 /**
@@ -88,17 +91,17 @@ export interface ComputedHours {
 
 /**
  * Convenience helper used by the attendance mutation: derives every stored field from the
- * raw submission inputs.
+ * raw submission inputs (the tutor's status + each tutee's attendance).
  */
 export function computeSessionHours(args: {
-  status: AttendanceStatus;
-  tuteeCount: number;
+  tutorStatus: SessionTutorStatus;
+  tuteeStatuses: readonly TuteeAttendanceStatus[];
   startMin: number;
   endMin: number;
   date: Date;
 }): ComputedHours {
   const durationMin = args.endMin - args.startMin;
-  const factor = shFactor(args.status, args.tuteeCount);
+  const factor = sessionFactor(args.tutorStatus, args.tuteeStatuses);
   return {
     durationMin,
     shFactor: factor,

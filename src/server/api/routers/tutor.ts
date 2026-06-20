@@ -5,16 +5,17 @@ import { createTRPCRouter, tutorProcedure } from "~/server/api/trpc";
 import { computeSessionHours, monthKey } from "~/lib/service-hours";
 import { promoteApplicantToTutor } from "~/server/tutors/promote";
 
-const ATTENDANCE_STATUS = [
-  "PRESENT",
-  "RESCHEDULED",
-  "EXTRA_SESSION",
-  "TUTOR_ABSENT",
-  "TUTEE_ABSENT_EXCUSED",
-  "TUTEE_ABSENT_UNEXCUSED",
-] as const;
+const TUTOR_STATUS = ["PRESENT", "RESCHEDULED", "TUTOR_ABSENT"] as const;
+const TUTEE_STATUS = ["PRESENT", "EXCUSED_ABSENT", "UNEXCUSED_ABSENT"] as const;
 
 const rating = z.number().int().min(1).max(5).optional();
+const RATING_KEYS = [
+  "ratingPreparedness",
+  "ratingParticipation",
+  "ratingUnderstanding",
+  "ratingBehavior",
+  "ratingProgress",
+] as const;
 const monthInput = z
   .string()
   .regex(/^\d{4}-\d{2}$/)
@@ -96,33 +97,79 @@ export const tutorRouter = createTRPCRouter({
    */
   submitAttendance: tutorProcedure
     .input(
-      z.object({
-        pairingId: z.string().min(1),
-        date: z.coerce.date(),
-        status: z.enum(ATTENDANCE_STATUS),
-        tuteeIds: z.array(z.string().min(1)).min(1),
-        // Optional overrides; default to the pairing's scheduled time.
-        startMin: z.number().int().min(0).max(1439).optional(),
-        endMin: z.number().int().min(1).max(1440).optional(),
-        ratingPreparedness: rating,
-        ratingParticipation: rating,
-        ratingUnderstanding: rating,
-        ratingBehavior: rating,
-        ratingProgress: rating,
-        comments: z.string().max(2000).optional(),
-        // Disciplinary card requests raised via the survey. Each needs a justification
-        // comment (policy §V.5). These are created PENDING for the team to recheck.
-        cards: z
-          .array(
-            z.object({
-              tuteeId: z.string().min(1),
-              color: z.enum(["YELLOW", "RED"]),
-              reason: z.string().trim().min(1, "Add a reason for each card").max(500),
-            }),
-          )
-          .max(20)
-          .optional(),
-      }),
+      z
+        .object({
+          pairingId: z.string().min(1),
+          date: z.coerce.date(),
+          // Tutor's own status (did the session happen?) + reason when absent.
+          tutorStatus: z.enum(TUTOR_STATUS),
+          tutorAbsentReason: z.string().trim().max(500).optional(),
+          // Per-tutee attendance; a reason is required for an excused absence.
+          tutees: z
+            .array(
+              z.object({
+                tuteeId: z.string().min(1),
+                status: z.enum(TUTEE_STATUS),
+                absenceReason: z.string().trim().max(500).optional(),
+              }),
+            )
+            .min(1),
+          // Optional overrides; default to the pairing's scheduled time.
+          startMin: z.number().int().min(0).max(1439).optional(),
+          endMin: z.number().int().min(1).max(1440).optional(),
+          ratingPreparedness: rating,
+          ratingParticipation: rating,
+          ratingUnderstanding: rating,
+          ratingBehavior: rating,
+          ratingProgress: rating,
+          // Comments are required (policy §I.5 / survey accuracy).
+          comments: z.string().trim().min(1, "Comments are required").max(2000),
+          // Disciplinary card requests raised via the survey. Each needs a justification
+          // comment (policy §V.5). These are created PENDING for the team to recheck.
+          cards: z
+            .array(
+              z.object({
+                tuteeId: z.string().min(1),
+                color: z.enum(["YELLOW", "RED"]),
+                reason: z.string().trim().min(1, "Add a reason for each card").max(500),
+              }),
+            )
+            .max(20)
+            .optional(),
+        })
+        .superRefine((val, ctx) => {
+          if (val.tutorStatus === "TUTOR_ABSENT" && !val.tutorAbsentReason?.trim()) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ["tutorAbsentReason"],
+              message: "Give a reason for the tutor absence.",
+            });
+          }
+          for (const [i, tuteeRow] of val.tutees.entries()) {
+            if (tuteeRow.status === "EXCUSED_ABSENT" && !tuteeRow.absenceReason?.trim()) {
+              ctx.addIssue({
+                code: z.ZodIssueCode.custom,
+                path: ["tutees", i, "absenceReason"],
+                message: "Give a reason for the excused absence.",
+              });
+            }
+          }
+          // Ratings are required when a session was actually held with a present tutee.
+          const held =
+            val.tutorStatus === "PRESENT" &&
+            val.tutees.some((tt) => tt.status === "PRESENT");
+          if (held) {
+            for (const key of RATING_KEYS) {
+              if (val[key] == null) {
+                ctx.addIssue({
+                  code: z.ZodIssueCode.custom,
+                  path: [key],
+                  message: "Ratings are required for a held session.",
+                });
+              }
+            }
+          }
+        }),
     )
     .mutation(async ({ ctx, input }) => {
       // Row scoping: the pairing must belong to this tutor.
@@ -137,11 +184,13 @@ export const tutorRouter = createTRPCRouter({
         });
       }
 
-      // Every selected tutee must be on this pairing's roster.
+      // Every listed tutee must be on this pairing's roster (de-duplicated by tuteeId).
       const roster = new Set(pairing.tutees.map((t) => t.tuteeId));
-      const uniqueTuteeIds = [...new Set(input.tuteeIds)];
-      for (const id of uniqueTuteeIds) {
-        if (!roster.has(id)) {
+      const tuteeRows = [
+        ...new Map(input.tutees.map((t) => [t.tuteeId, t])).values(),
+      ];
+      for (const t of tuteeRows) {
+        if (!roster.has(t.tuteeId)) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "Selected tutee is not on this pairing.",
@@ -170,8 +219,8 @@ export const tutorRouter = createTRPCRouter({
       }
 
       const computed = computeSessionHours({
-        status: input.status,
-        tuteeCount: uniqueTuteeIds.length,
+        tutorStatus: input.tutorStatus,
+        tuteeStatuses: tuteeRows.map((t) => t.status),
         startMin,
         endMin,
         date: input.date,
@@ -182,7 +231,11 @@ export const tutorRouter = createTRPCRouter({
           pairingId: pairing.id,
           tutorId: ctx.session.tutorId,
           date: input.date,
-          status: input.status,
+          tutorStatus: input.tutorStatus,
+          tutorAbsentReason:
+            input.tutorStatus === "TUTOR_ABSENT"
+              ? (input.tutorAbsentReason?.trim() ?? null)
+              : null,
           startMin,
           endMin,
           ratingPreparedness: input.ratingPreparedness,
@@ -196,7 +249,12 @@ export const tutorRouter = createTRPCRouter({
           shFactor: computed.shFactor,
           shCount: computed.shCount,
           tutees: {
-            create: uniqueTuteeIds.map((tuteeId) => ({ tuteeId })),
+            create: tuteeRows.map((t) => ({
+              tuteeId: t.tuteeId,
+              status: t.status,
+              absenceReason:
+                t.status === "EXCUSED_ABSENT" ? (t.absenceReason?.trim() ?? null) : null,
+            })),
           },
         },
         select: { id: true, month: true, shCount: true },
@@ -204,8 +262,8 @@ export const tutorRouter = createTRPCRouter({
 
       // Disciplinary cards from this survey:
       //  - tutor-requested cards -> PENDING (team rechecks), with the required reason;
-      //  - auto-issued: an unexcused tutee absence -> RED for each absent rostered tutee
-      //    (created VALID per policy; still appealable / flaggable INVALID by the team).
+      //  - auto-issued: each UNEXCUSED_ABSENT tutee -> RED (created VALID per policy; still
+      //    appealable / flaggable INVALID by the team).
       const cardRows: {
         tuteeId: string;
         color: "YELLOW" | "RED";
@@ -224,20 +282,17 @@ export const tutorRouter = createTRPCRouter({
         sessionId: session.id,
       }));
 
-      if (input.status === "TUTEE_ABSENT_UNEXCUSED") {
-        const presentSet = new Set(uniqueTuteeIds);
-        for (const tuteeId of roster) {
-          if (!presentSet.has(tuteeId)) {
-            cardRows.push({
-              tuteeId,
-              color: "RED",
-              source: "AUTO",
-              reason: "Unexcused absence (auto-issued).",
-              reviewStatus: "VALID",
-              issuedByTutorId: ctx.session.tutorId,
-              sessionId: session.id,
-            });
-          }
+      for (const t of tuteeRows) {
+        if (t.status === "UNEXCUSED_ABSENT") {
+          cardRows.push({
+            tuteeId: t.tuteeId,
+            color: "RED",
+            source: "AUTO",
+            reason: "Unexcused absence (auto-issued).",
+            reviewStatus: "VALID",
+            issuedByTutorId: ctx.session.tutorId,
+            sessionId: session.id,
+          });
         }
       }
 
