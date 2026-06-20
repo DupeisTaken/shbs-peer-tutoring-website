@@ -100,15 +100,21 @@ Team** management area (`/admin`);
 tutors land on their combined `/dashboard` (hours, pairings, availability, and the
 attendance form on one page).
 
+Switch the interface language any time with the **EN / 中文** toggle in the header.
+
 Try the public forms (no login required):
 
-- **Tutee signup** at `/signup` → creates a `PENDING` tutee under **Admin → Tutees**, where
-  you can assign it to a tutor in one click (the seed includes one example pending signup).
-  The assigned tutor then picks the slot on their dashboard.
+- **Tutee signup** at `/signup` → creates a `PENDING` tutee that queues under
+  **Admin → Signup Requests** (`/admin/requests`), where you assign each course choice to a
+  tutor (the dropdown previews each tutor's workload) — that creates the pairing(s) and
+  activates the tutee. The seed includes one example pending signup; the assigned tutor then
+  picks the slot on their dashboard.
 - **Tutor application** at `/tutor-signup` → creates a `PENDING` application under
-  **Admin → Tutor applications**, where you assign up to three interviewers (one head). Sign
-  in as the head (`alice@example.edu`) to schedule the interview from the dashboard — the
-  seed wires Alice as head of one applicant.
+  **Admin → Tutor applications**, where you assign a three-tutor panel (one head). Sign in as
+  the head (`alice@example.edu`) to schedule the interview from the dashboard — the seed wires
+  Alice as head of one applicant. **Accepting** an applicant auto-creates their tutor login
+  (default password `ChangeMe!123` unless `TUTOR_DEFAULT_PASSWORD` is set); they set their own
+  password on first sign-in.
 
 ## 5. Run the tests
 

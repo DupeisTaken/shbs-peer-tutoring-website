@@ -50,7 +50,13 @@ cp .env.example .env
 #   AUTH_SECRET           (generate: openssl rand -base64 32)
 #   POSTGRES_USER / POSTGRES_PASSWORD / POSTGRES_DB
 #   AUTH_BOOTSTRAP_ADMIN_EMAILS=you@school.edu   (gives you ADMIN on first sign-in)
+#   TUTOR_DEFAULT_PASSWORD  (shared temp password for auto-created tutor logins; change
+#                            it from the default — tutors are forced to reset it on first login)
 ```
+
+> **Auto-provisioned tutor logins:** accepting a tutor application creates that tutor's `User`
+> account with `TUTOR_DEFAULT_PASSWORD` and a forced password change on first sign-in. Set a
+> non-default value before going live.
 
 `DATABASE_URL`, `AUTH_URL`, and `AUTH_TRUST_HOST` are set automatically in `docker-compose.yml`.
 

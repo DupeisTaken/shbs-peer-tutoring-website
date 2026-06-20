@@ -6,9 +6,9 @@ attendance submissions, tutor-meeting tracking, and automatic service-hour accou
 Tutors sign in, see their schedule, and submit attendance with quality ratings for each
 session. The app derives service hours from each submission and rolls them up by month.
 Coordinators and admins manage the roster (tutors, tutees, rooms, pairings, terms),
-run tutor meetings, apply per-tutor hour adjustments and punishments, review tutee
-discipline cards, and
-review the monthly summary.
+run tutor meetings, apply per-tutor hour adjustments, review tutee discipline cards,
+broadcast announcements, and review the monthly summary. The interface is available in
+English and Chinese.
 
 ## Stack
 
@@ -19,6 +19,7 @@ Built on the [T3 Stack](https://create.t3.gg/):
 - **[Prisma](https://prisma.io)** 6 + **PostgreSQL**
 - **[tRPC](https://trpc.io)** 11 for the typed API
 - **[Tailwind CSS](https://tailwindcss.com)** 4
+- **[next-intl](https://next-intl.dev)** for runtime localization (English / 中文)
 - **[Vitest](https://vitest.dev)** for unit/integration tests
 
 ## How it works
@@ -50,9 +51,11 @@ Each tutor has a **username** (default: first initial + last name, e.g. `jsmith`
 on the admin Tutors screen and usable as an alternate sign-in identifier
 (`src/server/auth/username.ts`).
 
-On a tutor's **first sign-in** they're routed to `/onboarding/email` to confirm the contact
-email their sign-in codes go to and opt into email 2FA, then on to the dashboard
-(`User.emailVerifiedAt` records completion so it doesn't repeat).
+When an applicant is **accepted**, a `User` login is auto-provisioned for them with the shared
+`TUTOR_DEFAULT_PASSWORD` and a `mustChangePassword` flag. On a tutor's **first sign-in** they're
+routed to `/onboarding/email` to set their own password and confirm the contact email their
+sign-in codes go to (and opt into email 2FA), then on to the dashboard (`User.emailVerifiedAt`
+records completion so it doesn't repeat).
 
 **Email-based 2FA (one-time codes) is scaffolded but not implemented**, and the
 **forgot-password** flow's token logic is implemented but **email delivery is scaffolded**
@@ -78,38 +81,46 @@ email their sign-in codes go to and opt into email 2FA, then on to the dashboard
   coordinators, and admins, with a **forgot-password** link.
 - `/forgot-password`, `/reset-password` — public password-reset flow (token logic works;
   email delivery is scaffolded — the reset link is logged server-side in dev).
-- `/onboarding/email` — first-login gate where a new tutor confirms their contact email
-  and 2FA preference before reaching the dashboard.
+- `/onboarding/email` — first-login gate where a new tutor sets their own password and
+  confirms their contact email / 2FA preference before reaching the dashboard.
 - `/dashboard` — tutor home (any signed-in tutor): live monthly service hours, pairings
-  (with default-slot picker), availability, the attendance form, interviews they're on the
-  panel for, and the room schedule — all on one page.
-- `/admin/*` — the **SHBS Peer Tutoring Team** management area (coordinator/admin): tutors,
-  tutees, tutor applications, courses, time slots, rooms, pairings, submissions, meetings,
-  adjustments, punishments, users, and the monthly summary.
+  (with default-slot picker), availability, the attendance form (which can **merge several
+  courses into one block** — see Service hours), interviews they're on the panel for, and the
+  room schedule — all on one page.
+- `/admin/*` — the **SHBS Peer Tutoring Team** management area (coordinator/admin). The nav is
+  grouped into **Tutors** (roster, applications, meetings, service hours, hour adjustments),
+  **Tutees** (roster, signup requests, discipline cards), **Scheduling & Records** (pairings,
+  attendance submissions, time slots, courses & levels, rooms), and **Administration** (policy
+  documents, audit log, users & roles), plus an **Activity** status board and **Announcements**.
 
 Route gating is handled by `src/middleware.ts` (Edge); the tRPC procedures
 (`src/server/api/routers/`) enforce role and ownership checks server-side.
 
 ### Tutee signup & scheduling
 
-Students request help through the public `/signup` form → a `PENDING` `Tutee`. On the Tutees
-screen an admin **assigns the tutee to a tutor inline** (one click), which creates the pairing
-and flips the tutee to `ACTIVE`. The **tutor then picks the default time slot** for that
+Students request help through the public `/signup` form → a `PENDING` `Tutee`. Pending signups
+queue on **Signup Requests** (`/admin/requests`), processed earliest-first. There an admin
+assigns **each course choice to a tutor** (e.g. first choice → tutor A, second → tutor B) from
+a dropdown that previews each tutor's current workload; submitting creates a pairing per
+assignment and flips the tutee to `ACTIVE`. If a choice was left blank it shows grayed/disabled
+and the request stays in the queue. The **tutor then picks the default time slot** for each
 pairing from their own dashboard (slots stay reference-only — actual session times are entered
 on each attendance submission).
 
 Prospective tutors apply through the public `/tutor-signup` form (intended courses + grades).
-On the **Tutor applications** screen an admin assigns up to three interviewers (one marked
+On the **Tutor applications** screen an admin assigns a three-tutor interview panel (one marked
 **head**); the head schedules the interview time from their dashboard, and the interview shows
-up for every panelist. Applications never create logins — tutor accounts are made by an admin.
+up for every panelist. The public form never creates a login — but **accepting** an application
+auto-provisions the tutor's `User` account (see Authentication).
 
 Scheduling is built around an admin-managed **time-slot catalog** (`/admin/timeslots`) and a
-**course catalog** (`/admin/courses`, each course tagged AP / Honors / Standard — the tag
-gates the AP-score field on tutor applications). Tutors and tutees mark availability against
-the slots.
-Rooms can have recurring **unavailability periods** (`/admin/rooms`); the slot×room **room
-grid** (on the Pairings page, and read-only on the tutor dashboard) shows occupancy and blocked
-cells.
+**course catalog** (`/admin/courses`). Courses belong to an admin-managed **level catalogue**
+(`CourseLevel`, e.g. AP / Honors / Standard); a level flagged **AP-scored** gates the AP-score
+field on tutor applications. Pairings are scheduled by **picking a published time slot** on the
+Pairings page (the slot sets the day/start/end). Tutors and tutees mark availability against the
+slots. Rooms can have recurring **unavailability periods** (`/admin/rooms`); the slot×room
+**room grid** (on the Pairings page, and read-only on the tutor dashboard) shows occupancy and
+blocked cells.
 
 ### Service hours
 
@@ -123,6 +134,29 @@ attendance submission it computes, server-side, and stores on the `Session` row:
 
 A tutor's monthly total = `SUM(session shCount)` adjusted by `ServiceHourAdjustment` rows
 (`EXTRA` adds, `PUNISHMENT` subtracts).
+
+**Merged sessions.** A tutor running several courses in one combined block can tick the other
+pairings on the attendance form. Each course is recorded as its own `Session` (linked by
+`mergeGroupId`), but the block's clock time is **counted once** — full hours land on the primary
+session and the merged siblings carry `0`, so two courses in one hour never double-count.
+
+### Concurrency
+
+High-risk admin actions (assigning a signup, changing a tutee/application status, assigning an
+interview panel, reviewing a card, deciding an interview) use **optimistic version checks**:
+the client sends the `updatedAt` it loaded, and a conditional write is rejected with a
+`CONFLICT` if another coordinator changed the row first (`src/server/concurrency.ts`). Mutating
+admin actions are also recorded to an **audit log** (`/admin/audit`) with one-click undo where
+the inverse is well-defined.
+
+### Internationalization
+
+UI copy is localized with **next-intl**. Strings live in `messages/<locale>.json` (`en`, `zh`)
+and are rendered via `t("…")` — never hardcoded. The active locale comes from the `NEXT_LOCALE`
+cookie (a language switcher in the header sets it; there is no locale routing, so the auth
+middleware is untouched). Config is in `src/i18n/request.ts`; client-safe constants in
+`src/i18n/config.ts`. Orgs can re-word the app without editing the files by setting the
+`MESSAGES_OVERRIDE` env to a JSON object that is deep-merged over the active locale.
 
 ## Getting started
 
@@ -152,9 +186,11 @@ commented list. The essentials:
 | ------------------------------ | -------------------------------------------------------- |
 | `AUTH_SECRET`                  | Session/JWT signing secret (`npx auth secret`).          |
 | `AUTH_BOOTSTRAP_ADMIN_EMAILS`  | Comma-separated emails granted `ADMIN` on first sign-in. |
+| `TUTOR_DEFAULT_PASSWORD`       | Shared temp password for auto-provisioned tutor logins (forced change on first sign-in). |
 | `DATABASE_URL`                 | PostgreSQL connection string.                            |
 | `NEXT_PUBLIC_APP_TITLE`        | Public brand title (default `SHBS Peer Tutoring`).       |
 | `NEXT_PUBLIC_TEAM_TITLE`       | Team/admin-area title (default `SHBS Peer Tutoring Team`).|
+| `MESSAGES_OVERRIDE`            | Optional JSON deep-merged over locale messages (white-label copy). |
 
 Branding: the two `NEXT_PUBLIC_*` titles let you rebrand without code changes — they're
 read through `src/lib/branding.ts` and fall back to the defaults above. Because they're
@@ -184,20 +220,23 @@ read through `src/lib/branding.ts` and fall back to the defaults above. Because 
 ```
 src/
   app/                 # Next.js App Router
-    _components/       # shared UI (nav link, sign-out button)
+    _components/       # shared UI (nav link, sign-out button, sortable table headers)
     signup/            # public tutee signup form
     (tutor)/           # combined tutor dashboard (hours, pairings, availability, attendance)
     (admin)/admin/     # roster & program management (coordinator/admin)
     api/               # Auth.js + tRPC route handlers
   styles/globals.css   # Tailwind + shared design-system classes (.btn, .card, .input, …)
+  i18n/                # next-intl config (request.ts) + client-safe locale constants
   server/
     api/routers/       # tRPC routers (tutor, tutee, admin) + tests
     auth/              # Auth.js config (Credentials/password, role/JWT logic)
                        #   password.ts (scrypt) + two-factor.ts (2FA scaffolding)
     email/sender.ts    # provider-agnostic email seam (scaffolding)
+    concurrency.ts     # optimistic version-check helper for high-risk admin writes
     db.ts              # Prisma client
   lib/service-hours.ts # service-hour computation (pure, unit-tested)
   trpc/                # tRPC client/server wiring
+messages/              # next-intl translation catalogs (en.json, zh.json)
 prisma/
   schema.prisma        # data model
   seed.ts              # sample data
