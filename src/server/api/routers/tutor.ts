@@ -109,6 +109,18 @@ export const tutorRouter = createTRPCRouter({
         ratingBehavior: rating,
         ratingProgress: rating,
         comments: z.string().max(2000).optional(),
+        // Disciplinary card requests raised via the survey. Each needs a justification
+        // comment (policy §V.5). These are created PENDING for the team to recheck.
+        cards: z
+          .array(
+            z.object({
+              tuteeId: z.string().min(1),
+              color: z.enum(["YELLOW", "RED"]),
+              reason: z.string().trim().min(1, "Add a reason for each card").max(500),
+            }),
+          )
+          .max(20)
+          .optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -136,6 +148,17 @@ export const tutorRouter = createTRPCRouter({
         }
       }
 
+      // Any carded tutee must also be on this pairing's roster.
+      const cardRequests = input.cards ?? [];
+      for (const c of cardRequests) {
+        if (!roster.has(c.tuteeId)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Cannot card a tutee who is not on this pairing.",
+          });
+        }
+      }
+
       const startMin = input.startMin ?? pairing.startMin;
       const endMin = input.endMin ?? pairing.endMin;
       if (endMin <= startMin) {
@@ -153,7 +176,7 @@ export const tutorRouter = createTRPCRouter({
         date: input.date,
       });
 
-      return ctx.db.session.create({
+      const session = await ctx.db.session.create({
         data: {
           pairingId: pairing.id,
           tutorId: ctx.session.tutorId,
@@ -177,6 +200,51 @@ export const tutorRouter = createTRPCRouter({
         },
         select: { id: true, month: true, shCount: true },
       });
+
+      // Disciplinary cards from this survey:
+      //  - tutor-requested cards -> PENDING (team rechecks), with the required reason;
+      //  - auto-issued: an unexcused tutee absence -> RED for each absent rostered tutee
+      //    (created VALID per policy; still appealable / flaggable INVALID by the team).
+      const cardRows: {
+        tuteeId: string;
+        color: "YELLOW" | "RED";
+        source: "TUTOR" | "AUTO";
+        reason: string;
+        reviewStatus: "PENDING" | "VALID";
+        issuedByTutorId: string | null;
+        sessionId: string;
+      }[] = cardRequests.map((c) => ({
+        tuteeId: c.tuteeId,
+        color: c.color,
+        source: "TUTOR",
+        reason: c.reason,
+        reviewStatus: "PENDING",
+        issuedByTutorId: ctx.session.tutorId,
+        sessionId: session.id,
+      }));
+
+      if (input.status === "TUTEE_ABSENT_UNEXCUSED") {
+        const presentSet = new Set(uniqueTuteeIds);
+        for (const tuteeId of roster) {
+          if (!presentSet.has(tuteeId)) {
+            cardRows.push({
+              tuteeId,
+              color: "RED",
+              source: "AUTO",
+              reason: "Unexcused absence (auto-issued).",
+              reviewStatus: "VALID",
+              issuedByTutorId: ctx.session.tutorId,
+              sessionId: session.id,
+            });
+          }
+        }
+      }
+
+      if (cardRows.length > 0) {
+        await ctx.db.disciplinaryCard.createMany({ data: cardRows });
+      }
+
+      return session;
     }),
 
   // --------------------------------------------------------------------------
@@ -228,6 +296,44 @@ export const tutorRouter = createTRPCRouter({
       select: { id: true, englishName: true, active: true, email: true },
     }),
   ),
+
+  // --------------------------------------------------------------------------
+  // Announcements: team broadcasts surfaced on the dashboard every login until acked.
+  // --------------------------------------------------------------------------
+
+  /** Active announcements, newest first, each flagged with whether the caller acked it. */
+  myAnnouncements: tutorProcedure.query(async ({ ctx }) => {
+    const announcements = await ctx.db.announcement.findMany({
+      where: { active: true },
+      orderBy: [{ pinned: "desc" }, { createdAt: "desc" }],
+      select: {
+        id: true,
+        title: true,
+        body: true,
+        pinned: true,
+        createdAt: true,
+        acks: { where: { userId: ctx.session.user.id }, select: { userId: true } },
+      },
+    });
+    return announcements.map(({ acks, ...a }) => ({ ...a, acked: acks.length > 0 }));
+  }),
+
+  /** Mark an announcement acknowledged for the signed-in user (idempotent). */
+  acknowledgeAnnouncement: tutorProcedure
+    .input(z.object({ announcementId: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db.announcementAck.upsert({
+        where: {
+          announcementId_userId: {
+            announcementId: input.announcementId,
+            userId: ctx.session.user.id,
+          },
+        },
+        update: {},
+        create: { announcementId: input.announcementId, userId: ctx.session.user.id },
+      });
+      return { ok: true };
+    }),
 
   /**
    * Set (or clear) the default reference time slot for one of the caller's pairings.

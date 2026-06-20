@@ -1,7 +1,7 @@
 "use client";
 
 import { zodResolver } from "@hookform/resolvers/zod";
-import { useEffect } from "react";
+import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { z } from "zod";
 
@@ -44,8 +44,19 @@ const formSchema = z.object({
 
 type FormValues = z.infer<typeof formSchema>;
 
+type CardColor = "" | "YELLOW" | "RED";
+type CardEntry = { color: CardColor; reason: string };
+
 export function AttendanceForm() {
   const utils = api.useUtils();
+  // Per-tutee disciplinary card requests, keyed by tuteeId. Reset when the pairing changes.
+  const [cards, setCards] = useState<Record<string, CardEntry>>({});
+  const [cardError, setCardError] = useState<string | null>(null);
+  const setCard = (tuteeId: string, patch: Partial<CardEntry>) =>
+    setCards((c) => ({
+      ...c,
+      [tuteeId]: { color: "", reason: "", ...c[tuteeId], ...patch },
+    }));
   const pairingsQuery = api.tutor.myPairings.useQuery();
   const submit = api.tutor.submitAttendance.useMutation({
     onSuccess: async () => {
@@ -76,7 +87,7 @@ export function AttendanceForm() {
   const pairings = pairingsQuery.data ?? [];
   const selectedPairing = pairings.find((p) => p.id === selectedPairingId);
 
-  // When the pairing changes, default the time fields and select the whole roster.
+  // When the pairing changes, default the time fields, select the whole roster, clear cards.
   useEffect(() => {
     if (!selectedPairing) return;
     setValue("startTime", minToHm(selectedPairing.startMin));
@@ -85,9 +96,25 @@ export function AttendanceForm() {
       "tuteeIds",
       selectedPairing.tutees.map((t) => t.tuteeId),
     );
+    setCards({});
+    setCardError(null);
   }, [selectedPairingId, selectedPairing, setValue]);
 
   const onSubmit = (values: FormValues) => {
+    // Assemble card requests; each carded tutee needs a reason (policy §V.5).
+    const cardList = Object.entries(cards)
+      .filter(([, c]) => c.color === "YELLOW" || c.color === "RED")
+      .map(([tuteeId, c]) => ({
+        tuteeId,
+        color: c.color as "YELLOW" | "RED",
+        reason: c.reason.trim(),
+      }));
+    if (cardList.some((c) => !c.reason)) {
+      setCardError("Add a reason for each card you assign.");
+      return;
+    }
+    setCardError(null);
+
     submit.mutate({
       pairingId: values.pairingId,
       date: new Date(values.date),
@@ -101,6 +128,7 @@ export function AttendanceForm() {
       ratingBehavior: values.ratingBehavior,
       ratingProgress: values.ratingProgress,
       comments: values.comments?.trim() ? values.comments.trim() : undefined,
+      cards: cardList.length > 0 ? cardList : undefined,
     });
   };
 
@@ -208,6 +236,50 @@ export function AttendanceForm() {
         <textarea {...register("comments")} rows={3} className="textarea" />
       </div>
 
+      {/* Disciplinary cards (optional) — sent to the team for recheck. */}
+      {selectedPairing && (
+        <fieldset className="rounded-lg border border-slate-200 p-3">
+          <legend className="label px-1">Disciplinary cards (optional)</legend>
+          <p className="muted mb-2 text-xs">
+            Assign a yellow or red card with a brief reason. The team rechecks each before it
+            counts. (An unexcused absence auto-issues a red card.)
+          </p>
+          <div className="space-y-2">
+            {selectedPairing.tutees.map((t) => {
+              const entry = cards[t.tuteeId];
+              const color = entry?.color ?? "";
+              return (
+                <div key={t.tuteeId} className="flex flex-wrap items-center gap-2">
+                  <span className="w-40 truncate text-sm text-slate-700">
+                    {t.tutee.englishName}
+                  </span>
+                  <select
+                    className="select w-28"
+                    value={color}
+                    onChange={(e) =>
+                      setCard(t.tuteeId, { color: e.target.value as CardColor })
+                    }
+                  >
+                    <option value="">No card</option>
+                    <option value="YELLOW">🟨 Yellow</option>
+                    <option value="RED">🟥 Red</option>
+                  </select>
+                  {(color === "YELLOW" || color === "RED") && (
+                    <input
+                      className="input min-w-[12rem] flex-1"
+                      placeholder="Reason (required)"
+                      value={entry?.reason ?? ""}
+                      onChange={(e) => setCard(t.tuteeId, { reason: e.target.value })}
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+          {cardError && <p className="mt-2 text-sm text-red-600">{cardError}</p>}
+        </fieldset>
+      )}
+
       <div className="flex items-center gap-3">
         <button type="submit" disabled={submit.isPending} className="btn-primary">
           {submit.isPending ? "Submitting…" : "Submit attendance"}
@@ -219,7 +291,15 @@ export function AttendanceForm() {
       </div>
 
       {submit.isSuccess && (
-        <button type="button" onClick={() => reset()} className="link text-sm">
+        <button
+          type="button"
+          onClick={() => {
+            reset();
+            setCards({});
+            setCardError(null);
+          }}
+          className="link text-sm"
+        >
           Submit another
         </button>
       )}

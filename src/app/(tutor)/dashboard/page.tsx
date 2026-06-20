@@ -1,5 +1,6 @@
 import { auth } from "~/server/auth";
 import { api } from "~/trpc/server";
+import { AnnouncementsBanner } from "~/app/(tutor)/_components/announcements-banner";
 import { AttendanceForm } from "~/app/(tutor)/_components/attendance-form";
 import { AvailabilityEditor } from "~/app/(tutor)/_components/availability-editor";
 import { TutorPairings } from "~/app/(tutor)/_components/tutor-pairings";
@@ -14,6 +15,7 @@ export default async function TutorDashboard() {
   if (!me.active) {
     return (
       <div className="mx-auto max-w-2xl space-y-6 px-4 py-10">
+        <AnnouncementsBanner />
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-4 text-amber-800">
           <p className="font-semibold">Your tutor account is pending approval.</p>
           <p className="mt-1 text-sm">
@@ -37,7 +39,10 @@ export default async function TutorDashboard() {
 
   return (
     <div className="mx-auto max-w-5xl space-y-8 px-4 py-8">
-      {/* Header + monthly total */}
+      {/* Team announcements — shown on every login until acknowledged. */}
+      <AnnouncementsBanner />
+
+      {/* Header + monthly service-hour earnings */}
       <div className="flex flex-wrap items-end justify-between gap-4">
         <div>
           <h1 className="page-title">Hi, {session?.user?.name}</h1>
@@ -55,6 +60,9 @@ export default async function TutorDashboard() {
           </p>
         </div>
       </div>
+
+      {/* Pending interviews + session-time confirmations (self-hides when none). */}
+      <MyInterviews />
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
         {/* Pairings + availability */}
@@ -87,9 +95,6 @@ export default async function TutorDashboard() {
           <AttendanceForm />
         </section>
       </div>
-
-      {/* Interviews this tutor is on the panel for (self-hides when none) */}
-      <MyInterviews />
 
       {/* Room assignments (read-only schedule grid; your pairings are highlighted) */}
       <section className="space-y-2">
