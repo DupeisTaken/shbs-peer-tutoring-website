@@ -478,6 +478,49 @@ export const adminRouter = createTRPCRouter({
       return ctx.db.course.delete({ where: { id: input.id } });
     }),
 
+  /** Batch-edit selected courses: set their tag and/or active flag in one go. */
+  batchUpdateCourses: adminProcedure
+    .input(
+      z.object({
+        ids: z.array(cuid).min(1),
+        tag: courseTag.optional(),
+        active: z.boolean().optional(),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      ctx.db.course.updateMany({
+        where: { id: { in: input.ids } },
+        data: {
+          ...(input.tag ? { tag: input.tag } : {}),
+          ...(input.active === undefined ? {} : { active: input.active }),
+        },
+      }),
+    ),
+
+  /** Bulk-create courses (e.g. from a CSV upload). Duplicate names are skipped. */
+  importCourses: adminProcedure
+    .input(
+      z.object({
+        courses: z
+          .array(z.object({ name: z.string().trim().min(1), tag: courseTag.optional() }))
+          .min(1)
+          .max(500),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // De-dupe by name within the batch, then let the DB skip names that already exist.
+      const seen = new Set<string>();
+      const data: { name: string; tag: "AP" | "HONORS" | "STANDARD" }[] = [];
+      for (const c of input.courses) {
+        const key = c.name.toLowerCase();
+        if (seen.has(key)) continue;
+        seen.add(key);
+        data.push({ name: c.name, tag: c.tag ?? "STANDARD" });
+      }
+      const result = await ctx.db.course.createMany({ data, skipDuplicates: true });
+      return { created: result.count, received: input.courses.length };
+    }),
+
   // --------------------------------------------------------------------------
   // Time-slot catalog (reference scheduling; tutors/tutees mark availability)
   // --------------------------------------------------------------------------
