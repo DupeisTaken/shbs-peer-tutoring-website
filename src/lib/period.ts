@@ -37,6 +37,15 @@ function pad2(n: number): string {
   return String(((n % 100) + 100) % 100).padStart(2, "0");
 }
 
+/**
+ * School years are stored as two 2-digit years ("25-26") and assumed to be in the 21st century
+ * (20xx). This is unambiguous and correct for every year from 2000–2098; the "98-99" -> "99-00"
+ * step is the documented horizon (well beyond a decade). To run past ~2098, widen the format to
+ * 4-digit start years — `schoolYearEndYear` is the single place that maps the suffix to a calendar
+ * year, so the change is localized.
+ */
+const SCHOOL_YEAR_CENTURY = 2000;
+
 /** Validate a "YY-YY" school year where the second year is the first + 1. */
 export function isSchoolYear(value: string): boolean {
   const m = /^(\d{2})-(\d{2})$/.exec(value);
@@ -86,7 +95,7 @@ export function crossesYear(from: Period, to: Period): boolean {
 /** Last (spring) calendar year of a "YY-YY" school year, e.g. "25-26" -> 2026. */
 export function schoolYearEndYear(schoolYear: string): number {
   const m = /^(\d{2})-(\d{2})$/.exec(schoolYear);
-  return m ? 2000 + Number(m[2]) : NaN;
+  return m ? SCHOOL_YEAR_CENTURY + Number(m[2]) : NaN;
 }
 
 /** Graduating ("class of") year for a grade in a given school year. G12 of "25-26" -> 2026. */

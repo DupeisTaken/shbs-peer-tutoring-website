@@ -175,6 +175,24 @@ Every tRPC procedure's real handler time is logged in dev (`[trpc] <type> <path>
 **opt-in** via `TRPC_DEV_DELAY=true` (off by default) so local dev isn't slowed and the timing
 log reflects true DB + compute cost.
 
+### Longevity
+
+The program is designed to run for many years unattended:
+
+- **No wall-clock expiry.** Periods advance only by an explicit admin **Refresh**, never because a
+  date passed — so nothing silently breaks as years roll over. The refresh engine (`src/lib/period.ts`)
+  is pure and unit-tested, including a simulation of 15 years of quarterly refreshes that asserts
+  quarters, semesters, school years, and graduation cohorts never drift.
+- **Known horizon.** School years are stored as two digits (`25-26`) assumed to be 21st-century;
+  this is correct through ~2098. `schoolYearEndYear` is the single place that maps the suffix to a
+  calendar year — widen it to a 4-digit start year to go further.
+- **Bounded growth.** At program scale, data accrues modestly over a decade (thousands of rows).
+  Heavy reads stay cheap because they're indexed by period (`[schoolYear, quarter]`), aggregated in
+  Postgres (`groupBy`), or windowed (submissions default to the current month; pairings to the active
+  term). Refreshes archive rather than delete, so history is preserved without bloating live views.
+- **Operations.** Daily Postgres backups with rotation (`scripts/backup.sh`), a pinned lockfile, and
+  CI-built images keep deploys reproducible — see [README-DEPLOY.md](./README-DEPLOY.md).
+
 ## Getting started
 
 Prerequisites: **Node 20+**, **npm**, and a **PostgreSQL** database.

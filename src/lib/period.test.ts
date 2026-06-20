@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 
 import {
+  type Period,
   crossesSemester,
   crossesYear,
   graduationYear,
@@ -108,5 +109,51 @@ describe("graduation year", () => {
     expect(graduationYear(9, "25-26")).toBe(2029);
     // class-of stays constant as both grade and year advance together
     expect(graduationYear(11, "25-26")).toBe(graduationYear(12, "26-27"));
+  });
+});
+
+/**
+ * Longevity: the program only advances via explicit refreshes, so the engine must stay correct
+ * across many years of them. Simulate 15 school years (60 quarterly refreshes) and assert the
+ * invariants never drift.
+ */
+describe("longevity — 15 years of quarterly refreshes", () => {
+  it("keeps quarters, semesters, and school years consistent", () => {
+    let p: Period = { schoolYear: "25-26", quarter: "Q1" };
+    let yearCount = 0;
+
+    for (let i = 0; i < 60; i++) {
+      const next = nextPeriod(p);
+      // Semester always matches the quarter.
+      expect(quarterSemester(p.quarter)).toBe(p.quarter < "Q3" ? "S1" : "S2");
+      // A year boundary happens exactly when Q4 rolls to Q1.
+      const yearTurned = crossesYear(p, next);
+      expect(yearTurned).toBe(p.quarter === "Q4");
+      // Every year boundary is also a semester boundary.
+      if (yearTurned) {
+        expect(crossesSemester(p, next)).toBe(true);
+        yearCount++;
+      }
+      // School year only changes at a year boundary, and always advances by one.
+      if (yearTurned) {
+        expect(schoolYearEndYear(next.schoolYear)).toBe(schoolYearEndYear(p.schoolYear) + 1);
+      } else {
+        expect(next.schoolYear).toBe(p.schoolYear);
+      }
+      p = next;
+    }
+
+    expect(yearCount).toBe(15);
+    expect(p.schoolYear).toBe("40-41"); // 25-26 + 15 years
+    expect(p.quarter).toBe("Q1");
+  });
+
+  it("keeps a cohort's class-of year constant as it ages each year", () => {
+    // A G9 tutor in 25-26 should always read "Class of 2029" until they graduate (G12 -> archived).
+    let schoolYear = "25-26";
+    for (let grade = 9; grade <= 12; grade++) {
+      expect(graduationYear(grade, schoolYear)).toBe(2029);
+      schoolYear = nextSchoolYear(schoolYear);
+    }
   });
 });
