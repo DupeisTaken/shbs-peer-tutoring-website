@@ -57,12 +57,12 @@ routed to `/onboarding/email` to set their own password and confirm the contact 
 sign-in codes go to (and opt into email 2FA), then on to the dashboard (`User.emailVerifiedAt`
 records completion so it doesn't repeat).
 
-**Email-based 2FA (one-time codes) is scaffolded but not implemented**, and the
-**forgot-password** flow's token logic is implemented but **email delivery is scaffolded**
-(no provider wired up). The schema (`User.twoFactorEnabled`, `EmailVerificationCode`,
-`PasswordResetToken`), the seams (`src/server/auth/two-factor.ts`,
-`src/server/auth/password-reset.ts`), and a provider-agnostic email seam
-(`src/server/email/sender.ts`) are in place; choosing an email provider is future work.
+**Email delivery uses Aliyun Direct Mail (SMTP)** via `src/server/email/sender.ts` (nodemailer).
+The **forgot-password** flow emails the reset link through it; when the SMTP env vars aren't set,
+the sender logs the message in dev (link included) and warns in production — so nothing breaks
+unconfigured. Configure it with the `SMTP_*` / `EMAIL_FROM` vars (see [README-DEPLOY.md](./README-DEPLOY.md)
+for the Aliyun console setup). **Email-based 2FA (one-time codes) is scaffolded but not
+implemented** (`src/server/auth/two-factor.ts`); it can reuse the same sender when turned on.
 
 ### Routes
 
@@ -79,8 +79,8 @@ records completion so it doesn't repeat).
   and arranges an interview.
 - `/signin` — public **team sign-in** form (username or email + password) for tutors,
   coordinators, and admins, with a **forgot-password** link.
-- `/forgot-password`, `/reset-password` — public password-reset flow (token logic works;
-  email delivery is scaffolded — the reset link is logged server-side in dev).
+- `/forgot-password`, `/reset-password` — public password-reset flow; the reset link is emailed
+  via Aliyun Direct Mail (or logged server-side in dev when SMTP isn't configured).
 - `/onboarding/email` — first-login gate where a new tutor sets their own password and
   confirms their contact email / 2FA preference before reaching the dashboard.
 - `/dashboard` — tutor home (any signed-in tutor): live monthly service hours, pairings
@@ -227,6 +227,8 @@ commented list. The essentials:
 | `NEXT_PUBLIC_TEAM_TITLE`       | Team/admin-area title (default `SHBS Peer Tutoring Team`).|
 | `MESSAGES_OVERRIDE`            | Optional JSON deep-merged over locale messages (white-label copy). |
 | `TRPC_DEV_DELAY`               | Dev only: `true` injects a 100–500ms delay per tRPC call (waterfall debugging). Off by default. |
+| `EMAIL_FROM` / `SMTP_PASSWORD` | Aliyun Direct Mail sender address + SMTP password. Both set ⇒ email is live; else dev-logs. |
+| `SMTP_HOST` / `SMTP_PORT`      | Direct Mail SMTP host (default `smtpdm.aliyun.com`) and port (default `465`). |
 
 Branding: the two `NEXT_PUBLIC_*` titles let you rebrand without code changes — they're
 read through `src/lib/branding.ts` and fall back to the defaults above. Because they're
@@ -267,7 +269,7 @@ src/
     api/routers/       # tRPC routers (tutor, tutee, admin) + tests
     auth/              # Auth.js config (Credentials/password, role/JWT logic)
                        #   password.ts (scrypt) + two-factor.ts (2FA scaffolding)
-    email/sender.ts    # provider-agnostic email seam (scaffolding)
+    email/sender.ts    # Aliyun Direct Mail (SMTP via nodemailer) + dev-log fallback
     concurrency.ts     # optimistic version-check helper for high-risk admin writes
     db.ts              # Prisma client
   lib/service-hours.ts # service-hour computation (pure, unit-tested)

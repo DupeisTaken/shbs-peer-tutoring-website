@@ -1,17 +1,13 @@
 /**
- * Forgot-password flow (token logic implemented; email delivery SCAFFOLDED).
- *
- * `issuePasswordReset` and `resetPassword` are fully functional against the database —
- * what's *not* wired up is sending the reset link by email (no provider is configured;
- * see src/server/email/sender.ts). Until then the link is logged server-side in dev so
- * the flow can be exercised end-to-end. Swap the `deliverResetLink` body for a real
- * `emailSender.send(...)` call when a provider is chosen.
- *
- * Node runtime only.
+ * Forgot-password flow. The reset link is emailed via the configured provider (Aliyun Direct
+ * Mail — see src/server/email/sender.ts). When email isn't configured, the sender logs the
+ * message in dev (so the link is still visible) and warns in production. Node runtime only.
  */
 import { createHash, randomBytes } from "crypto";
 
 import { db } from "~/server/db";
+import { emailSender } from "~/server/email/sender";
+import { APP_TITLE } from "~/lib/branding";
 import { hashPassword } from "./password";
 
 /** How long an issued reset token stays valid. */
@@ -50,18 +46,25 @@ export async function issuePasswordReset(identifier: string): Promise<void> {
 }
 
 /**
- * SCAFFOLDING: deliver the reset link. No email provider is configured yet, so in
- * development we log the link; in production this is a no-op until a provider is wired.
- * TODO: replace with `emailSender.send({ to, subject, text })`.
+ * Email the reset link. With a provider configured this sends a real message; otherwise the
+ * sender logs it in dev (link included) and warns in production.
  */
 async function deliverResetLink(to: string, token: string): Promise<void> {
-  if (process.env.NODE_ENV !== "production") {
-    console.info(
-      `[password-reset] (email not configured) reset link for ${to}: ` +
-        `/reset-password?token=${token}`,
-    );
-  }
-  return Promise.resolve();
+  const base = (process.env.AUTH_URL ?? "http://localhost:3000").replace(/\/+$/, "");
+  const link = `${base}/reset-password?token=${token}`;
+
+  await emailSender.send({
+    to,
+    subject: `Reset your ${APP_TITLE} password`,
+    text:
+      `We received a request to reset your ${APP_TITLE} password.\n\n` +
+      `Reset it within ${TOKEN_TTL_MINUTES} minutes:\n${link}\n\n` +
+      `If you didn't request this, you can safely ignore this email.`,
+    html:
+      `<p>We received a request to reset your <strong>${APP_TITLE}</strong> password.</p>` +
+      `<p><a href="${link}">Reset your password</a> — link valid for ${TOKEN_TTL_MINUTES} minutes.</p>` +
+      `<p>If you didn't request this, you can safely ignore this email.</p>`,
+  });
 }
 
 /**

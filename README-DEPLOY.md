@@ -32,8 +32,9 @@ no self-service sign-up for *logins*: the first admin account is created by the 
 directly, and admins create further accounts. The two public forms — tutee signup (`/signup`)
 and the tutor application (`/tutor-signup`) — only create `PENDING` `Tutee` / `TutorApplication`
 records for admin review; **neither creates a login account**. (Consider adding rate-limiting
-or a CAPTCHA in front of these public endpoints before launch.) Email-based 2FA is scaffolded
-but not yet implemented.
+or a CAPTCHA in front of these public endpoints before launch.) Transactional email (password
+resets) goes through Aliyun Direct Mail — see "Email" below. Email-based 2FA is scaffolded but
+not yet implemented.
 
 ## 2. Host setup (once)
 
@@ -52,6 +53,7 @@ cp .env.example .env
 #   AUTH_BOOTSTRAP_ADMIN_EMAILS=you@school.edu   (gives you ADMIN on first sign-in)
 #   TUTOR_DEFAULT_PASSWORD  (shared temp password for auto-created tutor logins; change
 #                            it from the default — tutors are forced to reset it on first login)
+#   EMAIL_FROM / SMTP_PASSWORD / SMTP_HOST / SMTP_PORT   (Aliyun Direct Mail — see below)
 ```
 
 > **Auto-provisioned tutor logins:** accepting a tutor application creates that tutor's `User`
@@ -59,6 +61,40 @@ cp .env.example .env
 > non-default value before going live.
 
 `DATABASE_URL`, `AUTH_URL`, and `AUTH_TRUST_HOST` are set automatically in `docker-compose.yml`.
+
+## Email — Aliyun Direct Mail (邮件推送)
+
+Transactional email (the password-reset link; later, 2FA codes) is sent through **Aliyun Direct
+Mail** over SMTP. Until `EMAIL_FROM` + `SMTP_PASSWORD` are set the app logs mail in dev and warns
+in production, so this is optional for a first boot but required for real password resets.
+
+**Set it up in the Aliyun console** (https://dm.console.aliyun.com):
+
+1. **Open Direct Mail** (邮件推送 / DirectMail) and pick a **region** near your users. The region
+   decides your SMTP host: mainland China → `smtpdm.aliyun.com`; Singapore → `smtpdm-ap-southeast-1.aliyun.com`.
+2. **Email Domains → New Domain** (发信域名): add a subdomain you control, e.g. `mail.your-school.edu`.
+   Aliyun shows DNS records to add at your DNS provider — typically a **TXT (SPF)**, a **TXT (DKIM)**,
+   an **MX**, and a CNAME/`_dmarc` record. Add them, then click **Verify** until all are green.
+3. **Sender Addresses → New Sender Address** (发信地址): create e.g. `noreply@mail.your-school.edu`,
+   type **Triggered/Transactional** (触发). 
+4. On that sender address, **set an SMTP password** (设置 SMTP 密码). This is a dedicated password,
+   **not** your Aliyun account password — copy it once.
+5. (Recommended) Raise the address's daily quota / verify a **reply-to** if you want replies.
+
+**Then fill `.env`:**
+
+```bash
+SMTP_HOST="smtpdm.aliyun.com"            # or your region's host
+SMTP_PORT="465"                          # 465 = SSL (recommended); 587 = STARTTLS
+EMAIL_FROM="noreply@mail.your-school.edu" # the verified sender address
+EMAIL_FROM_NAME="SHBS Peer Tutoring"     # optional From display name
+SMTP_PASSWORD="<the SMTP password from step 4>"
+# SMTP_USER is optional — it defaults to EMAIL_FROM (Aliyun logs in as the sender address).
+```
+
+Recreate the app container (`docker compose up -d app`) and test via **Forgot password** at `/signin`.
+If mail doesn't arrive: confirm the domain shows verified, the `From` exactly equals the sender
+address, outbound port 465 is open from the host, and check `docker compose logs app` for SMTP errors.
 
 ## 4. Image build (CI → GHCR)
 
@@ -104,8 +140,8 @@ docker compose exec app node node_modules/prisma/build/index.js db seed   # if a
 # or manage tutors/tutees/rooms/pairings from the /admin UI once you are ADMIN.
 ```
 
-> A proper admin "create user / set password" flow (and password reset) is future work —
-> see the email-2FA scaffolding referenced in [README.md](./README.md).
+> Password reset works once Aliyun Direct Mail is configured (see "Email" above). A proper
+> admin "create user / set password" UI is still future work.
 
 ## 6. Updates
 

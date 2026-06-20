@@ -91,10 +91,12 @@ submission time). See the `admin-philosophies` memory for the rationale.
   is for local use only — never in production.
 - Sign-in accepts **username or email** + password — the identifier is matched against
   `User.email` or the linked `Tutor.username` in the Credentials `authorize()`.
-- **Email delivery is NOT configured.** Email 2FA is fully scaffolded
-  (`src/server/auth/two-factor.ts`); the forgot-password token logic works
-  (`src/server/auth/password-reset.ts`) but the link is only logged in dev. Keep the
-  `src/server/email/sender.ts` stub until a provider is chosen — don't invent one.
+- **Email delivery is Aliyun Direct Mail (SMTP via nodemailer)** in
+  `src/server/email/sender.ts`. Active when `EMAIL_FROM` + `SMTP_PASSWORD` are set, else it
+  logs in dev / warns in prod (never throws). Forgot-password emails the reset link through it
+  (`src/server/auth/password-reset.ts`). **Email 2FA stays scaffolded** and intentionally NOT
+  implemented (`src/server/auth/two-factor.ts`) — it can reuse the sender. Note: `.npmrc` sets
+  `legacy-peer-deps=true` for the next-auth v5 ⇄ nodemailer optional-peer clash.
 
 ## Domain notes
 

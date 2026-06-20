@@ -24,6 +24,18 @@ export const env = createEnv({
       .enum(["true", "false"])
       .default("false")
       .transform((v) => v === "true"),
+    // Transactional email via Aliyun Direct Mail (SMTP). Email is "configured" when EMAIL_FROM
+    // and SMTP_PASSWORD are both set; otherwise the app falls back to logging mail in dev.
+    // See src/server/email/sender.ts and the email setup notes in README-DEPLOY.md.
+    SMTP_HOST: z.string().default("smtpdm.aliyun.com"),
+    SMTP_PORT: z.coerce.number().int().positive().default(465),
+    // SMTP login. For Aliyun the username IS the sender address; leave unset to use EMAIL_FROM.
+    SMTP_USER: z.string().optional(),
+    SMTP_PASSWORD: z.string().optional(),
+    // Verified Aliyun sender address (发信地址), e.g. "noreply@mail.example.edu".
+    EMAIL_FROM: z.string().email().optional(),
+    // Optional display name on the From header (defaults to the app title).
+    EMAIL_FROM_NAME: z.string().optional(),
     DATABASE_URL: z.string().url(),
     NODE_ENV: z
       .enum(["development", "test", "production"])
@@ -52,6 +64,12 @@ export const env = createEnv({
     AUTH_BOOTSTRAP_ADMIN_EMAILS: process.env.AUTH_BOOTSTRAP_ADMIN_EMAILS,
     TUTOR_DEFAULT_PASSWORD: process.env.TUTOR_DEFAULT_PASSWORD,
     TRPC_DEV_DELAY: process.env.TRPC_DEV_DELAY,
+    SMTP_HOST: process.env.SMTP_HOST,
+    SMTP_PORT: process.env.SMTP_PORT,
+    SMTP_USER: process.env.SMTP_USER,
+    SMTP_PASSWORD: process.env.SMTP_PASSWORD,
+    EMAIL_FROM: process.env.EMAIL_FROM,
+    EMAIL_FROM_NAME: process.env.EMAIL_FROM_NAME,
     DATABASE_URL: process.env.DATABASE_URL,
     NODE_ENV: process.env.NODE_ENV,
     NEXT_PUBLIC_APP_TITLE: process.env.NEXT_PUBLIC_APP_TITLE,
