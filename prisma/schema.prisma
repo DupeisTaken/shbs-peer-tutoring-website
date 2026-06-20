@@ -71,6 +71,24 @@ model User {
   createdAt DateTime @default(now())
 }
 
+/// An audit record of an admin mutation, with optional typed data to revert it. Actor
+/// id/name are denormalised so history survives user deletion. See src/server/audit/log.ts.
+model AuditLog {
+  id        String    @id @default(cuid())
+  userId    String?
+  userName  String?
+  action    String // human-readable, e.g. "Deleted course \"Physics\""
+  entity    String // e.g. "Course"
+  entityId  String?
+  /// Typed payload describing how to undo this action; null = not auto-revertible.
+  undoData  Json?
+  undone    Boolean   @default(false)
+  undoneAt  DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([createdAt])
+}
+
 /// A lightweight in-app notification for any user (tutor / coordinator / admin).
 model Notification {
   id        String    @id @default(cuid())

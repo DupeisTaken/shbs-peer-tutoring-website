@@ -11,6 +11,7 @@ import { defaultUsername, ensureUniqueUsername } from "~/server/auth/username";
 import { promoteApplicantToTutor } from "~/server/tutors/promote";
 import { notifyTutors, notifyUsers } from "~/server/notifications/create";
 import { disciplineStanding } from "~/lib/discipline";
+import { applyUndo, recordAudit } from "~/server/audit/log";
 
 const monthInput = z.string().regex(/^\d{4}-\d{2}$/);
 const cuid = z.string().min(1);
@@ -529,9 +530,27 @@ export const adminRouter = createTRPCRouter({
   /** Quick status change (e.g. approve a PENDING signup → ACTIVE). */
   setTuteeStatus: adminProcedure
     .input(z.object({ id: cuid, status: z.enum(TUTEE_STATUS) }))
-    .mutation(({ ctx, input }) =>
-      ctx.db.tutee.update({ where: { id: input.id }, data: { status: input.status } }),
-    ),
+    .mutation(async ({ ctx, input }) => {
+      const prev = await ctx.db.tutee.findUniqueOrThrow({
+        where: { id: input.id },
+        select: { status: true, englishName: true },
+      });
+      const updated = await ctx.db.tutee.update({
+        where: { id: input.id },
+        data: { status: input.status },
+      });
+      if (prev.status !== input.status) {
+        await recordAudit({
+          userId: ctx.session.user.id,
+          userName: ctx.session.user.name,
+          action: `Set ${prev.englishName} to ${input.status.toLowerCase()}`,
+          entity: "Tutee",
+          entityId: input.id,
+          undo: { kind: "tutee.status", payload: { id: input.id, status: prev.status } },
+        });
+      }
+      return updated;
+    }),
 
   deleteTutee: adminProcedure
     .input(z.object({ id: cuid }))
@@ -590,7 +609,20 @@ export const adminRouter = createTRPCRouter({
           message: "Course is chosen by one or more tutees. Mark it inactive instead.",
         });
       }
-      return ctx.db.course.delete({ where: { id: input.id } });
+      const course = await ctx.db.course.findUniqueOrThrow({
+        where: { id: input.id },
+        select: { id: true, name: true, levelId: true, active: true },
+      });
+      const deleted = await ctx.db.course.delete({ where: { id: input.id } });
+      await recordAudit({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name,
+        action: `Deleted course "${course.name}"`,
+        entity: "Course",
+        entityId: course.id,
+        undo: { kind: "course.restore", payload: course },
+      });
+      return deleted;
     }),
 
   /** Batch-edit selected courses: set their level and/or active flag in one go. */
@@ -921,6 +953,16 @@ export const adminRouter = createTRPCRouter({
       if (input.status === "ACCEPTED" && prev?.status !== "ACCEPTED") {
         await promoteApplicantToTutor(input.id);
       }
+      if (prev && prev.status !== input.status) {
+        await recordAudit({
+          userId: ctx.session.user.id,
+          userName: ctx.session.user.name,
+          action: `Set application status to ${input.status.toLowerCase()}`,
+          entity: "TutorApplication",
+          entityId: input.id,
+          undo: { kind: "application.status", payload: { id: input.id, status: prev.status } },
+        });
+      }
       return updated;
     }),
 
@@ -1057,9 +1099,29 @@ export const adminRouter = createTRPCRouter({
 
   deleteAnnouncement: adminProcedure
     .input(z.object({ id: cuid }))
-    .mutation(({ ctx, input }) =>
-      ctx.db.announcement.delete({ where: { id: input.id } }),
-    ),
+    .mutation(async ({ ctx, input }) => {
+      const a = await ctx.db.announcement.findUniqueOrThrow({
+        where: { id: input.id },
+        select: {
+          id: true,
+          title: true,
+          body: true,
+          pinned: true,
+          active: true,
+          createdById: true,
+        },
+      });
+      const deleted = await ctx.db.announcement.delete({ where: { id: input.id } });
+      await recordAudit({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name,
+        action: `Deleted announcement "${a.title}"`,
+        entity: "Announcement",
+        entityId: a.id,
+        undo: { kind: "announcement.restore", payload: a },
+      });
+      return deleted;
+    }),
 
   // --------------------------------------------------------------------------
   // Disciplinary cards (team recheck of yellow/red cards)
@@ -1090,8 +1152,12 @@ export const adminRouter = createTRPCRouter({
         reviewNote: z.string().trim().max(500).optional(),
       }),
     )
-    .mutation(({ ctx, input }) =>
-      ctx.db.disciplinaryCard.update({
+    .mutation(async ({ ctx, input }) => {
+      const prev = await ctx.db.disciplinaryCard.findUniqueOrThrow({
+        where: { id: input.id },
+        select: { reviewStatus: true, reviewNote: true, tutee: { select: { englishName: true } } },
+      });
+      const updated = await ctx.db.disciplinaryCard.update({
         where: { id: input.id },
         data: {
           reviewStatus: input.reviewStatus,
@@ -1099,6 +1165,59 @@ export const adminRouter = createTRPCRouter({
           reviewedById: ctx.session.user.id,
           reviewedAt: new Date(),
         },
-      }),
-    ),
+      });
+      await recordAudit({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name,
+        action: `Flagged ${prev.tutee.englishName}'s card ${input.reviewStatus.toLowerCase()}`,
+        entity: "DisciplinaryCard",
+        entityId: input.id,
+        undo: {
+          kind: "card.review",
+          payload: { id: input.id, reviewStatus: prev.reviewStatus, reviewNote: prev.reviewNote },
+        },
+      });
+      return updated;
+    }),
+
+  // --------------------------------------------------------------------------
+  // Audit log + undo
+  // --------------------------------------------------------------------------
+  auditLog: adminProcedure.query(({ ctx }) =>
+    ctx.db.auditLog.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
+  ),
+
+  undoAudit: adminProcedure
+    .input(z.object({ id: cuid }))
+    .mutation(async ({ ctx, input }) => {
+      const entry = await ctx.db.auditLog.findUniqueOrThrow({
+        where: { id: input.id },
+        select: { id: true, undone: true, undoData: true },
+      });
+      if (entry.undone) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Already undone." });
+      }
+      if (entry.undoData == null) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This action can't be undone automatically.",
+        });
+      }
+      let ok = false;
+      try {
+        ok = await applyUndo(entry.undoData);
+      } catch {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Undo failed — the item may have changed since.",
+        });
+      }
+      if (!ok) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Undo data was invalid." });
+      }
+      return ctx.db.auditLog.update({
+        where: { id: entry.id },
+        data: { undone: true, undoneAt: new Date() },
+      });
+    }),
 });

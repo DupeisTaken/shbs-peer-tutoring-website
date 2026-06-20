@@ -55,6 +55,7 @@ const NAV_SECTIONS: { title: string; items: NavItem[] }[] = [
     title: "Administration",
     items: [
       { href: "/admin/policies", label: "Policy documents" },
+      { href: "/admin/audit", label: "Audit log" },
       { href: "/admin/users", label: "Users & roles", adminOnly: true },
     ],
   },
