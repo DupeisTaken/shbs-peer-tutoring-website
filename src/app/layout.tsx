@@ -1,7 +1,7 @@
 import "~/styles/globals.css";
 
 import { type Metadata } from "next";
-import { Inter, Fraunces } from "next/font/google";
+import { Geist } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale } from "next-intl/server";
 
@@ -14,18 +14,9 @@ export const metadata: Metadata = {
   icons: [{ rel: "icon", url: "/favicon.ico" }],
 };
 
-// Body / UI typeface — a clean, professional grotesque for dense interface text.
-const inter = Inter({
+const geist = Geist({
   subsets: ["latin"],
-  variable: "--font-inter",
-});
-
-// Display typeface for headings — an editorial serif that gives the app a more
-// formal, Claude/Anthropic-adjacent voice. Used for page titles and section heads.
-const fraunces = Fraunces({
-  subsets: ["latin"],
-  variable: "--font-fraunces",
-  axes: ["opsz", "SOFT"],
+  variable: "--font-geist-sans",
 });
 
 export default async function RootLayout({
@@ -33,7 +24,7 @@ export default async function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   const locale = await getLocale();
   return (
-    <html lang={locale} className={`${inter.variable} ${fraunces.variable}`}>
+    <html lang={locale} className={`${geist.variable}`}>
       <body>
         <NextIntlClientProvider>
           <TRPCReactProvider>{children}</TRPCReactProvider>
