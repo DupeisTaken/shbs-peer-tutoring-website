@@ -687,7 +687,7 @@
       "options": { "none": "— none —" },
       "help": { "preferredContact": "Tell us the best way and time to contact you about your tutoring match." },
       "noSlots": "No time slots are published yet. Please check back later.",
-      "agree": "I have read and agree to abide by the {appTitle} rulebook.",
+      "agree": "I have read and agree to abide by the <policy>{appTitle} Policy</policy>.",
       "submit": "Submit request",
       "submitting": "Submitting…"
     },
@@ -720,8 +720,16 @@
       "qual": { "taken": "I've taken this class", "hasApScore": "I have an AP score", "selfStudied": "I self-studied this course" },
       "remove": "Remove",
       "addCourse": "+ Add another course",
+      "agree": "I have read and agree to abide by the <policy>{appTitle} Policy</policy>.",
       "submit": "Submit application",
       "submitting": "Submitting…"
+    },
+    "policy": {
+      "mustRead": "Open and read the policy to the end before agreeing.",
+      "scrollPrompt": "Scroll to the end to continue.",
+      "readPrompt": "You've reached the end.",
+      "done": "Done — I've read this",
+      "close": "Close"
     }
   },
   "components": {

@@ -6,10 +6,12 @@ import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { DAY_NAMES, minToHm } from "~/lib/time";
 import { APP_TITLE } from "~/lib/branding";
+import { PolicyAgreement } from "~/app/_components/policy-agreement";
 
 export function SignupForm() {
   const t = useTranslations();
   const options = api.tutee.signupOptions.useQuery();
+  const policy = api.tutee.policy.useQuery();
   const submit = api.tutee.requestSignup.useMutation();
 
   const [englishName, setEnglishName] = useState("");
@@ -217,20 +219,16 @@ export function SignupForm() {
         )}
       </fieldset>
 
-      {/* Rulebook signature */}
-      <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-        <label className="flex items-start gap-2 text-sm">
-          <input
-            type="checkbox"
-            className="mt-1"
-            checked={agreed}
-            onChange={(e) => setAgreed(e.target.checked)}
-          />
-          <span className="text-slate-700">
-            {t("public.signup.agree", { appTitle: APP_TITLE })}
-          </span>
-        </label>
-        <label className="mt-3 block space-y-1">
+      {/* Policy agreement (gated on reading the policy) + signature */}
+      <div className="space-y-4">
+        <PolicyAgreement
+          messageKey="public.signup.agree"
+          appTitle={APP_TITLE}
+          policy={policy.data}
+          checked={agreed}
+          onChange={setAgreed}
+        />
+        <label className="block space-y-1">
           <span className="label">{t("public.signup.fields.signature")}</span>
           <input
             className="input"

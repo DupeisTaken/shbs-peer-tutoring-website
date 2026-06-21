@@ -5,6 +5,7 @@ import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { APP_TITLE } from "~/lib/branding";
 import { OnboardingForm } from "./onboarding-form";
+import { FloatingLanguageSwitcher } from "~/app/_components/floating-language-switcher";
 
 export const metadata = {
   title: `Confirm your email · ${APP_TITLE}`,
@@ -31,6 +32,7 @@ export default async function OnboardingEmailPage() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-4 py-12">
+      <FloatingLanguageSwitcher />
       <div className="w-full max-w-sm text-center">
         <span className="badge-slate mb-3">{t("auth.onboarding.welcome", { appTitle: APP_TITLE })}</span>
         <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">

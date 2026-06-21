@@ -24,6 +24,14 @@ export const applicationRouter = createTRPCRouter({
     }),
   ),
 
+  /** The tutor policy/handbook (admin-editable) shown in the application agreement modal. */
+  policy: publicProcedure.query(({ ctx }) =>
+    ctx.db.policyDocument.findUnique({
+      where: { slug: "tutor-policy" },
+      select: { title: true, body: true },
+    }),
+  ),
+
   submit: publicProcedure
     .input(
       z.object({

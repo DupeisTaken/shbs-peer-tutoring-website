@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 
 import { APP_TITLE } from "~/lib/branding";
 import { ForgotPasswordForm } from "./forgot-password-form";
+import { FloatingLanguageSwitcher } from "~/app/_components/floating-language-switcher";
 
 export const metadata = {
   title: `Forgot password · ${APP_TITLE}`,
@@ -12,6 +13,7 @@ export default async function ForgotPasswordPage() {
   const t = await getTranslations();
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-4">
+      <FloatingLanguageSwitcher />
       <div className="w-full max-w-sm text-center">
         <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
           {t("auth.forgot.title")}

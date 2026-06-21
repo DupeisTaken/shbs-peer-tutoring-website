@@ -35,6 +35,14 @@ export const tuteeRouter = createTRPCRouter({
     return { courses, slots };
   }),
 
+  /** The tutee policy/handbook (admin-editable) shown in the signup agreement modal. */
+  policy: publicProcedure.query(({ ctx }) =>
+    ctx.db.policyDocument.findUnique({
+      where: { slug: "tutee-policy" },
+      select: { title: true, body: true },
+    }),
+  ),
+
   /** Submit a public signup request. Creates a PENDING tutee with course choices,
    *  availability and a typed rulebook signature. */
   requestSignup: publicProcedure

@@ -5,6 +5,7 @@ import { SignupForm } from "./signup-form";
 import { APP_TITLE } from "~/lib/branding";
 import { db } from "~/server/db";
 import { getActivePeriodOrNull } from "~/server/period";
+import { FloatingLanguageSwitcher } from "~/app/_components/floating-language-switcher";
 
 export const metadata = {
   title: `Request a tutor · ${APP_TITLE}`,
@@ -16,6 +17,7 @@ export default async function SignupPage() {
 
   return (
     <main className="mx-auto min-h-screen max-w-2xl px-4 py-12">
+      <FloatingLanguageSwitcher />
       <Link href="/" className="link text-sm">
         {t("common.backToMain")}
       </Link>
@@ -32,13 +34,6 @@ export default async function SignupPage() {
       </div>
 
       <SignupForm />
-
-      <p className="muted mt-8 text-center text-sm">
-        {t("public.signup.becomeTutorPrompt")}{" "}
-        <Link href="/tutor-signup" className="link">
-          {t("public.signup.becomeTutorLink")}
-        </Link>
-      </p>
     </main>
   );
 }

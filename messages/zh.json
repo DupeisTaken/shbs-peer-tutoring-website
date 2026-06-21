@@ -658,7 +658,7 @@
       "options": { "none": "— 无 —" },
       "help": { "preferredContact": "告诉我们就辅导匹配联系你的最佳方式和时间。" },
       "noSlots": "目前还没有发布任何时间段，请稍后再来查看。",
-      "agree": "我已阅读并同意遵守 {appTitle} 规章手册。",
+      "agree": "我已阅读并同意遵守 <policy>{appTitle} 政策</policy>。",
       "submit": "提交申请",
       "submitting": "提交中…"
     },
@@ -691,8 +691,16 @@
       "qual": { "taken": "我上过这门课", "hasApScore": "我有 AP 分数", "selfStudied": "我自学过这门课" },
       "remove": "移除",
       "addCourse": "+ 添加另一门课程",
+      "agree": "我已阅读并同意遵守 <policy>{appTitle} 政策</policy>。",
       "submit": "提交申请",
       "submitting": "提交中…"
+    },
+    "policy": {
+      "mustRead": "请先打开并读完政策，再勾选同意。",
+      "scrollPrompt": "请滚动到末尾以继续。",
+      "readPrompt": "你已阅读到末尾。",
+      "done": "完成 — 我已阅读",
+      "close": "关闭"
     }
   },
   "components": {

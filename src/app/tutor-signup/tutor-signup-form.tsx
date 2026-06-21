@@ -4,6 +4,8 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
+import { APP_TITLE } from "~/lib/branding";
+import { PolicyAgreement } from "~/app/_components/policy-agreement";
 
 type CourseRow = {
   courseId: string;
@@ -28,12 +30,14 @@ const emptyRow: CourseRow = {
 export function TutorSignupForm() {
   const t = useTranslations();
   const options = api.application.options.useQuery();
+  const policy = api.application.policy.useQuery();
   const submit = api.application.submit.useMutation();
 
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [preferredContact, setPreferredContact] = useState("");
   const [rows, setRows] = useState<CourseRow[]>([{ ...emptyRow }]);
+  const [agreed, setAgreed] = useState(false);
 
   const courses = options.data ?? [];
 
@@ -49,6 +53,7 @@ export function TutorSignupForm() {
     preferredContact.trim() &&
     chosen.length >= 1 &&
     new Set(chosen).size === chosen.length &&
+    agreed &&
     !submit.isPending;
 
   if (submit.isSuccess) {
@@ -251,6 +256,15 @@ export function TutorSignupForm() {
           </button>
         )}
       </div>
+
+      {/* Policy agreement (gated on reading the policy) */}
+      <PolicyAgreement
+        messageKey="public.tutorSignup.agree"
+        appTitle={APP_TITLE}
+        policy={policy.data}
+        checked={agreed}
+        onChange={setAgreed}
+      />
 
       {submit.error && (
         <p role="alert" className="text-sm text-red-600">

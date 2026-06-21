@@ -70,8 +70,8 @@ implemented** (`src/server/auth/two-factor.ts`); it can reuse the same sender wh
 - `/signup` — **public** tutee signup form: name, contact details (including a required
   free-text "how can we reach you?"), first/second course choice (from the admin-managed
   catalog), available time slots, and a typed rulebook signature. Shows the current program
-  term (e.g. `25-26 S2`) and links to the tutor application. Creates a `PENDING` tutee for an
-  admin to review and assign.
+  term (e.g. `25-26 S2`); the agreement checkbox unlocks only after the applicant opens and
+  reads the policy in a modal. Creates a `PENDING` tutee for an admin to review and assign.
 - `/tutor-signup` — **public** tutor *application*: name, contact email, a required
   "how can we reach you?" field, and up to three intended courses. For each course the applicant reports how they're qualified — took the
   class (+ grade), holds an AP score (only offered for AP-tagged courses, and only entered

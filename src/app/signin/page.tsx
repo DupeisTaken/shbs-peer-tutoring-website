@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 
 import { auth } from "~/server/auth";
 import { SignInForm } from "./sign-in-form";
+import { FloatingLanguageSwitcher } from "~/app/_components/floating-language-switcher";
 
 export default async function SignInPage() {
   // Already signed in — send them home (which routes to the right area by role).
@@ -14,6 +15,7 @@ export default async function SignInPage() {
 
   return (
     <main className="flex min-h-screen flex-col items-center justify-center px-4">
+      <FloatingLanguageSwitcher />
       <div className="w-full max-w-sm text-center">
         <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
           {t("auth.signinTitle")}
