@@ -3,6 +3,8 @@
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
+import { Markdown } from "~/app/_components/markdown";
+
 type Policy = { title: string; body: string } | null | undefined;
 
 /**
@@ -131,9 +133,9 @@ function PolicyModal({
         <div
           ref={scrollRef}
           onScroll={onScroll}
-          className="overflow-y-auto px-5 py-4 text-sm leading-relaxed whitespace-pre-wrap text-slate-700"
+          className="overflow-y-auto px-5 py-4 text-sm leading-relaxed text-slate-700"
         >
-          {body}
+          <Markdown>{body}</Markdown>
         </div>
         <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-5 py-3">
           <span className="muted text-xs">

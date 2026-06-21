@@ -7,7 +7,7 @@
     "backToMain": "← 返回主页"
   },
   "auth": {
-    "signinTitle": "团队登录",
+    "signinTitle": "登录",
     "signinSubtitle": "辅导员、协调员和管理员登录以继续。",
     "identifier": "用户名或邮箱",
     "password": "密码",
@@ -52,7 +52,7 @@
     }
   },
   "landing": {
-    "nav": { "requestTutor": "申请辅导", "becomeTutor": "成为辅导员", "teamSignin": "团队登录" },
+    "nav": { "requestTutor": "申请辅导", "becomeTutor": "成为辅导员", "teamSignin": "登录" },
     "tagline": "朋辈辅导项目",
     "heroTitle": "一起学习，共同成长。",
     "intro": "占位介绍——这里放一段关于 {appTitle} 项目的简短介绍。说明面向的对象、可以获得哪些科目的帮助，以及朋辈辅导员如何发挥作用。请用正式的项目简介替换此文字。",

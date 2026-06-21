@@ -29,13 +29,7 @@ export default async function SignInPage() {
             </Link>
           </p>
         </div>
-        <p className="muted mt-6">
-          {t("auth.lookingForTutor")}{" "}
-          <Link href="/signup" className="link">
-            {t("auth.requestOne")}
-          </Link>
-        </p>
-        <p className="mt-2">
+        <p className="mt-6">
           <Link href="/" className="link">
             {t("common.backToMain")}
           </Link>

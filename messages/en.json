@@ -7,7 +7,7 @@
     "backToMain": "← Back to main page"
   },
   "auth": {
-    "signinTitle": "Team sign-in",
+    "signinTitle": "Sign in",
     "signinSubtitle": "Tutors, coordinators, and admins sign in to continue.",
     "identifier": "Username or email",
     "password": "Password",
@@ -59,7 +59,7 @@
     "nav": {
       "requestTutor": "Request a tutor",
       "becomeTutor": "Become a tutor",
-      "teamSignin": "Team sign-in"
+      "teamSignin": "Sign in"
     },
     "tagline": "Peer Tutoring Program",
     "heroTitle": "Learn together. Grow together.",
