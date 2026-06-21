@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { APP_TITLE } from "~/lib/branding";
@@ -29,8 +29,9 @@ const emptyRow: CourseRow = {
 
 export function TutorSignupForm() {
   const t = useTranslations();
+  const locale = useLocale();
   const options = api.application.options.useQuery();
-  const policy = api.application.policy.useQuery();
+  const policy = api.application.policy.useQuery({ locale });
   const submit = api.application.submit.useMutation();
 
   const [name, setName] = useState("");
@@ -91,39 +92,6 @@ export function TutorSignupForm() {
         });
       }}
     >
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <label className="space-y-1">
-          <span className="label">{t("public.tutorSignup.fields.fullName")}</span>
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} required />
-        </label>
-        <label className="space-y-1">
-          <span className="label">{t("public.tutorSignup.fields.email")}</span>
-          <input
-            type="email"
-            className="input"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            autoComplete="email"
-            required
-          />
-        </label>
-      </div>
-
-      {/* Preferred contact — make it unmistakable how to reach this applicant. */}
-      <label className="space-y-1">
-        <span className="label">{t("public.tutorSignup.fields.preferredContact")}</span>
-        <input
-          className="input"
-          value={preferredContact}
-          onChange={(e) => setPreferredContact(e.target.value)}
-          placeholder={t("public.tutorSignup.placeholders.preferredContact")}
-          required
-        />
-        <span className="muted text-xs">
-          {t("public.tutorSignup.help.preferredContact")}
-        </span>
-      </label>
-
       <div>
         <p className="label">{t("public.tutorSignup.fields.courses")}</p>
         <p className="muted mb-2">
@@ -177,8 +145,8 @@ export function TutorSignupForm() {
                   )}
                 </div>
 
-                {/* Qualification paths */}
-                <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
+                {/* Qualification ticks — all checkboxes grouped together. */}
+                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
                   <label className="flex items-center gap-2 text-sm text-slate-700">
                     <input
                       type="checkbox"
@@ -187,21 +155,7 @@ export function TutorSignupForm() {
                     />
                     {t("public.tutorSignup.qual.taken")}
                   </label>
-                  {row.taken && (
-                    <label className="space-y-1">
-                      <span className="label">{t("public.tutorSignup.fields.grade")}</span>
-                      <input
-                        className="input w-32"
-                        value={row.grade}
-                        onChange={(e) => setRow(i, { grade: e.target.value })}
-                        placeholder={t("public.tutorSignup.placeholders.grade")}
-                      />
-                    </label>
-                  )}
-                </div>
-
-                {isAp && (
-                  <div className="flex flex-wrap items-end gap-x-4 gap-y-2">
+                  {isAp && (
                     <label className="flex items-center gap-2 text-sm text-slate-700">
                       <input
                         type="checkbox"
@@ -210,21 +164,7 @@ export function TutorSignupForm() {
                       />
                       {t("public.tutorSignup.qual.hasApScore")}
                     </label>
-                    {/* AP score entry is only enabled once they say they have one. */}
-                    <label className="space-y-1">
-                      <span className="label">{t("public.tutorSignup.fields.apScore")}</span>
-                      <input
-                        className="input w-32"
-                        value={row.apScore}
-                        disabled={!row.hasApScore}
-                        onChange={(e) => setRow(i, { apScore: e.target.value })}
-                        placeholder={t("public.tutorSignup.placeholders.apScore")}
-                      />
-                    </label>
-                  </div>
-                )}
-
-                <div className="space-y-2">
+                  )}
                   <label className="flex items-center gap-2 text-sm text-slate-700">
                     <input
                       type="checkbox"
@@ -233,19 +173,45 @@ export function TutorSignupForm() {
                     />
                     {t("public.tutorSignup.qual.selfStudied")}
                   </label>
-                  {row.selfStudied && (
-                    <label className="block space-y-1">
-                      <span className="label">{t("public.tutorSignup.fields.selfStudyNote")}</span>
-                      <textarea
-                        className="textarea w-full"
-                        rows={2}
-                        value={row.selfStudyNote}
-                        onChange={(e) => setRow(i, { selfStudyNote: e.target.value })}
-                        placeholder={t("public.tutorSignup.placeholders.selfStudyNote")}
-                      />
-                    </label>
-                  )}
                 </div>
+
+                {/* Detail boxes — each appears only when its tick is set. */}
+                {row.taken && (
+                  <label className="block space-y-1">
+                    <span className="label">{t("public.tutorSignup.fields.grade")}</span>
+                    <input
+                      className="input w-32"
+                      value={row.grade}
+                      onChange={(e) => setRow(i, { grade: e.target.value })}
+                      placeholder={t("public.tutorSignup.placeholders.grade")}
+                    />
+                  </label>
+                )}
+
+                {isAp && row.hasApScore && (
+                  <label className="block space-y-1">
+                    <span className="label">{t("public.tutorSignup.fields.apScore")}</span>
+                    <input
+                      className="input w-32"
+                      value={row.apScore}
+                      onChange={(e) => setRow(i, { apScore: e.target.value })}
+                      placeholder={t("public.tutorSignup.placeholders.apScore")}
+                    />
+                  </label>
+                )}
+
+                {row.selfStudied && (
+                  <label className="block space-y-1">
+                    <span className="label">{t("public.tutorSignup.fields.selfStudyNote")}</span>
+                    <textarea
+                      className="textarea w-full"
+                      rows={2}
+                      value={row.selfStudyNote}
+                      onChange={(e) => setRow(i, { selfStudyNote: e.target.value })}
+                      placeholder={t("public.tutorSignup.placeholders.selfStudyNote")}
+                    />
+                  </label>
+                )}
               </div>
             );
           })}
@@ -265,6 +231,39 @@ export function TutorSignupForm() {
         checked={agreed}
         onChange={setAgreed}
       />
+
+      {/* Contact details last — who they are and how to reach them. */}
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+        <label className="space-y-1">
+          <span className="label">{t("public.tutorSignup.fields.fullName")}</span>
+          <input className="input" value={name} onChange={(e) => setName(e.target.value)} required />
+        </label>
+        <label className="space-y-1">
+          <span className="label">{t("public.tutorSignup.fields.email")}</span>
+          <input
+            type="email"
+            className="input"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            autoComplete="email"
+            required
+          />
+        </label>
+      </div>
+
+      <label className="space-y-1">
+        <span className="label">{t("public.tutorSignup.fields.preferredContact")}</span>
+        <input
+          className="input"
+          value={preferredContact}
+          onChange={(e) => setPreferredContact(e.target.value)}
+          placeholder={t("public.tutorSignup.placeholders.preferredContact")}
+          required
+        />
+        <span className="muted text-xs">
+          {t("public.tutorSignup.help.preferredContact")}
+        </span>
+      </label>
 
       {submit.error && (
         <p role="alert" className="text-sm text-red-600">

@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { DAY_NAMES, minToHm } from "~/lib/time";
@@ -10,8 +10,9 @@ import { PolicyAgreement } from "~/app/_components/policy-agreement";
 
 export function SignupForm() {
   const t = useTranslations();
+  const locale = useLocale();
   const options = api.tutee.signupOptions.useQuery();
-  const policy = api.tutee.policy.useQuery();
+  const policy = api.tutee.policy.useQuery({ locale });
   const submit = api.tutee.requestSignup.useMutation();
 
   const [englishName, setEnglishName] = useState("");

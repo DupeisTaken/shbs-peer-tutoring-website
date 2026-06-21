@@ -30,15 +30,24 @@ Every signed-in user has one role (stored on `User.role`, carried in the JWT):
 
 | Role          | Can do                                                              |
 | ------------- | ------------------------------------------------------------------- |
+| `VIEWER`      | Read-only access to the `/admin` area. Cannot mutate anything (queries use `viewerProcedure`, mutations stay on `adminProcedure`), and personal contact details (emails / phone / preferred contact) are masked server-side. |
 | `TUTOR`       | View their own dashboard and submit attendance for their pairings.  |
 | `COORDINATOR` | Tutor abilities plus access to the `/admin` management area.        |
 | `ADMIN`       | Everything, including managing users/roles.                         |
+
+Admins can also tick **"Can tutor"** on the Users & Roles page for an admin/coordinator,
+which links them to an (active) `Tutor` record so they can use both areas; unticking
+deactivates and unlinks it.
 
 There is no self-service sign-up: a `User` account (with a password) must exist before
 someone can sign in — created by the seed or by an admin. An account whose email is listed
 in `AUTH_BOOTSTRAP_ADMIN_EMAILS` is promoted to `ADMIN` on its first sign-in; after that,
 admins promote others in-app. A signed-in `User` is optionally linked to a domain `Tutor`
 record (matched by email) so tutors see their own pairings.
+
+A coordinator/admin who is **also** a tutor (their account links to a `Tutor` record) can use
+both areas: sign-in lands them on `/admin` first, and the user menu shows **Enter tutor area** /
+**Enter admin area** links to switch between `/admin` and `/dashboard`.
 
 ### Authentication
 

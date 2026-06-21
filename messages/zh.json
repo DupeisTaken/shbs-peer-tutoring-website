@@ -33,6 +33,7 @@
       "backToSignIn": "← 返回登录",
       "success": "你的密码已重置，现在可以登录了。",
       "goToSignIn": "前往登录",
+      "yourUsername": "你的登录用户名：",
       "fields": { "newPassword": "新密码", "confirmPassword": "确认新密码" },
       "submit": "设置新密码",
       "saving": "保存中…"
@@ -167,7 +168,12 @@
       "assignToTutor": "— 分配给导师 —",
       "tutorWorkload": "{name} — {pairings} 个配对 · {tutees} 名学员",
       "assigning": "分配中…",
+      "assign": "分配",
       "assignActivate": "分配并激活",
+      "assignedTo": "已分配给 {name}",
+      "fulfilled": "已完成",
+      "expand": "展开",
+      "collapse": "收起",
       "empty": "暂无待处理报名。🎉",
       "grade": "{grade} 年级",
       "submitted": "提交于 {when}",
@@ -175,6 +181,9 @@
       "reach": "联系方式：{contact}",
       "signed": "已签署：✓ {name}",
       "notSigned": "已签署：— 未签署"
+    },
+    "readOnly": {
+      "banner": "只读权限 — 你可以浏览全部内容，但无法进行更改，且联系方式已隐藏。"
     },
     "nav": {
       "sections": {
@@ -186,8 +195,8 @@
       },
       "links": {
         "dashboard": "仪表板",
-        "activity": "动态",
-        "history": "历史",
+        "activity": "动态与申请",
+        "history": "项目历史",
         "announcements": "公告",
         "program": "项目与刷新",
         "tutorRoster": "导师名册",
@@ -199,7 +208,7 @@
         "signupRequests": "报名请求",
         "tuteeDiscipline": "学员纪律",
         "pairings": "配对",
-        "attendance": "出勤",
+        "attendance": "考勤提交记录",
         "timeSlots": "时间段",
         "coursesLevels": "课程与级别",
         "rooms": "教室",
@@ -253,6 +262,8 @@
       "subtitleMonthly": "各导师的服务时数。",
       "scope": "本学期 · {label}",
       "viewHistory": "查看历史 →",
+      "monthLabel": "月份：",
+      "clearMonth": "清除",
       "inactive": "（已停用）",
       "columns": { "tutor": "导师", "sessions": "课时", "earned": "已获得", "extras": "额外", "penalties": "扣减", "total": "总计" }
     },
@@ -262,8 +273,8 @@
       "schoolYear": "学年",
       "scope": "时段",
       "wholeYear": "整个学年",
-      "s1": "S1（Q1+Q2）",
-      "s2": "S2（Q3+Q4）",
+      "s1": "S1",
+      "s2": "S2",
       "inactive": "（已停用）",
       "noData": "该时段暂无记录。",
       "columns": { "tutor": "导师", "sessions": "课时", "earned": "已获得", "extras": "额外", "penalties": "扣减", "total": "总计" },
@@ -289,7 +300,8 @@
       "effectTutees": "归档所有当前已配对的学员——他们需要重新报名才能继续。",
       "effectPairings": "清空当前配对面板（过往配对与出勤保留在历史中）。",
       "effectAvailability": "提示你确认哪些在职导师仍然可用。",
-      "effectGraduate": "G12 导师毕业，所有导师升一个年级。",
+      "effectGraduate": "G12 导师毕业（在 Q4 开始时离开）。",
+      "effectAgeUp": "其余每位导师升一个年级。",
       "effectHoursReset": "为学期 {semester} 重新开始一份服务时数 / 出勤统计。",
       "effectHoursKeep": "继续累计服务时数（仍是同一学期）。",
       "confirmLabel": "输入 REFRESH 以确认此项目级操作。",
@@ -318,12 +330,13 @@
     "users": {
       "title": "用户与角色",
       "subtitle": "仅限管理员。角色将在用户下次登录时生效。",
-      "columns": { "name": "姓名", "email": "邮箱", "linkedTutor": "关联导师", "role": "角色" },
-      "roles": { "TUTOR": "导师", "COORDINATOR": "协调员", "ADMIN": "管理员" },
+      "columns": { "name": "姓名", "email": "邮箱", "linkedTutor": "关联导师", "role": "角色", "canTutor": "可担任导师" },
+      "roles": { "VIEWER": "访客（只读）", "TUTOR": "导师", "COORDINATOR": "协调员", "ADMIN": "管理员" },
+      "canTutorLabel": "可担任导师",
       "empty": "尚无用户登录。"
     },
     "submissions": {
-      "title": "提交记录",
+      "title": "考勤提交记录",
       "allTutors": "全部导师",
       "colDate": "日期",
       "colTutor": "导师",
@@ -427,6 +440,9 @@
       "empty": "暂无政策文档。请运行种子脚本创建。",
       "editor": {
         "versionPlaceholder": "版本",
+        "titlePlaceholder": "文档标题",
+        "bodyPlaceholder": "用 Markdown 编写政策…",
+        "notTranslated": "尚未翻译",
         "slugLabel": "标识符",
         "lastEdited": "· Markdown · 最后编辑于 {date}",
         "editedBy": "编辑者 {who}",
@@ -706,6 +722,10 @@
   "components": {
     "notifications": { "title": "通知", "markAllRead": "全部标为已读", "empty": "暂无内容。" },
     "signOut": { "label": "退出登录" },
-    "userMenu": { "settings": "设置" }
+    "userMenu": {
+      "settings": "设置",
+      "enterTutor": "进入导师区",
+      "enterAdmin": "进入管理区"
+    }
   }
 }

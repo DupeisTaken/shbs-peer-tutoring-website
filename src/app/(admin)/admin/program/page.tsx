@@ -42,7 +42,7 @@ export default function ProgramPage() {
   );
   const confirmOk = confirm.trim().toUpperCase() === "REFRESH";
   const isGraduating = (gradeLevel: number | null) =>
-    !!period?.next.crossesYear && (gradeLevel ?? 0) >= 12;
+    !!period?.next.graduates && (gradeLevel ?? 0) >= 12;
 
   const submit = () => {
     if (!period) return;
@@ -88,7 +88,8 @@ export default function ProgramPage() {
               <li>{t("admin.program.effectTutees")}</li>
               <li>{t("admin.program.effectPairings")}</li>
               {period.next.crossesSemester && <li>{t("admin.program.effectAvailability")}</li>}
-              {period.next.crossesYear && <li>{t("admin.program.effectGraduate")}</li>}
+              {period.next.graduates && <li>{t("admin.program.effectGraduate")}</li>}
+              {period.next.crossesYear && <li>{t("admin.program.effectAgeUp")}</li>}
               <li>
                 {period.next.crossesSemester
                   ? t("admin.program.effectHoursReset", { semester: period.next.semester })
@@ -123,7 +124,7 @@ export default function ProgramPage() {
               {done && (
                 <p className="mt-2 text-sm text-green-700">
                   {t("admin.program.done", { name: done.name, count: done.archivedTutees })}
-                  {done.crossedYear &&
+                  {(done.graduatedTutors > 0 || done.agedTutors > 0) &&
                     ` ${t("admin.program.doneGrad", { graduated: done.graduatedTutors, aged: done.agedTutors })}`}
                 </p>
               )}
@@ -140,7 +141,7 @@ export default function ProgramPage() {
               {t("admin.program.modalTitle", { name: period.next.name })}
             </h2>
             <p className="muted mt-1 text-sm">{t("admin.program.modalIntro")}</p>
-            {period.next.crossesYear && (
+            {period.next.graduates && (
               <p className="mt-1 text-sm text-amber-700">{t("admin.program.modalGradNote")}</p>
             )}
 

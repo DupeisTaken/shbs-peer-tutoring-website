@@ -3,15 +3,15 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
 import { auth } from "~/server/auth";
-import { db } from "~/server/db";
 import { NavLink } from "~/app/_components/nav-link";
 import { SignOutButton } from "~/app/_components/sign-out-button";
-import { UserAvatar } from "~/app/_components/user-avatar";
 import { NotificationBell } from "~/app/_components/notification-bell";
 import { LanguageSwitcher } from "~/app/_components/language-switcher";
+import { ReadOnlyProvider } from "~/app/_components/read-only";
 import { TEAM_TITLE } from "~/lib/branding";
 
-const ELEVATED_ROLES = ["ADMIN", "COORDINATOR"];
+// Roles allowed into the /admin area. VIEWER is read-only (see viewerProcedure + PII masking).
+const ADMIN_AREA_ROLES = ["ADMIN", "COORDINATOR", "VIEWER"];
 
 type NavItem = { href: string; labelKey: string; exact?: boolean; adminOnly?: boolean };
 
@@ -79,36 +79,36 @@ export default async function AdminLayout({
   const t = await getTranslations();
 
   if (!session?.user) redirect("/signin");
-  if (!ELEVATED_ROLES.includes(session.role)) redirect("/");
-
-  const me = await db.user.findUnique({
-    where: { id: session.user.id },
-    select: { email: true, tutor: { select: { username: true } } },
-  });
+  if (!ADMIN_AREA_ROLES.includes(session.role)) redirect("/");
 
   const isAdmin = session.role === "ADMIN";
+  const readOnly = session.role === "VIEWER";
   const visible = (item: NavItem) => !item.adminOnly || isAdmin;
 
   return (
     <div className="min-h-screen">
-      {/* Mobile top bar (sidebar is hidden below lg) */}
-      <header className="border-b border-slate-200 bg-white lg:hidden">
-        <div className="flex items-center justify-between px-4 py-3">
-          <Link href="/admin" className="font-bold text-slate-900">
+      {/* Unified top bar (all breakpoints): brand + the global controls. */}
+      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white">
+        <div className="flex items-center justify-between gap-3 px-4 py-3 lg:px-6">
+          <Link href="/admin" className="text-lg font-bold text-slate-900">
             {TEAM_TITLE}
           </Link>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2 sm:gap-3">
+            <span className="muted hidden max-w-[14rem] truncate text-xs sm:inline">
+              {session.user.name} · {session.role}
+            </span>
             <LanguageSwitcher />
+            {session.tutorId && (
+              <Link href="/dashboard" className="btn-secondary btn-sm">
+                {t("components.userMenu.enterTutor")}
+              </Link>
+            )}
             <NotificationBell />
-            <UserAvatar
-              name={session.user.name ?? "User"}
-              username={me?.tutor?.username}
-              email={me?.email}
-              role={session.role}
-            />
+            <SignOutButton />
           </div>
         </div>
-        <nav className="flex gap-1 overflow-x-auto px-2 pb-2">
+        {/* Mobile nav row (sidebar is hidden below lg) */}
+        <nav className="flex gap-1 overflow-x-auto px-2 pb-2 lg:hidden">
           {NAV_SECTIONS.flatMap((s) => s.items)
             .filter(visible)
             .map((item) => (
@@ -123,53 +123,42 @@ export default async function AdminLayout({
       </header>
 
       <div className="mx-auto flex max-w-7xl gap-8 px-4 py-6 lg:px-6">
-        {/* Sidebar */}
+        {/* Sidebar (navigation only — global controls live in the top bar) */}
         <aside className="hidden w-56 shrink-0 lg:block">
-          <div className="sticky top-6 space-y-6">
-            <div className="px-3">
-              <div className="flex items-center justify-between gap-2">
-                <Link href="/admin" className="text-lg font-bold text-slate-900">
-                  {TEAM_TITLE}
-                </Link>
-                <NotificationBell />
-              </div>
-              <p className="muted mt-0.5 truncate text-xs">
-                {session.user.name} · {session.role}
-              </p>
-            </div>
-
-            <nav className="space-y-5">
-              {NAV_SECTIONS.map((section) => {
-                const items = section.items.filter(visible);
-                if (items.length === 0) return null;
-                return (
-                  <div key={section.titleKey}>
-                    <p className="px-3 pb-1 text-xs font-semibold tracking-wide text-slate-400 uppercase">
-                      {t(section.titleKey)}
-                    </p>
-                    <div className="space-y-0.5">
-                      {items.map((item) => (
-                        <NavLink
-                          key={item.href}
-                          href={item.href}
-                          label={t(item.labelKey)}
-                          exact={item.exact}
-                        />
-                      ))}
-                    </div>
+          <nav className="sticky top-20 space-y-5">
+            {NAV_SECTIONS.map((section) => {
+              const items = section.items.filter(visible);
+              if (items.length === 0) return null;
+              return (
+                <div key={section.titleKey}>
+                  <p className="px-3 pb-1 text-xs font-semibold tracking-wide text-slate-400 uppercase">
+                    {t(section.titleKey)}
+                  </p>
+                  <div className="space-y-0.5">
+                    {items.map((item) => (
+                      <NavLink
+                        key={item.href}
+                        href={item.href}
+                        label={t(item.labelKey)}
+                        exact={item.exact}
+                      />
+                    ))}
                   </div>
-                );
-              })}
-            </nav>
-
-            <div className="px-3 pt-2">
-              <SignOutButton />
-            </div>
-          </div>
+                </div>
+              );
+            })}
+          </nav>
         </aside>
 
         {/* Main content */}
-        <main className="min-w-0 flex-1">{children}</main>
+        <main className="min-w-0 flex-1">
+          {readOnly && (
+            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
+              {t("admin.readOnly.banner")}
+            </div>
+          )}
+          <ReadOnlyProvider value={readOnly}>{children}</ReadOnlyProvider>
+        </main>
       </div>
     </div>
   );

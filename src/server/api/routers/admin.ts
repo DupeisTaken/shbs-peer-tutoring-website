@@ -5,6 +5,7 @@ import {
   adminOnlyProcedure,
   adminProcedure,
   createTRPCRouter,
+  viewerProcedure,
 } from "~/server/api/trpc";
 import { monthKey } from "~/lib/service-hours";
 import { defaultUsername, ensureUniqueUsername } from "~/server/auth/username";
@@ -16,13 +17,28 @@ import {
   type Quarter,
   crossesSemester,
   crossesYear,
+  graduationYear,
   nextPeriod,
   quarterSemester,
   semesterQuarters,
 } from "~/lib/period";
 import { getActivePeriod, getActivePeriodOrNull } from "~/server/period";
+import type { db as dbClient } from "~/server/db";
 import { applyUndo, recordAudit } from "~/server/audit/log";
 import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
+
+/** Class-of year for a grade in the active school year, or null when neither is known. */
+async function activeGradYear(
+  db: typeof dbClient,
+  gradeLevel?: number | null,
+): Promise<number | null> {
+  if (gradeLevel == null) return null;
+  const term = await db.term.findFirst({
+    where: { active: true },
+    select: { schoolYear: true },
+  });
+  return term ? graduationYear(gradeLevel, term.schoolYear) : null;
+}
 
 const monthInput = z.string().regex(/^\d{4}-\d{2}$/);
 const cuid = z.string().min(1);
@@ -63,7 +79,7 @@ export const adminRouter = createTRPCRouter({
   // --------------------------------------------------------------------------
   // Reference lists
   // --------------------------------------------------------------------------
-  tutors: adminProcedure.query(({ ctx }) =>
+  tutors: viewerProcedure.query(({ ctx }) =>
     ctx.db.tutor.findMany({ orderBy: { englishName: "asc" } }),
   ),
   /**
@@ -71,7 +87,7 @@ export const adminRouter = createTRPCRouter({
    * Aggregated in Postgres (two `GROUP BY`s) so this returns ~one row per tutee instead of
    * pulling every session-tutee / card row into Node — keeps it cheap as history grows.
    */
-  tuteeStats: adminProcedure.query(async ({ ctx }) => {
+  tuteeStats: viewerProcedure.query(async ({ ctx }) => {
     const [sessionGroups, cardGroups] = await Promise.all([
       ctx.db.sessionTutee.groupBy({ by: ["tuteeId", "status"], _count: { _all: true } }),
       ctx.db.disciplinaryCard.groupBy({
@@ -152,7 +168,7 @@ export const adminRouter = createTRPCRouter({
     return result;
   }),
 
-  tutees: adminProcedure.query(({ ctx }) =>
+  tutees: viewerProcedure.query(({ ctx }) =>
     ctx.db.tutee.findMany({
       orderBy: [{ status: "asc" }, { englishName: "asc" }],
       include: {
@@ -166,7 +182,7 @@ export const adminRouter = createTRPCRouter({
       },
     }),
   ),
-  rooms: adminProcedure.query(({ ctx }) =>
+  rooms: viewerProcedure.query(({ ctx }) =>
     ctx.db.room.findMany({
       orderBy: { name: "asc" },
       include: {
@@ -176,10 +192,10 @@ export const adminRouter = createTRPCRouter({
       },
     }),
   ),
-  terms: adminProcedure.query(({ ctx }) =>
+  terms: viewerProcedure.query(({ ctx }) =>
     ctx.db.term.findMany({ orderBy: { createdAt: "desc" } }),
   ),
-  courses: adminProcedure.query(({ ctx }) =>
+  courses: viewerProcedure.query(({ ctx }) =>
     ctx.db.course.findMany({
       orderBy: { name: "asc" },
       include: { level: { select: { id: true, name: true } } },
@@ -187,7 +203,7 @@ export const adminRouter = createTRPCRouter({
   ),
 
   /** The admin-managed level catalogue (AP / Honors / Standard / …), ordered by rank. */
-  courseLevels: adminProcedure.query(({ ctx }) =>
+  courseLevels: viewerProcedure.query(({ ctx }) =>
     ctx.db.courseLevel.findMany({ orderBy: [{ rank: "asc" }, { name: "asc" }] }),
   ),
 
@@ -228,7 +244,7 @@ export const adminRouter = createTRPCRouter({
       });
       return ctx.db.courseLevel.delete({ where: { id: input.id } });
     }),
-  timeSlots: adminProcedure.query(({ ctx }) =>
+  timeSlots: viewerProcedure.query(({ ctx }) =>
     ctx.db.timeSlot.findMany({
       orderBy: [{ dayOfWeek: "asc" }, { startMin: "asc" }],
     }),
@@ -239,7 +255,7 @@ export const adminRouter = createTRPCRouter({
   // --------------------------------------------------------------------------
   // "Current pairings" = those in the active term. A program refresh activates a new term, so
   // the board clears automatically; past terms' pairings remain for history but aren't shown here.
-  pairings: adminProcedure.query(({ ctx }) =>
+  pairings: viewerProcedure.query(({ ctx }) =>
     ctx.db.pairing.findMany({
       where: { term: { active: true } },
       orderBy: [{ dayOfWeek: "asc" }, { startMin: "asc" }],
@@ -332,7 +348,7 @@ export const adminRouter = createTRPCRouter({
   // --------------------------------------------------------------------------
   // Submissions (all sessions)
   // --------------------------------------------------------------------------
-  sessions: adminProcedure
+  sessions: viewerProcedure
     .input(
       z
         .object({ tutorId: cuid.optional(), month: monthInput.optional() })
@@ -360,7 +376,7 @@ export const adminRouter = createTRPCRouter({
   // Program period (current quarter/semester) + history
   // --------------------------------------------------------------------------
   /** The active period plus a preview of what the next refresh would advance to. */
-  currentPeriod: adminProcedure.query(async ({ ctx }) => {
+  currentPeriod: viewerProcedure.query(async ({ ctx }) => {
     const active = await getActivePeriodOrNull(ctx.db);
     if (!active) return null;
     const np = nextPeriod({ schoolYear: active.schoolYear, quarter: active.quarter });
@@ -382,12 +398,14 @@ export const adminRouter = createTRPCRouter({
           { schoolYear: active.schoolYear, quarter: active.quarter },
           np,
         ),
+        // G12 tutors graduate as the program advances into Q4 (its final quarter).
+        graduates: np.quarter === "Q4",
       },
     };
   }),
 
   /** Every program period on record (one per quarter ever activated) — for history selectors. */
-  periods: adminProcedure.query(({ ctx }) =>
+  periods: viewerProcedure.query(({ ctx }) =>
     ctx.db.term.findMany({
       orderBy: [{ schoolYear: "desc" }, { quarter: "desc" }],
       select: { schoolYear: true, quarter: true, active: true },
@@ -400,13 +418,15 @@ export const adminRouter = createTRPCRouter({
    *   else a schoolYear given (no semester/quarter) -> the whole year;
    *   else (no input) -> the active period's current semester (the live "this semester" view).
    */
-  periodSummary: adminProcedure
+  periodSummary: viewerProcedure
     .input(
       z
         .object({
           schoolYear: z.string().optional(),
           semester: z.enum(["S1", "S2"]).optional(),
           quarter: z.enum(QUARTERS).optional(),
+          // Narrow to a single calendar month ("YYYY-MM"); overrides the period scope above.
+          month: monthInput.optional(),
         })
         .optional(),
     )
@@ -428,7 +448,12 @@ export const adminRouter = createTRPCRouter({
         quarters = semesterQuarters(active.semester);
         label = `${schoolYear} ${active.semester}`;
       }
-      const periodWhere = { schoolYear, quarter: { in: quarters } };
+      // Service hours are month-stamped, so a month filter is exact; otherwise scope by the
+      // quarter(s) of the chosen period.
+      const periodWhere = input?.month
+        ? { month: input.month }
+        : { schoolYear, quarter: { in: quarters } };
+      if (input?.month) label = input.month;
 
       const [tutors, sessionAgg, adjustments, attendance] = await Promise.all([
         ctx.db.tutor.findMany({ orderBy: { englishName: "asc" } }),
@@ -551,15 +576,20 @@ export const adminRouter = createTRPCRouter({
           archivedUnavailable = r.count;
         }
 
-        // Year rollover: G12 (and up) graduate -> archived; everyone else ages up one grade.
+        // Graduation happens at the START of Q4 (the program's final quarter): G12 (and up)
+        // are archived as the term advances into Q4, so they finish the year inactive. Aging-up
+        // stays at the school-year boundary (Q4 -> next year's Q1) and advances everyone who
+        // remains by one grade — by then the graduates are already inactive and untouched.
         let graduated = 0;
         let aged = 0;
-        if (yearCross) {
+        if (np.quarter === "Q4") {
           const grad = await tx.tutor.updateMany({
             where: { active: true, gradeLevel: { gte: 12 } },
             data: { active: false },
           });
           graduated = grad.count;
+        }
+        if (yearCross) {
           const age = await tx.tutor.updateMany({
             where: { active: true, gradeLevel: { not: null } },
             data: { gradeLevel: { increment: 1 } },
@@ -582,7 +612,8 @@ export const adminRouter = createTRPCRouter({
         action:
           `Refreshed program to ${name} — archived ${out.archivedTutees} tutee(s)` +
           (out.archivedUnavailable ? `, ${out.archivedUnavailable} unavailable tutor(s)` : "") +
-          (yearCross ? `, graduated ${out.graduated} tutor(s), aged up ${out.aged}` : "") +
+          (out.graduated ? `, graduated ${out.graduated} tutor(s)` : "") +
+          (out.aged ? `, aged up ${out.aged}` : "") +
           "; cleared current pairings",
         entity: "Term",
         entityId: out.termId,
@@ -616,8 +647,9 @@ export const adminRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      const gradYear = await activeGradYear(ctx.db, input.gradeLevel);
       const username = await ensureUniqueUsername(
-        defaultUsername(input.firstName, input.lastName),
+        defaultUsername(input.firstName, input.lastName, gradYear),
       );
       return ctx.db.tutor.create({
         data: {
@@ -651,11 +683,12 @@ export const adminRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const trimmedUsername = input.username?.trim();
+      const gradYear = await activeGradYear(ctx.db, input.gradeLevel);
       const desired =
         trimmedUsername && trimmedUsername.length > 0
           ? trimmedUsername
-          : defaultUsername(input.firstName, input.lastName);
-      const username = await ensureUniqueUsername(desired, input.id);
+          : defaultUsername(input.firstName, input.lastName, gradYear);
+      const username = await ensureUniqueUsername(desired, { excludeTutorId: input.id });
       return ctx.db.tutor.update({
         where: { id: input.id },
         data: {
@@ -802,15 +835,26 @@ export const adminRouter = createTRPCRouter({
       // New pairings land in the active program period.
       const period = await getActivePeriod(ctx.db);
       return ctx.db.$transaction(async (tx) => {
-        // Concurrency guard: only one coordinator may assign a still-PENDING signup. The
-        // version match + PENDING status both must hold, or another coordinator got there first.
-        const flip = await tx.tutee.updateMany({
-          where: { id: input.tuteeId, status: "PENDING", updatedAt: input.expectedUpdatedAt },
-          data: { status: "ACTIVE" },
+        const tutee = await tx.tutee.findUnique({
+          where: { id: input.tuteeId },
+          select: {
+            status: true,
+            firstChoice: { select: { name: true } },
+            secondChoice: { select: { name: true } },
+          },
         });
-        if (flip.count === 0) staleConflict();
+        if (tutee?.status !== "PENDING") staleConflict();
+
+        // Subjects this tutee already has a tutor for — re-assigns of the same course are
+        // skipped so a partially-processed request can be finished without duplicating pairings.
+        const existing = await tx.pairingTutee.findMany({
+          where: { tuteeId: input.tuteeId },
+          select: { pairing: { select: { subject: true } } },
+        });
+        const assignedSubjects = new Set(existing.map((e) => e.pairing.subject));
 
         for (const a of input.assignments) {
+          if (assignedSubjects.has(a.subject)) continue;
           await tx.pairing.create({
             data: {
               tutorId: a.tutorId,
@@ -823,8 +867,26 @@ export const adminRouter = createTRPCRouter({
               tutees: { create: [{ tuteeId: input.tuteeId }] },
             },
           });
+          assignedSubjects.add(a.subject);
         }
-        return { ok: true };
+
+        // A request is "fulfilled" once every course choice the tutee actually provided has
+        // a tutor. Only then does it leave the queue (→ ACTIVE); partial assignments keep it
+        // PENDING so the remaining choice can still be processed.
+        const provided = [tutee.firstChoice?.name, tutee.secondChoice?.name].filter(
+          (n): n is string => !!n,
+        );
+        const fulfilled = provided.length > 0 && provided.every((c) => assignedSubjects.has(c));
+
+        // Concurrency guard: the version match + still-PENDING status both must hold, or another
+        // coordinator got there first. The status flip (or no-op touch) bumps updatedAt.
+        const flip = await tx.tutee.updateMany({
+          where: { id: input.tuteeId, status: "PENDING", updatedAt: input.expectedUpdatedAt },
+          data: { status: fulfilled ? "ACTIVE" : "PENDING" },
+        });
+        if (flip.count === 0) staleConflict();
+
+        return { ok: true, fulfilled };
       });
     }),
 
@@ -1089,7 +1151,7 @@ export const adminRouter = createTRPCRouter({
   // --------------------------------------------------------------------------
   // Tutor meetings + attendance (P / EA / UA / X)
   // --------------------------------------------------------------------------
-  meetings: adminProcedure.query(({ ctx }) =>
+  meetings: viewerProcedure.query(({ ctx }) =>
     ctx.db.tutorMeeting.findMany({
       orderBy: { date: "desc" },
       include: { attendances: { include: { tutor: { select: { englishName: true } } } } },
@@ -1140,7 +1202,7 @@ export const adminRouter = createTRPCRouter({
   // Service-hour adjustments (per tutor, per month). Tutor "punishments" are PUNISHMENT-type
   // adjustments (they deduct hours); tutee discipline lives in the card system instead.
   // --------------------------------------------------------------------------
-  adjustments: adminProcedure
+  adjustments: viewerProcedure
     .input(z.object({ month: monthInput.optional() }).optional())
     .query(({ ctx, input }) =>
       ctx.db.serviceHourAdjustment.findMany({
@@ -1177,7 +1239,7 @@ export const adminRouter = createTRPCRouter({
   // --------------------------------------------------------------------------
   // Tutor applications + interview assignment
   // --------------------------------------------------------------------------
-  tutorApplications: adminProcedure.query(({ ctx }) =>
+  tutorApplications: viewerProcedure.query(({ ctx }) =>
     ctx.db.tutorApplication.findMany({
       orderBy: [{ status: "asc" }, { createdAt: "desc" }],
       include: {
@@ -1299,26 +1361,87 @@ export const adminRouter = createTRPCRouter({
         email: true,
         role: true,
         tutorId: true,
-        tutor: { select: { englishName: true } },
+        tutor: { select: { englishName: true, active: true } },
       },
     }),
   ),
 
   setUserRole: adminOnlyProcedure
-    .input(z.object({ userId: cuid, role: z.enum(["TUTOR", "COORDINATOR", "ADMIN"]) }))
+    .input(z.object({ userId: cuid, role: z.enum(["VIEWER", "TUTOR", "COORDINATOR", "ADMIN"]) }))
     .mutation(({ ctx, input }) =>
       ctx.db.user.update({ where: { id: input.userId }, data: { role: input.role } }),
     ),
 
+  /**
+   * Let an admin/coordinator also tutor: link the user to an (active) Tutor record so they get
+   * a tutor area. Re-enables an existing linked/email-matched tutor, or creates one from their
+   * name. Disabling deactivates the tutor and unlinks it (revertible — re-enable relinks).
+   */
+  setUserCanTutor: adminOnlyProcedure
+    .input(z.object({ userId: cuid, canTutor: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      const user = await ctx.db.user.findUniqueOrThrow({
+        where: { id: input.userId },
+        select: { id: true, name: true, email: true, tutorId: true },
+      });
+
+      if (!input.canTutor) {
+        if (user.tutorId) {
+          await ctx.db.tutor.update({ where: { id: user.tutorId }, data: { active: false } });
+          await ctx.db.user.update({ where: { id: user.id }, data: { tutorId: null } });
+        }
+        return { ok: true, linked: false };
+      }
+
+      // Enabling: reuse the already-linked tutor, else an existing tutor with the same email,
+      // else create a fresh one from the user's display name.
+      const existing =
+        (user.tutorId
+          ? await ctx.db.tutor.findUnique({ where: { id: user.tutorId }, select: { id: true } })
+          : null) ??
+        (await ctx.db.tutor.findUnique({
+          where: { email: user.email },
+          select: { id: true },
+        }));
+
+      let tutorId: string;
+      if (existing) {
+        await ctx.db.tutor.update({ where: { id: existing.id }, data: { active: true } });
+        tutorId = existing.id;
+      } else {
+        const parts = (user.name ?? user.email).trim().split(/\s+/).filter(Boolean);
+        const firstName = parts[0] ?? (user.name ?? user.email).trim();
+        const lastName = parts.length > 1 ? parts.slice(1).join(" ") : firstName;
+        const username = await ensureUniqueUsername(defaultUsername(firstName, lastName));
+        const created = await ctx.db.tutor.create({
+          data: {
+            firstName,
+            lastName,
+            englishName: `${firstName} ${lastName}`,
+            username,
+            email: user.email,
+            active: true,
+          },
+          select: { id: true },
+        });
+        tutorId = created.id;
+      }
+      await ctx.db.user.update({ where: { id: user.id }, data: { tutorId } });
+      return { ok: true, linked: true };
+    }),
+
   // --------------------------------------------------------------------------
   // Policy documents (editable handbooks)
   // --------------------------------------------------------------------------
-  policies: adminProcedure.query(({ ctx }) =>
+  // Every stored policy version (one row per slug + locale); the page groups them by slug
+  // and offers a per-language tab.
+  policies: viewerProcedure.query(({ ctx }) =>
     ctx.db.policyDocument.findMany({
-      orderBy: { slug: "asc" },
+      orderBy: [{ slug: "asc" }, { locale: "asc" }],
       select: {
         id: true,
         slug: true,
+        locale: true,
         title: true,
         body: true,
         version: true,
@@ -1328,31 +1451,43 @@ export const adminRouter = createTRPCRouter({
     }),
   ),
 
-  updatePolicy: adminProcedure
+  // Save a policy version for a (slug, locale) — creating the language version if it's the
+  // first time that translation is edited.
+  upsertPolicy: adminProcedure
     .input(
       z.object({
-        id: cuid,
+        slug: z.string().trim().min(1),
+        locale: z.string().trim().min(1).max(10),
         title: z.string().trim().min(1).max(200),
         version: z.string().trim().max(40).nullable().optional(),
         body: z.string().min(1),
       }),
     )
-    .mutation(({ ctx, input }) =>
-      ctx.db.policyDocument.update({
-        where: { id: input.id },
-        data: {
+    .mutation(({ ctx, input }) => {
+      const version = input.version?.trim() ? input.version.trim() : null;
+      return ctx.db.policyDocument.upsert({
+        where: { slug_locale: { slug: input.slug, locale: input.locale } },
+        update: {
           title: input.title,
-          version: input.version?.trim() ? input.version.trim() : null,
+          version,
           body: input.body,
           updatedById: ctx.session.user.id,
         },
-      }),
-    ),
+        create: {
+          slug: input.slug,
+          locale: input.locale,
+          title: input.title,
+          version,
+          body: input.body,
+          updatedById: ctx.session.user.id,
+        },
+      });
+    }),
 
   // --------------------------------------------------------------------------
   // Announcements (broadcast to tutors)
   // --------------------------------------------------------------------------
-  announcements: adminProcedure.query(({ ctx }) =>
+  announcements: viewerProcedure.query(({ ctx }) =>
     ctx.db.announcement.findMany({
       orderBy: [{ active: "desc" }, { pinned: "desc" }, { createdAt: "desc" }],
       select: {
@@ -1441,7 +1576,7 @@ export const adminRouter = createTRPCRouter({
   // --------------------------------------------------------------------------
   // Disciplinary cards (team recheck of yellow/red cards)
   // --------------------------------------------------------------------------
-  disciplinaryCards: adminProcedure.query(({ ctx }) =>
+  disciplinaryCards: viewerProcedure.query(({ ctx }) =>
     ctx.db.disciplinaryCard.findMany({
       orderBy: [{ reviewStatus: "asc" }, { createdAt: "desc" }],
       select: {
@@ -1501,7 +1636,7 @@ export const adminRouter = createTRPCRouter({
   // --------------------------------------------------------------------------
   // Audit log + undo
   // --------------------------------------------------------------------------
-  auditLog: adminProcedure.query(({ ctx }) =>
+  auditLog: viewerProcedure.query(({ ctx }) =>
     ctx.db.auditLog.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
   ),
 

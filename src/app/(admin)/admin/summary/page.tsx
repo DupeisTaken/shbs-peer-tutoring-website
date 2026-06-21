@@ -1,14 +1,16 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 
 export default function SummaryPage() {
   const t = useTranslations();
-  // No input → the active period's current semester (hours accumulate across its two quarters).
-  const summary = api.admin.periodSummary.useQuery();
+  // Empty → the active period's current semester; a month ("YYYY-MM") narrows to that month.
+  const [month, setMonth] = useState("");
+  const summary = api.admin.periodSummary.useQuery(month ? { month } : undefined);
   const scope = summary.data?.scope.label;
 
   return (
@@ -22,9 +24,23 @@ export default function SummaryPage() {
               : t("admin.summary.subtitleMonthly")}
           </p>
         </div>
-        <Link href="/admin/history" className="btn-secondary btn-sm">
-          {t("admin.summary.viewHistory")}
-        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="muted text-sm">{t("admin.summary.monthLabel")}</label>
+          <input
+            type="month"
+            value={month}
+            onChange={(e) => setMonth(e.target.value)}
+            className="input w-[10rem]"
+          />
+          {month && (
+            <button className="link text-sm" onClick={() => setMonth("")}>
+              {t("admin.summary.clearMonth")}
+            </button>
+          )}
+          <Link href="/admin/history" className="btn-secondary btn-sm">
+            {t("admin.summary.viewHistory")}
+          </Link>
+        </div>
       </div>
 
       <div className="card overflow-hidden">

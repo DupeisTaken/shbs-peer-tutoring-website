@@ -6,7 +6,7 @@ import { type DefaultJWT } from "next-auth/jwt";
  * module stays edge-safe — it is imported by `middleware.ts`, which runs on the Edge runtime
  * where the Prisma client cannot be bundled. Must match the `Role` enum in schema.prisma.
  */
-export type Role = "TUTOR" | "COORDINATOR" | "ADMIN";
+export type Role = "VIEWER" | "TUTOR" | "COORDINATOR" | "ADMIN";
 
 /**
  * Module augmentation: attach resolved `role` + `tutorId` (and user id) to the session so the

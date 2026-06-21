@@ -10,8 +10,9 @@ export default async function Home() {
   // Signed-in users skip the landing page and go straight to their area.
   const session = await auth();
   if (session?.user) {
-    const isElevated = session.role === "ADMIN" || session.role === "COORDINATOR";
-    redirect(isElevated ? "/admin" : "/dashboard");
+    const adminArea =
+      session.role === "ADMIN" || session.role === "COORDINATOR" || session.role === "VIEWER";
+    redirect(adminArea ? "/admin" : "/dashboard");
   }
 
   const t = await getTranslations("landing");

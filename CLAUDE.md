@@ -44,13 +44,21 @@ your changes (`generated/prisma/`) and move on.
   (the `LanguageSwitcher` in the header sets it — no locale routing, so the auth middleware is
   untouched); config in `src/i18n/request.ts`. Orgs can white-label without editing the files
   via the `MESSAGES_OVERRIDE` env (deep-merged JSON). Migrating the remaining hardcoded strings
-  is in progress — always route new/edited copy through next-intl.
+  is in progress — always route new/edited copy through next-intl. **Policy documents** are
+  localized too: `PolicyDocument` is one row per `(slug, locale)`; the public signup forms
+  request the active locale (`localizedPolicy`, English fallback) and `/admin/policies` edits each
+  language under a tab. Shared UI glyphs (collapse/expand, etc.) live in `src/lib/symbols.ts` /
+  `~/app/_components/icons.tsx` — reuse `DisclosureIcon`, don't hand-write triangles.
 - **Env vars are validated in `src/env.js`** (`@t3-oss/env-nextjs`). Add server vars to
   `server`, public vars to `client` (must be `NEXT_PUBLIC_*`), and wire **both** into
   `runtimeEnv`. Give defaults so the app runs unconfigured.
 - **API is tRPC** under `src/server/api/routers/` (`tutor`, `tutee`, `admin`,
-  `application`). Use the right procedure: `publicProcedure` vs `adminProcedure`.
-  Routers enforce role/ownership server-side; `src/middleware.ts` (Edge) gates routes.
+  `application`). Use the right procedure: `publicProcedure`, `adminProcedure` (write; ADMIN/
+  COORDINATOR), `adminOnlyProcedure` (strictly ADMIN), or **`viewerProcedure`** for admin
+  **reads** — it also admits the read-only `VIEWER` role and masks PII (emails / phone /
+  preferred contact) in the result for viewers. Keep admin queries on `viewerProcedure` and admin
+  mutations on `adminProcedure` so VIEWER can browse but never write. Routers enforce
+  role/ownership server-side; `src/middleware.ts` (Edge) gates routes.
 - **Service-hour math lives in `src/lib/service-hours.ts`** — pure and unit-tested. It's
   the single source of truth; change hour logic there, not in routers.
 - **Styling**: Tailwind v4 with shared design-system classes in `src/styles/globals.css`
@@ -102,19 +110,31 @@ submission time). See the `admin-philosophies` memory for the rationale.
 
 - **Tutor identity**: `Tutor` has `firstName`/`lastName` (with `englishName` kept as the
   canonical "First Last" display name), a unique `username` auto-derived as first-initial
-  + last name, and a `gradeLevel` (G-number; ages up / graduates on a year refresh). New tutors
-  hit a first-login gate (`/onboarding/email`) before the dashboard, tracked by
-  `User.emailVerifiedAt`. Tutors self-serve their own alt-name / contact email / password at
-  `/settings` (tutor router `myProfile`/`updateProfile`/`changePassword`).
-- **Tutee flow**: public signup → `PENDING` tutee → admin assigns to a tutor inline
-  (creates pairing, flips to `ACTIVE`) → the **tutor** picks the default time slot from
-  their dashboard.
+  + last name + **2-digit graduation year** (`jsmith` class of 2027 → `jsmith27`), and a
+  `gradeLevel` (G-number). The class-of year comes from `gradeLevel` + the active school year
+  (`graduationYear`); without a known grade it falls back to the bare `jsmith`. Uniqueness is
+  enforced by `ensureUniqueUsername` (`src/server/auth/username.ts`): on a clash it appends a
+  letter (`jsmith27b`), then a numeric counter as a last resort.
+  On a program **refresh**, graduating tutors (G12+) are archived **at the start of Q4** (not the
+  year boundary) and everyone remaining ages up one grade at the school-year boundary — see the
+  `refresh` mutation + `src/lib/period.ts`. New tutors hit a first-login gate
+  (`/onboarding/email`) before the dashboard, tracked by `User.emailVerifiedAt`. Tutors
+  self-serve their own alt-name / contact email / password at `/settings`. A coordinator/admin
+  can be given a `Tutor` link via the **"Can tutor"** toggle on `/admin/users`.
+- **Tutee flow**: public signup → `PENDING` tutee → admin assigns **each course choice
+  (1st/2nd) to a tutor independently** on `/admin/requests` (each pick creates one pairing).
+  The signup stays `PENDING` until **every** provided choice has a tutor; that last assignment
+  flips it to `ACTIVE` (`assignSignup` computes "fulfilled"). Fulfilled requests don't vanish —
+  they stay in place tagged + collapsed for the session so the queue numbering doesn't jump.
+  Then the **tutor** picks the default time slot from their dashboard.
 - **Tutor flow**: public application → admin assigns up to 3 interviewers (one **head**)
   → head schedules the interview, which shows for every panelist.
 - **Courses** are tagged `AP` / `HONORS` / `STANDARD`. The tag gates the AP-score field
-  on tutor applications: the AP-score input only appears for AP-tagged courses and is
-  enabled only once the applicant confirms they have a score. Applicants can also report
-  self-study (with a qualification note).
+  on tutor applications. Each course row on `/tutor-signup` puts the qualification **ticks
+  first** (taken / has-AP-score / self-studied), and each detail box appears **only when its
+  tick is set** — the grade box when "taken", the AP-score box when "has AP score" (and only
+  for AP-tagged courses), and the self-study note when "self-studied". Personal-contact inputs
+  sit at the bottom of the form, below the course ticks and the policy agreement.
 
 ## Layout
 

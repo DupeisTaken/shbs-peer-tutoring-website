@@ -33,6 +33,7 @@
       "backToSignIn": "← Back to sign in",
       "success": "Your password has been reset. You can sign in now.",
       "goToSignIn": "Go to sign in",
+      "yourUsername": "Your sign-in username:",
       "fields": { "newPassword": "New password", "confirmPassword": "Confirm new password" },
       "submit": "Set new password",
       "saving": "Saving…"
@@ -196,7 +197,12 @@
       "assignToTutor": "— assign to tutor —",
       "tutorWorkload": "{name} — {pairings} pairings · {tutees} tutees",
       "assigning": "Assigning…",
+      "assign": "Assign",
       "assignActivate": "Assign & activate",
+      "assignedTo": "Assigned to {name}",
+      "fulfilled": "Fulfilled",
+      "expand": "Expand",
+      "collapse": "Collapse",
       "empty": "No pending signups. 🎉",
       "grade": "Grade {grade}",
       "submitted": "Submitted {when}",
@@ -204,6 +210,9 @@
       "reach": "Reach: {contact}",
       "signed": "Signed: ✓ {name}",
       "notSigned": "Signed: — not signed"
+    },
+    "readOnly": {
+      "banner": "Read-only access — you can browse everything but can't make changes, and contact details are hidden."
     },
     "nav": {
       "sections": {
@@ -215,8 +224,8 @@
       },
       "links": {
         "dashboard": "Dashboard",
-        "activity": "Activity",
-        "history": "History",
+        "activity": "Activity & Requests",
+        "history": "Program History",
         "announcements": "Announcements",
         "program": "Program & Refresh",
         "tutorRoster": "Tutor Roster",
@@ -228,7 +237,7 @@
         "signupRequests": "Signup Requests",
         "tuteeDiscipline": "Tutee Discipline",
         "pairings": "Pairings",
-        "attendance": "Attendance",
+        "attendance": "Attendance Submissions",
         "timeSlots": "Time Slots",
         "coursesLevels": "Courses & Levels",
         "rooms": "Rooms",
@@ -282,6 +291,8 @@
       "subtitleMonthly": "Per-tutor service hours.",
       "scope": "Current semester · {label}",
       "viewHistory": "View history →",
+      "monthLabel": "Month:",
+      "clearMonth": "Clear",
       "inactive": "(inactive)",
       "columns": { "tutor": "Tutor", "sessions": "Sessions", "earned": "Earned", "extras": "Extras", "penalties": "Penalties", "total": "Total" }
     },
@@ -291,8 +302,8 @@
       "schoolYear": "School year",
       "scope": "Period",
       "wholeYear": "Whole year",
-      "s1": "S1 (Q1+Q2)",
-      "s2": "S2 (Q3+Q4)",
+      "s1": "S1",
+      "s2": "S2",
       "inactive": "(inactive)",
       "noData": "No activity recorded for this period.",
       "columns": { "tutor": "Tutor", "sessions": "Sessions", "earned": "Earned", "extras": "Extras", "penalties": "Penalties", "total": "Total" },
@@ -318,7 +329,8 @@
       "effectTutees": "Archives all currently paired tutees — they must sign up again to continue.",
       "effectPairings": "Clears the current pairings board (past pairings + attendance stay in history).",
       "effectAvailability": "Prompts you to confirm which active tutors are still available.",
-      "effectGraduate": "Graduates G12 tutors and advances every tutor one grade.",
+      "effectGraduate": "Graduates G12 tutors (they leave at the start of Q4).",
+      "effectAgeUp": "Advances every remaining tutor one grade.",
       "effectHoursReset": "Starts a fresh service-hour / attendance total for semester {semester}.",
       "effectHoursKeep": "Keeps service hours accumulating (still the same semester).",
       "confirmLabel": "Type REFRESH to confirm this program-wide action.",
@@ -347,12 +359,13 @@
     "users": {
       "title": "Users & Roles",
       "subtitle": "Administrators only. Roles take effect on the user's next sign-in.",
-      "columns": { "name": "Name", "email": "Email", "linkedTutor": "Linked tutor", "role": "Role" },
-      "roles": { "TUTOR": "Tutor", "COORDINATOR": "Coordinator", "ADMIN": "Admin" },
+      "columns": { "name": "Name", "email": "Email", "linkedTutor": "Linked tutor", "role": "Role", "canTutor": "Can tutor" },
+      "roles": { "VIEWER": "Viewer (read-only)", "TUTOR": "Tutor", "COORDINATOR": "Coordinator", "ADMIN": "Admin" },
+      "canTutorLabel": "Can tutor",
       "empty": "No users have signed in yet."
     },
     "submissions": {
-      "title": "Submissions",
+      "title": "Attendance Submissions",
       "allTutors": "All tutors",
       "colDate": "Date",
       "colTutor": "Tutor",
@@ -456,6 +469,9 @@
       "empty": "No policy documents yet. Run the seed to create them.",
       "editor": {
         "versionPlaceholder": "version",
+        "titlePlaceholder": "Document title",
+        "bodyPlaceholder": "Write the policy in Markdown…",
+        "notTranslated": "not translated yet",
         "slugLabel": "Slug",
         "lastEdited": "· Markdown · last edited {date}",
         "editedBy": "by {who}",
@@ -735,6 +751,10 @@
   "components": {
     "notifications": { "title": "Notifications", "markAllRead": "Mark all read", "empty": "Nothing yet." },
     "signOut": { "label": "Sign out" },
-    "userMenu": { "settings": "Settings" }
+    "userMenu": {
+      "settings": "Settings",
+      "enterTutor": "Enter tutor area",
+      "enterAdmin": "Enter admin area"
+    }
   }
 }

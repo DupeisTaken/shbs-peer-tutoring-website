@@ -181,7 +181,7 @@ function ApplicationCard({
                 <li key={i} className="rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-700">
                   <span className="font-medium">{ci.course.name}</span>
                   {ci.course.level && (
-                    <span className="text-slate-400"> ({ci.course.level.name})</span>
+                    <span className="badge-slate ml-1 align-middle">{ci.course.level.name}</span>
                   )}
                   {" · "}
                   {quals.length ? quals.join(" · ") : t("admin.applications.noQualification")}

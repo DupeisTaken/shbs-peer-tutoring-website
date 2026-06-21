@@ -226,26 +226,28 @@ export default function TutorsPage() {
                     />
                   </td>
                   <td>
-                    <input
-                      defaultValue={t.gradeLevel ?? ""}
-                      type="number"
-                      min={6}
-                      max={12}
-                      placeholder="—"
-                      className="input w-16"
-                      onBlur={(e) => {
-                        const raw = e.target.value.trim();
-                        const v = raw === "" ? null : Number(raw);
-                        if (v !== (t.gradeLevel ?? null)) save({ gradeLevel: v });
-                      }}
-                    />
-                    {t.gradeLevel != null && schoolYear && (
-                      <span className="muted ml-1 text-xs whitespace-nowrap">
-                        {tt("admin.tutors.classOf", {
-                          year: graduationYear(t.gradeLevel, schoolYear),
-                        })}
-                      </span>
-                    )}
+                    <div className="flex items-center gap-1">
+                      <input
+                        defaultValue={t.gradeLevel ?? ""}
+                        type="number"
+                        min={6}
+                        max={12}
+                        placeholder="—"
+                        className="input w-16"
+                        onBlur={(e) => {
+                          const raw = e.target.value.trim();
+                          const v = raw === "" ? null : Number(raw);
+                          if (v !== (t.gradeLevel ?? null)) save({ gradeLevel: v });
+                        }}
+                      />
+                      {t.gradeLevel != null && schoolYear && (
+                        <span className="muted text-xs whitespace-nowrap">
+                          {tt("admin.tutors.classOf", {
+                            year: graduationYear(t.gradeLevel, schoolYear),
+                          })}
+                        </span>
+                      )}
+                    </div>
                   </td>
                   <td>
                     <input

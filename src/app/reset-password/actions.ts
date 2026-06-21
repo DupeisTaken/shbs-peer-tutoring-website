@@ -2,7 +2,10 @@
 
 import { resetPassword } from "~/server/auth/password-reset";
 
-export type ResetState = { ok?: true; error?: string } | undefined;
+export type ResetState =
+  | { ok: true; username: string | null; email: string }
+  | { ok?: false; error: string }
+  | undefined;
 
 /**
  * Server action behind the reset-password form. Validates the token + new password and,
@@ -25,7 +28,7 @@ export async function resetPasswordAction(
   }
   if (password !== confirm) return { error: "Passwords don't match." };
 
-  const ok = await resetPassword(token, password);
-  if (!ok) return { error: "This reset link is invalid or has expired." };
-  return { ok: true };
+  const result = await resetPassword(token, password);
+  if (!result) return { error: "This reset link is invalid or has expired." };
+  return { ok: true, username: result.username, email: result.email };
 }

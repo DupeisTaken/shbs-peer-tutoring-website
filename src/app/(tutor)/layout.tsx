@@ -54,6 +54,9 @@ export default async function TutorLayout({
               email={me?.email}
               role={session.role}
               settingsHref="/settings"
+              enterAdminHref={
+                session.role === "ADMIN" || session.role === "COORDINATOR" ? "/admin" : undefined
+              }
             />
           </div>
         </div>

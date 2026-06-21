@@ -22,6 +22,8 @@ datasource db {
 // ----------------------------------------------------------------------------
 
 enum Role {
+  /// Read-only access to the admin area, with personal/contact info masked. Cannot mutate.
+  VIEWER
   TUTOR
   COORDINATOR
   ADMIN
@@ -595,15 +597,20 @@ model PolicyFile {
 /// An editable policy document (e.g. the tutor / tutee handbooks). Body is Markdown, edited
 /// in the admin area (/admin/policies) and seeded from the published handbooks.
 model PolicyDocument {
-  id          String   @id @default(cuid())
+  id String @id @default(cuid())
   /// Stable key, e.g. "tutor-policy" / "tutee-policy".
-  slug        String   @unique
+  slug String
+  /// BCP-47-ish UI locale this version is written in (matches NEXT_LOCALE: "en", "zh", …).
+  /// One row per (slug, locale); the "en" row is the fallback when a translation is missing.
+  locale      String   @default("en")
   title       String
   body        String // Markdown
   version     String?
   updatedAt   DateTime @updatedAt
   updatedById String?
   updatedBy   User?    @relation("PolicyEditor", fields: [updatedById], references: [id])
+
+  @@unique([slug, locale])
 }
 
 // ----------------------------------------------------------------------------

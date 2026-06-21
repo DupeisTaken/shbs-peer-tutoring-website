@@ -14,7 +14,19 @@ import {
   type SessionTutorStatus,
   type TuteeAttendanceStatus,
 } from "../src/lib/service-hours";
+import { graduationYear } from "../src/lib/period";
 import { TUTEE_POLICY, TUTOR_POLICY } from "./policies";
+
+/** School year the seed's active term belongs to (used to derive class-of years). */
+const SEED_SCHOOL_YEAR = "25-26";
+
+/** First initial + last name + 2-digit class-of year, e.g. "achen29" — mirrors defaultUsername. */
+function seedUsername(firstName: string, lastName: string, gradeLevel: number): string {
+  const first = firstName.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const last = lastName.toLowerCase().replace(/[^a-z0-9]/g, "");
+  const yy = String(graduationYear(gradeLevel, SEED_SCHOOL_YEAR) % 100).padStart(2, "0");
+  return `${first.slice(0, 1)}${last}${yy}`;
+}
 
 const db = new PrismaClient();
 
@@ -101,27 +113,32 @@ const TIME_SLOTS = [
 // ---------------------------------------------------------------------------
 
 const TUTORS = [
-  { id: "tutor-alice", firstName: "Alice", lastName: "Chen", altNames: "陈爱丽", username: "achen", email: "alice@example.edu", active: true, role: "TUTOR" as Role },
-  { id: "tutor-bob", firstName: "Bob", lastName: "Liu", altNames: "刘波", username: "bliu", email: "bob@example.edu", active: true, role: "TUTOR" as Role },
-  { id: "tutor-carol", firstName: "Carol", lastName: "Wang", altNames: null, username: "cwang", email: "carol@example.edu", active: true, role: "COORDINATOR" as Role },
-  { id: "tutor-david", firstName: "David", lastName: "Zhao", altNames: "赵大卫", username: "dzhao", email: "david@example.edu", active: true, role: "TUTOR" as Role },
-  { id: "tutor-gina", firstName: "Gina", lastName: "Hill", altNames: null, username: "ghill", email: "gina@example.edu", active: true, role: "TUTOR" as Role },
-  { id: "tutor-harold", firstName: "Harold", lastName: "Adams", altNames: null, username: "hadams", email: "harold@example.edu", active: true, role: "TUTOR" as Role },
-  { id: "tutor-iris", firstName: "Iris", lastName: "Patel", altNames: null, username: "ipatel", email: "iris@example.edu", active: true, role: "TUTOR" as Role },
-  { id: "tutor-jason", firstName: "Jason", lastName: "Kim", altNames: "金在勋", username: "jkim", email: "jason@example.edu", active: true, role: "TUTOR" as Role },
-  { id: "tutor-karen", firstName: "Karen", lastName: "Diaz", altNames: null, username: "kdiaz", email: "karen@example.edu", active: true, role: "TUTOR" as Role },
-  { id: "tutor-leo", firstName: "Leo", lastName: "Murphy", altNames: null, username: "lmurphy", email: "leo@example.edu", active: true, role: "TUTOR" as Role },
-  { id: "tutor-mona", firstName: "Mona", lastName: "Rossi", altNames: null, username: "mrossi", email: "mona@example.edu", active: true, role: "TUTOR" as Role },
-  { id: "tutor-nora", firstName: "Nora", lastName: "Park", altNames: "박노라", username: "npark", email: "nora@example.edu", active: true, role: "TUTOR" as Role },
+  { id: "tutor-alice", firstName: "Alice", lastName: "Chen", altNames: "陈爱丽", email: "alice@example.edu", active: true, role: "TUTOR" as Role },
+  { id: "tutor-bob", firstName: "Bob", lastName: "Liu", altNames: "刘波", email: "bob@example.edu", active: true, role: "TUTOR" as Role },
+  { id: "tutor-carol", firstName: "Carol", lastName: "Wang", altNames: null, email: "carol@example.edu", active: true, role: "COORDINATOR" as Role },
+  { id: "tutor-david", firstName: "David", lastName: "Zhao", altNames: "赵大卫", email: "david@example.edu", active: true, role: "TUTOR" as Role },
+  { id: "tutor-gina", firstName: "Gina", lastName: "Hill", altNames: null, email: "gina@example.edu", active: true, role: "TUTOR" as Role },
+  { id: "tutor-harold", firstName: "Harold", lastName: "Adams", altNames: null, email: "harold@example.edu", active: true, role: "TUTOR" as Role },
+  { id: "tutor-iris", firstName: "Iris", lastName: "Patel", altNames: null, email: "iris@example.edu", active: true, role: "TUTOR" as Role },
+  { id: "tutor-jason", firstName: "Jason", lastName: "Kim", altNames: "金在勋", email: "jason@example.edu", active: true, role: "TUTOR" as Role },
+  { id: "tutor-karen", firstName: "Karen", lastName: "Diaz", altNames: null, email: "karen@example.edu", active: true, role: "TUTOR" as Role },
+  { id: "tutor-leo", firstName: "Leo", lastName: "Murphy", altNames: null, email: "leo@example.edu", active: true, role: "TUTOR" as Role },
+  { id: "tutor-mona", firstName: "Mona", lastName: "Rossi", altNames: null, email: "mona@example.edu", active: true, role: "TUTOR" as Role },
+  { id: "tutor-nora", firstName: "Nora", lastName: "Park", altNames: "박노라", email: "nora@example.edu", active: true, role: "TUTOR" as Role },
   // Inactive tutors — signing in shows the pending-approval gate.
-  { id: "tutor-evan", firstName: "Evan", lastName: "Tutor", altNames: null, username: "etutor", email: "evan@example.edu", active: false, role: "TUTOR" as Role },
-  { id: "tutor-oscar", firstName: "Oscar", lastName: "Brown", altNames: null, username: "obrown", email: "oscar@example.edu", active: false, role: "TUTOR" as Role },
-].map((t, i) => ({
-  ...t,
-  englishName: `${t.firstName} ${t.lastName}`,
+  { id: "tutor-evan", firstName: "Evan", lastName: "Tutor", altNames: null, email: "evan@example.edu", active: false, role: "TUTOR" as Role },
+  { id: "tutor-oscar", firstName: "Oscar", lastName: "Brown", altNames: null, email: "oscar@example.edu", active: false, role: "TUTOR" as Role },
+].map((t, i) => {
   // Demo grades cycling 9–12 (some G12s so a year-refresh shows graduation/aging).
-  gradeLevel: 9 + (i % 4),
-}));
+  const gradeLevel = 9 + (i % 4);
+  return {
+    ...t,
+    englishName: `${t.firstName} ${t.lastName}`,
+    gradeLevel,
+    // Usernames are initialised with the class-of year (e.g. "achen29").
+    username: seedUsername(t.firstName, t.lastName, gradeLevel),
+  };
+});
 
 const TUTEES = [
   { id: "tutee-emma", englishName: "Emma Sun", gradeLevel: "9", firstChoiceId: "course-math" },
@@ -544,13 +561,15 @@ async function main() {
   }
 
   // --- Policy documents (editable in /admin/policies) ------------------------
+  // One row per (slug, locale). The seed only ships the English source; admins author the
+  // 中文 versions in /admin/policies (the signup forms fall back to "en" until they do).
   const policies = [
-    { slug: "tutor-policy", title: "Peer Tutoring Tutor Policy", version: "v.2025.10.13M", body: TUTOR_POLICY },
-    { slug: "tutee-policy", title: "Peer Tutoring Tutee Policy", version: "v.2025.04.25M", body: TUTEE_POLICY },
+    { slug: "tutor-policy", locale: "en", title: "Peer Tutoring Tutor Policy", version: "v.2025.10.13M", body: TUTOR_POLICY },
+    { slug: "tutee-policy", locale: "en", title: "Peer Tutoring Tutee Policy", version: "v.2025.04.25M", body: TUTEE_POLICY },
   ];
   for (const p of policies) {
     await db.policyDocument.upsert({
-      where: { slug: p.slug },
+      where: { slug_locale: { slug: p.slug, locale: p.locale } },
       update: { title: p.title, version: p.version },
       create: p,
     });

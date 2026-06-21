@@ -71,26 +71,34 @@ async function deliverResetLink(to: string, token: string): Promise<void> {
  * Consume a reset token and set a new password. Returns true on success, false if the
  * token is unknown, expired, or already used. Single-use: the token is marked consumed.
  */
+/**
+ * Consume a reset token and set a new password. On success returns the account's sign-in
+ * identifiers (linked tutor username, if any, + email) so the UI can remind the user of the
+ * username tied to the email they just proved they control. Returns null on an invalid/expired
+ * token. Verifying the emailed link IS the email check.
+ */
 export async function resetPassword(
   token: string,
   newPassword: string,
-): Promise<boolean> {
+): Promise<{ username: string | null; email: string } | null> {
   const tokenHash = hashToken(token.trim());
   const record = await db.passwordResetToken.findUnique({
     where: { tokenHash },
     select: { id: true, userId: true, expiresAt: true, consumedAt: true },
   });
-  if (!record || record.consumedAt || record.expiresAt < new Date()) return false;
+  if (!record || record.consumedAt || record.expiresAt < new Date()) return null;
 
-  await db.$transaction([
-    db.user.update({
+  const updated = await db.$transaction(async (tx) => {
+    const user = await tx.user.update({
       where: { id: record.userId },
       data: { passwordHash: hashPassword(newPassword) },
-    }),
-    db.passwordResetToken.update({
+      select: { email: true, tutor: { select: { username: true } } },
+    });
+    await tx.passwordResetToken.update({
       where: { id: record.id },
       data: { consumedAt: new Date() },
-    }),
-  ]);
-  return true;
+    });
+    return user;
+  });
+  return { username: updated.tutor?.username ?? null, email: updated.email };
 }

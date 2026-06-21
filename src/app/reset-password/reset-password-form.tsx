@@ -14,6 +14,13 @@ export function ResetPasswordForm({ token }: { token: string }) {
     return (
       <div className="space-y-4 text-center">
         <p className="text-slate-700">{t("auth.reset.success")}</p>
+        {/* Remind them which username this email signs in with (handy if they forgot it). */}
+        <div className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-3 text-sm">
+          <p className="muted">{t("auth.reset.yourUsername")}</p>
+          <p className="mt-0.5 font-semibold text-slate-900">
+            {state.username ?? state.email}
+          </p>
+        </div>
         <Link href="/signin" className="btn-primary inline-block">
           {t("auth.reset.goToSignIn")}
         </Link>

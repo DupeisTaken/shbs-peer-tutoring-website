@@ -2,6 +2,7 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
+import { localizedPolicy } from "~/server/policy";
 
 const cuid = z.string().min(1);
 
@@ -35,13 +36,13 @@ export const tuteeRouter = createTRPCRouter({
     return { courses, slots };
   }),
 
-  /** The tutee policy/handbook (admin-editable) shown in the signup agreement modal. */
-  policy: publicProcedure.query(({ ctx }) =>
-    ctx.db.policyDocument.findUnique({
-      where: { slug: "tutee-policy" },
-      select: { title: true, body: true },
-    }),
-  ),
+  /**
+   * The tutee policy/handbook (admin-editable) shown in the signup agreement modal, in the
+   * requested UI locale. Falls back to the English version when that language isn't translated.
+   */
+  policy: publicProcedure
+    .input(z.object({ locale: z.string().optional() }).optional())
+    .query(({ ctx, input }) => localizedPolicy(ctx.db, "tutee-policy", input?.locale)),
 
   /** Submit a public signup request. Creates a PENDING tutee with course choices,
    *  availability and a typed rulebook signature. */

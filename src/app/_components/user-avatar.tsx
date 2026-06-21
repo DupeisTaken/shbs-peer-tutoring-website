@@ -24,6 +24,8 @@ export async function UserAvatar({
   email,
   role,
   settingsHref,
+  enterTutorHref,
+  enterAdminHref,
 }: {
   name: string;
   username?: string | null;
@@ -31,6 +33,10 @@ export async function UserAvatar({
   role?: string;
   /** When set, shows a "Settings" link to this href (e.g. the tutor self-service page). */
   settingsHref?: string;
+  /** For users who are also tutors — a link into the tutor area. */
+  enterTutorHref?: string;
+  /** For tutors who are also admins/coordinators — a link into the admin area. */
+  enterAdminHref?: string;
 }) {
   const t = await getTranslations();
   return (
@@ -51,6 +57,16 @@ export async function UserAvatar({
             <span className="badge-slate mt-2 inline-block text-[10px]">{role}</span>
           )}
         </div>
+        {enterAdminHref && (
+          <Link href={enterAdminHref} className="nav-link mt-2 text-sm">
+            {t("components.userMenu.enterAdmin")}
+          </Link>
+        )}
+        {enterTutorHref && (
+          <Link href={enterTutorHref} className="nav-link mt-2 text-sm">
+            {t("components.userMenu.enterTutor")}
+          </Link>
+        )}
         {settingsHref && (
           <Link href={settingsHref} className="nav-link mt-2 text-sm">
             {t("components.userMenu.settings")}
