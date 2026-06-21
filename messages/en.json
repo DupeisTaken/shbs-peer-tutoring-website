@@ -624,6 +624,31 @@
       "awaitingSchedule": "Awaiting the head to schedule a time."
     },
     "announcements": { "label": "Announcements", "pinned": "pinned" },
+    "settings": {
+      "title": "Account Settings",
+      "subtitle": "Update your personal information and password.",
+      "profileHeading": "Profile",
+      "name": "Name",
+      "username": "Username",
+      "grade": "Grade",
+      "altNames": "Alternative name(s)",
+      "altNamesHelp": "Shown alongside your name (e.g. your name in another script).",
+      "email": "Contact email",
+      "emailHelp": "Where sign-in and password-reset emails are sent.",
+      "save": "Save changes",
+      "saving": "Saving…",
+      "saved": "Saved.",
+      "passwordHeading": "Password",
+      "currentPassword": "Current password",
+      "newPassword": "New password",
+      "confirmPassword": "Confirm new password",
+      "pwHelp": "At least 8 characters.",
+      "changePasswordBtn": "Change password",
+      "changing": "Changing…",
+      "passwordChanged": "Password changed.",
+      "pwTooShort": "New password must be at least 8 characters.",
+      "pwMismatch": "The new passwords don't match."
+    },
     "dashboard": {
       "pending": {
         "title": "Your Tutor Account Is Pending Approval",
@@ -637,6 +662,9 @@
     "signup": {
       "title": "Request a Peer Tutor",
       "intro": "Tell us what you'd like help with and when you're free. A coordinator will review your request and match you with a tutor.",
+      "term": "Current term: {term}",
+      "becomeTutorPrompt": "Want to tutor instead?",
+      "becomeTutorLink": "Apply to become a tutor",
       "successTitle": "Request Received 🎉",
       "successBody": "Thanks, {name}. A coordinator will review your request and be in touch about your tutor and schedule.",
       "fields": {
@@ -698,6 +726,7 @@
   },
   "components": {
     "notifications": { "title": "Notifications", "markAllRead": "Mark all read", "empty": "Nothing yet." },
-    "signOut": { "label": "Sign out" }
+    "signOut": { "label": "Sign out" },
+    "userMenu": { "settings": "Settings" }
   }
 }

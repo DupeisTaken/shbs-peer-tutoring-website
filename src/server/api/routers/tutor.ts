@@ -6,6 +6,7 @@ import { computeSessionHours } from "~/lib/service-hours";
 import { semesterQuarters } from "~/lib/period";
 import { getActivePeriodOrNull } from "~/server/period";
 import { promoteApplicantToTutor } from "~/server/tutors/promote";
+import { hashPassword, verifyPassword } from "~/server/auth/password";
 import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
 
 const TUTOR_STATUS = ["PRESENT", "RESCHEDULED", "EXTRA", "TUTOR_ABSENT"] as const;
@@ -419,6 +420,78 @@ export const tutorRouter = createTRPCRouter({
       select: { id: true, englishName: true, active: true, email: true },
     }),
   ),
+
+  // --------------------------------------------------------------------------
+  // Self-service profile (a tutor editing their own personal information)
+  // --------------------------------------------------------------------------
+  /** The signed-in tutor's editable profile (+ read-only name/username/grade). */
+  myProfile: tutorProcedure.query(async ({ ctx }) => {
+    const [tutor, user] = await Promise.all([
+      ctx.db.tutor.findUniqueOrThrow({
+        where: { id: ctx.session.tutorId },
+        select: { englishName: true, username: true, alternativeNames: true, gradeLevel: true },
+      }),
+      ctx.db.user.findUniqueOrThrow({
+        where: { id: ctx.session.user.id },
+        select: { email: true },
+      }),
+    ]);
+    return { ...tutor, email: user.email };
+  }),
+
+  /** Update the tutor's own alternative name(s) and contact email. */
+  updateProfile: tutorProcedure
+    .input(
+      z.object({
+        alternativeNames: z.string().trim().max(200).nullable().optional(),
+        email: z.string().email().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (input.email) {
+        const email = input.email.trim().toLowerCase();
+        const clash = await ctx.db.user.findFirst({
+          where: { email, id: { not: ctx.session.user.id } },
+          select: { id: true },
+        });
+        if (clash) {
+          throw new TRPCError({ code: "CONFLICT", message: "That email is already in use." });
+        }
+        await ctx.db.user.update({ where: { id: ctx.session.user.id }, data: { email } });
+      }
+      if (input.alternativeNames !== undefined) {
+        await ctx.db.tutor.update({
+          where: { id: ctx.session.tutorId },
+          data: {
+            alternativeNames: input.alternativeNames?.trim() ? input.alternativeNames.trim() : null,
+          },
+        });
+      }
+      return { ok: true };
+    }),
+
+  /** Change the tutor's own password (requires the current one). */
+  changePassword: tutorProcedure
+    .input(
+      z.object({
+        currentPassword: z.string().min(1),
+        newPassword: z.string().min(8, "Use at least 8 characters."),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const user = await ctx.db.user.findUniqueOrThrow({
+        where: { id: ctx.session.user.id },
+        select: { passwordHash: true },
+      });
+      if (!user.passwordHash || !verifyPassword(input.currentPassword, user.passwordHash)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Current password is incorrect." });
+      }
+      await ctx.db.user.update({
+        where: { id: ctx.session.user.id },
+        data: { passwordHash: hashPassword(input.newPassword), mustChangePassword: false },
+      });
+      return { ok: true };
+    }),
 
   // --------------------------------------------------------------------------
   // Announcements: team broadcasts surfaced on the dashboard every login until acked.

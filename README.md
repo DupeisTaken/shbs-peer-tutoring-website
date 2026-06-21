@@ -69,8 +69,9 @@ implemented** (`src/server/auth/two-factor.ts`); it can reuse the same sender wh
 - `/` — public landing page with three CTAs: request a tutor, apply to tutor, and team sign-in.
 - `/signup` — **public** tutee signup form: name, contact details (including a required
   free-text "how can we reach you?"), first/second course choice (from the admin-managed
-  catalog), available time slots, and a typed rulebook signature. Creates a `PENDING` tutee
-  for an admin to review and assign.
+  catalog), available time slots, and a typed rulebook signature. Shows the current program
+  term (e.g. `25-26 S2`) and links to the tutor application. Creates a `PENDING` tutee for an
+  admin to review and assign.
 - `/tutor-signup` — **public** tutor *application*: name, contact email, a required
   "how can we reach you?" field, and up to three intended courses. For each course the applicant reports how they're qualified — took the
   class (+ grade), holds an AP score (only offered for AP-tagged courses, and only entered
@@ -87,6 +88,8 @@ implemented** (`src/server/auth/two-factor.ts`); it can reuse the same sender wh
   (with default-slot picker), availability, the attendance form (which can **merge several
   courses into one block** — see Service hours), interviews they're on the panel for, and the
   room schedule — all on one page.
+- `/settings` — tutor self-service: edit alternative name(s) and contact email, and change
+  password (current password required). Linked from the avatar menu.
 - `/admin/*` — the **SHBS Peer Tutoring Team** management area (coordinator/admin). The nav is
   grouped into **Tutors** (roster, applications, meetings, service hours, hour adjustments),
   **Tutees** (roster, signup requests, discipline cards), **Scheduling & Records** (pairings,

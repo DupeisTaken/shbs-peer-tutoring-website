@@ -98,7 +98,8 @@ Open http://localhost:3000, sign in at `/signin` with a seeded account (e.g.
 `admin@example.edu` / `Password123!`). Admins/coordinators land in the **SHBS Peer Tutoring
 Team** management area (`/admin`);
 tutors land on their combined `/dashboard` (hours, pairings, availability, and the
-attendance form on one page).
+attendance form on one page). Tutors can edit their own name/email/password via **Settings**
+in the avatar menu (`/settings`).
 
 Switch the interface language any time with the **EN / 中文** toggle in the header.
 

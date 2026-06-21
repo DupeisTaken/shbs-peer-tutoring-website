@@ -595,6 +595,31 @@
       "awaitingSchedule": "等待组长安排时间。"
     },
     "announcements": { "label": "公告", "pinned": "置顶" },
+    "settings": {
+      "title": "账户设置",
+      "subtitle": "更新你的个人信息和密码。",
+      "profileHeading": "个人资料",
+      "name": "姓名",
+      "username": "用户名",
+      "grade": "年级",
+      "altNames": "别名",
+      "altNamesHelp": "显示在你姓名旁（例如其他文字的名字）。",
+      "email": "联系邮箱",
+      "emailHelp": "登录与密码重置邮件将发送到此邮箱。",
+      "save": "保存更改",
+      "saving": "保存中…",
+      "saved": "已保存。",
+      "passwordHeading": "密码",
+      "currentPassword": "当前密码",
+      "newPassword": "新密码",
+      "confirmPassword": "确认新密码",
+      "pwHelp": "至少 8 个字符。",
+      "changePasswordBtn": "修改密码",
+      "changing": "修改中…",
+      "passwordChanged": "密码已修改。",
+      "pwTooShort": "新密码至少需要 8 个字符。",
+      "pwMismatch": "两次输入的新密码不一致。"
+    },
     "dashboard": {
       "pending": {
         "title": "你的导师账户正在等待审批",
@@ -608,6 +633,9 @@
     "signup": {
       "title": "申请同伴辅导",
       "intro": "告诉我们你需要哪方面的帮助以及你的空闲时间。协调员会审核你的申请并为你匹配一位辅导员。",
+      "term": "当前学期：{term}",
+      "becomeTutorPrompt": "想成为辅导员？",
+      "becomeTutorLink": "申请成为辅导员",
       "successTitle": "申请已收到 🎉",
       "successBody": "谢谢你，{name}。协调员会审核你的申请，并就你的辅导员和时间安排与你联系。",
       "fields": {
@@ -669,6 +697,7 @@
   },
   "components": {
     "notifications": { "title": "通知", "markAllRead": "全部标为已读", "empty": "暂无内容。" },
-    "signOut": { "label": "退出登录" }
+    "signOut": { "label": "退出登录" },
+    "userMenu": { "settings": "设置" }
   }
 }

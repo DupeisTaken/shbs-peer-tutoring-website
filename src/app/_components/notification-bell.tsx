@@ -5,10 +5,11 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
+import { DetailsAutoClose } from "~/app/_components/details-auto-close";
 
 /**
  * Bell + dropdown of the signed-in user's in-app notifications, with an unread badge.
- * Available to all roles; uses a native <details> so it needs no extra client wiring.
+ * Available to all roles; a native <details> with DetailsAutoClose for outside-click close.
  */
 export function NotificationBell() {
   const t = useTranslations();
@@ -29,6 +30,7 @@ export function NotificationBell() {
 
   return (
     <details className="group relative">
+      <DetailsAutoClose />
       <summary className="relative flex cursor-pointer list-none items-center [&::-webkit-details-marker]:hidden">
         <span className="text-xl" aria-label={t("components.notifications.title")}>
           🔔

@@ -144,6 +144,18 @@ const TUTEES = [
   { id: "tutee-will", englishName: "Will Tan", gradeLevel: "9", firstChoiceId: "course-spanish" },
   { id: "tutee-xena", englishName: "Xena Ross", gradeLevel: "10", firstChoiceId: "course-apush" },
   { id: "tutee-yuki", englishName: "Yuki Sato", gradeLevel: "11", firstChoiceId: "course-apcs" },
+  { id: "tutee-aaron", englishName: "Aaron Webb", gradeLevel: "9", firstChoiceId: "course-algebra2" },
+  { id: "tutee-bella", englishName: "Bella Cruz", gradeLevel: "10", firstChoiceId: "course-apbio" },
+  { id: "tutee-cory", englishName: "Cory Flynn", gradeLevel: "11", firstChoiceId: "course-precalc" },
+  { id: "tutee-dana", englishName: "Dana Iverson", gradeLevel: "12", firstChoiceId: "course-economics" },
+  { id: "tutee-eli", englishName: "Eli Mercer", gradeLevel: "9", firstChoiceId: "course-apbio" },
+  { id: "tutee-faye", englishName: "Faye Okafor", gradeLevel: "10", firstChoiceId: "course-precalc" },
+  { id: "tutee-gabe", englishName: "Gabe Solis", gradeLevel: "11", firstChoiceId: "course-apbio" },
+  { id: "tutee-hana", englishName: "Hana Kato", gradeLevel: "9", firstChoiceId: "course-precalc" },
+  { id: "tutee-ian", englishName: "Ian Boyd", gradeLevel: "10", firstChoiceId: "course-worldhistory" },
+  { id: "tutee-jana", englishName: "Jana Petrov", gradeLevel: "12", firstChoiceId: "course-apenglit" },
+  { id: "tutee-kyle", englishName: "Kyle Ahmed", gradeLevel: "11", firstChoiceId: "course-apcalc" },
+  { id: "tutee-lena", englishName: "Lena Brooks", gradeLevel: "10", firstChoiceId: "course-spanish" },
 ];
 
 // Public self-signups awaiting review — ordered earliest-first (priority) by `daysAgo`.
@@ -154,6 +166,9 @@ const PENDING_SIGNUPS = [
   { id: "tutee-pending-raj", englishName: "Raj Mehta", gradeLevel: "12", email: "raj@example.edu", preferredContact: "WeChat / text 555-0188", firstChoiceId: "course-apcs", secondChoiceId: "course-compsci", slotIds: ["slot-wed-b", "slot-thu-b"], daysAgo: 2 },
   { id: "tutee-pending-sara", englishName: "Sara Cohen", gradeLevel: "9", email: "sara@example.edu", preferredContact: "Email preferred", firstChoiceId: "course-spanish", slotIds: ["slot-tue-b"], daysAgo: 1 },
   { id: "tutee-pending-tom", englishName: "Tom Becker", gradeLevel: "10", email: "tom@example.edu", preferredContact: "Text 555-0177", firstChoiceId: "course-apush", secondChoiceId: "course-worldhistory", slotIds: ["slot-fri-b"], daysAgo: 0 },
+  { id: "tutee-pending-uma", englishName: "Uma Devi", gradeLevel: "10", email: "uma@example.edu", preferredContact: "Email; replies same day", firstChoiceId: "course-apbio", secondChoiceId: "course-biology", slotIds: ["slot-thu-a"], daysAgo: 4 },
+  { id: "tutee-pending-victor", englishName: "Victor Lim", gradeLevel: "11", email: "victor@example.edu", preferredContact: "Text 555-0199 evenings", firstChoiceId: "course-apphysics", secondChoiceId: "course-physics", slotIds: ["slot-mon-b"], daysAgo: 2 },
+  { id: "tutee-pending-wendy", englishName: "Wendy Cho", gradeLevel: "9", email: "wendy@example.edu", preferredContact: "Email preferred", firstChoiceId: "course-algebra2", slotIds: ["slot-tue-a"], daysAgo: 0 },
 ];
 
 // ---------------------------------------------------------------------------
@@ -171,6 +186,8 @@ const PAIRINGS = [
   { id: "pairing-jason-apcs", tutorId: "tutor-jason", courseId: "course-apcs", subject: "AP Computer Science A", day: 3, start: "17:15", end: "18:15", roomId: "room-a101", slotId: "slot-wed-b", tuteeIds: ["tutee-vera", "tutee-yuki"] },
   { id: "pairing-karen-econ", tutorId: "tutor-karen", courseId: "course-economics", subject: "Economics", day: 4, start: "16:45", end: "17:45", roomId: "room-a103", slotId: "slot-thu-b", tuteeIds: ["tutee-umar"] },
   { id: "pairing-leo-apush", tutorId: "tutor-leo", courseId: "course-apush", subject: "AP US History", day: 5, start: "16:30", end: "17:30", roomId: "room-b201", slotId: "slot-fri-b", tuteeIds: ["tutee-xena", "tutee-sam"] },
+  { id: "pairing-mona-precalc", tutorId: "tutor-mona", courseId: "course-precalc", subject: "Precalculus", day: 2, start: "15:30", end: "16:30", roomId: "room-a102", slotId: "slot-tue-a", tuteeIds: ["tutee-faye", "tutee-cory", "tutee-hana"] },
+  { id: "pairing-nora-apbio", tutorId: "tutor-nora", courseId: "course-apbio", subject: "AP Biology", day: 4, start: "16:45", end: "17:45", roomId: "room-lab1", slotId: "slot-thu-b", tuteeIds: ["tutee-bella", "tutee-eli", "tutee-gabe"] },
 ];
 
 type SessionSpec = {
@@ -210,6 +227,17 @@ const SESSIONS: SessionSpec[] = [
   { id: "sess-karen-1", pairingId: "pairing-karen-econ", tutorId: "tutor-karen", daysAgo: 3, tutorStatus: "TUTOR_ABSENT", start: "16:45", end: "17:45", tutorAbsentReason: "Was sick; will reschedule.", tutees: [{ tuteeId: "tutee-umar", status: "PRESENT" }] },
   // Leo / APUSH.
   { id: "sess-leo-1", pairingId: "pairing-leo-apush", tutorId: "tutor-leo", daysAgo: 10, tutorStatus: "PRESENT", start: "16:30", end: "17:30", ratings: 4, comments: "DBQ practice.", tutees: [{ tuteeId: "tutee-xena", status: "PRESENT" }, { tuteeId: "tutee-sam", status: "PRESENT" }] },
+  { id: "sess-leo-2", pairingId: "pairing-leo-apush", tutorId: "tutor-leo", daysAgo: 3, tutorStatus: "PRESENT", start: "16:30", end: "17:30", ratings: 4, comments: "Cold War review.", tutees: [{ tuteeId: "tutee-xena", status: "PRESENT" }, { tuteeId: "tutee-sam", status: "PRESENT" }] },
+  // A few more recent sessions across tutors (this semester).
+  { id: "sess-alice-3", pairingId: "pairing-alice-math", tutorId: "tutor-alice", daysAgo: 1, tutorStatus: "PRESENT", start: "15:30", end: "16:30", ratings: 5, comments: "Systems of equations.", tutees: [{ tuteeId: "tutee-emma", status: "PRESENT" }, { tuteeId: "tutee-frank", status: "PRESENT" }, { tuteeId: "tutee-liam", status: "PRESENT" }] },
+  { id: "sess-jason-2", pairingId: "pairing-jason-apcs", tutorId: "tutor-jason", daysAgo: 1, tutorStatus: "PRESENT", start: "17:15", end: "18:15", ratings: 5, comments: "Sorting algorithms.", tutees: [{ tuteeId: "tutee-vera", status: "PRESENT" }, { tuteeId: "tutee-yuki", status: "PRESENT" }] },
+  { id: "sess-david-2", pairingId: "pairing-david-chem", tutorId: "tutor-david", daysAgo: 2, tutorStatus: "RESCHEDULED", start: "16:30", end: "17:30", ratings: 4, comments: "Make-up: acids & bases.", tutees: [{ tuteeId: "tutee-mia", status: "PRESENT" }, { tuteeId: "tutee-olivia", status: "PRESENT" }] },
+  // Mona / Precalculus (new pairing).
+  { id: "sess-mona-1", pairingId: "pairing-mona-precalc", tutorId: "tutor-mona", daysAgo: 4, tutorStatus: "PRESENT", start: "15:30", end: "16:30", ratings: 5, comments: "Limits & continuity.", tutees: [{ tuteeId: "tutee-faye", status: "PRESENT" }, { tuteeId: "tutee-cory", status: "PRESENT" }, { tuteeId: "tutee-hana", status: "PRESENT" }] },
+  { id: "sess-mona-2", pairingId: "pairing-mona-precalc", tutorId: "tutor-mona", daysAgo: 1, tutorStatus: "PRESENT", start: "15:30", end: "16:30", ratings: 4, comments: "Trig identities.", tutees: [{ tuteeId: "tutee-faye", status: "PRESENT" }, { tuteeId: "tutee-cory", status: "EXCUSED_ABSENT", reason: "Clinic appointment (notified)." }, { tuteeId: "tutee-hana", status: "PRESENT" }] },
+  // Nora / AP Biology (new pairing) — one with an unexcused absence (auto red card).
+  { id: "sess-nora-1", pairingId: "pairing-nora-apbio", tutorId: "tutor-nora", daysAgo: 6, tutorStatus: "PRESENT", start: "16:45", end: "17:45", ratings: 5, comments: "Cellular respiration.", tutees: [{ tuteeId: "tutee-bella", status: "PRESENT" }, { tuteeId: "tutee-eli", status: "PRESENT" }, { tuteeId: "tutee-gabe", status: "PRESENT" }] },
+  { id: "sess-nora-2", pairingId: "pairing-nora-apbio", tutorId: "tutor-nora", daysAgo: 2, tutorStatus: "PRESENT", start: "16:45", end: "17:45", ratings: 4, comments: "Genetics problem set.", tutees: [{ tuteeId: "tutee-bella", status: "PRESENT" }, { tuteeId: "tutee-eli", status: "UNEXCUSED_ABSENT" }, { tuteeId: "tutee-gabe", status: "PRESENT" }] },
 ];
 
 // Disciplinary cards — varied colours / review states to show the 6-slot standing meter.
@@ -238,6 +266,10 @@ const CARDS: CardSpec[] = [
   { id: "card-noah-r1", tuteeId: "tutee-noah", color: "RED", source: "TUTOR", reason: "Disruptive behaviour during session.", reviewStatus: "VALID", issuedByTutorId: "tutor-gina", reviewedById: "user-admin", reviewed: true },
   { id: "card-noah-r2", tuteeId: "tutee-noah", color: "RED", source: "AUTO", reason: "Unexcused absence (auto-issued).", reviewStatus: "VALID", reviewed: false },
   { id: "card-umar-inv", tuteeId: "tutee-umar", color: "YELLOW", source: "TUTOR", reason: "Late — but tutee had notified; flagged invalid.", reviewStatus: "INVALID", issuedByTutorId: "tutor-karen", reviewedById: "user-admin", reviewed: true },
+  { id: "card-eli-auto", tuteeId: "tutee-eli", color: "RED", source: "AUTO", reason: "Unexcused absence (auto-issued).", reviewStatus: "VALID", sessionId: "sess-nora-2", reviewed: false },
+  { id: "card-cory-y1", tuteeId: "tutee-cory", color: "YELLOW", source: "TUTOR", reason: "Forgot materials.", reviewStatus: "PENDING", issuedByTutorId: "tutor-mona", reviewed: false },
+  { id: "card-bella-y1", tuteeId: "tutee-bella", color: "YELLOW", source: "TUTOR", reason: "Late submission of practice set.", reviewStatus: "VALID", issuedByTutorId: "tutor-nora", reviewedById: "user-admin", reviewed: true },
+  { id: "card-gabe-y1", tuteeId: "tutee-gabe", color: "YELLOW", source: "TUTOR", reason: "Phone use during session.", reviewStatus: "VALID", issuedByTutorId: "tutor-nora", reviewedById: "user-admin", reviewed: true },
 ];
 
 // ---------------------------------------------------------------------------

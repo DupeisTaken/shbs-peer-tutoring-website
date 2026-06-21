@@ -101,9 +101,11 @@ submission time). See the `admin-philosophies` memory for the rationale.
 ## Domain notes
 
 - **Tutor identity**: `Tutor` has `firstName`/`lastName` (with `englishName` kept as the
-  canonical "First Last" display name) and a unique `username` auto-derived as first-initial
-  + last name. New tutors hit a first-login gate (`/onboarding/email`) before the dashboard,
-  tracked by `User.emailVerifiedAt`.
+  canonical "First Last" display name), a unique `username` auto-derived as first-initial
+  + last name, and a `gradeLevel` (G-number; ages up / graduates on a year refresh). New tutors
+  hit a first-login gate (`/onboarding/email`) before the dashboard, tracked by
+  `User.emailVerifiedAt`. Tutors self-serve their own alt-name / contact email / password at
+  `/settings` (tutor router `myProfile`/`updateProfile`/`changePassword`).
 - **Tutee flow**: public signup → `PENDING` tutee → admin assigns to a tutor inline
   (creates pairing, flips to `ACTIVE`) → the **tutor** picks the default time slot from
   their dashboard.

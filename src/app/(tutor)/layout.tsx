@@ -53,6 +53,7 @@ export default async function TutorLayout({
               username={me?.tutor?.username}
               email={me?.email}
               role={session.role}
+              settingsHref="/settings"
             />
           </div>
         </div>
