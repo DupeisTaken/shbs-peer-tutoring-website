@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
@@ -30,12 +31,17 @@ export default async function LocalizationLayout({
   });
   if (!elevated && !me?.canTranslate) redirect("/");
 
+  const t = await getTranslations();
+  // Where "home"/back goes: admin-area roles to /admin, a linked tutor to their dashboard.
+  const adminArea = ["ADMIN", "COORDINATOR", "VIEWER"].includes(session.role);
+  const home = adminArea ? "/admin" : session.tutorId ? "/dashboard" : "/";
+
   return (
     <div className="min-h-screen">
       {/* Unified top bar — order: account info · theme · bell · language · buttons */}
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white">
         <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-6">
-          <Link href={elevated ? "/admin" : "/dashboard"} className="text-lg font-bold text-slate-900">
+          <Link href={home} className="text-lg font-bold text-slate-900">
             {TEAM_TITLE}
           </Link>
           <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
@@ -49,6 +55,12 @@ export default async function LocalizationLayout({
             <ThemeSwitcher />
             <NotificationBell />
             <LanguageSwitcher />
+            {/* Sidebar-less views (tutor/viewer translators) get an explicit way back. */}
+            {!elevated && (
+              <Link href={home} className="btn-secondary btn-sm">
+                {t("localization.back")}
+              </Link>
+            )}
             <SignOutButton />
           </div>
         </div>

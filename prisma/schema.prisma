@@ -80,6 +80,17 @@ model User {
   createdAt DateTime @default(now())
 }
 
+/// An available UI language. Built-in locales (en/zh/es) ship with bundled JSON; translators can
+/// add more here (their strings come from MessageOverride rows, English-fallback). `sortOrder`
+/// drives the language picker order (admins reorder). Built-ins are merged in even without a row.
+model Language {
+  code      String   @id
+  label     String
+  sortOrder Int      @default(0)
+  builtIn   Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
 /// A per-string override of a UI translation, edited in-app on /localization. One row per
 /// (locale, dot-path key); deep-merged over the bundled messages JSON at request time
 /// (see src/i18n/request.ts), so it white-labels/translates any string without a redeploy.

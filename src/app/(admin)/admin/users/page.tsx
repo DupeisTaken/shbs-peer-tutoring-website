@@ -1,15 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
+import { SortHeader, useSort, compare } from "~/app/_components/sortable";
 
 const ROLES = ["VIEWER", "TUTOR", "COORDINATOR", "ADMIN"] as const;
 type RoleValue = (typeof ROLES)[number];
 
-/** Roles for which "also a tutor" makes sense (they primarily live in the admin area). */
-const CAN_TUTOR_ROLES: readonly string[] = ["COORDINATOR", "ADMIN"];
+/** Elevated roles: they live in the admin area and can translate by default (no flag needed). */
+const ELEVATED_ROLES: readonly string[] = ["COORDINATOR", "ADMIN"];
 
 export default function UsersPage() {
   const t = useTranslations();
@@ -29,7 +30,25 @@ export default function UsersPage() {
   >(null);
 
   const isAdmin = accounts.data?.caller.role === "ADMIN";
-  const rows = accounts.data?.rows ?? [];
+  const sort = useSort("name");
+
+  const rows = useMemo(() => {
+    const data = accounts.data?.rows ?? [];
+    const dir = sort.dir === "asc" ? 1 : -1;
+    return [...data].sort((a, b) => {
+      switch (sort.key) {
+        case "tutor":
+          return compare(a.tutor?.englishName ?? "", b.tutor?.englishName ?? "") * dir;
+        case "account":
+          return compare(a.account, b.account) * dir;
+        case "role":
+          return compare(a.role ?? "", b.role ?? "") * dir;
+        case "name":
+        default:
+          return compare(a.name, b.name) * dir;
+      }
+    });
+  }, [accounts.data, sort.key, sort.dir]);
 
   const accountBadge = (status: string) =>
     status === "active" ? "badge-green" : status === "pending" ? "badge-amber" : "badge-slate";
@@ -68,10 +87,10 @@ export default function UsersPage() {
         <table className="data-table">
           <thead>
             <tr>
-              <th>{t("admin.users.columns.user")}</th>
-              <th>{t("admin.users.columns.linkedTutor")}</th>
-              <th>{t("admin.users.columns.account")}</th>
-              <th>{t("admin.users.columns.role")}</th>
+              <SortHeader sort={sort} sortKey="name">{t("admin.users.columns.user")}</SortHeader>
+              <SortHeader sort={sort} sortKey="tutor">{t("admin.users.columns.linkedTutor")}</SortHeader>
+              <SortHeader sort={sort} sortKey="account">{t("admin.users.columns.account")}</SortHeader>
+              <SortHeader sort={sort} sortKey="role">{t("admin.users.columns.role")}</SortHeader>
               <th>{t("admin.users.columns.canTutor")}</th>
               <th>{t("admin.users.columns.canTranslate")}</th>
             </tr>
@@ -79,7 +98,7 @@ export default function UsersPage() {
           <tbody>
             {rows.map((u) => {
               const key = u.userId ?? `tutor-${u.tutorId}`;
-              const canTutorApplies = !!u.role && CAN_TUTOR_ROLES.includes(u.role);
+              const canTutorApplies = !!u.role && ELEVATED_ROLES.includes(u.role);
               const linkedActive = !!u.tutorId && u.tutor?.active !== false;
               // Coordinators may only flip their own "can tutor"; admins, anyone's.
               const canEditCanTutor = isAdmin || u.isSelf;
@@ -192,9 +211,15 @@ export default function UsersPage() {
                     )}
                   </td>
 
-                  {/* Can translate — assigned by admins; grants access to /localization. */}
+                  {/* Can translate — admins/coordinators always can (default); others are assignable. */}
                   <td>
-                    {u.userId ? (
+                    {u.role == null ? (
+                      <span className="text-slate-400">—</span>
+                    ) : ELEVATED_ROLES.includes(u.role) ? (
+                      <span className="badge-slate" title={t("admin.users.translateDefaultHint")}>
+                        {t("admin.users.translateDefault")}
+                      </span>
+                    ) : (
                       <label
                         className={`flex items-center gap-2 text-sm ${
                           isAdmin ? "text-slate-700" : "text-slate-400"
@@ -213,8 +238,6 @@ export default function UsersPage() {
                         />
                         {t("admin.users.canTranslateLabel")}
                       </label>
-                    ) : (
-                      <span className="text-slate-400">—</span>
                     )}
                   </td>
                 </tr>

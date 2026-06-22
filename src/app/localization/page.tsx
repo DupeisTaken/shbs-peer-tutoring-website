@@ -1,13 +1,11 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
-import { LOCALES, LOCALE_LABELS } from "~/i18n/config";
 import { DisclosureIcon } from "~/app/_components/icons";
 
-type Locale = (typeof LOCALES)[number];
 type StringRowData = { key: string; en: string; base: string; override: string | null };
 
 // Safety cap on how many rows one expanded group renders at once (most groups are far smaller).
@@ -19,7 +17,7 @@ function StringRow({
   item,
   onSaved,
 }: {
-  locale: Locale;
+  locale: string;
   item: StringRowData;
   onSaved: () => Promise<unknown> | void;
 }) {
@@ -69,20 +67,139 @@ function StringRow({
   );
 }
 
+/** Add a new language + (for admins) reorder and remove existing ones. */
+function LanguagesPanel() {
+  const t = useTranslations();
+  const utils = api.useUtils();
+  const languages = api.i18n.languages.useQuery();
+  const canManage = api.i18n.canManageLanguages.useQuery();
+  const list = languages.data ?? [];
+
+  const invalidate = () => utils.i18n.languages.invalidate();
+  const add = api.i18n.addLanguage.useMutation({
+    onSuccess: async () => {
+      setCode("");
+      setLabel("");
+      await invalidate();
+    },
+  });
+  const reorder = api.i18n.reorderLanguages.useMutation({ onSuccess: invalidate });
+  const del = api.i18n.deleteLanguage.useMutation({ onSuccess: invalidate });
+
+  const [code, setCode] = useState("");
+  const [label, setLabel] = useState("");
+
+  const move = (index: number, dir: -1 | 1) => {
+    const next = [...list];
+    const j = index + dir;
+    if (j < 0 || j >= next.length) return;
+    [next[index], next[j]] = [next[j]!, next[index]!];
+    reorder.mutate({ codes: next.map((l) => l.code) });
+  };
+
+  return (
+    <section className="card space-y-3 p-5">
+      <h2 className="section-title">{t("localization.languagesHeading")}</h2>
+
+      <ul className="divide-y divide-slate-100">
+        {list.map((l, i) => (
+          <li key={l.code} className="flex flex-wrap items-center gap-2 py-1.5">
+            <span className="font-medium text-slate-800">{l.label}</span>
+            <code className="text-xs text-slate-400">{l.code}</code>
+            {l.builtIn && <span className="badge-slate">{t("localization.builtIn")}</span>}
+            {canManage.data && (
+              <div className="ml-auto flex items-center gap-1">
+                <button
+                  type="button"
+                  className="btn-secondary btn-sm"
+                  aria-label={t("localization.moveUp")}
+                  disabled={i === 0 || reorder.isPending}
+                  onClick={() => move(i, -1)}
+                >
+                  ↑
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary btn-sm"
+                  aria-label={t("localization.moveDown")}
+                  disabled={i === list.length - 1 || reorder.isPending}
+                  onClick={() => move(i, 1)}
+                >
+                  ↓
+                </button>
+                {!l.builtIn && (
+                  <button
+                    type="button"
+                    className="link-danger text-xs"
+                    disabled={del.isPending}
+                    onClick={() => {
+                      if (confirm(t("localization.confirmRemoveLanguage", { label: l.label })))
+                        del.mutate({ code: l.code });
+                    }}
+                  >
+                    {t("localization.removeLanguage")}
+                  </button>
+                )}
+              </div>
+            )}
+          </li>
+        ))}
+      </ul>
+
+      {/* Any translator can add a language; its strings start from English and are translated here. */}
+      <form
+        className="flex flex-wrap items-end gap-2 border-t border-slate-100 pt-3"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (code.trim() && label.trim()) add.mutate({ code: code.trim(), label: label.trim() });
+        }}
+      >
+        <input
+          className="input field-auto min-w-28"
+          value={code}
+          onChange={(e) => setCode(e.target.value)}
+          placeholder={t("localization.addLanguageCode")}
+        />
+        <input
+          className="input field-auto min-w-40"
+          value={label}
+          onChange={(e) => setLabel(e.target.value)}
+          placeholder={t("localization.addLanguageName")}
+        />
+        <button className="btn-secondary btn-sm" disabled={!code.trim() || !label.trim() || add.isPending}>
+          {t("localization.addLanguageBtn")}
+        </button>
+      </form>
+      {add.error && <p className="text-sm text-red-600">{add.error.message}</p>}
+      {(reorder.error ?? del.error) && (
+        <p className="text-sm text-red-600">{(reorder.error ?? del.error)?.message}</p>
+      )}
+    </section>
+  );
+}
+
 export default function LocalizationPage() {
   const t = useTranslations();
   const displayLocale = useLocale();
   const utils = api.useUtils();
-  const [locale, setLocale] = useState<Locale>(displayLocale as Locale);
+  const languages = api.i18n.languages.useQuery();
+  const [locale, setLocale] = useState<string>(displayLocale);
   const [q, setQ] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+
+  const langOptions = useMemo(() => languages.data ?? [], [languages.data]);
+  // If the chosen language disappears (removed), fall back to the display locale.
+  useEffect(() => {
+    if (langOptions.length > 0 && !langOptions.some((l) => l.code === locale)) {
+      setLocale(displayLocale);
+    }
+  }, [langOptions, locale, displayLocale]);
 
   const strings = api.localization.strings.useQuery({ locale });
   const all = useMemo(() => strings.data ?? [], [strings.data]);
   const needle = q.trim().toLowerCase();
 
-  // Group keys by their top-level namespace (the part before the first dot). The query already
-  // returns keys sorted, so namespaces come out alphabetically.
+  // Group keys by their top-level namespace (the part before the first dot).
   const groups = useMemo(() => {
     const m = new Map<string, StringRowData[]>();
     for (const s of all) {
@@ -94,7 +211,6 @@ export default function LocalizationPage() {
     return [...m.entries()].map(([ns, rows]) => ({ ns, rows }));
   }, [all]);
 
-  // Per group, the rows that match the search (all of them when there's no search).
   const view = useMemo(() => {
     return groups
       .map(({ ns, rows }) => {
@@ -129,17 +245,19 @@ export default function LocalizationPage() {
         <p className="muted mt-1">{t("localization.subtitle")}</p>
       </div>
 
+      <LanguagesPanel />
+
       <div className="flex flex-wrap items-end gap-3">
         <label className="space-y-1 text-sm">
           <span className="label">{t("localization.targetLanguage")}</span>
           <select
             className="select field-auto min-w-40"
             value={locale}
-            onChange={(e) => setLocale(e.target.value as Locale)}
+            onChange={(e) => setLocale(e.target.value)}
           >
-            {LOCALES.map((l) => (
-              <option key={l} value={l}>
-                {LOCALE_LABELS[l]}
+            {langOptions.map((l) => (
+              <option key={l.code} value={l.code}>
+                {l.label}
               </option>
             ))}
           </select>

@@ -2,6 +2,7 @@ import { getRequestConfig } from "next-intl/server";
 import { cookies } from "next/headers";
 
 import { db } from "~/server/db";
+import { listLanguages } from "~/server/i18n/languages";
 import { DEFAULT_LOCALE, isLocale, type Locale } from "./config";
 
 /**
@@ -95,9 +96,15 @@ function loadOverride(): Record<string, unknown> {
 export default getRequestConfig(async () => {
   const store = await cookies();
   const cookieLocale = store.get(COOKIE)?.value;
-  const locale: Locale = isLocale(cookieLocale) ? cookieLocale : DEFAULT_LOCALE;
 
-  const base = (await LOADERS[locale]()).default;
+  // The active locale must be a known language (built-in or translator-added); else fall back.
+  const languages = await listLanguages();
+  const known = new Set(languages.map((l) => l.code));
+  const locale: string = cookieLocale && known.has(cookieLocale) ? cookieLocale : DEFAULT_LOCALE;
+
+  // Built-ins load their bundled JSON; added languages use English as the base (then DB overrides).
+  const loader = isLocale(locale) ? LOADERS[locale] : LOADERS[DEFAULT_LOCALE];
+  const base = (await loader()).default;
   const messages = deepMerge(base, loadOverride());
   await applyDbOverrides(messages, locale);
 

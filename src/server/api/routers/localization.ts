@@ -2,6 +2,7 @@ import { z } from "zod";
 
 import { createTRPCRouter, translatorProcedure } from "~/server/api/trpc";
 import { LOCALES } from "~/i18n/config";
+import { listLanguages } from "~/server/i18n/languages";
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
 import esMessages from "../../../../messages/es.json";
@@ -30,8 +31,18 @@ function flatten(
   return out;
 }
 
-function normalizeLocale(locale: string): string {
-  return (LOCALES as readonly string[]).includes(locale) ? locale : "en";
+const isBuiltin = (code: string) => (LOCALES as readonly string[]).includes(code);
+
+/** Resolve to a known language (built-in or translator-added); unknown codes fall back to English. */
+async function resolveLocale(locale: string): Promise<string> {
+  if (isBuiltin(locale)) return locale;
+  const langs = await listLanguages();
+  return langs.some((l) => l.code === locale) ? locale : "en";
+}
+
+/** Flattened base values for a locale: bundled JSON for built-ins, English for added languages. */
+function localeBase(locale: string, enFlat: Record<string, string>): Record<string, string> {
+  return isBuiltin(locale) ? flatten(MESSAGES[locale] ?? {}) : enFlat;
 }
 
 /**
@@ -44,9 +55,9 @@ export const localizationRouter = createTRPCRouter({
   strings: translatorProcedure
     .input(z.object({ locale: z.string() }))
     .query(async ({ ctx, input }) => {
-      const locale = normalizeLocale(input.locale);
+      const locale = await resolveLocale(input.locale);
       const enFlat = flatten(MESSAGES.en ?? {});
-      const localeFlat = locale === "en" ? enFlat : flatten(MESSAGES[locale] ?? {});
+      const localeFlat = localeBase(locale, enFlat);
       const overrides = await ctx.db.messageOverride.findMany({
         where: { locale },
         select: { key: true, value: true },
@@ -66,9 +77,9 @@ export const localizationRouter = createTRPCRouter({
   setString: translatorProcedure
     .input(z.object({ locale: z.string(), key: z.string().min(1), value: z.string() }))
     .mutation(async ({ ctx, input }) => {
-      const locale = normalizeLocale(input.locale);
+      const locale = await resolveLocale(input.locale);
       const enFlat = flatten(MESSAGES.en ?? {});
-      const localeFlat = locale === "en" ? enFlat : flatten(MESSAGES[locale] ?? {});
+      const localeFlat = localeBase(locale, enFlat);
       const base = localeFlat[input.key] ?? enFlat[input.key];
       const value = input.value;
       if (!value.trim() || value === base) {

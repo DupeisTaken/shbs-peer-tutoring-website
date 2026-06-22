@@ -377,6 +377,8 @@
       "roles": { "VIEWER": "Observador (solo lectura)", "TUTOR": "Tutor", "COORDINATOR": "Coordinador", "ADMIN": "Administrador" },
       "canTutorLabel": "Puede tutorar",
       "canTranslateLabel": "Puede traducir",
+      "translateDefault": "Predeterminado",
+      "translateDefaultHint": "Los administradores y coordinadores siempre pueden editar las traducciones.",
       "tutorActive": "activo",
       "tutorInactive": "inactivo",
       "empty": "Aún no hay usuarios ni tutores."
@@ -840,6 +842,15 @@
     "keysLabel": "claves",
     "expandAll": "Expandir todo",
     "collapseAll": "Contraer todo",
+    "languagesHeading": "Idiomas",
+    "builtIn": "integrado",
+    "moveUp": "Subir",
+    "moveDown": "Bajar",
+    "removeLanguage": "Quitar",
+    "confirmRemoveLanguage": "¿Quitar {label}? Sus traducciones se eliminarán.",
+    "addLanguageCode": "Código (p. ej. fr)",
+    "addLanguageName": "Nombre (p. ej. Français)",
+    "addLanguageBtn": "Agregar idioma",
     "back": "Volver"
   }
 }

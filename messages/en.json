@@ -377,6 +377,8 @@
       "roles": { "VIEWER": "Viewer (read-only)", "TUTOR": "Tutor", "COORDINATOR": "Coordinator", "ADMIN": "Admin" },
       "canTutorLabel": "Can tutor",
       "canTranslateLabel": "Can translate",
+      "translateDefault": "Default",
+      "translateDefaultHint": "Admins and coordinators can always edit translations.",
       "tutorActive": "active",
       "tutorInactive": "inactive",
       "empty": "No users or tutors yet."
@@ -840,6 +842,15 @@
     "keysLabel": "keys",
     "expandAll": "Expand all",
     "collapseAll": "Collapse all",
+    "languagesHeading": "Languages",
+    "builtIn": "built-in",
+    "moveUp": "Move up",
+    "moveDown": "Move down",
+    "removeLanguage": "Remove",
+    "confirmRemoveLanguage": "Remove {label}? Its translations will be deleted.",
+    "addLanguageCode": "Code (e.g. fr)",
+    "addLanguageName": "Name (e.g. Français)",
+    "addLanguageBtn": "Add language",
     "back": "Back"
   }
 }

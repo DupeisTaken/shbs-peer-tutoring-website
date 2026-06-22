@@ -9,6 +9,7 @@ import { applicationRouter } from "~/server/api/routers/application";
 import { adminRouter } from "~/server/api/routers/admin";
 import { notificationRouter } from "~/server/api/routers/notification";
 import { localizationRouter } from "~/server/api/routers/localization";
+import { i18nRouter } from "~/server/api/routers/i18n";
 
 /**
  * This is the primary router for your server.
@@ -25,6 +26,7 @@ export const appRouter = createTRPCRouter({
   admin: adminRouter,
   notification: notificationRouter,
   localization: localizationRouter,
+  i18n: i18nRouter,
 });
 
 // export type definition of API

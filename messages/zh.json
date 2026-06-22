@@ -348,6 +348,8 @@
       "roles": { "VIEWER": "访客（只读）", "TUTOR": "导师", "COORDINATOR": "协调员", "ADMIN": "管理员" },
       "canTutorLabel": "可担任导师",
       "canTranslateLabel": "可翻译",
+      "translateDefault": "默认",
+      "translateDefaultHint": "管理员和协调员始终可以编辑翻译。",
       "tutorActive": "在职",
       "tutorInactive": "停用",
       "empty": "尚无用户或导师。"
@@ -811,6 +813,15 @@
     "keysLabel": "条",
     "expandAll": "全部展开",
     "collapseAll": "全部收起",
+    "languagesHeading": "语言",
+    "builtIn": "内置",
+    "moveUp": "上移",
+    "moveDown": "下移",
+    "removeLanguage": "移除",
+    "confirmRemoveLanguage": "移除 {label}？其翻译将被删除。",
+    "addLanguageCode": "代码（如 fr）",
+    "addLanguageName": "名称（如 Français）",
+    "addLanguageBtn": "添加语言",
     "back": "返回"
   }
 }
