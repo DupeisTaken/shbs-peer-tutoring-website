@@ -350,6 +350,9 @@ const APPLICATIONS: AppSpec[] = [
 
 async function main() {
   // --- Term ------------------------------------------------------------------
+  // Deployment init: the program starts at 26-27 Q1. Deactivate any other term first so there is
+  // exactly one active Term (getActivePeriod picks the most recent active one), then activate ours.
+  await db.term.updateMany({ where: { id: { not: "term-2026-q1" } }, data: { active: false } });
   const term = await db.term.upsert({
     where: { id: "term-2026-q1" },
     update: { name: "26-27 Q1", schoolYear: "26-27", quarter: "Q1", active: true },
