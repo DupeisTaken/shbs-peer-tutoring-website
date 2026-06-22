@@ -51,9 +51,13 @@ function localeBase(locale: string, enFlat: Record<string, string>): Record<stri
  * `translatorProcedure` — admins/coordinators or any user an admin flagged `canTranslate`.
  */
 export const localizationRouter = createTRPCRouter({
-  /** Every English key with the bundled value for `locale` (English fallback) and any override. */
+  /**
+   * Every English key with the bundled value for `locale` (English fallback) and any override.
+   * `refLocales` adds the current value of one or more other languages as a translation reference
+   * (English is always shown, so it and the target locale are excluded from the references).
+   */
   strings: translatorProcedure
-    .input(z.object({ locale: z.string() }))
+    .input(z.object({ locale: z.string(), refLocales: z.array(z.string()).optional() }))
     .query(async ({ ctx, input }) => {
       const locale = await resolveLocale(input.locale);
       const enFlat = flatten(MESSAGES.en ?? {});
@@ -63,6 +67,24 @@ export const localizationRouter = createTRPCRouter({
         select: { key: true, value: true },
       });
       const overrideMap = new Map(overrides.map((o) => [o.key, o.value]));
+
+      // Resolve the requested reference languages (dedup; drop the target + English).
+      const refCodes: string[] = [];
+      for (const raw of input.refLocales ?? []) {
+        const rl = await resolveLocale(raw);
+        if (rl !== locale && rl !== "en" && !refCodes.includes(rl)) refCodes.push(rl);
+      }
+      const refData = await Promise.all(
+        refCodes.map(async (rl) => {
+          const flat = localeBase(rl, enFlat);
+          const ovr = await ctx.db.messageOverride.findMany({
+            where: { locale: rl },
+            select: { key: true, value: true },
+          });
+          return { locale: rl, flat, map: new Map(ovr.map((o) => [o.key, o.value])) };
+        }),
+      );
+
       return Object.keys(enFlat)
         .sort()
         .map((key) => ({
@@ -70,6 +92,10 @@ export const localizationRouter = createTRPCRouter({
           en: enFlat[key]!,
           base: localeFlat[key] ?? enFlat[key]!,
           override: overrideMap.get(key) ?? null,
+          refs: refData.map((r) => ({
+            locale: r.locale,
+            value: r.map.get(key) ?? r.flat[key] ?? enFlat[key]!,
+          })),
         }));
     }),
 

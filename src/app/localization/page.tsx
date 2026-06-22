@@ -6,7 +6,13 @@ import { useLocale, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { DisclosureIcon } from "~/app/_components/icons";
 
-type StringRowData = { key: string; en: string; base: string; override: string | null };
+type StringRowData = {
+  key: string;
+  en: string;
+  base: string;
+  override: string | null;
+  refs?: { locale: string; value: string }[];
+};
 
 // Safety cap on how many rows one expanded group renders at once (most groups are far smaller).
 const MAX_ROWS_PER_GROUP = 300;
@@ -15,10 +21,12 @@ const MAX_ROWS_PER_GROUP = 300;
 function StringRow({
   locale,
   item,
+  labelFor,
   onSaved,
 }: {
   locale: string;
   item: StringRowData;
+  labelFor: (code: string) => string;
   onSaved: () => Promise<unknown> | void;
 }) {
   const t = useTranslations();
@@ -52,6 +60,11 @@ function StringRow({
       <p className="muted mt-0.5 text-xs">
         <span className="font-medium">{t("localization.english")}:</span> {item.en}
       </p>
+      {item.refs?.map((r) => (
+        <p key={r.locale} className="muted text-xs">
+          <span className="font-medium">{labelFor(r.locale)}:</span> {r.value}
+        </p>
+      ))}
       <textarea
         className="textarea mt-1 w-full text-sm"
         rows={2}
@@ -184,10 +197,13 @@ export default function LocalizationPage() {
   const utils = api.useUtils();
   const languages = api.i18n.languages.useQuery();
   const [locale, setLocale] = useState<string>(displayLocale);
+  const [refLocales, setRefLocales] = useState<string[]>([]);
   const [q, setQ] = useState("");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
 
   const langOptions = useMemo(() => languages.data ?? [], [languages.data]);
+  const labelFor = (code: string) =>
+    langOptions.find((l) => l.code === code)?.label ?? code;
   // If the chosen language disappears (removed), fall back to the display locale.
   useEffect(() => {
     if (langOptions.length > 0 && !langOptions.some((l) => l.code === locale)) {
@@ -195,7 +211,7 @@ export default function LocalizationPage() {
     }
   }, [langOptions, locale, displayLocale]);
 
-  const strings = api.localization.strings.useQuery({ locale });
+  const strings = api.localization.strings.useQuery({ locale, refLocales });
   const all = useMemo(() => strings.data ?? [], [strings.data]);
   const needle = q.trim().toLowerCase();
 
@@ -273,6 +289,37 @@ export default function LocalizationPage() {
         </label>
       </div>
 
+      {/* Optional reference languages: shown (read-only) under English in every row. */}
+      {langOptions.some((l) => l.code !== locale && l.code !== "en") && (
+        <div className="flex flex-wrap items-center gap-2">
+          <span className="label">{t("localization.reference")}</span>
+          {langOptions
+            .filter((l) => l.code !== locale && l.code !== "en")
+            .map((l) => {
+              const on = refLocales.includes(l.code);
+              return (
+                <button
+                  key={l.code}
+                  type="button"
+                  aria-pressed={on}
+                  onClick={() =>
+                    setRefLocales((prev) =>
+                      on ? prev.filter((c) => c !== l.code) : [...prev, l.code],
+                    )
+                  }
+                  className={`badge ${
+                    on
+                      ? "bg-accent-100 text-accent-700"
+                      : "bg-slate-100 text-slate-600 hover:bg-slate-200"
+                  }`}
+                >
+                  {l.label}
+                </button>
+              );
+            })}
+        </div>
+      )}
+
       {strings.isLoading ? (
         <p className="muted">{t("localization.loading")}</p>
       ) : (
@@ -329,6 +376,7 @@ export default function LocalizationPage() {
                           key={`${locale}:${item.key}`}
                           locale={locale}
                           item={item}
+                          labelFor={labelFor}
                           onSaved={onSaved}
                         />
                       ))}
