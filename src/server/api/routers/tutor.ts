@@ -118,7 +118,7 @@ export const tutorRouter = createTRPCRouter({
       z
         .object({
           pairingId: z.string().min(1),
-          // Other pairings (courses) run in the same combined block. Each becomes its own
+          // Other pairings (subjects) run in the same combined block. Each becomes its own
           // Session linked by mergeGroupId; the block's clock time is counted once.
           mergePairingIds: z.array(z.string().min(1)).max(5).optional(),
           date: z.coerce.date(),
@@ -195,7 +195,7 @@ export const tutorRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const tutorId = ctx.session.tutorId;
-      // The block can cover several courses (pairings). Primary first, then the merged ones.
+      // The block can cover several subjects (pairings). Primary first, then the merged ones.
       const mergeIds = [...new Set(input.mergePairingIds ?? [])].filter(
         (id) => id !== input.pairingId,
       );
@@ -629,11 +629,11 @@ export const tutorRouter = createTRPCRouter({
             decisionComment: true,
             decidedAt: true,
             decidedByTutor: { select: { englishName: true } },
-            courseIntents: {
+            subjectIntents: {
               select: {
                 taken: true,
                 grade: true,
-                course: { select: { name: true } },
+                subject: { select: { name: true } },
               },
             },
             interviewers: {

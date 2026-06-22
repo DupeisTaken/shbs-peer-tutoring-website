@@ -84,7 +84,7 @@ or actions:
 2. **Revertibility.** Every mutating action must have a way to undo it from the UI — an
    inverse control (toggle, delete, re-decide, status change), not a one-way door. Prefer
    reversible operations: use `active` flags / status transitions over hard deletes; guard
-   destructive deletes when rows are referenced (see `deleteCourse`). When an action has a
+   destructive deletes when rows are referenced (see `deleteSubject`). When an action has a
    non-obvious inverse, make it explicit (e.g. reverting an ACCEPTED application: deactivate
    the auto-created tutor on `/admin/tutors`). A full audit/undo trail is future work — until
    then, ensure a manual revert path exists and document it.
@@ -135,7 +135,7 @@ submission time). See the `admin-philosophies` memory for the rationale.
   that link sets the password **and** completes onboarding (clears `mustChangePassword`, stamps
   `emailVerifiedAt`), so the tutor lands straight on the dashboard. Tutors can read the handbook
   at `/handbook`.
-- **Tutee flow**: public signup → `PENDING` tutee → admin assigns **each course choice
+- **Tutee flow**: public signup → `PENDING` tutee → admin assigns **each subject choice
   (1st/2nd) to a tutor independently** on `/admin/requests` (each pick creates one pairing).
   The signup stays `PENDING` until **every** provided choice has a tutor; that last assignment
   flips it to `ACTIVE` (`assignSignup` computes "fulfilled"). Fulfilled requests don't vanish —
@@ -143,12 +143,16 @@ submission time). See the `admin-philosophies` memory for the rationale.
   Then the **tutor** picks the default time slot from their dashboard.
 - **Tutor flow**: public application → admin assigns up to 3 interviewers (one **head**)
   → head schedules the interview, which shows for every panelist.
-- **Courses** are tagged `AP` / `HONORS` / `STANDARD`. The tag gates the AP-score field
-  on tutor applications. Each course row on `/tutor-signup` puts the qualification **ticks
-  first** (taken / has-AP-score / self-studied), and each detail box appears **only when its
-  tick is set** — the grade box when "taken", the AP-score box when "has AP score" (and only
-  for AP-tagged courses), and the self-study note when "self-studied". Personal-contact inputs
-  sit at the bottom of the form, below the course ticks and the policy agreement.
+- **Subjects** (Prisma model `Subject`, with `SubjectLevel` for the AP/Honors/Standard track and
+  `ApplicationSubjectIntent` for application picks) are the tutoring topics. The models keep their
+  original table names via `@@map` ("Course"/"CourseLevel"/"ApplicationCourseIntent") so the
+  rename needed no migration. **Never call them "courses" in UI copy** — we don't provide a formal
+  teaching service. The level tag gates the AP-score field on tutor applications. Each subject row
+  on `/tutor-signup` puts the qualification **ticks first** (taken / has-AP-score / self-studied),
+  and each detail box appears **only when its tick is set**. The admin catalogue is at
+  `/admin/subjects`. (Admin routes were tidied for clarity: `/admin/service-hours`,
+  `/admin/hour-adjustments`, `/admin/discipline`, `/admin/attendance`, `/admin/time-slots`,
+  `/admin/subjects`.)
 
 ## Layout
 

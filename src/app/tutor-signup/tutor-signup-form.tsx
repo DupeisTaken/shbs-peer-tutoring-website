@@ -8,7 +8,7 @@ import { APP_TITLE } from "~/lib/branding";
 import { PolicyAgreement } from "~/app/_components/policy-agreement";
 
 type CourseRow = {
-  courseId: string;
+  subjectId: string;
   taken: boolean;
   grade: string;
   hasApScore: boolean;
@@ -18,7 +18,7 @@ type CourseRow = {
 };
 
 const emptyRow: CourseRow = {
-  courseId: "",
+  subjectId: "",
   taken: false,
   grade: "",
   hasApScore: false,
@@ -47,7 +47,7 @@ export function TutorSignupForm() {
   const addRow = () => setRows((rs) => (rs.length < 3 ? [...rs, { ...emptyRow }] : rs));
   const removeRow = (i: number) => setRows((rs) => rs.filter((_, idx) => idx !== i));
 
-  const chosen = rows.map((r) => r.courseId).filter(Boolean);
+  const chosen = rows.map((r) => r.subjectId).filter(Boolean);
   const canSubmit =
     name.trim() &&
     email.trim() &&
@@ -78,10 +78,10 @@ export function TutorSignupForm() {
           name: name.trim(),
           email: email.trim(),
           preferredContact: preferredContact.trim(),
-          courses: rows
-            .filter((r) => r.courseId)
+          subjects: rows
+            .filter((r) => r.subjectId)
             .map((r) => ({
-              courseId: r.courseId,
+              subjectId: r.subjectId,
               taken: r.taken,
               grade: r.taken ? r.grade.trim() || undefined : undefined,
               hasApScore: r.hasApScore,
@@ -101,8 +101,8 @@ export function TutorSignupForm() {
           {rows.map((row, i) => {
             const usedElsewhere = rows
               .filter((_, idx) => idx !== i)
-              .map((r) => r.courseId);
-            const selected = courses.find((c) => c.id === row.courseId);
+              .map((r) => r.subjectId);
+            const selected = courses.find((c) => c.id === row.subjectId);
             const isAp = selected?.level?.apScored ?? false;
             return (
               <div
@@ -114,15 +114,15 @@ export function TutorSignupForm() {
                     <span className="label">{t("public.tutorSignup.fields.course")}</span>
                     <select
                       className="select w-48"
-                      value={row.courseId}
+                      value={row.subjectId}
                       onChange={(e) =>
                         // Reset the AP-score flag if the new course isn't AP.
-                        setRow(i, { courseId: e.target.value, hasApScore: false, apScore: "" })
+                        setRow(i, { subjectId: e.target.value, hasApScore: false, apScore: "" })
                       }
                     >
                       <option value="">{t("public.tutorSignup.placeholders.selectCourse")}</option>
                       {courses
-                        .filter((c) => c.id === row.courseId || !usedElsewhere.includes(c.id))
+                        .filter((c) => c.id === row.subjectId || !usedElsewhere.includes(c.id))
                         .map((c) => (
                           <option key={c.id} value={c.id}>
                             {c.name}

@@ -33,8 +33,8 @@ const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
       { href: "/admin/tutors", labelKey: "admin.nav.links.tutorRoster" },
       { href: "/admin/applications", labelKey: "admin.nav.links.tutorApplications" },
       { href: "/admin/meetings", labelKey: "admin.nav.links.tutorMeetings" },
-      { href: "/admin/summary", labelKey: "admin.nav.links.serviceHours" },
-      { href: "/admin/adjustments", labelKey: "admin.nav.links.hourAdjustments" },
+      { href: "/admin/service-hours", labelKey: "admin.nav.links.serviceHours" },
+      { href: "/admin/hour-adjustments", labelKey: "admin.nav.links.hourAdjustments" },
     ],
   },
   {
@@ -43,16 +43,16 @@ const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
     items: [
       { href: "/admin/tutees", labelKey: "admin.nav.links.tuteeRoster" },
       { href: "/admin/requests", labelKey: "admin.nav.links.signupRequests" },
-      { href: "/admin/cards", labelKey: "admin.nav.links.tuteeDiscipline" },
+      { href: "/admin/discipline", labelKey: "admin.nav.links.tuteeDiscipline" },
     ],
   },
   {
     titleKey: "admin.nav.sections.schedulingRecords",
     items: [
       { href: "/admin/pairings", labelKey: "admin.nav.links.pairings" },
-      { href: "/admin/submissions", labelKey: "admin.nav.links.attendance" },
-      { href: "/admin/timeslots", labelKey: "admin.nav.links.timeSlots" },
-      { href: "/admin/courses", labelKey: "admin.nav.links.coursesLevels" },
+      { href: "/admin/attendance", labelKey: "admin.nav.links.attendance" },
+      { href: "/admin/time-slots", labelKey: "admin.nav.links.timeSlots" },
+      { href: "/admin/subjects", labelKey: "admin.nav.links.coursesLevels" },
       { href: "/admin/rooms", labelKey: "admin.nav.links.rooms" },
     ],
   },

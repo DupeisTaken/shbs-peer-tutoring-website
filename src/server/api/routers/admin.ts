@@ -204,19 +204,19 @@ export const adminRouter = createTRPCRouter({
   terms: viewerProcedure.query(({ ctx }) =>
     ctx.db.term.findMany({ orderBy: { createdAt: "desc" } }),
   ),
-  courses: viewerProcedure.query(({ ctx }) =>
-    ctx.db.course.findMany({
+  subjects: viewerProcedure.query(({ ctx }) =>
+    ctx.db.subject.findMany({
       orderBy: { name: "asc" },
       include: { level: { select: { id: true, name: true } } },
     }),
   ),
 
   /** The admin-managed level catalogue (AP / Honors / Standard / …), ordered by rank. */
-  courseLevels: viewerProcedure.query(({ ctx }) =>
-    ctx.db.courseLevel.findMany({ orderBy: [{ rank: "asc" }, { name: "asc" }] }),
+  subjectLevels: viewerProcedure.query(({ ctx }) =>
+    ctx.db.subjectLevel.findMany({ orderBy: [{ rank: "asc" }, { name: "asc" }] }),
   ),
 
-  createCourseLevel: adminProcedure
+  createSubjectLevel: adminProcedure
     .input(
       z.object({
         name: z.string().trim().min(1).max(60),
@@ -225,10 +225,10 @@ export const adminRouter = createTRPCRouter({
       }),
     )
     .mutation(({ ctx, input }) =>
-      ctx.db.courseLevel.create({ data: input }),
+      ctx.db.subjectLevel.create({ data: input }),
     ),
 
-  updateCourseLevel: adminProcedure
+  updateSubjectLevel: adminProcedure
     .input(
       z.object({
         id: cuid,
@@ -240,18 +240,18 @@ export const adminRouter = createTRPCRouter({
     )
     .mutation(({ ctx, input }) => {
       const { id, ...data } = input;
-      return ctx.db.courseLevel.update({ where: { id }, data });
+      return ctx.db.subjectLevel.update({ where: { id }, data });
     }),
 
-  deleteCourseLevel: adminProcedure
+  deleteSubjectLevel: adminProcedure
     .input(z.object({ id: cuid }))
     .mutation(async ({ ctx, input }) => {
-      // Detach any courses on this level first (revertible: reassign on the courses page).
-      await ctx.db.course.updateMany({
+      // Detach any subjects on this level first (revertible: reassign on the subjects page).
+      await ctx.db.subject.updateMany({
         where: { levelId: input.id },
         data: { levelId: null },
       });
-      return ctx.db.courseLevel.delete({ where: { id: input.id } });
+      return ctx.db.subjectLevel.delete({ where: { id: input.id } });
     }),
   timeSlots: viewerProcedure.query(({ ctx }) =>
     ctx.db.timeSlot.findMany({
@@ -807,7 +807,7 @@ export const adminRouter = createTRPCRouter({
 
   /**
    * Review action: assign a tutee to a tutor. Creates a pairing (subject defaults to the
-   * tutee's first-choice course) in the given term and marks the tutee ACTIVE. The tutor
+   * tutee's first-choice subject) in the given term and marks the tutee ACTIVE. The tutor
    * then picks the default time slot from their own dashboard.
    */
   assignTuteeToTutor: adminProcedure
@@ -858,7 +858,7 @@ export const adminRouter = createTRPCRouter({
     }),
 
   /**
-   * Assign a pending signup's course choices to tutors in one go — e.g. their first choice
+   * Assign a pending signup's subject choices to tutors in one go — e.g. their first choice
    * (Chemistry) to tutor A and second choice (Biology) to tutor B. Creates a pairing per
    * assignment and flips the tutee ACTIVE. Each tutor then picks the real time slot.
    */
@@ -886,7 +886,7 @@ export const adminRouter = createTRPCRouter({
         });
         if (tutee?.status !== "PENDING") staleConflict();
 
-        // Subjects this tutee already has a tutor for — re-assigns of the same course are
+        // Subjects this tutee already has a tutor for — re-assigns of the same subject are
         // skipped so a partially-processed request can be finished without duplicating pairings.
         const existing = await tx.pairingTutee.findMany({
           where: { tuteeId: input.tuteeId },
@@ -911,7 +911,7 @@ export const adminRouter = createTRPCRouter({
           assignedSubjects.add(a.subject);
         }
 
-        // A request is "fulfilled" once every course choice the tutee actually provided has
+        // A request is "fulfilled" once every subject choice the tutee actually provided has
         // a tutor. Only then does it leave the queue (→ ACTIVE); partial assignments keep it
         // PENDING so the remaining choice can still be processed.
         const provided = [tutee.firstChoice?.name, tutee.secondChoice?.name].filter(
@@ -972,17 +972,17 @@ export const adminRouter = createTRPCRouter({
     }),
 
   // --------------------------------------------------------------------------
-  // Course catalog (subjects offered; tutees pick first/second choice at signup)
+  // Subject catalog (subjects offered; tutees pick first/second choice at signup)
   // --------------------------------------------------------------------------
-  createCourse: adminProcedure
+  createSubject: adminProcedure
     .input(z.object({ name: z.string().trim().min(1), levelId: cuid.nullable().optional() }))
     .mutation(({ ctx, input }) =>
-      ctx.db.course.create({
+      ctx.db.subject.create({
         data: { name: input.name, levelId: input.levelId ?? null },
       }),
     ),
 
-  updateCourse: adminProcedure
+  updateSubject: adminProcedure
     .input(
       z.object({
         id: cuid,
@@ -992,7 +992,7 @@ export const adminRouter = createTRPCRouter({
       }),
     )
     .mutation(({ ctx, input }) =>
-      ctx.db.course.update({
+      ctx.db.subject.update({
         where: { id: input.id },
         data: {
           name: input.name,
@@ -1002,7 +1002,7 @@ export const adminRouter = createTRPCRouter({
       }),
     ),
 
-  deleteCourse: adminProcedure
+  deleteSubject: adminProcedure
     .input(z.object({ id: cuid }))
     .mutation(async ({ ctx, input }) => {
       const used = await ctx.db.tutee.count({
@@ -1014,24 +1014,24 @@ export const adminRouter = createTRPCRouter({
           message: "Subject is chosen by one or more tutees. Mark it inactive instead.",
         });
       }
-      const course = await ctx.db.course.findUniqueOrThrow({
+      const subject = await ctx.db.subject.findUniqueOrThrow({
         where: { id: input.id },
         select: { id: true, name: true, levelId: true, active: true },
       });
-      const deleted = await ctx.db.course.delete({ where: { id: input.id } });
+      const deleted = await ctx.db.subject.delete({ where: { id: input.id } });
       await recordAudit({
         userId: ctx.session.user.id,
         userName: ctx.session.user.name,
-        action: `Deleted course "${course.name}"`,
-        entity: "Course",
-        entityId: course.id,
-        undo: { kind: "course.restore", payload: course },
+        action: `Deleted subject "${subject.name}"`,
+        entity: "Subject",
+        entityId: subject.id,
+        undo: { kind: "subject.restore", payload: subject },
       });
       return deleted;
     }),
 
-  /** Batch-edit selected courses: set their level and/or active flag in one go. */
-  batchUpdateCourses: adminProcedure
+  /** Batch-edit selected subjects: set their level and/or active flag in one go. */
+  batchUpdateSubjects: adminProcedure
     .input(
       z.object({
         ids: z.array(cuid).min(1),
@@ -1040,7 +1040,7 @@ export const adminRouter = createTRPCRouter({
       }),
     )
     .mutation(({ ctx, input }) =>
-      ctx.db.course.updateMany({
+      ctx.db.subject.updateMany({
         where: { id: { in: input.ids } },
         data: {
           ...(input.levelId === undefined ? {} : { levelId: input.levelId }),
@@ -1049,25 +1049,25 @@ export const adminRouter = createTRPCRouter({
       }),
     ),
 
-  /** Bulk-create courses (e.g. from a CSV upload). Duplicate names are skipped. The optional
+  /** Bulk-create subjects (e.g. from a CSV upload). Duplicate names are skipped. The optional
    *  level column is matched by name against the existing level catalogue (case-insensitive). */
-  importCourses: adminProcedure
+  importSubjects: adminProcedure
     .input(
       z.object({
-        courses: z
+        subjects: z
           .array(z.object({ name: z.string().trim().min(1), level: z.string().trim().optional() }))
           .min(1)
           .max(500),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const levels = await ctx.db.courseLevel.findMany({ select: { id: true, name: true } });
+      const levels = await ctx.db.subjectLevel.findMany({ select: { id: true, name: true } });
       const levelByName = new Map(levels.map((l) => [l.name.toLowerCase(), l.id]));
 
       // De-dupe by name within the batch, then let the DB skip names that already exist.
       const seen = new Set<string>();
       const data: { name: string; levelId: string | null }[] = [];
-      for (const c of input.courses) {
+      for (const c of input.subjects) {
         const key = c.name.toLowerCase();
         if (seen.has(key)) continue;
         seen.add(key);
@@ -1076,8 +1076,8 @@ export const adminRouter = createTRPCRouter({
           levelId: c.level ? (levelByName.get(c.level.toLowerCase()) ?? null) : null,
         });
       }
-      const result = await ctx.db.course.createMany({ data, skipDuplicates: true });
-      return { created: result.count, received: input.courses.length };
+      const result = await ctx.db.subject.createMany({ data, skipDuplicates: true });
+      return { created: result.count, received: input.subjects.length };
     }),
 
   // --------------------------------------------------------------------------
@@ -1325,9 +1325,9 @@ export const adminRouter = createTRPCRouter({
     ctx.db.tutorApplication.findMany({
       orderBy: [{ status: "asc" }, { createdAt: "desc" }],
       include: {
-        courseIntents: {
+        subjectIntents: {
           include: {
-            course: { select: { name: true, level: { select: { name: true } } } },
+            subject: { select: { name: true, level: { select: { name: true } } } },
           },
         },
         interviewers: {

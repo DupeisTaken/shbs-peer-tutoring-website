@@ -193,18 +193,18 @@ const PENDING_SIGNUPS = [
 // ---------------------------------------------------------------------------
 
 const PAIRINGS = [
-  { id: "pairing-alice-math", tutorId: "tutor-alice", courseId: "course-math", subject: "Mathematics", day: 1, start: "15:30", end: "16:30", roomId: "room-a101", slotId: "slot-mon-a", tuteeIds: ["tutee-emma", "tutee-frank", "tutee-liam"] },
-  { id: "pairing-bob-physics", tutorId: "tutor-bob", courseId: "course-physics", subject: "Physics", day: 3, start: "16:00", end: "17:00", roomId: "room-b201", slotId: "slot-wed-a", tuteeIds: ["tutee-grace", "tutee-peter"] },
-  { id: "pairing-carol-english", tutorId: "tutor-carol", courseId: "course-english", subject: "English", day: 5, start: "15:00", end: "16:15", roomId: "room-library", slotId: "slot-fri-a", tuteeIds: ["tutee-henry", "tutee-ivy", "tutee-jack"] },
-  { id: "pairing-david-chem", tutorId: "tutor-david", courseId: "course-chemistry", subject: "Chemistry", day: 2, start: "15:30", end: "16:30", roomId: "room-lab1", slotId: "slot-tue-a", tuteeIds: ["tutee-mia", "tutee-olivia"] },
-  { id: "pairing-gina-apcalc", tutorId: "tutor-gina", courseId: "course-apcalc", subject: "AP Calculus BC", day: 4, start: "16:45", end: "17:45", roomId: "room-a102", slotId: "slot-thu-b", tuteeIds: ["tutee-noah", "tutee-tina"] },
-  { id: "pairing-harold-apenglit", tutorId: "tutor-harold", courseId: "course-apenglit", subject: "AP English Literature", day: 1, start: "16:45", end: "17:45", roomId: "room-a103", slotId: "slot-mon-b", tuteeIds: ["tutee-rachel"] },
-  { id: "pairing-iris-spanish", tutorId: "tutor-iris", courseId: "course-spanish", subject: "Spanish", day: 2, start: "16:45", end: "17:45", roomId: "room-b202", slotId: "slot-tue-b", tuteeIds: ["tutee-quinn", "tutee-will"] },
-  { id: "pairing-jason-apcs", tutorId: "tutor-jason", courseId: "course-apcs", subject: "AP Computer Science A", day: 3, start: "17:15", end: "18:15", roomId: "room-a101", slotId: "slot-wed-b", tuteeIds: ["tutee-vera", "tutee-yuki"] },
-  { id: "pairing-karen-econ", tutorId: "tutor-karen", courseId: "course-economics", subject: "Economics", day: 4, start: "16:45", end: "17:45", roomId: "room-a103", slotId: "slot-thu-b", tuteeIds: ["tutee-umar"] },
-  { id: "pairing-leo-apush", tutorId: "tutor-leo", courseId: "course-apush", subject: "AP US History", day: 5, start: "16:30", end: "17:30", roomId: "room-b201", slotId: "slot-fri-b", tuteeIds: ["tutee-xena", "tutee-sam"] },
-  { id: "pairing-mona-precalc", tutorId: "tutor-mona", courseId: "course-precalc", subject: "Precalculus", day: 2, start: "15:30", end: "16:30", roomId: "room-a102", slotId: "slot-tue-a", tuteeIds: ["tutee-faye", "tutee-cory", "tutee-hana"] },
-  { id: "pairing-nora-apbio", tutorId: "tutor-nora", courseId: "course-apbio", subject: "AP Biology", day: 4, start: "16:45", end: "17:45", roomId: "room-lab1", slotId: "slot-thu-b", tuteeIds: ["tutee-bella", "tutee-eli", "tutee-gabe"] },
+  { id: "pairing-alice-math", tutorId: "tutor-alice", subjectId: "course-math", subject: "Mathematics", day: 1, start: "15:30", end: "16:30", roomId: "room-a101", slotId: "slot-mon-a", tuteeIds: ["tutee-emma", "tutee-frank", "tutee-liam"] },
+  { id: "pairing-bob-physics", tutorId: "tutor-bob", subjectId: "course-physics", subject: "Physics", day: 3, start: "16:00", end: "17:00", roomId: "room-b201", slotId: "slot-wed-a", tuteeIds: ["tutee-grace", "tutee-peter"] },
+  { id: "pairing-carol-english", tutorId: "tutor-carol", subjectId: "course-english", subject: "English", day: 5, start: "15:00", end: "16:15", roomId: "room-library", slotId: "slot-fri-a", tuteeIds: ["tutee-henry", "tutee-ivy", "tutee-jack"] },
+  { id: "pairing-david-chem", tutorId: "tutor-david", subjectId: "course-chemistry", subject: "Chemistry", day: 2, start: "15:30", end: "16:30", roomId: "room-lab1", slotId: "slot-tue-a", tuteeIds: ["tutee-mia", "tutee-olivia"] },
+  { id: "pairing-gina-apcalc", tutorId: "tutor-gina", subjectId: "course-apcalc", subject: "AP Calculus BC", day: 4, start: "16:45", end: "17:45", roomId: "room-a102", slotId: "slot-thu-b", tuteeIds: ["tutee-noah", "tutee-tina"] },
+  { id: "pairing-harold-apenglit", tutorId: "tutor-harold", subjectId: "course-apenglit", subject: "AP English Literature", day: 1, start: "16:45", end: "17:45", roomId: "room-a103", slotId: "slot-mon-b", tuteeIds: ["tutee-rachel"] },
+  { id: "pairing-iris-spanish", tutorId: "tutor-iris", subjectId: "course-spanish", subject: "Spanish", day: 2, start: "16:45", end: "17:45", roomId: "room-b202", slotId: "slot-tue-b", tuteeIds: ["tutee-quinn", "tutee-will"] },
+  { id: "pairing-jason-apcs", tutorId: "tutor-jason", subjectId: "course-apcs", subject: "AP Computer Science A", day: 3, start: "17:15", end: "18:15", roomId: "room-a101", slotId: "slot-wed-b", tuteeIds: ["tutee-vera", "tutee-yuki"] },
+  { id: "pairing-karen-econ", tutorId: "tutor-karen", subjectId: "course-economics", subject: "Economics", day: 4, start: "16:45", end: "17:45", roomId: "room-a103", slotId: "slot-thu-b", tuteeIds: ["tutee-umar"] },
+  { id: "pairing-leo-apush", tutorId: "tutor-leo", subjectId: "course-apush", subject: "AP US History", day: 5, start: "16:30", end: "17:30", roomId: "room-b201", slotId: "slot-fri-b", tuteeIds: ["tutee-xena", "tutee-sam"] },
+  { id: "pairing-mona-precalc", tutorId: "tutor-mona", subjectId: "course-precalc", subject: "Precalculus", day: 2, start: "15:30", end: "16:30", roomId: "room-a102", slotId: "slot-tue-a", tuteeIds: ["tutee-faye", "tutee-cory", "tutee-hana"] },
+  { id: "pairing-nora-apbio", tutorId: "tutor-nora", subjectId: "course-apbio", subject: "AP Biology", day: 4, start: "16:45", end: "17:45", roomId: "room-lab1", slotId: "slot-thu-b", tuteeIds: ["tutee-bella", "tutee-eli", "tutee-gabe"] },
 ];
 
 type SessionSpec = {
@@ -300,7 +300,7 @@ type AppSpec = {
   preferredContact: string;
   status: "PENDING" | "INTERVIEW" | "ACCEPTED" | "REJECTED";
   daysAgo: number;
-  intents: { courseId: string; taken?: boolean; grade?: string; hasApScore?: boolean; apScore?: string; selfStudied?: boolean; selfStudyNote?: string }[];
+  intents: { subjectId: string; taken?: boolean; grade?: string; hasApScore?: boolean; apScore?: string; selfStudied?: boolean; selfStudyNote?: string }[];
   panel?: { tutorId: string; isHead: boolean; accept: boolean; comment: string }[];
   decisionComment?: string;
   decidedByTutorId?: string;
@@ -310,9 +310,9 @@ const APPLICATIONS: AppSpec[] = [
   {
     id: "app-fiona", name: "Fiona Applicant", email: "fiona@example.edu", preferredContact: "Email me, or call 555-0142 on weekends", status: "INTERVIEW", daysAgo: 7,
     intents: [
-      { courseId: "course-math", taken: true, grade: "A" },
-      { courseId: "course-physics", taken: true, grade: "A", hasApScore: true, apScore: "5" },
-      { courseId: "course-biology", selfStudied: true, selfStudyNote: "Completed an online MIT OCW course; regional science-fair finalist." },
+      { subjectId: "course-math", taken: true, grade: "A" },
+      { subjectId: "course-physics", taken: true, grade: "A", hasApScore: true, apScore: "5" },
+      { subjectId: "course-biology", selfStudied: true, selfStudyNote: "Completed an online MIT OCW course; regional science-fair finalist." },
     ],
     panel: [
       { tutorId: "tutor-alice", isHead: true, accept: true, comment: "Strong, well-structured demo." },
@@ -321,7 +321,7 @@ const APPLICATIONS: AppSpec[] = [
   },
   {
     id: "app-george", name: "George Adler", email: "george@example.edu", preferredContact: "Text 555-0150", status: "ACCEPTED", daysAgo: 20,
-    intents: [{ courseId: "course-apcs", taken: true, grade: "A", hasApScore: true, apScore: "5" }, { courseId: "course-compsci", taken: true, grade: "A" }],
+    intents: [{ subjectId: "course-apcs", taken: true, grade: "A", hasApScore: true, apScore: "5" }, { subjectId: "course-compsci", taken: true, grade: "A" }],
     panel: [
       { tutorId: "tutor-gina", isHead: true, accept: true, comment: "Excellent CS fundamentals." },
       { tutorId: "tutor-harold", isHead: false, accept: true, comment: "Patient and clear." },
@@ -330,15 +330,15 @@ const APPLICATIONS: AppSpec[] = [
   },
   {
     id: "app-hana", name: "Hana Suzuki", email: "hana@example.edu", preferredContact: "Email", status: "REJECTED", daysAgo: 18,
-    intents: [{ courseId: "course-english", taken: true, grade: "B" }],
+    intents: [{ subjectId: "course-english", taken: true, grade: "B" }],
     panel: [
       { tutorId: "tutor-iris", isHead: true, accept: false, comment: "Subject depth needs work; encouraged to reapply." },
       { tutorId: "tutor-jason", isHead: false, accept: true, comment: "Good communication, borderline." },
     ],
     decisionComment: "Tie broken by head — ask to reapply next cycle after more prep.", decidedByTutorId: "tutor-iris",
   },
-  { id: "app-ian", name: "Ian Brooks", email: "ian@example.edu", preferredContact: "Call after 6pm", status: "PENDING", daysAgo: 3, intents: [{ courseId: "course-apcalc", taken: true, grade: "A", hasApScore: true, apScore: "5" }, { courseId: "course-precalc", taken: true, grade: "A" }] },
-  { id: "app-julia", name: "Julia Mensah", email: "julia@example.edu", preferredContact: "Text 555-0161", status: "PENDING", daysAgo: 1, intents: [{ courseId: "course-spanish", taken: true, grade: "A" }, { courseId: "course-worldhistory", selfStudied: true, selfStudyNote: "Heritage speaker; led a history club." }] },
+  { id: "app-ian", name: "Ian Brooks", email: "ian@example.edu", preferredContact: "Call after 6pm", status: "PENDING", daysAgo: 3, intents: [{ subjectId: "course-apcalc", taken: true, grade: "A", hasApScore: true, apScore: "5" }, { subjectId: "course-precalc", taken: true, grade: "A" }] },
+  { id: "app-julia", name: "Julia Mensah", email: "julia@example.edu", preferredContact: "Text 555-0161", status: "PENDING", daysAgo: 1, intents: [{ subjectId: "course-spanish", taken: true, grade: "A" }, { subjectId: "course-worldhistory", selfStudied: true, selfStudyNote: "Heritage speaker; led a history club." }] },
 ];
 
 // ---------------------------------------------------------------------------
@@ -368,10 +368,10 @@ async function main() {
 
   // --- Course levels + courses -----------------------------------------------
   for (const level of LEVELS) {
-    await db.courseLevel.upsert({ where: { id: level.id }, update: { name: level.name, rank: level.rank, apScored: level.apScored }, create: level });
+    await db.subjectLevel.upsert({ where: { id: level.id }, update: { name: level.name, rank: level.rank, apScored: level.apScored }, create: level });
   }
   for (const course of COURSES) {
-    await db.course.upsert({ where: { id: course.id }, update: { name: course.name, levelId: course.levelId }, create: course });
+    await db.subject.upsert({ where: { id: course.id }, update: { name: course.name, levelId: course.levelId }, create: course });
   }
 
   // --- Time slots ------------------------------------------------------------
@@ -501,9 +501,9 @@ async function main() {
         createdAt: daysAgo(app.daysAgo),
         decisionComment: app.decisionComment ?? null, decidedByTutorId: app.decidedByTutorId ?? null,
         decidedAt: app.decisionComment ? daysAgo(app.daysAgo - 1) : null,
-        courseIntents: {
+        subjectIntents: {
           create: app.intents.map((i) => ({
-            courseId: i.courseId, taken: i.taken ?? false, grade: i.grade ?? null,
+            subjectId: i.subjectId, taken: i.taken ?? false, grade: i.grade ?? null,
             hasApScore: i.hasApScore ?? false, apScore: i.apScore ?? null,
             selfStudied: i.selfStudied ?? false, selfStudyNote: i.selfStudyNote ?? null,
           })),

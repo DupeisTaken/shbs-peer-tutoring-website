@@ -63,7 +63,7 @@ export default function TuteesPage() {
   const t = useTranslations();
   const utils = api.useUtils();
   const tutees = api.admin.tutees.useQuery();
-  const courses = api.admin.courses.useQuery(undefined, { staleTime: REFERENCE_STALE_TIME });
+  const courses = api.admin.subjects.useQuery(undefined, { staleTime: REFERENCE_STALE_TIME });
   const tutors = api.admin.tutors.useQuery();
   const pairings = api.admin.pairings.useQuery();
   const stats = api.admin.tuteeStats.useQuery();

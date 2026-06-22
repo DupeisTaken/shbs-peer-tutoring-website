@@ -19,34 +19,34 @@ function parseCsv(text: string): { name: string; level?: string }[] {
   return rows;
 }
 
-export default function CoursesPage() {
+export default function SubjectsPage() {
   const t = useTranslations();
   const utils = api.useUtils();
-  const courses = api.admin.courses.useQuery(undefined, { staleTime: REFERENCE_STALE_TIME });
-  const levels = api.admin.courseLevels.useQuery();
+  const courses = api.admin.subjects.useQuery(undefined, { staleTime: REFERENCE_STALE_TIME });
+  const levels = api.admin.subjectLevels.useQuery();
 
   const invalidate = () =>
-    Promise.all([utils.admin.courses.invalidate(), utils.admin.courseLevels.invalidate()]);
+    Promise.all([utils.admin.subjects.invalidate(), utils.admin.subjectLevels.invalidate()]);
 
-  const create = api.admin.createCourse.useMutation({ onSuccess: invalidate });
-  const update = api.admin.updateCourse.useMutation({ onSuccess: invalidate });
-  const del = api.admin.deleteCourse.useMutation({ onSuccess: invalidate });
-  const batch = api.admin.batchUpdateCourses.useMutation({
+  const create = api.admin.createSubject.useMutation({ onSuccess: invalidate });
+  const update = api.admin.updateSubject.useMutation({ onSuccess: invalidate });
+  const del = api.admin.deleteSubject.useMutation({ onSuccess: invalidate });
+  const batch = api.admin.batchUpdateSubjects.useMutation({
     onSuccess: async () => {
       setSelected(new Set());
       await invalidate();
     },
   });
-  const importCourses = api.admin.importCourses.useMutation({
+  const importSubjects = api.admin.importSubjects.useMutation({
     onSuccess: async (r) => {
       setImportMsg(t("admin.courses.import.result", { created: r.created, received: r.received }));
       if (fileRef.current) fileRef.current.value = "";
       await invalidate();
     },
   });
-  const createLevel = api.admin.createCourseLevel.useMutation({ onSuccess: invalidate });
-  const updateLevel = api.admin.updateCourseLevel.useMutation({ onSuccess: invalidate });
-  const delLevel = api.admin.deleteCourseLevel.useMutation({ onSuccess: invalidate });
+  const createLevel = api.admin.createSubjectLevel.useMutation({ onSuccess: invalidate });
+  const updateLevel = api.admin.updateSubjectLevel.useMutation({ onSuccess: invalidate });
+  const delLevel = api.admin.deleteSubjectLevel.useMutation({ onSuccess: invalidate });
 
   const [name, setName] = useState("");
   const [levelId, setLevelId] = useState("");
@@ -73,7 +73,7 @@ export default function CoursesPage() {
       setImportMsg(t("admin.courses.import.empty"));
       return;
     }
-    importCourses.mutate({ courses: rows });
+    importSubjects.mutate({ subjects: rows });
   };
 
   return (
@@ -173,7 +173,7 @@ export default function CoursesPage() {
         </form>
 
         <label className="btn-secondary btn-sm cursor-pointer">
-          {importCourses.isPending ? t("admin.courses.import.importing") : t("admin.courses.import.upload")}
+          {importSubjects.isPending ? t("admin.courses.import.importing") : t("admin.courses.import.upload")}
           <input
             ref={fileRef}
             type="file"

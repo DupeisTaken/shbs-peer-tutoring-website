@@ -39,11 +39,11 @@ export default function ActivityPage() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Counter label={t("admin.activity.counters.pendingSignups")} value={pendingTutees.length} href="/admin/requests" />
         <Counter label={t("admin.activity.counters.openApplications")} value={openApps.length} href="/admin/applications" />
-        <Counter label={t("admin.activity.counters.cardsToReview")} value={pendingCards.length} href="/admin/cards" />
+        <Counter label={t("admin.activity.counters.cardsToReview")} value={pendingCards.length} href="/admin/discipline" />
         <Counter
           label={t("admin.activity.counters.recentSurveys")}
           value={recentSessions.length}
-          href="/admin/submissions"
+          href="/admin/attendance"
         />
       </div>
 
@@ -90,7 +90,7 @@ export default function ActivityPage() {
       {/* Card issues */}
       <Panel
         title={t("admin.activity.panels.cards.title")}
-        href="/admin/cards"
+        href="/admin/discipline"
         empty={t("admin.activity.panels.cards.empty")}
         manageLabel={t("admin.activity.manage")}
       >
@@ -111,7 +111,7 @@ export default function ActivityPage() {
       {/* Attendance surveys */}
       <Panel
         title={t("admin.activity.panels.surveys.title")}
-        href="/admin/submissions"
+        href="/admin/attendance"
         empty={t("admin.activity.panels.surveys.empty")}
         manageLabel={t("admin.activity.manage")}
       >

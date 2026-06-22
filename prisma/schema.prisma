@@ -161,7 +161,7 @@ enum AdjustmentType {
 /// Admin-managed difficulty/track levels (e.g. AP / Honors / Standard). `apScored` marks a
 /// level whose courses can carry an AP exam score — it gates the AP-score field on tutor
 /// applications. `rank` orders the catalogue.
-model CourseLevel {
+model SubjectLevel {
   id        String   @id @default(cuid())
   name      String   @unique
   rank      Int      @default(0)
@@ -169,7 +169,10 @@ model CourseLevel {
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  courses Course[]
+  subjects Subject[]
+
+  // Underlying table name kept stable so renaming the model needs no data migration.
+  @@map("CourseLevel")
 }
 
 /// A program period = one quarter of a school year. Exactly one is `active` at a time (the
@@ -229,18 +232,21 @@ model Tutor {
 
 /// A subject offered for tutoring. The catalog is managed by admins; tutees pick a
 /// first (required) and optional second choice from it on the public signup form.
-model Course {
+model Subject {
   id        String   @id @default(cuid())
   name      String   @unique
-  /// Difficulty/track level from the admin-managed catalogue (CourseLevel). Optional.
+  /// Difficulty/track level from the admin-managed catalogue (SubjectLevel). Optional.
   levelId   String?
-  level     CourseLevel? @relation(fields: [levelId], references: [id])
+  level     SubjectLevel? @relation(fields: [levelId], references: [id])
   active    Boolean  @default(true)
   createdAt DateTime @default(now())
 
-  firstChoiceTutees  Tutee[]                   @relation("TuteeFirstChoice")
-  secondChoiceTutees Tutee[]                   @relation("TuteeSecondChoice")
-  applicationIntents ApplicationCourseIntent[]
+  firstChoiceTutees  Tutee[]                    @relation("TuteeFirstChoice")
+  secondChoiceTutees Tutee[]                    @relation("TuteeSecondChoice")
+  applicationIntents ApplicationSubjectIntent[]
+
+  // Underlying table name kept stable so renaming the model needs no data migration.
+  @@map("Course")
 }
 
 model Tutee {
@@ -256,9 +262,9 @@ model Tutee {
 
   // Course preferences chosen on the signup form (first required, second optional).
   firstChoiceId  String?
-  firstChoice    Course? @relation("TuteeFirstChoice", fields: [firstChoiceId], references: [id])
+  firstChoice    Subject? @relation("TuteeFirstChoice", fields: [firstChoiceId], references: [id])
   secondChoiceId String?
-  secondChoice   Course? @relation("TuteeSecondChoice", fields: [secondChoiceId], references: [id])
+  secondChoice   Subject? @relation("TuteeSecondChoice", fields: [secondChoiceId], references: [id])
 
   // Electronic signature: the tutee types their name to agree to the rulebook.
   signedRulebook Boolean   @default(false)
@@ -532,7 +538,7 @@ model TutorApplication {
   /// Optimistic-concurrency token (see src/server/concurrency.ts).
   updatedAt       DateTime               @updatedAt
 
-  courseIntents ApplicationCourseIntent[]
+  subjectIntents ApplicationSubjectIntent[]
   interviewers  InterviewAssignment[]
   votes         InterviewVote[]
 
@@ -541,18 +547,18 @@ model TutorApplication {
 
 /// One intended tutoring course on an application (max 3 enforced in the form/mutation),
 /// with whether the applicant has taken it and the grade / AP score they received.
-model ApplicationCourseIntent {
+model ApplicationSubjectIntent {
   id            String           @id @default(cuid())
   applicationId String
   application   TutorApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  courseId      String
-  course        Course           @relation(fields: [courseId], references: [id])
+  subjectId     String           @map("courseId")
+  subject       Subject          @relation(fields: [subjectId], references: [id])
   taken         Boolean          @default(false)
   grade         String? // class grade received, when taken
-  /// Whether the applicant has an AP score for this (AP-tagged) course.
+  /// Whether the applicant has an AP score for this (AP-tagged) subject.
   hasApScore    Boolean          @default(false)
   apScore       String? // AP score, only when hasApScore
-  /// Whether the applicant self-studied this course instead of taking the class.
+  /// Whether the applicant self-studied this subject instead of taking the class.
   selfStudied   Boolean          @default(false)
   selfStudyNote String? // how they qualify / what they achieved, when selfStudied
 

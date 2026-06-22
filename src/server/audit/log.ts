@@ -12,7 +12,7 @@ import { db } from "~/server/db";
 /** Discriminated union of revert operations. Each is validated again at undo time. */
 export const undoSchema = z.discriminatedUnion("kind", [
   z.object({
-    kind: z.literal("course.restore"),
+    kind: z.literal("subject.restore"),
     payload: z.object({
       id: z.string(),
       name: z.string(),
@@ -89,8 +89,8 @@ export async function applyUndo(raw: unknown): Promise<boolean> {
   const undo = parsed.data;
 
   switch (undo.kind) {
-    case "course.restore":
-      await db.course.create({ data: undo.payload });
+    case "subject.restore":
+      await db.subject.create({ data: undo.payload });
       return true;
     case "announcement.restore":
       await db.announcement.create({ data: undo.payload });

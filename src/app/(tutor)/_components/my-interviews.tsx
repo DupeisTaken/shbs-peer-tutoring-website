@@ -227,9 +227,9 @@ export function MyInterviews() {
               </div>
 
               <ul className="mt-2 flex flex-wrap gap-2">
-                {a.courseIntents.map((ci, i) => (
+                {a.subjectIntents.map((ci, i) => (
                   <li key={i} className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
-                    {ci.course.name}
+                    {ci.subject.name}
                     {ci.taken
                       ? ` · ${ci.grade ?? t("tutor.interviews.taken")}`
                       : ` · ${t("tutor.interviews.notTaken")}`}

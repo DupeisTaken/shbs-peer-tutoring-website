@@ -36,7 +36,7 @@ export default async function AdminHome() {
         <Stat
           label={t("admin.dashboard.stats.serviceHours", { month: summary.scope.label })}
           value={totalHours.toFixed(1)}
-          href="/admin/summary"
+          href="/admin/service-hours"
         />
       </div>
 
@@ -53,7 +53,7 @@ export default async function AdminHome() {
       <section className="card overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3">
           <h2 className="font-semibold text-slate-900">{t("admin.dashboard.recentSubmissions.title")}</h2>
-          <Link href="/admin/submissions" className="link text-sm">
+          <Link href="/admin/attendance" className="link text-sm">
             {t("admin.dashboard.recentSubmissions.viewAll")}
           </Link>
         </div>

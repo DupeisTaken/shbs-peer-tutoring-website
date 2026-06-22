@@ -29,14 +29,14 @@ type Application = {
   status: Status;
   updatedAt: Date;
   interviewAt: Date | null;
-  courseIntents: {
+  subjectIntents: {
     taken: boolean;
     grade: string | null;
     hasApScore: boolean;
     apScore: string | null;
     selfStudied: boolean;
     selfStudyNote: string | null;
-    course: { name: string; level: { name: string } | null };
+    subject: { name: string; level: { name: string } | null };
   }[];
   interviewers: { isHead: boolean; tutor: { id: string; englishName: string } }[];
   votes: { accept: boolean; comment: string | null; tutor: { englishName: string } }[];
@@ -86,7 +86,7 @@ function ApplicationCard({
 
   const accepts = app.votes.filter((v) => v.accept).length;
   const courseNames =
-    app.courseIntents.map((ci) => ci.course.name).join(", ") ||
+    app.subjectIntents.map((ci) => ci.subject.name).join(", ") ||
     t("admin.applications.noCourses");
 
   return (
@@ -167,7 +167,7 @@ function ApplicationCard({
 
           {/* Course intents */}
           <ul className="mt-3 flex flex-wrap gap-2">
-            {app.courseIntents.map((ci, i) => {
+            {app.subjectIntents.map((ci, i) => {
               const quals: string[] = [];
               const na = t("admin.applications.na");
               if (ci.taken)
@@ -180,9 +180,9 @@ function ApplicationCard({
                 );
               return (
                 <li key={i} className="rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-700">
-                  <span className="font-medium">{ci.course.name}</span>
-                  {ci.course.level && (
-                    <span className="badge-slate ml-1 align-middle">{ci.course.level.name}</span>
+                  <span className="font-medium">{ci.subject.name}</span>
+                  {ci.subject.level && (
+                    <span className="badge-slate ml-1 align-middle">{ci.subject.level.name}</span>
                   )}
                   {" · "}
                   {quals.length ? quals.join(" · ") : t("admin.applications.noQualification")}

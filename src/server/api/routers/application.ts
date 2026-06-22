@@ -8,13 +8,13 @@ const cuid = z.string().min(1);
 
 /**
  * Public tutor-application intake. Submitting does NOT create a login — it records an
- * application for the admin team to review and assign interviewers to. Course choices come
+ * application for the admin team to review and assign interviewers to. Subject choices come
  * from the admin-managed catalog.
  */
 export const applicationRouter = createTRPCRouter({
-  /** Active courses for the application's course pickers (with their level). */
+  /** Active subjects for the application's subject pickers (with their level). */
   options: publicProcedure.query(({ ctx }) =>
-    ctx.db.course.findMany({
+    ctx.db.subject.findMany({
       where: { active: true },
       orderBy: { name: "asc" },
       select: {
@@ -43,10 +43,10 @@ export const applicationRouter = createTRPCRouter({
           .trim()
           .min(1, "Tell us how to reach you")
           .max(200),
-        courses: z
+        subjects: z
           .array(
             z.object({
-              courseId: cuid,
+              subjectId: cuid,
               // Took the class — class grade, only meaningful when taken.
               taken: z.boolean(),
               grade: z.string().trim().max(20).optional(),
@@ -58,24 +58,24 @@ export const applicationRouter = createTRPCRouter({
               selfStudyNote: z.string().trim().max(500).optional(),
             }),
           )
-          .min(1, "Pick at least one course")
-          .max(3, "At most three courses"),
+          .min(1, "Pick at least one subject")
+          .max(3, "At most three subjects"),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const courseIds = input.courses.map((c) => c.courseId);
-      if (new Set(courseIds).size !== courseIds.length) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Duplicate course selected." });
+      const subjectIds = input.subjects.map((c) => c.subjectId);
+      if (new Set(subjectIds).size !== subjectIds.length) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Duplicate subject selected." });
       }
 
-      const valid = await ctx.db.course.findMany({
-        where: { id: { in: courseIds }, active: true },
+      const valid = await ctx.db.subject.findMany({
+        where: { id: { in: subjectIds }, active: true },
         select: { id: true, level: { select: { apScored: true } } },
       });
-      if (valid.length !== courseIds.length) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid course selection." });
+      if (valid.length !== subjectIds.length) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid subject selection." });
       }
-      // A course can carry an AP score only if its level is flagged apScored.
+      // A subject can carry an AP score only if its level is flagged apScored.
       const apEligibleById = new Map(valid.map((c) => [c.id, c.level?.apScored ?? false]));
 
       await ctx.db.tutorApplication.create({
@@ -84,15 +84,15 @@ export const applicationRouter = createTRPCRouter({
           email: input.email.trim().toLowerCase(),
           preferredContact: input.preferredContact,
           status: "PENDING",
-          courseIntents: {
-            create: input.courses.map((c) => {
-              // AP score only applies to courses whose level is AP-scored.
-              const apEligible = apEligibleById.get(c.courseId) === true;
+          subjectIntents: {
+            create: input.subjects.map((c) => {
+              // AP score only applies to subjects whose level is AP-scored.
+              const apEligible = apEligibleById.get(c.subjectId) === true;
               const hasApScore = apEligible && c.hasApScore;
               const selfStudyNote =
                 c.selfStudied && c.selfStudyNote?.trim() ? c.selfStudyNote.trim() : null;
               return {
-                courseId: c.courseId,
+                subjectId: c.subjectId,
                 taken: c.taken,
                 grade: c.taken && c.grade?.trim() ? c.grade.trim() : null,
                 hasApScore,

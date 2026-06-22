@@ -26,7 +26,7 @@ export function SignupForm() {
   const [signatureName, setSignatureName] = useState("");
   const [agreed, setAgreed] = useState(false);
 
-  const courses = options.data?.courses ?? [];
+  const courses = options.data?.subjects ?? [];
   const slots = useMemo(() => options.data?.slots ?? [], [options.data]);
 
   // Group slots by day of week for a tidy availability picker.

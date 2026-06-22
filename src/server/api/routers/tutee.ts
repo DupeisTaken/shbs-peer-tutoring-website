@@ -15,14 +15,14 @@ function blankToNull(value?: string | null): string | null {
 
 /**
  * Public-facing tutee signup. Anyone (no login) can submit the form; the record is
- * created with status PENDING for an admin to review and assign to a tutor. Course
+ * created with status PENDING for an admin to review and assign to a tutor. Subject
  * choices and available time slots are drawn from the admin-managed catalogs.
  */
 export const tuteeRouter = createTRPCRouter({
-  /** Options needed to render the public signup form: active courses + active time slots. */
+  /** Options needed to render the public signup form: active subjects + active time slots. */
   signupOptions: publicProcedure.query(async ({ ctx }) => {
-    const [courses, slots] = await Promise.all([
-      ctx.db.course.findMany({
+    const [subjects, slots] = await Promise.all([
+      ctx.db.subject.findMany({
         where: { active: true },
         orderBy: { name: "asc" },
         select: { id: true, name: true },
@@ -33,7 +33,7 @@ export const tuteeRouter = createTRPCRouter({
         select: { id: true, label: true, dayOfWeek: true, startMin: true, endMin: true },
       }),
     ]);
-    return { courses, slots };
+    return { subjects, slots };
   }),
 
   /**
@@ -44,7 +44,7 @@ export const tuteeRouter = createTRPCRouter({
     .input(z.object({ locale: z.string().optional() }).optional())
     .query(({ ctx, input }) => localizedPolicy(ctx.db, "tutee-policy", input?.locale)),
 
-  /** Submit a public signup request. Creates a PENDING tutee with course choices,
+  /** Submit a public signup request. Creates a PENDING tutee with subject choices,
    *  availability and a typed rulebook signature. */
   requestSignup: publicProcedure
     .input(
@@ -73,18 +73,18 @@ export const tuteeRouter = createTRPCRouter({
       if (secondChoiceId && secondChoiceId === input.firstChoiceId) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "First and second course choices must be different.",
+          message: "First and second subject choices must be different.",
         });
       }
 
-      // Validate the referenced courses exist and are active.
-      const courseIds = [input.firstChoiceId, ...(secondChoiceId ? [secondChoiceId] : [])];
-      const courses = await ctx.db.course.findMany({
-        where: { id: { in: courseIds }, active: true },
+      // Validate the referenced subjects exist and are active.
+      const subjectIds = [input.firstChoiceId, ...(secondChoiceId ? [secondChoiceId] : [])];
+      const subjects = await ctx.db.subject.findMany({
+        where: { id: { in: subjectIds }, active: true },
         select: { id: true },
       });
-      if (courses.length !== courseIds.length) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid course selection." });
+      if (subjects.length !== subjectIds.length) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid subject selection." });
       }
 
       // Validate the selected slots exist and are active.
