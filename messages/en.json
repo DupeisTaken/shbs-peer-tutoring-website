@@ -54,6 +54,44 @@
       "enable2fa": "Enable email two-factor authentication (recommended). A one-time code will be emailed at sign-in once email delivery is configured.",
       "submit": "Confirm and continue",
       "saving": "Saving…"
+    },
+    "register": {
+      "title": "Create your account",
+      "subtitle": "Use the 6-digit security key an admin gave you.",
+      "backToSignIn": "← Back to sign in",
+      "step": {
+        "code": {
+          "label": "Security key",
+          "help": "Enter the 6-digit code an admin or coordinator gave you.",
+          "submit": "Continue"
+        },
+        "email": {
+          "label": "Email address",
+          "placeholder": "you@school.edu",
+          "bound": "This code is tied to this email address.",
+          "send": "Send verification code",
+          "sent": "We emailed a 6-digit code to {email}.",
+          "codeLabel": "Verification code",
+          "verify": "Verify email",
+          "resend": "Resend code"
+        },
+        "profile": {
+          "firstName": "First name",
+          "lastName": "Last name",
+          "altNames": "Alternative name(s)",
+          "grade": "Grade",
+          "password": "Password",
+          "passwordHint": "At least 8 characters.",
+          "confirm": "Confirm password",
+          "mismatch": "Passwords don't match.",
+          "submit": "Create account"
+        }
+      },
+      "done": {
+        "title": "You're all set!",
+        "body": "Your account is ready. Sign in with your email or username {username}.",
+        "signIn": "Go to sign in"
+      }
     }
   },
   "landing": {
@@ -150,11 +188,15 @@
       "colEmail": "Email",
       "colGrade": "Grade",
       "colActive": "Active",
+      "colStatus": "Status",
       "colAccount": "Account",
       "classOf": "Class of {year}",
       "account": {
         "active": "Set up",
         "pending": "Setup pending",
+        "registered": "Registered",
+        "setup": "Setup pending",
+        "invited": "Code issued",
         "none": "No login",
         "sendSetup": "Send setup link",
         "resend": "Resend setup",
@@ -163,6 +205,12 @@
         "linkManual": "Account ready. Share this setup link with the tutor (email isn't configured):",
         "dismiss": "Dismiss"
       }
+    },
+    "tutorStatus": {
+      "ACTIVE": "Active",
+      "GRADUATED": "Graduated",
+      "OPTED_OUT": "Opted out",
+      "ARCHIVED": "Archived"
     },
     "tutees": {
       "title": "Tutee Roster",
@@ -243,6 +291,7 @@
         "program": "Program & Refresh",
         "tutorRoster": "Tutor Roster",
         "tutorApplications": "Tutor Applications",
+        "tutorRequests": "Opt-out / Reentry",
         "tutorMeetings": "Tutor Meetings",
         "serviceHours": "Service Hours",
         "hourAdjustments": "Hour Adjustments",
@@ -256,7 +305,8 @@
         "rooms": "Rooms",
         "policyDocuments": "Policy Documents",
         "auditLog": "Audit Log",
-        "usersRoles": "Users & Roles"
+        "usersRoles": "Users & Roles",
+        "registrationCodes": "Registration Codes"
       }
     },
     "dashboard": {
@@ -285,6 +335,7 @@
         "pendingSignups": "Pending signups",
         "openApplications": "Open applications",
         "cardsToReview": "Cards to review",
+        "tutorRequests": "Opt-out / reentry",
         "recentSurveys": "Recent surveys"
       },
       "panels": {
@@ -295,6 +346,7 @@
           "votes": "{count} {count, plural, one {vote} other {votes}}",
           "panelists": "{count} {count, plural, one {panelist} other {panelists}}"
         },
+        "tutorRequests": { "title": "Tutor Opt-out / Reentry Requests", "empty": "No open requests." },
         "cards": { "title": "Discipline Cards to Review", "empty": "Nothing to review.", "auto": "auto", "tutor": "tutor" },
         "surveys": { "title": "Recent Attendance Surveys", "empty": "No surveys yet.", "hours": "{hours} h" }
       }
@@ -374,7 +426,10 @@
       "subtitle": "Manage logins, roles, and tutor account setup. Role changes take effect on the user's next sign-in.",
       "coordinatorHint": "As a coordinator you can send setup links and change your own tutoring access. Ask an administrator to change roles.",
       "columns": { "user": "User", "name": "Name", "email": "Email", "linkedTutor": "Linked tutor", "account": "Account", "role": "Role", "canTutor": "Can tutor", "canTranslate": "Translator" },
-      "roles": { "VIEWER": "Viewer (read-only)", "TUTOR": "Tutor", "COORDINATOR": "Coordinator", "ADMIN": "Admin" },
+      "roles": { "VIEWER": "Viewer (read-only)", "TUTOR": "Tutor", "COORDINATOR": "Coordinator", "ADMIN": "Admin", "HEAD": "Head" },
+      "filters": { "role": "Role", "status": "Tutor status", "account": "Account", "all": "All" },
+      "makeHead": "Make head",
+      "confirmTransfer": "Transfer leadership to {name}? You will become an admin.",
       "canTutorLabel": "Can tutor",
       "canTranslateLabel": "Can translate",
       "translateDefault": "Default",
@@ -382,6 +437,40 @@
       "tutorActive": "active",
       "tutorInactive": "inactive",
       "empty": "No users or tutors yet."
+    },
+    "registrationCodes": {
+      "title": "Registration Codes",
+      "help": "Issue a single-use 6-digit security key for a new tutor to self-register. The code is shown once — copy it and hand it over; it is never stored.",
+      "labelField": "For (label)",
+      "labelPlaceholder": "e.g. Jane Doe (G11)",
+      "emailField": "Bind to email (optional)",
+      "emailPlaceholder": "tutor@school.edu",
+      "issue": "Issue code",
+      "issuedTitle": "Registration code for {who}",
+      "issuedHint": "Copy this now — it won't be shown again.",
+      "colFor": "For",
+      "colEmail": "Email",
+      "colIssuedBy": "Issued by",
+      "colExpires": "Expires",
+      "colStatus": "Status",
+      "status": { "active": "Active", "used": "Used", "expired": "Expired" },
+      "revoke": "Revoke",
+      "empty": "No registration codes yet."
+    },
+    "tutorRequests": {
+      "title": "Opt-out / Reentry Requests",
+      "help": "Tutor-initiated membership changes. Opt-out requests can only be approved after a one-week cooldown; reentry is immediate.",
+      "kind": { "OPT_OUT": "Opt-out", "REENTRY": "Reentry" },
+      "cooldownDone": "Cooldown elapsed — ready to approve",
+      "cooldownUntil": "Approvable after {date}",
+      "affected": "{count} {count, plural, one {tutee} other {tutees}} affected",
+      "notYet": "The one-week cooldown hasn't elapsed yet.",
+      "approve": "Approve",
+      "deny": "Deny",
+      "empty": "No open requests.",
+      "requeuePrompt": "Re-queue {name}'s {count} {count, plural, one {tutee} other {tutees}} onto the signup page for reassignment?",
+      "requeueConfirm": "Re-queue tutees",
+      "requeueDismiss": "Not now"
     },
     "submissions": {
       "title": "Attendance Submissions",
@@ -598,6 +687,12 @@
   "tutor": {
     "nav": { "handbook": "Handbook" },
     "handbook": { "empty": "The handbook hasn't been published yet." },
+    "status": {
+      "ACTIVE": "Active",
+      "GRADUATED": "Graduated",
+      "OPTED_OUT": "Opted out",
+      "ARCHIVED": "Archived"
+    },
     "attendance": {
       "loading": "Loading your pairings…",
       "noPairings": "You have no pairings yet. Ask an admin to set one up.",
@@ -703,6 +798,7 @@
       "name": "Name",
       "username": "Username",
       "grade": "Grade",
+      "gradeHelp": "Self-report your current grade (e.g. if you repeated a year). Your class-of year follows from this.",
       "altNames": "Alternative name(s)",
       "altNamesHelp": "Shown alongside your name (e.g. your name in another script).",
       "email": "Contact email",
@@ -719,12 +815,28 @@
       "changing": "Changing…",
       "passwordChanged": "Password changed.",
       "pwTooShort": "New password must be at least 8 characters.",
-      "pwMismatch": "The new passwords don't match."
+      "pwMismatch": "The new passwords don't match.",
+      "membershipHeading": "Membership",
+      "optOutHelp": "Leaving the program? Submit an opt-out request. An admin can process it after a one-week cooldown, during which you can recall it.",
+      "optOutReasonPlaceholder": "Reason (optional)",
+      "optOutBtn": "Request to opt out",
+      "optOutPending": "Opt-out requested. An admin can approve it after {date}. You can recall it until then.",
+      "optOutPendingNoDate": "Opt-out requested and awaiting review.",
+      "reentryPending": "Reentry requested and awaiting an admin's approval.",
+      "reentryHelp": "Want to rejoin the program? Request reentry and an admin will review it.",
+      "reentryBtn": "Request reentry",
+      "recall": "Recall request",
+      "statusNote": "Your tutor status is {status}. This is read-only access — contact an admin for changes."
     },
     "dashboard": {
       "pending": {
         "title": "Your Tutor Account Is Pending Approval",
         "body": "A coordinator will activate your account shortly. In the meantime you can set the time slots you're available for below."
+      },
+      "inactive": {
+        "title": "Read-only access",
+        "body": "Your tutor account is {status}. You can view your history but can't submit attendance or take on new tutees.",
+        "reentryHint": "Want to come back? Request reentry from your account settings."
       },
       "availability": { "title": "My Availability", "help": "Mark the time slots you can teach." },
       "hours": { "earned": "{earned} earned", "extra": "+ {extra} extra", "penalty": "− {penalty} penalty" }

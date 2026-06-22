@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { createTRPCRouter, tutorProcedure } from "~/server/api/trpc";
+import { activeTutorProcedure, createTRPCRouter, tutorProcedure } from "~/server/api/trpc";
 import { computeSessionHours } from "~/lib/service-hours";
 import { semesterQuarters } from "~/lib/period";
 import { getActivePeriodOrNull } from "~/server/period";
@@ -12,6 +12,9 @@ import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
 
 const TUTOR_STATUS = ["PRESENT", "RESCHEDULED", "EXTRA", "TUTOR_ABSENT"] as const;
 const TUTEE_STATUS = ["PRESENT", "EXCUSED_ABSENT", "UNEXCUSED_ABSENT"] as const;
+
+/** Cooldown before an admin may approve an opt-out request — the tutor can recall it meanwhile. */
+const OPT_OUT_COOLDOWN_DAYS = 7;
 
 const rating = z.number().int().min(1).max(5).optional();
 const RATING_KEYS = [
@@ -425,11 +428,11 @@ export const tutorRouter = createTRPCRouter({
       return { ok: true, count: validIds.length };
     }),
 
-  /** The signed-in tutor's own domain record (used to gate the pending-approval state). */
+  /** The signed-in tutor's own domain record (used to gate the read-only inactive state). */
   me: tutorProcedure.query(({ ctx }) =>
     ctx.db.tutor.findUniqueOrThrow({
       where: { id: ctx.session.tutorId },
-      select: { id: true, englishName: true, active: true, email: true },
+      select: { id: true, englishName: true, status: true, email: true, gradeLevel: true },
     }),
   ),
 
@@ -451,12 +454,17 @@ export const tutorRouter = createTRPCRouter({
     return { ...tutor, email: user.email };
   }),
 
-  /** Update the tutor's own alternative name(s) and contact email. */
+  /**
+   * Update the tutor's own alternative name(s), contact email, and self-reported grade.
+   * Grade is self-reported (handles retained grades); the class-of year is derived from it and
+   * is NOT directly editable. Tutors can't change their own status here — that's the opt-out flow.
+   */
   updateProfile: tutorProcedure
     .input(
       z.object({
         alternativeNames: z.string().trim().max(200).nullable().optional(),
         email: z.string().email().optional(),
+        gradeLevel: z.number().int().min(6).max(12).nullable().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -471,13 +479,15 @@ export const tutorRouter = createTRPCRouter({
         }
         await ctx.db.user.update({ where: { id: ctx.session.user.id }, data: { email } });
       }
+      const tutorData: { alternativeNames?: string | null; gradeLevel?: number | null } = {};
       if (input.alternativeNames !== undefined) {
-        await ctx.db.tutor.update({
-          where: { id: ctx.session.tutorId },
-          data: {
-            alternativeNames: input.alternativeNames?.trim() ? input.alternativeNames.trim() : null,
-          },
-        });
+        tutorData.alternativeNames = input.alternativeNames?.trim()
+          ? input.alternativeNames.trim()
+          : null;
+      }
+      if (input.gradeLevel !== undefined) tutorData.gradeLevel = input.gradeLevel;
+      if (Object.keys(tutorData).length > 0) {
+        await ctx.db.tutor.update({ where: { id: ctx.session.tutorId }, data: tutorData });
       }
       return { ok: true };
     }),
@@ -818,9 +828,114 @@ export const tutorRouter = createTRPCRouter({
       });
       if (res.count === 0) staleConflict();
 
-      // On the transition to ACCEPTED, add the applicant to the tutors list.
+      // On the transition to ACCEPTED, issue a registration code so the applicant can
+      // self-register a verified account (see promoteApplicantToTutor).
       if (input.accept && prev?.status !== "ACCEPTED") {
         await promoteApplicantToTutor(input.applicationId);
+      }
+      return { ok: true };
+    }),
+
+  // --------------------------------------------------------------------------
+  // Lifecycle requests (opt-out / reentry) — a tutor manages their own membership.
+  // --------------------------------------------------------------------------
+  /** The signed-in tutor's open (PENDING) lifecycle request, if any, plus eligibility timing. */
+  myStatusRequest: tutorProcedure.query(async ({ ctx }) => {
+    const req = await ctx.db.tutorStatusRequest.findFirst({
+      where: { tutorId: ctx.session.tutorId, state: "PENDING" },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, kind: true, eligibleAt: true, reason: true, createdAt: true },
+    });
+    return req;
+  }),
+
+  /**
+   * Submit an opt-out request. Requires an ACTIVE tutor with no other open request. A one-week
+   * cooldown (`eligibleAt`) must pass before an admin can approve it; the tutor may recall it
+   * meanwhile. The tutor stays ACTIVE until an admin approves.
+   */
+  requestOptOut: activeTutorProcedure
+    .input(z.object({ reason: z.string().trim().max(1000).optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const open = await ctx.db.tutorStatusRequest.findFirst({
+        where: { tutorId: ctx.session.tutorId, state: "PENDING" },
+        select: { id: true },
+      });
+      if (open) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "You already have an open request." });
+      }
+      const eligibleAt = new Date(Date.now() + OPT_OUT_COOLDOWN_DAYS * 24 * 60 * 60 * 1000);
+      const req = await ctx.db.tutorStatusRequest.create({
+        data: {
+          tutorId: ctx.session.tutorId,
+          kind: "OPT_OUT",
+          eligibleAt,
+          reason: input.reason?.trim() ? input.reason.trim() : null,
+        },
+        select: { id: true },
+      });
+      const tutor = await ctx.db.tutor.findUnique({
+        where: { id: ctx.session.tutorId },
+        select: { englishName: true },
+      });
+      await notifyAdmins({
+        title: "Tutor opt-out request",
+        body: `${tutor?.englishName ?? "A tutor"} asked to opt out (review after the cooldown).`,
+        link: "/admin/tutor-requests",
+      });
+      return { ok: true, id: req.id, eligibleAt };
+    }),
+
+  /**
+   * Request reentry to the program. Requires an OPTED_OUT tutor with no other open request.
+   * No cooldown — an admin can approve immediately, flipping the tutor back to ACTIVE.
+   */
+  requestReentry: tutorProcedure
+    .input(z.object({ reason: z.string().trim().max(1000).optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const tutor = await ctx.db.tutor.findUniqueOrThrow({
+        where: { id: ctx.session.tutorId },
+        select: { status: true, englishName: true },
+      });
+      if (tutor.status !== "OPTED_OUT") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Only opted-out tutors can request reentry.",
+        });
+      }
+      const open = await ctx.db.tutorStatusRequest.findFirst({
+        where: { tutorId: ctx.session.tutorId, state: "PENDING" },
+        select: { id: true },
+      });
+      if (open) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "You already have an open request." });
+      }
+      const req = await ctx.db.tutorStatusRequest.create({
+        data: {
+          tutorId: ctx.session.tutorId,
+          kind: "REENTRY",
+          reason: input.reason?.trim() ? input.reason.trim() : null,
+        },
+        select: { id: true },
+      });
+      await notifyAdmins({
+        title: "Tutor reentry request",
+        body: `${tutor.englishName} asked to rejoin the program.`,
+        link: "/admin/tutor-requests",
+      });
+      return { ok: true, id: req.id };
+    }),
+
+  /** Recall (cancel) the tutor's own open request while it is still PENDING. */
+  recallStatusRequest: tutorProcedure
+    .input(z.object({ requestId: z.string().cuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const res = await ctx.db.tutorStatusRequest.updateMany({
+        where: { id: input.requestId, tutorId: ctx.session.tutorId, state: "PENDING" },
+        data: { state: "RECALLED", resolvedAt: new Date(), resolvedByName: "self" },
+      });
+      if (res.count === 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "No open request to recall." });
       }
       return { ok: true };
     }),

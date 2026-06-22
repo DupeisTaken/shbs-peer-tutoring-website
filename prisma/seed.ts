@@ -18,7 +18,7 @@ import { graduationYear } from "../src/lib/period";
 import { TUTEE_POLICY, TUTOR_POLICY } from "./policies";
 
 /** School year the seed's active term belongs to (used to derive class-of years). */
-const SEED_SCHOOL_YEAR = "25-26";
+const SEED_SCHOOL_YEAR = "26-27";
 
 /** First initial + last name + 2-digit class-of year, e.g. "achen29" — mirrors defaultUsername. */
 function seedUsername(firstName: string, lastName: string, gradeLevel: number): string {
@@ -46,7 +46,8 @@ function daysAgo(n: number): Date {
   return d;
 }
 
-type Role = "ADMIN" | "COORDINATOR" | "TUTOR";
+type Role = "HEAD" | "ADMIN" | "COORDINATOR" | "TUTOR";
+type TutorStatus = "ACTIVE" | "GRADUATED" | "OPTED_OUT" | "ARCHIVED";
 
 // ---------------------------------------------------------------------------
 // Reference catalogues
@@ -346,9 +347,9 @@ const APPLICATIONS: AppSpec[] = [
 async function main() {
   // --- Term ------------------------------------------------------------------
   const term = await db.term.upsert({
-    where: { id: "term-2025-q3" },
-    update: { name: "25-26 Q3", schoolYear: "25-26", quarter: "Q3", active: true },
-    create: { id: "term-2025-q3", name: "25-26 Q3", schoolYear: "25-26", quarter: "Q3", active: true },
+    where: { id: "term-2026-q1" },
+    update: { name: "26-27 Q1", schoolYear: "26-27", quarter: "Q1", active: true },
+    create: { id: "term-2026-q1", name: "26-27 Q1", schoolYear: "26-27", quarter: "Q1", active: true },
   });
 
   // --- Rooms + blackout periods ----------------------------------------------
@@ -362,7 +363,7 @@ async function main() {
 
   // --- Tutors ----------------------------------------------------------------
   for (const t of TUTORS) {
-    const data = { firstName: t.firstName, lastName: t.lastName, englishName: t.englishName, alternativeNames: t.altNames, username: t.username, email: t.email, active: t.active, gradeLevel: t.gradeLevel };
+    const data = { firstName: t.firstName, lastName: t.lastName, englishName: t.englishName, alternativeNames: t.altNames, username: t.username, email: t.email, status: (t.active ? "ACTIVE" : "ARCHIVED") as TutorStatus, gradeLevel: t.gradeLevel };
     await db.tutor.upsert({ where: { id: t.id }, update: data, create: { id: t.id, ...data } });
   }
 
@@ -424,7 +425,7 @@ async function main() {
   // --- Dev login users (every tutor + admin) ---------------------------------
   const passwordHash = hashPassword(DEV_PASSWORD);
   const users = [
-    { id: "user-admin", name: "Admin", email: "admin@example.edu", role: "ADMIN" as Role, tutorId: null as string | null },
+    { id: "user-admin", name: "Admin", email: "admin@example.edu", role: "HEAD" as Role, tutorId: null as string | null },
     ...TUTORS.map((t) => ({ id: `user-${t.id.replace("tutor-", "")}`, name: t.englishName, email: t.email, role: t.role, tutorId: t.id as string | null })),
   ];
   for (const u of users) {

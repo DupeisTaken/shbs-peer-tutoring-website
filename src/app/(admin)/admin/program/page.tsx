@@ -37,7 +37,7 @@ export default function ProgramPage() {
 
   const period = current.data;
   const activeTutors = useMemo(
-    () => (tutors.data ?? []).filter((tu) => tu.active),
+    () => (tutors.data ?? []).filter((tu) => tu.status === "ACTIVE"),
     [tutors.data],
   );
   const confirmOk = confirm.trim().toUpperCase() === "REFRESH";

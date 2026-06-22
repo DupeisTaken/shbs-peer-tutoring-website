@@ -335,7 +335,11 @@ export default function ApplicationsPage() {
           <ApplicationCard
             key={app.id}
             app={app}
-            tutors={tutors.data ?? []}
+            tutors={(tutors.data ?? []).map((tu) => ({
+              id: tu.id,
+              englishName: tu.englishName,
+              active: tu.status === "ACTIVE",
+            }))}
             onChanged={invalidate}
           />
         ))}

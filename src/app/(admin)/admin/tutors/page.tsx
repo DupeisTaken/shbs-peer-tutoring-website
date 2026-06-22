@@ -8,6 +8,8 @@ import { SortHeader, useSort, compare } from "~/app/_components/sortable";
 
 export default function TutorsPage() {
   const t = useTranslations();
+  // Translate a tutor status outside the row map, where `t` is shadowed by the row variable.
+  const statusLabel = (s: string) => t(`admin.tutorStatus.${s}`);
   const utils = api.useUtils();
   const tutors = api.admin.tutors.useQuery();
   const [firstName, setFirstName] = useState("");
@@ -44,8 +46,8 @@ export default function TutorsPage() {
           return compare(a.email ?? "", b.email ?? "") * dir;
         case "grade":
           return ((a.gradeLevel ?? 0) - (b.gradeLevel ?? 0)) * dir;
-        case "active":
-          return (Number(a.active) - Number(b.active)) * dir;
+        case "status":
+          return compare(a.status, b.status) * dir;
         case "lastName":
         default:
           return compare(a.lastName ?? a.englishName, b.lastName ?? b.englishName) * dir;
@@ -128,7 +130,7 @@ export default function TutorsPage() {
               <SortHeader sort={sort} sortKey="username">{t("admin.tutors.colUsername")}</SortHeader>
               <SortHeader sort={sort} sortKey="email">{t("admin.tutors.colEmail")}</SortHeader>
               <SortHeader sort={sort} sortKey="grade">{t("admin.tutors.colGrade")}</SortHeader>
-              <SortHeader sort={sort} sortKey="active">{t("admin.tutors.colActive")}</SortHeader>
+              <SortHeader sort={sort} sortKey="status">{t("admin.tutors.colStatus")}</SortHeader>
             </tr>
           </thead>
           <tbody>
@@ -147,7 +149,7 @@ export default function TutorsPage() {
                 username: string;
                 email: string | null;
                 gradeLevel: number | null;
-                active: boolean;
+                status: "ACTIVE" | "GRADUATED" | "OPTED_OUT" | "ARCHIVED";
               }>) =>
                 update.mutate({
                   id: t.id,
@@ -161,7 +163,7 @@ export default function TutorsPage() {
                   email: patch.email !== undefined ? patch.email : t.email,
                   gradeLevel:
                     patch.gradeLevel !== undefined ? patch.gradeLevel : t.gradeLevel,
-                  active: patch.active ?? t.active,
+                  status: patch.status ?? t.status,
                 });
               return (
                 <tr key={t.id}>
@@ -239,11 +241,22 @@ export default function TutorsPage() {
                     </div>
                   </td>
                   <td>
-                    <input
-                      type="checkbox"
-                      checked={t.active}
-                      onChange={(e) => save({ active: e.target.checked })}
-                    />
+                    <select
+                      className="select field-auto min-w-28"
+                      value={t.status}
+                      onChange={(e) =>
+                        save({ status: e.target.value as
+                          | "ACTIVE"
+                          | "GRADUATED"
+                          | "OPTED_OUT"
+                          | "ARCHIVED" })
+                      }
+                    >
+                      <option value="ACTIVE">{statusLabel("ACTIVE")}</option>
+                      <option value="GRADUATED">{statusLabel("GRADUATED")}</option>
+                      <option value="OPTED_OUT">{statusLabel("OPTED_OUT")}</option>
+                      <option value="ARCHIVED">{statusLabel("ARCHIVED")}</option>
+                    </select>
                   </td>
                 </tr>
               );

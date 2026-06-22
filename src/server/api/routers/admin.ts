@@ -5,11 +5,13 @@ import {
   adminOnlyProcedure,
   adminProcedure,
   createTRPCRouter,
+  headProcedure,
   viewerProcedure,
 } from "~/server/api/trpc";
 import { monthKey } from "~/lib/service-hours";
 import { defaultUsername, ensureUniqueUsername } from "~/server/auth/username";
 import { issueTutorSetupLink } from "~/server/auth/password-reset";
+import { issueRegistrationCode } from "~/server/auth/registration";
 import { promoteApplicantToTutor } from "~/server/tutors/promote";
 import { notifyAdmins, notifyTutors, notifyUsers } from "~/server/notifications/create";
 import { standingFromCounts } from "~/lib/discipline";
@@ -79,6 +81,7 @@ const ADJUSTMENT_TYPE = ["PUNISHMENT", "EXTRA"] as const;
 /** Service hours docked per unexcused tutor-meeting absence (materialised as a PUNISHMENT adj). */
 const MEETING_ABSENCE_DEDUCTION = 0.125;
 const TUTEE_STATUS = ["PENDING", "ACTIVE", "INACTIVE"] as const;
+const TUTOR_STATUS = ["ACTIVE", "GRADUATED", "OPTED_OUT", "ARCHIVED"] as const;
 const TUTOR_APP_STATUS = ["PENDING", "INTERVIEW", "ACCEPTED", "REJECTED"] as const;
 
 export const adminRouter = createTRPCRouter({
@@ -503,7 +506,7 @@ export const adminRouter = createTRPCRouter({
         return {
           tutorId: t.id,
           englishName: t.englishName,
-          active: t.active,
+          active: t.status === "ACTIVE",
           earned,
           extras,
           punishments,
@@ -582,28 +585,29 @@ export const adminRouter = createTRPCRouter({
         let archivedUnavailable = 0;
         if (unavailableIds.length > 0) {
           const r = await tx.tutor.updateMany({
-            where: { id: { in: unavailableIds }, active: true },
-            data: { active: false },
+            where: { id: { in: unavailableIds }, status: "ACTIVE" },
+            data: { status: "ARCHIVED" },
           });
           archivedUnavailable = r.count;
         }
 
         // Graduation happens at the START of Q4 (the program's final quarter): G12 (and up)
-        // are archived as the term advances into Q4, so they finish the year inactive. Aging-up
-        // stays at the school-year boundary (Q4 -> next year's Q1) and advances everyone who
-        // remains by one grade — by then the graduates are already inactive and untouched.
+        // are marked GRADUATED as the term advances into Q4, so they finish the year inactive.
+        // Aging-up stays at the school-year boundary (Q4 -> next year's Q1) and advances everyone
+        // who remains ACTIVE by one grade — by then the graduates are already inactive and
+        // untouched. (A retained tutor who self-reported staying in their grade simply isn't G12.)
         let graduated = 0;
         let aged = 0;
         if (np.quarter === "Q4") {
           const grad = await tx.tutor.updateMany({
-            where: { active: true, gradeLevel: { gte: 12 } },
-            data: { active: false },
+            where: { status: "ACTIVE", gradeLevel: { gte: 12 } },
+            data: { status: "GRADUATED" },
           });
           graduated = grad.count;
         }
         if (yearCross) {
           const age = await tx.tutor.updateMany({
-            where: { active: true, gradeLevel: { not: null } },
+            where: { status: "ACTIVE", gradeLevel: { not: null } },
             data: { gradeLevel: { increment: 1 } },
           });
           aged = age.count;
@@ -655,7 +659,7 @@ export const adminRouter = createTRPCRouter({
         alternativeNames: z.string().trim().max(200).optional(),
         email: z.string().email().optional(),
         gradeLevel: z.number().int().min(6).max(12).nullable().optional(),
-        active: z.boolean().default(true),
+        status: z.enum(TUTOR_STATUS).default("ACTIVE"),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -672,7 +676,7 @@ export const adminRouter = createTRPCRouter({
             ? input.alternativeNames.trim()
             : null,
           username,
-          active: input.active,
+          status: input.status,
           gradeLevel: input.gradeLevel ?? null,
           email: input.email?.trim() ? input.email.trim().toLowerCase() : null,
         },
@@ -700,7 +704,7 @@ export const adminRouter = createTRPCRouter({
         username: z.string().trim().optional(),
         email: z.string().email().nullable().optional(),
         gradeLevel: z.number().int().min(6).max(12).nullable().optional(),
-        active: z.boolean(),
+        status: z.enum(TUTOR_STATUS),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -721,7 +725,7 @@ export const adminRouter = createTRPCRouter({
             ? input.alternativeNames.trim()
             : null,
           username,
-          active: input.active,
+          status: input.status,
           ...(input.gradeLevel === undefined ? {} : { gradeLevel: input.gradeLevel }),
           email: input.email?.trim() ? input.email.trim().toLowerCase() : null,
         },
@@ -1445,6 +1449,259 @@ export const adminRouter = createTRPCRouter({
     ),
 
   // --------------------------------------------------------------------------
+  // Tutor lifecycle requests (opt-out / reentry) — admin review
+  // --------------------------------------------------------------------------
+  /** All open (PENDING) tutor lifecycle requests, with eligibility and affected-tutee counts. */
+  tutorRequests: viewerProcedure.query(async ({ ctx }) => {
+    const now = new Date();
+    const active = await getActivePeriodOrNull(ctx.db);
+    const requests = await ctx.db.tutorStatusRequest.findMany({
+      where: { state: "PENDING" },
+      orderBy: { createdAt: "asc" }, // earliest-first queue
+      select: {
+        id: true,
+        kind: true,
+        reason: true,
+        eligibleAt: true,
+        createdAt: true,
+        tutor: { select: { id: true, englishName: true, status: true, email: true } },
+      },
+    });
+
+    // Affected tutees for each opting-out tutor = tutees they serve in the active term.
+    const optOutTutorIds = requests.filter((r) => r.kind === "OPT_OUT").map((r) => r.tutor.id);
+    const tuteeCounts = new Map<string, number>();
+    if (optOutTutorIds.length > 0 && active) {
+      const pairings = await ctx.db.pairing.findMany({
+        where: { tutorId: { in: optOutTutorIds }, termId: active.termId },
+        select: { tutorId: true, tutees: { select: { tuteeId: true } } },
+      });
+      for (const p of pairings) {
+        const set = tuteeCounts.get(p.tutorId) ?? 0;
+        tuteeCounts.set(p.tutorId, set + p.tutees.length);
+      }
+    }
+
+    return requests.map((r) => ({
+      id: r.id,
+      kind: r.kind,
+      reason: r.reason,
+      createdAt: r.createdAt,
+      eligibleAt: r.eligibleAt,
+      // Opt-out can only be approved once the cooldown has elapsed.
+      approvable: r.kind === "REENTRY" || (r.eligibleAt != null && r.eligibleAt <= now),
+      tutor: r.tutor,
+      affectedTutees: tuteeCounts.get(r.tutor.id) ?? 0,
+    }));
+  }),
+
+  /**
+   * Approve or deny a tutor lifecycle request. Approving an OPT_OUT (only after its cooldown)
+   * flips the tutor to OPTED_OUT; approving a REENTRY flips them back to ACTIVE. Denying just
+   * closes the request. Opting-out leaves the tutor's tutees in place — use `requeueTutorTutees`
+   * to send them back to the signup queue.
+   */
+  decideTutorRequest: adminProcedure
+    .input(z.object({ requestId: cuid, approve: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      const req = await ctx.db.tutorStatusRequest.findUniqueOrThrow({
+        where: { id: input.requestId },
+        select: { id: true, kind: true, state: true, eligibleAt: true, tutorId: true },
+      });
+      if (req.state !== "PENDING") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This request is already resolved." });
+      }
+      if (input.approve && req.kind === "OPT_OUT") {
+        if (!req.eligibleAt || req.eligibleAt > new Date()) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "The one-week cooldown hasn't elapsed yet.",
+          });
+        }
+      }
+
+      const newState = input.approve ? "APPROVED" : "DENIED";
+      const newTutorStatus = !input.approve
+        ? null
+        : req.kind === "OPT_OUT"
+          ? "OPTED_OUT"
+          : "ACTIVE";
+
+      await ctx.db.$transaction(async (tx) => {
+        await tx.tutorStatusRequest.update({
+          where: { id: req.id },
+          data: {
+            state: newState,
+            resolvedAt: new Date(),
+            resolvedById: ctx.session.user.id,
+            resolvedByName: ctx.session.user.name,
+          },
+        });
+        if (newTutorStatus) {
+          await tx.tutor.update({ where: { id: req.tutorId }, data: { status: newTutorStatus } });
+        }
+      });
+
+      const tutor = await ctx.db.tutor.findUnique({
+        where: { id: req.tutorId },
+        select: { englishName: true, user: { select: { id: true } } },
+      });
+      if (tutor?.user?.id) {
+        const titleKey = input.approve
+          ? req.kind === "OPT_OUT"
+            ? "Opt-out approved"
+            : "Reentry approved"
+          : "Request declined";
+        await notifyUsers([tutor.user.id], {
+          title: titleKey,
+          body:
+            input.approve && req.kind === "REENTRY"
+              ? "Welcome back — your account is active again."
+              : input.approve
+                ? "You have been opted out of the program."
+                : "An admin declined your request.",
+          link: "/dashboard",
+        });
+      }
+      await recordAudit({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name,
+        action: `${input.approve ? "Approved" : "Denied"} ${req.kind} request for ${tutor?.englishName ?? "tutor"}`,
+        entity: "TutorStatusRequest",
+        entityId: req.id,
+      });
+      return { ok: true };
+    }),
+
+  /**
+   * Re-queue an (opted-out) tutor's tutees back onto the signup queue: set them PENDING and
+   * detach them from this tutor's active-term pairings, so a coordinator can reassign them on
+   * /admin/requests. Leaves session/attendance history intact.
+   */
+  requeueTutorTutees: adminProcedure
+    .input(z.object({ tutorId: cuid }))
+    .mutation(async ({ ctx, input }) => {
+      const active = await getActivePeriod(ctx.db);
+      const pairings = await ctx.db.pairing.findMany({
+        where: { tutorId: input.tutorId, termId: active.termId },
+        select: { id: true, tutees: { select: { tuteeId: true } } },
+      });
+      const tuteeIds = [...new Set(pairings.flatMap((p) => p.tutees.map((t) => t.tuteeId)))];
+      if (tuteeIds.length === 0) return { ok: true, requeued: 0 };
+
+      await ctx.db.$transaction([
+        ctx.db.pairingTutee.deleteMany({
+          where: { pairingId: { in: pairings.map((p) => p.id) }, tuteeId: { in: tuteeIds } },
+        }),
+        ctx.db.tutee.updateMany({ where: { id: { in: tuteeIds } }, data: { status: "PENDING" } }),
+      ]);
+      await recordAudit({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name,
+        action: `Re-queued ${tuteeIds.length} tutee(s) from an opted-out tutor`,
+        entity: "Tutor",
+        entityId: input.tutorId,
+      });
+      return { ok: true, requeued: tuteeIds.length };
+    }),
+
+  // --------------------------------------------------------------------------
+  // Registration codes (admins + coordinators) — the security keys handed to new tutors
+  // --------------------------------------------------------------------------
+  /**
+   * Every registration code with its status (the plaintext code is NEVER stored — only its keyed
+   * hash — so it's shown once at issue time, then only metadata here). Ordered newest-first.
+   */
+  registrationCodes: viewerProcedure.query(async ({ ctx }) => {
+    const now = new Date();
+    const codes = await ctx.db.registrationCode.findMany({
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        email: true,
+        label: true,
+        issuedByName: true,
+        tutorId: true,
+        applicationId: true,
+        expiresAt: true,
+        usedAt: true,
+        createdAt: true,
+        tutor: { select: { englishName: true } },
+      },
+    });
+    return codes.map((c) => ({
+      id: c.id,
+      email: c.email,
+      label: c.label,
+      issuedByName: c.issuedByName,
+      tutorName: c.tutor?.englishName ?? null,
+      fromApplication: !!c.applicationId,
+      createdAt: c.createdAt,
+      expiresAt: c.expiresAt,
+      status: c.usedAt ? "used" : c.expiresAt < now ? "expired" : "active",
+    }));
+  }),
+
+  /**
+   * Issue a registration code. The plaintext 6-digit code is returned ONCE for the issuer to copy
+   * and hand out (we never email or re-show it). Optionally bind it to an email and/or an existing
+   * roster Tutor (so registration links to that record instead of creating a new one).
+   */
+  issueRegistrationCode: adminProcedure
+    .input(
+      z.object({
+        email: z.string().email().optional(),
+        tutorId: cuid.optional(),
+        label: z.string().trim().max(120).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // If bound to a tutor, default the label/email from that tutor for the menu.
+      let label = input.label?.trim() ? input.label.trim() : null;
+      let email = input.email?.trim() ? input.email.trim().toLowerCase() : null;
+      if (input.tutorId) {
+        const tutor = await ctx.db.tutor.findUnique({
+          where: { id: input.tutorId },
+          select: { englishName: true, email: true },
+        });
+        if (!tutor) throw new TRPCError({ code: "NOT_FOUND", message: "Tutor not found." });
+        label ??= tutor.englishName;
+        email ??= tutor.email?.toLowerCase() ?? null;
+      }
+      const result = await issueRegistrationCode({
+        email,
+        tutorId: input.tutorId ?? null,
+        label,
+        issuedById: ctx.session.user.id,
+        issuedByName: ctx.session.user.name,
+      });
+      await recordAudit({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name,
+        action: `Issued a registration code${label ? ` for ${label}` : ""}`,
+        entity: "RegistrationCode",
+        entityId: result.id,
+      });
+      // The plaintext code is in the return value only — copy it now.
+      return { id: result.id, code: result.code, expiresAt: result.expiresAt };
+    }),
+
+  /** Revoke an unused registration code (deletes it). Used codes stay for the record. */
+  revokeRegistrationCode: adminProcedure
+    .input(z.object({ id: cuid }))
+    .mutation(async ({ ctx, input }) => {
+      const code = await ctx.db.registrationCode.findUniqueOrThrow({
+        where: { id: input.id },
+        select: { usedAt: true },
+      });
+      if (code.usedAt) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This code has already been used." });
+      }
+      await ctx.db.registrationCode.delete({ where: { id: input.id } });
+      return { ok: true };
+    }),
+
+  // --------------------------------------------------------------------------
   // User / role management (ADMIN only)
   // --------------------------------------------------------------------------
   /**
@@ -1454,7 +1711,8 @@ export const adminRouter = createTRPCRouter({
    * (coordinators may only send links + toggle their own "can tutor"). ADMIN or COORDINATOR only.
    */
   accounts: adminProcedure.query(async ({ ctx }) => {
-    const [term, users, unlinkedTutors] = await Promise.all([
+    const now = new Date();
+    const [term, users, unlinkedTutors, openCodes] = await Promise.all([
       ctx.db.term.findFirst({ where: { active: true }, select: { schoolYear: true } }),
       ctx.db.user.findMany({
         orderBy: { email: "asc" },
@@ -1468,16 +1726,27 @@ export const adminRouter = createTRPCRouter({
           mustChangePassword: true,
           tutorId: true,
           tutor: {
-            select: { englishName: true, active: true, username: true, gradeLevel: true, email: true },
+            select: { englishName: true, status: true, username: true, gradeLevel: true, email: true },
           },
         },
       }),
       ctx.db.tutor.findMany({
         where: { user: { is: null } },
         orderBy: { englishName: "asc" },
-        select: { id: true, englishName: true, active: true, username: true, gradeLevel: true, email: true },
+        select: { id: true, englishName: true, status: true, username: true, gradeLevel: true, email: true },
+      }),
+      // Outstanding (unused, unexpired) registration codes — used to flag "invited" accounts.
+      ctx.db.registrationCode.findMany({
+        where: { usedAt: null, expiresAt: { gt: now } },
+        select: { tutorId: true, email: true },
       }),
     ]);
+
+    const codedTutorIds = new Set(openCodes.map((c) => c.tutorId).filter(Boolean) as string[]);
+    const codedEmails = new Set(openCodes.map((c) => c.email?.toLowerCase()).filter(Boolean) as string[]);
+    const hasOpenCode = (tutorId: string | null, email: string | null | undefined) =>
+      (tutorId != null && codedTutorIds.has(tutorId)) ||
+      (!!email && codedEmails.has(email.toLowerCase()));
 
     // Class-of year for a grade in the active school year (null if neither is known).
     const classOf = (gradeLevel: number | null | undefined) =>
@@ -1491,10 +1760,13 @@ export const adminRouter = createTRPCRouter({
       isSelf: u.id === ctx.session.user.id,
       tutorId: u.tutorId,
       tutor: u.tutor,
+      tutorStatus: u.tutor?.status ?? null,
       classOf: classOf(u.tutor?.gradeLevel),
       canTranslate: u.canTranslate,
       tutorHasEmail: !!u.tutor?.email,
-      account: u.emailVerifiedAt && !u.mustChangePassword ? "active" : "pending",
+      // registered = finished setup; setup = login exists but not finished; (no "none"/"invited"
+      // here — those only apply to login-less tutors below).
+      account: u.emailVerifiedAt && !u.mustChangePassword ? "registered" : "setup",
     }));
 
     const tutorRows = unlinkedTutors.map((tu) => ({
@@ -1506,15 +1778,17 @@ export const adminRouter = createTRPCRouter({
       tutorId: tu.id,
       tutor: {
         englishName: tu.englishName,
-        active: tu.active,
+        status: tu.status,
         username: tu.username,
         gradeLevel: tu.gradeLevel,
         email: tu.email,
       },
+      tutorStatus: tu.status,
       classOf: classOf(tu.gradeLevel),
       canTranslate: false,
       tutorHasEmail: !!tu.email,
-      account: "none",
+      // invited = a registration code is outstanding; none = no login and no code.
+      account: hasOpenCode(tu.id, tu.email) ? "invited" : "none",
     }));
 
     return {
@@ -1523,11 +1797,82 @@ export const adminRouter = createTRPCRouter({
     };
   }),
 
+  /**
+   * Change a user's role. Tier rules (enforced here on top of the procedure gate):
+   *   - Changing to/from ADMIN, or any change to a HEAD, requires the caller to be HEAD.
+   *   - HEAD is never assigned here (use `transferHead`); demoting the head is blocked.
+   *   - ADMINs may only set roles up to COORDINATOR on non-admin, non-head users.
+   * adminOnlyProcedure already restricts the caller to ADMIN or HEAD.
+   */
   setUserRole: adminOnlyProcedure
     .input(z.object({ userId: cuid, role: z.enum(["VIEWER", "TUTOR", "COORDINATOR", "ADMIN"]) }))
-    .mutation(({ ctx, input }) =>
-      ctx.db.user.update({ where: { id: input.userId }, data: { role: input.role } }),
-    ),
+    .mutation(async ({ ctx, input }) => {
+      const target = await ctx.db.user.findUniqueOrThrow({
+        where: { id: input.userId },
+        select: { id: true, role: true, name: true, email: true },
+      });
+      const callerIsHead = ctx.session.role === "HEAD";
+      const touchesAdminTier = target.role === "HEAD" || input.role === "ADMIN" || target.role === "ADMIN";
+      if (target.role === "HEAD") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Use leadership transfer to change the head.",
+        });
+      }
+      if (touchesAdminTier && !callerIsHead) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Only the head can promote or demote administrators.",
+        });
+      }
+      const updated = await ctx.db.user.update({
+        where: { id: input.userId },
+        data: { role: input.role },
+      });
+      await recordAudit({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name,
+        action: `Set role of ${target.name ?? target.email} to ${input.role}`,
+        entity: "User",
+        entityId: target.id,
+      });
+      return updated;
+    }),
+
+  /**
+   * Transfer leadership (HEAD only). Demotes the current head to ADMIN and promotes the target
+   * (an ADMIN or COORDINATOR) to HEAD, in one transaction — so there is always exactly one head
+   * and the head can't accidentally leave the program leaderless.
+   */
+  transferHead: headProcedure
+    .input(z.object({ userId: cuid }))
+    .mutation(async ({ ctx, input }) => {
+      if (input.userId === ctx.session.user.id) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "You are already the head." });
+      }
+      const target = await ctx.db.user.findUniqueOrThrow({
+        where: { id: input.userId },
+        select: { id: true, role: true, name: true, email: true },
+      });
+      if (target.role !== "ADMIN" && target.role !== "COORDINATOR") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Leadership can only pass to an admin or coordinator.",
+        });
+      }
+      await ctx.db.$transaction([
+        ctx.db.user.update({ where: { id: ctx.session.user.id }, data: { role: "ADMIN" } }),
+        ctx.db.user.update({ where: { id: target.id }, data: { role: "HEAD" } }),
+      ]);
+      await recordAudit({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name,
+        action: `Transferred head leadership to ${target.name ?? target.email}`,
+        entity: "User",
+        entityId: target.id,
+      });
+      return { ok: true };
+    }),
 
   /** Assign (or unassign) a user as a translator — grants access to the /localization editor. */
   setUserCanTranslate: adminOnlyProcedure
@@ -1547,8 +1892,9 @@ export const adminRouter = createTRPCRouter({
   setUserCanTutor: adminProcedure
     .input(z.object({ userId: cuid, canTutor: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
-      // Coordinators may only change their own tutoring access; admins, anyone's.
-      if (ctx.session.role !== "ADMIN" && input.userId !== ctx.session.user.id) {
+      // Coordinators may only change their own tutoring access; the admin tier (ADMIN/HEAD), anyone's.
+      const callerIsAdminTier = ctx.session.role === "ADMIN" || ctx.session.role === "HEAD";
+      if (!callerIsAdminTier && input.userId !== ctx.session.user.id) {
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "You can only change your own tutoring access.",
@@ -1561,7 +1907,7 @@ export const adminRouter = createTRPCRouter({
 
       if (!input.canTutor) {
         if (user.tutorId) {
-          await ctx.db.tutor.update({ where: { id: user.tutorId }, data: { active: false } });
+          await ctx.db.tutor.update({ where: { id: user.tutorId }, data: { status: "ARCHIVED" } });
           await ctx.db.user.update({ where: { id: user.id }, data: { tutorId: null } });
         }
         return { ok: true, linked: false };
@@ -1580,7 +1926,7 @@ export const adminRouter = createTRPCRouter({
 
       let tutorId: string;
       if (existing) {
-        await ctx.db.tutor.update({ where: { id: existing.id }, data: { active: true } });
+        await ctx.db.tutor.update({ where: { id: existing.id }, data: { status: "ACTIVE" } });
         tutorId = existing.id;
       } else {
         const parts = (user.name ?? user.email).trim().split(/\s+/).filter(Boolean);
@@ -1594,7 +1940,7 @@ export const adminRouter = createTRPCRouter({
             englishName: `${firstName} ${lastName}`,
             username,
             email: user.email,
-            active: true,
+            status: "ACTIVE",
           },
           select: { id: true },
         });

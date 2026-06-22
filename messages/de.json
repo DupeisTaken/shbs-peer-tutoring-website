@@ -1,0 +1,1147 @@
+{
+  "common": {
+    "dismiss": "Schließen",
+    "save": "Speichern",
+    "saved": "Gespeichert.",
+    "language": "Sprache",
+    "backToMain": "← Zurück zur Hauptseite"
+  },
+  "auth": {
+    "signinTitle": "Anmelden",
+    "signinSubtitle": "Tutoren, Koordinatoren und Administratoren melden sich hier an.",
+    "identifier": "Benutzername oder E-Mail",
+    "password": "Passwort",
+    "signIn": "Anmelden",
+    "signingIn": "Anmeldung läuft…",
+    "forgotPassword": "Passwort vergessen?",
+    "lookingForTutor": "Einen Tutor gesucht?",
+    "requestOne": "Hier anfragen",
+    "forgot": {
+      "title": "Passwort zurücksetzen",
+      "intro": "Benutzername oder E-Mail eingeben – wir senden einen Link zum Zurücksetzen.",
+      "backToSignIn": "← Zurück zur Anmeldung",
+      "sent": "Falls ein Konto zu Ihrer Eingabe gefunden wurde, haben wir Anweisungen zum Zurücksetzen des Passworts an die hinterlegte E-Mail-Adresse gesendet. Bitte prüfen Sie Ihren Posteingang.",
+      "sentEmailNote": "Der E-Mail-Versand ist in dieser Umgebung noch nicht konfiguriert – den Reset-Link finden Sie während der lokalen Entwicklung in den Server-Logs.",
+      "fields": {
+        "identifier": "Benutzername oder E-Mail"
+      },
+      "submit": "Link senden",
+      "sending": "Wird gesendet…"
+    },
+    "reset": {
+      "title": "Neues Passwort wählen",
+      "missingToken": "Diesem Reset-Link fehlt das Token. Bitte fordern Sie einen neuen an.",
+      "requestLink": "Reset-Link anfordern",
+      "backToSignIn": "← Zurück zur Anmeldung",
+      "success": "Ihr Passwort wurde zurückgesetzt. Sie können sich jetzt anmelden.",
+      "goToSignIn": "Zur Anmeldung",
+      "yourUsername": "Ihr Anmelde-Benutzername:",
+      "fields": {
+        "newPassword": "Neues Passwort",
+        "confirmPassword": "Neues Passwort bestätigen"
+      },
+      "submit": "Neues Passwort setzen",
+      "saving": "Wird gespeichert…"
+    },
+    "onboarding": {
+      "welcome": "Willkommen bei {appTitle}",
+      "title": "Konto einrichten",
+      "intro": "Ein kurzer Schritt vor dem Dashboard – E-Mail bestätigen und eigenes Passwort wählen (ersetzt ein eventuelles Temporary-Passwort).",
+      "fields": {
+        "email": "Kontakt-E-Mail",
+        "newPassword": "Neues Passwort",
+        "confirmPassword": "Neues Passwort bestätigen"
+      },
+      "help": {
+        "email": "Hier werden Verifizierungscodes für die Anmeldung gesendet.",
+        "newPassword": "Mindestens 8 Zeichen. Ersetzt das temporäre Passwort."
+      },
+      "enable2fa": "E-Mail-Zwei-Faktor-Authentifizierung aktivieren (empfohlen). Nach Konfiguration des E-Mail-Versands wird bei der Anmeldung ein Einmalcode gesendet.",
+      "submit": "Bestätigen und fortfahren",
+      "saving": "Wird gespeichert…"
+    },
+    "register": {
+      "title": "Konto erstellen",
+      "subtitle": "Geben Sie den 6-stelligen Sicherheitsschlüssel ein, den ein Administrator Ihnen mitgeteilt hat.",
+      "backToSignIn": "← Zurück zur Anmeldung",
+      "step": {
+        "code": {
+          "label": "Sicherheitsschlüssel",
+          "help": "Den 6-stelligen Code eingeben, den ein Administrator oder Koordinator mitgeteilt hat.",
+          "submit": "Weiter"
+        },
+        "email": {
+          "label": "E-Mail-Adresse",
+          "placeholder": "you@school.edu",
+          "bound": "Dieser Code ist an diese E-Mail-Adresse gebunden.",
+          "send": "Verifizierungscode senden",
+          "sent": "Wir haben einen 6-stelligen Code an {email} gesendet.",
+          "codeLabel": "Verifizierungscode",
+          "verify": "E-Mail bestätigen",
+          "resend": "Code erneut senden"
+        },
+        "profile": {
+          "firstName": "Vorname",
+          "lastName": "Nachname",
+          "altNames": "Alternativer Name / alternative Namen",
+          "grade": "Klassenstufe",
+          "password": "Passwort",
+          "passwordHint": "Mindestens 8 Zeichen.",
+          "confirm": "Passwort bestätigen",
+          "mismatch": "Passwörter stimmen nicht überein.",
+          "submit": "Konto erstellen"
+        }
+      },
+      "done": {
+        "title": "Alles bereit!",
+        "body": "Ihr Konto ist eingerichtet. Melden Sie sich mit Ihrer E-Mail oder dem Benutzernamen {username} an.",
+        "signIn": "Zur Anmeldung"
+      }
+    }
+  },
+  "landing": {
+    "nav": {
+      "requestTutor": "Tutor anfragen",
+      "becomeTutor": "Tutor werden",
+      "teamSignin": "Anmelden"
+    },
+    "tagline": "Peer-Tutoring-Programm",
+    "heroTitle": "Gemeinsam lernen. Gemeinsam wachsen.",
+    "intro": "Platzhalter-Einleitung – hier folgt ein kurzer Absatz über das {appTitle}-Programm. Beschreiben Sie, für wen es gedacht ist, wobei Schülerinnen und Schüler Hilfe erhalten können und welchen Unterschied Peer-Tutoren machen. Ersetzen Sie diesen Text durch die eigentliche Programmbeschreibung.",
+    "ctaPrimary": "Tutor anfragen",
+    "ctaSecondary": "Tutor werden",
+    "features": {
+      "students": {
+        "title": "Für Lernende",
+        "body": "Platzhalter – melden Sie sich an, um in den von Ihnen gewählten Fächern mit einem Peer-Tutor zusammengebracht zu werden, zu Zeiten, die Ihnen passen."
+      },
+      "tutors": {
+        "title": "Für Tutoren",
+        "body": "Platzhalter – teilen Sie Ihr Wissen, entwickeln Sie Ihre Fähigkeiten und sammeln Sie Servicestunden für jede Sitzung."
+      },
+      "team": {
+        "title": "Fürs Team",
+        "body": "Platzhalter – verwalten Sie Zuordnungen, Anwesenheit, Interviews und Servicestunden an einem Ort."
+      }
+    },
+    "footer": "Platzhalter-Fußzeile – © {appTitle}."
+  },
+  "dashboard": {
+    "greeting": "Hallo, {name}",
+    "subtitle": "Anwesenheit eintragen und Verfügbarkeit verwalten.",
+    "hours": {
+      "title": "Servicestunden"
+    },
+    "interviews": {
+      "title": "Anstehende Interviews"
+    },
+    "pairings": {
+      "title": "Meine Zuordnungen",
+      "help": "Standardzeit für jede Zuordnung festlegen (die tatsächlichen Sitzungszeiten werden beim Einreichen der Anwesenheit angegeben)."
+    },
+    "availability": {
+      "title": "Meine Verfügbarkeit",
+      "help": "Zeitfenster markieren, in denen Sie unterrichten können. Das hilft Koordinatoren bei der Planung."
+    },
+    "attendance": {
+      "title": "Anwesenheit einreichen",
+      "help": "Eine Sitzung für eine Ihrer Zuordnungen erfassen. Servicestunden werden automatisch berechnet."
+    },
+    "schedule": {
+      "title": "Raumplan",
+      "help": "Ihre Zuordnungen sind hervorgehoben. Gesperrte Felder sind nicht verfügbare Räume."
+    }
+  },
+  "admin": {
+    "pairings": {
+      "title": "Zuordnungen",
+      "roomSchedule": "Raumplan",
+      "editPairing": "Zuordnung bearbeiten",
+      "newPairing": "Neue Zuordnung",
+      "slotHelp": "Ein veröffentlichtes Zeitfenster wählen – es legt Tag und Uhrzeit dieser Zuordnung fest.",
+      "tutor": "Tutor",
+      "term": "Semester",
+      "roomOptional": "Raum (optional)",
+      "none": "— keine —",
+      "timeSlot": "Zeitfenster",
+      "selectSlot": "— Zeitfenster wählen —",
+      "subject": "Fach",
+      "subjectPlaceholder": "z. B. AP Chemie",
+      "tutees": "Lernende",
+      "saveChanges": "Änderungen speichern",
+      "createPairing": "Zuordnung erstellen",
+      "cancel": "Abbrechen",
+      "colSubject": "Fach",
+      "colTutor": "Tutor",
+      "colWhen": "Wann",
+      "colSlot": "Zeitfenster",
+      "colRoom": "Raum",
+      "colTutees": "Lernende",
+      "edit": "Bearbeiten",
+      "delete": "Löschen"
+    },
+    "tutors": {
+      "title": "Tutoren",
+      "help": "Die E-Mail eines Tutors verknüpft ihn beim ersten Anmelden mit seinem Login-Konto. Der Benutzername (Standard: Anfangsbuchstabe + Nachname) ist eine alternative Anmeldekennung.",
+      "accountMovedNote": "Kontoeinrichtung (Einladungslinks und Anmeldestatus) befindet sich jetzt auf der Seite \"Benutzer & Rollen\".",
+      "phFirstName": "Vorname",
+      "phLastName": "Nachname",
+      "phAltNames": "Alt. Name(n), z. B. 中文名",
+      "phEmail": "E-Mail (optional)",
+      "phGrade": "Klassenstufe",
+      "addTutor": "Tutor hinzufügen",
+      "colFirstName": "Vorname",
+      "colLastName": "Nachname",
+      "colAltNames": "Alt. Name(n)",
+      "colUsername": "Benutzername",
+      "colEmail": "E-Mail",
+      "colGrade": "Klassenstufe",
+      "colActive": "Aktiv",
+      "colStatus": "Status",
+      "colAccount": "Konto",
+      "classOf": "Jahrgang {year}",
+      "account": {
+        "active": "Eingerichtet",
+        "pending": "Einrichtung ausstehend",
+        "registered": "Registriert",
+        "setup": "Einrichtung ausstehend",
+        "invited": "Code ausgestellt",
+        "none": "Kein Login",
+        "sendSetup": "Einrichtungslink senden",
+        "resend": "Einrichtung erneut senden",
+        "needEmail": "Zuerst eine E-Mail hinzufügen",
+        "linkEmailed": "Einrichtungs-E-Mail gesendet. Den Link unten können Sie auch kopieren und direkt weitergeben.",
+        "linkManual": "Konto bereit. Diesen Einrichtungslink an den Tutor weitergeben (E-Mail nicht konfiguriert):",
+        "dismiss": "Schließen"
+      }
+    },
+    "tutorStatus": {
+      "ACTIVE": "Aktiv",
+      "GRADUATED": "Abgegangen",
+      "OPTED_OUT": "Ausgetreten",
+      "ARCHIVED": "Archiviert"
+    },
+    "tutees": {
+      "title": "Liste der Lernenden",
+      "help": "Aktive und inaktive Lernende mit Anwesenheit und Disziplinarstatus. Neue öffentliche Anmeldungen werden unter",
+      "signupRequests": "Anmeldeanträge",
+      "pendingBadge": "{count} ausstehend",
+      "addTutee": "Lernenden hinzufügen",
+      "fullName": "Vollständiger Name",
+      "phName": "z. B. Emma Sun",
+      "grade": "Klassenstufe",
+      "phGrade": "z. B. 10",
+      "firstChoice": "Erstwahl",
+      "secondChoice": "Zweitwahl",
+      "addTuteeBtn": "Lernenden hinzufügen",
+      "viewTutees": "Lernenden-Liste",
+      "viewTutors": "Tutoren & Zuordnungen",
+      "colTutor": "Tutor",
+      "colSubject": "Fach",
+      "colDayTime": "Tag / Uhrzeit",
+      "colTimeSlot": "Zeitfenster",
+      "colPairedTutees": "Zugeordnete Lernende",
+      "noPairings": "keine Zuordnungen",
+      "colName": "Name",
+      "colGrade": "Klasse",
+      "colCourses": "Fächer",
+      "colSessions": "Sitzungen",
+      "colDiscipline": "Disziplin",
+      "colContact": "Kontakt",
+      "colStatus": "Status",
+      "removalBadge": "Entfernung",
+      "deleteBtn": "Löschen",
+      "emptyTutees": "Noch keine aktiven Lernenden.",
+      "tbd": "TBD",
+      "status": {
+        "PENDING": "ausstehend",
+        "ACTIVE": "aktiv",
+        "INACTIVE": "inaktiv"
+      }
+    },
+    "requests": {
+      "title": "Anmeldeanträge (Lernende)",
+      "help": "Öffentliche Anmeldungen von Lernenden, die auf Zuweisung warten, nach Einreichungsdatum sortiert. Jedes Fachwunsch einem Tutor zuweisen – dadurch wird die Zuordnung erstellt, und der Tutor wählt anschließend das Zeitfenster.",
+      "noTerm": "Zuerst ein Semester anlegen, bevor Anträge zugewiesen werden können.",
+      "decline": "Ablehnen",
+      "declineConfirm": "Antrag von {name} ablehnen und löschen?",
+      "firstChoice": "1. Wahl",
+      "secondChoice": "2. Wahl",
+      "notProvided": "— nicht angegeben —",
+      "assignToTutor": "— Tutor zuweisen —",
+      "tutorWorkload": "{name} — {pairings} Zuordnungen · {tutees} Lernende",
+      "assigning": "Wird zugewiesen…",
+      "assign": "Zuweisen",
+      "assignActivate": "Zuweisen & aktivieren",
+      "assignedTo": "Zugewiesen an {name}",
+      "fulfilled": "Erfüllt",
+      "expand": "Aufklappen",
+      "collapse": "Zuklappen",
+      "empty": "Keine ausstehenden Anmeldungen. 🎉",
+      "grade": "Klasse {grade}",
+      "submitted": "Eingereicht {when}",
+      "available": "Verfügbar: {list}",
+      "reach": "Erreichbar: {contact}",
+      "signed": "Unterschrieben: ✓ {name}",
+      "notSigned": "Unterschrieben: — nicht unterschrieben"
+    },
+    "readOnly": {
+      "banner": "Lesezugriff – Sie können alles einsehen, aber keine Änderungen vornehmen; Kontaktdaten sind ausgeblendet."
+    },
+    "nav": {
+      "sections": {
+        "overview": "Übersicht",
+        "tutors": "Tutoren",
+        "tutees": "Lernende",
+        "schedulingRecords": "Planung & Aufzeichnungen",
+        "administration": "Verwaltung"
+      },
+      "links": {
+        "dashboard": "Dashboard",
+        "activity": "Aktivität & Anfragen",
+        "history": "Programmgeschichte",
+        "announcements": "Ankündigungen",
+        "program": "Programm & Aktualisierung",
+        "tutorRoster": "Tutor-Liste",
+        "tutorApplications": "Tutor-Bewerbungen",
+        "tutorRequests": "Austritt / Wiedereintritt",
+        "tutorMeetings": "Tutor-Treffen",
+        "serviceHours": "Servicestunden",
+        "hourAdjustments": "Stundenanpassungen",
+        "tuteeRoster": "Liste der Lernenden",
+        "signupRequests": "Anmeldeanträge",
+        "tuteeDiscipline": "Disziplin der Lernenden",
+        "pairings": "Zuordnungen",
+        "attendance": "Anwesenheitseinträge",
+        "timeSlots": "Zeitfenster",
+        "coursesLevels": "Fächer & Niveaus",
+        "rooms": "Räume",
+        "policyDocuments": "Richtliniendokumente",
+        "auditLog": "Aktivitätsprotokoll",
+        "usersRoles": "Benutzer & Rollen",
+        "registrationCodes": "Registrierungscodes"
+      }
+    },
+    "dashboard": {
+      "title": "Dashboard",
+      "stats": {
+        "pairings": "Zuordnungen",
+        "activeTutors": "Aktive Tutoren",
+        "activeTutees": "Aktive Lernende",
+        "pendingSignups": "Ausstehende Anmeldungen",
+        "serviceHours": "Servicestunden · {month}"
+      },
+      "pendingBanner": "{count} {count, plural, one {Anmeldung wartet} other {Anmeldungen warten}} auf Überprüfung.",
+      "reviewNow": "Jetzt prüfen →",
+      "recentSubmissions": {
+        "title": "Zuletzt eingereicht",
+        "viewAll": "Alle anzeigen →",
+        "columns": {
+          "date": "Datum",
+          "tutor": "Tutor",
+          "subject": "Fach",
+          "status": "Status",
+          "sh": "SH"
+        },
+        "empty": "Noch keine Einträge."
+      }
+    },
+    "activity": {
+      "title": "Aktivität",
+      "subtitle": "Aktueller Status aller Anfragen im Programm. Jeder Eintrag verlinkt zur zugehörigen Aktionsseite.",
+      "manage": "Verwalten →",
+      "counters": {
+        "pendingSignups": "Ausstehende Anmeldungen",
+        "openApplications": "Offene Bewerbungen",
+        "cardsToReview": "Zu prüfende Karten",
+        "tutorRequests": "Austritt / Wiedereintritt",
+        "recentSurveys": "Aktuelle Umfragen"
+      },
+      "panels": {
+        "tuteeSignups": {
+          "title": "Anmeldeanträge Lernende",
+          "empty": "Keine ausstehenden Anmeldungen."
+        },
+        "tutorApplications": {
+          "title": "Tutor-Bewerbungen",
+          "empty": "Keine offenen Bewerbungen.",
+          "votes": "{count} {count, plural, one {Stimme} other {Stimmen}}",
+          "panelists": "{count} {count, plural, one {Panelist} other {Panelisten}}"
+        },
+        "tutorRequests": {
+          "title": "Austritts-/Wiedereintrittsanträge von Tutoren",
+          "empty": "Keine offenen Anträge."
+        },
+        "cards": {
+          "title": "Zu prüfende Disziplinkarten",
+          "empty": "Nichts zu prüfen.",
+          "auto": "auto",
+          "tutor": "Tutor"
+        },
+        "surveys": {
+          "title": "Aktuelle Anwesenheitsumfragen",
+          "empty": "Noch keine Umfragen.",
+          "hours": "{hours} h"
+        }
+      }
+    },
+    "summary": {
+      "title": "Servicestunden der Tutoren",
+      "subtitleMonthly": "Servicestunden pro Tutor.",
+      "scope": "Aktuelles Semester · {label}",
+      "viewHistory": "Verlauf anzeigen →",
+      "monthLabel": "Monat:",
+      "clearMonth": "Zurücksetzen",
+      "inactive": "(inaktiv)",
+      "columns": {
+        "tutor": "Tutor",
+        "sessions": "Sitzungen",
+        "earned": "Erarbeitet",
+        "extras": "Extras",
+        "penalties": "Abzüge",
+        "total": "Gesamt"
+      }
+    },
+    "history": {
+      "title": "Programmgeschichte",
+      "subtitle": "Servicestunden und Anwesenheit für ein beliebiges vergangenes Quartal, Semester oder Schuljahr.",
+      "schoolYear": "Schuljahr",
+      "scope": "Zeitraum",
+      "wholeYear": "Gesamtes Jahr",
+      "s1": "S1",
+      "s2": "S2",
+      "inactive": "(inaktiv)",
+      "noData": "Keine Aktivitäten für diesen Zeitraum erfasst.",
+      "columns": {
+        "tutor": "Tutor",
+        "sessions": "Sitzungen",
+        "earned": "Erarbeitet",
+        "extras": "Extras",
+        "penalties": "Abzüge",
+        "total": "Gesamt"
+      },
+      "totals": {
+        "total": "Stunden gesamt",
+        "earned": "Erarbeitet",
+        "sessions": "Sitzungen",
+        "present": "Anwesend",
+        "excused": "Entschuldigt",
+        "unexcused": "Unentschuldigt"
+      }
+    },
+    "program": {
+      "title": "Programm & Aktualisierung",
+      "subtitle": "Der aktuelle Zeitraum und die quartalsweise Aktualisierung, die das Programm fortschreibt.",
+      "loading": "Wird geladen…",
+      "noPeriod": "Kein aktiver Programmzeitraum. Zuerst einen anlegen oder Seed ausführen.",
+      "currentPeriod": "Aktueller Zeitraum",
+      "semester": "Semester {semester}",
+      "refreshHeading": "Ins nächste Quartal wechseln",
+      "advancesTo": "Damit wird das Programm auf {name} vorgerückt und:",
+      "effectPending": "Die ausstehende Anmeldeliste wird geleert (als inaktiv archiviert).",
+      "effectTutees": "Alle aktuell zugeordneten Lernenden werden archiviert – sie müssen sich erneut anmelden.",
+      "effectPairings": "Das aktuelle Zuordnungsboard wird geleert (vergangene Zuordnungen und Anwesenheit bleiben im Verlauf).",
+      "effectAvailability": "Sie werden aufgefordert, zu bestätigen, welche aktiven Tutoren weiterhin verfügbar sind.",
+      "effectGraduate": "G12-Tutoren werden verabschiedet (sie verlassen das Programm zu Beginn von Q4).",
+      "effectAgeUp": "Alle verbleibenden Tutoren rücken eine Klassenstufe auf.",
+      "effectHoursReset": "Ein neuer Servicestunden-/Anwesenheitszähler für Semester {semester} wird gestartet.",
+      "effectHoursKeep": "Servicestunden werden weiter kumuliert (noch dasselbe Semester).",
+      "confirmLabel": "REFRESH eingeben, um diese programmweite Aktion zu bestätigen.",
+      "confirmPlaceholder": "REFRESH",
+      "reviewButton": "Tutor-Verfügbarkeit prüfen & aktualisieren →",
+      "refreshButton": "Zu {name} wechseln",
+      "refreshing": "Wird aktualisiert…",
+      "done": "Zu {name} gewechselt. {count} Lernende(r) archiviert.",
+      "doneGrad": "{graduated} verabschiedet; {aged} Tutor(en) um eine Klasse aufgerückt.",
+      "modalTitle": "Tutor-Verfügbarkeit für {name}",
+      "modalIntro": "Bestätigen, welche aktiven Tutoren weitermachen. Nicht angehakte Tutoren werden archiviert.",
+      "modalGradNote": "Neues Schuljahr: G12-Tutoren verabschieden sich, alle anderen rücken eine Klasse auf.",
+      "available": "Verfügbar",
+      "graduating": "Verabschiedung",
+      "noActiveTutors": "Keine aktiven Tutoren zu überprüfen.",
+      "cancel": "Abbrechen"
+    },
+    "audit": {
+      "title": "Aktivitätsprotokoll",
+      "subtitle": "Letzte Administratoraktionen. Umkehrbare Aktionen können hier rückgängig gemacht werden; andere haben eine manuelle Umkehrmöglichkeit auf ihrer eigenen Seite.",
+      "columns": {
+        "when": "Wann",
+        "who": "Wer",
+        "action": "Aktion"
+      },
+      "undone": "rückgängig gemacht",
+      "undo": "Rückgängig",
+      "empty": "Noch keine Aktionen erfasst."
+    },
+    "users": {
+      "title": "Benutzer & Rollen",
+      "subtitle": "Logins, Rollen und Tutor-Kontoeinrichtung verwalten. Rollenänderungen werden bei der nächsten Anmeldung wirksam.",
+      "coordinatorHint": "Als Koordinator können Sie Einrichtungslinks senden und Ihren eigenen Tutorenzugang ändern. Für Rollenänderungen wenden Sie sich an einen Administrator.",
+      "columns": {
+        "user": "Benutzer",
+        "name": "Name",
+        "email": "E-Mail",
+        "linkedTutor": "Verknüpfter Tutor",
+        "account": "Konto",
+        "role": "Rolle",
+        "canTutor": "Kann tutoren",
+        "canTranslate": "Übersetzer"
+      },
+      "roles": {
+        "VIEWER": "Betrachter (nur Lesen)",
+        "TUTOR": "Tutor",
+        "COORDINATOR": "Koordinator",
+        "ADMIN": "Administrator",
+        "HEAD": "Leiter"
+      },
+      "filters": {
+        "role": "Rolle",
+        "status": "Tutor-Status",
+        "account": "Konto",
+        "all": "Alle"
+      },
+      "makeHead": "Zum Leiter machen",
+      "confirmTransfer": "Leitung an {name} übergeben? Sie werden dann Administrator.",
+      "canTutorLabel": "Kann tutoren",
+      "canTranslateLabel": "Kann übersetzen",
+      "translateDefault": "Standard",
+      "translateDefaultHint": "Administratoren und Koordinatoren können Übersetzungen immer bearbeiten.",
+      "tutorActive": "aktiv",
+      "tutorInactive": "inaktiv",
+      "empty": "Noch keine Benutzer oder Tutoren."
+    },
+    "registrationCodes": {
+      "title": "Registrierungscodes",
+      "help": "Einen einmalig nutzbaren 6-stelligen Sicherheitsschlüssel für einen neuen Tutor zur Selbstregistrierung ausstellen. Der Code wird einmalig angezeigt – kopieren und direkt weitergeben; er wird nicht gespeichert.",
+      "labelField": "Für (Bezeichnung)",
+      "labelPlaceholder": "z. B. Jane Doe (G11)",
+      "emailField": "An E-Mail binden (optional)",
+      "emailPlaceholder": "tutor@school.edu",
+      "issue": "Code ausstellen",
+      "issuedTitle": "Registrierungscode für {who}",
+      "issuedHint": "Jetzt kopieren – er wird nicht erneut angezeigt.",
+      "colFor": "Für",
+      "colEmail": "E-Mail",
+      "colIssuedBy": "Ausgestellt von",
+      "colExpires": "Läuft ab",
+      "colStatus": "Status",
+      "status": {
+        "active": "Aktiv",
+        "used": "Verwendet",
+        "expired": "Abgelaufen"
+      },
+      "revoke": "Widerrufen",
+      "empty": "Noch keine Registrierungscodes."
+    },
+    "tutorRequests": {
+      "title": "Austritts-/Wiedereintrittsanträge",
+      "help": "Von Tutoren initiierte Mitgliedschaftsänderungen. Austrittsanträge können erst nach einer einwöchigen Wartezeit genehmigt werden; Wiedereintritt ist sofort möglich.",
+      "kind": {
+        "OPT_OUT": "Austritt",
+        "REENTRY": "Wiedereintritt"
+      },
+      "cooldownDone": "Wartezeit abgelaufen – bereit zur Genehmigung",
+      "cooldownUntil": "Genehmigbar ab {date}",
+      "affected": "{count} {count, plural, one {Lernender betroffen} other {Lernende betroffen}}",
+      "notYet": "Die einwöchige Wartezeit ist noch nicht abgelaufen.",
+      "approve": "Genehmigen",
+      "deny": "Ablehnen",
+      "empty": "Keine offenen Anträge.",
+      "requeuePrompt": "{count} {count, plural, one {Lernenden} other {Lernende}} von {name} zur Neuzuweisung in die Anmeldeliste einreihen?",
+      "requeueConfirm": "Lernende einreihen",
+      "requeueDismiss": "Nicht jetzt"
+    },
+    "submissions": {
+      "title": "Anwesenheitseinträge",
+      "allTutors": "Alle Tutoren",
+      "colDate": "Datum",
+      "colTutor": "Tutor",
+      "colSubject": "Fach",
+      "colStatus": "Status",
+      "colTutees": "Lernende",
+      "colSH": "SH",
+      "empty": "Keine Einträge für diesen Filter."
+    },
+    "meetings": {
+      "title": "Tutor-Treffen",
+      "titlePlaceholder": "Titel des Treffens",
+      "create": "Erstellen",
+      "delete": "Löschen",
+      "saving": "Wird gespeichert…",
+      "saveAttendance": "Anwesenheit speichern",
+      "saved": "Gespeichert.",
+      "timeLabel": "Uhrzeit",
+      "exempt": "Befreit (X)",
+      "status": {
+        "present": "Anwesend",
+        "excusedAbsent": "Entschuldigt abwesend",
+        "unexcusedAbsent": "Unentschuldigt abwesend"
+      },
+      "summary": {
+        "show": "Zusammenfassung anzeigen",
+        "hide": "Zusammenfassung ausblenden",
+        "tutor": "Tutor",
+        "noMeetings": "Noch keine Treffen."
+      }
+    },
+    "timeslots": {
+      "title": "Zeitfenster",
+      "description": "Ein gemeinsamer Katalog der Sitzungszeiten. Tutoren und Lernende markieren ihre Verfügbarkeit anhand dieser Zeitfenster; Zuordnungen können auf ein Zeitfenster verweisen. Zeitfenster sind nur Referenzwerte – die tatsächlichen Sitzungszeiten werden weiterhin bei jedem Anwesenheitseintrag eingegeben.",
+      "label": "Bezeichnung",
+      "labelPlaceholder": "z. B. Mo Block A",
+      "day": "Tag",
+      "start": "Beginn",
+      "end": "Ende",
+      "addSlot": "Zeitfenster hinzufügen",
+      "colLabel": "Bezeichnung",
+      "colDay": "Tag",
+      "colTime": "Uhrzeit",
+      "colActive": "Aktiv",
+      "delete": "Löschen",
+      "empty": "Noch keine Zeitfenster."
+    },
+    "rooms": {
+      "title": "Räume",
+      "description": "Räume hinzufügen und wiederkehrende Zeiträume markieren, in denen sie nicht genutzt werden können. Gesperrte Zeiträume werden im Raumplan der Zuordnungen angezeigt.",
+      "deleteRoom": "Raum löschen",
+      "colName": "Name",
+      "colBlackouts": "Sperrzeiten",
+      "blackoutCount": "{count} Sperrzeit(en)",
+      "expand": "Aufklappen",
+      "collapse": "Zuklappen",
+      "unavailablePeriods": "Nicht verfügbare Zeiträume",
+      "alwaysAvailable": "Immer verfügbar.",
+      "removePeriod": "Zeitraum entfernen",
+      "reasonPlaceholder": "Grund (optional)",
+      "block": "Sperren",
+      "namePlaceholder": "Neuer Raumname",
+      "addRoom": "Raum hinzufügen",
+      "empty": "Noch keine Räume."
+    },
+    "courses": {
+      "title": "Fächer & Niveaus",
+      "subtitle": "Fächer, die Lernende anfragen können. Niveaus sind ein von Administratoren verwalteter Katalog; ein als \"AP-bewertet\" markiertes Niveau erlaubt, für seine Fächer eine AP-Prüfungspunktzahl bei Tutor-Bewerbungen anzugeben.",
+      "noLevel": "— kein Niveau —",
+      "levels": {
+        "title": "Niveaus",
+        "description": "Schwierigkeitsstufen, denen ein Fach zugeordnet werden kann. Ein als AP-bewertet markiertes Niveau erlaubt, für seine Fächer eine AP-Prüfungspunktzahl bei Tutor-Bewerbungen anzugeben.",
+        "apScored": "AP-bewertet",
+        "confirmDelete": "Niveau \"{name}\" löschen? Die zugehörigen Fächer bleiben erhalten, verlieren aber das Niveau.",
+        "remove": "Entfernen",
+        "addPlaceholder": "Niveau hinzufügen (z. B. Leistungskurs)",
+        "add": "Niveau hinzufügen"
+      },
+      "add": {
+        "namePlaceholder": "Neuer Fachname",
+        "submit": "Fach hinzufügen"
+      },
+      "import": {
+        "importing": "Wird importiert…",
+        "upload": "CSV hochladen",
+        "result": "{created} von {received} importiert (Duplikate übersprungen).",
+        "empty": "Keine Fachzeilen in dieser Datei gefunden.",
+        "formatPrefix": "CSV-Format: ein Fach pro Zeile als",
+        "formatSuffix": "(Niveau wird nach Name zugeordnet; eine Kopfzeile ist optional)."
+      },
+      "batch": {
+        "selected": "{count} ausgewählt",
+        "setLevel": "Niveau setzen",
+        "activate": "Aktivieren",
+        "deactivate": "Deaktivieren",
+        "clear": "Auswahl aufheben"
+      },
+      "table": {
+        "name": "Name",
+        "level": "Niveau",
+        "active": "Aktiv",
+        "noLevelShort": "—",
+        "delete": "Löschen",
+        "empty": "Noch keine Fächer."
+      }
+    },
+    "announcements": {
+      "title": "Ankündigungen",
+      "subtitle": "Nachrichten an Tutoren. Jede wird bei jeder Anmeldung auf dem Dashboard angezeigt, bis der Tutor sie schließt; angeheftete bleiben dauerhaft sichtbar.",
+      "empty": "Noch keine Ankündigungen.",
+      "badge": {
+        "pinned": "angeheftet",
+        "active": "aktiv",
+        "inactive": "inaktiv"
+      },
+      "card": {
+        "save": "Speichern",
+        "pin": "Anheften",
+        "unpin": "Loslösen",
+        "deactivate": "Deaktivieren",
+        "reactivate": "Reaktivieren",
+        "dismissed": "{count} geschlossen",
+        "confirmDelete": "Diese Ankündigung löschen?",
+        "delete": "Löschen"
+      },
+      "new": {
+        "title": "Neue Ankündigung",
+        "titlePlaceholder": "Titel",
+        "messagePlaceholder": "Nachricht…",
+        "pinLabel": "Anheften (bleibt nach dem Schließen sichtbar)",
+        "posting": "Wird veröffentlicht…",
+        "broadcast": "Veröffentlichen"
+      }
+    },
+    "policies": {
+      "title": "Richtliniendokumente",
+      "subtitle": "Tutor- und Lernenden-Handbücher bearbeiten. In Markdown verfasst; die gespeicherte Fassung ist die maßgebliche Version.",
+      "loading": "Wird geladen…",
+      "empty": "Noch keine Richtliniendokumente. Seed ausführen, um sie zu erstellen.",
+      "languageLabel": "Sprache",
+      "history": "Versionsverlauf",
+      "historyEmpty": "Noch keine früheren Versionen.",
+      "archivedOn": "Archiviert am {date}",
+      "viewArchived": "Anzeigen",
+      "defaultBadge": "Standard",
+      "addLanguage": "Sprache hinzufügen…",
+      "removeLanguage": "Diese Sprache entfernen",
+      "discardLanguage": "Verwerfen",
+      "confirmRemoveLanguage": "Die {lang}-Version dieser Richtlinie entfernen? Sie wird unter dem Versionsverlauf archiviert.",
+      "editor": {
+        "versionPlaceholder": "Version",
+        "titlePlaceholder": "Dokumenttitel",
+        "bodyPlaceholder": "Richtlinie in Markdown verfassen…",
+        "notTranslated": "noch nicht übersetzt",
+        "notTranslatedShort": "nicht übersetzt",
+        "slugLabel": "Slug",
+        "lastEdited": "· Markdown · zuletzt bearbeitet {date}",
+        "editedBy": "von {who}",
+        "saving": "Wird gespeichert…",
+        "save": "Speichern",
+        "saved": "Gespeichert."
+      }
+    },
+    "adjustments": {
+      "title": "Stundenanpassungen für Tutoren",
+      "subtitle": "Zusätzliche Stunden vergeben oder eine Kürzung (Abzug) für einen Tutor in einem bestimmten Monat vornehmen. (Gelbe/rote Karten für Lernende finden sich unter Disziplin der Lernenden.)",
+      "form": {
+        "tutorPlaceholder": "Tutor…",
+        "typeExtra": "Extra (+)",
+        "typePunishment": "Abzug (−)",
+        "reasonPlaceholder": "Grund (optional)",
+        "add": "Hinzufügen"
+      },
+      "typeLabel": {
+        "EXTRA": "Extra",
+        "PUNISHMENT": "Abzug"
+      },
+      "table": {
+        "tutor": "Tutor",
+        "month": "Monat",
+        "type": "Typ",
+        "amount": "Betrag",
+        "reason": "Grund",
+        "delete": "Löschen"
+      }
+    },
+    "applications": {
+      "title": "Tutor-Bewerbungen",
+      "intro": "Bewerber prüfen und ein {n}-köpfiges Interviewgremium zuweisen (einen Leiter markieren). Auf eine Zeile klicken, um sie aufzuklappen. Der Leiter terminiert das Interview und erfasst die Entscheidung im eigenen Dashboard.",
+      "empty": "Noch keine Bewerbungen.",
+      "status": {
+        "PENDING": "ausstehend",
+        "INTERVIEW": "Interview",
+        "ACCEPTED": "angenommen",
+        "REJECTED": "abgelehnt"
+      },
+      "noCourses": "keine Fächer",
+      "panelSummary": "Gremium {n}/{total}",
+      "votesSummary": "Stimmen {accepts}/{total}",
+      "accept": "Annehmen",
+      "reject": "Ablehnen",
+      "delete": "Löschen",
+      "confirmDelete": "Bewerbung von {name} löschen?",
+      "reach": "Erreichbar: {contact}",
+      "na": "k. A.",
+      "qual": {
+        "took": "Kurs belegt ({grade})",
+        "ap": "AP {score}",
+        "selfStudied": "Selbststudium: {note}"
+      },
+      "noQualification": "Keine Qualifikation angegeben",
+      "panelHeading": "Interviewgremium (wählen Sie {n}, einen Leiter markieren)",
+      "scheduled": "Geplant: {when} (vom Leiter festgelegt)",
+      "panelistSlot": "— Panelist {n} —",
+      "head": "Leiter",
+      "saving": "Wird gespeichert…",
+      "savePanel": "Gremium speichern",
+      "saved": "Gespeichert.",
+      "pickHint": "{n} Tutoren und einen Leiter auswählen.",
+      "votesDecisionHeading": "Stimmen & Entscheidung",
+      "voteTally": "{accepts} dafür · {rejects} dagegen",
+      "noVotes": "Noch keine Stimmen.",
+      "decision": "Entscheidung: \"{comment}\"",
+      "decidedByHead": "{name} (Leiter)",
+      "setupAccount": "Konto einrichten →"
+    },
+    "cards": {
+      "title": "Disziplin der Lernenden",
+      "intro": "Gelbe/rote Karten für Lernende. Von Tutoren beantragte Karten prüfen und als gültig oder ungültig kennzeichnen. Im Standing werden nur gültige Karten gezählt (3 gelbe = 1 rote; 2 rote = Entfernung ausstehend).",
+      "autoIssued": "automatisch ausgestellt",
+      "issuedBy": "von {name}",
+      "tutor": "Tutor",
+      "auto": "auto",
+      "reviewNotePlaceholder": "Prüfungshinweis (optional)",
+      "valid": "Gültig",
+      "invalid": "Ungültig",
+      "pendingReview": "Prüfung ausstehend",
+      "nothingPending": "Nichts zur Prüfung.",
+      "standingHeading": "Standing der Lernenden",
+      "standingHelp": "🟥 belegt 3 Felder, 🟨 belegt 1 (nur gültige Karten). Volle 6 = Entfernung ausstehend. Auf einen Namen klicken für die Kartendetails.",
+      "standing": {
+        "removalPending": "Entfernung ausstehend",
+        "onWarning": "Verwarnung",
+        "ok": "ok"
+      },
+      "pendingCount": "{n} zur Prüfung ausstehend",
+      "reviewStatus": {
+        "PENDING": "ausstehend",
+        "VALID": "gültig",
+        "INVALID": "ungültig"
+      },
+      "noCardsOnRecord": "Keine Karten erfasst.",
+      "historyHeading": "Kartenverlauf",
+      "table": {
+        "date": "Datum",
+        "tutee": "Lernender",
+        "card": "Karte",
+        "reason": "Grund",
+        "source": "Quelle",
+        "status": "Status"
+      },
+      "tableEmpty": "Noch keine Karten."
+    }
+  },
+  "tutor": {
+    "nav": {
+      "handbook": "Handbuch"
+    },
+    "handbook": {
+      "empty": "Das Handbuch wurde noch nicht veröffentlicht."
+    },
+    "status": {
+      "ACTIVE": "Aktiv",
+      "GRADUATED": "Abgegangen",
+      "OPTED_OUT": "Ausgetreten",
+      "ARCHIVED": "Archiviert"
+    },
+    "attendance": {
+      "loading": "Zuordnungen werden geladen…",
+      "noPairings": "Noch keine Zuordnungen. Bitte einen Administrator bitten, eine einzurichten.",
+      "pairing": "Zuordnung",
+      "selectPairing": "Zuordnung wählen…",
+      "mergeTitle": "Weitere Sitzungen in diesen Block zusammenführen",
+      "mergeHelp": "Mehrere Fächer zusammen in einem Block? Die anderen in diesem Zeitblock abgedeckten Zuordnungen anhaken. Jede wird separat erfasst, aber die Servicestunden des Blocks werden einmal gezählt.",
+      "mergedNote": "Zusammengeführte Sitzungen teilen Zeit und Bewertungen dieses Blocks. Stunden werden einmal gutgeschrieben, auf der primären Sitzung.",
+      "mergedCount": "{count} weitere Sitzung(en) in diesen Block zusammengeführt (unter Meine Zuordnungen festgelegt).",
+      "date": "Datum",
+      "today": "Heute",
+      "tutorStatus": "Tutor-Status",
+      "tutorStatusOpt": {
+        "PRESENT": "Anwesend",
+        "RESCHEDULED": "Verschoben",
+        "EXTRA": "Zusatzsitzung",
+        "TUTOR_ABSENT": "Tutor abwesend"
+      },
+      "tutorAbsentReason": "Grund für Abwesenheit des Tutors *",
+      "start": "Beginn",
+      "end": "Ende",
+      "now": "Jetzt",
+      "tuteeAttendance": "Anwesenheit der Lernenden",
+      "tuteeStatusOpt": {
+        "PRESENT": "Anwesend",
+        "EXCUSED_ABSENT": "Entschuldigt abwesend",
+        "UNEXCUSED_ABSENT": "Unentschuldigt abwesend"
+      },
+      "reasonRequired": "Grund (erforderlich)",
+      "ratings": "Bewertungen *",
+      "rating": {
+        "ratingPreparedness": "Vorbereitung",
+        "ratingParticipation": "Mitarbeit",
+        "ratingUnderstanding": "Verständnis",
+        "ratingBehavior": "Verhalten",
+        "ratingProgress": "Fortschritt"
+      },
+      "likert": {
+        "1": "Schlecht",
+        "2": "Ausreichend",
+        "3": "Gut",
+        "4": "Sehr gut",
+        "5": "Ausgezeichnet"
+      },
+      "comments": "Kommentare *",
+      "cardsTitle": "Disziplinkarten (optional)",
+      "cardsHelp": "Eine gelbe oder rote Karte mit kurzem Grund vergeben. Das Team prüft jede Karte, bevor sie zählt. (Eine unentschuldigte Abwesenheit oben löst automatisch eine rote Karte aus.)",
+      "noCard": "Keine Karte",
+      "yellow": "Gelb",
+      "red": "Rot",
+      "submit": "Anwesenheit einreichen",
+      "submitting": "Wird eingereicht…",
+      "saved": "Gespeichert.",
+      "submitAnother": "Weiteren Eintrag einreichen",
+      "errors": {
+        "absenceReason": "Bitte Grund für die Abwesenheit des Tutors angeben.",
+        "excusedReason": "Bitte für jede entschuldigte Abwesenheit einen Grund angeben.",
+        "ratingsRequired": "Bewertungen sind für eine gehaltene Sitzung erforderlich.",
+        "cardReason": "Bitte für jede vergebene Karte einen Grund angeben."
+      }
+    },
+    "pairings": {
+      "loading": "Wird geladen…",
+      "empty": "Noch keine Zuordnungen. Ein Koordinator wird Lernende zuweisen.",
+      "tutees": "Lernende: {names}",
+      "noTuteesYet": "noch keine",
+      "room": " · Raum {room}",
+      "noRoom": " · Kein Raum zugewiesen",
+      "defaultSlotLabel": "Standard-Zeitfenster:",
+      "notSet": "— nicht gesetzt —",
+      "mergeTitle": "Sitzungen zusammenführen",
+      "mergeHelp": "Laufen diese zusammen in einem Block? Die Sitzungen anhaken, die neben der im Anwesenheitsformular ausgewählten Sitzung abgedeckt werden. Jede wird separat erfasst, aber die Servicestunden des Blocks zählen einmal.",
+      "mergeSelectPrimary": "Im Anwesenheitsformular eine Sitzung auswählen, um andere damit zusammenzuführen.",
+      "mergeNone": "Keine andere Sitzung teilt einen Lernenden oder ein Fach mit der ausgewählten."
+    },
+    "availability": {
+      "loading": "Zeitfenster werden geladen…",
+      "empty": "Noch keine Zeitfenster veröffentlicht.",
+      "save": "Verfügbarkeit speichern",
+      "saving": "Wird gespeichert…",
+      "saved": "Gespeichert."
+    },
+    "interviews": {
+      "help": "Bewerbungen, in deren Gremium Sie sitzen. Stimme nach der Vorstellung abgeben; der Leiter erfasst die endgültige Entscheidung.",
+      "setTime": "Zeit festlegen",
+      "saving": "Wird gespeichert…",
+      "saved": "Gespeichert.",
+      "voteCommentPlaceholder": "Optionaler Kommentar zu Ihrer Stimme",
+      "accept": "Annehmen",
+      "reject": "Ablehnen",
+      "yourVote": "Ihre Stimme: {vote}",
+      "voteAccept": "dafür",
+      "voteReject": "dagegen",
+      "headDecision": "Entscheidung des Leiters",
+      "majorityAccept": "dafür",
+      "majorityReject": "dagegen",
+      "majorityAcceptHeadTie": "dafür (Leiter bricht Gleichstand)",
+      "majorityRejectHeadTie": "dagegen (Leiter bricht Gleichstand)",
+      "majorityTie": "Gleichstand — stimmen Sie ab, um ihn zu brechen",
+      "tally": "Ergebnis: {accepts} dafür · {rejects} dagegen (Mehrheit: {majority}). Endgültige Entscheidung mit kurzem Kommentar festhalten.",
+      "decisionCommentPlaceholder": "Kurzer Kommentar zur Entscheidung (erforderlich)",
+      "approve": "Bestätigen",
+      "statusAccepted": "angenommen",
+      "statusRejected": "abgelehnt",
+      "youAreHead": "Sie sind Leiter",
+      "taken": "belegt",
+      "notTaken": "nicht belegt",
+      "panel": "Gremium: {members}",
+      "headSuffix": "(Leiter)",
+      "scheduled": "Geplant: {time}",
+      "awaitingSchedule": "Warten auf Terminierung durch den Leiter."
+    },
+    "announcements": {
+      "label": "Ankündigungen",
+      "pinned": "angeheftet"
+    },
+    "settings": {
+      "title": "Kontoeinstellungen",
+      "subtitle": "Persönliche Daten und Passwort aktualisieren.",
+      "profileHeading": "Profil",
+      "name": "Name",
+      "username": "Benutzername",
+      "grade": "Klassenstufe",
+      "gradeHelp": "Aktuelle Klassenstufe selbst angeben (z. B. bei Wiederholung eines Jahres). Das Abschlussjahrgang ergibt sich daraus.",
+      "altNames": "Alternativer Name / alternative Namen",
+      "altNamesHelp": "Wird neben Ihrem Namen angezeigt (z. B. Ihr Name in einer anderen Schrift).",
+      "email": "Kontakt-E-Mail",
+      "emailHelp": "Hierhin werden Anmelde- und Passwort-Reset-E-Mails gesendet.",
+      "save": "Änderungen speichern",
+      "saving": "Wird gespeichert…",
+      "saved": "Gespeichert.",
+      "passwordHeading": "Passwort",
+      "currentPassword": "Aktuelles Passwort",
+      "newPassword": "Neues Passwort",
+      "confirmPassword": "Neues Passwort bestätigen",
+      "pwHelp": "Mindestens 8 Zeichen.",
+      "changePasswordBtn": "Passwort ändern",
+      "changing": "Wird geändert…",
+      "passwordChanged": "Passwort geändert.",
+      "pwTooShort": "Das neue Passwort muss mindestens 8 Zeichen lang sein.",
+      "pwMismatch": "Die neuen Passwörter stimmen nicht überein.",
+      "membershipHeading": "Mitgliedschaft",
+      "optOutHelp": "Möchten Sie das Programm verlassen? Einen Austrittsantrag stellen. Ein Administrator kann ihn nach einer einwöchigen Wartezeit bearbeiten; bis dahin kann der Antrag zurückgezogen werden.",
+      "optOutReasonPlaceholder": "Grund (optional)",
+      "optOutBtn": "Austritt beantragen",
+      "optOutPending": "Austritt beantragt. Ein Administrator kann ihn ab {date} genehmigen. Bis dahin kann der Antrag zurückgezogen werden.",
+      "optOutPendingNoDate": "Austritt beantragt und wartet auf Überprüfung.",
+      "reentryPending": "Wiedereintritt beantragt und wartet auf Genehmigung durch einen Administrator.",
+      "reentryHelp": "Möchten Sie dem Programm wieder beitreten? Wiedereintritt beantragen, ein Administrator prüft den Antrag.",
+      "reentryBtn": "Wiedereintritt beantragen",
+      "recall": "Antrag zurückziehen",
+      "statusNote": "Ihr Tutor-Status ist {status}. Dies ist nur Lesezugriff — für Änderungen einen Administrator kontaktieren."
+    },
+    "dashboard": {
+      "pending": {
+        "title": "Ihr Tutor-Konto wartet auf Freigabe",
+        "body": "Ein Koordinator wird Ihr Konto in Kürze aktivieren. In der Zwischenzeit können Sie unten die Zeitfenster markieren, an denen Sie verfügbar sind."
+      },
+      "inactive": {
+        "title": "Nur Lesezugriff",
+        "body": "Ihr Tutor-Konto ist {status}. Sie können Ihren Verlauf einsehen, aber keine Anwesenheit einreichen oder neue Lernende annehmen.",
+        "reentryHint": "Möchten Sie zurückkehren? Wiedereintritt in den Kontoeinstellungen beantragen."
+      },
+      "availability": {
+        "title": "Meine Verfügbarkeit",
+        "help": "Zeitfenster markieren, in denen Sie unterrichten können."
+      },
+      "hours": {
+        "earned": "{earned} erarbeitet",
+        "extra": "+ {extra} extra",
+        "penalty": "− {penalty} Abzug"
+      }
+    }
+  },
+  "public": {
+    "signup": {
+      "title": "Peer-Tutor anfragen",
+      "intro": "Teilen Sie uns mit, wobei Sie Hilfe benötigen, und wann Sie verfügbar sind. Ein Koordinator prüft Ihren Antrag und vermittelt Ihnen einen Tutor.",
+      "term": "Aktuelles Semester: {term}",
+      "becomeTutorPrompt": "Möchten Sie lieber selbst tutoren?",
+      "becomeTutorLink": "Als Tutor bewerben",
+      "successTitle": "Antrag erhalten 🎉",
+      "successBody": "Danke, {name}. Ein Koordinator prüft Ihren Antrag und meldet sich wegen Tutor und Termin bei Ihnen.",
+      "fields": {
+        "fullName": "Vollständiger Name *",
+        "gradeLevel": "Klassenstufe",
+        "email": "E-Mail",
+        "phone": "Telefon",
+        "preferredContact": "Wie können wir Sie erreichen? *",
+        "firstChoice": "Fach – Erstwahl *",
+        "secondChoice": "Fach – Zweitwahl (optional)",
+        "availability": "Verfügbare Zeitfenster *",
+        "signature": "Elektronische Unterschrift * (vollständigen Namen eingeben)"
+      },
+      "placeholders": {
+        "gradeLevel": "z. B. 10",
+        "preferredContact": "z. B. SMS an 555-123-4567 oder E-Mail (am besten nach 16 Uhr)",
+        "selectCourse": "Fach wählen…",
+        "signature": "Vollständiger Name"
+      },
+      "options": {
+        "none": "— keine —"
+      },
+      "help": {
+        "preferredContact": "Teilen Sie uns die beste Möglichkeit und Zeit mit, Sie wegen Ihrer Tutor-Zuordnung zu kontaktieren."
+      },
+      "noSlots": "Noch keine Zeitfenster veröffentlicht. Bitte später wiederkommen.",
+      "agree": "Ich habe die <policy>{appTitle}-Richtlinie</policy> gelesen und stimme zu, sie einzuhalten.",
+      "submit": "Antrag einreichen",
+      "submitting": "Wird eingereicht…"
+    },
+    "tutorSignup": {
+      "title": "Als Peer-Tutor bewerben",
+      "intro": "Teilen Sie uns mit, welche Fächer Sie tutoren möchten. Das Koordinator-Team prüft jede Bewerbung und vereinbart vor dem Beitritt ein Interview.",
+      "alreadyTutor": "Bereits Tutor?",
+      "signIn": "Anmelden",
+      "successTitle": "Bewerbung erhalten 🎉",
+      "successBody": "Danke, {name}. Das Koordinator-Team prüft Ihre Bewerbung und vereinbart ein Interview. Wir melden uns unter {email}.",
+      "fields": {
+        "fullName": "Vollständiger Name *",
+        "email": "Kontakt-E-Mail *",
+        "preferredContact": "Wie können wir Sie erreichen? *",
+        "courses": "Fächer, die Sie tutoren möchten (bis zu 3) *",
+        "course": "Fach",
+        "grade": "Erzielte Note",
+        "apScore": "AP-Punktzahl",
+        "selfStudyNote": "Wie qualifizieren Sie sich / was haben Sie erreicht?"
+      },
+      "placeholders": {
+        "preferredContact": "z. B. SMS an 555-123-4567 oder E-Mail (am besten nach 16 Uhr)",
+        "selectCourse": "Wählen…",
+        "grade": "z. B. 1",
+        "apScore": "1–5",
+        "selfStudyNote": "z. B. Online-Kurs abgeschlossen, Wettbewerbsergebnisse, Portfolio…"
+      },
+      "help": {
+        "preferredContact": "Die beste Möglichkeit und Zeit, Sie wegen Ihrer Bewerbung und des Interviews zu erreichen."
+      },
+      "coursesHelp": "Für jedes Fach angeben, wie Sie qualifiziert sind: ob Sie den Kurs belegt haben, eine AP-Punktzahl haben (nur AP-Fächer) und/oder es selbst erarbeitet haben.",
+      "qual": {
+        "taken": "Ich habe diesen Kurs belegt",
+        "hasApScore": "Ich habe eine AP-Punktzahl",
+        "selfStudied": "Ich habe dieses Fach selbst erarbeitet"
+      },
+      "remove": "Entfernen",
+      "addCourse": "+ Weiteres Fach hinzufügen",
+      "agree": "Ich habe die <policy>{appTitle}-Richtlinie</policy> gelesen und stimme zu, sie einzuhalten.",
+      "submit": "Bewerbung einreichen",
+      "submitting": "Wird eingereicht…"
+    },
+    "policy": {
+      "mustRead": "Richtlinie öffnen und bis zum Ende lesen, bevor Sie zustimmen.",
+      "scrollPrompt": "Bis zum Ende scrollen, um fortzufahren.",
+      "readPrompt": "Sie haben das Ende erreicht.",
+      "done": "Fertig — ich habe dies gelesen",
+      "close": "Schließen"
+    }
+  },
+  "components": {
+    "notifications": {
+      "title": "Benachrichtigungen",
+      "markAllRead": "Alle als gelesen markieren",
+      "empty": "Noch nichts."
+    },
+    "signOut": {
+      "label": "Abmelden"
+    },
+    "userMenu": {
+      "settings": "Einstellungen",
+      "enterTutor": "Tutor-Bereich betreten",
+      "enterAdmin": "Admin-Bereich betreten"
+    },
+    "theme": {
+      "label": "Design",
+      "names": {
+        "indigo": "Indigo",
+        "violet": "Violett",
+        "emerald": "Smaragd",
+        "rose": "Rosa",
+        "amber": "Bernstein",
+        "sky": "Himmel"
+      }
+    }
+  },
+  "localization": {
+    "title": "Übersetzungen",
+    "navLabel": "Übersetzungen",
+    "subtitle": "Oberflächentexte für jede Sprache bearbeiten. Änderungen sind sofort aktiv; ein leeres Feld stellt den eingebundenen Text wieder her.",
+    "targetLanguage": "Zu bearbeitende Sprache",
+    "searchLabel": "Suche",
+    "search": "Nach Schlüssel oder Text suchen…",
+    "english": "Englisch",
+    "reference": "Referenz:",
+    "overridden": "bearbeitet",
+    "reset": "Zurücksetzen",
+    "saved": "Gespeichert",
+    "loading": "Wird geladen…",
+    "empty": "Keine Texte für Ihre Suche gefunden.",
+    "count": "{shown} von {total} Texten angezeigt.",
+    "tooMany": "Die ersten {max} werden angezeigt. Suche verwenden, um einzugrenzen.",
+    "keysLabel": "Schlüssel",
+    "expandAll": "Alle aufklappen",
+    "collapseAll": "Alle zuklappen",
+    "languagesHeading": "Sprachen",
+    "builtIn": "eingebaut",
+    "moveUp": "Nach oben",
+    "moveDown": "Nach unten",
+    "removeLanguage": "Entfernen",
+    "confirmRemoveLanguage": "{label} entfernen? Die zugehörigen Übersetzungen werden gelöscht.",
+    "addLanguageCode": "Code (z. B. fr)",
+    "addLanguageName": "Name (z. B. Français)",
+    "addLanguageBtn": "Sprache hinzufügen",
+    "back": "Zurück"
+  }
+}

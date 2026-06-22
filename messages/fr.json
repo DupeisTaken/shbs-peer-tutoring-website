@@ -1,0 +1,1147 @@
+{
+  "common": {
+    "dismiss": "Fermer",
+    "save": "Enregistrer",
+    "saved": "Enregistré.",
+    "language": "Langue",
+    "backToMain": "← Retour à la page principale"
+  },
+  "auth": {
+    "signinTitle": "Connexion",
+    "signinSubtitle": "Tuteurs, coordinateurs et administrateurs se connectent pour continuer.",
+    "identifier": "Nom d'utilisateur ou e-mail",
+    "password": "Mot de passe",
+    "signIn": "Se connecter",
+    "signingIn": "Connexion en cours…",
+    "forgotPassword": "Mot de passe oublié ?",
+    "lookingForTutor": "Vous cherchez un tuteur ?",
+    "requestOne": "Faites une demande ici",
+    "forgot": {
+      "title": "Réinitialiser votre mot de passe",
+      "intro": "Saisissez votre nom d'utilisateur ou e-mail et nous vous enverrons un lien de réinitialisation.",
+      "backToSignIn": "← Retour à la connexion",
+      "sent": "Si un compte correspond à ce que vous avez saisi, nous avons envoyé les instructions de réinitialisation à son e-mail de contact. Vérifiez votre boîte de réception.",
+      "sentEmailNote": "L'envoi d'e-mails n'est pas encore configuré dans cet environnement — consultez les journaux du serveur pour obtenir le lien de réinitialisation en développement local.",
+      "fields": {
+        "identifier": "Nom d'utilisateur ou e-mail"
+      },
+      "submit": "Envoyer le lien de réinitialisation",
+      "sending": "Envoi en cours…"
+    },
+    "reset": {
+      "title": "Choisir un nouveau mot de passe",
+      "missingToken": "Ce lien de réinitialisation ne contient pas de jeton. Demandez-en un nouveau.",
+      "requestLink": "Demander un lien de réinitialisation",
+      "backToSignIn": "← Retour à la connexion",
+      "success": "Votre mot de passe a été réinitialisé. Vous pouvez vous connecter maintenant.",
+      "goToSignIn": "Aller à la connexion",
+      "yourUsername": "Votre nom d'utilisateur :",
+      "fields": {
+        "newPassword": "Nouveau mot de passe",
+        "confirmPassword": "Confirmer le nouveau mot de passe"
+      },
+      "submit": "Définir le nouveau mot de passe",
+      "saving": "Enregistrement…"
+    },
+    "onboarding": {
+      "welcome": "Bienvenue sur {appTitle}",
+      "title": "Configurer votre compte",
+      "intro": "Une étape rapide avant votre tableau de bord — confirmez votre e-mail et choisissez votre propre mot de passe (en remplacement d'un éventuel mot de passe temporaire).",
+      "fields": {
+        "email": "E-mail de contact",
+        "newPassword": "Nouveau mot de passe",
+        "confirmPassword": "Confirmer le nouveau mot de passe"
+      },
+      "help": {
+        "email": "Nous vous enverrons vos codes de vérification de connexion ici.",
+        "newPassword": "Au moins 8 caractères. Remplace le mot de passe temporaire."
+      },
+      "enable2fa": "Activer l'authentification à deux facteurs par e-mail (recommandé). Un code à usage unique vous sera envoyé par e-mail à la connexion une fois la livraison d'e-mails configurée.",
+      "submit": "Confirmer et continuer",
+      "saving": "Enregistrement…"
+    },
+    "register": {
+      "title": "Créer votre compte",
+      "subtitle": "Utilisez la clé de sécurité à 6 chiffres qu'un administrateur vous a remise.",
+      "backToSignIn": "← Retour à la connexion",
+      "step": {
+        "code": {
+          "label": "Clé de sécurité",
+          "help": "Saisissez le code à 6 chiffres qu'un administrateur ou coordinateur vous a donné.",
+          "submit": "Continuer"
+        },
+        "email": {
+          "label": "Adresse e-mail",
+          "placeholder": "you@school.edu",
+          "bound": "Ce code est lié à cette adresse e-mail.",
+          "send": "Envoyer le code de vérification",
+          "sent": "Nous avons envoyé un code à 6 chiffres à {email}.",
+          "codeLabel": "Code de vérification",
+          "verify": "Vérifier l'e-mail",
+          "resend": "Renvoyer le code"
+        },
+        "profile": {
+          "firstName": "Prénom",
+          "lastName": "Nom de famille",
+          "altNames": "Nom(s) alternatif(s)",
+          "grade": "Niveau",
+          "password": "Mot de passe",
+          "passwordHint": "Au moins 8 caractères.",
+          "confirm": "Confirmer le mot de passe",
+          "mismatch": "Les mots de passe ne correspondent pas.",
+          "submit": "Créer le compte"
+        }
+      },
+      "done": {
+        "title": "Tout est prêt !",
+        "body": "Votre compte est prêt. Connectez-vous avec votre e-mail ou votre nom d'utilisateur {username}.",
+        "signIn": "Aller à la connexion"
+      }
+    }
+  },
+  "landing": {
+    "nav": {
+      "requestTutor": "Demander un tuteur",
+      "becomeTutor": "Devenir tuteur",
+      "teamSignin": "Connexion"
+    },
+    "tagline": "Programme de tutorat par les pairs",
+    "heroTitle": "Apprendre ensemble. Progresser ensemble.",
+    "intro": "Introduction provisoire — un court paragraphe sur le programme {appTitle} va ici. Décrivez à qui il s'adresse, dans quelles matières les élèves peuvent obtenir de l'aide, et en quoi les tuteurs pairs font la différence. Remplacez ce texte par la présentation réelle du programme.",
+    "ctaPrimary": "Demander un tuteur",
+    "ctaSecondary": "Devenir tuteur",
+    "features": {
+      "students": {
+        "title": "Pour les élèves",
+        "body": "Provisoire — inscrivez-vous pour être mis en relation avec un tuteur pair dans les matières de votre choix, aux horaires qui vous conviennent."
+      },
+      "tutors": {
+        "title": "Pour les tuteurs",
+        "body": "Provisoire — partagez vos connaissances, développez vos compétences et cumulez des heures de service pour chaque séance animée."
+      },
+      "team": {
+        "title": "Pour l'équipe",
+        "body": "Provisoire — gérez les pairages, la présence, les entretiens et les heures de service depuis un seul endroit."
+      }
+    },
+    "footer": "Pied de page provisoire — © {appTitle}."
+  },
+  "dashboard": {
+    "greeting": "Bonjour, {name}",
+    "subtitle": "Soumettre la présence et gérer vos disponibilités.",
+    "hours": {
+      "title": "Heures de service"
+    },
+    "interviews": {
+      "title": "Entretiens à conduire"
+    },
+    "pairings": {
+      "title": "Mes pairages",
+      "help": "Choisissez le créneau horaire par défaut pour chaque pariage (vous saisissez quand même les heures réelles de séance lors de la soumission de présence)."
+    },
+    "availability": {
+      "title": "Mes disponibilités",
+      "help": "Indiquez les créneaux horaires où vous pouvez enseigner. Cela aide les coordinateurs à vous planifier."
+    },
+    "attendance": {
+      "title": "Soumettre la présence",
+      "help": "Enregistrez une séance pour l'un de vos pairages. Les heures de service sont calculées automatiquement."
+    },
+    "schedule": {
+      "title": "Planning des salles",
+      "help": "Vos pairages sont mis en évidence. Les cellules grisées correspondent aux salles indisponibles."
+    }
+  },
+  "admin": {
+    "pairings": {
+      "title": "Pairages",
+      "roomSchedule": "Planning des salles",
+      "editPairing": "Modifier le pariage",
+      "newPairing": "Nouveau pariage",
+      "slotHelp": "Choisissez un créneau publié — il définit le jour et l'heure de ce pariage.",
+      "tutor": "Tuteur",
+      "term": "Période",
+      "roomOptional": "Salle (optionnelle)",
+      "none": "— aucun —",
+      "timeSlot": "Créneau horaire",
+      "selectSlot": "— sélectionner un créneau —",
+      "subject": "Matière",
+      "subjectPlaceholder": "ex. Chimie avancée",
+      "tutees": "Élèves",
+      "saveChanges": "Enregistrer les modifications",
+      "createPairing": "Créer le pariage",
+      "cancel": "Annuler",
+      "colSubject": "Matière",
+      "colTutor": "Tuteur",
+      "colWhen": "Quand",
+      "colSlot": "Créneau",
+      "colRoom": "Salle",
+      "colTutees": "Élèves",
+      "edit": "Modifier",
+      "delete": "Supprimer"
+    },
+    "tutors": {
+      "title": "Tuteurs",
+      "help": "L'e-mail d'un tuteur le lie à son compte de connexion lors de la première connexion. Le nom d'utilisateur (par défaut : initiale du prénom + nom de famille) est un identifiant de connexion alternatif.",
+      "accountMovedNote": "La configuration du compte (liens d'invitation et statut de connexion) se trouve désormais sur la page Utilisateurs & rôles.",
+      "phFirstName": "Prénom",
+      "phLastName": "Nom de famille",
+      "phAltNames": "Nom(s) alt. ex. 中文名",
+      "phEmail": "E-mail (optionnel)",
+      "phGrade": "Niveau",
+      "addTutor": "Ajouter un tuteur",
+      "colFirstName": "Prénom",
+      "colLastName": "Nom de famille",
+      "colAltNames": "Nom(s) alt.",
+      "colUsername": "Nom d'utilisateur",
+      "colEmail": "E-mail",
+      "colGrade": "Niveau",
+      "colActive": "Actif",
+      "colStatus": "Statut",
+      "colAccount": "Compte",
+      "classOf": "Promotion {year}",
+      "account": {
+        "active": "Configuré",
+        "pending": "Configuration en attente",
+        "registered": "Inscrit",
+        "setup": "Configuration en attente",
+        "invited": "Code émis",
+        "none": "Pas de connexion",
+        "sendSetup": "Envoyer le lien de configuration",
+        "resend": "Renvoyer la configuration",
+        "needEmail": "Ajoutez d'abord un e-mail",
+        "linkEmailed": "E-mail de configuration envoyé. Vous pouvez aussi copier le lien ci-dessous pour le partager directement.",
+        "linkManual": "Compte prêt. Partagez ce lien de configuration avec le tuteur (l'e-mail n'est pas configuré) :",
+        "dismiss": "Fermer"
+      }
+    },
+    "tutorStatus": {
+      "ACTIVE": "Actif",
+      "GRADUATED": "Diplômé",
+      "OPTED_OUT": "Retrait",
+      "ARCHIVED": "Archivé"
+    },
+    "tutees": {
+      "title": "Liste des élèves",
+      "help": "Élèves actifs et inactifs, avec leur présence et leur statut disciplinaire. Les nouvelles inscriptions publiques sont traitées sous",
+      "signupRequests": "Demandes d'inscription",
+      "pendingBadge": "{count} en attente",
+      "addTutee": "Ajouter un élève",
+      "fullName": "Nom complet",
+      "phName": "ex. Emma Sun",
+      "grade": "Niveau",
+      "phGrade": "ex. 10",
+      "firstChoice": "Premier choix",
+      "secondChoice": "Deuxième choix",
+      "addTuteeBtn": "Ajouter l'élève",
+      "viewTutees": "Liste des élèves",
+      "viewTutors": "Tuteurs & pairages",
+      "colTutor": "Tuteur",
+      "colSubject": "Matière",
+      "colDayTime": "Jour / heure",
+      "colTimeSlot": "Créneau horaire",
+      "colPairedTutees": "Élèves pairés",
+      "noPairings": "aucun pariage",
+      "colName": "Nom",
+      "colGrade": "Niveau",
+      "colCourses": "Matières",
+      "colSessions": "Séances",
+      "colDiscipline": "Discipline",
+      "colContact": "Contact",
+      "colStatus": "Statut",
+      "removalBadge": "retrait",
+      "deleteBtn": "Supprimer",
+      "emptyTutees": "Aucun élève actif pour l'instant.",
+      "tbd": "À déterminer",
+      "status": {
+        "PENDING": "en attente",
+        "ACTIVE": "actif",
+        "INACTIVE": "inactif"
+      }
+    },
+    "requests": {
+      "title": "Demandes d'inscription (élèves)",
+      "help": "Inscriptions publiques d'élèves en attente d'attribution, traitées par ordre d'arrivée. Assignez chaque choix de matière à un tuteur — cela crée le pariage, et le tuteur choisit ensuite le créneau horaire.",
+      "noTerm": "Créez d'abord une période pour pouvoir attribuer les demandes.",
+      "decline": "Refuser",
+      "declineConfirm": "Refuser et supprimer la demande de {name} ?",
+      "firstChoice": "1er choix",
+      "secondChoice": "2e choix",
+      "notProvided": "— non fourni —",
+      "assignToTutor": "— assigner à un tuteur —",
+      "tutorWorkload": "{name} — {pairings} pairages · {tutees} élèves",
+      "assigning": "Attribution en cours…",
+      "assign": "Assigner",
+      "assignActivate": "Assigner & activer",
+      "assignedTo": "Assigné à {name}",
+      "fulfilled": "Traité",
+      "expand": "Développer",
+      "collapse": "Réduire",
+      "empty": "Aucune inscription en attente. 🎉",
+      "grade": "Niveau {grade}",
+      "submitted": "Soumis {when}",
+      "available": "Disponible : {list}",
+      "reach": "Contact : {contact}",
+      "signed": "Signé : ✓ {name}",
+      "notSigned": "Signé : — non signé"
+    },
+    "readOnly": {
+      "banner": "Accès en lecture seule — vous pouvez tout consulter mais ne pouvez pas faire de modifications, et les coordonnées sont masquées."
+    },
+    "nav": {
+      "sections": {
+        "overview": "Vue d'ensemble",
+        "tutors": "Tuteurs",
+        "tutees": "Élèves",
+        "schedulingRecords": "Planification & dossiers",
+        "administration": "Administration"
+      },
+      "links": {
+        "dashboard": "Tableau de bord",
+        "activity": "Activité & demandes",
+        "history": "Historique du programme",
+        "announcements": "Annonces",
+        "program": "Programme & actualisation",
+        "tutorRoster": "Liste des tuteurs",
+        "tutorApplications": "Candidatures tuteurs",
+        "tutorRequests": "Retrait / Réintégration",
+        "tutorMeetings": "Réunions tuteurs",
+        "serviceHours": "Heures de service",
+        "hourAdjustments": "Ajustements d'heures",
+        "tuteeRoster": "Liste des élèves",
+        "signupRequests": "Demandes d'inscription",
+        "tuteeDiscipline": "Discipline des élèves",
+        "pairings": "Pairages",
+        "attendance": "Soumissions de présence",
+        "timeSlots": "Créneaux horaires",
+        "coursesLevels": "Matières & niveaux",
+        "rooms": "Salles",
+        "policyDocuments": "Documents de politique",
+        "auditLog": "Journal d'audit",
+        "usersRoles": "Utilisateurs & rôles",
+        "registrationCodes": "Codes d'inscription"
+      }
+    },
+    "dashboard": {
+      "title": "Tableau de bord",
+      "stats": {
+        "pairings": "Pairages",
+        "activeTutors": "Tuteurs actifs",
+        "activeTutees": "Élèves actifs",
+        "pendingSignups": "Inscriptions en attente",
+        "serviceHours": "Heures de service · {month}"
+      },
+      "pendingBanner": "{count} {count, plural, one {inscription d'élève} other {inscriptions d'élèves}} en attente de traitement.",
+      "reviewNow": "Examiner maintenant →",
+      "recentSubmissions": {
+        "title": "Soumissions récentes",
+        "viewAll": "Voir tout →",
+        "columns": {
+          "date": "Date",
+          "tutor": "Tuteur",
+          "subject": "Matière",
+          "status": "Statut",
+          "sh": "HS"
+        },
+        "empty": "Aucune soumission pour l'instant."
+      }
+    },
+    "activity": {
+      "title": "Activité",
+      "subtitle": "État actuel de toutes les demandes du programme. Chaque élément renvoie à la page où vous pouvez agir.",
+      "manage": "Gérer →",
+      "counters": {
+        "pendingSignups": "Inscriptions en attente",
+        "openApplications": "Candidatures ouvertes",
+        "cardsToReview": "Cartes à examiner",
+        "tutorRequests": "Retrait / réintégration",
+        "recentSurveys": "Sondages récents"
+      },
+      "panels": {
+        "tuteeSignups": {
+          "title": "Demandes d'inscription des élèves",
+          "empty": "Aucune inscription en attente."
+        },
+        "tutorApplications": {
+          "title": "Candidatures tuteurs",
+          "empty": "Aucune candidature ouverte.",
+          "votes": "{count} {count, plural, one {vote} other {votes}}",
+          "panelists": "{count} {count, plural, one {membre du jury} other {membres du jury}}"
+        },
+        "tutorRequests": {
+          "title": "Demandes de retrait / réintégration",
+          "empty": "Aucune demande ouverte."
+        },
+        "cards": {
+          "title": "Cartes disciplinaires à examiner",
+          "empty": "Rien à examiner.",
+          "auto": "auto",
+          "tutor": "tuteur"
+        },
+        "surveys": {
+          "title": "Sondages de présence récents",
+          "empty": "Aucun sondage pour l'instant.",
+          "hours": "{hours} h"
+        }
+      }
+    },
+    "summary": {
+      "title": "Heures de service des tuteurs",
+      "subtitleMonthly": "Heures de service par tuteur.",
+      "scope": "Semestre en cours · {label}",
+      "viewHistory": "Voir l'historique →",
+      "monthLabel": "Mois :",
+      "clearMonth": "Effacer",
+      "inactive": "(inactif)",
+      "columns": {
+        "tutor": "Tuteur",
+        "sessions": "Séances",
+        "earned": "Acquises",
+        "extras": "Extras",
+        "penalties": "Pénalités",
+        "total": "Total"
+      }
+    },
+    "history": {
+      "title": "Historique du programme",
+      "subtitle": "Heures de service et présence pour tout trimestre, semestre ou année scolaire passé.",
+      "schoolYear": "Année scolaire",
+      "scope": "Période",
+      "wholeYear": "Année entière",
+      "s1": "S1",
+      "s2": "S2",
+      "inactive": "(inactif)",
+      "noData": "Aucune activité enregistrée pour cette période.",
+      "columns": {
+        "tutor": "Tuteur",
+        "sessions": "Séances",
+        "earned": "Acquises",
+        "extras": "Extras",
+        "penalties": "Pénalités",
+        "total": "Total"
+      },
+      "totals": {
+        "total": "Total des heures",
+        "earned": "Acquises",
+        "sessions": "Séances",
+        "present": "Présent",
+        "excused": "Excusé",
+        "unexcused": "Non excusé"
+      }
+    },
+    "program": {
+      "title": "Programme & actualisation",
+      "subtitle": "La période en cours et l'actualisation trimestrielle qui fait avancer le programme.",
+      "loading": "Chargement…",
+      "noPeriod": "Aucune période de programme active. Initialisez ou créez-en une d'abord.",
+      "currentPeriod": "Période en cours",
+      "semester": "Semestre {semester}",
+      "refreshHeading": "Actualiser vers le prochain trimestre",
+      "advancesTo": "Cela fait avancer le programme vers {name} et :",
+      "effectPending": "Vide la file d'attente des inscriptions d'élèves en attente (archivées comme inactives).",
+      "effectTutees": "Archive tous les élèves actuellement pairés — ils devront se réinscrire pour continuer.",
+      "effectPairings": "Vide le tableau des pairages actuels (les pairages et présences passés restent dans l'historique).",
+      "effectAvailability": "Vous invite à confirmer quels tuteurs actifs sont encore disponibles.",
+      "effectGraduate": "Diplôme les tuteurs de G12 (ils partent au début du 4e trimestre).",
+      "effectAgeUp": "Fait avancer chaque tuteur restant d'un niveau.",
+      "effectHoursReset": "Démarre un nouveau total d'heures de service / présence pour le semestre {semester}.",
+      "effectHoursKeep": "Continue l'accumulation des heures de service (même semestre).",
+      "confirmLabel": "Tapez ACTUALISER pour confirmer cette action à l'échelle du programme.",
+      "confirmPlaceholder": "ACTUALISER",
+      "reviewButton": "Examiner les disponibilités des tuteurs & actualiser →",
+      "refreshButton": "Actualiser vers {name}",
+      "refreshing": "Actualisation en cours…",
+      "done": "Actualisé vers {name}. {count} élève(s) archivé(s).",
+      "doneGrad": "{graduated} diplômé(s) ; {aged} tuteur(s) avancé(s) d'un niveau.",
+      "modalTitle": "Disponibilités des tuteurs pour {name}",
+      "modalIntro": "Confirmez quels tuteurs actifs continuent. Ceux non cochés seront archivés.",
+      "modalGradNote": "Nouvelle année scolaire : les tuteurs de G12 sont diplômés et tous avancent d'un niveau.",
+      "available": "Disponible",
+      "graduating": "Diplômé",
+      "noActiveTutors": "Aucun tuteur actif à examiner.",
+      "cancel": "Annuler"
+    },
+    "audit": {
+      "title": "Journal d'audit",
+      "subtitle": "Actions administratives récentes. Les actions réversibles peuvent être annulées ici ; les autres ont une opération inverse manuelle sur leur propre page.",
+      "columns": {
+        "when": "Quand",
+        "who": "Qui",
+        "action": "Action"
+      },
+      "undone": "annulé",
+      "undo": "Annuler",
+      "empty": "Aucune action enregistrée pour l'instant."
+    },
+    "users": {
+      "title": "Utilisateurs & rôles",
+      "subtitle": "Gérez les connexions, les rôles et la configuration des comptes tuteurs. Les changements de rôle prennent effet à la prochaine connexion de l'utilisateur.",
+      "coordinatorHint": "En tant que coordinateur, vous pouvez envoyer des liens de configuration et modifier votre propre accès au tutorat. Demandez à un administrateur de changer les rôles.",
+      "columns": {
+        "user": "Utilisateur",
+        "name": "Nom",
+        "email": "E-mail",
+        "linkedTutor": "Tuteur lié",
+        "account": "Compte",
+        "role": "Rôle",
+        "canTutor": "Peut tutorer",
+        "canTranslate": "Traducteur"
+      },
+      "roles": {
+        "VIEWER": "Observateur (lecture seule)",
+        "TUTOR": "Tuteur",
+        "COORDINATOR": "Coordinateur",
+        "ADMIN": "Administrateur",
+        "HEAD": "Responsable"
+      },
+      "filters": {
+        "role": "Rôle",
+        "status": "Statut tuteur",
+        "account": "Compte",
+        "all": "Tous"
+      },
+      "makeHead": "Nommer responsable",
+      "confirmTransfer": "Transférer la direction à {name} ? Vous deviendrez administrateur.",
+      "canTutorLabel": "Peut tutorer",
+      "canTranslateLabel": "Peut traduire",
+      "translateDefault": "Défaut",
+      "translateDefaultHint": "Les administrateurs et coordinateurs peuvent toujours modifier les traductions.",
+      "tutorActive": "actif",
+      "tutorInactive": "inactif",
+      "empty": "Aucun utilisateur ni tuteur pour l'instant."
+    },
+    "registrationCodes": {
+      "title": "Codes d'inscription",
+      "help": "Émettez une clé de sécurité à 6 chiffres à usage unique pour qu'un nouveau tuteur s'inscrive lui-même. Le code s'affiche une seule fois — copiez-le et remettez-le ; il n'est jamais stocké.",
+      "labelField": "Pour (étiquette)",
+      "labelPlaceholder": "ex. Jane Doe (G11)",
+      "emailField": "Lier à un e-mail (optionnel)",
+      "emailPlaceholder": "tutor@school.edu",
+      "issue": "Émettre le code",
+      "issuedTitle": "Code d'inscription pour {who}",
+      "issuedHint": "Copiez-le maintenant — il ne sera plus affiché.",
+      "colFor": "Pour",
+      "colEmail": "E-mail",
+      "colIssuedBy": "Émis par",
+      "colExpires": "Expire",
+      "colStatus": "Statut",
+      "status": {
+        "active": "Actif",
+        "used": "Utilisé",
+        "expired": "Expiré"
+      },
+      "revoke": "Révoquer",
+      "empty": "Aucun code d'inscription pour l'instant."
+    },
+    "tutorRequests": {
+      "title": "Demandes de retrait / réintégration",
+      "help": "Demandes de changement d'adhésion initiées par les tuteurs. Les demandes de retrait ne peuvent être approuvées qu'après une semaine de délai de réflexion ; la réintégration est immédiate.",
+      "kind": {
+        "OPT_OUT": "Retrait",
+        "REENTRY": "Réintégration"
+      },
+      "cooldownDone": "Délai écoulé — prêt à approuver",
+      "cooldownUntil": "Approuvable après le {date}",
+      "affected": "{count} {count, plural, one {élève concerné} other {élèves concernés}}",
+      "notYet": "Le délai d'une semaine n'est pas encore écoulé.",
+      "approve": "Approuver",
+      "deny": "Refuser",
+      "empty": "Aucune demande ouverte.",
+      "requeuePrompt": "Remettre en file les {count} {count, plural, one {élève} other {élèves}} de {name} sur la page d'inscription pour réassignation ?",
+      "requeueConfirm": "Remettre les élèves en file",
+      "requeueDismiss": "Pas maintenant"
+    },
+    "submissions": {
+      "title": "Soumissions de présence",
+      "allTutors": "Tous les tuteurs",
+      "colDate": "Date",
+      "colTutor": "Tuteur",
+      "colSubject": "Matière",
+      "colStatus": "Statut",
+      "colTutees": "Élèves",
+      "colSH": "HS",
+      "empty": "Aucune soumission pour ce filtre."
+    },
+    "meetings": {
+      "title": "Réunions tuteurs",
+      "titlePlaceholder": "Titre de la réunion",
+      "create": "Créer",
+      "delete": "Supprimer",
+      "saving": "Enregistrement…",
+      "saveAttendance": "Enregistrer la présence",
+      "saved": "Enregistré.",
+      "timeLabel": "Heure",
+      "exempt": "Exempté (X)",
+      "status": {
+        "present": "Présent",
+        "excusedAbsent": "Absent excusé",
+        "unexcusedAbsent": "Absent non excusé"
+      },
+      "summary": {
+        "show": "Afficher le résumé",
+        "hide": "Masquer le résumé",
+        "tutor": "Tuteur",
+        "noMeetings": "Aucune réunion pour l'instant."
+      }
+    },
+    "timeslots": {
+      "title": "Créneaux horaires",
+      "description": "Un catalogue partagé des horaires de séance. Tuteurs et élèves indiquent leurs disponibilités sur ces créneaux ; les pairages peuvent en référencer un. Les créneaux sont uniquement indicatifs — les horaires réels sont toujours saisis dans chaque soumission de présence.",
+      "label": "Étiquette",
+      "labelPlaceholder": "ex. Lun bloc A",
+      "day": "Jour",
+      "start": "Début",
+      "end": "Fin",
+      "addSlot": "Ajouter un créneau",
+      "colLabel": "Étiquette",
+      "colDay": "Jour",
+      "colTime": "Heure",
+      "colActive": "Actif",
+      "delete": "Supprimer",
+      "empty": "Aucun créneau horaire pour l'instant."
+    },
+    "rooms": {
+      "title": "Salles",
+      "description": "Ajoutez des salles et indiquez les périodes récurrentes où elles ne peuvent pas être utilisées. Les périodes bloquées apparaissent sur la grille des salles des pairages.",
+      "deleteRoom": "Supprimer la salle",
+      "colName": "Nom",
+      "colBlackouts": "Périodes bloquées",
+      "blackoutCount": "{count} période(s) bloquée(s)",
+      "expand": "Développer",
+      "collapse": "Réduire",
+      "unavailablePeriods": "Périodes indisponibles",
+      "alwaysAvailable": "Toujours disponible.",
+      "removePeriod": "Supprimer la période",
+      "reasonPlaceholder": "Raison (optionnelle)",
+      "block": "Bloquer",
+      "namePlaceholder": "Nom de la nouvelle salle",
+      "addRoom": "Ajouter une salle",
+      "empty": "Aucune salle pour l'instant."
+    },
+    "courses": {
+      "title": "Matières & niveaux",
+      "subtitle": "Matières que les élèves peuvent demander. Les niveaux sont un catalogue géré par l'administrateur ; un niveau marqué «noté AP» permet à ses matières de porter un score d'examen AP sur les candidatures de tuteurs.",
+      "noLevel": "— aucun niveau —",
+      "levels": {
+        "title": "Niveaux",
+        "description": "Catégories de difficulté auxquelles une matière peut appartenir. Marquez un niveau comme noté AP pour permettre à ses matières de porter un score d'examen AP sur les candidatures de tuteurs.",
+        "apScored": "Noté AP",
+        "confirmDelete": "Supprimer le niveau \"{name}\" ? Ses matières continueront d'exister mais perdront ce niveau.",
+        "remove": "Supprimer",
+        "addPlaceholder": "Ajouter un niveau (ex. Honors)",
+        "add": "Ajouter un niveau"
+      },
+      "add": {
+        "namePlaceholder": "Nom de la nouvelle matière",
+        "submit": "Ajouter la matière"
+      },
+      "import": {
+        "importing": "Importation…",
+        "upload": "Importer CSV",
+        "result": "{created} importée(s) sur {received} (doublons ignorés).",
+        "empty": "Aucune ligne de matière trouvée dans ce fichier.",
+        "formatPrefix": "Format CSV : une matière par ligne sous la forme",
+        "formatSuffix": "(niveau associé par nom ; une ligne d'en-tête est optionnelle)."
+      },
+      "batch": {
+        "selected": "{count} sélectionnée(s)",
+        "setLevel": "Définir le niveau",
+        "activate": "Activer",
+        "deactivate": "Désactiver",
+        "clear": "Effacer"
+      },
+      "table": {
+        "name": "Nom",
+        "level": "Niveau",
+        "active": "Actif",
+        "noLevelShort": "—",
+        "delete": "Supprimer",
+        "empty": "Aucune matière pour l'instant."
+      }
+    },
+    "announcements": {
+      "title": "Annonces",
+      "subtitle": "Diffusez des messages aux tuteurs. Chaque annonce apparaît sur leur tableau de bord à chaque connexion jusqu'à ce qu'ils la ferment ; les annonces épinglées restent visibles.",
+      "empty": "Aucune annonce pour l'instant.",
+      "badge": {
+        "pinned": "épinglée",
+        "active": "active",
+        "inactive": "inactive"
+      },
+      "card": {
+        "save": "Enregistrer",
+        "pin": "Épingler",
+        "unpin": "Désépingler",
+        "deactivate": "Désactiver",
+        "reactivate": "Réactiver",
+        "dismissed": "{count} fermée(s)",
+        "confirmDelete": "Supprimer cette annonce ?",
+        "delete": "Supprimer"
+      },
+      "new": {
+        "title": "Nouvelle annonce",
+        "titlePlaceholder": "Titre",
+        "messagePlaceholder": "Message…",
+        "pinLabel": "Épingler (reste visible après fermeture)",
+        "posting": "Publication…",
+        "broadcast": "Diffuser"
+      }
+    },
+    "policies": {
+      "title": "Documents de politique",
+      "subtitle": "Modifiez les manuels tuteurs et élèves. Rédigés en Markdown ; la version enregistrée fait foi.",
+      "loading": "Chargement…",
+      "empty": "Aucun document de politique pour l'instant. Exécutez le script de seed pour les créer.",
+      "languageLabel": "Langue",
+      "history": "Historique des versions",
+      "historyEmpty": "Aucune version antérieure pour l'instant.",
+      "archivedOn": "Archivé le {date}",
+      "viewArchived": "Voir",
+      "defaultBadge": "défaut",
+      "addLanguage": "Ajouter une langue…",
+      "removeLanguage": "Supprimer cette langue",
+      "discardLanguage": "Abandonner",
+      "confirmRemoveLanguage": "Supprimer la version {lang} de cette politique ? Elle sera archivée dans l'historique des versions.",
+      "editor": {
+        "versionPlaceholder": "version",
+        "titlePlaceholder": "Titre du document",
+        "bodyPlaceholder": "Rédigez la politique en Markdown…",
+        "notTranslated": "pas encore traduit",
+        "notTranslatedShort": "non traduit",
+        "slugLabel": "Identifiant",
+        "lastEdited": "· Markdown · dernière modification le {date}",
+        "editedBy": "par {who}",
+        "saving": "Enregistrement…",
+        "save": "Enregistrer",
+        "saved": "Enregistré."
+      }
+    },
+    "adjustments": {
+      "title": "Ajustements d'heures des tuteurs",
+      "subtitle": "Ajoutez des heures supplémentaires ou appliquez une pénalité (déduction) à un tuteur pour un mois donné. (Les cartes jaunes/rouges des élèves se trouvent sous Discipline des élèves.)",
+      "form": {
+        "tutorPlaceholder": "Tuteur…",
+        "typeExtra": "Extra (+)",
+        "typePunishment": "Pénalité (−)",
+        "reasonPlaceholder": "Raison (optionnelle)",
+        "add": "Ajouter"
+      },
+      "typeLabel": {
+        "EXTRA": "Extra",
+        "PUNISHMENT": "Pénalité"
+      },
+      "table": {
+        "tutor": "Tuteur",
+        "month": "Mois",
+        "type": "Type",
+        "amount": "Montant",
+        "reason": "Raison",
+        "delete": "Supprimer"
+      }
+    },
+    "applications": {
+      "title": "Candidatures tuteurs",
+      "intro": "Examinez les candidats et constituez un jury d'entretien de {n} tuteurs (désignez un responsable). Cliquez sur une ligne pour développer. Le responsable planifie l'entretien et enregistre la décision depuis son propre tableau de bord.",
+      "empty": "Aucune candidature pour l'instant.",
+      "status": {
+        "PENDING": "en attente",
+        "INTERVIEW": "entretien",
+        "ACCEPTED": "accepté",
+        "REJECTED": "refusé"
+      },
+      "noCourses": "aucune matière",
+      "panelSummary": "jury {n}/{total}",
+      "votesSummary": "votes {accepts}/{total}",
+      "accept": "Accepter",
+      "reject": "Refuser",
+      "delete": "Supprimer",
+      "confirmDelete": "Supprimer la candidature de {name} ?",
+      "reach": "Contact : {contact}",
+      "na": "n/a",
+      "qual": {
+        "took": "a suivi le cours ({grade})",
+        "ap": "AP {score}",
+        "selfStudied": "autoformation : {note}"
+      },
+      "noQualification": "aucune qualification indiquée",
+      "panelHeading": "Jury d'entretien (choisir {n}, désigner un responsable)",
+      "scheduled": "Planifié : {when} (défini par le responsable)",
+      "panelistSlot": "— membre du jury {n} —",
+      "head": "responsable",
+      "saving": "Enregistrement…",
+      "savePanel": "Enregistrer le jury",
+      "saved": "Enregistré.",
+      "pickHint": "Choisissez {n} tuteurs et un responsable.",
+      "votesDecisionHeading": "Votes & décision",
+      "voteTally": "{accepts} pour · {rejects} contre",
+      "noVotes": "Aucun vote pour l'instant.",
+      "decision": "Décision : \"{comment}\"",
+      "decidedByHead": "{name} (responsable)",
+      "setupAccount": "Configurer le compte →"
+    },
+    "cards": {
+      "title": "Discipline des élèves",
+      "intro": "Cartes jaunes/rouges émises aux élèves. Vérifiez les cartes demandées par les tuteurs et marquez chacune comme valide ou invalide. Le bilan ne compte que les cartes valides (3 jaunes = 1 rouge ; 2 rouges = retrait en attente).",
+      "autoIssued": "émise automatiquement",
+      "issuedBy": "par {name}",
+      "tutor": "tuteur",
+      "auto": "auto",
+      "reviewNotePlaceholder": "Note de révision (optionnelle)",
+      "valid": "Valide",
+      "invalid": "Invalide",
+      "pendingReview": "En attente de révision",
+      "nothingPending": "Rien en attente de révision.",
+      "standingHeading": "Bilan des élèves",
+      "standingHelp": "🟥 occupe 3 cases, 🟨 occupe 1 (cartes valides uniquement). 6 cases pleines = retrait en attente. Cliquez sur un nom pour voir les détails des cartes.",
+      "standing": {
+        "removalPending": "retrait en attente",
+        "onWarning": "en avertissement",
+        "ok": "ok"
+      },
+      "pendingCount": "{n} en attente de révision",
+      "reviewStatus": {
+        "PENDING": "en attente",
+        "VALID": "valide",
+        "INVALID": "invalide"
+      },
+      "noCardsOnRecord": "Aucune carte enregistrée.",
+      "historyHeading": "Historique des cartes",
+      "table": {
+        "date": "Date",
+        "tutee": "Élève",
+        "card": "Carte",
+        "reason": "Raison",
+        "source": "Source",
+        "status": "Statut"
+      },
+      "tableEmpty": "Aucune carte pour l'instant."
+    }
+  },
+  "tutor": {
+    "nav": {
+      "handbook": "Manuel"
+    },
+    "handbook": {
+      "empty": "Le manuel n'a pas encore été publié."
+    },
+    "status": {
+      "ACTIVE": "Actif",
+      "GRADUATED": "Diplômé",
+      "OPTED_OUT": "Retrait",
+      "ARCHIVED": "Archivé"
+    },
+    "attendance": {
+      "loading": "Chargement de vos pairages…",
+      "noPairings": "Vous n'avez pas encore de pairages. Demandez à un administrateur d'en créer un.",
+      "pairing": "Pariage",
+      "selectPairing": "Sélectionner un pariage…",
+      "mergeTitle": "Fusionner d'autres séances dans ce bloc",
+      "mergeHelp": "Vous animez plusieurs matières ensemble ? Cochez les autres pairages couverts dans ce même bloc horaire. Chacun est enregistré séparément, mais les heures de service du bloc ne sont comptées qu'une fois.",
+      "mergedNote": "Les séances fusionnées partagent l'heure et les évaluations de ce bloc. Les heures sont créditées une seule fois, sur la séance principale.",
+      "mergedCount": "{count} autre(s) séance(s) fusionnée(s) dans ce bloc (défini sous Mes pairages).",
+      "date": "Date",
+      "today": "Aujourd'hui",
+      "tutorStatus": "Statut tuteur",
+      "tutorStatusOpt": {
+        "PRESENT": "Présent",
+        "RESCHEDULED": "Reprogrammé",
+        "EXTRA": "Séance supplémentaire",
+        "TUTOR_ABSENT": "Tuteur absent"
+      },
+      "tutorAbsentReason": "Raison de l'absence du tuteur *",
+      "start": "Début",
+      "end": "Fin",
+      "now": "Maintenant",
+      "tuteeAttendance": "Présence des élèves",
+      "tuteeStatusOpt": {
+        "PRESENT": "Présent",
+        "EXCUSED_ABSENT": "Absent excusé",
+        "UNEXCUSED_ABSENT": "Absent non excusé"
+      },
+      "reasonRequired": "Raison (requise)",
+      "ratings": "Évaluations *",
+      "rating": {
+        "ratingPreparedness": "Préparation",
+        "ratingParticipation": "Participation",
+        "ratingUnderstanding": "Compréhension",
+        "ratingBehavior": "Comportement",
+        "ratingProgress": "Progrès"
+      },
+      "likert": {
+        "1": "Faible",
+        "2": "Passable",
+        "3": "Bien",
+        "4": "Très bien",
+        "5": "Excellent"
+      },
+      "comments": "Commentaires *",
+      "cardsTitle": "Cartes disciplinaires (optionnel)",
+      "cardsHelp": "Attribuez une carte jaune ou rouge avec une brève raison. L'équipe vérifie chacune avant qu'elle soit comptabilisée. (Une absence non excusée ci-dessus émet automatiquement une carte rouge.)",
+      "noCard": "Pas de carte",
+      "yellow": "Jaune",
+      "red": "Rouge",
+      "submit": "Soumettre la présence",
+      "submitting": "Soumission en cours…",
+      "saved": "Enregistré.",
+      "submitAnother": "Soumettre une autre",
+      "errors": {
+        "absenceReason": "Indiquez une raison pour l'absence du tuteur.",
+        "excusedReason": "Indiquez une raison pour chaque absence excusée.",
+        "ratingsRequired": "Les évaluations sont requises pour une séance tenue.",
+        "cardReason": "Ajoutez une raison pour chaque carte attribuée."
+      }
+    },
+    "pairings": {
+      "loading": "Chargement…",
+      "empty": "Aucun pariage pour l'instant. Un coordinateur vous assignera des élèves.",
+      "tutees": "Élèves : {names}",
+      "noTuteesYet": "aucun pour l'instant",
+      "room": " · Salle {room}",
+      "noRoom": " · Aucune salle assignée",
+      "defaultSlotLabel": "Créneau par défaut :",
+      "notSet": "— non défini —",
+      "mergeTitle": "Fusionner des séances",
+      "mergeHelp": "Vous les animez ensemble dans un seul bloc ? Cochez les séances couvertes en même temps que celle sélectionnée dans le formulaire de présence. Chacune est enregistrée séparément, mais les heures de service du bloc ne sont comptées qu'une fois.",
+      "mergeSelectPrimary": "Sélectionnez une séance dans le formulaire de présence pour en fusionner d'autres.",
+      "mergeNone": "Aucune autre séance ne partage un élève ou une matière avec celle sélectionnée."
+    },
+    "availability": {
+      "loading": "Chargement des créneaux…",
+      "empty": "Aucun créneau horaire n'a encore été publié.",
+      "save": "Enregistrer les disponibilités",
+      "saving": "Enregistrement…",
+      "saved": "Enregistré."
+    },
+    "interviews": {
+      "help": "Les candidats pour lesquels vous faites partie du jury. Exprimez votre vote après la démonstration ; le responsable enregistre la décision finale.",
+      "setTime": "Définir l'heure",
+      "saving": "Enregistrement…",
+      "saved": "Enregistré.",
+      "voteCommentPlaceholder": "Commentaire optionnel sur votre vote",
+      "accept": "Accepter",
+      "reject": "Refuser",
+      "yourVote": "Votre vote : {vote}",
+      "voteAccept": "accepter",
+      "voteReject": "refuser",
+      "headDecision": "Décision du responsable",
+      "majorityAccept": "accepter",
+      "majorityReject": "refuser",
+      "majorityAcceptHeadTie": "accepter (le responsable tranche à égalité)",
+      "majorityRejectHeadTie": "refuser (le responsable tranche à égalité)",
+      "majorityTie": "égalité — exprimez votre vote pour trancher",
+      "tally": "Décompte : {accepts} pour · {rejects} contre (majorité : {majority}). Enregistrez la décision finale avec un bref commentaire.",
+      "decisionCommentPlaceholder": "Bref commentaire sur votre décision (requis)",
+      "approve": "Approuver",
+      "statusAccepted": "accepté",
+      "statusRejected": "refusé",
+      "youAreHead": "vous êtes responsable",
+      "taken": "suivi",
+      "notTaken": "non suivi",
+      "panel": "Jury : {members}",
+      "headSuffix": "(responsable)",
+      "scheduled": "Planifié : {time}",
+      "awaitingSchedule": "En attente que le responsable planifie une heure."
+    },
+    "announcements": {
+      "label": "Annonces",
+      "pinned": "épinglée"
+    },
+    "settings": {
+      "title": "Paramètres du compte",
+      "subtitle": "Mettez à jour vos informations personnelles et votre mot de passe.",
+      "profileHeading": "Profil",
+      "name": "Nom",
+      "username": "Nom d'utilisateur",
+      "grade": "Niveau",
+      "gradeHelp": "Indiquez votre niveau actuel (ex. si vous avez redoublé). Votre année de promotion en découle.",
+      "altNames": "Nom(s) alternatif(s)",
+      "altNamesHelp": "Affiché à côté de votre nom (ex. votre nom dans un autre alphabet).",
+      "email": "E-mail de contact",
+      "emailHelp": "Adresse où sont envoyés les e-mails de connexion et de réinitialisation de mot de passe.",
+      "save": "Enregistrer les modifications",
+      "saving": "Enregistrement…",
+      "saved": "Enregistré.",
+      "passwordHeading": "Mot de passe",
+      "currentPassword": "Mot de passe actuel",
+      "newPassword": "Nouveau mot de passe",
+      "confirmPassword": "Confirmer le nouveau mot de passe",
+      "pwHelp": "Au moins 8 caractères.",
+      "changePasswordBtn": "Changer le mot de passe",
+      "changing": "Modification en cours…",
+      "passwordChanged": "Mot de passe modifié.",
+      "pwTooShort": "Le nouveau mot de passe doit comporter au moins 8 caractères.",
+      "pwMismatch": "Les nouveaux mots de passe ne correspondent pas.",
+      "membershipHeading": "Adhésion",
+      "optOutHelp": "Vous quittez le programme ? Soumettez une demande de retrait. Un administrateur peut la traiter après un délai d'une semaine, pendant lequel vous pouvez la révoquer.",
+      "optOutReasonPlaceholder": "Raison (optionnelle)",
+      "optOutBtn": "Demander un retrait",
+      "optOutPending": "Retrait demandé. Un administrateur peut l'approuver après le {date}. Vous pouvez le révoquer d'ici là.",
+      "optOutPendingNoDate": "Retrait demandé et en attente de révision.",
+      "reentryPending": "Réintégration demandée et en attente d'approbation par un administrateur.",
+      "reentryHelp": "Vous souhaitez rejoindre à nouveau le programme ? Demandez une réintégration et un administrateur l'examinera.",
+      "reentryBtn": "Demander une réintégration",
+      "recall": "Révoquer la demande",
+      "statusNote": "Votre statut de tuteur est {status}. Accès en lecture seule — contactez un administrateur pour toute modification."
+    },
+    "dashboard": {
+      "pending": {
+        "title": "Votre compte tuteur est en attente d'approbation",
+        "body": "Un coordinateur activera votre compte prochainement. En attendant, vous pouvez définir les créneaux horaires où vous êtes disponible ci-dessous."
+      },
+      "inactive": {
+        "title": "Accès en lecture seule",
+        "body": "Votre compte tuteur est {status}. Vous pouvez consulter votre historique mais ne pouvez pas soumettre de présence ni prendre de nouveaux élèves.",
+        "reentryHint": "Vous souhaitez revenir ? Demandez une réintégration depuis les paramètres de votre compte."
+      },
+      "availability": {
+        "title": "Mes disponibilités",
+        "help": "Indiquez les créneaux horaires où vous pouvez enseigner."
+      },
+      "hours": {
+        "earned": "{earned} acquises",
+        "extra": "+ {extra} supplémentaires",
+        "penalty": "− {penalty} pénalité"
+      }
+    }
+  },
+  "public": {
+    "signup": {
+      "title": "Demander un tuteur par les pairs",
+      "intro": "Dites-nous dans quoi vous souhaitez être aidé et quand vous êtes disponible. Un coordinateur examinera votre demande et vous mettra en relation avec un tuteur.",
+      "term": "Période en cours : {term}",
+      "becomeTutorPrompt": "Vous voulez plutôt être tuteur ?",
+      "becomeTutorLink": "Postuler pour devenir tuteur",
+      "successTitle": "Demande reçue 🎉",
+      "successBody": "Merci, {name}. Un coordinateur examinera votre demande et vous contactera pour votre tuteur et votre emploi du temps.",
+      "fields": {
+        "fullName": "Nom complet *",
+        "gradeLevel": "Niveau scolaire",
+        "email": "E-mail",
+        "phone": "Téléphone",
+        "preferredContact": "Comment vous contacter ? *",
+        "firstChoice": "Matière — premier choix *",
+        "secondChoice": "Matière — deuxième choix (optionnel)",
+        "availability": "Vos créneaux disponibles *",
+        "signature": "Signature électronique * (tapez votre nom complet)"
+      },
+      "placeholders": {
+        "gradeLevel": "ex. 10",
+        "preferredContact": "ex. envoyez-moi un SMS au 555-123-4567, ou par e-mail (de préférence après 16h)",
+        "selectCourse": "Sélectionner une matière…",
+        "signature": "Votre nom complet"
+      },
+      "options": {
+        "none": "— aucun —"
+      },
+      "help": {
+        "preferredContact": "Indiquez-nous le meilleur moyen et moment pour vous contacter au sujet de votre tutorat."
+      },
+      "noSlots": "Aucun créneau n'est encore publié. Revenez plus tard.",
+      "agree": "J'ai lu et j'accepte de respecter la <policy>politique {appTitle}</policy>.",
+      "submit": "Soumettre la demande",
+      "submitting": "Soumission en cours…"
+    },
+    "tutorSignup": {
+      "title": "Postuler pour devenir tuteur par les pairs",
+      "intro": "Indiquez-nous les matières que vous souhaitez enseigner. L'équipe de coordinateurs examine chaque candidature et organise un entretien avant votre intégration.",
+      "alreadyTutor": "Déjà tuteur ?",
+      "signIn": "Se connecter",
+      "successTitle": "Candidature reçue 🎉",
+      "successBody": "Merci, {name}. L'équipe de coordinateurs examinera votre candidature et organisera un entretien. Nous vous contacterons à {email}.",
+      "fields": {
+        "fullName": "Nom complet *",
+        "email": "E-mail de contact *",
+        "preferredContact": "Comment vous contacter ? *",
+        "courses": "Matières que vous souhaitez enseigner (jusqu'à 3) *",
+        "course": "Matière",
+        "grade": "Note obtenue",
+        "apScore": "Score AP",
+        "selfStudyNote": "Comment êtes-vous qualifié / qu'avez-vous accompli ?"
+      },
+      "placeholders": {
+        "preferredContact": "ex. envoyez-moi un SMS au 555-123-4567, ou par e-mail (de préférence après 16h)",
+        "selectCourse": "Sélectionner…",
+        "grade": "ex. A",
+        "apScore": "1–5",
+        "selfStudyNote": "ex. cours en ligne suivi, résultats en compétition, portfolio…"
+      },
+      "help": {
+        "preferredContact": "Le meilleur moyen et moment pour vous contacter au sujet de votre candidature et de votre entretien."
+      },
+      "coursesHelp": "Pour chacune, indiquez comment vous êtes qualifié : si vous avez suivi le cours, si vous avez un score AP (matières AP uniquement) et/ou si vous l'avez étudié par vous-même.",
+      "qual": {
+        "taken": "J'ai suivi ce cours",
+        "hasApScore": "J'ai un score AP",
+        "selfStudied": "J'ai étudié cette matière par moi-même"
+      },
+      "remove": "Supprimer",
+      "addCourse": "+ Ajouter une autre matière",
+      "agree": "J'ai lu et j'accepte de respecter la <policy>politique {appTitle}</policy>.",
+      "submit": "Soumettre la candidature",
+      "submitting": "Soumission en cours…"
+    },
+    "policy": {
+      "mustRead": "Ouvrez et lisez la politique jusqu'à la fin avant d'accepter.",
+      "scrollPrompt": "Faites défiler jusqu'à la fin pour continuer.",
+      "readPrompt": "Vous avez atteint la fin.",
+      "done": "Terminé — j'ai lu ceci",
+      "close": "Fermer"
+    }
+  },
+  "components": {
+    "notifications": {
+      "title": "Notifications",
+      "markAllRead": "Tout marquer comme lu",
+      "empty": "Rien pour l'instant."
+    },
+    "signOut": {
+      "label": "Se déconnecter"
+    },
+    "userMenu": {
+      "settings": "Paramètres",
+      "enterTutor": "Accéder à l'espace tuteur",
+      "enterAdmin": "Accéder à l'espace administrateur"
+    },
+    "theme": {
+      "label": "Thème",
+      "names": {
+        "indigo": "Indigo",
+        "violet": "Violet",
+        "emerald": "Émeraude",
+        "rose": "Rose",
+        "amber": "Ambre",
+        "sky": "Ciel"
+      }
+    }
+  },
+  "localization": {
+    "title": "Traductions",
+    "navLabel": "Traductions",
+    "subtitle": "Modifiez le texte de l'interface pour chaque langue. Les modifications prennent effet immédiatement ; vider un champ restaure le texte intégré.",
+    "targetLanguage": "Langue à modifier",
+    "searchLabel": "Rechercher",
+    "search": "Rechercher par clé ou texte…",
+    "english": "Anglais",
+    "reference": "Référence :",
+    "overridden": "modifié",
+    "reset": "Réinitialiser",
+    "saved": "Enregistré",
+    "loading": "Chargement…",
+    "empty": "Aucune chaîne ne correspond à votre recherche.",
+    "count": "Affichage de {shown} sur {total} chaînes.",
+    "tooMany": "Affichage des {max} premières. Utilisez la recherche pour affiner.",
+    "keysLabel": "clés",
+    "expandAll": "Tout développer",
+    "collapseAll": "Tout réduire",
+    "languagesHeading": "Langues",
+    "builtIn": "intégré",
+    "moveUp": "Monter",
+    "moveDown": "Descendre",
+    "removeLanguage": "Supprimer",
+    "confirmRemoveLanguage": "Supprimer {label} ? Ses traductions seront effacées.",
+    "addLanguageCode": "Code (ex. fr)",
+    "addLanguageName": "Nom (ex. Français)",
+    "addLanguageBtn": "Ajouter une langue",
+    "back": "Retour"
+  }
+}

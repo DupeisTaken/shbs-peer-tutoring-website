@@ -15,6 +15,11 @@ const LOADERS: Record<Locale, () => Promise<{ default: Record<string, unknown> }
   en: () => import("../../messages/en.json"),
   zh: () => import("../../messages/zh.json"),
   es: () => import("../../messages/es.json"),
+  ja: () => import("../../messages/ja.json"),
+  ko: () => import("../../messages/ko.json"),
+  el: () => import("../../messages/el.json"),
+  de: () => import("../../messages/de.json"),
+  fr: () => import("../../messages/fr.json"),
 };
 
 const COOKIE = "NEXT_LOCALE";

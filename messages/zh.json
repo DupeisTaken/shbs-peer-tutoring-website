@@ -22,7 +22,9 @@
       "backToSignIn": "← 返回登录",
       "sent": "如果有账号与你输入的信息匹配，我们已将密码重置说明发送至其联系邮箱。请查看你的收件箱。",
       "sentEmailNote": "本环境尚未配置邮件发送 — 在本地开发时，请查看服务器日志中的重置链接。",
-      "fields": { "identifier": "用户名或邮箱" },
+      "fields": {
+        "identifier": "用户名或邮箱"
+      },
       "submit": "发送重置链接",
       "sending": "发送中…"
     },
@@ -34,7 +36,10 @@
       "success": "你的密码已重置，现在可以登录了。",
       "goToSignIn": "前往登录",
       "yourUsername": "你的登录用户名：",
-      "fields": { "newPassword": "新密码", "confirmPassword": "确认新密码" },
+      "fields": {
+        "newPassword": "新密码",
+        "confirmPassword": "确认新密码"
+      },
       "submit": "设置新密码",
       "saving": "保存中…"
     },
@@ -42,7 +47,11 @@
       "welcome": "欢迎来到 {appTitle}",
       "title": "设置你的账号",
       "intro": "进入仪表盘前只需一步 — 确认你的邮箱并设置你自己的密码（替换任何临时密码）。",
-      "fields": { "email": "联系邮箱", "newPassword": "新密码", "confirmPassword": "确认新密码" },
+      "fields": {
+        "email": "联系邮箱",
+        "newPassword": "新密码",
+        "confirmPassword": "确认新密码"
+      },
       "help": {
         "email": "我们会将你的登录验证码发送到这里。",
         "newPassword": "至少 8 个字符。将替换临时密码。"
@@ -50,31 +59,98 @@
       "enable2fa": "启用邮箱双重验证（推荐）。配置邮件发送后，登录时会向你发送一次性验证码。",
       "submit": "确认并继续",
       "saving": "保存中…"
+    },
+    "register": {
+      "title": "创建您的账号",
+      "subtitle": "请使用管理员提供的6位安全密钥。",
+      "backToSignIn": "← 返回登录",
+      "step": {
+        "code": {
+          "label": "安全密钥",
+          "help": "请输入管理员或协调员提供的6位验证码。",
+          "submit": "继续"
+        },
+        "email": {
+          "label": "电子邮箱",
+          "placeholder": "you@school.edu",
+          "bound": "此验证码已绑定至该邮箱地址。",
+          "send": "发送验证码",
+          "sent": "我们已向 {email} 发送了一个6位验证码。",
+          "codeLabel": "验证码",
+          "verify": "验证邮箱",
+          "resend": "重新发送验证码"
+        },
+        "profile": {
+          "firstName": "名",
+          "lastName": "姓",
+          "altNames": "其他名字",
+          "grade": "年级",
+          "password": "密码",
+          "passwordHint": "至少8个字符。",
+          "confirm": "确认密码",
+          "mismatch": "两次输入的密码不一致。",
+          "submit": "创建账号"
+        }
+      },
+      "done": {
+        "title": "注册成功！",
+        "body": "您的账号已就绪。请使用邮箱或用户名 {username} 登录。",
+        "signIn": "前往登录"
+      }
     }
   },
   "landing": {
-    "nav": { "requestTutor": "申请辅导", "becomeTutor": "成为辅导员", "teamSignin": "登录" },
+    "nav": {
+      "requestTutor": "申请辅导",
+      "becomeTutor": "成为辅导员",
+      "teamSignin": "登录"
+    },
     "tagline": "朋辈辅导项目",
     "heroTitle": "一起学习，共同成长。",
     "intro": "占位介绍——这里放一段关于 {appTitle} 项目的简短介绍。说明面向的对象、可以获得哪些科目的帮助，以及朋辈辅导员如何发挥作用。请用正式的项目简介替换此文字。",
     "ctaPrimary": "申请辅导",
     "ctaSecondary": "成为辅导员",
     "features": {
-      "students": { "title": "面向学生", "body": "占位——报名后即可在你选择的科目上与朋辈辅导员配对，时间由你安排。" },
-      "tutors": { "title": "面向辅导员", "body": "占位——分享你的知识，提升自身能力，并为每节辅导课获得服务时数。" },
-      "team": { "title": "面向团队", "body": "占位——在一个平台上统筹配对、考勤、面试与服务时数。" }
+      "students": {
+        "title": "面向学生",
+        "body": "占位——报名后即可在你选择的科目上与朋辈辅导员配对，时间由你安排。"
+      },
+      "tutors": {
+        "title": "面向辅导员",
+        "body": "占位——分享你的知识，提升自身能力，并为每节辅导课获得服务时数。"
+      },
+      "team": {
+        "title": "面向团队",
+        "body": "占位——在一个平台上统筹配对、考勤、面试与服务时数。"
+      }
     },
     "footer": "占位页脚——© {appTitle}。"
   },
   "dashboard": {
     "greeting": "你好，{name}",
     "subtitle": "提交考勤并管理你的空闲时间。",
-    "hours": { "title": "服务时数" },
-    "interviews": { "title": "待进行的面试" },
-    "pairings": { "title": "我的配对", "help": "为每个配对选择默认时间段（提交考勤时仍需填写实际上课时间）。" },
-    "availability": { "title": "我的空闲时间", "help": "勾选你可以授课的时间段，方便协调员安排。" },
-    "attendance": { "title": "提交考勤", "help": "为你的某个配对记录一节课，服务时数会自动计算。" },
-    "schedule": { "title": "教室安排", "help": "高亮的是你的配对；灰色格子为不可用的教室。" }
+    "hours": {
+      "title": "服务时数"
+    },
+    "interviews": {
+      "title": "待进行的面试"
+    },
+    "pairings": {
+      "title": "我的配对",
+      "help": "为每个配对选择默认时间段（提交考勤时仍需填写实际上课时间）。"
+    },
+    "availability": {
+      "title": "我的空闲时间",
+      "help": "勾选你可以授课的时间段，方便协调员安排。"
+    },
+    "attendance": {
+      "title": "提交考勤",
+      "help": "为你的某个配对记录一节课，服务时数会自动计算。"
+    },
+    "schedule": {
+      "title": "教室安排",
+      "help": "高亮的是你的配对；灰色格子为不可用的教室。"
+    }
   },
   "admin": {
     "pairings": {
@@ -132,8 +208,12 @@
         "needEmail": "请先填写邮箱",
         "linkEmailed": "设置邮件已发送。你也可以复制下方链接直接分享。",
         "linkManual": "账户已就绪。请将此设置链接发送给导师（邮件尚未配置）：",
-        "dismiss": "关闭"
-      }
+        "dismiss": "关闭",
+        "registered": "已注册",
+        "setup": "待完成设置",
+        "invited": "已发放验证码"
+      },
+      "colStatus": "状态"
     },
     "tutees": {
       "title": "学员名册",
@@ -167,7 +247,11 @@
       "deleteBtn": "删除",
       "emptyTutees": "暂无活跃学员。",
       "tbd": "待定",
-      "status": { "PENDING": "待处理", "ACTIVE": "活跃", "INACTIVE": "停用" }
+      "status": {
+        "PENDING": "待处理",
+        "ACTIVE": "活跃",
+        "INACTIVE": "停用"
+      }
     },
     "requests": {
       "title": "报名请求（学员）",
@@ -227,7 +311,9 @@
         "rooms": "教室",
         "policyDocuments": "政策文件",
         "auditLog": "审计日志",
-        "usersRoles": "用户与角色"
+        "usersRoles": "用户与角色",
+        "tutorRequests": "退出 / 重新加入",
+        "registrationCodes": "注册码"
       }
     },
     "dashboard": {
@@ -244,7 +330,13 @@
       "recentSubmissions": {
         "title": "最近提交",
         "viewAll": "查看全部 →",
-        "columns": { "date": "日期", "tutor": "导师", "subject": "科目", "status": "状态", "sh": "时数" },
+        "columns": {
+          "date": "日期",
+          "tutor": "导师",
+          "subject": "科目",
+          "status": "状态",
+          "sh": "时数"
+        },
         "empty": "暂无提交。"
       }
     },
@@ -256,18 +348,35 @@
         "pendingSignups": "待处理报名",
         "openApplications": "待处理申请",
         "cardsToReview": "待审核卡片",
-        "recentSurveys": "最近调查"
+        "recentSurveys": "最近调查",
+        "tutorRequests": "退出 / 重新加入"
       },
       "panels": {
-        "tuteeSignups": { "title": "学员报名请求", "empty": "暂无待处理报名。" },
+        "tuteeSignups": {
+          "title": "学员报名请求",
+          "empty": "暂无待处理报名。"
+        },
         "tutorApplications": {
           "title": "导师申请",
           "empty": "暂无待处理申请。",
           "votes": "{count} 票",
           "panelists": "{count} 名面试官"
         },
-        "cards": { "title": "待审核纪律卡片", "empty": "无需审核。", "auto": "自动", "tutor": "导师" },
-        "surveys": { "title": "最近出勤调查", "empty": "暂无调查。", "hours": "{hours} 小时" }
+        "cards": {
+          "title": "待审核纪律卡片",
+          "empty": "无需审核。",
+          "auto": "自动",
+          "tutor": "导师"
+        },
+        "surveys": {
+          "title": "最近出勤调查",
+          "empty": "暂无调查。",
+          "hours": "{hours} 小时"
+        },
+        "tutorRequests": {
+          "title": "辅导员退出 / 重新加入申请",
+          "empty": "暂无待处理申请。"
+        }
       }
     },
     "summary": {
@@ -278,7 +387,14 @@
       "monthLabel": "月份：",
       "clearMonth": "清除",
       "inactive": "（已停用）",
-      "columns": { "tutor": "导师", "sessions": "课时", "earned": "已获得", "extras": "额外", "penalties": "扣减", "total": "总计" }
+      "columns": {
+        "tutor": "导师",
+        "sessions": "课时",
+        "earned": "已获得",
+        "extras": "额外",
+        "penalties": "扣减",
+        "total": "总计"
+      }
     },
     "history": {
       "title": "项目历史",
@@ -290,7 +406,14 @@
       "s2": "S2",
       "inactive": "（已停用）",
       "noData": "该时段暂无记录。",
-      "columns": { "tutor": "导师", "sessions": "课时", "earned": "已获得", "extras": "额外", "penalties": "扣减", "total": "总计" },
+      "columns": {
+        "tutor": "导师",
+        "sessions": "课时",
+        "earned": "已获得",
+        "extras": "额外",
+        "penalties": "扣减",
+        "total": "总计"
+      },
       "totals": {
         "total": "总时数",
         "earned": "已获得",
@@ -335,7 +458,11 @@
     "audit": {
       "title": "审计日志",
       "subtitle": "最近的管理操作。可逆操作可在此撤销；其他操作请在各自页面手动还原。",
-      "columns": { "when": "时间", "who": "操作者", "action": "操作" },
+      "columns": {
+        "when": "时间",
+        "who": "操作者",
+        "action": "操作"
+      },
       "undone": "已撤销",
       "undo": "撤销",
       "empty": "暂无操作记录。"
@@ -344,15 +471,38 @@
       "title": "用户与角色",
       "subtitle": "管理登录账户、角色和导师账户设置。角色更改将在用户下次登录时生效。",
       "coordinatorHint": "作为协调员，你可以发送设置链接并更改自己的授课权限。如需更改角色，请联系管理员。",
-      "columns": { "user": "用户", "name": "姓名", "email": "邮箱", "linkedTutor": "关联导师", "account": "账户", "role": "角色", "canTutor": "可担任导师", "canTranslate": "翻译员" },
-      "roles": { "VIEWER": "访客（只读）", "TUTOR": "导师", "COORDINATOR": "协调员", "ADMIN": "管理员" },
+      "columns": {
+        "user": "用户",
+        "name": "姓名",
+        "email": "邮箱",
+        "linkedTutor": "关联导师",
+        "account": "账户",
+        "role": "角色",
+        "canTutor": "可担任导师",
+        "canTranslate": "翻译员"
+      },
+      "roles": {
+        "VIEWER": "访客（只读）",
+        "TUTOR": "导师",
+        "COORDINATOR": "协调员",
+        "ADMIN": "管理员",
+        "HEAD": "负责人"
+      },
       "canTutorLabel": "可担任导师",
       "canTranslateLabel": "可翻译",
       "translateDefault": "默认",
       "translateDefaultHint": "管理员和协调员始终可以编辑翻译。",
       "tutorActive": "在职",
       "tutorInactive": "停用",
-      "empty": "尚无用户或导师。"
+      "empty": "尚无用户或导师。",
+      "filters": {
+        "role": "角色",
+        "status": "辅导员状态",
+        "account": "账号",
+        "all": "全部"
+      },
+      "makeHead": "设为负责人",
+      "confirmTransfer": "将负责人权限转让给 {name}？您将成为普通管理员。"
     },
     "submissions": {
       "title": "考勤提交记录",
@@ -434,7 +584,10 @@
         "addPlaceholder": "添加级别（例如 荣誉）",
         "add": "添加级别"
       },
-      "add": { "namePlaceholder": "新科目名称", "submit": "添加科目" },
+      "add": {
+        "namePlaceholder": "新科目名称",
+        "submit": "添加科目"
+      },
       "import": {
         "importing": "导入中…",
         "upload": "上传 CSV",
@@ -443,14 +596,31 @@
         "formatPrefix": "CSV 格式：每行一个科目，格式为",
         "formatSuffix": "（级别按名称匹配；表头行可选）。"
       },
-      "batch": { "selected": "已选择 {count} 项", "setLevel": "设置级别", "activate": "启用", "deactivate": "停用", "clear": "清除" },
-      "table": { "name": "名称", "level": "级别", "active": "启用", "noLevelShort": "—", "delete": "删除", "empty": "暂无科目。" }
+      "batch": {
+        "selected": "已选择 {count} 项",
+        "setLevel": "设置级别",
+        "activate": "启用",
+        "deactivate": "停用",
+        "clear": "清除"
+      },
+      "table": {
+        "name": "名称",
+        "level": "级别",
+        "active": "启用",
+        "noLevelShort": "—",
+        "delete": "删除",
+        "empty": "暂无科目。"
+      }
     },
     "announcements": {
       "title": "公告",
       "subtitle": "向导师广播。每条公告会在导师每次登录时显示在其仪表盘上，直到他们关闭；置顶的公告将持续显示。",
       "empty": "暂无公告。",
-      "badge": { "pinned": "已置顶", "active": "启用中", "inactive": "未启用" },
+      "badge": {
+        "pinned": "已置顶",
+        "active": "启用中",
+        "inactive": "未启用"
+      },
       "card": {
         "save": "保存",
         "pin": "置顶",
@@ -509,14 +679,29 @@
         "reasonPlaceholder": "原因（可选）",
         "add": "添加"
       },
-      "typeLabel": { "EXTRA": "额外", "PUNISHMENT": "处罚" },
-      "table": { "tutor": "导师", "month": "月份", "type": "类型", "amount": "数量", "reason": "原因", "delete": "删除" }
+      "typeLabel": {
+        "EXTRA": "额外",
+        "PUNISHMENT": "处罚"
+      },
+      "table": {
+        "tutor": "导师",
+        "month": "月份",
+        "type": "类型",
+        "amount": "数量",
+        "reason": "原因",
+        "delete": "删除"
+      }
     },
     "applications": {
       "title": "导师申请",
       "intro": "审核申请人并分配一个由 {n} 名导师组成的面试小组（指定一名组长）。点击某一行可展开。组长在自己的仪表盘中安排面试并记录决定。",
       "empty": "暂无申请。",
-      "status": { "PENDING": "待处理", "INTERVIEW": "面试中", "ACCEPTED": "已通过", "REJECTED": "已拒绝" },
+      "status": {
+        "PENDING": "待处理",
+        "INTERVIEW": "面试中",
+        "ACCEPTED": "已通过",
+        "REJECTED": "已拒绝"
+      },
       "noCourses": "暂无科目",
       "panelSummary": "面试小组 {n}/{total}",
       "votesSummary": "投票 {accepts}/{total}",
@@ -526,7 +711,11 @@
       "confirmDelete": "删除 {name} 的申请？",
       "reach": "联系方式：{contact}",
       "na": "无",
-      "qual": { "took": "已修读（{grade}）", "ap": "AP {score}", "selfStudied": "自学：{note}" },
+      "qual": {
+        "took": "已修读（{grade}）",
+        "ap": "AP {score}",
+        "selfStudied": "自学：{note}"
+      },
       "noQualification": "未提供资质说明",
       "panelHeading": "面试小组（选择 {n} 人，指定一名组长）",
       "scheduled": "已安排：{when}（由组长设定）",
@@ -557,18 +746,84 @@
       "nothingPending": "暂无待复核项。",
       "standingHeading": "学员纪律状态",
       "standingHelp": "🟥 占 3 格，🟨 占 1 格（仅统计有效卡片）。满 6 格 = 待移除。点击姓名查看卡片详情。",
-      "standing": { "removalPending": "待移除", "onWarning": "警告中", "ok": "正常" },
+      "standing": {
+        "removalPending": "待移除",
+        "onWarning": "警告中",
+        "ok": "正常"
+      },
       "pendingCount": "{n} 项待复核",
-      "reviewStatus": { "PENDING": "待复核", "VALID": "有效", "INVALID": "无效" },
+      "reviewStatus": {
+        "PENDING": "待复核",
+        "VALID": "有效",
+        "INVALID": "无效"
+      },
       "noCardsOnRecord": "暂无卡片记录。",
       "historyHeading": "卡片历史",
-      "table": { "date": "日期", "tutee": "学员", "card": "卡片", "reason": "原因", "source": "来源", "status": "状态" },
+      "table": {
+        "date": "日期",
+        "tutee": "学员",
+        "card": "卡片",
+        "reason": "原因",
+        "source": "来源",
+        "status": "状态"
+      },
       "tableEmpty": "暂无卡片。"
+    },
+    "tutorStatus": {
+      "ACTIVE": "在职",
+      "GRADUATED": "已毕业",
+      "OPTED_OUT": "已退出",
+      "ARCHIVED": "已归档"
+    },
+    "registrationCodes": {
+      "title": "注册码",
+      "help": "为新辅导员生成一次性6位安全密钥，供其自助注册。该验证码仅显示一次——请复制后亲手交给对方，系统不会保存。",
+      "labelField": "备注（标签）",
+      "labelPlaceholder": "例如：Jane Doe（G11）",
+      "emailField": "绑定邮箱（可选）",
+      "emailPlaceholder": "tutor@school.edu",
+      "issue": "生成注册码",
+      "issuedTitle": "{who} 的注册码",
+      "issuedHint": "请立即复制——此码不会再次显示。",
+      "colFor": "备注",
+      "colEmail": "邮箱",
+      "colIssuedBy": "生成人",
+      "colExpires": "到期时间",
+      "colStatus": "状态",
+      "status": {
+        "active": "有效",
+        "used": "已使用",
+        "expired": "已过期"
+      },
+      "revoke": "撤销",
+      "empty": "暂无注册码。"
+    },
+    "tutorRequests": {
+      "title": "退出 / 重新加入申请",
+      "help": "辅导员发起的成员变更申请。退出申请须经过一周冷静期方可审批；重新加入申请则立即生效。",
+      "kind": {
+        "OPT_OUT": "退出",
+        "REENTRY": "重新加入"
+      },
+      "cooldownDone": "冷静期已结束——可以审批",
+      "cooldownUntil": "{date} 后可审批",
+      "affected": "影响 {count} 名{count, plural, one {学生} other {学生}}",
+      "notYet": "一周冷静期尚未结束。",
+      "approve": "审批通过",
+      "deny": "拒绝",
+      "empty": "暂无待处理申请。",
+      "requeuePrompt": "将 {name} 名下的 {count} 名{count, plural, one {学生} other {学生}}重新放入待分配队列？",
+      "requeueConfirm": "重新加入队列",
+      "requeueDismiss": "暂不操作"
     }
   },
   "tutor": {
-    "nav": { "handbook": "手册" },
-    "handbook": { "empty": "手册尚未发布。" },
+    "nav": {
+      "handbook": "手册"
+    },
+    "handbook": {
+      "empty": "手册尚未发布。"
+    },
     "attendance": {
       "loading": "正在加载你的配对…",
       "noPairings": "你还没有任何配对。请联系管理员创建。",
@@ -581,13 +836,22 @@
       "date": "日期",
       "today": "今天",
       "tutorStatus": "导师状态",
-      "tutorStatusOpt": { "PRESENT": "出席", "RESCHEDULED": "已改期", "EXTRA": "额外课时", "TUTOR_ABSENT": "导师缺席" },
+      "tutorStatusOpt": {
+        "PRESENT": "出席",
+        "RESCHEDULED": "已改期",
+        "EXTRA": "额外课时",
+        "TUTOR_ABSENT": "导师缺席"
+      },
       "tutorAbsentReason": "导师缺席原因 *",
       "start": "开始",
       "end": "结束",
       "now": "现在",
       "tuteeAttendance": "学员出勤",
-      "tuteeStatusOpt": { "PRESENT": "出席", "EXCUSED_ABSENT": "请假缺席", "UNEXCUSED_ABSENT": "无故缺席" },
+      "tuteeStatusOpt": {
+        "PRESENT": "出席",
+        "EXCUSED_ABSENT": "请假缺席",
+        "UNEXCUSED_ABSENT": "无故缺席"
+      },
       "reasonRequired": "原因（必填）",
       "ratings": "评分 *",
       "rating": {
@@ -597,7 +861,13 @@
         "ratingBehavior": "行为表现",
         "ratingProgress": "进步"
       },
-      "likert": { "1": "差", "2": "一般", "3": "良好", "4": "优秀", "5": "卓越" },
+      "likert": {
+        "1": "差",
+        "2": "一般",
+        "3": "良好",
+        "4": "优秀",
+        "5": "卓越"
+      },
       "comments": "评语 *",
       "cardsTitle": "纪律卡片（选填）",
       "cardsHelp": "为学员分配黄牌或红牌并简述原因。团队会在其生效前复核每一张。（上方的无故缺席会自动签发一张红牌。）",
@@ -666,7 +936,10 @@
       "scheduled": "已安排：{time}",
       "awaitingSchedule": "等待组长安排时间。"
     },
-    "announcements": { "label": "公告", "pinned": "置顶" },
+    "announcements": {
+      "label": "公告",
+      "pinned": "置顶"
+    },
     "settings": {
       "title": "账户设置",
       "subtitle": "更新你的个人信息和密码。",
@@ -690,15 +963,45 @@
       "changing": "修改中…",
       "passwordChanged": "密码已修改。",
       "pwTooShort": "新密码至少需要 8 个字符。",
-      "pwMismatch": "两次输入的新密码不一致。"
+      "pwMismatch": "两次输入的新密码不一致。",
+      "gradeHelp": "请自行填写当前年级（例如留级后的实际年级）。届别将根据此年级自动推算。",
+      "membershipHeading": "成员资格",
+      "optOutHelp": "要离开项目？请提交退出申请。管理员在一周冷静期后可以处理，期间您可以撤回申请。",
+      "optOutReasonPlaceholder": "原因（可选）",
+      "optOutBtn": "申请退出",
+      "optOutPending": "退出申请已提交。管理员可于 {date} 后审批。在此之前您可以撤回申请。",
+      "optOutPendingNoDate": "退出申请已提交，等待审核。",
+      "reentryPending": "重新加入申请已提交，等待管理员审批。",
+      "reentryHelp": "想重新加入项目？提交重新加入申请，管理员将进行审核。",
+      "reentryBtn": "申请重新加入",
+      "recall": "撤回申请",
+      "statusNote": "您的辅导员状态为「{status}」，仅供查看——如需变更请联系管理员。"
     },
     "dashboard": {
       "pending": {
         "title": "你的导师账户正在等待审批",
         "body": "协调员将很快激活你的账户。在此期间，你可以在下方设置你可授课的时间段。"
       },
-      "availability": { "title": "我的可用时间", "help": "标记你可以授课的时间段。" },
-      "hours": { "earned": "已获得 {earned}", "extra": "+ 额外 {extra}", "penalty": "− 扣除 {penalty}" }
+      "availability": {
+        "title": "我的可用时间",
+        "help": "标记你可以授课的时间段。"
+      },
+      "hours": {
+        "earned": "已获得 {earned}",
+        "extra": "+ 额外 {extra}",
+        "penalty": "− 扣除 {penalty}"
+      },
+      "inactive": {
+        "title": "仅限查看",
+        "body": "您的辅导员账号状态为「{status}」。您可以查看历史记录，但无法提交考勤或接收新学生。",
+        "reentryHint": "想回来吗？请在账号设置中申请重新加入。"
+      }
+    },
+    "status": {
+      "ACTIVE": "在职",
+      "GRADUATED": "已毕业",
+      "OPTED_OUT": "已退出",
+      "ARCHIVED": "已归档"
     }
   },
   "public": {
@@ -727,8 +1030,12 @@
         "selectCourse": "选择科目…",
         "signature": "你的全名"
       },
-      "options": { "none": "— 无 —" },
-      "help": { "preferredContact": "告诉我们就辅导匹配联系你的最佳方式和时间。" },
+      "options": {
+        "none": "— 无 —"
+      },
+      "help": {
+        "preferredContact": "告诉我们就辅导匹配联系你的最佳方式和时间。"
+      },
       "noSlots": "目前还没有发布任何时间段，请稍后再来查看。",
       "agree": "我已阅读并同意遵守 <policy>{appTitle} 政策</policy>。",
       "submit": "提交申请",
@@ -758,9 +1065,15 @@
         "apScore": "1–5",
         "selfStudyNote": "例如：完成了一门在线课、竞赛成绩、作品集…"
       },
-      "help": { "preferredContact": "就你的申请和面试联系你的最佳方式和时间。" },
+      "help": {
+        "preferredContact": "就你的申请和面试联系你的最佳方式和时间。"
+      },
       "coursesHelp": "对每个科目，告诉我们你的资格：是否上过这门课、是否持有 AP 分数（仅限 AP 科目），以及/或者是否自学过。",
-      "qual": { "taken": "我上过这门课", "hasApScore": "我有 AP 分数", "selfStudied": "我自学过这门科目" },
+      "qual": {
+        "taken": "我上过这门课",
+        "hasApScore": "我有 AP 分数",
+        "selfStudied": "我自学过这门科目"
+      },
       "remove": "移除",
       "addCourse": "+ 添加另一个科目",
       "agree": "我已阅读并同意遵守 <policy>{appTitle} 政策</policy>。",
@@ -776,8 +1089,14 @@
     }
   },
   "components": {
-    "notifications": { "title": "通知", "markAllRead": "全部标为已读", "empty": "暂无内容。" },
-    "signOut": { "label": "退出登录" },
+    "notifications": {
+      "title": "通知",
+      "markAllRead": "全部标为已读",
+      "empty": "暂无内容。"
+    },
+    "signOut": {
+      "label": "退出登录"
+    },
     "userMenu": {
       "settings": "设置",
       "enterTutor": "进入导师区",

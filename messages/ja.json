@@ -1,0 +1,1147 @@
+{
+  "common": {
+    "dismiss": "閉じる",
+    "save": "保存",
+    "saved": "保存しました。",
+    "language": "言語",
+    "backToMain": "← メインページに戻る"
+  },
+  "auth": {
+    "signinTitle": "サインイン",
+    "signinSubtitle": "チューター、コーディネーター、管理者はここからサインインしてください。",
+    "identifier": "ユーザー名またはメールアドレス",
+    "password": "パスワード",
+    "signIn": "サインイン",
+    "signingIn": "サインイン中…",
+    "forgotPassword": "パスワードを忘れましたか？",
+    "lookingForTutor": "チューターをお探しですか？",
+    "requestOne": "こちらから申請",
+    "forgot": {
+      "title": "パスワードのリセット",
+      "intro": "ユーザー名またはメールアドレスを入力すると、リセット用リンクをお送りします。",
+      "backToSignIn": "← サインインに戻る",
+      "sent": "入力内容に一致するアカウントが存在する場合、パスワードリセットの手順を連絡先メールアドレスに送信しました。受信トレイをご確認ください。",
+      "sentEmailNote": "この環境ではメール配信がまだ設定されていません。ローカル開発中はサーバーログでリセットリンクを確認してください。",
+      "fields": {
+        "identifier": "ユーザー名またはメールアドレス"
+      },
+      "submit": "リセットリンクを送信",
+      "sending": "送信中…"
+    },
+    "reset": {
+      "title": "新しいパスワードを設定",
+      "missingToken": "このリセットリンクにはトークンがありません。新しいリンクを申請してください。",
+      "requestLink": "リセットリンクを申請",
+      "backToSignIn": "← サインインに戻る",
+      "success": "パスワードがリセットされました。サインインできます。",
+      "goToSignIn": "サインインへ",
+      "yourUsername": "サインイン用ユーザー名：",
+      "fields": {
+        "newPassword": "新しいパスワード",
+        "confirmPassword": "新しいパスワードを確認"
+      },
+      "submit": "新しいパスワードを設定",
+      "saving": "保存中…"
+    },
+    "onboarding": {
+      "welcome": "{appTitle} へようこそ",
+      "title": "アカウントのセットアップ",
+      "intro": "ダッシュボードに進む前に1つだけ — メールアドレスを確認し、仮パスワードを自分のパスワードに変更してください。",
+      "fields": {
+        "email": "連絡先メールアドレス",
+        "newPassword": "新しいパスワード",
+        "confirmPassword": "新しいパスワードを確認"
+      },
+      "help": {
+        "email": "サインイン認証コードはこちらに送信されます。",
+        "newPassword": "8文字以上。仮パスワードを置き換えます。"
+      },
+      "enable2fa": "メールによる二要素認証を有効にする（推奨）。メール配信が設定されると、サインイン時にワンタイムコードが送信されます。",
+      "submit": "確認して続行",
+      "saving": "保存中…"
+    },
+    "register": {
+      "title": "アカウントを作成",
+      "subtitle": "管理者から受け取った6桁のセキュリティキーを使用してください。",
+      "backToSignIn": "← サインインに戻る",
+      "step": {
+        "code": {
+          "label": "セキュリティキー",
+          "help": "管理者またはコーディネーターから受け取った6桁のコードを入力してください。",
+          "submit": "続行"
+        },
+        "email": {
+          "label": "メールアドレス",
+          "placeholder": "you@school.edu",
+          "bound": "このコードはこのメールアドレスに紐付けられています。",
+          "send": "確認コードを送信",
+          "sent": "{email} に6桁のコードを送信しました。",
+          "codeLabel": "確認コード",
+          "verify": "メールを確認",
+          "resend": "コードを再送"
+        },
+        "profile": {
+          "firstName": "名",
+          "lastName": "姓",
+          "altNames": "別名",
+          "grade": "学年",
+          "password": "パスワード",
+          "passwordHint": "8文字以上。",
+          "confirm": "パスワードを確認",
+          "mismatch": "パスワードが一致しません。",
+          "submit": "アカウントを作成"
+        }
+      },
+      "done": {
+        "title": "準備完了！",
+        "body": "アカウントが作成されました。メールアドレスまたはユーザー名 {username} でサインインしてください。",
+        "signIn": "サインインへ"
+      }
+    }
+  },
+  "landing": {
+    "nav": {
+      "requestTutor": "チューターを申請",
+      "becomeTutor": "チューターになる",
+      "teamSignin": "サインイン"
+    },
+    "tagline": "ピアチュータリングプログラム",
+    "heroTitle": "一緒に学ぼう。一緒に成長しよう。",
+    "intro": "プレースホルダー紹介文 — {appTitle} プログラムについての短い段落がここに入ります。対象者、生徒が支援を受けられる内容、ピアチューターがどのような違いをもたらすかを説明してください。この文章を実際のプログラム概要に置き換えてください。",
+    "ctaPrimary": "チューターを申請",
+    "ctaSecondary": "チューターになる",
+    "features": {
+      "students": {
+        "title": "生徒の方へ",
+        "body": "プレースホルダー — 登録して、希望する科目のピアチューターとマッチングしましょう。自分のスケジュールに合わせて利用できます。"
+      },
+      "tutors": {
+        "title": "チューターの方へ",
+        "body": "プレースホルダー — 知識を共有し、スキルを磨き、担当するセッションごとに奉仕時間を獲得しましょう。"
+      },
+      "team": {
+        "title": "チームの方へ",
+        "body": "プレースホルダー — ペアリング、出席、面接、奉仕時間を一箇所で管理できます。"
+      }
+    },
+    "footer": "プレースホルダーフッター — © {appTitle}。"
+  },
+  "dashboard": {
+    "greeting": "こんにちは、{name}",
+    "subtitle": "出席を提出し、空き時間を管理しましょう。",
+    "hours": {
+      "title": "奉仕時間"
+    },
+    "interviews": {
+      "title": "担当面接"
+    },
+    "pairings": {
+      "title": "マイペアリング",
+      "help": "各ペアリングのデフォルトタイムスロットを選択してください（実際のセッション時間は出席提出時に入力します）。"
+    },
+    "availability": {
+      "title": "マイ空き時間",
+      "help": "指導可能なタイムスロットをマークしてください。コーディネーターがスケジュール調整に使用します。"
+    },
+    "attendance": {
+      "title": "出席を提出",
+      "help": "ペアリングのセッションを記録します。奉仕時間は自動的に計算されます。"
+    },
+    "schedule": {
+      "title": "部屋のスケジュール",
+      "help": "あなたのペアリングが強調表示されています。ブロックされたセルは使用不可の部屋です。"
+    }
+  },
+  "admin": {
+    "pairings": {
+      "title": "ペアリング",
+      "roomSchedule": "部屋のスケジュール",
+      "editPairing": "ペアリングを編集",
+      "newPairing": "新規ペアリング",
+      "slotHelp": "公開されているタイムスロットを選択してください — このペアリングの曜日と時間が設定されます。",
+      "tutor": "チューター",
+      "term": "学期",
+      "roomOptional": "部屋（任意）",
+      "none": "— なし —",
+      "timeSlot": "タイムスロット",
+      "selectSlot": "— タイムスロットを選択 —",
+      "subject": "科目",
+      "subjectPlaceholder": "例：AP化学",
+      "tutees": "生徒",
+      "saveChanges": "変更を保存",
+      "createPairing": "ペアリングを作成",
+      "cancel": "キャンセル",
+      "colSubject": "科目",
+      "colTutor": "チューター",
+      "colWhen": "日時",
+      "colSlot": "スロット",
+      "colRoom": "部屋",
+      "colTutees": "生徒",
+      "edit": "編集",
+      "delete": "削除"
+    },
+    "tutors": {
+      "title": "チューター",
+      "help": "チューターのメールアドレスは初回サインイン時にログインアカウントと紐付けられます。ユーザー名（デフォルト：名の頭文字＋姓）は代替サインイン識別子として使用できます。",
+      "accountMovedNote": "アカウントセットアップ（招待リンクとログイン状態）はユーザーと権限ページに移動しました。",
+      "phFirstName": "名",
+      "phLastName": "姓",
+      "phAltNames": "別名（例：中文名）",
+      "phEmail": "メールアドレス（任意）",
+      "phGrade": "学年",
+      "addTutor": "チューターを追加",
+      "colFirstName": "名",
+      "colLastName": "姓",
+      "colAltNames": "別名",
+      "colUsername": "ユーザー名",
+      "colEmail": "メールアドレス",
+      "colGrade": "学年",
+      "colActive": "有効",
+      "colStatus": "ステータス",
+      "colAccount": "アカウント",
+      "classOf": "{year}年卒",
+      "account": {
+        "active": "設定済み",
+        "pending": "設定待ち",
+        "registered": "登録済み",
+        "setup": "設定待ち",
+        "invited": "コード発行済み",
+        "none": "ログインなし",
+        "sendSetup": "セットアップリンクを送信",
+        "resend": "セットアップを再送",
+        "needEmail": "先にメールアドレスを追加してください",
+        "linkEmailed": "セットアップメールを送信しました。以下のリンクをコピーして直接共有することもできます。",
+        "linkManual": "アカウントの準備ができました。このセットアップリンクをチューターに共有してください（メールは設定されていません）：",
+        "dismiss": "閉じる"
+      }
+    },
+    "tutorStatus": {
+      "ACTIVE": "有効",
+      "GRADUATED": "卒業済み",
+      "OPTED_OUT": "離脱済み",
+      "ARCHIVED": "アーカイブ済み"
+    },
+    "tutees": {
+      "title": "生徒名簿",
+      "help": "有効・無効な生徒の一覧と出席・指導状況です。新しい公開申請は",
+      "signupRequests": "申請一覧",
+      "pendingBadge": "{count}件 保留中",
+      "addTutee": "生徒を追加",
+      "fullName": "氏名",
+      "phName": "例：田中花子",
+      "grade": "学年",
+      "phGrade": "例：10",
+      "firstChoice": "第1希望",
+      "secondChoice": "第2希望",
+      "addTuteeBtn": "生徒を追加",
+      "viewTutees": "生徒一覧",
+      "viewTutors": "チューターとペアリング",
+      "colTutor": "チューター",
+      "colSubject": "科目",
+      "colDayTime": "曜日・時間",
+      "colTimeSlot": "タイムスロット",
+      "colPairedTutees": "ペアリング済み生徒",
+      "noPairings": "ペアリングなし",
+      "colName": "氏名",
+      "colGrade": "学年",
+      "colCourses": "科目",
+      "colSessions": "セッション",
+      "colDiscipline": "指導",
+      "colContact": "連絡先",
+      "colStatus": "ステータス",
+      "removalBadge": "退出",
+      "deleteBtn": "削除",
+      "emptyTutees": "有効な生徒はまだいません。",
+      "tbd": "未定",
+      "status": {
+        "PENDING": "保留中",
+        "ACTIVE": "有効",
+        "INACTIVE": "無効"
+      }
+    },
+    "requests": {
+      "title": "申請一覧（生徒）",
+      "help": "割り当て待ちの公開生徒申請です。申請が古い順に処理します。各科目の希望をチューターに割り当てると、ペアリングが作成され、チューターがタイムスロットを選択します。",
+      "noTerm": "申請を割り当てるには、最初に学期を作成してください。",
+      "decline": "却下",
+      "declineConfirm": "{name}の申請を却下・削除しますか？",
+      "firstChoice": "第1希望",
+      "secondChoice": "第2希望",
+      "notProvided": "— 未提供 —",
+      "assignToTutor": "— チューターに割り当て —",
+      "tutorWorkload": "{name} — {pairings}ペアリング・{tutees}名の生徒",
+      "assigning": "割り当て中…",
+      "assign": "割り当て",
+      "assignActivate": "割り当てて有効化",
+      "assignedTo": "{name}に割り当て済み",
+      "fulfilled": "完了",
+      "expand": "展開",
+      "collapse": "折りたたむ",
+      "empty": "保留中の申請はありません。🎉",
+      "grade": "学年 {grade}",
+      "submitted": "{when}に提出",
+      "available": "空き時間：{list}",
+      "reach": "連絡先：{contact}",
+      "signed": "署名：✓ {name}",
+      "notSigned": "署名：— 未署名"
+    },
+    "readOnly": {
+      "banner": "読み取り専用アクセスです — 閲覧はできますが変更はできません。連絡先の詳細は非表示です。"
+    },
+    "nav": {
+      "sections": {
+        "overview": "概要",
+        "tutors": "チューター",
+        "tutees": "生徒",
+        "schedulingRecords": "スケジュールと記録",
+        "administration": "管理"
+      },
+      "links": {
+        "dashboard": "ダッシュボード",
+        "activity": "活動と申請",
+        "history": "プログラム履歴",
+        "announcements": "お知らせ",
+        "program": "プログラムとリフレッシュ",
+        "tutorRoster": "チューター名簿",
+        "tutorApplications": "チューター応募",
+        "tutorRequests": "離脱・復帰",
+        "tutorMeetings": "チューターミーティング",
+        "serviceHours": "奉仕時間",
+        "hourAdjustments": "時間調整",
+        "tuteeRoster": "生徒名簿",
+        "signupRequests": "申請一覧",
+        "tuteeDiscipline": "生徒指導",
+        "pairings": "ペアリング",
+        "attendance": "出席提出",
+        "timeSlots": "タイムスロット",
+        "coursesLevels": "科目とレベル",
+        "rooms": "部屋",
+        "policyDocuments": "ポリシー文書",
+        "auditLog": "監査ログ",
+        "usersRoles": "ユーザーと権限",
+        "registrationCodes": "登録コード"
+      }
+    },
+    "dashboard": {
+      "title": "ダッシュボード",
+      "stats": {
+        "pairings": "ペアリング",
+        "activeTutors": "有効チューター数",
+        "activeTutees": "有効生徒数",
+        "pendingSignups": "保留中の申請",
+        "serviceHours": "奉仕時間・{month}"
+      },
+      "pendingBanner": "生徒の申請が {count} 件、審査待ちです。",
+      "reviewNow": "今すぐ確認 →",
+      "recentSubmissions": {
+        "title": "最近の提出",
+        "viewAll": "すべて表示 →",
+        "columns": {
+          "date": "日付",
+          "tutor": "チューター",
+          "subject": "科目",
+          "status": "ステータス",
+          "sh": "奉仕時間"
+        },
+        "empty": "まだ提出がありません。"
+      }
+    },
+    "activity": {
+      "title": "活動",
+      "subtitle": "プログラム全体の各申請の現在の状況です。各項目から対応ページに移動できます。",
+      "manage": "管理 →",
+      "counters": {
+        "pendingSignups": "保留中の申請",
+        "openApplications": "審査中の応募",
+        "cardsToReview": "確認待ちのカード",
+        "tutorRequests": "離脱・復帰",
+        "recentSurveys": "最近のアンケート"
+      },
+      "panels": {
+        "tuteeSignups": {
+          "title": "生徒申請一覧",
+          "empty": "保留中の申請はありません。"
+        },
+        "tutorApplications": {
+          "title": "チューター応募",
+          "empty": "審査中の応募はありません。",
+          "votes": "{count} 票",
+          "panelists": "{count} 名の審査員"
+        },
+        "tutorRequests": {
+          "title": "チューター離脱・復帰申請",
+          "empty": "未処理の申請はありません。"
+        },
+        "cards": {
+          "title": "確認待ちの指導カード",
+          "empty": "確認待ちの内容はありません。",
+          "auto": "自動",
+          "tutor": "チューター"
+        },
+        "surveys": {
+          "title": "最近の出席アンケート",
+          "empty": "まだアンケートはありません。",
+          "hours": "{hours} h"
+        }
+      }
+    },
+    "summary": {
+      "title": "チューター奉仕時間",
+      "subtitleMonthly": "チューター別奉仕時間。",
+      "scope": "現在の学期・{label}",
+      "viewHistory": "履歴を表示 →",
+      "monthLabel": "月：",
+      "clearMonth": "クリア",
+      "inactive": "（無効）",
+      "columns": {
+        "tutor": "チューター",
+        "sessions": "セッション",
+        "earned": "獲得",
+        "extras": "追加",
+        "penalties": "減算",
+        "total": "合計"
+      }
+    },
+    "history": {
+      "title": "プログラム履歴",
+      "subtitle": "過去の四半期、学期、または学年の奉仕時間と出席記録。",
+      "schoolYear": "学年度",
+      "scope": "期間",
+      "wholeYear": "年間",
+      "s1": "前期",
+      "s2": "後期",
+      "inactive": "（無効）",
+      "noData": "この期間の活動記録はありません。",
+      "columns": {
+        "tutor": "チューター",
+        "sessions": "セッション",
+        "earned": "獲得",
+        "extras": "追加",
+        "penalties": "減算",
+        "total": "合計"
+      },
+      "totals": {
+        "total": "合計時間",
+        "earned": "獲得",
+        "sessions": "セッション",
+        "present": "出席",
+        "excused": "公欠",
+        "unexcused": "無断欠席"
+      }
+    },
+    "program": {
+      "title": "プログラムとリフレッシュ",
+      "subtitle": "現在の期間と、プログラムを次の四半期に進める定期リフレッシュ。",
+      "loading": "読み込み中…",
+      "noPeriod": "有効なプログラム期間がありません。まずシードを実行するか、新規作成してください。",
+      "currentPeriod": "現在の期間",
+      "semester": "学期 {semester}",
+      "refreshHeading": "次の四半期へリフレッシュ",
+      "advancesTo": "プログラムを {name} に進め、次の処理を行います：",
+      "effectPending": "保留中の生徒申請キューをクリアします（非アクティブとしてアーカイブ）。",
+      "effectTutees": "現在ペアリング済みの生徒をすべてアーカイブします — 継続には再申請が必要です。",
+      "effectPairings": "現在のペアリングボードをクリアします（過去のペアリングと出席記録は履歴に残ります）。",
+      "effectAvailability": "有効なチューターの空き状況を確認するよう促します。",
+      "effectGraduate": "G12チューターを卒業処理します（Q4開始時に離脱）。",
+      "effectAgeUp": "残りのチューター全員を1学年進級させます。",
+      "effectHoursReset": "学期 {semester} の奉仕時間・出席の集計を新たに開始します。",
+      "effectHoursKeep": "奉仕時間の累積を継続します（同じ学期のまま）。",
+      "confirmLabel": "このプログラム全体の操作を確認するには「REFRESH」と入力してください。",
+      "confirmPlaceholder": "REFRESH",
+      "reviewButton": "チューターの空き状況を確認してリフレッシュ →",
+      "refreshButton": "{name} へリフレッシュ",
+      "refreshing": "リフレッシュ中…",
+      "done": "{name} へリフレッシュしました。{count} 名の生徒をアーカイブしました。",
+      "doneGrad": "{graduated} 名を卒業処理しました。{aged} 名のチューターを1学年進級させました。",
+      "modalTitle": "{name} のチューター空き状況",
+      "modalIntro": "継続するチューターを確認してください。チェックを外したチューターはアーカイブされます。",
+      "modalGradNote": "新学年度：G12チューターが卒業し、全員が1学年進級します。",
+      "available": "参加可能",
+      "graduating": "卒業予定",
+      "noActiveTutors": "確認する有効なチューターはいません。",
+      "cancel": "キャンセル"
+    },
+    "audit": {
+      "title": "監査ログ",
+      "subtitle": "最近の管理者操作。取り消し可能なものはここで元に戻せます。それ以外は各ページで手動で戻せます。",
+      "columns": {
+        "when": "日時",
+        "who": "操作者",
+        "action": "操作"
+      },
+      "undone": "取り消し済み",
+      "undo": "元に戻す",
+      "empty": "操作記録はまだありません。"
+    },
+    "users": {
+      "title": "ユーザーと権限",
+      "subtitle": "ログイン、役割、チューターアカウントのセットアップを管理します。役割の変更はユーザーの次回サインイン時に反映されます。",
+      "coordinatorHint": "コーディネーターはセットアップリンクの送信と自身のチュータリングアクセスの変更ができます。役割変更は管理者に依頼してください。",
+      "columns": {
+        "user": "ユーザー",
+        "name": "氏名",
+        "email": "メールアドレス",
+        "linkedTutor": "紐付きチューター",
+        "account": "アカウント",
+        "role": "役割",
+        "canTutor": "チュータリング可",
+        "canTranslate": "翻訳者"
+      },
+      "roles": {
+        "VIEWER": "閲覧者（読み取り専用）",
+        "TUTOR": "チューター",
+        "COORDINATOR": "コーディネーター",
+        "ADMIN": "管理者",
+        "HEAD": "代表"
+      },
+      "filters": {
+        "role": "役割",
+        "status": "チューターステータス",
+        "account": "アカウント",
+        "all": "すべて"
+      },
+      "makeHead": "代表に設定",
+      "confirmTransfer": "{name}にリーダーシップを移譲しますか？あなたは管理者になります。",
+      "canTutorLabel": "チュータリング可",
+      "canTranslateLabel": "翻訳可",
+      "translateDefault": "デフォルト",
+      "translateDefaultHint": "管理者とコーディネーターは常に翻訳を編集できます。",
+      "tutorActive": "有効",
+      "tutorInactive": "無効",
+      "empty": "ユーザーまたはチューターはまだいません。"
+    },
+    "registrationCodes": {
+      "title": "登録コード",
+      "help": "新しいチューターが自己登録するための一回限りの6桁セキュリティキーを発行します。コードは一度だけ表示されます — コピーして渡してください。保存はされません。",
+      "labelField": "対象（ラベル）",
+      "labelPlaceholder": "例：Jane Doe (G11)",
+      "emailField": "メールアドレスに紐付け（任意）",
+      "emailPlaceholder": "tutor@school.edu",
+      "issue": "コードを発行",
+      "issuedTitle": "{who} の登録コード",
+      "issuedHint": "今すぐコピーしてください — 再表示されません。",
+      "colFor": "対象",
+      "colEmail": "メールアドレス",
+      "colIssuedBy": "発行者",
+      "colExpires": "有効期限",
+      "colStatus": "ステータス",
+      "status": {
+        "active": "有効",
+        "used": "使用済み",
+        "expired": "期限切れ"
+      },
+      "revoke": "無効化",
+      "empty": "登録コードはまだありません。"
+    },
+    "tutorRequests": {
+      "title": "離脱・復帰申請",
+      "help": "チューターからの会員変更申請です。離脱申請は1週間のクールダウン後にのみ承認できます。復帰は即時承認できます。",
+      "kind": {
+        "OPT_OUT": "離脱",
+        "REENTRY": "復帰"
+      },
+      "cooldownDone": "クールダウン終了 — 承認可能です",
+      "cooldownUntil": "{date}以降に承認可能",
+      "affected": "{count} 名の生徒が影響を受けます",
+      "notYet": "1週間のクールダウンがまだ終了していません。",
+      "approve": "承認",
+      "deny": "却下",
+      "empty": "未処理の申請はありません。",
+      "requeuePrompt": "{name}の生徒 {count} 名を再割り当てのために申請ページに戻しますか？",
+      "requeueConfirm": "生徒を再キューに入れる",
+      "requeueDismiss": "後で"
+    },
+    "submissions": {
+      "title": "出席提出",
+      "allTutors": "全チューター",
+      "colDate": "日付",
+      "colTutor": "チューター",
+      "colSubject": "科目",
+      "colStatus": "ステータス",
+      "colTutees": "生徒",
+      "colSH": "奉仕時間",
+      "empty": "このフィルターに一致する提出はありません。"
+    },
+    "meetings": {
+      "title": "チューターミーティング",
+      "titlePlaceholder": "ミーティングタイトル",
+      "create": "作成",
+      "delete": "削除",
+      "saving": "保存中…",
+      "saveAttendance": "出席を保存",
+      "saved": "保存しました。",
+      "timeLabel": "時間",
+      "exempt": "免除（X）",
+      "status": {
+        "present": "出席",
+        "excusedAbsent": "公欠",
+        "unexcusedAbsent": "無断欠席"
+      },
+      "summary": {
+        "show": "サマリーを表示",
+        "hide": "サマリーを非表示",
+        "tutor": "チューター",
+        "noMeetings": "ミーティングはまだありません。"
+      }
+    },
+    "timeslots": {
+      "title": "タイムスロット",
+      "description": "ミーティング時間の共有カタログです。チューターと生徒はこれに対して空き時間をマークし、ペアリングの参照にも使用できます。スロットは参照用です — 実際のセッション時間は各出席提出時に入力します。",
+      "label": "ラベル",
+      "labelPlaceholder": "例：月曜 ブロックA",
+      "day": "曜日",
+      "start": "開始",
+      "end": "終了",
+      "addSlot": "スロットを追加",
+      "colLabel": "ラベル",
+      "colDay": "曜日",
+      "colTime": "時間",
+      "colActive": "有効",
+      "delete": "削除",
+      "empty": "タイムスロットはまだありません。"
+    },
+    "rooms": {
+      "title": "部屋",
+      "description": "教室を追加し、使用不可の繰り返し時間帯をマークします。ブロックされた時間帯はペアリングの部屋グリッドに表示されます。",
+      "deleteRoom": "部屋を削除",
+      "colName": "名前",
+      "colBlackouts": "使用不可期間",
+      "blackoutCount": "{count}件の使用不可期間",
+      "expand": "展開",
+      "collapse": "折りたたむ",
+      "unavailablePeriods": "使用不可期間",
+      "alwaysAvailable": "常時利用可能。",
+      "removePeriod": "期間を削除",
+      "reasonPlaceholder": "理由（任意）",
+      "block": "ブロック",
+      "namePlaceholder": "新しい部屋名",
+      "addRoom": "部屋を追加",
+      "empty": "部屋はまだありません。"
+    },
+    "courses": {
+      "title": "科目とレベル",
+      "subtitle": "生徒が申請できる科目です。レベルは管理者が管理するカタログで、「APスコア対象」とマークされたレベルの科目には、チューター応募時にAP試験スコアを記載できます。",
+      "noLevel": "— レベルなし —",
+      "levels": {
+        "title": "レベル",
+        "description": "科目が属する難易度トラックです。APスコア対象とマークすると、その科目のチューター応募時にAP試験スコアを記載できます。",
+        "apScored": "APスコア対象",
+        "confirmDelete": "レベル「{name}」を削除しますか？そのレベルの科目は残りますが、レベルの紐付けが外れます。",
+        "remove": "削除",
+        "addPlaceholder": "レベルを追加（例：Honors）",
+        "add": "レベルを追加"
+      },
+      "add": {
+        "namePlaceholder": "新しい科目名",
+        "submit": "科目を追加"
+      },
+      "import": {
+        "importing": "インポート中…",
+        "upload": "CSVをアップロード",
+        "result": "{received} 件中 {created} 件をインポートしました（重複はスキップ）。",
+        "empty": "そのファイルに科目行が見つかりませんでした。",
+        "formatPrefix": "CSV形式：1行に1科目を",
+        "formatSuffix": "（レベルは名前で照合。ヘッダー行は任意）。"
+      },
+      "batch": {
+        "selected": "{count} 件選択中",
+        "setLevel": "レベルを設定",
+        "activate": "有効化",
+        "deactivate": "無効化",
+        "clear": "クリア"
+      },
+      "table": {
+        "name": "名前",
+        "level": "レベル",
+        "active": "有効",
+        "noLevelShort": "—",
+        "delete": "削除",
+        "empty": "科目はまだありません。"
+      }
+    },
+    "announcements": {
+      "title": "お知らせ",
+      "subtitle": "チューターへの一斉通知。各お知らせは閉じるまでダッシュボードに表示され、ピン留めされたものは常時表示されます。",
+      "empty": "お知らせはまだありません。",
+      "badge": {
+        "pinned": "ピン留め",
+        "active": "有効",
+        "inactive": "無効"
+      },
+      "card": {
+        "save": "保存",
+        "pin": "ピン留め",
+        "unpin": "ピン留め解除",
+        "deactivate": "無効化",
+        "reactivate": "再有効化",
+        "dismissed": "{count} 件閉じられました",
+        "confirmDelete": "このお知らせを削除しますか？",
+        "delete": "削除"
+      },
+      "new": {
+        "title": "新しいお知らせ",
+        "titlePlaceholder": "タイトル",
+        "messagePlaceholder": "メッセージ…",
+        "pinLabel": "ピン留めする（閉じた後も表示）",
+        "posting": "投稿中…",
+        "broadcast": "一斉送信"
+      }
+    },
+    "policies": {
+      "title": "ポリシー文書",
+      "subtitle": "チューターと生徒のハンドブックを編集します。Markdown形式で記述し、保存したものが正式版です。",
+      "loading": "読み込み中…",
+      "empty": "ポリシー文書はまだありません。シードを実行して作成してください。",
+      "languageLabel": "言語",
+      "history": "バージョン履歴",
+      "historyEmpty": "以前のバージョンはまだありません。",
+      "archivedOn": "{date}にアーカイブ",
+      "viewArchived": "表示",
+      "defaultBadge": "デフォルト",
+      "addLanguage": "言語を追加…",
+      "removeLanguage": "この言語を削除",
+      "discardLanguage": "破棄",
+      "confirmRemoveLanguage": "このポリシーの {lang} 版を削除しますか？バージョン履歴にアーカイブされます。",
+      "editor": {
+        "versionPlaceholder": "バージョン",
+        "titlePlaceholder": "文書タイトル",
+        "bodyPlaceholder": "Markdownでポリシーを記述…",
+        "notTranslated": "まだ翻訳されていません",
+        "notTranslatedShort": "未翻訳",
+        "slugLabel": "スラッグ",
+        "lastEdited": "· Markdown · 最終編集 {date}",
+        "editedBy": "{who}による編集",
+        "saving": "保存中…",
+        "save": "保存",
+        "saved": "保存しました。"
+      }
+    },
+    "adjustments": {
+      "title": "チューター時間調整",
+      "subtitle": "特定の月のチューターに追加時間を付与するか、減算（罰則）を適用します。（生徒のイエロー・レッドカードは生徒指導ページにあります。）",
+      "form": {
+        "tutorPlaceholder": "チューター…",
+        "typeExtra": "追加（＋）",
+        "typePunishment": "罰則（−）",
+        "reasonPlaceholder": "理由（任意）",
+        "add": "追加"
+      },
+      "typeLabel": {
+        "EXTRA": "追加",
+        "PUNISHMENT": "罰則"
+      },
+      "table": {
+        "tutor": "チューター",
+        "month": "月",
+        "type": "種類",
+        "amount": "時間数",
+        "reason": "理由",
+        "delete": "削除"
+      }
+    },
+    "applications": {
+      "title": "チューター応募",
+      "intro": "応募者を審査し、{n}名の面接パネルを割り当てます（代表を1名指定）。行をクリックして展開できます。代表が面接の日程を設定し、自分のダッシュボードから結果を記録します。",
+      "empty": "応募はまだありません。",
+      "status": {
+        "PENDING": "保留中",
+        "INTERVIEW": "面接中",
+        "ACCEPTED": "合格",
+        "REJECTED": "不合格"
+      },
+      "noCourses": "科目なし",
+      "panelSummary": "パネル {n}/{total}",
+      "votesSummary": "投票 {accepts}/{total}",
+      "accept": "合格",
+      "reject": "不合格",
+      "delete": "削除",
+      "confirmDelete": "{name}の応募を削除しますか？",
+      "reach": "連絡先：{contact}",
+      "na": "なし",
+      "qual": {
+        "took": "受講済み（評価：{grade}）",
+        "ap": "AP {score}",
+        "selfStudied": "独学：{note}"
+      },
+      "noQualification": "資格情報なし",
+      "panelHeading": "面接パネル（{n}名を選択し、代表を1名指定）",
+      "scheduled": "予定日時：{when}（代表が設定）",
+      "panelistSlot": "— 審査員 {n} —",
+      "head": "代表",
+      "saving": "保存中…",
+      "savePanel": "パネルを保存",
+      "saved": "保存しました。",
+      "pickHint": "{n}名のチューターと代表を選んでください。",
+      "votesDecisionHeading": "投票と判定",
+      "voteTally": "{accepts} 合格 · {rejects} 不合格",
+      "noVotes": "まだ投票がありません。",
+      "decision": "判定：「{comment}」",
+      "decidedByHead": "{name}（代表）",
+      "setupAccount": "アカウントをセットアップ →"
+    },
+    "cards": {
+      "title": "生徒指導",
+      "intro": "生徒に発行されたイエロー・レッドカード。チューターが申請したカードを確認し、有効または無効にマークしてください。有効なカードのみが対象です（イエロー3枚＝レッド1枚、レッド2枚＝退出保留）。",
+      "autoIssued": "自動発行",
+      "issuedBy": "{name}による",
+      "tutor": "チューター",
+      "auto": "自動",
+      "reviewNotePlaceholder": "確認メモ（任意）",
+      "valid": "有効",
+      "invalid": "無効",
+      "pendingReview": "確認待ち",
+      "nothingPending": "確認待ちの内容はありません。",
+      "standingHeading": "生徒の状況",
+      "standingHelp": "🟥は3枠、🟨は1枠を占めます（有効なカードのみ）。6枠すべてで退出保留。名前をクリックするとカードの詳細を表示します。",
+      "standing": {
+        "removalPending": "退出保留",
+        "onWarning": "警告中",
+        "ok": "問題なし"
+      },
+      "pendingCount": "{n}件 確認待ち",
+      "reviewStatus": {
+        "PENDING": "保留中",
+        "VALID": "有効",
+        "INVALID": "無効"
+      },
+      "noCardsOnRecord": "カードの記録はありません。",
+      "historyHeading": "カード履歴",
+      "table": {
+        "date": "日付",
+        "tutee": "生徒",
+        "card": "カード",
+        "reason": "理由",
+        "source": "発行元",
+        "status": "ステータス"
+      },
+      "tableEmpty": "カードはまだありません。"
+    }
+  },
+  "tutor": {
+    "nav": {
+      "handbook": "ハンドブック"
+    },
+    "handbook": {
+      "empty": "ハンドブックはまだ公開されていません。"
+    },
+    "status": {
+      "ACTIVE": "有効",
+      "GRADUATED": "卒業済み",
+      "OPTED_OUT": "離脱済み",
+      "ARCHIVED": "アーカイブ済み"
+    },
+    "attendance": {
+      "loading": "ペアリングを読み込み中…",
+      "noPairings": "まだペアリングがありません。管理者に設定を依頼してください。",
+      "pairing": "ペアリング",
+      "selectPairing": "ペアリングを選択…",
+      "mergeTitle": "他のセッションをこのブロックに統合",
+      "mergeHelp": "複数の科目を同じ時間帯に行いますか？同じ時間ブロックでカバーした他のペアリングにチェックを入れてください。各セッションは個別に記録されますが、ブロックの奉仕時間は1回のみカウントされます。",
+      "mergedNote": "統合されたセッションはこのブロックの時間と評価を共有します。時間は主セッションに付与されます。",
+      "mergedCount": "{count}件の他のセッションがこのブロックに統合されています（マイペアリングで設定）。",
+      "date": "日付",
+      "today": "今日",
+      "tutorStatus": "チューターのステータス",
+      "tutorStatusOpt": {
+        "PRESENT": "出席",
+        "RESCHEDULED": "振り替え",
+        "EXTRA": "追加セッション",
+        "TUTOR_ABSENT": "チューター欠席"
+      },
+      "tutorAbsentReason": "チューター欠席の理由 *",
+      "start": "開始",
+      "end": "終了",
+      "now": "現在",
+      "tuteeAttendance": "生徒の出席",
+      "tuteeStatusOpt": {
+        "PRESENT": "出席",
+        "EXCUSED_ABSENT": "公欠",
+        "UNEXCUSED_ABSENT": "無断欠席"
+      },
+      "reasonRequired": "理由（必須）",
+      "ratings": "評価 *",
+      "rating": {
+        "ratingPreparedness": "準備",
+        "ratingParticipation": "参加",
+        "ratingUnderstanding": "理解",
+        "ratingBehavior": "態度",
+        "ratingProgress": "進捗"
+      },
+      "likert": {
+        "1": "不良",
+        "2": "普通",
+        "3": "良い",
+        "4": "とても良い",
+        "5": "優秀"
+      },
+      "comments": "コメント *",
+      "cardsTitle": "指導カード（任意）",
+      "cardsHelp": "簡単な理由とともにイエローまたはレッドカードを発行します。チームが確認してからカウントされます。（無断欠席には自動的にレッドカードが発行されます。）",
+      "noCard": "カードなし",
+      "yellow": "イエロー",
+      "red": "レッド",
+      "submit": "出席を提出",
+      "submitting": "提出中…",
+      "saved": "保存しました。",
+      "submitAnother": "別の出席を提出",
+      "errors": {
+        "absenceReason": "チューター欠席の理由を入力してください。",
+        "excusedReason": "各公欠の理由を入力してください。",
+        "ratingsRequired": "開催されたセッションには評価が必要です。",
+        "cardReason": "発行する各カードに理由を追加してください。"
+      }
+    },
+    "pairings": {
+      "loading": "読み込み中…",
+      "empty": "ペアリングはまだありません。コーディネーターが生徒を割り当てます。",
+      "tutees": "生徒：{names}",
+      "noTuteesYet": "まだいません",
+      "room": " · 部屋 {room}",
+      "noRoom": " · 部屋未割り当て",
+      "defaultSlotLabel": "デフォルトタイムスロット：",
+      "notSet": "— 未設定 —",
+      "mergeTitle": "セッションを統合",
+      "mergeHelp": "1つのブロックでまとめて行いますか？出席フォームで選択したセッションに同時に行うセッションをチェックしてください。各セッションは個別に記録されますが、ブロックの奉仕時間は1回のみカウントされます。",
+      "mergeSelectPrimary": "出席フォームでセッションを選択して、他のセッションを統合してください。",
+      "mergeNone": "選択したセッションと生徒または科目を共有する他のセッションはありません。"
+    },
+    "availability": {
+      "loading": "タイムスロットを読み込み中…",
+      "empty": "まだ公開されているタイムスロットはありません。",
+      "save": "空き時間を保存",
+      "saving": "保存中…",
+      "saved": "保存しました。"
+    },
+    "interviews": {
+      "help": "あなたが審査員を担当する応募者です。デモ後に投票し、代表が最終判定を記録します。",
+      "setTime": "時間を設定",
+      "saving": "保存中…",
+      "saved": "保存しました。",
+      "voteCommentPlaceholder": "投票へのコメント（任意）",
+      "accept": "合格",
+      "reject": "不合格",
+      "yourVote": "あなたの投票：{vote}",
+      "voteAccept": "合格",
+      "voteReject": "不合格",
+      "headDecision": "代表の判定",
+      "majorityAccept": "合格",
+      "majorityReject": "不合格",
+      "majorityAcceptHeadTie": "合格（代表が同票を決定）",
+      "majorityRejectHeadTie": "不合格（代表が同票を決定）",
+      "majorityTie": "同票 — 決定票を投じてください",
+      "tally": "集計：{accepts} 合格 · {rejects} 不合格（多数決：{majority}）。簡単なコメントとともに最終判定を記録してください。",
+      "decisionCommentPlaceholder": "判定へのコメント（必須）",
+      "approve": "承認",
+      "statusAccepted": "合格",
+      "statusRejected": "不合格",
+      "youAreHead": "あなたは代表です",
+      "taken": "受講済み",
+      "notTaken": "未受講",
+      "panel": "パネル：{members}",
+      "headSuffix": "（代表）",
+      "scheduled": "予定日時：{time}",
+      "awaitingSchedule": "代表が日程を設定するのを待っています。"
+    },
+    "announcements": {
+      "label": "お知らせ",
+      "pinned": "ピン留め"
+    },
+    "settings": {
+      "title": "アカウント設定",
+      "subtitle": "個人情報とパスワードを更新します。",
+      "profileHeading": "プロフィール",
+      "name": "氏名",
+      "username": "ユーザー名",
+      "grade": "学年",
+      "gradeHelp": "現在の学年を入力してください（例：留年した場合など）。卒業年はここから算出されます。",
+      "altNames": "別名",
+      "altNamesHelp": "名前の横に表示されます（例：他の言語での名前）。",
+      "email": "連絡先メールアドレス",
+      "emailHelp": "サインインとパスワードリセットのメールが送信されます。",
+      "save": "変更を保存",
+      "saving": "保存中…",
+      "saved": "保存しました。",
+      "passwordHeading": "パスワード",
+      "currentPassword": "現在のパスワード",
+      "newPassword": "新しいパスワード",
+      "confirmPassword": "新しいパスワードを確認",
+      "pwHelp": "8文字以上。",
+      "changePasswordBtn": "パスワードを変更",
+      "changing": "変更中…",
+      "passwordChanged": "パスワードを変更しました。",
+      "pwTooShort": "新しいパスワードは8文字以上にしてください。",
+      "pwMismatch": "新しいパスワードが一致しません。",
+      "membershipHeading": "会員資格",
+      "optOutHelp": "プログラムを退会しますか？離脱申請を提出してください。1週間のクールダウン後に管理者が処理でき、それまで取り消せます。",
+      "optOutReasonPlaceholder": "理由（任意）",
+      "optOutBtn": "離脱を申請",
+      "optOutPending": "離脱を申請しました。{date}以降に管理者が承認できます。それまで取り消せます。",
+      "optOutPendingNoDate": "離脱を申請しました。審査待ちです。",
+      "reentryPending": "復帰を申請しました。管理者の承認待ちです。",
+      "reentryHelp": "プログラムに再参加したいですか？復帰申請を提出すると管理者が審査します。",
+      "reentryBtn": "復帰を申請",
+      "recall": "申請を取り消す",
+      "statusNote": "チューターのステータスは {status} です。読み取り専用アクセスです — 変更は管理者にお問い合わせください。"
+    },
+    "dashboard": {
+      "pending": {
+        "title": "チューターアカウントは承認待ちです",
+        "body": "コーディネーターがまもなくアカウントを有効化します。それまでの間、以下で対応可能なタイムスロットを設定できます。"
+      },
+      "inactive": {
+        "title": "読み取り専用アクセス",
+        "body": "チューターアカウントは {status} です。履歴の閲覧はできますが、出席の提出や新しい生徒の担当はできません。",
+        "reentryHint": "戻りたいですか？アカウント設定から復帰申請を提出してください。"
+      },
+      "availability": {
+        "title": "マイ空き時間",
+        "help": "指導可能なタイムスロットをマークしてください。"
+      },
+      "hours": {
+        "earned": "{earned} h 獲得",
+        "extra": "+ {extra} h 追加",
+        "penalty": "− {penalty} h 減算"
+      }
+    }
+  },
+  "public": {
+    "signup": {
+      "title": "チューターを申請",
+      "intro": "支援が必要な科目と空き時間を教えてください。コーディネーターが申請を確認してチューターとマッチングします。",
+      "term": "現在の学期：{term}",
+      "becomeTutorPrompt": "チューターになりたいですか？",
+      "becomeTutorLink": "チューターに応募",
+      "successTitle": "申請を受け付けました 🎉",
+      "successBody": "ありがとう、{name}。コーディネーターが申請を確認して、チューターとスケジュールについてご連絡します。",
+      "fields": {
+        "fullName": "氏名 *",
+        "gradeLevel": "学年",
+        "email": "メールアドレス",
+        "phone": "電話番号",
+        "preferredContact": "連絡方法 *",
+        "firstChoice": "科目 — 第1希望 *",
+        "secondChoice": "科目 — 第2希望（任意）",
+        "availability": "空き時間 *",
+        "signature": "電子署名 *（氏名を入力）"
+      },
+      "placeholders": {
+        "gradeLevel": "例：10",
+        "preferredContact": "例：555-123-4567にテキスト、またはメール（午後4時以降が最適）",
+        "selectCourse": "科目を選択…",
+        "signature": "氏名"
+      },
+      "options": {
+        "none": "— なし —"
+      },
+      "help": {
+        "preferredContact": "チュータリングのマッチングについて連絡する最適な方法と時間を教えてください。"
+      },
+      "noSlots": "タイムスロットはまだ公開されていません。後でご確認ください。",
+      "agree": "<policy>{appTitle} ポリシー</policy>を読み、遵守することに同意します。",
+      "submit": "申請を提出",
+      "submitting": "提出中…"
+    },
+    "tutorSignup": {
+      "title": "チューターに応募",
+      "intro": "指導したい科目を教えてください。コーディネーターチームがすべての応募を審査し、参加前に面接を行います。",
+      "alreadyTutor": "すでにチューターですか？",
+      "signIn": "サインイン",
+      "successTitle": "応募を受け付けました 🎉",
+      "successBody": "ありがとう、{name}。コーディネーターチームが応募を審査して面接の日程を調整します。{email}にご連絡します。",
+      "fields": {
+        "fullName": "氏名 *",
+        "email": "連絡先メールアドレス *",
+        "preferredContact": "連絡方法 *",
+        "courses": "指導したい科目（最大3つ） *",
+        "course": "科目",
+        "grade": "取得した成績",
+        "apScore": "APスコア",
+        "selfStudyNote": "どのような資格・実績がありますか？"
+      },
+      "placeholders": {
+        "preferredContact": "例：555-123-4567にテキスト、またはメール（午後4時以降が最適）",
+        "selectCourse": "選択…",
+        "grade": "例：A",
+        "apScore": "1〜5",
+        "selfStudyNote": "例：オンライン講座修了、競技成績、ポートフォリオなど…"
+      },
+      "help": {
+        "preferredContact": "応募と面接についての連絡に最適な方法と時間。"
+      },
+      "coursesHelp": "各科目について資格を教えてください：受講済みかどうか、APスコアの有無（AP科目のみ）、独学かどうか。",
+      "qual": {
+        "taken": "この授業を受講しました",
+        "hasApScore": "APスコアを持っています",
+        "selfStudied": "独学でこの科目を学びました"
+      },
+      "remove": "削除",
+      "addCourse": "+ 科目を追加",
+      "agree": "<policy>{appTitle} ポリシー</policy>を読み、遵守することに同意します。",
+      "submit": "応募を提出",
+      "submitting": "提出中…"
+    },
+    "policy": {
+      "mustRead": "同意する前にポリシーを最後まで開いてお読みください。",
+      "scrollPrompt": "続けるには最後までスクロールしてください。",
+      "readPrompt": "最後まで到達しました。",
+      "done": "完了 — 読みました",
+      "close": "閉じる"
+    }
+  },
+  "components": {
+    "notifications": {
+      "title": "通知",
+      "markAllRead": "すべて既読にする",
+      "empty": "まだ通知はありません。"
+    },
+    "signOut": {
+      "label": "サインアウト"
+    },
+    "userMenu": {
+      "settings": "設定",
+      "enterTutor": "チューターエリアへ",
+      "enterAdmin": "管理者エリアへ"
+    },
+    "theme": {
+      "label": "テーマ",
+      "names": {
+        "indigo": "インディゴ",
+        "violet": "バイオレット",
+        "emerald": "エメラルド",
+        "rose": "ローズ",
+        "amber": "アンバー",
+        "sky": "スカイ"
+      }
+    }
+  },
+  "localization": {
+    "title": "翻訳",
+    "navLabel": "翻訳",
+    "subtitle": "各言語のインターフェーステキストを編集します。変更はすぐに反映されます。フィールドをクリアするとデフォルトの文言に戻ります。",
+    "targetLanguage": "編集する言語",
+    "searchLabel": "検索",
+    "search": "キーまたはテキストで検索…",
+    "english": "英語",
+    "reference": "参照：",
+    "overridden": "編集済み",
+    "reset": "リセット",
+    "saved": "保存しました",
+    "loading": "読み込み中…",
+    "empty": "検索に一致する文字列がありません。",
+    "count": "{total} 件中 {shown} 件を表示。",
+    "tooMany": "最初の {max} 件を表示しています。検索で絞り込んでください。",
+    "keysLabel": "キー",
+    "expandAll": "すべて展開",
+    "collapseAll": "すべて折りたたむ",
+    "languagesHeading": "言語",
+    "builtIn": "組み込み",
+    "moveUp": "上に移動",
+    "moveDown": "下に移動",
+    "removeLanguage": "削除",
+    "confirmRemoveLanguage": "{label}を削除しますか？この言語の翻訳はすべて削除されます。",
+    "addLanguageCode": "コード（例：fr）",
+    "addLanguageName": "名前（例：Français）",
+    "addLanguageBtn": "言語を追加",
+    "back": "戻る"
+  }
+}

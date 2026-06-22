@@ -301,7 +301,11 @@ export default function RequestsPage() {
               key={t2.id}
               tutee={t2}
               order={i + 1}
-              tutors={tutors.data ?? []}
+              tutors={(tutors.data ?? []).map((tu) => ({
+                id: tu.id,
+                englishName: tu.englishName,
+                active: tu.status === "ACTIVE",
+              }))}
               workload={workload}
               assigned={assignedByTutee.get(t2.id) ?? new Map()}
               fulfilled={isFulfilled(t2)}

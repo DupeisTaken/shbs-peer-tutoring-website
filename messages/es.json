@@ -22,7 +22,9 @@
       "backToSignIn": "← Volver al inicio de sesión",
       "sent": "Si una cuenta coincide con lo que introdujiste, hemos enviado instrucciones para restablecer la contraseña a su correo de contacto. Revisa tu bandeja de entrada.",
       "sentEmailNote": "El envío de correos aún no está configurado en este entorno; consulta los registros del servidor para ver el enlace de restablecimiento durante el desarrollo local.",
-      "fields": { "identifier": "Usuario o correo" },
+      "fields": {
+        "identifier": "Usuario o correo"
+      },
       "submit": "Enviar enlace de restablecimiento",
       "sending": "Enviando…"
     },
@@ -34,7 +36,10 @@
       "success": "Tu contraseña se ha restablecido. Ya puedes iniciar sesión.",
       "goToSignIn": "Ir al inicio de sesión",
       "yourUsername": "Tu nombre de usuario:",
-      "fields": { "newPassword": "Nueva contraseña", "confirmPassword": "Confirmar nueva contraseña" },
+      "fields": {
+        "newPassword": "Nueva contraseña",
+        "confirmPassword": "Confirmar nueva contraseña"
+      },
       "submit": "Establecer nueva contraseña",
       "saving": "Guardando…"
     },
@@ -54,6 +59,44 @@
       "enable2fa": "Activar la autenticación de dos factores por correo (recomendado). Se enviará un código de un solo uso al iniciar sesión una vez configurado el envío de correos.",
       "submit": "Confirmar y continuar",
       "saving": "Guardando…"
+    },
+    "register": {
+      "title": "Crea tu cuenta",
+      "subtitle": "Usa la clave de seguridad de 6 dígitos que te dio un administrador.",
+      "backToSignIn": "← Volver al inicio de sesión",
+      "step": {
+        "code": {
+          "label": "Clave de seguridad",
+          "help": "Introduce el código de 6 dígitos que te dio un administrador o coordinador.",
+          "submit": "Continuar"
+        },
+        "email": {
+          "label": "Correo electrónico",
+          "placeholder": "you@school.edu",
+          "bound": "Este código está vinculado a esta dirección de correo electrónico.",
+          "send": "Enviar código de verificación",
+          "sent": "Te enviamos un código de 6 dígitos a {email}.",
+          "codeLabel": "Código de verificación",
+          "verify": "Verificar correo electrónico",
+          "resend": "Reenviar código"
+        },
+        "profile": {
+          "firstName": "Nombre",
+          "lastName": "Apellido",
+          "altNames": "Nombre(s) alternativo(s)",
+          "grade": "Curso",
+          "password": "Contraseña",
+          "passwordHint": "Mínimo 8 caracteres.",
+          "confirm": "Confirmar contraseña",
+          "mismatch": "Las contraseñas no coinciden.",
+          "submit": "Crear cuenta"
+        }
+      },
+      "done": {
+        "title": "¡Todo listo!",
+        "body": "Tu cuenta está lista. Inicia sesión con tu correo electrónico o nombre de usuario {username}.",
+        "signIn": "Ir al inicio de sesión"
+      }
     }
   },
   "landing": {
@@ -86,8 +129,12 @@
   "dashboard": {
     "greeting": "Hola, {name}",
     "subtitle": "Registra la asistencia y gestiona tu disponibilidad.",
-    "hours": { "title": "Horas de servicio" },
-    "interviews": { "title": "Entrevistas por realizar" },
+    "hours": {
+      "title": "Horas de servicio"
+    },
+    "interviews": {
+      "title": "Entrevistas por realizar"
+    },
     "pairings": {
       "title": "Mis emparejamientos",
       "help": "Elige el horario predeterminado de cada emparejamiento (igualmente registras las horas reales al enviar la asistencia)."
@@ -161,8 +208,12 @@
         "needEmail": "Agrega un correo primero",
         "linkEmailed": "Correo de configuración enviado. También puedes copiar el enlace de abajo para compartirlo directamente.",
         "linkManual": "Cuenta lista. Comparte este enlace de configuración con el tutor (el correo no está configurado):",
-        "dismiss": "Descartar"
-      }
+        "dismiss": "Descartar",
+        "registered": "Registrado",
+        "setup": "Configuración pendiente",
+        "invited": "Código emitido"
+      },
+      "colStatus": "Estado"
     },
     "tutees": {
       "title": "Lista de estudiantes",
@@ -196,7 +247,11 @@
       "deleteBtn": "Eliminar",
       "emptyTutees": "Aún no hay estudiantes activos.",
       "tbd": "Por definir",
-      "status": { "PENDING": "pendiente", "ACTIVE": "activo", "INACTIVE": "inactivo" }
+      "status": {
+        "PENDING": "pendiente",
+        "ACTIVE": "activo",
+        "INACTIVE": "inactivo"
+      }
     },
     "requests": {
       "title": "Solicitudes de registro (estudiantes)",
@@ -256,7 +311,9 @@
         "rooms": "Aulas",
         "policyDocuments": "Documentos de políticas",
         "auditLog": "Registro de auditoría",
-        "usersRoles": "Usuarios y roles"
+        "usersRoles": "Usuarios y roles",
+        "tutorRequests": "Baja / Reincorporación",
+        "registrationCodes": "Códigos de registro"
       }
     },
     "dashboard": {
@@ -273,7 +330,13 @@
       "recentSubmissions": {
         "title": "Envíos recientes",
         "viewAll": "Ver todos →",
-        "columns": { "date": "Fecha", "tutor": "Tutor", "subject": "Materia", "status": "Estado", "sh": "HS" },
+        "columns": {
+          "date": "Fecha",
+          "tutor": "Tutor",
+          "subject": "Materia",
+          "status": "Estado",
+          "sh": "HS"
+        },
         "empty": "Aún no hay envíos."
       }
     },
@@ -285,18 +348,35 @@
         "pendingSignups": "Registros pendientes",
         "openApplications": "Solicitudes abiertas",
         "cardsToReview": "Tarjetas por revisar",
-        "recentSurveys": "Encuestas recientes"
+        "recentSurveys": "Encuestas recientes",
+        "tutorRequests": "Baja / reincorporación"
       },
       "panels": {
-        "tuteeSignups": { "title": "Solicitudes de registro de estudiantes", "empty": "No hay registros pendientes." },
+        "tuteeSignups": {
+          "title": "Solicitudes de registro de estudiantes",
+          "empty": "No hay registros pendientes."
+        },
         "tutorApplications": {
           "title": "Solicitudes de tutores",
           "empty": "No hay solicitudes abiertas.",
           "votes": "{count} {count, plural, one {voto} other {votos}}",
           "panelists": "{count} {count, plural, one {panelista} other {panelistas}}"
         },
-        "cards": { "title": "Tarjetas de disciplina por revisar", "empty": "Nada por revisar.", "auto": "auto", "tutor": "tutor" },
-        "surveys": { "title": "Encuestas de asistencia recientes", "empty": "Aún no hay encuestas.", "hours": "{hours} h" }
+        "cards": {
+          "title": "Tarjetas de disciplina por revisar",
+          "empty": "Nada por revisar.",
+          "auto": "auto",
+          "tutor": "tutor"
+        },
+        "surveys": {
+          "title": "Encuestas de asistencia recientes",
+          "empty": "Aún no hay encuestas.",
+          "hours": "{hours} h"
+        },
+        "tutorRequests": {
+          "title": "Solicitudes de baja / reincorporación de tutores",
+          "empty": "No hay solicitudes abiertas."
+        }
       }
     },
     "summary": {
@@ -307,7 +387,14 @@
       "monthLabel": "Mes:",
       "clearMonth": "Limpiar",
       "inactive": "(inactivo)",
-      "columns": { "tutor": "Tutor", "sessions": "Sesiones", "earned": "Ganadas", "extras": "Extras", "penalties": "Penalizaciones", "total": "Total" }
+      "columns": {
+        "tutor": "Tutor",
+        "sessions": "Sesiones",
+        "earned": "Ganadas",
+        "extras": "Extras",
+        "penalties": "Penalizaciones",
+        "total": "Total"
+      }
     },
     "history": {
       "title": "Historial del programa",
@@ -319,7 +406,14 @@
       "s2": "S2",
       "inactive": "(inactivo)",
       "noData": "No se registró actividad en este período.",
-      "columns": { "tutor": "Tutor", "sessions": "Sesiones", "earned": "Ganadas", "extras": "Extras", "penalties": "Penalizaciones", "total": "Total" },
+      "columns": {
+        "tutor": "Tutor",
+        "sessions": "Sesiones",
+        "earned": "Ganadas",
+        "extras": "Extras",
+        "penalties": "Penalizaciones",
+        "total": "Total"
+      },
       "totals": {
         "total": "Horas totales",
         "earned": "Ganadas",
@@ -364,7 +458,11 @@
     "audit": {
       "title": "Registro de auditoría",
       "subtitle": "Acciones administrativas recientes. Las reversibles pueden deshacerse aquí; otras tienen una acción inversa manual en su propia página.",
-      "columns": { "when": "Cuándo", "who": "Quién", "action": "Acción" },
+      "columns": {
+        "when": "Cuándo",
+        "who": "Quién",
+        "action": "Acción"
+      },
       "undone": "deshecha",
       "undo": "Deshacer",
       "empty": "Aún no se han registrado acciones."
@@ -373,15 +471,38 @@
       "title": "Usuarios y roles",
       "subtitle": "Gestiona inicios de sesión, roles y la configuración de cuentas de tutores. Los cambios de rol surten efecto en el siguiente inicio de sesión del usuario.",
       "coordinatorHint": "Como coordinador puedes enviar enlaces de configuración y cambiar tu propio acceso de tutoría. Pide a un administrador que cambie los roles.",
-      "columns": { "user": "Usuario", "name": "Nombre", "email": "Correo", "linkedTutor": "Tutor vinculado", "account": "Cuenta", "role": "Rol", "canTutor": "Puede tutorar", "canTranslate": "Traductor" },
-      "roles": { "VIEWER": "Observador (solo lectura)", "TUTOR": "Tutor", "COORDINATOR": "Coordinador", "ADMIN": "Administrador" },
+      "columns": {
+        "user": "Usuario",
+        "name": "Nombre",
+        "email": "Correo",
+        "linkedTutor": "Tutor vinculado",
+        "account": "Cuenta",
+        "role": "Rol",
+        "canTutor": "Puede tutorar",
+        "canTranslate": "Traductor"
+      },
+      "roles": {
+        "VIEWER": "Observador (solo lectura)",
+        "TUTOR": "Tutor",
+        "COORDINATOR": "Coordinador",
+        "ADMIN": "Administrador",
+        "HEAD": "Responsable"
+      },
       "canTutorLabel": "Puede tutorar",
       "canTranslateLabel": "Puede traducir",
       "translateDefault": "Predeterminado",
       "translateDefaultHint": "Los administradores y coordinadores siempre pueden editar las traducciones.",
       "tutorActive": "activo",
       "tutorInactive": "inactivo",
-      "empty": "Aún no hay usuarios ni tutores."
+      "empty": "Aún no hay usuarios ni tutores.",
+      "filters": {
+        "role": "Rol",
+        "status": "Estado del tutor",
+        "account": "Cuenta",
+        "all": "Todos"
+      },
+      "makeHead": "Nombrar responsable",
+      "confirmTransfer": "¿Transferir el liderazgo a {name}? Pasarás a ser administrador."
     },
     "submissions": {
       "title": "Registros de asistencia",
@@ -463,7 +584,10 @@
         "addPlaceholder": "Agregar un nivel (p. ej. Honores)",
         "add": "Agregar nivel"
       },
-      "add": { "namePlaceholder": "Nombre de la nueva materia", "submit": "Agregar materia" },
+      "add": {
+        "namePlaceholder": "Nombre de la nueva materia",
+        "submit": "Agregar materia"
+      },
       "import": {
         "importing": "Importando…",
         "upload": "Subir CSV",
@@ -472,14 +596,31 @@
         "formatPrefix": "Formato CSV: una materia por línea como",
         "formatSuffix": "(el nivel se empareja por nombre; la fila de encabezado es opcional)."
       },
-      "batch": { "selected": "{count} seleccionadas", "setLevel": "Establecer nivel", "activate": "Activar", "deactivate": "Desactivar", "clear": "Limpiar" },
-      "table": { "name": "Nombre", "level": "Nivel", "active": "Activo", "noLevelShort": "—", "delete": "Eliminar", "empty": "Aún no hay materias." }
+      "batch": {
+        "selected": "{count} seleccionadas",
+        "setLevel": "Establecer nivel",
+        "activate": "Activar",
+        "deactivate": "Desactivar",
+        "clear": "Limpiar"
+      },
+      "table": {
+        "name": "Nombre",
+        "level": "Nivel",
+        "active": "Activo",
+        "noLevelShort": "—",
+        "delete": "Eliminar",
+        "empty": "Aún no hay materias."
+      }
     },
     "announcements": {
       "title": "Anuncios",
       "subtitle": "Difundidos a los tutores. Cada uno se muestra en su panel en cada inicio de sesión hasta que lo descarten; los fijados permanecen visibles.",
       "empty": "Aún no hay anuncios.",
-      "badge": { "pinned": "fijado", "active": "activo", "inactive": "inactivo" },
+      "badge": {
+        "pinned": "fijado",
+        "active": "activo",
+        "inactive": "inactivo"
+      },
       "card": {
         "save": "Guardar",
         "pin": "Fijar",
@@ -538,14 +679,29 @@
         "reasonPlaceholder": "Motivo (opcional)",
         "add": "Agregar"
       },
-      "typeLabel": { "EXTRA": "Extra", "PUNISHMENT": "Penalización" },
-      "table": { "tutor": "Tutor", "month": "Mes", "type": "Tipo", "amount": "Cantidad", "reason": "Motivo", "delete": "Eliminar" }
+      "typeLabel": {
+        "EXTRA": "Extra",
+        "PUNISHMENT": "Penalización"
+      },
+      "table": {
+        "tutor": "Tutor",
+        "month": "Mes",
+        "type": "Tipo",
+        "amount": "Cantidad",
+        "reason": "Motivo",
+        "delete": "Eliminar"
+      }
     },
     "applications": {
       "title": "Solicitudes de tutores",
       "intro": "Revisa a los solicitantes y asigna un panel de entrevista de {n} tutores (marca uno como responsable). Haz clic en una fila para expandirla. El responsable programa la entrevista y registra la decisión desde su propio panel.",
       "empty": "Aún no hay solicitudes.",
-      "status": { "PENDING": "pendiente", "INTERVIEW": "entrevista", "ACCEPTED": "aceptada", "REJECTED": "rechazada" },
+      "status": {
+        "PENDING": "pendiente",
+        "INTERVIEW": "entrevista",
+        "ACCEPTED": "aceptada",
+        "REJECTED": "rechazada"
+      },
       "noCourses": "sin materias",
       "panelSummary": "panel {n}/{total}",
       "votesSummary": "votos {accepts}/{total}",
@@ -555,7 +711,11 @@
       "confirmDelete": "¿Eliminar la solicitud de {name}?",
       "reach": "Contacto: {contact}",
       "na": "n/d",
-      "qual": { "took": "tomó la clase ({grade})", "ap": "AP {score}", "selfStudied": "autodidacta: {note}" },
+      "qual": {
+        "took": "tomó la clase ({grade})",
+        "ap": "AP {score}",
+        "selfStudied": "autodidacta: {note}"
+      },
       "noQualification": "no indicó cualificación",
       "panelHeading": "Panel de entrevista (elige {n}, marca uno como responsable)",
       "scheduled": "Programada: {when} (fijada por el responsable)",
@@ -586,18 +746,84 @@
       "nothingPending": "Nada en espera de revisión.",
       "standingHeading": "Situación del estudiante",
       "standingHelp": "🟥 llena 3 casillas, 🟨 llena 1 (solo tarjetas válidas). Un total de 6 = expulsión pendiente. Haz clic en un nombre para ver los detalles de las tarjetas.",
-      "standing": { "removalPending": "expulsión pendiente", "onWarning": "en advertencia", "ok": "ok" },
+      "standing": {
+        "removalPending": "expulsión pendiente",
+        "onWarning": "en advertencia",
+        "ok": "ok"
+      },
       "pendingCount": "{n} pendientes de revisión",
-      "reviewStatus": { "PENDING": "pendiente", "VALID": "válida", "INVALID": "no válida" },
+      "reviewStatus": {
+        "PENDING": "pendiente",
+        "VALID": "válida",
+        "INVALID": "no válida"
+      },
       "noCardsOnRecord": "No hay tarjetas registradas.",
       "historyHeading": "Historial de tarjetas",
-      "table": { "date": "Fecha", "tutee": "Estudiante", "card": "Tarjeta", "reason": "Motivo", "source": "Origen", "status": "Estado" },
+      "table": {
+        "date": "Fecha",
+        "tutee": "Estudiante",
+        "card": "Tarjeta",
+        "reason": "Motivo",
+        "source": "Origen",
+        "status": "Estado"
+      },
       "tableEmpty": "Aún no hay tarjetas."
+    },
+    "tutorStatus": {
+      "ACTIVE": "Activo",
+      "GRADUATED": "Graduado",
+      "OPTED_OUT": "Dado de baja",
+      "ARCHIVED": "Archivado"
+    },
+    "registrationCodes": {
+      "title": "Códigos de registro",
+      "help": "Emite una clave de seguridad de 6 dígitos de un solo uso para que un nuevo tutor se registre por su cuenta. El código se muestra una sola vez — cópialo y entrégalo; nunca se almacena.",
+      "labelField": "Para (etiqueta)",
+      "labelPlaceholder": "p. ej. Jane Doe (G11)",
+      "emailField": "Vincular a correo electrónico (opcional)",
+      "emailPlaceholder": "tutor@school.edu",
+      "issue": "Emitir código",
+      "issuedTitle": "Código de registro para {who}",
+      "issuedHint": "Cópialo ahora — no se volverá a mostrar.",
+      "colFor": "Para",
+      "colEmail": "Correo electrónico",
+      "colIssuedBy": "Emitido por",
+      "colExpires": "Vence",
+      "colStatus": "Estado",
+      "status": {
+        "active": "Activo",
+        "used": "Usado",
+        "expired": "Expirado"
+      },
+      "revoke": "Revocar",
+      "empty": "Aún no hay códigos de registro."
+    },
+    "tutorRequests": {
+      "title": "Solicitudes de baja / reincorporación",
+      "help": "Cambios de membresía iniciados por el tutor. Las solicitudes de baja solo pueden aprobarse tras un período de espera de una semana; la reincorporación es inmediata.",
+      "kind": {
+        "OPT_OUT": "Darse de baja",
+        "REENTRY": "Reincorporación"
+      },
+      "cooldownDone": "Período de espera superado — listo para aprobar",
+      "cooldownUntil": "Aprobable después del {date}",
+      "affected": "{count} {count, plural, one {estudiante} other {estudiantes}} afectado{count, plural, one {} other {s}}",
+      "notYet": "El período de espera de una semana aún no ha transcurrido.",
+      "approve": "Aprobar",
+      "deny": "Rechazar",
+      "empty": "No hay solicitudes abiertas.",
+      "requeuePrompt": "¿Volver a poner en cola {count} {count, plural, one {estudiante} other {estudiantes}} de {name} en la página de registro para reasignación?",
+      "requeueConfirm": "Volver a poner en cola",
+      "requeueDismiss": "Ahora no"
     }
   },
   "tutor": {
-    "nav": { "handbook": "Manual" },
-    "handbook": { "empty": "El manual aún no se ha publicado." },
+    "nav": {
+      "handbook": "Manual"
+    },
+    "handbook": {
+      "empty": "El manual aún no se ha publicado."
+    },
     "attendance": {
       "loading": "Cargando tus emparejamientos…",
       "noPairings": "Aún no tienes emparejamientos. Pide a un administrador que cree uno.",
@@ -610,13 +836,22 @@
       "date": "Fecha",
       "today": "Hoy",
       "tutorStatus": "Estado del tutor",
-      "tutorStatusOpt": { "PRESENT": "Presente", "RESCHEDULED": "Reprogramada", "EXTRA": "Sesión extra", "TUTOR_ABSENT": "Tutor ausente" },
+      "tutorStatusOpt": {
+        "PRESENT": "Presente",
+        "RESCHEDULED": "Reprogramada",
+        "EXTRA": "Sesión extra",
+        "TUTOR_ABSENT": "Tutor ausente"
+      },
       "tutorAbsentReason": "Motivo de la ausencia del tutor *",
       "start": "Inicio",
       "end": "Fin",
       "now": "Ahora",
       "tuteeAttendance": "Asistencia del estudiante",
-      "tuteeStatusOpt": { "PRESENT": "Presente", "EXCUSED_ABSENT": "Ausencia justificada", "UNEXCUSED_ABSENT": "Ausencia injustificada" },
+      "tuteeStatusOpt": {
+        "PRESENT": "Presente",
+        "EXCUSED_ABSENT": "Ausencia justificada",
+        "UNEXCUSED_ABSENT": "Ausencia injustificada"
+      },
       "reasonRequired": "Motivo (obligatorio)",
       "ratings": "Valoraciones *",
       "rating": {
@@ -626,7 +861,13 @@
         "ratingBehavior": "Comportamiento",
         "ratingProgress": "Progreso"
       },
-      "likert": { "1": "Deficiente", "2": "Regular", "3": "Bueno", "4": "Muy bueno", "5": "Excelente" },
+      "likert": {
+        "1": "Deficiente",
+        "2": "Regular",
+        "3": "Bueno",
+        "4": "Muy bueno",
+        "5": "Excelente"
+      },
       "comments": "Comentarios *",
       "cardsTitle": "Tarjetas disciplinarias (opcional)",
       "cardsHelp": "Asigna una tarjeta amarilla o roja con un motivo breve. El equipo revisa cada una antes de que cuente. (Una ausencia injustificada arriba emite automáticamente una tarjeta roja.)",
@@ -695,7 +936,10 @@
       "scheduled": "Programada: {time}",
       "awaitingSchedule": "A la espera de que el responsable fije una hora."
     },
-    "announcements": { "label": "Anuncios", "pinned": "fijado" },
+    "announcements": {
+      "label": "Anuncios",
+      "pinned": "fijado"
+    },
     "settings": {
       "title": "Configuración de la cuenta",
       "subtitle": "Actualiza tu información personal y tu contraseña.",
@@ -719,15 +963,45 @@
       "changing": "Cambiando…",
       "passwordChanged": "Contraseña cambiada.",
       "pwTooShort": "La nueva contraseña debe tener al menos 8 caracteres.",
-      "pwMismatch": "Las nuevas contraseñas no coinciden."
+      "pwMismatch": "Las nuevas contraseñas no coinciden.",
+      "gradeHelp": "Indica tu curso actual (p. ej. si repetiste un año). Tu año de promoción se calcula a partir de este dato.",
+      "membershipHeading": "Membresía",
+      "optOutHelp": "¿Quieres salir del programa? Envía una solicitud de baja. Un administrador podrá procesarla tras un período de espera de una semana, durante el cual puedes cancelarla.",
+      "optOutReasonPlaceholder": "Motivo (opcional)",
+      "optOutBtn": "Solicitar darse de baja",
+      "optOutPending": "Baja solicitada. Un administrador puede aprobarla después del {date}. Puedes cancelarla hasta entonces.",
+      "optOutPendingNoDate": "Baja solicitada y pendiente de revisión.",
+      "reentryPending": "Reincorporación solicitada y pendiente de aprobación por un administrador.",
+      "reentryHelp": "¿Quieres volver al programa? Solicita la reincorporación y un administrador la revisará.",
+      "reentryBtn": "Solicitar reincorporación",
+      "recall": "Cancelar solicitud",
+      "statusNote": "Tu estado como tutor es {status}. Este es acceso de solo lectura — contacta a un administrador para realizar cambios."
     },
     "dashboard": {
       "pending": {
         "title": "Tu cuenta de tutor está pendiente de aprobación",
         "body": "Un coordinador activará tu cuenta en breve. Mientras tanto, puedes marcar abajo los horarios en los que estás disponible."
       },
-      "availability": { "title": "Mi disponibilidad", "help": "Marca los horarios en los que puedes enseñar." },
-      "hours": { "earned": "{earned} ganadas", "extra": "+ {extra} extra", "penalty": "− {penalty} penalización" }
+      "availability": {
+        "title": "Mi disponibilidad",
+        "help": "Marca los horarios en los que puedes enseñar."
+      },
+      "hours": {
+        "earned": "{earned} ganadas",
+        "extra": "+ {extra} extra",
+        "penalty": "− {penalty} penalización"
+      },
+      "inactive": {
+        "title": "Acceso de solo lectura",
+        "body": "Tu cuenta de tutor está {status}. Puedes consultar tu historial, pero no puedes registrar asistencia ni aceptar nuevos estudiantes.",
+        "reentryHint": "¿Quieres volver? Solicita la reincorporación desde la configuración de tu cuenta."
+      }
+    },
+    "status": {
+      "ACTIVE": "Activo",
+      "GRADUATED": "Graduado",
+      "OPTED_OUT": "Dado de baja",
+      "ARCHIVED": "Archivado"
     }
   },
   "public": {
@@ -756,8 +1030,12 @@
         "selectCourse": "Selecciona una materia…",
         "signature": "Tu nombre completo"
       },
-      "options": { "none": "— ninguna —" },
-      "help": { "preferredContact": "Indícanos la mejor forma y hora de contactarte sobre tu emparejamiento de tutoría." },
+      "options": {
+        "none": "— ninguna —"
+      },
+      "help": {
+        "preferredContact": "Indícanos la mejor forma y hora de contactarte sobre tu emparejamiento de tutoría."
+      },
       "noSlots": "Aún no se han publicado horarios. Vuelve más tarde.",
       "agree": "He leído y acepto cumplir la <policy>Política de {appTitle}</policy>.",
       "submit": "Enviar solicitud",
@@ -787,9 +1065,15 @@
         "apScore": "1–5",
         "selfStudyNote": "p. ej. completé un curso en línea, resultados de competencias, portafolio…"
       },
-      "help": { "preferredContact": "La mejor forma y hora de contactarte sobre tu solicitud y entrevista." },
+      "help": {
+        "preferredContact": "La mejor forma y hora de contactarte sobre tu solicitud y entrevista."
+      },
       "coursesHelp": "Para cada una, cuéntanos cómo te cualificas: si has tomado la clase, tienes un puntaje AP (solo materias AP) y/o la has estudiado por tu cuenta.",
-      "qual": { "taken": "He tomado esta clase", "hasApScore": "Tengo un puntaje AP", "selfStudied": "Estudié esta materia por mi cuenta" },
+      "qual": {
+        "taken": "He tomado esta clase",
+        "hasApScore": "Tengo un puntaje AP",
+        "selfStudied": "Estudié esta materia por mi cuenta"
+      },
       "remove": "Quitar",
       "addCourse": "+ Agregar otra materia",
       "agree": "He leído y acepto cumplir la <policy>Política de {appTitle}</policy>.",
@@ -805,8 +1089,14 @@
     }
   },
   "components": {
-    "notifications": { "title": "Notificaciones", "markAllRead": "Marcar todo como leído", "empty": "Nada por ahora." },
-    "signOut": { "label": "Cerrar sesión" },
+    "notifications": {
+      "title": "Notificaciones",
+      "markAllRead": "Marcar todo como leído",
+      "empty": "Nada por ahora."
+    },
+    "signOut": {
+      "label": "Cerrar sesión"
+    },
     "userMenu": {
       "settings": "Configuración",
       "enterTutor": "Entrar al área de tutor",

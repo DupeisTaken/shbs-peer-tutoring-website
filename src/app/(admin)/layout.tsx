@@ -13,7 +13,8 @@ import { ReadOnlyProvider } from "~/app/_components/read-only";
 import { TEAM_TITLE } from "~/lib/branding";
 
 // Roles allowed into the /admin area. VIEWER is read-only (see viewerProcedure + PII masking).
-const ADMIN_AREA_ROLES = ["ADMIN", "COORDINATOR", "VIEWER"];
+// HEAD outranks ADMIN and shares the same admin-area access.
+const ADMIN_AREA_ROLES = ["HEAD", "ADMIN", "COORDINATOR", "VIEWER"];
 
 /**
  * Gates the entire admin section. Requires an elevated role (ADMIN or COORDINATOR).

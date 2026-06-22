@@ -15,25 +15,10 @@ export default async function TutorDashboard() {
   const me = await api.tutor.me();
   const t = await getTranslations();
 
-  // Pending tutors (self-signed-up, not yet activated) get a limited view.
-  if (!me.active) {
-    return (
-      <div className="mx-auto max-w-2xl space-y-6 px-4 py-10">
-        <AnnouncementsBanner />
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-4 text-amber-800">
-          <p className="font-semibold">{t("tutor.dashboard.pending.title")}</p>
-          <p className="mt-1 text-sm">{t("tutor.dashboard.pending.body")}</p>
-        </div>
-        <section className="card p-5">
-          <h2 className="section-title">
-            {t("tutor.dashboard.availability.title")}
-          </h2>
-          <p className="muted mt-1 mb-3">{t("tutor.dashboard.availability.help")}</p>
-          <AvailabilityEditor />
-        </section>
-      </div>
-    );
-  }
+  // Inactive tutors (graduated / opted-out / archived) keep read-only access to their own
+  // history — but no tutoring actions. Mutations are additionally blocked server-side by
+  // `activeTutorProcedure`; this just tailors the UI.
+  const inactive = me.status !== "ACTIVE";
 
   const [total, schedule] = await Promise.all([
     api.tutor.myMonthlyTotal(),
@@ -44,6 +29,20 @@ export default async function TutorDashboard() {
     <div className="mx-auto max-w-5xl space-y-8 px-4 py-8">
       {/* Team announcements — shown on every login until acknowledged. */}
       <AnnouncementsBanner />
+
+      {inactive && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-4 text-amber-800">
+          <p className="font-semibold">{t("tutor.dashboard.inactive.title")}</p>
+          <p className="mt-1 text-sm">
+            {t("tutor.dashboard.inactive.body", {
+              status: t(`tutor.status.${me.status}`),
+            })}
+          </p>
+          {me.status === "OPTED_OUT" && (
+            <p className="mt-2 text-sm">{t("tutor.dashboard.inactive.reentryHint")}</p>
+          )}
+        </div>
+      )}
 
       {/* Header + monthly service-hour earnings */}
       <div className="flex flex-wrap items-end justify-between gap-4">
@@ -70,7 +69,7 @@ export default async function TutorDashboard() {
       </div>
 
       {/* Pending interviews + session-time confirmations (self-hides when none). */}
-      <MyInterviews />
+      {!inactive && <MyInterviews />}
 
       <MergeProvider>
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-5">
@@ -82,21 +81,25 @@ export default async function TutorDashboard() {
               <TutorPairings />
             </section>
 
-            <section className="card p-5">
-              <h2 className="section-title">
-                {t("dashboard.availability.title")}
-              </h2>
-              <p className="muted mt-1 mb-3">{t("dashboard.availability.help")}</p>
-              <AvailabilityEditor />
-            </section>
+            {!inactive && (
+              <section className="card p-5">
+                <h2 className="section-title">
+                  {t("dashboard.availability.title")}
+                </h2>
+                <p className="muted mt-1 mb-3">{t("dashboard.availability.help")}</p>
+                <AvailabilityEditor />
+              </section>
+            )}
           </div>
 
           {/* Attendance form */}
-          <section className="card p-5 lg:col-span-3">
-            <h2 className="section-title">{t("dashboard.attendance.title")}</h2>
-            <p className="muted mt-1 mb-4">{t("dashboard.attendance.help")}</p>
-            <AttendanceForm />
-          </section>
+          {!inactive && (
+            <section className="card p-5 lg:col-span-3">
+              <h2 className="section-title">{t("dashboard.attendance.title")}</h2>
+              <p className="muted mt-1 mb-4">{t("dashboard.attendance.help")}</p>
+              <AttendanceForm />
+            </section>
+          )}
         </div>
       </MergeProvider>
 

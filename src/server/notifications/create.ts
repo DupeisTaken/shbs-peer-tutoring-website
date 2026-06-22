@@ -36,7 +36,7 @@ export async function notifyAdmins(
 ): Promise<void> {
   const admins = await db.user.findMany({
     where: {
-      role: { in: ["ADMIN", "COORDINATOR"] },
+      role: { in: ["HEAD", "ADMIN", "COORDINATOR"] },
       ...(opts?.exclude ? { id: { not: opts.exclude } } : {}),
     },
     select: { id: true },

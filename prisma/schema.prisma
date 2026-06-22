@@ -27,6 +27,9 @@ enum Role {
   TUTOR
   COORDINATOR
   ADMIN
+  /// Leader of the admins (singleton). Outranks ADMIN: the only role that can promote/demote
+  /// admins or transfer leadership. Bootstrapped as the first AUTH_BOOTSTRAP_ADMIN_EMAILS entry.
+  HEAD
 }
 
 model User {
@@ -150,6 +153,17 @@ enum Quarter {
   Q4
 }
 
+/// Lifecycle state of a tutor. ACTIVE tutors are eligible for pairings/attendance; the other
+/// three are "inactive" (read-only program access + own history). GRADUATED is set automatically
+/// when the program advances into Q4 for G12+; OPTED_OUT is set when an approved opt-out request
+/// is processed; ARCHIVED is the generic admin/crew deactivation (e.g. unavailable at rollover).
+enum TutorStatus {
+  ACTIVE
+  GRADUATED
+  OPTED_OUT
+  ARCHIVED
+}
+
 /// Lifecycle of a tutee record. Public self-signups start PENDING and are reviewed by
 /// an admin (who assigns them to a tutor); admins create tutees as ACTIVE directly.
 enum TuteeStatus {
@@ -238,10 +252,12 @@ model Tutor {
   /// Work/school email. Used to link the Tutor to a User account at first sign-in
   /// (User.email is matched against this).
   email       String?  @unique
-  active      Boolean  @default(true)
-  /// School grade (e.g. 9–12). Increments by one when the program refreshes across a school
-  /// year; G12 tutors graduate (archived) at that point. Class-of year is derived from this +
-  /// the active school year. See src/lib/period.ts.
+  /// Lifecycle state (see TutorStatus). ACTIVE = eligible for pairings/attendance; the rest are
+  /// inactive (read-only). Replaces the former `active` boolean.
+  status      TutorStatus @default(ACTIVE)
+  /// School grade (e.g. 9–12), self-reported by the tutor. Increments by one when the program
+  /// refreshes across a school year; G12 tutors graduate at that point. Class-of year is derived
+  /// from this + the active school year (tutors can't edit the derived year). See src/lib/period.ts.
   gradeLevel  Int?
   createdAt   DateTime @default(now())
 
@@ -252,11 +268,93 @@ model Tutor {
   meetingAttendances   MeetingAttendance[]
   availabilities       TutorAvailability[]
   interviewAssignments InterviewAssignment[]
+  statusRequests       TutorStatusRequest[]
+  registrationCodes    RegistrationCode[]
   // Disciplinary cards this tutor issued, interview votes they cast, and applications
   // they decided as head interviewer.
   issuedCards          DisciplinaryCard[]    @relation("CardIssuer")
   interviewVotes       InterviewVote[]
   applicationDecisions TutorApplication[]    @relation("AppDecider")
+
+  @@index([status])
+}
+
+/// A tutor-initiated lifecycle request, reviewed by an admin.
+///   OPT_OUT  — leave the program. A one-week cooldown applies: `eligibleAt` = createdAt + 7d,
+///              and an admin can't approve before then. The tutor may RECALL it during the wait.
+///              On approval the tutor becomes OPTED_OUT (their tutees are re-queued by the admin).
+///   REENTRY  — an OPTED_OUT tutor asks to return. No cooldown; on approval they become ACTIVE.
+/// Exactly one PENDING request per tutor at a time (enforced in the router).
+model TutorStatusRequest {
+  id          String                  @id @default(cuid())
+  tutorId     String
+  tutor       Tutor                   @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  kind        TutorRequestKind
+  state       TutorRequestState       @default(PENDING)
+  reason      String?
+  /// Earliest an admin may approve (opt-out cooldown). Null for reentry (immediate).
+  eligibleAt  DateTime?
+  createdAt   DateTime                @default(now())
+  /// When the request left PENDING (approved / denied / recalled), plus who acted.
+  resolvedAt  DateTime?
+  resolvedById String?
+  resolvedByName String?
+
+  @@index([tutorId])
+  @@index([state])
+}
+
+enum TutorRequestKind {
+  OPT_OUT
+  REENTRY
+}
+
+enum TutorRequestState {
+  PENDING
+  RECALLED
+  APPROVED
+  DENIED
+}
+
+/// A single-use 6-digit code that authorizes someone to self-register a tutor account at
+/// /register. Only the hash is stored. Codes are issued by admins/coordinators (or generated
+/// when a tutor application is ACCEPTED) and handed to the intended person. Optional bindings:
+///   email         — registrant must verify this exact address.
+///   tutorId       — links registration to an existing roster Tutor (instead of creating one).
+///   applicationId — provenance: the accepted application this code was issued for.
+/// `pendingEmail`/`emailCode*` hold the in-progress email-verification step (a separate emailed
+/// 6-digit code the registrant types back); `emailVerifiedAt` is stamped once it's confirmed.
+model RegistrationCode {
+  id            String    @id @default(cuid())
+  codeHash      String    @unique
+  /// Optional binding: the email the registrant must use/verify.
+  email         String?
+  /// Optional link to an existing roster Tutor this registration completes.
+  tutorId       String?
+  tutor         Tutor?    @relation(fields: [tutorId], references: [id], onDelete: SetNull)
+  /// Optional provenance: the accepted TutorApplication that triggered this code.
+  applicationId String?
+  /// Human label for the admin menu, e.g. "for Jane Doe (G11)".
+  label         String?
+  issuedById    String?
+  issuedByName  String?
+  expiresAt     DateTime
+  /// Email-verification sub-state for the in-progress registration.
+  pendingEmail       String?
+  emailCodeHash      String?
+  emailCodeExpiresAt DateTime?
+  emailCodeAttempts  Int       @default(0)
+  emailVerifiedAt    DateTime?
+  /// Consumption: single-use.
+  usedAt        DateTime?
+  usedByUserId  String?
+  /// Verification attempt counter on the registration code itself (rate-limit guard).
+  attempts      Int       @default(0)
+  createdAt     DateTime  @default(now())
+
+  @@index([tutorId])
+  @@index([applicationId])
+  @@index([usedAt])
 }
 
 /// A subject offered for tutoring. The catalog is managed by admins; tutees pick a

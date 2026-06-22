@@ -30,6 +30,13 @@ export default function MeetingsPage() {
   const [selected, setSelected] = useState<string | null>(null);
   const [showSummary, setShowSummary] = useState(false);
 
+  // Meeting attendance only concerns ACTIVE tutors; the rest show as exempt (X).
+  const tutorOpts = (tutors.data ?? []).map((tu) => ({
+    id: tu.id,
+    englishName: tu.englishName,
+    active: tu.status === "ACTIVE",
+  }));
+
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
@@ -40,7 +47,7 @@ export default function MeetingsPage() {
       </div>
 
       {showSummary && (
-        <MeetingSummary meetings={meetings.data ?? []} tutors={tutors.data ?? []} />
+        <MeetingSummary meetings={meetings.data ?? []} tutors={tutorOpts} />
       )}
 
       {!readOnly && (
@@ -100,7 +107,7 @@ export default function MeetingsPage() {
                 <AttendanceEditor
                   meetingId={m.id}
                   readOnly={readOnly}
-                  tutors={tutors.data ?? []}
+                  tutors={tutorOpts}
                   current={Object.fromEntries(
                     m.attendances.map((a) => [a.tutorId, a.status]),
                   )}

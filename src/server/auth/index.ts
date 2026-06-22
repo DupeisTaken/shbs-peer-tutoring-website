@@ -76,28 +76,46 @@ const {
      */
     async jwt({ token, user }) {
       if (user?.id) {
-        const email = user.email ?? token.email ?? null;
+        const email = (user.email ?? token.email ?? null)?.toLowerCase() ?? null;
 
         // Link to the domain Tutor record by email (admins set Tutor.email).
         let tutorId: string | null = null;
         if (email) {
           const tutor = await db.tutor.findUnique({
-            where: { email: email.toLowerCase() },
+            where: { email },
             select: { id: true },
           });
           tutorId = tutor?.id ?? null;
         }
 
-        const isBootstrapAdmin = email
-          ? bootstrapAdminEmails().includes(email.toLowerCase())
-          : false;
+        // Bootstrap roles. The FIRST email in AUTH_BOOTSTRAP_ADMIN_EMAILS is the designated HEAD
+        // (singleton leader); the rest are ADMIN. Grants only ever ELEVATE — never demote — so a
+        // head whose leadership was transferred away (and is now ADMIN) isn't knocked back up, and
+        // a transferred head isn't reset to ADMIN. The designated head reclaims HEAD only when no
+        // HEAD exists at all (initial setup, or recovery if the head account was deleted).
+        const emails = bootstrapAdminEmails();
+        const isBootstrapAdmin = email ? emails.includes(email) : false;
+        const isDesignatedHead = email ? emails[0] === email : false;
+
+        let roleBump: "HEAD" | "ADMIN" | undefined;
+        if (isBootstrapAdmin) {
+          const [current, headCount] = await Promise.all([
+            db.user.findUnique({ where: { id: user.id }, select: { role: true } }),
+            db.user.count({ where: { role: "HEAD" } }),
+          ]);
+          if (isDesignatedHead && headCount === 0) {
+            roleBump = "HEAD";
+          } else if (current && current.role !== "HEAD" && current.role !== "ADMIN") {
+            roleBump = "ADMIN";
+          }
+        }
 
         // Persist the linkage/role bump so the admin UI can manage them later.
         const dbUser = await db.user.update({
           where: { id: user.id },
           data: {
             ...(tutorId ? { tutorId } : {}),
-            ...(isBootstrapAdmin ? { role: "ADMIN" } : {}),
+            ...(roleBump ? { role: roleBump } : {}),
           },
           select: { id: true, role: true, tutorId: true },
         });

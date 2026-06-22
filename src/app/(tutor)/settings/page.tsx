@@ -9,19 +9,34 @@ export default function SettingsPage() {
   const t = useTranslations();
   const utils = api.useUtils();
   const profile = api.tutor.myProfile.useQuery();
+  const me = api.tutor.me.useQuery();
+  const statusReq = api.tutor.myStatusRequest.useQuery();
 
   const updateProfile = api.tutor.updateProfile.useMutation({
     onSuccess: () => utils.tutor.myProfile.invalidate(),
   });
   const changePassword = api.tutor.changePassword.useMutation();
 
+  const refreshMembership = async () => {
+    await Promise.all([
+      utils.tutor.me.invalidate(),
+      utils.tutor.myStatusRequest.invalidate(),
+    ]);
+  };
+  const optOut = api.tutor.requestOptOut.useMutation({ onSuccess: refreshMembership });
+  const reentry = api.tutor.requestReentry.useMutation({ onSuccess: refreshMembership });
+  const recall = api.tutor.recallStatusRequest.useMutation({ onSuccess: refreshMembership });
+
   // Profile form — seeded from the loaded profile.
   const [altNames, setAltNames] = useState("");
   const [email, setEmail] = useState("");
+  const [grade, setGrade] = useState("");
+  const [optOutReason, setOptOutReason] = useState("");
   useEffect(() => {
     if (profile.data) {
       setAltNames(profile.data.alternativeNames ?? "");
       setEmail(profile.data.email ?? "");
+      setGrade(profile.data.gradeLevel != null ? String(profile.data.gradeLevel) : "");
     }
   }, [profile.data]);
 
@@ -75,13 +90,20 @@ export default function SettingsPage() {
               {profile.data?.username ? `@${profile.data.username}` : "—"}
             </p>
           </div>
-          <div>
-            <p className="label">{t("tutor.settings.grade")}</p>
-            <p className="mt-1 text-slate-800">
-              {profile.data?.gradeLevel != null ? `G${profile.data.gradeLevel}` : "—"}
-            </p>
-          </div>
         </div>
+
+        <label className="block space-y-1">
+          <span className="label">{t("tutor.settings.grade")}</span>
+          <input
+            value={grade}
+            onChange={(e) => setGrade(e.target.value)}
+            type="number"
+            min={6}
+            max={12}
+            className="input field-auto min-w-20"
+          />
+          <span className="muted text-xs">{t("tutor.settings.gradeHelp")}</span>
+        </label>
 
         <label className="block space-y-1">
           <span className="label">{t("tutor.settings.altNames")}</span>
@@ -114,6 +136,7 @@ export default function SettingsPage() {
               updateProfile.mutate({
                 alternativeNames: altNames.trim() || null,
                 email: email.trim() || undefined,
+                gradeLevel: grade.trim() ? Number(grade) : null,
               })
             }
           >
@@ -184,6 +207,74 @@ export default function SettingsPage() {
             </span>
           )}
         </div>
+      </section>
+
+      {/* Membership — opt-out / reentry */}
+      <section className="card space-y-4 p-5">
+        <h2 className="section-title">{t("tutor.settings.membershipHeading")}</h2>
+
+        {statusReq.data ? (
+          // There's an open request — show its state + a recall control.
+          <div className="space-y-3">
+            <p className="text-sm text-slate-700">
+              {statusReq.data.kind === "OPT_OUT"
+                ? statusReq.data.eligibleAt
+                  ? t("tutor.settings.optOutPending", {
+                      date: new Date(statusReq.data.eligibleAt).toLocaleDateString(),
+                    })
+                  : t("tutor.settings.optOutPendingNoDate")
+                : t("tutor.settings.reentryPending")}
+            </p>
+            <button
+              className="btn-secondary"
+              disabled={recall.isPending}
+              onClick={() => recall.mutate({ requestId: statusReq.data!.id })}
+            >
+              {t("tutor.settings.recall")}
+            </button>
+            {recall.error && <p className="text-sm text-red-600">{recall.error.message}</p>}
+          </div>
+        ) : me.data?.status === "ACTIVE" ? (
+          // Active tutor — offer opt-out (with optional reason).
+          <div className="space-y-3">
+            <p className="muted text-sm">{t("tutor.settings.optOutHelp")}</p>
+            <textarea
+              value={optOutReason}
+              onChange={(e) => setOptOutReason(e.target.value)}
+              placeholder={t("tutor.settings.optOutReasonPlaceholder")}
+              className="textarea w-full"
+              rows={2}
+            />
+            <button
+              className="btn-secondary"
+              disabled={optOut.isPending}
+              onClick={() => optOut.mutate({ reason: optOutReason.trim() || undefined })}
+            >
+              {t("tutor.settings.optOutBtn")}
+            </button>
+            {optOut.error && <p className="text-sm text-red-600">{optOut.error.message}</p>}
+          </div>
+        ) : me.data?.status === "OPTED_OUT" ? (
+          // Opted out — offer reentry.
+          <div className="space-y-3">
+            <p className="muted text-sm">{t("tutor.settings.reentryHelp")}</p>
+            <button
+              className="btn-primary"
+              disabled={reentry.isPending}
+              onClick={() => reentry.mutate({})}
+            >
+              {t("tutor.settings.reentryBtn")}
+            </button>
+            {reentry.error && <p className="text-sm text-red-600">{reentry.error.message}</p>}
+          </div>
+        ) : (
+          // Graduated / archived — informational only.
+          <p className="muted text-sm">
+            {t("tutor.settings.statusNote", {
+              status: me.data ? t(`tutor.status.${me.data.status}`) : "",
+            })}
+          </p>
+        )}
       </section>
     </main>
   );

@@ -18,6 +18,7 @@ export default function ActivityPage() {
   const apps = api.admin.tutorApplications.useQuery();
   const cards = api.admin.disciplinaryCards.useQuery();
   const sessions = api.admin.sessions.useQuery();
+  const tutorRequests = api.admin.tutorRequests.useQuery();
 
   const pendingTutees = (tutees.data ?? [])
     .filter((t) => t.status === "PENDING")
@@ -27,6 +28,7 @@ export default function ActivityPage() {
   );
   const pendingCards = (cards.data ?? []).filter((c) => c.reviewStatus === "PENDING");
   const recentSessions = (sessions.data ?? []).slice(0, 10);
+  const openRequests = tutorRequests.data ?? [];
 
   return (
     <div className="space-y-8">
@@ -40,6 +42,11 @@ export default function ActivityPage() {
         <Counter label={t("admin.activity.counters.pendingSignups")} value={pendingTutees.length} href="/admin/requests" />
         <Counter label={t("admin.activity.counters.openApplications")} value={openApps.length} href="/admin/applications" />
         <Counter label={t("admin.activity.counters.cardsToReview")} value={pendingCards.length} href="/admin/discipline" />
+        <Counter
+          label={t("admin.activity.counters.tutorRequests")}
+          value={openRequests.length}
+          href="/admin/tutor-requests"
+        />
         <Counter
           label={t("admin.activity.counters.recentSurveys")}
           value={recentSessions.length}
@@ -82,6 +89,32 @@ export default function ActivityPage() {
             </span>
             <span className="muted ml-auto text-xs">
               {t("admin.activity.panels.tutorApplications.panelists", { count: a.interviewers.length })}
+            </span>
+          </Row>
+        ))}
+      </Panel>
+
+      {/* Tutor lifecycle requests (opt-out / reentry) */}
+      <Panel
+        title={t("admin.activity.panels.tutorRequests.title")}
+        href="/admin/tutor-requests"
+        empty={t("admin.activity.panels.tutorRequests.empty")}
+        manageLabel={t("admin.activity.manage")}
+      >
+        {openRequests.map((r) => (
+          <Row key={r.id}>
+            <span className="font-medium text-slate-800">{r.tutor.englishName}</span>
+            <span className={r.kind === "OPT_OUT" ? "badge-amber" : "badge-green"}>
+              {t(`admin.tutorRequests.kind.${r.kind}`)}
+            </span>
+            <span className="muted ml-auto text-xs">
+              {r.approvable
+                ? t("admin.tutorRequests.cooldownDone")
+                : r.eligibleAt
+                  ? t("admin.tutorRequests.cooldownUntil", {
+                      date: new Date(r.eligibleAt).toLocaleDateString(),
+                    })
+                  : ""}
             </span>
           </Row>
         ))}

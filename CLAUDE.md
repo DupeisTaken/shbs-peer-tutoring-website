@@ -68,17 +68,23 @@ your changes (`generated/prisma/`) and move on.
   `server`, public vars to `client` (must be `NEXT_PUBLIC_*`), and wire **both** into
   `runtimeEnv`. Give defaults so the app runs unconfigured.
 - **API is tRPC** under `src/server/api/routers/` (`tutor`, `tutee`, `admin`,
-  `application`). Use the right procedure: `publicProcedure`, `adminProcedure` (write; ADMIN/
-  COORDINATOR), `adminOnlyProcedure` (strictly ADMIN), or **`viewerProcedure`** for admin
-  **reads** — it also admits the read-only `VIEWER` role and masks PII (emails / phone /
-  preferred contact) in the result for viewers. Keep admin queries on `viewerProcedure` and admin
-  mutations on `adminProcedure` so VIEWER can browse but never write. Routers enforce
-  role/ownership server-side; `src/middleware.ts` (Edge) gates routes. **Users & Roles
-  (`/admin/users`)** is reachable by ADMIN **and COORDINATOR** (nav `elevatedOnly`, not VIEWER); it
-  lists every login **plus** admin-created tutors without one (the `accounts` query). Account setup
-  (invite/resend setup links, login status) lives here in its own **Account** column — moved off
-  `/admin/tutors` (the linked-tutor column shows class-of + active). Coordinators may only **send links** and toggle **their own** "can tutor"
-  (`setUserCanTutor` self-checks); role changes stay `adminOnlyProcedure`.
+  `application`, `registration`). **Role hierarchy: `HEAD` > `ADMIN` > `COORDINATOR` > `TUTOR` >
+  `VIEWER`.** Use the right procedure: `publicProcedure`, `adminProcedure` (write; HEAD/ADMIN/
+  COORDINATOR), `adminOnlyProcedure` (the **admin tier** — HEAD or ADMIN, e.g. role changes /
+  program refresh / hour adjustments), **`headProcedure`** (strictly the singleton HEAD — manages
+  the admin roster + leadership transfer), or **`viewerProcedure`** for admin **reads** — it also
+  admits the read-only `VIEWER` role and masks PII (emails / phone / preferred contact) in the
+  result for viewers. Tutor mutations that require an active membership go on
+  **`activeTutorProcedure`** (a `tutorProcedure` that also asserts `Tutor.status === "ACTIVE"`), so
+  inactive tutors keep read-only access but can't act. Keep admin queries on `viewerProcedure` and
+  admin mutations on `adminProcedure` so VIEWER can browse but never write. Routers enforce
+  role/ownership server-side; `src/middleware.ts` (Edge) gates auth, the `(admin)` layout gates
+  role. **Users & Roles (`/admin/users`)** is reachable by the elevated roles (HEAD/ADMIN/
+  COORDINATOR, not VIEWER); it lists every login **plus** admin-created tutors without one (the
+  `accounts` query), with **filters** (role / tutor status / account state). Only HEAD may
+  promote/demote ADMINs or **transfer leadership** (`transferHead` — outgoing head → ADMIN, kept
+  to exactly one head so the program is never leaderless). Coordinators may only **send links** and
+  toggle **their own** "can tutor" (`setUserCanTutor` self-checks).
 - **Service-hour math lives in `src/lib/service-hours.ts`** — pure and unit-tested. It's
   the single source of truth; change hour logic there, not in routers. Hour **deductions**
   (and bonuses) are `ServiceHourAdjustment` rows (PUNISHMENT/EXTRA), summed into monthly totals.
@@ -116,8 +122,21 @@ or actions:
    then, ensure a manual revert path exists and document it.
 3. **Unified status surface.** `/admin/activity` is the single pane of glass — the live status
    of every request type (tutee signups, tutor applications, interview decisions, discipline
-   cards, attendance surveys). When you add a new request/queue, surface its count + items
-   there too, each linking to the page that actions it.
+   cards, attendance surveys, **opt-out / reentry**). When you add a new request/queue, surface its
+   count + items there too, each linking to the page that actions it.
+4. **Explicit, reversible lifecycles — and no foot-guns.** Model a record's life as a **named
+   status enum**, never a bare boolean: every state is nameable, filterable, and visible (graduated
+   ≠ opted-out ≠ archived). **Member-initiated changes are gated, recallable, and reviewed** — a
+   tutor's opt-out waits out a cooldown they can recall, then an admin approves with the downstream
+   fallout (orphaned tutees) surfaced for action, not left dangling. And **preserve no-lockout
+   invariants**: exactly one active `Term`, exactly one `HEAD` (transfer is atomic demote+promote),
+   privilege grants only ever elevate. **Self-describing > implicit:** prefer a status transition or
+   an explicit request row over a flag whose meaning you have to infer.
+
+**Core philosophy (the throughline):** the admin area is a *complete, honest, reversible mirror* of
+program reality — nothing happens in the DB that an admin can't see, undo, and understand the
+consequences of. Computation that produces those views (hours, standings, aggregates) lives in the
+**backend** (`src/lib/*` + Postgres `GROUP BY`), never recomputed ad-hoc in the client.
 
 Process requests earliest-first where a queue exists (e.g. tutee signups are ordered by
 submission time). See the `admin-philosophies` memory for the rationale.
@@ -126,9 +145,17 @@ submission time). See the `admin-philosophies` memory for the rationale.
 
 - **Public forms never create logins.** `/signup` (tutee) and `/tutor-signup` (tutor
   application) create only `PENDING` `Tutee` / `TutorApplication` records for an admin to
-  review. User accounts are made by the seed or by an admin.
+  review. The one public page that *does* create a login is **`/register`**, and only after the
+  visitor proves an **admin-issued single-use registration code** plus an emailed email-verification
+  code — so account creation is still gated by an admin, never open self-service.
+- **Registration codes are low-entropy secrets — protect them accordingly.** The 6-digit code is
+  stored only as a keyed **HMAC** (`AUTH_SECRET`), never plaintext, so a DB leak can't be brute-forced
+  offline. Codes are **single-use**, expire, and every `/register` step is **rate-limited** (per IP +
+  per code, `src/server/rate-limit.ts`). Keep these guards when touching the flow.
 - **Never accept `role` or status from public input.** Roles live on `User.role`, carried
-  in the JWT. Bootstrap admins come only from `AUTH_BOOTSTRAP_ADMIN_EMAILS`.
+  in the JWT. The first `AUTH_BOOTSTRAP_ADMIN_EMAILS` entry resolves to the singleton **HEAD**, the
+  rest to `ADMIN` — grants only ever **elevate** (a transferred head is never silently demoted).
+  HEAD is otherwise set only via `transferHead`.
 - Passwords are hashed with scrypt (`src/server/auth/password.ts`). The dev seed password
   is for local use only — never in production.
 - Sign-in accepts **username or email** + password — the identifier is matched against
@@ -146,22 +173,38 @@ submission time). See the `admin-philosophies` memory for the rationale.
   canonical "First Last" display name), a unique `username` auto-derived as first-initial
   + last name + **2-digit graduation year** (`jsmith` class of 2027 → `jsmith27`), and a
   `gradeLevel` (G-number). The class-of year comes from `gradeLevel` + the active school year
-  (`graduationYear`); without a known grade it falls back to the bare `jsmith`. Uniqueness is
-  enforced by `ensureUniqueUsername` (`src/server/auth/username.ts`): on a clash it appends a
-  letter (`jsmith27b`), then a numeric counter as a last resort.
-  On a program **refresh**, graduating tutors (G12+) are archived **at the start of Q4** (not the
-  year boundary) and everyone remaining ages up one grade at the school-year boundary — see the
-  `refresh` mutation + `src/lib/period.ts`. New tutors hit a first-login gate
-  (`/onboarding/email`) before the dashboard, tracked by `User.emailVerifiedAt`. Tutors
-  self-serve their own alt-name / contact email / password at `/settings`. A coordinator/admin
-  can be given a `Tutor` link via the **"Can tutor"** toggle on `/admin/users`. Admin-created
-  tutors have **no login** until invited: **"Send setup link"** on **`/admin/users`** (under the
-  linked tutor — `/admin/tutors` is now roster-only: names, grade, active)
-  (`sendTutorSetup` → `issueTutorSetupLink`) provisions a `User` and emails a set-your-password
-  link (reusing the reset-token flow; the link is also shown to the admin to copy). Consuming
-  that link sets the password **and** completes onboarding (clears `mustChangePassword`, stamps
-  `emailVerifiedAt`), so the tutor lands straight on the dashboard. Tutors can read the handbook
-  at `/handbook`.
+  (`graduationYear`); without a known grade it falls back to the bare `jsmith`. **Grade is
+  canonical and tutor-self-reported** (`/settings`) — class-of is derived and not directly editable
+  (so a retained tutor just keeps their grade and isn't force-graduated). Uniqueness is enforced by
+  `ensureUniqueUsername` (`src/server/auth/username.ts`): on a clash it appends a letter
+  (`jsmith27b`), then a numeric counter as a last resort.
+- **Tutor lifecycle is a status, not a boolean.** `Tutor.status` is
+  `ACTIVE | GRADUATED | OPTED_OUT | ARCHIVED` (replaced the old `active` flag — one source of
+  truth; migrate any `where: { active: true }` to `status: "ACTIVE"`). Only `ACTIVE` tutors are
+  eligible for pairings/attendance; the rest are inactive with **read-only** access to their own
+  history + handbook (dashboard hides action cards; mutations are blocked by `activeTutorProcedure`).
+  On a program **refresh**, G12+ tutors become `GRADUATED` **at the start of Q4**, crew-unavailable
+  ones become `ARCHIVED`, and everyone remaining ages up one grade at the school-year boundary —
+  see the `refresh` mutation + `src/lib/period.ts`. Admins set status (incl. reactivating a
+  graduate) on `/admin/tutors`.
+- **Opt-out / reentry (`TutorStatusRequest`, kinds `OPT_OUT`/`REENTRY`).** A tutor requests opt-out
+  on `/settings`; a **one-week cooldown** (`eligibleAt`) must pass before an admin can approve, and
+  the tutor can **recall** it meanwhile. Approval → `OPTED_OUT`; the admin then gets a button to
+  **re-queue** that tutor's tutees onto `/admin/requests` (`requeueTutorTutees`). Only `OPTED_OUT`
+  tutors can request **reentry** (no cooldown; approval → `ACTIVE`). Graduated reactivation stays a
+  manual admin override. Admins action these on **`/admin/tutor-requests`**; counts surface on
+  `/admin/activity`.
+- **Account creation is self-registration via a security key.** Admins/coordinators issue a
+  single-use 6-digit **`RegistrationCode`** on **`/admin/registration-codes`** (shown once — only an
+  HMAC of it is stored; see `src/server/auth/registration.ts`); accepting a tutor application also
+  generates one (`promoteApplicantToTutor`, bound to the applicant's email + tutor). The recruit
+  redeems it at public **`/register`**: enter code → verify email with a second emailed 6-digit code
+  → set name/grade/password, which creates+links a Tutor and a **fully-verified** login. This
+  replaced the shared-default-password auto-provision, so **every account has a validated email and
+  self-set credentials.** The legacy **"Send setup link"** on `/admin/users` (`sendTutorSetup` →
+  `issueTutorSetupLink`, reuses the reset-token flow) remains as an alternate admin-provisioned
+  invite. The first-login `/onboarding/email` gate (`User.emailVerifiedAt`/`mustChangePassword`)
+  still applies to any login that arrives unverified. Tutors read the handbook at `/handbook`.
 - **Tutee flow**: public signup → `PENDING` tutee → admin assigns **each subject choice
   (1st/2nd) to a tutor independently** on `/admin/requests` (each pick creates one pairing).
   The signup stays `PENDING` until **every** provided choice has a tutor; that last assignment

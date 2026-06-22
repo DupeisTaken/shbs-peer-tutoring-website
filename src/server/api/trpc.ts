@@ -135,11 +135,21 @@ export const protectedProcedure = t.procedure
     });
   });
 
-/** Roles allowed into the admin section / admin procedures. */
-const ELEVATED_ROLES = ["ADMIN", "COORDINATOR"] as const;
+/**
+ * Role hierarchy: HEAD > ADMIN > COORDINATOR > TUTOR > VIEWER.
+ * - "Elevated" = admin-area access (HEAD, ADMIN, COORDINATOR).
+ * - "Admin tier" = full admin powers excluding coordinators (HEAD, ADMIN) — e.g. role changes,
+ *   program refresh. HEAD additionally manages the admin roster + leadership transfer.
+ */
+const ELEVATED_ROLES = ["HEAD", "ADMIN", "COORDINATOR"] as const;
+const ADMIN_TIER_ROLES = ["HEAD", "ADMIN"] as const;
 
 function isElevated(role: string): boolean {
   return (ELEVATED_ROLES as readonly string[]).includes(role);
+}
+
+function isAdminTier(role: string): boolean {
+  return (ADMIN_TIER_ROLES as readonly string[]).includes(role);
 }
 
 /**
@@ -170,10 +180,45 @@ export const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
   return next();
 });
 
-/** Admin-only procedure: strictly ADMIN (e.g. managing users/roles). */
+/**
+ * Admin-tier procedure: ADMIN or HEAD (not coordinators). For powers above a coordinator —
+ * managing non-admin roles, program refresh, hour adjustments, etc.
+ */
 export const adminOnlyProcedure = protectedProcedure.use(({ ctx, next }) => {
-  if (ctx.session.role !== "ADMIN") {
+  if (!isAdminTier(ctx.session.role)) {
     throw new TRPCError({ code: "FORBIDDEN", message: "Administrator access required." });
+  }
+  return next();
+});
+
+/**
+ * Head procedure: strictly HEAD (the singleton admin leader). Gates the powers only the head
+ * holds — promoting/demoting admins and transferring leadership. See the head transfer in
+ * the admin router; the head can never demote themselves except via that transfer.
+ */
+export const headProcedure = protectedProcedure.use(({ ctx, next }) => {
+  if (ctx.session.role !== "HEAD") {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Head access required." });
+  }
+  return next();
+});
+
+/**
+ * Active-tutor procedure: a tutor procedure that additionally requires the linked Tutor to be
+ * ACTIVE. Inactive tutors (graduated / opted-out / archived) keep read-only access to their own
+ * history but may not perform tutoring actions (attendance, slot picks, etc.). Mutations that
+ * only an active tutor may run go on this; read-only tutor queries stay on `tutorProcedure`.
+ */
+export const activeTutorProcedure = tutorProcedure.use(async ({ ctx, next }) => {
+  const tutor = await ctx.db.tutor.findUnique({
+    where: { id: ctx.session.tutorId },
+    select: { status: true },
+  });
+  if (tutor?.status !== "ACTIVE") {
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "This action requires an active tutor account.",
+    });
   }
   return next();
 });
@@ -218,7 +263,7 @@ function maskViewerPII(value: unknown): unknown {
  */
 export const viewerProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   const { role } = ctx.session;
-  if (role !== "ADMIN" && role !== "COORDINATOR" && role !== "VIEWER") {
+  if (!isElevated(role) && role !== "VIEWER") {
     throw new TRPCError({ code: "FORBIDDEN", message: "Admin access required." });
   }
   const result = await next();

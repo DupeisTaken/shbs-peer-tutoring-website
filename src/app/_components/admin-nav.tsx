@@ -6,9 +6,9 @@ export type NavItem = {
   href: string;
   labelKey: string;
   exact?: boolean;
-  /** ADMIN only. */
+  /** Admin tier only (ADMIN or HEAD). */
   adminOnly?: boolean;
-  /** ADMIN or COORDINATOR (hidden from the read-only VIEWER). */
+  /** Elevated (HEAD/ADMIN/COORDINATOR) — hidden from the read-only VIEWER. */
   elevatedOnly?: boolean;
 };
 
@@ -29,6 +29,7 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
     items: [
       { href: "/admin/tutors", labelKey: "admin.nav.links.tutorRoster" },
       { href: "/admin/applications", labelKey: "admin.nav.links.tutorApplications" },
+      { href: "/admin/tutor-requests", labelKey: "admin.nav.links.tutorRequests", elevatedOnly: true },
       { href: "/admin/meetings", labelKey: "admin.nav.links.tutorMeetings" },
       { href: "/admin/service-hours", labelKey: "admin.nav.links.serviceHours" },
       { href: "/admin/hour-adjustments", labelKey: "admin.nav.links.hourAdjustments" },
@@ -61,15 +62,16 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
       { href: "/localization", labelKey: "localization.navLabel", elevatedOnly: true },
       { href: "/admin/audit", labelKey: "admin.nav.links.auditLog" },
       { href: "/admin/users", labelKey: "admin.nav.links.usersRoles", elevatedOnly: true },
+      { href: "/admin/registration-codes", labelKey: "admin.nav.links.registrationCodes", elevatedOnly: true },
     ],
   },
 ];
 
 function makeVisible(role: string) {
-  const isAdmin = role === "ADMIN";
-  const isCoordinator = role === "COORDINATOR";
+  const isAdminTier = role === "ADMIN" || role === "HEAD";
+  const isElevated = isAdminTier || role === "COORDINATOR";
   return (item: NavItem) =>
-    (!item.adminOnly || isAdmin) && (!item.elevatedOnly || isAdmin || isCoordinator);
+    (!item.adminOnly || isAdminTier) && (!item.elevatedOnly || isElevated);
 }
 
 /** Sticky left sidebar (lg+) listing the nav, grouped by section and filtered by role. */
