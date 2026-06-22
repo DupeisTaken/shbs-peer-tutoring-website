@@ -1,9 +1,11 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
+import { getTranslations } from "next-intl/server";
+
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
-import { UserAvatar } from "~/app/_components/user-avatar";
+import { SignOutButton } from "~/app/_components/sign-out-button";
 import { NotificationBell } from "~/app/_components/notification-bell";
 import { LanguageSwitcher } from "~/app/_components/language-switcher";
 import { APP_TITLE } from "~/lib/branding";
@@ -37,27 +39,38 @@ export default async function TutorLayout({
   });
   if (!me?.emailVerifiedAt || me.mustChangePassword) redirect("/onboarding/email");
 
+  const t = await getTranslations();
+  const isElevated = session.role === "ADMIN" || session.role === "COORDINATOR";
+
   return (
     <div className="min-h-screen">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-4xl items-center justify-between px-4 py-3">
+      {/* Shared top-bar theme with the admin area: brand left, identity + global controls right. */}
+      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white">
+        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-6">
           <Link href="/dashboard" className="text-lg font-bold text-slate-900">
             {APP_TITLE}
           </Link>
-          <div className="flex items-center gap-4">
-            <span className="muted hidden sm:inline">{session.user.name}</span>
+          <div className="flex items-center gap-2 sm:gap-3">
+            <div className="hidden text-right leading-tight sm:block">
+              <p className="text-sm font-medium text-slate-900">{session.user.name}</p>
+              <p className="muted text-xs">
+                {me?.tutor?.username ? `@${me.tutor.username}` : session.role}
+              </p>
+            </div>
             <LanguageSwitcher />
+            {isElevated && (
+              <Link href="/admin" className="btn-secondary btn-sm">
+                {t("components.userMenu.enterAdmin")}
+              </Link>
+            )}
+            <Link href="/handbook" className="btn-secondary btn-sm">
+              {t("tutor.nav.handbook")}
+            </Link>
+            <Link href="/settings" className="btn-secondary btn-sm">
+              {t("components.userMenu.settings")}
+            </Link>
             <NotificationBell />
-            <UserAvatar
-              name={session.user.name ?? "Tutor"}
-              username={me?.tutor?.username}
-              email={me?.email}
-              role={session.role}
-              settingsHref="/settings"
-              enterAdminHref={
-                session.role === "ADMIN" || session.role === "COORDINATOR" ? "/admin" : undefined
-              }
-            />
+            <SignOutButton />
           </div>
         </div>
       </header>

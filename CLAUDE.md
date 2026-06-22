@@ -47,7 +47,8 @@ your changes (`generated/prisma/`) and move on.
   is in progress — always route new/edited copy through next-intl. **Policy documents** are
   localized too: `PolicyDocument` is one row per `(slug, locale)`; the public signup forms
   request the active locale (`localizedPolicy`, English fallback) and `/admin/policies` edits each
-  language under a tab. Shared UI glyphs (collapse/expand, etc.) live in `src/lib/symbols.ts` /
+  language via a dropdown. Saving an edit snapshots the prior copy into `PolicyArchive`, viewable
+  under each document's **version history**. Shared UI glyphs (collapse/expand, etc.) live in `src/lib/symbols.ts` /
   `~/app/_components/icons.tsx` — reuse `DisclosureIcon`, don't hand-write triangles.
 - **Env vars are validated in `src/env.js`** (`@t3-oss/env-nextjs`). Add server vars to
   `server`, public vars to `client` (must be `NEXT_PUBLIC_*`), and wire **both** into
@@ -60,10 +61,17 @@ your changes (`generated/prisma/`) and move on.
   mutations on `adminProcedure` so VIEWER can browse but never write. Routers enforce
   role/ownership server-side; `src/middleware.ts` (Edge) gates routes.
 - **Service-hour math lives in `src/lib/service-hours.ts`** — pure and unit-tested. It's
-  the single source of truth; change hour logic there, not in routers.
+  the single source of truth; change hour logic there, not in routers. Hour **deductions**
+  (and bonuses) are `ServiceHourAdjustment` rows (PUNISHMENT/EXTRA), summed into monthly totals.
+  An **unexcused tutor-meeting absence** docks 0.125h: `recordMeetingAttendance` materialises one
+  deterministic PUNISHMENT adjustment per meeting+tutor (id `mtgabs_<meeting>_<tutor>`), so it's
+  idempotent and removed the moment the status changes away from unexcused.
 - **Styling**: Tailwind v4 with shared design-system classes in `src/styles/globals.css`
   (`.btn`, `.card`, `.input`, `.select`, `.label`, `.link`, `.badge-*`, …). Reuse these
   rather than ad-hoc utility soup. Tailwind v4 needs `@utility` for `@apply`-able bases.
+  For collapse/expand affordances use the shared `DisclosureIcon` (`~/app/_components/icons.tsx`)
+  so the `▸`/`▾` gesture is consistent everywhere. The `/admin` and tutor areas share one top-bar
+  theme (brand left; identity block with name + `@username` and global controls right).
 
 ## Admin design philosophies (apply to every new feature)
 
@@ -120,7 +128,13 @@ submission time). See the `admin-philosophies` memory for the rationale.
   `refresh` mutation + `src/lib/period.ts`. New tutors hit a first-login gate
   (`/onboarding/email`) before the dashboard, tracked by `User.emailVerifiedAt`. Tutors
   self-serve their own alt-name / contact email / password at `/settings`. A coordinator/admin
-  can be given a `Tutor` link via the **"Can tutor"** toggle on `/admin/users`.
+  can be given a `Tutor` link via the **"Can tutor"** toggle on `/admin/users`. Admin-created
+  tutors have **no login** until invited: **"Send setup link"** on `/admin/tutors`
+  (`sendTutorSetup` → `issueTutorSetupLink`) provisions a `User` and emails a set-your-password
+  link (reusing the reset-token flow; the link is also shown to the admin to copy). Consuming
+  that link sets the password **and** completes onboarding (clears `mustChangePassword`, stamps
+  `emailVerifiedAt`), so the tutor lands straight on the dashboard. Tutors can read the handbook
+  at `/handbook`.
 - **Tutee flow**: public signup → `PENDING` tutee → admin assigns **each course choice
   (1st/2nd) to a tutor independently** on `/admin/requests` (each pick creates one pairing).
   The signup stays `PENDING` until **every** provided choice has a tutor; that last assignment

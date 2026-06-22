@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
 import { auth } from "~/server/auth";
+import { db } from "~/server/db";
 import { NavLink } from "~/app/_components/nav-link";
 import { SignOutButton } from "~/app/_components/sign-out-button";
 import { NotificationBell } from "~/app/_components/notification-bell";
@@ -85,6 +86,12 @@ export default async function AdminLayout({
   const readOnly = session.role === "VIEWER";
   const visible = (item: NavItem) => !item.adminOnly || isAdmin;
 
+  // Username (if this admin is also a linked tutor) for the identity block in the top bar.
+  const me = await db.user.findUnique({
+    where: { id: session.user.id },
+    select: { tutor: { select: { username: true } } },
+  });
+
   return (
     <div className="min-h-screen">
       {/* Unified top bar (all breakpoints): brand + the global controls. */}
@@ -94,9 +101,13 @@ export default async function AdminLayout({
             {TEAM_TITLE}
           </Link>
           <div className="flex items-center gap-2 sm:gap-3">
-            <span className="muted hidden max-w-[14rem] truncate text-xs sm:inline">
-              {session.user.name} · {session.role}
-            </span>
+            <div className="hidden text-right leading-tight sm:block">
+              <p className="text-sm font-medium text-slate-900">{session.user.name}</p>
+              <p className="muted text-xs">
+                {me?.tutor?.username ? `@${me.tutor.username} · ` : ""}
+                {session.role}
+              </p>
+            </div>
             <LanguageSwitcher />
             {session.tutorId && (
               <Link href="/dashboard" className="btn-secondary btn-sm">

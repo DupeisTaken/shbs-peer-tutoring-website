@@ -5,6 +5,8 @@ import { useMemo, useState } from "react";
 
 import { api } from "~/trpc/react";
 import { LOCALES, LOCALE_LABELS } from "~/i18n/config";
+import { Markdown } from "~/app/_components/markdown";
+import { DisclosureIcon } from "~/app/_components/icons";
 
 type PolicyDoc = {
   id: string;
@@ -15,6 +17,17 @@ type PolicyDoc = {
   version: string | null;
   updatedAt: Date;
   updatedBy: { name: string | null; email: string } | null;
+};
+
+type ArchiveDoc = {
+  id: string;
+  slug: string;
+  locale: string;
+  title: string;
+  body: string;
+  version: string | null;
+  archivedByName: string | null;
+  archivedAt: Date;
 };
 
 /** Editor for one (slug, locale) policy version. `doc` is undefined when that translation
@@ -108,12 +121,84 @@ function PolicyVersionEditor({
   );
 }
 
-/** One policy (slug) with a language tab per supported locale. */
-function PolicyCard({ slug, byLocale, onSaved }: {
+/** A read-only modal rendering an archived version's body. */
+function ArchiveModal({ doc, onClose }: { doc: ArchiveDoc; onClose: () => void }) {
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
+      onClick={onClose}
+      role="dialog"
+      aria-modal="true"
+    >
+      <div
+        className="card flex max-h-[85vh] w-full max-w-2xl flex-col"
+        onClick={(e) => e.stopPropagation()}
+      >
+        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
+          <h2 className="section-title">
+            {doc.title}
+            {doc.version ? ` · ${doc.version}` : ""}
+          </h2>
+          <button type="button" onClick={onClose} className="text-slate-400 hover:text-slate-700">
+            ✕
+          </button>
+        </div>
+        <div className="overflow-y-auto px-5 py-4 text-sm leading-relaxed text-slate-700">
+          <Markdown>{doc.body}</Markdown>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+/** Collapsible list of a policy version's earlier (archived) copies for one locale. */
+function VersionHistory({ archives }: { archives: ArchiveDoc[] }) {
+  const t = useTranslations();
+  const [open, setOpen] = useState(false);
+  const [viewing, setViewing] = useState<ArchiveDoc | null>(null);
+
+  return (
+    <div className="border-t border-slate-100 pt-3">
+      <button
+        type="button"
+        onClick={() => setOpen((v) => !v)}
+        className="flex items-center gap-2 text-sm font-medium text-slate-600"
+      >
+        <DisclosureIcon open={open} />
+        {t("admin.policies.history")} ({archives.length})
+      </button>
+      {open &&
+        (archives.length === 0 ? (
+          <p className="muted mt-2 text-sm">{t("admin.policies.historyEmpty")}</p>
+        ) : (
+          <ul className="mt-2 divide-y divide-slate-100">
+            {archives.map((a) => (
+              <li key={a.id} className="flex items-center justify-between gap-3 py-1.5 text-sm">
+                <span className="muted">
+                  {t("admin.policies.archivedOn", { date: new Date(a.archivedAt).toLocaleString() })}
+                  {a.version ? ` · ${a.version}` : ""}
+                  {a.archivedByName ? ` · ${a.archivedByName}` : ""}
+                </span>
+                <button type="button" className="link text-xs" onClick={() => setViewing(a)}>
+                  {t("admin.policies.viewArchived")}
+                </button>
+              </li>
+            ))}
+          </ul>
+        ))}
+      {viewing && <ArchiveModal doc={viewing} onClose={() => setViewing(null)} />}
+    </div>
+  );
+}
+
+/** One policy (slug) with a language selector per supported locale. */
+function PolicyCard({ slug, byLocale, archivesByLocale, onSaved }: {
   slug: string;
   byLocale: Map<string, PolicyDoc>;
+  archivesByLocale: Map<string, ArchiveDoc[]>;
   onSaved: () => void;
 }) {
+  const t = useTranslations();
   const [active, setActive] = useState<string>(LOCALES[0]);
   // English title is the friendliest label for the group header.
   const heading = byLocale.get("en")?.title ?? byLocale.values().next().value?.title ?? slug;
@@ -122,23 +207,21 @@ function PolicyCard({ slug, byLocale, onSaved }: {
     <section className="card space-y-3 p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="section-title">{heading}</h2>
-        <div className="flex gap-1">
-          {LOCALES.map((l) => (
-            <button
-              key={l}
-              type="button"
-              onClick={() => setActive(l)}
-              className={`rounded-md px-3 py-1 text-xs font-medium ${
-                active === l
-                  ? "bg-indigo-600 text-white"
-                  : "bg-slate-100 text-slate-600 hover:bg-slate-200"
-              }`}
-            >
-              {LOCALE_LABELS[l]}
-              {!byLocale.has(l) ? " •" : ""}
-            </button>
-          ))}
-        </div>
+        <label className="flex items-center gap-2 text-sm">
+          <span className="muted">{t("admin.policies.languageLabel")}</span>
+          <select
+            value={active}
+            onChange={(e) => setActive(e.target.value)}
+            className="select w-auto"
+          >
+            {LOCALES.map((l) => (
+              <option key={l} value={l}>
+                {LOCALE_LABELS[l]}
+                {!byLocale.has(l) ? ` (${t("admin.policies.notTranslatedShort")})` : ""}
+              </option>
+            ))}
+          </select>
+        </label>
       </div>
       <PolicyVersionEditor
         key={active}
@@ -147,6 +230,7 @@ function PolicyCard({ slug, byLocale, onSaved }: {
         doc={byLocale.get(active)}
         onSaved={onSaved}
       />
+      <VersionHistory archives={archivesByLocale.get(active) ?? []} />
     </section>
   );
 }
@@ -155,7 +239,9 @@ export default function PoliciesPage() {
   const t = useTranslations();
   const utils = api.useUtils();
   const policies = api.admin.policies.useQuery();
-  const invalidate = () => utils.admin.policies.invalidate();
+  const archives = api.admin.policyArchives.useQuery();
+  const invalidate = () =>
+    Promise.all([utils.admin.policies.invalidate(), utils.admin.policyArchives.invalidate()]);
 
   // Group the flat rows into slug -> (locale -> doc).
   const groups = useMemo(() => {
@@ -168,6 +254,19 @@ export default function PoliciesPage() {
     return m;
   }, [policies.data]);
 
+  // Group archives into slug -> (locale -> [archives newest-first]).
+  const archiveGroups = useMemo(() => {
+    const m = new Map<string, Map<string, ArchiveDoc[]>>();
+    for (const a of archives.data ?? []) {
+      const inner = m.get(a.slug) ?? new Map<string, ArchiveDoc[]>();
+      const list = inner.get(a.locale) ?? [];
+      list.push(a);
+      inner.set(a.locale, list);
+      m.set(a.slug, inner);
+    }
+    return m;
+  }, [archives.data]);
+
   return (
     <div className="space-y-6">
       <div>
@@ -177,7 +276,13 @@ export default function PoliciesPage() {
 
       {policies.isLoading && <p className="muted">{t("admin.policies.loading")}</p>}
       {[...groups.entries()].map(([slug, byLocale]) => (
-        <PolicyCard key={slug} slug={slug} byLocale={byLocale} onSaved={invalidate} />
+        <PolicyCard
+          key={slug}
+          slug={slug}
+          byLocale={byLocale}
+          archivesByLocale={archiveGroups.get(slug) ?? new Map()}
+          onSaved={invalidate}
+        />
       ))}
       {groups.size === 0 && !policies.isLoading && (
         <p className="muted">{t("admin.policies.empty")}</p>

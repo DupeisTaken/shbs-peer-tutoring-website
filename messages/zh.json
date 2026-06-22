@@ -120,7 +120,19 @@
       "colEmail": "邮箱",
       "colGrade": "年级",
       "colActive": "启用",
-      "classOf": "{year} 届"
+      "colAccount": "账户",
+      "classOf": "{year} 届",
+      "account": {
+        "active": "已设置",
+        "pending": "待设置",
+        "none": "无登录",
+        "sendSetup": "发送设置链接",
+        "resend": "重新发送",
+        "needEmail": "请先填写邮箱",
+        "linkEmailed": "设置邮件已发送。你也可以复制下方链接直接分享。",
+        "linkManual": "账户已就绪。请将此设置链接发送给导师（邮件尚未配置）：",
+        "dismiss": "关闭"
+      }
     },
     "tutees": {
       "title": "学员名册",
@@ -330,9 +342,11 @@
     "users": {
       "title": "用户与角色",
       "subtitle": "仅限管理员。角色将在用户下次登录时生效。",
-      "columns": { "name": "姓名", "email": "邮箱", "linkedTutor": "关联导师", "role": "角色", "canTutor": "可担任导师" },
+      "columns": { "user": "用户", "name": "姓名", "email": "邮箱", "linkedTutor": "关联导师", "role": "角色", "canTutor": "可担任导师" },
       "roles": { "VIEWER": "访客（只读）", "TUTOR": "导师", "COORDINATOR": "协调员", "ADMIN": "管理员" },
       "canTutorLabel": "可担任导师",
+      "tutorActive": "在职",
+      "tutorInactive": "停用",
       "empty": "尚无用户登录。"
     },
     "submissions": {
@@ -353,7 +367,14 @@
       "delete": "删除",
       "saving": "保存中…",
       "saveAttendance": "保存出勤",
-      "saved": "已保存。"
+      "saved": "已保存。",
+      "timeLabel": "时间",
+      "exempt": "豁免 (X)",
+      "status": {
+        "present": "出席",
+        "excusedAbsent": "请假缺席",
+        "unexcusedAbsent": "无故缺席"
+      }
     },
     "timeslots": {
       "title": "时间段",
@@ -375,6 +396,11 @@
       "title": "教室",
       "description": "添加教室并标记其无法使用的周期性时段。被屏蔽的时段会显示在配对教室网格中。",
       "deleteRoom": "删除教室",
+      "colName": "名称",
+      "colBlackouts": "不可用时段",
+      "blackoutCount": "{count} 个不可用时段",
+      "expand": "展开",
+      "collapse": "收起",
       "unavailablePeriods": "不可用时段",
       "alwaysAvailable": "始终可用。",
       "removePeriod": "移除时段",
@@ -438,11 +464,17 @@
       "subtitle": "编辑导师与学生手册。使用 Markdown 编写；已保存的副本为准。",
       "loading": "加载中…",
       "empty": "暂无政策文档。请运行种子脚本创建。",
+      "languageLabel": "语言",
+      "history": "版本历史",
+      "historyEmpty": "暂无历史版本。",
+      "archivedOn": "归档于 {date}",
+      "viewArchived": "查看",
       "editor": {
         "versionPlaceholder": "版本",
         "titlePlaceholder": "文档标题",
         "bodyPlaceholder": "用 Markdown 编写政策…",
         "notTranslated": "尚未翻译",
+        "notTranslatedShort": "未翻译",
         "slugLabel": "标识符",
         "lastEdited": "· Markdown · 最后编辑于 {date}",
         "editedBy": "编辑者 {who}",
@@ -518,6 +550,8 @@
     }
   },
   "tutor": {
+    "nav": { "handbook": "手册" },
+    "handbook": { "empty": "手册尚未发布。" },
     "attendance": {
       "loading": "正在加载你的配对…",
       "noPairings": "你还没有任何配对。请联系管理员创建。",
@@ -525,7 +559,8 @@
       "selectPairing": "选择一个配对…",
       "mergeTitle": "将其他课程合并到此时段",
       "mergeHelp": "同时进行多门课程？勾选此时间段内涵盖的其他配对。每门课程会单独记录，但此时段的服务时数只计一次。",
-      "mergedNote": "合并的课程共享此时段的时间和评分。服务时数仅在主课程上计一次。",
+      "mergedNote": "合并的课节共享此时段的时间和评分。服务时数仅在主课节上计一次。",
+      "mergedCount": "已有 {count} 个其他课节合并到此时段（在“我的配对”中设置）。",
       "date": "日期",
       "today": "今天",
       "tutorStatus": "导师状态",
@@ -571,7 +606,11 @@
       "room": " · 教室 {room}",
       "noRoom": " · 未分配教室",
       "defaultSlotLabel": "默认时间段：",
-      "notSet": "— 未设置 —"
+      "notSet": "— 未设置 —",
+      "mergeTitle": "合并课节",
+      "mergeHelp": "在同一时段一起进行？勾选与考勤表中所选课节一同进行的其他课节。各自单独记录，但该时段的服务时数只计一次。",
+      "mergeSelectPrimary": "请先在考勤表中选择一个课节，再将其他课节合并进来。",
+      "mergeNone": "没有与所选课节共享学员或科目的其他课节。"
     },
     "availability": {
       "loading": "正在加载时间段…",
@@ -660,15 +699,15 @@
         "email": "邮箱",
         "phone": "电话",
         "preferredContact": "我们如何联系你？*",
-        "firstChoice": "课程 — 第一志愿 *",
-        "secondChoice": "课程 — 第二志愿（可选）",
+        "firstChoice": "科目 — 第一志愿 *",
+        "secondChoice": "科目 — 第二志愿（可选）",
         "availability": "你的空闲时间段 *",
         "signature": "电子签名 *（请输入你的全名）"
       },
       "placeholders": {
         "gradeLevel": "例如 10",
         "preferredContact": "例如：发短信到 555-123-4567，或给我发邮件（下午 4 点后最佳）",
-        "selectCourse": "选择课程…",
+        "selectCourse": "选择科目…",
         "signature": "你的全名"
       },
       "options": { "none": "— 无 —" },
@@ -680,7 +719,7 @@
     },
     "tutorSignup": {
       "title": "申请成为同伴辅导员",
-      "intro": "告诉我们你想辅导哪些课程。协调团队会审核每一份申请，并在你加入前安排一次面试。",
+      "intro": "告诉我们你想辅导哪些科目。协调团队会审核每一份申请，并在你加入前安排一次面试。",
       "alreadyTutor": "已经是辅导员？",
       "signIn": "登录",
       "successTitle": "申请已收到 🎉",
@@ -689,8 +728,8 @@
         "fullName": "姓名 *",
         "email": "联系邮箱 *",
         "preferredContact": "我们如何联系你？*",
-        "courses": "你想辅导的课程（最多 3 门）*",
-        "course": "课程",
+        "courses": "你想辅导的科目（最多 3 门）*",
+        "course": "科目",
         "grade": "所获成绩",
         "apScore": "AP 分数",
         "selfStudyNote": "你凭什么资格 / 你取得了哪些成绩？"
@@ -703,10 +742,10 @@
         "selfStudyNote": "例如：完成了一门在线课程、竞赛成绩、作品集…"
       },
       "help": { "preferredContact": "就你的申请和面试联系你的最佳方式和时间。" },
-      "coursesHelp": "对每门课程，告诉我们你的资格：是否上过这门课、是否持有 AP 分数（仅限 AP 课程），以及/或者是否自学过。",
-      "qual": { "taken": "我上过这门课", "hasApScore": "我有 AP 分数", "selfStudied": "我自学过这门课" },
+      "coursesHelp": "对每个科目，告诉我们你的资格：是否上过这门课、是否持有 AP 分数（仅限 AP 科目），以及/或者是否自学过。",
+      "qual": { "taken": "我上过这门课", "hasApScore": "我有 AP 分数", "selfStudied": "我自学过这门科目" },
       "remove": "移除",
-      "addCourse": "+ 添加另一门课程",
+      "addCourse": "+ 添加另一个科目",
       "agree": "我已阅读并同意遵守 <policy>{appTitle} 政策</policy>。",
       "submit": "提交申请",
       "submitting": "提交中…"

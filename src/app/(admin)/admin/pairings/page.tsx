@@ -174,8 +174,8 @@ export default function PairingsPage() {
         <table className="data-table">
           <thead>
             <tr>
-              <th>{t("admin.pairings.colSubject")}</th>
               <th>{t("admin.pairings.colTutor")}</th>
+              <th>{t("admin.pairings.colSubject")}</th>
               <th>{t("admin.pairings.colWhen")}</th>
               <th>{t("admin.pairings.colSlot")}</th>
               <th>{t("admin.pairings.colRoom")}</th>
@@ -186,8 +186,8 @@ export default function PairingsPage() {
           <tbody>
             {(pairings.data ?? []).map((p) => (
               <tr key={p.id}>
-                <td>{p.subject}</td>
                 <td>{p.tutor.englishName}</td>
+                <td>{p.subject}</td>
                 <td>
                   {DAY_NAMES[p.dayOfWeek]} {minToHm(p.startMin)}–{minToHm(p.endMin)}
                 </td>

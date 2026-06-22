@@ -9,6 +9,7 @@ import {
 } from "~/server/api/trpc";
 import { monthKey } from "~/lib/service-hours";
 import { defaultUsername, ensureUniqueUsername } from "~/server/auth/username";
+import { issueTutorSetupLink } from "~/server/auth/password-reset";
 import { promoteApplicantToTutor } from "~/server/tutors/promote";
 import { notifyTutors, notifyUsers } from "~/server/notifications/create";
 import { standingFromCounts } from "~/lib/discipline";
@@ -72,6 +73,8 @@ const MEETING_STATUS = [
   "EXEMPT",
 ] as const;
 const ADJUSTMENT_TYPE = ["PUNISHMENT", "EXTRA"] as const;
+/** Service hours docked per unexcused tutor-meeting absence (materialised as a PUNISHMENT adj). */
+const MEETING_ABSENCE_DEDUCTION = 0.125;
 const TUTEE_STATUS = ["PENDING", "ACTIVE", "INACTIVE"] as const;
 const TUTOR_APP_STATUS = ["PENDING", "INTERVIEW", "ACCEPTED", "REJECTED"] as const;
 
@@ -80,7 +83,13 @@ export const adminRouter = createTRPCRouter({
   // Reference lists
   // --------------------------------------------------------------------------
   tutors: viewerProcedure.query(({ ctx }) =>
-    ctx.db.tutor.findMany({ orderBy: { englishName: "asc" } }),
+    ctx.db.tutor.findMany({
+      orderBy: { englishName: "asc" },
+      // Login/account status so the roster can show who still needs to set up their account.
+      include: {
+        user: { select: { id: true, emailVerifiedAt: true, mustChangePassword: true } },
+      },
+    }),
   ),
   /**
    * Per-tutee stats for the admin tutees view: session attendance + discipline standing.
@@ -706,6 +715,38 @@ export const adminRouter = createTRPCRouter({
       });
     }),
 
+  /**
+   * Provision + invite a tutor to set up their login: ensures a `User` exists and emails a
+   * "set your password" link (which also confirms their email). Returns the link so the admin can
+   * copy/share it directly — useful when email delivery isn't configured. Needs a tutor email.
+   */
+  sendTutorSetup: adminProcedure
+    .input(z.object({ tutorId: cuid }))
+    .mutation(async ({ ctx, input }) => {
+      const result = await issueTutorSetupLink(input.tutorId);
+      if (!result.ok) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            result.error === "no-email"
+              ? "Add an email for this tutor before sending a setup link."
+              : "Tutor not found.",
+        });
+      }
+      const tutor = await ctx.db.tutor.findUnique({
+        where: { id: input.tutorId },
+        select: { englishName: true },
+      });
+      await recordAudit({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name,
+        action: `Sent account setup link to ${tutor?.englishName ?? "tutor"}`,
+        entity: "Tutor",
+        entityId: input.tutorId,
+      });
+      return { emailed: result.emailed, link: result.link };
+    }),
+
   createTutee: adminProcedure
     .input(
       z.object({
@@ -1170,9 +1211,13 @@ export const adminRouter = createTRPCRouter({
 
   deleteMeeting: adminProcedure
     .input(z.object({ id: cuid }))
-    .mutation(({ ctx, input }) =>
-      ctx.db.tutorMeeting.delete({ where: { id: input.id } }),
-    ),
+    .mutation(async ({ ctx, input }) => {
+      // Remove the meeting's unexcused-absence deductions along with it (attendance cascades).
+      await ctx.db.serviceHourAdjustment.deleteMany({
+        where: { id: { startsWith: `mtgabs_${input.id}_` } },
+      });
+      return ctx.db.tutorMeeting.delete({ where: { id: input.id } });
+    }),
 
   recordMeetingAttendance: adminProcedure
     .input(
@@ -1184,17 +1229,54 @@ export const adminRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.$transaction(
-        input.entries.map((e) =>
-          ctx.db.meetingAttendance.upsert({
+      const meeting = await ctx.db.tutorMeeting.findUnique({
+        where: { id: input.meetingId },
+        select: { date: true, term: { select: { schoolYear: true, quarter: true } } },
+      });
+      if (!meeting) throw new TRPCError({ code: "NOT_FOUND", message: "Meeting not found." });
+      // Deductions land in the meeting's month, scoped to its term (or the active period).
+      const period = meeting.term ?? (await getActivePeriod(ctx.db));
+      const month = monthKey(meeting.date);
+
+      await ctx.db.$transaction(async (tx) => {
+        for (const e of input.entries) {
+          await tx.meetingAttendance.upsert({
             where: {
               meetingId_tutorId: { meetingId: input.meetingId, tutorId: e.tutorId },
             },
             update: { status: e.status },
             create: { meetingId: input.meetingId, tutorId: e.tutorId, status: e.status },
-          }),
-        ),
-      );
+          });
+
+          // Reconcile this tutor's unexcused-absence deduction for this meeting (one
+          // deterministic PUNISHMENT adjustment per meeting+tutor, so it's idempotent and
+          // disappears the moment the status changes away from unexcused).
+          const adjId = `mtgabs_${input.meetingId}_${e.tutorId}`;
+          if (e.status === "UNEXCUSED_ABSENT") {
+            await tx.serviceHourAdjustment.upsert({
+              where: { id: adjId },
+              update: {
+                month,
+                schoolYear: period.schoolYear,
+                quarter: period.quarter,
+                amount: MEETING_ABSENCE_DEDUCTION,
+              },
+              create: {
+                id: adjId,
+                tutorId: e.tutorId,
+                month,
+                schoolYear: period.schoolYear,
+                quarter: period.quarter,
+                type: "PUNISHMENT",
+                amount: MEETING_ABSENCE_DEDUCTION,
+                reason: "Unexcused tutor-meeting absence",
+              },
+            });
+          } else {
+            await tx.serviceHourAdjustment.deleteMany({ where: { id: adjId } });
+          }
+        }
+      });
       return { ok: true };
     }),
 
@@ -1360,8 +1442,11 @@ export const adminRouter = createTRPCRouter({
         name: true,
         email: true,
         role: true,
+        emailVerifiedAt: true,
         tutorId: true,
-        tutor: { select: { englishName: true, active: true } },
+        tutor: {
+          select: { englishName: true, active: true, username: true, gradeLevel: true },
+        },
       },
     }),
   ),
@@ -1463,8 +1548,31 @@ export const adminRouter = createTRPCRouter({
         body: z.string().min(1),
       }),
     )
-    .mutation(({ ctx, input }) => {
+    .mutation(async ({ ctx, input }) => {
       const version = input.version?.trim() ? input.version.trim() : null;
+      // Snapshot the outgoing version into the archive before overwriting it (only when it
+      // actually changes), so admins can review earlier copies.
+      const existing = await ctx.db.policyDocument.findUnique({
+        where: { slug_locale: { slug: input.slug, locale: input.locale } },
+        select: { title: true, body: true, version: true },
+      });
+      if (
+        existing &&
+        (existing.body !== input.body ||
+          existing.title !== input.title ||
+          (existing.version ?? null) !== version)
+      ) {
+        await ctx.db.policyArchive.create({
+          data: {
+            slug: input.slug,
+            locale: input.locale,
+            title: existing.title,
+            body: existing.body,
+            version: existing.version,
+            archivedByName: ctx.session.user.name,
+          },
+        });
+      }
       return ctx.db.policyDocument.upsert({
         where: { slug_locale: { slug: input.slug, locale: input.locale } },
         update: {
@@ -1483,6 +1591,23 @@ export const adminRouter = createTRPCRouter({
         },
       });
     }),
+
+  /** Archived (superseded) policy versions, newest first — for the version-history viewer. */
+  policyArchives: viewerProcedure.query(({ ctx }) =>
+    ctx.db.policyArchive.findMany({
+      orderBy: { archivedAt: "desc" },
+      select: {
+        id: true,
+        slug: true,
+        locale: true,
+        title: true,
+        body: true,
+        version: true,
+        archivedByName: true,
+        archivedAt: true,
+      },
+    }),
+  ),
 
   // --------------------------------------------------------------------------
   // Announcements (broadcast to tutors)

@@ -8,6 +8,7 @@ import { z } from "zod";
 
 import { api } from "~/trpc/react";
 import { hmToMin, minToHm } from "~/lib/time";
+import { useMerge } from "~/app/(tutor)/_components/merge-context";
 
 const TUTOR_STATUS_VALUES = ["PRESENT", "RESCHEDULED", "EXTRA", "TUTOR_ABSENT"] as const;
 const LIKERT_VALUES = [1, 2, 3, 4, 5] as const;
@@ -71,8 +72,8 @@ export function AttendanceForm() {
   // Per-tutee attendance + per-tutee card requests, keyed by tuteeId.
   const [tuteeState, setTuteeState] = useState<Record<string, TuteeEntry>>({});
   const [cards, setCards] = useState<Record<string, CardEntry>>({});
-  // Other pairings (courses) merged into this same block.
-  const [mergeIds, setMergeIds] = useState<string[]>([]);
+  // Which other pairings are merged into this block is chosen under "My pairings" (shared state).
+  const { setPrimaryPairingId, mergeIds, setMergeIds } = useMerge();
   const [formError, setFormError] = useState<string | null>(null);
   const setTutee = (id: string, patch: Partial<TuteeEntry>) =>
     setTuteeState((s) => ({ ...s, [id]: { status: "PRESENT", reason: "", ...s[id], ...patch } }));
@@ -98,8 +99,6 @@ export function AttendanceForm() {
   // Tutee attendance is tracked for any held session (present / rescheduled / extra).
   const held = tutorStatus !== "TUTOR_ABSENT";
 
-  // Pairings that can be merged into this block (everything except the primary).
-  const mergeable = pairings.filter((p) => p.id !== selectedPairingId);
   const mergedPairings = pairings.filter(
     (p) => mergeIds.includes(p.id) && p.id !== selectedPairingId,
   );
@@ -117,6 +116,8 @@ export function AttendanceForm() {
 
   // When the primary pairing changes, default the time fields and clear merge/per-tutee state.
   useEffect(() => {
+    // Tell "My pairings" which pairing is primary so it can offer eligible merges.
+    setPrimaryPairingId(selectedPairingId ?? "");
     if (!selectedPairing) return;
     setValue("startTime", minToHm(selectedPairing.startMin));
     setValue("endTime", minToHm(selectedPairing.endMin));
@@ -225,33 +226,11 @@ export function AttendanceForm() {
         {errors.pairingId && <p className="text-sm text-red-600">{errors.pairingId.message}</p>}
       </div>
 
-      {/* Merge other courses into this block */}
-      {selectedPairing && mergeable.length > 0 && (
-        <fieldset className="rounded-lg border border-slate-200 p-3">
-          <legend className="label px-1">{t("tutor.attendance.mergeTitle")}</legend>
-          <p className="muted mb-2 text-xs">{t("tutor.attendance.mergeHelp")}</p>
-          <div className="grid grid-cols-1 gap-1 sm:grid-cols-2">
-            {mergeable.map((p) => (
-              <label key={p.id} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={mergeIds.includes(p.id)}
-                  onChange={(e) =>
-                    setMergeIds((ids) =>
-                      e.target.checked ? [...ids, p.id] : ids.filter((id) => id !== p.id),
-                    )
-                  }
-                />
-                <span className="truncate">
-                  {p.subject} · {minToHm(p.startMin)}–{minToHm(p.endMin)}
-                </span>
-              </label>
-            ))}
-          </div>
-          {mergedPairings.length > 0 && (
-            <p className="muted mt-2 text-xs">{t("tutor.attendance.mergedNote")}</p>
-          )}
-        </fieldset>
+      {/* Merging several sessions into one block is chosen under "My pairings". */}
+      {mergedPairings.length > 0 && (
+        <p className="muted text-xs">
+          {t("tutor.attendance.mergedCount", { count: mergedPairings.length })}
+        </p>
       )}
 
       {/* Date + tutor status */}

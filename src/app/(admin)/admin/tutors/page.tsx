@@ -7,6 +7,7 @@ import { api } from "~/trpc/react";
 import { graduationYear } from "~/lib/period";
 import { REFERENCE_STALE_TIME } from "~/lib/query";
 import { SortHeader, useSort, compare } from "~/app/_components/sortable";
+import { useReadOnly } from "~/app/_components/read-only";
 
 export default function TutorsPage() {
   const t = useTranslations();
@@ -38,6 +39,14 @@ export default function TutorsPage() {
     },
   });
   const update = api.admin.updateTutor.useMutation({ onSuccess: invalidate });
+  const readOnly = useReadOnly();
+  const [setupInfo, setSetupInfo] = useState<
+    { tutorId: string; link: string; emailed: boolean } | null
+  >(null);
+  const sendSetup = api.admin.sendTutorSetup.useMutation({
+    onSuccess: (data, variables) =>
+      setSetupInfo({ tutorId: variables.tutorId, link: data.link, emailed: data.emailed }),
+  });
 
   const rows = useMemo(() => {
     const data = tutors.data ?? [];
@@ -121,6 +130,27 @@ export default function TutorsPage() {
         </button>
       </form>
       {create.error && <p className="text-sm text-red-600">{create.error.message}</p>}
+      {sendSetup.error && <p className="text-sm text-red-600">{sendSetup.error.message}</p>}
+      {setupInfo && (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm">
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-slate-700">
+              {setupInfo.emailed
+                ? t("admin.tutors.account.linkEmailed")
+                : t("admin.tutors.account.linkManual")}
+            </p>
+            <button className="link text-xs" onClick={() => setSetupInfo(null)}>
+              {t("admin.tutors.account.dismiss")}
+            </button>
+          </div>
+          <input
+            readOnly
+            value={setupInfo.link}
+            onFocus={(e) => e.target.select()}
+            className="input mt-2 w-full font-mono text-xs"
+          />
+        </div>
+      )}
 
       <div className="card overflow-hidden">
         <table className="data-table">
@@ -133,6 +163,7 @@ export default function TutorsPage() {
               <SortHeader sort={sort} sortKey="email">{t("admin.tutors.colEmail")}</SortHeader>
               <SortHeader sort={sort} sortKey="grade">{t("admin.tutors.colGrade")}</SortHeader>
               <SortHeader sort={sort} sortKey="active">{t("admin.tutors.colActive")}</SortHeader>
+              <th>{t("admin.tutors.colAccount")}</th>
             </tr>
           </thead>
           <tbody>
@@ -255,6 +286,43 @@ export default function TutorsPage() {
                       checked={t.active}
                       onChange={(e) => save({ active: e.target.checked })}
                     />
+                  </td>
+                  <td>
+                    {(() => {
+                      const setUp = !!t.user && !t.user.mustChangePassword && !!t.user.emailVerifiedAt;
+                      const pending = !!t.user && !setUp;
+                      return (
+                        <div className="flex items-center gap-2">
+                          <span
+                            className={
+                              setUp ? "badge-green" : pending ? "badge-amber" : "badge-slate"
+                            }
+                          >
+                            {tt(
+                              setUp
+                                ? "admin.tutors.account.active"
+                                : pending
+                                  ? "admin.tutors.account.pending"
+                                  : "admin.tutors.account.none",
+                            )}
+                          </span>
+                          {!readOnly && (
+                            <button
+                              className="link text-xs whitespace-nowrap"
+                              disabled={!t.email || sendSetup.isPending}
+                              title={!t.email ? tt("admin.tutors.account.needEmail") : undefined}
+                              onClick={() => sendSetup.mutate({ tutorId: t.id })}
+                            >
+                              {tt(
+                                setUp
+                                  ? "admin.tutors.account.resend"
+                                  : "admin.tutors.account.sendSetup",
+                              )}
+                            </button>
+                          )}
+                        </div>
+                      );
+                    })()}
                   </td>
                 </tr>
               );

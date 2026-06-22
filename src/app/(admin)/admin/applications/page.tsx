@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
+import { DisclosureIcon } from "~/app/_components/icons";
 
 type Status = "PENDING" | "INTERVIEW" | "ACCEPTED" | "REJECTED";
 
@@ -96,7 +97,7 @@ function ApplicationCard({
           className="flex min-w-0 flex-1 items-center gap-2 text-left"
           onClick={() => setOpen((v) => !v)}
         >
-          <span className="text-slate-400">{open ? "▾" : "▸"}</span>
+          <DisclosureIcon open={open} />
           <span className="font-medium text-slate-900">{app.name}</span>
           <StatusBadge status={app.status} />
           <span className="muted hidden truncate text-xs sm:inline">

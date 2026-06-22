@@ -149,7 +149,19 @@
       "colEmail": "Email",
       "colGrade": "Grade",
       "colActive": "Active",
-      "classOf": "Class of {year}"
+      "colAccount": "Account",
+      "classOf": "Class of {year}",
+      "account": {
+        "active": "Set up",
+        "pending": "Setup pending",
+        "none": "No login",
+        "sendSetup": "Send setup link",
+        "resend": "Resend setup",
+        "needEmail": "Add an email first",
+        "linkEmailed": "Setup email sent. You can also copy the link below to share directly.",
+        "linkManual": "Account ready. Share this setup link with the tutor (email isn't configured):",
+        "dismiss": "Dismiss"
+      }
     },
     "tutees": {
       "title": "Tutee Roster",
@@ -359,9 +371,11 @@
     "users": {
       "title": "Users & Roles",
       "subtitle": "Administrators only. Roles take effect on the user's next sign-in.",
-      "columns": { "name": "Name", "email": "Email", "linkedTutor": "Linked tutor", "role": "Role", "canTutor": "Can tutor" },
+      "columns": { "user": "User", "name": "Name", "email": "Email", "linkedTutor": "Linked tutor", "role": "Role", "canTutor": "Can tutor" },
       "roles": { "VIEWER": "Viewer (read-only)", "TUTOR": "Tutor", "COORDINATOR": "Coordinator", "ADMIN": "Admin" },
       "canTutorLabel": "Can tutor",
+      "tutorActive": "active",
+      "tutorInactive": "inactive",
       "empty": "No users have signed in yet."
     },
     "submissions": {
@@ -382,7 +396,14 @@
       "delete": "Delete",
       "saving": "Saving…",
       "saveAttendance": "Save attendance",
-      "saved": "Saved."
+      "saved": "Saved.",
+      "timeLabel": "Time",
+      "exempt": "Exempt (X)",
+      "status": {
+        "present": "Present",
+        "excusedAbsent": "Excused Absent",
+        "unexcusedAbsent": "Unexcused Absent"
+      }
     },
     "timeslots": {
       "title": "Time Slots",
@@ -404,6 +425,11 @@
       "title": "Rooms",
       "description": "Add classrooms and mark recurring periods when they can't be used. Blocked periods show up on the pairings room grid.",
       "deleteRoom": "Delete room",
+      "colName": "Name",
+      "colBlackouts": "Blackout periods",
+      "blackoutCount": "{count} blackout period(s)",
+      "expand": "Expand",
+      "collapse": "Collapse",
       "unavailablePeriods": "Unavailable periods",
       "alwaysAvailable": "Always available.",
       "removePeriod": "Remove period",
@@ -467,11 +493,17 @@
       "subtitle": "Edit the tutor and tutee handbooks. Written in Markdown; the saved copy is the source of truth.",
       "loading": "Loading…",
       "empty": "No policy documents yet. Run the seed to create them.",
+      "languageLabel": "Language",
+      "history": "Version history",
+      "historyEmpty": "No earlier versions yet.",
+      "archivedOn": "Archived {date}",
+      "viewArchived": "View",
       "editor": {
         "versionPlaceholder": "version",
         "titlePlaceholder": "Document title",
         "bodyPlaceholder": "Write the policy in Markdown…",
         "notTranslated": "not translated yet",
+        "notTranslatedShort": "not translated",
         "slugLabel": "Slug",
         "lastEdited": "· Markdown · last edited {date}",
         "editedBy": "by {who}",
@@ -547,6 +579,8 @@
     }
   },
   "tutor": {
+    "nav": { "handbook": "Handbook" },
+    "handbook": { "empty": "The handbook hasn't been published yet." },
     "attendance": {
       "loading": "Loading your pairings…",
       "noPairings": "You have no pairings yet. Ask an admin to set one up.",
@@ -554,7 +588,8 @@
       "selectPairing": "Select a pairing…",
       "mergeTitle": "Merge Other Courses Into This Block",
       "mergeHelp": "Running several courses together? Tick the other pairings covered in this same time block. Each course is recorded separately, but the block's service hours are counted once.",
-      "mergedNote": "Merged courses share this block's time and ratings. Hours are credited once, on the primary course.",
+      "mergedNote": "Merged sessions share this block's time and ratings. Hours are credited once, on the primary session.",
+      "mergedCount": "{count} other session(s) merged into this block (set under My pairings).",
       "date": "Date",
       "today": "Today",
       "tutorStatus": "Tutor status",
@@ -600,7 +635,11 @@
       "room": " · Room {room}",
       "noRoom": " · No room assigned",
       "defaultSlotLabel": "Default time slot:",
-      "notSet": "— not set —"
+      "notSet": "— not set —",
+      "mergeTitle": "Merge sessions",
+      "mergeHelp": "Running these together in one block? Tick the sessions covered alongside the one selected in the attendance form. Each is recorded separately, but the block's service hours count once.",
+      "mergeSelectPrimary": "Select a session in the attendance form to merge others into it.",
+      "mergeNone": "No other session shares a tutee or subject with the selected one."
     },
     "availability": {
       "loading": "Loading time slots…",
@@ -689,15 +728,15 @@
         "email": "Email",
         "phone": "Phone",
         "preferredContact": "How can we reach you? *",
-        "firstChoice": "Course — first choice *",
-        "secondChoice": "Course — second choice (optional)",
+        "firstChoice": "Subject — first choice *",
+        "secondChoice": "Subject — second choice (optional)",
         "availability": "Your available time slots *",
         "signature": "Electronic signature * (type your full name)"
       },
       "placeholders": {
         "gradeLevel": "e.g. 10",
         "preferredContact": "e.g. text me at 555-123-4567, or email me (best after 4pm)",
-        "selectCourse": "Select a course…",
+        "selectCourse": "Select a subject…",
         "signature": "Your full name"
       },
       "options": { "none": "— none —" },
@@ -709,7 +748,7 @@
     },
     "tutorSignup": {
       "title": "Apply to Become a Peer Tutor",
-      "intro": "Tell us which courses you'd like to tutor. The coordinator team reviews every application and arranges an interview before you join.",
+      "intro": "Tell us which subjects you'd like to tutor. The coordinator team reviews every application and arranges an interview before you join.",
       "alreadyTutor": "Already a tutor?",
       "signIn": "Sign in",
       "successTitle": "Application Received 🎉",
@@ -718,8 +757,8 @@
         "fullName": "Full name *",
         "email": "Contact email *",
         "preferredContact": "How can we reach you? *",
-        "courses": "Courses you want to tutor (up to 3) *",
-        "course": "Course",
+        "courses": "Subjects you want to tutor (up to 3) *",
+        "course": "Subject",
         "grade": "Grade earned",
         "apScore": "AP score",
         "selfStudyNote": "How do you qualify / what have you achieved?"
@@ -732,10 +771,10 @@
         "selfStudyNote": "e.g. completed an online course, competition results, portfolio…"
       },
       "help": { "preferredContact": "The best way and time to reach you about your application and interview." },
-      "coursesHelp": "For each, tell us how you're qualified: whether you've taken the class, hold an AP score (AP courses only), and/or self-studied it.",
-      "qual": { "taken": "I've taken this class", "hasApScore": "I have an AP score", "selfStudied": "I self-studied this course" },
+      "coursesHelp": "For each, tell us how you're qualified: whether you've taken the class, hold an AP score (AP subjects only), and/or self-studied it.",
+      "qual": { "taken": "I've taken this class", "hasApScore": "I have an AP score", "selfStudied": "I self-studied this subject" },
       "remove": "Remove",
-      "addCourse": "+ Add another course",
+      "addCourse": "+ Add another subject",
       "agree": "I have read and agree to abide by the <policy>{appTitle} Policy</policy>.",
       "submit": "Submit application",
       "submitting": "Submitting…"

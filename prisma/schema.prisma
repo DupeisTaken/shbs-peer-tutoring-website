@@ -613,6 +613,22 @@ model PolicyDocument {
   @@unique([slug, locale])
 }
 
+/// A point-in-time snapshot of a PolicyDocument, written each time an edit replaces an existing
+/// version. Lets admins review/restore-from earlier copies of a handbook (see /admin/policies).
+/// Actor name is denormalised so history survives user deletion.
+model PolicyArchive {
+  id             String   @id @default(cuid())
+  slug           String
+  locale         String
+  title          String
+  body           String // Markdown
+  version        String?
+  archivedByName String?
+  archivedAt     DateTime @default(now())
+
+  @@index([slug, locale, archivedAt])
+}
+
 // ----------------------------------------------------------------------------
 // Discipline — tutee yellow/red cards (the "punishment" system in the policy)
 //

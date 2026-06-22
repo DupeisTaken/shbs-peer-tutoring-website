@@ -32,8 +32,7 @@ export default function UsersPage() {
         <table className="data-table">
           <thead>
             <tr>
-              <th>{t("admin.users.columns.name")}</th>
-              <th>{t("admin.users.columns.email")}</th>
+              <th>{t("admin.users.columns.user")}</th>
               <th>{t("admin.users.columns.linkedTutor")}</th>
               <th>{t("admin.users.columns.role")}</th>
               <th>{t("admin.users.columns.canTutor")}</th>
@@ -45,9 +44,31 @@ export default function UsersPage() {
               const linkedActive = !!u.tutorId && u.tutor?.active !== false;
               return (
                 <tr key={u.id}>
-                  <td>{u.name}</td>
-                  <td>{u.email}</td>
-                  <td className="text-slate-600">{u.tutor?.englishName ?? "—"}</td>
+                  {/* User identity: name, username, email stacked together. */}
+                  <td>
+                    <div className="leading-tight">
+                      <p className="font-medium text-slate-900">{u.name ?? "—"}</p>
+                      {u.tutor?.username && (
+                        <p className="muted text-xs">@{u.tutor.username}</p>
+                      )}
+                      <p className="muted text-xs">{u.email}</p>
+                    </div>
+                  </td>
+                  <td className="text-slate-600">
+                    {u.tutor ? (
+                      <div className="leading-tight">
+                        <p>{u.tutor.englishName}</p>
+                        <p className="muted text-xs">
+                          {u.tutor.gradeLevel != null && `G${u.tutor.gradeLevel} · `}
+                          {u.tutor.active
+                            ? t("admin.users.tutorActive")
+                            : t("admin.users.tutorInactive")}
+                        </p>
+                      </div>
+                    ) : (
+                      "—"
+                    )}
+                  </td>
                   <td>
                     <select
                       value={u.role}
@@ -85,7 +106,7 @@ export default function UsersPage() {
             })}
             {users.data?.length === 0 && (
               <tr>
-                <td colSpan={5} className="text-slate-500">
+                <td colSpan={4} className="text-slate-500">
                   {t("admin.users.empty")}
                 </td>
               </tr>

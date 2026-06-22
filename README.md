@@ -6,9 +6,10 @@ attendance submissions, tutor-meeting tracking, and automatic service-hour accou
 Tutors sign in, see their schedule, and submit attendance with quality ratings for each
 session. The app derives service hours from each submission and rolls them up by month.
 Coordinators and admins manage the roster (tutors, tutees, rooms, pairings, terms),
-run tutor meetings, apply per-tutor hour adjustments, review tutee discipline cards,
-broadcast announcements, and review the monthly summary. The interface is available in
-English and Chinese.
+run tutor meetings (each tutor marked Present / Excused Absent / Unexcused Absent — an
+unexcused absence docks 0.125 service hours; inactive tutors are exempt), apply per-tutor
+hour adjustments, review tutee discipline cards, broadcast announcements, and review the
+monthly summary (with a month-picker). The interface is available in English and Chinese.
 
 ## Stack
 
@@ -65,6 +66,13 @@ When an applicant is **accepted**, a `User` login is auto-provisioned for them w
 routed to `/onboarding/email` to set their own password and confirm the contact email their
 sign-in codes go to (and opt into email 2FA), then on to the dashboard (`User.emailVerifiedAt`
 records completion so it doesn't repeat).
+
+Tutors an admin adds directly start with **no login**. From `/admin/tutors`, **"Send setup
+link"** provisions their `User` and emails a set-your-password link (the link is also shown for
+the admin to copy if email delivery isn't configured); following it sets the password, confirms
+the email, and drops them on the dashboard. The roster's **Account** column shows who still needs
+setting up. Forgetting a username? The reset-password screen reveals it after the email is
+verified.
 
 **Email delivery uses Aliyun Direct Mail (SMTP)** via `src/server/email/sender.ts` (nodemailer).
 The **forgot-password** flow emails the reset link through it; when the SMTP env vars aren't set,

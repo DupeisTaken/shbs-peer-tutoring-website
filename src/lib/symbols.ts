@@ -6,8 +6,10 @@
  * for expand/collapse affordances rather than hand-writing a triangle.
  */
 export const SYMBOLS = {
-  /** Disclosure triangle for collapsible sections. Rotate 90° when expanded. */
-  disclosure: "▶",
+  /** Disclosure triangle for a collapsed section (points right). */
+  disclosureClosed: "▸",
+  /** Disclosure triangle for an expanded section (points down). */
+  disclosureOpen: "▾",
   /** Dismiss / close (modals, dialogs). */
   close: "✕",
   /** Affirmative / done. */

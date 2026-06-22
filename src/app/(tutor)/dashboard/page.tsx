@@ -4,6 +4,7 @@ import { AnnouncementsBanner } from "~/app/(tutor)/_components/announcements-ban
 import { AttendanceForm } from "~/app/(tutor)/_components/attendance-form";
 import { AvailabilityEditor } from "~/app/(tutor)/_components/availability-editor";
 import { TutorPairings } from "~/app/(tutor)/_components/tutor-pairings";
+import { MergeProvider } from "~/app/(tutor)/_components/merge-context";
 import { MyInterviews } from "~/app/(tutor)/_components/my-interviews";
 import { getTranslations } from "next-intl/server";
 
@@ -71,31 +72,33 @@ export default async function TutorDashboard() {
       {/* Pending interviews + session-time confirmations (self-hides when none). */}
       <MyInterviews />
 
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
-        {/* Pairings + availability */}
-        <div className="space-y-6 lg:col-span-2">
-          <section className="card p-5">
-            <h2 className="font-semibold text-slate-900">{t("dashboard.pairings.title")}</h2>
-            <p className="muted mt-1 mb-2">{t("dashboard.pairings.help")}</p>
-            <TutorPairings />
-          </section>
+      <MergeProvider>
+        <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+          {/* Pairings + availability */}
+          <div className="space-y-6 lg:col-span-2">
+            <section className="card p-5">
+              <h2 className="font-semibold text-slate-900">{t("dashboard.pairings.title")}</h2>
+              <p className="muted mt-1 mb-2">{t("dashboard.pairings.help")}</p>
+              <TutorPairings />
+            </section>
 
-          <section className="card p-5">
-            <h2 className="font-semibold text-slate-900">
-              {t("dashboard.availability.title")}
-            </h2>
-            <p className="muted mt-1 mb-3">{t("dashboard.availability.help")}</p>
-            <AvailabilityEditor />
+            <section className="card p-5">
+              <h2 className="font-semibold text-slate-900">
+                {t("dashboard.availability.title")}
+              </h2>
+              <p className="muted mt-1 mb-3">{t("dashboard.availability.help")}</p>
+              <AvailabilityEditor />
+            </section>
+          </div>
+
+          {/* Attendance form */}
+          <section className="card p-5 lg:col-span-3">
+            <h2 className="font-semibold text-slate-900">{t("dashboard.attendance.title")}</h2>
+            <p className="muted mt-1 mb-4">{t("dashboard.attendance.help")}</p>
+            <AttendanceForm />
           </section>
         </div>
-
-        {/* Attendance form */}
-        <section className="card p-5 lg:col-span-3">
-          <h2 className="font-semibold text-slate-900">{t("dashboard.attendance.title")}</h2>
-          <p className="muted mt-1 mb-4">{t("dashboard.attendance.help")}</p>
-          <AttendanceForm />
-        </section>
-      </div>
+      </MergeProvider>
 
       {/* Room assignments (read-only schedule grid; your pairings are highlighted) */}
       <section className="space-y-2">
