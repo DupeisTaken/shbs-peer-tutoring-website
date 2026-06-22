@@ -4,7 +4,6 @@ import { useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 
 import { api } from "~/trpc/react";
-import { LOCALES, LOCALE_LABELS } from "~/i18n/config";
 import { Markdown } from "~/app/_components/markdown";
 import { DisclosureIcon } from "~/app/_components/icons";
 import { useReadOnly } from "~/app/_components/read-only";
@@ -199,34 +198,43 @@ function VersionHistory({ archives }: { archives: ArchiveDoc[] }) {
   );
 }
 
-type Locale = (typeof LOCALES)[number];
+type LangInfo = { code: string; label: string };
 
 /** Default policy language — always present; the fallback shown when a language isn't translated. */
-const DEFAULT_LOCALE: Locale = LOCALES[0];
+const DEFAULT_LOCALE = "en";
 
 /**
  * One policy (slug). Only languages that have actually been added are selectable; the rest are
  * added on demand via the "Add language" picker (which opens a blank draft for that language).
- * The default language can't be removed — it's the fallback for untranslated languages.
+ * Languages follow the order set on /localization (admins reorder there). The default language
+ * can't be removed — it's the fallback for untranslated languages.
  */
-function PolicyCard({ slug, byLocale, archivesByLocale, readOnly, onSaved }: {
+function PolicyCard({ slug, byLocale, archivesByLocale, languages, readOnly, onSaved }: {
   slug: string;
   byLocale: Map<string, PolicyDoc>;
   archivesByLocale: Map<string, ArchiveDoc[]>;
+  languages: LangInfo[];
   readOnly: boolean;
   onSaved: () => void;
 }) {
   const t = useTranslations();
   const del = api.admin.deletePolicyLocale.useMutation({ onSuccess: onSaved });
 
-  // Languages that already exist for this policy, in canonical order.
-  const existing = LOCALES.filter((l) => byLocale.has(l));
-  // Languages the editor has opened a blank draft for (not yet saved).
-  const [drafts, setDrafts] = useState<Locale[]>([]);
-  const available = [...existing, ...drafts.filter((d) => !existing.includes(d))];
-  const notAdded = LOCALES.filter((l) => !available.includes(l));
+  const codes = languages.map((l) => l.code);
+  const labelFor = (code: string) => languages.find((l) => l.code === code)?.label ?? code;
 
-  const [active, setActive] = useState<Locale>(() =>
+  // Languages this policy already has, in the configured order; any stranded ones (a doc for a
+  // language no longer listed) are kept at the end so they stay editable.
+  const existing = [
+    ...codes.filter((c) => byLocale.has(c)),
+    ...[...byLocale.keys()].filter((c) => !codes.includes(c)),
+  ];
+  // Languages the editor has opened a blank draft for (not yet saved).
+  const [drafts, setDrafts] = useState<string[]>([]);
+  const available = [...existing, ...drafts.filter((d) => !existing.includes(d))];
+  const notAdded = codes.filter((c) => !available.includes(c));
+
+  const [active, setActive] = useState<string>(() =>
     byLocale.has(DEFAULT_LOCALE) ? DEFAULT_LOCALE : (existing[0] ?? DEFAULT_LOCALE),
   );
   // English title is the friendliest label for the group header.
@@ -243,12 +251,12 @@ function PolicyCard({ slug, byLocale, archivesByLocale, readOnly, onSaved }: {
             <span className="muted">{t("admin.policies.languageLabel")}</span>
             <select
               value={active}
-              onChange={(e) => setActive(e.target.value as Locale)}
+              onChange={(e) => setActive(e.target.value)}
               className="select field-auto min-w-32"
             >
               {available.map((l) => (
                 <option key={l} value={l}>
-                  {LOCALE_LABELS[l]}
+                  {labelFor(l)}
                   {l === DEFAULT_LOCALE ? ` (${t("admin.policies.defaultBadge")})` : ""}
                 </option>
               ))}
@@ -258,7 +266,7 @@ function PolicyCard({ slug, byLocale, archivesByLocale, readOnly, onSaved }: {
             <select
               value=""
               onChange={(e) => {
-                const l = e.target.value as Locale | "";
+                const l = e.target.value;
                 if (!l) return;
                 setDrafts((d) => [...d, l]);
                 setActive(l);
@@ -268,7 +276,7 @@ function PolicyCard({ slug, byLocale, archivesByLocale, readOnly, onSaved }: {
               <option value="">{t("admin.policies.addLanguage")}</option>
               {notAdded.map((l) => (
                 <option key={l} value={l}>
-                  {LOCALE_LABELS[l]}
+                  {labelFor(l)}
                 </option>
               ))}
             </select>
@@ -300,7 +308,7 @@ function PolicyCard({ slug, byLocale, archivesByLocale, readOnly, onSaved }: {
               className="link-danger text-xs"
               disabled={del.isPending}
               onClick={() => {
-                if (confirm(t("admin.policies.confirmRemoveLanguage", { lang: LOCALE_LABELS[active] })))
+                if (confirm(t("admin.policies.confirmRemoveLanguage", { lang: labelFor(active) })))
                   del.mutate({ slug, locale: active }, { onSuccess: () => setActive(DEFAULT_LOCALE) });
               }}
             >
@@ -320,6 +328,7 @@ export default function PoliciesPage() {
   const utils = api.useUtils();
   const policies = api.admin.policies.useQuery();
   const archives = api.admin.policyArchives.useQuery();
+  const languages = api.i18n.languages.useQuery();
   const invalidate = () =>
     Promise.all([utils.admin.policies.invalidate(), utils.admin.policyArchives.invalidate()]);
 
@@ -361,6 +370,7 @@ export default function PoliciesPage() {
           slug={slug}
           byLocale={byLocale}
           archivesByLocale={archiveGroups.get(slug) ?? new Map()}
+          languages={languages.data ?? []}
           readOnly={readOnly}
           onSaved={invalidate}
         />
