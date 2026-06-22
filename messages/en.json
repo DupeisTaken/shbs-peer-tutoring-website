@@ -186,7 +186,7 @@
       "noPairings": "no pairings",
       "colName": "Name",
       "colGrade": "Grade",
-      "colCourses": "Courses",
+      "colCourses": "Subjects",
       "colSessions": "Sessions",
       "colDiscipline": "Discipline",
       "colContact": "Contact",
@@ -199,7 +199,7 @@
     },
     "requests": {
       "title": "Signup Requests (Tutees)",
-      "help": "Public tutee signups awaiting allocation, processed earliest-first. Assign each course choice to a tutor — that creates the pairing, and the tutor then picks the time slot.",
+      "help": "Public tutee signups awaiting allocation, processed earliest-first. Assign each subject choice to a tutor — that creates the pairing, and the tutor then picks the time slot.",
       "noTerm": "Create a term first so requests can be assigned.",
       "decline": "Decline",
       "declineConfirm": "Decline and delete {name}'s request?",
@@ -251,7 +251,7 @@
         "pairings": "Pairings",
         "attendance": "Attendance Submissions",
         "timeSlots": "Time Slots",
-        "coursesLevels": "Courses & Levels",
+        "coursesLevels": "Subjects & Levels",
         "rooms": "Rooms",
         "policyDocuments": "Policy Documents",
         "auditLog": "Audit Log",
@@ -440,29 +440,29 @@
       "empty": "No rooms yet."
     },
     "courses": {
-      "title": "Courses & Levels",
-      "subtitle": "Subjects tutees can request. Levels are an admin-managed catalogue; a level marked “AP-scored” lets its courses carry an AP exam score on tutor applications.",
+      "title": "Subjects & Levels",
+      "subtitle": "Subjects tutees can request. Levels are an admin-managed catalogue; a level marked “AP-scored” lets its subjects carry an AP exam score on tutor applications.",
       "noLevel": "— no level —",
       "levels": {
         "title": "Levels",
-        "description": "Difficulty tracks a course can belong to. Mark a level AP-scored to let its courses carry an AP exam score on tutor applications.",
+        "description": "Difficulty tracks a subject can belong to. Mark a level AP-scored to let its subjects carry an AP exam score on tutor applications.",
         "apScored": "AP-scored",
-        "confirmDelete": "Delete level \"{name}\"? Its courses keep existing but lose it.",
+        "confirmDelete": "Delete level \"{name}\"? Its subjects keep existing but lose it.",
         "remove": "Remove",
         "addPlaceholder": "Add a level (e.g. Honors)",
         "add": "Add level"
       },
-      "add": { "namePlaceholder": "New course name", "submit": "Add course" },
+      "add": { "namePlaceholder": "New subject name", "submit": "Add subject" },
       "import": {
         "importing": "Importing…",
         "upload": "Upload CSV",
         "result": "Imported {created} of {received} (duplicates skipped).",
-        "empty": "No course rows found in that file.",
-        "formatPrefix": "CSV format: one course per line as",
+        "empty": "No subject rows found in that file.",
+        "formatPrefix": "CSV format: one subject per line as",
         "formatSuffix": "(level matched by name; a header row is optional)."
       },
       "batch": { "selected": "{count} selected", "setLevel": "Set level", "activate": "Activate", "deactivate": "Deactivate", "clear": "Clear" },
-      "table": { "name": "Name", "level": "Level", "active": "Active", "noLevelShort": "—", "delete": "Delete", "empty": "No courses yet." }
+      "table": { "name": "Name", "level": "Level", "active": "Active", "noLevelShort": "—", "delete": "Delete", "empty": "No subjects yet." }
     },
     "announcements": {
       "title": "Announcements",
@@ -530,7 +530,7 @@
       "intro": "Review applicants and assign a {n}-tutor interview panel (mark one head). Click a row to expand. The head schedules the interview and records the decision from their own dashboard.",
       "empty": "No applications yet.",
       "status": { "PENDING": "pending", "INTERVIEW": "interview", "ACCEPTED": "accepted", "REJECTED": "rejected" },
-      "noCourses": "no courses",
+      "noCourses": "no subjects",
       "panelSummary": "panel {n}/{total}",
       "votesSummary": "votes {accepts}/{total}",
       "accept": "Accept",
@@ -586,8 +586,8 @@
       "noPairings": "You have no pairings yet. Ask an admin to set one up.",
       "pairing": "Pairing",
       "selectPairing": "Select a pairing…",
-      "mergeTitle": "Merge Other Courses Into This Block",
-      "mergeHelp": "Running several courses together? Tick the other pairings covered in this same time block. Each course is recorded separately, but the block's service hours are counted once.",
+      "mergeTitle": "Merge Other Sessions Into This Block",
+      "mergeHelp": "Running several subjects together? Tick the other pairings covered in this same time block. Each is recorded separately, but the block's service hours are counted once.",
       "mergedNote": "Merged sessions share this block's time and ratings. Hours are credited once, on the primary session.",
       "mergedCount": "{count} other session(s) merged into this block (set under My pairings).",
       "date": "Date",
@@ -768,7 +768,7 @@
         "selectCourse": "Select…",
         "grade": "e.g. A",
         "apScore": "1–5",
-        "selfStudyNote": "e.g. completed an online course, competition results, portfolio…"
+        "selfStudyNote": "e.g. completed an online class, competition results, portfolio…"
       },
       "help": { "preferredContact": "The best way and time to reach you about your application and interview." },
       "coursesHelp": "For each, tell us how you're qualified: whether you've taken the class, hold an AP score (AP subjects only), and/or self-studied it.",

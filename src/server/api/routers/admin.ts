@@ -831,7 +831,7 @@ export const adminRouter = createTRPCRouter({
       if (!subject) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "No subject: pick a course for this tutee or pass a subject.",
+          message: "No subject: pick a subject for this tutee or pass a subject.",
         });
       }
 
@@ -869,7 +869,7 @@ export const adminRouter = createTRPCRouter({
         expectedUpdatedAt,
         assignments: z
           .array(z.object({ subject: z.string().trim().min(1), tutorId: cuid }))
-          .min(1, "Pick a tutor for at least one course"),
+          .min(1, "Pick a tutor for at least one subject"),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -1011,7 +1011,7 @@ export const adminRouter = createTRPCRouter({
       if (used > 0) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Course is chosen by one or more tutees. Mark it inactive instead.",
+          message: "Subject is chosen by one or more tutees. Mark it inactive instead.",
         });
       }
       const course = await ctx.db.course.findUniqueOrThrow({

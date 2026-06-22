@@ -157,7 +157,7 @@
       "noPairings": "暂无配对",
       "colName": "姓名",
       "colGrade": "年级",
-      "colCourses": "课程",
+      "colCourses": "科目",
       "colSessions": "课时",
       "colDiscipline": "纪律",
       "colContact": "联系方式",
@@ -170,7 +170,7 @@
     },
     "requests": {
       "title": "报名请求（学员）",
-      "help": "等待分配的公开学员报名，按最早优先处理。为每个课程志愿分配一位导师——这会创建配对，随后由导师选择时间段。",
+      "help": "等待分配的公开学员报名，按最早优先处理。为每个科目志愿分配一位导师——这会创建配对，随后由导师选择时间段。",
       "noTerm": "请先创建学期，才能分配请求。",
       "decline": "拒绝",
       "declineConfirm": "拒绝并删除 {name} 的请求？",
@@ -222,7 +222,7 @@
         "pairings": "配对",
         "attendance": "考勤提交记录",
         "timeSlots": "时间段",
-        "coursesLevels": "课程与级别",
+        "coursesLevels": "科目与级别",
         "rooms": "教室",
         "policyDocuments": "政策文件",
         "auditLog": "审计日志",
@@ -411,29 +411,29 @@
       "empty": "暂无教室。"
     },
     "courses": {
-      "title": "课程与级别",
-      "subtitle": "学生可申请的科目。级别由管理员维护；标记为“计入 AP 分数”的级别允许其课程在导师申请中携带 AP 考试分数。",
+      "title": "科目与级别",
+      "subtitle": "学生可申请的科目。级别由管理员维护；标记为“计入 AP 分数”的级别允许其科目在导师申请中携带 AP 考试分数。",
       "noLevel": "— 无级别 —",
       "levels": {
         "title": "级别",
-        "description": "课程可归属的难度等级。将某级别标记为“计入 AP 分数”，可让其课程在导师申请中携带 AP 考试分数。",
+        "description": "科目可归属的难度等级。将某级别标记为“计入 AP 分数”，可让其科目在导师申请中携带 AP 考试分数。",
         "apScored": "计入 AP 分数",
-        "confirmDelete": "删除级别“{name}”？其课程仍保留，但将失去该级别。",
+        "confirmDelete": "删除级别“{name}”？其科目仍保留，但将失去该级别。",
         "remove": "移除",
         "addPlaceholder": "添加级别（例如 荣誉）",
         "add": "添加级别"
       },
-      "add": { "namePlaceholder": "新课程名称", "submit": "添加课程" },
+      "add": { "namePlaceholder": "新科目名称", "submit": "添加科目" },
       "import": {
         "importing": "导入中…",
         "upload": "上传 CSV",
         "result": "已导入 {received} 项中的 {created} 项（已跳过重复项）。",
-        "empty": "该文件中未找到任何课程行。",
-        "formatPrefix": "CSV 格式：每行一门课程，格式为",
+        "empty": "该文件中未找到任何科目行。",
+        "formatPrefix": "CSV 格式：每行一个科目，格式为",
         "formatSuffix": "（级别按名称匹配；表头行可选）。"
       },
       "batch": { "selected": "已选择 {count} 项", "setLevel": "设置级别", "activate": "启用", "deactivate": "停用", "clear": "清除" },
-      "table": { "name": "名称", "level": "级别", "active": "启用", "noLevelShort": "—", "delete": "删除", "empty": "暂无课程。" }
+      "table": { "name": "名称", "level": "级别", "active": "启用", "noLevelShort": "—", "delete": "删除", "empty": "暂无科目。" }
     },
     "announcements": {
       "title": "公告",
@@ -501,7 +501,7 @@
       "intro": "审核申请人并分配一个由 {n} 名导师组成的面试小组（指定一名组长）。点击某一行可展开。组长在自己的仪表盘中安排面试并记录决定。",
       "empty": "暂无申请。",
       "status": { "PENDING": "待处理", "INTERVIEW": "面试中", "ACCEPTED": "已通过", "REJECTED": "已拒绝" },
-      "noCourses": "暂无课程",
+      "noCourses": "暂无科目",
       "panelSummary": "面试小组 {n}/{total}",
       "votesSummary": "投票 {accepts}/{total}",
       "accept": "通过",
@@ -557,8 +557,8 @@
       "noPairings": "你还没有任何配对。请联系管理员创建。",
       "pairing": "配对",
       "selectPairing": "选择一个配对…",
-      "mergeTitle": "将其他课程合并到此时段",
-      "mergeHelp": "同时进行多门课程？勾选此时间段内涵盖的其他配对。每门课程会单独记录，但此时段的服务时数只计一次。",
+      "mergeTitle": "将其他课节合并到此时段",
+      "mergeHelp": "同时进行多个科目？勾选此时间段内涵盖的其他配对。各自单独记录，但此时段的服务时数只计一次。",
       "mergedNote": "合并的课节共享此时段的时间和评分。服务时数仅在主课节上计一次。",
       "mergedCount": "已有 {count} 个其他课节合并到此时段（在“我的配对”中设置）。",
       "date": "日期",
@@ -739,7 +739,7 @@
         "selectCourse": "选择…",
         "grade": "例如 A",
         "apScore": "1–5",
-        "selfStudyNote": "例如：完成了一门在线课程、竞赛成绩、作品集…"
+        "selfStudyNote": "例如：完成了一门在线课、竞赛成绩、作品集…"
       },
       "help": { "preferredContact": "就你的申请和面试联系你的最佳方式和时间。" },
       "coursesHelp": "对每个科目，告诉我们你的资格：是否上过这门课、是否持有 AP 分数（仅限 AP 科目），以及/或者是否自学过。",
