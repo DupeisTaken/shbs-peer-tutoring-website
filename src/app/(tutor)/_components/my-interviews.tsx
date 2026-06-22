@@ -207,7 +207,7 @@ export function MyInterviews() {
 
   return (
     <section className="card p-5">
-      <h2 className="font-semibold text-slate-900">{t("dashboard.interviews.title")}</h2>
+      <h2 className="section-title">{t("dashboard.interviews.title")}</h2>
       <p className="muted mt-1 mb-3">{t("tutor.interviews.help")}</p>
       <div className="space-y-3">
         {list.map((a) => {
@@ -218,7 +218,7 @@ export function MyInterviews() {
                 <p className="font-medium text-slate-900">
                   {a.name}
                   {a.isHead && (
-                    <span className="badge ml-2 bg-indigo-100 text-indigo-700">
+                    <span className="badge ml-2 bg-accent-100 text-accent-700">
                       {t("tutor.interviews.youAreHead")}
                     </span>
                   )}

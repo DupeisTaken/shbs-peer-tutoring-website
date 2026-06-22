@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { forgotPasswordAction } from "./actions";
@@ -9,6 +9,7 @@ import { forgotPasswordAction } from "./actions";
 export function ForgotPasswordForm() {
   const t = useTranslations();
   const [state, formAction, pending] = useActionState(forgotPasswordAction, undefined);
+  const [valid, setValid] = useState(false);
 
   if (state?.sent) {
     return (
@@ -23,7 +24,11 @@ export function ForgotPasswordForm() {
   }
 
   return (
-    <form action={formAction} className="flex w-full flex-col gap-4">
+    <form
+      action={formAction}
+      onChange={(e) => setValid(e.currentTarget.checkValidity())}
+      className="flex w-full flex-col gap-4"
+    >
       <label className="space-y-1">
         <span className="label">{t("auth.forgot.fields.identifier")}</span>
         <input
@@ -35,7 +40,7 @@ export function ForgotPasswordForm() {
         />
       </label>
 
-      <button type="submit" disabled={pending} className="btn-primary mt-1 w-full">
+      <button type="submit" disabled={pending || !valid} className="btn-primary mt-1 w-full">
         {pending ? t("auth.forgot.sending") : t("auth.forgot.submit")}
       </button>
     </form>

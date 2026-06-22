@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { disciplineStanding } from "~/lib/discipline";
+import { NativeDisclosureIcon } from "~/app/_components/icons";
 
 /**
  * Six-slot discipline meter: a red card fills 3 slots, a yellow fills 1 (so 3 yellow = 1 red,
@@ -162,7 +163,7 @@ export default function CardsPage() {
       </div>
 
       <section className="card p-5">
-        <h2 className="font-semibold text-slate-900">
+        <h2 className="section-title">
           {t("admin.cards.pendingReview")}{" "}
           <span className="badge-amber ml-1">{pending.length}</span>
         </h2>
@@ -175,13 +176,14 @@ export default function CardsPage() {
       </section>
 
       <section className="card p-5">
-        <h2 className="font-semibold text-slate-900">{t("admin.cards.standingHeading")}</h2>
+        <h2 className="section-title">{t("admin.cards.standingHeading")}</h2>
         <p className="muted mt-1 text-xs">{t("admin.cards.standingHelp")}</p>
         <div className="mt-3 divide-y divide-slate-100">
           {standings.map((s) => (
             <details key={s.id} className="group py-2">
               <summary className="flex cursor-pointer flex-wrap items-center gap-3 [&::-webkit-details-marker]:hidden">
-                <span className="w-40 truncate font-medium text-slate-800 group-open:text-indigo-700">
+                <NativeDisclosureIcon />
+                <span className="w-40 truncate font-medium text-slate-800 group-open:text-accent-700">
                   {s.name}
                 </span>
                 <DisciplineSlots validRed={s.validRed} validYellow={s.validYellow} />
@@ -231,8 +233,8 @@ export default function CardsPage() {
       <section className="card p-5">
         <details className="group">
           <summary className="flex cursor-pointer items-center gap-2 [&::-webkit-details-marker]:hidden">
-            <span className="text-slate-400 group-open:rotate-90">▸</span>
-            <h2 className="font-semibold text-slate-900">{t("admin.cards.historyHeading")}</h2>
+            <NativeDisclosureIcon />
+            <h2 className="section-title">{t("admin.cards.historyHeading")}</h2>
             <span className="badge-slate">{all.length}</span>
           </summary>
           <div className="mt-3 overflow-x-auto">

@@ -4,8 +4,111 @@
   --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 
-  /* Brand palette (indigo). Keep in sync with usages of `indigo-600` in components. */
-  --color-brand: oklch(0.51 0.23 277);
+  /*
+   * Accent color scale — the single brand accent used across every interface (buttons, links,
+   * active nav, focus rings, badges). Backed by `--accent-*` CSS variables so that switching
+   * `data-theme` on <html> re-skins the whole app at runtime (see the theme blocks below and
+   * `~/lib/theme.ts`). Use `accent-50 … accent-950` Tailwind utilities; never hardcode a color.
+   */
+  --color-accent-50: var(--accent-50);
+  --color-accent-100: var(--accent-100);
+  --color-accent-200: var(--accent-200);
+  --color-accent-300: var(--accent-300);
+  --color-accent-400: var(--accent-400);
+  --color-accent-500: var(--accent-500);
+  --color-accent-600: var(--accent-600);
+  --color-accent-700: var(--accent-700);
+  --color-accent-800: var(--accent-800);
+  --color-accent-900: var(--accent-900);
+  --color-accent-950: var(--accent-950);
+
+  /* Legacy brand token (kept for back-compat); follows the active accent. */
+  --color-brand: var(--accent-600);
+}
+
+/*
+ * Theme palettes. Each maps the accent scale to one of Tailwind's built-in color ramps; the
+ * default (no attribute / indigo) is on :root. The picker (ThemeSwitcher) sets `data-theme`
+ * on <html>; the root layout restores it SSR from the THEME cookie so there's no flash.
+ */
+:root,
+[data-theme="indigo"] {
+  --accent-50: var(--color-indigo-50);
+  --accent-100: var(--color-indigo-100);
+  --accent-200: var(--color-indigo-200);
+  --accent-300: var(--color-indigo-300);
+  --accent-400: var(--color-indigo-400);
+  --accent-500: var(--color-indigo-500);
+  --accent-600: var(--color-indigo-600);
+  --accent-700: var(--color-indigo-700);
+  --accent-800: var(--color-indigo-800);
+  --accent-900: var(--color-indigo-900);
+  --accent-950: var(--color-indigo-950);
+}
+[data-theme="violet"] {
+  --accent-50: var(--color-violet-50);
+  --accent-100: var(--color-violet-100);
+  --accent-200: var(--color-violet-200);
+  --accent-300: var(--color-violet-300);
+  --accent-400: var(--color-violet-400);
+  --accent-500: var(--color-violet-500);
+  --accent-600: var(--color-violet-600);
+  --accent-700: var(--color-violet-700);
+  --accent-800: var(--color-violet-800);
+  --accent-900: var(--color-violet-900);
+  --accent-950: var(--color-violet-950);
+}
+[data-theme="emerald"] {
+  --accent-50: var(--color-emerald-50);
+  --accent-100: var(--color-emerald-100);
+  --accent-200: var(--color-emerald-200);
+  --accent-300: var(--color-emerald-300);
+  --accent-400: var(--color-emerald-400);
+  --accent-500: var(--color-emerald-500);
+  --accent-600: var(--color-emerald-600);
+  --accent-700: var(--color-emerald-700);
+  --accent-800: var(--color-emerald-800);
+  --accent-900: var(--color-emerald-900);
+  --accent-950: var(--color-emerald-950);
+}
+[data-theme="rose"] {
+  --accent-50: var(--color-rose-50);
+  --accent-100: var(--color-rose-100);
+  --accent-200: var(--color-rose-200);
+  --accent-300: var(--color-rose-300);
+  --accent-400: var(--color-rose-400);
+  --accent-500: var(--color-rose-500);
+  --accent-600: var(--color-rose-600);
+  --accent-700: var(--color-rose-700);
+  --accent-800: var(--color-rose-800);
+  --accent-900: var(--color-rose-900);
+  --accent-950: var(--color-rose-950);
+}
+[data-theme="amber"] {
+  --accent-50: var(--color-amber-50);
+  --accent-100: var(--color-amber-100);
+  --accent-200: var(--color-amber-200);
+  --accent-300: var(--color-amber-300);
+  --accent-400: var(--color-amber-400);
+  --accent-500: var(--color-amber-500);
+  --accent-600: var(--color-amber-600);
+  --accent-700: var(--color-amber-700);
+  --accent-800: var(--color-amber-800);
+  --accent-900: var(--color-amber-900);
+  --accent-950: var(--color-amber-950);
+}
+[data-theme="sky"] {
+  --accent-50: var(--color-sky-50);
+  --accent-100: var(--color-sky-100);
+  --accent-200: var(--color-sky-200);
+  --accent-300: var(--color-sky-300);
+  --accent-400: var(--color-sky-400);
+  --accent-500: var(--color-sky-500);
+  --accent-600: var(--color-sky-600);
+  --accent-700: var(--color-sky-700);
+  --accent-800: var(--color-sky-800);
+  --accent-900: var(--color-sky-900);
+  --accent-950: var(--color-sky-950);
 }
 
 @layer base {
@@ -23,17 +126,25 @@
 /* Base utilities (registered with @utility so they can be composed via @apply). */
 @utility btn {
   @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold whitespace-nowrap transition
-    focus-visible:ring-2 focus-visible:ring-indigo-500 focus-visible:ring-offset-2 focus-visible:outline-none
+    focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:outline-none
     disabled:cursor-not-allowed disabled:opacity-50;
 }
 @utility badge {
   @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;
 }
+/* Form control that grows/shrinks to fit its content instead of a fixed width.
+   `field-sizing: content` only takes effect when the width is auto, so reset the
+   `w-full` baked into `.input`/`.select`/`.textarea`. Pair with a `min-w-*`
+   (and optional `max-w-*`) at the call site so empty controls stay usable. */
+@utility field-auto {
+  field-sizing: content;
+  @apply w-auto max-w-full;
+}
 
 @layer components {
   /* Buttons --------------------------------------------------------------- */
   .btn-primary {
-    @apply btn bg-indigo-600 text-white hover:bg-indigo-700 active:bg-indigo-800;
+    @apply btn bg-accent-600 text-white hover:bg-accent-700 active:bg-accent-800;
   }
   .btn-secondary {
     @apply btn border border-slate-300 bg-white text-slate-700 hover:bg-slate-50;
@@ -48,7 +159,7 @@
 
   /* Inline text links (table actions etc.) -------------------------------- */
   .link {
-    @apply font-medium text-indigo-600 hover:text-indigo-700 hover:underline;
+    @apply font-medium text-accent-600 hover:text-accent-700 hover:underline;
   }
   .link-danger {
     @apply font-medium text-red-600 hover:text-red-700 hover:underline;
@@ -62,7 +173,7 @@
   .select,
   .textarea {
     @apply w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm
-      placeholder:text-slate-400 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 focus:outline-none;
+      placeholder:text-slate-400 focus:border-accent-500 focus:ring-1 focus:ring-accent-500 focus:outline-none;
   }
 
   /* Surfaces -------------------------------------------------------------- */
@@ -117,6 +228,6 @@
       transition hover:bg-slate-100 hover:text-slate-900;
   }
   .nav-link-active {
-    @apply bg-indigo-50 text-indigo-700 hover:bg-indigo-50 hover:text-indigo-700;
+    @apply bg-accent-50 text-accent-700 hover:bg-accent-50 hover:text-accent-700;
   }
 }

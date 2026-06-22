@@ -70,7 +70,7 @@ export function NotificationBell() {
               </>
             );
             const cls = `block px-3 py-2 text-left hover:bg-slate-50 ${
-              n.readAt ? "opacity-60" : "bg-indigo-50/40"
+              n.readAt ? "opacity-60" : "bg-accent-50/40"
             }`;
             return (
               <li key={n.id} className="border-b border-slate-50 last:border-0">

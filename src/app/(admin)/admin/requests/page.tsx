@@ -177,7 +177,7 @@ function RequestCard({
                 ) : (
                   <>
                     <select
-                      className="select w-72"
+                      className="select field-auto min-w-56"
                       disabled={!filled}
                       value={filled ? (picks[p.course!.name] ?? "") : ""}
                       onChange={(e) =>

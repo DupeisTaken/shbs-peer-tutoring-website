@@ -8,6 +8,7 @@ import { db } from "~/server/db";
 import { SignOutButton } from "~/app/_components/sign-out-button";
 import { NotificationBell } from "~/app/_components/notification-bell";
 import { LanguageSwitcher } from "~/app/_components/language-switcher";
+import { ThemeSwitcher } from "~/app/_components/theme-switcher";
 import { APP_TITLE } from "~/lib/branding";
 
 /**
@@ -34,6 +35,7 @@ export default async function TutorLayout({
       email: true,
       emailVerifiedAt: true,
       mustChangePassword: true,
+      canTranslate: true,
       tutor: { select: { username: true } },
     },
   });
@@ -50,13 +52,16 @@ export default async function TutorLayout({
           <Link href="/dashboard" className="text-lg font-bold text-slate-900">
             {APP_TITLE}
           </Link>
-          <div className="flex items-center gap-2 sm:gap-3">
+          {/* Order: account info · theme · bell · language · buttons */}
+          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
             <div className="hidden text-right leading-tight sm:block">
               <p className="text-sm font-medium text-slate-900">{session.user.name}</p>
               <p className="muted text-xs">
                 {me?.tutor?.username ? `@${me.tutor.username}` : session.role}
               </p>
             </div>
+            <ThemeSwitcher />
+            <NotificationBell />
             <LanguageSwitcher />
             {isElevated && (
               <Link href="/admin" className="btn-secondary btn-sm">
@@ -66,10 +71,14 @@ export default async function TutorLayout({
             <Link href="/handbook" className="btn-secondary btn-sm">
               {t("tutor.nav.handbook")}
             </Link>
+            {me?.canTranslate && (
+              <Link href="/localization" className="btn-secondary btn-sm">
+                {t("localization.navLabel")}
+              </Link>
+            )}
             <Link href="/settings" className="btn-secondary btn-sm">
               {t("components.userMenu.settings")}
             </Link>
-            <NotificationBell />
             <SignOutButton />
           </div>
         </div>

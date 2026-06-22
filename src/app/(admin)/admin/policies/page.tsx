@@ -7,6 +7,7 @@ import { api } from "~/trpc/react";
 import { LOCALES, LOCALE_LABELS } from "~/i18n/config";
 import { Markdown } from "~/app/_components/markdown";
 import { DisclosureIcon } from "~/app/_components/icons";
+import { useReadOnly } from "~/app/_components/read-only";
 
 type PolicyDoc = {
   id: string;
@@ -36,11 +37,13 @@ function PolicyVersionEditor({
   slug,
   locale,
   doc,
+  readOnly,
   onSaved,
 }: {
   slug: string;
   locale: string;
   doc: PolicyDoc | undefined;
+  readOnly: boolean;
   onSaved: () => void;
 }) {
   const t = useTranslations();
@@ -60,12 +63,14 @@ function PolicyVersionEditor({
         <input
           className="input max-w-md text-lg font-semibold"
           value={title}
+          readOnly={readOnly}
           onChange={(e) => setTitle(e.target.value)}
           placeholder={t("admin.policies.editor.titlePlaceholder")}
         />
         <input
-          className="input max-w-[10rem]"
+          className="input field-auto min-w-40"
           value={version}
+          readOnly={readOnly}
           onChange={(e) => setVersion(e.target.value)}
           placeholder={t("admin.policies.editor.versionPlaceholder")}
         />
@@ -93,9 +98,11 @@ function PolicyVersionEditor({
         className="textarea w-full font-mono text-xs"
         rows={18}
         value={body}
+        readOnly={readOnly}
         onChange={(e) => setBody(e.target.value)}
         placeholder={t("admin.policies.editor.bodyPlaceholder")}
       />
+      {!readOnly && (
       <div className="flex items-center gap-3">
         <button
           className="btn-primary btn-sm"
@@ -117,6 +124,7 @@ function PolicyVersionEditor({
         )}
         {upsert.error && <span className="text-sm text-red-600">{upsert.error.message}</span>}
       </div>
+      )}
     </div>
   );
 }
@@ -191,45 +199,116 @@ function VersionHistory({ archives }: { archives: ArchiveDoc[] }) {
   );
 }
 
-/** One policy (slug) with a language selector per supported locale. */
-function PolicyCard({ slug, byLocale, archivesByLocale, onSaved }: {
+type Locale = (typeof LOCALES)[number];
+
+/** Default policy language — always present; the fallback shown when a language isn't translated. */
+const DEFAULT_LOCALE: Locale = LOCALES[0];
+
+/**
+ * One policy (slug). Only languages that have actually been added are selectable; the rest are
+ * added on demand via the "Add language" picker (which opens a blank draft for that language).
+ * The default language can't be removed — it's the fallback for untranslated languages.
+ */
+function PolicyCard({ slug, byLocale, archivesByLocale, readOnly, onSaved }: {
   slug: string;
   byLocale: Map<string, PolicyDoc>;
   archivesByLocale: Map<string, ArchiveDoc[]>;
+  readOnly: boolean;
   onSaved: () => void;
 }) {
   const t = useTranslations();
-  const [active, setActive] = useState<string>(LOCALES[0]);
+  const del = api.admin.deletePolicyLocale.useMutation({ onSuccess: onSaved });
+
+  // Languages that already exist for this policy, in canonical order.
+  const existing = LOCALES.filter((l) => byLocale.has(l));
+  // Languages the editor has opened a blank draft for (not yet saved).
+  const [drafts, setDrafts] = useState<Locale[]>([]);
+  const available = [...existing, ...drafts.filter((d) => !existing.includes(d))];
+  const notAdded = LOCALES.filter((l) => !available.includes(l));
+
+  const [active, setActive] = useState<Locale>(() =>
+    byLocale.has(DEFAULT_LOCALE) ? DEFAULT_LOCALE : (existing[0] ?? DEFAULT_LOCALE),
+  );
   // English title is the friendliest label for the group header.
-  const heading = byLocale.get("en")?.title ?? byLocale.values().next().value?.title ?? slug;
+  const heading = byLocale.get(DEFAULT_LOCALE)?.title ?? byLocale.values().next().value?.title ?? slug;
+
+  const isDraft = !byLocale.has(active);
 
   return (
     <section className="card space-y-3 p-5">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <h2 className="section-title">{heading}</h2>
-        <label className="flex items-center gap-2 text-sm">
-          <span className="muted">{t("admin.policies.languageLabel")}</span>
-          <select
-            value={active}
-            onChange={(e) => setActive(e.target.value)}
-            className="select w-auto"
-          >
-            {LOCALES.map((l) => (
-              <option key={l} value={l}>
-                {LOCALE_LABELS[l]}
-                {!byLocale.has(l) ? ` (${t("admin.policies.notTranslatedShort")})` : ""}
-              </option>
-            ))}
-          </select>
-        </label>
+        <div className="flex flex-wrap items-center gap-2">
+          <label className="flex items-center gap-2 text-sm">
+            <span className="muted">{t("admin.policies.languageLabel")}</span>
+            <select
+              value={active}
+              onChange={(e) => setActive(e.target.value as Locale)}
+              className="select field-auto min-w-32"
+            >
+              {available.map((l) => (
+                <option key={l} value={l}>
+                  {LOCALE_LABELS[l]}
+                  {l === DEFAULT_LOCALE ? ` (${t("admin.policies.defaultBadge")})` : ""}
+                </option>
+              ))}
+            </select>
+          </label>
+          {!readOnly && notAdded.length > 0 && (
+            <select
+              value=""
+              onChange={(e) => {
+                const l = e.target.value as Locale | "";
+                if (!l) return;
+                setDrafts((d) => [...d, l]);
+                setActive(l);
+              }}
+              className="select field-auto min-w-40"
+            >
+              <option value="">{t("admin.policies.addLanguage")}</option>
+              {notAdded.map((l) => (
+                <option key={l} value={l}>
+                  {LOCALE_LABELS[l]}
+                </option>
+              ))}
+            </select>
+          )}
+        </div>
       </div>
       <PolicyVersionEditor
         key={active}
         slug={slug}
         locale={active}
         doc={byLocale.get(active)}
+        readOnly={readOnly}
         onSaved={onSaved}
       />
+      {!readOnly && active !== DEFAULT_LOCALE && (
+        <div>
+          {isDraft ? (
+            <button
+              className="link text-xs"
+              onClick={() => {
+                setDrafts((d) => d.filter((x) => x !== active));
+                setActive(DEFAULT_LOCALE);
+              }}
+            >
+              {t("admin.policies.discardLanguage")}
+            </button>
+          ) : (
+            <button
+              className="link-danger text-xs"
+              disabled={del.isPending}
+              onClick={() => {
+                if (confirm(t("admin.policies.confirmRemoveLanguage", { lang: LOCALE_LABELS[active] })))
+                  del.mutate({ slug, locale: active }, { onSuccess: () => setActive(DEFAULT_LOCALE) });
+              }}
+            >
+              {t("admin.policies.removeLanguage")}
+            </button>
+          )}
+        </div>
+      )}
       <VersionHistory archives={archivesByLocale.get(active) ?? []} />
     </section>
   );
@@ -237,6 +316,7 @@ function PolicyCard({ slug, byLocale, archivesByLocale, onSaved }: {
 
 export default function PoliciesPage() {
   const t = useTranslations();
+  const readOnly = useReadOnly();
   const utils = api.useUtils();
   const policies = api.admin.policies.useQuery();
   const archives = api.admin.policyArchives.useQuery();
@@ -281,6 +361,7 @@ export default function PoliciesPage() {
           slug={slug}
           byLocale={byLocale}
           archivesByLocale={archiveGroups.get(slug) ?? new Map()}
+          readOnly={readOnly}
           onSaved={invalidate}
         />
       ))}

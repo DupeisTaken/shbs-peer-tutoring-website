@@ -1,6 +1,7 @@
 import { getRequestConfig } from "next-intl/server";
 import { cookies } from "next/headers";
 
+import { db } from "~/server/db";
 import { DEFAULT_LOCALE, isLocale, type Locale } from "./config";
 
 /**
@@ -12,6 +13,7 @@ import { DEFAULT_LOCALE, isLocale, type Locale } from "./config";
 const LOADERS: Record<Locale, () => Promise<{ default: Record<string, unknown> }>> = {
   en: () => import("../../messages/en.json"),
   zh: () => import("../../messages/zh.json"),
+  es: () => import("../../messages/es.json"),
 };
 
 const COOKIE = "NEXT_LOCALE";
@@ -43,6 +45,41 @@ function deepMerge(
   return out;
 }
 
+/** Deep-set a dot-path key (e.g. "admin.users.title") to a string value, creating objects. */
+function setByPath(obj: Record<string, unknown>, path: string, value: string): void {
+  const parts = path.split(".");
+  let node = obj;
+  for (let i = 0; i < parts.length - 1; i++) {
+    const k = parts[i]!;
+    const next = node[k];
+    if (!next || typeof next !== "object" || Array.isArray(next)) {
+      node[k] = {};
+    }
+    node = node[k] as Record<string, unknown>;
+  }
+  node[parts[parts.length - 1]!] = value;
+}
+
+/**
+ * In-app translation overrides (edited on /localization). Applied on top of the bundled JSON +
+ * env override. Wrapped so a missing table / DB hiccup never breaks rendering — text just falls
+ * back to the bundled messages.
+ */
+async function applyDbOverrides(
+  messages: Record<string, unknown>,
+  locale: string,
+): Promise<void> {
+  try {
+    const rows = await db.messageOverride.findMany({
+      where: { locale },
+      select: { key: true, value: true },
+    });
+    for (const { key, value } of rows) setByPath(messages, key, value);
+  } catch {
+    // No overrides table yet / transient DB error — fall back to bundled messages.
+  }
+}
+
 function loadOverride(): Record<string, unknown> {
   const raw = process.env.MESSAGES_OVERRIDE;
   if (!raw) return {};
@@ -62,6 +99,7 @@ export default getRequestConfig(async () => {
 
   const base = (await LOADERS[locale]()).default;
   const messages = deepMerge(base, loadOverride());
+  await applyDbOverrides(messages, locale);
 
   return { locale, messages };
 });

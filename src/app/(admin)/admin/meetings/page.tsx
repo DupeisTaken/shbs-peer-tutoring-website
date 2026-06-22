@@ -28,10 +28,20 @@ export default function MeetingsPage() {
   const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
   const [time, setTime] = useState("12:00");
   const [selected, setSelected] = useState<string | null>(null);
+  const [showSummary, setShowSummary] = useState(false);
 
   return (
     <div className="space-y-6">
-      <h1 className="page-title">{t("admin.meetings.title")}</h1>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <h1 className="page-title">{t("admin.meetings.title")}</h1>
+        <button className="btn-secondary btn-sm" onClick={() => setShowSummary((v) => !v)}>
+          {showSummary ? t("admin.meetings.summary.hide") : t("admin.meetings.summary.show")}
+        </button>
+      </div>
+
+      {showSummary && (
+        <MeetingSummary meetings={meetings.data ?? []} tutors={tutors.data ?? []} />
+      )}
 
       {!readOnly && (
         <form
@@ -48,22 +58,24 @@ export default function MeetingsPage() {
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder={t("admin.meetings.titlePlaceholder")}
-            className="input max-w-xs"
+            className="input field-auto min-w-48"
           />
           <input
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="input max-w-[12rem]"
+            className="input field-auto min-w-36"
           />
           <input
             type="time"
             value={time}
             onChange={(e) => setTime(e.target.value)}
             aria-label={t("admin.meetings.timeLabel")}
-            className="input max-w-[8rem]"
+            className="input field-auto min-w-28"
           />
-          <button className="btn-primary">{t("admin.meetings.create")}</button>
+          <button className="btn-primary" disabled={!title.trim() || create.isPending}>
+            {t("admin.meetings.create")}
+          </button>
         </form>
       )}
 
@@ -74,7 +86,7 @@ export default function MeetingsPage() {
               <div className="flex items-center justify-between gap-3">
                 <button
                   onClick={() => setSelected(selected === m.id ? null : m.id)}
-                  className="text-left font-medium text-slate-900 hover:text-indigo-600"
+                  className="text-left font-medium text-slate-900 hover:text-accent-600"
                 >
                   {m.title} · {new Date(m.date).toLocaleString()}
                 </button>
@@ -98,6 +110,77 @@ export default function MeetingsPage() {
           ))}
         </ul>
       </div>
+    </div>
+  );
+}
+
+/** Read-only matrix: every tutor (rows) × every meeting (columns), showing attendance at a glance.
+ *  Inactive tutors are exempt (X); cells with no record show a dot. */
+function MeetingSummary({
+  meetings,
+  tutors,
+}: {
+  meetings: { id: string; title: string; date: Date; attendances: { tutorId: string; status: string }[] }[];
+  tutors: { id: string; englishName: string; active: boolean }[];
+}) {
+  const t = useTranslations();
+  const byMeeting = new Map<string, Map<string, string>>();
+  for (const m of meetings) {
+    const inner = new Map<string, string>();
+    for (const a of m.attendances) inner.set(a.tutorId, a.status);
+    byMeeting.set(m.id, inner);
+  }
+
+  const cell = (status: string | undefined, active: boolean) => {
+    if (!active) return { text: "X", cls: "text-slate-400", title: t("admin.meetings.exempt") };
+    switch (status) {
+      case "PRESENT":
+        return { text: "P", cls: "text-green-600", title: t("admin.meetings.status.present") };
+      case "EXCUSED_ABSENT":
+        return { text: "EA", cls: "text-amber-600", title: t("admin.meetings.status.excusedAbsent") };
+      case "UNEXCUSED_ABSENT":
+        return { text: "UA", cls: "text-red-600", title: t("admin.meetings.status.unexcusedAbsent") };
+      default:
+        return { text: "·", cls: "text-slate-300", title: "—" };
+    }
+  };
+
+  return (
+    <div className="card overflow-x-auto">
+      <table className="data-table">
+        <thead>
+          <tr>
+            <th className="sticky left-0 z-10 bg-white">{t("admin.meetings.summary.tutor")}</th>
+            {meetings.map((m) => (
+              <th key={m.id} className="text-center whitespace-nowrap" title={m.title}>
+                {new Date(m.date).toLocaleDateString()}
+              </th>
+            ))}
+          </tr>
+        </thead>
+        <tbody>
+          {tutors.map((tu) => (
+            <tr key={tu.id} className={tu.active ? "" : "text-slate-400"}>
+              <th className="sticky left-0 z-10 bg-white text-left font-medium whitespace-nowrap text-slate-700">
+                {tu.englishName}
+              </th>
+              {meetings.map((m) => {
+                const c = cell(byMeeting.get(m.id)?.get(tu.id), tu.active);
+                return (
+                  <td key={m.id} className={`text-center text-xs font-semibold ${c.cls}`} title={c.title}>
+                    {c.text}
+                  </td>
+                );
+              })}
+            </tr>
+          ))}
+          {(meetings.length === 0 || tutors.length === 0) && (
+            <tr>
+              <td className="text-slate-500">{t("admin.meetings.summary.noMeetings")}</td>
+            </tr>
+          )}
+        </tbody>
+      </table>
     </div>
   );
 }
@@ -153,7 +236,7 @@ function AttendanceEditor({
                       onClick={() => setDraft((d) => ({ ...d, [tu.id]: opt.value }))}
                       className={`rounded-md px-2 py-1 text-xs font-medium whitespace-nowrap ${
                         activeChoice
-                          ? "bg-indigo-600 text-white"
+                          ? "bg-accent-600 text-white"
                           : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100"
                       }`}
                     >

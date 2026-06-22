@@ -4,21 +4,12 @@ import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
-import { graduationYear } from "~/lib/period";
-import { REFERENCE_STALE_TIME } from "~/lib/query";
 import { SortHeader, useSort, compare } from "~/app/_components/sortable";
-import { useReadOnly } from "~/app/_components/read-only";
 
 export default function TutorsPage() {
   const t = useTranslations();
-  // Alias: the row map below shadows `t` with the tutor record, so use `tt` for translations there.
-  const tt = t;
   const utils = api.useUtils();
   const tutors = api.admin.tutors.useQuery();
-  const currentPeriod = api.admin.currentPeriod.useQuery(undefined, {
-    staleTime: REFERENCE_STALE_TIME,
-  });
-  const schoolYear = currentPeriod.data?.schoolYear;
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [altNames, setAltNames] = useState("");
@@ -39,14 +30,6 @@ export default function TutorsPage() {
     },
   });
   const update = api.admin.updateTutor.useMutation({ onSuccess: invalidate });
-  const readOnly = useReadOnly();
-  const [setupInfo, setSetupInfo] = useState<
-    { tutorId: string; link: string; emailed: boolean } | null
-  >(null);
-  const sendSetup = api.admin.sendTutorSetup.useMutation({
-    onSuccess: (data, variables) =>
-      setSetupInfo({ tutorId: variables.tutorId, link: data.link, emailed: data.emailed }),
-  });
 
   const rows = useMemo(() => {
     const data = tutors.data ?? [];
@@ -95,26 +78,26 @@ export default function TutorsPage() {
           value={firstName}
           onChange={(e) => setFirstName(e.target.value)}
           placeholder={t("admin.tutors.phFirstName")}
-          className="input max-w-[10rem]"
+          className="input field-auto min-w-36"
         />
         <input
           value={lastName}
           onChange={(e) => setLastName(e.target.value)}
           placeholder={t("admin.tutors.phLastName")}
-          className="input max-w-[10rem]"
+          className="input field-auto min-w-36"
         />
         <input
           value={altNames}
           onChange={(e) => setAltNames(e.target.value)}
           placeholder={t("admin.tutors.phAltNames")}
-          className="input max-w-[12rem]"
+          className="input field-auto min-w-40"
         />
         <input
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           type="email"
           placeholder={t("admin.tutors.phEmail")}
-          className="input max-w-xs"
+          className="input field-auto min-w-48"
         />
         <input
           value={grade}
@@ -123,36 +106,19 @@ export default function TutorsPage() {
           min={6}
           max={12}
           placeholder={t("admin.tutors.phGrade")}
-          className="input w-24"
+          className="input field-auto min-w-20"
         />
-        <button className="btn-primary" disabled={create.isPending}>
+        <button
+          className="btn-primary"
+          disabled={!firstName.trim() || !lastName.trim() || create.isPending}
+        >
           {t("admin.tutors.addTutor")}
         </button>
       </form>
       {create.error && <p className="text-sm text-red-600">{create.error.message}</p>}
-      {sendSetup.error && <p className="text-sm text-red-600">{sendSetup.error.message}</p>}
-      {setupInfo && (
-        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm">
-          <div className="flex items-start justify-between gap-3">
-            <p className="text-slate-700">
-              {setupInfo.emailed
-                ? t("admin.tutors.account.linkEmailed")
-                : t("admin.tutors.account.linkManual")}
-            </p>
-            <button className="link text-xs" onClick={() => setSetupInfo(null)}>
-              {t("admin.tutors.account.dismiss")}
-            </button>
-          </div>
-          <input
-            readOnly
-            value={setupInfo.link}
-            onFocus={(e) => e.target.select()}
-            className="input mt-2 w-full font-mono text-xs"
-          />
-        </div>
-      )}
+      <p className="muted text-xs">{t("admin.tutors.accountMovedNote")}</p>
 
-      <div className="card overflow-hidden">
+      <div className="card overflow-x-auto">
         <table className="data-table">
           <thead>
             <tr>
@@ -163,7 +129,6 @@ export default function TutorsPage() {
               <SortHeader sort={sort} sortKey="email">{t("admin.tutors.colEmail")}</SortHeader>
               <SortHeader sort={sort} sortKey="grade">{t("admin.tutors.colGrade")}</SortHeader>
               <SortHeader sort={sort} sortKey="active">{t("admin.tutors.colActive")}</SortHeader>
-              <th>{t("admin.tutors.colAccount")}</th>
             </tr>
           </thead>
           <tbody>
@@ -203,7 +168,7 @@ export default function TutorsPage() {
                   <td>
                     <input
                       defaultValue={t.firstName ?? ""}
-                      className="input max-w-[9rem]"
+                      className="input field-auto min-w-32"
                       onBlur={(e) => {
                         const v = e.target.value.trim();
                         if (v && v !== (t.firstName ?? "")) save({ firstName: v });
@@ -213,7 +178,7 @@ export default function TutorsPage() {
                   <td>
                     <input
                       defaultValue={t.lastName ?? ""}
-                      className="input max-w-[9rem]"
+                      className="input field-auto min-w-32"
                       onBlur={(e) => {
                         const v = e.target.value.trim();
                         if (v && v !== (t.lastName ?? "")) save({ lastName: v });
@@ -225,7 +190,7 @@ export default function TutorsPage() {
                       defaultValue={t.alternativeNames ?? ""}
                       placeholder="—"
                       lang="zh"
-                      className="input max-w-[10rem]"
+                      className="input field-auto min-w-36"
                       onBlur={(e) => {
                         const v = e.target.value.trim();
                         if (v !== (t.alternativeNames ?? ""))
@@ -237,7 +202,7 @@ export default function TutorsPage() {
                     <input
                       defaultValue={t.username ?? ""}
                       placeholder="—"
-                      className="input max-w-[9rem]"
+                      className="input field-auto min-w-32"
                       onBlur={(e) => {
                         const v = e.target.value.trim();
                         if (v !== (t.username ?? "")) save({ username: v });
@@ -249,7 +214,7 @@ export default function TutorsPage() {
                       defaultValue={t.email ?? ""}
                       type="email"
                       placeholder="—"
-                      className="input max-w-xs"
+                      className="input field-auto min-w-44"
                       onBlur={(e) => {
                         const v = e.target.value.trim();
                         if (v !== (t.email ?? "")) save({ email: v || null });
@@ -264,20 +229,13 @@ export default function TutorsPage() {
                         min={6}
                         max={12}
                         placeholder="—"
-                        className="input w-16"
+                        className="input field-auto min-w-16"
                         onBlur={(e) => {
                           const raw = e.target.value.trim();
                           const v = raw === "" ? null : Number(raw);
                           if (v !== (t.gradeLevel ?? null)) save({ gradeLevel: v });
                         }}
                       />
-                      {t.gradeLevel != null && schoolYear && (
-                        <span className="muted text-xs whitespace-nowrap">
-                          {tt("admin.tutors.classOf", {
-                            year: graduationYear(t.gradeLevel, schoolYear),
-                          })}
-                        </span>
-                      )}
                     </div>
                   </td>
                   <td>
@@ -286,43 +244,6 @@ export default function TutorsPage() {
                       checked={t.active}
                       onChange={(e) => save({ active: e.target.checked })}
                     />
-                  </td>
-                  <td>
-                    {(() => {
-                      const setUp = !!t.user && !t.user.mustChangePassword && !!t.user.emailVerifiedAt;
-                      const pending = !!t.user && !setUp;
-                      return (
-                        <div className="flex items-center gap-2">
-                          <span
-                            className={
-                              setUp ? "badge-green" : pending ? "badge-amber" : "badge-slate"
-                            }
-                          >
-                            {tt(
-                              setUp
-                                ? "admin.tutors.account.active"
-                                : pending
-                                  ? "admin.tutors.account.pending"
-                                  : "admin.tutors.account.none",
-                            )}
-                          </span>
-                          {!readOnly && (
-                            <button
-                              className="link text-xs whitespace-nowrap"
-                              disabled={!t.email || sendSetup.isPending}
-                              title={!t.email ? tt("admin.tutors.account.needEmail") : undefined}
-                              onClick={() => sendSetup.mutate({ tutorId: t.id })}
-                            >
-                              {tt(
-                                setUp
-                                  ? "admin.tutors.account.resend"
-                                  : "admin.tutors.account.sendSetup",
-                              )}
-                            </button>
-                          )}
-                        </div>
-                      );
-                    })()}
                   </td>
                 </tr>
               );

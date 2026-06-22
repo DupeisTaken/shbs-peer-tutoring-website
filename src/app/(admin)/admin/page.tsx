@@ -30,7 +30,7 @@ export default async function AdminHome() {
         <Stat
           label={t("admin.dashboard.stats.pendingSignups")}
           value={pendingTutees}
-          href="/admin/tutees"
+          href="/admin/requests"
           highlight={pendingTutees > 0}
         />
         <Stat
@@ -52,11 +52,12 @@ export default async function AdminHome() {
       {/* Recent submissions */}
       <section className="card overflow-hidden">
         <div className="flex items-center justify-between px-5 py-3">
-          <h2 className="font-semibold text-slate-900">{t("admin.dashboard.recentSubmissions.title")}</h2>
+          <h2 className="section-title">{t("admin.dashboard.recentSubmissions.title")}</h2>
           <Link href="/admin/attendance" className="link text-sm">
             {t("admin.dashboard.recentSubmissions.viewAll")}
           </Link>
         </div>
+        <div className="overflow-x-auto">
         <table className="data-table">
           <thead>
             <tr>
@@ -86,6 +87,7 @@ export default async function AdminHome() {
             )}
           </tbody>
         </table>
+        </div>
       </section>
     </div>
   );

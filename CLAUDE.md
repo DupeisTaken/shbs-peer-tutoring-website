@@ -43,13 +43,27 @@ your changes (`generated/prisma/`) and move on.
   and support ICU `{placeholder}` args. The active locale comes from the `NEXT_LOCALE` cookie
   (the `LanguageSwitcher` in the header sets it — no locale routing, so the auth middleware is
   untouched); config in `src/i18n/request.ts`. Orgs can white-label without editing the files
-  via the `MESSAGES_OVERRIDE` env (deep-merged JSON). Migrating the remaining hardcoded strings
-  is in progress — always route new/edited copy through next-intl. **Policy documents** are
-  localized too: `PolicyDocument` is one row per `(slug, locale)`; the public signup forms
-  request the active locale (`localizedPolicy`, English fallback) and `/admin/policies` edits each
-  language via a dropdown. Saving an edit snapshots the prior copy into `PolicyArchive`, viewable
-  under each document's **version history**. Shared UI glyphs (collapse/expand, etc.) live in `src/lib/symbols.ts` /
+  via the `MESSAGES_OVERRIDE` env (deep-merged JSON). Strings are also editable **in-app** at
+  **`/localization`** (the `localization` router + `MessageOverride` table): each row is one
+  `(locale, dot-key)` override, deep-merged over the bundled JSON at request time
+  (`src/i18n/request.ts`, wrapped so a missing table never breaks rendering). Access via
+  `translatorProcedure` — admins/coordinators, or any user an admin flags **`canTranslate`** on
+  `/admin/users` (so a tutor can be assigned to help translate). Migrating the remaining hardcoded
+  strings is in progress — always route new/edited copy through next-intl. **Policy documents** are
+  localized too: `PolicyDocument` is one row per `(slug, locale)` with a fixed **default language
+  (`en`)** that's always present and serves as the fallback (`localizedPolicy`). `/admin/policies`
+  only lists languages that actually exist; coordinators/admins add another translation via the
+  **"Add language"** picker (opens a blank draft → first save creates the row) and can remove a
+  non-default translation (`deletePolicyLocale`, archived first). Saving an edit snapshots the prior
+  copy into `PolicyArchive`, viewable under each document's **version history**. Shared UI glyphs
+  (collapse/expand, etc.) live in `src/lib/symbols.ts` /
   `~/app/_components/icons.tsx` — reuse `DisclosureIcon`, don't hand-write triangles.
+- **Accent color is themeable — never hardcode `indigo`/`blue`.** Use the `accent-50…accent-950`
+  Tailwind tokens (e.g. `bg-accent-600`, `text-accent-700`, `ring-accent-500`). They're backed by
+  `--accent-*` CSS variables; each theme in `src/lib/theme.ts` maps them to a built-in palette under
+  a `[data-theme="…"]` block in `globals.css`. The `ThemeSwitcher` (header) sets `data-theme` on
+  `<html>` + a `THEME` cookie; the root layout restores it SSR (no flash). Add a theme by adding a
+  `[data-theme]` block + an entry in `THEMES` and `components.theme.names.*`.
 - **Env vars are validated in `src/env.js`** (`@t3-oss/env-nextjs`). Add server vars to
   `server`, public vars to `client` (must be `NEXT_PUBLIC_*`), and wire **both** into
   `runtimeEnv`. Give defaults so the app runs unconfigured.
@@ -59,7 +73,12 @@ your changes (`generated/prisma/`) and move on.
   **reads** — it also admits the read-only `VIEWER` role and masks PII (emails / phone /
   preferred contact) in the result for viewers. Keep admin queries on `viewerProcedure` and admin
   mutations on `adminProcedure` so VIEWER can browse but never write. Routers enforce
-  role/ownership server-side; `src/middleware.ts` (Edge) gates routes.
+  role/ownership server-side; `src/middleware.ts` (Edge) gates routes. **Users & Roles
+  (`/admin/users`)** is reachable by ADMIN **and COORDINATOR** (nav `elevatedOnly`, not VIEWER); it
+  lists every login **plus** admin-created tutors without one (the `accounts` query). Account setup
+  (invite/resend setup links, login status) lives here in its own **Account** column — moved off
+  `/admin/tutors` (the linked-tutor column shows class-of + active). Coordinators may only **send links** and toggle **their own** "can tutor"
+  (`setUserCanTutor` self-checks); role changes stay `adminOnlyProcedure`.
 - **Service-hour math lives in `src/lib/service-hours.ts`** — pure and unit-tested. It's
   the single source of truth; change hour logic there, not in routers. Hour **deductions**
   (and bonuses) are `ServiceHourAdjustment` rows (PUNISHMENT/EXTRA), summed into monthly totals.
@@ -69,6 +88,13 @@ your changes (`generated/prisma/`) and move on.
 - **Styling**: Tailwind v4 with shared design-system classes in `src/styles/globals.css`
   (`.btn`, `.card`, `.input`, `.select`, `.label`, `.link`, `.badge-*`, …). Reuse these
   rather than ad-hoc utility soup. Tailwind v4 needs `@utility` for `@apply`-able bases.
+  **Form controls size to their content, not fixed widths** — add `field-auto` (sets
+  `field-sizing: content` + `w-auto max-w-full`) alongside `.input`/`.select` with a `min-w-*`
+  floor (e.g. `select field-auto min-w-40`) instead of `w-40`/`max-w-xs`. **Wide tables go in a
+  `card overflow-x-auto` wrapper** (never `overflow-hidden`, which clips on small screens) so
+  they scroll horizontally on mobile. **Gray submit buttons when the form is incomplete** via
+  `disabled`: controlled forms test the required fields; server-action forms use a form-level
+  `onChange={(e) => setValid(e.currentTarget.checkValidity())}`.
   For collapse/expand affordances use the shared `DisclosureIcon` (`~/app/_components/icons.tsx`)
   so the `▸`/`▾` gesture is consistent everywhere. The `/admin` and tutor areas share one top-bar
   theme (brand left; identity block with name + `@username` and global controls right).
@@ -129,7 +155,8 @@ submission time). See the `admin-philosophies` memory for the rationale.
   (`/onboarding/email`) before the dashboard, tracked by `User.emailVerifiedAt`. Tutors
   self-serve their own alt-name / contact email / password at `/settings`. A coordinator/admin
   can be given a `Tutor` link via the **"Can tutor"** toggle on `/admin/users`. Admin-created
-  tutors have **no login** until invited: **"Send setup link"** on `/admin/tutors`
+  tutors have **no login** until invited: **"Send setup link"** on **`/admin/users`** (under the
+  linked tutor — `/admin/tutors` is now roster-only: names, grade, active)
   (`sendTutorSetup` → `issueTutorSetupLink`) provisions a `User` and emails a set-your-password
   link (reusing the reset-token flow; the link is also shown to the admin to copy). Consuming
   that link sets the password **and** completes onboarding (clears `mustChangePassword`, stamps

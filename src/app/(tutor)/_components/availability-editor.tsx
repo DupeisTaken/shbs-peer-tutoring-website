@@ -61,7 +61,7 @@ export function AvailabilityEditor() {
                   key={s.id}
                   className={`cursor-pointer rounded-md border px-3 py-1.5 text-sm transition ${
                     checked
-                      ? "border-indigo-500 bg-indigo-50 text-indigo-700"
+                      ? "border-accent-500 bg-accent-50 text-accent-700"
                       : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
                   }`}
                 >

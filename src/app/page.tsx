@@ -42,15 +42,15 @@ export default async function Home() {
 
       <main className="flex-1">
         {/* Hero / brief program introduction (placeholder copy) */}
-        <section className="relative overflow-hidden bg-gradient-to-b from-indigo-50 via-white to-white">
+        <section className="relative overflow-hidden bg-gradient-to-b from-accent-50 via-white to-white">
           <div
             aria-hidden
-            className="pointer-events-none absolute -top-24 left-1/2 h-72 w-[42rem] -translate-x-1/2 rounded-full bg-indigo-200/40 blur-3xl"
+            className="pointer-events-none absolute -top-24 left-1/2 h-72 w-[42rem] -translate-x-1/2 rounded-full bg-accent-200/40 blur-3xl"
           />
           <div className="relative mx-auto max-w-3xl px-4 py-20 text-center sm:py-28">
             <span className="badge-slate mb-5">{t("tagline")}</span>
             <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl">
-              <span className="bg-gradient-to-r from-indigo-600 to-violet-600 bg-clip-text text-transparent">
+              <span className="bg-gradient-to-r from-accent-600 to-violet-600 bg-clip-text text-transparent">
                 {t("heroTitle")}
               </span>
             </h1>

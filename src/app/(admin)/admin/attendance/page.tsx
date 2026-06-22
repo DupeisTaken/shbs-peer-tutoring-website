@@ -25,12 +25,12 @@ export default function SubmissionsPage() {
           type="month"
           value={month}
           onChange={(e) => setMonth(e.target.value)}
-          className="input max-w-[12rem]"
+          className="input field-auto min-w-36"
         />
         <select
           value={tutorId}
           onChange={(e) => setTutorId(e.target.value)}
-          className="select max-w-xs"
+          className="select field-auto min-w-48"
         >
           <option value="">{t("admin.submissions.allTutors")}</option>
           {(tutors.data ?? []).map((t) => (
@@ -41,7 +41,7 @@ export default function SubmissionsPage() {
         </select>
       </div>
 
-      <div className="card overflow-hidden">
+      <div className="card overflow-x-auto">
         <table className="data-table">
           <thead>
             <tr>

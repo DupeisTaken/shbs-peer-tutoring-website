@@ -49,7 +49,7 @@ export function SortHeader({
         className="group inline-flex items-center gap-1 font-semibold tracking-wide text-inherit uppercase hover:text-slate-700"
       >
         {children}
-        <span className={active ? "text-indigo-600" : "text-slate-300 group-hover:text-slate-400"}>
+        <span className={active ? "text-accent-600" : "text-slate-300 group-hover:text-slate-400"}>
           {active ? (sort.dir === "asc" ? "▲" : "▼") : "↕"}
         </span>
       </button>

@@ -85,7 +85,7 @@ export default function SubjectsPage() {
 
       {/* Levels */}
       <section className="card p-5">
-        <h2 className="font-semibold text-slate-900">{t("admin.courses.levels.title")}</h2>
+        <h2 className="section-title">{t("admin.courses.levels.title")}</h2>
         <p className="muted mt-1 text-xs">{t("admin.courses.levels.description")}</p>
         <div className="mt-3 space-y-2">
           {levelList.map((l) => (
@@ -95,7 +95,7 @@ export default function SubjectsPage() {
             >
               <input
                 defaultValue={l.name}
-                className="input h-8 max-w-[10rem]"
+                className="input field-auto h-8 min-w-40"
                 onBlur={(e) => {
                   const v = e.target.value.trim();
                   if (v && v !== l.name) updateLevel.mutate({ id: l.id, name: v });
@@ -135,9 +135,14 @@ export default function SubjectsPage() {
               value={newLevel}
               onChange={(e) => setNewLevel(e.target.value)}
               placeholder={t("admin.courses.levels.addPlaceholder")}
-              className="input h-8 max-w-[12rem]"
+              className="input field-auto h-8 min-w-44"
             />
-            <button className="btn-secondary btn-sm">{t("admin.courses.levels.add")}</button>
+            <button
+              className="btn-secondary btn-sm"
+              disabled={!newLevel.trim() || createLevel.isPending}
+            >
+              {t("admin.courses.levels.add")}
+            </button>
           </form>
         </div>
       </section>
@@ -159,9 +164,13 @@ export default function SubjectsPage() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder={t("admin.courses.add.namePlaceholder")}
-            className="input max-w-xs"
+            className="input field-auto min-w-48"
           />
-          <select className="select w-40" value={levelId} onChange={(e) => setLevelId(e.target.value)}>
+          <select
+            className="select field-auto min-w-40"
+            value={levelId}
+            onChange={(e) => setLevelId(e.target.value)}
+          >
             <option value="">{t("admin.courses.noLevel")}</option>
             {levelList.map((l) => (
               <option key={l.id} value={l.id}>
@@ -169,7 +178,9 @@ export default function SubjectsPage() {
               </option>
             ))}
           </select>
-          <button className="btn-primary">{t("admin.courses.add.submit")}</button>
+          <button className="btn-primary" disabled={!name.trim() || create.isPending}>
+            {t("admin.courses.add.submit")}
+          </button>
         </form>
 
         <label className="btn-secondary btn-sm cursor-pointer">
@@ -196,10 +207,10 @@ export default function SubjectsPage() {
 
       {/* Batch toolbar */}
       {selected.size > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2">
-          <span className="text-sm font-medium text-indigo-800">{t("admin.courses.batch.selected", { count: selected.size })}</span>
+        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-accent-200 bg-accent-50 px-3 py-2">
+          <span className="text-sm font-medium text-accent-800">{t("admin.courses.batch.selected", { count: selected.size })}</span>
           <select
-            className="select w-40"
+            className="select field-auto min-w-40"
             value={batchLevel}
             onChange={(e) => setBatchLevel(e.target.value)}
           >
@@ -235,7 +246,7 @@ export default function SubjectsPage() {
         </div>
       )}
 
-      <div className="card overflow-hidden">
+      <div className="card overflow-x-auto">
         <table className="data-table">
           <thead>
             <tr>
@@ -267,7 +278,7 @@ export default function SubjectsPage() {
                 <td>
                   <input
                     defaultValue={c.name}
-                    className="input max-w-xs"
+                    className="input field-auto min-w-40"
                     onBlur={(e) => {
                       const v = e.target.value.trim();
                       if (v && v !== c.name)
@@ -277,7 +288,7 @@ export default function SubjectsPage() {
                 </td>
                 <td>
                   <select
-                    className="select w-40"
+                    className="select field-auto min-w-40"
                     value={c.level?.id ?? ""}
                     onChange={(e) =>
                       update.mutate({

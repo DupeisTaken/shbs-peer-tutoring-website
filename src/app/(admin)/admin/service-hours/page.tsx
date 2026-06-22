@@ -43,7 +43,7 @@ export default function SummaryPage() {
         </div>
       </div>
 
-      <div className="card overflow-hidden">
+      <div className="card overflow-x-auto">
         <table className="data-table">
           <thead>
             <tr>

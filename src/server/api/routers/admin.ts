@@ -11,7 +11,7 @@ import { monthKey } from "~/lib/service-hours";
 import { defaultUsername, ensureUniqueUsername } from "~/server/auth/username";
 import { issueTutorSetupLink } from "~/server/auth/password-reset";
 import { promoteApplicantToTutor } from "~/server/tutors/promote";
-import { notifyTutors, notifyUsers } from "~/server/notifications/create";
+import { notifyAdmins, notifyTutors, notifyUsers } from "~/server/notifications/create";
 import { standingFromCounts } from "~/lib/discipline";
 import {
   QUARTERS,
@@ -43,6 +43,9 @@ async function activeGradYear(
 
 const monthInput = z.string().regex(/^\d{4}-\d{2}$/);
 const cuid = z.string().min(1);
+
+/** Default policy language — always present, shown as the fallback when a translation is missing. */
+const DEFAULT_POLICY_LOCALE = "en";
 
 /** Trim a string and collapse empty/whitespace-only values to null. */
 function blankToNull(value?: string | null): string | null {
@@ -660,7 +663,7 @@ export const adminRouter = createTRPCRouter({
       const username = await ensureUniqueUsername(
         defaultUsername(input.firstName, input.lastName, gradYear),
       );
-      return ctx.db.tutor.create({
+      const tutor = await ctx.db.tutor.create({
         data: {
           firstName: input.firstName,
           lastName: input.lastName,
@@ -674,6 +677,16 @@ export const adminRouter = createTRPCRouter({
           email: input.email?.trim() ? input.email.trim().toLowerCase() : null,
         },
       });
+      // Manually-added tutors have no login yet — remind the team to send a setup link.
+      await notifyAdmins(
+        {
+          title: "New tutor needs an account",
+          body: `${tutor.englishName} was added — send them a setup link.`,
+          link: "/admin/users",
+        },
+        { exclude: ctx.session.user.id },
+      );
+      return tutor;
     }),
 
   updateTutor: adminProcedure
@@ -1434,22 +1447,81 @@ export const adminRouter = createTRPCRouter({
   // --------------------------------------------------------------------------
   // User / role management (ADMIN only)
   // --------------------------------------------------------------------------
-  users: adminOnlyProcedure.query(({ ctx }) =>
-    ctx.db.user.findMany({
-      orderBy: { email: "asc" },
-      select: {
-        id: true,
-        name: true,
-        email: true,
-        role: true,
-        emailVerifiedAt: true,
-        tutorId: true,
-        tutor: {
-          select: { englishName: true, active: true, username: true, gradeLevel: true },
+  /**
+   * Unified account list for the Users & Roles page: every login plus any admin-created tutor
+   * that doesn't have a login yet (so they can be invited from here). Each row carries the
+   * tutor's account/setup status and a `isSelf` flag; `caller` lets the client gate controls
+   * (coordinators may only send links + toggle their own "can tutor"). ADMIN or COORDINATOR only.
+   */
+  accounts: adminProcedure.query(async ({ ctx }) => {
+    const [term, users, unlinkedTutors] = await Promise.all([
+      ctx.db.term.findFirst({ where: { active: true }, select: { schoolYear: true } }),
+      ctx.db.user.findMany({
+        orderBy: { email: "asc" },
+        select: {
+          id: true,
+          name: true,
+          email: true,
+          role: true,
+          canTranslate: true,
+          emailVerifiedAt: true,
+          mustChangePassword: true,
+          tutorId: true,
+          tutor: {
+            select: { englishName: true, active: true, username: true, gradeLevel: true, email: true },
+          },
         },
+      }),
+      ctx.db.tutor.findMany({
+        where: { user: { is: null } },
+        orderBy: { englishName: "asc" },
+        select: { id: true, englishName: true, active: true, username: true, gradeLevel: true, email: true },
+      }),
+    ]);
+
+    // Class-of year for a grade in the active school year (null if neither is known).
+    const classOf = (gradeLevel: number | null | undefined) =>
+      gradeLevel != null && term ? graduationYear(gradeLevel, term.schoolYear) : null;
+
+    const userRows = users.map((u) => ({
+      userId: u.id,
+      name: u.name ?? u.email,
+      email: u.email,
+      role: u.role,
+      isSelf: u.id === ctx.session.user.id,
+      tutorId: u.tutorId,
+      tutor: u.tutor,
+      classOf: classOf(u.tutor?.gradeLevel),
+      canTranslate: u.canTranslate,
+      tutorHasEmail: !!u.tutor?.email,
+      account: u.emailVerifiedAt && !u.mustChangePassword ? "active" : "pending",
+    }));
+
+    const tutorRows = unlinkedTutors.map((tu) => ({
+      userId: null,
+      name: tu.englishName,
+      email: tu.email,
+      role: null,
+      isSelf: false,
+      tutorId: tu.id,
+      tutor: {
+        englishName: tu.englishName,
+        active: tu.active,
+        username: tu.username,
+        gradeLevel: tu.gradeLevel,
+        email: tu.email,
       },
-    }),
-  ),
+      classOf: classOf(tu.gradeLevel),
+      canTranslate: false,
+      tutorHasEmail: !!tu.email,
+      account: "none",
+    }));
+
+    return {
+      caller: { id: ctx.session.user.id, role: ctx.session.role },
+      rows: [...userRows, ...tutorRows],
+    };
+  }),
 
   setUserRole: adminOnlyProcedure
     .input(z.object({ userId: cuid, role: z.enum(["VIEWER", "TUTOR", "COORDINATOR", "ADMIN"]) }))
@@ -1457,14 +1529,31 @@ export const adminRouter = createTRPCRouter({
       ctx.db.user.update({ where: { id: input.userId }, data: { role: input.role } }),
     ),
 
+  /** Assign (or unassign) a user as a translator — grants access to the /localization editor. */
+  setUserCanTranslate: adminOnlyProcedure
+    .input(z.object({ userId: cuid, canTranslate: z.boolean() }))
+    .mutation(({ ctx, input }) =>
+      ctx.db.user.update({
+        where: { id: input.userId },
+        data: { canTranslate: input.canTranslate },
+      }),
+    ),
+
   /**
    * Let an admin/coordinator also tutor: link the user to an (active) Tutor record so they get
    * a tutor area. Re-enables an existing linked/email-matched tutor, or creates one from their
    * name. Disabling deactivates the tutor and unlinks it (revertible — re-enable relinks).
    */
-  setUserCanTutor: adminOnlyProcedure
+  setUserCanTutor: adminProcedure
     .input(z.object({ userId: cuid, canTutor: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
+      // Coordinators may only change their own tutoring access; admins, anyone's.
+      if (ctx.session.role !== "ADMIN" && input.userId !== ctx.session.user.id) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You can only change your own tutoring access.",
+        });
+      }
       const user = await ctx.db.user.findUniqueOrThrow({
         where: { id: input.userId },
         select: { id: true, name: true, email: true, tutorId: true },
@@ -1519,7 +1608,7 @@ export const adminRouter = createTRPCRouter({
   // Policy documents (editable handbooks)
   // --------------------------------------------------------------------------
   // Every stored policy version (one row per slug + locale); the page groups them by slug
-  // and offers a per-language tab.
+  // and offers a per-language tab (the default `en` copy is the fallback).
   policies: viewerProcedure.query(({ ctx }) =>
     ctx.db.policyDocument.findMany({
       orderBy: [{ slug: "asc" }, { locale: "asc" }],
@@ -1592,6 +1681,41 @@ export const adminRouter = createTRPCRouter({
       });
     }),
 
+  /**
+   * Remove one language version of a policy (cannot remove the default `en` copy, which is the
+   * fallback shown when a translation is missing). Snapshots into the archive first, so it's
+   * recoverable from version history.
+   */
+  deletePolicyLocale: adminProcedure
+    .input(z.object({ slug: z.string().trim().min(1), locale: z.string().trim().min(1).max(10) }))
+    .mutation(async ({ ctx, input }) => {
+      if (input.locale === DEFAULT_POLICY_LOCALE) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "The default language can't be removed.",
+        });
+      }
+      const existing = await ctx.db.policyDocument.findUnique({
+        where: { slug_locale: { slug: input.slug, locale: input.locale } },
+        select: { title: true, body: true, version: true },
+      });
+      if (!existing) return { ok: true };
+      await ctx.db.policyArchive.create({
+        data: {
+          slug: input.slug,
+          locale: input.locale,
+          title: existing.title,
+          body: existing.body,
+          version: existing.version,
+          archivedByName: ctx.session.user.name,
+        },
+      });
+      await ctx.db.policyDocument.delete({
+        where: { slug_locale: { slug: input.slug, locale: input.locale } },
+      });
+      return { ok: true };
+    }),
+
   /** Archived (superseded) policy versions, newest first — for the version-history viewer. */
   policyArchives: viewerProcedure.query(({ ctx }) =>
     ctx.db.policyArchive.findMany({
@@ -1645,15 +1769,24 @@ export const adminRouter = createTRPCRouter({
           createdById: ctx.session.user.id,
         },
       });
-      // Notify everyone else of the new announcement.
+      // Notify everyone else of the new announcement, linking each to a page they can open:
+      // tutors see it on their dashboard; admin-area staff (no tutor login) on /admin/announcements.
       const users = await ctx.db.user.findMany({
         where: { id: { not: ctx.session.user.id } },
-        select: { id: true },
+        select: { id: true, tutorId: true },
       });
-      await notifyUsers(
-        users.map((u) => u.id),
-        { title: `📣 ${input.title}`, body: input.body, link: "/dashboard" },
-      );
+      const body = input.body;
+      const title = `📣 ${input.title}`;
+      await Promise.all([
+        notifyUsers(
+          users.filter((u) => u.tutorId).map((u) => u.id),
+          { title, body, link: "/dashboard" },
+        ),
+        notifyUsers(
+          users.filter((u) => !u.tutorId).map((u) => u.id),
+          { title, body, link: "/admin/announcements" },
+        ),
+      ]);
       return announcement;
     }),
 

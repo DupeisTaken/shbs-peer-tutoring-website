@@ -25,7 +25,7 @@ export default async function TutorDashboard() {
           <p className="mt-1 text-sm">{t("tutor.dashboard.pending.body")}</p>
         </div>
         <section className="card p-5">
-          <h2 className="font-semibold text-slate-900">
+          <h2 className="section-title">
             {t("tutor.dashboard.availability.title")}
           </h2>
           <p className="muted mt-1 mb-3">{t("tutor.dashboard.availability.help")}</p>
@@ -73,17 +73,17 @@ export default async function TutorDashboard() {
       <MyInterviews />
 
       <MergeProvider>
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">
+        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-5">
           {/* Pairings + availability */}
           <div className="space-y-6 lg:col-span-2">
             <section className="card p-5">
-              <h2 className="font-semibold text-slate-900">{t("dashboard.pairings.title")}</h2>
+              <h2 className="section-title">{t("dashboard.pairings.title")}</h2>
               <p className="muted mt-1 mb-2">{t("dashboard.pairings.help")}</p>
               <TutorPairings />
             </section>
 
             <section className="card p-5">
-              <h2 className="font-semibold text-slate-900">
+              <h2 className="section-title">
                 {t("dashboard.availability.title")}
               </h2>
               <p className="muted mt-1 mb-3">{t("dashboard.availability.help")}</p>
@@ -93,7 +93,7 @@ export default async function TutorDashboard() {
 
           {/* Attendance form */}
           <section className="card p-5 lg:col-span-3">
-            <h2 className="font-semibold text-slate-900">{t("dashboard.attendance.title")}</h2>
+            <h2 className="section-title">{t("dashboard.attendance.title")}</h2>
             <p className="muted mt-1 mb-4">{t("dashboard.attendance.help")}</p>
             <AttendanceForm />
           </section>
@@ -102,7 +102,7 @@ export default async function TutorDashboard() {
 
       {/* Room assignments (read-only schedule grid; your pairings are highlighted) */}
       <section className="space-y-2">
-        <h2 className="font-semibold text-slate-900">{t("dashboard.schedule.title")}</h2>
+        <h2 className="section-title">{t("dashboard.schedule.title")}</h2>
         <p className="muted">{t("dashboard.schedule.help")}</p>
         <RoomGrid
           rooms={schedule.rooms}

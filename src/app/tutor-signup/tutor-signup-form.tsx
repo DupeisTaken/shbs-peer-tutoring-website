@@ -113,7 +113,7 @@ export function TutorSignupForm() {
                   <label className="space-y-1">
                     <span className="label">{t("public.tutorSignup.fields.course")}</span>
                     <select
-                      className="select w-48"
+                      className="select field-auto min-w-48"
                       value={row.subjectId}
                       onChange={(e) =>
                         // Reset the AP-score flag if the new course isn't AP.
@@ -180,7 +180,7 @@ export function TutorSignupForm() {
                   <label className="block space-y-1">
                     <span className="label">{t("public.tutorSignup.fields.grade")}</span>
                     <input
-                      className="input w-32"
+                      className="input field-auto min-w-32"
                       value={row.grade}
                       onChange={(e) => setRow(i, { grade: e.target.value })}
                       placeholder={t("public.tutorSignup.placeholders.grade")}
@@ -192,7 +192,7 @@ export function TutorSignupForm() {
                   <label className="block space-y-1">
                     <span className="label">{t("public.tutorSignup.fields.apScore")}</span>
                     <input
-                      className="input w-32"
+                      className="input field-auto min-w-32"
                       value={row.apScore}
                       onChange={(e) => setRow(i, { apScore: e.target.value })}
                       placeholder={t("public.tutorSignup.placeholders.apScore")}

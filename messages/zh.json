@@ -107,6 +107,7 @@
     "tutors": {
       "title": "导师",
       "help": "导师的邮箱会在首次登录时关联其登录账户。用户名（默认：名字首字母 + 姓氏）是另一种登录标识符。",
+      "accountMovedNote": "账户设置（邀请链接与登录状态）现已移至“用户与角色”页面。",
       "phFirstName": "名字",
       "phLastName": "姓氏",
       "phAltNames": "别名 例如 中文名",
@@ -341,13 +342,15 @@
     },
     "users": {
       "title": "用户与角色",
-      "subtitle": "仅限管理员。角色将在用户下次登录时生效。",
-      "columns": { "user": "用户", "name": "姓名", "email": "邮箱", "linkedTutor": "关联导师", "role": "角色", "canTutor": "可担任导师" },
+      "subtitle": "管理登录账户、角色和导师账户设置。角色更改将在用户下次登录时生效。",
+      "coordinatorHint": "作为协调员，你可以发送设置链接并更改自己的授课权限。如需更改角色，请联系管理员。",
+      "columns": { "user": "用户", "name": "姓名", "email": "邮箱", "linkedTutor": "关联导师", "account": "账户", "role": "角色", "canTutor": "可担任导师", "canTranslate": "翻译员" },
       "roles": { "VIEWER": "访客（只读）", "TUTOR": "导师", "COORDINATOR": "协调员", "ADMIN": "管理员" },
       "canTutorLabel": "可担任导师",
+      "canTranslateLabel": "可翻译",
       "tutorActive": "在职",
       "tutorInactive": "停用",
-      "empty": "尚无用户登录。"
+      "empty": "尚无用户或导师。"
     },
     "submissions": {
       "title": "考勤提交记录",
@@ -374,6 +377,12 @@
         "present": "出席",
         "excusedAbsent": "请假缺席",
         "unexcusedAbsent": "无故缺席"
+      },
+      "summary": {
+        "show": "显示汇总表",
+        "hide": "隐藏汇总表",
+        "tutor": "导师",
+        "noMeetings": "暂无会议。"
       }
     },
     "timeslots": {
@@ -469,6 +478,11 @@
       "historyEmpty": "暂无历史版本。",
       "archivedOn": "归档于 {date}",
       "viewArchived": "查看",
+      "defaultBadge": "默认",
+      "addLanguage": "添加语言…",
+      "removeLanguage": "移除此语言",
+      "discardLanguage": "放弃",
+      "confirmRemoveLanguage": "移除此政策的{lang}版本？它将被归档至版本历史中。",
       "editor": {
         "versionPlaceholder": "版本",
         "titlePlaceholder": "文档标题",
@@ -524,7 +538,8 @@
       "voteTally": "{accepts} 票通过 · {rejects} 票拒绝",
       "noVotes": "暂无投票。",
       "decision": "决定：“{comment}”",
-      "decidedByHead": "{name}（组长）"
+      "decidedByHead": "{name}（组长）",
+      "setupAccount": "设置账户 →"
     },
     "cards": {
       "title": "学员纪律",
@@ -765,6 +780,37 @@
       "settings": "设置",
       "enterTutor": "进入导师区",
       "enterAdmin": "进入管理区"
+    },
+    "theme": {
+      "label": "主题",
+      "names": {
+        "indigo": "靛蓝",
+        "violet": "紫罗兰",
+        "emerald": "翡翠绿",
+        "rose": "玫红",
+        "amber": "琥珀",
+        "sky": "天蓝"
+      }
     }
+  },
+  "localization": {
+    "title": "翻译",
+    "navLabel": "翻译",
+    "subtitle": "编辑各语言的界面文字。更改即时生效；清空字段将恢复内置文案。",
+    "targetLanguage": "要编辑的语言",
+    "searchLabel": "搜索",
+    "search": "按键名或文字搜索…",
+    "english": "英文",
+    "overridden": "已修改",
+    "reset": "重置",
+    "saved": "已保存",
+    "loading": "加载中…",
+    "empty": "没有匹配的字符串。",
+    "count": "显示 {total} 条中的 {shown} 条。",
+    "tooMany": "仅显示前 {max} 条。请使用搜索缩小范围。",
+    "keysLabel": "条",
+    "expandAll": "全部展开",
+    "collapseAll": "全部收起",
+    "back": "返回"
   }
 }

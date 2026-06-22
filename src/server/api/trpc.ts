@@ -178,6 +178,22 @@ export const adminOnlyProcedure = protectedProcedure.use(({ ctx, next }) => {
   return next();
 });
 
+/**
+ * Translator procedure: admins/coordinators, or any user an admin has flagged `canTranslate`.
+ * Gates the in-app localization editor (assigned tutors can help translate without admin rights).
+ */
+export const translatorProcedure = protectedProcedure.use(async ({ ctx, next }) => {
+  if (isElevated(ctx.session.role)) return next();
+  const me = await ctx.db.user.findUnique({
+    where: { id: ctx.session.user.id },
+    select: { canTranslate: true },
+  });
+  if (!me?.canTranslate) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Translation access required." });
+  }
+  return next();
+});
+
 /** Personal/contact fields hidden from the read-only VIEWER role. Names are NOT masked. */
 const VIEWER_MASKED_KEYS = new Set(["email", "phone", "preferredContact"]);
 

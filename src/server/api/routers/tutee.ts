@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { localizedPolicy } from "~/server/policy";
+import { notifyAdmins } from "~/server/notifications/create";
 
 const cuid = z.string().min(1);
 
@@ -112,6 +113,13 @@ export const tuteeRouter = createTRPCRouter({
           signedAt: new Date(),
           availabilities: { create: slotIds.map((slotId) => ({ slotId })) },
         },
+      });
+
+      // Let the admin team know there's a new signup to review + assign.
+      await notifyAdmins({
+        title: "New tutee signup",
+        body: `${input.englishName} signed up and needs assigning.`,
+        link: "/admin/requests",
       });
 
       return { ok: true };

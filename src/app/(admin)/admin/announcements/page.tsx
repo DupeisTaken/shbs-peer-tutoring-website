@@ -114,7 +114,7 @@ export default function AnnouncementsPage() {
       </div>
 
       <section className="card space-y-3 p-5">
-        <h2 className="font-semibold text-slate-900">{t("admin.announcements.new.title")}</h2>
+        <h2 className="section-title">{t("admin.announcements.new.title")}</h2>
         <input
           className="input w-full"
           placeholder={t("admin.announcements.new.titlePlaceholder")}

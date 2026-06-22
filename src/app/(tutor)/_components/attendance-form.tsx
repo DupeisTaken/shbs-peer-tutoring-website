@@ -94,6 +94,10 @@ export function AttendanceForm() {
 
   const selectedPairingId = watch("pairingId");
   const tutorStatus = watch("tutorStatus") as TutorStatus;
+  const comments = watch("comments");
+  // The always-required fields — gray the submit until they're filled (the rest is
+  // validated on submit with inline messages).
+  const incomplete = !selectedPairingId || !comments?.trim();
   const pairings = pairingsQuery.data ?? [];
   const selectedPairing = pairings.find((p) => p.id === selectedPairingId);
   // Tutee attendance is tracked for any held session (present / rescheduled / extra).
@@ -312,7 +316,7 @@ export function AttendanceForm() {
                     {t2.tutee.englishName}
                   </span>
                   <select
-                    className="select w-44"
+                    className="select field-auto min-w-40"
                     value={status}
                     onChange={(e) => setTutee(t2.tuteeId, { status: e.target.value as TuteeStatus })}
                   >
@@ -350,13 +354,13 @@ export function AttendanceForm() {
                 {LIKERT_VALUES.map((value) => (
                   <label
                     key={value}
-                    className="flex cursor-pointer items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 has-[:checked]:border-indigo-500 has-[:checked]:bg-indigo-50 has-[:checked]:text-indigo-700"
+                    className="flex cursor-pointer items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 has-[:checked]:border-accent-500 has-[:checked]:bg-accent-50 has-[:checked]:text-accent-700"
                   >
                     <input
                       type="radio"
                       value={value}
                       {...register(name)}
-                      className="accent-indigo-600"
+                      className="accent-accent-600"
                     />
                     {value} · {t(`tutor.attendance.likert.${value}`)}
                   </label>
@@ -388,7 +392,7 @@ export function AttendanceForm() {
                     {t2.tutee.englishName}
                   </span>
                   <select
-                    className="select w-28"
+                    className="select field-auto min-w-32"
                     value={color}
                     onChange={(e) => setCard(t2.tuteeId, { color: e.target.value as CardColor })}
                   >
@@ -412,7 +416,7 @@ export function AttendanceForm() {
       )}
 
       <div className="flex items-center gap-3">
-        <button type="submit" disabled={submit.isPending} className="btn-primary">
+        <button type="submit" disabled={submit.isPending || incomplete} className="btn-primary">
           {submit.isPending ? t("tutor.attendance.submitting") : t("tutor.attendance.submit")}
         </button>
         {submit.isSuccess && <span className="text-sm text-green-600">{t("tutor.attendance.saved")}</span>}

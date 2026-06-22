@@ -6,6 +6,7 @@ import { computeSessionHours } from "~/lib/service-hours";
 import { semesterQuarters } from "~/lib/period";
 import { getActivePeriodOrNull } from "~/server/period";
 import { promoteApplicantToTutor } from "~/server/tutors/promote";
+import { notifyAdmins, notifyTutors } from "~/server/notifications/create";
 import { hashPassword, verifyPassword } from "~/server/auth/password";
 import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
 
@@ -276,7 +277,7 @@ export const tutorRouter = createTRPCRouter({
         ratingProgress: input.ratingProgress,
       };
 
-      return ctx.db.$transaction(async (tx) => {
+      const result = await ctx.db.$transaction(async (tx) => {
         const sessionIds: string[] = [];
         let primaryId = "";
         for (const [i, p] of ordered.entries()) {
@@ -369,6 +370,17 @@ export const tutorRouter = createTRPCRouter({
 
         return { id: primaryId, month: computed.month, shCount: computed.shCount };
       });
+
+      // Tutor-requested cards need a team review — surface them for admins.
+      if (cardRequests.length > 0) {
+        await notifyAdmins({
+          title: "Discipline cards to review",
+          body: `${cardRequests.length} card(s) submitted with an attendance survey.`,
+          link: "/admin/discipline",
+        });
+      }
+
+      return result;
     }),
 
   // --------------------------------------------------------------------------
@@ -691,10 +703,26 @@ export const tutorRouter = createTRPCRouter({
           message: "Only the head interviewer can set the interview time.",
         });
       }
-      return ctx.db.tutorApplication.update({
+      const updated = await ctx.db.tutorApplication.update({
         where: { id: input.applicationId },
         data: { interviewAt: input.interviewAt },
       });
+      // Tell the rest of the panel when a time is set (it shows on their dashboard).
+      if (input.interviewAt) {
+        const panel = await ctx.db.interviewAssignment.findMany({
+          where: { applicationId: input.applicationId, tutorId: { not: ctx.session.tutorId } },
+          select: { tutorId: true },
+        });
+        await notifyTutors(
+          panel.map((p) => p.tutorId),
+          {
+            title: "Interview scheduled",
+            body: `An interview was scheduled for ${input.interviewAt.toLocaleString()}.`,
+            link: "/dashboard",
+          },
+        );
+      }
+      return updated;
     }),
 
   /**

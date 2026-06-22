@@ -54,6 +54,9 @@ model User {
 
   role Role @default(TUTOR)
 
+  /// Assigned translator: may edit UI translations on /localization even without an admin role.
+  canTranslate Boolean @default(false)
+
   // Optional link to the domain Tutor record (matched by email at first sign-in).
   tutor   Tutor?  @relation(fields: [tutorId], references: [id])
   tutorId String? @unique
@@ -75,6 +78,21 @@ model User {
   notifications    Notification[]
 
   createdAt DateTime @default(now())
+}
+
+/// A per-string override of a UI translation, edited in-app on /localization. One row per
+/// (locale, dot-path key); deep-merged over the bundled messages JSON at request time
+/// (see src/i18n/request.ts), so it white-labels/translates any string without a redeploy.
+model MessageOverride {
+  id            String   @id @default(cuid())
+  locale        String
+  key           String
+  value         String
+  updatedByName String?
+  updatedAt     DateTime @updatedAt
+
+  @@unique([locale, key])
+  @@index([locale])
 }
 
 /// An audit record of an admin mutation, with optional typed data to revert it. Actor

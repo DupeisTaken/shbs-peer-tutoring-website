@@ -12,3 +12,20 @@ export function DisclosureIcon({ open }: { open: boolean }) {
     </span>
   );
 }
+
+/**
+ * Same affordance for a native `<details className="group">` (no React state): CSS-toggles the
+ * glyph via `group-open`. Use inside the `<summary>` so native disclosures match the rest.
+ */
+export function NativeDisclosureIcon() {
+  return (
+    <span aria-hidden>
+      <span className="group-open:hidden">
+        <DisclosureIcon open={false} />
+      </span>
+      <span className="hidden group-open:inline">
+        <DisclosureIcon open />
+      </span>
+    </span>
+  );
+}

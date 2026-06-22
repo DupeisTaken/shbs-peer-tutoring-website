@@ -136,6 +136,7 @@
     "tutors": {
       "title": "Tutors",
       "help": "A tutor's email links them to their login account at first sign-in. The username (default: first initial + last name) is an alternate sign-in identifier.",
+      "accountMovedNote": "Account setup (invite links and login status) now lives on the Users & Roles page.",
       "phFirstName": "First name",
       "phLastName": "Last name",
       "phAltNames": "Alt. name(s) e.g. 中文名",
@@ -370,13 +371,15 @@
     },
     "users": {
       "title": "Users & Roles",
-      "subtitle": "Administrators only. Roles take effect on the user's next sign-in.",
-      "columns": { "user": "User", "name": "Name", "email": "Email", "linkedTutor": "Linked tutor", "role": "Role", "canTutor": "Can tutor" },
+      "subtitle": "Manage logins, roles, and tutor account setup. Role changes take effect on the user's next sign-in.",
+      "coordinatorHint": "As a coordinator you can send setup links and change your own tutoring access. Ask an administrator to change roles.",
+      "columns": { "user": "User", "name": "Name", "email": "Email", "linkedTutor": "Linked tutor", "account": "Account", "role": "Role", "canTutor": "Can tutor", "canTranslate": "Translator" },
       "roles": { "VIEWER": "Viewer (read-only)", "TUTOR": "Tutor", "COORDINATOR": "Coordinator", "ADMIN": "Admin" },
       "canTutorLabel": "Can tutor",
+      "canTranslateLabel": "Can translate",
       "tutorActive": "active",
       "tutorInactive": "inactive",
-      "empty": "No users have signed in yet."
+      "empty": "No users or tutors yet."
     },
     "submissions": {
       "title": "Attendance Submissions",
@@ -403,6 +406,12 @@
         "present": "Present",
         "excusedAbsent": "Excused Absent",
         "unexcusedAbsent": "Unexcused Absent"
+      },
+      "summary": {
+        "show": "Show summary",
+        "hide": "Hide summary",
+        "tutor": "Tutor",
+        "noMeetings": "No meetings yet."
       }
     },
     "timeslots": {
@@ -498,6 +507,11 @@
       "historyEmpty": "No earlier versions yet.",
       "archivedOn": "Archived {date}",
       "viewArchived": "View",
+      "defaultBadge": "default",
+      "addLanguage": "Add language…",
+      "removeLanguage": "Remove this language",
+      "discardLanguage": "Discard",
+      "confirmRemoveLanguage": "Remove the {lang} version of this policy? It will be archived under version history.",
       "editor": {
         "versionPlaceholder": "version",
         "titlePlaceholder": "Document title",
@@ -553,7 +567,8 @@
       "voteTally": "{accepts} accept · {rejects} reject",
       "noVotes": "No votes yet.",
       "decision": "Decision: “{comment}”",
-      "decidedByHead": "{name} (head)"
+      "decidedByHead": "{name} (head)",
+      "setupAccount": "Set up account →"
     },
     "cards": {
       "title": "Tutee Discipline",
@@ -794,6 +809,37 @@
       "settings": "Settings",
       "enterTutor": "Enter tutor area",
       "enterAdmin": "Enter admin area"
+    },
+    "theme": {
+      "label": "Theme",
+      "names": {
+        "indigo": "Indigo",
+        "violet": "Violet",
+        "emerald": "Emerald",
+        "rose": "Rose",
+        "amber": "Amber",
+        "sky": "Sky"
+      }
     }
+  },
+  "localization": {
+    "title": "Translations",
+    "navLabel": "Translations",
+    "subtitle": "Edit the interface text for each language. Changes go live immediately; clearing a field restores the bundled wording.",
+    "targetLanguage": "Language to edit",
+    "searchLabel": "Search",
+    "search": "Search by key or text…",
+    "english": "English",
+    "overridden": "edited",
+    "reset": "Reset",
+    "saved": "Saved",
+    "loading": "Loading…",
+    "empty": "No strings match your search.",
+    "count": "Showing {shown} of {total} strings.",
+    "tooMany": "Showing the first {max}. Use search to narrow down.",
+    "keysLabel": "keys",
+    "expandAll": "Expand all",
+    "collapseAll": "Collapse all",
+    "back": "Back"
   }
 }

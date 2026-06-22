@@ -1,0 +1,85 @@
+import { z } from "zod";
+
+import { createTRPCRouter, translatorProcedure } from "~/server/api/trpc";
+import { LOCALES } from "~/i18n/config";
+import enMessages from "../../../../messages/en.json";
+import zhMessages from "../../../../messages/zh.json";
+import esMessages from "../../../../messages/es.json";
+
+/** Bundled message sources, keyed by locale. English is the canonical key set. */
+const MESSAGES: Record<string, Record<string, unknown>> = {
+  en: enMessages,
+  zh: zhMessages,
+  es: esMessages,
+};
+
+/** Flatten a nested messages object into dot-path → string-leaf entries. */
+function flatten(
+  obj: Record<string, unknown>,
+  prefix = "",
+  out: Record<string, string> = {},
+): Record<string, string> {
+  for (const [k, v] of Object.entries(obj)) {
+    const key = prefix ? `${prefix}.${k}` : k;
+    if (v && typeof v === "object" && !Array.isArray(v)) {
+      flatten(v as Record<string, unknown>, key, out);
+    } else if (typeof v === "string") {
+      out[key] = v;
+    }
+  }
+  return out;
+}
+
+function normalizeLocale(locale: string): string {
+  return (LOCALES as readonly string[]).includes(locale) ? locale : "en";
+}
+
+/**
+ * In-app UI translation editor. Reads/writes `MessageOverride` rows that the i18n request config
+ * deep-merges over the bundled JSON (so edits go live without a redeploy). Gated by
+ * `translatorProcedure` — admins/coordinators or any user an admin flagged `canTranslate`.
+ */
+export const localizationRouter = createTRPCRouter({
+  /** Every English key with the bundled value for `locale` (English fallback) and any override. */
+  strings: translatorProcedure
+    .input(z.object({ locale: z.string() }))
+    .query(async ({ ctx, input }) => {
+      const locale = normalizeLocale(input.locale);
+      const enFlat = flatten(MESSAGES.en ?? {});
+      const localeFlat = locale === "en" ? enFlat : flatten(MESSAGES[locale] ?? {});
+      const overrides = await ctx.db.messageOverride.findMany({
+        where: { locale },
+        select: { key: true, value: true },
+      });
+      const overrideMap = new Map(overrides.map((o) => [o.key, o.value]));
+      return Object.keys(enFlat)
+        .sort()
+        .map((key) => ({
+          key,
+          en: enFlat[key]!,
+          base: localeFlat[key] ?? enFlat[key]!,
+          override: overrideMap.get(key) ?? null,
+        }));
+    }),
+
+  /** Set (or, when blank / equal to the bundled value, clear) the override for one key. */
+  setString: translatorProcedure
+    .input(z.object({ locale: z.string(), key: z.string().min(1), value: z.string() }))
+    .mutation(async ({ ctx, input }) => {
+      const locale = normalizeLocale(input.locale);
+      const enFlat = flatten(MESSAGES.en ?? {});
+      const localeFlat = locale === "en" ? enFlat : flatten(MESSAGES[locale] ?? {});
+      const base = localeFlat[input.key] ?? enFlat[input.key];
+      const value = input.value;
+      if (!value.trim() || value === base) {
+        await ctx.db.messageOverride.deleteMany({ where: { locale, key: input.key } });
+        return { ok: true, cleared: true };
+      }
+      await ctx.db.messageOverride.upsert({
+        where: { locale_key: { locale, key: input.key } },
+        update: { value, updatedByName: ctx.session.user.name },
+        create: { locale, key: input.key, value, updatedByName: ctx.session.user.name },
+      });
+      return { ok: true, cleared: false };
+    }),
+});

@@ -26,6 +26,27 @@ export async function notifyUsers(
   });
 }
 
+/**
+ * Notify every admin/coordinator (the people who action admin queues). Optionally exclude one
+ * user id — e.g. the actor who triggered the event and is already looking at the page.
+ */
+export async function notifyAdmins(
+  data: NotificationInput,
+  opts?: { exclude?: string },
+): Promise<void> {
+  const admins = await db.user.findMany({
+    where: {
+      role: { in: ["ADMIN", "COORDINATOR"] },
+      ...(opts?.exclude ? { id: { not: opts.exclude } } : {}),
+    },
+    select: { id: true },
+  });
+  await notifyUsers(
+    admins.map((u) => u.id),
+    data,
+  );
+}
+
 /** Notify the User accounts linked to the given Tutor ids (tutors without a login are skipped). */
 export async function notifyTutors(
   tutorIds: readonly string[],

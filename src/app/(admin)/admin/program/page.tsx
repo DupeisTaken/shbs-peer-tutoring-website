@@ -110,7 +110,7 @@ export default function ProgramPage() {
                       value={confirm}
                       onChange={(e) => setConfirm(e.target.value)}
                       placeholder={t("admin.program.confirmPlaceholder")}
-                      className="input max-w-[14rem]"
+                      className="input field-auto min-w-44"
                     />
                     <button className="btn-danger" disabled={!confirmOk || refresh.isPending} onClick={submit}>
                       {refresh.isPending
@@ -184,7 +184,7 @@ export default function ProgramPage() {
                 value={confirm}
                 onChange={(e) => setConfirm(e.target.value)}
                 placeholder={t("admin.program.confirmPlaceholder")}
-                className="input max-w-[14rem]"
+                className="input field-auto min-w-44"
               />
               <div className="flex items-center gap-3">
                 <button className="btn-danger" disabled={!confirmOk || refresh.isPending} onClick={submit}>

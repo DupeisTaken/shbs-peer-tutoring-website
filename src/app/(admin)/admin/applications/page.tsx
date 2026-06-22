@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 
@@ -16,7 +17,7 @@ function StatusBadge({ status }: { status: Status }) {
       : status === "PENDING"
         ? "badge-amber"
         : status === "INTERVIEW"
-          ? "badge bg-indigo-100 text-indigo-700"
+          ? "badge bg-accent-100 text-accent-700"
           : "badge-slate";
   return <span className={cls}>{t(`admin.applications.status.${status}`)}</span>;
 }
@@ -116,6 +117,11 @@ function ApplicationCard({
           </span>
         </button>
         <div className="flex items-center gap-2">
+          {app.status === "ACCEPTED" && (
+            <Link href="/admin/users" className="link text-sm whitespace-nowrap">
+              {t("admin.applications.setupAccount")}
+            </Link>
+          )}
           {app.status !== "ACCEPTED" && (
             <button
               className="btn-secondary btn-sm"
@@ -207,7 +213,7 @@ function ApplicationCard({
               {picks.map((pick, i) => (
                 <div key={i} className="flex items-center gap-2">
                   <select
-                    className="select w-56"
+                    className="select field-auto min-w-48"
                     value={pick}
                     onChange={(e) =>
                       setPicks((p) => p.map((v, idx) => (idx === i ? e.target.value : v)))

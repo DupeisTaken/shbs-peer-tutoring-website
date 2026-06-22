@@ -46,7 +46,7 @@ export default function AdjustmentsPage() {
         <select
           value={tutorId}
           onChange={(e) => setTutorId(e.target.value)}
-          className="select max-w-xs"
+          className="select field-auto min-w-48"
         >
           <option value="">{t("admin.adjustments.form.tutorPlaceholder")}</option>
           {(tutors.data ?? []).map((t) => (
@@ -59,12 +59,12 @@ export default function AdjustmentsPage() {
           type="month"
           value={month}
           onChange={(e) => setMonth(e.target.value)}
-          className="input max-w-[12rem]"
+          className="input field-auto min-w-36"
         />
         <select
           value={type}
           onChange={(e) => setType(e.target.value as "PUNISHMENT" | "EXTRA")}
-          className="select"
+          className="select field-auto min-w-32"
         >
           <option value="EXTRA">{t("admin.adjustments.form.typeExtra")}</option>
           <option value="PUNISHMENT">{t("admin.adjustments.form.typePunishment")}</option>
@@ -75,19 +75,24 @@ export default function AdjustmentsPage() {
           min="0"
           value={amount}
           onChange={(e) => setAmount(e.target.value)}
-          className="input w-24"
+          className="input field-auto min-w-20"
         />
         <input
           value={reason}
           onChange={(e) => setReason(e.target.value)}
           placeholder={t("admin.adjustments.form.reasonPlaceholder")}
-          className="input max-w-xs"
+          className="input field-auto min-w-48"
         />
-        <button className="btn-primary">{t("admin.adjustments.form.add")}</button>
+        <button
+          className="btn-primary"
+          disabled={!tutorId || !(Number(amount) > 0) || create.isPending}
+        >
+          {t("admin.adjustments.form.add")}
+        </button>
       </form>
       {create.error && <p className="text-sm text-red-600">{create.error.message}</p>}
 
-      <div className="card overflow-hidden">
+      <div className="card overflow-x-auto">
         <table className="data-table">
           <thead>
             <tr>

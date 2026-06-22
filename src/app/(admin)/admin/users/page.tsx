@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
@@ -8,58 +9,104 @@ const ROLES = ["VIEWER", "TUTOR", "COORDINATOR", "ADMIN"] as const;
 type RoleValue = (typeof ROLES)[number];
 
 /** Roles for which "also a tutor" makes sense (they primarily live in the admin area). */
-const CAN_TUTOR_ROLES = ["COORDINATOR", "ADMIN"];
+const CAN_TUTOR_ROLES: readonly string[] = ["COORDINATOR", "ADMIN"];
 
 export default function UsersPage() {
   const t = useTranslations();
   const utils = api.useUtils();
-  const users = api.admin.users.useQuery();
-  const setRole = api.admin.setUserRole.useMutation({
-    onSuccess: () => utils.admin.users.invalidate(),
+  const accounts = api.admin.accounts.useQuery();
+  const invalidate = () => utils.admin.accounts.invalidate();
+
+  const setRole = api.admin.setUserRole.useMutation({ onSuccess: invalidate });
+  const setCanTutor = api.admin.setUserCanTutor.useMutation({ onSuccess: invalidate });
+  const setCanTranslate = api.admin.setUserCanTranslate.useMutation({ onSuccess: invalidate });
+  const sendSetup = api.admin.sendTutorSetup.useMutation({
+    onSuccess: (data, variables) =>
+      setSetupInfo({ tutorId: variables.tutorId, link: data.link, emailed: data.emailed }),
   });
-  const setCanTutor = api.admin.setUserCanTutor.useMutation({
-    onSuccess: () => utils.admin.users.invalidate(),
-  });
+  const [setupInfo, setSetupInfo] = useState<
+    { tutorId: string; link: string; emailed: boolean } | null
+  >(null);
+
+  const isAdmin = accounts.data?.caller.role === "ADMIN";
+  const rows = accounts.data?.rows ?? [];
+
+  const accountBadge = (status: string) =>
+    status === "active" ? "badge-green" : status === "pending" ? "badge-amber" : "badge-slate";
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="page-title">{t("admin.users.title")}</h1>
-        <p className="muted mt-1">{t("admin.users.subtitle")}</p>
+        <p className="muted mt-1">
+          {isAdmin ? t("admin.users.subtitle") : t("admin.users.coordinatorHint")}
+        </p>
       </div>
 
-      <div className="card overflow-hidden">
+      {setupInfo && (
+        <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm">
+          <div className="flex items-start justify-between gap-3">
+            <p className="text-slate-700">
+              {setupInfo.emailed
+                ? t("admin.tutors.account.linkEmailed")
+                : t("admin.tutors.account.linkManual")}
+            </p>
+            <button className="link text-xs" onClick={() => setSetupInfo(null)}>
+              {t("admin.tutors.account.dismiss")}
+            </button>
+          </div>
+          <input
+            readOnly
+            value={setupInfo.link}
+            onFocus={(e) => e.target.select()}
+            className="input mt-2 w-full font-mono text-xs"
+          />
+        </div>
+      )}
+
+      <div className="card overflow-x-auto">
         <table className="data-table">
           <thead>
             <tr>
               <th>{t("admin.users.columns.user")}</th>
               <th>{t("admin.users.columns.linkedTutor")}</th>
+              <th>{t("admin.users.columns.account")}</th>
               <th>{t("admin.users.columns.role")}</th>
               <th>{t("admin.users.columns.canTutor")}</th>
+              <th>{t("admin.users.columns.canTranslate")}</th>
             </tr>
           </thead>
           <tbody>
-            {(users.data ?? []).map((u) => {
-              const canTutorApplies = CAN_TUTOR_ROLES.includes(u.role);
+            {rows.map((u) => {
+              const key = u.userId ?? `tutor-${u.tutorId}`;
+              const canTutorApplies = !!u.role && CAN_TUTOR_ROLES.includes(u.role);
               const linkedActive = !!u.tutorId && u.tutor?.active !== false;
+              // Coordinators may only flip their own "can tutor"; admins, anyone's.
+              const canEditCanTutor = isAdmin || u.isSelf;
               return (
-                <tr key={u.id}>
-                  {/* User identity: name, username, email stacked together. */}
+                <tr key={key}>
+                  {/* Identity: name, username, email stacked together. */}
                   <td>
                     <div className="leading-tight">
-                      <p className="font-medium text-slate-900">{u.name ?? "—"}</p>
+                      <p className="font-medium text-slate-900">{u.name}</p>
                       {u.tutor?.username && (
                         <p className="muted text-xs">@{u.tutor.username}</p>
                       )}
-                      <p className="muted text-xs">{u.email}</p>
+                      <p className="muted text-xs">{u.email ?? "—"}</p>
                     </div>
                   </td>
+
+                  {/* Linked tutor: name, class-of year + grade, active state. */}
                   <td className="text-slate-600">
                     {u.tutor ? (
                       <div className="leading-tight">
                         <p>{u.tutor.englishName}</p>
                         <p className="muted text-xs">
-                          {u.tutor.gradeLevel != null && `G${u.tutor.gradeLevel} · `}
+                          {u.classOf != null
+                            ? `${t("admin.tutors.classOf", { year: u.classOf })} · `
+                            : u.tutor.gradeLevel != null
+                              ? `G${u.tutor.gradeLevel} · `
+                              : ""}
                           {u.tutor.active
                             ? t("admin.users.tutorActive")
                             : t("admin.users.tutorInactive")}
@@ -69,30 +116,73 @@ export default function UsersPage() {
                       "—"
                     )}
                   </td>
+
+                  {/* Account: setup/login status + invite/resend (only for linked tutors). */}
                   <td>
-                    <select
-                      value={u.role}
-                      onChange={(e) =>
-                        setRole.mutate({ userId: u.id, role: e.target.value as RoleValue })
-                      }
-                      className="select w-36"
-                    >
-                      {ROLES.map((r) => (
-                        <option key={r} value={r}>
-                          {t(`admin.users.roles.${r}`)}
-                        </option>
-                      ))}
-                    </select>
+                    {u.tutorId ? (
+                      <div className="space-y-1 leading-tight">
+                        <div>
+                          <span className={accountBadge(u.account)}>
+                            {t(`admin.tutors.account.${u.account}`)}
+                          </span>
+                        </div>
+                        <div>
+                          <button
+                            className="link text-xs whitespace-nowrap"
+                            disabled={!u.tutorHasEmail || sendSetup.isPending}
+                            title={
+                              !u.tutorHasEmail ? t("admin.tutors.account.needEmail") : undefined
+                            }
+                            onClick={() => sendSetup.mutate({ tutorId: u.tutorId! })}
+                          >
+                            {u.account === "active"
+                              ? t("admin.tutors.account.resend")
+                              : t("admin.tutors.account.sendSetup")}
+                          </button>
+                        </div>
+                      </div>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
                   </td>
+
+                  {/* Role — admins only; coordinators see it read-only. */}
                   <td>
-                    {canTutorApplies ? (
-                      <label className="flex items-center gap-2 text-sm text-slate-700">
+                    {u.role == null ? (
+                      <span className="text-slate-400">—</span>
+                    ) : isAdmin && u.userId ? (
+                      <select
+                        value={u.role}
+                        onChange={(e) =>
+                          setRole.mutate({ userId: u.userId, role: e.target.value as RoleValue })
+                        }
+                        className="select field-auto min-w-36"
+                      >
+                        {ROLES.map((r) => (
+                          <option key={r} value={r}>
+                            {t(`admin.users.roles.${r}`)}
+                          </option>
+                        ))}
+                      </select>
+                    ) : (
+                      <span className="badge-slate">{t(`admin.users.roles.${u.role}`)}</span>
+                    )}
+                  </td>
+
+                  {/* Can tutor — admins for anyone; coordinators only for themselves. */}
+                  <td>
+                    {canTutorApplies && u.userId ? (
+                      <label
+                        className={`flex items-center gap-2 text-sm ${
+                          canEditCanTutor ? "text-slate-700" : "text-slate-400"
+                        }`}
+                      >
                         <input
                           type="checkbox"
                           checked={linkedActive}
-                          disabled={setCanTutor.isPending}
+                          disabled={!canEditCanTutor || setCanTutor.isPending}
                           onChange={(e) =>
-                            setCanTutor.mutate({ userId: u.id, canTutor: e.target.checked })
+                            setCanTutor.mutate({ userId: u.userId, canTutor: e.target.checked })
                           }
                         />
                         {t("admin.users.canTutorLabel")}
@@ -101,12 +191,38 @@ export default function UsersPage() {
                       <span className="text-slate-400">—</span>
                     )}
                   </td>
+
+                  {/* Can translate — assigned by admins; grants access to /localization. */}
+                  <td>
+                    {u.userId ? (
+                      <label
+                        className={`flex items-center gap-2 text-sm ${
+                          isAdmin ? "text-slate-700" : "text-slate-400"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={u.canTranslate}
+                          disabled={!isAdmin || setCanTranslate.isPending}
+                          onChange={(e) =>
+                            setCanTranslate.mutate({
+                              userId: u.userId,
+                              canTranslate: e.target.checked,
+                            })
+                          }
+                        />
+                        {t("admin.users.canTranslateLabel")}
+                      </label>
+                    ) : (
+                      <span className="text-slate-400">—</span>
+                    )}
+                  </td>
                 </tr>
               );
             })}
-            {users.data?.length === 0 && (
+            {rows.length === 0 && (
               <tr>
-                <td colSpan={4} className="text-slate-500">
+                <td colSpan={6} className="text-slate-500">
                   {t("admin.users.empty")}
                 </td>
               </tr>
@@ -114,9 +230,9 @@ export default function UsersPage() {
           </tbody>
         </table>
       </div>
-      {(setRole.error ?? setCanTutor.error) && (
+      {(setRole.error ?? setCanTutor.error ?? setCanTranslate.error ?? sendSetup.error) && (
         <p className="text-sm text-red-600">
-          {(setRole.error ?? setCanTutor.error)?.message}
+          {(setRole.error ?? setCanTutor.error ?? setCanTranslate.error ?? sendSetup.error)?.message}
         </p>
       )}
     </div>

@@ -54,7 +54,7 @@ function RoomRow({
           <input
             defaultValue={room.name}
             readOnly={readOnly}
-            className="input max-w-xs"
+            className="input field-auto min-w-40"
             onBlur={(e) => {
               if (!readOnly && e.target.value.trim() && e.target.value !== room.name)
                 update.mutate({ id: room.id, name: e.target.value.trim() });
@@ -121,20 +121,20 @@ function RoomRow({
                     setReason("");
                   }}
                 >
-                  <select value={day} onChange={(e) => setDay(Number(e.target.value))} className="select w-28">
+                  <select value={day} onChange={(e) => setDay(Number(e.target.value))} className="select field-auto min-w-32">
                     {[1, 2, 3, 4, 5, 6, 7].map((d) => (
                       <option key={d} value={d}>
                         {DAY_NAMES[d]}
                       </option>
                     ))}
                   </select>
-                  <input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="input w-28" />
-                  <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className="input w-28" />
+                  <input type="time" value={start} onChange={(e) => setStart(e.target.value)} className="input field-auto min-w-28" />
+                  <input type="time" value={end} onChange={(e) => setEnd(e.target.value)} className="input field-auto min-w-28" />
                   <input
                     value={reason}
                     onChange={(e) => setReason(e.target.value)}
                     placeholder={t("admin.rooms.reasonPlaceholder")}
-                    className="input w-40"
+                    className="input field-auto min-w-44"
                   />
                   <button className="btn-secondary btn-sm">{t("admin.rooms.block")}</button>
                 </form>
@@ -182,14 +182,16 @@ export default function RoomsPage() {
             value={name}
             onChange={(e) => setName(e.target.value)}
             placeholder={t("admin.rooms.namePlaceholder")}
-            className="input max-w-xs"
+            className="input field-auto min-w-48"
           />
-          <button className="btn-primary">{t("admin.rooms.addRoom")}</button>
+          <button className="btn-primary" disabled={!name.trim() || create.isPending}>
+            {t("admin.rooms.addRoom")}
+          </button>
         </form>
       )}
       {create.error && <p className="text-sm text-red-600">{create.error.message}</p>}
 
-      <div className="card overflow-hidden">
+      <div className="card overflow-x-auto">
         <table className="data-table">
           <thead>
             <tr>

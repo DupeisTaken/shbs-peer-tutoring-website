@@ -8,6 +8,7 @@ import { tuteeRouter } from "~/server/api/routers/tutee";
 import { applicationRouter } from "~/server/api/routers/application";
 import { adminRouter } from "~/server/api/routers/admin";
 import { notificationRouter } from "~/server/api/routers/notification";
+import { localizationRouter } from "~/server/api/routers/localization";
 
 /**
  * This is the primary router for your server.
@@ -23,6 +24,7 @@ export const appRouter = createTRPCRouter({
   application: applicationRouter,
   admin: adminRouter,
   notification: notificationRouter,
+  localization: localizationRouter,
 });
 
 // export type definition of API

@@ -107,7 +107,7 @@ export function RoomGrid({
                             key={p.id}
                             className={`mb-1 rounded px-1.5 py-0.5 ${
                               mine
-                                ? "bg-indigo-100 font-medium text-indigo-800"
+                                ? "bg-accent-100 font-medium text-accent-800"
                                 : "bg-slate-50 text-slate-700"
                             }`}
                           >

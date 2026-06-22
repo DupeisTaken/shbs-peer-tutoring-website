@@ -48,9 +48,17 @@ function StatsCells({ s, removalLabel }: { s?: TuteeStat; removalLabel: string }
       </td>
       <td>
         {s.removalPending ? (
-          <span className="badge-red">{removalLabel}</span>
+          <Link href="/admin/discipline" className="hover:opacity-80">
+            <span className="badge-red">{removalLabel}</span>
+          </Link>
+        ) : s.effectiveReds >= 1 ? (
+          <Link href="/admin/discipline" className="hover:opacity-80">
+            <span className="badge-amber">
+              {s.validRed}🟥 {s.validYellow}🟨
+            </span>
+          </Link>
         ) : (
-          <span className={s.effectiveReds >= 1 ? "badge-amber" : "muted text-xs"}>
+          <span className="muted text-xs">
             {s.validRed}🟥 {s.validYellow}🟨
           </span>
         )}
@@ -172,7 +180,7 @@ export default function TuteesPage() {
               value={name}
               onChange={(e) => setName(e.target.value)}
               placeholder={t("admin.tutees.phName")}
-              className="input"
+              className="input field-auto min-w-48"
             />
           </label>
           <label className="space-y-1">
@@ -181,7 +189,7 @@ export default function TuteesPage() {
               value={gradeLevel}
               onChange={(e) => setGradeLevel(e.target.value)}
               placeholder={t("admin.tutees.phGrade")}
-              className="input w-20"
+              className="input field-auto min-w-20"
             />
           </label>
           <label className="space-y-1">
@@ -189,7 +197,7 @@ export default function TuteesPage() {
             <select
               value={firstChoiceId}
               onChange={(e) => setFirstChoiceId(e.target.value)}
-              className="select"
+              className="select field-auto min-w-40"
             >
               <option value="">—</option>
               {courseList.map((c) => (
@@ -204,7 +212,7 @@ export default function TuteesPage() {
             <select
               value={secondChoiceId}
               onChange={(e) => setSecondChoiceId(e.target.value)}
-              className="select"
+              className="select field-auto min-w-40"
             >
               <option value="">—</option>
               {courseList
@@ -216,7 +224,9 @@ export default function TuteesPage() {
                 ))}
             </select>
           </label>
-          <button className="btn-primary">{t("admin.tutees.addTuteeBtn")}</button>
+          <button className="btn-primary" disabled={!name.trim() || create.isPending}>
+            {t("admin.tutees.addTuteeBtn")}
+          </button>
         </form>
       </section>
 
@@ -237,7 +247,7 @@ export default function TuteesPage() {
       </div>
 
       {view === "tutors" && (
-        <section className="card overflow-hidden">
+        <section className="card overflow-x-auto">
           <table className="data-table">
             <thead>
               <tr>
@@ -283,7 +293,7 @@ export default function TuteesPage() {
       )}
 
       {view === "tutees" && (
-        <section className="card overflow-hidden">
+        <section className="card overflow-x-auto">
           <table className="data-table">
             <thead>
               <tr>
@@ -303,7 +313,7 @@ export default function TuteesPage() {
                   <td>
                     <input
                       defaultValue={t2.englishName}
-                      className="input max-w-[10rem]"
+                      className="input field-auto min-w-40"
                       onBlur={(e) => {
                         const v = e.target.value.trim();
                         if (v && v !== t2.englishName)
@@ -342,7 +352,7 @@ export default function TuteesPage() {
                             expectedUpdatedAt: t2.updatedAt,
                           })
                         }
-                        className="select w-28"
+                        className="select field-auto min-w-32"
                       >
                         {STATUSES.map((s) => (
                           <option key={s} value={s}>

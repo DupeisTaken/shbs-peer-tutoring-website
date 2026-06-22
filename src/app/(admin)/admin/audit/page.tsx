@@ -25,7 +25,7 @@ export default function AuditPage() {
         <p className="muted mt-1">{t("admin.audit.subtitle")}</p>
       </div>
 
-      <div className="card overflow-hidden">
+      <div className="card overflow-x-auto">
         <table className="data-table">
           <thead>
             <tr>

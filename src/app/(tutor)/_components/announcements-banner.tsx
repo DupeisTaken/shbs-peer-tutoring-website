@@ -28,11 +28,11 @@ export function AnnouncementsBanner() {
       {unacked.map((a) => (
         <div
           key={a.id}
-          className="rounded-lg border border-indigo-200 bg-indigo-50 px-4 py-3"
+          className="rounded-lg border border-accent-200 bg-accent-50 px-4 py-3"
         >
           <div className="flex items-start justify-between gap-3">
             <div className="min-w-0">
-              <p className="font-semibold text-indigo-900">
+              <p className="font-semibold text-accent-900">
                 📣 {a.title}
                 {a.pinned && (
                   <span className="badge-slate ml-2 align-middle text-[10px]">
@@ -40,8 +40,8 @@ export function AnnouncementsBanner() {
                   </span>
                 )}
               </p>
-              <p className="mt-1 text-sm whitespace-pre-line text-indigo-800">{a.body}</p>
-              <p className="mt-1 text-xs text-indigo-400">
+              <p className="mt-1 text-sm whitespace-pre-line text-accent-800">{a.body}</p>
+              <p className="mt-1 text-xs text-accent-400">
                 {new Date(a.createdAt).toLocaleDateString()}
               </p>
             </div>

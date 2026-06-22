@@ -44,7 +44,7 @@ export default function HistoryPage() {
           <select
             value={activeYear}
             onChange={(e) => setSchoolYear(e.target.value)}
-            className="select w-40"
+            className="select field-auto min-w-40"
           >
             {years.length === 0 && <option value="">—</option>}
             {years.map((y) => (
@@ -59,7 +59,7 @@ export default function HistoryPage() {
           <select
             value={scope}
             onChange={(e) => setScope(e.target.value as Scope)}
-            className="select w-48"
+            className="select field-auto min-w-44"
           >
             <option value="year">{t("admin.history.wholeYear")}</option>
             <option value="S1">{t("admin.history.s1")}</option>
@@ -87,7 +87,7 @@ export default function HistoryPage() {
         </div>
       )}
 
-      <div className="card overflow-hidden">
+      <div className="card overflow-x-auto">
         <table className="data-table">
           <thead>
             <tr>
@@ -135,7 +135,7 @@ function Stat({ label, value, primary }: { label: string; value: string; primary
   return (
     <div className="card p-3">
       <p className="muted text-xs">{label}</p>
-      <p className={`mt-1 text-xl font-semibold ${primary ? "text-indigo-700" : "text-slate-900"}`}>
+      <p className={`mt-1 text-xl font-semibold ${primary ? "text-accent-700" : "text-slate-900"}`}>
         {value}
       </p>
     </div>

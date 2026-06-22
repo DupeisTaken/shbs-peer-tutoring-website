@@ -3,6 +3,7 @@ import { z } from "zod";
 
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { localizedPolicy } from "~/server/policy";
+import { notifyAdmins } from "~/server/notifications/create";
 
 const cuid = z.string().min(1);
 
@@ -103,6 +104,13 @@ export const applicationRouter = createTRPCRouter({
             }),
           },
         },
+      });
+
+      // Notify the admin team there's a new application to review / assign interviewers.
+      await notifyAdmins({
+        title: "New tutor application",
+        body: `${input.name} applied to tutor.`,
+        link: "/admin/applications",
       });
 
       return { ok: true };

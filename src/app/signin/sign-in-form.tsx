@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { signInAction } from "./actions";
@@ -8,9 +8,14 @@ import { signInAction } from "./actions";
 export function SignInForm() {
   const t = useTranslations("auth");
   const [error, formAction, pending] = useActionState(signInAction, undefined);
+  const [valid, setValid] = useState(false);
 
   return (
-    <form action={formAction} className="flex w-full flex-col gap-4">
+    <form
+      action={formAction}
+      onChange={(e) => setValid(e.currentTarget.checkValidity())}
+      className="flex w-full flex-col gap-4"
+    >
       <label className="space-y-1">
         <span className="label">{t("identifier")}</span>
         <input
@@ -39,7 +44,7 @@ export function SignInForm() {
         </p>
       )}
 
-      <button type="submit" disabled={pending} className="btn-primary mt-1 w-full">
+      <button type="submit" disabled={pending || !valid} className="btn-primary mt-1 w-full">
         {pending ? t("signingIn") : t("signIn")}
       </button>
     </form>

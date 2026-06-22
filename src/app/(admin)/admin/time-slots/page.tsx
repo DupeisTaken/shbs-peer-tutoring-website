@@ -51,7 +51,7 @@ export default function TimeSlotsPage() {
             value={form.label}
             onChange={(e) => setForm((f) => ({ ...f, label: e.target.value }))}
             placeholder={t("admin.timeslots.labelPlaceholder")}
-            className="input"
+            className="input field-auto min-w-44"
           />
         </label>
         <label className="space-y-1">
@@ -59,7 +59,7 @@ export default function TimeSlotsPage() {
           <select
             value={form.dayOfWeek}
             onChange={(e) => setForm((f) => ({ ...f, dayOfWeek: Number(e.target.value) }))}
-            className="select"
+            className="select field-auto min-w-32"
           >
             {[1, 2, 3, 4, 5, 6, 7].map((d) => (
               <option key={d} value={d}>
@@ -74,7 +74,7 @@ export default function TimeSlotsPage() {
             type="time"
             value={form.startTime}
             onChange={(e) => setForm((f) => ({ ...f, startTime: e.target.value }))}
-            className="input"
+            className="input field-auto min-w-28"
           />
         </label>
         <label className="space-y-1">
@@ -83,16 +83,18 @@ export default function TimeSlotsPage() {
             type="time"
             value={form.endTime}
             onChange={(e) => setForm((f) => ({ ...f, endTime: e.target.value }))}
-            className="input"
+            className="input field-auto min-w-28"
           />
         </label>
-        <button className="btn-primary">{t("admin.timeslots.addSlot")}</button>
+        <button className="btn-primary" disabled={!form.label.trim() || create.isPending}>
+          {t("admin.timeslots.addSlot")}
+        </button>
       </form>
       {(create.error ?? del.error) && (
         <p className="text-sm text-red-600">{(create.error ?? del.error)?.message}</p>
       )}
 
-      <div className="card overflow-hidden">
+      <div className="card overflow-x-auto">
         <table className="data-table">
           <thead>
             <tr>
@@ -109,7 +111,7 @@ export default function TimeSlotsPage() {
                 <td>
                   <input
                     defaultValue={s.label}
-                    className="input max-w-[12rem]"
+                    className="input field-auto min-w-40"
                     onBlur={(e) => {
                       const v = e.target.value.trim();
                       if (v && v !== s.label)

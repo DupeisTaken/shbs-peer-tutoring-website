@@ -133,7 +133,7 @@ function Counter({ label, value, href }: { label: string; value: number; href: s
   return (
     <Link
       href={href}
-      className={`card block p-4 transition hover:shadow-md ${value > 0 ? "ring-1 ring-indigo-200" : ""}`}
+      className={`card block p-4 transition hover:shadow-md ${value > 0 ? "ring-1 ring-accent-200" : ""}`}
     >
       <p className="text-xs text-slate-500">{label}</p>
       <p className="mt-1 text-2xl font-bold text-slate-900">{value}</p>
@@ -158,7 +158,7 @@ function Panel({
   return (
     <section className="card overflow-hidden">
       <div className="flex items-center justify-between px-5 py-3">
-        <h2 className="font-semibold text-slate-900">{title}</h2>
+        <h2 className="section-title">{title}</h2>
         <Link href={href} className="link text-sm">
           {manageLabel}
         </Link>

@@ -43,7 +43,7 @@ export async function UserAvatar({
     <details className="group relative">
       <DetailsAutoClose />
       <summary className="flex cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden">
-        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-indigo-600 text-sm font-semibold text-white ring-2 ring-white transition group-open:ring-indigo-200">
+        <span className="flex h-9 w-9 items-center justify-center rounded-full bg-accent-600 text-sm font-semibold text-white ring-2 ring-white transition group-open:ring-accent-200">
           {initials(name)}
         </span>
       </summary>
