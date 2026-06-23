@@ -8,10 +8,20 @@ import { APP_TITLE } from "~/lib/branding";
 import { DisclosureIcon } from "~/app/_components/icons";
 import { useReadOnly } from "~/app/_components/read-only";
 
+/** A quiet numbered step marker — ties the steps to the real registration sequence. */
+function StepNum({ n }: { n: number }) {
+  return (
+    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-green-100 text-xs font-bold text-green-700">
+      {n}
+    </span>
+  );
+}
+
 /**
- * A self-contained "set up your tutor account" panel for a new tutor — designed so an admin can
- * screenshot it and send everything the recruit needs in one image: where to go, the code, which
- * email to use, and how long it's valid. Reused for a freshly-issued code and each expanded card.
+ * A self-contained "invite pass" for a new tutor — designed so an admin can screenshot it and send
+ * everything the recruit needs in one image: where to go, the code, which email to use, and how
+ * long it's valid. The dashed code chip is the hero; everything else stays quiet. Reused for a
+ * freshly-issued code and each expanded card.
  */
 function ShareCard({
   code,
@@ -26,38 +36,66 @@ function ShareCard({
 }) {
   const t = useTranslations();
   return (
-    <div className="max-w-md rounded-lg border border-green-300 bg-green-50 p-5">
-      <p className="text-base font-bold text-green-900">
-        {t("admin.registrationCodes.share.heading", { appTitle: APP_TITLE })}
-      </p>
-      <ol className="mt-3 list-decimal space-y-3 pl-5 text-sm text-green-900">
-        <li>
-          <span className="font-semibold">{t("admin.registrationCodes.share.goTo")}</span>{" "}
-          <span className="font-mono break-all text-green-800">{registerUrl}</span>
+    <div className="max-w-md overflow-hidden rounded-xl border border-green-200 bg-white shadow-sm">
+      {/* Welcome band — sets the "you're invited" tone, distinct from the admin chrome. */}
+      <div className="bg-green-600 px-5 py-3.5">
+        <p className="text-base font-bold text-white">
+          {t("admin.registrationCodes.share.heading", { appTitle: APP_TITLE })}
+        </p>
+      </div>
+
+      {/* The registration sequence (a genuine ordered process → numbered). */}
+      <ol className="space-y-4 px-5 py-4">
+        <li className="flex gap-3">
+          <StepNum n={1} />
+          <p className="pt-0.5 text-sm text-slate-700">
+            <span className="font-medium text-slate-900">
+              {t("admin.registrationCodes.share.goTo")}
+            </span>{" "}
+            <span className="font-mono break-all text-green-700">{registerUrl}</span>
+          </p>
         </li>
-        <li>
-          <span className="font-semibold">{t("admin.registrationCodes.share.enterCode")}</span>
-          <div className="mt-1 inline-block rounded-md border border-green-300 bg-white px-4 py-2 font-mono text-3xl font-bold tracking-[0.3em] text-green-900">
-            {code}
+        <li className="flex gap-3">
+          <StepNum n={2} />
+          <div className="pt-0.5">
+            <p className="text-sm font-medium text-slate-900">
+              {t("admin.registrationCodes.share.enterCode")}
+            </p>
+            {/* Signature: the code as a tear-off ticket chip. */}
+            <div className="mt-2 inline-block rounded-lg border-2 border-dashed border-green-300 bg-green-50 px-5 py-2.5 font-mono text-3xl font-bold tracking-[0.3em] text-green-800">
+              {code}
+            </div>
           </div>
         </li>
-        <li>
-          <span className="font-semibold">{t("admin.registrationCodes.share.verifyEmail")}</span>
-          {email && (
-            <span className="ml-1 font-mono text-green-800">
-              {t("admin.registrationCodes.share.useEmail", { email })}
+        <li className="flex gap-3">
+          <StepNum n={3} />
+          <p className="pt-0.5 text-sm text-slate-700">
+            <span className="font-medium text-slate-900">
+              {t("admin.registrationCodes.share.verifyEmail")}
             </span>
-          )}
+            {email && (
+              <span className="ml-1 font-mono text-slate-500">
+                {t("admin.registrationCodes.share.useEmail", { email })}
+              </span>
+            )}
+          </p>
         </li>
-        <li>
-          <span className="font-semibold">{t("admin.registrationCodes.share.setup")}</span>
+        <li className="flex gap-3">
+          <StepNum n={4} />
+          <p className="pt-0.5 text-sm font-medium text-slate-900">
+            {t("admin.registrationCodes.share.setup")}
+          </p>
         </li>
       </ol>
-      <p className="mt-3 text-xs font-medium text-green-800">
-        {t("admin.registrationCodes.share.validity", {
-          date: new Date(expiresAt).toLocaleDateString(),
-        })}
-      </p>
+
+      {/* Validity footer — quiet, factual. */}
+      <div className="border-t border-green-100 bg-green-50/60 px-5 py-2.5">
+        <p className="text-xs font-medium text-green-700">
+          {t("admin.registrationCodes.share.validity", {
+            date: new Date(expiresAt).toLocaleDateString(),
+          })}
+        </p>
+      </div>
     </div>
   );
 }
