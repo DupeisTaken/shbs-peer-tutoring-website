@@ -804,6 +804,20 @@
       "hideCode": "隐藏",
 
       "copy": "复制",
+
+      "collapse": "收起",
+
+      "expand": "展开",
+
+      "noEmail": "未绑定邮箱",
+
+      "expiresOn": "过期：{date}",
+
+      "codeLabel": "代码",
+
+      "invalidNote": "此代码已失效。",
+
+      "noCode": "无可用代码。",
       "empty": "暂无注册码。"
     },
     "tutorRequests": {

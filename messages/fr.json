@@ -539,6 +539,20 @@
       "hideCode": "Masquer",
 
       "copy": "Copier",
+
+      "collapse": "Réduire",
+
+      "expand": "Développer",
+
+      "noEmail": "Aucun e-mail",
+
+      "expiresOn": "Expire {date}",
+
+      "codeLabel": "Code",
+
+      "invalidNote": "Ce code n'est plus valide.",
+
+      "noCode": "Code indisponible.",
       "empty": "Aucun code d'inscription pour l'instant."
     },
     "tutorRequests": {

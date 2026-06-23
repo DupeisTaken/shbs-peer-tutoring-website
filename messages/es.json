@@ -804,6 +804,20 @@
       "hideCode": "Ocultar",
 
       "copy": "Copiar",
+
+      "collapse": "Contraer",
+
+      "expand": "Expandir",
+
+      "noEmail": "Sin correo vinculado",
+
+      "expiresOn": "Caduca {date}",
+
+      "codeLabel": "Código",
+
+      "invalidNote": "Este código ya no es válido.",
+
+      "noCode": "Código no disponible.",
       "empty": "Aún no hay códigos de registro."
     },
     "tutorRequests": {

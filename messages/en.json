@@ -463,6 +463,20 @@
       "hideCode": "Hide",
 
       "copy": "Copy",
+
+      "collapse": "Collapse",
+
+      "expand": "Expand",
+
+      "noEmail": "No email bound",
+
+      "expiresOn": "Expires {date}",
+
+      "codeLabel": "Code",
+
+      "invalidNote": "This code is no longer valid.",
+
+      "noCode": "Code not available.",
       "empty": "No registration codes yet."
     },
     "tutorRequests": {
