@@ -533,6 +533,8 @@
       "saved": "Saved.",
       "timeLabel": "Time",
       "exempt": "Exempt (X)",
+
+      "selfExcused": "Self-excused absences ({count})",
       "status": {
         "present": "Present",
         "excusedAbsent": "Excused Absent",
@@ -725,6 +727,28 @@
     }
   },
   "tutor": {
+
+    "meetings": {
+
+      "title": "Upcoming meetings",
+
+      "help": "Can't make a meeting? Excuse your absence up to 30 minutes before it starts.",
+
+      "excuseBtn": "Excuse absence",
+
+      "submitExcuse": "Submit",
+
+      "cancelExcuse": "Cancel excuse",
+
+      "reasonPlaceholder": "Reason (optional)",
+
+      "excused": "You've excused this absence.",
+
+      "excusedBadge": "Excused",
+
+      "tooLate": "Too late to excuse"
+
+    },
     "nav": { "handbook": "Handbook" },
     "handbook": { "empty": "The handbook hasn't been published yet." },
     "status": {

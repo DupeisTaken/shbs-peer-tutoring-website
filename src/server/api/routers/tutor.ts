@@ -16,6 +16,9 @@ const TUTEE_STATUS = ["PRESENT", "EXCUSED_ABSENT", "UNEXCUSED_ABSENT"] as const;
 /** Cooldown before an admin may approve an opt-out request — the tutor can recall it meanwhile. */
 const OPT_OUT_COOLDOWN_DAYS = 7;
 
+/** A tutor may self-excuse a meeting absence only up to this many minutes before it starts. */
+const MEETING_EXCUSE_CUTOFF_MIN = 30;
+
 const rating = z.number().int().min(1).max(5).optional();
 const RATING_KEYS = [
   "ratingPreparedness",
@@ -937,6 +940,115 @@ export const tutorRouter = createTRPCRouter({
       if (res.count === 0) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "No open request to recall." });
       }
+      return { ok: true };
+    }),
+
+  // --------------------------------------------------------------------------
+  // Tutor meetings — self-excuse an upcoming absence (up to 30 min before the meeting).
+  // --------------------------------------------------------------------------
+  /** Upcoming meetings with this tutor's excuse state and whether they can still excuse. */
+  myMeetings: tutorProcedure.query(async ({ ctx }) => {
+    const now = new Date();
+    const meetings = await ctx.db.tutorMeeting.findMany({
+      where: { date: { gte: now } },
+      orderBy: { date: "asc" },
+      select: {
+        id: true,
+        title: true,
+        date: true,
+        attendances: {
+          where: { tutorId: ctx.session.tutorId },
+          select: { status: true, reason: true, excusedAt: true },
+        },
+      },
+    });
+    return meetings.map((m) => {
+      const mine = m.attendances[0] ?? null;
+      return {
+        id: m.id,
+        title: m.title,
+        date: m.date,
+        reason: mine?.reason ?? null,
+        excused: mine?.status === "EXCUSED_ABSENT" && mine.excusedAt != null,
+        // True until the cutoff (30 min before the meeting) passes.
+        canExcuse: now.getTime() <= m.date.getTime() - MEETING_EXCUSE_CUTOFF_MIN * 60_000,
+      };
+    });
+  }),
+
+  /**
+   * Self-excuse an absence from an upcoming meeting (sets the tutor's attendance to EXCUSED_ABSENT
+   * with a reason + timestamp). Allowed only until 30 min before the meeting; an active tutor only.
+   * Surfaces to coordinators on /admin/meetings (panel + notification). Clears any stray
+   * unexcused-absence deduction for this meeting.
+   */
+  excuseMeeting: activeTutorProcedure
+    .input(z.object({ meetingId: z.string().cuid(), reason: z.string().trim().max(500).optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const meeting = await ctx.db.tutorMeeting.findUnique({
+        where: { id: input.meetingId },
+        select: { id: true, title: true, date: true },
+      });
+      if (!meeting) throw new TRPCError({ code: "NOT_FOUND", message: "Meeting not found." });
+      if (Date.now() > meeting.date.getTime() - MEETING_EXCUSE_CUTOFF_MIN * 60_000) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Too late to excuse — this meeting is within 30 minutes.",
+        });
+      }
+      const reason = input.reason?.trim() ? input.reason.trim() : null;
+      await ctx.db.$transaction(async (tx) => {
+        await tx.meetingAttendance.upsert({
+          where: { meetingId_tutorId: { meetingId: input.meetingId, tutorId: ctx.session.tutorId } },
+          update: { status: "EXCUSED_ABSENT", reason, excusedAt: new Date() },
+          create: {
+            meetingId: input.meetingId,
+            tutorId: ctx.session.tutorId,
+            status: "EXCUSED_ABSENT",
+            reason,
+            excusedAt: new Date(),
+          },
+        });
+        // An excused absence carries no deduction — remove any prior unexcused-absence punishment.
+        await tx.serviceHourAdjustment.deleteMany({
+          where: { id: `mtgabs_${input.meetingId}_${ctx.session.tutorId}` },
+        });
+      });
+      const tutor = await ctx.db.tutor.findUnique({
+        where: { id: ctx.session.tutorId },
+        select: { englishName: true },
+      });
+      await notifyAdmins({
+        title: "Meeting absence excused",
+        body: `${tutor?.englishName ?? "A tutor"} will miss "${meeting.title}".`,
+        link: "/admin/meetings",
+      });
+      return { ok: true };
+    }),
+
+  /** Cancel a self-excuse (only one the tutor submitted, and only while still >30 min out). */
+  cancelMeetingExcuse: activeTutorProcedure
+    .input(z.object({ meetingId: z.string().cuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const meeting = await ctx.db.tutorMeeting.findUnique({
+        where: { id: input.meetingId },
+        select: { date: true },
+      });
+      if (!meeting) throw new TRPCError({ code: "NOT_FOUND", message: "Meeting not found." });
+      if (Date.now() > meeting.date.getTime() - MEETING_EXCUSE_CUTOFF_MIN * 60_000) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Too late to change — this meeting is within 30 minutes.",
+        });
+      }
+      // Only remove a tutor-submitted excuse (excusedAt set), never an admin-recorded status.
+      await ctx.db.meetingAttendance.deleteMany({
+        where: {
+          meetingId: input.meetingId,
+          tutorId: ctx.session.tutorId,
+          excusedAt: { not: null },
+        },
+      });
       return { ok: true };
     }),
 });

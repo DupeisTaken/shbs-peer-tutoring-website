@@ -612,6 +612,8 @@
       "saved": "저장되었습니다.",
       "timeLabel": "시간",
       "exempt": "면제 (X)",
+
+      "selfExcused": "자가 사유 결석 ({count})",
       "status": {
         "present": "출석",
         "excusedAbsent": "공결",
@@ -858,6 +860,28 @@
     }
   },
   "tutor": {
+
+    "meetings": {
+
+      "title": "예정된 회의",
+
+      "help": "회의에 참석할 수 없나요? 시작 30분 전까지 결석을 신청할 수 있습니다.",
+
+      "excuseBtn": "결석 신청",
+
+      "submitExcuse": "제출",
+
+      "cancelExcuse": "신청 취소",
+
+      "reasonPlaceholder": "사유 (선택)",
+
+      "excused": "이 결석을 신청했습니다.",
+
+      "excusedBadge": "신청됨",
+
+      "tooLate": "신청 시간이 지났습니다"
+
+    },
     "nav": {
       "handbook": "핸드북"
     },

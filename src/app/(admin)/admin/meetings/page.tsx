@@ -103,6 +103,26 @@ export default function MeetingsPage() {
                   </button>
                 )}
               </div>
+              {/* Tutor-submitted excuses surface here automatically. */}
+              {(() => {
+                const ex = m.attendances.filter((a) => a.excusedAt != null);
+                if (ex.length === 0) return null;
+                return (
+                  <div className="mt-2 rounded-md border border-amber-200 bg-amber-50 px-3 py-2">
+                    <p className="text-xs font-semibold text-amber-800">
+                      {t("admin.meetings.selfExcused", { count: ex.length })}
+                    </p>
+                    <ul className="mt-1 space-y-0.5 text-sm text-amber-900">
+                      {ex.map((a) => (
+                        <li key={a.tutorId}>
+                          {a.tutor.englishName}
+                          {a.reason ? ` — ${a.reason}` : ""}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                );
+              })()}
               {selected === m.id && (
                 <AttendanceEditor
                   meetingId={m.id}

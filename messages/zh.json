@@ -527,6 +527,8 @@
       "saved": "已保存。",
       "timeLabel": "时间",
       "exempt": "豁免 (X)",
+
+      "selfExcused": "自助请假（{count}）",
       "status": {
         "present": "出席",
         "excusedAbsent": "请假缺席",
@@ -858,6 +860,28 @@
     }
   },
   "tutor": {
+
+    "meetings": {
+
+      "title": "近期会议",
+
+      "help": "无法参加会议？最迟可在会议开始前 30 分钟请假。",
+
+      "excuseBtn": "请假",
+
+      "submitExcuse": "提交",
+
+      "cancelExcuse": "取消请假",
+
+      "reasonPlaceholder": "原因（选填）",
+
+      "excused": "你已为此次缺席请假。",
+
+      "excusedBadge": "已请假",
+
+      "tooLate": "已超过请假时间"
+
+    },
     "nav": {
       "handbook": "手册"
     },

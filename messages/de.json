@@ -612,6 +612,8 @@
       "saved": "Gespeichert.",
       "timeLabel": "Uhrzeit",
       "exempt": "Befreit (X)",
+
+      "selfExcused": "Selbst entschuldigte Abwesenheiten ({count})",
       "status": {
         "present": "Anwesend",
         "excusedAbsent": "Entschuldigt abwesend",
@@ -858,6 +860,28 @@
     }
   },
   "tutor": {
+
+    "meetings": {
+
+      "title": "Anstehende Sitzungen",
+
+      "help": "Sie können nicht teilnehmen? Entschuldigen Sie Ihre Abwesenheit bis 30 Minuten vor Beginn.",
+
+      "excuseBtn": "Abwesenheit entschuldigen",
+
+      "submitExcuse": "Senden",
+
+      "cancelExcuse": "Entschuldigung zurücknehmen",
+
+      "reasonPlaceholder": "Grund (optional)",
+
+      "excused": "Sie haben diese Abwesenheit entschuldigt.",
+
+      "excusedBadge": "Entschuldigt",
+
+      "tooLate": "Zu spät zum Entschuldigen"
+
+    },
     "nav": {
       "handbook": "Handbuch"
     },

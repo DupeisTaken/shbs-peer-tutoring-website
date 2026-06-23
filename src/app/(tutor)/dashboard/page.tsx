@@ -8,6 +8,7 @@ import { AvailabilityEditor } from "~/app/(tutor)/_components/availability-edito
 import { TutorPairings } from "~/app/(tutor)/_components/tutor-pairings";
 import { MergeProvider } from "~/app/(tutor)/_components/merge-context";
 import { MyInterviews } from "~/app/(tutor)/_components/my-interviews";
+import { TutorMeetings } from "~/app/(tutor)/_components/tutor-meetings";
 import { getTranslations } from "next-intl/server";
 
 import { RoomGrid } from "~/app/_components/room-grid";
@@ -77,6 +78,9 @@ export default async function TutorDashboard() {
 
       {/* Pending interviews + session-time confirmations (self-hides when none). */}
       {!inactive && <MyInterviews />}
+
+      {/* Upcoming meetings + self-excuse (self-hides when none). */}
+      {!inactive && <TutorMeetings />}
 
       <MergeProvider>
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-5">

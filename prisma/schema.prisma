@@ -601,6 +601,11 @@ model TutorMeeting {
 model MeetingAttendance {
   id     String                  @id @default(cuid())
   status MeetingAttendanceStatus
+  /// Optional note — the tutor's reason when they self-excuse, or an admin note.
+  reason String?
+  /// Set when the tutor self-excused (pre-meeting, ≥30 min before) from their dashboard. Non-null
+  /// ⟺ a tutor-submitted excuse; lets the coordination page flag it. Admin-set attendance leaves it null.
+  excusedAt DateTime?
 
   meetingId String
   meeting   TutorMeeting @relation(fields: [meetingId], references: [id], onDelete: Cascade)

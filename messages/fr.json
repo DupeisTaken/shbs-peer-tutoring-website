@@ -612,6 +612,8 @@
       "saved": "Enregistré.",
       "timeLabel": "Heure",
       "exempt": "Exempté (X)",
+
+      "selfExcused": "Absences auto-justifiées ({count})",
       "status": {
         "present": "Présent",
         "excusedAbsent": "Absent excusé",
@@ -858,6 +860,28 @@
     }
   },
   "tutor": {
+
+    "meetings": {
+
+      "title": "Réunions à venir",
+
+      "help": "Vous ne pouvez pas venir ? Justifiez votre absence jusqu'à 30 minutes avant le début.",
+
+      "excuseBtn": "Justifier l'absence",
+
+      "submitExcuse": "Envoyer",
+
+      "cancelExcuse": "Annuler la justification",
+
+      "reasonPlaceholder": "Motif (facultatif)",
+
+      "excused": "Vous avez justifié cette absence.",
+
+      "excusedBadge": "Justifiée",
+
+      "tooLate": "Trop tard pour justifier"
+
+    },
     "nav": {
       "handbook": "Manuel"
     },

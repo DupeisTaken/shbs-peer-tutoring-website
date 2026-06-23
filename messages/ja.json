@@ -612,6 +612,8 @@
       "saved": "保存しました。",
       "timeLabel": "時間",
       "exempt": "免除（X）",
+
+      "selfExcused": "自己申告の欠席（{count}）",
       "status": {
         "present": "出席",
         "excusedAbsent": "公欠",
@@ -858,6 +860,28 @@
     }
   },
   "tutor": {
+
+    "meetings": {
+
+      "title": "今後の会議",
+
+      "help": "会議に出られませんか？開始 30 分前まで欠席を申告できます。",
+
+      "excuseBtn": "欠席を申告",
+
+      "submitExcuse": "送信",
+
+      "cancelExcuse": "申告を取り消す",
+
+      "reasonPlaceholder": "理由（任意）",
+
+      "excused": "この欠席を申告しました。",
+
+      "excusedBadge": "申告済み",
+
+      "tooLate": "申告期限を過ぎています"
+
+    },
     "nav": {
       "handbook": "ハンドブック"
     },
