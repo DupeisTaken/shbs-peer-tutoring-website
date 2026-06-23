@@ -818,6 +818,24 @@
       "invalidNote": "此代码已失效。",
 
       "noCode": "无可用代码。",
+
+      "share": {
+
+        "heading": "设置你的 {appTitle} 账户",
+
+        "goTo": "前往：",
+
+        "enterCode": "输入此代码：",
+
+        "verifyEmail": "验证你的邮箱",
+
+        "useEmail": "（使用 {email}）",
+
+        "setup": "填写姓名、年级并设置密码",
+
+        "validity": "一次性代码 · 有效期至 {date}"
+
+      },
       "empty": "暂无注册码。"
     },
     "tutorRequests": {

@@ -553,6 +553,24 @@
       "invalidNote": "이 코드는 더 이상 유효하지 않습니다.",
 
       "noCode": "코드를 사용할 수 없습니다.",
+
+      "share": {
+
+        "heading": "{appTitle} 계정 설정",
+
+        "goTo": "이동:",
+
+        "enterCode": "이 코드 입력:",
+
+        "verifyEmail": "이메일 인증",
+
+        "useEmail": "({email} 사용)",
+
+        "setup": "이름, 학년, 비밀번호 설정",
+
+        "validity": "일회용 코드 · {date}까지 유효"
+
+      },
       "empty": "아직 등록 코드가 없습니다."
     },
     "tutorRequests": {

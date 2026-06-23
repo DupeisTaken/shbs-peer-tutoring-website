@@ -1,16 +1,71 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
+import { APP_TITLE } from "~/lib/branding";
 import { DisclosureIcon } from "~/app/_components/icons";
 import { useReadOnly } from "~/app/_components/read-only";
 
 /**
+ * A self-contained "set up your tutor account" panel for a new tutor — designed so an admin can
+ * screenshot it and send everything the recruit needs in one image: where to go, the code, which
+ * email to use, and how long it's valid. Reused for a freshly-issued code and each expanded card.
+ */
+function ShareCard({
+  code,
+  email,
+  expiresAt,
+  registerUrl,
+}: {
+  code: string;
+  email: string | null;
+  expiresAt: Date;
+  registerUrl: string;
+}) {
+  const t = useTranslations();
+  return (
+    <div className="max-w-md rounded-lg border border-green-300 bg-green-50 p-5">
+      <p className="text-base font-bold text-green-900">
+        {t("admin.registrationCodes.share.heading", { appTitle: APP_TITLE })}
+      </p>
+      <ol className="mt-3 list-decimal space-y-3 pl-5 text-sm text-green-900">
+        <li>
+          <span className="font-semibold">{t("admin.registrationCodes.share.goTo")}</span>{" "}
+          <span className="font-mono break-all text-green-800">{registerUrl}</span>
+        </li>
+        <li>
+          <span className="font-semibold">{t("admin.registrationCodes.share.enterCode")}</span>
+          <div className="mt-1 inline-block rounded-md border border-green-300 bg-white px-4 py-2 font-mono text-3xl font-bold tracking-[0.3em] text-green-900">
+            {code}
+          </div>
+        </li>
+        <li>
+          <span className="font-semibold">{t("admin.registrationCodes.share.verifyEmail")}</span>
+          {email && (
+            <span className="ml-1 font-mono text-green-800">
+              {t("admin.registrationCodes.share.useEmail", { email })}
+            </span>
+          )}
+        </li>
+        <li>
+          <span className="font-semibold">{t("admin.registrationCodes.share.setup")}</span>
+        </li>
+      </ol>
+      <p className="mt-3 text-xs font-medium text-green-800">
+        {t("admin.registrationCodes.share.validity", {
+          date: new Date(expiresAt).toLocaleDateString(),
+        })}
+      </p>
+    </div>
+  );
+}
+
+/**
  * Registration codes: issue single-use 6-digit security keys for new tutors and track their
- * status. Each code is an expandable card; expanding it reveals the plaintext code (re-viewable on
- * demand). Admins + coordinators can issue/revoke; VIEWER is read-only (and never sees codes).
+ * status. Each code is an expandable card whose body is a screenshot-ready setup panel (ShareCard).
+ * Admins + coordinators can issue/revoke; VIEWER is read-only (and never sees codes).
  */
 export default function RegistrationCodesPage() {
   const t = useTranslations();
@@ -20,14 +75,24 @@ export default function RegistrationCodesPage() {
 
   const [email, setEmail] = useState("");
   const [label, setLabel] = useState("");
-  const [issued, setIssued] = useState<{ code: string; label: string | null } | null>(null);
-  // Which code card is expanded (reveals the plaintext code inline).
+  const [issued, setIssued] = useState<
+    { code: string; label: string | null; email: string | null; expiresAt: Date } | null
+  >(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
+  // Site origin (client-only) for the full /register URL shown to tutors.
+  const [origin, setOrigin] = useState("");
+  useEffect(() => setOrigin(window.location.origin), []);
+  const registerUrl = `${origin}/register`;
 
   const invalidate = () => utils.admin.registrationCodes.invalidate();
   const issue = api.admin.issueRegistrationCode.useMutation({
     onSuccess: async (data) => {
-      setIssued({ code: data.code, label: label.trim() || email.trim() || null });
+      setIssued({
+        code: data.code,
+        label: label.trim() || email.trim() || null,
+        email: email.trim() || null,
+        expiresAt: data.expiresAt,
+      });
       setEmail("");
       setLabel("");
       await invalidate();
@@ -36,11 +101,7 @@ export default function RegistrationCodesPage() {
   const revoke = api.admin.revokeRegistrationCode.useMutation({ onSuccess: invalidate });
 
   const statusBadge = (status: string) =>
-    status === "active"
-      ? "badge-green"
-      : status === "used"
-        ? "badge-slate"
-        : "badge-amber";
+    status === "active" ? "badge-green" : status === "used" ? "badge-slate" : "badge-amber";
 
   return (
     <div className="space-y-6">
@@ -86,15 +147,30 @@ export default function RegistrationCodesPage() {
       )}
       {issue.error && <p className="text-sm text-red-600">{issue.error.message}</p>}
 
+      {/* Just issued — show the screenshot-ready panel immediately. */}
       {issued && (
-        <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3">
+        <div className="space-y-2">
           <p className="text-sm font-medium text-green-800">
             {t("admin.registrationCodes.issuedTitle", { who: issued.label ?? "—" })}
           </p>
-          <p className="mt-1 font-mono text-3xl font-bold tracking-[0.3em] text-green-900">
-            {issued.code}
-          </p>
-          <p className="muted mt-1 text-xs">{t("admin.registrationCodes.issuedHint")}</p>
+          <ShareCard
+            code={issued.code}
+            email={issued.email}
+            expiresAt={issued.expiresAt}
+            registerUrl={registerUrl}
+          />
+          <div className="flex items-center gap-3">
+            <button
+              type="button"
+              className="btn-secondary btn-sm"
+              onClick={() => navigator.clipboard?.writeText(issued.code)}
+            >
+              {t("admin.registrationCodes.copy")}
+            </button>
+            <button type="button" className="link text-sm" onClick={() => setIssued(null)}>
+              {t("common.dismiss")}
+            </button>
+          </div>
         </div>
       )}
 
@@ -103,7 +179,7 @@ export default function RegistrationCodesPage() {
           const open = expandedId === c.id;
           return (
             <div key={c.id} className="rounded-lg border border-slate-200 p-4">
-              {/* Header row: disclosure toggle + label + status; expires summary on the right. */}
+              {/* Header: disclosure + label + status; expiry + revoke on the right (always shown). */}
               <div className="flex flex-wrap items-start justify-between gap-3">
                 <div className="flex min-w-0 items-start gap-2">
                   <button
@@ -138,7 +214,6 @@ export default function RegistrationCodesPage() {
                       date: new Date(c.expiresAt).toLocaleDateString(),
                     })}
                   </p>
-                  {/* Revoke stays reachable whether the card is collapsed or expanded. */}
                   {!readOnly && c.status === "active" && (
                     <button
                       className="btn-danger btn-sm"
@@ -153,56 +228,37 @@ export default function RegistrationCodesPage() {
 
               {open && (
                 <div className="mt-3 space-y-3 border-t border-slate-100 pt-3">
-                  {/* The code itself (VIEWER never receives it): green frame strictly around the
-                      centered code text; Copy sits outside the frame. */}
-                  {c.code ? (
-                    <div className="space-y-2">
-                      {/* Compact green frame (shrinks to content, left-aligned): "Code" label over
-                          the centered digits. Copy sits beside it. */}
-                      <div className="flex flex-wrap items-end gap-3">
-                        <div className="w-fit rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-center">
-                          <p className="text-xs font-medium tracking-wide text-green-800 uppercase">
-                            {t("admin.registrationCodes.codeLabel")}
-                          </p>
-                          <p className="mt-1 font-mono text-3xl font-bold tracking-[0.3em] text-green-900">
-                            {c.code}
-                          </p>
-                        </div>
-                        <button
-                          type="button"
-                          className="btn-secondary btn-sm"
-                          onClick={() => navigator.clipboard?.writeText(c.code!)}
-                        >
-                          {t("admin.registrationCodes.copy")}
-                        </button>
-                      </div>
-                      {c.status !== "active" && (
-                        <p className="muted text-xs">
-                          {t("admin.registrationCodes.invalidNote")}
-                        </p>
-                      )}
+                  {c.code && c.status === "active" ? (
+                    <>
+                      <ShareCard
+                        code={c.code}
+                        email={c.email}
+                        expiresAt={c.expiresAt}
+                        registerUrl={registerUrl}
+                      />
+                      <button
+                        type="button"
+                        className="btn-secondary btn-sm"
+                        onClick={() => navigator.clipboard?.writeText(c.code!)}
+                      >
+                        {t("admin.registrationCodes.copy")}
+                      </button>
+                    </>
+                  ) : c.code ? (
+                    // Used / expired: the code is no longer shareable.
+                    <div>
+                      <p className="label">{t("admin.registrationCodes.codeLabel")}</p>
+                      <p className="font-mono text-2xl font-bold tracking-[0.3em] text-slate-400 line-through">
+                        {c.code}
+                      </p>
+                      <p className="muted text-xs">{t("admin.registrationCodes.invalidNote")}</p>
                     </div>
                   ) : (
                     <p className="muted text-sm">{t("admin.registrationCodes.noCode")}</p>
                   )}
-
-                  {/* Details */}
-                  <dl className="grid grid-cols-2 gap-x-4 gap-y-1 text-sm sm:grid-cols-3">
-                    <div>
-                      <dt className="muted text-xs">{t("admin.registrationCodes.colEmail")}</dt>
-                      <dd className="text-slate-700">{c.email ?? "—"}</dd>
-                    </div>
-                    <div>
-                      <dt className="muted text-xs">{t("admin.registrationCodes.colIssuedBy")}</dt>
-                      <dd className="text-slate-700">{c.issuedByName ?? "—"}</dd>
-                    </div>
-                    <div>
-                      <dt className="muted text-xs">{t("admin.registrationCodes.colExpires")}</dt>
-                      <dd className="text-slate-700">
-                        {new Date(c.expiresAt).toLocaleString()}
-                      </dd>
-                    </div>
-                  </dl>
+                  <p className="muted text-xs">
+                    {t("admin.registrationCodes.colIssuedBy")}: {c.issuedByName ?? "—"}
+                  </p>
                 </div>
               )}
             </div>

@@ -553,6 +553,24 @@
       "invalidNote": "Ce code n'est plus valide.",
 
       "noCode": "Code indisponible.",
+
+      "share": {
+
+        "heading": "Configurez votre compte {appTitle}",
+
+        "goTo": "Allez sur :",
+
+        "enterCode": "Saisissez ce code :",
+
+        "verifyEmail": "Vérifiez votre e-mail",
+
+        "useEmail": "(utilisez {email})",
+
+        "setup": "Indiquez votre nom, niveau et un mot de passe",
+
+        "validity": "Code à usage unique · valable jusqu'au {date}"
+
+      },
       "empty": "Aucun code d'inscription pour l'instant."
     },
     "tutorRequests": {

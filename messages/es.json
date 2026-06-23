@@ -818,6 +818,24 @@
       "invalidNote": "Este código ya no es válido.",
 
       "noCode": "Código no disponible.",
+
+      "share": {
+
+        "heading": "Configura tu cuenta de {appTitle}",
+
+        "goTo": "Ve a:",
+
+        "enterCode": "Introduce este código:",
+
+        "verifyEmail": "Verifica tu correo",
+
+        "useEmail": "(usa {email})",
+
+        "setup": "Indica tu nombre, curso y una contraseña",
+
+        "validity": "Código de un solo uso · válido hasta {date}"
+
+      },
       "empty": "Aún no hay códigos de registro."
     },
     "tutorRequests": {

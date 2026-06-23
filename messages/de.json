@@ -553,6 +553,24 @@
       "invalidNote": "Dieser Code ist nicht mehr gültig.",
 
       "noCode": "Code nicht verfügbar.",
+
+      "share": {
+
+        "heading": "Richte dein {appTitle}-Konto ein",
+
+        "goTo": "Gehe zu:",
+
+        "enterCode": "Diesen Code eingeben:",
+
+        "verifyEmail": "E-Mail bestätigen",
+
+        "useEmail": "({email} verwenden)",
+
+        "setup": "Name, Klassenstufe und Passwort festlegen",
+
+        "validity": "Einmalcode · gültig bis {date}"
+
+      },
       "empty": "Noch keine Registrierungscodes."
     },
     "tutorRequests": {

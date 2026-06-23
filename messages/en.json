@@ -477,6 +477,24 @@
       "invalidNote": "This code is no longer valid.",
 
       "noCode": "Code not available.",
+
+      "share": {
+
+        "heading": "Set up your {appTitle} account",
+
+        "goTo": "Go to:",
+
+        "enterCode": "Enter this code:",
+
+        "verifyEmail": "Verify your email",
+
+        "useEmail": "(use {email})",
+
+        "setup": "Set your name, grade, and a password",
+
+        "validity": "One-time code · valid until {date}"
+
+      },
       "empty": "No registration codes yet."
     },
     "tutorRequests": {

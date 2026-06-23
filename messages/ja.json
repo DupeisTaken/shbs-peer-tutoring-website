@@ -553,6 +553,24 @@
       "invalidNote": "このコードは無効です。",
 
       "noCode": "コードは利用できません。",
+
+      "share": {
+
+        "heading": "{appTitle} アカウントを設定",
+
+        "goTo": "アクセス：",
+
+        "enterCode": "このコードを入力：",
+
+        "verifyEmail": "メールアドレスを確認",
+
+        "useEmail": "（{email} を使用）",
+
+        "setup": "名前・学年・パスワードを設定",
+
+        "validity": "使い捨てコード · 有効期限 {date}"
+
+      },
       "empty": "登録コードはまだありません。"
     },
     "tutorRequests": {
