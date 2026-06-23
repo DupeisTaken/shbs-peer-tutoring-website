@@ -13,7 +13,8 @@ import { listLanguages } from "~/server/i18n/languages";
 /**
  * UI languages. `languages` is public (the language picker is everywhere). Translators can add a
  * new language (its strings come from MessageOverride rows, English fallback); admins reorder and
- * remove added languages. Built-in locales (en/zh/es) can be reordered but not removed.
+ * remove added languages. Built-in locales (the bundled set in src/i18n/config.ts: en, zh, es,
+ * ja, ko, el, de, fr) can be reordered but not removed.
  */
 export const i18nRouter = createTRPCRouter({
   languages: publicProcedure.query(() => listLanguages()),

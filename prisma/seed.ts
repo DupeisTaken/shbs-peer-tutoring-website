@@ -19,6 +19,7 @@ import {
   type TuteeAttendanceStatus,
 } from "../src/lib/service-hours";
 import { graduationYear } from "../src/lib/period";
+import { LOCALES, LOCALE_LABELS } from "../src/i18n/config";
 import { TUTEE_POLICY, TUTOR_POLICY } from "./policies";
 
 /** School year the seed's active term belongs to (used to derive class-of years). */
@@ -359,6 +360,17 @@ async function main() {
     create: { id: "term-2026-q1", name: "26-27 Q1", schoolYear: "26-27", quarter: "Q1", active: true },
   });
 
+  // --- Built-in languages ----------------------------------------------------
+  // Keep the Language table in sync with the bundled locales (src/i18n/config.ts) — the single
+  // source of truth. listLanguages() merges built-ins even without rows, but seeding them makes
+  // the DB consistent and gives the picker a deterministic order. Translator-added languages
+  // (non-built-in) are left untouched.
+  for (let i = 0; i < LOCALES.length; i++) {
+    const code = LOCALES[i]!;
+    const data = { label: LOCALE_LABELS[code], sortOrder: i, builtIn: true };
+    await db.language.upsert({ where: { code }, update: data, create: { code, ...data } });
+  }
+
   // --- Rooms + blackout periods ----------------------------------------------
   for (const room of ROOMS) {
     await db.room.upsert({ where: { id: room.id }, update: { name: room.name }, create: room });
@@ -581,7 +593,8 @@ async function main() {
     "tutor-policy": "Peer Tutoring Tutor Policy",
     "tutee-policy": "Peer Tutoring Tutee Policy",
   };
-  const POLICY_LOCALES = ["zh", "es", "ja", "ko", "el", "de", "fr"];
+  // Derived from the bundled locales (minus the "en" source) so it can't drift out of sync.
+  const POLICY_LOCALES = LOCALES.filter((c) => c !== "en");
   const policiesDir = join(dirname(fileURLToPath(import.meta.url)), "policies");
 
   const policies: { slug: string; locale: string; title: string; version: string; body: string }[] = [
