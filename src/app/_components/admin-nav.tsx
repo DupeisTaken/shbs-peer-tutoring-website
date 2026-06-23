@@ -60,9 +60,10 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
       { href: "/admin/program", labelKey: "admin.nav.links.program", adminOnly: true },
       { href: "/admin/policies", labelKey: "admin.nav.links.policyDocuments" },
       { href: "/localization", labelKey: "localization.navLabel", elevatedOnly: true },
+      { href: "/admin/registration-codes", labelKey: "admin.nav.links.registrationCodes", elevatedOnly: true },
+      // Audit Log + Users & Roles stay pinned to the bottom of the section.
       { href: "/admin/audit", labelKey: "admin.nav.links.auditLog" },
       { href: "/admin/users", labelKey: "admin.nav.links.usersRoles", elevatedOnly: true },
-      { href: "/admin/registration-codes", labelKey: "admin.nav.links.registrationCodes", elevatedOnly: true },
     ],
   },
 ];
