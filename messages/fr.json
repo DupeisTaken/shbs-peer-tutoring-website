@@ -14,6 +14,8 @@
     "signIn": "Se connecter",
     "signingIn": "Connexion en cours…",
     "forgotPassword": "Mot de passe oublié ?",
+
+    "createAccount": "Créer un compte",
     "lookingForTutor": "Vous cherchez un tuteur ?",
     "requestOne": "Faites une demande ici",
     "forgot": {

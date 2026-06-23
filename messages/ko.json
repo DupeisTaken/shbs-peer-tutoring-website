@@ -14,6 +14,8 @@
     "signIn": "로그인",
     "signingIn": "로그인 중…",
     "forgotPassword": "비밀번호를 잊으셨나요?",
+
+    "createAccount": "계정 만들기",
     "lookingForTutor": "튜터를 찾고 계신가요?",
     "requestOne": "여기서 신청하세요",
     "forgot": {
