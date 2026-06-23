@@ -132,35 +132,44 @@ export default function RegistrationCodesPage() {
                     )}
                   </div>
                 </div>
-                <p className="muted shrink-0 text-xs">
-                  {t("admin.registrationCodes.expiresOn", {
-                    date: new Date(c.expiresAt).toLocaleDateString(),
-                  })}
-                </p>
+                <div className="flex shrink-0 items-center gap-3">
+                  <p className="muted text-xs">
+                    {t("admin.registrationCodes.expiresOn", {
+                      date: new Date(c.expiresAt).toLocaleDateString(),
+                    })}
+                  </p>
+                  {/* Revoke stays reachable whether the card is collapsed or expanded. */}
+                  {!readOnly && c.status === "active" && (
+                    <button
+                      className="btn-danger btn-sm"
+                      onClick={() => revoke.mutate({ id: c.id })}
+                      disabled={revoke.isPending}
+                    >
+                      {t("admin.registrationCodes.revoke")}
+                    </button>
+                  )}
+                </div>
               </div>
 
               {open && (
                 <div className="mt-3 space-y-3 border-t border-slate-100 pt-3">
-                  {/* The code itself (VIEWER never receives it), in the green frame. */}
+                  {/* The code itself (VIEWER never receives it): green frame strictly around the
+                      centered code text; Copy sits outside the frame. */}
                   {c.code ? (
-                    <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3">
-                      <p className="text-xs font-medium tracking-wide text-green-800 uppercase">
-                        {t("admin.registrationCodes.codeLabel")}
-                      </p>
-                      <div className="mt-1 flex flex-wrap items-center gap-3">
-                        <span className="font-mono text-3xl font-bold tracking-[0.3em] text-green-900">
-                          {c.code}
-                        </span>
-                        <button
-                          type="button"
-                          className="btn-secondary btn-sm"
-                          onClick={() => navigator.clipboard?.writeText(c.code!)}
-                        >
-                          {t("admin.registrationCodes.copy")}
-                        </button>
+                    <div className="space-y-2">
+                      <p className="label">{t("admin.registrationCodes.codeLabel")}</p>
+                      <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-center font-mono text-3xl font-bold tracking-[0.3em] text-green-900">
+                        {c.code}
                       </div>
+                      <button
+                        type="button"
+                        className="btn-secondary btn-sm"
+                        onClick={() => navigator.clipboard?.writeText(c.code!)}
+                      >
+                        {t("admin.registrationCodes.copy")}
+                      </button>
                       {c.status !== "active" && (
-                        <p className="mt-1 text-xs text-green-800">
+                        <p className="muted text-xs">
                           {t("admin.registrationCodes.invalidNote")}
                         </p>
                       )}
@@ -186,16 +195,6 @@ export default function RegistrationCodesPage() {
                       </dd>
                     </div>
                   </dl>
-
-                  {!readOnly && c.status === "active" && (
-                    <button
-                      className="btn-danger btn-sm"
-                      onClick={() => revoke.mutate({ id: c.id })}
-                      disabled={revoke.isPending}
-                    >
-                      {t("admin.registrationCodes.revoke")}
-                    </button>
-                  )}
                 </div>
               )}
             </div>
