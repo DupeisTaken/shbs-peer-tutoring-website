@@ -42,7 +42,8 @@ export default async function TutorLayout({
   if (!me?.emailVerifiedAt || me.mustChangePassword) redirect("/onboarding/email");
 
   const t = await getTranslations();
-  const isElevated = session.role === "ADMIN" || session.role === "COORDINATOR";
+  const isElevated =
+    session.role === "HEAD" || session.role === "ADMIN" || session.role === "COORDINATOR";
 
   return (
     <div className="min-h-screen">

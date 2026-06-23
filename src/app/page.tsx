@@ -11,7 +11,10 @@ export default async function Home() {
   const session = await auth();
   if (session?.user) {
     const adminArea =
-      session.role === "ADMIN" || session.role === "COORDINATOR" || session.role === "VIEWER";
+      session.role === "HEAD" ||
+      session.role === "ADMIN" ||
+      session.role === "COORDINATOR" ||
+      session.role === "VIEWER";
     redirect(adminArea ? "/admin" : "/dashboard");
   }
 

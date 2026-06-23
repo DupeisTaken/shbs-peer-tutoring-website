@@ -18,9 +18,12 @@ import { listLanguages } from "~/server/i18n/languages";
 export const i18nRouter = createTRPCRouter({
   languages: publicProcedure.query(() => listLanguages()),
 
-  /** Whether the current translator may also reorder/remove languages (admins/coordinators). */
+  /** Whether the current translator may also reorder/remove languages (head/admins/coordinators). */
   canManageLanguages: translatorProcedure.query(
-    ({ ctx }) => ctx.session.role === "ADMIN" || ctx.session.role === "COORDINATOR",
+    ({ ctx }) =>
+      ctx.session.role === "HEAD" ||
+      ctx.session.role === "ADMIN" ||
+      ctx.session.role === "COORDINATOR",
   ),
 
   addLanguage: translatorProcedure

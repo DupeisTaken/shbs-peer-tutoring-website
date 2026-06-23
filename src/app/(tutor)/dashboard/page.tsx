@@ -1,3 +1,5 @@
+import { redirect } from "next/navigation";
+
 import { auth } from "~/server/auth";
 import { api } from "~/trpc/server";
 import { AnnouncementsBanner } from "~/app/(tutor)/_components/announcements-banner";
@@ -12,6 +14,11 @@ import { RoomGrid } from "~/app/_components/room-grid";
 
 export default async function TutorDashboard() {
   const session = await auth();
+  // Guard before fetching tutor data: a signed-in non-tutor (e.g. an admin without a tutor link)
+  // is sent to their area instead of throwing the tutorProcedure "requires a tutor account" error
+  // while the layout redirect resolves.
+  if (!session?.user) redirect("/signin");
+  if (!session.tutorId) redirect("/admin");
   const me = await api.tutor.me();
   const t = await getTranslations();
 

@@ -25,7 +25,8 @@ export default async function OnboardingEmailPage() {
     select: { email: true, emailVerifiedAt: true },
   });
 
-  const isElevated = session.role === "ADMIN" || session.role === "COORDINATOR";
+  const isElevated =
+    session.role === "HEAD" || session.role === "ADMIN" || session.role === "COORDINATOR";
   if (user?.emailVerifiedAt) redirect(isElevated ? "/admin" : "/dashboard");
 
   const t = await getTranslations();

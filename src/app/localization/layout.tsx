@@ -24,7 +24,10 @@ export default async function LocalizationLayout({
   const session = await auth();
   if (!session?.user) redirect("/signin");
 
-  const elevated = session.role === "ADMIN" || session.role === "COORDINATOR";
+  const elevated =
+    session.role === "HEAD" ||
+    session.role === "ADMIN" ||
+    session.role === "COORDINATOR";
   const me = await db.user.findUnique({
     where: { id: session.user.id },
     select: { canTranslate: true, tutor: { select: { username: true } } },
@@ -33,7 +36,7 @@ export default async function LocalizationLayout({
 
   const t = await getTranslations();
   // Where "home"/back goes: admin-area roles to /admin, a linked tutor to their dashboard.
-  const adminArea = ["ADMIN", "COORDINATOR", "VIEWER"].includes(session.role);
+  const adminArea = ["HEAD", "ADMIN", "COORDINATOR", "VIEWER"].includes(session.role);
   const home = adminArea ? "/admin" : session.tutorId ? "/dashboard" : "/";
 
   return (
