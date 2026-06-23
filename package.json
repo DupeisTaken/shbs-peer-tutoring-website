@@ -32,6 +32,7 @@
     "@trpc/client": "^11.0.0",
     "@trpc/react-query": "^11.0.0",
     "@trpc/server": "^11.0.0",
+    "geist": "^1.7.2",
     "next": "^15.2.3",
     "next-auth": "5.0.0-beta.25",
     "next-intl": "^4.13.0",

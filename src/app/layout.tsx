@@ -1,7 +1,7 @@
 import "~/styles/globals.css";
 
 import { type Metadata } from "next";
-import { Geist } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
 import { cookies } from "next/headers";
 import { getLocale, getMessages } from "next-intl/server";
 
@@ -16,11 +16,6 @@ export const metadata: Metadata = {
   icons: [{ rel: "icon", url: "/favicon.ico" }],
 };
 
-const geist = Geist({
-  subsets: ["latin"],
-  variable: "--font-geist-sans",
-});
-
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
@@ -29,7 +24,7 @@ export default async function RootLayout({
   const themeCookie = (await cookies()).get(THEME_COOKIE)?.value;
   const theme = isTheme(themeCookie) ? themeCookie : DEFAULT_THEME;
   return (
-    <html lang={locale} data-theme={theme} className={`${geist.variable}`}>
+    <html lang={locale} data-theme={theme} className={GeistSans.variable}>
       <body>
         <IntlProvider locale={locale} messages={messages}>
           <TRPCReactProvider>{children}</TRPCReactProvider>
