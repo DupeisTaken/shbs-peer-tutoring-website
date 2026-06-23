@@ -159,6 +159,10 @@ enum Quarter {
 /// is processed; ARCHIVED is the generic admin/crew deactivation (e.g. unavailable at rollover).
 enum TutorStatus {
   ACTIVE
+  /// Awaiting the tutor's start-of-term activation: after a semester refresh, continuing tutors are
+  /// set PENDING and must reactivate (choose available -> ACTIVE, or opt out -> OPTED_OUT) from
+  /// their own page. Treated as inactive (read-only) until they choose.
+  PENDING
   GRADUATED
   OPTED_OUT
   ARCHIVED

@@ -221,6 +221,8 @@
       "ACTIVE": "Actif",
       "GRADUATED": "Diplômé",
       "OPTED_OUT": "Retrait",
+      "PENDING": "En attente",
+
       "ARCHIVED": "Archivé"
     },
     "tutees": {
@@ -443,6 +445,8 @@
       "effectPending": "Vide la file d'attente des inscriptions d'élèves en attente (archivées comme inactives).",
       "effectTutees": "Archive tous les élèves actuellement pairés — ils devront se réinscrire pour continuer.",
       "effectPairings": "Vide le tableau des pairages actuels (les pairages et présences passés restent dans l'historique).",
+
+      "effectReactivate": "Les tuteurs qui continuent doivent se réactiver (disponible ou retrait) sur leur propre page.",
       "effectAvailability": "Vous invite à confirmer quels tuteurs actifs sont encore disponibles.",
       "effectGraduate": "Diplôme les tuteurs de G12 (ils partent au début du 4e trimestre).",
       "effectAgeUp": "Fait avancer chaque tuteur restant d'un niveau.",
@@ -455,6 +459,8 @@
       "refreshing": "Actualisation en cours…",
       "done": "Actualisé vers {name}. {count} élève(s) archivé(s).",
       "doneGrad": "{graduated} diplômé(s) ; {aged} tuteur(s) avancé(s) d'un niveau.",
+
+      "donePending": "{count} tuteur(s) doivent se réactiver.",
       "modalTitle": "Disponibilités des tuteurs pour {name}",
       "modalIntro": "Confirmez quels tuteurs actifs continuent. Ceux non cochés seront archivés.",
       "modalGradNote": "Nouvelle année scolaire : les tuteurs de G12 sont diplômés et tous avancent d'un niveau.",
@@ -861,6 +867,20 @@
   },
   "tutor": {
 
+    "activate": {
+
+      "title": "Confirmez votre disponibilité",
+
+      "body": "Une nouvelle période a commencé. Activez votre compte pour continuer ou retirez-vous pour le moment.",
+
+      "available": "Je suis disponible",
+
+      "optOut": "Me retirer",
+
+      "note": "Vous pourrez le modifier plus tard dans vos paramètres."
+
+    },
+
     "meetings": {
 
       "title": "Réunions à venir",
@@ -892,6 +912,8 @@
       "ACTIVE": "Actif",
       "GRADUATED": "Diplômé",
       "OPTED_OUT": "Retrait",
+      "PENDING": "En attente",
+
       "ARCHIVED": "Archivé"
     },
     "attendance": {

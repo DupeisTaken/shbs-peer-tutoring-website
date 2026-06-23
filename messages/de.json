@@ -221,6 +221,8 @@
       "ACTIVE": "Aktiv",
       "GRADUATED": "Abgegangen",
       "OPTED_OUT": "Ausgetreten",
+      "PENDING": "Ausstehend",
+
       "ARCHIVED": "Archiviert"
     },
     "tutees": {
@@ -443,6 +445,8 @@
       "effectPending": "Die ausstehende Anmeldeliste wird geleert (als inaktiv archiviert).",
       "effectTutees": "Alle aktuell zugeordneten Lernenden werden archiviert – sie müssen sich erneut anmelden.",
       "effectPairings": "Das aktuelle Zuordnungsboard wird geleert (vergangene Zuordnungen und Anwesenheit bleiben im Verlauf).",
+
+      "effectReactivate": "Fortsetzende Tutoren müssen sich auf ihrer eigenen Seite reaktivieren (verfügbar wählen oder austreten).",
       "effectAvailability": "Sie werden aufgefordert, zu bestätigen, welche aktiven Tutoren weiterhin verfügbar sind.",
       "effectGraduate": "G12-Tutoren werden verabschiedet (sie verlassen das Programm zu Beginn von Q4).",
       "effectAgeUp": "Alle verbleibenden Tutoren rücken eine Klassenstufe auf.",
@@ -455,6 +459,8 @@
       "refreshing": "Wird aktualisiert…",
       "done": "Zu {name} gewechselt. {count} Lernende(r) archiviert.",
       "doneGrad": "{graduated} verabschiedet; {aged} Tutor(en) um eine Klasse aufgerückt.",
+
+      "donePending": "{count} Tutor(en) müssen sich reaktivieren.",
       "modalTitle": "Tutor-Verfügbarkeit für {name}",
       "modalIntro": "Bestätigen, welche aktiven Tutoren weitermachen. Nicht angehakte Tutoren werden archiviert.",
       "modalGradNote": "Neues Schuljahr: G12-Tutoren verabschieden sich, alle anderen rücken eine Klasse auf.",
@@ -861,6 +867,20 @@
   },
   "tutor": {
 
+    "activate": {
+
+      "title": "Bestätige deine Verfügbarkeit",
+
+      "body": "Ein neuer Zeitraum hat begonnen. Aktiviere dein Konto, um weiterzumachen, oder tritt vorerst aus.",
+
+      "available": "Ich bin verfügbar",
+
+      "optOut": "Austreten",
+
+      "note": "Du kannst dies später in deinen Einstellungen ändern."
+
+    },
+
     "meetings": {
 
       "title": "Anstehende Sitzungen",
@@ -892,6 +912,8 @@
       "ACTIVE": "Aktiv",
       "GRADUATED": "Abgegangen",
       "OPTED_OUT": "Ausgetreten",
+      "PENDING": "Ausstehend",
+
       "ARCHIVED": "Archiviert"
     },
     "attendance": {

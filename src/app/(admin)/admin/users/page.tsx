@@ -11,7 +11,7 @@ const ASSIGNABLE_ROLES = ["VIEWER", "TUTOR", "COORDINATOR", "ADMIN"] as const;
 type RoleValue = (typeof ASSIGNABLE_ROLES)[number];
 
 const ALL_ROLES = ["VIEWER", "TUTOR", "COORDINATOR", "ADMIN", "HEAD"] as const;
-const TUTOR_STATUSES = ["ACTIVE", "GRADUATED", "OPTED_OUT", "ARCHIVED"] as const;
+const TUTOR_STATUSES = ["ACTIVE", "PENDING", "GRADUATED", "OPTED_OUT", "ARCHIVED"] as const;
 const ACCOUNT_STATES = ["registered", "setup", "invited", "none"] as const;
 
 /** Elevated roles: they live in the admin area and can translate by default (no flag needed). */

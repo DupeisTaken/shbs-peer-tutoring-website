@@ -437,6 +437,8 @@
       "effectPending": "Vacía la cola de registros de estudiantes pendientes (archivados como inactivos).",
       "effectTutees": "Archiva a todos los estudiantes emparejados actualmente: deben registrarse de nuevo para continuar.",
       "effectPairings": "Vacía el tablero de emparejamientos actual (los emparejamientos y la asistencia pasados quedan en el historial).",
+
+      "effectReactivate": "Los tutores que continúan deben reactivarse (elegir disponible u optar por salir) en su propia página.",
       "effectAvailability": "Te pide confirmar qué tutores activos siguen disponibles.",
       "effectGraduate": "Gradúa a los tutores de G12 (se van al inicio del Q4).",
       "effectAgeUp": "Avanza un grado a cada tutor restante.",
@@ -449,6 +451,8 @@
       "refreshing": "Renovando…",
       "done": "Renovado a {name}. Se archivaron {count} estudiante(s).",
       "doneGrad": "Se graduaron {graduated}; se avanzó un grado a {aged} tutor(es).",
+
+      "donePending": "{count} tutor(es) deben reactivarse.",
       "modalTitle": "Disponibilidad de tutores para {name}",
       "modalIntro": "Confirma qué tutores activos continúan. Cualquiera sin marcar será archivado.",
       "modalGradNote": "Nuevo año escolar: los tutores de G12 se gradúan y todos avanzan un grado.",
@@ -777,6 +781,8 @@
       "ACTIVE": "Activo",
       "GRADUATED": "Graduado",
       "OPTED_OUT": "Dado de baja",
+      "PENDING": "Pendiente",
+
       "ARCHIVED": "Archivado"
     },
     "registrationCodes": {
@@ -860,6 +866,20 @@
     }
   },
   "tutor": {
+
+    "activate": {
+
+      "title": "Confirma tu disponibilidad",
+
+      "body": "Ha comenzado un nuevo período. Activa tu cuenta para seguir como tutor u opta por salir por ahora.",
+
+      "available": "Estoy disponible",
+
+      "optOut": "Optar por salir",
+
+      "note": "Puedes cambiarlo más tarde en tu configuración."
+
+    },
 
     "meetings": {
 
@@ -1065,6 +1085,8 @@
       "ACTIVE": "Activo",
       "GRADUATED": "Graduado",
       "OPTED_OUT": "Dado de baja",
+      "PENDING": "Pendiente",
+
       "ARCHIVED": "Archivado"
     }
   },

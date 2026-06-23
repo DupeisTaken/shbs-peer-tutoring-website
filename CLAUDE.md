@@ -181,14 +181,17 @@ submission time). See the `admin-philosophies` memory for the rationale.
   `ensureUniqueUsername` (`src/server/auth/username.ts`): on a clash it appends a letter
   (`jsmith27b`), then a numeric counter as a last resort.
 - **Tutor lifecycle is a status, not a boolean.** `Tutor.status` is
-  `ACTIVE | GRADUATED | OPTED_OUT | ARCHIVED` (replaced the old `active` flag — one source of
-  truth; migrate any `where: { active: true }` to `status: "ACTIVE"`). Only `ACTIVE` tutors are
+  `ACTIVE | PENDING | GRADUATED | OPTED_OUT | ARCHIVED` (replaced the old `active` flag — one source
+  of truth; migrate any `where: { active: true }` to `status: "ACTIVE"`). Only `ACTIVE` tutors are
   eligible for pairings/attendance; the rest are inactive with **read-only** access to their own
   history + handbook (dashboard hides action cards; mutations are blocked by `activeTutorProcedure`).
-  On a program **refresh**, G12+ tutors become `GRADUATED` **at the start of Q4**, crew-unavailable
-  ones become `ARCHIVED`, and everyone remaining ages up one grade at the school-year boundary —
-  see the `refresh` mutation + `src/lib/period.ts`. Admins set status (incl. reactivating a
-  graduate) on `/admin/tutors`.
+  On a program **refresh**, G12+ tutors become `GRADUATED` **at the start of Q4**, everyone remaining
+  ages up one grade at the school-year boundary, and — on any **semester crossing** — every
+  continuing `ACTIVE` tutor is set **`PENDING`** (see the `refresh` mutation + `src/lib/period.ts`).
+  There's no admin "availability review" popup: a `PENDING` tutor **self-activates** from their
+  dashboard (`activateAccount` → `ACTIVE` if available, or `OPTED_OUT`), and the choice syncs
+  straight to the admin views. Admins can still set status (incl. reactivating a graduate) on
+  `/admin/tutors`.
 - **Opt-out / reentry (`TutorStatusRequest`, kinds `OPT_OUT`/`REENTRY`).** A tutor requests opt-out
   on `/settings`; a **one-week cooldown** (`eligibleAt`) must pass before an admin can approve, and
   the tutor can **recall** it meanwhile. Approval → `OPTED_OUT`; the admin then gets a button to

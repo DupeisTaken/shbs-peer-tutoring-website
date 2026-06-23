@@ -437,6 +437,8 @@
       "effectPending": "清空待处理的学员报名队列（归档为停用）。",
       "effectTutees": "归档所有当前已配对的学员——他们需要重新报名才能继续。",
       "effectPairings": "清空当前配对面板（过往配对与出勤保留在历史中）。",
+
+      "effectReactivate": "在任辅导员需在个人页面重新激活（选择参加或退出）。",
       "effectAvailability": "提示你确认哪些在职导师仍然可用。",
       "effectGraduate": "G12 导师毕业（在 Q4 开始时离开）。",
       "effectAgeUp": "其余每位导师升一个年级。",
@@ -449,6 +451,8 @@
       "refreshing": "刷新中…",
       "done": "已刷新到 {name}。归档了 {count} 名学员。",
       "doneGrad": "{graduated} 名导师毕业；{aged} 名导师升一个年级。",
+
+      "donePending": "{count} 名辅导员需重新激活。",
       "modalTitle": "{name} 的导师可用情况",
       "modalIntro": "确认哪些在职导师将继续参与。未勾选的导师将被归档。",
       "modalGradNote": "新学年：G12 导师毕业，所有导师升一个年级。",
@@ -777,6 +781,8 @@
       "ACTIVE": "在职",
       "GRADUATED": "已毕业",
       "OPTED_OUT": "已退出",
+      "PENDING": "待激活",
+
       "ARCHIVED": "已归档"
     },
     "registrationCodes": {
@@ -860,6 +866,20 @@
     }
   },
   "tutor": {
+
+    "activate": {
+
+      "title": "确认你的参与",
+
+      "body": "新学期已开始。激活账户以继续辅导，或暂时退出。",
+
+      "available": "我可以参加",
+
+      "optOut": "退出",
+
+      "note": "你之后可以在设置中更改。"
+
+    },
 
     "meetings": {
 
@@ -1065,6 +1085,8 @@
       "ACTIVE": "在职",
       "GRADUATED": "已毕业",
       "OPTED_OUT": "已退出",
+      "PENDING": "待激活",
+
       "ARCHIVED": "已归档"
     }
   },

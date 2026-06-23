@@ -221,6 +221,8 @@
       "ACTIVE": "활성",
       "GRADUATED": "졸업",
       "OPTED_OUT": "탈퇴",
+      "PENDING": "대기 중",
+
       "ARCHIVED": "보관됨"
     },
     "tutees": {
@@ -443,6 +445,8 @@
       "effectPending": "대기 중인 학생 신청 큐를 정리합니다 (비활성으로 보관).",
       "effectTutees": "현재 매칭된 모든 학생을 보관합니다 — 계속 참여하려면 다시 신청해야 합니다.",
       "effectPairings": "현재 매칭 보드를 초기화합니다 (과거 매칭 및 출석 기록은 이력에 남습니다).",
+
+      "effectReactivate": "계속하는 튜터는 자신의 페이지에서 재활성화(참여 또는 탈퇴 선택)해야 합니다.",
       "effectAvailability": "활성 튜터의 가용 여부를 확인하도록 안내합니다.",
       "effectGraduate": "G12 튜터를 졸업 처리합니다 (4분기 시작 시 퇴장).",
       "effectAgeUp": "남은 모든 튜터를 한 학년 진급시킵니다.",
@@ -455,6 +459,8 @@
       "refreshing": "갱신 중…",
       "done": "{name}으로 갱신되었습니다. 학생 {count}명이 보관되었습니다.",
       "doneGrad": "{graduated}명 졸업 처리; {aged}명 한 학년 진급.",
+
+      "donePending": "{count}명의 튜터가 재활성화 대기 중입니다.",
       "modalTitle": "{name}의 튜터 가용 여부",
       "modalIntro": "계속 활동하는 튜터를 확인하세요. 선택하지 않은 튜터는 보관됩니다.",
       "modalGradNote": "새 학년도: G12 튜터는 졸업하고 모든 튜터가 한 학년 진급합니다.",
@@ -861,6 +867,20 @@
   },
   "tutor": {
 
+    "activate": {
+
+      "title": "참여 여부 확인",
+
+      "body": "새 학기가 시작되었습니다. 계속하려면 계정을 활성화하거나 이번에는 탈퇴하세요.",
+
+      "available": "참여합니다",
+
+      "optOut": "탈퇴",
+
+      "note": "나중에 설정에서 변경할 수 있습니다."
+
+    },
+
     "meetings": {
 
       "title": "예정된 회의",
@@ -892,6 +912,8 @@
       "ACTIVE": "활성",
       "GRADUATED": "졸업",
       "OPTED_OUT": "탈퇴",
+      "PENDING": "대기 중",
+
       "ARCHIVED": "보관됨"
     },
     "attendance": {

@@ -81,7 +81,7 @@ const ADJUSTMENT_TYPE = ["PUNISHMENT", "EXTRA"] as const;
 /** Service hours docked per unexcused tutor-meeting absence (materialised as a PUNISHMENT adj). */
 const MEETING_ABSENCE_DEDUCTION = 0.125;
 const TUTEE_STATUS = ["PENDING", "ACTIVE", "INACTIVE"] as const;
-const TUTOR_STATUS = ["ACTIVE", "GRADUATED", "OPTED_OUT", "ARCHIVED"] as const;
+const TUTOR_STATUS = ["ACTIVE", "PENDING", "GRADUATED", "OPTED_OUT", "ARCHIVED"] as const;
 const TUTOR_APP_STATUS = ["PENDING", "INTERVIEW", "ACCEPTED", "REJECTED"] as const;
 
 export const adminRouter = createTRPCRouter({
@@ -545,18 +545,14 @@ export const adminRouter = createTRPCRouter({
    * pairings (the new term starts empty; past pairings + their attendance stay for history), and
    * archive every pending/active tutee to INACTIVE so they must sign up again to continue. Service
    * hours / attendance are period-stamped and untouched — the "this semester" total just rolls over
-   * when the refresh crosses a semester boundary. Requires typing REFRESH to confirm.
+   * when the refresh crosses a semester boundary. On a semester crossing, continuing ACTIVE tutors
+   * are set to PENDING: each must reactivate from their own page (choosing available or opt-out)
+   * for the new semester — so the crew no longer pre-marks availability here. Requires typing
+   * REFRESH to confirm.
    */
   // ADMIN only — a refresh is destructive and program-wide (coordinators can view but not run it).
   refresh: adminOnlyProcedure
-    .input(
-      z.object({
-        confirm: z.string(),
-        // Active tutors the crew marked unavailable in the semester-rollover review — archived.
-        // Ignored unless the refresh actually crosses a semester.
-        unavailableTutorIds: z.array(cuid).optional(),
-      }),
-    )
+    .input(z.object({ confirm: z.string() }))
     .mutation(async ({ ctx, input }) => {
       if (input.confirm.trim().toUpperCase() !== "REFRESH") {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Type REFRESH to confirm." });
@@ -567,7 +563,6 @@ export const adminRouter = createTRPCRouter({
       const name = `${np.schoolYear} ${np.quarter}`;
       const semesterCross = crossesSemester(from, np);
       const yearCross = crossesYear(from, np);
-      const unavailableIds = semesterCross ? [...new Set(input.unavailableTutorIds ?? [])] : [];
 
       const out = await ctx.db.$transaction(async (tx) => {
         await tx.term.updateMany({ where: { active: true }, data: { active: false } });
@@ -580,16 +575,6 @@ export const adminRouter = createTRPCRouter({
           where: { status: { in: ["PENDING", "ACTIVE"] } },
           data: { status: "INACTIVE" },
         });
-
-        // Semester rollover: archive tutors the crew flagged as no longer available.
-        let archivedUnavailable = 0;
-        if (unavailableIds.length > 0) {
-          const r = await tx.tutor.updateMany({
-            where: { id: { in: unavailableIds }, status: "ACTIVE" },
-            data: { status: "ARCHIVED" },
-          });
-          archivedUnavailable = r.count;
-        }
 
         // Graduation happens at the START of Q4 (the program's final quarter): G12 (and up)
         // are marked GRADUATED as the term advances into Q4, so they finish the year inactive.
@@ -613,12 +598,24 @@ export const adminRouter = createTRPCRouter({
           aged = age.count;
         }
 
+        // Semester rollover: every continuing ACTIVE tutor must re-confirm availability. Set them
+        // PENDING — they reactivate (available) or opt out from their own page, and their status
+        // syncs straight back to the admin views. (Graduated/opted-out/archived are left as-is.)
+        let pending = 0;
+        if (semesterCross) {
+          const p = await tx.tutor.updateMany({
+            where: { status: "ACTIVE" },
+            data: { status: "PENDING" },
+          });
+          pending = p.count;
+        }
+
         return {
           termId: term.id,
           archivedTutees: tutees.count,
-          archivedUnavailable,
           graduated,
           aged,
+          pending,
         };
       });
 
@@ -627,9 +624,9 @@ export const adminRouter = createTRPCRouter({
         userName: ctx.session.user.name,
         action:
           `Refreshed program to ${name} — archived ${out.archivedTutees} tutee(s)` +
-          (out.archivedUnavailable ? `, ${out.archivedUnavailable} unavailable tutor(s)` : "") +
           (out.graduated ? `, graduated ${out.graduated} tutor(s)` : "") +
           (out.aged ? `, aged up ${out.aged}` : "") +
+          (out.pending ? `, ${out.pending} tutor(s) must reactivate` : "") +
           "; cleared current pairings",
         entity: "Term",
         entityId: out.termId,
@@ -641,9 +638,9 @@ export const adminRouter = createTRPCRouter({
         crossedSemester: semesterCross,
         crossedYear: yearCross,
         archivedTutees: out.archivedTutees,
-        archivedUnavailableTutors: out.archivedUnavailable,
         graduatedTutors: out.graduated,
         agedTutors: out.aged,
+        pendingTutors: out.pending,
       };
     }),
 

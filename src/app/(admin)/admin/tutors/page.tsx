@@ -149,7 +149,7 @@ export default function TutorsPage() {
                 username: string;
                 email: string | null;
                 gradeLevel: number | null;
-                status: "ACTIVE" | "GRADUATED" | "OPTED_OUT" | "ARCHIVED";
+                status: "ACTIVE" | "PENDING" | "GRADUATED" | "OPTED_OUT" | "ARCHIVED";
               }>) =>
                 update.mutate({
                   id: t.id,
@@ -247,12 +247,14 @@ export default function TutorsPage() {
                       onChange={(e) =>
                         save({ status: e.target.value as
                           | "ACTIVE"
+                          | "PENDING"
                           | "GRADUATED"
                           | "OPTED_OUT"
                           | "ARCHIVED" })
                       }
                     >
                       <option value="ACTIVE">{statusLabel("ACTIVE")}</option>
+                      <option value="PENDING">{statusLabel("PENDING")}</option>
                       <option value="GRADUATED">{statusLabel("GRADUATED")}</option>
                       <option value="OPTED_OUT">{statusLabel("OPTED_OUT")}</option>
                       <option value="ARCHIVED">{statusLabel("ARCHIVED")}</option>

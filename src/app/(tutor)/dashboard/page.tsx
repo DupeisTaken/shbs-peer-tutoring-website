@@ -9,6 +9,7 @@ import { TutorPairings } from "~/app/(tutor)/_components/tutor-pairings";
 import { MergeProvider } from "~/app/(tutor)/_components/merge-context";
 import { MyInterviews } from "~/app/(tutor)/_components/my-interviews";
 import { TutorMeetings } from "~/app/(tutor)/_components/tutor-meetings";
+import { TutorActivation } from "~/app/(tutor)/_components/tutor-activation";
 import { getTranslations } from "next-intl/server";
 
 import { RoomGrid } from "~/app/_components/room-grid";
@@ -23,10 +24,12 @@ export default async function TutorDashboard() {
   const me = await api.tutor.me();
   const t = await getTranslations();
 
-  // Inactive tutors (graduated / opted-out / archived) keep read-only access to their own
-  // history — but no tutoring actions. Mutations are additionally blocked server-side by
-  // `activeTutorProcedure`; this just tailors the UI.
+  // Inactive tutors (pending / graduated / opted-out / archived) keep read-only access to their
+  // own history — no tutoring actions. Mutations are additionally blocked server-side by
+  // `activeTutorProcedure`; this just tailors the UI. PENDING gets the activation prompt instead
+  // of the generic read-only banner.
   const inactive = me.status !== "ACTIVE";
+  const pending = me.status === "PENDING";
 
   const [total, schedule] = await Promise.all([
     api.tutor.myMonthlyTotal(),
@@ -38,7 +41,9 @@ export default async function TutorDashboard() {
       {/* Team announcements — shown on every login until acknowledged. */}
       <AnnouncementsBanner />
 
-      {inactive && (
+      {pending && <TutorActivation />}
+
+      {inactive && !pending && (
         <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-4 text-amber-800">
           <p className="font-semibold">{t("tutor.dashboard.inactive.title")}</p>
           <p className="mt-1 text-sm">

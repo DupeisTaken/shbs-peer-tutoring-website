@@ -943,6 +943,34 @@ export const tutorRouter = createTRPCRouter({
       return { ok: true };
     }),
 
+  /**
+   * Start-of-term activation. After a semester refresh a continuing tutor is PENDING and must
+   * choose: available (-> ACTIVE) or opt out (-> OPTED_OUT). Their choice syncs straight to the
+   * admin views. Only valid while PENDING.
+   */
+  activateAccount: tutorProcedure
+    .input(z.object({ available: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      const tutor = await ctx.db.tutor.findUniqueOrThrow({
+        where: { id: ctx.session.tutorId },
+        select: { status: true, englishName: true },
+      });
+      if (tutor.status !== "PENDING") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Your account isn't awaiting activation.",
+        });
+      }
+      const status = input.available ? "ACTIVE" : "OPTED_OUT";
+      await ctx.db.tutor.update({ where: { id: ctx.session.tutorId }, data: { status } });
+      await notifyAdmins({
+        title: input.available ? "Tutor reactivated" : "Tutor opted out",
+        body: `${tutor.englishName} ${input.available ? "is available" : "opted out"} this term.`,
+        link: "/admin/tutors",
+      });
+      return { ok: true, status };
+    }),
+
   // --------------------------------------------------------------------------
   // Tutor meetings — self-excuse an upcoming absence (up to 30 min before the meeting).
   // --------------------------------------------------------------------------

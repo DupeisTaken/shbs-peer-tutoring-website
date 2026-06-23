@@ -212,6 +212,8 @@
       "ACTIVE": "Active",
       "GRADUATED": "Graduated",
       "OPTED_OUT": "Opted out",
+      "PENDING": "Pending",
+
       "ARCHIVED": "Archived"
     },
     "tutees": {
@@ -395,6 +397,8 @@
       "effectPending": "Clears the pending tutee signup queue (archived to inactive).",
       "effectTutees": "Archives all currently paired tutees — they must sign up again to continue.",
       "effectPairings": "Clears the current pairings board (past pairings + attendance stay in history).",
+
+      "effectReactivate": "Continuing tutors must reactivate (choose available or opt out) on their own page.",
       "effectAvailability": "Prompts you to confirm which active tutors are still available.",
       "effectGraduate": "Graduates G12 tutors (they leave at the start of Q4).",
       "effectAgeUp": "Advances every remaining tutor one grade.",
@@ -407,6 +411,8 @@
       "refreshing": "Refreshing…",
       "done": "Refreshed to {name}. Archived {count} tutee(s).",
       "doneGrad": "Graduated {graduated}; advanced {aged} tutor(s) a grade.",
+
+      "donePending": "{count} tutor(s) set to reactivate.",
       "modalTitle": "Tutor Availability for {name}",
       "modalIntro": "Confirm which active tutors are continuing. Anyone left unchecked will be archived.",
       "modalGradNote": "New school year: G12 tutors graduate and everyone advances a grade.",
@@ -728,6 +734,20 @@
   },
   "tutor": {
 
+    "activate": {
+
+      "title": "Confirm your availability",
+
+      "body": "A new term has started. Activate your account to keep tutoring, or opt out for now.",
+
+      "available": "I'm available",
+
+      "optOut": "Opt out",
+
+      "note": "You can change this later from your settings."
+
+    },
+
     "meetings": {
 
       "title": "Upcoming meetings",
@@ -755,6 +775,8 @@
       "ACTIVE": "Active",
       "GRADUATED": "Graduated",
       "OPTED_OUT": "Opted out",
+      "PENDING": "Pending",
+
       "ARCHIVED": "Archived"
     },
     "attendance": {
