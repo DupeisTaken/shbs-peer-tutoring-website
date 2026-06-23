@@ -11,7 +11,7 @@ import { useReadOnly } from "~/app/_components/read-only";
 /** A quiet numbered step marker — ties the steps to the real registration sequence. */
 function StepNum({ n }: { n: number }) {
   return (
-    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-green-100 text-xs font-bold text-green-700">
+    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-100 text-xs font-bold text-accent-700">
       {n}
     </span>
   );
@@ -36,9 +36,9 @@ function ShareCard({
 }) {
   const t = useTranslations();
   return (
-    <div className="max-w-md overflow-hidden rounded-xl border border-green-200 bg-white shadow-sm">
-      {/* Welcome band — sets the "you're invited" tone, distinct from the admin chrome. */}
-      <div className="bg-green-600 px-5 py-3.5">
+    <div className="max-w-md overflow-hidden rounded-xl border border-accent-200 bg-white shadow-sm">
+      {/* Welcome band — themed to match the rest of the app (accent tokens). */}
+      <div className="bg-accent-600 px-5 py-3.5">
         <p className="text-base font-bold text-white">
           {t("admin.registrationCodes.share.heading", { appTitle: APP_TITLE })}
         </p>
@@ -52,7 +52,7 @@ function ShareCard({
             <span className="font-medium text-slate-900">
               {t("admin.registrationCodes.share.goTo")}
             </span>{" "}
-            <span className="font-mono break-all text-green-700">{registerUrl}</span>
+            <span className="font-mono break-all text-accent-700">{registerUrl}</span>
           </p>
         </li>
         <li className="flex gap-3">
@@ -89,8 +89,8 @@ function ShareCard({
       </ol>
 
       {/* Validity footer — quiet, factual. */}
-      <div className="border-t border-green-100 bg-green-50/60 px-5 py-2.5">
-        <p className="text-xs font-medium text-green-700">
+      <div className="border-t border-accent-100 bg-accent-50/60 px-5 py-2.5">
+        <p className="text-xs font-medium text-accent-700">
           {t("admin.registrationCodes.share.validity", {
             date: new Date(expiresAt).toLocaleDateString(),
           })}
@@ -188,7 +188,7 @@ export default function RegistrationCodesPage() {
       {/* Just issued — show the screenshot-ready panel immediately. */}
       {issued && (
         <div className="space-y-2">
-          <p className="text-sm font-medium text-green-800">
+          <p className="text-sm font-medium text-slate-700">
             {t("admin.registrationCodes.issuedTitle", { who: issued.label ?? "—" })}
           </p>
           <ShareCard
