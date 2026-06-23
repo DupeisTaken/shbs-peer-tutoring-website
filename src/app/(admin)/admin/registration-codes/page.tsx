@@ -157,9 +157,14 @@ export default function RegistrationCodesPage() {
                       centered code text; Copy sits outside the frame. */}
                   {c.code ? (
                     <div className="space-y-2">
-                      <p className="label">{t("admin.registrationCodes.codeLabel")}</p>
-                      <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-center font-mono text-3xl font-bold tracking-[0.3em] text-green-900">
-                        {c.code}
+                      {/* Green frame: "Code" label above the centered digits. Copy sits outside. */}
+                      <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-center">
+                        <p className="text-xs font-medium tracking-wide text-green-800 uppercase">
+                          {t("admin.registrationCodes.codeLabel")}
+                        </p>
+                        <p className="mt-1 font-mono text-3xl font-bold tracking-[0.3em] text-green-900">
+                          {c.code}
+                        </p>
                       </div>
                       <button
                         type="button"
