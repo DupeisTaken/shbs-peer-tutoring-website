@@ -141,12 +141,14 @@ export default function RegistrationCodesPage() {
 
               {open && (
                 <div className="mt-3 space-y-3 border-t border-slate-100 pt-3">
-                  {/* The code itself (active codes only; VIEWER never receives it). */}
+                  {/* The code itself (VIEWER never receives it), in the green frame. */}
                   {c.code ? (
-                    <div>
-                      <p className="label">{t("admin.registrationCodes.codeLabel")}</p>
+                    <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3">
+                      <p className="text-xs font-medium tracking-wide text-green-800 uppercase">
+                        {t("admin.registrationCodes.codeLabel")}
+                      </p>
                       <div className="mt-1 flex flex-wrap items-center gap-3">
-                        <span className="font-mono text-3xl font-bold tracking-[0.3em] text-slate-900">
+                        <span className="font-mono text-3xl font-bold tracking-[0.3em] text-green-900">
                           {c.code}
                         </span>
                         <button
@@ -158,7 +160,7 @@ export default function RegistrationCodesPage() {
                         </button>
                       </div>
                       {c.status !== "active" && (
-                        <p className="muted mt-1 text-xs">
+                        <p className="mt-1 text-xs text-green-800">
                           {t("admin.registrationCodes.invalidNote")}
                         </p>
                       )}
@@ -187,7 +189,7 @@ export default function RegistrationCodesPage() {
 
                   {!readOnly && c.status === "active" && (
                     <button
-                      className="link text-sm text-red-600"
+                      className="btn-danger btn-sm"
                       onClick={() => revoke.mutate({ id: c.id })}
                       disabled={revoke.isPending}
                     >
