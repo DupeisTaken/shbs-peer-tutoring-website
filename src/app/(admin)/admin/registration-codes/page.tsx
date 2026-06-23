@@ -157,22 +157,25 @@ export default function RegistrationCodesPage() {
                       centered code text; Copy sits outside the frame. */}
                   {c.code ? (
                     <div className="space-y-2">
-                      {/* Green frame: "Code" label above the centered digits. Copy sits outside. */}
-                      <div className="rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-center">
-                        <p className="text-xs font-medium tracking-wide text-green-800 uppercase">
-                          {t("admin.registrationCodes.codeLabel")}
-                        </p>
-                        <p className="mt-1 font-mono text-3xl font-bold tracking-[0.3em] text-green-900">
-                          {c.code}
-                        </p>
+                      {/* Compact green frame (shrinks to content, left-aligned): "Code" label over
+                          the centered digits. Copy sits beside it. */}
+                      <div className="flex flex-wrap items-end gap-3">
+                        <div className="w-fit rounded-lg border border-green-200 bg-green-50 px-4 py-3 text-center">
+                          <p className="text-xs font-medium tracking-wide text-green-800 uppercase">
+                            {t("admin.registrationCodes.codeLabel")}
+                          </p>
+                          <p className="mt-1 font-mono text-3xl font-bold tracking-[0.3em] text-green-900">
+                            {c.code}
+                          </p>
+                        </div>
+                        <button
+                          type="button"
+                          className="btn-secondary btn-sm"
+                          onClick={() => navigator.clipboard?.writeText(c.code!)}
+                        >
+                          {t("admin.registrationCodes.copy")}
+                        </button>
                       </div>
-                      <button
-                        type="button"
-                        className="btn-secondary btn-sm"
-                        onClick={() => navigator.clipboard?.writeText(c.code!)}
-                      >
-                        {t("admin.registrationCodes.copy")}
-                      </button>
                       {c.status !== "active" && (
                         <p className="muted text-xs">
                           {t("admin.registrationCodes.invalidNote")}
