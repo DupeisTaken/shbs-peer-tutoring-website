@@ -9,11 +9,11 @@
  * self-set credentials.
  *
  * Security notes:
- *  - The 6-digit code is LOW entropy, so we store an HMAC (keyed with AUTH_SECRET), not a bare
- *    hash — a leaked DB can't be brute-forced offline without the server secret. Lookups stay
- *    O(1) because the HMAC is deterministic.
- *  - Codes are single-use, expire, and carry an attempt counter; the tRPC layer adds per-IP and
- *    per-code rate limiting on top.
+ *  - The registration code is stored in plaintext so admins can re-display it on the codes menu.
+ *    It's a weak secret deliberately: single-use, a short (7-day) expiry, and per-IP + per-code
+ *    rate limiting bound its value, so a DB-at-rest concern is limited to short-lived invites.
+ *  - The separate emailed email-verification code IS stored hashed (HMAC keyed with AUTH_SECRET)
+ *    since it's never re-displayed; see `setEmailVerification`/`confirmEmailCode`.
  *
  * Node runtime only (touches the database + Node crypto).
  */
@@ -25,8 +25,8 @@ import { hashPassword } from "./password";
 import { defaultUsername, ensureUniqueUsername } from "./username";
 import { graduationYear } from "~/lib/period";
 
-/** Registration codes stay valid for two weeks — long enough to distribute and use. */
-export const CODE_TTL_DAYS = 14;
+/** Registration codes stay valid for one week — long enough to distribute and use. */
+export const CODE_TTL_DAYS = 7;
 /** The emailed email-verification code is short-lived. */
 export const EMAIL_CODE_TTL_MINUTES = 15;
 /** Hard caps on guesses before a code/email-code is burned (defence in depth atop rate limiting). */
@@ -58,8 +58,8 @@ export interface IssueCodeOptions {
 }
 
 /**
- * Issue a new registration code. Returns the PLAINTEXT code (shown once to the issuer to hand
- * out) plus the row id. On the rare HMAC collision (same code already outstanding) it retries.
+ * Issue a new registration code. Returns the plaintext code plus the row id. On the rare collision
+ * (same 6-digit code already outstanding) it retries.
  */
 export async function issueRegistrationCode(
   opts: IssueCodeOptions,
@@ -68,12 +68,11 @@ export async function issueRegistrationCode(
   const email = opts.email?.trim() ? opts.email.trim().toLowerCase() : null;
   for (let attempt = 0; attempt < 5; attempt++) {
     const code = generateNumericCode();
-    const codeHash = hashCode(code);
-    const clash = await db.registrationCode.findUnique({ where: { codeHash }, select: { id: true } });
+    const clash = await db.registrationCode.findUnique({ where: { code }, select: { id: true } });
     if (clash) continue;
     const row = await db.registrationCode.create({
       data: {
-        codeHash,
+        code,
         email,
         tutorId: opts.tutorId ?? null,
         applicationId: opts.applicationId ?? null,
@@ -93,7 +92,7 @@ type CodeRow = NonNullable<Awaited<ReturnType<typeof loadCode>>>;
 
 /** Load a code row by its plaintext value (no validity checks). */
 async function loadCode(code: string) {
-  return db.registrationCode.findUnique({ where: { codeHash: hashCode(code) } });
+  return db.registrationCode.findUnique({ where: { code } });
 }
 
 export type CodeError = "not-found" | "expired" | "used" | "too-many-attempts";

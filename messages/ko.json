@@ -533,6 +533,12 @@
         "expired": "만료됨"
       },
       "revoke": "취소",
+
+      "showCode": "코드 표시",
+
+      "hideCode": "숨기기",
+
+      "copy": "복사",
       "empty": "아직 등록 코드가 없습니다."
     },
     "tutorRequests": {

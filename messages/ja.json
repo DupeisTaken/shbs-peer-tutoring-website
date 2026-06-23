@@ -533,6 +533,12 @@
         "expired": "期限切れ"
       },
       "revoke": "無効化",
+
+      "showCode": "コードを表示",
+
+      "hideCode": "非表示",
+
+      "copy": "コピー",
       "empty": "登録コードはまだありません。"
     },
     "tutorRequests": {

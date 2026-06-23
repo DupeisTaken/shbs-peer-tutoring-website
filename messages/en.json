@@ -457,6 +457,12 @@
       "colStatus": "Status",
       "status": { "active": "Active", "used": "Used", "expired": "Expired" },
       "revoke": "Revoke",
+
+      "showCode": "Show code",
+
+      "hideCode": "Hide",
+
+      "copy": "Copy",
       "empty": "No registration codes yet."
     },
     "tutorRequests": {

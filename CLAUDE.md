@@ -148,10 +148,12 @@ submission time). See the `admin-philosophies` memory for the rationale.
   review. The one public page that *does* create a login is **`/register`**, and only after the
   visitor proves an **admin-issued single-use registration code** plus an emailed email-verification
   code — so account creation is still gated by an admin, never open self-service.
-- **Registration codes are low-entropy secrets — protect them accordingly.** The 6-digit code is
-  stored only as a keyed **HMAC** (`AUTH_SECRET`), never plaintext, so a DB leak can't be brute-forced
-  offline. Codes are **single-use**, expire, and every `/register` step is **rate-limited** (per IP +
-  per code, `src/server/rate-limit.ts`). Keep these guards when touching the flow.
+- **Registration codes are short-lived, low-value secrets.** The 6-digit `code` is stored in
+  **plaintext** so admins/coordinators can re-display it on `/admin/registration-codes` (revealed
+  on demand via a per-row popup; withheld from the read-only VIEWER). Its value is bounded by being
+  **single-use**, expiring after **7 days**, and **rate-limited** at every `/register` step (per IP +
+  per code, `src/server/rate-limit.ts`). The *separate* emailed email-verification code is never
+  re-displayed and IS stored hashed (HMAC, `AUTH_SECRET`). Keep these guards when touching the flow.
 - **Never accept `role` or status from public input.** Roles live on `User.role`, carried
   in the JWT. The first `AUTH_BOOTSTRAP_ADMIN_EMAILS` entry resolves to the singleton **HEAD**, the
   rest to `ADMIN` — grants only ever **elevate** (a transferred head is never silently demoted).
@@ -195,9 +197,10 @@ submission time). See the `admin-philosophies` memory for the rationale.
   manual admin override. Admins action these on **`/admin/tutor-requests`**; counts surface on
   `/admin/activity`.
 - **Account creation is self-registration via a security key.** Admins/coordinators issue a
-  single-use 6-digit **`RegistrationCode`** on **`/admin/registration-codes`** (shown once — only an
-  HMAC of it is stored; see `src/server/auth/registration.ts`); accepting a tutor application also
-  generates one (`promoteApplicantToTutor`, bound to the applicant's email + tutor). The recruit
+  single-use 6-digit **`RegistrationCode`** on **`/admin/registration-codes`** (the code is stored in
+  plaintext and re-viewable per row via a popup, valid 7 days or until used; see
+  `src/server/auth/registration.ts`); accepting a tutor application also generates one
+  (`promoteApplicantToTutor`, bound to the applicant's email + tutor). The recruit
   redeems it at public **`/register`**: enter code → verify email with a second emailed 6-digit code
   → set name/grade/password, which creates+links a Tutor and a **fully-verified** login. This
   replaced the shared-default-password auto-provision, so **every account has a validated email and

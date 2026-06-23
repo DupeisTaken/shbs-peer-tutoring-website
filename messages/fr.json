@@ -533,6 +533,12 @@
         "expired": "Expiré"
       },
       "revoke": "Révoquer",
+
+      "showCode": "Afficher le code",
+
+      "hideCode": "Masquer",
+
+      "copy": "Copier",
       "empty": "Aucun code d'inscription pour l'instant."
     },
     "tutorRequests": {

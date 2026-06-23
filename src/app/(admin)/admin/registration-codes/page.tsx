@@ -20,6 +20,8 @@ export default function RegistrationCodesPage() {
   const [email, setEmail] = useState("");
   const [label, setLabel] = useState("");
   const [issued, setIssued] = useState<{ code: string; label: string | null } | null>(null);
+  // Which row's code popup is open (the plaintext code is revealed on demand).
+  const [revealedId, setRevealedId] = useState<string | null>(null);
 
   const invalidate = () => utils.admin.registrationCodes.invalidate();
   const issue = api.admin.issueRegistrationCode.useMutation({
@@ -121,15 +123,45 @@ export default function RegistrationCodesPage() {
                 </td>
                 {!readOnly && (
                   <td>
-                    {c.status === "active" && (
-                      <button
-                        className="link text-sm text-red-600"
-                        onClick={() => revoke.mutate({ id: c.id })}
-                        disabled={revoke.isPending}
-                      >
-                        {t("admin.registrationCodes.revoke")}
-                      </button>
-                    )}
+                    <div className="flex items-center gap-3">
+                      {c.code && (
+                        <div className="relative inline-block">
+                          <button
+                            className="link text-sm"
+                            onClick={() =>
+                              setRevealedId(revealedId === c.id ? null : c.id)
+                            }
+                          >
+                            {revealedId === c.id
+                              ? t("admin.registrationCodes.hideCode")
+                              : t("admin.registrationCodes.showCode")}
+                          </button>
+                          {revealedId === c.id && (
+                            <div className="absolute right-0 z-10 mt-1 rounded-lg border border-slate-200 bg-white p-3 text-center shadow-lg">
+                              <p className="font-mono text-2xl font-bold tracking-[0.3em] whitespace-nowrap text-slate-900">
+                                {c.code}
+                              </p>
+                              <button
+                                type="button"
+                                className="link mt-1 text-xs"
+                                onClick={() => navigator.clipboard?.writeText(c.code!)}
+                              >
+                                {t("admin.registrationCodes.copy")}
+                              </button>
+                            </div>
+                          )}
+                        </div>
+                      )}
+                      {c.status === "active" && (
+                        <button
+                          className="link text-sm text-red-600"
+                          onClick={() => revoke.mutate({ id: c.id })}
+                          disabled={revoke.isPending}
+                        >
+                          {t("admin.registrationCodes.revoke")}
+                        </button>
+                      )}
+                    </div>
                   </td>
                 )}
               </tr>

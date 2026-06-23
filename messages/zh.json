@@ -798,6 +798,12 @@
         "expired": "已过期"
       },
       "revoke": "撤销",
+
+      "showCode": "显示代码",
+
+      "hideCode": "隐藏",
+
+      "copy": "复制",
       "empty": "暂无注册码。"
     },
     "tutorRequests": {

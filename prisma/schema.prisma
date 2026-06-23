@@ -317,16 +317,19 @@ enum TutorRequestState {
 }
 
 /// A single-use 6-digit code that authorizes someone to self-register a tutor account at
-/// /register. Only the hash is stored. Codes are issued by admins/coordinators (or generated
-/// when a tutor application is ACCEPTED) and handed to the intended person. Optional bindings:
+/// /register. The plaintext `code` is stored so admins can re-display it on the registration-codes
+/// menu (it's not secret long-term — single-use + a 7-day expiry bound its value). Codes are issued
+/// by admins/coordinators (or generated when a tutor application is ACCEPTED) and handed to the
+/// intended person. Optional bindings:
 ///   email         — registrant must verify this exact address.
 ///   tutorId       — links registration to an existing roster Tutor (instead of creating one).
 ///   applicationId — provenance: the accepted application this code was issued for.
 /// `pendingEmail`/`emailCode*` hold the in-progress email-verification step (a separate emailed
-/// 6-digit code the registrant types back); `emailVerifiedAt` is stamped once it's confirmed.
+/// 6-digit code the registrant types back, stored hashed); `emailVerifiedAt` is stamped on confirm.
 model RegistrationCode {
   id            String    @id @default(cuid())
-  codeHash      String    @unique
+  /// The 6-digit code (plaintext, for admin re-display). Nullable only to migrate legacy rows.
+  code          String?   @unique
   /// Optional binding: the email the registrant must use/verify.
   email         String?
   /// Optional link to an existing roster Tutor this registration completes.

@@ -798,6 +798,12 @@
         "expired": "Expirado"
       },
       "revoke": "Revocar",
+
+      "showCode": "Mostrar código",
+
+      "hideCode": "Ocultar",
+
+      "copy": "Copiar",
       "empty": "Aún no hay códigos de registro."
     },
     "tutorRequests": {

@@ -533,6 +533,12 @@
         "expired": "Abgelaufen"
       },
       "revoke": "Widerrufen",
+
+      "showCode": "Code anzeigen",
+
+      "hideCode": "Ausblenden",
+
+      "copy": "Kopieren",
       "empty": "Noch keine Registrierungscodes."
     },
     "tutorRequests": {

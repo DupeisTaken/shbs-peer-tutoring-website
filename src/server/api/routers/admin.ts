@@ -1614,10 +1614,13 @@ export const adminRouter = createTRPCRouter({
    */
   registrationCodes: viewerProcedure.query(async ({ ctx }) => {
     const now = new Date();
+    // The plaintext code is withheld from the read-only VIEWER (it grants account creation).
+    const canSeeCode = ctx.session.role !== "VIEWER";
     const codes = await ctx.db.registrationCode.findMany({
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
+        code: true,
         email: true,
         label: true,
         issuedByName: true,
@@ -1631,6 +1634,7 @@ export const adminRouter = createTRPCRouter({
     });
     return codes.map((c) => ({
       id: c.id,
+      code: canSeeCode ? c.code : null,
       email: c.email,
       label: c.label,
       issuedByName: c.issuedByName,
