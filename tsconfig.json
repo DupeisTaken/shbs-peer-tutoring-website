@@ -24,7 +24,9 @@
     "plugins": [{ "name": "next" }],
     "incremental": true,
 
-    /* Path Aliases */
+    /* Path Aliases. baseUrl is deprecated in TS 6 but still needed here for module + CSS
+       side-effect resolution; opt in to keep it working until TS 7. */
+    "ignoreDeprecations": "6.0",
     "baseUrl": ".",
     "paths": {
       "~/*": ["./src/*"]
