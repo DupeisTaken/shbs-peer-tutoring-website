@@ -52,7 +52,7 @@ function daysAgo(n: number): Date {
 }
 
 type Role = "HEAD" | "ADMIN" | "COORDINATOR" | "TUTOR";
-type TutorStatus = "ACTIVE" | "GRADUATED" | "OPTED_OUT" | "ARCHIVED";
+type TutorStatus = "ACTIVE" | "PENDING" | "GRADUATED" | "OPTED_OUT" | "ARCHIVED";
 
 // ---------------------------------------------------------------------------
 // Reference catalogues
@@ -119,21 +119,27 @@ const TIME_SLOTS = [
 // ---------------------------------------------------------------------------
 
 const TUTORS = [
-  { id: "tutor-alice", firstName: "Alice", lastName: "Chen", altNames: "陈爱丽", email: "alice@example.edu", active: true, role: "TUTOR" as Role },
-  { id: "tutor-bob", firstName: "Bob", lastName: "Liu", altNames: "刘波", email: "bob@example.edu", active: true, role: "TUTOR" as Role },
-  { id: "tutor-carol", firstName: "Carol", lastName: "Wang", altNames: null, email: "carol@example.edu", active: true, role: "COORDINATOR" as Role },
-  { id: "tutor-david", firstName: "David", lastName: "Zhao", altNames: "赵大卫", email: "david@example.edu", active: true, role: "TUTOR" as Role },
-  { id: "tutor-gina", firstName: "Gina", lastName: "Hill", altNames: null, email: "gina@example.edu", active: true, role: "TUTOR" as Role },
-  { id: "tutor-harold", firstName: "Harold", lastName: "Adams", altNames: null, email: "harold@example.edu", active: true, role: "TUTOR" as Role },
-  { id: "tutor-iris", firstName: "Iris", lastName: "Patel", altNames: null, email: "iris@example.edu", active: true, role: "TUTOR" as Role },
-  { id: "tutor-jason", firstName: "Jason", lastName: "Kim", altNames: "金在勋", email: "jason@example.edu", active: true, role: "TUTOR" as Role },
-  { id: "tutor-karen", firstName: "Karen", lastName: "Diaz", altNames: null, email: "karen@example.edu", active: true, role: "TUTOR" as Role },
-  { id: "tutor-leo", firstName: "Leo", lastName: "Murphy", altNames: null, email: "leo@example.edu", active: true, role: "TUTOR" as Role },
-  { id: "tutor-mona", firstName: "Mona", lastName: "Rossi", altNames: null, email: "mona@example.edu", active: true, role: "TUTOR" as Role },
-  { id: "tutor-nora", firstName: "Nora", lastName: "Park", altNames: "박노라", email: "nora@example.edu", active: true, role: "TUTOR" as Role },
-  // Inactive tutors — signing in shows the pending-approval gate.
-  { id: "tutor-evan", firstName: "Evan", lastName: "Tutor", altNames: null, email: "evan@example.edu", active: false, role: "TUTOR" as Role },
-  { id: "tutor-oscar", firstName: "Oscar", lastName: "Brown", altNames: null, email: "oscar@example.edu", active: false, role: "TUTOR" as Role },
+  { id: "tutor-alice", firstName: "Alice", lastName: "Chen", altNames: "陈爱丽", email: "alice@example.edu", status: "ACTIVE" as TutorStatus, role: "TUTOR" as Role },
+  { id: "tutor-bob", firstName: "Bob", lastName: "Liu", altNames: "刘波", email: "bob@example.edu", status: "ACTIVE" as TutorStatus, role: "TUTOR" as Role },
+  { id: "tutor-carol", firstName: "Carol", lastName: "Wang", altNames: null, email: "carol@example.edu", status: "ACTIVE" as TutorStatus, role: "COORDINATOR" as Role },
+  { id: "tutor-david", firstName: "David", lastName: "Zhao", altNames: "赵大卫", email: "david@example.edu", status: "ACTIVE" as TutorStatus, role: "TUTOR" as Role },
+  { id: "tutor-gina", firstName: "Gina", lastName: "Hill", altNames: null, email: "gina@example.edu", status: "ACTIVE" as TutorStatus, role: "TUTOR" as Role },
+  { id: "tutor-harold", firstName: "Harold", lastName: "Adams", altNames: null, email: "harold@example.edu", status: "ACTIVE" as TutorStatus, role: "TUTOR" as Role },
+  { id: "tutor-iris", firstName: "Iris", lastName: "Patel", altNames: null, email: "iris@example.edu", status: "ACTIVE" as TutorStatus, role: "TUTOR" as Role },
+  { id: "tutor-jason", firstName: "Jason", lastName: "Kim", altNames: "金在勋", email: "jason@example.edu", status: "ACTIVE" as TutorStatus, role: "TUTOR" as Role },
+  { id: "tutor-karen", firstName: "Karen", lastName: "Diaz", altNames: null, email: "karen@example.edu", status: "ACTIVE" as TutorStatus, role: "TUTOR" as Role },
+  { id: "tutor-leo", firstName: "Leo", lastName: "Murphy", altNames: null, email: "leo@example.edu", status: "ACTIVE" as TutorStatus, role: "TUTOR" as Role },
+  { id: "tutor-mona", firstName: "Mona", lastName: "Rossi", altNames: null, email: "mona@example.edu", status: "ACTIVE" as TutorStatus, role: "TUTOR" as Role },
+  { id: "tutor-nora", firstName: "Nora", lastName: "Park", altNames: "박노라", email: "nora@example.edu", status: "ACTIVE" as TutorStatus, role: "TUTOR" as Role },
+  // Lifecycle showcase — each non-active status so the admin roster + tutor dashboards demo them:
+  //  PENDING   → must self-activate on the dashboard (shows the availability prompt).
+  //  OPTED_OUT → read-only; has a pending reentry request (see TUTOR_STATUS_REQUESTS).
+  //  GRADUATED → aged out; read-only.
+  //  ARCHIVED  → removed from rotation; read-only.
+  { id: "tutor-evan", firstName: "Evan", lastName: "Tutor", altNames: null, email: "evan@example.edu", status: "PENDING" as TutorStatus, role: "TUTOR" as Role },
+  { id: "tutor-oscar", firstName: "Oscar", lastName: "Brown", altNames: null, email: "oscar@example.edu", status: "OPTED_OUT" as TutorStatus, role: "TUTOR" as Role },
+  { id: "tutor-pia", firstName: "Pia", lastName: "Novak", altNames: null, email: "pia@example.edu", status: "GRADUATED" as TutorStatus, role: "TUTOR" as Role },
+  { id: "tutor-reese", firstName: "Reese", lastName: "Cole", altNames: null, email: "reese@example.edu", status: "ARCHIVED" as TutorStatus, role: "TUTOR" as Role },
 ].map((t, i) => {
   // Demo grades cycling 9–12 (some G12s so a year-refresh shows graduation/aging).
   const gradeLevel = 9 + (i % 4);
@@ -192,6 +198,17 @@ const PENDING_SIGNUPS = [
   { id: "tutee-pending-uma", englishName: "Uma Devi", gradeLevel: "10", email: "uma@example.edu", preferredContact: "Email; replies same day", firstChoiceId: "course-apbio", secondChoiceId: "course-biology", slotIds: ["slot-thu-a"], daysAgo: 4 },
   { id: "tutee-pending-victor", englishName: "Victor Lim", gradeLevel: "11", email: "victor@example.edu", preferredContact: "Text 555-0199 evenings", firstChoiceId: "course-apphysics", secondChoiceId: "course-physics", slotIds: ["slot-mon-b"], daysAgo: 2 },
   { id: "tutee-pending-wendy", englishName: "Wendy Cho", gradeLevel: "9", email: "wendy@example.edu", preferredContact: "Email preferred", firstChoiceId: "course-algebra2", slotIds: ["slot-tue-a"], daysAgo: 0 },
+  // Same name + email as the discipline-removed tutee below → the signup queue flags it as a
+  // possible re-signup this quarter (see admin `tutees` bannedMatch). Demonstrates the ban label.
+  { id: "tutee-pending-zoe", englishName: "Zoe Banner", gradeLevel: "11", email: "zoe@example.edu", preferredContact: "Text 555-0220", firstChoiceId: "course-apbio", secondChoiceId: "course-biology", slotIds: ["slot-thu-a"], daysAgo: 0 },
+];
+
+// Tutees no longer in the program — INACTIVE and detached (no pairings). They populate the
+// "removed & opted-out" list and the discipline standing meter; see TUTEE_REMOVALS for the
+// matching request rows.
+const REMOVED_TUTEES = [
+  { id: "tutee-yara", englishName: "Yara Voss", gradeLevel: "10", email: "yara@example.edu", phone: "555-0210" },
+  { id: "tutee-zoe", englishName: "Zoe Banner", gradeLevel: "11", email: "zoe@example.edu", phone: "555-0220" },
 ];
 
 // ---------------------------------------------------------------------------
@@ -286,13 +303,49 @@ const CARDS: CardSpec[] = [
   { id: "card-mia-y1", tuteeId: "tutee-mia", color: "YELLOW", source: "TUTOR", reason: "Late by 20 minutes, no notice.", reviewStatus: "VALID", issuedByTutorId: "tutor-david", reviewedById: "user-admin", reviewed: true },
   { id: "card-mia-y2", tuteeId: "tutee-mia", color: "YELLOW", source: "TUTOR", reason: "Incomplete homework.", reviewStatus: "VALID", issuedByTutorId: "tutor-david", reviewedById: "user-admin", reviewed: true },
   { id: "card-mia-y3", tuteeId: "tutee-mia", color: "YELLOW", source: "TUTOR", reason: "Unresponsive for two days.", reviewStatus: "VALID", issuedByTutorId: "tutor-david", reviewedById: "user-admin", reviewed: true },
+  // Noah: 1 valid red (on warning) + a pending tutor card (not yet counted) — a live tutee at
+  // threshold would be auto-removed, so the active roster never sits AT removal.
   { id: "card-noah-r1", tuteeId: "tutee-noah", color: "RED", source: "TUTOR", reason: "Disruptive behaviour during session.", reviewStatus: "VALID", issuedByTutorId: "tutor-gina", reviewedById: "user-admin", reviewed: true },
-  { id: "card-noah-r2", tuteeId: "tutee-noah", color: "RED", source: "AUTO", reason: "Unexcused absence (auto-issued).", reviewStatus: "VALID", reviewed: false },
+  { id: "card-noah-y1", tuteeId: "tutee-noah", color: "YELLOW", source: "TUTOR", reason: "Arrived without the assigned problem set.", reviewStatus: "PENDING", issuedByTutorId: "tutor-gina", reviewed: false },
   { id: "card-umar-inv", tuteeId: "tutee-umar", color: "YELLOW", source: "TUTOR", reason: "Late — but tutee had notified; flagged invalid.", reviewStatus: "INVALID", issuedByTutorId: "tutor-karen", reviewedById: "user-admin", reviewed: true },
   { id: "card-eli-auto", tuteeId: "tutee-eli", color: "RED", source: "AUTO", reason: "Unexcused absence (auto-issued).", reviewStatus: "VALID", sessionId: "sess-nora-2", reviewed: false },
   { id: "card-cory-y1", tuteeId: "tutee-cory", color: "YELLOW", source: "TUTOR", reason: "Forgot materials.", reviewStatus: "PENDING", issuedByTutorId: "tutor-mona", reviewed: false },
   { id: "card-bella-y1", tuteeId: "tutee-bella", color: "YELLOW", source: "TUTOR", reason: "Late submission of practice set.", reviewStatus: "VALID", issuedByTutorId: "tutor-nora", reviewedById: "user-admin", reviewed: true },
   { id: "card-gabe-y1", tuteeId: "tutee-gabe", color: "YELLOW", source: "TUTOR", reason: "Phone use during session.", reviewStatus: "VALID", issuedByTutorId: "tutor-nora", reviewedById: "user-admin", reviewed: true },
+  // Zoe: 2 valid reds → at the removal threshold (full 6-slot meter). She was auto-removed
+  // (INACTIVE) — see TUTEE_REMOVALS (PUNISHMENT). Shows the meter maxed + a discipline removal.
+  { id: "card-zoe-r1", tuteeId: "tutee-zoe", color: "RED", source: "TUTOR", reason: "Repeated disruption despite warnings.", reviewStatus: "VALID", issuedByTutorId: "tutor-nora", reviewedById: "user-admin", reviewed: true },
+  { id: "card-zoe-r2", tuteeId: "tutee-zoe", color: "RED", source: "AUTO", reason: "Unexcused absence (auto-issued).", reviewStatus: "VALID", reviewed: false },
+];
+
+// ---------------------------------------------------------------------------
+// Lifecycle requests — tutor opt-out/reentry, tutee opt-out/removal, registration codes
+// ---------------------------------------------------------------------------
+
+// Tutor membership requests (TutorStatusRequest). leo: opt-out still in its cooldown (recallable;
+// admin can approve once eligible). oscar: opted out, now requesting reentry (no cooldown).
+const TUTOR_STATUS_REQUESTS = [
+  { id: "tsr-leo-optout", tutorId: "tutor-leo", kind: "OPT_OUT" as const, reason: "Heavy course load next month — need a break.", cooldownDaysFromNow: 5 },
+  { id: "tsr-oscar-reentry", tutorId: "tutor-oscar", kind: "REENTRY" as const, reason: "Ready to come back this quarter.", cooldownDaysFromNow: null },
+];
+
+// Tutee opt-outs & removals (TuteeRemovalRequest). will: opt-out relayed by Iris, still in its
+// 7-day recall window. yara: opt-out already finalized (removed). zoe: auto-removed on discipline.
+const TUTEE_REMOVALS: {
+  id: string; tuteeId: string; kind: "VOLUNTARY" | "PUNISHMENT"; state: "PENDING" | "APPROVED";
+  pairingId: string | null; tutorId: string | null; reason: string;
+  eligibleInDays: number | null; resolvedDaysAgo: number | null;
+}[] = [
+  { id: "trr-will-pending", tuteeId: "tutee-will", kind: "VOLUNTARY", state: "PENDING", pairingId: "pairing-iris-spanish", tutorId: "tutor-iris", reason: "Family is moving; wants to stop after this week.", eligibleInDays: 5, resolvedDaysAgo: null },
+  { id: "trr-yara-optout", tuteeId: "tutee-yara", kind: "VOLUNTARY", state: "APPROVED", pairingId: null, tutorId: "tutor-carol", reason: "Decided to focus on other commitments.", eligibleInDays: null, resolvedDaysAgo: 2 },
+  { id: "trr-zoe-pun", tuteeId: "tutee-zoe", kind: "PUNISHMENT", state: "APPROVED", pairingId: null, tutorId: null, reason: "Reached the removal threshold (2 red cards).", eligibleInDays: null, resolvedDaysAgo: 1 },
+];
+
+// Registration codes (security keys for new tutors) in each status: active, used, expired.
+const REGISTRATION_CODES = [
+  { id: "regcode-active", code: "100001", email: "maya@example.edu", label: "Maya Lindqvist (recruit)", expiresInDays: 7, usedDaysAgo: null, applicationId: null },
+  { id: "regcode-used", code: "100002", email: "george@example.edu", label: "George Adler", expiresInDays: 6, usedDaysAgo: 1, applicationId: "app-george" },
+  { id: "regcode-expired", code: "100003", email: "old@example.edu", label: "Lapsed invite", expiresInDays: -1, usedDaysAgo: null, applicationId: null },
 ];
 
 // ---------------------------------------------------------------------------
@@ -382,7 +435,7 @@ async function main() {
 
   // --- Tutors ----------------------------------------------------------------
   for (const t of TUTORS) {
-    const data = { firstName: t.firstName, lastName: t.lastName, englishName: t.englishName, alternativeNames: t.altNames, username: t.username, email: t.email, status: (t.active ? "ACTIVE" : "ARCHIVED") as TutorStatus, gradeLevel: t.gradeLevel };
+    const data = { firstName: t.firstName, lastName: t.lastName, englishName: t.englishName, alternativeNames: t.altNames, username: t.username, email: t.email, status: t.status, gradeLevel: t.gradeLevel };
     await db.tutor.upsert({ where: { id: t.id }, update: data, create: { id: t.id, ...data } });
   }
 
@@ -403,6 +456,15 @@ async function main() {
   // --- Tutees (active) -------------------------------------------------------
   for (const tutee of TUTEES) {
     const data = { englishName: tutee.englishName, gradeLevel: tutee.gradeLevel, status: "ACTIVE" as const, firstChoiceId: tutee.firstChoiceId };
+    await db.tutee.upsert({ where: { id: tutee.id }, update: data, create: { id: tutee.id, ...data } });
+  }
+
+  // --- Removed/opted-out tutees (INACTIVE, no pairings) ----------------------
+  for (const tutee of REMOVED_TUTEES) {
+    const data = {
+      englishName: tutee.englishName, gradeLevel: tutee.gradeLevel, email: tutee.email,
+      phone: tutee.phone, status: "INACTIVE" as const,
+    };
     await db.tutee.upsert({ where: { id: tutee.id }, update: data, create: { id: tutee.id, ...data } });
   }
 
@@ -444,11 +506,13 @@ async function main() {
   // --- Dev login users (every tutor + admin) ---------------------------------
   const passwordHash = hashPassword(DEV_PASSWORD);
   const users = [
-    { id: "user-admin", name: "Admin", email: "admin@example.edu", role: "HEAD" as Role, tutorId: null as string | null },
-    ...TUTORS.map((t) => ({ id: `user-${t.id.replace("tutor-", "")}`, name: t.englishName, email: t.email, role: t.role, tutorId: t.id as string | null })),
+    // Every account carries a username (the admin has no tutor, so it's a derived handle).
+    // The bootstrap admin gets a two-word name ("Admin A") so it splits cleanly into first/last.
+    { id: "user-admin", name: "Admin A", email: "admin@example.edu", role: "HEAD" as Role, tutorId: null as string | null, username: "admin" },
+    ...TUTORS.map((t) => ({ id: `user-${t.id.replace("tutor-", "")}`, name: t.englishName, email: t.email, role: t.role, tutorId: t.id as string | null, username: t.username })),
   ];
   for (const u of users) {
-    const data = { name: u.name, role: u.role, tutorId: u.tutorId, passwordHash, emailVerifiedAt: new Date() };
+    const data = { name: u.name, role: u.role, tutorId: u.tutorId, username: u.username, passwordHash, emailVerifiedAt: new Date() };
     await db.user.upsert({ where: { email: u.email }, update: data, create: { id: u.id, email: u.email, ...data } });
   }
 
@@ -556,26 +620,40 @@ async function main() {
   }
 
   // --- Tutor meetings + attendance -------------------------------------------
+  // Excused entries carry a tutor-submitted reason + `excusedAt` so the meeting page's amber
+  // "self-excused" panel renders (a tutor self-excuses from their dashboard up to 30m before).
   const meetings = [
-    { id: "meeting-1", title: "Weekly tutor meeting", daysAgo: 1, present: ["tutor-alice", "tutor-bob", "tutor-carol", "tutor-gina"], excused: ["tutor-david"], unexcused: ["tutor-harold"] },
-    { id: "meeting-2", title: "Mid-term reshuffle briefing", daysAgo: 8, present: ["tutor-alice", "tutor-carol", "tutor-iris", "tutor-jason", "tutor-leo"], excused: ["tutor-bob"], unexcused: [] },
+    {
+      id: "meeting-1", title: "Weekly tutor meeting", daysAgo: 1,
+      present: ["tutor-alice", "tutor-bob", "tutor-carol", "tutor-gina"],
+      excused: [{ tutorId: "tutor-david", reason: "Doctor's appointment — notified in advance." }],
+      unexcused: ["tutor-harold"],
+    },
+    {
+      id: "meeting-2", title: "Mid-term reshuffle briefing", daysAgo: 8,
+      present: ["tutor-alice", "tutor-carol", "tutor-iris", "tutor-jason", "tutor-leo"],
+      excused: [{ tutorId: "tutor-bob", reason: "Class field trip clashed with the meeting." }],
+      unexcused: [],
+    },
   ];
   for (const m of meetings) {
+    const meetingDate = daysAgo(m.daysAgo);
     await db.tutorMeeting.upsert({
       where: { id: m.id },
-      update: { title: m.title, date: daysAgo(m.daysAgo), termId: term.id },
-      create: { id: m.id, title: m.title, date: daysAgo(m.daysAgo), termId: term.id },
+      update: { title: m.title, date: meetingDate, termId: term.id },
+      create: { id: m.id, title: m.title, date: meetingDate, termId: term.id },
     });
     const rows = [
-      ...m.present.map((tutorId) => ({ tutorId, status: "PRESENT" as const })),
-      ...m.excused.map((tutorId) => ({ tutorId, status: "EXCUSED_ABSENT" as const })),
-      ...m.unexcused.map((tutorId) => ({ tutorId, status: "UNEXCUSED_ABSENT" as const })),
+      ...m.present.map((tutorId) => ({ tutorId, status: "PRESENT" as const, reason: null as string | null, excusedAt: null as Date | null })),
+      ...m.excused.map((e) => ({ tutorId: e.tutorId, status: "EXCUSED_ABSENT" as const, reason: e.reason, excusedAt: daysAgo(m.daysAgo + 1) })),
+      ...m.unexcused.map((tutorId) => ({ tutorId, status: "UNEXCUSED_ABSENT" as const, reason: null as string | null, excusedAt: null as Date | null })),
     ];
     for (const a of rows) {
+      const data = { status: a.status, reason: a.reason, excusedAt: a.excusedAt };
       await db.meetingAttendance.upsert({
         where: { meetingId_tutorId: { meetingId: m.id, tutorId: a.tutorId } },
-        update: { status: a.status },
-        create: { meetingId: m.id, tutorId: a.tutorId, status: a.status },
+        update: data,
+        create: { meetingId: m.id, tutorId: a.tutorId, ...data },
       });
     }
   }
@@ -635,12 +713,48 @@ async function main() {
     });
   }
 
+  // --- Tutor membership requests (opt-out / reentry) -------------------------
+  for (const r of TUTOR_STATUS_REQUESTS) {
+    const eligibleAt =
+      r.cooldownDaysFromNow != null ? new Date(Date.now() + r.cooldownDaysFromNow * 86_400_000) : null;
+    const data = { tutorId: r.tutorId, kind: r.kind, state: "PENDING" as const, reason: r.reason, eligibleAt };
+    await db.tutorStatusRequest.upsert({ where: { id: r.id }, update: data, create: { id: r.id, ...data } });
+  }
+
+  // --- Tutee opt-outs & removals ---------------------------------------------
+  const periodKey = `${term.schoolYear} ${term.quarter}`;
+  for (const r of TUTEE_REMOVALS) {
+    const finalized = r.state === "APPROVED";
+    const data = {
+      tuteeId: r.tuteeId, kind: r.kind, state: r.state, pairingId: r.pairingId,
+      requestedByTutorId: r.tutorId, reason: r.reason,
+      eligibleAt: r.eligibleInDays != null ? new Date(Date.now() + r.eligibleInDays * 86_400_000) : null,
+      removedPeriodKey: finalized ? periodKey : null,
+      resolvedAt: finalized && r.resolvedDaysAgo != null ? daysAgo(r.resolvedDaysAgo) : null,
+      resolvedByName: finalized ? "auto" : null,
+    };
+    await db.tuteeRemovalRequest.upsert({ where: { id: r.id }, update: data, create: { id: r.id, ...data } });
+  }
+
+  // --- Registration codes (active / used / expired) --------------------------
+  for (const c of REGISTRATION_CODES) {
+    const data = {
+      code: c.code, email: c.email, label: c.label, applicationId: c.applicationId,
+      issuedById: "user-admin", issuedByName: "Admin A",
+      expiresAt: new Date(Date.now() + c.expiresInDays * 86_400_000),
+      usedAt: c.usedDaysAgo != null ? daysAgo(c.usedDaysAgo) : null,
+    };
+    await db.registrationCode.upsert({ where: { id: c.id }, update: data, create: { id: c.id, ...data } });
+  }
+
   console.log(
     `Seeded: 1 term, ${ROOMS.length} rooms, ${LEVELS.length} levels, ${COURSES.length} courses, ` +
-      `${TIME_SLOTS.length} time slots, ${TUTORS.length} tutors, ` +
-      `${TUTEES.length} active tutees + ${PENDING_SIGNUPS.length} pending signups, ` +
+      `${TIME_SLOTS.length} time slots, ${TUTORS.length} tutors (active + pending/opted-out/graduated/archived), ` +
+      `${TUTEES.length} active tutees + ${PENDING_SIGNUPS.length} pending signups + ${REMOVED_TUTEES.length} removed, ` +
       `${PAIRINGS.length} pairings, ${SESSIONS.length} sessions, ${CARDS.length} cards, ` +
-      `${APPLICATIONS.length} applications, ${meetings.length} meetings, ${users.length} login users ` +
+      `${APPLICATIONS.length} applications, ${meetings.length} meetings, ` +
+      `${TUTOR_STATUS_REQUESTS.length} tutor requests, ${TUTEE_REMOVALS.length} tutee opt-outs/removals, ` +
+      `${REGISTRATION_CODES.length} registration codes, ${users.length} login users ` +
       `(password "${DEV_PASSWORD}").`,
   );
 }

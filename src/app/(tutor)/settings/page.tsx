@@ -15,7 +15,6 @@ export default function SettingsPage() {
   const updateProfile = api.tutor.updateProfile.useMutation({
     onSuccess: () => utils.tutor.myProfile.invalidate(),
   });
-  const changePassword = api.tutor.changePassword.useMutation();
 
   const refreshMembership = async () => {
     await Promise.all([
@@ -40,13 +39,33 @@ export default function SettingsPage() {
     }
   }, [profile.data]);
 
-  // Password form.
+  // Password form — two-step: verify the current password to get an emailed code, then submit
+  // the code with the new password (step-up email 2FA).
   const [current, setCurrent] = useState("");
   const [next, setNext] = useState("");
   const [confirm, setConfirm] = useState("");
+  const [code, setCode] = useState("");
+  const [sentTo, setSentTo] = useState<string | null>(null);
   const [pwError, setPwError] = useState<string | null>(null);
 
-  const submitPassword = () => {
+  const resetPasswordForm = () => {
+    setCurrent("");
+    setNext("");
+    setConfirm("");
+    setCode("");
+    setSentTo(null);
+    setPwError(null);
+  };
+
+  const requestCode = api.tutor.requestPasswordChangeCode.useMutation({
+    onSuccess: (data) => setSentTo(data.email),
+  });
+  const changePassword = api.tutor.changePassword.useMutation({
+    onSuccess: resetPasswordForm,
+  });
+
+  // Step 1: validate the new password locally, then ask for the emailed code.
+  const sendCode = () => {
     setPwError(null);
     if (next.length < 8) {
       setPwError(t("tutor.settings.pwTooShort"));
@@ -56,16 +75,13 @@ export default function SettingsPage() {
       setPwError(t("tutor.settings.pwMismatch"));
       return;
     }
-    changePassword.mutate(
-      { currentPassword: current, newPassword: next },
-      {
-        onSuccess: () => {
-          setCurrent("");
-          setNext("");
-          setConfirm("");
-        },
-      },
-    );
+    requestCode.mutate({ currentPassword: current });
+  };
+
+  // Step 2: submit the new password with the emailed code.
+  const submitPassword = () => {
+    setPwError(null);
+    changePassword.mutate({ currentPassword: current, newPassword: next, code: code.trim() });
   };
 
   return (
@@ -151,9 +167,12 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      {/* Password */}
+      {/* Password — two-step: verify current password to email a code, then submit code + new pw. */}
       <section className="card space-y-4 p-5">
-        <h2 className="section-title">{t("tutor.settings.passwordHeading")}</h2>
+        <div>
+          <h2 className="section-title">{t("tutor.settings.passwordHeading")}</h2>
+          <p className="muted mt-1 text-sm">{t("account.password.twoFactorHint")}</p>
+        </div>
 
         <label className="block space-y-1">
           <span className="label">{t("tutor.settings.currentPassword")}</span>
@@ -162,6 +181,7 @@ export default function SettingsPage() {
             onChange={(e) => setCurrent(e.target.value)}
             type="password"
             autoComplete="current-password"
+            disabled={!!sentTo}
             className="input"
           />
         </label>
@@ -173,6 +193,7 @@ export default function SettingsPage() {
             type="password"
             autoComplete="new-password"
             minLength={8}
+            disabled={!!sentTo}
             className="input"
           />
           <span className="muted text-xs">{t("tutor.settings.pwHelp")}</span>
@@ -184,26 +205,72 @@ export default function SettingsPage() {
             onChange={(e) => setConfirm(e.target.value)}
             type="password"
             autoComplete="new-password"
+            disabled={!!sentTo}
             className="input"
           />
         </label>
 
-        <div className="flex items-center gap-3">
-          <button
-            className="btn-primary"
-            disabled={changePassword.isPending || !current || !next}
-            onClick={submitPassword}
-          >
-            {changePassword.isPending
-              ? t("tutor.settings.changing")
-              : t("tutor.settings.changePasswordBtn")}
-          </button>
+        {/* Step 2 appears once the code is emailed. */}
+        {sentTo && (
+          <div className="space-y-2 rounded-lg border border-accent-200 bg-accent-50/60 p-4">
+            <p className="text-sm text-slate-700">
+              {t("account.password.codeSent", { email: sentTo })}
+            </p>
+            <label className="block space-y-1">
+              <span className="label">{t("account.password.codeLabel")}</span>
+              <input
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                placeholder="000000"
+                className="input field-auto min-w-40 font-mono tracking-[0.3em]"
+              />
+            </label>
+            <button
+              type="button"
+              className="link text-xs"
+              disabled={requestCode.isPending}
+              onClick={() => requestCode.mutate({ currentPassword: current })}
+            >
+              {t("account.password.resend")}
+            </button>
+          </div>
+        )}
+
+        <div className="flex flex-wrap items-center gap-3">
+          {!sentTo ? (
+            <button
+              className="btn-primary"
+              disabled={requestCode.isPending || !current || !next || !confirm}
+              onClick={sendCode}
+            >
+              {requestCode.isPending
+                ? t("account.password.sending")
+                : t("account.password.sendCode")}
+            </button>
+          ) : (
+            <>
+              <button
+                className="btn-primary"
+                disabled={changePassword.isPending || !code.trim()}
+                onClick={submitPassword}
+              >
+                {changePassword.isPending
+                  ? t("tutor.settings.changing")
+                  : t("tutor.settings.changePasswordBtn")}
+              </button>
+              <button type="button" className="btn-secondary" onClick={resetPasswordForm}>
+                {t("account.password.cancel")}
+              </button>
+            </>
+          )}
           {changePassword.isSuccess && (
             <span className="text-sm text-green-600">{t("tutor.settings.passwordChanged")}</span>
           )}
-          {(pwError ?? changePassword.error) && (
+          {(pwError ?? changePassword.error ?? requestCode.error) && (
             <span className="text-sm text-red-600">
-              {pwError ?? changePassword.error?.message}
+              {pwError ?? changePassword.error?.message ?? requestCode.error?.message}
             </span>
           )}
         </div>

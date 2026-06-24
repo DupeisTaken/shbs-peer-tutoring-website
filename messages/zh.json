@@ -4,7 +4,8 @@
     "save": "保存",
     "saved": "已保存。",
     "language": "语言",
-    "backToMain": "← 返回主页"
+    "backToMain": "← 返回主页",
+    "close": "关闭"
   },
   "auth": {
     "signinTitle": "登录",
@@ -14,7 +15,6 @@
     "signIn": "登录",
     "signingIn": "正在登录…",
     "forgotPassword": "忘记密码？",
-
     "createAccount": "创建账户",
     "lookingForTutor": "需要辅导员？",
     "requestOne": "点此申请",
@@ -99,6 +99,10 @@
         "body": "您的账号已就绪。请使用邮箱或用户名 {username} 登录。",
         "signIn": "前往登录"
       }
+    },
+    "staleSession": {
+      "title": "会话已过期",
+      "body": "你的辅导员账户关联已失效。请退出后重新登录以刷新。"
     }
   },
   "landing": {
@@ -279,7 +283,14 @@
       "available": "空闲时间：{list}",
       "reach": "联系方式：{contact}",
       "signed": "已签署：✓ {name}",
-      "notSigned": "已签署：— 未签署"
+      "notSigned": "已签署：— 未签署",
+      "banFlag": "疑似重复报名",
+      "banFlagTitle": "与本季度被移除的学生匹配（{fields}）。分配前请核实。",
+      "banField": {
+        "name": "姓名",
+        "email": "邮箱",
+        "phone": "电话"
+      }
     },
     "readOnly": {
       "banner": "只读权限 — 你可以浏览全部内容，但无法进行更改，且联系方式已隐藏。"
@@ -315,7 +326,8 @@
         "auditLog": "审计日志",
         "usersRoles": "用户与角色",
         "tutorRequests": "退出 / 重新加入",
-        "registrationCodes": "注册码"
+        "registrationCodes": "注册码",
+        "tuteeRequests": "学生移除"
       }
     },
     "dashboard": {
@@ -351,7 +363,8 @@
         "openApplications": "待处理申请",
         "cardsToReview": "待审核卡片",
         "recentSurveys": "最近调查",
-        "tutorRequests": "退出 / 重新加入"
+        "tutorRequests": "退出 / 重新加入",
+        "tuteeRequests": "待生效退出"
       },
       "panels": {
         "tuteeSignups": {
@@ -378,6 +391,10 @@
         "tutorRequests": {
           "title": "辅导员退出 / 重新加入申请",
           "empty": "暂无待处理申请。"
+        },
+        "tuteeRequests": {
+          "title": "待生效的学生退出",
+          "empty": "暂无待生效的退出。"
         }
       }
     },
@@ -437,7 +454,6 @@
       "effectPending": "清空待处理的学员报名队列（归档为停用）。",
       "effectTutees": "归档所有当前已配对的学员——他们需要重新报名才能继续。",
       "effectPairings": "清空当前配对面板（过往配对与出勤保留在历史中）。",
-
       "effectReactivate": "在任辅导员需在个人页面重新激活（选择参加或退出）。",
       "effectAvailability": "提示你确认哪些在职导师仍然可用。",
       "effectGraduate": "G12 导师毕业（在 Q4 开始时离开）。",
@@ -451,7 +467,6 @@
       "refreshing": "刷新中…",
       "done": "已刷新到 {name}。归档了 {count} 名学员。",
       "doneGrad": "{graduated} 名导师毕业；{aged} 名导师升一个年级。",
-
       "donePending": "{count} 名辅导员需重新激活。",
       "modalTitle": "{name} 的导师可用情况",
       "modalIntro": "确认哪些在职导师将继续参与。未勾选的导师将被归档。",
@@ -485,7 +500,8 @@
         "account": "账户",
         "role": "角色",
         "canTutor": "可担任导师",
-        "canTranslate": "翻译员"
+        "canTranslate": "翻译员",
+        "actions": "操作"
       },
       "roles": {
         "VIEWER": "访客（只读）",
@@ -508,7 +524,20 @@
         "all": "全部"
       },
       "makeHead": "设为负责人",
-      "confirmTransfer": "将负责人权限转让给 {name}？您将成为普通管理员。"
+      "confirmTransfer": "将负责人权限转让给 {name}？您将成为普通管理员。",
+      "delete": "删除",
+      "confirm": {
+        "passwordLabel": "你的密码",
+        "passwordPlaceholder": "请输入你的密码",
+        "cancel": "取消",
+        "working": "处理中…",
+        "roleTitle": "更改角色",
+        "roleBody": "将 {name} 的角色设为 {role}？请验证身份以继续。",
+        "roleConfirm": "更改角色",
+        "transferTitle": "移交负责人",
+        "deleteTitle": "删除账户",
+        "deleteBody": "永久删除 {name} 的登录账户？其辅导员记录（用户名、年级与历史）将保留。请验证身份以继续。"
+      }
     },
     "submissions": {
       "title": "考勤提交记录",
@@ -531,7 +560,6 @@
       "saved": "已保存。",
       "timeLabel": "时间",
       "exempt": "豁免 (X)",
-
       "selfExcused": "自助请假（{count}）",
       "status": {
         "present": "出席",
@@ -782,7 +810,6 @@
       "GRADUATED": "已毕业",
       "OPTED_OUT": "已退出",
       "PENDING": "待激活",
-
       "ARCHIVED": "已归档"
     },
     "registrationCodes": {
@@ -806,43 +833,25 @@
         "expired": "已过期"
       },
       "revoke": "撤销",
-
       "showCode": "显示代码",
-
       "hideCode": "隐藏",
-
       "copy": "复制",
-
       "collapse": "收起",
-
       "expand": "展开",
-
       "noEmail": "未绑定邮箱",
-
       "expiresOn": "过期：{date}",
-
       "codeLabel": "代码",
-
       "invalidNote": "此代码已失效。",
-
       "noCode": "无可用代码。",
-
       "share": {
-
         "heading": "设置你的 {appTitle} 账户",
-
         "goTo": "前往：",
-
+        "enterAt": "在 {url} 输入代码",
         "enterCode": "输入此代码：",
-
         "verifyEmail": "验证你的邮箱",
-
         "useEmail": "（使用 {email}）",
-
         "setup": "填写姓名、年级并设置密码",
-
         "validity": "一次性代码 · 有效期至 {date}"
-
       },
       "empty": "暂无注册码。"
     },
@@ -863,44 +872,46 @@
       "requeuePrompt": "将 {name} 名下的 {count} 名{count, plural, one {学生} other {学生}}重新放入待分配队列？",
       "requeueConfirm": "重新加入队列",
       "requeueDismiss": "暂不操作"
+    },
+    "tuteeRequests": {
+      "title": "退出与移除",
+      "help": "学生退出（由导师转达，含 7 天撤回期）及当前已移除的学生（自愿退出或纪律移除）。",
+      "kind": {
+        "VOLUNTARY": "退出",
+        "PUNISHMENT": "纪律"
+      },
+      "pendingHeading": "待生效的退出",
+      "pendingHelp": "导师已转达该学生的退出请求。除非导师撤回或你取消，撤回期结束后将自动生效。",
+      "pendingEmpty": "暂无待生效的退出。",
+      "relayedBy": "由 {tutor} 转达 · {subject}",
+      "autoApprovesOn": "{date} 自动生效",
+      "cancel": "取消",
+      "removedHeading": "已移除与已退出",
+      "removedHelp": "当前已移除的学生。重新启用会将其放回报名队列以重新分配，并解除本季度的报名标记。",
+      "removedEmpty": "暂无已移除的学生。",
+      "removedDiscipline": "纪律移除",
+      "removedOptOut": "已退出（经 {tutor}）",
+      "reinstate": "重新启用"
     }
   },
   "tutor": {
-
     "activate": {
-
       "title": "确认你的参与",
-
       "body": "新学期已开始。激活账户以继续辅导，或暂时退出。",
-
       "available": "我可以参加",
-
       "optOut": "退出",
-
       "note": "你之后可以在设置中更改。"
-
     },
-
     "meetings": {
-
       "title": "近期会议",
-
       "help": "无法参加会议？最迟可在会议开始前 30 分钟请假。",
-
       "excuseBtn": "请假",
-
       "submitExcuse": "提交",
-
       "cancelExcuse": "取消请假",
-
       "reasonPlaceholder": "原因（选填）",
-
       "excused": "你已为此次缺席请假。",
-
       "excusedBadge": "已请假",
-
       "tooLate": "已超过请假时间"
-
     },
     "nav": {
       "handbook": "手册"
@@ -981,7 +992,15 @@
       "mergeTitle": "合并课节",
       "mergeHelp": "在同一时段一起进行？勾选与考勤表中所选课节一同进行的其他课节。各自单独记录，但该时段的服务时数只计一次。",
       "mergeSelectPrimary": "请先在考勤表中选择一个课节，再将其他课节合并进来。",
-      "mergeNone": "没有与所选课节共享学员或科目的其他课节。"
+      "mergeNone": "没有与所选课节共享学员或科目的其他课节。",
+      "roomOnly": "教室 {room}",
+      "removalPending": "退出待生效",
+      "removalRecall": "撤回",
+      "requestRemoval": "转达退出",
+      "removalHelp": "学生要求退出？代为转达。有 7 天撤回期，你或管理员可撤回；之后自动生效。",
+      "removalReasonPlaceholder": "原因（可选）",
+      "removalSubmit": "转达退出",
+      "removalCancel": "取消"
     },
     "availability": {
       "loading": "正在加载时间段…",
@@ -1086,8 +1105,21 @@
       "GRADUATED": "已毕业",
       "OPTED_OUT": "已退出",
       "PENDING": "待激活",
-
       "ARCHIVED": "已归档"
+    },
+    "discipline": {
+      "title": "学生表现",
+      "help": "你所辅导学生的牌面情况。具体原因由团队保留。",
+      "removalPending": "已达移除阈值",
+      "removalBadge": "移除待审",
+      "standingTitle": "{red} 张红牌，{yellow} 张黄牌",
+      "onWarning": "警告中",
+      "ok": "正常",
+      "pendingCount": "{n} 项待审",
+      "cardStatus": {
+        "VALID": "有效",
+        "PENDING": "审核中"
+      }
     }
   },
   "public": {
@@ -1229,5 +1261,21 @@
     "addLanguageName": "名称（如 Français）",
     "addLanguageBtn": "添加语言",
     "back": "返回"
+  },
+  "account": {
+    "title": "账户",
+    "subtitle": "管理你的登录名称和密码。",
+    "identityHeading": "账户信息",
+    "tutorNote": "你同时还有一个辅导员账户。",
+    "openTutorSettings": "打开辅导员设置",
+    "password": {
+      "twoFactorHint": "为了你的账户安全，更改密码前我们会向你的邮箱发送验证码。",
+      "sendCode": "发送验证码",
+      "sending": "发送中…",
+      "codeSent": "我们已将验证码发送至 {email}，请在下方输入以完成更改。",
+      "codeLabel": "验证码",
+      "resend": "重新发送",
+      "cancel": "取消"
+    }
   }
 }

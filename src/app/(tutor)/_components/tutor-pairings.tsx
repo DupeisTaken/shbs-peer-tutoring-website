@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
@@ -7,20 +8,35 @@ import { DAY_NAMES, minToHm } from "~/lib/time";
 import { useMerge } from "~/app/(tutor)/_components/merge-context";
 
 /**
- * The tutor's pairings, each with a control to pick the default reference time slot.
- * Picking a slot copies its day/time onto the pairing (server-side, scoped to the caller).
+ * The tutor's pairings, each with a control to pick the default reference time slot and to
+ * request removal of a tutee who has left (admin-reviewed). Picking a slot copies its day/time
+ * onto the pairing (server-side, scoped to the caller).
  */
 export function TutorPairings() {
   const t = useTranslations();
   const utils = api.useUtils();
   const pairings = api.tutor.myPairings.useQuery();
   const availability = api.tutor.myAvailability.useQuery();
+  const removalRequests = api.tutor.myTuteeRemovalRequests.useQuery();
   const setSlot = api.tutor.setPairingSlot.useMutation({
     onSuccess: () => utils.tutor.myPairings.invalidate(),
   });
+
+  const refreshRemoval = () => utils.tutor.myTuteeRemovalRequests.invalidate();
+  const requestRemoval = api.tutor.requestTuteeRemoval.useMutation({ onSuccess: refreshRemoval });
+  const recallRemoval = api.tutor.recallTuteeRemoval.useMutation({ onSuccess: refreshRemoval });
+
+  // Which (pairing,tutee) the tutor is composing a removal reason for.
+  const [removing, setRemoving] = useState<{ pairingId: string; tuteeId: string } | null>(null);
+  const [reason, setReason] = useState("");
+
   const { primaryPairingId, mergeIds, setMergeIds } = useMerge();
 
   const slots = availability.data?.slots ?? [];
+  // Pending removal requests keyed by `${pairingId}:${tuteeId}` for quick lookup.
+  const pendingByKey = new Map(
+    (removalRequests.data ?? []).map((r) => [`${r.pairingId}:${r.tuteeId}`, r.id]),
+  );
 
   if (pairings.isLoading) return <p className="muted">{t("tutor.pairings.loading")}</p>;
   const list = pairings.data ?? [];
@@ -55,15 +71,96 @@ export function TutorPairings() {
             </span>
           </p>
           <p className="muted">
-            {t("tutor.pairings.tutees", {
-              names:
-                p.tutees.map((x) => x.tutee.englishName).join(", ") ||
-                t("tutor.pairings.noTuteesYet"),
-            })}
             {p.room
-              ? t("tutor.pairings.room", { room: p.room.name })
+              ? t("tutor.pairings.roomOnly", { room: p.room.name })
               : t("tutor.pairings.noRoom")}
           </p>
+
+          {/* Tutees on this pairing, each with a "left the program" removal request control. */}
+          <div className="mt-2">
+            {p.tutees.length === 0 ? (
+              <p className="muted text-sm">{t("tutor.pairings.noTuteesYet")}</p>
+            ) : (
+              <ul className="space-y-1">
+                {p.tutees.map((x) => {
+                  const key = `${p.id}:${x.tuteeId}`;
+                  const pendingId = pendingByKey.get(key);
+                  const composing =
+                    removing?.pairingId === p.id && removing?.tuteeId === x.tuteeId;
+                  return (
+                    <li key={x.tuteeId} className="text-sm">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-slate-700">{x.tutee.englishName}</span>
+                        {pendingId ? (
+                          <>
+                            <span className="badge-amber">
+                              {t("tutor.pairings.removalPending")}
+                            </span>
+                            <button
+                              className="link-danger text-xs"
+                              disabled={recallRemoval.isPending}
+                              onClick={() => recallRemoval.mutate({ requestId: pendingId })}
+                            >
+                              {t("tutor.pairings.removalRecall")}
+                            </button>
+                          </>
+                        ) : composing ? null : (
+                          <button
+                            className="link text-xs"
+                            onClick={() => {
+                              setRemoving({ pairingId: p.id, tuteeId: x.tuteeId });
+                              setReason("");
+                            }}
+                          >
+                            {t("tutor.pairings.requestRemoval")}
+                          </button>
+                        )}
+                      </div>
+                      {composing && (
+                        <div className="mt-1 space-y-2 rounded-md border border-slate-200 bg-slate-50 p-2">
+                          <p className="muted text-xs">{t("tutor.pairings.removalHelp")}</p>
+                          <textarea
+                            value={reason}
+                            onChange={(e) => setReason(e.target.value)}
+                            placeholder={t("tutor.pairings.removalReasonPlaceholder")}
+                            className="textarea w-full text-sm"
+                            rows={2}
+                          />
+                          <div className="flex gap-2">
+                            <button
+                              className="btn-secondary btn-sm"
+                              disabled={requestRemoval.isPending}
+                              onClick={() =>
+                                requestRemoval.mutate(
+                                  {
+                                    pairingId: p.id,
+                                    tuteeId: x.tuteeId,
+                                    reason: reason.trim() || undefined,
+                                  },
+                                  { onSuccess: () => setRemoving(null) },
+                                )
+                              }
+                            >
+                              {t("tutor.pairings.removalSubmit")}
+                            </button>
+                            <button
+                              className="link text-xs"
+                              onClick={() => setRemoving(null)}
+                            >
+                              {t("tutor.pairings.removalCancel")}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+                    </li>
+                  );
+                })}
+              </ul>
+            )}
+            {requestRemoval.error && (
+              <p className="mt-1 text-xs text-red-600">{requestRemoval.error.message}</p>
+            )}
+          </div>
           <div className="mt-2 flex flex-wrap items-center gap-2">
             <span className="text-xs font-medium text-slate-500">
               {t("tutor.pairings.defaultSlotLabel")}

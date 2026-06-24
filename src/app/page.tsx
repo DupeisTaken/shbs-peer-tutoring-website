@@ -5,6 +5,7 @@ import { getTranslations } from "next-intl/server";
 import { auth } from "~/server/auth";
 import { APP_TITLE } from "~/lib/branding";
 import { LanguageSwitcher } from "~/app/_components/language-switcher";
+import { ThemeSwitcher } from "~/app/_components/theme-switcher";
 
 export default async function Home() {
   // Signed-in users skip the landing page and go straight to their area.
@@ -25,7 +26,10 @@ export default async function Home() {
       {/* Top banner: brand + the three entry points */}
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur">
         <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <Link href="/" className="text-lg font-extrabold tracking-tight text-slate-900">
+          <Link
+            href="/"
+            className="text-lg font-extrabold tracking-tight whitespace-nowrap text-slate-900"
+          >
             {APP_TITLE}
           </Link>
           <nav className="flex flex-wrap items-center gap-2">
@@ -38,6 +42,7 @@ export default async function Home() {
             <Link href="/signin" className="btn-secondary btn-sm">
               {t("nav.teamSignin")}
             </Link>
+            <ThemeSwitcher />
             <LanguageSwitcher />
           </nav>
         </div>
@@ -52,8 +57,8 @@ export default async function Home() {
           />
           <div className="relative mx-auto max-w-3xl px-4 py-20 text-center sm:py-28">
             <span className="badge-slate mb-5">{t("tagline")}</span>
-            <h1 className="text-4xl font-extrabold tracking-tight sm:text-6xl">
-              <span className="bg-gradient-to-r from-accent-600 to-violet-600 bg-clip-text text-transparent">
+            <h1 className="text-4xl font-extrabold tracking-tight whitespace-nowrap sm:text-6xl">
+              <span className="bg-gradient-to-r from-accent-700 to-accent-400 bg-clip-text text-transparent">
                 {t("heroTitle")}
               </span>
             </h1>

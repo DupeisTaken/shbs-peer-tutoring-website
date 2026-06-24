@@ -263,10 +263,10 @@ export async function completeRegistration(
       tutorId = byEmail?.id ?? "";
     }
 
-    const desiredUsername = await ensureUniqueUsername(
-      defaultUsername(firstName, lastName, gradYear),
-      tutorId ? { excludeTutorId: tutorId } : {},
-    );
+    const desiredUsername = await ensureUniqueUsername(defaultUsername(firstName, lastName, gradYear), {
+      ...(tutorId ? { excludeTutorId: tutorId } : {}),
+      ...(existingUser ? { excludeUserId: existingUser.id } : {}),
+    });
 
     if (tutorId) {
       await tx.tutor.update({
@@ -306,6 +306,7 @@ export async function completeRegistration(
         where: { id: existingUser.id },
         data: {
           tutorId,
+          username: desiredUsername,
           name: `${firstName} ${lastName}`,
           passwordHash,
           mustChangePassword: false,
@@ -317,6 +318,7 @@ export async function completeRegistration(
       const createdUser = await tx.user.create({
         data: {
           email,
+          username: desiredUsername,
           name: `${firstName} ${lastName}`,
           role: "TUTOR",
           tutorId,

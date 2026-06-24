@@ -82,9 +82,17 @@ your changes (`generated/prisma/`) and move on.
   role. **Users & Roles (`/admin/users`)** is reachable by the elevated roles (HEAD/ADMIN/
   COORDINATOR, not VIEWER); it lists every login **plus** admin-created tutors without one (the
   `accounts` query), with **filters** (role / tutor status / account state). Only HEAD may
-  promote/demote ADMINs or **transfer leadership** (`transferHead` — outgoing head → ADMIN, kept
-  to exactly one head so the program is never leaderless). Coordinators may only **send links** and
-  toggle **their own** "can tutor" (`setUserCanTutor` self-checks).
+  promote/demote ADMINs, **transfer leadership** (`transferHead` — outgoing head → ADMIN, kept
+  to exactly one head so the program is never leaderless), or **delete a login** (`deleteUser` —
+  not self/another head; the linked Tutor is detached & preserved, not deleted). Coordinators may
+  only **send links** and toggle **their own** "can tutor" (`setUserCanTutor` self-checks).
+  **Dangerous actions step up:** changing a role, leadership transfer, and account deletion each
+  re-verify the caller's own password (`assertCallerPassword`, `src/server/auth/reauth.ts`) via a
+  `confirmPassword` arg, collected by the page's `ConfirmIdentityDialog`. **Every account has a
+  `User.username`** (unique across `User` *and* `Tutor` — sign in with username OR email);
+  `ensureUserUsername` backfills/mirrors it (the `accounts` query heals missing ones on read).
+  Self-service **account page** at **`/admin/account`** (opened by clicking your name in the top
+  bar; `account` router): edit display name + change password.
 - **Service-hour math lives in `src/lib/service-hours.ts`** — pure and unit-tested. It's
   the single source of truth; change hour logic there, not in routers. Hour **deductions**
   (and bonuses) are `ServiceHourAdjustment` rows (PUNISHMENT/EXTRA), summed into monthly totals.
@@ -122,8 +130,8 @@ or actions:
    then, ensure a manual revert path exists and document it.
 3. **Unified status surface.** `/admin/activity` is the single pane of glass — the live status
    of every request type (tutee signups, tutor applications, interview decisions, discipline
-   cards, attendance surveys, **opt-out / reentry**). When you add a new request/queue, surface its
-   count + items there too, each linking to the page that actions it.
+   cards, attendance surveys, **opt-out / reentry**, **tutee removals**). When you add a new
+   request/queue, surface its count + items there too, each linking to the page that actions it.
 4. **Explicit, reversible lifecycles — and no foot-guns.** Model a record's life as a **named
    status enum**, never a bare boolean: every state is nameable, filterable, and visible (graduated
    ≠ opted-out ≠ archived). **Member-initiated changes are gated, recallable, and reviewed** — a
@@ -160,14 +168,22 @@ submission time). See the `admin-philosophies` memory for the rationale.
   HEAD is otherwise set only via `transferHead`.
 - Passwords are hashed with scrypt (`src/server/auth/password.ts`). The dev seed password
   is for local use only — never in production.
+- **Changing a password requires emailed step-up 2FA.** Both self-service password changes
+  (`account.changePassword` for the admin area, `tutor.changePassword` for `/settings`) are a
+  two-step flow: `requestPasswordChangeCode` verifies the current password and emails a 6-digit
+  code, then `changePassword` requires that code plus the current + new password. The code logic
+  is `src/server/auth/step-up.ts` (`issueStepUpCode`/`verifyStepUpCode`, purpose `PASSWORD_CHANGE`):
+  HMAC-hashed at rest (keyed with `AUTH_SECRET`), 15-min expiry, single-use, attempt-capped, sent
+  via the email seam. It reuses the `EmailVerificationCode` table (the LOGIN_2FA second factor is
+  still scaffolded only — `src/server/auth/two-factor.ts`).
 - Sign-in accepts **username or email** + password — the identifier is matched against
-  `User.email` or the linked `Tutor.username` in the Credentials `authorize()`.
+  `User.email`, `User.username`, or the linked `Tutor.username` in the Credentials `authorize()`.
 - **Email delivery is Aliyun Direct Mail (SMTP via nodemailer)** in
   `src/server/email/sender.ts`. Active when `EMAIL_FROM` + `SMTP_PASSWORD` are set, else it
   logs in dev / warns in prod (never throws). Forgot-password emails the reset link through it
-  (`src/server/auth/password-reset.ts`). **Email 2FA stays scaffolded** and intentionally NOT
-  implemented (`src/server/auth/two-factor.ts`) — it can reuse the sender. Note: `.npmrc` sets
-  `legacy-peer-deps=true` for the next-auth v5 ⇄ nodemailer optional-peer clash.
+  (`src/server/auth/password-reset.ts`); the password-change step-up code goes through the same
+  seam. Note: `.npmrc` sets `legacy-peer-deps=true` for the next-auth v5 ⇄ nodemailer
+  optional-peer clash.
 
 ## Domain notes
 
@@ -178,8 +194,11 @@ submission time). See the `admin-philosophies` memory for the rationale.
   (`graduationYear`); without a known grade it falls back to the bare `jsmith`. **Grade is
   canonical and tutor-self-reported** (`/settings`) — class-of is derived and not directly editable
   (so a retained tutor just keeps their grade and isn't force-graduated). Uniqueness is enforced by
-  `ensureUniqueUsername` (`src/server/auth/username.ts`): on a clash it appends a letter
-  (`jsmith27b`), then a numeric counter as a last resort.
+  `ensureUniqueUsername` (`src/server/auth/username.ts`) **across both `Tutor` and `User`**: on a
+  clash it appends a letter (`jsmith27b`), then a numeric counter as a last resort. When deriving a
+  Tutor from a single display string (accepting an application, enabling can-tutor), always use
+  **`splitDisplayName`** — a one-token name ("Madonna") keeps an *empty* last name, never
+  duplicated into "Madonna Madonna". (The `accounts` query self-heals any legacy duplicated row.)
 - **Tutor lifecycle is a status, not a boolean.** `Tutor.status` is
   `ACTIVE | PENDING | GRADUATED | OPTED_OUT | ARCHIVED` (replaced the old `active` flag — one source
   of truth; migrate any `where: { active: true }` to `status: "ACTIVE"`). Only `ACTIVE` tutors are
@@ -217,6 +236,33 @@ submission time). See the `admin-philosophies` memory for the rationale.
   flips it to `ACTIVE` (`assignSignup` computes "fulfilled"). Fulfilled requests don't vanish —
   they stay in place tagged + collapsed for the session so the queue numbering doesn't jump.
   Then the **tutor** picks the default time slot from their dashboard.
+- **Tutee opt-out & removal** (`TuteeRemovalRequest`, **kind `VOLUNTARY`|`PUNISHMENT`**, states
+  PENDING/APPROVED/DENIED/RECALLED/REINSTATED). Tutees have no login, so both flows are handled for
+  them — and both are **largely automatic**, not admin-approved. Engine: `src/server/discipline/removal.ts`.
+  - *Opt-out (voluntary):* the tutee tells their tutor; the tutor relays it from the dashboard
+    (`requestTuteeRemoval`) → PENDING with a **7-day recall window** (`eligibleAt`, `TUTEE_OPT_OUT_COOLDOWN_DAYS`).
+    The tutor can **recall** (`recallTuteeRemoval`) or an admin **cancel** (`cancelTuteeOptOut`)
+    during the window. Otherwise it **auto-approves** — `finalizeDueOptOuts` runs **lazily** when a
+    relevant page loads (no scheduler): tutee `INACTIVE`, pairings detached, relaying tutor notified.
+  - *Punishment:* no tutor action. When VALID-card standing hits the removal threshold (2 effective
+    reds), `syncPunishmentRemoval` removes the tutee **immediately** (INACTIVE + detach + finalized
+    PUNISHMENT record stamped with the active-period key), notifying the tutor + admins. Called from
+    `reviewCard` (admin) and `submitAttendance`'s auto-issued absence cards (tutor).
+  - **Same-quarter re-signup flag:** a PUNISHMENT removal stamps `removedPeriodKey`; the admin
+    `tutees` query labels any PENDING signup matching that identity (exact name/email/phone, same
+    period) with a `bannedMatch` so the signup queue (`/admin/requests`) flags it for vetting — it
+    **labels, never auto-blocks**.
+  - **Admin surface:** combined **`/admin/tutee-requests`** — *pending opt-outs* (countdown + cancel)
+    and *removed & opted-out* (each `reinstateTutee` → tutee back to PENDING for reassignment, lifts
+    the flag). Pending-opt-out count + panel on `/admin/activity`. **Setting a tutee `INACTIVE`
+    anywhere (incl. `setTuteeStatus`) detaches their pairing links**; `myPairings` also filters
+    `INACTIVE` as a guard.
+- **Discipline visibility for tutors (reason-free).** The 6-slot meter lives in the shared
+  `DisciplineSlots` (`~/app/_components/discipline-slots.tsx`, used by `/admin/discipline` and the
+  tutor side). Tutors see each of their tutees' **standing** (meter + warning/removal badge) inline
+  in the attendance form and a **punishment-history** section on the dashboard (`TutorDiscipline`),
+  both fed by `tutor.myTuteeDiscipline`. **Card *reasons* are never sent to the tutor side** — only
+  the colour, valid/pending state, and date. The reason stays with the team on `/admin/discipline`.
 - **Tutor flow**: public application → admin assigns up to 3 interviewers (one **head**)
   → head schedules the interview, which shows for every panelist.
 - **Subjects** (Prisma model `Subject`, with `SubjectLevel` for the AP/Honors/Standard track and
@@ -236,7 +282,9 @@ submission time). See the `admin-philosophies` memory for the rationale.
 src/
   app/                 # App Router; (tutor) and (admin) route groups, signup/ + tutor-signup/
   server/api/routers/  # tRPC routers + tests
-  server/auth/         # Auth.js config, password.ts (scrypt), two-factor.ts (stub)
+  server/auth/         # Auth.js config, password.ts (scrypt), username.ts (splitDisplayName),
+                       #   reauth.ts (step-up password re-verify), step-up.ts (emailed 2FA code),
+                       #   two-factor.ts (LOGIN_2FA stub)
   lib/                 # service-hours.ts, branding.ts, time.ts
   styles/globals.css   # Tailwind + design-system classes
 prisma/schema.prisma   # data model   ·   prisma/seed.ts  # sample data + dev users

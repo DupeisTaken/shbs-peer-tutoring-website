@@ -38,6 +38,13 @@ model User {
   /// Login identifier. Also the address future email-based 2FA codes are sent to.
   email String  @unique
 
+  /// Account username — an alternate sign-in identifier (sign in with username OR email) and the
+  /// account's stable handle shown across the admin area. Every account has one: for a linked
+  /// tutor it mirrors `Tutor.username`; otherwise it's derived from the name/email. Unique across
+  /// both `User` and `Tutor` (see src/server/auth/username.ts). Nullable only to allow lazy
+  /// backfill of pre-existing rows — the app assigns one on sign-in / creation.
+  username String? @unique
+
   /// scrypt password hash (see src/server/auth/password.ts). Null until a password is set.
   passwordHash String?
 
@@ -414,8 +421,58 @@ model Tutee {
   pairings       PairingTutee[]
   sessions       SessionTutee[]
   cards          DisciplinaryCard[]
+  removalRequests TuteeRemovalRequest[]
 
   @@index([status])
+}
+
+/// A request to remove a tutee from the program, raised by their tutor (the person who knows the
+/// tutee stopped attending / left) and reviewed by an admin — mirroring the tutor opt-out flow.
+/// Recallable while PENDING. Approving sets the tutee INACTIVE and detaches them from the pairing;
+/// denying just closes it. `pairingId`/`requestedByTutorId` are scalar (no relation) — names are
+/// resolved in the admin query — so adding this needs no edits to Pairing/Tutor.
+model TuteeRemovalRequest {
+  id        String            @id @default(cuid())
+  tuteeId   String
+  tutee     Tutee             @relation(fields: [tuteeId], references: [id], onDelete: Cascade)
+  /// Why removal was raised: VOLUNTARY (the tutee asked to opt out, relayed by their tutor — a
+  /// 7-day recall window then auto-approves) or PUNISHMENT (auto-removed immediately when the
+  /// tutee's disciplinary standing hits the removal threshold).
+  kind      TuteeRemovalKind  @default(VOLUNTARY)
+  /// The pairing the tutor relayed the opt-out from (context). Null for PUNISHMENT.
+  pairingId String?
+  /// The tutor who relayed the opt-out (scalar; resolved to a name in the admin query). Null for
+  /// PUNISHMENT (no tutor action — the system raises it).
+  requestedByTutorId String?
+  reason    String?
+  state     TuteeRequestState @default(PENDING)
+  /// VOLUNTARY opt-out only: earliest the request auto-approves (createdAt + 7-day recall window).
+  /// The tutor can recall, or an admin cancel, before this. Null for PUNISHMENT (immediate).
+  eligibleAt DateTime?
+  /// The active period (e.g. "26-27 Q1") stamped when the removal finalized. A PUNISHMENT removal
+  /// flags same-identity re-signups for that period (see the signup queue). Null until finalized.
+  removedPeriodKey String?
+  createdAt DateTime          @default(now())
+  /// When the request left PENDING (approved / denied / recalled), plus who acted.
+  resolvedAt    DateTime?
+  resolvedById  String?
+  resolvedByName String?
+
+  @@index([tuteeId])
+  @@index([state])
+}
+
+enum TuteeRequestState {
+  PENDING // opt-out awaiting its recall window
+  APPROVED // finalized removal in effect (tutee INACTIVE)
+  DENIED // admin cancelled an in-flight opt-out (no removal)
+  RECALLED // tutor recalled their opt-out (no removal)
+  REINSTATED // admin reversed a finalized removal (tutee active again; any ban lifted)
+}
+
+enum TuteeRemovalKind {
+  VOLUNTARY
+  PUNISHMENT
 }
 
 /// A reusable named time slot (e.g. "Mon 3:30–4:30"). The catalog is admin-managed.
@@ -862,16 +919,18 @@ model AnnouncementAck {
 }
 
 // ----------------------------------------------------------------------------
-// Auth scaffolding — future email-based 2FA (NOT yet implemented)
+// Emailed one-time codes (step-up / 2FA)
 //
-// These structures exist so the second-factor flow can be added later without a
-// disruptive migration. No application code reads or writes them yet; the seams
-// live in src/server/auth/two-factor.ts and src/server/email/sender.ts.
+// `EmailVerificationCode` now backs the PASSWORD_CHANGE step-up flow (an emailed code is
+// required to change a password while signed in — see src/server/auth/step-up.ts). The
+// LOGIN_2FA second factor remains scaffolded only (src/server/auth/two-factor.ts); the
+// email seam is src/server/email/sender.ts.
 // ----------------------------------------------------------------------------
 
 enum VerificationPurpose {
   LOGIN_2FA // emailed one-time code as a login second factor
   PASSWORD_RESET // forgot-password reset (see PasswordResetToken)
+  PASSWORD_CHANGE // emailed step-up code required to change a password while signed in
   // Future: EMAIL_CHANGE, ...
 }
 

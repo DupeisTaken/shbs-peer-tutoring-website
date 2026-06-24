@@ -4,7 +4,8 @@
     "save": "保存",
     "saved": "保存しました。",
     "language": "言語",
-    "backToMain": "← メインページに戻る"
+    "backToMain": "← メインページに戻る",
+    "close": "閉じる"
   },
   "auth": {
     "signinTitle": "サインイン",
@@ -14,7 +15,6 @@
     "signIn": "サインイン",
     "signingIn": "サインイン中…",
     "forgotPassword": "パスワードを忘れましたか？",
-
     "createAccount": "アカウントを作成",
     "lookingForTutor": "チューターをお探しですか？",
     "requestOne": "こちらから申請",
@@ -99,6 +99,10 @@
         "body": "アカウントが作成されました。メールアドレスまたはユーザー名 {username} でサインインしてください。",
         "signIn": "サインインへ"
       }
+    },
+    "staleSession": {
+      "title": "セッションが古くなっています",
+      "body": "チューターアカウントの連携が無効になりました。サインアウトして再度サインインし直してください。"
     }
   },
   "landing": {
@@ -222,7 +226,6 @@
       "GRADUATED": "卒業済み",
       "OPTED_OUT": "離脱済み",
       "PENDING": "保留中",
-
       "ARCHIVED": "アーカイブ済み"
     },
     "tutees": {
@@ -287,7 +290,14 @@
       "available": "空き時間：{list}",
       "reach": "連絡先：{contact}",
       "signed": "署名：✓ {name}",
-      "notSigned": "署名：— 未署名"
+      "notSigned": "署名：— 未署名",
+      "banFlag": "再登録の可能性",
+      "banFlagTitle": "今四半期に削除された生徒と一致（{fields}）。割り当て前に確認してください。",
+      "banField": {
+        "name": "氏名",
+        "email": "メール",
+        "phone": "電話"
+      }
     },
     "readOnly": {
       "banner": "読み取り専用アクセスです — 閲覧はできますが変更はできません。連絡先の詳細は非表示です。"
@@ -323,7 +333,8 @@
         "policyDocuments": "ポリシー文書",
         "auditLog": "監査ログ",
         "usersRoles": "ユーザーと権限",
-        "registrationCodes": "登録コード"
+        "registrationCodes": "登録コード",
+        "tuteeRequests": "生徒の削除"
       }
     },
     "dashboard": {
@@ -359,7 +370,8 @@
         "openApplications": "審査中の応募",
         "cardsToReview": "確認待ちのカード",
         "tutorRequests": "離脱・復帰",
-        "recentSurveys": "最近のアンケート"
+        "recentSurveys": "最近のアンケート",
+        "tuteeRequests": "保留中の離脱"
       },
       "panels": {
         "tuteeSignups": {
@@ -386,6 +398,10 @@
           "title": "最近の出席アンケート",
           "empty": "まだアンケートはありません。",
           "hours": "{hours} h"
+        },
+        "tuteeRequests": {
+          "title": "保留中の生徒離脱",
+          "empty": "保留中の離脱はありません。"
         }
       }
     },
@@ -445,7 +461,6 @@
       "effectPending": "保留中の生徒申請キューをクリアします（非アクティブとしてアーカイブ）。",
       "effectTutees": "現在ペアリング済みの生徒をすべてアーカイブします — 継続には再申請が必要です。",
       "effectPairings": "現在のペアリングボードをクリアします（過去のペアリングと出席記録は履歴に残ります）。",
-
       "effectReactivate": "継続するチューターは自分のページで再アクティブ化（参加または離脱を選択）する必要があります。",
       "effectAvailability": "有効なチューターの空き状況を確認するよう促します。",
       "effectGraduate": "G12チューターを卒業処理します（Q4開始時に離脱）。",
@@ -459,7 +474,6 @@
       "refreshing": "リフレッシュ中…",
       "done": "{name} へリフレッシュしました。{count} 名の生徒をアーカイブしました。",
       "doneGrad": "{graduated} 名を卒業処理しました。{aged} 名のチューターを1学年進級させました。",
-
       "donePending": "{count} 名のチューターが再アクティブ化待ちです。",
       "modalTitle": "{name} のチューター空き状況",
       "modalIntro": "継続するチューターを確認してください。チェックを外したチューターはアーカイブされます。",
@@ -493,7 +507,8 @@
         "account": "アカウント",
         "role": "役割",
         "canTutor": "チュータリング可",
-        "canTranslate": "翻訳者"
+        "canTranslate": "翻訳者",
+        "actions": "操作"
       },
       "roles": {
         "VIEWER": "閲覧者（読み取り専用）",
@@ -516,7 +531,20 @@
       "translateDefaultHint": "管理者とコーディネーターは常に翻訳を編集できます。",
       "tutorActive": "有効",
       "tutorInactive": "無効",
-      "empty": "ユーザーまたはチューターはまだいません。"
+      "empty": "ユーザーまたはチューターはまだいません。",
+      "delete": "削除",
+      "confirm": {
+        "passwordLabel": "あなたのパスワード",
+        "passwordPlaceholder": "パスワードを入力",
+        "cancel": "キャンセル",
+        "working": "処理中…",
+        "roleTitle": "役割を変更",
+        "roleBody": "{name} の役割を {role} に設定しますか？続行するには本人確認をしてください。",
+        "roleConfirm": "役割を変更",
+        "transferTitle": "リーダーを引き継ぐ",
+        "deleteTitle": "アカウントを削除",
+        "deleteBody": "{name} のログインを完全に削除しますか？チューター記録（ユーザー名・学年・履歴）は保持されます。続行するには本人確認をしてください。"
+      }
     },
     "registrationCodes": {
       "title": "登録コード",
@@ -539,43 +567,25 @@
         "expired": "期限切れ"
       },
       "revoke": "無効化",
-
       "showCode": "コードを表示",
-
       "hideCode": "非表示",
-
       "copy": "コピー",
-
       "collapse": "折りたたむ",
-
       "expand": "展開",
-
       "noEmail": "メール未設定",
-
       "expiresOn": "有効期限 {date}",
-
       "codeLabel": "コード",
-
       "invalidNote": "このコードは無効です。",
-
       "noCode": "コードは利用できません。",
-
       "share": {
-
         "heading": "{appTitle} アカウントを設定",
-
         "goTo": "アクセス：",
-
+        "enterAt": "{url} でコードを入力",
         "enterCode": "このコードを入力：",
-
         "verifyEmail": "メールアドレスを確認",
-
         "useEmail": "（{email} を使用）",
-
         "setup": "名前・学年・パスワードを設定",
-
         "validity": "使い捨てコード · 有効期限 {date}"
-
       },
       "empty": "登録コードはまだありません。"
     },
@@ -618,7 +628,6 @@
       "saved": "保存しました。",
       "timeLabel": "時間",
       "exempt": "免除（X）",
-
       "selfExcused": "自己申告の欠席（{count}）",
       "status": {
         "present": "出席",
@@ -863,44 +872,46 @@
         "status": "ステータス"
       },
       "tableEmpty": "カードはまだありません。"
+    },
+    "tuteeRequests": {
+      "title": "離脱と削除",
+      "help": "（チューターが代理提出し、7日間の撤回期間がある）生徒の離脱と、現在削除されている生徒（自主離脱または懲戒削除）。",
+      "kind": {
+        "VOLUNTARY": "離脱",
+        "PUNISHMENT": "懲戒"
+      },
+      "pendingHeading": "保留中の離脱",
+      "pendingHelp": "チューターが生徒の離脱希望を代理提出しました。撤回期間後、チューターの撤回または管理者の取り消しがなければ自動承認されます。",
+      "pendingEmpty": "保留中の離脱はありません。",
+      "relayedBy": "{tutor} が代理提出 · {subject}",
+      "autoApprovesOn": "{date} に自動承認",
+      "cancel": "取り消す",
+      "removedHeading": "削除・離脱済み",
+      "removedHelp": "現在削除されている生徒。復帰させると登録キューに戻して再割り当てでき、当四半期の登録フラグも解除されます。",
+      "removedEmpty": "削除された生徒はいません。",
+      "removedDiscipline": "懲戒削除",
+      "removedOptOut": "離脱（{tutor} 経由）",
+      "reinstate": "復帰"
     }
   },
   "tutor": {
-
     "activate": {
-
       "title": "参加状況の確認",
-
       "body": "新学期が始まりました。チューターを続けるにはアカウントを有効化、または今回は離脱を選択してください。",
-
       "available": "参加します",
-
       "optOut": "離脱する",
-
       "note": "後で設定から変更できます。"
-
     },
-
     "meetings": {
-
       "title": "今後の会議",
-
       "help": "会議に出られませんか？開始 30 分前まで欠席を申告できます。",
-
       "excuseBtn": "欠席を申告",
-
       "submitExcuse": "送信",
-
       "cancelExcuse": "申告を取り消す",
-
       "reasonPlaceholder": "理由（任意）",
-
       "excused": "この欠席を申告しました。",
-
       "excusedBadge": "申告済み",
-
       "tooLate": "申告期限を過ぎています"
-
     },
     "nav": {
       "handbook": "ハンドブック"
@@ -913,7 +924,6 @@
       "GRADUATED": "卒業済み",
       "OPTED_OUT": "離脱済み",
       "PENDING": "保留中",
-
       "ARCHIVED": "アーカイブ済み"
     },
     "attendance": {
@@ -989,7 +999,15 @@
       "mergeTitle": "セッションを統合",
       "mergeHelp": "1つのブロックでまとめて行いますか？出席フォームで選択したセッションに同時に行うセッションをチェックしてください。各セッションは個別に記録されますが、ブロックの奉仕時間は1回のみカウントされます。",
       "mergeSelectPrimary": "出席フォームでセッションを選択して、他のセッションを統合してください。",
-      "mergeNone": "選択したセッションと生徒または科目を共有する他のセッションはありません。"
+      "mergeNone": "選択したセッションと生徒または科目を共有する他のセッションはありません。",
+      "roomOnly": "教室 {room}",
+      "removalPending": "離脱保留中",
+      "removalRecall": "撤回",
+      "requestRemoval": "離脱を代理提出",
+      "removalHelp": "生徒が離脱を希望？代理で提出します。7日間はあなた（または管理者）が撤回でき、その後は自動です。",
+      "removalReasonPlaceholder": "理由（任意）",
+      "removalSubmit": "離脱を提出",
+      "removalCancel": "キャンセル"
     },
     "availability": {
       "loading": "タイムスロットを読み込み中…",
@@ -1087,6 +1105,20 @@
         "earned": "{earned} h 獲得",
         "extra": "+ {extra} h 追加",
         "penalty": "− {penalty} h 減算"
+      }
+    },
+    "discipline": {
+      "title": "生徒の素行",
+      "help": "担当生徒のカード状況です。具体的な理由はチームが保持します。",
+      "removalPending": "削除しきい値に到達",
+      "removalBadge": "削除待ち",
+      "standingTitle": "赤 {red}、黄 {yellow}",
+      "onWarning": "警告中",
+      "ok": "問題なし",
+      "pendingCount": "{n} 件審査中",
+      "cardStatus": {
+        "VALID": "有効",
+        "PENDING": "審査中"
       }
     }
   },
@@ -1229,5 +1261,21 @@
     "addLanguageName": "名前（例：Français）",
     "addLanguageBtn": "言語を追加",
     "back": "戻る"
+  },
+  "account": {
+    "title": "アカウント",
+    "subtitle": "ログイン名とパスワードを管理します。",
+    "identityHeading": "アカウント情報",
+    "tutorNote": "チューターアカウントもお持ちです。",
+    "openTutorSettings": "チューター設定を開く",
+    "password": {
+      "twoFactorHint": "セキュリティのため、パスワード変更の前に確認コードをメールで送信します。",
+      "sendCode": "確認コードを送信",
+      "sending": "送信中…",
+      "codeSent": "{email} に確認コードを送信しました。下に入力して完了してください。",
+      "codeLabel": "確認コード",
+      "resend": "コードを再送",
+      "cancel": "キャンセル"
+    }
   }
 }

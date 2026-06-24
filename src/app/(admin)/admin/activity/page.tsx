@@ -19,6 +19,7 @@ export default function ActivityPage() {
   const cards = api.admin.disciplinaryCards.useQuery();
   const sessions = api.admin.sessions.useQuery();
   const tutorRequests = api.admin.tutorRequests.useQuery();
+  const tuteeRequests = api.admin.tuteeRemovalRequests.useQuery();
 
   const pendingTutees = (tutees.data ?? [])
     .filter((t) => t.status === "PENDING")
@@ -29,6 +30,7 @@ export default function ActivityPage() {
   const pendingCards = (cards.data ?? []).filter((c) => c.reviewStatus === "PENDING");
   const recentSessions = (sessions.data ?? []).slice(0, 10);
   const openRequests = tutorRequests.data ?? [];
+  const openTuteeRequests = tuteeRequests.data?.pendingOptOuts ?? [];
 
   return (
     <div className="space-y-8">
@@ -46,6 +48,11 @@ export default function ActivityPage() {
           label={t("admin.activity.counters.tutorRequests")}
           value={openRequests.length}
           href="/admin/tutor-requests"
+        />
+        <Counter
+          label={t("admin.activity.counters.tuteeRequests")}
+          value={openTuteeRequests.length}
+          href="/admin/tutee-requests"
         />
         <Counter
           label={t("admin.activity.counters.recentSurveys")}
@@ -115,6 +122,29 @@ export default function ActivityPage() {
                       date: new Date(r.eligibleAt).toLocaleDateString(),
                     })
                   : ""}
+            </span>
+          </Row>
+        ))}
+      </Panel>
+
+      {/* Tutee removal requests (tutor-raised) */}
+      <Panel
+        title={t("admin.activity.panels.tuteeRequests.title")}
+        href="/admin/tutee-requests"
+        empty={t("admin.activity.panels.tuteeRequests.empty")}
+        manageLabel={t("admin.activity.manage")}
+      >
+        {openTuteeRequests.map((r) => (
+          <Row key={r.id}>
+            <span className="font-medium text-slate-800">{r.tutee.englishName}</span>
+            <span className="badge-amber">{t("admin.tuteeRequests.kind.VOLUNTARY")}</span>
+            <span className="muted text-xs">{r.tutorName ?? "—"}</span>
+            <span className="muted ml-auto text-xs">
+              {r.eligibleAt
+                ? t("admin.tuteeRequests.autoApprovesOn", {
+                    date: new Date(r.eligibleAt).toLocaleDateString(),
+                  })
+                : ""}
             </span>
           </Row>
         ))}

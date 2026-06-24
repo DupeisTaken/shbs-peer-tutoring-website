@@ -8,6 +8,14 @@ import { getActivePeriodOrNull } from "~/server/period";
 import { promoteApplicantToTutor } from "~/server/tutors/promote";
 import { notifyAdmins, notifyTutors } from "~/server/notifications/create";
 import { hashPassword, verifyPassword } from "~/server/auth/password";
+import { issueStepUpCode, verifyStepUpCode } from "~/server/auth/step-up";
+import { maskEmail } from "~/server/auth/mask";
+import {
+  TUTEE_OPT_OUT_COOLDOWN_DAYS,
+  finalizeDueOptOuts,
+  syncPunishmentRemoval,
+} from "~/server/discipline/removal";
+import { standingFromCounts } from "~/lib/discipline";
 import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
 
 const TUTOR_STATUS = ["PRESENT", "RESCHEDULED", "EXTRA", "TUTOR_ABSENT"] as const;
@@ -42,9 +50,84 @@ export const tutorRouter = createTRPCRouter({
         room: true,
         term: true,
         timeSlot: true,
-        tutees: { include: { tutee: true } },
+        // Removed (INACTIVE) tutees drop off the roster immediately — only show current ones.
+        tutees: { where: { tutee: { status: { not: "INACTIVE" } } }, include: { tutee: true } },
       },
     });
+  }),
+
+  /**
+   * Disciplinary standing for each of the caller's active-term tutees — the 6-slot meter data
+   * plus a reason-free card timeline (color / valid-or-pending / date). **Card reasons are
+   * intentionally never returned to tutors** — only the count/standing is visible on their side.
+   * Drives the meter in the attendance form and the punishment-history section.
+   */
+  myTuteeDiscipline: tutorProcedure.query(async ({ ctx }) => {
+    const pairings = await ctx.db.pairing.findMany({
+      where: { tutorId: ctx.session.tutorId, term: { active: true } },
+      select: {
+        tutees: { select: { tuteeId: true, tutee: { select: { englishName: true } } } },
+      },
+    });
+    const names = new Map<string, string>();
+    for (const p of pairings) {
+      for (const x of p.tutees) names.set(x.tuteeId, x.tutee.englishName);
+    }
+    const tuteeIds = [...names.keys()];
+    if (tuteeIds.length === 0) return [];
+
+    // VALID + PENDING cards only (INVALID don't count and aren't shown). No `reason` selected.
+    const cards = await ctx.db.disciplinaryCard.findMany({
+      where: { tuteeId: { in: tuteeIds }, reviewStatus: { in: ["VALID", "PENDING"] } },
+      orderBy: { createdAt: "desc" },
+      select: {
+        id: true,
+        tuteeId: true,
+        color: true,
+        reviewStatus: true,
+        createdAt: true,
+        session: { select: { date: true } },
+      },
+    });
+
+    const byTutee = new Map<string, typeof cards>();
+    for (const c of cards) {
+      const list = byTutee.get(c.tuteeId) ?? [];
+      list.push(c);
+      byTutee.set(c.tuteeId, list);
+    }
+
+    return tuteeIds
+      .map((id) => {
+        const list = byTutee.get(id) ?? [];
+        const counts = { validYellow: 0, validRed: 0, pendingYellow: 0, pendingRed: 0 };
+        for (const c of list) {
+          if (c.reviewStatus === "VALID") {
+            if (c.color === "YELLOW") counts.validYellow++;
+            else counts.validRed++;
+          } else {
+            if (c.color === "YELLOW") counts.pendingYellow++;
+            else counts.pendingRed++;
+          }
+        }
+        const standing = standingFromCounts(counts);
+        return {
+          tuteeId: id,
+          englishName: names.get(id) ?? "",
+          validYellow: standing.validYellow,
+          validRed: standing.validRed,
+          pendingCount: counts.pendingYellow + counts.pendingRed,
+          effectiveReds: standing.effectiveReds,
+          removalPending: standing.removalPending,
+          cards: list.map((c) => ({
+            id: c.id,
+            color: c.color,
+            reviewStatus: c.reviewStatus,
+            date: c.session?.date ?? c.createdAt,
+          })),
+        };
+      })
+      .sort((a, b) => b.effectiveReds - a.effectiveReds || a.englishName.localeCompare(b.englishName));
   }),
 
   /** The signed-in tutor's attendance submissions (optionally filtered by month). */
@@ -386,6 +469,19 @@ export const tutorRouter = createTRPCRouter({
         });
       }
 
+      // Auto-issued (VALID) red cards for unexcused absences can push a tutee over the removal
+      // threshold — reconcile their punishment-removal request. (Tutor-requested cards stay
+      // PENDING, so they don't count until reviewed.)
+      const autoRedTuteeIds = [
+        ...new Set(
+          tuteeRows.filter((tt) => tt.status === "UNEXCUSED_ABSENT").map((tt) => tt.tuteeId),
+        ),
+      ];
+      // syncPunishmentRemoval removes immediately and notifies the tutor + admins itself.
+      for (const tuteeId of autoRedTuteeIds) {
+        await syncPunishmentRemoval(ctx.db, tuteeId);
+      }
+
       return result;
     }),
 
@@ -495,12 +591,34 @@ export const tutorRouter = createTRPCRouter({
       return { ok: true };
     }),
 
-  /** Change the tutor's own password (requires the current one). */
+  /**
+   * Step 1 of a password change: verify the current password, then email a one-time verification
+   * code (step-up 2FA). Returns the masked address. The code is required in `changePassword`.
+   */
+  requestPasswordChangeCode: tutorProcedure
+    .input(z.object({ currentPassword: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      const user = await ctx.db.user.findUniqueOrThrow({
+        where: { id: ctx.session.user.id },
+        select: { passwordHash: true },
+      });
+      if (!user.passwordHash || !verifyPassword(input.currentPassword, user.passwordHash)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Current password is incorrect." });
+      }
+      const { email } = await issueStepUpCode(ctx.session.user.id, "PASSWORD_CHANGE");
+      return { sent: true, email: maskEmail(email) };
+    }),
+
+  /**
+   * Step 2: change the tutor's own password. Requires the current password AND the emailed
+   * verification code (issued by `requestPasswordChangeCode`). The code is single-use + expiring.
+   */
   changePassword: tutorProcedure
     .input(
       z.object({
         currentPassword: z.string().min(1),
         newPassword: z.string().min(8, "Use at least 8 characters."),
+        code: z.string().trim().min(1),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -510,6 +628,18 @@ export const tutorRouter = createTRPCRouter({
       });
       if (!user.passwordHash || !verifyPassword(input.currentPassword, user.passwordHash)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Current password is incorrect." });
+      }
+      const verified = await verifyStepUpCode(ctx.session.user.id, "PASSWORD_CHANGE", input.code);
+      if (!verified.ok) {
+        const message =
+          verified.error === "expired"
+            ? "That code has expired. Request a new one."
+            : verified.error === "too-many-attempts"
+              ? "Too many attempts. Request a new code."
+              : verified.error === "no-code"
+                ? "Request a verification code first."
+                : "That code is incorrect.";
+        throw new TRPCError({ code: "BAD_REQUEST", message });
       }
       await ctx.db.user.update({
         where: { id: ctx.session.user.id },
@@ -935,6 +1065,106 @@ export const tutorRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const res = await ctx.db.tutorStatusRequest.updateMany({
         where: { id: input.requestId, tutorId: ctx.session.tutorId, state: "PENDING" },
+        data: { state: "RECALLED", resolvedAt: new Date(), resolvedByName: "self" },
+      });
+      if (res.count === 0) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "No open request to recall." });
+      }
+      return { ok: true };
+    }),
+
+  // --------------------------------------------------------------------------
+  // Tutee opt-out — the tutee asks to leave; their tutor relays it. A 7-day recall window then
+  // auto-approves (removed). The tutor can recall meanwhile. (Punishment removals are automatic
+  // and need no tutor action — see src/server/discipline/removal.ts.)
+  // --------------------------------------------------------------------------
+  /** The caller's open (PENDING) opt-out requests, keyed for the pairings UI. */
+  myTuteeRemovalRequests: tutorProcedure.query(async ({ ctx }) => {
+    // Lazily finalize any opt-out whose recall window elapsed (no scheduler).
+    await finalizeDueOptOuts(ctx.db);
+    return ctx.db.tuteeRemovalRequest.findMany({
+      where: { requestedByTutorId: ctx.session.tutorId, kind: "VOLUNTARY", state: "PENDING" },
+      select: { id: true, tuteeId: true, pairingId: true, reason: true, createdAt: true, eligibleAt: true },
+    });
+  }),
+
+  /**
+   * Relay a tutee's opt-out (they asked to leave). Scoped: the pairing must belong to the caller
+   * and the tutee must be on it. Opens a PENDING request with a 7-day recall window (`eligibleAt`);
+   * the tutee stays active until then. If not recalled (tutor) or cancelled (admin), it
+   * auto-approves and the tutee is removed. Notifies admins. Idempotent per tutee+pairing.
+   */
+  requestTuteeRemoval: activeTutorProcedure
+    .input(
+      z.object({
+        pairingId: z.string().cuid(),
+        tuteeId: z.string().cuid(),
+        reason: z.string().trim().max(1000).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Verify the pairing belongs to the caller and the tutee is on its roster.
+      const link = await ctx.db.pairingTutee.findFirst({
+        where: {
+          tuteeId: input.tuteeId,
+          pairingId: input.pairingId,
+          pairing: { tutorId: ctx.session.tutorId },
+        },
+        select: { tuteeId: true },
+      });
+      if (!link) {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "That tutee isn't on one of your pairings.",
+        });
+      }
+      const open = await ctx.db.tuteeRemovalRequest.findFirst({
+        where: { tuteeId: input.tuteeId, state: "PENDING" },
+        select: { id: true },
+      });
+      if (open) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "An opt-out for this tutee is already pending.",
+        });
+      }
+      const [tutee, tutor] = await Promise.all([
+        ctx.db.tutee.findUnique({ where: { id: input.tuteeId }, select: { englishName: true } }),
+        ctx.db.tutor.findUnique({
+          where: { id: ctx.session.tutorId },
+          select: { englishName: true },
+        }),
+      ]);
+      const eligibleAt = new Date(Date.now() + TUTEE_OPT_OUT_COOLDOWN_DAYS * 24 * 60 * 60 * 1000);
+      const req = await ctx.db.tuteeRemovalRequest.create({
+        data: {
+          tuteeId: input.tuteeId,
+          kind: "VOLUNTARY",
+          pairingId: input.pairingId,
+          requestedByTutorId: ctx.session.tutorId,
+          reason: input.reason?.trim() ? input.reason.trim() : null,
+          eligibleAt,
+        },
+        select: { id: true },
+      });
+      await notifyAdmins({
+        title: "Tutee opt-out",
+        body: `${tutor?.englishName ?? "A tutor"} relayed an opt-out for ${tutee?.englishName ?? "a tutee"} (auto-approves in ${TUTEE_OPT_OUT_COOLDOWN_DAYS} days).`,
+        link: "/admin/tutee-requests",
+      });
+      return { ok: true, id: req.id, eligibleAt };
+    }),
+
+  /** Recall (cancel) the caller's own pending opt-out while it's still in the recall window. */
+  recallTuteeRemoval: tutorProcedure
+    .input(z.object({ requestId: z.string().cuid() }))
+    .mutation(async ({ ctx, input }) => {
+      const res = await ctx.db.tuteeRemovalRequest.updateMany({
+        where: {
+          id: input.requestId,
+          requestedByTutorId: ctx.session.tutorId,
+          state: "PENDING",
+        },
         data: { state: "RECALLED", resolvedAt: new Date(), resolvedByName: "self" },
       });
       if (res.count === 0) {

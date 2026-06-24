@@ -4,7 +4,8 @@
     "save": "Guardar",
     "saved": "Guardado.",
     "language": "Idioma",
-    "backToMain": "← Volver a la página principal"
+    "backToMain": "← Volver a la página principal",
+    "close": "Cerrar"
   },
   "auth": {
     "signinTitle": "Iniciar sesión",
@@ -14,7 +15,6 @@
     "signIn": "Iniciar sesión",
     "signingIn": "Iniciando sesión…",
     "forgotPassword": "¿Olvidaste tu contraseña?",
-
     "createAccount": "Crear cuenta",
     "lookingForTutor": "¿Buscas un tutor?",
     "requestOne": "Solicita uno aquí",
@@ -99,6 +99,10 @@
         "body": "Tu cuenta está lista. Inicia sesión con tu correo electrónico o nombre de usuario {username}.",
         "signIn": "Ir al inicio de sesión"
       }
+    },
+    "staleSession": {
+      "title": "Sesión desactualizada",
+      "body": "El vínculo de tu cuenta de tutor ya no es válido. Cierra sesión y vuelve a entrar para actualizarlo."
     }
   },
   "landing": {
@@ -279,7 +283,14 @@
       "available": "Disponible: {list}",
       "reach": "Contacto: {contact}",
       "signed": "Firmado: ✓ {name}",
-      "notSigned": "Firmado: — sin firmar"
+      "notSigned": "Firmado: — sin firmar",
+      "banFlag": "posible reinscripción",
+      "banFlagTitle": "Coincide con un alumno retirado este trimestre ({fields}). Verifica antes de asignar.",
+      "banField": {
+        "name": "nombre",
+        "email": "correo",
+        "phone": "teléfono"
+      }
     },
     "readOnly": {
       "banner": "Acceso de solo lectura: puedes explorar todo pero no realizar cambios, y los datos de contacto están ocultos."
@@ -315,7 +326,8 @@
         "auditLog": "Registro de auditoría",
         "usersRoles": "Usuarios y roles",
         "tutorRequests": "Baja / Reincorporación",
-        "registrationCodes": "Códigos de registro"
+        "registrationCodes": "Códigos de registro",
+        "tuteeRequests": "Bajas de alumnos"
       }
     },
     "dashboard": {
@@ -351,7 +363,8 @@
         "openApplications": "Solicitudes abiertas",
         "cardsToReview": "Tarjetas por revisar",
         "recentSurveys": "Encuestas recientes",
-        "tutorRequests": "Baja / reincorporación"
+        "tutorRequests": "Baja / reincorporación",
+        "tuteeRequests": "Bajas pendientes"
       },
       "panels": {
         "tuteeSignups": {
@@ -378,6 +391,10 @@
         "tutorRequests": {
           "title": "Solicitudes de baja / reincorporación de tutores",
           "empty": "No hay solicitudes abiertas."
+        },
+        "tuteeRequests": {
+          "title": "Bajas de alumnos pendientes",
+          "empty": "No hay bajas pendientes."
         }
       }
     },
@@ -437,7 +454,6 @@
       "effectPending": "Vacía la cola de registros de estudiantes pendientes (archivados como inactivos).",
       "effectTutees": "Archiva a todos los estudiantes emparejados actualmente: deben registrarse de nuevo para continuar.",
       "effectPairings": "Vacía el tablero de emparejamientos actual (los emparejamientos y la asistencia pasados quedan en el historial).",
-
       "effectReactivate": "Los tutores que continúan deben reactivarse (elegir disponible u optar por salir) en su propia página.",
       "effectAvailability": "Te pide confirmar qué tutores activos siguen disponibles.",
       "effectGraduate": "Gradúa a los tutores de G12 (se van al inicio del Q4).",
@@ -451,7 +467,6 @@
       "refreshing": "Renovando…",
       "done": "Renovado a {name}. Se archivaron {count} estudiante(s).",
       "doneGrad": "Se graduaron {graduated}; se avanzó un grado a {aged} tutor(es).",
-
       "donePending": "{count} tutor(es) deben reactivarse.",
       "modalTitle": "Disponibilidad de tutores para {name}",
       "modalIntro": "Confirma qué tutores activos continúan. Cualquiera sin marcar será archivado.",
@@ -485,7 +500,8 @@
         "account": "Cuenta",
         "role": "Rol",
         "canTutor": "Puede tutorar",
-        "canTranslate": "Traductor"
+        "canTranslate": "Traductor",
+        "actions": "Acciones"
       },
       "roles": {
         "VIEWER": "Observador (solo lectura)",
@@ -508,7 +524,20 @@
         "all": "Todos"
       },
       "makeHead": "Nombrar responsable",
-      "confirmTransfer": "¿Transferir el liderazgo a {name}? Pasarás a ser administrador."
+      "confirmTransfer": "¿Transferir el liderazgo a {name}? Pasarás a ser administrador.",
+      "delete": "Eliminar",
+      "confirm": {
+        "passwordLabel": "Tu contraseña",
+        "passwordPlaceholder": "Introduce tu contraseña",
+        "cancel": "Cancelar",
+        "working": "Procesando…",
+        "roleTitle": "Cambiar rol",
+        "roleBody": "¿Asignar a {name} el rol de {role}? Confirma tu identidad para continuar.",
+        "roleConfirm": "Cambiar rol",
+        "transferTitle": "Transferir liderazgo",
+        "deleteTitle": "Eliminar cuenta",
+        "deleteBody": "¿Eliminar permanentemente el acceso de {name}? Se conserva su ficha de tutor (usuario, clase e historial). Confirma tu identidad para continuar."
+      }
     },
     "submissions": {
       "title": "Registros de asistencia",
@@ -531,7 +560,6 @@
       "saved": "Guardado.",
       "timeLabel": "Hora",
       "exempt": "Exento (X)",
-
       "selfExcused": "Ausencias justificadas ({count})",
       "status": {
         "present": "Presente",
@@ -782,7 +810,6 @@
       "GRADUATED": "Graduado",
       "OPTED_OUT": "Dado de baja",
       "PENDING": "Pendiente",
-
       "ARCHIVED": "Archivado"
     },
     "registrationCodes": {
@@ -806,43 +833,25 @@
         "expired": "Expirado"
       },
       "revoke": "Revocar",
-
       "showCode": "Mostrar código",
-
       "hideCode": "Ocultar",
-
       "copy": "Copiar",
-
       "collapse": "Contraer",
-
       "expand": "Expandir",
-
       "noEmail": "Sin correo vinculado",
-
       "expiresOn": "Caduca {date}",
-
       "codeLabel": "Código",
-
       "invalidNote": "Este código ya no es válido.",
-
       "noCode": "Código no disponible.",
-
       "share": {
-
         "heading": "Configura tu cuenta de {appTitle}",
-
         "goTo": "Ve a:",
-
+        "enterAt": "Introduce el código en {url}",
         "enterCode": "Introduce este código:",
-
         "verifyEmail": "Verifica tu correo",
-
         "useEmail": "(usa {email})",
-
         "setup": "Indica tu nombre, curso y una contraseña",
-
         "validity": "Código de un solo uso · válido hasta {date}"
-
       },
       "empty": "Aún no hay códigos de registro."
     },
@@ -863,44 +872,46 @@
       "requeuePrompt": "¿Volver a poner en cola {count} {count, plural, one {estudiante} other {estudiantes}} de {name} en la página de registro para reasignación?",
       "requeueConfirm": "Volver a poner en cola",
       "requeueDismiss": "Ahora no"
+    },
+    "tuteeRequests": {
+      "title": "Bajas y retiros",
+      "help": "Bajas de alumnos (transmitidas por un tutor, con 7 días para retractarse) y alumnos retirados actualmente (baja voluntaria o por disciplina).",
+      "kind": {
+        "VOLUNTARY": "Baja",
+        "PUNISHMENT": "Disciplina"
+      },
+      "pendingHeading": "Bajas pendientes",
+      "pendingHelp": "Un tutor transmitió la solicitud de baja del alumno. Se aprueba sola tras el plazo, salvo que el tutor la retire o tú la canceles.",
+      "pendingEmpty": "No hay bajas pendientes.",
+      "relayedBy": "Transmitida por {tutor} · {subject}",
+      "autoApprovesOn": "se aprueba el {date}",
+      "cancel": "Cancelar",
+      "removedHeading": "Retirados y dados de baja",
+      "removedHelp": "Alumnos retirados actualmente. Reincorporarlos los devuelve a la cola de inscripción y quita la marca del trimestre.",
+      "removedEmpty": "No hay alumnos retirados.",
+      "removedDiscipline": "Retiro por disciplina",
+      "removedOptOut": "Dado de baja (vía {tutor})",
+      "reinstate": "Reincorporar"
     }
   },
   "tutor": {
-
     "activate": {
-
       "title": "Confirma tu disponibilidad",
-
       "body": "Ha comenzado un nuevo período. Activa tu cuenta para seguir como tutor u opta por salir por ahora.",
-
       "available": "Estoy disponible",
-
       "optOut": "Optar por salir",
-
       "note": "Puedes cambiarlo más tarde en tu configuración."
-
     },
-
     "meetings": {
-
       "title": "Próximas reuniones",
-
       "help": "¿No puedes asistir a una reunión? Justifica tu ausencia hasta 30 minutos antes de que empiece.",
-
       "excuseBtn": "Justificar ausencia",
-
       "submitExcuse": "Enviar",
-
       "cancelExcuse": "Cancelar justificación",
-
       "reasonPlaceholder": "Motivo (opcional)",
-
       "excused": "Has justificado esta ausencia.",
-
       "excusedBadge": "Justificada",
-
       "tooLate": "Demasiado tarde para justificar"
-
     },
     "nav": {
       "handbook": "Manual"
@@ -981,7 +992,15 @@
       "mergeTitle": "Combinar sesiones",
       "mergeHelp": "¿Las atiendes juntas en un bloque? Marca las sesiones cubiertas junto a la seleccionada en el formulario de asistencia. Cada una se registra por separado, pero las horas de servicio del bloque cuentan una vez.",
       "mergeSelectPrimary": "Selecciona una sesión en el formulario de asistencia para combinar otras en ella.",
-      "mergeNone": "Ninguna otra sesión comparte estudiante o materia con la seleccionada."
+      "mergeNone": "Ninguna otra sesión comparte estudiante o materia con la seleccionada.",
+      "roomOnly": "Aula {room}",
+      "removalPending": "baja pendiente",
+      "removalRecall": "Retirar",
+      "requestRemoval": "Transmitir baja",
+      "removalHelp": "¿El alumno pidió darse de baja? Transmítela. Hay 7 días para que tú (o un admin) la retiréis; luego es automática.",
+      "removalReasonPlaceholder": "Motivo (opcional)",
+      "removalSubmit": "Transmitir baja",
+      "removalCancel": "Cancelar"
     },
     "availability": {
       "loading": "Cargando horarios…",
@@ -1086,8 +1105,21 @@
       "GRADUATED": "Graduado",
       "OPTED_OUT": "Dado de baja",
       "PENDING": "Pendiente",
-
       "ARCHIVED": "Archivado"
+    },
+    "discipline": {
+      "title": "Conducta del alumno",
+      "help": "Estado de tarjetas de tus alumnos. El equipo guarda los motivos concretos.",
+      "removalPending": "En el umbral de baja",
+      "removalBadge": "baja pendiente",
+      "standingTitle": "{red} rojas, {yellow} amarillas",
+      "onWarning": "En aviso",
+      "ok": "Sin tarjetas",
+      "pendingCount": "{n} en revisión",
+      "cardStatus": {
+        "VALID": "válida",
+        "PENDING": "en revisión"
+      }
     }
   },
   "public": {
@@ -1229,5 +1261,21 @@
     "addLanguageName": "Nombre (p. ej. Français)",
     "addLanguageBtn": "Agregar idioma",
     "back": "Volver"
+  },
+  "account": {
+    "title": "Cuenta",
+    "subtitle": "Gestiona tu nombre de acceso y tu contraseña.",
+    "identityHeading": "Datos de la cuenta",
+    "tutorNote": "También tienes una cuenta de tutor.",
+    "openTutorSettings": "Abrir ajustes de tutor",
+    "password": {
+      "twoFactorHint": "Por tu seguridad, enviaremos un código de verificación por correo antes de cambiar tu contraseña.",
+      "sendCode": "Enviar código de verificación",
+      "sending": "Enviando…",
+      "codeSent": "Enviamos un código a {email}. Introdúcelo abajo para terminar.",
+      "codeLabel": "Código de verificación",
+      "resend": "Reenviar código",
+      "cancel": "Cancelar"
+    }
   }
 }

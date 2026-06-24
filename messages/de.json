@@ -4,7 +4,8 @@
     "save": "Speichern",
     "saved": "Gespeichert.",
     "language": "Sprache",
-    "backToMain": "← Zurück zur Hauptseite"
+    "backToMain": "← Zurück zur Hauptseite",
+    "close": "Schließen"
   },
   "auth": {
     "signinTitle": "Anmelden",
@@ -14,7 +15,6 @@
     "signIn": "Anmelden",
     "signingIn": "Anmeldung läuft…",
     "forgotPassword": "Passwort vergessen?",
-
     "createAccount": "Konto erstellen",
     "lookingForTutor": "Einen Tutor gesucht?",
     "requestOne": "Hier anfragen",
@@ -99,6 +99,10 @@
         "body": "Ihr Konto ist eingerichtet. Melden Sie sich mit Ihrer E-Mail oder dem Benutzernamen {username} an.",
         "signIn": "Zur Anmeldung"
       }
+    },
+    "staleSession": {
+      "title": "Sitzung veraltet",
+      "body": "Die Verknüpfung Ihres Tutoren-Kontos ist nicht mehr gültig. Melden Sie sich ab und wieder an, um sie zu aktualisieren."
     }
   },
   "landing": {
@@ -222,7 +226,6 @@
       "GRADUATED": "Abgegangen",
       "OPTED_OUT": "Ausgetreten",
       "PENDING": "Ausstehend",
-
       "ARCHIVED": "Archiviert"
     },
     "tutees": {
@@ -287,7 +290,14 @@
       "available": "Verfügbar: {list}",
       "reach": "Erreichbar: {contact}",
       "signed": "Unterschrieben: ✓ {name}",
-      "notSigned": "Unterschrieben: — nicht unterschrieben"
+      "notSigned": "Unterschrieben: — nicht unterschrieben",
+      "banFlag": "mögliche Neuanmeldung",
+      "banFlagTitle": "Stimmt mit einem in diesem Quartal entfernten Tutee überein ({fields}). Vor der Zuteilung prüfen.",
+      "banField": {
+        "name": "Name",
+        "email": "E-Mail",
+        "phone": "Telefon"
+      }
     },
     "readOnly": {
       "banner": "Lesezugriff – Sie können alles einsehen, aber keine Änderungen vornehmen; Kontaktdaten sind ausgeblendet."
@@ -323,7 +333,8 @@
         "policyDocuments": "Richtliniendokumente",
         "auditLog": "Aktivitätsprotokoll",
         "usersRoles": "Benutzer & Rollen",
-        "registrationCodes": "Registrierungscodes"
+        "registrationCodes": "Registrierungscodes",
+        "tuteeRequests": "Tutee-Entfernungen"
       }
     },
     "dashboard": {
@@ -359,7 +370,8 @@
         "openApplications": "Offene Bewerbungen",
         "cardsToReview": "Zu prüfende Karten",
         "tutorRequests": "Austritt / Wiedereintritt",
-        "recentSurveys": "Aktuelle Umfragen"
+        "recentSurveys": "Aktuelle Umfragen",
+        "tuteeRequests": "Ausstehende Abmeldungen"
       },
       "panels": {
         "tuteeSignups": {
@@ -386,6 +398,10 @@
           "title": "Aktuelle Anwesenheitsumfragen",
           "empty": "Noch keine Umfragen.",
           "hours": "{hours} h"
+        },
+        "tuteeRequests": {
+          "title": "Ausstehende Tutee-Abmeldungen",
+          "empty": "Keine ausstehenden Abmeldungen."
         }
       }
     },
@@ -445,7 +461,6 @@
       "effectPending": "Die ausstehende Anmeldeliste wird geleert (als inaktiv archiviert).",
       "effectTutees": "Alle aktuell zugeordneten Lernenden werden archiviert – sie müssen sich erneut anmelden.",
       "effectPairings": "Das aktuelle Zuordnungsboard wird geleert (vergangene Zuordnungen und Anwesenheit bleiben im Verlauf).",
-
       "effectReactivate": "Fortsetzende Tutoren müssen sich auf ihrer eigenen Seite reaktivieren (verfügbar wählen oder austreten).",
       "effectAvailability": "Sie werden aufgefordert, zu bestätigen, welche aktiven Tutoren weiterhin verfügbar sind.",
       "effectGraduate": "G12-Tutoren werden verabschiedet (sie verlassen das Programm zu Beginn von Q4).",
@@ -459,7 +474,6 @@
       "refreshing": "Wird aktualisiert…",
       "done": "Zu {name} gewechselt. {count} Lernende(r) archiviert.",
       "doneGrad": "{graduated} verabschiedet; {aged} Tutor(en) um eine Klasse aufgerückt.",
-
       "donePending": "{count} Tutor(en) müssen sich reaktivieren.",
       "modalTitle": "Tutor-Verfügbarkeit für {name}",
       "modalIntro": "Bestätigen, welche aktiven Tutoren weitermachen. Nicht angehakte Tutoren werden archiviert.",
@@ -493,7 +507,8 @@
         "account": "Konto",
         "role": "Rolle",
         "canTutor": "Kann tutoren",
-        "canTranslate": "Übersetzer"
+        "canTranslate": "Übersetzer",
+        "actions": "Aktionen"
       },
       "roles": {
         "VIEWER": "Betrachter (nur Lesen)",
@@ -516,7 +531,20 @@
       "translateDefaultHint": "Administratoren und Koordinatoren können Übersetzungen immer bearbeiten.",
       "tutorActive": "aktiv",
       "tutorInactive": "inaktiv",
-      "empty": "Noch keine Benutzer oder Tutoren."
+      "empty": "Noch keine Benutzer oder Tutoren.",
+      "delete": "Löschen",
+      "confirm": {
+        "passwordLabel": "Ihr Passwort",
+        "passwordPlaceholder": "Geben Sie Ihr Passwort ein",
+        "cancel": "Abbrechen",
+        "working": "Wird ausgeführt…",
+        "roleTitle": "Rolle ändern",
+        "roleBody": "Die Rolle von {name} auf {role} setzen? Bestätigen Sie zum Fortfahren Ihre Identität.",
+        "roleConfirm": "Rolle ändern",
+        "transferTitle": "Leitung übertragen",
+        "deleteTitle": "Konto löschen",
+        "deleteBody": "Den Zugang von {name} dauerhaft löschen? Der Tutoren-Datensatz (Benutzername, Klasse und Verlauf) bleibt erhalten. Bestätigen Sie zum Fortfahren Ihre Identität."
+      }
     },
     "registrationCodes": {
       "title": "Registrierungscodes",
@@ -539,43 +567,25 @@
         "expired": "Abgelaufen"
       },
       "revoke": "Widerrufen",
-
       "showCode": "Code anzeigen",
-
       "hideCode": "Ausblenden",
-
       "copy": "Kopieren",
-
       "collapse": "Einklappen",
-
       "expand": "Ausklappen",
-
       "noEmail": "Keine E-Mail",
-
       "expiresOn": "Läuft ab {date}",
-
       "codeLabel": "Code",
-
       "invalidNote": "Dieser Code ist nicht mehr gültig.",
-
       "noCode": "Code nicht verfügbar.",
-
       "share": {
-
         "heading": "Richte dein {appTitle}-Konto ein",
-
         "goTo": "Gehe zu:",
-
+        "enterAt": "Code eingeben unter {url}",
         "enterCode": "Diesen Code eingeben:",
-
         "verifyEmail": "E-Mail bestätigen",
-
         "useEmail": "({email} verwenden)",
-
         "setup": "Name, Klassenstufe und Passwort festlegen",
-
         "validity": "Einmalcode · gültig bis {date}"
-
       },
       "empty": "Noch keine Registrierungscodes."
     },
@@ -618,7 +628,6 @@
       "saved": "Gespeichert.",
       "timeLabel": "Uhrzeit",
       "exempt": "Befreit (X)",
-
       "selfExcused": "Selbst entschuldigte Abwesenheiten ({count})",
       "status": {
         "present": "Anwesend",
@@ -863,44 +872,46 @@
         "status": "Status"
       },
       "tableEmpty": "Noch keine Karten."
+    },
+    "tuteeRequests": {
+      "title": "Abmeldungen & Entfernungen",
+      "help": "Tutee-Abmeldungen (von einem Tutor übermittelt, mit 7-tägiger Widerrufsfrist) und derzeit entfernte Tutees (freiwillig oder disziplinarisch).",
+      "kind": {
+        "VOLUNTARY": "Abmeldung",
+        "PUNISHMENT": "Disziplin"
+      },
+      "pendingHeading": "Ausstehende Abmeldungen",
+      "pendingHelp": "Ein Tutor hat den Abmeldewunsch des Tutees übermittelt. Sie wird nach der Frist automatisch genehmigt, sofern der Tutor sie nicht widerruft oder Sie sie abbrechen.",
+      "pendingEmpty": "Keine ausstehenden Abmeldungen.",
+      "relayedBy": "Übermittelt von {tutor} · {subject}",
+      "autoApprovesOn": "genehmigt am {date}",
+      "cancel": "Abbrechen",
+      "removedHeading": "Entfernt & abgemeldet",
+      "removedHelp": "Derzeit entfernte Tutees. Eine Wiederaufnahme stellt sie zur Neuzuteilung in die Anmeldewarteschlange und hebt eine Quartalsmarkierung auf.",
+      "removedEmpty": "Keine entfernten Tutees.",
+      "removedDiscipline": "Disziplinarische Entfernung",
+      "removedOptOut": "Abgemeldet (über {tutor})",
+      "reinstate": "Wieder aufnehmen"
     }
   },
   "tutor": {
-
     "activate": {
-
       "title": "Bestätige deine Verfügbarkeit",
-
       "body": "Ein neuer Zeitraum hat begonnen. Aktiviere dein Konto, um weiterzumachen, oder tritt vorerst aus.",
-
       "available": "Ich bin verfügbar",
-
       "optOut": "Austreten",
-
       "note": "Du kannst dies später in deinen Einstellungen ändern."
-
     },
-
     "meetings": {
-
       "title": "Anstehende Sitzungen",
-
       "help": "Sie können nicht teilnehmen? Entschuldigen Sie Ihre Abwesenheit bis 30 Minuten vor Beginn.",
-
       "excuseBtn": "Abwesenheit entschuldigen",
-
       "submitExcuse": "Senden",
-
       "cancelExcuse": "Entschuldigung zurücknehmen",
-
       "reasonPlaceholder": "Grund (optional)",
-
       "excused": "Sie haben diese Abwesenheit entschuldigt.",
-
       "excusedBadge": "Entschuldigt",
-
       "tooLate": "Zu spät zum Entschuldigen"
-
     },
     "nav": {
       "handbook": "Handbuch"
@@ -913,7 +924,6 @@
       "GRADUATED": "Abgegangen",
       "OPTED_OUT": "Ausgetreten",
       "PENDING": "Ausstehend",
-
       "ARCHIVED": "Archiviert"
     },
     "attendance": {
@@ -989,7 +999,15 @@
       "mergeTitle": "Sitzungen zusammenführen",
       "mergeHelp": "Laufen diese zusammen in einem Block? Die Sitzungen anhaken, die neben der im Anwesenheitsformular ausgewählten Sitzung abgedeckt werden. Jede wird separat erfasst, aber die Servicestunden des Blocks zählen einmal.",
       "mergeSelectPrimary": "Im Anwesenheitsformular eine Sitzung auswählen, um andere damit zusammenzuführen.",
-      "mergeNone": "Keine andere Sitzung teilt einen Lernenden oder ein Fach mit der ausgewählten."
+      "mergeNone": "Keine andere Sitzung teilt einen Lernenden oder ein Fach mit der ausgewählten.",
+      "roomOnly": "Raum {room}",
+      "removalPending": "Abmeldung ausstehend",
+      "removalRecall": "Widerrufen",
+      "requestRemoval": "Abmeldung übermitteln",
+      "removalHelp": "Möchte der Tutee aufhören? Übermitteln Sie die Abmeldung. 7 Tage lang können Sie (oder ein Admin) sie widerrufen; danach erfolgt sie automatisch.",
+      "removalReasonPlaceholder": "Grund (optional)",
+      "removalSubmit": "Übermitteln",
+      "removalCancel": "Abbrechen"
     },
     "availability": {
       "loading": "Zeitfenster werden geladen…",
@@ -1087,6 +1105,20 @@
         "earned": "{earned} erarbeitet",
         "extra": "+ {extra} extra",
         "penalty": "− {penalty} Abzug"
+      }
+    },
+    "discipline": {
+      "title": "Verhalten des Tutees",
+      "help": "Kartenstand Ihrer Tutees. Die konkreten Gründe verwahrt das Team.",
+      "removalPending": "An der Entfernungsschwelle",
+      "removalBadge": "Entfernung ausstehend",
+      "standingTitle": "{red} rote, {yellow} gelbe",
+      "onWarning": "Verwarnt",
+      "ok": "Sauber",
+      "pendingCount": "{n} in Prüfung",
+      "cardStatus": {
+        "VALID": "gültig",
+        "PENDING": "in Prüfung"
       }
     }
   },
@@ -1229,5 +1261,21 @@
     "addLanguageName": "Name (z. B. Français)",
     "addLanguageBtn": "Sprache hinzufügen",
     "back": "Zurück"
+  },
+  "account": {
+    "title": "Konto",
+    "subtitle": "Verwalten Sie Ihren Anmeldenamen und Ihr Passwort.",
+    "identityHeading": "Kontodaten",
+    "tutorNote": "Sie haben außerdem ein Tutoren-Konto.",
+    "openTutorSettings": "Tutoren-Einstellungen öffnen",
+    "password": {
+      "twoFactorHint": "Zu Ihrer Sicherheit senden wir vor der Passwortänderung einen Bestätigungscode per E-Mail.",
+      "sendCode": "Bestätigungscode senden",
+      "sending": "Wird gesendet…",
+      "codeSent": "Wir haben einen Code an {email} gesendet. Geben Sie ihn unten ein, um abzuschließen.",
+      "codeLabel": "Bestätigungscode",
+      "resend": "Code erneut senden",
+      "cancel": "Abbrechen"
+    }
   }
 }

@@ -4,7 +4,8 @@
     "save": "저장",
     "saved": "저장되었습니다.",
     "language": "언어",
-    "backToMain": "← 메인 페이지로 돌아가기"
+    "backToMain": "← 메인 페이지로 돌아가기",
+    "close": "닫기"
   },
   "auth": {
     "signinTitle": "로그인",
@@ -14,7 +15,6 @@
     "signIn": "로그인",
     "signingIn": "로그인 중…",
     "forgotPassword": "비밀번호를 잊으셨나요?",
-
     "createAccount": "계정 만들기",
     "lookingForTutor": "튜터를 찾고 계신가요?",
     "requestOne": "여기서 신청하세요",
@@ -99,6 +99,10 @@
         "body": "계정이 생성되었습니다. 이메일 또는 사용자명 {username}으로 로그인하세요.",
         "signIn": "로그인으로 이동"
       }
+    },
+    "staleSession": {
+      "title": "세션이 만료됨",
+      "body": "튜터 계정 연결이 더 이상 유효하지 않습니다. 로그아웃 후 다시 로그인하여 갱신하세요."
     }
   },
   "landing": {
@@ -222,7 +226,6 @@
       "GRADUATED": "졸업",
       "OPTED_OUT": "탈퇴",
       "PENDING": "대기 중",
-
       "ARCHIVED": "보관됨"
     },
     "tutees": {
@@ -287,7 +290,14 @@
       "available": "가능 시간: {list}",
       "reach": "연락처: {contact}",
       "signed": "서명: ✓ {name}",
-      "notSigned": "서명: — 서명 없음"
+      "notSigned": "서명: — 서명 없음",
+      "banFlag": "재등록 가능성",
+      "banFlagTitle": "이번 분기에 삭제된 학생과 일치({fields}). 배정 전에 확인하세요.",
+      "banField": {
+        "name": "이름",
+        "email": "이메일",
+        "phone": "전화"
+      }
     },
     "readOnly": {
       "banner": "읽기 전용 접근 — 모든 내용을 볼 수 있지만 변경은 불가능하며, 연락처 정보는 숨겨집니다."
@@ -323,7 +333,8 @@
         "policyDocuments": "정책 문서",
         "auditLog": "감사 로그",
         "usersRoles": "사용자 및 역할",
-        "registrationCodes": "등록 코드"
+        "registrationCodes": "등록 코드",
+        "tuteeRequests": "학생 삭제"
       }
     },
     "dashboard": {
@@ -359,7 +370,8 @@
         "openApplications": "진행 중인 지원",
         "cardsToReview": "검토할 카드",
         "tutorRequests": "탈퇴 / 재가입",
-        "recentSurveys": "최근 설문"
+        "recentSurveys": "최근 설문",
+        "tuteeRequests": "대기 중인 탈퇴"
       },
       "panels": {
         "tuteeSignups": {
@@ -386,6 +398,10 @@
           "title": "최근 출석 설문",
           "empty": "아직 설문이 없습니다.",
           "hours": "{hours} h"
+        },
+        "tuteeRequests": {
+          "title": "대기 중인 학생 탈퇴",
+          "empty": "대기 중인 탈퇴가 없습니다."
         }
       }
     },
@@ -445,7 +461,6 @@
       "effectPending": "대기 중인 학생 신청 큐를 정리합니다 (비활성으로 보관).",
       "effectTutees": "현재 매칭된 모든 학생을 보관합니다 — 계속 참여하려면 다시 신청해야 합니다.",
       "effectPairings": "현재 매칭 보드를 초기화합니다 (과거 매칭 및 출석 기록은 이력에 남습니다).",
-
       "effectReactivate": "계속하는 튜터는 자신의 페이지에서 재활성화(참여 또는 탈퇴 선택)해야 합니다.",
       "effectAvailability": "활성 튜터의 가용 여부를 확인하도록 안내합니다.",
       "effectGraduate": "G12 튜터를 졸업 처리합니다 (4분기 시작 시 퇴장).",
@@ -459,7 +474,6 @@
       "refreshing": "갱신 중…",
       "done": "{name}으로 갱신되었습니다. 학생 {count}명이 보관되었습니다.",
       "doneGrad": "{graduated}명 졸업 처리; {aged}명 한 학년 진급.",
-
       "donePending": "{count}명의 튜터가 재활성화 대기 중입니다.",
       "modalTitle": "{name}의 튜터 가용 여부",
       "modalIntro": "계속 활동하는 튜터를 확인하세요. 선택하지 않은 튜터는 보관됩니다.",
@@ -493,7 +507,8 @@
         "account": "계정",
         "role": "역할",
         "canTutor": "튜터 가능",
-        "canTranslate": "번역자"
+        "canTranslate": "번역자",
+        "actions": "작업"
       },
       "roles": {
         "VIEWER": "뷰어 (읽기 전용)",
@@ -516,7 +531,20 @@
       "translateDefaultHint": "관리자와 코디네이터는 항상 번역을 편집할 수 있습니다.",
       "tutorActive": "활성",
       "tutorInactive": "비활성",
-      "empty": "아직 사용자 또는 튜터가 없습니다."
+      "empty": "아직 사용자 또는 튜터가 없습니다.",
+      "delete": "삭제",
+      "confirm": {
+        "passwordLabel": "비밀번호",
+        "passwordPlaceholder": "비밀번호를 입력하세요",
+        "cancel": "취소",
+        "working": "처리 중…",
+        "roleTitle": "역할 변경",
+        "roleBody": "{name}의 역할을 {role}(으)로 설정할까요? 계속하려면 본인 확인이 필요합니다.",
+        "roleConfirm": "역할 변경",
+        "transferTitle": "리더 권한 이전",
+        "deleteTitle": "계정 삭제",
+        "deleteBody": "{name}의 로그인 계정을 영구적으로 삭제할까요? 튜터 기록(사용자 이름, 학년, 이력)은 유지됩니다. 계속하려면 본인 확인이 필요합니다."
+      }
     },
     "registrationCodes": {
       "title": "등록 코드",
@@ -539,43 +567,25 @@
         "expired": "만료됨"
       },
       "revoke": "취소",
-
       "showCode": "코드 표시",
-
       "hideCode": "숨기기",
-
       "copy": "복사",
-
       "collapse": "접기",
-
       "expand": "펼치기",
-
       "noEmail": "이메일 미지정",
-
       "expiresOn": "만료 {date}",
-
       "codeLabel": "코드",
-
       "invalidNote": "이 코드는 더 이상 유효하지 않습니다.",
-
       "noCode": "코드를 사용할 수 없습니다.",
-
       "share": {
-
         "heading": "{appTitle} 계정 설정",
-
         "goTo": "이동:",
-
+        "enterAt": "{url}에서 코드 입력",
         "enterCode": "이 코드 입력:",
-
         "verifyEmail": "이메일 인증",
-
         "useEmail": "({email} 사용)",
-
         "setup": "이름, 학년, 비밀번호 설정",
-
         "validity": "일회용 코드 · {date}까지 유효"
-
       },
       "empty": "아직 등록 코드가 없습니다."
     },
@@ -618,7 +628,6 @@
       "saved": "저장되었습니다.",
       "timeLabel": "시간",
       "exempt": "면제 (X)",
-
       "selfExcused": "자가 사유 결석 ({count})",
       "status": {
         "present": "출석",
@@ -863,44 +872,46 @@
         "status": "상태"
       },
       "tableEmpty": "아직 카드가 없습니다."
+    },
+    "tuteeRequests": {
+      "title": "탈퇴 및 삭제",
+      "help": "(튜터가 대신 제출하며 7일 철회 기간이 있는) 학생 탈퇴와 현재 삭제된 학생(자진 탈퇴 또는 징계 삭제).",
+      "kind": {
+        "VOLUNTARY": "탈퇴",
+        "PUNISHMENT": "징계"
+      },
+      "pendingHeading": "대기 중인 탈퇴",
+      "pendingHelp": "튜터가 학생의 탈퇴 요청을 전달했습니다. 철회 기간이 지나면 튜터의 철회나 관리자의 취소가 없는 한 자동 승인됩니다.",
+      "pendingEmpty": "대기 중인 탈퇴가 없습니다.",
+      "relayedBy": "{tutor}이(가) 전달 · {subject}",
+      "autoApprovesOn": "{date}에 자동 승인",
+      "cancel": "취소",
+      "removedHeading": "삭제·탈퇴됨",
+      "removedHelp": "현재 삭제된 학생입니다. 복원하면 등록 대기열로 돌려보내 재배정할 수 있고, 이번 분기 등록 표시도 해제됩니다.",
+      "removedEmpty": "삭제된 학생이 없습니다.",
+      "removedDiscipline": "징계 삭제",
+      "removedOptOut": "탈퇴 ({tutor} 경유)",
+      "reinstate": "복원"
     }
   },
   "tutor": {
-
     "activate": {
-
       "title": "참여 여부 확인",
-
       "body": "새 학기가 시작되었습니다. 계속하려면 계정을 활성화하거나 이번에는 탈퇴하세요.",
-
       "available": "참여합니다",
-
       "optOut": "탈퇴",
-
       "note": "나중에 설정에서 변경할 수 있습니다."
-
     },
-
     "meetings": {
-
       "title": "예정된 회의",
-
       "help": "회의에 참석할 수 없나요? 시작 30분 전까지 결석을 신청할 수 있습니다.",
-
       "excuseBtn": "결석 신청",
-
       "submitExcuse": "제출",
-
       "cancelExcuse": "신청 취소",
-
       "reasonPlaceholder": "사유 (선택)",
-
       "excused": "이 결석을 신청했습니다.",
-
       "excusedBadge": "신청됨",
-
       "tooLate": "신청 시간이 지났습니다"
-
     },
     "nav": {
       "handbook": "핸드북"
@@ -913,7 +924,6 @@
       "GRADUATED": "졸업",
       "OPTED_OUT": "탈퇴",
       "PENDING": "대기 중",
-
       "ARCHIVED": "보관됨"
     },
     "attendance": {
@@ -989,7 +999,15 @@
       "mergeTitle": "수업 합치기",
       "mergeHelp": "한 블록에 함께 진행하나요? 출석 양식에서 선택한 수업과 함께 진행하는 수업에 체크하세요. 각각 별도로 기록되지만 봉사 시간은 한 번만 계산됩니다.",
       "mergeSelectPrimary": "출석 양식에서 기본 수업을 선택하여 다른 수업을 합치세요.",
-      "mergeNone": "선택한 수업과 학생 또는 과목을 공유하는 다른 수업이 없습니다."
+      "mergeNone": "선택한 수업과 학생 또는 과목을 공유하는 다른 수업이 없습니다.",
+      "roomOnly": "교실 {room}",
+      "removalPending": "탈퇴 대기",
+      "removalRecall": "철회",
+      "requestRemoval": "탈퇴 전달",
+      "removalHelp": "학생이 탈퇴를 원하나요? 대신 전달하세요. 7일 동안 본인(또는 관리자)이 철회할 수 있고, 이후에는 자동 처리됩니다.",
+      "removalReasonPlaceholder": "사유(선택)",
+      "removalSubmit": "탈퇴 전달",
+      "removalCancel": "취소"
     },
     "availability": {
       "loading": "시간대 불러오는 중…",
@@ -1087,6 +1105,20 @@
         "earned": "{earned} 획득",
         "extra": "+ {extra} 추가",
         "penalty": "− {penalty} 차감"
+      }
+    },
+    "discipline": {
+      "title": "학생 품행",
+      "help": "담당 학생의 카드 현황입니다. 구체적인 사유는 팀이 보관합니다.",
+      "removalPending": "삭제 기준 도달",
+      "removalBadge": "삭제 대기",
+      "standingTitle": "레드 {red}, 옐로 {yellow}",
+      "onWarning": "경고 중",
+      "ok": "양호",
+      "pendingCount": "{n}건 검토 중",
+      "cardStatus": {
+        "VALID": "유효",
+        "PENDING": "검토 중"
       }
     }
   },
@@ -1229,5 +1261,21 @@
     "addLanguageName": "이름 (예: Français)",
     "addLanguageBtn": "언어 추가",
     "back": "뒤로"
+  },
+  "account": {
+    "title": "계정",
+    "subtitle": "로그인 이름과 비밀번호를 관리하세요.",
+    "identityHeading": "계정 정보",
+    "tutorNote": "튜터 계정도 가지고 있습니다.",
+    "openTutorSettings": "튜터 설정 열기",
+    "password": {
+      "twoFactorHint": "보안을 위해 비밀번호를 변경하기 전에 인증 코드를 이메일로 보내드립니다.",
+      "sendCode": "인증 코드 보내기",
+      "sending": "보내는 중…",
+      "codeSent": "{email}(으)로 코드를 보냈습니다. 아래에 입력하여 완료하세요.",
+      "codeLabel": "인증 코드",
+      "resend": "코드 재전송",
+      "cancel": "취소"
+    }
   }
 }

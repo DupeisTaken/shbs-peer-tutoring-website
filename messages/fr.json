@@ -4,7 +4,8 @@
     "save": "Enregistrer",
     "saved": "Enregistré.",
     "language": "Langue",
-    "backToMain": "← Retour à la page principale"
+    "backToMain": "← Retour à la page principale",
+    "close": "Fermer"
   },
   "auth": {
     "signinTitle": "Connexion",
@@ -14,7 +15,6 @@
     "signIn": "Se connecter",
     "signingIn": "Connexion en cours…",
     "forgotPassword": "Mot de passe oublié ?",
-
     "createAccount": "Créer un compte",
     "lookingForTutor": "Vous cherchez un tuteur ?",
     "requestOne": "Faites une demande ici",
@@ -99,6 +99,10 @@
         "body": "Votre compte est prêt. Connectez-vous avec votre e-mail ou votre nom d'utilisateur {username}.",
         "signIn": "Aller à la connexion"
       }
+    },
+    "staleSession": {
+      "title": "Session obsolète",
+      "body": "Le lien de votre compte de tuteur n'est plus valide. Déconnectez-vous puis reconnectez-vous pour l'actualiser."
     }
   },
   "landing": {
@@ -222,7 +226,6 @@
       "GRADUATED": "Diplômé",
       "OPTED_OUT": "Retrait",
       "PENDING": "En attente",
-
       "ARCHIVED": "Archivé"
     },
     "tutees": {
@@ -287,7 +290,14 @@
       "available": "Disponible : {list}",
       "reach": "Contact : {contact}",
       "signed": "Signé : ✓ {name}",
-      "notSigned": "Signé : — non signé"
+      "notSigned": "Signé : — non signé",
+      "banFlag": "réinscription possible",
+      "banFlagTitle": "Correspond à un tutoré retiré ce trimestre ({fields}). Vérifiez avant d'affecter.",
+      "banField": {
+        "name": "nom",
+        "email": "e-mail",
+        "phone": "téléphone"
+      }
     },
     "readOnly": {
       "banner": "Accès en lecture seule — vous pouvez tout consulter mais ne pouvez pas faire de modifications, et les coordonnées sont masquées."
@@ -323,7 +333,8 @@
         "policyDocuments": "Documents de politique",
         "auditLog": "Journal d'audit",
         "usersRoles": "Utilisateurs & rôles",
-        "registrationCodes": "Codes d'inscription"
+        "registrationCodes": "Codes d'inscription",
+        "tuteeRequests": "Retraits de tutorés"
       }
     },
     "dashboard": {
@@ -359,7 +370,8 @@
         "openApplications": "Candidatures ouvertes",
         "cardsToReview": "Cartes à examiner",
         "tutorRequests": "Retrait / réintégration",
-        "recentSurveys": "Sondages récents"
+        "recentSurveys": "Sondages récents",
+        "tuteeRequests": "Départs en attente"
       },
       "panels": {
         "tuteeSignups": {
@@ -386,6 +398,10 @@
           "title": "Sondages de présence récents",
           "empty": "Aucun sondage pour l'instant.",
           "hours": "{hours} h"
+        },
+        "tuteeRequests": {
+          "title": "Départs de tutorés en attente",
+          "empty": "Aucun départ en attente."
         }
       }
     },
@@ -445,7 +461,6 @@
       "effectPending": "Vide la file d'attente des inscriptions d'élèves en attente (archivées comme inactives).",
       "effectTutees": "Archive tous les élèves actuellement pairés — ils devront se réinscrire pour continuer.",
       "effectPairings": "Vide le tableau des pairages actuels (les pairages et présences passés restent dans l'historique).",
-
       "effectReactivate": "Les tuteurs qui continuent doivent se réactiver (disponible ou retrait) sur leur propre page.",
       "effectAvailability": "Vous invite à confirmer quels tuteurs actifs sont encore disponibles.",
       "effectGraduate": "Diplôme les tuteurs de G12 (ils partent au début du 4e trimestre).",
@@ -459,7 +474,6 @@
       "refreshing": "Actualisation en cours…",
       "done": "Actualisé vers {name}. {count} élève(s) archivé(s).",
       "doneGrad": "{graduated} diplômé(s) ; {aged} tuteur(s) avancé(s) d'un niveau.",
-
       "donePending": "{count} tuteur(s) doivent se réactiver.",
       "modalTitle": "Disponibilités des tuteurs pour {name}",
       "modalIntro": "Confirmez quels tuteurs actifs continuent. Ceux non cochés seront archivés.",
@@ -493,7 +507,8 @@
         "account": "Compte",
         "role": "Rôle",
         "canTutor": "Peut tutorer",
-        "canTranslate": "Traducteur"
+        "canTranslate": "Traducteur",
+        "actions": "Actions"
       },
       "roles": {
         "VIEWER": "Observateur (lecture seule)",
@@ -516,7 +531,20 @@
       "translateDefaultHint": "Les administrateurs et coordinateurs peuvent toujours modifier les traductions.",
       "tutorActive": "actif",
       "tutorInactive": "inactif",
-      "empty": "Aucun utilisateur ni tuteur pour l'instant."
+      "empty": "Aucun utilisateur ni tuteur pour l'instant.",
+      "delete": "Supprimer",
+      "confirm": {
+        "passwordLabel": "Votre mot de passe",
+        "passwordPlaceholder": "Saisissez votre mot de passe",
+        "cancel": "Annuler",
+        "working": "Traitement…",
+        "roleTitle": "Changer le rôle",
+        "roleBody": "Définir le rôle de {name} sur {role} ? Confirmez votre identité pour continuer.",
+        "roleConfirm": "Changer le rôle",
+        "transferTitle": "Transférer la direction",
+        "deleteTitle": "Supprimer le compte",
+        "deleteBody": "Supprimer définitivement le compte de {name} ? Sa fiche de tuteur (nom d'utilisateur, classe et historique) est conservée. Confirmez votre identité pour continuer."
+      }
     },
     "registrationCodes": {
       "title": "Codes d'inscription",
@@ -539,43 +567,25 @@
         "expired": "Expiré"
       },
       "revoke": "Révoquer",
-
       "showCode": "Afficher le code",
-
       "hideCode": "Masquer",
-
       "copy": "Copier",
-
       "collapse": "Réduire",
-
       "expand": "Développer",
-
       "noEmail": "Aucun e-mail",
-
       "expiresOn": "Expire {date}",
-
       "codeLabel": "Code",
-
       "invalidNote": "Ce code n'est plus valide.",
-
       "noCode": "Code indisponible.",
-
       "share": {
-
         "heading": "Configurez votre compte {appTitle}",
-
         "goTo": "Allez sur :",
-
+        "enterAt": "Saisissez le code sur {url}",
         "enterCode": "Saisissez ce code :",
-
         "verifyEmail": "Vérifiez votre e-mail",
-
         "useEmail": "(utilisez {email})",
-
         "setup": "Indiquez votre nom, niveau et un mot de passe",
-
         "validity": "Code à usage unique · valable jusqu'au {date}"
-
       },
       "empty": "Aucun code d'inscription pour l'instant."
     },
@@ -618,7 +628,6 @@
       "saved": "Enregistré.",
       "timeLabel": "Heure",
       "exempt": "Exempté (X)",
-
       "selfExcused": "Absences auto-justifiées ({count})",
       "status": {
         "present": "Présent",
@@ -863,44 +872,46 @@
         "status": "Statut"
       },
       "tableEmpty": "Aucune carte pour l'instant."
+    },
+    "tuteeRequests": {
+      "title": "Départs & retraits",
+      "help": "Départs de tutorés (relayés par un tuteur, avec 7 jours pour se rétracter) et tutorés actuellement retirés (départ volontaire ou retrait disciplinaire).",
+      "kind": {
+        "VOLUNTARY": "Départ",
+        "PUNISHMENT": "Discipline"
+      },
+      "pendingHeading": "Départs en attente",
+      "pendingHelp": "Un tuteur a relayé la demande de départ du tutoré. Elle est approuvée automatiquement après le délai, sauf rétractation du tuteur ou annulation de votre part.",
+      "pendingEmpty": "Aucun départ en attente.",
+      "relayedBy": "Relayé par {tutor} · {subject}",
+      "autoApprovesOn": "approuvé le {date}",
+      "cancel": "Annuler",
+      "removedHeading": "Retirés & partis",
+      "removedHelp": "Tutorés actuellement retirés. Les réintégrer les renvoie dans la file d'inscription pour réaffectation et lève tout signalement du trimestre.",
+      "removedEmpty": "Aucun tutoré retiré.",
+      "removedDiscipline": "Retrait disciplinaire",
+      "removedOptOut": "Parti (via {tutor})",
+      "reinstate": "Réintégrer"
     }
   },
   "tutor": {
-
     "activate": {
-
       "title": "Confirmez votre disponibilité",
-
       "body": "Une nouvelle période a commencé. Activez votre compte pour continuer ou retirez-vous pour le moment.",
-
       "available": "Je suis disponible",
-
       "optOut": "Me retirer",
-
       "note": "Vous pourrez le modifier plus tard dans vos paramètres."
-
     },
-
     "meetings": {
-
       "title": "Réunions à venir",
-
       "help": "Vous ne pouvez pas venir ? Justifiez votre absence jusqu'à 30 minutes avant le début.",
-
       "excuseBtn": "Justifier l'absence",
-
       "submitExcuse": "Envoyer",
-
       "cancelExcuse": "Annuler la justification",
-
       "reasonPlaceholder": "Motif (facultatif)",
-
       "excused": "Vous avez justifié cette absence.",
-
       "excusedBadge": "Justifiée",
-
       "tooLate": "Trop tard pour justifier"
-
     },
     "nav": {
       "handbook": "Manuel"
@@ -913,7 +924,6 @@
       "GRADUATED": "Diplômé",
       "OPTED_OUT": "Retrait",
       "PENDING": "En attente",
-
       "ARCHIVED": "Archivé"
     },
     "attendance": {
@@ -989,7 +999,15 @@
       "mergeTitle": "Fusionner des séances",
       "mergeHelp": "Vous les animez ensemble dans un seul bloc ? Cochez les séances couvertes en même temps que celle sélectionnée dans le formulaire de présence. Chacune est enregistrée séparément, mais les heures de service du bloc ne sont comptées qu'une fois.",
       "mergeSelectPrimary": "Sélectionnez une séance dans le formulaire de présence pour en fusionner d'autres.",
-      "mergeNone": "Aucune autre séance ne partage un élève ou une matière avec celle sélectionnée."
+      "mergeNone": "Aucune autre séance ne partage un élève ou une matière avec celle sélectionnée.",
+      "roomOnly": "Salle {room}",
+      "removalPending": "départ en attente",
+      "removalRecall": "Rétracter",
+      "requestRemoval": "Relayer le départ",
+      "removalHelp": "Le tutoré souhaite partir ? Relayez sa demande. Vous (ou un admin) avez 7 jours pour la rétracter ; ensuite c'est automatique.",
+      "removalReasonPlaceholder": "Motif (facultatif)",
+      "removalSubmit": "Relayer",
+      "removalCancel": "Annuler"
     },
     "availability": {
       "loading": "Chargement des créneaux…",
@@ -1087,6 +1105,20 @@
         "earned": "{earned} acquises",
         "extra": "+ {extra} supplémentaires",
         "penalty": "− {penalty} pénalité"
+      }
+    },
+    "discipline": {
+      "title": "Conduite du tutoré",
+      "help": "État des cartons de vos tutorés. L'équipe conserve les motifs précis.",
+      "removalPending": "Au seuil de retrait",
+      "removalBadge": "retrait en attente",
+      "standingTitle": "{red} rouges, {yellow} jaunes",
+      "onWarning": "Sous avertissement",
+      "ok": "Aucun",
+      "pendingCount": "{n} en révision",
+      "cardStatus": {
+        "VALID": "valide",
+        "PENDING": "en révision"
       }
     }
   },
@@ -1229,5 +1261,21 @@
     "addLanguageName": "Nom (ex. Français)",
     "addLanguageBtn": "Ajouter une langue",
     "back": "Retour"
+  },
+  "account": {
+    "title": "Compte",
+    "subtitle": "Gérez votre nom de connexion et votre mot de passe.",
+    "identityHeading": "Détails du compte",
+    "tutorNote": "Vous avez aussi un compte de tuteur.",
+    "openTutorSettings": "Ouvrir les réglages de tuteur",
+    "password": {
+      "twoFactorHint": "Pour votre sécurité, nous enverrons un code de vérification par e-mail avant de changer votre mot de passe.",
+      "sendCode": "Envoyer le code de vérification",
+      "sending": "Envoi…",
+      "codeSent": "Nous avons envoyé un code à {email}. Saisissez-le ci-dessous pour terminer.",
+      "codeLabel": "Code de vérification",
+      "resend": "Renvoyer le code",
+      "cancel": "Annuler"
+    }
   }
 }

@@ -9,6 +9,7 @@ import { db } from "~/server/db";
 import { emailSender, isEmailConfigured } from "~/server/email/sender";
 import { APP_TITLE } from "~/lib/branding";
 import { hashPassword } from "./password";
+import { ensureUniqueUsername, ensureUserUsername } from "./username";
 
 /** How long an issued reset token stays valid. */
 const TOKEN_TTL_MINUTES = 60;
@@ -130,7 +131,13 @@ export async function issueTutorSetupLink(tutorId: string): Promise<
 > {
   const tutor = await db.tutor.findUnique({
     where: { id: tutorId },
-    select: { id: true, email: true, englishName: true, user: { select: { id: true } } },
+    select: {
+      id: true,
+      email: true,
+      englishName: true,
+      username: true,
+      user: { select: { id: true } },
+    },
   });
   if (!tutor) return { ok: false, error: "no-tutor" };
   const email = tutor.email?.trim().toLowerCase();
@@ -143,9 +150,12 @@ export async function issueTutorSetupLink(tutorId: string): Promise<
       await db.user.update({ where: { id: existing.id }, data: { tutorId: tutor.id } });
       userId = existing.id;
     } else {
+      // Mirror the tutor's handle onto the login (unique across both spaces).
+      const username = await ensureUniqueUsername(tutor.username ?? tutor.englishName);
       const created = await db.user.create({
         data: {
           email,
+          username,
           name: tutor.englishName,
           role: "TUTOR",
           tutorId: tutor.id,
@@ -156,6 +166,8 @@ export async function issueTutorSetupLink(tutorId: string): Promise<
       userId = created.id;
     }
   }
+  // Make sure the (possibly pre-existing) login carries a username.
+  await ensureUserUsername(userId);
 
   const token = randomBytes(32).toString("hex");
   await db.passwordResetToken.create({

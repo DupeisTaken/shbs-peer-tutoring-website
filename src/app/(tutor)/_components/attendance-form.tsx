@@ -9,6 +9,7 @@ import { z } from "zod";
 import { api } from "~/trpc/react";
 import { hmToMin, minToHm } from "~/lib/time";
 import { useMerge } from "~/app/(tutor)/_components/merge-context";
+import { DisciplineSlots } from "~/app/_components/discipline-slots";
 
 const TUTOR_STATUS_VALUES = ["PRESENT", "RESCHEDULED", "EXTRA", "TUTOR_ABSENT"] as const;
 const LIKERT_VALUES = [1, 2, 3, 4, 5] as const;
@@ -60,6 +61,7 @@ export function AttendanceForm() {
   const t = useTranslations();
   const utils = api.useUtils();
   const pairingsQuery = api.tutor.myPairings.useQuery();
+  const disciplineQuery = api.tutor.myTuteeDiscipline.useQuery();
   const submit = api.tutor.submitAttendance.useMutation({
     onSuccess: async () => {
       await Promise.all([
@@ -117,6 +119,8 @@ export function AttendanceForm() {
         ).values(),
       ]
     : [];
+  // Disciplinary standing per tutee (meter data only — reasons are never sent to tutors).
+  const standingByTutee = new Map((disciplineQuery.data ?? []).map((d) => [d.tuteeId, d]));
 
   // When the primary pairing changes, default the time fields and clear merge/per-tutee state.
   useEffect(() => {
@@ -310,11 +314,35 @@ export function AttendanceForm() {
             {unionTutees.map((t2) => {
               const entry = tuteeState[t2.tuteeId];
               const status = entry?.status ?? "PRESENT";
+              const standing = standingByTutee.get(t2.tuteeId);
               return (
                 <div key={t2.tuteeId} className="flex flex-wrap items-center gap-2">
                   <span className="w-40 truncate text-sm text-slate-700">
                     {t2.tutee.englishName}
                   </span>
+                  {/* Card standing at a glance — meter only, no reasons. */}
+                  {standing && (
+                    <span
+                      className="flex items-center gap-1"
+                      title={
+                        standing.removalPending
+                          ? t("tutor.discipline.removalPending")
+                          : t("tutor.discipline.standingTitle", {
+                              red: standing.validRed,
+                              yellow: standing.validYellow,
+                            })
+                      }
+                    >
+                      <DisciplineSlots
+                        validRed={standing.validRed}
+                        validYellow={standing.validYellow}
+                        size="sm"
+                      />
+                      {standing.removalPending && (
+                        <span className="badge-red">{t("tutor.discipline.removalBadge")}</span>
+                      )}
+                    </span>
+                  )}
                   <select
                     className="select field-auto min-w-40"
                     value={status}

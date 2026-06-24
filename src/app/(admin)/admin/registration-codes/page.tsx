@@ -8,94 +8,43 @@ import { APP_TITLE } from "~/lib/branding";
 import { DisclosureIcon } from "~/app/_components/icons";
 import { useReadOnly } from "~/app/_components/read-only";
 
-/** A quiet numbered step marker — ties the steps to the real registration sequence. */
-function StepNum({ n }: { n: number }) {
-  return (
-    <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-accent-100 text-xs font-bold text-accent-700">
-      {n}
-    </span>
-  );
-}
-
 /**
- * A self-contained "invite pass" for a new tutor — designed so an admin can screenshot it and send
- * everything the recruit needs in one image: where to go, the code, which email to use, and how
- * long it's valid. The dashed code chip is the hero; everything else stays quiet. Reused for a
- * freshly-issued code and each expanded card.
+ * A compact, screenshot-ready setup card for a new tutor: the heading, the code in a two-line box
+ * (label + digits), where to enter it, and how long it's valid. Same accent/green scheme as the
+ * code boxes. Reused for a freshly-issued code and each expanded card.
  */
 function ShareCard({
   code,
-  email,
   expiresAt,
   registerUrl,
 }: {
   code: string;
-  email: string | null;
   expiresAt: Date;
   registerUrl: string;
 }) {
   const t = useTranslations();
   return (
-    <div className="max-w-md overflow-hidden rounded-xl border border-accent-200 bg-white shadow-sm">
-      {/* Welcome band — themed to match the rest of the app (accent tokens). */}
-      <div className="bg-accent-600 px-5 py-3.5">
-        <p className="text-base font-bold text-white">
-          {t("admin.registrationCodes.share.heading", { appTitle: APP_TITLE })}
+    <div className="mx-auto max-w-sm rounded-xl border border-accent-200 bg-white p-5 text-center shadow-sm">
+      <p className="text-base font-bold text-slate-900">
+        {t("admin.registrationCodes.share.heading", { appTitle: APP_TITLE })}
+      </p>
+
+      {/* The code box — two centered lines: label + digits (same dashed-green scheme). */}
+      <div className="mt-3 inline-block rounded-lg border-2 border-dashed border-green-300 bg-green-50 px-6 py-3 text-center">
+        <p className="text-xs font-semibold tracking-wide text-green-700 uppercase">
+          {t("admin.registrationCodes.codeLabel")}
         </p>
+        <p className="font-mono text-3xl font-bold tracking-[0.3em] text-green-800">{code}</p>
       </div>
 
-      {/* The registration sequence (a genuine ordered process → numbered). */}
-      <ol className="space-y-4 px-5 py-4">
-        <li className="flex gap-3">
-          <StepNum n={1} />
-          <p className="pt-0.5 text-sm text-slate-700">
-            <span className="font-medium text-slate-900">
-              {t("admin.registrationCodes.share.goTo")}
-            </span>{" "}
-            <span className="font-mono break-all text-accent-700">{registerUrl}</span>
-          </p>
-        </li>
-        <li className="flex gap-3">
-          <StepNum n={2} />
-          <div className="pt-0.5">
-            <p className="text-sm font-medium text-slate-900">
-              {t("admin.registrationCodes.share.enterCode")}
-            </p>
-            {/* Signature: the code as a tear-off ticket chip. */}
-            <div className="mt-2 inline-block rounded-lg border-2 border-dashed border-green-300 bg-green-50 px-5 py-2.5 font-mono text-3xl font-bold tracking-[0.3em] text-green-800">
-              {code}
-            </div>
-          </div>
-        </li>
-        <li className="flex gap-3">
-          <StepNum n={3} />
-          <p className="pt-0.5 text-sm text-slate-700">
-            <span className="font-medium text-slate-900">
-              {t("admin.registrationCodes.share.verifyEmail")}
-            </span>
-            {email && (
-              <span className="ml-1 font-mono text-slate-500">
-                {t("admin.registrationCodes.share.useEmail", { email })}
-              </span>
-            )}
-          </p>
-        </li>
-        <li className="flex gap-3">
-          <StepNum n={4} />
-          <p className="pt-0.5 text-sm font-medium text-slate-900">
-            {t("admin.registrationCodes.share.setup")}
-          </p>
-        </li>
-      </ol>
-
-      {/* Validity footer — quiet, factual. */}
-      <div className="border-t border-accent-100 bg-accent-50/60 px-5 py-2.5">
-        <p className="text-xs font-medium text-accent-700">
-          {t("admin.registrationCodes.share.validity", {
-            date: new Date(expiresAt).toLocaleDateString(),
-          })}
-        </p>
-      </div>
+      <p className="mt-3 text-sm break-all text-slate-700">
+        {t("admin.registrationCodes.share.enterAt", { url: registerUrl })}
+      </p>
+      <p className="mt-1 text-xs font-medium text-accent-700">
+        {t("admin.registrationCodes.share.validity", {
+          date: new Date(expiresAt).toLocaleDateString(),
+        })}
+      </p>
     </div>
   );
 }
@@ -193,7 +142,6 @@ export default function RegistrationCodesPage() {
           </p>
           <ShareCard
             code={issued.code}
-            email={issued.email}
             expiresAt={issued.expiresAt}
             registerUrl={registerUrl}
           />
@@ -232,26 +180,36 @@ export default function RegistrationCodesPage() {
                   >
                     <DisclosureIcon open={open} />
                   </button>
-                  <div className="min-w-0 space-y-1">
+                  <div className="min-w-0">
                     <p className="font-medium text-slate-900">
                       {c.label ?? c.tutorName ?? "—"}
                       <span className={`${statusBadge(c.status)} ml-2`}>
                         {t(`admin.registrationCodes.status.${c.status}`)}
                       </span>
                     </p>
-                    {!open && (
-                      <p className="muted text-xs">
-                        {c.email ?? t("admin.registrationCodes.noEmail")}
-                      </p>
-                    )}
                   </div>
                 </div>
-                <div className="flex shrink-0 items-center gap-3">
-                  <p className="muted text-xs">
+                <div className="flex shrink-0 flex-wrap items-center justify-end gap-3">
+                  {/* Issuer account + bound email, to the left of the expiry. */}
+                  <div className="text-right text-xs leading-tight text-slate-500">
+                    <p>
+                      {t("admin.registrationCodes.colIssuedBy")}: {c.issuedByName ?? "—"}
+                    </p>
+                    {c.issuedByEmail && <p>{c.issuedByEmail}</p>}
+                  </div>
+                  <p className="text-xs text-slate-500">
                     {t("admin.registrationCodes.expiresOn", {
                       date: new Date(c.expiresAt).toLocaleDateString(),
                     })}
                   </p>
+                  {!readOnly && c.status === "active" && c.code && (
+                    <button
+                      className="btn-secondary btn-sm"
+                      onClick={() => navigator.clipboard?.writeText(c.code!)}
+                    >
+                      {t("admin.registrationCodes.copy")}
+                    </button>
+                  )}
                   {!readOnly && c.status === "active" && (
                     <button
                       className="btn-danger btn-sm"
@@ -267,21 +225,11 @@ export default function RegistrationCodesPage() {
               {open && (
                 <div className="mt-3 space-y-3 border-t border-slate-100 pt-3">
                   {c.code && c.status === "active" ? (
-                    <>
-                      <ShareCard
-                        code={c.code}
-                        email={c.email}
-                        expiresAt={c.expiresAt}
-                        registerUrl={registerUrl}
-                      />
-                      <button
-                        type="button"
-                        className="btn-secondary btn-sm"
-                        onClick={() => navigator.clipboard?.writeText(c.code!)}
-                      >
-                        {t("admin.registrationCodes.copy")}
-                      </button>
-                    </>
+                    <ShareCard
+                      code={c.code}
+                      expiresAt={c.expiresAt}
+                      registerUrl={registerUrl}
+                    />
                   ) : c.code ? (
                     // Used / expired: the code is no longer shareable.
                     <div>
@@ -294,9 +242,6 @@ export default function RegistrationCodesPage() {
                   ) : (
                     <p className="muted text-sm">{t("admin.registrationCodes.noCode")}</p>
                   )}
-                  <p className="muted text-xs">
-                    {t("admin.registrationCodes.colIssuedBy")}: {c.issuedByName ?? "—"}
-                  </p>
                 </div>
               )}
             </div>

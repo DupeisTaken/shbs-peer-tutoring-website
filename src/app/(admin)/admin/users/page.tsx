@@ -17,14 +17,137 @@ const ACCOUNT_STATES = ["registered", "setup", "invited", "none"] as const;
 /** Elevated roles: they live in the admin area and can translate by default (no flag needed). */
 const ELEVATED_ROLES: readonly string[] = ["COORDINATOR", "ADMIN", "HEAD"];
 
+/** A small on/off switch used for the can-tutor / can-translate columns. */
+function Toggle({
+  on,
+  disabled,
+  onClick,
+  label,
+}: {
+  on: boolean;
+  disabled?: boolean;
+  onClick: () => void;
+  label: string;
+}) {
+  return (
+    <button
+      type="button"
+      role="switch"
+      aria-checked={on}
+      aria-label={label}
+      title={label}
+      disabled={disabled}
+      onClick={onClick}
+      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+        on ? "bg-accent-600" : "bg-slate-300"
+      } ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
+    >
+      <span
+        className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${
+          on ? "translate-x-6" : "translate-x-1"
+        }`}
+      />
+    </button>
+  );
+}
+
+/**
+ * Step-up identity check for dangerous actions (role change, leadership transfer, account
+ * deletion). The admin re-enters their own password; the value is passed to the action's
+ * `run` callback (which calls the mutation with `confirmPassword`). Mounted fresh per action,
+ * so the password field always starts empty.
+ */
+function ConfirmIdentityDialog({
+  title,
+  body,
+  confirmLabel,
+  pending,
+  error,
+  onCancel,
+  onConfirm,
+}: {
+  title: string;
+  body: string;
+  confirmLabel: string;
+  pending: boolean;
+  error: string | null;
+  onCancel: () => void;
+  onConfirm: (password: string) => void;
+}) {
+  const t = useTranslations();
+  const [password, setPassword] = useState("");
+  return (
+    <div
+      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/40 p-4"
+      role="dialog"
+      aria-modal="true"
+    >
+      <form
+        className="card w-full max-w-sm space-y-4 p-5"
+        onSubmit={(e) => {
+          e.preventDefault();
+          if (password) onConfirm(password);
+        }}
+      >
+        <div className="space-y-1">
+          <h2 className="text-base font-semibold text-slate-900">{title}</h2>
+          <p className="muted text-sm">{body}</p>
+        </div>
+        <div>
+          <label className="label">{t("admin.users.confirm.passwordLabel")}</label>
+          <input
+            type="password"
+            autoFocus
+            autoComplete="current-password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder={t("admin.users.confirm.passwordPlaceholder")}
+            className="input w-full"
+          />
+        </div>
+        {error && <p className="text-sm text-red-600">{error}</p>}
+        <div className="flex justify-end gap-2">
+          <button type="button" className="btn-secondary btn-sm" onClick={onCancel} disabled={pending}>
+            {t("admin.users.confirm.cancel")}
+          </button>
+          <button type="submit" className="btn-primary btn-sm" disabled={pending || !password}>
+            {pending ? t("admin.users.confirm.working") : confirmLabel}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
 export default function UsersPage() {
   const t = useTranslations();
   const utils = api.useUtils();
   const accounts = api.admin.accounts.useQuery();
   const invalidate = () => utils.admin.accounts.invalidate();
 
-  const setRole = api.admin.setUserRole.useMutation({ onSuccess: invalidate });
-  const transferHead = api.admin.transferHead.useMutation({ onSuccess: invalidate });
+  // Dangerous actions run behind an identity-confirmation dialog (see ConfirmIdentityDialog).
+  const [confirm, setConfirm] = useState<{
+    title: string;
+    body: string;
+    confirmLabel: string;
+    run: (password: string) => void;
+  } | null>(null);
+  const [confirmError, setConfirmError] = useState<string | null>(null);
+  const closeConfirm = () => {
+    setConfirm(null);
+    setConfirmError(null);
+  };
+  const guardedMutation = {
+    onSuccess: () => {
+      void invalidate();
+      closeConfirm();
+    },
+    onError: (e: { message: string }) => setConfirmError(e.message),
+  };
+
+  const setRole = api.admin.setUserRole.useMutation(guardedMutation);
+  const transferHead = api.admin.transferHead.useMutation(guardedMutation);
+  const deleteUser = api.admin.deleteUser.useMutation(guardedMutation);
   const setCanTutor = api.admin.setUserCanTutor.useMutation({ onSuccess: invalidate });
   const setCanTranslate = api.admin.setUserCanTranslate.useMutation({ onSuccess: invalidate });
   const sendSetup = api.admin.sendTutorSetup.useMutation({
@@ -38,6 +161,7 @@ export default function UsersPage() {
   const callerRole = accounts.data?.caller.role;
   const isHead = callerRole === "HEAD";
   const isAdminTier = isHead || callerRole === "ADMIN";
+  const confirmPending = setRole.isPending || transferHead.isPending || deleteUser.isPending;
   const sort = useSort("name");
 
   // Filters.
@@ -165,6 +289,7 @@ export default function UsersPage() {
               <SortHeader sort={sort} sortKey="role">{t("admin.users.columns.role")}</SortHeader>
               <th>{t("admin.users.columns.canTutor")}</th>
               <th>{t("admin.users.columns.canTranslate")}</th>
+              {isHead && <th>{t("admin.users.columns.actions")}</th>}
             </tr>
           </thead>
           <tbody>
@@ -186,8 +311,8 @@ export default function UsersPage() {
                   <td>
                     <div className="leading-tight">
                       <p className="font-medium text-slate-900">{u.name}</p>
-                      {u.tutor?.username && (
-                        <p className="muted text-xs">@{u.tutor.username}</p>
+                      {(u.username ?? u.tutor?.username) && (
+                        <p className="muted text-xs">@{u.username ?? u.tutor?.username}</p>
                       )}
                       <p className="muted text-xs">{u.email ?? "—"}</p>
                     </div>
@@ -248,16 +373,28 @@ export default function UsersPage() {
                     {u.role == null ? (
                       <span className="text-slate-400">—</span>
                     ) : (
-                      <div className="space-y-1 leading-tight">
+                      <div className="flex flex-col items-center gap-1 leading-tight">
                         {u.role === "HEAD" ? (
                           <span className="badge-green">{t("admin.users.roles.HEAD")}</span>
                         ) : canEditRole ? (
                           <select
                             value={u.role}
-                            onChange={(e) =>
-                              u.userId &&
-                              setRole.mutate({ userId: u.userId, role: e.target.value as RoleValue })
-                            }
+                            onChange={(e) => {
+                              const userId = u.userId;
+                              const role = e.target.value as RoleValue;
+                              if (!userId) return;
+                              setConfirmError(null);
+                              setConfirm({
+                                title: t("admin.users.confirm.roleTitle"),
+                                body: t("admin.users.confirm.roleBody", {
+                                  name: u.name,
+                                  role: t(`admin.users.roles.${role}`),
+                                }),
+                                confirmLabel: t("admin.users.confirm.roleConfirm"),
+                                run: (pwd) =>
+                                  setRole.mutate({ userId, role, confirmPassword: pwd }),
+                              });
+                            }}
                             className="select field-auto min-w-36"
                           >
                             {roleOptions.map((r) => (
@@ -276,14 +413,17 @@ export default function UsersPage() {
                           (u.role === "ADMIN" || u.role === "COORDINATOR") && (
                             <button
                               className="link text-xs whitespace-nowrap"
-                              disabled={transferHead.isPending}
                               onClick={() => {
-                                if (
-                                  u.userId &&
-                                  window.confirm(t("admin.users.confirmTransfer", { name: u.name }))
-                                ) {
-                                  transferHead.mutate({ userId: u.userId });
-                                }
+                                const userId = u.userId;
+                                if (!userId) return;
+                                setConfirmError(null);
+                                setConfirm({
+                                  title: t("admin.users.confirm.transferTitle"),
+                                  body: t("admin.users.confirmTransfer", { name: u.name }),
+                                  confirmLabel: t("admin.users.makeHead"),
+                                  run: (pwd) =>
+                                    transferHead.mutate({ userId, confirmPassword: pwd }),
+                                });
                               }}
                             >
                               {t("admin.users.makeHead")}
@@ -296,22 +436,15 @@ export default function UsersPage() {
                   {/* Can tutor — admin tier for anyone; coordinators only for themselves. */}
                   <td>
                     {canTutorApplies && u.userId ? (
-                      <label
-                        className={`flex items-center gap-2 text-sm ${
-                          canEditCanTutor ? "text-slate-700" : "text-slate-400"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={linkedActive}
-                          disabled={!canEditCanTutor || setCanTutor.isPending}
-                          onChange={(e) =>
-                            u.userId &&
-                            setCanTutor.mutate({ userId: u.userId, canTutor: e.target.checked })
-                          }
-                        />
-                        {t("admin.users.canTutorLabel")}
-                      </label>
+                      <Toggle
+                        on={linkedActive}
+                        disabled={!canEditCanTutor || setCanTutor.isPending}
+                        label={t("admin.users.canTutorLabel")}
+                        onClick={() =>
+                          u.userId &&
+                          setCanTutor.mutate({ userId: u.userId, canTutor: !linkedActive })
+                        }
+                      />
                     ) : (
                       <span className="text-slate-400">—</span>
                     )}
@@ -326,33 +459,52 @@ export default function UsersPage() {
                         {t("admin.users.translateDefault")}
                       </span>
                     ) : (
-                      <label
-                        className={`flex items-center gap-2 text-sm ${
-                          isAdminTier ? "text-slate-700" : "text-slate-400"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          checked={u.canTranslate}
-                          disabled={!isAdminTier || setCanTranslate.isPending}
-                          onChange={(e) =>
-                            u.userId &&
-                            setCanTranslate.mutate({
-                              userId: u.userId,
-                              canTranslate: e.target.checked,
-                            })
-                          }
-                        />
-                        {t("admin.users.canTranslateLabel")}
-                      </label>
+                      <Toggle
+                        on={u.canTranslate}
+                        disabled={!isAdminTier || setCanTranslate.isPending}
+                        label={t("admin.users.canTranslateLabel")}
+                        onClick={() =>
+                          u.userId &&
+                          setCanTranslate.mutate({
+                            userId: u.userId,
+                            canTranslate: !u.canTranslate,
+                          })
+                        }
+                      />
                     )}
                   </td>
+
+                  {/* Actions — head only: delete a login (the tutor record is preserved). */}
+                  {isHead && (
+                    <td>
+                      {u.userId && !u.isSelf && u.role !== "HEAD" ? (
+                        <button
+                          className="link-danger text-xs whitespace-nowrap"
+                          onClick={() => {
+                            const userId = u.userId;
+                            if (!userId) return;
+                            setConfirmError(null);
+                            setConfirm({
+                              title: t("admin.users.confirm.deleteTitle"),
+                              body: t("admin.users.confirm.deleteBody", { name: u.name }),
+                              confirmLabel: t("admin.users.delete"),
+                              run: (pwd) => deleteUser.mutate({ userId, confirmPassword: pwd }),
+                            });
+                          }}
+                        >
+                          {t("admin.users.delete")}
+                        </button>
+                      ) : (
+                        <span className="text-slate-400">—</span>
+                      )}
+                    </td>
+                  )}
                 </tr>
               );
             })}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={6} className="text-slate-500">
+                <td colSpan={isHead ? 7 : 6} className="text-slate-500">
                   {t("admin.users.empty")}
                 </td>
               </tr>
@@ -360,13 +512,26 @@ export default function UsersPage() {
           </tbody>
         </table>
       </div>
-      {(setRole.error ?? transferHead.error ?? setCanTutor.error ?? setCanTranslate.error ?? sendSetup.error) && (
+      {/* Errors from the dangerous (dialog-gated) actions surface inside the dialog itself. */}
+      {(setCanTutor.error ?? setCanTranslate.error ?? sendSetup.error) && (
         <p className="text-sm text-red-600">
-          {
-            (setRole.error ?? transferHead.error ?? setCanTutor.error ?? setCanTranslate.error ??
-              sendSetup.error)?.message
-          }
+          {(setCanTutor.error ?? setCanTranslate.error ?? sendSetup.error)?.message}
         </p>
+      )}
+
+      {confirm && (
+        <ConfirmIdentityDialog
+          title={confirm.title}
+          body={confirm.body}
+          confirmLabel={confirm.confirmLabel}
+          pending={confirmPending}
+          error={confirmError}
+          onCancel={closeConfirm}
+          onConfirm={(pwd) => {
+            setConfirmError(null);
+            confirm.run(pwd);
+          }}
+        />
       )}
     </div>
   );

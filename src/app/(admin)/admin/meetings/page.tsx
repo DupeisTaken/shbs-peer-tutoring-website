@@ -6,10 +6,10 @@ import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { useReadOnly } from "~/app/_components/read-only";
 
-/** The statuses an admin picks directly. EXEMPT (X) is auto-applied to inactive tutors. */
+/** The statuses an admin picks directly. EXEMPT (X) is auto-applied to inactive tutors;
+ *  EXCUSED_ABSENT comes only from a tutor's self-excuse and shows as a read-only badge. */
 const ATTENDANCE_OPTIONS = [
   { value: "PRESENT", labelKey: "admin.meetings.status.present" },
-  { value: "EXCUSED_ABSENT", labelKey: "admin.meetings.status.excusedAbsent" },
   { value: "UNEXCUSED_ABSENT", labelKey: "admin.meetings.status.unexcusedAbsent" },
 ] as const;
 type MeetingStatus = "PRESENT" | "EXCUSED_ABSENT" | "UNEXCUSED_ABSENT" | "EXEMPT";
@@ -249,6 +249,15 @@ function AttendanceEditor({
             );
           }
           const value = draft[tu.id];
+          // A self-excused tutor (EXCUSED_ABSENT) is shown as a read-only badge, not editable here.
+          if (value === "EXCUSED_ABSENT") {
+            return (
+              <div key={tu.id} className="flex items-center justify-between gap-2 text-sm">
+                <span className="text-slate-700">{tu.englishName}</span>
+                <span className="badge-amber">{t("admin.meetings.status.excusedAbsent")}</span>
+              </div>
+            );
+          }
           return (
             <div key={tu.id} className="flex items-center justify-between gap-2 text-sm">
               <span className="text-slate-700">{tu.englishName}</span>

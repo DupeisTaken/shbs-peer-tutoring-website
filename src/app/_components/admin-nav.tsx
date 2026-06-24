@@ -41,6 +41,7 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
     items: [
       { href: "/admin/tutees", labelKey: "admin.nav.links.tuteeRoster" },
       { href: "/admin/requests", labelKey: "admin.nav.links.signupRequests" },
+      { href: "/admin/tutee-requests", labelKey: "admin.nav.links.tuteeRequests", elevatedOnly: true },
       { href: "/admin/discipline", labelKey: "admin.nav.links.tuteeDiscipline" },
     ],
   },

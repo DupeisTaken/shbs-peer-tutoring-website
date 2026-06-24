@@ -10,6 +10,7 @@ import { MergeProvider } from "~/app/(tutor)/_components/merge-context";
 import { MyInterviews } from "~/app/(tutor)/_components/my-interviews";
 import { TutorMeetings } from "~/app/(tutor)/_components/tutor-meetings";
 import { TutorActivation } from "~/app/(tutor)/_components/tutor-activation";
+import { TutorDiscipline } from "~/app/(tutor)/_components/tutor-discipline";
 import { getTranslations } from "next-intl/server";
 
 import { RoomGrid } from "~/app/_components/room-grid";
@@ -118,6 +119,9 @@ export default async function TutorDashboard() {
           )}
         </div>
       </MergeProvider>
+
+      {/* Punishment history for the tutor's tutees (reason-free; self-hides when none). */}
+      {!inactive && <TutorDiscipline />}
 
       {/* Room assignments (read-only schedule grid; your pairings are highlighted) */}
       <section className="space-y-2">

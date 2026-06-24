@@ -14,7 +14,11 @@
  */
 import { db } from "~/server/db";
 import { issueRegistrationCode } from "~/server/auth/registration";
-import { defaultUsername, ensureUniqueUsername } from "~/server/auth/username";
+import {
+  defaultUsername,
+  ensureUniqueUsername,
+  splitDisplayName,
+} from "~/server/auth/username";
 
 export async function promoteApplicantToTutor(applicationId: string): Promise<void> {
   const app = await db.tutorApplication.findUnique({
@@ -26,9 +30,7 @@ export async function promoteApplicantToTutor(applicationId: string): Promise<vo
   const email = app.email?.trim() ? app.email.trim().toLowerCase() : null;
   if (!email) return; // applications always capture an email; nothing to bind a code to otherwise
 
-  const parts = app.name.trim().split(/\s+/).filter(Boolean);
-  const firstName = parts[0] ?? app.name.trim();
-  const lastName = parts.length > 1 ? parts.slice(1).join(" ") : firstName;
+  const { firstName, lastName, englishName } = splitDisplayName(app.name);
 
   // Resolve (or create) the Tutor record — reactivated if one already exists for this email.
   const existing = await db.tutor.findUnique({ where: { email }, select: { id: true } });
@@ -37,12 +39,13 @@ export async function promoteApplicantToTutor(applicationId: string): Promise<vo
     await db.tutor.update({ where: { id: existing.id }, data: { status: "ACTIVE" } });
     tutorId = existing.id;
   } else {
-    const username = await ensureUniqueUsername(defaultUsername(firstName, lastName));
+    const usernameBase = lastName ? defaultUsername(firstName, lastName) : firstName;
+    const username = await ensureUniqueUsername(usernameBase);
     const tutor = await db.tutor.create({
       data: {
         firstName,
         lastName,
-        englishName: `${firstName} ${lastName}`,
+        englishName,
         username,
         email,
         status: "ACTIVE",

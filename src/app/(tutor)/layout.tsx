@@ -27,6 +27,33 @@ export default async function TutorLayout({
   if (!session?.user) redirect("/signin");
   if (!session.tutorId) redirect("/");
 
+  const t = await getTranslations();
+  const isElevated =
+    session.role === "HEAD" || session.role === "ADMIN" || session.role === "COORDINATOR";
+
+  // Stale-session guard: `session.tutorId` lives in the JWT and can outlive the Tutor row it
+  // points to (e.g. after a dev DB reseed). Tutor queries (`tutor.me`, …) use it and would throw
+  // "record not found", 500-ing the whole area. Verify it still resolves first: send an elevated
+  // user back to their admin area; ask a pure tutor to sign out so a fresh sign-in re-links them.
+  const linkedTutor = await db.tutor.findUnique({
+    where: { id: session.tutorId },
+    select: { id: true },
+  });
+  if (!linkedTutor) {
+    if (isElevated) redirect("/admin");
+    return (
+      <main className="flex min-h-screen items-center justify-center px-4">
+        <div className="card max-w-sm p-6 text-center">
+          <h1 className="section-title">{t("auth.staleSession.title")}</h1>
+          <p className="muted mt-2 text-sm">{t("auth.staleSession.body")}</p>
+          <div className="mt-4 flex justify-center">
+            <SignOutButton />
+          </div>
+        </div>
+      </main>
+    );
+  }
+
   // First-login gate: confirm contact email + set a real password (auto-provisioned
   // accounts arrive on the shared default with mustChangePassword).
   const me = await db.user.findUnique({
@@ -40,10 +67,6 @@ export default async function TutorLayout({
     },
   });
   if (!me?.emailVerifiedAt || me.mustChangePassword) redirect("/onboarding/email");
-
-  const t = await getTranslations();
-  const isElevated =
-    session.role === "HEAD" || session.role === "ADMIN" || session.role === "COORDINATOR";
 
   return (
     <div className="min-h-screen">

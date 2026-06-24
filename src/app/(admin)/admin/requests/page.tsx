@@ -25,6 +25,8 @@ type PendingTutee = {
   firstChoice: { id: string; name: string } | null;
   secondChoice: { id: string; name: string } | null;
   availabilities: { slot: SlotLite }[];
+  /** Set when this pending signup matches a tutee punishment-removed this quarter (name/email/phone). */
+  bannedMatch: { name: boolean; email: boolean; phone: boolean } | null;
 };
 
 type Workload = Record<string, { pairings: number; tutees: number }>;
@@ -111,6 +113,22 @@ function RequestCard({
               {tutee.gradeLevel ? ` · ${t("admin.requests.grade", { grade: tutee.gradeLevel })}` : ""}
               {fulfilled && (
                 <span className="badge-green ml-2">{t("admin.requests.fulfilled")}</span>
+              )}
+              {tutee.bannedMatch && (
+                <span
+                  className="badge-red ml-2"
+                  title={t("admin.requests.banFlagTitle", {
+                    fields: [
+                      tutee.bannedMatch.name ? t("admin.requests.banField.name") : null,
+                      tutee.bannedMatch.email ? t("admin.requests.banField.email") : null,
+                      tutee.bannedMatch.phone ? t("admin.requests.banField.phone") : null,
+                    ]
+                      .filter(Boolean)
+                      .join(", "),
+                  })}
+                >
+                  {t("admin.requests.banFlag")}
+                </span>
               )}
             </p>
             {!collapsed && (

@@ -33,11 +33,19 @@ export default async function AdminLayout({
 
   const readOnly = session.role === "VIEWER";
 
-  // Username (if this admin is also a linked tutor) for the identity block in the top bar.
+  // Username for the identity block in the top bar (account handle, falling back to a linked
+  // tutor's). The block links to the self-service account page. The tutor `status` decides whether
+  // to show the "Enter tutor" hop: an ARCHIVED tutor means can-tutor is off (not permitted) — we
+  // keep the link to preserve attributes, so check the live status rather than the JWT's tutorId.
   const me = await db.user.findUnique({
     where: { id: session.user.id },
-    select: { tutor: { select: { username: true } } },
+    select: { username: true, tutor: { select: { username: true, status: true } } },
   });
+  // Permitted to tutor = a live linked tutor that hasn't been archived (can-tutor turned off).
+  // Keyed off the DB link (`me.tutor`), not the JWT's `session.tutorId`, so toggling can-tutor on
+  // shows the button on the next render without waiting for a re-login. The jwt callback keeps
+  // `session.tutorId` in sync too, so following the link into the tutor area resolves correctly.
+  const canEnterTutor = !!me?.tutor && me.tutor.status !== "ARCHIVED";
 
   return (
     <div className="min-h-screen">
@@ -49,17 +57,23 @@ export default async function AdminLayout({
           </Link>
           {/* Order: account info · theme · bell · language · buttons */}
           <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
-            <div className="hidden text-right leading-tight sm:block">
+            <Link
+              href="/admin/account"
+              className="hidden rounded-md px-2 py-1 text-right leading-tight hover:bg-slate-100 sm:block"
+              title={t("account.title")}
+            >
               <p className="text-sm font-medium text-slate-900">{session.user.name}</p>
               <p className="muted text-xs">
-                {me?.tutor?.username ? `@${me.tutor.username} · ` : ""}
+                {me?.username ?? me?.tutor?.username
+                  ? `@${me.username ?? me?.tutor?.username} · `
+                  : ""}
                 {session.role}
               </p>
-            </div>
+            </Link>
             <ThemeSwitcher />
             <NotificationBell />
             <LanguageSwitcher />
-            {session.tutorId && (
+            {canEnterTutor && (
               <Link href="/dashboard" className="btn-secondary btn-sm">
                 {t("components.userMenu.enterTutor")}
               </Link>

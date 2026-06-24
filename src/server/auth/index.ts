@@ -7,6 +7,7 @@ import { env } from "~/env";
 import { db } from "~/server/db";
 import { authConfig } from "./config";
 import { verifyPassword } from "./password";
+import { ensureUserUsername } from "./username";
 
 function bootstrapAdminEmails(): string[] {
   return (env.AUTH_BOOTSTRAP_ADMIN_EMAILS ?? "")
@@ -49,10 +50,15 @@ const {
         if (!parsed.success) return null;
 
         const identifier = parsed.data.identifier.trim().toLowerCase();
-        // Match either the login email or the linked Tutor's username.
+        // Match the login email, the account username, or (for not-yet-backfilled rows) the
+        // linked Tutor's username — username and email are both alternate sign-in identifiers.
         const user = await db.user.findFirst({
           where: {
-            OR: [{ email: identifier }, { tutor: { username: identifier } }],
+            OR: [
+              { email: identifier },
+              { username: identifier },
+              { tutor: { username: identifier } },
+            ],
           },
           select: { id: true, name: true, email: true, passwordHash: true },
         });
@@ -120,9 +126,23 @@ const {
           select: { id: true, role: true, tutorId: true },
         });
 
+        // Uphold the "every account has a username" invariant — assign one on first sign-in if
+        // this login predates the field (mirrors the linked tutor's handle when present).
+        await ensureUserUsername(dbUser.id);
+
         token.sub = dbUser.id;
         token.role = dbUser.role;
         token.tutorId = dbUser.tutorId;
+      } else if (token.sub) {
+        // Token reuse (no fresh sign-in): keep the linked `tutorId` in sync with the DB so a
+        // can-tutor toggle — which links/creates the Tutor (or archives it) on `/admin/users` —
+        // takes effect on the next request without forcing a re-login. (Role still updates only
+        // at sign-in, per the note above and the admin UI hint.)
+        const dbUser = await db.user.findUnique({
+          where: { id: token.sub },
+          select: { tutorId: true },
+        });
+        token.tutorId = dbUser?.tutorId ?? null;
       }
       return token;
     },

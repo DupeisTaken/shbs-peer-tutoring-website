@@ -6,42 +6,7 @@ import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { disciplineStanding } from "~/lib/discipline";
 import { NativeDisclosureIcon } from "~/app/_components/icons";
-
-/**
- * Six-slot discipline meter: a red card fills 3 slots, a yellow fills 1 (so 3 yellow = 1 red,
- * and a full 6 = 2 reds = removal). Only VALID cards count.
- */
-function DisciplineSlots({ validRed, validYellow }: { validRed: number; validYellow: number }) {
-  let red = validRed * 3;
-  let yellow = validYellow;
-  const slots = Array.from({ length: 6 }, () => {
-    if (red > 0) {
-      red--;
-      return "red";
-    }
-    if (yellow > 0) {
-      yellow--;
-      return "yellow";
-    }
-    return "empty";
-  });
-  return (
-    <span className="inline-flex gap-1 align-middle">
-      {slots.map((s, i) => (
-        <span
-          key={i}
-          className={`h-4 w-4 rounded-sm border ${
-            s === "red"
-              ? "border-red-600 bg-red-500"
-              : s === "yellow"
-                ? "border-amber-500 bg-amber-400"
-                : "border-slate-200 bg-slate-100"
-          }`}
-        />
-      ))}
-    </span>
-  );
-}
+import { DisciplineSlots } from "~/app/_components/discipline-slots";
 
 type Card = {
   id: string;

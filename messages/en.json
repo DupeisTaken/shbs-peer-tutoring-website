@@ -4,7 +4,8 @@
     "save": "Save",
     "saved": "Saved.",
     "language": "Language",
-    "backToMain": "← Back to main page"
+    "backToMain": "← Back to main page",
+    "close": "Close"
   },
   "auth": {
     "signinTitle": "Sign in",
@@ -14,7 +15,6 @@
     "signIn": "Sign in",
     "signingIn": "Signing in…",
     "forgotPassword": "Forgot password?",
-
     "createAccount": "Create account",
     "lookingForTutor": "Looking for a tutor?",
     "requestOne": "Request one here",
@@ -24,7 +24,9 @@
       "backToSignIn": "← Back to sign in",
       "sent": "If an account matches what you entered, we've sent password-reset instructions to its contact email. Check your inbox.",
       "sentEmailNote": "Email delivery isn't configured in this environment yet — see the server logs for the reset link during local development.",
-      "fields": { "identifier": "Username or email" },
+      "fields": {
+        "identifier": "Username or email"
+      },
       "submit": "Send reset link",
       "sending": "Sending…"
     },
@@ -36,7 +38,10 @@
       "success": "Your password has been reset. You can sign in now.",
       "goToSignIn": "Go to sign in",
       "yourUsername": "Your sign-in username:",
-      "fields": { "newPassword": "New password", "confirmPassword": "Confirm new password" },
+      "fields": {
+        "newPassword": "New password",
+        "confirmPassword": "Confirm new password"
+      },
       "submit": "Set new password",
       "saving": "Saving…"
     },
@@ -94,6 +99,10 @@
         "body": "Your account is ready. Sign in with your email or username {username}.",
         "signIn": "Go to sign in"
       }
+    },
+    "staleSession": {
+      "title": "Session out of date",
+      "body": "Your tutor account link is no longer valid. Sign out and sign back in to refresh it."
     }
   },
   "landing": {
@@ -126,8 +135,12 @@
   "dashboard": {
     "greeting": "Hi, {name}",
     "subtitle": "Submit attendance and manage your availability.",
-    "hours": { "title": "Service hours" },
-    "interviews": { "title": "Interviews to conduct" },
+    "hours": {
+      "title": "Service hours"
+    },
+    "interviews": {
+      "title": "Interviews to conduct"
+    },
     "pairings": {
       "title": "My pairings",
       "help": "Pick the default time slot for each pairing (you still enter actual session times when submitting attendance)."
@@ -213,7 +226,6 @@
       "GRADUATED": "Graduated",
       "OPTED_OUT": "Opted out",
       "PENDING": "Pending",
-
       "ARCHIVED": "Archived"
     },
     "tutees": {
@@ -248,7 +260,11 @@
       "deleteBtn": "Delete",
       "emptyTutees": "No active tutees yet.",
       "tbd": "TBD",
-      "status": { "PENDING": "pending", "ACTIVE": "active", "INACTIVE": "inactive" }
+      "status": {
+        "PENDING": "pending",
+        "ACTIVE": "active",
+        "INACTIVE": "inactive"
+      }
     },
     "requests": {
       "title": "Signup Requests (Tutees)",
@@ -274,7 +290,14 @@
       "available": "Available: {list}",
       "reach": "Reach: {contact}",
       "signed": "Signed: ✓ {name}",
-      "notSigned": "Signed: — not signed"
+      "notSigned": "Signed: — not signed",
+      "banFlag": "possible re-signup",
+      "banFlagTitle": "Matches a tutee removed this quarter ({fields}). Vet before assigning.",
+      "banField": {
+        "name": "name",
+        "email": "email",
+        "phone": "phone"
+      }
     },
     "readOnly": {
       "banner": "Read-only access — you can browse everything but can't make changes, and contact details are hidden."
@@ -310,7 +333,8 @@
         "policyDocuments": "Policy Documents",
         "auditLog": "Audit Log",
         "usersRoles": "Users & Roles",
-        "registrationCodes": "Registration Codes"
+        "registrationCodes": "Registration Codes",
+        "tuteeRequests": "Tutee removals"
       }
     },
     "dashboard": {
@@ -327,7 +351,13 @@
       "recentSubmissions": {
         "title": "Recent Submissions",
         "viewAll": "View all →",
-        "columns": { "date": "Date", "tutor": "Tutor", "subject": "Subject", "status": "Status", "sh": "SH" },
+        "columns": {
+          "date": "Date",
+          "tutor": "Tutor",
+          "subject": "Subject",
+          "status": "Status",
+          "sh": "SH"
+        },
         "empty": "No submissions yet."
       }
     },
@@ -340,19 +370,39 @@
         "openApplications": "Open applications",
         "cardsToReview": "Cards to review",
         "tutorRequests": "Opt-out / reentry",
-        "recentSurveys": "Recent surveys"
+        "recentSurveys": "Recent surveys",
+        "tuteeRequests": "Pending opt-outs"
       },
       "panels": {
-        "tuteeSignups": { "title": "Tutee Signup Requests", "empty": "No pending signups." },
+        "tuteeSignups": {
+          "title": "Tutee Signup Requests",
+          "empty": "No pending signups."
+        },
         "tutorApplications": {
           "title": "Tutor Applications",
           "empty": "No open applications.",
           "votes": "{count} {count, plural, one {vote} other {votes}}",
           "panelists": "{count} {count, plural, one {panelist} other {panelists}}"
         },
-        "tutorRequests": { "title": "Tutor Opt-out / Reentry Requests", "empty": "No open requests." },
-        "cards": { "title": "Discipline Cards to Review", "empty": "Nothing to review.", "auto": "auto", "tutor": "tutor" },
-        "surveys": { "title": "Recent Attendance Surveys", "empty": "No surveys yet.", "hours": "{hours} h" }
+        "tutorRequests": {
+          "title": "Tutor Opt-out / Reentry Requests",
+          "empty": "No open requests."
+        },
+        "cards": {
+          "title": "Discipline Cards to Review",
+          "empty": "Nothing to review.",
+          "auto": "auto",
+          "tutor": "tutor"
+        },
+        "surveys": {
+          "title": "Recent Attendance Surveys",
+          "empty": "No surveys yet.",
+          "hours": "{hours} h"
+        },
+        "tuteeRequests": {
+          "title": "Pending tutee opt-outs",
+          "empty": "No pending opt-outs."
+        }
       }
     },
     "summary": {
@@ -363,7 +413,14 @@
       "monthLabel": "Month:",
       "clearMonth": "Clear",
       "inactive": "(inactive)",
-      "columns": { "tutor": "Tutor", "sessions": "Sessions", "earned": "Earned", "extras": "Extras", "penalties": "Penalties", "total": "Total" }
+      "columns": {
+        "tutor": "Tutor",
+        "sessions": "Sessions",
+        "earned": "Earned",
+        "extras": "Extras",
+        "penalties": "Penalties",
+        "total": "Total"
+      }
     },
     "history": {
       "title": "Program History",
@@ -375,7 +432,14 @@
       "s2": "S2",
       "inactive": "(inactive)",
       "noData": "No activity recorded for this period.",
-      "columns": { "tutor": "Tutor", "sessions": "Sessions", "earned": "Earned", "extras": "Extras", "penalties": "Penalties", "total": "Total" },
+      "columns": {
+        "tutor": "Tutor",
+        "sessions": "Sessions",
+        "earned": "Earned",
+        "extras": "Extras",
+        "penalties": "Penalties",
+        "total": "Total"
+      },
       "totals": {
         "total": "Total hours",
         "earned": "Earned",
@@ -397,7 +461,6 @@
       "effectPending": "Clears the pending tutee signup queue (archived to inactive).",
       "effectTutees": "Archives all currently paired tutees — they must sign up again to continue.",
       "effectPairings": "Clears the current pairings board (past pairings + attendance stay in history).",
-
       "effectReactivate": "Continuing tutors must reactivate (choose available or opt out) on their own page.",
       "effectAvailability": "Prompts you to confirm which active tutors are still available.",
       "effectGraduate": "Graduates G12 tutors (they leave at the start of Q4).",
@@ -411,7 +474,6 @@
       "refreshing": "Refreshing…",
       "done": "Refreshed to {name}. Archived {count} tutee(s).",
       "doneGrad": "Graduated {graduated}; advanced {aged} tutor(s) a grade.",
-
       "donePending": "{count} tutor(s) set to reactivate.",
       "modalTitle": "Tutor Availability for {name}",
       "modalIntro": "Confirm which active tutors are continuing. Anyone left unchecked will be archived.",
@@ -424,7 +486,11 @@
     "audit": {
       "title": "Audit Log",
       "subtitle": "Recent admin actions. Reversible ones can be undone here; others have a manual inverse on their own page.",
-      "columns": { "when": "When", "who": "Who", "action": "Action" },
+      "columns": {
+        "when": "When",
+        "who": "Who",
+        "action": "Action"
+      },
       "undone": "undone",
       "undo": "Undo",
       "empty": "No actions recorded yet."
@@ -433,9 +499,30 @@
       "title": "Users & Roles",
       "subtitle": "Manage logins, roles, and tutor account setup. Role changes take effect on the user's next sign-in.",
       "coordinatorHint": "As a coordinator you can send setup links and change your own tutoring access. Ask an administrator to change roles.",
-      "columns": { "user": "User", "name": "Name", "email": "Email", "linkedTutor": "Linked tutor", "account": "Account", "role": "Role", "canTutor": "Can tutor", "canTranslate": "Translator" },
-      "roles": { "VIEWER": "Viewer (read-only)", "TUTOR": "Tutor", "COORDINATOR": "Coordinator", "ADMIN": "Admin", "HEAD": "Head" },
-      "filters": { "role": "Role", "status": "Tutor status", "account": "Account", "all": "All" },
+      "columns": {
+        "user": "User",
+        "name": "Name",
+        "email": "Email",
+        "linkedTutor": "Linked tutor",
+        "account": "Account",
+        "role": "Role",
+        "canTutor": "Can tutor",
+        "canTranslate": "Translator",
+        "actions": "Actions"
+      },
+      "roles": {
+        "VIEWER": "Viewer (read-only)",
+        "TUTOR": "Tutor",
+        "COORDINATOR": "Coordinator",
+        "ADMIN": "Admin",
+        "HEAD": "Head"
+      },
+      "filters": {
+        "role": "Role",
+        "status": "Tutor status",
+        "account": "Account",
+        "all": "All"
+      },
       "makeHead": "Make head",
       "confirmTransfer": "Transfer leadership to {name}? You will become an admin.",
       "canTutorLabel": "Can tutor",
@@ -444,7 +531,20 @@
       "translateDefaultHint": "Admins and coordinators can always edit translations.",
       "tutorActive": "active",
       "tutorInactive": "inactive",
-      "empty": "No users or tutors yet."
+      "empty": "No users or tutors yet.",
+      "delete": "Delete",
+      "confirm": {
+        "passwordLabel": "Your password",
+        "passwordPlaceholder": "Enter your password",
+        "cancel": "Cancel",
+        "working": "Working…",
+        "roleTitle": "Change role",
+        "roleBody": "Set the role of {name} to {role}? Confirm your identity to continue.",
+        "roleConfirm": "Change role",
+        "transferTitle": "Transfer leadership",
+        "deleteTitle": "Delete account",
+        "deleteBody": "Permanently delete the login for {name}? Their tutor record (username, class, and history) is kept. Confirm your identity to continue."
+      }
     },
     "registrationCodes": {
       "title": "Registration Codes",
@@ -461,52 +561,41 @@
       "colIssuedBy": "Issued by",
       "colExpires": "Expires",
       "colStatus": "Status",
-      "status": { "active": "Active", "used": "Used", "expired": "Expired" },
+      "status": {
+        "active": "Active",
+        "used": "Used",
+        "expired": "Expired"
+      },
       "revoke": "Revoke",
-
       "showCode": "Show code",
-
       "hideCode": "Hide",
-
       "copy": "Copy",
-
       "collapse": "Collapse",
-
       "expand": "Expand",
-
       "noEmail": "No email bound",
-
       "expiresOn": "Expires {date}",
-
       "codeLabel": "Code",
-
       "invalidNote": "This code is no longer valid.",
-
       "noCode": "Code not available.",
-
       "share": {
-
         "heading": "Set up your {appTitle} account",
-
         "goTo": "Go to:",
-
+        "enterAt": "Enter code at {url}",
         "enterCode": "Enter this code:",
-
         "verifyEmail": "Verify your email",
-
         "useEmail": "(use {email})",
-
         "setup": "Set your name, grade, and a password",
-
         "validity": "One-time code · valid until {date}"
-
       },
       "empty": "No registration codes yet."
     },
     "tutorRequests": {
       "title": "Opt-out / Reentry Requests",
       "help": "Tutor-initiated membership changes. Opt-out requests can only be approved after a one-week cooldown; reentry is immediate.",
-      "kind": { "OPT_OUT": "Opt-out", "REENTRY": "Reentry" },
+      "kind": {
+        "OPT_OUT": "Opt-out",
+        "REENTRY": "Reentry"
+      },
       "cooldownDone": "Cooldown elapsed — ready to approve",
       "cooldownUntil": "Approvable after {date}",
       "affected": "{count} {count, plural, one {tutee} other {tutees}} affected",
@@ -539,7 +628,6 @@
       "saved": "Saved.",
       "timeLabel": "Time",
       "exempt": "Exempt (X)",
-
       "selfExcused": "Self-excused absences ({count})",
       "status": {
         "present": "Present",
@@ -600,7 +688,10 @@
         "addPlaceholder": "Add a level (e.g. Honors)",
         "add": "Add level"
       },
-      "add": { "namePlaceholder": "New subject name", "submit": "Add subject" },
+      "add": {
+        "namePlaceholder": "New subject name",
+        "submit": "Add subject"
+      },
       "import": {
         "importing": "Importing…",
         "upload": "Upload CSV",
@@ -609,14 +700,31 @@
         "formatPrefix": "CSV format: one subject per line as",
         "formatSuffix": "(level matched by name; a header row is optional)."
       },
-      "batch": { "selected": "{count} selected", "setLevel": "Set level", "activate": "Activate", "deactivate": "Deactivate", "clear": "Clear" },
-      "table": { "name": "Name", "level": "Level", "active": "Active", "noLevelShort": "—", "delete": "Delete", "empty": "No subjects yet." }
+      "batch": {
+        "selected": "{count} selected",
+        "setLevel": "Set level",
+        "activate": "Activate",
+        "deactivate": "Deactivate",
+        "clear": "Clear"
+      },
+      "table": {
+        "name": "Name",
+        "level": "Level",
+        "active": "Active",
+        "noLevelShort": "—",
+        "delete": "Delete",
+        "empty": "No subjects yet."
+      }
     },
     "announcements": {
       "title": "Announcements",
       "subtitle": "Broadcast to tutors. Each shows on their dashboard on every login until they dismiss it; pinned ones stay visible.",
       "empty": "No announcements yet.",
-      "badge": { "pinned": "pinned", "active": "active", "inactive": "inactive" },
+      "badge": {
+        "pinned": "pinned",
+        "active": "active",
+        "inactive": "inactive"
+      },
       "card": {
         "save": "Save",
         "pin": "Pin",
@@ -675,14 +783,29 @@
         "reasonPlaceholder": "Reason (optional)",
         "add": "Add"
       },
-      "typeLabel": { "EXTRA": "Extra", "PUNISHMENT": "Punishment" },
-      "table": { "tutor": "Tutor", "month": "Month", "type": "Type", "amount": "Amount", "reason": "Reason", "delete": "Delete" }
+      "typeLabel": {
+        "EXTRA": "Extra",
+        "PUNISHMENT": "Punishment"
+      },
+      "table": {
+        "tutor": "Tutor",
+        "month": "Month",
+        "type": "Type",
+        "amount": "Amount",
+        "reason": "Reason",
+        "delete": "Delete"
+      }
     },
     "applications": {
       "title": "Tutor Applications",
       "intro": "Review applicants and assign a {n}-tutor interview panel (mark one head). Click a row to expand. The head schedules the interview and records the decision from their own dashboard.",
       "empty": "No applications yet.",
-      "status": { "PENDING": "pending", "INTERVIEW": "interview", "ACCEPTED": "accepted", "REJECTED": "rejected" },
+      "status": {
+        "PENDING": "pending",
+        "INTERVIEW": "interview",
+        "ACCEPTED": "accepted",
+        "REJECTED": "rejected"
+      },
       "noCourses": "no subjects",
       "panelSummary": "panel {n}/{total}",
       "votesSummary": "votes {accepts}/{total}",
@@ -692,7 +815,11 @@
       "confirmDelete": "Delete {name}'s application?",
       "reach": "Reach: {contact}",
       "na": "n/a",
-      "qual": { "took": "took class ({grade})", "ap": "AP {score}", "selfStudied": "self-studied: {note}" },
+      "qual": {
+        "took": "took class ({grade})",
+        "ap": "AP {score}",
+        "selfStudied": "self-studied: {note}"
+      },
       "noQualification": "no qualification given",
       "panelHeading": "Interview panel (choose {n}, mark one head)",
       "scheduled": "Scheduled: {when} (set by the head)",
@@ -723,60 +850,80 @@
       "nothingPending": "Nothing awaiting review.",
       "standingHeading": "Tutee Standing",
       "standingHelp": "🟥 fills 3 slots, 🟨 fills 1 (only valid cards). A full 6 = removal pending. Click a name for the card details.",
-      "standing": { "removalPending": "removal pending", "onWarning": "on warning", "ok": "ok" },
+      "standing": {
+        "removalPending": "removal pending",
+        "onWarning": "on warning",
+        "ok": "ok"
+      },
       "pendingCount": "{n} pending review",
-      "reviewStatus": { "PENDING": "pending", "VALID": "valid", "INVALID": "invalid" },
+      "reviewStatus": {
+        "PENDING": "pending",
+        "VALID": "valid",
+        "INVALID": "invalid"
+      },
       "noCardsOnRecord": "No cards on record.",
       "historyHeading": "Card History",
-      "table": { "date": "Date", "tutee": "Tutee", "card": "Card", "reason": "Reason", "source": "Source", "status": "Status" },
+      "table": {
+        "date": "Date",
+        "tutee": "Tutee",
+        "card": "Card",
+        "reason": "Reason",
+        "source": "Source",
+        "status": "Status"
+      },
       "tableEmpty": "No cards yet."
+    },
+    "tuteeRequests": {
+      "title": "Opt-outs & removals",
+      "help": "Tutee opt-outs (relayed by a tutor, with a 7-day recall window) and tutees currently removed (opted out or discipline-removed).",
+      "kind": {
+        "VOLUNTARY": "Opt-out",
+        "PUNISHMENT": "Discipline"
+      },
+      "pendingHeading": "Pending opt-outs",
+      "pendingHelp": "A tutor relayed the tutee's request to leave. It auto-approves after the recall window unless the tutor recalls or you cancel it.",
+      "pendingEmpty": "No pending opt-outs.",
+      "relayedBy": "Relayed by {tutor} · {subject}",
+      "autoApprovesOn": "auto-approves {date}",
+      "cancel": "Cancel",
+      "removedHeading": "Removed & opted-out",
+      "removedHelp": "Tutees currently removed. Reinstating returns them to the signup queue for reassignment and lifts any same-quarter signup flag.",
+      "removedEmpty": "No removed tutees.",
+      "removedDiscipline": "Discipline removal",
+      "removedOptOut": "Opted out (via {tutor})",
+      "reinstate": "Reinstate"
     }
   },
   "tutor": {
-
     "activate": {
-
       "title": "Confirm your availability",
-
       "body": "A new term has started. Activate your account to keep tutoring, or opt out for now.",
-
       "available": "I'm available",
-
       "optOut": "Opt out",
-
       "note": "You can change this later from your settings."
-
     },
-
     "meetings": {
-
       "title": "Upcoming meetings",
-
       "help": "Can't make a meeting? Excuse your absence up to 30 minutes before it starts.",
-
       "excuseBtn": "Excuse absence",
-
       "submitExcuse": "Submit",
-
       "cancelExcuse": "Cancel excuse",
-
       "reasonPlaceholder": "Reason (optional)",
-
       "excused": "You've excused this absence.",
-
       "excusedBadge": "Excused",
-
       "tooLate": "Too late to excuse"
-
     },
-    "nav": { "handbook": "Handbook" },
-    "handbook": { "empty": "The handbook hasn't been published yet." },
+    "nav": {
+      "handbook": "Handbook"
+    },
+    "handbook": {
+      "empty": "The handbook hasn't been published yet."
+    },
     "status": {
       "ACTIVE": "Active",
       "GRADUATED": "Graduated",
       "OPTED_OUT": "Opted out",
       "PENDING": "Pending",
-
       "ARCHIVED": "Archived"
     },
     "attendance": {
@@ -791,13 +938,22 @@
       "date": "Date",
       "today": "Today",
       "tutorStatus": "Tutor status",
-      "tutorStatusOpt": { "PRESENT": "Present", "RESCHEDULED": "Rescheduled", "EXTRA": "Extra session", "TUTOR_ABSENT": "Tutor absent" },
+      "tutorStatusOpt": {
+        "PRESENT": "Present",
+        "RESCHEDULED": "Rescheduled",
+        "EXTRA": "Extra session",
+        "TUTOR_ABSENT": "Tutor absent"
+      },
       "tutorAbsentReason": "Reason for tutor absence *",
       "start": "Start",
       "end": "End",
       "now": "Now",
       "tuteeAttendance": "Tutee attendance",
-      "tuteeStatusOpt": { "PRESENT": "Present", "EXCUSED_ABSENT": "Excused absent", "UNEXCUSED_ABSENT": "Unexcused absent" },
+      "tuteeStatusOpt": {
+        "PRESENT": "Present",
+        "EXCUSED_ABSENT": "Excused absent",
+        "UNEXCUSED_ABSENT": "Unexcused absent"
+      },
       "reasonRequired": "Reason (required)",
       "ratings": "Ratings *",
       "rating": {
@@ -807,7 +963,13 @@
         "ratingBehavior": "Behavior",
         "ratingProgress": "Progress"
       },
-      "likert": { "1": "Poor", "2": "Fair", "3": "Good", "4": "Great", "5": "Excellent" },
+      "likert": {
+        "1": "Poor",
+        "2": "Fair",
+        "3": "Good",
+        "4": "Great",
+        "5": "Excellent"
+      },
       "comments": "Comments *",
       "cardsTitle": "Disciplinary Cards (optional)",
       "cardsHelp": "Assign a yellow or red card with a brief reason. The team rechecks each before it counts. (An unexcused absence above auto-issues a red card.)",
@@ -837,7 +999,15 @@
       "mergeTitle": "Merge sessions",
       "mergeHelp": "Running these together in one block? Tick the sessions covered alongside the one selected in the attendance form. Each is recorded separately, but the block's service hours count once.",
       "mergeSelectPrimary": "Select a session in the attendance form to merge others into it.",
-      "mergeNone": "No other session shares a tutee or subject with the selected one."
+      "mergeNone": "No other session shares a tutee or subject with the selected one.",
+      "roomOnly": "Room {room}",
+      "removalPending": "opt-out pending",
+      "removalRecall": "Recall",
+      "requestRemoval": "Relay opt-out",
+      "removalHelp": "The tutee asked to leave? Relay their opt-out. There's a 7-day window where you (or an admin) can recall it; after that it's automatic.",
+      "removalReasonPlaceholder": "Reason (optional)",
+      "removalSubmit": "Relay opt-out",
+      "removalCancel": "Cancel"
     },
     "availability": {
       "loading": "Loading time slots…",
@@ -876,7 +1046,10 @@
       "scheduled": "Scheduled: {time}",
       "awaitingSchedule": "Awaiting the head to schedule a time."
     },
-    "announcements": { "label": "Announcements", "pinned": "pinned" },
+    "announcements": {
+      "label": "Announcements",
+      "pinned": "pinned"
+    },
     "settings": {
       "title": "Account Settings",
       "subtitle": "Update your personal information and password.",
@@ -924,8 +1097,29 @@
         "body": "Your tutor account is {status}. You can view your history but can't submit attendance or take on new tutees.",
         "reentryHint": "Want to come back? Request reentry from your account settings."
       },
-      "availability": { "title": "My Availability", "help": "Mark the time slots you can teach." },
-      "hours": { "earned": "{earned} earned", "extra": "+ {extra} extra", "penalty": "− {penalty} penalty" }
+      "availability": {
+        "title": "My Availability",
+        "help": "Mark the time slots you can teach."
+      },
+      "hours": {
+        "earned": "{earned} earned",
+        "extra": "+ {extra} extra",
+        "penalty": "− {penalty} penalty"
+      }
+    },
+    "discipline": {
+      "title": "Tutee conduct",
+      "help": "Card standing for your tutees. The team keeps the specific reasons.",
+      "removalPending": "At the removal threshold",
+      "removalBadge": "removal pending",
+      "standingTitle": "{red} red, {yellow} yellow",
+      "onWarning": "On warning",
+      "ok": "Clear",
+      "pendingCount": "{n} under review",
+      "cardStatus": {
+        "VALID": "valid",
+        "PENDING": "under review"
+      }
     }
   },
   "public": {
@@ -954,8 +1148,12 @@
         "selectCourse": "Select a subject…",
         "signature": "Your full name"
       },
-      "options": { "none": "— none —" },
-      "help": { "preferredContact": "Tell us the best way and time to contact you about your tutoring match." },
+      "options": {
+        "none": "— none —"
+      },
+      "help": {
+        "preferredContact": "Tell us the best way and time to contact you about your tutoring match."
+      },
       "noSlots": "No time slots are published yet. Please check back later.",
       "agree": "I have read and agree to abide by the <policy>{appTitle} Policy</policy>.",
       "submit": "Submit request",
@@ -985,9 +1183,15 @@
         "apScore": "1–5",
         "selfStudyNote": "e.g. completed an online class, competition results, portfolio…"
       },
-      "help": { "preferredContact": "The best way and time to reach you about your application and interview." },
+      "help": {
+        "preferredContact": "The best way and time to reach you about your application and interview."
+      },
       "coursesHelp": "For each, tell us how you're qualified: whether you've taken the class, hold an AP score (AP subjects only), and/or self-studied it.",
-      "qual": { "taken": "I've taken this class", "hasApScore": "I have an AP score", "selfStudied": "I self-studied this subject" },
+      "qual": {
+        "taken": "I've taken this class",
+        "hasApScore": "I have an AP score",
+        "selfStudied": "I self-studied this subject"
+      },
       "remove": "Remove",
       "addCourse": "+ Add another subject",
       "agree": "I have read and agree to abide by the <policy>{appTitle} Policy</policy>.",
@@ -1003,8 +1207,14 @@
     }
   },
   "components": {
-    "notifications": { "title": "Notifications", "markAllRead": "Mark all read", "empty": "Nothing yet." },
-    "signOut": { "label": "Sign out" },
+    "notifications": {
+      "title": "Notifications",
+      "markAllRead": "Mark all read",
+      "empty": "Nothing yet."
+    },
+    "signOut": {
+      "label": "Sign out"
+    },
     "userMenu": {
       "settings": "Settings",
       "enterTutor": "Enter tutor area",
@@ -1051,5 +1261,21 @@
     "addLanguageName": "Name (e.g. Français)",
     "addLanguageBtn": "Add language",
     "back": "Back"
+  },
+  "account": {
+    "title": "Account",
+    "subtitle": "Manage your login name and password.",
+    "identityHeading": "Account details",
+    "tutorNote": "You also have a tutor account.",
+    "openTutorSettings": "Open tutor settings",
+    "password": {
+      "twoFactorHint": "For your security, we'll email a verification code before your password changes.",
+      "sendCode": "Send verification code",
+      "sending": "Sending…",
+      "codeSent": "We emailed a code to {email}. Enter it below to finish.",
+      "codeLabel": "Verification code",
+      "resend": "Resend code",
+      "cancel": "Cancel"
+    }
   }
 }

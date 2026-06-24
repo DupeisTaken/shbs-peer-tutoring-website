@@ -9,12 +9,19 @@ import {
   viewerProcedure,
 } from "~/server/api/trpc";
 import { monthKey } from "~/lib/service-hours";
-import { defaultUsername, ensureUniqueUsername } from "~/server/auth/username";
+import {
+  defaultUsername,
+  ensureUniqueUsername,
+  ensureUserUsername,
+  splitDisplayName,
+} from "~/server/auth/username";
+import { assertCallerPassword } from "~/server/auth/reauth";
 import { issueTutorSetupLink } from "~/server/auth/password-reset";
 import { issueRegistrationCode } from "~/server/auth/registration";
 import { promoteApplicantToTutor } from "~/server/tutors/promote";
 import { notifyAdmins, notifyTutors, notifyUsers } from "~/server/notifications/create";
 import { standingFromCounts } from "~/lib/discipline";
+import { finalizeDueOptOuts, syncPunishmentRemoval } from "~/server/discipline/removal";
 import {
   QUARTERS,
   type Quarter,
@@ -41,6 +48,35 @@ async function activeGradYear(
     select: { schoolYear: true },
   });
   return term ? graduationYear(gradeLevel, term.schoolYear) : null;
+}
+
+/**
+ * Repair tutor rows whose name was duplicated by the old single-word split bug (a one-token name
+ * like "Admin" became firstName=lastName="Admin" → englishName "Admin Admin"). The signature is
+ * exact — firstName equals lastName AND englishName is just that token twice — so a genuine
+ * "John John" is not touched unless it matches the duplicated form, and the repair (drop the
+ * duplicated last name) is benign and editable. Idempotent; runs as a cheap self-heal.
+ */
+async function healDuplicatedTutorNames(db: typeof dbClient): Promise<void> {
+  const candidates = await db.tutor.findMany({
+    where: { firstName: { not: null }, lastName: { not: null } },
+    select: { id: true, firstName: true, lastName: true, englishName: true },
+  });
+  const broken = candidates.filter(
+    (t) =>
+      t.firstName &&
+      t.firstName === t.lastName &&
+      t.englishName === `${t.firstName} ${t.lastName}`,
+  );
+  if (broken.length === 0) return;
+  await Promise.all(
+    broken.map((t) =>
+      db.tutor.update({
+        where: { id: t.id },
+        data: { lastName: "", englishName: t.firstName! },
+      }),
+    ),
+  );
 }
 
 const monthInput = z.string().regex(/^\d{4}-\d{2}$/);
@@ -183,20 +219,60 @@ export const adminRouter = createTRPCRouter({
     return result;
   }),
 
-  tutees: viewerProcedure.query(({ ctx }) =>
-    ctx.db.tutee.findMany({
-      orderBy: [{ status: "asc" }, { englishName: "asc" }],
-      include: {
-        firstChoice: { select: { id: true, name: true } },
-        secondChoice: { select: { id: true, name: true } },
-        availabilities: {
-          include: {
-            slot: { select: { id: true, label: true, dayOfWeek: true, startMin: true, endMin: true } },
+  tutees: viewerProcedure.query(async ({ ctx }) => {
+    const active = await getActivePeriodOrNull(ctx.db);
+    const periodKey = active ? `${active.schoolYear} ${active.quarter}` : null;
+    const [tutees, removed] = await Promise.all([
+      ctx.db.tutee.findMany({
+        orderBy: [{ status: "asc" }, { englishName: "asc" }],
+        include: {
+          firstChoice: { select: { id: true, name: true } },
+          secondChoice: { select: { id: true, name: true } },
+          availabilities: {
+            include: {
+              slot: { select: { id: true, label: true, dayOfWeek: true, startMin: true, endMin: true } },
+            },
           },
         },
-      },
-    }),
-  ),
+      }),
+      // Identities punishment-removed in the current period (for the same-person re-signup flag).
+      periodKey
+        ? ctx.db.tuteeRemovalRequest.findMany({
+            where: {
+              kind: "PUNISHMENT",
+              state: "APPROVED",
+              removedPeriodKey: periodKey,
+              tutee: { is: { status: "INACTIVE" } },
+            },
+            select: { tutee: { select: { id: true, englishName: true, email: true, phone: true } } },
+          })
+        : Promise.resolve([]),
+    ]);
+
+    const norm = (s: string | null | undefined) => {
+      const v = s?.trim().toLowerCase();
+      if (!v) return null;
+      return v;
+    };
+    const bannedNames = new Set(removed.map((r) => norm(r.tutee.englishName)).filter(Boolean));
+    const bannedEmails = new Set(removed.map((r) => norm(r.tutee.email)).filter(Boolean));
+    const bannedPhones = new Set(removed.map((r) => norm(r.tutee.phone)).filter(Boolean));
+
+    return tutees.map((t) => {
+      // Flag a (still-pending) re-signup that matches a banned identity this quarter — by exact
+      // name / email / phone — so an admin can vet it. Never auto-blocks; it just labels.
+      const match =
+        t.status === "PENDING"
+          ? {
+              name: !!norm(t.englishName) && bannedNames.has(norm(t.englishName)),
+              email: !!norm(t.email) && bannedEmails.has(norm(t.email)),
+              phone: !!norm(t.phone) && bannedPhones.has(norm(t.phone)),
+            }
+          : null;
+      const bannedMatch = match && (match.name || match.email || match.phone) ? match : null;
+      return { ...t, bannedMatch };
+    });
+  }),
   rooms: viewerProcedure.query(({ ctx }) =>
     ctx.db.room.findMany({
       orderBy: { name: "asc" },
@@ -958,6 +1034,12 @@ export const adminRouter = createTRPCRouter({
         data: { status: input.status },
       });
       if (updated.count === 0) staleConflict();
+      // Removing a tutee (→ INACTIVE) detaches them from their pairings so they drop off tutors'
+      // rosters/attendance immediately. Session history is kept. (Re-activating doesn't re-pair —
+      // a coordinator reassigns on /admin/requests, consistent with requeueTutorTutees.)
+      if (input.status === "INACTIVE" && prev.status !== "INACTIVE") {
+        await ctx.db.pairingTutee.deleteMany({ where: { tuteeId: input.id } });
+      }
       if (prev.status !== input.status) {
         await recordAudit({
           userId: ctx.session.user.id,
@@ -1603,16 +1685,180 @@ export const adminRouter = createTRPCRouter({
     }),
 
   // --------------------------------------------------------------------------
+  // Tutee opt-outs & removals — the combined "/admin/tutee-requests" surface
+  // --------------------------------------------------------------------------
+  /**
+   * Two lists for the combined page: `pendingOptOuts` (relayed opt-outs still in their recall
+   * window — an admin can cancel them, or they auto-approve) and `finalized` (tutees currently
+   * removed: opted-out or discipline-removed, each reinstatable). Finalizes any due opt-outs first
+   * so the page reflects auto-approvals lazily (no scheduler).
+   */
+  tuteeRemovalRequests: viewerProcedure.query(async ({ ctx }) => {
+    await finalizeDueOptOuts(ctx.db);
+    const [pending, finalized] = await Promise.all([
+      ctx.db.tuteeRemovalRequest.findMany({
+        where: { kind: "VOLUNTARY", state: "PENDING" },
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          reason: true,
+          createdAt: true,
+          eligibleAt: true,
+          pairingId: true,
+          requestedByTutorId: true,
+          tutee: { select: { id: true, englishName: true } },
+        },
+      }),
+      ctx.db.tuteeRemovalRequest.findMany({
+        where: { state: "APPROVED", tutee: { is: { status: "INACTIVE" } } },
+        orderBy: { resolvedAt: "desc" },
+        select: {
+          id: true,
+          kind: true,
+          reason: true,
+          resolvedAt: true,
+          removedPeriodKey: true,
+          requestedByTutorId: true,
+          tutee: { select: { id: true, englishName: true } },
+        },
+      }),
+    ]);
+
+    // Resolve tutor names + pairing subjects in batch (requests store scalar ids).
+    const tutorIds = [
+      ...new Set(
+        [...pending, ...finalized].map((r) => r.requestedByTutorId).filter(Boolean) as string[],
+      ),
+    ];
+    const pairingIds = [...new Set(pending.map((r) => r.pairingId).filter(Boolean) as string[])];
+    const [tutors, pairings] = await Promise.all([
+      tutorIds.length
+        ? ctx.db.tutor.findMany({ where: { id: { in: tutorIds } }, select: { id: true, englishName: true } })
+        : Promise.resolve([]),
+      pairingIds.length
+        ? ctx.db.pairing.findMany({ where: { id: { in: pairingIds } }, select: { id: true, subject: true } })
+        : Promise.resolve([]),
+    ]);
+    const tutorName = new Map(tutors.map((t) => [t.id, t.englishName]));
+    const subject = new Map(pairings.map((p) => [p.id, p.subject]));
+
+    return {
+      pendingOptOuts: pending.map((r) => ({
+        id: r.id,
+        reason: r.reason,
+        createdAt: r.createdAt,
+        eligibleAt: r.eligibleAt,
+        tutee: r.tutee,
+        tutorName: r.requestedByTutorId ? (tutorName.get(r.requestedByTutorId) ?? null) : null,
+        subject: r.pairingId ? (subject.get(r.pairingId) ?? null) : null,
+      })),
+      finalized: finalized.map((r) => ({
+        id: r.id,
+        kind: r.kind,
+        reason: r.reason,
+        resolvedAt: r.resolvedAt,
+        period: r.removedPeriodKey,
+        tutee: r.tutee,
+        tutorName: r.requestedByTutorId ? (tutorName.get(r.requestedByTutorId) ?? null) : null,
+      })),
+    };
+  }),
+
+  /**
+   * Cancel an in-flight opt-out during its recall window (admin override; the tutor can also
+   * recall). Closes the request as DENIED — the tutee stays active. Notifies the relaying tutor.
+   */
+  cancelTuteeOptOut: adminProcedure
+    .input(z.object({ requestId: cuid }))
+    .mutation(async ({ ctx, input }) => {
+      const req = await ctx.db.tuteeRemovalRequest.findUniqueOrThrow({
+        where: { id: input.requestId },
+        select: { id: true, state: true, kind: true, requestedByTutorId: true, tutee: { select: { englishName: true } } },
+      });
+      if (req.state !== "PENDING" || req.kind !== "VOLUNTARY") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "No in-flight opt-out to cancel." });
+      }
+      await ctx.db.tuteeRemovalRequest.update({
+        where: { id: req.id },
+        data: {
+          state: "DENIED",
+          resolvedAt: new Date(),
+          resolvedById: ctx.session.user.id,
+          resolvedByName: ctx.session.user.name,
+        },
+      });
+      if (req.requestedByTutorId) {
+        const tutor = await ctx.db.tutor.findUnique({
+          where: { id: req.requestedByTutorId },
+          select: { user: { select: { id: true } } },
+        });
+        if (tutor?.user?.id) {
+          await notifyUsers([tutor.user.id], {
+            title: "Tutee opt-out cancelled",
+            body: `An admin cancelled the opt-out for ${req.tutee.englishName}.`,
+            link: "/dashboard",
+          });
+        }
+      }
+      await recordAudit({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name,
+        action: `Cancelled opt-out for ${req.tutee.englishName}`,
+        entity: "TuteeRemovalRequest",
+        entityId: req.id,
+      });
+      return { ok: true };
+    }),
+
+  /**
+   * Reinstate a removed tutee (opted-out or discipline-removed): set them ACTIVE again and mark
+   * the removal REINSTATED, which lifts any same-quarter re-signup flag. Pairings are NOT
+   * restored automatically — reassign on /admin/requests.
+   */
+  reinstateTutee: adminProcedure
+    .input(z.object({ requestId: cuid }))
+    .mutation(async ({ ctx, input }) => {
+      const req = await ctx.db.tuteeRemovalRequest.findUniqueOrThrow({
+        where: { id: input.requestId },
+        select: { id: true, state: true, tuteeId: true, tutee: { select: { englishName: true } } },
+      });
+      if (req.state !== "APPROVED") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This removal isn't in effect." });
+      }
+      await ctx.db.$transaction([
+        ctx.db.tutee.update({ where: { id: req.tuteeId }, data: { status: "PENDING" } }),
+        ctx.db.tuteeRemovalRequest.update({
+          where: { id: req.id },
+          data: {
+            state: "REINSTATED",
+            resolvedAt: new Date(),
+            resolvedById: ctx.session.user.id,
+            resolvedByName: ctx.session.user.name,
+          },
+        }),
+      ]);
+      await recordAudit({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name,
+        action: `Reinstated ${req.tutee.englishName}`,
+        entity: "TuteeRemovalRequest",
+        entityId: req.id,
+      });
+      return { ok: true };
+    }),
+
+  // --------------------------------------------------------------------------
   // Registration codes (admins + coordinators) — the security keys handed to new tutors
   // --------------------------------------------------------------------------
   /**
-   * Every registration code with its status (the plaintext code is NEVER stored — only its keyed
-   * hash — so it's shown once at issue time, then only metadata here). Ordered newest-first.
+   * Every registration code with its status. The plaintext code + issuer email are withheld from
+   * the read-only VIEWER. `issuedByEmail` is the issuing admin/coordinator's email (resolved from
+   * `issuedById`; null for system-issued codes, e.g. from an accepted application). Newest-first.
    */
   registrationCodes: viewerProcedure.query(async ({ ctx }) => {
     const now = new Date();
-    // The plaintext code is withheld from the read-only VIEWER (it grants account creation).
-    const canSeeCode = ctx.session.role !== "VIEWER";
+    // The code + issuer email are withheld from the read-only VIEWER.
+    const canSee = ctx.session.role !== "VIEWER";
     const codes = await ctx.db.registrationCode.findMany({
       orderBy: { createdAt: "desc" },
       select: {
@@ -1620,6 +1866,7 @@ export const adminRouter = createTRPCRouter({
         code: true,
         email: true,
         label: true,
+        issuedById: true,
         issuedByName: true,
         tutorId: true,
         applicationId: true,
@@ -1629,12 +1876,19 @@ export const adminRouter = createTRPCRouter({
         tutor: { select: { englishName: true } },
       },
     });
+    // Resolve the issuer's email (the admin/coordinator who issued the code).
+    const issuerIds = [...new Set(codes.map((c) => c.issuedById).filter(Boolean) as string[])];
+    const issuers = issuerIds.length
+      ? await ctx.db.user.findMany({ where: { id: { in: issuerIds } }, select: { id: true, email: true } })
+      : [];
+    const issuerEmail = new Map(issuers.map((u) => [u.id, u.email]));
     return codes.map((c) => ({
       id: c.id,
-      code: canSeeCode ? c.code : null,
+      code: canSee ? c.code : null,
       email: c.email,
       label: c.label,
       issuedByName: c.issuedByName,
+      issuedByEmail: canSee && c.issuedById ? (issuerEmail.get(c.issuedById) ?? null) : null,
       tutorName: c.tutor?.englishName ?? null,
       fromApplication: !!c.applicationId,
       createdAt: c.createdAt,
@@ -1713,6 +1967,9 @@ export const adminRouter = createTRPCRouter({
    */
   accounts: adminProcedure.query(async ({ ctx }) => {
     const now = new Date();
+    // Self-heal any tutor whose name was duplicated by the old single-word split (e.g. the
+    // auto-created "Admin Admin") before listing, so the page mirrors clean data.
+    await healDuplicatedTutorNames(ctx.db);
     const [term, users, unlinkedTutors, openCodes] = await Promise.all([
       ctx.db.term.findFirst({ where: { active: true }, select: { schoolYear: true } }),
       ctx.db.user.findMany({
@@ -1721,6 +1978,7 @@ export const adminRouter = createTRPCRouter({
           id: true,
           name: true,
           email: true,
+          username: true,
           role: true,
           canTranslate: true,
           emailVerifiedAt: true,
@@ -1743,6 +2001,19 @@ export const adminRouter = createTRPCRouter({
       }),
     ]);
 
+    // Uphold the "every account has a username" invariant: backfill any login that predates the
+    // field (e.g. a bootstrap admin who never had a tutor record), then reflect the new handles.
+    const missingUsername = users.filter((u) => !u.username);
+    if (missingUsername.length > 0) {
+      await Promise.all(missingUsername.map((u) => ensureUserUsername(u.id)));
+      const filled = await ctx.db.user.findMany({
+        where: { id: { in: missingUsername.map((u) => u.id) } },
+        select: { id: true, username: true },
+      });
+      const byId = new Map(filled.map((f) => [f.id, f.username]));
+      for (const u of missingUsername) u.username = byId.get(u.id) ?? u.username;
+    }
+
     const codedTutorIds = new Set(openCodes.map((c) => c.tutorId).filter(Boolean) as string[]);
     const codedEmails = new Set(openCodes.map((c) => c.email?.toLowerCase()).filter(Boolean) as string[]);
     const hasOpenCode = (tutorId: string | null, email: string | null | undefined) =>
@@ -1757,6 +2028,7 @@ export const adminRouter = createTRPCRouter({
       userId: u.id,
       name: u.name ?? u.email,
       email: u.email,
+      username: u.username ?? u.tutor?.username ?? null,
       role: u.role,
       isSelf: u.id === ctx.session.user.id,
       tutorId: u.tutorId,
@@ -1774,6 +2046,7 @@ export const adminRouter = createTRPCRouter({
       userId: null,
       name: tu.englishName,
       email: tu.email,
+      username: tu.username,
       role: null,
       isSelf: false,
       tutorId: tu.id,
@@ -1806,8 +2079,15 @@ export const adminRouter = createTRPCRouter({
    * adminOnlyProcedure already restricts the caller to ADMIN or HEAD.
    */
   setUserRole: adminOnlyProcedure
-    .input(z.object({ userId: cuid, role: z.enum(["VIEWER", "TUTOR", "COORDINATOR", "ADMIN"]) }))
+    .input(
+      z.object({
+        userId: cuid,
+        role: z.enum(["VIEWER", "TUTOR", "COORDINATOR", "ADMIN"]),
+        confirmPassword: z.string().min(1),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
+      await assertCallerPassword(ctx.session.user.id, input.confirmPassword);
       const target = await ctx.db.user.findUniqueOrThrow({
         where: { id: input.userId },
         select: { id: true, role: true, name: true, email: true },
@@ -1846,8 +2126,9 @@ export const adminRouter = createTRPCRouter({
    * and the head can't accidentally leave the program leaderless.
    */
   transferHead: headProcedure
-    .input(z.object({ userId: cuid }))
+    .input(z.object({ userId: cuid, confirmPassword: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
+      await assertCallerPassword(ctx.session.user.id, input.confirmPassword);
       if (input.userId === ctx.session.user.id) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "You are already the head." });
       }
@@ -1869,6 +2150,49 @@ export const adminRouter = createTRPCRouter({
         userId: ctx.session.user.id,
         userName: ctx.session.user.name,
         action: `Transferred head leadership to ${target.name ?? target.email}`,
+        entity: "User",
+        entityId: target.id,
+      });
+      return { ok: true };
+    }),
+
+  /**
+   * Delete a login account (HEAD only, identity-confirmed). The linked Tutor record is NOT
+   * deleted — the user's tutor link is dropped first so its username/class/history stay on the
+   * roster and the person can be re-invited later (revertible). The login's personal rows
+   * (notifications, acks, verification codes, reset tokens) cascade away; authored content
+   * (announcements, card reviews, policy edits) is detached (set-null), not lost. You cannot
+   * delete yourself or another head — transfer leadership first.
+   */
+  deleteUser: headProcedure
+    .input(z.object({ userId: cuid, confirmPassword: z.string().min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      await assertCallerPassword(ctx.session.user.id, input.confirmPassword);
+      if (input.userId === ctx.session.user.id) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "You cannot delete your own account." });
+      }
+      const target = await ctx.db.user.findUniqueOrThrow({
+        where: { id: input.userId },
+        select: { id: true, role: true, name: true, email: true, tutorId: true },
+      });
+      if (target.role === "HEAD") {
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Transfer leadership before deleting the head account.",
+        });
+      }
+      await ctx.db.$transaction(async (tx) => {
+        // Preserve the tutor: detach it from the login before deleting so the roster row
+        // (username, class, attendance history) survives.
+        if (target.tutorId) {
+          await tx.user.update({ where: { id: target.id }, data: { tutorId: null } });
+        }
+        await tx.user.delete({ where: { id: target.id } });
+      });
+      await recordAudit({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name,
+        action: `Deleted account ${target.name ?? target.email}`,
         entity: "User",
         entityId: target.id,
       });
@@ -1907,9 +2231,11 @@ export const adminRouter = createTRPCRouter({
       });
 
       if (!input.canTutor) {
+        // Archive the tutor but KEEP the link, so the account keeps its other attributes
+        // (username, class, history) and the toggle is cleanly reversible. Re-enabling
+        // reactivates the same record.
         if (user.tutorId) {
           await ctx.db.tutor.update({ where: { id: user.tutorId }, data: { status: "ARCHIVED" } });
-          await ctx.db.user.update({ where: { id: user.id }, data: { tutorId: null } });
         }
         return { ok: true, linked: false };
       }
@@ -1930,15 +2256,16 @@ export const adminRouter = createTRPCRouter({
         await ctx.db.tutor.update({ where: { id: existing.id }, data: { status: "ACTIVE" } });
         tutorId = existing.id;
       } else {
-        const parts = (user.name ?? user.email).trim().split(/\s+/).filter(Boolean);
-        const firstName = parts[0] ?? (user.name ?? user.email).trim();
-        const lastName = parts.length > 1 ? parts.slice(1).join(" ") : firstName;
-        const username = await ensureUniqueUsername(defaultUsername(firstName, lastName));
+        // Derive a tutor name from the display name. A single-word name (e.g. "Admin") keeps an
+        // empty last name — never duplicate it into "Admin Admin" (see splitDisplayName).
+        const { firstName, lastName, englishName } = splitDisplayName(user.name ?? user.email);
+        const usernameBase = lastName ? defaultUsername(firstName, lastName) : firstName;
+        const username = await ensureUniqueUsername(usernameBase);
         const created = await ctx.db.tutor.create({
           data: {
             firstName,
             lastName,
-            englishName: `${firstName} ${lastName}`,
+            englishName,
             username,
             email: user.email,
             status: "ACTIVE",
@@ -1948,6 +2275,8 @@ export const adminRouter = createTRPCRouter({
         tutorId = created.id;
       }
       await ctx.db.user.update({ where: { id: user.id }, data: { tutorId } });
+      // Guarantee the account carries a username (mirrors the linked tutor if it had none).
+      await ensureUserUsername(user.id);
       return { ok: true, linked: true };
     }),
 
@@ -2212,7 +2541,12 @@ export const adminRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const prev = await ctx.db.disciplinaryCard.findUniqueOrThrow({
         where: { id: input.id },
-        select: { reviewStatus: true, reviewNote: true, tutee: { select: { englishName: true } } },
+        select: {
+          reviewStatus: true,
+          reviewNote: true,
+          tuteeId: true,
+          tutee: { select: { englishName: true } },
+        },
       });
       const res = await ctx.db.disciplinaryCard.updateMany({
         where: { id: input.id, updatedAt: input.expectedUpdatedAt },
@@ -2224,6 +2558,9 @@ export const adminRouter = createTRPCRouter({
         },
       });
       if (res.count === 0) staleConflict();
+      // Validating a card can push the tutee over the removal threshold — auto-remove if so
+      // (the helper sets them INACTIVE, detaches pairings, and notifies the tutor + admins).
+      await syncPunishmentRemoval(ctx.db, prev.tuteeId);
       await recordAudit({
         userId: ctx.session.user.id,
         userName: ctx.session.user.name,
