@@ -325,9 +325,10 @@
         "policyDocuments": "政策文件",
         "auditLog": "审计日志",
         "usersRoles": "用户与角色",
-        "tutorRequests": "退出 / 重新加入",
+        "tutorRequests": "导师状态申请",
         "registrationCodes": "注册码",
-        "tuteeRequests": "学生移除"
+        "tuteeRequests": "学生移除",
+        "reports": "报告"
       }
     },
     "dashboard": {
@@ -363,7 +364,7 @@
         "openApplications": "待处理申请",
         "cardsToReview": "待审核卡片",
         "recentSurveys": "最近调查",
-        "tutorRequests": "退出 / 重新加入",
+        "tutorRequests": "状态申请",
         "tuteeRequests": "待生效退出"
       },
       "panels": {
@@ -389,7 +390,7 @@
           "hours": "{hours} 小时"
         },
         "tutorRequests": {
-          "title": "辅导员退出 / 重新加入申请",
+          "title": "导师状态申请",
           "empty": "暂无待处理申请。"
         },
         "tuteeRequests": {
@@ -571,6 +572,12 @@
         "hide": "隐藏汇总表",
         "tutor": "导师",
         "noMeetings": "暂无会议。"
+      },
+      "stats": {
+        "title": "导师出勤",
+        "help": "统计所有会议。",
+        "tutor": "导师",
+        "empty": "暂无出勤记录。"
       }
     },
     "timeslots": {
@@ -856,7 +863,7 @@
       "empty": "暂无注册码。"
     },
     "tutorRequests": {
-      "title": "退出 / 重新加入申请",
+      "title": "导师状态申请",
       "help": "辅导员发起的成员变更申请。退出申请须经过一周冷静期方可审批；重新加入申请则立即生效。",
       "kind": {
         "OPT_OUT": "退出",
@@ -892,6 +899,94 @@
       "removedDiscipline": "纪律移除",
       "removedOptOut": "已退出（经 {tutor}）",
       "reinstate": "重新启用"
+    },
+    "reports": {
+      "title": "报告",
+      "subtitle": "按周期生成的项目报告——总体统计与详细记录。可打印为 PDF 或导出 CSV。",
+      "schoolYear": "学年",
+      "scope": "周期",
+      "wholeYear": "整学年",
+      "s1": "第一学期",
+      "s2": "第二学期",
+      "depth": "详细程度",
+      "depthSummary": "概要",
+      "depthDetailed": "详细",
+      "depthFull": "完整存档",
+      "maskPii": "隐藏个人信息",
+      "print": "打印 / 另存为 PDF",
+      "loading": "正在生成报告…",
+      "csv": "CSV",
+      "noData": "该周期暂无数据。",
+      "inactive": "（已停用）",
+      "reportHeading": "{team} — {period} 报告",
+      "generatedAt": "生成于 {when}",
+      "maskedNote": "个人信息已隐藏",
+      "sections": {
+        "summary": "概要",
+        "perTutor": "各导师服务时长",
+        "sessions": "出勤课次",
+        "cards": "纪律牌",
+        "meetings": "导师会议",
+        "adjustments": "时长调整",
+        "applications": "导师申请",
+        "signups": "学生报名",
+        "removals": "学生移除与退出",
+        "statusRequests": "导师状态申请",
+        "meetingStats": "各导师会议出勤"
+      },
+      "stat": {
+        "total": "总时长",
+        "earned": "获得",
+        "extras": "额外",
+        "penalties": "扣减",
+        "sessions": "课次",
+        "tuteesServed": "服务学生数",
+        "present": "出席",
+        "excused": "请假",
+        "unexcused": "缺席",
+        "cards": "牌",
+        "meetings": "会议",
+        "signups": "报名",
+        "applications": "申请",
+        "removals": "移除",
+        "statusRequests": "状态申请"
+      },
+      "col": {
+        "tutor": "导师",
+        "sessions": "课次",
+        "earned": "获得",
+        "extras": "额外",
+        "penalties": "扣减",
+        "total": "合计",
+        "date": "日期",
+        "subject": "科目",
+        "status": "状态",
+        "hours": "小时",
+        "tutees": "学生",
+        "tutee": "学生",
+        "card": "牌",
+        "source": "来源",
+        "reason": "原因",
+        "title": "标题",
+        "present": "出席",
+        "excused": "请假",
+        "unexcused": "缺席",
+        "type": "类型",
+        "amount": "数量",
+        "name": "姓名",
+        "contact": "联系方式",
+        "grade": "年级",
+        "subjects": "科目",
+        "kind": "种类",
+        "state": "状态"
+      },
+      "group": {
+        "hours": "服务时长",
+        "attendance": "课次与出勤",
+        "activity": "活动"
+      },
+      "hoursCaption": "合计 = 获得 + 额外 − 扣减。",
+      "attendanceCaption": "出席 / 请假 / 缺席 = 各课次的学生出勤。"
     }
   },
   "tutor": {
@@ -1090,9 +1185,9 @@
         "help": "标记你可以授课的时间段。"
       },
       "hours": {
-        "earned": "已获得 {earned}",
+        "earned": "获得 {earned}",
         "extra": "+ 额外 {extra}",
-        "penalty": "− 扣除 {penalty}"
+        "penalty": "− 扣减 {penalty}"
       },
       "inactive": {
         "title": "仅限查看",

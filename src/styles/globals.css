@@ -231,3 +231,195 @@
     @apply bg-accent-50 text-accent-700 hover:bg-accent-50 hover:text-accent-700;
   }
 }
+
+/* Elements that only exist in the printed/PDF report (masthead kicker, running footer). */
+.print-only,
+.print-running-foot {
+  display: none;
+}
+
+/* Print / Save-as-PDF — used by the Reports page. The on-screen UI is untouched; here the same
+   markup is restyled into a "registrar's ledger": ink-on-paper, hairline rules, tabular figures,
+   a letterhead masthead, and a running footer — so a saved PDF reads like an institutional report
+   rather than a web screenshot. Design notes live alongside the Reports page. */
+@media print {
+  @page {
+    margin: 1.6cm 1.4cm;
+  }
+
+  /* Drop app chrome + on-screen-only controls; reveal print-only document furniture. */
+  header,
+  aside,
+  .no-print {
+    display: none !important;
+  }
+  .print-only {
+    display: block;
+  }
+
+  /* Document base: dark ink, aligned numerals (ledger columns), colours/rules print as-is. */
+  body {
+    font-size: 10px;
+    line-height: 1.42;
+    color: #1b1b1b;
+    font-variant-numeric: tabular-nums;
+    -webkit-print-color-adjust: exact;
+    print-color-adjust: exact;
+  }
+  .print-area {
+    margin: 0;
+  }
+  /* Tighten the generous on-screen section rhythm for paper. */
+  .print-area > * + * {
+    margin-top: 0.6rem !important;
+  }
+
+  /* Keep a heading / section title with the content that follows it; never split a small block. */
+  h1,
+  h2,
+  h3,
+  h4,
+  .report-section-head {
+    break-after: avoid;
+  }
+  .report-keep {
+    break-inside: avoid;
+  }
+
+  /* ---- Masthead (letterhead) ------------------------------------------------------------- */
+  .print-masthead {
+    border-top: 3px solid var(--accent-700, #4338ca) !important;
+    border-bottom: 0.75px solid #1b1b1b !important;
+    padding: 9px 0 7px !important;
+    margin-bottom: 14px;
+  }
+  .print-kicker {
+    font-size: 8px;
+    font-weight: 700;
+    letter-spacing: 0.24em;
+    text-transform: uppercase;
+    color: var(--accent-700, #4338ca);
+    margin-bottom: 3px;
+  }
+  .print-masthead h2 {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.015em;
+    line-height: 1.15;
+    color: #111;
+  }
+  .print-masthead .muted {
+    color: #6b6b6b;
+    letter-spacing: 0.02em;
+  }
+
+  /* ---- Key-figures band (summary): strip card chrome into clean ledger figures ----------- */
+  .print-area .card.p-3 {
+    border: 0 !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+    padding: 1px 0 !important; /* horizontal spacing comes from the grid gap, so cells align */
+  }
+  .print-area .card.p-3 > p:first-child {
+    font-size: 7px;
+    letter-spacing: 0.07em;
+    text-transform: uppercase;
+    color: #6b6b6b;
+  }
+  .print-area .card.p-3 > p:last-child {
+    font-size: 13px;
+    font-weight: 700;
+    margin-top: 1px;
+    line-height: 1.1;
+    color: #1b1b1b;
+  }
+  /* The one accent moment in the body: the hero Total-hours figure, sized up to lead the band. */
+  .print-area .card.p-3 > p.text-accent-700 {
+    color: var(--accent-700, #4338ca) !important;
+    font-size: 21px;
+    line-height: 1;
+  }
+  /* Group eyebrows (Service hours / Sessions & attendance / Activity) — label, no rule. */
+  .report-keep .report-section-head {
+    border-bottom: 0 !important;
+  }
+  .report-keep .report-section-head h4 {
+    font-size: 8px;
+    letter-spacing: 0.16em;
+    color: #111;
+  }
+  /* The group remark (e.g. "Total = earned + extras − penalties") is a footnote, not a heading:
+     keep it smaller and lighter than the group label so it never reads as the important part. */
+  .report-caption {
+    font-size: 6.5px !important;
+    color: #9a9a9a !important;
+    letter-spacing: 0 !important;
+  }
+
+  /* ---- Ledger sections: ruled section heads + hairline tables ---------------------------- */
+  .card {
+    border: 0 !important;
+    box-shadow: none !important;
+    background: transparent !important;
+  }
+  .card.overflow-x-auto,
+  .overflow-x-auto {
+    overflow: visible !important;
+  }
+  .report-section-head {
+    border-bottom: 0.75px solid #1b1b1b;
+    padding-bottom: 2px;
+  }
+  .report-section-head .section-title {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: #111;
+  }
+
+  .data-table {
+    width: 100%;
+    font-size: 8.5px;
+    font-variant-numeric: tabular-nums;
+  }
+  .data-table thead {
+    display: table-header-group; /* repeat the header on each printed page */
+  }
+  .data-table thead th {
+    font-size: 7px;
+    font-weight: 700;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: #333;
+    border-bottom: 0.75px solid #1b1b1b;
+    padding: 3px 6px;
+  }
+  .data-table tbody td {
+    border-bottom: 0.4px solid #e3e3e3;
+    padding: 2px 6px;
+  }
+  .data-table tbody tr:hover {
+    background: transparent !important;
+  }
+  tr {
+    break-inside: avoid;
+  }
+
+  /* ---- Closing footer (program · period) -----------------------------------------------
+     Kept in normal flow (after the last section) rather than position:fixed — Chrome's print
+     engine doesn't reserve space for fixed elements, so a fixed footer overlaps table content. */
+  .print-running-foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: baseline;
+    break-inside: avoid;
+    margin-top: 16px;
+    padding-top: 4px;
+    border-top: 0.5px solid #cfcfcf;
+    font-size: 7.5px;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    color: #6b6b6b;
+  }
+}

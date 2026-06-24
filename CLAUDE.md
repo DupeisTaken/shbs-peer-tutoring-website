@@ -98,7 +98,24 @@ your changes (`generated/prisma/`) and move on.
   (and bonuses) are `ServiceHourAdjustment` rows (PUNISHMENT/EXTRA), summed into monthly totals.
   An **unexcused tutor-meeting absence** docks 0.125h: `recordMeetingAttendance` materialises one
   deterministic PUNISHMENT adjustment per meeting+tutor (id `mtgabs_<meeting>_<tutor>`), so it's
-  idempotent and removed the moment the status changes away from unexcused.
+  idempotent and removed the moment the status changes away from unexcused. **Keep the hours
+  vocabulary consistent across surfaces** — the canonical nouns are **Total hours · Earned · Extras
+  · Penalties** (Reports summary labels); the tutor dashboard's inline breakdown reuses the same
+  nouns. `/admin/meetings` shows a per-tutor **attendance summary** (Present / Excused Absent /
+  Unexcused Absent counts) beside the meetings list.
+- **Reports / historical export** live at **`/admin/history`** (the "Reports" page; `periodReport`
+  query, `viewerProcedure`). Pick a school-year / semester / quarter / month, a **depth** (summary →
+  detailed → full), and optionally **mask PII**; export via the browser's **Print / Save-as-PDF**
+  (a `@media print` block in `globals.css` restyles the same markup into a "registrar's ledger":
+  letterhead masthead, key-figures band, hairline ledger tables with repeating headers, an in-flow
+  closing footer, and page-break discipline — `.no-print` hides controls, `.print-only` adds print
+  furniture; never use `position: fixed` for print footers, it overlaps content) or **per-section
+  CSV** (client-side `downloadCsv`). Scoping: service-hour data (sessions, adjustments) by
+  exact `schoolYear+quarter`/`month` stamp; everything else (cards, meetings, applications, signups,
+  removals, status requests) by a **calendar window derived from the matching `Term` rows'
+  `createdAt`** (terms have no explicit end, so the window ends at the next term's start, or now).
+  PII (emails/phone/contact) is masked for VIEWER **or** whenever the `maskPii` flag is set, so any
+  admin can export an anonymized copy. No LaTeX/server-side PDF dependency.
 - **Styling**: Tailwind v4 with shared design-system classes in `src/styles/globals.css`
   (`.btn`, `.card`, `.input`, `.select`, `.label`, `.link`, `.badge-*`, …). Reuse these
   rather than ad-hoc utility soup. Tailwind v4 needs `@utility` for `@apply`-able bases.

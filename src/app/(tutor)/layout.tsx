@@ -37,7 +37,7 @@ export default async function TutorLayout({
   // user back to their admin area; ask a pure tutor to sign out so a fresh sign-in re-links them.
   const linkedTutor = await db.tutor.findUnique({
     where: { id: session.tutorId },
-    select: { id: true },
+    select: { id: true, status: true },
   });
   if (!linkedTutor) {
     if (isElevated) redirect("/admin");
@@ -53,6 +53,12 @@ export default async function TutorLayout({
       </main>
     );
   }
+
+  // Can-tutor permission gate. An ARCHIVED tutor linked to an elevated account means can-tutor was
+  // turned off (the link is kept only to preserve the record) — so this account is NOT permitted in
+  // the tutor area; send them back to their admin area. (A genuine ARCHIVED *pure* tutor isn't
+  // elevated and keeps read-only access to their own history per the lifecycle, so it's unaffected.)
+  if (isElevated && linkedTutor.status === "ARCHIVED") redirect("/admin");
 
   // First-login gate: confirm contact email + set a real password (auto-provisioned
   // accounts arrive on the shared default with mustChangePassword).

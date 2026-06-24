@@ -318,7 +318,7 @@
         "program": "Programm & Aktualisierung",
         "tutorRoster": "Tutor-Liste",
         "tutorApplications": "Tutor-Bewerbungen",
-        "tutorRequests": "Austritt / Wiedereintritt",
+        "tutorRequests": "Tutor-Statusanträge",
         "tutorMeetings": "Tutor-Treffen",
         "serviceHours": "Servicestunden",
         "hourAdjustments": "Stundenanpassungen",
@@ -334,7 +334,8 @@
         "auditLog": "Aktivitätsprotokoll",
         "usersRoles": "Benutzer & Rollen",
         "registrationCodes": "Registrierungscodes",
-        "tuteeRequests": "Tutee-Entfernungen"
+        "tuteeRequests": "Tutee-Entfernungen",
+        "reports": "Berichte"
       }
     },
     "dashboard": {
@@ -369,7 +370,7 @@
         "pendingSignups": "Ausstehende Anmeldungen",
         "openApplications": "Offene Bewerbungen",
         "cardsToReview": "Zu prüfende Karten",
-        "tutorRequests": "Austritt / Wiedereintritt",
+        "tutorRequests": "Statusanträge",
         "recentSurveys": "Aktuelle Umfragen",
         "tuteeRequests": "Ausstehende Abmeldungen"
       },
@@ -385,7 +386,7 @@
           "panelists": "{count} {count, plural, one {Panelist} other {Panelisten}}"
         },
         "tutorRequests": {
-          "title": "Austritts-/Wiedereintrittsanträge von Tutoren",
+          "title": "Tutor-Statusanträge",
           "empty": "Keine offenen Anträge."
         },
         "cards": {
@@ -590,7 +591,7 @@
       "empty": "Noch keine Registrierungscodes."
     },
     "tutorRequests": {
-      "title": "Austritts-/Wiedereintrittsanträge",
+      "title": "Tutor-Statusanträge",
       "help": "Von Tutoren initiierte Mitgliedschaftsänderungen. Austrittsanträge können erst nach einer einwöchigen Wartezeit genehmigt werden; Wiedereintritt ist sofort möglich.",
       "kind": {
         "OPT_OUT": "Austritt",
@@ -639,6 +640,12 @@
         "hide": "Zusammenfassung ausblenden",
         "tutor": "Tutor",
         "noMeetings": "Noch keine Treffen."
+      },
+      "stats": {
+        "title": "Tutor-Anwesenheit",
+        "help": "Über alle Treffen.",
+        "tutor": "Tutor",
+        "empty": "Noch keine Anwesenheit erfasst."
       }
     },
     "timeslots": {
@@ -892,6 +899,94 @@
       "removedDiscipline": "Disziplinarische Entfernung",
       "removedOptOut": "Abgemeldet (über {tutor})",
       "reinstate": "Wieder aufnehmen"
+    },
+    "reports": {
+      "title": "Berichte",
+      "subtitle": "Programmberichte nach Zeitraum — allgemeine Statistiken plus detaillierte Einträge. Als PDF drucken oder CSV exportieren.",
+      "schoolYear": "Schuljahr",
+      "scope": "Zeitraum",
+      "wholeYear": "Ganzes Jahr",
+      "s1": "Semester 1",
+      "s2": "Semester 2",
+      "depth": "Detailgrad",
+      "depthSummary": "Übersicht",
+      "depthDetailed": "Detailliert",
+      "depthFull": "Vollständiges Archiv",
+      "maskPii": "Persönliche Daten verbergen",
+      "print": "Drucken / als PDF speichern",
+      "loading": "Bericht wird erstellt…",
+      "csv": "CSV",
+      "noData": "Keine Daten für diesen Zeitraum.",
+      "inactive": "(inaktiv)",
+      "reportHeading": "{team} — Bericht {period}",
+      "generatedAt": "Erstellt {when}",
+      "maskedNote": "persönliche Daten ausgeblendet",
+      "sections": {
+        "summary": "Übersicht",
+        "perTutor": "Servicestunden je Tutor",
+        "sessions": "Anwesenheitssitzungen",
+        "cards": "Disziplinarkarten",
+        "meetings": "Tutorentreffen",
+        "adjustments": "Stundenanpassungen",
+        "applications": "Tutorbewerbungen",
+        "signups": "Tutee-Anmeldungen",
+        "removals": "Tutee-Entfernungen & Abmeldungen",
+        "statusRequests": "Tutor-Statusanträge",
+        "meetingStats": "Sitzungsanwesenheit je Tutor"
+      },
+      "stat": {
+        "total": "Gesamtstunden",
+        "earned": "Verdient",
+        "extras": "Extras",
+        "penalties": "Abzüge",
+        "sessions": "Sitzungen",
+        "tuteesServed": "Betreute Tutees",
+        "present": "Anwesend",
+        "excused": "Entschuldigt",
+        "unexcused": "Unentschuldigt",
+        "cards": "Karten",
+        "meetings": "Treffen",
+        "signups": "Anmeldungen",
+        "applications": "Bewerbungen",
+        "removals": "Entfernungen",
+        "statusRequests": "Statusanträge"
+      },
+      "col": {
+        "tutor": "Tutor",
+        "sessions": "Sitzungen",
+        "earned": "Verdient",
+        "extras": "Extras",
+        "penalties": "Abzüge",
+        "total": "Gesamt",
+        "date": "Datum",
+        "subject": "Fach",
+        "status": "Status",
+        "hours": "Stunden",
+        "tutees": "Tutees",
+        "tutee": "Tutee",
+        "card": "Karte",
+        "source": "Quelle",
+        "reason": "Grund",
+        "title": "Titel",
+        "present": "Anwesend",
+        "excused": "Entschuldigt",
+        "unexcused": "Unentschuldigt",
+        "type": "Typ",
+        "amount": "Menge",
+        "name": "Name",
+        "contact": "Kontakt",
+        "grade": "Klasse",
+        "subjects": "Fächer",
+        "kind": "Art",
+        "state": "Status"
+      },
+      "group": {
+        "hours": "Servicestunden",
+        "attendance": "Sitzungen & Anwesenheit",
+        "activity": "Aktivität"
+      },
+      "hoursCaption": "Gesamt = verdient + Extras − Abzüge.",
+      "attendanceCaption": "Anwesend / entschuldigt / unentschuldigt = Tutee-Anwesenheit in den Sitzungen."
     }
   },
   "tutor": {
@@ -1102,9 +1197,9 @@
         "help": "Zeitfenster markieren, in denen Sie unterrichten können."
       },
       "hours": {
-        "earned": "{earned} erarbeitet",
-        "extra": "+ {extra} extra",
-        "penalty": "− {penalty} Abzug"
+        "earned": "{earned} verdient",
+        "extra": "+ {extra} Extras",
+        "penalty": "− {penalty} Abzüge"
       }
     },
     "discipline": {

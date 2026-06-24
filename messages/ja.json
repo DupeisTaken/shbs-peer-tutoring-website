@@ -318,7 +318,7 @@
         "program": "プログラムとリフレッシュ",
         "tutorRoster": "チューター名簿",
         "tutorApplications": "チューター応募",
-        "tutorRequests": "離脱・復帰",
+        "tutorRequests": "チューター状態申請",
         "tutorMeetings": "チューターミーティング",
         "serviceHours": "奉仕時間",
         "hourAdjustments": "時間調整",
@@ -334,7 +334,8 @@
         "auditLog": "監査ログ",
         "usersRoles": "ユーザーと権限",
         "registrationCodes": "登録コード",
-        "tuteeRequests": "生徒の削除"
+        "tuteeRequests": "生徒の削除",
+        "reports": "レポート"
       }
     },
     "dashboard": {
@@ -369,7 +370,7 @@
         "pendingSignups": "保留中の申請",
         "openApplications": "審査中の応募",
         "cardsToReview": "確認待ちのカード",
-        "tutorRequests": "離脱・復帰",
+        "tutorRequests": "状態申請",
         "recentSurveys": "最近のアンケート",
         "tuteeRequests": "保留中の離脱"
       },
@@ -385,7 +386,7 @@
           "panelists": "{count} 名の審査員"
         },
         "tutorRequests": {
-          "title": "チューター離脱・復帰申請",
+          "title": "チューター状態申請",
           "empty": "未処理の申請はありません。"
         },
         "cards": {
@@ -590,7 +591,7 @@
       "empty": "登録コードはまだありません。"
     },
     "tutorRequests": {
-      "title": "離脱・復帰申請",
+      "title": "チューター状態申請",
       "help": "チューターからの会員変更申請です。離脱申請は1週間のクールダウン後にのみ承認できます。復帰は即時承認できます。",
       "kind": {
         "OPT_OUT": "離脱",
@@ -639,6 +640,12 @@
         "hide": "サマリーを非表示",
         "tutor": "チューター",
         "noMeetings": "ミーティングはまだありません。"
+      },
+      "stats": {
+        "title": "チューター出席",
+        "help": "全会議の集計。",
+        "tutor": "チューター",
+        "empty": "出席記録はまだありません。"
       }
     },
     "timeslots": {
@@ -892,6 +899,94 @@
       "removedDiscipline": "懲戒削除",
       "removedOptOut": "離脱（{tutor} 経由）",
       "reinstate": "復帰"
+    },
+    "reports": {
+      "title": "レポート",
+      "subtitle": "期間別のプログラムレポート — 全体統計と詳細記録。PDF印刷またはCSV出力。",
+      "schoolYear": "学年度",
+      "scope": "期間",
+      "wholeYear": "学年度全体",
+      "s1": "前期",
+      "s2": "後期",
+      "depth": "詳細レベル",
+      "depthSummary": "概要",
+      "depthDetailed": "詳細",
+      "depthFull": "全アーカイブ",
+      "maskPii": "個人情報を隠す",
+      "print": "印刷 / PDF保存",
+      "loading": "レポートを作成中…",
+      "csv": "CSV",
+      "noData": "この期間のデータはありません。",
+      "inactive": "（無効）",
+      "reportHeading": "{team} — {period} レポート",
+      "generatedAt": "{when} 作成",
+      "maskedNote": "個人情報は非表示",
+      "sections": {
+        "summary": "概要",
+        "perTutor": "チューター別奉仕時間",
+        "sessions": "出席セッション",
+        "cards": "懲戒カード",
+        "meetings": "チューター会議",
+        "adjustments": "時間調整",
+        "applications": "チューター応募",
+        "signups": "生徒申込",
+        "removals": "生徒の削除・離脱",
+        "statusRequests": "チューター状態申請",
+        "meetingStats": "チューター別会議出席"
+      },
+      "stat": {
+        "total": "合計時間",
+        "earned": "獲得",
+        "extras": "追加",
+        "penalties": "減点",
+        "sessions": "回数",
+        "tuteesServed": "対応生徒数",
+        "present": "出席",
+        "excused": "公欠",
+        "unexcused": "欠席",
+        "cards": "カード",
+        "meetings": "会議",
+        "signups": "申込",
+        "applications": "応募",
+        "removals": "削除",
+        "statusRequests": "状態申請"
+      },
+      "col": {
+        "tutor": "チューター",
+        "sessions": "回数",
+        "earned": "獲得",
+        "extras": "追加",
+        "penalties": "減点",
+        "total": "合計",
+        "date": "日付",
+        "subject": "科目",
+        "status": "状態",
+        "hours": "時間",
+        "tutees": "生徒",
+        "tutee": "生徒",
+        "card": "カード",
+        "source": "発行元",
+        "reason": "理由",
+        "title": "件名",
+        "present": "出席",
+        "excused": "公欠",
+        "unexcused": "欠席",
+        "type": "種別",
+        "amount": "数量",
+        "name": "氏名",
+        "contact": "連絡先",
+        "grade": "学年",
+        "subjects": "科目",
+        "kind": "種類",
+        "state": "状態"
+      },
+      "group": {
+        "hours": "奉仕時間",
+        "attendance": "セッションと出席",
+        "activity": "活動"
+      },
+      "hoursCaption": "合計 = 獲得 + 追加 − 減点。",
+      "attendanceCaption": "出席 / 公欠 / 欠席 = 各セッションの生徒の出席。"
     }
   },
   "tutor": {
@@ -1104,7 +1199,7 @@
       "hours": {
         "earned": "{earned} h 獲得",
         "extra": "+ {extra} h 追加",
-        "penalty": "− {penalty} h 減算"
+        "penalty": "− {penalty} h 減点"
       }
     },
     "discipline": {

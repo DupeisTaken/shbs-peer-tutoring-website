@@ -79,6 +79,34 @@ async function healDuplicatedTutorNames(db: typeof dbClient): Promise<void> {
   );
 }
 
+/**
+ * Detach an inactive tutor's active-term tutees from their pairings and re-queue them (set PENDING)
+ * for reassignment on /admin/requests. This is the single inverse used whenever a tutor stops
+ * serving — opt-out approval, can-tutor off, or a direct status change — so tutees are never
+ * stranded on a tutor who can no longer act. Returns how many were re-queued. No-op without an
+ * active term.
+ */
+async function requeueTutorActiveTermTutees(
+  db: typeof dbClient,
+  tutorId: string,
+): Promise<number> {
+  const term = await db.term.findFirst({ where: { active: true }, select: { id: true } });
+  if (!term) return 0;
+  const pairings = await db.pairing.findMany({
+    where: { tutorId, termId: term.id },
+    select: { id: true, tutees: { select: { tuteeId: true } } },
+  });
+  const tuteeIds = [...new Set(pairings.flatMap((p) => p.tutees.map((t) => t.tuteeId)))];
+  if (tuteeIds.length === 0) return 0;
+  await db.$transaction([
+    db.pairingTutee.deleteMany({
+      where: { pairingId: { in: pairings.map((p) => p.id) }, tuteeId: { in: tuteeIds } },
+    }),
+    db.tutee.updateMany({ where: { id: { in: tuteeIds } }, data: { status: "PENDING" } }),
+  ]);
+  return tuteeIds.length;
+}
+
 const monthInput = z.string().regex(/^\d{4}-\d{2}$/);
 const cuid = z.string().min(1);
 
@@ -617,6 +645,411 @@ export const adminRouter = createTRPCRouter({
     }),
 
   /**
+   * Comprehensive program report for a period — general stats + detailed entries — backing the
+   * Reports page and its print/CSV exports. Scope resolves like periodSummary (quarter / semester /
+   * whole year / month). Service-hour data (sessions, adjustments) is scoped by its exact
+   * schoolYear+quarter (or month) stamp; everything else (cards, meetings, applications, signups,
+   * removals, requests) is scoped by a calendar window derived from the matching Term rows (a
+   * term's createdAt marks its start, the next term's its end). `depth` controls how much is
+   * gathered (summary → detailed → full). PII (emails/phone/contact) is masked for VIEWER or
+   * whenever `maskPii` is set, so any admin can export an anonymized copy.
+   */
+  periodReport: viewerProcedure
+    .input(
+      z.object({
+        schoolYear: z.string().optional(),
+        semester: z.enum(["S1", "S2"]).optional(),
+        quarter: z.enum(QUARTERS).optional(),
+        month: monthInput.optional(),
+        depth: z.enum(["summary", "detailed", "full"]).default("summary"),
+        maskPii: z.boolean().default(false),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      const active = await getActivePeriod(ctx.db);
+      const schoolYear = input.schoolYear ?? active.schoolYear;
+      let quarters: Quarter[];
+      let label: string;
+      if (input.quarter) {
+        quarters = [input.quarter];
+        label = `${schoolYear} ${input.quarter}`;
+      } else if (input.semester) {
+        quarters = semesterQuarters(input.semester);
+        label = `${schoolYear} ${input.semester}`;
+      } else if (input.schoolYear) {
+        quarters = [...QUARTERS];
+        label = schoolYear;
+      } else {
+        quarters = semesterQuarters(active.semester);
+        label = `${schoolYear} ${active.semester}`;
+      }
+      if (input.month) label = input.month;
+
+      const mask = input.maskPii || ctx.session.role === "VIEWER";
+      const maskContact = (v: string | null | undefined): string | null => (mask ? null : (v ?? null));
+
+      // Calendar window (for createdAt/date-scoped sections) derived from the matching Term rows.
+      const allTerms = await ctx.db.term.findMany({
+        orderBy: [{ schoolYear: "asc" }, { quarter: "asc" }],
+        select: { id: true, schoolYear: true, quarter: true, createdAt: true },
+      });
+      let windowStart: Date | null = null;
+      let windowEnd: Date | null = null;
+      let termIds: string[] = [];
+      if (input.month) {
+        const [y, m] = input.month.split("-").map(Number);
+        windowStart = new Date(Date.UTC(y!, (m ?? 1) - 1, 1));
+        windowEnd = new Date(Date.UTC(y!, m ?? 1, 1));
+      } else {
+        const selected = allTerms.filter(
+          (tm) => tm.schoolYear === schoolYear && quarters.includes(tm.quarter),
+        );
+        termIds = selected.map((tm) => tm.id);
+        if (selected.length > 0) {
+          windowStart = selected.reduce((a, b) => (a.createdAt < b.createdAt ? a : b)).createdAt;
+          const latest = selected.reduce((a, b) => (a.createdAt > b.createdAt ? a : b));
+          const idx = allTerms.findIndex((tm) => tm.id === latest.id);
+          windowEnd = idx >= 0 && idx + 1 < allTerms.length ? allTerms[idx + 1]!.createdAt : null;
+        }
+      }
+      const wq = windowStart
+        ? { createdAt: { gte: windowStart, ...(windowEnd ? { lt: windowEnd } : {}) } }
+        : null;
+      const periodWhere = input.month
+        ? { month: input.month }
+        : { schoolYear, quarter: { in: quarters } };
+
+      // ---- Always: per-tutor service hours + program attendance + headline counts ----
+      const [tutors, sessionAgg, adjAgg, attAgg, served] = await Promise.all([
+        ctx.db.tutor.findMany({
+          orderBy: { englishName: "asc" },
+          select: { id: true, englishName: true, status: true },
+        }),
+        ctx.db.session.groupBy({
+          by: ["tutorId"],
+          where: periodWhere,
+          _sum: { shCount: true },
+          _count: { _all: true },
+        }),
+        ctx.db.serviceHourAdjustment.groupBy({
+          by: ["tutorId", "type"],
+          where: periodWhere,
+          _sum: { amount: true },
+        }),
+        ctx.db.sessionTutee.groupBy({
+          by: ["status"],
+          where: { session: periodWhere },
+          _count: { _all: true },
+        }),
+        ctx.db.sessionTutee.findMany({
+          where: { session: periodWhere },
+          select: { tuteeId: true },
+          distinct: ["tuteeId"],
+        }),
+      ]);
+
+      const earnedBy = new Map(sessionAgg.map((s) => [s.tutorId, s._sum.shCount ?? 0]));
+      const sessionsBy = new Map(sessionAgg.map((s) => [s.tutorId, s._count._all]));
+      const punishBy = new Map<string, number>();
+      const extraBy = new Map<string, number>();
+      for (const a of adjAgg) {
+        const m = a.type === "PUNISHMENT" ? punishBy : extraBy;
+        m.set(a.tutorId, (m.get(a.tutorId) ?? 0) + (a._sum.amount ?? 0));
+      }
+      const tutorRows = tutors
+        .map((t) => {
+          const earned = earnedBy.get(t.id) ?? 0;
+          const extras = extraBy.get(t.id) ?? 0;
+          const punishments = punishBy.get(t.id) ?? 0;
+          return {
+            tutorId: t.id,
+            englishName: t.englishName,
+            active: t.status === "ACTIVE",
+            sessions: sessionsBy.get(t.id) ?? 0,
+            earned,
+            extras,
+            punishments,
+            total: earned - punishments + extras,
+          };
+        })
+        .filter((r) => r.sessions > 0 || r.earned !== 0 || r.extras !== 0 || r.punishments !== 0);
+
+      const att = { present: 0, excused: 0, unexcused: 0 };
+      for (const g of attAgg) {
+        if (g.status === "PRESENT") att.present = g._count._all;
+        else if (g.status === "EXCUSED_ABSENT") att.excused = g._count._all;
+        else att.unexcused = g._count._all;
+      }
+      const hours = tutorRows.reduce(
+        (acc, r) => ({
+          earned: acc.earned + r.earned,
+          extras: acc.extras + r.extras,
+          punishments: acc.punishments + r.punishments,
+          total: acc.total + r.total,
+        }),
+        { earned: 0, extras: 0, punishments: 0, total: 0 },
+      );
+
+      const [signupCount, cardCount, meetingCount, appCount, removalCount, statusReqCount] =
+        await Promise.all([
+          wq ? ctx.db.tutee.count({ where: wq }) : Promise.resolve(0),
+          wq ? ctx.db.disciplinaryCard.count({ where: wq }) : Promise.resolve(0),
+          termIds.length
+            ? ctx.db.tutorMeeting.count({ where: { termId: { in: termIds } } })
+            : Promise.resolve(0),
+          wq ? ctx.db.tutorApplication.count({ where: wq }) : Promise.resolve(0),
+          wq ? ctx.db.tuteeRemovalRequest.count({ where: wq }) : Promise.resolve(0),
+          wq ? ctx.db.tutorStatusRequest.count({ where: wq }) : Promise.resolve(0),
+        ]);
+
+      const summary = {
+        sessions: tutorRows.reduce((n, r) => n + r.sessions, 0),
+        hours,
+        attendance: att,
+        counts: {
+          tutorsServed: tutorRows.length,
+          tuteesServed: served.length,
+          signups: signupCount,
+          cards: cardCount,
+          meetings: meetingCount,
+          applications: appCount,
+          removals: removalCount,
+          statusRequests: statusReqCount,
+        },
+      };
+      const base = {
+        scope: {
+          label,
+          schoolYear,
+          quarters,
+          masked: mask,
+          window: windowStart ? { start: windowStart, end: windowEnd } : null,
+        },
+        summary,
+        tutors: tutorRows,
+      };
+      const empty = {
+        meetingStats: [] as never[],
+        sessions: [] as never[],
+        cards: [] as never[],
+        meetings: [] as never[],
+        adjustments: [] as never[],
+        applications: [] as never[],
+        signups: [] as never[],
+        removals: [] as never[],
+        statusRequests: [] as never[],
+      };
+      if (input.depth === "summary") return { ...base, ...empty };
+
+      // ---- Detailed: sessions, cards, meetings, adjustments ----
+      const [sessions, cards, meetings, adjustments] = await Promise.all([
+        ctx.db.session.findMany({
+          where: periodWhere,
+          orderBy: { date: "desc" },
+          select: {
+            id: true,
+            date: true,
+            tutorStatus: true,
+            shCount: true,
+            comments: true,
+            tutor: { select: { englishName: true } },
+            pairing: { select: { subject: true } },
+            tutees: { select: { status: true, tutee: { select: { englishName: true } } } },
+          },
+        }),
+        wq
+          ? ctx.db.disciplinaryCard.findMany({
+              where: wq,
+              orderBy: { createdAt: "desc" },
+              select: {
+                id: true,
+                createdAt: true,
+                color: true,
+                source: true,
+                reviewStatus: true,
+                reason: true,
+                tutee: { select: { englishName: true } },
+                issuedByTutor: { select: { englishName: true } },
+              },
+            })
+          : Promise.resolve([]),
+        termIds.length
+          ? ctx.db.tutorMeeting.findMany({
+              where: { termId: { in: termIds } },
+              orderBy: { date: "desc" },
+              select: {
+                id: true,
+                title: true,
+                date: true,
+                attendances: { select: { status: true, tutorId: true } },
+              },
+            })
+          : Promise.resolve([]),
+        ctx.db.serviceHourAdjustment.findMany({
+          where: periodWhere,
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            createdAt: true,
+            type: true,
+            amount: true,
+            reason: true,
+            tutor: { select: { englishName: true } },
+          },
+        }),
+      ]);
+
+      // Per-tutor meeting attendance summary for the period (present / excused / unexcused).
+      const mTally = new Map<string, { present: number; excused: number; unexcused: number }>();
+      for (const m of meetings) {
+        for (const r of m.attendances) {
+          const e = mTally.get(r.tutorId) ?? { present: 0, excused: 0, unexcused: 0 };
+          if (r.status === "PRESENT") e.present++;
+          else if (r.status === "EXCUSED_ABSENT") e.excused++;
+          else if (r.status === "UNEXCUSED_ABSENT") e.unexcused++;
+          mTally.set(r.tutorId, e);
+        }
+      }
+      const tutorNameById = new Map(tutors.map((t) => [t.id, t.englishName]));
+      const meetingStats = [...mTally.entries()]
+        .map(([id, c]) => ({ tutorId: id, tutor: tutorNameById.get(id) ?? "?", ...c }))
+        .filter((x) => x.present + x.excused + x.unexcused > 0)
+        .sort(
+          (a, b) =>
+            b.unexcused - a.unexcused || b.excused - a.excused || a.tutor.localeCompare(b.tutor),
+        );
+
+      const detailed = {
+        ...base,
+        meetingStats,
+        sessions: sessions.map((s) => ({
+          id: s.id,
+          date: s.date,
+          tutor: s.tutor.englishName,
+          subject: s.pairing.subject,
+          tutorStatus: s.tutorStatus,
+          shCount: s.shCount,
+          comments: s.comments,
+          tutees: s.tutees.map((tt) => ({ name: tt.tutee.englishName, status: tt.status })),
+        })),
+        cards: cards.map((c) => ({
+          id: c.id,
+          date: c.createdAt,
+          tutee: c.tutee.englishName,
+          color: c.color,
+          source: c.source,
+          reviewStatus: c.reviewStatus,
+          reason: c.reason,
+          issuedBy: c.issuedByTutor?.englishName ?? null,
+        })),
+        meetings: meetings.map((m) => {
+          const a = { present: 0, excused: 0, unexcused: 0 };
+          for (const r of m.attendances) {
+            if (r.status === "PRESENT") a.present++;
+            else if (r.status === "EXCUSED_ABSENT") a.excused++;
+            else if (r.status === "UNEXCUSED_ABSENT") a.unexcused++;
+          }
+          return { id: m.id, title: m.title, date: m.date, ...a };
+        }),
+        adjustments: adjustments.map((a) => ({
+          id: a.id,
+          date: a.createdAt,
+          tutor: a.tutor.englishName,
+          type: a.type,
+          amount: a.amount,
+          reason: a.reason,
+        })),
+      };
+      if (input.depth === "detailed") {
+        return {
+          ...detailed,
+          applications: [] as never[],
+          signups: [] as never[],
+          removals: [] as never[],
+          statusRequests: [] as never[],
+        };
+      }
+
+      // ---- Full: recruitment + roster changes ----
+      const [applications, signups, removals, statusRequests] = await Promise.all([
+        wq
+          ? ctx.db.tutorApplication.findMany({
+              where: wq,
+              orderBy: { createdAt: "desc" },
+              select: { id: true, createdAt: true, name: true, status: true, email: true, preferredContact: true },
+            })
+          : Promise.resolve([]),
+        wq
+          ? ctx.db.tutee.findMany({
+              where: wq,
+              orderBy: { createdAt: "desc" },
+              select: {
+                id: true,
+                createdAt: true,
+                englishName: true,
+                gradeLevel: true,
+                status: true,
+                email: true,
+                phone: true,
+                preferredContact: true,
+                firstChoice: { select: { name: true } },
+                secondChoice: { select: { name: true } },
+              },
+            })
+          : Promise.resolve([]),
+        wq
+          ? ctx.db.tuteeRemovalRequest.findMany({
+              where: wq,
+              orderBy: { createdAt: "desc" },
+              select: { id: true, createdAt: true, kind: true, state: true, tutee: { select: { englishName: true } } },
+            })
+          : Promise.resolve([]),
+        wq
+          ? ctx.db.tutorStatusRequest.findMany({
+              where: wq,
+              orderBy: { createdAt: "desc" },
+              select: { id: true, createdAt: true, kind: true, state: true, tutor: { select: { englishName: true } } },
+            })
+          : Promise.resolve([]),
+      ]);
+
+      return {
+        ...detailed,
+        applications: applications.map((a) => ({
+          id: a.id,
+          date: a.createdAt,
+          name: a.name,
+          status: a.status,
+          contact: maskContact(a.preferredContact ?? a.email),
+        })),
+        signups: signups.map((s) => ({
+          id: s.id,
+          date: s.createdAt,
+          name: s.englishName,
+          grade: s.gradeLevel,
+          status: s.status,
+          firstChoice: s.firstChoice?.name ?? null,
+          secondChoice: s.secondChoice?.name ?? null,
+          contact: maskContact(s.preferredContact ?? s.email ?? s.phone),
+        })),
+        removals: removals.map((r) => ({
+          id: r.id,
+          date: r.createdAt,
+          tutee: r.tutee.englishName,
+          kind: r.kind,
+          state: r.state,
+        })),
+        statusRequests: statusRequests.map((r) => ({
+          id: r.id,
+          date: r.createdAt,
+          tutor: r.tutor.englishName,
+          kind: r.kind,
+          state: r.state,
+        })),
+      };
+    }),
+
+  /**
    * Refresh the program: advance to the next quarter (Q4 -> next year's Q1), clear the current
    * pairings (the new term starts empty; past pairings + their attendance stay for history), and
    * archive every pending/active tutee to INACTIVE so they must sign up again to continue. Service
@@ -788,7 +1221,11 @@ export const adminRouter = createTRPCRouter({
           ? trimmedUsername
           : defaultUsername(input.firstName, input.lastName, gradYear);
       const username = await ensureUniqueUsername(desired, { excludeTutorId: input.id });
-      return ctx.db.tutor.update({
+      const prev = await ctx.db.tutor.findUnique({
+        where: { id: input.id },
+        select: { status: true },
+      });
+      const updated = await ctx.db.tutor.update({
         where: { id: input.id },
         data: {
           firstName: input.firstName,
@@ -803,6 +1240,13 @@ export const adminRouter = createTRPCRouter({
           email: input.email?.trim() ? input.email.trim().toLowerCase() : null,
         },
       });
+      // On an ACTIVE -> inactive transition, re-queue this tutor's tutees so none are stranded on
+      // a tutor who can no longer serve them (mirrors opt-out / can-tutor-off). Only on the actual
+      // transition, so re-saving an already-inactive tutor doesn't disturb anything.
+      if (prev?.status === "ACTIVE" && input.status !== "ACTIVE") {
+        await requeueTutorActiveTermTutees(ctx.db, input.id);
+      }
+      return updated;
     }),
 
   /**
@@ -1660,28 +2104,17 @@ export const adminRouter = createTRPCRouter({
   requeueTutorTutees: adminProcedure
     .input(z.object({ tutorId: cuid }))
     .mutation(async ({ ctx, input }) => {
-      const active = await getActivePeriod(ctx.db);
-      const pairings = await ctx.db.pairing.findMany({
-        where: { tutorId: input.tutorId, termId: active.termId },
-        select: { id: true, tutees: { select: { tuteeId: true } } },
-      });
-      const tuteeIds = [...new Set(pairings.flatMap((p) => p.tutees.map((t) => t.tuteeId)))];
-      if (tuteeIds.length === 0) return { ok: true, requeued: 0 };
-
-      await ctx.db.$transaction([
-        ctx.db.pairingTutee.deleteMany({
-          where: { pairingId: { in: pairings.map((p) => p.id) }, tuteeId: { in: tuteeIds } },
-        }),
-        ctx.db.tutee.updateMany({ where: { id: { in: tuteeIds } }, data: { status: "PENDING" } }),
-      ]);
-      await recordAudit({
-        userId: ctx.session.user.id,
-        userName: ctx.session.user.name,
-        action: `Re-queued ${tuteeIds.length} tutee(s) from an opted-out tutor`,
-        entity: "Tutor",
-        entityId: input.tutorId,
-      });
-      return { ok: true, requeued: tuteeIds.length };
+      const requeued = await requeueTutorActiveTermTutees(ctx.db, input.tutorId);
+      if (requeued > 0) {
+        await recordAudit({
+          userId: ctx.session.user.id,
+          userName: ctx.session.user.name,
+          action: `Re-queued ${requeued} tutee(s) from an opted-out tutor`,
+          entity: "Tutor",
+          entityId: input.tutorId,
+        });
+      }
+      return { ok: true, requeued };
     }),
 
   // --------------------------------------------------------------------------
@@ -2233,9 +2666,12 @@ export const adminRouter = createTRPCRouter({
       if (!input.canTutor) {
         // Archive the tutor but KEEP the link, so the account keeps its other attributes
         // (username, class, history) and the toggle is cleanly reversible. Re-enabling
-        // reactivates the same record.
+        // reactivates the same record. (Tutor-area access is denied while ARCHIVED — see the
+        // gate in (tutor)/layout.tsx.)
         if (user.tutorId) {
           await ctx.db.tutor.update({ where: { id: user.tutorId }, data: { status: "ARCHIVED" } });
+          // Don't strand their tutees — re-queue them for reassignment (the chain's inverse).
+          await requeueTutorActiveTermTutees(ctx.db, user.tutorId);
         }
         return { ok: true, linked: false };
       }

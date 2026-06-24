@@ -318,7 +318,7 @@
         "program": "Programme & actualisation",
         "tutorRoster": "Liste des tuteurs",
         "tutorApplications": "Candidatures tuteurs",
-        "tutorRequests": "Retrait / Réintégration",
+        "tutorRequests": "Demandes de statut de tuteur",
         "tutorMeetings": "Réunions tuteurs",
         "serviceHours": "Heures de service",
         "hourAdjustments": "Ajustements d'heures",
@@ -334,7 +334,8 @@
         "auditLog": "Journal d'audit",
         "usersRoles": "Utilisateurs & rôles",
         "registrationCodes": "Codes d'inscription",
-        "tuteeRequests": "Retraits de tutorés"
+        "tuteeRequests": "Retraits de tutorés",
+        "reports": "Rapports"
       }
     },
     "dashboard": {
@@ -369,7 +370,7 @@
         "pendingSignups": "Inscriptions en attente",
         "openApplications": "Candidatures ouvertes",
         "cardsToReview": "Cartes à examiner",
-        "tutorRequests": "Retrait / réintégration",
+        "tutorRequests": "Demandes de statut",
         "recentSurveys": "Sondages récents",
         "tuteeRequests": "Départs en attente"
       },
@@ -385,7 +386,7 @@
           "panelists": "{count} {count, plural, one {membre du jury} other {membres du jury}}"
         },
         "tutorRequests": {
-          "title": "Demandes de retrait / réintégration",
+          "title": "Demandes de statut de tuteur",
           "empty": "Aucune demande ouverte."
         },
         "cards": {
@@ -590,7 +591,7 @@
       "empty": "Aucun code d'inscription pour l'instant."
     },
     "tutorRequests": {
-      "title": "Demandes de retrait / réintégration",
+      "title": "Demandes de statut de tuteur",
       "help": "Demandes de changement d'adhésion initiées par les tuteurs. Les demandes de retrait ne peuvent être approuvées qu'après une semaine de délai de réflexion ; la réintégration est immédiate.",
       "kind": {
         "OPT_OUT": "Retrait",
@@ -639,6 +640,12 @@
         "hide": "Masquer le résumé",
         "tutor": "Tuteur",
         "noMeetings": "Aucune réunion pour l'instant."
+      },
+      "stats": {
+        "title": "Présence des tuteurs",
+        "help": "Sur toutes les réunions.",
+        "tutor": "Tuteur",
+        "empty": "Aucune présence enregistrée pour l'instant."
       }
     },
     "timeslots": {
@@ -892,6 +899,94 @@
       "removedDiscipline": "Retrait disciplinaire",
       "removedOptOut": "Parti (via {tutor})",
       "reinstate": "Réintégrer"
+    },
+    "reports": {
+      "title": "Rapports",
+      "subtitle": "Rapports du programme par période — statistiques générales et entrées détaillées. Imprimer en PDF ou exporter en CSV.",
+      "schoolYear": "Année scolaire",
+      "scope": "Période",
+      "wholeYear": "Année entière",
+      "s1": "Semestre 1",
+      "s2": "Semestre 2",
+      "depth": "Niveau de détail",
+      "depthSummary": "Résumé",
+      "depthDetailed": "Détaillé",
+      "depthFull": "Archive complète",
+      "maskPii": "Masquer les données personnelles",
+      "print": "Imprimer / Enregistrer en PDF",
+      "loading": "Génération du rapport…",
+      "csv": "CSV",
+      "noData": "Aucune donnée pour cette période.",
+      "inactive": "(inactif)",
+      "reportHeading": "{team} — rapport {period}",
+      "generatedAt": "Généré {when}",
+      "maskedNote": "données personnelles masquées",
+      "sections": {
+        "summary": "Résumé",
+        "perTutor": "Heures de service par tuteur",
+        "sessions": "Séances de présence",
+        "cards": "Cartons de discipline",
+        "meetings": "Réunions de tuteurs",
+        "adjustments": "Ajustements d'heures",
+        "applications": "Candidatures de tuteurs",
+        "signups": "Inscriptions de tutorés",
+        "removals": "Retraits & départs de tutorés",
+        "statusRequests": "Demandes de statut de tuteur",
+        "meetingStats": "Présence aux réunions par tuteur"
+      },
+      "stat": {
+        "total": "Heures totales",
+        "earned": "Gagnées",
+        "extras": "Bonus",
+        "penalties": "Pénalités",
+        "sessions": "Séances",
+        "tuteesServed": "Tutorés suivis",
+        "present": "Présent",
+        "excused": "Excusé",
+        "unexcused": "Non excusé",
+        "cards": "Cartons",
+        "meetings": "Réunions",
+        "signups": "Inscriptions",
+        "applications": "Candidatures",
+        "removals": "Retraits",
+        "statusRequests": "Demandes de statut"
+      },
+      "col": {
+        "tutor": "Tuteur",
+        "sessions": "Séances",
+        "earned": "Gagnées",
+        "extras": "Bonus",
+        "penalties": "Pénalités",
+        "total": "Total",
+        "date": "Date",
+        "subject": "Matière",
+        "status": "Statut",
+        "hours": "Heures",
+        "tutees": "Tutorés",
+        "tutee": "Tutoré",
+        "card": "Carton",
+        "source": "Source",
+        "reason": "Motif",
+        "title": "Titre",
+        "present": "Présent",
+        "excused": "Excusé",
+        "unexcused": "Non excusé",
+        "type": "Type",
+        "amount": "Montant",
+        "name": "Nom",
+        "contact": "Contact",
+        "grade": "Niveau",
+        "subjects": "Matières",
+        "kind": "Type",
+        "state": "État"
+      },
+      "group": {
+        "hours": "Heures de service",
+        "attendance": "Séances et présence",
+        "activity": "Activité"
+      },
+      "hoursCaption": "Total = gagnées + bonus − pénalités.",
+      "attendanceCaption": "Présent / excusé / non excusé = présence des tutorés aux séances."
     }
   },
   "tutor": {
@@ -1102,9 +1197,9 @@
         "help": "Indiquez les créneaux horaires où vous pouvez enseigner."
       },
       "hours": {
-        "earned": "{earned} acquises",
-        "extra": "+ {extra} supplémentaires",
-        "penalty": "− {penalty} pénalité"
+        "earned": "{earned} gagnées",
+        "extra": "+ {extra} bonus",
+        "penalty": "− {penalty} pénalités"
       }
     },
     "discipline": {

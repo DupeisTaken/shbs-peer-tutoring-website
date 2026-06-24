@@ -325,9 +325,10 @@
         "policyDocuments": "Documentos de políticas",
         "auditLog": "Registro de auditoría",
         "usersRoles": "Usuarios y roles",
-        "tutorRequests": "Baja / Reincorporación",
+        "tutorRequests": "Solicitudes de estado de tutor",
         "registrationCodes": "Códigos de registro",
-        "tuteeRequests": "Bajas de alumnos"
+        "tuteeRequests": "Bajas de alumnos",
+        "reports": "Informes"
       }
     },
     "dashboard": {
@@ -363,7 +364,7 @@
         "openApplications": "Solicitudes abiertas",
         "cardsToReview": "Tarjetas por revisar",
         "recentSurveys": "Encuestas recientes",
-        "tutorRequests": "Baja / reincorporación",
+        "tutorRequests": "Solicitudes de estado",
         "tuteeRequests": "Bajas pendientes"
       },
       "panels": {
@@ -389,7 +390,7 @@
           "hours": "{hours} h"
         },
         "tutorRequests": {
-          "title": "Solicitudes de baja / reincorporación de tutores",
+          "title": "Solicitudes de estado de tutor",
           "empty": "No hay solicitudes abiertas."
         },
         "tuteeRequests": {
@@ -571,6 +572,12 @@
         "hide": "Ocultar resumen",
         "tutor": "Tutor",
         "noMeetings": "Aún no hay reuniones."
+      },
+      "stats": {
+        "title": "Asistencia de tutores",
+        "help": "En todas las reuniones.",
+        "tutor": "Tutor",
+        "empty": "Aún no hay asistencia registrada."
       }
     },
     "timeslots": {
@@ -856,7 +863,7 @@
       "empty": "Aún no hay códigos de registro."
     },
     "tutorRequests": {
-      "title": "Solicitudes de baja / reincorporación",
+      "title": "Solicitudes de estado de tutor",
       "help": "Cambios de membresía iniciados por el tutor. Las solicitudes de baja solo pueden aprobarse tras un período de espera de una semana; la reincorporación es inmediata.",
       "kind": {
         "OPT_OUT": "Darse de baja",
@@ -892,6 +899,94 @@
       "removedDiscipline": "Retiro por disciplina",
       "removedOptOut": "Dado de baja (vía {tutor})",
       "reinstate": "Reincorporar"
+    },
+    "reports": {
+      "title": "Informes",
+      "subtitle": "Informes del programa por periodo: estadísticas generales y entradas detalladas. Imprime a PDF o exporta CSV.",
+      "schoolYear": "Año escolar",
+      "scope": "Periodo",
+      "wholeYear": "Todo el año",
+      "s1": "Semestre 1",
+      "s2": "Semestre 2",
+      "depth": "Nivel de detalle",
+      "depthSummary": "Resumen",
+      "depthDetailed": "Detallado",
+      "depthFull": "Archivo completo",
+      "maskPii": "Ocultar datos personales",
+      "print": "Imprimir / Guardar como PDF",
+      "loading": "Generando informe…",
+      "csv": "CSV",
+      "noData": "Sin datos para este periodo.",
+      "inactive": "(inactivo)",
+      "reportHeading": "{team} — informe {period}",
+      "generatedAt": "Generado {when}",
+      "maskedNote": "datos personales ocultos",
+      "sections": {
+        "summary": "Resumen",
+        "perTutor": "Horas de servicio por tutor",
+        "sessions": "Sesiones de asistencia",
+        "cards": "Tarjetas de disciplina",
+        "meetings": "Reuniones de tutores",
+        "adjustments": "Ajustes de horas",
+        "applications": "Solicitudes de tutor",
+        "signups": "Inscripciones de alumnos",
+        "removals": "Bajas y retiros de alumnos",
+        "statusRequests": "Solicitudes de estado de tutor",
+        "meetingStats": "Asistencia a reuniones por tutor"
+      },
+      "stat": {
+        "total": "Horas totales",
+        "earned": "Ganadas",
+        "extras": "Extras",
+        "penalties": "Sanciones",
+        "sessions": "Sesiones",
+        "tuteesServed": "Alumnos atendidos",
+        "present": "Presente",
+        "excused": "Justificada",
+        "unexcused": "Injustificada",
+        "cards": "Tarjetas",
+        "meetings": "Reuniones",
+        "signups": "Inscripciones",
+        "applications": "Solicitudes",
+        "removals": "Bajas",
+        "statusRequests": "Solicitudes de estado"
+      },
+      "col": {
+        "tutor": "Tutor",
+        "sessions": "Sesiones",
+        "earned": "Ganadas",
+        "extras": "Extras",
+        "penalties": "Sanciones",
+        "total": "Total",
+        "date": "Fecha",
+        "subject": "Materia",
+        "status": "Estado",
+        "hours": "Horas",
+        "tutees": "Alumnos",
+        "tutee": "Alumno",
+        "card": "Tarjeta",
+        "source": "Origen",
+        "reason": "Motivo",
+        "title": "Título",
+        "present": "Presente",
+        "excused": "Justificada",
+        "unexcused": "Injustificada",
+        "type": "Tipo",
+        "amount": "Cantidad",
+        "name": "Nombre",
+        "contact": "Contacto",
+        "grade": "Curso",
+        "subjects": "Materias",
+        "kind": "Tipo",
+        "state": "Estado"
+      },
+      "group": {
+        "hours": "Horas de servicio",
+        "attendance": "Sesiones y asistencia",
+        "activity": "Actividad"
+      },
+      "hoursCaption": "Total = ganadas + extras − sanciones.",
+      "attendanceCaption": "Presente / justificada / injustificada = asistencia de alumnos en las sesiones."
     }
   },
   "tutor": {
@@ -1091,8 +1186,8 @@
       },
       "hours": {
         "earned": "{earned} ganadas",
-        "extra": "+ {extra} extra",
-        "penalty": "− {penalty} penalización"
+        "extra": "+ {extra} extras",
+        "penalty": "− {penalty} sanciones"
       },
       "inactive": {
         "title": "Acceso de solo lectura",

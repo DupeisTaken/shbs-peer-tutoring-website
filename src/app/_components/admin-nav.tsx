@@ -19,7 +19,7 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
     items: [
       { href: "/admin", labelKey: "admin.nav.links.dashboard", exact: true },
       { href: "/admin/activity", labelKey: "admin.nav.links.activity" },
-      { href: "/admin/history", labelKey: "admin.nav.links.history" },
+      { href: "/admin/history", labelKey: "admin.nav.links.reports" },
       { href: "/admin/announcements", labelKey: "admin.nav.links.announcements" },
     ],
   },

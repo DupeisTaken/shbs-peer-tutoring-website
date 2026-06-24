@@ -400,18 +400,211 @@ const APPLICATIONS: AppSpec[] = [
   { id: "app-julia", name: "Julia Mensah", email: "julia@example.edu", preferredContact: "Text 555-0161", status: "PENDING", daysAgo: 1, intents: [{ subjectId: "course-spanish", taken: true, grade: "A" }, { subjectId: "course-worldhistory", selfStudied: true, selfStudyNote: "Heritage speaker; led a history club." }] },
 ];
 
+// Active term (26-27 Q1) start — fixed before all back-dated demo data so the Reports page's
+// per-period calendar window includes this quarter's records.
+const ACTIVE_TERM_CREATED_AT = new Date("2026-05-01T00:00:00Z");
+
+// Historical terms (25-26 Q1–Q4) with realistic start dates + two session-dates each, so the
+// Reports page has data for 25-26 S1 (Q1+Q2) and S2 (Q3+Q4). Dates stay before ACTIVE_TERM_CREATED_AT.
+const HISTORY_SCHOOL_YEAR = "25-26";
+const HISTORY_TERMS = [
+  { id: "term-2025-q1", quarter: "Q1" as const, name: "25-26 Q1", createdAt: new Date("2025-08-20T00:00:00Z"), dates: ["2025-09-11", "2025-10-09"] },
+  { id: "term-2025-q2", quarter: "Q2" as const, name: "25-26 Q2", createdAt: new Date("2025-11-03T00:00:00Z"), dates: ["2025-11-20", "2025-12-11"] },
+  { id: "term-2025-q3", quarter: "Q3" as const, name: "25-26 Q3", createdAt: new Date("2026-01-12T00:00:00Z"), dates: ["2026-02-05", "2026-02-26"] },
+  { id: "term-2025-q4", quarter: "Q4" as const, name: "25-26 Q4", createdAt: new Date("2026-03-16T00:00:00Z"), dates: ["2026-03-26", "2026-04-09"] },
+];
+// Last year's tutee cohort — now INACTIVE (cycled out at the year refresh). The past-year data
+// (sessions, discipline, removals) hangs off these so it never distorts the current roster's
+// standing. `createdAt` is spread across 25-26 Q1/Q2 so they also show as that period's signups.
+const PAST_TUTEES = [
+  { id: "ptutee-25-01", name: "Adam Frost", grade: "12", createdAt: "2025-09-02" },
+  { id: "ptutee-25-02", name: "Bea Lowe", grade: "11", createdAt: "2025-09-03" },
+  { id: "ptutee-25-03", name: "Cal Reyes", grade: "10", createdAt: "2025-09-05" },
+  { id: "ptutee-25-04", name: "Devi Rao", grade: "12", createdAt: "2025-09-06" },
+  { id: "ptutee-25-05", name: "Esme Walsh", grade: "9", createdAt: "2025-11-08" },
+  { id: "ptutee-25-06", name: "Finn Doyle", grade: "11", createdAt: "2025-11-09" },
+  { id: "ptutee-25-07", name: "Gwen Ito", grade: "10", createdAt: "2025-11-12" },
+  { id: "ptutee-25-08", name: "Hugo Mraz", grade: "12", createdAt: "2025-11-14" },
+];
+// Current pairings replayed each historical quarter (for tutor + subject + time).
+const HIST_PAIRING_IDS = [
+  "pairing-alice-math", "pairing-bob-physics", "pairing-carol-english",
+  "pairing-david-chem", "pairing-gina-apcalc", "pairing-jason-apcs",
+];
+
+/**
+ * Seed a realistic past year (25-26 Q1–Q4) so the Reports page shows full history: attendance with
+ * varied outcomes, discipline (auto + tutor cards, a punishment removal), hour adjustments (extra +
+ * punishment), tutor meetings with absences, a voluntary tutee opt-out, a tutor opt-out→reentry
+ * cycle, and recruitment. Hangs off a dedicated INACTIVE past-tutee cohort so it never touches the
+ * current roster's standing. Idempotent (fixed ids). MUST run after tutors/pairings exist.
+ */
+async function seedHistory() {
+  // Past-year tutees (now INACTIVE; createdAt makes them signups in their period too).
+  for (const pt of PAST_TUTEES) {
+    const data = {
+      englishName: pt.name, gradeLevel: pt.grade, status: "INACTIVE" as const,
+      email: `${pt.id}@example.edu`, createdAt: new Date(`${pt.createdAt}T09:00:00Z`),
+    };
+    await db.tutee.upsert({ where: { id: pt.id }, update: data, create: { id: pt.id, ...data } });
+  }
+
+  const slots = HIST_PAIRING_IDS.map((id) => PAIRINGS.find((p) => p.id === id)!);
+  const rosterFor = (i: number) => [
+    PAST_TUTEES[(2 * i) % PAST_TUTEES.length]!.id,
+    PAST_TUTEES[(2 * i + 1) % PAST_TUTEES.length]!.id,
+  ];
+
+  for (let qi = 0; qi < HISTORY_TERMS.length; qi++) {
+    const h = HISTORY_TERMS[qi]!;
+    const pk = `${HISTORY_SCHOOL_YEAR} ${h.quarter}`;
+    const adjMonth = monthKey(new Date(`${h.dates[0]!}T00:00:00Z`));
+
+    // Sessions: each slot, each date. Mostly present, one excused + one tutor-absent per quarter.
+    for (let si = 0; si < slots.length; si++) {
+      const p = slots[si]!;
+      const roster = rosterFor(si);
+      for (let di = 0; di < h.dates.length; di++) {
+        const date = new Date(`${h.dates[di]!}T${p.start}:00Z`);
+        const tutorAbsent = si === (qi + 3) % slots.length && di === 1;
+        const tutorStatus = tutorAbsent ? ("TUTOR_ABSENT" as const) : ("PRESENT" as const);
+        const excuseFirst = si === qi % slots.length && di === 0;
+        const tutees = roster.map((tid, ti) => ({
+          tuteeId: tid,
+          status: !tutorAbsent && excuseFirst && ti === 0
+            ? ("EXCUSED_ABSENT" as const)
+            : ("PRESENT" as const),
+          reason: !tutorAbsent && excuseFirst && ti === 0 ? "Family event (notified)." : null,
+        }));
+        const computed = computeSessionHours({
+          tutorStatus,
+          tuteeStatuses: tutees.map((t) => t.status),
+          startMin: hm(p.start),
+          endMin: hm(p.end),
+          date,
+        });
+        const sid = `hist-${h.quarter}-${di}-${p.id}`;
+        const sdata = {
+          date, tutorStatus, tutorAbsentReason: tutorAbsent ? "Was unwell; rescheduled." : null,
+          startMin: hm(p.start), endMin: hm(p.end),
+          ratingPreparedness: 5, ratingParticipation: 4, ratingUnderstanding: 4, ratingBehavior: 4, ratingProgress: 4,
+          comments: `${h.name} — ${p.subject}.`,
+          month: computed.month, schoolYear: HISTORY_SCHOOL_YEAR, quarter: h.quarter,
+          durationMin: computed.durationMin, shFactor: computed.shFactor, shCount: computed.shCount,
+          pairingId: p.id, tutorId: p.tutorId,
+        };
+        await db.session.upsert({ where: { id: sid }, update: sdata, create: { id: sid, ...sdata } });
+        for (const ts of tutees) {
+          await db.sessionTutee.upsert({
+            where: { sessionId_tuteeId: { sessionId: sid, tuteeId: ts.tuteeId } },
+            update: { status: ts.status, absenceReason: ts.reason },
+            create: { sessionId: sid, tuteeId: ts.tuteeId, status: ts.status, absenceReason: ts.reason },
+          });
+        }
+      }
+    }
+
+    // Hour adjustments: one EXTRA + one PUNISHMENT per quarter (stamped to the period).
+    const adjs = [
+      { id: `hist-adj-extra-${h.quarter}`, tutorId: slots[0]!.tutorId, type: "EXTRA" as const, amount: 0.5, reason: `${h.name} extra exam-prep workshop.` },
+      { id: `hist-adj-pun-${h.quarter}`, tutorId: slots[qi % slots.length]!.tutorId, type: "PUNISHMENT" as const, amount: 0.125, reason: "Unexcused weekly-meeting absence." },
+    ];
+    for (const a of adjs) {
+      const adata = { month: adjMonth, schoolYear: HISTORY_SCHOOL_YEAR, quarter: h.quarter, type: a.type, amount: a.amount, reason: a.reason, tutorId: a.tutorId };
+      await db.serviceHourAdjustment.upsert({ where: { id: a.id }, update: adata, create: { id: a.id, ...adata } });
+    }
+
+    // Tutor meeting (linked by term) with one excused + one unexcused absence.
+    const mId = `hist-meeting-${h.quarter}`;
+    const mDate = new Date(`${h.dates[0]!}T12:00:00Z`);
+    await db.tutorMeeting.upsert({ where: { id: mId }, update: { title: `${h.name} tutor meeting`, date: mDate, termId: h.id }, create: { id: mId, title: `${h.name} tutor meeting`, date: mDate, termId: h.id } });
+    const mRows = [
+      { tutorId: "tutor-alice", status: "PRESENT" as const, reason: null as string | null },
+      { tutorId: "tutor-bob", status: "PRESENT" as const, reason: null as string | null },
+      { tutorId: "tutor-carol", status: "EXCUSED_ABSENT" as const, reason: "Away for the meeting." as string | null },
+      { tutorId: "tutor-gina", status: "UNEXCUSED_ABSENT" as const, reason: null as string | null },
+    ];
+    for (const mr of mRows) {
+      const adata = { status: mr.status, reason: mr.reason, excusedAt: mr.status === "EXCUSED_ABSENT" ? mDate : null };
+      await db.meetingAttendance.upsert({ where: { meetingId_tutorId: { meetingId: mId, tutorId: mr.tutorId } }, update: adata, create: { meetingId: mId, tutorId: mr.tutorId, ...adata } });
+    }
+  }
+
+  // --- Discipline story: Devi Rao hits 2 red cards across Q1–Q2 → punishment removal (Q2) ------
+  const devi = "ptutee-25-04";
+  const reds = [
+    { id: "hist-card-devi-r1", date: "2025-10-09" },
+    { id: "hist-card-devi-r2", date: "2025-11-20" },
+  ];
+  for (const c of reds) {
+    const at = new Date(`${c.date}T15:30:00Z`);
+    const cdata = { tuteeId: devi, color: "RED" as const, source: "AUTO" as const, reason: "Unexcused absence (auto-issued).", reviewStatus: "VALID" as const, issuedByTutorId: "tutor-gina", reviewedById: null as string | null, reviewedAt: null as Date | null, createdAt: at };
+    await db.disciplinaryCard.upsert({ where: { id: c.id }, update: cdata, create: { id: c.id, ...cdata } });
+  }
+  const deviRm = { tuteeId: devi, kind: "PUNISHMENT" as const, state: "APPROVED" as const, reason: "Reached the removal threshold (2 red cards).", removedPeriodKey: "25-26 Q2", createdAt: new Date("2025-11-20T15:35:00Z"), resolvedAt: new Date("2025-11-20T15:35:00Z"), resolvedByName: "auto" };
+  await db.tuteeRemovalRequest.upsert({ where: { id: "hist-rm-devi" }, update: deviRm, create: { id: "hist-rm-devi", ...deviRm } });
+
+  // A couple tutor-issued yellow cards, reviewed (one valid, one invalidated on appeal).
+  const yellows = [
+    { id: "hist-card-y1", tuteeId: "ptutee-25-06", date: "2025-09-25", status: "VALID" as const, issuedByTutorId: "tutor-carol", reason: "Repeatedly late to sessions." },
+    { id: "hist-card-y2", tuteeId: "ptutee-25-02", date: "2026-02-12", status: "INVALID" as const, issuedByTutorId: "tutor-alice", reason: "Marked late — tutee had notified; appealed." },
+  ];
+  for (const c of yellows) {
+    const at = new Date(`${c.date}T16:00:00Z`);
+    const cdata = { tuteeId: c.tuteeId, color: "YELLOW" as const, source: "TUTOR" as const, reason: c.reason, reviewStatus: c.status, issuedByTutorId: c.issuedByTutorId, reviewedById: "user-admin", reviewedAt: at, createdAt: at };
+    await db.disciplinaryCard.upsert({ where: { id: c.id }, update: cdata, create: { id: c.id, ...cdata } });
+  }
+
+  // --- Voluntary opt-out: Esme Walsh left mid-year (relayed by her tutor, approved in Q3) -------
+  const esmeRm = { tuteeId: "ptutee-25-05", kind: "VOLUNTARY" as const, state: "APPROVED" as const, requestedByTutorId: "tutor-carol", reason: "Moved away; stopped attending.", removedPeriodKey: "25-26 Q3", createdAt: new Date("2026-02-05T10:00:00Z"), resolvedAt: new Date("2026-02-12T10:00:00Z"), resolvedByName: "auto" };
+  await db.tuteeRemovalRequest.upsert({ where: { id: "hist-rm-esme" }, update: esmeRm, create: { id: "hist-rm-esme", ...esmeRm } });
+
+  // --- Tutor opt-out (approved Q3) then reentry (approved Q4): Harold took a term off ----------
+  const haroldOut = { tutorId: "tutor-harold", kind: "OPT_OUT" as const, state: "APPROVED" as const, reason: "Heavy course load that quarter.", eligibleAt: new Date("2026-02-12T00:00:00Z"), createdAt: new Date("2026-02-05T00:00:00Z"), resolvedAt: new Date("2026-02-13T00:00:00Z"), resolvedByName: "Admin A" };
+  await db.tutorStatusRequest.upsert({ where: { id: "hist-tsr-harold-out" }, update: haroldOut, create: { id: "hist-tsr-harold-out", ...haroldOut } });
+  const haroldBack = { tutorId: "tutor-harold", kind: "REENTRY" as const, state: "APPROVED" as const, reason: "Ready to return.", eligibleAt: null as Date | null, createdAt: new Date("2026-03-26T00:00:00Z"), resolvedAt: new Date("2026-03-27T00:00:00Z"), resolvedByName: "Admin A" };
+  await db.tutorStatusRequest.upsert({ where: { id: "hist-tsr-harold-back" }, update: haroldBack, create: { id: "hist-tsr-harold-back", ...haroldBack } });
+
+  // --- Recruitment: two applications decided during the year ----------------------------------
+  const apps = [
+    { id: "hist-app-1", name: "Mira Vance", email: "mira.v@example.edu", contact: "Email", status: "ACCEPTED" as const, created: "2025-09-15", decided: "2025-09-29", subjectId: "course-apcalc", by: "tutor-gina", note: "Strong fundamentals — accepted." },
+    { id: "hist-app-2", name: "Theo Park", email: "theo.p@example.edu", contact: "Text 555-0133", status: "REJECTED" as const, created: "2025-11-12", decided: "2025-11-26", subjectId: "course-english", by: "tutor-carol", note: "Encouraged to reapply after more prep." },
+  ];
+  for (const a of apps) {
+    await db.tutorApplication.upsert({
+      where: { id: a.id },
+      update: { name: a.name, email: a.email, preferredContact: a.contact, status: a.status, decisionComment: a.note, decidedByTutorId: a.by, decidedAt: new Date(`${a.decided}T12:00:00Z`) },
+      create: {
+        id: a.id, name: a.name, email: a.email, preferredContact: a.contact, status: a.status,
+        createdAt: new Date(`${a.created}T12:00:00Z`), decisionComment: a.note, decidedByTutorId: a.by, decidedAt: new Date(`${a.decided}T12:00:00Z`),
+        subjectIntents: { create: [{ subjectId: a.subjectId, taken: true, grade: "A" }] },
+      },
+    });
+  }
+}
+
 // ---------------------------------------------------------------------------
 
 async function main() {
   // --- Term ------------------------------------------------------------------
   // Deployment init: the program starts at 26-27 Q1. Deactivate any other term first so there is
   // exactly one active Term (getActivePeriod picks the most recent active one), then activate ours.
+  // `createdAt` is fixed before all the back-dated demo data below (sessions/cards/etc. up to ~35
+  // days ago) so the Reports page — which derives each period's calendar window from term.createdAt
+  // — includes this quarter's data rather than excluding it.
   await db.term.updateMany({ where: { id: { not: "term-2026-q1" } }, data: { active: false } });
   const term = await db.term.upsert({
     where: { id: "term-2026-q1" },
-    update: { name: "26-27 Q1", schoolYear: "26-27", quarter: "Q1", active: true },
-    create: { id: "term-2026-q1", name: "26-27 Q1", schoolYear: "26-27", quarter: "Q1", active: true },
+    update: { name: "26-27 Q1", schoolYear: "26-27", quarter: "Q1", active: true, createdAt: ACTIVE_TERM_CREATED_AT },
+    create: { id: "term-2026-q1", name: "26-27 Q1", schoolYear: "26-27", quarter: "Q1", active: true, createdAt: ACTIVE_TERM_CREATED_AT },
   });
+  // Historical terms (25-26 Q1–Q4) — inactive, fixed start dates. Their period-stamped data
+  // (sessions, cards, requests…) is seeded later, once the tutors/tutees/pairings it references
+  // exist (see seedHistory()).
+  for (const h of HISTORY_TERMS) {
+    const tdata = { name: h.name, schoolYear: HISTORY_SCHOOL_YEAR, quarter: h.quarter, active: false, createdAt: h.createdAt };
+    await db.term.upsert({ where: { id: h.id }, update: tdata, create: { id: h.id, ...tdata } });
+  }
 
   // --- Built-in languages ----------------------------------------------------
   // Keep the Language table in sync with the bundled locales (src/i18n/config.ts) — the single
@@ -545,6 +738,9 @@ async function main() {
       });
     }
   }
+
+  // --- Realistic past year (25-26 Q1–Q4): sessions, discipline, requests, recruitment --------
+  await seedHistory();
 
   // --- Disciplinary cards ----------------------------------------------------
   for (const c of CARDS) {
@@ -755,7 +951,7 @@ async function main() {
       `${APPLICATIONS.length} applications, ${meetings.length} meetings, ` +
       `${TUTOR_STATUS_REQUESTS.length} tutor requests, ${TUTEE_REMOVALS.length} tutee opt-outs/removals, ` +
       `${REGISTRATION_CODES.length} registration codes, ${users.length} login users ` +
-      `(password "${DEV_PASSWORD}").`,
+      `(password "${DEV_PASSWORD}"); history for 25-26 Q1–Q4 (S1 + S2) + active 26-27 Q1.`,
   );
 }
 

@@ -86,7 +86,8 @@ export default function MeetingsPage() {
         </form>
       )}
 
-      <div className="card overflow-hidden">
+      <div className="grid items-start gap-6 lg:grid-cols-5">
+        <div className="card overflow-hidden lg:col-span-3">
         <ul className="divide-y divide-slate-100">
           {(meetings.data ?? []).map((m) => (
             <li key={m.id} className="px-4 py-3">
@@ -136,7 +137,85 @@ export default function MeetingsPage() {
             </li>
           ))}
         </ul>
+        </div>
+
+        {/* Per-tutor meeting attendance summary, alongside the list. */}
+        <div className="lg:col-span-2">
+          <TutorMeetingStats meetings={meetings.data ?? []} tutors={tutorOpts} />
+        </div>
       </div>
+    </div>
+  );
+}
+
+/** Per-tutor attendance tally across all meetings (present / excused / unexcused), worst first.
+ *  Shown beside the meetings list so coordinators can spot patterns at a glance. */
+function TutorMeetingStats({
+  meetings,
+  tutors,
+}: {
+  meetings: { attendances: { tutorId: string; status: string }[] }[];
+  tutors: { id: string; englishName: string; active: boolean }[];
+}) {
+  const t = useTranslations();
+  const tally = new Map<string, { present: number; excused: number; unexcused: number }>();
+  for (const m of meetings) {
+    for (const a of m.attendances) {
+      const e = tally.get(a.tutorId) ?? { present: 0, excused: 0, unexcused: 0 };
+      if (a.status === "PRESENT") e.present++;
+      else if (a.status === "EXCUSED_ABSENT") e.excused++;
+      else if (a.status === "UNEXCUSED_ABSENT") e.unexcused++;
+      tally.set(a.tutorId, e);
+    }
+  }
+  const rows = tutors
+    .map((tu) => ({ ...tu, ...(tally.get(tu.id) ?? { present: 0, excused: 0, unexcused: 0 }) }))
+    .filter((r) => r.present + r.excused + r.unexcused > 0)
+    .sort(
+      (a, b) =>
+        b.unexcused - a.unexcused ||
+        b.excused - a.excused ||
+        a.englishName.localeCompare(b.englishName),
+    );
+
+  return (
+    <div className="card overflow-hidden">
+      <div className="border-b border-slate-100 px-4 py-3">
+        <h2 className="section-title">{t("admin.meetings.stats.title")}</h2>
+        <p className="muted mt-0.5 text-xs">{t("admin.meetings.stats.help")}</p>
+      </div>
+      {rows.length === 0 ? (
+        <p className="muted px-4 py-3 text-sm">{t("admin.meetings.stats.empty")}</p>
+      ) : (
+        <table className="data-table">
+          <thead>
+            <tr>
+              <th>{t("admin.meetings.stats.tutor")}</th>
+              <th className="text-right">{t("admin.meetings.status.present")}</th>
+              <th className="text-right">{t("admin.meetings.status.excusedAbsent")}</th>
+              <th className="text-right">{t("admin.meetings.status.unexcusedAbsent")}</th>
+            </tr>
+          </thead>
+          <tbody>
+            {rows.map((r) => (
+              <tr key={r.id} className={r.active ? "" : "text-slate-400"}>
+                <td className="font-medium whitespace-nowrap text-slate-700">{r.englishName}</td>
+                <td className="text-right text-green-600">{r.present}</td>
+                <td className={`text-right ${r.excused > 0 ? "text-amber-600" : "text-slate-300"}`}>
+                  {r.excused}
+                </td>
+                <td
+                  className={`text-right font-semibold ${
+                    r.unexcused > 0 ? "text-red-600" : "text-slate-300"
+                  }`}
+                >
+                  {r.unexcused}
+                </td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      )}
     </div>
   );
 }

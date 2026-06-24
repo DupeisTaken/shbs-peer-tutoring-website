@@ -318,7 +318,7 @@
         "program": "Program & Refresh",
         "tutorRoster": "Tutor Roster",
         "tutorApplications": "Tutor Applications",
-        "tutorRequests": "Opt-out / Reentry",
+        "tutorRequests": "Tutor Status Requests",
         "tutorMeetings": "Tutor Meetings",
         "serviceHours": "Service Hours",
         "hourAdjustments": "Hour Adjustments",
@@ -334,7 +334,8 @@
         "auditLog": "Audit Log",
         "usersRoles": "Users & Roles",
         "registrationCodes": "Registration Codes",
-        "tuteeRequests": "Tutee removals"
+        "tuteeRequests": "Tutee Removals",
+        "reports": "Reports"
       }
     },
     "dashboard": {
@@ -369,7 +370,7 @@
         "pendingSignups": "Pending signups",
         "openApplications": "Open applications",
         "cardsToReview": "Cards to review",
-        "tutorRequests": "Opt-out / reentry",
+        "tutorRequests": "Status requests",
         "recentSurveys": "Recent surveys",
         "tuteeRequests": "Pending opt-outs"
       },
@@ -385,7 +386,7 @@
           "panelists": "{count} {count, plural, one {panelist} other {panelists}}"
         },
         "tutorRequests": {
-          "title": "Tutor Opt-out / Reentry Requests",
+          "title": "Tutor Status Requests",
           "empty": "No open requests."
         },
         "cards": {
@@ -590,7 +591,7 @@
       "empty": "No registration codes yet."
     },
     "tutorRequests": {
-      "title": "Opt-out / Reentry Requests",
+      "title": "Tutor Status Requests",
       "help": "Tutor-initiated membership changes. Opt-out requests can only be approved after a one-week cooldown; reentry is immediate.",
       "kind": {
         "OPT_OUT": "Opt-out",
@@ -639,6 +640,12 @@
         "hide": "Hide summary",
         "tutor": "Tutor",
         "noMeetings": "No meetings yet."
+      },
+      "stats": {
+        "title": "Tutor attendance",
+        "help": "Across all meetings.",
+        "tutor": "Tutor",
+        "empty": "No attendance recorded yet."
       }
     },
     "timeslots": {
@@ -892,6 +899,94 @@
       "removedDiscipline": "Discipline removal",
       "removedOptOut": "Opted out (via {tutor})",
       "reinstate": "Reinstate"
+    },
+    "reports": {
+      "title": "Reports",
+      "subtitle": "Program reports by period — general stats plus detailed entries. Print to PDF or export CSV.",
+      "schoolYear": "School year",
+      "scope": "Period",
+      "wholeYear": "Whole year",
+      "s1": "Semester 1",
+      "s2": "Semester 2",
+      "depth": "Detail level",
+      "depthSummary": "Summary",
+      "depthDetailed": "Detailed",
+      "depthFull": "Full archive",
+      "maskPii": "Mask personal info",
+      "print": "Print / Save as PDF",
+      "loading": "Building report…",
+      "csv": "CSV",
+      "noData": "No data for this period.",
+      "inactive": "(inactive)",
+      "reportHeading": "{team} — {period} report",
+      "generatedAt": "Generated {when}",
+      "maskedNote": "personal info hidden",
+      "sections": {
+        "summary": "Summary",
+        "perTutor": "Service hours by tutor",
+        "sessions": "Attendance sessions",
+        "cards": "Discipline cards",
+        "meetings": "Tutor meetings",
+        "adjustments": "Hour adjustments",
+        "applications": "Tutor applications",
+        "signups": "Tutee signups",
+        "removals": "Tutee removals & opt-outs",
+        "statusRequests": "Tutor status requests",
+        "meetingStats": "Meeting attendance by tutor"
+      },
+      "stat": {
+        "total": "Total hours",
+        "earned": "Earned",
+        "extras": "Extras",
+        "penalties": "Penalties",
+        "sessions": "Sessions",
+        "tuteesServed": "Tutees served",
+        "present": "Present",
+        "excused": "Excused",
+        "unexcused": "Unexcused",
+        "cards": "Cards",
+        "meetings": "Meetings",
+        "signups": "Signups",
+        "applications": "Applications",
+        "removals": "Removals",
+        "statusRequests": "Status requests"
+      },
+      "col": {
+        "tutor": "Tutor",
+        "sessions": "Sessions",
+        "earned": "Earned",
+        "extras": "Extras",
+        "penalties": "Penalties",
+        "total": "Total",
+        "date": "Date",
+        "subject": "Subject",
+        "status": "Status",
+        "hours": "Hours",
+        "tutees": "Tutees",
+        "tutee": "Tutee",
+        "card": "Card",
+        "source": "Source",
+        "reason": "Reason",
+        "title": "Title",
+        "present": "Present",
+        "excused": "Excused",
+        "unexcused": "Unexcused",
+        "type": "Type",
+        "amount": "Amount",
+        "name": "Name",
+        "contact": "Contact",
+        "grade": "Grade",
+        "subjects": "Subjects",
+        "kind": "Kind",
+        "state": "State"
+      },
+      "group": {
+        "hours": "Service hours",
+        "attendance": "Sessions & attendance",
+        "activity": "Activity"
+      },
+      "hoursCaption": "Total = earned + extras − penalties.",
+      "attendanceCaption": "Present / excused / unexcused = tutee attendance across sessions."
     }
   },
   "tutor": {
@@ -1103,8 +1198,8 @@
       },
       "hours": {
         "earned": "{earned} earned",
-        "extra": "+ {extra} extra",
-        "penalty": "− {penalty} penalty"
+        "extra": "+ {extra} extras",
+        "penalty": "− {penalty} penalties"
       }
     },
     "discipline": {
