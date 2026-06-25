@@ -18,6 +18,7 @@ export const FEATURE_KEYS = [
   "INTERVIEWS",
   "SERVICE_HOURS",
   "QUARTER_SYSTEM",
+  "OBSERVER_SIGNUP",
 ] as const;
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
 export type Features = Record<FeatureKey, boolean>;

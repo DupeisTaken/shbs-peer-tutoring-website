@@ -112,7 +112,8 @@
       "requestTutor": "申请辅导",
       "becomeTutor": "成为辅导员",
       "teamSignin": "登录",
-      "becomeCrew": "加入巡查队"
+      "becomeCrew": "加入巡查队",
+      "observe": "关注项目"
     },
     "tagline": "朋辈辅导项目",
     "heroTitle": "一起学习，共同成长。",
@@ -510,7 +511,8 @@
           "MEETINGS": "导师会议",
           "INTERVIEWS": "面试与投票",
           "SERVICE_HOURS": "服务小时",
-          "QUARTER_SYSTEM": "季度制"
+          "QUARTER_SYSTEM": "季度制",
+          "OBSERVER_SIGNUP": "访客注册"
         }
       }
     },
@@ -1447,6 +1449,32 @@
         "grade": "年级",
         "contact": "首选联系方式（可选）",
         "message": "其他说明（可选）"
+      }
+    },
+    "observe": {
+      "title": "关注项目",
+      "intro": "创建一个免费的只读账户来关注本项目。欢迎家长、教职工和社区成员——你将看到与团队相同的概览，个人信息已隐藏。",
+      "alreadyHave": "已有账户？",
+      "signIn": "登录",
+      "sendCode": "发送验证码",
+      "sending": "发送中…",
+      "sent": "我们已向 {email} 发送了 6 位验证码。",
+      "verify": "验证邮箱",
+      "resend": "重新发送验证码",
+      "creating": "创建中…",
+      "createAccount": "创建账户",
+      "doneTitle": "全部完成！",
+      "doneBody": "你的只读账户已就绪。使用邮箱或用户名 {username} 登录。",
+      "passwordHint": "至少 8 个字符。",
+      "mismatch": "两次密码不一致。",
+      "fields": {
+        "name": "你的姓名",
+        "affiliation": "你的身份",
+        "affiliationPlaceholder": "例如：学生家长、数学教师、社区成员",
+        "email": "邮箱",
+        "code": "验证码",
+        "password": "密码",
+        "confirm": "确认密码"
       }
     }
   },

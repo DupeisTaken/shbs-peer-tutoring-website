@@ -112,7 +112,8 @@
       "requestTutor": "チューターを申請",
       "becomeTutor": "チューターになる",
       "teamSignin": "サインイン",
-      "becomeCrew": "巡回班に参加"
+      "becomeCrew": "巡回班に参加",
+      "observe": "プログラムをフォロー"
     },
     "tagline": "ピアチュータリングプログラム",
     "heroTitle": "一緒に学ぼう。一緒に成長しよう。",
@@ -517,7 +518,8 @@
           "MEETINGS": "チューター会議",
           "INTERVIEWS": "面接と投票",
           "SERVICE_HOURS": "奉仕時間",
-          "QUARTER_SYSTEM": "四半期制"
+          "QUARTER_SYSTEM": "四半期制",
+          "OBSERVER_SIGNUP": "オブザーバー登録"
         }
       }
     },
@@ -1447,6 +1449,32 @@
         "grade": "学年",
         "contact": "希望連絡先（任意）",
         "message": "その他（任意）"
+      }
+    },
+    "observe": {
+      "title": "プログラムをフォロー",
+      "intro": "プログラムをフォローする無料の閲覧専用アカウントを作成します。保護者・教職員・地域の方を歓迎します。個人情報は伏せた、チームと同じ概要を閲覧できます。",
+      "alreadyHave": "すでにアカウントをお持ちですか？",
+      "signIn": "ログイン",
+      "sendCode": "確認コードを送信",
+      "sending": "送信中…",
+      "sent": "{email} に6桁のコードを送信しました。",
+      "verify": "メールを確認",
+      "resend": "コードを再送",
+      "creating": "作成中…",
+      "createAccount": "アカウントを作成",
+      "doneTitle": "準備完了！",
+      "doneBody": "閲覧専用アカウントの準備ができました。メールまたはユーザー名 {username} でログインしてください。",
+      "passwordHint": "8文字以上。",
+      "mismatch": "パスワードが一致しません。",
+      "fields": {
+        "name": "お名前",
+        "affiliation": "ご関係",
+        "affiliationPlaceholder": "例：生徒の保護者、数学教員、地域の方",
+        "email": "メール",
+        "code": "確認コード",
+        "password": "パスワード",
+        "confirm": "パスワード（確認）"
       }
     }
   },

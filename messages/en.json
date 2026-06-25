@@ -112,7 +112,8 @@
       "requestTutor": "Request a Tutor",
       "becomeTutor": "Become a Tutor",
       "teamSignin": "Sign In",
-      "becomeCrew": "Join the crew"
+      "becomeCrew": "Join the crew",
+      "observe": "Follow the Program"
     },
     "tagline": "Peer Tutoring Program",
     "heroTitle": "Learn together. Grow together.",
@@ -517,7 +518,8 @@
           "MEETINGS": "Tutor meetings",
           "INTERVIEWS": "Interviews & voting",
           "SERVICE_HOURS": "Service hours",
-          "QUARTER_SYSTEM": "Quarter system"
+          "QUARTER_SYSTEM": "Quarter system",
+          "OBSERVER_SIGNUP": "Observer Signup"
         }
       }
     },
@@ -1447,6 +1449,32 @@
         "grade": "Grade level",
         "contact": "Preferred contact (optional)",
         "message": "Anything else? (optional)"
+      }
+    },
+    "observe": {
+      "title": "Follow the Program",
+      "intro": "Create a free read-only account to follow the program. Parents, faculty, and community members are welcome — you'll see the same overview the team does, with personal details hidden.",
+      "alreadyHave": "Already have an account?",
+      "signIn": "Sign In",
+      "sendCode": "Send Verification Code",
+      "sending": "Sending…",
+      "sent": "We emailed a 6-digit code to {email}.",
+      "verify": "Verify Email",
+      "resend": "Resend Code",
+      "creating": "Creating…",
+      "createAccount": "Create Account",
+      "doneTitle": "You're all set!",
+      "doneBody": "Your read-only account is ready. Sign in with your email or username {username}.",
+      "passwordHint": "At least 8 characters.",
+      "mismatch": "Passwords don't match.",
+      "fields": {
+        "name": "Your Name",
+        "affiliation": "Your Affiliation",
+        "affiliationPlaceholder": "e.g. Parent of a student, Math faculty, community member",
+        "email": "Email",
+        "code": "Verification Code",
+        "password": "Password",
+        "confirm": "Confirm Password"
       }
     }
   },

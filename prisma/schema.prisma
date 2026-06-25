@@ -81,9 +81,20 @@ model User {
   /// the class-of year in the username suffix. Null for non-crew / unknown.
   gradeLevel Int?
 
+  /// Who an observer is (self-registered read-only VIEWER): a free-text affiliation like
+  /// "Parent of Jane Doe" or "Math faculty". Null for staff/non-observer accounts.
+  affiliation String?
+
+  /// Admin-flagged suspension (e.g. a suspicious observer): when set, the account can sign in but
+  /// only sees a suspended notice + appeal form — all other access is blocked. Cleared on reinstate.
+  suspendedAt     DateTime?
+  suspendedReason String?
+
   /// Patrols this user (as a crew member) submitted, and their crew opt-out/reentry requests.
   patrols           Patrol[]
   crewStatusRequests CrewStatusRequest[]
+  /// Appeals this user filed after being suspended.
+  appeals           AccountAppeal[]
 
   // Optional link to the domain Tutor record (matched by email at first sign-in).
   tutor   Tutor?  @relation(fields: [tutorId], references: [id])
@@ -144,6 +155,8 @@ enum ProgramFeatureKey {
   INTERVIEWS
   SERVICE_HOURS
   QUARTER_SYSTEM
+  /// Public, email-validated observer self-registration (read-only VIEWER accounts).
+  OBSERVER_SIGNUP
 }
 
 /// One row per optional module. `enabled` is the effective value; `pendingEnabled` is a staged
@@ -155,6 +168,45 @@ model ProgramFeature {
   pendingEnabled Boolean?
   updatedByName  String?
   updatedAt      DateTime          @updatedAt
+}
+
+/// An in-progress public observer self-registration (no admin code needed — gated only by email
+/// validation). Holds the entered identity + a hashed email-verification code; on verification +
+/// password it becomes a read-only VIEWER login. Rate-limited at the router. One row per email.
+/// See src/server/auth/viewer-signup.ts.
+model ViewerSignup {
+  id            String    @id @default(cuid())
+  email         String    @unique
+  name          String
+  affiliation   String
+  codeHash      String
+  codeExpiresAt DateTime
+  attempts      Int       @default(0)
+  verifiedAt    DateTime?
+  usedAt        DateTime?
+  createdAt     DateTime  @default(now())
+}
+
+/// Review state of a suspended user's reinstatement appeal.
+enum AppealState {
+  PENDING
+  APPROVED
+  DENIED
+}
+
+/// An appeal a suspended user files to request reinstatement; an admin decides on /admin/users.
+model AccountAppeal {
+  id            String      @id @default(cuid())
+  userId        String
+  user          User        @relation(fields: [userId], references: [id], onDelete: Cascade)
+  message       String
+  state         AppealState @default(PENDING)
+  decidedByName String?
+  decidedAt     DateTime?
+  createdAt     DateTime    @default(now())
+
+  @@index([userId])
+  @@index([state])
 }
 
 /// An audit record of an admin mutation, with optional typed data to revert it. Actor

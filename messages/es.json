@@ -112,7 +112,8 @@
       "requestTutor": "Solicitar un tutor",
       "becomeTutor": "Hazte tutor",
       "teamSignin": "Iniciar sesión",
-      "becomeCrew": "Unirse a la ronda"
+      "becomeCrew": "Unirse a la ronda",
+      "observe": "Seguir el Programa"
     },
     "tagline": "Programa de Tutoría entre Pares",
     "heroTitle": "Aprendamos juntos. Crezcamos juntos.",
@@ -510,7 +511,8 @@
           "MEETINGS": "Reuniones de tutores",
           "INTERVIEWS": "Entrevistas y votación",
           "SERVICE_HOURS": "Horas de servicio",
-          "QUARTER_SYSTEM": "Sistema de trimestres"
+          "QUARTER_SYSTEM": "Sistema de trimestres",
+          "OBSERVER_SIGNUP": "Registro de Observadores"
         }
       }
     },
@@ -1447,6 +1449,32 @@
         "grade": "Nivel de grado",
         "contact": "Contacto preferido (opcional)",
         "message": "¿Algo más? (opcional)"
+      }
+    },
+    "observe": {
+      "title": "Seguir el Programa",
+      "intro": "Crea una cuenta gratuita de solo lectura para seguir el programa. Padres, profesores y miembros de la comunidad son bienvenidos: verás el mismo resumen que el equipo, con los datos personales ocultos.",
+      "alreadyHave": "¿Ya tienes una cuenta?",
+      "signIn": "Iniciar sesión",
+      "sendCode": "Enviar código de verificación",
+      "sending": "Enviando…",
+      "sent": "Enviamos un código de 6 dígitos a {email}.",
+      "verify": "Verificar correo",
+      "resend": "Reenviar código",
+      "creating": "Creando…",
+      "createAccount": "Crear cuenta",
+      "doneTitle": "¡Todo listo!",
+      "doneBody": "Tu cuenta de solo lectura está lista. Inicia sesión con tu correo o usuario {username}.",
+      "passwordHint": "Al menos 8 caracteres.",
+      "mismatch": "Las contraseñas no coinciden.",
+      "fields": {
+        "name": "Tu nombre",
+        "affiliation": "Tu vínculo",
+        "affiliationPlaceholder": "p. ej. Padre/madre de un estudiante, profesor de Matemáticas, miembro de la comunidad",
+        "email": "Correo",
+        "code": "Código de verificación",
+        "password": "Contraseña",
+        "confirm": "Confirmar contraseña"
       }
     }
   },

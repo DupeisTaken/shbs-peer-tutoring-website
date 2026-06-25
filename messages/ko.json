@@ -112,7 +112,8 @@
       "requestTutor": "튜터 신청",
       "becomeTutor": "튜터 지원",
       "teamSignin": "로그인",
-      "becomeCrew": "순찰조 지원"
+      "becomeCrew": "순찰조 지원",
+      "observe": "프로그램 팔로우"
     },
     "tagline": "또래 튜터링 프로그램",
     "heroTitle": "함께 배우고, 함께 성장하세요.",
@@ -517,7 +518,8 @@
           "MEETINGS": "튜터 회의",
           "INTERVIEWS": "면접 및 투표",
           "SERVICE_HOURS": "봉사 시간",
-          "QUARTER_SYSTEM": "분기제"
+          "QUARTER_SYSTEM": "분기제",
+          "OBSERVER_SIGNUP": "옵저버 가입"
         }
       }
     },
@@ -1447,6 +1449,32 @@
         "grade": "학년",
         "contact": "선호 연락처 (선택)",
         "message": "추가 사항 (선택)"
+      }
+    },
+    "observe": {
+      "title": "프로그램 팔로우",
+      "intro": "프로그램을 지켜볼 수 있는 무료 읽기 전용 계정을 만드세요. 학부모, 교직원, 지역 주민 모두 환영합니다. 개인정보는 가려진, 팀과 동일한 개요를 보게 됩니다.",
+      "alreadyHave": "이미 계정이 있으신가요?",
+      "signIn": "로그인",
+      "sendCode": "인증 코드 보내기",
+      "sending": "보내는 중…",
+      "sent": "{email}(으)로 6자리 코드를 보냈습니다.",
+      "verify": "이메일 인증",
+      "resend": "코드 재전송",
+      "creating": "생성 중…",
+      "createAccount": "계정 만들기",
+      "doneTitle": "완료되었습니다!",
+      "doneBody": "읽기 전용 계정이 준비되었습니다. 이메일 또는 사용자명 {username}(으)로 로그인하세요.",
+      "passwordHint": "8자 이상.",
+      "mismatch": "비밀번호가 일치하지 않습니다.",
+      "fields": {
+        "name": "이름",
+        "affiliation": "관계",
+        "affiliationPlaceholder": "예: 학생 학부모, 수학 교사, 지역 주민",
+        "email": "이메일",
+        "code": "인증 코드",
+        "password": "비밀번호",
+        "confirm": "비밀번호 확인"
       }
     }
   },

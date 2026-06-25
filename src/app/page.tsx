@@ -48,6 +48,11 @@ export default async function Home() {
                 {t("nav.becomeCrew")}
               </Link>
             )}
+            {features.OBSERVER_SIGNUP && (
+              <Link href="/observe" className="btn-secondary btn-sm">
+                {t("nav.observe")}
+              </Link>
+            )}
             <Link href="/signin" className="btn-secondary btn-sm">
               {t("nav.teamSignin")}
             </Link>

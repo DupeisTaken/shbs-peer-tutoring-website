@@ -11,6 +11,7 @@ const featureKey = z.enum([
   "INTERVIEWS",
   "SERVICE_HOURS",
   "QUARTER_SYSTEM",
+  "OBSERVER_SIGNUP",
 ]);
 
 /**

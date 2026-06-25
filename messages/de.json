@@ -112,7 +112,8 @@
       "requestTutor": "Tutor anfragen",
       "becomeTutor": "Tutor werden",
       "teamSignin": "Anmelden",
-      "becomeCrew": "Rundgang beitreten"
+      "becomeCrew": "Rundgang beitreten",
+      "observe": "Programm Verfolgen"
     },
     "tagline": "Peer-Tutoring-Programm",
     "heroTitle": "Gemeinsam lernen. Gemeinsam wachsen.",
@@ -517,7 +518,8 @@
           "MEETINGS": "Tutoren-Meetings",
           "INTERVIEWS": "Interviews & Abstimmung",
           "SERVICE_HOURS": "Servicestunden",
-          "QUARTER_SYSTEM": "Quartalssystem"
+          "QUARTER_SYSTEM": "Quartalssystem",
+          "OBSERVER_SIGNUP": "Beobachter-Anmeldung"
         }
       }
     },
@@ -1447,6 +1449,32 @@
         "grade": "Jahrgangsstufe",
         "contact": "Bevorzugter Kontakt (optional)",
         "message": "Sonstiges? (optional)"
+      }
+    },
+    "observe": {
+      "title": "Programm Verfolgen",
+      "intro": "Erstellen Sie ein kostenloses Nur-Lese-Konto, um das Programm zu verfolgen. Eltern, Lehrkräfte und Gemeindemitglieder willkommen — Sie sehen dieselbe Übersicht wie das Team, mit ausgeblendeten persönlichen Daten.",
+      "alreadyHave": "Schon ein Konto?",
+      "signIn": "Anmelden",
+      "sendCode": "Bestätigungscode senden",
+      "sending": "Wird gesendet…",
+      "sent": "Wir haben einen 6-stelligen Code an {email} gesendet.",
+      "verify": "E-Mail bestätigen",
+      "resend": "Code erneut senden",
+      "creating": "Wird erstellt…",
+      "createAccount": "Konto erstellen",
+      "doneTitle": "Alles bereit!",
+      "doneBody": "Ihr Nur-Lese-Konto ist bereit. Melden Sie sich mit E-Mail oder Benutzername {username} an.",
+      "passwordHint": "Mindestens 8 Zeichen.",
+      "mismatch": "Passwörter stimmen nicht überein.",
+      "fields": {
+        "name": "Ihr Name",
+        "affiliation": "Ihr Bezug",
+        "affiliationPlaceholder": "z. B. Elternteil eines Schülers, Mathe-Lehrkraft, Gemeindemitglied",
+        "email": "E-Mail",
+        "code": "Bestätigungscode",
+        "password": "Passwort",
+        "confirm": "Passwort bestätigen"
       }
     }
   },
