@@ -2501,6 +2501,29 @@ export const adminRouter = createTRPCRouter({
     }),
   ),
 
+  /** Accepted crew applications with an outstanding (unused, unexpired) code — so the issued code
+   *  stays visible on /admin/crew where it was issued. The code is withheld from the VIEWER.
+   *  Revoking the code on /admin/registration-codes reverts the application to PENDING. */
+  crewIssuedCodes: viewerProcedure.query(async ({ ctx }) => {
+    const canSee = ctx.session.role !== "VIEWER";
+    const codes = await ctx.db.registrationCode.findMany({
+      where: { crewApplicationId: { not: null }, usedAt: null, expiresAt: { gt: new Date() } },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, code: true, label: true, expiresAt: true, crewApplicationId: true },
+    });
+    const appIds = codes.map((c) => c.crewApplicationId).filter((x): x is string => !!x);
+    const apps = appIds.length
+      ? await ctx.db.crewApplication.findMany({ where: { id: { in: appIds } }, select: { id: true, name: true } })
+      : [];
+    const nameById = new Map(apps.map((a) => [a.id, a.name]));
+    return codes.map((c) => ({
+      id: c.id,
+      code: canSee ? c.code : null,
+      name: (c.crewApplicationId ? nameById.get(c.crewApplicationId) : null) ?? c.label ?? "—",
+      expiresAt: c.expiresAt,
+    }));
+  }),
+
   /** Decide a crew application: ACCEPT issues a CREW registration code bound to the applicant's
    *  email (shown on /admin/registration-codes to hand over); REJECT closes it. */
   decideCrewApplication: adminProcedure
@@ -2518,6 +2541,7 @@ export const adminRouter = createTRPCRouter({
         const issued = await issueRegistrationCode({
           email: app.email,
           kind: "CREW",
+          crewApplicationId: app.id,
           label: `${app.name} (crew)`,
           issuedById: ctx.session.user.id,
           issuedByName: ctx.session.user.name,
@@ -2837,12 +2861,22 @@ export const adminRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const code = await ctx.db.registrationCode.findUniqueOrThrow({
         where: { id: input.id },
-        select: { usedAt: true },
+        select: { usedAt: true, crewApplicationId: true },
       });
       if (code.usedAt) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "This code has already been used." });
       }
-      await ctx.db.registrationCode.delete({ where: { id: input.id } });
+      await ctx.db.$transaction(async (tx) => {
+        await tx.registrationCode.delete({ where: { id: input.id } });
+        // Revertability: revoking a crew-application code returns the application to the pending
+        // queue (visible/actionable again on /admin/crew).
+        if (code.crewApplicationId) {
+          await tx.crewApplication.updateMany({
+            where: { id: code.crewApplicationId, status: "ACCEPTED" },
+            data: { status: "PENDING", decidedByName: null, decidedAt: null, decisionComment: null },
+          });
+        }
+      });
       return { ok: true };
     }),
 

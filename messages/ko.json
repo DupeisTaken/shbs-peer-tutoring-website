@@ -1087,7 +1087,10 @@
       "reqKind": {
         "OPT_OUT": "탈퇴",
         "REENTRY": "재가입"
-      }
+      },
+      "issuedHeading": "발급된 코드",
+      "issuedHint": "승인된 지원자에게 전달되어 등록을 기다리는 코드입니다. 등록 코드 화면에서 코드를 취소하면 해당 지원이 위 대기열로 돌아갑니다.",
+      "issuedExpires": "{date} 만료"
     },
     "sessionFlags": {
       "title": "출석 플래그",

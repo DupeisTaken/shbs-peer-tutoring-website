@@ -1087,7 +1087,10 @@
       "reqKind": {
         "OPT_OUT": "Austritt",
         "REENTRY": "Wiedereintritt"
-      }
+      },
+      "issuedHeading": "Ausgestellte Codes",
+      "issuedHint": "Codes für angenommene Bewerber, die auf Registrierung warten. Das Widerrufen eines Codes unter Registrierungscodes bringt seine Bewerbung zurück in die Warteschlange.",
+      "issuedExpires": "Läuft ab am {date}"
     },
     "sessionFlags": {
       "title": "Anwesenheitsmarkierungen",

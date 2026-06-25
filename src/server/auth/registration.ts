@@ -53,6 +53,8 @@ export interface IssueCodeOptions {
   email?: string | null;
   tutorId?: string | null;
   applicationId?: string | null;
+  /** The CrewApplication this code was issued for (revoking the code reverts it to PENDING). */
+  crewApplicationId?: string | null;
   label?: string | null;
   issuedById?: string | null;
   issuedByName?: string | null;
@@ -80,6 +82,7 @@ export async function issueRegistrationCode(
         email,
         tutorId: opts.tutorId ?? null,
         applicationId: opts.applicationId ?? null,
+        crewApplicationId: opts.crewApplicationId ?? null,
         label: opts.label?.trim() ? opts.label.trim() : null,
         issuedById: opts.issuedById ?? null,
         issuedByName: opts.issuedByName ?? null,

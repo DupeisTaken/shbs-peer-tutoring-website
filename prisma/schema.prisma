@@ -400,6 +400,9 @@ model RegistrationCode {
   tutor         Tutor?    @relation(fields: [tutorId], references: [id], onDelete: SetNull)
   /// Optional provenance: the accepted TutorApplication that triggered this code.
   applicationId String?
+  /// Optional provenance: the accepted CrewApplication that triggered this code. Revoking the code
+  /// reverts that application to PENDING (so the request becomes visible/actionable again).
+  crewApplicationId String?
   /// Human label for the admin menu, e.g. "for Jane Doe (G11)".
   label         String?
   issuedById    String?
@@ -420,6 +423,7 @@ model RegistrationCode {
 
   @@index([tutorId])
   @@index([applicationId])
+  @@index([crewApplicationId])
   @@index([usedAt])
 }
 

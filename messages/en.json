@@ -1087,7 +1087,10 @@
       "reqKind": {
         "OPT_OUT": "Opt-out",
         "REENTRY": "Reentry"
-      }
+      },
+      "issuedHeading": "Issued Codes",
+      "issuedHint": "Codes handed to accepted applicants, awaiting registration. Revoking a code on Registration Codes returns its application to the queue above.",
+      "issuedExpires": "Expires {date}"
     },
     "sessionFlags": {
       "title": "Attendance Flags",

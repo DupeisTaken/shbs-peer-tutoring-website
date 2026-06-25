@@ -1087,7 +1087,10 @@
       "reqKind": {
         "OPT_OUT": "退会",
         "REENTRY": "再参加"
-      }
+      },
+      "issuedHeading": "発行済みコード",
+      "issuedHint": "承認された申請者に渡した、登録待ちのコードです。登録コード画面でコードを取り消すと、その申請は上のキューに戻ります。",
+      "issuedExpires": "{date} に期限切れ"
     },
     "sessionFlags": {
       "title": "出席フラグ",

@@ -20,12 +20,14 @@ export default function CrewPage() {
   const roster = api.admin.crewRoster.useQuery();
   const applications = api.admin.crewApplications.useQuery();
   const requests = api.admin.crewRequests.useQuery();
+  const issuedCodes = api.admin.crewIssuedCodes.useQuery();
 
   const invalidateAll = () =>
     Promise.all([
       utils.admin.crewRoster.invalidate(),
       utils.admin.crewApplications.invalidate(),
       utils.admin.crewRequests.invalidate(),
+      utils.admin.crewIssuedCodes.invalidate(),
       utils.admin.crewSummary.invalidate(),
     ]);
 
@@ -120,6 +122,30 @@ export default function CrewPage() {
           )}
         </div>
       </section>
+
+      {/* Issued codes — accepted applicants awaiting registration. Revoking the code on
+          /admin/registration-codes returns the application to the queue above. */}
+      {(issuedCodes.data ?? []).length > 0 && (
+        <section className="card overflow-hidden">
+          <div className="px-5 py-3">
+            <h2 className="section-title">{t("admin.crew.issuedHeading")}</h2>
+            <p className="muted mt-1 text-xs">{t("admin.crew.issuedHint")}</p>
+          </div>
+          <div className="divide-y divide-slate-100 px-5 pb-3">
+            {(issuedCodes.data ?? []).map((c) => (
+              <div key={c.id} className="flex flex-wrap items-center gap-3 py-3 text-sm">
+                <span className="font-medium text-slate-800">{c.name}</span>
+                {c.code && (
+                  <span className="badge-green font-mono tracking-widest">{c.code}</span>
+                )}
+                <span className="muted ml-auto text-xs">
+                  {t("admin.crew.issuedExpires", { date: new Date(c.expiresAt).toLocaleDateString() })}
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
 
       {/* Opt-out / reentry requests */}
       <section className="card overflow-hidden">

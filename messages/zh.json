@@ -1087,7 +1087,10 @@
       "reqKind": {
         "OPT_OUT": "退出",
         "REENTRY": "重新加入"
-      }
+      },
+      "issuedHeading": "已签发的密钥",
+      "issuedHint": "已发给通过申请者、等待注册的密钥。在“注册密钥”页撤销密钥会使其申请回到上方队列。",
+      "issuedExpires": "{date} 到期"
     },
     "sessionFlags": {
       "title": "考勤标记",

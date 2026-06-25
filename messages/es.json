@@ -1087,7 +1087,10 @@
       "reqKind": {
         "OPT_OUT": "Baja",
         "REENTRY": "Reingreso"
-      }
+      },
+      "issuedHeading": "Códigos Emitidos",
+      "issuedHint": "Códigos entregados a solicitantes aceptados, a la espera de registro. Revocar un código en Códigos de Registro devuelve su solicitud a la cola.",
+      "issuedExpires": "Caduca el {date}"
     },
     "sessionFlags": {
       "title": "Avisos de asistencia",

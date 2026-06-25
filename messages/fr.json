@@ -1087,7 +1087,10 @@
       "reqKind": {
         "OPT_OUT": "Départ",
         "REENTRY": "Retour"
-      }
+      },
+      "issuedHeading": "Codes Émis",
+      "issuedHint": "Codes remis aux candidats acceptés, en attente d'inscription. Révoquer un code dans Codes d'inscription renvoie sa candidature dans la file.",
+      "issuedExpires": "Expire le {date}"
     },
     "sessionFlags": {
       "title": "Signalements de présence",
