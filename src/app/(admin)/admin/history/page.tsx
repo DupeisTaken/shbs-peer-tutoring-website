@@ -42,6 +42,7 @@ export default function ReportsPage() {
   const t = useTranslations();
   const readOnly = useReadOnly(); // VIEWER — PII is always masked server-side
   const periods = api.admin.periods.useQuery();
+  const features = api.program.features.useQuery().data;
 
   const years = useMemo(() => {
     const set = new Set((periods.data ?? []).map((p) => p.schoolYear));
@@ -102,10 +103,15 @@ export default function ReportsPage() {
               <option value="year">{t("admin.reports.wholeYear")}</option>
               <option value="S1">{t("admin.reports.s1")}</option>
               <option value="S2">{t("admin.reports.s2")}</option>
-              <option value="Q1">Q1</option>
-              <option value="Q2">Q2</option>
-              <option value="Q3">Q3</option>
-              <option value="Q4">Q4</option>
+              {/* Quarter scopes hidden when the program runs on semesters. */}
+              {features?.QUARTER_SYSTEM !== false && (
+                <>
+                  <option value="Q1">Q1</option>
+                  <option value="Q2">Q2</option>
+                  <option value="Q3">Q3</option>
+                  <option value="Q4">Q4</option>
+                </>
+              )}
             </select>
           </label>
           <label className="space-y-1 text-sm">
@@ -161,12 +167,14 @@ export default function ReportsPage() {
               <h3 className="section-title">{t("admin.reports.sections.summary")}</h3>
             </div>
 
-            <StatGroup label={t("admin.reports.group.hours")} caption={t("admin.reports.hoursCaption")}>
-              <Stat label={t("admin.reports.stat.total")} value={`${r.summary.hours.total.toFixed(1)} h`} primary />
-              <Stat label={t("admin.reports.stat.earned")} value={`${r.summary.hours.earned.toFixed(1)} h`} />
-              <Stat label={t("admin.reports.stat.extras")} value={`+${r.summary.hours.extras.toFixed(1)} h`} />
-              <Stat label={t("admin.reports.stat.penalties")} value={`−${r.summary.hours.punishments.toFixed(1)} h`} />
-            </StatGroup>
+            {features?.SERVICE_HOURS !== false && (
+              <StatGroup label={t("admin.reports.group.hours")} caption={t("admin.reports.hoursCaption")}>
+                <Stat label={t("admin.reports.stat.total")} value={`${r.summary.hours.total.toFixed(1)} h`} primary />
+                <Stat label={t("admin.reports.stat.earned")} value={`${r.summary.hours.earned.toFixed(1)} h`} />
+                <Stat label={t("admin.reports.stat.extras")} value={`+${r.summary.hours.extras.toFixed(1)} h`} />
+                <Stat label={t("admin.reports.stat.penalties")} value={`−${r.summary.hours.punishments.toFixed(1)} h`} />
+              </StatGroup>
+            )}
 
             <StatGroup label={t("admin.reports.group.attendance")} caption={t("admin.reports.attendanceCaption")}>
               <Stat label={t("admin.reports.stat.sessions")} value={String(r.summary.sessions)} />
@@ -185,13 +193,16 @@ export default function ReportsPage() {
               <Stat label={t("admin.reports.stat.statusRequests")} value={String(r.summary.counts.statusRequests)} />
             </StatGroup>
 
-            <StatGroup label={t("admin.reports.group.crew")} caption={t("admin.reports.crewCaption")}>
-              <Stat label={t("admin.reports.stat.patrols")} value={String(r.summary.counts.patrols)} />
-              <Stat label={t("admin.reports.stat.flags")} value={String(r.summary.counts.flags)} />
-            </StatGroup>
+            {features?.CREW !== false && (
+              <StatGroup label={t("admin.reports.group.crew")} caption={t("admin.reports.crewCaption")}>
+                <Stat label={t("admin.reports.stat.patrols")} value={String(r.summary.counts.patrols)} />
+                <Stat label={t("admin.reports.stat.flags")} value={String(r.summary.counts.flags)} />
+              </StatGroup>
+            )}
           </section>
 
           {/* Per-tutor service hours */}
+          {features?.SERVICE_HOURS !== false && (
           <ReportTable
             title={t("admin.reports.sections.perTutor")}
             onCsv={() =>
@@ -223,6 +234,7 @@ export default function ReportsPage() {
               </tr>
             ))}
           </ReportTable>
+          )}
 
           {/* Detailed sections */}
           {depth !== "summary" && (
@@ -261,6 +273,7 @@ export default function ReportsPage() {
                 ))}
               </ReportTable>
 
+              {features?.DISCIPLINE !== false && (
               <ReportTable
                 title={t("admin.reports.sections.cards")}
                 onCsv={() =>
@@ -291,7 +304,10 @@ export default function ReportsPage() {
                   </tr>
                 ))}
               </ReportTable>
+              )}
 
+              {features?.MEETINGS !== false && (
+              <>
               <ReportTable
                 title={t("admin.reports.sections.meetings")}
                 onCsv={() =>
@@ -357,7 +373,10 @@ export default function ReportsPage() {
                   </tr>
                 ))}
               </ReportTable>
+              </>
+              )}
 
+              {features?.SERVICE_HOURS !== false && (
               <ReportTable
                 title={t("admin.reports.sections.adjustments")}
                 onCsv={() =>
@@ -387,7 +406,10 @@ export default function ReportsPage() {
                   </tr>
                 ))}
               </ReportTable>
+              )}
 
+              {features?.CREW !== false && (
+              <>
               {/* Crew patrols — service hours earned walking rooms (kept separate from tutoring). */}
               <ReportTable
                 title={t("admin.reports.sections.crewStats")}
@@ -447,6 +469,8 @@ export default function ReportsPage() {
                   </tr>
                 ))}
               </ReportTable>
+              </>
+              )}
             </>
           )}
 

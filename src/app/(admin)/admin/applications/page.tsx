@@ -58,6 +58,7 @@ function ApplicationCard({
 }) {
   const t = useTranslations();
   const [open, setOpen] = useState(false);
+  const features = api.program.features.useQuery().data;
   const assign = api.admin.assignInterviewers.useMutation({
     onSuccess: () => onChanged(),
     onError: () => onChanged(),
@@ -103,17 +104,21 @@ function ApplicationCard({
           <StatusBadge status={app.status} />
           <span className="muted hidden truncate text-xs sm:inline">
             {courseNames}
-            {" · "}
-            {t("admin.applications.panelSummary", {
-              n: app.interviewers.length,
-              total: PANEL_SIZE,
-            })}
-            {app.votes.length > 0
-              ? ` · ${t("admin.applications.votesSummary", {
-                  accepts,
-                  total: app.votes.length,
-                })}`
-              : ""}
+            {features?.INTERVIEWS && (
+              <>
+                {" · "}
+                {t("admin.applications.panelSummary", {
+                  n: app.interviewers.length,
+                  total: PANEL_SIZE,
+                })}
+                {app.votes.length > 0
+                  ? ` · ${t("admin.applications.votesSummary", {
+                      accepts,
+                      total: app.votes.length,
+                    })}`
+                  : ""}
+              </>
+            )}
           </span>
         </button>
         <div className="flex items-center gap-2">
@@ -197,7 +202,8 @@ function ApplicationCard({
             })}
           </ul>
 
-          {/* Interviewer assignment — three fixed panelists, one head */}
+          {/* Interviewer assignment — three fixed panelists, one head (hidden when interviews off) */}
+          {features?.INTERVIEWS && (
           <div className="mt-4 border-t border-slate-100 pt-3">
             <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
               {t("admin.applications.panelHeading", { n: PANEL_SIZE })}
@@ -269,9 +275,10 @@ function ApplicationCard({
               {assign.error && <span className="text-sm text-red-600">{assign.error.message}</span>}
             </div>
           </div>
+          )}
 
-          {/* Panel votes + head decision (recorded on the head's dashboard) */}
-          {(app.votes.length > 0 || app.decisionComment) && (
+          {/* Panel votes + head decision (recorded on the head's dashboard; hidden when off) */}
+          {features?.INTERVIEWS && (app.votes.length > 0 || app.decisionComment) && (
             <div className="mt-4 border-t border-slate-100 pt-3">
               <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
                 {t("admin.applications.votesDecisionHeading")}
