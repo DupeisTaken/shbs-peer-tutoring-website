@@ -859,6 +859,24 @@ async function main() {
   const flagData = { sessionId: "sess-alice-1", tutorId: "tutor-alice", expected: 3, observed: 2, state: "PENDING" as const };
   await db.sessionFlag.upsert({ where: { id: "flag-alice-1" }, update: flagData, create: { id: "flag-alice-1", ...flagData, createdAt: daysAgo(1) } });
 
+  // --- Observer (read-only VIEWER) accounts: a public self-registration + a suspended one with
+  // a pending reinstatement appeal, to exercise the suspend/appeal lifecycle on /admin/users. ---
+  await db.user.upsert({
+    where: { email: "parent@example.edu" },
+    update: { role: "VIEWER", affiliation: "Parent of Emma", name: "Pat Rivera" },
+    create: { id: "user-observer-1", email: "parent@example.edu", username: "privera", name: "Pat Rivera", role: "VIEWER", affiliation: "Parent of Emma", passwordHash, emailVerifiedAt: new Date() },
+  });
+  const suspendedObserver = await db.user.upsert({
+    where: { email: "observer2@example.edu" },
+    update: { role: "VIEWER", affiliation: "Community member", name: "Sam Okafor", suspendedAt: new Date(), suspendedReason: "Flagged for review." },
+    create: { id: "user-observer-2", email: "observer2@example.edu", username: "sokafor", name: "Sam Okafor", role: "VIEWER", affiliation: "Community member", suspendedAt: new Date(), suspendedReason: "Flagged for review.", passwordHash, emailVerifiedAt: new Date() },
+  });
+  await db.accountAppeal.upsert({
+    where: { id: "appeal-1" },
+    update: {},
+    create: { id: "appeal-1", userId: suspendedObserver.id, message: "I'm a parent following my child's progress — please restore access." },
+  });
+
   // --- Tutor applications + interview workflow -------------------------------
   for (const app of APPLICATIONS) {
     await db.tutorApplication.upsert({

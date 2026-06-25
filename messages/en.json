@@ -584,6 +584,15 @@
         "transferTitle": "Transfer Leadership",
         "deleteTitle": "Delete Account",
         "deleteBody": "Permanently delete the login for {name}? Their tutor record (username, class, and history) is kept. Confirm your identity to continue."
+      },
+      "suspended": "Suspended",
+      "suspend": "Suspend",
+      "reinstate": "Reinstate",
+      "suspendPrompt": "Reason for suspension (optional):",
+      "appeals": {
+        "heading": "Reinstatement Appeals",
+        "approve": "Approve",
+        "deny": "Deny"
       }
     },
     "registrationCodes": {
@@ -1588,5 +1597,16 @@
         "recall": "Recall request"
       }
     }
+  },
+  "suspended": {
+    "title": "Account Suspended",
+    "body": "Your account access has been suspended pending review. If you believe this is a mistake, submit an appeal below.",
+    "reason": "Reason: {reason}",
+    "appealHeading": "Appeal This Decision",
+    "appealPlaceholder": "Explain why your access should be restored…",
+    "submit": "Submit Appeal",
+    "submitting": "Submitting…",
+    "appealPending": "Your appeal has been submitted and is awaiting review.",
+    "appealDenied": "Your previous appeal was declined. You may submit another."
   }
 }

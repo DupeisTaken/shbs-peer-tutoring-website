@@ -577,6 +577,15 @@
         "transferTitle": "Transferir liderazgo",
         "deleteTitle": "Eliminar cuenta",
         "deleteBody": "¿Eliminar permanentemente el acceso de {name}? Se conserva su ficha de tutor (usuario, clase e historial). Confirma tu identidad para continuar."
+      },
+      "suspended": "Suspendida",
+      "suspend": "Suspender",
+      "reinstate": "Reactivar",
+      "suspendPrompt": "Motivo de la suspensión (opcional):",
+      "appeals": {
+        "heading": "Apelaciones de Reactivación",
+        "approve": "Aprobar",
+        "deny": "Denegar"
       }
     },
     "submissions": {
@@ -1588,5 +1597,16 @@
         "recall": "Retirar solicitud"
       }
     }
+  },
+  "suspended": {
+    "title": "Cuenta Suspendida",
+    "body": "El acceso a tu cuenta se ha suspendido a la espera de revisión. Si crees que es un error, envía una apelación abajo.",
+    "reason": "Motivo: {reason}",
+    "appealHeading": "Apelar Esta Decisión",
+    "appealPlaceholder": "Explica por qué se debería restaurar tu acceso…",
+    "submit": "Enviar apelación",
+    "submitting": "Enviando…",
+    "appealPending": "Tu apelación se ha enviado y está en revisión.",
+    "appealDenied": "Tu apelación anterior fue rechazada. Puedes enviar otra."
   }
 }

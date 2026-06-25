@@ -584,6 +584,15 @@
         "transferTitle": "Leitung übertragen",
         "deleteTitle": "Konto löschen",
         "deleteBody": "Den Zugang von {name} dauerhaft löschen? Der Tutoren-Datensatz (Benutzername, Klasse und Verlauf) bleibt erhalten. Bestätigen Sie zum Fortfahren Ihre Identität."
+      },
+      "suspended": "Gesperrt",
+      "suspend": "Sperren",
+      "reinstate": "Entsperren",
+      "suspendPrompt": "Grund der Sperrung (optional):",
+      "appeals": {
+        "heading": "Entsperrungs-Widersprüche",
+        "approve": "Genehmigen",
+        "deny": "Ablehnen"
       }
     },
     "registrationCodes": {
@@ -1588,5 +1597,16 @@
         "recall": "Antrag zurückziehen"
       }
     }
+  },
+  "suspended": {
+    "title": "Konto Gesperrt",
+    "body": "Der Zugang zu Ihrem Konto wurde bis zur Überprüfung gesperrt. Wenn Sie meinen, dass dies ein Fehler ist, legen Sie unten Widerspruch ein.",
+    "reason": "Grund: {reason}",
+    "appealHeading": "Gegen Diese Entscheidung Widersprechen",
+    "appealPlaceholder": "Erklären Sie, warum Ihr Zugang wiederhergestellt werden sollte…",
+    "submit": "Widerspruch senden",
+    "submitting": "Wird gesendet…",
+    "appealPending": "Ihr Widerspruch wurde gesendet und wird geprüft.",
+    "appealDenied": "Ihr vorheriger Widerspruch wurde abgelehnt. Sie können einen weiteren senden."
   }
 }

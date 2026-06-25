@@ -584,6 +584,15 @@
         "transferTitle": "Transférer la direction",
         "deleteTitle": "Supprimer le compte",
         "deleteBody": "Supprimer définitivement le compte de {name} ? Sa fiche de tuteur (nom d'utilisateur, classe et historique) est conservée. Confirmez votre identité pour continuer."
+      },
+      "suspended": "Suspendu",
+      "suspend": "Suspendre",
+      "reinstate": "Rétablir",
+      "suspendPrompt": "Motif de la suspension (facultatif) :",
+      "appeals": {
+        "heading": "Recours de Rétablissement",
+        "approve": "Approuver",
+        "deny": "Refuser"
       }
     },
     "registrationCodes": {
@@ -1588,5 +1597,16 @@
         "recall": "Annuler la demande"
       }
     }
+  },
+  "suspended": {
+    "title": "Compte Suspendu",
+    "body": "L'accès à votre compte a été suspendu en attente d'examen. Si vous pensez qu'il s'agit d'une erreur, soumettez un recours ci-dessous.",
+    "reason": "Motif : {reason}",
+    "appealHeading": "Contester Cette Décision",
+    "appealPlaceholder": "Expliquez pourquoi votre accès devrait être rétabli…",
+    "submit": "Soumettre le recours",
+    "submitting": "Envoi…",
+    "appealPending": "Votre recours a été soumis et est en cours d'examen.",
+    "appealDenied": "Votre recours précédent a été refusé. Vous pouvez en soumettre un autre."
   }
 }

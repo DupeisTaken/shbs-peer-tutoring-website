@@ -150,6 +150,11 @@ export default function UsersPage() {
   const deleteUser = api.admin.deleteUser.useMutation(guardedMutation);
   const setCanTutor = api.admin.setUserCanTutor.useMutation({ onSuccess: invalidate });
   const setCanTranslate = api.admin.setUserCanTranslate.useMutation({ onSuccess: invalidate });
+  const appeals = api.admin.appeals.useQuery();
+  const refreshUsers = () => Promise.all([invalidate(), utils.admin.appeals.invalidate()]);
+  const suspendUser = api.admin.suspendUser.useMutation({ onSuccess: refreshUsers });
+  const reinstateUser = api.admin.reinstateUser.useMutation({ onSuccess: refreshUsers });
+  const decideAppeal = api.admin.decideAppeal.useMutation({ onSuccess: refreshUsers });
   const sendSetup = api.admin.sendTutorSetup.useMutation({
     onSuccess: (data, variables) =>
       setSetupInfo({ tutorId: variables.tutorId, link: data.link, emailed: data.emailed }),
@@ -279,6 +284,40 @@ export default function UsersPage() {
         </div>
       )}
 
+      {/* Pending reinstatement appeals from suspended observers. */}
+      {(appeals.data ?? []).length > 0 && (
+        <section className="card overflow-hidden">
+          <div className="px-5 py-3">
+            <h2 className="section-title">{t("admin.users.appeals.heading")}</h2>
+          </div>
+          <div className="divide-y divide-slate-100 px-5 pb-3">
+            {(appeals.data ?? []).map((a) => (
+              <div key={a.id} className="flex flex-wrap items-center gap-3 py-3 text-sm">
+                <span className="font-medium text-slate-800">{a.name}</span>
+                {a.affiliation && <span className="muted text-xs">{a.affiliation}</span>}
+                <span className="muted min-w-0 flex-1 truncate text-xs italic">“{a.message}”</span>
+                <span className="flex gap-2">
+                  <button
+                    className="btn-primary btn-sm"
+                    disabled={decideAppeal.isPending}
+                    onClick={() => decideAppeal.mutate({ appealId: a.id, action: "APPROVE" })}
+                  >
+                    {t("admin.users.appeals.approve")}
+                  </button>
+                  <button
+                    className="btn-secondary btn-sm"
+                    disabled={decideAppeal.isPending}
+                    onClick={() => decideAppeal.mutate({ appealId: a.id, action: "DENY" })}
+                  >
+                    {t("admin.users.appeals.deny")}
+                  </button>
+                </span>
+              </div>
+            ))}
+          </div>
+        </section>
+      )}
+
       <div className="card overflow-x-auto">
         <table className="data-table">
           <thead>
@@ -362,6 +401,40 @@ export default function UsersPage() {
                             </button>
                           </div>
                         )}
+                      </div>
+                    ) : u.role === "VIEWER" && u.userId ? (
+                      // Observer (self-registered read-only) account: affiliation + suspend control.
+                      <div className="space-y-1 leading-tight">
+                        {u.affiliation && <p className="muted text-xs">{u.affiliation}</p>}
+                        {u.suspended && <span className="badge-red">{t("admin.users.suspended")}</span>}
+                        {!u.isSelf &&
+                          (u.suspended ? (
+                            <div>
+                              <button
+                                className="link text-xs"
+                                disabled={reinstateUser.isPending}
+                                onClick={() => reinstateUser.mutate({ userId: u.userId })}
+                              >
+                                {t("admin.users.reinstate")}
+                              </button>
+                            </div>
+                          ) : (
+                            <div>
+                              <button
+                                className="link text-xs text-red-600"
+                                disabled={suspendUser.isPending}
+                                onClick={() => {
+                                  const reason = (window.prompt(t("admin.users.suspendPrompt")) ?? "").trim();
+                                  suspendUser.mutate({
+                                    userId: u.userId,
+                                    reason: reason.length > 0 ? reason : undefined,
+                                  });
+                                }}
+                              >
+                                {t("admin.users.suspend")}
+                              </button>
+                            </div>
+                          ))}
                       </div>
                     ) : (
                       <span className="text-slate-400">—</span>

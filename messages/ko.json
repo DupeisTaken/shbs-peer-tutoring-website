@@ -584,6 +584,15 @@
         "transferTitle": "리더 권한 이전",
         "deleteTitle": "계정 삭제",
         "deleteBody": "{name}의 로그인 계정을 영구적으로 삭제할까요? 튜터 기록(사용자 이름, 학년, 이력)은 유지됩니다. 계속하려면 본인 확인이 필요합니다."
+      },
+      "suspended": "정지됨",
+      "suspend": "정지",
+      "reinstate": "복구",
+      "suspendPrompt": "정지 사유 (선택):",
+      "appeals": {
+        "heading": "복구 이의",
+        "approve": "승인",
+        "deny": "거부"
       }
     },
     "registrationCodes": {
@@ -1588,5 +1597,16 @@
         "recall": "신청 철회"
       }
     }
+  },
+  "suspended": {
+    "title": "계정 정지됨",
+    "body": "검토를 위해 계정 접근이 정지되었습니다. 잘못이라고 생각되면 아래에서 이의를 제기하세요.",
+    "reason": "사유: {reason}",
+    "appealHeading": "이 결정에 이의 제기",
+    "appealPlaceholder": "접근을 복구해야 하는 이유를 설명하세요…",
+    "submit": "이의 제출",
+    "submitting": "제출 중…",
+    "appealPending": "이의가 제출되어 검토를 기다리고 있습니다.",
+    "appealDenied": "이전 이의가 거부되었습니다. 다시 제출할 수 있습니다."
   }
 }

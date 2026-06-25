@@ -39,8 +39,10 @@ export default async function AdminLayout({
   // keep the link to preserve attributes, so check the live status rather than the JWT's tutorId.
   const me = await db.user.findUnique({
     where: { id: session.user.id },
-    select: { username: true, crewStatus: true, tutor: { select: { username: true, status: true } } },
+    select: { username: true, crewStatus: true, suspendedAt: true, tutor: { select: { username: true, status: true } } },
   });
+  // A suspended observer keeps their login but is routed to the suspension/appeal screen.
+  if (me?.suspendedAt) redirect("/suspended");
   // Permitted to tutor = a live linked tutor that hasn't been archived (can-tutor turned off).
   // Keyed off the DB link (`me.tutor`), not the JWT's `session.tutorId`, so toggling can-tutor on
   // shows the button on the next render without waiting for a re-login. The jwt callback keeps

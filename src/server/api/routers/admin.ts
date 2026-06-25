@@ -2905,6 +2905,8 @@ export const adminRouter = createTRPCRouter({
           username: true,
           role: true,
           canTranslate: true,
+          affiliation: true,
+          suspendedAt: true,
           emailVerifiedAt: true,
           mustChangePassword: true,
           tutorId: true,
@@ -2961,6 +2963,9 @@ export const adminRouter = createTRPCRouter({
       classOf: classOf(u.tutor?.gradeLevel),
       canTranslate: u.canTranslate,
       tutorHasEmail: !!u.tutor?.email,
+      // Observer (VIEWER) identity + suspension state, for the suspend/reinstate controls.
+      affiliation: u.affiliation,
+      suspended: !!u.suspendedAt,
       // registered = finished setup; setup = login exists but not finished; (no "none"/"invited"
       // here — those only apply to login-less tutors below).
       account: u.emailVerifiedAt && !u.mustChangePassword ? "registered" : "setup",
@@ -2985,6 +2990,8 @@ export const adminRouter = createTRPCRouter({
       classOf: classOf(tu.gradeLevel),
       canTranslate: false,
       tutorHasEmail: !!tu.email,
+      affiliation: null,
+      suspended: false,
       // invited = a registration code is outstanding; none = no login and no code.
       account: hasOpenCode(tu.id, tu.email) ? "invited" : "none",
     }));
@@ -3132,6 +3139,136 @@ export const adminRouter = createTRPCRouter({
         data: { canTranslate: input.canTranslate },
       }),
     ),
+
+  /** Suspend a suspicious observer (VIEWER) account: blocks access until reinstated; the user is
+   *  notified and can appeal. Scoped to observer accounts so it can't lock out staff. */
+  suspendUser: adminProcedure
+    .input(z.object({ userId: cuid, reason: z.string().trim().max(500).optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const target = await ctx.db.user.findUniqueOrThrow({
+        where: { id: input.userId },
+        select: { id: true, role: true, name: true },
+      });
+      if (target.role !== "VIEWER") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Only observer (viewer) accounts can be suspended." });
+      }
+      await ctx.db.user.update({
+        where: { id: target.id },
+        data: { suspendedAt: new Date(), suspendedReason: input.reason?.trim() ? input.reason.trim() : null },
+      });
+      await notifyUsers([target.id], {
+        title: "Account suspended",
+        body: "Your account access was suspended pending review. You can submit an appeal.",
+        link: "/suspended",
+      });
+      await recordAudit({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name,
+        action: `Suspended observer ${target.name ?? target.id}`,
+        entity: "User",
+        entityId: target.id,
+      });
+      return { ok: true };
+    }),
+
+  /** Reinstate a suspended account (clears suspension, approves any pending appeal). */
+  reinstateUser: adminProcedure
+    .input(z.object({ userId: cuid }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db.$transaction(async (tx) => {
+        await tx.user.update({
+          where: { id: input.userId },
+          data: { suspendedAt: null, suspendedReason: null },
+        });
+        await tx.accountAppeal.updateMany({
+          where: { userId: input.userId, state: "PENDING" },
+          data: { state: "APPROVED", decidedByName: ctx.session.user.name, decidedAt: new Date() },
+        });
+      });
+      await notifyUsers([input.userId], {
+        title: "Account reinstated",
+        body: "Your account access has been restored.",
+        link: "/",
+      });
+      await recordAudit({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name,
+        action: "Reinstated a suspended account",
+        entity: "User",
+        entityId: input.userId,
+      });
+      return { ok: true };
+    }),
+
+  /** Pending reinstatement appeals from suspended users. */
+  appeals: viewerProcedure.query(({ ctx }) =>
+    ctx.db.accountAppeal
+      .findMany({
+        where: { state: "PENDING" },
+        orderBy: { createdAt: "asc" },
+        select: {
+          id: true,
+          message: true,
+          createdAt: true,
+          user: { select: { id: true, name: true, username: true, affiliation: true } },
+        },
+      })
+      .then((rows) =>
+        rows.map((r) => ({
+          id: r.id,
+          message: r.message,
+          createdAt: r.createdAt,
+          userId: r.user.id,
+          name: r.user.name ?? r.user.username ?? "—",
+          affiliation: r.user.affiliation,
+        })),
+      ),
+  ),
+
+  /** Decide an appeal: APPROVE reinstates the account; DENY keeps it suspended. User notified. */
+  decideAppeal: adminProcedure
+    .input(z.object({ appealId: cuid, action: z.enum(["APPROVE", "DENY"]) }))
+    .mutation(async ({ ctx, input }) => {
+      const appeal = await ctx.db.accountAppeal.findUniqueOrThrow({
+        where: { id: input.appealId },
+        select: { id: true, state: true, userId: true },
+      });
+      if (appeal.state !== "PENDING") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This appeal is already decided." });
+      }
+      await ctx.db.$transaction(async (tx) => {
+        await tx.accountAppeal.update({
+          where: { id: appeal.id },
+          data: {
+            state: input.action === "APPROVE" ? "APPROVED" : "DENIED",
+            decidedByName: ctx.session.user.name,
+            decidedAt: new Date(),
+          },
+        });
+        if (input.action === "APPROVE") {
+          await tx.user.update({
+            where: { id: appeal.userId },
+            data: { suspendedAt: null, suspendedReason: null },
+          });
+        }
+      });
+      await notifyUsers([appeal.userId], {
+        title: input.action === "APPROVE" ? "Appeal approved" : "Appeal declined",
+        body:
+          input.action === "APPROVE"
+            ? "Your account access has been restored."
+            : "Your appeal was declined; your account stays suspended.",
+        link: "/",
+      });
+      await recordAudit({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name,
+        action: `${input.action === "APPROVE" ? "Approved" : "Denied"} an account appeal`,
+        entity: "AccountAppeal",
+        entityId: appeal.id,
+      });
+      return { ok: true };
+    }),
 
   /**
    * Let an admin/coordinator also tutor: link the user to an (active) Tutor record so they get

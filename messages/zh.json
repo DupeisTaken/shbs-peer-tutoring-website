@@ -577,6 +577,15 @@
         "transferTitle": "移交负责人",
         "deleteTitle": "删除账户",
         "deleteBody": "永久删除 {name} 的登录账户？其辅导员记录（用户名、年级与历史）将保留。请验证身份以继续。"
+      },
+      "suspended": "已暂停",
+      "suspend": "暂停",
+      "reinstate": "恢复",
+      "suspendPrompt": "暂停原因（可选）：",
+      "appeals": {
+        "heading": "恢复申诉",
+        "approve": "批准",
+        "deny": "拒绝"
       }
     },
     "submissions": {
@@ -1588,5 +1597,16 @@
         "recall": "撤回申请"
       }
     }
+  },
+  "suspended": {
+    "title": "账户已暂停",
+    "body": "你的账户访问权限已暂停，等待审核。如果你认为这是误判，请在下方提交申诉。",
+    "reason": "原因：{reason}",
+    "appealHeading": "申诉该决定",
+    "appealPlaceholder": "请说明为何应恢复你的访问权限……",
+    "submit": "提交申诉",
+    "submitting": "提交中…",
+    "appealPending": "你的申诉已提交，正在审核中。",
+    "appealDenied": "你之前的申诉被拒绝。你可以再次提交。"
   }
 }

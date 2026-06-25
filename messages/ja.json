@@ -584,6 +584,15 @@
         "transferTitle": "リーダーを引き継ぐ",
         "deleteTitle": "アカウントを削除",
         "deleteBody": "{name} のログインを完全に削除しますか？チューター記録（ユーザー名・学年・履歴）は保持されます。続行するには本人確認をしてください。"
+      },
+      "suspended": "停止中",
+      "suspend": "停止",
+      "reinstate": "復帰",
+      "suspendPrompt": "停止の理由（任意）：",
+      "appeals": {
+        "heading": "復帰の異議",
+        "approve": "承認",
+        "deny": "却下"
       }
     },
     "registrationCodes": {
@@ -1588,5 +1597,16 @@
         "recall": "申請を取り消す"
       }
     }
+  },
+  "suspended": {
+    "title": "アカウント停止中",
+    "body": "あなたのアカウントは審査のため一時停止されています。誤りだと思われる場合は、下から異議を申し立ててください。",
+    "reason": "理由：{reason}",
+    "appealHeading": "この決定に異議を申し立てる",
+    "appealPlaceholder": "アクセスを回復すべき理由をご説明ください…",
+    "submit": "異議を送信",
+    "submitting": "送信中…",
+    "appealPending": "異議は送信され、審査待ちです。",
+    "appealDenied": "前回の異議は却下されました。再度送信できます。"
   }
 }

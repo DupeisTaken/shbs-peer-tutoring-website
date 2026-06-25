@@ -192,11 +192,22 @@ submission time). See the `admin-philosophies` memory for the rationale.
 
 ## Security rules (do not break)
 
-- **Public forms never create logins.** `/signup` (tutee) and `/tutor-signup` (tutor
-  application) create only `PENDING` `Tutee` / `TutorApplication` records for an admin to
-  review. The one public page that *does* create a login is **`/register`**, and only after the
-  visitor proves an **admin-issued single-use registration code** plus an emailed email-verification
-  code — so account creation is still gated by an admin, never open self-service.
+- **Public forms never create logins — except the two deliberate self-registration paths.**
+  `/signup` (tutee) and `/tutor-signup` (tutor application) create only `PENDING` `Tutee` /
+  `TutorApplication` records for an admin to review. **`/register`** creates a login but only after
+  the visitor proves an **admin-issued single-use registration code** plus an emailed verification
+  code (still admin-gated). **`/observe`** is the ONE open path: outsiders (parents/faculty/community)
+  self-register a **read-only VIEWER** account gated only by **email validation** — `viewer` router +
+  `src/server/auth/viewer-signup.ts`, its own `ViewerSignup` row (separate from the admin
+  `RegistrationCode` boundary), rate-limited, behind the **`OBSERVER_SIGNUP`** feature flag and
+  capturing `User.affiliation` ("who they are"). The program values transparency, so observers reuse
+  the VIEWER role (same PII-masked read-only views as internal read-only staff).
+- **Suspension + appeals (observer lifecycle).** Admins flag a suspicious VIEWER on `/admin/users`
+  (`suspendUser` → `User.suspendedAt`/`suspendedReason`); a suspended account keeps its login but is
+  routed to **`/suspended`** and blocked everywhere (the `(admin)` layout redirects; `viewerProcedure`
+  refuses). The user files an `AccountAppeal` (`account.submitAppeal`); an admin decides on
+  `/admin/users` (`decideAppeal`/`reinstateUser` → clears the suspension). Notifications fire on
+  signup, suspend, appeal, and decision.
 - **Registration codes are short-lived, low-value secrets.** The `code` is a **5-character Steam-style**
   key (unambiguous uppercase alphanumerics, `src/server/auth/code.ts` — `generateRegistrationCode`,
   cryptographically random, ~31⁵; normalize input with `normalizeRegCode`), stored in **plaintext** so

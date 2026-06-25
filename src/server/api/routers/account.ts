@@ -6,6 +6,7 @@ import { hashPassword, verifyPassword } from "~/server/auth/password";
 import { ensureUserUsername } from "~/server/auth/username";
 import { issueStepUpCode, verifyStepUpCode } from "~/server/auth/step-up";
 import { maskEmail } from "~/server/auth/mask";
+import { notifyAdmins } from "~/server/notifications/create";
 
 /**
  * Self-service account router — the signed-in user's own login (any role). Used by the admin/
@@ -29,6 +30,49 @@ export const accountRouter = createTRPCRouter({
     });
     return user;
   }),
+
+  /** The caller's suspension state + their latest appeal — drives the /suspended screen. */
+  suspension: protectedProcedure.query(async ({ ctx }) => {
+    const user = await ctx.db.user.findUniqueOrThrow({
+      where: { id: ctx.session.user.id },
+      select: { suspendedAt: true, suspendedReason: true },
+    });
+    const appeal = await ctx.db.accountAppeal.findFirst({
+      where: { userId: ctx.session.user.id },
+      orderBy: { createdAt: "desc" },
+      select: { id: true, state: true, message: true, createdAt: true },
+    });
+    return { suspended: !!user.suspendedAt, reason: user.suspendedReason, appeal };
+  }),
+
+  /** Submit an appeal for reinstatement (suspended accounts only; one pending at a time). */
+  submitAppeal: protectedProcedure
+    .input(z.object({ message: z.string().trim().min(1, "Tell us why.").max(1000) }))
+    .mutation(async ({ ctx, input }) => {
+      const user = await ctx.db.user.findUniqueOrThrow({
+        where: { id: ctx.session.user.id },
+        select: { suspendedAt: true, name: true },
+      });
+      if (!user.suspendedAt) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Your account is not suspended." });
+      }
+      const open = await ctx.db.accountAppeal.findFirst({
+        where: { userId: ctx.session.user.id, state: "PENDING" },
+        select: { id: true },
+      });
+      if (open) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "You already have a pending appeal." });
+      }
+      await ctx.db.accountAppeal.create({
+        data: { userId: ctx.session.user.id, message: input.message },
+      });
+      await notifyAdmins({
+        title: "Account appeal",
+        body: `${user.name ?? "A suspended user"} submitted an appeal.`,
+        link: "/admin/users",
+      });
+      return { ok: true };
+    }),
 
   /** Update the caller's display name. */
   updateName: protectedProcedure
