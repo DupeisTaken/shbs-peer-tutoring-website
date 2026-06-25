@@ -184,6 +184,11 @@ export default function ReportsPage() {
               <Stat label={t("admin.reports.stat.removals")} value={String(r.summary.counts.removals)} />
               <Stat label={t("admin.reports.stat.statusRequests")} value={String(r.summary.counts.statusRequests)} />
             </StatGroup>
+
+            <StatGroup label={t("admin.reports.group.crew")} caption={t("admin.reports.crewCaption")}>
+              <Stat label={t("admin.reports.stat.patrols")} value={String(r.summary.counts.patrols)} />
+              <Stat label={t("admin.reports.stat.flags")} value={String(r.summary.counts.flags)} />
+            </StatGroup>
           </section>
 
           {/* Per-tutor service hours */}
@@ -379,6 +384,66 @@ export default function ReportsPage() {
                     <td className={a.type === "PUNISHMENT" ? "text-red-600" : "text-green-600"}>{a.type}</td>
                     <td className="text-right">{a.amount.toFixed(2)}</td>
                     <td className="text-slate-600">{a.reason ?? "—"}</td>
+                  </tr>
+                ))}
+              </ReportTable>
+
+              {/* Crew patrols — service hours earned walking rooms (kept separate from tutoring). */}
+              <ReportTable
+                title={t("admin.reports.sections.crewStats")}
+                onCsv={() =>
+                  downloadCsv(`report_${slug}_crew.csv`, [
+                    ["Member", "Patrols", "Hours"],
+                    ...r.crewStats.map((x) => [x.member, x.patrols, x.hours.toFixed(2)]),
+                  ])
+                }
+                csvLabel={t("admin.reports.csv")}
+                empty={r.crewStats.length === 0 ? t("admin.reports.noData") : null}
+                head={[
+                  t("admin.reports.col.member"),
+                  t("admin.reports.col.patrols"),
+                  t("admin.reports.col.hours"),
+                ]}
+                numericFrom={1}
+              >
+                {r.crewStats.map((x) => (
+                  <tr key={x.userId}>
+                    <td className="whitespace-nowrap">{x.member}</td>
+                    <td className="text-right">{x.patrols}</td>
+                    <td className="text-right font-semibold">{x.hours.toFixed(1)}</td>
+                  </tr>
+                ))}
+              </ReportTable>
+
+              {/* Attendance discrepancy flags — crew counted fewer students than the tutor reported. */}
+              <ReportTable
+                title={t("admin.reports.sections.flags")}
+                onCsv={() =>
+                  downloadCsv(`report_${slug}_flags.csv`, [
+                    ["Date", "Tutor", "Subject", "Expected", "Observed", "State"],
+                    ...r.flags.map((x) => [d(x.date), x.tutor, x.subject, x.expected, x.observed, x.state]),
+                  ])
+                }
+                csvLabel={t("admin.reports.csv")}
+                empty={r.flags.length === 0 ? t("admin.reports.noData") : null}
+                head={[
+                  t("admin.reports.col.date"),
+                  t("admin.reports.col.tutor"),
+                  t("admin.reports.col.subject"),
+                  t("admin.reports.col.expected"),
+                  t("admin.reports.col.observed"),
+                  t("admin.reports.col.flagState"),
+                ]}
+                numericFrom={3}
+              >
+                {r.flags.map((x) => (
+                  <tr key={x.id}>
+                    <td className="whitespace-nowrap text-slate-500">{d(x.date)}</td>
+                    <td>{x.tutor}</td>
+                    <td>{x.subject}</td>
+                    <td className="text-right">{x.expected}</td>
+                    <td className="text-right font-semibold text-red-600">{x.observed}</td>
+                    <td className="text-slate-500">{t(`admin.sessionFlags.state.${x.state}`)}</td>
                   </tr>
                 ))}
               </ReportTable>

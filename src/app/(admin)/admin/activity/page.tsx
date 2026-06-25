@@ -20,6 +20,9 @@ export default function ActivityPage() {
   const sessions = api.admin.sessions.useQuery();
   const tutorRequests = api.admin.tutorRequests.useQuery();
   const tuteeRequests = api.admin.tuteeRemovalRequests.useQuery();
+  const sessionFlags = api.admin.sessionFlags.useQuery();
+  const crewApplications = api.admin.crewApplications.useQuery();
+  const crewRequests = api.admin.crewRequests.useQuery();
 
   const pendingTutees = (tutees.data ?? [])
     .filter((t) => t.status === "PENDING")
@@ -31,6 +34,9 @@ export default function ActivityPage() {
   const recentSessions = (sessions.data ?? []).slice(0, 10);
   const openRequests = tutorRequests.data ?? [];
   const openTuteeRequests = tuteeRequests.data?.pendingOptOuts ?? [];
+  const openFlags = sessionFlags.data ?? [];
+  const openCrewApps = crewApplications.data ?? [];
+  const openCrewReqs = crewRequests.data ?? [];
 
   return (
     <div className="space-y-8">
@@ -53,6 +59,21 @@ export default function ActivityPage() {
           label={t("admin.activity.counters.tuteeRequests")}
           value={openTuteeRequests.length}
           href="/admin/tutee-requests"
+        />
+        <Counter
+          label={t("admin.activity.counters.sessionFlags")}
+          value={openFlags.length}
+          href="/admin/session-flags"
+        />
+        <Counter
+          label={t("admin.activity.counters.crewApplications")}
+          value={openCrewApps.length}
+          href="/admin/crew"
+        />
+        <Counter
+          label={t("admin.activity.counters.crewRequests")}
+          value={openCrewReqs.length}
+          href="/admin/crew"
         />
         <Counter
           label={t("admin.activity.counters.recentSurveys")}
@@ -145,6 +166,67 @@ export default function ActivityPage() {
                     date: new Date(r.eligibleAt).toLocaleDateString(),
                   })
                 : ""}
+            </span>
+          </Row>
+        ))}
+      </Panel>
+
+      {/* Attendance discrepancy flags (crew validation) */}
+      <Panel
+        title={t("admin.activity.panels.sessionFlags.title")}
+        href="/admin/session-flags"
+        empty={t("admin.activity.panels.sessionFlags.empty")}
+        manageLabel={t("admin.activity.manage")}
+      >
+        {openFlags.map((f) => (
+          <Row key={f.id}>
+            <span className="font-medium text-slate-800">{f.tutor}</span>
+            <span className="badge-red">
+              {t("admin.sessionFlags.discrepancy", { observed: f.observed, expected: f.expected })}
+            </span>
+            <span className="muted text-xs">{f.subject}</span>
+            <span className="muted ml-auto text-xs">
+              {new Date(f.date).toLocaleDateString()}
+            </span>
+          </Row>
+        ))}
+      </Panel>
+
+      {/* Crew applications */}
+      <Panel
+        title={t("admin.activity.panels.crewApplications.title")}
+        href="/admin/crew"
+        empty={t("admin.activity.panels.crewApplications.empty")}
+        manageLabel={t("admin.activity.manage")}
+      >
+        {openCrewApps.map((a) => (
+          <Row key={a.id}>
+            <span className="font-medium text-slate-800">{a.name}</span>
+            {a.gradeLevel != null && <span className="badge-slate">G{a.gradeLevel}</span>}
+            <span className="muted ml-auto text-xs">{new Date(a.createdAt).toLocaleDateString()}</span>
+          </Row>
+        ))}
+      </Panel>
+
+      {/* Crew opt-out / reentry requests */}
+      <Panel
+        title={t("admin.activity.panels.crewRequests.title")}
+        href="/admin/crew"
+        empty={t("admin.activity.panels.crewRequests.empty")}
+        manageLabel={t("admin.activity.manage")}
+      >
+        {openCrewReqs.map((r) => (
+          <Row key={r.id}>
+            <span className="font-medium text-slate-800">{r.member}</span>
+            <span className={r.kind === "OPT_OUT" ? "badge-amber" : "badge-green"}>
+              {t(`admin.crew.reqKind.${r.kind}`)}
+            </span>
+            <span className="muted ml-auto text-xs">
+              {r.approvable
+                ? t("admin.crew.cooldownDone")
+                : r.eligibleAt
+                  ? t("admin.crew.cooldownUntil", { date: new Date(r.eligibleAt).toLocaleDateString() })
+                  : ""}
             </span>
           </Row>
         ))}

@@ -5,7 +5,9 @@
     "saved": "已保存。",
     "language": "语言",
     "backToMain": "← 返回主页",
-    "close": "关闭"
+    "close": "关闭",
+    "collapseAll": "全部收起",
+    "expandAll": "全部展开"
   },
   "auth": {
     "signinTitle": "登录",
@@ -64,12 +66,12 @@
     },
     "register": {
       "title": "创建您的账号",
-      "subtitle": "请使用管理员提供的6位安全密钥。",
+      "subtitle": "请输入管理员给你的安全密钥。",
       "backToSignIn": "← 返回登录",
       "step": {
         "code": {
           "label": "安全密钥",
-          "help": "请输入管理员或协调员提供的6位验证码。",
+          "help": "输入管理员或协调员给你的密钥。",
           "submit": "继续"
         },
         "email": {
@@ -109,7 +111,8 @@
     "nav": {
       "requestTutor": "申请辅导",
       "becomeTutor": "成为辅导员",
-      "teamSignin": "登录"
+      "teamSignin": "登录",
+      "becomeCrew": "加入巡查队"
     },
     "tagline": "朋辈辅导项目",
     "heroTitle": "一起学习，共同成长。",
@@ -328,7 +331,9 @@
         "tutorRequests": "导师状态申请",
         "registrationCodes": "注册码",
         "tuteeRequests": "学生移除",
-        "reports": "报告"
+        "reports": "报告",
+        "sessionFlags": "考勤标记",
+        "crew": "巡查队"
       }
     },
     "dashboard": {
@@ -338,7 +343,8 @@
         "activeTutors": "在职导师",
         "activeTutees": "活跃学员",
         "pendingSignups": "待处理报名",
-        "serviceHours": "服务时数 · {month}"
+        "serviceHours": "服务时数 · {month}",
+        "crewPatrols": "巡查次数"
       },
       "pendingBanner": "有 {count} 条学员报名等待审核。",
       "reviewNow": "立即审核 →",
@@ -365,7 +371,10 @@
         "cardsToReview": "待审核卡片",
         "recentSurveys": "最近调查",
         "tutorRequests": "状态申请",
-        "tuteeRequests": "待生效退出"
+        "tuteeRequests": "待生效退出",
+        "sessionFlags": "考勤标记",
+        "crewApplications": "巡查队申请",
+        "crewRequests": "巡查队申请处理"
       },
       "panels": {
         "tuteeSignups": {
@@ -396,6 +405,18 @@
         "tuteeRequests": {
           "title": "待生效的学生退出",
           "empty": "暂无待生效的退出。"
+        },
+        "sessionFlags": {
+          "title": "考勤标记",
+          "empty": "暂无考勤差异标记。"
+        },
+        "crewApplications": {
+          "title": "巡查队申请",
+          "empty": "暂无待处理的巡查队申请。"
+        },
+        "crewRequests": {
+          "title": "巡查队退出 / 重新加入",
+          "empty": "暂无待处理的巡查队申请。"
         }
       }
     },
@@ -821,7 +842,7 @@
     },
     "registrationCodes": {
       "title": "注册码",
-      "help": "为新辅导员生成一次性6位安全密钥，供其自助注册。该验证码仅显示一次——请复制后亲手交给对方，系统不会保存。",
+      "help": "为新导师或巡查队成员签发一次性安全密钥用于自助注册。密钥仅显示一次——请复制并交付，系统不会存储。",
       "labelField": "备注（标签）",
       "labelPlaceholder": "例如：Jane Doe（G11）",
       "emailField": "绑定邮箱（可选）",
@@ -860,7 +881,10 @@
         "setup": "填写姓名、年级并设置密码",
         "validity": "一次性代码 · 有效期至 {date}"
       },
-      "empty": "暂无注册码。"
+      "empty": "暂无注册码。",
+      "kindField": "账户类型",
+      "kindTutor": "导师",
+      "kindCrew": "巡查队"
     },
     "tutorRequests": {
       "title": "导师状态申请",
@@ -932,7 +956,9 @@
         "signups": "学生报名",
         "removals": "学生移除与退出",
         "statusRequests": "导师状态申请",
-        "meetingStats": "各导师会议出勤"
+        "meetingStats": "各导师会议出勤",
+        "crewStats": "巡查记录",
+        "flags": "考勤标记"
       },
       "stat": {
         "total": "总时长",
@@ -949,7 +975,9 @@
         "signups": "报名",
         "applications": "申请",
         "removals": "移除",
-        "statusRequests": "状态申请"
+        "statusRequests": "状态申请",
+        "patrols": "巡查次数",
+        "flags": "标记数"
       },
       "col": {
         "tutor": "导师",
@@ -978,15 +1006,92 @@
         "grade": "年级",
         "subjects": "科目",
         "kind": "种类",
-        "state": "状态"
+        "state": "状态",
+        "member": "成员",
+        "patrols": "巡查次数",
+        "expected": "报告人数",
+        "observed": "巡查点到",
+        "flagState": "处理结果"
       },
       "group": {
         "hours": "服务时长",
         "attendance": "课次与出勤",
-        "activity": "活动"
+        "activity": "活动",
+        "crew": "巡查队"
       },
       "hoursCaption": "合计 = 获得 + 额外 − 扣减。",
-      "attendanceCaption": "出席 / 请假 / 缺席 = 各课次的学生出勤。"
+      "attendanceCaption": "出席 / 请假 / 缺席 = 各课次的学生出勤。",
+      "crewCaption": "巡查与考勤标记"
+    },
+    "crew": {
+      "title": "巡查队",
+      "subtitle": "设置巡查队走访教室的顺序，并选择巡查队成员。",
+      "orderHeading": "巡查顺序",
+      "orderHelp": "从上到下依次走访。使用箭头调整顺序。",
+      "moveUp": "上移",
+      "moveDown": "下移",
+      "noRooms": "暂无教室，请先添加教室。",
+      "saving": "保存中…",
+      "saveOrder": "保存顺序",
+      "saved": "已保存。",
+      "rosterHeading": "巡查队成员",
+      "col": {
+        "member": "成员",
+        "patrols": "巡查次数",
+        "hours": "小时",
+        "crew": "巡查队",
+        "status": "状态",
+        "actions": "操作"
+      },
+      "alsoTutor": "同时是导师",
+      "yes": "是",
+      "no": "否",
+      "applicationsHeading": "巡查队申请",
+      "applicationsEmpty": "暂无待处理申请。",
+      "accept": "通过并签发密钥",
+      "reject": "拒绝",
+      "codeIssued": "密钥：{code}",
+      "requestsHeading": "退出与重新加入申请",
+      "requestsEmpty": "暂无待处理申请。",
+      "approve": "批准",
+      "deny": "拒绝",
+      "cooldownUntil": "{date} 起可批准",
+      "cooldownDone": "可批准",
+      "crewOnly": "仅巡查",
+      "enable": "重新启用",
+      "softRemove": "移除",
+      "delete": "删除",
+      "deleteConfirm": "删除 {name} 的巡查账户？此操作无法撤销。",
+      "rosterEmpty": "暂无巡查队成员。",
+      "status": {
+        "ACTIVE": "在岗",
+        "OPTED_OUT": "已退出",
+        "INACTIVE": "已移除"
+      },
+      "reqKind": {
+        "OPT_OUT": "退出",
+        "REENTRY": "重新加入"
+      }
+    },
+    "sessionFlags": {
+      "title": "考勤标记",
+      "help": "巡查队点到的学生人数少于导师标记的出席人数。请逐条审核并处理。",
+      "discrepancy": "巡查队点到 {observed} 人，导师报告 {expected} 人",
+      "context": "{room} · {date} · {start}–{end}",
+      "notePlaceholder": "备注（可选）",
+      "dismiss": "确认有效并忽略",
+      "warn": "记录警告",
+      "penaltyHours": "扣减小时",
+      "penalize": "执行扣减",
+      "escalate": "升级处理（移除）",
+      "empty": "暂无待审核的考勤标记。",
+      "state": {
+        "PENDING": "待处理",
+        "DISMISSED": "已忽略",
+        "WARNED": "已警告",
+        "PENALIZED": "已扣减",
+        "ESCALATED": "已升级"
+      }
     }
   },
   "tutor": {
@@ -1073,7 +1178,11 @@
         "excusedReason": "请为每个请假缺席填写原因。",
         "ratingsRequired": "已举行的课时需要填写评分。",
         "cardReason": "请为分配的每张卡片填写原因。"
-      }
+      },
+      "roomUsed": "使用的教室",
+      "roomUnset": "分配的教室",
+      "online": "线上进行",
+      "roomHelp": "请选择你实际使用的教室，以便与巡查记录对应。若本次不在教室进行，请选择“线上进行”。"
     },
     "pairings": {
       "loading": "加载中…",
@@ -1193,6 +1302,10 @@
         "title": "仅限查看",
         "body": "您的辅导员账号状态为「{status}」。您可以查看历史记录，但无法提交考勤或接收新学生。",
         "reentryHint": "想回来吗？请在账号设置中申请重新加入。"
+      },
+      "crew": {
+        "title": "巡查小时",
+        "patrols": "{count, plural, other {# 次巡查}}"
       }
     },
     "status": {
@@ -1299,6 +1412,23 @@
       "readPrompt": "你已阅读到末尾。",
       "done": "完成 — 我已阅读",
       "close": "关闭"
+    },
+    "crewSignup": {
+      "title": "加入巡查队",
+      "intro": "巡查队走访各教室、记录学生人数以核实考勤。请在下方申请——管理员审核后会向你发送注册密钥。",
+      "alreadyMember": "已是团队成员？",
+      "signIn": "登录",
+      "submit": "提交申请",
+      "submitting": "提交中…",
+      "doneTitle": "申请已收到",
+      "doneBody": "谢谢！管理员将审核你的申请，若通过会向你发送注册密钥。",
+      "fields": {
+        "fullName": "姓名",
+        "email": "邮箱",
+        "grade": "年级",
+        "contact": "首选联系方式（可选）",
+        "message": "其他说明（可选）"
+      }
     }
   },
   "components": {
@@ -1371,6 +1501,45 @@
       "codeLabel": "验证码",
       "resend": "重新发送",
       "cancel": "取消"
+    }
+  },
+  "crew": {
+    "brand": "{team} · 巡查队",
+    "role": "巡查队",
+    "exit": "退出",
+    "nav": {
+      "patrol": "巡查"
+    },
+    "patrol": {
+      "title": "教室巡查",
+      "subtitle": "按顺序走访各教室，点选每间教室的学生人数。提交一次巡查可获得 0.5 服务小时。",
+      "myHours": "我的巡查小时",
+      "patrolCount": "{count, plural, other {# 次巡查}}",
+      "noRooms": "暂无可巡查的教室。",
+      "notePlaceholder": "备注（可选）——本次巡查需要记录的任何事项。",
+      "submit": "提交巡查（{count}）",
+      "submitting": "提交中…",
+      "submitted": "巡查已记录。",
+      "recent": "近期巡查",
+      "optedOut": {
+        "title": "你已退出巡查队",
+        "body": "你可以随时申请重新加入。"
+      },
+      "reentry": {
+        "request": "申请重新加入",
+        "pending": "已申请重新加入——等待管理员批准。"
+      },
+      "inactive": {
+        "title": "巡查权限已暂停",
+        "body": "管理员暂停了你的巡查权限。请联系他们恢复。"
+      },
+      "optOut": {
+        "request": "申请退出",
+        "reason": "退出原因（可选）",
+        "submit": "提交退出申请",
+        "pending": "已申请退出——等待管理员批准。",
+        "recall": "撤回申请"
+      }
     }
   }
 }

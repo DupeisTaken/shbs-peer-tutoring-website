@@ -24,6 +24,9 @@ datasource db {
 enum Role {
   /// Read-only access to the admin area, with personal/contact info masked. Cannot mutate.
   VIEWER
+  /// Crew-only login: reaches only the /patrol portal (no admin or tutor area). Created via a
+  /// CREW registration code; crew membership/lifecycle lives on `User.crewStatus`.
+  CREW
   TUTOR
   COORDINATOR
   ADMIN
@@ -66,6 +69,21 @@ model User {
 
   /// Assigned translator: may edit UI translations on /localization even without an admin role.
   canTranslate Boolean @default(false)
+
+  /// Crew membership lifecycle (walks the rooms and records headcounts at /patrol to validate
+  /// tutor attendance). Null = not a crew member. ACTIVE = can patrol; OPTED_OUT = left (approved
+  /// opt-out); INACTIVE = soft-removed by an admin (revertible). Independent of the role — a tutor
+  /// can also be crew (role TUTOR + crewStatus ACTIVE); a crew-only login is role CREW. Crew
+  /// service hours (0.5h per patrol) are accounted separately from tutoring hours.
+  crewStatus CrewStatus?
+
+  /// Grade level (G-number) for crew-only logins (tutors keep grade on their Tutor record). Drives
+  /// the class-of year in the username suffix. Null for non-crew / unknown.
+  gradeLevel Int?
+
+  /// Patrols this user (as a crew member) submitted, and their crew opt-out/reentry requests.
+  patrols           Patrol[]
+  crewStatusRequests CrewStatusRequest[]
 
   // Optional link to the domain Tutor record (matched by email at first sign-in).
   tutor   Tutor?  @relation(fields: [tutorId], references: [id])
@@ -241,6 +259,7 @@ model Term {
   active     Boolean        @default(false)
   pairings   Pairing[]
   meetings   TutorMeeting[]
+  patrols    Patrol[]
   createdAt  DateTime       @default(now())
 
   @@unique([schoolYear, quarter])
@@ -280,6 +299,7 @@ model Tutor {
   availabilities       TutorAvailability[]
   interviewAssignments InterviewAssignment[]
   statusRequests       TutorStatusRequest[]
+  sessionFlags         SessionFlag[]
   registrationCodes    RegistrationCode[]
   // Disciplinary cards this tutor issued, interview votes they cast, and applications
   // they decided as head interviewer.
@@ -337,10 +357,19 @@ enum TutorRequestState {
 ///   applicationId — provenance: the accepted application this code was issued for.
 /// `pendingEmail`/`emailCode*` hold the in-progress email-verification step (a separate emailed
 /// 6-digit code the registrant types back, stored hashed); `emailVerifiedAt` is stamped on confirm.
+/// What kind of account a registration code provisions on completion.
+enum RegistrationCodeKind {
+  TUTOR
+  CREW
+}
+
 model RegistrationCode {
   id            String    @id @default(cuid())
-  /// The 6-digit code (plaintext, for admin re-display). Nullable only to migrate legacy rows.
+  /// The 5-character Steam-style code (plaintext, for admin re-display). Nullable only to migrate
+  /// legacy rows. See src/server/auth/code.ts.
   code          String?   @unique
+  /// Whether redeeming this code creates a TUTOR account (default) or a crew-only CREW account.
+  kind          RegistrationCodeKind @default(TUTOR)
   /// Optional binding: the email the registrant must use/verify.
   email         String?
   /// Optional link to an existing roster Tutor this registration completes.
@@ -520,10 +549,15 @@ model TuteeAvailability {
 model Room {
   id        String    @id @default(cuid())
   name      String    @unique
+  /// The crew's patrol sequence — rooms are visited in ascending `patrolOrder` on /patrol.
+  /// Admin-customizable; null sorts last. Default 0 so new rooms group at the front until ordered.
+  patrolOrder Int     @default(0)
   pairings  Pairing[]
   createdAt DateTime  @default(now())
 
   unavailabilities RoomUnavailability[]
+  sessions         Session[]
+  patrolObservations PatrolObservation[]
 }
 
 /// A recurring weekly period during which a room cannot be used (e.g. another class).
@@ -622,15 +656,172 @@ model Session {
   tutorId   String
   tutor     Tutor   @relation(fields: [tutorId], references: [id])
 
+  /// The room the session actually ran in (captured at submit; defaults to the pairing's room).
+  /// Used to match crew patrol observations to this session. Null when `online` or unrecorded.
+  actualRoomId String?
+  actualRoom   Room?   @relation(fields: [actualRoomId], references: [id])
+  /// The tutor held this session online (no physical room) — excluded from crew validation.
+  online       Boolean @default(false)
+
   tutees SessionTutee[]
   // Disciplinary cards requested via this attendance submission's survey.
   cards  DisciplinaryCard[]
+  // Crew-vs-self-report discrepancy flags raised against this session.
+  flags  SessionFlag[]
 
   @@index([tutorId, month])
   @@index([tutorId, schoolYear, quarter])
   @@index([schoolYear, quarter])
   @@index([pairingId])
   @@index([mergeGroupId])
+  @@index([actualRoomId])
+}
+
+// ----------------------------------------------------------------------------
+// Crew patrols — a roaming team records room headcounts to validate tutor attendance.
+//
+// A crew member walks the rooms (in Room.patrolOrder) and records how many students are in each
+// (Headcount bucket) with a timestamp. One full sweep = one Patrol (credits 0.5h, accounted
+// separately from tutoring hours). When an observation shows FEWER students than the tutor marked
+// present for a session in that room/time, a SessionFlag is auto-raised for admin review.
+// ----------------------------------------------------------------------------
+
+/// Crew membership lifecycle (on User.crewStatus). Null (no value) = not a crew member.
+enum CrewStatus {
+  ACTIVE // current crew member; can patrol
+  OPTED_OUT // left the crew (approved opt-out); read-only patrol portal, may request reentry
+  INACTIVE // soft-removed by an admin; revertible
+}
+
+/// Review state of a public "apply to be crew" submission. Accepting issues a CREW registration code.
+enum CrewApplicationStatus {
+  PENDING
+  ACCEPTED
+  REJECTED
+}
+
+/// A public application to join the crew (no login is created — mirrors /signup & /tutor-signup).
+/// An admin reviews it on /admin/crew; accepting issues a CREW registration code bound to the email.
+model CrewApplication {
+  id               String                @id @default(cuid())
+  name             String
+  email            String
+  gradeLevel       Int?
+  preferredContact String?
+  message          String?
+  status           CrewApplicationStatus @default(PENDING)
+  decisionComment  String?
+  decidedByName    String?
+  decidedAt        DateTime?
+  createdAt        DateTime              @default(now())
+
+  @@index([status])
+}
+
+/// Kind of a crew lifecycle request a member initiates from /patrol.
+enum CrewRequestKind {
+  OPT_OUT
+  REENTRY
+}
+
+/// State of a crew opt-out/reentry request.
+enum CrewRequestState {
+  PENDING
+  APPROVED
+  DENIED
+  RECALLED
+}
+
+/// A crew member's opt-out (with a recall cooldown) or reentry request, approved by an admin —
+/// mirrors TutorStatusRequest. Opt-out approval sets crewStatus OPTED_OUT; reentry → ACTIVE.
+model CrewStatusRequest {
+  id            String           @id @default(cuid())
+  userId        String
+  user          User             @relation(fields: [userId], references: [id], onDelete: Cascade)
+  kind          CrewRequestKind
+  state         CrewRequestState @default(PENDING)
+  /// Opt-out becomes approvable only after this cooldown; the member can recall until then.
+  eligibleAt    DateTime?
+  reason        String?
+  decidedByName String?
+  decidedAt     DateTime?
+  createdAt     DateTime         @default(now())
+
+  @@index([userId])
+  @@index([state])
+}
+
+/// Observed students in a room: an exact 0–3 or "4 or more". 4+ is treated as ≥4 in comparisons.
+enum Headcount {
+  ZERO
+  ONE
+  TWO
+  THREE
+  FOUR_PLUS
+}
+
+/// One crew sweep. Credits 0.5h to the crew member on submit.
+model Patrol {
+  id          String   @id @default(cuid())
+  crewUserId  String
+  crewUser    User     @relation(fields: [crewUserId], references: [id], onDelete: Cascade)
+  termId      String?
+  term        Term?    @relation(fields: [termId], references: [id])
+  /// Service hours credited for this patrol (0.5 by policy; stored so the rate can change later).
+  hours       Float    @default(0.5)
+  note        String?
+  createdAt   DateTime @default(now())
+
+  observations PatrolObservation[]
+
+  @@index([crewUserId])
+  @@index([termId])
+}
+
+/// One room's headcount during a patrol, with the time it was observed.
+model PatrolObservation {
+  id         String    @id @default(cuid())
+  patrolId   String
+  patrol     Patrol    @relation(fields: [patrolId], references: [id], onDelete: Cascade)
+  roomId     String
+  room       Room      @relation(fields: [roomId], references: [id])
+  headcount  Headcount
+  observedAt DateTime  @default(now())
+
+  @@index([roomId, observedAt])
+  @@index([patrolId])
+}
+
+/// Review state of a crew-vs-self-report discrepancy. Auto-raised PENDING; an admin decides.
+enum SessionFlagState {
+  PENDING
+  DISMISSED // a false alarm / acceptable — closed, no effect
+  WARNED // a warning recorded against the tutor
+  PENALIZED // a service-hour deduction applied
+  ESCALATED // escalated to tutor removal/opt-out review
+}
+
+/// A discrepancy between the crew's headcount and a tutor's attendance entry (the crew saw fewer
+/// students than the tutor marked present). Surfaced as an admin review request, like the removal
+/// queues. One per session, kept in sync with the evidence by `syncSessionFlag`.
+model SessionFlag {
+  id          String           @id @default(cuid())
+  sessionId   String           @unique
+  session     Session          @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+  tutorId     String
+  tutor       Tutor            @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  /// Snapshot of the discrepancy: how many the tutor marked present vs. the crew's lowest count.
+  expected    Int
+  observed    Int
+  state       SessionFlagState @default(PENDING)
+  decisionNote String?
+  createdAt   DateTime         @default(now())
+  resolvedAt  DateTime?
+  resolvedById String?
+  resolvedByName String?
+
+  @@index([state])
+  @@index([tutorId])
 }
 
 /// Join table: the tutees covered by a particular attendance submission.

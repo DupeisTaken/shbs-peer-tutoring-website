@@ -12,6 +12,7 @@ import { fileURLToPath } from "node:url";
 
 import { PrismaClient } from "../generated/prisma";
 import { hashPassword } from "../src/server/auth/password";
+import { generateRegistrationCode } from "../src/server/auth/code";
 import {
   computeSessionHours,
   monthKey,
@@ -342,10 +343,11 @@ const TUTEE_REMOVALS: {
 ];
 
 // Registration codes (security keys for new tutors) in each status: active, used, expired.
+// Codes are randomly generated (Steam-style 5-char) on each seed, matching production.
 const REGISTRATION_CODES = [
-  { id: "regcode-active", code: "100001", email: "maya@example.edu", label: "Maya Lindqvist (recruit)", expiresInDays: 7, usedDaysAgo: null, applicationId: null },
-  { id: "regcode-used", code: "100002", email: "george@example.edu", label: "George Adler", expiresInDays: 6, usedDaysAgo: 1, applicationId: "app-george" },
-  { id: "regcode-expired", code: "100003", email: "old@example.edu", label: "Lapsed invite", expiresInDays: -1, usedDaysAgo: null, applicationId: null },
+  { id: "regcode-active", code: generateRegistrationCode(), email: "maya@example.edu", label: "Maya Lindqvist (recruit)", expiresInDays: 7, usedDaysAgo: null, applicationId: null },
+  { id: "regcode-used", code: generateRegistrationCode(), email: "george@example.edu", label: "George Adler", expiresInDays: 6, usedDaysAgo: 1, applicationId: "app-george" },
+  { id: "regcode-expired", code: generateRegistrationCode(), email: "old@example.edu", label: "Lapsed invite", expiresInDays: -1, usedDaysAgo: null, applicationId: null },
 ];
 
 // ---------------------------------------------------------------------------
@@ -766,6 +768,96 @@ async function main() {
     const data = { month, schoolYear: term.schoolYear, quarter: term.quarter, type: a.type, amount: a.amount, reason: a.reason, tutorId: a.tutorId };
     await db.serviceHourAdjustment.upsert({ where: { id: a.id }, update: data, create: { id: a.id, ...data } });
   }
+
+  // --- Crew patrols ----------------------------------------------------------
+  // A custom room patrol order (the order the crew walks), two crew members (tutors can also be
+  // crew), one recorded patrol, and one attendance-discrepancy flag the crew raised.
+  const PATROL_ORDER = ["room-a101", "room-a102", "room-a103", "room-b201", "room-b202", "room-library", "room-lab1"];
+  for (let i = 0; i < PATROL_ORDER.length; i++) {
+    await db.room.update({ where: { id: PATROL_ORDER[i]! }, data: { patrolOrder: i } });
+  }
+  // Iris and Leo are tutors who also serve on the crew (ACTIVE crew status).
+  for (const email of ["iris@example.edu", "leo@example.edu"]) {
+    await db.user.update({ where: { email }, data: { crewStatus: "ACTIVE" } }).catch(() => undefined);
+  }
+  // A crew-only login (role CREW, no Tutor) — created via a crew registration code in real use.
+  await db.user.upsert({
+    where: { email: "crew@example.edu" },
+    update: { crewStatus: "ACTIVE", role: "CREW", gradeLevel: 11, name: "Cora Bennett" },
+    create: {
+      id: "user-crew-cora",
+      email: "crew@example.edu",
+      username: "cbennett29",
+      name: "Cora Bennett",
+      role: "CREW",
+      gradeLevel: 11,
+      crewStatus: "ACTIVE",
+      passwordHash,
+      emailVerifiedAt: new Date(),
+    },
+  });
+  // A pending crew application (public form) + a pending crew opt-out request + a crew code.
+  await db.crewApplication.upsert({
+    where: { id: "crewapp-1" },
+    update: {},
+    create: {
+      id: "crewapp-1",
+      name: "Dorian West",
+      email: "dorian@example.edu",
+      gradeLevel: 10,
+      preferredContact: "dorian@example.edu",
+      message: "I'd like to help validate attendance.",
+      createdAt: daysAgo(2),
+    },
+  });
+  const coraUser = await db.user.findFirst({ where: { email: "crew@example.edu" }, select: { id: true } });
+  if (coraUser) {
+    await db.crewStatusRequest.upsert({
+      where: { id: "crewreq-1" },
+      update: {},
+      create: {
+        id: "crewreq-1",
+        userId: coraUser.id,
+        kind: "OPT_OUT",
+        reason: "Schedule got too busy this quarter.",
+        eligibleAt: new Date(Date.now() + 5 * 24 * 60 * 60 * 1000),
+        createdAt: daysAgo(2),
+      },
+    });
+  }
+  await db.registrationCode.upsert({
+    where: { id: "regcode-crew" },
+    update: { kind: "CREW" },
+    create: {
+      id: "regcode-crew",
+      code: generateRegistrationCode(),
+      kind: "CREW",
+      email: "newcrew@example.edu",
+      label: "Crew recruit (crew)",
+      expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000),
+    },
+  });
+  const irisUser = await db.user.findFirst({ where: { tutorId: "tutor-iris" }, select: { id: true } });
+  if (irisUser) {
+    const patrolData = { crewUserId: irisUser.id, termId: term.id, hours: 0.5, note: "Afternoon sweep — A-wing quiet." };
+    await db.patrol.upsert({ where: { id: "patrol-demo-1" }, update: patrolData, create: { id: "patrol-demo-1", ...patrolData, createdAt: daysAgo(1) } });
+    const obs: { id: string; roomId: string; headcount: "ZERO" | "ONE" | "TWO" | "THREE" | "FOUR_PLUS" }[] = [
+      { id: "patrolobs-1", roomId: "room-a101", headcount: "TWO" },
+      { id: "patrolobs-2", roomId: "room-b201", headcount: "THREE" },
+      { id: "patrolobs-3", roomId: "room-library", headcount: "FOUR_PLUS" },
+    ];
+    for (const o of obs) {
+      const data = { patrolId: "patrol-demo-1", roomId: o.roomId, headcount: o.headcount, observedAt: daysAgo(1) };
+      await db.patrolObservation.upsert({ where: { id: o.id }, update: data, create: { id: o.id, ...data } });
+    }
+  }
+  // Record the room used on a couple of sessions, and flag one under-count for admin review:
+  // Alice's Math session reported 3 students present, but the crew counted only 2 in A101.
+  await db.session.update({ where: { id: "sess-alice-1" }, data: { actualRoomId: "room-a101", online: false } }).catch(() => undefined);
+  await db.session.update({ where: { id: "sess-bob-1" }, data: { actualRoomId: "room-b201", online: false } }).catch(() => undefined);
+  await db.session.update({ where: { id: "sess-jason-1" }, data: { online: true, actualRoomId: null } }).catch(() => undefined);
+  const flagData = { sessionId: "sess-alice-1", tutorId: "tutor-alice", expected: 3, observed: 2, state: "PENDING" as const };
+  await db.sessionFlag.upsert({ where: { id: "flag-alice-1" }, update: flagData, create: { id: "flag-alice-1", ...flagData, createdAt: daysAgo(1) } });
 
   // --- Tutor applications + interview workflow -------------------------------
   for (const app of APPLICATIONS) {

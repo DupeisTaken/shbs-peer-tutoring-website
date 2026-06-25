@@ -239,6 +239,23 @@ export const translatorProcedure = protectedProcedure.use(async ({ ctx, next }) 
   return next();
 });
 
+/**
+ * Crew procedure: an ACTIVE crew member (`crewStatus === "ACTIVE"`; a tutor can also be crew).
+ * Gates patrol submission. Admins/coordinators are also allowed (they oversee the crew). Opted-out
+ * or soft-removed crew are NOT active and cannot patrol (read-only portal only).
+ */
+export const crewProcedure = protectedProcedure.use(async ({ ctx, next }) => {
+  if (isElevated(ctx.session.role)) return next();
+  const me = await ctx.db.user.findUnique({
+    where: { id: ctx.session.user.id },
+    select: { crewStatus: true },
+  });
+  if (me?.crewStatus !== "ACTIVE") {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Active crew access required." });
+  }
+  return next();
+});
+
 /** Personal/contact fields hidden from the read-only VIEWER role. Names are NOT masked. */
 const VIEWER_MASKED_KEYS = new Set(["email", "phone", "preferredContact"]);
 

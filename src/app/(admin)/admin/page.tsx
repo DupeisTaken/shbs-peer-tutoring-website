@@ -5,11 +5,12 @@ import { api } from "~/trpc/server";
 
 export default async function AdminHome() {
   const t = await getTranslations();
-  const [pairings, summary, tutees, sessions] = await Promise.all([
+  const [pairings, summary, tutees, sessions, crew] = await Promise.all([
     api.admin.pairings(),
     api.admin.periodSummary(),
     api.admin.tutees(),
     api.admin.sessions(),
+    api.admin.crewSummary(),
   ]);
 
   const activeTutors = summary.rows.filter((r) => r.active).length;
@@ -23,7 +24,7 @@ export default async function AdminHome() {
       <h1 className="page-title">{t("admin.dashboard.title")}</h1>
 
       {/* Stats */}
-      <div className="grid grid-cols-2 gap-4 lg:grid-cols-5">
+      <div className="grid grid-cols-2 gap-4 lg:grid-cols-6">
         <Stat label={t("admin.dashboard.stats.pairings")} value={pairings.length} href="/admin/pairings" />
         <Stat label={t("admin.dashboard.stats.activeTutors")} value={activeTutors} href="/admin/tutors" />
         <Stat label={t("admin.dashboard.stats.activeTutees")} value={activeTutees} href="/admin/tutees" />
@@ -37,6 +38,12 @@ export default async function AdminHome() {
           label={t("admin.dashboard.stats.serviceHours", { month: summary.scope.label })}
           value={totalHours.toFixed(1)}
           href="/admin/service-hours"
+        />
+        <Stat
+          label={t("admin.dashboard.stats.crewPatrols")}
+          value={crew.patrols}
+          href="/admin/crew"
+          highlight={crew.openFlags > 0}
         />
       </div>
 

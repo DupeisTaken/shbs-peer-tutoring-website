@@ -5,7 +5,9 @@
     "saved": "저장되었습니다.",
     "language": "언어",
     "backToMain": "← 메인 페이지로 돌아가기",
-    "close": "닫기"
+    "close": "닫기",
+    "collapseAll": "모두 접기",
+    "expandAll": "모두 펼치기"
   },
   "auth": {
     "signinTitle": "로그인",
@@ -64,12 +66,12 @@
     },
     "register": {
       "title": "계정 만들기",
-      "subtitle": "관리자가 제공한 6자리 보안 키를 사용하세요.",
+      "subtitle": "관리자가 준 보안 키를 입력하세요.",
       "backToSignIn": "← 로그인으로 돌아가기",
       "step": {
         "code": {
           "label": "보안 키",
-          "help": "관리자 또는 코디네이터가 제공한 6자리 코드를 입력하세요.",
+          "help": "관리자나 코디네이터가 준 코드를 입력하세요.",
           "submit": "계속"
         },
         "email": {
@@ -109,7 +111,8 @@
     "nav": {
       "requestTutor": "튜터 신청",
       "becomeTutor": "튜터 지원",
-      "teamSignin": "로그인"
+      "teamSignin": "로그인",
+      "becomeCrew": "순찰조 지원"
     },
     "tagline": "또래 튜터링 프로그램",
     "heroTitle": "함께 배우고, 함께 성장하세요.",
@@ -335,7 +338,9 @@
         "usersRoles": "사용자 및 역할",
         "registrationCodes": "등록 코드",
         "tuteeRequests": "학생 삭제",
-        "reports": "보고서"
+        "reports": "보고서",
+        "sessionFlags": "출석 플래그",
+        "crew": "순찰조"
       }
     },
     "dashboard": {
@@ -345,7 +350,8 @@
         "activeTutors": "활성 튜터",
         "activeTutees": "활성 학생",
         "pendingSignups": "대기 중인 신청",
-        "serviceHours": "봉사 시간 · {month}"
+        "serviceHours": "봉사 시간 · {month}",
+        "crewPatrols": "순찰 횟수"
       },
       "pendingBanner": "학생 신청 {count}건이 검토를 기다리고 있습니다.",
       "reviewNow": "지금 검토 →",
@@ -372,7 +378,10 @@
         "cardsToReview": "검토할 카드",
         "tutorRequests": "상태 요청",
         "recentSurveys": "최근 설문",
-        "tuteeRequests": "대기 중인 탈퇴"
+        "tuteeRequests": "대기 중인 탈퇴",
+        "sessionFlags": "출석 플래그",
+        "crewApplications": "순찰조 지원",
+        "crewRequests": "순찰조 신청"
       },
       "panels": {
         "tuteeSignups": {
@@ -403,6 +412,18 @@
         "tuteeRequests": {
           "title": "대기 중인 학생 탈퇴",
           "empty": "대기 중인 탈퇴가 없습니다."
+        },
+        "sessionFlags": {
+          "title": "출석 플래그",
+          "empty": "표시된 출석 불일치가 없습니다."
+        },
+        "crewApplications": {
+          "title": "순찰조 지원",
+          "empty": "대기 중인 순찰조 지원이 없습니다."
+        },
+        "crewRequests": {
+          "title": "순찰조 탈퇴 / 재가입",
+          "empty": "대기 중인 순찰조 신청이 없습니다."
         }
       }
     },
@@ -549,7 +570,7 @@
     },
     "registrationCodes": {
       "title": "등록 코드",
-      "help": "새 튜터가 자가 등록할 수 있는 일회용 6자리 보안 키를 발급합니다. 코드는 한 번만 표시되니 복사하여 전달하세요. 저장되지 않습니다.",
+      "help": "새 튜터나 순찰조원이 자가 등록할 일회용 보안 키를 발급합니다. 코드는 한 번만 표시됩니다 — 복사해 전달하세요. 저장되지 않습니다.",
       "labelField": "대상 (레이블)",
       "labelPlaceholder": "예: 홍길동 (G11)",
       "emailField": "이메일 연결 (선택)",
@@ -588,7 +609,10 @@
         "setup": "이름, 학년, 비밀번호 설정",
         "validity": "일회용 코드 · {date}까지 유효"
       },
-      "empty": "아직 등록 코드가 없습니다."
+      "empty": "아직 등록 코드가 없습니다.",
+      "kindField": "계정 유형",
+      "kindTutor": "튜터",
+      "kindCrew": "순찰조"
     },
     "tutorRequests": {
       "title": "튜터 상태 요청",
@@ -932,7 +956,9 @@
         "signups": "학생 신청",
         "removals": "학생 삭제 및 탈퇴",
         "statusRequests": "튜터 상태 요청",
-        "meetingStats": "튜터별 회의 출석"
+        "meetingStats": "튜터별 회의 출석",
+        "crewStats": "순찰 기록",
+        "flags": "출석 플래그"
       },
       "stat": {
         "total": "총 시간",
@@ -949,7 +975,9 @@
         "signups": "신청",
         "applications": "지원",
         "removals": "삭제",
-        "statusRequests": "상태 요청"
+        "statusRequests": "상태 요청",
+        "patrols": "순찰 횟수",
+        "flags": "플래그"
       },
       "col": {
         "tutor": "튜터",
@@ -978,15 +1006,92 @@
         "grade": "학년",
         "subjects": "과목",
         "kind": "종류",
-        "state": "상태"
+        "state": "상태",
+        "member": "구성원",
+        "patrols": "순찰 횟수",
+        "expected": "보고 인원",
+        "observed": "순찰 확인",
+        "flagState": "결정"
       },
       "group": {
         "hours": "봉사 시간",
         "attendance": "세션 및 출석",
-        "activity": "활동"
+        "activity": "활동",
+        "crew": "순찰조"
       },
       "hoursCaption": "합계 = 획득 + 추가 − 감점.",
-      "attendanceCaption": "출석 / 사유결석 / 무단결석 = 세션별 학생 출석."
+      "attendanceCaption": "출석 / 사유결석 / 무단결석 = 세션별 학생 출석.",
+      "crewCaption": "순찰 및 출석 플래그"
+    },
+    "crew": {
+      "title": "순찰조",
+      "subtitle": "순찰조가 교실을 도는 순서를 정하고, 순찰조 구성원을 선택하세요.",
+      "orderHeading": "순찰 순서",
+      "orderHelp": "위에서 아래로 방문합니다. 화살표로 순서를 변경하세요.",
+      "moveUp": "위로",
+      "moveDown": "아래로",
+      "noRooms": "아직 교실이 없습니다. 먼저 교실을 추가하세요.",
+      "saving": "저장 중…",
+      "saveOrder": "순서 저장",
+      "saved": "저장됨.",
+      "rosterHeading": "순찰조 구성원",
+      "col": {
+        "member": "구성원",
+        "patrols": "순찰 횟수",
+        "hours": "시간",
+        "crew": "순찰조",
+        "status": "상태",
+        "actions": "작업"
+      },
+      "alsoTutor": "튜터 겸임",
+      "yes": "예",
+      "no": "아니요",
+      "applicationsHeading": "순찰조 지원",
+      "applicationsEmpty": "대기 중인 지원이 없습니다.",
+      "accept": "승인 후 코드 발급",
+      "reject": "거절",
+      "codeIssued": "코드: {code}",
+      "requestsHeading": "탈퇴 · 재가입 신청",
+      "requestsEmpty": "대기 중인 신청이 없습니다.",
+      "approve": "승인",
+      "deny": "거절",
+      "cooldownUntil": "{date}부터 승인 가능",
+      "cooldownDone": "승인 가능",
+      "crewOnly": "순찰 전용",
+      "enable": "재활성화",
+      "softRemove": "제거",
+      "delete": "삭제",
+      "deleteConfirm": "{name}의 순찰 계정을 삭제할까요? 되돌릴 수 없습니다.",
+      "rosterEmpty": "순찰조원이 아직 없습니다.",
+      "status": {
+        "ACTIVE": "활동",
+        "OPTED_OUT": "탈퇴",
+        "INACTIVE": "제거됨"
+      },
+      "reqKind": {
+        "OPT_OUT": "탈퇴",
+        "REENTRY": "재가입"
+      }
+    },
+    "sessionFlags": {
+      "title": "출석 플래그",
+      "help": "순찰조가 센 학생 수가 튜터가 출석으로 표시한 수보다 적습니다. 각 건을 검토하고 결정하세요.",
+      "discrepancy": "순찰조 {observed}명, 튜터 보고 {expected}명",
+      "context": "{room} · {date} · {start}–{end}",
+      "notePlaceholder": "기록용 메모(선택)",
+      "dismiss": "유효 처리(무시)",
+      "warn": "경고 기록",
+      "penaltyHours": "차감 시간",
+      "penalize": "차감 적용",
+      "escalate": "제명 검토로 상신",
+      "empty": "검토할 출석 플래그가 없습니다.",
+      "state": {
+        "PENDING": "대기",
+        "DISMISSED": "무시됨",
+        "WARNED": "경고됨",
+        "PENALIZED": "차감됨",
+        "ESCALATED": "상신됨"
+      }
     }
   },
   "tutor": {
@@ -1080,7 +1185,11 @@
         "excusedReason": "각 공결에 대한 사유를 입력하세요.",
         "ratingsRequired": "수업이 진행된 경우 평가를 입력해야 합니다.",
         "cardReason": "부여하는 각 카드에 사유를 추가하세요."
-      }
+      },
+      "roomUsed": "사용한 교실",
+      "roomUnset": "배정된 교실",
+      "online": "온라인 진행",
+      "roomHelp": "순찰 기록과 맞도록 실제로 사용한 교실을 선택하세요. 교실에서 진행하지 않았다면 ‘온라인 진행’을 선택하세요."
     },
     "pairings": {
       "loading": "불러오는 중…",
@@ -1200,6 +1309,10 @@
         "earned": "{earned} 획득",
         "extra": "+ {extra} 추가",
         "penalty": "− {penalty} 감점"
+      },
+      "crew": {
+        "title": "순찰 시간",
+        "patrols": "{count, plural, other {# 회 순찰}}"
       }
     },
     "discipline": {
@@ -1299,6 +1412,23 @@
       "readPrompt": "끝에 도달했습니다.",
       "done": "완료 — 읽었습니다",
       "close": "닫기"
+    },
+    "crewSignup": {
+      "title": "순찰조 지원",
+      "intro": "순찰조는 교실을 돌며 인원을 기록해 출석을 검증합니다. 아래에서 지원하세요 — 관리자가 검토 후 코드를 보내드립니다.",
+      "alreadyMember": "이미 팀원이신가요?",
+      "signIn": "로그인",
+      "submit": "지원서 제출",
+      "submitting": "제출 중…",
+      "doneTitle": "지원서가 접수되었습니다",
+      "doneBody": "감사합니다! 관리자가 지원서를 검토하고 승인 시 등록 코드를 이메일로 보내드립니다.",
+      "fields": {
+        "fullName": "이름",
+        "email": "이메일",
+        "grade": "학년",
+        "contact": "선호 연락처 (선택)",
+        "message": "추가 사항 (선택)"
+      }
     }
   },
   "components": {
@@ -1371,6 +1501,45 @@
       "codeLabel": "인증 코드",
       "resend": "코드 재전송",
       "cancel": "취소"
+    }
+  },
+  "crew": {
+    "brand": "{team} · 순찰조",
+    "role": "순찰조",
+    "exit": "나가기",
+    "nav": {
+      "patrol": "순찰"
+    },
+    "patrol": {
+      "title": "교실 순찰",
+      "subtitle": "순서대로 교실을 돌며 각 교실의 학생 수를 누르세요. 순찰 한 번 제출 시 0.5 봉사시간이 적립됩니다.",
+      "myHours": "내 순찰 시간",
+      "patrolCount": "{count, plural, other {# 회 순찰}}",
+      "noRooms": "아직 순찰할 교실이 없습니다.",
+      "notePlaceholder": "메모(선택) — 이번 순찰에서 기록할 사항.",
+      "submit": "순찰 제출 ({count})",
+      "submitting": "제출 중…",
+      "submitted": "순찰이 기록되었습니다.",
+      "recent": "최근 순찰",
+      "optedOut": {
+        "title": "순찰조에서 탈퇴했습니다",
+        "body": "언제든지 재가입을 신청할 수 있습니다."
+      },
+      "reentry": {
+        "request": "재가입 신청",
+        "pending": "재가입을 신청했습니다 — 관리자 승인 대기 중."
+      },
+      "inactive": {
+        "title": "순찰 접근이 일시 중지됨",
+        "body": "관리자가 순찰 접근을 중지했습니다. 복원하려면 관리자에게 문의하세요."
+      },
+      "optOut": {
+        "request": "탈퇴 신청",
+        "reason": "탈퇴 사유 (선택)",
+        "submit": "탈퇴 신청 제출",
+        "pending": "탈퇴를 신청했습니다 — 관리자 승인 대기 중.",
+        "recall": "신청 철회"
+      }
     }
   }
 }

@@ -5,7 +5,9 @@
     "saved": "Guardado.",
     "language": "Idioma",
     "backToMain": "← Volver a la página principal",
-    "close": "Cerrar"
+    "close": "Cerrar",
+    "collapseAll": "Contraer todo",
+    "expandAll": "Expandir todo"
   },
   "auth": {
     "signinTitle": "Iniciar sesión",
@@ -64,12 +66,12 @@
     },
     "register": {
       "title": "Crea tu cuenta",
-      "subtitle": "Usa la clave de seguridad de 6 dígitos que te dio un administrador.",
+      "subtitle": "Usa la clave de seguridad que te dio un administrador.",
       "backToSignIn": "← Volver al inicio de sesión",
       "step": {
         "code": {
           "label": "Clave de seguridad",
-          "help": "Introduce el código de 6 dígitos que te dio un administrador o coordinador.",
+          "help": "Introduce el código que te dio un administrador o coordinador.",
           "submit": "Continuar"
         },
         "email": {
@@ -109,7 +111,8 @@
     "nav": {
       "requestTutor": "Solicitar un tutor",
       "becomeTutor": "Hazte tutor",
-      "teamSignin": "Iniciar sesión"
+      "teamSignin": "Iniciar sesión",
+      "becomeCrew": "Unirse a la ronda"
     },
     "tagline": "Programa de Tutoría entre Pares",
     "heroTitle": "Aprendamos juntos. Crezcamos juntos.",
@@ -328,7 +331,9 @@
         "tutorRequests": "Solicitudes de estado de tutor",
         "registrationCodes": "Códigos de registro",
         "tuteeRequests": "Bajas de alumnos",
-        "reports": "Informes"
+        "reports": "Informes",
+        "sessionFlags": "Avisos de asistencia",
+        "crew": "Ronda"
       }
     },
     "dashboard": {
@@ -338,7 +343,8 @@
         "activeTutors": "Tutores activos",
         "activeTutees": "Estudiantes activos",
         "pendingSignups": "Registros pendientes",
-        "serviceHours": "Horas de servicio · {month}"
+        "serviceHours": "Horas de servicio · {month}",
+        "crewPatrols": "Rondas"
       },
       "pendingBanner": "{count} {count, plural, one {registro de estudiante} other {registros de estudiantes}} en espera de revisión.",
       "reviewNow": "Revisar ahora →",
@@ -365,7 +371,10 @@
         "cardsToReview": "Tarjetas por revisar",
         "recentSurveys": "Encuestas recientes",
         "tutorRequests": "Solicitudes de estado",
-        "tuteeRequests": "Bajas pendientes"
+        "tuteeRequests": "Bajas pendientes",
+        "sessionFlags": "Avisos de asistencia",
+        "crewApplications": "Solicitudes de Ronda",
+        "crewRequests": "Solicitudes de Ronda"
       },
       "panels": {
         "tuteeSignups": {
@@ -396,6 +405,18 @@
         "tuteeRequests": {
           "title": "Bajas de alumnos pendientes",
           "empty": "No hay bajas pendientes."
+        },
+        "sessionFlags": {
+          "title": "Avisos de asistencia",
+          "empty": "No hay discrepancias de asistencia marcadas."
+        },
+        "crewApplications": {
+          "title": "Solicitudes de Ronda",
+          "empty": "No hay solicitudes de ronda pendientes."
+        },
+        "crewRequests": {
+          "title": "Baja / Reingreso de Ronda",
+          "empty": "No hay solicitudes de ronda pendientes."
         }
       }
     },
@@ -821,7 +842,7 @@
     },
     "registrationCodes": {
       "title": "Códigos de registro",
-      "help": "Emite una clave de seguridad de 6 dígitos de un solo uso para que un nuevo tutor se registre por su cuenta. El código se muestra una sola vez — cópialo y entrégalo; nunca se almacena.",
+      "help": "Emite una clave de seguridad de un solo uso para que un nuevo tutor o miembro de la ronda se registre. El código se muestra una vez — cópialo y entrégalo; nunca se almacena.",
       "labelField": "Para (etiqueta)",
       "labelPlaceholder": "p. ej. Jane Doe (G11)",
       "emailField": "Vincular a correo electrónico (opcional)",
@@ -860,7 +881,10 @@
         "setup": "Indica tu nombre, curso y una contraseña",
         "validity": "Código de un solo uso · válido hasta {date}"
       },
-      "empty": "Aún no hay códigos de registro."
+      "empty": "Aún no hay códigos de registro.",
+      "kindField": "Tipo de cuenta",
+      "kindTutor": "Tutor",
+      "kindCrew": "Ronda"
     },
     "tutorRequests": {
       "title": "Solicitudes de estado de tutor",
@@ -932,7 +956,9 @@
         "signups": "Inscripciones de alumnos",
         "removals": "Bajas y retiros de alumnos",
         "statusRequests": "Solicitudes de estado de tutor",
-        "meetingStats": "Asistencia a reuniones por tutor"
+        "meetingStats": "Asistencia a reuniones por tutor",
+        "crewStats": "Rondas",
+        "flags": "Avisos de asistencia"
       },
       "stat": {
         "total": "Horas totales",
@@ -949,7 +975,9 @@
         "signups": "Inscripciones",
         "applications": "Solicitudes",
         "removals": "Bajas",
-        "statusRequests": "Solicitudes de estado"
+        "statusRequests": "Solicitudes de estado",
+        "patrols": "Rondas",
+        "flags": "Avisos"
       },
       "col": {
         "tutor": "Tutor",
@@ -978,15 +1006,92 @@
         "grade": "Curso",
         "subjects": "Materias",
         "kind": "Tipo",
-        "state": "Estado"
+        "state": "Estado",
+        "member": "Miembro",
+        "patrols": "Rondas",
+        "expected": "Informado",
+        "observed": "La ronda vio",
+        "flagState": "Decisión"
       },
       "group": {
         "hours": "Horas de servicio",
         "attendance": "Sesiones y asistencia",
-        "activity": "Actividad"
+        "activity": "Actividad",
+        "crew": "Ronda"
       },
       "hoursCaption": "Total = ganadas + extras − sanciones.",
-      "attendanceCaption": "Presente / justificada / injustificada = asistencia de alumnos en las sesiones."
+      "attendanceCaption": "Presente / justificada / injustificada = asistencia de alumnos en las sesiones.",
+      "crewCaption": "Rondas y avisos de asistencia"
+    },
+    "crew": {
+      "title": "Ronda",
+      "subtitle": "Define el orden en que la ronda recorre las aulas y elige quién forma parte de ella.",
+      "orderHeading": "Orden de la ronda",
+      "orderHelp": "Las aulas se visitan de arriba abajo. Usa las flechas para reordenar.",
+      "moveUp": "Subir",
+      "moveDown": "Bajar",
+      "noRooms": "Aún no hay aulas. Agrega aulas primero.",
+      "saving": "Guardando…",
+      "saveOrder": "Guardar orden",
+      "saved": "Guardado.",
+      "rosterHeading": "Miembros de la ronda",
+      "col": {
+        "member": "Miembro",
+        "patrols": "Rondas",
+        "hours": "Horas",
+        "crew": "En la ronda",
+        "status": "Estado",
+        "actions": "Acciones"
+      },
+      "alsoTutor": "también tutor",
+      "yes": "Sí",
+      "no": "No",
+      "applicationsHeading": "Solicitudes de Ronda",
+      "applicationsEmpty": "No hay solicitudes pendientes.",
+      "accept": "Aceptar y emitir código",
+      "reject": "Rechazar",
+      "codeIssued": "Código: {code}",
+      "requestsHeading": "Bajas y Reingresos",
+      "requestsEmpty": "No hay solicitudes pendientes.",
+      "approve": "Aprobar",
+      "deny": "Denegar",
+      "cooldownUntil": "Aprobable el {date}",
+      "cooldownDone": "Lista para aprobar",
+      "crewOnly": "solo ronda",
+      "enable": "Reactivar",
+      "softRemove": "Quitar",
+      "delete": "Eliminar",
+      "deleteConfirm": "¿Eliminar la cuenta de ronda de {name}? No se puede deshacer.",
+      "rosterEmpty": "Aún no hay miembros de la ronda.",
+      "status": {
+        "ACTIVE": "Activo",
+        "OPTED_OUT": "Dado de baja",
+        "INACTIVE": "Retirado"
+      },
+      "reqKind": {
+        "OPT_OUT": "Baja",
+        "REENTRY": "Reingreso"
+      }
+    },
+    "sessionFlags": {
+      "title": "Avisos de asistencia",
+      "help": "La ronda contó menos estudiantes de los que el tutor marcó presentes. Revisa cada caso y decide.",
+      "discrepancy": "La ronda vio {observed}, el tutor informó {expected}",
+      "context": "{room} · {date} · {start}–{end}",
+      "notePlaceholder": "Nota para el registro (opcional)",
+      "dismiss": "Descartar como válido",
+      "warn": "Registrar advertencia",
+      "penaltyHours": "Horas de penalización",
+      "penalize": "Aplicar penalización",
+      "escalate": "Escalar para retiro",
+      "empty": "No hay avisos de asistencia para revisar.",
+      "state": {
+        "PENDING": "Pendiente",
+        "DISMISSED": "Descartado",
+        "WARNED": "Advertido",
+        "PENALIZED": "Penalizado",
+        "ESCALATED": "Escalado"
+      }
     }
   },
   "tutor": {
@@ -1073,7 +1178,11 @@
         "excusedReason": "Indica un motivo para cada ausencia justificada.",
         "ratingsRequired": "Las valoraciones son obligatorias para una sesión realizada.",
         "cardReason": "Agrega un motivo para cada tarjeta que asignes."
-      }
+      },
+      "roomUsed": "Aula usada",
+      "roomUnset": "Aula asignada",
+      "online": "En línea",
+      "roomHelp": "Elige el aula que realmente usaste para que las rondas coincidan. Elige «En línea» si la sesión no fue en un aula."
     },
     "pairings": {
       "loading": "Cargando…",
@@ -1193,6 +1302,10 @@
         "title": "Acceso de solo lectura",
         "body": "Tu cuenta de tutor está {status}. Puedes consultar tu historial, pero no puedes registrar asistencia ni aceptar nuevos estudiantes.",
         "reentryHint": "¿Quieres volver? Solicita la reincorporación desde la configuración de tu cuenta."
+      },
+      "crew": {
+        "title": "Horas de ronda",
+        "patrols": "{count, plural, =1 {# ronda} other {# rondas}}"
       }
     },
     "status": {
@@ -1299,6 +1412,23 @@
       "readPrompt": "Has llegado al final.",
       "done": "Listo — la he leído",
       "close": "Cerrar"
+    },
+    "crewSignup": {
+      "title": "Únete a la Ronda",
+      "intro": "La ronda recorre las aulas y registra el conteo de estudiantes para validar la asistencia. Postúlate abajo — un administrador revisará y te enviará un código.",
+      "alreadyMember": "¿Ya eres del equipo?",
+      "signIn": "Iniciar sesión",
+      "submit": "Enviar solicitud",
+      "submitting": "Enviando…",
+      "doneTitle": "Solicitud recibida",
+      "doneBody": "¡Gracias! Un administrador revisará tu solicitud y te enviará un código de registro si es aceptada.",
+      "fields": {
+        "fullName": "Nombre completo",
+        "email": "Correo",
+        "grade": "Nivel de grado",
+        "contact": "Contacto preferido (opcional)",
+        "message": "¿Algo más? (opcional)"
+      }
     }
   },
   "components": {
@@ -1371,6 +1501,45 @@
       "codeLabel": "Código de verificación",
       "resend": "Reenviar código",
       "cancel": "Cancelar"
+    }
+  },
+  "crew": {
+    "brand": "{team} · Ronda",
+    "role": "Ronda",
+    "exit": "Salir",
+    "nav": {
+      "patrol": "Ronda"
+    },
+    "patrol": {
+      "title": "Ronda de aulas",
+      "subtitle": "Recorre las aulas en orden y marca cuántos estudiantes hay en cada una. Enviar una ronda otorga 0,5 horas de servicio.",
+      "myHours": "Mis horas de ronda",
+      "patrolCount": "{count, plural, =1 {# ronda} other {# rondas}}",
+      "noRooms": "Aún no hay aulas que recorrer.",
+      "notePlaceholder": "Nota (opcional): algo que valga la pena anotar de esta ronda.",
+      "submit": "Enviar ronda ({count})",
+      "submitting": "Enviando…",
+      "submitted": "Ronda registrada.",
+      "recent": "Rondas recientes",
+      "optedOut": {
+        "title": "Has dejado la ronda",
+        "body": "Puedes solicitar reincorporarte cuando quieras."
+      },
+      "reentry": {
+        "request": "Solicitar reingreso",
+        "pending": "Reingreso solicitado — a la espera de aprobación."
+      },
+      "inactive": {
+        "title": "Acceso a la ronda en pausa",
+        "body": "Un administrador pausó tu acceso. Contáctalo para restaurarlo."
+      },
+      "optOut": {
+        "request": "Solicitar baja",
+        "reason": "¿Por qué te vas? (opcional)",
+        "submit": "Enviar solicitud de baja",
+        "pending": "Baja solicitada — a la espera de aprobación.",
+        "recall": "Retirar solicitud"
+      }
     }
   }
 }

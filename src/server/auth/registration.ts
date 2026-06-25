@@ -22,6 +22,7 @@ import { createHmac, randomInt } from "crypto";
 import { env } from "~/env";
 import { db } from "~/server/db";
 import { hashPassword } from "./password";
+import { generateRegistrationCode } from "./code";
 import { defaultUsername, ensureUniqueUsername } from "./username";
 import { graduationYear } from "~/lib/period";
 
@@ -43,7 +44,7 @@ export function hashCode(code: string): string {
   return createHmac("sha256", secret()).update(code.trim()).digest("hex");
 }
 
-/** A cryptographically-random 6-digit code as a zero-padded string. */
+/** A cryptographically-random 6-digit numeric code — used for the emailed email-verification OTP. */
 export function generateNumericCode(): string {
   return String(randomInt(0, 1_000_000)).padStart(6, "0");
 }
@@ -55,6 +56,8 @@ export interface IssueCodeOptions {
   label?: string | null;
   issuedById?: string | null;
   issuedByName?: string | null;
+  /** TUTOR (default) creates a tutor login; CREW creates a crew-only login. */
+  kind?: "TUTOR" | "CREW";
 }
 
 /**
@@ -67,12 +70,13 @@ export async function issueRegistrationCode(
   const expiresAt = new Date(Date.now() + CODE_TTL_DAYS * 24 * 60 * 60 * 1000);
   const email = opts.email?.trim() ? opts.email.trim().toLowerCase() : null;
   for (let attempt = 0; attempt < 5; attempt++) {
-    const code = generateNumericCode();
+    const code = generateRegistrationCode();
     const clash = await db.registrationCode.findUnique({ where: { code }, select: { id: true } });
     if (clash) continue;
     const row = await db.registrationCode.create({
       data: {
         code,
+        kind: opts.kind ?? "TUTOR",
         email,
         tutorId: opts.tutorId ?? null,
         applicationId: opts.applicationId ?? null,
@@ -244,13 +248,56 @@ export async function completeRegistration(
   // hijacking a DIFFERENT person's account: only reuse it when it's unlinked or links this tutor.
   const existingUser = await db.user.findUnique({
     where: { email },
-    select: { id: true, tutorId: true },
+    select: { id: true, tutorId: true, role: true, username: true },
   });
   if (existingUser?.tutorId && existingUser.tutorId !== row.tutorId) {
     return { ok: false, error: "email-taken" };
   }
 
   const passwordHash = hashPassword(input.password);
+
+  // ---- Crew-only registration (no Tutor) -----------------------------------
+  if (row.kind === "CREW") {
+    const username = await db.$transaction(async (tx) => {
+      if (existingUser) {
+        // A login already exists for this verified email — just grant (re)activate crew access.
+        // Existing credentials/role are left untouched (we don't overwrite a tutor/admin's account).
+        await tx.user.update({
+          where: { id: existingUser.id },
+          data: { crewStatus: "ACTIVE", gradeLevel },
+        });
+        await tx.registrationCode.update({
+          where: { id: row.id },
+          data: { usedAt: new Date(), usedByUserId: existingUser.id },
+        });
+        return existingUser.username ?? "";
+      }
+      const desiredUsername = await ensureUniqueUsername(
+        defaultUsername(firstName, lastName, gradYear),
+        {},
+      );
+      const created = await tx.user.create({
+        data: {
+          email,
+          username: desiredUsername,
+          name: `${firstName} ${lastName}`,
+          role: "CREW",
+          gradeLevel,
+          crewStatus: "ACTIVE",
+          passwordHash,
+          mustChangePassword: false,
+          emailVerifiedAt: new Date(),
+        },
+        select: { id: true },
+      });
+      await tx.registrationCode.update({
+        where: { id: row.id },
+        data: { usedAt: new Date(), usedByUserId: created.id },
+      });
+      return desiredUsername;
+    });
+    return { ok: true, username };
+  }
 
   const username = await db.$transaction(async (tx) => {
     // Resolve (or create) the Tutor.
@@ -311,6 +358,8 @@ export async function completeRegistration(
           passwordHash,
           mustChangePassword: false,
           emailVerifiedAt: new Date(),
+          // Auto-merge: a crew-only login that completes a tutor code becomes a tutor (keeping crew).
+          ...(existingUser.role === "CREW" ? { role: "TUTOR" as const } : {}),
         },
       });
       userId = existingUser.id;

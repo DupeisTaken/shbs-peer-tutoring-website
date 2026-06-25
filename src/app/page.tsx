@@ -16,7 +16,8 @@ export default async function Home() {
       session.role === "ADMIN" ||
       session.role === "COORDINATOR" ||
       session.role === "VIEWER";
-    redirect(adminArea ? "/admin" : "/dashboard");
+    // Crew-only logins reach only the patrol portal.
+    redirect(adminArea ? "/admin" : session.role === "CREW" ? "/patrol" : "/dashboard");
   }
 
   const t = await getTranslations("landing");
@@ -38,6 +39,9 @@ export default async function Home() {
             </Link>
             <Link href="/tutor-signup" className="btn-secondary btn-sm">
               {t("nav.becomeTutor")}
+            </Link>
+            <Link href="/crew-signup" className="btn-secondary btn-sm">
+              {t("nav.becomeCrew")}
             </Link>
             <Link href="/signin" className="btn-secondary btn-sm">
               {t("nav.teamSignin")}

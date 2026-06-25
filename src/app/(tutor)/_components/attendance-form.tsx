@@ -62,6 +62,7 @@ export function AttendanceForm() {
   const utils = api.useUtils();
   const pairingsQuery = api.tutor.myPairings.useQuery();
   const disciplineQuery = api.tutor.myTuteeDiscipline.useQuery();
+  const roomsQuery = api.tutor.rooms.useQuery();
   const submit = api.tutor.submitAttendance.useMutation({
     onSuccess: async () => {
       await Promise.all([
@@ -74,6 +75,9 @@ export function AttendanceForm() {
   // Per-tutee attendance + per-tutee card requests, keyed by tuteeId.
   const [tuteeState, setTuteeState] = useState<Record<string, TuteeEntry>>({});
   const [cards, setCards] = useState<Record<string, CardEntry>>({});
+  // Where the session actually ran (defaults to the pairing's room; can be online or another room).
+  const [online, setOnline] = useState(false);
+  const [actualRoomId, setActualRoomId] = useState<string>("");
   // Which other pairings are merged into this block is chosen under "My pairings" (shared state).
   const { setPrimaryPairingId, mergeIds, setMergeIds } = useMerge();
   const [formError, setFormError] = useState<string | null>(null);
@@ -129,6 +133,8 @@ export function AttendanceForm() {
     if (!selectedPairing) return;
     setValue("startTime", minToHm(selectedPairing.startMin));
     setValue("endTime", minToHm(selectedPairing.endMin));
+    setOnline(false);
+    setActualRoomId(selectedPairing.room?.id ?? "");
     setMergeIds([]);
     setTuteeState(
       Object.fromEntries(
@@ -206,6 +212,8 @@ export function AttendanceForm() {
       ratingBehavior: values.ratingBehavior,
       ratingProgress: values.ratingProgress,
       comments: values.comments.trim(),
+      actualRoomId: online ? null : actualRoomId || null,
+      online,
       cards: cardList.length > 0 ? cardList : undefined,
     });
   };
@@ -305,6 +313,38 @@ export function AttendanceForm() {
           </div>
         </div>
       </div>
+
+      {/* Where the session ran — the room used (or online). Lets the crew validate attendance. */}
+      {selectedPairing && held && (
+        <div className="space-y-1">
+          <label className="label">{t("tutor.attendance.roomUsed")}</label>
+          <div className="flex flex-wrap items-center gap-3">
+            <select
+              value={actualRoomId}
+              onChange={(e) => setActualRoomId(e.target.value)}
+              disabled={online}
+              className="select field-auto min-w-44"
+            >
+              <option value="">{t("tutor.attendance.roomUnset")}</option>
+              {(roomsQuery.data ?? []).map((rm) => (
+                <option key={rm.id} value={rm.id}>
+                  {rm.name}
+                </option>
+              ))}
+            </select>
+            <label className="flex items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={online}
+                onChange={(e) => setOnline(e.target.checked)}
+                className="accent-accent-600"
+              />
+              <span>{t("tutor.attendance.online")}</span>
+            </label>
+          </div>
+          <p className="muted text-xs">{t("tutor.attendance.roomHelp")}</p>
+        </div>
+      )}
 
       {/* Per-tutee attendance (only when the tutor held the session) */}
       {selectedPairing && held && (

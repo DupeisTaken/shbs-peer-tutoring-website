@@ -62,6 +62,7 @@ export default function RegistrationCodesPage() {
 
   const [email, setEmail] = useState("");
   const [label, setLabel] = useState("");
+  const [kind, setKind] = useState<"TUTOR" | "CREW">("TUTOR");
   const [issued, setIssued] = useState<
     { code: string; label: string | null; email: string | null; expiresAt: Date } | null
   >(null);
@@ -105,9 +106,21 @@ export default function RegistrationCodesPage() {
             issue.mutate({
               email: email.trim() || undefined,
               label: label.trim() || undefined,
+              kind,
             });
           }}
         >
+          <div>
+            <label className="label">{t("admin.registrationCodes.kindField")}</label>
+            <select
+              value={kind}
+              onChange={(e) => setKind(e.target.value as "TUTOR" | "CREW")}
+              className="select field-auto min-w-32"
+            >
+              <option value="TUTOR">{t("admin.registrationCodes.kindTutor")}</option>
+              <option value="CREW">{t("admin.registrationCodes.kindCrew")}</option>
+            </select>
+          </div>
           <div>
             <label className="label">{t("admin.registrationCodes.labelField")}</label>
             <input
@@ -186,6 +199,9 @@ export default function RegistrationCodesPage() {
                       <span className={`${statusBadge(c.status)} ml-2`}>
                         {t(`admin.registrationCodes.status.${c.status}`)}
                       </span>
+                      {c.kind === "CREW" && (
+                        <span className="badge-slate ml-2">{t("admin.registrationCodes.kindCrew")}</span>
+                      )}
                     </p>
                   </div>
                 </div>

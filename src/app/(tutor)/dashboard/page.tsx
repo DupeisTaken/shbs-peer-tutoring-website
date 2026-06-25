@@ -32,9 +32,10 @@ export default async function TutorDashboard() {
   const inactive = me.status !== "ACTIVE";
   const pending = me.status === "PENDING";
 
-  const [total, schedule] = await Promise.all([
+  const [total, schedule, crew] = await Promise.all([
     api.tutor.myMonthlyTotal(),
     api.tutor.schedule(),
+    api.tutor.myCrew(),
   ]);
 
   return (
@@ -66,19 +67,33 @@ export default async function TutorDashboard() {
           </h1>
           <p className="muted mt-1">{t("dashboard.subtitle")}</p>
         </div>
-        <div className="card px-5 py-3 text-right">
-          <p className="text-xs font-medium tracking-wide text-slate-500 uppercase">
-            {t("dashboard.hours.title")}
-            {total.periodLabel ? ` · ${total.periodLabel}` : ""}
-          </p>
-          <p className="text-3xl font-bold text-slate-900">{total.total.toFixed(1)} h</p>
-          <p className="muted">
-            {t("tutor.dashboard.hours.earned", { earned: total.earned.toFixed(1) })}
-            {total.extras > 0 &&
-              ` ${t("tutor.dashboard.hours.extra", { extra: total.extras.toFixed(1) })}`}
-            {total.punishments > 0 &&
-              ` ${t("tutor.dashboard.hours.penalty", { penalty: total.punishments.toFixed(1) })}`}
-          </p>
+        <div className="flex flex-wrap items-end gap-3">
+          <div className="card px-5 py-3 text-right">
+            <p className="text-xs font-medium tracking-wide text-slate-500 uppercase">
+              {t("dashboard.hours.title")}
+              {total.periodLabel ? ` · ${total.periodLabel}` : ""}
+            </p>
+            <p className="text-3xl font-bold text-slate-900">{total.total.toFixed(1)} h</p>
+            <p className="muted">
+              {t("tutor.dashboard.hours.earned", { earned: total.earned.toFixed(1) })}
+              {total.extras > 0 &&
+                ` ${t("tutor.dashboard.hours.extra", { extra: total.extras.toFixed(1) })}`}
+              {total.punishments > 0 &&
+                ` ${t("tutor.dashboard.hours.penalty", { penalty: total.punishments.toFixed(1) })}`}
+            </p>
+          </div>
+          {/* Crew hours — tallied separately from tutoring (only shown for crew members). */}
+          {crew.isCrew && (
+            <div className="card px-5 py-3 text-right">
+              <p className="text-xs font-medium tracking-wide text-slate-500 uppercase">
+                {t("tutor.dashboard.crew.title")}
+              </p>
+              <p className="text-3xl font-bold text-slate-900">{crew.hours.toFixed(1)} h</p>
+              <p className="muted">
+                {t("tutor.dashboard.crew.patrols", { count: crew.patrols })}
+              </p>
+            </div>
+          )}
         </div>
       </div>
 

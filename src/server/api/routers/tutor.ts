@@ -16,6 +16,7 @@ import {
   syncPunishmentRemoval,
 } from "~/server/discipline/removal";
 import { standingFromCounts } from "~/lib/discipline";
+import { syncSessionFlag } from "~/server/crew/flags";
 import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
 
 const TUTOR_STATUS = ["PRESENT", "RESCHEDULED", "EXTRA", "TUTOR_ABSENT"] as const;
@@ -130,6 +131,26 @@ export const tutorRouter = createTRPCRouter({
       .sort((a, b) => b.effectiveReds - a.effectiveReds || a.englishName.localeCompare(b.englishName));
   }),
 
+  /** Rooms catalogue (id + name) — for the "room used" picker on the attendance form. */
+  rooms: tutorProcedure.query(({ ctx }) =>
+    ctx.db.room.findMany({ orderBy: { name: "asc" }, select: { id: true, name: true } }),
+  ),
+
+  /** The signed-in tutor's crew patrol tally (separate from tutoring hours). Zero if not crew. */
+  myCrew: tutorProcedure.query(async ({ ctx }) => {
+    const me = await ctx.db.user.findUnique({
+      where: { id: ctx.session.user.id },
+      select: { crewStatus: true },
+    });
+    if (!me?.crewStatus) return { isCrew: false, patrols: 0, hours: 0 };
+    const agg = await ctx.db.patrol.aggregate({
+      where: { crewUserId: ctx.session.user.id },
+      _sum: { hours: true },
+      _count: { _all: true },
+    });
+    return { isCrew: true, patrols: agg._count._all, hours: agg._sum.hours ?? 0 };
+  }),
+
   /** The signed-in tutor's attendance submissions (optionally filtered by month). */
   mySessions: tutorProcedure
     .input(z.object({ month: monthInput }).optional())
@@ -228,6 +249,10 @@ export const tutorRouter = createTRPCRouter({
           // Optional overrides; default to the pairing's scheduled time.
           startMin: z.number().int().min(0).max(1439).optional(),
           endMin: z.number().int().min(1).max(1440).optional(),
+          // Where the session actually ran — the room used (defaults to the pairing's room) or
+          // online. Used to match crew patrol observations to this session.
+          actualRoomId: z.string().cuid().nullable().optional(),
+          online: z.boolean().optional(),
           ratingPreparedness: rating,
           ratingParticipation: rating,
           ratingUnderstanding: rating,
@@ -358,6 +383,11 @@ export const tutorRouter = createTRPCRouter({
       });
       const merged = ordered.length > 1;
 
+      // Where the block ran: online (no room) or a physical room (defaults to the primary
+      // pairing's assigned room). Shared by every session in a merged block.
+      const online = input.online ?? false;
+      const actualRoomId = online ? null : (input.actualRoomId ?? primary.roomId ?? null);
+
       const ratings = {
         ratingPreparedness: input.ratingPreparedness,
         ratingParticipation: input.ratingParticipation,
@@ -395,6 +425,8 @@ export const tutorRouter = createTRPCRouter({
               durationMin: computed.durationMin,
               shFactor: isPrimary ? computed.shFactor : 0,
               shCount: isPrimary ? computed.shCount : 0,
+              actualRoomId,
+              online,
               tutees: {
                 create: rows.map((t) => ({
                   tuteeId: t.tuteeId,
@@ -481,6 +513,10 @@ export const tutorRouter = createTRPCRouter({
       for (const tuteeId of autoRedTuteeIds) {
         await syncPunishmentRemoval(ctx.db, tuteeId);
       }
+
+      // Validate this entry against any crew patrol of the same room/time (raises a flag if the
+      // crew saw fewer students than were marked present).
+      await syncSessionFlag(ctx.db, result.id);
 
       return result;
     }),

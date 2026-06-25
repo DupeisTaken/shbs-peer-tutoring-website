@@ -39,7 +39,7 @@ export default async function AdminLayout({
   // keep the link to preserve attributes, so check the live status rather than the JWT's tutorId.
   const me = await db.user.findUnique({
     where: { id: session.user.id },
-    select: { username: true, tutor: { select: { username: true, status: true } } },
+    select: { username: true, crewStatus: true, tutor: { select: { username: true, status: true } } },
   });
   // Permitted to tutor = a live linked tutor that hasn't been archived (can-tutor turned off).
   // Keyed off the DB link (`me.tutor`), not the JWT's `session.tutorId`, so toggling can-tutor on
@@ -76,6 +76,11 @@ export default async function AdminLayout({
             {canEnterTutor && (
               <Link href="/dashboard" className="btn-secondary btn-sm">
                 {t("components.userMenu.enterTutor")}
+              </Link>
+            )}
+            {me?.crewStatus === "ACTIVE" && (
+              <Link href="/patrol" className="btn-secondary btn-sm">
+                {t("crew.nav.patrol")}
               </Link>
             )}
             <SignOutButton />

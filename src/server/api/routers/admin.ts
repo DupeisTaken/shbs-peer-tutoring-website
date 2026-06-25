@@ -790,7 +790,7 @@ export const adminRouter = createTRPCRouter({
         { earned: 0, extras: 0, punishments: 0, total: 0 },
       );
 
-      const [signupCount, cardCount, meetingCount, appCount, removalCount, statusReqCount] =
+      const [signupCount, cardCount, meetingCount, appCount, removalCount, statusReqCount, patrolCount, flagCount] =
         await Promise.all([
           wq ? ctx.db.tutee.count({ where: wq }) : Promise.resolve(0),
           wq ? ctx.db.disciplinaryCard.count({ where: wq }) : Promise.resolve(0),
@@ -800,6 +800,10 @@ export const adminRouter = createTRPCRouter({
           wq ? ctx.db.tutorApplication.count({ where: wq }) : Promise.resolve(0),
           wq ? ctx.db.tuteeRemovalRequest.count({ where: wq }) : Promise.resolve(0),
           wq ? ctx.db.tutorStatusRequest.count({ where: wq }) : Promise.resolve(0),
+          termIds.length
+            ? ctx.db.patrol.count({ where: { termId: { in: termIds } } })
+            : Promise.resolve(0),
+          ctx.db.sessionFlag.count({ where: { session: periodWhere } }),
         ]);
 
       const summary = {
@@ -815,6 +819,8 @@ export const adminRouter = createTRPCRouter({
           applications: appCount,
           removals: removalCount,
           statusRequests: statusReqCount,
+          patrols: patrolCount,
+          flags: flagCount,
         },
       };
       const base = {
@@ -830,6 +836,8 @@ export const adminRouter = createTRPCRouter({
       };
       const empty = {
         meetingStats: [] as never[],
+        crewStats: [] as never[],
+        flags: [] as never[],
         sessions: [] as never[],
         cards: [] as never[],
         meetings: [] as never[],
@@ -919,9 +927,61 @@ export const adminRouter = createTRPCRouter({
             b.unexcused - a.unexcused || b.excused - a.excused || a.tutor.localeCompare(b.tutor),
         );
 
+      // Crew patrol tallies (per crew member) + the period's attendance-discrepancy flags.
+      const [patrolAgg, flagRows] = await Promise.all([
+        termIds.length
+          ? ctx.db.patrol.groupBy({
+              by: ["crewUserId"],
+              where: { termId: { in: termIds } },
+              _count: { _all: true },
+              _sum: { hours: true },
+            })
+          : Promise.resolve([] as { crewUserId: string; _count: { _all: number }; _sum: { hours: number | null } }[]),
+        ctx.db.sessionFlag.findMany({
+          where: { session: periodWhere },
+          orderBy: { createdAt: "desc" },
+          select: {
+            id: true,
+            createdAt: true,
+            expected: true,
+            observed: true,
+            state: true,
+            tutor: { select: { englishName: true } },
+            session: { select: { date: true, pairing: { select: { subject: true } } } },
+          },
+        }),
+      ]);
+      const crewUserIds = patrolAgg.map((p) => p.crewUserId);
+      const crewUsers = crewUserIds.length
+        ? await ctx.db.user.findMany({
+            where: { id: { in: crewUserIds } },
+            select: { id: true, name: true, username: true },
+          })
+        : [];
+      const crewNameById = new Map(crewUsers.map((u) => [u.id, u.name ?? u.username ?? "?"]));
+      const crewStats = patrolAgg
+        .map((p) => ({
+          userId: p.crewUserId,
+          member: crewNameById.get(p.crewUserId) ?? "?",
+          patrols: p._count._all,
+          hours: p._sum.hours ?? 0,
+        }))
+        .sort((a, b) => b.patrols - a.patrols || a.member.localeCompare(b.member));
+      const flags = flagRows.map((f) => ({
+        id: f.id,
+        date: f.session.date,
+        tutor: f.tutor.englishName,
+        subject: f.session.pairing.subject,
+        expected: f.expected,
+        observed: f.observed,
+        state: f.state,
+      }));
+
       const detailed = {
         ...base,
         meetingStats,
+        crewStats,
+        flags,
         sessions: sessions.map((s) => ({
           id: s.id,
           date: s.date,
@@ -2281,6 +2341,381 @@ export const adminRouter = createTRPCRouter({
     }),
 
   // --------------------------------------------------------------------------
+  // Crew patrols — membership + patrol order config, and the attendance-flag review queue
+  // --------------------------------------------------------------------------
+  /** Set a crew member's lifecycle status: ACTIVE (enable/re-enable), INACTIVE (soft-remove,
+   *  revertible), or OPTED_OUT. Use a crew registration code to add a brand-new crew member. */
+  setCrewStatus: adminProcedure
+    .input(z.object({ userId: cuid, status: z.enum(["ACTIVE", "INACTIVE", "OPTED_OUT"]) }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db.user.update({ where: { id: input.userId }, data: { crewStatus: input.status } });
+      await recordAudit({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name,
+        action: `Set crew status to ${input.status}`,
+        entity: "User",
+        entityId: input.userId,
+      });
+      return { ok: true };
+    }),
+
+  /** Hard-delete a crew-only login (role CREW). Soft-remove (INACTIVE) is preferred + revertible;
+   *  this is the explicit, irreversible option. Guarded to crew-only accounts so it can never nuke
+   *  a tutor/admin login. Patrols + requests cascade. */
+  deleteCrewMember: adminOnlyProcedure
+    .input(z.object({ userId: cuid }))
+    .mutation(async ({ ctx, input }) => {
+      const target = await ctx.db.user.findUniqueOrThrow({
+        where: { id: input.userId },
+        select: { id: true, role: true, name: true, email: true },
+      });
+      if (target.role !== "CREW") {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Only crew-only logins can be deleted here. Use Users & Roles for other accounts.",
+        });
+      }
+      await ctx.db.user.delete({ where: { id: target.id } });
+      await recordAudit({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name,
+        action: `Deleted crew account ${target.name ?? target.email}`,
+        entity: "User",
+        entityId: target.id,
+      });
+      return { ok: true };
+    }),
+
+  /** Rooms in their current patrol order, for the order editor. */
+  patrolOrder: viewerProcedure.query(({ ctx }) =>
+    ctx.db.room.findMany({
+      orderBy: [{ patrolOrder: "asc" }, { name: "asc" }],
+      select: { id: true, name: true, patrolOrder: true },
+    }),
+  ),
+
+  /** Crew members (anyone with a crewStatus) + their patrol tally. Crew hours are separate from
+   *  tutoring. Crew-only logins (role CREW) can be hard-deleted; tutor-crew are managed via status. */
+  crewRoster: viewerProcedure.query(async ({ ctx }) => {
+    const [users, agg] = await Promise.all([
+      ctx.db.user.findMany({
+        where: { crewStatus: { not: null } },
+        orderBy: { name: "asc" },
+        // Fall back to username (never email) for the label — emails are PII masked from VIEWER, and
+        // the unmasked `name` key must never carry one.
+        select: {
+          id: true,
+          name: true,
+          username: true,
+          role: true,
+          crewStatus: true,
+          tutor: { select: { englishName: true } },
+        },
+      }),
+      ctx.db.patrol.groupBy({ by: ["crewUserId"], _sum: { hours: true }, _count: { _all: true } }),
+    ]);
+    const byUser = new Map(agg.map((p) => [p.crewUserId, { hours: p._sum.hours ?? 0, count: p._count._all }]));
+    const rank = { ACTIVE: 0, OPTED_OUT: 1, INACTIVE: 2 } as Record<string, number>;
+    return users
+      .map((u) => ({
+        id: u.id,
+        name: u.name ?? u.username ?? "—",
+        tutor: u.tutor?.englishName ?? null,
+        crewOnly: u.role === "CREW",
+        status: u.crewStatus ?? "INACTIVE",
+        patrols: byUser.get(u.id)?.count ?? 0,
+        hours: byUser.get(u.id)?.hours ?? 0,
+      }))
+      // Active first, then by patrol count.
+      .sort(
+        (a, b) =>
+          (rank[a.status] ?? 9) - (rank[b.status] ?? 9) ||
+          b.patrols - a.patrols ||
+          a.name.localeCompare(b.name),
+      );
+  }),
+
+  /** Save the crew's room patrol order (roomIds in the order they should be visited). */
+  setPatrolOrder: adminProcedure
+    .input(z.object({ roomIds: z.array(cuid).min(1) }))
+    .mutation(async ({ ctx, input }) => {
+      await ctx.db.$transaction(
+        input.roomIds.map((id, i) =>
+          ctx.db.room.update({ where: { id }, data: { patrolOrder: i } }),
+        ),
+      );
+      return { ok: true };
+    }),
+
+  /** Headline crew totals for the dashboard + activity: patrols, crew hours, open discrepancy
+   *  flags, active members, and the pending application / opt-out request counts. */
+  crewSummary: viewerProcedure.query(async ({ ctx }) => {
+    const [patrolAgg, flagCount, crewCount, appCount, reqCount] = await Promise.all([
+      ctx.db.patrol.aggregate({ _sum: { hours: true }, _count: { _all: true } }),
+      ctx.db.sessionFlag.count({ where: { state: "PENDING" } }),
+      ctx.db.user.count({ where: { crewStatus: "ACTIVE" } }),
+      ctx.db.crewApplication.count({ where: { status: "PENDING" } }),
+      ctx.db.crewStatusRequest.count({ where: { state: "PENDING" } }),
+    ]);
+    return {
+      patrols: patrolAgg._count._all,
+      hours: patrolAgg._sum.hours ?? 0,
+      openFlags: flagCount,
+      members: crewCount,
+      openApplications: appCount,
+      openRequests: reqCount,
+    };
+  }),
+
+  /** Pending crew applications (public "apply to be crew" submissions), earliest-first. */
+  crewApplications: viewerProcedure.query(({ ctx }) =>
+    ctx.db.crewApplication.findMany({
+      where: { status: "PENDING" },
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        name: true,
+        email: true,
+        gradeLevel: true,
+        preferredContact: true,
+        message: true,
+        createdAt: true,
+      },
+    }),
+  ),
+
+  /** Decide a crew application: ACCEPT issues a CREW registration code bound to the applicant's
+   *  email (shown on /admin/registration-codes to hand over); REJECT closes it. */
+  decideCrewApplication: adminProcedure
+    .input(z.object({ applicationId: cuid, action: z.enum(["ACCEPT", "REJECT"]), comment: z.string().trim().max(500).optional() }))
+    .mutation(async ({ ctx, input }) => {
+      const app = await ctx.db.crewApplication.findUniqueOrThrow({
+        where: { id: input.applicationId },
+        select: { id: true, name: true, email: true, status: true },
+      });
+      if (app.status !== "PENDING") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This application is already decided." });
+      }
+      let code: string | null = null;
+      if (input.action === "ACCEPT") {
+        const issued = await issueRegistrationCode({
+          email: app.email,
+          kind: "CREW",
+          label: `${app.name} (crew)`,
+          issuedById: ctx.session.user.id,
+          issuedByName: ctx.session.user.name,
+        });
+        code = issued.code;
+      }
+      await ctx.db.crewApplication.update({
+        where: { id: app.id },
+        data: {
+          status: input.action === "ACCEPT" ? "ACCEPTED" : "REJECTED",
+          decisionComment: input.comment?.trim() ? input.comment.trim() : null,
+          decidedByName: ctx.session.user.name,
+          decidedAt: new Date(),
+        },
+      });
+      await recordAudit({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name,
+        action: `${input.action === "ACCEPT" ? "Accepted" : "Rejected"} crew application from ${app.name}`,
+        entity: "CrewApplication",
+        entityId: app.id,
+      });
+      return { ok: true, code };
+    }),
+
+  /** Pending crew opt-out/reentry requests (member-initiated), earliest-first. Opt-out becomes
+   *  approvable only after its recall cooldown elapses. */
+  crewRequests: viewerProcedure.query(async ({ ctx }) => {
+    const now = new Date();
+    const reqs = await ctx.db.crewStatusRequest.findMany({
+      where: { state: "PENDING" },
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        kind: true,
+        eligibleAt: true,
+        reason: true,
+        createdAt: true,
+        user: { select: { id: true, name: true, username: true } },
+      },
+    });
+    return reqs.map((r) => ({
+      id: r.id,
+      kind: r.kind,
+      member: r.user.name ?? r.user.username ?? "—",
+      reason: r.reason,
+      eligibleAt: r.eligibleAt,
+      approvable: r.kind === "REENTRY" || !r.eligibleAt || r.eligibleAt <= now,
+      createdAt: r.createdAt,
+    }));
+  }),
+
+  /** Approve or deny a crew opt-out/reentry request. Approving OPT_OUT sets crewStatus OPTED_OUT
+   *  (only after the cooldown); approving REENTRY sets ACTIVE. The member is notified. */
+  decideCrewRequest: adminProcedure
+    .input(z.object({ requestId: cuid, action: z.enum(["APPROVE", "DENY"]) }))
+    .mutation(async ({ ctx, input }) => {
+      const req = await ctx.db.crewStatusRequest.findUniqueOrThrow({
+        where: { id: input.requestId },
+        select: { id: true, kind: true, state: true, eligibleAt: true, userId: true },
+      });
+      if (req.state !== "PENDING") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This request is already decided." });
+      }
+      if (input.action === "APPROVE" && req.kind === "OPT_OUT" && req.eligibleAt && req.eligibleAt > new Date()) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "The recall cooldown hasn't elapsed yet." });
+      }
+      await ctx.db.crewStatusRequest.update({
+        where: { id: req.id },
+        data: { state: input.action === "APPROVE" ? "APPROVED" : "DENIED", decidedByName: ctx.session.user.name, decidedAt: new Date() },
+      });
+      if (input.action === "APPROVE") {
+        await ctx.db.user.update({
+          where: { id: req.userId },
+          data: { crewStatus: req.kind === "OPT_OUT" ? "OPTED_OUT" : "ACTIVE" },
+        });
+      }
+      await notifyUsers([req.userId], {
+        title: "Crew request",
+        body:
+          input.action === "DENY"
+            ? "Your crew request was declined."
+            : req.kind === "OPT_OUT"
+              ? "Your crew opt-out was approved."
+              : "Welcome back — your crew reentry was approved.",
+        link: "/patrol",
+      });
+      await recordAudit({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name,
+        action: `${input.action === "APPROVE" ? "Approved" : "Denied"} crew ${req.kind} request`,
+        entity: "CrewStatusRequest",
+        entityId: req.id,
+      });
+      return { ok: true };
+    }),
+
+  /** Open (PENDING) attendance-discrepancy flags — the crew saw fewer students than reported. */
+  sessionFlags: viewerProcedure.query(async ({ ctx }) => {
+    const flags = await ctx.db.sessionFlag.findMany({
+      where: { state: "PENDING" },
+      orderBy: { createdAt: "asc" },
+      select: {
+        id: true,
+        expected: true,
+        observed: true,
+        createdAt: true,
+        tutor: { select: { englishName: true } },
+        session: {
+          select: {
+            id: true,
+            date: true,
+            startMin: true,
+            endMin: true,
+            pairing: { select: { subject: true } },
+            actualRoom: { select: { name: true } },
+          },
+        },
+      },
+    });
+    return flags.map((f) => ({
+      id: f.id,
+      expected: f.expected,
+      observed: f.observed,
+      createdAt: f.createdAt,
+      tutor: f.tutor.englishName,
+      subject: f.session.pairing.subject,
+      room: f.session.actualRoom?.name ?? null,
+      date: f.session.date,
+      startMin: f.session.startMin,
+      endMin: f.session.endMin,
+    }));
+  }),
+
+  /**
+   * Decide a flagged session: dismiss as valid, record a warning, apply a service-hour penalty
+   * (a PUNISHMENT adjustment for the session's period), or escalate for removal review. Notifies
+   * the tutor (except a silent dismissal).
+   */
+  decideSessionFlag: adminProcedure
+    .input(
+      z.object({
+        flagId: cuid,
+        action: z.enum(["DISMISS", "WARN", "PENALIZE", "ESCALATE"]),
+        note: z.string().trim().max(500).optional(),
+        penaltyHours: z.number().min(0).max(24).optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const flag = await ctx.db.sessionFlag.findUniqueOrThrow({
+        where: { id: input.flagId },
+        select: {
+          id: true,
+          state: true,
+          tutorId: true,
+          tutor: { select: { englishName: true, user: { select: { id: true } } } },
+          session: { select: { schoolYear: true, quarter: true, month: true } },
+        },
+      });
+      if (flag.state !== "PENDING") {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "This flag is already resolved." });
+      }
+      const stateByAction = {
+        DISMISS: "DISMISSED",
+        WARN: "WARNED",
+        PENALIZE: "PENALIZED",
+        ESCALATE: "ESCALATED",
+      } as const;
+      const note = input.note?.trim() ? input.note.trim() : null;
+
+      await ctx.db.sessionFlag.update({
+        where: { id: flag.id },
+        data: {
+          state: stateByAction[input.action],
+          decisionNote: note,
+          resolvedAt: new Date(),
+          resolvedById: ctx.session.user.id,
+          resolvedByName: ctx.session.user.name,
+        },
+      });
+
+      if (input.action === "PENALIZE") {
+        await ctx.db.serviceHourAdjustment.create({
+          data: {
+            tutorId: flag.tutorId,
+            month: flag.session.month,
+            schoolYear: flag.session.schoolYear,
+            quarter: flag.session.quarter,
+            type: "PUNISHMENT",
+            amount: input.penaltyHours ?? 0.5,
+            reason: `Attendance discrepancy (crew check)${note ? ` — ${note}` : ""}.`,
+          },
+        });
+      }
+
+      if (input.action !== "DISMISS" && flag.tutor.user?.id) {
+        const body =
+          input.action === "WARN"
+            ? "An attendance entry was flagged after a crew check — a warning was recorded."
+            : input.action === "PENALIZE"
+              ? "An attendance entry was flagged after a crew check — a service-hour penalty was applied."
+              : "An attendance entry was flagged after a crew check and escalated for review.";
+        await notifyUsers([flag.tutor.user.id], { title: "Attendance review", body, link: "/dashboard" });
+      }
+      await recordAudit({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name,
+        action: `${input.action} attendance flag for ${flag.tutor.englishName}`,
+        entity: "SessionFlag",
+        entityId: flag.id,
+      });
+      return { ok: true };
+    }),
+
+  // --------------------------------------------------------------------------
   // Registration codes (admins + coordinators) — the security keys handed to new tutors
   // --------------------------------------------------------------------------
   /**
@@ -2297,6 +2732,7 @@ export const adminRouter = createTRPCRouter({
       select: {
         id: true,
         code: true,
+        kind: true,
         email: true,
         label: true,
         issuedById: true,
@@ -2318,6 +2754,7 @@ export const adminRouter = createTRPCRouter({
     return codes.map((c) => ({
       id: c.id,
       code: canSee ? c.code : null,
+      kind: c.kind,
       email: c.email,
       label: c.label,
       issuedByName: c.issuedByName,
@@ -2341,13 +2778,15 @@ export const adminRouter = createTRPCRouter({
         email: z.string().email().optional(),
         tutorId: cuid.optional(),
         label: z.string().trim().max(120).optional(),
+        kind: z.enum(["TUTOR", "CREW"]).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       // If bound to a tutor, default the label/email from that tutor for the menu.
       let label = input.label?.trim() ? input.label.trim() : null;
       let email = input.email?.trim() ? input.email.trim().toLowerCase() : null;
-      if (input.tutorId) {
+      const kind = input.kind ?? "TUTOR";
+      if (kind === "TUTOR" && input.tutorId) {
         const tutor = await ctx.db.tutor.findUnique({
           where: { id: input.tutorId },
           select: { englishName: true, email: true },
@@ -2358,7 +2797,8 @@ export const adminRouter = createTRPCRouter({
       }
       const result = await issueRegistrationCode({
         email,
-        tutorId: input.tutorId ?? null,
+        tutorId: kind === "TUTOR" ? (input.tutorId ?? null) : null,
+        kind,
         label,
         issuedById: ctx.session.user.id,
         issuedByName: ctx.session.user.name,

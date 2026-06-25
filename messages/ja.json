@@ -5,7 +5,9 @@
     "saved": "保存しました。",
     "language": "言語",
     "backToMain": "← メインページに戻る",
-    "close": "閉じる"
+    "close": "閉じる",
+    "collapseAll": "すべて折りたたむ",
+    "expandAll": "すべて展開"
   },
   "auth": {
     "signinTitle": "サインイン",
@@ -64,12 +66,12 @@
     },
     "register": {
       "title": "アカウントを作成",
-      "subtitle": "管理者から受け取った6桁のセキュリティキーを使用してください。",
+      "subtitle": "管理者から渡されたセキュリティキーを入力してください。",
       "backToSignIn": "← サインインに戻る",
       "step": {
         "code": {
           "label": "セキュリティキー",
-          "help": "管理者またはコーディネーターから受け取った6桁のコードを入力してください。",
+          "help": "管理者またはコーディネーターから渡されたコードを入力してください。",
           "submit": "続行"
         },
         "email": {
@@ -109,7 +111,8 @@
     "nav": {
       "requestTutor": "チューターを申請",
       "becomeTutor": "チューターになる",
-      "teamSignin": "サインイン"
+      "teamSignin": "サインイン",
+      "becomeCrew": "巡回班に参加"
     },
     "tagline": "ピアチュータリングプログラム",
     "heroTitle": "一緒に学ぼう。一緒に成長しよう。",
@@ -335,7 +338,9 @@
         "usersRoles": "ユーザーと権限",
         "registrationCodes": "登録コード",
         "tuteeRequests": "生徒の削除",
-        "reports": "レポート"
+        "reports": "レポート",
+        "sessionFlags": "出席フラグ",
+        "crew": "巡回班"
       }
     },
     "dashboard": {
@@ -345,7 +350,8 @@
         "activeTutors": "有効チューター数",
         "activeTutees": "有効生徒数",
         "pendingSignups": "保留中の申請",
-        "serviceHours": "奉仕時間・{month}"
+        "serviceHours": "奉仕時間・{month}",
+        "crewPatrols": "巡回回数"
       },
       "pendingBanner": "生徒の申請が {count} 件、審査待ちです。",
       "reviewNow": "今すぐ確認 →",
@@ -372,7 +378,10 @@
         "cardsToReview": "確認待ちのカード",
         "tutorRequests": "状態申請",
         "recentSurveys": "最近のアンケート",
-        "tuteeRequests": "保留中の離脱"
+        "tuteeRequests": "保留中の離脱",
+        "sessionFlags": "出席フラグ",
+        "crewApplications": "巡回班の申請",
+        "crewRequests": "巡回班の申請対応"
       },
       "panels": {
         "tuteeSignups": {
@@ -403,6 +412,18 @@
         "tuteeRequests": {
           "title": "保留中の生徒離脱",
           "empty": "保留中の離脱はありません。"
+        },
+        "sessionFlags": {
+          "title": "出席フラグ",
+          "empty": "出席の不一致は報告されていません。"
+        },
+        "crewApplications": {
+          "title": "巡回班の申請",
+          "empty": "保留中の巡回班の申請はありません。"
+        },
+        "crewRequests": {
+          "title": "巡回班 退会 / 再参加",
+          "empty": "保留中の巡回班の申請はありません。"
         }
       }
     },
@@ -549,7 +570,7 @@
     },
     "registrationCodes": {
       "title": "登録コード",
-      "help": "新しいチューターが自己登録するための一回限りの6桁セキュリティキーを発行します。コードは一度だけ表示されます — コピーして渡してください。保存はされません。",
+      "help": "新しいチューターまたは巡回班員が自己登録するための使い切りセキュリティキーを発行します。コードは一度だけ表示されます — コピーして渡してください。保存はされません。",
       "labelField": "対象（ラベル）",
       "labelPlaceholder": "例：Jane Doe (G11)",
       "emailField": "メールアドレスに紐付け（任意）",
@@ -588,7 +609,10 @@
         "setup": "名前・学年・パスワードを設定",
         "validity": "使い捨てコード · 有効期限 {date}"
       },
-      "empty": "登録コードはまだありません。"
+      "empty": "登録コードはまだありません。",
+      "kindField": "アカウント種別",
+      "kindTutor": "チューター",
+      "kindCrew": "巡回班"
     },
     "tutorRequests": {
       "title": "チューター状態申請",
@@ -932,7 +956,9 @@
         "signups": "生徒申込",
         "removals": "生徒の削除・離脱",
         "statusRequests": "チューター状態申請",
-        "meetingStats": "チューター別会議出席"
+        "meetingStats": "チューター別会議出席",
+        "crewStats": "巡回記録",
+        "flags": "出席フラグ"
       },
       "stat": {
         "total": "合計時間",
@@ -949,7 +975,9 @@
         "signups": "申込",
         "applications": "応募",
         "removals": "削除",
-        "statusRequests": "状態申請"
+        "statusRequests": "状態申請",
+        "patrols": "巡回回数",
+        "flags": "フラグ数"
       },
       "col": {
         "tutor": "チューター",
@@ -978,15 +1006,92 @@
         "grade": "学年",
         "subjects": "科目",
         "kind": "種類",
-        "state": "状態"
+        "state": "状態",
+        "member": "メンバー",
+        "patrols": "巡回回数",
+        "expected": "報告人数",
+        "observed": "巡回確認",
+        "flagState": "判断"
       },
       "group": {
         "hours": "奉仕時間",
         "attendance": "セッションと出席",
-        "activity": "活動"
+        "activity": "活動",
+        "crew": "巡回班"
       },
       "hoursCaption": "合計 = 獲得 + 追加 − 減点。",
-      "attendanceCaption": "出席 / 公欠 / 欠席 = 各セッションの生徒の出席。"
+      "attendanceCaption": "出席 / 公欠 / 欠席 = 各セッションの生徒の出席。",
+      "crewCaption": "巡回と出席フラグ"
+    },
+    "crew": {
+      "title": "巡回班",
+      "subtitle": "巡回班が教室を回る順番を設定し、メンバーを選びます。",
+      "orderHeading": "巡回順",
+      "orderHelp": "上から下へ順に回ります。矢印で並べ替えます。",
+      "moveUp": "上へ",
+      "moveDown": "下へ",
+      "noRooms": "教室がまだありません。先に教室を追加してください。",
+      "saving": "保存中…",
+      "saveOrder": "順番を保存",
+      "saved": "保存しました。",
+      "rosterHeading": "巡回班メンバー",
+      "col": {
+        "member": "メンバー",
+        "patrols": "巡回回数",
+        "hours": "時間",
+        "crew": "巡回班",
+        "status": "状態",
+        "actions": "操作"
+      },
+      "alsoTutor": "チューターも兼任",
+      "yes": "はい",
+      "no": "いいえ",
+      "applicationsHeading": "巡回班の申請",
+      "applicationsEmpty": "保留中の申請はありません。",
+      "accept": "承認してコード発行",
+      "reject": "却下",
+      "codeIssued": "コード：{code}",
+      "requestsHeading": "退会・再参加の申請",
+      "requestsEmpty": "保留中の申請はありません。",
+      "approve": "承認",
+      "deny": "却下",
+      "cooldownUntil": "{date} から承認可能",
+      "cooldownDone": "承認可能",
+      "crewOnly": "巡回のみ",
+      "enable": "再有効化",
+      "softRemove": "解除",
+      "delete": "削除",
+      "deleteConfirm": "{name} の巡回アカウントを削除しますか？元に戻せません。",
+      "rosterEmpty": "巡回班員はまだいません。",
+      "status": {
+        "ACTIVE": "活動中",
+        "OPTED_OUT": "退会",
+        "INACTIVE": "解除済み"
+      },
+      "reqKind": {
+        "OPT_OUT": "退会",
+        "REENTRY": "再参加"
+      }
+    },
+    "sessionFlags": {
+      "title": "出席フラグ",
+      "help": "巡回班が数えた生徒数が、チューターが出席と記録した人数を下回りました。各件を確認して判断してください。",
+      "discrepancy": "巡回班は{observed}人、チューターは{expected}人と報告",
+      "context": "{room} · {date} · {start}–{end}",
+      "notePlaceholder": "記録用メモ（任意）",
+      "dismiss": "有効として却下",
+      "warn": "警告を記録",
+      "penaltyHours": "減算時間",
+      "penalize": "減算を適用",
+      "escalate": "除名審査へ",
+      "empty": "確認する出席フラグはありません。",
+      "state": {
+        "PENDING": "保留",
+        "DISMISSED": "却下",
+        "WARNED": "警告済み",
+        "PENALIZED": "減算済み",
+        "ESCALATED": "エスカレーション"
+      }
     }
   },
   "tutor": {
@@ -1080,7 +1185,11 @@
         "excusedReason": "各公欠の理由を入力してください。",
         "ratingsRequired": "開催されたセッションには評価が必要です。",
         "cardReason": "発行する各カードに理由を追加してください。"
-      }
+      },
+      "roomUsed": "使用した教室",
+      "roomUnset": "割り当て教室",
+      "online": "オンライン実施",
+      "roomHelp": "巡回記録と照合できるよう、実際に使った教室を選んでください。教室以外で行った場合は「オンライン実施」を選びます。"
     },
     "pairings": {
       "loading": "読み込み中…",
@@ -1200,6 +1309,10 @@
         "earned": "{earned} h 獲得",
         "extra": "+ {extra} h 追加",
         "penalty": "− {penalty} h 減点"
+      },
+      "crew": {
+        "title": "巡回時間",
+        "patrols": "{count, plural, other {# 回の巡回}}"
       }
     },
     "discipline": {
@@ -1299,6 +1412,23 @@
       "readPrompt": "最後まで到達しました。",
       "done": "完了 — 読みました",
       "close": "閉じる"
+    },
+    "crewSignup": {
+      "title": "巡回班に参加",
+      "intro": "巡回班は教室を回り、人数を記録して出席を検証します。下記から申請してください — 管理者が確認し、承認時にコードを送ります。",
+      "alreadyMember": "すでにチームの一員ですか？",
+      "signIn": "ログイン",
+      "submit": "申請を送信",
+      "submitting": "送信中…",
+      "doneTitle": "申請を受け付けました",
+      "doneBody": "ありがとうございます。管理者が申請を確認し、承認された場合は登録コードをメールします。",
+      "fields": {
+        "fullName": "氏名",
+        "email": "メール",
+        "grade": "学年",
+        "contact": "希望連絡先（任意）",
+        "message": "その他（任意）"
+      }
     }
   },
   "components": {
@@ -1371,6 +1501,45 @@
       "codeLabel": "確認コード",
       "resend": "コードを再送",
       "cancel": "キャンセル"
+    }
+  },
+  "crew": {
+    "brand": "{team} · 巡回班",
+    "role": "巡回班",
+    "exit": "終了",
+    "nav": {
+      "patrol": "巡回"
+    },
+    "patrol": {
+      "title": "教室巡回",
+      "subtitle": "順番に各教室を回り、いる生徒の人数をタップします。1回の巡回提出で0.5時間が加算されます。",
+      "myHours": "自分の巡回時間",
+      "patrolCount": "{count, plural, other {# 回の巡回}}",
+      "noRooms": "巡回する教室がまだありません。",
+      "notePlaceholder": "メモ（任意）— この巡回で記録すべきこと。",
+      "submit": "巡回を提出（{count}）",
+      "submitting": "送信中…",
+      "submitted": "巡回を記録しました。",
+      "recent": "最近の巡回",
+      "optedOut": {
+        "title": "巡回班を退会しました",
+        "body": "いつでも再参加を申請できます。"
+      },
+      "reentry": {
+        "request": "再参加を申請",
+        "pending": "再参加を申請しました — 管理者の承認待ちです。"
+      },
+      "inactive": {
+        "title": "巡回アクセスは一時停止中",
+        "body": "管理者があなたの巡回アクセスを停止しました。復元するには連絡してください。"
+      },
+      "optOut": {
+        "request": "退会を申請",
+        "reason": "退会の理由（任意）",
+        "submit": "退会申請を送信",
+        "pending": "退会を申請しました — 管理者の承認待ちです。",
+        "recall": "申請を取り消す"
+      }
     }
   }
 }

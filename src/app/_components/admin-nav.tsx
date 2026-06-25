@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 
 import { NavLink } from "~/app/_components/nav-link";
+import { NavSidebarClient } from "~/app/_components/nav-sidebar-client";
 
 export type NavItem = {
   href: string;
@@ -50,6 +51,8 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
     items: [
       { href: "/admin/pairings", labelKey: "admin.nav.links.pairings" },
       { href: "/admin/attendance", labelKey: "admin.nav.links.attendance" },
+      { href: "/admin/session-flags", labelKey: "admin.nav.links.sessionFlags", elevatedOnly: true },
+      { href: "/admin/crew", labelKey: "admin.nav.links.crew", elevatedOnly: true },
       { href: "/admin/time-slots", labelKey: "admin.nav.links.timeSlots" },
       { href: "/admin/subjects", labelKey: "admin.nav.links.coursesLevels" },
       { href: "/admin/rooms", labelKey: "admin.nav.links.rooms" },
@@ -76,30 +79,25 @@ function makeVisible(role: string) {
     (!item.adminOnly || isAdminTier) && (!item.elevatedOnly || isElevated);
 }
 
-/** Sticky left sidebar (lg+) listing the nav, grouped by section and filtered by role. */
+/** Sticky left sidebar (lg+): collapsible nav groups + a collapse/expand-all toggle, filtered by
+ *  role. Labels resolve server-side; the client component owns collapse state (persisted). */
 export async function NavSidebar({ role }: { role: string }) {
   const t = await getTranslations();
   const visible = makeVisible(role);
+  const sections = NAV_SECTIONS.map((section) => ({
+    key: section.titleKey,
+    title: t(section.titleKey),
+    items: section.items
+      .filter(visible)
+      .map((item) => ({ href: item.href, label: t(item.labelKey), exact: item.exact })),
+  })).filter((s) => s.items.length > 0);
   return (
     <aside className="hidden w-56 shrink-0 lg:block">
-      <nav className="sticky top-20 space-y-5">
-        {NAV_SECTIONS.map((section) => {
-          const items = section.items.filter(visible);
-          if (items.length === 0) return null;
-          return (
-            <div key={section.titleKey}>
-              <p className="px-3 pb-1 text-xs font-semibold tracking-wide text-slate-400 uppercase">
-                {t(section.titleKey)}
-              </p>
-              <div className="space-y-0.5">
-                {items.map((item) => (
-                  <NavLink key={item.href} href={item.href} label={t(item.labelKey)} exact={item.exact} />
-                ))}
-              </div>
-            </div>
-          );
-        })}
-      </nav>
+      <NavSidebarClient
+        sections={sections}
+        collapseAllLabel={t("common.collapseAll")}
+        expandAllLabel={t("common.expandAll")}
+      />
     </aside>
   );
 }

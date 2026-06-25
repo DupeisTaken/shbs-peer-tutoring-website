@@ -40,7 +40,10 @@ your changes (`generated/prisma/`) and move on.
   Add the string to `messages/en.json` (and the other locales, e.g. `messages/zh.json`) as a
   nested key, then render it: in **client** components `const t = useTranslations(); t("dashboard.attendance.title")`;
   in **server** components `const t = await getTranslations(); …`. Keys are dot-pathed by area
-  and support ICU `{placeholder}` args. The active locale comes from the `NEXT_LOCALE` cookie
+  and support ICU `{placeholder}` args. **English titles use Title Case** — capitalize every
+  word (e.g. "Attendance Flags", "Crew Patrols", "Patrol Order"), not sentence case. This applies
+  to page titles, section headings, nav labels, column headers, stat/card labels, and button
+  labels; only the `en` locale follows this rule (other locales use their own conventions). The active locale comes from the `NEXT_LOCALE` cookie
   (the `LanguageSwitcher` in the header sets it — no locale routing, so the auth middleware is
   untouched); config in `src/i18n/request.ts`. Orgs can white-label without editing the files
   via the `MESSAGES_OVERRIDE` env (deep-merged JSON). Strings are also editable **in-app** at
@@ -68,8 +71,10 @@ your changes (`generated/prisma/`) and move on.
   `server`, public vars to `client` (must be `NEXT_PUBLIC_*`), and wire **both** into
   `runtimeEnv`. Give defaults so the app runs unconfigured.
 - **API is tRPC** under `src/server/api/routers/` (`tutor`, `tutee`, `admin`,
-  `application`, `registration`). **Role hierarchy: `HEAD` > `ADMIN` > `COORDINATOR` > `TUTOR` >
-  `VIEWER`.** Use the right procedure: `publicProcedure`, `adminProcedure` (write; HEAD/ADMIN/
+  `application`, `registration`, `crew`). **Role hierarchy: `HEAD` > `ADMIN` > `COORDINATOR` > `TUTOR` >
+  `VIEWER`** (plus the off-to-the-side **`CREW`** role — a crew-only login that reaches only `/patrol`,
+  not part of the admin/tutor ladder; see Crew patrols). Use the right procedure: `publicProcedure`,
+  `crewProcedure` (ACTIVE crew or elevated), `adminProcedure` (write; HEAD/ADMIN/
   COORDINATOR), `adminOnlyProcedure` (the **admin tier** — HEAD or ADMIN, e.g. role changes /
   program refresh / hour adjustments), **`headProcedure`** (strictly the singleton HEAD — manages
   the admin roster + leadership transfer), or **`viewerProcedure`** for admin **reads** — it also
@@ -173,12 +178,16 @@ submission time). See the `admin-philosophies` memory for the rationale.
   review. The one public page that *does* create a login is **`/register`**, and only after the
   visitor proves an **admin-issued single-use registration code** plus an emailed email-verification
   code — so account creation is still gated by an admin, never open self-service.
-- **Registration codes are short-lived, low-value secrets.** The 6-digit `code` is stored in
-  **plaintext** so admins/coordinators can re-display it on `/admin/registration-codes` (revealed
-  on demand via a per-row popup; withheld from the read-only VIEWER). Its value is bounded by being
-  **single-use**, expiring after **7 days**, and **rate-limited** at every `/register` step (per IP +
-  per code, `src/server/rate-limit.ts`). The *separate* emailed email-verification code is never
-  re-displayed and IS stored hashed (HMAC, `AUTH_SECRET`). Keep these guards when touching the flow.
+- **Registration codes are short-lived, low-value secrets.** The `code` is a **5-character Steam-style**
+  key (unambiguous uppercase alphanumerics, `src/server/auth/code.ts` — `generateRegistrationCode`,
+  cryptographically random, ~31⁵; normalize input with `normalizeRegCode`), stored in **plaintext** so
+  admins/coordinators can re-display it on `/admin/registration-codes` (revealed on demand; withheld from
+  the read-only VIEWER). `RegistrationCode.kind` (`TUTOR|CREW`) decides what redeeming it provisions; the
+  issuer picks it on `/admin/registration-codes`, and accepting a crew application issues a CREW one.
+  Its value is bounded by being **single-use**, expiring after **7 days**, and **rate-limited** at every
+  `/register` step (per IP + per code, `src/server/rate-limit.ts`). The *separate* emailed
+  email-verification code stays **6-digit numeric** (`generateNumericCode`), is never re-displayed, and IS
+  stored hashed (HMAC, `AUTH_SECRET`). Keep these guards when touching the flow.
 - **Never accept `role` or status from public input.** Roles live on `User.role`, carried
   in the JWT. The first `AUTH_BOOTSTRAP_ADMIN_EMAILS` entry resolves to the singleton **HEAD**, the
   rest to `ADMIN` — grants only ever **elevate** (a transferred head is never silently demoted).
@@ -236,7 +245,7 @@ submission time). See the `admin-philosophies` memory for the rationale.
   manual admin override. Admins action these on **`/admin/tutor-requests`**; counts surface on
   `/admin/activity`.
 - **Account creation is self-registration via a security key.** Admins/coordinators issue a
-  single-use 6-digit **`RegistrationCode`** on **`/admin/registration-codes`** (the code is stored in
+  single-use 5-character **`RegistrationCode`** on **`/admin/registration-codes`** (the code is stored in
   plaintext and re-viewable per row via a popup, valid 7 days or until used; see
   `src/server/auth/registration.ts`); accepting a tutor application also generates one
   (`promoteApplicantToTutor`, bound to the applicant's email + tutor). The recruit
@@ -292,6 +301,36 @@ submission time). See the `admin-philosophies` memory for the rationale.
   `/admin/subjects`. (Admin routes were tidied for clarity: `/admin/service-hours`,
   `/admin/hour-adjustments`, `/admin/discipline`, `/admin/attendance`, `/admin/time-slots`,
   `/admin/subjects`.)
+- **Crew patrols (attendance validation).** The *crew* walks the rooms in a set order and records a
+  headcount bucket (`Headcount` enum `ZERO|ONE|TWO|THREE|FOUR_PLUS`) per room — a `Patrol` (0.5h each,
+  fixed `PATROL_HOURS`) with one `PatrolObservation` per room. **Crew membership is a lifecycle, not a
+  boolean:** `User.crewStatus` (`ACTIVE | OPTED_OUT | INACTIVE`, null = not crew). Only `ACTIVE` may
+  patrol. A tutor/admin can also be crew (their role stays; `crewStatus` set ACTIVE); a **crew-only
+  login** is the dedicated **`CREW` role** (reaches only `/patrol`, lands there post-login, blocked
+  from /admin & tutor areas). **Onboarding:** public **`/crew-signup`** → PENDING `CrewApplication`
+  (no login, like the other public forms) → an admin accepts on **`/admin/crew`**, which issues a
+  **CREW `RegistrationCode`** (`RegistrationCode.kind` = `TUTOR|CREW`) bound to their email; redeeming it
+  at `/register` creates a `{role: CREW, crewStatus: ACTIVE}` login with no Tutor. A crew member who
+  later completes a **tutor** code on the same email is **auto-merged** (the CREW login is upgraded to
+  TUTOR, keeping crew). **Opt-out/reentry** mirror the tutor flow: a member self-requests from `/patrol`
+  (`CrewStatusRequest`, kinds `OPT_OUT`/`REENTRY`); opt-out has a recall cooldown
+  (`CREW_OPT_OUT_COOLDOWN_DAYS`) and an admin approves on `/admin/crew` (→ `OPTED_OUT`); reentry → ACTIVE.
+  Admins also **soft-remove** (`INACTIVE`, revertible) or **hard-delete** a crew-only login there; that
+  page also edits the **room patrol order** (`Room.patrolOrder`). Application + request counts surface on
+  `/admin/activity`. Crew members log patrols at the standalone **`/patrol`** portal (gated by
+  `crewProcedure`: ACTIVE crew or an elevated role; opted-out/paused get a read-only portal). **Crew hours are tallied
+  separately from tutoring hours** — they come from `Patrol.hours`, never `ServiceHourAdjustment`, and
+  surface as their own card on the tutor dashboard + a column on `/admin/crew` + the report's Crew section.
+  Attendance entries now record the **room actually used**: `Session.actualRoomId` (+ `Session.online`),
+  set on the dashboard attendance form. Validation is **under-count only**: `syncSessionFlag`
+  (`src/server/crew/flags.ts`, called from `submitAttendance` and `crew.submitPatrol`) compares the
+  **distinct PRESENT tutees** of a session's merge-group (`expected`) against the **minimum** crew headcount
+  seen in that room on the same day within a ±15-min window (`observed`); if `observed < expected` it
+  materialises one **`SessionFlag`** (`@unique` per session, state `PENDING|DISMISSED|WARNED|PENALIZED|
+  ESCALATED`). Online / no-room / already-decided sessions never flag. Admins review on
+  **`/admin/session-flags`** (`decideSessionFlag`): **dismiss** as valid, record a **warning**, **apply an
+  hour penalty** (creates a PUNISHMENT `ServiceHourAdjustment`), or **escalate for removal** — the tutor is
+  notified (except a silent dismiss). Count + panel on `/admin/activity`; a stat on the admin dashboard.
 
 ## Layout
 

@@ -24,8 +24,17 @@ import {
   resolveUsableCode,
   setEmailVerification,
 } from "~/server/auth/registration";
+import { normalizeRegCode } from "~/server/auth/code";
 
-const codeInput = z.string().trim().regex(/^\d{6}$/);
+/** The admin-issued security key: normalized (uppercase, separators stripped) to 5 alphanumerics.
+ *  Validity (existence/expiry/use) is checked by lookup, so a wrong-but-well-formed code yields a
+ *  friendly "not valid" rather than a raw schema error. */
+const codeInput = z
+  .string()
+  .transform(normalizeRegCode)
+  .pipe(z.string().regex(/^[0-9A-Z]{5}$/));
+/** The emailed email-verification OTP stays 6-digit numeric. */
+const emailCodeInput = z.string().trim().regex(/^\d{6}$/);
 
 /** Coarse client IP from proxy headers (best-effort; only used for rate-limit keys). */
 function clientIp(headers: Headers): string {
@@ -68,6 +77,7 @@ export const registrationRouter = createTRPCRouter({
     if (!resolved.ok) codeError(resolved.error);
     const prefill = await codePrefill(resolved.row);
     return {
+      kind: resolved.row.kind,
       boundEmail: prefill.boundEmail,
       firstName: prefill.firstName,
       lastName: prefill.lastName,
@@ -112,7 +122,7 @@ export const registrationRouter = createTRPCRouter({
 
   /** Confirm the emailed 6-digit code. */
   verifyEmail: publicProcedure
-    .input(z.object({ code: codeInput, emailCode: codeInput }))
+    .input(z.object({ code: codeInput, emailCode: emailCodeInput }))
     .mutation(async ({ ctx, input }) => {
       const ip = clientIp(ctx.headers);
       enforceRateLimit(`reg:ip:${ip}`, 30);

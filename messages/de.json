@@ -5,7 +5,9 @@
     "saved": "Gespeichert.",
     "language": "Sprache",
     "backToMain": "← Zurück zur Hauptseite",
-    "close": "Schließen"
+    "close": "Schließen",
+    "collapseAll": "Alle zuklappen",
+    "expandAll": "Alle aufklappen"
   },
   "auth": {
     "signinTitle": "Anmelden",
@@ -64,12 +66,12 @@
     },
     "register": {
       "title": "Konto erstellen",
-      "subtitle": "Geben Sie den 6-stelligen Sicherheitsschlüssel ein, den ein Administrator Ihnen mitgeteilt hat.",
+      "subtitle": "Verwenden Sie den Sicherheitsschlüssel, den Ihnen ein Admin gegeben hat.",
       "backToSignIn": "← Zurück zur Anmeldung",
       "step": {
         "code": {
           "label": "Sicherheitsschlüssel",
-          "help": "Den 6-stelligen Code eingeben, den ein Administrator oder Koordinator mitgeteilt hat.",
+          "help": "Geben Sie den Code ein, den Ihnen ein Admin oder Koordinator gegeben hat.",
           "submit": "Weiter"
         },
         "email": {
@@ -109,7 +111,8 @@
     "nav": {
       "requestTutor": "Tutor anfragen",
       "becomeTutor": "Tutor werden",
-      "teamSignin": "Anmelden"
+      "teamSignin": "Anmelden",
+      "becomeCrew": "Rundgang beitreten"
     },
     "tagline": "Peer-Tutoring-Programm",
     "heroTitle": "Gemeinsam lernen. Gemeinsam wachsen.",
@@ -335,7 +338,9 @@
         "usersRoles": "Benutzer & Rollen",
         "registrationCodes": "Registrierungscodes",
         "tuteeRequests": "Tutee-Entfernungen",
-        "reports": "Berichte"
+        "reports": "Berichte",
+        "sessionFlags": "Anwesenheitsmarkierungen",
+        "crew": "Rundgang"
       }
     },
     "dashboard": {
@@ -345,7 +350,8 @@
         "activeTutors": "Aktive Tutoren",
         "activeTutees": "Aktive Lernende",
         "pendingSignups": "Ausstehende Anmeldungen",
-        "serviceHours": "Servicestunden · {month}"
+        "serviceHours": "Servicestunden · {month}",
+        "crewPatrols": "Rundgänge"
       },
       "pendingBanner": "{count} {count, plural, one {Anmeldung wartet} other {Anmeldungen warten}} auf Überprüfung.",
       "reviewNow": "Jetzt prüfen →",
@@ -372,7 +378,10 @@
         "cardsToReview": "Zu prüfende Karten",
         "tutorRequests": "Statusanträge",
         "recentSurveys": "Aktuelle Umfragen",
-        "tuteeRequests": "Ausstehende Abmeldungen"
+        "tuteeRequests": "Ausstehende Abmeldungen",
+        "sessionFlags": "Anwesenheitsmarkierungen",
+        "crewApplications": "Rundgang-Bewerbungen",
+        "crewRequests": "Rundgang-Anträge"
       },
       "panels": {
         "tuteeSignups": {
@@ -403,6 +412,18 @@
         "tuteeRequests": {
           "title": "Ausstehende Tutee-Abmeldungen",
           "empty": "Keine ausstehenden Abmeldungen."
+        },
+        "sessionFlags": {
+          "title": "Anwesenheitsmarkierungen",
+          "empty": "Keine Anwesenheitsabweichungen markiert."
+        },
+        "crewApplications": {
+          "title": "Rundgang-Bewerbungen",
+          "empty": "Keine offenen Rundgang-Bewerbungen."
+        },
+        "crewRequests": {
+          "title": "Rundgang Austritt / Wiedereintritt",
+          "empty": "Keine offenen Rundgang-Anträge."
         }
       }
     },
@@ -549,7 +570,7 @@
     },
     "registrationCodes": {
       "title": "Registrierungscodes",
-      "help": "Einen einmalig nutzbaren 6-stelligen Sicherheitsschlüssel für einen neuen Tutor zur Selbstregistrierung ausstellen. Der Code wird einmalig angezeigt – kopieren und direkt weitergeben; er wird nicht gespeichert.",
+      "help": "Stellen Sie einen Einmal-Sicherheitsschlüssel aus, mit dem sich ein neuer Tutor oder ein Rundgang-Mitglied selbst registriert. Der Code wird einmal angezeigt — kopieren und übergeben; er wird nie gespeichert.",
       "labelField": "Für (Bezeichnung)",
       "labelPlaceholder": "z. B. Jane Doe (G11)",
       "emailField": "An E-Mail binden (optional)",
@@ -588,7 +609,10 @@
         "setup": "Name, Klassenstufe und Passwort festlegen",
         "validity": "Einmalcode · gültig bis {date}"
       },
-      "empty": "Noch keine Registrierungscodes."
+      "empty": "Noch keine Registrierungscodes.",
+      "kindField": "Kontotyp",
+      "kindTutor": "Tutor",
+      "kindCrew": "Rundgang"
     },
     "tutorRequests": {
       "title": "Tutor-Statusanträge",
@@ -932,7 +956,9 @@
         "signups": "Tutee-Anmeldungen",
         "removals": "Tutee-Entfernungen & Abmeldungen",
         "statusRequests": "Tutor-Statusanträge",
-        "meetingStats": "Sitzungsanwesenheit je Tutor"
+        "meetingStats": "Sitzungsanwesenheit je Tutor",
+        "crewStats": "Rundgänge",
+        "flags": "Anwesenheitsmarkierungen"
       },
       "stat": {
         "total": "Gesamtstunden",
@@ -949,7 +975,9 @@
         "signups": "Anmeldungen",
         "applications": "Bewerbungen",
         "removals": "Entfernungen",
-        "statusRequests": "Statusanträge"
+        "statusRequests": "Statusanträge",
+        "patrols": "Rundgänge",
+        "flags": "Markierungen"
       },
       "col": {
         "tutor": "Tutor",
@@ -978,15 +1006,92 @@
         "grade": "Klasse",
         "subjects": "Fächer",
         "kind": "Art",
-        "state": "Status"
+        "state": "Status",
+        "member": "Mitglied",
+        "patrols": "Rundgänge",
+        "expected": "Gemeldet",
+        "observed": "Team sah",
+        "flagState": "Entscheidung"
       },
       "group": {
         "hours": "Servicestunden",
         "attendance": "Sitzungen & Anwesenheit",
-        "activity": "Aktivität"
+        "activity": "Aktivität",
+        "crew": "Rundgang"
       },
       "hoursCaption": "Gesamt = verdient + Extras − Abzüge.",
-      "attendanceCaption": "Anwesend / entschuldigt / unentschuldigt = Tutee-Anwesenheit in den Sitzungen."
+      "attendanceCaption": "Anwesend / entschuldigt / unentschuldigt = Tutee-Anwesenheit in den Sitzungen.",
+      "crewCaption": "Rundgänge und Anwesenheitsmarkierungen"
+    },
+    "crew": {
+      "title": "Rundgang",
+      "subtitle": "Legen Sie die Reihenfolge fest, in der das Team die Räume abgeht, und wählen Sie die Mitglieder.",
+      "orderHeading": "Rundgang-Reihenfolge",
+      "orderHelp": "Die Räume werden von oben nach unten besucht. Mit den Pfeilen umsortieren.",
+      "moveUp": "Nach oben",
+      "moveDown": "Nach unten",
+      "noRooms": "Noch keine Räume. Fügen Sie zuerst Räume hinzu.",
+      "saving": "Wird gespeichert…",
+      "saveOrder": "Reihenfolge speichern",
+      "saved": "Gespeichert.",
+      "rosterHeading": "Rundgang-Mitglieder",
+      "col": {
+        "member": "Mitglied",
+        "patrols": "Rundgänge",
+        "hours": "Stunden",
+        "crew": "Im Team",
+        "status": "Status",
+        "actions": "Aktionen"
+      },
+      "alsoTutor": "auch Tutor",
+      "yes": "Ja",
+      "no": "Nein",
+      "applicationsHeading": "Rundgang-Bewerbungen",
+      "applicationsEmpty": "Keine offenen Bewerbungen.",
+      "accept": "Annehmen & Code ausstellen",
+      "reject": "Ablehnen",
+      "codeIssued": "Code: {code}",
+      "requestsHeading": "Austritts- & Wiedereintrittsanträge",
+      "requestsEmpty": "Keine offenen Anträge.",
+      "approve": "Genehmigen",
+      "deny": "Ablehnen",
+      "cooldownUntil": "Genehmigbar am {date}",
+      "cooldownDone": "Bereit zur Genehmigung",
+      "crewOnly": "nur Rundgang",
+      "enable": "Reaktivieren",
+      "softRemove": "Entfernen",
+      "delete": "Löschen",
+      "deleteConfirm": "Das Rundgang-Konto von {name} löschen? Kann nicht rückgängig gemacht werden.",
+      "rosterEmpty": "Noch keine Rundgang-Mitglieder.",
+      "status": {
+        "ACTIVE": "Aktiv",
+        "OPTED_OUT": "Ausgetreten",
+        "INACTIVE": "Entfernt"
+      },
+      "reqKind": {
+        "OPT_OUT": "Austritt",
+        "REENTRY": "Wiedereintritt"
+      }
+    },
+    "sessionFlags": {
+      "title": "Anwesenheitsmarkierungen",
+      "help": "Das Team zählte weniger Schüler, als der Tutor als anwesend markiert hat. Prüfen Sie jeden Fall und entscheiden Sie.",
+      "discrepancy": "Team sah {observed}, Tutor meldete {expected}",
+      "context": "{room} · {date} · {start}–{end}",
+      "notePlaceholder": "Notiz für die Akte (optional)",
+      "dismiss": "Als gültig verwerfen",
+      "warn": "Verwarnung erfassen",
+      "penaltyHours": "Abzugsstunden",
+      "penalize": "Abzug anwenden",
+      "escalate": "Zur Entfernung eskalieren",
+      "empty": "Keine Anwesenheitsmarkierungen zu prüfen.",
+      "state": {
+        "PENDING": "Offen",
+        "DISMISSED": "Verworfen",
+        "WARNED": "Verwarnt",
+        "PENALIZED": "Abzug",
+        "ESCALATED": "Eskaliert"
+      }
     }
   },
   "tutor": {
@@ -1080,7 +1185,11 @@
         "excusedReason": "Bitte für jede entschuldigte Abwesenheit einen Grund angeben.",
         "ratingsRequired": "Bewertungen sind für eine gehaltene Sitzung erforderlich.",
         "cardReason": "Bitte für jede vergebene Karte einen Grund angeben."
-      }
+      },
+      "roomUsed": "Genutzter Raum",
+      "roomUnset": "Zugewiesener Raum",
+      "online": "Online abgehalten",
+      "roomHelp": "Wählen Sie den tatsächlich genutzten Raum, damit die Rundgang-Kontrollen passen. Wählen Sie „Online abgehalten“, wenn die Sitzung nicht in einem Raum stattfand."
     },
     "pairings": {
       "loading": "Wird geladen…",
@@ -1200,6 +1309,10 @@
         "earned": "{earned} verdient",
         "extra": "+ {extra} Extras",
         "penalty": "− {penalty} Abzüge"
+      },
+      "crew": {
+        "title": "Rundgang-Stunden",
+        "patrols": "{count, plural, =1 {# Rundgang} other {# Rundgänge}}"
       }
     },
     "discipline": {
@@ -1299,6 +1412,23 @@
       "readPrompt": "Sie haben das Ende erreicht.",
       "done": "Fertig — ich habe dies gelesen",
       "close": "Schließen"
+    },
+    "crewSignup": {
+      "title": "Dem Rundgang beitreten",
+      "intro": "Das Rundgang-Team geht die Räume ab und erfasst Schülerzahlen zur Validierung der Anwesenheit. Bewerben Sie sich unten — ein Admin prüft und sendet Ihnen einen Code.",
+      "alreadyMember": "Schon im Team?",
+      "signIn": "Anmelden",
+      "submit": "Bewerbung senden",
+      "submitting": "Senden…",
+      "doneTitle": "Bewerbung erhalten",
+      "doneBody": "Danke! Ein Admin prüft Ihre Bewerbung und sendet Ihnen bei Annahme einen Registrierungscode.",
+      "fields": {
+        "fullName": "Vollständiger Name",
+        "email": "E-Mail",
+        "grade": "Jahrgangsstufe",
+        "contact": "Bevorzugter Kontakt (optional)",
+        "message": "Sonstiges? (optional)"
+      }
     }
   },
   "components": {
@@ -1371,6 +1501,45 @@
       "codeLabel": "Bestätigungscode",
       "resend": "Code erneut senden",
       "cancel": "Abbrechen"
+    }
+  },
+  "crew": {
+    "brand": "{team} · Rundgang",
+    "role": "Rundgang-Team",
+    "exit": "Beenden",
+    "nav": {
+      "patrol": "Rundgang"
+    },
+    "patrol": {
+      "title": "Raumrundgang",
+      "subtitle": "Gehen Sie die Räume der Reihe nach ab und tippen Sie an, wie viele Schüler in jedem sind. Ein abgeschickter Rundgang bringt 0,5 Servicestunden.",
+      "myHours": "Meine Rundgang-Stunden",
+      "patrolCount": "{count, plural, =1 {# Rundgang} other {# Rundgänge}}",
+      "noRooms": "Noch keine Räume für den Rundgang.",
+      "notePlaceholder": "Notiz (optional) – alles Erwähnenswerte zu diesem Rundgang.",
+      "submit": "Rundgang absenden ({count})",
+      "submitting": "Wird gesendet…",
+      "submitted": "Rundgang erfasst.",
+      "recent": "Letzte Rundgänge",
+      "optedOut": {
+        "title": "Sie haben den Rundgang verlassen",
+        "body": "Sie können jederzeit einen Wiedereintritt beantragen."
+      },
+      "reentry": {
+        "request": "Wiedereintritt beantragen",
+        "pending": "Wiedereintritt beantragt — wartet auf Admin-Freigabe."
+      },
+      "inactive": {
+        "title": "Rundgang-Zugang pausiert",
+        "body": "Ein Admin hat Ihren Zugang pausiert. Kontaktieren Sie ihn zur Wiederherstellung."
+      },
+      "optOut": {
+        "request": "Austritt beantragen",
+        "reason": "Warum gehen Sie? (optional)",
+        "submit": "Austrittsantrag senden",
+        "pending": "Austritt beantragt — wartet auf Admin-Freigabe.",
+        "recall": "Antrag zurückziehen"
+      }
     }
   }
 }

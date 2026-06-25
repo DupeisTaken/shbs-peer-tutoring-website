@@ -64,7 +64,7 @@ export function RegisterFlow() {
           className="space-y-3"
           onSubmit={(e) => {
             e.preventDefault();
-            if (/^\d{6}$/.test(code)) check.mutate({ code });
+            if (/^[0-9A-Z]{5}$/.test(code)) check.mutate({ code });
           }}
         >
           <label className="label" htmlFor="reg-code">
@@ -72,19 +72,19 @@ export function RegisterFlow() {
           </label>
           <input
             id="reg-code"
-            inputMode="numeric"
+            autoCapitalize="characters"
             autoComplete="one-time-code"
-            maxLength={6}
+            maxLength={5}
             value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-            placeholder="000000"
-            className="input w-full text-center text-2xl tracking-[0.4em]"
+            onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, "").slice(0, 5))}
+            placeholder="XXXXX"
+            className="input w-full text-center text-2xl tracking-[0.4em] uppercase"
           />
           <p className="muted text-xs">{t("auth.register.step.code.help")}</p>
           {check.error && <p className="text-sm text-red-600">{check.error.message}</p>}
           <button
             className="btn-primary w-full"
-            disabled={!/^\d{6}$/.test(code) || check.isPending}
+            disabled={!/^[0-9A-Z]{5}$/.test(code) || check.isPending}
           >
             {t("auth.register.step.code.submit")}
           </button>

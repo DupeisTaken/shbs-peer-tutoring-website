@@ -69,6 +69,7 @@ export default async function TutorLayout({
       emailVerifiedAt: true,
       mustChangePassword: true,
       canTranslate: true,
+      crewStatus: true,
       tutor: { select: { username: true } },
     },
   });
@@ -96,6 +97,11 @@ export default async function TutorLayout({
             {isElevated && (
               <Link href="/admin" className="btn-secondary btn-sm">
                 {t("components.userMenu.enterAdmin")}
+              </Link>
+            )}
+            {me?.crewStatus === "ACTIVE" && (
+              <Link href="/patrol" className="btn-secondary btn-sm">
+                {t("crew.nav.patrol")}
               </Link>
             )}
             <Link href="/handbook" className="btn-secondary btn-sm">
