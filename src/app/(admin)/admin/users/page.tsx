@@ -346,7 +346,9 @@ export default function UsersPage() {
                             {t(`admin.tutors.account.${u.account}`)}
                           </span>
                         </div>
-                        {u.account !== "invited" && (
+                        {/* Provision a login only for tutors who don't have a finished one yet.
+                            A registered user self-serves via /forgot-password — no admin resend. */}
+                        {(u.account === "none" || u.account === "setup") && (
                           <div>
                             <button
                               className="link text-xs whitespace-nowrap"
@@ -356,9 +358,7 @@ export default function UsersPage() {
                               }
                               onClick={() => u.tutorId && sendSetup.mutate({ tutorId: u.tutorId })}
                             >
-                              {u.account === "registered"
-                                ? t("admin.tutors.account.resend")
-                                : t("admin.tutors.account.sendSetup")}
+                              {t("admin.tutors.account.sendSetup")}
                             </button>
                           </div>
                         )}

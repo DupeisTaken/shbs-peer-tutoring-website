@@ -213,7 +213,6 @@
         "pending": "Configuración pendiente",
         "none": "Sin inicio de sesión",
         "sendSetup": "Enviar enlace de configuración",
-        "resend": "Reenviar configuración",
         "needEmail": "Agrega un correo primero",
         "linkEmailed": "Correo de configuración enviado. También puedes copiar el enlace de abajo para compartirlo directamente.",
         "linkManual": "Cuenta lista. Comparte este enlace de configuración con el tutor (el correo no está configurado):",
@@ -526,7 +525,7 @@
         "actions": "Acciones"
       },
       "roles": {
-        "VIEWER": "Observador (solo lectura)",
+        "VIEWER": "Observador",
         "TUTOR": "Tutor",
         "COORDINATOR": "Coordinador",
         "ADMIN": "Administrador",

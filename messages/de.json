@@ -217,7 +217,6 @@
         "invited": "Code ausgestellt",
         "none": "Kein Login",
         "sendSetup": "Einrichtungslink senden",
-        "resend": "Einrichtung erneut senden",
         "needEmail": "Zuerst eine E-Mail hinzufügen",
         "linkEmailed": "Einrichtungs-E-Mail gesendet. Den Link unten können Sie auch kopieren und direkt weitergeben.",
         "linkManual": "Konto bereit. Diesen Einrichtungslink an den Tutor weitergeben (E-Mail nicht konfiguriert):",
@@ -533,7 +532,7 @@
         "actions": "Aktionen"
       },
       "roles": {
-        "VIEWER": "Betrachter (nur Lesen)",
+        "VIEWER": "Betrachter",
         "TUTOR": "Tutor",
         "COORDINATOR": "Koordinator",
         "ADMIN": "Administrator",

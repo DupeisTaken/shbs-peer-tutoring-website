@@ -217,7 +217,6 @@
         "invited": "Code Issued",
         "none": "No Login",
         "sendSetup": "Send Setup Link",
-        "resend": "Resend Setup",
         "needEmail": "Add An Email First",
         "linkEmailed": "Setup email sent. You can also copy the link below to share directly.",
         "linkManual": "Account ready. Share this setup link with the tutor (email isn't configured):",
@@ -533,7 +532,7 @@
         "actions": "Actions"
       },
       "roles": {
-        "VIEWER": "Viewer (Read-Only)",
+        "VIEWER": "Viewer",
         "TUTOR": "Tutor",
         "COORDINATOR": "Coordinator",
         "ADMIN": "Admin",

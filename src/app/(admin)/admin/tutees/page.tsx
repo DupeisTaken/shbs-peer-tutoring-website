@@ -9,8 +9,7 @@ import { DAY_NAMES, minToHm } from "~/lib/time";
 import { REFERENCE_STALE_TIME } from "~/lib/query";
 import { SortHeader, useSort, compare } from "~/app/_components/sortable";
 
-const STATUSES = ["PENDING", "ACTIVE", "INACTIVE"] as const;
-type Status = (typeof STATUSES)[number];
+type Status = "PENDING" | "ACTIVE" | "INACTIVE";
 
 function StatusBadge({ status, label }: { status: Status; label: string }) {
   const cls =
@@ -81,10 +80,6 @@ export default function TuteesPage() {
   const invalidate = () => utils.admin.tutees.invalidate();
   const create = api.admin.createTutee.useMutation({ onSuccess: invalidate });
   const update = api.admin.updateTutee.useMutation({ onSuccess: invalidate });
-  const setStatus = api.admin.setTuteeStatus.useMutation({
-    onSuccess: invalidate,
-    onError: invalidate, // refresh on a stale-write conflict
-  });
   const del = api.admin.deleteTutee.useMutation({ onSuccess: invalidate });
 
   const [name, setName] = useState("");
@@ -340,27 +335,10 @@ export default function TuteesPage() {
                   <td className="text-slate-600">
                     {t2.preferredContact ?? t2.email ?? t2.phone ?? "—"}
                   </td>
+                  {/* Status is read-only here — transitions follow the procedures: assignment on
+                      /admin/requests, removal & reinstatement on /admin/tutee-requests. */}
                   <td>
-                    <div className="flex items-center gap-2">
-                      <StatusBadge status={t2.status} label={statusLabel(t2.status)} />
-                      <select
-                        value={t2.status}
-                        onChange={(e) =>
-                          setStatus.mutate({
-                            id: t2.id,
-                            status: e.target.value as Status,
-                            expectedUpdatedAt: t2.updatedAt,
-                          })
-                        }
-                        className="select field-auto min-w-32"
-                      >
-                        {STATUSES.map((s) => (
-                          <option key={s} value={s}>
-                            {statusLabel(s)}
-                          </option>
-                        ))}
-                      </select>
-                    </div>
+                    <StatusBadge status={t2.status} label={statusLabel(t2.status)} />
                   </td>
                   <td className="text-right">
                     <button className="link-danger" onClick={() => del.mutate({ id: t2.id })}>

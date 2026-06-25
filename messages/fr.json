@@ -217,7 +217,6 @@
         "invited": "Code émis",
         "none": "Pas de connexion",
         "sendSetup": "Envoyer le lien de configuration",
-        "resend": "Renvoyer la configuration",
         "needEmail": "Ajoutez d'abord un e-mail",
         "linkEmailed": "E-mail de configuration envoyé. Vous pouvez aussi copier le lien ci-dessous pour le partager directement.",
         "linkManual": "Compte prêt. Partagez ce lien de configuration avec le tuteur (l'e-mail n'est pas configuré) :",
@@ -533,7 +532,7 @@
         "actions": "Actions"
       },
       "roles": {
-        "VIEWER": "Observateur (lecture seule)",
+        "VIEWER": "Observateur",
         "TUTOR": "Tuteur",
         "COORDINATOR": "Coordinateur",
         "ADMIN": "Administrateur",

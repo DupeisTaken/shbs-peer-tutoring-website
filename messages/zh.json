@@ -213,7 +213,6 @@
         "pending": "待设置",
         "none": "无登录",
         "sendSetup": "发送设置链接",
-        "resend": "重新发送",
         "needEmail": "请先填写邮箱",
         "linkEmailed": "设置邮件已发送。你也可以复制下方链接直接分享。",
         "linkManual": "账户已就绪。请将此设置链接发送给导师（邮件尚未配置）：",
@@ -526,7 +525,7 @@
         "actions": "操作"
       },
       "roles": {
-        "VIEWER": "访客（只读）",
+        "VIEWER": "访客",
         "TUTOR": "导师",
         "COORDINATOR": "协调员",
         "ADMIN": "管理员",
