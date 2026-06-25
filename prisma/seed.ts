@@ -864,12 +864,12 @@ async function main() {
   await db.user.upsert({
     where: { email: "parent@example.edu" },
     update: { role: "VIEWER", affiliation: "Parent of Emma", name: "Pat Rivera" },
-    create: { id: "user-observer-1", email: "parent@example.edu", username: "privera", name: "Pat Rivera", role: "VIEWER", affiliation: "Parent of Emma", passwordHash, emailVerifiedAt: new Date() },
+    create: { id: "user-observer-1", email: "parent@example.edu", name: "Pat Rivera", role: "VIEWER", affiliation: "Parent of Emma", passwordHash, emailVerifiedAt: new Date() },
   });
   const suspendedObserver = await db.user.upsert({
     where: { email: "observer2@example.edu" },
     update: { role: "VIEWER", affiliation: "Community member", name: "Sam Okafor", suspendedAt: new Date(), suspendedReason: "Flagged for review." },
-    create: { id: "user-observer-2", email: "observer2@example.edu", username: "sokafor", name: "Sam Okafor", role: "VIEWER", affiliation: "Community member", suspendedAt: new Date(), suspendedReason: "Flagged for review.", passwordHash, emailVerifiedAt: new Date() },
+    create: { id: "user-observer-2", email: "observer2@example.edu", name: "Sam Okafor", role: "VIEWER", affiliation: "Community member", suspendedAt: new Date(), suspendedReason: "Flagged for review.", passwordHash, emailVerifiedAt: new Date() },
   });
   await db.accountAppeal.upsert({
     where: { id: "appeal-1" },

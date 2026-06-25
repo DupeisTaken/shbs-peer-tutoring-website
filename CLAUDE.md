@@ -115,6 +115,10 @@ your changes (`generated/prisma/`) and move on.
   `confirmPassword` arg, collected by the page's `ConfirmIdentityDialog`. **Every account has a
   `User.username`** (unique across `User` *and* `Tutor` — sign in with username OR email);
   `ensureUserUsername` backfills/mirrors it (the `accounts` query heals missing ones on read).
+  **Exception: read-only observer (VIEWER) accounts may be username-less** — they sign in by email,
+  `completeViewerSignup` assigns no username, and `ensureUserUsername` skips them (no "observer"
+  collision churn). Uniqueness for everyone else is `ensureUniqueUsername` (base → letter → counter,
+  collision-checked across both tables).
   Self-service **account page** at **`/admin/account`** (opened by clicking your name in the top
   bar; `account` router): edit display name + change password.
 - **Service-hour math lives in `src/lib/service-hours.ts`** — pure and unit-tested. It's
@@ -216,8 +220,14 @@ submission time). See the `admin-philosophies` memory for the rationale.
   issuer picks it on `/admin/registration-codes`, and accepting a crew application issues a CREW one.
   Its value is bounded by being **single-use**, expiring after **7 days**, and **rate-limited** at every
   `/register` step (per IP + per code, `src/server/rate-limit.ts`). The *separate* emailed
-  email-verification code stays **6-digit numeric** (`generateNumericCode`), is never re-displayed, and IS
-  stored hashed (HMAC, `AUTH_SECRET`). Keep these guards when touching the flow.
+  email-verification code is never re-displayed and IS stored hashed (HMAC, `AUTH_SECRET`). Keep these
+  guards when touching the flow.
+- **All emailed verification codes are 5-digit numeric.** Every email-verification / one-time code —
+  the `/register` email check, the `/observe` observer signup, and the password-change step-up — uses
+  **`generateNumericCode`** (5-digit numeric, `src/server/auth/registration.ts`). This is distinct from
+  the admin-issued **`RegistrationCode` security key** (the 5-character Steam-style alphanumeric from
+  `code.ts`). **Any future email verification must use this 5-digit format** (and a matching `\d{5}`
+  input validator).
 - **Never accept `role` or status from public input.** Roles live on `User.role`, carried
   in the JWT. The first `AUTH_BOOTSTRAP_ADMIN_EMAILS` entry resolves to the singleton **HEAD**, the
   rest to `ADMIN` — grants only ever **elevate** (a transferred head is never silently demoted).
@@ -226,7 +236,7 @@ submission time). See the `admin-philosophies` memory for the rationale.
   is for local use only — never in production.
 - **Changing a password requires emailed step-up 2FA.** Both self-service password changes
   (`account.changePassword` for the admin area, `tutor.changePassword` for `/settings`) are a
-  two-step flow: `requestPasswordChangeCode` verifies the current password and emails a 6-digit
+  two-step flow: `requestPasswordChangeCode` verifies the current password and emails a 5-digit
   code, then `changePassword` requires that code plus the current + new password. The code logic
   is `src/server/auth/step-up.ts` (`issueStepUpCode`/`verifyStepUpCode`, purpose `PASSWORD_CHANGE`):
   HMAC-hashed at rest (keyed with `AUTH_SECRET`), 15-min expiry, single-use, attempt-capped, sent
@@ -279,7 +289,7 @@ submission time). See the `admin-philosophies` memory for the rationale.
   plaintext and re-viewable per row via a popup, valid 7 days or until used; see
   `src/server/auth/registration.ts`); accepting a tutor application also generates one
   (`promoteApplicantToTutor`, bound to the applicant's email + tutor). The recruit
-  redeems it at public **`/register`**: enter code → verify email with a second emailed 6-digit code
+  redeems it at public **`/register`**: enter code → verify email with a second emailed 5-digit code
   → set name/grade/password, which creates+links a Tutor and a **fully-verified** login. This
   replaced the shared-default-password auto-provision, so **every account has a validated email and
   self-set credentials.** The legacy **"Send setup link"** on `/admin/users` (`sendTutorSetup` →

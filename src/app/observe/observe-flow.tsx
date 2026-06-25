@@ -22,16 +22,10 @@ export function ObserveFlow() {
   const [code, setCode] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
-  const [username, setUsername] = useState("");
 
   const start = api.viewer.start.useMutation({ onSuccess: () => setStep("code") });
   const verify = api.viewer.verify.useMutation({ onSuccess: () => setStep("password") });
-  const complete = api.viewer.complete.useMutation({
-    onSuccess: (data) => {
-      setUsername(data.username);
-      setStep("done");
-    },
-  });
+  const complete = api.viewer.complete.useMutation({ onSuccess: () => setStep("done") });
 
   const detailsValid =
     name.trim().length > 0 && affiliation.trim().length > 0 && /^[^@\s]+@[^@\s]+$/.test(email.trim());
@@ -92,7 +86,7 @@ export function ObserveFlow() {
           className="space-y-3"
           onSubmit={(e) => {
             e.preventDefault();
-            if (/^\d{6}$/.test(code)) verify.mutate({ email: email.trim(), code });
+            if (/^\d{5}$/.test(code)) verify.mutate({ email: email.trim(), code });
           }}
         >
           <p className="text-sm text-slate-700">{t("public.observe.sent", { email })}</p>
@@ -103,14 +97,14 @@ export function ObserveFlow() {
             id="obs-code"
             inputMode="numeric"
             autoComplete="one-time-code"
-            maxLength={6}
+            maxLength={5}
             value={code}
             onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-            placeholder="000000"
+            placeholder="00000"
             className="input w-full text-center text-2xl tracking-[0.4em]"
           />
           {verify.error && <p className="text-sm text-red-600">{verify.error.message}</p>}
-          <button className="btn-primary w-full" disabled={!/^\d{6}$/.test(code) || verify.isPending}>
+          <button className="btn-primary w-full" disabled={!/^\d{5}$/.test(code) || verify.isPending}>
             {t("public.observe.verify")}
           </button>
           <button
@@ -170,7 +164,7 @@ export function ObserveFlow() {
       {step === "done" && (
         <div className="space-y-4 text-center">
           <p className="text-lg font-semibold text-slate-900">{t("public.observe.doneTitle")}</p>
-          <p className="text-sm text-slate-700">{t("public.observe.doneBody", { username })}</p>
+          <p className="text-sm text-slate-700">{t("public.observe.doneBody")}</p>
           <Link href="/signin" className="btn-primary inline-block">
             {t("public.observe.signIn")}
           </Link>

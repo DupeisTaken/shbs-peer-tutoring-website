@@ -82,7 +82,7 @@ export const viewerRouter = createTRPCRouter({
 
   /** Confirm the emailed code. */
   verify: publicProcedure
-    .input(z.object({ email: z.string().trim().email(), code: z.string().trim().regex(/^\d{6}$/) }))
+    .input(z.object({ email: z.string().trim().email(), code: z.string().trim().regex(/^\d{5}$/) }))
     .mutation(async ({ ctx, input }) => {
       await assertEnabled(ctx.db);
       const ip = clientIp(ctx.headers);
@@ -128,6 +128,6 @@ export const viewerRouter = createTRPCRouter({
         body: "A new read-only observer registered to follow the program.",
         link: "/admin/users",
       });
-      return { ok: true, username: res.username };
+      return { ok: true };
     }),
 });

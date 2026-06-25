@@ -13,7 +13,6 @@
 import { db } from "~/server/db";
 import { hashPassword } from "./password";
 import { generateNumericCode, hashCode } from "./registration";
-import { splitDisplayName, defaultUsername, ensureUniqueUsername } from "./username";
 
 export const VIEWER_CODE_TTL_MINUTES = 15;
 const MAX_ATTEMPTS = 6;
@@ -66,7 +65,7 @@ export async function verifyViewerCode(
 export async function completeViewerSignup(
   email: string,
   password: string,
-): Promise<{ ok: true; username: string } | { ok: false; error: "not-found" | "email-unverified" | "email-taken" }> {
+): Promise<{ ok: true } | { ok: false; error: "not-found" | "email-unverified" | "email-taken" }> {
   const e = email.trim().toLowerCase();
   const row = await db.viewerSignup.findUnique({ where: { email: e } });
   if (!row || row.usedAt) return { ok: false, error: "not-found" };
@@ -75,16 +74,12 @@ export async function completeViewerSignup(
   const existing = await db.user.findUnique({ where: { email: e }, select: { id: true } });
   if (existing) return { ok: false, error: "email-taken" };
 
-  const { firstName, lastName } = splitDisplayName(row.name);
-  const base = defaultUsername(firstName, lastName) || "observer";
   const passwordHash = hashPassword(password);
-
-  const username = await db.$transaction(async (tx) => {
-    const u = await ensureUniqueUsername(base, {});
+  await db.$transaction(async (tx) => {
     await tx.user.create({
       data: {
         email: e,
-        username: u,
+        // No username: observers sign in by email; ensureUserUsername also skips VIEWER accounts.
         name: row.name,
         affiliation: row.affiliation,
         role: "VIEWER",
@@ -94,7 +89,6 @@ export async function completeViewerSignup(
       },
     });
     await tx.viewerSignup.update({ where: { id: row.id }, data: { usedAt: new Date() } });
-    return u;
   });
-  return { ok: true, username };
+  return { ok: true };
 }

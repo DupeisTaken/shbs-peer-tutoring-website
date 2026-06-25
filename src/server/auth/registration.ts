@@ -44,9 +44,10 @@ export function hashCode(code: string): string {
   return createHmac("sha256", secret()).update(code.trim()).digest("hex");
 }
 
-/** A cryptographically-random 6-digit numeric code — used for the emailed email-verification OTP. */
+/** A cryptographically-random **5-digit** numeric code — the format for every emailed verification
+ *  OTP (registration email check, observer signup, password-change step-up). See CLAUDE.md. */
 export function generateNumericCode(): string {
-  return String(randomInt(0, 1_000_000)).padStart(6, "0");
+  return String(randomInt(0, 100_000)).padStart(5, "0");
 }
 
 export interface IssueCodeOptions {

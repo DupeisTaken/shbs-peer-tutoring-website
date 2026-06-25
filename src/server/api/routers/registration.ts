@@ -33,8 +33,8 @@ const codeInput = z
   .string()
   .transform(normalizeRegCode)
   .pipe(z.string().regex(/^[0-9A-Z]{5}$/));
-/** The emailed email-verification OTP stays 6-digit numeric. */
-const emailCodeInput = z.string().trim().regex(/^\d{6}$/);
+/** The emailed email-verification OTP is 5-digit numeric (see CLAUDE.md). */
+const emailCodeInput = z.string().trim().regex(/^\d{5}$/);
 
 /** Coarse client IP from proxy headers (best-effort; only used for rate-limit keys). */
 function clientIp(headers: Headers): string {

@@ -109,6 +109,7 @@ export async function ensureUserUsername(userId: string): Promise<string> {
     select: {
       id: true,
       username: true,
+      role: true,
       name: true,
       email: true,
       tutor: { select: { username: true } },
@@ -116,6 +117,8 @@ export async function ensureUserUsername(userId: string): Promise<string> {
   });
   if (!user) return "";
   if (user.username) return user.username;
+  // Observers (read-only VIEWER, no tutor) may be username-less — they sign in by email.
+  if (user.role === "VIEWER" && !user.tutor) return "";
 
   let base = user.tutor?.username ?? "";
   if (!base) {
