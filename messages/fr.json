@@ -502,7 +502,24 @@
       "available": "Disponible",
       "graduating": "Diplômé",
       "noActiveTutors": "Aucun tuteur actif à examiner.",
-      "cancel": "Annuler"
+      "cancel": "Annuler",
+      "features": {
+        "heading": "Fonctions optionnelles",
+        "help": "Désactivez les modules que votre programme n'utilise pas. Seul le responsable peut les modifier, et les changements prennent effet à la prochaine actualisation.",
+        "on": "Activé",
+        "off": "Désactivé",
+        "pending": "En attente : {state} à la prochaine actualisation",
+        "headOnly": "Seul le responsable peut les modifier.",
+        "quarterNote": "Activé : trimestres (Q1–Q4) · Désactivé : semestres (S1/S2)",
+        "name": {
+          "CREW": "Ronde",
+          "DISCIPLINE": "Cartes de discipline",
+          "MEETINGS": "Réunions de tuteurs",
+          "INTERVIEWS": "Entretiens et vote",
+          "SERVICE_HOURS": "Heures de service",
+          "QUARTER_SYSTEM": "Système de trimestres"
+        }
+      }
     },
     "audit": {
       "title": "Journal d'audit",

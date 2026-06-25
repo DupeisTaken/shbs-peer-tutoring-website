@@ -108,8 +108,82 @@ export default function ProgramPage() {
               )}
             </div>
           </section>
+
+          <FeatureToggles />
         </>
       )}
     </div>
+  );
+}
+
+/**
+ * Optional-module toggles. Switching a module off hides its portals/entries program-wide; the
+ * Quarter System toggle switches refresh granularity (on = quarters, off = semesters). Only the
+ * head may change them, and changes are staged — they take effect at the next program refresh.
+ */
+function FeatureToggles() {
+  const t = useTranslations();
+  const utils = api.useUtils();
+  const settings = api.program.featureSettings.useQuery();
+  const setPending = api.program.setFeaturePending.useMutation({
+    onSuccess: () => utils.program.invalidate(),
+  });
+
+  const data = settings.data;
+  if (!data) return null;
+
+  return (
+    <section className="card p-5">
+      <h2 className="section-title">{t("admin.program.features.heading")}</h2>
+      <p className="muted mt-1 text-sm">{t("admin.program.features.help")}</p>
+      <ul className="mt-3 divide-y divide-slate-100">
+        {data.features.map((f) => {
+          // `target` = the desired state (staged value if any, else the current effective value).
+          const target = f.pending ?? f.enabled;
+          return (
+            <li key={f.key} className="flex flex-wrap items-center gap-3 py-3">
+              <div className="min-w-44 flex-1">
+                <p className="font-medium text-slate-800">
+                  {t(`admin.program.features.name.${f.key}`)}
+                </p>
+                {f.key === "QUARTER_SYSTEM" && (
+                  <p className="muted text-xs">{t("admin.program.features.quarterNote")}</p>
+                )}
+              </div>
+              <span className={f.enabled ? "badge-green" : "badge-slate"}>
+                {t(f.enabled ? "admin.program.features.on" : "admin.program.features.off")}
+              </span>
+              {f.pending !== null && (
+                <span className="badge-amber">
+                  {t("admin.program.features.pending", {
+                    state: t(f.pending ? "admin.program.features.on" : "admin.program.features.off"),
+                  })}
+                </span>
+              )}
+              {data.canEdit && (
+                <button
+                  type="button"
+                  role="switch"
+                  aria-checked={target}
+                  disabled={setPending.isPending}
+                  onClick={() => setPending.mutate({ key: f.key, enabled: !target })}
+                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
+                    target ? "bg-accent-600" : "bg-slate-300"
+                  } ${setPending.isPending ? "opacity-50" : ""}`}
+                >
+                  <span
+                    className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${
+                      target ? "translate-x-6" : "translate-x-1"
+                    }`}
+                  />
+                </button>
+              )}
+            </li>
+          );
+        })}
+      </ul>
+      {!data.canEdit && <p className="muted mt-3 text-xs">{t("admin.program.features.headOnly")}</p>}
+      {setPending.error && <p className="mt-2 text-sm text-red-600">{setPending.error.message}</p>}
+    </section>
   );
 }

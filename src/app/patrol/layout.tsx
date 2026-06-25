@@ -4,6 +4,7 @@ import { getTranslations } from "next-intl/server";
 
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
+import { getFeatures } from "~/server/program/features";
 import { SignOutButton } from "~/app/_components/sign-out-button";
 import { LanguageSwitcher } from "~/app/_components/language-switcher";
 import { ThemeSwitcher } from "~/app/_components/theme-switcher";
@@ -17,6 +18,10 @@ import { TEAM_TITLE } from "~/lib/branding";
 export default async function PatrolLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
   if (!session?.user) redirect("/signin");
+
+  // Crew module switched off program-wide -> no portal.
+  const features = await getFeatures(db);
+  if (!features.CREW) redirect("/");
 
   const elevated =
     session.role === "HEAD" || session.role === "ADMIN" || session.role === "COORDINATOR";

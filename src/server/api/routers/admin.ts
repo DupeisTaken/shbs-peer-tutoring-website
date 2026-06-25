@@ -33,6 +33,7 @@ import {
   semesterQuarters,
 } from "~/lib/period";
 import { getActivePeriod, getActivePeriodOrNull } from "~/server/period";
+import { applyPendingFeatures } from "~/server/program/features";
 import type { db as dbClient } from "~/server/db";
 import { applyUndo, recordAudit } from "~/server/audit/log";
 import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
@@ -1134,6 +1135,8 @@ export const adminRouter = createTRPCRouter({
       const yearCross = crossesYear(from, np);
 
       const out = await ctx.db.$transaction(async (tx) => {
+        // Activate any HEAD-staged optional-module toggles at this period boundary.
+        await applyPendingFeatures(tx);
         await tx.term.updateMany({ where: { active: true }, data: { active: false } });
         const term = await tx.term.upsert({
           where: { schoolYear_quarter: { schoolYear: np.schoolYear, quarter: np.quarter } },

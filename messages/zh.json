@@ -495,7 +495,24 @@
       "available": "可用",
       "graduating": "毕业",
       "noActiveTutors": "暂无需审核的在职导师。",
-      "cancel": "取消"
+      "cancel": "取消",
+      "features": {
+        "heading": "可选功能",
+        "help": "关闭你的项目不使用的模块。仅负责人可更改，且更改在下次刷新时生效。",
+        "on": "开",
+        "off": "关",
+        "pending": "待定：下次刷新{state}",
+        "headOnly": "仅负责人可更改。",
+        "quarterNote": "开：按季度（Q1–Q4）· 关：按学期（S1/S2）",
+        "name": {
+          "CREW": "巡查队",
+          "DISCIPLINE": "纪律卡",
+          "MEETINGS": "导师会议",
+          "INTERVIEWS": "面试与投票",
+          "SERVICE_HOURS": "服务小时",
+          "QUARTER_SYSTEM": "季度制"
+        }
+      }
     },
     "audit": {
       "title": "审计日志",

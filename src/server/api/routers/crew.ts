@@ -9,6 +9,7 @@ import {
 } from "~/server/api/trpc";
 import { getActivePeriodOrNull } from "~/server/period";
 import { syncSessionFlag } from "~/server/crew/flags";
+import { getFeatures } from "~/server/program/features";
 import { notifyAdmins } from "~/server/notifications/create";
 
 /** Service hours credited per completed patrol (policy). */
@@ -139,6 +140,10 @@ export const crewRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      const features = await getFeatures(ctx.db);
+      if (!features.CREW) {
+        throw new TRPCError({ code: "FORBIDDEN", message: "The crew module is disabled." });
+      }
       await ctx.db.crewApplication.create({
         data: {
           name: input.name,

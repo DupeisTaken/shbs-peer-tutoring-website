@@ -134,6 +134,29 @@ model MessageOverride {
   @@index([locale])
 }
 
+/// Optional program modules a HEAD can switch off to fit a different program (extend usability).
+/// QUARTER_SYSTEM is a *mode*, not a disable: enabled = quarters (Q1–Q4), disabled = semesters
+/// (S1/S2) at the same refresh machinery. Everything else is a soft hide+block when disabled.
+enum ProgramFeatureKey {
+  CREW
+  DISCIPLINE
+  MEETINGS
+  INTERVIEWS
+  SERVICE_HOURS
+  QUARTER_SYSTEM
+}
+
+/// One row per optional module. `enabled` is the effective value; `pendingEnabled` is a staged
+/// change a HEAD made that activates at the next program refresh (null = no pending change).
+/// Missing row = default enabled (a fresh deployment has every module on). HEAD-only writes.
+model ProgramFeature {
+  key            ProgramFeatureKey @id
+  enabled        Boolean           @default(true)
+  pendingEnabled Boolean?
+  updatedByName  String?
+  updatedAt      DateTime          @updatedAt
+}
+
 /// An audit record of an admin mutation, with optional typed data to revert it. Actor
 /// id/name are denormalised so history survives user deletion. See src/server/audit/log.ts.
 model AuditLog {

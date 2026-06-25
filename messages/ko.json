@@ -502,7 +502,24 @@
       "available": "가용",
       "graduating": "졸업",
       "noActiveTutors": "검토할 활성 튜터가 없습니다.",
-      "cancel": "취소"
+      "cancel": "취소",
+      "features": {
+        "heading": "선택 기능",
+        "help": "프로그램에서 쓰지 않는 모듈을 끌 수 있습니다. 책임자만 변경할 수 있으며, 변경은 다음 새로고침 때 적용됩니다.",
+        "on": "켜짐",
+        "off": "꺼짐",
+        "pending": "대기 중: 다음 새로고침에 {state}",
+        "headOnly": "책임자만 변경할 수 있습니다.",
+        "quarterNote": "켜짐: 분기(Q1–Q4) · 꺼짐: 학기(S1/S2)",
+        "name": {
+          "CREW": "순찰조",
+          "DISCIPLINE": "징계 카드",
+          "MEETINGS": "튜터 회의",
+          "INTERVIEWS": "면접 및 투표",
+          "SERVICE_HOURS": "봉사 시간",
+          "QUARTER_SYSTEM": "분기제"
+        }
+      }
     },
     "audit": {
       "title": "감사 로그",

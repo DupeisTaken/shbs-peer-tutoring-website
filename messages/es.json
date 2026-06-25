@@ -495,7 +495,24 @@
       "available": "Disponible",
       "graduating": "Se gradúa",
       "noActiveTutors": "No hay tutores activos para revisar.",
-      "cancel": "Cancelar"
+      "cancel": "Cancelar",
+      "features": {
+        "heading": "Funciones opcionales",
+        "help": "Desactiva los módulos que tu programa no usa. Solo el responsable puede cambiarlos, y los cambios se aplican en la próxima actualización.",
+        "on": "Activado",
+        "off": "Desactivado",
+        "pending": "Pendiente: {state} en la próxima actualización",
+        "headOnly": "Solo el responsable puede cambiarlos.",
+        "quarterNote": "Activado: trimestres (Q1–Q4) · Desactivado: semestres (S1/S2)",
+        "name": {
+          "CREW": "Rondas",
+          "DISCIPLINE": "Tarjetas de disciplina",
+          "MEETINGS": "Reuniones de tutores",
+          "INTERVIEWS": "Entrevistas y votación",
+          "SERVICE_HOURS": "Horas de servicio",
+          "QUARTER_SYSTEM": "Sistema de trimestres"
+        }
+      }
     },
     "audit": {
       "title": "Registro de auditoría",

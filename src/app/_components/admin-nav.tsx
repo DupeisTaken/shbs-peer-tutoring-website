@@ -2,6 +2,8 @@ import { getTranslations } from "next-intl/server";
 
 import { NavLink } from "~/app/_components/nav-link";
 import { NavSidebarClient } from "~/app/_components/nav-sidebar-client";
+import { db } from "~/server/db";
+import { getFeatures, type Features, type FeatureKey } from "~/server/program/features";
 
 export type NavItem = {
   href: string;
@@ -11,6 +13,8 @@ export type NavItem = {
   adminOnly?: boolean;
   /** Elevated (HEAD/ADMIN/COORDINATOR) — hidden from the read-only VIEWER. */
   elevatedOnly?: boolean;
+  /** Hidden when this optional module is switched off (see /admin/program). */
+  feature?: FeatureKey;
 };
 
 /** The shared admin navigation, used by the /admin shell and the standalone /localization shell. */
@@ -31,9 +35,9 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
       { href: "/admin/tutors", labelKey: "admin.nav.links.tutorRoster" },
       { href: "/admin/applications", labelKey: "admin.nav.links.tutorApplications" },
       { href: "/admin/tutor-requests", labelKey: "admin.nav.links.tutorRequests", elevatedOnly: true },
-      { href: "/admin/meetings", labelKey: "admin.nav.links.tutorMeetings" },
-      { href: "/admin/service-hours", labelKey: "admin.nav.links.serviceHours" },
-      { href: "/admin/hour-adjustments", labelKey: "admin.nav.links.hourAdjustments" },
+      { href: "/admin/meetings", labelKey: "admin.nav.links.tutorMeetings", feature: "MEETINGS" },
+      { href: "/admin/service-hours", labelKey: "admin.nav.links.serviceHours", feature: "SERVICE_HOURS" },
+      { href: "/admin/hour-adjustments", labelKey: "admin.nav.links.hourAdjustments", feature: "SERVICE_HOURS" },
     ],
   },
   {
@@ -43,7 +47,7 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
       { href: "/admin/tutees", labelKey: "admin.nav.links.tuteeRoster" },
       { href: "/admin/requests", labelKey: "admin.nav.links.signupRequests" },
       { href: "/admin/tutee-requests", labelKey: "admin.nav.links.tuteeRequests", elevatedOnly: true },
-      { href: "/admin/discipline", labelKey: "admin.nav.links.tuteeDiscipline" },
+      { href: "/admin/discipline", labelKey: "admin.nav.links.tuteeDiscipline", feature: "DISCIPLINE" },
     ],
   },
   {
@@ -51,8 +55,8 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
     items: [
       { href: "/admin/pairings", labelKey: "admin.nav.links.pairings" },
       { href: "/admin/attendance", labelKey: "admin.nav.links.attendance" },
-      { href: "/admin/session-flags", labelKey: "admin.nav.links.sessionFlags", elevatedOnly: true },
-      { href: "/admin/crew", labelKey: "admin.nav.links.crew", elevatedOnly: true },
+      { href: "/admin/session-flags", labelKey: "admin.nav.links.sessionFlags", elevatedOnly: true, feature: "CREW" },
+      { href: "/admin/crew", labelKey: "admin.nav.links.crew", elevatedOnly: true, feature: "CREW" },
       { href: "/admin/time-slots", labelKey: "admin.nav.links.timeSlots" },
       { href: "/admin/subjects", labelKey: "admin.nav.links.coursesLevels" },
       { href: "/admin/rooms", labelKey: "admin.nav.links.rooms" },
@@ -72,18 +76,20 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
   },
 ];
 
-function makeVisible(role: string) {
+function makeVisible(role: string, features: Features) {
   const isAdminTier = role === "ADMIN" || role === "HEAD";
   const isElevated = isAdminTier || role === "COORDINATOR";
   return (item: NavItem) =>
-    (!item.adminOnly || isAdminTier) && (!item.elevatedOnly || isElevated);
+    (!item.adminOnly || isAdminTier) &&
+    (!item.elevatedOnly || isElevated) &&
+    (!item.feature || features[item.feature]);
 }
 
 /** Sticky left sidebar (lg+): collapsible nav groups + a collapse/expand-all toggle, filtered by
  *  role. Labels resolve server-side; the client component owns collapse state (persisted). */
 export async function NavSidebar({ role }: { role: string }) {
-  const t = await getTranslations();
-  const visible = makeVisible(role);
+  const [t, features] = await Promise.all([getTranslations(), getFeatures(db)]);
+  const visible = makeVisible(role, features);
   const sections = NAV_SECTIONS.map((section) => ({
     key: section.titleKey,
     title: t(section.titleKey),
@@ -104,8 +110,8 @@ export async function NavSidebar({ role }: { role: string }) {
 
 /** Horizontally-scrolling nav row shown below the top bar on small screens. */
 export async function NavMobileRow({ role }: { role: string }) {
-  const t = await getTranslations();
-  const visible = makeVisible(role);
+  const [t, features] = await Promise.all([getTranslations(), getFeatures(db)]);
+  const visible = makeVisible(role, features);
   return (
     <nav className="flex gap-1 overflow-x-auto px-2 pb-2 lg:hidden">
       {NAV_SECTIONS.flatMap((s) => s.items)

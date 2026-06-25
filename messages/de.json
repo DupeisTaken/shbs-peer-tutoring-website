@@ -502,7 +502,24 @@
       "available": "Verfügbar",
       "graduating": "Verabschiedung",
       "noActiveTutors": "Keine aktiven Tutoren zu überprüfen.",
-      "cancel": "Abbrechen"
+      "cancel": "Abbrechen",
+      "features": {
+        "heading": "Optionale Funktionen",
+        "help": "Schalten Sie Module ab, die Ihr Programm nicht nutzt. Nur die Leitung kann sie ändern, und Änderungen werden bei der nächsten Aktualisierung wirksam.",
+        "on": "Ein",
+        "off": "Aus",
+        "pending": "Ausstehend: {state} bei nächster Aktualisierung",
+        "headOnly": "Nur die Leitung kann sie ändern.",
+        "quarterNote": "Ein: Quartale (Q1–Q4) · Aus: Semester (S1/S2)",
+        "name": {
+          "CREW": "Rundgang",
+          "DISCIPLINE": "Disziplinarkarten",
+          "MEETINGS": "Tutoren-Meetings",
+          "INTERVIEWS": "Interviews & Abstimmung",
+          "SERVICE_HOURS": "Servicestunden",
+          "QUARTER_SYSTEM": "Quartalssystem"
+        }
+      }
     },
     "audit": {
       "title": "Aktivitätsprotokoll",

@@ -14,6 +14,7 @@ import { ZodError } from "zod";
 import { env } from "~/env";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
+import { getFeatures } from "~/server/program/features";
 
 /**
  * 1. CONTEXT
@@ -245,6 +246,10 @@ export const translatorProcedure = protectedProcedure.use(async ({ ctx, next }) 
  * or soft-removed crew are NOT active and cannot patrol (read-only portal only).
  */
 export const crewProcedure = protectedProcedure.use(async ({ ctx, next }) => {
+  const features = await getFeatures(ctx.db);
+  if (!features.CREW) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "The crew module is disabled." });
+  }
   if (isElevated(ctx.session.role)) return next();
   const me = await ctx.db.user.findUnique({
     where: { id: ctx.session.user.id },

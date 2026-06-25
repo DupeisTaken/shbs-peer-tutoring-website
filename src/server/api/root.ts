@@ -13,6 +13,7 @@ import { i18nRouter } from "~/server/api/routers/i18n";
 import { registrationRouter } from "~/server/api/routers/registration";
 import { accountRouter } from "~/server/api/routers/account";
 import { crewRouter } from "~/server/api/routers/crew";
+import { programRouter } from "~/server/api/routers/program";
 
 /**
  * This is the primary router for your server.
@@ -33,6 +34,7 @@ export const appRouter = createTRPCRouter({
   registration: registrationRouter,
   account: accountRouter,
   crew: crewRouter,
+  program: programRouter,
 });
 
 // export type definition of API

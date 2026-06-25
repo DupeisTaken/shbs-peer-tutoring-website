@@ -1,15 +1,22 @@
 import Link from "next/link";
+import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
 import { CrewSignupForm } from "./crew-signup-form";
 import { APP_TITLE } from "~/lib/branding";
 import { FloatingLanguageSwitcher } from "~/app/_components/floating-language-switcher";
+import { db } from "~/server/db";
+import { getFeatures } from "~/server/program/features";
 
 export const metadata = {
   title: `Join the crew · ${APP_TITLE}`,
 };
 
 export default async function CrewSignupPage() {
+  // Crew module off -> no public crew application.
+  const features = await getFeatures(db);
+  if (!features.CREW) redirect("/");
+
   const t = await getTranslations();
   return (
     <main className="mx-auto min-h-screen max-w-2xl px-4 py-12">

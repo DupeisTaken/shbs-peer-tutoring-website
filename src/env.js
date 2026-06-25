@@ -53,6 +53,13 @@ export const env = createEnv({
     // team title brands the tutor/coordinator/admin management area.
     NEXT_PUBLIC_APP_TITLE: z.string().min(1).default("SHBS Peer Tutoring"),
     NEXT_PUBLIC_TEAM_TITLE: z.string().min(1).default("SHBS Peer Tutoring Team"),
+    // Optional program identity labels (white-labeling). Empty = fall back in src/lib/branding.ts.
+    // Organization / school name (letterhead, emails, footer); distinct from the app title.
+    NEXT_PUBLIC_ORG_NAME: z.string().default(""),
+    // Public support/contact address shown in footers + help text.
+    NEXT_PUBLIC_SUPPORT_EMAIL: z.string().default(""),
+    // Display label for the program season/year, e.g. "2025–26" (headings + reports).
+    NEXT_PUBLIC_PROGRAM_TERM_LABEL: z.string().default(""),
   },
 
   /**
@@ -74,6 +81,9 @@ export const env = createEnv({
     NODE_ENV: process.env.NODE_ENV,
     NEXT_PUBLIC_APP_TITLE: process.env.NEXT_PUBLIC_APP_TITLE,
     NEXT_PUBLIC_TEAM_TITLE: process.env.NEXT_PUBLIC_TEAM_TITLE,
+    NEXT_PUBLIC_ORG_NAME: process.env.NEXT_PUBLIC_ORG_NAME,
+    NEXT_PUBLIC_SUPPORT_EMAIL: process.env.NEXT_PUBLIC_SUPPORT_EMAIL,
+    NEXT_PUBLIC_PROGRAM_TERM_LABEL: process.env.NEXT_PUBLIC_PROGRAM_TERM_LABEL,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

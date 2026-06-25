@@ -502,7 +502,24 @@
       "available": "参加可能",
       "graduating": "卒業予定",
       "noActiveTutors": "確認する有効なチューターはいません。",
-      "cancel": "キャンセル"
+      "cancel": "キャンセル",
+      "features": {
+        "heading": "オプション機能",
+        "help": "プログラムで使わないモジュールをオフにできます。変更できるのは責任者のみで、次回のリフレッシュ時に反映されます。",
+        "on": "オン",
+        "off": "オフ",
+        "pending": "保留中：次回リフレッシュで{state}",
+        "headOnly": "変更できるのは責任者のみです。",
+        "quarterNote": "オン：四半期（Q1–Q4）· オフ：学期（S1/S2）",
+        "name": {
+          "CREW": "巡回班",
+          "DISCIPLINE": "規律カード",
+          "MEETINGS": "チューター会議",
+          "INTERVIEWS": "面接と投票",
+          "SERVICE_HOURS": "奉仕時間",
+          "QUARTER_SYSTEM": "四半期制"
+        }
+      }
     },
     "audit": {
       "title": "監査ログ",

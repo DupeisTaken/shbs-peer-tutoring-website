@@ -3,7 +3,9 @@ import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
 import { auth } from "~/server/auth";
-import { APP_TITLE } from "~/lib/branding";
+import { db } from "~/server/db";
+import { getFeatures } from "~/server/program/features";
+import { APP_TITLE, SUPPORT_EMAIL } from "~/lib/branding";
 import { LanguageSwitcher } from "~/app/_components/language-switcher";
 import { ThemeSwitcher } from "~/app/_components/theme-switcher";
 
@@ -20,6 +22,7 @@ export default async function Home() {
     redirect(adminArea ? "/admin" : session.role === "CREW" ? "/patrol" : "/dashboard");
   }
 
+  const features = await getFeatures(db);
   const t = await getTranslations("landing");
 
   return (
@@ -40,9 +43,11 @@ export default async function Home() {
             <Link href="/tutor-signup" className="btn-secondary btn-sm">
               {t("nav.becomeTutor")}
             </Link>
-            <Link href="/crew-signup" className="btn-secondary btn-sm">
-              {t("nav.becomeCrew")}
-            </Link>
+            {features.CREW && (
+              <Link href="/crew-signup" className="btn-secondary btn-sm">
+                {t("nav.becomeCrew")}
+              </Link>
+            )}
             <Link href="/signin" className="btn-secondary btn-sm">
               {t("nav.teamSignin")}
             </Link>
@@ -104,6 +109,13 @@ export default async function Home() {
 
       <footer className="border-t border-slate-200 py-6">
         <p className="muted text-center text-sm">{t("footer", { appTitle: APP_TITLE })}</p>
+        {SUPPORT_EMAIL && (
+          <p className="muted mt-1 text-center text-sm">
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="link">
+              {SUPPORT_EMAIL}
+            </a>
+          </p>
+        )}
       </footer>
     </div>
   );
