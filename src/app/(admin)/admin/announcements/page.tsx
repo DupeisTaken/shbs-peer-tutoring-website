@@ -4,6 +4,7 @@ import { useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { api } from "~/trpc/react";
+import { useReadOnly } from "~/app/_components/read-only";
 
 type Announcement = {
   id: string;
@@ -90,6 +91,7 @@ function AnnouncementCard({
 
 export default function AnnouncementsPage() {
   const t = useTranslations();
+  const readOnly = useReadOnly();
   const utils = api.useUtils();
   const announcements = api.admin.announcements.useQuery();
   const invalidate = () => utils.admin.announcements.invalidate();
@@ -113,6 +115,7 @@ export default function AnnouncementsPage() {
         <p className="muted mt-1">{t("admin.announcements.subtitle")}</p>
       </div>
 
+      {!readOnly && (
       <section className="card space-y-3 p-5">
         <h2 className="section-title">{t("admin.announcements.new.title")}</h2>
         <input
@@ -148,6 +151,7 @@ export default function AnnouncementsPage() {
           </button>
         </div>
       </section>
+      )}
 
       <div className="space-y-3">
         {(announcements.data ?? []).map((a) => (

@@ -94,8 +94,10 @@ export default async function AdminLayout({
       <div className="mx-auto flex max-w-7xl gap-8 px-4 py-6 lg:px-6">
         <NavSidebar role={session.role} />
 
-        {/* Main content */}
-        <main className="min-w-0 flex-1">
+        {/* Main content. `data-readonly` lets globals.css neutralize every mutation control for the
+            read-only VIEWER role (hide action buttons, render fields as text) — defense in depth on
+            top of per-page gating and the server-side adminProcedure checks. */}
+        <main className="min-w-0 flex-1" data-readonly={readOnly ? "" : undefined}>
           {readOnly && (
             <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
               {t("admin.readOnly.banner")}
