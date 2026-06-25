@@ -4,7 +4,7 @@
     "save": "Save",
     "saved": "Saved.",
     "language": "Language",
-    "backToMain": "← Back To Main Page",
+    "backToMain": "← Back to Main Page",
     "close": "Close",
     "collapseAll": "Collapse All",
     "expandAll": "Expand All"
@@ -12,7 +12,7 @@
   "auth": {
     "signinTitle": "Sign In",
     "signinSubtitle": "Tutors, coordinators, and admins sign in to continue.",
-    "identifier": "Username Or Email",
+    "identifier": "Username or Email",
     "password": "Password",
     "signIn": "Sign In",
     "signingIn": "Signing In…",
@@ -23,22 +23,22 @@
     "forgot": {
       "title": "Reset Your Password",
       "intro": "Enter your username or email and we'll send a reset link.",
-      "backToSignIn": "← Back To Sign In",
+      "backToSignIn": "← Back to Sign In",
       "sent": "If an account matches what you entered, we've sent password-reset instructions to its contact email. Check your inbox.",
       "sentEmailNote": "Email delivery isn't configured in this environment yet — see the server logs for the reset link during local development.",
       "fields": {
-        "identifier": "Username Or Email"
+        "identifier": "Username or Email"
       },
       "submit": "Send Reset Link",
       "sending": "Sending…"
     },
     "reset": {
-      "title": "Choose A New Password",
+      "title": "Choose a New Password",
       "missingToken": "This reset link is missing its token. Request a new one.",
-      "requestLink": "Request A Reset Link",
-      "backToSignIn": "← Back To Sign In",
+      "requestLink": "Request a Reset Link",
+      "backToSignIn": "← Back to Sign In",
       "success": "Your password has been reset. You can sign in now.",
-      "goToSignIn": "Go To Sign In",
+      "goToSignIn": "Go to Sign In",
       "yourUsername": "Your sign-in username:",
       "fields": {
         "newPassword": "New Password",
@@ -48,7 +48,7 @@
       "saving": "Saving…"
     },
     "onboarding": {
-      "welcome": "Welcome To {appTitle}",
+      "welcome": "Welcome to {appTitle}",
       "title": "Set Up Your Account",
       "intro": "One quick step before your dashboard — confirm your email and choose your own password (replacing any temporary one).",
       "fields": {
@@ -61,13 +61,13 @@
         "newPassword": "At least 8 characters. Replaces the temporary one."
       },
       "enable2fa": "Enable email two-factor authentication (recommended). A one-time code will be emailed at sign-in once email delivery is configured.",
-      "submit": "Confirm And Continue",
+      "submit": "Confirm and Continue",
       "saving": "Saving…"
     },
     "register": {
       "title": "Create Your Account",
       "subtitle": "Use the security key an admin gave you.",
-      "backToSignIn": "← Back To Sign In",
+      "backToSignIn": "← Back to Sign In",
       "step": {
         "code": {
           "label": "Security Key",
@@ -99,26 +99,26 @@
       "done": {
         "title": "You're all set!",
         "body": "Your account is ready. Sign in with your email or username {username}.",
-        "signIn": "Go To Sign In"
+        "signIn": "Go to Sign In"
       }
     },
     "staleSession": {
-      "title": "Session Out Of Date",
+      "title": "Session Out of Date",
       "body": "Your tutor account link is no longer valid. Sign out and sign back in to refresh it."
     }
   },
   "landing": {
     "nav": {
-      "requestTutor": "Request A Tutor",
-      "becomeTutor": "Become A Tutor",
+      "requestTutor": "Request a Tutor",
+      "becomeTutor": "Become a Tutor",
       "teamSignin": "Sign In",
       "becomeCrew": "Join the crew"
     },
     "tagline": "Peer Tutoring Program",
     "heroTitle": "Learn together. Grow together.",
     "intro": "Placeholder introduction — a short paragraph about the {appTitle} program goes here. Describe who it's for, what students can get help with, and how peer tutors make a difference. Replace this copy with the real program overview.",
-    "ctaPrimary": "Request A Tutor",
-    "ctaSecondary": "Become A Tutor",
+    "ctaPrimary": "Request a Tutor",
+    "ctaSecondary": "Become a Tutor",
     "features": {
       "students": {
         "title": "For Students",
@@ -129,7 +129,7 @@
         "body": "Placeholder — share what you know, build your skills, and earn service hours for every session you run."
       },
       "team": {
-        "title": "For The Team",
+        "title": "For the Team",
         "body": "Placeholder — coordinate pairings, attendance, interviews, and service hours from one place."
       }
     },
@@ -142,7 +142,7 @@
       "title": "Service Hours"
     },
     "interviews": {
-      "title": "Interviews To Conduct"
+      "title": "Interviews to Conduct"
     },
     "pairings": {
       "title": "My Pairings",
@@ -173,7 +173,7 @@
       "roomOptional": "Room (Optional)",
       "none": "— None —",
       "timeSlot": "Time Slot",
-      "selectSlot": "— Select A Time Slot —",
+      "selectSlot": "— Select a Time Slot —",
       "subject": "Subject",
       "subjectPlaceholder": "e.g. AP Chemistry",
       "tutees": "Tutees",
@@ -208,7 +208,7 @@
       "colActive": "Active",
       "colStatus": "Status",
       "colAccount": "Account",
-      "classOf": "Class Of {year}",
+      "classOf": "Class of {year}",
       "account": {
         "active": "Set Up",
         "pending": "Setup Pending",
@@ -217,7 +217,7 @@
         "invited": "Code Issued",
         "none": "No Login",
         "sendSetup": "Send Setup Link",
-        "needEmail": "Add An Email First",
+        "needEmail": "Add an Email First",
         "linkEmailed": "Setup email sent. You can also copy the link below to share directly.",
         "linkManual": "Account ready. Share this setup link with the tutor (email isn't configured):",
         "dismiss": "Dismiss"
@@ -235,7 +235,7 @@
       "help": "Active and inactive tutees, with their attendance and discipline standing. New public signups are handled under",
       "signupRequests": "Signup Requests",
       "pendingBadge": "{count} Pending",
-      "addTutee": "Add A Tutee",
+      "addTutee": "Add a Tutee",
       "fullName": "Full Name",
       "phName": "e.g. Emma Sun",
       "grade": "Grade",
@@ -277,12 +277,12 @@
       "firstChoice": "1st Choice",
       "secondChoice": "2nd Choice",
       "notProvided": "— Not Provided —",
-      "assignToTutor": "— Assign To Tutor —",
+      "assignToTutor": "— Assign to Tutor —",
       "tutorWorkload": "{name} — {pairings} pairings · {tutees} tutees",
       "assigning": "Assigning…",
       "assign": "Assign",
       "assignActivate": "Assign & Activate",
-      "assignedTo": "Assigned To {name}",
+      "assignedTo": "Assigned to {name}",
       "fulfilled": "Fulfilled",
       "expand": "Expand",
       "collapse": "Collapse",
@@ -374,7 +374,7 @@
       "counters": {
         "pendingSignups": "Pending Signups",
         "openApplications": "Open Applications",
-        "cardsToReview": "Cards To Review",
+        "cardsToReview": "Cards to Review",
         "tutorRequests": "Status Requests",
         "recentSurveys": "Recent Surveys",
         "tuteeRequests": "Pending Opt-Outs",
@@ -398,7 +398,7 @@
           "empty": "No open requests."
         },
         "cards": {
-          "title": "Discipline Cards To Review",
+          "title": "Discipline Cards to Review",
           "empty": "Nothing to review.",
           "auto": "auto",
           "tutor": "tutor"
@@ -477,7 +477,7 @@
       "noPeriod": "No active program period. Seed or create one first.",
       "currentPeriod": "Current Period",
       "semester": "Semester {semester}",
-      "refreshHeading": "Refresh To The Next Quarter",
+      "refreshHeading": "Refresh to the Next Quarter",
       "advancesTo": "This advances the program to {name} and:",
       "effectPending": "Clears the pending tutee signup queue (archived to inactive).",
       "effectTutees": "Archives all currently paired tutees — they must sign up again to continue.",
@@ -491,12 +491,12 @@
       "confirmLabel": "Type REFRESH to confirm this program-wide action.",
       "confirmPlaceholder": "REFRESH",
       "reviewButton": "Review Tutor Availability & Refresh →",
-      "refreshButton": "Refresh To {name}",
+      "refreshButton": "Refresh to {name}",
       "refreshing": "Refreshing…",
       "done": "Refreshed to {name}. Archived {count} tutee(s).",
       "doneGrad": "Graduated {graduated}; advanced {aged} tutor(s) a grade.",
       "donePending": "{count} tutor(s) set to reactivate.",
-      "modalTitle": "Tutor Availability For {name}",
+      "modalTitle": "Tutor Availability for {name}",
       "modalIntro": "Confirm which active tutors are continuing. Anyone left unchecked will be archived.",
       "modalGradNote": "New school year: G12 tutors graduate and everyone advances a grade.",
       "available": "Available",
@@ -589,10 +589,10 @@
       "help": "Issue a single-use security key for a new tutor or crew member to self-register. The code is shown once — copy it and hand it over; it is never stored.",
       "labelField": "For (Label)",
       "labelPlaceholder": "e.g. Jane Doe (G11)",
-      "emailField": "Bind To Email (Optional)",
+      "emailField": "Bind to Email (Optional)",
       "emailPlaceholder": "tutor@school.edu",
       "issue": "Issue Code",
-      "issuedTitle": "Registration Code For {who}",
+      "issuedTitle": "Registration Code for {who}",
       "issuedHint": "Copy this now — it won't be shown again.",
       "colFor": "For",
       "colEmail": "Email",
@@ -637,7 +637,7 @@
         "OPT_OUT": "Opt-Out",
         "REENTRY": "Reentry"
       },
-      "cooldownDone": "Cooldown Elapsed — Ready To Approve",
+      "cooldownDone": "Cooldown Elapsed — Ready to Approve",
       "cooldownUntil": "Approvable After {date}",
       "affected": "{count} {count, plural, one {tutee} other {tutees}} affected",
       "notYet": "The one-week cooldown hasn't elapsed yet.",
@@ -930,7 +930,7 @@
       "pendingHeading": "Pending Opt-Outs",
       "pendingHelp": "A tutor relayed the tutee's request to leave. It auto-approves after the recall window unless the tutor recalls or you cancel it.",
       "pendingEmpty": "No pending opt-outs.",
-      "relayedBy": "Relayed By {tutor} · {subject}",
+      "relayedBy": "Relayed by {tutor} · {subject}",
       "autoApprovesOn": "auto-approves {date}",
       "cancel": "Cancel",
       "removedHeading": "Removed & Opted-Out",
@@ -953,7 +953,7 @@
       "depthDetailed": "Detailed",
       "depthFull": "Full Archive",
       "maskPii": "Mask Personal Info",
-      "print": "Print / Save As PDF",
+      "print": "Print / Save as PDF",
       "loading": "Building report…",
       "csv": "CSV",
       "noData": "No data for this period.",
@@ -963,7 +963,7 @@
       "maskedNote": "personal info hidden",
       "sections": {
         "summary": "Summary",
-        "perTutor": "Service Hours By Tutor",
+        "perTutor": "Service Hours by Tutor",
         "sessions": "Attendance Sessions",
         "cards": "Discipline Cards",
         "meetings": "Tutor Meetings",
@@ -972,7 +972,7 @@
         "signups": "Tutee Signups",
         "removals": "Tutee Removals & Opt-Outs",
         "statusRequests": "Tutor Status Requests",
-        "meetingStats": "Meeting Attendance By Tutor",
+        "meetingStats": "Meeting Attendance by Tutor",
         "crewStats": "Crew Patrols",
         "flags": "Attendance Flags"
       },
@@ -1095,11 +1095,11 @@
       "discrepancy": "Crew saw {observed}, tutor reported {expected}",
       "context": "{room} · {date} · {start}–{end}",
       "notePlaceholder": "Note for the record (optional)",
-      "dismiss": "Dismiss As Valid",
+      "dismiss": "Dismiss as Valid",
       "warn": "Record Warning",
       "penaltyHours": "Penalty Hours",
       "penalize": "Apply Penalty",
-      "escalate": "Escalate For Removal",
+      "escalate": "Escalate for Removal",
       "empty": "No attendance flags to review.",
       "state": {
         "PENDING": "Pending",
@@ -1127,7 +1127,7 @@
       "reasonPlaceholder": "Reason (optional)",
       "excused": "You've excused this absence.",
       "excusedBadge": "Excused",
-      "tooLate": "Too Late To Excuse"
+      "tooLate": "Too Late to Excuse"
     },
     "nav": {
       "handbook": "Handbook"
@@ -1146,8 +1146,8 @@
       "loading": "Loading your pairings…",
       "noPairings": "You have no pairings yet. Ask an admin to set one up.",
       "pairing": "Pairing",
-      "selectPairing": "Select A Pairing…",
-      "mergeTitle": "Merge Other Sessions Into This Block",
+      "selectPairing": "Select a Pairing…",
+      "mergeTitle": "Merge Other Sessions into This Block",
       "mergeHelp": "Running several subjects together? Tick the other pairings covered in this same time block. Each is recorded separately, but the block's service hours are counted once.",
       "mergedNote": "Merged sessions share this block's time and ratings. Hours are credited once, on the primary session.",
       "mergedCount": "{count} other session(s) merged into this block (set under My pairings).",
@@ -1298,7 +1298,7 @@
       "membershipHeading": "Membership",
       "optOutHelp": "Leaving the program? Submit an opt-out request. An admin can process it after a one-week cooldown, during which you can recall it.",
       "optOutReasonPlaceholder": "Reason (optional)",
-      "optOutBtn": "Request To Opt Out",
+      "optOutBtn": "Request to Opt Out",
       "optOutPending": "Opt-out requested. An admin can approve it after {date}. You can recall it until then.",
       "optOutPendingNoDate": "Opt-out requested and awaiting review.",
       "reentryPending": "Reentry requested and awaiting an admin's approval.",
@@ -1334,7 +1334,7 @@
     "discipline": {
       "title": "Tutee Conduct",
       "help": "Card standing for your tutees. The team keeps the specific reasons.",
-      "removalPending": "At The Removal Threshold",
+      "removalPending": "At the Removal Threshold",
       "removalBadge": "removal pending",
       "standingTitle": "{red} Red, {yellow} Yellow",
       "onWarning": "On warning",
@@ -1348,11 +1348,11 @@
   },
   "public": {
     "signup": {
-      "title": "Request A Peer Tutor",
+      "title": "Request a Peer Tutor",
       "intro": "Tell us what you'd like help with and when you're free. A coordinator will review your request and match you with a tutor.",
       "term": "Current term: {term}",
       "becomeTutorPrompt": "Want to tutor instead?",
-      "becomeTutorLink": "Apply To Become A Tutor",
+      "becomeTutorLink": "Apply to Become a Tutor",
       "successTitle": "Request Received 🎉",
       "successBody": "Thanks, {name}. A coordinator will review your request and be in touch about your tutor and schedule.",
       "fields": {
@@ -1384,7 +1384,7 @@
       "submitting": "Submitting…"
     },
     "tutorSignup": {
-      "title": "Apply To Become A Peer Tutor",
+      "title": "Apply to Become a Peer Tutor",
       "intro": "Tell us which subjects you'd like to tutor. The coordinator team reviews every application and arranges an interview before you join.",
       "alreadyTutor": "Already a tutor?",
       "signIn": "Sign In",
@@ -1477,7 +1477,7 @@
     "title": "Translations",
     "navLabel": "Translations",
     "subtitle": "Edit the interface text for each language. Changes go live immediately; clearing a field restores the bundled wording.",
-    "targetLanguage": "Language To Edit",
+    "targetLanguage": "Language to Edit",
     "searchLabel": "Search",
     "search": "Search by key or text…",
     "english": "English",

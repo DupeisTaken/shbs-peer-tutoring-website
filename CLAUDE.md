@@ -54,10 +54,15 @@ your changes (`generated/prisma/`) and move on.
   Add the string to `messages/en.json` (and the other locales, e.g. `messages/zh.json`) as a
   nested key, then render it: in **client** components `const t = useTranslations(); t("dashboard.attendance.title")`;
   in **server** components `const t = await getTranslations(); …`. Keys are dot-pathed by area
-  and support ICU `{placeholder}` args. **English titles use Title Case** — capitalize every
-  word (e.g. "Attendance Flags", "Crew Patrols", "Patrol Order"), not sentence case. This applies
-  to page titles, section headings, nav labels, column headers, stat/card labels, and button
-  labels; only the `en` locale follows this rule (other locales use their own conventions). The active locale comes from the `NEXT_LOCALE` cookie
+  and support ICU `{placeholder}` args. **English titles use standard Title Case** — capitalize the
+  principal words but keep the small words lowercase (articles `a/an/the`, coordinating conjunctions
+  `and/but/or/nor/for/so/yet`, and short prepositions `of/to/at/by/as/for/with/from/into/per/via/vs`)
+  **unless they are the first or last word**, which are always capitalized. So "Attendance Flags",
+  "Dismiss as Valid" (not "Dismiss As Valid"), "Back to Sign In" (last word capitalized), "Class of
+  {year}". Phrasal-verb particles stay capitalized ("Set Up", "Sign Out", "Opt Out"). This applies
+  to page titles, section headings, nav labels, column headers, stat/card labels, and button labels;
+  prose (subtitles, help, errors, placeholders, sentences) stays sentence case. Only the `en` locale
+  follows this rule (other locales use their own conventions). The active locale comes from the `NEXT_LOCALE` cookie
   (the `LanguageSwitcher` in the header sets it — no locale routing, so the auth middleware is
   untouched); config in `src/i18n/request.ts`. Orgs can white-label without editing the files
   via the `MESSAGES_OVERRIDE` env (deep-merged JSON). Strings are also editable **in-app** at
