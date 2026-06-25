@@ -1,6 +1,8 @@
 import { redirect } from "next/navigation";
 
 import { auth } from "~/server/auth";
+import { db } from "~/server/db";
+import { getFeatures } from "~/server/program/features";
 import { api } from "~/trpc/server";
 import { AnnouncementsBanner } from "~/app/(tutor)/_components/announcements-banner";
 import { AttendanceForm } from "~/app/(tutor)/_components/attendance-form";
@@ -32,10 +34,11 @@ export default async function TutorDashboard() {
   const inactive = me.status !== "ACTIVE";
   const pending = me.status === "PENDING";
 
-  const [total, schedule, crew] = await Promise.all([
+  const [total, schedule, crew, features] = await Promise.all([
     api.tutor.myMonthlyTotal(),
     api.tutor.schedule(),
     api.tutor.myCrew(),
+    getFeatures(db),
   ]);
 
   return (
@@ -68,20 +71,22 @@ export default async function TutorDashboard() {
           <p className="muted mt-1">{t("dashboard.subtitle")}</p>
         </div>
         <div className="flex flex-wrap items-end gap-3">
-          <div className="card px-5 py-3 text-right">
-            <p className="text-xs font-medium tracking-wide text-slate-500 uppercase">
-              {t("dashboard.hours.title")}
-              {total.periodLabel ? ` · ${total.periodLabel}` : ""}
-            </p>
-            <p className="text-3xl font-bold text-slate-900">{total.total.toFixed(1)} h</p>
-            <p className="muted">
-              {t("tutor.dashboard.hours.earned", { earned: total.earned.toFixed(1) })}
-              {total.extras > 0 &&
-                ` ${t("tutor.dashboard.hours.extra", { extra: total.extras.toFixed(1) })}`}
-              {total.punishments > 0 &&
-                ` ${t("tutor.dashboard.hours.penalty", { penalty: total.punishments.toFixed(1) })}`}
-            </p>
-          </div>
+          {features.SERVICE_HOURS && (
+            <div className="card px-5 py-3 text-right">
+              <p className="text-xs font-medium tracking-wide text-slate-500 uppercase">
+                {t("dashboard.hours.title")}
+                {total.periodLabel ? ` · ${total.periodLabel}` : ""}
+              </p>
+              <p className="text-3xl font-bold text-slate-900">{total.total.toFixed(1)} h</p>
+              <p className="muted">
+                {t("tutor.dashboard.hours.earned", { earned: total.earned.toFixed(1) })}
+                {total.extras > 0 &&
+                  ` ${t("tutor.dashboard.hours.extra", { extra: total.extras.toFixed(1) })}`}
+                {total.punishments > 0 &&
+                  ` ${t("tutor.dashboard.hours.penalty", { penalty: total.punishments.toFixed(1) })}`}
+              </p>
+            </div>
+          )}
           {/* Crew hours — tallied separately from tutoring (only shown for crew members). */}
           {crew.isCrew && (
             <div className="card px-5 py-3 text-right">
@@ -98,10 +103,10 @@ export default async function TutorDashboard() {
       </div>
 
       {/* Pending interviews + session-time confirmations (self-hides when none). */}
-      {!inactive && <MyInterviews />}
+      {!inactive && features.INTERVIEWS && <MyInterviews />}
 
       {/* Upcoming meetings + self-excuse (self-hides when none). */}
-      {!inactive && <TutorMeetings />}
+      {!inactive && features.MEETINGS && <TutorMeetings />}
 
       <MergeProvider>
         <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-5">
@@ -136,7 +141,7 @@ export default async function TutorDashboard() {
       </MergeProvider>
 
       {/* Punishment history for the tutor's tutees (reason-free; self-hides when none). */}
-      {!inactive && <TutorDiscipline />}
+      {!inactive && features.DISCIPLINE && <TutorDiscipline />}
 
       {/* Room assignments (read-only schedule grid; your pairings are highlighted) */}
       <section className="space-y-2">

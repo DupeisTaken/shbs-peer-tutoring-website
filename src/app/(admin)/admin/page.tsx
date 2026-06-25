@@ -1,16 +1,19 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
+import { db } from "~/server/db";
+import { getFeatures } from "~/server/program/features";
 import { api } from "~/trpc/server";
 
 export default async function AdminHome() {
   const t = await getTranslations();
-  const [pairings, summary, tutees, sessions, crew] = await Promise.all([
+  const [pairings, summary, tutees, sessions, crew, features] = await Promise.all([
     api.admin.pairings(),
     api.admin.periodSummary(),
     api.admin.tutees(),
     api.admin.sessions(),
     api.admin.crewSummary(),
+    getFeatures(db),
   ]);
 
   const activeTutors = summary.rows.filter((r) => r.active).length;
@@ -34,17 +37,21 @@ export default async function AdminHome() {
           href="/admin/requests"
           highlight={pendingTutees > 0}
         />
-        <Stat
-          label={t("admin.dashboard.stats.serviceHours", { month: summary.scope.label })}
-          value={totalHours.toFixed(1)}
-          href="/admin/service-hours"
-        />
-        <Stat
-          label={t("admin.dashboard.stats.crewPatrols")}
-          value={crew.patrols}
-          href="/admin/crew"
-          highlight={crew.openFlags > 0}
-        />
+        {features.SERVICE_HOURS && (
+          <Stat
+            label={t("admin.dashboard.stats.serviceHours", { month: summary.scope.label })}
+            value={totalHours.toFixed(1)}
+            href="/admin/service-hours"
+          />
+        )}
+        {features.CREW && (
+          <Stat
+            label={t("admin.dashboard.stats.crewPatrols")}
+            value={crew.patrols}
+            href="/admin/crew"
+            highlight={crew.openFlags > 0}
+          />
+        )}
       </div>
 
       {pendingTutees > 0 && (

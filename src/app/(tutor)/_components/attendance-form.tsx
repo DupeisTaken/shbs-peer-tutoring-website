@@ -63,6 +63,7 @@ export function AttendanceForm() {
   const pairingsQuery = api.tutor.myPairings.useQuery();
   const disciplineQuery = api.tutor.myTuteeDiscipline.useQuery();
   const roomsQuery = api.tutor.rooms.useQuery();
+  const features = api.program.features.useQuery().data;
   const submit = api.tutor.submitAttendance.useMutation({
     onSuccess: async () => {
       await Promise.all([
@@ -446,8 +447,8 @@ export function AttendanceForm() {
         {errors.comments && <p className="text-sm text-red-600">{errors.comments.message}</p>}
       </div>
 
-      {/* Disciplinary cards (optional) */}
-      {selectedPairing && held && (
+      {/* Disciplinary cards (optional; hidden when the discipline module is off) */}
+      {selectedPairing && held && features?.DISCIPLINE && (
         <fieldset className="rounded-lg border border-slate-200 p-3">
           <legend className="label px-1">{t("tutor.attendance.cardsTitle")}</legend>
           <p className="muted mb-2 text-xs">{t("tutor.attendance.cardsHelp")}</p>

@@ -23,6 +23,7 @@ export default function ActivityPage() {
   const sessionFlags = api.admin.sessionFlags.useQuery();
   const crewApplications = api.admin.crewApplications.useQuery();
   const crewRequests = api.admin.crewRequests.useQuery();
+  const features = api.program.features.useQuery().data;
 
   const pendingTutees = (tutees.data ?? [])
     .filter((t) => t.status === "PENDING")
@@ -49,7 +50,9 @@ export default function ActivityPage() {
       <div className="grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Counter label={t("admin.activity.counters.pendingSignups")} value={pendingTutees.length} href="/admin/requests" />
         <Counter label={t("admin.activity.counters.openApplications")} value={openApps.length} href="/admin/applications" />
-        <Counter label={t("admin.activity.counters.cardsToReview")} value={pendingCards.length} href="/admin/discipline" />
+        {features?.DISCIPLINE && (
+          <Counter label={t("admin.activity.counters.cardsToReview")} value={pendingCards.length} href="/admin/discipline" />
+        )}
         <Counter
           label={t("admin.activity.counters.tutorRequests")}
           value={openRequests.length}
@@ -60,21 +63,25 @@ export default function ActivityPage() {
           value={openTuteeRequests.length}
           href="/admin/tutee-requests"
         />
-        <Counter
-          label={t("admin.activity.counters.sessionFlags")}
-          value={openFlags.length}
-          href="/admin/session-flags"
-        />
-        <Counter
-          label={t("admin.activity.counters.crewApplications")}
-          value={openCrewApps.length}
-          href="/admin/crew"
-        />
-        <Counter
-          label={t("admin.activity.counters.crewRequests")}
-          value={openCrewReqs.length}
-          href="/admin/crew"
-        />
+        {features?.CREW && (
+          <>
+            <Counter
+              label={t("admin.activity.counters.sessionFlags")}
+              value={openFlags.length}
+              href="/admin/session-flags"
+            />
+            <Counter
+              label={t("admin.activity.counters.crewApplications")}
+              value={openCrewApps.length}
+              href="/admin/crew"
+            />
+            <Counter
+              label={t("admin.activity.counters.crewRequests")}
+              value={openCrewReqs.length}
+              href="/admin/crew"
+            />
+          </>
+        )}
         <Counter
           label={t("admin.activity.counters.recentSurveys")}
           value={recentSessions.length}
@@ -171,6 +178,9 @@ export default function ActivityPage() {
         ))}
       </Panel>
 
+      {/* Crew validation + lifecycle panels (hidden when the crew module is off) */}
+      {features?.CREW && (
+        <>
       {/* Attendance discrepancy flags (crew validation) */}
       <Panel
         title={t("admin.activity.panels.sessionFlags.title")}
@@ -231,27 +241,31 @@ export default function ActivityPage() {
           </Row>
         ))}
       </Panel>
+        </>
+      )}
 
-      {/* Card issues */}
-      <Panel
-        title={t("admin.activity.panels.cards.title")}
-        href="/admin/discipline"
-        empty={t("admin.activity.panels.cards.empty")}
-        manageLabel={t("admin.activity.manage")}
-      >
-        {pendingCards.map((c) => (
-          <Row key={c.id}>
-            <span>{c.color === "RED" ? "🟥" : "🟨"}</span>
-            <span className="font-medium text-slate-800">{c.tutee.englishName}</span>
-            <span className="muted truncate text-xs">{c.reason ?? "—"}</span>
-            <span className="muted ml-auto text-xs">
-              {c.source === "AUTO"
-                ? t("admin.activity.panels.cards.auto")
-                : (c.issuedByTutor?.englishName ?? t("admin.activity.panels.cards.tutor"))}
-            </span>
-          </Row>
-        ))}
-      </Panel>
+      {/* Card issues (hidden when the discipline module is off) */}
+      {features?.DISCIPLINE && (
+        <Panel
+          title={t("admin.activity.panels.cards.title")}
+          href="/admin/discipline"
+          empty={t("admin.activity.panels.cards.empty")}
+          manageLabel={t("admin.activity.manage")}
+        >
+          {pendingCards.map((c) => (
+            <Row key={c.id}>
+              <span>{c.color === "RED" ? "🟥" : "🟨"}</span>
+              <span className="font-medium text-slate-800">{c.tutee.englishName}</span>
+              <span className="muted truncate text-xs">{c.reason ?? "—"}</span>
+              <span className="muted ml-auto text-xs">
+                {c.source === "AUTO"
+                  ? t("admin.activity.panels.cards.auto")
+                  : (c.issuedByTutor?.englishName ?? t("admin.activity.panels.cards.tutor"))}
+              </span>
+            </Row>
+          ))}
+        </Panel>
+      )}
 
       {/* Attendance surveys */}
       <Panel
