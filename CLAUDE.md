@@ -35,7 +35,21 @@ your changes (`generated/prisma/`) and move on.
   `TEAM_TITLE` from `~/lib/branding`. `APP_TITLE` (default "SHBS Peer Tutoring") is the
   public/student-facing brand; `TEAM_TITLE` (default "SHBS Peer Tutoring Team") brands
   the tutor/coordinator/admin area. They're `NEXT_PUBLIC_*` (so they work in client
-  components too) and inlined at build time — **rebuild after changing them.**
+  components too) and inlined at build time — **rebuild after changing them.** Three more optional
+  identity labels live alongside them in `~/lib/branding`: `ORG_NAME` (org/school name; falls back
+  to `APP_TITLE`), `SUPPORT_EMAIL`, `PROGRAM_TERM_LABEL` — also `NEXT_PUBLIC_*`, empty by default.
+- **Optional modules are HEAD-toggleable feature flags.** A program can switch off modules it
+  doesn't use on **`/admin/program`** (HEAD-only). Flags live in the `ProgramFeature` table
+  (`enabled` + staged `pendingEnabled`); read the effective set with **`getFeatures(db)`**
+  (`~/server/program/features.ts`, missing row = ON) on the server, or **`api.program.features`**
+  on the client. **Changes are staged and applied at the next program `refresh`**
+  (`applyPendingFeatures`), so a quarter stays stable. Keys: `CREW`, `DISCIPLINE`, `MEETINGS`,
+  `INTERVIEWS`, `SERVICE_HOURS` (soft hide+block when off — gate nav items via the `feature` field
+  on `NavItem`, redirect their portals, hide their dashboard/activity/report surfaces, and refuse
+  their procedures, e.g. `crewProcedure`), and **`QUARTER_SYSTEM`** which is a *mode* not a disable:
+  ON = quarters (Q1–Q4), OFF = semesters (S1/S2) — `nextPeriod`/`periodLabel` take a `semesterMode`
+  flag and the refresh advances a whole semester (graduation then moves to the year boundary).
+  **When you add an optional-module surface, gate it by its flag.**
 - **All user-facing text must be translatable — never hardcode UI copy.** i18n is **next-intl**.
   Add the string to `messages/en.json` (and the other locales, e.g. `messages/zh.json`) as a
   nested key, then render it: in **client** components `const t = useTranslations(); t("dashboard.attendance.title")`;

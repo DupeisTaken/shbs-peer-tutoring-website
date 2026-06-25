@@ -29,6 +29,7 @@ import {
   crossesYear,
   graduationYear,
   nextPeriod,
+  periodLabel,
   quarterSemester,
   semesterQuarters,
 } from "~/lib/period";
@@ -499,27 +500,31 @@ export const adminRouter = createTRPCRouter({
   currentPeriod: viewerProcedure.query(async ({ ctx }) => {
     const active = await getActivePeriodOrNull(ctx.db);
     if (!active) return null;
-    const np = nextPeriod({ schoolYear: active.schoolYear, quarter: active.quarter });
+    // Quarter System off => semester mode. The current label uses the current effective mode; the
+    // "next" preview uses the about-to-apply mode (a staged toggle activates at the next refresh).
+    const qs = await ctx.db.programFeature.findUnique({
+      where: { key: "QUARTER_SYSTEM" },
+      select: { enabled: true, pendingEnabled: true },
+    });
+    const curSemester = !(qs?.enabled ?? true);
+    const nextSemester = !(qs?.pendingEnabled ?? qs?.enabled ?? true);
+    const from = { schoolYear: active.schoolYear, quarter: active.quarter };
+    const np = nextPeriod(from, nextSemester);
+    const yearCross = crossesYear(from, np);
     return {
       schoolYear: active.schoolYear,
       quarter: active.quarter,
       semester: active.semester,
-      name: active.name,
+      name: curSemester ? periodLabel(from, true) : active.name,
       next: {
         schoolYear: np.schoolYear,
         quarter: np.quarter,
         semester: quarterSemester(np.quarter),
-        name: `${np.schoolYear} ${np.quarter}`,
-        crossesSemester: crossesSemester(
-          { schoolYear: active.schoolYear, quarter: active.quarter },
-          np,
-        ),
-        crossesYear: crossesYear(
-          { schoolYear: active.schoolYear, quarter: active.quarter },
-          np,
-        ),
-        // G12 tutors graduate as the program advances into Q4 (its final quarter).
-        graduates: np.quarter === "Q4",
+        name: periodLabel(np, nextSemester),
+        crossesSemester: crossesSemester(from, np),
+        crossesYear: yearCross,
+        // Quarter mode: G12 graduate entering Q4. Semester mode: at the year boundary (no Q4).
+        graduates: nextSemester ? yearCross : np.quarter === "Q4",
       },
     };
   }),
@@ -1129,8 +1134,15 @@ export const adminRouter = createTRPCRouter({
       }
       const active = await getActivePeriod(ctx.db);
       const from = { schoolYear: active.schoolYear, quarter: active.quarter };
-      const np = nextPeriod(from);
-      const name = `${np.schoolYear} ${np.quarter}`;
+      // A staged Quarter System change activates at THIS refresh (applyPendingFeatures runs first),
+      // so the advance granularity uses the about-to-apply value: off => step a whole semester.
+      const qs = await ctx.db.programFeature.findUnique({
+        where: { key: "QUARTER_SYSTEM" },
+        select: { enabled: true, pendingEnabled: true },
+      });
+      const semesterMode = !(qs?.pendingEnabled ?? qs?.enabled ?? true);
+      const np = nextPeriod(from, semesterMode);
+      const name = periodLabel(np, semesterMode);
       const semesterCross = crossesSemester(from, np);
       const yearCross = crossesYear(from, np);
 
@@ -1153,9 +1165,11 @@ export const adminRouter = createTRPCRouter({
         // Aging-up stays at the school-year boundary (Q4 -> next year's Q1) and advances everyone
         // who remains ACTIVE by one grade — by then the graduates are already inactive and
         // untouched. (A retained tutor who self-reported staying in their grade simply isn't G12.)
+        // Quarter mode graduates G12 entering Q4 (so they finish the year inactive); semester mode
+        // has no Q4, so it graduates at the school-year boundary alongside aging-up.
         let graduated = 0;
         let aged = 0;
-        if (np.quarter === "Q4") {
+        if (semesterMode ? yearCross : np.quarter === "Q4") {
           const grad = await tx.tutor.updateMany({
             where: { status: "ACTIVE", gradeLevel: { gte: 12 } },
             data: { status: "GRADUATED" },

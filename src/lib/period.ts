@@ -69,8 +69,18 @@ export function prevSchoolYear(schoolYear: string): string {
   return `${pad2(start - 1)}-${pad2(start)}`;
 }
 
-/** Advance to the next quarter; Q4 rolls into the next school year's Q1. */
-export function nextPeriod(period: Period): Period {
+/**
+ * Advance to the next period. In quarter mode (default) it steps one quarter (Q4 rolls into the
+ * next school year's Q1). In **semester mode** (the Quarter System toggle off) it steps a whole
+ * semester — the active quarter is always a semester's first quarter (S1 = Q1, S2 = Q3), so S1 → Q3
+ * (same year) and S2 → next year's Q1.
+ */
+export function nextPeriod(period: Period, semesterMode = false): Period {
+  if (semesterMode) {
+    return quarterSemester(period.quarter) === "S1"
+      ? { schoolYear: period.schoolYear, quarter: "Q3" }
+      : { schoolYear: nextSchoolYear(period.schoolYear), quarter: "Q1" };
+  }
   const i = QUARTERS.indexOf(period.quarter);
   if (i < QUARTERS.length - 1) {
     return { schoolYear: period.schoolYear, quarter: QUARTERS[i + 1]! };
@@ -110,8 +120,10 @@ export function schoolYearForDate(date: Date): string {
   return `${pad2(start)}-${pad2(start + 1)}`;
 }
 
-export function periodLabel(period: Period): string {
-  return `${period.schoolYear} ${period.quarter}`;
+export function periodLabel(period: Period, semesterMode = false): string {
+  return semesterMode
+    ? `${period.schoolYear} ${quarterSemester(period.quarter)}`
+    : `${period.schoolYear} ${period.quarter}`;
 }
 
 export function semesterLabel(schoolYear: string, semester: Semester): string {
