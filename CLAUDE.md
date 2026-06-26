@@ -212,9 +212,13 @@ submission time). See the `admin-philosophies` memory for the rationale.
   refuses). The user files an `AccountAppeal` (`account.submitAppeal`); an admin decides on
   `/admin/users` (`decideAppeal`/`reinstateUser` → clears the suspension). Notifications fire on
   signup, suspend, appeal, and decision.
-- **Registration codes are short-lived, low-value secrets.** The `code` is a **5-character Steam-style**
-  key (unambiguous uppercase alphanumerics, `src/server/auth/code.ts` — `generateRegistrationCode`,
-  cryptographically random, ~31⁵; normalize input with `normalizeRegCode`), stored in **plaintext** so
+- **Registration codes are short-lived, low-value secrets.** **All registration codes use the
+  5-character Steam-style ALPHANUMERIC format** — 5 characters from an unambiguous mixed digit+uppercase
+  alphabet (no `0/O/1/I/L`), `src/server/auth/code.ts` — **`generateRegistrationCode`**, cryptographically
+  random (~31⁵). **Every `RegistrationCode.code` MUST be produced by `generateRegistrationCode`** (the
+  issue path, tutor/crew/application-accept codes, and the seed all do); normalize user input with
+  `normalizeRegCode`. (Do not confuse with the emailed verification OTP, which is 5-digit *numeric* —
+  see the next bullet.) The code is stored in **plaintext** so
   admins/coordinators can re-display it on `/admin/registration-codes` (revealed on demand; withheld from
   the read-only VIEWER). `RegistrationCode.kind` (`TUTOR|CREW`) decides what redeeming it provisions; the
   issuer picks it on `/admin/registration-codes`, and accepting a crew application issues a CREW one.
