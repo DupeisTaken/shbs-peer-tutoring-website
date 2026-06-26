@@ -79,7 +79,7 @@
           "placeholder": "you@school.edu",
           "bound": "This code is tied to this email address.",
           "send": "Send Verification Code",
-          "sent": "We emailed a 5-digit code to {email}.",
+          "sent": "We emailed a code to {email}.",
           "codeLabel": "Verification Code",
           "verify": "Verify Email",
           "resend": "Resend Code"
@@ -1467,7 +1467,7 @@
       "signIn": "Sign In",
       "sendCode": "Send Verification Code",
       "sending": "Sending…",
-      "sent": "We emailed a 5-digit code to {email}.",
+      "sent": "We emailed a code to {email}.",
       "verify": "Verify Email",
       "resend": "Resend Code",
       "creating": "Creating…",

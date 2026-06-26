@@ -220,11 +220,12 @@ export default function SettingsPage() {
               <span className="label">{t("account.password.codeLabel")}</span>
               <input
                 value={code}
-                onChange={(e) => setCode(e.target.value)}
-                inputMode="numeric"
+                onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, "").slice(0, 5))}
+                autoCapitalize="characters"
                 autoComplete="one-time-code"
-                placeholder="000000"
-                className="input field-auto min-w-40 font-mono tracking-[0.3em]"
+                maxLength={5}
+                placeholder="XXXXX"
+                className="input field-auto min-w-40 font-mono uppercase tracking-[0.3em]"
               />
             </label>
             <button

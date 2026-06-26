@@ -212,26 +212,20 @@ submission time). See the `admin-philosophies` memory for the rationale.
   refuses). The user files an `AccountAppeal` (`account.submitAppeal`); an admin decides on
   `/admin/users` (`decideAppeal`/`reinstateUser` → clears the suspension). Notifications fire on
   signup, suspend, appeal, and decision.
-- **Registration codes are short-lived, low-value secrets.** **All registration codes use the
-  5-character Steam-style ALPHANUMERIC format** — 5 characters from an unambiguous mixed digit+uppercase
-  alphabet (no `0/O/1/I/L`), `src/server/auth/code.ts` — **`generateRegistrationCode`**, cryptographically
-  random (~31⁵). **Every `RegistrationCode.code` MUST be produced by `generateRegistrationCode`** (the
-  issue path, tutor/crew/application-accept codes, and the seed all do); normalize user input with
-  `normalizeRegCode`. (Do not confuse with the emailed verification OTP, which is 5-digit *numeric* —
-  see the next bullet.) The code is stored in **plaintext** so
-  admins/coordinators can re-display it on `/admin/registration-codes` (revealed on demand; withheld from
-  the read-only VIEWER). `RegistrationCode.kind` (`TUTOR|CREW`) decides what redeeming it provisions; the
-  issuer picks it on `/admin/registration-codes`, and accepting a crew application issues a CREW one.
-  Its value is bounded by being **single-use**, expiring after **7 days**, and **rate-limited** at every
-  `/register` step (per IP + per code, `src/server/rate-limit.ts`). The *separate* emailed
-  email-verification code is never re-displayed and IS stored hashed (HMAC, `AUTH_SECRET`). Keep these
-  guards when touching the flow.
-- **All emailed verification codes are 5-digit numeric.** Every email-verification / one-time code —
-  the `/register` email check, the `/observe` observer signup, and the password-change step-up — uses
-  **`generateNumericCode`** (5-digit numeric, `src/server/auth/registration.ts`). This is distinct from
-  the admin-issued **`RegistrationCode` security key** (the 5-character Steam-style alphanumeric from
-  `code.ts`). **Any future email verification must use this 5-digit format** (and a matching `\d{5}`
-  input validator).
+- **EVERY code is the 5-character Steam-style ALPHANUMERIC format.** One generator for all codes:
+  **`generateRegistrationCode`** (`src/server/auth/code.ts`) — 5 characters from an unambiguous mixed
+  digit+uppercase alphabet (no `0/O/1/I/L`), cryptographically random (~31⁵). This covers **both** the
+  admin-issued **`RegistrationCode` security key** *and* every emailed verification OTP (the `/register`
+  email check, the `/observe` observer signup, the password-change step-up). **Any new code MUST use
+  `generateRegistrationCode`** (never roll your own), with a `normalizeRegCode` transform +
+  `/^[0-9A-Z]{5}$/` input validator. `hashCode` (HMAC, `AUTH_SECRET`) normalizes before hashing, so the
+  OTPs compare case-insensitively. Registration codes are stored in **plaintext** so admins/coordinators
+  can re-display them on `/admin/registration-codes` (revealed on demand; withheld from the read-only
+  VIEWER); emailed OTPs are never re-displayed and stored **hashed**. `RegistrationCode.kind`
+  (`TUTOR|CREW`) decides what redeeming a key provisions; the issuer picks it on
+  `/admin/registration-codes`, and accepting a crew application issues a CREW one. A key's value is
+  bounded by being **single-use**, expiring after **7 days**, and **rate-limited** at every `/register`
+  step (per IP + per code, `src/server/rate-limit.ts`). Keep these guards when touching the flow.
 - **Never accept `role` or status from public input.** Roles live on `User.role`, carried
   in the JWT. The first `AUTH_BOOTSTRAP_ADMIN_EMAILS` entry resolves to the singleton **HEAD**, the
   rest to `ADMIN` — grants only ever **elevate** (a transferred head is never silently demoted).

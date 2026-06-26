@@ -17,12 +17,12 @@
  *
  * Node runtime only (touches the database + Node crypto).
  */
-import { createHmac, randomInt } from "crypto";
+import { createHmac } from "crypto";
 
 import { env } from "~/env";
 import { db } from "~/server/db";
 import { hashPassword } from "./password";
-import { generateRegistrationCode } from "./code";
+import { generateRegistrationCode, normalizeRegCode } from "./code";
 import { defaultUsername, ensureUniqueUsername } from "./username";
 import { graduationYear } from "~/lib/period";
 
@@ -39,15 +39,10 @@ function secret(): string {
   return env.AUTH_SECRET ?? "dev-insecure-registration-secret";
 }
 
-/** Keyed (HMAC) hash of a code — deterministic for lookup, not offline-brute-forceable. */
+/** Keyed (HMAC) hash of a code — deterministic for lookup, not offline-brute-forceable. Normalizes
+ *  first (uppercase, strip separators) so the 5-char Steam-format OTPs compare case-insensitively. */
 export function hashCode(code: string): string {
-  return createHmac("sha256", secret()).update(code.trim()).digest("hex");
-}
-
-/** A cryptographically-random **5-digit** numeric code — the format for every emailed verification
- *  OTP (registration email check, observer signup, password-change step-up). See CLAUDE.md. */
-export function generateNumericCode(): string {
-  return String(randomInt(0, 100_000)).padStart(5, "0");
+  return createHmac("sha256", secret()).update(normalizeRegCode(code)).digest("hex");
 }
 
 export interface IssueCodeOptions {
@@ -178,7 +173,7 @@ export async function setEmailVerification(
   if (row.email && row.email.toLowerCase() !== normalized) {
     return { ok: false, error: "email-mismatch" };
   }
-  const emailCode = generateNumericCode();
+  const emailCode = generateRegistrationCode();
   await db.registrationCode.update({
     where: { id: row.id },
     data: {

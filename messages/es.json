@@ -79,7 +79,7 @@
           "placeholder": "you@school.edu",
           "bound": "Este código está vinculado a esta dirección de correo electrónico.",
           "send": "Enviar código de verificación",
-          "sent": "Enviamos un código de 5 dígitos a {email}.",
+          "sent": "Enviamos un código a {email}.",
           "codeLabel": "Código de verificación",
           "verify": "Verificar correo electrónico",
           "resend": "Reenviar código"
@@ -1467,7 +1467,7 @@
       "signIn": "Iniciar sesión",
       "sendCode": "Enviar código de verificación",
       "sending": "Enviando…",
-      "sent": "Enviamos un código de 5 dígitos a {email}.",
+      "sent": "Enviamos un código a {email}.",
       "verify": "Verificar correo",
       "resend": "Reenviar código",
       "creating": "Creando…",

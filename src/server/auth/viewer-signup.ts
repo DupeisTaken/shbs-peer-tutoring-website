@@ -12,7 +12,8 @@
  */
 import { db } from "~/server/db";
 import { hashPassword } from "./password";
-import { generateNumericCode, hashCode } from "./registration";
+import { hashCode } from "./registration";
+import { generateRegistrationCode } from "./code";
 
 export const VIEWER_CODE_TTL_MINUTES = 15;
 const MAX_ATTEMPTS = 6;
@@ -30,7 +31,7 @@ export async function startViewerSignup(input: {
   const existing = await db.user.findUnique({ where: { email }, select: { id: true } });
   if (existing) return { ok: false, error: "email-taken" };
 
-  const code = generateNumericCode();
+  const code = generateRegistrationCode();
   const data = {
     name: input.name.trim(),
     affiliation: input.affiliation.trim(),

@@ -126,7 +126,7 @@ export function RegisterFlow() {
           className="space-y-3"
           onSubmit={(e) => {
             e.preventDefault();
-            if (/^\d{5}$/.test(emailCode)) verifyEmail.mutate({ code, emailCode });
+            if (/^[0-9A-Z]{5}$/.test(emailCode)) verifyEmail.mutate({ code, emailCode });
           }}
         >
           <p className="text-sm text-slate-700">
@@ -137,18 +137,18 @@ export function RegisterFlow() {
           </label>
           <input
             id="reg-emailcode"
-            inputMode="numeric"
+            autoCapitalize="characters"
             autoComplete="one-time-code"
             maxLength={5}
             value={emailCode}
-            onChange={(e) => setEmailCode(e.target.value.replace(/\D/g, ""))}
-            placeholder="00000"
-            className="input w-full text-center text-2xl tracking-[0.4em]"
+            onChange={(e) => setEmailCode(e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, "").slice(0, 5))}
+            placeholder="XXXXX"
+            className="input w-full text-center text-2xl tracking-[0.4em] uppercase"
           />
           {verifyEmail.error && <p className="text-sm text-red-600">{verifyEmail.error.message}</p>}
           <button
             className="btn-primary w-full"
-            disabled={!/^\d{5}$/.test(emailCode) || verifyEmail.isPending}
+            disabled={!/^[0-9A-Z]{5}$/.test(emailCode) || verifyEmail.isPending}
           >
             {t("auth.register.step.email.verify")}
           </button>

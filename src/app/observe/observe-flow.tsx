@@ -86,7 +86,7 @@ export function ObserveFlow() {
           className="space-y-3"
           onSubmit={(e) => {
             e.preventDefault();
-            if (/^\d{5}$/.test(code)) verify.mutate({ email: email.trim(), code });
+            if (/^[0-9A-Z]{5}$/.test(code)) verify.mutate({ email: email.trim(), code });
           }}
         >
           <p className="text-sm text-slate-700">{t("public.observe.sent", { email })}</p>
@@ -95,16 +95,16 @@ export function ObserveFlow() {
           </label>
           <input
             id="obs-code"
-            inputMode="numeric"
+            autoCapitalize="characters"
             autoComplete="one-time-code"
             maxLength={5}
             value={code}
-            onChange={(e) => setCode(e.target.value.replace(/\D/g, ""))}
-            placeholder="00000"
-            className="input w-full text-center text-2xl tracking-[0.4em]"
+            onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, "").slice(0, 5))}
+            placeholder="XXXXX"
+            className="input w-full text-center text-2xl tracking-[0.4em] uppercase"
           />
           {verify.error && <p className="text-sm text-red-600">{verify.error.message}</p>}
-          <button className="btn-primary w-full" disabled={!/^\d{5}$/.test(code) || verify.isPending}>
+          <button className="btn-primary w-full" disabled={!/^[0-9A-Z]{5}$/.test(code) || verify.isPending}>
             {t("public.observe.verify")}
           </button>
           <button

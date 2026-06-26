@@ -17,7 +17,8 @@ import type { VerificationPurpose } from "../../../generated/prisma";
 import { db } from "~/server/db";
 import { emailSender } from "~/server/email/sender";
 import { APP_TITLE } from "~/lib/branding";
-import { generateNumericCode, hashCode } from "./registration";
+import { hashCode } from "./registration";
+import { generateRegistrationCode } from "./code";
 
 /** How long an emailed step-up code stays valid. */
 export const STEP_UP_CODE_TTL_MINUTES = 15;
@@ -45,7 +46,7 @@ export async function issueStepUpCode(
     select: { email: true, name: true },
   });
 
-  const code = generateNumericCode();
+  const code = generateRegistrationCode();
   const expiresAt = new Date(Date.now() + STEP_UP_CODE_TTL_MINUTES * 60_000);
 
   await db.$transaction([

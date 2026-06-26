@@ -79,7 +79,7 @@
           "placeholder": "you@school.edu",
           "bound": "이 코드는 해당 이메일 주소에 연결되어 있습니다.",
           "send": "인증 코드 보내기",
-          "sent": "{email}(으)로 5자리 코드를 보냈습니다.",
+          "sent": "{email}(으)로 코드를 보냈습니다.",
           "codeLabel": "인증 코드",
           "verify": "이메일 인증",
           "resend": "코드 재전송"
@@ -1467,7 +1467,7 @@
       "signIn": "로그인",
       "sendCode": "인증 코드 보내기",
       "sending": "보내는 중…",
-      "sent": "{email}(으)로 5자리 코드를 보냈습니다.",
+      "sent": "{email}(으)로 코드를 보냈습니다.",
       "verify": "이메일 인증",
       "resend": "코드 재전송",
       "creating": "생성 중…",

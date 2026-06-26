@@ -79,7 +79,7 @@
           "placeholder": "you@school.edu",
           "bound": "このコードはこのメールアドレスに紐付けられています。",
           "send": "確認コードを送信",
-          "sent": "{email} に5桁のコードを送信しました。",
+          "sent": "{email} にコードを送信しました。",
           "codeLabel": "確認コード",
           "verify": "メールを確認",
           "resend": "コードを再送"
@@ -1467,7 +1467,7 @@
       "signIn": "ログイン",
       "sendCode": "確認コードを送信",
       "sending": "送信中…",
-      "sent": "{email} に5桁のコードを送信しました。",
+      "sent": "{email} にコードを送信しました。",
       "verify": "メールを確認",
       "resend": "コードを再送",
       "creating": "作成中…",

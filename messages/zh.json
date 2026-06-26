@@ -79,7 +79,7 @@
           "placeholder": "you@school.edu",
           "bound": "此验证码已绑定至该邮箱地址。",
           "send": "发送验证码",
-          "sent": "我们已向 {email} 发送了 5 位验证码。",
+          "sent": "我们已向 {email} 发送了验证码。",
           "codeLabel": "验证码",
           "verify": "验证邮箱",
           "resend": "重新发送验证码"
@@ -1467,7 +1467,7 @@
       "signIn": "登录",
       "sendCode": "发送验证码",
       "sending": "发送中…",
-      "sent": "我们已向 {email} 发送了 5 位验证码。",
+      "sent": "我们已向 {email} 发送了验证码。",
       "verify": "验证邮箱",
       "resend": "重新发送验证码",
       "creating": "创建中…",

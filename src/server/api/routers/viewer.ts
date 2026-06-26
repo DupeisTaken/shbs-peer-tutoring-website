@@ -12,6 +12,7 @@ import { emailSender } from "~/server/email/sender";
 import { APP_TITLE } from "~/lib/branding";
 import { getFeatures } from "~/server/program/features";
 import { notifyAdmins } from "~/server/notifications/create";
+import { normalizeRegCode } from "~/server/auth/code";
 import {
   VIEWER_CODE_TTL_MINUTES,
   startViewerSignup,
@@ -82,7 +83,12 @@ export const viewerRouter = createTRPCRouter({
 
   /** Confirm the emailed code. */
   verify: publicProcedure
-    .input(z.object({ email: z.string().trim().email(), code: z.string().trim().regex(/^\d{5}$/) }))
+    .input(
+      z.object({
+        email: z.string().trim().email(),
+        code: z.string().transform(normalizeRegCode).pipe(z.string().regex(/^[0-9A-Z]{5}$/)),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       await assertEnabled(ctx.db);
       const ip = clientIp(ctx.headers);
