@@ -5,6 +5,7 @@ import { useLocale, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { DisclosureIcon } from "~/app/_components/icons";
+import { useDialog } from "~/app/_components/confirm-dialog";
 
 type StringRowData = {
   key: string;
@@ -83,6 +84,7 @@ function StringRow({
 /** Add a new language + (for admins) reorder and remove existing ones. */
 function LanguagesPanel() {
   const t = useTranslations();
+  const { confirm, dialog } = useDialog();
   const utils = api.useUtils();
   const languages = api.i18n.languages.useQuery();
   const canManage = api.i18n.canManageLanguages.useQuery();
@@ -145,8 +147,15 @@ function LanguagesPanel() {
                     type="button"
                     className="link-danger text-xs"
                     disabled={del.isPending}
-                    onClick={() => {
-                      if (confirm(t("localization.confirmRemoveLanguage", { label: l.label })))
+                    onClick={async () => {
+                      if (
+                        await confirm({
+                          title: t("localization.confirmRemoveLanguage", { label: l.label }),
+                          confirmLabel: t("common.delete"),
+                          cancelLabel: t("common.cancel"),
+                          danger: true,
+                        })
+                      )
                         del.mutate({ code: l.code });
                     }}
                   >
@@ -187,6 +196,7 @@ function LanguagesPanel() {
       {(reorder.error ?? del.error) && (
         <p className="text-sm text-red-600">{(reorder.error ?? del.error)?.message}</p>
       )}
+      {dialog}
     </section>
   );
 }

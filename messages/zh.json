@@ -1,5 +1,8 @@
 {
   "common": {
+    "cancel": "取消",
+    "confirm": "确认",
+    "delete": "删除",
     "dismiss": "知道了",
     "save": "保存",
     "saved": "已保存。",
@@ -581,6 +584,7 @@
       "suspended": "已暂停",
       "suspend": "暂停",
       "reinstate": "恢复",
+      "suspendTitle": "暂停此账户？",
       "suspendPrompt": "暂停原因（可选）：",
       "appeals": {
         "heading": "恢复申诉",

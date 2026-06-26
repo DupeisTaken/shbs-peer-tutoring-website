@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
+import { useReadOnly } from "~/app/_components/read-only";
 
 /**
  * Audit trail of admin mutations. Entries that carry undo data can be reverted with one
@@ -10,6 +11,7 @@ import { api } from "~/trpc/react";
  */
 export default function AuditPage() {
   const t = useTranslations();
+  const readOnly = useReadOnly();
   const utils = api.useUtils();
   const log = api.admin.auditLog.useQuery();
   const undo = api.admin.undoAudit.useMutation({
@@ -47,7 +49,7 @@ export default function AuditPage() {
                   {e.undone && <span className="badge-slate ml-2">{t("admin.audit.undone")}</span>}
                 </td>
                 <td className="text-right">
-                  {e.undoData != null && !e.undone ? (
+                  {!readOnly && e.undoData != null && !e.undone ? (
                     <button
                       className="btn-secondary btn-sm"
                       disabled={undo.isPending}
@@ -71,7 +73,9 @@ export default function AuditPage() {
           </tbody>
         </table>
       </div>
-      {undo.error && <p className="text-sm text-red-600">{undo.error.message}</p>}
+      {!readOnly && undo.error && (
+        <p className="text-sm text-red-600">{undo.error.message}</p>
+      )}
     </div>
   );
 }

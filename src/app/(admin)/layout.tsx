@@ -94,13 +94,33 @@ export default async function AdminLayout({
       <div className="mx-auto flex max-w-7xl gap-8 px-4 py-6 lg:px-6">
         <NavSidebar role={session.role} />
 
-        {/* Main content. `data-readonly` lets globals.css neutralize every mutation control for the
-            read-only VIEWER role (hide action buttons, render fields as text) — defense in depth on
-            top of per-page gating and the server-side adminProcedure checks. */}
+        {/* Main content. `data-readonly` exposes the read-only VIEWER role to globals.css, which keeps
+            only a thin destructive-control backstop; mutation panels are hidden per-page via
+            useReadOnly(), and the server-side adminProcedure checks are the real guard. */}
         <main className="min-w-0 flex-1" data-readonly={readOnly ? "" : undefined}>
           {readOnly && (
-            <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-2 text-sm text-amber-800">
-              {t("admin.readOnly.banner")}
+            // Observer's viewing pass — a welcoming accent strip, not an amber lockout warning
+            // (the program values transparency). The eye glyph carries the "observer" identity, so
+            // the copy stays the single existing banner string.
+            <div className="mb-5 flex items-center gap-3 rounded-xl border border-accent-200 bg-accent-50 px-4 py-2.5">
+              <span
+                aria-hidden
+                className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-accent-100 text-accent-700 ring-1 ring-accent-200"
+              >
+                <svg
+                  viewBox="0 0 24 24"
+                  className="h-4 w-4"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth="1.8"
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                >
+                  <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+                  <circle cx="12" cy="12" r="2.6" />
+                </svg>
+              </span>
+              <p className="text-sm leading-snug text-accent-800">{t("admin.readOnly.banner")}</p>
             </div>
           )}
           <ReadOnlyProvider value={readOnly}>{children}</ReadOnlyProvider>

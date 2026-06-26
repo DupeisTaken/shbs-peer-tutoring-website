@@ -7,6 +7,7 @@ import { api } from "~/trpc/react";
 import { DAY_NAMES, minToHm } from "~/lib/time";
 import { REFERENCE_STALE_TIME } from "~/lib/query";
 import { RoomGrid } from "~/app/_components/room-grid";
+import { useReadOnly } from "~/app/_components/read-only";
 
 type PairingForm = {
   id: string | null;
@@ -28,6 +29,7 @@ const EMPTY: PairingForm = {
 
 export default function PairingsPage() {
   const t = useTranslations();
+  const readOnly = useReadOnly();
   const utils = api.useUtils();
   const pairings = api.admin.pairings.useQuery();
   const tutors = api.admin.tutors.useQuery();
@@ -85,89 +87,91 @@ export default function PairingsPage() {
       </section>
 
       {/* Create / edit form */}
-      <section className="card p-5">
-        <h2 className="section-title">
-          {editing ? t("admin.pairings.editPairing") : t("admin.pairings.newPairing")}
-        </h2>
-        <p className="muted mt-1">{t("admin.pairings.slotHelp")}</p>
-        <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
-          <Select
-            label={t("admin.pairings.tutor")}
-            value={form.tutorId}
-            onChange={(v) => set("tutorId", v)}
-            options={(tutors.data ?? []).map((t) => ({ value: t.id, label: t.englishName }))}
-          />
-          <Select
-            label={t("admin.pairings.roomOptional")}
-            value={form.roomId}
-            onChange={(v) => set("roomId", v)}
-            options={[
-              { value: "", label: t("admin.pairings.none") },
-              ...(rooms.data ?? []).map((r) => ({ value: r.id, label: r.name })),
-            ]}
-          />
-          <Select
-            label={t("admin.pairings.timeSlot")}
-            value={form.timeSlotId}
-            onChange={(v) => set("timeSlotId", v)}
-            options={[
-              { value: "", label: t("admin.pairings.selectSlot") },
-              ...activeSlots.map((s) => ({
-                value: s.id,
-                label: `${s.label} · ${DAY_NAMES[s.dayOfWeek]} ${minToHm(s.startMin)}–${minToHm(s.endMin)}`,
-              })),
-            ]}
-          />
-          <label className="space-y-1 text-sm sm:col-span-2">
-            <span className="label">{t("admin.pairings.subject")}</span>
-            <input
-              value={form.subject}
-              onChange={(e) => set("subject", e.target.value)}
-              placeholder={t("admin.pairings.subjectPlaceholder")}
-              className="input"
+      {!readOnly && (
+        <section className="card p-5">
+          <h2 className="section-title">
+            {editing ? t("admin.pairings.editPairing") : t("admin.pairings.newPairing")}
+          </h2>
+          <p className="muted mt-1">{t("admin.pairings.slotHelp")}</p>
+          <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
+            <Select
+              label={t("admin.pairings.tutor")}
+              value={form.tutorId}
+              onChange={(v) => set("tutorId", v)}
+              options={(tutors.data ?? []).map((t) => ({ value: t.id, label: t.englishName }))}
             />
-          </label>
-        </div>
-
-        <fieldset className="mt-3">
-          <legend className="label">{t("admin.pairings.tutees")}</legend>
-          <div className="mt-1 grid grid-cols-2 gap-1 sm:grid-cols-3">
-            {(tutees.data ?? []).map((t) => (
-              <label key={t.id} className="flex items-center gap-2 text-sm">
-                <input
-                  type="checkbox"
-                  checked={form.tuteeIds.includes(t.id)}
-                  onChange={(e) =>
-                    set(
-                      "tuteeIds",
-                      e.target.checked
-                        ? [...form.tuteeIds, t.id]
-                        : form.tuteeIds.filter((id) => id !== t.id),
-                    )
-                  }
-                />
-                {t.englishName}
-              </label>
-            ))}
+            <Select
+              label={t("admin.pairings.roomOptional")}
+              value={form.roomId}
+              onChange={(v) => set("roomId", v)}
+              options={[
+                { value: "", label: t("admin.pairings.none") },
+                ...(rooms.data ?? []).map((r) => ({ value: r.id, label: r.name })),
+              ]}
+            />
+            <Select
+              label={t("admin.pairings.timeSlot")}
+              value={form.timeSlotId}
+              onChange={(v) => set("timeSlotId", v)}
+              options={[
+                { value: "", label: t("admin.pairings.selectSlot") },
+                ...activeSlots.map((s) => ({
+                  value: s.id,
+                  label: `${s.label} · ${DAY_NAMES[s.dayOfWeek]} ${minToHm(s.startMin)}–${minToHm(s.endMin)}`,
+                })),
+              ]}
+            />
+            <label className="space-y-1 text-sm sm:col-span-2">
+              <span className="label">{t("admin.pairings.subject")}</span>
+              <input
+                value={form.subject}
+                onChange={(e) => set("subject", e.target.value)}
+                placeholder={t("admin.pairings.subjectPlaceholder")}
+                className="input"
+              />
+            </label>
           </div>
-        </fieldset>
 
-        <div className="mt-4 flex items-center gap-3">
-          <button
-            onClick={submit}
-            disabled={!form.tutorId || !form.subject || !form.timeSlotId}
-            className="btn-primary"
-          >
-            {editing ? t("admin.pairings.saveChanges") : t("admin.pairings.createPairing")}
-          </button>
-          {editing && (
-            <button onClick={() => setForm(EMPTY)} className="link text-sm">
-              {t("admin.pairings.cancel")}
+          <fieldset className="mt-3">
+            <legend className="label">{t("admin.pairings.tutees")}</legend>
+            <div className="mt-1 grid grid-cols-2 gap-1 sm:grid-cols-3">
+              {(tutees.data ?? []).map((t) => (
+                <label key={t.id} className="flex items-center gap-2 text-sm">
+                  <input
+                    type="checkbox"
+                    checked={form.tuteeIds.includes(t.id)}
+                    onChange={(e) =>
+                      set(
+                        "tuteeIds",
+                        e.target.checked
+                          ? [...form.tuteeIds, t.id]
+                          : form.tuteeIds.filter((id) => id !== t.id),
+                      )
+                    }
+                  />
+                  {t.englishName}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+
+          <div className="mt-4 flex items-center gap-3">
+            <button
+              onClick={submit}
+              disabled={!form.tutorId || !form.subject || !form.timeSlotId}
+              className="btn-primary"
+            >
+              {editing ? t("admin.pairings.saveChanges") : t("admin.pairings.createPairing")}
             </button>
-          )}
-          {error && <span className="text-sm text-red-600">{error.message}</span>}
-        </div>
-      </section>
+            {editing && (
+              <button onClick={() => setForm(EMPTY)} className="link text-sm">
+                {t("admin.pairings.cancel")}
+              </button>
+            )}
+            {error && <span className="text-sm text-red-600">{error.message}</span>}
+          </div>
+        </section>
+      )}
 
       {/* Table */}
       <div className="card overflow-x-auto">
@@ -195,24 +199,28 @@ export default function PairingsPage() {
                 <td>{p.room?.name ?? "—"}</td>
                 <td>{p.tutees.map((t) => t.tutee.englishName).join(", ")}</td>
                 <td className="text-right whitespace-nowrap">
-                  <button
-                    onClick={() =>
-                      setForm({
-                        id: p.id,
-                        tutorId: p.tutorId,
-                        roomId: p.roomId ?? "",
-                        timeSlotId: p.timeSlotId ?? "",
-                        subject: p.subject,
-                        tuteeIds: p.tutees.map((t) => t.tuteeId),
-                      })
-                    }
-                    className="link mr-3"
-                  >
-                    {t("admin.pairings.edit")}
-                  </button>
-                  <button onClick={() => del.mutate({ id: p.id })} className="link-danger">
-                    {t("admin.pairings.delete")}
-                  </button>
+                  {!readOnly && (
+                    <>
+                      <button
+                        onClick={() =>
+                          setForm({
+                            id: p.id,
+                            tutorId: p.tutorId,
+                            roomId: p.roomId ?? "",
+                            timeSlotId: p.timeSlotId ?? "",
+                            subject: p.subject,
+                            tuteeIds: p.tutees.map((t) => t.tuteeId),
+                          })
+                        }
+                        className="link mr-3"
+                      >
+                        {t("admin.pairings.edit")}
+                      </button>
+                      <button onClick={() => del.mutate({ id: p.id })} className="link-danger">
+                        {t("admin.pairings.delete")}
+                      </button>
+                    </>
+                  )}
                 </td>
               </tr>
             ))}

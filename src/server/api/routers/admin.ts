@@ -250,6 +250,7 @@ export const adminRouter = createTRPCRouter({
   }),
 
   tutees: viewerProcedure.query(async ({ ctx }) => {
+    const isViewer = ctx.session.role === "VIEWER";
     const active = await getActivePeriodOrNull(ctx.db);
     const periodKey = active ? `${active.schoolYear} ${active.quarter}` : null;
     const [tutees, removed] = await Promise.all([
@@ -300,7 +301,8 @@ export const adminRouter = createTRPCRouter({
             }
           : null;
       const bannedMatch = match && (match.name || match.email || match.phone) ? match : null;
-      return { ...t, bannedMatch };
+      // Withhold staff free-text (notes) and the tutee's typed legal-name signature from VIEWER.
+      return isViewer ? { ...t, notes: null, signatureName: null, bannedMatch } : { ...t, bannedMatch };
     });
   }),
   rooms: viewerProcedure.query(({ ctx }) =>
@@ -376,8 +378,9 @@ export const adminRouter = createTRPCRouter({
   // --------------------------------------------------------------------------
   // "Current pairings" = those in the active term. A program refresh activates a new term, so
   // the board clears automatically; past terms' pairings remain for history but aren't shown here.
-  pairings: viewerProcedure.query(({ ctx }) =>
-    ctx.db.pairing.findMany({
+  pairings: viewerProcedure.query(async ({ ctx }) => {
+    const isViewer = ctx.session.role === "VIEWER";
+    const pairings = await ctx.db.pairing.findMany({
       where: { term: { active: true } },
       orderBy: [{ dayOfWeek: "asc" }, { startMin: "asc" }],
       include: {
@@ -387,8 +390,17 @@ export const adminRouter = createTRPCRouter({
         timeSlot: true,
         tutees: { include: { tutee: true } },
       },
-    }),
-  ),
+    });
+    if (!isViewer) return pairings;
+    // Withhold staff free-text (notes) + the tutee's signature from VIEWER.
+    return pairings.map((p) => ({
+      ...p,
+      tutees: p.tutees.map((pt) => ({
+        ...pt,
+        tutee: { ...pt.tutee, notes: null, signatureName: null },
+      })),
+    }));
+  }),
 
   createPairing: adminProcedure
     .input(
@@ -995,7 +1007,8 @@ export const adminRouter = createTRPCRouter({
           subject: s.pairing.subject,
           tutorStatus: s.tutorStatus,
           shCount: s.shCount,
-          comments: s.comments,
+          // Free-text comments are withheld when the report is masked (incl. for VIEWER).
+          comments: mask ? null : s.comments,
           tutees: s.tutees.map((tt) => ({ name: tt.tutee.englishName, status: tt.status })),
         })),
         cards: cards.map((c) => ({
@@ -1005,7 +1018,7 @@ export const adminRouter = createTRPCRouter({
           color: c.color,
           source: c.source,
           reviewStatus: c.reviewStatus,
-          reason: c.reason,
+          reason: mask ? null : c.reason,
           issuedBy: c.issuedByTutor?.englishName ?? null,
         })),
         meetings: meetings.map((m) => {
@@ -1023,7 +1036,7 @@ export const adminRouter = createTRPCRouter({
           tutor: a.tutor.englishName,
           type: a.type,
           amount: a.amount,
-          reason: a.reason,
+          reason: mask ? null : a.reason,
         })),
       };
       if (input.depth === "detailed") {
@@ -1903,13 +1916,16 @@ export const adminRouter = createTRPCRouter({
   // --------------------------------------------------------------------------
   adjustments: viewerProcedure
     .input(z.object({ month: monthInput.optional() }).optional())
-    .query(({ ctx, input }) =>
-      ctx.db.serviceHourAdjustment.findMany({
+    .query(async ({ ctx, input }) => {
+      const isViewer = ctx.session.role === "VIEWER";
+      const rows = await ctx.db.serviceHourAdjustment.findMany({
         where: input?.month ? { month: input.month } : {},
         orderBy: { createdAt: "desc" },
         include: { tutor: { select: { englishName: true } } },
-      }),
-    ),
+      });
+      // Withhold the staff-entered adjustment reason from VIEWER.
+      return isViewer ? rows.map((r) => ({ ...r, reason: null })) : rows;
+    }),
 
   createAdjustment: adminProcedure
     .input(
@@ -1938,8 +1954,9 @@ export const adminRouter = createTRPCRouter({
   // --------------------------------------------------------------------------
   // Tutor applications + interview assignment
   // --------------------------------------------------------------------------
-  tutorApplications: viewerProcedure.query(({ ctx }) =>
-    ctx.db.tutorApplication.findMany({
+  tutorApplications: viewerProcedure.query(async ({ ctx }) => {
+    const isViewer = ctx.session.role === "VIEWER";
+    const apps = await ctx.db.tutorApplication.findMany({
       orderBy: [{ status: "asc" }, { createdAt: "desc" }],
       include: {
         subjectIntents: {
@@ -1955,8 +1972,14 @@ export const adminRouter = createTRPCRouter({
         },
         decidedByTutor: { select: { englishName: true } },
       },
-    }),
-  ),
+    });
+    if (!isViewer) return apps;
+    // Withhold panelist deliberation free-text (vote comments) from VIEWER.
+    return apps.map((a) => ({
+      ...a,
+      votes: a.votes.map((v) => ({ ...v, comment: null })),
+    }));
+  }),
 
   /** Assign up to three tutors (one head) to interview an applicant; moves it to INTERVIEW. */
   assignInterviewers: adminProcedure
@@ -2053,6 +2076,7 @@ export const adminRouter = createTRPCRouter({
   // --------------------------------------------------------------------------
   /** All open (PENDING) tutor lifecycle requests, with eligibility and affected-tutee counts. */
   tutorRequests: viewerProcedure.query(async ({ ctx }) => {
+    const isViewer = ctx.session.role === "VIEWER";
     const now = new Date();
     const active = await getActivePeriodOrNull(ctx.db);
     const requests = await ctx.db.tutorStatusRequest.findMany({
@@ -2085,7 +2109,8 @@ export const adminRouter = createTRPCRouter({
     return requests.map((r) => ({
       id: r.id,
       kind: r.kind,
-      reason: r.reason,
+      // Withhold the member-entered request reason from VIEWER.
+      reason: isViewer ? null : r.reason,
       createdAt: r.createdAt,
       eligibleAt: r.eligibleAt,
       // Opt-out can only be approved once the cooldown has elapsed.
@@ -2204,6 +2229,7 @@ export const adminRouter = createTRPCRouter({
    * so the page reflects auto-approvals lazily (no scheduler).
    */
   tuteeRemovalRequests: viewerProcedure.query(async ({ ctx }) => {
+    const isViewer = ctx.session.role === "VIEWER";
     await finalizeDueOptOuts(ctx.db);
     const [pending, finalized] = await Promise.all([
       ctx.db.tuteeRemovalRequest.findMany({
@@ -2255,7 +2281,8 @@ export const adminRouter = createTRPCRouter({
     return {
       pendingOptOuts: pending.map((r) => ({
         id: r.id,
-        reason: r.reason,
+        // Withhold the removal reason free-text from VIEWER.
+        reason: isViewer ? null : r.reason,
         createdAt: r.createdAt,
         eligibleAt: r.eligibleAt,
         tutee: r.tutee,
@@ -2265,7 +2292,7 @@ export const adminRouter = createTRPCRouter({
       finalized: finalized.map((r) => ({
         id: r.id,
         kind: r.kind,
-        reason: r.reason,
+        reason: isViewer ? null : r.reason,
         resolvedAt: r.resolvedAt,
         period: r.removedPeriodKey,
         tutee: r.tutee,
@@ -2485,8 +2512,9 @@ export const adminRouter = createTRPCRouter({
   }),
 
   /** Pending crew applications (public "apply to be crew" submissions), earliest-first. */
-  crewApplications: viewerProcedure.query(({ ctx }) =>
-    ctx.db.crewApplication.findMany({
+  crewApplications: viewerProcedure.query(async ({ ctx }) => {
+    const isViewer = ctx.session.role === "VIEWER";
+    const apps = await ctx.db.crewApplication.findMany({
       where: { status: "PENDING" },
       orderBy: { createdAt: "asc" },
       select: {
@@ -2498,8 +2526,10 @@ export const adminRouter = createTRPCRouter({
         message: true,
         createdAt: true,
       },
-    }),
-  ),
+    });
+    // Withhold the applicant's free-text message from VIEWER.
+    return isViewer ? apps.map((a) => ({ ...a, message: null })) : apps;
+  }),
 
   /** Accepted crew applications with an outstanding (unused, unexpired) code — so the issued code
    *  stays visible on /admin/crew where it was issued. The code is withheld from the VIEWER.
@@ -2570,6 +2600,7 @@ export const adminRouter = createTRPCRouter({
   /** Pending crew opt-out/reentry requests (member-initiated), earliest-first. Opt-out becomes
    *  approvable only after its recall cooldown elapses. */
   crewRequests: viewerProcedure.query(async ({ ctx }) => {
+    const isViewer = ctx.session.role === "VIEWER";
     const now = new Date();
     const reqs = await ctx.db.crewStatusRequest.findMany({
       where: { state: "PENDING" },
@@ -2587,7 +2618,8 @@ export const adminRouter = createTRPCRouter({
       id: r.id,
       kind: r.kind,
       member: r.user.name ?? r.user.username ?? "—",
-      reason: r.reason,
+      // Withhold the member-entered request reason from VIEWER.
+      reason: isViewer ? null : r.reason,
       eligibleAt: r.eligibleAt,
       approvable: r.kind === "REENTRY" || !r.eligibleAt || r.eligibleAt <= now,
       createdAt: r.createdAt,
@@ -3201,7 +3233,7 @@ export const adminRouter = createTRPCRouter({
     }),
 
   /** Pending reinstatement appeals from suspended users. */
-  appeals: viewerProcedure.query(({ ctx }) =>
+  appeals: adminProcedure.query(({ ctx }) =>
     ctx.db.accountAppeal
       .findMany({
         where: { state: "PENDING" },
@@ -3574,8 +3606,9 @@ export const adminRouter = createTRPCRouter({
   // --------------------------------------------------------------------------
   // Disciplinary cards (team recheck of yellow/red cards)
   // --------------------------------------------------------------------------
-  disciplinaryCards: viewerProcedure.query(({ ctx }) =>
-    ctx.db.disciplinaryCard.findMany({
+  disciplinaryCards: viewerProcedure.query(async ({ ctx }) => {
+    const isViewer = ctx.session.role === "VIEWER";
+    const cards = await ctx.db.disciplinaryCard.findMany({
       orderBy: [{ reviewStatus: "asc" }, { createdAt: "desc" }],
       select: {
         id: true,
@@ -3590,8 +3623,10 @@ export const adminRouter = createTRPCRouter({
         issuedByTutor: { select: { englishName: true } },
         session: { select: { date: true } },
       },
-    }),
-  ),
+    });
+    // Withhold the card reason + staff review note free-text from VIEWER.
+    return isViewer ? cards.map((c) => ({ ...c, reason: null, reviewNote: null })) : cards;
+  }),
 
   reviewCard: adminProcedure
     .input(

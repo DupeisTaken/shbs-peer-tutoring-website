@@ -5,6 +5,7 @@ import { useState } from "react";
 
 import { api } from "~/trpc/react";
 import { useReadOnly } from "~/app/_components/read-only";
+import { useDialog } from "~/app/_components/confirm-dialog";
 
 type Announcement = {
   id: string;
@@ -20,11 +21,14 @@ type Announcement = {
 function AnnouncementCard({
   a,
   onChanged,
+  readOnly,
 }: {
   a: Announcement;
   onChanged: () => void;
+  readOnly: boolean;
 }) {
   const t = useTranslations();
+  const { confirm, dialog } = useDialog();
   const [title, setTitle] = useState(a.title);
   const [body, setBody] = useState(a.body);
   const update = api.admin.updateAnnouncement.useMutation({ onSuccess: onChanged });
@@ -35,56 +39,81 @@ function AnnouncementCard({
   return (
     <div className={`card space-y-3 p-4 ${a.active ? "" : "opacity-60"}`}>
       <div className="flex flex-wrap items-center gap-2">
-        <input
-          className="input flex-1 font-semibold"
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
+        {readOnly ? (
+          <span className="flex-1 font-semibold text-slate-900">{a.title}</span>
+        ) : (
+          <input
+            className="input flex-1 font-semibold"
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+        )}
         {a.pinned && <span className="badge-slate">{t("admin.announcements.badge.pinned")}</span>}
         <span className={a.active ? "badge-green" : "badge-slate"}>
           {a.active ? t("admin.announcements.badge.active") : t("admin.announcements.badge.inactive")}
         </span>
       </div>
-      <textarea
-        className="textarea w-full"
-        rows={3}
-        value={body}
-        onChange={(e) => setBody(e.target.value)}
-      />
+      {readOnly ? (
+        <p className="whitespace-pre-wrap text-slate-700">{a.body}</p>
+      ) : (
+        <textarea
+          className="textarea w-full"
+          rows={3}
+          value={body}
+          onChange={(e) => setBody(e.target.value)}
+        />
+      )}
       <div className="flex flex-wrap items-center gap-2">
-        <button
-          className="btn-primary btn-sm"
-          disabled={!dirty || !title.trim() || !body.trim() || update.isPending}
-          onClick={() => update.mutate({ id: a.id, title: title.trim(), body: body.trim() })}
-        >
-          {t("admin.announcements.card.save")}
-        </button>
-        <button
-          className="btn-secondary btn-sm"
-          onClick={() => update.mutate({ id: a.id, pinned: !a.pinned })}
-        >
-          {a.pinned ? t("admin.announcements.card.unpin") : t("admin.announcements.card.pin")}
-        </button>
-        <button
-          className="btn-secondary btn-sm"
-          onClick={() => update.mutate({ id: a.id, active: !a.active })}
-        >
-          {a.active ? t("admin.announcements.card.deactivate") : t("admin.announcements.card.reactivate")}
-        </button>
+        {!readOnly && (
+          <button
+            className="btn-primary btn-sm"
+            disabled={!dirty || !title.trim() || !body.trim() || update.isPending}
+            onClick={() => update.mutate({ id: a.id, title: title.trim(), body: body.trim() })}
+          >
+            {t("admin.announcements.card.save")}
+          </button>
+        )}
+        {!readOnly && (
+          <button
+            className="btn-secondary btn-sm"
+            onClick={() => update.mutate({ id: a.id, pinned: !a.pinned })}
+          >
+            {a.pinned ? t("admin.announcements.card.unpin") : t("admin.announcements.card.pin")}
+          </button>
+        )}
+        {!readOnly && (
+          <button
+            className="btn-secondary btn-sm"
+            onClick={() => update.mutate({ id: a.id, active: !a.active })}
+          >
+            {a.active ? t("admin.announcements.card.deactivate") : t("admin.announcements.card.reactivate")}
+          </button>
+        )}
         <span className="muted text-xs">
           {t("admin.announcements.card.dismissed", { count: a._count.acks })} ·{" "}
           {new Date(a.createdAt).toLocaleDateString()}
           {a.createdBy?.name ? ` · ${a.createdBy.name}` : ""}
         </span>
-        <button
-          className="link-danger ml-auto text-sm"
-          onClick={() => {
-            if (confirm(t("admin.announcements.card.confirmDelete"))) del.mutate({ id: a.id });
-          }}
-        >
-          {t("admin.announcements.card.delete")}
-        </button>
+        {!readOnly && (
+          <button
+            className="link-danger ml-auto text-sm"
+            onClick={async () => {
+              if (
+                await confirm({
+                  title: t("admin.announcements.card.confirmDelete"),
+                  confirmLabel: t("common.delete"),
+                  cancelLabel: t("common.cancel"),
+                  danger: true,
+                })
+              )
+                del.mutate({ id: a.id });
+            }}
+          >
+            {t("admin.announcements.card.delete")}
+          </button>
+        )}
       </div>
+      {dialog}
     </div>
   );
 }
@@ -155,7 +184,7 @@ export default function AnnouncementsPage() {
 
       <div className="space-y-3">
         {(announcements.data ?? []).map((a) => (
-          <AnnouncementCard key={a.id} a={a} onChanged={invalidate} />
+          <AnnouncementCard key={a.id} a={a} onChanged={invalidate} readOnly={readOnly} />
         ))}
         {announcements.data?.length === 0 && (
           <p className="muted">{t("admin.announcements.empty")}</p>

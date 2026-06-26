@@ -7,6 +7,7 @@ import { api } from "~/trpc/react";
 import { disciplineStanding } from "~/lib/discipline";
 import { NativeDisclosureIcon } from "~/app/_components/icons";
 import { DisciplineSlots } from "~/app/_components/discipline-slots";
+import { useReadOnly } from "~/app/_components/read-only";
 
 type Card = {
   id: string;
@@ -26,6 +27,7 @@ const dot = (color: "YELLOW" | "RED") => (color === "RED" ? "🟥" : "🟨");
 
 function PendingCard({ card, onChanged }: { card: Card; onChanged: () => void }) {
   const t = useTranslations();
+  const readOnly = useReadOnly();
   const [note, setNote] = useState("");
   const review = api.admin.reviewCard.useMutation({
     onSuccess: onChanged,
@@ -50,43 +52,47 @@ function PendingCard({ card, onChanged }: { card: Card; onChanged: () => void })
           <p className="muted mt-1 text-sm">{card.reason ?? "—"}</p>
         </div>
       </div>
-      <div className="mt-2 flex flex-wrap items-center gap-2">
-        <input
-          className="input min-w-[12rem] flex-1"
-          placeholder={t("admin.cards.reviewNotePlaceholder")}
-          value={note}
-          onChange={(e) => setNote(e.target.value)}
-        />
-        <button
-          className="btn-secondary btn-sm"
-          disabled={review.isPending}
-          onClick={() =>
-            review.mutate({
-              id: card.id,
-              reviewStatus: "VALID",
-              reviewNote: note || undefined,
-              expectedUpdatedAt: card.updatedAt,
-            })
-          }
-        >
-          {t("admin.cards.valid")}
-        </button>
-        <button
-          className="btn-secondary btn-sm"
-          disabled={review.isPending}
-          onClick={() =>
-            review.mutate({
-              id: card.id,
-              reviewStatus: "INVALID",
-              reviewNote: note || undefined,
-              expectedUpdatedAt: card.updatedAt,
-            })
-          }
-        >
-          {t("admin.cards.invalid")}
-        </button>
-      </div>
-      {review.error && <p className="mt-1 text-sm text-red-600">{review.error.message}</p>}
+      {!readOnly && (
+        <div className="mt-2 flex flex-wrap items-center gap-2">
+          <input
+            className="input min-w-[12rem] flex-1"
+            placeholder={t("admin.cards.reviewNotePlaceholder")}
+            value={note}
+            onChange={(e) => setNote(e.target.value)}
+          />
+          <button
+            className="btn-secondary btn-sm"
+            disabled={review.isPending}
+            onClick={() =>
+              review.mutate({
+                id: card.id,
+                reviewStatus: "VALID",
+                reviewNote: note || undefined,
+                expectedUpdatedAt: card.updatedAt,
+              })
+            }
+          >
+            {t("admin.cards.valid")}
+          </button>
+          <button
+            className="btn-secondary btn-sm"
+            disabled={review.isPending}
+            onClick={() =>
+              review.mutate({
+                id: card.id,
+                reviewStatus: "INVALID",
+                reviewNote: note || undefined,
+                expectedUpdatedAt: card.updatedAt,
+              })
+            }
+          >
+            {t("admin.cards.invalid")}
+          </button>
+        </div>
+      )}
+      {!readOnly && review.error && (
+        <p className="mt-1 text-sm text-red-600">{review.error.message}</p>
+      )}
     </div>
   );
 }

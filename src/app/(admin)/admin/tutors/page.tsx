@@ -5,9 +5,11 @@ import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { SortHeader, useSort, compare } from "~/app/_components/sortable";
+import { useReadOnly } from "~/app/_components/read-only";
 
 export default function TutorsPage() {
   const t = useTranslations();
+  const readOnly = useReadOnly();
   // Translate a tutor status outside the row map, where `t` is shadowed by the row variable.
   const statusLabel = (s: string) => t(`admin.tutorStatus.${s}`);
   const utils = api.useUtils();
@@ -62,62 +64,66 @@ export default function TutorsPage() {
         <p className="muted mt-1">{t("admin.tutors.help")}</p>
       </div>
 
-      <form
-        className="flex flex-wrap gap-2"
-        onSubmit={(e) => {
-          e.preventDefault();
-          if (firstName.trim() && lastName.trim())
-            create.mutate({
-              firstName: firstName.trim(),
-              lastName: lastName.trim(),
-              alternativeNames: altNames.trim() || undefined,
-              email: email.trim() || undefined,
-              gradeLevel: grade.trim() ? Number(grade) : undefined,
-            });
-        }}
-      >
-        <input
-          value={firstName}
-          onChange={(e) => setFirstName(e.target.value)}
-          placeholder={t("admin.tutors.phFirstName")}
-          className="input field-auto min-w-36"
-        />
-        <input
-          value={lastName}
-          onChange={(e) => setLastName(e.target.value)}
-          placeholder={t("admin.tutors.phLastName")}
-          className="input field-auto min-w-36"
-        />
-        <input
-          value={altNames}
-          onChange={(e) => setAltNames(e.target.value)}
-          placeholder={t("admin.tutors.phAltNames")}
-          className="input field-auto min-w-40"
-        />
-        <input
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          type="email"
-          placeholder={t("admin.tutors.phEmail")}
-          className="input field-auto min-w-48"
-        />
-        <input
-          value={grade}
-          onChange={(e) => setGrade(e.target.value)}
-          type="number"
-          min={6}
-          max={12}
-          placeholder={t("admin.tutors.phGrade")}
-          className="input field-auto min-w-20"
-        />
-        <button
-          className="btn-primary"
-          disabled={!firstName.trim() || !lastName.trim() || create.isPending}
+      {!readOnly && (
+        <form
+          className="flex flex-wrap gap-2"
+          onSubmit={(e) => {
+            e.preventDefault();
+            if (firstName.trim() && lastName.trim())
+              create.mutate({
+                firstName: firstName.trim(),
+                lastName: lastName.trim(),
+                alternativeNames: altNames.trim() || undefined,
+                email: email.trim() || undefined,
+                gradeLevel: grade.trim() ? Number(grade) : undefined,
+              });
+          }}
         >
-          {t("admin.tutors.addTutor")}
-        </button>
-      </form>
-      {create.error && <p className="text-sm text-red-600">{create.error.message}</p>}
+          <input
+            value={firstName}
+            onChange={(e) => setFirstName(e.target.value)}
+            placeholder={t("admin.tutors.phFirstName")}
+            className="input field-auto min-w-36"
+          />
+          <input
+            value={lastName}
+            onChange={(e) => setLastName(e.target.value)}
+            placeholder={t("admin.tutors.phLastName")}
+            className="input field-auto min-w-36"
+          />
+          <input
+            value={altNames}
+            onChange={(e) => setAltNames(e.target.value)}
+            placeholder={t("admin.tutors.phAltNames")}
+            className="input field-auto min-w-40"
+          />
+          <input
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            type="email"
+            placeholder={t("admin.tutors.phEmail")}
+            className="input field-auto min-w-48"
+          />
+          <input
+            value={grade}
+            onChange={(e) => setGrade(e.target.value)}
+            type="number"
+            min={6}
+            max={12}
+            placeholder={t("admin.tutors.phGrade")}
+            className="input field-auto min-w-20"
+          />
+          <button
+            className="btn-primary"
+            disabled={!firstName.trim() || !lastName.trim() || create.isPending}
+          >
+            {t("admin.tutors.addTutor")}
+          </button>
+        </form>
+      )}
+      {!readOnly && create.error && (
+        <p className="text-sm text-red-600">{create.error.message}</p>
+      )}
       <p className="muted text-xs">{t("admin.tutors.accountMovedNote")}</p>
 
       <div className="card overflow-x-auto">
@@ -168,97 +174,125 @@ export default function TutorsPage() {
               return (
                 <tr key={t.id}>
                   <td>
-                    <input
-                      defaultValue={t.firstName ?? ""}
-                      className="input field-auto min-w-32"
-                      onBlur={(e) => {
-                        const v = e.target.value.trim();
-                        if (v && v !== (t.firstName ?? "")) save({ firstName: v });
-                      }}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      defaultValue={t.lastName ?? ""}
-                      className="input field-auto min-w-32"
-                      onBlur={(e) => {
-                        const v = e.target.value.trim();
-                        if (v && v !== (t.lastName ?? "")) save({ lastName: v });
-                      }}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      defaultValue={t.alternativeNames ?? ""}
-                      placeholder="—"
-                      lang="zh"
-                      className="input field-auto min-w-36"
-                      onBlur={(e) => {
-                        const v = e.target.value.trim();
-                        if (v !== (t.alternativeNames ?? ""))
-                          save({ alternativeNames: v || null });
-                      }}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      defaultValue={t.username ?? ""}
-                      placeholder="—"
-                      className="input field-auto min-w-32"
-                      onBlur={(e) => {
-                        const v = e.target.value.trim();
-                        if (v !== (t.username ?? "")) save({ username: v });
-                      }}
-                    />
-                  </td>
-                  <td>
-                    <input
-                      defaultValue={t.email ?? ""}
-                      type="email"
-                      placeholder="—"
-                      className="input field-auto min-w-44"
-                      onBlur={(e) => {
-                        const v = e.target.value.trim();
-                        if (v !== (t.email ?? "")) save({ email: v || null });
-                      }}
-                    />
-                  </td>
-                  <td>
-                    <div className="flex items-center gap-1">
+                    {readOnly ? (
+                      <span>{t.firstName ?? "—"}</span>
+                    ) : (
                       <input
-                        defaultValue={t.gradeLevel ?? ""}
-                        type="number"
-                        min={6}
-                        max={12}
-                        placeholder="—"
-                        className="input field-auto min-w-16"
+                        defaultValue={t.firstName ?? ""}
+                        className="input field-auto min-w-32"
                         onBlur={(e) => {
-                          const raw = e.target.value.trim();
-                          const v = raw === "" ? null : Number(raw);
-                          if (v !== (t.gradeLevel ?? null)) save({ gradeLevel: v });
+                          const v = e.target.value.trim();
+                          if (v && v !== (t.firstName ?? "")) save({ firstName: v });
                         }}
                       />
-                    </div>
+                    )}
                   </td>
                   <td>
-                    <select
-                      className="select field-auto min-w-28"
-                      value={t.status}
-                      onChange={(e) =>
-                        save({ status: e.target.value as
-                          | "ACTIVE"
-                          | "PENDING"
-                          | "GRADUATED"
-                          | "OPTED_OUT"
-                          | "ARCHIVED" })
-                      }
-                    >
-                      <option value="ACTIVE">{statusLabel("ACTIVE")}</option>
-                      <option value="PENDING">{statusLabel("PENDING")}</option>
-                      <option value="GRADUATED">{statusLabel("GRADUATED")}</option>
-                      <option value="OPTED_OUT">{statusLabel("OPTED_OUT")}</option>
-                      <option value="ARCHIVED">{statusLabel("ARCHIVED")}</option>
-                    </select>
+                    {readOnly ? (
+                      <span>{t.lastName ?? "—"}</span>
+                    ) : (
+                      <input
+                        defaultValue={t.lastName ?? ""}
+                        className="input field-auto min-w-32"
+                        onBlur={(e) => {
+                          const v = e.target.value.trim();
+                          if (v && v !== (t.lastName ?? "")) save({ lastName: v });
+                        }}
+                      />
+                    )}
+                  </td>
+                  <td>
+                    {readOnly ? (
+                      <span lang="zh">{t.alternativeNames ?? "—"}</span>
+                    ) : (
+                      <input
+                        defaultValue={t.alternativeNames ?? ""}
+                        placeholder="—"
+                        lang="zh"
+                        className="input field-auto min-w-36"
+                        onBlur={(e) => {
+                          const v = e.target.value.trim();
+                          if (v !== (t.alternativeNames ?? ""))
+                            save({ alternativeNames: v || null });
+                        }}
+                      />
+                    )}
+                  </td>
+                  <td>
+                    {readOnly ? (
+                      <span>{t.username ?? "—"}</span>
+                    ) : (
+                      <input
+                        defaultValue={t.username ?? ""}
+                        placeholder="—"
+                        className="input field-auto min-w-32"
+                        onBlur={(e) => {
+                          const v = e.target.value.trim();
+                          if (v !== (t.username ?? "")) save({ username: v });
+                        }}
+                      />
+                    )}
+                  </td>
+                  <td>
+                    {readOnly ? (
+                      <span>{t.email ?? "—"}</span>
+                    ) : (
+                      <input
+                        defaultValue={t.email ?? ""}
+                        type="email"
+                        placeholder="—"
+                        className="input field-auto min-w-44"
+                        onBlur={(e) => {
+                          const v = e.target.value.trim();
+                          if (v !== (t.email ?? "")) save({ email: v || null });
+                        }}
+                      />
+                    )}
+                  </td>
+                  <td>
+                    {readOnly ? (
+                      <span>{t.gradeLevel ?? "—"}</span>
+                    ) : (
+                      <div className="flex items-center gap-1">
+                        <input
+                          defaultValue={t.gradeLevel ?? ""}
+                          type="number"
+                          min={6}
+                          max={12}
+                          placeholder="—"
+                          className="input field-auto min-w-16"
+                          onBlur={(e) => {
+                            const raw = e.target.value.trim();
+                            const v = raw === "" ? null : Number(raw);
+                            if (v !== (t.gradeLevel ?? null)) save({ gradeLevel: v });
+                          }}
+                        />
+                      </div>
+                    )}
+                  </td>
+                  <td>
+                    {readOnly ? (
+                      <span>{statusLabel(t.status)}</span>
+                    ) : (
+                      <select
+                        className="select field-auto min-w-28"
+                        value={t.status}
+                        onChange={(e) =>
+                          save({ status: e.target.value as
+                            | "ACTIVE"
+                            | "PENDING"
+                            | "GRADUATED"
+                            | "OPTED_OUT"
+                            | "ARCHIVED" })
+                        }
+                      >
+                        <option value="ACTIVE">{statusLabel("ACTIVE")}</option>
+                        <option value="PENDING">{statusLabel("PENDING")}</option>
+                        <option value="GRADUATED">{statusLabel("GRADUATED")}</option>
+                        <option value="OPTED_OUT">{statusLabel("OPTED_OUT")}</option>
+                        <option value="ARCHIVED">{statusLabel("ARCHIVED")}</option>
+                      </select>
+                    )}
                   </td>
                 </tr>
               );

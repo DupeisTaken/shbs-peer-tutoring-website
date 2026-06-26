@@ -8,6 +8,7 @@ import { api } from "~/trpc/react";
 import { DAY_NAMES, minToHm } from "~/lib/time";
 import { REFERENCE_STALE_TIME } from "~/lib/query";
 import { SortHeader, useSort, compare } from "~/app/_components/sortable";
+import { useReadOnly } from "~/app/_components/read-only";
 
 type Status = "PENDING" | "ACTIVE" | "INACTIVE";
 
@@ -68,6 +69,7 @@ function StatsCells({ s, removalLabel }: { s?: TuteeStat; removalLabel: string }
 
 export default function TuteesPage() {
   const t = useTranslations();
+  const readOnly = useReadOnly();
   const utils = api.useUtils();
   const tutees = api.admin.tutees.useQuery();
   const courses = api.admin.subjects.useQuery(undefined, { staleTime: REFERENCE_STALE_TIME });
@@ -143,6 +145,7 @@ export default function TuteesPage() {
       </div>
 
       {/* Manual add */}
+      {!readOnly && (
       <section className="card p-5">
         <h2 className="section-title">{t("admin.tutees.addTutee")}</h2>
         <form
@@ -224,6 +227,7 @@ export default function TuteesPage() {
           </button>
         </form>
       </section>
+      )}
 
       {/* Bottom table — toggled between the tutee list and the tutor/pairings view */}
       <div className="flex gap-2">
@@ -306,25 +310,29 @@ export default function TuteesPage() {
               {rows.map((t2) => (
                 <tr key={t2.id}>
                   <td>
-                    <input
-                      defaultValue={t2.englishName}
-                      className="input field-auto min-w-40"
-                      onBlur={(e) => {
-                        const v = e.target.value.trim();
-                        if (v && v !== t2.englishName)
-                          update.mutate({
-                            id: t2.id,
-                            englishName: v,
-                            gradeLevel: t2.gradeLevel,
-                            email: t2.email,
-                            phone: t2.phone,
-                            notes: t2.notes,
-                            status: t2.status,
-                            firstChoiceId: t2.firstChoiceId,
-                            secondChoiceId: t2.secondChoiceId,
-                          });
-                      }}
-                    />
+                    {readOnly ? (
+                      <span>{t2.englishName}</span>
+                    ) : (
+                      <input
+                        defaultValue={t2.englishName}
+                        className="input field-auto min-w-40"
+                        onBlur={(e) => {
+                          const v = e.target.value.trim();
+                          if (v && v !== t2.englishName)
+                            update.mutate({
+                              id: t2.id,
+                              englishName: v,
+                              gradeLevel: t2.gradeLevel,
+                              email: t2.email,
+                              phone: t2.phone,
+                              notes: t2.notes,
+                              status: t2.status,
+                              firstChoiceId: t2.firstChoiceId,
+                              secondChoiceId: t2.secondChoiceId,
+                            });
+                        }}
+                      />
+                    )}
                   </td>
                   <td>{t2.gradeLevel ?? "—"}</td>
                   <td className="text-slate-600">
@@ -341,9 +349,11 @@ export default function TuteesPage() {
                     <StatusBadge status={t2.status} label={statusLabel(t2.status)} />
                   </td>
                   <td className="text-right">
-                    <button className="link-danger" onClick={() => del.mutate({ id: t2.id })}>
-                      {t("admin.tutees.deleteBtn")}
-                    </button>
+                    {!readOnly && (
+                      <button className="link-danger" onClick={() => del.mutate({ id: t2.id })}>
+                        {t("admin.tutees.deleteBtn")}
+                      </button>
+                    )}
                   </td>
                 </tr>
               ))}

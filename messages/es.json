@@ -1,5 +1,8 @@
 {
   "common": {
+    "cancel": "Cancelar",
+    "confirm": "Confirmar",
+    "delete": "Eliminar",
     "dismiss": "Descartar",
     "save": "Guardar",
     "saved": "Guardado.",
@@ -581,6 +584,7 @@
       "suspended": "Suspendida",
       "suspend": "Suspender",
       "reinstate": "Reactivar",
+      "suspendTitle": "¿Suspender esta cuenta?",
       "suspendPrompt": "Motivo de la suspensión (opcional):",
       "appeals": {
         "heading": "Apelaciones de Reactivación",

@@ -52,7 +52,10 @@ export const tutorRouter = createTRPCRouter({
         term: true,
         timeSlot: true,
         // Removed (INACTIVE) tutees drop off the roster immediately — only show current ones.
-        tutees: { where: { tutee: { status: { not: "INACTIVE" } } }, include: { tutee: true } },
+        tutees: {
+          where: { tutee: { status: { not: "INACTIVE" } } },
+          include: { tutee: { select: { id: true, englishName: true } } },
+        },
       },
     });
   }),

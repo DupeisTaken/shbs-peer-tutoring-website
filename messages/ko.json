@@ -1,5 +1,8 @@
 {
   "common": {
+    "cancel": "취소",
+    "confirm": "확인",
+    "delete": "삭제",
     "dismiss": "닫기",
     "save": "저장",
     "saved": "저장되었습니다.",
@@ -588,6 +591,7 @@
       "suspended": "정지됨",
       "suspend": "정지",
       "reinstate": "복구",
+      "suspendTitle": "이 계정을 정지하시겠습니까?",
       "suspendPrompt": "정지 사유 (선택):",
       "appeals": {
         "heading": "복구 이의",

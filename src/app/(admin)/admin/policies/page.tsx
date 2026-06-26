@@ -7,6 +7,7 @@ import { api } from "~/trpc/react";
 import { Markdown } from "~/app/_components/markdown";
 import { DisclosureIcon } from "~/app/_components/icons";
 import { useReadOnly } from "~/app/_components/read-only";
+import { useDialog } from "~/app/_components/confirm-dialog";
 
 type PolicyDoc = {
   id: string;
@@ -218,6 +219,7 @@ function PolicyCard({ slug, byLocale, archivesByLocale, languages, readOnly, onS
   onSaved: () => void;
 }) {
   const t = useTranslations();
+  const { confirm, dialog } = useDialog();
   const del = api.admin.deletePolicyLocale.useMutation({ onSuccess: onSaved });
 
   const codes = languages.map((l) => l.code);
@@ -307,8 +309,15 @@ function PolicyCard({ slug, byLocale, archivesByLocale, languages, readOnly, onS
             <button
               className="link-danger text-xs"
               disabled={del.isPending}
-              onClick={() => {
-                if (confirm(t("admin.policies.confirmRemoveLanguage", { lang: labelFor(active) })))
+              onClick={async () => {
+                if (
+                  await confirm({
+                    title: t("admin.policies.confirmRemoveLanguage", { lang: labelFor(active) }),
+                    confirmLabel: t("common.delete"),
+                    cancelLabel: t("common.cancel"),
+                    danger: true,
+                  })
+                )
                   del.mutate({ slug, locale: active }, { onSuccess: () => setActive(DEFAULT_LOCALE) });
               }}
             >
@@ -318,6 +327,7 @@ function PolicyCard({ slug, byLocale, archivesByLocale, languages, readOnly, onS
         </div>
       )}
       <VersionHistory archives={archivesByLocale.get(active) ?? []} />
+      {dialog}
     </section>
   );
 }

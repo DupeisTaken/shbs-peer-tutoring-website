@@ -6,6 +6,8 @@ import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { DisclosureIcon } from "~/app/_components/icons";
+import { useReadOnly } from "~/app/_components/read-only";
+import { useDialog } from "~/app/_components/confirm-dialog";
 
 type Status = "PENDING" | "INTERVIEW" | "ACCEPTED" | "REJECTED";
 
@@ -57,6 +59,8 @@ function ApplicationCard({
   onChanged: () => Promise<unknown> | void;
 }) {
   const t = useTranslations();
+  const readOnly = useReadOnly();
+  const { confirm, dialog } = useDialog();
   const [open, setOpen] = useState(false);
   const features = api.program.features.useQuery().data;
   const assign = api.admin.assignInterviewers.useMutation({
@@ -127,7 +131,7 @@ function ApplicationCard({
               {t("admin.applications.setupAccount")}
             </Link>
           )}
-          {app.status !== "ACCEPTED" && (
+          {!readOnly && app.status !== "ACCEPTED" && (
             <button
               className="btn-secondary btn-sm"
               onClick={() =>
@@ -141,7 +145,7 @@ function ApplicationCard({
               {t("admin.applications.accept")}
             </button>
           )}
-          {app.status !== "REJECTED" && (
+          {!readOnly && app.status !== "REJECTED" && (
             <button
               className="btn-secondary btn-sm"
               onClick={() =>
@@ -155,15 +159,24 @@ function ApplicationCard({
               {t("admin.applications.reject")}
             </button>
           )}
-          <button
-            className="btn-danger btn-sm"
-            onClick={() => {
-              if (confirm(t("admin.applications.confirmDelete", { name: app.name })))
-                del.mutate({ id: app.id });
-            }}
-          >
-            {t("admin.applications.delete")}
-          </button>
+          {!readOnly && (
+            <button
+              className="btn-danger btn-sm"
+              onClick={async () => {
+                if (
+                  await confirm({
+                    title: t("admin.applications.confirmDelete", { name: app.name }),
+                    confirmLabel: t("common.delete"),
+                    cancelLabel: t("common.cancel"),
+                    danger: true,
+                  })
+                )
+                  del.mutate({ id: app.id });
+              }}
+            >
+              {t("admin.applications.delete")}
+            </button>
+          )}
         </div>
       </div>
 
@@ -215,65 +228,69 @@ function ApplicationCard({
                 })}
               </p>
             )}
-            <div className="mt-2 space-y-2">
-              {picks.map((pick, i) => (
-                <div key={i} className="flex items-center gap-2">
-                  <select
-                    className="select field-auto min-w-48"
-                    value={pick}
-                    onChange={(e) =>
-                      setPicks((p) => p.map((v, idx) => (idx === i ? e.target.value : v)))
+            {!readOnly && (
+              <>
+                <div className="mt-2 space-y-2">
+                  {picks.map((pick, i) => (
+                    <div key={i} className="flex items-center gap-2">
+                      <select
+                        className="select field-auto min-w-48"
+                        value={pick}
+                        onChange={(e) =>
+                          setPicks((p) => p.map((v, idx) => (idx === i ? e.target.value : v)))
+                        }
+                      >
+                        <option value="">{t("admin.applications.panelistSlot", { n: i + 1 })}</option>
+                        {activeTutors
+                          .filter((t) => t.id === pick || !picks.includes(t.id))
+                          .map((t) => (
+                            <option key={t.id} value={t.id}>
+                              {t.englishName}
+                            </option>
+                          ))}
+                      </select>
+                      <label className="flex items-center gap-1 text-sm text-slate-600">
+                        <input
+                          type="radio"
+                          name={`head-${app.id}`}
+                          checked={!!pick && head === pick}
+                          disabled={!pick}
+                          onChange={() => setHead(pick)}
+                        />
+                        {t("admin.applications.head")}
+                      </label>
+                    </div>
+                  ))}
+                </div>
+                <div className="mt-2 flex items-center gap-3">
+                  <button
+                    className="btn-primary btn-sm"
+                    disabled={!canAssign}
+                    onClick={() =>
+                      assign.mutate({
+                        applicationId: app.id,
+                        tutorIds: chosen,
+                        headTutorId: head,
+                        expectedUpdatedAt: app.updatedAt,
+                      })
                     }
                   >
-                    <option value="">{t("admin.applications.panelistSlot", { n: i + 1 })}</option>
-                    {activeTutors
-                      .filter((t) => t.id === pick || !picks.includes(t.id))
-                      .map((t) => (
-                        <option key={t.id} value={t.id}>
-                          {t.englishName}
-                        </option>
-                      ))}
-                  </select>
-                  <label className="flex items-center gap-1 text-sm text-slate-600">
-                    <input
-                      type="radio"
-                      name={`head-${app.id}`}
-                      checked={!!pick && head === pick}
-                      disabled={!pick}
-                      onChange={() => setHead(pick)}
-                    />
-                    {t("admin.applications.head")}
-                  </label>
+                    {assign.isPending
+                      ? t("admin.applications.saving")
+                      : t("admin.applications.savePanel")}
+                  </button>
+                  {!canAssign && !assign.isPending && (
+                    <span className="muted text-xs">
+                      {t("admin.applications.pickHint", { n: PANEL_SIZE })}
+                    </span>
+                  )}
+                  {assign.isSuccess && (
+                    <span className="text-sm text-green-600">{t("admin.applications.saved")}</span>
+                  )}
+                  {assign.error && <span className="text-sm text-red-600">{assign.error.message}</span>}
                 </div>
-              ))}
-            </div>
-            <div className="mt-2 flex items-center gap-3">
-              <button
-                className="btn-primary btn-sm"
-                disabled={!canAssign}
-                onClick={() =>
-                  assign.mutate({
-                    applicationId: app.id,
-                    tutorIds: chosen,
-                    headTutorId: head,
-                    expectedUpdatedAt: app.updatedAt,
-                  })
-                }
-              >
-                {assign.isPending
-                  ? t("admin.applications.saving")
-                  : t("admin.applications.savePanel")}
-              </button>
-              {!canAssign && !assign.isPending && (
-                <span className="muted text-xs">
-                  {t("admin.applications.pickHint", { n: PANEL_SIZE })}
-                </span>
-              )}
-              {assign.isSuccess && (
-                <span className="text-sm text-green-600">{t("admin.applications.saved")}</span>
-              )}
-              {assign.error && <span className="text-sm text-red-600">{assign.error.message}</span>}
-            </div>
+              </>
+            )}
           </div>
           )}
 
@@ -317,6 +334,7 @@ function ApplicationCard({
           )}
         </div>
       )}
+      {dialog}
     </div>
   );
 }

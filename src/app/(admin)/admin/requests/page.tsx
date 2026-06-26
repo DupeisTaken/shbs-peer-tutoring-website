@@ -8,6 +8,7 @@ import { DAY_NAMES, minToHm } from "~/lib/time";
 import { REFERENCE_STALE_TIME } from "~/lib/query";
 import { DisclosureIcon } from "~/app/_components/icons";
 import { useReadOnly } from "~/app/_components/read-only";
+import { useDialog } from "~/app/_components/confirm-dialog";
 
 type SlotLite = { id: string; label: string; dayOfWeek: number; startMin: number; endMin: number };
 
@@ -58,6 +59,7 @@ function RequestCard({
 }) {
   const t = useTranslations();
   const readOnly = useReadOnly();
+  const { confirm, dialog } = useDialog();
   const assign = api.admin.assignSignup.useMutation({
     onSuccess: (data) => {
       if (data.fulfilled) onFulfilled(tutee.id);
@@ -156,8 +158,15 @@ function RequestCard({
         {!fulfilled && !readOnly && (
           <button
             className="btn-danger btn-sm shrink-0"
-            onClick={() => {
-              if (confirm(t("admin.requests.declineConfirm", { name: tutee.englishName })))
+            onClick={async () => {
+              if (
+                await confirm({
+                  title: t("admin.requests.declineConfirm", { name: tutee.englishName }),
+                  confirmLabel: t("common.confirm"),
+                  cancelLabel: t("common.cancel"),
+                  danger: true,
+                })
+              )
                 del.mutate({ id: tutee.id });
             }}
           >
@@ -237,6 +246,7 @@ function RequestCard({
           {(del.error ?? null) && <p className="text-sm text-red-600">{del.error?.message}</p>}
         </div>
       )}
+      {dialog}
     </div>
   );
 }

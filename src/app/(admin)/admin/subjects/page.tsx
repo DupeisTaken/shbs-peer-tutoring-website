@@ -5,6 +5,8 @@ import { useRef, useState } from "react";
 
 import { api } from "~/trpc/react";
 import { REFERENCE_STALE_TIME } from "~/lib/query";
+import { useReadOnly } from "~/app/_components/read-only";
+import { useDialog } from "~/app/_components/confirm-dialog";
 
 /** Parse a simple "name,level" CSV (optional header row) into rows. */
 function parseCsv(text: string): { name: string; level?: string }[] {
@@ -21,6 +23,8 @@ function parseCsv(text: string): { name: string; level?: string }[] {
 
 export default function SubjectsPage() {
   const t = useTranslations();
+  const readOnly = useReadOnly();
+  const { confirm, dialog } = useDialog();
   const utils = api.useUtils();
   const courses = api.admin.subjects.useQuery(undefined, { staleTime: REFERENCE_STALE_TIME });
   const levels = api.admin.subjectLevels.useQuery();
@@ -93,120 +97,147 @@ export default function SubjectsPage() {
               key={l.id}
               className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 px-3 py-2"
             >
-              <input
-                defaultValue={l.name}
-                className="input field-auto h-8 min-w-40"
-                onBlur={(e) => {
-                  const v = e.target.value.trim();
-                  if (v && v !== l.name) updateLevel.mutate({ id: l.id, name: v });
-                }}
-              />
-              <label className="flex items-center gap-2 text-sm text-slate-600">
+              {readOnly ? (
+                <span className="min-w-40">{l.name}</span>
+              ) : (
                 <input
-                  type="checkbox"
-                  checked={l.apScored}
-                  onChange={(e) => updateLevel.mutate({ id: l.id, apScored: e.target.checked })}
+                  defaultValue={l.name}
+                  className="input field-auto h-8 min-w-40"
+                  onBlur={(e) => {
+                    const v = e.target.value.trim();
+                    if (v && v !== l.name) updateLevel.mutate({ id: l.id, name: v });
+                  }}
                 />
-                {t("admin.courses.levels.apScored")}
-              </label>
-              <button
-                className="link-danger ml-auto text-sm"
-                onClick={() => {
-                  if (confirm(t("admin.courses.levels.confirmDelete", { name: l.name })))
-                    delLevel.mutate({ id: l.id });
-                }}
-              >
-                {t("admin.courses.levels.remove")}
-              </button>
+              )}
+              {readOnly ? (
+                l.apScored && (
+                  <span className="text-sm text-slate-600">
+                    {t("admin.courses.levels.apScored")}
+                  </span>
+                )
+              ) : (
+                <label className="flex items-center gap-2 text-sm text-slate-600">
+                  <input
+                    type="checkbox"
+                    checked={l.apScored}
+                    onChange={(e) => updateLevel.mutate({ id: l.id, apScored: e.target.checked })}
+                  />
+                  {t("admin.courses.levels.apScored")}
+                </label>
+              )}
+              {!readOnly && (
+                <button
+                  className="link-danger ml-auto text-sm"
+                  onClick={async () => {
+                    if (
+                      await confirm({
+                        title: t("admin.courses.levels.confirmDelete", { name: l.name }),
+                        confirmLabel: t("common.delete"),
+                        cancelLabel: t("common.cancel"),
+                        danger: true,
+                      })
+                    )
+                      delLevel.mutate({ id: l.id });
+                  }}
+                >
+                  {t("admin.courses.levels.remove")}
+                </button>
+              )}
             </div>
           ))}
-          <form
-            className="flex items-center gap-2 pt-1"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (newLevel.trim())
-                createLevel.mutate(
-                  { name: newLevel.trim(), rank: levelList.length },
-                  { onSuccess: () => setNewLevel("") },
-                );
-            }}
-          >
-            <input
-              value={newLevel}
-              onChange={(e) => setNewLevel(e.target.value)}
-              placeholder={t("admin.courses.levels.addPlaceholder")}
-              className="input field-auto h-8 min-w-44"
-            />
-            <button
-              className="btn-secondary btn-sm"
-              disabled={!newLevel.trim() || createLevel.isPending}
+          {!readOnly && (
+            <form
+              className="flex items-center gap-2 pt-1"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (newLevel.trim())
+                  createLevel.mutate(
+                    { name: newLevel.trim(), rank: levelList.length },
+                    { onSuccess: () => setNewLevel("") },
+                  );
+              }}
             >
-              {t("admin.courses.levels.add")}
-            </button>
-          </form>
+              <input
+                value={newLevel}
+                onChange={(e) => setNewLevel(e.target.value)}
+                placeholder={t("admin.courses.levels.addPlaceholder")}
+                className="input field-auto h-8 min-w-44"
+              />
+              <button
+                className="btn-secondary btn-sm"
+                disabled={!newLevel.trim() || createLevel.isPending}
+              >
+                {t("admin.courses.levels.add")}
+              </button>
+            </form>
+          )}
         </div>
       </section>
 
       {/* Add a course + CSV import */}
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <form
-          className="flex flex-wrap gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (name.trim())
-              create.mutate(
-                { name: name.trim(), levelId: levelId || null },
-                { onSuccess: () => setName("") },
-              );
-          }}
-        >
-          <input
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            placeholder={t("admin.courses.add.namePlaceholder")}
-            className="input field-auto min-w-48"
-          />
-          <select
-            className="select field-auto min-w-40"
-            value={levelId}
-            onChange={(e) => setLevelId(e.target.value)}
-          >
-            <option value="">{t("admin.courses.noLevel")}</option>
-            {levelList.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.name}
-              </option>
-            ))}
-          </select>
-          <button className="btn-primary" disabled={!name.trim() || create.isPending}>
-            {t("admin.courses.add.submit")}
-          </button>
-        </form>
+      {!readOnly && (
+        <>
+          <div className="flex flex-wrap items-end justify-between gap-3">
+            <form
+              className="flex flex-wrap gap-2"
+              onSubmit={(e) => {
+                e.preventDefault();
+                if (name.trim())
+                  create.mutate(
+                    { name: name.trim(), levelId: levelId || null },
+                    { onSuccess: () => setName("") },
+                  );
+              }}
+            >
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={t("admin.courses.add.namePlaceholder")}
+                className="input field-auto min-w-48"
+              />
+              <select
+                className="select field-auto min-w-40"
+                value={levelId}
+                onChange={(e) => setLevelId(e.target.value)}
+              >
+                <option value="">{t("admin.courses.noLevel")}</option>
+                {levelList.map((l) => (
+                  <option key={l.id} value={l.id}>
+                    {l.name}
+                  </option>
+                ))}
+              </select>
+              <button className="btn-primary" disabled={!name.trim() || create.isPending}>
+                {t("admin.courses.add.submit")}
+              </button>
+            </form>
 
-        <label className="btn-secondary btn-sm cursor-pointer">
-          {importSubjects.isPending ? t("admin.courses.import.importing") : t("admin.courses.import.upload")}
-          <input
-            ref={fileRef}
-            type="file"
-            accept=".csv,text/csv"
-            className="hidden"
-            onChange={(e) => {
-              const f = e.target.files?.[0];
-              if (f) void onCsv(f);
-            }}
-          />
-        </label>
-      </div>
-      <p className="muted text-xs">
-        {t("admin.courses.import.formatPrefix")} <code>name,level</code>{" "}
-        {t("admin.courses.import.formatSuffix")}
-      </p>
-      {importMsg && <p className="text-sm text-green-600">{importMsg}</p>}
-      {create.error && <p className="text-sm text-red-600">{create.error.message}</p>}
-      {del.error && <p className="text-sm text-red-600">{del.error.message}</p>}
+            <label className="btn-secondary btn-sm cursor-pointer">
+              {importSubjects.isPending ? t("admin.courses.import.importing") : t("admin.courses.import.upload")}
+              <input
+                ref={fileRef}
+                type="file"
+                accept=".csv,text/csv"
+                className="hidden"
+                onChange={(e) => {
+                  const f = e.target.files?.[0];
+                  if (f) void onCsv(f);
+                }}
+              />
+            </label>
+          </div>
+          <p className="muted text-xs">
+            {t("admin.courses.import.formatPrefix")} <code>name,level</code>{" "}
+            {t("admin.courses.import.formatSuffix")}
+          </p>
+          {importMsg && <p className="text-sm text-green-600">{importMsg}</p>}
+          {create.error && <p className="text-sm text-red-600">{create.error.message}</p>}
+          {del.error && <p className="text-sm text-red-600">{del.error.message}</p>}
+        </>
+      )}
 
       {/* Batch toolbar */}
-      {selected.size > 0 && (
+      {!readOnly && selected.size > 0 && (
         <div className="flex flex-wrap items-center gap-2 rounded-lg border border-accent-200 bg-accent-50 px-3 py-2">
           <span className="text-sm font-medium text-accent-800">{t("admin.courses.batch.selected", { count: selected.size })}</span>
           <select
@@ -250,15 +281,17 @@ export default function SubjectsPage() {
         <table className="data-table">
           <thead>
             <tr>
-              <th className="w-8">
-                <input
-                  type="checkbox"
-                  checked={allSelected}
-                  onChange={() =>
-                    setSelected(allSelected ? new Set() : new Set(list.map((c) => c.id)))
-                  }
-                />
-              </th>
+              {!readOnly && (
+                <th className="w-8">
+                  <input
+                    type="checkbox"
+                    checked={allSelected}
+                    onChange={() =>
+                      setSelected(allSelected ? new Set() : new Set(list.map((c) => c.id)))
+                    }
+                  />
+                </th>
+              )}
               <th>{t("admin.courses.table.name")}</th>
               <th>{t("admin.courses.table.level")}</th>
               <th>{t("admin.courses.table.active")}</th>
@@ -268,64 +301,80 @@ export default function SubjectsPage() {
           <tbody>
             {list.map((c) => (
               <tr key={c.id}>
+                {!readOnly && (
+                  <td>
+                    <input
+                      type="checkbox"
+                      checked={selected.has(c.id)}
+                      onChange={() => toggle(c.id)}
+                    />
+                  </td>
+                )}
                 <td>
-                  <input
-                    type="checkbox"
-                    checked={selected.has(c.id)}
-                    onChange={() => toggle(c.id)}
-                  />
+                  {readOnly ? (
+                    <span>{c.name}</span>
+                  ) : (
+                    <input
+                      defaultValue={c.name}
+                      className="input field-auto min-w-40"
+                      onBlur={(e) => {
+                        const v = e.target.value.trim();
+                        if (v && v !== c.name)
+                          update.mutate({ id: c.id, name: v, active: c.active });
+                      }}
+                    />
+                  )}
                 </td>
                 <td>
-                  <input
-                    defaultValue={c.name}
-                    className="input field-auto min-w-40"
-                    onBlur={(e) => {
-                      const v = e.target.value.trim();
-                      if (v && v !== c.name)
-                        update.mutate({ id: c.id, name: v, active: c.active });
-                    }}
-                  />
+                  {readOnly ? (
+                    <span>{c.level?.name ?? t("admin.courses.table.noLevelShort")}</span>
+                  ) : (
+                    <select
+                      className="select field-auto min-w-40"
+                      value={c.level?.id ?? ""}
+                      onChange={(e) =>
+                        update.mutate({
+                          id: c.id,
+                          name: c.name,
+                          levelId: e.target.value || null,
+                          active: c.active,
+                        })
+                      }
+                    >
+                      <option value="">{t("admin.courses.table.noLevelShort")}</option>
+                      {levelList.map((l) => (
+                        <option key={l.id} value={l.id}>
+                          {l.name}
+                        </option>
+                      ))}
+                    </select>
+                  )}
                 </td>
                 <td>
-                  <select
-                    className="select field-auto min-w-40"
-                    value={c.level?.id ?? ""}
-                    onChange={(e) =>
-                      update.mutate({
-                        id: c.id,
-                        name: c.name,
-                        levelId: e.target.value || null,
-                        active: c.active,
-                      })
-                    }
-                  >
-                    <option value="">{t("admin.courses.table.noLevelShort")}</option>
-                    {levelList.map((l) => (
-                      <option key={l.id} value={l.id}>
-                        {l.name}
-                      </option>
-                    ))}
-                  </select>
-                </td>
-                <td>
-                  <input
-                    type="checkbox"
-                    checked={c.active}
-                    onChange={(e) =>
-                      update.mutate({ id: c.id, name: c.name, active: e.target.checked })
-                    }
-                  />
+                  {readOnly ? (
+                    <input type="checkbox" checked={c.active} disabled readOnly />
+                  ) : (
+                    <input
+                      type="checkbox"
+                      checked={c.active}
+                      onChange={(e) =>
+                        update.mutate({ id: c.id, name: c.name, active: e.target.checked })
+                      }
+                    />
+                  )}
                 </td>
                 <td className="text-right">
-                  <button className="link-danger" onClick={() => del.mutate({ id: c.id })}>
-                    {t("admin.courses.table.delete")}
-                  </button>
+                  {!readOnly && (
+                    <button className="link-danger" onClick={() => del.mutate({ id: c.id })}>
+                      {t("admin.courses.table.delete")}
+                    </button>
+                  )}
                 </td>
               </tr>
             ))}
             {list.length === 0 && (
               <tr>
-                <td colSpan={5} className="text-slate-500">
+                <td colSpan={readOnly ? 4 : 5} className="text-slate-500">
                   {t("admin.courses.table.empty")}
                 </td>
               </tr>
@@ -333,6 +382,7 @@ export default function SubjectsPage() {
           </tbody>
         </table>
       </div>
+      {dialog}
     </div>
   );
 }

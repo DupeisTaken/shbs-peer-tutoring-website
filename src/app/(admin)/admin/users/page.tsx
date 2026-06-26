@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { SortHeader, useSort, compare } from "~/app/_components/sortable";
+import { useDialog } from "~/app/_components/confirm-dialog";
 
 /** Roles an admin/head may assign via the dropdown (HEAD is set only via leadership transfer). */
 const ASSIGNABLE_ROLES = ["VIEWER", "TUTOR", "COORDINATOR", "ADMIN"] as const;
@@ -124,6 +125,9 @@ export default function UsersPage() {
   const utils = api.useUtils();
   const accounts = api.admin.accounts.useQuery();
   const invalidate = () => utils.admin.accounts.invalidate();
+
+  // Designed confirm/prompt dialog (replaces native window.prompt for the suspension reason).
+  const { promptText, dialog } = useDialog();
 
   // Dangerous actions run behind an identity-confirmation dialog (see ConfirmIdentityDialog).
   const [confirm, setConfirm] = useState<{
@@ -423,10 +427,19 @@ export default function UsersPage() {
                               <button
                                 className="link text-xs text-red-600"
                                 disabled={suspendUser.isPending}
-                                onClick={() => {
-                                  const reason = (window.prompt(t("admin.users.suspendPrompt")) ?? "").trim();
+                                onClick={async () => {
+                                  const reason = await promptText({
+                                    title: t("admin.users.suspendTitle"),
+                                    reasonLabel: t("admin.users.suspendPrompt"),
+                                    confirmLabel: t("admin.users.suspend"),
+                                    cancelLabel: t("common.cancel"),
+                                    danger: true,
+                                  });
+                                  if (reason === null) return; // cancelled
+                                  const userId = u.userId;
+                                  if (!userId) return;
                                   suspendUser.mutate({
-                                    userId: u.userId,
+                                    userId,
                                     reason: reason.length > 0 ? reason : undefined,
                                   });
                                 }}
@@ -606,6 +619,7 @@ export default function UsersPage() {
           }}
         />
       )}
+      {dialog}
     </div>
   );
 }

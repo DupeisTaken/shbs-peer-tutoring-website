@@ -196,12 +196,18 @@
     @apply w-full border-collapse text-sm;
   }
   .data-table thead th {
-    /* No `text-left` here: th defaults to left in browsers, and omitting it lets a per-cell
-       `text-right`/`text-center` utility win (otherwise this compound selector outranks it and
-       headers misalign with their right-aligned numeric columns). */
     @apply border-b border-slate-200 px-3 py-2 text-xs font-semibold tracking-wide text-slate-500 uppercase;
   }
-  .data-table tbody td {
+  /* A bare <th> centers (browser default), so text headers misalign over their left-aligned
+     columns. Default every header / row-header cell to LEFT at zero specificity (:where) so a
+     per-cell `text-right`/`text-center` utility on the cell still wins. */
+  :where(.data-table th) {
+    text-align: left;
+  }
+  /* Row-header <th> cells (e.g. the meetings matrix's sticky name column) share the body cell box
+     so they line up with their row's <td>s. */
+  .data-table tbody td,
+  .data-table tbody th {
     @apply border-b border-slate-100 px-3 py-2 align-middle;
   }
   .data-table tbody tr:last-child td {
@@ -428,57 +434,28 @@
 }
 
 /* ---------------------------------------------------------------------------
- * Read-only (VIEWER) admin view. The (admin) layout sets `data-readonly` on the
- * content for VIEWER accounts; these UNLAYERED rules then neutralize every mutation
- * control program-wide (defense in depth atop per-page gating + server checks):
- *   - hide action buttons (.btn-*, .link-danger) — bare disclosure toggles stay, so
- *     cards still expand; nav `.link`s stay, so navigation works.
- *   - render form fields (.input/.select/.textarea) as plain, non-interactive text.
- *   - checkboxes/radios show their state but can't be toggled.
- * Wrap a subtree in `.ro-allow` to opt back in (e.g. a VIEWER editing their OWN account).
- * Unlayered so they outrank the @layer components definitions of .btn-*/.input.
+ * Read-only (VIEWER) backstop. Mutation *panels* are hidden per-page via
+ * useReadOnly(), so a viewer keeps full use of read-only info controls — filters,
+ * month/period pickers, search boxes, sort headers, expand/collapse, and
+ * CSV/Print/export. This unlayered rule is only a thin safety net for destructive
+ * controls, which never make sense for a viewer and could otherwise surface on a
+ * page reached by direct URL (the server refuses the mutation regardless).
+ * Unlayered so it outranks the @layer components definition of the danger classes.
  * ------------------------------------------------------------------------- */
-[data-readonly] .btn-primary,
-[data-readonly] .btn-secondary,
 [data-readonly] .btn-danger,
 [data-readonly] .link-danger {
   display: none;
 }
-[data-readonly] .input,
-[data-readonly] .select,
-[data-readonly] .textarea {
-  border-color: transparent;
-  background-color: transparent;
-  box-shadow: none;
-  padding-left: 0;
-  resize: none;
-  pointer-events: none;
-  -webkit-appearance: none;
-  appearance: none;
-}
-[data-readonly] input[type="checkbox"],
-[data-readonly] input[type="radio"] {
-  pointer-events: none;
-}
 
-/* Opt a subtree back into interactivity (own-account self-service). */
-[data-readonly] .ro-allow .btn-primary,
-[data-readonly] .ro-allow .btn-secondary,
-[data-readonly] .ro-allow .btn-danger,
-[data-readonly] .ro-allow .link-danger {
-  display: revert;
-}
-[data-readonly] .ro-allow .input,
-[data-readonly] .ro-allow .select,
-[data-readonly] .ro-allow .textarea {
-  border-color: revert;
-  background-color: revert;
-  box-shadow: revert;
-  padding-left: revert;
-  pointer-events: auto;
-  appearance: auto;
-}
-[data-readonly] .ro-allow input[type="checkbox"],
-[data-readonly] .ro-allow input[type="radio"] {
-  pointer-events: auto;
+/* Dialog panel entrance (see confirm-dialog.tsx). Applied only under motion-safe, so
+   reduced-motion users get the panel with no movement. */
+@keyframes dialog-pop {
+  from {
+    opacity: 0;
+    transform: translateY(4px) scale(0.98);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
 }

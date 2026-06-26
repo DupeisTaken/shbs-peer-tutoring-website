@@ -1,5 +1,8 @@
 {
   "common": {
+    "cancel": "キャンセル",
+    "confirm": "確認",
+    "delete": "削除",
     "dismiss": "閉じる",
     "save": "保存",
     "saved": "保存しました。",
@@ -588,6 +591,7 @@
       "suspended": "停止中",
       "suspend": "停止",
       "reinstate": "復帰",
+      "suspendTitle": "このアカウントを停止しますか？",
       "suspendPrompt": "停止の理由（任意）：",
       "appeals": {
         "heading": "復帰の異議",

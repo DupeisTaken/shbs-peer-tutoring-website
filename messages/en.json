@@ -1,5 +1,8 @@
 {
   "common": {
+    "cancel": "Cancel",
+    "confirm": "Confirm",
+    "delete": "Delete",
     "dismiss": "Dismiss",
     "save": "Save",
     "saved": "Saved.",
@@ -588,6 +591,7 @@
       "suspended": "Suspended",
       "suspend": "Suspend",
       "reinstate": "Reinstate",
+      "suspendTitle": "Suspend This Account?",
       "suspendPrompt": "Reason for suspension (optional):",
       "appeals": {
         "heading": "Reinstatement Appeals",

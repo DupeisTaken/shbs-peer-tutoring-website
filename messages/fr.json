@@ -1,5 +1,8 @@
 {
   "common": {
+    "cancel": "Annuler",
+    "confirm": "Confirmer",
+    "delete": "Supprimer",
     "dismiss": "Fermer",
     "save": "Enregistrer",
     "saved": "Enregistré.",
@@ -588,6 +591,7 @@
       "suspended": "Suspendu",
       "suspend": "Suspendre",
       "reinstate": "Rétablir",
+      "suspendTitle": "Suspendre ce compte ?",
       "suspendPrompt": "Motif de la suspension (facultatif) :",
       "appeals": {
         "heading": "Recours de Rétablissement",

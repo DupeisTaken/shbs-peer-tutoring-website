@@ -29,6 +29,12 @@ DLL and make `prisma generate` fail with `EPERM` — don't kill the user's proce
 the existing engine binary keeps working, so confirm the generated client already has
 your changes (`generated/prisma/`) and move on.
 
+**The dev seed (`prisma/seed.ts`) must only contain states the live app can actually produce.**
+Every row — including the QA edge cases — has to be reachable through a current procedure; if you
+can't name the flow that creates it, don't seed it. (E.g. the single-name `lastName: ""` tutor is
+legitimate because accepting a one-token tutor application runs `splitDisplayName`, which leaves an
+empty last name.) Re-run `npm run db:seed` twice after changing it — it must stay idempotent.
+
 ## Architecture & conventions
 
 - **Branding is env-driven — never hardcode a title.** Import `APP_TITLE` /
@@ -98,12 +104,27 @@ your changes (`generated/prisma/`) and move on.
   program refresh / hour adjustments), **`headProcedure`** (strictly the singleton HEAD — manages
   the admin roster + leadership transfer), or **`viewerProcedure`** for admin **reads** — it also
   admits the read-only `VIEWER` role and masks PII (emails / phone / preferred contact) in the
-  result for viewers. Tutor mutations that require an active membership go on
+  result for viewers. **`maskViewerPII` only nulls those three keys by name — it does NOT catch
+  other sensitive free-text.** So **never send sensitive data to the client just to hide it in the
+  UI** ("sent-then-hidden" leaks to anyone reading the network response): withhold it **server-side**
+  per query. For VIEWER, null free-text the observer shouldn't see (staff `notes`, removal/opt-out/
+  adjustment `reason`, card `reason`/`reviewNote`, appeal/application `message`, interview vote
+  `comment`, tutee `signatureName`) in the query's `.map`, and never `include: { relation: true }` /
+  `{ ...row }` a model whose extra columns the client never renders (e.g. `tutor.myPairings` selects
+  only the tutee's `id`+`englishName`). Tutor mutations that require an active membership go on
   **`activeTutorProcedure`** (a `tutorProcedure` that also asserts `Tutor.status === "ACTIVE"`), so
   inactive tutors keep read-only access but can't act. Keep admin queries on `viewerProcedure` and
   admin mutations on `adminProcedure` so VIEWER can browse but never write. Routers enforce
   role/ownership server-side; `src/middleware.ts` (Edge) gates auth, the `(admin)` layout gates
-  role. **Users & Roles (`/admin/users`)** is reachable by the elevated roles (HEAD/ADMIN/
+  role. **Client-side read-only treatment is per-page, not a blanket sweep.** Read `useReadOnly()`
+  (`~/app/_components/read-only`, true for VIEWER) and **hide mutation panels/controls** with
+  `{!readOnly && …}`, while leaving **read-only info controls fully interactive** — filters, month/
+  period pickers, search, sort headers, expand/collapse, and CSV/Print/export (so a viewer can still
+  scope a report or change the service-hours month). The self-service `/admin/account` page stays
+  interactive for everyone (your own login). `globals.css` keeps only a thin unlayered backstop that
+  hides `.btn-danger`/`.link-danger` for `[data-readonly]`; it is **not** a security control (the
+  server procedures are). **When you add a mutating control to an admin page, gate it with
+  `useReadOnly()`** — don't rely on CSS. **Users & Roles (`/admin/users`)** is reachable by the elevated roles (HEAD/ADMIN/
   COORDINATOR, not VIEWER); it lists every login **plus** admin-created tutors without one (the
   `accounts` query), with **filters** (role / tutor status / account state). Only HEAD may
   promote/demote ADMINs, **transfer leadership** (`transferHead` — outgoing head → ADMIN, kept
@@ -157,6 +178,10 @@ your changes (`generated/prisma/`) and move on.
   For collapse/expand affordances use the shared `DisclosureIcon` (`~/app/_components/icons.tsx`)
   so the `▸`/`▾` gesture is consistent everywhere. The `/admin` and tutor areas share one top-bar
   theme (brand left; identity block with name + `@username` and global controls right).
+  **Never use the native `window.confirm`/`window.prompt`/`alert` popups** — use the designed
+  `useDialog()` hook (`~/app/_components/confirm-dialog.tsx`): promise-based `confirm(opts)` /
+  `promptText(opts)` (so call sites read `if (await confirm({…})) …`), accessible, themeable, with a
+  `danger` flag for destructive actions. Render its returned `dialog` node once in the component.
 
 ## Admin design philosophies (apply to every new feature)
 

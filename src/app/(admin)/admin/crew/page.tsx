@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { useReadOnly } from "~/app/_components/read-only";
+import { useDialog } from "~/app/_components/confirm-dialog";
 
 /**
  * Crew admin hub: review crew applications, approve opt-out/reentry requests, manage the crew
@@ -14,6 +15,7 @@ import { useReadOnly } from "~/app/_components/read-only";
 export default function CrewPage() {
   const t = useTranslations();
   const readOnly = useReadOnly();
+  const { confirm, dialog } = useDialog();
   const utils = api.useUtils();
 
   const order = api.admin.patrolOrder.useQuery();
@@ -307,8 +309,15 @@ export default function CrewPage() {
                         <button
                           className="btn-danger btn-sm"
                           disabled={busy}
-                          onClick={() => {
-                            if (confirm(t("admin.crew.deleteConfirm", { name: u.name }))) {
+                          onClick={async () => {
+                            if (
+                              await confirm({
+                                title: t("admin.crew.deleteConfirm", { name: u.name }),
+                                confirmLabel: t("common.delete"),
+                                cancelLabel: t("common.cancel"),
+                                danger: true,
+                              })
+                            ) {
                               removeCrew.mutate({ userId: u.id });
                             }
                           }}
@@ -331,6 +340,7 @@ export default function CrewPage() {
           </tbody>
         </table>
       </section>
+      {dialog}
     </div>
   );
 }

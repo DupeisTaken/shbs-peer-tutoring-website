@@ -92,8 +92,10 @@ export default function AccountPage() {
   const initials = initialsOf(me.data?.name, me.data?.username, me.data?.email);
 
   return (
-    // `ro-allow`: a VIEWER may still manage their OWN login here (opts out of the read-only sweep).
-    <div className="ro-allow mx-auto max-w-2xl space-y-6">
+    // A VIEWER may still manage their OWN login here — this self-service page is intentionally
+    // interactive for everyone (the read-only treatment hides cross-program mutation panels, not
+    // your own account controls).
+    <div className="mx-auto max-w-2xl space-y-6">
       <div className="flex items-start justify-between gap-3">
         <div>
           <h1 className="page-title">{t("account.title")}</h1>
