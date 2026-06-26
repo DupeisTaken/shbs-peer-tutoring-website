@@ -1053,6 +1053,64 @@ async function main() {
     await db.registrationCode.upsert({ where: { id: c.id }, update: data, create: { id: c.id, ...data } });
   }
 
+  // --- Edge-case scenarios (exercise the trickier/recent paths for QA) --------
+  // 1. Username edges: a single-name tutor (splitDisplayName keeps an EMPTY last name, never
+  //    "Madonna Madonna") and a colliding-handle pair (both derive "akim27" → b is disambiguated).
+  for (const tu of [
+    { id: "tutor-madonna", firstName: "Madonna", lastName: "", englishName: "Madonna", username: "madonna", gradeLevel: 11 },
+    { id: "tutor-clash-a", firstName: "Alex", lastName: "Kim", englishName: "Alex Kim", username: "akim27", gradeLevel: 12 },
+    { id: "tutor-clash-b", firstName: "Andrea", lastName: "Kim", englishName: "Andrea Kim", username: "akim27b", gradeLevel: 12 },
+  ] as const) {
+    const data = { firstName: tu.firstName, lastName: tu.lastName, englishName: tu.englishName, username: tu.username, status: "ACTIVE" as const, gradeLevel: tu.gradeLevel };
+    await db.tutor.upsert({ where: { id: tu.id }, update: data, create: { id: tu.id, ...data } });
+  }
+
+  // 2. Crew lifecycle: a crew-only login that OPTED_OUT and one an admin soft-removed (INACTIVE) —
+  //    both still reach /patrol read-only and appear on the roster with their status.
+  for (const c of [
+    { id: "user-crew-optout", email: "crew-optout@example.edu", name: "Quinn Lee", status: "OPTED_OUT" as const, gradeLevel: 12 },
+    { id: "user-crew-inactive", email: "crew-inactive@example.edu", name: "Riley Park", status: "INACTIVE" as const, gradeLevel: 11 },
+  ]) {
+    await db.user.upsert({
+      where: { email: c.email },
+      update: { role: "CREW", crewStatus: c.status, name: c.name },
+      create: { id: c.id, email: c.email, name: c.name, role: "CREW", gradeLevel: c.gradeLevel, crewStatus: c.status, passwordHash, emailVerifiedAt: new Date() },
+    });
+  }
+
+  // 3. An ACCEPTED crew application whose issued code is still outstanding — drives the "Issued
+  //    Codes" panel on /admin/crew, and revoking that code reverts the application to PENDING.
+  await db.crewApplication.upsert({
+    where: { id: "crewapp-accepted" },
+    update: { status: "ACCEPTED", decidedByName: "Admin A", decidedAt: daysAgo(1) },
+    create: { id: "crewapp-accepted", name: "Avery Stone", email: "avery@example.edu", gradeLevel: 11, status: "ACCEPTED", decidedByName: "Admin A", decidedAt: daysAgo(1), createdAt: daysAgo(3) },
+  });
+  await db.registrationCode.upsert({
+    where: { id: "regcode-crewapp" },
+    update: { kind: "CREW", crewApplicationId: "crewapp-accepted" },
+    create: { id: "regcode-crewapp", code: generateRegistrationCode(), kind: "CREW", email: "avery@example.edu", crewApplicationId: "crewapp-accepted", label: "Avery Stone (crew)", issuedById: "user-admin", issuedByName: "Admin A", expiresAt: new Date(Date.now() + 7 * 86_400_000) },
+  });
+
+  // 4. A suspended observer whose appeal was DENIED — they may file another (re-appeal path).
+  const deniedObserver = await db.user.upsert({
+    where: { email: "observer3@example.edu" },
+    update: { role: "VIEWER", affiliation: "Curious community member", name: "Jordan Fox", suspendedAt: new Date(), suspendedReason: "Repeated suspicious activity." },
+    create: { id: "user-observer-3", email: "observer3@example.edu", name: "Jordan Fox", role: "VIEWER", affiliation: "Curious community member", suspendedAt: new Date(), suspendedReason: "Repeated suspicious activity.", passwordHash, emailVerifiedAt: new Date() },
+  });
+  await db.accountAppeal.upsert({
+    where: { id: "appeal-denied" },
+    update: { state: "DENIED", decidedByName: "Admin A", decidedAt: daysAgo(1) },
+    create: { id: "appeal-denied", userId: deniedObserver.id, message: "I only want to follow the program.", state: "DENIED", decidedByName: "Admin A", decidedAt: daysAgo(1), createdAt: daysAgo(2) },
+  });
+
+  // 5. A staged feature toggle (MEETINGS pending OFF) — the /admin/program toggle shows the pending
+  //    badge, and the next refresh applies it. Current state stays ON so dev data isn't hidden.
+  await db.programFeature.upsert({
+    where: { key: "MEETINGS" },
+    update: { pendingEnabled: false, updatedByName: "Admin A" },
+    create: { key: "MEETINGS", enabled: true, pendingEnabled: false, updatedByName: "Admin A" },
+  });
+
   console.log(
     `Seeded: 1 term, ${ROOMS.length} rooms, ${LEVELS.length} levels, ${COURSES.length} courses, ` +
       `${TIME_SLOTS.length} time slots, ${TUTORS.length} tutors (active + pending/opted-out/graduated/archived), ` +
@@ -1061,7 +1119,9 @@ async function main() {
       `${APPLICATIONS.length} applications, ${meetings.length} meetings, ` +
       `${TUTOR_STATUS_REQUESTS.length} tutor requests, ${TUTEE_REMOVALS.length} tutee opt-outs/removals, ` +
       `${REGISTRATION_CODES.length} registration codes, ${users.length} login users ` +
-      `(password "${DEV_PASSWORD}"); history for 25-26 Q1–Q4 (S1 + S2) + active 26-27 Q1.`,
+      `(password "${DEV_PASSWORD}"); history for 25-26 Q1–Q4 (S1 + S2) + active 26-27 Q1; ` +
+      `edge cases: single-name + colliding-handle tutors, opted-out/inactive crew, accepted crew ` +
+      `application + outstanding code, suspended observers (pending + denied appeals), staged toggle.`,
   );
 }
 
