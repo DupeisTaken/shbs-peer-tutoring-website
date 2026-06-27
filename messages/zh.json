@@ -349,7 +349,10 @@
         "activeTutees": "活跃学员",
         "pendingSignups": "待处理报名",
         "serviceHours": "服务时数 · {month}",
-        "crewPatrols": "巡查次数"
+        "crewPatrols": "巡查次数",
+        "sessions": "课时",
+        "crewMembers": "巡查队成员",
+        "crewHours": "巡查时数"
       },
       "pendingBanner": "有 {count} 条学员报名等待审核。",
       "reviewNow": "立即审核 →",
@@ -364,6 +367,27 @@
           "sh": "时数"
         },
         "empty": "暂无提交。"
+      },
+      "hours": {
+        "unit": "服务时数",
+        "earned": "已获得",
+        "extras": "额外",
+        "penalties": "扣减",
+        "byTutor": "各辅导员时数",
+        "noData": "本期尚无记录的时数。"
+      },
+      "sessionsByTutor": "各辅导员课时",
+      "attendance": {
+        "title": "学员出勤",
+        "present": "出席",
+        "excused": "请假",
+        "unexcused": "旷课"
+      },
+      "pipeline": {
+        "title": "学员状态",
+        "active": "活跃",
+        "pending": "待处理",
+        "inactive": "停用"
       }
     },
     "activity": {
@@ -423,6 +447,13 @@
           "title": "巡查队退出 / 重新加入",
           "empty": "暂无待处理的巡查队申请。"
         }
+      },
+      "hero": {
+        "title": "需要处理",
+        "openItems": "项待处理",
+        "across": "分布于 {count} 个队列",
+        "triage": "积压分布",
+        "allClear": "全部处理完毕——没有待审核的事项。"
       }
     },
     "summary": {

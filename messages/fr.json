@@ -356,7 +356,10 @@
         "activeTutees": "Élèves actifs",
         "pendingSignups": "Inscriptions en attente",
         "serviceHours": "Heures de service · {month}",
-        "crewPatrols": "Rondes"
+        "crewPatrols": "Rondes",
+        "sessions": "Séances",
+        "crewMembers": "Membres de la ronde",
+        "crewHours": "Heures de ronde"
       },
       "pendingBanner": "{count} {count, plural, one {inscription d'élève} other {inscriptions d'élèves}} en attente de traitement.",
       "reviewNow": "Examiner maintenant →",
@@ -371,6 +374,27 @@
           "sh": "HS"
         },
         "empty": "Aucune soumission pour l'instant."
+      },
+      "hours": {
+        "unit": "Heures de service",
+        "earned": "Acquises",
+        "extras": "Bonus",
+        "penalties": "Pénalités",
+        "byTutor": "Heures par tuteur",
+        "noData": "Aucune heure enregistrée pour cette période."
+      },
+      "sessionsByTutor": "Séances par tuteur",
+      "attendance": {
+        "title": "Présence des élèves",
+        "present": "Présent",
+        "excused": "Excusé",
+        "unexcused": "Non excusé"
+      },
+      "pipeline": {
+        "title": "Flux des élèves",
+        "active": "Actifs",
+        "pending": "En attente",
+        "inactive": "Inactifs"
       }
     },
     "activity": {
@@ -430,6 +454,13 @@
           "title": "Départ / Retour de Ronde",
           "empty": "Aucune demande de ronde en attente."
         }
+      },
+      "hero": {
+        "title": "À traiter",
+        "openItems": "éléments ouverts",
+        "across": "dans {count} files",
+        "triage": "Où est l'arriéré",
+        "allClear": "Tout est à jour — rien en attente de révision."
       }
     },
     "summary": {

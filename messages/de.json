@@ -356,7 +356,10 @@
         "activeTutees": "Aktive Lernende",
         "pendingSignups": "Ausstehende Anmeldungen",
         "serviceHours": "Servicestunden · {month}",
-        "crewPatrols": "Rundgänge"
+        "crewPatrols": "Rundgänge",
+        "sessions": "Sitzungen",
+        "crewMembers": "Rundgang-Mitglieder",
+        "crewHours": "Rundgang-Stunden"
       },
       "pendingBanner": "{count} {count, plural, one {Anmeldung wartet} other {Anmeldungen warten}} auf Überprüfung.",
       "reviewNow": "Jetzt prüfen →",
@@ -371,6 +374,27 @@
           "sh": "SH"
         },
         "empty": "Noch keine Einträge."
+      },
+      "hours": {
+        "unit": "Service-Stunden",
+        "earned": "Verdient",
+        "extras": "Extras",
+        "penalties": "Abzüge",
+        "byTutor": "Stunden pro Tutor",
+        "noData": "In diesem Zeitraum noch keine Stunden erfasst."
+      },
+      "sessionsByTutor": "Sitzungen pro Tutor",
+      "attendance": {
+        "title": "Anwesenheit der Schüler",
+        "present": "Anwesend",
+        "excused": "Entschuldigt",
+        "unexcused": "Unentschuldigt"
+      },
+      "pipeline": {
+        "title": "Schüler-Pipeline",
+        "active": "Aktiv",
+        "pending": "Ausstehend",
+        "inactive": "Inaktiv"
       }
     },
     "activity": {
@@ -430,6 +454,13 @@
           "title": "Rundgang Austritt / Wiedereintritt",
           "empty": "Keine offenen Rundgang-Anträge."
         }
+      },
+      "hero": {
+        "title": "Erfordert Aufmerksamkeit",
+        "openItems": "offene Aufgaben",
+        "across": "in {count} Warteschlangen",
+        "triage": "Wo der Rückstau ist",
+        "allClear": "Alles erledigt — nichts wartet auf Prüfung."
       }
     },
     "summary": {

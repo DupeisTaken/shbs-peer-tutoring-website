@@ -356,7 +356,10 @@
         "activeTutees": "有効生徒数",
         "pendingSignups": "保留中の申請",
         "serviceHours": "奉仕時間・{month}",
-        "crewPatrols": "巡回回数"
+        "crewPatrols": "巡回回数",
+        "sessions": "セッション",
+        "crewMembers": "巡回班メンバー",
+        "crewHours": "巡回時間"
       },
       "pendingBanner": "生徒の申請が {count} 件、審査待ちです。",
       "reviewNow": "今すぐ確認 →",
@@ -371,6 +374,27 @@
           "sh": "奉仕時間"
         },
         "empty": "まだ提出がありません。"
+      },
+      "hours": {
+        "unit": "奉仕時間",
+        "earned": "獲得",
+        "extras": "追加",
+        "penalties": "減点",
+        "byTutor": "チューター別の時間",
+        "noData": "今期はまだ記録された時間がありません。"
+      },
+      "sessionsByTutor": "チューター別のセッション",
+      "attendance": {
+        "title": "生徒の出席",
+        "present": "出席",
+        "excused": "公欠",
+        "unexcused": "無断欠席"
+      },
+      "pipeline": {
+        "title": "生徒の状況",
+        "active": "アクティブ",
+        "pending": "保留中",
+        "inactive": "非アクティブ"
       }
     },
     "activity": {
@@ -430,6 +454,13 @@
           "title": "巡回班 退会 / 再参加",
           "empty": "保留中の巡回班の申請はありません。"
         }
+      },
+      "hero": {
+        "title": "要対応",
+        "openItems": "件の未対応",
+        "across": "{count} 件のキュー",
+        "triage": "未処理の内訳",
+        "allClear": "すべて対応済み — 確認待ちはありません。"
       }
     },
     "summary": {

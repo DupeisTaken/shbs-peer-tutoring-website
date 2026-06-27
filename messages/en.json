@@ -356,7 +356,10 @@
         "activeTutees": "Active Tutees",
         "pendingSignups": "Pending Signups",
         "serviceHours": "Service Hours · {month}",
-        "crewPatrols": "Crew Patrols"
+        "crewPatrols": "Crew Patrols",
+        "sessions": "Sessions",
+        "crewMembers": "Crew Members",
+        "crewHours": "Crew Hours"
       },
       "pendingBanner": "{count} tutee {count, plural, one {signup} other {signups}} awaiting review.",
       "reviewNow": "Review Now →",
@@ -371,6 +374,27 @@
           "sh": "SH"
         },
         "empty": "No submissions yet."
+      },
+      "hours": {
+        "unit": "Service Hours",
+        "earned": "Earned",
+        "extras": "Extras",
+        "penalties": "Penalties",
+        "byTutor": "Hours by Tutor",
+        "noData": "No hours logged this period yet."
+      },
+      "sessionsByTutor": "Sessions by Tutor",
+      "attendance": {
+        "title": "Tutee Attendance",
+        "present": "Present",
+        "excused": "Excused",
+        "unexcused": "Unexcused"
+      },
+      "pipeline": {
+        "title": "Tutee Pipeline",
+        "active": "Active",
+        "pending": "Pending",
+        "inactive": "Inactive"
       }
     },
     "activity": {
@@ -430,6 +454,13 @@
           "title": "Crew Opt-out / Reentry",
           "empty": "No pending crew requests."
         }
+      },
+      "hero": {
+        "title": "Needs Attention",
+        "openItems": "open items",
+        "across": "across {count} queues",
+        "triage": "Where the backlog is",
+        "allClear": "All caught up — nothing waiting for review."
       }
     },
     "summary": {

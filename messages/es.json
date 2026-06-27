@@ -349,7 +349,10 @@
         "activeTutees": "Estudiantes activos",
         "pendingSignups": "Registros pendientes",
         "serviceHours": "Horas de servicio · {month}",
-        "crewPatrols": "Rondas"
+        "crewPatrols": "Rondas",
+        "sessions": "Sesiones",
+        "crewMembers": "Miembros de ronda",
+        "crewHours": "Horas de ronda"
       },
       "pendingBanner": "{count} {count, plural, one {registro de estudiante} other {registros de estudiantes}} en espera de revisión.",
       "reviewNow": "Revisar ahora →",
@@ -364,6 +367,27 @@
           "sh": "HS"
         },
         "empty": "Aún no hay envíos."
+      },
+      "hours": {
+        "unit": "Horas de servicio",
+        "earned": "Ganadas",
+        "extras": "Extras",
+        "penalties": "Penalizaciones",
+        "byTutor": "Horas por tutor",
+        "noData": "Aún no hay horas registradas en este período."
+      },
+      "sessionsByTutor": "Sesiones por tutor",
+      "attendance": {
+        "title": "Asistencia de estudiantes",
+        "present": "Presente",
+        "excused": "Justificada",
+        "unexcused": "Injustificada"
+      },
+      "pipeline": {
+        "title": "Flujo de estudiantes",
+        "active": "Activos",
+        "pending": "Pendientes",
+        "inactive": "Inactivos"
       }
     },
     "activity": {
@@ -423,6 +447,13 @@
           "title": "Baja / Reingreso de Ronda",
           "empty": "No hay solicitudes de ronda pendientes."
         }
+      },
+      "hero": {
+        "title": "Requiere atención",
+        "openItems": "elementos abiertos",
+        "across": "en {count} colas",
+        "triage": "Dónde está la acumulación",
+        "allClear": "Todo al día: no hay nada pendiente de revisión."
       }
     },
     "summary": {

@@ -356,7 +356,10 @@
         "activeTutees": "활성 학생",
         "pendingSignups": "대기 중인 신청",
         "serviceHours": "봉사 시간 · {month}",
-        "crewPatrols": "순찰 횟수"
+        "crewPatrols": "순찰 횟수",
+        "sessions": "세션",
+        "crewMembers": "순찰대원",
+        "crewHours": "순찰 시간"
       },
       "pendingBanner": "학생 신청 {count}건이 검토를 기다리고 있습니다.",
       "reviewNow": "지금 검토 →",
@@ -371,6 +374,27 @@
           "sh": "봉사 시간"
         },
         "empty": "아직 제출된 내용이 없습니다."
+      },
+      "hours": {
+        "unit": "봉사 시간",
+        "earned": "획득",
+        "extras": "추가",
+        "penalties": "차감",
+        "byTutor": "튜터별 시간",
+        "noData": "이번 기간에 기록된 시간이 없습니다."
+      },
+      "sessionsByTutor": "튜터별 세션",
+      "attendance": {
+        "title": "학생 출석",
+        "present": "출석",
+        "excused": "사유 결석",
+        "unexcused": "무단 결석"
+      },
+      "pipeline": {
+        "title": "학생 현황",
+        "active": "활성",
+        "pending": "대기",
+        "inactive": "비활성"
       }
     },
     "activity": {
@@ -430,6 +454,13 @@
           "title": "순찰조 탈퇴 / 재가입",
           "empty": "대기 중인 순찰조 신청이 없습니다."
         }
+      },
+      "hero": {
+        "title": "처리 필요",
+        "openItems": "미처리 항목",
+        "across": "{count}개 대기열",
+        "triage": "백로그 분포",
+        "allClear": "모두 처리됨 — 검토 대기 항목이 없습니다."
       }
     },
     "summary": {
