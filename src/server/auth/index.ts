@@ -1,10 +1,11 @@
-import NextAuth from "next-auth";
+import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { cache } from "react";
 import { z } from "zod";
 
 import { env } from "~/env";
 import { db } from "~/server/db";
+import { rateLimit } from "~/server/rate-limit";
 import { authConfig } from "./config";
 import { verifyPassword } from "./password";
 import { ensureUserUsername } from "./username";
@@ -21,6 +22,30 @@ const credentialsSchema = z.object({
   identifier: z.string().min(1),
   password: z.string().min(1),
 });
+
+/**
+ * Thrown by `authorize` when credential attempts exceed the rate limit. The `code` is surfaced
+ * to the sign-in server action (src/app/signin/actions.ts) so it can show a distinct
+ * "too many attempts" message instead of the generic invalid-credentials one.
+ */
+class RateLimitedSignin extends CredentialsSignin {
+  code = "rate_limited";
+}
+
+/** Best-effort client IP from proxy headers (the deploy runs behind a reverse proxy). */
+function clientIp(request: Request | undefined): string {
+  const xff = request?.headers.get("x-forwarded-for");
+  if (xff) return xff.split(",")[0]!.trim();
+  return request?.headers.get("x-real-ip")?.trim() ?? "unknown";
+}
+
+// Brute-force guards for credential sign-in. Per-IP throttles guessing from one host; per-
+// identifier slows targeted guessing against a single account. In-memory + per-process
+// (src/server/rate-limit.ts) — sufficient for the single-container deploy; swap for a shared
+// store if scaled horizontally.
+const SIGNIN_WINDOW_MS = 15 * 60_000;
+const SIGNIN_MAX_PER_IP = 10;
+const SIGNIN_MAX_PER_IDENTIFIER = 10;
 
 /**
  * Full (Node-runtime) Auth.js instance: the edge-safe base plus the Credentials provider
@@ -45,11 +70,26 @@ const {
        * user on success or `null` on any failure (Auth.js surfaces a generic CredentialsSignin
        * error — we never reveal whether the identifier or the password was wrong).
        */
-      async authorize(raw) {
+      async authorize(raw, request) {
         const parsed = credentialsSchema.safeParse(raw);
         if (!parsed.success) return null;
 
         const identifier = parsed.data.identifier.trim().toLowerCase();
+
+        // Throttle before touching the database. Runs on every entry path — the sign-in form's
+        // server action AND a direct POST to the credentials callback — so it can't be bypassed.
+        const ip = clientIp(request);
+        const withinLimit =
+          rateLimit(`signin:ip:${ip}`, {
+            max: SIGNIN_MAX_PER_IP,
+            windowMs: SIGNIN_WINDOW_MS,
+          }).ok &&
+          rateLimit(`signin:id:${identifier}`, {
+            max: SIGNIN_MAX_PER_IDENTIFIER,
+            windowMs: SIGNIN_WINDOW_MS,
+          }).ok;
+        if (!withinLimit) throw new RateLimitedSignin();
+
         // Match the login email, the account username, or (for not-yet-backfilled rows) the
         // linked Tutor's username — username and email are both alternate sign-in identifiers.
         const user = await db.user.findFirst({

@@ -19,6 +19,8 @@
     "password": "Mot de passe",
     "signIn": "Se connecter",
     "signingIn": "Connexion en cours…",
+    "invalidCredentials": "Nom d'utilisateur/e-mail ou mot de passe invalide.",
+    "tooManyAttempts": "Trop de tentatives de connexion. Veuillez patienter quelques minutes et réessayer.",
     "forgotPassword": "Mot de passe oublié ?",
     "createAccount": "Créer un compte",
     "lookingForTutor": "Vous cherchez un tuteur ?",
@@ -116,7 +118,7 @@
       "becomeTutor": "Devenir tuteur",
       "teamSignin": "Connexion",
       "becomeCrew": "Rejoindre la ronde",
-      "observe": "Suivre le Programme"
+      "viewerSignup": "Suivre le Programme"
     },
     "tagline": "Programme de tutorat par les pairs",
     "heroTitle": "Apprendre ensemble. Progresser ensemble.",
@@ -522,7 +524,8 @@
           "INTERVIEWS": "Entretiens et vote",
           "SERVICE_HOURS": "Heures de service",
           "QUARTER_SYSTEM": "Système de trimestres",
-          "OBSERVER_SIGNUP": "Inscription Observateur"
+          "VIEWER_SIGNUP": "Inscription Observateur",
+          "EMAIL_2FA": "2FA par e-mail"
         }
       }
     },
@@ -1464,7 +1467,7 @@
         "message": "Autre chose ? (facultatif)"
       }
     },
-    "observe": {
+    "viewerSignup": {
       "title": "Suivre le Programme",
       "intro": "Créez un compte gratuit en lecture seule pour suivre le programme. Parents, enseignants et membres de la communauté bienvenus — vous verrez le même aperçu que l'équipe, sans les données personnelles.",
       "alreadyHave": "Vous avez déjà un compte ?",

@@ -288,7 +288,7 @@ export const viewerProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   if (!isElevated(role) && role !== "VIEWER") {
     throw new TRPCError({ code: "FORBIDDEN", message: "Admin access required." });
   }
-  // A suspended observer keeps their login but loses read access (until reinstated / appeal).
+  // A suspended viewer keeps their login but loses read access (until reinstated / appeal).
   if (role === "VIEWER") {
     const me = await ctx.db.user.findUnique({
       where: { id: ctx.session.user.id },

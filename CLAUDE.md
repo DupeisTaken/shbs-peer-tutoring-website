@@ -19,7 +19,9 @@ Credentials + JWT), Prisma 6 + PostgreSQL, tRPC 11, Tailwind CSS 4, Vitest.
 | `npm run build`    | Production build. **Uses `--turbopack` on purpose** — the classic webpack build fails on Windows during output file-tracing. |
 | `npm run check`    | `next lint` + `tsc --noEmit`. **Run before every commit.** |
 | `npm test`         | Vitest suite once.                                        |
-| `npm run db:push`  | Push schema to the DB (no migration files).              |
+| `npm run db:generate` | `prisma migrate dev` — diff the schema and write a new migration under `prisma/migrations/`. **This is how schema changes ship.** |
+| `npm run db:migrate`  | `prisma migrate deploy` — apply pending migrations (runs automatically on container start via `entrypoint.sh`). |
+| `npm run db:push`  | `prisma db push` — sync schema to a DB **without** a migration file. **Local throwaway only**, never shared/prod state — it's how the migration history drifted before. |
 | `npm run db:seed`  | Sample data + dev login accounts.                        |
 | `npm run db:studio`| Prisma Studio.                                            |
 
@@ -28,6 +30,13 @@ env, or Prisma). On Windows a lingering Next worker can lock the Prisma query en
 DLL and make `prisma generate` fail with `EPERM` — don't kill the user's processes;
 the existing engine binary keeps working, so confirm the generated client already has
 your changes (`generated/prisma/`) and move on.
+
+**Schema changes go through migrations, not `db push`.** `prisma/migrations/0_init` was regenerated
+from the current schema (the legacy `@@map`/`@map` "Course" table names are gone — models, tables,
+and columns are all `Subject`/`subjectId` now). Edit `schema.prisma`, run `npm run db:generate` to
+record a **new** migration, and commit it; production applies them with `prisma migrate deploy` on
+startup (`entrypoint.sh`). A DB built with `db push` won't match the migration history — rebuild it
+with `npx prisma migrate reset` (drops + replays migrations + reseeds; dev data is disposable).
 
 **The dev seed (`prisma/seed.ts`) must only contain states the live app can actually produce.**
 Every row — including the QA edge cases — has to be reachable through a current procedure; if you
@@ -50,12 +59,22 @@ empty last name.) Re-run `npm run db:seed` twice after changing it — it must s
   (`~/server/program/features.ts`, missing row = ON) on the server, or **`api.program.features`**
   on the client. **Changes are staged and applied at the next program `refresh`**
   (`applyPendingFeatures`), so a quarter stays stable. Keys: `CREW`, `DISCIPLINE`, `MEETINGS`,
-  `INTERVIEWS`, `SERVICE_HOURS` (soft hide+block when off — gate nav items via the `feature` field
-  on `NavItem`, redirect their portals, hide their dashboard/activity/report surfaces, and refuse
-  their procedures, e.g. `crewProcedure`), and **`QUARTER_SYSTEM`** which is a *mode* not a disable:
-  ON = quarters (Q1–Q4), OFF = semesters (S1/S2) — `nextPeriod`/`periodLabel` take a `semesterMode`
-  flag and the refresh advances a whole semester (graduation then moves to the year boundary).
-  **When you add an optional-module surface, gate it by its flag.**
+  `INTERVIEWS`, `SERVICE_HOURS`, `VIEWER_SIGNUP` (soft hide+block when off — gate nav items via the
+  `feature` field on `NavItem`, redirect their portals, hide their dashboard/activity/report
+  surfaces, and **refuse their procedures server-side** — `crewProcedure` for crew, the `viewer`
+  router's `assertEnabled` for viewer signup, and **`assertFeatureEnabled(ctx.db, KEY)`** (`features.ts`)
+  at the top of every other module mutation: meetings, interviews (assign/setTime/vote/decide — but
+  NOT `setApplicationStatus`, since applications stay reviewable without interviews), hour
+  adjustments, `reviewCard`, and the discipline side-effects (auto-cards + punishment removal) inside
+  `submitAttendance` (gated by `features.DISCIPLINE` so attendance still records). Two flags are
+  *not* hide+block: **`QUARTER_SYSTEM`** is a *mode* not a disable: ON = quarters (Q1–Q4), OFF =
+  semesters (S1/S2) — `nextPeriod`/`periodLabel` take a `semesterMode` flag and the refresh advances
+  a whole semester (graduation then moves to the year boundary). **`EMAIL_2FA`** gates email
+  two-factor — the sign-in second factor (still scaffolded, `two-factor.ts`) plus the emailed
+  step-up code on a password change; OFF means a verified current password alone changes the
+  password (for a program with no email configured) and the onboarding 2FA opt-in is hidden — gated
+  in `account`/`tutor` `changePassword` (code optional, verified only when on) and the two password
+  forms + onboarding. **When you add an optional-module surface, gate it by its flag.**
 - **All user-facing text must be translatable — never hardcode UI copy.** i18n is **next-intl**.
   Add the string to `messages/en.json` (and the other locales, e.g. `messages/zh.json`) as a
   nested key, then render it: in **client** components `const t = useTranslations(); t("dashboard.attendance.title")`;
@@ -107,7 +126,7 @@ empty last name.) Re-run `npm run db:seed` twice after changing it — it must s
   result for viewers. **`maskViewerPII` only nulls those three keys by name — it does NOT catch
   other sensitive free-text.** So **never send sensitive data to the client just to hide it in the
   UI** ("sent-then-hidden" leaks to anyone reading the network response): withhold it **server-side**
-  per query. For VIEWER, null free-text the observer shouldn't see (staff `notes`, removal/opt-out/
+  per query. For VIEWER, null free-text the viewer shouldn't see (staff `notes`, removal/opt-out/
   adjustment `reason`, card `reason`/`reviewNote`, appeal/application `message`, interview vote
   `comment`, tutee `signatureName`) in the query's `.map`, and never `include: { relation: true }` /
   `{ ...row }` a model whose extra columns the client never renders (e.g. `tutor.myPairings` selects
@@ -136,8 +155,8 @@ empty last name.) Re-run `npm run db:seed` twice after changing it — it must s
   `confirmPassword` arg, collected by the page's `ConfirmIdentityDialog`. **Every account has a
   `User.username`** (unique across `User` *and* `Tutor` — sign in with username OR email);
   `ensureUserUsername` backfills/mirrors it (the `accounts` query heals missing ones on read).
-  **Exception: read-only observer (VIEWER) accounts may be username-less** — they sign in by email,
-  `completeViewerSignup` assigns no username, and `ensureUserUsername` skips them (no "observer"
+  **Exception: read-only viewer (VIEWER) accounts may be username-less** — they sign in by email,
+  `completeViewerSignup` assigns no username, and `ensureUserUsername` skips them (no "viewer"
   collision churn). Uniqueness for everyone else is `ensureUniqueUsername` (base → letter → counter,
   collision-checked across both tables).
   Self-service **account page** at **`/admin/account`** (opened by clicking your name in the top
@@ -225,13 +244,13 @@ submission time). See the `admin-philosophies` memory for the rationale.
   `/signup` (tutee) and `/tutor-signup` (tutor application) create only `PENDING` `Tutee` /
   `TutorApplication` records for an admin to review. **`/register`** creates a login but only after
   the visitor proves an **admin-issued single-use registration code** plus an emailed verification
-  code (still admin-gated). **`/observe`** is the ONE open path: outsiders (parents/faculty/community)
+  code (still admin-gated). **`/viewer-signup`** is the ONE open path: outsiders (parents/faculty/community)
   self-register a **read-only VIEWER** account gated only by **email validation** — `viewer` router +
   `src/server/auth/viewer-signup.ts`, its own `ViewerSignup` row (separate from the admin
-  `RegistrationCode` boundary), rate-limited, behind the **`OBSERVER_SIGNUP`** feature flag and
-  capturing `User.affiliation` ("who they are"). The program values transparency, so observers reuse
+  `RegistrationCode` boundary), rate-limited, behind the **`VIEWER_SIGNUP`** feature flag and
+  capturing `User.affiliation` ("who they are"). The program values transparency, so viewers reuse
   the VIEWER role (same PII-masked read-only views as internal read-only staff).
-- **Suspension + appeals (observer lifecycle).** Admins flag a suspicious VIEWER on `/admin/users`
+- **Suspension + appeals (viewer lifecycle).** Admins flag a suspicious VIEWER on `/admin/users`
   (`suspendUser` → `User.suspendedAt`/`suspendedReason`); a suspended account keeps its login but is
   routed to **`/suspended`** and blocked everywhere (the `(admin)` layout redirects; `viewerProcedure`
   refuses). The user files an `AccountAppeal` (`account.submitAppeal`); an admin decides on
@@ -241,7 +260,7 @@ submission time). See the `admin-philosophies` memory for the rationale.
   **`generateRegistrationCode`** (`src/server/auth/code.ts`) — 5 characters from an unambiguous mixed
   digit+uppercase alphabet (no `0/O/1/I/L`), cryptographically random (~31⁵). This covers **both** the
   admin-issued **`RegistrationCode` security key** *and* every emailed verification OTP (the `/register`
-  email check, the `/observe` observer signup, the password-change step-up). **Any new code MUST use
+  email check, the `/viewer-signup` viewer signup, the password-change step-up). **Any new code MUST use
   `generateRegistrationCode`** (never roll your own), with a `normalizeRegCode` transform +
   `/^[0-9A-Z]{5}$/` input validator. `hashCode` (HMAC, `AUTH_SECRET`) normalizes before hashing, so the
   OTPs compare case-insensitively. Registration codes are stored in **plaintext** so admins/coordinators
@@ -257,6 +276,15 @@ submission time). See the `admin-philosophies` memory for the rationale.
   HEAD is otherwise set only via `transferHead`.
 - Passwords are hashed with scrypt (`src/server/auth/password.ts`). The dev seed password
   is for local use only — never in production.
+- **`AUTH_SECRET` is required (≥32 chars) in production** (`src/env.js`) — it keys the session JWT
+  and the HMAC that hashes every emailed OTP / registration code. The `secret()` helper in
+  `registration.ts` also **throws in production** rather than fall back to the dev constant, so a
+  missing secret fails closed even if env validation is skipped.
+- **Credential sign-in is rate-limited.** `authorize()` (`src/server/auth/index.ts`) throttles per
+  IP and per identifier (10 / 15 min each) via `src/server/rate-limit.ts` before any DB lookup, so
+  it guards the form action **and** a direct POST to the credentials endpoint. On exceed it throws a
+  `CredentialsSignin` with code `rate_limited`, which the sign-in action surfaces as a distinct
+  "too many attempts" message. (In-memory + per-process — swap for a shared store if scaled out.)
 - **Changing a password requires emailed step-up 2FA.** Both self-service password changes
   (`account.changePassword` for the admin area, `tutor.changePassword` for `/settings`) are a
   two-step flow: `requestPasswordChangeCode` verifies the current password and emails a 5-digit
@@ -268,11 +296,15 @@ submission time). See the `admin-philosophies` memory for the rationale.
 - Sign-in accepts **username or email** + password — the identifier is matched against
   `User.email`, `User.username`, or the linked `Tutor.username` in the Credentials `authorize()`.
 - **Email delivery is Aliyun Direct Mail (SMTP via nodemailer)** in
-  `src/server/email/sender.ts`. Active when `EMAIL_FROM` + `SMTP_PASSWORD` are set, else it
-  logs in dev / warns in prod (never throws). Forgot-password emails the reset link through it
-  (`src/server/auth/password-reset.ts`); the password-change step-up code goes through the same
-  seam. Note: `.npmrc` sets `legacy-peer-deps=true` for the next-auth v5 ⇄ nodemailer
-  optional-peer clash.
+  `src/server/email/sender.ts` — the single `emailSender.send()` seam used by every code/link flow
+  (registration + viewer OTPs, the password-change step-up code, forgot-password + tutor-setup
+  links). The transport is **pooled, TLS-enforced (STARTTLS on 587/25/80, implicit SSL on 465), and
+  timeout-bounded** so a stuck SMTP dialog can't hang a request; it logs every send (and failure)
+  for `docker compose logs` triage. It's active when `EMAIL_FROM` + `SMTP_PASSWORD` are set; when
+  **un**configured it falls back to a dev sender that logs in dev / warns in prod and never throws.
+  The configured sender **does** throw on a real delivery failure (so OTP/link flows surface it).
+  `verifyEmailTransport()` opens+authenticates without sending, for health checks. Note: `.npmrc`
+  sets `legacy-peer-deps=true` for the next-auth v5 ⇄ nodemailer optional-peer clash.
 
 ## Domain notes
 
@@ -355,9 +387,10 @@ submission time). See the `admin-philosophies` memory for the rationale.
 - **Tutor flow**: public application → admin assigns up to 3 interviewers (one **head**)
   → head schedules the interview, which shows for every panelist.
 - **Subjects** (Prisma model `Subject`, with `SubjectLevel` for the AP/Honors/Standard track and
-  `ApplicationSubjectIntent` for application picks) are the tutoring topics. The models keep their
-  original table names via `@@map` ("Course"/"CourseLevel"/"ApplicationCourseIntent") so the
-  rename needed no migration. **Never call them "courses" in UI copy** — we don't provide a formal
+  `ApplicationSubjectIntent` for application picks) are the tutoring topics. Models, tables, and
+  columns all use the `Subject` naming now (the legacy `@@map`/`@map` to "Course"/"CourseLevel"/
+  "ApplicationCourseIntent"/`courseId` were removed and the init migration regenerated to match).
+  **Never call them "courses" in UI copy** — we don't provide a formal
   teaching service. The level tag gates the AP-score field on tutor applications. Each subject row
   on `/tutor-signup` puts the qualification **ticks first** (taken / has-AP-score / self-studied),
   and each detail box appears **only when its tick is set**. The admin catalogue is at

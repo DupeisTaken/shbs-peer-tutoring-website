@@ -3,6 +3,7 @@ import { getTranslations } from "next-intl/server";
 
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
+import { getFeatures } from "~/server/program/features";
 import { APP_TITLE } from "~/lib/branding";
 import { OnboardingForm } from "./onboarding-form";
 import { FloatingLanguageSwitcher } from "~/app/_components/floating-language-switcher";
@@ -29,6 +30,7 @@ export default async function OnboardingEmailPage() {
     session.role === "HEAD" || session.role === "ADMIN" || session.role === "COORDINATOR";
   if (user?.emailVerifiedAt) redirect(isElevated ? "/admin" : "/dashboard");
 
+  const features = await getFeatures(db);
   const t = await getTranslations();
 
   return (
@@ -41,7 +43,7 @@ export default async function OnboardingEmailPage() {
         </h1>
         <p className="muted mt-1">{t("auth.onboarding.intro")}</p>
         <div className="card mt-6 p-6 text-left">
-          <OnboardingForm defaultEmail={user?.email ?? ""} />
+          <OnboardingForm defaultEmail={user?.email ?? ""} email2fa={features.EMAIL_2FA} />
         </div>
       </div>
     </main>

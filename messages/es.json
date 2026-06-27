@@ -19,6 +19,8 @@
     "password": "Contraseña",
     "signIn": "Iniciar sesión",
     "signingIn": "Iniciando sesión…",
+    "invalidCredentials": "Nombre de usuario/correo o contraseña no válidos.",
+    "tooManyAttempts": "Demasiados intentos de inicio de sesión. Espera unos minutos e inténtalo de nuevo.",
     "forgotPassword": "¿Olvidaste tu contraseña?",
     "createAccount": "Crear cuenta",
     "lookingForTutor": "¿Buscas un tutor?",
@@ -116,7 +118,7 @@
       "becomeTutor": "Hazte tutor",
       "teamSignin": "Iniciar sesión",
       "becomeCrew": "Unirse a la ronda",
-      "observe": "Seguir el Programa"
+      "viewerSignup": "Seguir el Programa"
     },
     "tagline": "Programa de Tutoría entre Pares",
     "heroTitle": "Aprendamos juntos. Crezcamos juntos.",
@@ -515,7 +517,8 @@
           "INTERVIEWS": "Entrevistas y votación",
           "SERVICE_HOURS": "Horas de servicio",
           "QUARTER_SYSTEM": "Sistema de trimestres",
-          "OBSERVER_SIGNUP": "Registro de Observadores"
+          "VIEWER_SIGNUP": "Registro de Observadores",
+          "EMAIL_2FA": "2FA por correo"
         }
       }
     },
@@ -1464,7 +1467,7 @@
         "message": "¿Algo más? (opcional)"
       }
     },
-    "observe": {
+    "viewerSignup": {
       "title": "Seguir el Programa",
       "intro": "Crea una cuenta gratuita de solo lectura para seguir el programa. Padres, profesores y miembros de la comunidad son bienvenidos: verás el mismo resumen que el equipo, con los datos personales ocultos.",
       "alreadyHave": "¿Ya tienes una cuenta?",

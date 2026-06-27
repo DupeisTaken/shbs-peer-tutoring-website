@@ -88,7 +88,7 @@ export default async function TutorDashboard() {
             </div>
           )}
           {/* Crew hours — tallied separately from tutoring (only shown for crew members). */}
-          {crew.isCrew && (
+          {features.CREW && crew.isCrew && (
             <div className="card px-5 py-3 text-right">
               <p className="text-xs font-medium tracking-wide text-slate-500 uppercase">
                 {t("tutor.dashboard.crew.title")}

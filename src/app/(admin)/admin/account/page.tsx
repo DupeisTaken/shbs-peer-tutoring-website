@@ -31,6 +31,8 @@ export default function AccountPage() {
   const router = useRouter();
   const utils = api.useUtils();
   const me = api.account.me.useQuery();
+  const features = api.program.features.useQuery();
+  const email2fa = features.data?.EMAIL_2FA ?? true;
 
   const updateName = api.account.updateName.useMutation({
     onSuccess: () => utils.account.me.invalidate(),
@@ -78,7 +80,12 @@ export default function AccountPage() {
       setPwError(t("tutor.settings.pwMismatch"));
       return;
     }
-    requestCode.mutate({ currentPassword: current });
+    if (email2fa) {
+      requestCode.mutate({ currentPassword: current });
+    } else {
+      // Email 2FA off — no emailed code step; change directly with the current password.
+      changePassword.mutate({ currentPassword: current, newPassword: next });
+    }
   };
 
   // Step 2: submit the new password with the emailed code.
@@ -191,7 +198,9 @@ export default function AccountPage() {
       <section className="card space-y-4 p-5 sm:p-6">
         <div>
           <h2 className="section-title">{t("tutor.settings.passwordHeading")}</h2>
-          <p className="muted mt-1 text-sm">{t("account.password.twoFactorHint")}</p>
+          {email2fa && (
+            <p className="muted mt-1 text-sm">{t("account.password.twoFactorHint")}</p>
+          )}
         </div>
 
         <label className="block space-y-1">
@@ -265,12 +274,21 @@ export default function AccountPage() {
           {!sentTo ? (
             <button
               className="btn-primary"
-              disabled={requestCode.isPending || !current || !next || !confirm}
+              disabled={
+                (email2fa ? requestCode.isPending : changePassword.isPending) ||
+                !current ||
+                !next ||
+                !confirm
+              }
               onClick={sendCode}
             >
-              {requestCode.isPending
-                ? t("account.password.sending")
-                : t("account.password.sendCode")}
+              {email2fa
+                ? requestCode.isPending
+                  ? t("account.password.sending")
+                  : t("account.password.sendCode")
+                : changePassword.isPending
+                  ? t("tutor.settings.changing")
+                  : t("tutor.settings.changePasswordBtn")}
             </button>
           ) : (
             <>

@@ -9,10 +9,10 @@ import { api } from "~/trpc/react";
 type Step = "details" | "code" | "password" | "done";
 
 /**
- * Public observer self-registration: enter identity + email, verify an emailed code, set a
+ * Public viewer self-registration: enter identity + email, verify an emailed code, set a
  * password. Creates a read-only VIEWER login. All validation happens server-side (viewer router).
  */
-export function ObserveFlow() {
+export function ViewerSignupFlow() {
   const t = useTranslations();
   const [step, setStep] = useState<Step>("details");
 
@@ -45,25 +45,25 @@ export function ObserveFlow() {
         >
           <div>
             <label className="label" htmlFor="obs-name">
-              {t("public.observe.fields.name")}
+              {t("public.viewerSignup.fields.name")}
             </label>
             <input id="obs-name" value={name} onChange={(e) => setName(e.target.value)} className="input w-full" />
           </div>
           <div>
             <label className="label" htmlFor="obs-aff">
-              {t("public.observe.fields.affiliation")}
+              {t("public.viewerSignup.fields.affiliation")}
             </label>
             <input
               id="obs-aff"
               value={affiliation}
               onChange={(e) => setAffiliation(e.target.value)}
-              placeholder={t("public.observe.fields.affiliationPlaceholder")}
+              placeholder={t("public.viewerSignup.fields.affiliationPlaceholder")}
               className="input w-full"
             />
           </div>
           <div>
             <label className="label" htmlFor="obs-email">
-              {t("public.observe.fields.email")}
+              {t("public.viewerSignup.fields.email")}
             </label>
             <input
               id="obs-email"
@@ -75,7 +75,7 @@ export function ObserveFlow() {
           </div>
           {start.error && <p className="text-sm text-red-600">{start.error.message}</p>}
           <button className="btn-primary w-full" disabled={!detailsValid || start.isPending}>
-            {start.isPending ? t("public.observe.sending") : t("public.observe.sendCode")}
+            {start.isPending ? t("public.viewerSignup.sending") : t("public.viewerSignup.sendCode")}
           </button>
         </form>
       )}
@@ -89,9 +89,9 @@ export function ObserveFlow() {
             if (/^[0-9A-Z]{5}$/.test(code)) verify.mutate({ email: email.trim(), code });
           }}
         >
-          <p className="text-sm text-slate-700">{t("public.observe.sent", { email })}</p>
+          <p className="text-sm text-slate-700">{t("public.viewerSignup.sent", { email })}</p>
           <label className="label" htmlFor="obs-code">
-            {t("public.observe.fields.code")}
+            {t("public.viewerSignup.fields.code")}
           </label>
           <input
             id="obs-code"
@@ -105,7 +105,7 @@ export function ObserveFlow() {
           />
           {verify.error && <p className="text-sm text-red-600">{verify.error.message}</p>}
           <button className="btn-primary w-full" disabled={!/^[0-9A-Z]{5}$/.test(code) || verify.isPending}>
-            {t("public.observe.verify")}
+            {t("public.viewerSignup.verify")}
           </button>
           <button
             type="button"
@@ -113,7 +113,7 @@ export function ObserveFlow() {
             onClick={() => start.mutate({ name: name.trim(), affiliation: affiliation.trim(), email: email.trim() })}
             disabled={start.isPending}
           >
-            {t("public.observe.resend")}
+            {t("public.viewerSignup.resend")}
           </button>
         </form>
       )}
@@ -129,7 +129,7 @@ export function ObserveFlow() {
         >
           <div>
             <label className="label" htmlFor="obs-pass">
-              {t("public.observe.fields.password")}
+              {t("public.viewerSignup.fields.password")}
             </label>
             <input
               id="obs-pass"
@@ -138,11 +138,11 @@ export function ObserveFlow() {
               onChange={(e) => setPassword(e.target.value)}
               className="input w-full"
             />
-            <p className="muted text-xs">{t("public.observe.passwordHint")}</p>
+            <p className="muted text-xs">{t("public.viewerSignup.passwordHint")}</p>
           </div>
           <div>
             <label className="label" htmlFor="obs-confirm">
-              {t("public.observe.fields.confirm")}
+              {t("public.viewerSignup.fields.confirm")}
             </label>
             <input
               id="obs-confirm"
@@ -152,10 +152,10 @@ export function ObserveFlow() {
               className="input w-full"
             />
           </div>
-          {mismatch && <p className="text-sm text-red-600">{t("public.observe.mismatch")}</p>}
+          {mismatch && <p className="text-sm text-red-600">{t("public.viewerSignup.mismatch")}</p>}
           {complete.error && <p className="text-sm text-red-600">{complete.error.message}</p>}
           <button className="btn-primary w-full" disabled={password.length < 8 || mismatch || complete.isPending}>
-            {complete.isPending ? t("public.observe.creating") : t("public.observe.createAccount")}
+            {complete.isPending ? t("public.viewerSignup.creating") : t("public.viewerSignup.createAccount")}
           </button>
         </form>
       )}
@@ -163,10 +163,10 @@ export function ObserveFlow() {
       {/* Done */}
       {step === "done" && (
         <div className="space-y-4 text-center">
-          <p className="text-lg font-semibold text-slate-900">{t("public.observe.doneTitle")}</p>
-          <p className="text-sm text-slate-700">{t("public.observe.doneBody")}</p>
+          <p className="text-lg font-semibold text-slate-900">{t("public.viewerSignup.doneTitle")}</p>
+          <p className="text-sm text-slate-700">{t("public.viewerSignup.doneBody")}</p>
           <Link href="/signin" className="btn-primary inline-block">
-            {t("public.observe.signIn")}
+            {t("public.viewerSignup.signIn")}
           </Link>
         </div>
       )}

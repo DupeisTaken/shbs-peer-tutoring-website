@@ -19,6 +19,8 @@
     "password": "密码",
     "signIn": "登录",
     "signingIn": "正在登录…",
+    "invalidCredentials": "用户名/邮箱或密码无效。",
+    "tooManyAttempts": "登录尝试次数过多，请稍候几分钟后再试。",
     "forgotPassword": "忘记密码？",
     "createAccount": "创建账户",
     "lookingForTutor": "需要辅导员？",
@@ -116,7 +118,7 @@
       "becomeTutor": "成为辅导员",
       "teamSignin": "登录",
       "becomeCrew": "加入巡查队",
-      "observe": "关注项目"
+      "viewerSignup": "关注项目"
     },
     "tagline": "朋辈辅导项目",
     "heroTitle": "一起学习，共同成长。",
@@ -515,7 +517,8 @@
           "INTERVIEWS": "面试与投票",
           "SERVICE_HOURS": "服务小时",
           "QUARTER_SYSTEM": "季度制",
-          "OBSERVER_SIGNUP": "访客注册"
+          "VIEWER_SIGNUP": "访客注册",
+          "EMAIL_2FA": "邮箱双重验证"
         }
       }
     },
@@ -1464,7 +1467,7 @@
         "message": "其他说明（可选）"
       }
     },
-    "observe": {
+    "viewerSignup": {
       "title": "关注项目",
       "intro": "创建一个免费的只读账户来关注本项目。欢迎家长、教职工和社区成员——你将看到与团队相同的概览，个人信息已隐藏。",
       "alreadyHave": "已有账户？",

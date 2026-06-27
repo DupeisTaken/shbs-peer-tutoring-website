@@ -35,8 +35,15 @@ const MAX_CODE_ATTEMPTS = 10;
 const MAX_EMAIL_CODE_ATTEMPTS = 6;
 
 function secret(): string {
-  // AUTH_SECRET is required in production; the dev fallback only affects local runs.
-  return env.AUTH_SECRET ?? "dev-insecure-registration-secret";
+  if (env.AUTH_SECRET) return env.AUTH_SECRET;
+  // Fail closed in production even if env validation was skipped (e.g. SKIP_ENV_VALIDATION):
+  // the dev fallback must never hash real OTPs/registration codes. Dev/test only.
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "AUTH_SECRET must be set in production (it keys OTP and registration-code hashing).",
+    );
+  }
+  return "dev-insecure-registration-secret";
 }
 
 /** Keyed (HMAC) hash of a code — deterministic for lookup, not offline-brute-forceable. Normalizes

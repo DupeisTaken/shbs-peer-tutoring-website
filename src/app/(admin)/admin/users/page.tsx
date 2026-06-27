@@ -288,7 +288,7 @@ export default function UsersPage() {
         </div>
       )}
 
-      {/* Pending reinstatement appeals from suspended observers. */}
+      {/* Pending reinstatement appeals from suspended viewers. */}
       {(appeals.data ?? []).length > 0 && (
         <section className="card overflow-hidden">
           <div className="px-5 py-3">
@@ -407,7 +407,7 @@ export default function UsersPage() {
                         )}
                       </div>
                     ) : u.role === "VIEWER" && u.userId ? (
-                      // Observer (self-registered read-only) account: affiliation + suspend control.
+                      // Viewer (self-registered read-only) account: affiliation + suspend control.
                       <div className="space-y-1 leading-tight">
                         {u.affiliation && <p className="muted text-xs">{u.affiliation}</p>}
                         {u.suspended && <span className="badge-red">{t("admin.users.suspended")}</span>}

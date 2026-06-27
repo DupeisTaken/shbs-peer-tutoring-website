@@ -19,6 +19,8 @@
     "password": "비밀번호",
     "signIn": "로그인",
     "signingIn": "로그인 중…",
+    "invalidCredentials": "사용자명/이메일 또는 비밀번호가 올바르지 않습니다.",
+    "tooManyAttempts": "로그인 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요.",
     "forgotPassword": "비밀번호를 잊으셨나요?",
     "createAccount": "계정 만들기",
     "lookingForTutor": "튜터를 찾고 계신가요?",
@@ -116,7 +118,7 @@
       "becomeTutor": "튜터 지원",
       "teamSignin": "로그인",
       "becomeCrew": "순찰조 지원",
-      "observe": "프로그램 팔로우"
+      "viewerSignup": "프로그램 팔로우"
     },
     "tagline": "또래 튜터링 프로그램",
     "heroTitle": "함께 배우고, 함께 성장하세요.",
@@ -522,7 +524,8 @@
           "INTERVIEWS": "면접 및 투표",
           "SERVICE_HOURS": "봉사 시간",
           "QUARTER_SYSTEM": "분기제",
-          "OBSERVER_SIGNUP": "옵저버 가입"
+          "VIEWER_SIGNUP": "옵저버 가입",
+          "EMAIL_2FA": "이메일 2FA"
         }
       }
     },
@@ -1464,7 +1467,7 @@
         "message": "추가 사항 (선택)"
       }
     },
-    "observe": {
+    "viewerSignup": {
       "title": "프로그램 팔로우",
       "intro": "프로그램을 지켜볼 수 있는 무료 읽기 전용 계정을 만드세요. 학부모, 교직원, 지역 주민 모두 환영합니다. 개인정보는 가려진, 팀과 동일한 개요를 보게 됩니다.",
       "alreadyHave": "이미 계정이 있으신가요?",

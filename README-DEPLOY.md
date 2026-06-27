@@ -27,14 +27,17 @@ Internet ──443/80──▶ caddy ──▶ app:3000 ──▶ db:5432
 2. A domain, with an **A record pointing at the VPS IP** — set this *before* first start so
    Caddy's Let's Encrypt challenge succeeds.
 
-Sign-in is email + password (no external identity provider to register). Note that there is
-no self-service sign-up for *logins*: the first admin account is created by the seed or
-directly, and admins create further accounts. The two public forms — tutee signup (`/signup`)
-and the tutor application (`/tutor-signup`) — only create `PENDING` `Tutee` / `TutorApplication`
-records for admin review; **neither creates a login account**. (Consider adding rate-limiting
-or a CAPTCHA in front of these public endpoints before launch.) Transactional email (password
-resets) goes through Aliyun Direct Mail — see "Email" below. Email-based 2FA is scaffolded but
-not yet implemented.
+Sign-in is email + password (no external identity provider to register). Logins are created only
+through gated paths: the first admin comes from the seed (or `AUTH_BOOTSTRAP_ADMIN_EMAILS`);
+recruits self-register at **`/register`** with an admin-issued single-use code plus an emailed
+verification code; and outsiders can self-register a **read-only viewer (VIEWER)** account at
+**`/viewer-signup`** (email-validated, behind the `VIEWER_SIGNUP` feature flag). The public tutee
+signup (`/signup`), tutor application (`/tutor-signup`), and crew application (`/crew-signup`) only
+create `PENDING` records for admin review — **none creates a login**. Credential sign-in, the
+registration steps, and viewer signup are all **rate-limited in-app** (per IP + per code / email /
+identifier; `src/server/rate-limit.ts`); a CAPTCHA in front is still worth considering at scale.
+Transactional email (reset links + the emailed password-change 2FA code) goes through Aliyun Direct
+Mail — see "Email" below. A second factor *at sign-in* (LOGIN_2FA) is scaffolded but not yet enabled.
 
 ## 2. Host setup (once)
 
@@ -48,25 +51,27 @@ sudo ./scripts/setup.sh          # installs Docker + Compose, ufw allows only 22
 cp .env.example .env
 # Edit .env and set:
 #   DOMAIN, APP_IMAGE (ghcr.io/<owner>/shbs-peer-tutoring-website:latest)
-#   AUTH_SECRET           (generate: openssl rand -base64 32)
+#   AUTH_SECRET           (required in prod, ≥32 chars — generate: openssl rand -base64 32)
 #   POSTGRES_USER / POSTGRES_PASSWORD / POSTGRES_DB
 #   AUTH_BOOTSTRAP_ADMIN_EMAILS=you@school.edu   (gives you ADMIN on first sign-in)
-#   TUTOR_DEFAULT_PASSWORD  (shared temp password for auto-created tutor logins; change
-#                            it from the default — tutors are forced to reset it on first login)
 #   EMAIL_FROM / SMTP_PASSWORD / SMTP_HOST / SMTP_PORT   (Aliyun Direct Mail — see below)
 ```
 
-> **Auto-provisioned tutor logins:** accepting a tutor application creates that tutor's `User`
-> account with `TUTOR_DEFAULT_PASSWORD` and a forced password change on first sign-in. Set a
-> non-default value before going live.
+> **Accepted applicants self-register:** accepting a tutor application issues a single-use
+> registration code (bound to their email, re-viewable on `/admin/registration-codes`); the recruit
+> redeems it at `/register` to verify their email and set their own password. No shared default
+> password is involved.
 
 `DATABASE_URL`, `AUTH_URL`, and `AUTH_TRUST_HOST` are set automatically in `docker-compose.yml`.
 
 ## Email — Aliyun Direct Mail (邮件推送)
 
-Transactional email (the password-reset link; later, 2FA codes) is sent through **Aliyun Direct
-Mail** over SMTP. Until `EMAIL_FROM` + `SMTP_PASSWORD` are set the app logs mail in dev and warns
-in production, so this is optional for a first boot but required for real password resets.
+Transactional email — password-reset and tutor-setup links, the emailed password-change 2FA code,
+and the registration / viewer one-time codes — is sent through **Aliyun Direct Mail** over SMTP
+(`src/server/email/sender.ts`: a pooled, TLS-enforced, timeout-bounded transporter that logs each
+send and failure). Until `EMAIL_FROM` + `SMTP_PASSWORD` are set the app logs mail in dev and warns
+in production, so it's optional for a first boot but **required for password resets and any emailed
+code** — without it, recruits can't complete `/register`.
 
 **Set it up in the Aliyun console** (https://dm.console.aliyun.com):
 

@@ -117,9 +117,9 @@ Try the public forms (no login required):
 - **Tutor application** at `/tutor-signup` → creates a `PENDING` application under
   **Admin → Tutor applications**, where you assign a three-tutor panel (one head). Sign in as
   the head (`alice@example.edu`) to schedule the interview from the dashboard — the seed wires
-  Alice as head of one applicant. **Accepting** an applicant auto-creates their tutor login
-  (default password `ChangeMe!123` unless `TUTOR_DEFAULT_PASSWORD` is set); they set their own
-  password on first sign-in.
+  Alice as head of one applicant. **Accepting** an applicant issues a single-use registration code
+  (re-viewable on `/admin/registration-codes`); the recruit redeems it at `/register` to verify
+  their email and set their own password.
 
 ## 5. Run the tests
 

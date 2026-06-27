@@ -5,6 +5,7 @@ import { z } from "zod";
 
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
+import { getFeatures } from "~/server/program/features";
 import { hashPassword } from "~/server/auth/password";
 
 const schema = z.object({
@@ -41,6 +42,10 @@ export async function completeOnboardingAction(
   });
   if (!parsed.success) return "Please enter a valid email address.";
 
+  // Only honour the 2FA opt-in when the program has email 2FA enabled (the checkbox is hidden
+  // otherwise; this also rejects a crafted POST).
+  const { EMAIL_2FA } = await getFeatures(db);
+
   try {
     await db.user.update({
       where: { id: session.user.id },
@@ -48,7 +53,7 @@ export async function completeOnboardingAction(
         email: parsed.data.email,
         passwordHash: hashPassword(parsed.data.password),
         mustChangePassword: false,
-        twoFactorEnabled: parsed.data.enable2fa,
+        twoFactorEnabled: EMAIL_2FA && parsed.data.enable2fa,
         emailVerifiedAt: new Date(),
       },
     });

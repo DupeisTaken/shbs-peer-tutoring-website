@@ -34,7 +34,7 @@ import {
   semesterQuarters,
 } from "~/lib/period";
 import { getActivePeriod, getActivePeriodOrNull } from "~/server/period";
-import { applyPendingFeatures } from "~/server/program/features";
+import { applyPendingFeatures, assertFeatureEnabled } from "~/server/program/features";
 import type { db as dbClient } from "~/server/db";
 import { applyUndo, recordAudit } from "~/server/audit/log";
 import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
@@ -1837,11 +1837,15 @@ export const adminRouter = createTRPCRouter({
         termId: cuid.optional(),
       }),
     )
-    .mutation(({ ctx, input }) => ctx.db.tutorMeeting.create({ data: input })),
+    .mutation(async ({ ctx, input }) => {
+      await assertFeatureEnabled(ctx.db, "MEETINGS");
+      return ctx.db.tutorMeeting.create({ data: input });
+    }),
 
   deleteMeeting: adminProcedure
     .input(z.object({ id: cuid }))
     .mutation(async ({ ctx, input }) => {
+      await assertFeatureEnabled(ctx.db, "MEETINGS");
       // Remove the meeting's unexcused-absence deductions along with it (attendance cascades).
       await ctx.db.serviceHourAdjustment.deleteMany({
         where: { id: { startsWith: `mtgabs_${input.id}_` } },
@@ -1859,6 +1863,7 @@ export const adminRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      await assertFeatureEnabled(ctx.db, "MEETINGS");
       const meeting = await ctx.db.tutorMeeting.findUnique({
         where: { id: input.meetingId },
         select: { date: true, term: { select: { schoolYear: true, quarter: true } } },
@@ -1938,6 +1943,7 @@ export const adminRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      await assertFeatureEnabled(ctx.db, "SERVICE_HOURS");
       // Stamp the active program period so the adjustment counts toward the right semester.
       const period = await getActivePeriod(ctx.db);
       return ctx.db.serviceHourAdjustment.create({
@@ -1947,9 +1953,10 @@ export const adminRouter = createTRPCRouter({
 
   deleteAdjustment: adminProcedure
     .input(z.object({ id: cuid }))
-    .mutation(({ ctx, input }) =>
-      ctx.db.serviceHourAdjustment.delete({ where: { id: input.id } }),
-    ),
+    .mutation(async ({ ctx, input }) => {
+      await assertFeatureEnabled(ctx.db, "SERVICE_HOURS");
+      return ctx.db.serviceHourAdjustment.delete({ where: { id: input.id } });
+    }),
 
   // --------------------------------------------------------------------------
   // Tutor applications + interview assignment
@@ -1992,6 +1999,7 @@ export const adminRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      await assertFeatureEnabled(ctx.db, "INTERVIEWS");
       const tutorIds = [...new Set(input.tutorIds)];
       if (!tutorIds.includes(input.headTutorId)) {
         throw new TRPCError({
@@ -2995,7 +3003,7 @@ export const adminRouter = createTRPCRouter({
       classOf: classOf(u.tutor?.gradeLevel),
       canTranslate: u.canTranslate,
       tutorHasEmail: !!u.tutor?.email,
-      // Observer (VIEWER) identity + suspension state, for the suspend/reinstate controls.
+      // Viewer (VIEWER) identity + suspension state, for the suspend/reinstate controls.
       affiliation: u.affiliation,
       suspended: !!u.suspendedAt,
       // registered = finished setup; setup = login exists but not finished; (no "none"/"invited"
@@ -3172,8 +3180,8 @@ export const adminRouter = createTRPCRouter({
       }),
     ),
 
-  /** Suspend a suspicious observer (VIEWER) account: blocks access until reinstated; the user is
-   *  notified and can appeal. Scoped to observer accounts so it can't lock out staff. */
+  /** Suspend a suspicious viewer (VIEWER) account: blocks access until reinstated; the user is
+   *  notified and can appeal. Scoped to viewer accounts so it can't lock out staff. */
   suspendUser: adminProcedure
     .input(z.object({ userId: cuid, reason: z.string().trim().max(500).optional() }))
     .mutation(async ({ ctx, input }) => {
@@ -3182,7 +3190,7 @@ export const adminRouter = createTRPCRouter({
         select: { id: true, role: true, name: true },
       });
       if (target.role !== "VIEWER") {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Only observer (viewer) accounts can be suspended." });
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Only viewer (VIEWER) accounts can be suspended." });
       }
       await ctx.db.user.update({
         where: { id: target.id },
@@ -3196,7 +3204,7 @@ export const adminRouter = createTRPCRouter({
       await recordAudit({
         userId: ctx.session.user.id,
         userName: ctx.session.user.name,
-        action: `Suspended observer ${target.name ?? target.id}`,
+        action: `Suspended viewer ${target.name ?? target.id}`,
         entity: "User",
         entityId: target.id,
       });
@@ -3638,6 +3646,7 @@ export const adminRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      await assertFeatureEnabled(ctx.db, "DISCIPLINE");
       const prev = await ctx.db.disciplinaryCard.findUniqueOrThrow({
         where: { id: input.id },
         select: {

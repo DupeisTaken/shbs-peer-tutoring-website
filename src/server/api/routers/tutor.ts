@@ -9,6 +9,7 @@ import { promoteApplicantToTutor } from "~/server/tutors/promote";
 import { notifyAdmins, notifyTutors } from "~/server/notifications/create";
 import { hashPassword, verifyPassword } from "~/server/auth/password";
 import { issueStepUpCode, verifyStepUpCode } from "~/server/auth/step-up";
+import { getFeatures, assertFeatureEnabled } from "~/server/program/features";
 import { maskEmail } from "~/server/auth/mask";
 import {
   TUTEE_OPT_OUT_COOLDOWN_DAYS,
@@ -313,6 +314,9 @@ export const tutorRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const tutorId = ctx.session.tutorId;
+      // Discipline side-effects (auto-issued absence cards + tutor card requests + punishment
+      // removal) only fire when the DISCIPLINE module is on; attendance + hours always record.
+      const features = await getFeatures(ctx.db);
       // The block can cover several subjects (pairings). Primary first, then the merged ones.
       const mergeIds = [...new Set(input.mergePairingIds ?? [])].filter(
         (id) => id !== input.pairingId,
@@ -488,7 +492,7 @@ export const tutorRouter = createTRPCRouter({
             sessionId: primaryId,
           })),
         ];
-        if (cardRows.length > 0) {
+        if (features.DISCIPLINE && cardRows.length > 0) {
           await tx.disciplinaryCard.createMany({ data: cardRows });
         }
 
@@ -496,7 +500,7 @@ export const tutorRouter = createTRPCRouter({
       });
 
       // Tutor-requested cards need a team review — surface them for admins.
-      if (cardRequests.length > 0) {
+      if (features.DISCIPLINE && cardRequests.length > 0) {
         await notifyAdmins({
           title: "Discipline cards to review",
           body: `${cardRequests.length} card(s) submitted with an attendance survey.`,
@@ -513,8 +517,10 @@ export const tutorRouter = createTRPCRouter({
         ),
       ];
       // syncPunishmentRemoval removes immediately and notifies the tutor + admins itself.
-      for (const tuteeId of autoRedTuteeIds) {
-        await syncPunishmentRemoval(ctx.db, tuteeId);
+      if (features.DISCIPLINE) {
+        for (const tuteeId of autoRedTuteeIds) {
+          await syncPunishmentRemoval(ctx.db, tuteeId);
+        }
       }
 
       // Validate this entry against any crew patrol of the same room/time (raises a flag if the
@@ -657,7 +663,7 @@ export const tutorRouter = createTRPCRouter({
       z.object({
         currentPassword: z.string().min(1),
         newPassword: z.string().min(8, "Use at least 8 characters."),
-        code: z.string().trim().min(1),
+        code: z.string().trim().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -668,17 +674,25 @@ export const tutorRouter = createTRPCRouter({
       if (!user.passwordHash || !verifyPassword(input.currentPassword, user.passwordHash)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Current password is incorrect." });
       }
-      const verified = await verifyStepUpCode(ctx.session.user.id, "PASSWORD_CHANGE", input.code);
-      if (!verified.ok) {
-        const message =
-          verified.error === "expired"
-            ? "That code has expired. Request a new one."
-            : verified.error === "too-many-attempts"
-              ? "Too many attempts. Request a new code."
-              : verified.error === "no-code"
-                ? "Request a verification code first."
-                : "That code is incorrect.";
-        throw new TRPCError({ code: "BAD_REQUEST", message });
+      // Email 2FA gates the emailed step-up code. With it off (e.g. no email configured), a
+      // verified current password is sufficient to change the password.
+      const { EMAIL_2FA } = await getFeatures(ctx.db);
+      if (EMAIL_2FA) {
+        if (!input.code) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Request a verification code first." });
+        }
+        const verified = await verifyStepUpCode(ctx.session.user.id, "PASSWORD_CHANGE", input.code);
+        if (!verified.ok) {
+          const message =
+            verified.error === "expired"
+              ? "That code has expired. Request a new one."
+              : verified.error === "too-many-attempts"
+                ? "Too many attempts. Request a new code."
+                : verified.error === "no-code"
+                  ? "Request a verification code first."
+                  : "That code is incorrect.";
+          throw new TRPCError({ code: "BAD_REQUEST", message });
+        }
       }
       await ctx.db.user.update({
         where: { id: ctx.session.user.id },
@@ -870,6 +884,7 @@ export const tutorRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      await assertFeatureEnabled(ctx.db, "INTERVIEWS");
       const assignment = await ctx.db.interviewAssignment.findUnique({
         where: {
           applicationId_tutorId: {
@@ -920,6 +935,7 @@ export const tutorRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      await assertFeatureEnabled(ctx.db, "INTERVIEWS");
       const assignment = await ctx.db.interviewAssignment.findUnique({
         where: {
           applicationId_tutorId: {
@@ -967,6 +983,7 @@ export const tutorRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      await assertFeatureEnabled(ctx.db, "INTERVIEWS");
       const assignment = await ctx.db.interviewAssignment.findUnique({
         where: {
           applicationId_tutorId: {
@@ -1282,6 +1299,7 @@ export const tutorRouter = createTRPCRouter({
   excuseMeeting: activeTutorProcedure
     .input(z.object({ meetingId: z.string().cuid(), reason: z.string().trim().max(500).optional() }))
     .mutation(async ({ ctx, input }) => {
+      await assertFeatureEnabled(ctx.db, "MEETINGS");
       const meeting = await ctx.db.tutorMeeting.findUnique({
         where: { id: input.meetingId },
         select: { id: true, title: true, date: true },
@@ -1327,6 +1345,7 @@ export const tutorRouter = createTRPCRouter({
   cancelMeetingExcuse: activeTutorProcedure
     .input(z.object({ meetingId: z.string().cuid() }))
     .mutation(async ({ ctx, input }) => {
+      await assertFeatureEnabled(ctx.db, "MEETINGS");
       const meeting = await ctx.db.tutorMeeting.findUnique({
         where: { id: input.meetingId },
         select: { date: true },

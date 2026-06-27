@@ -2,7 +2,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
-import { ObserveFlow } from "./observe-flow";
+import { ViewerSignupFlow } from "./viewer-signup-flow";
 import { APP_TITLE } from "~/lib/branding";
 import { FloatingLanguageSwitcher } from "~/app/_components/floating-language-switcher";
 import { db } from "~/server/db";
@@ -12,10 +12,10 @@ export const metadata = {
   title: `Follow the program · ${APP_TITLE}`,
 };
 
-export default async function ObservePage() {
-  // Observer registration off -> no public signup.
+export default async function ViewerSignupPage() {
+  // Viewer registration off -> no public signup.
   const features = await getFeatures(db);
-  if (!features.OBSERVER_SIGNUP) redirect("/");
+  if (!features.VIEWER_SIGNUP) redirect("/");
 
   const t = await getTranslations();
   return (
@@ -25,16 +25,16 @@ export default async function ObservePage() {
         {t("common.backToMain")}
       </Link>
       <div className="mb-8 text-center">
-        <h1 className="page-title">{t("public.observe.title")}</h1>
-        <p className="muted mt-2">{t("public.observe.intro")}</p>
+        <h1 className="page-title">{t("public.viewerSignup.title")}</h1>
+        <p className="muted mt-2">{t("public.viewerSignup.intro")}</p>
       </div>
 
-      <ObserveFlow />
+      <ViewerSignupFlow />
 
       <p className="muted mt-6 text-center">
-        {t("public.observe.alreadyHave")}{" "}
+        {t("public.viewerSignup.alreadyHave")}{" "}
         <Link href="/signin" className="link">
-          {t("public.observe.signIn")}
+          {t("public.viewerSignup.signIn")}
         </Link>
       </p>
     </main>

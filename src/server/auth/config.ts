@@ -59,7 +59,7 @@ export const authConfig = {
         "/signup",
         "/tutor-signup",
         "/crew-signup",
-        "/observe",
+        "/viewer-signup",
         "/forgot-password",
         "/reset-password",
         "/register",

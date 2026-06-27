@@ -61,11 +61,13 @@ Each tutor has a **username** (default: first initial + last name, e.g. `jsmith`
 on the admin Tutors screen and usable as an alternate sign-in identifier
 (`src/server/auth/username.ts`).
 
-When an applicant is **accepted**, a `User` login is auto-provisioned for them with the shared
-`TUTOR_DEFAULT_PASSWORD` and a `mustChangePassword` flag. On a tutor's **first sign-in** they're
-routed to `/onboarding/email` to set their own password and confirm the contact email their
-sign-in codes go to (and opt into email 2FA), then on to the dashboard (`User.emailVerifiedAt`
-records completion so it doesn't repeat).
+When an applicant is **accepted**, the program issues a single-use **registration code** bound to
+their email (re-viewable on `/admin/registration-codes`). They redeem it at **`/register`** — entering
+the code, verifying their email with an emailed one-time code, and setting their own name, grade, and
+password — which creates a fully-verified `User` login linked to their tutor record. (An admin can
+alternatively **send a setup link** from `/admin/users`.) Any login that arrives unverified is routed
+through `/onboarding/email` on first sign-in (`User.emailVerifiedAt` records completion so it doesn't
+repeat).
 
 Tutors an admin adds directly start with **no login**. From `/admin/tutors`, **"Send setup
 link"** provisions their `User` and emails a set-your-password link (the link is also shown for
@@ -134,8 +136,8 @@ up for every panelist. The public form never creates a login — but **accepting
 auto-provisions the tutor's `User` account (see Authentication).
 
 Scheduling is built around an admin-managed **time-slot catalog** (`/admin/timeslots`) and a
-**course catalog** (`/admin/courses`). Courses belong to an admin-managed **level catalogue**
-(`CourseLevel`, e.g. AP / Honors / Standard); a level flagged **AP-scored** gates the AP-score
+**subject catalog** (`/admin/subjects`). Subjects belong to an admin-managed **level catalogue**
+(`SubjectLevel`, e.g. AP / Honors / Standard); a level flagged **AP-scored** gates the AP-score
 field on tutor applications. Pairings are scheduled by **picking a published time slot** on the
 Pairings page (the slot sets the day/start/end). Tutors and tutees mark availability against the
 slots. Rooms can have recurring **unavailability periods** (`/admin/rooms`); the slot×room
@@ -241,7 +243,6 @@ commented list. The essentials:
 | ------------------------------ | -------------------------------------------------------- |
 | `AUTH_SECRET`                  | Session/JWT signing secret (`npx auth secret`).          |
 | `AUTH_BOOTSTRAP_ADMIN_EMAILS`  | Comma-separated emails granted `ADMIN` on first sign-in. |
-| `TUTOR_DEFAULT_PASSWORD`       | Shared temp password for auto-provisioned tutor logins (forced change on first sign-in). |
 | `DATABASE_URL`                 | PostgreSQL connection string.                            |
 | `NEXT_PUBLIC_APP_TITLE`        | Public brand title (default `SHBS Peer Tutoring`).       |
 | `NEXT_PUBLIC_TEAM_TITLE`       | Team/admin-area title (default `SHBS Peer Tutoring Team`).|

@@ -5,7 +5,13 @@ import { useTranslations } from "next-intl";
 
 import { completeOnboardingAction } from "./actions";
 
-export function OnboardingForm({ defaultEmail }: { defaultEmail: string }) {
+export function OnboardingForm({
+  defaultEmail,
+  email2fa,
+}: {
+  defaultEmail: string;
+  email2fa: boolean;
+}) {
   const t = useTranslations();
   const [error, formAction, pending] = useActionState(
     completeOnboardingAction,
@@ -57,10 +63,12 @@ export function OnboardingForm({ defaultEmail }: { defaultEmail: string }) {
         />
       </label>
 
-      <label className="flex items-start gap-2 text-sm text-slate-700">
-        <input type="checkbox" name="enable2fa" defaultChecked className="mt-1" />
-        <span>{t("auth.onboarding.enable2fa")}</span>
-      </label>
+      {email2fa && (
+        <label className="flex items-start gap-2 text-sm text-slate-700">
+          <input type="checkbox" name="enable2fa" defaultChecked className="mt-1" />
+          <span>{t("auth.onboarding.enable2fa")}</span>
+        </label>
+      )}
 
       {error && (
         <p role="alert" className="text-sm text-red-600">

@@ -19,6 +19,8 @@
     "password": "パスワード",
     "signIn": "サインイン",
     "signingIn": "サインイン中…",
+    "invalidCredentials": "ユーザー名・メールアドレスまたはパスワードが正しくありません。",
+    "tooManyAttempts": "サインインの試行回数が多すぎます。数分待ってから再度お試しください。",
     "forgotPassword": "パスワードを忘れましたか？",
     "createAccount": "アカウントを作成",
     "lookingForTutor": "チューターをお探しですか？",
@@ -116,7 +118,7 @@
       "becomeTutor": "チューターになる",
       "teamSignin": "サインイン",
       "becomeCrew": "巡回班に参加",
-      "observe": "プログラムをフォロー"
+      "viewerSignup": "プログラムをフォロー"
     },
     "tagline": "ピアチュータリングプログラム",
     "heroTitle": "一緒に学ぼう。一緒に成長しよう。",
@@ -522,7 +524,8 @@
           "INTERVIEWS": "面接と投票",
           "SERVICE_HOURS": "奉仕時間",
           "QUARTER_SYSTEM": "四半期制",
-          "OBSERVER_SIGNUP": "オブザーバー登録"
+          "VIEWER_SIGNUP": "オブザーバー登録",
+          "EMAIL_2FA": "メール二要素認証"
         }
       }
     },
@@ -1464,7 +1467,7 @@
         "message": "その他（任意）"
       }
     },
-    "observe": {
+    "viewerSignup": {
       "title": "プログラムをフォロー",
       "intro": "プログラムをフォローする無料の閲覧専用アカウントを作成します。保護者・教職員・地域の方を歓迎します。個人情報は伏せた、チームと同じ概要を閲覧できます。",
       "alreadyHave": "すでにアカウントをお持ちですか？",

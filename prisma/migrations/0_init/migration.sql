@@ -2,10 +2,19 @@
 CREATE SCHEMA IF NOT EXISTS "public";
 
 -- CreateEnum
-CREATE TYPE "Role" AS ENUM ('TUTOR', 'COORDINATOR', 'ADMIN');
+CREATE TYPE "Role" AS ENUM ('VIEWER', 'CREW', 'TUTOR', 'COORDINATOR', 'ADMIN', 'HEAD');
+
+-- CreateEnum
+CREATE TYPE "ProgramFeatureKey" AS ENUM ('CREW', 'DISCIPLINE', 'MEETINGS', 'INTERVIEWS', 'SERVICE_HOURS', 'QUARTER_SYSTEM', 'VIEWER_SIGNUP', 'EMAIL_2FA');
+
+-- CreateEnum
+CREATE TYPE "AppealState" AS ENUM ('PENDING', 'APPROVED', 'DENIED');
 
 -- CreateEnum
 CREATE TYPE "Quarter" AS ENUM ('Q1', 'Q2', 'Q3', 'Q4');
+
+-- CreateEnum
+CREATE TYPE "TutorStatus" AS ENUM ('ACTIVE', 'PENDING', 'GRADUATED', 'OPTED_OUT', 'ARCHIVED');
 
 -- CreateEnum
 CREATE TYPE "TuteeStatus" AS ENUM ('PENDING', 'ACTIVE', 'INACTIVE');
@@ -23,6 +32,39 @@ CREATE TYPE "MeetingAttendanceStatus" AS ENUM ('PRESENT', 'EXCUSED_ABSENT', 'UNE
 CREATE TYPE "AdjustmentType" AS ENUM ('PUNISHMENT', 'EXTRA');
 
 -- CreateEnum
+CREATE TYPE "TutorRequestKind" AS ENUM ('OPT_OUT', 'REENTRY');
+
+-- CreateEnum
+CREATE TYPE "TutorRequestState" AS ENUM ('PENDING', 'RECALLED', 'APPROVED', 'DENIED');
+
+-- CreateEnum
+CREATE TYPE "RegistrationCodeKind" AS ENUM ('TUTOR', 'CREW');
+
+-- CreateEnum
+CREATE TYPE "TuteeRequestState" AS ENUM ('PENDING', 'APPROVED', 'DENIED', 'RECALLED', 'REINSTATED');
+
+-- CreateEnum
+CREATE TYPE "TuteeRemovalKind" AS ENUM ('VOLUNTARY', 'PUNISHMENT');
+
+-- CreateEnum
+CREATE TYPE "CrewStatus" AS ENUM ('ACTIVE', 'OPTED_OUT', 'INACTIVE');
+
+-- CreateEnum
+CREATE TYPE "CrewApplicationStatus" AS ENUM ('PENDING', 'ACCEPTED', 'REJECTED');
+
+-- CreateEnum
+CREATE TYPE "CrewRequestKind" AS ENUM ('OPT_OUT', 'REENTRY');
+
+-- CreateEnum
+CREATE TYPE "CrewRequestState" AS ENUM ('PENDING', 'APPROVED', 'DENIED', 'RECALLED');
+
+-- CreateEnum
+CREATE TYPE "Headcount" AS ENUM ('ZERO', 'ONE', 'TWO', 'THREE', 'FOUR_PLUS');
+
+-- CreateEnum
+CREATE TYPE "SessionFlagState" AS ENUM ('PENDING', 'DISMISSED', 'WARNED', 'PENALIZED', 'ESCALATED');
+
+-- CreateEnum
 CREATE TYPE "TutorApplicationStatus" AS ENUM ('PENDING', 'INTERVIEW', 'ACCEPTED', 'REJECTED');
 
 -- CreateEnum
@@ -35,22 +77,92 @@ CREATE TYPE "CardSource" AS ENUM ('TUTOR', 'AUTO');
 CREATE TYPE "CardReviewStatus" AS ENUM ('PENDING', 'VALID', 'INVALID');
 
 -- CreateEnum
-CREATE TYPE "VerificationPurpose" AS ENUM ('LOGIN_2FA', 'PASSWORD_RESET');
+CREATE TYPE "VerificationPurpose" AS ENUM ('LOGIN_2FA', 'PASSWORD_RESET', 'PASSWORD_CHANGE');
 
 -- CreateTable
 CREATE TABLE "User" (
     "id" TEXT NOT NULL,
     "name" TEXT,
     "email" TEXT NOT NULL,
+    "username" TEXT,
     "passwordHash" TEXT,
     "mustChangePassword" BOOLEAN NOT NULL DEFAULT false,
     "twoFactorEnabled" BOOLEAN NOT NULL DEFAULT false,
     "emailVerifiedAt" TIMESTAMP(3),
     "role" "Role" NOT NULL DEFAULT 'TUTOR',
+    "canTranslate" BOOLEAN NOT NULL DEFAULT false,
+    "crewStatus" "CrewStatus",
+    "gradeLevel" INTEGER,
+    "affiliation" TEXT,
+    "suspendedAt" TIMESTAMP(3),
+    "suspendedReason" TEXT,
     "tutorId" TEXT,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "User_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Language" (
+    "code" TEXT NOT NULL,
+    "label" TEXT NOT NULL,
+    "sortOrder" INTEGER NOT NULL DEFAULT 0,
+    "builtIn" BOOLEAN NOT NULL DEFAULT false,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Language_pkey" PRIMARY KEY ("code")
+);
+
+-- CreateTable
+CREATE TABLE "MessageOverride" (
+    "id" TEXT NOT NULL,
+    "locale" TEXT NOT NULL,
+    "key" TEXT NOT NULL,
+    "value" TEXT NOT NULL,
+    "updatedByName" TEXT,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "MessageOverride_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "ProgramFeature" (
+    "key" "ProgramFeatureKey" NOT NULL,
+    "enabled" BOOLEAN NOT NULL DEFAULT true,
+    "pendingEnabled" BOOLEAN,
+    "updatedByName" TEXT,
+    "updatedAt" TIMESTAMP(3) NOT NULL,
+
+    CONSTRAINT "ProgramFeature_pkey" PRIMARY KEY ("key")
+);
+
+-- CreateTable
+CREATE TABLE "ViewerSignup" (
+    "id" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "affiliation" TEXT NOT NULL,
+    "codeHash" TEXT NOT NULL,
+    "codeExpiresAt" TIMESTAMP(3) NOT NULL,
+    "attempts" INTEGER NOT NULL DEFAULT 0,
+    "verifiedAt" TIMESTAMP(3),
+    "usedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "ViewerSignup_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "AccountAppeal" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "message" TEXT NOT NULL,
+    "state" "AppealState" NOT NULL DEFAULT 'PENDING',
+    "decidedByName" TEXT,
+    "decidedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "AccountAppeal_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -83,7 +195,7 @@ CREATE TABLE "Notification" (
 );
 
 -- CreateTable
-CREATE TABLE "CourseLevel" (
+CREATE TABLE "SubjectLevel" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "rank" INTEGER NOT NULL DEFAULT 0,
@@ -91,7 +203,7 @@ CREATE TABLE "CourseLevel" (
     "active" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "CourseLevel_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "SubjectLevel_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -117,7 +229,7 @@ CREATE TABLE "Tutor" (
     "alternativeNames" TEXT,
     "username" TEXT,
     "email" TEXT,
-    "active" BOOLEAN NOT NULL DEFAULT true,
+    "status" "TutorStatus" NOT NULL DEFAULT 'ACTIVE',
     "gradeLevel" INTEGER,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
@@ -125,14 +237,56 @@ CREATE TABLE "Tutor" (
 );
 
 -- CreateTable
-CREATE TABLE "Course" (
+CREATE TABLE "TutorStatusRequest" (
+    "id" TEXT NOT NULL,
+    "tutorId" TEXT NOT NULL,
+    "kind" "TutorRequestKind" NOT NULL,
+    "state" "TutorRequestState" NOT NULL DEFAULT 'PENDING',
+    "reason" TEXT,
+    "eligibleAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "resolvedAt" TIMESTAMP(3),
+    "resolvedById" TEXT,
+    "resolvedByName" TEXT,
+
+    CONSTRAINT "TutorStatusRequest_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "RegistrationCode" (
+    "id" TEXT NOT NULL,
+    "code" TEXT,
+    "kind" "RegistrationCodeKind" NOT NULL DEFAULT 'TUTOR',
+    "email" TEXT,
+    "tutorId" TEXT,
+    "applicationId" TEXT,
+    "crewApplicationId" TEXT,
+    "label" TEXT,
+    "issuedById" TEXT,
+    "issuedByName" TEXT,
+    "expiresAt" TIMESTAMP(3) NOT NULL,
+    "pendingEmail" TEXT,
+    "emailCodeHash" TEXT,
+    "emailCodeExpiresAt" TIMESTAMP(3),
+    "emailCodeAttempts" INTEGER NOT NULL DEFAULT 0,
+    "emailVerifiedAt" TIMESTAMP(3),
+    "usedAt" TIMESTAMP(3),
+    "usedByUserId" TEXT,
+    "attempts" INTEGER NOT NULL DEFAULT 0,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "RegistrationCode_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Subject" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
     "levelId" TEXT,
     "active" BOOLEAN NOT NULL DEFAULT true,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
-    CONSTRAINT "Course_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "Subject_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -154,6 +308,25 @@ CREATE TABLE "Tutee" (
     "updatedAt" TIMESTAMP(3) NOT NULL,
 
     CONSTRAINT "Tutee_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "TuteeRemovalRequest" (
+    "id" TEXT NOT NULL,
+    "tuteeId" TEXT NOT NULL,
+    "kind" "TuteeRemovalKind" NOT NULL DEFAULT 'VOLUNTARY',
+    "pairingId" TEXT,
+    "requestedByTutorId" TEXT,
+    "reason" TEXT,
+    "state" "TuteeRequestState" NOT NULL DEFAULT 'PENDING',
+    "eligibleAt" TIMESTAMP(3),
+    "removedPeriodKey" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "resolvedAt" TIMESTAMP(3),
+    "resolvedById" TEXT,
+    "resolvedByName" TEXT,
+
+    CONSTRAINT "TuteeRemovalRequest_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -189,6 +362,7 @@ CREATE TABLE "TuteeAvailability" (
 CREATE TABLE "Room" (
     "id" TEXT NOT NULL,
     "name" TEXT NOT NULL,
+    "patrolOrder" INTEGER NOT NULL DEFAULT 0,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
 
     CONSTRAINT "Room_pkey" PRIMARY KEY ("id")
@@ -255,8 +429,82 @@ CREATE TABLE "Session" (
     "mergeGroupId" TEXT,
     "pairingId" TEXT NOT NULL,
     "tutorId" TEXT NOT NULL,
+    "actualRoomId" TEXT,
+    "online" BOOLEAN NOT NULL DEFAULT false,
 
     CONSTRAINT "Session_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "CrewApplication" (
+    "id" TEXT NOT NULL,
+    "name" TEXT NOT NULL,
+    "email" TEXT NOT NULL,
+    "gradeLevel" INTEGER,
+    "preferredContact" TEXT,
+    "message" TEXT,
+    "status" "CrewApplicationStatus" NOT NULL DEFAULT 'PENDING',
+    "decisionComment" TEXT,
+    "decidedByName" TEXT,
+    "decidedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "CrewApplication_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "CrewStatusRequest" (
+    "id" TEXT NOT NULL,
+    "userId" TEXT NOT NULL,
+    "kind" "CrewRequestKind" NOT NULL,
+    "state" "CrewRequestState" NOT NULL DEFAULT 'PENDING',
+    "eligibleAt" TIMESTAMP(3),
+    "reason" TEXT,
+    "decidedByName" TEXT,
+    "decidedAt" TIMESTAMP(3),
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "CrewStatusRequest_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "Patrol" (
+    "id" TEXT NOT NULL,
+    "crewUserId" TEXT NOT NULL,
+    "termId" TEXT,
+    "hours" DOUBLE PRECISION NOT NULL DEFAULT 0.5,
+    "note" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "Patrol_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "PatrolObservation" (
+    "id" TEXT NOT NULL,
+    "patrolId" TEXT NOT NULL,
+    "roomId" TEXT NOT NULL,
+    "headcount" "Headcount" NOT NULL,
+    "observedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "PatrolObservation_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "SessionFlag" (
+    "id" TEXT NOT NULL,
+    "sessionId" TEXT NOT NULL,
+    "tutorId" TEXT NOT NULL,
+    "expected" INTEGER NOT NULL,
+    "observed" INTEGER NOT NULL,
+    "state" "SessionFlagState" NOT NULL DEFAULT 'PENDING',
+    "decisionNote" TEXT,
+    "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    "resolvedAt" TIMESTAMP(3),
+    "resolvedById" TEXT,
+    "resolvedByName" TEXT,
+
+    CONSTRAINT "SessionFlag_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -284,6 +532,8 @@ CREATE TABLE "TutorMeeting" (
 CREATE TABLE "MeetingAttendance" (
     "id" TEXT NOT NULL,
     "status" "MeetingAttendanceStatus" NOT NULL,
+    "reason" TEXT,
+    "excusedAt" TIMESTAMP(3),
     "meetingId" TEXT NOT NULL,
     "tutorId" TEXT NOT NULL,
 
@@ -324,10 +574,10 @@ CREATE TABLE "TutorApplication" (
 );
 
 -- CreateTable
-CREATE TABLE "ApplicationCourseIntent" (
+CREATE TABLE "ApplicationSubjectIntent" (
     "id" TEXT NOT NULL,
     "applicationId" TEXT NOT NULL,
-    "courseId" TEXT NOT NULL,
+    "subjectId" TEXT NOT NULL,
     "taken" BOOLEAN NOT NULL DEFAULT false,
     "grade" TEXT,
     "hasApScore" BOOLEAN NOT NULL DEFAULT false,
@@ -335,7 +585,7 @@ CREATE TABLE "ApplicationCourseIntent" (
     "selfStudied" BOOLEAN NOT NULL DEFAULT false,
     "selfStudyNote" TEXT,
 
-    CONSTRAINT "ApplicationCourseIntent_pkey" PRIMARY KEY ("id")
+    CONSTRAINT "ApplicationSubjectIntent_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -373,6 +623,7 @@ CREATE TABLE "PolicyFile" (
 CREATE TABLE "PolicyDocument" (
     "id" TEXT NOT NULL,
     "slug" TEXT NOT NULL,
+    "locale" TEXT NOT NULL DEFAULT 'en',
     "title" TEXT NOT NULL,
     "body" TEXT NOT NULL,
     "version" TEXT,
@@ -380,6 +631,20 @@ CREATE TABLE "PolicyDocument" (
     "updatedById" TEXT,
 
     CONSTRAINT "PolicyDocument_pkey" PRIMARY KEY ("id")
+);
+
+-- CreateTable
+CREATE TABLE "PolicyArchive" (
+    "id" TEXT NOT NULL,
+    "slug" TEXT NOT NULL,
+    "locale" TEXT NOT NULL,
+    "title" TEXT NOT NULL,
+    "body" TEXT NOT NULL,
+    "version" TEXT,
+    "archivedByName" TEXT,
+    "archivedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+
+    CONSTRAINT "PolicyArchive_pkey" PRIMARY KEY ("id")
 );
 
 -- CreateTable
@@ -453,7 +718,25 @@ CREATE TABLE "PasswordResetToken" (
 CREATE UNIQUE INDEX "User_email_key" ON "User"("email");
 
 -- CreateIndex
+CREATE UNIQUE INDEX "User_username_key" ON "User"("username");
+
+-- CreateIndex
 CREATE UNIQUE INDEX "User_tutorId_key" ON "User"("tutorId");
+
+-- CreateIndex
+CREATE INDEX "MessageOverride_locale_idx" ON "MessageOverride"("locale");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "MessageOverride_locale_key_key" ON "MessageOverride"("locale", "key");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "ViewerSignup_email_key" ON "ViewerSignup"("email");
+
+-- CreateIndex
+CREATE INDEX "AccountAppeal_userId_idx" ON "AccountAppeal"("userId");
+
+-- CreateIndex
+CREATE INDEX "AccountAppeal_state_idx" ON "AccountAppeal"("state");
 
 -- CreateIndex
 CREATE INDEX "AuditLog_createdAt_idx" ON "AuditLog"("createdAt");
@@ -462,7 +745,7 @@ CREATE INDEX "AuditLog_createdAt_idx" ON "AuditLog"("createdAt");
 CREATE INDEX "Notification_userId_readAt_idx" ON "Notification"("userId", "readAt");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "CourseLevel_name_key" ON "CourseLevel"("name");
+CREATE UNIQUE INDEX "SubjectLevel_name_key" ON "SubjectLevel"("name");
 
 -- CreateIndex
 CREATE UNIQUE INDEX "Term_schoolYear_quarter_key" ON "Term"("schoolYear", "quarter");
@@ -474,10 +757,40 @@ CREATE UNIQUE INDEX "Tutor_username_key" ON "Tutor"("username");
 CREATE UNIQUE INDEX "Tutor_email_key" ON "Tutor"("email");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "Course_name_key" ON "Course"("name");
+CREATE INDEX "Tutor_status_idx" ON "Tutor"("status");
+
+-- CreateIndex
+CREATE INDEX "TutorStatusRequest_tutorId_idx" ON "TutorStatusRequest"("tutorId");
+
+-- CreateIndex
+CREATE INDEX "TutorStatusRequest_state_idx" ON "TutorStatusRequest"("state");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "RegistrationCode_code_key" ON "RegistrationCode"("code");
+
+-- CreateIndex
+CREATE INDEX "RegistrationCode_tutorId_idx" ON "RegistrationCode"("tutorId");
+
+-- CreateIndex
+CREATE INDEX "RegistrationCode_applicationId_idx" ON "RegistrationCode"("applicationId");
+
+-- CreateIndex
+CREATE INDEX "RegistrationCode_crewApplicationId_idx" ON "RegistrationCode"("crewApplicationId");
+
+-- CreateIndex
+CREATE INDEX "RegistrationCode_usedAt_idx" ON "RegistrationCode"("usedAt");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "Subject_name_key" ON "Subject"("name");
 
 -- CreateIndex
 CREATE INDEX "Tutee_status_idx" ON "Tutee"("status");
+
+-- CreateIndex
+CREATE INDEX "TuteeRemovalRequest_tuteeId_idx" ON "TuteeRemovalRequest"("tuteeId");
+
+-- CreateIndex
+CREATE INDEX "TuteeRemovalRequest_state_idx" ON "TuteeRemovalRequest"("state");
 
 -- CreateIndex
 CREATE INDEX "TimeSlot_dayOfWeek_startMin_idx" ON "TimeSlot"("dayOfWeek", "startMin");
@@ -519,6 +832,39 @@ CREATE INDEX "Session_pairingId_idx" ON "Session"("pairingId");
 CREATE INDEX "Session_mergeGroupId_idx" ON "Session"("mergeGroupId");
 
 -- CreateIndex
+CREATE INDEX "Session_actualRoomId_idx" ON "Session"("actualRoomId");
+
+-- CreateIndex
+CREATE INDEX "CrewApplication_status_idx" ON "CrewApplication"("status");
+
+-- CreateIndex
+CREATE INDEX "CrewStatusRequest_userId_idx" ON "CrewStatusRequest"("userId");
+
+-- CreateIndex
+CREATE INDEX "CrewStatusRequest_state_idx" ON "CrewStatusRequest"("state");
+
+-- CreateIndex
+CREATE INDEX "Patrol_crewUserId_idx" ON "Patrol"("crewUserId");
+
+-- CreateIndex
+CREATE INDEX "Patrol_termId_idx" ON "Patrol"("termId");
+
+-- CreateIndex
+CREATE INDEX "PatrolObservation_roomId_observedAt_idx" ON "PatrolObservation"("roomId", "observedAt");
+
+-- CreateIndex
+CREATE INDEX "PatrolObservation_patrolId_idx" ON "PatrolObservation"("patrolId");
+
+-- CreateIndex
+CREATE UNIQUE INDEX "SessionFlag_sessionId_key" ON "SessionFlag"("sessionId");
+
+-- CreateIndex
+CREATE INDEX "SessionFlag_state_idx" ON "SessionFlag"("state");
+
+-- CreateIndex
+CREATE INDEX "SessionFlag_tutorId_idx" ON "SessionFlag"("tutorId");
+
+-- CreateIndex
 CREATE INDEX "SessionTutee_tuteeId_idx" ON "SessionTutee"("tuteeId");
 
 -- CreateIndex
@@ -537,7 +883,7 @@ CREATE INDEX "ServiceHourAdjustment_tutorId_schoolYear_quarter_idx" ON "ServiceH
 CREATE INDEX "TutorApplication_status_idx" ON "TutorApplication"("status");
 
 -- CreateIndex
-CREATE INDEX "ApplicationCourseIntent_applicationId_idx" ON "ApplicationCourseIntent"("applicationId");
+CREATE INDEX "ApplicationSubjectIntent_applicationId_idx" ON "ApplicationSubjectIntent"("applicationId");
 
 -- CreateIndex
 CREATE INDEX "InterviewAssignment_tutorId_idx" ON "InterviewAssignment"("tutorId");
@@ -546,7 +892,10 @@ CREATE INDEX "InterviewAssignment_tutorId_idx" ON "InterviewAssignment"("tutorId
 CREATE INDEX "InterviewVote_tutorId_idx" ON "InterviewVote"("tutorId");
 
 -- CreateIndex
-CREATE UNIQUE INDEX "PolicyDocument_slug_key" ON "PolicyDocument"("slug");
+CREATE UNIQUE INDEX "PolicyDocument_slug_locale_key" ON "PolicyDocument"("slug", "locale");
+
+-- CreateIndex
+CREATE INDEX "PolicyArchive_slug_locale_archivedAt_idx" ON "PolicyArchive"("slug", "locale", "archivedAt");
 
 -- CreateIndex
 CREATE INDEX "DisciplinaryCard_tuteeId_idx" ON "DisciplinaryCard"("tuteeId");
@@ -573,16 +922,28 @@ CREATE INDEX "PasswordResetToken_userId_idx" ON "PasswordResetToken"("userId");
 ALTER TABLE "User" ADD CONSTRAINT "User_tutorId_fkey" FOREIGN KEY ("tutorId") REFERENCES "Tutor"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "AccountAppeal" ADD CONSTRAINT "AccountAppeal_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "Notification" ADD CONSTRAINT "Notification_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Course" ADD CONSTRAINT "Course_levelId_fkey" FOREIGN KEY ("levelId") REFERENCES "CourseLevel"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "TutorStatusRequest" ADD CONSTRAINT "TutorStatusRequest_tutorId_fkey" FOREIGN KEY ("tutorId") REFERENCES "Tutor"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Tutee" ADD CONSTRAINT "Tutee_firstChoiceId_fkey" FOREIGN KEY ("firstChoiceId") REFERENCES "Course"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "RegistrationCode" ADD CONSTRAINT "RegistrationCode_tutorId_fkey" FOREIGN KEY ("tutorId") REFERENCES "Tutor"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "Tutee" ADD CONSTRAINT "Tutee_secondChoiceId_fkey" FOREIGN KEY ("secondChoiceId") REFERENCES "Course"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+ALTER TABLE "Subject" ADD CONSTRAINT "Subject_levelId_fkey" FOREIGN KEY ("levelId") REFERENCES "SubjectLevel"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Tutee" ADD CONSTRAINT "Tutee_firstChoiceId_fkey" FOREIGN KEY ("firstChoiceId") REFERENCES "Subject"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Tutee" ADD CONSTRAINT "Tutee_secondChoiceId_fkey" FOREIGN KEY ("secondChoiceId") REFERENCES "Subject"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "TuteeRemovalRequest" ADD CONSTRAINT "TuteeRemovalRequest_tuteeId_fkey" FOREIGN KEY ("tuteeId") REFERENCES "Tutee"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "TutorAvailability" ADD CONSTRAINT "TutorAvailability_tutorId_fkey" FOREIGN KEY ("tutorId") REFERENCES "Tutor"("id") ON DELETE CASCADE ON UPDATE CASCADE;
@@ -624,6 +985,30 @@ ALTER TABLE "Session" ADD CONSTRAINT "Session_pairingId_fkey" FOREIGN KEY ("pair
 ALTER TABLE "Session" ADD CONSTRAINT "Session_tutorId_fkey" FOREIGN KEY ("tutorId") REFERENCES "Tutor"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
+ALTER TABLE "Session" ADD CONSTRAINT "Session_actualRoomId_fkey" FOREIGN KEY ("actualRoomId") REFERENCES "Room"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "CrewStatusRequest" ADD CONSTRAINT "CrewStatusRequest_userId_fkey" FOREIGN KEY ("userId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Patrol" ADD CONSTRAINT "Patrol_crewUserId_fkey" FOREIGN KEY ("crewUserId") REFERENCES "User"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "Patrol" ADD CONSTRAINT "Patrol_termId_fkey" FOREIGN KEY ("termId") REFERENCES "Term"("id") ON DELETE SET NULL ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PatrolObservation" ADD CONSTRAINT "PatrolObservation_patrolId_fkey" FOREIGN KEY ("patrolId") REFERENCES "Patrol"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "PatrolObservation" ADD CONSTRAINT "PatrolObservation_roomId_fkey" FOREIGN KEY ("roomId") REFERENCES "Room"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SessionFlag" ADD CONSTRAINT "SessionFlag_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "Session"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
+ALTER TABLE "SessionFlag" ADD CONSTRAINT "SessionFlag_tutorId_fkey" FOREIGN KEY ("tutorId") REFERENCES "Tutor"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+
+-- AddForeignKey
 ALTER TABLE "SessionTutee" ADD CONSTRAINT "SessionTutee_sessionId_fkey" FOREIGN KEY ("sessionId") REFERENCES "Session"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
@@ -645,10 +1030,10 @@ ALTER TABLE "ServiceHourAdjustment" ADD CONSTRAINT "ServiceHourAdjustment_tutorI
 ALTER TABLE "TutorApplication" ADD CONSTRAINT "TutorApplication_decidedByTutorId_fkey" FOREIGN KEY ("decidedByTutorId") REFERENCES "Tutor"("id") ON DELETE SET NULL ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ApplicationCourseIntent" ADD CONSTRAINT "ApplicationCourseIntent_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "TutorApplication"("id") ON DELETE CASCADE ON UPDATE CASCADE;
+ALTER TABLE "ApplicationSubjectIntent" ADD CONSTRAINT "ApplicationSubjectIntent_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "TutorApplication"("id") ON DELETE CASCADE ON UPDATE CASCADE;
 
 -- AddForeignKey
-ALTER TABLE "ApplicationCourseIntent" ADD CONSTRAINT "ApplicationCourseIntent_courseId_fkey" FOREIGN KEY ("courseId") REFERENCES "Course"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+ALTER TABLE "ApplicationSubjectIntent" ADD CONSTRAINT "ApplicationSubjectIntent_subjectId_fkey" FOREIGN KEY ("subjectId") REFERENCES "Subject"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
 
 -- AddForeignKey
 ALTER TABLE "InterviewAssignment" ADD CONSTRAINT "InterviewAssignment_applicationId_fkey" FOREIGN KEY ("applicationId") REFERENCES "TutorApplication"("id") ON DELETE CASCADE ON UPDATE CASCADE;

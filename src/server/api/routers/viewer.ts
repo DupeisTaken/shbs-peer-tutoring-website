@@ -1,6 +1,6 @@
 /**
- * Public observer self-registration (read-only VIEWER accounts). The only open account-creation
- * path — gated by email validation + the OBSERVER_SIGNUP feature flag, and rate-limited per IP +
+ * Public viewer self-registration (read-only VIEWER accounts). The only open account-creation
+ * path — gated by email validation + the VIEWER_SIGNUP feature flag, and rate-limited per IP +
  * per email. See src/server/auth/viewer-signup.ts.
  */
 import { TRPCError } from "@trpc/server";
@@ -39,8 +39,8 @@ function enforceRateLimit(key: string, max: number): void {
 
 async function assertEnabled(db: typeof dbClient): Promise<void> {
   const features = await getFeatures(db);
-  if (!features.OBSERVER_SIGNUP) {
-    throw new TRPCError({ code: "FORBIDDEN", message: "Observer registration is currently closed." });
+  if (!features.VIEWER_SIGNUP) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "Viewer registration is currently closed." });
   }
 }
 
@@ -130,8 +130,8 @@ export const viewerRouter = createTRPCRouter({
         throw new TRPCError({ code: "BAD_REQUEST", message });
       }
       await notifyAdmins({
-        title: "New observer account",
-        body: "A new read-only observer registered to follow the program.",
+        title: "New viewer account",
+        body: "A new read-only viewer registered to follow the program.",
         link: "/admin/users",
       });
       return { ok: true };

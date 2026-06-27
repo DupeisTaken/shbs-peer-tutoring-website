@@ -41,7 +41,7 @@ export default async function AdminLayout({
     where: { id: session.user.id },
     select: { username: true, crewStatus: true, suspendedAt: true, tutor: { select: { username: true, status: true } } },
   });
-  // A suspended observer keeps their login but is routed to the suspension/appeal screen.
+  // A suspended viewer keeps their login but is routed to the suspension/appeal screen.
   if (me?.suspendedAt) redirect("/suspended");
   // Permitted to tutor = a live linked tutor that hasn't been archived (can-tutor turned off).
   // Keyed off the DB link (`me.tutor`), not the JWT's `session.tutorId`, so toggling can-tutor on
@@ -99,8 +99,8 @@ export default async function AdminLayout({
             useReadOnly(), and the server-side adminProcedure checks are the real guard. */}
         <main className="min-w-0 flex-1" data-readonly={readOnly ? "" : undefined}>
           {readOnly && (
-            // Observer's viewing pass — a welcoming accent strip, not an amber lockout warning
-            // (the program values transparency). The eye glyph carries the "observer" identity, so
+            // Viewer's viewing pass — a welcoming accent strip, not an amber lockout warning
+            // (the program values transparency). The eye glyph carries the "viewer" identity, so
             // the copy stays the single existing banner string.
             <div className="mb-5 flex items-center gap-3 rounded-xl border border-accent-200 bg-accent-50 px-4 py-2.5">
               <span

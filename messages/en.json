@@ -19,6 +19,8 @@
     "password": "Password",
     "signIn": "Sign In",
     "signingIn": "Signing In…",
+    "invalidCredentials": "Invalid username/email or password.",
+    "tooManyAttempts": "Too many sign-in attempts. Please wait a few minutes and try again.",
     "forgotPassword": "Forgot password?",
     "createAccount": "Create Account",
     "lookingForTutor": "Looking for a tutor?",
@@ -116,7 +118,7 @@
       "becomeTutor": "Become a Tutor",
       "teamSignin": "Sign In",
       "becomeCrew": "Join the crew",
-      "observe": "Follow the Program"
+      "viewerSignup": "Follow the Program"
     },
     "tagline": "Peer Tutoring Program",
     "heroTitle": "Learn together. Grow together.",
@@ -522,7 +524,8 @@
           "INTERVIEWS": "Interviews & voting",
           "SERVICE_HOURS": "Service hours",
           "QUARTER_SYSTEM": "Quarter system",
-          "OBSERVER_SIGNUP": "Observer Signup"
+          "VIEWER_SIGNUP": "Viewer Signup",
+          "EMAIL_2FA": "Email 2FA"
         }
       }
     },
@@ -1464,7 +1467,7 @@
         "message": "Anything else? (optional)"
       }
     },
-    "observe": {
+    "viewerSignup": {
       "title": "Follow the Program",
       "intro": "Create a free read-only account to follow the program. Parents, faculty, and community members are welcome — you'll see the same overview the team does, with personal details hidden.",
       "alreadyHave": "Already have an account?",

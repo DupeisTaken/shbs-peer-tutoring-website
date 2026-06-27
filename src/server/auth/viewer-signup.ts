@@ -1,8 +1,8 @@
 /**
- * Public observer self-registration (read-only VIEWER accounts) — the ONE open account-creation
+ * Public viewer self-registration (read-only VIEWER accounts) — the ONE open account-creation
  * path (everything else is admin-gated). Gated only by email validation: a visitor enters their
  * name + affiliation + email, verifies an emailed 6-digit code, then sets a password, which creates
- * a fully-verified VIEWER login. The program values transparency, so observers see the same
+ * a fully-verified VIEWER login. The program values transparency, so viewers see the same
  * read-only, PII-masked admin views as the internal VIEWER role.
  *
  * Abuse controls: rate-limited at the router (per IP + per email), a single-use ViewerSignup row
@@ -19,7 +19,7 @@ export const VIEWER_CODE_TTL_MINUTES = 15;
 const MAX_ATTEMPTS = 6;
 
 /**
- * Stage (or restage) an observer signup and return a fresh emailed code. Fails if a login already
+ * Stage (or restage) an viewer signup and return a fresh emailed code. Fails if a login already
  * exists for the email (they should sign in / reset instead).
  */
 export async function startViewerSignup(input: {
@@ -80,7 +80,7 @@ export async function completeViewerSignup(
     await tx.user.create({
       data: {
         email: e,
-        // No username: observers sign in by email; ensureUserUsername also skips VIEWER accounts.
+        // No username: viewers sign in by email; ensureUserUsername also skips VIEWER accounts.
         name: row.name,
         affiliation: row.affiliation,
         role: "VIEWER",

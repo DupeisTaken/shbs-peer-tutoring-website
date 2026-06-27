@@ -7,15 +7,15 @@ export const env = createEnv({
    * isn't built with invalid env vars.
    */
   server: {
+    // Keys the session JWT and the HMAC that hashes every emailed OTP / registration
+    // email-code (see src/server/auth/registration.ts `secret()`). A weak or missing value
+    // makes those hashes forgeable, so production startup fails rather than running without it.
     AUTH_SECRET:
       process.env.NODE_ENV === "production"
-        ? z.string()
+        ? z.string().min(32, "AUTH_SECRET must be at least 32 characters in production")
         : z.string().optional(),
     // Optional: comma-separated emails granted ADMIN on sign-in (bootstrap, no DB editing).
     AUTH_BOOTSTRAP_ADMIN_EMAILS: z.string().optional(),
-    // Shared temporary password for auto-provisioned tutor logins (accepted applicants).
-    // They sign in with this once, then must set their own password + email on first login.
-    TUTOR_DEFAULT_PASSWORD: z.string().min(1).default("ChangeMe!123"),
     // NOTE: email-based 2FA (future) will add an email-provider config here once a
     // provider is chosen — see src/server/email/sender.ts.
     // Opt-in: inject an artificial 100–500ms delay into every tRPC call in dev (the T3
@@ -69,7 +69,6 @@ export const env = createEnv({
   runtimeEnv: {
     AUTH_SECRET: process.env.AUTH_SECRET,
     AUTH_BOOTSTRAP_ADMIN_EMAILS: process.env.AUTH_BOOTSTRAP_ADMIN_EMAILS,
-    TUTOR_DEFAULT_PASSWORD: process.env.TUTOR_DEFAULT_PASSWORD,
     TRPC_DEV_DELAY: process.env.TRPC_DEV_DELAY,
     SMTP_HOST: process.env.SMTP_HOST,
     SMTP_PORT: process.env.SMTP_PORT,

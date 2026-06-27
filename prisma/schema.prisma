@@ -155,8 +155,11 @@ enum ProgramFeatureKey {
   INTERVIEWS
   SERVICE_HOURS
   QUARTER_SYSTEM
-  /// Public, email-validated observer self-registration (read-only VIEWER accounts).
-  OBSERVER_SIGNUP
+  /// Public, email-validated viewer self-registration (read-only VIEWER accounts).
+  VIEWER_SIGNUP
+  /// Email-based two-factor: the sign-in second factor (scaffolded) + the emailed code required
+  /// on a password change. Off lets a program with no email configured still change passwords.
+  EMAIL_2FA
 }
 
 /// One row per optional module. `enabled` is the effective value; `pendingEnabled` is a staged
@@ -216,7 +219,7 @@ model AuditLog {
   userId    String?
   userName  String?
   action    String // human-readable, e.g. "Deleted course \"Physics\""
-  entity    String // e.g. "Course"
+  entity    String // e.g. "Subject"
   entityId  String?
   /// Typed payload describing how to undo this action; null = not auto-revertible.
   undoData  Json?
@@ -317,9 +320,6 @@ model SubjectLevel {
   createdAt DateTime @default(now())
 
   subjects Subject[]
-
-  // Underlying table name kept stable so renaming the model needs no data migration.
-  @@map("CourseLevel")
 }
 
 /// A program period = one quarter of a school year. Exactly one is `active` at a time (the
@@ -493,9 +493,6 @@ model Subject {
   firstChoiceTutees  Tutee[]                    @relation("TuteeFirstChoice")
   secondChoiceTutees Tutee[]                    @relation("TuteeSecondChoice")
   applicationIntents ApplicationSubjectIntent[]
-
-  // Underlying table name kept stable so renaming the model needs no data migration.
-  @@map("Course")
 }
 
 model Tutee {
@@ -509,7 +506,7 @@ model Tutee {
   notes       String?
   status      TuteeStatus @default(ACTIVE)
 
-  // Course preferences chosen on the signup form (first required, second optional).
+  // Subject preferences chosen on the signup form (first required, second optional).
   firstChoiceId  String?
   firstChoice    Subject? @relation("TuteeFirstChoice", fields: [firstChoiceId], references: [id])
   secondChoiceId String?
@@ -1017,7 +1014,7 @@ model ApplicationSubjectIntent {
   id            String           @id @default(cuid())
   applicationId String
   application   TutorApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
-  subjectId     String           @map("courseId")
+  subjectId     String
   subject       Subject          @relation(fields: [subjectId], references: [id])
   taken         Boolean          @default(false)
   grade         String? // class grade received, when taken

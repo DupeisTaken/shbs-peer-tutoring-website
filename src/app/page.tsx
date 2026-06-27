@@ -48,9 +48,9 @@ export default async function Home() {
                 {t("nav.becomeCrew")}
               </Link>
             )}
-            {features.OBSERVER_SIGNUP && (
-              <Link href="/observe" className="btn-secondary btn-sm">
-                {t("nav.observe")}
+            {features.VIEWER_SIGNUP && (
+              <Link href="/viewer-signup" className="btn-secondary btn-sm">
+                {t("nav.viewerSignup")}
               </Link>
             )}
             <Link href="/signin" className="btn-secondary btn-sm">

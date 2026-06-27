@@ -634,7 +634,7 @@ async function main() {
     await db.tutor.upsert({ where: { id: t.id }, update: data, create: { id: t.id, ...data } });
   }
 
-  // --- Course levels + courses -----------------------------------------------
+  // --- Subject levels + subjects ---------------------------------------------
   for (const level of LEVELS) {
     await db.subjectLevel.upsert({ where: { id: level.id }, update: { name: level.name, rank: level.rank, apScored: level.apScored }, create: level });
   }
@@ -859,22 +859,22 @@ async function main() {
   const flagData = { sessionId: "sess-alice-1", tutorId: "tutor-alice", expected: 3, observed: 2, state: "PENDING" as const };
   await db.sessionFlag.upsert({ where: { id: "flag-alice-1" }, update: flagData, create: { id: "flag-alice-1", ...flagData, createdAt: daysAgo(1) } });
 
-  // --- Observer (read-only VIEWER) accounts: a public self-registration + a suspended one with
+  // --- Viewer (read-only VIEWER) accounts: a public self-registration + a suspended one with
   // a pending reinstatement appeal, to exercise the suspend/appeal lifecycle on /admin/users. ---
   await db.user.upsert({
     where: { email: "parent@example.edu" },
     update: { role: "VIEWER", affiliation: "Parent of Emma", name: "Pat Rivera" },
-    create: { id: "user-observer-1", email: "parent@example.edu", name: "Pat Rivera", role: "VIEWER", affiliation: "Parent of Emma", passwordHash, emailVerifiedAt: new Date() },
+    create: { id: "user-viewer-1", email: "parent@example.edu", name: "Pat Rivera", role: "VIEWER", affiliation: "Parent of Emma", passwordHash, emailVerifiedAt: new Date() },
   });
-  const suspendedObserver = await db.user.upsert({
-    where: { email: "observer2@example.edu" },
+  const suspendedViewer = await db.user.upsert({
+    where: { email: "viewer2@example.edu" },
     update: { role: "VIEWER", affiliation: "Community member", name: "Sam Okafor", suspendedAt: new Date(), suspendedReason: "Flagged for review." },
-    create: { id: "user-observer-2", email: "observer2@example.edu", name: "Sam Okafor", role: "VIEWER", affiliation: "Community member", suspendedAt: new Date(), suspendedReason: "Flagged for review.", passwordHash, emailVerifiedAt: new Date() },
+    create: { id: "user-viewer-2", email: "viewer2@example.edu", name: "Sam Okafor", role: "VIEWER", affiliation: "Community member", suspendedAt: new Date(), suspendedReason: "Flagged for review.", passwordHash, emailVerifiedAt: new Date() },
   });
   await db.accountAppeal.upsert({
     where: { id: "appeal-1" },
     update: {},
-    create: { id: "appeal-1", userId: suspendedObserver.id, message: "I'm a parent following my child's progress — please restore access." },
+    create: { id: "appeal-1", userId: suspendedViewer.id, message: "I'm a parent following my child's progress — please restore access." },
   });
 
   // --- Tutor applications + interview workflow -------------------------------
@@ -1091,16 +1091,16 @@ async function main() {
     create: { id: "regcode-crewapp", code: generateRegistrationCode(), kind: "CREW", email: "avery@example.edu", crewApplicationId: "crewapp-accepted", label: "Avery Stone (crew)", issuedById: "user-admin", issuedByName: "Admin A", expiresAt: new Date(Date.now() + 7 * 86_400_000) },
   });
 
-  // 4. A suspended observer whose appeal was DENIED — they may file another (re-appeal path).
-  const deniedObserver = await db.user.upsert({
-    where: { email: "observer3@example.edu" },
+  // 4. A suspended viewer whose appeal was DENIED — they may file another (re-appeal path).
+  const deniedViewer = await db.user.upsert({
+    where: { email: "viewer3@example.edu" },
     update: { role: "VIEWER", affiliation: "Curious community member", name: "Jordan Fox", suspendedAt: new Date(), suspendedReason: "Repeated suspicious activity." },
-    create: { id: "user-observer-3", email: "observer3@example.edu", name: "Jordan Fox", role: "VIEWER", affiliation: "Curious community member", suspendedAt: new Date(), suspendedReason: "Repeated suspicious activity.", passwordHash, emailVerifiedAt: new Date() },
+    create: { id: "user-viewer-3", email: "viewer3@example.edu", name: "Jordan Fox", role: "VIEWER", affiliation: "Curious community member", suspendedAt: new Date(), suspendedReason: "Repeated suspicious activity.", passwordHash, emailVerifiedAt: new Date() },
   });
   await db.accountAppeal.upsert({
     where: { id: "appeal-denied" },
     update: { state: "DENIED", decidedByName: "Admin A", decidedAt: daysAgo(1) },
-    create: { id: "appeal-denied", userId: deniedObserver.id, message: "I only want to follow the program.", state: "DENIED", decidedByName: "Admin A", decidedAt: daysAgo(1), createdAt: daysAgo(2) },
+    create: { id: "appeal-denied", userId: deniedViewer.id, message: "I only want to follow the program.", state: "DENIED", decidedByName: "Admin A", decidedAt: daysAgo(1), createdAt: daysAgo(2) },
   });
 
   // 5. A staged feature toggle (MEETINGS pending OFF) — the /admin/program toggle shows the pending
@@ -1121,7 +1121,7 @@ async function main() {
       `${REGISTRATION_CODES.length} registration codes, ${users.length} login users ` +
       `(password "${DEV_PASSWORD}"); history for 25-26 Q1–Q4 (S1 + S2) + active 26-27 Q1; ` +
       `edge cases: single-name + colliding-handle tutors, opted-out/inactive crew, accepted crew ` +
-      `application + outstanding code, suspended observers (pending + denied appeals), staged toggle.`,
+      `application + outstanding code, suspended viewers (pending + denied appeals), staged toggle.`,
   );
 }
 

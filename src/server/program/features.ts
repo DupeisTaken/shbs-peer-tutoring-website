@@ -7,6 +7,8 @@
  * QUARTER_SYSTEM is a mode, not a disable: enabled = quarters (Q1–Q4), disabled = semesters
  * (S1/S2). Everything else, when disabled, hides its portals/nav/cards and blocks its procedures.
  */
+import { TRPCError } from "@trpc/server";
+
 import type { PrismaClient } from "../../../generated/prisma";
 
 type Db = Pick<PrismaClient, "programFeature">;
@@ -18,7 +20,8 @@ export const FEATURE_KEYS = [
   "INTERVIEWS",
   "SERVICE_HOURS",
   "QUARTER_SYSTEM",
-  "OBSERVER_SIGNUP",
+  "VIEWER_SIGNUP",
+  "EMAIL_2FA",
 ] as const;
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
 export type Features = Record<FeatureKey, boolean>;
@@ -33,6 +36,18 @@ export async function getFeatures(db: Db): Promise<Features> {
   const rows = await db.programFeature.findMany({ select: { key: true, enabled: true } });
   const byKey = new Map(rows.map((r) => [r.key, r.enabled]));
   return Object.fromEntries(FEATURE_KEYS.map((k) => [k, byKey.get(k) ?? true])) as Features;
+}
+
+/**
+ * Refuse a procedure when its optional module is disabled. Use at the top of a module's mutations
+ * so an off module is blocked server-side, not merely hidden in the UI (the design rule: gate nav,
+ * redirect portals, AND refuse procedures). Reads the effective (applied) flags.
+ */
+export async function assertFeatureEnabled(db: Db, key: FeatureKey): Promise<void> {
+  const features = await getFeatures(db);
+  if (!features[key]) {
+    throw new TRPCError({ code: "FORBIDDEN", message: "This module is currently turned off." });
+  }
 }
 
 /**

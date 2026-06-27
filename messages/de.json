@@ -19,6 +19,8 @@
     "password": "Passwort",
     "signIn": "Anmelden",
     "signingIn": "Anmeldung läuft…",
+    "invalidCredentials": "Benutzername/E-Mail oder Passwort ungültig.",
+    "tooManyAttempts": "Zu viele Anmeldeversuche. Bitte warten Sie einige Minuten und versuchen Sie es erneut.",
     "forgotPassword": "Passwort vergessen?",
     "createAccount": "Konto erstellen",
     "lookingForTutor": "Einen Tutor gesucht?",
@@ -116,7 +118,7 @@
       "becomeTutor": "Tutor werden",
       "teamSignin": "Anmelden",
       "becomeCrew": "Rundgang beitreten",
-      "observe": "Programm Verfolgen"
+      "viewerSignup": "Programm Verfolgen"
     },
     "tagline": "Peer-Tutoring-Programm",
     "heroTitle": "Gemeinsam lernen. Gemeinsam wachsen.",
@@ -522,7 +524,8 @@
           "INTERVIEWS": "Interviews & Abstimmung",
           "SERVICE_HOURS": "Servicestunden",
           "QUARTER_SYSTEM": "Quartalssystem",
-          "OBSERVER_SIGNUP": "Beobachter-Anmeldung"
+          "VIEWER_SIGNUP": "Beobachter-Anmeldung",
+          "EMAIL_2FA": "E-Mail-2FA"
         }
       }
     },
@@ -1464,7 +1467,7 @@
         "message": "Sonstiges? (optional)"
       }
     },
-    "observe": {
+    "viewerSignup": {
       "title": "Programm Verfolgen",
       "intro": "Erstellen Sie ein kostenloses Nur-Lese-Konto, um das Programm zu verfolgen. Eltern, Lehrkräfte und Gemeindemitglieder willkommen — Sie sehen dieselbe Übersicht wie das Team, mit ausgeblendeten persönlichen Daten.",
       "alreadyHave": "Schon ein Konto?",

@@ -5,6 +5,7 @@ import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
 import { hashPassword, verifyPassword } from "~/server/auth/password";
 import { ensureUserUsername } from "~/server/auth/username";
 import { issueStepUpCode, verifyStepUpCode } from "~/server/auth/step-up";
+import { getFeatures } from "~/server/program/features";
 import { maskEmail } from "~/server/auth/mask";
 import { notifyAdmins } from "~/server/notifications/create";
 
@@ -113,7 +114,7 @@ export const accountRouter = createTRPCRouter({
       z.object({
         currentPassword: z.string().min(1),
         newPassword: z.string().min(8, "Use at least 8 characters."),
-        code: z.string().trim().min(1),
+        code: z.string().trim().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -124,17 +125,25 @@ export const accountRouter = createTRPCRouter({
       if (!user.passwordHash || !verifyPassword(input.currentPassword, user.passwordHash)) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "Current password is incorrect." });
       }
-      const verified = await verifyStepUpCode(ctx.session.user.id, "PASSWORD_CHANGE", input.code);
-      if (!verified.ok) {
-        const message =
-          verified.error === "expired"
-            ? "That code has expired. Request a new one."
-            : verified.error === "too-many-attempts"
-              ? "Too many attempts. Request a new code."
-              : verified.error === "no-code"
-                ? "Request a verification code first."
-                : "That code is incorrect.";
-        throw new TRPCError({ code: "BAD_REQUEST", message });
+      // Email 2FA gates the emailed step-up code. With it off (e.g. no email configured), a
+      // verified current password is sufficient to change the password.
+      const { EMAIL_2FA } = await getFeatures(ctx.db);
+      if (EMAIL_2FA) {
+        if (!input.code) {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Request a verification code first." });
+        }
+        const verified = await verifyStepUpCode(ctx.session.user.id, "PASSWORD_CHANGE", input.code);
+        if (!verified.ok) {
+          const message =
+            verified.error === "expired"
+              ? "That code has expired. Request a new one."
+              : verified.error === "too-many-attempts"
+                ? "Too many attempts. Request a new code."
+                : verified.error === "no-code"
+                  ? "Request a verification code first."
+                  : "That code is incorrect.";
+          throw new TRPCError({ code: "BAD_REQUEST", message });
+        }
       }
       await ctx.db.user.update({
         where: { id: ctx.session.user.id },
