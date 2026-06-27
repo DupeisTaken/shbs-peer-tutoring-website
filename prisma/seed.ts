@@ -1,6 +1,6 @@
 /**
  * Seed script for local/dev databases — a rich, idempotent dataset that demonstrates the
- * full system (courses/levels, tutors, tutee + tutor requests, pairings, attendance with
+ * full system (subjects/levels, tutors, tutee + tutor requests, pairings, attendance with
  * computed service hours, discipline cards, adjustments, interview workflow, announcements,
  * meetings, notifications).
  *
@@ -81,7 +81,7 @@ const LEVELS = [
   { id: "level-standard", name: "Standard", rank: 2, apScored: false },
 ];
 
-const COURSES = [
+const SUBJECTS = [
   { id: "course-math", name: "Mathematics", levelId: "level-standard" },
   { id: "course-algebra2", name: "Algebra II", levelId: "level-standard" },
   { id: "course-precalc", name: "Precalculus", levelId: "level-honors" },
@@ -638,8 +638,8 @@ async function main() {
   for (const level of LEVELS) {
     await db.subjectLevel.upsert({ where: { id: level.id }, update: { name: level.name, rank: level.rank, apScored: level.apScored }, create: level });
   }
-  for (const course of COURSES) {
-    await db.subject.upsert({ where: { id: course.id }, update: { name: course.name, levelId: course.levelId }, create: course });
+  for (const subject of SUBJECTS) {
+    await db.subject.upsert({ where: { id: subject.id }, update: { name: subject.name, levelId: subject.levelId }, create: subject });
   }
 
   // --- Time slots ------------------------------------------------------------
@@ -1112,7 +1112,7 @@ async function main() {
   });
 
   console.log(
-    `Seeded: 1 term, ${ROOMS.length} rooms, ${LEVELS.length} levels, ${COURSES.length} courses, ` +
+    `Seeded: 1 term, ${ROOMS.length} rooms, ${LEVELS.length} levels, ${SUBJECTS.length} subjects, ` +
       `${TIME_SLOTS.length} time slots, ${TUTORS.length} tutors (active + pending/opted-out/graduated/archived), ` +
       `${TUTEES.length} active tutees + ${PENDING_SIGNUPS.length} pending signups + ${REMOVED_TUTEES.length} removed, ` +
       `${PAIRINGS.length} pairings, ${SESSIONS.length} sessions, ${CARDS.length} cards, ` +
