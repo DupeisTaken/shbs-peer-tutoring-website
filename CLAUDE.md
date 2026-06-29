@@ -8,8 +8,17 @@ the conventions and gotchas that aren't obvious from the code.
 
 A web app for a high-school peer-tutoring program: tutor–tutee pairings, attendance
 submissions, tutor-meeting tracking, and automatic service-hour accounting. Built on
-the **T3 Stack**: Next.js 15 (App Router) + React 19, Auth.js (NextAuth v5,
-Credentials + JWT), Prisma 6 + PostgreSQL, tRPC 11, Tailwind CSS 4, Vitest.
+the **T3 Stack**: Next.js 16 (App Router) + React 19, Auth.js (NextAuth v5,
+Credentials + JWT), Prisma 7 + PostgreSQL, tRPC 11, Tailwind CSS 4, Vitest.
+
+**Prisma 7 connects through a driver adapter** — the connection URL is **not** in `schema.prisma`
+anymore. The CLI (migrate/generate/seed/studio) reads it from **`prisma.config.ts`**
+(`datasource.url`, which loads `.env` via `dotenv`), and the app/seed pass a `@prisma/adapter-pg`
+adapter built from `env.DATABASE_URL` to `new PrismaClient({ adapter })` (`src/server/db.ts`,
+`prisma/seed.ts`). The `package.json` `prisma` block is gone — seed config lives in `prisma.config.ts`
+(`migrations.seed`). **Next 16 removed `next lint`** — linting is the ESLint CLI on a flat config
+(`eslint.config.js`, which spreads `eslint-config-next/core-web-vitals`); the auth gate is
+**`src/proxy.ts`** (Next 16 renamed the `middleware` convention to `proxy`).
 
 ## Commands
 
@@ -17,7 +26,7 @@ Credentials + JWT), Prisma 6 + PostgreSQL, tRPC 11, Tailwind CSS 4, Vitest.
 | ------------------ | -------------------------------------------------------- |
 | `npm run dev`      | Dev server (Turbopack).                                   |
 | `npm run build`    | Production build. **Uses `--turbopack` on purpose** — the classic webpack build fails on Windows during output file-tracing. |
-| `npm run check`    | `next lint` + `tsc --noEmit`. **Run before every commit.** |
+| `npm run check`    | `eslint .` + `tsc --noEmit`. **Run before every commit.** |
 | `npm test`         | Vitest suite once.                                        |
 | `npm run db:generate` | `prisma migrate dev` — diff the schema and write a new migration under `prisma/migrations/`. **This is how schema changes ship.** |
 | `npm run db:migrate`  | `prisma migrate deploy` — apply pending migrations (runs automatically on container start via `entrypoint.sh`). |
@@ -134,7 +143,7 @@ empty last name.) Re-run `npm run db:seed` twice after changing it — it must s
   **`activeTutorProcedure`** (a `tutorProcedure` that also asserts `Tutor.status === "ACTIVE"`), so
   inactive tutors keep read-only access but can't act. Keep admin queries on `viewerProcedure` and
   admin mutations on `adminProcedure` so VIEWER can browse but never write. Routers enforce
-  role/ownership server-side; `src/middleware.ts` (Edge) gates auth, the `(admin)` layout gates
+  role/ownership server-side; `src/proxy.ts` (Edge) gates auth, the `(admin)` layout gates
   role. **Client-side read-only treatment is per-page, not a blanket sweep.** Read `useReadOnly()`
   (`~/app/_components/read-only`, true for VIEWER) and **hide mutation panels/controls** with
   `{!readOnly && …}`, while leaving **read-only info controls fully interactive** — filters, month/

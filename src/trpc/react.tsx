@@ -7,7 +7,9 @@ import { type inferRouterInputs, type inferRouterOutputs } from "@trpc/server";
 import { useState } from "react";
 import SuperJSON from "superjson";
 
-import { type AppRouter } from "~/server/api/root";
+// Pure `import type` (not inline) so Turbopack never traces the server router graph (→ nodemailer)
+// into the client bundle.
+import type { AppRouter } from "~/server/api/root";
 import { createQueryClient } from "./query-client";
 
 let clientQueryClientSingleton: QueryClient | undefined = undefined;

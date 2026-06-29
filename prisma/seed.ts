@@ -6,9 +6,12 @@
  *
  * Idempotent: fixed ids + upserts, so it can be run repeatedly. Run with `npm run db:seed`.
  */
+import "dotenv/config";
 import { existsSync, readFileSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+
+import { PrismaPg } from "@prisma/adapter-pg";
 
 import { PrismaClient } from "../generated/prisma";
 import { hashPassword } from "../src/server/auth/password";
@@ -34,7 +37,9 @@ function seedUsername(firstName: string, lastName: string, gradeLevel: number): 
   return `${first.slice(0, 1)}${last}${yy}`;
 }
 
-const db = new PrismaClient();
+const connectionString = process.env.DATABASE_URL;
+if (!connectionString) throw new Error("DATABASE_URL is required to seed.");
+const db = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
 
 /** Dev-only login password shared by every seeded user. CHANGE before any real use. */
 const DEV_PASSWORD = "Password123!";
@@ -704,7 +709,7 @@ async function main() {
     // Every account carries a username (the admin has no tutor, so it's a derived handle).
     // The bootstrap admin gets a two-word name ("Admin A") so it splits cleanly into first/last.
     { id: "user-admin", name: "Admin A", email: "admin@example.edu", role: "HEAD" as Role, tutorId: null as string | null, username: "admin" },
-    ...TUTORS.map((t) => ({ id: `user-${t.id.replace("tutor-", "")}`, name: t.englishName, email: t.email, role: t.role, tutorId: t.id as string | null, username: t.username })),
+    ...TUTORS.map((t) => ({ id: `user-${t.id.replace("tutor-", "")}`, name: t.englishName, email: t.email, role: t.role, tutorId: t.id, username: t.username })),
   ];
   for (const u of users) {
     const data = { name: u.name, role: u.role, tutorId: u.tutorId, username: u.username, passwordHash, emailVerifiedAt: new Date() };
@@ -1071,8 +1076,8 @@ async function main() {
     });
     await db.pageLayout.upsert({
       where: { ownerKey: `page:${page.id}` },
-      update: { blocks: p.blocks as object, updatedByName: "Admin A" },
-      create: { ownerKey: `page:${page.id}`, blocks: p.blocks as object, updatedByName: "Admin A" },
+      update: { blocks: p.blocks, updatedByName: "Admin A" },
+      create: { ownerKey: `page:${page.id}`, blocks: p.blocks, updatedByName: "Admin A" },
     });
   }
 
