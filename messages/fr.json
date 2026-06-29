@@ -139,7 +139,21 @@
         "body": "Provisoire — gérez les pairages, la présence, les entretiens et les heures de service depuis un seul endroit."
       }
     },
-    "footer": "Pied de page provisoire — © {appTitle}."
+    "footer": "Pied de page provisoire — © {appTitle}.",
+    "news": {
+      "title": "Actualités du programme"
+    },
+    "preview": {
+      "ribbon": {
+        "title": "Aperçu",
+        "note": "Vous prévisualisez la page réelle. Les brouillons et les sections masquées apparaissent ici mais pas pour les visiteurs.",
+        "back": "Retour à l’Éditeur"
+      },
+      "draftBadge": "Brouillon"
+    },
+    "detail": {
+      "hiddenNote": "Cette page est masquée aux visiteurs tant que la section n’est pas affichée."
+    }
   },
   "dashboard": {
     "greeting": "Bonjour, {name}",
@@ -345,7 +359,8 @@
         "tuteeRequests": "Retraits de tutorés",
         "reports": "Rapports",
         "sessionFlags": "Signalements de présence",
-        "crew": "Ronde"
+        "crew": "Ronde",
+        "landing": "Page d’accueil"
       }
     },
     "dashboard": {
@@ -1159,6 +1174,231 @@
         "WARNED": "Averti",
         "PENALIZED": "Pénalisé",
         "ESCALATED": "Escaladé"
+      }
+    },
+    "landing": {
+      "title": "Page d’accueil",
+      "subtitle": "Modifiez ce que les visiteurs voient sur la page d’accueil publique — texte, actualités du programme et images. Les modifications sont appliquées immédiatement.",
+      "loading": "Chargement…",
+      "defaultLang": "par défaut",
+      "revert": "Rétablir la Valeur par Défaut",
+      "appTitleHint": "Utilisez {appTitle} pour insérer le nom du programme.",
+      "tabs": {
+        "content": "Contenu de la Page Principale",
+        "news": "Actualités",
+        "images": "Images",
+        "sections": "Sections",
+        "layout": "Mise en page",
+        "pages": "Pages"
+      },
+      "badge": {
+        "custom": "Personnalisé",
+        "default": "Par défaut"
+      },
+      "fields": {
+        "tagline": "Slogan",
+        "heroTitle": "Titre Principal",
+        "intro": "Introduction",
+        "ctaPrimary": "Bouton Principal",
+        "ctaSecondary": "Bouton Secondaire",
+        "heroImage": "Image Principale",
+        "studentsTitle": "Carte Élèves — Titre",
+        "studentsBody": "Carte Élèves — Texte",
+        "tutorsTitle": "Carte Tuteurs — Titre",
+        "tutorsBody": "Carte Tuteurs — Texte",
+        "teamTitle": "Carte Équipe — Titre",
+        "teamBody": "Carte Équipe — Texte",
+        "footer": "Pied de Page"
+      },
+      "content": {
+        "heroImage": {
+          "none": "Aucune image",
+          "choose": "Choisir une image…",
+          "uploadFirst": "Téléversez d’abord une image dans l’onglet Images."
+        }
+      },
+      "news": {
+        "new": {
+          "title": "Nouvelle Publication",
+          "titlePlaceholder": "Titre de la publication",
+          "bodyPlaceholder": "Rédigez l’actualité… Markdown pris en charge.",
+          "create": "Créer un Brouillon"
+        },
+        "empty": "Aucune publication pour le moment.",
+        "untitled": "Sans titre",
+        "pinnedBadge": "Épinglé",
+        "byline": "Ajouté par {who}",
+        "dateLabel": "Date",
+        "status": {
+          "DRAFT": "Brouillon",
+          "PUBLISHED": "Publié",
+          "ARCHIVED": "Archivé"
+        },
+        "actions": {
+          "publish": "Publier",
+          "unpublish": "Dépublier",
+          "pin": "Épingler",
+          "unpin": "Désépingler",
+          "archive": "Archiver",
+          "restore": "Restaurer",
+          "confirmDelete": "Supprimer définitivement cette publication ?"
+        }
+      },
+      "images": {
+        "upload": {
+          "title": "Téléverser une Image",
+          "altPlaceholder": "Description (texte alternatif), facultatif",
+          "button": "Téléverser",
+          "uploading": "Téléversement…",
+          "hint": "PNG, JPEG, WebP ou GIF, jusqu’à 2 Mo."
+        },
+        "empty": "Aucune image téléversée pour le moment.",
+        "copyUrl": "Copier l’URL",
+        "copyMarkdown": "Copier le Markdown",
+        "copied": "Copié",
+        "confirmDelete": "Supprimer cette image ? Toute publication qui l’utilise affichera une image cassée.",
+        "uploadFailed": "Échec du téléversement."
+      },
+      "translation": {
+        "language": "Langue",
+        "add": "Ajouter une langue…",
+        "discard": "Abandonner",
+        "remove": "Retirer Cette Langue",
+        "confirmRemove": "Retirer la version {lang} ?",
+        "titlePlaceholder": "Titre",
+        "bodyPlaceholder": "Corps (Markdown)…",
+        "insertImage": "Insérer une image…",
+        "preview": "Aperçu",
+        "edit": "Modifier",
+        "previewEmpty": "Rien à prévisualiser pour l’instant."
+      },
+      "sections": {
+        "new": {
+          "title": "Nouvelle Section",
+          "titlePlaceholder": "Titre de la section (p. ex. Pour les tuteurs)",
+          "bodyPlaceholder": "Rédigez la section… Markdown pris en charge.",
+          "create": "Ajouter une Section"
+        },
+        "empty": "Aucune section pour le moment.",
+        "untitled": "Sans titre",
+        "statusVisible": "Visible",
+        "statusHidden": "Masquée",
+        "actions": {
+          "show": "Afficher",
+          "hide": "Masquer",
+          "expanded": "Développée par défaut",
+          "moveUp": "Monter",
+          "moveDown": "Descendre",
+          "confirmDelete": "Supprimer définitivement cette section ?"
+        },
+        "mode": {
+          "label": "Au clic",
+          "inline": "Développer sur place",
+          "page": "Ouvrir une page"
+        },
+        "slug": {
+          "placeholder": "adresse-page"
+        },
+        "viewPage": "Voir la page"
+      },
+      "preview": {
+        "button": "Aperçu"
+      },
+      "groups": {
+        "hero": {
+          "title": "Haut de Page",
+          "desc": "Le titre, le slogan, l’introduction et l’image que les visiteurs voient en premier."
+        },
+        "buttons": {
+          "title": "Boutons",
+          "desc": "Les deux boutons d’action en haut de page."
+        },
+        "features": {
+          "title": "Points Forts",
+          "desc": "Les trois cartes qui mettent en avant le programme."
+        },
+        "footer": {
+          "title": "Pied de Page",
+          "desc": "Les mentions en bas de page."
+        }
+      },
+      "layout": {
+        "title": "Mise en Page",
+        "subtitle": "Organisez, ajoutez et retirez les blocs qui composent la page. Vérifiez vos modifications avec l’Aperçu.",
+        "save": "Enregistrer la Mise en Page",
+        "unsaved": "Modifications non enregistrées",
+        "empty": "Aucun bloc pour le moment. Ajoutez-en un ci-dessous.",
+        "addBlock": "Ajouter un bloc…",
+        "groupContent": "Blocs de contenu",
+        "groupPresets": "Modèles",
+        "groupSystem": "Sections de la page",
+        "remove": "Retirer",
+        "systemHint": "Modifiez son contenu dans l’onglet {tab}.",
+        "blockTypes": {
+          "HERO": "Hero",
+          "FEATURES": "Cartes de Présentation",
+          "SECTIONS": "Sections",
+          "NEWS": "Actualités",
+          "RICH_TEXT": "Texte Enrichi",
+          "IMAGE": "Image",
+          "BUTTONS": "Boutons",
+          "COLUMNS": "Colonnes"
+        },
+        "align": {
+          "label": "Aligner",
+          "left": "Gauche",
+          "center": "Centre"
+        },
+        "richText": {
+          "placeholder": "Rédigez… Markdown pris en charge."
+        },
+        "image": {
+          "width": "Largeur",
+          "narrow": "Étroit",
+          "wide": "Large",
+          "full": "Pleine largeur",
+          "caption": "Légende (facultatif)"
+        },
+        "buttons": {
+          "label": "Texte du bouton",
+          "href": "Lien (URL ou /chemin)",
+          "primary": "Principal",
+          "secondary": "Secondaire",
+          "add": "Ajouter un bouton"
+        },
+        "presets": {
+          "cta": "Appel à l’Action",
+          "cards3": "Cartes en Trois Colonnes"
+        },
+        "columns": {
+          "card": "Style carte",
+          "columnLabel": "Colonne {n}",
+          "removeColumn": "Retirer la colonne",
+          "addColumn": "Ajouter une colonne",
+          "addBlock": "Ajouter à la colonne…"
+        }
+      },
+      "pages": {
+        "new": {
+          "title": "Nouvelle Page",
+          "placeholder": "Titre de la page (p. ex. À propos)",
+          "create": "Créer une Page"
+        },
+        "empty": "Aucune page pour le moment.",
+        "untitled": "Sans titre",
+        "titleLabel": "Titre",
+        "showInNav": "Afficher dans le menu du haut",
+        "inNav": "Dans le menu",
+        "editContent": "Modifier le contenu",
+        "confirmDelete": "Supprimer définitivement cette page ?"
+      },
+      "tabDesc": {
+        "layout": "Organisez les blocs qui composent la page d’accueil.",
+        "content": "Le texte du hero, des boutons, des cartes et du pied de page.",
+        "sections": "Panneaux dépliables et leurs pages de détail.",
+        "news": "Le fil d’actualités daté.",
+        "pages": "Pages autonomes sous /p/… pour le menu ou des liens.",
+        "images": "Téléversez et gérez les images de la page."
       }
     }
   },

@@ -139,7 +139,21 @@
         "body": "占位——在一个平台上统筹配对、考勤、面试与服务时数。"
       }
     },
-    "footer": "占位页脚——© {appTitle}。"
+    "footer": "占位页脚——© {appTitle}。",
+    "news": {
+      "title": "项目动态"
+    },
+    "preview": {
+      "ribbon": {
+        "title": "预览",
+        "note": "您正在预览实际页面。草稿和隐藏板块仅在此显示，访客看不到。",
+        "back": "返回编辑"
+      },
+      "draftBadge": "草稿"
+    },
+    "detail": {
+      "hiddenNote": "在该板块显示之前，此页面对访客隐藏。"
+    }
   },
   "dashboard": {
     "greeting": "你好，{name}",
@@ -338,7 +352,8 @@
         "tuteeRequests": "学生移除",
         "reports": "报告",
         "sessionFlags": "考勤标记",
-        "crew": "巡查队"
+        "crew": "巡查队",
+        "landing": "首页"
       }
     },
     "dashboard": {
@@ -1159,6 +1174,231 @@
         "WARNED": "已警告",
         "PENALIZED": "已扣减",
         "ESCALATED": "已升级"
+      }
+    },
+    "landing": {
+      "title": "首页",
+      "subtitle": "编辑访客在公开首页看到的内容——文字、项目动态和图片。更改即时生效。",
+      "loading": "加载中…",
+      "defaultLang": "默认",
+      "revert": "恢复默认",
+      "appTitleHint": "使用 {appTitle} 插入项目名称。",
+      "tabs": {
+        "content": "主页面内容",
+        "news": "项目动态",
+        "images": "图片",
+        "sections": "板块",
+        "layout": "布局",
+        "pages": "页面"
+      },
+      "badge": {
+        "custom": "已自定义",
+        "default": "默认"
+      },
+      "fields": {
+        "tagline": "标语",
+        "heroTitle": "主标题",
+        "intro": "简介",
+        "ctaPrimary": "主按钮",
+        "ctaSecondary": "次按钮",
+        "heroImage": "主图",
+        "studentsTitle": "学生卡片——标题",
+        "studentsBody": "学生卡片——正文",
+        "tutorsTitle": "导师卡片——标题",
+        "tutorsBody": "导师卡片——正文",
+        "teamTitle": "团队卡片——标题",
+        "teamBody": "团队卡片——正文",
+        "footer": "页脚"
+      },
+      "content": {
+        "heroImage": {
+          "none": "无图片",
+          "choose": "选择图片…",
+          "uploadFirst": "请先在“图片”标签中上传图片。"
+        }
+      },
+      "news": {
+        "new": {
+          "title": "新动态",
+          "titlePlaceholder": "动态标题",
+          "bodyPlaceholder": "撰写动态…支持 Markdown。",
+          "create": "创建草稿"
+        },
+        "empty": "暂无动态。",
+        "untitled": "无标题",
+        "pinnedBadge": "置顶",
+        "byline": "由 {who} 添加",
+        "dateLabel": "日期",
+        "status": {
+          "DRAFT": "草稿",
+          "PUBLISHED": "已发布",
+          "ARCHIVED": "已归档"
+        },
+        "actions": {
+          "publish": "发布",
+          "unpublish": "取消发布",
+          "pin": "置顶",
+          "unpin": "取消置顶",
+          "archive": "归档",
+          "restore": "恢复",
+          "confirmDelete": "永久删除此动态？"
+        }
+      },
+      "images": {
+        "upload": {
+          "title": "上传图片",
+          "altPlaceholder": "描述（替代文字），可选",
+          "button": "上传",
+          "uploading": "上传中…",
+          "hint": "PNG、JPEG、WebP 或 GIF，最大 2 MB。"
+        },
+        "empty": "尚未上传图片。",
+        "copyUrl": "复制链接",
+        "copyMarkdown": "复制 Markdown",
+        "copied": "已复制",
+        "confirmDelete": "删除此图片？使用它的动态将显示损坏的图片。",
+        "uploadFailed": "上传失败。"
+      },
+      "translation": {
+        "language": "语言",
+        "add": "添加语言…",
+        "discard": "放弃",
+        "remove": "移除此语言",
+        "confirmRemove": "移除 {lang} 版本？",
+        "titlePlaceholder": "标题",
+        "bodyPlaceholder": "正文（Markdown）…",
+        "insertImage": "插入图片…",
+        "preview": "预览",
+        "edit": "编辑",
+        "previewEmpty": "暂无可预览内容。"
+      },
+      "sections": {
+        "new": {
+          "title": "新板块",
+          "titlePlaceholder": "板块标题（如：致导师）",
+          "bodyPlaceholder": "撰写板块内容…支持 Markdown。",
+          "create": "添加板块"
+        },
+        "empty": "暂无板块。",
+        "untitled": "无标题",
+        "statusVisible": "显示中",
+        "statusHidden": "已隐藏",
+        "actions": {
+          "show": "显示",
+          "hide": "隐藏",
+          "expanded": "默认展开",
+          "moveUp": "上移",
+          "moveDown": "下移",
+          "confirmDelete": "永久删除此板块？"
+        },
+        "mode": {
+          "label": "点击时",
+          "inline": "就地展开",
+          "page": "打开页面"
+        },
+        "slug": {
+          "placeholder": "页面地址"
+        },
+        "viewPage": "查看页面"
+      },
+      "preview": {
+        "button": "预览"
+      },
+      "groups": {
+        "hero": {
+          "title": "顶部",
+          "desc": "访客最先看到的标题、标语、简介和图片。"
+        },
+        "buttons": {
+          "title": "按钮",
+          "desc": "顶部区域中的两个操作按钮。"
+        },
+        "features": {
+          "title": "亮点",
+          "desc": "介绍项目的三张卡片。"
+        },
+        "footer": {
+          "title": "页脚",
+          "desc": "页面底部的小字说明。"
+        }
+      },
+      "layout": {
+        "title": "页面布局",
+        "subtitle": "排列、添加和移除组成页面的区块。可用“预览”查看更改。",
+        "save": "保存布局",
+        "unsaved": "有未保存的更改",
+        "empty": "暂无区块，请在下方添加。",
+        "addBlock": "添加区块…",
+        "groupContent": "内容区块",
+        "groupPresets": "预设",
+        "groupSystem": "页面板块",
+        "remove": "移除",
+        "systemHint": "在“{tab}”标签中编辑其内容。",
+        "blockTypes": {
+          "HERO": "主区",
+          "FEATURES": "特色卡片",
+          "SECTIONS": "板块",
+          "NEWS": "动态",
+          "RICH_TEXT": "富文本",
+          "IMAGE": "图片",
+          "BUTTONS": "按钮",
+          "COLUMNS": "分栏"
+        },
+        "align": {
+          "label": "对齐",
+          "left": "左对齐",
+          "center": "居中"
+        },
+        "richText": {
+          "placeholder": "输入内容…支持 Markdown。"
+        },
+        "image": {
+          "width": "宽度",
+          "narrow": "窄",
+          "wide": "宽",
+          "full": "全宽",
+          "caption": "图注（可选）"
+        },
+        "buttons": {
+          "label": "按钮文字",
+          "href": "链接（网址或 /路径）",
+          "primary": "主要",
+          "secondary": "次要",
+          "add": "添加按钮"
+        },
+        "presets": {
+          "cta": "行动号召",
+          "cards3": "三栏卡片"
+        },
+        "columns": {
+          "card": "卡片样式",
+          "columnLabel": "第 {n} 栏",
+          "removeColumn": "移除分栏",
+          "addColumn": "添加分栏",
+          "addBlock": "向此栏添加…"
+        }
+      },
+      "pages": {
+        "new": {
+          "title": "新页面",
+          "placeholder": "页面标题（如：关于我们）",
+          "create": "创建页面"
+        },
+        "empty": "暂无页面。",
+        "untitled": "无标题",
+        "titleLabel": "标题",
+        "showInNav": "显示在顶部导航",
+        "inNav": "导航中",
+        "editContent": "编辑内容",
+        "confirmDelete": "永久删除此页面？"
+      },
+      "tabDesc": {
+        "layout": "排列组成首页的区块。",
+        "content": "主区、按钮、特色卡片和页脚文字。",
+        "sections": "可展开的板块及其详情页。",
+        "news": "带日期的项目动态。",
+        "pages": "位于 /p/… 的独立页面，用于导航菜单或链接。",
+        "images": "上传和管理页面中使用的图片。"
       }
     }
   },

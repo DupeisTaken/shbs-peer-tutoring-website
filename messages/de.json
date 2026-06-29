@@ -139,7 +139,21 @@
         "body": "Platzhalter – verwalten Sie Zuordnungen, Anwesenheit, Interviews und Servicestunden an einem Ort."
       }
     },
-    "footer": "Platzhalter-Fußzeile – © {appTitle}."
+    "footer": "Platzhalter-Fußzeile – © {appTitle}.",
+    "news": {
+      "title": "Programm-Neuigkeiten"
+    },
+    "preview": {
+      "ribbon": {
+        "title": "Vorschau",
+        "note": "Sie sehen eine Vorschau der echten Seite. Entwürfe und ausgeblendete Abschnitte erscheinen hier, aber nicht für Besucher.",
+        "back": "Zurück zum Editor"
+      },
+      "draftBadge": "Entwurf"
+    },
+    "detail": {
+      "hiddenNote": "Diese Seite ist für Besucher verborgen, bis der Abschnitt sichtbar ist."
+    }
   },
   "dashboard": {
     "greeting": "Hallo, {name}",
@@ -345,7 +359,8 @@
         "tuteeRequests": "Tutee-Entfernungen",
         "reports": "Berichte",
         "sessionFlags": "Anwesenheitsmarkierungen",
-        "crew": "Rundgang"
+        "crew": "Rundgang",
+        "landing": "Startseite"
       }
     },
     "dashboard": {
@@ -1159,6 +1174,231 @@
         "WARNED": "Verwarnt",
         "PENALIZED": "Abzug",
         "ESCALATED": "Eskaliert"
+      }
+    },
+    "landing": {
+      "title": "Startseite",
+      "subtitle": "Bearbeiten Sie, was Besucher auf der öffentlichen Startseite sehen — Text, Neuigkeiten und Bilder. Änderungen werden sofort wirksam.",
+      "loading": "Wird geladen…",
+      "defaultLang": "Standard",
+      "revert": "Auf Standard Zurücksetzen",
+      "appTitleHint": "Verwenden Sie {appTitle}, um den Programmnamen einzufügen.",
+      "tabs": {
+        "content": "Hauptseiteninhalt",
+        "news": "Neuigkeiten",
+        "images": "Bilder",
+        "sections": "Abschnitte",
+        "layout": "Layout",
+        "pages": "Seiten"
+      },
+      "badge": {
+        "custom": "Angepasst",
+        "default": "Standard"
+      },
+      "fields": {
+        "tagline": "Slogan",
+        "heroTitle": "Haupttitel",
+        "intro": "Einleitung",
+        "ctaPrimary": "Hauptschaltfläche",
+        "ctaSecondary": "Nebenschaltfläche",
+        "heroImage": "Hauptbild",
+        "studentsTitle": "Schülerkarte — Titel",
+        "studentsBody": "Schülerkarte — Text",
+        "tutorsTitle": "Tutorenkarte — Titel",
+        "tutorsBody": "Tutorenkarte — Text",
+        "teamTitle": "Teamkarte — Titel",
+        "teamBody": "Teamkarte — Text",
+        "footer": "Fußzeile"
+      },
+      "content": {
+        "heroImage": {
+          "none": "Kein Bild",
+          "choose": "Bild auswählen…",
+          "uploadFirst": "Laden Sie zuerst im Tab „Bilder“ ein Bild hoch."
+        }
+      },
+      "news": {
+        "new": {
+          "title": "Neuer Beitrag",
+          "titlePlaceholder": "Beitragstitel",
+          "bodyPlaceholder": "Neuigkeit verfassen… Markdown wird unterstützt.",
+          "create": "Entwurf Erstellen"
+        },
+        "empty": "Noch keine Beiträge.",
+        "untitled": "Ohne Titel",
+        "pinnedBadge": "Angeheftet",
+        "byline": "Hinzugefügt von {who}",
+        "dateLabel": "Datum",
+        "status": {
+          "DRAFT": "Entwurf",
+          "PUBLISHED": "Veröffentlicht",
+          "ARCHIVED": "Archiviert"
+        },
+        "actions": {
+          "publish": "Veröffentlichen",
+          "unpublish": "Zurückziehen",
+          "pin": "Anheften",
+          "unpin": "Lösen",
+          "archive": "Archivieren",
+          "restore": "Wiederherstellen",
+          "confirmDelete": "Diesen Beitrag dauerhaft löschen?"
+        }
+      },
+      "images": {
+        "upload": {
+          "title": "Bild Hochladen",
+          "altPlaceholder": "Beschreibung (Alternativtext), optional",
+          "button": "Hochladen",
+          "uploading": "Wird hochgeladen…",
+          "hint": "PNG, JPEG, WebP oder GIF, bis zu 2 MB."
+        },
+        "empty": "Noch keine Bilder hochgeladen.",
+        "copyUrl": "URL Kopieren",
+        "copyMarkdown": "Markdown Kopieren",
+        "copied": "Kopiert",
+        "confirmDelete": "Dieses Bild löschen? Beiträge, die es verwenden, zeigen ein defektes Bild.",
+        "uploadFailed": "Hochladen fehlgeschlagen."
+      },
+      "translation": {
+        "language": "Sprache",
+        "add": "Sprache hinzufügen…",
+        "discard": "Verwerfen",
+        "remove": "Diese Sprache Entfernen",
+        "confirmRemove": "Die {lang}-Version entfernen?",
+        "titlePlaceholder": "Titel",
+        "bodyPlaceholder": "Inhalt (Markdown)…",
+        "insertImage": "Bild einfügen…",
+        "preview": "Vorschau",
+        "edit": "Bearbeiten",
+        "previewEmpty": "Noch nichts zur Vorschau."
+      },
+      "sections": {
+        "new": {
+          "title": "Neuer Abschnitt",
+          "titlePlaceholder": "Abschnittstitel (z. B. Für Tutoren)",
+          "bodyPlaceholder": "Abschnitt verfassen… Markdown wird unterstützt.",
+          "create": "Abschnitt Hinzufügen"
+        },
+        "empty": "Noch keine Abschnitte.",
+        "untitled": "Ohne Titel",
+        "statusVisible": "Sichtbar",
+        "statusHidden": "Ausgeblendet",
+        "actions": {
+          "show": "Anzeigen",
+          "hide": "Ausblenden",
+          "expanded": "Standardmäßig ausgeklappt",
+          "moveUp": "Nach oben",
+          "moveDown": "Nach unten",
+          "confirmDelete": "Diesen Abschnitt dauerhaft löschen?"
+        },
+        "mode": {
+          "label": "Beim Klick",
+          "inline": "Hier ausklappen",
+          "page": "Seite öffnen"
+        },
+        "slug": {
+          "placeholder": "seiten-adresse"
+        },
+        "viewPage": "Seite ansehen"
+      },
+      "preview": {
+        "button": "Vorschau"
+      },
+      "groups": {
+        "hero": {
+          "title": "Seitenanfang",
+          "desc": "Überschrift, Slogan, Einleitung und Bild, die Besucher zuerst sehen."
+        },
+        "buttons": {
+          "title": "Schaltflächen",
+          "desc": "Die zwei Aktionsschaltflächen im oberen Bereich."
+        },
+        "features": {
+          "title": "Highlights",
+          "desc": "Die drei Karten, die das Programm vorstellen."
+        },
+        "footer": {
+          "title": "Fußzeile",
+          "desc": "Das Kleingedruckte am Seitenende."
+        }
+      },
+      "layout": {
+        "title": "Seitenlayout",
+        "subtitle": "Ordnen, ergänzen und entfernen Sie die Blöcke der Seite. Prüfen Sie Änderungen mit der Vorschau.",
+        "save": "Layout Speichern",
+        "unsaved": "Nicht gespeicherte Änderungen",
+        "empty": "Noch keine Blöcke. Fügen Sie unten einen hinzu.",
+        "addBlock": "Block hinzufügen…",
+        "groupContent": "Inhaltsblöcke",
+        "groupPresets": "Vorlagen",
+        "groupSystem": "Seitenabschnitte",
+        "remove": "Entfernen",
+        "systemHint": "Bearbeiten Sie den Inhalt im Tab {tab}.",
+        "blockTypes": {
+          "HERO": "Hero",
+          "FEATURES": "Funktionskarten",
+          "SECTIONS": "Abschnitte",
+          "NEWS": "Neuigkeiten",
+          "RICH_TEXT": "Rich Text",
+          "IMAGE": "Bild",
+          "BUTTONS": "Schaltflächen",
+          "COLUMNS": "Spalten"
+        },
+        "align": {
+          "label": "Ausrichten",
+          "left": "Links",
+          "center": "Mitte"
+        },
+        "richText": {
+          "placeholder": "Schreiben… Markdown wird unterstützt."
+        },
+        "image": {
+          "width": "Breite",
+          "narrow": "Schmal",
+          "wide": "Breit",
+          "full": "Volle Breite",
+          "caption": "Bildunterschrift (optional)"
+        },
+        "buttons": {
+          "label": "Schaltflächentext",
+          "href": "Link (URL oder /Pfad)",
+          "primary": "Primär",
+          "secondary": "Sekundär",
+          "add": "Schaltfläche hinzufügen"
+        },
+        "presets": {
+          "cta": "Handlungsaufruf",
+          "cards3": "Dreispaltige Karten"
+        },
+        "columns": {
+          "card": "Kartenstil",
+          "columnLabel": "Spalte {n}",
+          "removeColumn": "Spalte entfernen",
+          "addColumn": "Spalte hinzufügen",
+          "addBlock": "Zur Spalte hinzufügen…"
+        }
+      },
+      "pages": {
+        "new": {
+          "title": "Neue Seite",
+          "placeholder": "Seitentitel (z. B. Über uns)",
+          "create": "Seite Erstellen"
+        },
+        "empty": "Noch keine Seiten.",
+        "untitled": "Ohne Titel",
+        "titleLabel": "Titel",
+        "showInNav": "Im oberen Menü anzeigen",
+        "inNav": "Im Menü",
+        "editContent": "Inhalt bearbeiten",
+        "confirmDelete": "Diese Seite dauerhaft löschen?"
+      },
+      "tabDesc": {
+        "layout": "Ordnen Sie die Blöcke der Startseite an.",
+        "content": "Der Text von Hero, Schaltflächen, Karten und Fußzeile.",
+        "sections": "Ausklappbare Panels und ihre Detailseiten.",
+        "news": "Der datierte Neuigkeiten-Feed.",
+        "pages": "Eigenständige Seiten unter /p/… für Menü oder Links.",
+        "images": "Bilder der Seite hochladen und verwalten."
       }
     }
   },

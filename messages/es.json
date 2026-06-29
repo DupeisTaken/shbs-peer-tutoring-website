@@ -139,7 +139,21 @@
         "body": "Ejemplo: coordina emparejamientos, asistencia, entrevistas y horas de servicio desde un solo lugar."
       }
     },
-    "footer": "Pie de página de ejemplo — © {appTitle}."
+    "footer": "Pie de página de ejemplo — © {appTitle}.",
+    "news": {
+      "title": "Novedades del programa"
+    },
+    "preview": {
+      "ribbon": {
+        "title": "Vista previa",
+        "note": "Estás viendo la página real. Los borradores y las secciones ocultas aparecen aquí pero no para los visitantes.",
+        "back": "Volver al Editor"
+      },
+      "draftBadge": "Borrador"
+    },
+    "detail": {
+      "hiddenNote": "Esta página está oculta para los visitantes hasta que la sección se muestre."
+    }
   },
   "dashboard": {
     "greeting": "Hola, {name}",
@@ -338,7 +352,8 @@
         "tuteeRequests": "Bajas de alumnos",
         "reports": "Informes",
         "sessionFlags": "Avisos de asistencia",
-        "crew": "Ronda"
+        "crew": "Ronda",
+        "landing": "Página de inicio"
       }
     },
     "dashboard": {
@@ -1159,6 +1174,231 @@
         "WARNED": "Advertido",
         "PENALIZED": "Penalizado",
         "ESCALATED": "Escalado"
+      }
+    },
+    "landing": {
+      "title": "Página de inicio",
+      "subtitle": "Edita lo que ven los visitantes en la página pública de inicio: texto, novedades del programa e imágenes. Los cambios se publican al instante.",
+      "loading": "Cargando…",
+      "defaultLang": "predeterminado",
+      "revert": "Restaurar Predeterminado",
+      "appTitleHint": "Usa {appTitle} para insertar el nombre del programa.",
+      "tabs": {
+        "content": "Contenido de la Página Principal",
+        "news": "Novedades",
+        "images": "Imágenes",
+        "sections": "Secciones",
+        "layout": "Diseño",
+        "pages": "Páginas"
+      },
+      "badge": {
+        "custom": "Personalizado",
+        "default": "Predeterminado"
+      },
+      "fields": {
+        "tagline": "Lema",
+        "heroTitle": "Título Principal",
+        "intro": "Introducción",
+        "ctaPrimary": "Botón Principal",
+        "ctaSecondary": "Botón Secundario",
+        "heroImage": "Imagen Principal",
+        "studentsTitle": "Tarjeta de Estudiantes — Título",
+        "studentsBody": "Tarjeta de Estudiantes — Texto",
+        "tutorsTitle": "Tarjeta de Tutores — Título",
+        "tutorsBody": "Tarjeta de Tutores — Texto",
+        "teamTitle": "Tarjeta del Equipo — Título",
+        "teamBody": "Tarjeta del Equipo — Texto",
+        "footer": "Pie de Página"
+      },
+      "content": {
+        "heroImage": {
+          "none": "Sin imagen",
+          "choose": "Elegir una imagen…",
+          "uploadFirst": "Sube primero una imagen en la pestaña Imágenes."
+        }
+      },
+      "news": {
+        "new": {
+          "title": "Nueva Publicación",
+          "titlePlaceholder": "Título de la publicación",
+          "bodyPlaceholder": "Escribe la novedad… Compatible con Markdown.",
+          "create": "Crear Borrador"
+        },
+        "empty": "Aún no hay publicaciones.",
+        "untitled": "Sin título",
+        "pinnedBadge": "Fijado",
+        "byline": "Añadido por {who}",
+        "dateLabel": "Fecha",
+        "status": {
+          "DRAFT": "Borrador",
+          "PUBLISHED": "Publicado",
+          "ARCHIVED": "Archivado"
+        },
+        "actions": {
+          "publish": "Publicar",
+          "unpublish": "Despublicar",
+          "pin": "Fijar",
+          "unpin": "Desfijar",
+          "archive": "Archivar",
+          "restore": "Restaurar",
+          "confirmDelete": "¿Eliminar esta publicación permanentemente?"
+        }
+      },
+      "images": {
+        "upload": {
+          "title": "Subir una Imagen",
+          "altPlaceholder": "Descripción (texto alternativo), opcional",
+          "button": "Subir",
+          "uploading": "Subiendo…",
+          "hint": "PNG, JPEG, WebP o GIF, hasta 2 MB."
+        },
+        "empty": "Aún no se han subido imágenes.",
+        "copyUrl": "Copiar URL",
+        "copyMarkdown": "Copiar Markdown",
+        "copied": "Copiado",
+        "confirmDelete": "¿Eliminar esta imagen? Cualquier publicación que la use mostrará una imagen rota.",
+        "uploadFailed": "Error al subir."
+      },
+      "translation": {
+        "language": "Idioma",
+        "add": "Añadir idioma…",
+        "discard": "Descartar",
+        "remove": "Quitar Este Idioma",
+        "confirmRemove": "¿Quitar la versión en {lang}?",
+        "titlePlaceholder": "Título",
+        "bodyPlaceholder": "Cuerpo (Markdown)…",
+        "insertImage": "Insertar imagen…",
+        "preview": "Vista previa",
+        "edit": "Editar",
+        "previewEmpty": "Nada que previsualizar todavía."
+      },
+      "sections": {
+        "new": {
+          "title": "Nueva Sección",
+          "titlePlaceholder": "Título de la sección (p. ej. Para Tutores)",
+          "bodyPlaceholder": "Escribe la sección… Compatible con Markdown.",
+          "create": "Añadir Sección"
+        },
+        "empty": "Aún no hay secciones.",
+        "untitled": "Sin título",
+        "statusVisible": "Visible",
+        "statusHidden": "Oculta",
+        "actions": {
+          "show": "Mostrar",
+          "hide": "Ocultar",
+          "expanded": "Expandida por defecto",
+          "moveUp": "Subir",
+          "moveDown": "Bajar",
+          "confirmDelete": "¿Eliminar esta sección permanentemente?"
+        },
+        "mode": {
+          "label": "Al hacer clic",
+          "inline": "Expandir aquí",
+          "page": "Abrir una página"
+        },
+        "slug": {
+          "placeholder": "direccion-pagina"
+        },
+        "viewPage": "Ver página"
+      },
+      "preview": {
+        "button": "Vista previa"
+      },
+      "groups": {
+        "hero": {
+          "title": "Parte Superior",
+          "desc": "El titular, lema, introducción e imagen que los visitantes ven primero."
+        },
+        "buttons": {
+          "title": "Botones",
+          "desc": "Los dos botones de acción de la parte superior."
+        },
+        "features": {
+          "title": "Destacados",
+          "desc": "Las tres tarjetas que destacan el programa."
+        },
+        "footer": {
+          "title": "Pie de Página",
+          "desc": "La letra pequeña al final de la página."
+        }
+      },
+      "layout": {
+        "title": "Diseño de la Página",
+        "subtitle": "Organiza, añade y quita los bloques que forman la página. Comprueba los cambios con Vista previa.",
+        "save": "Guardar Diseño",
+        "unsaved": "Cambios sin guardar",
+        "empty": "Aún no hay bloques. Añade uno abajo.",
+        "addBlock": "Añadir un bloque…",
+        "groupContent": "Bloques de contenido",
+        "groupPresets": "Plantillas",
+        "groupSystem": "Secciones de la página",
+        "remove": "Quitar",
+        "systemHint": "Edita su contenido en la pestaña {tab}.",
+        "blockTypes": {
+          "HERO": "Portada",
+          "FEATURES": "Tarjetas Destacadas",
+          "SECTIONS": "Secciones",
+          "NEWS": "Novedades",
+          "RICH_TEXT": "Texto Enriquecido",
+          "IMAGE": "Imagen",
+          "BUTTONS": "Botones",
+          "COLUMNS": "Columnas"
+        },
+        "align": {
+          "label": "Alinear",
+          "left": "Izquierda",
+          "center": "Centro"
+        },
+        "richText": {
+          "placeholder": "Escribe… Compatible con Markdown."
+        },
+        "image": {
+          "width": "Ancho",
+          "narrow": "Estrecho",
+          "wide": "Ancho",
+          "full": "Completo",
+          "caption": "Pie de foto (opcional)"
+        },
+        "buttons": {
+          "label": "Texto del botón",
+          "href": "Enlace (URL o /ruta)",
+          "primary": "Principal",
+          "secondary": "Secundario",
+          "add": "Añadir botón"
+        },
+        "presets": {
+          "cta": "Llamada a la Acción",
+          "cards3": "Tarjetas en Tres Columnas"
+        },
+        "columns": {
+          "card": "Estilo de tarjeta",
+          "columnLabel": "Columna {n}",
+          "removeColumn": "Quitar columna",
+          "addColumn": "Añadir columna",
+          "addBlock": "Añadir a la columna…"
+        }
+      },
+      "pages": {
+        "new": {
+          "title": "Nueva Página",
+          "placeholder": "Título de la página (p. ej. Sobre nosotros)",
+          "create": "Crear Página"
+        },
+        "empty": "Aún no hay páginas.",
+        "untitled": "Sin título",
+        "titleLabel": "Título",
+        "showInNav": "Mostrar en el menú superior",
+        "inNav": "En el menú",
+        "editContent": "Editar contenido",
+        "confirmDelete": "¿Eliminar esta página permanentemente?"
+      },
+      "tabDesc": {
+        "layout": "Organiza los bloques que forman la página de inicio.",
+        "content": "El texto de la portada, botones, tarjetas y pie de página.",
+        "sections": "Paneles expandibles y sus páginas de detalle.",
+        "news": "El feed de novedades con fecha.",
+        "pages": "Páginas independientes en /p/… para el menú o enlaces.",
+        "images": "Sube y gestiona las imágenes usadas en la página."
       }
     }
   },

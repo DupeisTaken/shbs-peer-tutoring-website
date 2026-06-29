@@ -139,7 +139,21 @@
         "body": "임시 문구 — 한 곳에서 매칭, 출석, 면접, 봉사 시간을 관리하세요."
       }
     },
-    "footer": "임시 푸터 — © {appTitle}."
+    "footer": "임시 푸터 — © {appTitle}.",
+    "news": {
+      "title": "프로그램 소식"
+    },
+    "preview": {
+      "ribbon": {
+        "title": "미리보기",
+        "note": "실제 페이지를 미리보고 있습니다. 초안과 숨긴 섹션은 여기에 표시되지만 방문자에게는 보이지 않습니다.",
+        "back": "편집기로 돌아가기"
+      },
+      "draftBadge": "초안"
+    },
+    "detail": {
+      "hiddenNote": "섹션이 표시되기 전까지 이 페이지는 방문자에게 숨겨집니다."
+    }
   },
   "dashboard": {
     "greeting": "안녕하세요, {name}",
@@ -345,7 +359,8 @@
         "tuteeRequests": "학생 삭제",
         "reports": "보고서",
         "sessionFlags": "출석 플래그",
-        "crew": "순찰조"
+        "crew": "순찰조",
+        "landing": "홈페이지"
       }
     },
     "dashboard": {
@@ -1159,6 +1174,231 @@
         "WARNED": "경고됨",
         "PENALIZED": "차감됨",
         "ESCALATED": "상신됨"
+      }
+    },
+    "landing": {
+      "title": "홈페이지",
+      "subtitle": "공개 홈페이지에서 방문자에게 보이는 내용(텍스트, 프로그램 소식, 이미지)을 편집합니다. 변경 사항은 즉시 반영됩니다.",
+      "loading": "불러오는 중…",
+      "defaultLang": "기본값",
+      "revert": "기본값으로 되돌리기",
+      "appTitleHint": "{appTitle} 를 사용하면 프로그램 이름이 삽입됩니다.",
+      "tabs": {
+        "content": "메인 페이지 내용",
+        "news": "프로그램 소식",
+        "images": "이미지",
+        "sections": "섹션",
+        "layout": "레이아웃",
+        "pages": "페이지"
+      },
+      "badge": {
+        "custom": "사용자 지정",
+        "default": "기본값"
+      },
+      "fields": {
+        "tagline": "태그라인",
+        "heroTitle": "메인 제목",
+        "intro": "소개",
+        "ctaPrimary": "기본 버튼",
+        "ctaSecondary": "보조 버튼",
+        "heroImage": "메인 이미지",
+        "studentsTitle": "학생 카드 — 제목",
+        "studentsBody": "학생 카드 — 본문",
+        "tutorsTitle": "튜터 카드 — 제목",
+        "tutorsBody": "튜터 카드 — 본문",
+        "teamTitle": "팀 카드 — 제목",
+        "teamBody": "팀 카드 — 본문",
+        "footer": "푸터"
+      },
+      "content": {
+        "heroImage": {
+          "none": "이미지 없음",
+          "choose": "이미지 선택…",
+          "uploadFirst": "먼저 이미지 탭에서 이미지를 업로드하세요."
+        }
+      },
+      "news": {
+        "new": {
+          "title": "새 게시물",
+          "titlePlaceholder": "게시물 제목",
+          "bodyPlaceholder": "소식을 작성하세요… Markdown 지원.",
+          "create": "초안 만들기"
+        },
+        "empty": "게시물이 없습니다.",
+        "untitled": "제목 없음",
+        "pinnedBadge": "고정됨",
+        "byline": "{who} 작성",
+        "dateLabel": "날짜",
+        "status": {
+          "DRAFT": "초안",
+          "PUBLISHED": "게시됨",
+          "ARCHIVED": "보관됨"
+        },
+        "actions": {
+          "publish": "게시",
+          "unpublish": "게시 취소",
+          "pin": "고정",
+          "unpin": "고정 해제",
+          "archive": "보관",
+          "restore": "복원",
+          "confirmDelete": "이 게시물을 영구적으로 삭제하시겠습니까?"
+        }
+      },
+      "images": {
+        "upload": {
+          "title": "이미지 업로드",
+          "altPlaceholder": "설명(대체 텍스트), 선택 사항",
+          "button": "업로드",
+          "uploading": "업로드 중…",
+          "hint": "PNG, JPEG, WebP 또는 GIF, 최대 2 MB."
+        },
+        "empty": "업로드된 이미지가 없습니다.",
+        "copyUrl": "URL 복사",
+        "copyMarkdown": "Markdown 복사",
+        "copied": "복사됨",
+        "confirmDelete": "이 이미지를 삭제하시겠습니까? 사용 중인 게시물에 깨진 이미지가 표시됩니다.",
+        "uploadFailed": "업로드 실패."
+      },
+      "translation": {
+        "language": "언어",
+        "add": "언어 추가…",
+        "discard": "취소",
+        "remove": "이 언어 제거",
+        "confirmRemove": "{lang} 버전을 제거하시겠습니까?",
+        "titlePlaceholder": "제목",
+        "bodyPlaceholder": "본문 (Markdown)…",
+        "insertImage": "이미지 삽입…",
+        "preview": "미리보기",
+        "edit": "편집",
+        "previewEmpty": "아직 미리볼 내용이 없습니다."
+      },
+      "sections": {
+        "new": {
+          "title": "새 섹션",
+          "titlePlaceholder": "섹션 제목 (예: 튜터를 위한 안내)",
+          "bodyPlaceholder": "섹션을 작성하세요… Markdown 지원.",
+          "create": "섹션 추가"
+        },
+        "empty": "섹션이 없습니다.",
+        "untitled": "제목 없음",
+        "statusVisible": "표시됨",
+        "statusHidden": "숨김",
+        "actions": {
+          "show": "표시",
+          "hide": "숨기기",
+          "expanded": "기본적으로 펼침",
+          "moveUp": "위로",
+          "moveDown": "아래로",
+          "confirmDelete": "이 섹션을 영구적으로 삭제하시겠습니까?"
+        },
+        "mode": {
+          "label": "클릭 시",
+          "inline": "그 자리에서 펼치기",
+          "page": "페이지 열기"
+        },
+        "slug": {
+          "placeholder": "페이지-주소"
+        },
+        "viewPage": "페이지 보기"
+      },
+      "preview": {
+        "button": "미리보기"
+      },
+      "groups": {
+        "hero": {
+          "title": "페이지 상단",
+          "desc": "방문자가 가장 먼저 보는 제목, 태그라인, 소개, 이미지."
+        },
+        "buttons": {
+          "title": "버튼",
+          "desc": "상단의 두 작업 버튼."
+        },
+        "features": {
+          "title": "하이라이트",
+          "desc": "프로그램을 소개하는 세 개의 카드."
+        },
+        "footer": {
+          "title": "푸터",
+          "desc": "페이지 하단의 작은 안내 문구."
+        }
+      },
+      "layout": {
+        "title": "페이지 레이아웃",
+        "subtitle": "페이지를 구성하는 블록을 정렬, 추가, 제거합니다. 미리보기로 변경 사항을 확인하세요.",
+        "save": "레이아웃 저장",
+        "unsaved": "저장되지 않은 변경 사항",
+        "empty": "블록이 없습니다. 아래에서 추가하세요.",
+        "addBlock": "블록 추가…",
+        "groupContent": "콘텐츠 블록",
+        "groupPresets": "프리셋",
+        "groupSystem": "페이지 섹션",
+        "remove": "제거",
+        "systemHint": "내용은 {tab} 탭에서 편집하세요.",
+        "blockTypes": {
+          "HERO": "히어로",
+          "FEATURES": "특징 카드",
+          "SECTIONS": "섹션",
+          "NEWS": "소식",
+          "RICH_TEXT": "리치 텍스트",
+          "IMAGE": "이미지",
+          "BUTTONS": "버튼",
+          "COLUMNS": "단"
+        },
+        "align": {
+          "label": "정렬",
+          "left": "왼쪽",
+          "center": "가운데"
+        },
+        "richText": {
+          "placeholder": "입력하세요… Markdown 지원."
+        },
+        "image": {
+          "width": "너비",
+          "narrow": "좁게",
+          "wide": "넓게",
+          "full": "전체 너비",
+          "caption": "캡션 (선택 사항)"
+        },
+        "buttons": {
+          "label": "버튼 텍스트",
+          "href": "링크 (URL 또는 /경로)",
+          "primary": "기본",
+          "secondary": "보조",
+          "add": "버튼 추가"
+        },
+        "presets": {
+          "cta": "행동 유도",
+          "cards3": "3단 카드"
+        },
+        "columns": {
+          "card": "카드 스타일",
+          "columnLabel": "{n}번째 단",
+          "removeColumn": "단 제거",
+          "addColumn": "단 추가",
+          "addBlock": "단에 추가…"
+        }
+      },
+      "pages": {
+        "new": {
+          "title": "새 페이지",
+          "placeholder": "페이지 제목 (예: 소개)",
+          "create": "페이지 만들기"
+        },
+        "empty": "페이지가 없습니다.",
+        "untitled": "제목 없음",
+        "titleLabel": "제목",
+        "showInNav": "상단 메뉴에 표시",
+        "inNav": "메뉴에 표시됨",
+        "editContent": "내용 편집",
+        "confirmDelete": "이 페이지를 영구적으로 삭제하시겠습니까?"
+      },
+      "tabDesc": {
+        "layout": "홈페이지를 구성하는 블록을 정렬합니다.",
+        "content": "히어로, 버튼, 특징 카드, 푸터 텍스트.",
+        "sections": "펼칠 수 있는 패널과 상세 페이지.",
+        "news": "날짜가 있는 프로그램 소식 피드.",
+        "pages": "메뉴나 링크용 /p/… 의 독립 페이지.",
+        "images": "페이지에서 사용하는 이미지를 업로드하고 관리합니다."
       }
     }
   },

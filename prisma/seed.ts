@@ -1004,6 +1004,78 @@ async function main() {
     });
   }
 
+  // --- Custom landing subpages -----------------------------------------------
+  // Standalone /p/<slug> pages built from content blocks (as createPage + setLayout + updatePage
+  // produce them). Published + shown in the top nav. Fixed block ids keep the layout idempotent.
+  const SUBPAGES = [
+    {
+      slug: "about",
+      title: { en: "About the Program" },
+      navOrder: 0,
+      blocks: [
+        {
+          id: "about-intro",
+          type: "RICH_TEXT",
+          align: "center",
+          text: {
+            en: "## About the program\n\nOur peer-tutoring program pairs students with trained tutors across a range of subjects, at times that work for them.",
+          },
+        },
+        {
+          id: "about-cols",
+          type: "COLUMNS",
+          card: true,
+          columns: [
+            [{ id: "about-c1", type: "RICH_TEXT", text: { en: "**For students**\n\nGet free help in the subjects you choose." } }],
+            [{ id: "about-c2", type: "RICH_TEXT", text: { en: "**For tutors**\n\nShare what you know and earn service hours." } }],
+          ],
+        },
+        {
+          id: "about-cta",
+          type: "BUTTONS",
+          align: "center",
+          buttons: [
+            { label: { en: "Request a tutor" }, href: "/signup", style: "primary" },
+            { label: { en: "Become a tutor" }, href: "/tutor-signup", style: "secondary" },
+          ],
+        },
+      ],
+    },
+    {
+      slug: "faq",
+      title: { en: "Frequently Asked Questions" },
+      navOrder: 1,
+      blocks: [
+        {
+          id: "faq-body",
+          type: "RICH_TEXT",
+          text: {
+            en: "### How do I sign up?\n\nUse the **Request a Tutor** button on the home page.\n\n### Is it free?\n\nYes — it's a student-run peer program.\n\n### How are service hours tracked?\n\nTutors log attendance after each session, and hours are calculated automatically.",
+          },
+        },
+      ],
+    },
+  ];
+  for (const p of SUBPAGES) {
+    const page = await db.customPage.upsert({
+      where: { slug: p.slug },
+      update: { title: p.title, published: true, showInNav: true, navOrder: p.navOrder },
+      create: {
+        slug: p.slug,
+        title: p.title,
+        published: true,
+        showInNav: true,
+        navOrder: p.navOrder,
+        createdByName: "Admin A",
+      },
+    });
+    await db.pageLayout.upsert({
+      where: { ownerKey: `page:${page.id}` },
+      update: { blocks: p.blocks as object, updatedByName: "Admin A" },
+      create: { ownerKey: `page:${page.id}`, blocks: p.blocks as object, updatedByName: "Admin A" },
+    });
+  }
+
   // --- Notifications ---------------------------------------------------------
   const notifications = [
     { id: "notif-alice-1", userId: "user-alice", title: "📣 Welcome back — Q3 pairings are live", body: "Confirm your session times this week.", link: "/dashboard" },
@@ -1118,7 +1190,7 @@ async function main() {
       `${PAIRINGS.length} pairings, ${SESSIONS.length} sessions, ${CARDS.length} cards, ` +
       `${APPLICATIONS.length} applications, ${meetings.length} meetings, ` +
       `${TUTOR_STATUS_REQUESTS.length} tutor requests, ${TUTEE_REMOVALS.length} tutee opt-outs/removals, ` +
-      `${REGISTRATION_CODES.length} registration codes, ${users.length} login users ` +
+      `${SUBPAGES.length} custom subpages, ${REGISTRATION_CODES.length} registration codes, ${users.length} login users ` +
       `(password "${DEV_PASSWORD}"); history for 25-26 Q1–Q4 (S1 + S2) + active 26-27 Q1; ` +
       `edge cases: single-name + colliding-handle tutors, opted-out/inactive crew, accepted crew ` +
       `application + outstanding code, suspended viewers (pending + denied appeals), staged toggle.`,

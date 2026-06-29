@@ -1232,3 +1232,152 @@ model PasswordResetToken {
 
   @@index([userId])
 }
+
+// ----------------------------------------------------------------------------
+// Editable public landing page (/) — content management for non-developers.
+//
+// Three surfaces, edited on /admin/landing by admins/coordinators (translatorProcedure):
+//   • HomeContent  — per-(key, locale) text overrides for the fixed landing slots
+//                    (hero, CTAs, feature cards). Falls back to the bundled messages/*.json
+//                    defaults when no override exists (see src/server/home/content.ts), so an
+//                    unconfigured program still renders and clearing a row reverts to default.
+//   • NewsPost +   — a program-news feed (refresh dates, announcements). Mirrors PolicyDocument:
+//     NewsTranslation  one post with per-locale translations and an always-present `en` fallback.
+//   • HomeImage    — uploaded images (bytes in Postgres), served via /api/images/[id] and embedded
+//                    in news markdown as ![alt](/api/images/<id>). See src/server/home/news.ts.
+// ----------------------------------------------------------------------------
+
+/// Per-(key, locale) override for a fixed landing-page text slot. Missing row = use the bundled
+/// messages/*.json default. The canonical key list lives in src/server/home/content.ts.
+model HomeContent {
+  key           String
+  locale        String
+  value         String   @db.Text
+  updatedByName String?
+  updatedAt     DateTime @updatedAt
+
+  @@id([key, locale])
+  @@index([locale])
+}
+
+enum NewsStatus {
+  DRAFT // not shown publicly yet
+  PUBLISHED // live on the landing page
+  ARCHIVED // retired but retained (revertible)
+}
+
+/// A program-news item shown on the public landing page. The post itself carries lifecycle/ordering;
+/// the localized title + body live in NewsTranslation (one per locale, `en` is the fallback).
+model NewsPost {
+  id            String     @id @default(cuid())
+  status        NewsStatus @default(DRAFT)
+  /// Pinned posts sort above the rest regardless of date.
+  pinned        Boolean    @default(false)
+  /// When it went (or will be marked) live; also the displayed date.
+  publishedAt   DateTime?
+  createdByName String?
+  createdAt     DateTime   @default(now())
+  updatedAt     DateTime   @updatedAt
+
+  translations NewsTranslation[]
+
+  @@index([status, pinned, publishedAt])
+}
+
+/// One localized rendering of a NewsPost. `en` is always present and serves as the fallback for
+/// locales without their own translation (mirrors PolicyDocument).
+model NewsTranslation {
+  id     String   @id @default(cuid())
+  postId String
+  post   NewsPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+  locale String   @default("en")
+  title  String
+  body   String   @db.Text // Markdown
+
+  @@unique([postId, locale])
+}
+
+/// An uploaded image stored as bytes in Postgres and served via GET /api/images/[id]. Kept small
+/// (validated mime + size cap at the upload route); referenced from news markdown / the hero slot.
+model HomeImage {
+  id            String   @id @default(cuid())
+  mimeType      String
+  /// Raw image bytes.
+  data          Bytes
+  byteSize      Int
+  alt           String?
+  createdByName String?
+  createdAt     DateTime @default(now())
+
+  @@index([createdAt])
+}
+
+enum SectionMode {
+  INLINE // expands as an accordion in place on the landing page
+  PAGE // the box links to a full detail page at /p/<slug>
+}
+
+/// A free-form, admin-authored section on the landing page. INLINE sections expand as an accordion
+/// in place; PAGE sections show as a clickable box that opens a detail page at /p/<slug> rendering
+/// the same (markdown) body. Ordering + visibility live here; the localized title + markdown body
+/// live in LandingSectionTranslation (`en` is the fallback). Edited on /admin/landing.
+model LandingSection {
+  id            String      @id @default(cuid())
+  sortOrder     Int         @default(0)
+  published     Boolean     @default(false)
+  /// Whether the panel starts expanded when the page loads (INLINE only).
+  openByDefault Boolean     @default(false)
+  mode          SectionMode @default(INLINE)
+  /// URL slug for a PAGE section's detail page (/p/<slug>); null for INLINE.
+  slug          String?     @unique
+  createdByName String?
+  createdAt     DateTime    @default(now())
+  updatedAt     DateTime    @updatedAt
+
+  translations LandingSectionTranslation[]
+
+  @@index([published, sortOrder])
+}
+
+/// One localized rendering of a LandingSection. `en` is always present and is the fallback for
+/// locales without their own translation (mirrors NewsTranslation / PolicyDocument).
+model LandingSectionTranslation {
+  id        String         @id @default(cuid())
+  sectionId String
+  section   LandingSection @relation(fields: [sectionId], references: [id], onDelete: Cascade)
+  locale    String         @default("en")
+  title     String
+  body      String         @db.Text // Markdown
+
+  @@unique([sectionId, locale])
+}
+
+/// The block layout for a page container. `ownerKey` is "landing" for the public landing page;
+/// future containers are "section:<id>" / "page:<slug>". `blocks` is an ordered JSON array of typed
+/// blocks (system blocks like HERO/FEATURES/SECTIONS/NEWS that pull from their own editors, plus
+/// content blocks like RICH_TEXT/IMAGE/BUTTONS whose localized data is stored inline). A missing row
+/// falls back to the default layout (src/server/home/blocks.ts), so the page renders unconfigured.
+model PageLayout {
+  ownerKey      String   @id
+  blocks        Json
+  updatedByName String?
+  updatedAt     DateTime @updatedAt
+}
+
+/// A standalone admin-built page reached at /p/<slug>, composed of content blocks (its block layout
+/// lives in PageLayout with ownerKey "page:<id>"). `title` is a localized { locale: value } map.
+/// `slug` is unique across CustomPage *and* LandingSection (both share the /p/<slug> namespace).
+/// `showInNav`/`navOrder` drive the managed top-nav menu. Edited on /admin/landing.
+model CustomPage {
+  id            String   @id @default(cuid())
+  slug          String   @unique
+  title         Json
+  published     Boolean  @default(false)
+  showInNav     Boolean  @default(false)
+  navOrder      Int      @default(0)
+  createdByName String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([published, navOrder])
+}

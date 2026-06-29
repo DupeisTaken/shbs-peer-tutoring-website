@@ -139,7 +139,21 @@
         "body": "Placeholder — coordinate pairings, attendance, interviews, and service hours from one place."
       }
     },
-    "footer": "Placeholder footer — © {appTitle}."
+    "footer": "Placeholder footer — © {appTitle}.",
+    "news": {
+      "title": "Program News"
+    },
+    "preview": {
+      "ribbon": {
+        "title": "Preview",
+        "note": "You're previewing the live page. Drafts and hidden sections appear here but not to visitors.",
+        "back": "Back to Editor"
+      },
+      "draftBadge": "Draft"
+    },
+    "detail": {
+      "hiddenNote": "This page is hidden from visitors until the section is shown."
+    }
   },
   "dashboard": {
     "greeting": "Hi, {name}",
@@ -345,7 +359,8 @@
         "tuteeRequests": "Tutee Removals",
         "reports": "Reports",
         "sessionFlags": "Attendance Flags",
-        "crew": "Crew"
+        "crew": "Crew",
+        "landing": "Landing Page"
       }
     },
     "dashboard": {
@@ -1159,6 +1174,231 @@
         "WARNED": "Warned",
         "PENALIZED": "Penalized",
         "ESCALATED": "Escalated"
+      }
+    },
+    "landing": {
+      "title": "Landing Page",
+      "subtitle": "Edit what visitors see on the public home page — text, program news, and images. Changes go live immediately.",
+      "loading": "Loading…",
+      "defaultLang": "default",
+      "revert": "Revert to Default",
+      "appTitleHint": "Use {appTitle} to insert the program name.",
+      "tabs": {
+        "content": "Main Page Content",
+        "news": "Program News",
+        "images": "Images",
+        "sections": "Sections",
+        "layout": "Layout",
+        "pages": "Pages"
+      },
+      "badge": {
+        "custom": "Customized",
+        "default": "Default"
+      },
+      "fields": {
+        "tagline": "Tagline",
+        "heroTitle": "Hero Title",
+        "intro": "Introduction",
+        "ctaPrimary": "Primary Button",
+        "ctaSecondary": "Secondary Button",
+        "heroImage": "Hero Image",
+        "studentsTitle": "Students Card — Title",
+        "studentsBody": "Students Card — Body",
+        "tutorsTitle": "Tutors Card — Title",
+        "tutorsBody": "Tutors Card — Body",
+        "teamTitle": "Team Card — Title",
+        "teamBody": "Team Card — Body",
+        "footer": "Footer"
+      },
+      "content": {
+        "heroImage": {
+          "none": "No image",
+          "choose": "Choose an image…",
+          "uploadFirst": "Upload an image first in the Images tab."
+        }
+      },
+      "news": {
+        "new": {
+          "title": "New Post",
+          "titlePlaceholder": "Post title",
+          "bodyPlaceholder": "Write the update… Markdown supported.",
+          "create": "Create Draft"
+        },
+        "empty": "No posts yet.",
+        "untitled": "Untitled",
+        "pinnedBadge": "Pinned",
+        "byline": "Added by {who}",
+        "dateLabel": "Date",
+        "status": {
+          "DRAFT": "Draft",
+          "PUBLISHED": "Published",
+          "ARCHIVED": "Archived"
+        },
+        "actions": {
+          "publish": "Publish",
+          "unpublish": "Unpublish",
+          "pin": "Pin",
+          "unpin": "Unpin",
+          "archive": "Archive",
+          "restore": "Restore",
+          "confirmDelete": "Delete this post permanently?"
+        }
+      },
+      "images": {
+        "upload": {
+          "title": "Upload an Image",
+          "altPlaceholder": "Description (alt text), optional",
+          "button": "Upload",
+          "uploading": "Uploading…",
+          "hint": "PNG, JPEG, WebP or GIF, up to 2 MB."
+        },
+        "empty": "No images uploaded yet.",
+        "copyUrl": "Copy URL",
+        "copyMarkdown": "Copy Markdown",
+        "copied": "Copied",
+        "confirmDelete": "Delete this image? Any post using it will show a broken image.",
+        "uploadFailed": "Upload failed."
+      },
+      "translation": {
+        "language": "Language",
+        "add": "Add Language…",
+        "discard": "Discard",
+        "remove": "Remove This Language",
+        "confirmRemove": "Remove the {lang} version?",
+        "titlePlaceholder": "Title",
+        "bodyPlaceholder": "Body (Markdown)…",
+        "insertImage": "Insert image…",
+        "preview": "Preview",
+        "edit": "Edit",
+        "previewEmpty": "Nothing to preview yet."
+      },
+      "sections": {
+        "new": {
+          "title": "New Section",
+          "titlePlaceholder": "Section title (e.g. For Tutors)",
+          "bodyPlaceholder": "Write the section… Markdown supported.",
+          "create": "Add Section"
+        },
+        "empty": "No sections yet.",
+        "untitled": "Untitled",
+        "statusVisible": "Visible",
+        "statusHidden": "Hidden",
+        "actions": {
+          "show": "Show",
+          "hide": "Hide",
+          "expanded": "Expanded by default",
+          "moveUp": "Move up",
+          "moveDown": "Move down",
+          "confirmDelete": "Delete this section permanently?"
+        },
+        "mode": {
+          "label": "When clicked",
+          "inline": "Expand in place",
+          "page": "Open a page"
+        },
+        "slug": {
+          "placeholder": "page-address"
+        },
+        "viewPage": "View page"
+      },
+      "preview": {
+        "button": "Preview"
+      },
+      "groups": {
+        "hero": {
+          "title": "Top of Page",
+          "desc": "The headline, tagline, intro, and image visitors see first."
+        },
+        "buttons": {
+          "title": "Buttons",
+          "desc": "The two action buttons in the top section."
+        },
+        "features": {
+          "title": "Highlights",
+          "desc": "The three cards that highlight the program."
+        },
+        "footer": {
+          "title": "Footer",
+          "desc": "The small print at the bottom of the page."
+        }
+      },
+      "layout": {
+        "title": "Page Layout",
+        "subtitle": "Arrange, add, and remove the blocks that make up the page. Check your changes with Preview.",
+        "save": "Save Layout",
+        "unsaved": "Unsaved changes",
+        "empty": "No blocks yet. Add one below.",
+        "addBlock": "Add a block…",
+        "groupContent": "Content blocks",
+        "groupPresets": "Presets",
+        "groupSystem": "Page sections",
+        "remove": "Remove",
+        "systemHint": "Edit its content in the {tab} tab.",
+        "blockTypes": {
+          "HERO": "Hero",
+          "FEATURES": "Feature Cards",
+          "SECTIONS": "Sections",
+          "NEWS": "News",
+          "RICH_TEXT": "Rich Text",
+          "IMAGE": "Image",
+          "BUTTONS": "Buttons",
+          "COLUMNS": "Columns"
+        },
+        "align": {
+          "label": "Align",
+          "left": "Left",
+          "center": "Center"
+        },
+        "richText": {
+          "placeholder": "Write… Markdown supported."
+        },
+        "image": {
+          "width": "Width",
+          "narrow": "Narrow",
+          "wide": "Wide",
+          "full": "Full",
+          "caption": "Caption (optional)"
+        },
+        "buttons": {
+          "label": "Button text",
+          "href": "Link (URL or /path)",
+          "primary": "Primary",
+          "secondary": "Secondary",
+          "add": "Add button"
+        },
+        "presets": {
+          "cta": "Call to Action",
+          "cards3": "Three-Column Cards"
+        },
+        "columns": {
+          "card": "Card style",
+          "columnLabel": "Column {n}",
+          "removeColumn": "Remove column",
+          "addColumn": "Add column",
+          "addBlock": "Add to column…"
+        }
+      },
+      "pages": {
+        "new": {
+          "title": "New Page",
+          "placeholder": "Page title (e.g. About Us)",
+          "create": "Create Page"
+        },
+        "empty": "No pages yet.",
+        "untitled": "Untitled",
+        "titleLabel": "Title",
+        "showInNav": "Show in top nav",
+        "inNav": "In nav",
+        "editContent": "Edit content",
+        "confirmDelete": "Delete this page permanently?"
+      },
+      "tabDesc": {
+        "layout": "Arrange the blocks that make up the landing page.",
+        "content": "The hero, buttons, feature cards and footer text.",
+        "sections": "Expandable panels and their detail pages.",
+        "news": "The dated program-news feed.",
+        "pages": "Standalone pages at /p/… for the nav menu or links.",
+        "images": "Upload and manage images used across the page."
       }
     }
   },

@@ -427,6 +427,61 @@ submission time). See the `admin-philosophies` memory for the rationale.
   **`/admin/session-flags`** (`decideSessionFlag`): **dismiss** as valid, record a **warning**, **apply an
   hour penalty** (creates a PUNISHMENT `ServiceHourAdjustment`), or **escalate for removal** — the tutor is
   notified (except a silent dismiss). Count + panel on `/admin/activity`; a stat on the admin dashboard.
+- **The public landing page (`/`) is editable in-app — no redeploy.** Four surfaces, edited on
+  **`/admin/landing`** (the `home` router, `translatorProcedure` — admins/coordinators or a
+  `canTranslate` user), rendered straight from `src/server/home/*.ts` by the landing **server**
+  component (no public procedure). **Fixed text slots** (hero, CTAs, feature cards, footer +
+  optional hero image) are `HomeContent` `(key, locale)` overrides; a missing row falls back to the
+  bundled `messages/*.json` `landing.<key>` default, so clearing an override **reverts** to default.
+  The slot list is the single source of truth in `src/server/home/content.ts` (`HOME_FIELDS`);
+  `{appTitle}` is substituted in overrides. **Expandable sections** (`LandingSection` +
+  `LandingSectionTranslation`) are free-form, admin-authored accordion panels (markdown body,
+  reorderable, show/hide, expand-by-default) rendered by the `LandingSections` client island with
+  the shared `DisclosureIcon`. **Program news** (`NewsPost` + `NewsTranslation`, status
+  `DRAFT|PUBLISHED|ARCHIVED`) mirrors PolicyDocument. Sections + news both use per-locale
+  translations with an always-present `en` fallback and a markdown body rendered via the shared
+  `<Markdown>`, edited through the **generalized** `LocalizedTranslations`/`LocalizedBodyEditor`
+  components (one editor, both routers; shared `admin.landing.translation.*` keys), and both
+  self-hide on the landing page when nothing is published. **Images** (`HomeImage`) are bytes in
+  Postgres, uploaded via the route handler **`POST /api/admin/home-images`** (validates type ∈
+  png/jpeg/webp/gif, ≤ 2 MB) and served public + immutably-cached from **`GET /api/images/[id]`**;
+  embed them in section/news markdown as `![alt](/api/images/<id>)` (the `<Markdown>` `img` renderer
+  constrains them). Not behind a feature flag — it degrades gracefully to the bundled copy when empty.
+  The landing markup is a shared **`LandingView`** server component (`~/app/_components/landing-view`)
+  rendered by both `/` (with the signed-in redirect) and **`/landing-preview`** — an editor-gated
+  (`authorizeHomeEditor`), full-bleed **preview** outside the `(admin)` shell that passes
+  `preview` to show unpublished news + hidden sections (badged) behind a ribbon, so an editor can see
+  staged vs. live before publishing (the editor's header links to it in a new tab). The `home`
+  libs (`getLandingNews`/`getLandingSections`) take an `includeDrafts`/`includeHidden` opt for this.
+  The Page Content tab is grouped by page region (`CONTENT_GROUPS`: Top of Page / Buttons /
+  Highlights / Footer) so the editor mirrors the page's anatomy. **The page itself is a block layout**
+  (`PageLayout` row, `ownerKey: "landing"`, a JSON `blocks` array — see `src/server/home/blocks.ts`):
+  an ordered list of **system blocks** (`HERO`/`FEATURES`/`SECTIONS`/`NEWS`, no inline data — they
+  render the curated pieces edited in their own tabs; the block only controls order + presence) and
+  **content blocks** (`RICH_TEXT`/`IMAGE`/`BUTTONS`, inline data; localized text is a `{locale:value}`
+  map with `en` fallback via `pickLocalized`). `getLandingLayout` returns `DEFAULT_LAYOUT` (today's
+  page) when unconfigured, so nothing changes until edited. `LandingView` renders the array;
+  `BlockType`/`SYSTEM_BLOCK_TYPES`/`CONTENT_BLOCK_TYPES` from `blocks.ts` are isomorphic (zod + pure
+  helpers, no runtime server import) so the **Layout** editor tab (reorder / add / remove / presets,
+  saved as one document via `home.setLayout`) can import them client-side. A **`COLUMNS`** block lays
+  leaf blocks out in 2–4 columns (optional card style; one level of nesting — `LeafBlock`, no
+  columns-in-columns) via `leafSchema`/`columnsSchema`; the renderer reuses a shared `ButtonRow` and a
+  bare `ColumnLeaf`, and the editor reuses the leaf field editors inside each column. **Sections have a
+  `mode`** (`SectionMode` `INLINE`|`PAGE`): INLINE expands the accordion in place; **PAGE** shows a
+  clickable box linking to a detail page at **`/p/<slug>`** (`src/app/p/[slug]`, public via the auth
+  config `/p/` prefix; `getSectionBySlug` renders the section's markdown — an unpublished one is shown
+  only to a landing editor, with a hidden banner). The slug auto-derives from the title on switching to
+  PAGE (`slugify`/`ensureUniqueSlug` in the `home` router) and is editable on the Sections tab.
+  **Standalone custom pages** (`CustomPage`: localized `title` JSON map, `slug`, `published`,
+  `showInNav`/`navOrder`) are built on the **Pages** tab from content blocks — their layout is a
+  `PageLayout` with ownerKey `page:<id>` (`getLayout`/`pageOwnerKey`), edited by the same
+  `LayoutEditor` in `contentOnly` mode (no system blocks). They render at the shared **`/p/<slug>`**
+  (the route resolves a custom page *or* a PAGE section; `ensureUniqueSlug` keeps slugs unique across
+  both). The content-block renderers are shared via `~/app/_components/page-blocks.tsx` (`PageBlocks`
+  + the individual block components), used by both `LandingView` and `/p/[slug]`. Pages flagged
+  **`showInNav`** render as links in the top nav (`getNavPages` → the shared `NavPageLinks`, in both
+  the landing header and the `/p/<slug>` header); order is `navOrder`, set by the up/down controls on
+  the Pages tab (`reorderPages`).
 
 ## Layout
 

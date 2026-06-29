@@ -66,6 +66,7 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
     titleKey: "admin.nav.sections.administration",
     items: [
       { href: "/admin/program", labelKey: "admin.nav.links.program", adminOnly: true },
+      { href: "/admin/landing", labelKey: "admin.nav.links.landing", elevatedOnly: true },
       { href: "/admin/policies", labelKey: "admin.nav.links.policyDocuments" },
       { href: "/localization", labelKey: "localization.navLabel", elevatedOnly: true },
       { href: "/admin/registration-codes", labelKey: "admin.nav.links.registrationCodes", elevatedOnly: true },

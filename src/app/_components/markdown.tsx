@@ -32,6 +32,17 @@ export function Markdown({ children }: { children: string }) {
         a: ({ node: _n, ...p }) => (
           <a className="link" target="_blank" rel="noopener noreferrer" {...p} />
         ),
+        // Inserted images (e.g. uploaded landing-page art at /api/images/<id>). Constrained,
+        // rounded, and lazy so a large image never blows out the column.
+        img: ({ node: _n, alt, ...p }) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            className="my-3 h-auto max-w-full rounded-lg border border-slate-200"
+            alt={alt ?? ""}
+            loading="lazy"
+            {...p}
+          />
+        ),
         blockquote: ({ node: _n, ...p }) => (
           <blockquote className="my-2 border-l-2 border-slate-200 pl-3 text-slate-600" {...p} />
         ),

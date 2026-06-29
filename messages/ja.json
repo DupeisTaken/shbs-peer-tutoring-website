@@ -139,7 +139,21 @@
         "body": "プレースホルダー — ペアリング、出席、面接、奉仕時間を一箇所で管理できます。"
       }
     },
-    "footer": "プレースホルダーフッター — © {appTitle}。"
+    "footer": "プレースホルダーフッター — © {appTitle}。",
+    "news": {
+      "title": "プログラムのお知らせ"
+    },
+    "preview": {
+      "ribbon": {
+        "title": "プレビュー",
+        "note": "実際のページをプレビューしています。下書きや非表示のセクションはここでは表示されますが、訪問者には表示されません。",
+        "back": "編集に戻る"
+      },
+      "draftBadge": "下書き"
+    },
+    "detail": {
+      "hiddenNote": "このセクションが表示されるまで、このページは訪問者に非表示です。"
+    }
   },
   "dashboard": {
     "greeting": "こんにちは、{name}",
@@ -345,7 +359,8 @@
         "tuteeRequests": "生徒の削除",
         "reports": "レポート",
         "sessionFlags": "出席フラグ",
-        "crew": "巡回班"
+        "crew": "巡回班",
+        "landing": "トップページ"
       }
     },
     "dashboard": {
@@ -1159,6 +1174,231 @@
         "WARNED": "警告済み",
         "PENALIZED": "減算済み",
         "ESCALATED": "エスカレーション"
+      }
+    },
+    "landing": {
+      "title": "トップページ",
+      "subtitle": "公開トップページで訪問者に表示される内容（テキスト・お知らせ・画像）を編集します。変更は即時に反映されます。",
+      "loading": "読み込み中…",
+      "defaultLang": "デフォルト",
+      "revert": "デフォルトに戻す",
+      "appTitleHint": "{appTitle} でプログラム名を挿入できます。",
+      "tabs": {
+        "content": "メインページの内容",
+        "news": "お知らせ",
+        "images": "画像",
+        "sections": "セクション",
+        "layout": "レイアウト",
+        "pages": "ページ"
+      },
+      "badge": {
+        "custom": "カスタム",
+        "default": "デフォルト"
+      },
+      "fields": {
+        "tagline": "キャッチコピー",
+        "heroTitle": "メインタイトル",
+        "intro": "紹介文",
+        "ctaPrimary": "主ボタン",
+        "ctaSecondary": "副ボタン",
+        "heroImage": "メイン画像",
+        "studentsTitle": "生徒カード — タイトル",
+        "studentsBody": "生徒カード — 本文",
+        "tutorsTitle": "チューターカード — タイトル",
+        "tutorsBody": "チューターカード — 本文",
+        "teamTitle": "チームカード — タイトル",
+        "teamBody": "チームカード — 本文",
+        "footer": "フッター"
+      },
+      "content": {
+        "heroImage": {
+          "none": "画像なし",
+          "choose": "画像を選択…",
+          "uploadFirst": "まず「画像」タブで画像をアップロードしてください。"
+        }
+      },
+      "news": {
+        "new": {
+          "title": "新規投稿",
+          "titlePlaceholder": "投稿のタイトル",
+          "bodyPlaceholder": "お知らせを入力…Markdown 対応。",
+          "create": "下書きを作成"
+        },
+        "empty": "投稿はまだありません。",
+        "untitled": "無題",
+        "pinnedBadge": "固定",
+        "byline": "{who} が追加",
+        "dateLabel": "日付",
+        "status": {
+          "DRAFT": "下書き",
+          "PUBLISHED": "公開中",
+          "ARCHIVED": "アーカイブ済み"
+        },
+        "actions": {
+          "publish": "公開",
+          "unpublish": "非公開にする",
+          "pin": "固定",
+          "unpin": "固定を解除",
+          "archive": "アーカイブ",
+          "restore": "復元",
+          "confirmDelete": "この投稿を完全に削除しますか？"
+        }
+      },
+      "images": {
+        "upload": {
+          "title": "画像をアップロード",
+          "altPlaceholder": "説明（代替テキスト）、任意",
+          "button": "アップロード",
+          "uploading": "アップロード中…",
+          "hint": "PNG・JPEG・WebP・GIF、最大 2 MB。"
+        },
+        "empty": "まだ画像がアップロードされていません。",
+        "copyUrl": "URL をコピー",
+        "copyMarkdown": "Markdown をコピー",
+        "copied": "コピーしました",
+        "confirmDelete": "この画像を削除しますか？使用中の投稿では画像が表示されなくなります。",
+        "uploadFailed": "アップロードに失敗しました。"
+      },
+      "translation": {
+        "language": "言語",
+        "add": "言語を追加…",
+        "discard": "破棄",
+        "remove": "この言語を削除",
+        "confirmRemove": "{lang} 版を削除しますか？",
+        "titlePlaceholder": "タイトル",
+        "bodyPlaceholder": "本文（Markdown）…",
+        "insertImage": "画像を挿入…",
+        "preview": "プレビュー",
+        "edit": "編集",
+        "previewEmpty": "プレビューする内容がありません。"
+      },
+      "sections": {
+        "new": {
+          "title": "新規セクション",
+          "titlePlaceholder": "セクションのタイトル（例：チューターの方へ）",
+          "bodyPlaceholder": "セクションを入力…Markdown 対応。",
+          "create": "セクションを追加"
+        },
+        "empty": "セクションはまだありません。",
+        "untitled": "無題",
+        "statusVisible": "表示中",
+        "statusHidden": "非表示",
+        "actions": {
+          "show": "表示",
+          "hide": "非表示",
+          "expanded": "デフォルトで展開",
+          "moveUp": "上へ",
+          "moveDown": "下へ",
+          "confirmDelete": "このセクションを完全に削除しますか？"
+        },
+        "mode": {
+          "label": "クリック時",
+          "inline": "その場で展開",
+          "page": "ページを開く"
+        },
+        "slug": {
+          "placeholder": "page-address"
+        },
+        "viewPage": "ページを表示"
+      },
+      "preview": {
+        "button": "プレビュー"
+      },
+      "groups": {
+        "hero": {
+          "title": "ページ上部",
+          "desc": "訪問者が最初に見る見出し・キャッチコピー・紹介文・画像。"
+        },
+        "buttons": {
+          "title": "ボタン",
+          "desc": "上部にある2つのアクションボタン。"
+        },
+        "features": {
+          "title": "ハイライト",
+          "desc": "プログラムを紹介する3枚のカード。"
+        },
+        "footer": {
+          "title": "フッター",
+          "desc": "ページ下部の注記。"
+        }
+      },
+      "layout": {
+        "title": "ページレイアウト",
+        "subtitle": "ページを構成するブロックを並べ替え・追加・削除します。プレビューで変更を確認できます。",
+        "save": "レイアウトを保存",
+        "unsaved": "未保存の変更があります",
+        "empty": "ブロックがありません。下から追加してください。",
+        "addBlock": "ブロックを追加…",
+        "groupContent": "コンテンツブロック",
+        "groupPresets": "プリセット",
+        "groupSystem": "ページセクション",
+        "remove": "削除",
+        "systemHint": "内容は「{tab}」タブで編集します。",
+        "blockTypes": {
+          "HERO": "ヒーロー",
+          "FEATURES": "特長カード",
+          "SECTIONS": "セクション",
+          "NEWS": "お知らせ",
+          "RICH_TEXT": "リッチテキスト",
+          "IMAGE": "画像",
+          "BUTTONS": "ボタン",
+          "COLUMNS": "段組み"
+        },
+        "align": {
+          "label": "配置",
+          "left": "左",
+          "center": "中央"
+        },
+        "richText": {
+          "placeholder": "入力…Markdown 対応。"
+        },
+        "image": {
+          "width": "幅",
+          "narrow": "狭い",
+          "wide": "広い",
+          "full": "全幅",
+          "caption": "キャプション（任意）"
+        },
+        "buttons": {
+          "label": "ボタンのテキスト",
+          "href": "リンク（URL または /パス）",
+          "primary": "プライマリ",
+          "secondary": "セカンダリ",
+          "add": "ボタンを追加"
+        },
+        "presets": {
+          "cta": "行動喚起",
+          "cards3": "3 段カード"
+        },
+        "columns": {
+          "card": "カードスタイル",
+          "columnLabel": "段 {n}",
+          "removeColumn": "段を削除",
+          "addColumn": "段を追加",
+          "addBlock": "この段に追加…"
+        }
+      },
+      "pages": {
+        "new": {
+          "title": "新規ページ",
+          "placeholder": "ページのタイトル（例：私たちについて）",
+          "create": "ページを作成"
+        },
+        "empty": "ページはまだありません。",
+        "untitled": "無題",
+        "titleLabel": "タイトル",
+        "showInNav": "上部ナビに表示",
+        "inNav": "ナビに表示中",
+        "editContent": "内容を編集",
+        "confirmDelete": "このページを完全に削除しますか？"
+      },
+      "tabDesc": {
+        "layout": "トップページを構成するブロックを並べ替えます。",
+        "content": "ヒーロー・ボタン・特長カード・フッターのテキスト。",
+        "sections": "展開できるパネルとその詳細ページ。",
+        "news": "日付付きのお知らせフィード。",
+        "pages": "ナビやリンク用の /p/… にある独立ページ。",
+        "images": "ページで使う画像をアップロード・管理します。"
       }
     }
   },
