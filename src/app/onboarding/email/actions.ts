@@ -16,7 +16,7 @@ const schema = z.object({
 
 /**
  * Completes first-login onboarding: confirm the contact email, set a real password (auto-
- * provisioned accounts arrive on a shared default), opt into email 2FA (scaffolded), and stamp
+ * provisioned accounts arrive on a shared default), opt into email 2FA, and stamp
  * `User.emailVerifiedAt` + clear `mustChangePassword` so the tutor shell stops routing here.
  */
 export async function completeOnboardingAction(

@@ -21,6 +21,16 @@
     "signingIn": "로그인 중…",
     "invalidCredentials": "사용자명/이메일 또는 비밀번호가 올바르지 않습니다.",
     "tooManyAttempts": "로그인 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+    "twoFactor": {
+      "title": "Verification Code",
+      "sent": "We emailed a sign-in code to {email}.",
+      "code": "Verification Code",
+      "help": "Enter the 5-character code from your email.",
+      "verify": "Verify and Sign In",
+      "verifying": "Verifying?",
+      "invalid": "That code is incorrect or expired. Request a new sign-in code.",
+      "differentAccount": "Use a Different Account"
+    },
     "forgotPassword": "비밀번호를 잊으셨나요?",
     "createAccount": "계정 만들기",
     "lookingForTutor": "튜터를 찾고 계신가요?",

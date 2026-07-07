@@ -21,6 +21,16 @@
     "signingIn": "Signing In…",
     "invalidCredentials": "Invalid username/email or password.",
     "tooManyAttempts": "Too many sign-in attempts. Please wait a few minutes and try again.",
+    "twoFactor": {
+      "title": "Verification Code",
+      "sent": "We emailed a sign-in code to {email}.",
+      "code": "Verification Code",
+      "help": "Enter the 5-character code from your email.",
+      "verify": "Verify and Sign In",
+      "verifying": "Verifying?",
+      "invalid": "That code is incorrect or expired. Request a new sign-in code.",
+      "differentAccount": "Use a Different Account"
+    },
     "forgotPassword": "Forgot password?",
     "createAccount": "Create Account",
     "lookingForTutor": "Looking for a tutor?",

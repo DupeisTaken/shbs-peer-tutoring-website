@@ -56,11 +56,7 @@ export async function LandingView({ preview = false }: { preview?: boolean }) {
             />
             <div className="relative mx-auto max-w-3xl px-4 py-20 text-center sm:py-28">
               <span className="badge-slate mb-5">{text("tagline")}</span>
-              <h1 className="text-4xl font-extrabold tracking-tight whitespace-nowrap sm:text-6xl">
-                <span className="bg-gradient-to-r from-accent-700 to-accent-400 bg-clip-text text-transparent">
-                  {text("heroTitle")}
-                </span>
-              </h1>
+              <GradientTitle text={text("heroTitle")} />
               {heroImageId && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -69,7 +65,9 @@ export async function LandingView({ preview = false }: { preview?: boolean }) {
                   className="mx-auto mt-8 h-auto max-h-80 w-full max-w-2xl rounded-2xl border border-slate-200 object-cover shadow-sm"
                 />
               )}
-              <p className="mx-auto mt-6 max-w-2xl text-lg text-slate-600">{text("intro")}</p>
+              <p className="mx-auto mt-6 max-w-xs text-base text-slate-600 sm:max-w-2xl sm:text-lg">
+                {text("intro")}
+              </p>
               <div className="mt-9 flex flex-wrap items-center justify-center gap-3">
                 <Link href="/signup" className="btn-primary">
                   {text("ctaPrimary")}
@@ -179,14 +177,14 @@ export async function LandingView({ preview = false }: { preview?: boolean }) {
 
       {/* Top banner: brand + the entry points */}
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-3 px-4 py-3">
+        <div className="mx-auto flex max-w-6xl flex-wrap items-start justify-between gap-3 px-4 py-3 sm:items-center">
           <Link
             href="/"
             className="text-lg font-extrabold tracking-tight whitespace-nowrap text-slate-900"
           >
             {APP_TITLE}
           </Link>
-          <nav className="flex flex-wrap items-center gap-2">
+          <nav className="grid w-full max-w-xs min-w-0 basis-full grid-cols-1 items-center gap-2 sm:flex sm:w-auto sm:max-w-none sm:basis-auto sm:flex-wrap sm:justify-end">
             <NavPageLinks pages={navPages} />
             <Link href="/signup" className="btn-primary btn-sm">
               {t("nav.requestTutor")}
@@ -262,5 +260,27 @@ function FeatureCard({ emoji, title, body }: { emoji: string; title: string; bod
       <h2 className="mt-3 font-semibold text-slate-900">{title}</h2>
       <p className="muted mt-1 text-sm">{body}</p>
     </div>
+  );
+}
+
+function GradientTitle({ text }: { text: string }) {
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  return (
+    <h1 className="mx-auto flex max-w-72 flex-wrap justify-center gap-x-2 text-xl leading-tight font-extrabold tracking-tight sm:max-w-none sm:text-5xl lg:text-6xl">
+      {words.length > 0 ? (
+        words.map((word, i) => (
+          <span
+            key={`${word}-${i}`}
+            className="bg-gradient-to-r from-accent-700 to-accent-400 bg-clip-text text-transparent"
+          >
+            {word}
+          </span>
+        ))
+      ) : (
+        <span className="bg-gradient-to-r from-accent-700 to-accent-400 bg-clip-text text-transparent">
+          {text}
+        </span>
+      )}
+    </h1>
   );
 }

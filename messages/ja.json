@@ -21,6 +21,16 @@
     "signingIn": "サインイン中…",
     "invalidCredentials": "ユーザー名・メールアドレスまたはパスワードが正しくありません。",
     "tooManyAttempts": "サインインの試行回数が多すぎます。数分待ってから再度お試しください。",
+    "twoFactor": {
+      "title": "Verification Code",
+      "sent": "We emailed a sign-in code to {email}.",
+      "code": "Verification Code",
+      "help": "Enter the 5-character code from your email.",
+      "verify": "Verify and Sign In",
+      "verifying": "Verifying?",
+      "invalid": "That code is incorrect or expired. Request a new sign-in code.",
+      "differentAccount": "Use a Different Account"
+    },
     "forgotPassword": "パスワードを忘れましたか？",
     "createAccount": "アカウントを作成",
     "lookingForTutor": "チューターをお探しですか？",

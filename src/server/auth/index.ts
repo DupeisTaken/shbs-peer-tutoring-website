@@ -5,9 +5,10 @@ import { z } from "zod";
 
 import { env } from "~/env";
 import { db } from "~/server/db";
-import { rateLimit } from "~/server/rate-limit";
+import { getFeatures } from "~/server/program/features";
 import { authConfig } from "./config";
-import { verifyPassword } from "./password";
+import { clientIpFromRequest, verifySigninPassword } from "./credentials";
+import { verifyLoginCode } from "./two-factor";
 import { ensureUserUsername } from "./username";
 
 function bootstrapAdminEmails(): string[] {
@@ -23,6 +24,12 @@ const credentialsSchema = z.object({
   password: z.string().min(1),
 });
 
+const loginCodeSchema = z.object({
+  intent: z.literal("login_2fa"),
+  userId: z.string().min(1),
+  code: z.string().min(1),
+});
+
 /**
  * Thrown by `authorize` when credential attempts exceed the rate limit. The `code` is surfaced
  * to the sign-in server action (src/app/signin/actions.ts) so it can show a distinct
@@ -32,20 +39,10 @@ class RateLimitedSignin extends CredentialsSignin {
   code = "rate_limited";
 }
 
-/** Best-effort client IP from proxy headers (the deploy runs behind a reverse proxy). */
-function clientIp(request: Request | undefined): string {
-  const xff = request?.headers.get("x-forwarded-for");
-  if (xff) return xff.split(",")[0]!.trim();
-  return request?.headers.get("x-real-ip")?.trim() ?? "unknown";
+/** Direct password-only attempts against a 2FA account must not create a session. */
+class TwoFactorRequiredSignin extends CredentialsSignin {
+  code = "two_factor_required";
 }
-
-// Brute-force guards for credential sign-in. Per-IP throttles guessing from one host; per-
-// identifier slows targeted guessing against a single account. In-memory + per-process
-// (src/server/rate-limit.ts) — sufficient for the single-container deploy; swap for a shared
-// store if scaled horizontally.
-const SIGNIN_WINDOW_MS = 15 * 60_000;
-const SIGNIN_MAX_PER_IP = 10;
-const SIGNIN_MAX_PER_IDENTIFIER = 10;
 
 /**
  * Full (Node-runtime) Auth.js instance: the edge-safe base plus the Credentials provider
@@ -64,6 +61,9 @@ const {
       credentials: {
         identifier: { label: "Username or email", type: "text" },
         password: { label: "Password", type: "password" },
+        intent: { label: "Intent", type: "text" },
+        userId: { label: "User ID", type: "text" },
+        code: { label: "Verification code", type: "text" },
       },
       /**
        * Verify identifier (username OR email) + password against the database. Returns the
@@ -71,45 +71,39 @@ const {
        * error — we never reveal whether the identifier or the password was wrong).
        */
       async authorize(raw, request) {
+        const loginCode = loginCodeSchema.safeParse(raw);
+        if (loginCode.success) {
+          const user = await db.user.findUnique({
+            where: { id: loginCode.data.userId },
+            select: { id: true, name: true, email: true, twoFactorEnabled: true },
+          });
+          if (!user?.twoFactorEnabled) return null;
+          const features = await getFeatures(db);
+          if (!features.EMAIL_2FA) return null;
+          const ok = await verifyLoginCode(user.id, loginCode.data.code);
+          return ok ? { id: user.id, name: user.name, email: user.email } : null;
+        }
+
         const parsed = credentialsSchema.safeParse(raw);
         if (!parsed.success) return null;
 
-        const identifier = parsed.data.identifier.trim().toLowerCase();
+        const verified = await verifySigninPassword(
+          parsed.data.identifier,
+          parsed.data.password,
+          clientIpFromRequest(request),
+        );
+        // Verifies the password and applies brute-force guards before any session can be issued.
+        if (!verified.ok) {
+          if (verified.reason === "rate_limited") throw new RateLimitedSignin();
+          return null;
+        }
+        // A password-only credentials POST cannot bypass a user's enabled second factor.
+        const features = await getFeatures(db);
+        if (features.EMAIL_2FA && verified.user.twoFactorEnabled) {
+          throw new TwoFactorRequiredSignin();
+        }
 
-        // Throttle before touching the database. Runs on every entry path — the sign-in form's
-        // server action AND a direct POST to the credentials callback — so it can't be bypassed.
-        const ip = clientIp(request);
-        const withinLimit =
-          rateLimit(`signin:ip:${ip}`, {
-            max: SIGNIN_MAX_PER_IP,
-            windowMs: SIGNIN_WINDOW_MS,
-          }).ok &&
-          rateLimit(`signin:id:${identifier}`, {
-            max: SIGNIN_MAX_PER_IDENTIFIER,
-            windowMs: SIGNIN_WINDOW_MS,
-          }).ok;
-        if (!withinLimit) throw new RateLimitedSignin();
-
-        // Match the login email, the account username, or (for not-yet-backfilled rows) the
-        // linked Tutor's username — username and email are both alternate sign-in identifiers.
-        const user = await db.user.findFirst({
-          where: {
-            OR: [
-              { email: identifier },
-              { username: identifier },
-              { tutor: { username: identifier } },
-            ],
-          },
-          select: { id: true, name: true, email: true, passwordHash: true },
-        });
-        if (!user?.passwordHash) return null;
-        if (!verifyPassword(parsed.data.password, user.passwordHash)) return null;
-
-        // FUTURE (email-based 2FA): if the user has `twoFactorEnabled`, this is where the
-        // flow would branch — issue an emailed code (see src/server/auth/two-factor.ts) and
-        // require a second step before completing sign-in. Not implemented yet.
-
-        return { id: user.id, name: user.name, email: user.email };
+        return { id: verified.user.id, name: verified.user.name, email: verified.user.email };
       },
     }),
   ],

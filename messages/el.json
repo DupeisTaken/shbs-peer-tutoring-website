@@ -21,6 +21,16 @@
     "signingIn": "Σύνδεση…",
     "invalidCredentials": "Μη έγκυρο όνομα χρήστη/email ή κωδικός.",
     "tooManyAttempts": "Πάρα πολλές προσπάθειες σύνδεσης. Περιμένετε λίγα λεπτά και δοκιμάστε ξανά.",
+    "twoFactor": {
+      "title": "Verification Code",
+      "sent": "We emailed a sign-in code to {email}.",
+      "code": "Verification Code",
+      "help": "Enter the 5-character code from your email.",
+      "verify": "Verify and Sign In",
+      "verifying": "Verifying?",
+      "invalid": "That code is incorrect or expired. Request a new sign-in code.",
+      "differentAccount": "Use a Different Account"
+    },
     "forgotPassword": "Ξεχάσατε τον κωδικό;",
     "createAccount": "Δημιουργία λογαριασμού",
     "lookingForTutor": "Ψάχνετε βοηθό;",

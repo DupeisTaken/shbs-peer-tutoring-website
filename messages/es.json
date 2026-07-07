@@ -21,6 +21,16 @@
     "signingIn": "Iniciando sesión…",
     "invalidCredentials": "Nombre de usuario/correo o contraseña no válidos.",
     "tooManyAttempts": "Demasiados intentos de inicio de sesión. Espera unos minutos e inténtalo de nuevo.",
+    "twoFactor": {
+      "title": "Verification Code",
+      "sent": "We emailed a sign-in code to {email}.",
+      "code": "Verification Code",
+      "help": "Enter the 5-character code from your email.",
+      "verify": "Verify and Sign In",
+      "verifying": "Verifying?",
+      "invalid": "That code is incorrect or expired. Request a new sign-in code.",
+      "differentAccount": "Use a Different Account"
+    },
     "forgotPassword": "¿Olvidaste tu contraseña?",
     "createAccount": "Crear cuenta",
     "lookingForTutor": "¿Buscas un tutor?",

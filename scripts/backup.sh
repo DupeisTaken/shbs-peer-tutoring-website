@@ -29,7 +29,29 @@ find "$BACKUP_DIR" -name '*.sql.gz' -type f -mtime +14 -delete
 echo "[backup] Done. Current backups:"
 ls -lh "$BACKUP_DIR"
 
-# TODO: copy the backup off-box for real disaster recovery, e.g.:
-#   rclone copy "$FILE" remote:shbs-backups/
-#   aws s3 cp "$FILE" s3://your-bucket/shbs-backups/
-#   scp "$FILE" user@backup-host:/backups/
+if [ -n "${BACKUP_RCLONE_REMOTE:-}" ]; then
+  if ! command -v rclone >/dev/null 2>&1; then
+    echo "[backup] BACKUP_RCLONE_REMOTE is set but rclone is not installed." >&2
+    exit 1
+  fi
+  echo "[backup] Copying ${FILE} to rclone remote ${BACKUP_RCLONE_REMOTE}"
+  rclone copy "$FILE" "$BACKUP_RCLONE_REMOTE"
+fi
+
+if [ -n "${BACKUP_S3_URI:-}" ]; then
+  if ! command -v aws >/dev/null 2>&1; then
+    echo "[backup] BACKUP_S3_URI is set but aws CLI is not installed." >&2
+    exit 1
+  fi
+  echo "[backup] Copying ${FILE} to S3 URI ${BACKUP_S3_URI}"
+  aws s3 cp "$FILE" "$BACKUP_S3_URI"
+fi
+
+if [ -n "${BACKUP_SCP_DEST:-}" ]; then
+  if ! command -v scp >/dev/null 2>&1; then
+    echo "[backup] BACKUP_SCP_DEST is set but scp is not installed." >&2
+    exit 1
+  fi
+  echo "[backup] Copying ${FILE} to SCP destination ${BACKUP_SCP_DEST}"
+  scp "$FILE" "$BACKUP_SCP_DEST"
+fi
