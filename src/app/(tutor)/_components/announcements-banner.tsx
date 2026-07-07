@@ -28,11 +28,11 @@ export function AnnouncementsBanner() {
       {unacked.map((a) => (
         <div
           key={a.id}
-          className="rounded-lg border border-accent-200 bg-accent-50 px-4 py-3"
+          className="border-accent-200 bg-accent-50 rounded-lg border px-4 py-3"
         >
-          <div className="flex items-start justify-between gap-3">
+          <div className="grid gap-3 sm:flex sm:items-start sm:justify-between">
             <div className="min-w-0">
-              <p className="font-semibold text-accent-900">
+              <p className="text-accent-900 font-semibold">
                 📣 {a.title}
                 {a.pinned && (
                   <span className="badge-slate ml-2 align-middle text-[10px]">
@@ -40,13 +40,15 @@ export function AnnouncementsBanner() {
                   </span>
                 )}
               </p>
-              <p className="mt-1 text-sm whitespace-pre-line text-accent-800">{a.body}</p>
-              <p className="mt-1 text-xs text-accent-400">
+              <p className="text-accent-800 mt-1 text-sm whitespace-pre-line">
+                {a.body}
+              </p>
+              <p className="text-accent-400 mt-1 text-xs">
                 {new Date(a.createdAt).toLocaleDateString()}
               </p>
             </div>
             <button
-              className="btn-secondary btn-sm shrink-0"
+              className="btn-secondary btn-sm justify-self-start sm:shrink-0"
               disabled={ack.isPending}
               onClick={() => ack.mutate({ announcementId: a.id })}
             >
@@ -61,10 +63,10 @@ export function AnnouncementsBanner() {
           key={a.id}
           className="rounded-lg border border-slate-200 bg-slate-50 px-4 py-2"
         >
-          <p className="text-sm font-medium text-slate-700">
-            📌 {a.title}
+          <p className="text-sm font-medium text-slate-700">📌 {a.title}</p>
+          <p className="mt-0.5 text-sm whitespace-pre-line text-slate-600">
+            {a.body}
           </p>
-          <p className="mt-0.5 text-sm whitespace-pre-line text-slate-600">{a.body}</p>
         </div>
       ))}
     </section>

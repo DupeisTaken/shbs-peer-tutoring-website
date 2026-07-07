@@ -42,7 +42,7 @@ export default async function TutorDashboard() {
   ]);
 
   return (
-    <div className="mx-auto max-w-5xl space-y-8 px-4 py-8">
+    <div className="mx-auto max-w-6xl space-y-7 px-4 py-5 sm:space-y-8 sm:py-8">
       {/* Team announcements — shown on every login until acknowledged. */}
       <AnnouncementsBanner />
 
@@ -57,50 +57,60 @@ export default async function TutorDashboard() {
             })}
           </p>
           {me.status === "OPTED_OUT" && (
-            <p className="mt-2 text-sm">{t("tutor.dashboard.inactive.reentryHint")}</p>
+            <p className="mt-2 text-sm">
+              {t("tutor.dashboard.inactive.reentryHint")}
+            </p>
           )}
         </div>
       )}
 
       {/* Header + monthly service-hour earnings */}
-      <div className="flex flex-wrap items-end justify-between gap-4">
-        <div>
-          <h1 className="page-title">
-            {t("dashboard.greeting", { name: session?.user?.name ?? "" })}
-          </h1>
-          <p className="muted mt-1">{t("dashboard.subtitle")}</p>
+      <section className="border-accent-100 bg-accent-50/45 rounded-xl border px-4 py-5 sm:px-6 sm:py-6">
+        <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
+          <div className="text-center sm:text-left">
+            <h1 className="page-title">
+              {t("dashboard.greeting", { name: session?.user?.name ?? "" })}
+            </h1>
+            <p className="muted mt-1">{t("dashboard.subtitle")}</p>
+          </div>
+          <div className="grid gap-3 sm:grid-cols-2 lg:flex lg:flex-wrap lg:items-end lg:justify-end">
+            {features.SERVICE_HOURS && (
+              <div className="rounded-lg border border-slate-200 bg-white px-5 py-4 text-center shadow-sm sm:text-right">
+                <p className="text-xs font-medium tracking-wide text-slate-500 uppercase">
+                  {t("dashboard.hours.title")}
+                  {total.periodLabel ? ` · ${total.periodLabel}` : ""}
+                </p>
+                <p className="text-3xl font-bold text-slate-900">
+                  {total.total.toFixed(1)} h
+                </p>
+                <p className="muted">
+                  {t("tutor.dashboard.hours.earned", {
+                    earned: total.earned.toFixed(1),
+                  })}
+                  {total.extras > 0 &&
+                    ` ${t("tutor.dashboard.hours.extra", { extra: total.extras.toFixed(1) })}`}
+                  {total.punishments > 0 &&
+                    ` ${t("tutor.dashboard.hours.penalty", { penalty: total.punishments.toFixed(1) })}`}
+                </p>
+              </div>
+            )}
+            {/* Crew hours — tallied separately from tutoring (only shown for crew members). */}
+            {features.CREW && crew.isCrew && (
+              <div className="rounded-lg border border-slate-200 bg-white px-5 py-4 text-center shadow-sm sm:text-right">
+                <p className="text-xs font-medium tracking-wide text-slate-500 uppercase">
+                  {t("tutor.dashboard.crew.title")}
+                </p>
+                <p className="text-3xl font-bold text-slate-900">
+                  {crew.hours.toFixed(1)} h
+                </p>
+                <p className="muted">
+                  {t("tutor.dashboard.crew.patrols", { count: crew.patrols })}
+                </p>
+              </div>
+            )}
+          </div>
         </div>
-        <div className="flex flex-wrap items-end gap-3">
-          {features.SERVICE_HOURS && (
-            <div className="card px-5 py-3 text-right">
-              <p className="text-xs font-medium tracking-wide text-slate-500 uppercase">
-                {t("dashboard.hours.title")}
-                {total.periodLabel ? ` · ${total.periodLabel}` : ""}
-              </p>
-              <p className="text-3xl font-bold text-slate-900">{total.total.toFixed(1)} h</p>
-              <p className="muted">
-                {t("tutor.dashboard.hours.earned", { earned: total.earned.toFixed(1) })}
-                {total.extras > 0 &&
-                  ` ${t("tutor.dashboard.hours.extra", { extra: total.extras.toFixed(1) })}`}
-                {total.punishments > 0 &&
-                  ` ${t("tutor.dashboard.hours.penalty", { penalty: total.punishments.toFixed(1) })}`}
-              </p>
-            </div>
-          )}
-          {/* Crew hours — tallied separately from tutoring (only shown for crew members). */}
-          {features.CREW && crew.isCrew && (
-            <div className="card px-5 py-3 text-right">
-              <p className="text-xs font-medium tracking-wide text-slate-500 uppercase">
-                {t("tutor.dashboard.crew.title")}
-              </p>
-              <p className="text-3xl font-bold text-slate-900">{crew.hours.toFixed(1)} h</p>
-              <p className="muted">
-                {t("tutor.dashboard.crew.patrols", { count: crew.patrols })}
-              </p>
-            </div>
-          )}
-        </div>
-      </div>
+      </section>
 
       {/* Pending interviews + session-time confirmations (self-hides when none). */}
       {!inactive && features.INTERVIEWS && <MyInterviews />}
@@ -109,34 +119,40 @@ export default async function TutorDashboard() {
       {!inactive && features.MEETINGS && <TutorMeetings />}
 
       <MergeProvider>
-        <div className="grid grid-cols-1 items-start gap-6 lg:grid-cols-5">
+        <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-5 lg:gap-6">
+          {/* Attendance form */}
+          {!inactive && (
+            <section className="card p-4 sm:p-5 lg:order-2 lg:col-span-3">
+              <h2 className="section-title">
+                {t("dashboard.attendance.title")}
+              </h2>
+              <p className="muted mt-1 mb-4">
+                {t("dashboard.attendance.help")}
+              </p>
+              <AttendanceForm />
+            </section>
+          )}
+
           {/* Pairings + availability */}
-          <div className="space-y-6 lg:col-span-2">
-            <section className="card p-5">
+          <div className="space-y-5 lg:order-1 lg:col-span-2 lg:space-y-6">
+            <section className="card p-4 sm:p-5">
               <h2 className="section-title">{t("dashboard.pairings.title")}</h2>
               <p className="muted mt-1 mb-2">{t("dashboard.pairings.help")}</p>
               <TutorPairings />
             </section>
 
             {!inactive && (
-              <section className="card p-5">
+              <section className="card p-4 sm:p-5">
                 <h2 className="section-title">
                   {t("dashboard.availability.title")}
                 </h2>
-                <p className="muted mt-1 mb-3">{t("dashboard.availability.help")}</p>
+                <p className="muted mt-1 mb-3">
+                  {t("dashboard.availability.help")}
+                </p>
                 <AvailabilityEditor />
               </section>
             )}
           </div>
-
-          {/* Attendance form */}
-          {!inactive && (
-            <section className="card p-5 lg:col-span-3">
-              <h2 className="section-title">{t("dashboard.attendance.title")}</h2>
-              <p className="muted mt-1 mb-4">{t("dashboard.attendance.help")}</p>
-              <AttendanceForm />
-            </section>
-          )}
         </div>
       </MergeProvider>
 
@@ -145,8 +161,10 @@ export default async function TutorDashboard() {
 
       {/* Room assignments (read-only schedule grid; your pairings are highlighted) */}
       <section className="space-y-2">
-        <h2 className="section-title">{t("dashboard.schedule.title")}</h2>
-        <p className="muted">{t("dashboard.schedule.help")}</p>
+        <div className="text-center sm:text-left">
+          <h2 className="section-title">{t("dashboard.schedule.title")}</h2>
+          <p className="muted">{t("dashboard.schedule.help")}</p>
+        </div>
         <RoomGrid
           rooms={schedule.rooms}
           slots={schedule.slots}

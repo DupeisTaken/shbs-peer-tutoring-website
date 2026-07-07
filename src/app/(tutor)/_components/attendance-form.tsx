@@ -11,9 +11,18 @@ import { hmToMin, minToHm } from "~/lib/time";
 import { useMerge } from "~/app/(tutor)/_components/merge-context";
 import { DisciplineSlots } from "~/app/_components/discipline-slots";
 
-const TUTOR_STATUS_VALUES = ["PRESENT", "RESCHEDULED", "EXTRA", "TUTOR_ABSENT"] as const;
+const TUTOR_STATUS_VALUES = [
+  "PRESENT",
+  "RESCHEDULED",
+  "EXTRA",
+  "TUTOR_ABSENT",
+] as const;
 const LIKERT_VALUES = [1, 2, 3, 4, 5] as const;
-const TUTEE_STATUS_VALUES = ["PRESENT", "EXCUSED_ABSENT", "UNEXCUSED_ABSENT"] as const;
+const TUTEE_STATUS_VALUES = [
+  "PRESENT",
+  "EXCUSED_ABSENT",
+  "UNEXCUSED_ABSENT",
+] as const;
 
 type TutorStatus = (typeof TUTOR_STATUS_VALUES)[number];
 type TuteeStatus = (typeof TUTEE_STATUS_VALUES)[number];
@@ -83,9 +92,15 @@ export function AttendanceForm() {
   const { setPrimaryPairingId, mergeIds, setMergeIds } = useMerge();
   const [formError, setFormError] = useState<string | null>(null);
   const setTutee = (id: string, patch: Partial<TuteeEntry>) =>
-    setTuteeState((s) => ({ ...s, [id]: { status: "PRESENT", reason: "", ...s[id], ...patch } }));
+    setTuteeState((s) => ({
+      ...s,
+      [id]: { status: "PRESENT", reason: "", ...s[id], ...patch },
+    }));
   const setCard = (id: string, patch: Partial<CardEntry>) =>
-    setCards((c) => ({ ...c, [id]: { color: "", reason: "", ...c[id], ...patch } }));
+    setCards((c) => ({
+      ...c,
+      [id]: { color: "", reason: "", ...c[id], ...patch },
+    }));
 
   const {
     register,
@@ -117,15 +132,17 @@ export function AttendanceForm() {
   const unionTutees = selectedPairing
     ? [
         ...new Map(
-          [...selectedPairing.tutees, ...mergedPairings.flatMap((p) => p.tutees)].map((t) => [
-            t.tuteeId,
-            t,
-          ]),
+          [
+            ...selectedPairing.tutees,
+            ...mergedPairings.flatMap((p) => p.tutees),
+          ].map((t) => [t.tuteeId, t]),
         ).values(),
       ]
     : [];
   // Disciplinary standing per tutee (meter data only — reasons are never sent to tutors).
-  const standingByTutee = new Map((disciplineQuery.data ?? []).map((d) => [d.tuteeId, d]));
+  const standingByTutee = new Map(
+    (disciplineQuery.data ?? []).map((d) => [d.tuteeId, d]),
+  );
 
   // When the primary pairing changes, default the time fields and clear merge/per-tutee state.
   useEffect(() => {
@@ -139,7 +156,10 @@ export function AttendanceForm() {
     setMergeIds([]);
     setTuteeState(
       Object.fromEntries(
-        selectedPairing.tutees.map((t) => [t.tuteeId, { status: "PRESENT", reason: "" }]),
+        selectedPairing.tutees.map((t) => [
+          t.tuteeId,
+          { status: "PRESENT", reason: "" },
+        ]),
       ),
     );
     setCards({});
@@ -153,12 +173,17 @@ export function AttendanceForm() {
 
     // Per-tutee attendance across the whole block (default present).
     const tutees = unionTutees.map((t) => {
-      const entry = tuteeState[t.tuteeId] ?? { status: "PRESENT" as TuteeStatus, reason: "" };
+      const entry = tuteeState[t.tuteeId] ?? {
+        status: "PRESENT" as TuteeStatus,
+        reason: "",
+      };
       return {
         tuteeId: t.tuteeId,
         status: entry.status,
         absenceReason:
-          entry.status === "EXCUSED_ABSENT" ? entry.reason.trim() || undefined : undefined,
+          entry.status === "EXCUSED_ABSENT"
+            ? entry.reason.trim() || undefined
+            : undefined,
       };
     });
 
@@ -189,8 +214,15 @@ export function AttendanceForm() {
 
     const unionIds = new Set(unionTutees.map((t) => t.tuteeId));
     const cardList = Object.entries(cards)
-      .filter(([id, c]) => unionIds.has(id) && (c.color === "YELLOW" || c.color === "RED"))
-      .map(([tuteeId, c]) => ({ tuteeId, color: c.color as "YELLOW" | "RED", reason: c.reason.trim() }));
+      .filter(
+        ([id, c]) =>
+          unionIds.has(id) && (c.color === "YELLOW" || c.color === "RED"),
+      )
+      .map(([tuteeId, c]) => ({
+        tuteeId,
+        color: c.color as "YELLOW" | "RED",
+        reason: c.reason.trim(),
+      }));
     if (cardList.some((c) => !c.reason)) {
       setFormError(t("tutor.attendance.errors.cardReason"));
       return;
@@ -203,7 +235,9 @@ export function AttendanceForm() {
       date: new Date(values.date),
       tutorStatus: status,
       tutorAbsentReason:
-        status === "TUTOR_ABSENT" ? values.tutorAbsentReason?.trim() : undefined,
+        status === "TUTOR_ABSENT"
+          ? values.tutorAbsentReason?.trim()
+          : undefined,
       tutees,
       startMin: hmToMin(values.startTime),
       endMin: hmToMin(values.endTime),
@@ -219,7 +253,8 @@ export function AttendanceForm() {
     });
   };
 
-  if (pairingsQuery.isLoading) return <p className="muted">{t("tutor.attendance.loading")}</p>;
+  if (pairingsQuery.isLoading)
+    return <p className="muted">{t("tutor.attendance.loading")}</p>;
   if (pairings.length === 0) {
     return <p className="muted">{t("tutor.attendance.noPairings")}</p>;
   }
@@ -240,7 +275,9 @@ export function AttendanceForm() {
             </option>
           ))}
         </select>
-        {errors.pairingId && <p className="text-sm text-red-600">{errors.pairingId.message}</p>}
+        {errors.pairingId && (
+          <p className="text-sm text-red-600">{errors.pairingId.message}</p>
+        )}
       </div>
 
       {/* Merging several sessions into one block is chosen under "My pairings". */}
@@ -251,11 +288,15 @@ export function AttendanceForm() {
       )}
 
       {/* Date + tutor status */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-1">
           <label className="label">{t("tutor.attendance.date")}</label>
-          <div className="flex gap-2">
-            <input type="date" {...register("date")} className="input" />
+          <div className="flex flex-wrap gap-2">
+            <input
+              type="date"
+              {...register("date")}
+              className="input min-w-0 flex-1"
+            />
             <button
               type="button"
               className="btn-secondary btn-sm shrink-0"
@@ -280,17 +321,23 @@ export function AttendanceForm() {
       {/* Tutor absence reason */}
       {tutorStatus === "TUTOR_ABSENT" && (
         <div className="space-y-1">
-          <label className="label">{t("tutor.attendance.tutorAbsentReason")}</label>
+          <label className="label">
+            {t("tutor.attendance.tutorAbsentReason")}
+          </label>
           <input {...register("tutorAbsentReason")} className="input" />
         </div>
       )}
 
       {/* Time (with "now") */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-1">
           <label className="label">{t("tutor.attendance.start")}</label>
-          <div className="flex gap-2">
-            <input type="time" {...register("startTime")} className="input" />
+          <div className="flex flex-wrap gap-2">
+            <input
+              type="time"
+              {...register("startTime")}
+              className="input min-w-0 flex-1"
+            />
             <button
               type="button"
               className="btn-secondary btn-sm shrink-0"
@@ -302,8 +349,12 @@ export function AttendanceForm() {
         </div>
         <div className="space-y-1">
           <label className="label">{t("tutor.attendance.end")}</label>
-          <div className="flex gap-2">
-            <input type="time" {...register("endTime")} className="input" />
+          <div className="flex flex-wrap gap-2">
+            <input
+              type="time"
+              {...register("endTime")}
+              className="input min-w-0 flex-1"
+            />
             <button
               type="button"
               className="btn-secondary btn-sm shrink-0"
@@ -350,15 +401,20 @@ export function AttendanceForm() {
       {/* Per-tutee attendance (only when the tutor held the session) */}
       {selectedPairing && held && (
         <fieldset>
-          <legend className="label">{t("tutor.attendance.tuteeAttendance")}</legend>
+          <legend className="label">
+            {t("tutor.attendance.tuteeAttendance")}
+          </legend>
           <div className="mt-1 space-y-2">
             {unionTutees.map((t2) => {
               const entry = tuteeState[t2.tuteeId];
               const status = entry?.status ?? "PRESENT";
               const standing = standingByTutee.get(t2.tuteeId);
               return (
-                <div key={t2.tuteeId} className="flex flex-wrap items-center gap-2">
-                  <span className="w-40 truncate text-sm text-slate-700">
+                <div
+                  key={t2.tuteeId}
+                  className="grid gap-2 rounded-md border border-slate-100 bg-slate-50/60 p-2 sm:flex sm:flex-wrap sm:items-center sm:border-0 sm:bg-transparent sm:p-0"
+                >
+                  <span className="min-w-0 truncate text-sm text-slate-700 sm:w-40">
                     {t2.tutee.englishName}
                   </span>
                   {/* Card standing at a glance — meter only, no reasons. */}
@@ -380,14 +436,20 @@ export function AttendanceForm() {
                         size="sm"
                       />
                       {standing.removalPending && (
-                        <span className="badge-red">{t("tutor.discipline.removalBadge")}</span>
+                        <span className="badge-red">
+                          {t("tutor.discipline.removalBadge")}
+                        </span>
                       )}
                     </span>
                   )}
                   <select
-                    className="select field-auto min-w-40"
+                    className="select sm:field-auto min-w-0 sm:min-w-40"
                     value={status}
-                    onChange={(e) => setTutee(t2.tuteeId, { status: e.target.value as TuteeStatus })}
+                    onChange={(e) =>
+                      setTutee(t2.tuteeId, {
+                        status: e.target.value as TuteeStatus,
+                      })
+                    }
                   >
                     {TUTEE_STATUS_VALUES.map((s) => (
                       <option key={s} value={s}>
@@ -397,10 +459,12 @@ export function AttendanceForm() {
                   </select>
                   {status === "EXCUSED_ABSENT" && (
                     <input
-                      className="input min-w-[10rem] flex-1"
+                      className="input min-w-0 flex-1"
                       placeholder={t("tutor.attendance.reasonRequired")}
                       value={entry?.reason ?? ""}
-                      onChange={(e) => setTutee(t2.tuteeId, { reason: e.target.value })}
+                      onChange={(e) =>
+                        setTutee(t2.tuteeId, { reason: e.target.value })
+                      }
                     />
                   )}
                 </div>
@@ -419,11 +483,11 @@ export function AttendanceForm() {
               <p className="text-xs font-medium text-slate-600">
                 {t(`tutor.attendance.rating.${name}`)}
               </p>
-              <div className="mt-1 flex flex-wrap gap-1">
+              <div className="mt-1 grid grid-cols-1 gap-1 sm:flex sm:flex-wrap">
                 {LIKERT_VALUES.map((value) => (
                   <label
                     key={value}
-                    className="flex cursor-pointer items-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 has-[:checked]:border-accent-500 has-[:checked]:bg-accent-50 has-[:checked]:text-accent-700"
+                    className="has-[:checked]:border-accent-500 has-[:checked]:bg-accent-50 has-[:checked]:text-accent-700 flex cursor-pointer items-center justify-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 sm:justify-start"
                   >
                     <input
                       type="radio"
@@ -444,37 +508,54 @@ export function AttendanceForm() {
       <div className="space-y-1">
         <label className="label">{t("tutor.attendance.comments")}</label>
         <textarea {...register("comments")} rows={3} className="textarea" />
-        {errors.comments && <p className="text-sm text-red-600">{errors.comments.message}</p>}
+        {errors.comments && (
+          <p className="text-sm text-red-600">{errors.comments.message}</p>
+        )}
       </div>
 
       {/* Disciplinary cards (optional; hidden when the discipline module is off) */}
       {selectedPairing && held && features?.DISCIPLINE && (
         <fieldset className="rounded-lg border border-slate-200 p-3">
-          <legend className="label px-1">{t("tutor.attendance.cardsTitle")}</legend>
-          <p className="muted mb-2 text-xs">{t("tutor.attendance.cardsHelp")}</p>
+          <legend className="label px-1">
+            {t("tutor.attendance.cardsTitle")}
+          </legend>
+          <p className="muted mb-2 text-xs">
+            {t("tutor.attendance.cardsHelp")}
+          </p>
           <div className="space-y-2">
             {unionTutees.map((t2) => {
               const color = cards[t2.tuteeId]?.color ?? "";
               return (
-                <div key={t2.tuteeId} className="flex flex-wrap items-center gap-2">
-                  <span className="w-40 truncate text-sm text-slate-700">
+                <div
+                  key={t2.tuteeId}
+                  className="grid gap-2 rounded-md border border-slate-100 bg-slate-50/60 p-2 sm:flex sm:flex-wrap sm:items-center sm:border-0 sm:bg-transparent sm:p-0"
+                >
+                  <span className="min-w-0 truncate text-sm text-slate-700 sm:w-40">
                     {t2.tutee.englishName}
                   </span>
                   <select
-                    className="select field-auto min-w-32"
+                    className="select sm:field-auto min-w-0 sm:min-w-32"
                     value={color}
-                    onChange={(e) => setCard(t2.tuteeId, { color: e.target.value as CardColor })}
+                    onChange={(e) =>
+                      setCard(t2.tuteeId, {
+                        color: e.target.value as CardColor,
+                      })
+                    }
                   >
                     <option value="">{t("tutor.attendance.noCard")}</option>
-                    <option value="YELLOW">🟨 {t("tutor.attendance.yellow")}</option>
+                    <option value="YELLOW">
+                      🟨 {t("tutor.attendance.yellow")}
+                    </option>
                     <option value="RED">🟥 {t("tutor.attendance.red")}</option>
                   </select>
                   {(color === "YELLOW" || color === "RED") && (
                     <input
-                      className="input min-w-[12rem] flex-1"
+                      className="input min-w-0 flex-1"
                       placeholder={t("tutor.attendance.reasonRequired")}
                       value={cards[t2.tuteeId]?.reason ?? ""}
-                      onChange={(e) => setCard(t2.tuteeId, { reason: e.target.value })}
+                      onChange={(e) =>
+                        setCard(t2.tuteeId, { reason: e.target.value })
+                      }
                     />
                   )}
                 </div>
@@ -484,11 +565,21 @@ export function AttendanceForm() {
         </fieldset>
       )}
 
-      <div className="flex items-center gap-3">
-        <button type="submit" disabled={submit.isPending || incomplete} className="btn-primary">
-          {submit.isPending ? t("tutor.attendance.submitting") : t("tutor.attendance.submit")}
+      <div className="flex flex-wrap items-center justify-center gap-3 sm:justify-start">
+        <button
+          type="submit"
+          disabled={submit.isPending || incomplete}
+          className="btn-primary"
+        >
+          {submit.isPending
+            ? t("tutor.attendance.submitting")
+            : t("tutor.attendance.submit")}
         </button>
-        {submit.isSuccess && <span className="text-sm text-green-600">{t("tutor.attendance.saved")}</span>}
+        {submit.isSuccess && (
+          <span className="text-sm text-green-600">
+            {t("tutor.attendance.saved")}
+          </span>
+        )}
         {(formError ?? submit.error) && (
           <span className="text-sm text-red-600">
             {formError ?? submit.error?.message}

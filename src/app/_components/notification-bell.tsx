@@ -42,7 +42,7 @@ export function NotificationBell() {
         )}
       </summary>
 
-      <div className="absolute right-0 z-20 mt-2 w-72 rounded-lg border border-slate-200 bg-white shadow-lg">
+      <div className="absolute left-0 z-20 mt-2 hidden w-[min(18rem,calc(100vw-2rem))] rounded-lg border border-slate-200 bg-white shadow-lg group-open:block sm:right-0 sm:left-auto">
         <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
           <span className="text-sm font-semibold text-slate-900">
             {t("components.notifications.title")}

@@ -5,13 +5,18 @@ import type { ReactNode } from "react";
 
 import { db } from "~/server/db";
 import { getSectionBySlug } from "~/server/home/sections";
-import { getCustomPageBySlug, getNavPages, pageOwnerKey } from "~/server/home/pages";
+import {
+  getCustomPageBySlug,
+  getNavPages,
+  pageOwnerKey,
+} from "~/server/home/pages";
 import { getLayout } from "~/server/home/blocks";
 import { authorizeHomeEditor } from "~/server/home/images";
 import { APP_TITLE } from "~/lib/branding";
 import { Markdown } from "~/app/_components/markdown";
 import { PageBlocks } from "~/app/_components/page-blocks";
-import { NavPageLinks } from "~/app/_components/nav-page-links";
+import { DetailsAutoClose } from "~/app/_components/details-auto-close";
+import { NativeDisclosureIcon } from "~/app/_components/icons";
 import { ThemeSwitcher } from "~/app/_components/theme-switcher";
 import { LanguageSwitcher } from "~/app/_components/language-switcher";
 
@@ -20,7 +25,11 @@ import { LanguageSwitcher } from "~/app/_components/language-switcher";
  * a PAGE-mode landing section (markdown) — they share one slug namespace. Unpublished ones are shown
  * only to a landing editor (preview), with a hidden-from-visitors banner.
  */
-export default async function SlugPage({ params }: { params: Promise<{ slug: string }> }) {
+export default async function SlugPage({
+  params,
+}: {
+  params: Promise<{ slug: string }>;
+}) {
   const { slug } = await params;
   const locale = await getLocale();
   const navPages = await getNavPages(db, locale);
@@ -79,17 +88,24 @@ async function Shell({
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-3 px-4 py-3">
+        <div className="mx-auto grid max-w-4xl gap-3 px-4 py-3 md:grid-cols-[auto_minmax(0,1fr)] md:items-center">
           <Link
             href="/"
-            className="text-lg font-extrabold tracking-tight whitespace-nowrap text-slate-900"
+            className="min-w-0 justify-self-start text-left text-lg font-extrabold tracking-tight whitespace-nowrap text-slate-900"
           >
             {APP_TITLE}
           </Link>
-          <div className="flex flex-wrap items-center gap-3">
-            <NavPageLinks pages={nav} />
-            <ThemeSwitcher />
-            <LanguageSwitcher />
+          <div className="flex min-w-0 flex-wrap items-center justify-start gap-2 md:justify-end">
+            <PageNavMenu
+              label={t("nav.accessProgramInformation")}
+              pages={nav}
+            />
+            <div className="shrink-0">
+              <ThemeSwitcher />
+            </div>
+            <div className="shrink-0">
+              <LanguageSwitcher />
+            </div>
           </div>
         </div>
       </header>
@@ -121,8 +137,43 @@ async function Shell({
       </main>
 
       <footer className="border-t border-slate-200 py-6">
-        <p className="muted text-center text-sm">{t("footer", { appTitle: APP_TITLE })}</p>
+        <p className="muted text-center text-sm">
+          {t("footer", { appTitle: APP_TITLE })}
+        </p>
       </footer>
     </div>
+  );
+}
+
+function PageNavMenu({
+  label,
+  pages,
+}: {
+  label: string;
+  pages: { slug: string; label: string }[];
+}) {
+  if (pages.length === 0) return null;
+
+  return (
+    <details className="group relative shrink-0">
+      <DetailsAutoClose />
+      <summary className="btn-secondary btn-sm flex cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden">
+        <span>{label}</span>
+        <NativeDisclosureIcon />
+      </summary>
+      <div className="absolute left-0 z-30 mt-2 min-w-60 rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
+        <div className="grid gap-1">
+          {pages.map((page) => (
+            <Link
+              key={page.slug}
+              href={`/p/${page.slug}`}
+              className="rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
+            >
+              {page.label}
+            </Link>
+          ))}
+        </div>
+      </div>
+    </details>
   );
 }

@@ -59,7 +59,7 @@ export function RoomGrid({
 
   return (
     <div className="card overflow-x-auto">
-      <table className="w-full border-collapse text-xs">
+      <table className="min-w-[44rem] border-collapse text-xs">
         <thead>
           <tr>
             <th className="sticky left-0 z-10 border-b border-slate-200 bg-white p-2 text-left font-semibold text-slate-500">
@@ -79,10 +79,13 @@ export function RoomGrid({
           {slots.map((slot) => (
             <tr key={slot.id}>
               <th className="sticky left-0 z-10 border-b border-slate-100 bg-white p-2 text-left font-medium whitespace-nowrap text-slate-700">
-                {DAY_NAMES[slot.dayOfWeek]} {minToHm(slot.startMin)}–{minToHm(slot.endMin)}
+                {DAY_NAMES[slot.dayOfWeek]} {minToHm(slot.startMin)}–
+                {minToHm(slot.endMin)}
               </th>
               {rooms.map((room) => {
-                const blocked = blocks.find((b) => b.roomId === room.id && overlaps(b, slot));
+                const blocked = blocks.find(
+                  (b) => b.roomId === room.id && overlaps(b, slot),
+                );
                 const cellPairings = pairings.filter(
                   (p) => p.roomId === room.id && p.timeSlotId === slot.id,
                 );
@@ -101,18 +104,22 @@ export function RoomGrid({
                       <span className="text-slate-300">·</span>
                     ) : (
                       cellPairings.map((p) => {
-                        const mine = highlightTutorId && p.tutorId === highlightTutorId;
+                        const mine =
+                          highlightTutorId && p.tutorId === highlightTutorId;
                         return (
                           <div
                             key={p.id}
                             className={`mb-1 rounded px-1.5 py-0.5 ${
                               mine
-                                ? "bg-accent-100 font-medium text-accent-800"
+                                ? "bg-accent-100 text-accent-800 font-medium"
                                 : "bg-slate-50 text-slate-700"
                             }`}
                           >
                             {p.subject}
-                            <span className="text-slate-400"> · {p.tutor.englishName}</span>
+                            <span className="text-slate-400">
+                              {" "}
+                              · {p.tutor.englishName}
+                            </span>
                           </div>
                         );
                       })
