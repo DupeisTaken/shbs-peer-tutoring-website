@@ -139,6 +139,8 @@
   },
   "landing": {
     "nav": {
+      "accessProgramInformation": "Información del Programa",
+      "joinProgram": "Unirse al Programa",
       "requestTutor": "Solicitar un tutor",
       "becomeTutor": "Hazte tutor",
       "teamSignin": "Iniciar sesión",

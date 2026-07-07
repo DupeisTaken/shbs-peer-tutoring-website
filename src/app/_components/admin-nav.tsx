@@ -3,7 +3,11 @@ import { getTranslations } from "next-intl/server";
 import { NavLink } from "~/app/_components/nav-link";
 import { NavSidebarClient } from "~/app/_components/nav-sidebar-client";
 import { db } from "~/server/db";
-import { getFeatures, type Features, type FeatureKey } from "~/server/program/features";
+import {
+  getFeatures,
+  type Features,
+  type FeatureKey,
+} from "~/server/program/features";
 
 export type NavItem = {
   href: string;
@@ -25,7 +29,10 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
       { href: "/admin", labelKey: "admin.nav.links.dashboard", exact: true },
       { href: "/admin/activity", labelKey: "admin.nav.links.activity" },
       { href: "/admin/history", labelKey: "admin.nav.links.reports" },
-      { href: "/admin/announcements", labelKey: "admin.nav.links.announcements" },
+      {
+        href: "/admin/announcements",
+        labelKey: "admin.nav.links.announcements",
+      },
     ],
   },
   {
@@ -33,11 +40,30 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
     titleKey: "admin.nav.sections.tutors",
     items: [
       { href: "/admin/tutors", labelKey: "admin.nav.links.tutorRoster" },
-      { href: "/admin/applications", labelKey: "admin.nav.links.tutorApplications" },
-      { href: "/admin/tutor-requests", labelKey: "admin.nav.links.tutorRequests", elevatedOnly: true },
-      { href: "/admin/meetings", labelKey: "admin.nav.links.tutorMeetings", feature: "MEETINGS" },
-      { href: "/admin/service-hours", labelKey: "admin.nav.links.serviceHours", feature: "SERVICE_HOURS" },
-      { href: "/admin/hour-adjustments", labelKey: "admin.nav.links.hourAdjustments", feature: "SERVICE_HOURS" },
+      {
+        href: "/admin/applications",
+        labelKey: "admin.nav.links.tutorApplications",
+      },
+      {
+        href: "/admin/tutor-requests",
+        labelKey: "admin.nav.links.tutorRequests",
+        elevatedOnly: true,
+      },
+      {
+        href: "/admin/meetings",
+        labelKey: "admin.nav.links.tutorMeetings",
+        feature: "MEETINGS",
+      },
+      {
+        href: "/admin/service-hours",
+        labelKey: "admin.nav.links.serviceHours",
+        feature: "SERVICE_HOURS",
+      },
+      {
+        href: "/admin/hour-adjustments",
+        labelKey: "admin.nav.links.hourAdjustments",
+        feature: "SERVICE_HOURS",
+      },
     ],
   },
   {
@@ -46,8 +72,16 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
     items: [
       { href: "/admin/tutees", labelKey: "admin.nav.links.tuteeRoster" },
       { href: "/admin/requests", labelKey: "admin.nav.links.signupRequests" },
-      { href: "/admin/tutee-requests", labelKey: "admin.nav.links.tuteeRequests", elevatedOnly: true },
-      { href: "/admin/discipline", labelKey: "admin.nav.links.tuteeDiscipline", feature: "DISCIPLINE" },
+      {
+        href: "/admin/tutee-requests",
+        labelKey: "admin.nav.links.tuteeRequests",
+        elevatedOnly: true,
+      },
+      {
+        href: "/admin/discipline",
+        labelKey: "admin.nav.links.tuteeDiscipline",
+        feature: "DISCIPLINE",
+      },
     ],
   },
   {
@@ -55,8 +89,18 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
     items: [
       { href: "/admin/pairings", labelKey: "admin.nav.links.pairings" },
       { href: "/admin/attendance", labelKey: "admin.nav.links.attendance" },
-      { href: "/admin/session-flags", labelKey: "admin.nav.links.sessionFlags", elevatedOnly: true, feature: "CREW" },
-      { href: "/admin/crew", labelKey: "admin.nav.links.crew", elevatedOnly: true, feature: "CREW" },
+      {
+        href: "/admin/session-flags",
+        labelKey: "admin.nav.links.sessionFlags",
+        elevatedOnly: true,
+        feature: "CREW",
+      },
+      {
+        href: "/admin/crew",
+        labelKey: "admin.nav.links.crew",
+        elevatedOnly: true,
+        feature: "CREW",
+      },
       { href: "/admin/time-slots", labelKey: "admin.nav.links.timeSlots" },
       { href: "/admin/subjects", labelKey: "admin.nav.links.coursesLevels" },
       { href: "/admin/rooms", labelKey: "admin.nav.links.rooms" },
@@ -65,14 +109,34 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
   {
     titleKey: "admin.nav.sections.administration",
     items: [
-      { href: "/admin/program", labelKey: "admin.nav.links.program", adminOnly: true },
-      { href: "/admin/landing", labelKey: "admin.nav.links.landing", elevatedOnly: true },
+      {
+        href: "/admin/program",
+        labelKey: "admin.nav.links.program",
+        adminOnly: true,
+      },
+      {
+        href: "/admin/landing",
+        labelKey: "admin.nav.links.landing",
+        elevatedOnly: true,
+      },
       { href: "/admin/policies", labelKey: "admin.nav.links.policyDocuments" },
-      { href: "/localization", labelKey: "localization.navLabel", elevatedOnly: true },
-      { href: "/admin/registration-codes", labelKey: "admin.nav.links.registrationCodes", elevatedOnly: true },
+      {
+        href: "/localization",
+        labelKey: "localization.navLabel",
+        elevatedOnly: true,
+      },
+      {
+        href: "/admin/registration-codes",
+        labelKey: "admin.nav.links.registrationCodes",
+        elevatedOnly: true,
+      },
       // Audit Log + Users & Roles stay pinned to the bottom of the section.
       { href: "/admin/audit", labelKey: "admin.nav.links.auditLog" },
-      { href: "/admin/users", labelKey: "admin.nav.links.usersRoles", elevatedOnly: true },
+      {
+        href: "/admin/users",
+        labelKey: "admin.nav.links.usersRoles",
+        elevatedOnly: true,
+      },
     ],
   },
 ];
@@ -96,7 +160,11 @@ export async function NavSidebar({ role }: { role: string }) {
     title: t(section.titleKey),
     items: section.items
       .filter(visible)
-      .map((item) => ({ href: item.href, label: t(item.labelKey), exact: item.exact })),
+      .map((item) => ({
+        href: item.href,
+        label: t(item.labelKey),
+        exact: item.exact,
+      })),
   })).filter((s) => s.items.length > 0);
   return (
     <aside className="hidden w-56 shrink-0 lg:block">
@@ -118,7 +186,13 @@ export async function NavMobileRow({ role }: { role: string }) {
       {NAV_SECTIONS.flatMap((s) => s.items)
         .filter(visible)
         .map((item) => (
-          <NavLink key={item.href} href={item.href} label={t(item.labelKey)} exact={item.exact} />
+          <div key={item.href} className="shrink-0">
+            <NavLink
+              href={item.href}
+              label={t(item.labelKey)}
+              exact={item.exact}
+            />
+          </div>
         ))}
     </nav>
   );

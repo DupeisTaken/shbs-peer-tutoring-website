@@ -139,6 +139,8 @@
   },
   "landing": {
     "nav": {
+      "accessProgramInformation": "プログラム情報",
+      "joinProgram": "プログラムに参加",
       "requestTutor": "チューターを申請",
       "becomeTutor": "チューターになる",
       "teamSignin": "サインイン",

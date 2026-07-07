@@ -39,7 +39,12 @@ export default async function AdminLayout({
   // keep the link to preserve attributes, so check the live status rather than the JWT's tutorId.
   const me = await db.user.findUnique({
     where: { id: session.user.id },
-    select: { username: true, crewStatus: true, suspendedAt: true, tutor: { select: { username: true, status: true } } },
+    select: {
+      username: true,
+      crewStatus: true,
+      suspendedAt: true,
+      tutor: { select: { username: true, status: true } },
+    },
   });
   // A suspended viewer keeps their login but is routed to the suspension/appeal screen.
   if (me?.suspendedAt) redirect("/suspended");
@@ -53,59 +58,75 @@ export default async function AdminLayout({
     <div className="min-h-screen">
       {/* Unified top bar (all breakpoints): brand + the global controls. */}
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white">
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-6">
-          <Link href="/admin" className="text-lg font-bold text-slate-900">
+        <div className="grid gap-3 px-4 py-3 sm:flex sm:items-center sm:justify-between lg:px-6">
+          <Link
+            href="/admin"
+            className="min-w-0 justify-self-center text-center text-lg font-bold text-balance text-slate-900 sm:justify-self-start sm:text-left"
+          >
             {TEAM_TITLE}
           </Link>
           {/* Order: account info · theme · bell · language · buttons */}
-          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+          <div className="-mx-4 flex min-w-0 items-center gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:justify-end sm:gap-3 sm:overflow-visible sm:px-0 sm:pb-0">
             <Link
               href="/admin/account"
-              className="hidden rounded-md px-2 py-1 text-right leading-tight hover:bg-slate-100 sm:block"
+              className="hidden shrink-0 rounded-md px-2 py-1 text-right leading-tight hover:bg-slate-100 sm:block"
               title={t("account.title")}
             >
-              <p className="text-sm font-medium text-slate-900">{session.user.name}</p>
+              <p className="text-sm font-medium text-slate-900">
+                {session.user.name}
+              </p>
               <p className="muted text-xs">
-                {me?.username ?? me?.tutor?.username
+                {(me?.username ?? me?.tutor?.username)
                   ? `@${me.username ?? me?.tutor?.username} · `
                   : ""}
                 {session.role}
               </p>
             </Link>
-            <ThemeSwitcher />
-            <NotificationBell />
-            <LanguageSwitcher />
+            <div className="shrink-0">
+              <ThemeSwitcher />
+            </div>
+            <div className="shrink-0">
+              <NotificationBell />
+            </div>
+            <div className="shrink-0">
+              <LanguageSwitcher />
+            </div>
             {canEnterTutor && (
-              <Link href="/dashboard" className="btn-secondary btn-sm">
+              <Link href="/dashboard" className="btn-secondary btn-sm shrink-0">
                 {t("components.userMenu.enterTutor")}
               </Link>
             )}
             {me?.crewStatus === "ACTIVE" && (
-              <Link href="/patrol" className="btn-secondary btn-sm">
+              <Link href="/patrol" className="btn-secondary btn-sm shrink-0">
                 {t("crew.nav.patrol")}
               </Link>
             )}
-            <SignOutButton />
+            <div className="shrink-0">
+              <SignOutButton className="btn-secondary btn-sm" />
+            </div>
           </div>
         </div>
         <NavMobileRow role={session.role} />
       </header>
 
-      <div className="mx-auto flex max-w-7xl gap-8 px-4 py-6 lg:px-6">
+      <div className="mx-auto flex max-w-7xl gap-8 px-4 py-5 sm:py-6 lg:px-6">
         <NavSidebar role={session.role} />
 
         {/* Main content. `data-readonly` exposes the read-only VIEWER role to globals.css, which keeps
             only a thin destructive-control backstop; mutation panels are hidden per-page via
             useReadOnly(), and the server-side adminProcedure checks are the real guard. */}
-        <main className="min-w-0 flex-1" data-readonly={readOnly ? "" : undefined}>
+        <main
+          className="min-w-0 flex-1"
+          data-readonly={readOnly ? "" : undefined}
+        >
           {readOnly && (
             // Viewer's viewing pass — a welcoming accent strip, not an amber lockout warning
             // (the program values transparency). The eye glyph carries the "viewer" identity, so
             // the copy stays the single existing banner string.
-            <div className="mb-5 flex items-center gap-3 rounded-xl border border-accent-200 bg-accent-50 px-4 py-2.5">
+            <div className="border-accent-200 bg-accent-50 mb-5 flex items-center gap-3 rounded-xl border px-4 py-2.5">
               <span
                 aria-hidden
-                className="grid h-7 w-7 shrink-0 place-items-center rounded-full bg-accent-100 text-accent-700 ring-1 ring-accent-200"
+                className="bg-accent-100 text-accent-700 ring-accent-200 grid h-7 w-7 shrink-0 place-items-center rounded-full ring-1"
               >
                 <svg
                   viewBox="0 0 24 24"
@@ -120,7 +141,9 @@ export default async function AdminLayout({
                   <circle cx="12" cy="12" r="2.6" />
                 </svg>
               </span>
-              <p className="text-sm leading-snug text-accent-800">{t("admin.readOnly.banner")}</p>
+              <p className="text-accent-800 text-sm leading-snug">
+                {t("admin.readOnly.banner")}
+              </p>
             </div>
           )}
           <ReadOnlyProvider value={readOnly}>{children}</ReadOnlyProvider>

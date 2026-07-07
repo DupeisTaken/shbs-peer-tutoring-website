@@ -139,6 +139,8 @@
   },
   "landing": {
     "nav": {
+      "accessProgramInformation": "프로그램 정보",
+      "joinProgram": "프로그램 참여",
       "requestTutor": "튜터 신청",
       "becomeTutor": "튜터 지원",
       "teamSignin": "로그인",

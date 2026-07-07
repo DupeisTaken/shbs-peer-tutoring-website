@@ -29,7 +29,9 @@ export default async function TutorLayout({
 
   const t = await getTranslations();
   const isElevated =
-    session.role === "HEAD" || session.role === "ADMIN" || session.role === "COORDINATOR";
+    session.role === "HEAD" ||
+    session.role === "ADMIN" ||
+    session.role === "COORDINATOR";
 
   // Stale-session guard: `session.tutorId` lives in the JWT and can outlive the Tutor row it
   // points to (e.g. after a dev DB reseed). Tutor queries (`tutor.me`, …) use it and would throw
@@ -73,49 +75,66 @@ export default async function TutorLayout({
       tutor: { select: { username: true } },
     },
   });
-  if (!me?.emailVerifiedAt || me.mustChangePassword) redirect("/onboarding/email");
+  if (!me?.emailVerifiedAt || me.mustChangePassword)
+    redirect("/onboarding/email");
 
   return (
     <div className="min-h-screen">
       {/* Shared top-bar theme with the admin area: brand left, identity + global controls right. */}
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white">
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-6">
-          <Link href="/dashboard" className="text-lg font-bold text-slate-900">
+        <div className="grid gap-3 px-4 py-3 sm:flex sm:items-center sm:justify-between lg:px-6">
+          <Link
+            href="/dashboard"
+            className="min-w-0 justify-self-center text-center text-lg font-bold text-balance text-slate-900 sm:justify-self-start sm:text-left"
+          >
             {APP_TITLE}
           </Link>
           {/* Order: account info · theme · bell · language · buttons */}
-          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
-            <div className="hidden text-right leading-tight sm:block">
-              <p className="text-sm font-medium text-slate-900">{session.user.name}</p>
+          <div className="-mx-4 flex min-w-0 items-center gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:justify-end sm:gap-3 sm:overflow-visible sm:px-0 sm:pb-0">
+            <div className="hidden shrink-0 text-right leading-tight sm:block">
+              <p className="text-sm font-medium text-slate-900">
+                {session.user.name}
+              </p>
               <p className="muted text-xs">
                 {me?.tutor?.username ? `@${me.tutor.username}` : session.role}
               </p>
             </div>
-            <ThemeSwitcher />
-            <NotificationBell />
-            <LanguageSwitcher />
+            <div className="shrink-0">
+              <ThemeSwitcher />
+            </div>
+            <div className="shrink-0">
+              <NotificationBell />
+            </div>
+            <div className="shrink-0">
+              <LanguageSwitcher />
+            </div>
             {isElevated && (
-              <Link href="/admin" className="btn-secondary btn-sm">
+              <Link href="/admin" className="btn-secondary btn-sm shrink-0">
                 {t("components.userMenu.enterAdmin")}
               </Link>
             )}
             {me?.crewStatus === "ACTIVE" && (
-              <Link href="/patrol" className="btn-secondary btn-sm">
+              <Link href="/patrol" className="btn-secondary btn-sm shrink-0">
                 {t("crew.nav.patrol")}
               </Link>
             )}
-            <Link href="/handbook" className="btn-secondary btn-sm">
+            <Link href="/handbook" className="btn-secondary btn-sm shrink-0">
               {t("tutor.nav.handbook")}
             </Link>
             {me?.canTranslate && (
-              <Link href="/localization" className="btn-secondary btn-sm">
+              <Link
+                href="/localization"
+                className="btn-secondary btn-sm shrink-0"
+              >
                 {t("localization.navLabel")}
               </Link>
             )}
-            <Link href="/settings" className="btn-secondary btn-sm">
+            <Link href="/settings" className="btn-secondary btn-sm shrink-0">
               {t("components.userMenu.settings")}
             </Link>
-            <SignOutButton />
+            <div className="shrink-0">
+              <SignOutButton className="btn-secondary btn-sm" />
+            </div>
           </div>
         </div>
       </header>
