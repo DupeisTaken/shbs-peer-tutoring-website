@@ -27,7 +27,7 @@ Internet ──443/80──▶ caddy ──▶ app:3000 ──▶ db:5432
 2. A domain, with an **A record pointing at the VPS IP** — set this *before* first start so
    Caddy's Let's Encrypt challenge succeeds.
 
-Sign-in is email + password (no external identity provider to register). Logins are created only
+Sign-in is username or email + password (no external identity provider to register). Logins are created only
 through gated paths: the first admin comes from the seed (or `AUTH_BOOTSTRAP_ADMIN_EMAILS`);
 recruits self-register at **`/register`** with an admin-issued single-use code plus an emailed
 verification code; and outsiders can self-register a **read-only viewer (VIEWER)** account at
@@ -36,8 +36,9 @@ signup (`/signup`), tutor application (`/tutor-signup`), and crew application (`
 create `PENDING` records for admin review — **none creates a login**. Credential sign-in, the
 registration steps, and viewer signup are all **rate-limited in-app** (per IP + per code / email /
 identifier; `src/server/rate-limit.ts`); a CAPTCHA in front is still worth considering at scale.
-Transactional email (reset links + the emailed password-change 2FA code) goes through Aliyun Direct
-Mail — see "Email" below. A second factor *at sign-in* (LOGIN_2FA) is scaffolded but not yet enabled.
+Transactional email (reset links plus sign-in and password-change 2FA codes) goes through Aliyun
+Direct Mail — see "Email" below. Sign-in 2FA is enforced when the `EMAIL_2FA` program feature and
+the user's 2FA preference are both enabled.
 
 ## 2. Host setup (once)
 
@@ -66,8 +67,8 @@ cp .env.example .env
 
 ## Email — Aliyun Direct Mail (邮件推送)
 
-Transactional email — password-reset and tutor-setup links, the emailed password-change 2FA code,
-and the registration / viewer one-time codes — is sent through **Aliyun Direct Mail** over SMTP
+Transactional email — password-reset and tutor-setup links, emailed sign-in and password-change
+2FA codes, and registration / viewer one-time codes — is sent through **Aliyun Direct Mail** over SMTP
 (`src/server/email/sender.ts`: a pooled, TLS-enforced, timeout-bounded transporter that logs each
 send and failure). Until `EMAIL_FROM` + `SMTP_PASSWORD` are set the app logs mail in dev and warns
 in production, so it's optional for a first boot but **required for password resets and any emailed

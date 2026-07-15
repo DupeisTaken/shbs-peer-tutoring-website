@@ -19,13 +19,14 @@ cp .env.example .env
 
 Edit `.env`. For local work you really only need `DATABASE_URL` and `AUTH_SECRET`
 (generate the latter with `npx auth secret`; in development it may even be left blank).
-Sign-in is email + password — there is no external identity provider to configure.
+Sign-in is username or email + password — there is no external identity provider to configure.
 
 Put your own email in `AUTH_BOOTSTRAP_ADMIN_EMAILS` so that account is promoted to `ADMIN`
 on its first sign-in.
 
-> **Email-based 2FA is scaffolded, not implemented** (see `src/server/auth/two-factor.ts`).
-> No email provider or related env vars are needed yet.
+> **Email-based sign-in 2FA is implemented** and applies when the `EMAIL_2FA` program feature
+> and the user's 2FA preference are both enabled. Without SMTP configuration, development logs
+> the single-use code instead of sending it; see `src/server/auth/two-factor.ts`.
 
 ## 2. Get a database running
 
@@ -76,7 +77,7 @@ creates **dev login accounts** so you can actually sign in:
 
 | Email               | Role    | Password       | Notes                                  |
 | ------------------- | ------- | -------------- | -------------------------------------- |
-| `admin@example.edu` | `ADMIN` | `Password123!` |                                        |
+| `admin@example.edu` | `HEAD`  | `Password123!` | singleton program leader               |
 | `alice@example.edu` | `TUTOR` | `Password123!` | head interviewer on a seeded applicant |
 | `bob@example.edu`   | `TUTOR` | `Password123!` |                                        |
 | `evan@example.edu`  | `TUTOR` | `Password123!` | inactive tutor → pending-approval gate |
@@ -148,7 +149,7 @@ The integration tests use `test-`-prefixed fixture ids so they won't collide wit
 Lint and type-check the same way CI does:
 
 ```bash
-npm run check       # next lint + tsc --noEmit
+npm run check       # eslint . + tsc --noEmit
 ```
 
 ## 6. Smoke-test the production Docker stack (optional)

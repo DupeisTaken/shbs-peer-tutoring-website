@@ -35,16 +35,17 @@ Every signed-in user has one role (stored on `User.role`, carried in the JWT):
 | `TUTOR`       | View their own dashboard and submit attendance for their pairings.  |
 | `COORDINATOR` | Tutor abilities plus access to the `/admin` management area.        |
 | `ADMIN`       | Everything, including managing users/roles.                         |
+| `HEAD`        | Singleton program leader; all admin abilities plus leadership transfer. |
 
 Admins can also tick **"Can tutor"** on the Users & Roles page for an admin/coordinator,
 which links them to an (active) `Tutor` record so they can use both areas; unticking
 deactivates and unlinks it.
 
-There is no self-service sign-up: a `User` account (with a password) must exist before
-someone can sign in — created by the seed or by an admin. An account whose email is listed
-in `AUTH_BOOTSTRAP_ADMIN_EMAILS` is promoted to `ADMIN` on its first sign-in; after that,
-admins promote others in-app. A signed-in `User` is optionally linked to a domain `Tutor`
-record (matched by email) so tutors see their own pairings.
+Public tutee and tutor application forms do not create logins. A user can sign in after an
+admin provisions an account, after redeeming an admin-issued registration code at `/register`,
+or after completing the feature-gated read-only `/viewer-signup` flow. The first email in
+`AUTH_BOOTSTRAP_ADMIN_EMAILS` is promoted to the singleton `HEAD`; later entries become `ADMIN`.
+A signed-in `User` is optionally linked to a domain `Tutor` record so tutors see their own pairings.
 
 A coordinator/admin who is **also** a tutor (their account links to a `Tutor` record) can use
 both areas: sign-in lands them on `/admin` first, and the user menu shows **Enter tutor area** /
@@ -77,11 +78,12 @@ setting up. Forgetting a username? The reset-password screen reveals it after th
 verified.
 
 **Email delivery uses Aliyun Direct Mail (SMTP)** via `src/server/email/sender.ts` (nodemailer).
-The **forgot-password** flow emails the reset link through it; when the SMTP env vars aren't set,
-the sender logs the message in dev (link included) and warns in production — so nothing breaks
-unconfigured. Configure it with the `SMTP_*` / `EMAIL_FROM` vars (see [README-DEPLOY.md](./README-DEPLOY.md)
-for the Aliyun console setup). **Email-based 2FA (one-time codes) is scaffolded but not
-implemented** (`src/server/auth/two-factor.ts`); it can reuse the same sender when turned on.
+The forgot-password flow and email-based 2FA codes use the same sender. When the SMTP env vars
+aren't set, it logs messages in development and warns in production, so local work still runs.
+Configure it with the `SMTP_*` / `EMAIL_FROM` vars (see [README-DEPLOY.md](./README-DEPLOY.md)
+for the Aliyun console setup). When the `EMAIL_2FA` program feature and a user's 2FA preference
+are both enabled, sign-in verifies the password and then requires a single-use, five-character
+emailed code (`src/server/auth/two-factor.ts`).
 
 ### Routes
 
@@ -262,7 +264,7 @@ read through `src/lib/branding.ts` and fall back to the defaults above. Because 
 | `npm run dev`         | Next.js dev server (Turbopack).                       |
 | `npm run build`       | Production build (Turbopack — see note below).        |
 | `npm run start`       | Serve the production build.                           |
-| `npm run check`       | `next lint` + `tsc --noEmit`.                          |
+| `npm run check`       | `eslint .` + `tsc --noEmit`.                           |
 | `npm test`            | Run the Vitest suite once.                             |
 | `npm run test:watch`  | Vitest in watch mode.                                  |
 | `npm run db:push`     | Push the Prisma schema to the DB (no migration files). |
@@ -289,7 +291,7 @@ src/
   server/
     api/routers/       # tRPC routers (tutor, tutee, admin) + tests
     auth/              # Auth.js config (Credentials/password, role/JWT logic)
-                       #   password.ts (scrypt) + two-factor.ts (2FA scaffolding)
+                       #   password.ts (scrypt) + two-factor.ts (email sign-in 2FA)
     email/sender.ts    # Aliyun Direct Mail (SMTP via nodemailer) + dev-log fallback
     concurrency.ts     # optimistic version-check helper for high-risk admin writes
     db.ts              # Prisma client
