@@ -140,6 +140,7 @@
   "landing": {
     "nav": {
       "accessProgramInformation": "项目信息",
+      "menu": "菜单",
       "joinProgram": "加入项目",
       "requestTutor": "申请辅导",
       "becomeTutor": "成为辅导员",

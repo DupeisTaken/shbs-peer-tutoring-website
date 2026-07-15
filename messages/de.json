@@ -140,6 +140,7 @@
   "landing": {
     "nav": {
       "accessProgramInformation": "Programminformationen",
+      "menu": "Menü",
       "joinProgram": "Dem Programm beitreten",
       "requestTutor": "Tutor anfragen",
       "becomeTutor": "Tutor werden",

@@ -140,6 +140,7 @@
   "landing": {
     "nav": {
       "accessProgramInformation": "プログラム情報",
+      "menu": "メニュー",
       "joinProgram": "プログラムに参加",
       "requestTutor": "チューターを申請",
       "becomeTutor": "チューターになる",
