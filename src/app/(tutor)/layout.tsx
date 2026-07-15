@@ -9,6 +9,7 @@ import { SignOutButton } from "~/app/_components/sign-out-button";
 import { NotificationBell } from "~/app/_components/notification-bell";
 import { LanguageSwitcher } from "~/app/_components/language-switcher";
 import { ThemeSwitcher } from "~/app/_components/theme-switcher";
+import { UserAvatar } from "~/app/_components/user-avatar";
 import { APP_TITLE } from "~/lib/branding";
 
 /**
@@ -78,63 +79,66 @@ export default async function TutorLayout({
   if (!me?.emailVerifiedAt || me.mustChangePassword)
     redirect("/onboarding/email");
 
+  const accountItems = [
+    ...(isElevated
+      ? [
+          {
+            href: "/admin",
+            label: t("components.userMenu.enterAdmin"),
+          },
+        ]
+      : []),
+    ...(me.crewStatus === "ACTIVE"
+      ? [{ href: "/patrol", label: t("crew.nav.patrol") }]
+      : []),
+    { href: "/handbook", label: t("tutor.nav.handbook") },
+    ...(me.canTranslate
+      ? [{ href: "/localization", label: t("localization.navLabel") }]
+      : []),
+    { href: "/settings", label: t("components.userMenu.settings") },
+  ];
+
   return (
     <div className="min-h-screen">
       {/* Shared top-bar theme with the admin area: brand left, identity + global controls right. */}
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white">
-        <div className="grid gap-3 px-4 py-3 sm:flex sm:items-center sm:justify-between lg:px-6">
+        <div className="grid min-w-0 gap-2 px-4 py-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:px-6">
           <Link
             href="/dashboard"
-            className="min-w-0 justify-self-center text-center text-lg font-bold text-balance text-slate-900 sm:justify-self-start sm:text-left"
+            className="flex min-h-11 max-w-full min-w-0 items-center justify-self-start truncate text-left text-lg font-bold whitespace-nowrap text-slate-900"
           >
             {APP_TITLE}
           </Link>
-          {/* Order: account info · theme · bell · language · buttons */}
-          <div className="-mx-4 flex min-w-0 items-center gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:justify-end sm:gap-3 sm:overflow-visible sm:px-0 sm:pb-0">
-            <div className="hidden shrink-0 text-right leading-tight sm:block">
+          <div className="flex min-w-0 items-center justify-end gap-2">
+            <Link
+              href="/settings"
+              className="hidden shrink-0 rounded-md px-2 py-1 text-right leading-tight hover:bg-slate-100 lg:block"
+              title={t("components.userMenu.settings")}
+            >
               <p className="text-sm font-medium text-slate-900">
                 {session.user.name}
               </p>
               <p className="muted text-xs">
-                {me?.tutor?.username ? `@${me.tutor.username}` : session.role}
+                {me.tutor?.username ? `@${me.tutor.username}` : session.role}
               </p>
-            </div>
+            </Link>
             <div className="shrink-0">
-              <ThemeSwitcher />
+              <ThemeSwitcher compactAtDesktop />
             </div>
             <div className="shrink-0">
               <NotificationBell />
             </div>
             <div className="shrink-0">
-              <LanguageSwitcher />
+              <LanguageSwitcher compactAtDesktop />
             </div>
-            {isElevated && (
-              <Link href="/admin" className="btn-secondary btn-sm shrink-0">
-                {t("components.userMenu.enterAdmin")}
-              </Link>
-            )}
-            {me?.crewStatus === "ACTIVE" && (
-              <Link href="/patrol" className="btn-secondary btn-sm shrink-0">
-                {t("crew.nav.patrol")}
-              </Link>
-            )}
-            <Link href="/handbook" className="btn-secondary btn-sm shrink-0">
-              {t("tutor.nav.handbook")}
-            </Link>
-            {me?.canTranslate && (
-              <Link
-                href="/localization"
-                className="btn-secondary btn-sm shrink-0"
-              >
-                {t("localization.navLabel")}
-              </Link>
-            )}
-            <Link href="/settings" className="btn-secondary btn-sm shrink-0">
-              {t("components.userMenu.settings")}
-            </Link>
-            <div className="shrink-0">
-              <SignOutButton className="btn-secondary btn-sm" />
-            </div>
+            <UserAvatar
+              name={session.user.name ?? me.email}
+              username={me.tutor?.username}
+              email={me.email}
+              role={session.role}
+              items={accountItems}
+              compactAtDesktop
+            />
           </div>
         </div>
       </header>

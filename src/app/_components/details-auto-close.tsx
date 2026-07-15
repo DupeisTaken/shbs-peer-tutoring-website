@@ -20,7 +20,12 @@ export function DetailsAutoClose() {
         details.open = false;
     };
     const onKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape") details.open = false;
+      if (e.key !== "Escape" || !details.open) return;
+      details.open = false;
+      details.querySelector<HTMLElement>("summary")?.focus();
+    };
+    const onClick = (e: MouseEvent) => {
+      if ((e.target as Element).closest("a[href]")) details.open = false;
     };
     const onToggle = () => {
       if (!details.open) return;
@@ -35,11 +40,13 @@ export function DetailsAutoClose() {
 
     document.addEventListener("pointerdown", onPointerDown);
     document.addEventListener("keydown", onKeyDown);
+    details.addEventListener("click", onClick);
     details.addEventListener("toggle", onToggle);
     return () => {
       delete details.dataset.autoCloseDetails;
       document.removeEventListener("pointerdown", onPointerDown);
       document.removeEventListener("keydown", onKeyDown);
+      details.removeEventListener("click", onClick);
       details.removeEventListener("toggle", onToggle);
     };
   }, []);

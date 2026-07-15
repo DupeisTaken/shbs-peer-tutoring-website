@@ -17,8 +17,7 @@ import {
   ButtonsBlock,
   ColumnsBlock,
 } from "~/app/_components/page-blocks";
-import { DetailsAutoClose } from "~/app/_components/details-auto-close";
-import { NativeDisclosureIcon } from "~/app/_components/icons";
+import { HeaderMenu, HeaderMenuGroup } from "~/app/_components/header-menu";
 import { LanguageSwitcher } from "~/app/_components/language-switcher";
 import { ThemeSwitcher } from "~/app/_components/theme-switcher";
 
@@ -53,6 +52,22 @@ export async function LandingView({ preview = false }: { preview?: boolean }) {
   };
   const heroImageId = overrides.heroImageId;
   const draftLabel = t("preview.draftBadge");
+  const informationItems = [
+    ...navPages.map((page) => ({
+      href: `/p/${page.slug}`,
+      label: page.label,
+    })),
+    ...(features.VIEWER_SIGNUP
+      ? [{ href: "/viewer-signup", label: t("nav.viewerSignup") }]
+      : []),
+  ];
+  const joinItems = [
+    { href: "/signup", label: t("nav.requestTutor"), strong: true },
+    { href: "/tutor-signup", label: t("nav.becomeTutor") },
+    ...(features.CREW
+      ? [{ href: "/crew-signup", label: t("nav.becomeCrew") }]
+      : []),
+  ];
 
   const renderBlock = (block: Block) => {
     switch (block.type) {
@@ -188,47 +203,61 @@ export async function LandingView({ preview = false }: { preview?: boolean }) {
 
       {/* Top banner: single-line brand left, compact entry menus right. */}
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur">
-        <div className="mx-auto grid max-w-6xl gap-3 px-4 py-3 md:grid-cols-[auto_minmax(0,1fr)] md:items-center">
+        <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 lg:h-11">
           <Link
             href="/"
-            className="min-w-0 justify-self-start text-left text-lg font-extrabold tracking-tight whitespace-nowrap text-slate-900"
+            className="flex min-w-0 flex-1 items-center truncate text-left text-lg font-extrabold tracking-tight whitespace-nowrap text-slate-900"
           >
             {APP_TITLE}
           </Link>
-          <nav className="flex min-w-0 flex-wrap items-center justify-start gap-2 md:justify-end">
+          <HeaderMenuGroup className="flex shrink-0 items-center lg:hidden">
+            <HeaderMenu
+              label={t("nav.menu")}
+              align="right"
+              panelWidth="wide"
+              items={[
+                ...informationItems.map((item) => ({
+                  ...item,
+                  group: t("nav.accessProgramInformation"),
+                })),
+                ...joinItems.map((item) => ({
+                  ...item,
+                  group: t("nav.joinProgram"),
+                })),
+                {
+                  href: "/signin",
+                  label: t("nav.teamSignin"),
+                  separatorBefore: true,
+                },
+              ]}
+            >
+              <ThemeSwitcher embedded />
+              <LanguageSwitcher embedded />
+            </HeaderMenu>
+          </HeaderMenuGroup>
+          <HeaderMenuGroup className="hidden min-w-0 items-center justify-end gap-2 lg:flex">
             <HeaderMenu
               label={t("nav.accessProgramInformation")}
-              items={[
-                ...navPages.map((page) => ({
-                  href: `/p/${page.slug}`,
-                  label: page.label,
-                })),
-                ...(features.VIEWER_SIGNUP
-                  ? [{ href: "/viewer-signup", label: t("nav.viewerSignup") }]
-                  : []),
-              ]}
+              items={informationItems}
+              compact
             />
             <HeaderMenu
               label={t("nav.joinProgram")}
               tone="primary"
-              items={[
-                { href: "/signup", label: t("nav.requestTutor"), strong: true },
-                { href: "/tutor-signup", label: t("nav.becomeTutor") },
-                ...(features.CREW
-                  ? [{ href: "/crew-signup", label: t("nav.becomeCrew") }]
-                  : []),
-              ]}
+              align="right"
+              items={joinItems}
+              compact
             />
             <Link href="/signin" className="btn-secondary btn-sm shrink-0">
               {t("nav.teamSignin")}
             </Link>
             <div className="shrink-0">
-              <ThemeSwitcher />
+              <ThemeSwitcher compact />
             </div>
             <div className="shrink-0">
-              <LanguageSwitcher />
+              <LanguageSwitcher compact />
             </div>
-          </nav>
+          </HeaderMenuGroup>
         </div>
       </header>
 
@@ -292,47 +321,6 @@ function FeatureCard({
       <h2 className="mt-3 font-semibold text-slate-900">{title}</h2>
       <p className="muted mt-1 text-sm">{body}</p>
     </div>
-  );
-}
-
-function HeaderMenu({
-  label,
-  items,
-  tone = "secondary",
-}: {
-  label: string;
-  items: { href: string; label: string; strong?: boolean }[];
-  tone?: "primary" | "secondary";
-}) {
-  if (items.length === 0) return null;
-
-  return (
-    <details className="group relative shrink-0">
-      <DetailsAutoClose />
-      <summary
-        className={`btn-sm flex cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden ${
-          tone === "primary" ? "btn-primary" : "btn-secondary"
-        }`}
-      >
-        <span>{label}</span>
-        <NativeDisclosureIcon />
-      </summary>
-      <div className="absolute left-0 z-30 mt-2 min-w-60 rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
-        <div className="grid gap-1">
-          {items.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`rounded-md px-3 py-2 text-sm whitespace-nowrap text-slate-700 transition hover:bg-slate-50 hover:text-slate-950 ${
-                item.strong ? "font-bold text-slate-950" : "font-medium"
-              }`}
-            >
-              {item.label}
-            </Link>
-          ))}
-        </div>
-      </div>
-    </details>
   );
 }
 

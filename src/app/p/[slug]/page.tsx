@@ -15,8 +15,7 @@ import { authorizeHomeEditor } from "~/server/home/images";
 import { APP_TITLE } from "~/lib/branding";
 import { Markdown } from "~/app/_components/markdown";
 import { PageBlocks } from "~/app/_components/page-blocks";
-import { DetailsAutoClose } from "~/app/_components/details-auto-close";
-import { NativeDisclosureIcon } from "~/app/_components/icons";
+import { HeaderMenu, HeaderMenuGroup } from "~/app/_components/header-menu";
 import { ThemeSwitcher } from "~/app/_components/theme-switcher";
 import { LanguageSwitcher } from "~/app/_components/language-switcher";
 
@@ -85,28 +84,44 @@ async function Shell({
     getTranslations("landing"),
     getTranslations("common"),
   ]);
+  const navItems = nav.map((page) => ({
+    href: `/p/${page.slug}`,
+    label: page.label,
+  }));
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur">
-        <div className="mx-auto grid max-w-4xl gap-3 px-4 py-3 md:grid-cols-[auto_minmax(0,1fr)] md:items-center">
+        <div className="mx-auto flex h-14 max-w-4xl items-center gap-3 px-4 lg:h-11">
           <Link
             href="/"
-            className="min-w-0 justify-self-start text-left text-lg font-extrabold tracking-tight whitespace-nowrap text-slate-900"
+            className="flex min-w-0 flex-1 items-center truncate text-left text-lg font-extrabold tracking-tight whitespace-nowrap text-slate-900"
           >
             {APP_TITLE}
           </Link>
-          <div className="flex min-w-0 flex-wrap items-center justify-start gap-2 md:justify-end">
-            <PageNavMenu
+          <HeaderMenuGroup className="flex shrink-0 items-center lg:hidden">
+            <HeaderMenu
+              label={t("nav.menu")}
+              align="right"
+              panelWidth="wide"
+              items={navItems}
+            >
+              <ThemeSwitcher embedded />
+              <LanguageSwitcher embedded />
+            </HeaderMenu>
+          </HeaderMenuGroup>
+          <HeaderMenuGroup className="hidden min-w-0 items-center justify-end gap-2 lg:flex">
+            <HeaderMenu
               label={t("nav.accessProgramInformation")}
-              pages={nav}
+              items={navItems}
+              compact
             />
             <div className="shrink-0">
-              <ThemeSwitcher />
+              <ThemeSwitcher compact />
             </div>
             <div className="shrink-0">
-              <LanguageSwitcher />
+              <LanguageSwitcher compact />
             </div>
-          </div>
+          </HeaderMenuGroup>
         </div>
       </header>
 
@@ -142,38 +157,5 @@ async function Shell({
         </p>
       </footer>
     </div>
-  );
-}
-
-function PageNavMenu({
-  label,
-  pages,
-}: {
-  label: string;
-  pages: { slug: string; label: string }[];
-}) {
-  if (pages.length === 0) return null;
-
-  return (
-    <details className="group relative shrink-0">
-      <DetailsAutoClose />
-      <summary className="btn-secondary btn-sm flex cursor-pointer list-none items-center gap-2 [&::-webkit-details-marker]:hidden">
-        <span>{label}</span>
-        <NativeDisclosureIcon />
-      </summary>
-      <div className="absolute left-0 z-30 mt-2 min-w-60 rounded-lg border border-slate-200 bg-white p-2 shadow-lg">
-        <div className="grid gap-1">
-          {pages.map((page) => (
-            <Link
-              key={page.slug}
-              href={`/p/${page.slug}`}
-              className="rounded-md px-3 py-2 text-sm font-medium whitespace-nowrap text-slate-700 transition hover:bg-slate-50 hover:text-slate-950"
-            >
-              {page.label}
-            </Link>
-          ))}
-        </div>
-      </div>
-    </details>
   );
 }

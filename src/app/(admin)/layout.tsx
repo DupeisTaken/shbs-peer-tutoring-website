@@ -4,10 +4,10 @@ import { getTranslations } from "next-intl/server";
 
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
-import { SignOutButton } from "~/app/_components/sign-out-button";
 import { NotificationBell } from "~/app/_components/notification-bell";
 import { LanguageSwitcher } from "~/app/_components/language-switcher";
 import { ThemeSwitcher } from "~/app/_components/theme-switcher";
+import { UserAvatar } from "~/app/_components/user-avatar";
 import { NavSidebar, NavMobileRow } from "~/app/_components/admin-nav";
 import { ReadOnlyProvider } from "~/app/_components/read-only";
 import { TEAM_TITLE } from "~/lib/branding";
@@ -53,23 +53,36 @@ export default async function AdminLayout({
   // shows the button on the next render without waiting for a re-login. The jwt callback keeps
   // `session.tutorId` in sync too, so following the link into the tutor area resolves correctly.
   const canEnterTutor = !!me?.tutor && me.tutor.status !== "ARCHIVED";
+  const accountItems = [
+    ...(canEnterTutor
+      ? [
+          {
+            href: "/dashboard",
+            label: t("components.userMenu.enterTutor"),
+          },
+        ]
+      : []),
+    ...(me?.crewStatus === "ACTIVE"
+      ? [{ href: "/patrol", label: t("crew.nav.patrol") }]
+      : []),
+    { href: "/admin/account", label: t("account.title") },
+  ];
 
   return (
     <div className="min-h-screen">
       {/* Unified top bar (all breakpoints): brand + the global controls. */}
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white">
-        <div className="grid gap-3 px-4 py-3 sm:flex sm:items-center sm:justify-between lg:px-6">
+        <div className="grid min-w-0 gap-2 px-4 py-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:px-6">
           <Link
             href="/admin"
-            className="min-w-0 justify-self-center text-center text-lg font-bold text-balance text-slate-900 sm:justify-self-start sm:text-left"
+            className="flex min-h-11 max-w-full min-w-0 items-center justify-self-start truncate text-left text-lg font-bold whitespace-nowrap text-slate-900"
           >
             {TEAM_TITLE}
           </Link>
-          {/* Order: account info · theme · bell · language · buttons */}
-          <div className="-mx-4 flex min-w-0 items-center gap-2 overflow-x-auto px-4 pb-1 sm:mx-0 sm:justify-end sm:gap-3 sm:overflow-visible sm:px-0 sm:pb-0">
+          <div className="flex min-w-0 items-center justify-end gap-2">
             <Link
               href="/admin/account"
-              className="hidden shrink-0 rounded-md px-2 py-1 text-right leading-tight hover:bg-slate-100 sm:block"
+              className="hidden shrink-0 rounded-md px-2 py-1 text-right leading-tight hover:bg-slate-100 lg:block"
               title={t("account.title")}
             >
               <p className="text-sm font-medium text-slate-900">
@@ -83,27 +96,22 @@ export default async function AdminLayout({
               </p>
             </Link>
             <div className="shrink-0">
-              <ThemeSwitcher />
+              <ThemeSwitcher compactAtDesktop />
             </div>
             <div className="shrink-0">
               <NotificationBell />
             </div>
             <div className="shrink-0">
-              <LanguageSwitcher />
+              <LanguageSwitcher compactAtDesktop />
             </div>
-            {canEnterTutor && (
-              <Link href="/dashboard" className="btn-secondary btn-sm shrink-0">
-                {t("components.userMenu.enterTutor")}
-              </Link>
-            )}
-            {me?.crewStatus === "ACTIVE" && (
-              <Link href="/patrol" className="btn-secondary btn-sm shrink-0">
-                {t("crew.nav.patrol")}
-              </Link>
-            )}
-            <div className="shrink-0">
-              <SignOutButton className="btn-secondary btn-sm" />
-            </div>
+            <UserAvatar
+              name={session.user.name ?? session.user.email ?? session.role}
+              username={me?.username ?? me?.tutor?.username}
+              email={session.user.email}
+              role={session.role}
+              items={accountItems}
+              compactAtDesktop
+            />
           </div>
         </div>
         <NavMobileRow role={session.role} />
