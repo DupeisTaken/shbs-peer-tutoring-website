@@ -246,7 +246,10 @@ export default async function AdminHome() {
           <h2 className="section-title">
             {t("admin.dashboard.recentSubmissions.title")}
           </h2>
-          <Link href="/admin/attendance" className="link text-sm">
+          <Link
+            href="/admin/attendance"
+            className="link inline-flex min-h-11 items-center text-sm"
+          >
             {t("admin.dashboard.recentSubmissions.viewAll")}
           </Link>
         </div>
