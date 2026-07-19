@@ -24,7 +24,8 @@ export function ButtonRow({
   return (
     <div className={`flex flex-wrap gap-3 ${block.align === "center" ? "justify-center" : ""}`}>
       {buttons.map((b, i) => {
-        const cls = b.style === "primary" ? "btn-primary" : "btn-secondary";
+        // Public block actions remain comfortable touch targets even when their copy is short.
+        const cls = `${b.style === "primary" ? "btn-primary" : "btn-secondary"} min-h-11`;
         return b.href.startsWith("/") ? (
           <Link key={i} href={b.href} className={cls}>
             {b.label}

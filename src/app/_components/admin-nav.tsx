@@ -191,6 +191,7 @@ export async function NavMobileRow({ role }: { role: string }) {
               href={item.href}
               label={t(item.labelKey)}
               exact={item.exact}
+              className="min-h-11"
             />
           </div>
         ))}

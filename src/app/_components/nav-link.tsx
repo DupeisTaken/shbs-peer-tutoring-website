@@ -11,10 +11,13 @@ export function NavLink({
   href,
   label,
   exact = false,
+  className = "",
 }: {
   href: string;
   label: string;
   exact?: boolean;
+  /** Optional context-specific sizing without duplicating active-link behavior. */
+  className?: string;
 }) {
   const pathname = usePathname();
   const active = exact
@@ -22,7 +25,10 @@ export function NavLink({
     : pathname === href || pathname.startsWith(`${href}/`);
 
   return (
-    <Link href={href} className={`nav-link ${active ? "nav-link-active" : ""}`}>
+    <Link
+      href={href}
+      className={`nav-link ${active ? "nav-link-active" : ""} ${className}`}
+    >
       {label}
     </Link>
   );

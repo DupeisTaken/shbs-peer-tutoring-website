@@ -93,10 +93,10 @@ export async function LandingView({ preview = false }: { preview?: boolean }) {
                 {text("intro")}
               </p>
               <div className="mx-auto mt-8 grid max-w-sm grid-cols-1 gap-3 sm:flex sm:max-w-none sm:flex-wrap sm:items-center sm:justify-center">
-                <Link href="/signup" className="btn-primary">
+                <Link href="/signup" className="btn-primary min-h-11">
                   {text("ctaPrimary")}
                 </Link>
-                <Link href="/tutor-signup" className="btn-secondary">
+                <Link href="/tutor-signup" className="btn-secondary min-h-11">
                   {text("ctaSecondary")}
                 </Link>
               </div>
@@ -206,7 +206,7 @@ export async function LandingView({ preview = false }: { preview?: boolean }) {
         <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 lg:h-11">
           <Link
             href="/"
-            className="flex min-w-0 flex-1 items-center truncate text-left text-lg font-extrabold tracking-tight whitespace-nowrap text-slate-900"
+            className="flex min-h-11 min-w-0 flex-1 items-center truncate text-left text-lg font-extrabold tracking-tight whitespace-nowrap text-slate-900"
           >
             {APP_TITLE}
           </Link>
@@ -297,7 +297,7 @@ async function PreviewRibbon() {
         </span>
         <Link
           href="/admin/landing"
-          className="font-semibold underline-offset-2 hover:underline"
+          className="inline-flex min-h-11 items-center font-semibold underline-offset-2 hover:underline"
         >
           {t("ribbon.back")}
         </Link>
