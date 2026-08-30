@@ -94,7 +94,10 @@ sign-in verifies the password and then requires a single-use, five-character ema
   free-text "how can we reach you?"), first/second course choice (from the admin-managed
   catalog), available time slots, and a typed rulebook signature. Shows the current program
   term (e.g. `25-26 S2`); the agreement checkbox unlocks only after the applicant opens and
-  reads the policy in a modal. Creates a `PENDING` tutee for an admin to review and assign.
+  reads the policy in a modal. Admins can schedule the active quarter's opening time from
+  `/admin/program`; until then the page shows a live countdown and a required preview-sheet link,
+  and the API also rejects early submissions. Creates a `PENDING` tutee for an admin to review
+  and assign.
 - `/tutor-signup` — **public** tutor _application_: name, contact email, a required
   "how can we reach you?" field, and up to three intended courses. For each course the applicant reports how they're qualified — took the
   class (+ grade), holds an AP score (only offered for AP-tagged courses, and only entered

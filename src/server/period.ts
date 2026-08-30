@@ -14,6 +14,8 @@ export interface ActivePeriod {
   quarter: Quarter;
   semester: Semester;
   name: string;
+  signupOpensAt: Date | null;
+  signupPreviewUrl: string | null;
 }
 
 type TermClient = Pick<PrismaClient, "term">;
@@ -36,6 +38,8 @@ export async function getActivePeriod(db: TermClient): Promise<ActivePeriod> {
     quarter: term.quarter,
     semester: quarterSemester(term.quarter),
     name: term.name,
+    signupOpensAt: term.signupOpensAt,
+    signupPreviewUrl: term.signupPreviewUrl,
   };
 }
 
@@ -52,5 +56,7 @@ export async function getActivePeriodOrNull(db: TermClient): Promise<ActivePerio
     quarter: term.quarter,
     semester: quarterSemester(term.quarter),
     name: term.name,
+    signupOpensAt: term.signupOpensAt,
+    signupPreviewUrl: term.signupPreviewUrl,
   };
 }

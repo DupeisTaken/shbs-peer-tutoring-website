@@ -332,6 +332,10 @@ model Term {
   name       String // e.g. "25-26 Q3"
   startDate  DateTime?
   endDate    DateTime?
+  /// Optional public tutee-signup gate. Null means signups are open immediately.
+  signupOpensAt DateTime?
+  /// Optional read-only sheet applicants can preview while the signup gate is closed.
+  signupPreviewUrl String?
   active     Boolean        @default(false)
   pairings   Pairing[]
   meetings   TutorMeeting[]
