@@ -53,6 +53,11 @@ export default function ProgramPage() {
             </p>
           </section>
 
+          <SignupWindowSettings
+            key={`${period.termId}-${period.signupOpensAt?.toISOString() ?? "open"}-${period.signupPreviewUrl ?? ""}`}
+            period={period}
+          />
+
           <section className="card border-amber-200 p-5">
             <h2 className="section-title">{t("admin.program.refreshHeading")}</h2>
             <p className="muted mt-1">
@@ -113,6 +118,170 @@ export default function ProgramPage() {
         </>
       )}
     </div>
+  );
+}
+
+/** The program's configured display zone is Asia/Shanghai, which is a fixed UTC+8 year-round. */
+const PROGRAM_TIME_ZONE_OFFSET_MINUTES = 8 * 60;
+
+function toProgramDateTimeInput(value: Date | null): string {
+  if (!value) return "";
+  const date = new Date(value);
+  const programTime = new Date(
+    date.getTime() + PROGRAM_TIME_ZONE_OFFSET_MINUTES * 60_000,
+  );
+  return programTime.toISOString().slice(0, 16);
+}
+
+function fromProgramDateTimeInput(value: string): Date {
+  return new Date(`${value}:00+08:00`);
+}
+
+/** Active-quarter public signup controls. Empty opening time means the form is open immediately. */
+function SignupWindowSettings({
+  period,
+}: {
+  period: {
+    quarter: string;
+    signupOpensAt: Date | null;
+    signupPreviewUrl: string | null;
+    signupIsOpen: boolean;
+  };
+}) {
+  const t = useTranslations();
+  const utils = api.useUtils();
+  const [opensAt, setOpensAt] = useState(() =>
+    toProgramDateTimeInput(period.signupOpensAt),
+  );
+  const [previewUrl, setPreviewUrl] = useState(period.signupPreviewUrl ?? "");
+  const [saved, setSaved] = useState(false);
+  const save = api.program.setSignupWindow.useMutation({
+    onSuccess: async () => {
+      setSaved(true);
+      await utils.admin.currentPeriod.invalidate();
+    },
+  });
+
+  const scheduledForFuture =
+    period.signupOpensAt != null && !period.signupIsOpen;
+  const canSave = !save.isPending && (!opensAt || previewUrl.trim().length > 0);
+
+  const submitWindow = (nextOpensAt: Date | null) => {
+    setSaved(false);
+    save.mutate({
+      opensAt: nextOpensAt,
+      previewUrl: previewUrl.trim() || null,
+    });
+  };
+
+  return (
+    <section className="card border-accent-200 overflow-hidden">
+      <div className="border-accent-100 bg-accent-50/70 border-b px-5 py-4">
+        <div className="flex flex-wrap items-start justify-between gap-3">
+          <div>
+            <h2 className="section-title">
+              {t("admin.program.signupWindow.heading")}
+            </h2>
+            <p className="muted mt-1">
+              {t("admin.program.signupWindow.help", {
+                quarter: period.quarter,
+              })}
+            </p>
+          </div>
+          <span className={scheduledForFuture ? "badge-amber" : "badge-green"}>
+            {t(
+              scheduledForFuture
+                ? "admin.program.signupWindow.scheduled"
+                : "admin.program.signupWindow.open",
+            )}
+          </span>
+        </div>
+      </div>
+
+      <form
+        className="space-y-4 p-5"
+        onSubmit={(event) => {
+          event.preventDefault();
+          if (!canSave) return;
+          submitWindow(opensAt ? fromProgramDateTimeInput(opensAt) : null);
+        }}
+      >
+        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          <label className="space-y-1">
+            <span className="label">
+              {t("admin.program.signupWindow.opensAt")}
+            </span>
+            <input
+              type="datetime-local"
+              className="input"
+              value={opensAt}
+              onChange={(event) => {
+                setSaved(false);
+                setOpensAt(event.target.value);
+              }}
+            />
+            <span className="muted block text-xs">
+              {t("admin.program.signupWindow.timeZone")}
+            </span>
+          </label>
+          <label className="space-y-1">
+            <span className="label">
+              {t("admin.program.signupWindow.previewUrl")}
+            </span>
+            <input
+              type="url"
+              className="input"
+              value={previewUrl}
+              onChange={(event) => {
+                setSaved(false);
+                setPreviewUrl(event.target.value);
+              }}
+              placeholder="https://…"
+              required={Boolean(opensAt)}
+            />
+            <span className="muted block text-xs">
+              {t("admin.program.signupWindow.previewHelp")}
+            </span>
+          </label>
+        </div>
+
+        <div className="flex flex-wrap items-center gap-2">
+          <button type="submit" className="btn-primary" disabled={!canSave}>
+            {save.isPending
+              ? t("admin.program.signupWindow.saving")
+              : t("admin.program.signupWindow.save")}
+          </button>
+          {period.signupOpensAt && (
+            <button
+              type="button"
+              className="btn-secondary"
+              disabled={save.isPending}
+              onClick={() => {
+                setOpensAt("");
+                submitWindow(null);
+              }}
+            >
+              {t("admin.program.signupWindow.openNow")}
+            </button>
+          )}
+          {saved && (
+            <span className="text-sm font-medium text-green-700">
+              {t("admin.program.signupWindow.saved")}
+            </span>
+          )}
+        </div>
+        {opensAt && !previewUrl.trim() && (
+          <p className="text-sm text-amber-700">
+            {t("admin.program.signupWindow.previewRequired")}
+          </p>
+        )}
+        {save.error && (
+          <p role="alert" className="text-sm text-red-600">
+            {save.error.message}
+          </p>
+        )}
+      </form>
+    </section>
   );
 }
 

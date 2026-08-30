@@ -1,10 +1,11 @@
-import { z } from "zod";
 import { TRPCError } from "@trpc/server";
+import { z } from "zod";
 
 import {
   createTRPCRouter,
   publicProcedure,
   adminProcedure,
+  adminOnlyProcedure,
   headProcedure,
 } from "~/server/api/trpc";
 import {
@@ -26,6 +27,15 @@ const featureKey = z.enum([
   "EMAIL_2FA",
 ]);
 
+const httpUrl = z
+  .string()
+  .trim()
+  .url()
+  .max(2_048)
+  .refine((value) => ["http:", "https:"].includes(new URL(value).protocol), {
+    message: "Preview link must use http:// or https://.",
+  });
+
 /**
  * Program configuration: the optional-module feature flags. Effective flags are public (any surface
  * can hide a disabled module); staging changes is HEAD-only and takes effect at the next refresh.
@@ -37,6 +47,60 @@ export const programRouter = createTRPCRouter({
     ...(await getFeatures(ctx.db)),
     EMAIL_DELIVERY_AVAILABLE: isEmailDeliveryAvailable(),
   })),
+
+  /** Save the active quarter's tutee-signup opening time and optional preview sheet. This takes
+   *  effect immediately; the public mutation independently enforces the timestamp. */
+  setSignupWindow: adminOnlyProcedure
+    .input(
+      z
+        .object({
+          opensAt: z.date().nullable(),
+          previewUrl: httpUrl.nullable(),
+        })
+        .superRefine((value, ctx) => {
+          if (value.opensAt && !value.previewUrl) {
+            ctx.addIssue({
+              code: z.ZodIssueCode.custom,
+              path: ["previewUrl"],
+              message:
+                "A preview sheet link is required while signups are scheduled.",
+            });
+          }
+        }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const active = await ctx.db.term.findFirst({
+        where: { active: true },
+        orderBy: { createdAt: "desc" },
+        select: { id: true, quarter: true },
+      });
+      if (!active) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "No active program period. Create or seed one first.",
+        });
+      }
+
+      const updated = await ctx.db.term.update({
+        where: { id: active.id },
+        data: {
+          signupOpensAt: input.opensAt,
+          signupPreviewUrl: input.previewUrl,
+        },
+        select: { signupOpensAt: true, signupPreviewUrl: true },
+      });
+      const openingDescription = input.opensAt
+        ? `at ${input.opensAt.toISOString()}`
+        : "immediately";
+      await recordAudit({
+        userId: ctx.session.user.id,
+        userName: ctx.session.user.name,
+        action: `Set ${active.quarter} tutee signups to open ${openingDescription}`,
+        entity: "Term",
+        entityId: active.id,
+      });
+      return updated;
+    }),
 
   /** Current + staged (pending) state for the Program UI, plus whether the caller may edit (HEAD). */
   featureSettings: adminProcedure.query(async ({ ctx }) => {

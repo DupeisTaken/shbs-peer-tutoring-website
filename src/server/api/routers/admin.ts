@@ -9,6 +9,7 @@ import {
   viewerProcedure,
 } from "~/server/api/trpc";
 import { monthKey, shCount } from "~/lib/service-hours";
+import { isSignupWindowOpen } from "~/lib/signup-window";
 import {
   defaultUsername,
   ensureUniqueUsername,
@@ -524,10 +525,14 @@ export const adminRouter = createTRPCRouter({
     const np = nextPeriod(from, nextSemester);
     const yearCross = crossesYear(from, np);
     return {
+      termId: active.termId,
       schoolYear: active.schoolYear,
       quarter: active.quarter,
       semester: active.semester,
       name: curSemester ? periodLabel(from, true) : active.name,
+      signupOpensAt: active.signupOpensAt,
+      signupPreviewUrl: active.signupPreviewUrl,
+      signupIsOpen: isSignupWindowOpen(active.signupOpensAt),
       next: {
         schoolYear: np.schoolYear,
         quarter: np.quarter,
