@@ -15,12 +15,12 @@ monthly summary (with a month-picker). The interface is available in English and
 
 Built on the [T3 Stack](https://create.t3.gg/):
 
-- **[Next.js](https://nextjs.org)** 15 (App Router) + **React** 19
+- **[Next.js](https://nextjs.org)** 16 (App Router) + **React** 19
 - **[Auth.js](https://authjs.dev)** (NextAuth v5) — email + password (Credentials), JWT sessions
-- **[Prisma](https://prisma.io)** 6 + **PostgreSQL**
+- **[Prisma](https://prisma.io)** 7 + **PostgreSQL**
 - **[tRPC](https://trpc.io)** 11 for the typed API
 - **[Tailwind CSS](https://tailwindcss.com)** 4
-- **[next-intl](https://next-intl.dev)** for runtime localization (English / 中文)
+- **[next-intl](https://next-intl.dev)** for runtime localization (8 bundled locales)
 - **[Vitest](https://vitest.dev)** for unit/integration tests
 
 ## How it works
@@ -29,13 +29,13 @@ Built on the [T3 Stack](https://create.t3.gg/):
 
 Every signed-in user has one role (stored on `User.role`, carried in the JWT):
 
-| Role          | Can do                                                              |
-| ------------- | ------------------------------------------------------------------- |
+| Role          | Can do                                                                                                                                                                                                                       |
+| ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `VIEWER`      | Read-only access to the `/admin` area. Cannot mutate anything (queries use `viewerProcedure`, mutations stay on `adminProcedure`), and personal contact details (emails / phone / preferred contact) are masked server-side. |
-| `TUTOR`       | View their own dashboard and submit attendance for their pairings.  |
-| `COORDINATOR` | Tutor abilities plus access to the `/admin` management area.        |
-| `ADMIN`       | Everything, including managing users/roles.                         |
-| `HEAD`        | Singleton program leader; all admin abilities plus leadership transfer. |
+| `TUTOR`       | View their own dashboard and submit attendance for their pairings.                                                                                                                                                           |
+| `COORDINATOR` | Tutor abilities plus access to the `/admin` management area.                                                                                                                                                                 |
+| `ADMIN`       | Everything, including managing users/roles.                                                                                                                                                                                  |
+| `HEAD`        | Singleton program leader; all admin abilities plus leadership transfer.                                                                                                                                                      |
 
 Admins can also tick **"Can tutor"** on the Users & Roles page for an admin/coordinator,
 which links them to an (active) `Tutor` record so they can use both areas; unticking
@@ -79,11 +79,13 @@ verified.
 
 **Email delivery uses Aliyun Direct Mail (SMTP)** via `src/server/email/sender.ts` (nodemailer).
 The forgot-password flow and email-based 2FA codes use the same sender. When the SMTP env vars
-aren't set, it logs messages in development and warns in production, so local work still runs.
+aren't set, it logs messages in development. Production email flows fail closed with a visible
+“temporarily unavailable” error instead of claiming an undeliverable code was sent.
 Configure it with the `SMTP_*` / `EMAIL_FROM` vars (see [README-DEPLOY.md](./README-DEPLOY.md)
-for the Aliyun console setup). When the `EMAIL_2FA` program feature and a user's 2FA preference
-are both enabled, sign-in verifies the password and then requires a single-use, five-character
-emailed code (`src/server/auth/two-factor.ts`).
+for the Aliyun console setup). `EMAIL_2FA` defaults off and cannot be enabled in production until
+SMTP is configured. When that program feature and a user's 2FA preference are both enabled,
+sign-in verifies the password and then requires a single-use, five-character emailed code
+(`src/server/auth/two-factor.ts`). Users can manage their preference from account settings.
 
 ### Routes
 
@@ -93,7 +95,7 @@ emailed code (`src/server/auth/two-factor.ts`).
   catalog), available time slots, and a typed rulebook signature. Shows the current program
   term (e.g. `25-26 S2`); the agreement checkbox unlocks only after the applicant opens and
   reads the policy in a modal. Creates a `PENDING` tutee for an admin to review and assign.
-- `/tutor-signup` — **public** tutor *application*: name, contact email, a required
+- `/tutor-signup` — **public** tutor _application_: name, contact email, a required
   "how can we reach you?" field, and up to three intended courses. For each course the applicant reports how they're qualified — took the
   class (+ grade), holds an AP score (only offered for AP-tagged courses, and only entered
   once they confirm they have one), and/or self-studied it (+ a note on how they qualify).
@@ -109,8 +111,8 @@ emailed code (`src/server/auth/two-factor.ts`).
   (with default-slot picker), availability, the attendance form (which can **merge several
   courses into one block** — see Service hours), interviews they're on the panel for, and the
   room schedule — all on one page.
-- `/settings` — tutor self-service: edit alternative name(s) and contact email, and change
-  password (current password required). Linked from the avatar menu.
+- `/settings` — tutor self-service: edit alternative name(s) and contact email, change
+  password, and manage email 2FA (current password required). Linked from the avatar menu.
 - `/admin/*` — the **SHBS Peer Tutoring Team** management area (coordinator/admin). The nav is
   grouped into **Tutors** (roster, applications, meetings, service hours, hour adjustments),
   **Tutees** (roster, signup requests, discipline cards), **Scheduling & Records** (pairings,
@@ -175,7 +177,8 @@ the inverse is well-defined.
 
 ### Internationalization
 
-UI copy is localized with **next-intl**. Strings live in `messages/<locale>.json` (`en`, `zh`)
+UI copy is localized with **next-intl**. Strings live in `messages/<locale>.json`
+(`en`, `zh`, `es`, `fr`, `de`, `el`, `ja`, `ko`)
 and are rendered via `t("…")` — never hardcoded. The active locale comes from the `NEXT_LOCALE`
 cookie (a language switcher in the header sets it; there is no locale routing, so the auth
 middleware is untouched). Config is in `src/i18n/request.ts`; client-safe constants in
@@ -219,7 +222,7 @@ The program is designed to run for many years unattended:
 
 ## Getting started
 
-Prerequisites: **Node 20+**, **npm**, and a **PostgreSQL** database.
+Prerequisites: **Node 20.19+**, **npm**, and a **PostgreSQL** database.
 
 ```bash
 npm install                      # also runs `prisma generate`
@@ -241,17 +244,17 @@ See **[README-LOCAL.md](./README-LOCAL.md)** for a full local setup and testing 
 All variables are validated at startup by `src/env.js`. See `.env.example` for the full,
 commented list. The essentials:
 
-| Variable                       | Purpose                                                  |
-| ------------------------------ | -------------------------------------------------------- |
-| `AUTH_SECRET`                  | Session/JWT signing secret (`npx auth secret`).          |
-| `AUTH_BOOTSTRAP_ADMIN_EMAILS`  | Comma-separated emails granted `ADMIN` on first sign-in. |
-| `DATABASE_URL`                 | PostgreSQL connection string.                            |
-| `NEXT_PUBLIC_APP_TITLE`        | Public brand title (default `SHBS Peer Tutoring`).       |
-| `NEXT_PUBLIC_TEAM_TITLE`       | Team/admin-area title (default `SHBS Peer Tutoring Team`).|
-| `MESSAGES_OVERRIDE`            | Optional JSON deep-merged over locale messages (white-label copy). |
-| `TRPC_DEV_DELAY`               | Dev only: `true` injects a 100–500ms delay per tRPC call (waterfall debugging). Off by default. |
-| `EMAIL_FROM` / `SMTP_PASSWORD` | Aliyun Direct Mail sender address + SMTP password. Both set ⇒ email is live; else dev-logs. |
-| `SMTP_HOST` / `SMTP_PORT`      | Direct Mail SMTP host (default `smtpdm.aliyun.com`) and port (default `465`). |
+| Variable                       | Purpose                                                                                          |
+| ------------------------------ | ------------------------------------------------------------------------------------------------ |
+| `AUTH_SECRET`                  | Session/JWT signing secret (`npx auth secret`).                                                  |
+| `AUTH_BOOTSTRAP_ADMIN_EMAILS`  | Bootstrap emails: first becomes `HEAD`, later entries `ADMIN`.                                   |
+| `DATABASE_URL`                 | PostgreSQL connection string.                                                                    |
+| `NEXT_PUBLIC_APP_TITLE`        | Public brand title (default `SHBS Peer Tutoring`).                                               |
+| `NEXT_PUBLIC_TEAM_TITLE`       | Team/admin-area title (default `SHBS Peer Tutoring Team`).                                       |
+| `MESSAGES_OVERRIDE`            | Optional JSON deep-merged over locale messages (white-label copy).                               |
+| `TRPC_DEV_DELAY`               | Dev only: `true` injects a 100–500ms delay per tRPC call (waterfall debugging). Off by default.  |
+| `EMAIL_FROM` / `SMTP_PASSWORD` | Aliyun Direct Mail sender address + SMTP password. Both are required for production email flows. |
+| `SMTP_HOST` / `SMTP_PORT`      | Direct Mail SMTP host (default `smtpdm.aliyun.com`) and port (default `465`).                    |
 
 Branding: the two `NEXT_PUBLIC_*` titles let you rebrand without code changes — they're
 read through `src/lib/branding.ts` and fall back to the defaults above. Because they're
@@ -259,19 +262,20 @@ read through `src/lib/branding.ts` and fall back to the defaults above. Because 
 
 ## Scripts
 
-| Script                | What it does                                          |
-| --------------------- | ----------------------------------------------------- |
-| `npm run dev`         | Next.js dev server (Turbopack).                       |
-| `npm run build`       | Production build (Turbopack — see note below).        |
-| `npm run start`       | Serve the production build.                           |
-| `npm run check`       | `eslint .` + `tsc --noEmit`.                           |
-| `npm test`            | Run the Vitest suite once.                             |
-| `npm run test:watch`  | Vitest in watch mode.                                  |
-| `npm run db:push`     | Push the Prisma schema to the DB (no migration files). |
-| `npm run db:generate` | Create + apply a dev migration.                        |
-| `npm run db:migrate`  | Apply migrations (`prisma migrate deploy`).            |
-| `npm run db:seed`     | Seed sample reference data.                            |
-| `npm run db:studio`   | Open Prisma Studio.                                    |
+| Script                 | What it does                                           |
+| ---------------------- | ------------------------------------------------------ |
+| `npm run dev`          | Next.js dev server (Turbopack).                        |
+| `npm run build`        | Production build (Turbopack — see note below).         |
+| `npm run admin:create` | Create/recover a production admin (env vars required). |
+| `npm run start`        | Serve the production build.                            |
+| `npm run check`        | `eslint .` + `tsc --noEmit`.                           |
+| `npm test`             | Run the Vitest suite once.                             |
+| `npm run test:watch`   | Vitest in watch mode.                                  |
+| `npm run db:push`      | Push the Prisma schema to a disposable/local DB.       |
+| `npm run db:generate`  | Create + apply a dev migration.                        |
+| `npm run db:migrate`   | Apply migrations (`prisma migrate deploy`).            |
+| `npm run db:seed`      | Seed sample reference data.                            |
+| `npm run db:studio`    | Open Prisma Studio.                                    |
 
 > **Build note:** `build` uses `--turbopack` on purpose. The classic webpack build can fail
 > on Windows during output file-tracing; Turbopack still emits a working standalone output.
@@ -297,7 +301,7 @@ src/
     db.ts              # Prisma client
   lib/service-hours.ts # service-hour computation (pure, unit-tested)
   trpc/                # tRPC client/server wiring
-messages/              # next-intl translation catalogs (en.json, zh.json)
+messages/              # next-intl translation catalogs (8 bundled locales)
 prisma/
   schema.prisma        # data model
   seed.ts              # sample data

@@ -9,6 +9,7 @@ const send = vi.hoisted(() =>
 
 vi.mock("~/server/email/sender", () => ({
   emailSender: { send },
+  isEmailDeliveryAvailable: () => true,
 }));
 
 import { db } from "~/server/db";
@@ -93,5 +94,16 @@ describe("login 2FA codes", () => {
     });
     expect(row.attempts).toBe(MAX_CODE_ATTEMPTS);
     expect(row.consumedAt).toBeNull();
+  });
+
+  it("allows only one concurrent consumer of the same code", async () => {
+    await issueLoginCode(USER_ID);
+    const code = extractCode();
+
+    const results = await Promise.all(
+      Array.from({ length: 8 }, () => verifyLoginCode(USER_ID, code)),
+    );
+
+    expect(results.filter(Boolean)).toHaveLength(1);
   });
 });

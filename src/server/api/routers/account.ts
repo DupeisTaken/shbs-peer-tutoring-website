@@ -8,6 +8,7 @@ import { issueStepUpCode, verifyStepUpCode } from "~/server/auth/step-up";
 import { getFeatures } from "~/server/program/features";
 import { maskEmail } from "~/server/auth/mask";
 import { notifyAdmins } from "~/server/notifications/create";
+import { isEmailDeliveryAvailable } from "~/server/email/sender";
 
 /**
  * Self-service account router — the signed-in user's own login (any role). Used by the admin/
@@ -26,6 +27,7 @@ export const accountRouter = createTRPCRouter({
         email: true,
         username: true,
         role: true,
+        twoFactorEnabled: true,
         tutor: { select: { id: true, status: true } },
       },
     });
@@ -43,26 +45,38 @@ export const accountRouter = createTRPCRouter({
       orderBy: { createdAt: "desc" },
       select: { id: true, state: true, message: true, createdAt: true },
     });
-    return { suspended: !!user.suspendedAt, reason: user.suspendedReason, appeal };
+    return {
+      suspended: !!user.suspendedAt,
+      reason: user.suspendedReason,
+      appeal,
+    };
   }),
 
   /** Submit an appeal for reinstatement (suspended accounts only; one pending at a time). */
   submitAppeal: protectedProcedure
-    .input(z.object({ message: z.string().trim().min(1, "Tell us why.").max(1000) }))
+    .input(
+      z.object({ message: z.string().trim().min(1, "Tell us why.").max(1000) }),
+    )
     .mutation(async ({ ctx, input }) => {
       const user = await ctx.db.user.findUniqueOrThrow({
         where: { id: ctx.session.user.id },
         select: { suspendedAt: true, name: true },
       });
       if (!user.suspendedAt) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Your account is not suspended." });
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Your account is not suspended.",
+        });
       }
       const open = await ctx.db.accountAppeal.findFirst({
         where: { userId: ctx.session.user.id, state: "PENDING" },
         select: { id: true },
       });
       if (open) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "You already have a pending appeal." });
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "You already have a pending appeal.",
+        });
       }
       await ctx.db.accountAppeal.create({
         data: { userId: ctx.session.user.id, message: input.message },
@@ -77,13 +91,64 @@ export const accountRouter = createTRPCRouter({
 
   /** Update the caller's display name. */
   updateName: protectedProcedure
-    .input(z.object({ name: z.string().trim().min(1, "Enter a name.").max(100) }))
+    .input(
+      z.object({ name: z.string().trim().min(1, "Enter a name.").max(100) }),
+    )
     .mutation(async ({ ctx, input }) => {
       await ctx.db.user.update({
         where: { id: ctx.session.user.id },
         data: { name: input.name },
       });
       return { ok: true };
+    }),
+
+  /**
+   * Enable or disable login email 2FA for the caller. Requiring the current password prevents a
+   * stolen session from silently weakening or strengthening authentication. Enabling also checks
+   * both the program flag and real delivery availability; disabling remains possible during an
+   * email outage so an administrator can recover an affected account.
+   */
+  setTwoFactorEnabled: protectedProcedure
+    .input(
+      z.object({ enabled: z.boolean(), currentPassword: z.string().min(1) }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const user = await ctx.db.user.findUniqueOrThrow({
+        where: { id: ctx.session.user.id },
+        select: { passwordHash: true },
+      });
+      if (
+        !user.passwordHash ||
+        !verifyPassword(input.currentPassword, user.passwordHash)
+      ) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Current password is incorrect.",
+        });
+      }
+
+      if (input.enabled) {
+        const { EMAIL_2FA } = await getFeatures(ctx.db);
+        if (!EMAIL_2FA) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "Email two-factor authentication is disabled for this program.",
+          });
+        }
+        if (!isEmailDeliveryAvailable()) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Email delivery is unavailable. Contact the program team.",
+          });
+        }
+      }
+
+      await ctx.db.user.update({
+        where: { id: ctx.session.user.id },
+        data: { twoFactorEnabled: input.enabled },
+      });
+      return { ok: true, enabled: input.enabled };
     }),
 
   /**
@@ -98,10 +163,33 @@ export const accountRouter = createTRPCRouter({
         where: { id: ctx.session.user.id },
         select: { passwordHash: true },
       });
-      if (!user.passwordHash || !verifyPassword(input.currentPassword, user.passwordHash)) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Current password is incorrect." });
+      if (
+        !user.passwordHash ||
+        !verifyPassword(input.currentPassword, user.passwordHash)
+      ) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Current password is incorrect.",
+        });
       }
-      const { email } = await issueStepUpCode(ctx.session.user.id, "PASSWORD_CHANGE");
+      const { EMAIL_2FA } = await getFeatures(ctx.db);
+      if (!EMAIL_2FA) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Email two-factor authentication is disabled for this program.",
+        });
+      }
+      if (!isEmailDeliveryAvailable()) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Email delivery is unavailable. Contact the program team.",
+        });
+      }
+      const { email } = await issueStepUpCode(
+        ctx.session.user.id,
+        "PASSWORD_CHANGE",
+      );
       return { sent: true, email: maskEmail(email) };
     }),
 
@@ -122,17 +210,36 @@ export const accountRouter = createTRPCRouter({
         where: { id: ctx.session.user.id },
         select: { passwordHash: true },
       });
-      if (!user.passwordHash || !verifyPassword(input.currentPassword, user.passwordHash)) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Current password is incorrect." });
+      if (
+        !user.passwordHash ||
+        !verifyPassword(input.currentPassword, user.passwordHash)
+      ) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Current password is incorrect.",
+        });
       }
-      // Email 2FA gates the emailed step-up code. With it off (e.g. no email configured), a
-      // verified current password is sufficient to change the password.
+      // The program flag gates the emailed step-up code. With the feature off, a verified current
+      // password is sufficient; with it on, a delivery outage fails closed below.
       const { EMAIL_2FA } = await getFeatures(ctx.db);
       if (EMAIL_2FA) {
-        if (!input.code) {
-          throw new TRPCError({ code: "BAD_REQUEST", message: "Request a verification code first." });
+        if (!isEmailDeliveryAvailable()) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Email delivery is unavailable. Contact the program team.",
+          });
         }
-        const verified = await verifyStepUpCode(ctx.session.user.id, "PASSWORD_CHANGE", input.code);
+        if (!input.code) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Request a verification code first.",
+          });
+        }
+        const verified = await verifyStepUpCode(
+          ctx.session.user.id,
+          "PASSWORD_CHANGE",
+          input.code,
+        );
         if (!verified.ok) {
           const message =
             verified.error === "expired"
@@ -147,7 +254,10 @@ export const accountRouter = createTRPCRouter({
       }
       await ctx.db.user.update({
         where: { id: ctx.session.user.id },
-        data: { passwordHash: hashPassword(input.newPassword), mustChangePassword: false },
+        data: {
+          passwordHash: hashPassword(input.newPassword),
+          mustChangePassword: false,
+        },
       });
       return { ok: true };
     }),

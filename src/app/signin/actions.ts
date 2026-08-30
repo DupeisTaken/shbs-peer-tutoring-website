@@ -6,9 +6,13 @@ import { getTranslations } from "next-intl/server";
 
 import { db } from "~/server/db";
 import { signIn } from "~/server/auth";
-import { verifySigninPassword } from "~/server/auth/credentials";
+import {
+  findSigninTwoFactorUser,
+  verifySigninPassword,
+} from "~/server/auth/credentials";
 import { maskEmail } from "~/server/auth/mask";
 import { issueLoginCode } from "~/server/auth/two-factor";
+import { isEmailDeliveryAvailable } from "~/server/email/sender";
 import { getFeatures } from "~/server/program/features";
 
 export type SignInState =
@@ -45,7 +49,11 @@ export async function signInAction(
           ? prevState.userId
           : "";
     const email =
-      typeof emailRaw === "string" ? emailRaw : prevState.step === "code" ? prevState.email : "";
+      typeof emailRaw === "string"
+        ? emailRaw
+        : prevState.step === "code"
+          ? prevState.email
+          : "";
     try {
       await signIn("credentials", {
         intent: "login_2fa",
@@ -66,18 +74,38 @@ export async function signInAction(
   const passwordRaw = formData.get("password");
   const identifier = typeof identifierRaw === "string" ? identifierRaw : "";
   const password = typeof passwordRaw === "string" ? passwordRaw : "";
-  const verified = await verifySigninPassword(identifier, password, await clientIp());
-  if (!verified.ok) {
-    return {
-      step: "password",
-      error: verified.reason === "rate_limited" ? t("tooManyAttempts") : t("invalidCredentials"),
-    };
-  }
-
   const features = await getFeatures(db);
-  if (features.EMAIL_2FA && verified.user.twoFactorEnabled) {
-    const { email } = await issueLoginCode(verified.user.id);
-    return { step: "code", userId: verified.user.id, email: maskEmail(email) };
+  if (features.EMAIL_2FA) {
+    const candidate = await findSigninTwoFactorUser(identifier);
+    if (candidate?.twoFactorEnabled) {
+      const verified = await verifySigninPassword(
+        identifier,
+        password,
+        await clientIp(),
+      );
+      if (!verified.ok) {
+        return {
+          step: "password",
+          error:
+            verified.reason === "rate_limited"
+              ? t("tooManyAttempts")
+              : t("invalidCredentials"),
+        };
+      }
+      if (!isEmailDeliveryAvailable()) {
+        return { step: "password", error: t("twoFactor.unavailable") };
+      }
+      try {
+        const { email } = await issueLoginCode(verified.user.id);
+        return {
+          step: "code",
+          userId: verified.user.id,
+          email: maskEmail(email),
+        };
+      } catch {
+        return { step: "password", error: t("twoFactor.unavailable") };
+      }
+    }
   }
 
   try {

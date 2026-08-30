@@ -29,7 +29,21 @@
       "verify": "?????",
       "verifying": "?????",
       "invalid": "??????????????????????",
-      "differentAccount": "??????"
+      "differentAccount": "??????",
+      "unavailable": "Email verification is temporarily unavailable. Contact the program team.",
+      "settings": {
+        "title": "Email Two-Factor Authentication",
+        "description": "Require a one-time email code when you sign in.",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "featureOff": "Email 2FA is disabled for this program.",
+        "unavailable": "Email delivery is not configured. Contact the program team.",
+        "currentPassword": "Current Password",
+        "enable": "Enable 2FA",
+        "disable": "Disable 2FA",
+        "saving": "Saving…",
+        "saved": "Two-factor settings updated."
+      }
     },
     "forgotPassword": "忘记密码？",
     "createAccount": "创建账户",
@@ -41,6 +55,7 @@
       "backToSignIn": "← 返回登录",
       "sent": "如果有账号与你输入的信息匹配，我们已将密码重置说明发送至其联系邮箱。请查看你的收件箱。",
       "sentEmailNote": "本环境尚未配置邮件发送 — 在本地开发时，请查看服务器日志中的重置链接。",
+      "unavailable": "Password reset email is temporarily unavailable. Contact the program team.",
       "fields": {
         "identifier": "用户名或邮箱"
       },

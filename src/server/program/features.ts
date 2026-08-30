@@ -1,7 +1,7 @@
 /**
  * Optional program modules a HEAD can switch off to fit a different program. Effective flags come
- * from the `ProgramFeature` table; a missing row defaults to ON (a fresh deployment has everything
- * enabled). Changes a HEAD makes are *staged* (`pendingEnabled`) and applied at the next program
+ * from the `ProgramFeature` table; a missing row uses the safe defaults below. Changes a HEAD makes
+ * are *staged* (`pendingEnabled`) and applied at the next program
  * refresh — see `applyPendingFeatures`. Node runtime only (touches the DB).
  *
  * QUARTER_SYSTEM is a mode, not a disable: enabled = quarters (Q1–Q4), disabled = semesters
@@ -26,16 +26,30 @@ export const FEATURE_KEYS = [
 export type FeatureKey = (typeof FEATURE_KEYS)[number];
 export type Features = Record<FeatureKey, boolean>;
 
-/** All modules on — the default for an unconfigured deployment. */
-export const DEFAULT_FEATURES: Features = Object.fromEntries(
-  FEATURE_KEYS.map((k) => [k, true]),
-) as Features;
+/**
+ * Defaults for an unconfigured deployment. Email 2FA is deliberately opt-in: enabling it before
+ * SMTP is configured can lock a user out of an otherwise healthy installation.
+ */
+export const DEFAULT_FEATURES: Features = {
+  CREW: true,
+  DISCIPLINE: true,
+  MEETINGS: true,
+  INTERVIEWS: true,
+  SERVICE_HOURS: true,
+  QUARTER_SYSTEM: true,
+  VIEWER_SIGNUP: true,
+  EMAIL_2FA: false,
+};
 
-/** Effective on/off for every module (missing row = on). */
+/** Effective on/off for every module (missing row = its safe default). */
 export async function getFeatures(db: Db): Promise<Features> {
-  const rows = await db.programFeature.findMany({ select: { key: true, enabled: true } });
+  const rows = await db.programFeature.findMany({
+    select: { key: true, enabled: true },
+  });
   const byKey = new Map(rows.map((r) => [r.key, r.enabled]));
-  return Object.fromEntries(FEATURE_KEYS.map((k) => [k, byKey.get(k) ?? true])) as Features;
+  return Object.fromEntries(
+    FEATURE_KEYS.map((k) => [k, byKey.get(k) ?? DEFAULT_FEATURES[k]]),
+  ) as Features;
 }
 
 /**
@@ -43,10 +57,16 @@ export async function getFeatures(db: Db): Promise<Features> {
  * so an off module is blocked server-side, not merely hidden in the UI (the design rule: gate nav,
  * redirect portals, AND refuse procedures). Reads the effective (applied) flags.
  */
-export async function assertFeatureEnabled(db: Db, key: FeatureKey): Promise<void> {
+export async function assertFeatureEnabled(
+  db: Db,
+  key: FeatureKey,
+): Promise<void> {
   const features = await getFeatures(db);
   if (!features[key]) {
-    throw new TRPCError({ code: "FORBIDDEN", message: "This module is currently turned off." });
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "This module is currently turned off.",
+    });
   }
 }
 

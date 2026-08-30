@@ -14,7 +14,7 @@ import { z } from "zod";
 
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { rateLimit } from "~/server/rate-limit";
-import { emailSender } from "~/server/email/sender";
+import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
 import { APP_TITLE } from "~/lib/branding";
 import {
   EMAIL_CODE_TTL_MINUTES,
@@ -92,6 +92,12 @@ export const registrationRouter = createTRPCRouter({
   sendEmailCode: publicProcedure
     .input(z.object({ code: codeInput, email: z.string().email() }))
     .mutation(async ({ ctx, input }) => {
+      if (!isEmailDeliveryAvailable()) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Email verification is temporarily unavailable. Contact the program team.",
+        });
+      }
       const ip = clientIp(ctx.headers);
       enforceRateLimit(`reg:ip:${ip}`, 30);
       enforceRateLimit(`reg:email:${input.code}`, 6);

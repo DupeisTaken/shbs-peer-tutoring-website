@@ -43,6 +43,11 @@ export function ForgotPasswordForm() {
       <button type="submit" disabled={pending || !valid} className="btn-primary mt-1 w-full">
         {pending ? t("auth.forgot.sending") : t("auth.forgot.submit")}
       </button>
+      {state?.unavailable && (
+        <p role="alert" className="text-sm text-red-600">
+          {t("auth.forgot.unavailable")}
+        </p>
+      )}
     </form>
   );
 }

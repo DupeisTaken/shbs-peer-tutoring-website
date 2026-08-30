@@ -9,8 +9,12 @@ import { timingSafeEqual } from "crypto";
 
 import { APP_TITLE } from "~/lib/branding";
 import { db } from "~/server/db";
-import { emailSender } from "~/server/email/sender";
-import { generateRegistrationCode, normalizeRegCode, REG_CODE_LENGTH } from "./code";
+import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
+import {
+  generateRegistrationCode,
+  normalizeRegCode,
+  REG_CODE_LENGTH,
+} from "./code";
 import { hashCode } from "./registration";
 
 /** Length of the emailed code. */
@@ -27,7 +31,15 @@ function hashesEqual(a: string, b: string): boolean {
 }
 
 /** Issue and email a fresh login code for a user. Returns the target email for masked UI hints. */
-export async function issueLoginCode(userId: string): Promise<{ email: string }> {
+export async function issueLoginCode(
+  userId: string,
+): Promise<{ email: string }> {
+  if (!isEmailDeliveryAvailable()) {
+    throw new Error(
+      "Email delivery is unavailable; refusing to issue a login code.",
+    );
+  }
+
   const user = await db.user.findUniqueOrThrow({
     where: { id: userId },
     select: { email: true, name: true },
@@ -41,7 +53,12 @@ export async function issueLoginCode(userId: string): Promise<{ email: string }>
       where: { userId, purpose: "LOGIN_2FA", consumedAt: null },
     }),
     db.emailVerificationCode.create({
-      data: { userId, purpose: "LOGIN_2FA", codeHash: hashCode(code), expiresAt },
+      data: {
+        userId,
+        purpose: "LOGIN_2FA",
+        codeHash: hashCode(code),
+        expiresAt,
+      },
     }),
   ]);
 
@@ -58,7 +75,10 @@ export async function issueLoginCode(userId: string): Promise<{ email: string }>
 }
 
 /** Verify and consume the latest unexpired login code for a user. */
-export async function verifyLoginCode(userId: string, code: string): Promise<boolean> {
+export async function verifyLoginCode(
+  userId: string,
+  code: string,
+): Promise<boolean> {
   const row = await db.emailVerificationCode.findFirst({
     where: { userId, purpose: "LOGIN_2FA", consumedAt: null },
     orderBy: { createdAt: "desc" },
@@ -68,16 +88,27 @@ export async function verifyLoginCode(userId: string, code: string): Promise<boo
   if (row.attempts >= MAX_CODE_ATTEMPTS) return false;
 
   if (!hashesEqual(row.codeHash, hashCode(normalizeRegCode(code)))) {
-    await db.emailVerificationCode.update({
-      where: { id: row.id },
+    await db.emailVerificationCode.updateMany({
+      where: {
+        id: row.id,
+        consumedAt: null,
+        attempts: { lt: MAX_CODE_ATTEMPTS },
+      },
       data: { attempts: { increment: 1 } },
     });
     return false;
   }
 
-  await db.emailVerificationCode.update({
-    where: { id: row.id },
+  // The conditional write is the single-use boundary: concurrent correct submissions can both
+  // read the row, but only one is allowed to transition it from unconsumed to consumed.
+  const consumed = await db.emailVerificationCode.updateMany({
+    where: {
+      id: row.id,
+      consumedAt: null,
+      attempts: { lt: MAX_CODE_ATTEMPTS },
+      expiresAt: { gte: new Date() },
+    },
     data: { consumedAt: new Date() },
   });
-  return true;
+  return consumed.count === 1;
 }

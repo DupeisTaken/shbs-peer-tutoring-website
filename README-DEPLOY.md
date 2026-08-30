@@ -24,7 +24,7 @@ Internet ──443/80──▶ caddy ──▶ app:3000 ──▶ db:5432
 ## 1. Prerequisites
 
 1. A VPS running Ubuntu (22.04/24.04), with a public IP.
-2. A domain, with an **A record pointing at the VPS IP** — set this *before* first start so
+2. A domain, with an **A record pointing at the VPS IP** — set this _before_ first start so
    Caddy's Let's Encrypt challenge succeeds.
 
 Sign-in is username or email + password (no external identity provider to register). Logins are created only
@@ -54,7 +54,7 @@ cp .env.example .env
 #   DOMAIN, APP_IMAGE (ghcr.io/<owner>/shbs-peer-tutoring-website:latest)
 #   AUTH_SECRET           (required in prod, ≥32 chars — generate: openssl rand -base64 32)
 #   POSTGRES_USER / POSTGRES_PASSWORD / POSTGRES_DB
-#   AUTH_BOOTSTRAP_ADMIN_EMAILS=you@school.edu   (gives you ADMIN on first sign-in)
+#   AUTH_BOOTSTRAP_ADMIN_EMAILS=you@school.edu   (first entry becomes HEAD when no HEAD exists)
 #   EMAIL_FROM / SMTP_PASSWORD / SMTP_HOST / SMTP_PORT   (Aliyun Direct Mail — see below)
 ```
 
@@ -70,9 +70,11 @@ cp .env.example .env
 Transactional email — password-reset and tutor-setup links, emailed sign-in and password-change
 2FA codes, and registration / viewer one-time codes — is sent through **Aliyun Direct Mail** over SMTP
 (`src/server/email/sender.ts`: a pooled, TLS-enforced, timeout-bounded transporter that logs each
-send and failure). Until `EMAIL_FROM` + `SMTP_PASSWORD` are set the app logs mail in dev and warns
-in production, so it's optional for a first boot but **required for password resets and any emailed
-code** — without it, recruits can't complete `/register`.
+send and failure). Until `EMAIL_FROM` + `SMTP_PASSWORD` are set the app logs mail in development
+and rejects production flows that require email. SMTP is optional for a first boot only if those
+flows remain unused; it is **required** for password resets, registration/viewer verification, and
+any emailed code. The `EMAIL_2FA` feature defaults off and cannot be enabled until delivery is
+configured.
 
 **Set it up in the Aliyun console** (https://dm.console.aliyun.com):
 
@@ -82,7 +84,7 @@ code** — without it, recruits can't complete `/register`.
    Aliyun shows DNS records to add at your DNS provider — typically a **TXT (SPF)**, a **TXT (DKIM)**,
    an **MX**, and a CNAME/`_dmarc` record. Add them, then click **Verify** until all are green.
 3. **Sender Addresses → New Sender Address** (发信地址): create e.g. `noreply@mail.your-school.edu`,
-   type **Triggered/Transactional** (触发). 
+   type **Triggered/Transactional** (触发).
 4. On that sender address, **set an SMTP password** (设置 SMTP 密码). This is a dedicated password,
    **not** your Aliyun account password — copy it once.
 5. (Recommended) Raise the address's daily quota / verify a **reply-to** if you want replies.
@@ -128,26 +130,32 @@ email + password at `/signin`. (Bootstrap your first admin by setting
 
 ### Create the first admin (first deploy)
 
-You need at least one `User` with a password before anyone can sign in (there is no
-self-service sign-up). Bootstrapping to `ADMIN` happens for any account whose email is in
-`AUTH_BOOTSTRAP_ADMIN_EMAILS`.
+You need at least one `User` with a password before anyone can sign in. The first address in
+`AUTH_BOOTSTRAP_ADMIN_EMAILS` is promoted to the singleton `HEAD` when no HEAD exists; later
+addresses are promoted to `ADMIN`. This promotion applies when an existing account signs in—it
+does not create the account.
 
 > ⚠️ **Do not run the bundled `prisma/seed.ts` as-is in production.** It creates sample
-> people *and* demo login accounts (`admin@example.edu`, `alice@example.edu`) with the
+> people _and_ demo login accounts (`admin@example.edu`, `alice@example.edu`) with the
 > well-known dev password `Password123!`. That's strictly for local development.
 
-For production, create your admin with a real email and a strong password. Edit
-`prisma/seed.ts` (set `DEV_PASSWORD` to a strong secret and the admin `email` to one listed
-in `AUTH_BOOTSTRAP_ADMIN_EMAILS`) and run the seed, or insert the user directly with a
-scrypt hash from `src/server/auth/password.ts`:
+From a trusted checkout that can reach the production database (an SSH tunnel is recommended),
+create the first account without loading any demo data:
 
 ```bash
-docker compose exec app node node_modules/prisma/build/index.js db seed   # if a seed image is present
-# or manage tutors/tutees/rooms/pairings from the /admin UI once you are ADMIN.
+export DATABASE_URL='postgresql://...'
+export BOOTSTRAP_ADMIN_EMAIL='you@school.edu'
+read -s -p 'Initial admin password: ' BOOTSTRAP_ADMIN_PASSWORD && export BOOTSTRAP_ADMIN_PASSWORD
+npm ci
+npm run admin:create
 ```
 
-> Password reset works once Aliyun Direct Mail is configured (see "Email" above). A proper
-> admin "create user / set password" UI is still future work.
+The command requires at least 12 password characters, creates a HEAD when none exists (otherwise
+an ADMIN), and can be rerun deliberately to recover that account. Do not run `npm run db:seed` in
+production; it contains well-known development users and sample program data.
+
+> Password reset works once Aliyun Direct Mail is configured (see "Email" above). After the first
+> HEAD exists, tutor accounts and setup links can be managed from the admin UI.
 
 ## 6. Updates
 
@@ -163,7 +171,10 @@ docker compose pull app && docker compose up -d app   # pull new image, recreate
 #   crontab -e
 #   0 3 * * *  /opt/shbs/scripts/backup.sh >> /var/log/shbs-backup.log 2>&1
 ```
-> The script has a TODO to copy backups **off-box** (rclone/S3/scp) — wire that up for real DR.
+
+Set one or more optional destinations in `.env` to copy each successful dump off-box:
+`BACKUP_RCLONE_REMOTE`, `BACKUP_S3_URI`, or `BACKUP_SCP_DEST`. The matching CLI must be
+installed on the host; the script exits non-zero if a configured upload cannot run.
 
 Restore:
 

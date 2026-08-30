@@ -29,7 +29,21 @@
       "verify": "Verify and Sign In",
       "verifying": "Verifying?",
       "invalid": "That code is incorrect or expired. Request a new sign-in code.",
-      "differentAccount": "Use a Different Account"
+      "differentAccount": "Use a Different Account",
+      "unavailable": "Email verification is temporarily unavailable. Contact the program team.",
+      "settings": {
+        "title": "Email Two-Factor Authentication",
+        "description": "Require a one-time email code when you sign in.",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "featureOff": "Email 2FA is disabled for this program.",
+        "unavailable": "Email delivery is not configured. Contact the program team.",
+        "currentPassword": "Current Password",
+        "enable": "Enable 2FA",
+        "disable": "Disable 2FA",
+        "saving": "Saving…",
+        "saved": "Two-factor settings updated."
+      }
     },
     "forgotPassword": "Forgot password?",
     "createAccount": "Create Account",
@@ -41,6 +55,7 @@
       "backToSignIn": "← Back to Sign In",
       "sent": "If an account matches what you entered, we've sent password-reset instructions to its contact email. Check your inbox.",
       "sentEmailNote": "Email delivery isn't configured in this environment yet — see the server logs for the reset link during local development.",
+      "unavailable": "Password reset email is temporarily unavailable. Contact the program team.",
       "fields": {
         "identifier": "Username or Email"
       },

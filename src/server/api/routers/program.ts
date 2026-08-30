@@ -1,8 +1,19 @@
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
 
-import { createTRPCRouter, publicProcedure, adminProcedure, headProcedure } from "~/server/api/trpc";
-import { getFeatures, FEATURE_KEYS } from "~/server/program/features";
+import {
+  createTRPCRouter,
+  publicProcedure,
+  adminProcedure,
+  headProcedure,
+} from "~/server/api/trpc";
+import {
+  getFeatures,
+  FEATURE_KEYS,
+  DEFAULT_FEATURES,
+} from "~/server/program/features";
 import { recordAudit } from "~/server/audit/log";
+import { isEmailDeliveryAvailable } from "~/server/email/sender";
 
 const featureKey = z.enum([
   "CREW",
@@ -22,7 +33,10 @@ const featureKey = z.enum([
 export const programRouter = createTRPCRouter({
   /** Effective on/off for every optional module (missing row = on). Public so the landing page and
    *  public signup forms can hide a disabled module. */
-  features: publicProcedure.query(({ ctx }) => getFeatures(ctx.db)),
+  features: publicProcedure.query(async ({ ctx }) => ({
+    ...(await getFeatures(ctx.db)),
+    EMAIL_DELIVERY_AVAILABLE: isEmailDeliveryAvailable(),
+  })),
 
   /** Current + staged (pending) state for the Program UI, plus whether the caller may edit (HEAD). */
   featureSettings: adminProcedure.query(async ({ ctx }) => {
@@ -32,7 +46,11 @@ export const programRouter = createTRPCRouter({
       canEdit: ctx.session.role === "HEAD",
       features: FEATURE_KEYS.map((key) => {
         const row = byKey.get(key);
-        return { key, enabled: row?.enabled ?? true, pending: row?.pendingEnabled ?? null };
+        return {
+          key,
+          enabled: row?.enabled ?? DEFAULT_FEATURES[key],
+          pending: row?.pendingEnabled ?? null,
+        };
       }),
     };
   }),
@@ -42,16 +60,32 @@ export const programRouter = createTRPCRouter({
   setFeaturePending: headProcedure
     .input(z.object({ key: featureKey, enabled: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
+      if (
+        input.key === "EMAIL_2FA" &&
+        input.enabled &&
+        !isEmailDeliveryAvailable()
+      ) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Configure SMTP before enabling email two-factor authentication.",
+        });
+      }
       const existing = await ctx.db.programFeature.findUnique({
         where: { key: input.key },
         select: { enabled: true },
       });
-      const current = existing?.enabled ?? true;
+      const current = existing?.enabled ?? DEFAULT_FEATURES[input.key];
       const pendingEnabled = input.enabled === current ? null : input.enabled;
       await ctx.db.programFeature.upsert({
         where: { key: input.key },
         update: { pendingEnabled, updatedByName: ctx.session.user.name },
-        create: { key: input.key, enabled: current, pendingEnabled, updatedByName: ctx.session.user.name },
+        create: {
+          key: input.key,
+          enabled: current,
+          pendingEnabled,
+          updatedByName: ctx.session.user.name,
+        },
       });
       await recordAudit({
         userId: ctx.session.user.id,

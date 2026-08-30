@@ -29,7 +29,21 @@
       "verify": "Verify and Sign In",
       "verifying": "Verifying?",
       "invalid": "That code is incorrect or expired. Request a new sign-in code.",
-      "differentAccount": "Use a Different Account"
+      "differentAccount": "Use a Different Account",
+      "unavailable": "Email verification is temporarily unavailable. Contact the program team.",
+      "settings": {
+        "title": "Email Two-Factor Authentication",
+        "description": "Require a one-time email code when you sign in.",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "featureOff": "Email 2FA is disabled for this program.",
+        "unavailable": "Email delivery is not configured. Contact the program team.",
+        "currentPassword": "Current Password",
+        "enable": "Enable 2FA",
+        "disable": "Disable 2FA",
+        "saving": "Saving…",
+        "saved": "Two-factor settings updated."
+      }
     },
     "forgotPassword": "パスワードを忘れましたか？",
     "createAccount": "アカウントを作成",
@@ -41,6 +55,7 @@
       "backToSignIn": "← サインインに戻る",
       "sent": "入力内容に一致するアカウントが存在する場合、パスワードリセットの手順を連絡先メールアドレスに送信しました。受信トレイをご確認ください。",
       "sentEmailNote": "この環境ではメール配信がまだ設定されていません。ローカル開発中はサーバーログでリセットリンクを確認してください。",
+      "unavailable": "Password reset email is temporarily unavailable. Contact the program team.",
       "fields": {
         "identifier": "ユーザー名またはメールアドレス"
       },

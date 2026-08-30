@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { SYMBOLS } from "~/lib/symbols";
+import { TwoFactorSettings } from "~/app/_components/two-factor-settings";
 
 /** Monogram initials for the identity pass — first+last initial, else the first two characters
  *  of whatever handle we have. Always uppercase; never empty. */
@@ -32,7 +33,7 @@ export default function AccountPage() {
   const utils = api.useUtils();
   const me = api.account.me.useQuery();
   const features = api.program.features.useQuery();
-  const email2fa = features.data?.EMAIL_2FA ?? true;
+  const email2fa = features.data?.EMAIL_2FA ?? false;
 
   const updateName = api.account.updateName.useMutation({
     onSuccess: () => utils.account.me.invalidate(),
@@ -316,6 +317,8 @@ export default function AccountPage() {
           )}
         </div>
       </section>
+
+      <TwoFactorSettings />
     </div>
   );
 }

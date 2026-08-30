@@ -6,7 +6,11 @@
 import { createHash, randomBytes } from "crypto";
 
 import { db } from "~/server/db";
-import { emailSender, isEmailConfigured } from "~/server/email/sender";
+import {
+  emailSender,
+  isEmailConfigured,
+  isEmailDeliveryAvailable,
+} from "~/server/email/sender";
 import { APP_TITLE } from "~/lib/branding";
 import { hashPassword } from "./password";
 import { ensureUniqueUsername, ensureUserUsername } from "./username";
@@ -33,6 +37,8 @@ function hashToken(token: string): string {
  * was found — callers must show an identical message either way (no account enumeration).
  */
 export async function issuePasswordReset(identifier: string): Promise<void> {
+  if (!isEmailDeliveryAvailable()) return;
+
   const id = identifier.trim().toLowerCase();
   if (!id) return;
 

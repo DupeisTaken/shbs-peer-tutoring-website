@@ -8,7 +8,7 @@ import { z } from "zod";
 
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { rateLimit } from "~/server/rate-limit";
-import { emailSender } from "~/server/email/sender";
+import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
 import { APP_TITLE } from "~/lib/branding";
 import { getFeatures } from "~/server/program/features";
 import { notifyAdmins } from "~/server/notifications/create";
@@ -56,6 +56,12 @@ export const viewerRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       await assertEnabled(ctx.db);
+      if (!isEmailDeliveryAvailable()) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Email verification is temporarily unavailable. Contact the program team.",
+        });
+      }
       const ip = clientIp(ctx.headers);
       enforceRateLimit(`viewer:ip:${ip}`, 20);
       enforceRateLimit(`viewer:email:${input.email.toLowerCase()}`, 6);

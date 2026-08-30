@@ -6,6 +6,7 @@ import { z } from "zod";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { getFeatures } from "~/server/program/features";
+import { isEmailDeliveryAvailable } from "~/server/email/sender";
 import { hashPassword } from "~/server/auth/password";
 
 const schema = z.object({
@@ -53,7 +54,8 @@ export async function completeOnboardingAction(
         email: parsed.data.email,
         passwordHash: hashPassword(parsed.data.password),
         mustChangePassword: false,
-        twoFactorEnabled: EMAIL_2FA && parsed.data.enable2fa,
+        twoFactorEnabled:
+          EMAIL_2FA && isEmailDeliveryAvailable() && parsed.data.enable2fa,
         emailVerifiedAt: new Date(),
       },
     });

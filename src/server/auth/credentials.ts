@@ -26,6 +26,28 @@ export function clientIpFromRequest(request: Request | undefined): string {
 }
 
 /**
+ * Look up only the sign-in routing state. This intentionally does not verify a password or consume
+ * a rate-limit attempt; Auth.js remains the sole verifier for ordinary, non-2FA sign-ins.
+ */
+export async function findSigninTwoFactorUser(
+  identifierInput: string,
+): Promise<{ id: string; twoFactorEnabled: boolean } | null> {
+  const identifier = identifierInput.trim().toLowerCase();
+  if (!identifier) return null;
+
+  return db.user.findFirst({
+    where: {
+      OR: [
+        { email: identifier },
+        { username: identifier },
+        { tutor: { username: identifier } },
+      ],
+    },
+    select: { id: true, twoFactorEnabled: true },
+  });
+}
+
+/**
  * Verify a username/email + password pair with the same brute-force guards used by Auth.js.
  * The result deliberately does not distinguish unknown identifiers from bad passwords.
  */
@@ -50,7 +72,11 @@ export async function verifySigninPassword(
 
   const user = await db.user.findFirst({
     where: {
-      OR: [{ email: identifier }, { username: identifier }, { tutor: { username: identifier } }],
+      OR: [
+        { email: identifier },
+        { username: identifier },
+        { tutor: { username: identifier } },
+      ],
     },
     select: {
       id: true,
@@ -61,7 +87,8 @@ export async function verifySigninPassword(
     },
   });
   if (!user?.passwordHash) return { ok: false, reason: "invalid" };
-  if (!verifyPassword(password, user.passwordHash)) return { ok: false, reason: "invalid" };
+  if (!verifyPassword(password, user.passwordHash))
+    return { ok: false, reason: "invalid" };
 
   return {
     ok: true,
