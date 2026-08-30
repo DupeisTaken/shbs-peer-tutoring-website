@@ -3,8 +3,9 @@ name: Build and publish image
 on:
   push:
     branches: [main]
+  # Validate stacked feature PRs as well as PRs targeting main. Without a base filter, every
+  # pull-request layer runs the same migration, static-analysis, test, and production-build gate.
   pull_request:
-    branches: [main]
   workflow_dispatch:
 
 jobs:
