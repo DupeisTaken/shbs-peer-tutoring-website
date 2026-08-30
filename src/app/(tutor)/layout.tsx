@@ -9,6 +9,7 @@ import { SignOutButton } from "~/app/_components/sign-out-button";
 import { NotificationBell } from "~/app/_components/notification-bell";
 import { LanguageSwitcher } from "~/app/_components/language-switcher";
 import { ThemeSwitcher } from "~/app/_components/theme-switcher";
+import { UserAvatar } from "~/app/_components/user-avatar";
 import { APP_TITLE } from "~/lib/branding";
 
 /**
@@ -29,7 +30,9 @@ export default async function TutorLayout({
 
   const t = await getTranslations();
   const isElevated =
-    session.role === "HEAD" || session.role === "ADMIN" || session.role === "COORDINATOR";
+    session.role === "HEAD" ||
+    session.role === "ADMIN" ||
+    session.role === "COORDINATOR";
 
   // Stale-session guard: `session.tutorId` lives in the JWT and can outlive the Tutor row it
   // points to (e.g. after a dev DB reseed). Tutor queries (`tutor.me`, …) use it and would throw
@@ -73,49 +76,69 @@ export default async function TutorLayout({
       tutor: { select: { username: true } },
     },
   });
-  if (!me?.emailVerifiedAt || me.mustChangePassword) redirect("/onboarding/email");
+  if (!me?.emailVerifiedAt || me.mustChangePassword)
+    redirect("/onboarding/email");
+
+  const accountItems = [
+    ...(isElevated
+      ? [
+          {
+            href: "/admin",
+            label: t("components.userMenu.enterAdmin"),
+          },
+        ]
+      : []),
+    ...(me.crewStatus === "ACTIVE"
+      ? [{ href: "/patrol", label: t("crew.nav.patrol") }]
+      : []),
+    { href: "/handbook", label: t("tutor.nav.handbook") },
+    ...(me.canTranslate
+      ? [{ href: "/localization", label: t("localization.navLabel") }]
+      : []),
+    { href: "/settings", label: t("components.userMenu.settings") },
+  ];
 
   return (
     <div className="min-h-screen">
       {/* Shared top-bar theme with the admin area: brand left, identity + global controls right. */}
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white">
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-6">
-          <Link href="/dashboard" className="text-lg font-bold text-slate-900">
+        <div className="grid min-w-0 gap-2 px-4 py-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:px-6">
+          <Link
+            href="/dashboard"
+            className="flex min-h-11 max-w-full min-w-0 items-center justify-self-start truncate text-left text-lg font-bold whitespace-nowrap text-slate-900"
+          >
             {APP_TITLE}
           </Link>
-          {/* Order: account info · theme · bell · language · buttons */}
-          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
-            <div className="hidden text-right leading-tight sm:block">
-              <p className="text-sm font-medium text-slate-900">{session.user.name}</p>
-              <p className="muted text-xs">
-                {me?.tutor?.username ? `@${me.tutor.username}` : session.role}
+          <div className="flex min-w-0 items-center justify-end gap-2">
+            <Link
+              href="/settings"
+              className="hidden shrink-0 rounded-md px-2 py-1 text-right leading-tight hover:bg-slate-100 lg:block"
+              title={t("components.userMenu.settings")}
+            >
+              <p className="text-sm font-medium text-slate-900">
+                {session.user.name}
               </p>
+              <p className="muted text-xs">
+                {me.tutor?.username ? `@${me.tutor.username}` : session.role}
+              </p>
+            </Link>
+            <div className="shrink-0">
+              <ThemeSwitcher compactAtDesktop />
             </div>
-            <ThemeSwitcher />
-            <NotificationBell />
-            <LanguageSwitcher />
-            {isElevated && (
-              <Link href="/admin" className="btn-secondary btn-sm">
-                {t("components.userMenu.enterAdmin")}
-              </Link>
-            )}
-            {me?.crewStatus === "ACTIVE" && (
-              <Link href="/patrol" className="btn-secondary btn-sm">
-                {t("crew.nav.patrol")}
-              </Link>
-            )}
-            <Link href="/handbook" className="btn-secondary btn-sm">
-              {t("tutor.nav.handbook")}
-            </Link>
-            {me?.canTranslate && (
-              <Link href="/localization" className="btn-secondary btn-sm">
-                {t("localization.navLabel")}
-              </Link>
-            )}
-            <Link href="/settings" className="btn-secondary btn-sm">
-              {t("components.userMenu.settings")}
-            </Link>
-            <SignOutButton />
+            <div className="shrink-0">
+              <NotificationBell />
+            </div>
+            <div className="shrink-0">
+              <LanguageSwitcher compactAtDesktop />
+            </div>
+            <UserAvatar
+              name={session.user.name ?? me.email}
+              username={me.tutor?.username}
+              email={me.email}
+              role={session.role}
+              items={accountItems}
+              compactAtDesktop
+            />
           </div>
         </div>
       </header>

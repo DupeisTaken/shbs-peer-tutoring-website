@@ -4,6 +4,7 @@ import { z } from "zod";
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { localizedPolicy } from "~/server/policy";
 import { notifyAdmins } from "~/server/notifications/create";
+import { isSignupWindowOpen } from "~/lib/signup-window";
 
 const cuid = z.string().min(1);
 
@@ -69,6 +70,21 @@ export const tuteeRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      // The page hides the form before this time, but the mutation must enforce the same gate so a
+      // stale tab or direct API call cannot submit early. Null/no active term preserves the prior
+      // open-by-default behavior.
+      const activeTerm = await ctx.db.term.findFirst({
+        where: { active: true },
+        orderBy: { createdAt: "desc" },
+        select: { signupOpensAt: true },
+      });
+      if (!isSignupWindowOpen(activeTerm?.signupOpensAt)) {
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Tutee signups have not opened yet.",
+        });
+      }
+
       const secondChoiceId =
         input.secondChoiceId === "" ? undefined : input.secondChoiceId;
       if (secondChoiceId && secondChoiceId === input.firstChoiceId) {

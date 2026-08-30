@@ -2,13 +2,16 @@
 
 import { cookies } from "next/headers";
 
-import { LOCALES, type Locale } from "~/i18n/config";
+import { DEFAULT_LOCALE } from "~/i18n/config";
+import { listLanguages } from "~/server/i18n/languages";
 
 /** Persist the chosen UI locale in the `NEXT_LOCALE` cookie (read by src/i18n/request.ts). */
 export async function setLocale(locale: string): Promise<void> {
-  const value = (LOCALES as readonly string[]).includes(locale)
-    ? (locale as Locale)
-    : "en";
+  // Validate on the server so stale clients cannot persist a hidden or unknown language.
+  const languages = await listLanguages();
+  const value = languages.some((language) => language.code === locale)
+    ? locale
+    : DEFAULT_LOCALE;
   const store = await cookies();
   store.set("NEXT_LOCALE", value, {
     path: "/",

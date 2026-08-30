@@ -94,7 +94,10 @@ sign-in verifies the password and then requires a single-use, five-character ema
   free-text "how can we reach you?"), first/second course choice (from the admin-managed
   catalog), available time slots, and a typed rulebook signature. Shows the current program
   term (e.g. `25-26 S2`); the agreement checkbox unlocks only after the applicant opens and
-  reads the policy in a modal. Creates a `PENDING` tutee for an admin to review and assign.
+  reads the policy in a modal. Admins can schedule the active quarter's opening time from
+  `/admin/program`; until then the page shows a live countdown and a required preview-sheet link,
+  and the API also rejects early submissions. Creates a `PENDING` tutee for an admin to review
+  and assign.
 - `/tutor-signup` — **public** tutor _application_: name, contact email, a required
   "how can we reach you?" field, and up to three intended courses. For each course the applicant reports how they're qualified — took the
   class (+ grade), holds an AP score (only offered for AP-tagged courses, and only entered
@@ -130,8 +133,8 @@ assigns **each course choice to a tutor** (e.g. first choice → tutor A, second
 a dropdown that previews each tutor's current workload; submitting creates a pairing per
 assignment and flips the tutee to `ACTIVE`. If a choice was left blank it shows grayed/disabled
 and the request stays in the queue. The **tutor then picks the default time slot** for each
-pairing from their own dashboard (slots stay reference-only — actual session times are entered
-on each attendance submission).
+pairing from their own dashboard. Attendance defaults to that slot; submitted sessions retain
+their slot reference so later catalog edits can update the linked schedule consistently.
 
 Prospective tutors apply through the public `/tutor-signup` form (intended courses + grades).
 On the **Tutor applications** screen an admin assigns a three-tutor interview panel (one marked
@@ -139,7 +142,7 @@ On the **Tutor applications** screen an admin assigns a three-tutor interview pa
 up for every panelist. The public form never creates a login — but **accepting** an application
 auto-provisions the tutor's `User` account (see Authentication).
 
-Scheduling is built around an admin-managed **time-slot catalog** (`/admin/timeslots`) and a
+Scheduling is built around an admin-managed **time-slot catalog** (`/admin/time-slots`) and a
 **subject catalog** (`/admin/subjects`). Subjects belong to an admin-managed **level catalogue**
 (`SubjectLevel`, e.g. AP / Honors / Standard); a level flagged **AP-scored** gates the AP-score
 field on tutor applications. Pairings are scheduled by **picking a published time slot** on the
@@ -147,6 +150,11 @@ Pairings page (the slot sets the day/start/end). Tutors and tutees mark availabi
 slots. Rooms can have recurring **unavailability periods** (`/admin/rooms`); the slot×room
 **room grid** (on the Pairings page, and read-only on the tutor dashboard) shows occupancy and
 blocked cells.
+
+Admins can edit a slot's label, weekday, start/end time, and active state in place. Weekday/time
+changes propagate atomically to every pairing still assigned to the slot. Submitted sessions keep
+the slot used at submission, so a clock-time edit also updates all of those sessions and
+recalculates their duration and service-hour totals; their calendar dates do not move.
 
 ### Service hours
 
@@ -177,13 +185,17 @@ the inverse is well-defined.
 
 ### Internationalization
 
-UI copy is localized with **next-intl**. Strings live in `messages/<locale>.json`
-(`en`, `zh`, `es`, `fr`, `de`, `el`, `ja`, `ko`)
-and are rendered via `t("…")` — never hardcoded. The active locale comes from the `NEXT_LOCALE`
+UI copy is localized with **next-intl**. Bundled strings live in `messages/<locale>.json`
+(`en`, `zh`, `es`, `fr`, `de`, `el`, `ja`, and `ko`) and are rendered via `t("…")` — never
+hardcoded. English and Chinese are published by default; managers can enable other languages from
+`/localization` after their translations are polished. Hidden languages remain editable, newly
+added languages start hidden, and English cannot be hidden because it is the fallback. The active
+locale comes from the `NEXT_LOCALE`
 cookie (a language switcher in the header sets it; there is no locale routing, so the auth
 middleware is untouched). Config is in `src/i18n/request.ts`; client-safe constants in
 `src/i18n/config.ts`. Orgs can re-word the app without editing the files by setting the
-`MESSAGES_OVERRIDE` env to a JSON object that is deep-merged over the active locale.
+`MESSAGES_OVERRIDE` env to a JSON object that is deep-merged over the active locale. The locale
+parity test checks every bundled catalog for missing, extra, blank, or broken ICU-placeholder keys.
 
 ### Performance
 
@@ -301,7 +313,7 @@ src/
     db.ts              # Prisma client
   lib/service-hours.ts # service-hour computation (pure, unit-tested)
   trpc/                # tRPC client/server wiring
-messages/              # next-intl translation catalogs (8 bundled locales)
+messages/              # next-intl translation catalogs (eight bundled locales)
 prisma/
   schema.prisma        # data model
   seed.ts              # sample data

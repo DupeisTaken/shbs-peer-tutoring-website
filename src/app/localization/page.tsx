@@ -86,11 +86,15 @@ function LanguagesPanel() {
   const t = useTranslations();
   const { confirm, dialog } = useDialog();
   const utils = api.useUtils();
-  const languages = api.i18n.languages.useQuery();
+  const languages = api.i18n.managedLanguages.useQuery();
   const canManage = api.i18n.canManageLanguages.useQuery();
   const list = languages.data ?? [];
 
-  const invalidate = () => utils.i18n.languages.invalidate();
+  const invalidate = () =>
+    Promise.all([
+      utils.i18n.managedLanguages.invalidate(),
+      utils.i18n.languages.invalidate(),
+    ]);
   const add = api.i18n.addLanguage.useMutation({
     onSuccess: async () => {
       setCode("");
@@ -100,6 +104,7 @@ function LanguagesPanel() {
   });
   const reorder = api.i18n.reorderLanguages.useMutation({ onSuccess: invalidate });
   const del = api.i18n.deleteLanguage.useMutation({ onSuccess: invalidate });
+  const setEnabled = api.i18n.setLanguageEnabled.useMutation({ onSuccess: invalidate });
 
   const [code, setCode] = useState("");
   const [label, setLabel] = useState("");
@@ -115,15 +120,44 @@ function LanguagesPanel() {
   return (
     <section className="card space-y-3 p-5">
       <h2 className="section-title">{t("localization.languagesHeading")}</h2>
+      <div className="rounded-lg border border-sky-100 bg-sky-50 px-3 py-2 text-sm text-sky-900">
+        {t("localization.languagesHelp")}
+      </div>
 
       <ul className="divide-y divide-slate-100">
         {list.map((l, i) => (
-          <li key={l.code} className="flex flex-wrap items-center gap-2 py-1.5">
+          <li key={l.code} className="flex min-h-11 flex-wrap items-center gap-2 py-2">
             <span className="font-medium text-slate-800">{l.label}</span>
             <code className="text-xs text-slate-400">{l.code}</code>
             {l.builtIn && <span className="badge-slate">{t("localization.builtIn")}</span>}
+            <span
+              className={
+                l.enabled
+                  ? "badge bg-emerald-50 text-emerald-700"
+                  : "badge bg-slate-100 text-slate-500"
+              }
+            >
+              {l.enabled
+                ? t("localization.enabled")
+                : t("localization.disabled")}
+            </span>
+            {l.code === "en" && (
+              <span className="text-xs text-slate-400">{t("localization.required")}</span>
+            )}
             {canManage.data && (
               <div className="ml-auto flex items-center gap-1">
+                <button
+                  type="button"
+                  className="btn-secondary btn-sm"
+                  disabled={l.code === "en" || setEnabled.isPending}
+                  onClick={() =>
+                    setEnabled.mutate({ code: l.code, enabled: !l.enabled })
+                  }
+                >
+                  {l.enabled
+                    ? t("localization.disableLanguage")
+                    : t("localization.enableLanguage")}
+                </button>
                 <button
                   type="button"
                   className="btn-secondary btn-sm"
@@ -192,9 +226,12 @@ function LanguagesPanel() {
           {t("localization.addLanguageBtn")}
         </button>
       </form>
+      <p className="muted text-xs">{t("localization.newLanguageHint")}</p>
       {add.error && <p className="text-sm text-red-600">{add.error.message}</p>}
-      {(reorder.error ?? del.error) && (
-        <p className="text-sm text-red-600">{(reorder.error ?? del.error)?.message}</p>
+      {(reorder.error ?? del.error ?? setEnabled.error) && (
+        <p className="text-sm text-red-600">
+          {(reorder.error ?? del.error ?? setEnabled.error)?.message}
+        </p>
       )}
       {dialog}
     </section>
@@ -205,7 +242,7 @@ export default function LocalizationPage() {
   const t = useTranslations();
   const displayLocale = useLocale();
   const utils = api.useUtils();
-  const languages = api.i18n.languages.useQuery();
+  const languages = api.i18n.managedLanguages.useQuery();
   const [locale, setLocale] = useState<string>(displayLocale);
   const [refLocales, setRefLocales] = useState<string[]>([]);
   const [q, setQ] = useState("");
@@ -284,6 +321,7 @@ export default function LocalizationPage() {
             {langOptions.map((l) => (
               <option key={l.code} value={l.code}>
                 {l.label}
+                {!l.enabled ? ` — ${t("localization.disabled")}` : ""}
               </option>
             ))}
           </select>

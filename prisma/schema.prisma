@@ -126,6 +126,8 @@ model Language {
   label     String
   sortOrder Int      @default(0)
   builtIn   Boolean  @default(false)
+  /// Hidden languages remain editable, but do not appear in the public language picker.
+  enabled   Boolean  @default(false)
   createdAt DateTime @default(now())
 }
 
@@ -330,6 +332,10 @@ model Term {
   name       String // e.g. "25-26 Q3"
   startDate  DateTime?
   endDate    DateTime?
+  /// Optional public tutee-signup gate. Null means signups are open immediately.
+  signupOpensAt DateTime?
+  /// Optional read-only sheet applicants can preview while the signup gate is closed.
+  signupPreviewUrl String?
   active     Boolean        @default(false)
   pairings   Pairing[]
   meetings   TutorMeeting[]
@@ -580,9 +586,8 @@ enum TuteeRemovalKind {
 }
 
 /// A reusable named time slot (e.g. "Mon 3:30–4:30"). The catalog is admin-managed.
-/// Tutors and tutees mark which slots they are available for; a Pairing may reference
-/// one as its default/reference time. Slots are reference-only — actual session times
-/// are still entered on each attendance submission.
+/// Tutors and tutees mark which slots they are available for; pairings and their submitted
+/// sessions retain the slot reference so schedule edits can propagate consistently.
 model TimeSlot {
   id        String   @id @default(cuid())
   label     String
@@ -593,6 +598,7 @@ model TimeSlot {
   createdAt DateTime @default(now())
 
   pairings            Pairing[]
+  sessions            Session[]
   tutorAvailabilities TutorAvailability[]
   tuteeAvailabilities TuteeAvailability[]
 
@@ -664,8 +670,8 @@ model Pairing {
   term       Term      @relation(fields: [termId], references: [id])
   roomId     String?
   room       Room?     @relation(fields: [roomId], references: [id])
-  // Optional reference to the catalog time slot this pairing was scheduled into.
-  // Reference-only: the day/start/end above remain the source of truth.
+  // Optional reference to the catalog time slot this pairing was scheduled into. The copied
+  // day/start/end fields make schedule reads cheap and are kept in sync when the slot changes.
   timeSlotId String?
   timeSlot   TimeSlot? @relation(fields: [timeSlotId], references: [id])
 
@@ -696,7 +702,8 @@ model Session {
   tutorStatus       SessionTutorStatus @default(PRESENT)
   tutorAbsentReason String?
 
-  // Start/end captured at submission (defaults from the pairing, may be overridden).
+  // Start/end captured at submission (defaults from the pairing, may be overridden). If the
+  // referenced catalog slot is edited later, these times and their derived hours are refreshed.
   startMin Int
   endMin   Int
 
@@ -728,6 +735,10 @@ model Session {
 
   pairingId String
   pairing   Pairing @relation(fields: [pairingId], references: [id])
+  /// The catalog slot used when attendance was submitted. Unlike Pairing.timeSlotId, this is a
+  /// stable historical association, so moving a pairing later does not relabel old sessions.
+  timeSlotId String?
+  timeSlot   TimeSlot? @relation(fields: [timeSlotId], references: [id], onDelete: SetNull)
   tutorId   String
   tutor     Tutor   @relation(fields: [tutorId], references: [id])
 
@@ -748,6 +759,7 @@ model Session {
   @@index([tutorId, schoolYear, quarter])
   @@index([schoolYear, quarter])
   @@index([pairingId])
+  @@index([timeSlotId])
   @@index([mergeGroupId])
   @@index([actualRoomId])
 }

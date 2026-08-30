@@ -8,7 +8,8 @@ import {
   headProcedure,
   viewerProcedure,
 } from "~/server/api/trpc";
-import { monthKey } from "~/lib/service-hours";
+import { monthKey, shCount } from "~/lib/service-hours";
+import { isSignupWindowOpen } from "~/lib/signup-window";
 import {
   defaultUsername,
   ensureUniqueUsername,
@@ -524,10 +525,14 @@ export const adminRouter = createTRPCRouter({
     const np = nextPeriod(from, nextSemester);
     const yearCross = crossesYear(from, np);
     return {
+      termId: active.termId,
       schoolYear: active.schoolYear,
       quarter: active.quarter,
       semester: active.semester,
       name: curSemester ? periodLabel(from, true) : active.name,
+      signupOpensAt: active.signupOpensAt,
+      signupPreviewUrl: active.signupPreviewUrl,
+      signupIsOpen: isSignupWindowOpen(active.signupOpensAt),
       next: {
         schoolYear: np.schoolYear,
         quarter: np.quarter,
@@ -1740,12 +1745,81 @@ export const adminRouter = createTRPCRouter({
         active: z.boolean(),
       }),
     )
-    .mutation(({ ctx, input }) => {
+    .mutation(async ({ ctx, input }) => {
       if (input.endMin <= input.startMin) {
         throw new TRPCError({ code: "BAD_REQUEST", message: "End must be after start." });
       }
       const { id, ...data } = input;
-      return ctx.db.timeSlot.update({ where: { id }, data });
+      const durationMin = data.endMin - data.startMin;
+
+      // One transaction keeps the catalog, copied pairing schedule, attendance history, and
+      // derived service-hour totals from ever exposing a partially updated timetable.
+      return ctx.db.$transaction(async (tx) => {
+        const current = await tx.timeSlot.findUniqueOrThrow({
+          where: { id },
+          select: { dayOfWeek: true, startMin: true, endMin: true },
+        });
+        const scheduleChanged =
+          current.dayOfWeek !== data.dayOfWeek ||
+          current.startMin !== data.startMin ||
+          current.endMin !== data.endMin;
+        const timeChanged = current.startMin !== data.startMin || current.endMin !== data.endMin;
+
+        const slot = await tx.timeSlot.update({ where: { id }, data });
+        if (!scheduleChanged) {
+          return { ...slot, updatedPairings: 0, updatedSessions: 0 };
+        }
+
+        const pairings = await tx.pairing.updateMany({
+          where: { timeSlotId: id },
+          data: {
+            dayOfWeek: data.dayOfWeek,
+            startMin: data.startMin,
+            endMin: data.endMin,
+          },
+        });
+
+        // A weekday-only change does not alter a submitted session's actual calendar date. Clock
+        // edits do flow to every session stamped with this slot, including sessions from pairings
+        // that have since moved elsewhere.
+        if (!timeChanged) {
+          return { ...slot, updatedPairings: pairings.count, updatedSessions: 0 };
+        }
+
+        const sessions = await tx.session.findMany({
+          where: { timeSlotId: id },
+          select: { id: true, shFactor: true },
+        });
+        const idsByCount = new Map<number, string[]>();
+        for (const session of sessions) {
+          const recalculated = shCount(durationMin, session.shFactor);
+          const ids = idsByCount.get(recalculated) ?? [];
+          ids.push(session.id);
+          idsByCount.set(recalculated, ids);
+        }
+
+        // Grouping by the resulting credit avoids issuing one update query per session. Merged
+        // sibling sessions already carry factor 0, so they correctly remain at zero hours.
+        await Promise.all(
+          [...idsByCount].map(([recalculated, sessionIds]) =>
+            tx.session.updateMany({
+              where: { id: { in: sessionIds } },
+              data: {
+                startMin: data.startMin,
+                endMin: data.endMin,
+                durationMin,
+                shCount: recalculated,
+              },
+            }),
+          ),
+        );
+
+        return {
+          ...slot,
+          updatedPairings: pairings.count,
+          updatedSessions: sessions.length,
+        };
+      });
     }),
 
   deleteTimeSlot: adminProcedure
