@@ -43,10 +43,12 @@ afterEach(() => {
 
 describe("tutee signup window procedures", () => {
   it("rejects a direct signup mutation before the configured opening time", async () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-08-30T00:00:00Z"));
+    // Keep real timers running because the shared tRPC middleware may include an opt-in
+    // development delay. A relative future timestamp makes the gate deterministic without
+    // freezing unrelated asynchronous work.
+    const opensAt = new Date(Date.now() + 60_000);
     const findFirst = vi.fn().mockResolvedValue({
-      signupOpensAt: new Date("2026-09-01T00:00:00Z"),
+      signupOpensAt: opensAt,
     });
     const caller = createTuteeCaller(context({ term: { findFirst } }, null));
 
