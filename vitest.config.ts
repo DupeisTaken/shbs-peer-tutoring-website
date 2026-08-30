@@ -8,7 +8,8 @@ export default defineConfig({
     environment: "node",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],
-    include: ["src/**/*.test.ts"],
+    // UI render tests use TSX; unit and integration tests continue to use plain TS.
+    include: ["src/**/*.test.{ts,tsx}"],
     // Integration tests touch a real database serially; keep them in one process.
     fileParallelism: false,
   },

@@ -1,11 +1,13 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 
 import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { DetailsAutoClose } from "~/app/_components/details-auto-close";
+import { useClampedPopover } from "~/app/_components/use-clamped-popover";
 
 /**
  * Bell + dropdown of the signed-in user's in-app notifications, with an unread badge.
@@ -13,6 +15,8 @@ import { DetailsAutoClose } from "~/app/_components/details-auto-close";
  */
 export function NotificationBell() {
   const t = useTranslations();
+  const [open, setOpen] = useState(false);
+  const panelRef = useClampedPopover<HTMLDivElement>(open);
   const utils = api.useUtils();
   const list = api.notification.list.useQuery();
   const unread = api.notification.unreadCount.useQuery();
@@ -22,17 +26,27 @@ export function NotificationBell() {
       utils.notification.unreadCount.invalidate(),
     ]);
   };
-  const markAll = api.notification.markAllRead.useMutation({ onSuccess: invalidate });
-  const markOne = api.notification.markRead.useMutation({ onSuccess: invalidate });
+  const markAll = api.notification.markAllRead.useMutation({
+    onSuccess: invalidate,
+  });
+  const markOne = api.notification.markRead.useMutation({
+    onSuccess: invalidate,
+  });
 
   const items = list.data ?? [];
   const count = unread.data ?? 0;
 
   return (
-    <details className="group relative">
+    <details
+      className="group relative"
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
       <DetailsAutoClose />
-      <summary className="relative flex cursor-pointer list-none items-center [&::-webkit-details-marker]:hidden">
-        <span className="text-xl" aria-label={t("components.notifications.title")}>
+      <summary className="relative flex min-h-11 min-w-11 cursor-pointer list-none items-center justify-center rounded-md hover:bg-slate-100 [&::-webkit-details-marker]:hidden">
+        <span
+          className="text-xl"
+          aria-label={t("components.notifications.title")}
+        >
           🔔
         </span>
         {count > 0 && (
@@ -42,7 +56,10 @@ export function NotificationBell() {
         )}
       </summary>
 
-      <div className="absolute right-0 z-20 mt-2 w-72 rounded-lg border border-slate-200 bg-white shadow-lg">
+      <div
+        ref={panelRef}
+        className="absolute right-0 z-20 mt-2 hidden w-[min(18rem,calc(100vw-2rem))] rounded-lg border border-slate-200 bg-white shadow-lg group-open:block"
+      >
         <div className="flex items-center justify-between border-b border-slate-100 px-3 py-2">
           <span className="text-sm font-semibold text-slate-900">
             {t("components.notifications.title")}
@@ -75,11 +92,18 @@ export function NotificationBell() {
             return (
               <li key={n.id} className="border-b border-slate-50 last:border-0">
                 {n.link ? (
-                  <Link href={n.link} className={cls} onClick={() => markOne.mutate({ id: n.id })}>
+                  <Link
+                    href={n.link}
+                    className={cls}
+                    onClick={() => markOne.mutate({ id: n.id })}
+                  >
                     {inner}
                   </Link>
                 ) : (
-                  <button className={`w-full ${cls}`} onClick={() => markOne.mutate({ id: n.id })}>
+                  <button
+                    className={`w-full ${cls}`}
+                    onClick={() => markOne.mutate({ id: n.id })}
+                  >
                     {inner}
                   </button>
                 )}

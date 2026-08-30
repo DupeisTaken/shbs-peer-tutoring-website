@@ -139,6 +139,9 @@
   },
   "landing": {
     "nav": {
+      "accessProgramInformation": "Πληροφορίες Προγράμματος",
+      "menu": "Μενού",
+      "joinProgram": "Συμμετοχή στο Πρόγραμμα",
       "requestTutor": "Αίτημα βοηθού",
       "becomeTutor": "Γίνετε βοηθός",
       "teamSignin": "Σύνδεση",
