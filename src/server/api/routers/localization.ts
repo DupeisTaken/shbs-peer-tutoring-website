@@ -6,12 +6,22 @@ import { listLanguages } from "~/server/i18n/languages";
 import enMessages from "../../../../messages/en.json";
 import zhMessages from "../../../../messages/zh.json";
 import esMessages from "../../../../messages/es.json";
+import jaMessages from "../../../../messages/ja.json";
+import koMessages from "../../../../messages/ko.json";
+import elMessages from "../../../../messages/el.json";
+import deMessages from "../../../../messages/de.json";
+import frMessages from "../../../../messages/fr.json";
 
 /** Bundled message sources, keyed by locale. English is the canonical key set. */
 const MESSAGES: Record<string, Record<string, unknown>> = {
   en: enMessages,
   zh: zhMessages,
   es: esMessages,
+  ja: jaMessages,
+  ko: koMessages,
+  el: elMessages,
+  de: deMessages,
+  fr: frMessages,
 };
 
 /** Flatten a nested messages object into dot-path → string-leaf entries. */
@@ -36,7 +46,7 @@ const isBuiltin = (code: string) => (LOCALES as readonly string[]).includes(code
 /** Resolve to a known language (built-in or translator-added); unknown codes fall back to English. */
 async function resolveLocale(locale: string): Promise<string> {
   if (isBuiltin(locale)) return locale;
-  const langs = await listLanguages();
+  const langs = await listLanguages({ includeDisabled: true });
   return langs.some((l) => l.code === locale) ? locale : "en";
 }
 

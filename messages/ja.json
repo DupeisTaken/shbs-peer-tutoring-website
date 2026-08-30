@@ -1846,7 +1846,13 @@
     "expandAll": "すべて展開",
     "collapseAll": "すべて折りたたむ",
     "languagesHeading": "言語",
+    "languagesHelp": "有効な言語だけが公開言語メニューに表示されます。非表示の言語も、翻訳が完成するまでここで編集できます。",
     "builtIn": "組み込み",
+    "enabled": "有効",
+    "disabled": "非表示",
+    "required": "必須の代替言語",
+    "enableLanguage": "有効にする",
+    "disableLanguage": "非表示にする",
     "moveUp": "上に移動",
     "moveDown": "下に移動",
     "removeLanguage": "削除",
@@ -1854,6 +1860,7 @@
     "addLanguageCode": "コード（例：fr）",
     "addLanguageName": "名前（例：Français）",
     "addLanguageBtn": "言語を追加",
+    "newLanguageHint": "新しい言語は非表示で追加され、翻訳の準備ができたら有効にできます。",
     "back": "戻る"
   },
   "account": {

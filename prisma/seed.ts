@@ -23,7 +23,11 @@ import {
   type TuteeAttendanceStatus,
 } from "../src/lib/service-hours";
 import { graduationYear } from "../src/lib/period";
-import { LOCALES, LOCALE_LABELS } from "../src/i18n/config";
+import {
+  LOCALES,
+  LOCALE_LABELS,
+  isDefaultEnabledLocale,
+} from "../src/i18n/config";
 import { TUTEE_POLICY, TUTOR_POLICY } from "./policies";
 
 /** School year the seed's active term belongs to (used to derive class-of years). */
@@ -620,8 +624,17 @@ async function main() {
   // (non-built-in) are left untouched.
   for (let i = 0; i < LOCALES.length; i++) {
     const code = LOCALES[i]!;
-    const data = { label: LOCALE_LABELS[code], sortOrder: i, builtIn: true };
-    await db.language.upsert({ where: { code }, update: data, create: { code, ...data } });
+    const data = {
+      label: LOCALE_LABELS[code],
+      sortOrder: i,
+      builtIn: true,
+    };
+    await db.language.upsert({
+      where: { code },
+      // Seeding metadata must not overwrite a manager's publish/hide decision.
+      update: data,
+      create: { code, ...data, enabled: isDefaultEnabledLocale(code) },
+    });
   }
 
   // --- Rooms + blackout periods ----------------------------------------------

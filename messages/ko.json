@@ -1846,7 +1846,13 @@
     "expandAll": "모두 펼치기",
     "collapseAll": "모두 접기",
     "languagesHeading": "언어",
+    "languagesHelp": "활성화된 언어만 공개 언어 메뉴에 표시됩니다. 숨긴 언어도 번역이 완성될 때까지 여기에서 편집할 수 있습니다.",
     "builtIn": "기본 제공",
+    "enabled": "활성화됨",
+    "disabled": "숨김",
+    "required": "필수 대체 언어",
+    "enableLanguage": "활성화",
+    "disableLanguage": "숨기기",
     "moveUp": "위로 이동",
     "moveDown": "아래로 이동",
     "removeLanguage": "삭제",
@@ -1854,6 +1860,7 @@
     "addLanguageCode": "코드 (예: fr)",
     "addLanguageName": "이름 (예: Français)",
     "addLanguageBtn": "언어 추가",
+    "newLanguageHint": "새 언어는 숨김 상태로 추가되며 번역이 준비되면 활성화할 수 있습니다.",
     "back": "뒤로"
   },
   "account": {

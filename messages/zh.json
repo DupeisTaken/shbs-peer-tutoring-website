@@ -1846,7 +1846,13 @@
     "expandAll": "全部展开",
     "collapseAll": "全部收起",
     "languagesHeading": "语言",
+    "languagesHelp": "只有已启用的语言会显示在公共语言菜单中。隐藏的语言仍可在此编辑，直至翻译完善。",
     "builtIn": "内置",
+    "enabled": "已启用",
+    "disabled": "已隐藏",
+    "required": "必需的回退语言",
+    "enableLanguage": "启用",
+    "disableLanguage": "隐藏",
     "moveUp": "上移",
     "moveDown": "下移",
     "removeLanguage": "移除",
@@ -1854,6 +1860,7 @@
     "addLanguageCode": "代码（如 fr）",
     "addLanguageName": "名称（如 Français）",
     "addLanguageBtn": "添加语言",
+    "newLanguageHint": "新语言默认隐藏，翻译准备就绪后即可启用。",
     "back": "返回"
   },
   "account": {

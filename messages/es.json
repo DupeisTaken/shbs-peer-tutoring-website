@@ -1846,7 +1846,13 @@
     "expandAll": "Expandir todo",
     "collapseAll": "Contraer todo",
     "languagesHeading": "Idiomas",
+    "languagesHelp": "Solo los idiomas habilitados aparecen en los menús públicos. Los idiomas ocultos se pueden seguir editando aquí hasta completar sus traducciones.",
     "builtIn": "integrado",
+    "enabled": "habilitado",
+    "disabled": "oculto",
+    "required": "idioma de respaldo obligatorio",
+    "enableLanguage": "Habilitar",
+    "disableLanguage": "Ocultar",
     "moveUp": "Subir",
     "moveDown": "Bajar",
     "removeLanguage": "Quitar",
@@ -1854,6 +1860,7 @@
     "addLanguageCode": "Código (p. ej. fr)",
     "addLanguageName": "Nombre (p. ej. Français)",
     "addLanguageBtn": "Agregar idioma",
+    "newLanguageHint": "Los idiomas nuevos empiezan ocultos y se pueden habilitar cuando sus traducciones estén listas.",
     "back": "Volver"
   },
   "account": {

@@ -7,7 +7,12 @@ import {
   publicProcedure,
   translatorProcedure,
 } from "~/server/api/trpc";
-import { isLocale, LOCALE_LABELS } from "~/i18n/config";
+import {
+  DEFAULT_LOCALE,
+  isDefaultEnabledLocale,
+  isLocale,
+  LOCALE_LABELS,
+} from "~/i18n/config";
 import { listLanguages } from "~/server/i18n/languages";
 
 /**
@@ -18,6 +23,11 @@ import { listLanguages } from "~/server/i18n/languages";
  */
 export const i18nRouter = createTRPCRouter({
   languages: publicProcedure.query(() => listLanguages()),
+
+  /** Hidden languages remain available to translators while they are being polished. */
+  managedLanguages: translatorProcedure.query(() =>
+    listLanguages({ includeDisabled: true }),
+  ),
 
   /** Whether the current translator may also reorder/remove languages (head/admins/coordinators). */
   canManageLanguages: translatorProcedure.query(
@@ -53,6 +63,36 @@ export const i18nRouter = createTRPCRouter({
           label: input.label,
           sortOrder: (max._max.sortOrder ?? 100) + 1,
           builtIn: false,
+          enabled: false,
+        },
+      });
+      return { ok: true };
+    }),
+
+  setLanguageEnabled: adminProcedure
+    .input(z.object({ code: z.string(), enabled: z.boolean() }))
+    .mutation(async ({ ctx, input }) => {
+      if (input.code === DEFAULT_LOCALE && !input.enabled) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "English is the required fallback and can't be hidden.",
+        });
+      }
+
+      const existing = await ctx.db.language.findUnique({ where: { code: input.code } });
+      if (!existing && !isLocale(input.code)) {
+        throw new TRPCError({ code: "NOT_FOUND", message: "Language not found." });
+      }
+
+      await ctx.db.language.upsert({
+        where: { code: input.code },
+        update: { enabled: input.enabled },
+        create: {
+          code: input.code,
+          label: isLocale(input.code) ? (LOCALE_LABELS[input.code] ?? input.code) : input.code,
+          sortOrder: 1000,
+          builtIn: isLocale(input.code),
+          enabled: input.enabled,
         },
       });
       return { ok: true };
@@ -72,6 +112,7 @@ export const i18nRouter = createTRPCRouter({
               label: isLocale(code) ? (LOCALE_LABELS[code] ?? code) : code,
               sortOrder: i,
               builtIn: isLocale(code),
+              enabled: isDefaultEnabledLocale(code),
             },
           }),
         ),
