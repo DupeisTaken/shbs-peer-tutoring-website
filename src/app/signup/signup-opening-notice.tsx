@@ -6,6 +6,9 @@ import { useFormatter, useTranslations } from "next-intl";
 
 import { signupCountdown } from "~/lib/signup-window";
 
+/** Retry a failed/stale server refresh without hammering the route once the gate reaches zero. */
+const OPENING_REFRESH_RETRY_MS = 5_000;
+
 interface SignupOpeningNoticeProps {
   quarter: string;
   opensAt: string;
@@ -29,15 +32,27 @@ export function SignupOpeningNotice({
   const router = useRouter();
   const openingTime = useMemo(() => new Date(opensAt), [opensAt]);
   const openingMs = openingTime.getTime();
-  const [nowMs, setNowMs] = useState(() => new Date(serverNow).getTime());
-  const refreshed = useRef(false);
+  const serverNowMs = useMemo(() => new Date(serverNow).getTime(), [serverNow]);
+  const [nowMs, setNowMs] = useState(serverNowMs);
+  const lastRefreshAt = useRef<number | null>(null);
 
   useEffect(() => {
+    // Anchor the countdown to server time and advance it with a monotonic browser clock. This keeps
+    // a misconfigured client wall clock from opening early or delaying the public transition.
+    const startedAt = window.performance.now();
+    lastRefreshAt.current = null;
+
     const tick = () => {
-      const nextNow = Date.now();
+      const nextNow =
+        serverNowMs + (window.performance.now() - startedAt);
       setNowMs(nextNow);
-      if (nextNow >= openingMs && !refreshed.current) {
-        refreshed.current = true;
+
+      if (
+        nextNow >= openingMs &&
+        (lastRefreshAt.current === null ||
+          nextNow - lastRefreshAt.current >= OPENING_REFRESH_RETRY_MS)
+      ) {
+        lastRefreshAt.current = nextNow;
         router.refresh();
       }
     };
@@ -45,7 +60,7 @@ export function SignupOpeningNotice({
     tick();
     const interval = window.setInterval(tick, 1_000);
     return () => window.clearInterval(interval);
-  }, [openingMs, router]);
+  }, [openingMs, router, serverNowMs]);
 
   const countdown = signupCountdown(openingTime, nowMs);
   const hasReachedOpening = nowMs >= openingMs;
