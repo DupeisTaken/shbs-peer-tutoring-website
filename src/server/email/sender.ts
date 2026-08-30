@@ -3,7 +3,8 @@
  *
  * Email is "configured" once `EMAIL_FROM` + `SMTP_PASSWORD` are set (see src/env.js). When it
  * isn't, the app falls back to a sender that logs the message in development and warns in
- * production — so email-dependent flows still work locally and never silently drop mail.
+ * production. Security-sensitive flows must also check `isEmailDeliveryAvailable` so a production
+ * deployment can never report success after dropping a login or step-up code.
  *
  * Aliyun setup: verify a sender domain, create a sender address (发信地址) with an SMTP password,
  * then point the SMTP_* / EMAIL_FROM env vars at it. See README-DEPLOY.md ("Email — Aliyun
@@ -31,6 +32,11 @@ export interface EmailSender {
 /** True once a sender address + SMTP password are configured. */
 export function isEmailConfigured(): boolean {
   return Boolean(env.EMAIL_FROM && env.SMTP_PASSWORD);
+}
+
+/** True when security email can reach a user (or is intentionally visible in local logs). */
+export function isEmailDeliveryAvailable(): boolean {
+  return env.NODE_ENV !== "production" || isEmailConfigured();
 }
 
 /** The From header — display name (defaults to the app title) + the verified sender address. */
@@ -120,12 +126,16 @@ const devSender: EmailSender = {
   async send(message) {
     const line = `[email] (not configured) to=${message.to} subject="${message.subject}"`;
     if (env.NODE_ENV === "production") {
-      console.warn(`${line} — set EMAIL_FROM + SMTP_PASSWORD to actually send.`);
+      console.warn(
+        `${line} — set EMAIL_FROM + SMTP_PASSWORD to actually send.`,
+      );
     } else {
       console.info(`${line}\n${message.text}`);
     }
   },
 };
 
-/** Configured sender if env is set, otherwise the dev/log fallback. Call sites never change. */
-export const emailSender: EmailSender = isEmailConfigured() ? aliyunSender : devSender;
+/** Configured sender if env is set, otherwise the development/log fallback. */
+export const emailSender: EmailSender = isEmailConfigured()
+  ? aliyunSender
+  : devSender;

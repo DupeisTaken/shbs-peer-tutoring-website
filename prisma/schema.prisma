@@ -18,8 +18,7 @@ datasource db {
 // Sign-in is email + password (verified server-side; see src/server/auth). We use
 // JWT sessions (role + tutorId are resolved at sign-in and carried in the token), so
 // no adapter `Session`/`Account`/`VerificationToken` tables are needed. Only `User`
-// is persisted. A future email-based 2FA second factor plugs in via the scaffolding
-// at the bottom of this file (`EmailVerificationCode`) — not yet implemented.
+// is persisted. Email login 2FA and step-up codes are stored in EmailVerificationCode.
 // ----------------------------------------------------------------------------
 
 enum Role {
@@ -56,13 +55,12 @@ model User {
   /// the first-login onboarding forces a real password (and email) before the dashboard.
   mustChangePassword Boolean @default(false)
 
-  /// SCAFFOLDING for future email-based 2FA — see src/server/auth/two-factor.ts.
-  /// When true, an emailed one-time code will be required as a second factor at
-  /// sign-in. Not yet enforced anywhere.
+  /// When true and the EMAIL_2FA feature is enabled, sign-in requires an emailed
+  /// one-time code after the password is accepted.
   twoFactorEnabled Boolean @default(false)
 
   /// Set when the user completes first-login onboarding (`/onboarding/email`): they
-  /// confirm the contact email their sign-in codes go to (email-2FA setup is scaffolded).
+  /// confirm the contact email their sign-in and step-up codes go to.
   /// Null = onboarding not done yet; the tutor shell routes them to the gate.
   emailVerifiedAt DateTime?
 
@@ -101,10 +99,10 @@ model User {
   tutor   Tutor?  @relation(fields: [tutorId], references: [id])
   tutorId String? @unique
 
-  /// SCAFFOLDING — future email 2FA codes (see EmailVerificationCode). Unused for now.
+  /// Emailed login 2FA and step-up codes (see EmailVerificationCode).
   verificationCodes EmailVerificationCode[]
 
-  /// SCAFFOLDING — forgot-password reset tokens (see PasswordResetToken).
+  /// Forgot-password reset tokens (see PasswordResetToken).
   passwordResets PasswordResetToken[]
 
   // Announcements this user (admin) broadcast, and the ones they've acknowledged.
@@ -158,7 +156,7 @@ enum ProgramFeatureKey {
   QUARTER_SYSTEM
   /// Public, email-validated viewer self-registration (read-only VIEWER accounts).
   VIEWER_SIGNUP
-  /// Email-based two-factor: the sign-in second factor (scaffolded) + the emailed code required
+  /// Email-based two-factor: the sign-in second factor + the emailed code required
   /// on a password change. Off lets a program with no email configured still change passwords.
   EMAIL_2FA
 }
@@ -983,8 +981,7 @@ enum TutorApplicationStatus {
 model TutorApplication {
   id              String                 @id @default(cuid())
   name            String
-  /// Contact email. SCAFFOLDING: future email-based 2FA / verification codes for the
-  /// applicant would be sent here (see src/server/auth/two-factor.ts); not wired yet.
+  /// Contact email used for application review and account invitations.
   email           String
   /// Free-text "how can we reach you?" captured on the public application form (required there).
   preferredContact String?
@@ -1189,10 +1186,8 @@ model AnnouncementAck {
 // ----------------------------------------------------------------------------
 // Emailed one-time codes (step-up / 2FA)
 //
-// `EmailVerificationCode` now backs the PASSWORD_CHANGE step-up flow (an emailed code is
-// required to change a password while signed in — see src/server/auth/step-up.ts). The
-// LOGIN_2FA second factor remains scaffolded only (src/server/auth/two-factor.ts); the
-// email seam is src/server/email/sender.ts.
+// `EmailVerificationCode` backs login 2FA (LOGIN_2FA) and the PASSWORD_CHANGE
+// step-up flow. Delivery goes through src/server/email/sender.ts.
 // ----------------------------------------------------------------------------
 
 enum VerificationPurpose {
@@ -1221,7 +1216,7 @@ model EmailVerificationCode {
 /// A short-lived, single-use password-reset token for the forgot-password flow.
 /// Only the token *hash* is stored — the plaintext goes in the emailed reset link.
 /// The token logic (issue/verify) is implemented in src/server/auth/password-reset.ts;
-/// email DELIVERY is scaffolded only (no provider wired up — see src/server/email/sender.ts).
+/// email delivery goes through src/server/email/sender.ts.
 model PasswordResetToken {
   id         String    @id @default(cuid())
   userId     String

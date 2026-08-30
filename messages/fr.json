@@ -21,6 +21,30 @@
     "signingIn": "Connexion en cours…",
     "invalidCredentials": "Nom d'utilisateur/e-mail ou mot de passe invalide.",
     "tooManyAttempts": "Trop de tentatives de connexion. Veuillez patienter quelques minutes et réessayer.",
+    "twoFactor": {
+      "title": "Verification Code",
+      "sent": "We emailed a sign-in code to {email}.",
+      "code": "Verification Code",
+      "help": "Enter the 5-character code from your email.",
+      "verify": "Verify and Sign In",
+      "verifying": "Verifying?",
+      "invalid": "That code is incorrect or expired. Request a new sign-in code.",
+      "differentAccount": "Use a Different Account",
+      "unavailable": "Email verification is temporarily unavailable. Contact the program team.",
+      "settings": {
+        "title": "Email Two-Factor Authentication",
+        "description": "Require a one-time email code when you sign in.",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "featureOff": "Email 2FA is disabled for this program.",
+        "unavailable": "Email delivery is not configured. Contact the program team.",
+        "currentPassword": "Current Password",
+        "enable": "Enable 2FA",
+        "disable": "Disable 2FA",
+        "saving": "Saving…",
+        "saved": "Two-factor settings updated."
+      }
+    },
     "forgotPassword": "Mot de passe oublié ?",
     "createAccount": "Créer un compte",
     "lookingForTutor": "Vous cherchez un tuteur ?",
@@ -31,6 +55,7 @@
       "backToSignIn": "← Retour à la connexion",
       "sent": "Si un compte correspond à ce que vous avez saisi, nous avons envoyé les instructions de réinitialisation à son e-mail de contact. Vérifiez votre boîte de réception.",
       "sentEmailNote": "L'envoi d'e-mails n'est pas encore configuré dans cet environnement — consultez les journaux du serveur pour obtenir le lien de réinitialisation en développement local.",
+      "unavailable": "Password reset email is temporarily unavailable. Contact the program team.",
       "fields": {
         "identifier": "Nom d'utilisateur ou e-mail"
       },

@@ -21,6 +21,30 @@
     "signingIn": "Iniciando sesión…",
     "invalidCredentials": "Nombre de usuario/correo o contraseña no válidos.",
     "tooManyAttempts": "Demasiados intentos de inicio de sesión. Espera unos minutos e inténtalo de nuevo.",
+    "twoFactor": {
+      "title": "Verification Code",
+      "sent": "We emailed a sign-in code to {email}.",
+      "code": "Verification Code",
+      "help": "Enter the 5-character code from your email.",
+      "verify": "Verify and Sign In",
+      "verifying": "Verifying?",
+      "invalid": "That code is incorrect or expired. Request a new sign-in code.",
+      "differentAccount": "Use a Different Account",
+      "unavailable": "Email verification is temporarily unavailable. Contact the program team.",
+      "settings": {
+        "title": "Email Two-Factor Authentication",
+        "description": "Require a one-time email code when you sign in.",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "featureOff": "Email 2FA is disabled for this program.",
+        "unavailable": "Email delivery is not configured. Contact the program team.",
+        "currentPassword": "Current Password",
+        "enable": "Enable 2FA",
+        "disable": "Disable 2FA",
+        "saving": "Saving…",
+        "saved": "Two-factor settings updated."
+      }
+    },
     "forgotPassword": "¿Olvidaste tu contraseña?",
     "createAccount": "Crear cuenta",
     "lookingForTutor": "¿Buscas un tutor?",
@@ -31,6 +55,7 @@
       "backToSignIn": "← Volver al inicio de sesión",
       "sent": "Si una cuenta coincide con lo que introdujiste, hemos enviado instrucciones para restablecer la contraseña a su correo de contacto. Revisa tu bandeja de entrada.",
       "sentEmailNote": "El envío de correos aún no está configurado en este entorno; consulta los registros del servidor para ver el enlace de restablecimiento durante el desarrollo local.",
+      "unavailable": "Password reset email is temporarily unavailable. Contact the program team.",
       "fields": {
         "identifier": "Usuario o correo"
       },

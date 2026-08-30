@@ -21,6 +21,30 @@
     "signingIn": "로그인 중…",
     "invalidCredentials": "사용자명/이메일 또는 비밀번호가 올바르지 않습니다.",
     "tooManyAttempts": "로그인 시도가 너무 많습니다. 잠시 후 다시 시도해 주세요.",
+    "twoFactor": {
+      "title": "Verification Code",
+      "sent": "We emailed a sign-in code to {email}.",
+      "code": "Verification Code",
+      "help": "Enter the 5-character code from your email.",
+      "verify": "Verify and Sign In",
+      "verifying": "Verifying?",
+      "invalid": "That code is incorrect or expired. Request a new sign-in code.",
+      "differentAccount": "Use a Different Account",
+      "unavailable": "Email verification is temporarily unavailable. Contact the program team.",
+      "settings": {
+        "title": "Email Two-Factor Authentication",
+        "description": "Require a one-time email code when you sign in.",
+        "enabled": "Enabled",
+        "disabled": "Disabled",
+        "featureOff": "Email 2FA is disabled for this program.",
+        "unavailable": "Email delivery is not configured. Contact the program team.",
+        "currentPassword": "Current Password",
+        "enable": "Enable 2FA",
+        "disable": "Disable 2FA",
+        "saving": "Saving…",
+        "saved": "Two-factor settings updated."
+      }
+    },
     "forgotPassword": "비밀번호를 잊으셨나요?",
     "createAccount": "계정 만들기",
     "lookingForTutor": "튜터를 찾고 계신가요?",
@@ -31,6 +55,7 @@
       "backToSignIn": "← 로그인으로 돌아가기",
       "sent": "입력하신 정보와 일치하는 계정이 있으면 연락처 이메일로 비밀번호 재설정 안내를 보냈습니다. 받은 편지함을 확인하세요.",
       "sentEmailNote": "이 환경에서는 이메일 전송이 아직 설정되지 않았습니다. 로컬 개발 중에는 서버 로그에서 재설정 링크를 확인하세요.",
+      "unavailable": "Password reset email is temporarily unavailable. Contact the program team.",
       "fields": {
         "identifier": "사용자명 또는 이메일"
       },

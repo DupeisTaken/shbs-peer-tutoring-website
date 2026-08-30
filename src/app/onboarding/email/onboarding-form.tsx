@@ -65,7 +65,7 @@ export function OnboardingForm({
 
       {email2fa && (
         <label className="flex items-start gap-2 text-sm text-slate-700">
-          <input type="checkbox" name="enable2fa" defaultChecked className="mt-1" />
+          <input type="checkbox" name="enable2fa" className="mt-1" />
           <span>{t("auth.onboarding.enable2fa")}</span>
         </label>
       )}

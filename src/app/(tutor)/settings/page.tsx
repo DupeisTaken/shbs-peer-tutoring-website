@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
+import { TwoFactorSettings } from "~/app/_components/two-factor-settings";
 
 export default function SettingsPage() {
   const t = useTranslations();
@@ -12,7 +13,7 @@ export default function SettingsPage() {
   const me = api.tutor.me.useQuery();
   const statusReq = api.tutor.myStatusRequest.useQuery();
   const features = api.program.features.useQuery();
-  const email2fa = features.data?.EMAIL_2FA ?? true;
+  const email2fa = features.data?.EMAIL_2FA ?? false;
 
   const updateProfile = api.tutor.updateProfile.useMutation({
     onSuccess: () => utils.tutor.myProfile.invalidate(),
@@ -294,6 +295,8 @@ export default function SettingsPage() {
           )}
         </div>
       </section>
+
+      <TwoFactorSettings />
 
       {/* Membership — opt-out / reentry */}
       <section className="card space-y-4 p-5">

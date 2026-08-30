@@ -56,7 +56,15 @@ async function cleanup() {
 
 beforeAll(async () => {
   await cleanup();
-  await db.term.create({ data: { id: TERM, name: "Test Term", schoolYear: "25-26", quarter: "Q3", active: true } });
+  await db.term.create({
+    data: {
+      id: TERM,
+      name: "Test Term",
+      schoolYear: "99-00",
+      quarter: "Q3",
+      active: true,
+    },
+  });
   await db.tutor.createMany({
     data: [
       { id: TUTOR_A, englishName: "Tutor A" },
@@ -105,6 +113,11 @@ describe("row-level scoping (the critical rule)", () => {
         tutorStatus: "PRESENT",
         tutees: [{ tuteeId: TUTEE_1, status: "PRESENT" }],
         comments: "ok",
+        ratingPreparedness: 5,
+        ratingParticipation: 5,
+        ratingUnderstanding: 5,
+        ratingBehavior: 5,
+        ratingProgress: 5,
       }),
     );
     expect(code).toBe("NOT_FOUND");
