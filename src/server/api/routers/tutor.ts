@@ -415,6 +415,9 @@ export const tutorRouter = createTRPCRouter({
           const created = await tx.session.create({
             data: {
               pairingId: p.id,
+              // A merged block ran at the primary pairing's time, so every sibling retains that
+              // same slot. This keeps the whole block together when an admin later edits it.
+              timeSlotId: primary.timeSlotId,
               tutorId,
               date: input.date,
               tutorStatus: input.tutorStatus,

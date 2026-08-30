@@ -130,8 +130,8 @@ assigns **each course choice to a tutor** (e.g. first choice → tutor A, second
 a dropdown that previews each tutor's current workload; submitting creates a pairing per
 assignment and flips the tutee to `ACTIVE`. If a choice was left blank it shows grayed/disabled
 and the request stays in the queue. The **tutor then picks the default time slot** for each
-pairing from their own dashboard (slots stay reference-only — actual session times are entered
-on each attendance submission).
+pairing from their own dashboard. Attendance defaults to that slot; submitted sessions retain
+their slot reference so later catalog edits can update the linked schedule consistently.
 
 Prospective tutors apply through the public `/tutor-signup` form (intended courses + grades).
 On the **Tutor applications** screen an admin assigns a three-tutor interview panel (one marked
@@ -139,7 +139,7 @@ On the **Tutor applications** screen an admin assigns a three-tutor interview pa
 up for every panelist. The public form never creates a login — but **accepting** an application
 auto-provisions the tutor's `User` account (see Authentication).
 
-Scheduling is built around an admin-managed **time-slot catalog** (`/admin/timeslots`) and a
+Scheduling is built around an admin-managed **time-slot catalog** (`/admin/time-slots`) and a
 **subject catalog** (`/admin/subjects`). Subjects belong to an admin-managed **level catalogue**
 (`SubjectLevel`, e.g. AP / Honors / Standard); a level flagged **AP-scored** gates the AP-score
 field on tutor applications. Pairings are scheduled by **picking a published time slot** on the
@@ -147,6 +147,11 @@ Pairings page (the slot sets the day/start/end). Tutors and tutees mark availabi
 slots. Rooms can have recurring **unavailability periods** (`/admin/rooms`); the slot×room
 **room grid** (on the Pairings page, and read-only on the tutor dashboard) shows occupancy and
 blocked cells.
+
+Admins can edit a slot's label, weekday, start/end time, and active state in place. Weekday/time
+changes propagate atomically to every pairing still assigned to the slot. Submitted sessions keep
+the slot used at submission, so a clock-time edit also updates all of those sessions and
+recalculates their duration and service-hour totals; their calendar dates do not move.
 
 ### Service hours
 
