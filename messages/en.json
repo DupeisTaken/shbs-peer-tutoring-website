@@ -1846,7 +1846,13 @@
     "expandAll": "Expand All",
     "collapseAll": "Collapse All",
     "languagesHeading": "Languages",
+    "languagesHelp": "Only enabled languages appear in public language menus. Hidden languages stay editable here while their translations are polished.",
     "builtIn": "built-in",
+    "enabled": "enabled",
+    "disabled": "hidden",
+    "required": "required fallback",
+    "enableLanguage": "Enable",
+    "disableLanguage": "Hide",
     "moveUp": "Move Up",
     "moveDown": "Move Down",
     "removeLanguage": "Remove",
@@ -1854,6 +1860,7 @@
     "addLanguageCode": "Code (e.g. fr)",
     "addLanguageName": "Name (e.g. Français)",
     "addLanguageBtn": "Add Language",
+    "newLanguageHint": "New languages start hidden and can be enabled when their translations are ready.",
     "back": "Back"
   },
   "account": {

@@ -47,6 +47,15 @@ describe("locale parity", () => {
     }
   });
 
+  for (const loc of LOCALES) {
+    it(`${loc} has no blank translation values`, () => {
+      const blank = Object.entries(load(loc))
+        .filter(([, value]) => value.trim().length === 0)
+        .map(([key]) => key);
+      expect(blank).toEqual([]);
+    });
+  }
+
   for (const loc of LOCALES.filter((l) => l !== DEFAULT_LOCALE)) {
     describe(loc, () => {
       const m = load(loc);

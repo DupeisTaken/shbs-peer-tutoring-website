@@ -7,6 +7,12 @@ export type Locale = (typeof LOCALES)[number];
 export const DEFAULT_LOCALE: Locale = "en";
 
 /**
+ * Languages that are ready for the public picker on a fresh install. Other bundled catalogs stay
+ * available to translators, but start hidden until a language manager publishes them.
+ */
+export const DEFAULT_ENABLED_LOCALES: readonly Locale[] = ["en", "zh"];
+
+/**
  * A FIXED default time zone for date/time formatting. Must be a constant (not the host's local
  * zone) so the server and client agree — otherwise next-intl warns ENVIRONMENT_FALLBACK and dates
  * can hydrate mismatched. China Standard Time covers the program; change here to relocate.
@@ -26,4 +32,8 @@ export const LOCALE_LABELS: Record<Locale, string> = {
 
 export function isLocale(value: string | undefined): value is Locale {
   return !!value && (LOCALES as readonly string[]).includes(value);
+}
+
+export function isDefaultEnabledLocale(value: string): boolean {
+  return (DEFAULT_ENABLED_LOCALES as readonly string[]).includes(value);
 }

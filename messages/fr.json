@@ -1846,7 +1846,13 @@
     "expandAll": "Tout développer",
     "collapseAll": "Tout réduire",
     "languagesHeading": "Langues",
+    "languagesHelp": "Seules les langues activées apparaissent dans les menus publics. Les langues masquées restent modifiables ici jusqu’à ce que leurs traductions soient prêtes.",
     "builtIn": "intégré",
+    "enabled": "activée",
+    "disabled": "masquée",
+    "required": "langue de secours obligatoire",
+    "enableLanguage": "Activer",
+    "disableLanguage": "Masquer",
     "moveUp": "Monter",
     "moveDown": "Descendre",
     "removeLanguage": "Supprimer",
@@ -1854,6 +1860,7 @@
     "addLanguageCode": "Code (ex. fr)",
     "addLanguageName": "Nom (ex. Français)",
     "addLanguageBtn": "Ajouter une langue",
+    "newLanguageHint": "Les nouvelles langues sont d’abord masquées et peuvent être activées lorsque leurs traductions sont prêtes.",
     "back": "Retour"
   },
   "account": {

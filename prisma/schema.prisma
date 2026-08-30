@@ -126,6 +126,8 @@ model Language {
   label     String
   sortOrder Int      @default(0)
   builtIn   Boolean  @default(false)
+  /// Hidden languages remain editable, but do not appear in the public language picker.
+  enabled   Boolean  @default(false)
   createdAt DateTime @default(now())
 }
 

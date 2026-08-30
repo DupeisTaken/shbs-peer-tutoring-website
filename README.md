@@ -182,13 +182,17 @@ the inverse is well-defined.
 
 ### Internationalization
 
-UI copy is localized with **next-intl**. Strings live in `messages/<locale>.json`
-(`en`, `zh`, `es`, `fr`, `de`, `el`, `ja`, `ko`)
-and are rendered via `t("…")` — never hardcoded. The active locale comes from the `NEXT_LOCALE`
+UI copy is localized with **next-intl**. Bundled strings live in `messages/<locale>.json`
+(`en`, `zh`, `es`, `fr`, `de`, `el`, `ja`, and `ko`) and are rendered via `t("…")` — never
+hardcoded. English and Chinese are published by default; managers can enable other languages from
+`/localization` after their translations are polished. Hidden languages remain editable, newly
+added languages start hidden, and English cannot be hidden because it is the fallback. The active
+locale comes from the `NEXT_LOCALE`
 cookie (a language switcher in the header sets it; there is no locale routing, so the auth
 middleware is untouched). Config is in `src/i18n/request.ts`; client-safe constants in
 `src/i18n/config.ts`. Orgs can re-word the app without editing the files by setting the
-`MESSAGES_OVERRIDE` env to a JSON object that is deep-merged over the active locale.
+`MESSAGES_OVERRIDE` env to a JSON object that is deep-merged over the active locale. The locale
+parity test checks every bundled catalog for missing, extra, blank, or broken ICU-placeholder keys.
 
 ### Performance
 
@@ -306,7 +310,7 @@ src/
     db.ts              # Prisma client
   lib/service-hours.ts # service-hour computation (pure, unit-tested)
   trpc/                # tRPC client/server wiring
-messages/              # next-intl translation catalogs (8 bundled locales)
+messages/              # next-intl translation catalogs (eight bundled locales)
 prisma/
   schema.prisma        # data model
   seed.ts              # sample data
