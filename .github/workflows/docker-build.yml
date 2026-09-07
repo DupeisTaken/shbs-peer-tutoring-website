@@ -39,8 +39,26 @@ jobs:
       - run: npm ci
       - run: npm run db:migrate
       - run: npm run check
+      - run: npm audit --omit=dev
       - run: npm test
       - run: npm run build
+
+      # Build success alone does not exercise Prisma's runtime dependency graph or entrypoint.
+      - uses: docker/setup-buildx-action@v3
+      - name: Build runnable image
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          load: true
+          tags: shbs-smoke:local
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+      - name: Boot image with an empty database
+        env:
+          DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shbs_boot_test
+        run: |
+          docker exec ${{ job.services.postgres.id }} createdb -U postgres shbs_boot_test
+          bash scripts/smoke-image.sh shbs-smoke:local
 
   publish:
     needs: verify

@@ -26,6 +26,7 @@
   },
   "dependencies": {
     "@auth/prisma-adapter": "^2.11.3",
+    "@formatjs/icu-messageformat-parser": "3.5.12",
     "@hookform/resolvers": "^5.4.0",
     "@prisma/adapter-pg": "^7.8.0",
     "@prisma/client": "^7.8.0",
@@ -41,12 +42,14 @@
     "next-intl": "^4.13.1",
     "nodemailer": "^9.0.3",
     "pg": "^8.22.0",
+    "prisma": "^7.8.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "react-hook-form": "^7.81.0",
     "react-markdown": "^9.1.0",
     "server-only": "^0.0.1",
     "superjson": "^2.2.1",
+    "tsx": "^4.23.0",
     "zod": "^3.24.2"
   },
   "devDependencies": {
@@ -65,14 +68,13 @@
     "postcss": "^8.5.26",
     "prettier": "^3.9.4",
     "prettier-plugin-tailwindcss": "^0.8.0",
-    "prisma": "^7.8.0",
     "tailwindcss": "^4.3.2",
-    "tsx": "^4.23.0",
     "typescript": "^6.0.3",
     "typescript-eslint": "^8.63.0",
     "vitest": "^4.1.10"
   },
   "overrides": {
+    "mysql2": "3.23.1",
     "deepmerge-ts": "8.0.0",
     "postcss": "$postcss"
   },
