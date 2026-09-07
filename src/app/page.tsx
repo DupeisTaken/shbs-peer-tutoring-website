@@ -13,7 +13,15 @@ export default async function Home() {
       session.role === "COORDINATOR" ||
       session.role === "VIEWER";
     // Crew-only logins reach only the patrol portal.
-    redirect(adminArea ? "/admin" : session.role === "CREW" ? "/patrol" : "/dashboard");
+    redirect(
+      session.role === "STUDENT"
+        ? "/student"
+        : adminArea
+          ? "/admin"
+          : session.role === "CREW"
+            ? "/patrol"
+            : "/dashboard",
+    );
   }
 
   return <LandingView />;

@@ -40,6 +40,7 @@ const caller = () =>
   createCaller({ db, session: adminSession, headers: new Headers() });
 
 async function cleanup() {
+  await db.user.deleteMany({ where: { id: "test-slot-admin" } });
   await db.session.deleteMany({ where: { id: { in: SESSION_IDS } } });
   await db.pairing.deleteMany({ where: { id: PAIRING } });
   await db.timeSlot.deleteMany({ where: { id: { in: [SLOT, OTHER_SLOT] } } });
@@ -49,6 +50,13 @@ async function cleanup() {
 
 beforeAll(async () => {
   await cleanup();
+  await db.user.create({
+    data: {
+      id: "test-slot-admin",
+      email: "test-slot-admin@example.test",
+      role: "ADMIN",
+    },
+  });
   await db.term.create({
     data: {
       id: TERM,

@@ -29,10 +29,22 @@ async function cleanup() {
   await db.language.deleteMany({ where: { code: LANGUAGE } });
 }
 
-beforeEach(cleanup);
+beforeEach(async () => {
+  await cleanup();
+  await db.user.upsert({
+    where: { id: "test-language-admin" },
+    create: {
+      id: "test-language-admin",
+      email: "test-language-admin@example.test",
+      role: "ADMIN",
+    },
+    update: {},
+  });
+});
 
 afterAll(async () => {
   await cleanup();
+  await db.user.deleteMany({ where: { id: "test-language-admin" } });
   await db.$disconnect();
 });
 

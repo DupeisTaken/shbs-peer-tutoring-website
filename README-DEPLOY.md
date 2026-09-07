@@ -212,3 +212,7 @@ docker compose build && docker compose up -d
 - **Cert not issued:** confirm DNS A record resolves to the VPS and ports 80/443 are open.
 - **App restarting:** `docker compose logs app` — usually a bad `.env` value or DB not reachable.
 - **DB healthcheck failing:** `docker compose logs db`; ensure `POSTGRES_*` match across `.env`.
+
+### Student Workflow Launch Configuration
+
+Before opening the fresh database to students, finish and verify the separate onboarding PR, configure its email delivery, publish the revised policies, set the intake opening time, confirm subject qualifications, and enter school-calendar exceptions. Feedback defaults to staff-only. The operational guide is [STUDENT-WORKFLOWS.md](STUDENT-WORKFLOWS.md). Real email provider setup remains a separate launch step; it has not been configured by this implementation pass.

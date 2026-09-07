@@ -16,7 +16,13 @@ function toLocalInput(d: Date | null): string {
 
 type Status = "PENDING" | "INTERVIEW" | "ACCEPTED" | "REJECTED";
 
-function HeadScheduler({ applicationId, current }: { applicationId: string; current: Date | null }) {
+function HeadScheduler({
+  applicationId,
+  current,
+}: {
+  applicationId: string;
+  current: Date | null;
+}) {
   const t = useTranslations();
   const utils = api.useUtils();
   const [value, setValue] = useState(toLocalInput(current));
@@ -36,13 +42,20 @@ function HeadScheduler({ applicationId, current }: { applicationId: string; curr
         className="btn-primary btn-sm"
         disabled={save.isPending}
         onClick={() =>
-          save.mutate({ applicationId, interviewAt: value ? new Date(value) : null })
+          save.mutate({
+            applicationId,
+            interviewAt: value ? new Date(value) : null,
+          })
         }
       >
-        {save.isPending ? t("tutor.interviews.saving") : t("tutor.interviews.setTime")}
+        {save.isPending
+          ? t("tutor.interviews.saving")
+          : t("tutor.interviews.setTime")}
       </button>
       {save.isSuccess && (
-        <span className="text-sm text-green-600">{t("tutor.interviews.saved")}</span>
+        <span className="text-sm text-green-600">
+          {t("tutor.interviews.saved")}
+        </span>
       )}
     </div>
   );
@@ -75,7 +88,11 @@ function VoteForm({
           className={`btn-sm ${myVote?.accept === true ? "btn-primary" : "btn-secondary"}`}
           disabled={cast.isPending}
           onClick={() =>
-            cast.mutate({ applicationId, accept: true, comment: comment.trim() || undefined })
+            cast.mutate({
+              applicationId,
+              accept: true,
+              comment: comment.trim() || undefined,
+            })
           }
         >
           👍 {t("tutor.interviews.accept")}
@@ -84,7 +101,11 @@ function VoteForm({
           className={`btn-sm ${myVote?.accept === false ? "btn-primary" : "btn-secondary"}`}
           disabled={cast.isPending}
           onClick={() =>
-            cast.mutate({ applicationId, accept: false, comment: comment.trim() || undefined })
+            cast.mutate({
+              applicationId,
+              accept: false,
+              comment: comment.trim() || undefined,
+            })
           }
         >
           👎 {t("tutor.interviews.reject")}
@@ -107,7 +128,7 @@ function HeadDecision({
   applicationId,
   status,
   tally,
-  headVote,
+  panelSize,
   decisionComment,
   decidedBy,
   expectedUpdatedAt,
@@ -115,7 +136,7 @@ function HeadDecision({
   applicationId: string;
   status: Status;
   tally: { accepts: number; rejects: number };
-  headVote: { accept: boolean; comment: string | null } | null;
+  panelSize: number;
   decisionComment: string | null;
   decidedBy: string | null;
   expectedUpdatedAt: Date;
@@ -135,11 +156,7 @@ function HeadDecision({
       ? t("tutor.interviews.majorityAccept")
       : tally.rejects > tally.accepts
         ? t("tutor.interviews.majorityReject")
-        : headVote
-          ? headVote.accept
-            ? t("tutor.interviews.majorityAcceptHeadTie")
-            : t("tutor.interviews.majorityRejectHeadTie")
-          : t("tutor.interviews.majorityTie");
+        : t("tutor.interviews.majorityTie");
 
   if (decided) {
     return (
@@ -149,7 +166,9 @@ function HeadDecision({
             ? t("tutor.interviews.statusAccepted")
             : t("tutor.interviews.statusRejected")}
         </span>
-        {decisionComment && <span className="ml-2 text-slate-700">“{decisionComment}”</span>}
+        {decisionComment && (
+          <span className="ml-2 text-slate-700">“{decisionComment}”</span>
+        )}
         {decidedBy && <span className="muted ml-1 text-xs">— {decidedBy}</span>}
       </div>
     );
@@ -176,23 +195,45 @@ function HeadDecision({
       <div className="flex items-center gap-2">
         <button
           className="btn-primary btn-sm"
-          disabled={!comment.trim() || decide.isPending}
+          disabled={
+            !comment.trim() ||
+            decide.isPending ||
+            tally.accepts + tally.rejects < panelSize ||
+            tally.accepts < tally.rejects
+          }
           onClick={() =>
-            decide.mutate({ applicationId, accept: true, comment: comment.trim(), expectedUpdatedAt })
+            decide.mutate({
+              applicationId,
+              accept: true,
+              comment: comment.trim(),
+              expectedUpdatedAt,
+            })
           }
         >
           {t("tutor.interviews.approve")}
         </button>
         <button
           className="btn-secondary btn-sm"
-          disabled={!comment.trim() || decide.isPending}
+          disabled={
+            !comment.trim() ||
+            decide.isPending ||
+            tally.accepts + tally.rejects < panelSize ||
+            tally.rejects < tally.accepts
+          }
           onClick={() =>
-            decide.mutate({ applicationId, accept: false, comment: comment.trim(), expectedUpdatedAt })
+            decide.mutate({
+              applicationId,
+              accept: false,
+              comment: comment.trim(),
+              expectedUpdatedAt,
+            })
           }
         >
           {t("tutor.interviews.reject")}
         </button>
-        {decide.error && <span className="text-sm text-red-600">{decide.error.message}</span>}
+        {decide.error && (
+          <span className="text-sm text-red-600">{decide.error.message}</span>
+        )}
       </div>
     </div>
   );
@@ -218,7 +259,7 @@ export function MyInterviews() {
                 <p className="font-medium text-slate-900">
                   {a.name}
                   {a.isHead && (
-                    <span className="badge ml-2 bg-accent-100 text-accent-700">
+                    <span className="badge bg-accent-100 text-accent-700 ml-2">
                       {t("tutor.interviews.youAreHead")}
                     </span>
                   )}
@@ -228,7 +269,10 @@ export function MyInterviews() {
 
               <ul className="mt-2 flex flex-wrap gap-2">
                 {a.subjectIntents.map((ci, i) => (
-                  <li key={i} className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
+                  <li
+                    key={i}
+                    className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700"
+                  >
                     {ci.subject.name}
                     {ci.taken
                       ? ` · ${ci.grade ?? t("tutor.interviews.taken")}`
@@ -281,24 +325,31 @@ export function MyInterviews() {
                   applicationId={a.id}
                   status={a.status}
                   tally={a.tally}
-                  headVote={a.myVote}
+                  panelSize={a.interviewers.length}
                   decisionComment={a.decisionComment}
                   decidedBy={a.decidedByTutor?.englishName ?? null}
                   expectedUpdatedAt={a.updatedAt}
                 />
               )}
-              {!a.isHead && (a.status === "ACCEPTED" || a.status === "REJECTED") && (
-                <div className="mt-2 rounded-md bg-slate-50 p-2 text-sm">
-                  <span className={a.status === "ACCEPTED" ? "badge-green" : "badge-red"}>
-                    {a.status === "ACCEPTED"
-                      ? t("tutor.interviews.statusAccepted")
-                      : t("tutor.interviews.statusRejected")}
-                  </span>
-                  {a.decisionComment && (
-                    <span className="ml-2 text-slate-700">“{a.decisionComment}”</span>
-                  )}
-                </div>
-              )}
+              {!a.isHead &&
+                (a.status === "ACCEPTED" || a.status === "REJECTED") && (
+                  <div className="mt-2 rounded-md bg-slate-50 p-2 text-sm">
+                    <span
+                      className={
+                        a.status === "ACCEPTED" ? "badge-green" : "badge-red"
+                      }
+                    >
+                      {a.status === "ACCEPTED"
+                        ? t("tutor.interviews.statusAccepted")
+                        : t("tutor.interviews.statusRejected")}
+                    </span>
+                    {a.decisionComment && (
+                      <span className="ml-2 text-slate-700">
+                        “{a.decisionComment}”
+                      </span>
+                    )}
+                  </div>
+                )}
             </div>
           );
         })}

@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 
 import { useEffect, useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
@@ -33,7 +34,9 @@ function StringRow({
   const t = useTranslations();
   const current = item.override ?? item.base;
   const [value, setValue] = useState(current);
-  const setString = api.localization.setString.useMutation({ onSuccess: () => onSaved() });
+  const setString = api.localization.setString.useMutation({
+    onSuccess: () => onSaved(),
+  });
 
   const overridden = item.override !== null;
 
@@ -41,9 +44,13 @@ function StringRow({
     <div className="border-b border-slate-100 py-2.5 last:border-0">
       <div className="flex flex-wrap items-center gap-2">
         <code className="text-[11px] text-slate-400">{item.key}</code>
-        {overridden && <span className="badge-amber">{t("localization.overridden")}</span>}
+        {overridden && (
+          <span className="badge-amber">{t("localization.overridden")}</span>
+        )}
         {setString.isSuccess && (
-          <span className="text-xs text-green-600">{t("localization.saved")}</span>
+          <span className="text-xs text-green-600">
+            {t("localization.saved")}
+          </span>
         )}
         {overridden && (
           <button
@@ -59,7 +66,8 @@ function StringRow({
         )}
       </div>
       <p className="muted mt-0.5 text-xs">
-        <span className="font-medium">{t("localization.english")}:</span> {item.en}
+        <span className="font-medium">{t("localization.english")}:</span>{" "}
+        {item.en}
       </p>
       {item.refs?.map((r) => (
         <p key={r.locale} className="muted text-xs">
@@ -73,10 +81,13 @@ function StringRow({
         lang={locale}
         onChange={(e) => setValue(e.target.value)}
         onBlur={() => {
-          if (value !== current) setString.mutate({ locale, key: item.key, value });
+          if (value !== current)
+            setString.mutate({ locale, key: item.key, value });
         }}
       />
-      {setString.error && <p className="text-xs text-red-600">{setString.error.message}</p>}
+      {setString.error && (
+        <p className="text-xs text-red-600">{setString.error.message}</p>
+      )}
     </div>
   );
 }
@@ -102,9 +113,13 @@ function LanguagesPanel() {
       await invalidate();
     },
   });
-  const reorder = api.i18n.reorderLanguages.useMutation({ onSuccess: invalidate });
+  const reorder = api.i18n.reorderLanguages.useMutation({
+    onSuccess: invalidate,
+  });
   const del = api.i18n.deleteLanguage.useMutation({ onSuccess: invalidate });
-  const setEnabled = api.i18n.setLanguageEnabled.useMutation({ onSuccess: invalidate });
+  const setEnabled = api.i18n.setLanguageEnabled.useMutation({
+    onSuccess: invalidate,
+  });
 
   const [code, setCode] = useState("");
   const [label, setLabel] = useState("");
@@ -126,10 +141,15 @@ function LanguagesPanel() {
 
       <ul className="divide-y divide-slate-100">
         {list.map((l, i) => (
-          <li key={l.code} className="flex min-h-11 flex-wrap items-center gap-2 py-2">
+          <li
+            key={l.code}
+            className="flex min-h-11 flex-wrap items-center gap-2 py-2"
+          >
             <span className="font-medium text-slate-800">{l.label}</span>
             <code className="text-xs text-slate-400">{l.code}</code>
-            {l.builtIn && <span className="badge-slate">{t("localization.builtIn")}</span>}
+            {l.builtIn && (
+              <span className="badge-slate">{t("localization.builtIn")}</span>
+            )}
             <span
               className={
                 l.enabled
@@ -142,7 +162,9 @@ function LanguagesPanel() {
                 : t("localization.disabled")}
             </span>
             {l.code === "en" && (
-              <span className="text-xs text-slate-400">{t("localization.required")}</span>
+              <span className="text-xs text-slate-400">
+                {t("localization.required")}
+              </span>
             )}
             {canManage.data && (
               <div className="ml-auto flex items-center gap-1">
@@ -184,7 +206,9 @@ function LanguagesPanel() {
                     onClick={async () => {
                       if (
                         await confirm({
-                          title: t("localization.confirmRemoveLanguage", { label: l.label }),
+                          title: t("localization.confirmRemoveLanguage", {
+                            label: l.label,
+                          }),
                           confirmLabel: t("common.delete"),
                           cancelLabel: t("common.cancel"),
                           danger: true,
@@ -207,7 +231,8 @@ function LanguagesPanel() {
         className="flex flex-wrap items-end gap-2 border-t border-slate-100 pt-3"
         onSubmit={(e) => {
           e.preventDefault();
-          if (code.trim() && label.trim()) add.mutate({ code: code.trim(), label: label.trim() });
+          if (code.trim() && label.trim())
+            add.mutate({ code: code.trim(), label: label.trim() });
         }}
       >
         <input
@@ -222,7 +247,10 @@ function LanguagesPanel() {
           onChange={(e) => setLabel(e.target.value)}
           placeholder={t("localization.addLanguageName")}
         />
-        <button className="btn-secondary btn-sm" disabled={!code.trim() || !label.trim() || add.isPending}>
+        <button
+          className="btn-secondary btn-sm"
+          disabled={!code.trim() || !label.trim() || add.isPending}
+        >
           {t("localization.addLanguageBtn")}
         </button>
       </form>
@@ -305,6 +333,7 @@ export default function LocalizationPage() {
     <div className="space-y-5">
       <div>
         <h1 className="page-title">{t("localization.title")}</h1>
+        <p className="card my-4 p-4">{t("workflows.draftNotice")} <Link className="link" href="/translation-review">{t("workflows.reviewDrafts")}</Link></p>
         <p className="muted mt-1">{t("localization.subtitle")}</p>
       </div>
 
@@ -374,7 +403,10 @@ export default function LocalizationPage() {
         <>
           <div className="flex flex-wrap items-center justify-between gap-2">
             <p className="muted text-xs">
-              {t("localization.count", { shown: totalShown, total: all.length })}
+              {t("localization.count", {
+                shown: totalShown,
+                total: all.length,
+              })}
             </p>
             {!needle && (
               <div className="flex gap-3">
@@ -385,14 +417,20 @@ export default function LocalizationPage() {
                 >
                   {t("localization.expandAll")}
                 </button>
-                <button type="button" className="link text-xs" onClick={() => setExpanded(new Set())}>
+                <button
+                  type="button"
+                  className="link text-xs"
+                  onClick={() => setExpanded(new Set())}
+                >
                   {t("localization.collapseAll")}
                 </button>
               </div>
             )}
           </div>
 
-          {view.length === 0 && <p className="muted">{t("localization.empty")}</p>}
+          {view.length === 0 && (
+            <p className="muted">{t("localization.empty")}</p>
+          )}
 
           <div className="space-y-3">
             {view.map(({ ns, rows, shownRows }) => {
@@ -412,9 +450,13 @@ export default function LocalizationPage() {
                       {ns.charAt(0).toUpperCase() + ns.slice(1)}
                     </span>
                     <span className="muted text-xs">
-                      {needle ? `${shownRows.length} / ${rows.length}` : rows.length}{" "}
+                      {needle
+                        ? `${shownRows.length} / ${rows.length}`
+                        : rows.length}{" "}
                       {t("localization.keysLabel")}
-                      {edited > 0 ? ` · ${edited} ${t("localization.overridden")}` : ""}
+                      {edited > 0
+                        ? ` · ${edited} ${t("localization.overridden")}`
+                        : ""}
                     </span>
                   </button>
                   {open && (
@@ -430,7 +472,9 @@ export default function LocalizationPage() {
                       ))}
                       {shownRows.length > MAX_ROWS_PER_GROUP && (
                         <p className="muted py-2 text-xs">
-                          {t("localization.tooMany", { max: MAX_ROWS_PER_GROUP })}
+                          {t("localization.tooMany", {
+                            max: MAX_ROWS_PER_GROUP,
+                          })}
                         </p>
                       )}
                     </div>

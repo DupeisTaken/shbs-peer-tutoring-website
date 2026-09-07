@@ -1,4 +1,7 @@
+import { proposeTranslation } from "~/server/translation-drafts";
 import { z } from "zod";
+import { TRPCError } from "@trpc/server";
+import { parse } from "@formatjs/icu-messageformat-parser";
 
 import { createTRPCRouter, translatorProcedure } from "~/server/api/trpc";
 import { LOCALES } from "~/i18n/config";
@@ -41,7 +44,8 @@ function flatten(
   return out;
 }
 
-const isBuiltin = (code: string) => (LOCALES as readonly string[]).includes(code);
+const isBuiltin = (code: string) =>
+  (LOCALES as readonly string[]).includes(code);
 
 /** Resolve to a known language (built-in or translator-added); unknown codes fall back to English. */
 async function resolveLocale(locale: string): Promise<string> {
@@ -51,7 +55,10 @@ async function resolveLocale(locale: string): Promise<string> {
 }
 
 /** Flattened base values for a locale: bundled JSON for built-ins, English for added languages. */
-function localeBase(locale: string, enFlat: Record<string, string>): Record<string, string> {
+function localeBase(
+  locale: string,
+  enFlat: Record<string, string>,
+): Record<string, string> {
   return isBuiltin(locale) ? flatten(MESSAGES[locale] ?? {}) : enFlat;
 }
 
@@ -67,7 +74,12 @@ export const localizationRouter = createTRPCRouter({
    * (English is always shown, so it and the target locale are excluded from the references).
    */
   strings: translatorProcedure
-    .input(z.object({ locale: z.string(), refLocales: z.array(z.string()).optional() }))
+    .input(
+      z.object({
+        locale: z.string(),
+        refLocales: z.array(z.string()).optional(),
+      }),
+    )
     .query(async ({ ctx, input }) => {
       const locale = await resolveLocale(input.locale);
       const enFlat = flatten(MESSAGES.en ?? {});
@@ -77,12 +89,21 @@ export const localizationRouter = createTRPCRouter({
         select: { key: true, value: true },
       });
       const overrideMap = new Map(overrides.map((o) => [o.key, o.value]));
+      if (!["HEAD","ADMIN","COORDINATOR"].includes(ctx.session.role)) {
+        const drafts = await ctx.db.translationDraft.findMany({ where: { authorId: ctx.session.user.id, state: "PENDING", operation: "localization.setString" }, orderBy: { createdAt: "asc" } });
+        for (const draft of drafts) {
+          const data=z.object({locale:z.string(),key:z.string(),value:z.string()}).safeParse(draft.payload);
+          if(data.success && data.data.locale===locale) overrideMap.set(data.data.key,data.data.value);
+        }
+      }
+
 
       // Resolve the requested reference languages (dedup; drop the target + English).
       const refCodes: string[] = [];
       for (const raw of input.refLocales ?? []) {
         const rl = await resolveLocale(raw);
-        if (rl !== locale && rl !== "en" && !refCodes.includes(rl)) refCodes.push(rl);
+        if (rl !== locale && rl !== "en" && !refCodes.includes(rl))
+          refCodes.push(rl);
       }
       const refData = await Promise.all(
         refCodes.map(async (rl) => {
@@ -91,7 +112,11 @@ export const localizationRouter = createTRPCRouter({
             where: { locale: rl },
             select: { key: true, value: true },
           });
-          return { locale: rl, flat, map: new Map(ovr.map((o) => [o.key, o.value])) };
+          return {
+            locale: rl,
+            flat,
+            map: new Map(ovr.map((o) => [o.key, o.value])),
+          };
         }),
       );
 
@@ -111,21 +136,59 @@ export const localizationRouter = createTRPCRouter({
 
   /** Set (or, when blank / equal to the bundled value, clear) the override for one key. */
   setString: translatorProcedure
-    .input(z.object({ locale: z.string(), key: z.string().min(1), value: z.string() }))
+    .input(
+      z.object({
+        locale: z.string(),
+        key: z.string().min(1),
+        value: z.string(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       const locale = await resolveLocale(input.locale);
       const enFlat = flatten(MESSAGES.en ?? {});
       const localeFlat = localeBase(locale, enFlat);
       const base = localeFlat[input.key] ?? enFlat[input.key];
       const value = input.value;
+      if (!enFlat[input.key])
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Unknown translation key.",
+        });
+      if (value.trim()) {
+        try {
+          parse(value);
+        } catch {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "Invalid ICU message syntax. Check placeholders and plural clauses.",
+          });
+        }
+      }
+      if (
+        await proposeTranslation(
+          ctx.db,
+          ctx.session,
+          "localization.setString",
+          { ...input, locale },
+        )
+      )
+        return { ok: true, cleared: false };
       if (!value.trim() || value === base) {
-        await ctx.db.messageOverride.deleteMany({ where: { locale, key: input.key } });
+        await ctx.db.messageOverride.deleteMany({
+          where: { locale, key: input.key },
+        });
         return { ok: true, cleared: true };
       }
       await ctx.db.messageOverride.upsert({
         where: { locale_key: { locale, key: input.key } },
         update: { value, updatedByName: ctx.session.user.name },
-        create: { locale, key: input.key, value, updatedByName: ctx.session.user.name },
+        create: {
+          locale,
+          key: input.key,
+          value,
+          updatedByName: ctx.session.user.name,
+        },
       });
       return { ok: true, cleared: false };
     }),

@@ -54,6 +54,9 @@ export default async function AdminLayout({
   // `session.tutorId` in sync too, so following the link into the tutor area resolves correctly.
   const canEnterTutor = !!me?.tutor && me.tutor.status !== "ARCHIVED";
   const accountItems = [
+    { href: "/messages", label: t("workflows.messages") },
+    { href: "/student", label: t("workflows.student") },
+    { href: "/student-support", label: t("workflows.support") },
     ...(canEnterTutor
       ? [
           {

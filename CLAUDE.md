@@ -79,7 +79,7 @@ empty last name.) Re-run `npm run db:seed` twice after changing it — it must s
   *not* hide+block: **`QUARTER_SYSTEM`** is a *mode* not a disable: ON = quarters (Q1–Q4), OFF =
   semesters (S1/S2) — `nextPeriod`/`periodLabel` take a `semesterMode` flag and the refresh advances
   a whole semester (graduation then moves to the year boundary). **`EMAIL_2FA`** gates email
-  two-factor — the sign-in second factor (still scaffolded, `two-factor.ts`) plus the emailed
+  two-factor — the enforced sign-in second factor (`two-factor.ts`) plus the emailed
   step-up code on a password change; OFF means a verified current password alone changes the
   password (for a program with no email configured) and the onboarding 2FA opt-in is hidden — gated
   in `account`/`tutor` `changePassword` (code optional, verified only when on) and the two password
@@ -294,14 +294,14 @@ submission time). See the `admin-philosophies` memory for the rationale.
   it guards the form action **and** a direct POST to the credentials endpoint. On exceed it throws a
   `CredentialsSignin` with code `rate_limited`, which the sign-in action surfaces as a distinct
   "too many attempts" message. (In-memory + per-process — swap for a shared store if scaled out.)
-- **Changing a password requires emailed step-up 2FA.** Both self-service password changes
+- **Changing a password requires emailed step-up when EMAIL_2FA is enabled.** Both self-service password changes
   (`account.changePassword` for the admin area, `tutor.changePassword` for `/settings`) are a
   two-step flow: `requestPasswordChangeCode` verifies the current password and emails a 5-digit
   code, then `changePassword` requires that code plus the current + new password. The code logic
   is `src/server/auth/step-up.ts` (`issueStepUpCode`/`verifyStepUpCode`, purpose `PASSWORD_CHANGE`):
   HMAC-hashed at rest (keyed with `AUTH_SECRET`), 15-min expiry, single-use, attempt-capped, sent
-  via the email seam. It reuses the `EmailVerificationCode` table (the LOGIN_2FA second factor is
-  still scaffolded only — `src/server/auth/two-factor.ts`).
+  via the email seam. It reuses the `EmailVerificationCode` table with the implemented LOGIN_2FA
+  second factor in `src/server/auth/two-factor.ts`. Real SMTP delivery still requires operator setup.
 - Sign-in accepts **username or email** + password — the identifier is matched against
   `User.email`, `User.username`, or the linked `Tutor.username` in the Credentials `authorize()`.
 - **Email delivery is Aliyun Direct Mail (SMTP via nodemailer)** in
@@ -505,3 +505,13 @@ src/
   styles/globals.css   # Tailwind + design-system classes
 prisma/schema.prisma   # data model   ·   prisma/seed.ts  # sample data + dev users
 ```
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

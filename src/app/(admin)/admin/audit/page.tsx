@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
@@ -13,7 +14,8 @@ export default function AuditPage() {
   const t = useTranslations();
   const readOnly = useReadOnly();
   const utils = api.useUtils();
-  const log = api.admin.auditLog.useQuery();
+  const [cursors, setCursors] = useState<string[]>([]);
+  const log = api.admin.auditLog.useQuery({ cursor: cursors.at(-1) });
   const undo = api.admin.undoAudit.useMutation({
     onSuccess: () => utils.admin.auditLog.invalidate(),
   });
@@ -46,7 +48,21 @@ export default function AuditPage() {
                 <td className="text-slate-600">{e.userName ?? "—"}</td>
                 <td className="text-slate-800">
                   {e.action}
-                  {e.undone && <span className="badge-slate ml-2">{t("admin.audit.undone")}</span>}
+                  {!readOnly && e.details != null && (
+                    <details className="mt-2">
+                      <summary className="link cursor-pointer">
+                        {t("corrections.details")}
+                      </summary>
+                      <pre className="max-h-80 max-w-lg overflow-auto text-xs whitespace-pre-wrap">
+                        {JSON.stringify(e.details, null, 2)}
+                      </pre>
+                    </details>
+                  )}
+                  {e.undone && (
+                    <span className="badge-slate ml-2">
+                      {t("admin.audit.undone")}
+                    </span>
+                  )}
                 </td>
                 <td className="text-right">
                   {!readOnly && e.undoData != null && !e.undone ? (
@@ -72,6 +88,22 @@ export default function AuditPage() {
             )}
           </tbody>
         </table>
+      </div>
+      <div className="flex gap-2">
+        <button
+          className="btn-secondary"
+          disabled={!cursors.length}
+          onClick={() => setCursors((c) => c.slice(0, -1))}
+        >
+          {t("corrections.newer")}
+        </button>
+        <button
+          className="btn-secondary"
+          disabled={entries.length !== 100}
+          onClick={() => setCursors((c) => [...c, entries.at(-1)!.id])}
+        >
+          {t("corrections.older")}
+        </button>
       </div>
       {!readOnly && undo.error && (
         <p className="text-sm text-red-600">{undo.error.message}</p>

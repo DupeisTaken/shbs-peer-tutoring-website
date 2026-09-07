@@ -50,6 +50,12 @@ const t = initTRPC.context<typeof createTRPCContext>().create({
   errorFormatter({ shape, error }) {
     return {
       ...shape,
+      ...(error.message.includes("Room already allocated")
+        ? {
+            message:
+              "Room already allocated at this time. Choose another room or time.",
+          }
+        : {}),
       data: {
         ...shape.data,
         zodError:
@@ -99,7 +105,9 @@ const timingMiddleware = t.middleware(async ({ next, path, type }) => {
   const ms = Date.now() - start;
 
   if (t._config.isDev) {
-    console.log(`[trpc] ${type.padEnd(8)} ${path} ${result.ok ? "ok " : "ERR"} ${ms}ms`);
+    console.log(
+      `[trpc] ${type.padEnd(8)} ${path} ${result.ok ? "ok " : "ERR"} ${ms}ms`,
+    );
   }
 
   return result;
@@ -124,14 +132,37 @@ export const publicProcedure = t.procedure.use(timingMiddleware);
  */
 export const protectedProcedure = t.procedure
   .use(timingMiddleware)
-  .use(({ ctx, next }) => {
+  .use(async ({ ctx, next, path }) => {
     if (!ctx.session?.user) {
       throw new TRPCError({ code: "UNAUTHORIZED" });
+    }
+    // Session cookies prove identity, not current privileges. Read current account state on
+    // every API request so demotion, unlinking, suspension and deletion take effect immediately.
+    const account = await ctx.db.user.findUnique({
+      where: { id: ctx.session.user.id },
+      select: { role: true, tutorId: true, suspendedAt: true },
+    });
+    if (!account) throw new TRPCError({ code: "UNAUTHORIZED" });
+    if (
+      account.suspendedAt &&
+      !["account.me", "account.suspension", "account.submitAppeal"].includes(
+        path,
+      )
+    ) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Your account is suspended.",
+      });
     }
     return next({
       ctx: {
         // infers the `session` as non-nullable
-        session: { ...ctx.session, user: ctx.session.user },
+        session: {
+          ...ctx.session,
+          role: account.role,
+          tutorId: account.tutorId,
+          user: ctx.session.user,
+        },
       },
     });
   });
@@ -176,7 +207,10 @@ export const tutorProcedure = protectedProcedure.use(({ ctx, next }) => {
 /** Admin procedure: ADMIN or COORDINATOR (coordinators have admin-level access). */
 export const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (!isElevated(ctx.session.role)) {
-    throw new TRPCError({ code: "FORBIDDEN", message: "Admin access required." });
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Admin access required.",
+    });
   }
   return next();
 });
@@ -187,7 +221,10 @@ export const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
  */
 export const adminOnlyProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (!isAdminTier(ctx.session.role)) {
-    throw new TRPCError({ code: "FORBIDDEN", message: "Administrator access required." });
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Administrator access required.",
+    });
   }
   return next();
 });
@@ -199,7 +236,10 @@ export const adminOnlyProcedure = protectedProcedure.use(({ ctx, next }) => {
  */
 export const headProcedure = protectedProcedure.use(({ ctx, next }) => {
   if (ctx.session.role !== "HEAD") {
-    throw new TRPCError({ code: "FORBIDDEN", message: "Head access required." });
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Head access required.",
+    });
   }
   return next();
 });
@@ -210,35 +250,42 @@ export const headProcedure = protectedProcedure.use(({ ctx, next }) => {
  * history but may not perform tutoring actions (attendance, slot picks, etc.). Mutations that
  * only an active tutor may run go on this; read-only tutor queries stay on `tutorProcedure`.
  */
-export const activeTutorProcedure = tutorProcedure.use(async ({ ctx, next }) => {
-  const tutor = await ctx.db.tutor.findUnique({
-    where: { id: ctx.session.tutorId },
-    select: { status: true },
-  });
-  if (tutor?.status !== "ACTIVE") {
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message: "This action requires an active tutor account.",
+export const activeTutorProcedure = tutorProcedure.use(
+  async ({ ctx, next }) => {
+    const tutor = await ctx.db.tutor.findUnique({
+      where: { id: ctx.session.tutorId },
+      select: { status: true },
     });
-  }
-  return next();
-});
+    if (tutor?.status !== "ACTIVE") {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "This action requires an active tutor account.",
+      });
+    }
+    return next();
+  },
+);
 
 /**
  * Translator procedure: admins/coordinators, or any user an admin has flagged `canTranslate`.
  * Gates the in-app localization editor (assigned tutors can help translate without admin rights).
  */
-export const translatorProcedure = protectedProcedure.use(async ({ ctx, next }) => {
-  if (isElevated(ctx.session.role)) return next();
-  const me = await ctx.db.user.findUnique({
-    where: { id: ctx.session.user.id },
-    select: { canTranslate: true },
-  });
-  if (!me?.canTranslate) {
-    throw new TRPCError({ code: "FORBIDDEN", message: "Translation access required." });
-  }
-  return next();
-});
+export const translatorProcedure = protectedProcedure.use(
+  async ({ ctx, next }) => {
+    if (isElevated(ctx.session.role)) return next();
+    const me = await ctx.db.user.findUnique({
+      where: { id: ctx.session.user.id },
+      select: { canTranslate: true },
+    });
+    if (!me?.canTranslate) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Translation access required.",
+      });
+    }
+    return next();
+  },
+);
 
 /**
  * Crew procedure: an ACTIVE crew member (`crewStatus === "ACTIVE"`; a tutor can also be crew).
@@ -248,7 +295,10 @@ export const translatorProcedure = protectedProcedure.use(async ({ ctx, next }) 
 export const crewProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   const features = await getFeatures(ctx.db);
   if (!features.CREW) {
-    throw new TRPCError({ code: "FORBIDDEN", message: "The crew module is disabled." });
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "The crew module is disabled.",
+    });
   }
   if (isElevated(ctx.session.role)) return next();
   const me = await ctx.db.user.findUnique({
@@ -256,13 +306,24 @@ export const crewProcedure = protectedProcedure.use(async ({ ctx, next }) => {
     select: { crewStatus: true },
   });
   if (me?.crewStatus !== "ACTIVE") {
-    throw new TRPCError({ code: "FORBIDDEN", message: "Active crew access required." });
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Active crew access required.",
+    });
   }
   return next();
 });
 
 /** Personal/contact fields hidden from the read-only VIEWER role. Names are NOT masked. */
-const VIEWER_MASKED_KEYS = new Set(["email", "phone", "preferredContact"]);
+const VIEWER_MASKED_KEYS = new Set([
+  "email",
+  "phone",
+  "preferredContact",
+  "undoData",
+  "details",
+  "reviewNote",
+  "passwordHash",
+]);
 
 /** Recursively null out PII keys in a query result (leaves Dates and everything else intact). */
 function maskViewerPII(value: unknown): unknown {
@@ -286,7 +347,10 @@ function maskViewerPII(value: unknown): unknown {
 export const viewerProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   const { role } = ctx.session;
   if (!isElevated(role) && role !== "VIEWER") {
-    throw new TRPCError({ code: "FORBIDDEN", message: "Admin access required." });
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message: "Admin access required.",
+    });
   }
   // A suspended viewer keeps their login but loses read access (until reinstated / appeal).
   if (role === "VIEWER") {
@@ -295,7 +359,10 @@ export const viewerProcedure = protectedProcedure.use(async ({ ctx, next }) => {
       select: { suspendedAt: true },
     });
     if (me?.suspendedAt) {
-      throw new TRPCError({ code: "FORBIDDEN", message: "Your account is suspended." });
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Your account is suspended.",
+      });
     }
   }
   const result = await next();

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
@@ -29,30 +29,48 @@ export default function PatrolPage() {
   // ACTIVE crew patrol; elevated admins (no crewStatus) also reach here and may patrol.
   const canPatrol = status === "ACTIVE" || status === null;
 
-  const config = api.crew.patrolConfig.useQuery(undefined, { enabled: canPatrol });
-  const history = api.crew.myPatrols.useQuery(undefined, { enabled: canPatrol });
+  const config = api.crew.patrolConfig.useQuery(undefined, {
+    enabled: canPatrol,
+  });
+  const history = api.crew.myPatrols.useQuery();
+  const submissionKey = useRef<string | null>(null);
 
   // roomId -> chosen headcount + the time it was recorded.
-  const [counts, setCounts] = useState<Record<string, { headcount: Headcount; at: string }>>({});
+  const [counts, setCounts] = useState<
+    Record<string, { headcount: Headcount; at: string }>
+  >({});
   const [note, setNote] = useState("");
   const [optOutReason, setOptOutReason] = useState("");
   const [showOptOut, setShowOptOut] = useState(false);
 
   const refetchStatus = () => utils.crew.myStatus.invalidate();
-  const optOut = api.crew.requestOptOut.useMutation({ onSuccess: refetchStatus });
-  const recall = api.crew.recallOptOut.useMutation({ onSuccess: refetchStatus });
-  const reentry = api.crew.requestReentry.useMutation({ onSuccess: refetchStatus });
+  const optOut = api.crew.requestOptOut.useMutation({
+    onSuccess: refetchStatus,
+  });
+  const recall = api.crew.recallOptOut.useMutation({
+    onSuccess: refetchStatus,
+  });
+  const reentry = api.crew.requestReentry.useMutation({
+    onSuccess: refetchStatus,
+  });
 
   const submit = api.crew.submitPatrol.useMutation({
     onSuccess: async () => {
+      submissionKey.current = null;
       setCounts({});
       setNote("");
-      await Promise.all([utils.crew.patrolConfig.invalidate(), utils.crew.myPatrols.invalidate()]);
+      await Promise.all([
+        utils.crew.patrolConfig.invalidate(),
+        utils.crew.myPatrols.invalidate(),
+      ]);
     },
   });
 
   const pick = (roomId: string, headcount: Headcount) =>
-    setCounts((c) => ({ ...c, [roomId]: { headcount, at: new Date().toISOString() } }));
+    setCounts((c) => ({
+      ...c,
+      [roomId]: { headcount, at: new Date().toISOString() },
+    }));
 
   const rooms = config.data?.rooms ?? [];
   const recorded = Object.keys(counts).length;
@@ -65,7 +83,12 @@ export default function PatrolPage() {
     }));
     if (observations.length === 0) return;
     const trimmed = note.trim();
-    submit.mutate({ note: trimmed.length > 0 ? trimmed : undefined, observations });
+    submissionKey.current ??= crypto.randomUUID();
+    submit.mutate({
+      submissionKey: submissionKey.current,
+      note: trimmed.length > 0 ? trimmed : undefined,
+      observations,
+    });
   };
 
   return (
@@ -79,9 +102,13 @@ export default function PatrolPage() {
           <p className="text-xs font-medium tracking-wide text-slate-500 uppercase">
             {t("crew.patrol.myHours")}
           </p>
-          <p className="text-2xl font-bold text-slate-900">{(config.data?.myHours ?? 0).toFixed(1)} h</p>
+          <p className="text-2xl font-bold text-slate-900">
+            {(config.data?.myHours ?? 0).toFixed(1)} h
+          </p>
           <p className="muted text-xs">
-            {t("crew.patrol.patrolCount", { count: config.data?.myPatrols ?? 0 })}
+            {t("crew.patrol.patrolCount", {
+              count: config.data?.myPatrols ?? 0,
+            })}
           </p>
         </div>
       </div>
@@ -93,9 +120,15 @@ export default function PatrolPage() {
           <p className="mt-1 text-sm">{t("crew.patrol.optedOut.body")}</p>
           <div className="mt-3">
             {pending?.kind === "REENTRY" ? (
-              <span className="text-sm">{t("crew.patrol.reentry.pending")}</span>
+              <span className="text-sm">
+                {t("crew.patrol.reentry.pending")}
+              </span>
             ) : (
-              <button className="btn-primary btn-sm" disabled={reentry.isPending} onClick={() => reentry.mutate()}>
+              <button
+                className="btn-primary btn-sm"
+                disabled={reentry.isPending}
+                onClick={() => reentry.mutate()}
+              >
                 {t("crew.patrol.reentry.request")}
               </button>
             )}
@@ -119,9 +152,16 @@ export default function PatrolPage() {
               rooms.map((room, i) => {
                 const chosen = counts[room.id]?.headcount;
                 return (
-                  <div key={room.id} className="flex flex-wrap items-center gap-3 px-4 py-3">
-                    <span className="w-7 text-sm font-semibold text-slate-400">{i + 1}</span>
-                    <span className="min-w-28 flex-1 font-medium text-slate-800">{room.name}</span>
+                  <div
+                    key={room.id}
+                    className="flex flex-wrap items-center gap-3 px-4 py-3"
+                  >
+                    <span className="w-7 text-sm font-semibold text-slate-400">
+                      {i + 1}
+                    </span>
+                    <span className="min-w-28 flex-1 font-medium text-slate-800">
+                      {room.name}
+                    </span>
                     <div className="flex flex-wrap gap-1">
                       {BUCKETS.map((b) => (
                         <button
@@ -153,13 +193,25 @@ export default function PatrolPage() {
               className="textarea"
             />
             <div className="flex items-center gap-3">
-              <button className="btn-primary" disabled={recorded === 0 || submit.isPending} onClick={onSubmit}>
+              <button
+                className="btn-primary"
+                disabled={recorded === 0 || submit.isPending}
+                onClick={onSubmit}
+              >
                 {submit.isPending
                   ? t("crew.patrol.submitting")
                   : t("crew.patrol.submit", { count: recorded })}
               </button>
-              {submit.isSuccess && <span className="text-sm text-green-600">{t("crew.patrol.submitted")}</span>}
-              {submit.error && <span className="text-sm text-red-600">{submit.error.message}</span>}
+              {submit.isSuccess && (
+                <span className="text-sm text-green-600">
+                  {t("crew.patrol.submitted")}
+                </span>
+              )}
+              {submit.error && (
+                <span className="text-sm text-red-600">
+                  {submit.error.message}
+                </span>
+              )}
             </div>
           </div>
 
@@ -171,14 +223,16 @@ export default function PatrolPage() {
                 {(history.data ?? []).map((p) => (
                   <div key={p.id} className="px-4 py-3">
                     <p className="text-sm font-medium text-slate-800">
-                      {new Date(p.createdAt).toLocaleString()} · {p.hours.toFixed(1)} h
+                      {new Date(p.createdAt).toLocaleString()} ·{" "}
+                      {p.hours.toFixed(1)} h
                     </p>
                     <p className="muted mt-0.5 text-xs">
                       {p.observations
                         .map(
                           (o) =>
                             `${o.room.name}: ${
-                              BUCKETS.find((b) => b.value === o.headcount)?.label ?? o.headcount
+                              BUCKETS.find((b) => b.value === o.headcount)
+                                ?.label ?? o.headcount
                             }`,
                         )
                         .join(" · ")}
@@ -194,7 +248,9 @@ export default function PatrolPage() {
             <section className="card p-4">
               {pending?.kind === "OPT_OUT" ? (
                 <div className="flex flex-wrap items-center gap-3">
-                  <span className="text-sm text-slate-700">{t("crew.patrol.optOut.pending")}</span>
+                  <span className="text-sm text-slate-700">
+                    {t("crew.patrol.optOut.pending")}
+                  </span>
                   <button
                     className="btn-secondary btn-sm"
                     disabled={recall.isPending}
@@ -217,23 +273,33 @@ export default function PatrolPage() {
                       className="btn-secondary btn-sm"
                       disabled={optOut.isPending}
                       onClick={() =>
-                        optOut.mutate({ reason: optOutReason.trim() || undefined })
+                        optOut.mutate({
+                          reason: optOutReason.trim() || undefined,
+                        })
                       }
                     >
                       {t("crew.patrol.optOut.submit")}
                     </button>
-                    <button className="btn-secondary btn-sm" onClick={() => setShowOptOut(false)}>
+                    <button
+                      className="btn-secondary btn-sm"
+                      onClick={() => setShowOptOut(false)}
+                    >
                       {t("common.close")}
                     </button>
                   </div>
                 </div>
               ) : (
-                <button className="link text-sm" onClick={() => setShowOptOut(true)}>
+                <button
+                  className="link text-sm"
+                  onClick={() => setShowOptOut(true)}
+                >
                   {t("crew.patrol.optOut.request")}
                 </button>
               )}
               {(optOut.error ?? recall.error) && (
-                <p className="mt-2 text-sm text-red-600">{(optOut.error ?? recall.error)?.message}</p>
+                <p className="mt-2 text-sm text-red-600">
+                  {(optOut.error ?? recall.error)?.message}
+                </p>
               )}
             </section>
           )}

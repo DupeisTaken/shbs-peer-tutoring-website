@@ -8,14 +8,20 @@ import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { SYMBOLS } from "~/lib/symbols";
 import { TwoFactorSettings } from "~/app/_components/two-factor-settings";
+import { EmailChange } from "~/app/_components/email-change";
 
 /** Monogram initials for the identity pass — first+last initial, else the first two characters
  *  of whatever handle we have. Always uppercase; never empty. */
-function initialsOf(name?: string | null, username?: string | null, email?: string | null): string {
+function initialsOf(
+  name?: string | null,
+  username?: string | null,
+  email?: string | null,
+): string {
   const display = (name ?? "").trim();
   if (display) {
     const parts = display.split(/\s+/).filter(Boolean);
-    if (parts.length >= 2) return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
+    if (parts.length >= 2)
+      return (parts[0]![0]! + parts[parts.length - 1]![0]!).toUpperCase();
     return display.slice(0, 2).toUpperCase();
   }
   const handle = (username ?? email ?? "").trim();
@@ -92,7 +98,11 @@ export default function AccountPage() {
   // Step 2: submit the new password with the emailed code.
   const submitPassword = () => {
     setPwError(null);
-    changePassword.mutate({ currentPassword: current, newPassword: next, code: code.trim() });
+    changePassword.mutate({
+      currentPassword: current,
+      newPassword: next,
+      code: code.trim(),
+    });
   };
 
   const role = me.data?.role;
@@ -114,7 +124,7 @@ export default function AccountPage() {
           onClick={() => router.back()}
           aria-label={t("common.close")}
           title={t("common.close")}
-          className="-mr-1 rounded-md p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:outline-none"
+          className="focus-visible:ring-accent-500 -mr-1 rounded-md p-1.5 text-slate-400 transition hover:bg-slate-100 hover:text-slate-700 focus-visible:ring-2 focus-visible:outline-none"
         >
           <span aria-hidden className="text-lg leading-none">
             {SYMBOLS.close}
@@ -124,11 +134,11 @@ export default function AccountPage() {
 
       {/* Identity pass — the account's monogram, name, @handle (its call-sign) and role. */}
       <section className="card overflow-hidden">
-        <div className="bg-gradient-to-br from-accent-50 to-white px-5 py-5 sm:px-6">
+        <div className="from-accent-50 bg-gradient-to-br to-white px-5 py-5 sm:px-6">
           <div className="flex items-start gap-4">
             <div
               aria-hidden
-              className="grid h-14 w-14 shrink-0 place-items-center rounded-full bg-accent-600 text-lg font-bold text-white shadow-sm ring-2 ring-white"
+              className="bg-accent-600 grid h-14 w-14 shrink-0 place-items-center rounded-full text-lg font-bold text-white shadow-sm ring-2 ring-white"
             >
               {initials}
             </div>
@@ -138,11 +148,13 @@ export default function AccountPage() {
                   {me.data?.name ?? "—"}
                 </h2>
                 {role && (
-                  <span className={roleBadge}>{t(`admin.users.roles.${role}`)}</span>
+                  <span className={roleBadge}>
+                    {t(`admin.users.roles.${role}`)}
+                  </span>
                 )}
               </div>
               <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
-                <span className="font-mono font-medium text-accent-700">
+                <span className="text-accent-700 font-mono font-medium">
                   {me.data?.username ? `@${me.data.username}` : "—"}
                 </span>
                 {me.data?.email && (
@@ -150,7 +162,9 @@ export default function AccountPage() {
                     <span className="text-slate-300" aria-hidden>
                       {SYMBOLS.dot}
                     </span>
-                    <span className="truncate text-slate-500">{me.data.email}</span>
+                    <span className="truncate text-slate-500">
+                      {me.data.email}
+                    </span>
                   </>
                 )}
               </p>
@@ -173,12 +187,16 @@ export default function AccountPage() {
                 disabled={updateName.isPending || !name.trim()}
                 onClick={() => updateName.mutate({ name: name.trim() })}
               >
-                {updateName.isPending ? t("tutor.settings.saving") : t("tutor.settings.save")}
+                {updateName.isPending
+                  ? t("tutor.settings.saving")
+                  : t("tutor.settings.save")}
               </button>
             </div>
           </label>
           {updateName.isSuccess && (
-            <p className="text-sm text-green-600">{t("tutor.settings.saved")}</p>
+            <p className="text-sm text-green-600">
+              {t("tutor.settings.saved")}
+            </p>
           )}
           {updateName.error && (
             <p className="text-sm text-red-600">{updateName.error.message}</p>
@@ -198,9 +216,13 @@ export default function AccountPage() {
       {/* Password — two-step: verify current password to email a code, then submit code + new pw. */}
       <section className="card space-y-4 p-5 sm:p-6">
         <div>
-          <h2 className="section-title">{t("tutor.settings.passwordHeading")}</h2>
+          <h2 className="section-title">
+            {t("tutor.settings.passwordHeading")}
+          </h2>
           {email2fa && (
-            <p className="muted mt-1 text-sm">{t("account.password.twoFactorHint")}</p>
+            <p className="muted mt-1 text-sm">
+              {t("account.password.twoFactorHint")}
+            </p>
           )}
         </div>
 
@@ -244,7 +266,7 @@ export default function AccountPage() {
 
         {/* Step 2 appears once the code is emailed. */}
         {sentTo && (
-          <div className="space-y-2 rounded-lg border border-accent-200 bg-accent-50/60 p-4">
+          <div className="border-accent-200 bg-accent-50/60 space-y-2 rounded-lg border p-4">
             <p className="text-sm text-slate-700">
               {t("account.password.codeSent", { email: sentTo })}
             </p>
@@ -252,12 +274,19 @@ export default function AccountPage() {
               <span className="label">{t("account.password.codeLabel")}</span>
               <input
                 value={code}
-                onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, "").slice(0, 5))}
+                onChange={(e) =>
+                  setCode(
+                    e.target.value
+                      .toUpperCase()
+                      .replace(/[^0-9A-Z]/g, "")
+                      .slice(0, 5),
+                  )
+                }
                 autoCapitalize="characters"
                 autoComplete="one-time-code"
                 maxLength={5}
                 placeholder="XXXXX"
-                className="input field-auto min-w-40 font-mono uppercase tracking-[0.3em]"
+                className="input field-auto min-w-40 font-mono tracking-[0.3em] uppercase"
               />
             </label>
             <button
@@ -302,22 +331,31 @@ export default function AccountPage() {
                   ? t("tutor.settings.changing")
                   : t("tutor.settings.changePasswordBtn")}
               </button>
-              <button type="button" className="btn-secondary" onClick={resetPasswordForm}>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={resetPasswordForm}
+              >
                 {t("account.password.cancel")}
               </button>
             </>
           )}
           {changePassword.isSuccess && (
-            <span className="text-sm text-green-600">{t("tutor.settings.passwordChanged")}</span>
+            <span className="text-sm text-green-600">
+              {t("tutor.settings.passwordChanged")}
+            </span>
           )}
           {(pwError ?? changePassword.error ?? requestCode.error) && (
             <span className="text-sm text-red-600">
-              {pwError ?? changePassword.error?.message ?? requestCode.error?.message}
+              {pwError ??
+                changePassword.error?.message ??
+                requestCode.error?.message}
             </span>
           )}
         </div>
       </section>
 
+      <EmailChange />
       <TwoFactorSettings />
     </div>
   );

@@ -1,3 +1,5 @@
+import { createHash } from "node:crypto";
+import { inTransaction, lockEntity } from "~/server/transactions";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -46,7 +48,7 @@ export const crewRouter = createTRPCRouter({
   }),
 
   /** The caller's recent patrols (with per-room observations) for their history view. */
-  myPatrols: crewProcedure.query(({ ctx }) =>
+  myPatrols: protectedProcedure.query(({ ctx }) =>
     ctx.db.patrol.findMany({
       where: { crewUserId: ctx.session.user.id },
       orderBy: { createdAt: "desc" },
@@ -77,6 +79,7 @@ export const crewRouter = createTRPCRouter({
   submitPatrol: crewProcedure
     .input(
       z.object({
+        submissionKey: z.string().uuid(),
         note: z.string().trim().max(500).optional(),
         observations: z
           .array(
@@ -90,42 +93,88 @@ export const crewRouter = createTRPCRouter({
           .min(1, "Record at least one room."),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
-      const active = await getActivePeriodOrNull(ctx.db);
-      const now = new Date();
-      const patrol = await ctx.db.patrol.create({
-        data: {
-          crewUserId: ctx.session.user.id,
-          termId: active?.termId ?? null,
-          hours: PATROL_HOURS,
-          note: input.note?.trim() ? input.note.trim() : null,
-          observations: {
-            create: input.observations.map((o) => ({
-              roomId: o.roomId,
-              headcount: o.headcount,
-              observedAt: o.observedAt ?? now,
-            })),
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, `patrol-submit:${input.submissionKey}`);
+        const payloadHash = createHash("sha256")
+          .update(
+            JSON.stringify({
+              ...input,
+              observations: [...input.observations].sort((a, b) =>
+                a.roomId.localeCompare(b.roomId),
+              ),
+            }),
+          )
+          .digest("hex");
+        const previous = await tx.patrol.findUnique({
+          where: { submissionKey: input.submissionKey },
+        });
+        if (previous) {
+          if (
+            previous.crewUserId !== ctx.session.user.id ||
+            previous.submissionPayloadHash !== payloadHash
+          )
+            throw new TRPCError({
+              code: "CONFLICT",
+              message:
+                "That patrol submission already exists with different observations.",
+            });
+          return { ok: true, id: previous.id, hours: previous.hours };
+        }
+        if (
+          new Set(input.observations.map((o) => o.roomId)).size !==
+          input.observations.length
+        )
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Record each room once per patrol.",
+          });
+        const active = await getActivePeriodOrNull(tx);
+        const now = new Date();
+        const patrol = await tx.patrol.create({
+          data: {
+            submissionKey: input.submissionKey,
+            submissionPayloadHash: payloadHash,
+            crewUserId: ctx.session.user.id,
+            termId: active?.termId ?? null,
+            hours: PATROL_HOURS,
+            note: input.note?.trim() ? input.note.trim() : null,
+            observations: {
+              create: input.observations.map((o) => ({
+                roomId: o.roomId,
+                headcount: o.headcount,
+                observedAt: o.observedAt ?? now,
+              })),
+            },
           },
-        },
-        select: { id: true },
-      });
+          select: { id: true },
+        });
 
-      // Reconcile the sessions in the patrolled rooms around the observed times.
-      const roomIds = [...new Set(input.observations.map((o) => o.roomId))];
-      const dayStart = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-      const dayEnd = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-      const sessions = await ctx.db.session.findMany({
-        where: {
-          actualRoomId: { in: roomIds },
-          online: false,
-          date: { gte: dayStart, lte: dayEnd },
-        },
-        select: { id: true },
-      });
-      for (const s of sessions) await syncSessionFlag(ctx.db, s.id);
+        // Reconcile the sessions in the patrolled rooms around the observed times.
+        const roomIds = [...new Set(input.observations.map((o) => o.roomId))];
+        const dayStart = new Date(
+          Math.min(
+            ...input.observations.map((o) => (o.observedAt ?? now).getTime()),
+          ) - 86400000,
+        );
+        const dayEnd = new Date(
+          Math.max(
+            ...input.observations.map((o) => (o.observedAt ?? now).getTime()),
+          ) + 86400000,
+        );
+        const sessions = await tx.session.findMany({
+          where: {
+            actualRoomId: { in: roomIds },
+            online: false,
+            date: { gte: dayStart, lte: dayEnd },
+          },
+          select: { id: true },
+        });
+        for (const s of sessions) await syncSessionFlag(tx, s.id);
 
-      return { ok: true, id: patrol.id, hours: PATROL_HOURS };
-    }),
+        return { ok: true, id: patrol.id, hours: PATROL_HOURS };
+      }),
+    ),
 
   /** Public "apply to be crew" form (no login created — like /signup & /tutor-signup). Creates a
    *  PENDING CrewApplication an admin reviews; accepting issues a crew registration code. */
@@ -142,14 +191,19 @@ export const crewRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const features = await getFeatures(ctx.db);
       if (!features.CREW) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "The crew module is disabled." });
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "The crew module is disabled.",
+        });
       }
       await ctx.db.crewApplication.create({
         data: {
           name: input.name,
           email: input.email.toLowerCase(),
           gradeLevel: input.gradeLevel ?? null,
-          preferredContact: input.preferredContact?.trim() ? input.preferredContact.trim() : null,
+          preferredContact: input.preferredContact?.trim()
+            ? input.preferredContact.trim()
+            : null,
           message: input.message?.trim() ? input.message.trim() : null,
         },
       });
@@ -185,16 +239,24 @@ export const crewRouter = createTRPCRouter({
         select: { crewStatus: true },
       });
       if (me?.crewStatus !== "ACTIVE") {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Only active crew can opt out." });
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Only active crew can opt out.",
+        });
       }
       const open = await ctx.db.crewStatusRequest.findFirst({
         where: { userId: ctx.session.user.id, state: "PENDING" },
         select: { id: true },
       });
       if (open) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "You already have a pending request." });
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "You already have a pending request.",
+        });
       }
-      const eligibleAt = new Date(Date.now() + CREW_OPT_OUT_COOLDOWN_DAYS * 24 * 60 * 60 * 1000);
+      const eligibleAt = new Date(
+        Date.now() + CREW_OPT_OUT_COOLDOWN_DAYS * 24 * 60 * 60 * 1000,
+      );
       await ctx.db.crewStatusRequest.create({
         data: {
           userId: ctx.session.user.id,
@@ -217,8 +279,15 @@ export const crewRouter = createTRPCRouter({
       where: { userId: ctx.session.user.id, kind: "OPT_OUT", state: "PENDING" },
       select: { id: true },
     });
-    if (!req) throw new TRPCError({ code: "BAD_REQUEST", message: "No pending opt-out to recall." });
-    await ctx.db.crewStatusRequest.update({ where: { id: req.id }, data: { state: "RECALLED" } });
+    if (!req)
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "No pending opt-out to recall.",
+      });
+    await ctx.db.crewStatusRequest.update({
+      where: { id: req.id },
+      data: { state: "RECALLED" },
+    });
     return { ok: true };
   }),
 
@@ -229,14 +298,20 @@ export const crewRouter = createTRPCRouter({
       select: { crewStatus: true },
     });
     if (me?.crewStatus !== "OPTED_OUT") {
-      throw new TRPCError({ code: "BAD_REQUEST", message: "Only opted-out crew can request reentry." });
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Only opted-out crew can request reentry.",
+      });
     }
     const open = await ctx.db.crewStatusRequest.findFirst({
       where: { userId: ctx.session.user.id, state: "PENDING" },
       select: { id: true },
     });
     if (open) {
-      throw new TRPCError({ code: "BAD_REQUEST", message: "You already have a pending request." });
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "You already have a pending request.",
+      });
     }
     await ctx.db.crewStatusRequest.create({
       data: { userId: ctx.session.user.id, kind: "REENTRY" },

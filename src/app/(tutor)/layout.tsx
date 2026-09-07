@@ -80,6 +80,9 @@ export default async function TutorLayout({
     redirect("/onboarding/email");
 
   const accountItems = [
+    { href: "/messages", label: t("workflows.messages") },
+    { href: "/student", label: t("workflows.student") },
+    { href: "/student-support", label: t("workflows.support") },
     ...(isElevated
       ? [
           {

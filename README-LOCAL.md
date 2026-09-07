@@ -144,7 +144,11 @@ run `db:push` against first. Example with embedded Postgres (Option C):
 DATABASE_URL="postgresql://postgres:password@localhost:5433/shbs-peer-tutoring-website" npm test
 ```
 
-The integration tests use `test-`-prefixed fixture ids so they won't collide with seed data.
+The workflow regression suite truncates its disposable database between cases. Run it only with
+a separate local database whose name ends in `_test` (or `shbs_functional_review`); it refuses other
+targets. Create that database, set `DATABASE_URL` for the test command, and run `npm run db:migrate`
+before `npm test -- --maxWorkers=1`. Never point this suite at the development site or a production
+database. Tests run serially to keep resource use low.
 
 Lint and type-check the same way CI does:
 
@@ -185,7 +189,27 @@ docker compose down        # or: docker compose down -v
   malformed. Check it against `.env.example` and the schema in `src/env.js`.
 - **Prisma can't connect** — confirm your database is running and `DATABASE_URL` host/port
   match it (the embedded-Postgres example uses port **5433**, not 5432).
-- **Integration tests fail to connect** — they need a real DB; run `db:push` against the
+- **Integration tests fail to connect** — they need a separate real test DB; run `db:migrate` against the
   `DATABASE_URL` you pass to `npm test`.
 - **`next build` fails on Windows (file-tracing / EPERM)** — expected for the classic webpack
   build; this project builds with `--turbopack` (`npm run build`), which avoids it.
+
+## Database correction workflow
+
+- Attendance Submissions → Correct Attendance updates a whole merged block, recalculates hours,
+  withdraws corrected auto-absence cards, reconciles removal/pairing state, and reopens affected
+  crew decisions while removing their linked deductions. A reason and current record version are
+  required. Existing survey students are editable; changing the block's membership is separate work.
+- Crew → Patrol History and Corrections edits room, count, observation time and notes; timestamps
+  explicitly use Asia/Shanghai. Patrol credit remains the configured per-patrol amount.
+- Tutee Roster → Edit Details works for pending, active and inactive profiles, including preferred
+  contact, subject choices and availability. Assignment/removal remain their own operations.
+- Account / tutor settings → Change Account Email verifies the destination before changing both
+  account and roster email. This requires configured email delivery, independently of the 2FA flag.
+- Audit Log keeps correction snapshots with pagination. Snapshots are evidence, not executable
+  undo instructions. Card/application undo rejects changes made after the original decision.
+
+After generating a changed Prisma client, restart the local Next server so its cached database
+client includes the new fields. Confirmed product-policy decisions are in `REVIEW-QUESTIONS.md`.
+
+Student workflow navigation and product rules are documented in [STUDENT-WORKFLOWS.md](STUDENT-WORKFLOWS.md). Tests must use the isolated local `shbs_functional_review` or a database ending in `_test`; never run the workflow fixture cleanup against the normal development database. Schema changes require restarting the local Next process after regenerating Prisma so its cached client includes the new delegates.

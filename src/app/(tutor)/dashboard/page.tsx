@@ -1,3 +1,4 @@
+import { PolicyConsent } from "~/app/_components/policy-consent";
 import { redirect } from "next/navigation";
 
 import { auth } from "~/server/auth";
@@ -45,6 +46,7 @@ export default async function TutorDashboard() {
     <div className="mx-auto max-w-6xl space-y-7 px-4 py-5 sm:space-y-8 sm:py-8">
       {/* Team announcements — shown on every login until acknowledged. */}
       <AnnouncementsBanner />
+      <PolicyConsent slug="tutor-policy" />
 
       {pending && <TutorActivation />}
 

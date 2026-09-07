@@ -30,7 +30,20 @@ const coordinatorSession: Session = {
 
 function context(db: unknown, session: Session | null) {
   return {
-    db: db as PrismaClient,
+    db: {
+      ...(db as object),
+      user: {
+        findUnique: vi.fn().mockResolvedValue(
+          session
+            ? {
+                role: session.role,
+                tutorId: session.tutorId,
+                suspendedAt: null,
+              }
+            : null,
+        ),
+      },
+    } as unknown as PrismaClient,
     session,
     headers: new Headers(),
   };
@@ -50,7 +63,9 @@ describe("tutee signup window procedures", () => {
     const findFirst = vi.fn().mockResolvedValue({
       signupOpensAt: opensAt,
     });
-    const caller = createTuteeCaller(context({ term: { findFirst } }, null));
+    const caller = createTuteeCaller(
+      context({ term: { findFirst } }, null),
+    );
 
     await expect(
       caller.requestSignup({

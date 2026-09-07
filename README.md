@@ -27,7 +27,9 @@ Built on the [T3 Stack](https://create.t3.gg/):
 
 ### Roles
 
-Every signed-in user has one role (stored on `User.role`, carried in the JWT):
+Every signed-in user has one role (stored on `User.role`, carried in the JWT). Protected API
+requests reload current role, tutor linkage and suspension state from the database, so a stale
+cookie cannot retain revoked privileges:
 
 | Role          | Can do                                                                                                                                                                                                                       |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -323,3 +325,7 @@ prisma/
 
 Production runs as a single-VPS Docker Compose stack (Caddy + app + Postgres) with the
 image built in CI and pulled to the host. See **[README-DEPLOY.md](./README-DEPLOY.md)**.
+
+## Student Accounts and Confirmed Workflows
+
+The student portal, private messages, feedback visibility, card appeals, reviewed translations, versioned consent and updated interview/meeting rules are described in [STUDENT-WORKFLOWS.md](STUDENT-WORKFLOWS.md). See [REVIEW-QUESTIONS.md](REVIEW-QUESTIONS.md) for the confirmed product decisions. Public signup remains unchanged in this PR. Student onboarding is being delivered separately; the portal features use an existing, explicitly linked student account.
