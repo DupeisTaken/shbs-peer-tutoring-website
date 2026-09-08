@@ -22,6 +22,7 @@ datasource db {
 // ----------------------------------------------------------------------------
 
 enum Role {
+  STUDENT
   /// Read-only access to the admin area, with personal/contact info masked. Cannot mutate.
   VIEWER
   /// Crew-only login: reaches only the /patrol portal (no admin or tutor area). Created via a
@@ -36,6 +37,8 @@ enum Role {
 }
 
 model User {
+  studentId String? @unique
+  student Tutee? @relation(fields: [studentId], references: [id], onDelete: SetNull)
   id    String  @id @default(cuid())
   name  String?
   /// Login identifier. Also the address future email-based 2FA codes are sent to.
@@ -501,6 +504,10 @@ model Subject {
 }
 
 model Tutee {
+  user User?
+  intakeTermId String?
+  /// Immutable priority timestamp for the current intake, independent of login creation.
+  signupSubmittedAt DateTime?
   id          String      @id @default(cuid())
   englishName String
   email       String?
@@ -1388,4 +1395,95 @@ model CustomPage {
   updatedAt     DateTime @updatedAt
 
   @@index([published, navOrder])
+}
+
+/// Public surveys reserve their timestamp before the email owner confirms participation.
+/// The payload and policy evidence survive link resends and account creation delays.
+model StudentSurvey {
+  id String @id @default(cuid())
+  email String
+  intakeTermId String
+  payload Json
+  policyRevision String
+  policySnapshot Json
+  submittedAt DateTime @default(now())
+  tokenHash String @unique
+  expiresAt DateTime
+  confirmedAt DateTime?
+  /// Terminal requests are immutable history. A fresh submission receives a new id and priority.
+  state StudentSurveyState @default(OPEN)
+  tuteeId String? @unique
+  firstAssignedAt DateTime?
+  verificationDueAt DateTime?
+  editedAt DateTime?
+  resolvedAt DateTime?
+  lastLinkSentAt DateTime?
+  reviews StudentRequestReview[]
+  @@index([email, intakeTermId, submittedAt])
+  @@index([state, confirmedAt, verificationDueAt])
+}
+
+enum StudentSurveyState {
+  OPEN
+  RECALLED
+  DISQUALIFIED
+  ABORTED
+}
+
+/// Approval is required for assigned-student withdrawal and tutor schedule rejection.
+model StudentRequestReview {
+  id String @id @default(cuid())
+  surveyId String?
+  survey StudentSurvey? @relation(fields: [surveyId], references: [id])
+  /// Existing manually managed tutees can also request schedule rejection without a survey.
+  legacyTuteeId String?
+  legacyIntakeTermId String?
+  kind StudentReviewKind
+  requestedByUserId String
+  pairingId String?
+  reason String
+  state TuteeRequestState @default(PENDING)
+  createdAt DateTime @default(now())
+  resolvedAt DateTime?
+  resolvedByUserId String?
+  @@index([state, createdAt])
+}
+
+enum StudentReviewKind {
+  STUDENT_ABORT
+  SCHEDULE_CONFLICT
+}
+
+/// Approved quarter withdrawal blocks a verified email from fresh requests in that quarter.
+model StudentQuarterBlock {
+  id String @id @default(cuid())
+  email String
+  intakeTermId String
+  surveyId String
+  createdAt DateTime @default(now())
+  @@unique([email, intakeTermId])
+}
+
+/// Short-lived, user/action-bound confirmation tickets enforce the popup delay on the server.
+model StudentActionConfirmation {
+  id String @id @default(cuid())
+  userId String
+  action String
+  target String
+  readyAt DateTime
+  expiresAt DateTime
+  usedAt DateTime?
+  @@index([expiresAt])
+}
+
+/// Evidence of the exact policy agreed to in the survey.
+model PolicyAcceptance {
+  id String @id @default(cuid())
+  userId String
+  slug String
+  revision String
+  snapshot Json
+  signature String
+  acceptedAt DateTime @default(now())
+  @@unique([userId, slug, revision])
 }

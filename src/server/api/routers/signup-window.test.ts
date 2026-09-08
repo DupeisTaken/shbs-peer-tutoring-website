@@ -50,11 +50,15 @@ describe("tutee signup window procedures", () => {
     const findFirst = vi.fn().mockResolvedValue({
       signupOpensAt: opensAt,
     });
-    const caller = createTuteeCaller(context({ term: { findFirst } }, null));
+    const caller = createTuteeCaller(
+      context({ $executeRaw: vi.fn(), $queryRaw: vi.fn(), studentSurvey: { findMany: vi.fn().mockResolvedValue([]) }, term: { findFirst } }, null),
+    );
 
     await expect(
       caller.requestSignup({
         englishName: "Early Student",
+        email: "early-student@example.test",
+        policyRevision: "test-revision",
         preferredContact: "student@example.com",
         firstChoiceId: "subject-1",
         slotIds: ["slot-1"],

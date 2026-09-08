@@ -8,10 +8,10 @@ import { SortHeader, useSort, compare } from "~/app/_components/sortable";
 import { useDialog } from "~/app/_components/confirm-dialog";
 
 /** Roles an admin/head may assign via the dropdown (HEAD is set only via leadership transfer). */
-const ASSIGNABLE_ROLES = ["VIEWER", "TUTOR", "COORDINATOR", "ADMIN"] as const;
+const ASSIGNABLE_ROLES = ["STUDENT", "VIEWER", "TUTOR", "COORDINATOR", "ADMIN"] as const;
 type RoleValue = (typeof ASSIGNABLE_ROLES)[number];
 
-const ALL_ROLES = ["VIEWER", "TUTOR", "COORDINATOR", "ADMIN", "HEAD"] as const;
+const ALL_ROLES = ["STUDENT", "VIEWER", "TUTOR", "COORDINATOR", "ADMIN", "HEAD"] as const;
 const TUTOR_STATUSES = ["ACTIVE", "PENDING", "GRADUATED", "OPTED_OUT", "ARCHIVED"] as const;
 const ACCOUNT_STATES = ["registered", "setup", "invited", "none"] as const;
 

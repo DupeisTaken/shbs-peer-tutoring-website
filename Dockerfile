@@ -28,6 +28,12 @@ RUN npx prisma generate
 RUN npm run build
 
 ############################
+# Production dependency closure, including the migration CLI's transitive dependencies.
+############################
+FROM build AS runtime-deps
+RUN npm prune --omit=dev --ignore-scripts
+
+############################
 # 3. Runtime (slim, non-root)
 ############################
 FROM node:22-alpine AS runner
@@ -50,8 +56,9 @@ COPY --from=build --chown=nextjs:nodejs /app/public ./public
 # entrypoint can run `prisma migrate deploy` at startup.
 COPY --from=build --chown=nextjs:nodejs /app/generated ./generated
 COPY --from=build --chown=nextjs:nodejs /app/prisma ./prisma
-COPY --from=build --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
-COPY --from=build --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=runtime-deps --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=build --chown=nextjs:nodejs /app/prisma.config.ts ./prisma.config.ts
+COPY --from=build --chown=nextjs:nodejs /app/package.json ./package.json
 
 COPY --chown=nextjs:nodejs entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh

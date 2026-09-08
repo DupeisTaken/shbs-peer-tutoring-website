@@ -16,6 +16,7 @@ import { crewRouter } from "~/server/api/routers/crew";
 import { programRouter } from "~/server/api/routers/program";
 import { viewerRouter } from "~/server/api/routers/viewer";
 import { homeRouter } from "~/server/api/routers/home";
+import { studentWorkflowRouter } from "~/server/api/routers/student-workflow";
 
 /**
  * This is the primary router for your server.
@@ -26,6 +27,7 @@ import { homeRouter } from "~/server/api/routers/home";
 export const appRouter = createTRPCRouter({
   /** Lightweight liveness check. */
   health: publicProcedure.query(() => ({ ok: true, ts: Date.now() })),
+  studentWorkflow: studentWorkflowRouter,
   tutor: tutorRouter,
   tutee: tuteeRouter,
   application: applicationRouter,

@@ -10,6 +10,7 @@ import { authConfig } from "./config";
 import { clientIpFromRequest, verifySigninPassword } from "./credentials";
 import { verifyLoginCode } from "./two-factor";
 import { ensureUserUsername } from "./username";
+import { resolveTutorLink } from "./tutor-link";
 
 function bootstrapAdminEmails(): string[] {
   return (env.AUTH_BOOTSTRAP_ADMIN_EMAILS ?? "")
@@ -75,9 +76,9 @@ const {
         if (loginCode.success) {
           const user = await db.user.findUnique({
             where: { id: loginCode.data.userId },
-            select: { id: true, name: true, email: true, twoFactorEnabled: true },
+            select: { id: true, name: true, email: true, twoFactorEnabled: true, suspendedAt: true },
           });
-          if (!user?.twoFactorEnabled) return null;
+          if (!user?.twoFactorEnabled || user.suspendedAt) return null;
           const features = await getFeatures(db);
           if (!features.EMAIL_2FA) return null;
           const ok = await verifyLoginCode(user.id, loginCode.data.code);
@@ -118,15 +119,7 @@ const {
       if (user?.id) {
         const email = (user.email ?? token.email ?? null)?.toLowerCase() ?? null;
 
-        // Link to the domain Tutor record by email (admins set Tutor.email).
-        let tutorId: string | null = null;
-        if (email) {
-          const tutor = await db.tutor.findUnique({
-            where: { email },
-            select: { id: true },
-          });
-          tutorId = tutor?.id ?? null;
-        }
+        const tutorId = await resolveTutorLink(db, user.id, email);
 
         // Bootstrap roles. The FIRST email in AUTH_BOOTSTRAP_ADMIN_EMAILS is the designated HEAD
         // (singleton leader); the rest are ADMIN. Grants only ever ELEVATE — never demote — so a
@@ -176,6 +169,8 @@ const {
           where: { id: token.sub },
           select: { tutorId: true },
         });
+        // A deleted account must lose its session instead of bouncing between /student and /signin.
+        if (!dbUser) return null;
         token.tutorId = dbUser?.tutorId ?? null;
       }
       return token;

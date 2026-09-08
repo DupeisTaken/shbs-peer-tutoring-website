@@ -505,3 +505,17 @@ src/
   styles/globals.css   # Tailwind + design-system classes
 prisma/schema.prisma   # data model   ·   prisma/seed.ts  # sample data + dev users
 ```
+
+## Student signup
+
+`/signup` saves the survey before email verification. Keep `StudentSurvey.submittedAt` immutable. Unverified students may be assigned; their first assignment starts a fixed seven-day verification deadline. Expiry permanently disqualifies that request; a fresh submission gets a new timestamp. Students can change only availability after confirmation/login. Approved quarter withdrawal blocks further requests in that quarter. Policy reconfirmation is independent of priority. Serious workflow actions require timed confirmation tickets. Preserve processed history and enforce terminal states through every assignment entrypoint. See [STUDENT-SIGNUP.md](./STUDENT-SIGNUP.md) for setup and tests.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

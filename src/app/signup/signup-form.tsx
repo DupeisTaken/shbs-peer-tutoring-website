@@ -7,13 +7,15 @@ import { api } from "~/trpc/react";
 import { DAY_NAMES, minToHm } from "~/lib/time";
 import { APP_TITLE } from "~/lib/branding";
 import { PolicyAgreement } from "~/app/_components/policy-agreement";
+import { SigninAccess } from "./signin-access";
+import { SurveyResend } from "./survey-resend";
 
 export function SignupForm() {
   const t = useTranslations();
   const locale = useLocale();
   const options = api.tutee.signupOptions.useQuery();
-  const policy = api.tutee.policy.useQuery({ locale });
-  const submit = api.tutee.requestSignup.useMutation();
+  const policy = api.tutee.surveyPolicy.useQuery({ locale });
+  const submit = api.tutee.submitSurvey.useMutation();
 
   const [englishName, setEnglishName] = useState("");
   const [gradeLevel, setGradeLevel] = useState("");
@@ -47,6 +49,8 @@ export function SignupForm() {
 
   const canSubmit =
     englishName.trim() &&
+    email.trim() &&
+    policy.data?.revision &&
     preferredContact.trim() &&
     firstChoiceId &&
     slotIds.length > 0 &&
@@ -56,11 +60,21 @@ export function SignupForm() {
 
   if (submit.isSuccess) {
     return (
-      <div className="card p-8 text-center">
-        <h2 className="text-xl font-semibold text-slate-900">{t("public.signup.successTitle")}</h2>
+      <div className="card p-5 text-center sm:p-8">
+        <h2 className="text-xl font-semibold text-slate-900">
+          {t("survey.savedTitle")}
+        </h2>
         <p className="muted mt-2">
-          {t("public.signup.successBody", { name: englishName.trim() })}
+          {t("survey.savedBody", { email: email.trim() })}
         </p>
+        <p className="muted mt-3 text-sm">{t("survey.duplicate")}</p>
+        {!submit.data.emailSent && (
+          <p role="alert" className="mt-3 text-amber-800">
+            {t("survey.mailFailed")}
+          </p>
+        )}
+        <SigninAccess />
+        <SurveyResend initialEmail={email.trim()} />
       </div>
     );
   }
@@ -70,10 +84,11 @@ export function SignupForm() {
       className="card space-y-6 p-6"
       onSubmit={(e) => {
         e.preventDefault();
-        if (!canSubmit) return;
+        if (!canSubmit || !policy.data) return;
         submit.mutate({
           englishName: englishName.trim(),
-          email: email.trim() || undefined,
+          email: email.trim(),
+          policyRevision: policy.data.revision,
           phone: phone.trim() || undefined,
           preferredContact: preferredContact.trim(),
           gradeLevel: gradeLevel.trim() || undefined,
@@ -106,13 +121,17 @@ export function SignupForm() {
           />
         </label>
         <label className="space-y-1">
-          <span className="label">{t("public.signup.fields.email")}</span>
+          <span className="label">{t("survey.emailLabel")}</span>
           <input
             type="email"
+            autoComplete="email"
             className="input"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
+            required
+            maxLength={254}
           />
+          <span className="muted text-xs">{t("survey.emailHelp")}</span>
         </label>
         <label className="space-y-1">
           <span className="label">{t("public.signup.fields.phone")}</span>
@@ -126,7 +145,9 @@ export function SignupForm() {
 
       {/* Preferred contact — make it unmistakable how to reach this student. */}
       <label className="space-y-1">
-        <span className="label">{t("public.signup.fields.preferredContact")}</span>
+        <span className="label">
+          {t("public.signup.fields.preferredContact")}
+        </span>
         <input
           className="input"
           value={preferredContact}
@@ -149,7 +170,9 @@ export function SignupForm() {
             onChange={(e) => setFirstChoiceId(e.target.value)}
             required
           >
-            <option value="">{t("public.signup.placeholders.selectCourse")}</option>
+            <option value="">
+              {t("public.signup.placeholders.selectCourse")}
+            </option>
             {courses.map((c) => (
               <option key={c.id} value={c.id}>
                 {c.name}
@@ -158,7 +181,9 @@ export function SignupForm() {
           </select>
         </label>
         <label className="space-y-1">
-          <span className="label">{t("public.signup.fields.secondChoice")}</span>
+          <span className="label">
+            {t("public.signup.fields.secondChoice")}
+          </span>
           <select
             className="select"
             value={secondChoiceId}
@@ -178,7 +203,9 @@ export function SignupForm() {
 
       {/* Availability */}
       <fieldset>
-        <legend className="label">{t("public.signup.fields.availability")}</legend>
+        <legend className="label">
+          {t("public.signup.fields.availability")}
+        </legend>
         {slots.length === 0 ? (
           <p className="muted mt-1">{t("public.signup.noSlots")}</p>
         ) : (
@@ -246,9 +273,20 @@ export function SignupForm() {
           {submit.error.message}
         </p>
       )}
+      {policy.error && (
+        <p role="alert" className="text-sm text-red-600">
+          {policy.error.message}
+        </p>
+      )}
 
-      <button type="submit" className="btn-primary w-full" disabled={!canSubmit}>
-        {submit.isPending ? t("public.signup.submitting") : t("public.signup.submit")}
+      <button
+        type="submit"
+        className="btn-primary w-full"
+        disabled={!canSubmit}
+      >
+        {submit.isPending
+          ? t("public.signup.submitting")
+          : t("public.signup.submit")}
       </button>
     </form>
   );

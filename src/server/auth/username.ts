@@ -117,8 +117,8 @@ export async function ensureUserUsername(userId: string): Promise<string> {
   });
   if (!user) return "";
   if (user.username) return user.username;
-  // Viewers (read-only VIEWER, no tutor) may be username-less — they sign in by email.
-  if (user.role === "VIEWER" && !user.tutor) return "";
+  // Public student/viewer accounts sign in by email and do not need generated handles.
+  if (["VIEWER", "STUDENT"].includes(user.role) && !user.tutor) return "";
 
   let base = user.tutor?.username ?? "";
   if (!base) {

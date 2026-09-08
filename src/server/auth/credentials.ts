@@ -3,7 +3,8 @@ import { rateLimit } from "~/server/rate-limit";
 import { verifyPassword } from "./password";
 
 export const SIGNIN_WINDOW_MS = 15 * 60_000;
-export const SIGNIN_MAX_PER_IP = 10;
+// A school shares one public IP; keep the tight per-account guard without locking out the class.
+export const SIGNIN_MAX_PER_IP = 1000;
 export const SIGNIN_MAX_PER_IDENTIFIER = 10;
 
 export type SigninPasswordResult =
@@ -83,10 +84,11 @@ export async function verifySigninPassword(
       name: true,
       email: true,
       passwordHash: true,
+      suspendedAt: true,
       twoFactorEnabled: true,
     },
   });
-  if (!user?.passwordHash) return { ok: false, reason: "invalid" };
+  if (!user?.passwordHash || user.suspendedAt) return { ok: false, reason: "invalid" };
   if (!verifyPassword(password, user.passwordHash))
     return { ok: false, reason: "invalid" };
 

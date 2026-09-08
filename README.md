@@ -323,3 +323,7 @@ prisma/
 
 Production runs as a single-VPS Docker Compose stack (Caddy + app + Postgres) with the
 image built in CI and pulled to the host. See **[README-DEPLOY.md](./README-DEPLOY.md)**.
+
+# Student signup
+
+Students submit a survey, then use an emailed link to confirm their address and create an account. Management can assign unverified students in original submission order; seven days after the first assignment, unverified requests are permanently disqualified. The workflow supports availability edits, recalls, quarter-withdrawal applications, tutor schedule-rejection applications and policy reconfirmation. Serious actions use timed consequence dialogs. See [STUDENT-SIGNUP.md](./STUDENT-SIGNUP.md) for the rules, deployment requirements and tests.
