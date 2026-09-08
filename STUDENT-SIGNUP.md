@@ -1,5 +1,9 @@
 # Survey-first student signup and participation
 
+## Merge and migration order
+
+For the combined release, merge the deployment and participant-workflow PRs before this signup PR. The signup migration reuses their identical student role, account link and policy-acceptance prerequisites while preserving existing records. It also works on the standalone signup branch. Git conflicts in the student page, authentication and router still require reconciliation and a combined test run. Do not deploy a text-only merge of these branches.
+
 ## Student workflow
 
 1. `/signup` opens at the configured time. Students submit their survey, login email, subject preferences, availability, contact details and policy signature without an account. The server saves the submission time and exact policy snapshot.
