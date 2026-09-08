@@ -40,6 +40,7 @@ jobs:
       - run: npm ci
       - run: npm run db:migrate
       - run: npm run check
+      - run: npm audit --omit=dev
       - run: npm test
       - run: npm run build
 
