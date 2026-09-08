@@ -55,6 +55,19 @@ empty last name.) Re-run `npm run db:seed` twice after changing it — it must s
 
 ## Architecture & conventions
 
+- **Coordinators are trainees.** Sensitive management mutations create pending proposals;
+  they do not modify live records. See [COORDINATOR-APPROVALS.md](COORDINATOR-APPROVALS.md)
+  and `src/lib/approval-policy.ts`, which supersede older coordinator permission descriptions
+  below. ADMIN/HEAD reviews with a required note. Unknown coordinator writes fail closed.
+  Keep approver identity separate from requester identity; never impersonate the requester.
+- **Approval transactions include shared helpers.** `src/server/db-scope.ts` binds the shared
+  database proxy to the current decision transaction. `inTransaction` composes with that scope;
+  do not create an independent Prisma client in a mutation/helper. Input parsing and business
+  validation are reused at approval, and recorded target evidence must still match.
+- **Audit all signed-in mutations.** Protected procedure middleware records successful actions
+  by stable user ID, with structured event/operation/request filters. Retain meaningful existing
+  undo records. Do not add credentials or raw account/message payloads to audit metadata.
+
 - **Branding is env-driven — never hardcode a title.** Import `APP_TITLE` /
   `TEAM_TITLE` from `~/lib/branding`. `APP_TITLE` (default "SHBS Peer Tutoring") is the
   public/student-facing brand; `TEAM_TITLE` (default "SHBS Peer Tutoring Team") brands

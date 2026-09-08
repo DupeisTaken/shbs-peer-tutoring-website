@@ -1,5 +1,10 @@
 # Local development & testing
 
+Coordinator approval and audit changes require the migration described in
+[COORDINATOR-APPROVALS.md](COORDINATOR-APPROVALS.md). The approval integration suite uses
+only the dedicated local `shbs_coordinator_approvals_test` database; it resets that test
+database between cases. Run tests serially with `npm test -- --maxWorkers=1`.
+
 How to run the SHBS Peer Tutoring app on your own machine, point it at a local database,
 seed sample data, run the test suite, and (optionally) smoke-test the production Docker
 stack. For production deployment see [README-DEPLOY.md](./README-DEPLOY.md).

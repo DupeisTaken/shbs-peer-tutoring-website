@@ -46,6 +46,7 @@ async function codeOf(fn: () => Promise<unknown>): Promise<string> {
 }
 
 async function cleanup() {
+  await db.user.deleteMany({where:{id:{in:[`user-${TUTOR_A}`,`user-${TUTOR_B}`,"user-none"]}}});
   await db.session.deleteMany({ where: { tutorId: { in: [TUTOR_A, TUTOR_B] } } });
   await db.pairingTutee.deleteMany({ where: { pairingId: PAIRING_A } });
   await db.pairing.deleteMany({ where: { id: PAIRING_A } });
@@ -71,6 +72,7 @@ beforeAll(async () => {
       { id: TUTOR_B, englishName: "Tutor B" },
     ],
   });
+  await db.user.createMany({data:[TUTOR_A,TUTOR_B,null].map(id=>({id:`user-${id ?? "none"}`,email:`${id ?? "none"}@scoping.example.test`,role:"TUTOR" as const,tutorId:id}))});
   await db.tutee.createMany({
     data: [
       { id: TUTEE_1, englishName: "Tutee One" },

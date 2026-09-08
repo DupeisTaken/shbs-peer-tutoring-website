@@ -33,8 +33,7 @@ export const i18nRouter = createTRPCRouter({
   canManageLanguages: translatorProcedure.query(
     ({ ctx }) =>
       ctx.session.role === "HEAD" ||
-      ctx.session.role === "ADMIN" ||
-      ctx.session.role === "COORDINATOR",
+      ctx.session.role === "ADMIN",
   ),
 
   addLanguage: translatorProcedure

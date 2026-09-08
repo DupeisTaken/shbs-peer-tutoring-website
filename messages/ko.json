@@ -633,7 +633,7 @@
     "users": {
       "title": "사용자 및 역할",
       "subtitle": "로그인, 역할 및 튜터 계정 설정을 관리합니다. 역할 변경은 다음 로그인 시 적용됩니다.",
-      "coordinatorHint": "코디네이터는 설정 링크를 보내거나 자신의 튜터링 접근 권한을 변경할 수 있습니다. 역할 변경은 관리자에게 문의하세요.",
+      "coordinatorHint": "As a coordinator you can send setup links and request changes to your own tutoring access. Other account permissions require an administrator.",
       "columns": {
         "user": "사용자",
         "name": "이름",
@@ -1955,5 +1955,68 @@
     "submitting": "제출 중…",
     "appealPending": "이의가 제출되어 검토를 기다리고 있습니다.",
     "appealDenied": "이전 이의가 거부되었습니다. 다시 제출할 수 있습니다."
+  },
+  "approvals": {
+    "title": "Change Approvals",
+    "subtitle": "Review proposed changes, explain your decision, and help new team members learn.",
+    "queued": "Submitted for Admin Approval",
+    "queuedBody": "Your proposal is pending. The live records stay unchanged until an admin approves it.",
+    "dismiss": "Dismiss",
+    "viewRequest": "View Request",
+    "evidence": "Current Records at Submission",
+    "note": "Decision Note",
+    "noteHint": "Explain your approval or what needs to change.",
+    "approve": "Approve and Apply",
+    "reject": "Reject with Feedback",
+    "cancel": "Withdraw Request",
+    "audit": "View Actions and Decisions",
+    "status": "Status",
+    "allStates": "All Statuses",
+    "requester": "Requested By",
+    "allUsers": "All Users",
+    "refresh": "Refresh",
+    "allRequests": "All Requests",
+    "count": "{count, plural, one {# request} other {# requests}}",
+    "loading": "Loading…",
+    "empty": "No requests match these filters",
+    "emptyHint": "New coordinator proposals will appear here for review.",
+    "previous": "Newer",
+    "next": "Older",
+    "trainingBanner": "You are a coordinator in training. Sensitive changes you submit are sent to an admin for approval before taking effect.",
+    "myRequests": "My Approval Requests",
+    "states": {
+      "PENDING": "Pending Review",
+      "APPROVED": "Approved",
+      "REJECTED": "Rejected",
+      "CANCELLED": "Withdrawn"
+    }
+  },
+  "auditFilters": {
+    "subtitle": "Trace each user’s actions, proposals, and decisions across the program.",
+    "user": "User",
+    "allUsers": "All Users",
+    "system": "System / Unattributed",
+    "kind": "Event Type",
+    "allKinds": "All Event Types",
+    "operation": "Action",
+    "allOperations": "All Actions",
+    "entity": "Record Type",
+    "allEntities": "All Record Types",
+    "from": "From Date",
+    "until": "Through Date",
+    "search": "Search History",
+    "searchHint": "Search action descriptions",
+    "apply": "Apply Filters",
+    "clear": "Clear Filters",
+    "utc": "Date filters use UTC; event times use your local time.",
+    "allHistory": "Show All History",
+    "details": "Decision Details",
+    "empty": "No actions match these filters.",
+    "kinds": {
+      "ACTION": "Action",
+      "DECISION": "Decision",
+      "SUBMISSION": "Proposal",
+      "CANCELLATION": "Withdrawal"
+    }
   }
 }

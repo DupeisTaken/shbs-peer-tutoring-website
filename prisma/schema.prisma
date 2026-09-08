@@ -216,6 +216,11 @@ model AccountAppeal {
 /// An audit record of an admin mutation, with optional typed data to revert it. Actor
 /// id/name are denormalised so history survives user deletion. See src/server/audit/log.ts.
 model AuditLog {
+  /// Structured actor/decision filters; metadata excludes account secrets.
+  kind String @default("ACTION")
+  operation String?
+  approvalId String?
+  details Json?
   id        String    @id @default(cuid())
   userId    String?
   userName  String?
@@ -229,6 +234,37 @@ model AuditLog {
   createdAt DateTime  @default(now())
 
   @@index([createdAt])
+  @@index([userId, createdAt, id])
+  @@index([kind, createdAt, id])
+  @@index([approvalId])
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+/// Immutable coordinator proposal. Actor IDs and names are snapshots, preserved after deletion.
+model ApprovalRequest {
+  id String @id @default(cuid())
+  requesterId String
+  requesterName String
+  operation String
+  payload Json
+  fingerprint String
+  /// Target evidence shown to the reviewer; never includes passwords or tokens.
+  targets Json
+  state ApprovalStatus @default(PENDING)
+  reviewerId String?
+  reviewerName String?
+  reviewNote String?
+  createdAt DateTime @default(now())
+  reviewedAt DateTime?
+
+  @@index([state, createdAt, id])
+  @@index([requesterId, createdAt, id])
 }
 
 /// A lightweight in-app notification for any user (tutor / coordinator / admin).

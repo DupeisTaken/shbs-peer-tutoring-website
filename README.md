@@ -5,7 +5,8 @@ attendance submissions, tutor-meeting tracking, and automatic service-hour accou
 
 Tutors sign in, see their schedule, and submit attendance with quality ratings for each
 session. The app derives service hours from each submission and rolls them up by month.
-Coordinators and admins manage the roster (tutors, tutees, rooms, pairings, terms),
+Admins manage the roster directly; coordinators are trainees whose sensitive changes require
+admin approval. Both roles work with the roster (tutors, tutees, rooms, pairings, terms),
 run tutor meetings (each tutor marked Present / Excused Absent / Unexcused Absent — an
 unexcused absence docks 0.125 service hours; inactive tutors are exempt), apply per-tutor
 hour adjustments, review tutee discipline cards, broadcast announcements, and review the
@@ -181,7 +182,10 @@ interview panel, reviewing a card, deciding an interview) use **optimistic versi
 the client sends the `updatedAt` it loaded, and a conditional write is rejected with a
 `CONFLICT` if another coordinator changed the row first (`src/server/concurrency.ts`). Mutating
 admin actions are also recorded to an **audit log** (`/admin/audit`) with one-click undo where
-the inverse is well-defined.
+the inverse is well-defined. Coordinators submit sensitive changes to `/admin/approvals`;
+ADMIN or HEAD reviews and applies them with recorded feedback. The audit log supports user,
+action/decision, record-type, description and date filters with pagination. See
+[Coordinator Approvals](COORDINATOR-APPROVALS.md) for the role boundaries and review workflow.
 
 ### Internationalization
 

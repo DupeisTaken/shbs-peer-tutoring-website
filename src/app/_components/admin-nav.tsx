@@ -131,6 +131,7 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
         elevatedOnly: true,
       },
       // Audit Log + Users & Roles stay pinned to the bottom of the section.
+      { href: "/admin/approvals", labelKey: "approvals.title", elevatedOnly: true },
       { href: "/admin/audit", labelKey: "admin.nav.links.auditLog" },
       {
         href: "/admin/users",

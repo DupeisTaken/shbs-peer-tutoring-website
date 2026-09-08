@@ -1,3 +1,4 @@
+import { approvalRouter } from "./routers/approval";
 import {
   createCallerFactory,
   createTRPCRouter,
@@ -24,6 +25,7 @@ import { homeRouter } from "~/server/api/routers/home";
  * Feature routers (tutor, admin, attendance, etc.) are added in later phases.
  */
 export const appRouter = createTRPCRouter({
+  approval: approvalRouter,
   /** Lightweight liveness check. */
   health: publicProcedure.query(() => ({ ok: true, ts: Date.now() })),
   tutor: tutorRouter,

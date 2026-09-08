@@ -1,3 +1,4 @@
+import { auditFilters, auditWhere } from "~/server/audit/filters";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -3760,9 +3761,22 @@ export const adminRouter = createTRPCRouter({
   // --------------------------------------------------------------------------
   // Audit log + undo
   // --------------------------------------------------------------------------
-  auditLog: viewerProcedure.query(({ ctx }) =>
-    ctx.db.auditLog.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
-  ),
+  auditLog: viewerProcedure.input(auditFilters.optional()).query(({ctx,input}) => ctx.db.auditLog.findMany({
+    where: auditWhere(input), orderBy: [{createdAt: "desc"}, {id: "desc"}], take: 100,
+    ...(input?.cursor ? {cursor: {id: input.cursor}, skip: 1} : {}),
+  })),
+
+  auditFilterOptions: viewerProcedure.query(async ({ ctx }) => {
+    const [users, historical, operations, entities] = await Promise.all([
+      ctx.db.user.findMany({ select: { id: true, name: true, username: true }, orderBy: { name: "asc" } }),
+      ctx.db.auditLog.findMany({ distinct: ["userId"], select: { userId: true, userName: true }, orderBy: { createdAt: "desc" } }),
+      ctx.db.auditLog.findMany({ distinct: ["operation"], select: { operation: true }, where: { operation: { not: null } }, orderBy: { operation: "asc" } }),
+      ctx.db.auditLog.findMany({ distinct: ["entity"], select: { entity: true }, orderBy: { entity: "asc" } }),
+    ]);
+    const actors = new Map(users.map(u => [u.id, { id: u.id, label: u.name ?? u.username ?? u.id }]));
+    for (const actor of historical) if (actor.userId && !actors.has(actor.userId)) actors.set(actor.userId, { id: actor.userId, label: actor.userName ?? actor.userId });
+    return { users: [...actors.values()], operations: operations.flatMap(o => o.operation ? [o.operation] : []), entities: entities.map(e => e.entity) };
+  }),
 
   undoAudit: adminProcedure
     .input(z.object({ id: cuid }))

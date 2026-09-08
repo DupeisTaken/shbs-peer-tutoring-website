@@ -633,7 +633,7 @@
     "users": {
       "title": "Utilisateurs & rôles",
       "subtitle": "Gérez les connexions, les rôles et la configuration des comptes tuteurs. Les changements de rôle prennent effet à la prochaine connexion de l'utilisateur.",
-      "coordinatorHint": "En tant que coordinateur, vous pouvez envoyer des liens de configuration et modifier votre propre accès au tutorat. Demandez à un administrateur de changer les rôles.",
+      "coordinatorHint": "As a coordinator you can send setup links and request changes to your own tutoring access. Other account permissions require an administrator.",
       "columns": {
         "user": "Utilisateur",
         "name": "Nom",
@@ -1955,5 +1955,68 @@
     "submitting": "Envoi…",
     "appealPending": "Votre recours a été soumis et est en cours d'examen.",
     "appealDenied": "Votre recours précédent a été refusé. Vous pouvez en soumettre un autre."
+  },
+  "approvals": {
+    "title": "Change Approvals",
+    "subtitle": "Review proposed changes, explain your decision, and help new team members learn.",
+    "queued": "Submitted for Admin Approval",
+    "queuedBody": "Your proposal is pending. The live records stay unchanged until an admin approves it.",
+    "dismiss": "Dismiss",
+    "viewRequest": "View Request",
+    "evidence": "Current Records at Submission",
+    "note": "Decision Note",
+    "noteHint": "Explain your approval or what needs to change.",
+    "approve": "Approve and Apply",
+    "reject": "Reject with Feedback",
+    "cancel": "Withdraw Request",
+    "audit": "View Actions and Decisions",
+    "status": "Status",
+    "allStates": "All Statuses",
+    "requester": "Requested By",
+    "allUsers": "All Users",
+    "refresh": "Refresh",
+    "allRequests": "All Requests",
+    "count": "{count, plural, one {# request} other {# requests}}",
+    "loading": "Loading…",
+    "empty": "No requests match these filters",
+    "emptyHint": "New coordinator proposals will appear here for review.",
+    "previous": "Newer",
+    "next": "Older",
+    "trainingBanner": "You are a coordinator in training. Sensitive changes you submit are sent to an admin for approval before taking effect.",
+    "myRequests": "My Approval Requests",
+    "states": {
+      "PENDING": "Pending Review",
+      "APPROVED": "Approved",
+      "REJECTED": "Rejected",
+      "CANCELLED": "Withdrawn"
+    }
+  },
+  "auditFilters": {
+    "subtitle": "Trace each user’s actions, proposals, and decisions across the program.",
+    "user": "User",
+    "allUsers": "All Users",
+    "system": "System / Unattributed",
+    "kind": "Event Type",
+    "allKinds": "All Event Types",
+    "operation": "Action",
+    "allOperations": "All Actions",
+    "entity": "Record Type",
+    "allEntities": "All Record Types",
+    "from": "From Date",
+    "until": "Through Date",
+    "search": "Search History",
+    "searchHint": "Search action descriptions",
+    "apply": "Apply Filters",
+    "clear": "Clear Filters",
+    "utc": "Date filters use UTC; event times use your local time.",
+    "allHistory": "Show All History",
+    "details": "Decision Details",
+    "empty": "No actions match these filters.",
+    "kinds": {
+      "ACTION": "Action",
+      "DECISION": "Decision",
+      "SUBMISSION": "Proposal",
+      "CANCELLATION": "Withdrawal"
+    }
   }
 }

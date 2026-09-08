@@ -1,3 +1,4 @@
+import { approvalScope } from "~/server/db-scope";
 /**
  * Audit log + typed undo. Every admin mutation that's hard to reverse by hand records an
  * AuditLog entry carrying a typed `undo` describing its inverse, so it can be reverted from
@@ -75,6 +76,7 @@ export async function recordAudit(args: RecordAuditArgs): Promise<void> {
       entity: args.entity,
       entityId: args.entityId ?? null,
       undoData: args.undo ?? undefined,
+      approvalId: approvalScope.getStore(),
     },
   });
 }

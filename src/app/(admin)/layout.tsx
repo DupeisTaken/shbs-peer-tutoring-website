@@ -154,6 +154,7 @@ export default async function AdminLayout({
               </p>
             </div>
           )}
+          {session.role === "COORDINATOR" && <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950"><p>{t("approvals.trainingBanner")}</p><Link className="link mt-1 inline-block" href="/admin/approvals">{t("approvals.myRequests")}</Link></div>}
           <ReadOnlyProvider value={readOnly}>{children}</ReadOnlyProvider>
         </main>
       </div>

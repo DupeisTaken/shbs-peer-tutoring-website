@@ -626,7 +626,7 @@
     "users": {
       "title": "用户与角色",
       "subtitle": "管理登录账户、角色和导师账户设置。角色更改将在用户下次登录时生效。",
-      "coordinatorHint": "作为协调员，你可以发送设置链接并更改自己的授课权限。如需更改角色，请联系管理员。",
+      "coordinatorHint": "协调员可以发送设置链接，并申请调整自己的辅导权限。其他账户权限由管理员管理。",
       "columns": {
         "user": "用户",
         "name": "姓名",
@@ -1955,5 +1955,68 @@
     "submitting": "提交中…",
     "appealPending": "你的申诉已提交，正在审核中。",
     "appealDenied": "你之前的申诉被拒绝。你可以再次提交。"
+  },
+  "approvals": {
+    "title": "变更审批",
+    "subtitle": "审核变更提案，说明决定，帮助新成员学习。",
+    "queued": "已提交管理员审批",
+    "queuedBody": "提案正在等待审批。管理员批准前，现有记录不会更改。",
+    "dismiss": "关闭",
+    "viewRequest": "查看申请",
+    "evidence": "提交时的现有记录",
+    "note": "审批说明",
+    "noteHint": "请说明批准的理由或需要修改的内容。",
+    "approve": "批准并执行",
+    "reject": "驳回并提供反馈",
+    "cancel": "撤回申请",
+    "audit": "查看操作与决定",
+    "status": "状态",
+    "allStates": "全部状态",
+    "requester": "申请人",
+    "allUsers": "全部用户",
+    "refresh": "刷新",
+    "allRequests": "全部申请",
+    "count": "{count} 条申请",
+    "loading": "正在加载…",
+    "empty": "没有符合筛选条件的申请",
+    "emptyHint": "协调员提交的新提案将在此等待审批。",
+    "previous": "较新",
+    "next": "较早",
+    "trainingBanner": "您是正在培训的协调员。提交的敏感变更需经管理员批准后才能生效。",
+    "myRequests": "我的审批申请",
+    "states": {
+      "PENDING": "待审批",
+      "APPROVED": "已批准",
+      "REJECTED": "已驳回",
+      "CANCELLED": "已撤回"
+    }
+  },
+  "auditFilters": {
+    "subtitle": "按用户追踪项目中的操作、提案和决定。",
+    "user": "用户",
+    "allUsers": "全部用户",
+    "system": "系统／未署名",
+    "kind": "事件类型",
+    "allKinds": "全部事件类型",
+    "operation": "操作",
+    "allOperations": "全部操作",
+    "entity": "记录类型",
+    "allEntities": "全部记录类型",
+    "from": "起始日期",
+    "until": "截止日期",
+    "search": "搜索记录",
+    "searchHint": "搜索操作描述",
+    "apply": "应用筛选",
+    "clear": "清除筛选",
+    "utc": "日期筛选使用 UTC；事件时间使用您的本地时间。",
+    "allHistory": "显示全部记录",
+    "details": "审批详情",
+    "empty": "没有符合筛选条件的操作。",
+    "kinds": {
+      "ACTION": "操作",
+      "DECISION": "决定",
+      "SUBMISSION": "提案",
+      "CANCELLATION": "撤回"
+    }
   }
 }

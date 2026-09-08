@@ -30,7 +30,7 @@ const coordinatorSession: Session = {
 
 function context(db: unknown, session: Session | null) {
   return {
-    db: db as PrismaClient,
+    db: { ...(db as object), user: {findUnique:vi.fn().mockResolvedValue(session ? {role:session.role,tutorId:session.tutorId,suspendedAt:null,name:session.user.name,username:null}:null)},auditLog:{create:vi.fn().mockResolvedValue({})} } as unknown as PrismaClient,
     session,
     headers: new Headers(),
   };
