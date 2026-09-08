@@ -7,7 +7,8 @@ Tutors sign in, see their schedule, and submit attendance with quality ratings f
 session. The app derives service hours from each submission and rolls them up by month.
 Coordinators and admins manage the roster (tutors, tutees, rooms, pairings, terms),
 run tutor meetings (each tutor marked Present / Excused Absent / Unexcused Absent — an
-unexcused absence docks 0.125 service hours; inactive tutors are exempt), apply per-tutor
+first three unexcused absences per semester are allowed, then each docks 0.25 service hours;
+excused absences and inactive tutors are exempt), apply per-tutor
 hour adjustments, review tutee discipline cards, broadcast announcements, and review the
 monthly summary (with a month-picker). The interface is available in English and Chinese.
 

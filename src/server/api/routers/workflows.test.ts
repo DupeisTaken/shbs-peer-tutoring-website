@@ -1,4 +1,6 @@
 import { beforeEach, afterAll, expect, it, vi } from "vitest";
+import { readFileSync } from "node:fs";
+import pg from "pg";
 import type { Session } from "next-auth";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 import { createCaller } from "~/server/api/root";
@@ -14,6 +16,91 @@ import { confirmEmailChange } from "~/server/auth/email-change";
 import { hashCode } from "~/server/auth/registration";
 
 const password = "ReviewPassword123!";
+
+it("upgrades legacy meeting deductions across semesters without changing manual adjustments", async () => {
+  await db.term.createMany({
+    data: [
+      { id: "migration-q2", schoolYear: "26-27", quarter: "Q2", name: "Q2" },
+      { id: "migration-q3", schoolYear: "26-27", quarter: "Q3", name: "Q3" },
+    ],
+  });
+  // Three Q1 absences exhaust the allowance. The fourth in Q2 costs 0.25.
+  // The first in Q3 and an excused meeting must cost nothing after deployment.
+  for (let i = 0; i < 6; i++) {
+    const id = `migration-meeting-${i}`;
+    await db.tutorMeeting.create({
+      data: {
+        id,
+        title: id,
+        date: new Date(`2026-09-${String(i + 1).padStart(2, "0")}T23:30:00Z`),
+        termId:
+          i < 3 ? "review-term" : i === 3 ? "migration-q2" : "migration-q3",
+        attendances: {
+          create: {
+            tutorId: "review-tutor",
+            status: i === 5 ? "EXCUSED_ABSENT" : "UNEXCUSED_ABSENT",
+          },
+        },
+      },
+    });
+    await db.serviceHourAdjustment.create({
+      data: {
+        id: `mtgabs_${id}_review-tutor`,
+        tutorId: "review-tutor",
+        month: "2026-09",
+        schoolYear: "26-27",
+        quarter: "Q1",
+        type: "PUNISHMENT",
+        amount: 0.125,
+      },
+    });
+  }
+  await db.serviceHourAdjustment.create({
+    data: {
+      id: "manual-adjustment",
+      tutorId: "review-tutor",
+      month: "2026-09",
+      schoolYear: "26-27",
+      quarter: "Q1",
+      type: "EXTRA",
+      amount: 2,
+    },
+  });
+  const sql = readFileSync(
+    "prisma/migrations/20260909030000_reconcile_meeting_deductions/migration.sql",
+    "utf8",
+  );
+  // Execute the actual migration including its transaction, like an existing-install upgrade.
+  const connection = new pg.Client({
+    connectionString: process.env.DATABASE_URL,
+  });
+  await connection.connect();
+  try {
+    await connection.query(sql);
+  } finally {
+    await connection.end();
+  }
+  expect(
+    await db.serviceHourAdjustment.findMany({
+      where: { id: { startsWith: "mtgabs_" } },
+      select: { id: true, amount: true, quarter: true, month: true },
+    }),
+  ).toEqual([
+    {
+      id: "mtgabs_migration-meeting-3_review-tutor",
+      amount: 0.25,
+      quarter: "Q2",
+      month: "2026-09",
+    },
+  ]);
+  expect(
+    (
+      await db.serviceHourAdjustment.findUniqueOrThrow({
+        where: { id: "manual-adjustment" },
+      })
+    ).amount,
+  ).toBe(2);
+});
 const roomId = "clreviewroom000000000000001";
 const sessionFor = (
   role: Session["role"] = "HEAD",

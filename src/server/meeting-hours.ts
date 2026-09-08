@@ -1,6 +1,6 @@
 import type { TransactionDb } from "~/server/transactions";
 import { lockEntity } from "~/server/transactions";
-import { monthKey } from "~/lib/service-hours";
+import { DEDUCTION, monthKey } from "~/lib/service-hours";
 
 /** Rebuild only system-owned meeting deductions. Counting across Q1/Q2 or Q3/Q4 makes
  * corrections to early meetings move the threshold consistently, even across refreshes. */
@@ -33,7 +33,7 @@ export async function reconcileMeetingHours(
         schoolYear: term.schoolYear,
         quarter: term.quarter,
         type: "PUNISHMENT",
-        amount: 0.25,
+        amount: DEDUCTION.MISSED_MEETING_UNEXCUSED,
         reason:
           "Unexcused meeting absence beyond the semester allowance of three",
       },

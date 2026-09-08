@@ -20,6 +20,8 @@ Student onboarding is a separate PR. This branch retains the existing public `/s
 
 ## Semester accounting
 
+Deployment migration `20260909030000_reconcile_meeting_deductions` rebuilds existing system meeting deductions using this policy, without changing manual adjustments. Apply migrations before starting the updated app.
+
 The stored program period, not an inferred calendar month, groups meeting absences. Q1/Q2 and Q3/Q4 form the two semesters of each school year. The first three unexcused meeting absences are allowed; each further one deducts 0.25 hours. Excused meetings do not consume the allowance. Correcting or deleting an early meeting recalculates later deductions in the same semester. Meeting self-excuses close 60 minutes before the start.
 
 ## Room conflicts
