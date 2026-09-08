@@ -60,4 +60,6 @@ The partial unique OPEN-request index and history/roster triggers are SQL migrat
 
 The integration suite refuses to reset any database except a loopback database named `shbs_survey_first_test`. Use this isolated database with migrations applied for `npm test`; never use a shared database.
 
+GitHub Actions provisions this same disposable database name for its PostgreSQL service, health check and connection URL. Keep these aligned with the suite's safety guard when updating CI.
+
 Tests cover signup timing, duplicate handling, original priority, email recovery, read-only token inspection, concurrent confirmation/resends, account isolation, policy changes, assignment/deadline boundaries, irreversible disqualification and fresh resubmission, availability-only editing, recall notifications, quarter withdrawal restrictions, selective schedule rejection, legacy roster editors, role scoping, confirmation delays/replay, and actual QR PNG decoding. See [SIGNUP-AUDIT.md](SIGNUP-AUDIT.md) for verification results and remaining deployment checks.
