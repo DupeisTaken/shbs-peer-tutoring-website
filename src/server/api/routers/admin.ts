@@ -65,6 +65,12 @@ import type { db as dbClient } from "~/server/db";
 import { applyUndo, recordAudit } from "~/server/audit/log";
 import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
 import { studentRequestRows } from "~/server/student-workflow";
+import {
+  assertLinkedSlotScheduleAvailable,
+  assertPlannedRoomAvailable,
+  assertRoomBlackoutAvailable,
+  lockPlannedRoomSchedule,
+} from "~/server/room-bookings";
 
 /** Class-of year for a grade in the active school year, or null when neither is known. */
 async function activeGradYear(
@@ -607,13 +613,21 @@ export const adminRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      // New pairings always belong to the active program period.
-      const [slot, period] = await Promise.all([
-        resolveSlot(ctx.db, input.timeSlotId),
-        getActivePeriod(ctx.db),
-      ]);
       const { tuteeIds, ...data } = input;
-      return ctx.db.$transaction(async (tx) => {
+      return inTransaction(ctx.db, async (tx) => {
+        await lockPlannedRoomSchedule(tx);
+        // New pairings always belong to the active program period.
+        const [slot, period] = await Promise.all([
+          resolveSlot(tx, input.timeSlotId),
+          getActivePeriod(tx),
+        ]);
+        await assertPlannedRoomAvailable(tx, {
+          roomId: input.roomId,
+          termId: period.termId,
+          dayOfWeek: slot.dayOfWeek,
+          startMin: slot.startMin,
+          endMin: slot.endMin,
+        });
         // Generic roster tools share the same request lock and first-assignment clock.
         for (const tuteeId of [...tuteeIds].sort())
           await assertStudentRequestAssignable(tx, tuteeId);
@@ -645,10 +659,25 @@ export const adminRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const slot = await resolveSlot(ctx.db, input.timeSlotId);
       const { id, tuteeIds, roomId, ...data } = input;
       // Replace roster atomically; day/start/end follow the chosen slot.
-      return ctx.db.$transaction(async (tx) => {
+      return inTransaction(ctx.db, async (tx) => {
+        await lockPlannedRoomSchedule(tx);
+        const [slot, current] = await Promise.all([
+          resolveSlot(tx, input.timeSlotId),
+          tx.pairing.findUniqueOrThrow({
+            where: { id },
+            select: { termId: true },
+          }),
+        ]);
+        await assertPlannedRoomAvailable(tx, {
+          roomId,
+          termId: current.termId,
+          dayOfWeek: slot.dayOfWeek,
+          startMin: slot.startMin,
+          endMin: slot.endMin,
+          excludePairingId: id,
+        });
         for (const tuteeId of [...tuteeIds].sort())
           await assertStudentRequestAssignable(tx, tuteeId);
         await tx.pairingTutee.deleteMany({ where: { pairingId: id } });
@@ -2265,7 +2294,8 @@ export const adminRouter = createTRPCRouter({
 
       // One transaction keeps the catalog, copied pairing schedule, attendance history, and
       // derived service-hour totals from ever exposing a partially updated timetable.
-      return ctx.db.$transaction(async (tx) => {
+      return inTransaction(ctx.db, async (tx) => {
+        await lockPlannedRoomSchedule(tx);
         const current = await tx.timeSlot.findUniqueOrThrow({
           where: { id },
           select: { dayOfWeek: true, startMin: true, endMin: true },
@@ -2276,6 +2306,15 @@ export const adminRouter = createTRPCRouter({
           current.endMin !== data.endMin;
         const timeChanged =
           current.startMin !== data.startMin || current.endMin !== data.endMin;
+
+        if (scheduleChanged) {
+          await assertLinkedSlotScheduleAvailable(tx, {
+            id,
+            dayOfWeek: data.dayOfWeek,
+            startMin: data.startMin,
+            endMin: data.endMin,
+          });
+        }
 
         const slot = await tx.timeSlot.update({ where: { id }, data });
         if (!scheduleChanged) {
@@ -2400,14 +2439,17 @@ export const adminRouter = createTRPCRouter({
           message: "End must be after start.",
         });
       }
-      return ctx.db.roomUnavailability.create({
-        data: {
-          roomId: input.roomId,
-          dayOfWeek: input.dayOfWeek,
-          startMin: input.startMin,
-          endMin: input.endMin,
-          reason: blankToNull(input.reason),
-        },
+      return inTransaction(ctx.db, async (tx) => {
+        await assertRoomBlackoutAvailable(tx, input);
+        return tx.roomUnavailability.create({
+          data: {
+            roomId: input.roomId,
+            dayOfWeek: input.dayOfWeek,
+            startMin: input.startMin,
+            endMin: input.endMin,
+            reason: blankToNull(input.reason),
+          },
+        });
       });
     }),
 

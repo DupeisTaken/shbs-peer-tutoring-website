@@ -32,6 +32,10 @@ import {
 import { standingFromCounts } from "~/lib/discipline";
 import { syncSessionFlag } from "~/server/crew/flags";
 import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
+import {
+  assertPlannedRoomAvailable,
+  lockPlannedRoomSchedule,
+} from "~/server/room-bookings";
 
 const TUTOR_STATUS = [
   "PRESENT",
@@ -1037,42 +1041,55 @@ export const tutorRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const pairing = await ctx.db.pairing.findFirst({
-        where: { id: input.pairingId, tutorId: ctx.session.tutorId },
-        select: { id: true },
-      });
-      if (!pairing) {
-        throw new TRPCError({
-          code: "NOT_FOUND",
-          message: "Pairing not found for this tutor.",
+      return inTransaction(ctx.db, async (tx) => {
+        // Lock before reading the room so a concurrent management room change
+        // cannot combine with this slot change into an unvalidated final tuple.
+        await lockPlannedRoomSchedule(tx);
+        const pairing = await tx.pairing.findFirst({
+          where: { id: input.pairingId, tutorId: ctx.session.tutorId },
+          select: { id: true, roomId: true, termId: true },
         });
-      }
+        if (!pairing) {
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Pairing not found for this tutor.",
+          });
+        }
 
-      if (input.slotId === null) {
-        return ctx.db.pairing.update({
-          where: { id: pairing.id },
-          data: { timeSlotId: null },
-        });
-      }
+        if (input.slotId === null) {
+          return tx.pairing.update({
+            where: { id: pairing.id },
+            data: { timeSlotId: null },
+          });
+        }
 
-      const slot = await ctx.db.timeSlot.findFirst({
-        where: { id: input.slotId, active: true },
-        select: { dayOfWeek: true, startMin: true, endMin: true },
-      });
-      if (!slot) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Time slot not found.",
+        const slot = await tx.timeSlot.findFirst({
+          where: { id: input.slotId, active: true },
+          select: { dayOfWeek: true, startMin: true, endMin: true },
         });
-      }
-      return ctx.db.pairing.update({
-        where: { id: pairing.id },
-        data: {
-          timeSlotId: input.slotId,
+        if (!slot) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Time slot not found.",
+          });
+        }
+        await assertPlannedRoomAvailable(tx, {
+          roomId: pairing.roomId,
+          termId: pairing.termId,
           dayOfWeek: slot.dayOfWeek,
           startMin: slot.startMin,
           endMin: slot.endMin,
-        },
+          excludePairingId: pairing.id,
+        });
+        return tx.pairing.update({
+          where: { id: pairing.id },
+          data: {
+            timeSlotId: input.slotId,
+            dayOfWeek: slot.dayOfWeek,
+            startMin: slot.startMin,
+            endMin: slot.endMin,
+          },
+        });
       });
     }),
 
