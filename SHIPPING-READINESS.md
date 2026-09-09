@@ -9,6 +9,7 @@ This branch combines PRs #6–#9 into a single application. It includes the comp
 - Student proposals consume the requester's timed confirmation, then require a fresh reviewer confirmation. A failed approval rolls back the assignment, decision, notifications and ticket consumption. Assignment email occurs after commit, with an explicit retry result on delivery failure.
 - Migration collisions are resolved for the shared student prerequisites and audit evidence column. Historical meeting penalties are reconciled to the three-absence allowance and 0.25-hour rule. Manual adjustments are preserved.
 - All suites share an explicitly allowed loopback `shbs_shipping_test` database. CI requires static checks, tests, production audit, production build, and image boot. The exact image is restarted to verify deadline enforcement resumes automatically.
+- The dependency lockfile matches the production bootstrap requirements. Vitest 4.1.11 fixes [GHSA-82fw-gwwq-j7x9](https://github.com/vitest-dev/vitest/security/advisories/GHSA-82fw-gwwq-j7x9); CI audits development dependencies as well as production packages.
 
 ## Local verification
 
@@ -21,7 +22,7 @@ npm ci
 npm run db:migrate
 npm run check
 npm test -- --maxWorkers=1
-npm audit --omit=dev
+npm audit
 npm run build
 ```
 
