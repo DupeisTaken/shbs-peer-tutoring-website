@@ -662,6 +662,141 @@ it("translation editor rejects malformed ICU before it can break a page", async 
   expect(await db.messageOverride.count()).toBe(1);
 });
 
+it("activity summary includes modern queues without double-counting linked students", async () => {
+  await db.tutee.create({
+    data: {
+      id: "modern-pending",
+      englishName: "Modern Pending",
+      status: "PENDING",
+      intakeTermId: "review-term",
+    },
+  });
+  await db.tutee.create({
+    data: {
+      id: "legacy-pending",
+      englishName: "Legacy Pending",
+      status: "PENDING",
+      intakeTermId: "review-term",
+    },
+  });
+  const payload = (email: string, englishName: string) => ({
+    email,
+    englishName,
+    preferredContact: email,
+    firstChoiceId: "review-subject",
+    slotIds: ["review-slot"],
+    signatureName: englishName,
+    agreed: true,
+    policyRevision: "review-revision",
+  });
+  await db.studentSurvey.createMany({
+    data: [
+      {
+        id: "unverified-survey",
+        email: "unverified@example.test",
+        intakeTermId: "review-term",
+        payload: payload("unverified@example.test", "Unverified Student"),
+        policyRevision: "review-revision",
+        policySnapshot: [],
+        tokenHash: "unverified-token",
+        expiresAt: new Date(Date.now() + 60_000),
+      },
+      {
+        id: "confirmed-survey",
+        email: "confirmed@example.test",
+        intakeTermId: "review-term",
+        payload: payload("confirmed@example.test", "Confirmed Student"),
+        policyRevision: "review-revision",
+        policySnapshot: [],
+        tokenHash: "confirmed-token",
+        expiresAt: new Date(Date.now() + 60_000),
+        confirmedAt: new Date(),
+        tuteeId: "modern-pending",
+      },
+    ],
+  });
+  await db.studentRequestReview.createMany({
+    data: [
+      {
+        surveyId: "confirmed-survey",
+        kind: "SCHEDULE_CONFLICT",
+        requestedByUserId: "review-user",
+        reason: "Modern review",
+      },
+      {
+        legacyTuteeId: "legacy-pending",
+        legacyIntakeTermId: "review-term",
+        kind: "SCHEDULE_CONFLICT",
+        requestedByUserId: "review-user",
+        reason: "Legacy review",
+      },
+    ],
+  });
+  await db.studentAppeal.create({
+    data: {
+      studentId: "review-tutee",
+      cardId: "activity-card",
+      body: "Please review",
+    },
+  });
+  await db.accountAppeal.create({
+    data: { userId: "review-viewer", message: "Please reinstate" },
+  });
+  await db.translationDraft.create({
+    data: {
+      authorId: "review-user",
+      operation: "localization.setString",
+      payload: { locale: "en", key: "activity.test", value: "Draft" },
+    },
+  });
+  await db.approvalRequest.create({
+    data: {
+      requesterId: "review-user",
+      requesterName: "Review Tutor",
+      operation: "admin.setTutorStatus",
+      payload: {},
+      fingerprint: "activity-fingerprint",
+      targets: {},
+    },
+  });
+
+  const summary = await caller().admin.activitySummary();
+  expect(summary).toMatchObject({
+    unverified: 1,
+    // One confirmed survey-first request plus one unrelated legacy pending tutee.
+    matching: 2,
+    studentReviews: 2,
+    studentAppeals: 1,
+    accountAppeals: 1,
+    translationDrafts: 1,
+    approvalRequests: 1,
+  });
+  expect(summary.linkedTuteeIds).toEqual(["modern-pending"]);
+  expect(summary.intakeRows.map((row) => row.id)).toEqual([
+    "unverified-survey",
+    "confirmed-survey",
+  ]);
+
+  await db.user.create({
+    data: {
+      id: "activity-coordinator",
+      email: "activity-coordinator@example.test",
+      role: "COORDINATOR",
+    },
+  });
+  expect(
+    (
+      await caller(
+        "COORDINATOR",
+        "activity-coordinator",
+      ).admin.activitySummary()
+    ).approvalRequests,
+  ).toBeNull();
+  await expect(
+    caller("VIEWER", "review-viewer").admin.activitySummary(),
+  ).rejects.toMatchObject({ code: "FORBIDDEN" });
+});
+
 it("PASS: attendance persists expected service hours and roster", async () => {
   const result = await tutor().tutor.submitAttendance(attendance());
   const row = await db.session.findUniqueOrThrow({

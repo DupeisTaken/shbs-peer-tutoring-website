@@ -503,7 +503,7 @@
         "openItems": "offene Aufgaben",
         "across": "in {count} Warteschlangen",
         "triage": "Wo der Rückstau ist",
-        "allClear": "Alles erledigt — nichts wartet auf Prüfung."
+        "allClear": "In den hier angezeigten Warteschlangen gibt es keine offenen Einträge."
       }
     },
     "summary": {

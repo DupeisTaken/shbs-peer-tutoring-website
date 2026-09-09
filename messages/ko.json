@@ -503,7 +503,7 @@
         "openItems": "미처리 항목",
         "across": "{count}개 대기열",
         "triage": "백로그 분포",
-        "allClear": "모두 처리됨 — 검토 대기 항목이 없습니다."
+        "allClear": "여기에 표시된 대기열에는 처리할 항목이 없습니다."
       }
     },
     "summary": {

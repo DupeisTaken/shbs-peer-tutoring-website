@@ -62,6 +62,7 @@ import {
 import type { db as dbClient } from "~/server/db";
 import { applyUndo, recordAudit } from "~/server/audit/log";
 import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
+import { studentRequestRows } from "~/server/student-workflow";
 
 /** Class-of year for a grade in the active school year, or null when neither is known. */
 async function activeGradYear(
@@ -208,6 +209,100 @@ const TUTOR_APP_STATUS = [
 ] as const;
 
 export const adminRouter = createTRPCRouter({
+  /**
+   * Exact counts for the activity board's management-only queues. The summary is computed on the
+   * server so paginated review screens cannot undercount their pending work. Modern survey-first
+   * requests carry their linked tutee ids; the client excludes those ids from the legacy pending
+   * roster and therefore never presents one student twice.
+   */
+  activitySummary: adminProcedure.query(async ({ ctx }) => {
+    const activeTerm = await ctx.db.term.findFirst({
+      where: { active: true },
+      orderBy: { createdAt: "desc" },
+      select: { id: true },
+    });
+    const requests = await studentRequestRows(ctx.db);
+    const linkedTuteeIds = requests.flatMap((row) =>
+      row.tuteeId ? [row.tuteeId] : [],
+    );
+    const unverified = requests.filter(
+      (row) => row.state === "OPEN" && row.confirmedAt == null,
+    );
+    const matching = requests.filter(
+      (row) =>
+        row.state === "OPEN" &&
+        row.confirmedAt != null &&
+        row.subjects.some(
+          (subject) =>
+            !row.pairings.some((pairing) => pairing.subject === subject.name),
+        ),
+    );
+    const [
+      legacyPending,
+      legacyReviews,
+      studentAppeals,
+      accountAppeals,
+      translationDrafts,
+      approvalRequests,
+    ] = await Promise.all([
+      ctx.db.tutee.count({
+        where: {
+          status: "PENDING",
+          ...(linkedTuteeIds.length > 0
+            ? { id: { notIn: linkedTuteeIds } }
+            : {}),
+        },
+      }),
+      activeTerm
+        ? ctx.db.studentRequestReview.count({
+            where: {
+              surveyId: null,
+              legacyIntakeTermId: activeTerm.id,
+              state: "PENDING",
+            },
+          })
+        : Promise.resolve(0),
+      ctx.db.studentAppeal.count({ where: { state: "PENDING" } }),
+      ctx.db.accountAppeal.count({ where: { state: "PENDING" } }),
+      ctx.db.translationDraft.count({ where: { state: "PENDING" } }),
+      ["HEAD", "ADMIN"].includes(ctx.session.role)
+        ? ctx.db.approvalRequest.count({ where: { state: "PENDING" } })
+        : Promise.resolve(null),
+    ]);
+
+    return {
+      linkedTuteeIds,
+      unverified: unverified.length,
+      matching: matching.length + legacyPending,
+      studentReviews:
+        legacyReviews +
+        requests.reduce(
+          (count, row) =>
+            count +
+            row.reviews.filter((review) => review.state === "PENDING").length,
+          0,
+        ),
+      studentAppeals,
+      accountAppeals,
+      translationDrafts,
+      // Coordinators can track their proposals on /admin/approvals but cannot review the
+      // collective approval queue, so the board omits that management-only count for them.
+      approvalRequests,
+      intakeRows: [...unverified, ...matching]
+        .sort((a, b) => +a.submittedAt - +b.submittedAt)
+        .map((row) => ({
+          id: row.id,
+          name: row.name,
+          submittedAt: row.submittedAt,
+          stage:
+            row.confirmedAt == null
+              ? ("UNVERIFIED" as const)
+              : ("MATCHING" as const),
+          subjects: row.subjects.map((subject) => subject.name),
+        })),
+    };
+  }),
+
   // --------------------------------------------------------------------------
   // Reference lists
   // --------------------------------------------------------------------------
