@@ -12,6 +12,7 @@
  * Node runtime only (touches the database).
  */
 import { db } from "~/server/db";
+import type { TransactionDb } from "~/server/transactions";
 
 /** Keep only [a-z0-9], lowercased. */
 function slug(value: string): string {
@@ -83,12 +84,19 @@ function* usernameCandidates(root: string): Generator<string> {
 export async function ensureUniqueUsername(
   base: string,
   opts: { excludeTutorId?: string; excludeUserId?: string } = {},
+  client: TransactionDb = db,
 ): Promise<string> {
   const root = slug(base) || "tutor";
   for (const candidate of usernameCandidates(root)) {
     const [tutor, user] = await Promise.all([
-      db.tutor.findUnique({ where: { username: candidate }, select: { id: true } }),
-      db.user.findUnique({ where: { username: candidate }, select: { id: true } }),
+      client.tutor.findUnique({
+        where: { username: candidate },
+        select: { id: true },
+      }),
+      client.user.findUnique({
+        where: { username: candidate },
+        select: { id: true },
+      }),
     ]);
     const tutorClash = tutor && tutor.id !== opts.excludeTutorId;
     const userClash = user && user.id !== opts.excludeUserId;
@@ -103,8 +111,11 @@ export async function ensureUniqueUsername(
  * local-part). Idempotent — returns the existing username untouched when already set. Used to
  * uphold the "every account has a username" invariant on sign-in, creation, and backfill.
  */
-export async function ensureUserUsername(userId: string): Promise<string> {
-  const user = await db.user.findUnique({
+export async function ensureUserUsername(
+  userId: string,
+  client: TransactionDb = db,
+): Promise<string> {
+  const user = await client.user.findUnique({
     where: { id: userId },
     select: {
       id: true,
@@ -112,13 +123,13 @@ export async function ensureUserUsername(userId: string): Promise<string> {
       role: true,
       name: true,
       email: true,
-      tutor: { select: { username: true } },
+      tutor: { select: { id: true, username: true } },
     },
   });
   if (!user) return "";
   if (user.username) return user.username;
-  // Viewers (read-only VIEWER, no tutor) may be username-less — they sign in by email.
-  if (user.role === "VIEWER" && !user.tutor) return "";
+  // Public student/viewer accounts sign in by email and do not need generated handles.
+  if (["VIEWER", "STUDENT"].includes(user.role) && !user.tutor) return "";
 
   let base = user.tutor?.username ?? "";
   if (!base) {
@@ -131,7 +142,14 @@ export async function ensureUserUsername(userId: string): Promise<string> {
   }
   if (!base) base = slug(user.email.split("@")[0] ?? "");
 
-  const username = await ensureUniqueUsername(base, { excludeUserId: user.id });
-  await db.user.update({ where: { id: user.id }, data: { username } });
+  const username = await ensureUniqueUsername(
+    base,
+    {
+      excludeUserId: user.id,
+      excludeTutorId: user.tutor?.id,
+    },
+    client,
+  );
+  await client.user.update({ where: { id: user.id }, data: { username } });
   return username;
 }

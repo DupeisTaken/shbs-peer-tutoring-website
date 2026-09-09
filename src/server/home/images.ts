@@ -25,14 +25,19 @@ export function isAllowedImageType(mime: string): boolean {
 }
 
 /** Whether the current session may edit landing content; returns the editor's display name. */
-export async function authorizeHomeEditor(): Promise<{ ok: boolean; name: string | null }> {
+export async function authorizeHomeEditor(): Promise<{
+  ok: boolean;
+  name: string | null;
+}> {
   const session = await auth();
   if (!session?.user) return { ok: false, name: null };
   const name = session.user.name ?? null;
-  if (ELEVATED_ROLES.includes(session.role ?? "")) return { ok: true, name };
   const me = await db.user.findUnique({
     where: { id: session.user.id },
-    select: { canTranslate: true },
+    select: { canTranslate: true, role: true, suspendedAt: true },
   });
-  return { ok: Boolean(me?.canTranslate), name };
+  return {
+    ok: Boolean(me && !me.suspendedAt && ELEVATED_ROLES.includes(me.role)),
+    name,
+  };
 }

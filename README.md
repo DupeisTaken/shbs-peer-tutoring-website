@@ -5,9 +5,11 @@ attendance submissions, tutor-meeting tracking, and automatic service-hour accou
 
 Tutors sign in, see their schedule, and submit attendance with quality ratings for each
 session. The app derives service hours from each submission and rolls them up by month.
-Coordinators and admins manage the roster (tutors, tutees, rooms, pairings, terms),
+Admins manage the roster directly; coordinators are trainees whose sensitive changes require
+admin approval. Both roles work with the roster (tutors, tutees, rooms, pairings, terms),
 run tutor meetings (each tutor marked Present / Excused Absent / Unexcused Absent — an
-unexcused absence docks 0.125 service hours; inactive tutors are exempt), apply per-tutor
+first three unexcused absences per semester are allowed, then each docks 0.25 service hours;
+excused absences and inactive tutors are exempt), apply per-tutor
 hour adjustments, review tutee discipline cards, broadcast announcements, and review the
 monthly summary (with a month-picker). The interface is available in English and Chinese.
 
@@ -27,7 +29,9 @@ Built on the [T3 Stack](https://create.t3.gg/):
 
 ### Roles
 
-Every signed-in user has one role (stored on `User.role`, carried in the JWT):
+Every signed-in user has one role (stored on `User.role`, carried in the JWT). Protected API
+requests reload current role, tutor linkage and suspension state from the database, so a stale
+cookie cannot retain revoked privileges:
 
 | Role          | Can do                                                                                                                                                                                                                       |
 | ------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
@@ -181,7 +185,10 @@ interview panel, reviewing a card, deciding an interview) use **optimistic versi
 the client sends the `updatedAt` it loaded, and a conditional write is rejected with a
 `CONFLICT` if another coordinator changed the row first (`src/server/concurrency.ts`). Mutating
 admin actions are also recorded to an **audit log** (`/admin/audit`) with one-click undo where
-the inverse is well-defined.
+the inverse is well-defined. Coordinators submit sensitive changes to `/admin/approvals`;
+ADMIN or HEAD reviews and applies them with recorded feedback. The audit log supports user,
+action/decision, record-type, description and date filters with pagination. See
+[Coordinator Approvals](COORDINATOR-APPROVALS.md) for the role boundaries and review workflow.
 
 ### Internationalization
 
@@ -323,3 +330,10 @@ prisma/
 
 Production runs as a single-VPS Docker Compose stack (Caddy + app + Postgres) with the
 image built in CI and pulled to the host. See **[README-DEPLOY.md](./README-DEPLOY.md)**.
+
+## Student Accounts and Confirmed Workflows
+
+The student portal, private messages, feedback visibility, card appeals, reviewed translations, versioned consent and updated interview/meeting rules are described in [STUDENT-WORKFLOWS.md](STUDENT-WORKFLOWS.md). See [REVIEW-QUESTIONS.md](REVIEW-QUESTIONS.md) for the confirmed product decisions. The integrated portal combines signup lifecycle actions with personal history. See [SHIPPING-READINESS.md](SHIPPING-READINESS.md) for validation and deferred launch setup.
+## Student signup
+
+Students submit a survey, then use an emailed link to confirm their address and create an account. Management can assign unverified students in original submission order; seven days after the first assignment, unverified requests are permanently disqualified. The workflow supports availability edits, recalls, quarter-withdrawal applications, tutor schedule-rejection applications and policy reconfirmation. Serious actions use timed consequence dialogs. See [STUDENT-SIGNUP.md](./STUDENT-SIGNUP.md) for the rules, deployment requirements and tests.

@@ -5,10 +5,12 @@ node_modules
 generated
 npm-debug.log*
 *.log
-.env
-.env*.local
+.env*
+!.env.example
+outputs
 README.md
 README-DEPLOY.md
 .vscode
 .idea
 coverage
+.validation

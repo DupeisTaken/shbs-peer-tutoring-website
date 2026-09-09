@@ -4,10 +4,14 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
+import { AttendanceCorrection } from "~/app/_components/attendance-correction";
+import { useReadOnly } from "~/app/_components/read-only";
 import { currentMonth } from "~/lib/time";
 
 export default function SubmissionsPage() {
   const t = useTranslations();
+  const readOnly = useReadOnly();
+  const [editingId, setEditingId] = useState<string | null>(null);
   const [month, setMonth] = useState(currentMonth());
   const [tutorId, setTutorId] = useState("");
   const tutors = api.admin.tutors.useQuery();
@@ -41,6 +45,17 @@ export default function SubmissionsPage() {
         </select>
       </div>
 
+      {editingId && !readOnly && (
+        <section className="card space-y-3 p-5">
+          <button
+            className="btn-secondary btn-sm"
+            onClick={() => setEditingId(null)}
+          >
+            {t("common.cancel")}
+          </button>
+          <AttendanceCorrection key={editingId} id={editingId} />
+        </section>
+      )}
       <div className="card overflow-x-auto">
         <table className="data-table">
           <thead>
@@ -56,12 +71,27 @@ export default function SubmissionsPage() {
           <tbody>
             {(sessions.data ?? []).map((s) => (
               <tr key={s.id}>
-                <td>{new Date(s.date).toLocaleDateString()}</td>
+                <td>
+                  {new Date(s.date).toLocaleDateString(undefined, {
+                    timeZone: "UTC",
+                  })}
+                </td>
                 <td>{s.tutor.englishName}</td>
                 <td>{s.pairing.subject}</td>
                 <td className="text-slate-500">{s.tutorStatus}</td>
                 <td>{s.tutees.map((t) => t.tutee.englishName).join(", ")}</td>
-                <td className="text-right">{s.shCount.toFixed(1)}</td>
+                <td className="text-right">
+                  {s.shCount.toFixed(1)}
+                  {!readOnly &&
+                    (!s.mergeGroupId || s.mergeGroupId === s.id) && (
+                      <button
+                        className="link ml-2"
+                        onClick={() => setEditingId(s.id)}
+                      >
+                        {t("corrections.editAttendance")}
+                      </button>
+                    )}
+                </td>
               </tr>
             ))}
             {sessions.data?.length === 0 && (

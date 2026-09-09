@@ -9,6 +9,7 @@ import { TRPCReactProvider } from "~/trpc/react";
 import { IntlProvider } from "~/app/_components/intl-provider";
 import { APP_TITLE } from "~/lib/branding";
 import { DEFAULT_THEME, THEME_COOKIE, isTheme } from "~/lib/theme";
+import { StudentPolicyGate } from "~/app/_components/student-policy-gate";
 
 export const metadata: Metadata = {
   title: APP_TITLE,
@@ -27,7 +28,10 @@ export default async function RootLayout({
     <html lang={locale} data-theme={theme} className={GeistSans.variable}>
       <body>
         <IntlProvider locale={locale} messages={messages}>
-          <TRPCReactProvider>{children}</TRPCReactProvider>
+          <TRPCReactProvider>
+            <StudentPolicyGate />
+            {children}
+          </TRPCReactProvider>
         </IntlProvider>
       </body>
     </html>

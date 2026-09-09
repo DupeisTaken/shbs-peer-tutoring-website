@@ -55,6 +55,19 @@ empty last name.) Re-run `npm run db:seed` twice after changing it — it must s
 
 ## Architecture & conventions
 
+- **Coordinators are trainees.** Sensitive management mutations create pending proposals;
+  they do not modify live records. See [COORDINATOR-APPROVALS.md](COORDINATOR-APPROVALS.md)
+  and `src/lib/approval-policy.ts`, which supersede older coordinator permission descriptions
+  below. ADMIN/HEAD reviews with a required note. Unknown coordinator writes fail closed.
+  Keep approver identity separate from requester identity; never impersonate the requester.
+- **Approval transactions include shared helpers.** `src/server/db-scope.ts` binds the shared
+  database proxy to the current decision transaction. `inTransaction` composes with that scope;
+  do not create an independent Prisma client in a mutation/helper. Input parsing and business
+  validation are reused at approval, and recorded target evidence must still match.
+- **Audit all signed-in mutations.** Protected procedure middleware records successful actions
+  by stable user ID, with structured event/operation/request filters. Retain meaningful existing
+  undo records. Do not add credentials or raw account/message payloads to audit metadata.
+
 - **Branding is env-driven — never hardcode a title.** Import `APP_TITLE` /
   `TEAM_TITLE` from `~/lib/branding`. `APP_TITLE` (default "SHBS Peer Tutoring") is the
   public/student-facing brand; `TEAM_TITLE` (default "SHBS Peer Tutoring Team") brands
@@ -79,7 +92,7 @@ empty last name.) Re-run `npm run db:seed` twice after changing it — it must s
   *not* hide+block: **`QUARTER_SYSTEM`** is a *mode* not a disable: ON = quarters (Q1–Q4), OFF =
   semesters (S1/S2) — `nextPeriod`/`periodLabel` take a `semesterMode` flag and the refresh advances
   a whole semester (graduation then moves to the year boundary). **`EMAIL_2FA`** gates email
-  two-factor — the sign-in second factor (still scaffolded, `two-factor.ts`) plus the emailed
+  two-factor — the enforced sign-in second factor (`two-factor.ts`) plus the emailed
   step-up code on a password change; OFF means a verified current password alone changes the
   password (for a program with no email configured) and the onboarding 2FA opt-in is hidden — gated
   in `account`/`tutor` `changePassword` (code optional, verified only when on) and the two password
@@ -294,14 +307,14 @@ submission time). See the `admin-philosophies` memory for the rationale.
   it guards the form action **and** a direct POST to the credentials endpoint. On exceed it throws a
   `CredentialsSignin` with code `rate_limited`, which the sign-in action surfaces as a distinct
   "too many attempts" message. (In-memory + per-process — swap for a shared store if scaled out.)
-- **Changing a password requires emailed step-up 2FA.** Both self-service password changes
+- **Changing a password requires emailed step-up when EMAIL_2FA is enabled.** Both self-service password changes
   (`account.changePassword` for the admin area, `tutor.changePassword` for `/settings`) are a
   two-step flow: `requestPasswordChangeCode` verifies the current password and emails a 5-digit
   code, then `changePassword` requires that code plus the current + new password. The code logic
   is `src/server/auth/step-up.ts` (`issueStepUpCode`/`verifyStepUpCode`, purpose `PASSWORD_CHANGE`):
   HMAC-hashed at rest (keyed with `AUTH_SECRET`), 15-min expiry, single-use, attempt-capped, sent
-  via the email seam. It reuses the `EmailVerificationCode` table (the LOGIN_2FA second factor is
-  still scaffolded only — `src/server/auth/two-factor.ts`).
+  via the email seam. It reuses the `EmailVerificationCode` table with the implemented LOGIN_2FA
+  second factor in `src/server/auth/two-factor.ts`. Real SMTP delivery still requires operator setup.
 - Sign-in accepts **username or email** + password — the identifier is matched against
   `User.email`, `User.username`, or the linked `Tutor.username` in the Credentials `authorize()`.
 - **Email delivery is Aliyun Direct Mail (SMTP via nodemailer)** in
@@ -505,3 +518,17 @@ src/
   styles/globals.css   # Tailwind + design-system classes
 prisma/schema.prisma   # data model   ·   prisma/seed.ts  # sample data + dev users
 ```
+
+## Student signup
+
+`/signup` saves the survey before email verification. Keep `StudentSurvey.submittedAt` immutable. Unverified students may be assigned; their first assignment starts a fixed seven-day verification deadline. Expiry permanently disqualifies that request; a fresh submission gets a new timestamp. Students can change only availability after confirmation/login. Approved quarter withdrawal blocks further requests in that quarter. Policy reconfirmation is independent of priority. Serious workflow actions require timed confirmation tickets. Preserve processed history and enforce terminal states through every assignment entrypoint. See [STUDENT-SIGNUP.md](./STUDENT-SIGNUP.md) for setup and tests.
+
+<!-- BEGIN:nextjs-agent-rules -->
+
+# This is NOT the Next.js you know
+
+This version has breaking changes — APIs, conventions, and file structure may all differ from your training data. Read the relevant guide in `node_modules/next/dist/docs/` (resolved from this file's directory; in monorepos the `next` package may not be visible from the repo root) before writing any code. Heed deprecation notices.
+
+This block is written and re-added by `next dev` — verify at `node_modules/next/dist/server/lib/generate-agent-files.js`. Removing it from a diff only re-creates the uncommitted change; committing it with your work keeps the tree clean.
+
+<!-- END:nextjs-agent-rules -->

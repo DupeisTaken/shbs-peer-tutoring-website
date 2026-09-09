@@ -1,5 +1,6 @@
 "use client";
 
+import { StudentScheduleAction } from "./student-schedule-action";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 
@@ -16,6 +17,7 @@ export function TutorPairings() {
   const t = useTranslations();
   const utils = api.useUtils();
   const pairings = api.tutor.myPairings.useQuery();
+  const workflowRoster = api.studentWorkflow.tutorRoster.useQuery();
   const availability = api.tutor.myAvailability.useQuery();
   const removalRequests = api.tutor.myTuteeRemovalRequests.useQuery();
   const setSlot = api.tutor.setPairingSlot.useMutation({
@@ -97,6 +99,9 @@ export function TutorPairings() {
               ) : (
                 <ul className="space-y-1">
                   {p.tutees.map((x) => {
+                    const workflowRow = workflowRoster.data?.find(
+                      (r) => r.tuteeId === x.tuteeId && r.pairingId === p.id,
+                    );
                     const key = `${p.id}:${x.tuteeId}`;
                     const pendingId = pendingByKey.get(key);
                     const composing =
@@ -108,7 +113,12 @@ export function TutorPairings() {
                           <span className="min-w-0 text-slate-700">
                             {x.tutee.englishName}
                           </span>
-                          {pendingId ? (
+                          {workflowRow && !workflowRow.managed && (
+                            <StudentScheduleAction row={workflowRow} />
+                          )}
+                          {workflowRow?.managed ? (
+                            <StudentScheduleAction row={workflowRow} />
+                          ) : pendingId ? (
                             <>
                               <span className="badge-amber">
                                 {t("tutor.pairings.removalPending")}

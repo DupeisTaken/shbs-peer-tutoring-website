@@ -1,0 +1,6 @@
+ALTER TABLE "AuditLog" ADD COLUMN "details" JSONB;
+ALTER TABLE "Session" ADD COLUMN "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP;
+ALTER TABLE "Patrol" ADD COLUMN "updatedAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  ADD COLUMN "submissionKey" TEXT,
+  ADD COLUMN "submissionPayloadHash" TEXT;
+CREATE UNIQUE INDEX "Patrol_submissionKey_key" ON "Patrol"("submissionKey");

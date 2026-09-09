@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { TwoFactorSettings } from "~/app/_components/two-factor-settings";
+import { EmailChange } from "~/app/_components/email-change";
 
 export default function SettingsPage() {
   const t = useTranslations();
@@ -25,9 +26,15 @@ export default function SettingsPage() {
       utils.tutor.myStatusRequest.invalidate(),
     ]);
   };
-  const optOut = api.tutor.requestOptOut.useMutation({ onSuccess: refreshMembership });
-  const reentry = api.tutor.requestReentry.useMutation({ onSuccess: refreshMembership });
-  const recall = api.tutor.recallStatusRequest.useMutation({ onSuccess: refreshMembership });
+  const optOut = api.tutor.requestOptOut.useMutation({
+    onSuccess: refreshMembership,
+  });
+  const reentry = api.tutor.requestReentry.useMutation({
+    onSuccess: refreshMembership,
+  });
+  const recall = api.tutor.recallStatusRequest.useMutation({
+    onSuccess: refreshMembership,
+  });
 
   // Profile form — seeded from the loaded profile.
   const [altNames, setAltNames] = useState("");
@@ -38,7 +45,9 @@ export default function SettingsPage() {
     if (profile.data) {
       setAltNames(profile.data.alternativeNames ?? "");
       setEmail(profile.data.email ?? "");
-      setGrade(profile.data.gradeLevel != null ? String(profile.data.gradeLevel) : "");
+      setGrade(
+        profile.data.gradeLevel != null ? String(profile.data.gradeLevel) : "",
+      );
     }
   }, [profile.data]);
 
@@ -89,7 +98,11 @@ export default function SettingsPage() {
   // Step 2: submit the new password with the emailed code.
   const submitPassword = () => {
     setPwError(null);
-    changePassword.mutate({ currentPassword: current, newPassword: next, code: code.trim() });
+    changePassword.mutate({
+      currentPassword: current,
+      newPassword: next,
+      code: code.trim(),
+    });
   };
 
   return (
@@ -106,7 +119,9 @@ export default function SettingsPage() {
         <div className="grid grid-cols-2 gap-3 text-sm">
           <div>
             <p className="label">{t("tutor.settings.name")}</p>
-            <p className="mt-1 text-slate-800">{profile.data?.englishName ?? "—"}</p>
+            <p className="mt-1 text-slate-800">
+              {profile.data?.englishName ?? "—"}
+            </p>
           </div>
           <div>
             <p className="label">{t("tutor.settings.username")}</p>
@@ -138,17 +153,14 @@ export default function SettingsPage() {
             lang="zh"
             className="input"
           />
-          <span className="muted text-xs">{t("tutor.settings.altNamesHelp")}</span>
+          <span className="muted text-xs">
+            {t("tutor.settings.altNamesHelp")}
+          </span>
         </label>
 
         <label className="block space-y-1">
           <span className="label">{t("tutor.settings.email")}</span>
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            type="email"
-            className="input"
-          />
+          <input value={email} readOnly type="email" className="input" />
           <span className="muted text-xs">{t("tutor.settings.emailHelp")}</span>
         </label>
 
@@ -159,18 +171,23 @@ export default function SettingsPage() {
             onClick={() =>
               updateProfile.mutate({
                 alternativeNames: altNames.trim() || null,
-                email: email.trim() || undefined,
                 gradeLevel: grade.trim() ? Number(grade) : null,
               })
             }
           >
-            {updateProfile.isPending ? t("tutor.settings.saving") : t("tutor.settings.save")}
+            {updateProfile.isPending
+              ? t("tutor.settings.saving")
+              : t("tutor.settings.save")}
           </button>
           {updateProfile.isSuccess && (
-            <span className="text-sm text-green-600">{t("tutor.settings.saved")}</span>
+            <span className="text-sm text-green-600">
+              {t("tutor.settings.saved")}
+            </span>
           )}
           {updateProfile.error && (
-            <span className="text-sm text-red-600">{updateProfile.error.message}</span>
+            <span className="text-sm text-red-600">
+              {updateProfile.error.message}
+            </span>
           )}
         </div>
       </section>
@@ -178,9 +195,13 @@ export default function SettingsPage() {
       {/* Password — two-step: verify current password to email a code, then submit code + new pw. */}
       <section className="card space-y-4 p-5">
         <div>
-          <h2 className="section-title">{t("tutor.settings.passwordHeading")}</h2>
+          <h2 className="section-title">
+            {t("tutor.settings.passwordHeading")}
+          </h2>
           {email2fa && (
-            <p className="muted mt-1 text-sm">{t("account.password.twoFactorHint")}</p>
+            <p className="muted mt-1 text-sm">
+              {t("account.password.twoFactorHint")}
+            </p>
           )}
         </div>
 
@@ -222,7 +243,7 @@ export default function SettingsPage() {
 
         {/* Step 2 appears once the code is emailed. */}
         {sentTo && (
-          <div className="space-y-2 rounded-lg border border-accent-200 bg-accent-50/60 p-4">
+          <div className="border-accent-200 bg-accent-50/60 space-y-2 rounded-lg border p-4">
             <p className="text-sm text-slate-700">
               {t("account.password.codeSent", { email: sentTo })}
             </p>
@@ -230,12 +251,19 @@ export default function SettingsPage() {
               <span className="label">{t("account.password.codeLabel")}</span>
               <input
                 value={code}
-                onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, "").slice(0, 5))}
+                onChange={(e) =>
+                  setCode(
+                    e.target.value
+                      .toUpperCase()
+                      .replace(/[^0-9A-Z]/g, "")
+                      .slice(0, 5),
+                  )
+                }
                 autoCapitalize="characters"
                 autoComplete="one-time-code"
                 maxLength={5}
                 placeholder="XXXXX"
-                className="input field-auto min-w-40 font-mono uppercase tracking-[0.3em]"
+                className="input field-auto min-w-40 font-mono tracking-[0.3em] uppercase"
               />
             </label>
             <button
@@ -280,27 +308,38 @@ export default function SettingsPage() {
                   ? t("tutor.settings.changing")
                   : t("tutor.settings.changePasswordBtn")}
               </button>
-              <button type="button" className="btn-secondary" onClick={resetPasswordForm}>
+              <button
+                type="button"
+                className="btn-secondary"
+                onClick={resetPasswordForm}
+              >
                 {t("account.password.cancel")}
               </button>
             </>
           )}
           {changePassword.isSuccess && (
-            <span className="text-sm text-green-600">{t("tutor.settings.passwordChanged")}</span>
+            <span className="text-sm text-green-600">
+              {t("tutor.settings.passwordChanged")}
+            </span>
           )}
           {(pwError ?? changePassword.error ?? requestCode.error) && (
             <span className="text-sm text-red-600">
-              {pwError ?? changePassword.error?.message ?? requestCode.error?.message}
+              {pwError ??
+                changePassword.error?.message ??
+                requestCode.error?.message}
             </span>
           )}
         </div>
       </section>
 
+      <EmailChange />
       <TwoFactorSettings />
 
       {/* Membership — opt-out / reentry */}
       <section className="card space-y-4 p-5">
-        <h2 className="section-title">{t("tutor.settings.membershipHeading")}</h2>
+        <h2 className="section-title">
+          {t("tutor.settings.membershipHeading")}
+        </h2>
 
         {statusReq.data ? (
           // There's an open request — show its state + a recall control.
@@ -309,7 +348,9 @@ export default function SettingsPage() {
               {statusReq.data.kind === "OPT_OUT"
                 ? statusReq.data.eligibleAt
                   ? t("tutor.settings.optOutPending", {
-                      date: new Date(statusReq.data.eligibleAt).toLocaleDateString(),
+                      date: new Date(
+                        statusReq.data.eligibleAt,
+                      ).toLocaleDateString(),
                     })
                   : t("tutor.settings.optOutPendingNoDate")
                 : t("tutor.settings.reentryPending")}
@@ -321,7 +362,9 @@ export default function SettingsPage() {
             >
               {t("tutor.settings.recall")}
             </button>
-            {recall.error && <p className="text-sm text-red-600">{recall.error.message}</p>}
+            {recall.error && (
+              <p className="text-sm text-red-600">{recall.error.message}</p>
+            )}
           </div>
         ) : me.data?.status === "ACTIVE" ? (
           // Active tutor — offer opt-out (with optional reason).
@@ -337,11 +380,15 @@ export default function SettingsPage() {
             <button
               className="btn-secondary"
               disabled={optOut.isPending}
-              onClick={() => optOut.mutate({ reason: optOutReason.trim() || undefined })}
+              onClick={() =>
+                optOut.mutate({ reason: optOutReason.trim() || undefined })
+              }
             >
               {t("tutor.settings.optOutBtn")}
             </button>
-            {optOut.error && <p className="text-sm text-red-600">{optOut.error.message}</p>}
+            {optOut.error && (
+              <p className="text-sm text-red-600">{optOut.error.message}</p>
+            )}
           </div>
         ) : me.data?.status === "OPTED_OUT" ? (
           // Opted out — offer reentry.
@@ -354,7 +401,9 @@ export default function SettingsPage() {
             >
               {t("tutor.settings.reentryBtn")}
             </button>
-            {reentry.error && <p className="text-sm text-red-600">{reentry.error.message}</p>}
+            {reentry.error && (
+              <p className="text-sm text-red-600">{reentry.error.message}</p>
+            )}
           </div>
         ) : (
           // Graduated / archived — informational only.

@@ -1,5 +1,14 @@
+import { currentPolicy } from "~/server/policy-acceptance";
 import type { Session } from "next-auth";
-import { afterAll, beforeAll, describe, expect, it, vi } from "vitest";
+import {
+  afterAll,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from "vitest";
 
 // The router's tRPC context normally calls `auth()` (which pulls in next-auth and, transitively,
 // `next/server` — not resolvable under Vitest's node runtime). These tests build the context
@@ -24,7 +33,11 @@ function session(
   role: "TUTOR" | "COORDINATOR" | "ADMIN" = "TUTOR",
 ): Session {
   return {
-    user: { id: `user-${tutorId ?? "none"}`, name: "Test", email: "t@example.com" },
+    user: {
+      id: `user-${tutorId ?? "none"}`,
+      name: "Test",
+      email: "t@example.com",
+    },
     role,
     tutorId,
     expires: new Date(Date.now() + 3_600_000).toISOString(),
@@ -46,13 +59,48 @@ async function codeOf(fn: () => Promise<unknown>): Promise<string> {
 }
 
 async function cleanup() {
-  await db.session.deleteMany({ where: { tutorId: { in: [TUTOR_A, TUTOR_B] } } });
+  await db.user.deleteMany({
+    where: { id: { in: [`user-${TUTOR_A}`, `user-${TUTOR_B}`, "user-none"] } },
+  });
+  await db.session.deleteMany({
+    where: { tutorId: { in: [TUTOR_A, TUTOR_B] } },
+  });
   await db.pairingTutee.deleteMany({ where: { pairingId: PAIRING_A } });
   await db.pairing.deleteMany({ where: { id: PAIRING_A } });
   await db.tutee.deleteMany({ where: { id: { in: [TUTEE_1, TUTEE_2] } } });
   await db.tutor.deleteMany({ where: { id: { in: [TUTOR_A, TUTOR_B] } } });
   await db.term.deleteMany({ where: { id: TERM } });
 }
+
+beforeEach(async () => {
+  await db.policyDocument.upsert({
+    where: { slug_locale: { slug: "tutor-policy", locale: "en" } },
+    update: {},
+    create: { slug: "tutor-policy", locale: "en", title: "Test", body: "Test" },
+  });
+  const policy = await currentPolicy(db, "tutor-policy");
+  const users = await db.user.findMany({
+    where: { id: { startsWith: "user-test-tutor-" } },
+  });
+  for (const u of users)
+    await db.policyAcceptance.upsert({
+      where: {
+        userId_slug_revision: {
+          userId: u.id,
+          slug: "tutor-policy",
+          revision: policy.revision,
+        },
+      },
+      update: {},
+      create: {
+        userId: u.id,
+        slug: "tutor-policy",
+        revision: policy.revision,
+        snapshot: policy.documents,
+        signature: "Test",
+      },
+    });
+});
 
 beforeAll(async () => {
   await cleanup();
@@ -70,6 +118,14 @@ beforeAll(async () => {
       { id: TUTOR_A, englishName: "Tutor A" },
       { id: TUTOR_B, englishName: "Tutor B" },
     ],
+  });
+  await db.user.createMany({
+    data: [TUTOR_A, TUTOR_B, null].map((id) => ({
+      id: `user-${id ?? "none"}`,
+      email: `${id ?? "none"}@scoping.example.test`,
+      role: "TUTOR" as const,
+      tutorId: id,
+    })),
   });
   await db.tutee.createMany({
     data: [
@@ -160,7 +216,9 @@ describe("row-level scoping (the critical rule)", () => {
       ratingProgress: 5,
     });
 
-    const row = await db.session.findUniqueOrThrow({ where: { id: created.id } });
+    const row = await db.session.findUniqueOrThrow({
+      where: { id: created.id },
+    });
     // 60 min, 1 tutee -> factor 2, 1.0h * 2 = 2.0
     expect(row.durationMin).toBe(60);
     expect(row.shFactor).toBe(2);

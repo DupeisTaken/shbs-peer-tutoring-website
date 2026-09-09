@@ -54,6 +54,9 @@ export default async function AdminLayout({
   // `session.tutorId` in sync too, so following the link into the tutor area resolves correctly.
   const canEnterTutor = !!me?.tutor && me.tutor.status !== "ARCHIVED";
   const accountItems = [
+    { href: "/messages", label: t("workflows.messages") },
+    { href: "/student", label: t("workflows.student") },
+    { href: "/student-support", label: t("workflows.support") },
     ...(canEnterTutor
       ? [
           {
@@ -152,6 +155,14 @@ export default async function AdminLayout({
               <p className="text-accent-800 text-sm leading-snug">
                 {t("admin.readOnly.banner")}
               </p>
+            </div>
+          )}
+          {session.role === "COORDINATOR" && (
+            <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+              <p>{t("approvals.trainingBanner")}</p>
+              <Link className="link mt-1 inline-block" href="/admin/approvals">
+                {t("approvals.myRequests")}
+              </Link>
             </div>
           )}
           <ReadOnlyProvider value={readOnly}>{children}</ReadOnlyProvider>

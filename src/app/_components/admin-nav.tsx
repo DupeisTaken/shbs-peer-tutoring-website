@@ -131,6 +131,11 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
         elevatedOnly: true,
       },
       // Audit Log + Users & Roles stay pinned to the bottom of the section.
+      {
+        href: "/admin/approvals",
+        labelKey: "approvals.title",
+        elevatedOnly: true,
+      },
       { href: "/admin/audit", labelKey: "admin.nav.links.auditLog" },
       {
         href: "/admin/users",
@@ -158,13 +163,11 @@ export async function NavSidebar({ role }: { role: string }) {
   const sections = NAV_SECTIONS.map((section) => ({
     key: section.titleKey,
     title: t(section.titleKey),
-    items: section.items
-      .filter(visible)
-      .map((item) => ({
-        href: item.href,
-        label: t(item.labelKey),
-        exact: item.exact,
-      })),
+    items: section.items.filter(visible).map((item) => ({
+      href: item.href,
+      label: t(item.labelKey),
+      exact: item.exact,
+    })),
   })).filter((s) => s.items.length > 0);
   return (
     <aside className="hidden w-56 shrink-0 lg:block">

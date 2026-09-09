@@ -21,7 +21,9 @@ function StatusBadge({ status }: { status: Status }) {
         : status === "INTERVIEW"
           ? "badge bg-accent-100 text-accent-700"
           : "badge-slate";
-  return <span className={cls}>{t(`admin.applications.status.${status}`)}</span>;
+  return (
+    <span className={cls}>{t(`admin.applications.status.${status}`)}</span>
+  );
 }
 
 type Application = {
@@ -41,8 +43,15 @@ type Application = {
     selfStudyNote: string | null;
     subject: { name: string; level: { name: string } | null };
   }[];
-  interviewers: { isHead: boolean; tutor: { id: string; englishName: string } }[];
-  votes: { accept: boolean; comment: string | null; tutor: { englishName: string } }[];
+  interviewers: {
+    isHead: boolean;
+    tutor: { id: string; englishName: string };
+  }[];
+  votes: {
+    accept: boolean;
+    comment: string | null;
+    tutor: { englishName: string };
+  }[];
   decisionComment: string | null;
   decidedByTutor: { englishName: string } | null;
 };
@@ -71,11 +80,16 @@ function ApplicationCard({
     onSuccess: () => onChanged(),
     onError: () => onChanged(),
   });
-  const del = api.admin.deleteApplication.useMutation({ onSuccess: () => onChanged() });
+  const del = api.admin.deleteApplication.useMutation({
+    onSuccess: () => onChanged(),
+  });
 
-  // Exactly three fixed panelist slots, seeded from any existing assignment.
+  // Start with at least three slots and retain larger existing panels.
   const [picks, setPicks] = useState<string[]>(() =>
-    Array.from({ length: PANEL_SIZE }, (_, i) => app.interviewers[i]?.tutor.id ?? ""),
+    Array.from(
+      { length: Math.max(PANEL_SIZE, app.interviewers.length) },
+      (_, i) => app.interviewers[i]?.tutor.id ?? "",
+    ),
   );
   const [head, setHead] = useState<string>(
     app.interviewers.find((x) => x.isHead)?.tutor.id ?? "",
@@ -84,8 +98,9 @@ function ApplicationCard({
   const chosen = picks.filter(Boolean);
   const activeTutors = tutors.filter((t) => t.active);
   const canAssign =
-    chosen.length === PANEL_SIZE &&
-    new Set(chosen).size === PANEL_SIZE &&
+    chosen.length >= PANEL_SIZE &&
+    chosen.length === picks.length &&
+    new Set(chosen).size === chosen.length &&
     !!head &&
     chosen.includes(head) &&
     !assign.isPending;
@@ -127,7 +142,10 @@ function ApplicationCard({
         </button>
         <div className="flex items-center gap-2">
           {app.status === "ACCEPTED" && (
-            <Link href="/admin/users" className="link text-sm whitespace-nowrap">
+            <Link
+              href="/admin/users"
+              className="link text-sm whitespace-nowrap"
+            >
               {t("admin.applications.setupAccount")}
             </Link>
           )}
@@ -165,7 +183,9 @@ function ApplicationCard({
               onClick={async () => {
                 if (
                   await confirm({
-                    title: t("admin.applications.confirmDelete", { name: app.name }),
+                    title: t("admin.applications.confirmDelete", {
+                      name: app.name,
+                    }),
                     confirmLabel: t("common.delete"),
                     cancelLabel: t("common.cancel"),
                     danger: true,
@@ -195,21 +215,34 @@ function ApplicationCard({
               const quals: string[] = [];
               const na = t("admin.applications.na");
               if (ci.taken)
-                quals.push(t("admin.applications.qual.took", { grade: ci.grade ?? na }));
+                quals.push(
+                  t("admin.applications.qual.took", { grade: ci.grade ?? na }),
+                );
               if (ci.hasApScore)
-                quals.push(t("admin.applications.qual.ap", { score: ci.apScore ?? na }));
+                quals.push(
+                  t("admin.applications.qual.ap", { score: ci.apScore ?? na }),
+                );
               if (ci.selfStudied)
                 quals.push(
-                  t("admin.applications.qual.selfStudied", { note: ci.selfStudyNote ?? na }),
+                  t("admin.applications.qual.selfStudied", {
+                    note: ci.selfStudyNote ?? na,
+                  }),
                 );
               return (
-                <li key={i} className="rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-700">
+                <li
+                  key={i}
+                  className="rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-700"
+                >
                   <span className="font-medium">{ci.subject.name}</span>
                   {ci.subject.level && (
-                    <span className="badge-slate ml-1 align-middle">{ci.subject.level.name}</span>
+                    <span className="badge-slate ml-1 align-middle">
+                      {ci.subject.level.name}
+                    </span>
                   )}
                   {" · "}
-                  {quals.length ? quals.join(" · ") : t("admin.applications.noQualification")}
+                  {quals.length
+                    ? quals.join(" · ")
+                    : t("admin.applications.noQualification")}
                 </li>
               );
             })}
@@ -217,121 +250,167 @@ function ApplicationCard({
 
           {/* Interviewer assignment — three fixed panelists, one head (hidden when interviews off) */}
           {features?.INTERVIEWS && (
-          <div className="mt-4 border-t border-slate-100 pt-3">
-            <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
-              {t("admin.applications.panelHeading", { n: PANEL_SIZE })}
-            </p>
-            {app.interviewAt && (
-              <p className="muted mt-1">
-                {t("admin.applications.scheduled", {
-                  when: new Date(app.interviewAt).toLocaleString(),
-                })}
-              </p>
-            )}
-            {!readOnly && (
-              <>
-                <div className="mt-2 space-y-2">
-                  {picks.map((pick, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <select
-                        className="select field-auto min-w-48"
-                        value={pick}
-                        onChange={(e) =>
-                          setPicks((p) => p.map((v, idx) => (idx === i ? e.target.value : v)))
-                        }
-                      >
-                        <option value="">{t("admin.applications.panelistSlot", { n: i + 1 })}</option>
-                        {activeTutors
-                          .filter((t) => t.id === pick || !picks.includes(t.id))
-                          .map((t) => (
-                            <option key={t.id} value={t.id}>
-                              {t.englishName}
-                            </option>
-                          ))}
-                      </select>
-                      <label className="flex items-center gap-1 text-sm text-slate-600">
-                        <input
-                          type="radio"
-                          name={`head-${app.id}`}
-                          checked={!!pick && head === pick}
-                          disabled={!pick}
-                          onChange={() => setHead(pick)}
-                        />
-                        {t("admin.applications.head")}
-                      </label>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-2 flex items-center gap-3">
-                  <button
-                    className="btn-primary btn-sm"
-                    disabled={!canAssign}
-                    onClick={() =>
-                      assign.mutate({
-                        applicationId: app.id,
-                        tutorIds: chosen,
-                        headTutorId: head,
-                        expectedUpdatedAt: app.updatedAt,
-                      })
-                    }
-                  >
-                    {assign.isPending
-                      ? t("admin.applications.saving")
-                      : t("admin.applications.savePanel")}
-                  </button>
-                  {!canAssign && !assign.isPending && (
-                    <span className="muted text-xs">
-                      {t("admin.applications.pickHint", { n: PANEL_SIZE })}
-                    </span>
-                  )}
-                  {assign.isSuccess && (
-                    <span className="text-sm text-green-600">{t("admin.applications.saved")}</span>
-                  )}
-                  {assign.error && <span className="text-sm text-red-600">{assign.error.message}</span>}
-                </div>
-              </>
-            )}
-          </div>
-          )}
-
-          {/* Panel votes + head decision (recorded on the head's dashboard; hidden when off) */}
-          {features?.INTERVIEWS && (app.votes.length > 0 || app.decisionComment) && (
             <div className="mt-4 border-t border-slate-100 pt-3">
               <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
-                {t("admin.applications.votesDecisionHeading")}
+                {t("admin.applications.panelHeading", { n: PANEL_SIZE })}
               </p>
-              {app.votes.length > 0 ? (
-                <>
-                  <p className="muted mt-1 text-sm">
-                    {t("admin.applications.voteTally", {
-                      accepts,
-                      rejects: app.votes.length - accepts,
-                    })}
-                  </p>
-                  <ul className="mt-1 space-y-0.5">
-                    {app.votes.map((v, i) => (
-                      <li key={i} className="text-xs text-slate-600">
-                        {v.accept ? "👍" : "👎"} {v.tutor.englishName}
-                        {v.comment ? ` — ${v.comment}` : ""}
-                      </li>
-                    ))}
-                  </ul>
-                </>
-              ) : (
-                <p className="muted mt-1 text-sm">{t("admin.applications.noVotes")}</p>
-              )}
-              {app.decisionComment && (
-                <p className="mt-2 text-sm text-slate-700">
-                  {t("admin.applications.decision", { comment: app.decisionComment })}
-                  {app.decidedByTutor
-                    ? ` — ${t("admin.applications.decidedByHead", {
-                        name: app.decidedByTutor.englishName,
-                      })}`
-                    : ""}
+              {app.interviewAt && (
+                <p className="muted mt-1">
+                  {t("admin.applications.scheduled", {
+                    when: new Date(app.interviewAt).toLocaleString(),
+                  })}
                 </p>
+              )}
+              {!readOnly && (
+                <>
+                  <div className="mt-2 space-y-2">
+                    {picks.map((pick, i) => (
+                      <div key={i} className="flex items-center gap-2">
+                        <select
+                          className="select field-auto min-w-48"
+                          value={pick}
+                          onChange={(e) =>
+                            setPicks((p) =>
+                              p.map((v, idx) =>
+                                idx === i ? e.target.value : v,
+                              ),
+                            )
+                          }
+                        >
+                          <option value="">
+                            {t("admin.applications.panelistSlot", { n: i + 1 })}
+                          </option>
+                          {activeTutors
+                            .filter(
+                              (t) => t.id === pick || !picks.includes(t.id),
+                            )
+                            .map((t) => (
+                              <option key={t.id} value={t.id}>
+                                {t.englishName}
+                              </option>
+                            ))}
+                        </select>
+                        <label className="flex items-center gap-1 text-sm text-slate-600">
+                          <input
+                            type="radio"
+                            name={`head-${app.id}`}
+                            checked={!!pick && head === pick}
+                            disabled={!pick}
+                            onChange={() => setHead(pick)}
+                          />
+                          {t("admin.applications.head")}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="muted my-3 text-sm">
+                    {t("workflows.allVotes")}{" "}
+                    <Link className="link" href="/interview-management">
+                      {t("workflows.qualified")}
+                    </Link>
+                  </p>
+                  <div className="my-3 flex gap-3">
+                    <button
+                      type="button"
+                      className="btn-secondary btn-sm"
+                      disabled={picks.length >= 8}
+                      onClick={() => setPicks((p) => [...p, ""])}
+                    >
+                      {t("workflows.addPanelist")}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-secondary btn-sm"
+                      disabled={picks.length <= 3}
+                      onClick={() => {
+                        setPicks((p) => p.slice(0, -1));
+                        if (head === picks[picks.length - 1]) setHead("");
+                      }}
+                    >
+                      {t("workflows.removePanelist")}
+                    </button>
+                  </div>
+                  <div className="mt-2 flex items-center gap-3">
+                    <button
+                      className="btn-primary btn-sm"
+                      disabled={!canAssign}
+                      onClick={() =>
+                        assign.mutate({
+                          applicationId: app.id,
+                          tutorIds: chosen,
+                          headTutorId: head,
+                          expectedUpdatedAt: app.updatedAt,
+                        })
+                      }
+                    >
+                      {assign.isPending
+                        ? t("admin.applications.saving")
+                        : t("admin.applications.savePanel")}
+                    </button>
+                    {!canAssign && !assign.isPending && (
+                      <span className="muted text-xs">
+                        {t("admin.applications.pickHint", { n: PANEL_SIZE })}
+                      </span>
+                    )}
+                    {assign.isSuccess && (
+                      <span className="text-sm text-green-600">
+                        {t("admin.applications.saved")}
+                      </span>
+                    )}
+                    {assign.error && (
+                      <span className="text-sm text-red-600">
+                        {assign.error.message}
+                      </span>
+                    )}
+                  </div>
+                </>
               )}
             </div>
           )}
+
+          {/* Panel votes + head decision (recorded on the head's dashboard; hidden when off) */}
+          {features?.INTERVIEWS &&
+            (app.votes.length > 0 || app.decisionComment) && (
+              <div className="mt-4 border-t border-slate-100 pt-3">
+                <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
+                  {t("admin.applications.votesDecisionHeading")}
+                </p>
+                {app.votes.length > 0 ? (
+                  <>
+                    <p className="muted mt-1 text-sm">
+                      {t("admin.applications.voteTally", {
+                        accepts,
+                        rejects: app.votes.length - accepts,
+                      })}
+                    </p>
+                    <ul className="mt-1 space-y-0.5">
+                      {app.votes.map((v, i) => (
+                        <li key={i} className="text-xs text-slate-600">
+                          {v.accept ? "👍" : "👎"} {v.tutor.englishName}
+                          {v.comment ? ` — ${v.comment}` : ""}
+                        </li>
+                      ))}
+                    </ul>
+                  </>
+                ) : (
+                  <p className="muted mt-1 text-sm">
+                    {t("admin.applications.noVotes")}
+                  </p>
+                )}
+                {app.decisionComment && (
+                  <p className="mt-2 text-sm text-slate-700">
+                    {t("admin.applications.decision", {
+                      comment: app.decisionComment,
+                    })}
+                    {app.decidedByTutor
+                      ? ` — ${t("admin.applications.decidedByHead", {
+                          name: app.decidedByTutor.englishName,
+                        })}`
+                      : ""}
+                  </p>
+                )}
+              </div>
+            )}
         </div>
       )}
       {dialog}
@@ -352,7 +431,9 @@ export default function ApplicationsPage() {
     <div className="space-y-6">
       <div>
         <h1 className="page-title">{t("admin.applications.title")}</h1>
-        <p className="muted mt-1">{t("admin.applications.intro", { n: PANEL_SIZE })}</p>
+        <p className="muted mt-1">
+          {t("admin.applications.intro", { n: PANEL_SIZE })}
+        </p>
       </div>
 
       <div className="space-y-3">
@@ -368,7 +449,9 @@ export default function ApplicationsPage() {
             onChanged={invalidate}
           />
         ))}
-        {list.length === 0 && <p className="muted">{t("admin.applications.empty")}</p>}
+        {list.length === 0 && (
+          <p className="muted">{t("admin.applications.empty")}</p>
+        )}
       </div>
     </div>
   );

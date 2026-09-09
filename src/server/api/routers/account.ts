@@ -9,6 +9,10 @@ import { getFeatures } from "~/server/program/features";
 import { maskEmail } from "~/server/auth/mask";
 import { notifyAdmins } from "~/server/notifications/create";
 import { isEmailDeliveryAvailable } from "~/server/email/sender";
+import {
+  requestEmailChange,
+  confirmEmailChange,
+} from "~/server/auth/email-change";
 
 /**
  * Self-service account router — the signed-in user's own login (any role). Used by the admin/
@@ -16,6 +20,31 @@ import { isEmailDeliveryAvailable } from "~/server/email/sender";
  * Kept separate from the tutor router so an account without a linked tutor can use it.
  */
 export const accountRouter = createTRPCRouter({
+  requestEmailChange: protectedProcedure
+    .input(
+      z.object({
+        email: z.string().email(),
+        currentPassword: z.string().min(1),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await requestEmailChange(
+        ctx.session.user.id,
+        input.email,
+        input.currentPassword,
+      );
+      return { ok: true };
+    }),
+  confirmEmailChange: protectedProcedure
+    .input(z.object({ code: z.string().min(1).max(30) }))
+    .mutation(async ({ ctx, input }) => {
+      if (!(await confirmEmailChange(ctx.session.user.id, input.code)))
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "The code is incorrect or expired.",
+        });
+      return { ok: true };
+    }),
   /** The caller's own login identity (name, username, email, role, tutor link). */
   me: protectedProcedure.query(async ({ ctx }) => {
     // Uphold the username invariant for accounts that predate the field.

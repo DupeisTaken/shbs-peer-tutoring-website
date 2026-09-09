@@ -61,12 +61,36 @@ export default function LandingAdminPage() {
   // Order groups the landing-page surfaces (layout → content → sections → news) ahead of standalone
   // pages and the shared image library. Each tab carries a one-line description shown below the bar.
   const tabs: { key: Tab; label: string; desc: string }[] = [
-    { key: "layout", label: t("admin.landing.tabs.layout"), desc: t("admin.landing.tabDesc.layout") },
-    { key: "content", label: t("admin.landing.tabs.content"), desc: t("admin.landing.tabDesc.content") },
-    { key: "sections", label: t("admin.landing.tabs.sections"), desc: t("admin.landing.tabDesc.sections") },
-    { key: "news", label: t("admin.landing.tabs.news"), desc: t("admin.landing.tabDesc.news") },
-    { key: "pages", label: t("admin.landing.tabs.pages"), desc: t("admin.landing.tabDesc.pages") },
-    { key: "images", label: t("admin.landing.tabs.images"), desc: t("admin.landing.tabDesc.images") },
+    {
+      key: "layout",
+      label: t("admin.landing.tabs.layout"),
+      desc: t("admin.landing.tabDesc.layout"),
+    },
+    {
+      key: "content",
+      label: t("admin.landing.tabs.content"),
+      desc: t("admin.landing.tabDesc.content"),
+    },
+    {
+      key: "sections",
+      label: t("admin.landing.tabs.sections"),
+      desc: t("admin.landing.tabDesc.sections"),
+    },
+    {
+      key: "news",
+      label: t("admin.landing.tabs.news"),
+      desc: t("admin.landing.tabDesc.news"),
+    },
+    {
+      key: "pages",
+      label: t("admin.landing.tabs.pages"),
+      desc: t("admin.landing.tabDesc.pages"),
+    },
+    {
+      key: "images",
+      label: t("admin.landing.tabs.images"),
+      desc: t("admin.landing.tabDesc.images"),
+    },
   ];
   const activeDesc = tabs.find((tb) => tb.key === tab)?.desc;
 
@@ -108,13 +132,21 @@ export default function LandingAdminPage() {
         {activeDesc && <p className="muted mt-2 text-sm">{activeDesc}</p>}
       </div>
 
-      {tab === "layout" && <LayoutEditor images={images.data ?? []} readOnly={readOnly} />}
+      {tab === "layout" && (
+        <LayoutEditor images={images.data ?? []} readOnly={readOnly} />
+      )}
       {tab === "content" && (
         <ContentEditor images={images.data ?? []} readOnly={readOnly} />
       )}
-      {tab === "sections" && <SectionsManager images={images.data ?? []} readOnly={readOnly} />}
-      {tab === "pages" && <PagesManager images={images.data ?? []} readOnly={readOnly} />}
-      {tab === "news" && <NewsManager images={images.data ?? []} readOnly={readOnly} />}
+      {tab === "sections" && (
+        <SectionsManager images={images.data ?? []} readOnly={readOnly} />
+      )}
+      {tab === "pages" && (
+        <PagesManager images={images.data ?? []} readOnly={readOnly} />
+      )}
+      {tab === "news" && (
+        <NewsManager images={images.data ?? []} readOnly={readOnly} />
+      )}
       {tab === "images" && (
         <ImageLibrary
           images={images.data ?? []}
@@ -152,7 +184,13 @@ const CONTENT_GROUPS: { key: string; fields: string[] }[] = [
   { key: "footer", fields: ["footer"] },
 ];
 
-function ContentEditor({ images, readOnly }: { images: ImageInfo[]; readOnly: boolean }) {
+function ContentEditor({
+  images,
+  readOnly,
+}: {
+  images: ImageInfo[];
+  readOnly: boolean;
+}) {
   const t = useTranslations();
   const languages = api.i18n.languages.useQuery();
   const [locale, setLocale] = useState("en");
@@ -182,12 +220,16 @@ function ContentEditor({ images, readOnly }: { images: ImageInfo[]; readOnly: bo
         </select>
       </label>
 
-      {content.isLoading && <p className="muted text-sm">{t("admin.landing.loading")}</p>}
+      {content.isLoading && (
+        <p className="muted text-sm">{t("admin.landing.loading")}</p>
+      )}
 
       {!content.isLoading &&
         CONTENT_GROUPS.map((group) => (
           <section key={group.key} className="card p-5">
-            <h2 className="section-title">{t(`admin.landing.groups.${group.key}.title`)}</h2>
+            <h2 className="section-title">
+              {t(`admin.landing.groups.${group.key}.title`)}
+            </h2>
             <p className="muted mt-0.5 mb-3 text-sm">
               {t(`admin.landing.groups.${group.key}.desc`)}
             </p>
@@ -246,13 +288,17 @@ function ContentField({
   const [value, setValue] = useState(baseline);
   const save = api.home.setContent.useMutation({ onSuccess: onSaved });
   const dirty = value !== baseline;
-  const label = t(`admin.landing.fields.${FIELD_LABEL[field.key] ?? field.key}`);
+  const label = t(
+    `admin.landing.fields.${FIELD_LABEL[field.key] ?? field.key}`,
+  );
 
   return (
     <div className="py-4 first:pt-0">
       <div className="mb-1 flex items-center justify-between gap-2">
         <label className="label">{label}</label>
-        <span className={field.override != null ? "badge-amber" : "badge-slate"}>
+        <span
+          className={field.override != null ? "badge-amber" : "badge-slate"}
+        >
           {field.override != null
             ? t("admin.landing.badge.custom")
             : t("admin.landing.badge.default")}
@@ -286,7 +332,9 @@ function ContentField({
         )}
         {!readOnly && (
           <div className="ml-auto flex items-center gap-3">
-            {save.error && <span className="text-xs text-red-600">{save.error.message}</span>}
+            {save.error && (
+              <span className="text-xs text-red-600">{save.error.message}</span>
+            )}
             {field.override != null && (
               <button
                 type="button"
@@ -332,7 +380,9 @@ function ImageSlotField({
   const t = useTranslations();
   const save = api.home.setContent.useMutation({ onSuccess: onSaved });
   const current = field.override;
-  const label = t(`admin.landing.fields.${FIELD_LABEL[field.key] ?? field.key}`);
+  const label = t(
+    `admin.landing.fields.${FIELD_LABEL[field.key] ?? field.key}`,
+  );
 
   return (
     <div className="py-4 first:pt-0">
@@ -355,9 +405,13 @@ function ImageSlotField({
             <select
               className="select field-auto min-w-44"
               value={current ?? ""}
-              onChange={(e) => save.mutate({ locale, key: field.key, value: e.target.value })}
+              onChange={(e) =>
+                save.mutate({ locale, key: field.key, value: e.target.value })
+              }
             >
-              <option value="">{t("admin.landing.content.heroImage.choose")}</option>
+              <option value="">
+                {t("admin.landing.content.heroImage.choose")}
+              </option>
               {images.map((img) => (
                 <option key={img.id} value={img.id}>
                   {img.alt ?? img.id.slice(0, 8)}
@@ -365,7 +419,9 @@ function ImageSlotField({
               ))}
             </select>
             {images.length === 0 && (
-              <span className="muted text-xs">{t("admin.landing.content.heroImage.uploadFirst")}</span>
+              <span className="muted text-xs">
+                {t("admin.landing.content.heroImage.uploadFirst")}
+              </span>
             )}
           </div>
         )}
@@ -396,7 +452,13 @@ const STATUS_BADGE: Record<string, string> = {
   ARCHIVED: "badge-amber",
 };
 
-function NewsManager({ images, readOnly }: { images: ImageInfo[]; readOnly: boolean }) {
+function NewsManager({
+  images,
+  readOnly,
+}: {
+  images: ImageInfo[];
+  readOnly: boolean;
+}) {
   const t = useTranslations();
   const news = api.home.news.useQuery();
   const utils = api.useUtils();
@@ -441,12 +503,18 @@ function NewsManager({ images, readOnly }: { images: ImageInfo[]; readOnly: bool
             >
               {t("admin.landing.news.new.create")}
             </button>
-            {create.error && <span className="text-sm text-red-600">{create.error.message}</span>}
+            {create.error && (
+              <span className="text-sm text-red-600">
+                {create.error.message}
+              </span>
+            )}
           </div>
         </section>
       )}
 
-      {news.isLoading && <p className="muted text-sm">{t("admin.landing.loading")}</p>}
+      {news.isLoading && (
+        <p className="muted text-sm">{t("admin.landing.loading")}</p>
+      )}
       {!news.isLoading && (news.data ?? []).length === 0 && (
         <p className="muted text-sm">{t("admin.landing.news.empty")}</p>
       )}
@@ -478,11 +546,18 @@ function NewsPostCard({
   const { confirm, dialog } = useDialog();
   const update = api.home.updateNews.useMutation({ onSuccess: onChanged });
   const del = api.home.deleteNews.useMutation({ onSuccess: onChanged });
-  const saveTr = api.home.setNewsTranslation.useMutation({ onSuccess: onChanged });
-  const removeTr = api.home.removeNewsTranslation.useMutation({ onSuccess: onChanged });
+  const saveTr = api.home.setNewsTranslation.useMutation({
+    onSuccess: onChanged,
+  });
+  const removeTr = api.home.removeNewsTranslation.useMutation({
+    onSuccess: onChanged,
+  });
 
   const en = post.translations.find((tr) => tr.locale === "en");
-  const heading = en?.title ?? post.translations[0]?.title ?? t("admin.landing.news.untitled");
+  const heading =
+    en?.title ??
+    post.translations[0]?.title ??
+    t("admin.landing.news.untitled");
   const dateValue = post.publishedAt
     ? new Date(post.publishedAt).toISOString().slice(0, 10)
     : "";
@@ -492,11 +567,17 @@ function NewsPostCard({
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
           <div className="flex flex-wrap items-center gap-2">
-            <h3 className="text-base font-semibold text-slate-900">{heading}</h3>
+            <h3 className="text-base font-semibold text-slate-900">
+              {heading}
+            </h3>
             <span className={STATUS_BADGE[post.status]}>
               {t(`admin.landing.news.status.${post.status}`)}
             </span>
-            {post.pinned && <span className="badge-slate">{t("admin.landing.news.pinnedBadge")}</span>}
+            {post.pinned && (
+              <span className="badge-slate">
+                {t("admin.landing.news.pinnedBadge")}
+              </span>
+            )}
           </div>
           {post.createdByName && (
             <p className="muted mt-1 text-xs">
@@ -511,7 +592,9 @@ function NewsPostCard({
                 type="button"
                 className="btn-primary btn-sm"
                 disabled={update.isPending}
-                onClick={() => update.mutate({ id: post.id, status: "PUBLISHED" })}
+                onClick={() =>
+                  update.mutate({ id: post.id, status: "PUBLISHED" })
+                }
               >
                 {t("admin.landing.news.actions.publish")}
               </button>
@@ -530,7 +613,9 @@ function NewsPostCard({
               type="button"
               className="btn-secondary btn-sm"
               disabled={update.isPending}
-              onClick={() => update.mutate({ id: post.id, pinned: !post.pinned })}
+              onClick={() =>
+                update.mutate({ id: post.id, pinned: !post.pinned })
+              }
             >
               {post.pinned
                 ? t("admin.landing.news.actions.unpin")
@@ -541,7 +626,9 @@ function NewsPostCard({
                 type="button"
                 className="btn-secondary btn-sm"
                 disabled={update.isPending}
-                onClick={() => update.mutate({ id: post.id, status: "ARCHIVED" })}
+                onClick={() =>
+                  update.mutate({ id: post.id, status: "ARCHIVED" })
+                }
               >
                 {t("admin.landing.news.actions.archive")}
               </button>
@@ -585,7 +672,10 @@ function NewsPostCard({
             className="input field-auto"
             defaultValue={dateValue}
             onChange={(e) =>
-              update.mutate({ id: post.id, publishedAt: e.target.value || null })
+              update.mutate({
+                id: post.id,
+                publishedAt: e.target.value || null,
+              })
             }
           />
         </label>
@@ -595,7 +685,9 @@ function NewsPostCard({
         translations={post.translations}
         images={images}
         readOnly={readOnly}
-        onSave={(locale, title, body) => saveTr.mutate({ postId: post.id, locale, title, body })}
+        onSave={(locale, title, body) =>
+          saveTr.mutate({ postId: post.id, locale, title, body })
+        }
         saving={saveTr.isPending}
         saveError={saveTr.error?.message}
         onRemove={(locale, done) =>
@@ -652,7 +744,10 @@ function LocalizedTranslations({
     ...[...byLocale.keys()].filter((c) => c !== "en" && !codes.includes(c)),
   ];
   const [drafts, setDrafts] = useState<string[]>([]);
-  const available = [...existing, ...drafts.filter((d) => !existing.includes(d))];
+  const available = [
+    ...existing,
+    ...drafts.filter((d) => !existing.includes(d)),
+  ];
   const notAdded = codes.filter((c) => !available.includes(c));
   const [active, setActive] = useState("en");
   const isDraft = !byLocale.has(active);
@@ -660,7 +755,9 @@ function LocalizedTranslations({
   return (
     <div className="border-t border-slate-100 pt-3">
       <div className="mb-3 flex flex-wrap items-center gap-2">
-        <span className="muted text-sm">{t("admin.landing.translation.language")}</span>
+        <span className="muted text-sm">
+          {t("admin.landing.translation.language")}
+        </span>
         <select
           value={active}
           onChange={(e) => setActive(e.target.value)}
@@ -797,7 +894,9 @@ function LocalizedBodyEditor({
           {body.trim() ? (
             <Markdown>{body}</Markdown>
           ) : (
-            <span className="muted">{t("admin.landing.translation.previewEmpty")}</span>
+            <span className="muted">
+              {t("admin.landing.translation.previewEmpty")}
+            </span>
           )}
         </div>
       ) : (
@@ -812,8 +911,14 @@ function LocalizedBodyEditor({
         />
       )}
       <div className="flex flex-wrap items-center gap-3">
-        <button type="button" className="link text-xs" onClick={() => setPreview((v) => !v)}>
-          {preview ? t("admin.landing.translation.edit") : t("admin.landing.translation.preview")}
+        <button
+          type="button"
+          className="link text-xs"
+          onClick={() => setPreview((v) => !v)}
+        >
+          {preview
+            ? t("admin.landing.translation.edit")
+            : t("admin.landing.translation.preview")}
         </button>
         {!readOnly && images.length > 0 && !preview && (
           <select
@@ -824,7 +929,9 @@ function LocalizedBodyEditor({
             }}
             className="select field-auto min-w-40 text-xs"
           >
-            <option value="">{t("admin.landing.translation.insertImage")}</option>
+            <option value="">
+              {t("admin.landing.translation.insertImage")}
+            </option>
             {images.map((img) => (
               <option key={img.id} value={img.id}>
                 {img.alt ?? img.id.slice(0, 8)}
@@ -834,7 +941,9 @@ function LocalizedBodyEditor({
         )}
         {!readOnly && (
           <div className="ml-auto flex items-center gap-3">
-            {saveError && <span className="text-xs text-red-600">{saveError}</span>}
+            {saveError && (
+              <span className="text-xs text-red-600">{saveError}</span>
+            )}
             <button
               type="button"
               className="btn-primary btn-sm"
@@ -873,6 +982,7 @@ function ImageLibrary({
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
   const del = api.home.deleteImage.useMutation({ onSuccess: onChanged });
+  const editAlt = api.home.setImageAlt.useMutation({ onSuccess: onChanged });
 
   const upload = async () => {
     const file = fileRef.current?.files?.[0];
@@ -883,7 +993,10 @@ function ImageLibrary({
       const form = new FormData();
       form.append("file", file);
       if (alt.trim()) form.append("alt", alt.trim());
-      const res = await fetch("/api/admin/home-images", { method: "POST", body: form });
+      const res = await fetch("/api/admin/home-images", {
+        method: "POST",
+        body: form,
+      });
       if (!res.ok) {
         const data = (await res.json().catch(() => ({}))) as { error?: string };
         throw new Error(data.error ?? t("admin.landing.images.uploadFailed"));
@@ -892,7 +1005,9 @@ function ImageLibrary({
       setAlt("");
       onChanged();
     } catch (e) {
-      setError(e instanceof Error ? e.message : t("admin.landing.images.uploadFailed"));
+      setError(
+        e instanceof Error ? e.message : t("admin.landing.images.uploadFailed"),
+      );
     } finally {
       setUploading(false);
     }
@@ -908,7 +1023,9 @@ function ImageLibrary({
     <div className="space-y-5">
       {!readOnly && (
         <section className="card space-y-3 p-5">
-          <h2 className="section-title">{t("admin.landing.images.upload.title")}</h2>
+          <h2 className="section-title">
+            {t("admin.landing.images.upload.title")}
+          </h2>
           <input
             ref={fileRef}
             type="file"
@@ -932,7 +1049,9 @@ function ImageLibrary({
                 ? t("admin.landing.images.upload.uploading")
                 : t("admin.landing.images.upload.button")}
             </button>
-            <span className="muted text-xs">{t("admin.landing.images.upload.hint")}</span>
+            <span className="muted text-xs">
+              {t("admin.landing.images.upload.hint")}
+            </span>
             {error && <span className="text-xs text-red-600">{error}</span>}
           </div>
         </section>
@@ -952,7 +1071,37 @@ function ImageLibrary({
               alt={img.alt ?? ""}
               className="h-36 w-full rounded-md border border-slate-200 object-cover"
             />
-            <p className="truncate text-xs text-slate-600">{img.alt ?? img.id.slice(0, 8)}</p>
+            <p className="truncate text-xs text-slate-600">
+              {img.alt ?? img.id.slice(0, 8)}
+            </p>
+            {!readOnly && (
+              <form
+                className="flex flex-wrap gap-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  const value = new FormData(e.currentTarget).get("alt");
+                  editAlt.mutate({
+                    id: img.id,
+                    alt: typeof value === "string" ? value : "",
+                  });
+                }}
+              >
+                <input
+                  key={img.alt}
+                  className="input min-w-0 flex-1"
+                  name="alt"
+                  aria-label={t("admin.landing.images.upload.altPlaceholder")}
+                  defaultValue={img.alt ?? ""}
+                  maxLength={300}
+                />
+                <button
+                  className="btn-secondary btn-sm"
+                  disabled={editAlt.isPending}
+                >
+                  {t("common.save")}
+                </button>
+              </form>
+            )}
             <p className="muted text-[11px]">
               {Math.max(1, Math.round(img.byteSize / 1024))} KB
               {img.createdByName ? ` · ${img.createdByName}` : ""}
@@ -970,7 +1119,9 @@ function ImageLibrary({
               <button
                 type="button"
                 className="link text-xs"
-                onClick={() => copy(`![${img.alt ?? ""}](${img.url})`, `m-${img.id}`)}
+                onClick={() =>
+                  copy(`![${img.alt ?? ""}](${img.url})`, `m-${img.id}`)
+                }
               >
                 {copied === `m-${img.id}`
                   ? t("admin.landing.images.copied")
@@ -1000,6 +1151,11 @@ function ImageLibrary({
           </div>
         ))}
       </div>
+      {(del.error ?? editAlt.error) && (
+        <p role="alert" className="text-sm text-red-600">
+          {del.error?.message ?? editAlt.error?.message}
+        </p>
+      )}
       {dialog}
     </div>
   );
@@ -1022,7 +1178,13 @@ type SectionRow = {
   translations: TranslationRow[];
 };
 
-function SectionsManager({ images, readOnly }: { images: ImageInfo[]; readOnly: boolean }) {
+function SectionsManager({
+  images,
+  readOnly,
+}: {
+  images: ImageInfo[];
+  readOnly: boolean;
+}) {
   const t = useTranslations();
   const sections = api.home.sections.useQuery();
   const utils = api.useUtils();
@@ -1057,7 +1219,9 @@ function SectionsManager({ images, readOnly }: { images: ImageInfo[]; readOnly: 
     <div className="space-y-5">
       {!readOnly && (
         <section className="card space-y-3 p-5">
-          <h2 className="section-title">{t("admin.landing.sections.new.title")}</h2>
+          <h2 className="section-title">
+            {t("admin.landing.sections.new.title")}
+          </h2>
           <input
             className="input w-full"
             value={title}
@@ -1080,12 +1244,18 @@ function SectionsManager({ images, readOnly }: { images: ImageInfo[]; readOnly: 
             >
               {t("admin.landing.sections.new.create")}
             </button>
-            {create.error && <span className="text-sm text-red-600">{create.error.message}</span>}
+            {create.error && (
+              <span className="text-sm text-red-600">
+                {create.error.message}
+              </span>
+            )}
           </div>
         </section>
       )}
 
-      {sections.isLoading && <p className="muted text-sm">{t("admin.landing.loading")}</p>}
+      {sections.isLoading && (
+        <p className="muted text-sm">{t("admin.landing.loading")}</p>
+      )}
       {!sections.isLoading && list.length === 0 && (
         <p className="muted text-sm">{t("admin.landing.sections.empty")}</p>
       )}
@@ -1129,12 +1299,18 @@ function SectionCard({
   const { confirm, dialog } = useDialog();
   const update = api.home.updateSection.useMutation({ onSuccess: onChanged });
   const del = api.home.deleteSection.useMutation({ onSuccess: onChanged });
-  const saveTr = api.home.setSectionTranslation.useMutation({ onSuccess: onChanged });
-  const removeTr = api.home.removeSectionTranslation.useMutation({ onSuccess: onChanged });
+  const saveTr = api.home.setSectionTranslation.useMutation({
+    onSuccess: onChanged,
+  });
+  const removeTr = api.home.removeSectionTranslation.useMutation({
+    onSuccess: onChanged,
+  });
 
   const en = section.translations.find((tr) => tr.locale === "en");
   const heading =
-    en?.title ?? section.translations[0]?.title ?? t("admin.landing.sections.untitled");
+    en?.title ??
+    section.translations[0]?.title ??
+    t("admin.landing.sections.untitled");
 
   return (
     <section className="card space-y-4 p-5">
@@ -1171,7 +1347,9 @@ function SectionCard({
               type="button"
               className="btn-secondary btn-sm"
               disabled={update.isPending}
-              onClick={() => update.mutate({ id: section.id, published: !section.published })}
+              onClick={() =>
+                update.mutate({ id: section.id, published: !section.published })
+              }
             >
               {section.published
                 ? t("admin.landing.sections.actions.hide")
@@ -1183,7 +1361,10 @@ function SectionCard({
                   type="checkbox"
                   checked={section.openByDefault}
                   onChange={(e) =>
-                    update.mutate({ id: section.id, openByDefault: e.target.checked })
+                    update.mutate({
+                      id: section.id,
+                      openByDefault: e.target.checked,
+                    })
                   }
                 />
                 {t("admin.landing.sections.actions.expanded")}
@@ -1214,20 +1395,33 @@ function SectionCard({
       {!readOnly && (
         <div className="flex flex-wrap items-center gap-3 border-t border-slate-100 pt-3 text-xs">
           <label className="flex items-center gap-2">
-            <span className="muted">{t("admin.landing.sections.mode.label")}</span>
+            <span className="muted">
+              {t("admin.landing.sections.mode.label")}
+            </span>
             <select
               className="select field-auto"
               value={section.mode}
               onChange={(e) =>
-                update.mutate({ id: section.id, mode: e.target.value as "INLINE" | "PAGE" })
+                update.mutate({
+                  id: section.id,
+                  mode: e.target.value as "INLINE" | "PAGE",
+                })
               }
             >
-              <option value="INLINE">{t("admin.landing.sections.mode.inline")}</option>
-              <option value="PAGE">{t("admin.landing.sections.mode.page")}</option>
+              <option value="INLINE">
+                {t("admin.landing.sections.mode.inline")}
+              </option>
+              <option value="PAGE">
+                {t("admin.landing.sections.mode.page")}
+              </option>
             </select>
           </label>
-          {section.mode === "PAGE" && <SlugField section={section} update={update} />}
-          {update.error && <span className="text-red-600">{update.error.message}</span>}
+          {section.mode === "PAGE" && (
+            <SlugField section={section} update={update} />
+          )}
+          {update.error && (
+            <span className="text-red-600">{update.error.message}</span>
+          )}
         </div>
       )}
 
@@ -1241,7 +1435,10 @@ function SectionCard({
         saving={saveTr.isPending}
         saveError={saveTr.error?.message}
         onRemove={(locale, done) =>
-          removeTr.mutate({ sectionId: section.id, locale }, { onSuccess: done })
+          removeTr.mutate(
+            { sectionId: section.id, locale },
+            { onSuccess: done },
+          )
         }
         removing={removeTr.isPending}
       />
@@ -1270,7 +1467,8 @@ function SlugField({
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "");
     if (clean !== slug) setSlug(clean);
-    if (clean && clean !== (section.slug ?? "")) update.mutate({ id: section.id, slug: clean });
+    if (clean && clean !== (section.slug ?? ""))
+      update.mutate({ id: section.id, slug: clean });
   };
 
   return (
@@ -1284,7 +1482,12 @@ function SlugField({
         onBlur={commit}
       />
       {section.slug && (
-        <a href={`/p/${section.slug}`} target="_blank" rel="noopener noreferrer" className="link">
+        <a
+          href={`/p/${section.slug}`}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="link"
+        >
           {t("admin.landing.sections.viewPage")} ↗
         </a>
       )}
@@ -1297,7 +1500,8 @@ function SlugField({
 // ---------------------------------------------------------------------------
 
 function newBlockId(): string {
-  if (typeof crypto !== "undefined" && "randomUUID" in crypto) return crypto.randomUUID();
+  if (typeof crypto !== "undefined" && "randomUUID" in crypto)
+    return crypto.randomUUID();
   return `b_${Date.now()}_${Math.floor(Math.random() * 1e6)}`;
 }
 
@@ -1309,7 +1513,9 @@ const SYSTEM_BLOCK_TAB: Record<string, string> = {
   NEWS: "news",
 };
 
-function makeContentBlock(type: (typeof CONTENT_BLOCK_TYPES)[number]): LeafBlock {
+function makeContentBlock(
+  type: (typeof CONTENT_BLOCK_TYPES)[number],
+): LeafBlock {
   switch (type) {
     case "IMAGE":
       return { id: newBlockId(), type: "IMAGE", imageId: "", width: "wide" };
@@ -1336,19 +1542,35 @@ function makeColumnsBlock(count: number): Block {
 }
 
 function richTextLeaf(text: string): LeafBlock {
-  return { id: newBlockId(), type: "RICH_TEXT", align: "center", text: { en: text } };
+  return {
+    id: newBlockId(),
+    type: "RICH_TEXT",
+    align: "center",
+    text: { en: text },
+  };
 }
 
 /** Predefined block stacks the editor can drop in at once. */
 function makePreset(name: string): Block[] {
   if (name === "cta") {
     return [
-      { id: newBlockId(), type: "RICH_TEXT", align: "center", text: { en: "## Ready to get started?" } },
+      {
+        id: newBlockId(),
+        type: "RICH_TEXT",
+        align: "center",
+        text: { en: "## Ready to get started?" },
+      },
       {
         id: newBlockId(),
         type: "BUTTONS",
         align: "center",
-        buttons: [{ label: { en: "Request a tutor" }, href: "/signup", style: "primary" }],
+        buttons: [
+          {
+            label: { en: "Request a tutor" },
+            href: "/signup",
+            style: "primary",
+          },
+        ],
       },
     ];
   }
@@ -1411,7 +1633,8 @@ function LayoutEditor({
 
   const updateAt = (i: number, block: Block) =>
     setBlocks(blocks.map((b, idx) => (idx === i ? block : b)));
-  const removeAt = (i: number) => setBlocks(blocks.filter((_, idx) => idx !== i));
+  const removeAt = (i: number) =>
+    setBlocks(blocks.filter((_, idx) => idx !== i));
   const moveAt = (i: number, dir: "up" | "down") => {
     const j = dir === "up" ? i - 1 : i + 1;
     if (j < 0 || j >= blocks.length) return;
@@ -1426,9 +1649,16 @@ function LayoutEditor({
 
   const addByValue = (value: string) => {
     if (value.startsWith("system:")) {
-      append({ id: newBlockId(), type: value.slice(7) as Block["type"] } as Block);
+      append({
+        id: newBlockId(),
+        type: value.slice(7) as Block["type"],
+      } as Block);
     } else if (value.startsWith("content:")) {
-      append(makeContentBlock(value.slice(8) as (typeof CONTENT_BLOCK_TYPES)[number]));
+      append(
+        makeContentBlock(
+          value.slice(8) as (typeof CONTENT_BLOCK_TYPES)[number],
+        ),
+      );
     } else if (value.startsWith("columns:")) {
       append(makeColumnsBlock(Number(value.slice(8))));
     } else if (value.startsWith("preset:")) {
@@ -1457,8 +1687,16 @@ function LayoutEditor({
           </label>
           {!readOnly && (
             <>
-              {dirty && <span className="muted text-xs">{t("admin.landing.layout.unsaved")}</span>}
-              {save.error && <span className="text-xs text-red-600">{save.error.message}</span>}
+              {dirty && (
+                <span className="muted text-xs">
+                  {t("admin.landing.layout.unsaved")}
+                </span>
+              )}
+              {save.error && (
+                <span className="text-xs text-red-600">
+                  {save.error.message}
+                </span>
+              )}
               <button
                 type="button"
                 className="btn-primary btn-sm"
@@ -1492,7 +1730,9 @@ function LayoutEditor({
             onRemove={() => removeAt(i)}
           />
         ))}
-        {blocks.length === 0 && <p className="muted text-sm">{t("admin.landing.layout.empty")}</p>}
+        {blocks.length === 0 && (
+          <p className="muted text-sm">{t("admin.landing.layout.empty")}</p>
+        )}
       </div>
 
       {!readOnly && (
@@ -1508,11 +1748,17 @@ function LayoutEditor({
                 {t(`admin.landing.layout.blockTypes.${tp}`)}
               </option>
             ))}
-            <option value="columns:2">{t("admin.landing.layout.blockTypes.COLUMNS")}</option>
+            <option value="columns:2">
+              {t("admin.landing.layout.blockTypes.COLUMNS")}
+            </option>
           </optgroup>
           <optgroup label={t("admin.landing.layout.groupPresets")}>
-            <option value="preset:cta">{t("admin.landing.layout.presets.cta")}</option>
-            <option value="preset:cards3">{t("admin.landing.layout.presets.cards3")}</option>
+            <option value="preset:cta">
+              {t("admin.landing.layout.presets.cta")}
+            </option>
+            <option value="preset:cards3">
+              {t("admin.landing.layout.presets.cards3")}
+            </option>
           </optgroup>
           {!contentOnly && missingSystem.length > 0 && (
             <optgroup label={t("admin.landing.layout.groupSystem")}>
@@ -1557,7 +1803,9 @@ function BlockCard({
     <section className="card p-4">
       <div className="flex flex-wrap items-center justify-between gap-2">
         <div className="flex flex-wrap items-center gap-2">
-          <span className="badge-slate">{t(`admin.landing.layout.blockTypes.${block.type}`)}</span>
+          <span className="badge-slate">
+            {t(`admin.landing.layout.blockTypes.${block.type}`)}
+          </span>
           {system && (
             <span className="muted text-xs">
               {t("admin.landing.layout.systemHint", {
@@ -1586,7 +1834,11 @@ function BlockCard({
             >
               ↓
             </button>
-            <button type="button" className="link-danger text-xs" onClick={onRemove}>
+            <button
+              type="button"
+              className="link-danger text-xs"
+              onClick={onRemove}
+            >
               {t("admin.landing.layout.remove")}
             </button>
           </div>
@@ -1596,16 +1848,34 @@ function BlockCard({
       {!system && !readOnly && (
         <div className="mt-3">
           {block.type === "RICH_TEXT" && (
-            <RichTextBlockEditor block={block} locale={locale} onChange={onChange} />
+            <RichTextBlockEditor
+              block={block}
+              locale={locale}
+              onChange={onChange}
+            />
           )}
           {block.type === "IMAGE" && (
-            <ImageBlockEditor block={block} locale={locale} images={images} onChange={onChange} />
+            <ImageBlockEditor
+              block={block}
+              locale={locale}
+              images={images}
+              onChange={onChange}
+            />
           )}
           {block.type === "BUTTONS" && (
-            <ButtonsBlockEditor block={block} locale={locale} onChange={onChange} />
+            <ButtonsBlockEditor
+              block={block}
+              locale={locale}
+              onChange={onChange}
+            />
           )}
           {block.type === "COLUMNS" && (
-            <ColumnsBlockEditor block={block} locale={locale} images={images} onChange={onChange} />
+            <ColumnsBlockEditor
+              block={block}
+              locale={locale}
+              images={images}
+              onChange={onChange}
+            />
           )}
         </div>
       )}
@@ -1626,7 +1896,13 @@ function LeafEditor({
   onChange: (b: LeafBlock) => void;
 }) {
   if (block.type === "RICH_TEXT")
-    return <RichTextBlockEditor block={block} locale={locale} onChange={(b) => onChange(b as LeafBlock)} />;
+    return (
+      <RichTextBlockEditor
+        block={block}
+        locale={locale}
+        onChange={(b) => onChange(b as LeafBlock)}
+      />
+    );
   if (block.type === "IMAGE")
     return (
       <ImageBlockEditor
@@ -1636,7 +1912,13 @@ function LeafEditor({
         onChange={(b) => onChange(b as LeafBlock)}
       />
     );
-  return <ButtonsBlockEditor block={block} locale={locale} onChange={(b) => onChange(b as LeafBlock)} />;
+  return (
+    <ButtonsBlockEditor
+      block={block}
+      locale={locale}
+      onChange={(b) => onChange(b as LeafBlock)}
+    />
+  );
 }
 
 function ColumnsBlockEditor({
@@ -1652,7 +1934,10 @@ function ColumnsBlockEditor({
 }) {
   const t = useTranslations();
   const setColumn = (ci: number, col: LeafBlock[]) =>
-    onChange({ ...block, columns: block.columns.map((c, i) => (i === ci ? col : c)) });
+    onChange({
+      ...block,
+      columns: block.columns.map((c, i) => (i === ci ? col : c)),
+    });
 
   return (
     <div className="space-y-3">
@@ -1676,7 +1961,10 @@ function ColumnsBlockEditor({
                 type="button"
                 className="link-danger text-xs"
                 onClick={() =>
-                  onChange({ ...block, columns: block.columns.filter((_, i) => i !== ci) })
+                  onChange({
+                    ...block,
+                    columns: block.columns.filter((_, i) => i !== ci),
+                  })
                 }
               >
                 {t("admin.landing.layout.columns.removeColumn")}
@@ -1725,7 +2013,12 @@ function ColumnsBlockEditor({
                     <button
                       type="button"
                       className="link-danger text-xs"
-                      onClick={() => setColumn(ci, col.filter((_, i) => i !== li))}
+                      onClick={() =>
+                        setColumn(
+                          ci,
+                          col.filter((_, i) => i !== li),
+                        )
+                      }
                     >
                       {t("admin.landing.layout.remove")}
                     </button>
@@ -1735,7 +2028,12 @@ function ColumnsBlockEditor({
                   block={leaf}
                   locale={locale}
                   images={images}
-                  onChange={(b) => setColumn(ci, col.map((x, i) => (i === li ? b : x)))}
+                  onChange={(b) =>
+                    setColumn(
+                      ci,
+                      col.map((x, i) => (i === li ? b : x)),
+                    )
+                  }
                 />
               </div>
             ))}
@@ -1745,12 +2043,16 @@ function ColumnsBlockEditor({
                 if (!e.target.value) return;
                 setColumn(ci, [
                   ...col,
-                  makeContentBlock(e.target.value as (typeof CONTENT_BLOCK_TYPES)[number]),
+                  makeContentBlock(
+                    e.target.value as (typeof CONTENT_BLOCK_TYPES)[number],
+                  ),
                 ]);
               }}
               className="select field-auto min-w-40 text-xs"
             >
-              <option value="">{t("admin.landing.layout.columns.addBlock")}</option>
+              <option value="">
+                {t("admin.landing.layout.columns.addBlock")}
+              </option>
               {CONTENT_BLOCK_TYPES.map((tp) => (
                 <option key={tp} value={tp}>
                   {t(`admin.landing.layout.blockTypes.${tp}`)}
@@ -1765,7 +2067,9 @@ function ColumnsBlockEditor({
         <button
           type="button"
           className="btn-secondary btn-sm"
-          onClick={() => onChange({ ...block, columns: [...block.columns, []] })}
+          onClick={() =>
+            onChange({ ...block, columns: [...block.columns, []] })
+          }
         >
           {t("admin.landing.layout.columns.addColumn")}
         </button>
@@ -1813,10 +2117,18 @@ function RichTextBlockEditor({
         className="textarea w-full font-mono text-xs"
         rows={4}
         value={block.text[locale] ?? ""}
-        onChange={(e) => onChange({ ...block, text: { ...block.text, [locale]: e.target.value } })}
+        onChange={(e) =>
+          onChange({
+            ...block,
+            text: { ...block.text, [locale]: e.target.value },
+          })
+        }
         placeholder={t("admin.landing.layout.richText.placeholder")}
       />
-      <AlignSelect value={block.align ?? "left"} onChange={(a) => onChange({ ...block, align: a })} />
+      <AlignSelect
+        value={block.align ?? "left"}
+        onChange={(a) => onChange({ ...block, align: a })}
+      />
     </div>
   );
 }
@@ -1853,7 +2165,9 @@ function ImageBlockEditor({
           value={block.imageId}
           onChange={(e) => onChange({ ...block, imageId: e.target.value })}
         >
-          <option value="">{t("admin.landing.content.heroImage.choose")}</option>
+          <option value="">
+            {t("admin.landing.content.heroImage.choose")}
+          </option>
           {images.map((img) => (
             <option key={img.id} value={img.id}>
               {img.alt ?? img.id.slice(0, 8)}
@@ -1866,10 +2180,15 @@ function ImageBlockEditor({
             className="select field-auto"
             value={block.width ?? "wide"}
             onChange={(e) =>
-              onChange({ ...block, width: e.target.value as "narrow" | "wide" | "full" })
+              onChange({
+                ...block,
+                width: e.target.value as "narrow" | "wide" | "full",
+              })
             }
           >
-            <option value="narrow">{t("admin.landing.layout.image.narrow")}</option>
+            <option value="narrow">
+              {t("admin.landing.layout.image.narrow")}
+            </option>
             <option value="wide">{t("admin.landing.layout.image.wide")}</option>
             <option value="full">{t("admin.landing.layout.image.full")}</option>
           </select>
@@ -1880,7 +2199,10 @@ function ImageBlockEditor({
         value={block.caption?.[locale] ?? ""}
         placeholder={t("admin.landing.layout.image.caption")}
         onChange={(e) =>
-          onChange({ ...block, caption: { ...(block.caption ?? {}), [locale]: e.target.value } })
+          onChange({
+            ...block,
+            caption: { ...(block.caption ?? {}), [locale]: e.target.value },
+          })
         }
       />
     </div>
@@ -1898,7 +2220,10 @@ function ButtonsBlockEditor({
 }) {
   const t = useTranslations();
   const setButton = (i: number, b: (typeof block.buttons)[number]) =>
-    onChange({ ...block, buttons: block.buttons.map((x, idx) => (idx === i ? b : x)) });
+    onChange({
+      ...block,
+      buttons: block.buttons.map((x, idx) => (idx === i ? b : x)),
+    });
   return (
     <div className="space-y-2">
       {block.buttons.map((b, i) => (
@@ -1907,7 +2232,12 @@ function ButtonsBlockEditor({
             className="input field-auto min-w-32"
             value={b.label[locale] ?? ""}
             placeholder={t("admin.landing.layout.buttons.label")}
-            onChange={(e) => setButton(i, { ...b, label: { ...b.label, [locale]: e.target.value } })}
+            onChange={(e) =>
+              setButton(i, {
+                ...b,
+                label: { ...b.label, [locale]: e.target.value },
+              })
+            }
           />
           <input
             className="input field-auto min-w-40"
@@ -1918,15 +2248,29 @@ function ButtonsBlockEditor({
           <select
             className="select field-auto"
             value={b.style}
-            onChange={(e) => setButton(i, { ...b, style: e.target.value as "primary" | "secondary" })}
+            onChange={(e) =>
+              setButton(i, {
+                ...b,
+                style: e.target.value as "primary" | "secondary",
+              })
+            }
           >
-            <option value="primary">{t("admin.landing.layout.buttons.primary")}</option>
-            <option value="secondary">{t("admin.landing.layout.buttons.secondary")}</option>
+            <option value="primary">
+              {t("admin.landing.layout.buttons.primary")}
+            </option>
+            <option value="secondary">
+              {t("admin.landing.layout.buttons.secondary")}
+            </option>
           </select>
           <button
             type="button"
             className="link-danger text-xs"
-            onClick={() => onChange({ ...block, buttons: block.buttons.filter((_, idx) => idx !== i) })}
+            onClick={() =>
+              onChange({
+                ...block,
+                buttons: block.buttons.filter((_, idx) => idx !== i),
+              })
+            }
           >
             {t("admin.landing.layout.remove")}
           </button>
@@ -1937,12 +2281,21 @@ function ButtonsBlockEditor({
           type="button"
           className="btn-secondary btn-sm"
           onClick={() =>
-            onChange({ ...block, buttons: [...block.buttons, { label: {}, href: "", style: "primary" }] })
+            onChange({
+              ...block,
+              buttons: [
+                ...block.buttons,
+                { label: {}, href: "", style: "primary" },
+              ],
+            })
           }
         >
           {t("admin.landing.layout.buttons.add")}
         </button>
-        <AlignSelect value={block.align ?? "left"} onChange={(a) => onChange({ ...block, align: a })} />
+        <AlignSelect
+          value={block.align ?? "left"}
+          onChange={(a) => onChange({ ...block, align: a })}
+        />
       </div>
     </div>
   );
@@ -1963,7 +2316,13 @@ type PageRow = {
   updatedAt: Date;
 };
 
-function PagesManager({ images, readOnly }: { images: ImageInfo[]; readOnly: boolean }) {
+function PagesManager({
+  images,
+  readOnly,
+}: {
+  images: ImageInfo[];
+  readOnly: boolean;
+}) {
   const t = useTranslations();
   const pages = api.home.pages.useQuery();
   const utils = api.useUtils();
@@ -1995,7 +2354,9 @@ function PagesManager({ images, readOnly }: { images: ImageInfo[]; readOnly: boo
     <div className="space-y-5">
       {!readOnly && (
         <section className="card space-y-3 p-5">
-          <h2 className="section-title">{t("admin.landing.pages.new.title")}</h2>
+          <h2 className="section-title">
+            {t("admin.landing.pages.new.title")}
+          </h2>
           <div className="flex flex-wrap items-center gap-3">
             <input
               className="input min-w-48 flex-1"
@@ -2012,11 +2373,15 @@ function PagesManager({ images, readOnly }: { images: ImageInfo[]; readOnly: boo
               {t("admin.landing.pages.new.create")}
             </button>
           </div>
-          {create.error && <span className="text-sm text-red-600">{create.error.message}</span>}
+          {create.error && (
+            <span className="text-sm text-red-600">{create.error.message}</span>
+          )}
         </section>
       )}
 
-      {pages.isLoading && <p className="muted text-sm">{t("admin.landing.loading")}</p>}
+      {pages.isLoading && (
+        <p className="muted text-sm">{t("admin.landing.loading")}</p>
+      )}
       {!pages.isLoading && list.length === 0 && (
         <p className="muted text-sm">{t("admin.landing.pages.empty")}</p>
       )}
@@ -2066,7 +2431,9 @@ function PageCard({
   const setTitle = api.home.setPageTitle.useMutation({ onSuccess: onChanged });
 
   const heading =
-    page.title.en ?? Object.values(page.title)[0] ?? t("admin.landing.pages.untitled");
+    page.title.en ??
+    Object.values(page.title)[0] ??
+    t("admin.landing.pages.untitled");
 
   return (
     <section className="card space-y-3 p-5">
@@ -2079,7 +2446,11 @@ function PageCard({
               ? t("admin.landing.sections.statusVisible")
               : t("admin.landing.sections.statusHidden")}
           </span>
-          {page.showInNav && <span className="badge-slate">{t("admin.landing.pages.inNav")}</span>}
+          {page.showInNav && (
+            <span className="badge-slate">
+              {t("admin.landing.pages.inNav")}
+            </span>
+          )}
         </div>
         {!readOnly && (
           <div className="flex flex-wrap items-center gap-2">
@@ -2105,7 +2476,9 @@ function PageCard({
               type="button"
               className="btn-secondary btn-sm"
               disabled={update.isPending}
-              onClick={() => update.mutate({ id: page.id, published: !page.published })}
+              onClick={() =>
+                update.mutate({ id: page.id, published: !page.published })
+              }
             >
               {page.published
                 ? t("admin.landing.sections.actions.hide")
@@ -2163,11 +2536,15 @@ function PageCard({
             <input
               type="checkbox"
               checked={page.showInNav}
-              onChange={(e) => update.mutate({ id: page.id, showInNav: e.target.checked })}
+              onChange={(e) =>
+                update.mutate({ id: page.id, showInNav: e.target.checked })
+              }
             />
             {t("admin.landing.pages.showInNav")}
           </label>
-          {update.error && <span className="text-red-600">{update.error.message}</span>}
+          {update.error && (
+            <span className="text-red-600">{update.error.message}</span>
+          )}
         </div>
       )}
 
@@ -2245,7 +2622,8 @@ function PageSlugField({
       .replace(/[^a-z0-9]+/g, "-")
       .replace(/^-+|-+$/g, "");
     if (clean !== slug) setSlug(clean);
-    if (clean && clean !== page.slug) update.mutate({ id: page.id, slug: clean });
+    if (clean && clean !== page.slug)
+      update.mutate({ id: page.id, slug: clean });
   };
   return (
     <span className="flex items-center gap-1.5">

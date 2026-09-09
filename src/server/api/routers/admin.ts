@@ -1,5 +1,18 @@
+import { auditFilters, auditWhere } from "~/server/audit/filters";
+import {
+  assertStudentRequestAssignable,
+  stampStudentAssignment,
+} from "~/server/student-request-state";
+import { validatePanel, validateInterviewDecision } from "~/server/interviews";
+import { reconcileMeetingHours } from "~/server/meeting-hours";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import type { Prisma } from "../../../../generated/prisma";
+import {
+  inTransaction,
+  lockEntity,
+  type DomainDb,
+} from "~/server/transactions";
 
 import {
   adminOnlyProcedure,
@@ -19,10 +32,17 @@ import {
 import { assertCallerPassword } from "~/server/auth/reauth";
 import { issueTutorSetupLink } from "~/server/auth/password-reset";
 import { issueRegistrationCode } from "~/server/auth/registration";
-import { promoteApplicantToTutor } from "~/server/tutors/promote";
-import { notifyAdmins, notifyTutors, notifyUsers } from "~/server/notifications/create";
+import { reconcileApplication } from "~/server/tutors/application-status";
+import {
+  notifyAdmins,
+  notifyTutors,
+  notifyUsers,
+} from "~/server/notifications/create";
 import { standingFromCounts } from "~/lib/discipline";
-import { finalizeDueOptOuts, syncPunishmentRemoval } from "~/server/discipline/removal";
+import {
+  finalizeDueOptOuts,
+  syncPunishmentRemoval,
+} from "~/server/discipline/removal";
 import {
   QUARTERS,
   type Quarter,
@@ -35,7 +55,10 @@ import {
   semesterQuarters,
 } from "~/lib/period";
 import { getActivePeriod, getActivePeriodOrNull } from "~/server/period";
-import { applyPendingFeatures, assertFeatureEnabled } from "~/server/program/features";
+import {
+  applyPendingFeatures,
+  assertFeatureEnabled,
+} from "~/server/program/features";
 import type { db as dbClient } from "~/server/db";
 import { applyUndo, recordAudit } from "~/server/audit/log";
 import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
@@ -90,24 +113,35 @@ async function healDuplicatedTutorNames(db: typeof dbClient): Promise<void> {
  * active term.
  */
 async function requeueTutorActiveTermTutees(
-  db: typeof dbClient,
+  db: DomainDb,
   tutorId: string,
 ): Promise<number> {
-  const term = await db.term.findFirst({ where: { active: true }, select: { id: true } });
-  if (!term) return 0;
-  const pairings = await db.pairing.findMany({
-    where: { tutorId, termId: term.id },
-    select: { id: true, tutees: { select: { tuteeId: true } } },
+  return inTransaction(db, async (tx) => {
+    const term = await tx.term.findFirst({
+      where: { active: true },
+      select: { id: true },
+    });
+    if (!term) return 0;
+    const pairings = await tx.pairing.findMany({
+      where: { tutorId, termId: term.id },
+      select: { id: true, tutees: { select: { tuteeId: true } } },
+    });
+    const tuteeIds = [
+      ...new Set(pairings.flatMap((p) => p.tutees.map((t) => t.tuteeId))),
+    ];
+    if (tuteeIds.length === 0) return 0;
+    await tx.pairingTutee.deleteMany({
+      where: {
+        pairingId: { in: pairings.map((p) => p.id) },
+        tuteeId: { in: tuteeIds },
+      },
+    });
+    await tx.tutee.updateMany({
+      where: { id: { in: tuteeIds }, status: "ACTIVE" },
+      data: { status: "PENDING" },
+    });
+    return tuteeIds.length;
   });
-  const tuteeIds = [...new Set(pairings.flatMap((p) => p.tutees.map((t) => t.tuteeId)))];
-  if (tuteeIds.length === 0) return 0;
-  await db.$transaction([
-    db.pairingTutee.deleteMany({
-      where: { pairingId: { in: pairings.map((p) => p.id) }, tuteeId: { in: tuteeIds } },
-    }),
-    db.tutee.updateMany({ where: { id: { in: tuteeIds } }, data: { status: "PENDING" } }),
-  ]);
-  return tuteeIds.length;
 }
 
 const monthInput = z.string().regex(/^\d{4}-\d{2}$/);
@@ -128,12 +162,23 @@ function blankToNull(value?: string | null): string | null {
  * slot is the source of truth for the schedule — fail loudly if it's missing.
  */
 async function resolveSlot(
-  db: { timeSlot: { findUnique: (args: { where: { id: string } }) => Promise<{ dayOfWeek: number; startMin: number; endMin: number } | null> } },
+  db: {
+    timeSlot: {
+      findUnique: (args: { where: { id: string } }) => Promise<{
+        dayOfWeek: number;
+        startMin: number;
+        endMin: number;
+      } | null>;
+    };
+  },
   timeSlotId: string,
 ) {
   const slot = await db.timeSlot.findUnique({ where: { id: timeSlotId } });
   if (!slot) {
-    throw new TRPCError({ code: "BAD_REQUEST", message: "Pick a valid time slot." });
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Pick a valid time slot.",
+    });
   }
   return slot;
 }
@@ -146,10 +191,21 @@ const MEETING_STATUS = [
 ] as const;
 const ADJUSTMENT_TYPE = ["PUNISHMENT", "EXTRA"] as const;
 /** Service hours docked per unexcused tutor-meeting absence (materialised as a PUNISHMENT adj). */
-const MEETING_ABSENCE_DEDUCTION = 0.125;
+
 const TUTEE_STATUS = ["PENDING", "ACTIVE", "INACTIVE"] as const;
-const TUTOR_STATUS = ["ACTIVE", "PENDING", "GRADUATED", "OPTED_OUT", "ARCHIVED"] as const;
-const TUTOR_APP_STATUS = ["PENDING", "INTERVIEW", "ACCEPTED", "REJECTED"] as const;
+const TUTOR_STATUS = [
+  "ACTIVE",
+  "PENDING",
+  "GRADUATED",
+  "OPTED_OUT",
+  "ARCHIVED",
+] as const;
+const TUTOR_APP_STATUS = [
+  "PENDING",
+  "INTERVIEW",
+  "ACCEPTED",
+  "REJECTED",
+] as const;
 
 export const adminRouter = createTRPCRouter({
   // --------------------------------------------------------------------------
@@ -160,7 +216,9 @@ export const adminRouter = createTRPCRouter({
       orderBy: { englishName: "asc" },
       // Login/account status so the roster can show who still needs to set up their account.
       include: {
-        user: { select: { id: true, emailVerifiedAt: true, mustChangePassword: true } },
+        user: {
+          select: { id: true, emailVerifiedAt: true, mustChangePassword: true },
+        },
       },
     }),
   ),
@@ -171,7 +229,10 @@ export const adminRouter = createTRPCRouter({
    */
   tuteeStats: viewerProcedure.query(async ({ ctx }) => {
     const [sessionGroups, cardGroups] = await Promise.all([
-      ctx.db.sessionTutee.groupBy({ by: ["tuteeId", "status"], _count: { _all: true } }),
+      ctx.db.sessionTutee.groupBy({
+        by: ["tuteeId", "status"],
+        _count: { _all: true },
+      }),
       ctx.db.disciplinaryCard.groupBy({
         by: ["tuteeId", "color", "reviewStatus"],
         _count: { _all: true },
@@ -193,8 +254,14 @@ export const adminRouter = createTRPCRouter({
       const existing = byTutee.get(id);
       if (existing) return existing;
       const fresh: Agg = {
-        sessions: 0, present: 0, excused: 0, unexcused: 0,
-        validYellow: 0, validRed: 0, pendingYellow: 0, pendingRed: 0,
+        sessions: 0,
+        present: 0,
+        excused: 0,
+        unexcused: 0,
+        validYellow: 0,
+        validRed: 0,
+        pendingYellow: 0,
+        pendingRed: 0,
       };
       byTutee.set(id, fresh);
       return fresh;
@@ -262,7 +329,15 @@ export const adminRouter = createTRPCRouter({
           secondChoice: { select: { id: true, name: true } },
           availabilities: {
             include: {
-              slot: { select: { id: true, label: true, dayOfWeek: true, startMin: true, endMin: true } },
+              slot: {
+                select: {
+                  id: true,
+                  label: true,
+                  dayOfWeek: true,
+                  startMin: true,
+                  endMin: true,
+                },
+              },
             },
           },
         },
@@ -276,7 +351,16 @@ export const adminRouter = createTRPCRouter({
               removedPeriodKey: periodKey,
               tutee: { is: { status: "INACTIVE" } },
             },
-            select: { tutee: { select: { id: true, englishName: true, email: true, phone: true } } },
+            select: {
+              tutee: {
+                select: {
+                  id: true,
+                  englishName: true,
+                  email: true,
+                  phone: true,
+                },
+              },
+            },
           })
         : Promise.resolve([]),
     ]);
@@ -286,9 +370,15 @@ export const adminRouter = createTRPCRouter({
       if (!v) return null;
       return v;
     };
-    const bannedNames = new Set(removed.map((r) => norm(r.tutee.englishName)).filter(Boolean));
-    const bannedEmails = new Set(removed.map((r) => norm(r.tutee.email)).filter(Boolean));
-    const bannedPhones = new Set(removed.map((r) => norm(r.tutee.phone)).filter(Boolean));
+    const bannedNames = new Set(
+      removed.map((r) => norm(r.tutee.englishName)).filter(Boolean),
+    );
+    const bannedEmails = new Set(
+      removed.map((r) => norm(r.tutee.email)).filter(Boolean),
+    );
+    const bannedPhones = new Set(
+      removed.map((r) => norm(r.tutee.phone)).filter(Boolean),
+    );
 
     return tutees.map((t) => {
       // Flag a (still-pending) re-signup that matches a banned identity this quarter — by exact
@@ -296,14 +386,18 @@ export const adminRouter = createTRPCRouter({
       const match =
         t.status === "PENDING"
           ? {
-              name: !!norm(t.englishName) && bannedNames.has(norm(t.englishName)),
+              name:
+                !!norm(t.englishName) && bannedNames.has(norm(t.englishName)),
               email: !!norm(t.email) && bannedEmails.has(norm(t.email)),
               phone: !!norm(t.phone) && bannedPhones.has(norm(t.phone)),
             }
           : null;
-      const bannedMatch = match && (match.name || match.email || match.phone) ? match : null;
+      const bannedMatch =
+        match && (match.name || match.email || match.phone) ? match : null;
       // Withhold staff free-text (notes) and the tutee's typed legal-name signature from VIEWER.
-      return isViewer ? { ...t, notes: null, signatureName: null, bannedMatch } : { ...t, bannedMatch };
+      return isViewer
+        ? { ...t, notes: null, signatureName: null, bannedMatch }
+        : { ...t, bannedMatch };
     });
   }),
   rooms: viewerProcedure.query(({ ctx }) =>
@@ -328,7 +422,9 @@ export const adminRouter = createTRPCRouter({
 
   /** The admin-managed level catalogue (AP / Honors / Standard / …), ordered by rank. */
   subjectLevels: viewerProcedure.query(({ ctx }) =>
-    ctx.db.subjectLevel.findMany({ orderBy: [{ rank: "asc" }, { name: "asc" }] }),
+    ctx.db.subjectLevel.findMany({
+      orderBy: [{ rank: "asc" }, { name: "asc" }],
+    }),
   ),
 
   createSubjectLevel: adminProcedure
@@ -339,9 +435,7 @@ export const adminRouter = createTRPCRouter({
         apScored: z.boolean().default(false),
       }),
     )
-    .mutation(({ ctx, input }) =>
-      ctx.db.subjectLevel.create({ data: input }),
-    ),
+    .mutation(({ ctx, input }) => ctx.db.subjectLevel.create({ data: input })),
 
   updateSubjectLevel: adminProcedure
     .input(
@@ -422,15 +516,23 @@ export const adminRouter = createTRPCRouter({
         getActivePeriod(ctx.db),
       ]);
       const { tuteeIds, ...data } = input;
-      return ctx.db.pairing.create({
-        data: {
-          ...data,
-          termId: period.termId,
-          dayOfWeek: slot.dayOfWeek,
-          startMin: slot.startMin,
-          endMin: slot.endMin,
-          tutees: { create: tuteeIds.map((tuteeId) => ({ tuteeId })) },
-        },
+      return ctx.db.$transaction(async (tx) => {
+        // Generic roster tools share the same request lock and first-assignment clock.
+        for (const tuteeId of [...tuteeIds].sort())
+          await assertStudentRequestAssignable(tx, tuteeId);
+        const pairing = await tx.pairing.create({
+          data: {
+            ...data,
+            termId: period.termId,
+            dayOfWeek: slot.dayOfWeek,
+            startMin: slot.startMin,
+            endMin: slot.endMin,
+            tutees: { create: tuteeIds.map((tuteeId) => ({ tuteeId })) },
+          },
+        });
+        for (const tuteeId of tuteeIds)
+          await stampStudentAssignment(tx, tuteeId);
+        return pairing;
       });
     }),
 
@@ -450,8 +552,10 @@ export const adminRouter = createTRPCRouter({
       const { id, tuteeIds, roomId, ...data } = input;
       // Replace roster atomically; day/start/end follow the chosen slot.
       return ctx.db.$transaction(async (tx) => {
+        for (const tuteeId of [...tuteeIds].sort())
+          await assertStudentRequestAssignable(tx, tuteeId);
         await tx.pairingTutee.deleteMany({ where: { pairingId: id } });
-        return tx.pairing.update({
+        const pairing = await tx.pairing.update({
           where: { id },
           data: {
             ...data,
@@ -462,13 +566,18 @@ export const adminRouter = createTRPCRouter({
             tutees: { create: tuteeIds.map((tuteeId) => ({ tuteeId })) },
           },
         });
+        for (const tuteeId of tuteeIds)
+          await stampStudentAssignment(tx, tuteeId);
+        return pairing;
       });
     }),
 
   deletePairing: adminProcedure
     .input(z.object({ id: cuid }))
     .mutation(async ({ ctx, input }) => {
-      const sessions = await ctx.db.session.count({ where: { pairingId: input.id } });
+      const sessions = await ctx.db.session.count({
+        where: { pairingId: input.id },
+      });
       if (sessions > 0) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -617,13 +726,20 @@ export const adminRouter = createTRPCRouter({
         }),
       ]);
 
-      const earnedBy = new Map(sessionAgg.map((s) => [s.tutorId, s._sum.shCount ?? 0]));
-      const sessionsBy = new Map(sessionAgg.map((s) => [s.tutorId, s._count._all]));
+      const earnedBy = new Map(
+        sessionAgg.map((s) => [s.tutorId, s._sum.shCount ?? 0]),
+      );
+      const sessionsBy = new Map(
+        sessionAgg.map((s) => [s.tutorId, s._count._all]),
+      );
       const punishBy = new Map<string, number>();
       const extraBy = new Map<string, number>();
       for (const a of adjustments) {
         const target = a.type === "PUNISHMENT" ? punishBy : extraBy;
-        target.set(a.tutorId, (target.get(a.tutorId) ?? 0) + (a._sum.amount ?? 0));
+        target.set(
+          a.tutorId,
+          (target.get(a.tutorId) ?? 0) + (a._sum.amount ?? 0),
+        );
       }
 
       const rows = tutors.map((t) => {
@@ -709,7 +825,8 @@ export const adminRouter = createTRPCRouter({
       if (input.month) label = input.month;
 
       const mask = input.maskPii || ctx.session.role === "VIEWER";
-      const maskContact = (v: string | null | undefined): string | null => (mask ? null : (v ?? null));
+      const maskContact = (v: string | null | undefined): string | null =>
+        mask ? null : (v ?? null);
 
       // Calendar window (for createdAt/date-scoped sections) derived from the matching Term rows.
       const allTerms = await ctx.db.term.findMany({
@@ -729,18 +846,37 @@ export const adminRouter = createTRPCRouter({
         );
         termIds = selected.map((tm) => tm.id);
         if (selected.length > 0) {
-          windowStart = selected.reduce((a, b) => (a.createdAt < b.createdAt ? a : b)).createdAt;
-          const latest = selected.reduce((a, b) => (a.createdAt > b.createdAt ? a : b));
+          windowStart = selected.reduce((a, b) =>
+            a.createdAt < b.createdAt ? a : b,
+          ).createdAt;
+          const latest = selected.reduce((a, b) =>
+            a.createdAt > b.createdAt ? a : b,
+          );
           const idx = allTerms.findIndex((tm) => tm.id === latest.id);
-          windowEnd = idx >= 0 && idx + 1 < allTerms.length ? allTerms[idx + 1]!.createdAt : null;
+          windowEnd =
+            idx >= 0 && idx + 1 < allTerms.length
+              ? allTerms[idx + 1]!.createdAt
+              : null;
         }
       }
       const wq = windowStart
-        ? { createdAt: { gte: windowStart, ...(windowEnd ? { lt: windowEnd } : {}) } }
+        ? {
+            createdAt: {
+              gte: windowStart,
+              ...(windowEnd ? { lt: windowEnd } : {}),
+            },
+          }
         : null;
       const periodWhere = input.month
         ? { month: input.month }
         : { schoolYear, quarter: { in: quarters } };
+
+      const meetingWhere = input.month
+        ? { date: { gte: windowStart!, lt: windowEnd! } }
+        : { termId: { in: termIds } };
+      const patrolWhere = input.month
+        ? { createdAt: { gte: windowStart!, lt: windowEnd! } }
+        : { termId: { in: termIds } };
 
       // ---- Always: per-tutor service hours + program attendance + headline counts ----
       const [tutors, sessionAgg, adjAgg, attAgg, served] = await Promise.all([
@@ -771,8 +907,12 @@ export const adminRouter = createTRPCRouter({
         }),
       ]);
 
-      const earnedBy = new Map(sessionAgg.map((s) => [s.tutorId, s._sum.shCount ?? 0]));
-      const sessionsBy = new Map(sessionAgg.map((s) => [s.tutorId, s._count._all]));
+      const earnedBy = new Map(
+        sessionAgg.map((s) => [s.tutorId, s._sum.shCount ?? 0]),
+      );
+      const sessionsBy = new Map(
+        sessionAgg.map((s) => [s.tutorId, s._count._all]),
+      );
       const punishBy = new Map<string, number>();
       const extraBy = new Map<string, number>();
       for (const a of adjAgg) {
@@ -795,7 +935,13 @@ export const adminRouter = createTRPCRouter({
             total: earned - punishments + extras,
           };
         })
-        .filter((r) => r.sessions > 0 || r.earned !== 0 || r.extras !== 0 || r.punishments !== 0);
+        .filter(
+          (r) =>
+            r.sessions > 0 ||
+            r.earned !== 0 ||
+            r.extras !== 0 ||
+            r.punishments !== 0,
+        );
 
       const att = { present: 0, excused: 0, unexcused: 0 };
       for (const g of attAgg) {
@@ -813,21 +959,33 @@ export const adminRouter = createTRPCRouter({
         { earned: 0, extras: 0, punishments: 0, total: 0 },
       );
 
-      const [signupCount, cardCount, meetingCount, appCount, removalCount, statusReqCount, patrolCount, flagCount] =
-        await Promise.all([
-          wq ? ctx.db.tutee.count({ where: wq }) : Promise.resolve(0),
-          wq ? ctx.db.disciplinaryCard.count({ where: wq }) : Promise.resolve(0),
-          termIds.length
-            ? ctx.db.tutorMeeting.count({ where: { termId: { in: termIds } } })
-            : Promise.resolve(0),
-          wq ? ctx.db.tutorApplication.count({ where: wq }) : Promise.resolve(0),
-          wq ? ctx.db.tuteeRemovalRequest.count({ where: wq }) : Promise.resolve(0),
-          wq ? ctx.db.tutorStatusRequest.count({ where: wq }) : Promise.resolve(0),
-          termIds.length
-            ? ctx.db.patrol.count({ where: { termId: { in: termIds } } })
-            : Promise.resolve(0),
-          ctx.db.sessionFlag.count({ where: { session: periodWhere } }),
-        ]);
+      const [
+        signupCount,
+        cardCount,
+        meetingCount,
+        appCount,
+        removalCount,
+        statusReqCount,
+        patrolCount,
+        flagCount,
+      ] = await Promise.all([
+        wq ? ctx.db.tutee.count({ where: wq }) : Promise.resolve(0),
+        wq ? ctx.db.disciplinaryCard.count({ where: wq }) : Promise.resolve(0),
+        input.month || termIds.length
+          ? ctx.db.tutorMeeting.count({ where: meetingWhere })
+          : Promise.resolve(0),
+        wq ? ctx.db.tutorApplication.count({ where: wq }) : Promise.resolve(0),
+        wq
+          ? ctx.db.tuteeRemovalRequest.count({ where: wq })
+          : Promise.resolve(0),
+        wq
+          ? ctx.db.tutorStatusRequest.count({ where: wq })
+          : Promise.resolve(0),
+        input.month || termIds.length
+          ? ctx.db.patrol.count({ where: patrolWhere })
+          : Promise.resolve(0),
+        ctx.db.sessionFlag.count({ where: { session: periodWhere } }),
+      ]);
 
       const summary = {
         sessions: tutorRows.reduce((n, r) => n + r.sessions, 0),
@@ -885,7 +1043,12 @@ export const adminRouter = createTRPCRouter({
             comments: true,
             tutor: { select: { englishName: true } },
             pairing: { select: { subject: true } },
-            tutees: { select: { status: true, tutee: { select: { englishName: true } } } },
+            tutees: {
+              select: {
+                status: true,
+                tutee: { select: { englishName: true } },
+              },
+            },
           },
         }),
         wq
@@ -904,9 +1067,9 @@ export const adminRouter = createTRPCRouter({
               },
             })
           : Promise.resolve([]),
-        termIds.length
+        input.month || termIds.length
           ? ctx.db.tutorMeeting.findMany({
-              where: { termId: { in: termIds } },
+              where: meetingWhere,
               orderBy: { date: "desc" },
               select: {
                 id: true,
@@ -931,10 +1094,17 @@ export const adminRouter = createTRPCRouter({
       ]);
 
       // Per-tutor meeting attendance summary for the period (present / excused / unexcused).
-      const mTally = new Map<string, { present: number; excused: number; unexcused: number }>();
+      const mTally = new Map<
+        string,
+        { present: number; excused: number; unexcused: number }
+      >();
       for (const m of meetings) {
         for (const r of m.attendances) {
-          const e = mTally.get(r.tutorId) ?? { present: 0, excused: 0, unexcused: 0 };
+          const e = mTally.get(r.tutorId) ?? {
+            present: 0,
+            excused: 0,
+            unexcused: 0,
+          };
           if (r.status === "PRESENT") e.present++;
           else if (r.status === "EXCUSED_ABSENT") e.excused++;
           else if (r.status === "UNEXCUSED_ABSENT") e.unexcused++;
@@ -943,23 +1113,35 @@ export const adminRouter = createTRPCRouter({
       }
       const tutorNameById = new Map(tutors.map((t) => [t.id, t.englishName]));
       const meetingStats = [...mTally.entries()]
-        .map(([id, c]) => ({ tutorId: id, tutor: tutorNameById.get(id) ?? "?", ...c }))
+        .map(([id, c]) => ({
+          tutorId: id,
+          tutor: tutorNameById.get(id) ?? "?",
+          ...c,
+        }))
         .filter((x) => x.present + x.excused + x.unexcused > 0)
         .sort(
           (a, b) =>
-            b.unexcused - a.unexcused || b.excused - a.excused || a.tutor.localeCompare(b.tutor),
+            b.unexcused - a.unexcused ||
+            b.excused - a.excused ||
+            a.tutor.localeCompare(b.tutor),
         );
 
       // Crew patrol tallies (per crew member) + the period's attendance-discrepancy flags.
       const [patrolAgg, flagRows] = await Promise.all([
-        termIds.length
+        input.month || termIds.length
           ? ctx.db.patrol.groupBy({
               by: ["crewUserId"],
-              where: { termId: { in: termIds } },
+              where: patrolWhere,
               _count: { _all: true },
               _sum: { hours: true },
             })
-          : Promise.resolve([] as { crewUserId: string; _count: { _all: number }; _sum: { hours: number | null } }[]),
+          : Promise.resolve(
+              [] as {
+                crewUserId: string;
+                _count: { _all: number };
+                _sum: { hours: number | null };
+              }[],
+            ),
         ctx.db.sessionFlag.findMany({
           where: { session: periodWhere },
           orderBy: { createdAt: "desc" },
@@ -970,7 +1152,9 @@ export const adminRouter = createTRPCRouter({
             observed: true,
             state: true,
             tutor: { select: { englishName: true } },
-            session: { select: { date: true, pairing: { select: { subject: true } } } },
+            session: {
+              select: { date: true, pairing: { select: { subject: true } } },
+            },
           },
         }),
       ]);
@@ -981,7 +1165,9 @@ export const adminRouter = createTRPCRouter({
             select: { id: true, name: true, username: true },
           })
         : [];
-      const crewNameById = new Map(crewUsers.map((u) => [u.id, u.name ?? u.username ?? "?"]));
+      const crewNameById = new Map(
+        crewUsers.map((u) => [u.id, u.name ?? u.username ?? "?"]),
+      );
       const crewStats = patrolAgg
         .map((p) => ({
           userId: p.crewUserId,
@@ -989,7 +1175,9 @@ export const adminRouter = createTRPCRouter({
           patrols: p._count._all,
           hours: p._sum.hours ?? 0,
         }))
-        .sort((a, b) => b.patrols - a.patrols || a.member.localeCompare(b.member));
+        .sort(
+          (a, b) => b.patrols - a.patrols || a.member.localeCompare(b.member),
+        );
       const flags = flagRows.map((f) => ({
         id: f.id,
         date: f.session.date,
@@ -1014,7 +1202,10 @@ export const adminRouter = createTRPCRouter({
           shCount: s.shCount,
           // Free-text comments are withheld when the report is masked (incl. for VIEWER).
           comments: mask ? null : s.comments,
-          tutees: s.tutees.map((tt) => ({ name: tt.tutee.englishName, status: tt.status })),
+          tutees: s.tutees.map((tt) => ({
+            name: tt.tutee.englishName,
+            status: tt.status,
+          })),
         })),
         cards: cards.map((c) => ({
           id: c.id,
@@ -1055,47 +1246,67 @@ export const adminRouter = createTRPCRouter({
       }
 
       // ---- Full: recruitment + roster changes ----
-      const [applications, signups, removals, statusRequests] = await Promise.all([
-        wq
-          ? ctx.db.tutorApplication.findMany({
-              where: wq,
-              orderBy: { createdAt: "desc" },
-              select: { id: true, createdAt: true, name: true, status: true, email: true, preferredContact: true },
-            })
-          : Promise.resolve([]),
-        wq
-          ? ctx.db.tutee.findMany({
-              where: wq,
-              orderBy: { createdAt: "desc" },
-              select: {
-                id: true,
-                createdAt: true,
-                englishName: true,
-                gradeLevel: true,
-                status: true,
-                email: true,
-                phone: true,
-                preferredContact: true,
-                firstChoice: { select: { name: true } },
-                secondChoice: { select: { name: true } },
-              },
-            })
-          : Promise.resolve([]),
-        wq
-          ? ctx.db.tuteeRemovalRequest.findMany({
-              where: wq,
-              orderBy: { createdAt: "desc" },
-              select: { id: true, createdAt: true, kind: true, state: true, tutee: { select: { englishName: true } } },
-            })
-          : Promise.resolve([]),
-        wq
-          ? ctx.db.tutorStatusRequest.findMany({
-              where: wq,
-              orderBy: { createdAt: "desc" },
-              select: { id: true, createdAt: true, kind: true, state: true, tutor: { select: { englishName: true } } },
-            })
-          : Promise.resolve([]),
-      ]);
+      const [applications, signups, removals, statusRequests] =
+        await Promise.all([
+          wq
+            ? ctx.db.tutorApplication.findMany({
+                where: wq,
+                orderBy: { createdAt: "desc" },
+                select: {
+                  id: true,
+                  createdAt: true,
+                  name: true,
+                  status: true,
+                  email: true,
+                  preferredContact: true,
+                },
+              })
+            : Promise.resolve([]),
+          wq
+            ? ctx.db.tutee.findMany({
+                where: wq,
+                orderBy: { createdAt: "desc" },
+                select: {
+                  id: true,
+                  createdAt: true,
+                  englishName: true,
+                  gradeLevel: true,
+                  status: true,
+                  email: true,
+                  phone: true,
+                  preferredContact: true,
+                  firstChoice: { select: { name: true } },
+                  secondChoice: { select: { name: true } },
+                },
+              })
+            : Promise.resolve([]),
+          wq
+            ? ctx.db.tuteeRemovalRequest.findMany({
+                where: wq,
+                orderBy: { createdAt: "desc" },
+                select: {
+                  id: true,
+                  createdAt: true,
+                  kind: true,
+                  state: true,
+                  tutee: { select: { englishName: true } },
+                },
+              })
+            : Promise.resolve([]),
+          wq
+            ? ctx.db.tutorStatusRequest.findMany({
+                where: wq,
+                orderBy: { createdAt: "desc" },
+                select: {
+                  id: true,
+                  createdAt: true,
+                  kind: true,
+                  state: true,
+                  tutor: { select: { englishName: true } },
+                },
+              })
+            : Promise.resolve([]),
+        ]);
 
       return {
         ...detailed,
@@ -1145,108 +1356,131 @@ export const adminRouter = createTRPCRouter({
    */
   // ADMIN only — a refresh is destructive and program-wide (coordinators can view but not run it).
   refresh: adminOnlyProcedure
-    .input(z.object({ confirm: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      if (input.confirm.trim().toUpperCase() !== "REFRESH") {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Type REFRESH to confirm." });
-      }
-      const active = await getActivePeriod(ctx.db);
-      const from = { schoolYear: active.schoolYear, quarter: active.quarter };
-      // A staged Quarter System change activates at THIS refresh (applyPendingFeatures runs first),
-      // so the advance granularity uses the about-to-apply value: off => step a whole semester.
-      const qs = await ctx.db.programFeature.findUnique({
-        where: { key: "QUARTER_SYSTEM" },
-        select: { enabled: true, pendingEnabled: true },
-      });
-      const semesterMode = !(qs?.pendingEnabled ?? qs?.enabled ?? true);
-      const np = nextPeriod(from, semesterMode);
-      const name = periodLabel(np, semesterMode);
-      const semesterCross = crossesSemester(from, np);
-      const yearCross = crossesYear(from, np);
-
-      const out = await ctx.db.$transaction(async (tx) => {
-        // Activate any HEAD-staged optional-module toggles at this period boundary.
-        await applyPendingFeatures(tx);
-        await tx.term.updateMany({ where: { active: true }, data: { active: false } });
-        const term = await tx.term.upsert({
-          where: { schoolYear_quarter: { schoolYear: np.schoolYear, quarter: np.quarter } },
-          update: { active: true },
-          create: { schoolYear: np.schoolYear, quarter: np.quarter, name, active: true },
+    .input(z.object({ confirm: z.string(), expectedTermId: z.string() }))
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        if (input.confirm.trim().toUpperCase() !== "REFRESH") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Type REFRESH to confirm.",
+          });
+        }
+        await lockEntity(tx, "program:period");
+        const active = await getActivePeriod(tx);
+        if (active.termId !== input.expectedTermId) staleConflict();
+        const from = { schoolYear: active.schoolYear, quarter: active.quarter };
+        // A staged Quarter System change activates at THIS refresh (applyPendingFeatures runs first),
+        // so the advance granularity uses the about-to-apply value: off => step a whole semester.
+        const qs = await tx.programFeature.findUnique({
+          where: { key: "QUARTER_SYSTEM" },
+          select: { enabled: true, pendingEnabled: true },
         });
-        const tutees = await tx.tutee.updateMany({
-          where: { status: { in: ["PENDING", "ACTIVE"] } },
-          data: { status: "INACTIVE" },
-        });
+        const semesterMode = !(qs?.pendingEnabled ?? qs?.enabled ?? true);
+        const np = nextPeriod(from, semesterMode);
+        const name = periodLabel(np, semesterMode);
+        const semesterCross = crossesSemester(from, np);
+        const yearCross = crossesYear(from, np);
 
-        // Graduation happens at the START of Q4 (the program's final quarter): G12 (and up)
-        // are marked GRADUATED as the term advances into Q4, so they finish the year inactive.
-        // Aging-up stays at the school-year boundary (Q4 -> next year's Q1) and advances everyone
-        // who remains ACTIVE by one grade — by then the graduates are already inactive and
-        // untouched. (A retained tutor who self-reported staying in their grade simply isn't G12.)
-        // Quarter mode graduates G12 entering Q4 (so they finish the year inactive); semester mode
-        // has no Q4, so it graduates at the school-year boundary alongside aging-up.
-        let graduated = 0;
-        let aged = 0;
-        if (semesterMode ? yearCross : np.quarter === "Q4") {
-          const grad = await tx.tutor.updateMany({
-            where: { status: "ACTIVE", gradeLevel: { gte: 12 } },
-            data: { status: "GRADUATED" },
+        const out = await (async () => {
+          // Activate any HEAD-staged optional-module toggles at this period boundary.
+          await applyPendingFeatures(tx);
+          await tx.term.updateMany({
+            where: { active: true },
+            data: { active: false },
           });
-          graduated = grad.count;
-        }
-        if (yearCross) {
-          const age = await tx.tutor.updateMany({
-            where: { status: "ACTIVE", gradeLevel: { not: null } },
-            data: { gradeLevel: { increment: 1 } },
+          const term = await tx.term.upsert({
+            where: {
+              schoolYear_quarter: {
+                schoolYear: np.schoolYear,
+                quarter: np.quarter,
+              },
+            },
+            update: { active: true },
+            create: {
+              schoolYear: np.schoolYear,
+              quarter: np.quarter,
+              name,
+              active: true,
+            },
           });
-          aged = age.count;
-        }
+          const tutees = await tx.tutee.updateMany({
+            where: { status: { in: ["PENDING", "ACTIVE"] } },
+            data: { status: "INACTIVE" },
+          });
 
-        // Semester rollover: every continuing ACTIVE tutor must re-confirm availability. Set them
-        // PENDING — they reactivate (available) or opt out from their own page, and their status
-        // syncs straight back to the admin views. (Graduated/opted-out/archived are left as-is.)
-        let pending = 0;
-        if (semesterCross) {
-          const p = await tx.tutor.updateMany({
-            where: { status: "ACTIVE" },
-            data: { status: "PENDING" },
-          });
-          pending = p.count;
-        }
+          // Graduation happens at the START of Q4 (the program's final quarter): G12 (and up)
+          // are marked GRADUATED as the term advances into Q4, so they finish the year inactive.
+          // Aging-up stays at the school-year boundary (Q4 -> next year's Q1) and advances everyone
+          // who remains ACTIVE by one grade — by then the graduates are already inactive and
+          // untouched. (A retained tutor who self-reported staying in their grade simply isn't G12.)
+          // Quarter mode graduates G12 entering Q4 (so they finish the year inactive); semester mode
+          // has no Q4, so it graduates at the school-year boundary alongside aging-up.
+          let graduated = 0;
+          let aged = 0;
+          if (semesterMode ? yearCross : np.quarter === "Q4") {
+            const grad = await tx.tutor.updateMany({
+              where: { status: "ACTIVE", gradeLevel: { gte: 12 } },
+              data: { status: "GRADUATED" },
+            });
+            graduated = grad.count;
+          }
+          if (yearCross) {
+            const age = await tx.tutor.updateMany({
+              where: { status: "ACTIVE", gradeLevel: { not: null } },
+              data: { gradeLevel: { increment: 1 } },
+            });
+            aged = age.count;
+          }
 
+          // Semester rollover: every continuing ACTIVE tutor must re-confirm availability. Set them
+          // PENDING — they reactivate (available) or opt out from their own page, and their status
+          // syncs straight back to the admin views. (Graduated/opted-out/archived are left as-is.)
+          let pending = 0;
+          if (semesterCross) {
+            const p = await tx.tutor.updateMany({
+              where: { status: "ACTIVE" },
+              data: { status: "PENDING" },
+            });
+            pending = p.count;
+          }
+
+          return {
+            termId: term.id,
+            archivedTutees: tutees.count,
+            graduated,
+            aged,
+            pending,
+          };
+        })();
+
+        await recordAudit(
+          {
+            userId: ctx.session.user.id,
+            userName: ctx.session.user.name,
+            action:
+              `Refreshed program to ${name} — archived ${out.archivedTutees} tutee(s)` +
+              (out.graduated ? `, graduated ${out.graduated} tutor(s)` : "") +
+              (out.aged ? `, aged up ${out.aged}` : "") +
+              (out.pending ? `, ${out.pending} tutor(s) must reactivate` : "") +
+              "; cleared current pairings",
+            entity: "Term",
+            entityId: out.termId,
+          },
+          tx,
+        );
         return {
-          termId: term.id,
-          archivedTutees: tutees.count,
-          graduated,
-          aged,
-          pending,
+          schoolYear: np.schoolYear,
+          quarter: np.quarter,
+          name,
+          crossedSemester: semesterCross,
+          crossedYear: yearCross,
+          archivedTutees: out.archivedTutees,
+          graduatedTutors: out.graduated,
+          agedTutors: out.aged,
+          pendingTutors: out.pending,
         };
-      });
-
-      await recordAudit({
-        userId: ctx.session.user.id,
-        userName: ctx.session.user.name,
-        action:
-          `Refreshed program to ${name} — archived ${out.archivedTutees} tutee(s)` +
-          (out.graduated ? `, graduated ${out.graduated} tutor(s)` : "") +
-          (out.aged ? `, aged up ${out.aged}` : "") +
-          (out.pending ? `, ${out.pending} tutor(s) must reactivate` : "") +
-          "; cleared current pairings",
-        entity: "Term",
-        entityId: out.termId,
-      });
-      return {
-        schoolYear: np.schoolYear,
-        quarter: np.quarter,
-        name,
-        crossedSemester: semesterCross,
-        crossedYear: yearCross,
-        archivedTutees: out.archivedTutees,
-        graduatedTutors: out.graduated,
-        agedTutors: out.aged,
-        pendingTutors: out.pending,
-      };
-    }),
+      }),
+    ),
 
   // --------------------------------------------------------------------------
   // Tutor / Tutee / Room management
@@ -1315,32 +1549,62 @@ export const adminRouter = createTRPCRouter({
         trimmedUsername && trimmedUsername.length > 0
           ? trimmedUsername
           : defaultUsername(input.firstName, input.lastName, gradYear);
-      const username = await ensureUniqueUsername(desired, { excludeTutorId: input.id });
+      const account = await ctx.db.user.findUnique({
+        where: { tutorId: input.id },
+        select: { id: true, email: true },
+      });
+      if (
+        account &&
+        input.email !== undefined &&
+        input.email?.trim().toLowerCase() !== account.email
+      ) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message:
+            "Change a linked account email through verified account settings.",
+        });
+      }
+      const username = await ensureUniqueUsername(desired, {
+        excludeTutorId: input.id,
+        excludeUserId: account?.id,
+      });
       const prev = await ctx.db.tutor.findUnique({
         where: { id: input.id },
         select: { status: true },
       });
-      const updated = await ctx.db.tutor.update({
-        where: { id: input.id },
-        data: {
-          firstName: input.firstName,
-          lastName: input.lastName,
-          englishName: `${input.firstName} ${input.lastName}`,
-          alternativeNames: input.alternativeNames?.trim()
-            ? input.alternativeNames.trim()
-            : null,
-          username,
-          status: input.status,
-          ...(input.gradeLevel === undefined ? {} : { gradeLevel: input.gradeLevel }),
-          email: input.email?.trim() ? input.email.trim().toLowerCase() : null,
-        },
+      const updated = await inTransaction(ctx.db, async (tx) => {
+        const updated = await tx.tutor.update({
+          where: { id: input.id },
+          data: {
+            firstName: input.firstName,
+            lastName: input.lastName,
+            englishName: `${input.firstName} ${input.lastName}`,
+            alternativeNames: input.alternativeNames?.trim()
+              ? input.alternativeNames.trim()
+              : null,
+            username,
+            status: input.status,
+            ...(input.gradeLevel === undefined
+              ? {}
+              : { gradeLevel: input.gradeLevel }),
+            ...(input.email === undefined
+              ? {}
+              : { email: blankToNull(input.email)?.toLowerCase() ?? null }),
+          },
+        });
+        if (account)
+          await tx.user.update({
+            where: { id: account.id },
+            data: { username, name: updated.englishName },
+          });
+        // On an ACTIVE -> inactive transition, re-queue this tutor's tutees so none are stranded on
+        // a tutor who can no longer serve them (mirrors opt-out / can-tutor-off). Only on the actual
+        // transition, so re-saving an already-inactive tutor doesn't disturb anything.
+        if (prev?.status === "ACTIVE" && input.status !== "ACTIVE") {
+          await requeueTutorActiveTermTutees(tx, input.id);
+        }
+        return updated;
       });
-      // On an ACTIVE -> inactive transition, re-queue this tutor's tutees so none are stranded on
-      // a tutor who can no longer serve them (mirrors opt-out / can-tutor-off). Only on the actual
-      // transition, so re-saving an already-inactive tutor doesn't disturb anything.
-      if (prev?.status === "ACTIVE" && input.status !== "ACTIVE") {
-        await requeueTutorActiveTermTutees(ctx.db, input.id);
-      }
       return updated;
     }),
 
@@ -1408,6 +1672,9 @@ export const adminRouter = createTRPCRouter({
     .input(
       z.object({
         id: cuid,
+        expectedUpdatedAt,
+        preferredContact: z.string().trim().max(200).nullable().optional(),
+        slotIds: z.array(cuid).optional(),
         englishName: z.string().trim().min(1),
         email: z.string().email().nullable().optional(),
         phone: z.string().trim().nullable().optional(),
@@ -1418,19 +1685,85 @@ export const adminRouter = createTRPCRouter({
         secondChoiceId: cuid.nullable().optional(),
       }),
     )
-    .mutation(({ ctx, input }) =>
-      ctx.db.tutee.update({
-        where: { id: input.id },
-        data: {
-          englishName: input.englishName,
-          email: blankToNull(input.email)?.toLowerCase() ?? null,
-          phone: blankToNull(input.phone),
-          gradeLevel: blankToNull(input.gradeLevel),
-          notes: blankToNull(input.notes),
-          status: input.status,
-          firstChoiceId: input.firstChoiceId ?? null,
-          secondChoiceId: input.secondChoiceId ?? null,
-        },
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, `tutee:${input.id}`);
+        const before = await tx.tutee.findUniqueOrThrow({
+          where: { id: input.id },
+          include: { availabilities: true },
+        });
+        if (before.updatedAt.getTime() !== input.expectedUpdatedAt.getTime())
+          staleConflict();
+        const linkedStudent = await tx.user.findUnique({
+          where: { studentId: input.id },
+          select: { email: true },
+        });
+        if (
+          linkedStudent &&
+          input.email !== undefined &&
+          (input.email?.trim().toLowerCase() ?? null) !== linkedStudent.email
+        )
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "Student login emails must be changed through verified account settings.",
+          });
+        const { id, expectedUpdatedAt: _version, slotIds, ...fields } = input;
+        void _version;
+        if (
+          fields.firstChoiceId &&
+          fields.firstChoiceId === fields.secondChoiceId
+        )
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Choose two different subjects.",
+          });
+        if (
+          slotIds &&
+          (await tx.timeSlot.count({
+            where: { id: { in: [...new Set(slotIds)] }, active: true },
+          })) !== new Set(slotIds).size
+        )
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Choose active time slots.",
+          });
+        const updated = await tx.tutee.update({
+          where: { id },
+          data: {
+            ...fields,
+            ...(fields.email === undefined
+              ? {}
+              : { email: blankToNull(fields.email)?.toLowerCase() ?? null }),
+            ...(slotIds
+              ? {
+                  availabilities: {
+                    deleteMany: {},
+                    create: [...new Set(slotIds)].map((slotId) => ({ slotId })),
+                  },
+                }
+              : {}),
+          },
+        });
+        if (fields.status === "INACTIVE")
+          await tx.pairingTutee.deleteMany({
+            where: { tuteeId: id, pairing: { term: { active: true } } },
+          });
+        await tx.auditLog.create({
+          data: {
+            userId: ctx.session.user.id,
+            userName: ctx.session.user.name,
+            action: "Updated tutee profile",
+            entity: "Tutee",
+            entityId: id,
+            details: {
+              before: JSON.parse(
+                JSON.stringify(before),
+              ) as Prisma.InputJsonValue,
+            },
+          },
+        });
+        return updated;
       }),
     ),
 
@@ -1460,11 +1793,13 @@ export const adminRouter = createTRPCRouter({
       if (!subject) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "No subject: pick a subject for this tutee or pass a subject.",
+          message:
+            "No subject: pick a subject for this tutee or pass a subject.",
         });
       }
 
-      return ctx.db.$transaction(async (tx) => {
+      return inTransaction(ctx.db, async (tx) => {
+        await assertStudentRequestAssignable(tx, input.tuteeId);
         const pairing = await tx.pairing.create({
           data: {
             tutorId: input.tutorId,
@@ -1482,6 +1817,7 @@ export const adminRouter = createTRPCRouter({
           where: { id: input.tuteeId },
           data: { status: "ACTIVE" },
         });
+        await stampStudentAssignment(tx, input.tuteeId);
         return pairing;
       });
     }),
@@ -1504,7 +1840,8 @@ export const adminRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       // New pairings land in the active program period.
       const period = await getActivePeriod(ctx.db);
-      return ctx.db.$transaction(async (tx) => {
+      return inTransaction(ctx.db, async (tx) => {
+        await assertStudentRequestAssignable(tx, input.tuteeId);
         const tutee = await tx.tutee.findUnique({
           where: { id: input.tuteeId },
           select: {
@@ -1518,12 +1855,26 @@ export const adminRouter = createTRPCRouter({
         // Subjects this tutee already has a tutor for — re-assigns of the same subject are
         // skipped so a partially-processed request can be finished without duplicating pairings.
         const existing = await tx.pairingTutee.findMany({
-          where: { tuteeId: input.tuteeId },
+          where: { tuteeId: input.tuteeId, pairing: { termId: period.termId } },
           select: { pairing: { select: { subject: true } } },
         });
-        const assignedSubjects = new Set(existing.map((e) => e.pairing.subject));
+        const assignedSubjects = new Set(
+          existing.map((e) => e.pairing.subject),
+        );
 
         for (const a of input.assignments) {
+          const choices = [tutee.firstChoice?.name, tutee.secondChoice?.name];
+          if (
+            !choices.includes(a.subject) ||
+            !(await tx.tutor.count({
+              where: { id: a.tutorId, status: "ACTIVE" },
+            }))
+          ) {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: "Choose a requested subject and an active tutor.",
+            });
+          }
           if (assignedSubjects.has(a.subject)) continue;
           await tx.pairing.create({
             data: {
@@ -1543,26 +1894,45 @@ export const adminRouter = createTRPCRouter({
         // A request is "fulfilled" once every subject choice the tutee actually provided has
         // a tutor. Only then does it leave the queue (→ ACTIVE); partial assignments keep it
         // PENDING so the remaining choice can still be processed.
-        const provided = [tutee.firstChoice?.name, tutee.secondChoice?.name].filter(
-          (n): n is string => !!n,
-        );
-        const fulfilled = provided.length > 0 && provided.every((c) => assignedSubjects.has(c));
+        const provided = [
+          tutee.firstChoice?.name,
+          tutee.secondChoice?.name,
+        ].filter((n): n is string => !!n);
+        const fulfilled =
+          provided.length > 0 && provided.every((c) => assignedSubjects.has(c));
 
         // Concurrency guard: the version match + still-PENDING status both must hold, or another
         // coordinator got there first. The status flip (or no-op touch) bumps updatedAt.
         const flip = await tx.tutee.updateMany({
-          where: { id: input.tuteeId, status: "PENDING", updatedAt: input.expectedUpdatedAt },
+          where: {
+            id: input.tuteeId,
+            status: "PENDING",
+            updatedAt: input.expectedUpdatedAt,
+          },
           data: { status: fulfilled ? "ACTIVE" : "PENDING" },
         });
         if (flip.count === 0) staleConflict();
 
+        const account = await tx.user.findUnique({
+          where: { studentId: input.tuteeId },
+          select: { id: true },
+        });
+        if (account)
+          await notifyUsers(
+            [account.id],
+            { title: "Your tutoring assignment was updated", link: "/student" },
+            tx,
+          );
+        await stampStudentAssignment(tx, input.tuteeId);
         return { ok: true, fulfilled };
       });
     }),
 
   /** Quick status change (e.g. approve a PENDING signup → ACTIVE). */
   setTuteeStatus: adminProcedure
-    .input(z.object({ id: cuid, status: z.enum(TUTEE_STATUS), expectedUpdatedAt }))
+    .input(
+      z.object({ id: cuid, status: z.enum(TUTEE_STATUS), expectedUpdatedAt }),
+    )
     .mutation(async ({ ctx, input }) => {
       const prev = await ctx.db.tutee.findUniqueOrThrow({
         where: { id: input.id },
@@ -1586,7 +1956,10 @@ export const adminRouter = createTRPCRouter({
           action: `Set ${prev.englishName} to ${input.status.toLowerCase()}`,
           entity: "Tutee",
           entityId: input.id,
-          undo: { kind: "tutee.status", payload: { id: input.id, status: prev.status } },
+          undo: {
+            kind: "tutee.status",
+            payload: { id: input.id, status: prev.status },
+          },
         });
       }
       return { ok: true };
@@ -1595,11 +1968,14 @@ export const adminRouter = createTRPCRouter({
   deleteTutee: adminProcedure
     .input(z.object({ id: cuid }))
     .mutation(async ({ ctx, input }) => {
-      const sessions = await ctx.db.sessionTutee.count({ where: { tuteeId: input.id } });
+      const sessions = await ctx.db.sessionTutee.count({
+        where: { tuteeId: input.id },
+      });
       if (sessions > 0) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Cannot delete a tutee with attendance history. Set them inactive instead.",
+          message:
+            "Cannot delete a tutee with attendance history. Set them inactive instead.",
         });
       }
       await ctx.db.pairingTutee.deleteMany({ where: { tuteeId: input.id } });
@@ -1610,7 +1986,12 @@ export const adminRouter = createTRPCRouter({
   // Subject catalog (subjects offered; tutees pick first/second choice at signup)
   // --------------------------------------------------------------------------
   createSubject: adminProcedure
-    .input(z.object({ name: z.string().trim().min(1), levelId: cuid.nullable().optional() }))
+    .input(
+      z.object({
+        name: z.string().trim().min(1),
+        levelId: cuid.nullable().optional(),
+      }),
+    )
     .mutation(({ ctx, input }) =>
       ctx.db.subject.create({
         data: { name: input.name, levelId: input.levelId ?? null },
@@ -1627,13 +2008,23 @@ export const adminRouter = createTRPCRouter({
       }),
     )
     .mutation(({ ctx, input }) =>
-      ctx.db.subject.update({
-        where: { id: input.id },
-        data: {
-          name: input.name,
-          ...(input.levelId === undefined ? {} : { levelId: input.levelId }),
-          active: input.active,
-        },
+      inTransaction(ctx.db, async (tx) => {
+        const before = await tx.subject.findUniqueOrThrow({
+          where: { id: input.id },
+        });
+        // Pairing stores the catalogue label: rename it atomically with its source.
+        await tx.pairing.updateMany({
+          where: { subject: before.name },
+          data: { subject: input.name },
+        });
+        return tx.subject.update({
+          where: { id: input.id },
+          data: {
+            name: input.name,
+            ...(input.levelId === undefined ? {} : { levelId: input.levelId }),
+            active: input.active,
+          },
+        });
       }),
     ),
 
@@ -1641,12 +2032,15 @@ export const adminRouter = createTRPCRouter({
     .input(z.object({ id: cuid }))
     .mutation(async ({ ctx, input }) => {
       const used = await ctx.db.tutee.count({
-        where: { OR: [{ firstChoiceId: input.id }, { secondChoiceId: input.id }] },
+        where: {
+          OR: [{ firstChoiceId: input.id }, { secondChoiceId: input.id }],
+        },
       });
       if (used > 0) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Subject is chosen by one or more tutees. Mark it inactive instead.",
+          message:
+            "Subject is chosen by one or more tutees. Mark it inactive instead.",
         });
       }
       const subject = await ctx.db.subject.findUniqueOrThrow({
@@ -1690,14 +2084,23 @@ export const adminRouter = createTRPCRouter({
     .input(
       z.object({
         subjects: z
-          .array(z.object({ name: z.string().trim().min(1), level: z.string().trim().optional() }))
+          .array(
+            z.object({
+              name: z.string().trim().min(1),
+              level: z.string().trim().optional(),
+            }),
+          )
           .min(1)
           .max(500),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const levels = await ctx.db.subjectLevel.findMany({ select: { id: true, name: true } });
-      const levelByName = new Map(levels.map((l) => [l.name.toLowerCase(), l.id]));
+      const levels = await ctx.db.subjectLevel.findMany({
+        select: { id: true, name: true },
+      });
+      const levelByName = new Map(
+        levels.map((l) => [l.name.toLowerCase(), l.id]),
+      );
 
       // De-dupe by name within the batch, then let the DB skip names that already exist.
       const seen = new Set<string>();
@@ -1708,10 +2111,15 @@ export const adminRouter = createTRPCRouter({
         seen.add(key);
         data.push({
           name: c.name,
-          levelId: c.level ? (levelByName.get(c.level.toLowerCase()) ?? null) : null,
+          levelId: c.level
+            ? (levelByName.get(c.level.toLowerCase()) ?? null)
+            : null,
         });
       }
-      const result = await ctx.db.subject.createMany({ data, skipDuplicates: true });
+      const result = await ctx.db.subject.createMany({
+        data,
+        skipDuplicates: true,
+      });
       return { created: result.count, received: input.subjects.length };
     }),
 
@@ -1729,7 +2137,10 @@ export const adminRouter = createTRPCRouter({
     )
     .mutation(({ ctx, input }) => {
       if (input.endMin <= input.startMin) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "End must be after start." });
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "End must be after start.",
+        });
       }
       return ctx.db.timeSlot.create({ data: input });
     }),
@@ -1747,7 +2158,10 @@ export const adminRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       if (input.endMin <= input.startMin) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "End must be after start." });
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "End must be after start.",
+        });
       }
       const { id, ...data } = input;
       const durationMin = data.endMin - data.startMin;
@@ -1763,7 +2177,8 @@ export const adminRouter = createTRPCRouter({
           current.dayOfWeek !== data.dayOfWeek ||
           current.startMin !== data.startMin ||
           current.endMin !== data.endMin;
-        const timeChanged = current.startMin !== data.startMin || current.endMin !== data.endMin;
+        const timeChanged =
+          current.startMin !== data.startMin || current.endMin !== data.endMin;
 
         const slot = await tx.timeSlot.update({ where: { id }, data });
         if (!scheduleChanged) {
@@ -1783,7 +2198,11 @@ export const adminRouter = createTRPCRouter({
         // edits do flow to every session stamped with this slot, including sessions from pairings
         // that have since moved elsewhere.
         if (!timeChanged) {
-          return { ...slot, updatedPairings: pairings.count, updatedSessions: 0 };
+          return {
+            ...slot,
+            updatedPairings: pairings.count,
+            updatedSessions: 0,
+          };
         }
 
         const sessions = await tx.session.findMany({
@@ -1825,7 +2244,9 @@ export const adminRouter = createTRPCRouter({
   deleteTimeSlot: adminProcedure
     .input(z.object({ id: cuid }))
     .mutation(async ({ ctx, input }) => {
-      const used = await ctx.db.pairing.count({ where: { timeSlotId: input.id } });
+      const used = await ctx.db.pairing.count({
+        where: { timeSlotId: input.id },
+      });
       if (used > 0) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -1843,7 +2264,10 @@ export const adminRouter = createTRPCRouter({
   updateRoom: adminProcedure
     .input(z.object({ id: cuid, name: z.string().min(1) }))
     .mutation(({ ctx, input }) =>
-      ctx.db.room.update({ where: { id: input.id }, data: { name: input.name } }),
+      ctx.db.room.update({
+        where: { id: input.id },
+        data: { name: input.name },
+      }),
     ),
 
   deleteRoom: adminProcedure
@@ -1874,7 +2298,10 @@ export const adminRouter = createTRPCRouter({
     )
     .mutation(({ ctx, input }) => {
       if (input.endMin <= input.startMin) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "End must be after start." });
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "End must be after start.",
+        });
       }
       return ctx.db.roomUnavailability.create({
         data: {
@@ -1899,7 +2326,9 @@ export const adminRouter = createTRPCRouter({
   meetings: viewerProcedure.query(({ ctx }) =>
     ctx.db.tutorMeeting.findMany({
       orderBy: { date: "desc" },
-      include: { attendances: { include: { tutor: { select: { englishName: true } } } } },
+      include: {
+        attendances: { include: { tutor: { select: { englishName: true } } } },
+      },
     }),
   ),
 
@@ -1913,18 +2342,32 @@ export const adminRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       await assertFeatureEnabled(ctx.db, "MEETINGS");
-      return ctx.db.tutorMeeting.create({ data: input });
+      const period = await getActivePeriod(ctx.db);
+      return ctx.db.tutorMeeting.create({
+        data: { ...input, termId: input.termId ?? period.termId },
+      });
     }),
 
   deleteMeeting: adminProcedure
     .input(z.object({ id: cuid }))
     .mutation(async ({ ctx, input }) => {
       await assertFeatureEnabled(ctx.db, "MEETINGS");
-      // Remove the meeting's unexcused-absence deductions along with it (attendance cascades).
-      await ctx.db.serviceHourAdjustment.deleteMany({
-        where: { id: { startsWith: `mtgabs_${input.id}_` } },
+      return inTransaction(ctx.db, async (tx) => {
+        const participants = await tx.meetingAttendance.findMany({
+          where: { meetingId: input.id },
+          select: { tutorId: true },
+        });
+        for (const id of [
+          ...new Set(participants.map((p) => p.tutorId)),
+        ].sort())
+          await lockEntity(tx, `meeting-hours:${id}`);
+        const removed = await tx.tutorMeeting.delete({
+          where: { id: input.id },
+        });
+        for (const p of participants)
+          await reconcileMeetingHours(tx, p.tutorId);
+        return removed;
       });
-      return ctx.db.tutorMeeting.delete({ where: { id: input.id } });
     }),
 
   recordMeetingAttendance: adminProcedure
@@ -1940,50 +2383,40 @@ export const adminRouter = createTRPCRouter({
       await assertFeatureEnabled(ctx.db, "MEETINGS");
       const meeting = await ctx.db.tutorMeeting.findUnique({
         where: { id: input.meetingId },
-        select: { date: true, term: { select: { schoolYear: true, quarter: true } } },
+        select: {
+          date: true,
+          term: { select: { schoolYear: true, quarter: true } },
+        },
       });
-      if (!meeting) throw new TRPCError({ code: "NOT_FOUND", message: "Meeting not found." });
+      if (!meeting)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Meeting not found.",
+        });
       // Deductions land in the meeting's month, scoped to its term (or the active period).
-      const period = meeting.term ?? (await getActivePeriod(ctx.db));
-      const month = monthKey(meeting.date);
 
       await ctx.db.$transaction(async (tx) => {
+        for (const id of [
+          ...new Set(input.entries.map((e) => e.tutorId)),
+        ].sort())
+          await lockEntity(tx, `meeting-hours:${id}`);
         for (const e of input.entries) {
           await tx.meetingAttendance.upsert({
             where: {
-              meetingId_tutorId: { meetingId: input.meetingId, tutorId: e.tutorId },
+              meetingId_tutorId: {
+                meetingId: input.meetingId,
+                tutorId: e.tutorId,
+              },
             },
             update: { status: e.status },
-            create: { meetingId: input.meetingId, tutorId: e.tutorId, status: e.status },
+            create: {
+              meetingId: input.meetingId,
+              tutorId: e.tutorId,
+              status: e.status,
+            },
           });
 
-          // Reconcile this tutor's unexcused-absence deduction for this meeting (one
-          // deterministic PUNISHMENT adjustment per meeting+tutor, so it's idempotent and
-          // disappears the moment the status changes away from unexcused).
-          const adjId = `mtgabs_${input.meetingId}_${e.tutorId}`;
-          if (e.status === "UNEXCUSED_ABSENT") {
-            await tx.serviceHourAdjustment.upsert({
-              where: { id: adjId },
-              update: {
-                month,
-                schoolYear: period.schoolYear,
-                quarter: period.quarter,
-                amount: MEETING_ABSENCE_DEDUCTION,
-              },
-              create: {
-                id: adjId,
-                tutorId: e.tutorId,
-                month,
-                schoolYear: period.schoolYear,
-                quarter: period.quarter,
-                type: "PUNISHMENT",
-                amount: MEETING_ABSENCE_DEDUCTION,
-                reason: "Unexcused tutor-meeting absence",
-              },
-            });
-          } else {
-            await tx.serviceHourAdjustment.deleteMany({ where: { id: adjId } });
-          }
+          await reconcileMeetingHours(tx, e.tutorId);
         }
       });
       return { ok: true };
@@ -2021,7 +2454,11 @@ export const adminRouter = createTRPCRouter({
       // Stamp the active program period so the adjustment counts toward the right semester.
       const period = await getActivePeriod(ctx.db);
       return ctx.db.serviceHourAdjustment.create({
-        data: { ...input, schoolYear: period.schoolYear, quarter: period.quarter },
+        data: {
+          ...input,
+          schoolYear: period.schoolYear,
+          quarter: period.quarter,
+        },
       });
     }),
 
@@ -2042,14 +2479,20 @@ export const adminRouter = createTRPCRouter({
       include: {
         subjectIntents: {
           include: {
-            subject: { select: { name: true, level: { select: { name: true } } } },
+            subject: {
+              select: { name: true, level: { select: { name: true } } },
+            },
           },
         },
         interviewers: {
           include: { tutor: { select: { id: true, englishName: true } } },
         },
         votes: {
-          select: { accept: true, comment: true, tutor: { select: { englishName: true } } },
+          select: {
+            accept: true,
+            comment: true,
+            tutor: { select: { englishName: true } },
+          },
         },
         decidedByTutor: { select: { englishName: true } },
       },
@@ -2067,7 +2510,10 @@ export const adminRouter = createTRPCRouter({
     .input(
       z.object({
         applicationId: cuid,
-        tutorIds: z.array(cuid).min(1, "Pick at least one interviewer").max(8),
+        tutorIds: z
+          .array(cuid)
+          .min(3, "Pick at least three interviewers")
+          .max(8),
         headTutorId: cuid,
         expectedUpdatedAt,
       }),
@@ -2085,19 +2531,53 @@ export const adminRouter = createTRPCRouter({
         where: { id: input.applicationId },
         select: { name: true },
       });
-      if (!app) throw new TRPCError({ code: "NOT_FOUND", message: "Application not found." });
-      const found = await ctx.db.tutor.count({ where: { id: { in: tutorIds } } });
+      if (!app)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Application not found.",
+        });
+      const found = await ctx.db.tutor.count({
+        where: { id: { in: tutorIds }, status: "ACTIVE" },
+      });
       if (found !== tutorIds.length) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Unknown tutor selected." });
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Unknown tutor selected.",
+        });
       }
 
       await ctx.db.$transaction(async (tx) => {
+        await lockEntity(tx, `interview:${input.applicationId}`);
+        await validatePanel(
+          tx,
+          input.applicationId,
+          tutorIds,
+          input.headTutorId,
+        );
         // Concurrency guard on the application — rolls back the panel edit on a stale write.
         const upd = await tx.tutorApplication.updateMany({
-          where: { id: input.applicationId, updatedAt: input.expectedUpdatedAt },
-          data: { status: "INTERVIEW" },
+          where: {
+            id: input.applicationId,
+            updatedAt: input.expectedUpdatedAt,
+          },
+          data: {
+            status: "INTERVIEW",
+            interviewCompletedAt: null,
+            interviewDurationMin: null,
+            decidedAt: null,
+            decidedByTutorId: null,
+            decisionComment: null,
+          },
         });
         if (upd.count === 0) staleConflict();
+        await reconcileApplication(tx, input.applicationId);
+        await tx.serviceHourAdjustment.deleteMany({
+          where: { id: { startsWith: `interview_${input.applicationId}_` } },
+        });
+        // Replacing a panel starts a fresh review; votes from its previous panel cannot decide it.
+        await tx.interviewVote.deleteMany({
+          where: { applicationId: input.applicationId },
+        });
         await tx.interviewAssignment.deleteMany({
           where: { applicationId: input.applicationId },
         });
@@ -2119,33 +2599,61 @@ export const adminRouter = createTRPCRouter({
     }),
 
   setApplicationStatus: adminProcedure
-    .input(z.object({ id: cuid, status: z.enum(TUTOR_APP_STATUS), expectedUpdatedAt }))
-    .mutation(async ({ ctx, input }) => {
-      const prev = await ctx.db.tutorApplication.findUnique({
-        where: { id: input.id },
-        select: { status: true },
-      });
-      const updated = await ctx.db.tutorApplication.updateMany({
-        where: { id: input.id, updatedAt: input.expectedUpdatedAt },
-        data: { status: input.status },
-      });
-      if (updated.count === 0) staleConflict();
-      // On the transition to ACCEPTED, add the applicant to the tutors list.
-      if (input.status === "ACCEPTED" && prev?.status !== "ACCEPTED") {
-        await promoteApplicantToTutor(input.id);
-      }
-      if (prev && prev.status !== input.status) {
-        await recordAudit({
-          userId: ctx.session.user.id,
-          userName: ctx.session.user.name,
-          action: `Set application status to ${input.status.toLowerCase()}`,
-          entity: "TutorApplication",
-          entityId: input.id,
-          undo: { kind: "application.status", payload: { id: input.id, status: prev.status } },
+    .input(
+      z.object({
+        id: cuid,
+        status: z.enum(TUTOR_APP_STATUS),
+        expectedUpdatedAt,
+      }),
+    )
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, `interview:${input.id}`);
+        if (input.status === "ACCEPTED")
+          await validateInterviewDecision(
+            tx,
+            input.id,
+            true,
+            ctx.session.tutorId,
+          );
+        const prev = await tx.tutorApplication.findUnique({
+          where: { id: input.id },
+          select: { status: true },
         });
-      }
-      return { ok: true };
-    }),
+        const updated = await tx.tutorApplication.updateMany({
+          where: { id: input.id, updatedAt: input.expectedUpdatedAt },
+          data: { status: input.status },
+        });
+        if (updated.count === 0) staleConflict();
+        // On the transition to ACCEPTED, add the applicant to the tutors list.
+        await reconcileApplication(tx, input.id);
+        const after = await tx.tutorApplication.findUniqueOrThrow({
+          where: { id: input.id },
+          select: { updatedAt: true },
+        });
+        if (prev && prev.status !== input.status) {
+          await recordAudit(
+            {
+              userId: ctx.session.user.id,
+              userName: ctx.session.user.name,
+              action: `Set application status to ${input.status.toLowerCase()}`,
+              entity: "TutorApplication",
+              entityId: input.id,
+              undo: {
+                kind: "application.status",
+                payload: {
+                  id: input.id,
+                  status: prev.status,
+                  expectedUpdatedAt: after.updatedAt.toISOString(),
+                },
+              },
+            },
+            tx,
+          );
+        }
+        return { ok: true };
+      }),
+    ),
 
   deleteApplication: adminProcedure
     .input(z.object({ id: cuid }))
@@ -2170,12 +2678,16 @@ export const adminRouter = createTRPCRouter({
         reason: true,
         eligibleAt: true,
         createdAt: true,
-        tutor: { select: { id: true, englishName: true, status: true, email: true } },
+        tutor: {
+          select: { id: true, englishName: true, status: true, email: true },
+        },
       },
     });
 
     // Affected tutees for each opting-out tutor = tutees they serve in the active term.
-    const optOutTutorIds = requests.filter((r) => r.kind === "OPT_OUT").map((r) => r.tutor.id);
+    const optOutTutorIds = requests
+      .filter((r) => r.kind === "OPT_OUT")
+      .map((r) => r.tutor.id);
     const tuteeCounts = new Map<string, number>();
     if (optOutTutorIds.length > 0 && active) {
       const pairings = await ctx.db.pairing.findMany({
@@ -2196,7 +2708,8 @@ export const adminRouter = createTRPCRouter({
       createdAt: r.createdAt,
       eligibleAt: r.eligibleAt,
       // Opt-out can only be approved once the cooldown has elapsed.
-      approvable: r.kind === "REENTRY" || (r.eligibleAt != null && r.eligibleAt <= now),
+      approvable:
+        r.kind === "REENTRY" || (r.eligibleAt != null && r.eligibleAt <= now),
       tutor: r.tutor,
       affectedTutees: tuteeCounts.get(r.tutor.id) ?? 0,
     }));
@@ -2213,10 +2726,19 @@ export const adminRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const req = await ctx.db.tutorStatusRequest.findUniqueOrThrow({
         where: { id: input.requestId },
-        select: { id: true, kind: true, state: true, eligibleAt: true, tutorId: true },
+        select: {
+          id: true,
+          kind: true,
+          state: true,
+          eligibleAt: true,
+          tutorId: true,
+        },
       });
       if (req.state !== "PENDING") {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "This request is already resolved." });
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This request is already resolved.",
+        });
       }
       if (input.approve && req.kind === "OPT_OUT") {
         if (!req.eligibleAt || req.eligibleAt > new Date()) {
@@ -2245,7 +2767,10 @@ export const adminRouter = createTRPCRouter({
           },
         });
         if (newTutorStatus) {
-          await tx.tutor.update({ where: { id: req.tutorId }, data: { status: newTutorStatus } });
+          await tx.tutor.update({
+            where: { id: req.tutorId },
+            data: { status: newTutorStatus },
+          });
         }
       });
 
@@ -2288,7 +2813,10 @@ export const adminRouter = createTRPCRouter({
   requeueTutorTutees: adminProcedure
     .input(z.object({ tutorId: cuid }))
     .mutation(async ({ ctx, input }) => {
-      const requeued = await requeueTutorActiveTermTutees(ctx.db, input.tutorId);
+      const requeued = await requeueTutorActiveTermTutees(
+        ctx.db,
+        input.tutorId,
+      );
       if (requeued > 0) {
         await recordAudit({
           userId: ctx.session.user.id,
@@ -2345,16 +2873,26 @@ export const adminRouter = createTRPCRouter({
     // Resolve tutor names + pairing subjects in batch (requests store scalar ids).
     const tutorIds = [
       ...new Set(
-        [...pending, ...finalized].map((r) => r.requestedByTutorId).filter(Boolean) as string[],
+        [...pending, ...finalized]
+          .map((r) => r.requestedByTutorId)
+          .filter(Boolean) as string[],
       ),
     ];
-    const pairingIds = [...new Set(pending.map((r) => r.pairingId).filter(Boolean) as string[])];
+    const pairingIds = [
+      ...new Set(pending.map((r) => r.pairingId).filter(Boolean) as string[]),
+    ];
     const [tutors, pairings] = await Promise.all([
       tutorIds.length
-        ? ctx.db.tutor.findMany({ where: { id: { in: tutorIds } }, select: { id: true, englishName: true } })
+        ? ctx.db.tutor.findMany({
+            where: { id: { in: tutorIds } },
+            select: { id: true, englishName: true },
+          })
         : Promise.resolve([]),
       pairingIds.length
-        ? ctx.db.pairing.findMany({ where: { id: { in: pairingIds } }, select: { id: true, subject: true } })
+        ? ctx.db.pairing.findMany({
+            where: { id: { in: pairingIds } },
+            select: { id: true, subject: true },
+          })
         : Promise.resolve([]),
     ]);
     const tutorName = new Map(tutors.map((t) => [t.id, t.englishName]));
@@ -2368,7 +2906,9 @@ export const adminRouter = createTRPCRouter({
         createdAt: r.createdAt,
         eligibleAt: r.eligibleAt,
         tutee: r.tutee,
-        tutorName: r.requestedByTutorId ? (tutorName.get(r.requestedByTutorId) ?? null) : null,
+        tutorName: r.requestedByTutorId
+          ? (tutorName.get(r.requestedByTutorId) ?? null)
+          : null,
         subject: r.pairingId ? (subject.get(r.pairingId) ?? null) : null,
       })),
       finalized: finalized.map((r) => ({
@@ -2378,7 +2918,9 @@ export const adminRouter = createTRPCRouter({
         resolvedAt: r.resolvedAt,
         period: r.removedPeriodKey,
         tutee: r.tutee,
-        tutorName: r.requestedByTutorId ? (tutorName.get(r.requestedByTutorId) ?? null) : null,
+        tutorName: r.requestedByTutorId
+          ? (tutorName.get(r.requestedByTutorId) ?? null)
+          : null,
       })),
     };
   }),
@@ -2392,10 +2934,19 @@ export const adminRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const req = await ctx.db.tuteeRemovalRequest.findUniqueOrThrow({
         where: { id: input.requestId },
-        select: { id: true, state: true, kind: true, requestedByTutorId: true, tutee: { select: { englishName: true } } },
+        select: {
+          id: true,
+          state: true,
+          kind: true,
+          requestedByTutorId: true,
+          tutee: { select: { englishName: true } },
+        },
       });
       if (req.state !== "PENDING" || req.kind !== "VOLUNTARY") {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "No in-flight opt-out to cancel." });
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "No in-flight opt-out to cancel.",
+        });
       }
       await ctx.db.tuteeRemovalRequest.update({
         where: { id: req.id },
@@ -2439,13 +2990,24 @@ export const adminRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const req = await ctx.db.tuteeRemovalRequest.findUniqueOrThrow({
         where: { id: input.requestId },
-        select: { id: true, state: true, tuteeId: true, tutee: { select: { englishName: true } } },
+        select: {
+          id: true,
+          state: true,
+          tuteeId: true,
+          tutee: { select: { englishName: true } },
+        },
       });
       if (req.state !== "APPROVED") {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "This removal isn't in effect." });
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This removal isn't in effect.",
+        });
       }
       await ctx.db.$transaction([
-        ctx.db.tutee.update({ where: { id: req.tuteeId }, data: { status: "PENDING" } }),
+        ctx.db.tutee.update({
+          where: { id: req.tuteeId },
+          data: { status: "PENDING" },
+        }),
         ctx.db.tuteeRemovalRequest.update({
           where: { id: req.id },
           data: {
@@ -2472,9 +3034,17 @@ export const adminRouter = createTRPCRouter({
   /** Set a crew member's lifecycle status: ACTIVE (enable/re-enable), INACTIVE (soft-remove,
    *  revertible), or OPTED_OUT. Use a crew registration code to add a brand-new crew member. */
   setCrewStatus: adminProcedure
-    .input(z.object({ userId: cuid, status: z.enum(["ACTIVE", "INACTIVE", "OPTED_OUT"]) }))
+    .input(
+      z.object({
+        userId: cuid,
+        status: z.enum(["ACTIVE", "INACTIVE", "OPTED_OUT"]),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.user.update({ where: { id: input.userId }, data: { crewStatus: input.status } });
+      await ctx.db.user.update({
+        where: { id: input.userId },
+        data: { crewStatus: input.status },
+      });
       await recordAudit({
         userId: ctx.session.user.id,
         userName: ctx.session.user.name,
@@ -2498,7 +3068,8 @@ export const adminRouter = createTRPCRouter({
       if (target.role !== "CREW") {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Only crew-only logins can be deleted here. Use Users & Roles for other accounts.",
+          message:
+            "Only crew-only logins can be deleted here. Use Users & Roles for other accounts.",
         });
       }
       await ctx.db.user.delete({ where: { id: target.id } });
@@ -2538,27 +3109,41 @@ export const adminRouter = createTRPCRouter({
           tutor: { select: { englishName: true } },
         },
       }),
-      ctx.db.patrol.groupBy({ by: ["crewUserId"], _sum: { hours: true }, _count: { _all: true } }),
+      ctx.db.patrol.groupBy({
+        by: ["crewUserId"],
+        _sum: { hours: true },
+        _count: { _all: true },
+      }),
     ]);
-    const byUser = new Map(agg.map((p) => [p.crewUserId, { hours: p._sum.hours ?? 0, count: p._count._all }]));
-    const rank = { ACTIVE: 0, OPTED_OUT: 1, INACTIVE: 2 } as Record<string, number>;
-    return users
-      .map((u) => ({
-        id: u.id,
-        name: u.name ?? u.username ?? "—",
-        tutor: u.tutor?.englishName ?? null,
-        crewOnly: u.role === "CREW",
-        status: u.crewStatus ?? "INACTIVE",
-        patrols: byUser.get(u.id)?.count ?? 0,
-        hours: byUser.get(u.id)?.hours ?? 0,
-      }))
-      // Active first, then by patrol count.
-      .sort(
-        (a, b) =>
-          (rank[a.status] ?? 9) - (rank[b.status] ?? 9) ||
-          b.patrols - a.patrols ||
-          a.name.localeCompare(b.name),
-      );
+    const byUser = new Map(
+      agg.map((p) => [
+        p.crewUserId,
+        { hours: p._sum.hours ?? 0, count: p._count._all },
+      ]),
+    );
+    const rank = { ACTIVE: 0, OPTED_OUT: 1, INACTIVE: 2 } as Record<
+      string,
+      number
+    >;
+    return (
+      users
+        .map((u) => ({
+          id: u.id,
+          name: u.name ?? u.username ?? "—",
+          tutor: u.tutor?.englishName ?? null,
+          crewOnly: u.role === "CREW",
+          status: u.crewStatus ?? "INACTIVE",
+          patrols: byUser.get(u.id)?.count ?? 0,
+          hours: byUser.get(u.id)?.hours ?? 0,
+        }))
+        // Active first, then by patrol count.
+        .sort(
+          (a, b) =>
+            (rank[a.status] ?? 9) - (rank[b.status] ?? 9) ||
+            b.patrols - a.patrols ||
+            a.name.localeCompare(b.name),
+        )
+    );
   }),
 
   /** Save the crew's room patrol order (roomIds in the order they should be visited). */
@@ -2576,13 +3161,17 @@ export const adminRouter = createTRPCRouter({
   /** Headline crew totals for the dashboard + activity: patrols, crew hours, open discrepancy
    *  flags, active members, and the pending application / opt-out request counts. */
   crewSummary: viewerProcedure.query(async ({ ctx }) => {
-    const [patrolAgg, flagCount, crewCount, appCount, reqCount] = await Promise.all([
-      ctx.db.patrol.aggregate({ _sum: { hours: true }, _count: { _all: true } }),
-      ctx.db.sessionFlag.count({ where: { state: "PENDING" } }),
-      ctx.db.user.count({ where: { crewStatus: "ACTIVE" } }),
-      ctx.db.crewApplication.count({ where: { status: "PENDING" } }),
-      ctx.db.crewStatusRequest.count({ where: { state: "PENDING" } }),
-    ]);
+    const [patrolAgg, flagCount, crewCount, appCount, reqCount] =
+      await Promise.all([
+        ctx.db.patrol.aggregate({
+          _sum: { hours: true },
+          _count: { _all: true },
+        }),
+        ctx.db.sessionFlag.count({ where: { state: "PENDING" } }),
+        ctx.db.user.count({ where: { crewStatus: "ACTIVE" } }),
+        ctx.db.crewApplication.count({ where: { status: "PENDING" } }),
+        ctx.db.crewStatusRequest.count({ where: { state: "PENDING" } }),
+      ]);
     return {
       patrols: patrolAgg._count._all,
       hours: patrolAgg._sum.hours ?? 0,
@@ -2619,19 +3208,37 @@ export const adminRouter = createTRPCRouter({
   crewIssuedCodes: viewerProcedure.query(async ({ ctx }) => {
     const canSee = ctx.session.role !== "VIEWER";
     const codes = await ctx.db.registrationCode.findMany({
-      where: { crewApplicationId: { not: null }, usedAt: null, expiresAt: { gt: new Date() } },
+      where: {
+        crewApplicationId: { not: null },
+        usedAt: null,
+        expiresAt: { gt: new Date() },
+      },
       orderBy: { createdAt: "desc" },
-      select: { id: true, code: true, label: true, expiresAt: true, crewApplicationId: true },
+      select: {
+        id: true,
+        code: true,
+        label: true,
+        expiresAt: true,
+        crewApplicationId: true,
+      },
     });
-    const appIds = codes.map((c) => c.crewApplicationId).filter((x): x is string => !!x);
+    const appIds = codes
+      .map((c) => c.crewApplicationId)
+      .filter((x): x is string => !!x);
     const apps = appIds.length
-      ? await ctx.db.crewApplication.findMany({ where: { id: { in: appIds } }, select: { id: true, name: true } })
+      ? await ctx.db.crewApplication.findMany({
+          where: { id: { in: appIds } },
+          select: { id: true, name: true },
+        })
       : [];
     const nameById = new Map(apps.map((a) => [a.id, a.name]));
     return codes.map((c) => ({
       id: c.id,
       code: canSee ? c.code : null,
-      name: (c.crewApplicationId ? nameById.get(c.crewApplicationId) : null) ?? c.label ?? "—",
+      name:
+        (c.crewApplicationId ? nameById.get(c.crewApplicationId) : null) ??
+        c.label ??
+        "—",
       expiresAt: c.expiresAt,
     }));
   }),
@@ -2639,14 +3246,23 @@ export const adminRouter = createTRPCRouter({
   /** Decide a crew application: ACCEPT issues a CREW registration code bound to the applicant's
    *  email (shown on /admin/registration-codes to hand over); REJECT closes it. */
   decideCrewApplication: adminProcedure
-    .input(z.object({ applicationId: cuid, action: z.enum(["ACCEPT", "REJECT"]), comment: z.string().trim().max(500).optional() }))
+    .input(
+      z.object({
+        applicationId: cuid,
+        action: z.enum(["ACCEPT", "REJECT"]),
+        comment: z.string().trim().max(500).optional(),
+      }),
+    )
     .mutation(async ({ ctx, input }) => {
       const app = await ctx.db.crewApplication.findUniqueOrThrow({
         where: { id: input.applicationId },
         select: { id: true, name: true, email: true, status: true },
       });
       if (app.status !== "PENDING") {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "This application is already decided." });
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This application is already decided.",
+        });
       }
       let code: string | null = null;
       if (input.action === "ACCEPT") {
@@ -2715,17 +3331,38 @@ export const adminRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const req = await ctx.db.crewStatusRequest.findUniqueOrThrow({
         where: { id: input.requestId },
-        select: { id: true, kind: true, state: true, eligibleAt: true, userId: true },
+        select: {
+          id: true,
+          kind: true,
+          state: true,
+          eligibleAt: true,
+          userId: true,
+        },
       });
       if (req.state !== "PENDING") {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "This request is already decided." });
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This request is already decided.",
+        });
       }
-      if (input.action === "APPROVE" && req.kind === "OPT_OUT" && req.eligibleAt && req.eligibleAt > new Date()) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "The recall cooldown hasn't elapsed yet." });
+      if (
+        input.action === "APPROVE" &&
+        req.kind === "OPT_OUT" &&
+        req.eligibleAt &&
+        req.eligibleAt > new Date()
+      ) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "The recall cooldown hasn't elapsed yet.",
+        });
       }
       await ctx.db.crewStatusRequest.update({
         where: { id: req.id },
-        data: { state: input.action === "APPROVE" ? "APPROVED" : "DENIED", decidedByName: ctx.session.user.name, decidedAt: new Date() },
+        data: {
+          state: input.action === "APPROVE" ? "APPROVED" : "DENIED",
+          decidedByName: ctx.session.user.name,
+          decidedAt: new Date(),
+        },
       });
       if (input.action === "APPROVE") {
         await ctx.db.user.update({
@@ -2804,71 +3441,95 @@ export const adminRouter = createTRPCRouter({
         penaltyHours: z.number().min(0).max(24).optional(),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
-      const flag = await ctx.db.sessionFlag.findUniqueOrThrow({
-        where: { id: input.flagId },
-        select: {
-          id: true,
-          state: true,
-          tutorId: true,
-          tutor: { select: { englishName: true, user: { select: { id: true } } } },
-          session: { select: { schoolYear: true, quarter: true, month: true } },
-        },
-      });
-      if (flag.state !== "PENDING") {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "This flag is already resolved." });
-      }
-      const stateByAction = {
-        DISMISS: "DISMISSED",
-        WARN: "WARNED",
-        PENALIZE: "PENALIZED",
-        ESCALATE: "ESCALATED",
-      } as const;
-      const note = input.note?.trim() ? input.note.trim() : null;
-
-      await ctx.db.sessionFlag.update({
-        where: { id: flag.id },
-        data: {
-          state: stateByAction[input.action],
-          decisionNote: note,
-          resolvedAt: new Date(),
-          resolvedById: ctx.session.user.id,
-          resolvedByName: ctx.session.user.name,
-        },
-      });
-
-      if (input.action === "PENALIZE") {
-        await ctx.db.serviceHourAdjustment.create({
-          data: {
-            tutorId: flag.tutorId,
-            month: flag.session.month,
-            schoolYear: flag.session.schoolYear,
-            quarter: flag.session.quarter,
-            type: "PUNISHMENT",
-            amount: input.penaltyHours ?? 0.5,
-            reason: `Attendance discrepancy (crew check)${note ? ` — ${note}` : ""}.`,
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        const reference = await tx.sessionFlag.findUniqueOrThrow({
+          where: { id: input.flagId },
+          select: { sessionId: true },
+        });
+        await lockEntity(tx, `session-flag:${reference.sessionId}`);
+        const flag = await tx.sessionFlag.findUniqueOrThrow({
+          where: { id: input.flagId },
+          select: {
+            id: true,
+            state: true,
+            tutorId: true,
+            tutor: {
+              select: { englishName: true, user: { select: { id: true } } },
+            },
+            session: {
+              select: { schoolYear: true, quarter: true, month: true },
+            },
           },
         });
-      }
+        if (flag.state !== "PENDING") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "This flag is already resolved.",
+          });
+        }
+        const stateByAction = {
+          DISMISS: "DISMISSED",
+          WARN: "WARNED",
+          PENALIZE: "PENALIZED",
+          ESCALATE: "ESCALATED",
+        } as const;
+        const note = input.note?.trim() ? input.note.trim() : null;
 
-      if (input.action !== "DISMISS" && flag.tutor.user?.id) {
-        const body =
-          input.action === "WARN"
-            ? "An attendance entry was flagged after a crew check — a warning was recorded."
-            : input.action === "PENALIZE"
-              ? "An attendance entry was flagged after a crew check — a service-hour penalty was applied."
-              : "An attendance entry was flagged after a crew check and escalated for review.";
-        await notifyUsers([flag.tutor.user.id], { title: "Attendance review", body, link: "/dashboard" });
-      }
-      await recordAudit({
-        userId: ctx.session.user.id,
-        userName: ctx.session.user.name,
-        action: `${input.action} attendance flag for ${flag.tutor.englishName}`,
-        entity: "SessionFlag",
-        entityId: flag.id,
-      });
-      return { ok: true };
-    }),
+        const changed = await tx.sessionFlag.updateMany({
+          where: { id: flag.id, state: "PENDING" },
+          data: {
+            state: stateByAction[input.action],
+            decisionNote: note,
+            resolvedAt: new Date(),
+            resolvedById: ctx.session.user.id,
+            resolvedByName: ctx.session.user.name,
+          },
+        });
+
+        if (changed.count !== 1) staleConflict();
+
+        if (input.action === "PENALIZE") {
+          await tx.serviceHourAdjustment.create({
+            data: {
+              id: `flag:${flag.id}`,
+              tutorId: flag.tutorId,
+              month: flag.session.month,
+              schoolYear: flag.session.schoolYear,
+              quarter: flag.session.quarter,
+              type: "PUNISHMENT",
+              amount: input.penaltyHours ?? 0.5,
+              reason: `Attendance discrepancy (crew check)${note ? ` — ${note}` : ""}.`,
+            },
+          });
+        }
+
+        if (input.action !== "DISMISS" && flag.tutor.user?.id) {
+          const body =
+            input.action === "WARN"
+              ? "An attendance entry was flagged after a crew check — a warning was recorded."
+              : input.action === "PENALIZE"
+                ? "An attendance entry was flagged after a crew check — a service-hour penalty was applied."
+                : "An attendance entry was flagged after a crew check and escalated for review.";
+          await notifyUsers(
+            [flag.tutor.user.id],
+            { title: "Attendance review", body, link: "/dashboard" },
+            tx,
+          );
+        }
+        await recordAudit(
+          {
+            userId: ctx.session.user.id,
+            userName: ctx.session.user.name,
+            action: `${input.action} attendance flag for ${flag.tutor.englishName}`,
+            entity: "SessionFlag",
+            entityId: flag.id,
+          },
+          tx,
+        );
+        return { ok: true };
+      }),
+    ),
 
   // --------------------------------------------------------------------------
   // Registration codes (admins + coordinators) — the security keys handed to new tutors
@@ -2901,9 +3562,14 @@ export const adminRouter = createTRPCRouter({
       },
     });
     // Resolve the issuer's email (the admin/coordinator who issued the code).
-    const issuerIds = [...new Set(codes.map((c) => c.issuedById).filter(Boolean) as string[])];
+    const issuerIds = [
+      ...new Set(codes.map((c) => c.issuedById).filter(Boolean) as string[]),
+    ];
     const issuers = issuerIds.length
-      ? await ctx.db.user.findMany({ where: { id: { in: issuerIds } }, select: { id: true, email: true } })
+      ? await ctx.db.user.findMany({
+          where: { id: { in: issuerIds } },
+          select: { id: true, email: true },
+        })
       : [];
     const issuerEmail = new Map(issuers.map((u) => [u.id, u.email]));
     return codes.map((c) => ({
@@ -2913,7 +3579,8 @@ export const adminRouter = createTRPCRouter({
       email: c.email,
       label: c.label,
       issuedByName: c.issuedByName,
-      issuedByEmail: canSee && c.issuedById ? (issuerEmail.get(c.issuedById) ?? null) : null,
+      issuedByEmail:
+        canSee && c.issuedById ? (issuerEmail.get(c.issuedById) ?? null) : null,
       tutorName: c.tutor?.englishName ?? null,
       fromApplication: !!c.applicationId,
       createdAt: c.createdAt,
@@ -2946,7 +3613,11 @@ export const adminRouter = createTRPCRouter({
           where: { id: input.tutorId },
           select: { englishName: true, email: true },
         });
-        if (!tutor) throw new TRPCError({ code: "NOT_FOUND", message: "Tutor not found." });
+        if (!tutor)
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Tutor not found.",
+          });
         label ??= tutor.englishName;
         email ??= tutor.email?.toLowerCase() ?? null;
       }
@@ -2978,7 +3649,10 @@ export const adminRouter = createTRPCRouter({
         select: { usedAt: true, crewApplicationId: true },
       });
       if (code.usedAt) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "This code has already been used." });
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This code has already been used.",
+        });
       }
       await ctx.db.$transaction(async (tx) => {
         await tx.registrationCode.delete({ where: { id: input.id } });
@@ -2987,7 +3661,12 @@ export const adminRouter = createTRPCRouter({
         if (code.crewApplicationId) {
           await tx.crewApplication.updateMany({
             where: { id: code.crewApplicationId, status: "ACCEPTED" },
-            data: { status: "PENDING", decidedByName: null, decidedAt: null, decisionComment: null },
+            data: {
+              status: "PENDING",
+              decidedByName: null,
+              decidedAt: null,
+              decisionComment: null,
+            },
           });
         }
       });
@@ -3009,7 +3688,10 @@ export const adminRouter = createTRPCRouter({
     // auto-created "Admin Admin") before listing, so the page mirrors clean data.
     await healDuplicatedTutorNames(ctx.db);
     const [term, users, unlinkedTutors, openCodes] = await Promise.all([
-      ctx.db.term.findFirst({ where: { active: true }, select: { schoolYear: true } }),
+      ctx.db.term.findFirst({
+        where: { active: true },
+        select: { schoolYear: true },
+      }),
       ctx.db.user.findMany({
         orderBy: { email: "asc" },
         select: {
@@ -3025,14 +3707,27 @@ export const adminRouter = createTRPCRouter({
           mustChangePassword: true,
           tutorId: true,
           tutor: {
-            select: { englishName: true, status: true, username: true, gradeLevel: true, email: true },
+            select: {
+              englishName: true,
+              status: true,
+              username: true,
+              gradeLevel: true,
+              email: true,
+            },
           },
         },
       }),
       ctx.db.tutor.findMany({
         where: { user: { is: null } },
         orderBy: { englishName: "asc" },
-        select: { id: true, englishName: true, status: true, username: true, gradeLevel: true, email: true },
+        select: {
+          id: true,
+          englishName: true,
+          status: true,
+          username: true,
+          gradeLevel: true,
+          email: true,
+        },
       }),
       // Outstanding (unused, unexpired) registration codes — used to flag "invited" accounts.
       ctx.db.registrationCode.findMany({
@@ -3051,18 +3746,28 @@ export const adminRouter = createTRPCRouter({
         select: { id: true, username: true },
       });
       const byId = new Map(filled.map((f) => [f.id, f.username]));
-      for (const u of missingUsername) u.username = byId.get(u.id) ?? u.username;
+      for (const u of missingUsername)
+        u.username = byId.get(u.id) ?? u.username;
     }
 
-    const codedTutorIds = new Set(openCodes.map((c) => c.tutorId).filter(Boolean) as string[]);
-    const codedEmails = new Set(openCodes.map((c) => c.email?.toLowerCase()).filter(Boolean) as string[]);
-    const hasOpenCode = (tutorId: string | null, email: string | null | undefined) =>
+    const codedTutorIds = new Set(
+      openCodes.map((c) => c.tutorId).filter(Boolean) as string[],
+    );
+    const codedEmails = new Set(
+      openCodes.map((c) => c.email?.toLowerCase()).filter(Boolean) as string[],
+    );
+    const hasOpenCode = (
+      tutorId: string | null,
+      email: string | null | undefined,
+    ) =>
       (tutorId != null && codedTutorIds.has(tutorId)) ||
       (!!email && codedEmails.has(email.toLowerCase()));
 
     // Class-of year for a grade in the active school year (null if neither is known).
     const classOf = (gradeLevel: number | null | undefined) =>
-      gradeLevel != null && term ? graduationYear(gradeLevel, term.schoolYear) : null;
+      gradeLevel != null && term
+        ? graduationYear(gradeLevel, term.schoolYear)
+        : null;
 
     const userRows = users.map((u) => ({
       userId: u.id,
@@ -3082,7 +3787,8 @@ export const adminRouter = createTRPCRouter({
       suspended: !!u.suspendedAt,
       // registered = finished setup; setup = login exists but not finished; (no "none"/"invited"
       // here — those only apply to login-less tutors below).
-      account: u.emailVerifiedAt && !u.mustChangePassword ? "registered" : "setup",
+      account:
+        u.emailVerifiedAt && !u.mustChangePassword ? "registered" : "setup",
     }));
 
     const tutorRows = unlinkedTutors.map((tu) => ({
@@ -3127,7 +3833,7 @@ export const adminRouter = createTRPCRouter({
     .input(
       z.object({
         userId: cuid,
-        role: z.enum(["VIEWER", "TUTOR", "COORDINATOR", "ADMIN"]),
+        role: z.enum(["STUDENT", "VIEWER", "TUTOR", "COORDINATOR", "ADMIN"]),
         confirmPassword: z.string().min(1),
       }),
     )
@@ -3138,7 +3844,10 @@ export const adminRouter = createTRPCRouter({
         select: { id: true, role: true, name: true, email: true },
       });
       const callerIsHead = ctx.session.role === "HEAD";
-      const touchesAdminTier = target.role === "HEAD" || input.role === "ADMIN" || target.role === "ADMIN";
+      const touchesAdminTier =
+        target.role === "HEAD" ||
+        input.role === "ADMIN" ||
+        target.role === "ADMIN";
       if (target.role === "HEAD") {
         throw new TRPCError({
           code: "FORBIDDEN",
@@ -3175,7 +3884,10 @@ export const adminRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       await assertCallerPassword(ctx.session.user.id, input.confirmPassword);
       if (input.userId === ctx.session.user.id) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "You are already the head." });
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "You are already the head.",
+        });
       }
       const target = await ctx.db.user.findUniqueOrThrow({
         where: { id: input.userId },
@@ -3187,10 +3899,18 @@ export const adminRouter = createTRPCRouter({
           message: "Leadership can only pass to an admin or coordinator.",
         });
       }
-      await ctx.db.$transaction([
-        ctx.db.user.update({ where: { id: ctx.session.user.id }, data: { role: "ADMIN" } }),
-        ctx.db.user.update({ where: { id: target.id }, data: { role: "HEAD" } }),
-      ]);
+      await inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, "program:leadership");
+        const demoted = await tx.user.updateMany({
+          where: { id: ctx.session.user.id, role: "HEAD" },
+          data: { role: "ADMIN" },
+        });
+        if (demoted.count !== 1) staleConflict();
+        await tx.user.update({
+          where: { id: target.id },
+          data: { role: "HEAD" },
+        });
+      });
       await recordAudit({
         userId: ctx.session.user.id,
         userName: ctx.session.user.name,
@@ -3214,11 +3934,20 @@ export const adminRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       await assertCallerPassword(ctx.session.user.id, input.confirmPassword);
       if (input.userId === ctx.session.user.id) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "You cannot delete your own account." });
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "You cannot delete your own account.",
+        });
       }
       const target = await ctx.db.user.findUniqueOrThrow({
         where: { id: input.userId },
-        select: { id: true, role: true, name: true, email: true, tutorId: true },
+        select: {
+          id: true,
+          role: true,
+          name: true,
+          email: true,
+          tutorId: true,
+        },
       });
       if (target.role === "HEAD") {
         throw new TRPCError({
@@ -3230,7 +3959,10 @@ export const adminRouter = createTRPCRouter({
         // Preserve the tutor: detach it from the login before deleting so the roster row
         // (username, class, attendance history) survives.
         if (target.tutorId) {
-          await tx.user.update({ where: { id: target.id }, data: { tutorId: null } });
+          await tx.user.update({
+            where: { id: target.id },
+            data: { tutorId: null },
+          });
         }
         await tx.user.delete({ where: { id: target.id } });
       });
@@ -3257,18 +3989,26 @@ export const adminRouter = createTRPCRouter({
   /** Suspend a suspicious viewer (VIEWER) account: blocks access until reinstated; the user is
    *  notified and can appeal. Scoped to viewer accounts so it can't lock out staff. */
   suspendUser: adminProcedure
-    .input(z.object({ userId: cuid, reason: z.string().trim().max(500).optional() }))
+    .input(
+      z.object({ userId: cuid, reason: z.string().trim().max(500).optional() }),
+    )
     .mutation(async ({ ctx, input }) => {
       const target = await ctx.db.user.findUniqueOrThrow({
         where: { id: input.userId },
         select: { id: true, role: true, name: true },
       });
       if (target.role !== "VIEWER") {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Only viewer (VIEWER) accounts can be suspended." });
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Only viewer (VIEWER) accounts can be suspended.",
+        });
       }
       await ctx.db.user.update({
         where: { id: target.id },
-        data: { suspendedAt: new Date(), suspendedReason: input.reason?.trim() ? input.reason.trim() : null },
+        data: {
+          suspendedAt: new Date(),
+          suspendedReason: input.reason?.trim() ? input.reason.trim() : null,
+        },
       });
       await notifyUsers([target.id], {
         title: "Account suspended",
@@ -3296,7 +4036,11 @@ export const adminRouter = createTRPCRouter({
         });
         await tx.accountAppeal.updateMany({
           where: { userId: input.userId, state: "PENDING" },
-          data: { state: "APPROVED", decidedByName: ctx.session.user.name, decidedAt: new Date() },
+          data: {
+            state: "APPROVED",
+            decidedByName: ctx.session.user.name,
+            decidedAt: new Date(),
+          },
         });
       });
       await notifyUsers([input.userId], {
@@ -3324,7 +4068,9 @@ export const adminRouter = createTRPCRouter({
           id: true,
           message: true,
           createdAt: true,
-          user: { select: { id: true, name: true, username: true, affiliation: true } },
+          user: {
+            select: { id: true, name: true, username: true, affiliation: true },
+          },
         },
       })
       .then((rows) =>
@@ -3348,7 +4094,10 @@ export const adminRouter = createTRPCRouter({
         select: { id: true, state: true, userId: true },
       });
       if (appeal.state !== "PENDING") {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "This appeal is already decided." });
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "This appeal is already decided.",
+        });
       }
       await ctx.db.$transaction(async (tx) => {
         await tx.accountAppeal.update({
@@ -3367,7 +4116,8 @@ export const adminRouter = createTRPCRouter({
         }
       });
       await notifyUsers([appeal.userId], {
-        title: input.action === "APPROVE" ? "Appeal approved" : "Appeal declined",
+        title:
+          input.action === "APPROVE" ? "Appeal approved" : "Appeal declined",
         body:
           input.action === "APPROVE"
             ? "Your account access has been restored."
@@ -3393,7 +4143,8 @@ export const adminRouter = createTRPCRouter({
     .input(z.object({ userId: cuid, canTutor: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
       // Coordinators may only change their own tutoring access; the admin tier (ADMIN/HEAD), anyone's.
-      const callerIsAdminTier = ctx.session.role === "ADMIN" || ctx.session.role === "HEAD";
+      const callerIsAdminTier =
+        ctx.session.role === "ADMIN" || ctx.session.role === "HEAD";
       if (!callerIsAdminTier && input.userId !== ctx.session.user.id) {
         throw new TRPCError({
           code: "FORBIDDEN",
@@ -3411,7 +4162,10 @@ export const adminRouter = createTRPCRouter({
         // reactivates the same record. (Tutor-area access is denied while ARCHIVED — see the
         // gate in (tutor)/layout.tsx.)
         if (user.tutorId) {
-          await ctx.db.tutor.update({ where: { id: user.tutorId }, data: { status: "ARCHIVED" } });
+          await ctx.db.tutor.update({
+            where: { id: user.tutorId },
+            data: { status: "ARCHIVED" },
+          });
           // Don't strand their tutees — re-queue them for reassignment (the chain's inverse).
           await requeueTutorActiveTermTutees(ctx.db, user.tutorId);
         }
@@ -3422,7 +4176,10 @@ export const adminRouter = createTRPCRouter({
       // else create a fresh one from the user's display name.
       const existing =
         (user.tutorId
-          ? await ctx.db.tutor.findUnique({ where: { id: user.tutorId }, select: { id: true } })
+          ? await ctx.db.tutor.findUnique({
+              where: { id: user.tutorId },
+              select: { id: true },
+            })
           : null) ??
         (await ctx.db.tutor.findUnique({
           where: { email: user.email },
@@ -3431,13 +4188,20 @@ export const adminRouter = createTRPCRouter({
 
       let tutorId: string;
       if (existing) {
-        await ctx.db.tutor.update({ where: { id: existing.id }, data: { status: "ACTIVE" } });
+        await ctx.db.tutor.update({
+          where: { id: existing.id },
+          data: { status: "ACTIVE" },
+        });
         tutorId = existing.id;
       } else {
         // Derive a tutor name from the display name. A single-word name (e.g. "Admin") keeps an
         // empty last name — never duplicate it into "Admin Admin" (see splitDisplayName).
-        const { firstName, lastName, englishName } = splitDisplayName(user.name ?? user.email);
-        const usernameBase = lastName ? defaultUsername(firstName, lastName) : firstName;
+        const { firstName, lastName, englishName } = splitDisplayName(
+          user.name ?? user.email,
+        );
+        const usernameBase = lastName
+          ? defaultUsername(firstName, lastName)
+          : firstName;
         const username = await ensureUniqueUsername(usernameBase);
         const created = await ctx.db.tutor.create({
           data: {
@@ -3491,21 +4255,81 @@ export const adminRouter = createTRPCRouter({
         body: z.string().min(1),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
-      const version = input.version?.trim() ? input.version.trim() : null;
-      // Snapshot the outgoing version into the archive before overwriting it (only when it
-      // actually changes), so admins can review earlier copies.
-      const existing = await ctx.db.policyDocument.findUnique({
-        where: { slug_locale: { slug: input.slug, locale: input.locale } },
-        select: { title: true, body: true, version: true },
-      });
-      if (
-        existing &&
-        (existing.body !== input.body ||
-          existing.title !== input.title ||
-          (existing.version ?? null) !== version)
-      ) {
-        await ctx.db.policyArchive.create({
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, `policy:${input.slug}`);
+        const version = input.version?.trim() ? input.version.trim() : null;
+        // Snapshot the outgoing version into the archive before overwriting it (only when it
+        // actually changes), so admins can review earlier copies.
+        const existing = await tx.policyDocument.findUnique({
+          where: { slug_locale: { slug: input.slug, locale: input.locale } },
+          select: { title: true, body: true, version: true },
+        });
+        if (
+          existing &&
+          (existing.body !== input.body ||
+            existing.title !== input.title ||
+            (existing.version ?? null) !== version)
+        ) {
+          await tx.policyArchive.create({
+            data: {
+              slug: input.slug,
+              locale: input.locale,
+              title: existing.title,
+              body: existing.body,
+              version: existing.version,
+              archivedByName: ctx.session.user.name,
+            },
+          });
+        }
+        return tx.policyDocument.upsert({
+          where: { slug_locale: { slug: input.slug, locale: input.locale } },
+          update: {
+            title: input.title,
+            version,
+            body: input.body,
+            updatedById: ctx.session.user.id,
+          },
+          create: {
+            slug: input.slug,
+            locale: input.locale,
+            title: input.title,
+            version,
+            body: input.body,
+            updatedById: ctx.session.user.id,
+          },
+        });
+      }),
+    ),
+
+  /**
+   * Remove one language version of a policy (cannot remove the default `en` copy, which is the
+   * fallback shown when a translation is missing). Snapshots into the archive first, so it's
+   * recoverable from version history.
+   */
+  deletePolicyLocale: adminProcedure
+    .input(
+      z.object({
+        slug: z.string().trim().min(1),
+        locale: z.string().trim().min(1).max(10),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        // Consent snapshots and edits share a lock across locales.
+        await lockEntity(tx, `policy:${input.slug}`);
+        if (input.locale === DEFAULT_POLICY_LOCALE) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "The default language can't be removed.",
+          });
+        }
+        const existing = await tx.policyDocument.findUnique({
+          where: { slug_locale: { slug: input.slug, locale: input.locale } },
+          select: { title: true, body: true, version: true },
+        });
+        if (!existing) return { ok: true };
+        await tx.policyArchive.create({
           data: {
             slug: input.slug,
             locale: input.locale,
@@ -3515,60 +4339,12 @@ export const adminRouter = createTRPCRouter({
             archivedByName: ctx.session.user.name,
           },
         });
-      }
-      return ctx.db.policyDocument.upsert({
-        where: { slug_locale: { slug: input.slug, locale: input.locale } },
-        update: {
-          title: input.title,
-          version,
-          body: input.body,
-          updatedById: ctx.session.user.id,
-        },
-        create: {
-          slug: input.slug,
-          locale: input.locale,
-          title: input.title,
-          version,
-          body: input.body,
-          updatedById: ctx.session.user.id,
-        },
-      });
-    }),
-
-  /**
-   * Remove one language version of a policy (cannot remove the default `en` copy, which is the
-   * fallback shown when a translation is missing). Snapshots into the archive first, so it's
-   * recoverable from version history.
-   */
-  deletePolicyLocale: adminProcedure
-    .input(z.object({ slug: z.string().trim().min(1), locale: z.string().trim().min(1).max(10) }))
-    .mutation(async ({ ctx, input }) => {
-      if (input.locale === DEFAULT_POLICY_LOCALE) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "The default language can't be removed.",
+        await tx.policyDocument.delete({
+          where: { slug_locale: { slug: input.slug, locale: input.locale } },
         });
-      }
-      const existing = await ctx.db.policyDocument.findUnique({
-        where: { slug_locale: { slug: input.slug, locale: input.locale } },
-        select: { title: true, body: true, version: true },
-      });
-      if (!existing) return { ok: true };
-      await ctx.db.policyArchive.create({
-        data: {
-          slug: input.slug,
-          locale: input.locale,
-          title: existing.title,
-          body: existing.body,
-          version: existing.version,
-          archivedByName: ctx.session.user.name,
-        },
-      });
-      await ctx.db.policyDocument.delete({
-        where: { slug_locale: { slug: input.slug, locale: input.locale } },
-      });
-      return { ok: true };
-    }),
+        return { ok: true };
+      }),
+    ),
 
   /** Archived (superseded) policy versions, newest first — for the version-history viewer. */
   policyArchives: viewerProcedure.query(({ ctx }) =>
@@ -3661,29 +4437,48 @@ export const adminRouter = createTRPCRouter({
 
   deleteAnnouncement: adminProcedure
     .input(z.object({ id: cuid }))
-    .mutation(async ({ ctx, input }) => {
-      const a = await ctx.db.announcement.findUniqueOrThrow({
-        where: { id: input.id },
-        select: {
-          id: true,
-          title: true,
-          body: true,
-          pinned: true,
-          active: true,
-          createdById: true,
-        },
-      });
-      const deleted = await ctx.db.announcement.delete({ where: { id: input.id } });
-      await recordAudit({
-        userId: ctx.session.user.id,
-        userName: ctx.session.user.name,
-        action: `Deleted announcement "${a.title}"`,
-        entity: "Announcement",
-        entityId: a.id,
-        undo: { kind: "announcement.restore", payload: a },
-      });
-      return deleted;
-    }),
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        const a = await tx.announcement.findUniqueOrThrow({
+          where: { id: input.id },
+          select: {
+            id: true,
+            title: true,
+            body: true,
+            pinned: true,
+            active: true,
+            createdById: true,
+            createdAt: true,
+            acks: { select: { userId: true, ackedAt: true } },
+          },
+        });
+        const deleted = await tx.announcement.delete({
+          where: { id: input.id },
+        });
+        await recordAudit(
+          {
+            userId: ctx.session.user.id,
+            userName: ctx.session.user.name,
+            action: `Deleted announcement "${a.title}"`,
+            entity: "Announcement",
+            entityId: a.id,
+            undo: {
+              kind: "announcement.restore",
+              payload: {
+                ...a,
+                createdAt: a.createdAt.toISOString(),
+                acks: a.acks.map((r) => ({
+                  ...r,
+                  ackedAt: r.ackedAt.toISOString(),
+                })),
+              },
+            },
+          },
+          tx,
+        );
+        return deleted;
+      }),
+    ),
 
   // --------------------------------------------------------------------------
   // Disciplinary cards (team recheck of yellow/red cards)
@@ -3707,7 +4502,9 @@ export const adminRouter = createTRPCRouter({
       },
     });
     // Withhold the card reason + staff review note free-text from VIEWER.
-    return isViewer ? cards.map((c) => ({ ...c, reason: null, reviewNote: null })) : cards;
+    return isViewer
+      ? cards.map((c) => ({ ...c, reason: null, reviewNote: null }))
+      : cards;
   }),
 
   reviewCard: adminProcedure
@@ -3719,82 +4516,160 @@ export const adminRouter = createTRPCRouter({
         expectedUpdatedAt,
       }),
     )
-    .mutation(async ({ ctx, input }) => {
-      await assertFeatureEnabled(ctx.db, "DISCIPLINE");
-      const prev = await ctx.db.disciplinaryCard.findUniqueOrThrow({
-        where: { id: input.id },
-        select: {
-          reviewStatus: true,
-          reviewNote: true,
-          tuteeId: true,
-          tutee: { select: { englishName: true } },
-        },
-      });
-      const res = await ctx.db.disciplinaryCard.updateMany({
-        where: { id: input.id, updatedAt: input.expectedUpdatedAt },
-        data: {
-          reviewStatus: input.reviewStatus,
-          reviewNote: input.reviewNote?.trim() ? input.reviewNote.trim() : null,
-          reviewedById: ctx.session.user.id,
-          reviewedAt: new Date(),
-        },
-      });
-      if (res.count === 0) staleConflict();
-      // Validating a card can push the tutee over the removal threshold — auto-remove if so
-      // (the helper sets them INACTIVE, detaches pairings, and notifies the tutor + admins).
-      await syncPunishmentRemoval(ctx.db, prev.tuteeId);
-      await recordAudit({
-        userId: ctx.session.user.id,
-        userName: ctx.session.user.name,
-        action: `Flagged ${prev.tutee.englishName}'s card ${input.reviewStatus.toLowerCase()}`,
-        entity: "DisciplinaryCard",
-        entityId: input.id,
-        undo: {
-          kind: "card.review",
-          payload: { id: input.id, reviewStatus: prev.reviewStatus, reviewNote: prev.reviewNote },
-        },
-      });
-      return { ok: true };
-    }),
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await assertFeatureEnabled(tx, "DISCIPLINE");
+        const prev = await tx.disciplinaryCard.findUniqueOrThrow({
+          where: { id: input.id },
+          select: {
+            reviewStatus: true,
+            reviewNote: true,
+            reviewedAt: true,
+            reviewedById: true,
+            tuteeId: true,
+            tutee: { select: { englishName: true } },
+          },
+        });
+        const res = await tx.disciplinaryCard.updateMany({
+          where: { id: input.id, updatedAt: input.expectedUpdatedAt },
+          data: {
+            reviewStatus: input.reviewStatus,
+            reviewNote: input.reviewNote?.trim()
+              ? input.reviewNote.trim()
+              : null,
+            reviewedById: ctx.session.user.id,
+            reviewedAt: new Date(),
+          },
+        });
+        if (res.count === 0) staleConflict();
+        // Validating a card can push the tutee over the removal threshold — auto-remove if so
+        // (the helper sets them INACTIVE, detaches pairings, and notifies the tutor + admins).
+        await syncPunishmentRemoval(tx, prev.tuteeId);
+        const after = await tx.disciplinaryCard.findUniqueOrThrow({
+          where: { id: input.id },
+          select: { updatedAt: true },
+        });
+        await recordAudit(
+          {
+            userId: ctx.session.user.id,
+            userName: ctx.session.user.name,
+            action: `Flagged ${prev.tutee.englishName}'s card ${input.reviewStatus.toLowerCase()}`,
+            entity: "DisciplinaryCard",
+            entityId: input.id,
+            undo: {
+              kind: "card.review",
+              payload: {
+                id: input.id,
+                reviewStatus: prev.reviewStatus,
+                reviewNote: prev.reviewNote,
+                reviewedAt: prev.reviewedAt?.toISOString() ?? null,
+                reviewedById: prev.reviewedById,
+                expectedUpdatedAt: after.updatedAt.toISOString(),
+              },
+            },
+          },
+          tx,
+        );
+        return { ok: true };
+      }),
+    ),
 
   // --------------------------------------------------------------------------
   // Audit log + undo
   // --------------------------------------------------------------------------
-  auditLog: viewerProcedure.query(({ ctx }) =>
-    ctx.db.auditLog.findMany({ orderBy: { createdAt: "desc" }, take: 100 }),
-  ),
+  auditLog: viewerProcedure
+    .input(auditFilters.optional())
+    .query(({ ctx, input }) =>
+      ctx.db.auditLog.findMany({
+        where: auditWhere(input),
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        take: 100,
+        ...(input?.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
+      }),
+    ),
+
+  auditFilterOptions: viewerProcedure.query(async ({ ctx }) => {
+    const [users, historical, operations, entities] = await Promise.all([
+      ctx.db.user.findMany({
+        select: { id: true, name: true, username: true },
+        orderBy: { name: "asc" },
+      }),
+      ctx.db.auditLog.findMany({
+        distinct: ["userId"],
+        select: { userId: true, userName: true },
+        orderBy: { createdAt: "desc" },
+      }),
+      ctx.db.auditLog.findMany({
+        distinct: ["operation"],
+        select: { operation: true },
+        where: { operation: { not: null } },
+        orderBy: { operation: "asc" },
+      }),
+      ctx.db.auditLog.findMany({
+        distinct: ["entity"],
+        select: { entity: true },
+        orderBy: { entity: "asc" },
+      }),
+    ]);
+    const actors = new Map(
+      users.map((u) => [
+        u.id,
+        { id: u.id, label: u.name ?? u.username ?? u.id },
+      ]),
+    );
+    for (const actor of historical)
+      if (actor.userId && !actors.has(actor.userId))
+        actors.set(actor.userId, {
+          id: actor.userId,
+          label: actor.userName ?? actor.userId,
+        });
+    return {
+      users: [...actors.values()],
+      operations: operations.flatMap((o) => (o.operation ? [o.operation] : [])),
+      entities: entities.map((e) => e.entity),
+    };
+  }),
 
   undoAudit: adminProcedure
     .input(z.object({ id: cuid }))
-    .mutation(async ({ ctx, input }) => {
-      const entry = await ctx.db.auditLog.findUniqueOrThrow({
-        where: { id: input.id },
-        select: { id: true, undone: true, undoData: true },
-      });
-      if (entry.undone) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Already undone." });
-      }
-      if (entry.undoData == null) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "This action can't be undone automatically.",
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, `audit:${input.id}`);
+        const entry = await tx.auditLog.findUniqueOrThrow({
+          where: { id: input.id },
+          select: { id: true, undone: true, undoData: true },
         });
-      }
-      let ok = false;
-      try {
-        ok = await applyUndo(entry.undoData);
-      } catch {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Undo failed — the item may have changed since.",
+        if (entry.undone) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Already undone.",
+          });
+        }
+        if (entry.undoData == null) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "This action can't be undone automatically.",
+          });
+        }
+        let ok = false;
+        try {
+          ok = await applyUndo(entry.undoData, tx);
+        } catch {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Undo failed — the item may have changed since.",
+          });
+        }
+        if (!ok) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Undo data was invalid.",
+          });
+        }
+        return tx.auditLog.update({
+          where: { id: entry.id },
+          data: { undone: true, undoneAt: new Date() },
         });
-      }
-      if (!ok) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Undo data was invalid." });
-      }
-      return ctx.db.auditLog.update({
-        where: { id: entry.id },
-        data: { undone: true, undoneAt: new Date() },
-      });
-    }),
+      }),
+    ),
 });

@@ -8,11 +8,24 @@ import { SortHeader, useSort, compare } from "~/app/_components/sortable";
 import { useDialog } from "~/app/_components/confirm-dialog";
 
 /** Roles an admin/head may assign via the dropdown (HEAD is set only via leadership transfer). */
-const ASSIGNABLE_ROLES = ["VIEWER", "TUTOR", "COORDINATOR", "ADMIN"] as const;
+const ASSIGNABLE_ROLES = ["STUDENT", "VIEWER", "TUTOR", "COORDINATOR", "ADMIN"] as const;
 type RoleValue = (typeof ASSIGNABLE_ROLES)[number];
 
-const ALL_ROLES = ["VIEWER", "TUTOR", "COORDINATOR", "ADMIN", "HEAD"] as const;
-const TUTOR_STATUSES = ["ACTIVE", "PENDING", "GRADUATED", "OPTED_OUT", "ARCHIVED"] as const;
+const ALL_ROLES = [
+  "STUDENT",
+  "VIEWER",
+  "TUTOR",
+  "COORDINATOR",
+  "ADMIN",
+  "HEAD",
+] as const;
+const TUTOR_STATUSES = [
+  "ACTIVE",
+  "PENDING",
+  "GRADUATED",
+  "OPTED_OUT",
+  "ARCHIVED",
+] as const;
 const ACCOUNT_STATES = ["registered", "setup", "invited", "none"] as const;
 
 /** Elevated roles: they live in the admin area and can translate by default (no flag needed). */
@@ -95,7 +108,9 @@ function ConfirmIdentityDialog({
           <p className="muted text-sm">{body}</p>
         </div>
         <div>
-          <label className="label">{t("admin.users.confirm.passwordLabel")}</label>
+          <label className="label">
+            {t("admin.users.confirm.passwordLabel")}
+          </label>
           <input
             type="password"
             autoFocus
@@ -108,10 +123,19 @@ function ConfirmIdentityDialog({
         </div>
         {error && <p className="text-sm text-red-600">{error}</p>}
         <div className="flex justify-end gap-2">
-          <button type="button" className="btn-secondary btn-sm" onClick={onCancel} disabled={pending}>
+          <button
+            type="button"
+            className="btn-secondary btn-sm"
+            onClick={onCancel}
+            disabled={pending}
+          >
             {t("admin.users.confirm.cancel")}
           </button>
-          <button type="submit" className="btn-primary btn-sm" disabled={pending || !password}>
+          <button
+            type="submit"
+            className="btn-primary btn-sm"
+            disabled={pending || !password}
+          >
             {pending ? t("admin.users.confirm.working") : confirmLabel}
           </button>
         </div>
@@ -152,25 +176,43 @@ export default function UsersPage() {
   const setRole = api.admin.setUserRole.useMutation(guardedMutation);
   const transferHead = api.admin.transferHead.useMutation(guardedMutation);
   const deleteUser = api.admin.deleteUser.useMutation(guardedMutation);
-  const setCanTutor = api.admin.setUserCanTutor.useMutation({ onSuccess: invalidate });
-  const setCanTranslate = api.admin.setUserCanTranslate.useMutation({ onSuccess: invalidate });
+  const setCanTutor = api.admin.setUserCanTutor.useMutation({
+    onSuccess: invalidate,
+  });
+  const setCanTranslate = api.admin.setUserCanTranslate.useMutation({
+    onSuccess: invalidate,
+  });
   const appeals = api.admin.appeals.useQuery();
-  const refreshUsers = () => Promise.all([invalidate(), utils.admin.appeals.invalidate()]);
-  const suspendUser = api.admin.suspendUser.useMutation({ onSuccess: refreshUsers });
-  const reinstateUser = api.admin.reinstateUser.useMutation({ onSuccess: refreshUsers });
-  const decideAppeal = api.admin.decideAppeal.useMutation({ onSuccess: refreshUsers });
+  const refreshUsers = () =>
+    Promise.all([invalidate(), utils.admin.appeals.invalidate()]);
+  const suspendUser = api.admin.suspendUser.useMutation({
+    onSuccess: refreshUsers,
+  });
+  const reinstateUser = api.admin.reinstateUser.useMutation({
+    onSuccess: refreshUsers,
+  });
+  const decideAppeal = api.admin.decideAppeal.useMutation({
+    onSuccess: refreshUsers,
+  });
   const sendSetup = api.admin.sendTutorSetup.useMutation({
     onSuccess: (data, variables) =>
-      setSetupInfo({ tutorId: variables.tutorId, link: data.link, emailed: data.emailed }),
+      setSetupInfo({
+        tutorId: variables.tutorId,
+        link: data.link,
+        emailed: data.emailed,
+      }),
   });
-  const [setupInfo, setSetupInfo] = useState<
-    { tutorId: string; link: string; emailed: boolean } | null
-  >(null);
+  const [setupInfo, setSetupInfo] = useState<{
+    tutorId: string;
+    link: string;
+    emailed: boolean;
+  } | null>(null);
 
   const callerRole = accounts.data?.caller.role;
   const isHead = callerRole === "HEAD";
   const isAdminTier = isHead || callerRole === "ADMIN";
-  const confirmPending = setRole.isPending || transferHead.isPending || deleteUser.isPending;
+  const confirmPending =
+    setRole.isPending || transferHead.isPending || deleteUser.isPending;
   const sort = useSort("name");
 
   // Filters.
@@ -182,7 +224,8 @@ export default function UsersPage() {
     const data = accounts.data?.rows ?? [];
     const filtered = data.filter((u) => {
       if (roleFilter !== "all" && u.role !== roleFilter) return false;
-      if (statusFilter !== "all" && u.tutorStatus !== statusFilter) return false;
+      if (statusFilter !== "all" && u.tutorStatus !== statusFilter)
+        return false;
       if (accountFilter !== "all" && u.account !== accountFilter) return false;
       return true;
     });
@@ -190,7 +233,10 @@ export default function UsersPage() {
     return [...filtered].sort((a, b) => {
       switch (sort.key) {
         case "tutor":
-          return compare(a.tutor?.englishName ?? "", b.tutor?.englishName ?? "") * dir;
+          return (
+            compare(a.tutor?.englishName ?? "", b.tutor?.englishName ?? "") *
+            dir
+          );
         case "account":
           return compare(a.account, b.account) * dir;
         case "role":
@@ -200,7 +246,14 @@ export default function UsersPage() {
           return compare(a.name, b.name) * dir;
       }
     });
-  }, [accounts.data, sort.key, sort.dir, roleFilter, statusFilter, accountFilter]);
+  }, [
+    accounts.data,
+    sort.key,
+    sort.dir,
+    roleFilter,
+    statusFilter,
+    accountFilter,
+  ]);
 
   const accountBadge = (status: string) =>
     status === "registered"
@@ -214,7 +267,9 @@ export default function UsersPage() {
       <div>
         <h1 className="page-title">{t("admin.users.title")}</h1>
         <p className="muted mt-1">
-          {isAdminTier ? t("admin.users.subtitle") : t("admin.users.coordinatorHint")}
+          {isAdminTier
+            ? t("admin.users.subtitle")
+            : t("admin.users.coordinatorHint")}
         </p>
       </div>
 
@@ -292,26 +347,39 @@ export default function UsersPage() {
       {(appeals.data ?? []).length > 0 && (
         <section className="card overflow-hidden">
           <div className="px-5 py-3">
-            <h2 className="section-title">{t("admin.users.appeals.heading")}</h2>
+            <h2 className="section-title">
+              {t("admin.users.appeals.heading")}
+            </h2>
           </div>
           <div className="divide-y divide-slate-100 px-5 pb-3">
             {(appeals.data ?? []).map((a) => (
-              <div key={a.id} className="flex flex-wrap items-center gap-3 py-3 text-sm">
+              <div
+                key={a.id}
+                className="flex flex-wrap items-center gap-3 py-3 text-sm"
+              >
                 <span className="font-medium text-slate-800">{a.name}</span>
-                {a.affiliation && <span className="muted text-xs">{a.affiliation}</span>}
-                <span className="muted min-w-0 flex-1 truncate text-xs italic">“{a.message}”</span>
+                {a.affiliation && (
+                  <span className="muted text-xs">{a.affiliation}</span>
+                )}
+                <span className="muted min-w-0 flex-1 truncate text-xs italic">
+                  “{a.message}”
+                </span>
                 <span className="flex gap-2">
                   <button
                     className="btn-primary btn-sm"
                     disabled={decideAppeal.isPending}
-                    onClick={() => decideAppeal.mutate({ appealId: a.id, action: "APPROVE" })}
+                    onClick={() =>
+                      decideAppeal.mutate({ appealId: a.id, action: "APPROVE" })
+                    }
                   >
                     {t("admin.users.appeals.approve")}
                   </button>
                   <button
                     className="btn-secondary btn-sm"
                     disabled={decideAppeal.isPending}
-                    onClick={() => decideAppeal.mutate({ appealId: a.id, action: "DENY" })}
+                    onClick={() =>
+                      decideAppeal.mutate({ appealId: a.id, action: "DENY" })
+                    }
                   >
                     {t("admin.users.appeals.deny")}
                   </button>
@@ -326,10 +394,18 @@ export default function UsersPage() {
         <table className="data-table">
           <thead>
             <tr>
-              <SortHeader sort={sort} sortKey="name">{t("admin.users.columns.user")}</SortHeader>
-              <SortHeader sort={sort} sortKey="tutor">{t("admin.users.columns.linkedTutor")}</SortHeader>
-              <SortHeader sort={sort} sortKey="account">{t("admin.users.columns.account")}</SortHeader>
-              <SortHeader sort={sort} sortKey="role">{t("admin.users.columns.role")}</SortHeader>
+              <SortHeader sort={sort} sortKey="name">
+                {t("admin.users.columns.user")}
+              </SortHeader>
+              <SortHeader sort={sort} sortKey="tutor">
+                {t("admin.users.columns.linkedTutor")}
+              </SortHeader>
+              <SortHeader sort={sort} sortKey="account">
+                {t("admin.users.columns.account")}
+              </SortHeader>
+              <SortHeader sort={sort} sortKey="role">
+                {t("admin.users.columns.role")}
+              </SortHeader>
               <th>{t("admin.users.columns.canTutor")}</th>
               <th>{t("admin.users.columns.canTranslate")}</th>
               {isHead && <th>{t("admin.users.columns.actions")}</th>}
@@ -338,13 +414,18 @@ export default function UsersPage() {
           <tbody>
             {rows.map((u) => {
               const key = u.userId ?? `tutor-${u.tutorId}`;
-              const canTutorApplies = !!u.role && ELEVATED_ROLES.includes(u.role);
+              const canTutorApplies =
+                !!u.role && ELEVATED_ROLES.includes(u.role);
               const linkedActive = !!u.tutorId && u.tutorStatus === "ACTIVE";
               // Coordinators may only flip their own "can tutor"; the admin tier, anyone's.
               const canEditCanTutor = isAdminTier || u.isSelf;
               // Only the head may change an admin's role or promote to admin.
               const targetIsAdminTier = u.role === "ADMIN" || u.role === "HEAD";
-              const canEditRole = isAdminTier && !!u.userId && u.role !== "HEAD" && (isHead || !targetIsAdminTier);
+              const canEditRole =
+                isAdminTier &&
+                !!u.userId &&
+                u.role !== "HEAD" &&
+                (isHead || !targetIsAdminTier);
               const roleOptions = isHead
                 ? ASSIGNABLE_ROLES
                 : ASSIGNABLE_ROLES.filter((r) => r !== "ADMIN");
@@ -355,7 +436,9 @@ export default function UsersPage() {
                     <div className="leading-tight">
                       <p className="font-medium text-slate-900">{u.name}</p>
                       {(u.username ?? u.tutor?.username) && (
-                        <p className="muted text-xs">@{u.username ?? u.tutor?.username}</p>
+                        <p className="muted text-xs">
+                          @{u.username ?? u.tutor?.username}
+                        </p>
                       )}
                       <p className="muted text-xs">{u.email ?? "—"}</p>
                     </div>
@@ -372,7 +455,9 @@ export default function UsersPage() {
                             : u.tutor.gradeLevel != null
                               ? `G${u.tutor.gradeLevel} · `
                               : ""}
-                          {u.tutorStatus ? t(`admin.tutorStatus.${u.tutorStatus}`) : ""}
+                          {u.tutorStatus
+                            ? t(`admin.tutorStatus.${u.tutorStatus}`)
+                            : ""}
                         </p>
                       </div>
                     ) : (
@@ -397,9 +482,14 @@ export default function UsersPage() {
                               className="link text-xs whitespace-nowrap"
                               disabled={!u.tutorHasEmail || sendSetup.isPending}
                               title={
-                                !u.tutorHasEmail ? t("admin.tutors.account.needEmail") : undefined
+                                !u.tutorHasEmail
+                                  ? t("admin.tutors.account.needEmail")
+                                  : undefined
                               }
-                              onClick={() => u.tutorId && sendSetup.mutate({ tutorId: u.tutorId })}
+                              onClick={() =>
+                                u.tutorId &&
+                                sendSetup.mutate({ tutorId: u.tutorId })
+                              }
                             >
                               {t("admin.tutors.account.sendSetup")}
                             </button>
@@ -409,15 +499,23 @@ export default function UsersPage() {
                     ) : u.role === "VIEWER" && u.userId ? (
                       // Viewer (self-registered read-only) account: affiliation + suspend control.
                       <div className="space-y-1 leading-tight">
-                        {u.affiliation && <p className="muted text-xs">{u.affiliation}</p>}
-                        {u.suspended && <span className="badge-red">{t("admin.users.suspended")}</span>}
+                        {u.affiliation && (
+                          <p className="muted text-xs">{u.affiliation}</p>
+                        )}
+                        {u.suspended && (
+                          <span className="badge-red">
+                            {t("admin.users.suspended")}
+                          </span>
+                        )}
                         {!u.isSelf &&
                           (u.suspended ? (
                             <div>
                               <button
                                 className="link text-xs"
                                 disabled={reinstateUser.isPending}
-                                onClick={() => reinstateUser.mutate({ userId: u.userId })}
+                                onClick={() =>
+                                  reinstateUser.mutate({ userId: u.userId })
+                                }
                               >
                                 {t("admin.users.reinstate")}
                               </button>
@@ -440,7 +538,8 @@ export default function UsersPage() {
                                   if (!userId) return;
                                   suspendUser.mutate({
                                     userId,
-                                    reason: reason.length > 0 ? reason : undefined,
+                                    reason:
+                                      reason.length > 0 ? reason : undefined,
                                   });
                                 }}
                               >
@@ -461,7 +560,9 @@ export default function UsersPage() {
                     ) : (
                       <div className="flex flex-col items-center gap-1 leading-tight">
                         {u.role === "HEAD" ? (
-                          <span className="badge-green">{t("admin.users.roles.HEAD")}</span>
+                          <span className="badge-green">
+                            {t("admin.users.roles.HEAD")}
+                          </span>
                         ) : canEditRole ? (
                           <select
                             value={u.role}
@@ -476,9 +577,15 @@ export default function UsersPage() {
                                   name: u.name,
                                   role: t(`admin.users.roles.${role}`),
                                 }),
-                                confirmLabel: t("admin.users.confirm.roleConfirm"),
+                                confirmLabel: t(
+                                  "admin.users.confirm.roleConfirm",
+                                ),
                                 run: (pwd) =>
-                                  setRole.mutate({ userId, role, confirmPassword: pwd }),
+                                  setRole.mutate({
+                                    userId,
+                                    role,
+                                    confirmPassword: pwd,
+                                  }),
                               });
                             }}
                             className="select field-auto min-w-36"
@@ -490,7 +597,9 @@ export default function UsersPage() {
                             ))}
                           </select>
                         ) : (
-                          <span className="badge-slate">{t(`admin.users.roles.${u.role}`)}</span>
+                          <span className="badge-slate">
+                            {t(`admin.users.roles.${u.role}`)}
+                          </span>
                         )}
                         {/* Leadership transfer (head only) to an admin/coordinator. */}
                         {isHead &&
@@ -505,10 +614,15 @@ export default function UsersPage() {
                                 setConfirmError(null);
                                 setConfirm({
                                   title: t("admin.users.confirm.transferTitle"),
-                                  body: t("admin.users.confirmTransfer", { name: u.name }),
+                                  body: t("admin.users.confirmTransfer", {
+                                    name: u.name,
+                                  }),
                                   confirmLabel: t("admin.users.makeHead"),
                                   run: (pwd) =>
-                                    transferHead.mutate({ userId, confirmPassword: pwd }),
+                                    transferHead.mutate({
+                                      userId,
+                                      confirmPassword: pwd,
+                                    }),
                                 });
                               }}
                             >
@@ -528,7 +642,10 @@ export default function UsersPage() {
                         label={t("admin.users.canTutorLabel")}
                         onClick={() =>
                           u.userId &&
-                          setCanTutor.mutate({ userId: u.userId, canTutor: !linkedActive })
+                          setCanTutor.mutate({
+                            userId: u.userId,
+                            canTutor: !linkedActive,
+                          })
                         }
                       />
                     ) : (
@@ -541,7 +658,10 @@ export default function UsersPage() {
                     {u.role == null ? (
                       <span className="text-slate-400">—</span>
                     ) : ELEVATED_ROLES.includes(u.role) ? (
-                      <span className="badge-slate" title={t("admin.users.translateDefaultHint")}>
+                      <span
+                        className="badge-slate"
+                        title={t("admin.users.translateDefaultHint")}
+                      >
                         {t("admin.users.translateDefault")}
                       </span>
                     ) : (
@@ -572,9 +692,15 @@ export default function UsersPage() {
                             setConfirmError(null);
                             setConfirm({
                               title: t("admin.users.confirm.deleteTitle"),
-                              body: t("admin.users.confirm.deleteBody", { name: u.name }),
+                              body: t("admin.users.confirm.deleteBody", {
+                                name: u.name,
+                              }),
                               confirmLabel: t("admin.users.delete"),
-                              run: (pwd) => deleteUser.mutate({ userId, confirmPassword: pwd }),
+                              run: (pwd) =>
+                                deleteUser.mutate({
+                                  userId,
+                                  confirmPassword: pwd,
+                                }),
                             });
                           }}
                         >
@@ -601,7 +727,10 @@ export default function UsersPage() {
       {/* Errors from the dangerous (dialog-gated) actions surface inside the dialog itself. */}
       {(setCanTutor.error ?? setCanTranslate.error ?? sendSetup.error) && (
         <p className="text-sm text-red-600">
-          {(setCanTutor.error ?? setCanTranslate.error ?? sendSetup.error)?.message}
+          {
+            (setCanTutor.error ?? setCanTranslate.error ?? sendSetup.error)
+              ?.message
+          }
         </p>
       )}
 

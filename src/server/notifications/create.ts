@@ -2,6 +2,7 @@
  * Helper to fan out in-app notifications. Node runtime only (uses the Prisma singleton).
  */
 import { db } from "~/server/db";
+import type { TransactionDb } from "~/server/transactions";
 
 export interface NotificationInput {
   title: string;
@@ -13,10 +14,11 @@ export interface NotificationInput {
 export async function notifyUsers(
   userIds: readonly string[],
   data: NotificationInput,
+  client: TransactionDb = db,
 ): Promise<void> {
   const ids = [...new Set(userIds)].filter(Boolean);
   if (ids.length === 0) return;
-  await db.notification.createMany({
+  await client.notification.createMany({
     data: ids.map((userId) => ({
       userId,
       title: data.title,
@@ -33,8 +35,9 @@ export async function notifyUsers(
 export async function notifyAdmins(
   data: NotificationInput,
   opts?: { exclude?: string },
+  client: TransactionDb = db,
 ): Promise<void> {
-  const admins = await db.user.findMany({
+  const admins = await client.user.findMany({
     where: {
       role: { in: ["HEAD", "ADMIN", "COORDINATOR"] },
       ...(opts?.exclude ? { id: { not: opts.exclude } } : {}),
@@ -44,6 +47,7 @@ export async function notifyAdmins(
   await notifyUsers(
     admins.map((u) => u.id),
     data,
+    client,
   );
 }
 
@@ -51,15 +55,17 @@ export async function notifyAdmins(
 export async function notifyTutors(
   tutorIds: readonly string[],
   data: NotificationInput,
+  client: TransactionDb = db,
 ): Promise<void> {
   const ids = [...new Set(tutorIds)].filter(Boolean);
   if (ids.length === 0) return;
-  const users = await db.user.findMany({
+  const users = await client.user.findMany({
     where: { tutorId: { in: ids } },
     select: { id: true },
   });
   await notifyUsers(
     users.map((u) => u.id),
     data,
+    client,
   );
 }

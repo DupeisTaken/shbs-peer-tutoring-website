@@ -1,3 +1,4 @@
+import { approvalRouter } from "./routers/approval";
 import {
   createCallerFactory,
   createTRPCRouter,
@@ -16,6 +17,8 @@ import { crewRouter } from "~/server/api/routers/crew";
 import { programRouter } from "~/server/api/routers/program";
 import { viewerRouter } from "~/server/api/routers/viewer";
 import { homeRouter } from "~/server/api/routers/home";
+import { correctionsRouter } from "~/server/api/routers/corrections";
+import { studentWorkflowRouter } from "~/server/api/routers/student-workflow";
 
 /**
  * This is the primary router for your server.
@@ -23,9 +26,21 @@ import { homeRouter } from "~/server/api/routers/home";
  * All routers added in /api/routers should be manually added here.
  * Feature routers (tutor, admin, attendance, etc.) are added in later phases.
  */
+import { studentRouter } from "./routers/student";
+import { messagingRouter } from "./routers/messaging";
+
+import { interviewManagementRouter } from "./routers/interview-management";
+import { translationReviewRouter } from "./routers/translation-review";
+
 export const appRouter = createTRPCRouter({
+  approval: approvalRouter,
   /** Lightweight liveness check. */
+  interviewManagement: interviewManagementRouter,
+  translationReview: translationReviewRouter,
+  student: studentRouter,
+  messaging: messagingRouter,
   health: publicProcedure.query(() => ({ ok: true, ts: Date.now() })),
+  studentWorkflow: studentWorkflowRouter,
   tutor: tutorRouter,
   tutee: tuteeRouter,
   application: applicationRouter,
@@ -39,6 +54,7 @@ export const appRouter = createTRPCRouter({
   program: programRouter,
   viewer: viewerRouter,
   home: homeRouter,
+  corrections: correctionsRouter,
 });
 
 // export type definition of API

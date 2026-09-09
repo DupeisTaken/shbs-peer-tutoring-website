@@ -47,7 +47,9 @@ export default function ProgramPage() {
         <>
           <section className="card p-5">
             <p className="muted text-xs">{t("admin.program.currentPeriod")}</p>
-            <p className="mt-1 text-2xl font-semibold text-slate-900">{period.name}</p>
+            <p className="mt-1 text-2xl font-semibold text-slate-900">
+              {period.name}
+            </p>
             <p className="muted mt-1">
               {t("admin.program.semester", { semester: period.semester })}
             </p>
@@ -59,7 +61,9 @@ export default function ProgramPage() {
           />
 
           <section className="card border-amber-200 p-5">
-            <h2 className="section-title">{t("admin.program.refreshHeading")}</h2>
+            <h2 className="section-title">
+              {t("admin.program.refreshHeading")}
+            </h2>
             <p className="muted mt-1">
               {t("admin.program.advancesTo", { name: period.next.name })}
             </p>
@@ -67,12 +71,20 @@ export default function ProgramPage() {
             <ul className="mt-3 list-disc space-y-1 pl-5 text-sm text-slate-700">
               <li>{t("admin.program.effectTutees")}</li>
               <li>{t("admin.program.effectPairings")}</li>
-              {period.next.crossesSemester && <li>{t("admin.program.effectReactivate")}</li>}
-              {period.next.graduates && <li>{t("admin.program.effectGraduate")}</li>}
-              {period.next.crossesYear && <li>{t("admin.program.effectAgeUp")}</li>}
+              {period.next.crossesSemester && (
+                <li>{t("admin.program.effectReactivate")}</li>
+              )}
+              {period.next.graduates && (
+                <li>{t("admin.program.effectGraduate")}</li>
+              )}
+              {period.next.crossesYear && (
+                <li>{t("admin.program.effectAgeUp")}</li>
+              )}
               <li>
                 {period.next.crossesSemester
-                  ? t("admin.program.effectHoursReset", { semester: period.next.semester })
+                  ? t("admin.program.effectHoursReset", {
+                      semester: period.next.semester,
+                    })
                   : t("admin.program.effectHoursKeep")}
               </li>
             </ul>
@@ -91,20 +103,27 @@ export default function ProgramPage() {
                   disabled={!confirmOk || refresh.isPending}
                   onClick={() => {
                     setDone(null);
-                    refresh.mutate({ confirm });
+                    refresh.mutate({ confirm, expectedTermId: period.termId });
                   }}
                 >
                   {refresh.isPending
                     ? t("admin.program.refreshing")
-                    : t("admin.program.refreshButton", { name: period.next.name })}
+                    : t("admin.program.refreshButton", {
+                        name: period.next.name,
+                      })}
                 </button>
               </div>
               {refresh.error && (
-                <p className="mt-2 text-sm text-red-600">{refresh.error.message}</p>
+                <p className="mt-2 text-sm text-red-600">
+                  {refresh.error.message}
+                </p>
               )}
               {done && (
                 <p className="mt-2 text-sm text-green-700">
-                  {t("admin.program.done", { name: done.name, count: done.archivedTutees })}
+                  {t("admin.program.done", {
+                    name: done.name,
+                    count: done.archivedTutees,
+                  })}
                   {(done.graduatedTutors > 0 || done.agedTutors > 0) &&
                     ` ${t("admin.program.doneGrad", { graduated: done.graduatedTutors, aged: done.agedTutors })}`}
                   {done.pendingTutors > 0 &&
@@ -316,16 +335,26 @@ function FeatureToggles() {
                   {t(`admin.program.features.name.${f.key}`)}
                 </p>
                 {f.key === "QUARTER_SYSTEM" && (
-                  <p className="muted text-xs">{t("admin.program.features.quarterNote")}</p>
+                  <p className="muted text-xs">
+                    {t("admin.program.features.quarterNote")}
+                  </p>
                 )}
               </div>
               <span className={f.enabled ? "badge-green" : "badge-slate"}>
-                {t(f.enabled ? "admin.program.features.on" : "admin.program.features.off")}
+                {t(
+                  f.enabled
+                    ? "admin.program.features.on"
+                    : "admin.program.features.off",
+                )}
               </span>
               {f.pending !== null && (
                 <span className="badge-amber">
                   {t("admin.program.features.pending", {
-                    state: t(f.pending ? "admin.program.features.on" : "admin.program.features.off"),
+                    state: t(
+                      f.pending
+                        ? "admin.program.features.on"
+                        : "admin.program.features.off",
+                    ),
                   })}
                 </span>
               )}
@@ -335,7 +364,9 @@ function FeatureToggles() {
                   role="switch"
                   aria-checked={target}
                   disabled={setPending.isPending}
-                  onClick={() => setPending.mutate({ key: f.key, enabled: !target })}
+                  onClick={() =>
+                    setPending.mutate({ key: f.key, enabled: !target })
+                  }
                   className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
                     target ? "bg-accent-600" : "bg-slate-300"
                   } ${setPending.isPending ? "opacity-50" : ""}`}
@@ -351,8 +382,14 @@ function FeatureToggles() {
           );
         })}
       </ul>
-      {!data.canEdit && <p className="muted mt-3 text-xs">{t("admin.program.features.headOnly")}</p>}
-      {setPending.error && <p className="mt-2 text-sm text-red-600">{setPending.error.message}</p>}
+      {!data.canEdit && (
+        <p className="muted mt-3 text-xs">
+          {t("admin.program.features.headOnly")}
+        </p>
+      )}
+      {setPending.error && (
+        <p className="mt-2 text-sm text-red-600">{setPending.error.message}</p>
+      )}
     </section>
   );
 }

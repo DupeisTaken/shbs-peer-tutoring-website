@@ -62,8 +62,8 @@ export const DEDUCTION = {
   OVER_LIMIT_ABSENCE: 0.25,
   /** Per unexcused tutor absence from a session. */
   UNEXCUSED_TUTOR_ABSENCE: 1,
-  /** Per unexcused weekly-meeting absence. */
-  MISSED_MEETING_UNEXCUSED: 0.125,
+  /** Per unexcused meeting absence after the first three in a semester. */
+  MISSED_MEETING_UNEXCUSED: 0.25,
 } as const;
 
 /** Tutors may not exceed this many total absences per semester before deductions apply. */

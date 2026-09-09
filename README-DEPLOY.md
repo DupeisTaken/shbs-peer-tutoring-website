@@ -28,12 +28,11 @@ Internet ──443/80──▶ caddy ──▶ app:3000 ──▶ db:5432
    Caddy's Let's Encrypt challenge succeeds.
 
 Sign-in is username or email + password (no external identity provider to register). Logins are created only
-through gated paths: the first admin comes from the seed (or `AUTH_BOOTSTRAP_ADMIN_EMAILS`);
+through gated paths: the first admin is created by `npm run admin:create`;
 recruits self-register at **`/register`** with an admin-issued single-use code plus an emailed
 verification code; and outsiders can self-register a **read-only viewer (VIEWER)** account at
 **`/viewer-signup`** (email-validated, behind the `VIEWER_SIGNUP` feature flag). The public tutee
-signup (`/signup`), tutor application (`/tutor-signup`), and crew application (`/crew-signup`) only
-create `PENDING` records for admin review — **none creates a login**. Credential sign-in, the
+signup (`/signup`) first saves a survey; email confirmation then creates or links a student login. Tutor application (`/tutor-signup`) and crew application (`/crew-signup`) create pending records for review. Credential sign-in, the
 registration steps, and viewer signup are all **rate-limited in-app** (per IP + per code / email /
 identifier; `src/server/rate-limit.ts`); a CAPTCHA in front is still worth considering at scale.
 Transactional email (reset links plus sign-in and password-change 2FA codes) goes through Aliyun
@@ -125,8 +124,7 @@ docker compose logs -f app     # watch migrations + startup
 ```
 
 Visit `https://<your-domain>` — Caddy issues the cert on first request, then sign in with
-email + password at `/signin`. (Bootstrap your first admin by setting
-`AUTH_BOOTSTRAP_ADMIN_EMAILS` and creating that user with a password — see the seed.)
+email + password at `/signin` after the bootstrap command below.
 
 ### Create the first admin (first deploy)
 
@@ -139,20 +137,35 @@ does not create the account.
 > people _and_ demo login accounts (`admin@example.edu`, `alice@example.edu`) with the
 > well-known dev password `Password123!`. That's strictly for local development.
 
-From a trusted checkout that can reach the production database (an SSH tunnel is recommended),
-create the first account without loading any demo data:
+Run the bootstrap command inside the deployed image. The Compose network supplies the database
+connection; no database port needs to be published and no demo seed is needed:
 
 ```bash
-export DATABASE_URL='postgresql://...'
 export BOOTSTRAP_ADMIN_EMAIL='you@school.edu'
-read -s -p 'Initial admin password: ' BOOTSTRAP_ADMIN_PASSWORD && export BOOTSTRAP_ADMIN_PASSWORD
-npm ci
-npm run admin:create
+export BOOTSTRAP_SCHOOL_YEAR='26-27'
+export BOOTSTRAP_QUARTER='Q1'
+read -r -s -p 'Initial admin password: ' BOOTSTRAP_ADMIN_PASSWORD
+echo
+export BOOTSTRAP_ADMIN_PASSWORD
+docker compose exec -e BOOTSTRAP_ADMIN_EMAIL -e BOOTSTRAP_ADMIN_PASSWORD \
+  -e BOOTSTRAP_SCHOOL_YEAR -e BOOTSTRAP_QUARTER \
+  app node node_modules/tsx/dist/cli.mjs scripts/create-admin.ts
+unset BOOTSTRAP_ADMIN_PASSWORD
 ```
 
-The command requires at least 12 password characters, creates a HEAD when none exists (otherwise
-an ADMIN), and can be rerun deliberately to recover that account. Do not run `npm run db:seed` in
-production; it contains well-known development users and sample program data.
+The command requires at least 12 password characters. It creates one HEAD and an active period
+when missing; rerunning it preserves the HEAD and existing active period while deliberately
+resetting the named account's password. A second account becomes ADMIN. Without period arguments,
+the school year defaults at the August boundary and the initial quarter is Q1. Set them explicitly
+for the first deployment. No tutors, students, subjects, rooms or sample content are seeded.
+
+After signing in, configure Subjects & Levels, Time Slots, Rooms, signup timing and public content
+through the website. The existing development database is disposable and is not copied to the VM.
+Production migrations still run on every boot so later upgrades preserve production data.
+
+The image includes the complete production Prisma CLI dependency tree plus the bootstrap script.
+CI boots that exact image against an empty `shbs_boot_test` database, verifies the health and
+sign-in routes, runs bootstrap twice, and restarts the image to verify automatic expiry of overdue unverified assignments. Image publishing depends on that gate passing. The integrated test suite uses only the loopback `shbs_shipping_test` database; never point destructive fixtures at production.
 
 > Password reset works once Aliyun Direct Mail is configured (see "Email" above). After the first
 > HEAD exists, tutor accounts and setup links can be managed from the admin UI.
@@ -179,7 +192,10 @@ installed on the host; the script exits non-zero if a configured upload cannot r
 Restore:
 
 ```bash
-gunzip -c backups/<file>.sql.gz | docker compose exec -T db psql -U "$POSTGRES_USER" "$POSTGRES_DB"
+# Rehearse restoration into a NEW disposable database first; never overlay a running database.
+docker compose exec -T db createdb -U "$POSTGRES_USER" shbs_restore_test
+gunzip -c backups/<file>.sql.gz | docker compose exec -T db psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" shbs_restore_test
+# Check restored records and application behavior before planning a production recovery.
 ```
 
 ## 8. Build on the VPS instead of CI (fallback)
@@ -195,3 +211,7 @@ docker compose build && docker compose up -d
 - **Cert not issued:** confirm DNS A record resolves to the VPS and ports 80/443 are open.
 - **App restarting:** `docker compose logs app` — usually a bad `.env` value or DB not reachable.
 - **DB healthcheck failing:** `docker compose logs db`; ensure `POSTGRES_*` match across `.env`.
+
+### Student Workflow Launch Configuration
+
+Before opening the fresh database to students, finish and verify the separate onboarding PR, configure its email delivery, publish the revised policies, set the intake opening time, confirm subject qualifications, and enter school-calendar exceptions. Feedback defaults to staff-only. The operational guide is [STUDENT-WORKFLOWS.md](STUDENT-WORKFLOWS.md). Real email provider setup remains a separate launch step; it has not been configured by this implementation pass.

@@ -1,4 +1,5 @@
 "use client";
+import { useDialog } from "~/app/_components/confirm-dialog";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
@@ -72,6 +73,8 @@ export function AttendanceForm() {
   const pairingsQuery = api.tutor.myPairings.useQuery();
   const disciplineQuery = api.tutor.myTuteeDiscipline.useQuery();
   const roomsQuery = api.tutor.rooms.useQuery();
+  const schedule = api.tutor.schedule.useQuery();
+  const { confirm, dialog } = useDialog();
   const features = api.program.features.useQuery().data;
   const submit = api.tutor.submitAttendance.useMutation({
     onSuccess: async () => {
@@ -366,6 +369,7 @@ export function AttendanceForm() {
         </div>
       </div>
 
+      {dialog}
       {/* Where the session ran — the room used (or online). Lets the crew validate attendance. */}
       {selectedPairing && held && (
         <div className="space-y-1">
@@ -373,7 +377,38 @@ export function AttendanceForm() {
           <div className="flex flex-wrap items-center gap-3">
             <select
               value={actualRoomId}
-              onChange={(e) => setActualRoomId(e.target.value)}
+              onChange={async (e) => {
+                const roomId = e.target.value;
+                const day = new Date(watch("date")).getUTCDay() || 7;
+                const occupied =
+                  !!schedule.data?.pairings.some(
+                    (p) =>
+                      p.id !== selectedPairing.id &&
+                      !mergeIds.includes(p.id) &&
+                      p.roomId === roomId &&
+                      p.dayOfWeek === day &&
+                      p.startMin < selectedPairing.endMin &&
+                      p.endMin > selectedPairing.startMin,
+                  ) ||
+                  schedule.data?.blocks.some(
+                    (b) =>
+                      b.roomId === roomId &&
+                      b.dayOfWeek === day &&
+                      b.startMin < selectedPairing.endMin &&
+                      b.endMin > selectedPairing.startMin,
+                  );
+                if (
+                  occupied &&
+                  !(await confirm({
+                    title: t("workflows.roomWarning"),
+                    message: t("workflows.roomWarningBody"),
+                    confirmLabel: t("workflows.reportActual"),
+                    cancelLabel: t("workflows.cancel"),
+                  }))
+                )
+                  return;
+                setActualRoomId(roomId);
+              }}
               disabled={online}
               className="select field-auto min-w-44"
             >
