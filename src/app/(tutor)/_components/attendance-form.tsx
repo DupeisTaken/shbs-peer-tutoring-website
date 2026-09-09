@@ -5,6 +5,7 @@ import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
 import { useTranslations } from "next-intl";
+import { useRouter } from "next/navigation";
 import { z } from "zod";
 
 import { api } from "~/trpc/react";
@@ -59,16 +60,18 @@ type CardColor = "" | "YELLOW" | "RED";
 type CardEntry = { color: CardColor; reason: string };
 type TuteeEntry = { status: TuteeStatus; reason: string };
 
-/** Current local time as "HH:MM" and today's date as "YYYY-MM-DD". */
+/** Current local time and the school's UTC+8 calendar date. */
 const nowHm = () => {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
-const todayIso = () => new Date().toISOString().slice(0, 10);
+const todayIso = () =>
+  new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
 export function AttendanceForm() {
   const t = useTranslations();
+  const router = useRouter();
   const utils = api.useUtils();
   const pairingsQuery = api.tutor.myPairings.useQuery();
   const disciplineQuery = api.tutor.myTuteeDiscipline.useQuery();
@@ -82,6 +85,9 @@ export function AttendanceForm() {
         utils.tutor.myMonthlyTotal.invalidate(),
         utils.tutor.mySessions.invalidate(),
       ]);
+      // The dashboard's hour total is server-rendered, so replace its stale
+      // server payload while retaining this form's client state and confirmation.
+      router.refresh();
     },
   });
 
@@ -266,8 +272,15 @@ export function AttendanceForm() {
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {/* Pairing */}
       <div className="space-y-1">
-        <label className="label">{t("tutor.attendance.pairing")}</label>
-        <select {...register("pairingId")} className="select" defaultValue="">
+        <label className="label" htmlFor="attendance-pairing">
+          {t("tutor.attendance.pairing")}
+        </label>
+        <select
+          {...register("pairingId")}
+          id="attendance-pairing"
+          className="select"
+          defaultValue=""
+        >
           <option value="" disabled>
             {t("tutor.attendance.selectPairing")}
           </option>
@@ -293,11 +306,15 @@ export function AttendanceForm() {
       {/* Date + tutor status */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-1">
-          <label className="label">{t("tutor.attendance.date")}</label>
+          <label className="label" htmlFor="attendance-date">
+            {t("tutor.attendance.date")}
+          </label>
           <div className="flex flex-wrap gap-2">
             <input
+              id="attendance-date"
               type="date"
               {...register("date")}
+              max={todayIso()}
               className="input min-w-0 flex-1"
             />
             <button
@@ -310,8 +327,14 @@ export function AttendanceForm() {
           </div>
         </div>
         <div className="space-y-1">
-          <label className="label">{t("tutor.attendance.tutorStatus")}</label>
-          <select {...register("tutorStatus")} className="select">
+          <label className="label" htmlFor="attendance-tutor-status">
+            {t("tutor.attendance.tutorStatus")}
+          </label>
+          <select
+            {...register("tutorStatus")}
+            id="attendance-tutor-status"
+            className="select"
+          >
             {TUTOR_STATUS_VALUES.map((s) => (
               <option key={s} value={s}>
                 {t(`tutor.attendance.tutorStatusOpt.${s}`)}
@@ -324,19 +347,26 @@ export function AttendanceForm() {
       {/* Tutor absence reason */}
       {tutorStatus === "TUTOR_ABSENT" && (
         <div className="space-y-1">
-          <label className="label">
+          <label className="label" htmlFor="attendance-tutor-absence-reason">
             {t("tutor.attendance.tutorAbsentReason")}
           </label>
-          <input {...register("tutorAbsentReason")} className="input" />
+          <input
+            {...register("tutorAbsentReason")}
+            id="attendance-tutor-absence-reason"
+            className="input"
+          />
         </div>
       )}
 
       {/* Time (with "now") */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-1">
-          <label className="label">{t("tutor.attendance.start")}</label>
+          <label className="label" htmlFor="attendance-start-time">
+            {t("tutor.attendance.start")}
+          </label>
           <div className="flex flex-wrap gap-2">
             <input
+              id="attendance-start-time"
               type="time"
               {...register("startTime")}
               className="input min-w-0 flex-1"
@@ -351,9 +381,12 @@ export function AttendanceForm() {
           </div>
         </div>
         <div className="space-y-1">
-          <label className="label">{t("tutor.attendance.end")}</label>
+          <label className="label" htmlFor="attendance-end-time">
+            {t("tutor.attendance.end")}
+          </label>
           <div className="flex flex-wrap gap-2">
             <input
+              id="attendance-end-time"
               type="time"
               {...register("endTime")}
               className="input min-w-0 flex-1"
@@ -373,9 +406,12 @@ export function AttendanceForm() {
       {/* Where the session ran — the room used (or online). Lets the crew validate attendance. */}
       {selectedPairing && held && (
         <div className="space-y-1">
-          <label className="label">{t("tutor.attendance.roomUsed")}</label>
+          <label className="label" htmlFor="attendance-room-used">
+            {t("tutor.attendance.roomUsed")}
+          </label>
           <div className="flex flex-wrap items-center gap-3">
             <select
+              id="attendance-room-used"
               value={actualRoomId}
               onChange={async (e) => {
                 const roomId = e.target.value;
@@ -478,6 +514,7 @@ export function AttendanceForm() {
                     </span>
                   )}
                   <select
+                    aria-label={`${t2.tutee.englishName} ${t("tutor.attendance.tuteeAttendance")}`}
                     className="select sm:field-auto min-w-0 sm:min-w-40"
                     value={status}
                     onChange={(e) =>
@@ -541,8 +578,15 @@ export function AttendanceForm() {
 
       {/* Comments (required) */}
       <div className="space-y-1">
-        <label className="label">{t("tutor.attendance.comments")}</label>
-        <textarea {...register("comments")} rows={3} className="textarea" />
+        <label className="label" htmlFor="attendance-comments">
+          {t("tutor.attendance.comments")}
+        </label>
+        <textarea
+          {...register("comments")}
+          id="attendance-comments"
+          rows={3}
+          className="textarea"
+        />
         {errors.comments && (
           <p className="text-sm text-red-600">{errors.comments.message}</p>
         )}
@@ -569,6 +613,7 @@ export function AttendanceForm() {
                     {t2.tutee.englishName}
                   </span>
                   <select
+                    aria-label={`${t2.tutee.englishName} ${t("tutor.attendance.cardsTitle")}`}
                     className="select sm:field-auto min-w-0 sm:min-w-32"
                     value={color}
                     onChange={(e) =>
