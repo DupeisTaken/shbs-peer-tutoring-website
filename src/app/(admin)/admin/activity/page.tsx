@@ -30,7 +30,8 @@ export default function ActivityPage() {
   const sessionFlags = api.admin.sessionFlags.useQuery();
   const crewApplications = api.admin.crewApplications.useQuery();
   const crewRequests = api.admin.crewRequests.useQuery();
-  const features = api.program.features.useQuery().data;
+  const featuresQuery = api.program.features.useQuery();
+  const features = featuresQuery.data;
 
   const linkedSurveyTutees = new Set(
     activitySummary.data?.linkedTuteeIds ?? [],
@@ -144,25 +145,39 @@ export default function ActivityPage() {
   const totalOpen = triage.reduce((n, x) => n + x.value, 0);
   const activeQueues = triage.filter((x) => x.value > 0).length;
   const backlog = triage.filter((x) => x.value > 0).sort((a, b) => b.value - a.value);
+  // Optional queues are relevant only when their feature is enabled. Their disabled queries may
+  // legitimately be absent or forbidden, so they must not prevent a trustworthy all-clear state.
+  const requiredQueries = [
+    tutees,
+    apps,
+    sessions,
+    tutorRequests,
+    tuteeRequests,
+    ...(features?.DISCIPLINE ? [cards] : []),
+    ...(features?.CREW ? [sessionFlags, crewApplications, crewRequests] : []),
+  ];
   const loading =
     me.isLoading ||
+    featuresQuery.isLoading ||
     (elevated && activitySummary.isLoading) ||
-    [
-      tutees,
-      apps,
-      cards,
-      tutorRequests,
-      tuteeRequests,
-      sessionFlags,
-      crewApplications,
-      crewRequests,
-    ].some((q) => q.isLoading);
+    requiredQueries.some((q) => q.isLoading);
+  const dataIncomplete =
+    me.error != null ||
+    featuresQuery.error != null ||
+    (elevated && activitySummary.error != null) ||
+    requiredQueries.some((q) => q.error != null);
+  const dataReady = !loading && !dataIncomplete;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="page-title">{t("admin.activity.title")}</h1>
         <p className="muted mt-1">{t("admin.activity.subtitle")}</p>
+        {dataIncomplete && (
+          <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900" role="alert">
+            {t("admin.activity.hero.incompleteData")}
+          </p>
+        )}
       </div>
 
       {/* Hero — how much is waiting, and where it concentrates. */}
@@ -171,7 +186,9 @@ export default function ActivityPage() {
           <p className="text-[11px] font-semibold tracking-[0.14em] text-accent-700 uppercase">
             {t("admin.activity.hero.title")}
           </p>
-          <p className="mt-2 text-6xl font-bold tracking-tight text-slate-900 tabular-nums">{totalOpen}</p>
+          <p className="mt-2 text-6xl font-bold tracking-tight text-slate-900 tabular-nums">
+            {dataReady ? totalOpen : "—"}
+          </p>
           <p className="mt-1 text-sm font-medium text-slate-500">{t("admin.activity.hero.openItems")}</p>
           {totalOpen > 0 && (
             <p className="muted mt-1 text-xs">{t("admin.activity.hero.across", { count: activeQueues })}</p>
@@ -186,7 +203,11 @@ export default function ActivityPage() {
           ) : (
             <div className="flex h-full items-center">
               <p className="text-sm font-medium text-slate-500">
-                {loading ? "…" : t("admin.activity.hero.allClear")}
+                {loading
+                  ? "…"
+                  : dataIncomplete
+                    ? t("admin.activity.hero.incompleteData")
+                    : t("admin.activity.hero.allClear")}
               </p>
             </div>
           )}
