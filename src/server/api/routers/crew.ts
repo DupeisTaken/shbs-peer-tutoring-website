@@ -1,3 +1,4 @@
+import { requestMembership, recallMembership } from "~/server/membership";
 import { createHash } from "node:crypto";
 import { inTransaction, lockEntity } from "~/server/transactions";
 import { TRPCError } from "@trpc/server";
@@ -233,94 +234,26 @@ export const crewRouter = createTRPCRouter({
    *  approves after it elapses, and the member can recall it meanwhile. */
   requestOptOut: protectedProcedure
     .input(z.object({ reason: z.string().trim().max(500).optional() }))
-    .mutation(async ({ ctx, input }) => {
-      const me = await ctx.db.user.findUnique({
-        where: { id: ctx.session.user.id },
-        select: { crewStatus: true },
-      });
-      if (me?.crewStatus !== "ACTIVE") {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Only active crew can opt out.",
-        });
-      }
-      const open = await ctx.db.crewStatusRequest.findFirst({
-        where: { userId: ctx.session.user.id, state: "PENDING" },
-        select: { id: true },
-      });
-      if (open) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "You already have a pending request.",
-        });
-      }
-      const eligibleAt = new Date(
-        Date.now() + CREW_OPT_OUT_COOLDOWN_DAYS * 24 * 60 * 60 * 1000,
-      );
-      await ctx.db.crewStatusRequest.create({
-        data: {
-          userId: ctx.session.user.id,
-          kind: "OPT_OUT",
-          eligibleAt,
-          reason: input.reason?.trim() ? input.reason.trim() : null,
-        },
-      });
-      await notifyAdmins({
-        title: "Crew opt-out requested",
-        body: "A crew member requested to opt out.",
-        link: "/admin/crew",
-      });
-      return { ok: true };
-    }),
+    .mutation(({ ctx, input }) =>
+      requestMembership(
+        ctx.db,
+        { kind: "crew", id: ctx.session.user.id },
+        "OPT_OUT",
+        input.reason,
+      ),
+    ),
 
   /** Recall a still-pending opt-out request (before an admin approves it). */
-  recallOptOut: protectedProcedure.mutation(async ({ ctx }) => {
-    const req = await ctx.db.crewStatusRequest.findFirst({
-      where: { userId: ctx.session.user.id, kind: "OPT_OUT", state: "PENDING" },
-      select: { id: true },
-    });
-    if (!req)
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "No pending opt-out to recall.",
-      });
-    await ctx.db.crewStatusRequest.update({
-      where: { id: req.id },
-      data: { state: "RECALLED" },
-    });
-    return { ok: true };
-  }),
+  recallOptOut: protectedProcedure.mutation(({ ctx }) =>
+    recallMembership(ctx.db, { kind: "crew", id: ctx.session.user.id }),
+  ),
 
   /** Request reentry to the crew (OPTED_OUT members only; no cooldown). */
-  requestReentry: protectedProcedure.mutation(async ({ ctx }) => {
-    const me = await ctx.db.user.findUnique({
-      where: { id: ctx.session.user.id },
-      select: { crewStatus: true },
-    });
-    if (me?.crewStatus !== "OPTED_OUT") {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "Only opted-out crew can request reentry.",
-      });
-    }
-    const open = await ctx.db.crewStatusRequest.findFirst({
-      where: { userId: ctx.session.user.id, state: "PENDING" },
-      select: { id: true },
-    });
-    if (open) {
-      throw new TRPCError({
-        code: "BAD_REQUEST",
-        message: "You already have a pending request.",
-      });
-    }
-    await ctx.db.crewStatusRequest.create({
-      data: { userId: ctx.session.user.id, kind: "REENTRY" },
-    });
-    await notifyAdmins({
-      title: "Crew reentry requested",
-      body: "A crew member requested to rejoin.",
-      link: "/admin/crew",
-    });
-    return { ok: true };
-  }),
+  requestReentry: protectedProcedure.mutation(({ ctx }) =>
+    requestMembership(
+      ctx.db,
+      { kind: "crew", id: ctx.session.user.id },
+      "REENTRY",
+    ),
+  ),
 });
