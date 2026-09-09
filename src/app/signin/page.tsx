@@ -23,6 +23,11 @@ export default async function SignInPage() {
         <p className="muted mt-1">{t("auth.signinSubtitle")}</p>
         <div className="card mt-6 p-6 text-left">
           <SignInForm />
+          <p className="mt-4 text-sm">
+            <Link href="/signup" className="link">
+              {t("survey.requestTutor")}
+            </Link>
+          </p>
           <div className="mt-4 flex items-center justify-between gap-3 text-sm">
             <Link href="/register" className="link">
               {t("auth.createAccount")}

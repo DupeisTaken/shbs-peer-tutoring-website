@@ -33,6 +33,12 @@ FROM build AS runtime-deps
 RUN npm prune --omit=dev --ignore-scripts
 
 ############################
+# Production dependency closure, including the migration CLI's transitive dependencies.
+############################
+FROM build AS runtime-deps
+RUN npm prune --omit=dev --ignore-scripts
+
+############################
 # 3. Runtime (slim, non-root)
 ############################
 FROM node:22-alpine AS runner

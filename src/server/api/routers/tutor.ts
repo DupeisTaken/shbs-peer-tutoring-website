@@ -1520,6 +1520,8 @@ export const tutorRouter = createTRPCRouter({
           message: "That tutee isn't on one of your pairings.",
         });
       }
+      if (await ctx.db.studentSurvey.findUnique({ where: { tuteeId: input.tuteeId } }))
+        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Students apply to leave the quarter from their own account. Use schedule rejection for scheduling problems." });
       const open = await ctx.db.tuteeRemovalRequest.findFirst({
         where: { tuteeId: input.tuteeId, state: "PENDING" },
         select: { id: true },

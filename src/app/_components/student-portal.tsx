@@ -1,10 +1,8 @@
 "use client";
 import { formText } from "~/lib/form-values";
-import Link from "next/link";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
-import { PolicyConsent } from "./policy-consent";
 import { minToHm, DAY_NAMES } from "~/lib/time";
 import { useDialog } from "./confirm-dialog";
 
@@ -23,25 +21,6 @@ export function StudentPortal() {
   return (
     <div className="space-y-6">
       {dialog}
-      <PolicyConsent slug="tutee-policy">
-        <div className="card flex flex-wrap items-center justify-between gap-4 p-6">
-          <div>
-            <h2 className="section-title">
-              {student?.englishName ?? data.data.user.name}
-            </h2>
-            <p className="muted mt-1">
-              {!student
-                ? t("notEnrolled")
-                : student.status === "PENDING"
-                  ? t("pending")
-                  : student.status}
-            </p>
-          </div>
-          <Link href="/signup" className="btn-primary">
-            {t("reapply")}
-          </Link>
-        </div>
-      </PolicyConsent>
       <section className="card p-6">
         <h2 className="section-title">{t("schedule")}</h2>
         {!student?.pairings.length && (

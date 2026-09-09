@@ -1,4 +1,5 @@
 "use client";
+import { StudentRequestBoard } from "./student-request-board";
 
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
@@ -10,16 +11,24 @@ import { DisclosureIcon } from "~/app/_components/icons";
 import { useReadOnly } from "~/app/_components/read-only";
 import { useDialog } from "~/app/_components/confirm-dialog";
 
-type SlotLite = { id: string; label: string; dayOfWeek: number; startMin: number; endMin: number };
+type SlotLite = {
+  id: string;
+  label: string;
+  dayOfWeek: number;
+  startMin: number;
+  endMin: number;
+};
 
 type PendingTutee = {
   id: string;
+  unverified?: boolean;
   englishName: string;
   gradeLevel: string | null;
   email: string | null;
   phone: string | null;
   preferredContact: string | null;
   createdAt: Date;
+  signupSubmittedAt: Date | null;
   updatedAt: Date;
   signedRulebook: boolean;
   signatureName: string | null;
@@ -34,7 +43,9 @@ type Workload = Record<string, { pairings: number; tutees: number }>;
 
 function availability(av: { slot: SlotLite }[]): string {
   if (av.length === 0) return "—";
-  return av.map((a) => `${DAY_NAMES[a.slot.dayOfWeek]} ${minToHm(a.slot.startMin)}`).join(", ");
+  return av
+    .map((a) => `${DAY_NAMES[a.slot.dayOfWeek]} ${minToHm(a.slot.startMin)}`)
+    .join(", ");
 }
 
 function RequestCard({
@@ -67,7 +78,9 @@ function RequestCard({
     },
     onError: () => onChanged(), // refresh on a stale-write conflict
   });
-  const del = api.admin.deleteTutee.useMutation({ onSuccess: () => onChanged() });
+  const del = api.admin.deleteTutee.useMutation({
+    onSuccess: () => onChanged(),
+  });
 
   // Collapse fulfilled requests by default; auto-collapse once a request becomes fulfilled.
   const [collapsed, setCollapsed] = useState(fulfilled);
@@ -78,8 +91,16 @@ function RequestCard({
   // Always show both choice positions; a position the tutee left blank renders grayed/disabled
   // so the request stays in the queue and the admin can still assign whatever was provided.
   const positions = [
-    { key: "first", label: t("admin.requests.firstChoice"), course: tutee.firstChoice },
-    { key: "second", label: t("admin.requests.secondChoice"), course: tutee.secondChoice },
+    {
+      key: "first",
+      label: t("admin.requests.firstChoice"),
+      course: tutee.firstChoice,
+    },
+    {
+      key: "second",
+      label: t("admin.requests.secondChoice"),
+      course: tutee.secondChoice,
+    },
   ];
   const [picks, setPicks] = useState<Record<string, string>>({});
 
@@ -103,7 +124,11 @@ function RequestCard({
           <button
             type="button"
             className="mt-0.5 shrink-0 text-slate-400 hover:text-slate-700"
-            aria-label={collapsed ? t("admin.requests.expand") : t("admin.requests.collapse")}
+            aria-label={
+              collapsed
+                ? t("admin.requests.expand")
+                : t("admin.requests.collapse")
+            }
             onClick={() => setCollapsed((c) => !c)}
           >
             <DisclosureIcon open={!collapsed} />
@@ -112,18 +137,33 @@ function RequestCard({
             <p className="font-medium text-slate-900">
               <span className="badge-slate mr-2">#{order}</span>
               {tutee.englishName}
-              {tutee.gradeLevel ? ` · ${t("admin.requests.grade", { grade: tutee.gradeLevel })}` : ""}
+              {tutee.gradeLevel
+                ? ` · ${t("admin.requests.grade", { grade: tutee.gradeLevel })}`
+                : ""}
+              {tutee.unverified && (
+                <span className="badge-slate ml-2">
+                  {t("survey.unverified")}
+                </span>
+              )}
               {fulfilled && (
-                <span className="badge-green ml-2">{t("admin.requests.fulfilled")}</span>
+                <span className="badge-green ml-2">
+                  {t("admin.requests.fulfilled")}
+                </span>
               )}
               {tutee.bannedMatch && (
                 <span
                   className="badge-red ml-2"
                   title={t("admin.requests.banFlagTitle", {
                     fields: [
-                      tutee.bannedMatch.name ? t("admin.requests.banField.name") : null,
-                      tutee.bannedMatch.email ? t("admin.requests.banField.email") : null,
-                      tutee.bannedMatch.phone ? t("admin.requests.banField.phone") : null,
+                      tutee.bannedMatch.name
+                        ? t("admin.requests.banField.name")
+                        : null,
+                      tutee.bannedMatch.email
+                        ? t("admin.requests.banField.email")
+                        : null,
+                      tutee.bannedMatch.phone
+                        ? t("admin.requests.banField.phone")
+                        : null,
                     ]
                       .filter(Boolean)
                       .join(", "),
@@ -136,32 +176,44 @@ function RequestCard({
             {!collapsed && (
               <>
                 <p className="muted text-xs">
-                  {t("admin.requests.submitted", { when: new Date(tutee.createdAt).toLocaleString() })}
+                  {t("admin.requests.submitted", {
+                    when: new Date(
+                      tutee.signupSubmittedAt ?? tutee.createdAt,
+                    ).toLocaleString(),
+                  })}
                 </p>
                 <p className="muted">
-                  {t("admin.requests.available", { list: availability(tutee.availabilities) })}
+                  {t("admin.requests.available", {
+                    list: availability(tutee.availabilities),
+                  })}
                 </p>
                 {tutee.preferredContact && (
                   <p className="muted">
-                    {t("admin.requests.reach", { contact: tutee.preferredContact })}
+                    {t("admin.requests.reach", {
+                      contact: tutee.preferredContact,
+                    })}
                   </p>
                 )}
                 <p className="muted">
                   {tutee.signedRulebook
-                    ? t("admin.requests.signed", { name: tutee.signatureName ?? "" })
+                    ? t("admin.requests.signed", {
+                        name: tutee.signatureName ?? "",
+                      })
                     : t("admin.requests.notSigned")}
                 </p>
               </>
             )}
           </div>
         </div>
-        {!fulfilled && !readOnly && (
+        {!fulfilled && !readOnly && !tutee.unverified && (
           <button
             className="btn-danger btn-sm shrink-0"
             onClick={async () => {
               if (
                 await confirm({
-                  title: t("admin.requests.declineConfirm", { name: tutee.englishName }),
+                  title: t("admin.requests.declineConfirm", {
+                    name: tutee.englishName,
+                  }),
                   confirmLabel: t("common.confirm"),
                   cancelLabel: t("common.cancel"),
                   danger: true,
@@ -176,11 +228,25 @@ function RequestCard({
       </div>
 
       {/* Assign each course choice to a tutor independently (workload shown in the dropdown). */}
-      {!collapsed && (
+      {!collapsed && tutee.unverified && (
+        <div className="muted mt-3 space-y-2 border-t border-slate-100 pt-3">
+          <p>{tutee.email}</p>
+          <p>
+            {t("admin.requests.firstChoice")}: {tutee.firstChoice?.name ?? "—"}
+            {tutee.secondChoice
+              ? ` · ${t("admin.requests.secondChoice")}: ${tutee.secondChoice.name}`
+              : ""}
+          </p>
+          <p>{t("survey.awaitingHelp")}</p>
+        </div>
+      )}
+      {!collapsed && !tutee.unverified && (
         <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
           {positions.map((p) => {
             const filled = !!p.course;
-            const assignedTo = filled ? assigned.get(p.course!.name) : undefined;
+            const assignedTo = filled
+              ? assigned.get(p.course!.name)
+              : undefined;
             const isAssigned = !!assignedTo;
             return (
               <div
@@ -192,7 +258,9 @@ function RequestCard({
                   {filled ? (
                     <span className="font-medium">{p.course!.name}</span>
                   ) : (
-                    <span className="text-slate-400">{t("admin.requests.notProvided")}</span>
+                    <span className="text-slate-400">
+                      {t("admin.requests.notProvided")}
+                    </span>
                   )}
                 </span>
                 {isAssigned ? (
@@ -200,7 +268,11 @@ function RequestCard({
                     {t("admin.requests.assignedTo", { name: assignedTo })}
                   </span>
                 ) : readOnly ? (
-                  filled && <span className="muted text-sm">{t("admin.requests.assignToTutor")}</span>
+                  filled && (
+                    <span className="muted text-sm">
+                      {t("admin.requests.assignToTutor")}
+                    </span>
+                  )
                 ) : (
                   <>
                     <select
@@ -209,11 +281,16 @@ function RequestCard({
                       value={filled ? (picks[p.course!.name] ?? "") : ""}
                       onChange={(e) =>
                         filled &&
-                        setPicks((prev) => ({ ...prev, [p.course!.name]: e.target.value }))
+                        setPicks((prev) => ({
+                          ...prev,
+                          [p.course!.name]: e.target.value,
+                        }))
                       }
                     >
                       <option value="">
-                        {filled ? t("admin.requests.assignToTutor") : t("admin.requests.notProvided")}
+                        {filled
+                          ? t("admin.requests.assignToTutor")
+                          : t("admin.requests.notProvided")}
                       </option>
                       {filled &&
                         activeTutors.map((tu) => (
@@ -224,26 +301,37 @@ function RequestCard({
                     </select>
                     <button
                       className="btn-primary btn-sm"
-                      disabled={!filled || !picks[p.course!.name] || assign.isPending}
+                      disabled={
+                        !filled || !picks[p.course!.name] || assign.isPending
+                      }
                       onClick={() =>
                         assign.mutate({
                           tuteeId: tutee.id,
                           expectedUpdatedAt: tutee.updatedAt,
                           assignments: [
-                            { subject: p.course!.name, tutorId: picks[p.course!.name]! },
+                            {
+                              subject: p.course!.name,
+                              tutorId: picks[p.course!.name]!,
+                            },
                           ],
                         })
                       }
                     >
-                      {assign.isPending ? t("admin.requests.assigning") : t("admin.requests.assign")}
+                      {assign.isPending
+                        ? t("admin.requests.assigning")
+                        : t("admin.requests.assign")}
                     </button>
                   </>
                 )}
               </div>
             );
           })}
-          {assign.error && <p className="text-sm text-red-600">{assign.error.message}</p>}
-          {(del.error ?? null) && <p className="text-sm text-red-600">{del.error?.message}</p>}
+          {assign.error && (
+            <p className="text-sm text-red-600">{assign.error.message}</p>
+          )}
+          {(del.error ?? null) && (
+            <p className="text-sm text-red-600">{del.error?.message}</p>
+          )}
         </div>
       )}
       {dialog}
@@ -255,6 +343,9 @@ export default function RequestsPage() {
   const t = useTranslations();
   const utils = api.useUtils();
   const tutees = api.admin.tutees.useQuery();
+  const managed = api.studentWorkflow.adminRequests.useQuery(undefined, {
+    enabled: !useReadOnly(),
+  });
   const tutors = api.admin.tutors.useQuery();
   const currentPeriod = api.admin.currentPeriod.useQuery(undefined, {
     staleTime: REFERENCE_STALE_TIME,
@@ -262,14 +353,18 @@ export default function RequestsPage() {
   const pairings = api.admin.pairings.useQuery();
 
   const invalidate = () =>
-    Promise.all([utils.admin.tutees.invalidate(), utils.admin.pairings.invalidate()]);
+    Promise.all([
+      utils.admin.tutees.invalidate(),
+      utils.admin.pairings.invalidate(),
+    ]);
 
   const hasPeriod = !!currentPeriod.data;
 
   // Requests fulfilled in this session stay visible (tagged + collapsed) instead of vanishing,
   // so the numbering of the remaining queue doesn't jump around mid-processing.
   const [retained, setRetained] = useState<Set<string>>(new Set());
-  const onFulfilled = (id: string) => setRetained((prev) => new Set(prev).add(id));
+  const onFulfilled = (id: string) =>
+    setRetained((prev) => new Set(prev).add(id));
 
   // subject already assigned per tutee → tutor display name (from existing pairings).
   const assignedByTutee = useMemo(() => {
@@ -289,9 +384,14 @@ export default function RequestsPage() {
   const display = useMemo(
     () =>
       (tutees.data ?? [])
+        .filter((t2) => !managed.data?.some((r) => r.tuteeId === t2.id))
         .filter((t2) => t2.status === "PENDING" || retained.has(t2.id))
-        .sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt)),
-    [tutees.data, retained],
+        .sort(
+          (a, b) =>
+            +new Date(a.signupSubmittedAt ?? a.createdAt) -
+            +new Date(b.signupSubmittedAt ?? b.createdAt),
+        ),
+    [tutees.data, managed.data, retained],
   );
 
   const workload: Workload = useMemo(() => {
@@ -320,29 +420,44 @@ export default function RequestsPage() {
         <p className="muted mt-1">{t("admin.requests.help")}</p>
       </div>
 
-      {!hasPeriod && <p className="text-sm text-red-600">{t("admin.requests.noTerm")}</p>}
+      {!hasPeriod && (
+        <p className="text-sm text-red-600">{t("admin.requests.noTerm")}</p>
+      )}
 
-      <div className="space-y-3">
-        {hasPeriod &&
-          display.map((t2, i) => (
-            <RequestCard
-              key={t2.id}
-              tutee={t2}
-              order={i + 1}
-              tutors={(tutors.data ?? []).map((tu) => ({
-                id: tu.id,
-                englishName: tu.englishName,
-                active: tu.status === "ACTIVE",
-              }))}
-              workload={workload}
-              assigned={assignedByTutee.get(t2.id) ?? new Map()}
-              fulfilled={isFulfilled(t2)}
-              onChanged={invalidate}
-              onFulfilled={onFulfilled}
-            />
-          ))}
-        {display.length === 0 && <p className="muted">{t("admin.requests.empty")}</p>}
-      </div>
+      {!useReadOnly() && <StudentRequestBoard />}
+      <details className="space-y-3">
+        <summary className="cursor-pointer font-medium">
+          {t("workflow.legacyRequests")}
+        </summary>
+        <div className="space-y-3">
+          {hasPeriod &&
+            display.map((t2, i) => (
+              <RequestCard
+                key={t2.id}
+                tutee={t2}
+                order={i + 1}
+                tutors={(tutors.data ?? []).map((tu) => ({
+                  id: tu.id,
+                  englishName: tu.englishName,
+                  active: tu.status === "ACTIVE",
+                }))}
+                workload={workload}
+                assigned={assignedByTutee.get(t2.id) ?? new Map()}
+                fulfilled={isFulfilled(t2)}
+                onChanged={invalidate}
+                onFulfilled={onFulfilled}
+              />
+            ))}
+          {managed.error && (
+            <p role="alert" className="text-red-700">
+              {managed.error.message}
+            </p>
+          )}
+          {display.length === 0 && (
+            <p className="muted">{t("admin.requests.empty")}</p>
+          )}
+        </div>
+      </details>
     </div>
   );
 }

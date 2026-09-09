@@ -1,3 +1,4 @@
+import { assertStudentRequestAssignable, stampStudentAssignment } from "~/server/student-request-state";
 import { validatePanel, validateInterviewDecision } from "~/server/interviews";
 import { reconcileMeetingHours } from "~/server/meeting-hours";
 import { TRPCError } from "@trpc/server";
@@ -511,15 +512,23 @@ export const adminRouter = createTRPCRouter({
         getActivePeriod(ctx.db),
       ]);
       const { tuteeIds, ...data } = input;
-      return ctx.db.pairing.create({
-        data: {
-          ...data,
-          termId: period.termId,
-          dayOfWeek: slot.dayOfWeek,
-          startMin: slot.startMin,
-          endMin: slot.endMin,
-          tutees: { create: tuteeIds.map((tuteeId) => ({ tuteeId })) },
-        },
+      return ctx.db.$transaction(async (tx) => {
+        // Generic roster tools share the same request lock and first-assignment clock.
+        for (const tuteeId of [...tuteeIds].sort())
+          await assertStudentRequestAssignable(tx, tuteeId);
+        const pairing = await tx.pairing.create({
+          data: {
+            ...data,
+            termId: period.termId,
+            dayOfWeek: slot.dayOfWeek,
+            startMin: slot.startMin,
+            endMin: slot.endMin,
+            tutees: { create: tuteeIds.map((tuteeId) => ({ tuteeId })) },
+          },
+        });
+        for (const tuteeId of tuteeIds)
+          await stampStudentAssignment(tx, tuteeId);
+        return pairing;
       });
     }),
 
@@ -539,8 +548,10 @@ export const adminRouter = createTRPCRouter({
       const { id, tuteeIds, roomId, ...data } = input;
       // Replace roster atomically; day/start/end follow the chosen slot.
       return ctx.db.$transaction(async (tx) => {
+        for (const tuteeId of [...tuteeIds].sort())
+          await assertStudentRequestAssignable(tx, tuteeId);
         await tx.pairingTutee.deleteMany({ where: { pairingId: id } });
-        return tx.pairing.update({
+        const pairing = await tx.pairing.update({
           where: { id },
           data: {
             ...data,
@@ -551,6 +562,9 @@ export const adminRouter = createTRPCRouter({
             tutees: { create: tuteeIds.map((tuteeId) => ({ tuteeId })) },
           },
         });
+        for (const tuteeId of tuteeIds)
+          await stampStudentAssignment(tx, tuteeId);
+        return pairing;
       });
     }),
 
@@ -1768,7 +1782,8 @@ export const adminRouter = createTRPCRouter({
         });
       }
 
-      return ctx.db.$transaction(async (tx) => {
+      return inTransaction(ctx.db, async (tx) => {
+        await assertStudentRequestAssignable(tx, input.tuteeId);
         const pairing = await tx.pairing.create({
           data: {
             tutorId: input.tutorId,
@@ -1786,6 +1801,7 @@ export const adminRouter = createTRPCRouter({
           where: { id: input.tuteeId },
           data: { status: "ACTIVE" },
         });
+        await stampStudentAssignment(tx, input.tuteeId);
         return pairing;
       });
     }),
@@ -1808,7 +1824,8 @@ export const adminRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       // New pairings land in the active program period.
       const period = await getActivePeriod(ctx.db);
-      return ctx.db.$transaction(async (tx) => {
+      return inTransaction(ctx.db, async (tx) => {
+        await assertStudentRequestAssignable(tx, input.tuteeId);
         const tutee = await tx.tutee.findUnique({
           where: { id: input.tuteeId },
           select: {
@@ -1882,6 +1899,7 @@ export const adminRouter = createTRPCRouter({
 
         const account = await tx.user.findUnique({ where: { studentId: input.tuteeId }, select: { id: true } });
         if (account) await notifyUsers([account.id], { title: "Your tutoring assignment was updated", link: "/student" }, tx);
+        await stampStudentAssignment(tx, input.tuteeId);
         return { ok: true, fulfilled };
       });
     }),
@@ -4267,33 +4285,37 @@ export const adminRouter = createTRPCRouter({
         locale: z.string().trim().min(1).max(10),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
-      if (input.locale === DEFAULT_POLICY_LOCALE) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "The default language can't be removed.",
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        // Consent snapshots and edits share a lock across locales.
+        await lockEntity(tx, `policy:${input.slug}`);
+        if (input.locale === DEFAULT_POLICY_LOCALE) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "The default language can't be removed.",
+          });
+        }
+        const existing = await tx.policyDocument.findUnique({
+          where: { slug_locale: { slug: input.slug, locale: input.locale } },
+          select: { title: true, body: true, version: true },
         });
-      }
-      const existing = await ctx.db.policyDocument.findUnique({
-        where: { slug_locale: { slug: input.slug, locale: input.locale } },
-        select: { title: true, body: true, version: true },
-      });
-      if (!existing) return { ok: true };
-      await ctx.db.policyArchive.create({
-        data: {
-          slug: input.slug,
-          locale: input.locale,
-          title: existing.title,
-          body: existing.body,
-          version: existing.version,
-          archivedByName: ctx.session.user.name,
-        },
-      });
-      await ctx.db.policyDocument.delete({
-        where: { slug_locale: { slug: input.slug, locale: input.locale } },
-      });
-      return { ok: true };
-    }),
+        if (!existing) return { ok: true };
+        await tx.policyArchive.create({
+          data: {
+            slug: input.slug,
+            locale: input.locale,
+            title: existing.title,
+            body: existing.body,
+            version: existing.version,
+            archivedByName: ctx.session.user.name,
+          },
+        });
+        await tx.policyDocument.delete({
+          where: { slug_locale: { slug: input.slug, locale: input.locale } },
+        });
+        return { ok: true };
+      }),
+    ),
 
   /** Archived (superseded) policy versions, newest first — for the version-history viewer. */
   policyArchives: viewerProcedure.query(({ ctx }) =>

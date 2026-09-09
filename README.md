@@ -330,3 +330,6 @@ image built in CI and pulled to the host. See **[README-DEPLOY.md](./README-DEPL
 ## Student Accounts and Confirmed Workflows
 
 The student portal, private messages, feedback visibility, card appeals, reviewed translations, versioned consent and updated interview/meeting rules are described in [STUDENT-WORKFLOWS.md](STUDENT-WORKFLOWS.md). See [REVIEW-QUESTIONS.md](REVIEW-QUESTIONS.md) for the confirmed product decisions. Public signup remains unchanged in this PR. Student onboarding is being delivered separately; the portal features use an existing, explicitly linked student account.
+# Student signup
+
+Students submit a survey, then use an emailed link to confirm their address and create an account. Management can assign unverified students in original submission order; seven days after the first assignment, unverified requests are permanently disqualified. The workflow supports availability edits, recalls, quarter-withdrawal applications, tutor schedule-rejection applications and policy reconfirmation. Serious actions use timed consequence dialogs. See [STUDENT-SIGNUP.md](./STUDENT-SIGNUP.md) for the rules, deployment requirements and tests.

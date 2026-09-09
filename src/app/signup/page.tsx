@@ -36,11 +36,13 @@ export default async function SignupPage() {
         {period && (
           <p className="mt-2">
             <span className="badge-slate">
-              {t("public.signup.term", { term: `${period.schoolYear} ${period.semester}` })}
+              {t("public.signup.term", {
+                term: `${period.schoolYear} ${period.semester}`,
+              })}
             </span>
           </p>
         )}
-        <p className="muted mt-2">{t("public.signup.intro")}</p>
+        <p className="muted mt-2">{t("survey.intro")}</p>
       </div>
 
       {waitingPeriod ? (
