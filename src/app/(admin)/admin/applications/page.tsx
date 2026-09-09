@@ -109,6 +109,20 @@ function ApplicationCard({
   const courseNames =
     app.subjectIntents.map((ci) => ci.subject.name).join(", ") ||
     t("admin.applications.noCourses");
+  const hasInterviewHistory =
+    app.status === "INTERVIEW" ||
+    app.interviewers.length > 0 ||
+    app.decidedByTutor != null;
+  // Generic status controls are only for screening. A panel outcome belongs to its chair.
+  const canDirectAccept =
+    !readOnly &&
+    features?.INTERVIEWS === false &&
+    !hasInterviewHistory &&
+    app.status !== "ACCEPTED";
+  const canScreenReject =
+    !readOnly &&
+    !hasInterviewHistory &&
+    app.status === "PENDING";
 
   return (
     <div className="card p-4">
@@ -149,7 +163,7 @@ function ApplicationCard({
               {t("admin.applications.setupAccount")}
             </Link>
           )}
-          {!readOnly && app.status !== "ACCEPTED" && (
+          {canDirectAccept && (
             <button
               className="btn-secondary btn-sm"
               onClick={() =>
@@ -163,7 +177,7 @@ function ApplicationCard({
               {t("admin.applications.accept")}
             </button>
           )}
-          {!readOnly && app.status !== "REJECTED" && (
+          {canScreenReject && (
             <button
               className="btn-secondary btn-sm"
               onClick={() =>
