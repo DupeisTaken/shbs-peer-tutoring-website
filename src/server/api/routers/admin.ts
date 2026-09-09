@@ -4,7 +4,7 @@ import {
   assertStudentRequestAssignable,
   stampStudentAssignment,
 } from "~/server/student-request-state";
-import { validatePanel, validateInterviewDecision } from "~/server/interviews";
+import { validatePanel } from "~/server/interviews";
 import { reconcileMeetingHours } from "~/server/meeting-hours";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -59,6 +59,7 @@ import { getActivePeriod, getActivePeriodOrNull } from "~/server/period";
 import {
   applyPendingFeatures,
   assertFeatureEnabled,
+  getFeatures,
 } from "~/server/program/features";
 import type { db as dbClient } from "~/server/db";
 import { applyUndo, recordAudit } from "~/server/audit/log";
@@ -2610,17 +2611,43 @@ export const adminRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) =>
       inTransaction(ctx.db, async (tx) => {
         await lockEntity(tx, `interview:${input.id}`);
-        if (input.status === "ACCEPTED")
-          await validateInterviewDecision(
-            tx,
-            input.id,
-            true,
-            ctx.session.tutorId,
-          );
         const prev = await tx.tutorApplication.findUnique({
           where: { id: input.id },
-          select: { status: true },
+          select: {
+            status: true,
+            decidedAt: true,
+            interviewers: { select: { tutorId: true } },
+          },
         });
+        if (!prev)
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Application not found.",
+          });
+
+        const interviewsEnabled = (await getFeatures(tx)).INTERVIEWS;
+        const hasInterviewHistory =
+          prev.status === "INTERVIEW" ||
+          prev.decidedAt != null ||
+          prev.interviewers.length > 0;
+        /**
+         * Once a panel owns an application, only the assigned chair may record its outcome through
+         * tutor.decideInterview. Blocking every alternate status transition also preserves the
+         * chair identity, votes and decision note after completion. Before panel assignment,
+         * management may still reject an applicant during ordinary screening. When the interview
+         * module is disabled, direct acceptance remains available for panel-free applications.
+         */
+        if (
+          input.status !== prev.status &&
+          (hasInterviewHistory ||
+            input.status === "INTERVIEW" ||
+            (interviewsEnabled && input.status === "ACCEPTED"))
+        )
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message:
+              "Interview panels and outcomes must use the assigned interview workflow.",
+          });
         const updated = await tx.tutorApplication.updateMany({
           where: { id: input.id, updatedAt: input.expectedUpdatedAt },
           data: { status: input.status },
