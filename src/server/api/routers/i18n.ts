@@ -1,3 +1,4 @@
+import { withTranslationWrite } from "~/server/translation-destination";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -139,19 +140,21 @@ export const i18nRouter = createTRPCRouter({
 
   deleteLanguage: adminProcedure
     .input(z.object({ code: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      if (isLocale(input.code)) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Built-in languages can't be removed.",
+    .mutation(({ ctx, input }) =>
+      withTranslationWrite(ctx.db, async (tx) => {
+        if (isLocale(input.code)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Built-in languages can't be removed.",
+          });
+        }
+        await tx.messageOverride.deleteMany({
+          where: { locale: input.code },
         });
-      }
-      await ctx.db.messageOverride.deleteMany({
-        where: { locale: input.code },
-      });
-      await ctx.db.language.deleteMany({
-        where: { code: input.code, builtIn: false },
-      });
-      return { ok: true };
-    }),
+        await tx.language.deleteMany({
+          where: { code: input.code, builtIn: false },
+        });
+        return { ok: true };
+      }),
+    ),
 });

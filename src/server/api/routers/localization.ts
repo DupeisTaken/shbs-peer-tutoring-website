@@ -1,3 +1,4 @@
+import { withTranslationWrite } from "~/server/translation-destination";
 import { proposeTranslation } from "~/server/translation-drafts";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
@@ -89,14 +90,23 @@ export const localizationRouter = createTRPCRouter({
         select: { key: true, value: true },
       });
       const overrideMap = new Map(overrides.map((o) => [o.key, o.value]));
-      if (!["HEAD","ADMIN","COORDINATOR"].includes(ctx.session.role)) {
-        const drafts = await ctx.db.translationDraft.findMany({ where: { authorId: ctx.session.user.id, state: "PENDING", operation: "localization.setString" }, orderBy: { createdAt: "asc" } });
+      if (!["HEAD", "ADMIN", "COORDINATOR"].includes(ctx.session.role)) {
+        const drafts = await ctx.db.translationDraft.findMany({
+          where: {
+            authorId: ctx.session.user.id,
+            state: "PENDING",
+            operation: "localization.setString",
+          },
+          orderBy: { createdAt: "asc" },
+        });
         for (const draft of drafts) {
-          const data=z.object({locale:z.string(),key:z.string(),value:z.string()}).safeParse(draft.payload);
-          if(data.success && data.data.locale===locale) overrideMap.set(data.data.key,data.data.value);
+          const data = z
+            .object({ locale: z.string(), key: z.string(), value: z.string() })
+            .safeParse(draft.payload);
+          if (data.success && data.data.locale === locale)
+            overrideMap.set(data.data.key, data.data.value);
         }
       }
-
 
       // Resolve the requested reference languages (dedup; drop the target + English).
       const refCodes: string[] = [];
@@ -143,53 +153,53 @@ export const localizationRouter = createTRPCRouter({
         value: z.string(),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
-      const locale = await resolveLocale(input.locale);
-      const enFlat = flatten(MESSAGES.en ?? {});
-      const localeFlat = localeBase(locale, enFlat);
-      const base = localeFlat[input.key] ?? enFlat[input.key];
-      const value = input.value;
-      if (!enFlat[input.key])
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Unknown translation key.",
-        });
-      if (value.trim()) {
-        try {
-          parse(value);
-        } catch {
+    .mutation(({ ctx, input }) =>
+      withTranslationWrite(ctx.db, async (tx) => {
+        const locale = await resolveLocale(input.locale);
+        const enFlat = flatten(MESSAGES.en ?? {});
+        const localeFlat = localeBase(locale, enFlat);
+        const base = localeFlat[input.key] ?? enFlat[input.key];
+        const value = input.value;
+        if (!enFlat[input.key])
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message:
-              "Invalid ICU message syntax. Check placeholders and plural clauses.",
+            message: "Unknown translation key.",
           });
+        if (value.trim()) {
+          try {
+            parse(value);
+          } catch {
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message:
+                "Invalid ICU message syntax. Check placeholders and plural clauses.",
+            });
+          }
         }
-      }
-      if (
-        await proposeTranslation(
-          ctx.db,
-          ctx.session,
-          "localization.setString",
-          { ...input, locale },
+        if (
+          await proposeTranslation(tx, ctx.session, "localization.setString", {
+            ...input,
+            locale,
+          })
         )
-      )
-        return { ok: true, cleared: false };
-      if (!value.trim() || value === base) {
-        await ctx.db.messageOverride.deleteMany({
-          where: { locale, key: input.key },
+          return { ok: true, cleared: false };
+        if (!value.trim() || value === base) {
+          await tx.messageOverride.deleteMany({
+            where: { locale, key: input.key },
+          });
+          return { ok: true, cleared: true };
+        }
+        await tx.messageOverride.upsert({
+          where: { locale_key: { locale, key: input.key } },
+          update: { value, updatedByName: ctx.session.user.name },
+          create: {
+            locale,
+            key: input.key,
+            value,
+            updatedByName: ctx.session.user.name,
+          },
         });
-        return { ok: true, cleared: true };
-      }
-      await ctx.db.messageOverride.upsert({
-        where: { locale_key: { locale, key: input.key } },
-        update: { value, updatedByName: ctx.session.user.name },
-        create: {
-          locale,
-          key: input.key,
-          value,
-          updatedByName: ctx.session.user.name,
-        },
-      });
-      return { ok: true, cleared: false };
-    }),
+        return { ok: true, cleared: false };
+      }),
+    ),
 });
