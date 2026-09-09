@@ -1581,6 +1581,7 @@
       "saving": "Guardando…",
       "saved": "Guardado.",
       "voteCommentPlaceholder": "Comentario opcional sobre tu voto",
+      "votingClosed": "La votación para esta solicitud está cerrada.",
       "accept": "Aceptar",
       "reject": "Rechazar",
       "yourVote": "Tu voto: {vote}",

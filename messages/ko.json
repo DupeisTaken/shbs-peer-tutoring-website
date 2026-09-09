@@ -1588,6 +1588,7 @@
       "saving": "저장 중…",
       "saved": "저장되었습니다.",
       "voteCommentPlaceholder": "투표에 대한 선택적 의견",
+      "votingClosed": "이 지원서의 투표가 종료되었습니다.",
       "accept": "합격",
       "reject": "불합격",
       "yourVote": "내 투표: {vote}",

@@ -1588,6 +1588,7 @@
       "saving": "Wird gespeichert…",
       "saved": "Gespeichert.",
       "voteCommentPlaceholder": "Optionaler Kommentar zu Ihrer Stimme",
+      "votingClosed": "Die Abstimmung für diese Bewerbung ist geschlossen.",
       "accept": "Annehmen",
       "reject": "Ablehnen",
       "yourVote": "Ihre Stimme: {vote}",

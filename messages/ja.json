@@ -1588,6 +1588,7 @@
       "saving": "保存中…",
       "saved": "保存しました。",
       "voteCommentPlaceholder": "投票へのコメント（任意）",
+      "votingClosed": "この応募の投票は終了しています。",
       "accept": "合格",
       "reject": "不合格",
       "yourVote": "あなたの投票：{vote}",

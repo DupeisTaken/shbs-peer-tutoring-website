@@ -1581,6 +1581,7 @@
       "saving": "保存中…",
       "saved": "已保存。",
       "voteCommentPlaceholder": "对你投票的可选备注",
+      "votingClosed": "此申请的投票已结束。",
       "accept": "通过",
       "reject": "拒绝",
       "yourVote": "你的投票：{vote}",
