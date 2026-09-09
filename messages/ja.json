@@ -502,8 +502,9 @@
         "title": "要対応",
         "openItems": "件の未対応",
         "across": "{count} 件のキュー",
+        "incompleteData": "一部の活動データを読み込めませんでした。合計が不完全な可能性があります。ページを更新するか、管理者に連絡してください。",
         "triage": "未処理の内訳",
-        "allClear": "すべて対応済み — 確認待ちはありません。"
+        "allClear": "ここに表示されているキューに未処理の項目はありません。"
       }
     },
     "summary": {
@@ -651,6 +652,7 @@
         "COORDINATOR": "コーディネーター",
         "ADMIN": "管理者",
         "HEAD": "代表",
+        "CREW": "巡回班",
         "STUDENT": "生徒"
       },
       "filters": {
@@ -694,14 +696,14 @@
     },
     "registrationCodes": {
       "title": "登録コード",
-      "help": "新しいチューターまたは巡回班員が自己登録するための使い切りセキュリティキーを発行します。コードは一度だけ表示されます — コピーして渡してください。保存はされません。",
+      "help": "新しいチューターまたは巡回班員が自己登録するための使い切りセキュリティキーを発行します。コードは管理用に保存され、使用可能な間は再表示できます。対象の受取人だけに共有してください。7日後に期限切れとなり、使用または取り消し後は利用できません。",
       "labelField": "対象（ラベル）",
       "labelPlaceholder": "例：Jane Doe (G11)",
       "emailField": "メールアドレスに紐付け（任意）",
       "emailPlaceholder": "tutor@school.edu",
       "issue": "コードを発行",
       "issuedTitle": "{who} の登録コード",
-      "issuedHint": "今すぐコピーしてください — 再表示されません。",
+      "issuedHint": "安全にコピーまたは共有してください。期限切れ、使用、取り消しまで、アクティブなコード一覧から再表示できます。",
       "colFor": "対象",
       "colEmail": "メールアドレス",
       "colIssuedBy": "発行者",
@@ -1587,6 +1589,7 @@
       "saving": "保存中…",
       "saved": "保存しました。",
       "voteCommentPlaceholder": "投票へのコメント（任意）",
+      "votingClosed": "この応募の投票は終了しています。",
       "accept": "合格",
       "reject": "不合格",
       "yourVote": "あなたの投票：{vote}",
@@ -2069,6 +2072,13 @@
     "rejectDraft": "Reject Draft",
     "draftNotice": "Translator changes are saved as drafts. Management reviews them before publication.",
     "interviewComplete": "Record Interview Completion",
+    "interviewSearch": "Search applications",
+    "interviewFilter": "Interview records",
+    "interviewOpen": "Needs completion",
+    "interviewCompleted": "Completed",
+    "interviewAll": "All",
+    "interviewEmpty": "No interviews match this view.",
+    "interviewCount": "{first}–{last} of {total}",
     "duration": "Actual Duration (Minutes)",
     "attended": "Attended",
     "qualified": "Subject Qualifications",
@@ -2095,6 +2105,9 @@
     "date": "Date",
     "note": "Note",
     "staffAppeals": "Student Appeals",
+    "appealFilter": "異議申立ての状態",
+    "pendingAppeals": "保留中",
+    "resolvedAppeals": "処理済み",
     "sharingHelp": "This setting applies to both existing and future feedback. Private messages stay visible only to their participants.",
     "addPanelist": "Add Interviewer",
     "removePanelist": "Remove Last Interviewer",

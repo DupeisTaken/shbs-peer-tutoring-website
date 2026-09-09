@@ -1,3 +1,4 @@
+import { decideMembership } from "~/server/membership";
 import { auditFilters, auditWhere } from "~/server/audit/filters";
 import {
   assertStudentRequestAssignable,
@@ -62,6 +63,7 @@ import {
 import type { db as dbClient } from "~/server/db";
 import { applyUndo, recordAudit } from "~/server/audit/log";
 import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
+import { studentRequestRows } from "~/server/student-workflow";
 
 /** Class-of year for a grade in the active school year, or null when neither is known. */
 async function activeGradYear(
@@ -208,6 +210,100 @@ const TUTOR_APP_STATUS = [
 ] as const;
 
 export const adminRouter = createTRPCRouter({
+  /**
+   * Exact counts for the activity board's management-only queues. The summary is computed on the
+   * server so paginated review screens cannot undercount their pending work. Modern survey-first
+   * requests carry their linked tutee ids; the client excludes those ids from the legacy pending
+   * roster and therefore never presents one student twice.
+   */
+  activitySummary: adminProcedure.query(async ({ ctx }) => {
+    const activeTerm = await ctx.db.term.findFirst({
+      where: { active: true },
+      orderBy: { createdAt: "desc" },
+      select: { id: true },
+    });
+    const requests = await studentRequestRows(ctx.db);
+    const linkedTuteeIds = requests.flatMap((row) =>
+      row.tuteeId ? [row.tuteeId] : [],
+    );
+    const unverified = requests.filter(
+      (row) => row.state === "OPEN" && row.confirmedAt == null,
+    );
+    const matching = requests.filter(
+      (row) =>
+        row.state === "OPEN" &&
+        row.confirmedAt != null &&
+        row.subjects.some(
+          (subject) =>
+            !row.pairings.some((pairing) => pairing.subject === subject.name),
+        ),
+    );
+    const [
+      legacyPending,
+      legacyReviews,
+      studentAppeals,
+      accountAppeals,
+      translationDrafts,
+      approvalRequests,
+    ] = await Promise.all([
+      ctx.db.tutee.count({
+        where: {
+          status: "PENDING",
+          ...(linkedTuteeIds.length > 0
+            ? { id: { notIn: linkedTuteeIds } }
+            : {}),
+        },
+      }),
+      activeTerm
+        ? ctx.db.studentRequestReview.count({
+            where: {
+              surveyId: null,
+              legacyIntakeTermId: activeTerm.id,
+              state: "PENDING",
+            },
+          })
+        : Promise.resolve(0),
+      ctx.db.studentAppeal.count({ where: { state: "PENDING" } }),
+      ctx.db.accountAppeal.count({ where: { state: "PENDING" } }),
+      ctx.db.translationDraft.count({ where: { state: "PENDING" } }),
+      ["HEAD", "ADMIN"].includes(ctx.session.role)
+        ? ctx.db.approvalRequest.count({ where: { state: "PENDING" } })
+        : Promise.resolve(null),
+    ]);
+
+    return {
+      linkedTuteeIds,
+      unverified: unverified.length,
+      matching: matching.length + legacyPending,
+      studentReviews:
+        legacyReviews +
+        requests.reduce(
+          (count, row) =>
+            count +
+            row.reviews.filter((review) => review.state === "PENDING").length,
+          0,
+        ),
+      studentAppeals,
+      accountAppeals,
+      translationDrafts,
+      // Coordinators can track their proposals on /admin/approvals but cannot review the
+      // collective approval queue, so the board omits that management-only count for them.
+      approvalRequests,
+      intakeRows: [...unverified, ...matching]
+        .sort((a, b) => +a.submittedAt - +b.submittedAt)
+        .map((row) => ({
+          id: row.id,
+          name: row.name,
+          submittedAt: row.submittedAt,
+          stage:
+            row.confirmedAt == null
+              ? ("UNVERIFIED" as const)
+              : ("MATCHING" as const),
+          subjects: row.subjects.map((subject) => subject.name),
+        })),
+    };
+  }),
+
   // --------------------------------------------------------------------------
   // Reference lists
   // --------------------------------------------------------------------------
@@ -2723,87 +2819,15 @@ export const adminRouter = createTRPCRouter({
    */
   decideTutorRequest: adminProcedure
     .input(z.object({ requestId: cuid, approve: z.boolean() }))
-    .mutation(async ({ ctx, input }) => {
-      const req = await ctx.db.tutorStatusRequest.findUniqueOrThrow({
-        where: { id: input.requestId },
-        select: {
-          id: true,
-          kind: true,
-          state: true,
-          eligibleAt: true,
-          tutorId: true,
-        },
-      });
-      if (req.state !== "PENDING") {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "This request is already resolved.",
-        });
-      }
-      if (input.approve && req.kind === "OPT_OUT") {
-        if (!req.eligibleAt || req.eligibleAt > new Date()) {
-          throw new TRPCError({
-            code: "BAD_REQUEST",
-            message: "The one-week cooldown hasn't elapsed yet.",
-          });
-        }
-      }
-
-      const newState = input.approve ? "APPROVED" : "DENIED";
-      const newTutorStatus = !input.approve
-        ? null
-        : req.kind === "OPT_OUT"
-          ? "OPTED_OUT"
-          : "ACTIVE";
-
-      await ctx.db.$transaction(async (tx) => {
-        await tx.tutorStatusRequest.update({
-          where: { id: req.id },
-          data: {
-            state: newState,
-            resolvedAt: new Date(),
-            resolvedById: ctx.session.user.id,
-            resolvedByName: ctx.session.user.name,
-          },
-        });
-        if (newTutorStatus) {
-          await tx.tutor.update({
-            where: { id: req.tutorId },
-            data: { status: newTutorStatus },
-          });
-        }
-      });
-
-      const tutor = await ctx.db.tutor.findUnique({
-        where: { id: req.tutorId },
-        select: { englishName: true, user: { select: { id: true } } },
-      });
-      if (tutor?.user?.id) {
-        const titleKey = input.approve
-          ? req.kind === "OPT_OUT"
-            ? "Opt-out approved"
-            : "Reentry approved"
-          : "Request declined";
-        await notifyUsers([tutor.user.id], {
-          title: titleKey,
-          body:
-            input.approve && req.kind === "REENTRY"
-              ? "Welcome back — your account is active again."
-              : input.approve
-                ? "You have been opted out of the program."
-                : "An admin declined your request.",
-          link: "/dashboard",
-        });
-      }
-      await recordAudit({
-        userId: ctx.session.user.id,
-        userName: ctx.session.user.name,
-        action: `${input.approve ? "Approved" : "Denied"} ${req.kind} request for ${tutor?.englishName ?? "tutor"}`,
-        entity: "TutorStatusRequest",
-        entityId: req.id,
-      });
-      return { ok: true };
-    }),
+    .mutation(({ ctx, input }) =>
+      decideMembership(
+        ctx.db,
+        "tutor",
+        input.requestId,
+        input.approve,
+        ctx.session.user,
+      ),
+    ),
 
   /**
    * Re-queue an (opted-out) tutor's tutees back onto the signup queue: set them PENDING and
@@ -3328,67 +3352,15 @@ export const adminRouter = createTRPCRouter({
    *  (only after the cooldown); approving REENTRY sets ACTIVE. The member is notified. */
   decideCrewRequest: adminProcedure
     .input(z.object({ requestId: cuid, action: z.enum(["APPROVE", "DENY"]) }))
-    .mutation(async ({ ctx, input }) => {
-      const req = await ctx.db.crewStatusRequest.findUniqueOrThrow({
-        where: { id: input.requestId },
-        select: {
-          id: true,
-          kind: true,
-          state: true,
-          eligibleAt: true,
-          userId: true,
-        },
-      });
-      if (req.state !== "PENDING") {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "This request is already decided.",
-        });
-      }
-      if (
-        input.action === "APPROVE" &&
-        req.kind === "OPT_OUT" &&
-        req.eligibleAt &&
-        req.eligibleAt > new Date()
-      ) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "The recall cooldown hasn't elapsed yet.",
-        });
-      }
-      await ctx.db.crewStatusRequest.update({
-        where: { id: req.id },
-        data: {
-          state: input.action === "APPROVE" ? "APPROVED" : "DENIED",
-          decidedByName: ctx.session.user.name,
-          decidedAt: new Date(),
-        },
-      });
-      if (input.action === "APPROVE") {
-        await ctx.db.user.update({
-          where: { id: req.userId },
-          data: { crewStatus: req.kind === "OPT_OUT" ? "OPTED_OUT" : "ACTIVE" },
-        });
-      }
-      await notifyUsers([req.userId], {
-        title: "Crew request",
-        body:
-          input.action === "DENY"
-            ? "Your crew request was declined."
-            : req.kind === "OPT_OUT"
-              ? "Your crew opt-out was approved."
-              : "Welcome back — your crew reentry was approved.",
-        link: "/patrol",
-      });
-      await recordAudit({
-        userId: ctx.session.user.id,
-        userName: ctx.session.user.name,
-        action: `${input.action === "APPROVE" ? "Approved" : "Denied"} crew ${req.kind} request`,
-        entity: "CrewStatusRequest",
-        entityId: req.id,
-      });
-      return { ok: true };
-    }),
+    .mutation(({ ctx, input }) =>
+      decideMembership(
+        ctx.db,
+        "crew",
+        input.requestId,
+        input.action === "APPROVE",
+        ctx.session.user,
+      ),
+    ),
 
   /** Open (PENDING) attendance-discrepancy flags — the crew saw fewer students than reported. */
   sessionFlags: viewerProcedure.query(async ({ ctx }) => {

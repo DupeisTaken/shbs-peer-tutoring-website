@@ -502,8 +502,9 @@
         "title": "처리 필요",
         "openItems": "미처리 항목",
         "across": "{count}개 대기열",
+        "incompleteData": "일부 활동 데이터를 불러오지 못했습니다. 합계가 불완전할 수 있으니 페이지를 새로 고치거나 관리자에게 문의하세요.",
         "triage": "백로그 분포",
-        "allClear": "모두 처리됨 — 검토 대기 항목이 없습니다."
+        "allClear": "여기에 표시된 대기열에는 처리할 항목이 없습니다."
       }
     },
     "summary": {
@@ -651,6 +652,7 @@
         "COORDINATOR": "코디네이터",
         "ADMIN": "관리자",
         "HEAD": "대표",
+        "CREW": "순찰조",
         "STUDENT": "학생"
       },
       "filters": {
@@ -694,14 +696,14 @@
     },
     "registrationCodes": {
       "title": "등록 코드",
-      "help": "새 튜터나 순찰조원이 자가 등록할 일회용 보안 키를 발급합니다. 코드는 한 번만 표시됩니다 — 복사해 전달하세요. 저장되지 않습니다.",
+      "help": "새 튜터나 순찰조원이 자가 등록할 일회용 보안 키를 발급합니다. 코드는 관리 목적으로 저장되며 활성 상태에서는 다시 확인할 수 있습니다. 지정된 수신자에게만 안전하게 전달하세요. 7일 후 만료되며 사용되거나 취소된 뒤에는 사용할 수 없습니다.",
       "labelField": "대상 (레이블)",
       "labelPlaceholder": "예: 홍길동 (G11)",
       "emailField": "이메일 연결 (선택)",
       "emailPlaceholder": "tutor@school.edu",
       "issue": "코드 발급",
       "issuedTitle": "{who}의 등록 코드",
-      "issuedHint": "지금 복사하세요 — 다시 표시되지 않습니다.",
+      "issuedHint": "안전하게 복사하거나 전달하세요. 만료, 사용 또는 취소 전까지 활성 코드 목록에서 다시 확인할 수 있습니다.",
       "colFor": "대상",
       "colEmail": "이메일",
       "colIssuedBy": "발급자",
@@ -1587,6 +1589,7 @@
       "saving": "저장 중…",
       "saved": "저장되었습니다.",
       "voteCommentPlaceholder": "투표에 대한 선택적 의견",
+      "votingClosed": "이 지원서의 투표가 종료되었습니다.",
       "accept": "합격",
       "reject": "불합격",
       "yourVote": "내 투표: {vote}",
@@ -2069,6 +2072,13 @@
     "rejectDraft": "Reject Draft",
     "draftNotice": "Translator changes are saved as drafts. Management reviews them before publication.",
     "interviewComplete": "Record Interview Completion",
+    "interviewSearch": "Search applications",
+    "interviewFilter": "Interview records",
+    "interviewOpen": "Needs completion",
+    "interviewCompleted": "Completed",
+    "interviewAll": "All",
+    "interviewEmpty": "No interviews match this view.",
+    "interviewCount": "{first}–{last} of {total}",
     "duration": "Actual Duration (Minutes)",
     "attended": "Attended",
     "qualified": "Subject Qualifications",
@@ -2095,6 +2105,9 @@
     "date": "Date",
     "note": "Note",
     "staffAppeals": "Student Appeals",
+    "appealFilter": "이의 제기 상태",
+    "pendingAppeals": "대기 중",
+    "resolvedAppeals": "처리됨",
     "sharingHelp": "This setting applies to both existing and future feedback. Private messages stay visible only to their participants.",
     "addPanelist": "Add Interviewer",
     "removePanelist": "Remove Last Interviewer",

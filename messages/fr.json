@@ -502,8 +502,9 @@
         "title": "À traiter",
         "openItems": "éléments ouverts",
         "across": "dans {count} files",
+        "incompleteData": "Certaines données d’activité n’ont pas pu être chargées. Les totaux peuvent être incomplets ; actualisez la page ou contactez un administrateur.",
         "triage": "Où est l'arriéré",
-        "allClear": "Tout est à jour — rien en attente de révision."
+        "allClear": "Aucun élément ouvert dans les files affichées ici."
       }
     },
     "summary": {
@@ -651,6 +652,7 @@
         "COORDINATOR": "Coordinateur",
         "ADMIN": "Administrateur",
         "HEAD": "Responsable",
+        "CREW": "Ronde",
         "STUDENT": "Élève"
       },
       "filters": {
@@ -694,14 +696,14 @@
     },
     "registrationCodes": {
       "title": "Codes d'inscription",
-      "help": "Émettez une clé de sécurité à usage unique pour qu'un nouveau tuteur ou membre de la ronde s'inscrive. Le code s'affiche une fois — copiez-le et remettez-le ; il n'est jamais stocké.",
+      "help": "Émettez une clé de sécurité à usage unique pour qu'un nouveau tuteur ou membre de la ronde s'inscrive. Le code est conservé pour la gestion et peut être consulté à nouveau tant qu'il est actif. Partagez-le uniquement avec le destinataire prévu ; il expire après 7 jours et ne peut plus être utilisé après son utilisation ou sa révocation.",
       "labelField": "Pour (étiquette)",
       "labelPlaceholder": "ex. Jane Doe (G11)",
       "emailField": "Lier à un e-mail (optionnel)",
       "emailPlaceholder": "tutor@school.edu",
       "issue": "Émettre le code",
       "issuedTitle": "Code d'inscription pour {who}",
-      "issuedHint": "Copiez-le maintenant — il ne sera plus affiché.",
+      "issuedHint": "Copiez-le ou partagez-le de manière sécurisée. Il reste disponible dans la liste des codes actifs jusqu'à son expiration, son utilisation ou sa révocation.",
       "colFor": "Pour",
       "colEmail": "E-mail",
       "colIssuedBy": "Émis par",
@@ -1587,6 +1589,7 @@
       "saving": "Enregistrement…",
       "saved": "Enregistré.",
       "voteCommentPlaceholder": "Commentaire optionnel sur votre vote",
+      "votingClosed": "Le vote pour cette candidature est clos.",
       "accept": "Accepter",
       "reject": "Refuser",
       "yourVote": "Votre vote : {vote}",
@@ -2069,6 +2072,13 @@
     "rejectDraft": "Reject Draft",
     "draftNotice": "Translator changes are saved as drafts. Management reviews them before publication.",
     "interviewComplete": "Record Interview Completion",
+    "interviewSearch": "Search applications",
+    "interviewFilter": "Interview records",
+    "interviewOpen": "Needs completion",
+    "interviewCompleted": "Completed",
+    "interviewAll": "All",
+    "interviewEmpty": "No interviews match this view.",
+    "interviewCount": "{first}–{last} of {total}",
     "duration": "Actual Duration (Minutes)",
     "attended": "Attended",
     "qualified": "Subject Qualifications",
@@ -2095,6 +2105,9 @@
     "date": "Date",
     "note": "Note",
     "staffAppeals": "Student Appeals",
+    "appealFilter": "État de l’appel",
+    "pendingAppeals": "En attente",
+    "resolvedAppeals": "Traités",
     "sharingHelp": "This setting applies to both existing and future feedback. Private messages stay visible only to their participants.",
     "addPanelist": "Add Interviewer",
     "removePanelist": "Remove Last Interviewer",

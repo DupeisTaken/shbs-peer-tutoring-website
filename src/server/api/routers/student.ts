@@ -208,7 +208,7 @@ export const studentRouter = createTRPCRouter({
     const cards = owned.length
       ? await ctx.db.disciplinaryCard.findMany({
           where: { tuteeId: { in: owned } },
-          orderBy: { createdAt: "desc" },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
           take: 20,
           skip: input.page * 20,
           select: {
@@ -223,11 +223,23 @@ export const studentRouter = createTRPCRouter({
     const appeals = owned.length
       ? await ctx.db.studentAppeal.findMany({
           where: { studentId: { in: owned } },
-          orderBy: { createdAt: "desc" },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
           take: 20,
           skip: input.page * 20,
         })
       : [];
+    // Appeal history is paginated independently, so derive the action state from every
+    // card on this page instead of assuming its appeal appears on the same history page.
+    const appealedCardIds = cards.length
+      ? await ctx.db.studentAppeal.findMany({
+          where: {
+            cardId: { in: cards.map((card) => card.id) },
+            studentId: { in: owned },
+          },
+          select: { cardId: true },
+        })
+      : [];
+    const appealedCards = new Set(appealedCardIds.map((row) => row.cardId));
     const feedback = owned.length
       ? await ctx.db.studentFeedback.findMany({
           where: {
@@ -246,6 +258,7 @@ export const studentRouter = createTRPCRouter({
       cards: cards.map((c) => ({
         ...c,
         deadline: appealDeadline(c.createdAt, calendar),
+        hasExistingAppeal: appealedCards.has(c.id),
       })),
       appeals,
     };
@@ -359,6 +372,11 @@ export const studentRouter = createTRPCRouter({
         });
         if (!card || !owned.includes(card.tuteeId))
           throw new TRPCError({ code: "FORBIDDEN" });
+        if (card.reviewStatus === "INVALID")
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "This card has already been invalidated.",
+          });
         if (
           appealDeadline(
             card.createdAt,
@@ -369,6 +387,15 @@ export const studentRouter = createTRPCRouter({
             code: "BAD_REQUEST",
             message:
               "The five-school-day appeal window has ended. Contact the team.",
+          });
+        const existing = await tx.studentAppeal.findFirst({
+          where: { cardId: card.id },
+          select: { id: true },
+        });
+        if (existing)
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "This card already has an appeal.",
           });
         await tx.studentAppeal.create({
           data: { studentId: card.tuteeId, ...input },
@@ -381,30 +408,50 @@ export const studentRouter = createTRPCRouter({
         return { ok: true };
       }),
     ),
-  appeals: adminProcedure.input(paging).query(async ({ ctx, input }) => {
-    const rows = await ctx.db.studentAppeal.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 20,
-      skip: input.page * 20,
-    });
-    const [students, cards] = await Promise.all([
-      ctx.db.tutee.findMany({
-        where: { id: { in: rows.map((r) => r.studentId) } },
-        select: { id: true, englishName: true },
-      }),
-      ctx.db.disciplinaryCard.findMany({
-        where: { id: { in: rows.map((r) => r.cardId) } },
-        select: { id: true, reason: true },
-      }),
-    ]);
-    return rows.map((r) => ({
-      ...r,
-      studentName:
-        students.find((s) => s.id === r.studentId)?.englishName ??
-        "Deleted student",
-      cardReason: cards.find((c) => c.id === r.cardId)?.reason,
-    }));
-  }),
+  appeals: adminProcedure
+    .input(
+      z
+        .object({
+          page: z.number().int().min(0).default(0),
+          state: z.enum(["PENDING", "RESOLVED"]).default("PENDING"),
+        })
+        .default({ page: 0, state: "PENDING" }),
+    )
+    .query(async ({ ctx, input }) => {
+      const where =
+        input.state === "PENDING"
+          ? { state: "PENDING" }
+          : { state: { in: ["UPHELD", "REJECTED"] } };
+      const [rows, total] = await Promise.all([
+        ctx.db.studentAppeal.findMany({
+          where,
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          take: 20,
+          skip: input.page * 20,
+        }),
+        ctx.db.studentAppeal.count({ where }),
+      ]);
+      const [students, cards] = await Promise.all([
+        ctx.db.tutee.findMany({
+          where: { id: { in: rows.map((r) => r.studentId) } },
+          select: { id: true, englishName: true },
+        }),
+        ctx.db.disciplinaryCard.findMany({
+          where: { id: { in: rows.map((r) => r.cardId) } },
+          select: { id: true, reason: true },
+        }),
+      ]);
+      return {
+        rows: rows.map((r) => ({
+          ...r,
+          studentName:
+            students.find((s) => s.id === r.studentId)?.englishName ??
+            "Deleted student",
+          cardReason: cards.find((c) => c.id === r.cardId)?.reason,
+        })),
+        total,
+      };
+    }),
   decideAppeal: adminProcedure
     .input(
       z.object({
