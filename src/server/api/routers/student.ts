@@ -395,30 +395,50 @@ export const studentRouter = createTRPCRouter({
         return { ok: true };
       }),
     ),
-  appeals: adminProcedure.input(paging).query(async ({ ctx, input }) => {
-    const rows = await ctx.db.studentAppeal.findMany({
-      orderBy: { createdAt: "desc" },
-      take: 20,
-      skip: input.page * 20,
-    });
-    const [students, cards] = await Promise.all([
-      ctx.db.tutee.findMany({
-        where: { id: { in: rows.map((r) => r.studentId) } },
-        select: { id: true, englishName: true },
-      }),
-      ctx.db.disciplinaryCard.findMany({
-        where: { id: { in: rows.map((r) => r.cardId) } },
-        select: { id: true, reason: true },
-      }),
-    ]);
-    return rows.map((r) => ({
-      ...r,
-      studentName:
-        students.find((s) => s.id === r.studentId)?.englishName ??
-        "Deleted student",
-      cardReason: cards.find((c) => c.id === r.cardId)?.reason,
-    }));
-  }),
+  appeals: adminProcedure
+    .input(
+      z
+        .object({
+          page: z.number().int().min(0).default(0),
+          state: z.enum(["PENDING", "RESOLVED"]).default("PENDING"),
+        })
+        .default({ page: 0, state: "PENDING" }),
+    )
+    .query(async ({ ctx, input }) => {
+      const where =
+        input.state === "PENDING"
+          ? { state: "PENDING" }
+          : { state: { in: ["UPHELD", "REJECTED"] } };
+      const [rows, total] = await Promise.all([
+        ctx.db.studentAppeal.findMany({
+          where,
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          take: 20,
+          skip: input.page * 20,
+        }),
+        ctx.db.studentAppeal.count({ where }),
+      ]);
+      const [students, cards] = await Promise.all([
+        ctx.db.tutee.findMany({
+          where: { id: { in: rows.map((r) => r.studentId) } },
+          select: { id: true, englishName: true },
+        }),
+        ctx.db.disciplinaryCard.findMany({
+          where: { id: { in: rows.map((r) => r.cardId) } },
+          select: { id: true, reason: true },
+        }),
+      ]);
+      return {
+        rows: rows.map((r) => ({
+          ...r,
+          studentName:
+            students.find((s) => s.id === r.studentId)?.englishName ??
+            "Deleted student",
+          cardReason: cards.find((c) => c.id === r.cardId)?.reason,
+        })),
+        total,
+      };
+    }),
   decideAppeal: adminProcedure
     .input(
       z.object({
