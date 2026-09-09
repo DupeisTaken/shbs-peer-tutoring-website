@@ -14,6 +14,7 @@ import { completeRegistration } from "~/server/auth/registration";
 import { initializeProgram } from "~/server/program/bootstrap";
 import { confirmEmailChange } from "~/server/auth/email-change";
 import { hashCode } from "~/server/auth/registration";
+import * as audit from "~/server/audit/log";
 
 const password = "ReviewPassword123!";
 
@@ -1911,3 +1912,203 @@ it("rejected translation drafts never become public, and students cannot inspect
     student.translationReview.list({ page: 0 }),
   ).rejects.toMatchObject({ code: "FORBIDDEN" });
 });
+
+// Exercise the real API/transactions: simultaneous actions must leave one coherent decision.
+for (const kind of ["tutor", "crew"] as const) {
+  const request = () =>
+    kind === "tutor"
+      ? tutor().tutor.requestOptOut({ reason: "Membership regression" })
+      : tutor().crew.requestOptOut({ reason: "Membership regression" });
+  const findRequests = () =>
+    kind === "tutor"
+      ? db.tutorStatusRequest.findMany({ where: { tutorId: "review-tutor" } })
+      : db.crewStatusRequest.findMany({ where: { userId: "review-user" } });
+  const decide = (id: string, approve = true) =>
+    kind === "tutor"
+      ? caller().admin.decideTutorRequest({ requestId: id, approve })
+      : caller().admin.decideCrewRequest({
+          requestId: id,
+          action: approve ? "APPROVE" : "DENY",
+        });
+  const recall = (id: string) =>
+    kind === "tutor"
+      ? tutor().tutor.recallStatusRequest({ requestId: id })
+      : tutor().crew.recallOptOut();
+  const prepare = async () => {
+    await db.user.update({
+      where: { id: "review-user" },
+      data: { crewStatus: "ACTIVE" },
+    });
+    await request();
+    const row = (await findRequests())[0]!;
+    const eligibleAt = new Date(Date.now() - 86_400_000);
+    if (kind === "tutor")
+      await db.tutorStatusRequest.update({
+        where: { id: row.id },
+        data: { eligibleAt },
+      });
+    else
+      await db.crewStatusRequest.update({
+        where: { id: row.id },
+        data: { eligibleAt },
+      });
+    return row.id;
+  };
+  const status = async () =>
+    kind === "tutor"
+      ? (await db.tutor.findUniqueOrThrow({ where: { id: "review-tutor" } }))
+          .status
+      : (await db.user.findUniqueOrThrow({ where: { id: "review-user" } }))
+          .crewStatus;
+
+  it(
+    kind + " membership: concurrent submissions reserve one pending request",
+    async () => {
+      await db.user.update({
+        where: { id: "review-user" },
+        data: { crewStatus: "ACTIVE" },
+      });
+      const results = await Promise.allSettled([
+        request(),
+        request(),
+        request(),
+      ]);
+      expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+      expect(await findRequests()).toHaveLength(1);
+    },
+  );
+
+  it(
+    kind +
+      " membership: concurrent reentry is single and approval restores access",
+    async () => {
+      if (kind === "tutor")
+        await db.tutor.update({
+          where: { id: "review-tutor" },
+          data: { status: "OPTED_OUT" },
+        });
+      else
+        await db.user.update({
+          where: { id: "review-user" },
+          data: { crewStatus: "OPTED_OUT" },
+        });
+      const reenter = () =>
+        kind === "tutor"
+          ? tutor().tutor.requestReentry({ reason: "Ready to return" })
+          : tutor().crew.requestReentry();
+      const results = await Promise.allSettled([reenter(), reenter()]);
+      expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+      const rows = await findRequests();
+      expect(rows).toHaveLength(1);
+      expect(rows[0]!.eligibleAt).toBeNull();
+      await decide(rows[0]!.id);
+      expect(await status()).toBe("ACTIVE");
+    },
+  );
+
+  it(
+    kind +
+      " membership: legacy duplicate evidence survives and cannot repeat approval",
+    async () => {
+      const id = await prepare();
+      const data = {
+        kind: "OPT_OUT" as const,
+        eligibleAt: new Date(Date.now() - 86_400_000),
+        reason: "Legacy duplicate",
+      };
+      const duplicate =
+        kind === "tutor"
+          ? await db.tutorStatusRequest.create({
+              data: { tutorId: "review-tutor", ...data },
+            })
+          : await db.crewStatusRequest.create({
+              data: { userId: "review-user", ...data },
+            });
+      await decide(id);
+      await expect(decide(duplicate.id)).rejects.toThrow("Membership changed");
+      await decide(duplicate.id, false);
+      expect(await findRequests()).toHaveLength(2);
+      expect((await findRequests()).map((row) => row.state).sort()).toEqual([
+        "APPROVED",
+        "DENIED",
+      ]);
+      expect(await status()).toBe("OPTED_OUT");
+    },
+  );
+
+  it(
+    kind + " membership: recall and approval cannot overwrite each other",
+    async () => {
+      const id = await prepare();
+      const results = await Promise.allSettled([recall(id), decide(id)]);
+      expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+      const row = (await findRequests())[0]!;
+      expect(["APPROVED", "RECALLED"]).toContain(row.state);
+      expect(await status()).toBe(
+        row.state === "APPROVED" ? "OPTED_OUT" : "ACTIVE",
+      );
+      expect(await db.auditLog.count({ where: { entityId: id } })).toBe(
+        row.state === "APPROVED" ? 1 : 0,
+      );
+    },
+  );
+
+  it(
+    kind + " membership: competing reviewers commit only one decision",
+    async () => {
+      const id = await prepare();
+      const results = await Promise.allSettled([decide(id), decide(id, false)]);
+      expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+      const row = (await findRequests())[0]!;
+      expect(await status()).toBe(
+        row.state === "APPROVED" ? "OPTED_OUT" : "ACTIVE",
+      );
+      expect(await db.auditLog.count({ where: { entityId: id } })).toBe(1);
+    },
+  );
+
+  it(
+    kind +
+      " membership: an audit failure rolls back decision, status and notification",
+    async () => {
+      const id = await prepare();
+      const before = await db.notification.count();
+      const failure = vi
+        .spyOn(audit, "recordAudit")
+        .mockRejectedValueOnce(new Error("membership audit unavailable"));
+      try {
+        await expect(decide(id)).rejects.toThrow(
+          "membership audit unavailable",
+        );
+      } finally {
+        failure.mockRestore();
+      }
+      expect((await findRequests())[0]!.state).toBe("PENDING");
+      expect(await status()).toBe("ACTIVE");
+      expect(await db.notification.count()).toBe(before);
+      await expect(decide(id)).resolves.toEqual({ ok: true });
+    },
+  );
+
+  it(
+    kind +
+      " membership: old requests cannot reactivate or opt out a manually archived member",
+    async () => {
+      const id = await prepare();
+      if (kind === "tutor")
+        await db.tutor.update({
+          where: { id: "review-tutor" },
+          data: { status: "ARCHIVED" },
+        });
+      else
+        await db.user.update({
+          where: { id: "review-user" },
+          data: { crewStatus: "INACTIVE" },
+        });
+      await expect(decide(id)).rejects.toThrow("Membership changed");
+      expect((await findRequests())[0]!.state).toBe("PENDING");
+      await expect(decide(id, false)).resolves.toEqual({ ok: true });
+      expect(await status()).toBe(kind === "tutor" ? "ARCHIVED" : "INACTIVE");
+    },
+  );
+}
