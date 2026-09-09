@@ -91,9 +91,7 @@ export function StudentPortal() {
                   appeal.isPending ||
                   !canSubmitCardAppeal({
                     reviewStatus: card.reviewStatus,
-                    hasExistingAppeal: appeals.some(
-                      (a) => a.cardId === card.id,
-                    ),
+                    hasExistingAppeal: card.hasExistingAppeal,
                     deadline: card.deadline,
                   })
                 }
