@@ -5,6 +5,7 @@ PR #9 merged the reviewed PRs #6–#9 into main on 9 September 2026 as commit `6
 ## Changes made for shipping
 
 - One student portal includes intake actions, assignments, attendance, feedback, appeals and private support. Explicit profile ownership preserves history across new intakes and verified email changes. Quarter withdrawal also follows the account identity.
+- Student Support separates pending appeals from resolved history, with independent filters, page positions and total-aware navigation so open cases remain visible while historical review stays available.
 - Coordinator corrections, qualifications, interview completion, calendar, feedback visibility, appeals, survey assignments and translation decisions enter the approval queue. Unknown management writes still fail closed. A coordinator chair retains authorship of the interview outcome through review.
 - Student proposals consume the requester's timed confirmation, then require a fresh reviewer confirmation. A failed approval rolls back the assignment, decision, notifications and ticket consumption. Assignment email occurs after commit, with an explicit retry result on delivery failure.
 - Migration collisions are resolved for the shared student prerequisites and audit evidence column. Historical meeting penalties are reconciled to the three-absence allowance and 0.25-hour rule. Manual adjustments are preserved.
