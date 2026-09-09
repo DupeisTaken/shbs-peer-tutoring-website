@@ -362,6 +362,17 @@ export const tutorRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const tutorId = ctx.session.tutorId;
+      // Attendance dates are school calendar dates stored at UTC midnight. Compare their date key
+      // with today's UTC+8 school date so a server in another timezone cannot admit tomorrow.
+      const schoolToday = new Date(Date.now() + 8 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10);
+      if (input.date.toISOString().slice(0, 10) > schoolToday) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Attendance cannot be submitted for a future school date.",
+        });
+      }
       // Discipline side-effects (auto-issued absence cards + tutor card requests + punishment
       // removal) only fire when the DISCIPLINE module is on; attendance + hours always record.
       const features = await getFeatures(ctx.db);
@@ -401,10 +412,18 @@ export const tutorRouter = createTRPCRouter({
       for (const set of rosterByPairing.values())
         for (const id of set) unionRoster.add(id);
 
-      // Every listed tutee must be on at least one pairing in the block (de-duplicated).
-      const tuteeRows = [
-        ...new Map(input.tutees.map((t) => [t.tuteeId, t])).values(),
-      ];
+      // The client renders the union roster exactly once. Enforce the same complete snapshot at the
+      // trust boundary: duplicates are invalid, every submitted id must belong, and nobody may be
+      // omitted. Corrections can change the recorded statuses later without losing roster evidence.
+      const submittedIds = input.tutees.map((t) => t.tuteeId);
+      const submittedIdSet = new Set(submittedIds);
+      if (submittedIdSet.size !== submittedIds.length) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Record each tutee exactly once.",
+        });
+      }
+      const tuteeRows = input.tutees;
       for (const t of tuteeRows) {
         if (!unionRoster.has(t.tuteeId)) {
           throw new TRPCError({
@@ -412,6 +431,15 @@ export const tutorRouter = createTRPCRouter({
             message: "Selected tutee is not on any of these pairings.",
           });
         }
+      }
+      if (
+        submittedIdSet.size !== unionRoster.size ||
+        [...unionRoster].some((id) => !submittedIdSet.has(id))
+      ) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Record attendance for every tutee in the selected block.",
+        });
       }
 
       // Any carded tutee must also be in the block's roster.

@@ -59,13 +59,14 @@ type CardColor = "" | "YELLOW" | "RED";
 type CardEntry = { color: CardColor; reason: string };
 type TuteeEntry = { status: TuteeStatus; reason: string };
 
-/** Current local time as "HH:MM" and today's date as "YYYY-MM-DD". */
+/** Current local time and the school's UTC+8 calendar date. */
 const nowHm = () => {
   const d = new Date();
   const pad = (n: number) => String(n).padStart(2, "0");
   return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
 };
-const todayIso = () => new Date().toISOString().slice(0, 10);
+const todayIso = () =>
+  new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
 
 export function AttendanceForm() {
   const t = useTranslations();
@@ -298,6 +299,7 @@ export function AttendanceForm() {
             <input
               type="date"
               {...register("date")}
+              max={todayIso()}
               className="input min-w-0 flex-1"
             />
             <button
