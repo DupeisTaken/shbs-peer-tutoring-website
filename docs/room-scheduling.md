@@ -11,6 +11,10 @@ share a transaction lock so their validation reads remain coherent and return a 
 message; the database triggers remain the final boundary. New blackouts check the active program
 period, while completed periods remain historical evidence.
 
+The room integration tests require an explicit loopback PostgreSQL database whose name ends in
+`_test`. Their guard runs before setup or cleanup hooks are registered, so inheriting a demo or
+production database from `.env` fails before any fixture or active-period writes.
+
 Availability remains scheduling guidance. Student and tutor availability helps the team agree on
 a suitable slot, while an assignment can exist before that agreement and schedule conflicts use
 the review workflow described in the participant handbooks.
