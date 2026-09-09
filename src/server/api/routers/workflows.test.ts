@@ -1468,6 +1468,21 @@ it("translator edits stay unpublished until staff approve them", async () => {
     }),
   ).rejects.toMatchObject({ code: "CONFLICT" });
 });
+it("account.me exposes the live translator capability to the UI", async () => {
+  expect((await tutor().account.me()).canTranslate).toBe(false);
+
+  await db.user.update({
+    where: { id: "review-user" },
+    data: { canTranslate: true },
+  });
+  expect((await tutor().account.me()).canTranslate).toBe(true);
+
+  await db.user.update({
+    where: { id: "review-user" },
+    data: { canTranslate: false },
+  });
+  expect((await tutor().account.me()).canTranslate).toBe(false);
+});
 it("translators cannot publish or delete landing structures", async () => {
   await db.user.update({
     where: { id: "review-user" },
