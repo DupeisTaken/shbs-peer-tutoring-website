@@ -64,13 +64,16 @@ function HeadScheduler({
 function VoteForm({
   applicationId,
   myVote,
+  status,
 }: {
   applicationId: string;
   myVote: { accept: boolean; comment: string | null } | null;
+  status: Status;
 }) {
   const t = useTranslations();
   const utils = api.useUtils();
   const [comment, setComment] = useState(myVote?.comment ?? "");
+  const votingClosed = status === "ACCEPTED" || status === "REJECTED";
   const cast = api.tutor.castInterviewVote.useMutation({
     onSuccess: () => utils.tutor.myInterviews.invalidate(),
   });
@@ -81,12 +84,18 @@ function VoteForm({
         className="input w-full"
         placeholder={t("tutor.interviews.voteCommentPlaceholder")}
         value={comment}
+        disabled={votingClosed || cast.isPending}
         onChange={(e) => setComment(e.target.value)}
       />
+      {votingClosed && (
+        <p className="muted text-xs" role="status">
+          {t("tutor.interviews.votingClosed")}
+        </p>
+      )}
       <div className="flex items-center gap-2">
         <button
           className={`btn-sm ${myVote?.accept === true ? "btn-primary" : "btn-secondary"}`}
-          disabled={cast.isPending}
+          disabled={votingClosed || cast.isPending}
           onClick={() =>
             cast.mutate({
               applicationId,
@@ -99,7 +108,7 @@ function VoteForm({
         </button>
         <button
           className={`btn-sm ${myVote?.accept === false ? "btn-primary" : "btn-secondary"}`}
-          disabled={cast.isPending}
+          disabled={votingClosed || cast.isPending}
           onClick={() =>
             cast.mutate({
               applicationId,
@@ -305,7 +314,11 @@ export function MyInterviews() {
               )}
 
               {/* Your vote */}
-              <VoteForm applicationId={a.id} myVote={a.myVote} />
+              <VoteForm
+                applicationId={a.id}
+                myVote={a.myVote}
+                status={a.status}
+              />
 
               {/* Panel votes (visible to all panelists) */}
               {votes.length > 0 && (

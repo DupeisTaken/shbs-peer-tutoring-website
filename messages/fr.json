@@ -652,6 +652,7 @@
         "COORDINATOR": "Coordinateur",
         "ADMIN": "Administrateur",
         "HEAD": "Responsable",
+        "CREW": "Ronde",
         "STUDENT": "Élève"
       },
       "filters": {
@@ -695,14 +696,14 @@
     },
     "registrationCodes": {
       "title": "Codes d'inscription",
-      "help": "Émettez une clé de sécurité à usage unique pour qu'un nouveau tuteur ou membre de la ronde s'inscrive. Le code s'affiche une fois — copiez-le et remettez-le ; il n'est jamais stocké.",
+      "help": "Émettez une clé de sécurité à usage unique pour qu'un nouveau tuteur ou membre de la ronde s'inscrive. Le code est conservé pour la gestion et peut être consulté à nouveau tant qu'il est actif. Partagez-le uniquement avec le destinataire prévu ; il expire après 7 jours et ne peut plus être utilisé après son utilisation ou sa révocation.",
       "labelField": "Pour (étiquette)",
       "labelPlaceholder": "ex. Jane Doe (G11)",
       "emailField": "Lier à un e-mail (optionnel)",
       "emailPlaceholder": "tutor@school.edu",
       "issue": "Émettre le code",
       "issuedTitle": "Code d'inscription pour {who}",
-      "issuedHint": "Copiez-le maintenant — il ne sera plus affiché.",
+      "issuedHint": "Copiez-le ou partagez-le de manière sécurisée. Il reste disponible dans la liste des codes actifs jusqu'à son expiration, son utilisation ou sa révocation.",
       "colFor": "Pour",
       "colEmail": "E-mail",
       "colIssuedBy": "Émis par",
@@ -1588,6 +1589,7 @@
       "saving": "Enregistrement…",
       "saved": "Enregistré.",
       "voteCommentPlaceholder": "Commentaire optionnel sur votre vote",
+      "votingClosed": "Le vote pour cette candidature est clos.",
       "accept": "Accepter",
       "reject": "Refuser",
       "yourVote": "Votre vote : {vote}",

@@ -57,6 +57,8 @@ export const accountRouter = createTRPCRouter({
         username: true,
         role: true,
         twoFactorEnabled: true,
+        // The translator route's layout uses this capability to decide whether to render the editor.
+        canTranslate: true,
         tutor: { select: { id: true, status: true } },
       },
     });

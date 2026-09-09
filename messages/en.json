@@ -652,6 +652,7 @@
         "COORDINATOR": "Coordinator",
         "ADMIN": "Admin",
         "HEAD": "Head",
+        "CREW": "Crew patrols",
         "STUDENT": "Student"
       },
       "filters": {
@@ -695,14 +696,14 @@
     },
     "registrationCodes": {
       "title": "Registration Codes",
-      "help": "Issue a single-use security key for a new tutor or crew member to self-register. The code is shown once — copy it and hand it over; it is never stored.",
+      "help": "Issue a single-use security key for a new tutor or crew member to self-register. The code is stored for administration and can be re-viewed while active. Share it only with the intended recipient; it expires after 7 days and cannot be used after redemption or revocation.",
       "labelField": "For (Label)",
       "labelPlaceholder": "e.g. Jane Doe (G11)",
       "emailField": "Bind to Email (Optional)",
       "emailPlaceholder": "tutor@school.edu",
       "issue": "Issue Code",
       "issuedTitle": "Registration Code for {who}",
-      "issuedHint": "Copy this now — it won't be shown again.",
+      "issuedHint": "Copy or share it securely. It remains available in the active-code list until it expires, is redeemed or is revoked.",
       "colFor": "For",
       "colEmail": "Email",
       "colIssuedBy": "Issued By",
@@ -1588,6 +1589,7 @@
       "saving": "Saving…",
       "saved": "Saved.",
       "voteCommentPlaceholder": "Optional comment on your vote",
+      "votingClosed": "Voting is closed for this application.",
       "accept": "Accept",
       "reject": "Reject",
       "yourVote": "Your vote: {vote}",
