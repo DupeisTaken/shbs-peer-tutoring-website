@@ -5,7 +5,12 @@ import {
   translatorProcedure,
   adminProcedure,
 } from "~/server/api/trpc";
-import { inTransaction, lockEntity } from "~/server/transactions";
+import { lockEntity } from "~/server/transactions";
+import {
+  assertTranslationCurrent,
+  visibleTranslationPayload,
+  withTranslationWrite,
+} from "~/server/translation-destination";
 import { homeRouter } from "./home";
 import { localizationRouter } from "./localization";
 import type { PrismaClient } from "../../../../generated/prisma";
@@ -19,16 +24,20 @@ export const translationReviewRouter = createTRPCRouter({
         .object({ page: z.number().int().min(0).default(0) })
         .default({ page: 0 }),
     )
-    .query(({ ctx, input }) =>
-      ctx.db.translationDraft.findMany({
+    .query(async ({ ctx, input }) => {
+      const rows = await ctx.db.translationDraft.findMany({
         where: ["HEAD", "ADMIN", "COORDINATOR"].includes(ctx.session.role)
           ? {}
           : { authorId: ctx.session.user.id },
         orderBy: { createdAt: "desc" },
         take: 30,
         skip: input.page * 30,
-      }),
-    ),
+      });
+      return rows.map((row) => ({
+        ...row,
+        ...visibleTranslationPayload(row.payload),
+      }));
+    }),
   decide: adminProcedure
     .input(
       z.object({
@@ -38,7 +47,7 @@ export const translationReviewRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) =>
-      inTransaction(ctx.db, async (tx) => {
+      withTranslationWrite(ctx.db, async (tx) => {
         await lockEntity(tx, `translation:${input.id}`);
         const draft = await tx.translationDraft.findUniqueOrThrow({
           where: { id: input.id },
@@ -52,6 +61,7 @@ export const translationReviewRouter = createTRPCRouter({
             message: "This draft changed or was already reviewed.",
           });
         if (input.approve) {
+          await assertTranslationCurrent(tx, draft.operation, draft.payload);
           const context = { ...ctx, db: tx as PrismaClient };
           const home = homeRouter.createCaller(context);
           const localization = localizationRouter.createCaller(context);

@@ -1,3 +1,4 @@
+import { proposeTranslation } from "./translation-drafts";
 import { beforeEach, afterAll, expect, it, vi } from "vitest";
 import type { Session } from "next-auth";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
@@ -440,16 +441,14 @@ it("does not let the legacy consent endpoint bypass the student policy timer", a
 });
 
 it("requires just one admin approval for a coordinator's translation review and rejects a changed destination", async () => {
-  const draft = await db.translationDraft.create({
-    data: {
-      authorId: "translator",
-      operation: "localization.setString",
-      payload: {
-        locale: "en",
-        key: "approvals.title",
-        value: "Reviewed translations",
-      },
-    },
+  await proposeTranslation(
+    db,
+    { role: "VIEWER", user: { id: "translator" } },
+    "localization.setString",
+    { locale: "en", key: "approvals.title", value: "Reviewed translations" },
+  );
+  const draft = await db.translationDraft.findFirstOrThrow({
+    orderBy: { createdAt: "desc" },
   });
   const request = await queued(
     coordinator().translationReview.decide({
@@ -472,16 +471,14 @@ it("requires just one admin approval for a coordinator's translation review and 
   expect((await db.messageOverride.findFirstOrThrow()).value).toBe(
     "Reviewed translations",
   );
-  const next = await db.translationDraft.create({
-    data: {
-      authorId: "translator",
-      operation: "localization.setString",
-      payload: {
-        locale: "en",
-        key: "approvals.title",
-        value: "Older proposal",
-      },
-    },
+  await proposeTranslation(
+    db,
+    { role: "VIEWER", user: { id: "translator" } },
+    "localization.setString",
+    { locale: "en", key: "approvals.title", value: "Older proposal" },
+  );
+  const next = await db.translationDraft.findFirstOrThrow({
+    orderBy: { createdAt: "desc" },
   });
   const stale = await queued(
     coordinator().translationReview.decide({
