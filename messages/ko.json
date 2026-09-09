@@ -651,6 +651,7 @@
         "COORDINATOR": "코디네이터",
         "ADMIN": "관리자",
         "HEAD": "대표",
+        "CREW": "순찰조",
         "STUDENT": "학생"
       },
       "filters": {
