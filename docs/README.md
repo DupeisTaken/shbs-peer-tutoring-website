@@ -25,6 +25,8 @@ Both also have printable HTML editions generated with `npm run docs:build` in `d
 
 ## Status and history
 
+The [release rehearsal report](reports/release-audit.html) records the September 2026 navigation audit, bounded load tests, demo database, focused fixes and remaining launch setup. It is an authored HTML report; edit it directly rather than regenerating it from the guides.
+
 [PR #9](https://github.com/DupeisTaken/shbs-peer-tutoring-website/pull/9) merged the four reviewed branches into main. The [release verification record](../SHIPPING-READINESS.md) distinguishes tested code from the real email, school-content and hosting setup still needed before launch.
 
 The [2025 policy archive](archive/policies-2025/README.md) is historical material, not a policy to publish. Old entry-point documents remain as links to current guides so existing bookmarks continue to work.
