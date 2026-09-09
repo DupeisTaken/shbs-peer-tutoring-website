@@ -10,4 +10,6 @@ When a conflict appears, reject the outdated draft, reload current text and subm
 
 The check reads only affected content. Unrelated program-period changes do not invalidate a translation. Page titles use a locale map, so changes to that map require a new draft; other translation destinations use their exact locale/key.
 
+Custom-language saves resolve their language on the same transaction connection that holds the write lock. Database lookup failures abort the save instead of redirecting it to English. Unknown or deleted language codes are rejected for writes; reload and choose an existing language. Read-only catalog fallback remains available. This also avoids acquiring a second connection while other translation writes wait for the lock.
+
 [Database regressions](../src/server/translation-destination.test.ts) cover all five targets, concurrent editor/reviewer actions, competing proposals, legacy evidence, deleted locales/parents, hidden metadata and transaction rollback. [Combined approval tests](../src/server/shipping-integration.test.ts) verify that coordinator review still requires only one administrator approval.
