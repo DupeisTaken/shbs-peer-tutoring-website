@@ -83,6 +83,10 @@ The [explicit operation map](../src/lib/approval-policy.ts) classifies managemen
 
 Interview review preserves the original coordinator chair’s proposed result and identity. Current panel membership, qualifications and all votes are validated again. The actual reviewer is attributed separately in the approval audit.
 
+Interview scheduling checks the current chair under the same transaction lock as panel replacement.
+A former chair's pending schedule request cannot change a replacement panel's timetable. The schedule
+and panel notifications commit or roll back together in the enclosing transaction.
+
 Successful authenticated mutations add actor and operation audit metadata. Detailed events and undo records remain available where implemented. This is an application action log, not an access log; it does not reconstruct events predating the release. Generic direct-mutation audit summaries are not a promise that every direct operation and audit insert share one universal transaction. The explicit approval/correction transaction contracts are covered by regressions.
 
 ## Student lifecycle and ownership
