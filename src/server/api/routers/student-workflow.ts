@@ -63,7 +63,7 @@ export const studentWorkflowRouter = createTRPCRouter({
       where: { id: ctx.session.user.id },
     });
     if (!user || user.suspendedAt) throw new TRPCError({ code: "FORBIDDEN" });
-    const rows = await studentRequestRows(ctx.db, user.email);
+    const rows = await studentRequestRows(ctx.db, undefined, user.id);
     return rows.filter((row) => row.confirmedAt !== null);
   }),
   editAvailability: protectedProcedure

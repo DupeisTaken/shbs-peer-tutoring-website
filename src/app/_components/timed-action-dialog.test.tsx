@@ -72,9 +72,11 @@ it("shows consequences and prevents confirmation before the timer ends", async (
   fireEvent.click(waiting);
   expect(mocks.confirm).not.toHaveBeenCalled();
   await act(() => vi.advanceTimersByTime(4000));
-  expect(screen.getByRole("button", { name: "Confirm in 1s" }).hasAttribute("disabled")).toBe(
-    true,
-  );
+  expect(
+    screen
+      .getByRole("button", { name: "Confirm in 1s" })
+      .hasAttribute("disabled"),
+  ).toBe(true);
   await act(() => vi.advanceTimersByTime(1000));
   fireEvent.click(screen.getByRole("button", { name: "Yes, confirm" }));
   expect(mocks.confirm).toHaveBeenCalledWith("ticket");
@@ -85,6 +87,16 @@ it("allows cancelling immediately and clears its interval when closed", () => {
   expect(mocks.cancel).toHaveBeenCalledOnce();
   view.unmount();
   expect(vi.getTimerCount()).toBe(0);
+});
+it("closes a submitted proposal dialog so its approval notice can be opened", async () => {
+  show();
+  await act(() =>
+    window.dispatchEvent(
+      new CustomEvent("approval-queued", { detail: "request-1" }),
+    ),
+  );
+  expect(mocks.cancel).toHaveBeenCalledOnce();
+  expect(mocks.confirm).not.toHaveBeenCalled();
 });
 it("cannot dismiss mandatory policy confirmation with Escape", () => {
   show(true);

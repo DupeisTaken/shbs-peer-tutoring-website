@@ -11,6 +11,11 @@ import { signOutAction } from "~/app/_actions/auth";
 export function StudentPolicyGate() {
   const t = useTranslations("workflow");
   const path = usePathname();
+  const [opened, setOpened] = useState(false);
+  // Renewed consent gates participation, never access to personal evidence or private support.
+  const historyAccessible = ["/student", "/messages", "/my-account"].includes(
+    path,
+  );
   const publicPage = [
     "/",
     "/signup",
@@ -23,6 +28,25 @@ export function StudentPolicyGate() {
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
+  if (historyAccessible && !opened && (status.error || status.data))
+    return (
+      <aside
+        className="mx-auto mt-4 w-[calc(100%-2rem)] max-w-5xl rounded-lg border border-amber-200 bg-amber-50 p-4"
+        role="status"
+      >
+        <p className="text-sm">
+          {status.error ? t("policyLoadError") : t("policyHistoryAccess")}
+        </p>
+        <button
+          className="btn-secondary mt-3"
+          onClick={() =>
+            status.error ? void status.refetch() : setOpened(true)
+          }
+        >
+          {status.error ? t("retry") : t("policyTitle")}
+        </button>
+      </aside>
+    );
   if (status.error && !publicPage)
     return (
       <TimedActionDialog

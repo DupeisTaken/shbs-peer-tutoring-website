@@ -29,8 +29,8 @@ export default async function RootLayout({
       <body>
         <IntlProvider locale={locale} messages={messages}>
           <TRPCReactProvider>
-            {children}
             <StudentPolicyGate />
+            {children}
           </TRPCReactProvider>
         </IntlProvider>
       </body>

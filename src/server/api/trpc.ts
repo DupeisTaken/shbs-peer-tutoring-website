@@ -1,3 +1,11 @@
+import { ApprovalQueued, queueProposal } from "~/server/approvals";
+import { approvalScope } from "~/server/db-scope";
+import {
+  APPROVAL_OPERATIONS,
+  COORDINATOR_DIRECT_OPERATIONS,
+  actionKind,
+  humanizeOperation,
+} from "~/lib/approval-policy";
 /**
  * YOU PROBABLY DON'T NEED TO EDIT THIS FILE, UNLESS:
  * 1. You want to modify request context (see Part 1).
@@ -50,14 +58,10 @@ const t = initTRPC.context<typeof createTRPCContext>().create({
   errorFormatter({ shape, error }) {
     return {
       ...shape,
-      ...(error.message.includes("Room already allocated")
-        ? {
-            message:
-              "Room already allocated at this time. Choose another room or time.",
-          }
-        : {}),
       data: {
         ...shape.data,
+        approvalId:
+          error.cause instanceof ApprovalQueued ? error.cause.approvalId : null,
         zodError:
           error.cause instanceof ZodError ? error.cause.flatten() : null,
       },
@@ -132,7 +136,7 @@ export const publicProcedure = t.procedure.use(timingMiddleware);
  */
 export const protectedProcedure = t.procedure
   .use(timingMiddleware)
-  .use(async ({ ctx, next, path }) => {
+  .use(async ({ ctx, next, path, type, getRawInput }) => {
     if (!ctx.session?.user) {
       throw new TRPCError({ code: "UNAUTHORIZED" });
     }
@@ -140,7 +144,13 @@ export const protectedProcedure = t.procedure
     // every API request so demotion, unlinking, suspension and deletion take effect immediately.
     const account = await ctx.db.user.findUnique({
       where: { id: ctx.session.user.id },
-      select: { role: true, tutorId: true, suspendedAt: true },
+      select: {
+        role: true,
+        tutorId: true,
+        suspendedAt: true,
+        name: true,
+        username: true,
+      },
     });
     if (!account) throw new TRPCError({ code: "UNAUTHORIZED" });
     if (
@@ -154,7 +164,33 @@ export const protectedProcedure = t.procedure
         message: "Your account is suspended.",
       });
     }
-    return next({
+    // Translator-facing editors also publish live content. Coordinator access always
+    // goes through review, regardless of which UI or procedure family is used.
+    if (
+      account.role === "COORDINATOR" &&
+      type === "mutation" &&
+      (path.startsWith("home.") ||
+        path.startsWith("localization.") ||
+        path === "tutor.decideInterview")
+    ) {
+      if (!Object.hasOwn(APPROVAL_OPERATIONS, path))
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "This action requires an administrator.",
+        });
+      const request = await queueProposal(
+        { ...ctx.session, role: account.role },
+        path,
+        await getRawInput(),
+      );
+      const cause = new ApprovalQueued(request.id);
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message: cause.message,
+        cause,
+      });
+    }
+    const result = await next({
       ctx: {
         // infers the `session` as non-nullable
         session: {
@@ -165,6 +201,22 @@ export const protectedProcedure = t.procedure
         },
       },
     });
+    // Attribute every successful signed-in mutation, including participant actions.
+    // Store only operation metadata: passwords, message bodies and tokens never enter this log.
+    if (type === "mutation" && result.ok && !path.startsWith("approval.")) {
+      await ctx.db.auditLog.create({
+        data: {
+          userId: ctx.session.user.id,
+          userName: account.name ?? account.username ?? ctx.session.user.id,
+          action: humanizeOperation(path),
+          entity: path.split(".")[0]!,
+          kind: actionKind(path),
+          operation: path,
+          approvalId: approvalScope.getStore(),
+        },
+      });
+    }
+    return result;
   });
 
 /**
@@ -204,16 +256,49 @@ export const tutorProcedure = protectedProcedure.use(({ ctx, next }) => {
   });
 });
 
-/** Admin procedure: ADMIN or COORDINATOR (coordinators have admin-level access). */
-export const adminProcedure = protectedProcedure.use(({ ctx, next }) => {
-  if (!isElevated(ctx.session.role)) {
-    throw new TRPCError({
-      code: "FORBIDDEN",
-      message: "Admin access required.",
-    });
-  }
-  return next();
-});
+/** Coordinators can inspect management data and submit sensitive changes for review.
+ * Requests stop before the resolver: no live mutation is presented as a successful save. */
+export const adminProcedure = protectedProcedure.use(
+  async ({ ctx, next, path, type, getRawInput }) => {
+    if (!isElevated(ctx.session.role)) {
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Admin access required.",
+      });
+    }
+    if (
+      ctx.session.role === "COORDINATOR" &&
+      type === "mutation" &&
+      !COORDINATOR_DIRECT_OPERATIONS.has(path)
+    ) {
+      if (!Object.hasOwn(APPROVAL_OPERATIONS, path))
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "This action requires an administrator.",
+        });
+      const raw = await getRawInput();
+      if (
+        path === "admin.setUserCanTutor" &&
+        (!raw ||
+          typeof raw !== "object" ||
+          !("userId" in raw) ||
+          raw.userId !== ctx.session.user.id)
+      )
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "You can only request changes to your own tutoring access.",
+        });
+      const request = await queueProposal(ctx.session, path, raw);
+      const cause = new ApprovalQueued(request.id);
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message: cause.message,
+        cause,
+      });
+    }
+    return next();
+  },
+);
 
 /**
  * Admin-tier procedure: ADMIN or HEAD (not coordinators). For powers above a coordinator —
@@ -319,9 +404,8 @@ const VIEWER_MASKED_KEYS = new Set([
   "email",
   "phone",
   "preferredContact",
-  "undoData",
   "details",
-  "reviewNote",
+  "undoData",
   "passwordHash",
 ]);
 

@@ -626,7 +626,7 @@
     "users": {
       "title": "Usuarios y roles",
       "subtitle": "Gestiona inicios de sesión, roles y la configuración de cuentas de tutores. Los cambios de rol surten efecto en el siguiente inicio de sesión del usuario.",
-      "coordinatorHint": "Como coordinador puedes enviar enlaces de configuración y cambiar tu propio acceso de tutoría. Pide a un administrador que cambie los roles.",
+      "coordinatorHint": "As a coordinator you can send setup links and request changes to your own tutoring access. Other account permissions require an administrator.",
       "columns": {
         "user": "Usuario",
         "name": "Nombre",
@@ -2239,6 +2239,73 @@
     "legacyRequests": "Other / manually managed requests",
     "policyLoadError": "The current policy could not be loaded. Retry or sign out. Your request priority is unchanged.",
     "retry": "Retry",
-    "expiredHelp": "If your request was disqualified, resending cannot reactivate it. You must submit a new request."
+    "expiredHelp": "If your request was disqualified, resending cannot reactivate it. You must submit a new request.",
+    "policyHistoryAccess": "Read and accept the updated policy before participating. Your history, feedback, appeals, and private messages remain available."
+  },
+  "approvals": {
+    "title": "Change Approvals",
+    "subtitle": "Review proposed changes, explain your decision, and help new team members learn.",
+    "queued": "Submitted for Admin Approval",
+    "queuedBody": "Your proposal is pending. The live records stay unchanged until an admin approves it.",
+    "dismiss": "Dismiss",
+    "viewRequest": "View Request",
+    "evidence": "Current Records at Submission",
+    "note": "Decision Note",
+    "noteHint": "Explain your approval or what needs to change.",
+    "approve": "Approve and Apply",
+    "reject": "Reject with Feedback",
+    "cancel": "Withdraw Request",
+    "audit": "View Actions and Decisions",
+    "status": "Status",
+    "allStates": "All Statuses",
+    "requester": "Requested By",
+    "allUsers": "All Users",
+    "refresh": "Refresh",
+    "allRequests": "All Requests",
+    "count": "{count, plural, one {# request} other {# requests}}",
+    "loading": "Loading…",
+    "empty": "No requests match these filters",
+    "emptyHint": "New coordinator proposals will appear here for review.",
+    "previous": "Newer",
+    "next": "Older",
+    "trainingBanner": "You are a coordinator in training. Sensitive changes you submit are sent to an admin for approval before taking effect.",
+    "myRequests": "My Approval Requests",
+    "states": {
+      "PENDING": "Pending Review",
+      "APPROVED": "Approved",
+      "REJECTED": "Rejected",
+      "CANCELLED": "Withdrawn"
+    },
+    "confirmConsequences": "This applies the proposed assignment or student request decision. Check the affected student, tutor, and consequences before confirming; the review is recorded.",
+    "emailRetry": "The change was applied, but the verification email was not sent. Retry it from Student Requests.",
+    "record": "Record"
+  },
+  "auditFilters": {
+    "subtitle": "Trace each user’s actions, proposals, and decisions across the program.",
+    "user": "User",
+    "allUsers": "All Users",
+    "system": "System / Unattributed",
+    "kind": "Event Type",
+    "allKinds": "All Event Types",
+    "operation": "Action",
+    "allOperations": "All Actions",
+    "entity": "Record Type",
+    "allEntities": "All Record Types",
+    "from": "From Date",
+    "until": "Through Date",
+    "search": "Search History",
+    "searchHint": "Search action descriptions",
+    "apply": "Apply Filters",
+    "clear": "Clear Filters",
+    "utc": "Date filters use UTC; event times use your local time.",
+    "allHistory": "Show All History",
+    "details": "Decision Details",
+    "empty": "No actions match these filters.",
+    "kinds": {
+      "ACTION": "Action",
+      "DECISION": "Decision",
+      "SUBMISSION": "Proposal",
+      "CANCELLATION": "Withdrawal"
+    }
   }
 }

@@ -220,6 +220,10 @@ model AccountAppeal {
 /// id/name are denormalised so history survives user deletion. See src/server/audit/log.ts.
 model AuditLog {
   /// Read-only evidence for corrections; separate from executable undo instructions.
+  /// Structured actor/decision filters; metadata excludes account secrets.
+  kind String @default("ACTION")
+  operation String?
+  approvalId String?
   details Json?
   id        String    @id @default(cuid())
   userId    String?
@@ -234,6 +238,37 @@ model AuditLog {
   createdAt DateTime  @default(now())
 
   @@index([createdAt])
+  @@index([userId, createdAt, id])
+  @@index([kind, createdAt, id])
+  @@index([approvalId])
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+/// Immutable coordinator proposal. Actor IDs and names are snapshots, preserved after deletion.
+model ApprovalRequest {
+  id String @id @default(cuid())
+  requesterId String
+  requesterName String
+  operation String
+  payload Json
+  fingerprint String
+  /// Target evidence shown to the reviewer; never includes passwords or tokens.
+  targets Json
+  state ApprovalStatus @default(PENDING)
+  reviewerId String?
+  reviewerName String?
+  reviewNote String?
+  createdAt DateTime @default(now())
+  reviewedAt DateTime?
+
+  @@index([state, createdAt, id])
+  @@index([requesterId, createdAt, id])
 }
 
 /// A lightweight in-app notification for any user (tutor / coordinator / admin).
@@ -1465,7 +1500,8 @@ enum StudentSurveyState {
 model StudentRequestReview {
   id String @id @default(cuid())
   surveyId String?
-  survey StudentSurvey? @relation(fields: [surveyId], references: [id])
+  // Preserve the originating request as review evidence, matching the deployed constraint.
+  survey StudentSurvey? @relation(fields: [surveyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
   /// Existing manually managed tutees can also request schedule rejection without a survey.
   legacyTuteeId String?
   legacyIntakeTermId String?
@@ -1491,8 +1527,17 @@ model StudentQuarterBlock {
   email String
   intakeTermId String
   surveyId String
+  userId String?
   createdAt DateTime @default(now())
   @@unique([email, intakeTermId])
+  @@index([userId, intakeTermId])
+}
+
+/// Verified ownership survives a fresh intake profile and account email changes.
+model StudentProfileOwnership {
+  tuteeId String @id
+  userId String
+  @@index([userId])
 }
 
 /// Short-lived, user/action-bound confirmation tickets enforce the popup delay on the server.

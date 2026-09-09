@@ -9,6 +9,7 @@ import {
   type TransactionDb,
 } from "~/server/transactions";
 import { currentPolicy } from "~/server/policy-acceptance";
+import { retainStudentOwnership } from "./student-ownership";
 import { isSignupWindowOpen } from "~/lib/signup-window";
 import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
 import { hashPassword } from "~/server/auth/password";
@@ -139,9 +140,17 @@ export async function submitSurvey(
         code: "PRECONDITION_FAILED",
         message: "Tutee signups have not opened yet.",
       });
-    const block = await tx.studentQuarterBlock.findUnique({
+    const account = await tx.user.findUnique({
+      where: { email: input.email },
+      select: { id: true },
+    });
+    const block = await tx.studentQuarterBlock.findFirst({
       where: {
-        email_intakeTermId: { email: input.email, intakeTermId: term.id },
+        intakeTermId: term.id,
+        OR: [
+          { email: input.email },
+          ...(account ? [{ userId: account.id }] : []),
+        ],
       },
     });
     if (block)
@@ -154,6 +163,25 @@ export async function submitSurvey(
       where: { email: input.email, intakeTermId: term.id, state: "OPEN" },
       orderBy: { submittedAt: "desc" },
     });
+    // A verified account may change its email, but still has just one open request per intake.
+    if (!previous && account) {
+      const { ownedStudentIds } = await import("./student-ownership");
+      const owned = await ownedStudentIds(tx, account.id);
+      if (
+        await tx.studentSurvey.count({
+          where: {
+            intakeTermId: term.id,
+            state: "OPEN",
+            confirmedAt: { not: null },
+            tuteeId: { in: owned },
+          },
+        })
+      )
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "You already have a current request. Sign in to manage it.",
+        });
+    }
     // Duplicate submissions keep the first payload and timestamp; the email owner can review it.
     if (previous) return { row: previous, duplicate: true };
     const policy = await currentPolicy(tx, "tutee-policy");
@@ -372,6 +400,9 @@ export async function confirmSurvey(
       });
     }
     const student = await materializeStudent(tx, row);
+    if (user.studentId)
+      await retainStudentOwnership(tx, user.id, user.studentId);
+    await retainStudentOwnership(tx, user.id, student.id);
     await tx.user.update({
       where: { id: user.id },
       data: {

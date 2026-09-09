@@ -1,3 +1,4 @@
+import { approvalScope } from "~/server/db-scope";
 import { requirePolicy } from "~/server/policy-acceptance";
 import { validateInterviewDecision } from "~/server/interviews";
 import { reconcileMeetingHours } from "~/server/meeting-hours";
@@ -9,6 +10,7 @@ import { inTransaction, lockEntity } from "~/server/transactions";
 import {
   activeTutorProcedure,
   createTRPCRouter,
+  protectedProcedure,
   tutorProcedure,
 } from "~/server/api/trpc";
 import { computeSessionHours } from "~/lib/service-hours";
@@ -1278,7 +1280,7 @@ export const tutorRouter = createTRPCRouter({
    * Record the head interviewer's final decision (accept -> ACCEPTED, reject -> REJECTED),
    * with a required brief comment. Only the HEAD of the panel may decide.
    */
-  decideInterview: activeTutorProcedure
+  decideInterview: protectedProcedure
     .input(
       z.object({
         applicationId: z.string().min(1),
@@ -1290,18 +1292,46 @@ export const tutorRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) =>
       inTransaction(ctx.db, async (tx) => {
         await assertFeatureEnabled(tx, "INTERVIEWS");
+        // The reviewer authorizes the change; the assigned chair remains the decision's author.
+        const reviewId = approvalScope.getStore();
+        let chairTutorId = ctx.session.tutorId;
+        if (reviewId) {
+          const proposal = await tx.approvalRequest.findUniqueOrThrow({
+            where: { id: reviewId },
+          });
+          if (
+            proposal.operation !== "tutor.decideInterview" ||
+            !["ADMIN", "HEAD"].includes(ctx.session.role)
+          )
+            throw new TRPCError({ code: "FORBIDDEN" });
+          const requester = await tx.user.findUnique({
+            where: { id: proposal.requesterId },
+            select: { tutorId: true },
+          });
+          chairTutorId = requester?.tutorId ?? null;
+        }
+        if (
+          !chairTutorId ||
+          !(await tx.tutor.count({
+            where: { id: chairTutorId, status: "ACTIVE" },
+          }))
+        )
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "An active assigned interview chair is required.",
+          });
         await lockEntity(tx, `interview:${input.applicationId}`);
         await validateInterviewDecision(
           tx,
           input.applicationId,
           input.accept,
-          ctx.session.tutorId,
+          chairTutorId,
         );
         const assignment = await tx.interviewAssignment.findUnique({
           where: {
             applicationId_tutorId: {
               applicationId: input.applicationId,
-              tutorId: ctx.session.tutorId,
+              tutorId: chairTutorId,
             },
           },
           select: { isHead: true },
@@ -1323,7 +1353,7 @@ export const tutorRouter = createTRPCRouter({
             status: input.accept ? "ACCEPTED" : "REJECTED",
             decisionComment: input.comment,
             decidedAt: new Date(),
-            decidedByTutorId: ctx.session.tutorId,
+            decidedByTutorId: chairTutorId,
           },
         });
         if (res.count === 0) staleConflict();
@@ -1520,8 +1550,16 @@ export const tutorRouter = createTRPCRouter({
           message: "That tutee isn't on one of your pairings.",
         });
       }
-      if (await ctx.db.studentSurvey.findUnique({ where: { tuteeId: input.tuteeId } }))
-        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Students apply to leave the quarter from their own account. Use schedule rejection for scheduling problems." });
+      if (
+        await ctx.db.studentSurvey.findUnique({
+          where: { tuteeId: input.tuteeId },
+        })
+      )
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message:
+            "Students apply to leave the quarter from their own account. Use schedule rejection for scheduling problems.",
+        });
       const open = await ctx.db.tuteeRemovalRequest.findFirst({
         where: { tuteeId: input.tuteeId, state: "PENDING" },
         select: { id: true },

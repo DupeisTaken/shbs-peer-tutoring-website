@@ -33,16 +33,21 @@ function context(db: unknown, session: Session | null) {
     db: {
       ...(db as object),
       user: {
-        findUnique: vi.fn().mockResolvedValue(
-          session
-            ? {
-                role: session.role,
-                tutorId: session.tutorId,
-                suspendedAt: null,
-              }
-            : null,
-        ),
+        findUnique: vi
+          .fn()
+          .mockResolvedValue(
+            session
+              ? {
+                  role: session.role,
+                  tutorId: session.tutorId,
+                  suspendedAt: null,
+                  name: session.user.name,
+                  username: null,
+                }
+              : null,
+          ),
       },
+      auditLog: { create: vi.fn().mockResolvedValue({}) },
     } as unknown as PrismaClient,
     session,
     headers: new Headers(),
@@ -64,7 +69,15 @@ describe("tutee signup window procedures", () => {
       signupOpensAt: opensAt,
     });
     const caller = createTuteeCaller(
-      context({ $executeRaw: vi.fn(), $queryRaw: vi.fn(), studentSurvey: { findMany: vi.fn().mockResolvedValue([]) }, term: { findFirst } }, null),
+      context(
+        {
+          $executeRaw: vi.fn(),
+          $queryRaw: vi.fn(),
+          studentSurvey: { findMany: vi.fn().mockResolvedValue([]) },
+          term: { findFirst },
+        },
+        null,
+      ),
     );
 
     await expect(

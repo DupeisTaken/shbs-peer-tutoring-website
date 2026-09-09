@@ -8,6 +8,8 @@ import {
 } from "~/server/api/trpc";
 import { inTransaction, lockEntity } from "~/server/transactions";
 import { currentPolicy } from "~/server/policy-acceptance";
+import { consumeStudentAction } from "~/server/student-workflow";
+import { ownedStudentIds } from "~/server/student-ownership";
 import { notifyAdmins, notifyUsers } from "~/server/notifications/create";
 import { syncPunishmentRemoval } from "~/server/discipline/removal";
 import { assertFeatureEnabled } from "~/server/program/features";
@@ -111,6 +113,7 @@ export const studentRouter = createTRPCRouter({
         slug: z.enum(["tutee-policy", "tutor-policy"]),
         revision: z.string(),
         signature: z.string().trim().min(1).max(120),
+        ticket: z.string().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) =>
@@ -122,6 +125,14 @@ export const studentRouter = createTRPCRouter({
             code: "CONFLICT",
             message: "Policy changed. Read the latest version.",
           });
+        if (input.slug === "tutee-policy")
+          await consumeStudentAction(
+            tx,
+            input.ticket ?? "",
+            ctx.session.user.id,
+            "POLICY",
+            current.revision,
+          );
         await tx.policyAcceptance.upsert({
           where: {
             userId_slug_revision: {
@@ -143,6 +154,7 @@ export const studentRouter = createTRPCRouter({
       }),
     ),
   me: protectedProcedure.input(paging).query(async ({ ctx, input }) => {
+    const owned = await ownedStudentIds(ctx.db, ctx.session.user.id);
     const user = await ctx.db.user.findUniqueOrThrow({
       where: { id: ctx.session.user.id },
       select: { studentId: true, name: true, email: true },
@@ -174,9 +186,9 @@ export const studentRouter = createTRPCRouter({
           },
         })
       : null;
-    const sessions = user.studentId
+    const sessions = owned.length
       ? await ctx.db.sessionTutee.findMany({
-          where: { tuteeId: user.studentId },
+          where: { tuteeId: { in: owned } },
           orderBy: { session: { date: "desc" } },
           take: 20,
           skip: input.page * 20,
@@ -193,9 +205,9 @@ export const studentRouter = createTRPCRouter({
         })
       : [];
     const calendar = await ctx.db.schoolCalendarDay.findMany();
-    const cards = user.studentId
+    const cards = owned.length
       ? await ctx.db.disciplinaryCard.findMany({
-          where: { tuteeId: user.studentId },
+          where: { tuteeId: { in: owned } },
           orderBy: { createdAt: "desc" },
           take: 20,
           skip: input.page * 20,
@@ -208,18 +220,18 @@ export const studentRouter = createTRPCRouter({
           },
         })
       : [];
-    const appeals = user.studentId
+    const appeals = owned.length
       ? await ctx.db.studentAppeal.findMany({
-          where: { studentId: user.studentId },
+          where: { studentId: { in: owned } },
           orderBy: { createdAt: "desc" },
           take: 20,
           skip: input.page * 20,
         })
       : [];
-    const feedback = user.studentId
+    const feedback = owned.length
       ? await ctx.db.studentFeedback.findMany({
           where: {
-            studentId: user.studentId,
+            studentId: { in: owned },
             sessionId: { in: sessions.map((s) => s.session.id) },
           },
         })
@@ -273,30 +285,20 @@ export const studentRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) =>
       inTransaction(ctx.db, async (tx) => {
-        const user = await tx.user.findUniqueOrThrow({
-          where: { id: ctx.session.user.id },
+        const owned = await ownedStudentIds(tx, ctx.session.user.id);
+        const attendance = await tx.sessionTutee.findFirst({
+          where: { sessionId: input.sessionId, tuteeId: { in: owned } },
         });
-        if (
-          !user.studentId ||
-          !(await tx.sessionTutee.findUnique({
-            where: {
-              sessionId_tuteeId: {
-                sessionId: input.sessionId,
-                tuteeId: user.studentId,
-              },
-            },
-          }))
-        )
-          throw new TRPCError({ code: "FORBIDDEN" });
+        if (!attendance) throw new TRPCError({ code: "FORBIDDEN" });
         const row = await tx.studentFeedback.upsert({
           where: {
             studentId_sessionId: {
-              studentId: user.studentId,
+              studentId: attendance.tuteeId,
               sessionId: input.sessionId,
             },
           },
           update: { rating: input.rating, body: input.body },
-          create: { studentId: user.studentId, ...input },
+          create: { studentId: attendance.tuteeId, ...input },
         });
         await notifyAdmins(
           { title: "Student feedback received", link: "/student-support" },
@@ -351,13 +353,11 @@ export const studentRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) =>
       inTransaction(ctx.db, async (tx) => {
         await assertFeatureEnabled(tx, "DISCIPLINE");
-        const user = await tx.user.findUniqueOrThrow({
-          where: { id: ctx.session.user.id },
-        });
+        const owned = await ownedStudentIds(tx, ctx.session.user.id);
         const card = await tx.disciplinaryCard.findUnique({
           where: { id: input.cardId },
         });
-        if (!user.studentId || card?.tuteeId !== user.studentId)
+        if (!card || !owned.includes(card.tuteeId))
           throw new TRPCError({ code: "FORBIDDEN" });
         if (
           appealDeadline(
@@ -371,7 +371,7 @@ export const studentRouter = createTRPCRouter({
               "The five-school-day appeal window has ended. Contact the team.",
           });
         await tx.studentAppeal.create({
-          data: { studentId: user.studentId, ...input },
+          data: { studentId: card.tuteeId, ...input },
         });
         await notifyAdmins(
           { title: "Student card appeal", link: "/student-support" },
@@ -463,8 +463,13 @@ export const studentRouter = createTRPCRouter({
             ) as Prisma.InputJsonValue,
           },
         });
+        const historyOwner = await tx.studentProfileOwnership.findUnique({
+          where: { tuteeId: appeal.studentId },
+        });
         const owner = await tx.user.findUnique({
-          where: { studentId: appeal.studentId },
+          where: historyOwner
+            ? { id: historyOwner.userId }
+            : { studentId: appeal.studentId },
         });
         if (owner)
           await notifyUsers(

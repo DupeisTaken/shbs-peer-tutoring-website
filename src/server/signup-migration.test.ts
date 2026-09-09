@@ -8,7 +8,7 @@ it.each([false, true])(
     const url = new URL(process.env.DATABASE_URL!);
     if (
       !["localhost", "127.0.0.1"].includes(url.hostname) ||
-      url.pathname !== "/shbs_survey_first_test"
+      !["/shbs_survey_first_test", "/shbs_shipping_test"].includes(url.pathname)
     )
       throw Error("Migration tests require the isolated signup database");
     const c = new pg.Client({ connectionString: url.href });

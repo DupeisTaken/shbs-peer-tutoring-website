@@ -1,4 +1,6 @@
 import { TRPCError } from "@trpc/server";
+import { approvalScope } from "./db-scope";
+import { ownedStudentIds } from "./student-ownership";
 import type { DomainDb, TransactionDb } from "./transactions";
 import { inTransaction, lockEntity } from "./transactions";
 import { currentPolicy, requirePolicy } from "./policy-acceptance";
@@ -104,8 +106,8 @@ async function ownedRequest(tx: TransactionDb, userId: string, id: string) {
     !user ||
     user.suspendedAt ||
     !row.confirmedAt ||
-    user.studentId !== row.tuteeId ||
-    user.email !== row.email
+    !row.tuteeId ||
+    !(await ownedStudentIds(tx, userId)).includes(row.tuteeId)
   )
     throw new TRPCError({ code: "FORBIDDEN" });
   await requirePolicy(tx, userId, "tutee-policy");
@@ -214,7 +216,9 @@ export async function assignStudentRequest(
   });
   // The durable assignment/deadline survive SMTP failure. Management can retry explicitly.
   const emailSent = result.needsVerification
-    ? await resendSurvey(db, result.email, false)
+    ? approvalScope.getStore()
+      ? null
+      : await resendSurvey(db, result.email, false)
     : true;
   return { ok: true, emailSent };
 }
@@ -508,6 +512,17 @@ export async function resolveStudentReview(
       id,
     );
     if (approve && review.kind === "STUDENT_ABORT") {
+      const owner = row.tuteeId
+        ? await tx.studentProfileOwnership.findUnique({
+            where: { tuteeId: row.tuteeId },
+          })
+        : null;
+      const linked = row.tuteeId
+        ? await tx.user.findUnique({
+            where: { studentId: row.tuteeId },
+            select: { id: true },
+          })
+        : null;
       await tx.studentQuarterBlock.upsert({
         where: {
           email_intakeTermId: {
@@ -520,6 +535,7 @@ export async function resolveStudentReview(
           email: row.email,
           intakeTermId: row.intakeTermId,
           surveyId: row.id,
+          userId: owner?.userId ?? linked?.id,
         },
       });
       await closeStudentRequest(tx, row, "ABORTED");
@@ -601,22 +617,33 @@ async function notifyLegacySchedule(
 }
 
 /** Whitelist workflow data; token hashes and policy snapshots never enter management/client lists. */
-export async function studentRequestRows(db: DomainDb, email?: string) {
+export async function studentRequestRows(
+  db: DomainDb,
+  email?: string,
+  userId?: string,
+) {
   await expireStudentRequests(db);
   const term = await db.term.findFirst({
     where: { active: true },
     orderBy: { createdAt: "desc" },
   });
   if (!term) return [];
+  const owned = userId ? await ownedStudentIds(db, userId) : null;
   const [rows, subjects, profiles] = await Promise.all([
     db.studentSurvey.findMany({
-      where: { intakeTermId: term.id, ...(email ? { email } : {}) },
+      where: {
+        intakeTermId: term.id,
+        ...(owned ? { tuteeId: { in: owned } } : email ? { email } : {}),
+      },
       orderBy: [{ submittedAt: "asc" }, { id: "asc" }],
       include: { reviews: { orderBy: { createdAt: "desc" } } },
     }),
     db.subject.findMany({ select: { id: true, name: true } }),
     db.tutee.findMany({
-      where: { intakeTermId: term.id, ...(email ? { email } : {}) },
+      where: {
+        intakeTermId: term.id,
+        ...(owned ? { id: { in: owned } } : email ? { email } : {}),
+      },
       include: {
         availabilities: { include: { slot: true } },
         pairings: {

@@ -2,12 +2,10 @@
 
 ## Student journey
 
-Student onboarding is a separate PR. This branch retains the existing public `/signup` form and does not add student account registration or enrollment linking. The workflows below operate on an existing verified account linked to its student record. The student identity schema is retained as a prerequisite for the separate onboarding implementation.
-
-4. Management reviews `/admin/requests` and assigns tutors. The student receives a notification and sees current assignments at `/student`. Historical attendance remains visible after a refresh.
-5. Expand a session to enter or update feedback. The page states whether only management or also the assigned tutor can read it.
-6. Appeal a disciplinary card from its record. Management reviews the reason and original card in `/student-support`. The student receives the outcome in their portal. Invalidating a card recalculates disciplinary standing and any resulting removal effects.
-7. Use `/messages` for private conversations with management and `/my-account` for account settings. Existing tutors or management members may also participate as students using the same login.
+1. Submit the survey at `/signup` when intake opens, with subject choices, availability, contact information and signed policy consent. Original submission sets priority. See [STUDENT-SIGNUP.md](STUDENT-SIGNUP.md) for verification deadlines, recall and withdrawal.
+2. Confirm the emailed link to create an account or preserve an existing account's role and password. The exact accepted policy and signature remain stored.
+3. Use `/student` for availability, assignments, request history, attendance, feedback and appeals. New intake profiles retain explicit account ownership of earlier records; a verified email change does not hide history or evade quarter withdrawal restrictions.
+4. Use `/messages` for private management conversations and `/my-account` for verified account settings. These pages and personal history remain accessible during policy renewal; participation still requires current consent.
 
 ## Management workspaces
 
@@ -16,7 +14,7 @@ Student onboarding is a separate PR. This branch retains the existing public `/s
 - **Interview Management:** `/interview-management` records subject qualifications and actual interview completion. Qualifications are separate from current pairings. Record duration and attendees to credit hours; resubmitting or correcting completion replaces earlier system credits.
 - **Tutor Applications:** `/admin/applications` supports panels of 3–8 people. Select a highest-ranking management member as chair. All panelists need active tutor accounts; management members without tutor participation must have that enabled first. Qualification validation happens on assignment and again on decision.
 - **Translation Review:** `/translation-review` displays proposals. Translators can compose website text translations there and UI translations at `/localization`. Management approves or rejects proposals; only approved changes reach live content.
-- **Corrections:** existing attendance and patrol correction forms keep their management permissions and audited reasons; they now notify HEAD.
+- **Corrections:** HEAD/ADMIN changes keep audited reasons and notify HEAD. Coordinator corrections queue for ADMIN/HEAD approval before any live change.
 
 ## Semester accounting
 

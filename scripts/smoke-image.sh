@@ -38,4 +38,35 @@ if (r.heads !== '1' || r.periods !== '1' || r.tutors !== '0' || r.tutees !== '0'
 await c.end();
 JS
 curl --fail --silent http://127.0.0.1:3100/signin >/dev/null
-echo 'Image boot, migrations, clean bootstrap, repeat bootstrap and sign-in route passed.'
+# Persist an overdue unverified assignment, then restart the exact image. Its Node
+# instrumentation must resume deadline enforcement without a browser or an API mutation.
+docker exec -i "$name" node --input-type=module <<'JS'
+import pg from 'pg';
+const c = new pg.Client({ connectionString: process.env.DATABASE_URL });
+await c.connect();
+const { rows: [term] } = await c.query('SELECT id FROM "Term" WHERE active=true');
+await c.query(`INSERT INTO "Tutor" (id, "englishName") VALUES ('smoke-tutor', 'Smoke Tutor')`);
+await c.query(`INSERT INTO "Tutee" (id, "englishName", status, "updatedAt") VALUES ('smoke-tutee', 'Smoke Student', 'ACTIVE', NOW())`);
+await c.query(`INSERT INTO "Pairing" (id, "tutorId", "termId", subject, "dayOfWeek", "startMin", "endMin") VALUES ('smoke-pairing', 'smoke-tutor', $1, 'Smoke Subject', 1, 930, 990)`, [term.id]);
+await c.query(`INSERT INTO "PairingTutee" ("pairingId", "tuteeId") VALUES ('smoke-pairing', 'smoke-tutee')`);
+await c.query(`INSERT INTO "StudentSurvey" (id, email, "intakeTermId", payload, "policyRevision", "policySnapshot", "tokenHash", "expiresAt", "tuteeId", "firstAssignedAt", "verificationDueAt", "submittedAt") VALUES ('smoke-overdue', 'smoke-student@example.test', $1, '{}', 'smoke', '[]', 'smoke-token-hash', NOW() - INTERVAL '1 day', 'smoke-tutee', NOW() - INTERVAL '8 days', NOW() - INTERVAL '1 day', '2026-01-01')`, [term.id]);
+await c.end();
+JS
+docker restart "$name" >/dev/null
+docker exec -i "$name" node --input-type=module <<'JS'
+import pg from 'pg';
+const c = new pg.Client({ connectionString: process.env.DATABASE_URL });
+await c.connect();
+let passed = false;
+for (let attempt = 0; attempt < 45; attempt++) {
+  const { rows: [r] } = await c.query(`SELECT s.state, s."submittedAt", t.status,
+    (SELECT count(*) FROM "PairingTutee" WHERE "tuteeId"='smoke-tutee') AS memberships
+    FROM "StudentSurvey" s JOIN "Tutee" t ON t.id=s."tuteeId" WHERE s.id='smoke-overdue'`);
+  if (r.state === 'DISQUALIFIED' && r.status === 'INACTIVE' && r.memberships === '0' && r.submittedAt.toISOString().startsWith('2026-01-01')) { passed = true; break; }
+  await new Promise(resolve => setTimeout(resolve, 2000));
+}
+await c.end();
+if (!passed) throw Error('Deadline worker did not resume safely after image restart');
+JS
+curl --fail --silent http://127.0.0.1:3100/api/trpc/health >/dev/null
+echo 'Image boot, migrations, clean bootstrap, repeat bootstrap, sign-in and deadline enforcement after restart passed.'

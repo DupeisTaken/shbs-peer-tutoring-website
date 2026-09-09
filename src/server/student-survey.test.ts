@@ -106,7 +106,7 @@ beforeEach(async () => {
   const url = new URL(process.env.DATABASE_URL!);
   if (
     !["localhost", "127.0.0.1"].includes(url.hostname) ||
-    url.pathname !== "/shbs_survey_first_test"
+    !["/shbs_survey_first_test", "/shbs_shipping_test"].includes(url.pathname)
   )
     throw Error("Requires isolated shbs_survey_first_test database");
   const tables = await db.$queryRaw<
@@ -228,6 +228,9 @@ describe("survey-first enrollment", () => {
     expect(await resolveTutorLink(db, user.id, email)).toBe(tutor.id);
   });
   it("protects a linked login email from administrative tutee contact edits", async () => {
+    await db.user.create({
+      data: { id: "admin", email: "admin-fixture@example.test", role: "ADMIN" },
+    });
     await submitSurvey(db, input());
     await confirmSurvey(db, lastToken(), password);
     const tutee = await db.tutee.findFirstOrThrow();
@@ -244,6 +247,7 @@ describe("survey-first enrollment", () => {
     await expect(
       caller.updateTutee({
         id: tutee.id,
+        expectedUpdatedAt: tutee.updatedAt,
         englishName: tutee.englishName,
         status: "PENDING",
         email: "changed@example.test",
@@ -251,6 +255,7 @@ describe("survey-first enrollment", () => {
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
     await caller.updateTutee({
       id: tutee.id,
+      expectedUpdatedAt: tutee.updatedAt,
       englishName: "Updated Name",
       status: "PENDING",
     });
@@ -449,6 +454,13 @@ describe("survey-first enrollment", () => {
     expect((await db.studentSurvey.findFirstOrThrow()).confirmedAt).toBeNull();
   });
   it("does not grant public or student callers access to management's unverified queue", async () => {
+    await db.user.create({
+      data: {
+        id: "student",
+        email: "student-fixture@example.test",
+        role: "STUDENT",
+      },
+    });
     const caller = createCallerFactory(tuteeRouter);
     await expect(
       caller({ db, headers: new Headers(), session: null }).pendingSurveys(),
@@ -651,6 +663,13 @@ describe("student request lifecycle", () => {
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
   it("starts the same fixed deadline in the generic admin roster editor and preserves it on edits", async () => {
+    await db.user.create({
+      data: {
+        id: "manager",
+        email: "manager-fixture@example.test",
+        role: "ADMIN",
+      },
+    });
     await submitSurvey(db, input());
     const row = await db.studentSurvey.findFirstOrThrow();
     const { materializeStudent } = await import("./student-survey");
@@ -920,6 +939,13 @@ describe("student request lifecycle", () => {
     ).toBe(2);
   });
   it("blocks students from management workflow data and decisions", async () => {
+    await db.user.create({
+      data: {
+        id: "student",
+        email: "student-fixture@example.test",
+        role: "STUDENT",
+      },
+    });
     const caller = createCallerFactory(studentWorkflowRouter)({
       db,
       headers: new Headers(),

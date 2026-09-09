@@ -10,7 +10,13 @@ export async function resolveTutorLink(
     where: { id: userId },
     select: { role: true, tutorId: true, emailVerifiedAt: true },
   });
-  if (!user || user.role === "STUDENT" || user.tutorId || !email || !user.emailVerifiedAt)
+  if (
+    !user ||
+    user.tutorId ||
+    !email ||
+    !user.emailVerifiedAt ||
+    !["TUTOR", "COORDINATOR", "ADMIN", "HEAD"].includes(user.role)
+  )
     return user?.tutorId ?? null;
   const tutor = await db.tutor.findUnique({
     where: { email },

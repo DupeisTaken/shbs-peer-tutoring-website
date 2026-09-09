@@ -41,6 +41,14 @@ export function TimedActionDialog({
     mutate({ action, target });
   }, [action, target, mutate]);
   useEffect(() => {
+    // The proposal consumed this ticket. Close its modal so the queued-review notice is reachable.
+    const queued = () => {
+      if (!mandatory) onCancel();
+    };
+    window.addEventListener("approval-queued", queued);
+    return () => window.removeEventListener("approval-queued", queued);
+  }, [mandatory, onCancel]);
+  useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
     ref.current?.showModal();
     const timer = setInterval(() => setNow(Date.now()), 250);

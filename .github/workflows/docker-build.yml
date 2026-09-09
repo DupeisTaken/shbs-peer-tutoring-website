@@ -18,16 +18,16 @@ jobs:
           POSTGRES_USER: postgres
           POSTGRES_PASSWORD: postgres
           # Match the integration suite's dedicated-database safety guard.
-          POSTGRES_DB: shbs_survey_first_test
+          POSTGRES_DB: shbs_shipping_test
         ports:
           - 5432:5432
         options: >-
-          --health-cmd "pg_isready -U postgres -d shbs_survey_first_test"
+          --health-cmd "pg_isready -U postgres -d shbs_shipping_test"
           --health-interval 10s
           --health-timeout 5s
           --health-retries 5
     env:
-      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shbs_survey_first_test
+      DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shbs_shipping_test
       AUTH_SECRET: ci-only-secret-that-is-at-least-thirty-two-characters
     steps:
       - uses: actions/checkout@v4
@@ -39,6 +39,7 @@ jobs:
 
       - run: npm ci
       - run: npm run db:migrate
+      - run: npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
       - run: npm run check
       - run: npm audit --omit=dev
       - run: npm test

@@ -1,4 +1,8 @@
-import { assertStudentRequestAssignable, stampStudentAssignment } from "~/server/student-request-state";
+import { auditFilters, auditWhere } from "~/server/audit/filters";
+import {
+  assertStudentRequestAssignable,
+  stampStudentAssignment,
+} from "~/server/student-request-state";
 import { validatePanel, validateInterviewDecision } from "~/server/interviews";
 import { reconcileMeetingHours } from "~/server/meeting-hours";
 import { TRPCError } from "@trpc/server";
@@ -1690,8 +1694,20 @@ export const adminRouter = createTRPCRouter({
         });
         if (before.updatedAt.getTime() !== input.expectedUpdatedAt.getTime())
           staleConflict();
-        const linkedStudent = await tx.user.findUnique({ where: { studentId: input.id }, select: { email: true } });
-        if (linkedStudent && input.email !== undefined && (input.email?.trim().toLowerCase() ?? null) !== linkedStudent.email) throw new TRPCError({ code: "BAD_REQUEST", message: "Student login emails must be changed through verified account settings." });
+        const linkedStudent = await tx.user.findUnique({
+          where: { studentId: input.id },
+          select: { email: true },
+        });
+        if (
+          linkedStudent &&
+          input.email !== undefined &&
+          (input.email?.trim().toLowerCase() ?? null) !== linkedStudent.email
+        )
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "Student login emails must be changed through verified account settings.",
+          });
         const { id, expectedUpdatedAt: _version, slotIds, ...fields } = input;
         void _version;
         if (
@@ -1897,8 +1913,16 @@ export const adminRouter = createTRPCRouter({
         });
         if (flip.count === 0) staleConflict();
 
-        const account = await tx.user.findUnique({ where: { studentId: input.tuteeId }, select: { id: true } });
-        if (account) await notifyUsers([account.id], { title: "Your tutoring assignment was updated", link: "/student" }, tx);
+        const account = await tx.user.findUnique({
+          where: { studentId: input.tuteeId },
+          select: { id: true },
+        });
+        if (account)
+          await notifyUsers(
+            [account.id],
+            { title: "Your tutoring assignment was updated", link: "/student" },
+            tx,
+          );
         await stampStudentAssignment(tx, input.tuteeId);
         return { ok: true, fulfilled };
       });
@@ -2524,7 +2548,12 @@ export const adminRouter = createTRPCRouter({
 
       await ctx.db.$transaction(async (tx) => {
         await lockEntity(tx, `interview:${input.applicationId}`);
-        await validatePanel(tx, input.applicationId, tutorIds, input.headTutorId);
+        await validatePanel(
+          tx,
+          input.applicationId,
+          tutorIds,
+          input.headTutorId,
+        );
         // Concurrency guard on the application — rolls back the panel edit on a stale write.
         const upd = await tx.tutorApplication.updateMany({
           where: {
@@ -3804,7 +3833,7 @@ export const adminRouter = createTRPCRouter({
     .input(
       z.object({
         userId: cuid,
-        role: z.enum(["VIEWER", "TUTOR", "COORDINATOR", "ADMIN"]),
+        role: z.enum(["STUDENT", "VIEWER", "TUTOR", "COORDINATOR", "ADMIN"]),
         confirmPassword: z.string().min(1),
       }),
     )
@@ -4549,14 +4578,57 @@ export const adminRouter = createTRPCRouter({
   // Audit log + undo
   // --------------------------------------------------------------------------
   auditLog: viewerProcedure
-    .input(z.object({ cursor: z.string().optional() }).optional())
+    .input(auditFilters.optional())
     .query(({ ctx, input }) =>
       ctx.db.auditLog.findMany({
+        where: auditWhere(input),
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: 100,
         ...(input?.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),
       }),
     ),
+
+  auditFilterOptions: viewerProcedure.query(async ({ ctx }) => {
+    const [users, historical, operations, entities] = await Promise.all([
+      ctx.db.user.findMany({
+        select: { id: true, name: true, username: true },
+        orderBy: { name: "asc" },
+      }),
+      ctx.db.auditLog.findMany({
+        distinct: ["userId"],
+        select: { userId: true, userName: true },
+        orderBy: { createdAt: "desc" },
+      }),
+      ctx.db.auditLog.findMany({
+        distinct: ["operation"],
+        select: { operation: true },
+        where: { operation: { not: null } },
+        orderBy: { operation: "asc" },
+      }),
+      ctx.db.auditLog.findMany({
+        distinct: ["entity"],
+        select: { entity: true },
+        orderBy: { entity: "asc" },
+      }),
+    ]);
+    const actors = new Map(
+      users.map((u) => [
+        u.id,
+        { id: u.id, label: u.name ?? u.username ?? u.id },
+      ]),
+    );
+    for (const actor of historical)
+      if (actor.userId && !actors.has(actor.userId))
+        actors.set(actor.userId, {
+          id: actor.userId,
+          label: actor.userName ?? actor.userId,
+        });
+    return {
+      users: [...actors.values()],
+      operations: operations.flatMap((o) => (o.operation ? [o.operation] : [])),
+      entities: entities.map((e) => e.entity),
+    };
+  }),
 
   undoAudit: adminProcedure
     .input(z.object({ id: cuid }))

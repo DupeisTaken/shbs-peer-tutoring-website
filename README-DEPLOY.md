@@ -32,8 +32,7 @@ through gated paths: the first admin is created by `npm run admin:create`;
 recruits self-register at **`/register`** with an admin-issued single-use code plus an emailed
 verification code; and outsiders can self-register a **read-only viewer (VIEWER)** account at
 **`/viewer-signup`** (email-validated, behind the `VIEWER_SIGNUP` feature flag). The public tutee
-signup (`/signup`), tutor application (`/tutor-signup`), and crew application (`/crew-signup`) only
-create `PENDING` records for admin review — **none creates a login**. Credential sign-in, the
+signup (`/signup`) first saves a survey; email confirmation then creates or links a student login. Tutor application (`/tutor-signup`) and crew application (`/crew-signup`) create pending records for review. Credential sign-in, the
 registration steps, and viewer signup are all **rate-limited in-app** (per IP + per code / email /
 identifier; `src/server/rate-limit.ts`); a CAPTCHA in front is still worth considering at scale.
 Transactional email (reset links plus sign-in and password-change 2FA codes) goes through Aliyun
@@ -166,7 +165,7 @@ Production migrations still run on every boot so later upgrades preserve product
 
 The image includes the complete production Prisma CLI dependency tree plus the bootstrap script.
 CI boots that exact image against an empty `shbs_boot_test` database, verifies the health and
-sign-in routes, and runs bootstrap twice. Image publishing depends on that gate passing.
+sign-in routes, runs bootstrap twice, and restarts the image to verify automatic expiry of overdue unverified assignments. Image publishing depends on that gate passing. The integrated test suite uses only the loopback `shbs_shipping_test` database; never point destructive fixtures at production.
 
 > Password reset works once Aliyun Direct Mail is configured (see "Email" above). After the first
 > HEAD exists, tutor accounts and setup links can be managed from the admin UI.

@@ -20,11 +20,20 @@ export async function notifyRequest(
         select: { pairing: { select: { tutorId: true } } },
       })
     : [];
+  const owner = row.tuteeId
+    ? await tx.studentProfileOwnership.findUnique({
+        where: { tuteeId: row.tuteeId },
+      })
+    : null;
   const users = await tx.user.findMany({
     where: {
       OR: [
         { role: { in: ["HEAD", "ADMIN", "COORDINATOR"] } },
-        { email: row.email },
+        ...(owner
+          ? [{ id: owner.userId }]
+          : row.tuteeId
+            ? [{ studentId: row.tuteeId }]
+            : []),
         { tutorId: { in: links.map((l) => l.pairing.tutorId) } },
       ],
     },
@@ -37,7 +46,7 @@ export async function notifyRequest(
       body: row.email,
       link: ["HEAD", "ADMIN", "COORDINATOR"].includes(user.role)
         ? "/admin/requests"
-        : user.email === row.email
+        : user.id === owner?.userId || user.email === row.email
           ? "/student"
           : "/dashboard",
     })),

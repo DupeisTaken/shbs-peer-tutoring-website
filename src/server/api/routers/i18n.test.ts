@@ -32,19 +32,20 @@ async function cleanup() {
 beforeEach(async () => {
   await cleanup();
   await db.user.upsert({
-    where: { id: "test-language-admin" },
+    where: { id: adminSession.user.id },
+    update: { role: "ADMIN" },
     create: {
-      id: "test-language-admin",
-      email: "test-language-admin@example.test",
+      id: adminSession.user.id,
+      email: adminSession.user.email!,
+      name: adminSession.user.name,
       role: "ADMIN",
     },
-    update: {},
   });
 });
 
 afterAll(async () => {
   await cleanup();
-  await db.user.deleteMany({ where: { id: "test-language-admin" } });
+  await db.user.deleteMany({ where: { id: adminSession.user.id } });
   await db.$disconnect();
 });
 

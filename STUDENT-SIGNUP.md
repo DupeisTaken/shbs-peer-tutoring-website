@@ -2,7 +2,7 @@
 
 ## Merge and migration order
 
-For the combined release, merge the deployment and participant-workflow PRs before this signup PR. The signup migration reuses their identical student role, account link and policy-acceptance prerequisites while preserving existing records. It also works on the standalone signup branch. Git conflicts in the student page, authentication and router still require reconciliation and a combined test run. Do not deploy a text-only merge of these branches.
+The shipping integration contains the deployment, participant workflow, survey and approval branches. It resolves the shared student schema, combines `/student`, and preserves both migration prerequisites and existing records. Apply the complete migration set before starting the app. `20260909040000_student_profile_ownership` retains explicit historical account links across later intakes.
 
 ## Student workflow
 
@@ -67,3 +67,9 @@ The integration suite refuses to reset any database except a loopback database n
 GitHub Actions provisions this same disposable database name for its PostgreSQL service, health check and connection URL. Keep these aligned with the suite's safety guard when updating CI.
 
 Tests cover signup timing, duplicate handling, original priority, email recovery, read-only token inspection, concurrent confirmation/resends, account isolation, policy changes, assignment/deadline boundaries, irreversible disqualification and fresh resubmission, availability-only editing, recall notifications, quarter withdrawal restrictions, selective schedule rejection, legacy roster editors, role scoping, confirmation delays/replay, and actual QR PNG decoding. See [SIGNUP-AUDIT.md](SIGNUP-AUDIT.md) for verification results and remaining deployment checks.
+
+## Integrated coordinator review and identity
+
+Coordinator assignments and student-review decisions require ADMIN/HEAD approval. The proposal consumes the coordinator confirmation; approval requires a fresh reviewer confirmation. Assignment mail is sent only after the durable decision commits, and failed delivery can be retried from Requests. Resending an existing verification link remains a direct management action and never extends a deadline.
+
+Verified profile ownership survives re-enrollment and account email changes. History is never granted by an email/name match. Quarter withdrawal is bound to both the request email and confirmed account. Renewed consent cannot block history, feedback, appeals, messages or account settings.
