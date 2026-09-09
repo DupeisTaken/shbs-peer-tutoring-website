@@ -8,6 +8,12 @@ on:
   pull_request:
   workflow_dispatch:
 
+# A newer run for the same PR or ref cancels older verification/publish work before it can
+# promote stale code to the mutable GHCR `latest` tag. The publish job also rechecks main below.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
 jobs:
   verify:
     runs-on: ubuntu-latest
@@ -66,7 +72,9 @@ jobs:
 
   publish:
     needs: verify
-    if: github.event_name != 'pull_request'
+    # Only main is publishable. Manual dispatch remains useful for a selected main commit, but a
+    # stale selection fails the current-main check immediately before the image push.
+    if: github.ref == 'refs/heads/main' && (github.event_name == 'push' || github.event_name == 'workflow_dispatch')
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -91,6 +99,19 @@ jobs:
           tags: |
             type=raw,value=latest
             type=sha
+
+      # A run can finish verification after a newer main commit landed. Fail closed instead of
+      # letting that older checkout overwrite the mutable `latest` tag.
+      - name: Confirm commit is current main
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: |
+          set -euo pipefail
+          current_sha="$(git ls-remote origin refs/heads/main | awk '{print $1}')"
+          if [[ -z "$current_sha" || "$current_sha" != "$EXPECTED_SHA" ]]; then
+            echo "::error::Refusing to publish stale commit $EXPECTED_SHA; origin/main is $current_sha."
+            exit 1
+          fi
 
       - name: Build and push
         uses: docker/build-push-action@v6

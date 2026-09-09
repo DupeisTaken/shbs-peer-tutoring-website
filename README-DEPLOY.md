@@ -108,6 +108,11 @@ address, outbound port 465 is open from the host, and check `docker compose logs
 Pushing to `main` triggers `.github/workflows/docker-build.yml`, which builds and pushes
 `ghcr.io/<owner>/shbs-peer-tutoring-website:latest`.
 
+Only a push or manual dispatch for the `main` ref can publish. Runs for the same pull request or
+ref cancel older runs, and the publish job rechecks that its commit is still the current
+`origin/main` immediately before building and pushing. A superseded run fails closed, so a slower
+older build cannot replace `latest`; the accompanying SHA tag identifies the published revision.
+
 If the package is private, authenticate the VPS to GHCR once:
 
 ```bash
