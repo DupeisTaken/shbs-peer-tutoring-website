@@ -1,19 +1,40 @@
 "use client";
 import { formText, formTexts } from "~/lib/form-values";
+import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 export function InterviewManagement() {
   const t = useTranslations("workflows");
-  const data = api.interviewManagement.options.useQuery();
+  const utils = api.useUtils();
+  const [page, setPage] = useState(0);
+  const [search, setSearch] = useState("");
+  const [searchDraft, setSearchDraft] = useState("");
+  const [completion, setCompletion] = useState<"OPEN" | "COMPLETED" | "ALL">(
+    "OPEN",
+  );
+  const data = api.interviewManagement.options.useQuery({
+    page,
+    search,
+    completion,
+  });
   const qualify = api.interviewManagement.qualify.useMutation({
     onSuccess: () => data.refetch(),
   });
   const complete = api.interviewManagement.complete.useMutation({
-    onSuccess: () => data.refetch(),
+    onSuccess: async () => {
+      setPage(0);
+      // Interview completion changes both the open and historical queues.
+      await utils.interviewManagement.options.invalidate();
+    },
   });
   if (data.error) return <p role="alert">{data.error.message}</p>;
   if (!data.data) return <p>{t("loading")}</p>;
   const { tutors, subjects, qualifications, applications } = data.data;
+  const first = applications.total === 0 ? 0 : page * applications.pageSize + 1;
+  const last = Math.min(
+    applications.total,
+    (page + 1) * applications.pageSize,
+  );
   return (
     <div className="space-y-6">
       <p className="muted">{t("allVotes")}</p>
@@ -79,7 +100,46 @@ export function InterviewManagement() {
       </section>
       <section className="space-y-4">
         <h2 className="section-title">{t("interviewComplete")}</h2>
-        {applications.map((a) => (
+        <div className="card flex flex-wrap items-end gap-3 p-4">
+          <form
+            className="flex min-w-64 flex-1 items-end gap-2"
+            onSubmit={(event) => {
+              event.preventDefault();
+              setPage(0);
+              setSearch(searchDraft.trim());
+            }}
+          >
+            <label className="min-w-0 flex-1">
+              <span className="label">{t("interviewSearch")}</span>
+              <input
+                className="input w-full"
+                value={searchDraft}
+                onChange={(event) => setSearchDraft(event.target.value)}
+              />
+            </label>
+            <button className="btn-secondary" type="submit">
+              {t("interviewSearch")}
+            </button>
+          </form>
+          <label>
+            <span className="label">{t("interviewFilter")}</span>
+            <select
+              className="select"
+              value={completion}
+              onChange={(event) => {
+                setPage(0);
+                setCompletion(
+                  event.target.value as "OPEN" | "COMPLETED" | "ALL",
+                );
+              }}
+            >
+              <option value="OPEN">{t("interviewOpen")}</option>
+              <option value="COMPLETED">{t("interviewCompleted")}</option>
+              <option value="ALL">{t("interviewAll")}</option>
+            </select>
+          </label>
+        </div>
+        {applications.rows.map((a) => (
           <form
             key={`${a.id}:${a.interviewCompletedAt?.toISOString()}`}
             className="card space-y-4 p-6"
@@ -159,6 +219,34 @@ export function InterviewManagement() {
             </button>
           </form>
         ))}
+        {applications.rows.length === 0 && (
+          <p className="muted card p-6 text-center">{t("interviewEmpty")}</p>
+        )}
+        <div className="flex items-center justify-between gap-3">
+          <button
+            type="button"
+            className="btn-secondary btn-sm"
+            disabled={page === 0}
+            onClick={() => setPage((current) => Math.max(0, current - 1))}
+          >
+            {t("previous")}
+          </button>
+          <span className="muted text-sm">
+            {t("interviewCount", {
+              first,
+              last,
+              total: applications.total,
+            })}
+          </span>
+          <button
+            type="button"
+            className="btn-secondary btn-sm"
+            disabled={last >= applications.total}
+            onClick={() => setPage((current) => current + 1)}
+          >
+            {t("next")}
+          </button>
+        </div>
       </section>
       {(complete.error ?? qualify.error) && (
         <p role="alert">{(complete.error ?? qualify.error)?.message}</p>

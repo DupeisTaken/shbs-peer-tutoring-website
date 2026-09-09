@@ -1834,6 +1834,85 @@ it("interview completion awards only attendees, and a correction replaces credit
   expect(rows[0]!.amount).toBe(0.75);
 });
 
+it("interview management paginates open and completed panel history", async () => {
+  const applications = Array.from({ length: 55 }, (_, index) => ({
+    id: `paged-interview-${index}`,
+    name: `Paged Candidate ${index}`,
+    email: `paged-${index}@example.test`,
+    createdAt: new Date(Date.UTC(2026, 0, index + 1)),
+    interviewCompletedAt:
+      index < 3 ? null : new Date(Date.UTC(2026, 2, index + 1)),
+    interviewDurationMin: index < 3 ? null : 30,
+  }));
+  await db.tutorApplication.createMany({ data: applications });
+  await db.interviewAssignment.createMany({
+    data: applications.map((application) => ({
+      applicationId: application.id,
+      tutorId: "review-tutor",
+      isHead: true,
+    })),
+  });
+
+  const open = await caller().interviewManagement.options({
+    page: 0,
+    search: "",
+    completion: "OPEN",
+  });
+  expect(open.applications.total).toBe(3);
+  expect(open.applications.rows.map((application) => application.id)).toEqual([
+    "paged-interview-2",
+    "paged-interview-1",
+    "paged-interview-0",
+  ]);
+
+  const completedHistory = await caller().interviewManagement.options({
+    page: 2,
+    search: "",
+    completion: "COMPLETED",
+  });
+  expect(completedHistory.applications.total).toBe(52);
+  expect(completedHistory.applications.rows).toHaveLength(12);
+  expect(
+    completedHistory.applications.rows.map((application) => application.id),
+  ).toContain("paged-interview-3");
+
+  const searched = await caller().interviewManagement.options({
+    page: 0,
+    search: "paged-54@example.test",
+    completion: "ALL",
+  });
+  expect(searched.applications.total).toBe(1);
+  expect(searched.applications.rows[0]?.id).toBe("paged-interview-54");
+});
+
+it("interview pagination visits every tied-timestamp application exactly once", async () => {
+  const rows = Array.from({ length: 55 }, (_, index) => ({
+    id: `tied-interview-${String(index).padStart(2, "0")}`,
+    name: `Tied applicant ${index}`,
+    email: `tied-${index}@example.test`,
+    createdAt: new Date("2026-09-01T00:00:00Z"),
+  }));
+  await db.tutorApplication.createMany({ data: rows });
+  await db.interviewAssignment.createMany({
+    data: rows.map(({ id }) => ({
+      applicationId: id,
+      tutorId: "review-tutor",
+    })),
+  });
+  const visited: string[] = [];
+  for (let page = 0; page < 3; page++) {
+    const result = await caller().interviewManagement.options({
+      page,
+      search: "Tied applicant",
+      completion: "ALL",
+    });
+    expect(result.applications.total).toBe(rows.length);
+    visited.push(...result.applications.rows.map(({ id }) => id));
+  }
+  expect(visited).toEqual(rows.map(({ id }) => id).reverse());
+  expect(new Set(visited).size).toBe(rows.length);
+});
+
 it("panel assignment rejects missing qualification and a lower-ranking chair", async () => {
   const { app, panel } = await interviewFixture();
   let current = await db.tutorApplication.findUniqueOrThrow({
