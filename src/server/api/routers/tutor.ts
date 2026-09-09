@@ -1176,47 +1176,53 @@ export const tutorRouter = createTRPCRouter({
         interviewAt: z.coerce.date().nullable(),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
-      await assertFeatureEnabled(ctx.db, "INTERVIEWS");
-      const assignment = await ctx.db.interviewAssignment.findUnique({
-        where: {
-          applicationId_tutorId: {
-            applicationId: input.applicationId,
-            tutorId: ctx.session.tutorId,
-          },
-        },
-        select: { isHead: true },
-      });
-      if (!assignment?.isHead) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Only the head interviewer can set the interview time.",
-        });
-      }
-      const updated = await ctx.db.tutorApplication.update({
-        where: { id: input.applicationId },
-        data: { interviewAt: input.interviewAt },
-      });
-      // Tell the rest of the panel when a time is set (it shows on their dashboard).
-      if (input.interviewAt) {
-        const panel = await ctx.db.interviewAssignment.findMany({
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        // Panel replacement uses this same lock: check current chair authority only
+        // after acquiring it, and retain it through the schedule and notification writes.
+        await lockEntity(tx, `interview:${input.applicationId}`);
+        await assertFeatureEnabled(tx, "INTERVIEWS");
+        const assignment = await tx.interviewAssignment.findUnique({
           where: {
-            applicationId: input.applicationId,
-            tutorId: { not: ctx.session.tutorId },
+            applicationId_tutorId: {
+              applicationId: input.applicationId,
+              tutorId: ctx.session.tutorId,
+            },
           },
-          select: { tutorId: true },
+          select: { isHead: true },
         });
-        await notifyTutors(
-          panel.map((p) => p.tutorId),
-          {
-            title: "Interview scheduled",
-            body: `An interview was scheduled for ${input.interviewAt.toLocaleString()}.`,
-            link: "/dashboard",
-          },
-        );
-      }
-      return updated;
-    }),
+        if (!assignment?.isHead) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Only the head interviewer can set the interview time.",
+          });
+        }
+        const updated = await tx.tutorApplication.update({
+          where: { id: input.applicationId },
+          data: { interviewAt: input.interviewAt },
+        });
+        // Tell the rest of the panel when a time is set (it shows on their dashboard).
+        if (input.interviewAt) {
+          const panel = await tx.interviewAssignment.findMany({
+            where: {
+              applicationId: input.applicationId,
+              tutorId: { not: ctx.session.tutorId },
+            },
+            select: { tutorId: true },
+          });
+          await notifyTutors(
+            panel.map((p) => p.tutorId),
+            {
+              title: "Interview scheduled",
+              body: `An interview was scheduled for ${input.interviewAt.toLocaleString()}.`,
+              link: "/dashboard",
+            },
+            tx,
+          );
+        }
+        return updated;
+      }),
+    ),
 
   /**
    * Cast (or update) the caller's interview vote for an application. Any assigned panelist
