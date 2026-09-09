@@ -12,6 +12,7 @@ PR #9 merged the reviewed PRs #6–#9 into main on 9 September 2026 as commit `6
 - All suites share an explicitly allowed loopback `shbs_shipping_test` database. CI requires static checks, tests, full dependency audit, production build, and image boot. The exact image is restarted to verify deadline enforcement resumes automatically.
 - The dependency lockfile matches the production bootstrap requirements. Vitest 4.1.11 fixes [GHSA-82fw-gwwq-j7x9](https://github.com/vitest-dev/vitest/security/advisories/GHSA-82fw-gwwq-j7x9); CI audits development dependencies as well as production packages.
 - Translation review is server-gated for elevated staff or an explicitly assigned translator, and the review UI hides its draft editor until that capability is present. Users & Roles has localized labels for every supported account role, including CREW and STUDENT, in all bundled locales.
+- Registration-code guidance now matches the implemented lifecycle: codes are stored and re-viewable while active, single-use, valid for seven days, and unusable after redemption or revocation; operators are told to share them only with the intended recipient.
 - Student card appeals are one per card and remain limited to the school-day window; the portal hides invalidated cards’ appeal action and disables duplicate or expired submissions while preserving pending-card review behavior.
 
 ## Local verification

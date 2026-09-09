@@ -11,7 +11,7 @@ import { useReadOnly } from "~/app/_components/read-only";
 /**
  * A compact, screenshot-ready setup card for a new tutor: the heading, the code in a two-line box
  * (label + digits), where to enter it, and how long it's valid. Same accent/green scheme as the
- * code boxes. Reused for a freshly-issued code and each expanded card.
+ * code boxes. Reused for a freshly-issued code and each expanded active card.
  */
 function ShareCard({
   code,
@@ -51,7 +51,8 @@ function ShareCard({
 
 /**
  * Registration codes: issue single-use 6-digit security keys for new tutors and track their
- * status. Each code is an expandable card whose body is a screenshot-ready setup panel (ShareCard).
+ * status. Active codes remain re-viewable from their expandable cards until they expire, are used,
+ * or are revoked.
  * Admins + coordinators can issue/revoke; VIEWER is read-only (and never sees codes).
  */
 export default function RegistrationCodesPage() {
