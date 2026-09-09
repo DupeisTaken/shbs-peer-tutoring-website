@@ -25,6 +25,49 @@ import { db } from "~/server/db";
 import { getFeatures } from "~/server/program/features";
 
 /**
+ * Turn Zod's verbose transport payload into a short form-level message. The flattened field
+ * errors remain in `data.zodError` for controls that can render field-level detail; this summary
+ * deliberately omits paths and submitted values so it is safe to show beside a form.
+ */
+export function validationSummary(error: ZodError): string {
+  const flattened = error.flatten();
+  const messages = [
+    ...flattened.formErrors,
+    ...Object.values(flattened.fieldErrors).flatMap((items) => items ?? []),
+  ];
+  const unique = [...new Set(messages)].filter(Boolean);
+  if (!unique.length) return "Please review the submitted values.";
+
+  const shown = unique.slice(0, 3).join("; ");
+  const omitted = unique.length - 3;
+  const suffix = omitted > 0 ? `; ${omitted} more issue(s).` : ".";
+  return `${
+    unique.length === 1
+      ? "Please correct the highlighted field: "
+      : "Please correct the highlighted fields: "
+  }${shown}${suffix}`;
+}
+
+/** Apply the transport additions in one testable step before tRPC serializes the error shape. */
+export function formatTRPCErrorShape<
+  TShape extends { message: string; data: object },
+>(shape: TShape, error: { cause?: unknown }) {
+  const zodError = error.cause instanceof ZodError ? error.cause : null;
+  const summary = zodError ? validationSummary(zodError) : null;
+  return {
+    ...shape,
+    message: summary ?? shape.message,
+    data: {
+      ...shape.data,
+      approvalId:
+        error.cause instanceof ApprovalQueued ? error.cause.approvalId : null,
+      zodError: zodError ? zodError.flatten() : null,
+      validationSummary: summary,
+    },
+  };
+}
+
+/**
  * 1. CONTEXT
  *
  * This section defines the "contexts" that are available in the backend API.
@@ -56,16 +99,7 @@ export const createTRPCContext = async (opts: { headers: Headers }) => {
 const t = initTRPC.context<typeof createTRPCContext>().create({
   transformer: superjson,
   errorFormatter({ shape, error }) {
-    return {
-      ...shape,
-      data: {
-        ...shape.data,
-        approvalId:
-          error.cause instanceof ApprovalQueued ? error.cause.approvalId : null,
-        zodError:
-          error.cause instanceof ZodError ? error.cause.flatten() : null,
-      },
-    };
+    return formatTRPCErrorShape(shape, error);
   },
 });
 
