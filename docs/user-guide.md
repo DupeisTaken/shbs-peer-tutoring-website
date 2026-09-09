@@ -129,7 +129,7 @@ You cannot review your own proposal, including after promotion. A coordinator in
 ### Run the program
 
 - Maintain subjects, slots, rooms, rosters and assignments; check current intake and availability before matching.
-- Use **Student Support** for feedback visibility, student appeals, school-calendar overrides and policy-acceptance evidence. Calendar overrides affect the five-school-day appeal window.
+- Use **Student Support** for feedback visibility, student appeals, school-calendar overrides and policy-acceptance evidence. Staff see pending appeals first, can switch to resolved history, and each list has its own page navigation. Calendar overrides affect the five-school-day appeal window.
 - Use **Interview Management** for staff-confirmed subject qualifications and actual completion, duration and attendees. Correcting completion replaces earlier automatic credits.
 - Correct historical attendance or patrols with a reason. Review hours, discipline and related effects after the correction; HEAD receives an in-system notification.
 - Use **Policies** to publish revised documents following the [publication steps](policies/README.md#publish-a-revision). On a fresh site, start with the blank **Student policy** and **Tutor policy** editors and save the reviewed English text before adding translations. Updating repository files alone does not change an already running site.

@@ -10,21 +10,31 @@ import { Pager } from "./student-portal";
 
 export function StudentSupport() {
   const t = useTranslations("workflows");
-  const [page, setPage] = useState(0);
+  const [feedbackPage, setFeedbackPage] = useState(0);
+  const [appealPage, setAppealPage] = useState(0);
+  const [appealState, setAppealState] = useState<"PENDING" | "RESOLVED">(
+    "PENDING",
+  );
   const me = api.account.me.useQuery();
   const staff =
     me.data && ["HEAD", "ADMIN", "COORDINATOR"].includes(me.data.role);
   const setting = api.student.feedbackSettings.useQuery();
   const feedback = api.student.feedbackList.useQuery(
-    { page },
+    { page: feedbackPage },
     { enabled: !!staff || setting.data === true },
   );
-  const appeals = api.student.appeals.useQuery({ page }, { enabled: !!staff });
+  const appeals = api.student.appeals.useQuery(
+    { page: appealPage, state: appealState },
+    { enabled: !!staff },
+  );
   const save = api.student.setFeedbackSettings.useMutation({
     onSuccess: () => setting.refetch(),
   });
   const decide = api.student.decideAppeal.useMutation({
-    onSuccess: () => appeals.refetch(),
+    onSuccess: () => {
+      setAppealPage(0);
+      void appeals.refetch();
+    },
   });
   const { promptText, dialog } = useDialog();
   return (
@@ -71,12 +81,45 @@ export function StudentSupport() {
             <p className="muted mt-2 text-xs">{f.updatedAt.toLocaleString()}</p>
           </article>
         ))}
+        <Pager
+          page={feedbackPage}
+          setPage={setFeedbackPage}
+          more={feedback.data?.length === 20}
+        />
       </section>
       {staff && (
         <section className="card space-y-4 p-6">
-          <h2 className="section-title">{t("staffAppeals")}</h2>
-          {appeals.data?.length === 0 && <p className="muted">{t("empty")}</p>}
-          {appeals.data?.map((a) => (
+          <div className="flex flex-wrap items-center justify-between gap-3">
+            <h2 className="section-title">{t("staffAppeals")}</h2>
+            <div
+              className="flex flex-wrap gap-2"
+              role="group"
+              aria-label={t("appealFilter")}
+            >
+              {(["PENDING", "RESOLVED"] as const).map((state) => (
+                <button
+                  key={state}
+                  type="button"
+                  className={
+                    appealState === state ? "btn-primary" : "btn-secondary"
+                  }
+                  aria-pressed={appealState === state}
+                  onClick={() => {
+                    setAppealState(state);
+                    setAppealPage(0);
+                  }}
+                >
+                  {t(
+                    state === "PENDING" ? "pendingAppeals" : "resolvedAppeals",
+                  )}
+                </button>
+              ))}
+            </div>
+          </div>
+          {appeals.data?.rows.length === 0 && (
+            <p className="muted">{t("empty")}</p>
+          )}
+          {appeals.data?.rows.map((a) => (
             <article
               key={a.id}
               className="space-y-3 rounded-lg border border-slate-200 p-4"
@@ -118,6 +161,13 @@ export function StudentSupport() {
               )}
             </article>
           ))}
+          <Pager
+            page={appealPage}
+            setPage={setAppealPage}
+            more={
+              appeals.data ? (appealPage + 1) * 20 < appeals.data.total : false
+            }
+          />
         </section>
       )}
       {(save.error ?? feedback.error ?? appeals.error ?? decide.error) && (
@@ -130,11 +180,6 @@ export function StudentSupport() {
       )}
       {staff && <SchoolCalendar />}
       {staff && <AcceptanceRecords />}
-      <Pager
-        page={page}
-        setPage={setPage}
-        more={feedback.data?.length === 20 || appeals.data?.length === 20}
-      />
     </div>
   );
 }
