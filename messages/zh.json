@@ -839,7 +839,7 @@
       "title": "政策文档",
       "subtitle": "编辑导师与学生手册。使用 Markdown 编写；已保存的副本为准。",
       "loading": "加载中…",
-      "empty": "暂无政策文档。请运行种子脚本创建。",
+      "empty": "尚未发布任何政策。",
       "languageLabel": "语言",
       "history": "版本历史",
       "historyEmpty": "暂无历史版本。",
@@ -862,7 +862,9 @@
         "saving": "保存中…",
         "save": "保存",
         "saved": "已保存。"
-      }
+      },
+      "studentTitle": "学生政策",
+      "tutorTitle": "导师政策"
     },
     "adjustments": {
       "title": "导师时长调整",

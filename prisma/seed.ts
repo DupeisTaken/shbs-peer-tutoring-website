@@ -7,9 +7,6 @@
  * Idempotent: fixed ids + upserts, so it can be run repeatedly. Run with `npm run db:seed`.
  */
 import "dotenv/config";
-import { existsSync, readFileSync } from "node:fs";
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
 
 import { PrismaPg } from "@prisma/adapter-pg";
 
@@ -28,7 +25,7 @@ import {
   LOCALE_LABELS,
   isDefaultEnabledLocale,
 } from "../src/i18n/config";
-import { TUTEE_POLICY, TUTOR_POLICY } from "./policies";
+import { BUNDLED_POLICIES } from "./policies";
 
 /** School year the seed's active term belongs to (used to derive class-of years). */
 const SEED_SCHOOL_YEAR = "26-27";
@@ -518,7 +515,7 @@ async function seedHistory() {
     // Hour adjustments: one EXTRA + one PUNISHMENT per quarter (stamped to the period).
     const adjs = [
       { id: `hist-adj-extra-${h.quarter}`, tutorId: slots[0]!.tutorId, type: "EXTRA" as const, amount: 0.5, reason: `${h.name} extra exam-prep workshop.` },
-      { id: `hist-adj-pun-${h.quarter}`, tutorId: slots[qi % slots.length]!.tutorId, type: "PUNISHMENT" as const, amount: 0.125, reason: "Unexcused weekly-meeting absence." },
+      { id: `hist-adj-pun-${h.quarter}`, tutorId: slots[qi % slots.length]!.tutorId, type: "PUNISHMENT" as const, amount: 0.125, reason: "Historical manual adjustment retained independently of automatic meeting deductions." },
     ];
     for (const a of adjs) {
       const adata = { month: adjMonth, schoolYear: HISTORY_SCHOOL_YEAR, quarter: h.quarter, type: a.type, amount: a.amount, reason: a.reason, tutorId: a.tutorId };
@@ -945,7 +942,7 @@ async function main() {
 
   // --- Tutor meetings + attendance -------------------------------------------
   // Excused entries carry a tutor-submitted reason + `excusedAt` so the meeting page's amber
-  // "self-excused" panel renders (a tutor self-excuses from their dashboard up to 30m before).
+  // "self-excused" panel renders (a tutor self-excuses from their dashboard at least 60m before).
   const meetings = [
     {
       id: "meeting-1", title: "Weekly tutor meeting", daysAgo: 1,
@@ -982,43 +979,13 @@ async function main() {
     }
   }
 
-  // --- Policy documents (editable in /admin/policies) ------------------------
-  // One row per (slug, locale). The English source ships from ./policies; translated copies live
-  // as markdown files under ./policies/<slug>.<locale>.md (each starts with a "# <title>" heading
-  // we use as the row title). Missing translations just fall back to "en" at render time. Admins
-  // can still edit/add languages in /admin/policies afterwards.
-  const POLICY_VERSIONS: Record<string, string> = {
-    "tutor-policy": "v.2025.10.13M",
-    "tutee-policy": "v.2025.04.25M",
-  };
-  const POLICY_TITLES: Record<string, string> = {
-    "tutor-policy": "Peer Tutoring Tutor Policy",
-    "tutee-policy": "Peer Tutoring Tutee Policy",
-  };
-  // Derived from the bundled locales (minus the "en" source) so it can't drift out of sync.
-  const POLICY_LOCALES = LOCALES.filter((c) => c !== "en");
-  const policiesDir = join(dirname(fileURLToPath(import.meta.url)), "policies");
-
-  const policies: { slug: string; locale: string; title: string; version: string; body: string }[] = [
-    { slug: "tutor-policy", locale: "en", title: POLICY_TITLES["tutor-policy"]!, version: POLICY_VERSIONS["tutor-policy"]!, body: TUTOR_POLICY },
-    { slug: "tutee-policy", locale: "en", title: POLICY_TITLES["tutee-policy"]!, version: POLICY_VERSIONS["tutee-policy"]!, body: TUTEE_POLICY },
-  ];
-  for (const slug of ["tutor-policy", "tutee-policy"]) {
-    for (const locale of POLICY_LOCALES) {
-      const file = join(policiesDir, `${slug}.${locale}.md`);
-      if (!existsSync(file)) continue;
-      const body = readFileSync(file, "utf8").replace(/\r\n/g, "\n").trim();
-      // Title = first "# heading" line, else fall back to the English title.
-      const heading = body.split("\n").find((l) => l.startsWith("# "));
-      const title = heading ? heading.slice(2).trim() : POLICY_TITLES[slug]!;
-      policies.push({ slug, locale, title, version: POLICY_VERSIONS[slug]!, body });
-    }
-  }
-  for (const p of policies) {
+  // Development-only policy catalog. Current EN/ZH files are the single bundled source;
+  // production publication uses the reviewed editor workflow, never this sample-data seed.
+  for (const policy of BUNDLED_POLICIES) {
     await db.policyDocument.upsert({
-      where: { slug_locale: { slug: p.slug, locale: p.locale } },
-      update: { title: p.title, version: p.version, body: p.body },
-      create: p,
+      where: { slug_locale: { slug: policy.slug, locale: policy.locale } },
+      update: { title: policy.title, version: policy.version, body: policy.body },
+      create: policy,
     });
   }
 

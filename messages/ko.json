@@ -910,7 +910,7 @@
       "title": "정책 문서",
       "subtitle": "튜터 및 학생 핸드북을 편집합니다. Markdown으로 작성하며, 저장된 내용이 최신 버전입니다.",
       "loading": "불러오는 중…",
-      "empty": "아직 정책 문서가 없습니다. 시드를 실행하여 생성하세요.",
+      "empty": "아직 게시된 정책이 없습니다.",
       "languageLabel": "언어",
       "history": "버전 이력",
       "historyEmpty": "아직 이전 버전이 없습니다.",
@@ -933,7 +933,9 @@
         "saving": "저장 중…",
         "save": "저장",
         "saved": "저장되었습니다."
-      }
+      },
+      "studentTitle": "학생 정책",
+      "tutorTitle": "튜터 정책"
     },
     "adjustments": {
       "title": "튜터 시간 조정",

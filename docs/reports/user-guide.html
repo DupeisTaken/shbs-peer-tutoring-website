@@ -1,0 +1,553 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>User report and role guide · SHBS Peer Tutoring</title><style>/* A quiet reading surface: strong navigation, generous text measure, no external assets. */
+/* The HTML sidebar replaces Markdown's inline contents list; keep that list for print. */
+#contents,
+#contents + ul {
+  display: none;
+}
+@media print {
+  #contents,
+  #contents + ul {
+    display: block;
+  }
+}
+:root {
+  font-family: "Segoe UI", Arial, sans-serif;
+  color: #20342e;
+  background: #f5f3eb;
+  line-height: 1.65;
+  font-size: 16px;
+  --green: #205a49;
+  --line: #d9dfd4;
+}
+* {
+  box-sizing: border-box;
+}
+html {
+  scroll-padding-top: 28px;
+}
+body {
+  margin: 0;
+}
+a {
+  color: var(--green);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  overflow-wrap: anywhere;
+}
+a:hover {
+  color: #102f26;
+  text-decoration-thickness: 2px;
+}
+a:focus-visible,
+button:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid #c47c30;
+  outline-offset: 4px;
+}
+header {
+  max-width: 1440px;
+  margin: auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  padding: 28px 48px;
+  border-bottom: 1px solid var(--line);
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+}
+.mark {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  background: var(--green);
+  color: #fff;
+  font-family: Georgia, serif;
+  font-size: 24px;
+}
+.muted {
+  color: #617269;
+  font-weight: 400;
+}
+.tools {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  font-size: 0.875rem;
+}
+.tools a {
+  text-decoration: none;
+}
+.tools [aria-current] {
+  font-weight: 700;
+  border-bottom: 2px solid var(--green);
+}
+button {
+  font: inherit;
+  background: transparent;
+  color: var(--green);
+  border: 1px solid #b5c4b7;
+  padding: 8px 13px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.layout {
+  max-width: 1320px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  gap: 64px;
+  padding: 48px;
+}
+aside {
+  align-self: start;
+  position: sticky;
+  top: 24px;
+  font-size: 0.85rem;
+}
+nav a {
+  display: block;
+  text-decoration: none;
+  padding: 7px 0;
+  border-bottom: 1px solid #e1e5dc;
+  line-height: 1.4;
+}
+.eyebrow,
+.edition {
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  font-weight: 700;
+  color: #63756a;
+}
+.eyebrow {
+  margin-top: 0;
+  margin-bottom: 15px;
+}
+.aside-note {
+  margin-top: 30px;
+  border-left: 2px solid #abc4aa;
+  padding-left: 14px;
+  font-size: 0.75rem;
+  color: #68766b;
+}
+.aside-note strong {
+  color: #344c3e;
+  font-weight: 500;
+}
+main {
+  min-width: 0;
+  max-width: 920px;
+}
+.edition {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 14px;
+}
+h1,
+h2,
+h3 {
+  color: #163e30;
+  line-height: 1.15;
+  scroll-margin-top: 24px;
+}
+h1 {
+  font:
+    normal clamp(2.8rem, 5vw, 4.6rem)/1.04 Georgia,
+    "Times New Roman",
+    serif;
+  letter-spacing: -0.045em;
+  margin: 30px 0 25px;
+  max-width: 800px;
+}
+h2 {
+  font:
+    normal 2rem/1.2 Georgia,
+    "Times New Roman",
+    serif;
+  margin: 56px 0 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+h3 {
+  font-size: 1.08rem;
+  margin: 30px 0 12px;
+}
+p {
+  margin: 16px 0;
+}
+article > p:first-of-type {
+  font-size: 1.15rem;
+  color: #4e6254;
+  max-width: 760px;
+}
+li {
+  padding-left: 3px;
+  margin: 8px 0;
+}
+ul,
+ol {
+  padding-left: 23px;
+}
+strong {
+  font-weight: 650;
+}
+code {
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 0.86em;
+  background: #e9ede3;
+  padding: 2px 5px;
+  border-radius: 3px;
+  overflow-wrap: anywhere;
+}
+pre {
+  overflow: auto;
+  background: #173b2f;
+  color: #f0f4e9;
+  padding: 22px;
+  border-radius: 5px;
+  line-height: 1.6;
+}
+pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  overflow-wrap: normal;
+}
+.table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 23px 0;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #fffef9;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+th {
+  text-align: left;
+  background: #e7eddf;
+  color: #264934;
+  font-size: 0.76rem;
+  letter-spacing: 0.02em;
+}
+th,
+td {
+  padding: 13px 15px;
+  vertical-align: top;
+  border-bottom: 1px solid #e2e7dd;
+  min-width: 130px;
+}
+tr:last-child td {
+  border-bottom: 0;
+}
+td:first-child {
+  font-weight: 500;
+}
+blockquote {
+  border-left: 3px solid #86a37f;
+  margin: 24px 0;
+  padding: 0 22px;
+  color: #546751;
+}
+img {
+  max-width: 100%;
+  height: auto;
+}
+footer {
+  border-top: 1px solid var(--line);
+  margin-top: 60px;
+  padding-top: 22px;
+  font-size: 0.78rem;
+  color: #6a786b;
+}
+.skip {
+  position: absolute;
+  left: 20px;
+  top: -80px;
+  background: white;
+  padding: 10px;
+  z-index: 2;
+}
+.skip:focus {
+  top: 12px;
+}
+@media (max-width: 1000px) {
+  header {
+    padding: 24px;
+  }
+  .layout {
+    padding: 34px 24px;
+    gap: 32px;
+    grid-template-columns: 190px minmax(0, 1fr);
+  }
+  .muted {
+    display: none;
+  }
+  .tools {
+    gap: 14px;
+  }
+}
+@media (max-width: 720px) {
+  header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 18px;
+    padding: 22px;
+  }
+  .tools {
+    width: 100%;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 0.8rem;
+  }
+  .layout {
+    display: block;
+    padding: 28px 22px;
+  }
+  aside {
+    position: static;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 25px;
+    margin-bottom: 30px;
+  }
+  nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px 15px;
+  }
+  nav .eyebrow {
+    width: 100%;
+    margin-bottom: 4px;
+  }
+  nav a {
+    font-size: 0.78rem;
+    padding: 3px 0;
+  }
+  .aside-note {
+    display: none;
+  }
+  .edition {
+    font-size: 0.57rem;
+    letter-spacing: 0.1em;
+  }
+  h1 {
+    font-size: 3rem;
+    margin-top: 26px;
+  }
+  h2 {
+    font-size: 1.7rem;
+    margin-top: 42px;
+  }
+  article > p:first-of-type {
+    font-size: 1.05rem;
+  }
+  th,
+  td {
+    padding: 11px;
+    min-width: 145px;
+  }
+  .table-scroll {
+    margin-left: 0;
+    margin-right: 0;
+  }
+  pre {
+    padding: 16px;
+    font-size: 0.86rem;
+  }
+}
+@media print {
+  @page {
+    margin: 18mm;
+  }
+  body {
+    background: white;
+    color: #111;
+    font-size: 10pt;
+  }
+  header,
+  aside,
+  .edition,
+  .skip,
+  .tools {
+    display: none;
+  }
+  .layout {
+    display: block;
+    padding: 0;
+    max-width: none;
+  }
+  main {
+    max-width: none;
+  }
+  h1 {
+    font-size: 30pt;
+  }
+  h2 {
+    font-size: 20pt;
+    margin-top: 24pt;
+    break-after: avoid;
+  }
+  h3 {
+    break-after: avoid;
+  }
+  a {
+    color: #153e2d;
+  }
+  table {
+    font-size: 8pt;
+  }
+  tr {
+    break-inside: avoid;
+  }
+  th,
+  td {
+    min-width: 0;
+    padding: 7px;
+  }
+  pre {
+    white-space: pre-wrap;
+    color: #111;
+    background: #eee;
+  }
+  .table-scroll {
+    overflow: visible;
+    border: 0;
+  }
+  footer {
+    margin-top: 20pt;
+  }
+}
+</style></head>
+<body><a class="skip" href="#report">Skip to report</a>
+<header><a class="brand" href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/docs/README.md"><span class="mark" aria-hidden="true">S</span>SHBS <span class="muted">/ Peer Tutoring</span></a><div class="tools"><a href="user-guide.html" aria-current="page">User guide</a><a href="technical-report.html" >Technical report</a><button type="button" onclick="window.print()">Print / PDF</button></div></header>
+<div class="layout"><aside><nav aria-label="Report contents"><p class="eyebrow">In this report</p><a href="#before-you-start">Before you start</a><a href="#students">Students</a><a href="#tutors">Tutors</a><a href="#crew">Crew</a><a href="#coordinators">Coordinators</a><a href="#administrators">Administrators</a><a href="#head">HEAD</a><a href="#viewers">Viewers</a><a href="#translators">Translators</a><a href="#account-settings-and-private-support">Account settings and private support</a><a href="#troubleshooting">Troubleshooting</a><a href="#report-a-problem">Report a problem</a></nav><div class="aside-note">Program reference<br><strong>9 September 2026</strong><br>Code merged · launch setup pending</div></aside><main id="report"><div class="edition"><span>SHBS / Documentation</span><span>01 · Participation & roles</span></div><article><h1 id="user-report-and-role-guide">User report and role guide</h1>
+<p>Use this guide with the website address supplied by your program. Page names below match the interface. Features and navigation can vary when HEAD disables a program module. A hidden page does not grant permission to use its address directly.</p>
+<h2 id="contents">Contents</h2>
+<ul>
+<li><a href="#before-you-start">Before you start</a></li>
+<li><a href="#students">Students</a></li>
+<li><a href="#tutors">Tutors</a></li>
+<li><a href="#crew">Crew</a></li>
+<li><a href="#coordinators">Coordinators</a></li>
+<li><a href="#administrators">Administrators</a></li>
+<li><a href="#head">HEAD</a></li>
+<li><a href="#viewers">Viewers</a></li>
+<li><a href="#translators">Translators</a></li>
+<li><a href="#account-settings-and-private-support">Account settings and private support</a></li>
+<li><a href="#troubleshooting">Troubleshooting</a></li>
+<li><a href="#report-a-problem">Report a problem</a></li>
+</ul>
+<h2 id="before-you-start">Before you start</h2>
+<p>The combined website supports intake, matching, attendance, hours, interviews, support and reviewed management changes. The operator must configure real email delivery and publish the current school policies before opening public intake. A repository policy revision is not automatically a published school policy.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable table"><table><thead><tr><th>Your access</th><th>Start with</th><th>Important boundary</th></tr></thead><tbody><tr><td>Student</td><td>Student Portal</td><td>Your own records and participation</td></tr><tr><td>Tutor</td><td>Dashboard</td><td>Your linked tutor profile and assignments</td></tr><tr><td>Crew</td><td>Patrol</td><td>Active crew participation; the crew module must be enabled</td></tr><tr><td>Coordinator</td><td>Management area / Change Approvals</td><td>Sensitive changes wait for ADMIN or HEAD review</td></tr><tr><td>Administrator</td><td>Management area</td><td>Operational management; HEAD-only powers remain restricted</td></tr><tr><td>HEAD</td><td>Program &amp; Refresh / Users &amp; Roles</td><td>One program leader; controls leadership and elevated configuration</td></tr><tr><td>Viewer</td><td>Read-only management area</td><td>Permitted summaries with personal contact details masked</td></tr><tr><td>Assigned translator</td><td>Translations / Translation Review</td><td>Draft translations; assignment is an extra permission, not a management role</td></tr></tbody></table></div>
+<p>A role and a tutor or crew membership are different things. A management account needs an active linked tutor profile to perform tutor duties. Student history can coexist with another account role. Suspension prevents ordinary participation; follow the suspension page’s appeal route.</p>
+<h2 id="students">Students</h2>
+<h3 id="apply-and-confirm">Apply and confirm</h3>
+<ol>
+<li>Open <strong>Request a tutor</strong> on the home page when intake is open.</li>
+<li>Enter your name, email, preferred contact method, subject choices and available times. Read the displayed student policy and sign the agreement.</li>
+<li>Choose <strong>Submit Request</strong>. Your original survey submission sets your priority. Repeating the same open request does not buy an earlier place.</li>
+<li>Open the account-confirmation link sent to your email. Create a password if you need an account. Existing accounts retain their role and password.</li>
+<li>Sign in and open <strong>Student Portal</strong>. Verify your request and available times.</li>
+</ol>
+<p>An account link lasts 24 hours. Request a new link if it expires; a successful resend replaces the previous link. Staff may assign a tutor before you confirm. That first assignment starts a fixed seven-day verification deadline. Reassignment and link resends do not extend it. An unverified request closes when its deadline passes and its assignments are released; you must submit a new request with a new priority timestamp.</p>
+<h3 id="manage-a-request">Manage a request</h3>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable table"><table><thead><tr><th>What you need</th><th>Action</th><th>What happens</th></tr></thead><tbody><tr><td>Change your available times</td><td><strong>Edit availability</strong></td><td>Subjects, priority and current assignments stay the same; coordinate the actual meeting with your tutor</td></tr><tr><td>Cancel an unassigned request</td><td>Recall it and confirm the consequences</td><td>That request closes permanently; applying again creates a new timestamp</td></tr><tr><td>Leave after assignment</td><td><strong>Apply to leave this quarter</strong> and give a reason</td><td>Assignment continues during review; approval ends participation and blocks another request that quarter</td></tr><tr><td>See the result</td><td><strong>Current request</strong> and <strong>Processed</strong></td><td>Review state and assignment are shown separately</td></tr></tbody></table></div>
+<p>Important actions display consequences and a countdown before confirmation. A pending request is not an approved change. If a tutor reports a schedule conflict, an approved rejection removes only that tutor’s assignment and returns your request for matching at its original priority.</p>
+<h3 id="records-feedback-and-appeals">Records, feedback and appeals</h3>
+<p>Use <strong>My Schedule</strong>, <strong>My Attendance</strong>, <strong>My Disciplinary Cards</strong> and <strong>My Appeals</strong> in Student Portal. Records remain linked to your account across new intakes and verified email changes.</p>
+<ul>
+<li>Submit feedback for one of your recorded sessions. The portal explains whether management has enabled sharing with that session’s tutor. Feedback is management-only by default; a later visibility change also affects earlier feedback.</li>
+<li>Appeal your own card within <strong>five school days</strong>. Holidays and make-up days follow the school calendar maintained by staff. A pending appeal does not automatically invalidate the card.</li>
+<li>Use <strong>Messages</strong> for a private management conversation. Policy renewal does not remove access to your history, feedback, appeals, messages or account settings. Further participation requires accepting the revised policy.</li>
+</ul>
+<p>Read the <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/prisma/policies/tutee-policy.en.md">student policy</a> or <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/prisma/policies/tutee-policy.zh.md">中文学生政策</a>.</p>
+<h2 id="tutors">Tutors</h2>
+<h3 id="start-tutoring">Start tutoring</h3>
+<p>Complete the team’s registration-code or setup-link flow, verify your email, and set your password. An application or roster entry alone is not a login. Use <strong>Dashboard</strong> to check assignments and <strong>Settings</strong> to maintain availability. If management also granted you tutor participation, use the account menu to switch between management and tutor areas.</p>
+<h3 id="record-a-session">Record a session</h3>
+<ol>
+<li>Confirm the assigned students, date, start/end time and room.</li>
+<li>Record whether the session was held and each student’s actual attendance. Give clear reasons for requested disciplinary cards.</li>
+<li>Read any room-conflict warning. A truthful historical report is allowed and alerts management; it does not reserve a conflicting room for a future session.</li>
+<li>Submit once and check the saved record. If the result is unclear after a network error, check the record before retrying.</li>
+<li>Ask management for a historical correction with the date, affected record and reason. Coordinators must obtain approval for corrections.</li>
+</ol>
+<p>Current tutor-policy acceptance is required for attendance submission. Your service hours are calculated from the saved attendance; see <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/prisma/policies/tutor-policy.en.md#service-hours">session-hour examples</a>.</p>
+<h3 id="conflicts-meetings-and-interviews">Conflicts, meetings and interviews</h3>
+<ul>
+<li>If an assigned student’s availability cannot work, submit a reasoned schedule-rejection request. The assignment continues until approval.</li>
+<li>Submit a meeting excuse at least <strong>60 minutes</strong> before the start. The first three unexcused tutor-meeting absences in a semester have no automatic deduction; each further one deducts <strong>0.25 hours</strong>. Excused absences do not consume this allowance.</li>
+<li>On an interview panel, review the application and submit your own vote. Every panelist must vote before a final decision. The majority decides; a tie is resolved by the selected highest-ranking management chair.</li>
+<li>A coordinator chair’s outcome goes to ADMIN/HEAD for approval. The reviewer preserves the chair’s decision and identity. Hours are earned from recorded interview completion and attendance, not scheduling alone.</li>
+</ul>
+<p>Read the <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/prisma/policies/tutor-policy.en.md">tutor policy</a> or <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/prisma/policies/tutor-policy.zh.md">中文辅导员政策</a>.</p>
+<h2 id="crew">Crew</h2>
+<p>Active crew members use <strong>Patrol</strong> to record what they actually observe in the relevant rooms. Check the date and observations, then submit the patrol. Report mistakes to management with enough context to identify the record. Historical patrol corrections require a reason and audit evidence; coordinator corrections wait for approval.</p>
+<p>Crew access depends on membership and the program’s crew module. A crew-only account does not automatically receive tutor assignments or management powers. Use the crew participation request controls when available and check their pending/resolved state before assuming membership has changed.</p>
+<h2 id="coordinators">Coordinators</h2>
+<p>Coordinators prepare management changes and learn through review. Their own authorized tutor or crew duties continue normally.</p>
+<h3 id="submit-a-change">Submit a change</h3>
+<ol>
+<li>Open the relevant management page and inspect the current record.</li>
+<li>Enter the proposed change and any required reason. For student assignment/review actions, read the consequence dialog and wait for confirmation.</li>
+<li>Submit. <strong>Submitted for admin approval</strong> means no live management change has been applied.</li>
+<li>Follow <strong>View request</strong> to <strong>Change Approvals</strong>. Check the proposed values and wait for review. You can withdraw your own pending request.</li>
+<li>Read the reviewer’s note. Check the live record after approval; an email-delivery warning may still require a link resend.</li>
+</ol>
+<p>Requests cover assignments, schedules, roster changes, policy/content changes, corrections, discipline, hours, interview completion and other supported management operations. Account role changes, program refresh and HEAD-only powers are not obtained by creating a request. Sending an existing verification/setup link is a supported direct action and does not extend a verification deadline.</p>
+<p>If records change while a proposal is pending, the reviewer must reject it and request a fresh proposal. Do not reuse old values or assume a withdrawn/failed request changed the website. See <a href="#troubleshooting">approval troubleshooting</a>.</p>
+<h2 id="administrators">Administrators</h2>
+<h3 id="review-a-coordinator-change">Review a coordinator change</h3>
+<ol>
+<li>Open <strong>Change Approvals</strong>, select a pending request and inspect its values and recorded evidence.</li>
+<li>Check the affected student/tutor, program period and consequences.</li>
+<li>Enter an explanatory review note. Choose <strong>Approve and Apply</strong> or reject with feedback.</li>
+<li>For student actions, complete your own fresh timed confirmation. The coordinator’s earlier confirmation cannot stand in for yours.</li>
+<li>Check the applied state and audit link. If the target changed, reject and request a fresh proposal. If application fails, the request remains pending; do not report it as approved.</li>
+</ol>
+<p>You cannot review your own proposal, including after promotion. A coordinator interview chair remains the author of their proposed outcome. A failed email after a successful assignment does not undo that assignment; use the link resend control and investigate delivery.</p>
+<h3 id="run-the-program">Run the program</h3>
+<ul>
+<li>Maintain subjects, slots, rooms, rosters and assignments; check current intake and availability before matching.</li>
+<li>Use <strong>Student Support</strong> for feedback visibility, student appeals, school-calendar overrides and policy-acceptance evidence. Calendar overrides affect the five-school-day appeal window.</li>
+<li>Use <strong>Interview Management</strong> for staff-confirmed subject qualifications and actual completion, duration and attendees. Correcting completion replaces earlier automatic credits.</li>
+<li>Correct historical attendance or patrols with a reason. Review hours, discipline and related effects after the correction; HEAD receives an in-system notification.</li>
+<li>Use <strong>Policies</strong> to publish revised documents following the <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/docs/policies/README.md#publish-a-revision">publication steps</a>. On a fresh site, start with the blank <strong>Student policy</strong> and <strong>Tutor policy</strong> editors and save the reviewed English text before adding translations. Updating repository files alone does not change an already running site.</li>
+<li>Use <strong>Audit Log</strong> to filter by actor, event, operation, record or UTC date. A proposal and its applied action are distinct events.</li>
+</ul>
+<h2 id="head">HEAD</h2>
+<p>HEAD has administrator abilities plus the program’s restricted leadership and configuration controls. Use <strong>Users &amp; Roles</strong> for permitted appointments and leadership transfer, and <strong>Program &amp; Refresh</strong> for module and program settings. Confirm consequential actions carefully; switching modules or periods affects what participants can do.</p>
+<p>Before opening intake, confirm email delivery, the current policies, subjects, slots, rooms, qualifications, intake timing, school calendar and feedback visibility. Coordinate host, backup and recovery readiness with the technical operator using the <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/README-DEPLOY.md">launch runbook</a>.</p>
+<p>A new period does not erase historical attendance, policy acceptance or audit evidence. Review the new period’s active participation and assignments rather than treating historical records as current availability.</p>
+<h2 id="viewers">Viewers</h2>
+<p>Viewers can browse permitted read-only management summaries. Personal contact details are masked, and management mutations are unavailable. Viewer access does not expose private message conversations or provide a student portal for someone else’s account.</p>
+<p>If you need a different role or access to your own participation record, contact management. Do not create another account to work around permissions.</p>
+<h2 id="translators">Translators</h2>
+<p>Translator access is assigned to an existing account. Use <strong>Translations</strong> for interface text and <strong>Translation Review</strong> for website text drafts. Choose the correct language and destination, preserve meaning, and submit a draft for review.</p>
+<p>Draft text becomes live only after management approval. A coordinator’s translation decision also requires ADMIN/HEAD review. If the destination changes before approval, submit a fresh draft against the current text. Translator assignment does not permit structural page deletion, account administration or unilateral policy publication. Policy translations require the separate <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/docs/policies/README.md">policy review process</a>.</p>
+<h2 id="account-settings-and-private-support">Account settings and private support</h2>
+<p>Use <strong>Account Settings</strong> to change your password or request a verified email change. Editing a contact field is not email verification. Keep account links and codes private. If email delivery is unavailable, contact management; a success message from another action does not prove an email arrived.</p>
+<p>Use <strong>Messages</strong> for participant-to-management conversations. Only the two conversation participants can read the messages; another administrator cannot simply browse a colleague’s private conversation. Notifications omit message bodies. For a suspended account, use the appeal option on the suspension page.</p>
+<h2 id="troubleshooting">Troubleshooting</h2>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable table"><table><thead><tr><th>What you see</th><th>What to do</th></tr></thead><tbody><tr><td>Intake has not opened</td><td>Check the displayed opening time or preview; account creation does not change survey priority</td></tr><tr><td>Confirmation link expired</td><td>Request a new link; use the most recent successfully sent link</td></tr><tr><td>Verification deadline passed</td><td>Submit a new request if eligible; resending the old link cannot extend the deadline</td></tr><tr><td>A new policy is required</td><td>Read and accept the displayed revision; history and private support remain accessible</td></tr><tr><td>Change is pending</td><td>Open Change Approvals; live records stay unchanged until approval</td></tr><tr><td>Affected records changed</td><td>Reviewer rejects the stale proposal; coordinator prepares a new one using current records</td></tr><tr><td>Assignment applied but email failed</td><td>Keep the assignment; resend its verification link and check delivery configuration</td></tr><tr><td>Interview decision blocked</td><td>Check every vote, active panel membership, highest-ranking chair and subject qualification</td></tr><tr><td>A permission/page is missing</td><td>Check role, linked membership, suspension and enabled module with management</td></tr><tr><td>Hours look different from ordinary rounding</td><td>Compare the recorded attendance and the <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/prisma/policies/tutor-policy.en.md#service-hours">confirmed custom rounding examples</a></td></tr><tr><td>A correction did not change the expected record</td><td>Check approval state, date/program period and the audit trail; ask management to investigate</td></tr></tbody></table></div>
+<h2 id="report-a-problem">Report a problem</h2>
+<p>For a private account, disciplinary or attendance matter, contact management through the website. For a reproducible software bug, use the <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/new?template=bug_report.yml">bug form</a>. You can also <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/new?template=feature_request.yml">suggest a feature</a> or <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/new?template=documentation.yml">request a documentation update</a>.</p>
+<p>Use synthetic examples and remove student names, contact details, private messages, account links and codes from public reports. <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/docs/issues.md">Creating issues</a> explains what information is useful.</p>
+<p><a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/docs/README.md">Documentation home</a> · <a href="technical-report.html">Technical report</a> · <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/docs/policies/README.md">Policy documents</a></p></article><footer>Maintained in the repository · <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/docs/user-guide.md">View Markdown source</a><br>Local report navigation works offline. Repository and policy links require internet access.</footer></main></div>
+</body></html>

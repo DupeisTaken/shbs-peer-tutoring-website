@@ -27,4 +27,6 @@ These decisions supersede the earlier questions. Integrated workflow details are
 - A coordinator interview chair proposes the final result, including a tie decision. ADMIN/HEAD approves that result without replacing the chair identity; votes and qualifications are revalidated.
 - Coordinator translation decisions also require ADMIN/HEAD review; the translator draft and publication apply together through one approval step.
 - Student workflow proposals consume the coordinator confirmation ticket at submission. Reviewers open a fresh timed consequence dialog; another user’s ticket is never replayed.
-- No deployment in this task. Real provider setup and final school-specific content remain deferred. [English and Chinese handbook drafts](docs/handbook-drafts/README.md) reflect confirmed rules and await school editorial review/publication.
+- No deployment in this task. Real provider setup and final school-specific content remain deferred. [English and Chinese policy sources](docs/policies/README.md) reflect confirmed rules and await school editorial review/publication.
+
+- Session rounding is preserved as explicitly confirmed: 35 minutes → 1 hour, 70 → 1 hour, 71 → 1.5 hours before the attendance multiplier. Interview completion uses actual recorded duration. See [examples](prisma/policies/tutor-policy.en.md#service-hours).

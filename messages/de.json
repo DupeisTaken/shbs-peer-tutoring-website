@@ -910,7 +910,7 @@
       "title": "Richtliniendokumente",
       "subtitle": "Tutor- und Lernenden-Handbücher bearbeiten. In Markdown verfasst; die gespeicherte Fassung ist die maßgebliche Version.",
       "loading": "Wird geladen…",
-      "empty": "Noch keine Richtliniendokumente. Seed ausführen, um sie zu erstellen.",
+      "empty": "Es wurden noch keine Richtlinien veröffentlicht.",
       "languageLabel": "Sprache",
       "history": "Versionsverlauf",
       "historyEmpty": "Noch keine früheren Versionen.",
@@ -933,7 +933,9 @@
         "saving": "Wird gespeichert…",
         "save": "Speichern",
         "saved": "Gespeichert."
-      }
+      },
+      "studentTitle": "Richtlinie für Lernende",
+      "tutorTitle": "Richtlinie für Tutoren"
     },
     "adjustments": {
       "title": "Stundenanpassungen für Tutoren",

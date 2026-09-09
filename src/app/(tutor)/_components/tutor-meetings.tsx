@@ -7,7 +7,7 @@ import { api } from "~/trpc/react";
 
 /**
  * Upcoming tutor meetings with a self-excuse control. A tutor can excuse an absence (with an
- * optional reason) up to 30 minutes before the meeting; it shows on the admin coordination page.
+ * optional reason) at least 60 minutes before the meeting; it shows on the admin coordination page.
  * The section hides itself when there are no upcoming meetings.
  */
 export function TutorMeetings() {

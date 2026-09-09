@@ -1,5 +1,7 @@
 # Student signup and participation audit — 9 September 2026
 
+Historical audit of the standalone survey branch. The current integrated release is [SHIPPING-READINESS.md](SHIPPING-READINESS.md); current ownership and policy behavior are in the [technical report](docs/technical-report.md). Counts and pre-merge statements below describe that earlier audit.
+
 Worktree: `D:/Working Directory/shbs-peer-tutoring-survey-first`  
 Branch: `codex/survey-first-student-signup`  
 Base: `cc6646d` (`origin/main` when the sibling worktree was created)

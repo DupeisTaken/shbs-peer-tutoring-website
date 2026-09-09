@@ -1,0 +1,66 @@
+name: Report a bug
+description: Describe something that does not work as expected.
+title: "[Bug]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        For a private account, attendance or disciplinary matter, contact program management through the website.
+        Use synthetic examples here. Never include student names, emails, private messages, passwords or verification links.
+  - type: textarea
+    id: problem
+    attributes:
+      label: What went wrong?
+      description: Include the page name or path and what you were trying to do.
+    validations:
+      required: true
+  - type: dropdown
+    id: role
+    attributes:
+      label: Which access were you using?
+      options:
+        - Public / not signed in
+        - Student
+        - Tutor
+        - Crew
+        - Coordinator
+        - Administrator
+        - HEAD
+        - Viewer
+        - Assigned translator
+        - Unsure
+    validations:
+      required: true
+  - type: textarea
+    id: reproduce
+    attributes:
+      label: Steps to reproduce
+      description: Start from the page you opened. Mention whether a change was pending or approved.
+      placeholder: "1. Open…\n2. Choose…\n3. Observe…"
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Expected and actual result
+      description: Explain both. Include the error wording if available, with private data removed.
+    validations:
+      required: true
+  - type: input
+    id: environment
+    attributes:
+      label: Browser, device and version
+      description: Include the site release/commit if known. “Unknown” is fine.
+      placeholder: Edge on Windows, release unknown
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Additional evidence or workaround
+      description: Optional sanitized screenshot, frequency, relevant time or workaround. Avoid full logs containing personal data.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Before submitting
+      options:
+        - label: I removed private participant data, passwords, codes and account links.
+          required: true

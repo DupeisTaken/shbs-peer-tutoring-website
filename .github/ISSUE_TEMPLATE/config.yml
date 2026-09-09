@@ -1,0 +1,5 @@
+blank_issues_enabled: false
+contact_links:
+  - name: Read the role guide
+    url: https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/docs/user-guide.md
+    about: Start with the guide for your role; use the website's private messages for personal program matters.
