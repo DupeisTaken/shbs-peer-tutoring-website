@@ -1530,6 +1530,64 @@ it("student support separates pending and resolved appeals with exact totals", a
     "UPHELD",
   ]);
 });
+it("student card actions detect appeals outside the current appeal-history page", async () => {
+  const a = await studentAccount();
+  const target = await db.disciplinaryCard.create({
+    data: {
+      id: "appeal-page-target",
+      tuteeId: "review-tutee",
+      color: "RED",
+      reason: "Target card",
+      createdAt: new Date("2026-09-10T08:00:00Z"),
+    },
+  });
+  const fillerCards = Array.from({ length: 20 }, (_, index) => ({
+    id: `appeal-page-card-${String(index).padStart(2, "0")}`,
+    tuteeId: "review-tutee",
+    color: "YELLOW" as const,
+    reason: `Filler ${index}`,
+    createdAt: new Date("2026-09-09T08:00:00Z"),
+  }));
+  await db.disciplinaryCard.createMany({ data: fillerCards });
+  await db.studentAppeal.createMany({
+    data: [
+      {
+        id: "appeal-page-target-history",
+        studentId: "review-tutee",
+        cardId: target.id,
+        body: "Existing appeal on the older history page",
+        createdAt: new Date("2026-09-01T08:00:00Z"),
+      },
+      ...fillerCards.map((card, index) => ({
+        id: `appeal-page-history-${String(index).padStart(2, "0")}`,
+        studentId: "review-tutee",
+        cardId: card.id,
+        body: `Newer appeal ${index}`,
+        createdAt: new Date("2026-09-10T09:00:00Z"),
+      })),
+    ],
+  });
+
+  const first = await a.student.me({ page: 0 });
+  const targetCard = first.cards.find((card) => card.id === target.id);
+  expect(targetCard?.hasExistingAppeal).toBe(true);
+  expect(first.appeals.map((appeal) => appeal.cardId)).not.toContain(target.id);
+  expect(
+    first.cards.slice(1).map((card) => card.id),
+  ).toEqual(
+    fillerCards
+      .map((card) => card.id)
+      .sort()
+      .reverse()
+      .slice(0, 19),
+  );
+  expect(first.appeals.map((appeal) => appeal.id)).toEqual(
+    Array.from({ length: 20 }, (_, index) =>
+      `appeal-page-history-${String(19 - index).padStart(2, "0")}`,
+    ),
+  );
+  expect((await a.student.me({ page: 1 })).appeals[0]?.cardId).toBe(target.id);
+});
 it("expired disciplinary appeals are rejected", async () => {
   const a = await studentAccount();
   const card = await db.disciplinaryCard.create({
