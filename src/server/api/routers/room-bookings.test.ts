@@ -13,6 +13,11 @@ vi.mock("~/server/auth", () => ({ auth: async () => null }));
 
 import { createCaller } from "~/server/api/root";
 import { db } from "~/server/db";
+import { assertIsolatedTestDatabase } from "~/test/database-guard";
+
+// Fail during module evaluation, before setup OR teardown hooks are registered.
+// A beforeAll-only guard would still allow afterAll cleanup against an unsafe database.
+assertIsolatedTestDatabase(process.env.DATABASE_URL);
 
 const SCHOOL_YEAR = "97-98";
 const ROOM_PREFIX = "Booking Integrity";
