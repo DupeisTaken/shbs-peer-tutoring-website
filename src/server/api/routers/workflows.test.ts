@@ -808,6 +808,66 @@ it("PASS: attendance persists expected service hours and roster", async () => {
   expect(row.tutees).toHaveLength(1);
   expect(row.month).toBe("2026-09");
 });
+it("attendance rejects future school dates", async () => {
+  const schoolTomorrow = new Date(Date.now() + 8 * 60 * 60 * 1000);
+  schoolTomorrow.setUTCDate(schoolTomorrow.getUTCDate() + 1);
+  await expect(
+    tutor().tutor.submitAttendance({
+      ...attendance(),
+      date: new Date(schoolTomorrow.toISOString().slice(0, 10)),
+    }),
+  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  expect(await db.session.count()).toBe(0);
+});
+it("attendance requires the complete merged roster exactly once", async () => {
+  await db.tutee.create({
+    data: { id: "second-tutee", englishName: "Second Tutee" },
+  });
+  await db.pairing.create({
+    data: {
+      id: "second-pairing",
+      tutorId: "review-tutor",
+      termId: "review-term",
+      subject: "Second subject",
+      dayOfWeek: 1,
+      startMin: 930,
+      endMin: 990,
+      tutees: { create: { tuteeId: "second-tutee" } },
+    },
+  });
+  const complete = {
+    ...attendance(),
+    mergePairingIds: ["second-pairing"],
+    tutees: [
+      { tuteeId: "review-tutee", status: "PRESENT" as const },
+      { tuteeId: "second-tutee", status: "PRESENT" as const },
+    ],
+  };
+  await expect(
+    tutor().tutor.submitAttendance({
+      ...complete,
+      tutees: complete.tutees.slice(0, 1),
+    }),
+  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  await expect(
+    tutor().tutor.submitAttendance({
+      ...complete,
+      tutees: [complete.tutees[0]!, complete.tutees[0]!],
+    }),
+  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
+  await tutor().tutor.submitAttendance(complete);
+  const sessions = await db.session.findMany({
+    orderBy: { pairingId: "asc" },
+    include: { tutees: true },
+  });
+  expect(sessions).toHaveLength(2);
+  expect(
+    sessions
+      .flatMap((session) => session.tutees.map((row) => row.tuteeId))
+      .sort(),
+  ).toEqual(["review-tutee", "second-tutee"].sort());
+});
 it("PASS: viewer cannot mutate the subject catalog", async () => {
   await expect(
     caller("VIEWER", "review-viewer").admin.createSubject({
