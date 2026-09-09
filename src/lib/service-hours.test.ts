@@ -65,7 +65,7 @@ describe("shCount rounding", () => {
 });
 
 describe("interviewServiceHours", () => {
-  it("equals the interview duration rounded to the nearest half-hour", () => {
+  it("preserves the legacy rounded helper; completion uses actual duration elsewhere", () => {
     expect(interviewServiceHours(60)).toBe(1);
     expect(interviewServiceHours(20)).toBe(0.5); // 15-20 min demo -> 0.5h
     expect(interviewServiceHours(45)).toBe(1); // leftover 45 -> ceil to 1.0h

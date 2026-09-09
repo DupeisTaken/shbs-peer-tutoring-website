@@ -910,7 +910,7 @@
       "title": "Documents de politique",
       "subtitle": "Modifiez les manuels tuteurs et élèves. Rédigés en Markdown ; la version enregistrée fait foi.",
       "loading": "Chargement…",
-      "empty": "Aucun document de politique pour l'instant. Exécutez le script de seed pour les créer.",
+      "empty": "Aucune politique n’a encore été publiée.",
       "languageLabel": "Langue",
       "history": "Historique des versions",
       "historyEmpty": "Aucune version antérieure pour l'instant.",
@@ -933,7 +933,9 @@
         "saving": "Enregistrement…",
         "save": "Enregistrer",
         "saved": "Enregistré."
-      }
+      },
+      "studentTitle": "Politique des élèves",
+      "tutorTitle": "Politique des tuteurs"
     },
     "adjustments": {
       "title": "Ajustements d'heures des tuteurs",

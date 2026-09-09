@@ -910,7 +910,7 @@
       "title": "Policy Documents",
       "subtitle": "Edit the tutor and tutee handbooks. Written in Markdown; the saved copy is the source of truth.",
       "loading": "Loading…",
-      "empty": "No policy documents yet. Run the seed to create them.",
+      "empty": "No policies have been published yet.",
       "languageLabel": "Language",
       "history": "Version History",
       "historyEmpty": "No earlier versions yet.",
@@ -933,7 +933,9 @@
         "saving": "Saving…",
         "save": "Save",
         "saved": "Saved."
-      }
+      },
+      "studentTitle": "Student policy",
+      "tutorTitle": "Tutor policy"
     },
     "adjustments": {
       "title": "Tutor Hour Adjustments",

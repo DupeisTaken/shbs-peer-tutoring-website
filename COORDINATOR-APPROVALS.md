@@ -24,9 +24,9 @@ All successful authenticated tRPC mutations add actor and operation metadata, in
 
 Apply the new migration using `npm run db:migrate`, regenerate Prisma using `npx prisma generate`, and restart the app. The migration preserves existing logs and defaults historical entries to `ACTION`.
 
-Run `npm run check`, `npm test -- --maxWorkers=1`, and `npm run build`. The approval integration suite refuses to reset any database other than the explicitly named local `shbs_coordinator_approvals_test`. Never point it at a development or production database. UI tests exercise filters and queued-request announcements; database tests cover permissions, scoping, validation, deduplication, concurrent decisions, stale targets, rollback, and actor attribution.
+Run `npm run check`, `npm test -- --maxWorkers=1`, and `npm run build`. The approval integration suite refuses to reset any database other than explicitly allowed local test databases; the combined suite uses `shbs_shipping_test`. Never point it at a development or production database. UI tests exercise filters and queued-request announcements; database tests cover permissions, scoping, validation, deduplication, concurrent decisions, stale targets, rollback, and actor attribution.
 
-The implementation started at commit `cc6646d` in the isolated `codex/coordinator-approvals` worktree. Uncommitted student/correction workflows in the original checkout are outside this baseline. New management procedures added by a future merge must be classified in the approval policy before coordinators can use them.
+The integrated implementation merged through PR #9. New management procedures must be classified in the approval policy before coordinators can use them. See the [technical report](docs/technical-report.md#approval-transactions) and [role guide](docs/user-guide.md#coordinators).
 
 ## Integrated participant workflows
 

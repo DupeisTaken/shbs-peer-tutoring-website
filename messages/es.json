@@ -839,7 +839,7 @@
       "title": "Documentos de políticas",
       "subtitle": "Edita los manuales de tutores y estudiantes. Escritos en Markdown; la copia guardada es la fuente de verdad.",
       "loading": "Cargando…",
-      "empty": "Aún no hay documentos de políticas. Ejecuta el seed para crearlos.",
+      "empty": "Todavía no se ha publicado ninguna política.",
       "languageLabel": "Idioma",
       "history": "Historial de versiones",
       "historyEmpty": "Aún no hay versiones anteriores.",
@@ -862,7 +862,9 @@
         "saving": "Guardando…",
         "save": "Guardar",
         "saved": "Guardado."
-      }
+      },
+      "studentTitle": "Política para estudiantes",
+      "tutorTitle": "Política para tutores"
     },
     "adjustments": {
       "title": "Ajustes de horas de tutores",

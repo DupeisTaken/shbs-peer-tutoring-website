@@ -1,0 +1,42 @@
+name: Request a documentation update
+description: Report unclear, missing or outdated instructions or policy wording.
+title: "[Docs]: "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Help us find the exact passage. Include a link or heading when possible.
+        Policy wording and software behavior must agree; identify an unconfirmed program rule instead of assuming a decision.
+  - type: input
+    id: location
+    attributes:
+      label: Document, page or heading
+      description: Paste a documentation link or describe where guidance is missing.
+    validations:
+      required: true
+  - type: input
+    id: audience
+    attributes:
+      label: Intended audience and language
+      placeholder: Student, English; coordinator, Chinese; or technical operator
+    validations:
+      required: true
+  - type: textarea
+    id: problem
+    attributes:
+      label: What is unclear, missing or incorrect?
+      description: Explain the task you were trying to complete and where the instructions stopped helping.
+    validations:
+      required: true
+  - type: textarea
+    id: suggestion
+    attributes:
+      label: Suggested correction or supporting source
+      description: Optional wording, related issue or implementation reference. State any program decision still needed.
+  - type: checkboxes
+    id: privacy
+    attributes:
+      label: Before submitting
+      options:
+        - label: My report contains no private participant data or account credentials.
+          required: true

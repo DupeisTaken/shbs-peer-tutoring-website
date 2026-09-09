@@ -10,7 +10,7 @@ The shipping integration contains the deployment, participant workflow, survey a
 2. The receipt directs them to email and provides a prominent sign-in button, copyable URL and downloadable PNG QR code. The QR contains only the public sign-in URL, never an account token.
 3. The single-use email link opens a read-only survey review. Students create their account there, or confirm with an existing account without changing its password or role. Visiting a link does not consume it, so email scanners cannot complete signup.
 4. After confirmation and login, `/student` groups the current request, tutor assignments, availability and participation actions, followed by processed history. Only availability is editable; the original survey evidence remains unchanged. Assigned students coordinate their schedule with their tutors.
-5. When policy text changes, the next login into an authenticated page requires a popup containing the current localized policy, a checkbox and a ten-second confirmation delay. Acceptance never changes priority. Student mutations also check the latest policy on the server.
+5. When policy text changes, the next participation flow requires a popup containing the current localized policy, a checkbox and a ten-second confirmation delay. Acceptance never changes priority. Student mutations also check the latest policy on the server.
 
 ## Priority and verification
 
@@ -43,7 +43,7 @@ Tutor pairing cards group current student availability, verification/edit badges
 
 - Request ownership requires a confirmed account linked to that request's student profile; matching names or legacy email alone never grant ownership or tutor privileges.
 - A public STUDENT account cannot automatically claim a legacy tutor by email. Existing account roles and explicit tutor links are preserved.
-- Student lists are scoped to the authenticated email; admin request details and decisions require management access. Token hashes and policy snapshots are excluded from workflow lists.
+- Student lists are scoped to the authenticated account and its retained profile links; admin request details and decisions require management access. Token hashes and policy snapshots are excluded from workflow lists.
 - Database triggers protect original submission timestamps and terminal request states, and prevent legacy admin/undo paths from assigning closed or overdue student profiles. All admin assignment entrypoints stamp the first-assignment deadline.
 - Email delivery occurs outside transactions. Per-email request locks serialize lifecycle changes across processes; intake/catalog validation uses row locks and policy publication shares a transaction lock with consent capture.
 - Policy acceptance retains the exact revision and snapshot. Survey confirmation records the original submitted policy; a newer revision is acknowledged after login, independently of priority.

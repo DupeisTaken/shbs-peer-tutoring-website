@@ -10,7 +10,7 @@ export type SessionTutorStatus = "PRESENT" | "RESCHEDULED" | "EXTRA" | "TUTOR_AB
 export type TuteeAttendanceStatus = "PRESENT" | "EXCUSED_ABSENT" | "UNEXCUSED_ABSENT";
 
 /**
- * Multiplier applied to the rounded hours, from the split tutor/tutee statuses (policy §III).
+ * Multiplier applied to program-rounded hours, from the split tutor/tutee statuses.
  * - Tutor absent: 0 — the session didn't happen.
  * - Held (present / rescheduled / extra) but every tutee excused-absent: 0.
  * - Otherwise: 1 (prep + the tutor's own time) + the number of PRESENT tutees. Unexcused
@@ -28,8 +28,9 @@ export function sessionFactor(
 }
 
 /**
- * Rounds a duration (minutes) to the nearest half-hour: a <=10 min leftover within the hour
- * rounds down, otherwise up. Shared by session and interview hour math.
+ * Preserved program rounding: a <=10 min remainder within the hour rounds the total
+ * down to a half-hour step; otherwise up. This is NOT nearest-half-hour rounding.
+ * For example, 35 -> 1, 70 -> 1, 71 -> 1.5 hours, before the attendance multiplier.
  */
 export function roundToHalfHour(durationMin: number): number {
   const hours = durationMin / 60;
@@ -38,16 +39,15 @@ export function roundToHalfHour(durationMin: number): number {
 }
 
 /**
- * Rounds duration to the nearest half-hour (a <=10 min leftover rounds down, otherwise up)
- * and multiplies by the factor.
+ * Applies program rounding to duration first, then multiplies by the attendance factor.
  */
 export function shCount(durationMin: number, factor: number): number {
   return roundToHalfHour(durationMin) * factor;
 }
 
 /**
- * Service hours a tutor earns for interviewing a tutor applicant: equal to the interview
- * duration (rounded to the nearest half-hour), per the tutor policy.
+ * Legacy rounded interview helper, retained for compatibility. Completed interviews
+ * use actual duration / 60 in server/api/routers/interview-management.ts, not this helper.
  */
 export function interviewServiceHours(durationMin: number): number {
   return roundToHalfHour(durationMin);

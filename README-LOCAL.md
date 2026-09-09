@@ -2,7 +2,7 @@
 
 Coordinator approval and audit changes require the migration described in
 [COORDINATOR-APPROVALS.md](COORDINATOR-APPROVALS.md). The approval integration suite uses
-only the dedicated local `shbs_coordinator_approvals_test` database; it resets that test
+explicitly allowed local test databases (the combined suite uses `shbs_shipping_test`); it resets that test
 database between cases. Run tests serially with `npm test -- --maxWorkers=1`.
 
 How to run the SHBS Peer Tutoring app on your own machine, point it at a local database,
@@ -11,7 +11,7 @@ stack. For production deployment see [README-DEPLOY.md](./README-DEPLOY.md).
 
 ## Prerequisites
 
-- **Node 20+** and **npm**
+- **Node 22 (CI baseline)** and **npm**
 - A **PostgreSQL** database (one of the options below)
 - *(Optional)* **Docker** — only for the full Compose smoke test at the end
 

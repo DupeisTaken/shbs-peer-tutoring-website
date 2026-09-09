@@ -1,0 +1,533 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><meta name="color-scheme" content="light"><title>Technical report · SHBS Peer Tutoring</title><style>/* A quiet reading surface: strong navigation, generous text measure, no external assets. */
+/* The HTML sidebar replaces Markdown's inline contents list; keep that list for print. */
+#contents,
+#contents + ul {
+  display: none;
+}
+@media print {
+  #contents,
+  #contents + ul {
+    display: block;
+  }
+}
+:root {
+  font-family: "Segoe UI", Arial, sans-serif;
+  color: #20342e;
+  background: #f5f3eb;
+  line-height: 1.65;
+  font-size: 16px;
+  --green: #205a49;
+  --line: #d9dfd4;
+}
+* {
+  box-sizing: border-box;
+}
+html {
+  scroll-padding-top: 28px;
+}
+body {
+  margin: 0;
+}
+a {
+  color: var(--green);
+  text-underline-offset: 3px;
+  text-decoration-thickness: 1px;
+  overflow-wrap: anywhere;
+}
+a:hover {
+  color: #102f26;
+  text-decoration-thickness: 2px;
+}
+a:focus-visible,
+button:focus-visible,
+[tabindex]:focus-visible {
+  outline: 3px solid #c47c30;
+  outline-offset: 4px;
+}
+header {
+  max-width: 1440px;
+  margin: auto;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 24px;
+  padding: 28px 48px;
+  border-bottom: 1px solid var(--line);
+}
+.brand {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  text-decoration: none;
+}
+.mark {
+  display: grid;
+  place-items: center;
+  width: 34px;
+  height: 34px;
+  background: var(--green);
+  color: #fff;
+  font-family: Georgia, serif;
+  font-size: 24px;
+}
+.muted {
+  color: #617269;
+  font-weight: 400;
+}
+.tools {
+  display: flex;
+  align-items: center;
+  gap: 22px;
+  font-size: 0.875rem;
+}
+.tools a {
+  text-decoration: none;
+}
+.tools [aria-current] {
+  font-weight: 700;
+  border-bottom: 2px solid var(--green);
+}
+button {
+  font: inherit;
+  background: transparent;
+  color: var(--green);
+  border: 1px solid #b5c4b7;
+  padding: 8px 13px;
+  border-radius: 4px;
+  cursor: pointer;
+}
+.layout {
+  max-width: 1320px;
+  margin: 0 auto;
+  display: grid;
+  grid-template-columns: 230px minmax(0, 1fr);
+  gap: 64px;
+  padding: 48px;
+}
+aside {
+  align-self: start;
+  position: sticky;
+  top: 24px;
+  font-size: 0.85rem;
+}
+nav a {
+  display: block;
+  text-decoration: none;
+  padding: 7px 0;
+  border-bottom: 1px solid #e1e5dc;
+  line-height: 1.4;
+}
+.eyebrow,
+.edition {
+  text-transform: uppercase;
+  font-size: 0.68rem;
+  letter-spacing: 0.14em;
+  font-weight: 700;
+  color: #63756a;
+}
+.eyebrow {
+  margin-top: 0;
+  margin-bottom: 15px;
+}
+.aside-note {
+  margin-top: 30px;
+  border-left: 2px solid #abc4aa;
+  padding-left: 14px;
+  font-size: 0.75rem;
+  color: #68766b;
+}
+.aside-note strong {
+  color: #344c3e;
+  font-weight: 500;
+}
+main {
+  min-width: 0;
+  max-width: 920px;
+}
+.edition {
+  display: flex;
+  justify-content: space-between;
+  gap: 20px;
+  border-bottom: 1px solid var(--line);
+  padding-bottom: 14px;
+}
+h1,
+h2,
+h3 {
+  color: #163e30;
+  line-height: 1.15;
+  scroll-margin-top: 24px;
+}
+h1 {
+  font:
+    normal clamp(2.8rem, 5vw, 4.6rem)/1.04 Georgia,
+    "Times New Roman",
+    serif;
+  letter-spacing: -0.045em;
+  margin: 30px 0 25px;
+  max-width: 800px;
+}
+h2 {
+  font:
+    normal 2rem/1.2 Georgia,
+    "Times New Roman",
+    serif;
+  margin: 56px 0 20px;
+  padding-top: 20px;
+  border-top: 1px solid var(--line);
+}
+h3 {
+  font-size: 1.08rem;
+  margin: 30px 0 12px;
+}
+p {
+  margin: 16px 0;
+}
+article > p:first-of-type {
+  font-size: 1.15rem;
+  color: #4e6254;
+  max-width: 760px;
+}
+li {
+  padding-left: 3px;
+  margin: 8px 0;
+}
+ul,
+ol {
+  padding-left: 23px;
+}
+strong {
+  font-weight: 650;
+}
+code {
+  font-family: Consolas, "Courier New", monospace;
+  font-size: 0.86em;
+  background: #e9ede3;
+  padding: 2px 5px;
+  border-radius: 3px;
+  overflow-wrap: anywhere;
+}
+pre {
+  overflow: auto;
+  background: #173b2f;
+  color: #f0f4e9;
+  padding: 22px;
+  border-radius: 5px;
+  line-height: 1.6;
+}
+pre code {
+  background: transparent;
+  padding: 0;
+  color: inherit;
+  overflow-wrap: normal;
+}
+.table-scroll {
+  max-width: 100%;
+  overflow-x: auto;
+  margin: 23px 0;
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  background: #fffef9;
+}
+table {
+  border-collapse: collapse;
+  width: 100%;
+  font-size: 0.9rem;
+  line-height: 1.55;
+}
+th {
+  text-align: left;
+  background: #e7eddf;
+  color: #264934;
+  font-size: 0.76rem;
+  letter-spacing: 0.02em;
+}
+th,
+td {
+  padding: 13px 15px;
+  vertical-align: top;
+  border-bottom: 1px solid #e2e7dd;
+  min-width: 130px;
+}
+tr:last-child td {
+  border-bottom: 0;
+}
+td:first-child {
+  font-weight: 500;
+}
+blockquote {
+  border-left: 3px solid #86a37f;
+  margin: 24px 0;
+  padding: 0 22px;
+  color: #546751;
+}
+img {
+  max-width: 100%;
+  height: auto;
+}
+footer {
+  border-top: 1px solid var(--line);
+  margin-top: 60px;
+  padding-top: 22px;
+  font-size: 0.78rem;
+  color: #6a786b;
+}
+.skip {
+  position: absolute;
+  left: 20px;
+  top: -80px;
+  background: white;
+  padding: 10px;
+  z-index: 2;
+}
+.skip:focus {
+  top: 12px;
+}
+@media (max-width: 1000px) {
+  header {
+    padding: 24px;
+  }
+  .layout {
+    padding: 34px 24px;
+    gap: 32px;
+    grid-template-columns: 190px minmax(0, 1fr);
+  }
+  .muted {
+    display: none;
+  }
+  .tools {
+    gap: 14px;
+  }
+}
+@media (max-width: 720px) {
+  header {
+    align-items: flex-start;
+    flex-direction: column;
+    gap: 18px;
+    padding: 22px;
+  }
+  .tools {
+    width: 100%;
+    justify-content: space-between;
+    gap: 12px;
+    font-size: 0.8rem;
+  }
+  .layout {
+    display: block;
+    padding: 28px 22px;
+  }
+  aside {
+    position: static;
+    border-bottom: 1px solid var(--line);
+    padding-bottom: 25px;
+    margin-bottom: 30px;
+  }
+  nav {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 7px 15px;
+  }
+  nav .eyebrow {
+    width: 100%;
+    margin-bottom: 4px;
+  }
+  nav a {
+    font-size: 0.78rem;
+    padding: 3px 0;
+  }
+  .aside-note {
+    display: none;
+  }
+  .edition {
+    font-size: 0.57rem;
+    letter-spacing: 0.1em;
+  }
+  h1 {
+    font-size: 3rem;
+    margin-top: 26px;
+  }
+  h2 {
+    font-size: 1.7rem;
+    margin-top: 42px;
+  }
+  article > p:first-of-type {
+    font-size: 1.05rem;
+  }
+  th,
+  td {
+    padding: 11px;
+    min-width: 145px;
+  }
+  .table-scroll {
+    margin-left: 0;
+    margin-right: 0;
+  }
+  pre {
+    padding: 16px;
+    font-size: 0.86rem;
+  }
+}
+@media print {
+  @page {
+    margin: 18mm;
+  }
+  body {
+    background: white;
+    color: #111;
+    font-size: 10pt;
+  }
+  header,
+  aside,
+  .edition,
+  .skip,
+  .tools {
+    display: none;
+  }
+  .layout {
+    display: block;
+    padding: 0;
+    max-width: none;
+  }
+  main {
+    max-width: none;
+  }
+  h1 {
+    font-size: 30pt;
+  }
+  h2 {
+    font-size: 20pt;
+    margin-top: 24pt;
+    break-after: avoid;
+  }
+  h3 {
+    break-after: avoid;
+  }
+  a {
+    color: #153e2d;
+  }
+  table {
+    font-size: 8pt;
+  }
+  tr {
+    break-inside: avoid;
+  }
+  th,
+  td {
+    min-width: 0;
+    padding: 7px;
+  }
+  pre {
+    white-space: pre-wrap;
+    color: #111;
+    background: #eee;
+  }
+  .table-scroll {
+    overflow: visible;
+    border: 0;
+  }
+  footer {
+    margin-top: 20pt;
+  }
+}
+</style></head>
+<body><a class="skip" href="#report">Skip to report</a>
+<header><a class="brand" href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/docs/README.md"><span class="mark" aria-hidden="true">S</span>SHBS <span class="muted">/ Peer Tutoring</span></a><div class="tools"><a href="user-guide.html" >User guide</a><a href="technical-report.html" aria-current="page">Technical report</a><button type="button" onclick="window.print()">Print / PDF</button></div></header>
+<div class="layout"><aside><nav aria-label="Report contents"><p class="eyebrow">In this report</p><a href="#release-baseline-and-scope">Release baseline and scope</a><a href="#architecture">Architecture</a><a href="#identity-and-authorization">Identity and authorization</a><a href="#approval-transactions">Approval transactions</a><a href="#student-lifecycle-and-ownership">Student lifecycle and ownership</a><a href="#attendance-hours-and-discipline">Attendance, hours and discipline</a><a href="#policy-documents-and-translations">Policy documents and translations</a><a href="#data-and-deployment">Data and deployment</a><a href="#validation-and-development">Validation and development</a><a href="#maintaining-the-documentation">Maintaining the documentation</a><a href="#launch-boundaries">Launch boundaries</a></nav><div class="aside-note">Program reference<br><strong>9 September 2026</strong><br>Code merged · launch setup pending</div></aside><main id="report"><div class="edition"><span>SHBS / Documentation</span><span>02 · Engineering & operations</span></div><article><h1 id="technical-report">Technical report</h1>
+<p>This report describes the integrated website, its implementation boundaries and the evidence needed to operate it. For instructions based on visible controls, use the <a href="user-guide.html">role-based user guide</a>.</p>
+<h2 id="contents">Contents</h2>
+<ul>
+<li><a href="#release-baseline-and-scope">Release baseline and scope</a></li>
+<li><a href="#architecture">Architecture</a></li>
+<li><a href="#identity-and-authorization">Identity and authorization</a></li>
+<li><a href="#approval-transactions">Approval transactions</a></li>
+<li><a href="#student-lifecycle-and-ownership">Student lifecycle and ownership</a></li>
+<li><a href="#attendance-hours-and-discipline">Attendance, hours and discipline</a></li>
+<li><a href="#policy-documents-and-translations">Policy documents and translations</a></li>
+<li><a href="#data-and-deployment">Data and deployment</a></li>
+<li><a href="#validation-and-development">Validation and development</a></li>
+<li><a href="#maintaining-the-documentation">Maintaining the documentation</a></li>
+<li><a href="#launch-boundaries">Launch boundaries</a></li>
+</ul>
+<h2 id="release-baseline-and-scope">Release baseline and scope</h2>
+<p><a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/pull/9">PR #9</a> integrated PRs #6–#8 and merged into main as <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/commit/6056f6e94b7ebe7c1afa7c85fe9ad945eb625e64">6056f6e</a>. Its reviewed head was <code>40427dab3127</code>. <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/34360324221">Exact-head CI</a> passed 283 tests in 33 files, static checks, the full dependency audit, a production build and image boot/restart checks. This is a dated baseline, not a claim that every later commit has the same test count.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable table"><table><thead><tr><th>Area</th><th>Implemented behavior</th><th>Operational boundary</th></tr></thead><tbody><tr><td>Student intake</td><td>Survey-first priority, email confirmation, matching, withdrawal, deadline enforcement</td><td>Real email and current intake configuration are required</td></tr><tr><td>Participant records</td><td>Unified student portal, feedback, appeals, private messages, historical ownership</td><td>Access follows account identity and current authorization</td></tr><tr><td>Management</td><td>Reviewed coordinator changes, direct authorized administrator changes, auditable corrections</td><td>Unknown coordinator management writes are blocked</td></tr><tr><td>Hours and interviews</td><td>Attendance-derived hours, semester meeting allowance, qualified panels, actual interview completion credit</td><td>Published policy must match the confirmed rules</td></tr><tr><td>Deployment</td><td>Standalone image, migration entrypoint, seed-free bootstrap, restart worker</td><td>Target-host TLS, persistence and restored backups need operational verification</td></tr><tr><td>Documentation</td><td>Technical/user reports, policy sources, issue forms, reproducible HTML reports</td><td>Repository revisions do not publish database policy records</td></tr></tbody></table></div>
+<h2 id="architecture">Architecture</h2>
+<p>The website is a long-running <strong>Next.js 16 / React 19</strong> application using <strong>tRPC 11</strong>, <strong>Prisma 7</strong> with the PostgreSQL adapter, <strong>Auth.js</strong> JWT sessions, <strong>next-intl</strong> and <strong>Tailwind CSS 4</strong>. The supported release path is a Node server in the <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/Dockerfile">Docker image</a>, not a static export.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable table"><table><thead><tr><th>Component</th><th>Responsibility</th></tr></thead><tbody><tr><td><a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/src/app">App routes</a></td><td>Public, student, tutor, crew and management interfaces</td></tr><tr><td><a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/src/server/api/root.ts">API root</a> and <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/src/server/api/trpc.ts">procedure middleware</a></td><td>Typed router composition, current authorization, management review interception and action audit</td></tr><tr><td><a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/src/server/db.ts">Database client</a> and <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/src/server/transactions.ts">transaction helpers</a></td><td>PostgreSQL access and shared domain transaction boundaries</td></tr><tr><td><a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/src/lib/approval-policy.ts">Approval policy</a>, <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/src/server/approvals.ts">proposal handling</a>, <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/src/server/api/routers/approval.ts">approval router</a></td><td>Allowlisted operations, evidence snapshots and atomic replay</td></tr><tr><td><a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/src/server/student-survey.ts">Student survey</a>, <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/src/server/student-workflow.ts">workflow</a>, <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/src/server/student-ownership.ts">ownership</a></td><td>Priority, verification, participation and retained account links</td></tr><tr><td><a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/src/server/policy-acceptance.ts">Policy acceptance</a></td><td>Content-derived revisions and immutable acceptance evidence</td></tr><tr><td><a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/src/server/api/routers/corrections.ts">Corrections</a></td><td>Historical attendance/patrol corrections with related effects and evidence</td></tr><tr><td><a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/src/server/email/sender.ts">Email sender</a></td><td>Transactional SMTP delivery and development-only message capture</td></tr><tr><td><a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/src/instrumentation.ts">Instrumentation</a> and <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/src/server/student-deadline-worker.ts">deadline worker</a></td><td>Node-only startup and periodic deadline sweeps</td></tr><tr><td><a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/prisma/schema.prisma">Prisma schema</a> and <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/prisma/migrations">migrations</a></td><td>Persistent application schema and upgrade history</td></tr></tbody></table></div>
+<p>Server-side validation is authoritative. Client-side controls, disabled buttons and role-specific navigation improve usability but do not replace API authorization.</p>
+<h2 id="identity-and-authorization">Identity and authorization</h2>
+<p>Accounts have one primary role: <code>STUDENT</code>, <code>TUTOR</code>, <code>CREW</code>, <code>COORDINATOR</code>, <code>ADMIN</code>, <code>HEAD</code> or <code>VIEWER</code>. Tutor linkage, crew membership and translator assignment are additional capabilities. Do not flatten these into a single rank comparison: an administrator without an active tutor profile cannot automatically act as an interview panelist.</p>
+<p>Protected requests reload the account’s current role, linkage and suspension state. A stale JWT cannot retain a revoked role. Student ownership is based on stable account/profile links, not a matching name or email. Public student/viewer signup cannot claim a legacy tutor profile merely by matching its email; see <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/src/server/auth/tutor-link.ts">tutor linking</a>.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable table"><table><thead><tr><th>Procedure family</th><th>Intended callers</th></tr></thead><tbody><tr><td><code>publicProcedure</code></td><td>Public operations; each operation still validates its inputs and relevant gates</td></tr><tr><td><code>protectedProcedure</code></td><td>Authenticated, currently authorized account operations</td></tr><tr><td><code>tutorProcedure</code> / <code>activeTutorProcedure</code></td><td>Linked tutor access / active tutor duties</td></tr><tr><td><code>crewProcedure</code></td><td>Permitted active crew or management access with the crew module enabled</td></tr><tr><td><code>adminProcedure</code></td><td>Management; sensitive coordinator mutations are intercepted for review</td></tr><tr><td><code>adminOnlyProcedure</code></td><td>ADMIN or HEAD</td></tr><tr><td><code>headProcedure</code></td><td>HEAD-only configuration and leadership powers</td></tr><tr><td><code>viewerProcedure</code></td><td>Permitted management reads, including masked VIEWER responses</td></tr><tr><td><code>translatorProcedure</code></td><td>Assigned translators or management; publication rules still apply</td></tr></tbody></table></div>
+<p>The user-facing implications are in <a href="user-guide.html#before-you-start">role access</a>. Private messages remain scoped to their two participants, including against other management accounts. Feedback defaults to staff-only and can be shared with the session’s tutor through a management setting.</p>
+<h2 id="approval-transactions">Approval transactions</h2>
+<p>The <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/src/lib/approval-policy.ts">explicit operation map</a> classifies management writes. A coordinator’s sensitive mutation creates an immutable proposal and an approval notice instead of applying the resolver. Unknown management operations fail closed. Normal owned attendance, crew duties and interview votes retain their participant permissions; supported link resends do not extend verification deadlines.</p>
+<ol>
+<li>Parse the original input, capture affected records and the active period, and calculate a fingerprint.</li>
+<li>For ticketed student actions, consume the coordinator’s own confirmation when queuing the proposal.</li>
+<li>At review, recheck reviewer and requester status, prevent self-review, and compare current evidence with the proposal fingerprint.</li>
+<li>Reuse the original parser and resolver under the reviewer’s current privileges. Ticketed student actions require a fresh reviewer ticket.</li>
+<li>Commit the domain change, approval state, related notifications and decision audit together. Competing decisions cannot apply the same proposal twice.</li>
+<li>Send assignment email after the durable decision commits. A delivery failure is returned as retryable; it does not roll back a successful assignment.</li>
+</ol>
+<p><a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/src/server/db-scope.ts">Async-local database scope</a> keeps legacy helpers that import the shared database inside the decision transaction. New helpers must compose with that transaction; constructing an independent client would escape rollback. Do not perform irreversible external side effects during replay.</p>
+<p>Interview review preserves the original coordinator chair’s proposed result and identity. Current panel membership, qualifications and all votes are validated again. The actual reviewer is attributed separately in the approval audit.</p>
+<p>Successful authenticated mutations add actor and operation audit metadata. Detailed events and undo records remain available where implemented. This is an application action log, not an access log; it does not reconstruct events predating the release. Generic direct-mutation audit summaries are not a promise that every direct operation and audit insert share one universal transaction. The explicit approval/correction transaction contracts are covered by regressions.</p>
+<h2 id="student-lifecycle-and-ownership">Student lifecycle and ownership</h2>
+<p>The first open survey’s <code>submittedAt</code> sets priority. Confirmation creates or links one account while retaining an existing role and password. First assignment sets a fixed seven-day verification deadline; resends and reassignment do not extend it. Token expiry and verification deadline are separate: an account link lasts 24 hours, while an assigned request has its fixed deadline.</p>
+<div class="table-scroll" tabindex="0" role="region" aria-label="Scrollable table"><table><thead><tr><th>Transition</th><th>Persistent effect</th></tr></thead><tbody><tr><td>Submit survey</td><td>Store choices, signature, policy snapshot and original priority</td></tr><tr><td>Confirm email link</td><td>Consume the challenge, materialize/link the student profile and retain ownership</td></tr><tr><td>Edit availability</td><td>Preserve subjects, priority and current assignment</td></tr><tr><td>Recall unassigned request</td><td>Close that request permanently; a later request gets a new identity and priority</td></tr><tr><td>Approve withdrawal</td><td>Close the request, release all assignments and block the account/email for that intake</td></tr><tr><td>Approve schedule rejection</td><td>Remove only the affected assignment and return the request to matching</td></tr><tr><td>Expire unverified assignment</td><td>Disqualify permanently and release assignments without changing original evidence</td></tr></tbody></table></div>
+<p><a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/src/server/student-ownership.ts">StudentProfileOwnership</a> retains old profiles when the current-intake pointer changes. The migration backfills explicit existing links only; it does not guess ownership from names or email. Feedback, appeals and historical attendance use all owned profiles. Quarter blocks follow stable account identity after verified email changes.</p>
+<p>Deadlines are stored in PostgreSQL. A lightweight Node worker checks at startup and once a minute, and workflow access also checks expiry. Downtime never grants an extension. Database locks make multiple worker instances safe; the timer is not the source of truth.</p>
+<h2 id="attendance-hours-and-discipline">Attendance, hours and discipline</h2>
+<p>Attendance calculates server-side duration, multiplier and hours through <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/src/lib/service-hours.ts">service-hour functions</a>. <strong>The existing custom session rounding is deliberately retained</strong>, as confirmed on 9 September 2026: 35 minutes becomes 1 hour, 70 becomes 1 hour, and 71 becomes 1.5 hours before multiplication. It is not ordinary nearest-half-hour rounding. <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/prisma/policies/tutor-policy.en.md#service-hours">Policy examples</a> explain the exact rule and zero-credit cases.</p>
+<p>Completed interviews use <code>durationMin / 60</code> for recorded attendees in <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/src/server/api/routers/interview-management.ts">Interview Management</a>. Scheduling earns no credit. The legacy rounded interview helper remains covered for compatibility; it is not the live management completion rule.</p>
+<p>Meeting deductions are separate from session earnings: Q1+Q2 and Q3+Q4 define semesters within each school year. The first three unexcused meeting absences incur no automatic deduction; later ones deduct 0.25 hours each. Excused meetings do not count. <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/src/server/meeting-hours.ts">Meeting reconciliation</a> and the upgrade migration preserve manual adjustments.</p>
+<p><a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/src/lib/discipline.ts">Disciplinary standing</a> counts valid cards only: every three yellow cards add one effective red; two effective reds reach the removal threshold. Tutor-requested cards wait for review; attendance can create automatic valid cards. Appeals use five school days with <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/src/server/api/routers/student.ts">school-calendar overrides</a>. Do not describe pending appeals as automatically invalidating a card.</p>
+<p>Historical corrections run related changes together, preserve reasons and snapshots, and notify HEAD. Room-allocation triggers reject overlapping planned bookings, including concurrent writes. Time ranges are half-open, so back-to-back bookings are allowed. Historical attendance can record an actual conflict with warnings and management notification.</p>
+<h2 id="policy-documents-and-translations">Policy documents and translations</h2>
+<p><a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/docs/policies/README.md">Current repository policies</a> are versioned English/Chinese sources used by the development seed. <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/docs/archive/policies-2025/README.md">Older translations</a> are archived so seeding cannot silently pair revised rules with obsolete text. Missing current translations fall back to English.</p>
+<p>The running site reads <code>PolicyDocument</code> rows, not Markdown files on each request. Administrators publish reviewed content through Policies; coordinator publication requires approval. <strong>No migration in this documentation update overwrites a live school policy.</strong> Follow <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/docs/policies/README.md#publish-a-revision">publication steps</a> to archive changes, update every published language and exercise renewed consent.</p>
+<p>The policy editor supports a seed-free installation: staff see blank student/tutor editors when either policy is missing and can save through the existing authorized mutation. It waits for fetched content before mounting editors so an initial blank state cannot conceal saved text. Read-only viewers receive no creation controls. This fixes the former empty page that incorrectly directed operators to run the demo seed.</p>
+<p>Policy revisions derive from the published language set and content. Acceptance retains the exact revision, text snapshot, signature and time. A changed policy gates tutor attendance and student participation, while personal history, feedback, appeals, account settings and private messages remain accessible.</p>
+<p>UI/website translation drafts have their own approval process and stale-destination checks. Translator assignment does not grant structural editing or policy publication privileges.</p>
+<h2 id="data-and-deployment">Data and deployment</h2>
+<p>Follow the <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/README-LOCAL.md">local setup guide</a> or <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/README-DEPLOY.md">production runbook</a>. Apply the committed migrations with <code>npm run db:migrate</code>; do not substitute <code>db push</code> for a production upgrade. The integrated baseline contains 21 migrations, including shared student prerequisites, meeting deduction repair, coordinator approvals and historical student ownership.</p>
+<p>Production starts with an empty database and the seed-free admin bootstrap. Repeating bootstrap preserves the singleton HEAD and active period. <strong>The development seed contains synthetic people and is not a production installation procedure.</strong></p>
+<p>The image ships the complete production dependency graph, including Prisma’s migration CLI and bootstrap runtime. Its entrypoint migrates before starting the standalone server. Deployment uses PostgreSQL persistence, persistent uploads and a reverse proxy/TLS configuration. The exact host/domain and SMTP credentials are operator configuration, not repository constants.</p>
+<p>SMTP uses a bounded reusable Nodemailer transport. Development can intentionally capture messages in logs; security-sensitive production flows require configured delivery. Do not use an application health response as evidence that signup email reached a real inbox.</p>
+<h2 id="validation-and-development">Validation and development</h2>
+<p>Use Node 22 for consistency with CI. Current application source is also checked locally on Windows with Node 24. Tests that truncate PostgreSQL data accept only explicitly named isolated local test databases; the combined suite uses <code>shbs_shipping_test</code>. Use a disposable database and never copy a production URL into these commands.</p>
+<pre><code class="language-bash">npm ci
+npm run db:migrate
+npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
+npm run check
+npm run docs:check
+npm test -- --maxWorkers=1
+npm audit
+npm run build
+</code></pre>
+<p>Set <code>DATABASE_URL</code> to the isolated test database and supply a local <code>AUTH_SECRET</code> first. Detailed environment setup and Windows commands are in <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/README-LOCAL.md">README-LOCAL.md</a>.</p>
+<p>The <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/.github/workflows/docker-build.yml">CI workflow</a> checks clean dependency installation, migrations/schema agreement, lint/types, documentation contracts, full dependency audit, tests, production build and runnable-image acceptance. <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/scripts/smoke-image.sh">The image smoke test</a> boots an empty database, runs bootstrap twice, checks sign-in, restarts with an overdue assignment, and verifies deadline cleanup without a browser mutation. PR validation does not publish an image; main-branch validation can publish to GHCR. Publishing an image does not deploy a host.</p>
+<p>For local investigation, run one dev server and one browser at a time. A bounded example is <code>next dev --webpack --hostname 127.0.0.1 --port 3109</code> with a 2 GB Node heap. Stop that owned process before starting a production build. Avoid killing unrelated Node processes or starting Docker Desktop just to duplicate CI’s image check.</p>
+<h2 id="maintaining-the-documentation">Maintaining the documentation</h2>
+<p>Edit <a href="technical-report.html">this technical source</a>, the <a href="user-guide.html">user guide</a> and the <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/docs/policies/README.md">policy sources</a>. Keep the root README short and use hyperlinks to specialist explanations rather than copying paragraphs into several documents.</p>
+<pre><code class="language-bash">npm run docs:build
+npm run docs:check
+</code></pre>
+<p>The builder generates printable HTML editions from Markdown with shared styling and a contents sidebar. It uses local assets only. The check validates relative files and heading anchors, required role coverage, generated-report freshness, current policy sources and GitHub issue-form structure. Generated HTML lives in <code>docs/reports/</code>; commit it with its source so readers can download it without running the application.</p>
+<p>Verify report layout at desktop and mobile widths and check the contents links, tables and print control. For changes to policy loading or application behavior, run the relevant tests and required CI gates too. Reporting instructions and the three guided forms are in <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/docs/issues.md">Creating issues</a>.</p>
+<h2 id="launch-boundaries">Launch boundaries</h2>
+<p>The integrated application and its image acceptance tests are complete. No deployment was authorized or performed during this documentation task. Before opening real intake, the operator still needs:</p>
+<ol>
+<li>A canonical HTTPS domain and host with persistent database/uploads.</li>
+<li>Real SMTP delivery tested for signup, password recovery and verified email changes.</li>
+<li>Published school-approved policy versions and reviewed translations; final school-specific landing content.</li>
+<li>Actual intake timing, subjects, slots, rooms, qualifications, calendar overrides and feedback settings.</li>
+<li>A backup restored into a separate database and target-host restart/TLS verification.</li>
+</ol>
+<p>These are concrete operational prerequisites, not evidence obtainable from a local screenshot or a clean dependency audit. See <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/README-DEPLOY.md">the deployment runbook</a> and <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/SHIPPING-READINESS.md">release verification record</a>.</p>
+<p><a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/docs/README.md">Documentation home</a> · <a href="user-guide.html">User guide</a> · <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/docs/issues.md">Creating issues</a></p></article><footer>Maintained in the repository · <a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/docs/technical-report.md">View Markdown source</a><br>Local report navigation works offline. Repository and policy links require internet access.</footer></main></div>
+</body></html>
