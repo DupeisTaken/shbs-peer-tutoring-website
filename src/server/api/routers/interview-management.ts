@@ -9,40 +9,81 @@ import { monthKey } from "~/lib/service-hours";
 import { assertFeatureEnabled } from "~/server/program/features";
 
 export const interviewManagementRouter = createTRPCRouter({
-  options: adminProcedure.query(async ({ ctx }) => {
-    const [tutors, subjects, qualifications, applications] = await Promise.all([
-      ctx.db.tutor.findMany({
-        where: { status: "ACTIVE" },
-        select: { id: true, englishName: true },
-        orderBy: { englishName: "asc" },
-      }),
-      ctx.db.subject.findMany({
-        where: { active: true },
-        select: { id: true, name: true },
-        orderBy: { name: "asc" },
-      }),
-      ctx.db.tutorQualification.findMany(),
-      ctx.db.tutorApplication.findMany({
-        where: { interviewers: { some: {} } },
-        orderBy: { createdAt: "desc" },
-        take: 50,
-        select: {
-          id: true,
-          name: true,
-          interviewCompletedAt: true,
-          interviewDurationMin: true,
-          interviewers: {
+  options: adminProcedure
+    .input(
+      z
+        .object({
+          page: z.number().int().min(0).default(0),
+          search: z.string().trim().max(100).default(""),
+          completion: z.enum(["OPEN", "COMPLETED", "ALL"]).default("OPEN"),
+        })
+        .default({ page: 0, search: "", completion: "OPEN" }),
+    )
+    .query(async ({ ctx, input }) => {
+      const pageSize = 20;
+      const where: Prisma.TutorApplicationWhereInput = {
+        interviewers: { some: {} },
+        ...(input.completion === "OPEN"
+          ? { interviewCompletedAt: null }
+          : input.completion === "COMPLETED"
+            ? { interviewCompletedAt: { not: null } }
+            : {}),
+        ...(input.search
+          ? {
+              OR: [
+                { name: { contains: input.search, mode: "insensitive" } },
+                { email: { contains: input.search, mode: "insensitive" } },
+                {
+                  preferredContact: {
+                    contains: input.search,
+                    mode: "insensitive",
+                  },
+                },
+              ],
+            }
+          : {}),
+      };
+      const [tutors, subjects, qualifications, applications, total] =
+        await Promise.all([
+          ctx.db.tutor.findMany({
+            where: { status: "ACTIVE" },
+            select: { id: true, englishName: true },
+            orderBy: { englishName: "asc" },
+          }),
+          ctx.db.subject.findMany({
+            where: { active: true },
+            select: { id: true, name: true },
+            orderBy: { name: "asc" },
+          }),
+          ctx.db.tutorQualification.findMany(),
+          ctx.db.tutorApplication.findMany({
+            where,
+            orderBy: { createdAt: "desc" },
+            take: pageSize,
+            skip: input.page * pageSize,
             select: {
-              tutorId: true,
-              attended: true,
-              tutor: { select: { englishName: true } },
+              id: true,
+              name: true,
+              interviewCompletedAt: true,
+              interviewDurationMin: true,
+              interviewers: {
+                select: {
+                  tutorId: true,
+                  attended: true,
+                  tutor: { select: { englishName: true } },
+                },
+              },
             },
-          },
-        },
-      }),
-    ]);
-    return { tutors, subjects, qualifications, applications };
-  }),
+          }),
+          ctx.db.tutorApplication.count({ where }),
+        ]);
+      return {
+        tutors,
+        subjects,
+        qualifications,
+        applications: { rows: applications, total, pageSize },
+      };
+    }),
   qualify: adminProcedure
     .input(
       z.object({
