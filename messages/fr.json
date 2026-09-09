@@ -502,8 +502,9 @@
         "title": "À traiter",
         "openItems": "éléments ouverts",
         "across": "dans {count} files",
+        "incompleteData": "Certaines données d’activité n’ont pas pu être chargées. Les totaux peuvent être incomplets ; actualisez la page ou contactez un administrateur.",
         "triage": "Où est l'arriéré",
-        "allClear": "Tout est à jour — rien en attente de révision."
+        "allClear": "Aucun élément ouvert dans les files affichées ici."
       }
     },
     "summary": {

@@ -8,14 +8,19 @@ import { api } from "~/trpc/react";
 import { BarList, type BarItem } from "~/app/_components/charts";
 
 /**
- * Single pane of glass: the live status of every kind of request/activity — tutee signups, tutor
- * applications, lifecycle requests, discipline cards, crew validation, and attendance surveys —
- * each linking to where it can be actioned (and reverted). A hero count + a triage bar chart show
- * how much is waiting and where the backlog concentrates; the panels below hold the detail. See the
- * "Admin philosophies" note in CLAUDE.md.
+ * Single pane of glass for the queues the current role may inspect. A hero count and triage chart
+ * show how much is waiting and link to the workflow that owns each decision. The panels below hold
+ * operational detail and recent attendance history. See the "Admin philosophies" note in CLAUDE.md.
  */
 export default function ActivityPage() {
   const t = useTranslations();
+  const me = api.account.me.useQuery();
+  const elevated =
+    me.data != null &&
+    ["HEAD", "ADMIN", "COORDINATOR"].includes(me.data.role);
+  const activitySummary = api.admin.activitySummary.useQuery(undefined, {
+    enabled: elevated,
+  });
   const tutees = api.admin.tutees.useQuery();
   const apps = api.admin.tutorApplications.useQuery();
   const cards = api.admin.disciplinaryCards.useQuery();
@@ -25,11 +30,21 @@ export default function ActivityPage() {
   const sessionFlags = api.admin.sessionFlags.useQuery();
   const crewApplications = api.admin.crewApplications.useQuery();
   const crewRequests = api.admin.crewRequests.useQuery();
-  const features = api.program.features.useQuery().data;
+  const featuresQuery = api.program.features.useQuery();
+  const features = featuresQuery.data;
 
+  const linkedSurveyTutees = new Set(
+    activitySummary.data?.linkedTuteeIds ?? [],
+  );
   const pendingTutees = (tutees.data ?? [])
-    .filter((x) => x.status === "PENDING")
+    .filter(
+      (x) =>
+        x.status === "PENDING" &&
+        (!elevated ||
+          (activitySummary.data != null && !linkedSurveyTutees.has(x.id))),
+    )
     .sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt));
+  const intakeRows = activitySummary.data?.intakeRows ?? [];
   const openApps = (apps.data ?? []).filter(
     (a) => a.status === "PENDING" || a.status === "INTERVIEW",
   );
@@ -44,7 +59,75 @@ export default function ActivityPage() {
   // Triage: every actionable queue, sized by backlog and tinted by urgency (red = a problem to
   // resolve, amber = a member-initiated request on a clock, accent = an inbound waiting to process).
   const triage: BarItem[] = [
-    { key: "signups", label: t("admin.activity.counters.pendingSignups"), value: pendingTutees.length, tone: "accent", href: "/admin/requests" },
+    ...(activitySummary.data
+      ? [
+          {
+            key: "unverified",
+            label: t("workflow.unverified"),
+            value: activitySummary.data.unverified,
+            tone: "amber" as const,
+            href: "/admin/requests",
+          },
+          {
+            key: "matching",
+            label: t("workflow.matching"),
+            value: activitySummary.data.matching,
+            tone: "accent" as const,
+            href: "/admin/requests",
+          },
+          {
+            key: "studentReviews",
+            label: t("workflow.reviews"),
+            value: activitySummary.data.studentReviews,
+            tone: "amber" as const,
+            href: "/admin/requests",
+          },
+          ...(features?.DISCIPLINE
+            ? [
+                {
+                  key: "studentAppeals",
+                  label: t("workflows.staffAppeals"),
+                  value: activitySummary.data.studentAppeals,
+                  tone: "red" as const,
+                  href: "/student-support",
+                },
+              ]
+            : []),
+          {
+            key: "accountAppeals",
+            label: t("admin.users.appeals.heading"),
+            value: activitySummary.data.accountAppeals,
+            tone: "red" as const,
+            href: "/admin/users",
+          },
+          {
+            key: "translationDrafts",
+            label: t("workflows.reviewDrafts"),
+            value: activitySummary.data.translationDrafts,
+            tone: "amber" as const,
+            href: "/translation-review",
+          },
+          ...(activitySummary.data.approvalRequests != null
+            ? [
+                {
+                  key: "approvals",
+                  label: t("approvals.title"),
+                  value: activitySummary.data.approvalRequests,
+                  tone: "amber" as const,
+                  href: "/admin/approvals",
+                },
+              ]
+            : []),
+        ]
+      : [
+          {
+            key: "signups",
+            label: t("admin.activity.counters.pendingSignups"),
+            value: pendingTutees.length,
+            tone: "accent" as const,
+            href: "/admin/requests",
+          },
+        ]),
     { key: "apps", label: t("admin.activity.counters.openApplications"), value: openApps.length, tone: "accent", href: "/admin/applications" },
     ...(features?.DISCIPLINE
       ? [{ key: "cards", label: t("admin.activity.counters.cardsToReview"), value: pendingCards.length, tone: "red" as const, href: "/admin/discipline" }]
@@ -62,15 +145,39 @@ export default function ActivityPage() {
   const totalOpen = triage.reduce((n, x) => n + x.value, 0);
   const activeQueues = triage.filter((x) => x.value > 0).length;
   const backlog = triage.filter((x) => x.value > 0).sort((a, b) => b.value - a.value);
-  const loading = [tutees, apps, cards, tutorRequests, tuteeRequests, sessionFlags, crewApplications, crewRequests].some(
-    (q) => q.isLoading,
-  );
+  // Optional queues are relevant only when their feature is enabled. Their disabled queries may
+  // legitimately be absent or forbidden, so they must not prevent a trustworthy all-clear state.
+  const requiredQueries = [
+    tutees,
+    apps,
+    sessions,
+    tutorRequests,
+    tuteeRequests,
+    ...(features?.DISCIPLINE ? [cards] : []),
+    ...(features?.CREW ? [sessionFlags, crewApplications, crewRequests] : []),
+  ];
+  const loading =
+    me.isLoading ||
+    featuresQuery.isLoading ||
+    (elevated && activitySummary.isLoading) ||
+    requiredQueries.some((q) => q.isLoading);
+  const dataIncomplete =
+    me.error != null ||
+    featuresQuery.error != null ||
+    (elevated && activitySummary.error != null) ||
+    requiredQueries.some((q) => q.error != null);
+  const dataReady = !loading && !dataIncomplete;
 
   return (
     <div className="space-y-6">
       <div>
         <h1 className="page-title">{t("admin.activity.title")}</h1>
         <p className="muted mt-1">{t("admin.activity.subtitle")}</p>
+        {dataIncomplete && (
+          <p className="mt-3 rounded-md border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900" role="alert">
+            {t("admin.activity.hero.incompleteData")}
+          </p>
+        )}
       </div>
 
       {/* Hero — how much is waiting, and where it concentrates. */}
@@ -79,7 +186,9 @@ export default function ActivityPage() {
           <p className="text-[11px] font-semibold tracking-[0.14em] text-accent-700 uppercase">
             {t("admin.activity.hero.title")}
           </p>
-          <p className="mt-2 text-6xl font-bold tracking-tight text-slate-900 tabular-nums">{totalOpen}</p>
+          <p className="mt-2 text-6xl font-bold tracking-tight text-slate-900 tabular-nums">
+            {dataReady ? totalOpen : "—"}
+          </p>
           <p className="mt-1 text-sm font-medium text-slate-500">{t("admin.activity.hero.openItems")}</p>
           {totalOpen > 0 && (
             <p className="muted mt-1 text-xs">{t("admin.activity.hero.across", { count: activeQueues })}</p>
@@ -94,7 +203,11 @@ export default function ActivityPage() {
           ) : (
             <div className="flex h-full items-center">
               <p className="text-sm font-medium text-slate-500">
-                {loading ? "…" : t("admin.activity.hero.allClear")}
+                {loading
+                  ? "…"
+                  : dataIncomplete
+                    ? t("admin.activity.hero.incompleteData")
+                    : t("admin.activity.hero.allClear")}
               </p>
             </div>
           )}
@@ -104,11 +217,33 @@ export default function ActivityPage() {
       {/* Tutee signups */}
       <Panel
         title={t("admin.activity.panels.tuteeSignups.title")}
-        count={pendingTutees.length}
+        count={pendingTutees.length + intakeRows.length}
         href="/admin/requests"
         empty={t("admin.activity.panels.tuteeSignups.empty")}
         manageLabel={t("admin.activity.manage")}
       >
+        {intakeRows.map((request) => (
+          <Row key={request.id}>
+            <span
+              className={
+                request.stage === "UNVERIFIED" ? "badge-amber" : "badge-slate"
+              }
+            >
+              {t(
+                request.stage === "UNVERIFIED"
+                  ? "workflow.unverified"
+                  : "workflow.matching",
+              )}
+            </span>
+            <span className="font-medium text-slate-800">{request.name}</span>
+            <span className="muted text-xs">
+              {request.subjects.join(", ") || "—"}
+            </span>
+            <span className="muted ml-auto text-xs">
+              {new Date(request.submittedAt).toLocaleString()}
+            </span>
+          </Row>
+        ))}
         {pendingTutees.map((tutee, i) => (
           <Row key={tutee.id}>
             <span className="badge-slate">#{i + 1}</span>

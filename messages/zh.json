@@ -495,8 +495,9 @@
         "title": "需要处理",
         "openItems": "项待处理",
         "across": "分布于 {count} 个队列",
+        "incompleteData": "部分活动数据无法加载，合计可能不完整；请刷新页面或联系管理员。",
         "triage": "积压分布",
-        "allClear": "全部处理完毕——没有待审核的事项。"
+        "allClear": "此处显示的队列中没有待处理事项。"
       }
     },
     "summary": {

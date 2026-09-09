@@ -502,8 +502,9 @@
         "title": "Erfordert Aufmerksamkeit",
         "openItems": "offene Aufgaben",
         "across": "in {count} Warteschlangen",
+        "incompleteData": "Einige Aktivitätsdaten konnten nicht geladen werden. Die Summen sind möglicherweise unvollständig. Aktualisieren Sie die Seite oder wenden Sie sich an einen Administrator.",
         "triage": "Wo der Rückstau ist",
-        "allClear": "Alles erledigt — nichts wartet auf Prüfung."
+        "allClear": "In den hier angezeigten Warteschlangen gibt es keine offenen Einträge."
       }
     },
     "summary": {

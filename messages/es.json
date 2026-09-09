@@ -495,8 +495,9 @@
         "title": "Requiere atención",
         "openItems": "elementos abiertos",
         "across": "en {count} colas",
+        "incompleteData": "No se pudieron cargar algunos datos de actividad. Los totales pueden estar incompletos; actualiza la página o contacta con un administrador.",
         "triage": "Dónde está la acumulación",
-        "allClear": "Todo al día: no hay nada pendiente de revisión."
+        "allClear": "No hay elementos abiertos en las colas que se muestran aquí."
       }
     },
     "summary": {

@@ -502,8 +502,9 @@
         "title": "Needs Attention",
         "openItems": "open items",
         "across": "across {count} queues",
+        "incompleteData": "Some activity data could not be loaded. Totals may be incomplete; refresh this page or contact an administrator.",
         "triage": "Where the backlog is",
-        "allClear": "All caught up — nothing waiting for review."
+        "allClear": "No open items in the queues shown here."
       }
     },
     "summary": {
