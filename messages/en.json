@@ -1588,6 +1588,7 @@
       "saving": "Saving…",
       "saved": "Saved.",
       "voteCommentPlaceholder": "Optional comment on your vote",
+      "votingClosed": "Voting is closed for this application.",
       "accept": "Accept",
       "reject": "Reject",
       "yourVote": "Your vote: {vote}",

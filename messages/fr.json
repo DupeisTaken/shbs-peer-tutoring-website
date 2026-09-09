@@ -1588,6 +1588,7 @@
       "saving": "Enregistrement…",
       "saved": "Enregistré.",
       "voteCommentPlaceholder": "Commentaire optionnel sur votre vote",
+      "votingClosed": "Le vote pour cette candidature est clos.",
       "accept": "Accepter",
       "reject": "Refuser",
       "yourVote": "Votre vote : {vote}",
