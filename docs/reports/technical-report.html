@@ -475,6 +475,9 @@ footer {
 </ol>
 <p><a href="https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/src/server/db-scope.ts">Async-local database scope</a> keeps legacy helpers that import the shared database inside the decision transaction. New helpers must compose with that transaction; constructing an independent client would escape rollback. Do not perform irreversible external side effects during replay.</p>
 <p>Interview review preserves the original coordinator chair’s proposed result and identity. Current panel membership, qualifications and all votes are validated again. The actual reviewer is attributed separately in the approval audit.</p>
+<p>Interview scheduling checks the current chair under the same transaction lock as panel replacement.
+A former chair&#x27;s pending schedule request cannot change a replacement panel&#x27;s timetable. The schedule
+and panel notifications commit or roll back together in the enclosing transaction.</p>
 <p>Successful authenticated mutations add actor and operation audit metadata. Detailed events and undo records remain available where implemented. This is an application action log, not an access log; it does not reconstruct events predating the release. Generic direct-mutation audit summaries are not a promise that every direct operation and audit insert share one universal transaction. The explicit approval/correction transaction contracts are covered by regressions.</p>
 <h2 id="student-lifecycle-and-ownership">Student lifecycle and ownership</h2>
 <p>The first open survey’s <code>submittedAt</code> sets priority. Confirmation creates or links one account while retaining an existing role and password. First assignment sets a fixed seven-day verification deadline; resends and reassignment do not extend it. Token expiry and verification deadline are separate: an account link lasts 24 hours, while an assigned request has its fixed deadline.</p>
