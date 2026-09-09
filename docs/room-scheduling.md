@@ -12,7 +12,7 @@ message; the database triggers remain the final boundary. New blackouts check th
 period, while completed periods remain historical evidence.
 
 The room integration tests require an explicit loopback PostgreSQL database whose name ends in
-`_test`. Their guard runs before setup or cleanup hooks are registered, so inheriting a demo or
+`_test`, with no connection-target query overrides. Their guard runs before setup or cleanup hooks are registered, so inheriting a demo or
 production database from `.env` fails before any fixture or active-period writes.
 
 Availability remains scheduling guidance. Student and tutor availability helps the team agree on
