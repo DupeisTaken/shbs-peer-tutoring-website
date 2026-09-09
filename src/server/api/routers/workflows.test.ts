@@ -14,6 +14,7 @@ import { completeRegistration } from "~/server/auth/registration";
 import { initializeProgram } from "~/server/program/bootstrap";
 import { confirmEmailChange } from "~/server/auth/email-change";
 import { hashCode } from "~/server/auth/registration";
+import * as audit from "~/server/audit/log";
 
 const password = "ReviewPassword123!";
 
@@ -662,6 +663,141 @@ it("translation editor rejects malformed ICU before it can break a page", async 
   expect(await db.messageOverride.count()).toBe(1);
 });
 
+it("activity summary includes modern queues without double-counting linked students", async () => {
+  await db.tutee.create({
+    data: {
+      id: "modern-pending",
+      englishName: "Modern Pending",
+      status: "PENDING",
+      intakeTermId: "review-term",
+    },
+  });
+  await db.tutee.create({
+    data: {
+      id: "legacy-pending",
+      englishName: "Legacy Pending",
+      status: "PENDING",
+      intakeTermId: "review-term",
+    },
+  });
+  const payload = (email: string, englishName: string) => ({
+    email,
+    englishName,
+    preferredContact: email,
+    firstChoiceId: "review-subject",
+    slotIds: ["review-slot"],
+    signatureName: englishName,
+    agreed: true,
+    policyRevision: "review-revision",
+  });
+  await db.studentSurvey.createMany({
+    data: [
+      {
+        id: "unverified-survey",
+        email: "unverified@example.test",
+        intakeTermId: "review-term",
+        payload: payload("unverified@example.test", "Unverified Student"),
+        policyRevision: "review-revision",
+        policySnapshot: [],
+        tokenHash: "unverified-token",
+        expiresAt: new Date(Date.now() + 60_000),
+      },
+      {
+        id: "confirmed-survey",
+        email: "confirmed@example.test",
+        intakeTermId: "review-term",
+        payload: payload("confirmed@example.test", "Confirmed Student"),
+        policyRevision: "review-revision",
+        policySnapshot: [],
+        tokenHash: "confirmed-token",
+        expiresAt: new Date(Date.now() + 60_000),
+        confirmedAt: new Date(),
+        tuteeId: "modern-pending",
+      },
+    ],
+  });
+  await db.studentRequestReview.createMany({
+    data: [
+      {
+        surveyId: "confirmed-survey",
+        kind: "SCHEDULE_CONFLICT",
+        requestedByUserId: "review-user",
+        reason: "Modern review",
+      },
+      {
+        legacyTuteeId: "legacy-pending",
+        legacyIntakeTermId: "review-term",
+        kind: "SCHEDULE_CONFLICT",
+        requestedByUserId: "review-user",
+        reason: "Legacy review",
+      },
+    ],
+  });
+  await db.studentAppeal.create({
+    data: {
+      studentId: "review-tutee",
+      cardId: "activity-card",
+      body: "Please review",
+    },
+  });
+  await db.accountAppeal.create({
+    data: { userId: "review-viewer", message: "Please reinstate" },
+  });
+  await db.translationDraft.create({
+    data: {
+      authorId: "review-user",
+      operation: "localization.setString",
+      payload: { locale: "en", key: "activity.test", value: "Draft" },
+    },
+  });
+  await db.approvalRequest.create({
+    data: {
+      requesterId: "review-user",
+      requesterName: "Review Tutor",
+      operation: "admin.setTutorStatus",
+      payload: {},
+      fingerprint: "activity-fingerprint",
+      targets: {},
+    },
+  });
+
+  const summary = await caller().admin.activitySummary();
+  expect(summary).toMatchObject({
+    unverified: 1,
+    // One confirmed survey-first request plus one unrelated legacy pending tutee.
+    matching: 2,
+    studentReviews: 2,
+    studentAppeals: 1,
+    accountAppeals: 1,
+    translationDrafts: 1,
+    approvalRequests: 1,
+  });
+  expect(summary.linkedTuteeIds).toEqual(["modern-pending"]);
+  expect(summary.intakeRows.map((row) => row.id)).toEqual([
+    "unverified-survey",
+    "confirmed-survey",
+  ]);
+
+  await db.user.create({
+    data: {
+      id: "activity-coordinator",
+      email: "activity-coordinator@example.test",
+      role: "COORDINATOR",
+    },
+  });
+  expect(
+    (
+      await caller(
+        "COORDINATOR",
+        "activity-coordinator",
+      ).admin.activitySummary()
+    ).approvalRequests,
+  ).toBeNull();
+  await expect(
+    caller("VIEWER", "review-viewer").admin.activitySummary(),
+  ).rejects.toMatchObject({ code: "FORBIDDEN" });
+});
+
 it("PASS: attendance persists expected service hours and roster", async () => {
   const result = await tutor().tutor.submitAttendance(attendance());
   const row = await db.session.findUniqueOrThrow({
@@ -671,6 +807,66 @@ it("PASS: attendance persists expected service hours and roster", async () => {
   expect(row.shCount).toBe(2);
   expect(row.tutees).toHaveLength(1);
   expect(row.month).toBe("2026-09");
+});
+it("attendance rejects future school dates", async () => {
+  const schoolTomorrow = new Date(Date.now() + 8 * 60 * 60 * 1000);
+  schoolTomorrow.setUTCDate(schoolTomorrow.getUTCDate() + 1);
+  await expect(
+    tutor().tutor.submitAttendance({
+      ...attendance(),
+      date: new Date(schoolTomorrow.toISOString().slice(0, 10)),
+    }),
+  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  expect(await db.session.count()).toBe(0);
+});
+it("attendance requires the complete merged roster exactly once", async () => {
+  await db.tutee.create({
+    data: { id: "second-tutee", englishName: "Second Tutee" },
+  });
+  await db.pairing.create({
+    data: {
+      id: "second-pairing",
+      tutorId: "review-tutor",
+      termId: "review-term",
+      subject: "Second subject",
+      dayOfWeek: 1,
+      startMin: 930,
+      endMin: 990,
+      tutees: { create: { tuteeId: "second-tutee" } },
+    },
+  });
+  const complete = {
+    ...attendance(),
+    mergePairingIds: ["second-pairing"],
+    tutees: [
+      { tuteeId: "review-tutee", status: "PRESENT" as const },
+      { tuteeId: "second-tutee", status: "PRESENT" as const },
+    ],
+  };
+  await expect(
+    tutor().tutor.submitAttendance({
+      ...complete,
+      tutees: complete.tutees.slice(0, 1),
+    }),
+  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  await expect(
+    tutor().tutor.submitAttendance({
+      ...complete,
+      tutees: [complete.tutees[0]!, complete.tutees[0]!],
+    }),
+  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+
+  await tutor().tutor.submitAttendance(complete);
+  const sessions = await db.session.findMany({
+    orderBy: { pairingId: "asc" },
+    include: { tutees: true },
+  });
+  expect(sessions).toHaveLength(2);
+  expect(
+    sessions
+      .flatMap((session) => session.tutees.map((row) => row.tuteeId))
+      .sort(),
+  ).toEqual(["review-tutee", "second-tutee"].sort());
 });
 it("PASS: viewer cannot mutate the subject catalog", async () => {
   await expect(
@@ -1409,6 +1605,60 @@ it("student appeals only affect their own card and cannot be reviewed twice", as
     code: "CONFLICT",
   });
 });
+it("student support separates pending and resolved appeals with exact totals", async () => {
+  await studentAccount();
+  await db.studentAppeal.createMany({
+    data: [
+      ...Array.from({ length: 21 }, (_, i) => ({
+        id: `pending-appeal-${i}`,
+        studentId: "review-tutee",
+        cardId: `pending-card-${i}`,
+        body: "Pending appeal",
+        state: "PENDING",
+      })),
+      {
+        id: "upheld-appeal",
+        studentId: "review-tutee",
+        cardId: "upheld-card",
+        body: "Upheld appeal",
+        state: "UPHELD",
+      },
+      {
+        id: "rejected-appeal",
+        studentId: "review-tutee",
+        cardId: "rejected-card",
+        body: "Rejected appeal",
+        state: "REJECTED",
+      },
+    ],
+  });
+
+  const pendingFirst = await caller().student.appeals({
+    page: 0,
+    state: "PENDING",
+  });
+  expect(pendingFirst.total).toBe(21);
+  expect(pendingFirst.rows).toHaveLength(20);
+  expect(pendingFirst.rows.every((row) => row.state === "PENDING")).toBe(true);
+
+  const pendingSecond = await caller().student.appeals({
+    page: 1,
+    state: "PENDING",
+  });
+  expect(pendingSecond.total).toBe(21);
+  expect(pendingSecond.rows).toHaveLength(1);
+
+  const resolved = await caller().student.appeals({
+    page: 0,
+    state: "RESOLVED",
+  });
+  expect(resolved.total).toBe(2);
+  expect(resolved.rows).toHaveLength(2);
+  expect(resolved.rows.map((row) => row.state).sort()).toEqual([
+    "REJECTED",
+    "UPHELD",
+  ]);
+});
 it("expired disciplinary appeals are rejected", async () => {
   const a = await studentAccount();
   const card = await db.disciplinaryCard.create({
@@ -1719,6 +1969,85 @@ it("interview completion awards only attendees, and a correction replaces credit
   expect(rows[0]!.amount).toBe(0.75);
 });
 
+it("interview management paginates open and completed panel history", async () => {
+  const applications = Array.from({ length: 55 }, (_, index) => ({
+    id: `paged-interview-${index}`,
+    name: `Paged Candidate ${index}`,
+    email: `paged-${index}@example.test`,
+    createdAt: new Date(Date.UTC(2026, 0, index + 1)),
+    interviewCompletedAt:
+      index < 3 ? null : new Date(Date.UTC(2026, 2, index + 1)),
+    interviewDurationMin: index < 3 ? null : 30,
+  }));
+  await db.tutorApplication.createMany({ data: applications });
+  await db.interviewAssignment.createMany({
+    data: applications.map((application) => ({
+      applicationId: application.id,
+      tutorId: "review-tutor",
+      isHead: true,
+    })),
+  });
+
+  const open = await caller().interviewManagement.options({
+    page: 0,
+    search: "",
+    completion: "OPEN",
+  });
+  expect(open.applications.total).toBe(3);
+  expect(open.applications.rows.map((application) => application.id)).toEqual([
+    "paged-interview-2",
+    "paged-interview-1",
+    "paged-interview-0",
+  ]);
+
+  const completedHistory = await caller().interviewManagement.options({
+    page: 2,
+    search: "",
+    completion: "COMPLETED",
+  });
+  expect(completedHistory.applications.total).toBe(52);
+  expect(completedHistory.applications.rows).toHaveLength(12);
+  expect(
+    completedHistory.applications.rows.map((application) => application.id),
+  ).toContain("paged-interview-3");
+
+  const searched = await caller().interviewManagement.options({
+    page: 0,
+    search: "paged-54@example.test",
+    completion: "ALL",
+  });
+  expect(searched.applications.total).toBe(1);
+  expect(searched.applications.rows[0]?.id).toBe("paged-interview-54");
+});
+
+it("interview pagination visits every tied-timestamp application exactly once", async () => {
+  const rows = Array.from({ length: 55 }, (_, index) => ({
+    id: `tied-interview-${String(index).padStart(2, "0")}`,
+    name: `Tied applicant ${index}`,
+    email: `tied-${index}@example.test`,
+    createdAt: new Date("2026-09-01T00:00:00Z"),
+  }));
+  await db.tutorApplication.createMany({ data: rows });
+  await db.interviewAssignment.createMany({
+    data: rows.map(({ id }) => ({
+      applicationId: id,
+      tutorId: "review-tutor",
+    })),
+  });
+  const visited: string[] = [];
+  for (let page = 0; page < 3; page++) {
+    const result = await caller().interviewManagement.options({
+      page,
+      search: "Tied applicant",
+      completion: "ALL",
+    });
+    expect(result.applications.total).toBe(rows.length);
+    visited.push(...result.applications.rows.map(({ id }) => id));
+  }
+  expect(visited).toEqual(rows.map(({ id }) => id).reverse());
+  expect(new Set(visited).size).toBe(rows.length);
+});
+
 it("panel assignment rejects missing qualification and a lower-ranking chair", async () => {
   const { app, panel } = await interviewFixture();
   let current = await db.tutorApplication.findUniqueOrThrow({
@@ -1911,3 +2240,203 @@ it("rejected translation drafts never become public, and students cannot inspect
     student.translationReview.list({ page: 0 }),
   ).rejects.toMatchObject({ code: "FORBIDDEN" });
 });
+
+// Exercise the real API/transactions: simultaneous actions must leave one coherent decision.
+for (const kind of ["tutor", "crew"] as const) {
+  const request = () =>
+    kind === "tutor"
+      ? tutor().tutor.requestOptOut({ reason: "Membership regression" })
+      : tutor().crew.requestOptOut({ reason: "Membership regression" });
+  const findRequests = () =>
+    kind === "tutor"
+      ? db.tutorStatusRequest.findMany({ where: { tutorId: "review-tutor" } })
+      : db.crewStatusRequest.findMany({ where: { userId: "review-user" } });
+  const decide = (id: string, approve = true) =>
+    kind === "tutor"
+      ? caller().admin.decideTutorRequest({ requestId: id, approve })
+      : caller().admin.decideCrewRequest({
+          requestId: id,
+          action: approve ? "APPROVE" : "DENY",
+        });
+  const recall = (id: string) =>
+    kind === "tutor"
+      ? tutor().tutor.recallStatusRequest({ requestId: id })
+      : tutor().crew.recallOptOut();
+  const prepare = async () => {
+    await db.user.update({
+      where: { id: "review-user" },
+      data: { crewStatus: "ACTIVE" },
+    });
+    await request();
+    const row = (await findRequests())[0]!;
+    const eligibleAt = new Date(Date.now() - 86_400_000);
+    if (kind === "tutor")
+      await db.tutorStatusRequest.update({
+        where: { id: row.id },
+        data: { eligibleAt },
+      });
+    else
+      await db.crewStatusRequest.update({
+        where: { id: row.id },
+        data: { eligibleAt },
+      });
+    return row.id;
+  };
+  const status = async () =>
+    kind === "tutor"
+      ? (await db.tutor.findUniqueOrThrow({ where: { id: "review-tutor" } }))
+          .status
+      : (await db.user.findUniqueOrThrow({ where: { id: "review-user" } }))
+          .crewStatus;
+
+  it(
+    kind + " membership: concurrent submissions reserve one pending request",
+    async () => {
+      await db.user.update({
+        where: { id: "review-user" },
+        data: { crewStatus: "ACTIVE" },
+      });
+      const results = await Promise.allSettled([
+        request(),
+        request(),
+        request(),
+      ]);
+      expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+      expect(await findRequests()).toHaveLength(1);
+    },
+  );
+
+  it(
+    kind +
+      " membership: concurrent reentry is single and approval restores access",
+    async () => {
+      if (kind === "tutor")
+        await db.tutor.update({
+          where: { id: "review-tutor" },
+          data: { status: "OPTED_OUT" },
+        });
+      else
+        await db.user.update({
+          where: { id: "review-user" },
+          data: { crewStatus: "OPTED_OUT" },
+        });
+      const reenter = () =>
+        kind === "tutor"
+          ? tutor().tutor.requestReentry({ reason: "Ready to return" })
+          : tutor().crew.requestReentry();
+      const results = await Promise.allSettled([reenter(), reenter()]);
+      expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+      const rows = await findRequests();
+      expect(rows).toHaveLength(1);
+      expect(rows[0]!.eligibleAt).toBeNull();
+      await decide(rows[0]!.id);
+      expect(await status()).toBe("ACTIVE");
+    },
+  );
+
+  it(
+    kind +
+      " membership: legacy duplicate evidence survives and cannot repeat approval",
+    async () => {
+      const id = await prepare();
+      const data = {
+        kind: "OPT_OUT" as const,
+        eligibleAt: new Date(Date.now() - 86_400_000),
+        reason: "Legacy duplicate",
+      };
+      const duplicate =
+        kind === "tutor"
+          ? await db.tutorStatusRequest.create({
+              data: { tutorId: "review-tutor", ...data },
+            })
+          : await db.crewStatusRequest.create({
+              data: { userId: "review-user", ...data },
+            });
+      await decide(id);
+      await expect(decide(duplicate.id)).rejects.toThrow("Membership changed");
+      await decide(duplicate.id, false);
+      expect(await findRequests()).toHaveLength(2);
+      expect((await findRequests()).map((row) => row.state).sort()).toEqual([
+        "APPROVED",
+        "DENIED",
+      ]);
+      expect(await status()).toBe("OPTED_OUT");
+    },
+  );
+
+  it(
+    kind + " membership: recall and approval cannot overwrite each other",
+    async () => {
+      const id = await prepare();
+      const results = await Promise.allSettled([recall(id), decide(id)]);
+      expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+      const row = (await findRequests())[0]!;
+      expect(["APPROVED", "RECALLED"]).toContain(row.state);
+      expect(await status()).toBe(
+        row.state === "APPROVED" ? "OPTED_OUT" : "ACTIVE",
+      );
+      expect(await db.auditLog.count({ where: { entityId: id } })).toBe(
+        row.state === "APPROVED" ? 1 : 0,
+      );
+    },
+  );
+
+  it(
+    kind + " membership: competing reviewers commit only one decision",
+    async () => {
+      const id = await prepare();
+      const results = await Promise.allSettled([decide(id), decide(id, false)]);
+      expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+      const row = (await findRequests())[0]!;
+      expect(await status()).toBe(
+        row.state === "APPROVED" ? "OPTED_OUT" : "ACTIVE",
+      );
+      expect(await db.auditLog.count({ where: { entityId: id } })).toBe(1);
+    },
+  );
+
+  it(
+    kind +
+      " membership: an audit failure rolls back decision, status and notification",
+    async () => {
+      const id = await prepare();
+      const before = await db.notification.count();
+      const failure = vi
+        .spyOn(audit, "recordAudit")
+        .mockRejectedValueOnce(new Error("membership audit unavailable"));
+      try {
+        await expect(decide(id)).rejects.toThrow(
+          "membership audit unavailable",
+        );
+      } finally {
+        failure.mockRestore();
+      }
+      expect((await findRequests())[0]!.state).toBe("PENDING");
+      expect(await status()).toBe("ACTIVE");
+      expect(await db.notification.count()).toBe(before);
+      await expect(decide(id)).resolves.toEqual({ ok: true });
+    },
+  );
+
+  it(
+    kind +
+      " membership: old requests cannot reactivate or opt out a manually archived member",
+    async () => {
+      const id = await prepare();
+      if (kind === "tutor")
+        await db.tutor.update({
+          where: { id: "review-tutor" },
+          data: { status: "ARCHIVED" },
+        });
+      else
+        await db.user.update({
+          where: { id: "review-user" },
+          data: { crewStatus: "INACTIVE" },
+        });
+      await expect(decide(id)).rejects.toThrow("Membership changed");
+      expect((await findRequests())[0]!.state).toBe("PENDING");
+      await expect(decide(id, false)).resolves.toEqual({ ok: true });
+      expect(await status()).toBe(kind === "tutor" ? "ARCHIVED" : "INACTIVE");
+    },
+  );
+}

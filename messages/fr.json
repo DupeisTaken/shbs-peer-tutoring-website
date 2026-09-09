@@ -502,8 +502,9 @@
         "title": "À traiter",
         "openItems": "éléments ouverts",
         "across": "dans {count} files",
+        "incompleteData": "Certaines données d’activité n’ont pas pu être chargées. Les totaux peuvent être incomplets ; actualisez la page ou contactez un administrateur.",
         "triage": "Où est l'arriéré",
-        "allClear": "Tout est à jour — rien en attente de révision."
+        "allClear": "Aucun élément ouvert dans les files affichées ici."
       }
     },
     "summary": {
@@ -2069,6 +2070,13 @@
     "rejectDraft": "Reject Draft",
     "draftNotice": "Translator changes are saved as drafts. Management reviews them before publication.",
     "interviewComplete": "Record Interview Completion",
+    "interviewSearch": "Search applications",
+    "interviewFilter": "Interview records",
+    "interviewOpen": "Needs completion",
+    "interviewCompleted": "Completed",
+    "interviewAll": "All",
+    "interviewEmpty": "No interviews match this view.",
+    "interviewCount": "{first}–{last} of {total}",
     "duration": "Actual Duration (Minutes)",
     "attended": "Attended",
     "qualified": "Subject Qualifications",
@@ -2095,6 +2103,9 @@
     "date": "Date",
     "note": "Note",
     "staffAppeals": "Student Appeals",
+    "appealFilter": "État de l’appel",
+    "pendingAppeals": "En attente",
+    "resolvedAppeals": "Traités",
     "sharingHelp": "This setting applies to both existing and future feedback. Private messages stay visible only to their participants.",
     "addPanelist": "Add Interviewer",
     "removePanelist": "Remove Last Interviewer",

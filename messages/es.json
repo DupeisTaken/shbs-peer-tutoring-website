@@ -495,8 +495,9 @@
         "title": "Requiere atención",
         "openItems": "elementos abiertos",
         "across": "en {count} colas",
+        "incompleteData": "No se pudieron cargar algunos datos de actividad. Los totales pueden estar incompletos; actualiza la página o contacta con un administrador.",
         "triage": "Dónde está la acumulación",
-        "allClear": "Todo al día: no hay nada pendiente de revisión."
+        "allClear": "No hay elementos abiertos en las colas que se muestran aquí."
       }
     },
     "summary": {
@@ -2069,6 +2070,13 @@
     "rejectDraft": "Reject Draft",
     "draftNotice": "Translator changes are saved as drafts. Management reviews them before publication.",
     "interviewComplete": "Record Interview Completion",
+    "interviewSearch": "Search applications",
+    "interviewFilter": "Interview records",
+    "interviewOpen": "Needs completion",
+    "interviewCompleted": "Completed",
+    "interviewAll": "All",
+    "interviewEmpty": "No interviews match this view.",
+    "interviewCount": "{first}–{last} of {total}",
     "duration": "Actual Duration (Minutes)",
     "attended": "Attended",
     "qualified": "Subject Qualifications",
@@ -2095,6 +2103,9 @@
     "date": "Date",
     "note": "Note",
     "staffAppeals": "Student Appeals",
+    "appealFilter": "Estado de la apelación",
+    "pendingAppeals": "Pendientes",
+    "resolvedAppeals": "Resueltas",
     "sharingHelp": "This setting applies to both existing and future feedback. Private messages stay visible only to their participants.",
     "addPanelist": "Add Interviewer",
     "removePanelist": "Remove Last Interviewer",

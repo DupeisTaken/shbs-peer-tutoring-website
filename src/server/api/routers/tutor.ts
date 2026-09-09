@@ -1,3 +1,4 @@
+import { requestMembership, recallMembership } from "~/server/membership";
 import { approvalScope } from "~/server/db-scope";
 import { requirePolicy } from "~/server/policy-acceptance";
 import { validateInterviewDecision } from "~/server/interviews";
@@ -43,9 +44,6 @@ const TUTOR_STATUS = [
   "TUTOR_ABSENT",
 ] as const;
 const TUTEE_STATUS = ["PRESENT", "EXCUSED_ABSENT", "UNEXCUSED_ABSENT"] as const;
-
-/** Cooldown before an admin may approve an opt-out request — the tutor can recall it meanwhile. */
-const OPT_OUT_COOLDOWN_DAYS = 7;
 
 /** A tutor may self-excuse a meeting absence only up to this many minutes before it starts. */
 const MEETING_EXCUSE_CUTOFF_MIN = 60;
@@ -366,6 +364,17 @@ export const tutorRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       const tutorId = ctx.session.tutorId;
+      // Attendance dates are school calendar dates stored at UTC midnight. Compare their date key
+      // with today's UTC+8 school date so a server in another timezone cannot admit tomorrow.
+      const schoolToday = new Date(Date.now() + 8 * 60 * 60 * 1000)
+        .toISOString()
+        .slice(0, 10);
+      if (input.date.toISOString().slice(0, 10) > schoolToday) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Attendance cannot be submitted for a future school date.",
+        });
+      }
       // Discipline side-effects (auto-issued absence cards + tutor card requests + punishment
       // removal) only fire when the DISCIPLINE module is on; attendance + hours always record.
       const features = await getFeatures(ctx.db);
@@ -405,10 +414,18 @@ export const tutorRouter = createTRPCRouter({
       for (const set of rosterByPairing.values())
         for (const id of set) unionRoster.add(id);
 
-      // Every listed tutee must be on at least one pairing in the block (de-duplicated).
-      const tuteeRows = [
-        ...new Map(input.tutees.map((t) => [t.tuteeId, t])).values(),
-      ];
+      // The client renders the union roster exactly once. Enforce the same complete snapshot at the
+      // trust boundary: duplicates are invalid, every submitted id must belong, and nobody may be
+      // omitted. Corrections can change the recorded statuses later without losing roster evidence.
+      const submittedIds = input.tutees.map((t) => t.tuteeId);
+      const submittedIdSet = new Set(submittedIds);
+      if (submittedIdSet.size !== submittedIds.length) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Record each tutee exactly once.",
+        });
+      }
+      const tuteeRows = input.tutees;
       for (const t of tuteeRows) {
         if (!unionRoster.has(t.tuteeId)) {
           throw new TRPCError({
@@ -416,6 +433,15 @@ export const tutorRouter = createTRPCRouter({
             message: "Selected tutee is not on any of these pairings.",
           });
         }
+      }
+      if (
+        submittedIdSet.size !== unionRoster.size ||
+        [...unionRoster].some((id) => !submittedIdSet.has(id))
+      ) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Record attendance for every tutee in the selected block.",
+        });
       }
 
       // Any carded tutee must also be in the block's roster.
@@ -1408,40 +1434,14 @@ export const tutorRouter = createTRPCRouter({
    */
   requestOptOut: activeTutorProcedure
     .input(z.object({ reason: z.string().trim().max(1000).optional() }))
-    .mutation(async ({ ctx, input }) => {
-      const open = await ctx.db.tutorStatusRequest.findFirst({
-        where: { tutorId: ctx.session.tutorId, state: "PENDING" },
-        select: { id: true },
-      });
-      if (open) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "You already have an open request.",
-        });
-      }
-      const eligibleAt = new Date(
-        Date.now() + OPT_OUT_COOLDOWN_DAYS * 24 * 60 * 60 * 1000,
-      );
-      const req = await ctx.db.tutorStatusRequest.create({
-        data: {
-          tutorId: ctx.session.tutorId,
-          kind: "OPT_OUT",
-          eligibleAt,
-          reason: input.reason?.trim() ? input.reason.trim() : null,
-        },
-        select: { id: true },
-      });
-      const tutor = await ctx.db.tutor.findUnique({
-        where: { id: ctx.session.tutorId },
-        select: { englishName: true },
-      });
-      await notifyAdmins({
-        title: "Tutor opt-out request",
-        body: `${tutor?.englishName ?? "A tutor"} asked to opt out (review after the cooldown).`,
-        link: "/admin/tutor-requests",
-      });
-      return { ok: true, id: req.id, eligibleAt };
-    }),
+    .mutation(({ ctx, input }) =>
+      requestMembership(
+        ctx.db,
+        { kind: "tutor", id: ctx.session.tutorId },
+        "OPT_OUT",
+        input.reason,
+      ),
+    ),
 
   /**
    * Request reentry to the program. Requires an OPTED_OUT tutor with no other open request.
@@ -1449,67 +1449,25 @@ export const tutorRouter = createTRPCRouter({
    */
   requestReentry: tutorProcedure
     .input(z.object({ reason: z.string().trim().max(1000).optional() }))
-    .mutation(async ({ ctx, input }) => {
-      const tutor = await ctx.db.tutor.findUniqueOrThrow({
-        where: { id: ctx.session.tutorId },
-        select: { status: true, englishName: true },
-      });
-      if (tutor.status !== "OPTED_OUT") {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Only opted-out tutors can request reentry.",
-        });
-      }
-      const open = await ctx.db.tutorStatusRequest.findFirst({
-        where: { tutorId: ctx.session.tutorId, state: "PENDING" },
-        select: { id: true },
-      });
-      if (open) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "You already have an open request.",
-        });
-      }
-      const req = await ctx.db.tutorStatusRequest.create({
-        data: {
-          tutorId: ctx.session.tutorId,
-          kind: "REENTRY",
-          reason: input.reason?.trim() ? input.reason.trim() : null,
-        },
-        select: { id: true },
-      });
-      await notifyAdmins({
-        title: "Tutor reentry request",
-        body: `${tutor.englishName} asked to rejoin the program.`,
-        link: "/admin/tutor-requests",
-      });
-      return { ok: true, id: req.id };
-    }),
+    .mutation(({ ctx, input }) =>
+      requestMembership(
+        ctx.db,
+        { kind: "tutor", id: ctx.session.tutorId },
+        "REENTRY",
+        input.reason,
+      ),
+    ),
 
   /** Recall (cancel) the tutor's own open request while it is still PENDING. */
   recallStatusRequest: tutorProcedure
     .input(z.object({ requestId: z.string().cuid() }))
-    .mutation(async ({ ctx, input }) => {
-      const res = await ctx.db.tutorStatusRequest.updateMany({
-        where: {
-          id: input.requestId,
-          tutorId: ctx.session.tutorId,
-          state: "PENDING",
-        },
-        data: {
-          state: "RECALLED",
-          resolvedAt: new Date(),
-          resolvedByName: "self",
-        },
-      });
-      if (res.count === 0) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "No open request to recall.",
-        });
-      }
-      return { ok: true };
-    }),
+    .mutation(({ ctx, input }) =>
+      recallMembership(
+        ctx.db,
+        { kind: "tutor", id: ctx.session.tutorId },
+        input.requestId,
+      ),
+    ),
 
   // --------------------------------------------------------------------------
   // Tutee opt-out — the tutee asks to leave; their tutor relays it. A 7-day recall window then
