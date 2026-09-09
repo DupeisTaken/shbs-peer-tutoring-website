@@ -1770,6 +1770,34 @@ it("interview management paginates open and completed panel history", async () =
   expect(searched.applications.rows[0]?.id).toBe("paged-interview-54");
 });
 
+it("interview pagination visits every tied-timestamp application exactly once", async () => {
+  const rows = Array.from({ length: 55 }, (_, index) => ({
+    id: `tied-interview-${String(index).padStart(2, "0")}`,
+    name: `Tied applicant ${index}`,
+    email: `tied-${index}@example.test`,
+    createdAt: new Date("2026-09-01T00:00:00Z"),
+  }));
+  await db.tutorApplication.createMany({ data: rows });
+  await db.interviewAssignment.createMany({
+    data: rows.map(({ id }) => ({
+      applicationId: id,
+      tutorId: "review-tutor",
+    })),
+  });
+  const visited: string[] = [];
+  for (let page = 0; page < 3; page++) {
+    const result = await caller().interviewManagement.options({
+      page,
+      search: "Tied applicant",
+      completion: "ALL",
+    });
+    expect(result.applications.total).toBe(rows.length);
+    visited.push(...result.applications.rows.map(({ id }) => id));
+  }
+  expect(visited).toEqual(rows.map(({ id }) => id).reverse());
+  expect(new Set(visited).size).toBe(rows.length);
+});
+
 it("panel assignment rejects missing qualification and a lower-ranking chair", async () => {
   const { app, panel } = await interviewFixture();
   let current = await db.tutorApplication.findUniqueOrThrow({

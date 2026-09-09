@@ -58,7 +58,8 @@ export const interviewManagementRouter = createTRPCRouter({
           ctx.db.tutorQualification.findMany(),
           ctx.db.tutorApplication.findMany({
             where,
-            orderBy: { createdAt: "desc" },
+            // Imported/batched applications may share timestamps; offset pages need a total order.
+            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
             take: pageSize,
             skip: input.page * pageSize,
             select: {
