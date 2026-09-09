@@ -1409,6 +1409,60 @@ it("student appeals only affect their own card and cannot be reviewed twice", as
     code: "CONFLICT",
   });
 });
+it("student support separates pending and resolved appeals with exact totals", async () => {
+  await studentAccount();
+  await db.studentAppeal.createMany({
+    data: [
+      ...Array.from({ length: 21 }, (_, i) => ({
+        id: `pending-appeal-${i}`,
+        studentId: "review-tutee",
+        cardId: `pending-card-${i}`,
+        body: "Pending appeal",
+        state: "PENDING",
+      })),
+      {
+        id: "upheld-appeal",
+        studentId: "review-tutee",
+        cardId: "upheld-card",
+        body: "Upheld appeal",
+        state: "UPHELD",
+      },
+      {
+        id: "rejected-appeal",
+        studentId: "review-tutee",
+        cardId: "rejected-card",
+        body: "Rejected appeal",
+        state: "REJECTED",
+      },
+    ],
+  });
+
+  const pendingFirst = await caller().student.appeals({
+    page: 0,
+    state: "PENDING",
+  });
+  expect(pendingFirst.total).toBe(21);
+  expect(pendingFirst.rows).toHaveLength(20);
+  expect(pendingFirst.rows.every((row) => row.state === "PENDING")).toBe(true);
+
+  const pendingSecond = await caller().student.appeals({
+    page: 1,
+    state: "PENDING",
+  });
+  expect(pendingSecond.total).toBe(21);
+  expect(pendingSecond.rows).toHaveLength(1);
+
+  const resolved = await caller().student.appeals({
+    page: 0,
+    state: "RESOLVED",
+  });
+  expect(resolved.total).toBe(2);
+  expect(resolved.rows).toHaveLength(2);
+  expect(resolved.rows.map((row) => row.state).sort()).toEqual([
+    "REJECTED",
+    "UPHELD",
+  ]);
+});
 it("expired disciplinary appeals are rejected", async () => {
   const a = await studentAccount();
   const card = await db.disciplinaryCard.create({
