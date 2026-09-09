@@ -51,7 +51,7 @@ matching credentials. On Windows run it from WSL; on Linux/macOS run it directly
 Create a database and point `DATABASE_URL` at it, e.g.:
 
 ```
-DATABASE_URL="postgresql://postgres:password@localhost:5432/shbs-peer-tutoring-website"
+DATABASE_URL="postgresql://postgres:password@localhost:5432/shbs_program_demo"
 ```
 
 ### Option C — Embedded Postgres (no Docker, throwaway)
@@ -63,36 +63,25 @@ spare port, then point `DATABASE_URL` at it:
 ```bash
 # in a temp dir
 npm i embedded-postgres
-node -e "import('embedded-postgres').then(async ({default:EP})=>{const pg=new EP({port:5433,user:'postgres',password:'password',persistent:false});await pg.initialise();await pg.start();await pg.createDatabase('shbs-peer-tutoring-website');console.log('up on 5433');})"
+node -e "import('embedded-postgres').then(async ({default:EP})=>{const pg=new EP({port:5433,user:'postgres',password:'password',persistent:false});await pg.initialise();await pg.start();await pg.createDatabase('shbs_program_demo');console.log('up on 5433');})"
 ```
 
-Then use `DATABASE_URL="postgresql://postgres:password@localhost:5433/shbs-peer-tutoring-website"`.
+Then use `DATABASE_URL="postgresql://postgres:password@localhost:5433/shbs_program_demo"`.
 This is the approach used to verify migrations, seeding, and the row-scoping tests on a
 Docker-less Windows box.
 
 ## 3. Apply the schema and seed
 
+Use a fresh local database named `shbs_program_demo`. Set `SHBS_DEMO_SEED=1` in this command's environment (PowerShell: `$env:SHBS_DEMO_SEED="1"`). The seed rejects remote hosts, production mode, and database names outside `shbs_*_demo` / `shbs_*_test`.
+
 ```bash
-npm run db:push     # push the Prisma schema (no migration history)
-npm run db:seed     # sample data + dev login accounts (needed to sign in locally)
+npm run db:migrate
+npm run db:seed
+npm run db:seed
+npx tsx prisma/verify-demo.ts
 ```
 
-`prisma/seed.ts` is idempotent (fixed ids + upserts), so it's safe to re-run. It also
-creates **dev login accounts** so you can actually sign in:
-
-| Email               | Role    | Password       | Notes                                  |
-| ------------------- | ------- | -------------- | -------------------------------------- |
-| `admin@example.edu` | `HEAD`  | `Password123!` | singleton program leader               |
-| `alice@example.edu` | `TUTOR` | `Password123!` | head interviewer on a seeded applicant |
-| `bob@example.edu`   | `TUTOR` | `Password123!` |                                        |
-| `evan@example.edu`  | `TUTOR` | `Password123!` | inactive tutor → pending-approval gate |
-
-These exist only for local development — change `DEV_PASSWORD` in `prisma/seed.ts` (and
-don't seed them) before any real deployment. Use `npm run db:studio` to browse the data
-in Prisma Studio.
-
-> Use `npm run db:generate` instead of `db:push` if you want to create/apply a real
-> migration during schema development.
+Seeding creates synthetic fixtures and refreshes some values. It preserves immutable request history and is not a full reset; create a fresh database to restart a rehearsal. It can overwrite other rehearsal changes; never use it with real program data. See the [demo database guide](docs/demo-database.md) for all roles, example workflows, and database design decisions. Use `npm run admin:create` to bootstrap real deployments.
 
 ## 4. Run the app
 
@@ -115,17 +104,11 @@ unless you set `TRPC_DEV_DELAY=true`, so the numbers reflect true DB + compute c
 
 Try the public forms (no login required):
 
-- **Tutee signup** at `/signup` → creates a `PENDING` tutee that queues under
-  **Admin → Signup Requests** (`/admin/requests`), where you assign each course choice to a
-  tutor (the dropdown previews each tutor's workload) — that creates the pairing(s) and
-  activates the tutee. The seed includes one example pending signup; the assigned tutor then
-  picks the slot on their dashboard.
-- **Tutor application** at `/tutor-signup` → creates a `PENDING` application under
-  **Admin → Tutor applications**, where you assign a three-tutor panel (one head). Sign in as
-  the head (`alice@example.edu`) to schedule the interview from the dashboard — the seed wires
-  Alice as head of one applicant. **Accepting** an applicant issues a single-use registration code
-  (re-viewable on `/admin/registration-codes`); the recruit redeems it at `/register` to verify
-  their email and set their own password.
+- **Student signup** at `/signup` reserves a survey timestamp before account verification. The request queue (`/admin/requests`) tracks verified and unverified demand. The local email link confirms the request and creates the account; assignment starts a fixed verification deadline if it is still unverified.
+- **Tutor application** at `/tutor-signup` starts recruitment. Assign at least three active tutor accounts, a highest-ranking management chair, and explicit subject qualification coverage. Every panelist votes; the majority determines the outcome and the chair breaks ties. A coordinator chair's decision requires ADMIN/HEAD approval.
+- **Crew application** at `/crew-signup` starts the separate crew membership workflow.
+
+Follow the [role guide](docs/user-guide.md) and [demo walkthrough](docs/demo-database.md). Real SMTP setup and final school policy approval remain launch configuration work; local capture delivers no external mail.
 
 ## 5. Run the tests
 
@@ -143,10 +126,10 @@ Two kinds of tests live under `src/**/*.test.ts`:
 
 `src/test/setup.ts` supplies `AUTH_SECRET` and a default `DATABASE_URL`, so the unit
 tests pass out of the box. For the integration tests, set `DATABASE_URL` to a database you've
-run `db:push` against first. Example with embedded Postgres (Option C):
+run `db:migrate` against first. Example with embedded Postgres (Option C):
 
 ```bash
-DATABASE_URL="postgresql://postgres:password@localhost:5433/shbs-peer-tutoring-website" npm test
+DATABASE_URL="postgresql://postgres:password@localhost:5433/shbs_shipping_test" npm test -- --maxWorkers=1
 ```
 
 The workflow regression suite truncates its disposable database between cases. Run it only with

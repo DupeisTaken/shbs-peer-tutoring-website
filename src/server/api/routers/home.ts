@@ -1,4 +1,6 @@
 import { withTranslationWrite } from "~/server/translation-destination";
+import { inTransaction, lockEntity } from "~/server/transactions";
+import { slugify, uniquePageSlug } from "~/server/home/slugs";
 import { proposeTranslation } from "~/server/translation-drafts";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -22,44 +24,6 @@ import {
 import { pageOwnerKey } from "~/server/home/pages";
 
 const NEWS_STATUS = z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]);
-
-/** Title → URL slug (lowercase, hyphenated, ASCII-ish). */
-function slugify(s: string): string {
-  return s
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60);
-}
-
-/** A slug used by no other section *or* custom page (they share the /p/<slug> namespace; appends
- *  -2, -3, … on collision). `self` excludes the row being updated from its own table. */
-async function ensureUniqueSlug(
-  db: Parameters<typeof getLandingLayout>[0],
-  base: string,
-  self: { sectionId?: string; pageId?: string },
-): Promise<string> {
-  let candidate = base;
-  for (let n = 2; ; n++) {
-    const inSection = await db.landingSection.findFirst({
-      where: {
-        slug: candidate,
-        ...(self.sectionId ? { id: { not: self.sectionId } } : {}),
-      },
-      select: { id: true },
-    });
-    const inPage = await db.customPage.findFirst({
-      where: {
-        slug: candidate,
-        ...(self.pageId ? { id: { not: self.pageId } } : {}),
-      },
-      select: { id: true },
-    });
-    if (!inSection && !inPage) return candidate;
-    candidate = `${base}-${n}`;
-  }
-}
 
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 /** Owner of a block layout: the landing page, or a custom page by id. */
@@ -422,48 +386,52 @@ export const homeRouter = createTRPCRouter({
           .optional(),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
-      const data: {
-        published?: boolean;
-        openByDefault?: boolean;
-        mode?: "INLINE" | "PAGE";
-        slug?: string;
-      } = {};
-      if (input.published !== undefined) data.published = input.published;
-      if (input.openByDefault !== undefined)
-        data.openByDefault = input.openByDefault;
-      if (input.mode !== undefined) data.mode = input.mode;
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        // The namespace is shared by custom pages and PAGE-mode landing sections.
+        await lockEntity(tx, "home:page-slugs");
+        const data: {
+          published?: boolean;
+          openByDefault?: boolean;
+          mode?: "INLINE" | "PAGE";
+          slug?: string;
+        } = {};
+        if (input.published !== undefined) data.published = input.published;
+        if (input.openByDefault !== undefined)
+          data.openByDefault = input.openByDefault;
+        if (input.mode !== undefined) data.mode = input.mode;
 
-      const current = await ctx.db.landingSection.findUnique({
-        where: { id: input.id },
-        select: {
-          slug: true,
-          mode: true,
-          translations: { select: { locale: true, title: true } },
-        },
-      });
-      if (!current) throw new TRPCError({ code: "NOT_FOUND" });
-
-      const goingToPage = (input.mode ?? current.mode) === "PAGE";
-      // An explicit slug wins; otherwise a PAGE section without one gets a slug derived from its title.
-      let desiredSlug: string | undefined;
-      if (input.slug) desiredSlug = input.slug;
-      else if (goingToPage && !current.slug) {
-        const enTitle =
-          current.translations.find((tr) => tr.locale === "en")?.title ??
-          current.translations[0]?.title ??
-          "section";
-        desiredSlug = slugify(enTitle) || "section";
-      }
-      if (desiredSlug) {
-        data.slug = await ensureUniqueSlug(ctx.db, desiredSlug, {
-          sectionId: input.id,
+        const current = await tx.landingSection.findUnique({
+          where: { id: input.id },
+          select: {
+            slug: true,
+            mode: true,
+            translations: { select: { locale: true, title: true } },
+          },
         });
-      }
+        if (!current) throw new TRPCError({ code: "NOT_FOUND" });
 
-      await ctx.db.landingSection.update({ where: { id: input.id }, data });
-      return { ok: true };
-    }),
+        const goingToPage = (input.mode ?? current.mode) === "PAGE";
+        // An explicit slug wins; otherwise a PAGE section without one gets a slug derived from its title.
+        let desiredSlug: string | undefined;
+        if (input.slug) desiredSlug = input.slug;
+        else if (goingToPage && !current.slug) {
+          const enTitle =
+            current.translations.find((tr) => tr.locale === "en")?.title ??
+            current.translations[0]?.title ??
+            "section";
+          desiredSlug = slugify(enTitle) || "section";
+        }
+        if (desiredSlug) {
+          data.slug = await uniquePageSlug(tx, desiredSlug, {
+            sectionId: input.id,
+          });
+        }
+
+        await tx.landingSection.update({ where: { id: input.id }, data });
+        return { ok: true };
+      }),
+    ),
 
   /** Persist a new display order (ids in the desired order). */
   reorderSections: adminProcedure
@@ -596,26 +564,30 @@ export const homeRouter = createTRPCRouter({
   /** Create an unpublished page with an English title and a slug derived from it. */
   createPage: adminProcedure
     .input(z.object({ title: z.string().trim().min(1).max(200) }))
-    .mutation(async ({ ctx, input }) => {
-      const slug = await ensureUniqueSlug(
-        ctx.db,
-        slugify(input.title) || "page",
-        {},
-      );
-      const max = await ctx.db.customPage.aggregate({
-        _max: { navOrder: true },
-      });
-      const page = await ctx.db.customPage.create({
-        data: {
-          slug,
-          title: { en: input.title },
-          navOrder: (max._max.navOrder ?? 0) + 1,
-          createdByName: ctx.session.user.name,
-        },
-        select: { id: true },
-      });
-      return page;
-    }),
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        // The namespace is shared by custom pages and PAGE-mode landing sections.
+        await lockEntity(tx, "home:page-slugs");
+        const slug = await uniquePageSlug(
+          tx,
+          slugify(input.title) || "page",
+          {},
+        );
+        const max = await tx.customPage.aggregate({
+          _max: { navOrder: true },
+        });
+        const page = await tx.customPage.create({
+          data: {
+            slug,
+            title: { en: input.title },
+            navOrder: (max._max.navOrder ?? 0) + 1,
+            createdByName: ctx.session.user.name,
+          },
+          select: { id: true },
+        });
+        return page;
+      }),
+    ),
 
   /** Update a page's flags / slug / nav order. */
   updatePage: adminProcedure
@@ -633,23 +605,27 @@ export const homeRouter = createTRPCRouter({
           .optional(),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
-      const data: {
-        published?: boolean;
-        showInNav?: boolean;
-        navOrder?: number;
-        slug?: string;
-      } = {};
-      if (input.published !== undefined) data.published = input.published;
-      if (input.showInNav !== undefined) data.showInNav = input.showInNav;
-      if (input.navOrder !== undefined) data.navOrder = input.navOrder;
-      if (input.slug)
-        data.slug = await ensureUniqueSlug(ctx.db, input.slug, {
-          pageId: input.id,
-        });
-      await ctx.db.customPage.update({ where: { id: input.id }, data });
-      return { ok: true };
-    }),
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        // The namespace is shared by custom pages and PAGE-mode landing sections.
+        await lockEntity(tx, "home:page-slugs");
+        const data: {
+          published?: boolean;
+          showInNav?: boolean;
+          navOrder?: number;
+          slug?: string;
+        } = {};
+        if (input.published !== undefined) data.published = input.published;
+        if (input.showInNav !== undefined) data.showInNav = input.showInNav;
+        if (input.navOrder !== undefined) data.navOrder = input.navOrder;
+        if (input.slug)
+          data.slug = await uniquePageSlug(tx, input.slug, {
+            pageId: input.id,
+          });
+        await tx.customPage.update({ where: { id: input.id }, data });
+        return { ok: true };
+      }),
+    ),
 
   /** Set one locale of a page's title (blank clears it; en is the fallback). */
   setPageTitle: translatorProcedure
