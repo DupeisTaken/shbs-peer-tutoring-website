@@ -11,6 +11,12 @@ export function assertIsolatedTestDatabase(rawUrl: string | undefined): void {
   if (
     !["postgres:", "postgresql:"].includes(url.protocol) ||
     !["localhost", "127.0.0.1", "[::1]"].includes(url.hostname) ||
+    // PostgreSQL drivers can honor query targets ahead of the visible URL host/port.
+    [...url.searchParams.keys()].some((key) =>
+      ["host", "hostaddr", "port", "dbname", "database", "service"].includes(
+        key.toLowerCase(),
+      ),
+    ) ||
     !/^\/[a-zA-Z0-9_-]+_test$/.test(url.pathname)
   ) {
     throw new Error(
