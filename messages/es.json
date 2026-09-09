@@ -496,7 +496,7 @@
         "openItems": "elementos abiertos",
         "across": "en {count} colas",
         "triage": "Dónde está la acumulación",
-        "allClear": "Todo al día: no hay nada pendiente de revisión."
+        "allClear": "No hay elementos abiertos en las colas que se muestran aquí."
       }
     },
     "summary": {

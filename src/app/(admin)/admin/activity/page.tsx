@@ -8,14 +8,19 @@ import { api } from "~/trpc/react";
 import { BarList, type BarItem } from "~/app/_components/charts";
 
 /**
- * Single pane of glass: the live status of every kind of request/activity — tutee signups, tutor
- * applications, lifecycle requests, discipline cards, crew validation, and attendance surveys —
- * each linking to where it can be actioned (and reverted). A hero count + a triage bar chart show
- * how much is waiting and where the backlog concentrates; the panels below hold the detail. See the
- * "Admin philosophies" note in CLAUDE.md.
+ * Single pane of glass for the queues the current role may inspect. A hero count and triage chart
+ * show how much is waiting and link to the workflow that owns each decision. The panels below hold
+ * operational detail and recent attendance history. See the "Admin philosophies" note in CLAUDE.md.
  */
 export default function ActivityPage() {
   const t = useTranslations();
+  const me = api.account.me.useQuery();
+  const elevated =
+    me.data != null &&
+    ["HEAD", "ADMIN", "COORDINATOR"].includes(me.data.role);
+  const activitySummary = api.admin.activitySummary.useQuery(undefined, {
+    enabled: elevated,
+  });
   const tutees = api.admin.tutees.useQuery();
   const apps = api.admin.tutorApplications.useQuery();
   const cards = api.admin.disciplinaryCards.useQuery();
@@ -27,9 +32,18 @@ export default function ActivityPage() {
   const crewRequests = api.admin.crewRequests.useQuery();
   const features = api.program.features.useQuery().data;
 
+  const linkedSurveyTutees = new Set(
+    activitySummary.data?.linkedTuteeIds ?? [],
+  );
   const pendingTutees = (tutees.data ?? [])
-    .filter((x) => x.status === "PENDING")
+    .filter(
+      (x) =>
+        x.status === "PENDING" &&
+        (!elevated ||
+          (activitySummary.data != null && !linkedSurveyTutees.has(x.id))),
+    )
     .sort((a, b) => +new Date(a.createdAt) - +new Date(b.createdAt));
+  const intakeRows = activitySummary.data?.intakeRows ?? [];
   const openApps = (apps.data ?? []).filter(
     (a) => a.status === "PENDING" || a.status === "INTERVIEW",
   );
@@ -44,7 +58,75 @@ export default function ActivityPage() {
   // Triage: every actionable queue, sized by backlog and tinted by urgency (red = a problem to
   // resolve, amber = a member-initiated request on a clock, accent = an inbound waiting to process).
   const triage: BarItem[] = [
-    { key: "signups", label: t("admin.activity.counters.pendingSignups"), value: pendingTutees.length, tone: "accent", href: "/admin/requests" },
+    ...(activitySummary.data
+      ? [
+          {
+            key: "unverified",
+            label: t("workflow.unverified"),
+            value: activitySummary.data.unverified,
+            tone: "amber" as const,
+            href: "/admin/requests",
+          },
+          {
+            key: "matching",
+            label: t("workflow.matching"),
+            value: activitySummary.data.matching,
+            tone: "accent" as const,
+            href: "/admin/requests",
+          },
+          {
+            key: "studentReviews",
+            label: t("workflow.reviews"),
+            value: activitySummary.data.studentReviews,
+            tone: "amber" as const,
+            href: "/admin/requests",
+          },
+          ...(features?.DISCIPLINE
+            ? [
+                {
+                  key: "studentAppeals",
+                  label: t("workflows.staffAppeals"),
+                  value: activitySummary.data.studentAppeals,
+                  tone: "red" as const,
+                  href: "/student-support",
+                },
+              ]
+            : []),
+          {
+            key: "accountAppeals",
+            label: t("admin.users.appeals.heading"),
+            value: activitySummary.data.accountAppeals,
+            tone: "red" as const,
+            href: "/admin/users",
+          },
+          {
+            key: "translationDrafts",
+            label: t("workflows.reviewDrafts"),
+            value: activitySummary.data.translationDrafts,
+            tone: "amber" as const,
+            href: "/translation-review",
+          },
+          ...(activitySummary.data.approvalRequests != null
+            ? [
+                {
+                  key: "approvals",
+                  label: t("approvals.title"),
+                  value: activitySummary.data.approvalRequests,
+                  tone: "amber" as const,
+                  href: "/admin/approvals",
+                },
+              ]
+            : []),
+        ]
+      : [
+          {
+            key: "signups",
+            label: t("admin.activity.counters.pendingSignups"),
+            value: pendingTutees.length,
+            tone: "accent" as const,
+            href: "/admin/requests",
+          },
+        ]),
     { key: "apps", label: t("admin.activity.counters.openApplications"), value: openApps.length, tone: "accent", href: "/admin/applications" },
     ...(features?.DISCIPLINE
       ? [{ key: "cards", label: t("admin.activity.counters.cardsToReview"), value: pendingCards.length, tone: "red" as const, href: "/admin/discipline" }]
@@ -62,9 +144,19 @@ export default function ActivityPage() {
   const totalOpen = triage.reduce((n, x) => n + x.value, 0);
   const activeQueues = triage.filter((x) => x.value > 0).length;
   const backlog = triage.filter((x) => x.value > 0).sort((a, b) => b.value - a.value);
-  const loading = [tutees, apps, cards, tutorRequests, tuteeRequests, sessionFlags, crewApplications, crewRequests].some(
-    (q) => q.isLoading,
-  );
+  const loading =
+    me.isLoading ||
+    (elevated && activitySummary.isLoading) ||
+    [
+      tutees,
+      apps,
+      cards,
+      tutorRequests,
+      tuteeRequests,
+      sessionFlags,
+      crewApplications,
+      crewRequests,
+    ].some((q) => q.isLoading);
 
   return (
     <div className="space-y-6">
@@ -104,11 +196,33 @@ export default function ActivityPage() {
       {/* Tutee signups */}
       <Panel
         title={t("admin.activity.panels.tuteeSignups.title")}
-        count={pendingTutees.length}
+        count={pendingTutees.length + intakeRows.length}
         href="/admin/requests"
         empty={t("admin.activity.panels.tuteeSignups.empty")}
         manageLabel={t("admin.activity.manage")}
       >
+        {intakeRows.map((request) => (
+          <Row key={request.id}>
+            <span
+              className={
+                request.stage === "UNVERIFIED" ? "badge-amber" : "badge-slate"
+              }
+            >
+              {t(
+                request.stage === "UNVERIFIED"
+                  ? "workflow.unverified"
+                  : "workflow.matching",
+              )}
+            </span>
+            <span className="font-medium text-slate-800">{request.name}</span>
+            <span className="muted text-xs">
+              {request.subjects.join(", ") || "—"}
+            </span>
+            <span className="muted ml-auto text-xs">
+              {new Date(request.submittedAt).toLocaleString()}
+            </span>
+          </Row>
+        ))}
         {pendingTutees.map((tutee, i) => (
           <Row key={tutee.id}>
             <span className="badge-slate">#{i + 1}</span>

@@ -503,7 +503,7 @@
         "openItems": "éléments ouverts",
         "across": "dans {count} files",
         "triage": "Où est l'arriéré",
-        "allClear": "Tout est à jour — rien en attente de révision."
+        "allClear": "Aucun élément ouvert dans les files affichées ici."
       }
     },
     "summary": {
