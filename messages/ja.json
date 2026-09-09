@@ -651,6 +651,7 @@
         "COORDINATOR": "コーディネーター",
         "ADMIN": "管理者",
         "HEAD": "代表",
+        "CREW": "巡回班",
         "STUDENT": "生徒"
       },
       "filters": {

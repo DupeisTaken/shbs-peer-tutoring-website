@@ -6,6 +6,21 @@ import { api } from "~/trpc/react";
 import { minToHm, DAY_NAMES } from "~/lib/time";
 import { useDialog } from "./confirm-dialog";
 
+/** Pending and valid cards may be appealed once while their school-day window is open. */
+export function canSubmitCardAppeal({
+  reviewStatus,
+  hasExistingAppeal,
+  deadline,
+  now = new Date(),
+}: {
+  reviewStatus: "PENDING" | "VALID" | "INVALID";
+  hasExistingAppeal: boolean;
+  deadline: Date;
+  now?: Date;
+}) {
+  return reviewStatus !== "INVALID" && !hasExistingAppeal && deadline >= now;
+}
+
 export function StudentPortal() {
   const t = useTranslations("workflows");
   const [page, setPage] = useState(0);
@@ -69,26 +84,33 @@ export function StudentPortal() {
             <p className="muted text-xs">
               {t("deadline")}: {card.deadline.toLocaleString()}
             </p>
-            <button
-              className="btn-secondary mt-3"
-              disabled={
-                appeal.isPending ||
-                appeals.some((a) => a.cardId === card.id) ||
-                card.deadline < new Date()
-              }
-              onClick={async () => {
-                const body = await promptText({
-                  title: t("appeal"),
-                  reasonLabel: t("body"),
-                  confirmLabel: t("submit"),
-                  cancelLabel: t("cancel"),
-                  required: true,
-                });
-                if (body) appeal.mutate({ cardId: card.id, body });
-              }}
-            >
-              {t("appeal")}
-            </button>
+            {card.reviewStatus !== "INVALID" && (
+              <button
+                className="btn-secondary mt-3"
+                disabled={
+                  appeal.isPending ||
+                  !canSubmitCardAppeal({
+                    reviewStatus: card.reviewStatus,
+                    hasExistingAppeal: appeals.some(
+                      (a) => a.cardId === card.id,
+                    ),
+                    deadline: card.deadline,
+                  })
+                }
+                onClick={async () => {
+                  const body = await promptText({
+                    title: t("appeal"),
+                    reasonLabel: t("body"),
+                    confirmLabel: t("submit"),
+                    cancelLabel: t("cancel"),
+                    required: true,
+                  });
+                  if (body) appeal.mutate({ cardId: card.id, body });
+                }}
+              >
+                {t("appeal")}
+              </button>
+            )}
           </div>
         ))}
         {appeal.error && <p role="alert">{appeal.error.message}</p>}

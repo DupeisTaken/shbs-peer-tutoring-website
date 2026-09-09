@@ -1393,6 +1393,9 @@ it("student appeals only affect their own card and cannot be reviewed twice", as
     b.student.appeal({ cardId: card.id, body: "Wrong" }),
   ).rejects.toMatchObject({ code: "FORBIDDEN" });
   await a.student.appeal({ cardId: card.id, body: "I attended" });
+  await expect(
+    a.student.appeal({ cardId: card.id, body: "A second explanation" }),
+  ).rejects.toMatchObject({ code: "CONFLICT" });
   const row = await db.studentAppeal.findFirstOrThrow();
   const decision = {
     id: row.id,
@@ -1405,6 +1408,9 @@ it("student appeals only affect their own card and cannot be reviewed twice", as
     (await db.disciplinaryCard.findUniqueOrThrow({ where: { id: card.id } }))
       .reviewStatus,
   ).toBe("INVALID");
+  await expect(
+    a.student.appeal({ cardId: card.id, body: "The invalid card" }),
+  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   await expect(caller().student.decideAppeal(decision)).rejects.toMatchObject({
     code: "CONFLICT",
   });

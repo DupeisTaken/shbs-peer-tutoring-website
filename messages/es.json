@@ -644,6 +644,7 @@
         "COORDINATOR": "Coordinador",
         "ADMIN": "Administrador",
         "HEAD": "Responsable",
+        "CREW": "Rondas",
         "STUDENT": "Estudiante"
       },
       "canTutorLabel": "Puede tutorar",

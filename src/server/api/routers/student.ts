@@ -359,6 +359,11 @@ export const studentRouter = createTRPCRouter({
         });
         if (!card || !owned.includes(card.tuteeId))
           throw new TRPCError({ code: "FORBIDDEN" });
+        if (card.reviewStatus === "INVALID")
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "This card has already been invalidated.",
+          });
         if (
           appealDeadline(
             card.createdAt,
@@ -369,6 +374,15 @@ export const studentRouter = createTRPCRouter({
             code: "BAD_REQUEST",
             message:
               "The five-school-day appeal window has ended. Contact the team.",
+          });
+        const existing = await tx.studentAppeal.findFirst({
+          where: { cardId: card.id },
+          select: { id: true },
+        });
+        if (existing)
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "This card already has an appeal.",
           });
         await tx.studentAppeal.create({
           data: { studentId: card.tuteeId, ...input },

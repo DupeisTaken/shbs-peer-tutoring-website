@@ -651,6 +651,7 @@
         "COORDINATOR": "Coordinator",
         "ADMIN": "Admin",
         "HEAD": "Head",
+        "CREW": "Crew patrols",
         "STUDENT": "Student"
       },
       "filters": {

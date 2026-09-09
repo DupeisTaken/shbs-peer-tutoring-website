@@ -644,6 +644,7 @@
         "COORDINATOR": "协调员",
         "ADMIN": "管理员",
         "HEAD": "负责人",
+        "CREW": "巡查队",
         "STUDENT": "学生"
       },
       "canTutorLabel": "可担任导师",
