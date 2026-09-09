@@ -5,10 +5,11 @@ import { db } from "./db";
 import { createCaller } from "./api/root";
 import { databaseScope } from "./db-scope";
 import { TRANSLATION_BASELINE } from "./translation-destination";
+import { proposeTranslation } from "./translation-drafts";
 
-const user = (id: string, role: Session["role"]) =>
+const user = (id: string, role: Session["role"], client = db) =>
   createCaller({
-    db,
+    db: client,
     headers: new Headers(),
     session: {
       user: { id, name: "Translation Review" },
@@ -251,6 +252,88 @@ it("a deleted custom locale cannot redirect a proposal into English", async () =
   await admin().i18n.deleteLanguage({ code: "zz" });
   await expect(approve(draft)).rejects.toThrow("destination text changed");
   expect(await db.messageOverride.count()).toBe(0);
+});
+
+it("custom-language saves resolve the language on the existing transaction", async () => {
+  await db.$transaction(async (tx) => {
+    // This new language is invisible to the shared client's separate connection.
+    await tx.language.create({
+      data: { code: "zz", label: "Uncommitted language" },
+    });
+    const caller = user("translation-admin", "ADMIN", tx as typeof db);
+    await caller.localization.setString({
+      locale: "zz",
+      key: "common.save",
+      value: "Custom text",
+    });
+  });
+  expect(
+    await db.messageOverride.findMany({
+      select: { locale: true, value: true },
+    }),
+  ).toEqual([{ locale: "zz", value: "Custom text" }]);
+});
+
+it("a failed transactional language lookup cannot write an English fallback", async () => {
+  await db.language.create({ data: { code: "zz", label: "Custom language" } });
+  await expect(
+    db.$transaction(async (tx) => {
+      // Prisma returns delegates dynamically; inject a stable failing delegate
+      // into this transaction only, without changing the shared database client.
+      const failingTx = new Proxy(tx, {
+        has(target, key) {
+          return key === "$transaction" ? false : Reflect.has(target, key);
+        },
+        get(target, key, receiver) {
+          if (key === "language")
+            return {
+              findUnique: async () => {
+                throw Error("language lookup unavailable");
+              },
+            };
+          return Reflect.get(target, key, receiver) as unknown;
+        },
+      });
+      await user(
+        "translation-admin",
+        "ADMIN",
+        failingTx as typeof db,
+      ).localization.setString({
+        locale: "zz",
+        key: "common.save",
+        value: "Must not become English",
+      });
+    }),
+  ).rejects.toThrow("language lookup unavailable");
+  expect(await db.messageOverride.count()).toBe(0);
+  expect(await db.translationDraft.count()).toBe(0);
+});
+
+it("unknown languages cannot publish or propose text into English", async () => {
+  await write("message", "Keep English", true);
+  const input = {
+    locale: "unknown-language",
+    key: "common.save",
+    value: "Must not replace English",
+  };
+  await expect(admin().localization.setString(input)).rejects.toMatchObject({
+    code: "BAD_REQUEST",
+  });
+  await expect(
+    translator().localization.setString(input),
+  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  await expect(
+    db.$transaction((tx) =>
+      proposeTranslation(
+        tx,
+        { role: "VIEWER", user: { id: "translation-author" } },
+        "localization.setString",
+        input,
+      ),
+    ),
+  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  expect(await read("message")).toBe("Keep English");
+  expect(await db.translationDraft.count()).toBe(0);
 });
 
 it("deleting a translated parent invalidates its proposal without losing evidence", async () => {

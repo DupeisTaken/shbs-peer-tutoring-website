@@ -1,4 +1,7 @@
-import { withTranslationWrite } from "~/server/translation-destination";
+import {
+  requireTranslationLocale,
+  withTranslationWrite,
+} from "~/server/translation-destination";
 import { proposeTranslation } from "~/server/translation-drafts";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
@@ -155,7 +158,9 @@ export const localizationRouter = createTRPCRouter({
     )
     .mutation(({ ctx, input }) =>
       withTranslationWrite(ctx.db, async (tx) => {
-        const locale = await resolveLocale(input.locale);
+        // Keep locale lookup on the lock-holding connection. A display helper's
+        // error fallback must never redirect a failed custom-language save to English.
+        const locale = await requireTranslationLocale(tx, input.locale);
         const enFlat = flatten(MESSAGES.en ?? {});
         const localeFlat = localeBase(locale, enFlat);
         const base = localeFlat[input.key] ?? enFlat[input.key];

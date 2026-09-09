@@ -16,6 +16,23 @@ const baselineSchema = z.object({
   fingerprint: z.string().regex(/^[a-f0-9]{64}$/),
 });
 
+/** Writes require a real target language; read-only catalog fallback is not a write destination. */
+export async function requireTranslationLocale(
+  db: TransactionDb,
+  locale: string,
+) {
+  if (
+    !isLocale(locale) &&
+    !(await db.language.findUnique({ where: { code: locale } }))
+  )
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message:
+        "This language is no longer available. Reload and choose an existing language.",
+    });
+  return locale;
+}
+
 /** Translation writes are infrequent. One lock covers absent rows, parent deletion and
  * locale deletion as well as all five text targets, including approval replay. */
 export function withTranslationWrite<T>(
@@ -105,6 +122,11 @@ export async function translationBaseline(
   operation: string,
   payload: unknown,
 ) {
+  if (operation === "localization.setString")
+    await requireTranslationLocale(
+      db,
+      z.object({ locale: z.string() }).parse(payload).locale,
+    );
   return {
     version: 1 as const,
     fingerprint: fingerprint(await destination(db, operation, payload)),
@@ -125,8 +147,9 @@ export async function assertTranslationCurrent(
       message:
         "This older draft has no saved destination version. Reject it, reload the current text, and submit a new draft.",
     });
-  const current = await translationBaseline(db, operation, payload);
-  if (current.fingerprint !== baseline.data.fingerprint)
+  // Missing languages are stale destinations during review, rather than new-input errors.
+  const current = fingerprint(await destination(db, operation, payload));
+  if (current !== baseline.data.fingerprint)
     throw new TRPCError({
       code: "CONFLICT",
       message:

@@ -1728,7 +1728,7 @@ it("translators cannot publish or delete landing structures", async () => {
   ).rejects.toMatchObject({ code: "FORBIDDEN" });
   await tutor().home.setContent({
     locale: "en",
-    key: "hero.title",
+    key: "heroTitle",
     value: "Draft title",
   });
   expect(await db.homeContent.count()).toBe(0);
