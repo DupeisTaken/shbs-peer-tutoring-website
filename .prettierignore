@@ -1,0 +1,9 @@
+# Generated files and local evidence have their own lifecycles.
+node_modules/
+.next/
+generated/
+outputs/
+.validation/
+coverage/
+backups/
+local-operations/

@@ -22,7 +22,7 @@ Start with the [README](README.md), [technical report](docs/technical-report.md)
 - Keep runtime policy records distinct from [bundled policy drafts](docs/policies/README.md). Do not republish archived translations or assume a Git change updated a running database.
 - Windows production builds use the existing Turbopack build command; a bounded webpack dev server is acceptable for investigation. Do not change global runtime configuration to work around local resource limits.
 
-The [pre-integration developer notes](docs/archive/pre-integration-developer-notes.md) are historical reference only; they contain superseded permissions, interview rules and meeting deductions. Use current code, tests and the technical report as authority.
+Use current code, tests and the technical report as authority. Superseded developer notes remain available in Git history. Keep disposable evidence in ignored `outputs/` or `.validation/`; never place reusable application code there. See [repository maintenance](docs/repository-maintenance.md) for retention and cleanup rules.
 
 <!-- BEGIN:nextjs-agent-rules -->
 

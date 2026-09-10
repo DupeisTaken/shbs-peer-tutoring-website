@@ -1,10 +1,83 @@
 import fs from "node:fs";
 import assert from "node:assert/strict";
 import path from "node:path";
+import os from "node:os";
+import { execFileSync } from "node:child_process";
 import test from "node:test";
+import { ESLint } from "eslint";
+import prettier from "prettier";
+import ts from "typescript";
 import yaml from "js-yaml";
 import { markdownModel, reportLink, root } from "./build-docs.mjs";
 import { validateLinks, validateForm } from "./check-docs.mjs";
+
+test("local evidence stays outside Git, lint, formatting and TypeScript inputs", async () => {
+  const directories = [
+    "outputs",
+    ".validation",
+    "coverage",
+    "backups",
+    "local-operations",
+  ];
+  const eslint = new ESLint({ cwd: root });
+  for (const directory of directories) {
+    const relative = `${directory}/maintenance-probe.ts`;
+    assert.equal(
+      await eslint.isPathIgnored(path.join(root, relative)),
+      true,
+      relative,
+    );
+    const info = await prettier.getFileInfo(path.join(root, relative), {
+      ignorePath: path.join(root, ".prettierignore"),
+    });
+    assert.equal(info.ignored, true, relative);
+    assert.equal(
+      execFileSync("git", ["check-ignore", "--no-index", relative], {
+        cwd: root,
+        encoding: "utf8",
+      }).trim(),
+      relative,
+    );
+  }
+  // A disposable filesystem exercises TypeScript's real include/exclude matching,
+  // while the application's live outputs and database fixtures remain untouched.
+  const fixture = fs.mkdtempSync(path.join(os.tmpdir(), "shbs-hygiene-"));
+  try {
+    for (const directory of ["src", ...directories]) {
+      fs.mkdirSync(path.join(fixture, directory));
+      fs.writeFileSync(
+        path.join(fixture, directory, "probe.ts"),
+        "export const probe = 1;\n",
+      );
+    }
+    const loaded = ts.readConfigFile(
+      path.join(root, "tsconfig.json"),
+      ts.sys.readFile,
+    );
+    assert.equal(loaded.error, undefined);
+    const parsed = ts.parseJsonConfigFileContent(
+      loaded.config,
+      ts.sys,
+      fixture,
+    );
+    assert.equal(parsed.errors.length, 0);
+    assert.deepEqual(
+      parsed.fileNames.map((file) =>
+        path.relative(fixture, file).replaceAll("\\", "/"),
+      ),
+      ["src/probe.ts"],
+    );
+  } finally {
+    const temporaryRoot = path.resolve(os.tmpdir()) + path.sep;
+    assert.ok(path.resolve(fixture).startsWith(temporaryRoot));
+    assert.ok(path.basename(fixture).startsWith("shbs-hygiene-"));
+    fs.rmSync(fixture, { recursive: true });
+  }
+  assert.equal(
+    await eslint.isPathIgnored(path.join(root, "src/lib/time.ts")),
+    false,
+  );
+});
 
 test("headings retain Unicode, format-independent anchors and unique duplicate ids", () => {
   const model = markdownModel(
@@ -98,7 +171,10 @@ test("issue forms reject duplicate field ids and missing report content", () => 
 
 test("image publishing cancels stale runs and fails closed on an old main commit", () => {
   const workflow = yaml.load(
-    fs.readFileSync(path.join(root, ".github/workflows/docker-build.yml"), "utf8"),
+    fs.readFileSync(
+      path.join(root, ".github/workflows/docker-build.yml"),
+      "utf8",
+    ),
   );
   assert.equal(workflow.concurrency["cancel-in-progress"], true);
   assert.match(workflow.concurrency.group, /github\.workflow/);
@@ -119,7 +195,10 @@ test("image publishing cancels stale runs and fails closed on an old main commit
   const pushIndex = publish.steps.findIndex(
     (step) => step.uses === "docker/build-push-action@v6",
   );
-  assert.ok(guardIndex < pushIndex, "the current-main guard must precede the image push");
+  assert.ok(
+    guardIndex < pushIndex,
+    "the current-main guard must precede the image push",
+  );
   const push = publish.steps[pushIndex];
   assert.equal(push.with.push, true);
 });

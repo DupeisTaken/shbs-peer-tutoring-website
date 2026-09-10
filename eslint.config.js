@@ -4,7 +4,16 @@ import tseslint from "typescript-eslint";
 // Next 16 removed `next lint`; eslint-config-next now ships a native flat config we spread directly.
 export default tseslint.config(
   {
-    ignores: [".next/**", "generated/**"],
+    // Local evidence and runtime fixtures must not enter the application's checks.
+    ignores: [
+      ".next/**",
+      "generated/**",
+      "outputs/**",
+      ".validation/**",
+      "coverage/**",
+      "backups/**",
+      "local-operations/**",
+    ],
   },
   ...nextCoreWebVitals,
   {
@@ -26,7 +35,10 @@ export default tseslint.config(
         "warn",
         { prefer: "type-imports", fixStyle: "inline-type-imports" },
       ],
-      "@typescript-eslint/no-unused-vars": ["warn", { argsIgnorePattern: "^_" }],
+      "@typescript-eslint/no-unused-vars": [
+        "warn",
+        { argsIgnorePattern: "^_" },
+      ],
       "@typescript-eslint/require-await": "off",
       "@typescript-eslint/no-misused-promises": [
         "error",

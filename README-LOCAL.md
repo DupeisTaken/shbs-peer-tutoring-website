@@ -18,7 +18,7 @@ stack. For production deployment see [README-DEPLOY.md](./README-DEPLOY.md).
 ## 1. Install and configure
 
 ```bash
-npm install                 # installs deps and runs `prisma generate`
+npm ci                      # installs the locked dependencies and generates Prisma
 cp .env.example .env
 ```
 
@@ -26,8 +26,10 @@ Edit `.env`. For local work you really only need `DATABASE_URL` and `AUTH_SECRET
 (generate the latter with `npx auth secret`; in development it may even be left blank).
 Sign-in is username or email + password — there is no external identity provider to configure.
 
-Put your own email in `AUTH_BOOTSTRAP_ADMIN_EMAILS` so that account is promoted to `ADMIN`
-on its first sign-in.
+The first address in `AUTH_BOOTSTRAP_ADMIN_EMAILS` becomes `HEAD` when no HEAD exists;
+later entries become `ADMIN`. This promotes an existing account on sign-in; it does not
+create one. Use `npm run admin:create` for a seed-free initial account, following the
+[bootstrap instructions](README-DEPLOY.md#create-the-first-admin-first-deploy).
 
 > **Email-based sign-in 2FA is implemented** and applies when the `EMAIL_2FA` program feature
 > and the user's 2FA preference are both enabled. Without SMTP configuration, development logs
@@ -117,12 +119,13 @@ npm test            # one-shot
 npm run test:watch  # watch mode
 ```
 
-Two kinds of tests live under `src/**/*.test.ts`:
+Application tests live under `src/**/*.test.{ts,tsx}`:
 
 - **Pure unit tests** (e.g. `src/lib/service-hours.test.ts`) — no database needed.
 - **Integration tests** (e.g. `src/server/api/routers/scoping.test.ts`) — exercise the tRPC
   routers against a **real database**, verifying role/ownership scoping. They run serially
   (`fileParallelism: false`) and need a reachable `DATABASE_URL` with the schema applied.
+- **UI render tests** exercise interactive controls in jsdom without starting the website.
 
 `src/test/setup.ts` supplies `AUTH_SECRET` and a default `DATABASE_URL`, so the unit
 tests pass out of the box. For the integration tests, set `DATABASE_URL` to a database you've
@@ -132,16 +135,17 @@ run `db:migrate` against first. Example with embedded Postgres (Option C):
 DATABASE_URL="postgresql://postgres:password@localhost:5433/shbs_shipping_test" npm test -- --maxWorkers=1
 ```
 
-The workflow regression suite truncates its disposable database between cases. Run it only with
-a separate local database whose name ends in `_test` (or `shbs_functional_review`); it refuses other
-targets. Create that database, set `DATABASE_URL` for the test command, and run `npm run db:migrate`
-before `npm test -- --maxWorkers=1`. Never point this suite at the development site or a production
-database. Tests run serially to keep resource use low.
+Use a separate loopback database named `shbs_shipping_test` for the complete suite. The shared
+guard requires a local `_test` database, and individual integration suites apply narrower name
+allowlists; an arbitrary `_test` name does not satisfy every suite. Create the database, set
+`DATABASE_URL` for both `npm run db:migrate` and `npm test -- --maxWorkers=1`, and never point these
+destructive fixtures at a development site or production database.
 
 Lint and type-check the same way CI does:
 
 ```bash
 npm run check       # eslint . + tsc --noEmit
+npm run docs:check  # documentation links, report freshness and maintenance regressions
 ```
 
 ## 6. Smoke-test the production Docker stack (optional)
@@ -200,4 +204,7 @@ docker compose down        # or: docker compose down -v
 After generating a changed Prisma client, restart the local Next server so its cached database
 client includes the new fields. Confirmed product-policy decisions are in `REVIEW-QUESTIONS.md`.
 
-Student workflow navigation and product rules are documented in [STUDENT-WORKFLOWS.md](STUDENT-WORKFLOWS.md). Tests must use the isolated local `shbs_functional_review` or a database ending in `_test`; never run the workflow fixture cleanup against the normal development database. Schema changes require restarting the local Next process after regenerating Prisma so its cached client includes the new delegates.
+Student workflow navigation and product rules are documented in [STUDENT-WORKFLOWS.md](STUDENT-WORKFLOWS.md).
+Store local reports and screenshots in ignored `outputs/` or `.validation/`; they are excluded
+from lint, type and formatting checks. Follow [repository maintenance](docs/repository-maintenance.md)
+before deleting runtime fixtures or caches: an embedded database may be using those directories.

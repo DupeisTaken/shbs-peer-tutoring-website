@@ -15,6 +15,7 @@ Choose the guide for the work you need to do. User instructions follow the websi
 | Read or publish a policy revision | [Policy documents](policies/README.md) |
 | Install or operate the server | [Local setup](../README-LOCAL.md) · [Deployment runbook](../README-DEPLOY.md) |
 | Report a bug, suggest a feature or improve these docs | [Creating issues](issues.md) |
+| Understand which files to keep or safely clean | [Repository maintenance](repository-maintenance.md) |
 
 ## Two reports
 

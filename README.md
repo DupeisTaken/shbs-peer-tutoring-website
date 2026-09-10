@@ -18,7 +18,9 @@ Printable HTML editions: [user report](docs/reports/user-guide.html) · [technic
 
 ## Release status
 
-[PR #9](https://github.com/DupeisTaken/shbs-peer-tutoring-website/pull/9) merged the reviewed deployment, participant, survey-first and approval work into main. See the [verification record](SHIPPING-READINESS.md) for the tested baseline and launch prerequisites.
+The maintained guides describe the current main branch. The [verification record](SHIPPING-READINESS.md)
+and [release rehearsal report](docs/reports/release-audit.html) preserve dated test evidence;
+their commit IDs and test counts describe those runs, not every later revision.
 
 No deployment was performed for this release task. Real SMTP delivery, school-approved content and target-host operations must be configured before opening real intake. Repository policy edits do not publish existing database policies.
 

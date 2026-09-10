@@ -50,6 +50,11 @@
   ],
   "exclude": [
     "node_modules",
-    "generated"
+    "generated",
+    "outputs",
+    ".validation",
+    "coverage",
+    "backups",
+    "local-operations"
   ]
 }

@@ -49,3 +49,10 @@ yarn-error.log*
 .idea
 # Local PR verification evidence
 /.validation/
+
+# Local reports, runtime fixtures and database dumps are not source files.
+/outputs/
+/backups/
+
+# Private operator notes and deployment details; never part of the shared LMS foundation.
+/local-operations/

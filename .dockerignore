@@ -8,9 +8,11 @@ npm-debug.log*
 .env*
 !.env.example
 outputs
+local-operations
 README.md
 README-DEPLOY.md
 .vscode
 .idea
 coverage
 .validation
+backups
