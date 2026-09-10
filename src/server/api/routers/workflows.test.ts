@@ -14,6 +14,8 @@ import { completeRegistration } from "~/server/auth/registration";
 import { initializeProgram } from "~/server/program/bootstrap";
 import { confirmEmailChange } from "~/server/auth/email-change";
 import { hashCode } from "~/server/auth/registration";
+import { databaseScope } from "~/server/db-scope";
+import { lockEntity } from "~/server/transactions";
 import * as audit from "~/server/audit/log";
 
 const password = "ReviewPassword123!";
@@ -1983,7 +1985,130 @@ async function interviewFixture() {
   });
   return { app, panel };
 }
-it("interview acceptance cannot bypass a valid panel or missing votes", async () => {
+it("interview scheduling rechecks chair authority after concurrent panel replacement", async () => {
+  const { app, panel } = await interviewFixture();
+  const formerChair = caller("ADMIN", "panel-user-0", panel[0]!.id);
+  const interviewAt = new Date("2026-09-15T04:00:00Z");
+  let pending: Promise<unknown> | undefined;
+  await db
+    .$transaction(async (tx) => {
+      await lockEntity(tx, `interview:${app.id}`);
+      // The row lock also holds the old implementation after its stale authority read,
+      // making this regression deterministic without pausing production code.
+      await tx.$queryRaw`SELECT id FROM "TutorApplication" WHERE id=${app.id} FOR UPDATE`;
+      pending = formerChair.tutor
+        .setInterviewTime({ applicationId: app.id, interviewAt })
+        .then(
+          () => "unexpected success",
+          (error: unknown) => error,
+        );
+      let waiting = false;
+      const deadline = Date.now() + 2000;
+      while (!waiting && Date.now() < deadline) {
+        const [state] = await tx.$queryRaw<
+          { waiting: boolean }[]
+        >`SELECT EXISTS (
+          SELECT 1 FROM pg_locks WHERE NOT granted
+            AND pg_backend_pid() = ANY(pg_blocking_pids(pid))
+      ) AS waiting`;
+        waiting = state!.waiting;
+        if (!waiting) await new Promise((resolve) => setTimeout(resolve, 20));
+      }
+      expect(waiting).toBe(true);
+      await tx.user.update({
+        where: { id: "panel-user-1" },
+        data: { role: "ADMIN" },
+      });
+      const current = await tx.tutorApplication.findUniqueOrThrow({
+        where: { id: app.id },
+      });
+      await databaseScope.run(tx, () =>
+        caller().admin.assignInterviewers({
+          applicationId: app.id,
+          tutorIds: panel.map((person) => person.id),
+          headTutorId: panel[1]!.id,
+          expectedUpdatedAt: current.updatedAt,
+        }),
+      );
+    })
+    .finally(async () => {
+      // Always settle the competing request before the next test cleans its fixtures.
+      await pending;
+    });
+  expect(await pending).toMatchObject({ code: "FORBIDDEN" });
+  expect(
+    (await db.tutorApplication.findUniqueOrThrow({ where: { id: app.id } }))
+      .interviewAt,
+  ).toBeNull();
+  expect(
+    await db.notification.count({ where: { title: "Interview scheduled" } }),
+  ).toBe(0);
+  await caller("ADMIN", "panel-user-1", panel[1]!.id).tutor.setInterviewTime({
+    applicationId: app.id,
+    interviewAt,
+  });
+  expect(
+    (await db.tutorApplication.findUniqueOrThrow({ where: { id: app.id } }))
+      .interviewAt,
+  ).toEqual(interviewAt);
+  expect(
+    await db.notification.count({ where: { title: "Interview scheduled" } }),
+  ).toBe(2);
+});
+
+it("interview schedule and panel notices roll back with an enclosing transaction", async () => {
+  const { app, panel } = await interviewFixture();
+  await expect(
+    db.$transaction((tx) =>
+      databaseScope.run(tx, async () => {
+        await caller(
+          "ADMIN",
+          "panel-user-0",
+          panel[0]!.id,
+        ).tutor.setInterviewTime({
+          applicationId: app.id,
+          interviewAt: new Date("2026-09-15T04:00:00Z"),
+        });
+        throw new Error("later scheduling failure");
+      }),
+    ),
+  ).rejects.toThrow("later scheduling failure");
+  expect(
+    (await db.tutorApplication.findUniqueOrThrow({ where: { id: app.id } }))
+      .interviewAt,
+  ).toBeNull();
+  expect(
+    await db.notification.count({ where: { title: "Interview scheduled" } }),
+  ).toBe(0);
+});
+
+it("interview outcomes cannot bypass the assigned chair", async () => {
+  const screened = await db.tutorApplication.create({
+    data: { name: "Screened out", email: "screened@example.test" },
+  });
+  await caller().admin.setApplicationStatus({
+    id: screened.id,
+    status: "REJECTED",
+    expectedUpdatedAt: screened.updatedAt,
+  });
+  expect(
+    (
+      await db.tutorApplication.findUniqueOrThrow({
+        where: { id: screened.id },
+      })
+    ).status,
+  ).toBe("REJECTED");
+  const unscheduled = await db.tutorApplication.create({
+    data: { name: "Needs panel", email: "needs-panel@example.test" },
+  });
+  await expect(
+    caller().admin.setApplicationStatus({
+      id: unscheduled.id,
+      status: "INTERVIEW",
+      expectedUpdatedAt: unscheduled.updatedAt,
+    }),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+
   const { app, panel } = await interviewFixture();
   let current = await db.tutorApplication.findUniqueOrThrow({
     where: { id: app.id },
@@ -1992,6 +2117,13 @@ it("interview acceptance cannot bypass a valid panel or missing votes", async ()
     caller().admin.setApplicationStatus({
       id: app.id,
       status: "ACCEPTED",
+      expectedUpdatedAt: current.updatedAt,
+    }),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  await expect(
+    caller().admin.setApplicationStatus({
+      id: app.id,
+      status: "REJECTED",
       expectedUpdatedAt: current.updatedAt,
     }),
   ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
@@ -2004,6 +2136,14 @@ it("interview acceptance cannot bypass a valid panel or missing votes", async ()
   current = await db.tutorApplication.findUniqueOrThrow({
     where: { id: app.id },
   });
+  for (const status of ["ACCEPTED", "REJECTED", "PENDING"] as const)
+    await expect(
+      caller().admin.setApplicationStatus({
+        id: app.id,
+        status,
+        expectedUpdatedAt: current.updatedAt,
+      }),
+    ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
   const chair = caller("ADMIN", "panel-user-0", panel[0]!.id);
   await expect(
     chair.tutor.decideInterview({
@@ -2025,6 +2165,25 @@ it("interview acceptance cannot bypass a valid panel or missing votes", async ()
       accept: false,
     }),
   ).rejects.toMatchObject({ code: "CONFLICT" });
+});
+it("panel-free applications can be accepted when interviews are disabled", async () => {
+  await db.programFeature.upsert({
+    where: { key: "INTERVIEWS" },
+    create: { key: "INTERVIEWS", enabled: false },
+    update: { enabled: false },
+  });
+  const app = await db.tutorApplication.create({
+    data: { name: "Direct candidate", email: "direct@example.test" },
+  });
+  await caller().admin.setApplicationStatus({
+    id: app.id,
+    status: "ACCEPTED",
+    expectedUpdatedAt: app.updatedAt,
+  });
+  expect(
+    (await db.tutorApplication.findUniqueOrThrow({ where: { id: app.id } }))
+      .status,
+  ).toBe("ACCEPTED");
 });
 it("interview completion awards only attendees, and a correction replaces credits", async () => {
   const { app, panel } = await interviewFixture();
@@ -2204,7 +2363,7 @@ it("only the highest-ranking staff chair can break an interview tie", async () =
       status: "ACCEPTED",
       expectedUpdatedAt: current.updatedAt,
     }),
-  ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
   await caller("ADMIN", "panel-user-0", panel[0]!.id).tutor.decideInterview({
     applicationId: app.id,
     accept: true,
