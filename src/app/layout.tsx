@@ -14,7 +14,7 @@ import { StudentPolicyGate } from "~/app/_components/student-policy-gate";
 export const metadata: Metadata = {
   title: APP_TITLE,
   description: `Pairings, attendance, and service-hour tracking for the ${APP_TITLE} program.`,
-  icons: [{ rel: "icon", url: "/favicon.ico" }],
+  // Next.js derives the tab icon from src/app/icon.png; replace that image to rebrand.
 };
 
 export default async function RootLayout({

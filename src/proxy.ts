@@ -11,5 +11,7 @@ export default auth;
 export const config = {
   // Run on everything except Next internals, static assets, and API routes
   // (tRPC and the Auth.js endpoints enforce their own authorization server-side).
-  matcher: ["/((?!api|_next/static|_next/image|favicon.ico).*)"],
+  // The file-based tab icon must also load before sign-in. Match its exact path
+  // rather than exempting every PNG-looking URL from authentication.
+  matcher: ["/((?!api|_next/static|_next/image|favicon.ico|icon\\.png$).*)"],
 };
