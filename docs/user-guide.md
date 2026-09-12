@@ -184,3 +184,7 @@ For a private account, disciplinary or attendance matter, contact management thr
 Use synthetic examples and remove student names, contact details, private messages, account links and codes from public reports. [Creating issues](issues.md) explains what information is useful.
 
 [Documentation home](README.md) · [Technical report](technical-report.md) · [Policy documents](policies/README.md)
+
+### Signup request tabs
+
+Signup Requests includes student signups and manually managed requests in the same tabs and counts, with source badges. Needs matching includes empty or partially assigned requests; Assigned contains requests whose requested subjects all have tutors. Both sources keep their original submission order. Needs review contains pending review decisions; Processed retains closed requests and completed review history. A completed manual signup stays in Assigned when the page is refreshed.

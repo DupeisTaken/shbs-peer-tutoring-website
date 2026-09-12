@@ -2226,7 +2226,7 @@
     "recallConsequences": "This withdraws your unassigned request immediately and permanently. It will appear in Processed with a Recalled badge, and admins will be notified. It cannot be reopened. If you apply again, you will receive a new submission time and priority.",
     "reason": "Reason",
     "boardTitle": "Student request workflow",
-    "boardHelp": "Match students in their original submission order, including unverified requests. Their seven-day verification deadline starts at the first assignment and never resets on resend or reassignment. Closed requests are retained as history.",
+    "boardHelp": "All signup sources share these tabs and counts, ordered by original submission time. Needs matching includes partially assigned requests; Assigned means every requested subject has a tutor. Student account verification deadlines remain fixed from the first assignment. Closed requests stay in Processed.",
     "matching": "Needs matching",
     "assigned": "Assigned",
     "reviews": "Needs review",
@@ -2255,7 +2255,9 @@
     "policyLoadError": "The current policy could not be loaded. Retry or sign out. Your request priority is unchanged.",
     "retry": "Retry",
     "expiredHelp": "If your request was disqualified, resending cannot reactivate it. You must submit a new request.",
-    "policyHistoryAccess": "Read and accept the updated policy before participating. Your history, feedback, appeals, and private messages remain available."
+    "policyHistoryAccess": "Read and accept the updated policy before participating. Your history, feedback, appeals, and private messages remain available.",
+    "manualSource": "Manually managed",
+    "surveySource": "Student signup"
   },
   "approvals": {
     "title": "Change Approvals",
