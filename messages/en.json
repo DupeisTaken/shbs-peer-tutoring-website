@@ -2258,8 +2258,8 @@
     "policyHistoryAccess": "Read and accept the updated policy before participating. Your history, feedback, appeals, and private messages remain available."
   },
   "approvals": {
-    "title": "Change Approvals",
-    "subtitle": "Review proposed changes, explain your decision, and help new team members learn.",
+    "title": "Changes Awaiting Approval",
+    "subtitle": "Review changes proposed by coordinators before they take effect. Approve to apply a change, or reject it with an explanation. Use the status filter to view past decisions.",
     "queued": "Submitted for Admin Approval",
     "queuedBody": "Your proposal is pending. The live records stay unchanged until an admin approves it.",
     "dismiss": "Dismiss",
