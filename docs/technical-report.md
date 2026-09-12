@@ -181,7 +181,7 @@ Verify report layout at desktop and mobile widths and check the contents links, 
 
 ## Launch boundaries
 
-The integrated application and its image acceptance tests are complete. No deployment was authorized or performed during this documentation task. Before opening real intake, the operator still needs:
+Repository verification does not establish that a public host is deployed correctly. Before opening real intake, the operator needs:
 
 1. A canonical HTTPS domain and host with persistent database/uploads.
 2. Real SMTP delivery tested for signup, password recovery and verified email changes.
