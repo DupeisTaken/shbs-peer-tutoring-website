@@ -906,6 +906,43 @@
         "pinLabel": "Anheften (bleibt nach dem Schließen sichtbar)",
         "posting": "Wird veröffentlicht…",
         "broadcast": "Veröffentlichen"
+      },
+      "recipients": {
+        "button": "Recipients",
+        "loading": "Loading…",
+        "count": "{count, plural, one {# recipient} other {# recipients}}",
+        "done": "Done",
+        "explanation": "Recipients are fixed when published. Filters combine across groups; multiple choices within a group match any choice. Subjects include approved qualifications and current-term assignments.",
+        "mode": "Choose recipients",
+        "all": "All current tutors",
+        "filtered": "Filter tutors",
+        "specific": "Specific tutors only",
+        "grades": "Grades",
+        "statuses": "Tutor status",
+        "subjects": "Subjects",
+        "assignment": "Active tutees in the current term",
+        "any": "Any assignment status",
+        "with": "With active tutees",
+        "without": "Without active tutees",
+        "empty": "No recipients selected. Choose at least one tutor to publish.",
+        "search": "Find a tutor",
+        "overrideHelp": "Include adds a tutor regardless of filters. Exclude removes them. Search only narrows this list, not the recipients.",
+        "selected": "Selected",
+        "tutees": "{count} active tutees",
+        "overrideFor": "Recipient selection for {name}",
+        "notSelected": "Not selected",
+        "auto": "Follow filters",
+        "include": "Include",
+        "exclude": "Exclude",
+        "frozenCount": "Published to {count} tutors · fixed recipient list",
+        "legacy": "Existing broadcast · visible to all tutors",
+        "status": {
+          "ACTIVE": "Active",
+          "PENDING": "Pending activation",
+          "OPTED_OUT": "Opted out",
+          "GRADUATED": "Graduated",
+          "ARCHIVED": "Archived"
+        }
       }
     },
     "policies": {
