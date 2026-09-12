@@ -1,3 +1,7 @@
+import {
+  lockAccountProfile,
+  updateAccountProfile,
+} from "~/server/account-profile";
 import { requestMembership, recallMembership } from "~/server/membership";
 import { approvalScope } from "~/server/db-scope";
 import { requirePolicy } from "~/server/policy-acceptance";
@@ -369,7 +373,10 @@ export const tutorRouter = createTRPCRouter({
       const tutorId = ctx.session.tutorId;
       // Attendance dates are school calendar dates stored at UTC midnight. Compare their date key
       // with today's configured school date so a server in another timezone cannot admit tomorrow.
-      const schoolToday = programDateKey(new Date(), await getProgramTimeZone(ctx.db));
+      const schoolToday = programDateKey(
+        new Date(),
+        await getProgramTimeZone(ctx.db),
+      );
       if (input.date.toISOString().slice(0, 10) > schoolToday) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -864,9 +871,15 @@ export const tutorRouter = createTRPCRouter({
       if (input.gradeLevel !== undefined)
         tutorData.gradeLevel = input.gradeLevel;
       if (Object.keys(tutorData).length > 0) {
-        await ctx.db.tutor.update({
-          where: { id: ctx.session.tutorId },
-          data: tutorData,
+        await inTransaction(ctx.db, async (tx) => {
+          await lockAccountProfile(tx, ctx.session.user.id);
+          await tx.tutor.update({
+            where: { id: ctx.session.tutorId },
+            data: tutorData,
+          });
+          await updateAccountProfile(tx, ctx.session.user.id, {
+            alternativeNames: input.alternativeNames,
+          });
         });
       }
       return { ok: true };
@@ -1014,10 +1027,18 @@ export const tutorRouter = createTRPCRouter({
     .input(z.object({ announcementId: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
       const visible = await ctx.db.announcement.findFirst({
-        where: { id: input.announcementId, active: true, ...announcementVisibility(ctx.session.tutorId) },
+        where: {
+          id: input.announcementId,
+          active: true,
+          ...announcementVisibility(ctx.session.tutorId),
+        },
         select: { id: true },
       });
-      if (!visible) throw new TRPCError({ code: "NOT_FOUND", message: "Announcement not found." });
+      if (!visible)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Announcement not found.",
+        });
       await ctx.db.announcementAck.upsert({
         where: {
           announcementId_userId: {

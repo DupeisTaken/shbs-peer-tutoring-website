@@ -3,6 +3,8 @@
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 
+import { EmailDetails } from "~/app/_components/email-details";
+import { TutorProfileEditor } from "~/app/_components/tutor-profile-editor";
 import { api } from "~/trpc/react";
 import { SortHeader, useSort, compare } from "~/app/_components/sortable";
 import { useReadOnly } from "~/app/_components/read-only";
@@ -33,7 +35,8 @@ export default function TutorsPage() {
       await invalidate();
     },
   });
-  const update = api.admin.updateTutor.useMutation({ onSuccess: invalidate });
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const editing = tutors.data?.find((row) => row.id === editingId);
 
   const rows = useMemo(() => {
     const data = tutors.data ?? [];
@@ -41,7 +44,12 @@ export default function TutorsPage() {
     return [...data].sort((a, b) => {
       switch (sort.key) {
         case "firstName":
-          return compare(a.firstName ?? a.englishName, b.firstName ?? b.englishName) * dir;
+          return (
+            compare(
+              a.firstName ?? a.englishName,
+              b.firstName ?? b.englishName,
+            ) * dir
+          );
         case "username":
           return compare(a.username ?? "", b.username ?? "") * dir;
         case "email":
@@ -52,7 +60,10 @@ export default function TutorsPage() {
           return compare(a.status, b.status) * dir;
         case "lastName":
         default:
-          return compare(a.lastName ?? a.englishName, b.lastName ?? b.englishName) * dir;
+          return (
+            compare(a.lastName ?? a.englishName, b.lastName ?? b.englishName) *
+            dir
+          );
       }
     });
   }, [tutors.data, sort.key, sort.dir]);
@@ -126,177 +137,90 @@ export default function TutorsPage() {
       )}
       <p className="muted text-xs">{t("admin.tutors.accountMovedNote")}</p>
 
+      {editing && !readOnly && (
+        <TutorProfileEditor
+          key={editing.id}
+          row={editing}
+          onClose={() => setEditingId(null)}
+        />
+      )}
       <div className="card overflow-x-auto">
         <table className="data-table">
           <thead>
             <tr>
-              <SortHeader sort={sort} sortKey="firstName">{t("admin.tutors.colFirstName")}</SortHeader>
-              <SortHeader sort={sort} sortKey="lastName">{t("admin.tutors.colLastName")}</SortHeader>
-              <th>{t("admin.tutors.colAltNames")}</th>
-              <SortHeader sort={sort} sortKey="username">{t("admin.tutors.colUsername")}</SortHeader>
-              <SortHeader sort={sort} sortKey="email">{t("admin.tutors.colEmail")}</SortHeader>
-              <SortHeader sort={sort} sortKey="grade">{t("admin.tutors.colGrade")}</SortHeader>
-              <SortHeader sort={sort} sortKey="status">{t("admin.tutors.colStatus")}</SortHeader>
+              <SortHeader sort={sort} sortKey="firstName">
+                {t("accountProfile.name")}
+              </SortHeader>
+              <th>{t("admin.tutors.colEmail")}</th>
+              <SortHeader sort={sort} sortKey="grade">
+                {t("admin.tutors.colGrade")}
+              </SortHeader>
+              <SortHeader sort={sort} sortKey="status">
+                {t("admin.tutors.colStatus")}
+              </SortHeader>
+              <th>
+                <span className="sr-only">
+                  {t("accountProfile.editProfile")}
+                </span>
+              </th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((t) => {
-              // Fall back to splitting englishName for any legacy row missing first/last.
-              const [efirst, ...erest] = t.englishName.trim().split(/\s+/);
-              const restJoined = erest.join(" ");
-              const baseFirst = t.firstName ?? efirst ?? t.englishName;
-              const baseLast =
-                t.lastName ?? (restJoined.length > 0 ? restJoined : (efirst ?? "—"));
-              // Build a full update payload from this row's current values + one change.
-              const save = (patch: Partial<{
-                firstName: string;
-                lastName: string;
-                alternativeNames: string | null;
-                username: string;
-                email: string | null;
-                gradeLevel: number | null;
-                status: "ACTIVE" | "PENDING" | "GRADUATED" | "OPTED_OUT" | "ARCHIVED";
-              }>) =>
-                update.mutate({
-                  id: t.id,
-                  firstName: patch.firstName ?? baseFirst,
-                  lastName: patch.lastName ?? baseLast,
-                  alternativeNames:
-                    patch.alternativeNames !== undefined
-                      ? patch.alternativeNames
-                      : t.alternativeNames,
-                  username: patch.username ?? t.username ?? undefined,
-                  email: patch.email !== undefined ? patch.email : t.email,
-                  gradeLevel:
-                    patch.gradeLevel !== undefined ? patch.gradeLevel : t.gradeLevel,
-                  status: patch.status ?? t.status,
-                });
-              return (
-                <tr key={t.id}>
-                  <td>
-                    {readOnly ? (
-                      <span>{t.firstName ?? "—"}</span>
-                    ) : (
-                      <input
-                        defaultValue={t.firstName ?? ""}
-                        className="input field-auto min-w-32"
-                        onBlur={(e) => {
-                          const v = e.target.value.trim();
-                          if (v && v !== (t.firstName ?? "")) save({ firstName: v });
-                        }}
-                      />
-                    )}
-                  </td>
-                  <td>
-                    {readOnly ? (
-                      <span>{t.lastName ?? "—"}</span>
-                    ) : (
-                      <input
-                        defaultValue={t.lastName ?? ""}
-                        className="input field-auto min-w-32"
-                        onBlur={(e) => {
-                          const v = e.target.value.trim();
-                          if (v && v !== (t.lastName ?? "")) save({ lastName: v });
-                        }}
-                      />
-                    )}
-                  </td>
-                  <td>
-                    {readOnly ? (
-                      <span lang="zh">{t.alternativeNames ?? "—"}</span>
-                    ) : (
-                      <input
-                        defaultValue={t.alternativeNames ?? ""}
-                        placeholder="—"
-                        lang="zh"
-                        className="input field-auto min-w-36"
-                        onBlur={(e) => {
-                          const v = e.target.value.trim();
-                          if (v !== (t.alternativeNames ?? ""))
-                            save({ alternativeNames: v || null });
-                        }}
-                      />
-                    )}
-                  </td>
-                  <td>
-                    {readOnly ? (
-                      <span>{t.username ?? "—"}</span>
-                    ) : (
-                      <input
-                        defaultValue={t.username ?? ""}
-                        placeholder="—"
-                        className="input field-auto min-w-32"
-                        onBlur={(e) => {
-                          const v = e.target.value.trim();
-                          if (v !== (t.username ?? "")) save({ username: v });
-                        }}
-                      />
-                    )}
-                  </td>
-                  <td>
-                    {readOnly ? (
-                      <span>{t.email ?? "—"}</span>
-                    ) : (
-                      <input
-                        defaultValue={t.email ?? ""}
-                        type="email"
-                        placeholder="—"
-                        className="input field-auto min-w-44"
-                        onBlur={(e) => {
-                          const v = e.target.value.trim();
-                          if (v !== (t.email ?? "")) save({ email: v || null });
-                        }}
-                      />
-                    )}
-                  </td>
-                  <td>
-                    {readOnly ? (
-                      <span>{t.gradeLevel ?? "—"}</span>
-                    ) : (
-                      <div className="flex items-center gap-1">
-                        <input
-                          defaultValue={t.gradeLevel ?? ""}
-                          type="number"
-                          min={6}
-                          max={12}
-                          placeholder="—"
-                          className="input field-auto min-w-16"
-                          onBlur={(e) => {
-                            const raw = e.target.value.trim();
-                            const v = raw === "" ? null : Number(raw);
-                            if (v !== (t.gradeLevel ?? null)) save({ gradeLevel: v });
-                          }}
-                        />
-                      </div>
-                    )}
-                  </td>
-                  <td>
-                    {readOnly ? (
-                      <span>{statusLabel(t.status)}</span>
-                    ) : (
-                      <select
-                        className="select field-auto min-w-28"
-                        value={t.status}
-                        onChange={(e) =>
-                          save({ status: e.target.value as
-                            | "ACTIVE"
-                            | "PENDING"
-                            | "GRADUATED"
-                            | "OPTED_OUT"
-                            | "ARCHIVED" })
-                        }
-                      >
-                        <option value="ACTIVE">{statusLabel("ACTIVE")}</option>
-                        <option value="PENDING">{statusLabel("PENDING")}</option>
-                        <option value="GRADUATED">{statusLabel("GRADUATED")}</option>
-                        <option value="OPTED_OUT">{statusLabel("OPTED_OUT")}</option>
-                        <option value="ARCHIVED">{statusLabel("ARCHIVED")}</option>
-                      </select>
-                    )}
-                  </td>
-                </tr>
-              );
-            })}
+            {rows.map((row) => (
+              <tr key={row.id}>
+                <td className="max-w-60 min-w-40">
+                  <p className="font-medium [overflow-wrap:anywhere] text-slate-900">
+                    {row.englishName}
+                  </p>
+                  {row.alternativeNames && (
+                    <p className="muted text-xs [overflow-wrap:anywhere]">
+                      {row.alternativeNames}
+                    </p>
+                  )}
+                  {row.username && (
+                    <p className="muted mt-1 text-xs">@{row.username}</p>
+                  )}
+                  {!row.user && (
+                    <p className="muted mt-1 text-xs">
+                      {t("accountProfile.setupRequired")}
+                    </p>
+                  )}
+                </td>
+                <td>
+                  <EmailDetails
+                    email={row.user?.email ?? row.email}
+                    name={row.englishName}
+                    verifiedAt={row.user?.emailVerifiedAt}
+                    userId={row.user?.id}
+                    tutorId={row.id}
+                    linked={!!row.user}
+                    canSendSetup={
+                      !readOnly && (!row.user || row.user.email === row.email)
+                    }
+                  />
+                </td>
+                <td>{row.gradeLevel ?? "—"}</td>
+                <td>
+                  <span
+                    className={
+                      row.status === "ACTIVE" ? "badge-green" : "badge-slate"
+                    }
+                  >
+                    {statusLabel(row.status)}
+                  </span>
+                </td>
+                <td className="text-right whitespace-nowrap">
+                  {!readOnly && (
+                    <button
+                      className="link"
+                      onClick={() => setEditingId(row.id)}
+                    >
+                      {t("accountProfile.editProfile")}
+                    </button>
+                  )}
+                </td>
+              </tr>
+            ))}
           </tbody>
         </table>
       </div>

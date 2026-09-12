@@ -1,3 +1,4 @@
+import { updateAccountProfile } from "~/server/account-profile";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
@@ -53,6 +54,8 @@ export const accountRouter = createTRPCRouter({
       where: { id: ctx.session.user.id },
       select: {
         name: true,
+        alternativeNames: true,
+        profileVersion: true,
         email: true,
         username: true,
         role: true,
@@ -123,13 +126,14 @@ export const accountRouter = createTRPCRouter({
   /** Update the caller's display name. */
   updateName: protectedProcedure
     .input(
-      z.object({ name: z.string().trim().min(1, "Enter a name.").max(100) }),
+      z.object({
+        name: z.string().trim().min(1, "Enter a name.").max(100),
+        alternativeNames: z.string().trim().max(200).nullable().optional(),
+        expectedProfileVersion: z.number().int().nonnegative().optional(),
+      }),
     )
     .mutation(async ({ ctx, input }) => {
-      await ctx.db.user.update({
-        where: { id: ctx.session.user.id },
-        data: { name: input.name },
-      });
+      await updateAccountProfile(ctx.db, ctx.session.user.id, input);
       return { ok: true };
     }),
 

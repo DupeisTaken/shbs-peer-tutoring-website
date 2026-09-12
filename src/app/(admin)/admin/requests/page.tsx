@@ -1,4 +1,5 @@
 "use client";
+import { EmailDetails } from "~/app/_components/email-details";
 import { StudentRequestBoard } from "./student-request-board";
 
 import { useEffect, useMemo, useState } from "react";
@@ -239,7 +240,11 @@ function RequestCard({
       {/* Assign each course choice to a tutor independently (workload shown in the dropdown). */}
       {!collapsed && tutee.unverified && (
         <div className="muted mt-3 space-y-2 border-t border-slate-100 pt-3">
-          <p>{tutee.email}</p>
+          <EmailDetails
+            contactOnly
+            email={tutee.email}
+            name={tutee.englishName}
+          />
           <p>
             {t("admin.requests.firstChoice")}: {tutee.firstChoice?.name ?? "—"}
             {tutee.secondChoice

@@ -1,4 +1,5 @@
 "use client";
+import { EmailDetails } from "~/app/_components/email-details";
 
 import { useEffect, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
@@ -25,7 +26,7 @@ function ShareCard({
   const programFormat = useFormatter();
   const t = useTranslations();
   return (
-    <div className="mx-auto max-w-sm rounded-xl border border-accent-200 bg-white p-5 text-center shadow-sm">
+    <div className="border-accent-200 mx-auto max-w-sm rounded-xl border bg-white p-5 text-center shadow-sm">
       <p className="text-base font-bold text-slate-900">
         {t("admin.registrationCodes.share.heading", { appTitle: APP_TITLE })}
       </p>
@@ -35,15 +36,19 @@ function ShareCard({
         <p className="text-xs font-semibold tracking-wide text-green-700 uppercase">
           {t("admin.registrationCodes.codeLabel")}
         </p>
-        <p className="font-mono text-3xl font-bold tracking-[0.3em] text-green-800">{code}</p>
+        <p className="font-mono text-3xl font-bold tracking-[0.3em] text-green-800">
+          {code}
+        </p>
       </div>
 
       <p className="mt-3 text-sm break-all text-slate-700">
         {t("admin.registrationCodes.share.enterAt", { url: registerUrl })}
       </p>
-      <p className="mt-1 text-xs font-medium text-accent-700">
+      <p className="text-accent-700 mt-1 text-xs font-medium">
         {t("admin.registrationCodes.share.validity", {
-          date: programFormat.dateTime(new Date(expiresAt), { dateStyle: "medium" }),
+          date: programFormat.dateTime(new Date(expiresAt), {
+            dateStyle: "medium",
+          }),
         })}
       </p>
     </div>
@@ -66,9 +71,12 @@ export default function RegistrationCodesPage() {
   const [email, setEmail] = useState("");
   const [label, setLabel] = useState("");
   const [kind, setKind] = useState<"TUTOR" | "CREW">("TUTOR");
-  const [issued, setIssued] = useState<
-    { code: string; label: string | null; email: string | null; expiresAt: Date } | null
-  >(null);
+  const [issued, setIssued] = useState<{
+    code: string;
+    label: string | null;
+    email: string | null;
+    expiresAt: Date;
+  } | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   // Site origin (client-only) for the full /register URL shown to tutors.
   const [origin, setOrigin] = useState("");
@@ -89,10 +97,16 @@ export default function RegistrationCodesPage() {
       await invalidate();
     },
   });
-  const revoke = api.admin.revokeRegistrationCode.useMutation({ onSuccess: invalidate });
+  const revoke = api.admin.revokeRegistrationCode.useMutation({
+    onSuccess: invalidate,
+  });
 
   const statusBadge = (status: string) =>
-    status === "active" ? "badge-green" : status === "used" ? "badge-slate" : "badge-amber";
+    status === "active"
+      ? "badge-green"
+      : status === "used"
+        ? "badge-slate"
+        : "badge-amber";
 
   return (
     <div className="space-y-6">
@@ -114,18 +128,26 @@ export default function RegistrationCodesPage() {
           }}
         >
           <div>
-            <label className="label">{t("admin.registrationCodes.kindField")}</label>
+            <label className="label">
+              {t("admin.registrationCodes.kindField")}
+            </label>
             <select
               value={kind}
               onChange={(e) => setKind(e.target.value as "TUTOR" | "CREW")}
               className="select field-auto min-w-32"
             >
-              <option value="TUTOR">{t("admin.registrationCodes.kindTutor")}</option>
-              <option value="CREW">{t("admin.registrationCodes.kindCrew")}</option>
+              <option value="TUTOR">
+                {t("admin.registrationCodes.kindTutor")}
+              </option>
+              <option value="CREW">
+                {t("admin.registrationCodes.kindCrew")}
+              </option>
             </select>
           </div>
           <div>
-            <label className="label">{t("admin.registrationCodes.labelField")}</label>
+            <label className="label">
+              {t("admin.registrationCodes.labelField")}
+            </label>
             <input
               value={label}
               onChange={(e) => setLabel(e.target.value)}
@@ -134,7 +156,9 @@ export default function RegistrationCodesPage() {
             />
           </div>
           <div>
-            <label className="label">{t("admin.registrationCodes.emailField")}</label>
+            <label className="label">
+              {t("admin.registrationCodes.emailField")}
+            </label>
             <input
               value={email}
               onChange={(e) => setEmail(e.target.value)}
@@ -148,13 +172,17 @@ export default function RegistrationCodesPage() {
           </button>
         </form>
       )}
-      {issue.error && <p className="text-sm text-red-600">{issue.error.message}</p>}
+      {issue.error && (
+        <p className="text-sm text-red-600">{issue.error.message}</p>
+      )}
 
       {/* Just issued — show the screenshot-ready panel immediately. */}
       {issued && (
         <div className="space-y-2">
           <p className="text-sm font-medium text-slate-700">
-            {t("admin.registrationCodes.issuedTitle", { who: issued.label ?? "—" })}
+            {t("admin.registrationCodes.issuedTitle", {
+              who: issued.label ?? "—",
+            })}
           </p>
           <ShareCard
             code={issued.code}
@@ -169,7 +197,11 @@ export default function RegistrationCodesPage() {
             >
               {t("admin.registrationCodes.copy")}
             </button>
-            <button type="button" className="link text-sm" onClick={() => setIssued(null)}>
+            <button
+              type="button"
+              className="link text-sm"
+              onClick={() => setIssued(null)}
+            >
               {t("common.dismiss")}
             </button>
           </div>
@@ -203,7 +235,9 @@ export default function RegistrationCodesPage() {
                         {t(`admin.registrationCodes.status.${c.status}`)}
                       </span>
                       {c.kind === "CREW" && (
-                        <span className="badge-slate ml-2">{t("admin.registrationCodes.kindCrew")}</span>
+                        <span className="badge-slate ml-2">
+                          {t("admin.registrationCodes.kindCrew")}
+                        </span>
                       )}
                     </p>
                   </div>
@@ -212,13 +246,22 @@ export default function RegistrationCodesPage() {
                   {/* Issuer account + bound email, to the left of the expiry. */}
                   <div className="text-right text-xs leading-tight text-slate-500">
                     <p>
-                      {t("admin.registrationCodes.colIssuedBy")}: {c.issuedByName ?? "—"}
+                      {t("admin.registrationCodes.colIssuedBy")}:{" "}
+                      {c.issuedByName ?? "—"}
                     </p>
-                    {c.issuedByEmail && <p>{c.issuedByEmail}</p>}
+                    {c.issuedByEmail && (
+                      <EmailDetails
+                        contactOnly
+                        email={c.issuedByEmail}
+                        name={c.issuedByName ?? "—"}
+                      />
+                    )}
                   </div>
                   <p className="text-xs text-slate-500">
                     {t("admin.registrationCodes.expiresOn", {
-                      date: programFormat.dateTime(new Date(c.expiresAt), { dateStyle: "medium" }),
+                      date: programFormat.dateTime(new Date(c.expiresAt), {
+                        dateStyle: "medium",
+                      }),
                     })}
                   </p>
                   {!readOnly && c.status === "active" && c.code && (
@@ -252,14 +295,20 @@ export default function RegistrationCodesPage() {
                   ) : c.code ? (
                     // Used / expired: the code is no longer shareable.
                     <div>
-                      <p className="label">{t("admin.registrationCodes.codeLabel")}</p>
+                      <p className="label">
+                        {t("admin.registrationCodes.codeLabel")}
+                      </p>
                       <p className="font-mono text-2xl font-bold tracking-[0.3em] text-slate-400 line-through">
                         {c.code}
                       </p>
-                      <p className="muted text-xs">{t("admin.registrationCodes.invalidNote")}</p>
+                      <p className="muted text-xs">
+                        {t("admin.registrationCodes.invalidNote")}
+                      </p>
                     </div>
                   ) : (
-                    <p className="muted text-sm">{t("admin.registrationCodes.noCode")}</p>
+                    <p className="muted text-sm">
+                      {t("admin.registrationCodes.noCode")}
+                    </p>
                   )}
                 </div>
               )}
@@ -267,7 +316,9 @@ export default function RegistrationCodesPage() {
           );
         })}
         {(codes.data?.length ?? 0) === 0 && (
-          <p className="muted py-4 text-center">{t("admin.registrationCodes.empty")}</p>
+          <p className="muted py-4 text-center">
+            {t("admin.registrationCodes.empty")}
+          </p>
         )}
       </div>
     </div>

@@ -1,3 +1,7 @@
+import {
+  lockAccountProfile,
+  updateAccountProfile,
+} from "~/server/account-profile";
 /**
  * Promote an accepted tutor applicant into a roster Tutor + a registration invite.
  *
@@ -34,6 +38,12 @@ export async function promoteApplicantToTutor(
 
     const email = app.email?.trim() ? app.email.trim().toLowerCase() : null;
     if (!email) return; // applications always capture an email; nothing to bind a code to otherwise
+
+    const hasLogin = await db.user.findUnique({
+      where: { email },
+      select: { id: true, tutorId: true, role: true, emailVerifiedAt: true },
+    });
+    if (hasLogin?.emailVerifiedAt) await lockAccountProfile(db, hasLogin.id);
 
     const { firstName, lastName, englishName } = splitDisplayName(app.name);
 
@@ -73,10 +83,6 @@ export async function promoteApplicantToTutor(
       data: { promotedTutorId: tutorId },
     });
     // Only a verified existing identity can receive the capability without another email challenge.
-    const hasLogin = await db.user.findUnique({
-      where: { email },
-      select: { id: true, tutorId: true, role: true, emailVerifiedAt: true },
-    });
     if (hasLogin?.emailVerifiedAt) {
       // A verified existing account acquires the capability without receiving new credentials.
       if (hasLogin.tutorId && hasLogin.tutorId !== tutorId)
@@ -92,6 +98,7 @@ export async function promoteApplicantToTutor(
             : {}),
         },
       });
+      await updateAccountProfile(db, hasLogin.id);
       return;
     }
 

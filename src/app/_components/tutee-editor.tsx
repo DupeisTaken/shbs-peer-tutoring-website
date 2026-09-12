@@ -1,37 +1,39 @@
 "use client";
 import { useTranslations } from "next-intl";
-import { useState } from "react";
+import { ProfileDialog } from "~/app/_components/profile-dialog";
 import { api, type RouterOutputs } from "~/trpc/react";
 
 /** Profile correction stays separate from assignment/removal, while the version protects both. */
 export function TuteeEditor({
   row,
+  onClose,
 }: {
   row: RouterOutputs["admin"]["tutees"][number];
+  onClose: () => void;
 }) {
   const t = useTranslations("profileCorrection");
-  const [open, setOpen] = useState(true);
+  const profileText = useTranslations("accountProfile");
   const utils = api.useUtils();
-  const subjects = api.admin.subjects.useQuery(undefined, { enabled: open });
-  const slots = api.admin.timeSlots.useQuery(undefined, { enabled: open });
+  const subjects = api.admin.subjects.useQuery();
+  const slots = api.admin.timeSlots.useQuery();
   const save = api.admin.updateTutee.useMutation({
     onSuccess: async () => {
       await Promise.all([
         utils.admin.tutees.invalidate(),
         utils.admin.pairings.invalidate(),
         utils.admin.tuteeStats.invalidate(),
+        utils.admin.accounts.invalidate(),
+        utils.admin.tutors.invalidate(),
       ]);
-      setOpen(false);
+      onClose();
     },
   });
   return (
-    <details
-      open={open}
-      onToggle={(e) => setOpen(e.currentTarget.open)}
-      className="mt-2 text-left"
-    >
-      <summary className="link cursor-pointer">{t("edit")}</summary>
-      {open && subjects.data && slots.data && (
+    <ProfileDialog title={profileText("editProfile")} onClose={onClose}>
+      <p className="muted text-sm">
+        {row.user ? profileText("canonicalHelp") : profileText("setupRequired")}
+      </p>
+      {subjects.data && slots.data && (
         <form
           className="mt-3 grid max-w-3xl gap-4 sm:grid-cols-2"
           onSubmit={(e) => {
@@ -46,6 +48,7 @@ export function TuteeEditor({
               id: row.id,
               expectedUpdatedAt: row.updatedAt,
               englishName: value("name")!,
+              alternativeNames: value("alternativeNames"),
               status: row.status,
               email: value("email"),
               phone: value("phone"),
@@ -61,8 +64,13 @@ export function TuteeEditor({
           {(
             [
               ["name", t("name"), row.englishName],
+              [
+                "alternativeNames",
+                profileText("alternativeNames"),
+                row.alternativeNames,
+              ],
               ["grade", t("grade"), row.gradeLevel],
-              ["email", t("email"), row.email],
+              ["email", t("email"), row.user?.email ?? row.email],
               ["phone", t("phone"), row.phone],
               ["preferredContact", t("contact"), row.preferredContact],
             ] as const
@@ -75,7 +83,13 @@ export function TuteeEditor({
                 defaultValue={value ?? ""}
                 type={name === "email" ? "email" : "text"}
                 required={name === "name"}
+                readOnly={name === "email" && !!row.user}
               />
+              {name === "email" && row.user && (
+                <span className="muted text-xs">
+                  {profileText("emailProtected")}
+                </span>
+              )}
             </label>
           ))}
           {(
@@ -140,6 +154,6 @@ export function TuteeEditor({
           )}
         </form>
       )}
-    </details>
+    </ProfileDialog>
   );
 }

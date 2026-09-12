@@ -2404,5 +2404,30 @@
     "readOnly": "Only a Head or Administrator can change the program time zone.",
     "loading": "Loading time zone…",
     "inputZone": "Time is entered in {zone}."
+  },
+  "accountProfile": {
+    "editProfile": "Edit profile",
+    "close": "Close",
+    "name": "Display name",
+    "alternativeNames": "Names in other languages",
+    "alternativeHelp": "Optional. Add the names this person uses in other languages.",
+    "canonicalHelp": "This is the account profile. Name changes update the linked tutor and tutee profiles together. Past signatures and submitted forms remain unchanged.",
+    "save": "Save profile",
+    "showEmail": "Show email",
+    "emailTitle": "Email · {name}",
+    "noEmail": "No email",
+    "verified": "Email verified",
+    "unverified": "Email verification required",
+    "setupRequired": "Account setup required",
+    "emailProtected": "The account holder changes this email through verified account settings.",
+    "unlinkedEmail": "This is a roster contact address. It does not establish account ownership.",
+    "copyEmail": "Copy email",
+    "sendVerification": "Send verification & setup link",
+    "copied": "Email copied.",
+    "copyError": "Copy is unavailable. Select the email above and copy it manually.",
+    "sent": "Verification and setup link sent.",
+    "deliveryUnavailable": "Email delivery is unavailable. No email was sent.",
+    "contactAddress": "Contact address recorded with this entry",
+    "inviteInUsers": "Manage account invitations in Users & Roles."
   }
 }

@@ -47,8 +47,12 @@ export default function AccountPage() {
 
   // Name form — seeded from the loaded account.
   const [name, setName] = useState("");
+  const [alternativeNames, setAlternativeNames] = useState("");
   useEffect(() => {
-    if (me.data) setName(me.data.name ?? "");
+    if (me.data) {
+      setName(me.data.name ?? "");
+      setAlternativeNames(me.data.alternativeNames ?? "");
+    }
   }, [me.data]);
 
   // Password form — a two-step flow: verify the current password to get an emailed code, then
@@ -185,13 +189,33 @@ export default function AccountPage() {
               <button
                 className="btn-secondary"
                 disabled={updateName.isPending || !name.trim()}
-                onClick={() => updateName.mutate({ name: name.trim() })}
+                onClick={() =>
+                  updateName.mutate({
+                    name: name.trim(),
+                    alternativeNames: alternativeNames.trim() || null,
+                    expectedProfileVersion: me.data?.profileVersion,
+                  })
+                }
               >
                 {updateName.isPending
                   ? t("tutor.settings.saving")
                   : t("tutor.settings.save")}
               </button>
             </div>
+          </label>
+          <label className="block space-y-1">
+            <span className="label">
+              {t("accountProfile.alternativeNames")}
+            </span>
+            <input
+              className="input w-full"
+              value={alternativeNames}
+              onChange={(event) => setAlternativeNames(event.target.value)}
+              maxLength={200}
+            />
+            <span className="muted text-xs">
+              {t("accountProfile.canonicalHelp")}
+            </span>
           </label>
           {updateName.isSuccess && (
             <p className="text-sm text-green-600">

@@ -1,3 +1,7 @@
+import {
+  lockAccountProfile,
+  updateAccountProfile,
+} from "~/server/account-profile";
 import { createHash, randomBytes } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -363,6 +367,7 @@ export async function confirmSurvey(
           "A selected subject or time slot is no longer available. Contact the team; your original submission time is saved.",
       });
     let user = await tx.user.findUnique({ where: { email: row.email } });
+    if (user) await lockAccountProfile(tx, user.id);
     if (user?.suspendedAt)
       throw new TRPCError({
         code: "FORBIDDEN",
@@ -410,6 +415,8 @@ export async function confirmSurvey(
         emailVerifiedAt: user.emailVerifiedAt ?? new Date(),
       },
     });
+    // Verification establishes the explicit link; the existing account remains the identity source.
+    await updateAccountProfile(tx, user.id);
     await tx.policyAcceptance.upsert({
       where: {
         userId_slug_revision: {

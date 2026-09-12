@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 
+import { EmailDetails } from "~/app/_components/email-details";
+import { AccountProfileEditor } from "~/app/_components/account-profile-editor";
 import { MultiFilter } from "~/app/_components/multi-filter";
 import {
   emptyUserFilters,
@@ -161,6 +163,10 @@ export default function UsersPage() {
   const t = useTranslations();
   const utils = api.useUtils();
   const accounts = api.admin.accounts.useQuery();
+  const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
+  const editingProfile = accounts.data?.rows.find(
+    (row) => row.userId === editingProfileId,
+  );
   const invalidate = () => utils.admin.accounts.invalidate();
 
   // Designed confirm/prompt dialog (replaces native window.prompt for the suspension reason).
@@ -294,6 +300,17 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
+      {editingProfile?.userId && editingProfile.profileVersion !== null && (
+        <AccountProfileEditor
+          profile={{
+            userId: editingProfile.userId,
+            name: editingProfile.name,
+            alternativeNames: editingProfile.alternativeNames,
+            profileVersion: editingProfile.profileVersion,
+          }}
+          onClose={() => setEditingProfileId(null)}
+        />
+      )}
       <div>
         <h1 className="page-title">{t("admin.users.title")}</h1>
         <p className="muted mt-1">
@@ -475,7 +492,29 @@ export default function UsersPage() {
                           @{u.username ?? u.tutor?.username}
                         </p>
                       )}
-                      <p className="muted text-xs">{u.email ?? "—"}</p>
+                      {u.alternativeNames && (
+                        <p className="muted text-xs">{u.alternativeNames}</p>
+                      )}
+                      <EmailDetails
+                        email={u.email}
+                        name={u.name}
+                        verifiedAt={u.emailVerifiedAt}
+                        userId={u.userId}
+                        tutorId={u.tutorId}
+                        linked={!!u.userId}
+                        canSendSetup={
+                          !!u.userId ||
+                          (!!u.tutorId && u.email === u.tutor?.email)
+                        }
+                      />
+                      {u.userId && (
+                        <button
+                          className="link mt-1 block text-xs"
+                          onClick={() => setEditingProfileId(u.userId)}
+                        >
+                          {t("accountProfile.editProfile")}
+                        </button>
+                      )}
                     </div>
                   </td>
 

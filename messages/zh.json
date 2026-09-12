@@ -2404,5 +2404,30 @@
     "readOnly": "仅负责人或管理员可以修改项目时区。",
     "loading": "正在加载时区…",
     "inputZone": "时间按 {zone} 输入。"
+  },
+  "accountProfile": {
+    "editProfile": "编辑个人资料",
+    "close": "关闭",
+    "name": "显示姓名",
+    "alternativeNames": "其他语言姓名",
+    "alternativeHelp": "选填。添加此人使用的其他语言姓名。",
+    "canonicalHelp": "这是账户个人资料。姓名更改会同步至关联的辅导员和学员资料。历史签名和已提交的表格保持不变。",
+    "save": "保存资料",
+    "showEmail": "查看邮箱",
+    "emailTitle": "邮箱 · {name}",
+    "noEmail": "未提供邮箱",
+    "verified": "邮箱已验证",
+    "unverified": "邮箱待验证",
+    "setupRequired": "需要设置账户",
+    "emailProtected": "账户持有人须在账户设置中验证后更改邮箱。",
+    "unlinkedEmail": "此地址仅用于联系，不代表账户归属。",
+    "copyEmail": "复制邮箱",
+    "sendVerification": "发送验证及账户设置链接",
+    "copied": "邮箱已复制。",
+    "copyError": "无法自动复制。请选择上面的邮箱手动复制。",
+    "sent": "已发送验证及账户设置链接。",
+    "deliveryUnavailable": "邮件服务不可用，未发送邮件。",
+    "contactAddress": "联系邮箱（历史记录中的地址）",
+    "inviteInUsers": "在“用户与角色”中设置账户邀请。"
   }
 }
