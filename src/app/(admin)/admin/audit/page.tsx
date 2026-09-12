@@ -1,6 +1,6 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
@@ -18,6 +18,7 @@ import { useReadOnly } from "~/app/_components/read-only";
  */
 function AuditLog() {
   const t = useTranslations();
+  const format = useFormatter();
   const readOnly = useReadOnly();
   const utils = api.useUtils();
   const params = useSearchParams();
@@ -78,9 +79,19 @@ function AuditLog() {
             {entries.map((e) => (
               <tr key={e.id} className={e.undone ? "opacity-50" : ""}>
                 <td className="text-xs text-slate-500">
-                  {new Date(e.createdAt).toLocaleString()}
+                  {format.dateTime(new Date(e.createdAt), {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })}
                 </td>
-                <td className="text-slate-600">{e.userName ?? "—"}</td>
+                <td className="min-w-40 whitespace-nowrap text-slate-600">
+                  <span
+                    className="block max-w-64 truncate"
+                    title={e.userName ?? undefined}
+                  >
+                    {e.userName ?? "—"}
+                  </span>
+                </td>
                 <td>
                   <span
                     className={

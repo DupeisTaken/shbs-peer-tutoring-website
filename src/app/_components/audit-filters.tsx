@@ -93,7 +93,12 @@ export function AuditFilters({
         <label key={select.key}>
           <span className="label">{t(select.label)}</span>
           <select
-            className="input mt-1 w-full"
+            className="input mt-1 w-full min-w-0 whitespace-nowrap"
+            title={
+              select.values.find(
+                (value) => value.id === draft[select.key as keyof typeof empty],
+              )?.label
+            }
             value={draft[select.key as keyof typeof empty]}
             onChange={(e) =>
               set(select.key as keyof typeof empty, e.target.value)
