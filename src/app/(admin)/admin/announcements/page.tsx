@@ -1,6 +1,6 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { useState } from "react";
 
 import { api } from "~/trpc/react";
@@ -27,6 +27,7 @@ function AnnouncementCard({
   onChanged: () => void;
   readOnly: boolean;
 }) {
+  const programFormat = useFormatter();
   const t = useTranslations();
   const { confirm, dialog } = useDialog();
   const [title, setTitle] = useState(a.title);
@@ -91,7 +92,7 @@ function AnnouncementCard({
         )}
         <span className="muted text-xs">
           {t("admin.announcements.card.dismissed", { count: a._count.acks })} ·{" "}
-          {new Date(a.createdAt).toLocaleDateString()}
+          {programFormat.dateTime(new Date(a.createdAt), { dateStyle: "medium" })}
           {a.createdBy?.name ? ` · ${a.createdBy.name}` : ""}
         </span>
         {!readOnly && (

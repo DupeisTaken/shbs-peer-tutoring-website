@@ -15,7 +15,7 @@ export const DEFAULT_ENABLED_LOCALES: readonly Locale[] = ["en", "zh"];
 /**
  * A FIXED default time zone for date/time formatting. Must be a constant (not the host's local
  * zone) so the server and client agree — otherwise next-intl warns ENVIRONMENT_FALLBACK and dates
- * can hydrate mismatched. China Standard Time covers the program; change here to relocate.
+ * can hydrate mismatched. Existing installations default to China Standard Time; admins can change the persisted program setting.
  */
 export const DEFAULT_TIME_ZONE = "Asia/Shanghai";
 

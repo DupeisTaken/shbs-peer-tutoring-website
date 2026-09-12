@@ -1,6 +1,6 @@
 "use client";
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { TimedActionDialog } from "~/app/_components/timed-action-dialog";
 import { DAY_NAMES, minToHm } from "~/lib/time";
@@ -129,6 +129,7 @@ export function StudentRequestBoard() {
   );
 }
 function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
+  const programFormat = useFormatter();
   const t = useTranslations("workflow");
   const utils = api.useUtils();
   const resend = api.studentWorkflow.resend.useMutation({
@@ -161,7 +162,7 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
           </div>
           <p className="muted text-xs">
             {t("priority", {
-              time: new Date(row.submittedAt).toLocaleString(),
+              time: programFormat.dateTime(new Date(row.submittedAt), { dateStyle: "medium", timeStyle: "short" }),
             })}
           </p>
         </div>
@@ -178,7 +179,7 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
       {!row.confirmedAt && row.verificationDueAt && row.state === "OPEN" && (
         <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
           {t("deadline", {
-            time: new Date(row.verificationDueAt).toLocaleString(),
+            time: programFormat.dateTime(new Date(row.verificationDueAt), { dateStyle: "medium", timeStyle: "short" }),
           })}
         </p>
       )}

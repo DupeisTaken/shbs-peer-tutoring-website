@@ -8,6 +8,8 @@ const state = vi.hoisted(() => ({
 }));
 
 vi.mock("next-intl", () => ({
+  useTimeZone: () => "Asia/Shanghai",
+  useFormatter: () => ({ dateTime: (date: Date, options: Intl.DateTimeFormatOptions) => new Intl.DateTimeFormat("en", { timeZone: "Asia/Shanghai", ...options }).format(date) }),
   useTranslations: () => (key: string) => key,
 }));
 vi.mock("next/link", () => ({

@@ -1,6 +1,6 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { useReadOnly } from "~/app/_components/read-only";
@@ -13,6 +13,7 @@ import { useReadOnly } from "~/app/_components/read-only";
  *    reinstatable. VIEWER is read-only.
  */
 export default function TuteeRequestsPage() {
+  const programFormat = useFormatter();
   const t = useTranslations();
   const readOnly = useReadOnly();
   const utils = api.useUtils();
@@ -55,7 +56,7 @@ export default function TuteeRequestsPage() {
                   })}
                   {req.eligibleAt
                     ? ` · ${t("admin.tuteeRequests.autoApprovesOn", {
-                        date: new Date(req.eligibleAt).toLocaleDateString(),
+                        date: programFormat.dateTime(new Date(req.eligibleAt), { dateStyle: "medium" }),
                       })}`
                     : ""}
                 </p>
@@ -97,7 +98,7 @@ export default function TuteeRequestsPage() {
                   {req.kind === "PUNISHMENT"
                     ? t("admin.tuteeRequests.removedDiscipline")
                     : t("admin.tuteeRequests.removedOptOut", { tutor: req.tutorName ?? "—" })}
-                  {req.resolvedAt ? ` · ${new Date(req.resolvedAt).toLocaleDateString()}` : ""}
+                  {req.resolvedAt ? ` · ${programFormat.dateTime(new Date(req.resolvedAt), { dateStyle: "medium" })}` : ""}
                   {req.period ? ` · ${req.period}` : ""}
                 </p>
               </div>

@@ -1,3 +1,5 @@
+import { getProgramTimeZone } from "~/server/program/time-zone";
+import { programDateKey } from "~/lib/program-time";
 import { requestMembership, recallMembership } from "~/server/membership";
 import { createHash } from "node:crypto";
 import { inTransaction, lockEntity } from "~/server/transactions";
@@ -153,16 +155,10 @@ export const crewRouter = createTRPCRouter({
 
         // Reconcile the sessions in the patrolled rooms around the observed times.
         const roomIds = [...new Set(input.observations.map((o) => o.roomId))];
-        const dayStart = new Date(
-          Math.min(
-            ...input.observations.map((o) => (o.observedAt ?? now).getTime()),
-          ) - 86400000,
-        );
-        const dayEnd = new Date(
-          Math.max(
-            ...input.observations.map((o) => (o.observedAt ?? now).getTime()),
-          ) + 86400000,
-        );
+        const timeZone = await getProgramTimeZone(tx);
+        const dates = input.observations.map(o => Date.parse(programDateKey(o.observedAt ?? now, timeZone) + "T00:00:00Z"));
+        const dayStart = new Date(Math.min(...dates));
+        const dayEnd = new Date(Math.max(...dates));
         const sessions = await tx.session.findMany({
           where: {
             actualRoomId: { in: roomIds },

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 
@@ -20,6 +20,7 @@ const BUCKETS: { value: Headcount; label: string }[] = [
  * patrol; opted-out / paused members see a read-only notice and can request reentry.
  */
 export default function PatrolPage() {
+  const programFormat = useFormatter();
   const t = useTranslations();
   const utils = api.useUtils();
   const myStatus = api.crew.myStatus.useQuery();
@@ -223,7 +224,7 @@ export default function PatrolPage() {
                 {(history.data ?? []).map((p) => (
                   <div key={p.id} className="px-4 py-3">
                     <p className="text-sm font-medium text-slate-800">
-                      {new Date(p.createdAt).toLocaleString()} ·{" "}
+                      {programFormat.dateTime(new Date(p.createdAt), { dateStyle: "medium", timeStyle: "short" })} ·{" "}
                       {p.hours.toFixed(1)} h
                     </p>
                     <p className="muted mt-0.5 text-xs">

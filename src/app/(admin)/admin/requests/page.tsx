@@ -2,7 +2,7 @@
 import { StudentRequestBoard } from "./student-request-board";
 
 import { useEffect, useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { DAY_NAMES, minToHm } from "~/lib/time";
@@ -68,6 +68,7 @@ function RequestCard({
   onChanged: () => Promise<unknown> | void;
   onFulfilled: (tuteeId: string) => void;
 }) {
+  const programFormat = useFormatter();
   const t = useTranslations();
   const readOnly = useReadOnly();
   const { confirm, dialog } = useDialog();
@@ -177,9 +178,9 @@ function RequestCard({
               <>
                 <p className="muted text-xs">
                   {t("admin.requests.submitted", {
-                    when: new Date(
+                    when: programFormat.dateTime(new Date(
                       tutee.signupSubmittedAt ?? tutee.createdAt,
-                    ).toLocaleString(),
+                    ), { dateStyle: "medium", timeStyle: "short" }),
                   })}
                 </p>
                 <p className="muted">

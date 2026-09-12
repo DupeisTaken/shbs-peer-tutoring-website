@@ -4,7 +4,7 @@ import { useDialog } from "~/app/_components/confirm-dialog";
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { useTranslations } from "next-intl";
+import { useTranslations, useTimeZone } from "next-intl";
 import { useRouter } from "next/navigation";
 import { z } from "zod";
 
@@ -60,17 +60,13 @@ type CardColor = "" | "YELLOW" | "RED";
 type CardEntry = { color: CardColor; reason: string };
 type TuteeEntry = { status: TuteeStatus; reason: string };
 
-/** Current local time and the school's UTC+8 calendar date. */
-const nowHm = () => {
-  const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-};
-const todayIso = () =>
-  new Date(Date.now() + 8 * 60 * 60 * 1000).toISOString().slice(0, 10);
+import { programDateKey, programDateTimeInput } from "~/lib/program-time";
 
 export function AttendanceForm() {
   const t = useTranslations();
+  const timeZone = useTimeZone();
+  const todayIso = () => programDateKey(new Date(), timeZone);
+  const nowHm = () => programDateTimeInput(new Date(), timeZone).slice(11);
   const router = useRouter();
   const utils = api.useUtils();
   const pairingsQuery = api.tutor.myPairings.useQuery();

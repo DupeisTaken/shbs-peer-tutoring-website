@@ -4,6 +4,8 @@ import { requirePolicy } from "~/server/policy-acceptance";
 import { validateInterviewDecision } from "~/server/interviews";
 import { reconcileMeetingHours } from "~/server/meeting-hours";
 import { TRPCError } from "@trpc/server";
+import { getProgramTimeZone } from "~/server/program/time-zone";
+import { programDateKey } from "~/lib/program-time";
 import { z } from "zod";
 import { createHash } from "node:crypto";
 import { inTransaction, lockEntity } from "~/server/transactions";
@@ -365,10 +367,8 @@ export const tutorRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const tutorId = ctx.session.tutorId;
       // Attendance dates are school calendar dates stored at UTC midnight. Compare their date key
-      // with today's UTC+8 school date so a server in another timezone cannot admit tomorrow.
-      const schoolToday = new Date(Date.now() + 8 * 60 * 60 * 1000)
-        .toISOString()
-        .slice(0, 10);
+      // with today's configured school date so a server in another timezone cannot admit tomorrow.
+      const schoolToday = programDateKey(new Date(), await getProgramTimeZone(ctx.db));
       if (input.date.toISOString().slice(0, 10) > schoolToday) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -1257,7 +1257,7 @@ export const tutorRouter = createTRPCRouter({
             panel.map((p) => p.tutorId),
             {
               title: "Interview scheduled",
-              body: `An interview was scheduled for ${input.interviewAt.toLocaleString()}.`,
+              body: `An interview was scheduled for ${new Intl.DateTimeFormat("en", { timeZone: await getProgramTimeZone(tx), dateStyle: "medium", timeStyle: "short" }).format(input.interviewAt)}.`,
               link: "/dashboard",
             },
             tx,

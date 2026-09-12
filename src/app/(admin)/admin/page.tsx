@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { getTranslations } from "next-intl/server";
+import { getFormatter, getTranslations } from "next-intl/server";
 
 import { db } from "~/server/db";
 import { getFeatures } from "~/server/program/features";
@@ -14,6 +14,7 @@ const STATUS_TONE: Record<string, string> = {
 };
 
 export default async function AdminHome() {
+  const programFormat = await getFormatter();
   const t = await getTranslations();
   const [pairings, summary, tutees, sessions, crew, features] =
     await Promise.all([
@@ -272,7 +273,7 @@ export default async function AdminHome() {
               {recent.map((s) => (
                 <tr key={s.id}>
                   <td className="whitespace-nowrap text-slate-500 tabular-nums">
-                    {new Date(s.date).toLocaleDateString()}
+                    {programFormat.dateTime(new Date(s.date), { dateStyle: "medium", timeZone: "UTC" })}
                   </td>
                   <td className="font-medium text-slate-800">
                     {s.tutor.englishName}

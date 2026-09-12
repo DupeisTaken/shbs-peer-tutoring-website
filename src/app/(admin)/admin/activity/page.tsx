@@ -2,7 +2,7 @@
 
 import { Children } from "react";
 import Link from "next/link";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { BarList, type BarItem } from "~/app/_components/charts";
@@ -13,6 +13,7 @@ import { BarList, type BarItem } from "~/app/_components/charts";
  * operational detail and recent attendance history. See the "Admin philosophies" note in CLAUDE.md.
  */
 export default function ActivityPage() {
+  const programFormat = useFormatter();
   const t = useTranslations();
   const me = api.account.me.useQuery();
   const elevated =
@@ -240,7 +241,7 @@ export default function ActivityPage() {
               {request.subjects.join(", ") || "—"}
             </span>
             <span className="muted ml-auto text-xs">
-              {new Date(request.submittedAt).toLocaleString()}
+              {programFormat.dateTime(new Date(request.submittedAt), { dateStyle: "medium", timeStyle: "short" })}
             </span>
           </Row>
         ))}
@@ -249,7 +250,7 @@ export default function ActivityPage() {
             <span className="badge-slate">#{i + 1}</span>
             <span className="font-medium text-slate-800">{tutee.englishName}</span>
             <span className="muted text-xs">{tutee.firstChoice?.name ?? "—"}</span>
-            <span className="muted ml-auto text-xs">{new Date(tutee.createdAt).toLocaleString()}</span>
+            <span className="muted ml-auto text-xs">{programFormat.dateTime(new Date(tutee.createdAt), { dateStyle: "medium", timeStyle: "short" })}</span>
           </Row>
         ))}
       </Panel>
@@ -295,7 +296,7 @@ export default function ActivityPage() {
                 ? t("admin.tutorRequests.cooldownDone")
                 : r.eligibleAt
                   ? t("admin.tutorRequests.cooldownUntil", {
-                      date: new Date(r.eligibleAt).toLocaleDateString(),
+                      date: programFormat.dateTime(new Date(r.eligibleAt), { dateStyle: "medium" }),
                     })
                   : ""}
             </span>
@@ -319,7 +320,7 @@ export default function ActivityPage() {
             <span className="muted ml-auto text-xs">
               {r.eligibleAt
                 ? t("admin.tuteeRequests.autoApprovesOn", {
-                    date: new Date(r.eligibleAt).toLocaleDateString(),
+                    date: programFormat.dateTime(new Date(r.eligibleAt), { dateStyle: "medium" }),
                   })
                 : ""}
             </span>
@@ -345,7 +346,7 @@ export default function ActivityPage() {
                   {t("admin.sessionFlags.discrepancy", { observed: f.observed, expected: f.expected })}
                 </span>
                 <span className="muted text-xs">{f.subject}</span>
-                <span className="muted ml-auto text-xs">{new Date(f.date).toLocaleDateString()}</span>
+                <span className="muted ml-auto text-xs">{programFormat.dateTime(new Date(f.date), { dateStyle: "medium", timeZone: "UTC" })}</span>
               </Row>
             ))}
           </Panel>
@@ -362,7 +363,7 @@ export default function ActivityPage() {
               <Row key={a.id}>
                 <span className="font-medium text-slate-800">{a.name}</span>
                 {a.gradeLevel != null && <span className="badge-slate">G{a.gradeLevel}</span>}
-                <span className="muted ml-auto text-xs">{new Date(a.createdAt).toLocaleDateString()}</span>
+                <span className="muted ml-auto text-xs">{programFormat.dateTime(new Date(a.createdAt), { dateStyle: "medium" })}</span>
               </Row>
             ))}
           </Panel>
@@ -385,7 +386,7 @@ export default function ActivityPage() {
                   {r.approvable
                     ? t("admin.crew.cooldownDone")
                     : r.eligibleAt
-                      ? t("admin.crew.cooldownUntil", { date: new Date(r.eligibleAt).toLocaleDateString() })
+                      ? t("admin.crew.cooldownUntil", { date: programFormat.dateTime(new Date(r.eligibleAt), { dateStyle: "medium" }) })
                       : ""}
                 </span>
               </Row>
@@ -428,7 +429,7 @@ export default function ActivityPage() {
       >
         {recentSessions.map((s) => (
           <Row key={s.id}>
-            <span className="muted text-xs">{new Date(s.date).toLocaleDateString()}</span>
+            <span className="muted text-xs">{programFormat.dateTime(new Date(s.date), { dateStyle: "medium", timeZone: "UTC" })}</span>
             <span className="font-medium text-slate-800">{s.tutor.englishName}</span>
             <span className="muted text-xs">{s.pairing.subject}</span>
             <span className="text-xs text-slate-500">{s.tutorStatus}</span>

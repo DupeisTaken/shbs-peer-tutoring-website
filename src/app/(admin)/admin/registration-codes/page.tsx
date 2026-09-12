@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { APP_TITLE } from "~/lib/branding";
@@ -22,6 +22,7 @@ function ShareCard({
   expiresAt: Date;
   registerUrl: string;
 }) {
+  const programFormat = useFormatter();
   const t = useTranslations();
   return (
     <div className="mx-auto max-w-sm rounded-xl border border-accent-200 bg-white p-5 text-center shadow-sm">
@@ -42,7 +43,7 @@ function ShareCard({
       </p>
       <p className="mt-1 text-xs font-medium text-accent-700">
         {t("admin.registrationCodes.share.validity", {
-          date: new Date(expiresAt).toLocaleDateString(),
+          date: programFormat.dateTime(new Date(expiresAt), { dateStyle: "medium" }),
         })}
       </p>
     </div>
@@ -56,6 +57,7 @@ function ShareCard({
  * Admins + coordinators can issue/revoke; VIEWER is read-only (and never sees codes).
  */
 export default function RegistrationCodesPage() {
+  const programFormat = useFormatter();
   const t = useTranslations();
   const readOnly = useReadOnly();
   const utils = api.useUtils();
@@ -216,7 +218,7 @@ export default function RegistrationCodesPage() {
                   </div>
                   <p className="text-xs text-slate-500">
                     {t("admin.registrationCodes.expiresOn", {
-                      date: new Date(c.expiresAt).toLocaleDateString(),
+                      date: programFormat.dateTime(new Date(c.expiresAt), { dateStyle: "medium" }),
                     })}
                   </p>
                   {!readOnly && c.status === "active" && c.code && (

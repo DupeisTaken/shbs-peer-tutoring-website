@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import SuperJSON from "superjson";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { humanizeOperation, proposalConfirmation } from "~/lib/approval-policy";
@@ -25,6 +25,7 @@ function RequestCard({
   canCancel: boolean;
   onChanged: () => Promise<void>;
 }) {
+  const programFormat = useFormatter();
   const t = useTranslations("approvals");
   const [note, setNote] = useState("");
   const [confirming, setConfirming] = useState(false);
@@ -67,7 +68,7 @@ function RequestCard({
       );
   }
   const display = (value: unknown): string => {
-    if (value instanceof Date) return value.toLocaleString();
+    if (value instanceof Date) return programFormat.dateTime(value, { dateStyle: "medium", timeStyle: "short" });
     if (typeof value === "string") return labels.get(value) ?? value;
     if (value === null || value === undefined) return "—";
     if (Array.isArray(value)) return value.map(display).join(", ") || "—";
@@ -125,7 +126,7 @@ function RequestCard({
             </h2>
             <p className="mt-1 text-sm text-slate-500">
               {request.requesterName} ·{" "}
-              {new Date(request.createdAt).toLocaleString()}
+              {programFormat.dateTime(new Date(request.createdAt), { dateStyle: "medium", timeStyle: "short" })}
             </p>
           </div>
           <span
@@ -191,7 +192,7 @@ function RequestCard({
             <p className="text-xs font-medium text-slate-500">
               {request.reviewerName} ·{" "}
               {request.reviewedAt &&
-                new Date(request.reviewedAt).toLocaleString()}
+                programFormat.dateTime(new Date(request.reviewedAt), { dateStyle: "medium", timeStyle: "short" })}
             </p>
             <p className="mt-2 text-sm whitespace-pre-wrap">
               {request.reviewNote}

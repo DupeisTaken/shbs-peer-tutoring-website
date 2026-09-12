@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { SigninAccess } from "./signin-access";
 import { SurveyResend } from "./survey-resend";
@@ -16,6 +16,7 @@ export function StudentRegistration({
   token: string;
   signedInEmail?: string | null;
 }) {
+  const programFormat = useFormatter();
   const t = useTranslations("survey");
   const w = useTranslations("workflow");
   const [password, setPassword] = useState("");
@@ -85,7 +86,7 @@ export function StudentRegistration({
       <p className="muted">
         {t(info.needsAccount ? "newAccountHelp" : "existingHelp")}
       </p>
-      {info.verificationDueAt && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{w('deadline', { time: new Date(info.verificationDueAt).toLocaleString() })}</p>}
+      {info.verificationDueAt && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{w('deadline', { time: programFormat.dateTime(new Date(info.verificationDueAt), { dateStyle: "medium", timeStyle: "short" }) })}</p>}
       <div className="rounded-lg bg-slate-50 p-4 break-words">
         <p className="font-semibold">{info.name}</p>
         <p>{info.email}</p>
@@ -105,7 +106,7 @@ export function StudentRegistration({
         <p className="muted mt-2 text-sm">{t("reviewHelp")}</p>
         <p className="muted mt-2">
           {t("submitted", {
-            time: new Date(info.submittedAt).toLocaleString(),
+            time: programFormat.dateTime(new Date(info.submittedAt), { dateStyle: "medium", timeStyle: "short" }),
           })}
         </p>
       </div>

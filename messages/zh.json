@@ -2322,5 +2322,21 @@
       "SUBMISSION": "提案",
       "CANCELLATION": "撤回"
     }
+  },
+  "programTimeZone": {
+    "title": "项目时区",
+    "help": "日期、时间安排、截止时间及通知统一使用学校时区。",
+    "zone": "时区",
+    "iana": "请选择 IANA 时区，例如 Asia/Shanghai 或 America/New_York。",
+    "invalid": "请选择有效的 IANA 时区。",
+    "preview": "同一时刻在两个时区的显示",
+    "impact": "每周时间段保持钟表时间不变（15:30 仍为 15:30）。已有预约和已保存的截止时间保留原始时间戳，但显示时间可能变化。新的校历计算使用新时区。已有服务时长不会重新计算。",
+    "confirm": "我已了解对时间安排和截止时间的影响。",
+    "save": "保存时区",
+    "saving": "正在保存…",
+    "saved": "项目时区已保存。",
+    "readOnly": "仅负责人或管理员可以修改项目时区。",
+    "loading": "正在加载时区…",
+    "inputZone": "时间按 {zone} 输入。"
   }
 }

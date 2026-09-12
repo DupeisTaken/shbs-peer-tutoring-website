@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { useReadOnly } from "~/app/_components/read-only";
@@ -14,6 +14,7 @@ import { useDialog } from "~/app/_components/confirm-dialog";
  * Crew service hours (0.5h/patrol) are tallied separately from tutoring. VIEWER is read-only.
  */
 export default function CrewPage() {
+  const programFormat = useFormatter();
   const t = useTranslations();
   const readOnly = useReadOnly();
   const { confirm, dialog } = useDialog();
@@ -196,7 +197,7 @@ export default function CrewPage() {
                 )}
                 <span className="muted ml-auto text-xs">
                   {t("admin.crew.issuedExpires", {
-                    date: new Date(c.expiresAt).toLocaleDateString(),
+                    date: programFormat.dateTime(new Date(c.expiresAt), { dateStyle: "medium" }),
                   })}
                 </span>
               </div>
@@ -237,7 +238,7 @@ export default function CrewPage() {
                     ? t("admin.crew.cooldownDone")
                     : r.eligibleAt
                       ? t("admin.crew.cooldownUntil", {
-                          date: new Date(r.eligibleAt).toLocaleDateString(),
+                          date: programFormat.dateTime(new Date(r.eligibleAt), { dateStyle: "medium" }),
                         })
                       : ""}
                 </span>

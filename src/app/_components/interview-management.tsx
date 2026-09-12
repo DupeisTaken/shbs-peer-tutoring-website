@@ -1,10 +1,13 @@
 "use client";
 import { formText, formTexts } from "~/lib/form-values";
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useTimeZone } from "next-intl";
 import { api } from "~/trpc/react";
+import { programDateTimeInput, parseProgramDateTime } from "~/lib/program-time";
 export function InterviewManagement() {
   const t = useTranslations("workflows");
+  const timeZone = useTimeZone();
+  const [inputError, setInputError] = useState("");
   const utils = api.useUtils();
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState("");
@@ -38,6 +41,7 @@ export function InterviewManagement() {
   return (
     <div className="space-y-6">
       <p className="muted">{t("allVotes")}</p>
+      {inputError && <p role="alert">{inputError}</p>}
       <section className="card space-y-4 p-6">
         <h2 className="section-title">{t("qualified")}</h2>
         <form
@@ -146,13 +150,13 @@ export function InterviewManagement() {
             onSubmit={(e) => {
               e.preventDefault();
               const f = new FormData(e.currentTarget);
-              complete.mutate({
+              try { setInputError(""); complete.mutate({
                 applicationId: a.id,
                 durationMin: Number(f.get("duration")),
-                completedAt: new Date(formText(f, "date")),
+                completedAt: parseProgramDateTime(formText(f, "date"), timeZone),
                 attendedTutorIds: formTexts(f, "attended"),
                 reason: formText(f, "reason"),
-              });
+              }); } catch (error) { setInputError(error instanceof Error ? error.message : "Invalid date"); }
             }}
           >
             <h3 className="font-semibold">{a.name}</h3>
@@ -166,12 +170,7 @@ export function InterviewManagement() {
                   required
                   defaultValue={
                     a.interviewCompletedAt
-                      ? new Date(
-                          a.interviewCompletedAt.getTime() -
-                            a.interviewCompletedAt.getTimezoneOffset() * 60000,
-                        )
-                          .toISOString()
-                          .slice(0, 16)
+                      ? programDateTimeInput(a.interviewCompletedAt, timeZone)
                       : undefined
                   }
                 />

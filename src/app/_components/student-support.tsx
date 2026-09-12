@@ -3,12 +3,13 @@ import { AcceptanceRecords } from "./acceptance-records";
 import { SchoolCalendar } from "./school-calendar";
 import Link from "next/link";
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { useDialog } from "./confirm-dialog";
 import { Pager } from "./student-portal";
 
 export function StudentSupport() {
+  const programFormat = useFormatter();
   const t = useTranslations("workflows");
   const [feedbackPage, setFeedbackPage] = useState(0);
   const [appealPage, setAppealPage] = useState(0);
@@ -78,7 +79,7 @@ export function StudentSupport() {
               {f.studentName} · {f.subject} · {f.rating}/5
             </p>
             <p className="mt-2 whitespace-pre-wrap">{f.body}</p>
-            <p className="muted mt-2 text-xs">{f.updatedAt.toLocaleString()}</p>
+            <p className="muted mt-2 text-xs">{programFormat.dateTime(f.updatedAt, { dateStyle: "medium", timeStyle: "short" })}</p>
           </article>
         ))}
         <Pager

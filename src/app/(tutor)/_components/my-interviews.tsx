@@ -2,17 +2,11 @@
 
 import { useState } from "react";
 
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations, useTimeZone } from "next-intl";
 
 import { api } from "~/trpc/react";
 
-/** Convert a Date to the value a <input type="datetime-local"> expects (local time). */
-function toLocalInput(d: Date | null): string {
-  if (!d) return "";
-  const dt = new Date(d);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
-}
+import { programDateTimeInput, parseProgramDateTime } from "~/lib/program-time";
 
 type Status = "PENDING" | "INTERVIEW" | "ACCEPTED" | "REJECTED";
 
@@ -25,7 +19,9 @@ function HeadScheduler({
 }) {
   const t = useTranslations();
   const utils = api.useUtils();
-  const [value, setValue] = useState(toLocalInput(current));
+  const timeZone = useTimeZone();
+  const [inputError, setInputError] = useState("");
+  const [value, setValue] = useState(current ? programDateTimeInput(current, timeZone) : "");
   const save = api.tutor.setInterviewTime.useMutation({
     onSuccess: () => utils.tutor.myInterviews.invalidate(),
   });
@@ -41,17 +37,17 @@ function HeadScheduler({
       <button
         className="btn-primary btn-sm"
         disabled={save.isPending}
-        onClick={() =>
+        onClick={() => { try { setInputError("");
           save.mutate({
             applicationId,
-            interviewAt: value ? new Date(value) : null,
-          })
-        }
+            interviewAt: value ? parseProgramDateTime(value, timeZone) : null,
+          }); } catch (error) { setInputError(error instanceof Error ? error.message : "Invalid date"); } }}
       >
         {save.isPending
           ? t("tutor.interviews.saving")
           : t("tutor.interviews.setTime")}
       </button>
+      {inputError && <p role="alert">{inputError}</p>}
       {save.isSuccess && (
         <span className="text-sm text-green-600">
           {t("tutor.interviews.saved")}
@@ -249,6 +245,7 @@ function HeadDecision({
 }
 
 export function MyInterviews() {
+  const programFormat = useFormatter();
   const t = useTranslations();
   const interviews = api.tutor.myInterviews.useQuery();
   const list = interviews.data ?? [];
@@ -307,7 +304,7 @@ export function MyInterviews() {
                 <p className="muted mt-2">
                   {a.interviewAt
                     ? t("tutor.interviews.scheduled", {
-                        time: new Date(a.interviewAt).toLocaleString(),
+                        time: programFormat.dateTime(new Date(a.interviewAt), { dateStyle: "medium", timeStyle: "short" }),
                       })
                     : t("tutor.interviews.awaitingSchedule")}
                 </p>

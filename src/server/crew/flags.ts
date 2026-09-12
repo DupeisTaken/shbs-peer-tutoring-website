@@ -18,6 +18,8 @@ import {
   lockEntity,
   type DomainDb,
 } from "~/server/transactions";
+import { getProgramTimeZone } from "~/server/program/time-zone";
+import { programDateKey, programMinuteOfDay, programDayStart, programDayEnd } from "~/lib/program-time";
 type Db = DomainDb;
 
 /** Minimum students an observation guarantees (4+ is treated as ≥4 — never an under-count below 4). */
@@ -34,22 +36,6 @@ export function headcountMin(h: Headcount): number {
     case "FOUR_PLUS":
       return 4;
   }
-}
-
-/** Minute-of-day (Asia/Shanghai) for a timestamp, for matching an observation to a session's time window. */
-function minuteOfDay(d: Date): number {
-  // School wall-clock minutes are UTC+8, independent of the server/VM timezone.
-  return (d.getUTCHours() * 60 + d.getUTCMinutes() + 8 * 60) % 1440;
-}
-
-/** Match an observation in school local time against a stored attendance calendar date. */
-function sameDay(a: Date, b: Date): boolean {
-  const schoolDate = new Date(a.getTime() + 8 * 60 * 60 * 1000);
-  return (
-    schoolDate.getUTCFullYear() === b.getUTCFullYear() &&
-    schoolDate.getUTCMonth() === b.getUTCMonth() &&
-    schoolDate.getUTCDate() === b.getUTCDate()
-  );
 }
 
 /** A small grace (minutes) around a session window so a patrol just inside the door still matches. */
@@ -123,13 +109,14 @@ async function reconcileFlag(
   const expected = present.length;
   if (expected <= 0) return clearFlag();
 
+  const timeZone = await getProgramTimeZone(db);
   // Crew observations in the same room, same day, within the session's time window (+ grace).
   const obs = await db.patrolObservation.findMany({
     where: {
       roomId: session.actualRoomId,
       observedAt: {
-        gte: new Date(session.date.getTime() - 24 * 60 * 60 * 1000),
-        lte: new Date(session.date.getTime() + 24 * 60 * 60 * 1000),
+        gte: programDayStart(session.date.toISOString().slice(0, 10), timeZone),
+        lte: programDayEnd(session.date.toISOString().slice(0, 10), timeZone),
       },
     },
     select: { headcount: true, observedAt: true },
@@ -138,9 +125,9 @@ async function reconcileFlag(
   const highEnd = session.endMin + MATCH_GRACE_MIN;
   const matching = obs.filter(
     (o) =>
-      sameDay(o.observedAt, session.date) &&
-      minuteOfDay(o.observedAt) >= lowStart &&
-      minuteOfDay(o.observedAt) <= highEnd,
+      programDateKey(o.observedAt, timeZone) === session.date.toISOString().slice(0, 10) &&
+      programMinuteOfDay(o.observedAt, timeZone) >= lowStart &&
+      programMinuteOfDay(o.observedAt, timeZone) <= highEnd,
   );
   if (matching.length === 0) return clearFlag();
 

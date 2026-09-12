@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { TimedActionDialog } from "~/app/_components/timed-action-dialog";
 import { DAY_NAMES, minToHm } from "~/lib/time";
@@ -70,6 +70,7 @@ export function StudentWorkspace() {
   );
 }
 function CurrentRequest({ row }: { row: Request }) {
+  const programFormat = useFormatter();
   const t = useTranslations("workflow");
   const utils = api.useUtils();
   const options = api.tutee.signupOptions.useQuery();
@@ -110,7 +111,7 @@ function CurrentRequest({ row }: { row: Request }) {
           {row.subjects.map((s) => s.name).join(" · ")}
         </p>
         <p className="muted text-sm">
-          {t("priority", { time: new Date(row.submittedAt).toLocaleString() })}
+          {t("priority", { time: programFormat.dateTime(new Date(row.submittedAt), { dateStyle: "medium", timeStyle: "short" }) })}
         </p>
         <div className="border-t border-slate-100 pt-4">
           <h3 className="font-semibold">{t("assignments")}</h3>

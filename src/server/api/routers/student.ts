@@ -14,17 +14,21 @@ import { notifyAdmins, notifyUsers } from "~/server/notifications/create";
 import { syncPunishmentRemoval } from "~/server/discipline/removal";
 import { assertFeatureEnabled } from "~/server/program/features";
 
+import { getProgramTimeZone } from "~/server/program/time-zone";
+import { programDateKey, programDayEnd } from "~/lib/program-time";
+import { DEFAULT_TIME_ZONE } from "~/i18n/config";
 const staff = (role: string) => ["HEAD", "ADMIN", "COORDINATOR"].includes(role);
 const text = z.string().trim().min(1).max(2000);
 const paging = z
   .object({ page: z.number().int().min(0).default(0) })
   .default({ page: 0 });
-/** Weekday deadline uses the school's UTC+8 calendar; staff may still correct cards independently. */
+/** Weekday deadline uses the configured school calendar; staff may still correct cards independently. */
 export function appealDeadline(
   date: Date,
   overrides: { date: string; isSchoolDay: boolean }[] = [],
+  timeZone = DEFAULT_TIME_ZONE,
 ) {
-  const day = new Date(date.getTime() + 8 * 3600000);
+  const day = new Date(`${programDateKey(date, timeZone)}T00:00:00Z`);
   for (let remaining = 5; remaining > 0;) {
     day.setUTCDate(day.getUTCDate() + 1);
     const override = overrides.find(
@@ -32,8 +36,7 @@ export function appealDeadline(
     );
     if (override?.isSchoolDay ?? ![0, 6].includes(day.getUTCDay())) remaining--;
   }
-  day.setUTCHours(23, 59, 59, 999);
-  return new Date(day.getTime() - 8 * 3600000);
+  return programDayEnd(day.toISOString().slice(0, 10), timeZone);
 }
 export const studentRouter = createTRPCRouter({
   acceptanceRecords: adminProcedure
@@ -239,6 +242,7 @@ export const studentRouter = createTRPCRouter({
           select: { cardId: true },
         })
       : [];
+    const timeZone = await getProgramTimeZone(ctx.db);
     const appealedCards = new Set(appealedCardIds.map((row) => row.cardId));
     const feedback = owned.length
       ? await ctx.db.studentFeedback.findMany({
@@ -257,7 +261,7 @@ export const studentRouter = createTRPCRouter({
       })),
       cards: cards.map((c) => ({
         ...c,
-        deadline: appealDeadline(c.createdAt, calendar),
+        deadline: appealDeadline(c.createdAt, calendar, timeZone),
         hasExistingAppeal: appealedCards.has(c.id),
       })),
       appeals,
@@ -381,6 +385,7 @@ export const studentRouter = createTRPCRouter({
           appealDeadline(
             card.createdAt,
             await tx.schoolCalendarDay.findMany(),
+            await getProgramTimeZone(tx),
           ) < new Date()
         )
           throw new TRPCError({
