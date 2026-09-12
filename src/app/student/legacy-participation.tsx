@@ -37,7 +37,7 @@ function Participation({ row }: { row: Enrollment }) {
       <h2 className="section-title">
         {t("participation")} · {row.englishName}
       </h2>
-      <p className="muted text-sm">{t("abortHelp")}</p>
+      <p className="muted text-sm">{t("legacyWithdrawalHelp")}</p>
       {pending ? (
         <p role="status" className="badge-amber">
           {t("abortPending")}

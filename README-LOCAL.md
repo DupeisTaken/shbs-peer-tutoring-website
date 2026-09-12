@@ -9,6 +9,28 @@ How to run the SHBS Peer Tutoring app on your own machine, point it at a local d
 seed sample data, run the test suite, and (optionally) smoke-test the production Docker
 stack. For production deployment see [README-DEPLOY.md](./README-DEPLOY.md).
 
+## September admin improvements
+
+The recipient, student withdrawal, and program timezone changes add three migrations.
+Run `npm run db:migrate` and `npx prisma generate` before starting an updated local
+checkout. Existing announcements remain broadcasts; existing programs default to
+`Asia/Shanghai`. See [announcement recipients](docs/announcement-recipients.md) and
+[program timezone behavior](docs/program-time-zone.md).
+
+On Windows, create disposable test/demo databases with UTF-8 encoding rather than
+inheriting a WIN1252 template. The application stores Chinese text and emoji. A new
+database can use `TEMPLATE template0 ENCODING 'UTF8' LC_COLLATE 'C' LC_CTYPE 'C'`.
+Keep the existing program database separate from tests, which reset their own data.
+
+Sibling Git worktrees can share a local `node_modules` junction. Set
+`SHBS_WORKSPACE_ROOT` to the absolute common parent directory when using Turbopack;
+otherwise its filesystem boundary rejects the junction. Normal standalone checkouts
+need no override. The override also sets the standalone file-tracing root.
+
+Local screenshot evidence and the implementation report belong under the ignored
+`outputs/implementation-report/` directory. The report is an offline HTML file with
+local images and diagrams; it is not part of the deployed application.
+
 ## Prerequisites
 
 - **Node 22 (CI baseline)** and **npm**

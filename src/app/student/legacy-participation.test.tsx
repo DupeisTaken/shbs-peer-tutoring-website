@@ -72,3 +72,10 @@ it("shows a pending request without another withdrawal button", () => {
   expect(screen.getByRole("status").textContent).toBe("abortPending");
   expect(screen.queryByRole("button")).toBeNull();
 });
+
+it("explains manual withdrawal without assuming a tutor has been assigned", () => {
+  mocks.query.mockReturnValue({ data: [{ id: "owned", englishName: "Student", status: "PENDING", reviews: [] }] });
+  render(<LegacyParticipation />);
+  expect(screen.getByText("legacyWithdrawalHelp")).toBeTruthy();
+  expect(screen.queryByText("abortHelp")).toBeNull();
+});

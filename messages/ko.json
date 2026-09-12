@@ -907,6 +907,43 @@
         "pinLabel": "고정 (닫은 후에도 계속 표시)",
         "posting": "게시 중…",
         "broadcast": "공지 보내기"
+      },
+      "recipients": {
+        "button": "Recipients",
+        "loading": "Loading…",
+        "count": "{count, plural, one {# recipient} other {# recipients}}",
+        "done": "Done",
+        "explanation": "Recipients are fixed when published. Filters combine across groups; multiple choices within a group match any choice. Subjects include approved qualifications and current-term assignments.",
+        "mode": "Choose recipients",
+        "all": "All current tutors",
+        "filtered": "Filter tutors",
+        "specific": "Specific tutors only",
+        "grades": "Grades",
+        "statuses": "Tutor status",
+        "subjects": "Subjects",
+        "assignment": "Active tutees in the current term",
+        "any": "Any assignment status",
+        "with": "With active tutees",
+        "without": "Without active tutees",
+        "empty": "No recipients selected. Choose at least one tutor to publish.",
+        "search": "Find a tutor",
+        "overrideHelp": "Include adds a tutor regardless of filters. Exclude removes them. Search only narrows this list, not the recipients.",
+        "selected": "Selected",
+        "tutees": "{count} active tutees",
+        "overrideFor": "Recipient selection for {name}",
+        "notSelected": "Not selected",
+        "auto": "Follow filters",
+        "include": "Include",
+        "exclude": "Exclude",
+        "frozenCount": "Published to {count} tutors · fixed recipient list",
+        "legacy": "Existing broadcast · visible to all tutors",
+        "status": {
+          "ACTIVE": "Active",
+          "PENDING": "Pending activation",
+          "OPTED_OUT": "Opted out",
+          "GRADUATED": "Graduated",
+          "ARCHIVED": "Archived"
+        }
       }
     },
     "policies": {
@@ -1058,7 +1095,16 @@
       "removedEmpty": "삭제된 학생이 없습니다.",
       "removedDiscipline": "징계 삭제",
       "removedOptOut": "탈퇴 ({tutor} 경유)",
-      "reinstate": "복원"
+      "reinstate": "복원",
+      "studentHeading": "Student withdrawal requests",
+      "studentHelp": "Submitted from the student’s own account. All tutoring for this quarter continues until staff approves the request. Approval ends participation and blocks a new signup for the same quarter.",
+      "studentSource": "Submitted by student",
+      "wholeProgram": "All tutoring this quarter",
+      "effectiveOnApproval": "Effective only after approval",
+      "submittedOn": "Submitted {date}",
+      "studentEmpty": "No student withdrawals awaiting review.",
+      "studentHistory": "Reviewed student withdrawals",
+      "recallWindow": "Recall window open"
     },
     "reports": {
       "title": "보고서",
@@ -1984,7 +2030,7 @@
     "reason": "수정 이유",
     "save": "수정 저장",
     "editPatrol": "순찰 수정",
-    "patrolHelp": "시간은 상하이 시간(UTC+8)입니다. 수정하면 관련 경고를 재검토하고 이전 감점을 취소합니다. 순찰 시간은 바뀌지 않습니다.",
+    "patrolHelp": "Times use {zone}. Corrected evidence reopens affected flags and removes their previous deductions. Patrol hours stay unchanged.",
     "count": "관찰한 학생 수",
     "schoolTime": "학교 시간(UTC+8)",
     "patrolHistory": "순찰 기록 및 수정",
@@ -2256,7 +2302,10 @@
     "policyLoadError": "The current policy could not be loaded. Retry or sign out. Your request priority is unchanged.",
     "retry": "Retry",
     "expiredHelp": "If your request was disqualified, resending cannot reactivate it. You must submit a new request.",
-    "policyHistoryAccess": "Read and accept the updated policy before participating. Your history, feedback, appeals, and private messages remain available."
+    "policyHistoryAccess": "Read and accept the updated policy before participating. Your history, feedback, appeals, and private messages remain available.",
+    "manualSource": "Manually managed",
+    "surveySource": "Student signup",
+    "legacyWithdrawalHelp": "You can ask staff to withdraw from all tutoring this quarter. Your participation stays unchanged until approval. Once approved, you cannot sign up again in the same quarter."
   },
   "approvals": {
     "title": "Change Approvals",
@@ -2313,7 +2362,7 @@
     "searchHint": "Search action descriptions",
     "apply": "Apply Filters",
     "clear": "Clear Filters",
-    "utc": "Date filters use UTC; event times use your local time.",
+    "utc": "Date filters and event times use {zone}.",
     "allHistory": "Show All History",
     "details": "Decision Details",
     "empty": "No actions match these filters.",

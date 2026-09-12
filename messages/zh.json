@@ -2030,7 +2030,7 @@
     "reason": "更正原因",
     "save": "保存更正",
     "editPatrol": "更正巡查",
-    "patrolHelp": "时间采用北京时间（UTC+8）。更正后将重新审核相关异常，并撤销原来的扣分。巡查时长保持不变。",
+    "patrolHelp": "时间使用 {zone}。更正证据会重新开启相关标记并撤销此前的扣分。巡查时数保持不变。",
     "count": "观察到的学生人数",
     "schoolTime": "北京时间（UTC+8）",
     "patrolHistory": "巡查记录与更正",
@@ -2304,7 +2304,8 @@
     "expiredHelp": "如果申请已被取消资格，重发链接不会重新启用旧申请。你必须重新提交申请。",
     "policyHistoryAccess": "参与新的活动前，请阅读并接受更新后的政策。您仍可查看历史记录、反馈、申诉和私信。",
     "manualSource": "手动管理",
-    "surveySource": "学生报名"
+    "surveySource": "学生报名",
+    "legacyWithdrawalHelp": "你可以申请退出本季度的全部辅导。工作人员批准前，你的参与状态保持不变。批准后，你不能在同一季度再次报名。"
   },
   "approvals": {
     "title": "待审批的变更",
@@ -2361,7 +2362,7 @@
     "searchHint": "搜索操作描述",
     "apply": "应用筛选",
     "clear": "清除筛选",
-    "utc": "日期筛选使用 UTC；事件时间使用您的本地时间。",
+    "utc": "日期筛选和事件时间均使用 {zone}。",
     "allHistory": "显示全部记录",
     "details": "审批详情",
     "empty": "没有符合筛选条件的操作。",

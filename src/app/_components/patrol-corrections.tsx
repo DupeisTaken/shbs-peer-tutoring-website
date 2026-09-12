@@ -8,7 +8,7 @@ import { programDateTimeInput, parseProgramDateTime } from "~/lib/program-time";
 type Patrol = RouterOutputs["corrections"]["patrols"][number];
 function PatrolEditor({ row }: { row: Patrol }) {
   const t = useTranslations("corrections");
-  const timeZone = useTimeZone();
+  const timeZone = useTimeZone() ?? "Asia/Shanghai";
   const localTime = (date: Date) => programDateTimeInput(date, timeZone);
   const [inputError, setInputError] = useState("");
   const [open, setOpen] = useState(false);
@@ -51,7 +51,7 @@ function PatrolEditor({ row }: { row: Patrol }) {
             }); } catch (error) { setInputError(error instanceof Error ? error.message : "Invalid date"); }
           }}
         >
-          <p className="muted">{t("patrolHelp")}</p>
+          <p className="muted">{t("patrolHelp", { zone: timeZone })}</p>
           {inputError && <p role="alert">{inputError}</p>}
           {row.observations.map((o) => (
             <fieldset

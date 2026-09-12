@@ -2030,7 +2030,7 @@
     "reason": "Reason for Correction",
     "save": "Save Correction",
     "editPatrol": "Correct Patrol",
-    "patrolHelp": "Times are in Asia/Shanghai (UTC+8). Corrected evidence reopens affected flags and removes their previous deductions. Patrol hours stay unchanged.",
+    "patrolHelp": "Times use {zone}. Corrected evidence reopens affected flags and removes their previous deductions. Patrol hours stay unchanged.",
     "count": "Students Observed",
     "schoolTime": "School Time (UTC+8)",
     "patrolHistory": "Patrol History and Corrections",
@@ -2304,7 +2304,8 @@
     "expiredHelp": "If your request was disqualified, resending cannot reactivate it. You must submit a new request.",
     "policyHistoryAccess": "Read and accept the updated policy before participating. Your history, feedback, appeals, and private messages remain available.",
     "manualSource": "Manually managed",
-    "surveySource": "Student signup"
+    "surveySource": "Student signup",
+    "legacyWithdrawalHelp": "You can ask staff to withdraw from all tutoring this quarter. Your participation stays unchanged until approval. Once approved, you cannot sign up again in the same quarter."
   },
   "approvals": {
     "title": "Changes Awaiting Approval",
@@ -2361,7 +2362,7 @@
     "searchHint": "Search action descriptions",
     "apply": "Apply Filters",
     "clear": "Clear Filters",
-    "utc": "Date filters use UTC; event times use your local time.",
+    "utc": "Date filters and event times use {zone}.",
     "allHistory": "Show All History",
     "details": "Decision Details",
     "empty": "No actions match these filters.",
