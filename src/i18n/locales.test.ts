@@ -8,12 +8,21 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 
 import { describe, expect, it } from "vitest";
+import {
+  parse,
+  TYPE,
+  type MessageFormatElement,
+} from "@formatjs/icu-messageformat-parser";
 
 import { DEFAULT_LOCALE, LOCALE_LABELS, LOCALES } from "./config";
 
 const messagesDir = fileURLToPath(new URL("../../messages/", import.meta.url));
 
-function flatten(obj: Record<string, unknown>, prefix = "", out: Record<string, string> = {}) {
+function flatten(
+  obj: Record<string, unknown>,
+  prefix = "",
+  out: Record<string, string> = {},
+) {
   for (const [k, v] of Object.entries(obj)) {
     const key = prefix ? `${prefix}.${k}` : k;
     if (v && typeof v === "object" && !Array.isArray(v)) {
@@ -27,27 +36,50 @@ function flatten(obj: Record<string, unknown>, prefix = "", out: Record<string, 
 
 function load(locale: string): Record<string, string> {
   return flatten(
-    JSON.parse(readFileSync(`${messagesDir}${locale}.json`, "utf8")) as Record<string, unknown>,
+    JSON.parse(readFileSync(`${messagesDir}${locale}.json`, "utf8")) as Record<
+      string,
+      unknown
+    >,
   );
 }
 
 const en = load(DEFAULT_LOCALE);
 const enKeys = Object.keys(en);
-/** ICU placeholders, excluding plural-branch literal words that are translated in-place. */
-const placeholderRe = /\{[a-zA-Z]+\}/g;
-const ICU_PLURAL_WORDS = new Set([
-  "{tutee}", "{tutees}", "{vote}", "{votes}", "{panelist}", "{panelists}", "{signup}", "{signups}",
-]);
+/** Parse nested plurals and rich-text tags: regexes confuse translated branch text with arguments. */
+function argumentsOf(
+  nodes: MessageFormatElement[],
+  found = new Set<string>(),
+): string[] {
+  for (const node of nodes) {
+    if (node.type !== TYPE.literal && node.type !== TYPE.pound) {
+      found.add(`${node.type === TYPE.tag ? "tag" : "argument"}:${node.value}`);
+    }
+    if (node.type === TYPE.tag) argumentsOf(node.children, found);
+    if (node.type === TYPE.select || node.type === TYPE.plural) {
+      for (const option of Object.values(node.options))
+        argumentsOf(option.value, found);
+    }
+  }
+  return [...found].sort();
+}
 
 describe("locale parity", () => {
   it("every LOCALES entry has a label and a loader-able file", () => {
     for (const loc of LOCALES) {
       expect(LOCALE_LABELS[loc], `missing label for ${loc}`).toBeTruthy();
-      expect(() => load(loc), `missing/invalid messages/${loc}.json`).not.toThrow();
+      expect(
+        () => load(loc),
+        `missing/invalid messages/${loc}.json`,
+      ).not.toThrow();
     }
   });
 
   for (const loc of LOCALES) {
+    it(`${loc} contains valid ICU messages`, () => {
+      for (const [key, value] of Object.entries(load(loc))) {
+        expect(() => parse(value), `${loc}:${key}`).not.toThrow();
+      }
+    });
     it(`${loc} has no blank translation values`, () => {
       const blank = Object.entries(load(loc))
         .filter(([, value]) => value.trim().length === 0)
@@ -68,14 +100,11 @@ describe("locale parity", () => {
       });
 
       it("preserves ICU placeholders", () => {
-        const broken: string[] = [];
         for (const k of enKeys) {
-          const phs = (en[k]!.match(placeholderRe) ?? []).filter((p) => !ICU_PLURAL_WORDS.has(p));
-          for (const ph of phs) {
-            if (m[k] !== undefined && !m[k].includes(ph)) broken.push(`${k}:${ph}`);
-          }
+          expect(argumentsOf(parse(m[k]!)), `${loc}:${k}`).toEqual(
+            argumentsOf(parse(en[k]!)),
+          );
         }
-        expect(broken).toEqual([]);
       });
     });
   }
