@@ -332,7 +332,7 @@ export default function TuteesPage() {
 
       {view === "tutees" && (
         <section className="card overflow-x-auto">
-          <table className="data-table">
+          <table className="data-table [&_td]:px-2 [&_th]:px-2">
             <thead>
               <tr>
                 <SortHeader sort={sort} sortKey="name">
@@ -364,7 +364,7 @@ export default function TuteesPage() {
                     ) : (
                       <input
                         defaultValue={t2.englishName}
-                        className="input field-auto min-w-40"
+                        className="input field-auto min-w-36"
                         onBlur={(e) => {
                           const v = e.target.value.trim();
                           if (v && v !== t2.englishName)
@@ -394,7 +394,10 @@ export default function TuteesPage() {
                     removalLabel={t("admin.tutees.removalBadge")}
                   />
                   <td className="text-slate-600">
-                    {t2.preferredContact ?? t2.email ?? t2.phone ?? "—"}
+                    {/* Long email tokens must wrap instead of pushing the actions off desktop. */}
+                    <span className="block w-28 whitespace-normal [overflow-wrap:anywhere]">
+                      {t2.preferredContact ?? t2.email ?? t2.phone ?? "—"}
+                    </span>
                   </td>
                   {/* Status is read-only here — transitions follow the procedures: assignment on
                       /admin/requests, removal & reinstatement on /admin/tutee-requests. */}
