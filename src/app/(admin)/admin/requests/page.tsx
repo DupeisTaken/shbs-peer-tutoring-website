@@ -3,7 +3,10 @@ import { StudentRequestBoard } from "./student-request-board";
 
 import { useEffect, useMemo, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
-import { signupRequestGroup } from "~/lib/signup-request-groups";
+import {
+  isCurrentManualSignup,
+  signupRequestGroup,
+} from "~/lib/signup-request-groups";
 
 import { api } from "~/trpc/react";
 import { DAY_NAMES, minToHm } from "~/lib/time";
@@ -392,18 +395,26 @@ export default function RequestsPage() {
     () =>
       (tutees.data ?? [])
         .filter((t2) => !managed.data?.some((r) => r.tuteeId === t2.id))
-        .filter(
-          (t2) =>
-            t2.status === "PENDING" ||
-            retained.has(t2.id) ||
-            (t2.status === "ACTIVE" && !!t2.signupSubmittedAt),
+        .filter((t2) =>
+          isCurrentManualSignup(
+            t2,
+            currentPeriod.data?.termId,
+            assignedByTutee.has(t2.id),
+            retained.has(t2.id),
+          ),
         )
         .sort(
           (a, b) =>
             +new Date(a.signupSubmittedAt ?? a.createdAt) -
             +new Date(b.signupSubmittedAt ?? b.createdAt),
         ),
-    [tutees.data, managed.data, retained],
+    [
+      tutees.data,
+      managed.data,
+      retained,
+      currentPeriod.data?.termId,
+      assignedByTutee,
+    ],
   );
 
   const workload: Workload = useMemo(() => {
@@ -432,7 +443,7 @@ export default function RequestsPage() {
         <p className="muted mt-1">{t("admin.requests.help")}</p>
       </div>
 
-      {!hasPeriod && (
+      {!currentPeriod.isLoading && !hasPeriod && (
         <p className="text-sm text-red-600">{t("admin.requests.noTerm")}</p>
       )}
 
@@ -444,7 +455,10 @@ export default function RequestsPage() {
       {!readOnly ? (
         <StudentRequestBoard
           additionalLoading={
-            tutees.isLoading || managed.isLoading || pairings.isLoading
+            tutees.isLoading ||
+            managed.isLoading ||
+            pairings.isLoading ||
+            currentPeriod.isLoading
           }
           additionalEntries={
             hasPeriod

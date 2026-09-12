@@ -1,5 +1,30 @@
 export type RequestTab = "matching" | "assigned" | "reviews" | "processed";
 
+/** Explicit intake terms win; a legacy active signup needs current pairing evidence. */
+export function isCurrentManualSignup(
+  row: {
+    status: string;
+    intakeTermId: string | null;
+    signupSubmittedAt: Date | null;
+    firstChoiceId?: string | null;
+    secondChoiceId?: string | null;
+  },
+  termId: string | undefined,
+  hasCurrentPairing: boolean,
+  retained: boolean,
+) {
+  if (!termId || (row.intakeTermId !== null && row.intakeTermId !== termId))
+    return false;
+  if (row.status === "PENDING") return true;
+  if (row.status !== "ACTIVE") return false;
+  return (
+    retained ||
+    (!!row.signupSubmittedAt && row.intakeTermId === termId) ||
+    (hasCurrentPairing &&
+      !!(row.signupSubmittedAt ?? row.firstChoiceId ?? row.secondChoiceId))
+  );
+}
+
 /** Empty or partially assigned requests still need matching; terminal state wins. */
 export function signupRequestGroup(
   state: string,
