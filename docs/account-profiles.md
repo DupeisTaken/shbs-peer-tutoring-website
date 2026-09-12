@@ -36,3 +36,5 @@ does not create accounts, link records, change roles, or rewrite historical evid
 Regression coverage is in `src/server/account-profile.test.ts` and
 `src/app/_components/email-details.test.tsx`. Use the isolated local test database,
 serial workers, and capture desktop/mobile screenshots of the rosters and dialogs.
+
+Users & Roles groups Show email and Edit profile above Delete in the Actions column. The column remains visible for staff without deletion permission; the existing head-only deletion checks remain unchanged.

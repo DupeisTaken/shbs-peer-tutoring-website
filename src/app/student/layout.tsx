@@ -14,14 +14,25 @@ import { getFeatures } from "~/server/program/features";
 import { tuteePeriodMessages } from "./period-messages";
 
 /** Participation is independent of role. All active accounts enter; APIs scope records by ownership. */
-export default async function TuteeLayout({ children }: { children: React.ReactNode }) {
+export default async function TuteeLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const session = await auth();
   if (!session?.user) redirect("/signin");
   const [me, t, messages, features] = await Promise.all([
-    db.user.findUnique({ where: { id: session.user.id }, select: {
-      name: true, email: true, username: true, role: true, suspendedAt: true,
-      tutor: { select: { status: true } },
-    } }),
+    db.user.findUnique({
+      where: { id: session.user.id },
+      select: {
+        name: true,
+        email: true,
+        username: true,
+        role: true,
+        suspendedAt: true,
+        tutor: { select: { status: true } },
+      },
+    }),
     getTranslations(),
     getMessages(),
     getFeatures(db),
@@ -31,22 +42,43 @@ export default async function TuteeLayout({ children }: { children: React.ReactN
   const elevated = ["HEAD", "ADMIN", "COORDINATOR", "VIEWER"].includes(me.role);
   const canTutor = !!me.tutor && (!elevated || me.tutor.status !== "ARCHIVED");
   const items = [
-    { href: "/my-account", label: t("tuteePortal.account") },
-    { href: "/messages", label: t("tuteePortal.messages") },
-    ...(canTutor ? [{ href: "/dashboard", label: t("components.userMenu.enterTutor") }] : []),
-    ...(elevated ? [{ href: "/admin", label: t("components.userMenu.enterAdmin") }] : []),
+    { href: "/student?view=account", label: t("tuteePortal.account") },
+    { href: "/student?view=messages", label: t("tuteePortal.messages") },
+    ...(canTutor
+      ? [{ href: "/dashboard", label: t("components.userMenu.enterTutor") }]
+      : []),
+    ...(elevated
+      ? [{ href: "/admin", label: t("components.userMenu.enterAdmin") }]
+      : []),
   ];
   const content = (
     <div className="min-h-screen">
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white">
         <div className="grid min-w-0 gap-2 px-4 py-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:px-6">
-          <Link href="/student" className="flex min-h-11 min-w-0 items-center truncate text-lg font-bold text-slate-900">{APP_TITLE}</Link>
+          <Link
+            href="/student"
+            className="flex min-h-11 min-w-0 items-center truncate text-lg font-bold text-slate-900"
+          >
+            {APP_TITLE}
+          </Link>
           <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-            <Link href="/my-account" className="hidden max-w-48 truncate rounded-md px-2 py-1 text-sm font-medium hover:bg-slate-100 lg:block">{me.name ?? me.username}</Link>
+            <Link
+              href="/student?view=account"
+              className="hidden max-w-48 truncate rounded-md px-2 py-1 text-sm font-medium hover:bg-slate-100 lg:block"
+            >
+              {me.name ?? me.username}
+            </Link>
             <ThemeSwitcher compactAtDesktop />
             <NotificationBell />
             <LanguageSwitcher compactAtDesktop />
-            <UserAvatar name={me.name ?? me.username ?? me.email} username={me.username} email={me.email} role={me.role} items={items} compactAtDesktop />
+            <UserAvatar
+              name={me.name ?? me.username ?? me.email}
+              username={me.username}
+              email={me.email}
+              role={me.role}
+              items={items}
+              compactAtDesktop
+            />
           </div>
         </div>
       </header>
@@ -57,7 +89,9 @@ export default async function TuteeLayout({ children }: { children: React.ReactN
     </div>
   );
   // Nested messages affect client workflow panels without changing global policy-gate copy.
-  return features.QUARTER_SYSTEM ? content : (
+  return features.QUARTER_SYSTEM ? (
+    content
+  ) : (
     <NextIntlClientProvider messages={tuteePeriodMessages(messages, false)}>
       {content}
     </NextIntlClientProvider>

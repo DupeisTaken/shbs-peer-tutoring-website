@@ -460,7 +460,7 @@ export default function UsersPage() {
               </SortHeader>
               <th>{t("admin.users.columns.canTutor")}</th>
               <th>{t("admin.users.columns.canTranslate")}</th>
-              {isHead && <th>{t("admin.users.columns.actions")}</th>}
+              <th>{t("admin.users.columns.actions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -483,7 +483,7 @@ export default function UsersPage() {
                 : ASSIGNABLE_ROLES.filter((r) => r !== "ADMIN");
               return (
                 <tr key={key}>
-                  {/* Identity: name, username, email stacked together. */}
+                  {/* Identity contains names and the handle; all row actions live in the last column. */}
                   <td>
                     <div className="leading-tight">
                       <p className="font-medium text-slate-900">{u.name}</p>
@@ -494,26 +494,6 @@ export default function UsersPage() {
                       )}
                       {u.alternativeNames && (
                         <p className="muted text-xs">{u.alternativeNames}</p>
-                      )}
-                      <EmailDetails
-                        email={u.email}
-                        name={u.name}
-                        verifiedAt={u.emailVerifiedAt}
-                        userId={u.userId}
-                        tutorId={u.tutorId}
-                        linked={!!u.userId}
-                        canSendSetup={
-                          !!u.userId ||
-                          (!!u.tutorId && u.email === u.tutor?.email)
-                        }
-                      />
-                      {u.userId && (
-                        <button
-                          className="link mt-1 block text-xs"
-                          onClick={() => setEditingProfileId(u.userId)}
-                        >
-                          {t("accountProfile.editProfile")}
-                        </button>
                       )}
                     </div>
                   </td>
@@ -754,10 +734,30 @@ export default function UsersPage() {
                     )}
                   </td>
 
-                  {/* Actions — head only: delete a login (the tutor record is preserved). */}
-                  {isHead && (
-                    <td>
-                      {u.userId && !u.isSelf && u.role !== "HEAD" ? (
+                  {/* Contact/profile actions stay available to permitted staff. Only deletion is head-only. */}
+                  <td>
+                    <div className="flex flex-col items-end gap-1.5 whitespace-nowrap">
+                      <EmailDetails
+                        email={u.email}
+                        name={u.name}
+                        verifiedAt={u.emailVerifiedAt}
+                        userId={u.userId}
+                        tutorId={u.tutorId}
+                        linked={!!u.userId}
+                        canSendSetup={
+                          !!u.userId ||
+                          (!!u.tutorId && u.email === u.tutor?.email)
+                        }
+                      />
+                      {u.userId && (
+                        <button
+                          className="link mt-1 block text-xs"
+                          onClick={() => setEditingProfileId(u.userId)}
+                        >
+                          {t("accountProfile.editProfile")}
+                        </button>
+                      )}
+                      {isHead && u.userId && !u.isSelf && u.role !== "HEAD" ? (
                         <button
                           className="link-danger text-xs whitespace-nowrap"
                           onClick={() => {
@@ -780,17 +780,15 @@ export default function UsersPage() {
                         >
                           {t("admin.users.delete")}
                         </button>
-                      ) : (
-                        <span className="text-slate-400">—</span>
-                      )}
-                    </td>
-                  )}
+                      ) : null}
+                    </div>
+                  </td>
                 </tr>
               );
             })}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={isHead ? 7 : 6} className="text-slate-500">
+                <td colSpan={7} className="text-slate-500">
                   {t("admin.users.empty")}
                 </td>
               </tr>

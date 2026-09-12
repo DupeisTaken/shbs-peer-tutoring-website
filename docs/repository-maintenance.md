@@ -40,6 +40,17 @@ school database, real email delivery or the accuracy of privately supplied timet
 
 ## Prevent recurring clutter
 
+The locale guard parses every bundled message as ICU, including nested plural/select
+branches and rich-text tags, and compares arguments with English. Run
+`npm test -- src/i18n src/app/_components/message-inbox.test.tsx` when changing catalogs.
+Matching keys and valid syntax do not prove translation completeness: the six languages
+hidden by default still include inherited English fallback text. Review their wording
+before enabling them. Chinese workflow and account-security controls are translated;
+technical examples such as email addresses, `REFRESH`, AP scores and CSV remain unchanged.
+
+Shared account settings live in `src/app/_components/account-settings.tsx`; admin and
+Tutee pages compose that component instead of importing another route's page module.
+
 Use `outputs/` or `.validation/` for local evidence. They, `coverage/`, `backups/` and
 private `local-operations/` notes are
 excluded from Git, Docker context, ESLint, TypeScript input discovery and formatting.
