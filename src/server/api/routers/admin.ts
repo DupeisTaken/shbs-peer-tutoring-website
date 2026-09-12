@@ -1,4 +1,6 @@
 import { decideMembership } from "~/server/membership";
+import { announcementAudienceSchema, selectAnnouncementRecipients } from "~/lib/announcement-recipients";
+import { announcementCandidates } from "~/server/announcement-recipients";
 import { auditFilters, auditWhere } from "~/server/audit/filters";
 import {
   assertStudentRequestAssignable,
@@ -4418,9 +4420,15 @@ export const adminRouter = createTRPCRouter({
         active: true,
         createdAt: true,
         createdBy: { select: { name: true } },
+        audienceRestricted: true,
+        recipientTutorIds: true,
         _count: { select: { acks: true } },
       },
     }),
+  ),
+
+  announcementCandidates: viewerProcedure.query(({ ctx }) =>
+    announcementCandidates(ctx.db),
   ),
 
   createAnnouncement: adminProcedure
@@ -4429,36 +4437,93 @@ export const adminRouter = createTRPCRouter({
         title: z.string().trim().min(1).max(200),
         body: z.string().trim().min(1).max(5000),
         pinned: z.boolean().default(false),
+        audience: announcementAudienceSchema.default({}),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const announcement = await ctx.db.announcement.create({
-        data: {
-          title: input.title,
-          body: input.body,
-          pinned: input.pinned,
-          createdById: ctx.session.user.id,
-        },
+      // Resolve once at publication (or approval execution). Subsequent roster changes never
+      // broaden readership. Tutor identities never match by mutable names or email addresses.
+      return inTransaction(ctx.db, async (tx) => {
+        const candidates = await announcementCandidates(tx);
+        const knownIds = new Set(candidates.map((candidate) => candidate.id));
+        if (
+          [
+            ...input.audience.includeTutorIds,
+            ...input.audience.excludeTutorIds,
+          ].some((id) => !knownIds.has(id))
+        ) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "A selected tutor no longer exists. Refresh the recipients.",
+          });
+        }
+        if (
+          input.audience.mode === "filtered" &&
+          input.audience.assignment !== "any" &&
+          !(await tx.term.findFirst({
+            where: { active: true },
+            select: { id: true },
+          }))
+        ) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "Set an active term before filtering tutor assignments.",
+          });
+        }
+        const recipientTutorIds = selectAnnouncementRecipients(
+          candidates,
+          input.audience,
+        ).map((candidate) => candidate.id);
+        if (!recipientTutorIds.length)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Select at least one announcement recipient.",
+          });
+        const announcement = await tx.announcement.create({
+          data: {
+            title: input.title,
+            body: input.body,
+            pinned: input.pinned,
+            createdById: ctx.session.user.id,
+            audienceRestricted: true,
+            recipientTutorIds,
+          },
+        });
+        // Notification bodies are private too. Management retains oversight; unrelated
+        // student accounts never receive the announcement body or an inaccessible admin link.
+        const users = await tx.user.findMany({
+          where: {
+            id: { not: ctx.session.user.id },
+            OR: [
+              { tutorId: { in: recipientTutorIds } },
+              { role: { in: ["HEAD", "ADMIN", "COORDINATOR", "VIEWER"] } },
+            ],
+          },
+          select: { id: true, tutorId: true },
+        });
+        const body = input.body;
+        const title = `📣 ${input.title}`;
+        await Promise.all([
+          notifyUsers(
+            users
+              .filter((u) => u.tutorId && recipientTutorIds.includes(u.tutorId))
+              .map((u) => u.id),
+            { title, body, link: "/dashboard" },
+            tx,
+          ),
+          notifyUsers(
+            users
+              .filter(
+                (u) => !u.tutorId || !recipientTutorIds.includes(u.tutorId),
+              )
+              .map((u) => u.id),
+            { title, body, link: "/admin/announcements" },
+            tx,
+          ),
+        ]);
+        return announcement;
       });
-      // Notify everyone else of the new announcement, linking each to a page they can open:
-      // tutors see it on their dashboard; admin-area staff (no tutor login) on /admin/announcements.
-      const users = await ctx.db.user.findMany({
-        where: { id: { not: ctx.session.user.id } },
-        select: { id: true, tutorId: true },
-      });
-      const body = input.body;
-      const title = `📣 ${input.title}`;
-      await Promise.all([
-        notifyUsers(
-          users.filter((u) => u.tutorId).map((u) => u.id),
-          { title, body, link: "/dashboard" },
-        ),
-        notifyUsers(
-          users.filter((u) => !u.tutorId).map((u) => u.id),
-          { title, body, link: "/admin/announcements" },
-        ),
-      ]);
-      return announcement;
     }),
 
   updateAnnouncement: adminProcedure
@@ -4491,6 +4556,8 @@ export const adminRouter = createTRPCRouter({
             createdById: true,
             createdAt: true,
             acks: { select: { userId: true, ackedAt: true } },
+            audienceRestricted: true,
+            recipientTutorIds: true,
           },
         });
         const deleted = await tx.announcement.delete({

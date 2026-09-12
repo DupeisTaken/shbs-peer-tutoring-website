@@ -1,11 +1,16 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useTranslations, useFormatter } from "next-intl";
 import { useState } from "react";
 
 import { api } from "~/trpc/react";
 import { useReadOnly } from "~/app/_components/read-only";
 import { useDialog } from "~/app/_components/confirm-dialog";
+import {
+  defaultAnnouncementAudience,
+  selectAnnouncementRecipients,
+} from "~/lib/announcement-recipients";
+import { RecipientPicker } from "./recipient-picker";
 
 type Announcement = {
   id: string;
@@ -13,6 +18,8 @@ type Announcement = {
   body: string;
   pinned: boolean;
   active: boolean;
+  audienceRestricted: boolean;
+  recipientTutorIds: string[];
   createdAt: Date;
   createdBy: { name: string | null } | null;
   _count: { acks: number };
@@ -28,11 +35,16 @@ function AnnouncementCard({
   readOnly: boolean;
 }) {
   const t = useTranslations();
+  const format = useFormatter();
   const { confirm, dialog } = useDialog();
   const [title, setTitle] = useState(a.title);
   const [body, setBody] = useState(a.body);
-  const update = api.admin.updateAnnouncement.useMutation({ onSuccess: onChanged });
-  const del = api.admin.deleteAnnouncement.useMutation({ onSuccess: onChanged });
+  const update = api.admin.updateAnnouncement.useMutation({
+    onSuccess: onChanged,
+  });
+  const del = api.admin.deleteAnnouncement.useMutation({
+    onSuccess: onChanged,
+  });
 
   const dirty = title !== a.title || body !== a.body;
 
@@ -48,9 +60,15 @@ function AnnouncementCard({
             onChange={(e) => setTitle(e.target.value)}
           />
         )}
-        {a.pinned && <span className="badge-slate">{t("admin.announcements.badge.pinned")}</span>}
+        {a.pinned && (
+          <span className="badge-slate">
+            {t("admin.announcements.badge.pinned")}
+          </span>
+        )}
         <span className={a.active ? "badge-green" : "badge-slate"}>
-          {a.active ? t("admin.announcements.badge.active") : t("admin.announcements.badge.inactive")}
+          {a.active
+            ? t("admin.announcements.badge.active")
+            : t("admin.announcements.badge.inactive")}
         </span>
       </div>
       {readOnly ? (
@@ -67,8 +85,16 @@ function AnnouncementCard({
         {!readOnly && (
           <button
             className="btn-primary btn-sm"
-            disabled={!dirty || !title.trim() || !body.trim() || update.isPending}
-            onClick={() => update.mutate({ id: a.id, title: title.trim(), body: body.trim() })}
+            disabled={
+              !dirty || !title.trim() || !body.trim() || update.isPending
+            }
+            onClick={() =>
+              update.mutate({
+                id: a.id,
+                title: title.trim(),
+                body: body.trim(),
+              })
+            }
           >
             {t("admin.announcements.card.save")}
           </button>
@@ -78,7 +104,9 @@ function AnnouncementCard({
             className="btn-secondary btn-sm"
             onClick={() => update.mutate({ id: a.id, pinned: !a.pinned })}
           >
-            {a.pinned ? t("admin.announcements.card.unpin") : t("admin.announcements.card.pin")}
+            {a.pinned
+              ? t("admin.announcements.card.unpin")
+              : t("admin.announcements.card.pin")}
           </button>
         )}
         {!readOnly && (
@@ -86,12 +114,18 @@ function AnnouncementCard({
             className="btn-secondary btn-sm"
             onClick={() => update.mutate({ id: a.id, active: !a.active })}
           >
-            {a.active ? t("admin.announcements.card.deactivate") : t("admin.announcements.card.reactivate")}
+            {a.active
+              ? t("admin.announcements.card.deactivate")
+              : t("admin.announcements.card.reactivate")}
           </button>
         )}
         <span className="muted text-xs">
           {t("admin.announcements.card.dismissed", { count: a._count.acks })} ·{" "}
-          {new Date(a.createdAt).toLocaleDateString()}
+          {format.dateTime(new Date(a.createdAt), {
+            year: "numeric",
+            month: "short",
+            day: "numeric",
+          })}
           {a.createdBy?.name ? ` · ${a.createdBy.name}` : ""}
         </span>
         {!readOnly && (
@@ -113,6 +147,23 @@ function AnnouncementCard({
           </button>
         )}
       </div>
+      <p className="muted text-xs">
+        {a.audienceRestricted
+          ? t("admin.announcements.recipients.frozenCount", {
+              count: a.recipientTutorIds.length,
+            })
+          : t("admin.announcements.recipients.legacy")}
+      </p>
+      {update.error && (
+        <p role="alert" className="text-sm text-red-700">
+          {update.error.message}
+        </p>
+      )}
+      {del.error && (
+        <p role="alert" className="text-sm text-red-700">
+          {del.error.message}
+        </p>
+      )}
       {dialog}
     </div>
   );
@@ -123,6 +174,14 @@ export default function AnnouncementsPage() {
   const readOnly = useReadOnly();
   const utils = api.useUtils();
   const announcements = api.admin.announcements.useQuery();
+  const candidates = api.admin.announcementCandidates.useQuery(undefined, {
+    enabled: !readOnly,
+  });
+  const [audience, setAudience] = useState(defaultAnnouncementAudience);
+  const recipientCount = selectAnnouncementRecipients(
+    candidates.data ?? [],
+    audience,
+  ).length;
   const invalidate = () => utils.admin.announcements.invalidate();
 
   const [title, setTitle] = useState("");
@@ -133,6 +192,7 @@ export default function AnnouncementsPage() {
       setTitle("");
       setBody("");
       setPinned(false);
+      setAudience(defaultAnnouncementAudience());
       await invalidate();
     },
   });
@@ -145,46 +205,83 @@ export default function AnnouncementsPage() {
       </div>
 
       {!readOnly && (
-      <section className="card space-y-3 p-5">
-        <h2 className="section-title">{t("admin.announcements.new.title")}</h2>
-        <input
-          className="input w-full"
-          placeholder={t("admin.announcements.new.titlePlaceholder")}
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-        />
-        <textarea
-          className="textarea w-full"
-          rows={3}
-          placeholder={t("admin.announcements.new.messagePlaceholder")}
-          value={body}
-          onChange={(e) => setBody(e.target.value)}
-        />
-        <div className="flex items-center gap-3">
-          <label className="flex items-center gap-2 text-sm text-slate-700">
-            <input
-              type="checkbox"
-              checked={pinned}
-              onChange={(e) => setPinned(e.target.checked)}
-            />
-            {t("admin.announcements.new.pinLabel")}
-          </label>
-          <button
-            className="btn-primary btn-sm"
-            disabled={!title.trim() || !body.trim() || create.isPending}
-            onClick={() =>
-              create.mutate({ title: title.trim(), body: body.trim(), pinned })
-            }
-          >
-            {create.isPending ? t("admin.announcements.new.posting") : t("admin.announcements.new.broadcast")}
-          </button>
-        </div>
-      </section>
+        <section className="card space-y-3 p-5">
+          <h2 className="section-title">
+            {t("admin.announcements.new.title")}
+          </h2>
+          <input
+            className="input w-full"
+            placeholder={t("admin.announcements.new.titlePlaceholder")}
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+          />
+          <textarea
+            className="textarea w-full"
+            rows={3}
+            placeholder={t("admin.announcements.new.messagePlaceholder")}
+            value={body}
+            onChange={(e) => setBody(e.target.value)}
+          />
+          <RecipientPicker
+            candidates={candidates.data ?? []}
+            audience={audience}
+            onChange={setAudience}
+            loading={candidates.isLoading}
+          />
+          {candidates.error && (
+            <p role="alert" className="text-sm text-red-700">
+              {candidates.error.message}
+            </p>
+          )}
+          {create.error && (
+            <p role="alert" className="text-sm text-red-700">
+              {create.error.message}
+            </p>
+          )}
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex items-center gap-2 text-sm text-slate-700">
+              <input
+                type="checkbox"
+                checked={pinned}
+                onChange={(e) => setPinned(e.target.checked)}
+              />
+              {t("admin.announcements.new.pinLabel")}
+            </label>
+            <button
+              className="btn-primary btn-sm"
+              disabled={
+                !title.trim() ||
+                !body.trim() ||
+                create.isPending ||
+                !recipientCount ||
+                candidates.isLoading ||
+                candidates.isError
+              }
+              onClick={() =>
+                create.mutate({
+                  title: title.trim(),
+                  body: body.trim(),
+                  pinned,
+                  audience,
+                })
+              }
+            >
+              {create.isPending
+                ? t("admin.announcements.new.posting")
+                : t("admin.announcements.new.broadcast")}
+            </button>
+          </div>
+        </section>
       )}
 
       <div className="space-y-3">
         {(announcements.data ?? []).map((a) => (
-          <AnnouncementCard key={a.id} a={a} onChanged={invalidate} readOnly={readOnly} />
+          <AnnouncementCard
+            key={a.id}
+            a={a}
+            onChanged={invalidate}
+            readOnly={readOnly}
+          />
         ))}
         {announcements.data?.length === 0 && (
           <p className="muted">{t("admin.announcements.empty")}</p>

@@ -1302,6 +1302,8 @@ it("F19: announcement deletion undo must retain existing acknowledgements", asyn
       title: "Review notice",
       body: "Read me",
       createdById: "review-head",
+      audienceRestricted: true,
+      recipientTutorIds: ["review-tutor"],
       acks: { create: { userId: "review-user" } },
     },
   });
@@ -1311,7 +1313,140 @@ it("F19: announcement deletion undo must retain existing acknowledgements", asyn
   expect(
     await db.announcementAck.count({ where: { announcementId: a.id } }),
   ).toBe(1);
+  expect(
+    await db.announcement.findUniqueOrThrow({ where: { id: a.id } }),
+  ).toMatchObject({
+    audienceRestricted: true,
+    recipientTutorIds: ["review-tutor"],
+  });
 });
+
+it("announcement recipients: snapshots restrict real reads, acknowledgements and notifications", async () => {
+  await db.tutor.create({
+    data: {
+      id: "announcement-other-tutor",
+      englishName: "Other Tutor",
+      gradeLevel: 12,
+    },
+  });
+  await db.user.createMany({
+    data: [
+      {
+        id: "announcement-other-user",
+        email: "announcement-other@example.test",
+        role: "TUTOR",
+        tutorId: "announcement-other-tutor",
+      },
+      { id: "announcement-student", email: "announcement-student@example.test", role: "STUDENT" },
+    ],
+  });
+  const post = await caller().admin.createAnnouncement({
+    title: "Private grade ten",
+    body: "Recipient-only body",
+    audience: { mode: "filtered", grades: [10], assignment: "with" },
+  });
+  expect(post.recipientTutorIds).toEqual(["review-tutor"]);
+  expect(await tutor().tutor.myAnnouncements()).toEqual([
+    expect.objectContaining({ id: post.id }),
+  ]);
+  const other = caller(
+    "TUTOR",
+    "announcement-other-user",
+    "announcement-other-tutor",
+  );
+  expect(await other.tutor.myAnnouncements()).toEqual([]);
+  await expect(
+    other.tutor.acknowledgeAnnouncement({ announcementId: post.id }),
+  ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  expect(await db.announcementAck.count()).toBe(0);
+  await tutor().tutor.acknowledgeAnnouncement({ announcementId: post.id });
+  const notifications = await db.notification.findMany({
+    where: { body: "Recipient-only body" },
+    select: { userId: true },
+  });
+  expect(
+    notifications.map((notification) => notification.userId).sort(),
+  ).toEqual(["review-user", "review-viewer"]);
+  // Changing grades and adding new roster entries after publication does not broaden the audience.
+  await db.tutor.update({
+    where: { id: "announcement-other-tutor" },
+    data: { gradeLevel: 10 },
+  });
+  await db.tutor.update({
+    where: { id: "review-tutor" },
+    data: { gradeLevel: 11 },
+  });
+  expect(await other.tutor.myAnnouncements()).toEqual([]);
+  expect(await tutor().tutor.myAnnouncements()).toEqual([
+    expect.objectContaining({ id: post.id, acked: true }),
+  ]);
+  const legacy = await db.announcement.create({
+    data: { title: "Historical broadcast", body: "Legacy" },
+  });
+  expect(await other.tutor.myAnnouncements()).toEqual([
+    expect.objectContaining({ id: legacy.id }),
+  ]);
+});
+
+it("announcement recipients: empty selections fail atomically and active assignment ignores history", async () => {
+  const before = await db.notification.count();
+  await expect(
+    caller().admin.createAnnouncement({
+      title: "Empty",
+      body: "Body",
+      audience: { mode: "specific" },
+    }),
+  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  expect(await db.announcement.count()).toBe(0);
+  expect(await db.notification.count()).toBe(before);
+  await db.tutee.update({
+    where: { id: "review-tutee" },
+    data: { status: "INACTIVE" },
+  });
+  const candidates = await caller().admin.announcementCandidates();
+  expect(
+    candidates.find((candidate) => candidate.id === "review-tutor"),
+  ).toMatchObject({ activeTutees: 0 });
+  const without = await caller().admin.createAnnouncement({
+    title: "Unassigned",
+    body: "No active tutees",
+    audience: { mode: "filtered", assignment: "without" },
+  });
+  expect(without.recipientTutorIds).toEqual(["review-tutor"]);
+  await db.term.update({
+    where: { id: "review-term" },
+    data: { active: false },
+  });
+  await db.tutee.update({
+    where: { id: "review-tutee" },
+    data: { status: "ACTIVE" },
+  });
+  expect((await caller().admin.announcementCandidates())[0]!.activeTutees).toBe(
+    0,
+  );
+  await expect(
+    caller().admin.createAnnouncement({
+      title: "No term",
+      body: "Body",
+      audience: { mode: "filtered", assignment: "without" },
+    }),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+});
+it("announcement recipients: coordinator publication waits for review and rejects audience drift", async () => {
+  await db.user.create({ data: { id: "announcement-coordinator", email: "announcement-coordinator@example.test", role: "COORDINATOR", name: "Coordinator" } });
+  const coordinator = caller("COORDINATOR", "announcement-coordinator");
+  await expect(coordinator.admin.createAnnouncement({ title: "Reviewed audience", body: "Approval-only text", audience: { mode: "filtered", grades: [10] } })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  const proposal = await db.approvalRequest.findFirstOrThrow({ where: { operation: "admin.createAnnouncement" } });
+  expect(await db.announcement.count()).toBe(0);
+  expect(await db.notification.count({ where: { body: "Approval-only text" } })).toBe(0);
+  await db.tutor.create({ data: { id: "announcement-new-tutor", englishName: "New recipient", gradeLevel: 10 } });
+  await expect(caller().approval.decide({ id: proposal.id, approve: true, note: "Attempt with changed audience" })).rejects.toMatchObject({ code: "CONFLICT" });
+  expect(await db.announcement.count()).toBe(0);
+  await db.tutor.delete({ where: { id: "announcement-new-tutor" } });
+  await caller().approval.decide({ id: proposal.id, approve: true, note: "Reviewed unchanged recipients" });
+  expect(await db.announcement.findFirstOrThrow()).toMatchObject({ audienceRestricted: true, recipientTutorIds: ["review-tutor"] });
+});
+
 it("F20: suspended viewer cannot read the admin area", async () => {
   await db.user.update({
     where: { id: "review-viewer" },

@@ -12,6 +12,8 @@ import {
 import { validateInterviewDecision } from "./interviews";
 import { db } from "./db";
 import { inTransaction, lockEntity, type TransactionDb } from "./transactions";
+import { announcementCandidates } from "./announcement-recipients";
+import { announcementAudienceSchema, selectAnnouncementRecipients } from "~/lib/announcement-recipients";
 
 export class ApprovalQueued extends Error {
   constructor(public readonly approvalId: string) {
@@ -126,6 +128,14 @@ export async function proposalTargets(
     if (tutees.size) ids.set("Tutee", tutees);
   }
   const targets: Record<string, unknown> = {};
+  // Recipient identities/names are review evidence too. A changed filtered audience must
+  // be proposed again, rather than silently expanding when an administrator approves it.
+  if (operation === "admin.createAnnouncement") {
+    const audience = announcementAudienceSchema.parse(fields.audience ?? {});
+    targets.announcementRecipients = selectAnnouncementRecipients(await announcementCandidates(client), audience)
+      .map(({ id, name }) => ({ id, name }))
+      .sort((a, b) => a.id.localeCompare(b.id));
+  }
   if (primary === "SchoolCalendarDay")
     targets.calendar = await client.schoolCalendarDay.findMany({
       where: { date: z.string().parse(fields.date) },

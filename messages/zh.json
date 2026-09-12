@@ -812,7 +812,7 @@
     },
     "announcements": {
       "title": "公告",
-      "subtitle": "向导师广播。每条公告会在导师每次登录时显示在其仪表盘上，直到他们关闭；置顶的公告将持续显示。",
+      "subtitle": "向当前所有导师或选定的收件人发布公告。置顶公告在关闭后仍保持可见。",
       "empty": "暂无公告。",
       "badge": {
         "pinned": "已置顶",
@@ -835,7 +835,44 @@
         "messagePlaceholder": "内容…",
         "pinLabel": "置顶（关闭后仍持续显示）",
         "posting": "发布中…",
-        "broadcast": "广播"
+        "broadcast": "发布公告"
+      },
+      "recipients": {
+        "button": "收件人",
+        "loading": "加载中…",
+        "count": "{count} 位收件人",
+        "done": "完成",
+        "explanation": "发布时固定收件人名单。不同筛选组须同时满足，同一组内满足任一条件即可。科目包含已批准的授课资格和本学期已分配的科目。",
+        "mode": "选择收件人",
+        "all": "当前所有导师",
+        "filtered": "筛选导师",
+        "specific": "仅指定导师",
+        "grades": "年级",
+        "statuses": "导师状态",
+        "subjects": "科目",
+        "assignment": "本学期活跃学员",
+        "any": "不限分配状态",
+        "with": "有活跃学员",
+        "without": "无活跃学员",
+        "empty": "尚未选择收件人。发布前请至少选择一位导师。",
+        "search": "搜索导师",
+        "overrideHelp": "“包含”会忽略筛选条件并添加导师；“排除”会移除导师。搜索仅缩小此列表，不改变收件人。",
+        "selected": "已选",
+        "tutees": "{count} 位活跃学员",
+        "overrideFor": "{name} 的收件人选择",
+        "notSelected": "未选择",
+        "auto": "遵循筛选",
+        "include": "包含",
+        "exclude": "排除",
+        "frozenCount": "已发布给 {count} 位导师 · 收件人名单已固定",
+        "legacy": "历史群发公告 · 所有导师可见",
+        "status": {
+          "ACTIVE": "活跃",
+          "PENDING": "待激活",
+          "OPTED_OUT": "已退出",
+          "GRADUATED": "已毕业",
+          "ARCHIVED": "已归档"
+        }
       }
     },
     "policies": {

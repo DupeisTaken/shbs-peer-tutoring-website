@@ -34,6 +34,8 @@ export const undoSchema = z.discriminatedUnion("kind", [
       active: z.boolean(),
       createdById: z.string().nullable(),
       createdAt: z.string().optional(),
+      audienceRestricted: z.boolean().default(false),
+      recipientTutorIds: z.array(z.string()).default([]),
       acks: z
         .array(z.object({ userId: z.string(), ackedAt: z.string() }))
         .optional(),
