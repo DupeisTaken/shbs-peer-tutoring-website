@@ -6,6 +6,7 @@ import { db } from "~/server/db";
 import { NotificationBell } from "./notification-bell";
 import { LanguageSwitcher } from "./language-switcher";
 import { SignOutButton } from "./sign-out-button";
+import { ThemeSwitcher } from "./theme-switcher";
 
 /** Shared, small shell for participant and management workflows; APIs enforce data ownership. */
 export async function WorkflowShell({
@@ -30,13 +31,22 @@ export async function WorkflowShell({
     <main className="mx-auto max-w-5xl space-y-6 px-4 py-6">
       <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-4">
         <nav className="flex flex-wrap gap-4 text-sm">
+          {staff && (
+            <Link className="btn-secondary btn-sm" href="/admin">
+              {account("enterAdmin")}
+            </Link>
+          )}
           <Link className="link" href="/my-account">
             {t("settings")}
           </Link>
           <Link className="link" href="/">
             {t("home")}
           </Link>
-          <Link className="btn-secondary btn-sm" href="/student" prefetch={false}>
+          <Link
+            className="btn-secondary btn-sm"
+            href="/student"
+            prefetch={false}
+          >
             {account("enterTutee")}
           </Link>
           <Link className="link" href="/messages">
@@ -49,6 +59,7 @@ export async function WorkflowShell({
           )}
         </nav>
         <div className="flex items-center gap-2">
+          <ThemeSwitcher />
           <NotificationBell />
           <LanguageSwitcher />
           <SignOutButton />

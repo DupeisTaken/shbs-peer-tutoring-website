@@ -5,6 +5,7 @@ import { getTranslations } from "next-intl/server";
 
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
+import { getFeatures } from "~/server/program/features";
 import { SignOutButton } from "~/app/_components/sign-out-button";
 import { NotificationBell } from "~/app/_components/notification-bell";
 import { LanguageSwitcher } from "~/app/_components/language-switcher";
@@ -79,10 +80,14 @@ export default async function TutorLayout({
   if (!me?.emailVerifiedAt || me.mustChangePassword)
     redirect("/onboarding/email");
 
+  const features = await getFeatures(db);
   const accountItems = [
     { href: "/messages", label: t("workflows.messages") },
     { href: "/student", label: t("components.userMenu.enterTutee") },
-    { href: "/student-support", label: t("workflows.support") },
+    {
+      href: isElevated ? "/admin/student-support" : "/student?view=support",
+      label: t("workflows.support"),
+    },
     ...(isElevated
       ? [
           {
@@ -91,7 +96,7 @@ export default async function TutorLayout({
           },
         ]
       : []),
-    ...(me.crewStatus === "ACTIVE"
+    ...(features.CREW && me.crewStatus === "ACTIVE"
       ? [{ href: "/patrol", label: t("crew.nav.patrol") }]
       : []),
     { href: "/handbook", label: t("tutor.nav.handbook") },
@@ -113,7 +118,13 @@ export default async function TutorLayout({
             {APP_TITLE}
           </Link>
           <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-            <Link href="/student" prefetch={false} className="btn-secondary btn-sm shrink-0">{t("components.userMenu.enterTutee")}</Link>
+            <Link
+              href="/student"
+              prefetch={false}
+              className="btn-secondary btn-sm shrink-0"
+            >
+              {t("components.userMenu.enterTutee")}
+            </Link>
             <Link
               href="/settings"
               className="hidden shrink-0 rounded-md px-2 py-1 text-right leading-tight hover:bg-slate-100 lg:block"

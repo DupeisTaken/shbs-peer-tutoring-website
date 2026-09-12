@@ -150,24 +150,24 @@
     },
     "tagline": "Peer Tutoring Program",
     "heroTitle": "Learn together. Grow together.",
-    "intro": "Placeholder introduction — a short paragraph about the {appTitle} program goes here. Describe who it's for, what tutees can get help with, and how peer tutors make a difference. Replace this copy with the real program overview.",
+    "intro": "Connect with peer tutors, find support in the subjects you study, and keep track of your tutoring through {appTitle}.",
     "ctaPrimary": "Request a Tutor",
     "ctaSecondary": "Become a Tutor",
     "features": {
       "students": {
         "title": "For Tutees",
-        "body": "Placeholder — sign up to be matched with a peer tutor in the subjects you choose, at times that work for you."
+        "body": "Request help in your chosen subjects, share your availability, and follow your tutoring assignments."
       },
       "tutors": {
         "title": "For Tutors",
-        "body": "Placeholder — share what you know, build your skills, and earn service hours for every session you run."
+        "body": "Apply to share your knowledge, support other students, and manage your sessions and availability."
       },
       "team": {
         "title": "For the Team",
-        "body": "Placeholder — coordinate pairings, attendance, interviews, and service hours from one place."
+        "body": "Coordinate applications, pairings, attendance and program records in one place."
       }
     },
-    "footer": "Placeholder footer — © {appTitle}.",
+    "footer": "© {appTitle}.",
     "news": {
       "title": "Program News"
     },
@@ -1002,7 +1002,7 @@
     },
     "applications": {
       "title": "Tutor Applications",
-      "intro": "Review applicants and assign a {n}-tutor interview panel (mark one head). Click a row to expand. The head schedules the interview and records the decision from their own dashboard.",
+      "intro": "Review applicants and assign a {n}-tutor interview panel (mark one chair). Click a row to expand. The chair schedules the interview and records the decision from their own dashboard.",
       "empty": "No applications yet.",
       "status": {
         "PENDING": "pending",
@@ -1025,19 +1025,19 @@
         "selfStudied": "self-studied: {note}"
       },
       "noQualification": "no qualification given",
-      "panelHeading": "Interview Panel (Choose {n}, Mark One Head)",
-      "scheduled": "Scheduled: {when} (set by the head)",
+      "panelHeading": "Interview Panel (Choose {n}, Mark One Chair)",
+      "scheduled": "Scheduled: {when} (set by the chair)",
       "panelistSlot": "— Panelist {n} —",
-      "head": "head",
+      "head": "chair",
       "saving": "Saving…",
       "savePanel": "Save Panel",
       "saved": "Saved.",
-      "pickHint": "Pick {n} tutors and a head.",
+      "pickHint": "Pick {n} tutors and a chair.",
       "votesDecisionHeading": "Votes & Decision",
       "voteTally": "{accepts} accept · {rejects} reject",
       "noVotes": "No votes yet.",
       "decision": "Decision: “{comment}”",
-      "decidedByHead": "{name} (Head)",
+      "decidedByHead": "{name} (Chair)",
       "setupAccount": "Set Up Account →"
     },
     "cards": {
@@ -1631,7 +1631,7 @@
       "saved": "Saved."
     },
     "interviews": {
-      "help": "Applicants you're on the panel for. Cast your vote after the demo; the head records the final decision.",
+      "help": "Applicants you're on the panel for. Cast your vote after the demo; the chair records the final decision.",
       "setTime": "Set Time",
       "saving": "Saving…",
       "saved": "Saved.",
@@ -1642,24 +1642,24 @@
       "yourVote": "Your vote: {vote}",
       "voteAccept": "accept",
       "voteReject": "reject",
-      "headDecision": "Head Decision",
+      "headDecision": "Chair Decision",
       "majorityAccept": "accept",
       "majorityReject": "reject",
-      "majorityAcceptHeadTie": "accept (head breaks tie)",
-      "majorityRejectHeadTie": "reject (head breaks tie)",
+      "majorityAcceptHeadTie": "accept (chair breaks tie)",
+      "majorityRejectHeadTie": "reject (chair breaks tie)",
       "majorityTie": "tie — cast your vote to break it",
       "tally": "Tally: {accepts} accept · {rejects} reject (majority: {majority}). Record the final decision with a brief comment.",
       "decisionCommentPlaceholder": "Brief comment on your decision (required)",
       "approve": "Approve",
       "statusAccepted": "accepted",
       "statusRejected": "rejected",
-      "youAreHead": "you are head",
+      "youAreHead": "you are chair",
       "taken": "taken",
       "notTaken": "not taken",
       "panel": "Panel: {members}",
-      "headSuffix": "(Head)",
+      "headSuffix": "(Chair)",
       "scheduled": "Scheduled: {time}",
-      "awaitingSchedule": "Awaiting the head to schedule a time."
+      "awaitingSchedule": "Awaiting the chair to schedule a time."
     },
     "announcements": {
       "label": "Announcements",
@@ -1791,7 +1791,8 @@
       "submit": "Submit Request",
       "submitting": "Submitting…",
       "quarter": "Quarter · {period}",
-      "semester": "Semester · {period}"
+      "semester": "Semester · {period}",
+      "unavailable": "Tutoring requests are not ready yet. The team must configure subjects, time slots and the tutee policy. Please contact the program team or check back later."
     },
     "tutorSignup": {
       "title": "Apply to Become a Peer Tutor",
@@ -1830,7 +1831,19 @@
       "addCourse": "+ Add Another Subject",
       "agree": "I have read and agree to abide by the <policy>{appTitle} Policy</policy>.",
       "submit": "Submit Application",
-      "submitting": "Submitting…"
+      "submitting": "Submitting…",
+      "loadFailed": "The application form could not load. Please retry.",
+      "unavailable": "Tutor applications are not ready yet. The team must publish the tutor policy and open at least one subject. Please contact the program team or check back later.",
+      "haveCode": "Already accepted? Use your registration code",
+      "journey": {
+        "title": "Becoming a tutor",
+        "apply": "Apply",
+        "applyHelp": "Choose subjects and explain your qualifications. This does not create an account.",
+        "interview": "Interview",
+        "interviewHelp": "The team contacts you to arrange a panel interview and review.",
+        "register": "Set up your account",
+        "registerHelp": "After acceptance, use the registration code from the team, verify your email and set your password."
+      }
     },
     "policy": {
       "mustRead": "Open and read the policy to the end before agreeing.",
@@ -1913,7 +1926,7 @@
   "localization": {
     "title": "Translations",
     "navLabel": "Translations",
-    "subtitle": "Edit the interface text for each language. Changes go live immediately; clearing a field restores the bundled wording.",
+    "subtitle": "Edit interface text for each language. Published overrides replace bundled wording; clearing an override restores the bundled text. Translator edits require management review.",
     "targetLanguage": "Language to Edit",
     "searchLabel": "Search",
     "search": "Search by key or text…",
@@ -2471,6 +2484,7 @@
     "sent": "Verification and setup link sent.",
     "deliveryUnavailable": "Email delivery is unavailable. No email was sent.",
     "contactAddress": "Contact address recorded with this entry",
-    "inviteInUsers": "Manage account invitations in Users & Roles."
+    "inviteInUsers": "Manage account invitations in Users & Roles.",
+    "privateEmail": "Private contact details"
   }
 }

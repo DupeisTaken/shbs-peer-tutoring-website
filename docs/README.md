@@ -12,6 +12,7 @@ Choose the guide for the work you need to do. User instructions follow the websi
 | Manage leadership and launch settings | [HEAD guide](user-guide.md#head) |
 | Browse as an observer or translate content | [Viewer guide](user-guide.md#viewers) · [Translator guide](user-guide.md#translators) |
 | Understand architecture, permissions, data or tests | [Technical report](technical-report.md) |
+| See every supported function and configurable module | [Program reference](program-reference.md) |
 | Read or publish a policy revision | [Policy documents](policies/README.md) |
 | Install or operate the server | [Local setup](../README-LOCAL.md) · [Deployment runbook](../README-DEPLOY.md) |
 | Report a bug, suggest a feature or improve these docs | [Creating issues](issues.md) |

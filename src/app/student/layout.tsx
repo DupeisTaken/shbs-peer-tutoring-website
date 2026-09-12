@@ -29,6 +29,8 @@ export default async function TuteeLayout({
         email: true,
         username: true,
         role: true,
+        crewStatus: true,
+        canTranslate: true,
         suspendedAt: true,
         tutor: { select: { status: true } },
       },
@@ -49,6 +51,12 @@ export default async function TuteeLayout({
       : []),
     ...(elevated
       ? [{ href: "/admin", label: t("components.userMenu.enterAdmin") }]
+      : []),
+    ...(me.crewStatus === "ACTIVE" && features.CREW
+      ? [{ href: "/patrol", label: t("crew.nav.patrol") }]
+      : []),
+    ...(me.canTranslate
+      ? [{ href: "/localization", label: t("localization.navLabel") }]
       : []),
   ];
   const content = (

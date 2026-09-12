@@ -27,6 +27,10 @@ Sibling Git worktrees can share a local `node_modules` junction. Set
 otherwise its filesystem boundary rejects the junction. Normal standalone checkouts
 need no override. The override also sets the standalone file-tracing root.
 
+If a local Turbopack build reports a stale cached module graph, set
+`SHBS_DISABLE_BUILD_CACHE=1` for that build to bypass the compiler cache without deleting it.
+Normal builds retain Next's default cache behavior. `SHBS_BUILD_CPUS=1` limits local build workers.
+
 Local screenshot evidence and the implementation report belong under the ignored
 `outputs/implementation-report/` directory. The report is an offline HTML file with
 local images and diagrams; it is not part of the deployed application.
@@ -203,6 +207,11 @@ docker compose down        # or: docker compose down -v
   malformed. Check it against `.env.example` and the schema in `src/env.js`.
 - **Prisma can't connect** — confirm your database is running and `DATABASE_URL` host/port
   match it (the embedded-Postgres example uses port **5433**, not 5432).
+- **Sign-in succeeds but the admin page reports a missing table or column** (for example,
+  `StudentSurvey` or `Tutee.signupSubmittedAt`) — the local database is behind the checked-out
+  application. Check `npx prisma migrate status`, then run `npm run db:migrate` against the
+  configured local database and reload the page. Apply pending migrations after pulling schema
+  changes, even when the public homepage loads successfully; resetting or reseeding is unnecessary.
 - **Integration tests fail to connect** — they need a separate real test DB; run `db:migrate` against the
   `DATABASE_URL` you pass to `npm test`.
 - **`next build` fails on Windows (file-tracing / EPERM)** — expected for the classic webpack

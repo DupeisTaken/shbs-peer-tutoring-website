@@ -1791,7 +1791,8 @@
       "submit": "신청 제출",
       "submitting": "제출 중…",
       "quarter": "분기 · {period}",
-      "semester": "학기 · {period}"
+      "semester": "학기 · {period}",
+      "unavailable": "Tutoring requests are not ready yet. The team must configure subjects, time slots and the tutee policy. Please contact the program team or check back later."
     },
     "tutorSignup": {
       "title": "또래 튜터 지원",
@@ -1830,7 +1831,19 @@
       "addCourse": "+ 과목 추가",
       "agree": "<policy>{appTitle} 정책</policy>을 읽고 이에 동의합니다.",
       "submit": "지원 제출",
-      "submitting": "제출 중…"
+      "submitting": "제출 중…",
+      "loadFailed": "The application form could not load. Please retry.",
+      "unavailable": "Tutor applications are not ready yet. The team must publish the tutor policy and open at least one subject. Please contact the program team or check back later.",
+      "haveCode": "Already accepted? Use your registration code",
+      "journey": {
+        "title": "Becoming a tutor",
+        "apply": "Apply",
+        "applyHelp": "Choose subjects and explain your qualifications. This does not create an account.",
+        "interview": "Interview",
+        "interviewHelp": "The team contacts you to arrange a panel interview and review.",
+        "register": "Set up your account",
+        "registerHelp": "After acceptance, use the registration code from the team, verify your email and set your password."
+      }
     },
     "policy": {
       "mustRead": "동의하기 전에 정책을 열어 끝까지 읽어주세요.",
@@ -2471,6 +2484,7 @@
     "sent": "Verification and setup link sent.",
     "deliveryUnavailable": "Email delivery is unavailable. No email was sent.",
     "contactAddress": "Contact address recorded with this entry",
-    "inviteInUsers": "Manage account invitations in Users & Roles."
+    "inviteInUsers": "Manage account invitations in Users & Roles.",
+    "privateEmail": "Private contact details"
   }
 }

@@ -150,24 +150,24 @@
     },
     "tagline": "朋辈辅导项目",
     "heroTitle": "一起学习，共同成长。",
-    "intro": "占位介绍——这里放一段关于 {appTitle} 项目的简短介绍。说明面向的对象、可以获得哪些科目的帮助，以及朋辈辅导员如何发挥作用。请用正式的项目简介替换此文字。",
+    "intro": "通过 {appTitle} 联系同伴导师，获取学科学习支持，并查看你的辅导安排。",
     "ctaPrimary": "申请辅导",
     "ctaSecondary": "成为辅导员",
     "features": {
       "students": {
         "title": "面向学生",
-        "body": "占位——报名后即可在你选择的科目上与朋辈辅导员配对，时间由你安排。"
+        "body": "选择需要帮助的科目，提供可用时间，并跟进你的辅导安排。"
       },
       "tutors": {
         "title": "面向辅导员",
-        "body": "占位——分享你的知识，提升自身能力，并为每节辅导课获得服务时数。"
+        "body": "申请分享知识、帮助其他学生，并管理辅导记录与可用时间。"
       },
       "team": {
         "title": "面向团队",
-        "body": "占位——在一个平台上统筹配对、考勤、面试与服务时数。"
+        "body": "集中管理申请、配对、考勤和项目记录。"
       }
     },
-    "footer": "占位页脚——© {appTitle}。",
+    "footer": "© {appTitle}。",
     "news": {
       "title": "项目动态"
     },
@@ -1791,7 +1791,8 @@
       "submit": "提交申请",
       "submitting": "提交中…",
       "quarter": "季度 · {period}",
-      "semester": "学期 · {period}"
+      "semester": "学期 · {period}",
+      "unavailable": "辅导申请暂未开放。管理团队需要配置科目、时段和学生政策。请联系管理团队或稍后再试。"
     },
     "tutorSignup": {
       "title": "申请成为同伴辅导员",
@@ -1830,7 +1831,19 @@
       "addCourse": "+ 添加另一个科目",
       "agree": "我已阅读并同意遵守 <policy>{appTitle} 政策</policy>。",
       "submit": "提交申请",
-      "submitting": "提交中…"
+      "submitting": "提交中…",
+      "loadFailed": "申请表加载失败，请重试。",
+      "unavailable": "导师申请暂未开放。管理团队需要发布导师政策并开放至少一门科目。请联系管理团队或稍后再试。",
+      "haveCode": "已获录取？使用注册码创建账户",
+      "journey": {
+        "title": "成为导师的流程",
+        "apply": "提交申请",
+        "applyHelp": "选择科目并说明你的相关资历。提交申请不会创建账户。",
+        "interview": "参加面试",
+        "interviewHelp": "管理团队将联系你安排小组面试并审核申请。",
+        "register": "设置账户",
+        "registerHelp": "录取后，使用管理团队提供的注册码，验证邮箱并设置密码。"
+      }
     },
     "policy": {
       "mustRead": "请先打开并读完政策，再勾选同意。",
@@ -1913,7 +1926,7 @@
   "localization": {
     "title": "翻译",
     "navLabel": "翻译",
-    "subtitle": "编辑各语言的界面文字。更改即时生效；清空字段将恢复内置文案。",
+    "subtitle": "编辑各语言的界面文字。已发布的自定义文字会替换内置文字；清除自定义内容可恢复内置文字。翻译人员的修改需要管理团队审核。",
     "targetLanguage": "要编辑的语言",
     "searchLabel": "搜索",
     "search": "按键名或文字搜索…",
@@ -2471,6 +2484,7 @@
     "sent": "已发送验证及账户设置链接。",
     "deliveryUnavailable": "邮件服务不可用，未发送邮件。",
     "contactAddress": "联系邮箱（历史记录中的地址）",
-    "inviteInUsers": "在“用户与角色”中设置账户邀请。"
+    "inviteInUsers": "在“用户与角色”中设置账户邀请。",
+    "privateEmail": "联系信息不公开"
   }
 }

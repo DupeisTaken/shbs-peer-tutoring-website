@@ -89,7 +89,14 @@ Read the [tutee policy](../prisma/policies/tutee-policy.en.md) or [中文学生�
 
 ### Start tutoring
 
-Complete the team’s registration-code or setup-link flow, verify your email, and set your password. An application or roster entry alone is not a login. Use **Dashboard** to check assignments and **Settings** to maintain availability. If management also granted you tutor participation, use the account menu to switch between management and tutor areas.
+1. Choose **Become a Tutor** on the home page. Select up to three subjects, explain your qualifications, read the current policy and submit your contact details.
+2. The team reviews the application and contacts you for a panel interview. The panel chair schedules the interview and records the decision after voting; this is distinct from the program's HEAD account role.
+3. After acceptance, use the registration code or setup link supplied by the team. Verify your email and set your password. An application or roster entry alone is not a login.
+4. Use **Dashboard** to check assignments and record sessions; use **Settings** to maintain availability. Accept the current tutor policy when prompted before further participation.
+
+The application explains loading failures and offers a retry. Intake needs configured subjects and a published policy; contact management if it is unavailable. If management also granted you tutor participation, use the account menu to switch between management and tutor areas. Active crew members and assigned translators retain their return links when using the tutee workspace.
+
+Management records actual interview completion through **Record Interview Completion** in the Tutors navigation group. **Tutee Support** remains in the management layout and is reachable from the Tutees group. See the [full function and control reference](program-reference.md).
 
 ### Record a session
 

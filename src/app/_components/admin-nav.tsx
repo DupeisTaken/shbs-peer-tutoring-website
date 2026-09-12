@@ -50,6 +50,12 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
         elevatedOnly: true,
       },
       {
+        href: "/admin/interviews",
+        labelKey: "workflows.interviewComplete",
+        elevatedOnly: true,
+        feature: "INTERVIEWS",
+      },
+      {
         href: "/admin/meetings",
         labelKey: "admin.nav.links.tutorMeetings",
         feature: "MEETINGS",
@@ -72,6 +78,11 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
     items: [
       { href: "/admin/tutees", labelKey: "admin.nav.links.tuteeRoster" },
       { href: "/admin/requests", labelKey: "admin.nav.links.signupRequests" },
+      {
+        href: "/admin/student-support",
+        labelKey: "workflows.support",
+        elevatedOnly: true,
+      },
       {
         href: "/admin/tutee-requests",
         labelKey: "admin.nav.links.tuteeRequests",
@@ -170,7 +181,10 @@ export async function NavSidebar({ role }: { role: string }) {
     })),
   })).filter((s) => s.items.length > 0);
   return (
-    <aside className="hidden min-h-0 w-56 shrink-0 overflow-y-auto overscroll-contain pr-2 lg:block" aria-label={t("adminNavigation.title")}>
+    <aside
+      className="hidden min-h-0 w-56 shrink-0 overflow-y-auto overscroll-contain pr-2 lg:block"
+      aria-label={t("adminNavigation.title")}
+    >
       <NavSidebarClient
         sticky={false}
         sections={sections}
@@ -187,12 +201,24 @@ export async function NavMobileRow({ role }: { role: string }) {
   const visible = makeVisible(role, features);
   return (
     <AdminMobileNavigation
-      sections={NAV_SECTIONS.map(section => ({
+      sections={NAV_SECTIONS.map((section) => ({
         key: section.titleKey,
         title: t(section.titleKey),
-        items: section.items.filter(visible).map(item => ({href: item.href, label: t(item.labelKey), exact: item.exact})),
-      })).filter(section => section.items.length > 0)}
-      labels={{title:t("adminNavigation.title"), open:t("adminNavigation.open"), close:t("common.close"), collapse:t("common.collapseAll"), expand:t("common.expandAll")}}
+        items: section.items
+          .filter(visible)
+          .map((item) => ({
+            href: item.href,
+            label: t(item.labelKey),
+            exact: item.exact,
+          })),
+      })).filter((section) => section.items.length > 0)}
+      labels={{
+        title: t("adminNavigation.title"),
+        open: t("adminNavigation.open"),
+        close: t("common.close"),
+        collapse: t("common.collapseAll"),
+        expand: t("common.expandAll"),
+      }}
     />
   );
 }

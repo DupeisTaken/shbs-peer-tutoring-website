@@ -1791,7 +1791,8 @@
       "submit": "Antrag einreichen",
       "submitting": "Wird eingereicht…",
       "quarter": "Quartal · {period}",
-      "semester": "Semester · {period}"
+      "semester": "Semester · {period}",
+      "unavailable": "Tutoring requests are not ready yet. The team must configure subjects, time slots and the tutee policy. Please contact the program team or check back later."
     },
     "tutorSignup": {
       "title": "Als Peer-Tutor bewerben",
@@ -1830,7 +1831,19 @@
       "addCourse": "+ Weiteres Fach hinzufügen",
       "agree": "Ich habe die <policy>{appTitle}-Richtlinie</policy> gelesen und stimme zu, sie einzuhalten.",
       "submit": "Bewerbung einreichen",
-      "submitting": "Wird eingereicht…"
+      "submitting": "Wird eingereicht…",
+      "loadFailed": "The application form could not load. Please retry.",
+      "unavailable": "Tutor applications are not ready yet. The team must publish the tutor policy and open at least one subject. Please contact the program team or check back later.",
+      "haveCode": "Already accepted? Use your registration code",
+      "journey": {
+        "title": "Becoming a tutor",
+        "apply": "Apply",
+        "applyHelp": "Choose subjects and explain your qualifications. This does not create an account.",
+        "interview": "Interview",
+        "interviewHelp": "The team contacts you to arrange a panel interview and review.",
+        "register": "Set up your account",
+        "registerHelp": "After acceptance, use the registration code from the team, verify your email and set your password."
+      }
     },
     "policy": {
       "mustRead": "Richtlinie öffnen und bis zum Ende lesen, bevor Sie zustimmen.",
@@ -2471,6 +2484,7 @@
     "sent": "Verification and setup link sent.",
     "deliveryUnavailable": "Email delivery is unavailable. No email was sent.",
     "contactAddress": "Contact address recorded with this entry",
-    "inviteInUsers": "Manage account invitations in Users & Roles."
+    "inviteInUsers": "Manage account invitations in Users & Roles.",
+    "privateEmail": "Private contact details"
   }
 }

@@ -143,6 +143,10 @@ SMTP uses a bounded reusable Nodemailer transport. Development can intentionally
 
 ## Validation and development
 
+The September shipping audit adds route/link integrity, shared button-variant, signup loading/error/unavailable, support/interview access and cross-role navigation coverage. Management support and interview completion share the admin shell, including its localized identity and theme. Print styles release the desktop scroll containers so reports are not clipped by viewport height. Observer contact cells distinguish private data from genuinely missing email addresses.
+
+Public tutor intake now explains application → panel interview → verified account setup. Public forms wait for usable subjects, slots (tutees) and policy data instead of briefly presenting an empty form. [Program functions and controls](program-reference.md) maps user entries, staff outcomes, feature switches and their timing.
+
 Use Node 22 for consistency with CI. Current application source is also checked locally on Windows with Node 24. Tests that truncate PostgreSQL data accept only explicitly named isolated local test databases; the combined suite uses `shbs_shipping_test`. Use a disposable database and never copy a production URL into these commands.
 
 ```bash

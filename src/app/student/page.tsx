@@ -19,13 +19,15 @@ export default async function StudentPage({
 }: {
   searchParams: Promise<Record<string, string | string[] | undefined>>;
 }) {
-  const [params, t, signup, currentPeriod, features] = await Promise.all([
-    searchParams,
-    getTranslations("tuteePortal"),
-    getTranslations("public.signup"),
-    getActivePeriodOrNull(db),
-    getFeatures(db),
-  ]);
+  const [params, t, signup, currentPeriod, features, workflows] =
+    await Promise.all([
+      searchParams,
+      getTranslations("tuteePortal"),
+      getTranslations("public.signup"),
+      getActivePeriodOrNull(db),
+      getFeatures(db),
+      getTranslations("workflows"),
+    ]);
   const view = resolveTuteeView(params.view);
   const period = currentPeriod
     ? getPeriodDisplay(currentPeriod, features.QUARTER_SYSTEM)
@@ -63,6 +65,9 @@ export default async function StudentPage({
           <p className="muted text-sm">{t("supportHelp")}</p>
           <Link href="/student?view=messages" className="btn-secondary">
             {t("messages")}
+          </Link>
+          <Link href="/student-support" className="link block">
+            {workflows("feedback")}
           </Link>
         </section>
       )}

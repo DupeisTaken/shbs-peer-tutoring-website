@@ -10,6 +10,7 @@ import {
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
 import { EmailDetails } from "./email-details";
+import { ReadOnlyProvider } from "./read-only";
 
 const mocks = vi.hoisted(() => ({
   verify: vi.fn(),
@@ -46,6 +47,19 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 const address = "a.very.long.email.address.for.a.person@example.test";
+it("labels masked observer contact details as private without exposing email controls", () => {
+  render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <ReadOnlyProvider value={true}>
+        <EmailDetails email={address} name="Alice" />
+      </ReadOnlyProvider>
+    </NextIntlClientProvider>,
+  );
+  expect(screen.getByText("Private contact details")).toBeTruthy();
+  expect(screen.queryByText(address)).toBeNull();
+  expect(screen.queryByRole("button")).toBeNull();
+  expect(mocks.mounted).not.toHaveBeenCalled();
+});
 const show = (props: Partial<Parameters<typeof EmailDetails>[0]> = {}) =>
   render(
     <NextIntlClientProvider locale="en" messages={en}>

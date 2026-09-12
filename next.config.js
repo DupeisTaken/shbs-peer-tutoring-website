@@ -19,7 +19,13 @@ const config = {
   outputFileTracingRoot: workspaceRoot,
   turbopack: { root: workspaceRoot },
   // Local validation can use one worker on machines that are also running the app.
-  ...(process.env.SHBS_BUILD_CPUS === "1" ? { experimental: { cpus: 1 } } : {}),
+  experimental: {
+    ...(process.env.SHBS_BUILD_CPUS === "1" ? { cpus: 1 } : {}),
+    // Read-only cache bypass for a local compiler recovery; leaves existing cache files intact.
+    ...(process.env.SHBS_DISABLE_BUILD_CACHE === "1"
+      ? { turbopackFileSystemCacheForBuild: false }
+      : {}),
+  },
 };
 
 export default withNextIntl(config);

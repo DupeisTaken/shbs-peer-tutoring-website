@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
@@ -44,8 +45,10 @@ export function TutorSignupForm() {
 
   const setRow = (i: number, patch: Partial<CourseRow>) =>
     setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
-  const addRow = () => setRows((rs) => (rs.length < 3 ? [...rs, { ...emptyRow }] : rs));
-  const removeRow = (i: number) => setRows((rs) => rs.filter((_, idx) => idx !== i));
+  const addRow = () =>
+    setRows((rs) => (rs.length < 3 ? [...rs, { ...emptyRow }] : rs));
+  const removeRow = (i: number) =>
+    setRows((rs) => rs.filter((_, idx) => idx !== i));
 
   const chosen = rows.map((r) => r.subjectId).filter(Boolean);
   const canSubmit =
@@ -60,13 +63,55 @@ export function TutorSignupForm() {
   if (submit.isSuccess) {
     return (
       <div className="card p-8 text-center">
-        <h2 className="text-xl font-semibold text-slate-900">{t("public.tutorSignup.successTitle")}</h2>
+        <h2 className="text-xl font-semibold text-slate-900">
+          {t("public.tutorSignup.successTitle")}
+        </h2>
         <p className="muted mt-2">
-          {t("public.tutorSignup.successBody", { name: name.trim(), email: email.trim() })}
+          {t("public.tutorSignup.successBody", {
+            name: name.trim(),
+            email: email.trim(),
+          })}
         </p>
+        <p className="muted mt-4">
+          {t("public.tutorSignup.journey.registerHelp")}
+        </p>
+        <Link href="/register" className="btn-secondary mt-4">
+          {t("public.tutorSignup.haveCode")}
+        </Link>
       </div>
     );
   }
+
+  // An empty picker or an unreadable policy is not an actionable application form.
+  // Keep retry local to these reads; submitting again is never the recovery action.
+  if (options.isError || policy.isError)
+    return (
+      <section className="card space-y-4 p-6">
+        <p role="alert">{t("public.tutorSignup.loadFailed")}</p>
+        <button
+          type="button"
+          className="btn-secondary"
+          onClick={() => {
+            void options.refetch();
+            void policy.refetch();
+          }}
+        >
+          {t("survey.retry")}
+        </button>
+      </section>
+    );
+  if (options.isLoading || policy.isLoading)
+    return (
+      <p role="status" className="card p-6">
+        {t("workflows.loading")}
+      </p>
+    );
+  if (!courses.length || !policy.data?.body?.trim())
+    return (
+      <p role="status" className="card p-6">
+        {t("public.tutorSignup.unavailable")}
+      </p>
+    );
 
   return (
     <form
@@ -87,16 +132,16 @@ export function TutorSignupForm() {
               hasApScore: r.hasApScore,
               apScore: r.hasApScore ? r.apScore.trim() || undefined : undefined,
               selfStudied: r.selfStudied,
-              selfStudyNote: r.selfStudied ? r.selfStudyNote.trim() || undefined : undefined,
+              selfStudyNote: r.selfStudied
+                ? r.selfStudyNote.trim() || undefined
+                : undefined,
             })),
         });
       }}
     >
       <div>
         <p className="label">{t("public.tutorSignup.fields.courses")}</p>
-        <p className="muted mb-2">
-          {t("public.tutorSignup.coursesHelp")}
-        </p>
+        <p className="muted mb-2">{t("public.tutorSignup.coursesHelp")}</p>
         <div className="space-y-3">
           {rows.map((row, i) => {
             const usedElsewhere = rows
@@ -111,18 +156,30 @@ export function TutorSignupForm() {
               >
                 <div className="flex flex-wrap items-end gap-2">
                   <label className="space-y-1">
-                    <span className="label">{t("public.tutorSignup.fields.course")}</span>
+                    <span className="label">
+                      {t("public.tutorSignup.fields.course")}
+                    </span>
                     <select
                       className="select field-auto min-w-48"
                       value={row.subjectId}
                       onChange={(e) =>
                         // Reset the AP-score flag if the new course isn't AP.
-                        setRow(i, { subjectId: e.target.value, hasApScore: false, apScore: "" })
+                        setRow(i, {
+                          subjectId: e.target.value,
+                          hasApScore: false,
+                          apScore: "",
+                        })
                       }
                     >
-                      <option value="">{t("public.tutorSignup.placeholders.selectCourse")}</option>
+                      <option value="">
+                        {t("public.tutorSignup.placeholders.selectCourse")}
+                      </option>
                       {courses
-                        .filter((c) => c.id === row.subjectId || !usedElsewhere.includes(c.id))
+                        .filter(
+                          (c) =>
+                            c.id === row.subjectId ||
+                            !usedElsewhere.includes(c.id),
+                        )
                         .map((c) => (
                           <option key={c.id} value={c.id}>
                             {c.name}
@@ -132,7 +189,9 @@ export function TutorSignupForm() {
                     </select>
                   </label>
                   {selected?.level && (
-                    <span className="badge-slate mb-2">{selected.level.name}</span>
+                    <span className="badge-slate mb-2">
+                      {selected.level.name}
+                    </span>
                   )}
                   {rows.length > 1 && (
                     <button
@@ -160,7 +219,9 @@ export function TutorSignupForm() {
                       <input
                         type="checkbox"
                         checked={row.hasApScore}
-                        onChange={(e) => setRow(i, { hasApScore: e.target.checked })}
+                        onChange={(e) =>
+                          setRow(i, { hasApScore: e.target.checked })
+                        }
                       />
                       {t("public.tutorSignup.qual.hasApScore")}
                     </label>
@@ -169,7 +230,9 @@ export function TutorSignupForm() {
                     <input
                       type="checkbox"
                       checked={row.selfStudied}
-                      onChange={(e) => setRow(i, { selfStudied: e.target.checked })}
+                      onChange={(e) =>
+                        setRow(i, { selfStudied: e.target.checked })
+                      }
                     />
                     {t("public.tutorSignup.qual.selfStudied")}
                   </label>
@@ -178,7 +241,9 @@ export function TutorSignupForm() {
                 {/* Detail boxes — each appears only when its tick is set. */}
                 {row.taken && (
                   <label className="block space-y-1">
-                    <span className="label">{t("public.tutorSignup.fields.grade")}</span>
+                    <span className="label">
+                      {t("public.tutorSignup.fields.grade")}
+                    </span>
                     <input
                       className="input field-auto min-w-32"
                       value={row.grade}
@@ -190,7 +255,9 @@ export function TutorSignupForm() {
 
                 {isAp && row.hasApScore && (
                   <label className="block space-y-1">
-                    <span className="label">{t("public.tutorSignup.fields.apScore")}</span>
+                    <span className="label">
+                      {t("public.tutorSignup.fields.apScore")}
+                    </span>
                     <input
                       className="input field-auto min-w-32"
                       value={row.apScore}
@@ -202,13 +269,19 @@ export function TutorSignupForm() {
 
                 {row.selfStudied && (
                   <label className="block space-y-1">
-                    <span className="label">{t("public.tutorSignup.fields.selfStudyNote")}</span>
+                    <span className="label">
+                      {t("public.tutorSignup.fields.selfStudyNote")}
+                    </span>
                     <textarea
                       className="textarea w-full"
                       rows={2}
                       value={row.selfStudyNote}
-                      onChange={(e) => setRow(i, { selfStudyNote: e.target.value })}
-                      placeholder={t("public.tutorSignup.placeholders.selfStudyNote")}
+                      onChange={(e) =>
+                        setRow(i, { selfStudyNote: e.target.value })
+                      }
+                      placeholder={t(
+                        "public.tutorSignup.placeholders.selfStudyNote",
+                      )}
                     />
                   </label>
                 )}
@@ -235,8 +308,15 @@ export function TutorSignupForm() {
       {/* Contact details last — who they are and how to reach them. */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className="space-y-1">
-          <span className="label">{t("public.tutorSignup.fields.fullName")}</span>
-          <input className="input" value={name} onChange={(e) => setName(e.target.value)} required />
+          <span className="label">
+            {t("public.tutorSignup.fields.fullName")}
+          </span>
+          <input
+            className="input"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            required
+          />
         </label>
         <label className="space-y-1">
           <span className="label">{t("public.tutorSignup.fields.email")}</span>
@@ -252,7 +332,9 @@ export function TutorSignupForm() {
       </div>
 
       <label className="space-y-1">
-        <span className="label">{t("public.tutorSignup.fields.preferredContact")}</span>
+        <span className="label">
+          {t("public.tutorSignup.fields.preferredContact")}
+        </span>
         <input
           className="input"
           value={preferredContact}
@@ -271,8 +353,14 @@ export function TutorSignupForm() {
         </p>
       )}
 
-      <button type="submit" className="btn-primary w-full" disabled={!canSubmit}>
-        {submit.isPending ? t("public.tutorSignup.submitting") : t("public.tutorSignup.submit")}
+      <button
+        type="submit"
+        className="btn-primary w-full"
+        disabled={!canSubmit}
+      >
+        {submit.isPending
+          ? t("public.tutorSignup.submitting")
+          : t("public.tutorSignup.submit")}
       </button>
     </form>
   );

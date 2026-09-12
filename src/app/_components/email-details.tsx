@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { ProfileDialog } from "~/app/_components/profile-dialog";
 import { api } from "~/trpc/react";
+import { useReadOnly } from "./read-only";
 
 type EmailDetailsProps = {
   email: string | null | undefined;
@@ -21,6 +22,10 @@ type EmailDetailsProps = {
 export function EmailDetails(props: EmailDetailsProps) {
   const t = useTranslations("accountProfile");
   const [open, setOpen] = useState(false);
+  const readOnly = useReadOnly();
+  // Masked API values mean private, not missing; observers must not infer account setup needs.
+  if (readOnly)
+    return <span className="muted text-xs">{t("privateEmail")}</span>;
   if (!props.email)
     return <span className="muted text-xs">{t("noEmail")}</span>;
   return (
