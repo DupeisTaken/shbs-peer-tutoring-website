@@ -384,7 +384,7 @@
         "auditLog": "Audit Log",
         "usersRoles": "Users & Roles",
         "registrationCodes": "Registration Codes",
-        "tuteeRequests": "Tutee Removals",
+        "tuteeRequests": "Withdrawals & Removals",
         "reports": "Reports",
         "sessionFlags": "Attendance Flags",
         "crew": "Crew",
@@ -1078,15 +1078,15 @@
       "tableEmpty": "No cards yet."
     },
     "tuteeRequests": {
-      "title": "Opt-Outs & Removals",
-      "help": "Tutee opt-outs (relayed by a tutor, with a 7-day recall window) and tutees currently removed (opted out or discipline-removed).",
+      "title": "Withdrawal Requests & Removals",
+      "help": "Review student requests to leave tutoring, monitor tutor-relayed withdrawals, and manage removals. Each route keeps its own approval policy.",
       "kind": {
         "VOLUNTARY": "Opt-Out",
         "PUNISHMENT": "Discipline"
       },
-      "pendingHeading": "Pending Opt-Outs",
-      "pendingHelp": "A tutor relayed the tutee's request to leave. It auto-approves after the recall window unless the tutor recalls or you cancel it.",
-      "pendingEmpty": "No pending opt-outs.",
+      "pendingHeading": "Tutor-relayed withdrawals",
+      "pendingHelp": "A tutor submitted these on a student’s behalf. They take effect after the seven-day recall window unless the tutor recalls or staff cancels.",
+      "pendingEmpty": "No tutor-relayed withdrawals awaiting their effective date.",
       "relayedBy": "Relayed by {tutor} · {subject}",
       "autoApprovesOn": "auto-approves {date}",
       "cancel": "Cancel",
@@ -1095,7 +1095,16 @@
       "removedEmpty": "No removed tutees.",
       "removedDiscipline": "Discipline Removal",
       "removedOptOut": "Opted Out (Via {tutor})",
-      "reinstate": "Reinstate"
+      "reinstate": "Reinstate",
+      "studentHeading": "Student withdrawal requests",
+      "studentHelp": "Submitted from the student’s own account. All tutoring for this quarter continues until staff approves the request. Approval ends participation and blocks a new signup for the same quarter.",
+      "studentSource": "Submitted by student",
+      "wholeProgram": "All tutoring this quarter",
+      "effectiveOnApproval": "Effective only after approval",
+      "submittedOn": "Submitted {date}",
+      "studentEmpty": "No student withdrawals awaiting review.",
+      "studentHistory": "Reviewed student withdrawals",
+      "recallWindow": "Recall window open"
     },
     "reports": {
       "title": "Reports",
@@ -2258,7 +2267,7 @@
     "abortHelp": "Because you have a tutor, leaving requires an application. Approval ends your participation and prevents any further applications this quarter.",
     "recallHelp": "You can recall this unassigned request. It will move to Processed, and admins will be notified.",
     "abortPending": "Your quarter-withdrawal application is awaiting admin review. Current assignments remain in place.",
-    "applyAbort": "Apply to leave this quarter",
+    "applyAbort": "Request withdrawal from this quarter",
     "recall": "Recall request",
     "abortConsequences": "You are applying to leave the entire tutoring program for the current quarter. Your assignments continue while admins review this application. If approved, every assignment will be released, this request will be closed permanently, and you cannot submit any further requests this quarter. Admins and your tutors will be notified.",
     "recallConsequences": "This withdraws your unassigned request immediately and permanently. It will appear in Processed with a Recalled badge, and admins will be notified. It cannot be reopened. If you apply again, you will receive a new submission time and priority.",

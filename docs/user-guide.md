@@ -52,7 +52,7 @@ An account link lasts 24 hours. Request a new link if it expires; a successful r
 | --- | --- | --- |
 | Change your available times | **Edit availability** | Subjects, priority and current assignments stay the same; coordinate the actual meeting with your tutor |
 | Cancel an unassigned request | Recall it and confirm the consequences | That request closes permanently; applying again creates a new timestamp |
-| Leave after assignment | **Apply to leave this quarter** and give a reason | Assignment continues during review; approval ends participation and blocks another request that quarter |
+| Leave after assignment | **Request withdrawal from this quarter** and give a reason | Assignment continues during review; approval ends participation and blocks another request that quarter |
 | See the result | **Current request** and **Processed** | Review state and assignment are shown separately |
 
 Important actions display consequences and a countdown before confirmation. A pending request is not an approved change. If a tutor reports a schedule conflict, an approved rejection removes only that tutor’s assignment and returns your request for matching at its original priority.
@@ -188,3 +188,9 @@ Use synthetic examples and remove student names, contact details, private messag
 ### Signup request tabs
 
 Signup Requests includes student signups and manually managed requests in the same tabs and counts, with source badges. Needs matching includes empty or partially assigned requests; Assigned contains requests whose requested subjects all have tutors. Both sources keep their original submission order. Needs review contains pending review decisions; Processed retains closed requests and completed review history. A completed manual signup stays in Assigned when the page is refreshed.
+
+### Withdrawal requests
+
+Students open Student Portal and use **Request withdrawal from this quarter** under Participation. This is also available for manually managed enrollments explicitly linked to the student's account. A reason and timed confirmation are required. Tutoring continues until staff approves; approval ends all tutoring in the current quarter and blocks another signup for that quarter. Students with an unassigned survey request may still recall that request immediately using the existing recall flow.
+
+Staff use **Withdrawal Requests & Removals** to review self-submitted requests and their decision history. Student requests show their source, scope, submission time and approval-dependent effective date. Tutor-relayed withdrawals remain in a separate section with their existing seven-day recall window and exact scheduled effective time. Tutor relays remain available; staff can cancel them before they take effect.

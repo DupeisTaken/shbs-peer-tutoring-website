@@ -1,3 +1,4 @@
+import { approveLegacyStudentWithdrawal } from "./legacy-student-withdrawal";
 import { TRPCError } from "@trpc/server";
 import { approvalScope } from "./db-scope";
 import { ownedStudentIds } from "./student-ownership";
@@ -451,7 +452,9 @@ export async function resolveStudentReview(
         approve ? "APPROVE" : "DENY",
         id,
       );
-      if (approve) {
+      if (approve && review.kind === "STUDENT_ABORT") {
+        await approveLegacyStudentWithdrawal(tx, review);
+      } else if (approve) {
         const requester = await tx.user.findUnique({
           where: { id: review.requestedByUserId },
           select: { tutorId: true },
@@ -492,9 +495,13 @@ export async function resolveStudentReview(
         tx,
         review.legacyTuteeId!,
         review.requestedByUserId,
-        approve
-          ? "Schedule rejection approved; rematching needed / 时间冲突申请通过，待重新匹配"
-          : "Schedule rejection declined / 时间冲突申请未通过",
+        review.kind === "STUDENT_ABORT"
+          ? approve
+            ? "Quarter withdrawal approved / 本季度退出申请已批准"
+            : "Withdrawal declined; participation continues / 退出申请未通过，继续参加"
+          : approve
+            ? "Schedule rejection approved; rematching needed / 时间冲突申请通过，待重新匹配"
+            : "Schedule rejection declined / 时间冲突申请未通过",
       );
       return { ok: true };
     }
@@ -708,6 +715,7 @@ export async function studentRequestRows(
         reason: r.reason,
         state: r.state,
         createdAt: r.createdAt,
+        resolvedAt: r.resolvedAt,
         pairingId: r.pairingId,
         assignment: reviewPairings.find((p) => p.id === r.pairingId) ?? null,
       })),

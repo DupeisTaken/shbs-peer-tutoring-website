@@ -377,7 +377,7 @@
         "usersRoles": "用户与角色",
         "tutorRequests": "导师状态申请",
         "registrationCodes": "注册码",
-        "tuteeRequests": "学生移除",
+        "tuteeRequests": "退出申请与移除",
         "reports": "报告",
         "sessionFlags": "考勤标记",
         "crew": "巡查队",
@@ -1078,15 +1078,15 @@
       "requeueDismiss": "暂不操作"
     },
     "tuteeRequests": {
-      "title": "退出与移除",
-      "help": "学生退出（由导师转达，含 7 天撤回期）及当前已移除的学生（自愿退出或纪律移除）。",
+      "title": "退出申请与移除",
+      "help": "审核学生自行提交的退出申请，跟进导师代交的退出申请，并管理移除记录。不同来源保留各自的审核规则。",
       "kind": {
         "VOLUNTARY": "退出",
         "PUNISHMENT": "纪律"
       },
-      "pendingHeading": "待生效的退出",
-      "pendingHelp": "导师已转达该学生的退出请求。除非导师撤回或你取消，撤回期结束后将自动生效。",
-      "pendingEmpty": "暂无待生效的退出。",
+      "pendingHeading": "导师代交的退出申请",
+      "pendingHelp": "导师代表学生提交。七天撤回期结束后生效，除非导师撤回或管理人员取消。",
+      "pendingEmpty": "没有等待生效的导师代交退出申请。",
       "relayedBy": "由 {tutor} 转达 · {subject}",
       "autoApprovesOn": "{date} 自动生效",
       "cancel": "取消",
@@ -1095,7 +1095,16 @@
       "removedEmpty": "暂无已移除的学生。",
       "removedDiscipline": "纪律移除",
       "removedOptOut": "已退出（经 {tutor}）",
-      "reinstate": "重新启用"
+      "reinstate": "重新启用",
+      "studentHeading": "学生退出申请",
+      "studentHelp": "由学生本人账号提交。在管理人员批准前，本季度所有辅导安排继续。批准后结束参与，并禁止本季度再次报名。",
+      "studentSource": "学生本人提交",
+      "wholeProgram": "本季度所有辅导",
+      "effectiveOnApproval": "仅在批准后生效",
+      "submittedOn": "提交于 {date}",
+      "studentEmpty": "没有待审核的学生退出申请。",
+      "studentHistory": "已审核的学生退出申请",
+      "recallWindow": "仍在撤回期内"
     },
     "reports": {
       "title": "报告",
@@ -2258,7 +2267,7 @@
     "abortHelp": "你已有导师安排，退出需提交申请。批准后将结束本季度参与，并禁止本季度再次申请。",
     "recallHelp": "尚未分配导师的申请可直接撤回。撤回后将移至“已处理”，并通知管理员。",
     "abortPending": "本季度退出申请正在等待管理员审核。审核期间现有安排继续有效。",
-    "applyAbort": "申请退出本季度",
+    "applyAbort": "申请退出本季度辅导",
     "recall": "撤回申请",
     "abortConsequences": "你正在申请退出本季度整个辅导项目。管理员审核期间现有导师安排仍然有效。若批准，所有导师安排将解除，此申请将永久关闭，且本季度不能再次提交任何申请。管理员和导师会收到通知。",
     "recallConsequences": "此操作会立即且永久撤回尚未分配导师的申请。申请将移至“已处理”并标记“已撤回”，管理员会收到通知。此申请无法重新启用；再次申请将获得新的提交时间和优先顺序。",

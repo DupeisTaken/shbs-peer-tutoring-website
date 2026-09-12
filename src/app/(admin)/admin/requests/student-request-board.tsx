@@ -142,7 +142,10 @@ export function StudentRequestBoard({
           legacyProcessed.map((r) => (
             <article key={r.id} className="card space-y-2 p-5">
               <h3 className="font-semibold">
-                {r.name} · {t("scheduleReject")}
+                {r.name} ·{" "}
+                {t(
+                  r.kind === "STUDENT_ABORT" ? "applyAbort" : "scheduleReject",
+                )}
               </h3>
               <span className="badge-slate">{t(`reviewState.${r.state}`)}</span>
               <p className="muted text-sm">{r.reason}</p>

@@ -1,6 +1,7 @@
 import { getTranslations } from "next-intl/server";
 import { WorkflowShell } from "~/app/_components/workflow-shell";
 import { StudentPortal } from "~/app/_components/student-portal";
+import { LegacyParticipation } from "./legacy-participation";
 import { StudentWorkspace } from "./student-workspace";
 
 export const dynamic = "force-dynamic";
@@ -10,6 +11,7 @@ export default async function StudentPage() {
   return (
     <WorkflowShell title={t("student")}>
       <StudentWorkspace />
+      <LegacyParticipation />
       <StudentPortal />
     </WorkflowShell>
   );

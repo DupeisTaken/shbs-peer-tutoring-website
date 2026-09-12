@@ -188,3 +188,7 @@ The integrated application and its image acceptance tests are complete. No deplo
 These are concrete operational prerequisites, not evidence obtainable from a local screenshot or a clean dependency audit. See [the deployment runbook](../README-DEPLOY.md) and [release verification record](../SHIPPING-READINESS.md).
 
 [Documentation home](README.md) · [User guide](user-guide.md) · [Creating issues](issues.md)
+
+### Account-linked manual withdrawals
+
+Manual enrollments reuse `StudentRequestReview` with `kind=STUDENT_ABORT`, explicit legacy student/term evidence and the existing timed staff decision endpoint. Ownership uses the current account link or retained `StudentProfileOwnership`, never a name/email match. Approval rechecks current ownership and term, removes only current-term pairing memberships, preserves attendance history, and creates `StudentQuarterBlock` evidence linked to the manual profile. Migration `20260912040000_legacy_student_withdrawal` permits these review targets and makes quarter-block source evidence exclusive between a survey and a manual profile. Pending submissions do not alter membership; declined requests remain history.

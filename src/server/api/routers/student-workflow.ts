@@ -1,3 +1,5 @@
+import { applyLegacyStudentWithdrawal } from "~/server/legacy-student-withdrawal";
+import { ownedStudentIds } from "~/server/student-ownership";
 import { z } from "zod";
 import {
   createTRPCRouter,
@@ -66,6 +68,92 @@ export const studentWorkflowRouter = createTRPCRouter({
     const rows = await studentRequestRows(ctx.db, undefined, user.id);
     return rows.filter((row) => row.confirmedAt !== null);
   }),
+  legacyParticipation: protectedProcedure.query(async ({ ctx }) => {
+    const ids = await ownedStudentIds(ctx.db, ctx.session.user.id);
+    const account = await ctx.db.user.findUnique({
+      where: { id: ctx.session.user.id },
+      select: { studentId: true },
+    });
+    const term = await ctx.db.term.findFirst({
+      where: { active: true },
+      orderBy: { createdAt: "desc" },
+    });
+    if (!term || !ids.length) return [];
+    const withdrawalIds = await ctx.db.studentRequestReview.findMany({
+      where: {
+        legacyTuteeId: { in: ids },
+        legacyIntakeTermId: term.id,
+        kind: "STUDENT_ABORT",
+      },
+      select: { legacyTuteeId: true },
+    });
+    const [students, surveys, reviews] = await Promise.all([
+      ctx.db.tutee.findMany({
+        where: {
+          id: { in: ids },
+          OR: [
+            {
+              id: {
+                in: withdrawalIds.flatMap((r) =>
+                  r.legacyTuteeId ? [r.legacyTuteeId] : [],
+                ),
+              },
+            },
+            { intakeTermId: term.id },
+            ...(account?.studentId
+              ? [
+                  {
+                    id: account.studentId,
+                    intakeTermId: null,
+                    status: { not: "INACTIVE" as const },
+                  },
+                ]
+              : []),
+            { pairings: { some: { pairing: { termId: term.id } } } },
+          ],
+        },
+        select: { id: true, englishName: true, status: true },
+      }),
+      ctx.db.studentSurvey.findMany({
+        where: { tuteeId: { in: ids } },
+        select: { tuteeId: true },
+      }),
+      ctx.db.studentRequestReview.findMany({
+        where: {
+          legacyTuteeId: { in: ids },
+          legacyIntakeTermId: term.id,
+          kind: "STUDENT_ABORT",
+        },
+        orderBy: { createdAt: "desc" },
+      }),
+    ]);
+    return students
+      .filter(
+        (student) => !surveys.some((survey) => survey.tuteeId === student.id),
+      )
+      .map((student) => ({
+        ...student,
+        reviews: reviews
+          .filter((review) => review.legacyTuteeId === student.id)
+          .map((review) => ({
+            id: review.id,
+            state: review.state,
+            createdAt: review.createdAt,
+            resolvedAt: review.resolvedAt,
+          })),
+      }));
+  }),
+  applyLegacyWithdrawal: protectedProcedure
+    .input(z.object({ tuteeId: id, reason, ticket }).strict())
+    .mutation(({ ctx, input }) =>
+      applyLegacyStudentWithdrawal(
+        ctx.db,
+        ctx.session.user.id,
+        input.tuteeId,
+        input.reason,
+        input.ticket,
+      ),
+    ),
   editAvailability: protectedProcedure
     .input(z.object({ id, slotIds: z.array(id).min(1).max(100) }).strict())
     .mutation(({ ctx, input }) =>
@@ -124,6 +212,7 @@ export const studentWorkflowRouter = createTRPCRouter({
       reason: r.reason,
       state: r.state,
       createdAt: r.createdAt,
+      resolvedAt: r.resolvedAt,
       pairingId: r.pairingId,
       assignment: pairings.find((p) => p.id === r.pairingId) ?? null,
     }));

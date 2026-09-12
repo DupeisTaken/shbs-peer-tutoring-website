@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { TimedActionDialog } from "~/app/_components/timed-action-dialog";
 import { DAY_NAMES, minToHm } from "~/lib/time";
@@ -10,6 +10,7 @@ type Request = RouterOutputs["studentWorkflow"]["mine"][number];
 export function StudentWorkspace() {
   const t = useTranslations("workflow");
   const query = api.studentWorkflow.mine.useQuery();
+  const legacy = api.studentWorkflow.legacyParticipation.useQuery();
   if (query.isLoading) return <p role="status">{t("loading")}</p>;
   if (query.error)
     return (
@@ -18,7 +19,12 @@ export function StudentWorkspace() {
       </p>
     );
   const active = query.data?.find((r) => r.state === "OPEN");
-  const quarterBlocked = query.data?.some((r) => r.state === "ABORTED");
+  const quarterBlocked =
+    (query.data?.some((r) => r.state === "ABORTED") ?? false) ||
+    (legacy.data?.some((r) =>
+      r.reviews.some((review) => review.state === "APPROVED"),
+    ) ??
+      false);
   return (
     <div className="space-y-6">
       <nav
@@ -36,7 +42,7 @@ export function StudentWorkspace() {
         <h2 className="section-title">{t("current")}</h2>
         {active ? (
           <CurrentRequest key={active.id} row={active} />
-        ) : (
+        ) : legacy.data?.some((row) => row.status !== "INACTIVE") ? null : (
           <div className="card space-y-3 p-6">
             <p>{t(quarterBlocked ? "abortFinal" : "noActive")}</p>
             {!quarterBlocked && (
@@ -70,6 +76,7 @@ export function StudentWorkspace() {
   );
 }
 function CurrentRequest({ row }: { row: Request }) {
+  const format = useFormatter();
   const t = useTranslations("workflow");
   const utils = api.useUtils();
   const options = api.tutee.signupOptions.useQuery();
@@ -110,7 +117,12 @@ function CurrentRequest({ row }: { row: Request }) {
           {row.subjects.map((s) => s.name).join(" · ")}
         </p>
         <p className="muted text-sm">
-          {t("priority", { time: new Date(row.submittedAt).toLocaleString() })}
+          {t("priority", {
+            time: format.dateTime(new Date(row.submittedAt), {
+              dateStyle: "medium",
+              timeStyle: "short",
+            }),
+          })}
         </p>
         <div className="border-t border-slate-100 pt-4">
           <h3 className="font-semibold">{t("assignments")}</h3>

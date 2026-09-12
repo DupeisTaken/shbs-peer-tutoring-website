@@ -1506,7 +1506,7 @@ model StudentRequestReview {
   surveyId String?
   // Preserve the originating request as review evidence, matching the deployed constraint.
   survey StudentSurvey? @relation(fields: [surveyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  /// Existing manually managed tutees can also request schedule rejection without a survey.
+  /// Account-linked manual tutees can request withdrawal or schedule review without a survey.
   legacyTuteeId String?
   legacyIntakeTermId String?
   kind StudentReviewKind
@@ -1530,7 +1530,8 @@ model StudentQuarterBlock {
   id String @id @default(cuid())
   email String
   intakeTermId String
-  surveyId String
+  surveyId String?
+  legacyTuteeId String?
   userId String?
   createdAt DateTime @default(now())
   @@unique([email, intakeTermId])
