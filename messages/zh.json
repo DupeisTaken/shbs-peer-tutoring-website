@@ -2404,5 +2404,9 @@
     "readOnly": "仅负责人或管理员可以修改项目时区。",
     "loading": "正在加载时区…",
     "inputZone": "时间按 {zone} 输入。"
+  },
+  "adminNavigation": {
+    "title": "管理导航",
+    "open": "菜单"
   }
 }

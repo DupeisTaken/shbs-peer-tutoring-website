@@ -2404,5 +2404,9 @@
     "readOnly": "Only a Head or Administrator can change the program time zone.",
     "loading": "Loading time zone…",
     "inputZone": "Time is entered in {zone}."
+  },
+  "adminNavigation": {
+    "title": "Admin navigation",
+    "open": "Menu"
   }
 }
