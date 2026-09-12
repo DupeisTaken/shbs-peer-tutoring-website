@@ -1236,6 +1236,9 @@ model Announcement {
   /// Pinned announcements stay surfaced even after acknowledgement.
   pinned      Boolean  @default(false)
   active      Boolean  @default(true)
+  /// Old broadcasts remain visible to all tutors; new posts freeze tutor identities at publication.
+  audienceRestricted Boolean @default(false)
+  recipientTutorIds String[] @default([])
   createdById String?
   createdBy   User?    @relation("AnnouncementAuthor", fields: [createdById], references: [id])
   createdAt   DateTime @default(now())

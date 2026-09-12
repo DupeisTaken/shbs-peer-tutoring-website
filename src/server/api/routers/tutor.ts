@@ -5,6 +5,7 @@ import { validateInterviewDecision } from "~/server/interviews";
 import { reconcileMeetingHours } from "~/server/meeting-hours";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
+import { announcementVisibility } from "~/lib/announcement-recipients";
 import { createHash } from "node:crypto";
 import { inTransaction, lockEntity } from "~/server/transactions";
 
@@ -988,7 +989,7 @@ export const tutorRouter = createTRPCRouter({
   /** Active announcements, newest first, each flagged with whether the caller acked it. */
   myAnnouncements: tutorProcedure.query(async ({ ctx }) => {
     const announcements = await ctx.db.announcement.findMany({
-      where: { active: true },
+      where: { active: true, ...announcementVisibility(ctx.session.tutorId) },
       orderBy: [{ pinned: "desc" }, { createdAt: "desc" }],
       select: {
         id: true,
@@ -1012,6 +1013,11 @@ export const tutorRouter = createTRPCRouter({
   acknowledgeAnnouncement: tutorProcedure
     .input(z.object({ announcementId: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
+      const visible = await ctx.db.announcement.findFirst({
+        where: { id: input.announcementId, active: true, ...announcementVisibility(ctx.session.tutorId) },
+        select: { id: true },
+      });
+      if (!visible) throw new TRPCError({ code: "NOT_FOUND", message: "Announcement not found." });
       await ctx.db.announcementAck.upsert({
         where: {
           announcementId_userId: {
