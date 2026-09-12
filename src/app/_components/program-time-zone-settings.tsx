@@ -14,12 +14,14 @@ export function ProgramTimeZoneSettings() {
   return <TimeZoneEditor key={settings.data.timeZone} {...settings.data} />;
 }
 
-function TimeZoneEditor({
+export function TimeZoneEditor({
   timeZone,
   canEdit,
+  timeZoneOptions,
 }: {
   timeZone: string;
   canEdit: boolean;
+  timeZoneOptions: string[];
 }) {
   const t = useTranslations("programTimeZone");
   const router = useRouter();
@@ -45,9 +47,8 @@ function TimeZoneEditor({
       </div>
       <label className="block space-y-1">
         <span className="label">{t("zone")}</span>
-        <input
+        <select
           className="input w-full"
-          list="program-time-zones"
           value={zone}
           disabled={!canEdit || save.isPending}
           onChange={(e) => {
@@ -55,24 +56,16 @@ function TimeZoneEditor({
             setConfirmed(false);
             setSaved(false);
           }}
-        />
-        <datalist id="program-time-zones">
-          {[
-            "Asia/Shanghai",
-            "Asia/Tokyo",
-            "Asia/Singapore",
-            "Asia/Kolkata",
-            "Europe/London",
-            "Europe/Paris",
-            "America/New_York",
-            "America/Los_Angeles",
-            "Australia/Sydney",
-            "Pacific/Auckland",
-            "UTC",
-          ].map((value) => (
-            <option key={value} value={value} />
+        >
+          <option value="UTC">UTC</option>
+          {[...new Set(timeZoneOptions.filter(value=>value!=="UTC").map(value=>value.split("/")[0]!))].map(region=>(
+            <optgroup key={region} label={region}>
+              {timeZoneOptions.filter(value=>value.startsWith(region+"/")).map(value=>(
+                <option key={value} value={value}>{value.slice(region.length+1).replaceAll("_"," ")}</option>
+              ))}
+            </optgroup>
           ))}
-        </datalist>
+        </select>
         <span className="muted text-xs">{t("iana")}</span>
       </label>
       {!valid && (

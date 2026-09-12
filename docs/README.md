@@ -4,7 +4,7 @@ Choose the guide for the work you need to do. User instructions follow the websi
 
 | I want to… | Read… |
 | --- | --- |
-| Apply for tutoring, check assignments, give feedback or appeal | [Student guide](user-guide.md#students) |
+| Apply for tutoring, check assignments, give feedback or appeal | [Tutee guide](user-guide.md#tutees) |
 | Record attendance, check hours or take part in interviews | [Tutor guide](user-guide.md#tutors) |
 | Record room patrols | [Crew guide](user-guide.md#crew) |
 | Prepare management changes for review | [Coordinator guide](user-guide.md#coordinators) |

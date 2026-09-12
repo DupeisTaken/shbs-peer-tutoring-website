@@ -5,7 +5,7 @@ Use this guide with the website address supplied by your program. Page names bel
 ## Contents
 
 - [Before you start](#before-you-start)
-- [Students](#students)
+- [Tutees](#tutees)
 - [Tutors](#tutors)
 - [Crew](#crew)
 - [Coordinators](#coordinators)
@@ -23,7 +23,7 @@ The combined website supports intake, matching, attendance, hours, interviews, s
 
 | Your access | Start with | Important boundary |
 | --- | --- | --- |
-| Student | Student Portal | Your own records and participation |
+| Tutee participation (any account role) | Enter Tutee page | Your own records and participation |
 | Tutor | Dashboard | Your linked tutor profile and assignments |
 | Crew | Patrol | Active crew participation; the crew module must be enabled |
 | Coordinator | Management area / Change Approvals | Sensitive changes wait for ADMIN or HEAD review |
@@ -32,19 +32,37 @@ The combined website supports intake, matching, attendance, hours, interviews, s
 | Viewer | Read-only management area | Permitted summaries with personal contact details masked |
 | Assigned translator | Translations / Translation Review | Draft translations; assignment is an extra permission, not a management role |
 
-A role and a tutor or crew membership are different things. A management account needs an active linked tutor profile to perform tutor duties. Student history can coexist with another account role. Suspension prevents ordinary participation; follow the suspension page’s appeal route.
+A role and a tutor or crew membership are different things. A management account needs an active linked tutor profile to perform tutor duties. Every signed-in account can use **Enter Tutee page**, including tutors, crew, viewers and administrators. Visiting it does not change your role or create a tutoring request. Tutee participation and history coexist with other account roles. Suspension prevents ordinary participation; follow the suspension page’s appeal route.
 
-## Students
+## Tutees
 
 ### Apply and confirm
 
-1. Open **Request a tutor** on the home page when intake is open.
-2. Enter your name, email, preferred contact method, subject choices and available times. Read the displayed student policy and sign the agreement.
+1. Open **Request a Tutor** on the home page or any section of the tutee page when intake is open. You can start with the form before creating an account.
+2. Enter your name, email, preferred contact method, subject choices and available times. Read the displayed tutee policy and sign the agreement.
 3. Choose **Submit Request**. Your original survey submission sets your priority. Repeating the same open request does not buy an earlier place.
 4. Open the account-confirmation link sent to your email. Create a password if you need an account. Existing accounts retain their role and password.
-5. Sign in and open **Student Portal**. Verify your request and available times.
+5. Sign in and choose **Enter Tutee page**, then **Requests**, to check your confirmed request and available times. Until you confirm, keep using the emailed confirmation link.
 
 An account link lasts 24 hours. Request a new link if it expires; a successful resend replaces the previous link. Staff may assign a tutor before you confirm. That first assignment starts a fixed seven-day verification deadline. Reassignment and link resends do not extend it. An unverified request closes when its deadline passes and its assignments are released; you must submit a new request with a new priority timestamp.
+
+### Find your way around
+
+The tutee page uses the same top bar, account menu, theme and card layout as the tutor page. Choose a section from its navigation:
+
+| Section | What you can do |
+| --- | --- |
+| Dashboard | See current scheduled sessions and verified open requests, then follow a link to the task you need |
+| My Tutors & Schedule | See current tutoring sessions, tutors, times and rooms across your explicitly linked profiles |
+| Requests | Review confirmed requests, change availability and manage participation; completed requests remain in the current period’s history |
+| Attendance | Review recorded sessions across intakes and submit feedback |
+| Support | Review your disciplinary cards and appeals or open a private conversation |
+| Messages | Open the existing private messaging page |
+| Account | Open your shared account settings |
+
+**Request a Tutor** is available in every section and opens the existing request form. A program period is labeled **Quarter** when quarters are enabled and **Semester** when semester mode is applied; request and withdrawal wording follows that setting. A staged mode change does not change the current display.
+
+Current schedules include only active-period assignments on explicitly owned, non-inactive profiles. Multiple profiles on the same assignment produce one schedule entry. A matching name or email does not grant access to another person’s records. Historical attendance remains available after a refresh. See the [tutee workspace guide](tutee-workspace.md) for additional details.
 
 ### Manage a request
 
@@ -52,20 +70,20 @@ An account link lasts 24 hours. Request a new link if it expires; a successful r
 | --- | --- | --- |
 | Change your available times | **Edit availability** | Subjects, priority and current assignments stay the same; coordinate the actual meeting with your tutor |
 | Cancel an unassigned request | Recall it and confirm the consequences | That request closes permanently; applying again creates a new timestamp |
-| Leave after assignment | **Request withdrawal from this quarter** and give a reason | Assignment continues during review; approval ends participation and blocks another request that quarter |
+| Leave after assignment | **Request withdrawal…** and give a reason | Assignment continues during review; approval ends participation and blocks another request in the current program period |
 | See the result | **Current request** and **Processed** | Review state and assignment are shown separately |
 
 Important actions display consequences and a countdown before confirmation. A pending request is not an approved change. If a tutor reports a schedule conflict, an approved rejection removes only that tutor’s assignment and returns your request for matching at its original priority.
 
 ### Records, feedback and appeals
 
-Use **My Schedule**, **My Attendance**, **My Disciplinary Cards** and **My Appeals** in Student Portal. Records remain linked to your account across new intakes and verified email changes.
+Use **My Tutors & Schedule** for current assignments, **Attendance** for recorded sessions and feedback, and **Support** for disciplinary cards and appeals. Records remain linked to your account across new intakes and verified email changes.
 
 - Submit feedback for one of your recorded sessions. The portal explains whether management has enabled sharing with that session’s tutor. Feedback is management-only by default; a later visibility change also affects earlier feedback.
 - Appeal your own card within **five school days**. Holidays and make-up days follow the school calendar maintained by staff. A pending appeal does not automatically invalidate the card.
 - Use **Messages** for a private management conversation. Policy renewal does not remove access to your history, feedback, appeals, messages or account settings. Further participation requires accepting the revised policy.
 
-Read the [student policy](../prisma/policies/tutee-policy.en.md) or [中文学生政策](../prisma/policies/tutee-policy.zh.md).
+Read the [tutee policy](../prisma/policies/tutee-policy.en.md) or [中文学生政策](../prisma/policies/tutee-policy.zh.md).
 
 ## Tutors
 
@@ -75,8 +93,8 @@ Complete the team’s registration-code or setup-link flow, verify your email, a
 
 ### Record a session
 
-1. Confirm the assigned students, date, start/end time and room.
-2. Record whether the session was held and each student’s actual attendance. Give clear reasons for requested disciplinary cards.
+1. Confirm the assigned tutees, date, start/end time and room.
+2. Record whether the session was held and each tutee’s actual attendance. Give clear reasons for requested disciplinary cards.
 3. Read any room-conflict warning. A truthful historical report is allowed and alerts management; it does not reserve a conflicting room for a future session.
 4. Submit once and check the saved record. If the result is unclear after a network error, check the record before retrying.
 5. Ask management for a historical correction with the date, affected record and reason. Coordinators must obtain approval for corrections.
@@ -85,7 +103,7 @@ Current tutor-policy acceptance is required for attendance submission. Your serv
 
 ### Conflicts, meetings and interviews
 
-- If an assigned student’s availability cannot work, submit a reasoned schedule-rejection request. The assignment continues until approval.
+- If an assigned tutee’s availability cannot work, submit a reasoned schedule-rejection request. The assignment continues until approval.
 - Submit a meeting excuse at least **60 minutes** before the start. The first three unexcused tutor-meeting absences in a semester have no automatic deduction; each further one deducts **0.25 hours**. Excused absences do not consume this allowance.
 - On an interview panel, review the application and submit your own vote. Every panelist must vote before a final decision. The majority decides; a tie is resolved by the selected highest-ranking management chair.
 - A coordinator chair’s outcome goes to ADMIN/HEAD for approval. The reviewer preserves the chair’s decision and identity. Hours are earned from recorded interview completion and attendance, not scheduling alone.
@@ -105,7 +123,7 @@ Coordinators prepare management changes and learn through review. Their own auth
 ### Submit a change
 
 1. Open the relevant management page and inspect the current record.
-2. Enter the proposed change and any required reason. For student assignment/review actions, read the consequence dialog and wait for confirmation.
+2. Enter the proposed change and any required reason. For tutee assignment/review actions, read the consequence dialog and wait for confirmation.
 3. Submit. **Submitted for admin approval** means no live management change has been applied.
 4. Follow **View request** to **Change Approvals**. Check the proposed values and wait for review. You can withdraw your own pending request.
 5. Read the reviewer’s note. Check the live record after approval; an email-delivery warning may still require a link resend.
@@ -119,9 +137,9 @@ If records change while a proposal is pending, the reviewer must reject it and r
 ### Review a coordinator change
 
 1. Open **Change Approvals**, select a pending request and inspect its values and recorded evidence.
-2. Check the affected student/tutor, program period and consequences.
+2. Check the affected tutee/tutor, program period and consequences.
 3. Enter an explanatory review note. Choose **Approve and Apply** or reject with feedback.
-4. For student actions, complete your own fresh timed confirmation. The coordinator’s earlier confirmation cannot stand in for yours.
+4. For tutee actions, complete your own fresh timed confirmation. The coordinator’s earlier confirmation cannot stand in for yours.
 5. Check the applied state and audit link. If the target changed, reject and request a fresh proposal. If application fails, the request remains pending; do not report it as approved.
 
 You cannot review your own proposal, including after promotion. A coordinator interview chair remains the author of their proposed outcome. A failed email after a successful assignment does not undo that assignment; use the link resend control and investigate delivery.
@@ -129,10 +147,10 @@ You cannot review your own proposal, including after promotion. A coordinator in
 ### Run the program
 
 - Maintain subjects, slots, rooms, rosters and assignments; check current intake and availability before matching.
-- Use **Student Support** for feedback visibility, student appeals, school-calendar overrides and policy-acceptance evidence. Staff see pending appeals first, can switch to resolved history, and each list has its own page navigation. Calendar overrides affect the five-school-day appeal window.
+- Use **Tutee Support** for feedback visibility, tutee appeals, school-calendar overrides and policy-acceptance evidence. Staff see pending appeals first, can switch to resolved history, and each list has its own page navigation. Calendar overrides affect the five-school-day appeal window.
 - Use **Interview Management** for staff-confirmed subject qualifications and actual completion, duration and attendees. Correcting completion replaces earlier automatic credits.
 - Correct historical attendance or patrols with a reason. Review hours, discipline and related effects after the correction; HEAD receives an in-system notification.
-- Use **Policies** to publish revised documents following the [publication steps](policies/README.md#publish-a-revision). On a fresh site, start with the blank **Student policy** and **Tutor policy** editors and save the reviewed English text before adding translations. Updating repository files alone does not change an already running site.
+- Use **Policies** to publish revised documents following the [publication steps](policies/README.md#publish-a-revision). On a fresh site, start with the blank **Tutee policy** and **Tutor policy** editors and save the reviewed English text before adding translations. Updating repository files alone does not change an already running site.
 - Use **Audit Log** to filter by actor, event, operation, record or UTC date. A proposal and its applied action are distinct events.
 
 ## HEAD
@@ -145,7 +163,7 @@ A new period does not erase historical attendance, policy acceptance or audit ev
 
 ## Viewers
 
-Viewers can browse permitted read-only management summaries. Personal contact details are masked, and management mutations are unavailable. Viewer access does not expose private message conversations or provide a student portal for someone else’s account.
+Viewers can browse permitted read-only management summaries. Personal contact details are masked, and management mutations are unavailable. Viewer access does not expose private message conversations or another person’s tutee records. Viewers can use **Enter Tutee page** for their own tutoring requests and records.
 
 If you need a different role or access to your own participation record, contact management. Do not create another account to work around permissions.
 
@@ -181,16 +199,16 @@ Use **Messages** for participant-to-management conversations. Only the two conve
 
 For a private account, disciplinary or attendance matter, contact management through the website. For a reproducible software bug, use the [bug form](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/new?template=bug_report.yml). You can also [suggest a feature](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/new?template=feature_request.yml) or [request a documentation update](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/new?template=documentation.yml).
 
-Use synthetic examples and remove student names, contact details, private messages, account links and codes from public reports. [Creating issues](issues.md) explains what information is useful.
+Use synthetic examples and remove tutee names, contact details, private messages, account links and codes from public reports. [Creating issues](issues.md) explains what information is useful.
 
 [Documentation home](README.md) · [Technical report](technical-report.md) · [Policy documents](policies/README.md)
 
 ### Signup request tabs
 
-Signup Requests includes student signups and manually managed requests in the same tabs and counts, with source badges. Needs matching includes empty or partially assigned requests; Assigned contains requests whose requested subjects all have tutors. Both sources keep their original submission order. Needs review contains pending review decisions; Processed retains closed requests and completed review history. A completed manual signup stays in Assigned when the page is refreshed.
+Signup Requests includes tutee signups and manually managed requests in the same tabs and counts, with source badges. Needs matching includes empty or partially assigned requests; Assigned contains requests whose requested subjects all have tutors. Both sources keep their original submission order. Needs review contains pending review decisions; Processed retains closed requests and completed review history. A completed manual signup stays in Assigned when the page is refreshed.
 
 ### Withdrawal requests
 
-Students open Student Portal and use **Request withdrawal from this quarter** under Participation. This is also available for manually managed enrollments explicitly linked to the student's account. A reason and timed confirmation are required. Tutoring continues until staff approves; approval ends all tutoring in the current quarter and blocks another signup for that quarter. Students with an unassigned survey request may still recall that request immediately using the existing recall flow.
+Tutees choose **Enter Tutee page**, open **Requests**, and use **Request withdrawal…** under Participation. The button names the current quarter or semester according to the applied program setting. This is also available for manually managed enrollments explicitly linked to the tutee's account. A reason and timed confirmation are required. Tutoring continues until staff approves; approval ends all tutoring in the current program period and blocks another signup in that period. Tutees with an unassigned survey request may still recall that request immediately using the existing recall flow.
 
-Staff use **Withdrawal Requests & Removals** to review self-submitted requests and their decision history. Student requests show their source, scope, submission time and approval-dependent effective date. Tutor-relayed withdrawals remain in a separate section with their existing seven-day recall window and exact scheduled effective time. Tutor relays remain available; staff can cancel them before they take effect.
+Staff use **Withdrawal Requests & Removals** to review self-submitted requests and their decision history. Tutee requests show their source, scope, submission time and approval-dependent effective date. Tutor-relayed withdrawals remain in a separate section with their existing seven-day recall window and exact scheduled effective time. Tutor relays remain available; staff can cancel them before they take effect.

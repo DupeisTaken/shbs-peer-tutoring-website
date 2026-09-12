@@ -158,7 +158,7 @@ export const correctionsRouter = createTRPCRouter({
         )
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "Include each recorded student exactly once.",
+            message: "Include each recorded tutee exactly once.",
           });
         const {
           id: _id,

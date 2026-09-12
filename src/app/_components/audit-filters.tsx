@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useTranslations, useTimeZone } from "next-intl";
 import { api, type RouterInputs } from "~/trpc/react";
 import { humanizeOperation } from "~/lib/approval-policy";
+import { auditActorLabel } from "~/lib/audit-actors";
 
 import { programDayStart, programDayEnd } from "~/lib/program-time";
 export type AuditFilterInput = NonNullable<RouterInputs["admin"]["auditLog"]>;
@@ -38,7 +39,7 @@ export function AuditFilters({
         { id: "__system__", label: t("system") },
         ...(options.data?.users.map((u) => ({
           id: u.id,
-          label: `${u.label} · ${u.id.slice(-6)}`,
+          label: auditActorLabel(u, {unnamed:t("unnamedAccount"),former:t("formerAccount")}),
         })) ?? []),
       ],
     },

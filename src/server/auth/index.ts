@@ -1,3 +1,7 @@
+import {
+  lockAccountProfile,
+  updateAccountProfile,
+} from "~/server/account-profile";
 import NextAuth, { CredentialsSignin } from "next-auth";
 import Credentials from "next-auth/providers/credentials";
 import { cache } from "react";
@@ -77,7 +81,13 @@ const {
         if (loginCode.success) {
           const user = await db.user.findUnique({
             where: { id: loginCode.data.userId },
-            select: { id: true, name: true, email: true, twoFactorEnabled: true, suspendedAt: true },
+            select: {
+              id: true,
+              name: true,
+              email: true,
+              twoFactorEnabled: true,
+              suspendedAt: true,
+            },
           });
           if (!user?.twoFactorEnabled || user.suspendedAt) return null;
           const features = await getFeatures(db);
@@ -124,11 +134,15 @@ const {
      */
     async jwt({ token, user }) {
       if (user?.id) {
+        const userId = user.id;
         const email =
           (user.email ?? token.email ?? null)?.toLowerCase() ?? null;
 
-        const identity = await db.user.findUnique({ where: { id: user.id }, select: { emailVerifiedAt: true } });
-        const tutorId = await resolveTutorLink(db, user.id, email);
+        const identity = await db.user.findUnique({
+          where: { id: userId },
+          select: { emailVerifiedAt: true, tutorId: true },
+        });
+        const tutorId = await resolveTutorLink(db, userId, email);
 
         // Bootstrap roles. The FIRST email in AUTH_BOOTSTRAP_ADMIN_EMAILS is the designated HEAD
         // (singleton leader); the rest are ADMIN. Grants only ever ELEVATE — never demote — so a
@@ -145,7 +159,7 @@ const {
           if (isBootstrapAdmin && identity?.emailVerifiedAt) {
             const [current, headCount] = await Promise.all([
               tx.user.findUnique({
-                where: { id: user.id },
+                where: { id: userId },
                 select: { role: true },
               }),
               tx.user.count({ where: { role: "HEAD" } }),
@@ -162,14 +176,19 @@ const {
           }
 
           // Persist the linkage/role bump so the admin UI can manage them later.
-          return tx.user.update({
-            where: { id: user.id },
+          if (tutorId && identity?.tutorId !== tutorId)
+            await lockAccountProfile(tx, userId);
+          const updated = await tx.user.update({
+            where: { id: userId },
             data: {
               ...(tutorId ? { tutorId } : {}),
               ...(roleBump ? { role: roleBump } : {}),
             },
             select: { id: true, role: true, tutorId: true },
           });
+          if (tutorId && identity?.tutorId !== tutorId)
+            await updateAccountProfile(tx, userId);
+          return updated;
         });
 
         // Uphold the "every account has a username" invariant — assign one on first sign-in if

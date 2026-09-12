@@ -107,7 +107,7 @@ export function checkDocs() {
   }
   const roleIds = modelFor("docs/user-guide.md").headings.map((h) => h.id);
   for (const role of [
-    "students",
+    "tutees",
     "tutors",
     "crew",
     "coordinators",

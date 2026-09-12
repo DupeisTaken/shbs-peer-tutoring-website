@@ -259,7 +259,7 @@ export async function editStudentAvailability(
     await notifyRequest(
       tx,
       row,
-      "Student availability edited / 学生可用时间已修改",
+      "Tutee availability edited / 学生可用时间已修改",
     );
     return { ok: true };
   });

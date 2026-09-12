@@ -21,29 +21,30 @@ export function canSubmitCardAppeal({
   return reviewStatus !== "INVALID" && !hasExistingAppeal && deadline >= now;
 }
 
-export function StudentPortal() {
+export function StudentPortal({ view = "all" }: { view?: "all" | "schedule" | "attendance" | "support" }) {
   const programFormat = useFormatter();
   const t = useTranslations("workflows");
+  const portal = useTranslations("tuteePortal");
   const [page, setPage] = useState(0);
   const data = api.student.me.useQuery({ page });
-  const shared = api.student.feedbackSettings.useQuery();
+  const shared = api.student.feedbackSettings.useQuery(undefined, { enabled: view === "all" || view === "attendance" });
   const { promptText, dialog } = useDialog();
   const appeal = api.student.appeal.useMutation({
     onSuccess: () => data.refetch(),
   });
   if (data.error) return <p role="alert">{data.error.message}</p>;
   if (!data.data) return <p>{t("loading")}</p>;
-  const { student, sessions, cards, appeals } = data.data;
+  const { schedule, sessions, cards, appeals } = data.data;
   return (
     <div className="space-y-6">
       {dialog}
-      <section className="card p-6">
+      {(view === "all" || view === "schedule") && <section className="card p-6">
         <h2 className="section-title">{t("schedule")}</h2>
-        {!student?.pairings.length && (
-          <p className="muted mt-3">{t("empty")}</p>
+        {!schedule.length && (
+          <p className="muted mt-3">{portal("scheduleEmpty")}</p>
         )}
-        {student?.pairings.map(({ pairing: p }, i) => (
-          <div key={i} className="mt-3 rounded-lg bg-slate-50 p-4">
+        {schedule.map((p) => (
+          <div key={p.id} className="mt-3 rounded-lg bg-slate-50 p-4">
             <p className="font-semibold">
               {p.subject} · {p.tutor.englishName}
             </p>
@@ -53,8 +54,8 @@ export function StudentPortal() {
             </p>
           </div>
         ))}
-      </section>
-      <section className="card space-y-4 p-6">
+      </section>}
+      {(view === "all" || view === "attendance") && <section className="card space-y-4 p-6">
         <h2 className="section-title">{t("attendance")}</h2>
         <p className="muted text-sm">
           {t(shared.data ? "sharedFeedback" : "privateFeedback")}
@@ -72,8 +73,8 @@ export function StudentPortal() {
             <FeedbackForm sessionId={row.session.id} initial={row.feedback} />
           </div>
         ))}
-      </section>
-      <section className="card space-y-4 p-6">
+      </section>}
+      {(view === "all" || view === "support") && <><section className="card space-y-4 p-6">
         <h2 className="section-title">{t("cards")}</h2>
         {!cards.length && <p className="muted">{t("empty")}</p>}
         {cards.map((card) => (
@@ -126,13 +127,14 @@ export function StudentPortal() {
           </div>
         ))}
       </section>
-      <Pager
+      </>}
+      {view !== "schedule" && <Pager
         page={page}
         setPage={setPage}
         more={
-          sessions.length === 20 || cards.length === 20 || appeals.length === 20
+          (view !== "support" && sessions.length === 20) || (view !== "attendance" && (cards.length === 20 || appeals.length === 20))
         }
-      />
+      />}
     </div>
   );
 }

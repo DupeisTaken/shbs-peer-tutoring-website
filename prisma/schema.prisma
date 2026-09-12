@@ -41,6 +41,9 @@ model User {
   student Tutee? @relation(fields: [studentId], references: [id], onDelete: SetNull)
   id    String  @id @default(cuid())
   name  String?
+  /// Canonical person profile; mirrored only through explicit tutor/student links.
+  alternativeNames String?
+  profileVersion Int @default(0)
   /// Login identifier. Also the address future email-based 2FA codes are sent to.
   email String  @unique
 
@@ -410,6 +413,7 @@ model Tutor {
   /// from this + the active school year (tutors can't edit the derived year). See src/lib/period.ts.
   gradeLevel  Int?
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
 
   user                 User?
   pairings             Pairing[]
@@ -548,6 +552,7 @@ model Tutee {
   signupSubmittedAt DateTime?
   id          String      @id @default(cuid())
   englishName String
+  alternativeNames String?
   email       String?
   phone       String?
   /// Free-text "how can we reach you?" captured on the public signup form (required there).

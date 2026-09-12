@@ -156,6 +156,37 @@ beforeEach(async () => {
 afterAll(() => db.$disconnect());
 
 describe("survey-first enrollment", () => {
+  it.each([true, false])(
+    "describes the submitted intake in confirmation with quarter mode %s",
+    async (enabled) => {
+      await db.programFeature.create({
+        data: { key: "QUARTER_SYSTEM", enabled, pendingEnabled: !enabled },
+      });
+      await db.term.update({
+        where: { id: "survey-term" },
+        data: { quarter: "Q3" },
+      });
+      await submitSurvey(db, input());
+      const token = lastToken();
+      // Later active-period changes must not relabel the request as the new intake.
+      await db.term.update({
+        where: { id: "survey-term" },
+        data: { active: false },
+      });
+      await db.term.create({
+        data: {
+          name: "Next intake",
+          schoolYear: "27-28",
+          quarter: "Q1",
+          active: true,
+        },
+      });
+      expect((await inspectSurvey(db, token)).period).toEqual({
+        kind: enabled ? "quarter" : "semester",
+        label: enabled ? "2026–27 Q3" : "2026–27 S2",
+      });
+    },
+  );
   it("keeps a previously delivered link usable after two concurrent failed resends", async () => {
     await submitSurvey(db, input());
     const token = lastToken();

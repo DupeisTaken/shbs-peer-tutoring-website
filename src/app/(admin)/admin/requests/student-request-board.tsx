@@ -1,4 +1,5 @@
 "use client";
+import { EmailDetails } from "~/app/_components/email-details";
 import { useState, type ReactNode } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import {
@@ -239,7 +240,7 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
       <div className="grid gap-4 border-t border-slate-100 pt-4 text-sm sm:grid-cols-2">
         <div>
           <p className="font-medium">{t("contact")}</p>
-          <p className="muted mt-1 break-all">{row.email}</p>
+          <EmailDetails contactOnly email={row.email} name={row.name} />
           <p className="muted break-words">{row.contact}</p>
         </div>
         <div>

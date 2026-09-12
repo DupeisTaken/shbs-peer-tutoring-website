@@ -105,7 +105,7 @@ export async function applyLegacyStudentWithdrawal(
     await tx.notification.createMany({
       data: managers.map((u) => ({
         userId: u.id,
-        title: "Student withdrawal awaiting review / 学生退出申请待审核",
+        title: "Tutee withdrawal awaiting review / 学生退出申请待审核",
         link: "/admin/tutee-requests",
       })),
     });

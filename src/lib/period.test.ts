@@ -5,6 +5,7 @@ import {
   crossesSemester,
   crossesYear,
   graduationYear,
+  getPeriodDisplay,
   isSchoolYear,
   nextPeriod,
   nextSchoolYear,
@@ -14,6 +15,35 @@ import {
   schoolYearForDate,
   semesterQuarters,
 } from "./period";
+
+describe("public period display", () => {
+  it.each(["Q1", "Q2", "Q3", "Q4"] as const)(
+    "shows %s in quarter mode",
+    (quarter) => {
+      expect(getPeriodDisplay({ schoolYear: "26-27", quarter }, true)).toEqual({
+        kind: "quarter",
+        label: `2026–27 ${quarter}`,
+      });
+    },
+  );
+
+  it.each([
+    ["Q1", "S1"],
+    ["Q2", "S1"],
+    ["Q3", "S2"],
+    ["Q4", "S2"],
+  ] as const)(
+    "maps %s to %s only for display in semester mode",
+    (quarter, semester) => {
+      const period = { schoolYear: "26-27", quarter };
+      expect(getPeriodDisplay(period, false)).toEqual({
+        kind: "semester",
+        label: `2026–27 ${semester}`,
+      });
+      expect(period.quarter).toBe(quarter);
+    },
+  );
+});
 
 describe("quarter <-> semester", () => {
   it("maps quarters to semesters", () => {
@@ -73,7 +103,8 @@ describe("nextPeriod", () => {
 });
 
 describe("crossesSemester", () => {
-  const advance = (p: Parameters<typeof nextPeriod>[0]) => crossesSemester(p, nextPeriod(p));
+  const advance = (p: Parameters<typeof nextPeriod>[0]) =>
+    crossesSemester(p, nextPeriod(p));
 
   it("stays within a semester from Q1->Q2 and Q3->Q4", () => {
     expect(advance({ schoolYear: "25-26", quarter: "Q1" })).toBe(false);
@@ -87,7 +118,8 @@ describe("crossesSemester", () => {
 });
 
 describe("crossesYear", () => {
-  const advance = (p: Parameters<typeof nextPeriod>[0]) => crossesYear(p, nextPeriod(p));
+  const advance = (p: Parameters<typeof nextPeriod>[0]) =>
+    crossesYear(p, nextPeriod(p));
 
   it("only true when Q4 rolls into the next year", () => {
     expect(advance({ schoolYear: "25-26", quarter: "Q1" })).toBe(false);
@@ -136,7 +168,9 @@ describe("longevity — 15 years of quarterly refreshes", () => {
       }
       // School year only changes at a year boundary, and always advances by one.
       if (yearTurned) {
-        expect(schoolYearEndYear(next.schoolYear)).toBe(schoolYearEndYear(p.schoolYear) + 1);
+        expect(schoolYearEndYear(next.schoolYear)).toBe(
+          schoolYearEndYear(p.schoolYear) + 1,
+        );
       } else {
         expect(next.schoolYear).toBe(p.schoolYear);
       }

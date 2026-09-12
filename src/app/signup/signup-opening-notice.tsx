@@ -10,7 +10,7 @@ import { signupCountdown } from "~/lib/signup-window";
 const OPENING_REFRESH_RETRY_MS = 5_000;
 
 interface SignupOpeningNoticeProps {
-  quarter: string;
+  periodLabel: string;
   opensAt: string;
   previewUrl: string | null;
   /** Server-render time keeps the first client render hydration-stable. */
@@ -22,7 +22,7 @@ interface SignupOpeningNoticeProps {
  * this small client timer is only responsible for the live countdown and refreshing at zero.
  */
 export function SignupOpeningNotice({
-  quarter,
+  periodLabel,
   opensAt,
   previewUrl,
   serverNow,
@@ -43,8 +43,7 @@ export function SignupOpeningNotice({
     lastRefreshAt.current = null;
 
     const tick = () => {
-      const nextNow =
-        serverNowMs + (window.performance.now() - startedAt);
+      const nextNow = serverNowMs + (window.performance.now() - startedAt);
       setNowMs(nextNow);
 
       if (
@@ -110,7 +109,7 @@ export function SignupOpeningNotice({
           id="signup-opening-title"
           className="mt-3 text-2xl font-bold tracking-tight text-balance text-slate-900 sm:text-3xl"
         >
-          {t("title", { quarter, time: formattedOpening })}
+          {t("periodTitle", { period: periodLabel, time: formattedOpening })}
         </h2>
 
         <div

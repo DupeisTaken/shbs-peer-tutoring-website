@@ -1756,7 +1756,8 @@
         "hours": "小时",
         "minutes": "分钟",
         "seconds": "秒",
-        "opening": "正在开放报名…"
+        "opening": "正在开放报名…",
+        "periodTitle": "{period} 学员报名将于 {time} 开放"
       },
       "becomeTutorPrompt": "想成为辅导员？",
       "becomeTutorLink": "申请成为辅导员",
@@ -1788,7 +1789,9 @@
       "noSlots": "目前还没有发布任何时间段，请稍后再来查看。",
       "agree": "我已阅读并同意遵守 <policy>{appTitle} 政策</policy>。",
       "submit": "提交申请",
-      "submitting": "提交中…"
+      "submitting": "提交中…",
+      "quarter": "季度 · {period}",
+      "semester": "学期 · {period}"
     },
     "tutorSignup": {
       "title": "申请成为同伴辅导员",
@@ -1892,7 +1895,8 @@
     "userMenu": {
       "settings": "设置",
       "enterTutor": "进入导师区",
-      "enterAdmin": "进入管理区"
+      "enterAdmin": "进入管理区",
+      "enterTutee": "进入学员主页"
     },
     "theme": {
       "label": "主题",
@@ -2066,11 +2070,11 @@
     "save": "保存详情"
   },
   "workflows": {
-    "student": "Student Portal",
+    "student": "Tutee Portal",
     "messages": "Messages",
-    "support": "Student Support",
+    "support": "Tutee Support",
     "enroll": "Request Tutoring",
-    "newAccount": "Create a Student Account",
+    "newAccount": "Create a Tutee Account",
     "name": "Name",
     "email": "Email",
     "password": "Password (at least 8 characters)",
@@ -2106,7 +2110,7 @@
     "sent": "Message sent.",
     "reply": "Reply",
     "read": "Mark as Read",
-    "shareFeedback": "Allow assigned tutors to read student feedback",
+    "shareFeedback": "Allow assigned tutors to read tutee feedback",
     "privateFeedback": "Feedback is visible only to management.",
     "sharedFeedback": "Feedback is visible to management and your assigned tutor.",
     "decision": "Decision Reason",
@@ -2151,7 +2155,7 @@
     "calendarHelp": "Weekdays count as school days unless overridden here. Include holidays and make-up school days so appeal deadlines are accurate.",
     "date": "Date",
     "note": "Note",
-    "staffAppeals": "Student Appeals",
+    "staffAppeals": "Tutee Appeals",
     "appealFilter": "申诉状态",
     "pendingAppeals": "待处理",
     "resolvedAppeals": "已处理",
@@ -2305,7 +2309,17 @@
     "policyHistoryAccess": "参与新的活动前，请阅读并接受更新后的政策。您仍可查看历史记录、反馈、申诉和私信。",
     "manualSource": "手动管理",
     "surveySource": "学生报名",
-    "legacyWithdrawalHelp": "你可以申请退出本季度的全部辅导。工作人员批准前，你的参与状态保持不变。批准后，你不能在同一季度再次报名。"
+    "legacyWithdrawalHelp": "你可以申请退出本季度的全部辅导。工作人员批准前，你的参与状态保持不变。批准后，你不能在同一季度再次报名。",
+    "semesterCopy": {
+      "noActive": "本学期暂无已确认的有效申请。如果刚提交，请查看邮箱。",
+      "abortFinal": "你已退出本学期项目。在下一学期开始前不能再次申请。",
+      "abortHelp": "你已有导师安排，退出需提交申请。批准后将结束本学期参与，并禁止本学期再次申请。",
+      "abortPending": "本学期退出申请正在等待管理员审核。审核期间现有安排继续有效。",
+      "applyAbort": "申请退出本学期辅导",
+      "abortConsequences": "你正在申请退出本学期整个辅导项目。管理员审核期间现有导师安排仍然有效。若批准，所有导师安排将解除，此申请将永久关闭，且本学期不能再次提交任何申请。管理员和导师会收到通知。",
+      "approveAbortConsequences": "批准将结束该学生整个本学期的参与，解除所有导师安排，并永久关闭此申请。该学生本学期再次提交申请将被阻止。此操作不可撤销。",
+      "legacyWithdrawalHelp": "你可以申请退出本学期的全部辅导。工作人员批准前，你的参与状态保持不变。批准后，你不能在同一学期再次报名。"
+    }
   },
   "approvals": {
     "title": "待审批的变更",
@@ -2371,7 +2385,9 @@
       "DECISION": "决定",
       "SUBMISSION": "提案",
       "CANCELLATION": "撤回"
-    }
+    },
+    "unnamedAccount": "未命名账户",
+    "formerAccount": "已删除账户"
   },
   "userMultiFilters": {
     "all": "全部",
@@ -2393,7 +2409,7 @@
     "title": "项目时区",
     "help": "日期、时间安排、截止时间及通知统一使用学校时区。",
     "zone": "时区",
-    "iana": "请选择 IANA 时区，例如 Asia/Shanghai 或 America/New_York。",
+    "iana": "从列表选择地区和城市。夏令时将自动处理。",
     "invalid": "请选择有效的 IANA 时区。",
     "preview": "同一时刻在两个时区的显示",
     "impact": "每周时间段保持钟表时间不变（15:30 仍为 15:30）。已有预约和已保存的截止时间保留原始时间戳，但显示时间可能变化。新的校历计算使用新时区。已有服务时长不会重新计算。",
@@ -2404,5 +2420,57 @@
     "readOnly": "仅负责人或管理员可以修改项目时区。",
     "loading": "正在加载时区…",
     "inputZone": "时间按 {zone} 输入。"
+  },
+  "adminNavigation": {
+    "title": "管理导航",
+    "open": "菜单"
+  },
+  "tuteePortal": {
+    "title": "学员主页",
+    "navigation": "学员导航",
+    "dashboard": "总览",
+    "schedule": "我的导师与课表",
+    "requests": "申请",
+    "attendance": "出勤",
+    "support": "支持",
+    "messages": "消息",
+    "account": "账户",
+    "requestTutor": "申请辅导",
+    "manageRequests": "管理我的申请",
+    "welcome": "欢迎，{name}",
+    "intro": "在这里查看导师、课表、申请进展与出勤记录。无论你是否同时担任导师或管理员，都可以使用学员主页。",
+    "formHelp": "通过申请表选择科目和可用时间。请保留邮件确认链接：完成确认的申请与后续进展将显示在“申请”中。",
+    "scheduledSubjects": "当前每周辅导安排",
+    "openRequests": "已确认且仍在处理的申请",
+    "attendanceHelp": "查看课程出勤记录并提交反馈。",
+    "supportHelp": "在下方查看纪律卡和申诉，或打开消息与团队私下联系。",
+    "accountHelp": "管理统一的账户资料及登录信息。",
+    "needHelp": "获取帮助",
+    "scheduleEmpty": "暂无已安排的辅导课程。可在申请页面查看进展，或填写申请表开始申请。"
+  },
+  "accountProfile": {
+    "editProfile": "编辑个人资料",
+    "close": "关闭",
+    "name": "显示姓名",
+    "alternativeNames": "其他语言姓名",
+    "alternativeHelp": "选填。添加此人使用的其他语言姓名。",
+    "canonicalHelp": "这是账户个人资料。姓名更改会同步至关联的辅导员和学员资料。历史签名和已提交的表格保持不变。",
+    "save": "保存资料",
+    "showEmail": "查看邮箱",
+    "emailTitle": "邮箱 · {name}",
+    "noEmail": "未提供邮箱",
+    "verified": "邮箱已验证",
+    "unverified": "邮箱待验证",
+    "setupRequired": "需要设置账户",
+    "emailProtected": "账户持有人须在账户设置中验证后更改邮箱。",
+    "unlinkedEmail": "此地址仅用于联系，不代表账户归属。",
+    "copyEmail": "复制邮箱",
+    "sendVerification": "发送验证及账户设置链接",
+    "copied": "邮箱已复制。",
+    "copyError": "无法自动复制。请选择上面的邮箱手动复制。",
+    "sent": "已发送验证及账户设置链接。",
+    "deliveryUnavailable": "邮件服务不可用，未发送邮件。",
+    "contactAddress": "联系邮箱（历史记录中的地址）",
+    "inviteInUsers": "在“用户与角色”中设置账户邀请。"
   }
 }

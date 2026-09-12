@@ -550,8 +550,8 @@ it("filters all actor IDs including deleted users, combined decisions, dates and
   );
   expect((await admin().admin.auditFilterOptions()).users).toEqual(
     expect.arrayContaining([
-      { id: "deleted-user", label: "Alex Newcomer" },
-      { id: "approval-coordinator", label: "Alex Newcomer" },
+      expect.objectContaining({ id: "deleted-user", label: "Alex Newcomer", former:true }),
+      expect.objectContaining({ id: "approval-coordinator", label: "Alex Newcomer", former:false }),
     ]),
   );
 });

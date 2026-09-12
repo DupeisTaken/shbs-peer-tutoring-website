@@ -19,8 +19,8 @@ vi.mock("~/trpc/react", () => ({
         useQuery: () => ({
           data: {
             users: [
-              { id: "user-alex-1", label: "Alex" },
-              { id: "user-alex-2", label: "Alex" },
+              { id: "user-alex-1", label: "Alex", username:"alexchen", former:false },
+              { id: "user-alex-2", label: "Alex", username:"alexkim", former:false },
             ],
             operations: ["admin.updateRoom"],
             entities: ["Room"],
@@ -58,6 +58,8 @@ it("combines filters by stable user ID and clears them without sending incomplet
   const onApply = vi.fn();
   render(<AuditFilters onApply={onApply} />, { wrapper });
   expect(screen.getByText("Date filters and event times use Asia/Shanghai.")).toBeTruthy();
+  expect(screen.getByRole('option',{name:'Alex · @alexkim'})).toBeTruthy();
+  expect(screen.queryByText(/alex-2/)).toBeNull();
   fireEvent.change(screen.getByLabelText("User"), {
     target: { value: "user-alex-2" },
   });
