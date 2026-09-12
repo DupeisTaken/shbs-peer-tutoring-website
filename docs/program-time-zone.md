@@ -1,5 +1,7 @@
 # Program time zone
 
+The setting uses a dropdown grouped by region. Choices come from the server's supported timezone database, including UTC and the saved zone. Administrators select a city/zone, review the preview and confirm before saving; free-text entry is not required.
+
 Head and Administrator accounts can change the IANA time zone in **Program & Refresh → Program time zone**. Coordinators can read the setting. The default is `Asia/Shanghai`; no environment or host operating-system changes are needed.
 
 The preview shows the same moment in the current and proposed zones. Review the effect and tick the confirmation before saving. A stale editor cannot overwrite a more recent change; reload it first.

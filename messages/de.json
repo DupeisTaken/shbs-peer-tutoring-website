@@ -2393,7 +2393,7 @@
     "title": "Program time zone",
     "help": "Use one school time zone for dates, schedules, deadlines and notifications.",
     "zone": "Time zone",
-    "iana": "Choose an IANA zone, such as Asia/Shanghai or America/New_York.",
+    "iana": "Choose a region and city from the list. Daylight saving time is handled automatically.",
     "invalid": "Choose a valid IANA time zone.",
     "preview": "The same moment, displayed in each zone",
     "impact": "Weekly slots keep their clock times (15:30 stays 15:30). Existing appointments and saved deadlines keep their exact timestamps; their displayed time may change. New school-calendar calculations use the new zone. Existing service hours are not recalculated.",

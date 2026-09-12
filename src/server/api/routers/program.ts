@@ -18,6 +18,7 @@ import { isEmailDeliveryAvailable } from "~/server/email/sender";
 
 import { getProgramTimeZone } from "~/server/program/time-zone";
 import { isProgramTimeZone } from "~/lib/program-time";
+import { programTimeZoneOptions } from "~/lib/program-time-zone-options";
 import { inTransaction, lockEntity } from "~/server/transactions";
 
 const featureKey = z.enum([
@@ -45,10 +46,11 @@ const httpUrl = z
  * can hide a disabled module); staging changes is HEAD-only and takes effect at the next refresh.
  */
 export const programRouter = createTRPCRouter({
-  timeZoneSettings: adminProcedure.query(async ({ ctx }) => ({
-    timeZone: await getProgramTimeZone(ctx.db),
-    canEdit: ctx.session.role === "HEAD" || ctx.session.role === "ADMIN",
-  })),
+  timeZoneSettings: adminProcedure.query(async ({ ctx }) => {
+    const timeZone=await getProgramTimeZone(ctx.db);
+    return {timeZone, timeZoneOptions:programTimeZoneOptions(timeZone),
+      canEdit:ctx.session.role === "HEAD" || ctx.session.role === "ADMIN"};
+  }),
   // Program configuration requires HEAD/ADMIN directly; coordinators cannot queue this change.
   setTimeZone: adminOnlyProcedure
     .input(z.object({ timeZone: z.string().max(100).refine(isProgramTimeZone, "Choose a valid IANA time zone."), expectedTimeZone: z.string() }))
