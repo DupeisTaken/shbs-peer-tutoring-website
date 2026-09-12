@@ -19,7 +19,7 @@ export function ApprovalNotice() {
   return (
     <aside
       role="status"
-      className="fixed right-4 bottom-4 left-4 z-50 rounded-xl border border-emerald-300 bg-white p-5 shadow-xl sm:left-auto sm:w-96"
+      className="pointer-events-auto w-full rounded-xl border border-emerald-300 bg-white p-5 shadow-xl"
     >
       <div className="flex items-start justify-between gap-3">
         <strong className="text-emerald-900">{t("queued")}</strong>
