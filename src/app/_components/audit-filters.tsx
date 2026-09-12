@@ -1,9 +1,10 @@
 "use client";
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useTimeZone } from "next-intl";
 import { api, type RouterInputs } from "~/trpc/react";
 import { humanizeOperation } from "~/lib/approval-policy";
 
+import { programDayStart, programDayEnd } from "~/lib/program-time";
 export type AuditFilterInput = NonNullable<RouterInputs["admin"]["auditLog"]>;
 const empty = {
   userId: "",
@@ -22,6 +23,8 @@ export function AuditFilters({
   onApply: (input: AuditFilterInput) => void;
 }) {
   const t = useTranslations("auditFilters");
+  const timeZone = useTimeZone();
+  const [inputError, setInputError] = useState("");
   const [draft, setDraft] = useState(empty);
   const options = api.admin.auditFilterOptions.useQuery();
   const set = (key: keyof typeof empty, value: string) =>
@@ -73,22 +76,23 @@ export function AuditFilters({
       className="card grid gap-4 p-5 sm:grid-cols-2 xl:grid-cols-4"
       onSubmit={(e) => {
         e.preventDefault();
-        onApply({
+        try { setInputError(""); onApply({
           userId: draft.userId || undefined,
           kind: (draft.kind || undefined) as
             "ACTION" | "DECISION" | "SUBMISSION" | "CANCELLATION" | undefined,
           operation: draft.operation || undefined,
           entity: draft.entity || undefined,
           search: draft.search || undefined,
-          from: draft.from ? new Date(`${draft.from}T00:00:00Z`) : undefined,
+          from: draft.from ? programDayStart(draft.from, timeZone) : undefined,
           until: draft.until
             ? new Date(
-                new Date(`${draft.until}T00:00:00Z`).getTime() + 86400000,
+                programDayEnd(draft.until, timeZone).getTime() + 1,
               )
             : undefined,
-        });
+        }); } catch (error) { setInputError(error instanceof Error ? error.message : "Invalid date"); }
       }}
     >
+      {inputError && <p role="alert">{inputError}</p>}
       {selects.map((select) => (
         <label key={select.key}>
           <span className="label">{t(select.label)}</span>

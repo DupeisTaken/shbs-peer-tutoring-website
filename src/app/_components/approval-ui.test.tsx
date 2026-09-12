@@ -31,7 +31,7 @@ vi.mock("~/trpc/react", () => ({
   },
 }));
 const wrapper = ({ children }: { children: React.ReactNode }) => (
-  <NextIntlClientProvider locale="en" messages={messages}>
+  <NextIntlClientProvider locale="en" timeZone="Asia/Shanghai" messages={messages}>
     {children}
   </NextIntlClientProvider>
 );
@@ -79,8 +79,8 @@ it("combines filters by stable user ID and clears them without sending incomplet
       userId: "user-alex-2",
       kind: "DECISION",
       search: "review",
-      from: new Date("2026-09-09"),
-      until: new Date("2026-09-10"),
+      from: new Date("2026-09-08T16:00:00Z"),
+      until: new Date("2026-09-09T16:00:00Z"),
     }),
   );
   fireEvent.click(screen.getByRole("button", { name: "Clear Filters" }));

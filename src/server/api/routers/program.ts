@@ -16,6 +16,10 @@ import {
 import { recordAudit } from "~/server/audit/log";
 import { isEmailDeliveryAvailable } from "~/server/email/sender";
 
+import { getProgramTimeZone } from "~/server/program/time-zone";
+import { isProgramTimeZone } from "~/lib/program-time";
+import { inTransaction, lockEntity } from "~/server/transactions";
+
 const featureKey = z.enum([
   "CREW",
   "DISCIPLINE",
@@ -41,6 +45,26 @@ const httpUrl = z
  * can hide a disabled module); staging changes is HEAD-only and takes effect at the next refresh.
  */
 export const programRouter = createTRPCRouter({
+  timeZoneSettings: adminProcedure.query(async ({ ctx }) => ({
+    timeZone: await getProgramTimeZone(ctx.db),
+    canEdit: ctx.session.role === "HEAD" || ctx.session.role === "ADMIN",
+  })),
+  // Program configuration requires HEAD/ADMIN directly; coordinators cannot queue this change.
+  setTimeZone: adminOnlyProcedure
+    .input(z.object({ timeZone: z.string().max(100).refine(isProgramTimeZone, "Choose a valid IANA time zone."), expectedTimeZone: z.string() }))
+    .mutation(async ({ ctx, input }) => inTransaction(ctx.db, async tx => {
+      await lockEntity(tx, "program-timezone");
+      const previous = await getProgramTimeZone(tx);
+      if (previous !== input.expectedTimeZone) throw new TRPCError({ code: "CONFLICT", message: "The program time zone changed. Reload and review the latest setting." });
+      if (previous === input.timeZone) return { timeZone: previous };
+      await tx.programSettings.upsert({ where: { id: "program" }, create: { id: "program", timeZone: input.timeZone }, update: { timeZone: input.timeZone } });
+      await tx.auditLog.create({ data: {
+        userId: ctx.session.user.id, userName: ctx.session.user.name,
+        entity: "ProgramSettings", entityId: "program", operation: "program.setTimeZone",
+        action: "Changed program time zone", details: { before: previous, after: input.timeZone, weeklyClockTimesPreserved: true, storedTimestampsPreserved: true },
+      } });
+      return { timeZone: input.timeZone };
+    })),
   /** Effective on/off for every optional module (missing row = on). Public so the landing page and
    *  public signup forms can hide a disabled module. */
   features: publicProcedure.query(async ({ ctx }) => ({

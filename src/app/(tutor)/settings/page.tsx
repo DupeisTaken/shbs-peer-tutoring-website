@@ -1,13 +1,14 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { TwoFactorSettings } from "~/app/_components/two-factor-settings";
 import { EmailChange } from "~/app/_components/email-change";
 
 export default function SettingsPage() {
+  const programFormat = useFormatter();
   const t = useTranslations();
   const utils = api.useUtils();
   const profile = api.tutor.myProfile.useQuery();
@@ -348,9 +349,9 @@ export default function SettingsPage() {
               {statusReq.data.kind === "OPT_OUT"
                 ? statusReq.data.eligibleAt
                   ? t("tutor.settings.optOutPending", {
-                      date: new Date(
+                      date: programFormat.dateTime(new Date(
                         statusReq.data.eligibleAt,
-                      ).toLocaleDateString(),
+                      ), { dateStyle: "medium" }),
                     })
                   : t("tutor.settings.optOutPendingNoDate")
                 : t("tutor.settings.reentryPending")}

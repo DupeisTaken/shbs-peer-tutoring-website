@@ -1,15 +1,16 @@
 "use client";
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations, useTimeZone } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { useReadOnly } from "./read-only";
 
+import { programDateTimeInput, parseProgramDateTime } from "~/lib/program-time";
 type Patrol = RouterOutputs["corrections"]["patrols"][number];
-// Editing uses explicit school time, regardless of the browser or Ubuntu host timezone.
-const localTime = (date: Date) =>
-  new Date(date.getTime() + 8 * 3600000).toISOString().slice(0, 16);
 function PatrolEditor({ row }: { row: Patrol }) {
   const t = useTranslations("corrections");
+  const timeZone = useTimeZone();
+  const localTime = (date: Date) => programDateTimeInput(date, timeZone);
+  const [inputError, setInputError] = useState("");
   const [open, setOpen] = useState(false);
   const utils = api.useUtils();
   const rooms = api.admin.rooms.useQuery(undefined, { enabled: open });
@@ -33,7 +34,7 @@ function PatrolEditor({ row }: { row: Patrol }) {
               typeof data.get(key) === "string"
                 ? (data.get(key) as string)
                 : "";
-            save.mutate({
+            try { setInputError(""); save.mutate({
               id: row.id,
               expectedUpdatedAt: row.updatedAt,
               reason: v("reason"),
@@ -45,12 +46,13 @@ function PatrolEditor({ row }: { row: Patrol }) {
                 observedAt:
                   v(`time-${o.id}`) === localTime(o.observedAt)
                     ? o.observedAt
-                    : new Date(`${v(`time-${o.id}`)}:00+08:00`),
+                    : parseProgramDateTime(v(`time-${o.id}`), timeZone),
               })),
-            });
+            }); } catch (error) { setInputError(error instanceof Error ? error.message : "Invalid date"); }
           }}
         >
           <p className="muted">{t("patrolHelp")}</p>
+          {inputError && <p role="alert">{inputError}</p>}
           {row.observations.map((o) => (
             <fieldset
               className="grid gap-2 rounded-lg border border-slate-200 p-3 sm:grid-cols-3"
@@ -86,7 +88,7 @@ function PatrolEditor({ row }: { row: Patrol }) {
                 </select>
               </label>
               <label>
-                <span className="label">{t("schoolTime")}</span>
+                <span className="label">{timeZone}</span>
                 <input
                   className="input"
                   name={`time-${o.id}`}
@@ -127,6 +129,7 @@ function PatrolEditor({ row }: { row: Patrol }) {
 }
 
 export function PatrolCorrections() {
+  const programFormat = useFormatter();
   const t = useTranslations("corrections");
   const readOnly = useReadOnly();
   const [cursors, setCursors] = useState<string[]>([]);
@@ -140,7 +143,7 @@ export function PatrolCorrections() {
           className="space-y-2 border-t border-slate-100 pt-3"
         >
           <p className="font-medium">
-            {row.crewUser.name} · {row.createdAt.toLocaleString()} · {row.hours}{" "}
+            {row.crewUser.name} · {programFormat.dateTime(row.createdAt, { dateStyle: "medium", timeStyle: "short" })} · {row.hours}{" "}
             h
           </p>
           <p className="muted">

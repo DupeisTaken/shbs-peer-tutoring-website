@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 
@@ -11,6 +11,7 @@ import { api } from "~/trpc/react";
  * The section hides itself when there are no upcoming meetings.
  */
 export function TutorMeetings() {
+  const programFormat = useFormatter();
   const t = useTranslations();
   const utils = api.useUtils();
   const meetings = api.tutor.myMeetings.useQuery();
@@ -40,7 +41,7 @@ export function TutorMeetings() {
             <div className="min-w-0">
               <p className="font-medium text-slate-900">{m.title}</p>
               <p className="muted text-xs">
-                {new Date(m.date).toLocaleString()}
+                {programFormat.dateTime(new Date(m.date), { dateStyle: "medium", timeStyle: "short" })}
               </p>
               {m.excused && (
                 <p className="mt-0.5 text-xs text-amber-700">

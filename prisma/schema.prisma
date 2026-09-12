@@ -1639,3 +1639,10 @@ model SchoolCalendarDay {
   isSchoolDay Boolean
   note String?
 }
+
+/// Singleton configuration; changing the zone never rewrites stored instants or weekly slot times.
+model ProgramSettings {
+  id String @id @default("program")
+  timeZone String @default("Asia/Shanghai")
+  updatedAt DateTime @updatedAt
+}

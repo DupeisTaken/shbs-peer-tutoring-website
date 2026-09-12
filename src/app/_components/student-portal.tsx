@@ -1,7 +1,7 @@
 "use client";
 import { formText } from "~/lib/form-values";
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { minToHm, DAY_NAMES } from "~/lib/time";
 import { useDialog } from "./confirm-dialog";
@@ -22,6 +22,7 @@ export function canSubmitCardAppeal({
 }
 
 export function StudentPortal() {
+  const programFormat = useFormatter();
   const t = useTranslations("workflows");
   const [page, setPage] = useState(0);
   const data = api.student.me.useQuery({ page });
@@ -65,7 +66,7 @@ export function StudentPortal() {
             className="rounded-lg border border-slate-200 p-4"
           >
             <p className="font-medium">
-              {row.session.date.toLocaleDateString()} ·{" "}
+              {programFormat.dateTime(row.session.date, { dateStyle: "medium", timeZone: "UTC" })} ·{" "}
               {row.session.pairing.subject} · {row.status}
             </p>
             <FeedbackForm sessionId={row.session.id} initial={row.feedback} />
@@ -82,7 +83,7 @@ export function StudentPortal() {
             </p>
             <p>{card.reason}</p>
             <p className="muted text-xs">
-              {t("deadline")}: {card.deadline.toLocaleString()}
+              {t("deadline")}: {programFormat.dateTime(card.deadline, { dateStyle: "medium", timeStyle: "short" })}
             </p>
             {card.reviewStatus !== "INVALID" && (
               <button

@@ -2387,5 +2387,21 @@
     "saved": "Changes saved",
     "failed": "Could not save changes",
     "dismiss": "Dismiss"
+  },
+  "programTimeZone": {
+    "title": "Program time zone",
+    "help": "Use one school time zone for dates, schedules, deadlines and notifications.",
+    "zone": "Time zone",
+    "iana": "Choose an IANA zone, such as Asia/Shanghai or America/New_York.",
+    "invalid": "Choose a valid IANA time zone.",
+    "preview": "The same moment, displayed in each zone",
+    "impact": "Weekly slots keep their clock times (15:30 stays 15:30). Existing appointments and saved deadlines keep their exact timestamps; their displayed time may change. New school-calendar calculations use the new zone. Existing service hours are not recalculated.",
+    "confirm": "I have reviewed the effect on schedules and deadlines.",
+    "save": "Save time zone",
+    "saving": "Saving…",
+    "saved": "Program time zone saved.",
+    "readOnly": "Only a Head or Administrator can change the program time zone.",
+    "loading": "Loading time zone…",
+    "inputZone": "Time is entered in {zone}."
   }
 }

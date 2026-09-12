@@ -1,8 +1,10 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useTimeZone } from "next-intl";
 
+import { ProgramTimeZoneSettings } from "~/app/_components/program-time-zone-settings";
+import { programDateTimeInput, parseProgramDateTime } from "~/lib/program-time";
 import { api } from "~/trpc/react";
 
 type RefreshResult = {
@@ -17,6 +19,7 @@ export default function ProgramPage() {
   const t = useTranslations();
   const utils = api.useUtils();
   const current = api.admin.currentPeriod.useQuery();
+  const timeZone = useTimeZone();
 
   const [confirm, setConfirm] = useState("");
   const [done, setDone] = useState<RefreshResult | null>(null);
@@ -39,6 +42,7 @@ export default function ProgramPage() {
         <p className="muted mt-1">{t("admin.program.subtitle")}</p>
       </div>
 
+      <ProgramTimeZoneSettings />
       {current.isLoading ? (
         <p className="muted">{t("admin.program.loading")}</p>
       ) : !period ? (
@@ -56,7 +60,7 @@ export default function ProgramPage() {
           </section>
 
           <SignupWindowSettings
-            key={`${period.termId}-${period.signupOpensAt?.toISOString() ?? "open"}-${period.signupPreviewUrl ?? ""}`}
+            key={`${timeZone}-${period.termId}-${period.signupOpensAt?.toISOString() ?? "open"}-${period.signupPreviewUrl ?? ""}`}
             period={period}
           />
 
@@ -140,22 +144,6 @@ export default function ProgramPage() {
   );
 }
 
-/** The program's configured display zone is Asia/Shanghai, which is a fixed UTC+8 year-round. */
-const PROGRAM_TIME_ZONE_OFFSET_MINUTES = 8 * 60;
-
-function toProgramDateTimeInput(value: Date | null): string {
-  if (!value) return "";
-  const date = new Date(value);
-  const programTime = new Date(
-    date.getTime() + PROGRAM_TIME_ZONE_OFFSET_MINUTES * 60_000,
-  );
-  return programTime.toISOString().slice(0, 16);
-}
-
-function fromProgramDateTimeInput(value: string): Date {
-  return new Date(`${value}:00+08:00`);
-}
-
 /** Active-quarter public signup controls. Empty opening time means the form is open immediately. */
 function SignupWindowSettings({
   period,
@@ -169,8 +157,10 @@ function SignupWindowSettings({
 }) {
   const t = useTranslations();
   const utils = api.useUtils();
+  const timeZone = useTimeZone();
+  const [inputError, setInputError] = useState("");
   const [opensAt, setOpensAt] = useState(() =>
-    toProgramDateTimeInput(period.signupOpensAt),
+    period.signupOpensAt ? programDateTimeInput(period.signupOpensAt, timeZone) : "",
   );
   const [previewUrl, setPreviewUrl] = useState(period.signupPreviewUrl ?? "");
   const [saved, setSaved] = useState(false);
@@ -222,7 +212,7 @@ function SignupWindowSettings({
         onSubmit={(event) => {
           event.preventDefault();
           if (!canSave) return;
-          submitWindow(opensAt ? fromProgramDateTimeInput(opensAt) : null);
+          try { setInputError(""); submitWindow(opensAt ? parseProgramDateTime(opensAt, timeZone) : null); } catch (error) { setInputError(error instanceof Error ? error.message : "Invalid date"); }
         }}
       >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -240,7 +230,7 @@ function SignupWindowSettings({
               }}
             />
             <span className="muted block text-xs">
-              {t("admin.program.signupWindow.timeZone")}
+              {t("programTimeZone.inputZone", { zone: timeZone ?? "Asia/Shanghai" })}
             </span>
           </label>
           <label className="space-y-1">
@@ -264,6 +254,7 @@ function SignupWindowSettings({
           </label>
         </div>
 
+        {inputError && <p role="alert" className="text-sm text-red-700">{inputError}</p>}
         <div className="flex flex-wrap items-center gap-2">
           <button type="submit" className="btn-primary" disabled={!canSave}>
             {save.isPending

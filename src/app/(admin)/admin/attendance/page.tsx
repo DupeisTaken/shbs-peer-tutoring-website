@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { AttendanceCorrection } from "~/app/_components/attendance-correction";
@@ -9,6 +9,7 @@ import { useReadOnly } from "~/app/_components/read-only";
 import { currentMonth } from "~/lib/time";
 
 export default function SubmissionsPage() {
+  const programFormat = useFormatter();
   const t = useTranslations();
   const readOnly = useReadOnly();
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -72,9 +73,7 @@ export default function SubmissionsPage() {
             {(sessions.data ?? []).map((s) => (
               <tr key={s.id}>
                 <td>
-                  {new Date(s.date).toLocaleDateString(undefined, {
-                    timeZone: "UTC",
-                  })}
+                  {programFormat.dateTime(new Date(s.date), { dateStyle: "medium", timeZone: "UTC" })}
                 </td>
                 <td>{s.tutor.englishName}</td>
                 <td>{s.pairing.subject}</td>
