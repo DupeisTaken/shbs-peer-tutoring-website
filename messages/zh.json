@@ -2322,5 +2322,16 @@
       "SUBMISSION": "提案",
       "CANCELLATION": "撤回"
     }
+  },
+  "userMultiFilters": {
+    "all": "全部",
+    "value": "选项",
+    "include": "包含",
+    "exclude": "排除",
+    "hint": "同一筛选中的包含选项满足任一即可；不同筛选须同时满足。排除项始终优先。",
+    "clear": "清除筛选",
+    "noRole": "无账户角色",
+    "noTutor": "未关联导师",
+    "count": "显示 {count} / {total} 位用户"
   }
 }
