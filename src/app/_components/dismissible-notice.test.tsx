@@ -1,13 +1,25 @@
 /** @vitest-environment jsdom */
-import { afterEach, expect, it } from "vitest";
+import { afterEach, expect, it, vi } from "vitest";
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import {
   AdminPreferenceIdentity,
   DismissibleNotice,
 } from "./dismissible-notice";
 afterEach(() => {
+  vi.restoreAllMocks();
   cleanup();
   localStorage.clear();
+});
+
+it("reopens guidance when dismissal hit storage quota but removal succeeds", () => {
+  vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+    throw new DOMException("Storage full", "QuotaExceededError");
+  });
+  render(notice("admin-a"));
+  fireEvent.click(screen.getByRole("button", { name: "Dismiss" }));
+  expect(screen.queryByText("Important guidance")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Reopen help" }));
+  expect(screen.getByText("Important guidance")).toBeTruthy();
 });
 const notice = (user: string) => (
   <AdminPreferenceIdentity value={user}>
