@@ -1,6 +1,6 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 
 import { api } from "~/trpc/react";
@@ -46,6 +46,7 @@ function PolicyVersionEditor({
   readOnly: boolean;
   onSaved: () => void;
 }) {
+  const programFormat = useFormatter();
   const t = useTranslations();
   const [title, setTitle] = useState(doc?.title ?? "");
   const [version, setVersion] = useState(doc?.version ?? "");
@@ -81,7 +82,7 @@ function PolicyVersionEditor({
           <>
             {" "}
             {t("admin.policies.editor.lastEdited", {
-              date: new Date(doc.updatedAt).toLocaleString(),
+              date: programFormat.dateTime(new Date(doc.updatedAt), { dateStyle: "medium", timeStyle: "short" }),
             })}
             {doc.updatedBy
               ? " " +
@@ -161,6 +162,7 @@ function ArchiveModal({ doc, onClose }: { doc: ArchiveDoc; onClose: () => void }
 
 /** Collapsible list of a policy version's earlier (archived) copies for one locale. */
 function VersionHistory({ archives }: { archives: ArchiveDoc[] }) {
+  const programFormat = useFormatter();
   const t = useTranslations();
   const [open, setOpen] = useState(false);
   const [viewing, setViewing] = useState<ArchiveDoc | null>(null);
@@ -183,7 +185,7 @@ function VersionHistory({ archives }: { archives: ArchiveDoc[] }) {
             {archives.map((a) => (
               <li key={a.id} className="flex items-center justify-between gap-3 py-1.5 text-sm">
                 <span className="muted">
-                  {t("admin.policies.archivedOn", { date: new Date(a.archivedAt).toLocaleString() })}
+                  {t("admin.policies.archivedOn", { date: programFormat.dateTime(new Date(a.archivedAt), { dateStyle: "medium", timeStyle: "short" }) })}
                   {a.version ? ` · ${a.version}` : ""}
                   {a.archivedByName ? ` · ${a.archivedByName}` : ""}
                 </span>

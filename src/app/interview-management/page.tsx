@@ -1,11 +1,5 @@
-import { getTranslations } from "next-intl/server";
-import { WorkflowShell } from "~/app/_components/workflow-shell";
-import { InterviewManagement } from "~/app/_components/interview-management";
-export default async function Page() {
-  const t = await getTranslations("workflows");
-  return (
-    <WorkflowShell title={t("interviewComplete")} management={true}>
-      <InterviewManagement />
-    </WorkflowShell>
-  );
+import { redirect } from "next/navigation";
+/** Existing notification links remain valid after moving the staff workspace. */
+export default function Page() {
+  redirect("/admin/interviews");
 }

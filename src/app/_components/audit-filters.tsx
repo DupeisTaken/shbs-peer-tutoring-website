@@ -1,9 +1,11 @@
 "use client";
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useTimeZone } from "next-intl";
 import { api, type RouterInputs } from "~/trpc/react";
 import { humanizeOperation } from "~/lib/approval-policy";
+import { auditActorLabel } from "~/lib/audit-actors";
 
+import { programDayStart, programDayEnd } from "~/lib/program-time";
 export type AuditFilterInput = NonNullable<RouterInputs["admin"]["auditLog"]>;
 const empty = {
   userId: "",
@@ -22,6 +24,8 @@ export function AuditFilters({
   onApply: (input: AuditFilterInput) => void;
 }) {
   const t = useTranslations("auditFilters");
+  const timeZone = useTimeZone() ?? "Asia/Shanghai";
+  const [inputError, setInputError] = useState("");
   const [draft, setDraft] = useState(empty);
   const options = api.admin.auditFilterOptions.useQuery();
   const set = (key: keyof typeof empty, value: string) =>
@@ -35,7 +39,7 @@ export function AuditFilters({
         { id: "__system__", label: t("system") },
         ...(options.data?.users.map((u) => ({
           id: u.id,
-          label: `${u.label} · ${u.id.slice(-6)}`,
+          label: auditActorLabel(u, {unnamed:t("unnamedAccount"),former:t("formerAccount")}),
         })) ?? []),
       ],
     },
@@ -73,27 +77,33 @@ export function AuditFilters({
       className="card grid gap-4 p-5 sm:grid-cols-2 xl:grid-cols-4"
       onSubmit={(e) => {
         e.preventDefault();
-        onApply({
+        try { setInputError(""); onApply({
           userId: draft.userId || undefined,
           kind: (draft.kind || undefined) as
             "ACTION" | "DECISION" | "SUBMISSION" | "CANCELLATION" | undefined,
           operation: draft.operation || undefined,
           entity: draft.entity || undefined,
           search: draft.search || undefined,
-          from: draft.from ? new Date(`${draft.from}T00:00:00Z`) : undefined,
+          from: draft.from ? programDayStart(draft.from, timeZone) : undefined,
           until: draft.until
             ? new Date(
-                new Date(`${draft.until}T00:00:00Z`).getTime() + 86400000,
+                programDayEnd(draft.until, timeZone).getTime() + 1,
               )
             : undefined,
-        });
+        }); } catch (error) { setInputError(error instanceof Error ? error.message : "Invalid date"); }
       }}
     >
+      {inputError && <p role="alert">{inputError}</p>}
       {selects.map((select) => (
         <label key={select.key}>
           <span className="label">{t(select.label)}</span>
           <select
-            className="input mt-1 w-full"
+            className="input mt-1 w-full min-w-0 whitespace-nowrap"
+            title={
+              select.values.find(
+                (value) => value.id === draft[select.key as keyof typeof empty],
+              )?.label
+            }
             value={draft[select.key as keyof typeof empty]}
             onChange={(e) =>
               set(select.key as keyof typeof empty, e.target.value)
@@ -149,7 +159,7 @@ export function AuditFilters({
         >
           {t("clear")}
         </button>
-        <p className="muted ml-auto text-xs">{t("utc")}</p>
+        <p className="muted ml-auto text-xs">{t("utc", { zone: timeZone })}</p>
       </div>
       {options.error && (
         <p role="alert" className="text-red-700 sm:col-span-2">

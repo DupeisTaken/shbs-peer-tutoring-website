@@ -1,7 +1,8 @@
 @import "tailwindcss" source("../");
 
 @theme {
-  --font-sans: var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif,
+  --font-sans:
+    var(--font-geist-sans), ui-sans-serif, system-ui, sans-serif,
     "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
 
   /*
@@ -125,9 +126,7 @@
 
 /* Base utilities (registered with @utility so they can be composed via @apply). */
 @utility btn {
-  @apply inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold whitespace-nowrap transition
-    focus-visible:ring-2 focus-visible:ring-accent-500 focus-visible:ring-offset-2 focus-visible:outline-none
-    disabled:cursor-not-allowed disabled:opacity-50;
+  @apply focus-visible:ring-accent-500 inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold whitespace-nowrap transition focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50;
 }
 @utility badge {
   @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;
@@ -144,10 +143,14 @@
 @layer components {
   /* Buttons --------------------------------------------------------------- */
   .btn-primary {
-    @apply btn bg-accent-600 text-white hover:bg-accent-700 active:bg-accent-800;
+    @apply btn bg-accent-600 hover:bg-accent-700 active:bg-accent-800 text-white;
   }
   .btn-secondary {
     @apply btn border border-slate-300 bg-white text-slate-700 hover:bg-slate-50;
+  }
+  /* Quiet actions still inherit the shared keyboard focus and disabled behavior. */
+  .btn-ghost {
+    @apply btn bg-transparent text-slate-600 hover:bg-slate-100 hover:text-slate-900;
   }
   .btn-danger {
     @apply btn bg-white text-red-600 hover:bg-red-50;
@@ -159,7 +162,7 @@
 
   /* Inline text links (table actions etc.) -------------------------------- */
   .link {
-    @apply font-medium text-accent-600 hover:text-accent-700 hover:underline;
+    @apply text-accent-600 hover:text-accent-700 font-medium hover:underline;
   }
   .link-danger {
     @apply font-medium text-red-600 hover:text-red-700 hover:underline;
@@ -172,8 +175,7 @@
   .input,
   .select,
   .textarea {
-    @apply w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm
-      placeholder:text-slate-400 focus:border-accent-500 focus:ring-1 focus:ring-accent-500 focus:outline-none;
+    @apply focus:border-accent-500 focus:ring-accent-500 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm placeholder:text-slate-400 focus:ring-1 focus:outline-none;
   }
 
   /* Surfaces -------------------------------------------------------------- */
@@ -233,8 +235,7 @@
 
   /* Navigation ------------------------------------------------------------ */
   .nav-link {
-    @apply flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-600
-      transition hover:bg-slate-100 hover:text-slate-900;
+    @apply flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900;
   }
   .nav-link-active {
     @apply bg-accent-50 text-accent-700 hover:bg-accent-50 hover:text-accent-700;
@@ -252,6 +253,16 @@
    a letterhead masthead, and a running footer — so a saved PDF reads like an institutional report
    rather than a web screenshot. Design notes live alongside the Reports page. */
 @media print {
+  /* Desktop scroll panes must expand for multi-page reports instead of clipping the first screen. */
+  .admin-shell,
+  .admin-workspace,
+  #admin-content {
+    display: block !important;
+    height: auto !important;
+    min-height: 0 !important;
+    max-height: none !important;
+    overflow: visible !important;
+  }
   @page {
     margin: 1.6cm 1.4cm;
   }

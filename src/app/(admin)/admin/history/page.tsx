@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { TEAM_TITLE } from "~/lib/branding";
@@ -36,9 +36,12 @@ function downloadCsv(filename: string, rows: Cell[][]) {
   URL.revokeObjectURL(url);
 }
 
-const d = (v: string | Date) => new Date(v).toLocaleDateString();
+
 
 export default function ReportsPage() {
+  const programFormat = useFormatter();
+  const d = (v: string | Date) => programFormat.dateTime(new Date(v), { dateStyle: "medium" });
+  const calendarDate = (v: string | Date) => programFormat.dateTime(new Date(v), { dateStyle: "medium", timeZone: "UTC" });
   const t = useTranslations();
   const readOnly = useReadOnly(); // VIEWER — PII is always masked server-side
   const periods = api.admin.periods.useQuery();
@@ -156,7 +159,7 @@ export default function ReportsPage() {
               {t("admin.reports.reportHeading", { team: TEAM_TITLE, period: r.scope.label })}
             </h2>
             <p className="muted text-xs">
-              {t("admin.reports.generatedAt", { when: new Date().toLocaleString() })}
+              {t("admin.reports.generatedAt", { when: programFormat.dateTime(new Date(), { dateStyle: "medium", timeStyle: "short" }) })}
               {r.scope.masked ? ` · ${t("admin.reports.maskedNote")}` : ""}
             </p>
           </div>
@@ -244,7 +247,7 @@ export default function ReportsPage() {
                 onCsv={() =>
                   downloadCsv(`report_${slug}_sessions.csv`, [
                     ["Date", "Tutor", "Subject", "Status", "Hours", "Tutees", "Comments"],
-                    ...r.sessions.map((s) => [d(s.date), s.tutor, s.subject, s.tutorStatus, s.shCount.toFixed(2), s.tutees.map((tt) => `${tt.name} (${tt.status})`).join("; "), s.comments]),
+                    ...r.sessions.map((s) => [calendarDate(s.date), s.tutor, s.subject, s.tutorStatus, s.shCount.toFixed(2), s.tutees.map((tt) => `${tt.name} (${tt.status})`).join("; "), s.comments]),
                   ])
                 }
                 csvLabel={t("admin.reports.csv")}
@@ -261,7 +264,7 @@ export default function ReportsPage() {
               >
                 {r.sessions.map((s) => (
                   <tr key={s.id}>
-                    <td className="whitespace-nowrap text-slate-500">{d(s.date)}</td>
+                    <td className="whitespace-nowrap text-slate-500">{calendarDate(s.date)}</td>
                     <td>{s.tutor}</td>
                     <td>{s.subject}</td>
                     <td className="text-slate-500">{s.tutorStatus}</td>
@@ -443,7 +446,7 @@ export default function ReportsPage() {
                 onCsv={() =>
                   downloadCsv(`report_${slug}_flags.csv`, [
                     ["Date", "Tutor", "Subject", "Expected", "Observed", "State"],
-                    ...r.flags.map((x) => [d(x.date), x.tutor, x.subject, x.expected, x.observed, x.state]),
+                    ...r.flags.map((x) => [calendarDate(x.date), x.tutor, x.subject, x.expected, x.observed, x.state]),
                   ])
                 }
                 csvLabel={t("admin.reports.csv")}
@@ -460,7 +463,7 @@ export default function ReportsPage() {
               >
                 {r.flags.map((x) => (
                   <tr key={x.id}>
-                    <td className="whitespace-nowrap text-slate-500">{d(x.date)}</td>
+                    <td className="whitespace-nowrap text-slate-500">{calendarDate(x.date)}</td>
                     <td>{x.tutor}</td>
                     <td>{x.subject}</td>
                     <td className="text-right">{x.expected}</td>

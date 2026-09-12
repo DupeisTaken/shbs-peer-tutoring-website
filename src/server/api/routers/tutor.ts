@@ -1,10 +1,17 @@
+import {
+  lockAccountProfile,
+  updateAccountProfile,
+} from "~/server/account-profile";
 import { requestMembership, recallMembership } from "~/server/membership";
 import { approvalScope } from "~/server/db-scope";
 import { requirePolicy } from "~/server/policy-acceptance";
 import { validateInterviewDecision } from "~/server/interviews";
 import { reconcileMeetingHours } from "~/server/meeting-hours";
 import { TRPCError } from "@trpc/server";
+import { getProgramTimeZone } from "~/server/program/time-zone";
+import { programDateKey } from "~/lib/program-time";
 import { z } from "zod";
+import { announcementVisibility } from "~/lib/announcement-recipients";
 import { createHash } from "node:crypto";
 import { inTransaction, lockEntity } from "~/server/transactions";
 
@@ -365,10 +372,11 @@ export const tutorRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const tutorId = ctx.session.tutorId;
       // Attendance dates are school calendar dates stored at UTC midnight. Compare their date key
-      // with today's UTC+8 school date so a server in another timezone cannot admit tomorrow.
-      const schoolToday = new Date(Date.now() + 8 * 60 * 60 * 1000)
-        .toISOString()
-        .slice(0, 10);
+      // with today's configured school date so a server in another timezone cannot admit tomorrow.
+      const schoolToday = programDateKey(
+        new Date(),
+        await getProgramTimeZone(ctx.db),
+      );
       if (input.date.toISOString().slice(0, 10) > schoolToday) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -863,9 +871,15 @@ export const tutorRouter = createTRPCRouter({
       if (input.gradeLevel !== undefined)
         tutorData.gradeLevel = input.gradeLevel;
       if (Object.keys(tutorData).length > 0) {
-        await ctx.db.tutor.update({
-          where: { id: ctx.session.tutorId },
-          data: tutorData,
+        await inTransaction(ctx.db, async (tx) => {
+          await lockAccountProfile(tx, ctx.session.user.id);
+          await tx.tutor.update({
+            where: { id: ctx.session.tutorId },
+            data: tutorData,
+          });
+          await updateAccountProfile(tx, ctx.session.user.id, {
+            alternativeNames: input.alternativeNames,
+          });
         });
       }
       return { ok: true };
@@ -988,7 +1002,7 @@ export const tutorRouter = createTRPCRouter({
   /** Active announcements, newest first, each flagged with whether the caller acked it. */
   myAnnouncements: tutorProcedure.query(async ({ ctx }) => {
     const announcements = await ctx.db.announcement.findMany({
-      where: { active: true },
+      where: { active: true, ...announcementVisibility(ctx.session.tutorId) },
       orderBy: [{ pinned: "desc" }, { createdAt: "desc" }],
       select: {
         id: true,
@@ -1012,6 +1026,19 @@ export const tutorRouter = createTRPCRouter({
   acknowledgeAnnouncement: tutorProcedure
     .input(z.object({ announcementId: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
+      const visible = await ctx.db.announcement.findFirst({
+        where: {
+          id: input.announcementId,
+          active: true,
+          ...announcementVisibility(ctx.session.tutorId),
+        },
+        select: { id: true },
+      });
+      if (!visible)
+        throw new TRPCError({
+          code: "NOT_FOUND",
+          message: "Announcement not found.",
+        });
       await ctx.db.announcementAck.upsert({
         where: {
           announcementId_userId: {
@@ -1257,7 +1284,7 @@ export const tutorRouter = createTRPCRouter({
             panel.map((p) => p.tutorId),
             {
               title: "Interview scheduled",
-              body: `An interview was scheduled for ${input.interviewAt.toLocaleString()}.`,
+              body: `An interview was scheduled for ${new Intl.DateTimeFormat("en", { timeZone: await getProgramTimeZone(tx), dateStyle: "medium", timeStyle: "short" }).format(input.interviewAt)}.`,
               link: "/dashboard",
             },
             tx,
@@ -1539,7 +1566,7 @@ export const tutorRouter = createTRPCRouter({
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
           message:
-            "Students apply to leave the quarter from their own account. Use schedule rejection for scheduling problems.",
+            "Tutees apply to leave the quarter from their own account. Use schedule rejection for scheduling problems.",
         });
       const open = await ctx.db.tuteeRemovalRequest.findFirst({
         where: { tuteeId: input.tuteeId, state: "PENDING" },

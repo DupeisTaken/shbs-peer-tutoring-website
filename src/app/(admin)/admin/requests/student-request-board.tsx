@@ -1,13 +1,31 @@
 "use client";
-import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { EmailDetails } from "~/app/_components/email-details";
+import { useState, type ReactNode } from "react";
+import { useFormatter, useTranslations } from "next-intl";
+import {
+  bySignupPriority,
+  signupRequestGroup,
+  type RequestTab,
+} from "~/lib/signup-request-groups";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { TimedActionDialog } from "~/app/_components/timed-action-dialog";
 import { DAY_NAMES, minToHm } from "~/lib/time";
 
 type Row = RouterOutputs["studentWorkflow"]["adminRequests"][number];
 type Tutor = { id: string; englishName: string };
-export function StudentRequestBoard() {
+export type AdditionalRequestEntry = {
+  id: string;
+  submittedAt: Date;
+  group: Exclude<RequestTab, "reviews">;
+  content: ReactNode;
+};
+export function StudentRequestBoard({
+  additionalEntries = [],
+  additionalLoading = false,
+}: {
+  additionalEntries?: AdditionalRequestEntry[];
+  additionalLoading?: boolean;
+}) {
   const t = useTranslations("workflow");
   const rows = api.studentWorkflow.adminRequests.useQuery(undefined, {
     refetchInterval: 60_000,
@@ -23,13 +41,19 @@ export function StudentRequestBoard() {
   const groups = {
     matching: (rows.data ?? []).filter(
       (r) =>
-        r.state === "OPEN" &&
-        r.subjects.some((s) => !r.pairings.some((p) => p.subject === s.name)),
+        signupRequestGroup(
+          r.state,
+          r.subjects.map((s) => s.name),
+          r.pairings.map((p) => p.subject),
+        ) === "matching",
     ),
     assigned: (rows.data ?? []).filter(
       (r) =>
-        r.state === "OPEN" &&
-        r.subjects.every((s) => r.pairings.some((p) => p.subject === s.name)),
+        signupRequestGroup(
+          r.state,
+          r.subjects.map((s) => s.name),
+          r.pairings.map((p) => p.subject),
+        ) === "assigned",
     ),
     reviews: [
       ...(rows.data ?? []).flatMap((row) =>
@@ -68,6 +92,8 @@ export function StudentRequestBoard() {
               {t(key)}{" "}
               <span className="ml-2 rounded-full bg-black/10 px-2 text-xs">
                 {groups[key].length +
+                  additionalEntries.filter((entry) => entry.group === key)
+                    .length +
                   (key === "processed" ? legacyProcessed.length : 0)}
               </span>
             </button>
@@ -90,34 +116,45 @@ export function StudentRequestBoard() {
         aria-labelledby={`tab-${tab}`}
         className="space-y-3"
       >
-        {rows.isLoading ? (
+        {rows.isLoading || additionalLoading ? (
           <p>{t("loading")}</p>
         ) : tab === "reviews" ? (
           groups.reviews.map(({ row, review }) => (
             <ReviewCard key={review.id} row={row} review={review} />
           ))
         ) : (
-          groups[tab].map((row) => (
-            <RequestCard
-              key={row.id}
-              row={row}
-              tutors={(tutors.data ?? []).filter(
-                (tu) => tu.status === "ACTIVE",
-              )}
-            />
-          ))
+          bySignupPriority([
+            ...groups[tab].map((row) => ({
+              id: row.id,
+              submittedAt: row.submittedAt,
+              content: (
+                <RequestCard
+                  row={row}
+                  tutors={(tutors.data ?? []).filter(
+                    (tu) => tu.status === "ACTIVE",
+                  )}
+                />
+              ),
+            })),
+            ...additionalEntries.filter((entry) => entry.group === tab),
+          ]).map((entry) => <div key={entry.id}>{entry.content}</div>)
         )}
         {tab === "processed" &&
           legacyProcessed.map((r) => (
             <article key={r.id} className="card space-y-2 p-5">
               <h3 className="font-semibold">
-                {r.name} · {t("scheduleReject")}
+                {r.name} ·{" "}
+                {t(
+                  r.kind === "STUDENT_ABORT" ? "applyAbort" : "scheduleReject",
+                )}
               </h3>
               <span className="badge-slate">{t(`reviewState.${r.state}`)}</span>
               <p className="muted text-sm">{r.reason}</p>
             </article>
           ))}
         {!rows.isLoading &&
+          !additionalLoading &&
+          !additionalEntries.some((entry) => entry.group === tab) &&
           !groups[tab].length &&
           !(tab === "processed" && legacyProcessed.length) && (
             <p className="muted rounded-xl border border-dashed border-slate-200 p-8 text-center">
@@ -129,6 +166,7 @@ export function StudentRequestBoard() {
   );
 }
 function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
+  const format = useFormatter();
   const t = useTranslations("workflow");
   const utils = api.useUtils();
   const resend = api.studentWorkflow.resend.useMutation({
@@ -140,6 +178,7 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
         <div className="min-w-0 space-y-2">
           <h3 className="font-semibold break-words">{row.name}</h3>
           <div className="flex flex-wrap gap-2">
+            <span className="badge-slate">{t("surveySource")}</span>
             <span
               className={
                 row.state !== "OPEN"
@@ -161,7 +200,10 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
           </div>
           <p className="muted text-xs">
             {t("priority", {
-              time: new Date(row.submittedAt).toLocaleString(),
+              time: format.dateTime(new Date(row.submittedAt), {
+                dateStyle: "medium",
+                timeStyle: "short",
+              }),
             })}
           </p>
         </div>
@@ -178,7 +220,10 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
       {!row.confirmedAt && row.verificationDueAt && row.state === "OPEN" && (
         <p className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-900">
           {t("deadline", {
-            time: new Date(row.verificationDueAt).toLocaleString(),
+            time: format.dateTime(new Date(row.verificationDueAt), {
+              dateStyle: "medium",
+              timeStyle: "short",
+            }),
           })}
         </p>
       )}
@@ -195,7 +240,7 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
       <div className="grid gap-4 border-t border-slate-100 pt-4 text-sm sm:grid-cols-2">
         <div>
           <p className="font-medium">{t("contact")}</p>
-          <p className="muted mt-1 break-all">{row.email}</p>
+          <EmailDetails contactOnly email={row.email} name={row.name} />
           <p className="muted break-words">{row.contact}</p>
         </div>
         <div>

@@ -126,7 +126,30 @@ export async function assertStudentRequestAssignable(
   tuteeId: string,
 ) {
   const row = await tx.studentSurvey.findUnique({ where: { tuteeId } });
-  if (!row) return; // Existing manually managed tutees remain supported.
+  if (!row) {
+    // Manual withdrawals are terminal for their quarter just like survey withdrawals.
+    const term = await tx.term.findFirst({
+      where: { active: true },
+      orderBy: { createdAt: "desc" },
+    });
+    if (
+      term &&
+      (await tx.studentRequestReview.findFirst({
+        where: {
+          legacyTuteeId: tuteeId,
+          legacyIntakeTermId: term.id,
+          kind: "STUDENT_ABORT",
+          state: "APPROVED",
+        },
+      }))
+    )
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message:
+          "This tutee withdrew from the current quarter and cannot be reassigned.",
+      });
+    return;
+  }
   await lockEntity(tx, `student-survey:${row.email}`);
   const current = await tx.studentSurvey.findUniqueOrThrow({
     where: { id: row.id },

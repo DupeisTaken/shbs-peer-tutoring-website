@@ -12,6 +12,11 @@ import {
 import { validateInterviewDecision } from "./interviews";
 import { db } from "./db";
 import { inTransaction, lockEntity, type TransactionDb } from "./transactions";
+import { announcementCandidates } from "./announcement-recipients";
+import {
+  announcementAudienceSchema,
+  selectAnnouncementRecipients,
+} from "~/lib/announcement-recipients";
 
 export class ApprovalQueued extends Error {
   constructor(public readonly approvalId: string) {
@@ -126,6 +131,17 @@ export async function proposalTargets(
     if (tutees.size) ids.set("Tutee", tutees);
   }
   const targets: Record<string, unknown> = {};
+  // Recipient identities/names are review evidence too. A changed filtered audience must
+  // be proposed again, rather than silently expanding when an administrator approves it.
+  if (operation === "admin.createAnnouncement") {
+    const audience = announcementAudienceSchema.parse(fields.audience ?? {});
+    targets.announcementRecipients = selectAnnouncementRecipients(
+      await announcementCandidates(client),
+      audience,
+    )
+      .map(({ id, name }) => ({ id, name }))
+      .sort((a, b) => a.id.localeCompare(b.id));
+  }
   if (primary === "SchoolCalendarDay")
     targets.calendar = await client.schoolCalendarDay.findMany({
       where: { date: z.string().parse(fields.date) },
@@ -176,7 +192,10 @@ export async function proposalTargets(
     // User secrets and audit undo payloads are never proposal evidence.
     const fields =
       table === "User"
-        ? "jsonb_build_object('id', t.id, 'name', t.name, 'role', t.role, 'tutorId', t.\"tutorId\", 'crewStatus', t.\"crewStatus\", 'suspendedAt', t.\"suspendedAt\")"
+        ? operation === "admin.updateAccountProfile"
+          ? // Review both explicit links and the current alternative name without exposing credentials.
+            "jsonb_build_object('id', t.id, 'name', t.name, 'alternativeNames', t.\"alternativeNames\", 'profileVersion', t.\"profileVersion\", 'role', t.role, 'tutorId', t.\"tutorId\", 'studentId', t.\"studentId\")"
+          : "jsonb_build_object('id', t.id, 'name', t.name, 'role', t.role, 'tutorId', t.\"tutorId\", 'crewStatus', t.\"crewStatus\", 'suspendedAt', t.\"suspendedAt\")"
         : "to_jsonb(t) - ARRAY['passwordHash','tokenHash','codeHash','undoData','details','data','policySnapshot']::text[]";
     targets[table] = await client.$queryRaw(
       Prisma.sql`SELECT ${Prisma.raw(fields)} AS record FROM ${Prisma.raw('"' + table + '"')} t WHERE t.id IN (${Prisma.join([...values].sort())}) ORDER BY t.id`,

@@ -1,9 +1,10 @@
 "use client";
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { Pager } from "./student-portal";
 export function AcceptanceRecords() {
+  const programFormat = useFormatter();
   const t = useTranslations("workflows");
   const [page, setPage] = useState(0);
   const rows = api.student.acceptanceRecords.useQuery({ page });
@@ -13,7 +14,7 @@ export function AcceptanceRecords() {
       {rows.data?.map((r) => (
         <details key={r.id} className="rounded-lg border border-slate-200 p-4">
           <summary className="cursor-pointer">
-            {r.name} · {r.slug} · {r.acceptedAt.toLocaleString()}
+            {r.name} · {r.slug} · {programFormat.dateTime(r.acceptedAt, { dateStyle: "medium", timeStyle: "short" })}
           </summary>
           <p className="mt-3 font-mono text-xs break-all">{r.revision}</p>
           <p>{r.signature}</p>

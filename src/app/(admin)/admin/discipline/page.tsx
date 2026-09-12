@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { disciplineStanding } from "~/lib/discipline";
@@ -26,6 +26,7 @@ type Card = {
 const dot = (color: "YELLOW" | "RED") => (color === "RED" ? "🟥" : "🟨");
 
 function PendingCard({ card, onChanged }: { card: Card; onChanged: () => void }) {
+  const programFormat = useFormatter();
   const t = useTranslations();
   const readOnly = useReadOnly();
   const [note, setNote] = useState("");
@@ -46,7 +47,7 @@ function PendingCard({ card, onChanged }: { card: Card; onChanged: () => void })
                 : t("admin.cards.issuedBy", {
                     name: card.issuedByTutor?.englishName ?? t("admin.cards.tutor"),
                   })}
-              {card.session ? ` · ${new Date(card.session.date).toLocaleDateString()}` : ""}
+              {card.session ? ` · ${programFormat.dateTime(new Date(card.session.date), { dateStyle: "medium", timeZone: "UTC" })}` : ""}
             </span>
           </p>
           <p className="muted mt-1 text-sm">{card.reason ?? "—"}</p>
@@ -98,6 +99,7 @@ function PendingCard({ card, onChanged }: { card: Card; onChanged: () => void })
 }
 
 export default function CardsPage() {
+  const programFormat = useFormatter();
   const t = useTranslations();
   const utils = api.useUtils();
   const cards = api.admin.disciplinaryCards.useQuery();
@@ -187,7 +189,7 @@ export default function CardsPage() {
                       {c.source === "AUTO"
                         ? t("admin.cards.auto")
                         : (c.issuedByTutor?.englishName ?? t("admin.cards.tutor"))}
-                      {c.session ? ` · ${new Date(c.session.date).toLocaleDateString()}` : ""}
+                      {c.session ? ` · ${programFormat.dateTime(new Date(c.session.date), { dateStyle: "medium", timeZone: "UTC" })}` : ""}
                     </span>
                   </li>
                 ))}
@@ -226,7 +228,7 @@ export default function CardsPage() {
                   .map((c) => (
                     <tr key={c.id}>
                       <td className="text-xs text-slate-500">
-                        {new Date(c.createdAt).toLocaleDateString()}
+                        {programFormat.dateTime(new Date(c.createdAt), { dateStyle: "medium" })}
                       </td>
                       <td className="text-slate-700">{c.tutee.englishName}</td>
                       <td>{dot(c.color)}</td>

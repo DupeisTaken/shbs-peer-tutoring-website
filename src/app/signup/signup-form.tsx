@@ -79,6 +79,36 @@ export function SignupForm() {
     );
   }
 
+  // Distinguish pending reads and configuration gaps from a usable signup form.
+  if (options.isError || policy.isError)
+    return (
+      <section className="card space-y-4 p-6">
+        <p role="alert">{t("survey.loadFailed")}</p>
+        <button
+          type="button"
+          className="btn-secondary"
+          onClick={() => {
+            void options.refetch();
+            void policy.refetch();
+          }}
+        >
+          {t("survey.retry")}
+        </button>
+      </section>
+    );
+  if (options.isLoading || policy.isLoading)
+    return (
+      <p role="status" className="card p-6">
+        {t("workflows.loading")}
+      </p>
+    );
+  if (!courses.length || !slots.length || !policy.data?.revision)
+    return (
+      <p role="status" className="card p-6">
+        {t("public.signup.unavailable")}
+      </p>
+    );
+
   return (
     <form
       className="card space-y-6 p-6"
@@ -271,11 +301,6 @@ export function SignupForm() {
       {submit.error && (
         <p role="alert" className="text-sm text-red-600">
           {submit.error.message}
-        </p>
-      )}
-      {policy.error && (
-        <p role="alert" className="text-sm text-red-600">
-          {policy.error.message}
         </p>
       )}
 

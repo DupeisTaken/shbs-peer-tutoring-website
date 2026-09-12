@@ -1,3 +1,7 @@
+import {
+  lockAccountProfile,
+  updateAccountProfile,
+} from "~/server/account-profile";
 /**
  * Self-registration via a 6-digit security key (RegistrationCode).
  *
@@ -357,6 +361,7 @@ export async function completeRegistration(
           email,
           username: desiredUsername,
           name: `${firstName} ${lastName}`,
+          alternativeNames,
           role: "CREW",
           gradeLevel,
           crewStatus: "ACTIVE",
@@ -377,6 +382,7 @@ export async function completeRegistration(
 
   const username = await db.$transaction(async (tx) => {
     await claimRegistration(tx, row);
+    if (existingUser) await lockAccountProfile(tx, existingUser.id);
     // Resolve (or create) the Tutor.
     let tutorId: string;
     if (row.tutorId) {
@@ -464,6 +470,11 @@ export async function completeRegistration(
       });
       userId = createdUser.id;
     }
+
+    await updateAccountProfile(tx, userId, {
+      name: `${firstName} ${lastName}`,
+      alternativeNames,
+    });
 
     // Burn the code.
     await tx.registrationCode.update({

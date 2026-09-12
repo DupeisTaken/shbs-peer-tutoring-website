@@ -1,9 +1,11 @@
+import { AdminPreferenceIdentity } from "~/app/_components/dismissible-notice";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
+import { getFeatures } from "~/server/program/features";
 import { NotificationBell } from "~/app/_components/notification-bell";
 import { LanguageSwitcher } from "~/app/_components/language-switcher";
 import { ThemeSwitcher } from "~/app/_components/theme-switcher";
@@ -53,10 +55,14 @@ export default async function AdminLayout({
   // shows the button on the next render without waiting for a re-login. The jwt callback keeps
   // `session.tutorId` in sync too, so following the link into the tutor area resolves correctly.
   const canEnterTutor = !!me?.tutor && me.tutor.status !== "ARCHIVED";
+  const features = await getFeatures(db);
   const accountItems = [
     { href: "/messages", label: t("workflows.messages") },
-    { href: "/student", label: t("workflows.student") },
-    { href: "/student-support", label: t("workflows.support") },
+    { href: "/student", label: t("components.userMenu.enterTutee") },
+    {
+      href: readOnly ? "/student-support" : "/admin/student-support",
+      label: t("workflows.support"),
+    },
     ...(canEnterTutor
       ? [
           {
@@ -65,16 +71,16 @@ export default async function AdminLayout({
           },
         ]
       : []),
-    ...(me?.crewStatus === "ACTIVE"
+    ...(features.CREW && me?.crewStatus === "ACTIVE"
       ? [{ href: "/patrol", label: t("crew.nav.patrol") }]
       : []),
     { href: "/admin/account", label: t("account.title") },
   ];
 
   return (
-    <div className="min-h-screen">
+    <div className="admin-shell min-h-dvh lg:flex lg:h-dvh lg:flex-col lg:overflow-hidden">
       {/* Unified top bar (all breakpoints): brand + the global controls. */}
-      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white">
+      <header className="sticky top-0 z-20 shrink-0 border-b border-slate-200 bg-white">
         <div className="grid min-w-0 gap-2 px-4 py-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:px-6">
           <Link
             href="/admin"
@@ -82,7 +88,14 @@ export default async function AdminLayout({
           >
             {TEAM_TITLE}
           </Link>
-          <div className="flex min-w-0 items-center justify-end gap-2">
+          <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+            <Link
+              href="/student"
+              prefetch={false}
+              className="btn-secondary btn-sm shrink-0"
+            >
+              {t("components.userMenu.enterTutee")}
+            </Link>
             <Link
               href="/admin/account"
               className="hidden shrink-0 rounded-md px-2 py-1 text-right leading-tight hover:bg-slate-100 lg:block"
@@ -95,7 +108,7 @@ export default async function AdminLayout({
                 {(me?.username ?? me?.tutor?.username)
                   ? `@${me.username ?? me?.tutor?.username} · `
                   : ""}
-                {session.role}
+                {t(`admin.users.roles.${session.role}`)}
               </p>
             </Link>
             <div className="shrink-0">
@@ -120,14 +133,18 @@ export default async function AdminLayout({
         <NavMobileRow role={session.role} />
       </header>
 
-      <div className="mx-auto flex max-w-7xl gap-8 px-4 py-5 sm:py-6 lg:px-6">
+      {/* The flex remainder follows the actual header height, including wrapping and zoom.
+          Each desktop pane owns its scroll; no fixed pixel header offset can hide links. */}
+      <div className="admin-workspace mx-auto flex w-full max-w-7xl gap-6 px-4 py-5 sm:py-6 lg:min-h-0 lg:flex-1 lg:overflow-hidden lg:px-6">
         <NavSidebar role={session.role} />
 
         {/* Main content. `data-readonly` exposes the read-only VIEWER role to globals.css, which keeps
             only a thin destructive-control backstop; mutation panels are hidden per-page via
             useReadOnly(), and the server-side adminProcedure checks are the real guard. */}
         <main
-          className="min-w-0 flex-1"
+          id="admin-content"
+          tabIndex={0}
+          className="min-w-0 flex-1 focus-visible:outline-2 focus-visible:outline-offset-2 lg:overflow-y-auto lg:overscroll-contain lg:pr-3"
           data-readonly={readOnly ? "" : undefined}
         >
           {readOnly && (
@@ -165,7 +182,11 @@ export default async function AdminLayout({
               </Link>
             </div>
           )}
-          <ReadOnlyProvider value={readOnly}>{children}</ReadOnlyProvider>
+          <ReadOnlyProvider value={readOnly}>
+            <AdminPreferenceIdentity value={session.user.id}>
+              {children}
+            </AdminPreferenceIdentity>
+          </ReadOnlyProvider>
         </main>
       </div>
     </div>

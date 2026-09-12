@@ -4,7 +4,7 @@ The survey and participant workflows are integrated and merged through [PR #9](h
 
 | Task | Current guide |
 | --- | --- |
-| Apply, verify, edit availability or leave | [Student guide](docs/user-guide.md#students) |
+| Apply, verify, edit availability or leave | [Tutee guide](docs/user-guide.md#tutees) |
 | Attendance, feedback, appeals and private support | [Records and support](docs/user-guide.md#records-feedback-and-appeals) |
 | Review participation and correct history | [Administrator guide](docs/user-guide.md#administrators) |
 | Coordinator review | [Coordinator guide](docs/user-guide.md#coordinators) |

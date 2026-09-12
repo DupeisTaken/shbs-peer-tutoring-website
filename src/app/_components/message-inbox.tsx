@@ -1,10 +1,12 @@
 "use client";
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { Pager } from "./student-portal";
 export function MessageInbox() {
+  const programFormat = useFormatter();
   const t = useTranslations("workflows");
+  const roleLabel = useTranslations("admin.users.roles");
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState("");
   const [recipientId, setRecipientId] = useState("");
@@ -58,7 +60,7 @@ export function MessageInbox() {
             <option value="">—</option>
             {contacts.data?.map((c) => (
               <option key={c.id} value={c.id}>
-                {c.name} · {c.role}
+                {c.name} · {roleLabel(c.role)}
               </option>
             ))}
           </select>
@@ -104,7 +106,10 @@ export function MessageInbox() {
                 {m.sender} → {m.recipient}
               </p>
               <time className="muted text-xs">
-                {m.createdAt.toLocaleString()}
+                {programFormat.dateTime(m.createdAt, {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })}
               </time>
             </div>
             <p className="my-4 break-words whitespace-pre-wrap">{m.body}</p>

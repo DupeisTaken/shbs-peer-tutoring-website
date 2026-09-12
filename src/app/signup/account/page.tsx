@@ -5,7 +5,7 @@ import { auth } from "~/server/auth";
 import { FloatingLanguageSwitcher } from "~/app/_components/floating-language-switcher";
 
 export const metadata = {
-  title: "Confirm Student Signup",
+  title: "Confirm Tutee Signup",
   robots: { index: false, follow: false },
   referrer: "no-referrer" as const,
 };

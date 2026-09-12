@@ -1,9 +1,10 @@
 import { getRequestConfig } from "next-intl/server";
 import { cookies } from "next/headers";
 
+import { getProgramTimeZone } from "~/server/program/time-zone";
 import { db } from "~/server/db";
 import { listLanguages } from "~/server/i18n/languages";
-import { DEFAULT_LOCALE, DEFAULT_TIME_ZONE, isLocale, type Locale } from "./config";
+import { DEFAULT_LOCALE, isLocale, type Locale } from "./config";
 import { getMessageFallback, onIntlError } from "./fallback";
 
 /**
@@ -118,7 +119,7 @@ export default getRequestConfig(async () => {
   return {
     locale,
     messages,
-    timeZone: DEFAULT_TIME_ZONE,
+    timeZone: await getProgramTimeZone(),
     getMessageFallback,
     onError: onIntlError,
   };

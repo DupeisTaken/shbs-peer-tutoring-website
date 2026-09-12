@@ -41,6 +41,9 @@ model User {
   student Tutee? @relation(fields: [studentId], references: [id], onDelete: SetNull)
   id    String  @id @default(cuid())
   name  String?
+  /// Canonical person profile; mirrored only through explicit tutor/student links.
+  alternativeNames String?
+  profileVersion Int @default(0)
   /// Login identifier. Also the address future email-based 2FA codes are sent to.
   email String  @unique
 
@@ -410,6 +413,7 @@ model Tutor {
   /// from this + the active school year (tutors can't edit the derived year). See src/lib/period.ts.
   gradeLevel  Int?
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
 
   user                 User?
   pairings             Pairing[]
@@ -548,6 +552,7 @@ model Tutee {
   signupSubmittedAt DateTime?
   id          String      @id @default(cuid())
   englishName String
+  alternativeNames String?
   email       String?
   phone       String?
   /// Free-text "how can we reach you?" captured on the public signup form (required there).
@@ -1236,6 +1241,9 @@ model Announcement {
   /// Pinned announcements stay surfaced even after acknowledgement.
   pinned      Boolean  @default(false)
   active      Boolean  @default(true)
+  /// Old broadcasts remain visible to all tutors; new posts freeze tutor identities at publication.
+  audienceRestricted Boolean @default(false)
+  recipientTutorIds String[] @default([])
   createdById String?
   createdBy   User?    @relation("AnnouncementAuthor", fields: [createdById], references: [id])
   createdAt   DateTime @default(now())
@@ -1503,7 +1511,7 @@ model StudentRequestReview {
   surveyId String?
   // Preserve the originating request as review evidence, matching the deployed constraint.
   survey StudentSurvey? @relation(fields: [surveyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
-  /// Existing manually managed tutees can also request schedule rejection without a survey.
+  /// Account-linked manual tutees can request withdrawal or schedule review without a survey.
   legacyTuteeId String?
   legacyIntakeTermId String?
   kind StudentReviewKind
@@ -1527,7 +1535,8 @@ model StudentQuarterBlock {
   id String @id @default(cuid())
   email String
   intakeTermId String
-  surveyId String
+  surveyId String?
+  legacyTuteeId String?
   userId String?
   createdAt DateTime @default(now())
   @@unique([email, intakeTermId])
@@ -1634,4 +1643,11 @@ model SchoolCalendarDay {
   date String @id
   isSchoolDay Boolean
   note String?
+}
+
+/// Singleton configuration; changing the zone never rewrites stored instants or weekly slot times.
+model ProgramSettings {
+  id String @id @default("program")
+  timeZone String @default("Asia/Shanghai")
+  updatedAt DateTime @default(now()) @updatedAt
 }

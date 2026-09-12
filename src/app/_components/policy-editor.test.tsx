@@ -49,7 +49,7 @@ vi.mock("~/trpc/react", () => ({
 }));
 
 const wrapper = ({ children }: { children: React.ReactNode }) => (
-  <NextIntlClientProvider locale="en" messages={messages}>
+  <NextIntlClientProvider locale="en" messages={messages} timeZone="UTC">
     {children}
   </NextIntlClientProvider>
 );
@@ -62,7 +62,7 @@ afterEach(cleanup);
 
 it("creates both first policies through the existing save mutation without demo data", () => {
   render(<PoliciesPage />, { wrapper });
-  expect(screen.getByRole("heading", { name: "Student policy" })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Tutee policy" })).toBeTruthy();
   expect(screen.getByRole("heading", { name: "Tutor policy" })).toBeTruthy();
   expect(
     screen

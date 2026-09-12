@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { Suspense, useState } from "react";
 import { useSearchParams } from "next/navigation";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import SuperJSON from "superjson";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { humanizeOperation, proposalConfirmation } from "~/lib/approval-policy";
@@ -26,6 +26,7 @@ function RequestCard({
   onChanged: () => Promise<void>;
 }) {
   const t = useTranslations("approvals");
+  const format = useFormatter();
   const [note, setNote] = useState("");
   const [confirming, setConfirming] = useState(false);
   const decision = api.approval.decide.useMutation({
@@ -67,7 +68,11 @@ function RequestCard({
       );
   }
   const display = (value: unknown): string => {
-    if (value instanceof Date) return value.toLocaleString();
+    if (value instanceof Date)
+      return format.dateTime(value, {
+        dateStyle: "medium",
+        timeStyle: "short",
+      });
     if (typeof value === "string") return labels.get(value) ?? value;
     if (value === null || value === undefined) return "—";
     if (Array.isArray(value)) return value.map(display).join(", ") || "—";
@@ -125,7 +130,10 @@ function RequestCard({
             </h2>
             <p className="mt-1 text-sm text-slate-500">
               {request.requesterName} ·{" "}
-              {new Date(request.createdAt).toLocaleString()}
+              {format.dateTime(new Date(request.createdAt), {
+                dateStyle: "medium",
+                timeStyle: "short",
+              })}
             </p>
           </div>
           <span
@@ -191,7 +199,10 @@ function RequestCard({
             <p className="text-xs font-medium text-slate-500">
               {request.reviewerName} ·{" "}
               {request.reviewedAt &&
-                new Date(request.reviewedAt).toLocaleString()}
+                format.dateTime(new Date(request.reviewedAt), {
+                  dateStyle: "medium",
+                  timeStyle: "short",
+                })}
             </p>
             <p className="mt-2 text-sm whitespace-pre-wrap">
               {request.reviewNote}
@@ -280,7 +291,7 @@ function ApprovalQueue() {
     requesterId: requesterId || undefined,
     requestId,
   });
-  const options = api.admin.auditFilterOptions.useQuery(undefined, {
+  const options = api.approval.requesters.useQuery(undefined, {
     enabled: !!queue.data?.canReview,
   });
   const refresh = async () => {
@@ -294,26 +305,28 @@ function ApprovalQueue() {
       </header>
       <div className="card flex flex-wrap items-end gap-3 p-4">
         {!requestId && (
-          <label>
-            <span className="label">{t("status")}</span>
-            <select
-              className="input mt-1 block"
-              value={state}
-              onChange={(e) => {
-                setState(e.target.value as State | "");
-                setPage(0);
-              }}
-            >
-              <option value="">{t("allStates")}</option>
-              {(["PENDING", "APPROVED", "REJECTED", "CANCELLED"] as const).map(
-                (s) => (
-                  <option key={s} value={s}>
-                    {t(`states.${s}`)}
-                  </option>
-                ),
-              )}
-            </select>
-          </label>
+          <div
+            role="group"
+            aria-label={t("status")}
+            className="flex flex-wrap gap-2"
+          >
+            {(
+              ["PENDING", "APPROVED", "REJECTED", "CANCELLED", ""] as const
+            ).map((value) => (
+              <button
+                type="button"
+                key={value}
+                aria-pressed={state === value}
+                className={state === value ? "btn-primary" : "btn-secondary"}
+                onClick={() => {
+                  setState(value);
+                  setPage(0);
+                }}
+              >
+                {value ? t(`states.${value}`) : t("allStates")}
+              </button>
+            ))}
+          </div>
         )}
         {queue.data?.canReview && !requestId && (
           <label className="min-w-48">
@@ -327,9 +340,9 @@ function ApprovalQueue() {
               }}
             >
               <option value="">{t("allUsers")}</option>
-              {options.data?.users.map((u) => (
+              {options.data?.map((u) => (
                 <option key={u.id} value={u.id}>
-                  {u.label} · {u.id.slice(-6)}
+                  {u.label}
                 </option>
               ))}
             </select>

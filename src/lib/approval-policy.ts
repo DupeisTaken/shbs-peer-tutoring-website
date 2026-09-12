@@ -26,6 +26,7 @@ export const APPROVAL_OPERATIONS: Record<string, string> = {
   "admin.setUserCanTutor": "User",
   "admin.createTutor": "Tutor",
   "admin.updateTutor": "Tutor",
+  "admin.updateAccountProfile": "User",
   "admin.createTutee": "Tutee",
   "admin.updateTutee": "Tutee",
   "admin.assignTuteeToTutor": "Tutee",
@@ -91,6 +92,8 @@ export const APPROVAL_OPERATIONS: Record<string, string> = {
 
 export const COORDINATOR_DIRECT_OPERATIONS = new Set([
   "admin.sendTutorSetup",
+  // Email proof/setup only; no role, profile link or verified status is changed by sending.
+  "admin.sendAccountVerification",
   // Resending an existing verification link neither assigns a tutor nor extends a deadline.
   "studentWorkflow.resend",
   // Tutors/crew still perform their own duties through their participant procedures.

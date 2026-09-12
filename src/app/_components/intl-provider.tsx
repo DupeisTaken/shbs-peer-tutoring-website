@@ -14,9 +14,11 @@ import { getMessageFallback, onIntlError } from "~/i18n/fallback";
 export function IntlProvider({
   locale,
   messages,
+  timeZone = DEFAULT_TIME_ZONE,
   children,
 }: {
   locale: string;
+  timeZone?: string;
   messages: AbstractIntlMessages;
   children: React.ReactNode;
 }) {
@@ -24,7 +26,7 @@ export function IntlProvider({
     <NextIntlClientProvider
       locale={locale}
       messages={messages}
-      timeZone={DEFAULT_TIME_ZONE}
+      timeZone={timeZone}
       getMessageFallback={getMessageFallback}
       onError={onIntlError}
     >

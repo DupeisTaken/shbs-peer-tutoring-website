@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { DetailsAutoClose } from "~/app/_components/details-auto-close";
@@ -14,6 +14,7 @@ import { useClampedPopover } from "~/app/_components/use-clamped-popover";
  * Available to all roles; a native <details> with DetailsAutoClose for outside-click close.
  */
 export function NotificationBell() {
+  const programFormat = useFormatter();
   const t = useTranslations();
   const [open, setOpen] = useState(false);
   const panelRef = useClampedPopover<HTMLDivElement>(open);
@@ -82,7 +83,7 @@ export function NotificationBell() {
                 <p className="text-sm font-medium text-slate-800">{n.title}</p>
                 {n.body && <p className="muted text-xs">{n.body}</p>}
                 <p className="text-[10px] text-slate-400">
-                  {new Date(n.createdAt).toLocaleString()}
+                  {programFormat.dateTime(new Date(n.createdAt), { dateStyle: "medium", timeStyle: "short" })}
                 </p>
               </>
             );

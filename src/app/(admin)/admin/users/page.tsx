@@ -1,14 +1,29 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 
+import { EmailDetails } from "~/app/_components/email-details";
+import { AccountProfileEditor } from "~/app/_components/account-profile-editor";
+import { MultiFilter } from "~/app/_components/multi-filter";
+import {
+  emptyUserFilters,
+  matchesUserFilters,
+  parseUserFilters,
+  type UserFilters,
+} from "~/lib/user-filters";
 import { api } from "~/trpc/react";
 import { SortHeader, useSort, compare } from "~/app/_components/sortable";
 import { useDialog } from "~/app/_components/confirm-dialog";
 
 /** Roles an admin/head may assign via the dropdown (HEAD is set only via leadership transfer). */
-const ASSIGNABLE_ROLES = ["STUDENT", "VIEWER", "TUTOR", "COORDINATOR", "ADMIN"] as const;
+const ASSIGNABLE_ROLES = [
+  "STUDENT",
+  "VIEWER",
+  "TUTOR",
+  "COORDINATOR",
+  "ADMIN",
+] as const;
 type RoleValue = (typeof ASSIGNABLE_ROLES)[number];
 
 const ALL_ROLES = [
@@ -148,6 +163,10 @@ export default function UsersPage() {
   const t = useTranslations();
   const utils = api.useUtils();
   const accounts = api.admin.accounts.useQuery();
+  const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
+  const editingProfile = accounts.data?.rows.find(
+    (row) => row.userId === editingProfileId,
+  );
   const invalidate = () => utils.admin.accounts.invalidate();
 
   // Designed confirm/prompt dialog (replaces native window.prompt for the suspension reason).
@@ -215,20 +234,44 @@ export default function UsersPage() {
     setRole.isPending || transferHead.isPending || deleteUser.isPending;
   const sort = useSort("name");
 
-  // Filters.
-  const [roleFilter, setRoleFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [accountFilter, setAccountFilter] = useState<string>("all");
-
+  // Persist by account only after loading that account's preference; never overwrite on hydration.
+  const [filterState, setFilterState] = useState<{
+    userId: string;
+    filters: UserFilters;
+  } | null>(null);
+  const viewerId = accounts.data?.caller.id;
+  useEffect(() => {
+    if (!viewerId) return;
+    let raw: string | null = null;
+    try {
+      raw = localStorage.getItem(`shbs:user-filters:${viewerId}:v1`);
+    } catch {
+      /* Private browsing may disable storage. */
+    }
+    setFilterState({ userId: viewerId, filters: parseUserFilters(raw) });
+  }, [viewerId]);
+  const filters = useMemo(
+    () =>
+      filterState?.userId === viewerId
+        ? (filterState?.filters ?? emptyUserFilters())
+        : emptyUserFilters(),
+    [filterState, viewerId],
+  );
+  const updateFilters = (next: UserFilters) => {
+    if (!viewerId) return;
+    setFilterState({ userId: viewerId, filters: next });
+    try {
+      localStorage.setItem(
+        `shbs:user-filters:${viewerId}:v1`,
+        JSON.stringify(next),
+      );
+    } catch {
+      /* Keep in-memory filtering usable. */
+    }
+  };
   const rows = useMemo(() => {
     const data = accounts.data?.rows ?? [];
-    const filtered = data.filter((u) => {
-      if (roleFilter !== "all" && u.role !== roleFilter) return false;
-      if (statusFilter !== "all" && u.tutorStatus !== statusFilter)
-        return false;
-      if (accountFilter !== "all" && u.account !== accountFilter) return false;
-      return true;
-    });
+    const filtered = data.filter((u) => matchesUserFilters(u, filters));
     const dir = sort.dir === "asc" ? 1 : -1;
     return [...filtered].sort((a, b) => {
       switch (sort.key) {
@@ -246,14 +289,7 @@ export default function UsersPage() {
           return compare(a.name, b.name) * dir;
       }
     });
-  }, [
-    accounts.data,
-    sort.key,
-    sort.dir,
-    roleFilter,
-    statusFilter,
-    accountFilter,
-  ]);
+  }, [accounts.data, sort.key, sort.dir, filters]);
 
   const accountBadge = (status: string) =>
     status === "registered"
@@ -264,6 +300,17 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
+      {editingProfile?.userId && editingProfile.profileVersion !== null && (
+        <AccountProfileEditor
+          profile={{
+            userId: editingProfile.userId,
+            name: editingProfile.name,
+            alternativeNames: editingProfile.alternativeNames,
+            profileVersion: editingProfile.profileVersion,
+          }}
+          onClose={() => setEditingProfileId(null)}
+        />
+      )}
       <div>
         <h1 className="page-title">{t("admin.users.title")}</h1>
         <p className="muted mt-1">
@@ -273,54 +320,59 @@ export default function UsersPage() {
         </p>
       </div>
 
-      {/* Filters: role · tutor status · account state */}
-      <div className="flex flex-wrap gap-3">
-        <label className="text-sm">
-          <span className="label">{t("admin.users.filters.role")}</span>
-          <select
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
-            className="select field-auto min-w-32"
+      <section className="card space-y-3 p-4">
+        <p className="muted text-sm">{t("userMultiFilters.hint")}</p>
+        <div className="grid items-start gap-3 md:grid-cols-3">
+          <MultiFilter
+            label={t("admin.users.filters.role")}
+            options={[
+              ...ALL_ROLES.map((value) => ({
+                value,
+                label: t(`admin.users.roles.${value}`),
+              })),
+              { value: "__none__", label: t("userMultiFilters.noRole") },
+            ]}
+            value={filters.role}
+            onChange={(role) => updateFilters({ ...filters, role })}
+          />
+          <MultiFilter
+            label={t("admin.users.filters.status")}
+            options={[
+              ...TUTOR_STATUSES.map((value) => ({
+                value,
+                label: t(`admin.tutorStatus.${value}`),
+              })),
+              { value: "__none__", label: t("userMultiFilters.noTutor") },
+            ]}
+            value={filters.status}
+            onChange={(status) => updateFilters({ ...filters, status })}
+          />
+          <MultiFilter
+            label={t("admin.users.filters.account")}
+            options={ACCOUNT_STATES.map((value) => ({
+              value,
+              label: t(`admin.tutors.account.${value}`),
+            }))}
+            value={filters.account}
+            onChange={(account) => updateFilters({ ...filters, account })}
+          />
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <p role="status" className="muted text-sm">
+            {t("userMultiFilters.count", {
+              count: rows.length,
+              total: accounts.data?.rows.length ?? 0,
+            })}
+          </p>
+          <button
+            type="button"
+            className="btn-secondary btn-sm"
+            onClick={() => updateFilters(emptyUserFilters())}
           >
-            <option value="all">{t("admin.users.filters.all")}</option>
-            {ALL_ROLES.map((r) => (
-              <option key={r} value={r}>
-                {t(`admin.users.roles.${r}`)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="text-sm">
-          <span className="label">{t("admin.users.filters.status")}</span>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="select field-auto min-w-32"
-          >
-            <option value="all">{t("admin.users.filters.all")}</option>
-            {TUTOR_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {t(`admin.tutorStatus.${s}`)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="text-sm">
-          <span className="label">{t("admin.users.filters.account")}</span>
-          <select
-            value={accountFilter}
-            onChange={(e) => setAccountFilter(e.target.value)}
-            className="select field-auto min-w-32"
-          >
-            <option value="all">{t("admin.users.filters.all")}</option>
-            {ACCOUNT_STATES.map((a) => (
-              <option key={a} value={a}>
-                {t(`admin.tutors.account.${a}`)}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+            {t("userMultiFilters.clear")}
+          </button>
+        </div>
+      </section>
 
       {setupInfo && (
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm">
@@ -408,7 +460,7 @@ export default function UsersPage() {
               </SortHeader>
               <th>{t("admin.users.columns.canTutor")}</th>
               <th>{t("admin.users.columns.canTranslate")}</th>
-              {isHead && <th>{t("admin.users.columns.actions")}</th>}
+              <th>{t("admin.users.columns.actions")}</th>
             </tr>
           </thead>
           <tbody>
@@ -431,7 +483,7 @@ export default function UsersPage() {
                 : ASSIGNABLE_ROLES.filter((r) => r !== "ADMIN");
               return (
                 <tr key={key}>
-                  {/* Identity: name, username, email stacked together. */}
+                  {/* Identity contains names and the handle; all row actions live in the last column. */}
                   <td>
                     <div className="leading-tight">
                       <p className="font-medium text-slate-900">{u.name}</p>
@@ -440,7 +492,9 @@ export default function UsersPage() {
                           @{u.username ?? u.tutor?.username}
                         </p>
                       )}
-                      <p className="muted text-xs">{u.email ?? "—"}</p>
+                      {u.alternativeNames && (
+                        <p className="muted text-xs">{u.alternativeNames}</p>
+                      )}
                     </div>
                   </td>
 
@@ -680,10 +734,30 @@ export default function UsersPage() {
                     )}
                   </td>
 
-                  {/* Actions — head only: delete a login (the tutor record is preserved). */}
-                  {isHead && (
-                    <td>
-                      {u.userId && !u.isSelf && u.role !== "HEAD" ? (
+                  {/* Contact/profile actions stay available to permitted staff. Only deletion is head-only. */}
+                  <td>
+                    <div className="flex flex-col items-end gap-1.5 whitespace-nowrap">
+                      <EmailDetails
+                        email={u.email}
+                        name={u.name}
+                        verifiedAt={u.emailVerifiedAt}
+                        userId={u.userId}
+                        tutorId={u.tutorId}
+                        linked={!!u.userId}
+                        canSendSetup={
+                          !!u.userId ||
+                          (!!u.tutorId && u.email === u.tutor?.email)
+                        }
+                      />
+                      {u.userId && (
+                        <button
+                          className="link mt-1 block text-xs"
+                          onClick={() => setEditingProfileId(u.userId)}
+                        >
+                          {t("accountProfile.editProfile")}
+                        </button>
+                      )}
+                      {isHead && u.userId && !u.isSelf && u.role !== "HEAD" ? (
                         <button
                           className="link-danger text-xs whitespace-nowrap"
                           onClick={() => {
@@ -706,17 +780,15 @@ export default function UsersPage() {
                         >
                           {t("admin.users.delete")}
                         </button>
-                      ) : (
-                        <span className="text-slate-400">—</span>
-                      )}
-                    </td>
-                  )}
+                      ) : null}
+                    </div>
+                  </td>
                 </tr>
               );
             })}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={isHead ? 7 : 6} className="text-slate-500">
+                <td colSpan={7} className="text-slate-500">
                   {t("admin.users.empty")}
                 </td>
               </tr>

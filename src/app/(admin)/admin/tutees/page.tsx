@@ -9,6 +9,7 @@ import { DAY_NAMES, minToHm } from "~/lib/time";
 import { REFERENCE_STALE_TIME } from "~/lib/query";
 import { SortHeader, useSort, compare } from "~/app/_components/sortable";
 import { useReadOnly } from "~/app/_components/read-only";
+import { EmailDetails } from "~/app/_components/email-details";
 import { TuteeEditor } from "~/app/_components/tutee-editor";
 
 type Status = "PENDING" | "ACTIVE" | "INACTIVE";
@@ -91,7 +92,6 @@ export default function TuteesPage() {
 
   const invalidate = () => utils.admin.tutees.invalidate();
   const create = api.admin.createTutee.useMutation({ onSuccess: invalidate });
-  const update = api.admin.updateTutee.useMutation({ onSuccess: invalidate });
   const del = api.admin.deleteTutee.useMutation({ onSuccess: invalidate });
 
   const [name, setName] = useState("");
@@ -158,18 +158,11 @@ export default function TuteesPage() {
 
       {/* Manual add */}
       {!readOnly && editing && (
-        <section className="card space-y-3 p-5">
-          <button
-            className="btn-secondary btn-sm"
-            onClick={() => setEditingId(null)}
-          >
-            {t("common.cancel")}
-          </button>
-          <TuteeEditor
-            key={`${editing.id}-${editing.updatedAt.toISOString()}`}
-            row={editing}
-          />
-        </section>
+        <TuteeEditor
+          key={editing.id}
+          row={editing}
+          onClose={() => setEditingId(null)}
+        />
       )}
       {!readOnly && (
         <section className="card p-5">
@@ -332,7 +325,7 @@ export default function TuteesPage() {
 
       {view === "tutees" && (
         <section className="card overflow-x-auto">
-          <table className="data-table">
+          <table className="data-table [&_td]:px-2 [&_th]:px-2">
             <thead>
               <tr>
                 <SortHeader sort={sort} sortKey="name">
@@ -358,43 +351,45 @@ export default function TuteesPage() {
             <tbody>
               {rows.map((t2) => (
                 <tr key={t2.id}>
-                  <td>
-                    {readOnly ? (
-                      <span>{t2.englishName}</span>
-                    ) : (
-                      <input
-                        defaultValue={t2.englishName}
-                        className="input field-auto min-w-40"
-                        onBlur={(e) => {
-                          const v = e.target.value.trim();
-                          if (v && v !== t2.englishName)
-                            update.mutate({
-                              id: t2.id,
-                              expectedUpdatedAt: t2.updatedAt,
-                              englishName: v,
-                              gradeLevel: t2.gradeLevel,
-                              email: t2.email,
-                              phone: t2.phone,
-                              notes: t2.notes,
-                              status: t2.status,
-                              firstChoiceId: t2.firstChoiceId,
-                              secondChoiceId: t2.secondChoiceId,
-                            });
-                        }}
-                      />
+                  <td className="max-w-52 min-w-40">
+                    <p className="font-medium [overflow-wrap:anywhere] text-slate-900">
+                      {t2.englishName}
+                    </p>
+                    {t2.alternativeNames && (
+                      <p className="muted text-xs [overflow-wrap:anywhere]">
+                        {t2.alternativeNames}
+                      </p>
                     )}
+                    <p className="muted mt-1 text-xs">
+                      {t2.user?.username
+                        ? `@${t2.user.username}`
+                        : t("accountProfile.setupRequired")}
+                    </p>
                   </td>
                   <td>{t2.gradeLevel ?? "—"}</td>
-                  <td className="text-slate-600">
-                    {t2.firstChoice?.name ?? "—"}
-                    {t2.secondChoice ? ` / ${t2.secondChoice.name}` : ""}
+                  <td className="w-36 max-w-36 whitespace-normal text-slate-600">
+                    <ul className="space-y-1 text-sm">
+                      {[t2.firstChoice, t2.secondChoice]
+                        .filter((subject) => subject !== null)
+                        .map((subject) => (
+                          <li key={subject.id}>{subject.name}</li>
+                        ))}
+                    </ul>
+                    {!t2.firstChoice && !t2.secondChoice && "—"}
                   </td>
                   <StatsCells
                     s={stats.data?.[t2.id]}
                     removalLabel={t("admin.tutees.removalBadge")}
                   />
                   <td className="text-slate-600">
-                    {t2.preferredContact ?? t2.email ?? t2.phone ?? "—"}
+                    <EmailDetails
+                      name={t2.englishName}
+                      email={t2.user?.email ?? t2.email}
+                      verifiedAt={t2.user?.emailVerifiedAt}
+                      userId={t2.user?.id}
+                      canSendSetup={!readOnly && !!t2.user}
+                      linked={!!t2.user}
+                    />
                   </td>
                   {/* Status is read-only here — transitions follow the procedures: assignment on
                       /admin/requests, removal & reinstatement on /admin/tutee-requests. */}
@@ -404,23 +399,26 @@ export default function TuteesPage() {
                       label={statusLabel(t2.status)}
                     />
                   </td>
-                  <td className="text-right">
-                    {!readOnly && (
-                      <button
-                        className="link mr-2"
-                        onClick={() => setEditingId(t2.id)}
-                      >
-                        {t("profileCorrection.edit")}
-                      </button>
-                    )}
-                    {!readOnly && (
-                      <button
-                        className="link-danger"
-                        onClick={() => del.mutate({ id: t2.id })}
-                      >
-                        {t("admin.tutees.deleteBtn")}
-                      </button>
-                    )}
+                  {/* Reserve one unbroken action group even when other columns grow. */}
+                  <td className="w-px text-right whitespace-nowrap">
+                    <div className="inline-flex flex-col items-end justify-center gap-2">
+                      {!readOnly && (
+                        <button
+                          className="link whitespace-nowrap"
+                          onClick={() => setEditingId(t2.id)}
+                        >
+                          {t("accountProfile.editProfile")}
+                        </button>
+                      )}
+                      {!readOnly && (
+                        <button
+                          className="link-danger whitespace-nowrap"
+                          onClick={() => del.mutate({ id: t2.id })}
+                        >
+                          {t("admin.tutees.deleteBtn")}
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

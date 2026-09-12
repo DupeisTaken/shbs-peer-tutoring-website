@@ -14,17 +14,21 @@ import { notifyAdmins, notifyUsers } from "~/server/notifications/create";
 import { syncPunishmentRemoval } from "~/server/discipline/removal";
 import { assertFeatureEnabled } from "~/server/program/features";
 
+import { getProgramTimeZone } from "~/server/program/time-zone";
+import { programDateKey, programDayEnd } from "~/lib/program-time";
+import { DEFAULT_TIME_ZONE } from "~/i18n/config";
 const staff = (role: string) => ["HEAD", "ADMIN", "COORDINATOR"].includes(role);
 const text = z.string().trim().min(1).max(2000);
 const paging = z
   .object({ page: z.number().int().min(0).default(0) })
   .default({ page: 0 });
-/** Weekday deadline uses the school's UTC+8 calendar; staff may still correct cards independently. */
+/** Weekday deadline uses the configured school calendar; staff may still correct cards independently. */
 export function appealDeadline(
   date: Date,
   overrides: { date: string; isSchoolDay: boolean }[] = [],
+  timeZone = DEFAULT_TIME_ZONE,
 ) {
-  const day = new Date(date.getTime() + 8 * 3600000);
+  const day = new Date(`${programDateKey(date, timeZone)}T00:00:00Z`);
   for (let remaining = 5; remaining > 0;) {
     day.setUTCDate(day.getUTCDate() + 1);
     const override = overrides.find(
@@ -32,8 +36,7 @@ export function appealDeadline(
     );
     if (override?.isSchoolDay ?? ![0, 6].includes(day.getUTCDay())) remaining--;
   }
-  day.setUTCHours(23, 59, 59, 999);
-  return new Date(day.getTime() - 8 * 3600000);
+  return programDayEnd(day.toISOString().slice(0, 10), timeZone);
 }
 export const studentRouter = createTRPCRouter({
   acceptanceRecords: adminProcedure
@@ -186,6 +189,23 @@ export const studentRouter = createTRPCRouter({
           },
         })
       : null;
+    // A verified account can retain several profiles across intakes. Query pairings once
+    // across explicit ownership, so the current pointer cannot hide another current subject.
+    const schedule = owned.length
+      ? await ctx.db.pairing.findMany({
+          where: {
+            term: { active: true },
+            tutees: { some: { tuteeId: { in: owned }, tutee: { status: { not: "INACTIVE" } } } },
+          },
+          orderBy: [{ dayOfWeek: "asc" }, { startMin: "asc" }, { id: "asc" }],
+          select: {
+            id: true, subject: true, timeSlotId: true, dayOfWeek: true,
+            startMin: true, endMin: true,
+            room: { select: { name: true } },
+            tutor: { select: { englishName: true } },
+          },
+        })
+      : [];
     const sessions = owned.length
       ? await ctx.db.sessionTutee.findMany({
           where: { tuteeId: { in: owned } },
@@ -239,6 +259,7 @@ export const studentRouter = createTRPCRouter({
           select: { cardId: true },
         })
       : [];
+    const timeZone = await getProgramTimeZone(ctx.db);
     const appealedCards = new Set(appealedCardIds.map((row) => row.cardId));
     const feedback = owned.length
       ? await ctx.db.studentFeedback.findMany({
@@ -251,13 +272,14 @@ export const studentRouter = createTRPCRouter({
     return {
       user,
       student,
+      schedule,
       sessions: sessions.map((s) => ({
         ...s,
         feedback: feedback.find((f) => f.sessionId === s.session.id) ?? null,
       })),
       cards: cards.map((c) => ({
         ...c,
-        deadline: appealDeadline(c.createdAt, calendar),
+        deadline: appealDeadline(c.createdAt, calendar, timeZone),
         hasExistingAppeal: appealedCards.has(c.id),
       })),
       appeals,
@@ -314,7 +336,7 @@ export const studentRouter = createTRPCRouter({
           create: { studentId: attendance.tuteeId, ...input },
         });
         await notifyAdmins(
-          { title: "Student feedback received", link: "/student-support" },
+          { title: "Tutee feedback received", link: "/student-support" },
           undefined,
           tx,
         );
@@ -355,7 +377,7 @@ export const studentRouter = createTRPCRouter({
         ...r,
         studentName:
           students.find((s) => s.id === r.studentId)?.englishName ??
-          "Deleted student",
+          "Deleted tutee",
         subject:
           lessons.find((l) => l.id === r.sessionId)?.pairing.subject ??
           "Archived session",
@@ -381,6 +403,7 @@ export const studentRouter = createTRPCRouter({
           appealDeadline(
             card.createdAt,
             await tx.schoolCalendarDay.findMany(),
+            await getProgramTimeZone(tx),
           ) < new Date()
         )
           throw new TRPCError({
@@ -401,7 +424,7 @@ export const studentRouter = createTRPCRouter({
           data: { studentId: card.tuteeId, ...input },
         });
         await notifyAdmins(
-          { title: "Student card appeal", link: "/student-support" },
+          { title: "Tutee card appeal", link: "/student-support" },
           undefined,
           tx,
         );
@@ -446,7 +469,7 @@ export const studentRouter = createTRPCRouter({
           ...r,
           studentName:
             students.find((s) => s.id === r.studentId)?.englishName ??
-            "Deleted student",
+            "Deleted tutee",
           cardReason: cards.find((c) => c.id === r.cardId)?.reason,
         })),
         total,

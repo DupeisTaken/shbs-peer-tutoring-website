@@ -19,8 +19,8 @@ vi.mock("~/trpc/react", () => ({
         useQuery: () => ({
           data: {
             users: [
-              { id: "user-alex-1", label: "Alex" },
-              { id: "user-alex-2", label: "Alex" },
+              { id: "user-alex-1", label: "Alex", username:"alexchen", former:false },
+              { id: "user-alex-2", label: "Alex", username:"alexkim", former:false },
             ],
             operations: ["admin.updateRoom"],
             entities: ["Room"],
@@ -31,7 +31,7 @@ vi.mock("~/trpc/react", () => ({
   },
 }));
 const wrapper = ({ children }: { children: React.ReactNode }) => (
-  <NextIntlClientProvider locale="en" messages={messages}>
+  <NextIntlClientProvider locale="en" timeZone="Asia/Shanghai" messages={messages}>
     {children}
   </NextIntlClientProvider>
 );
@@ -57,6 +57,9 @@ it("announces a queued proposal with a working request link and dismiss control"
 it("combines filters by stable user ID and clears them without sending incomplete edits", () => {
   const onApply = vi.fn();
   render(<AuditFilters onApply={onApply} />, { wrapper });
+  expect(screen.getByText("Date filters and event times use Asia/Shanghai.")).toBeTruthy();
+  expect(screen.getByRole('option',{name:'Alex · @alexkim'})).toBeTruthy();
+  expect(screen.queryByText(/alex-2/)).toBeNull();
   fireEvent.change(screen.getByLabelText("User"), {
     target: { value: "user-alex-2" },
   });
@@ -79,8 +82,8 @@ it("combines filters by stable user ID and clears them without sending incomplet
       userId: "user-alex-2",
       kind: "DECISION",
       search: "review",
-      from: new Date("2026-09-09"),
-      until: new Date("2026-09-10"),
+      from: new Date("2026-09-08T16:00:00Z"),
+      until: new Date("2026-09-09T16:00:00Z"),
     }),
   );
   fireEvent.click(screen.getByRole("button", { name: "Clear Filters" }));

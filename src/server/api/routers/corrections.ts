@@ -1,3 +1,5 @@
+import { getProgramTimeZone } from "~/server/program/time-zone";
+import { programDateKey } from "~/lib/program-time";
 import { notifyUsers } from "~/server/notifications/create";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -156,7 +158,7 @@ export const correctionsRouter = createTRPCRouter({
         )
           throw new TRPCError({
             code: "BAD_REQUEST",
-            message: "Include each recorded student exactly once.",
+            message: "Include each recorded tutee exactly once.",
           });
         const {
           id: _id,
@@ -350,14 +352,12 @@ export const correctionsRouter = createTRPCRouter({
           await tx.patrolObservation.update({ where: { id }, data });
         // Query both old and new evidence windows so moved observations clear old discrepancies.
         const evidence = [...before.observations, ...input.observations];
+        const timeZone = await getProgramTimeZone(tx);
         const sessions = await tx.session.findMany({
           where: {
             OR: evidence.map((o) => ({
               actualRoomId: o.roomId,
-              date: {
-                gte: new Date(o.observedAt.getTime() - 86400000),
-                lte: new Date(o.observedAt.getTime() + 86400000),
-              },
+              date: new Date(`${programDateKey(o.observedAt, timeZone)}T00:00:00Z`),
             })),
           },
           include: { flags: true },

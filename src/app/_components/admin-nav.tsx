@@ -1,6 +1,6 @@
 import { getTranslations } from "next-intl/server";
 
-import { NavLink } from "~/app/_components/nav-link";
+import { AdminMobileNavigation } from "~/app/_components/admin-mobile-navigation";
 import { NavSidebarClient } from "~/app/_components/nav-sidebar-client";
 import { db } from "~/server/db";
 import {
@@ -50,6 +50,12 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
         elevatedOnly: true,
       },
       {
+        href: "/admin/interviews",
+        labelKey: "workflows.interviewComplete",
+        elevatedOnly: true,
+        feature: "INTERVIEWS",
+      },
+      {
         href: "/admin/meetings",
         labelKey: "admin.nav.links.tutorMeetings",
         feature: "MEETINGS",
@@ -72,6 +78,11 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
     items: [
       { href: "/admin/tutees", labelKey: "admin.nav.links.tuteeRoster" },
       { href: "/admin/requests", labelKey: "admin.nav.links.signupRequests" },
+      {
+        href: "/admin/student-support",
+        labelKey: "workflows.support",
+        elevatedOnly: true,
+      },
       {
         href: "/admin/tutee-requests",
         labelKey: "admin.nav.links.tuteeRequests",
@@ -170,8 +181,12 @@ export async function NavSidebar({ role }: { role: string }) {
     })),
   })).filter((s) => s.items.length > 0);
   return (
-    <aside className="hidden w-56 shrink-0 lg:block">
+    <aside
+      className="hidden min-h-0 w-56 shrink-0 overflow-y-auto overscroll-contain pr-2 lg:block"
+      aria-label={t("adminNavigation.title")}
+    >
       <NavSidebarClient
+        sticky={false}
         sections={sections}
         collapseAllLabel={t("common.collapseAll")}
         expandAllLabel={t("common.expandAll")}
@@ -180,24 +195,30 @@ export async function NavSidebar({ role }: { role: string }) {
   );
 }
 
-/** Horizontally-scrolling nav row shown below the top bar on small screens. */
+/** Small screens use a bounded modal drawer with the same role-filtered sections. */
 export async function NavMobileRow({ role }: { role: string }) {
   const [t, features] = await Promise.all([getTranslations(), getFeatures(db)]);
   const visible = makeVisible(role, features);
   return (
-    <nav className="flex gap-1 overflow-x-auto px-2 pb-2 lg:hidden">
-      {NAV_SECTIONS.flatMap((s) => s.items)
-        .filter(visible)
-        .map((item) => (
-          <div key={item.href} className="shrink-0">
-            <NavLink
-              href={item.href}
-              label={t(item.labelKey)}
-              exact={item.exact}
-              className="min-h-11"
-            />
-          </div>
-        ))}
-    </nav>
+    <AdminMobileNavigation
+      sections={NAV_SECTIONS.map((section) => ({
+        key: section.titleKey,
+        title: t(section.titleKey),
+        items: section.items
+          .filter(visible)
+          .map((item) => ({
+            href: item.href,
+            label: t(item.labelKey),
+            exact: item.exact,
+          })),
+      })).filter((section) => section.items.length > 0)}
+      labels={{
+        title: t("adminNavigation.title"),
+        open: t("adminNavigation.open"),
+        close: t("common.close"),
+        collapse: t("common.collapseAll"),
+        expand: t("common.expandAll"),
+      }}
+    />
   );
 }

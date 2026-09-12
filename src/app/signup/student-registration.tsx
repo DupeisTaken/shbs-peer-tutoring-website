@@ -1,7 +1,7 @@
 "use client";
 import Link from "next/link";
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { SigninAccess } from "./signin-access";
 import { SurveyResend } from "./survey-resend";
@@ -16,8 +16,10 @@ export function StudentRegistration({
   token: string;
   signedInEmail?: string | null;
 }) {
+  const programFormat = useFormatter();
   const t = useTranslations("survey");
   const w = useTranslations("workflow");
+  const signup = useTranslations("public.signup");
   const [password, setPassword] = useState("");
   const request = api.tutee.inspectSurvey.useQuery(
     { token },
@@ -29,6 +31,13 @@ export function StudentRegistration({
       <section className="card space-y-4 p-6">
         <h2 className="section-title">{t("confirmedTitle")}</h2>
         <p>{t("confirmedBody")}</p>
+        {request.data?.period && (
+          <p className="badge-slate w-fit">
+            {signup(request.data.period.kind, {
+              period: request.data.period.label,
+            })}
+          </p>
+        )}
         {signedInEmail &&
         signedInEmail.toLowerCase() !== request.data?.email ? (
           <form
@@ -66,8 +75,10 @@ export function StudentRegistration({
           {t("signIn")}
         </Link>
         <SurveyResend />
-        <p className="muted text-sm">{w('expiredHelp')}</p>
-        <Link href="/signup" className="link">{w('newRequest')}</Link>
+        <p className="muted text-sm">{w("expiredHelp")}</p>
+        <Link href="/signup" className="link">
+          {w("newRequest")}
+        </Link>
       </section>
     );
   if (!request.data)
@@ -85,8 +96,22 @@ export function StudentRegistration({
       <p className="muted">
         {t(info.needsAccount ? "newAccountHelp" : "existingHelp")}
       </p>
-      {info.verificationDueAt && <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">{w('deadline', { time: new Date(info.verificationDueAt).toLocaleString() })}</p>}
+      {info.verificationDueAt && (
+        <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900">
+          {w("deadline", {
+            time: programFormat.dateTime(new Date(info.verificationDueAt), {
+              dateStyle: "medium",
+              timeStyle: "short",
+            }),
+          })}
+        </p>
+      )}
       <div className="rounded-lg bg-slate-50 p-4 break-words">
+        {info.period && (
+          <p className="badge-slate mb-2">
+            {signup(info.period.kind, { period: info.period.label })}
+          </p>
+        )}
         <p className="font-semibold">{info.name}</p>
         <p>{info.email}</p>
         <p className="muted">{info.subjects.join(", ")}</p>
@@ -105,7 +130,10 @@ export function StudentRegistration({
         <p className="muted mt-2 text-sm">{t("reviewHelp")}</p>
         <p className="muted mt-2">
           {t("submitted", {
-            time: new Date(info.submittedAt).toLocaleString(),
+            time: programFormat.dateTime(new Date(info.submittedAt), {
+              dateStyle: "medium",
+              timeStyle: "short",
+            }),
           })}
         </p>
       </div>

@@ -1,8 +1,9 @@
 "use client";
+import { EmailDetails } from "~/app/_components/email-details";
 
 import Link from "next/link";
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { DisclosureIcon } from "~/app/_components/icons";
@@ -67,6 +68,7 @@ function ApplicationCard({
   tutors: { id: string; englishName: string; active: boolean }[];
   onChanged: () => Promise<unknown> | void;
 }) {
+  const programFormat = useFormatter();
   const t = useTranslations();
   const readOnly = useReadOnly();
   const { confirm, dialog } = useDialog();
@@ -120,9 +122,7 @@ function ApplicationCard({
     !hasInterviewHistory &&
     app.status !== "ACCEPTED";
   const canScreenReject =
-    !readOnly &&
-    !hasInterviewHistory &&
-    app.status === "PENDING";
+    !readOnly && !hasInterviewHistory && app.status === "PENDING";
 
   return (
     <div className="card p-4">
@@ -216,7 +216,7 @@ function ApplicationCard({
 
       {open && (
         <div className="mt-3 border-t border-slate-100 pt-3">
-          <p className="muted">{app.email}</p>
+          <EmailDetails contactOnly email={app.email} name={app.name} />
           {app.preferredContact && (
             <p className="muted text-xs">
               {t("admin.applications.reach", { contact: app.preferredContact })}
@@ -271,7 +271,10 @@ function ApplicationCard({
               {app.interviewAt && (
                 <p className="muted mt-1">
                   {t("admin.applications.scheduled", {
-                    when: new Date(app.interviewAt).toLocaleString(),
+                    when: programFormat.dateTime(new Date(app.interviewAt), {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    }),
                   })}
                 </p>
               )}

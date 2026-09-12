@@ -7,6 +7,8 @@ import { APP_TITLE } from "~/lib/branding";
 import { isSignupWindowOpen } from "~/lib/signup-window";
 import { db } from "~/server/db";
 import { getActivePeriodOrNull } from "~/server/period";
+import { getFeatures } from "~/server/program/features";
+import { getPeriodDisplay } from "~/lib/period";
 import { FloatingLanguageSwitcher } from "~/app/_components/floating-language-switcher";
 
 export const metadata = {
@@ -18,7 +20,12 @@ export const dynamic = "force-dynamic";
 
 export default async function SignupPage() {
   const t = await getTranslations();
-  const period = await getActivePeriodOrNull(db);
+  const [period, features] = await Promise.all([
+    getActivePeriodOrNull(db),
+    getFeatures(db),
+  ]);
+  const displayPeriod =
+    period && getPeriodDisplay(period, features.QUARTER_SYSTEM);
   const now = new Date();
   const waitingPeriod =
     period?.signupOpensAt && !isSignupWindowOpen(period.signupOpensAt, now)
@@ -33,11 +40,11 @@ export default async function SignupPage() {
       </Link>
       <div className="mb-8 text-center">
         <h1 className="page-title">{t("public.signup.title")}</h1>
-        {period && (
+        {displayPeriod && (
           <p className="mt-2">
             <span className="badge-slate">
-              {t("public.signup.term", {
-                term: `${period.schoolYear} ${period.semester}`,
+              {t(`public.signup.${displayPeriod.kind}`, {
+                period: displayPeriod.label,
               })}
             </span>
           </p>
@@ -47,7 +54,9 @@ export default async function SignupPage() {
 
       {waitingPeriod ? (
         <SignupOpeningNotice
-          quarter={waitingPeriod.quarter}
+          periodLabel={
+            getPeriodDisplay(waitingPeriod, features.QUARTER_SYSTEM).label
+          }
           opensAt={waitingPeriod.signupOpensAt.toISOString()}
           previewUrl={waitingPeriod.signupPreviewUrl}
           serverNow={now.toISOString()}

@@ -1,4 +1,14 @@
+import {
+  lockAccountProfile,
+  updateAccountProfile,
+} from "~/server/account-profile";
 import { decideMembership } from "~/server/membership";
+import { auditActors } from "~/lib/audit-actors";
+import {
+  announcementAudienceSchema,
+  selectAnnouncementRecipients,
+} from "~/lib/announcement-recipients";
+import { announcementCandidates } from "~/server/announcement-recipients";
 import { auditFilters, auditWhere } from "~/server/audit/filters";
 import {
   assertStudentRequestAssignable,
@@ -31,7 +41,10 @@ import {
   splitDisplayName,
 } from "~/server/auth/username";
 import { assertCallerPassword } from "~/server/auth/reauth";
-import { issueTutorSetupLink } from "~/server/auth/password-reset";
+import {
+  issueAccountVerification,
+  issueTutorSetupLink,
+} from "~/server/auth/password-reset";
 import { issueRegistrationCode } from "~/server/auth/registration";
 import { reconcileApplication } from "~/server/tutors/application-status";
 import {
@@ -83,35 +96,6 @@ async function activeGradYear(
     select: { schoolYear: true },
   });
   return term ? graduationYear(gradeLevel, term.schoolYear) : null;
-}
-
-/**
- * Repair tutor rows whose name was duplicated by the old single-word split bug (a one-token name
- * like "Admin" became firstName=lastName="Admin" → englishName "Admin Admin"). The signature is
- * exact — firstName equals lastName AND englishName is just that token twice — so a genuine
- * "John John" is not touched unless it matches the duplicated form, and the repair (drop the
- * duplicated last name) is benign and editable. Idempotent; runs as a cheap self-heal.
- */
-async function healDuplicatedTutorNames(db: typeof dbClient): Promise<void> {
-  const candidates = await db.tutor.findMany({
-    where: { firstName: { not: null }, lastName: { not: null } },
-    select: { id: true, firstName: true, lastName: true, englishName: true },
-  });
-  const broken = candidates.filter(
-    (t) =>
-      t.firstName &&
-      t.firstName === t.lastName &&
-      t.englishName === `${t.firstName} ${t.lastName}`,
-  );
-  if (broken.length === 0) return;
-  await Promise.all(
-    broken.map((t) =>
-      db.tutor.update({
-        where: { id: t.id },
-        data: { lastName: "", englishName: t.firstName! },
-      }),
-    ),
-  );
 }
 
 /**
@@ -320,7 +304,16 @@ export const adminRouter = createTRPCRouter({
       // Login/account status so the roster can show who still needs to set up their account.
       include: {
         user: {
-          select: { id: true, emailVerifiedAt: true, mustChangePassword: true },
+          select: {
+            id: true,
+            name: true,
+            alternativeNames: true,
+            profileVersion: true,
+            username: true,
+            email: true,
+            emailVerifiedAt: true,
+            mustChangePassword: true,
+          },
         },
       },
     }),
@@ -428,6 +421,17 @@ export const adminRouter = createTRPCRouter({
       ctx.db.tutee.findMany({
         orderBy: [{ status: "asc" }, { englishName: "asc" }],
         include: {
+          user: {
+            select: {
+              id: true,
+              name: true,
+              alternativeNames: true,
+              profileVersion: true,
+              username: true,
+              email: true,
+              emailVerifiedAt: true,
+            },
+          },
           firstChoice: { select: { id: true, name: true } },
           secondChoice: { select: { id: true, name: true } },
           availabilities: {
@@ -1658,8 +1662,9 @@ export const adminRouter = createTRPCRouter({
     .input(
       z.object({
         id: cuid,
+        expectedUpdatedAt: expectedUpdatedAt.optional(),
         firstName: z.string().trim().min(1),
-        lastName: z.string().trim().min(1),
+        lastName: z.string().trim(),
         alternativeNames: z.string().trim().max(200).nullable().optional(),
         // Admin may override the auto-generated handle; blank regenerates the default.
         username: z.string().trim().optional(),
@@ -1699,12 +1704,24 @@ export const adminRouter = createTRPCRouter({
         select: { status: true },
       });
       const updated = await inTransaction(ctx.db, async (tx) => {
+        if (account) await lockAccountProfile(tx, account.id);
+        await lockEntity(tx, `tutor:${input.id}`);
+        const before = await tx.tutor.findUniqueOrThrow({
+          where: { id: input.id },
+        });
+        if (
+          input.expectedUpdatedAt &&
+          before.updatedAt.getTime() !== input.expectedUpdatedAt.getTime()
+        )
+          staleConflict();
         const updated = await tx.tutor.update({
           where: { id: input.id },
           data: {
             firstName: input.firstName,
             lastName: input.lastName,
-            englishName: `${input.firstName} ${input.lastName}`,
+            englishName: [input.firstName, input.lastName]
+              .filter(Boolean)
+              .join(" "),
             alternativeNames: input.alternativeNames?.trim()
               ? input.alternativeNames.trim()
               : null,
@@ -1718,11 +1735,17 @@ export const adminRouter = createTRPCRouter({
               : { email: blankToNull(input.email)?.toLowerCase() ?? null }),
           },
         });
-        if (account)
+        if (account) {
           await tx.user.update({
             where: { id: account.id },
-            data: { username, name: updated.englishName },
+            data: { username },
           });
+          await updateAccountProfile(tx, account.id, {
+            name: updated.englishName,
+            alternativeNames: updated.alternativeNames,
+            expectedTutorId: input.id,
+          });
+        }
         // On an ACTIVE -> inactive transition, re-queue this tutor's tutees so none are stranded on
         // a tutor who can no longer serve them (mirrors opt-out / can-tutor-off). Only on the actual
         // transition, so re-saving an already-inactive tutor doesn't disturb anything.
@@ -1802,6 +1825,7 @@ export const adminRouter = createTRPCRouter({
         preferredContact: z.string().trim().max(200).nullable().optional(),
         slotIds: z.array(cuid).optional(),
         englishName: z.string().trim().min(1),
+        alternativeNames: z.string().trim().max(200).nullable().optional(),
         email: z.string().email().nullable().optional(),
         phone: z.string().trim().nullable().optional(),
         gradeLevel: z.string().trim().nullable().optional(),
@@ -1813,6 +1837,11 @@ export const adminRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) =>
       inTransaction(ctx.db, async (tx) => {
+        const linkedStudent = await tx.user.findUnique({
+          where: { studentId: input.id },
+          select: { id: true, email: true },
+        });
+        if (linkedStudent) await lockAccountProfile(tx, linkedStudent.id);
         await lockEntity(tx, `tutee:${input.id}`);
         const before = await tx.tutee.findUniqueOrThrow({
           where: { id: input.id },
@@ -1820,10 +1849,6 @@ export const adminRouter = createTRPCRouter({
         });
         if (before.updatedAt.getTime() !== input.expectedUpdatedAt.getTime())
           staleConflict();
-        const linkedStudent = await tx.user.findUnique({
-          where: { studentId: input.id },
-          select: { email: true },
-        });
         if (
           linkedStudent &&
           input.email !== undefined &&
@@ -1832,7 +1857,7 @@ export const adminRouter = createTRPCRouter({
           throw new TRPCError({
             code: "BAD_REQUEST",
             message:
-              "Student login emails must be changed through verified account settings.",
+              "Tutee login emails must be changed through verified account settings.",
           });
         const { id, expectedUpdatedAt: _version, slotIds, ...fields } = input;
         void _version;
@@ -1871,6 +1896,12 @@ export const adminRouter = createTRPCRouter({
               : {}),
           },
         });
+        if (linkedStudent)
+          await updateAccountProfile(tx, linkedStudent.id, {
+            name: fields.englishName,
+            alternativeNames: fields.alternativeNames,
+            expectedStudentId: input.id,
+          });
         if (fields.status === "INACTIVE")
           await tx.pairingTutee.deleteMany({
             where: { tuteeId: id, pairing: { term: { active: true } } },
@@ -3723,11 +3754,26 @@ export const adminRouter = createTRPCRouter({
    * tutor's account/setup status and a `isSelf` flag; `caller` lets the client gate controls
    * (coordinators may only send links + toggle their own "can tutor"). ADMIN or COORDINATOR only.
    */
+  updateAccountProfile: adminProcedure
+    .input(
+      z.object({
+        userId: cuid,
+        name: z.string().trim().min(1).max(100),
+        alternativeNames: z.string().trim().max(200).nullable(),
+        expectedProfileVersion: z.number().int().nonnegative(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      const updated = await updateAccountProfile(ctx.db, input.userId, input);
+      return { profileVersion: updated.profileVersion };
+    }),
+
+  sendAccountVerification: adminProcedure
+    .input(z.object({ userId: cuid }))
+    .mutation(({ input }) => issueAccountVerification(input.userId)),
+
   accounts: adminProcedure.query(async ({ ctx }) => {
     const now = new Date();
-    // Self-heal any tutor whose name was duplicated by the old single-word split (e.g. the
-    // auto-created "Admin Admin") before listing, so the page mirrors clean data.
-    await healDuplicatedTutorNames(ctx.db);
     const [term, users, unlinkedTutors, openCodes] = await Promise.all([
       ctx.db.term.findFirst({
         where: { active: true },
@@ -3738,6 +3784,8 @@ export const adminRouter = createTRPCRouter({
         select: {
           id: true,
           name: true,
+          alternativeNames: true,
+          profileVersion: true,
           email: true,
           username: true,
           role: true,
@@ -3813,6 +3861,9 @@ export const adminRouter = createTRPCRouter({
     const userRows = users.map((u) => ({
       userId: u.id,
       name: u.name ?? u.email,
+      alternativeNames: u.alternativeNames,
+      profileVersion: u.profileVersion,
+      emailVerifiedAt: u.emailVerifiedAt,
       email: u.email,
       username: u.username ?? u.tutor?.username ?? null,
       role: u.role,
@@ -3835,6 +3886,9 @@ export const adminRouter = createTRPCRouter({
     const tutorRows = unlinkedTutors.map((tu) => ({
       userId: null,
       name: tu.englishName,
+      alternativeNames: null,
+      profileVersion: null,
+      emailVerifiedAt: null,
       email: tu.email,
       username: tu.username,
       role: null,
@@ -4258,6 +4312,7 @@ export const adminRouter = createTRPCRouter({
         tutorId = created.id;
       }
       await ctx.db.user.update({ where: { id: user.id }, data: { tutorId } });
+      await updateAccountProfile(ctx.db, user.id);
       // Guarantee the account carries a username (mirrors the linked tutor if it had none).
       await ensureUserUsername(user.id);
       return { ok: true, linked: true };
@@ -4418,9 +4473,15 @@ export const adminRouter = createTRPCRouter({
         active: true,
         createdAt: true,
         createdBy: { select: { name: true } },
+        audienceRestricted: true,
+        recipientTutorIds: true,
         _count: { select: { acks: true } },
       },
     }),
+  ),
+
+  announcementCandidates: viewerProcedure.query(({ ctx }) =>
+    announcementCandidates(ctx.db),
   ),
 
   createAnnouncement: adminProcedure
@@ -4429,36 +4490,93 @@ export const adminRouter = createTRPCRouter({
         title: z.string().trim().min(1).max(200),
         body: z.string().trim().min(1).max(5000),
         pinned: z.boolean().default(false),
+        audience: announcementAudienceSchema.default({}),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const announcement = await ctx.db.announcement.create({
-        data: {
-          title: input.title,
-          body: input.body,
-          pinned: input.pinned,
-          createdById: ctx.session.user.id,
-        },
+      // Resolve once at publication (or approval execution). Subsequent roster changes never
+      // broaden readership. Tutor identities never match by mutable names or email addresses.
+      return inTransaction(ctx.db, async (tx) => {
+        const candidates = await announcementCandidates(tx);
+        const knownIds = new Set(candidates.map((candidate) => candidate.id));
+        if (
+          [
+            ...input.audience.includeTutorIds,
+            ...input.audience.excludeTutorIds,
+          ].some((id) => !knownIds.has(id))
+        ) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "A selected tutor no longer exists. Refresh the recipients.",
+          });
+        }
+        if (
+          input.audience.mode === "filtered" &&
+          input.audience.assignment !== "any" &&
+          !(await tx.term.findFirst({
+            where: { active: true },
+            select: { id: true },
+          }))
+        ) {
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "Set an active term before filtering tutor assignments.",
+          });
+        }
+        const recipientTutorIds = selectAnnouncementRecipients(
+          candidates,
+          input.audience,
+        ).map((candidate) => candidate.id);
+        if (!recipientTutorIds.length)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Select at least one announcement recipient.",
+          });
+        const announcement = await tx.announcement.create({
+          data: {
+            title: input.title,
+            body: input.body,
+            pinned: input.pinned,
+            createdById: ctx.session.user.id,
+            audienceRestricted: true,
+            recipientTutorIds,
+          },
+        });
+        // Notification bodies are private too. Management retains oversight; unrelated
+        // student accounts never receive the announcement body or an inaccessible admin link.
+        const users = await tx.user.findMany({
+          where: {
+            id: { not: ctx.session.user.id },
+            OR: [
+              { tutorId: { in: recipientTutorIds } },
+              { role: { in: ["HEAD", "ADMIN", "COORDINATOR", "VIEWER"] } },
+            ],
+          },
+          select: { id: true, tutorId: true },
+        });
+        const body = input.body;
+        const title = `📣 ${input.title}`;
+        await Promise.all([
+          notifyUsers(
+            users
+              .filter((u) => u.tutorId && recipientTutorIds.includes(u.tutorId))
+              .map((u) => u.id),
+            { title, body, link: "/dashboard" },
+            tx,
+          ),
+          notifyUsers(
+            users
+              .filter(
+                (u) => !u.tutorId || !recipientTutorIds.includes(u.tutorId),
+              )
+              .map((u) => u.id),
+            { title, body, link: "/admin/announcements" },
+            tx,
+          ),
+        ]);
+        return announcement;
       });
-      // Notify everyone else of the new announcement, linking each to a page they can open:
-      // tutors see it on their dashboard; admin-area staff (no tutor login) on /admin/announcements.
-      const users = await ctx.db.user.findMany({
-        where: { id: { not: ctx.session.user.id } },
-        select: { id: true, tutorId: true },
-      });
-      const body = input.body;
-      const title = `📣 ${input.title}`;
-      await Promise.all([
-        notifyUsers(
-          users.filter((u) => u.tutorId).map((u) => u.id),
-          { title, body, link: "/dashboard" },
-        ),
-        notifyUsers(
-          users.filter((u) => !u.tutorId).map((u) => u.id),
-          { title, body, link: "/admin/announcements" },
-        ),
-      ]);
-      return announcement;
     }),
 
   updateAnnouncement: adminProcedure
@@ -4491,6 +4609,8 @@ export const adminRouter = createTRPCRouter({
             createdById: true,
             createdAt: true,
             acks: { select: { userId: true, ackedAt: true } },
+            audienceRestricted: true,
+            recipientTutorIds: true,
           },
         });
         const deleted = await tx.announcement.delete({
@@ -4652,20 +4772,8 @@ export const adminRouter = createTRPCRouter({
         orderBy: { entity: "asc" },
       }),
     ]);
-    const actors = new Map(
-      users.map((u) => [
-        u.id,
-        { id: u.id, label: u.name ?? u.username ?? u.id },
-      ]),
-    );
-    for (const actor of historical)
-      if (actor.userId && !actors.has(actor.userId))
-        actors.set(actor.userId, {
-          id: actor.userId,
-          label: actor.userName ?? actor.userId,
-        });
     return {
-      users: [...actors.values()],
+      users: auditActors(users, historical),
       operations: operations.flatMap((o) => (o.operation ? [o.operation] : [])),
       entities: entities.map((e) => e.entity),
     };

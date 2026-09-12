@@ -143,6 +143,10 @@ SMTP uses a bounded reusable Nodemailer transport. Development can intentionally
 
 ## Validation and development
 
+The September shipping audit adds route/link integrity, shared button-variant, signup loading/error/unavailable, support/interview access and cross-role navigation coverage. Management support and interview completion share the admin shell, including its localized identity and theme. Print styles release the desktop scroll containers so reports are not clipped by viewport height. Observer contact cells distinguish private data from genuinely missing email addresses.
+
+Public tutor intake now explains application → panel interview → verified account setup. Public forms wait for usable subjects, slots (tutees) and policy data instead of briefly presenting an empty form. [Program functions and controls](program-reference.md) maps user entries, staff outcomes, feature switches and their timing.
+
 Use Node 22 for consistency with CI. Current application source is also checked locally on Windows with Node 24. Tests that truncate PostgreSQL data accept only explicitly named isolated local test databases; the combined suite uses `shbs_shipping_test`. Use a disposable database and never copy a production URL into these commands.
 
 ```bash
@@ -177,7 +181,7 @@ Verify report layout at desktop and mobile widths and check the contents links, 
 
 ## Launch boundaries
 
-The integrated application and its image acceptance tests are complete. No deployment was authorized or performed during this documentation task. Before opening real intake, the operator still needs:
+Repository verification does not establish that a public host is deployed correctly. Before opening real intake, the operator needs:
 
 1. A canonical HTTPS domain and host with persistent database/uploads.
 2. Real SMTP delivery tested for signup, password recovery and verified email changes.
@@ -188,3 +192,7 @@ The integrated application and its image acceptance tests are complete. No deplo
 These are concrete operational prerequisites, not evidence obtainable from a local screenshot or a clean dependency audit. See [the deployment runbook](../README-DEPLOY.md) and [release verification record](../SHIPPING-READINESS.md).
 
 [Documentation home](README.md) · [User guide](user-guide.md) · [Creating issues](issues.md)
+
+### Account-linked manual withdrawals
+
+Manual enrollments reuse `StudentRequestReview` with `kind=STUDENT_ABORT`, explicit legacy student/term evidence and the existing timed staff decision endpoint. Ownership uses the current account link or retained `StudentProfileOwnership`, never a name/email match. Approval rechecks current ownership and term, removes only current-term pairing memberships, preserves attendance history, and creates `StudentQuarterBlock` evidence linked to the manual profile. Migration `20260912040000_legacy_student_withdrawal` permits these review targets and makes quarter-block source evidence exclusive between a survey and a manual profile. Pending submissions do not alter membership; declined requests remain history.

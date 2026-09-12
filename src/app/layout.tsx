@@ -3,7 +3,7 @@ import "~/styles/globals.css";
 import { type Metadata } from "next";
 import { GeistSans } from "geist/font/sans";
 import { cookies } from "next/headers";
-import { getLocale, getMessages } from "next-intl/server";
+import { getLocale, getMessages, getTimeZone } from "next-intl/server";
 
 import { TRPCReactProvider } from "~/trpc/react";
 import { IntlProvider } from "~/app/_components/intl-provider";
@@ -22,12 +22,13 @@ export default async function RootLayout({
 }: Readonly<{ children: React.ReactNode }>) {
   const locale = await getLocale();
   const messages = await getMessages();
+  const timeZone = await getTimeZone();
   const themeCookie = (await cookies()).get(THEME_COOKIE)?.value;
   const theme = isTheme(themeCookie) ? themeCookie : DEFAULT_THEME;
   return (
     <html lang={locale} data-theme={theme} className={GeistSans.variable}>
       <body>
-        <IntlProvider locale={locale} messages={messages}>
+        <IntlProvider locale={locale} messages={messages} timeZone={timeZone}>
           <TRPCReactProvider>
             <StudentPolicyGate />
             {children}

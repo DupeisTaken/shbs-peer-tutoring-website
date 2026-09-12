@@ -1,8 +1,13 @@
 "use client";
+import { EmailDetails } from "~/app/_components/email-details";
 import { StudentRequestBoard } from "./student-request-board";
 
 import { useEffect, useMemo, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
+import {
+  isCurrentManualSignup,
+  signupRequestGroup,
+} from "~/lib/signup-request-groups";
 
 import { api } from "~/trpc/react";
 import { DAY_NAMES, minToHm } from "~/lib/time";
@@ -69,6 +74,7 @@ function RequestCard({
   onFulfilled: (tuteeId: string) => void;
 }) {
   const t = useTranslations();
+  const format = useFormatter();
   const readOnly = useReadOnly();
   const { confirm, dialog } = useDialog();
   const assign = api.admin.assignSignup.useMutation({
@@ -137,6 +143,9 @@ function RequestCard({
             <p className="font-medium text-slate-900">
               <span className="badge-slate mr-2">#{order}</span>
               {tutee.englishName}
+              <span className="badge-slate ml-2">
+                {t("workflow.manualSource")}
+              </span>
               {tutee.gradeLevel
                 ? ` · ${t("admin.requests.grade", { grade: tutee.gradeLevel })}`
                 : ""}
@@ -177,9 +186,10 @@ function RequestCard({
               <>
                 <p className="muted text-xs">
                   {t("admin.requests.submitted", {
-                    when: new Date(
-                      tutee.signupSubmittedAt ?? tutee.createdAt,
-                    ).toLocaleString(),
+                    when: format.dateTime(
+                      new Date(tutee.signupSubmittedAt ?? tutee.createdAt),
+                      { dateStyle: "medium", timeStyle: "short" },
+                    ),
                   })}
                 </p>
                 <p className="muted">
@@ -230,7 +240,11 @@ function RequestCard({
       {/* Assign each course choice to a tutor independently (workload shown in the dropdown). */}
       {!collapsed && tutee.unverified && (
         <div className="muted mt-3 space-y-2 border-t border-slate-100 pt-3">
-          <p>{tutee.email}</p>
+          <EmailDetails
+            contactOnly
+            email={tutee.email}
+            name={tutee.englishName}
+          />
           <p>
             {t("admin.requests.firstChoice")}: {tutee.firstChoice?.name ?? "—"}
             {tutee.secondChoice
@@ -342,9 +356,10 @@ function RequestCard({
 export default function RequestsPage() {
   const t = useTranslations();
   const utils = api.useUtils();
+  const readOnly = useReadOnly();
   const tutees = api.admin.tutees.useQuery();
   const managed = api.studentWorkflow.adminRequests.useQuery(undefined, {
-    enabled: !useReadOnly(),
+    enabled: !readOnly,
   });
   const tutors = api.admin.tutors.useQuery();
   const currentPeriod = api.admin.currentPeriod.useQuery(undefined, {
@@ -385,13 +400,26 @@ export default function RequestsPage() {
     () =>
       (tutees.data ?? [])
         .filter((t2) => !managed.data?.some((r) => r.tuteeId === t2.id))
-        .filter((t2) => t2.status === "PENDING" || retained.has(t2.id))
+        .filter((t2) =>
+          isCurrentManualSignup(
+            t2,
+            currentPeriod.data?.termId,
+            assignedByTutee.has(t2.id),
+            retained.has(t2.id),
+          ),
+        )
         .sort(
           (a, b) =>
             +new Date(a.signupSubmittedAt ?? a.createdAt) -
             +new Date(b.signupSubmittedAt ?? b.createdAt),
         ),
-    [tutees.data, managed.data, retained],
+    [
+      tutees.data,
+      managed.data,
+      retained,
+      currentPeriod.data?.termId,
+      assignedByTutee,
+    ],
   );
 
   const workload: Workload = useMemo(() => {
@@ -420,15 +448,56 @@ export default function RequestsPage() {
         <p className="muted mt-1">{t("admin.requests.help")}</p>
       </div>
 
-      {!hasPeriod && (
+      {!currentPeriod.isLoading && !hasPeriod && (
         <p className="text-sm text-red-600">{t("admin.requests.noTerm")}</p>
       )}
 
-      {!useReadOnly() && <StudentRequestBoard />}
-      <details className="space-y-3">
-        <summary className="cursor-pointer font-medium">
-          {t("workflow.legacyRequests")}
-        </summary>
+      {tutees.error && (
+        <p role="alert" className="text-red-700">
+          {tutees.error.message}
+        </p>
+      )}
+      {!readOnly ? (
+        <StudentRequestBoard
+          additionalLoading={
+            tutees.isLoading ||
+            managed.isLoading ||
+            pairings.isLoading ||
+            currentPeriod.isLoading
+          }
+          additionalEntries={
+            hasPeriod
+              ? display.map((t2, i) => ({
+                  id: `manual-${t2.id}`,
+                  submittedAt: t2.signupSubmittedAt ?? t2.createdAt,
+                  group: signupRequestGroup(
+                    "OPEN",
+                    [t2.firstChoice?.name, t2.secondChoice?.name].filter(
+                      (name): name is string => !!name,
+                    ),
+                    [...(assignedByTutee.get(t2.id)?.keys() ?? [])],
+                  ),
+                  content: (
+                    <RequestCard
+                      tutee={t2}
+                      order={i + 1}
+                      tutors={(tutors.data ?? []).map((tu) => ({
+                        id: tu.id,
+                        englishName: tu.englishName,
+                        active: tu.status === "ACTIVE",
+                      }))}
+                      workload={workload}
+                      assigned={assignedByTutee.get(t2.id) ?? new Map()}
+                      fulfilled={isFulfilled(t2)}
+                      onChanged={invalidate}
+                      onFulfilled={onFulfilled}
+                    />
+                  ),
+                }))
+              : []
+          }
+        />
+      ) : (
         <div className="space-y-3">
           {hasPeriod &&
             display.map((t2, i) => (
@@ -436,11 +505,7 @@ export default function RequestsPage() {
                 key={t2.id}
                 tutee={t2}
                 order={i + 1}
-                tutors={(tutors.data ?? []).map((tu) => ({
-                  id: tu.id,
-                  englishName: tu.englishName,
-                  active: tu.status === "ACTIVE",
-                }))}
+                tutors={[]}
                 workload={workload}
                 assigned={assignedByTutee.get(t2.id) ?? new Map()}
                 fulfilled={isFulfilled(t2)}
@@ -448,16 +513,8 @@ export default function RequestsPage() {
                 onFulfilled={onFulfilled}
               />
             ))}
-          {managed.error && (
-            <p role="alert" className="text-red-700">
-              {managed.error.message}
-            </p>
-          )}
-          {display.length === 0 && (
-            <p className="muted">{t("admin.requests.empty")}</p>
-          )}
         </div>
-      </details>
+      )}
     </div>
   );
 }
