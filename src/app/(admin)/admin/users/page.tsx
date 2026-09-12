@@ -1,14 +1,27 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 
+import { MultiFilter } from "~/app/_components/multi-filter";
+import {
+  emptyUserFilters,
+  matchesUserFilters,
+  parseUserFilters,
+  type UserFilters,
+} from "~/lib/user-filters";
 import { api } from "~/trpc/react";
 import { SortHeader, useSort, compare } from "~/app/_components/sortable";
 import { useDialog } from "~/app/_components/confirm-dialog";
 
 /** Roles an admin/head may assign via the dropdown (HEAD is set only via leadership transfer). */
-const ASSIGNABLE_ROLES = ["STUDENT", "VIEWER", "TUTOR", "COORDINATOR", "ADMIN"] as const;
+const ASSIGNABLE_ROLES = [
+  "STUDENT",
+  "VIEWER",
+  "TUTOR",
+  "COORDINATOR",
+  "ADMIN",
+] as const;
 type RoleValue = (typeof ASSIGNABLE_ROLES)[number];
 
 const ALL_ROLES = [
@@ -215,20 +228,44 @@ export default function UsersPage() {
     setRole.isPending || transferHead.isPending || deleteUser.isPending;
   const sort = useSort("name");
 
-  // Filters.
-  const [roleFilter, setRoleFilter] = useState<string>("all");
-  const [statusFilter, setStatusFilter] = useState<string>("all");
-  const [accountFilter, setAccountFilter] = useState<string>("all");
-
+  // Persist by account only after loading that account's preference; never overwrite on hydration.
+  const [filterState, setFilterState] = useState<{
+    userId: string;
+    filters: UserFilters;
+  } | null>(null);
+  const viewerId = accounts.data?.caller.id;
+  useEffect(() => {
+    if (!viewerId) return;
+    let raw: string | null = null;
+    try {
+      raw = localStorage.getItem(`shbs:user-filters:${viewerId}:v1`);
+    } catch {
+      /* Private browsing may disable storage. */
+    }
+    setFilterState({ userId: viewerId, filters: parseUserFilters(raw) });
+  }, [viewerId]);
+  const filters = useMemo(
+    () =>
+      filterState?.userId === viewerId
+        ? (filterState?.filters ?? emptyUserFilters())
+        : emptyUserFilters(),
+    [filterState, viewerId],
+  );
+  const updateFilters = (next: UserFilters) => {
+    if (!viewerId) return;
+    setFilterState({ userId: viewerId, filters: next });
+    try {
+      localStorage.setItem(
+        `shbs:user-filters:${viewerId}:v1`,
+        JSON.stringify(next),
+      );
+    } catch {
+      /* Keep in-memory filtering usable. */
+    }
+  };
   const rows = useMemo(() => {
     const data = accounts.data?.rows ?? [];
-    const filtered = data.filter((u) => {
-      if (roleFilter !== "all" && u.role !== roleFilter) return false;
-      if (statusFilter !== "all" && u.tutorStatus !== statusFilter)
-        return false;
-      if (accountFilter !== "all" && u.account !== accountFilter) return false;
-      return true;
-    });
+    const filtered = data.filter((u) => matchesUserFilters(u, filters));
     const dir = sort.dir === "asc" ? 1 : -1;
     return [...filtered].sort((a, b) => {
       switch (sort.key) {
@@ -246,14 +283,7 @@ export default function UsersPage() {
           return compare(a.name, b.name) * dir;
       }
     });
-  }, [
-    accounts.data,
-    sort.key,
-    sort.dir,
-    roleFilter,
-    statusFilter,
-    accountFilter,
-  ]);
+  }, [accounts.data, sort.key, sort.dir, filters]);
 
   const accountBadge = (status: string) =>
     status === "registered"
@@ -273,54 +303,59 @@ export default function UsersPage() {
         </p>
       </div>
 
-      {/* Filters: role · tutor status · account state */}
-      <div className="flex flex-wrap gap-3">
-        <label className="text-sm">
-          <span className="label">{t("admin.users.filters.role")}</span>
-          <select
-            value={roleFilter}
-            onChange={(e) => setRoleFilter(e.target.value)}
-            className="select field-auto min-w-32"
+      <section className="card space-y-3 p-4">
+        <p className="muted text-sm">{t("userMultiFilters.hint")}</p>
+        <div className="grid items-start gap-3 md:grid-cols-3">
+          <MultiFilter
+            label={t("admin.users.filters.role")}
+            options={[
+              ...ALL_ROLES.map((value) => ({
+                value,
+                label: t(`admin.users.roles.${value}`),
+              })),
+              { value: "__none__", label: t("userMultiFilters.noRole") },
+            ]}
+            value={filters.role}
+            onChange={(role) => updateFilters({ ...filters, role })}
+          />
+          <MultiFilter
+            label={t("admin.users.filters.status")}
+            options={[
+              ...TUTOR_STATUSES.map((value) => ({
+                value,
+                label: t(`admin.tutorStatus.${value}`),
+              })),
+              { value: "__none__", label: t("userMultiFilters.noTutor") },
+            ]}
+            value={filters.status}
+            onChange={(status) => updateFilters({ ...filters, status })}
+          />
+          <MultiFilter
+            label={t("admin.users.filters.account")}
+            options={ACCOUNT_STATES.map((value) => ({
+              value,
+              label: t(`admin.tutors.account.${value}`),
+            }))}
+            value={filters.account}
+            onChange={(account) => updateFilters({ ...filters, account })}
+          />
+        </div>
+        <div className="flex items-center justify-between gap-3">
+          <p role="status" className="muted text-sm">
+            {t("userMultiFilters.count", {
+              count: rows.length,
+              total: accounts.data?.rows.length ?? 0,
+            })}
+          </p>
+          <button
+            type="button"
+            className="btn-secondary btn-sm"
+            onClick={() => updateFilters(emptyUserFilters())}
           >
-            <option value="all">{t("admin.users.filters.all")}</option>
-            {ALL_ROLES.map((r) => (
-              <option key={r} value={r}>
-                {t(`admin.users.roles.${r}`)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="text-sm">
-          <span className="label">{t("admin.users.filters.status")}</span>
-          <select
-            value={statusFilter}
-            onChange={(e) => setStatusFilter(e.target.value)}
-            className="select field-auto min-w-32"
-          >
-            <option value="all">{t("admin.users.filters.all")}</option>
-            {TUTOR_STATUSES.map((s) => (
-              <option key={s} value={s}>
-                {t(`admin.tutorStatus.${s}`)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="text-sm">
-          <span className="label">{t("admin.users.filters.account")}</span>
-          <select
-            value={accountFilter}
-            onChange={(e) => setAccountFilter(e.target.value)}
-            className="select field-auto min-w-32"
-          >
-            <option value="all">{t("admin.users.filters.all")}</option>
-            {ACCOUNT_STATES.map((a) => (
-              <option key={a} value={a}>
-                {t(`admin.tutors.account.${a}`)}
-              </option>
-            ))}
-          </select>
-        </label>
-      </div>
+            {t("userMultiFilters.clear")}
+          </button>
+        </div>
+      </section>
 
       {setupInfo && (
         <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 text-sm">

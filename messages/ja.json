@@ -2322,5 +2322,16 @@
       "SUBMISSION": "Proposal",
       "CANCELLATION": "Withdrawal"
     }
+  },
+  "userMultiFilters": {
+    "all": "All",
+    "value": "Value",
+    "include": "Include",
+    "exclude": "Exclude",
+    "hint": "Match any included value within a filter and all filters together. Exclusions always win.",
+    "clear": "Clear filters",
+    "noRole": "No account role",
+    "noTutor": "No linked tutor",
+    "count": "Showing {count} of {total} users"
   }
 }
