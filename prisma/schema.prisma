@@ -1640,5 +1640,5 @@ model SchoolCalendarDay {
 model ProgramSettings {
   id String @id @default("program")
   timeZone String @default("Asia/Shanghai")
-  updatedAt DateTime @updatedAt
+  updatedAt DateTime @default(now()) @updatedAt
 }
