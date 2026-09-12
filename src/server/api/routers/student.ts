@@ -189,6 +189,23 @@ export const studentRouter = createTRPCRouter({
           },
         })
       : null;
+    // A verified account can retain several profiles across intakes. Query pairings once
+    // across explicit ownership, so the current pointer cannot hide another current subject.
+    const schedule = owned.length
+      ? await ctx.db.pairing.findMany({
+          where: {
+            term: { active: true },
+            tutees: { some: { tuteeId: { in: owned }, tutee: { status: { not: "INACTIVE" } } } },
+          },
+          orderBy: [{ dayOfWeek: "asc" }, { startMin: "asc" }, { id: "asc" }],
+          select: {
+            id: true, subject: true, timeSlotId: true, dayOfWeek: true,
+            startMin: true, endMin: true,
+            room: { select: { name: true } },
+            tutor: { select: { englishName: true } },
+          },
+        })
+      : [];
     const sessions = owned.length
       ? await ctx.db.sessionTutee.findMany({
           where: { tuteeId: { in: owned } },
@@ -255,6 +272,7 @@ export const studentRouter = createTRPCRouter({
     return {
       user,
       student,
+      schedule,
       sessions: sessions.map((s) => ({
         ...s,
         feedback: feedback.find((f) => f.sessionId === s.session.id) ?? null,
@@ -318,7 +336,7 @@ export const studentRouter = createTRPCRouter({
           create: { studentId: attendance.tuteeId, ...input },
         });
         await notifyAdmins(
-          { title: "Student feedback received", link: "/student-support" },
+          { title: "Tutee feedback received", link: "/student-support" },
           undefined,
           tx,
         );
@@ -359,7 +377,7 @@ export const studentRouter = createTRPCRouter({
         ...r,
         studentName:
           students.find((s) => s.id === r.studentId)?.englishName ??
-          "Deleted student",
+          "Deleted tutee",
         subject:
           lessons.find((l) => l.id === r.sessionId)?.pairing.subject ??
           "Archived session",
@@ -406,7 +424,7 @@ export const studentRouter = createTRPCRouter({
           data: { studentId: card.tuteeId, ...input },
         });
         await notifyAdmins(
-          { title: "Student card appeal", link: "/student-support" },
+          { title: "Tutee card appeal", link: "/student-support" },
           undefined,
           tx,
         );
@@ -451,7 +469,7 @@ export const studentRouter = createTRPCRouter({
           ...r,
           studentName:
             students.find((s) => s.id === r.studentId)?.englishName ??
-            "Deleted student",
+            "Deleted tutee",
           cardReason: cards.find((c) => c.id === r.cardId)?.reason,
         })),
         total,

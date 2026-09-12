@@ -33,6 +33,6 @@ export async function retainStudentOwnership(
   if (owner.userId !== userId)
     throw new TRPCError({
       code: "CONFLICT",
-      message: "This student profile is already linked to another account.",
+      message: "This tutee profile is already linked to another account.",
     });
 }

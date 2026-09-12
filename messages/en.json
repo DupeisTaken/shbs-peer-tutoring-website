@@ -14,7 +14,7 @@
   },
   "auth": {
     "signinTitle": "Sign In",
-    "signinSubtitle": "Students, tutors, and staff sign in to continue.",
+    "signinSubtitle": "Tutees, tutors, and staff sign in to continue.",
     "identifier": "Username or Email",
     "password": "Password",
     "signIn": "Sign In",
@@ -150,12 +150,12 @@
     },
     "tagline": "Peer Tutoring Program",
     "heroTitle": "Learn together. Grow together.",
-    "intro": "Placeholder introduction — a short paragraph about the {appTitle} program goes here. Describe who it's for, what students can get help with, and how peer tutors make a difference. Replace this copy with the real program overview.",
+    "intro": "Placeholder introduction — a short paragraph about the {appTitle} program goes here. Describe who it's for, what tutees can get help with, and how peer tutors make a difference. Replace this copy with the real program overview.",
     "ctaPrimary": "Request a Tutor",
     "ctaSecondary": "Become a Tutor",
     "features": {
       "students": {
-        "title": "For Students",
+        "title": "For Tutees",
         "body": "Placeholder — sign up to be matched with a peer tutor in the subjects you choose, at times that work for you."
       },
       "tutors": {
@@ -590,7 +590,7 @@
         "opensAt": "Signups open at",
         "timeZone": "China Standard Time (UTC+8). Leave blank to keep signups open.",
         "previewUrl": "Preview sheet link",
-        "previewHelp": "Required for a scheduled opening so students can preview the sheet.",
+        "previewHelp": "Required for a scheduled opening so tutees can preview the sheet.",
         "scheduled": "Scheduled",
         "open": "Open now",
         "save": "Save signup window",
@@ -653,7 +653,7 @@
         "ADMIN": "Admin",
         "HEAD": "Head",
         "CREW": "Crew patrols",
-        "STUDENT": "Student"
+        "STUDENT": "Tutee"
       },
       "filters": {
         "role": "Role",
@@ -974,7 +974,7 @@
         "save": "Save",
         "saved": "Saved."
       },
-      "studentTitle": "Student policy",
+      "studentTitle": "Tutee policy",
       "tutorTitle": "Tutor policy"
     },
     "adjustments": {
@@ -1079,13 +1079,13 @@
     },
     "tuteeRequests": {
       "title": "Withdrawal Requests & Removals",
-      "help": "Review student requests to leave tutoring, monitor tutor-relayed withdrawals, and manage removals. Each route keeps its own approval policy.",
+      "help": "Review tutee requests to leave tutoring, monitor tutor-relayed withdrawals, and manage removals. Each route keeps its own approval policy.",
       "kind": {
         "VOLUNTARY": "Opt-Out",
         "PUNISHMENT": "Discipline"
       },
       "pendingHeading": "Tutor-relayed withdrawals",
-      "pendingHelp": "A tutor submitted these on a student’s behalf. They take effect after the seven-day recall window unless the tutor recalls or staff cancels.",
+      "pendingHelp": "A tutor submitted these on a tutee’s behalf. They take effect after the seven-day recall window unless the tutor recalls or staff cancels.",
       "pendingEmpty": "No tutor-relayed withdrawals awaiting their effective date.",
       "relayedBy": "Relayed by {tutor} · {subject}",
       "autoApprovesOn": "auto-approves {date}",
@@ -1096,14 +1096,14 @@
       "removedDiscipline": "Discipline Removal",
       "removedOptOut": "Opted Out (Via {tutor})",
       "reinstate": "Reinstate",
-      "studentHeading": "Student withdrawal requests",
-      "studentHelp": "Submitted from the student’s own account. All tutoring for this quarter continues until staff approves the request. Approval ends participation and blocks a new signup for the same quarter.",
-      "studentSource": "Submitted by student",
+      "studentHeading": "Tutee withdrawal requests",
+      "studentHelp": "Submitted from the tutee’s own account. All tutoring for this quarter continues until staff approves the request. Approval ends participation and blocks a new signup for the same quarter.",
+      "studentSource": "Submitted by tutee",
       "wholeProgram": "All tutoring this quarter",
       "effectiveOnApproval": "Effective only after approval",
       "submittedOn": "Submitted {date}",
-      "studentEmpty": "No student withdrawals awaiting review.",
-      "studentHistory": "Reviewed student withdrawals",
+      "studentEmpty": "No tutee withdrawals awaiting review.",
+      "studentHistory": "Reviewed tutee withdrawals",
       "recallWindow": "Recall window open"
     },
     "reports": {
@@ -1260,7 +1260,7 @@
     },
     "sessionFlags": {
       "title": "Attendance Flags",
-      "help": "The crew counted fewer students than the tutor marked present. Review each and decide.",
+      "help": "The crew counted fewer tutees than the tutor marked present. Review each and decide.",
       "discrepancy": "Crew saw {observed}, tutor reported {expected}",
       "context": "{room} · {date} · {start}–{end}",
       "notePlaceholder": "Note for the record (optional)",
@@ -1304,8 +1304,8 @@
         "ctaPrimary": "Primary Button",
         "ctaSecondary": "Secondary Button",
         "heroImage": "Hero Image",
-        "studentsTitle": "Students Card — Title",
-        "studentsBody": "Students Card — Body",
+        "studentsTitle": "Tutees Card — Title",
+        "studentsBody": "Tutees Card — Body",
         "tutorsTitle": "Tutors Card — Title",
         "tutorsBody": "Tutors Card — Body",
         "teamTitle": "Team Card — Title",
@@ -1788,7 +1788,9 @@
       "noSlots": "No time slots are published yet. Please check back later.",
       "agree": "I have read and agree to abide by the <policy>{appTitle} Policy</policy>.",
       "submit": "Submit Request",
-      "submitting": "Submitting…"
+      "submitting": "Submitting…",
+      "quarter": "Quarter · {period}",
+      "semester": "Semester · {period}"
     },
     "tutorSignup": {
       "title": "Apply to Become a Peer Tutor",
@@ -1872,7 +1874,7 @@
       "fields": {
         "name": "Your Name",
         "affiliation": "Your Affiliation",
-        "affiliationPlaceholder": "e.g. Parent of a student, Math faculty, community member",
+        "affiliationPlaceholder": "e.g. Parent of a tutee, Math faculty, community member",
         "email": "Email",
         "code": "Verification Code",
         "password": "Password",
@@ -1892,7 +1894,8 @@
     "userMenu": {
       "settings": "Settings",
       "enterTutor": "Enter Tutor Area",
-      "enterAdmin": "Enter Admin Area"
+      "enterAdmin": "Enter Admin Area",
+      "enterTutee": "Enter Tutee page"
     },
     "theme": {
       "label": "Theme",
@@ -1968,7 +1971,7 @@
     },
     "patrol": {
       "title": "Room Patrol",
-      "subtitle": "Walk the rooms in order and tap how many students are in each. Submitting a sweep credits 0.5 service hours.",
+      "subtitle": "Walk the rooms in order and tap how many tutees are in each. Submitting a sweep credits 0.5 service hours.",
       "myHours": "My Crew Hours",
       "patrolCount": "{count, plural, =1 {# patrol} other {# patrols}}",
       "noRooms": "No rooms to patrol yet.",
@@ -2016,7 +2019,7 @@
     "start": "Start",
     "end": "End",
     "tutorStatus": "Tutor Status",
-    "studentStatus": "Student Status",
+    "studentStatus": "Tutee Status",
     "absence": "Absence Reason",
     "online": "Held Online",
     "room": "Room",
@@ -2031,7 +2034,7 @@
     "save": "Save Correction",
     "editPatrol": "Correct Patrol",
     "patrolHelp": "Times use {zone}. Corrected evidence reopens affected flags and removes their previous deductions. Patrol hours stay unchanged.",
-    "count": "Students Observed",
+    "count": "Tutees Observed",
     "schoolTime": "School Time (UTC+8)",
     "patrolHistory": "Patrol History and Corrections",
     "empty": "No patrols recorded.",
@@ -2066,11 +2069,11 @@
     "save": "Save Details"
   },
   "workflows": {
-    "student": "Student Portal",
+    "student": "Tutee Portal",
     "messages": "Messages",
-    "support": "Student Support",
+    "support": "Tutee Support",
     "enroll": "Request Tutoring",
-    "newAccount": "Create a Student Account",
+    "newAccount": "Create a Tutee Account",
     "name": "Name",
     "email": "Email",
     "password": "Password (at least 8 characters)",
@@ -2106,7 +2109,7 @@
     "sent": "Message sent.",
     "reply": "Reply",
     "read": "Mark as Read",
-    "shareFeedback": "Allow assigned tutors to read student feedback",
+    "shareFeedback": "Allow assigned tutors to read tutee feedback",
     "privateFeedback": "Feedback is visible only to management.",
     "sharedFeedback": "Feedback is visible to management and your assigned tutor.",
     "decision": "Decision Reason",
@@ -2151,7 +2154,7 @@
     "calendarHelp": "Weekdays count as school days unless overridden here. Include holidays and make-up school days so appeal deadlines are accurate.",
     "date": "Date",
     "note": "Note",
-    "staffAppeals": "Student Appeals",
+    "staffAppeals": "Tutee Appeals",
     "appealFilter": "Appeal status",
     "pendingAppeals": "Pending",
     "resolvedAppeals": "Resolved",
@@ -2171,7 +2174,7 @@
     "translation": "Translation"
   },
   "survey": {
-    "intro": "Submit your tutoring survey when signup opens. Earlier submissions receive priority. Then check your email to confirm your request and create your student account.",
+    "intro": "Submit your tutoring survey when signup opens. Earlier submissions receive priority. Then check your email to confirm your request and create your tutee account.",
     "emailLabel": "Email for Sign In",
     "emailHelp": "Use an email you can check. We will send your account setup link here, and you will use this email to sign in.",
     "savedTitle": "Your Request Is Saved",
@@ -2187,7 +2190,7 @@
     "signIn": "Go to Sign In",
     "invalidLink": "This link is missing, expired, or already used. Request another link below. If you already confirmed your request, sign in.",
     "loading": "Loading your request…",
-    "newAccount": "Create Your Student Account",
+    "newAccount": "Create Your Tutee Account",
     "existingAccount": "Confirm Your Request",
     "newAccountHelp": "Check your details below and choose a password. This will confirm your email and create your account.",
     "existingHelp": "This email already has an account. Confirm this request, then sign in with your existing password.",
@@ -2200,10 +2203,10 @@
     "copyLink": "Copy Sign-In Link",
     "copied": "Link Copied",
     "copyHelp": "Select and copy the link above.",
-    "qrAlt": "QR code linking to the student sign-in page",
+    "qrAlt": "QR code linking to the tutee sign-in page",
     "saveQr": "Save QR Code",
     "unverified": "Awaiting Email Verification",
-    "awaitingHelp": "This student may be assigned in original submission order. Email verification is required within seven days of the first assignment.",
+    "awaitingHelp": "This tutee may be assigned in original submission order. Email verification is required within seven days of the first assignment.",
     "portalTitle": "Your Tutoring",
     "pending": "Awaiting Tutor Assignment",
     "noRequest": "No confirmed request yet. Check your signup email to confirm your survey.",
@@ -2212,7 +2215,7 @@
     "requestTutor": "Request Tutoring",
     "signOut": "Sign Out",
     "verified": "Email Verified",
-    "differentAccount": "This device is signed in as {email}. Switch accounts to sign in with your student email.",
+    "differentAccount": "This device is signed in as {email}. Switch accounts to sign in with your tutee email.",
     "switchAccount": "Switch Account and Sign In",
     "portal": "View My Tutoring",
     "loadFailed": "We could not load your request. Please try again; your saved submission is unchanged.",
@@ -2229,7 +2232,7 @@
     "working": "Working…",
     "preparing": "Preparing…",
     "wait": "Confirm in {seconds}s",
-    "policyTitle": "Please confirm the updated student policy",
+    "policyTitle": "Please confirm the updated tutee policy",
     "policyConsequences": "Read the current policy and confirm that you agree before continuing. This does not change your request, tutor assignment or original priority.",
     "policyAgree": "I have read and agree to this version of the policy.",
     "navigation": "Tutoring request workflow",
@@ -2272,8 +2275,8 @@
     "abortConsequences": "You are applying to leave the entire tutoring program for the current quarter. Your assignments continue while admins review this application. If approved, every assignment will be released, this request will be closed permanently, and you cannot submit any further requests this quarter. Admins and your tutors will be notified.",
     "recallConsequences": "This withdraws your unassigned request immediately and permanently. It will appear in Processed with a Recalled badge, and admins will be notified. It cannot be reopened. If you apply again, you will receive a new submission time and priority.",
     "reason": "Reason",
-    "boardTitle": "Student request workflow",
-    "boardHelp": "All signup sources share these tabs and counts, ordered by original submission time. Needs matching includes partially assigned requests; Assigned means every requested subject has a tutor. Student account verification deadlines remain fixed from the first assignment. Closed requests stay in Processed.",
+    "boardTitle": "Tutee request workflow",
+    "boardHelp": "All signup sources share these tabs and counts, ordered by original submission time. Needs matching includes partially assigned requests; Assigned means every requested subject has a tutor. Tutee account verification deadlines remain fixed from the first assignment. Closed requests stay in Processed.",
     "matching": "Needs matching",
     "assigned": "Assigned",
     "reviews": "Needs review",
@@ -2289,23 +2292,33 @@
     "assign": "Assign tutor",
     "assignTitle": "Assign a tutor to {name}",
     "assignConsequences": "This assignment starts a seven-day verification deadline if this is the first assignment. A new signup link will be emailed. Resending or changing tutors does not extend the deadline. Without verification by the deadline, the request is permanently disqualified and assignments are released.",
-    "assignVerifiedConsequences": "This adds the selected tutor assignment. The student keeps the original request priority. The tutor and student should agree on the actual meeting schedule.",
+    "assignVerifiedConsequences": "This adds the selected tutor assignment. The tutee keeps the original request priority. The tutor and tutee should agree on the actual meeting schedule.",
     "scheduleReject": "Apply to reject: schedule conflict",
-    "scheduleConsequences": "Explain why a workable schedule could not be agreed. Admins will review this application. The assignment stays active until approval. Approval removes only this tutor assignment and returns the subject for matching; the student keeps their request and original priority.",
+    "scheduleConsequences": "Explain why a workable schedule could not be agreed. Admins will review this application. The assignment stays active until approval. Approval removes only this tutor assignment and returns the subject for matching; the tutee keeps their request and original priority.",
     "needsReview": "Awaiting admin review",
     "approve": "Approve application",
     "deny": "Decline application",
-    "denyConsequences": "This closes the application without changing the current request or tutor assignment. The student and relevant tutors will be notified.",
-    "approveAbortConsequences": "Approval ends this student’s participation for the entire current quarter, releases all tutor assignments, and permanently closes this request. Further applications from this student in the same quarter will be blocked. This cannot be undone.",
-    "approveScheduleConsequences": "Approval releases only the assignment involved in this schedule conflict. The request returns for matching with the original priority. Other tutor assignments remain in place. This does not disqualify the student.",
+    "denyConsequences": "This closes the application without changing the current request or tutor assignment. The tutee and relevant tutors will be notified.",
+    "approveAbortConsequences": "Approval ends this tutee’s participation for the entire current quarter, releases all tutor assignments, and permanently closes this request. Further applications from this tutee in the same quarter will be blocked. This cannot be undone.",
+    "approveScheduleConsequences": "Approval releases only the assignment involved in this schedule conflict. The request returns for matching with the original priority. Other tutor assignments remain in place. This does not disqualify the tutee.",
     "legacyRequests": "Other / manually managed requests",
     "policyLoadError": "The current policy could not be loaded. Retry or sign out. Your request priority is unchanged.",
     "retry": "Retry",
     "expiredHelp": "If your request was disqualified, resending cannot reactivate it. You must submit a new request.",
     "policyHistoryAccess": "Read and accept the updated policy before participating. Your history, feedback, appeals, and private messages remain available.",
     "manualSource": "Manually managed",
-    "surveySource": "Student signup",
-    "legacyWithdrawalHelp": "You can ask staff to withdraw from all tutoring this quarter. Your participation stays unchanged until approval. Once approved, you cannot sign up again in the same quarter."
+    "surveySource": "Tutee signup",
+    "legacyWithdrawalHelp": "You can ask staff to withdraw from all tutoring this quarter. Your participation stays unchanged until approval. Once approved, you cannot sign up again in the same quarter.",
+    "semesterCopy": {
+      "noActive": "You have no active confirmed request for this semester. Check your email if you have just submitted.",
+      "abortFinal": "You have left the program for this semester. You cannot apply again until a new semester.",
+      "abortHelp": "Because you have a tutor, leaving requires an application. Approval ends your participation and prevents any further applications this semester.",
+      "abortPending": "Your semester-withdrawal application is awaiting admin review. Current assignments remain in place.",
+      "applyAbort": "Request withdrawal from this semester",
+      "abortConsequences": "You are applying to leave the entire tutoring program for the current semester. Your assignments continue while admins review this application. If approved, every assignment will be released, this request will be closed permanently, and you cannot submit any further requests this semester. Admins and your tutors will be notified.",
+      "approveAbortConsequences": "Approval ends this tutee’s participation for the entire current semester, releases all tutor assignments, and permanently closes this request. Further applications from this tutee in the same semester will be blocked. This cannot be undone.",
+      "legacyWithdrawalHelp": "You can ask staff to withdraw from all tutoring this semester. Your participation stays unchanged until approval. Once approved, you cannot sign up again in the same semester."
+    }
   },
   "approvals": {
     "title": "Changes Awaiting Approval",
@@ -2341,8 +2354,8 @@
       "REJECTED": "Rejected",
       "CANCELLED": "Withdrawn"
     },
-    "confirmConsequences": "This applies the proposed assignment or student request decision. Check the affected student, tutor, and consequences before confirming; the review is recorded.",
-    "emailRetry": "The change was applied, but the verification email was not sent. Retry it from Student Requests.",
+    "confirmConsequences": "This applies the proposed assignment or tutee request decision. Check the affected tutee, tutor, and consequences before confirming; the review is recorded.",
+    "emailRetry": "The change was applied, but the verification email was not sent. Retry it from Tutee Requests.",
     "record": "Record"
   },
   "auditFilters": {
@@ -2404,5 +2417,28 @@
     "readOnly": "Only a Head or Administrator can change the program time zone.",
     "loading": "Loading time zone…",
     "inputZone": "Time is entered in {zone}."
+  },
+  "tuteePortal": {
+    "title": "Tutee page",
+    "navigation": "Tutee navigation",
+    "dashboard": "Dashboard",
+    "schedule": "My Tutors & Schedule",
+    "requests": "Requests",
+    "attendance": "Attendance",
+    "support": "Support",
+    "messages": "Messages",
+    "account": "Account",
+    "requestTutor": "Request a Tutor",
+    "manageRequests": "Manage my requests",
+    "welcome": "Welcome, {name}",
+    "intro": "Your tutoring, in one place. See your tutors and schedule, follow requests, and review attendance. This page is available alongside your other roles.",
+    "formHelp": "Use the request form to choose subjects and availability. Keep the email confirmation link: your verified request and updates appear under Requests.",
+    "scheduledSubjects": "weekly tutoring sessions on your schedule",
+    "openRequests": "verified requests still open",
+    "attendanceHelp": "Review recorded sessions and leave feedback.",
+    "supportHelp": "Review disciplinary cards and appeals, or open Messages to contact the team privately.",
+    "accountHelp": "Manage your shared account profile and sign-in details.",
+    "needHelp": "Get help",
+    "scheduleEmpty": "No tutoring sessions are assigned yet. Follow your request under Requests or use the request form to get started."
   }
 }

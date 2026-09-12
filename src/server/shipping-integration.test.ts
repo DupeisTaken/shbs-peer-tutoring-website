@@ -626,3 +626,34 @@ it("queues a historical correction and applies it atomically under the reviewer'
     }),
   ).toBeGreaterThan(0);
 });
+
+
+it("consolidates current tutee schedules for admin and tutor accounts using explicit ownership only", async () => {
+  await db.term.create({data:{id:"past-term",name:"Past",schoolYear:"25-26",quarter:"Q4",active:false}});
+  await db.tutee.createMany({data:[
+    {id:"owned-a",englishName:"Shared Name",status:"ACTIVE",intakeTermId:"shipping-term"},
+    {id:"owned-b",englishName:"Shared Name",status:"ACTIVE",intakeTermId:"shipping-term"},
+    {id:"foreign",englishName:"Shared Name",status:"ACTIVE",intakeTermId:"shipping-term"},
+    {id:"inactive-owned",englishName:"Shared Name",status:"INACTIVE",intakeTermId:"shipping-term"},
+  ]});
+  await db.user.update({where:{id:"shipping-admin"},data:{studentId:"owned-a"}});
+  await db.studentProfileOwnership.createMany({data:[
+    {userId:"shipping-admin",tuteeId:"owned-b"},
+    {userId:"shipping-admin",tuteeId:"inactive-owned"},
+  ]});
+  for (const [id,tuteeId,termId,startMin] of [
+    ["schedule-a","owned-a","shipping-term",600],
+    ["schedule-b","owned-b","shipping-term",660],
+    ["not-owned","foreign","shipping-term",720],
+    ["past-schedule","owned-a","past-term",780],
+    ["inactive-schedule","inactive-owned","shipping-term",840],
+  ] as const) {
+    await db.pairing.create({data:{id,subject:id,termId,tutorId:"shipping-tutor",dayOfWeek:1,startMin,endMin:startMin+30,tutees:{create:{tuteeId}}}});
+  }
+  // Two owned profiles on one pairing must still produce one schedule entry.
+  await db.pairingTutee.create({data:{pairingId:"schedule-a",tuteeId:"owned-b"}});
+  expect((await admin().student.me({page:0})).schedule.map(row=>row.id)).toEqual(["schedule-a","schedule-b"]);
+  await db.user.update({where:{id:"shipping-admin"},data:{role:"TUTOR",tutorId:"shipping-tutor"}});
+  expect((await actor("shipping-admin","TUTOR").student.me({page:0})).schedule.map(row=>row.id)).toEqual(["schedule-a","schedule-b"]);
+  expect((await coordinator().student.me({page:0})).schedule).toEqual([]);
+});

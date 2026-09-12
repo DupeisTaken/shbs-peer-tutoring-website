@@ -50,6 +50,9 @@ export default async function PatrolLayout({ children }: { children: React.React
               <p className="text-sm font-medium text-slate-900">{session.user.name}</p>
               <p className="muted text-xs">{t("crew.role")}</p>
             </div>
+            <Link href="/student" prefetch={false} className="btn-secondary btn-sm">
+              {t("components.userMenu.enterTutee")}
+            </Link>
             <ThemeSwitcher />
             <LanguageSwitcher />
             {backHref && (

@@ -1545,7 +1545,7 @@ export const tutorRouter = createTRPCRouter({
         throw new TRPCError({
           code: "PRECONDITION_FAILED",
           message:
-            "Students apply to leave the quarter from their own account. Use schedule rejection for scheduling problems.",
+            "Tutees apply to leave the quarter from their own account. Use schedule rejection for scheduling problems.",
         });
       const open = await ctx.db.tuteeRemovalRequest.findFirst({
         where: { tuteeId: input.tuteeId, state: "PENDING" },

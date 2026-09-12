@@ -146,7 +146,7 @@ export async function assertStudentRequestAssignable(
       throw new TRPCError({
         code: "PRECONDITION_FAILED",
         message:
-          "This student withdrew from the current quarter and cannot be reassigned.",
+          "This tutee withdrew from the current quarter and cannot be reassigned.",
       });
     return;
   }
