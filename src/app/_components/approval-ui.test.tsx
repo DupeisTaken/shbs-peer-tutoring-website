@@ -57,6 +57,7 @@ it("announces a queued proposal with a working request link and dismiss control"
 it("combines filters by stable user ID and clears them without sending incomplete edits", () => {
   const onApply = vi.fn();
   render(<AuditFilters onApply={onApply} />, { wrapper });
+  expect(screen.getByText("Date filters and event times use Asia/Shanghai.")).toBeTruthy();
   fireEvent.change(screen.getByLabelText("User"), {
     target: { value: "user-alex-2" },
   });

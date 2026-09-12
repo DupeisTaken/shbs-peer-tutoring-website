@@ -23,7 +23,7 @@ export function AuditFilters({
   onApply: (input: AuditFilterInput) => void;
 }) {
   const t = useTranslations("auditFilters");
-  const timeZone = useTimeZone();
+  const timeZone = useTimeZone() ?? "Asia/Shanghai";
   const [inputError, setInputError] = useState("");
   const [draft, setDraft] = useState(empty);
   const options = api.admin.auditFilterOptions.useQuery();
@@ -153,7 +153,7 @@ export function AuditFilters({
         >
           {t("clear")}
         </button>
-        <p className="muted ml-auto text-xs">{t("utc")}</p>
+        <p className="muted ml-auto text-xs">{t("utc", { zone: timeZone })}</p>
       </div>
       {options.error && (
         <p role="alert" className="text-red-700 sm:col-span-2">
