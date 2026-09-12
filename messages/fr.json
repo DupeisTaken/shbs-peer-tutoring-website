@@ -819,7 +819,8 @@
       "cancel": "Annuler",
       "updated": "Enregistré. {pairings} pairage(s) et {sessions} séance(s) liés ont été mis à jour.",
       "delete": "Supprimer",
-      "empty": "Aucun créneau horaire pour l'instant."
+      "empty": "Aucun créneau horaire pour l'instant.",
+      "reopenHelp": "How schedule changes work"
     },
     "rooms": {
       "title": "Salles",

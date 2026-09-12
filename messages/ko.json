@@ -819,7 +819,8 @@
       "cancel": "취소",
       "updated": "저장했습니다. 연결된 매칭 {pairings}개와 세션 {sessions}개를 업데이트했습니다.",
       "delete": "삭제",
-      "empty": "아직 시간대가 없습니다."
+      "empty": "아직 시간대가 없습니다.",
+      "reopenHelp": "How schedule changes work"
     },
     "rooms": {
       "title": "강의실",

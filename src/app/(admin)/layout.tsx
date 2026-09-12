@@ -1,3 +1,4 @@
+import { AdminPreferenceIdentity } from "~/app/_components/dismissible-notice";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
@@ -165,7 +166,11 @@ export default async function AdminLayout({
               </Link>
             </div>
           )}
-          <ReadOnlyProvider value={readOnly}>{children}</ReadOnlyProvider>
+          <ReadOnlyProvider value={readOnly}>
+            <AdminPreferenceIdentity value={session.user.id}>
+              {children}
+            </AdminPreferenceIdentity>
+          </ReadOnlyProvider>
         </main>
       </div>
     </div>

@@ -748,7 +748,8 @@
       "cancel": "Cancelar",
       "updated": "Guardado. Se actualizaron {pairings} emparejamiento(s) y {sessions} sesión(es) vinculados.",
       "delete": "Eliminar",
-      "empty": "Aún no hay horarios."
+      "empty": "Aún no hay horarios.",
+      "reopenHelp": "How schedule changes work"
     },
     "rooms": {
       "title": "Aulas",

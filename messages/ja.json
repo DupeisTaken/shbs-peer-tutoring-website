@@ -819,7 +819,8 @@
       "cancel": "キャンセル",
       "updated": "保存しました。関連するペアリング {pairings} 件とセッション {sessions} 件を更新しました。",
       "delete": "削除",
-      "empty": "タイムスロットはまだありません。"
+      "empty": "タイムスロットはまだありません。",
+      "reopenHelp": "How schedule changes work"
     },
     "rooms": {
       "title": "部屋",

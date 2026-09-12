@@ -819,7 +819,8 @@
       "cancel": "Abbrechen",
       "updated": "Gespeichert. {pairings} verknüpfte Zuordnung(en) und {sessions} Sitzung(en) wurden aktualisiert.",
       "delete": "Löschen",
-      "empty": "Noch keine Zeitfenster."
+      "empty": "Noch keine Zeitfenster.",
+      "reopenHelp": "How schedule changes work"
     },
     "rooms": {
       "title": "Räume",
