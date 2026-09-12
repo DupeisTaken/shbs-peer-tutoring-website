@@ -1,4 +1,5 @@
 import { decideMembership } from "~/server/membership";
+import { auditActors } from "~/lib/audit-actors";
 import { announcementAudienceSchema, selectAnnouncementRecipients } from "~/lib/announcement-recipients";
 import { announcementCandidates } from "~/server/announcement-recipients";
 import { auditFilters, auditWhere } from "~/server/audit/filters";
@@ -4719,20 +4720,8 @@ export const adminRouter = createTRPCRouter({
         orderBy: { entity: "asc" },
       }),
     ]);
-    const actors = new Map(
-      users.map((u) => [
-        u.id,
-        { id: u.id, label: u.name ?? u.username ?? u.id },
-      ]),
-    );
-    for (const actor of historical)
-      if (actor.userId && !actors.has(actor.userId))
-        actors.set(actor.userId, {
-          id: actor.userId,
-          label: actor.userName ?? actor.userId,
-        });
     return {
-      users: [...actors.values()],
+      users: auditActors(users, historical),
       operations: operations.flatMap((o) => (o.operation ? [o.operation] : [])),
       entities: entities.map((e) => e.entity),
     };

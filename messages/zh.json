@@ -2371,7 +2371,9 @@
       "DECISION": "决定",
       "SUBMISSION": "提案",
       "CANCELLATION": "撤回"
-    }
+    },
+    "unnamedAccount": "未命名账户",
+    "formerAccount": "已删除账户"
   },
   "userMultiFilters": {
     "all": "全部",

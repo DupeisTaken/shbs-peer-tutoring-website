@@ -2371,7 +2371,9 @@
       "DECISION": "Decision",
       "SUBMISSION": "Proposal",
       "CANCELLATION": "Withdrawal"
-    }
+    },
+    "unnamedAccount": "Unnamed account",
+    "formerAccount": "Former account"
   },
   "userMultiFilters": {
     "all": "All",
