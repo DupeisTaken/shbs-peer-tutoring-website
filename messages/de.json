@@ -2255,7 +2255,9 @@
     "policyLoadError": "The current policy could not be loaded. Retry or sign out. Your request priority is unchanged.",
     "retry": "Retry",
     "expiredHelp": "If your request was disqualified, resending cannot reactivate it. You must submit a new request.",
-    "policyHistoryAccess": "Read and accept the updated policy before participating. Your history, feedback, appeals, and private messages remain available."
+    "policyHistoryAccess": "Read and accept the updated policy before participating. Your history, feedback, appeals, and private messages remain available.",
+    "manualSource": "Manually managed",
+    "surveySource": "Student signup"
   },
   "approvals": {
     "title": "Change Approvals",
