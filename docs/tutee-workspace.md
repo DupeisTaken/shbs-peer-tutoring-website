@@ -47,3 +47,5 @@ the current wording until applied.
   tutor/admin participation.
 - Browser review should exercise an empty account and a linked tutee at desktop and
   mobile widths, including the form link, Requests and Support actions.
+
+Messages and Account are now focused views inside the same tutee navigation and header. They reuse the existing inbox and shared self-service account controls, including verified email/password changes. Legacy /messages and /my-account links remain valid for other workspaces. No messaging recipient permissions or account security rules change.
