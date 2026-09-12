@@ -56,6 +56,10 @@ export function DismissibleNotice({
       if (key) {
         if (hide) localStorage.setItem(key, "dismissed");
         else localStorage.removeItem(key);
+        // A prior quota failure must not override a later successful reopen.
+        setFallback(null);
+      } else {
+        setFallback({ key, hidden: hide });
       }
     } catch {
       setFallback({ key, hidden: hide });
