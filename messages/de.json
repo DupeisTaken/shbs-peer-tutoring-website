@@ -2334,5 +2334,10 @@
     "noRole": "No account role",
     "noTutor": "No linked tutor",
     "count": "Showing {count} of {total} users"
+  },
+  "saveNotifications": {
+    "saved": "Changes saved",
+    "failed": "Could not save changes",
+    "dismiss": "Dismiss"
   }
 }

@@ -2336,5 +2336,10 @@
     "noRole": "无账户角色",
     "noTutor": "未关联导师",
     "count": "显示 {count} / {total} 位用户"
+  },
+  "saveNotifications": {
+    "saved": "更改已保存",
+    "failed": "无法保存更改",
+    "dismiss": "关闭"
   }
 }
