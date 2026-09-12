@@ -15,10 +15,23 @@ import {
   proposalTargets,
 } from "~/server/approvals";
 import { humanizeOperation, proposalConfirmation } from "~/lib/approval-policy";
+import { requesterLabels } from "~/lib/requester-labels";
 
 /** Approval is a single atomic transition: revalidation, live change, decision, audit,
  * and notifications either all commit or all roll back. The requester is never impersonated. */
 export const approvalRouter = createTRPCRouter({
+  requesters: adminOnlyProcedure.query(async ({ ctx }) => {
+    const requests = await ctx.db.approvalRequest.findMany({
+      distinct: ["requesterId"],
+      select: { requesterId: true, requesterName: true },
+      orderBy: { createdAt: "desc" },
+    });
+    const users = await ctx.db.user.findMany({
+      where: { id: { in: requests.map((request) => request.requesterId) } },
+      select: { id: true, name: true, username: true, email: true },
+    });
+    return requesterLabels(requests, users);
+  }),
   list: protectedProcedure
     .input(
       z
