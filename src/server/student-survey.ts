@@ -15,6 +15,8 @@ import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
 import { hashPassword } from "~/server/auth/password";
 import { expireStudentRequests } from "./student-request-state";
 import { rateLimit } from "~/server/rate-limit";
+import { getFeatures } from "~/server/program/features";
+import { getPeriodDisplay } from "~/lib/period";
 
 export const surveyInput = z.object({
   englishName: z.string().trim().min(1).max(120),
@@ -297,6 +299,11 @@ export async function inspectSurvey(db: DomainDb, token: string) {
   const row = await validSurvey(db, token);
   const user = await db.user.findUnique({ where: { email: row.email } });
   const input = surveyInput.parse(row.payload);
+  // Confirmation describes the intake actually submitted, even after the active period changes.
+  const [intake, features] = await Promise.all([
+    db.term.findUnique({ where: { id: row.intakeTermId } }),
+    getFeatures(db),
+  ]);
   const subjects = await db.subject.findMany({
     where: {
       id: {
@@ -321,6 +328,7 @@ export async function inspectSurvey(db: DomainDb, token: string) {
   });
   return {
     email: row.email,
+    period: intake ? getPeriodDisplay(intake, features.QUARTER_SYSTEM) : null,
     name: input.englishName,
     submittedAt: row.submittedAt,
     verificationDueAt: row.verificationDueAt,

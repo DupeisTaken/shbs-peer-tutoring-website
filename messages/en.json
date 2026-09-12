@@ -1756,7 +1756,8 @@
         "hours": "Hours",
         "minutes": "Minutes",
         "seconds": "Seconds",
-        "opening": "Opening signups…"
+        "opening": "Opening signups…",
+        "periodTitle": "{period} Tutee Signups will open by {time}"
       },
       "becomeTutorPrompt": "Want to tutor instead?",
       "becomeTutorLink": "Apply to Become a Tutor",
@@ -1788,7 +1789,9 @@
       "noSlots": "No time slots are published yet. Please check back later.",
       "agree": "I have read and agree to abide by the <policy>{appTitle} Policy</policy>.",
       "submit": "Submit Request",
-      "submitting": "Submitting…"
+      "submitting": "Submitting…",
+      "quarter": "Quarter · {period}",
+      "semester": "Semester · {period}"
     },
     "tutorSignup": {
       "title": "Apply to Become a Peer Tutor",

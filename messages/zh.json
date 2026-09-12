@@ -1756,7 +1756,8 @@
         "hours": "小时",
         "minutes": "分钟",
         "seconds": "秒",
-        "opening": "正在开放报名…"
+        "opening": "正在开放报名…",
+        "periodTitle": "{period} 学员报名将于 {time} 开放"
       },
       "becomeTutorPrompt": "想成为辅导员？",
       "becomeTutorLink": "申请成为辅导员",
@@ -1788,7 +1789,9 @@
       "noSlots": "目前还没有发布任何时间段，请稍后再来查看。",
       "agree": "我已阅读并同意遵守 <policy>{appTitle} 政策</policy>。",
       "submit": "提交申请",
-      "submitting": "提交中…"
+      "submitting": "提交中…",
+      "quarter": "季度 · {period}",
+      "semester": "学期 · {period}"
     },
     "tutorSignup": {
       "title": "申请成为同伴辅导员",

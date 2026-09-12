@@ -1756,7 +1756,8 @@
         "hours": "Horas",
         "minutes": "Minutos",
         "seconds": "Segundos",
-        "opening": "Abriendo inscripciones…"
+        "opening": "Abriendo inscripciones…",
+        "periodTitle": "Las solicitudes de tutoría de {period} se abrirán el {time}"
       },
       "becomeTutorPrompt": "¿Prefieres ser tutor?",
       "becomeTutorLink": "Solicita ser tutor",
@@ -1788,7 +1789,9 @@
       "noSlots": "Aún no se han publicado horarios. Vuelve más tarde.",
       "agree": "He leído y acepto cumplir la <policy>Política de {appTitle}</policy>.",
       "submit": "Enviar solicitud",
-      "submitting": "Enviando…"
+      "submitting": "Enviando…",
+      "quarter": "Trimestre · {period}",
+      "semester": "Semestre · {period}"
     },
     "tutorSignup": {
       "title": "Solicita ser tutor par",

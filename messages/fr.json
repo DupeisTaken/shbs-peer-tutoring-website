@@ -1756,7 +1756,8 @@
         "hours": "Heures",
         "minutes": "Minutes",
         "seconds": "Secondes",
-        "opening": "Ouverture des inscriptions…"
+        "opening": "Ouverture des inscriptions…",
+        "periodTitle": "Les inscriptions au tutorat pour {period} ouvriront le {time}"
       },
       "becomeTutorPrompt": "Vous voulez plutôt être tuteur ?",
       "becomeTutorLink": "Postuler pour devenir tuteur",
@@ -1788,7 +1789,9 @@
       "noSlots": "Aucun créneau n'est encore publié. Revenez plus tard.",
       "agree": "J'ai lu et j'accepte de respecter la <policy>politique {appTitle}</policy>.",
       "submit": "Soumettre la demande",
-      "submitting": "Soumission en cours…"
+      "submitting": "Soumission en cours…",
+      "quarter": "Trimestre · {period}",
+      "semester": "Semestre · {period}"
     },
     "tutorSignup": {
       "title": "Postuler pour devenir tuteur par les pairs",

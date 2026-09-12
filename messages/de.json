@@ -1756,7 +1756,8 @@
         "hours": "Stunden",
         "minutes": "Minuten",
         "seconds": "Sekunden",
-        "opening": "Anmeldung wird geöffnet…"
+        "opening": "Anmeldung wird geöffnet…",
+        "periodTitle": "Anmeldungen für Nachhilfe für {period} öffnen am {time}"
       },
       "becomeTutorPrompt": "Möchten Sie lieber selbst tutoren?",
       "becomeTutorLink": "Als Tutor bewerben",
@@ -1788,7 +1789,9 @@
       "noSlots": "Noch keine Zeitfenster veröffentlicht. Bitte später wiederkommen.",
       "agree": "Ich habe die <policy>{appTitle}-Richtlinie</policy> gelesen und stimme zu, sie einzuhalten.",
       "submit": "Antrag einreichen",
-      "submitting": "Wird eingereicht…"
+      "submitting": "Wird eingereicht…",
+      "quarter": "Quartal · {period}",
+      "semester": "Semester · {period}"
     },
     "tutorSignup": {
       "title": "Als Peer-Tutor bewerben",

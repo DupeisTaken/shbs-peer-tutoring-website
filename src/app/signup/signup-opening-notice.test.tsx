@@ -31,7 +31,7 @@ describe("signup opening notice", () => {
         timeZone={DEFAULT_TIME_ZONE}
       >
         <SignupOpeningNotice
-          quarter="Q3"
+          periodLabel="2026–27 Q3"
           opensAt="2026-09-01T00:00:00.000Z"
           previewUrl="https://example.com/preview-sheet"
           serverNow="2026-08-30T00:00:00.000Z"
@@ -39,7 +39,7 @@ describe("signup opening notice", () => {
       </NextIntlClientProvider>,
     );
 
-    expect(markup).toContain("Q3 Tutee Signups will open by");
+    expect(markup).toContain("2026–27 Q3 Tutee Signups will open by");
     expect(markup).toContain('role="timer"');
     expect(markup).toContain('href="https://example.com/preview-sheet"');
     expect(markup).toContain("You may preview the sheet");
@@ -58,7 +58,7 @@ describe("signup opening notice", () => {
         timeZone={DEFAULT_TIME_ZONE}
       >
         <SignupOpeningNotice
-          quarter="Q3"
+          periodLabel="2026–27 Q3"
           opensAt="2026-09-01T00:00:02.000Z"
           previewUrl="https://example.com/preview-sheet"
           serverNow="2026-09-01T00:00:00.000Z"

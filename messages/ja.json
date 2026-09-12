@@ -1756,7 +1756,8 @@
         "hours": "時間",
         "minutes": "分",
         "seconds": "秒",
-        "opening": "申請受付を開始しています…"
+        "opening": "申請受付を開始しています…",
+        "periodTitle": "{period} の受講生申込は {time} に開始します"
       },
       "becomeTutorPrompt": "チューターになりたいですか？",
       "becomeTutorLink": "チューターに応募",
@@ -1788,7 +1789,9 @@
       "noSlots": "タイムスロットはまだ公開されていません。後でご確認ください。",
       "agree": "<policy>{appTitle} ポリシー</policy>を読み、遵守することに同意します。",
       "submit": "申請を提出",
-      "submitting": "提出中…"
+      "submitting": "提出中…",
+      "quarter": "四半期 · {period}",
+      "semester": "学期 · {period}"
     },
     "tutorSignup": {
       "title": "チューターに応募",

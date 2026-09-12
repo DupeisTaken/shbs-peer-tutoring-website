@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   confirm: vi.fn(),
   needsAccount: true,
   success: false,
+  period: { kind: "quarter", label: "2026–27 Q3" },
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
@@ -33,6 +34,7 @@ vi.mock("~/trpc/react", () => ({
             ],
             submittedAt: new Date("2026-09-08T00:00:00Z"),
             needsAccount: mocks.needsAccount,
+            period: mocks.period,
           },
         }),
       },
@@ -57,7 +59,18 @@ afterEach(() => {
   vi.clearAllMocks();
   mocks.needsAccount = true;
   mocks.success = false;
+  mocks.period = { kind: "quarter", label: "2026–27 Q3" };
 });
+it.each([false, true])(
+  "keeps the semester label during review and confirmation (confirmed=%s)",
+  (confirmed) => {
+    mocks.period = { kind: "semester", label: "2026–27 S2" };
+    mocks.success = confirmed;
+    wrap(<StudentRegistration token={"a".repeat(64)} />);
+    expect(screen.getByText("Semester · 2026–27 S2")).toBeTruthy();
+    expect(screen.queryByText(/Quarter ·/)).toBeNull();
+  },
+);
 it("offers a sign-in button, readable link, and downloadable QR without exposing verification tokens", async () => {
   const writeText = vi.fn().mockResolvedValue(undefined);
   Object.defineProperty(navigator, "clipboard", {
