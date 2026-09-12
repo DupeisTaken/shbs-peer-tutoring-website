@@ -748,7 +748,8 @@
       "cancel": "取消",
       "updated": "已保存。已更新 {pairings} 个关联配对和 {sessions} 个课时。",
       "delete": "删除",
-      "empty": "暂无时间段。"
+      "empty": "暂无时间段。",
+      "reopenHelp": "时段变更如何生效"
     },
     "rooms": {
       "title": "教室",

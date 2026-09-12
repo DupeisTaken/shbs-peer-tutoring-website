@@ -819,7 +819,8 @@
       "cancel": "Cancel",
       "updated": "Saved. Updated {pairings} linked pairing(s) and {sessions} session(s).",
       "delete": "Delete",
-      "empty": "No time slots yet."
+      "empty": "No time slots yet.",
+      "reopenHelp": "How schedule changes work"
     },
     "rooms": {
       "title": "Rooms",

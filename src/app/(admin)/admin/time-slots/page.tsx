@@ -1,5 +1,6 @@
 "use client";
 
+import { DismissibleNotice } from "~/app/_components/dismissible-notice";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 
@@ -62,14 +63,16 @@ export default function TimeSlotsPage() {
       </div>
 
       {!readOnly && (
-        <div className="rounded-lg border border-sky-200 bg-sky-50 px-4 py-3 text-sm text-sky-950">
-          <p className="font-semibold">
-            {t("admin.timeslots.propagationTitle")}
-          </p>
+        <DismissibleNotice
+          noticeId="time-slot-propagation-v1"
+          title={t("admin.timeslots.propagationTitle")}
+          helpLabel={t("admin.timeslots.reopenHelp")}
+          dismissLabel={t("approvals.dismiss")}
+        >
           <p className="mt-0.5 text-sky-800">
             {t("admin.timeslots.propagationNote")}
           </p>
-        </div>
+        </DismissibleNotice>
       )}
 
       {!readOnly && (
