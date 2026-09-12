@@ -404,23 +404,26 @@ export default function TuteesPage() {
                       label={statusLabel(t2.status)}
                     />
                   </td>
-                  <td className="text-right">
-                    {!readOnly && (
-                      <button
-                        className="link mr-2"
-                        onClick={() => setEditingId(t2.id)}
-                      >
-                        {t("profileCorrection.edit")}
-                      </button>
-                    )}
-                    {!readOnly && (
-                      <button
-                        className="link-danger"
-                        onClick={() => del.mutate({ id: t2.id })}
-                      >
-                        {t("admin.tutees.deleteBtn")}
-                      </button>
-                    )}
+                  {/* Reserve one unbroken action group even when other columns grow. */}
+                  <td className="w-px text-right whitespace-nowrap">
+                    <div className="inline-flex items-center justify-end gap-3">
+                      {!readOnly && (
+                        <button
+                          className="link whitespace-nowrap"
+                          onClick={() => setEditingId(t2.id)}
+                        >
+                          {t("profileCorrection.edit")}
+                        </button>
+                      )}
+                      {!readOnly && (
+                        <button
+                          className="link-danger whitespace-nowrap"
+                          onClick={() => del.mutate({ id: t2.id })}
+                        >
+                          {t("admin.tutees.deleteBtn")}
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}
