@@ -2322,5 +2322,10 @@
       "SUBMISSION": "提案",
       "CANCELLATION": "撤回"
     }
+  },
+  "saveNotifications": {
+    "saved": "更改已保存",
+    "failed": "无法保存更改",
+    "dismiss": "关闭"
   }
 }

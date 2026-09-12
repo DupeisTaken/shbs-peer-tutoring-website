@@ -2322,5 +2322,10 @@
       "SUBMISSION": "Proposal",
       "CANCELLATION": "Withdrawal"
     }
+  },
+  "saveNotifications": {
+    "saved": "Changes saved",
+    "failed": "Could not save changes",
+    "dismiss": "Dismiss"
   }
 }

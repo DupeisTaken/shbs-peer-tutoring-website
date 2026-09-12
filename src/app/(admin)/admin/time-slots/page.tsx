@@ -21,7 +21,6 @@ export default function TimeSlotsPage() {
   });
   const [form, setForm] = useState(EMPTY);
   const [editing, setEditing] = useState<SlotDraft | null>(null);
-  const [notice, setNotice] = useState<string | null>(null);
 
   const invalidate = () =>
     Promise.all([
@@ -37,14 +36,8 @@ export default function TimeSlotsPage() {
     },
   });
   const update = api.admin.updateTimeSlot.useMutation({
-    onSuccess: async (result) => {
+    onSuccess: async () => {
       setEditing(null);
-      setNotice(
-        t("admin.timeslots.updated", {
-          pairings: result.updatedPairings,
-          sessions: result.updatedSessions,
-        }),
-      );
       await invalidate();
     },
   });
@@ -146,11 +139,6 @@ export default function TimeSlotsPage() {
       {!readOnly && (create.error ?? update.error ?? del.error) && (
         <p className="text-sm text-red-600">
           {(create.error ?? update.error ?? del.error)?.message}
-        </p>
-      )}
-      {!readOnly && notice && !update.error && (
-        <p role="status" className="text-sm font-medium text-emerald-700">
-          {notice}
         </p>
       )}
 
@@ -301,7 +289,6 @@ export default function TimeSlotsPage() {
                         disabled={!editingIsValid || update.isPending}
                         onClick={() => {
                           if (!editingIsValid) return;
-                          setNotice(null);
                           update.mutate({
                             id: editing.id,
                             label: editing.label.trim(),
@@ -336,7 +323,6 @@ export default function TimeSlotsPage() {
                         disabled={update.isPending}
                         onClick={() => {
                           update.reset();
-                          setNotice(null);
                           setEditing({
                             id: s.id,
                             label: s.label,
