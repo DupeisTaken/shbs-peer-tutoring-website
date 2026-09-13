@@ -49,7 +49,7 @@ cp .env.example .env
 ```
 
 Edit `.env`. For local work you really only need `DATABASE_URL` and `AUTH_SECRET`
-(generate the latter with `npx auth secret`; in development it may even be left blank).
+(generate the latter once with `npx auth secret` and keep it stable across restarts).
 Sign-in is username or email + password — there is no external identity provider to configure.
 
 The first address in `AUTH_BOOTSTRAP_ADMIN_EMAILS` becomes `HEAD` when no HEAD exists;
@@ -202,6 +202,9 @@ docker compose down        # or: docker compose down -v
 ```
 
 ## Troubleshooting
+
+- **Expired/unverifiable session or old development cookie** — sign in again when prompted. Keep `AUTH_SECRET` stable; localhost ports share cookies, so use separate browser profiles for worktrees with different secrets. If a fresh sign-in still fails, investigate the running process configuration. See [session recovery](docs/session-recovery.md).
+
 
 - **`Invalid environment variables` on startup** — a required var in `.env` is missing or
   malformed. Check it against `.env.example` and the schema in `src/env.js`.

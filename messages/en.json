@@ -10,7 +10,8 @@
     "backToMain": "← Back to Main Page",
     "close": "Close",
     "collapseAll": "Collapse All",
-    "expandAll": "Expand All"
+    "expandAll": "Expand All",
+    "loading": "Loading…"
   },
   "auth": {
     "signinTitle": "Sign In",
@@ -135,7 +136,8 @@
     "staleSession": {
       "title": "Session Out of Date",
       "body": "Your tutor account link is no longer valid. Sign out and sign back in to refresh it."
-    }
+    },
+    "sessionExpired": "Your session expired or could not be verified. Please sign in again."
   },
   "landing": {
     "nav": {
@@ -2335,7 +2337,7 @@
     }
   },
   "approvals": {
-    "title": "Changes Awaiting Approval",
+    "title": "Management Actions",
     "subtitle": "Review changes proposed by coordinators before they take effect. Approve to apply a change, or reject it with an explanation. Use the status filter to view past decisions.",
     "queued": "Submitted for Admin Approval",
     "queuedBody": "Your proposal is pending. The live records stay unchanged until an admin approves it.",
@@ -2370,7 +2372,19 @@
     },
     "confirmConsequences": "This applies the proposed assignment or tutee request decision. Check the affected tutee, tutor, and consequences before confirming; the review is recorded.",
     "emailRetry": "The change was applied, but the verification email was not sent. Retry it from Tutee Requests.",
-    "record": "Record"
+    "record": "Record",
+    "reviewQueue": "Management Review Queue",
+    "ownSubtitle": "Track your proposed changes and feedback. Pending proposals leave live records unchanged; only approved changes have taken effect.",
+    "ownEmptyHint": "Your proposals and past decisions appear here. Try All Statuses to see your full history.",
+    "missingHint": "This request is unavailable or belongs to another account. Return to your list to find your requests.",
+    "proposedChanges": "Proposed Changes",
+    "withdrawnBy": "Withdrawn by {name}",
+    "effects": {
+      "PENDING": "Not applied — awaiting administrator review.",
+      "APPROVED": "Applied when approved. See the decision below.",
+      "REJECTED": "Not applied — rejected with feedback.",
+      "CANCELLED": "Not applied — withdrawn by the requester."
+    }
   },
   "auditFilters": {
     "subtitle": "Trace each user’s actions, proposals, and decisions across the program.",

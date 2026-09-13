@@ -10,6 +10,8 @@ import { IntlProvider } from "~/app/_components/intl-provider";
 import { APP_TITLE } from "~/lib/branding";
 import { DEFAULT_THEME, THEME_COOKIE, isTheme } from "~/lib/theme";
 import { StudentPolicyGate } from "~/app/_components/student-policy-gate";
+import { auth } from "~/server/auth";
+import { sessionIdentity } from "~/lib/session-identity";
 
 export const metadata: Metadata = {
   title: APP_TITLE,
@@ -25,11 +27,13 @@ export default async function RootLayout({
   const timeZone = await getTimeZone();
   const themeCookie = (await cookies()).get(THEME_COOKIE)?.value;
   const theme = isTheme(themeCookie) ? themeCookie : DEFAULT_THEME;
+  const session = await auth();
+  const identity = sessionIdentity(session);
   return (
     <html lang={locale} data-theme={theme} className={GeistSans.variable}>
       <body>
         <IntlProvider locale={locale} messages={messages} timeZone={timeZone}>
-          <TRPCReactProvider>
+          <TRPCReactProvider identity={identity}>
             <StudentPolicyGate />
             {children}
           </TRPCReactProvider>

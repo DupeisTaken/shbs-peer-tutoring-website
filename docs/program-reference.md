@@ -17,7 +17,7 @@ This is the supported single-program website. Account role, tutor participation,
 | Manage interviews | Assigned panelists vote in Tutor Dashboard; the chair schedules and records the decision | Tutor Applications assigns the panel; Record Interview Completion records duration and subject qualifications |
 | Communicate | Workspace Messages and notifications | Announcements support immutable recipient snapshots, filters and individual overrides; private messages remain scoped to their participants |
 | Get support | Tutee Support tab, session feedback, card appeals and private messages | Tutee Support (`/admin/student-support`) handles shared feedback, appeals, school calendar and policy acceptance |
-| Review sensitive changes | Coordinators prepare changes | Changes Awaiting Approval: ADMIN/HEAD recheck evidence before applying or declining; pending is not applied |
+| Review sensitive changes | Coordinators prepare changes | Management Actions: ADMIN/HEAD recheck evidence before applying or declining; pending is not applied |
 | Observe the program | Read-only management area | VIEWER sees permitted summaries with private contact data masked; observer access does not grant management writes |
 | Patrol rooms | Active crew member → `/patrol` | Crew maintains membership, room order, sweeps and corrections |
 | Maintain accounts | Shared Account settings; verified email changes and password recovery | Users & Roles manages identities, invitation/setup, capability assignment, suspension and leadership boundaries |

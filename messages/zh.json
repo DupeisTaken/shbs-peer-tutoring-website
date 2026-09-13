@@ -10,7 +10,8 @@
     "backToMain": "← 返回主页",
     "close": "关闭",
     "collapseAll": "全部收起",
-    "expandAll": "全部展开"
+    "expandAll": "全部展开",
+    "loading": "正在加载…"
   },
   "auth": {
     "signinTitle": "登录",
@@ -135,7 +136,8 @@
     "staleSession": {
       "title": "会话已过期",
       "body": "你的辅导员账户关联已失效。请退出后重新登录以刷新。"
-    }
+    },
+    "sessionExpired": "您的登录已过期或无法验证，请重新登录。"
   },
   "landing": {
     "nav": {
@@ -2335,7 +2337,7 @@
     }
   },
   "approvals": {
-    "title": "待审批的变更",
+    "title": "管理操作",
     "subtitle": "审核协调员提交、尚未生效的变更。批准后将应用变更，拒绝时请说明原因。使用状态筛选查看历史决定。",
     "queued": "已提交管理员审批",
     "queuedBody": "提案正在等待审批。管理员批准前，现有记录不会更改。",
@@ -2370,7 +2372,19 @@
     },
     "confirmConsequences": "此操作将执行所提议的分配或学生申请决定。请核对受影响的学生、导师和后果；提交后将记录审批结果。",
     "emailRetry": "变更已生效，但验证邮件未发送。请在学生申请页面重新发送。",
-    "record": "记录"
+    "record": "记录",
+    "reviewQueue": "管理审批队列",
+    "ownSubtitle": "查看您提交的变更和审批反馈。待审批提案不会更改现有记录；只有已批准的变更才已生效。",
+    "ownEmptyHint": "您提交的提案及历史决定会显示在这里。选择全部状态可查看完整记录。",
+    "missingHint": "此申请不可用或属于其他账号。返回列表查看您有权访问的申请。",
+    "proposedChanges": "拟议变更",
+    "withdrawnBy": "由{name}撤回",
+    "effects": {
+      "PENDING": "尚未生效，等待管理员审批。",
+      "APPROVED": "已于批准时生效。请查看下方审批决定。",
+      "REJECTED": "尚未生效，已驳回并提供反馈。",
+      "CANCELLED": "尚未生效，已由申请人撤回。"
+    }
   },
   "auditFilters": {
     "subtitle": "按用户追踪项目中的操作、提案和决定。",

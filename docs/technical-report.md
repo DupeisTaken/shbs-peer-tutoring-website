@@ -54,6 +54,8 @@ Accounts have one primary role: `STUDENT`, `TUTOR`, `CREW`, `COORDINATOR`, `ADMI
 
 Protected requests reload the account’s current role, linkage and suspension state. A stale JWT cannot retain a revoked role. Student ownership is based on stable account/profile links, not a matching name or email. Public student/viewer signup cannot claim a legacy tutor profile merely by matching its email; see [tutor linking](../src/server/auth/tutor-link.ts).
 
+Client caches are partitioned by account, role and tutor link; returning focus and route navigation verify the live session before reusing data. Invalid session cookies are removed at the HTTP proxy before Server Component rendering, without disabling Auth.js logging or server authorization. See [session recovery and configuration diagnosis](session-recovery.md).
+
 | Procedure family | Intended callers |
 | --- | --- |
 | `publicProcedure` | Public operations; each operation still validates its inputs and relevant gates |

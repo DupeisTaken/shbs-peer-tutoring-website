@@ -8,6 +8,16 @@ import type { AppRouter } from "~/server/api/root";
 import SuperJSON from "superjson";
 import { APPROVAL_OPERATIONS } from "~/lib/approval-policy";
 
+/** Authentication/authorization failures cannot succeed by repeating the same request.
+ * Transient network/server failures retain a small bounded retry budget. */
+export function retryQuery(failureCount: number, error: Error) {
+  if (error instanceof TRPCClientError) {
+    const code = (error as TRPCClientError<AppRouter>).data?.code;
+    if (code === "UNAUTHORIZED" || code === "FORBIDDEN") return false;
+  }
+  return failureCount < 2;
+}
+
 /** Preparation tickets and read-like mutations are not saved changes. */
 export function isAdminSaveMutation(key: readonly unknown[] | undefined) {
   const path = key?.[0];
@@ -68,6 +78,9 @@ export const createQueryClient = () =>
         // With SSR, we usually want to set some default staleTime
         // above 0 to avoid refetching immediately on the client
         staleTime: 30 * 1000,
+        retry: retryQuery,
+        // The provider verifies identity first, then refreshes active queries.
+        refetchOnWindowFocus: false,
       },
       dehydrate: {
         serializeData: SuperJSON.serialize,

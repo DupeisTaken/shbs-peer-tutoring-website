@@ -26,7 +26,7 @@ The combined website supports intake, matching, attendance, hours, interviews, s
 | Tutee participation (any account role) | Enter Tutee page | Your own records and participation |
 | Tutor | Dashboard | Your linked tutor profile and assignments |
 | Crew | Patrol | Active crew participation; the crew module must be enabled |
-| Coordinator | Management area / Change Approvals | Sensitive changes wait for ADMIN or HEAD review |
+| Coordinator | Management area / Management Actions | Sensitive changes wait for ADMIN or HEAD review |
 | Administrator | Management area | Operational management; HEAD-only powers remain restricted |
 | HEAD | Program & Refresh / Users & Roles | One program leader; controls leadership and elevated configuration |
 | Viewer | Read-only management area | Permitted summaries with personal contact details masked |
@@ -132,7 +132,7 @@ Coordinators prepare management changes and learn through review. Their own auth
 1. Open the relevant management page and inspect the current record.
 2. Enter the proposed change and any required reason. For tutee assignment/review actions, read the consequence dialog and wait for confirmation.
 3. Submit. **Submitted for admin approval** means no live management change has been applied.
-4. Follow **View request** to **Change Approvals**. Check the proposed values and wait for review. You can withdraw your own pending request.
+4. Follow **View request** to **Management Actions**. Check the proposed values and wait for review. You can withdraw your own pending request.
 5. Read the reviewer’s note. Check the live record after approval; an email-delivery warning may still require a link resend.
 
 Requests cover assignments, schedules, roster changes, policy/content changes, corrections, discipline, hours, interview completion and other supported management operations. Account role changes, program refresh and HEAD-only powers are not obtained by creating a request. Sending an existing verification/setup link is a supported direct action and does not extend a verification deadline.
@@ -143,7 +143,7 @@ If records change while a proposal is pending, the reviewer must reject it and r
 
 ### Review a coordinator change
 
-1. Open **Change Approvals**, select a pending request and inspect its values and recorded evidence.
+1. Open **Management Actions**, select a pending request and inspect its values and recorded evidence.
 2. Check the affected tutee/tutor, program period and consequences.
 3. Enter an explanatory review note. Choose **Approve and Apply** or reject with feedback.
 4. For tutee actions, complete your own fresh timed confirmation. The coordinator’s earlier confirmation cannot stand in for yours.
@@ -196,7 +196,7 @@ On the Tutee page, **Messages** and **Account** open inside the same navigation 
 | Confirmation link expired | Request a new link; use the most recent successfully sent link |
 | Verification deadline passed | Submit a new request if eligible; resending the old link cannot extend the deadline |
 | A new policy is required | Read and accept the displayed revision; history and private support remain accessible |
-| Change is pending | Open Change Approvals; live records stay unchanged until approval |
+| Change is pending | Open Management Actions; live records stay unchanged until approval |
 | Affected records changed | Reviewer rejects the stale proposal; coordinator prepares a new one using current records |
 | Assignment applied but email failed | Keep the assignment; resend its verification link and check delivery configuration |
 | Interview decision blocked | Check every vote, active panel membership, highest-ranking chair and subject qualification |
