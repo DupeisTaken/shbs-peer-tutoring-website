@@ -82,7 +82,10 @@ export default async function TutorLayout({
 
   const features = await getFeatures(db);
   const accountItems = [
-    { href: "/messages", label: t("workflows.messages") },
+    {
+      href: isElevated ? "/admin/messages" : "/messages",
+      label: t("workflows.messages"),
+    },
     { href: "/student", label: t("components.userMenu.enterTutee") },
     {
       href: isElevated ? "/admin/student-support" : "/student?view=support",

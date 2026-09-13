@@ -1,6 +1,6 @@
 # Student participation handbook
 
-Repository revision 2026.09.09 · School publication review required
+Repository revision 2026.09.13 · School publication review required
 
 ## Applying and confirming your account
 
@@ -30,7 +30,7 @@ Feedback is visible only to management by default. Management can enable or revo
 
 You may appeal your own disciplinary card within five school days. Weekdays count unless the school calendar specifies a holiday or make-up day. A pending appeal does not automatically invalidate the card. An upheld appeal invalidates it and recalculates disciplinary standing; management corrections retain reasons and audit evidence.
 
-You can exchange private in-system messages with management. Only the two participants can read a conversation. Notifications do not include message bodies.
+Each selected contact receives a separate private message immediately. Recipients cannot see other recipients or their replies. HEAD and ADMIN may review new messages composed with the supervision notice, hide or restore content, and restrict messaging access; these actions are recorded and original evidence is retained. Messages sent under the earlier participant-only notice remain participant-only. New replies follow the current rules. Contact eligibility follows role/user permissions and recorded tutoring assignments; history remains accessible when eligibility changes. Notifications omit message bodies.
 
 ## Policy changes and account security
 

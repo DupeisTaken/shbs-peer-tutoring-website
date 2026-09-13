@@ -15,7 +15,7 @@ This is the supported single-program website. Account role, tutor participation,
 | Teach and record attendance | Tutor Dashboard (`/dashboard`), Settings (`/settings`), Handbook (`/handbook`) | Attendance Submissions, Attendance Flags, Service Hours and Hour Adjustments |
 | Schedule teaching | Tutors maintain availability and pairing defaults | Subjects & Levels, Time Slots, Rooms and Pairings; room blocks warn against conflicts |
 | Manage interviews | Assigned panelists vote in Tutor Dashboard; the chair schedules and records the decision | Tutor Applications assigns the panel; Record Interview Completion records duration and subject qualifications |
-| Communicate | Workspace Messages and notifications | Announcements support immutable recipient snapshots, filters and individual overrides; private messages remain scoped to their participants |
+| Communicate | Workspace Messages and notifications | Announcements support immutable recipient snapshots, filters and individual overrides; private deliveries remain isolated per recipient; disclosed new messages allow audited HEAD/ADMIN supervision ([details](messaging.md)) |
 | Get support | Tutee Support tab, session feedback, card appeals and private messages | Tutee Support (`/admin/student-support`) handles shared feedback, appeals, school calendar and policy acceptance |
 | Review sensitive changes | Coordinators prepare changes | Changes Awaiting Approval: ADMIN/HEAD recheck evidence before applying or declining; pending is not applied |
 | Observe the program | Read-only management area | VIEWER sees permitted summaries with private contact data masked; observer access does not grant management writes |
@@ -63,4 +63,3 @@ See [feature implementation](../src/server/program/features.ts) and [refresh beh
 Use PostgreSQL with UTF-8, apply every migration, and keep database/uploads persistent. Run the [required verification](technical-report.md#validation-and-development) against an isolated database before merging. Test one bounded local server/browser at a time. Deployment also needs a canonical HTTPS origin, functioning SMTP, approved policies, real school catalogues and a restored backup. An image published to GHCR is ready for host deployment; it does not prove that a public host has been updated.
 
 Interaction reports, screenshots, test logs and intermediate scripts belong in ignored `outputs/` or `.validation/`. Maintain reusable guides here and regenerate their HTML editions. Follow [repository retention rules](repository-maintenance.md) before removing worktrees or caches: embedded databases can live inside `node_modules/.cache/`.
-

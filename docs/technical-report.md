@@ -66,7 +66,7 @@ Protected requests reload the account’s current role, linkage and suspension s
 | `viewerProcedure` | Permitted management reads, including masked VIEWER responses |
 | `translatorProcedure` | Assigned translators or management; publication rules still apply |
 
-The user-facing implications are in [role access](user-guide.md#before-you-start). Private messages remain scoped to their two participants, including against other management accounts. Feedback defaults to staff-only and can be shared with the session’s tutor through a management setting.
+The user-facing implications are in [role access](user-guide.md#before-you-start). Private deliveries remain scoped to their two participants in personal inboxes. Disclosed new messages additionally allow HEAD/ADMIN review and reversible moderation through an audited supervision API; pre-upgrade messages stay participant-only, including against management. See [messaging permissions, rollout and evidence](messaging.md). Feedback defaults to staff-only and can be shared with the session’s tutor through a management setting.
 
 ## Approval transactions
 
@@ -87,7 +87,7 @@ Interview scheduling checks the current chair under the same transaction lock as
 A former chair's pending schedule request cannot change a replacement panel's timetable. The schedule
 and panel notifications commit or roll back together in the enclosing transaction.
 
-Successful authenticated mutations add actor and operation audit metadata. Detailed events and undo records remain available where implemented. This is an application action log, not an access log; it does not reconstruct events predating the release. Generic direct-mutation audit summaries are not a promise that every direct operation and audit insert share one universal transaction. The explicit approval/correction transaction contracts are covered by regressions.
+Successful authenticated mutations add actor and operation audit metadata. Detailed events and undo records remain available where implemented. The generic audit records application actions rather than every page read; explicit messaging inspections additionally retain supervisor review events. Neither reconstructs events predating the release. Generic direct-mutation audit summaries are not a promise that every direct operation and audit insert share one universal transaction. The explicit approval/correction transaction contracts are covered by regressions.
 
 ## Student lifecycle and ownership
 

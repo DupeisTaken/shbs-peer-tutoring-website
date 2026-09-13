@@ -57,7 +57,10 @@ export default async function AdminLayout({
   const canEnterTutor = !!me?.tutor && me.tutor.status !== "ARCHIVED";
   const features = await getFeatures(db);
   const accountItems = [
-    { href: "/messages", label: t("workflows.messages") },
+    {
+      href: readOnly ? "/messages" : "/admin/messages",
+      label: t("workflows.messages"),
+    },
     { href: "/student", label: t("components.userMenu.enterTutee") },
     {
       href: readOnly ? "/student-support" : "/admin/student-support",

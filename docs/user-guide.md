@@ -184,9 +184,9 @@ Draft text becomes live only after management approval. A coordinator’s transl
 
 Use **Account Settings** to change your password or request a verified email change. Editing a contact field is not email verification. Keep account links and codes private. If email delivery is unavailable, contact management; a success message from another action does not prove an email arrived.
 
-Use **Messages** for participant-to-management conversations. Only the two conversation participants can read the messages; another administrator cannot simply browse a colleague’s private conversation. Notifications omit message bodies. For a suspended account, use the appeal option on the suspension page.
+Use **Messages** to send separate private deliveries to allowed contacts. Search by name or username, select up to 20 people, and keep selections while searching or paging. New messages deliver immediately and may be reviewed or hidden by HEAD/ADMIN; reviews and moderation are recorded. Recipients cannot see other recipients or their replies. Historical messages sent under the old participant-only notice remain participant-only. Notifications omit message bodies. Replies follow current permissions; history remains readable after contact eligibility changes. For a suspended account, use the appeal option on the suspension page. See [messaging permissions and supervision](messaging.md).
 
-On the Tutee page, **Messages** and **Account** open inside the same navigation and header. Account settings use your shared profile, verified email changes, password changes and two-factor settings. Existing direct links to the standalone pages still work.
+On the Tutee page, **Messages** and **Account** open inside the same navigation and header. Account settings use your shared profile, verified email changes, password changes and two-factor settings. Existing direct links still work. HEAD, ADMIN and COORDINATOR open Messages inside the management shell at `/admin/messages`. HEAD/ADMIN also have **Message supervision** for audited review, reversible hiding, messaging restrictions and role/user contact permissions; coordinators cannot supervise other conversations.
 
 ## Troubleshooting
 

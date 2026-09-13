@@ -1337,7 +1337,11 @@ it("announcement recipients: snapshots restrict real reads, acknowledgements and
         role: "TUTOR",
         tutorId: "announcement-other-tutor",
       },
-      { id: "announcement-student", email: "announcement-student@example.test", role: "STUDENT" },
+      {
+        id: "announcement-student",
+        email: "announcement-student@example.test",
+        role: "STUDENT",
+      },
     ],
   });
   const post = await caller().admin.createAnnouncement({
@@ -1433,18 +1437,54 @@ it("announcement recipients: empty selections fail atomically and active assignm
   ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
 });
 it("announcement recipients: coordinator publication waits for review and rejects audience drift", async () => {
-  await db.user.create({ data: { id: "announcement-coordinator", email: "announcement-coordinator@example.test", role: "COORDINATOR", name: "Coordinator" } });
+  await db.user.create({
+    data: {
+      id: "announcement-coordinator",
+      email: "announcement-coordinator@example.test",
+      role: "COORDINATOR",
+      name: "Coordinator",
+    },
+  });
   const coordinator = caller("COORDINATOR", "announcement-coordinator");
-  await expect(coordinator.admin.createAnnouncement({ title: "Reviewed audience", body: "Approval-only text", audience: { mode: "filtered", grades: [10] } })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
-  const proposal = await db.approvalRequest.findFirstOrThrow({ where: { operation: "admin.createAnnouncement" } });
+  await expect(
+    coordinator.admin.createAnnouncement({
+      title: "Reviewed audience",
+      body: "Approval-only text",
+      audience: { mode: "filtered", grades: [10] },
+    }),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  const proposal = await db.approvalRequest.findFirstOrThrow({
+    where: { operation: "admin.createAnnouncement" },
+  });
   expect(await db.announcement.count()).toBe(0);
-  expect(await db.notification.count({ where: { body: "Approval-only text" } })).toBe(0);
-  await db.tutor.create({ data: { id: "announcement-new-tutor", englishName: "New recipient", gradeLevel: 10 } });
-  await expect(caller().approval.decide({ id: proposal.id, approve: true, note: "Attempt with changed audience" })).rejects.toMatchObject({ code: "CONFLICT" });
+  expect(
+    await db.notification.count({ where: { body: "Approval-only text" } }),
+  ).toBe(0);
+  await db.tutor.create({
+    data: {
+      id: "announcement-new-tutor",
+      englishName: "New recipient",
+      gradeLevel: 10,
+    },
+  });
+  await expect(
+    caller().approval.decide({
+      id: proposal.id,
+      approve: true,
+      note: "Attempt with changed audience",
+    }),
+  ).rejects.toMatchObject({ code: "CONFLICT" });
   expect(await db.announcement.count()).toBe(0);
   await db.tutor.delete({ where: { id: "announcement-new-tutor" } });
-  await caller().approval.decide({ id: proposal.id, approve: true, note: "Reviewed unchanged recipients" });
-  expect(await db.announcement.findFirstOrThrow()).toMatchObject({ audienceRestricted: true, recipientTutorIds: ["review-tutor"] });
+  await caller().approval.decide({
+    id: proposal.id,
+    approve: true,
+    note: "Reviewed unchanged recipients",
+  });
+  expect(await db.announcement.findFirstOrThrow()).toMatchObject({
+    audienceRestricted: true,
+    recipientTutorIds: ["review-tutor"],
+  });
 });
 
 it("F20: suspended viewer cannot read the admin area", async () => {
@@ -1653,11 +1693,12 @@ it("private feedback is scoped to the student and staff; sharing can be revoked"
     { code: "FORBIDDEN" },
   );
 });
-it("messages remain participant-only and retries do not duplicate messages or notifications", async () => {
+it("personal inboxes remain participant-scoped and retries do not duplicate messages or notifications", async () => {
   const a = await studentAccount();
   const b = await studentAccount("student-two", null);
   const msg = {
     recipientId: "student-one",
+    disclosureVersion: 1 as const,
     body: "Let's discuss your concern",
     clientKey: crypto.randomUUID(),
   };
@@ -1674,6 +1715,7 @@ it("messages remain participant-only and retries do not duplicate messages or no
   await expect(
     b.messaging.send({
       recipientId: "student-one",
+      disclosureVersion: 1 as const,
       body: "Hello",
       clientKey: crypto.randomUUID(),
     }),
@@ -1699,6 +1741,7 @@ it("suspended senders and recipients cannot exchange new messages", async () => 
   await expect(
     a.messaging.send({
       recipientId: "review-head",
+      disclosureVersion: 1 as const,
       body: "Hello",
       clientKey: crypto.randomUUID(),
     }),
@@ -1706,6 +1749,7 @@ it("suspended senders and recipients cannot exchange new messages", async () => 
   await expect(
     caller().messaging.send({
       recipientId: "student-one",
+      disclosureVersion: 1 as const,
       body: "Hello",
       clientKey: crypto.randomUUID(),
     }),
@@ -1844,9 +1888,7 @@ it("student card actions detect appeals outside the current appeal-history page"
   const targetCard = first.cards.find((card) => card.id === target.id);
   expect(targetCard?.hasExistingAppeal).toBe(true);
   expect(first.appeals.map((appeal) => appeal.cardId)).not.toContain(target.id);
-  expect(
-    first.cards.slice(1).map((card) => card.id),
-  ).toEqual(
+  expect(first.cards.slice(1).map((card) => card.id)).toEqual(
     fillerCards
       .map((card) => card.id)
       .sort()
@@ -1854,8 +1896,10 @@ it("student card actions detect appeals outside the current appeal-history page"
       .slice(0, 19),
   );
   expect(first.appeals.map((appeal) => appeal.id)).toEqual(
-    Array.from({ length: 20 }, (_, index) =>
-      `appeal-page-history-${String(19 - index).padStart(2, "0")}`,
+    Array.from(
+      { length: 20 },
+      (_, index) =>
+        `appeal-page-history-${String(19 - index).padStart(2, "0")}`,
     ),
   );
   expect((await a.student.me({ page: 1 })).appeals[0]?.cardId).toBe(target.id);

@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 
 /** Bundled development content; publication to an existing site is a staff action. */
-export const POLICY_VERSION = "2026.09.09";
+export const POLICY_VERSION = "2026.09.13";
 
 // Keep this explicit: archived translations must not silently become current content.
 // Missing policy locales already fall back to English in the runtime policy loader.

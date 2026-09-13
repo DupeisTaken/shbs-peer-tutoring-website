@@ -2,14 +2,14 @@
 
 [Documentation hub](../README.md) · [User guide](../user-guide.md) · [Technical report](../technical-report.md#policy-documents-and-translations)
 
-Repository revision **2026.09.09** incorporates the confirmed program mechanics. These are maintained handbook drafts for school publication review. They do not invent a school contact, effective date, retention period or final school approval.
+Repository revision **2026.09.13** incorporates the confirmed program mechanics. These are maintained handbook drafts for school publication review. They do not invent a school contact, effective date, retention period or final school approval.
 
 | Audience | English | 中文 |
 | --- | --- | --- |
 | Students | [Student policy](../../prisma/policies/tutee-policy.en.md) | [学生政策](../../prisma/policies/tutee-policy.zh.md) |
 | Tutors | [Tutor policy](../../prisma/policies/tutor-policy.en.md) | [导师政策](../../prisma/policies/tutor-policy.zh.md) |
 
-Confirmed mechanics include survey-first priority, fixed verification deadlines, administrator approval of coordinator management changes, preservation of the interview chair's decision, the meeting absence allowance and the existing session rounding. Interview completion credit uses actual recorded duration.
+Confirmed mechanics include survey-first priority, fixed verification deadlines, administrator approval of coordinator management changes, preservation of the interview chair's decision, the meeting absence allowance and the existing session rounding. Interview completion credit uses actual recorded duration. New private messages deliver immediately with disclosed HEAD/ADMIN supervision; historical participant-only messages keep their original privacy. See [messaging rollout](../messaging.md).
 
 The [2025 archive](../archive/policies-2025/README.md) preserves former English and translated publications. Its translations have not been reconciled with the new rules. They are excluded from the bundled catalog; missing policy languages use the application's English fallback. UI language support is independent of policy translation availability.
 

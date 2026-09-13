@@ -9,6 +9,13 @@ How to run the SHBS Peer Tutoring app on your own machine, point it at a local d
 seed sample data, run the test suite, and (optionally) smoke-test the production Docker
 stack. For production deployment see [README-DEPLOY.md](./README-DEPLOY.md).
 
+## Messaging upgrade
+
+Apply the supervised-messaging migration and regenerate the local Prisma client before
+starting the updated app. Existing messages remain participant-only; new messages display
+the HEAD/admin supervision notice. Publish reviewed policy wording through the normal
+policy editor, without replacing accepted snapshots. See [messaging rollout and tests](docs/messaging.md).
+
 ## September admin improvements
 
 The recipient, student withdrawal, and program timezone changes add three migrations.
