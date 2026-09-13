@@ -22,6 +22,10 @@ The [2025 archive](../archive/policies-2025/README.md) preserves former English 
 5. Preview student and tutor policies in English, Chinese and one language using fallback. Check the visible text, not just the version label.
 6. With test participant accounts, exercise renewed consent, the ten-second confirmation, retained acceptance evidence and continued access to history, feedback, appeals, messages and account settings. Reopen intake after policy and delivery setup are ready.
 
+Published changes trigger a dismissible popup on the participant's next visit or window focus. The interface follows the selected locale with English fallback. Accounts linked to both a student and a tutor review both applicable policies. Canceling preserves access to personal screens; the server still requires explicit current acceptance for new participation. Retry refreshes the policy and confirmation ticket after failures. An unchanged publication or a pending coordinator proposal does not change the accepted revision.
+
+Staff review acceptance evidence in **Users & Roles → User details → Policy acceptance history**, including accounts with missing contact email. Current acceptance status is separate from the immutable historical text. Expand a record to read its original title/version, signature and acceptance time, then its recorded language copies. The history belongs to the selected account ID; it is no longer a combined list in Tutee Support. Publication remains in Policy Documents.
+
 Repository edits do **not** publish to an existing database or deploy the website. The development seed loads the four current EN/ZH sources; on an older development database it updates those rows without deleting other pre-existing translations. Rebuild a disposable development database or remove obsolete translations through the editor before testing fallback.
 
 ## Maintain a revision

@@ -1,6 +1,7 @@
 import "~/styles/globals.css";
 
 import { type Metadata } from "next";
+import { Suspense } from "react";
 import { GeistSans } from "geist/font/sans";
 import { cookies } from "next/headers";
 import { getLocale, getMessages, getTimeZone } from "next-intl/server";
@@ -30,7 +31,7 @@ export default async function RootLayout({
       <body>
         <IntlProvider locale={locale} messages={messages} timeZone={timeZone}>
           <TRPCReactProvider>
-            <StudentPolicyGate />
+            <Suspense fallback={null}><StudentPolicyGate /></Suspense>
             {children}
           </TRPCReactProvider>
         </IntlProvider>

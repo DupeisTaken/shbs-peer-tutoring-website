@@ -14,9 +14,9 @@ This is the supported single-program website. Account role, tutor participation,
 | Participate as a tutee | `/student`, with Dashboard, Schedule, Requests, Attendance, Support, Messages and Account tabs | Tutee Roster, Pairings, withdrawals and discipline; explicit account ownership controls records |
 | Teach and record attendance | Tutor Dashboard (`/dashboard`), Settings (`/settings`), Handbook (`/handbook`) | Attendance Submissions, Attendance Flags, Service Hours and Hour Adjustments |
 | Schedule teaching | Tutors maintain availability and pairing defaults | Subjects & Levels, Time Slots, Rooms and Pairings; room blocks warn against conflicts |
-| Manage interviews | Assigned panelists vote in Tutor Dashboard; the chair schedules and records the decision | Tutor Applications assigns the panel; Record Interview Completion records duration and subject qualifications |
+| Manage interviews | Assigned panelists vote in Tutor Dashboard; the chair schedules and records the decision | Tutor Applications assigns the panel; Interviews & Panelists groups qualifications and records, links to panel controls, and records actual completion duration |
 | Communicate | Workspace Messages and notifications | Announcements support immutable recipient snapshots, filters and individual overrides; private messages remain scoped to their participants |
-| Get support | Tutee Support tab, session feedback, card appeals and private messages | Tutee Support (`/admin/student-support`) handles shared feedback, appeals, school calendar and policy acceptance |
+| Get support | Tutee Support tab, session feedback, card appeals and private messages | Tutee Support (`/admin/student-support`) handles shared feedback, appeals and school calendar; Users & Roles → User details holds account-scoped policy acceptance history |
 | Review sensitive changes | Coordinators prepare changes | Changes Awaiting Approval: ADMIN/HEAD recheck evidence before applying or declining; pending is not applied |
 | Observe the program | Read-only management area | VIEWER sees permitted summaries with private contact data masked; observer access does not grant management writes |
 | Patrol rooms | Active crew member → `/patrol` | Crew maintains membership, room order, sweeps and corrections |

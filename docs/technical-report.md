@@ -129,6 +129,8 @@ The policy editor supports a seed-free installation: staff see blank student/tut
 
 Policy revisions derive from the published language set and content. Acceptance retains the exact revision, text snapshot, signature and time. A changed policy gates tutor attendance and student participation, while personal history, feedback, appeals, account settings and private messages remain accessible.
 
+The persistent layout refreshes applicable consent on navigation and window focus. The popup may be dismissed; dismissal grants no server capability. Student and tutor links independently determine applicability, including management accounts with participant profiles. Tutor confirmation targets include the policy slug so a ticket for identical student-policy text cannot accept the tutor policy. Existing student confirmation targets remain compatible. The selected user details dialog loads account-ID-scoped acceptance history on demand. It renders immutable snapshot documents as readable Markdown with title, version and timestamps; it never substitutes current edited text for unavailable historical evidence.
+
 UI/website translation drafts have their own approval process and stale-destination checks. Translator assignment does not grant structural editing or policy publication privileges.
 
 ## Data and deployment
@@ -196,3 +198,9 @@ These are concrete operational prerequisites, not evidence obtainable from a loc
 ### Account-linked manual withdrawals
 
 Manual enrollments reuse `StudentRequestReview` with `kind=STUDENT_ABORT`, explicit legacy student/term evidence and the existing timed staff decision endpoint. Ownership uses the current account link or retained `StudentProfileOwnership`, never a name/email match. Approval rechecks current ownership and term, removes only current-term pairing memberships, preserves attendance history, and creates `StudentQuarterBlock` evidence linked to the manual profile. Migration `20260912040000_legacy_student_withdrawal` permits these review targets and makes quarter-block source evidence exclusive between a survey and a manual profile. Pending submissions do not alter membership; declined requests remain history.
+
+### Signup provenance and interview presentation
+
+Migration `20260913030000_signup_provenance` adds `Tutee.signupSource`: `STAFF`, `SELF_SERVICE`, or `UNKNOWN`. Staff creation and survey materialization record provenance at the write boundary. Backfill uses explicit survey/profile links only; absent a link, older public forms and staff records remain unknown rather than guessing from signatures, contact details or timestamps. Display labels are Staff-entered, Self-service and Earlier signup. Internal legacy workflow identifiers remain compatible; source is not used for matching, priority, account ownership or withdrawal decisions.
+
+Interviews & Panelists groups qualifications by tutor ID, includes active tutors without qualifications and retains inactive tutors' existing qualifications for review. Search and qualification filters are independent of the paginated open/completed interview queue. Application IDs keep unrelated people with matching names separate. Disclosure state survives filtering; collapsed forms stay mounted to preserve drafts. Waiting applicants can reach the existing panel editor through an application-specific fragment. The read query adds chair, schedule and subject summaries; panel assignment, voting, completion credit and approval mutation rules are unchanged.

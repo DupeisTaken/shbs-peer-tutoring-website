@@ -48,7 +48,7 @@ export async function ownedLegacyParticipation(
       !student.pairings.some((p) => p.pairing.termId === term.id))
   )
     invalid(
-      "There is no current manually managed enrollment to withdraw from.",
+      "There is no current enrollment to withdraw from.",
     );
   if (!user.email)
     invalid(

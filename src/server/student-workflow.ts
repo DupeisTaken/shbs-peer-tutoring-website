@@ -6,6 +6,11 @@ import type { DomainDb, TransactionDb } from "./transactions";
 import { inTransaction, lockEntity } from "./transactions";
 import { currentPolicy, requirePolicy } from "./policy-acceptance";
 import {
+  applicablePolicySlugs,
+  policyActionTarget,
+  type PolicySlug,
+} from "~/lib/policy-evidence";
+import {
   materializeStudent,
   surveyInput,
   resendSurvey,
@@ -120,15 +125,22 @@ export async function acceptStudentPolicy(
   userId: string,
   revision: string,
   ticket: string,
+  slug: PolicySlug = "tutee-policy",
 ) {
   return inTransaction(db, async (tx) => {
-    await lockEntity(tx, "policy:tutee-policy");
-    const policy = await currentPolicy(tx, "tutee-policy");
+    await lockEntity(tx, `policy:${slug}`);
+    const policy = await currentPolicy(tx, slug);
     if (policy.revision !== revision)
       fail("The policy changed again. Reload and read the latest version.");
-    await consumeStudentAction(tx, ticket, userId, "POLICY", revision);
+    await consumeStudentAction(
+      tx,
+      ticket,
+      userId,
+      "POLICY",
+      policyActionTarget(slug, revision),
+    );
     const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
-    if (!user.studentId || user.suspendedAt)
+    if (!applicablePolicySlugs(user).includes(slug) || user.suspendedAt)
       throw new TRPCError({ code: "FORBIDDEN" });
     await tx.policyAcceptance.upsert({
       where: { userId_slug_revision: { userId, slug: policy.slug, revision } },
@@ -149,20 +161,24 @@ export async function acceptStudentPolicy(
 export async function studentPolicyStatus(db: DomainDb, userId: string) {
   const user = await db.user.findUnique({
     where: { id: userId },
-    select: { studentId: true, suspendedAt: true },
+    select: { studentId: true, tutorId: true, suspendedAt: true },
   });
-  if (!user?.studentId || user.suspendedAt) return null;
-  const policy = await currentPolicy(db, "tutee-policy");
-  const acceptance = await db.policyAcceptance.findUnique({
-    where: {
-      userId_slug_revision: {
-        userId,
-        slug: policy.slug,
-        revision: policy.revision,
+  if (!user || user.suspendedAt) return null;
+  // Return one outstanding applicable policy at a time; acceptance refreshes the next.
+  for (const slug of applicablePolicySlugs(user)) {
+    const policy = await currentPolicy(db, slug);
+    const acceptance = await db.policyAcceptance.findUnique({
+      where: {
+        userId_slug_revision: {
+          userId,
+          slug: policy.slug,
+          revision: policy.revision,
+        },
       },
-    },
-  });
-  return acceptance ? null : policy;
+    });
+    if (!acceptance) return policy;
+  }
+  return null;
 }
 
 export async function assignStudentRequest(

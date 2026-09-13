@@ -6,6 +6,12 @@ vi.mock("~/server/auth", () => ({ auth: async () => null }));
 import { createCaller } from "~/server/api/root";
 import { db } from "~/server/db";
 import { currentPolicy } from "~/server/policy-acceptance";
+import {
+  acceptStudentPolicy,
+  prepareStudentAction,
+  studentPolicyStatus,
+} from "~/server/student-workflow";
+import { policyActionTarget } from "~/lib/policy-evidence";
 import { reconcileApplication } from "~/server/tutors/application-status";
 import { hashPassword } from "~/server/auth/password";
 import { syncSessionFlag } from "~/server/crew/flags";
@@ -19,6 +25,303 @@ import { lockEntity } from "~/server/transactions";
 import * as audit from "~/server/audit/log";
 
 const password = "ReviewPassword123!";
+
+it.each(["HEAD", "ADMIN", "COORDINATOR"] as const)(
+  "%s reads only the selected account's immutable policy history",
+  async (role) => {
+    await db.user.update({ where: { id: "review-head" }, data: { role } });
+    // Empty contact data cannot hide account-ID scoped evidence.
+    await db.user.update({ where: { id: "review-user" }, data: { email: "" } });
+    const saved = await db.policyAcceptance.findMany({
+      where: { userId: "review-user" },
+    });
+    await db.policyDocument.updateMany({
+      data: { body: "New live text", version: "2" },
+    });
+    const result = await caller(role).student.acceptanceRecords({
+      userId: "review-user",
+    });
+    expect(result.rows.map((row) => row.id).sort()).toEqual(
+      saved.map((row) => row.id).sort(),
+    );
+    expect(result.current[0]).toMatchObject({
+      slug: "tutor-policy",
+      acceptedAt: null,
+      published: true,
+    });
+    expect(result.rows[0]?.documents[0]?.body).toBe("Test consent");
+    expect(result.rows[0]?.documents[0]?.version).toBe("1");
+    expect(
+      await db.policyAcceptance.findMany({ where: { userId: "review-user" } }),
+    ).toEqual(saved);
+    await expect(
+      caller(role).student.acceptanceRecords({ userId: "missing" }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  },
+);
+
+it.each(["STUDENT", "TUTOR", "CREW", "VIEWER"] as const)(
+  "%s cannot read another account's policy evidence",
+  async (role) => {
+    await db.user.update({ where: { id: "review-viewer" }, data: { role } });
+    await expect(
+      caller(role, "review-viewer").student.acceptanceRecords({
+        userId: "review-user",
+      }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  },
+);
+
+it("paginates acceptance history without leaking another user's tied-time rows", async () => {
+  await db.policyAcceptance.deleteMany();
+  await db.policyAcceptance.createMany({
+    data: Array.from({ length: 25 }, (_, index) => ({
+      id: `history-${String(index).padStart(2, "0")}`,
+      userId: "review-user",
+      slug: "tutor-policy",
+      revision: `v${index}`,
+      snapshot: [
+        { locale: "en", title: "Archived rules", body: `Exact text ${index}` },
+      ],
+      signature: "Tutor",
+      acceptedAt: new Date("2026-09-01"),
+    })),
+  });
+  await db.policyAcceptance.create({
+    data: {
+      userId: "review-head",
+      slug: "tutor-policy",
+      revision: "other",
+      snapshot: [],
+      signature: "Other",
+    },
+  });
+  const first = await caller().student.acceptanceRecords({
+    userId: "review-user",
+    page: 0,
+  });
+  const second = await caller().student.acceptanceRecords({
+    userId: "review-user",
+    page: 1,
+  });
+  expect(first.more).toBe(true);
+  expect(second.more).toBe(false);
+  expect(
+    new Set([...first.rows, ...second.rows].map((row) => row.id)).size,
+  ).toBe(25);
+  expect(
+    [...first.rows, ...second.rows].every((row) => row.signature === "Tutor"),
+  ).toBe(true);
+});
+
+it("prompts for both participant capabilities and rejects cross-policy tickets even for identical revisions", async () => {
+  await db.user.update({
+    where: { id: "review-user" },
+    data: { studentId: "review-tutee" },
+  });
+  await db.policyAcceptance.deleteMany({ where: { userId: "review-user" } });
+  const studentPolicy = await studentPolicyStatus(db, "review-user");
+  const tutorPolicy = await currentPolicy(db, "tutor-policy");
+  expect(studentPolicy?.slug).toBe("tutee-policy");
+  expect(studentPolicy?.revision).toBe(tutorPolicy.revision);
+  const readyPolicy = async (target: string) => {
+    const ticket = await prepareStudentAction(
+      db,
+      "review-user",
+      "POLICY",
+      target,
+    );
+    await db.studentActionConfirmation.update({
+      where: { id: ticket.id },
+      data: { readyAt: new Date(0) },
+    });
+    return ticket.id;
+  };
+  const studentTicket = await readyPolicy(studentPolicy!.revision);
+  await expect(
+    acceptStudentPolicy(
+      db,
+      "review-user",
+      tutorPolicy.revision,
+      studentTicket,
+      "tutor-policy",
+    ),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  await acceptStudentPolicy(
+    db,
+    "review-user",
+    studentPolicy!.revision,
+    studentTicket,
+  );
+  expect((await studentPolicyStatus(db, "review-user"))?.slug).toBe(
+    "tutor-policy",
+  );
+  const tutorTicket = await readyPolicy(
+    policyActionTarget("tutor-policy", tutorPolicy.revision),
+  );
+  await acceptStudentPolicy(
+    db,
+    "review-user",
+    tutorPolicy.revision,
+    tutorTicket,
+    "tutor-policy",
+  );
+  expect(await studentPolicyStatus(db, "review-user")).toBeNull();
+  expect(
+    await db.policyAcceptance.count({ where: { userId: "review-user" } }),
+  ).toBe(2);
+});
+
+it("unchanged publication and pending policy proposals do not invalidate accepted revisions", async () => {
+  await caller().admin.upsertPolicy({
+    slug: "tutor-policy",
+    locale: "en",
+    title: "Test policy",
+    body: "Test consent",
+    version: "1",
+  });
+  expect(await studentPolicyStatus(db, "review-user")).toBeNull();
+  await db.user.update({
+    where: { id: "review-viewer" },
+    data: { role: "COORDINATOR" },
+  });
+  await expect(
+    caller("COORDINATOR", "review-viewer").admin.upsertPolicy({
+      slug: "tutor-policy",
+      locale: "en",
+      title: "Draft title",
+      body: "Unpublished proposed text",
+      version: "2",
+    }),
+  ).rejects.toThrow();
+  expect(await db.approvalRequest.count({ where: { state: "PENDING" } })).toBe(
+    1,
+  );
+  expect(await studentPolicyStatus(db, "review-user")).toBeNull();
+});
+
+it("pending policy blocks participation while personal account, history and messages remain readable", async () => {
+  const student = await studentAccount();
+  await db.policyDocument.updateMany({
+    data: { body: "Published revision requiring consent" },
+  });
+  await expect(
+    tutor().tutor.submitAttendance(attendance()),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  await expect(student.student.me()).resolves.toBeDefined();
+  await expect(student.account.me()).resolves.toBeDefined();
+  await expect(student.messaging.inbox()).resolves.toEqual([]);
+  await expect(tutor().account.me()).resolves.toBeDefined();
+  await expect(tutor().messaging.inbox()).resolves.toEqual([]);
+});
+
+it.each([false, true])(
+  "persists staff provenance through partial/full assignment and reload with linked account=%s",
+  async (linked) => {
+    const subjectOne = await db.subject.create({
+      data: { name: "Staff-entry Math" },
+    });
+    const subjectTwo = await db.subject.create({
+      data: { name: "Staff-entry Biology" },
+    });
+    const teacher = await db.tutor.create({
+      data: { englishName: "Staff-entry Tutor", status: "ACTIVE" },
+    });
+    const student = await caller().admin.createTutee({
+      englishName: "Staff entry",
+      status: "PENDING",
+      firstChoiceId: subjectOne.id,
+      secondChoiceId: subjectTwo.id,
+    });
+    expect(student.signupSource).toBe("STAFF");
+    const account = linked
+      ? await db.user.create({
+          data: {
+            email: "staff-entered@example.test",
+            role: "STUDENT",
+            studentId: student.id,
+          },
+        })
+      : null;
+    await expect(
+      caller().admin.assignSignup({
+        tuteeId: student.id,
+        expectedUpdatedAt: student.updatedAt,
+        assignments: [{ subject: subjectOne.name, tutorId: teacher.id }],
+      }),
+    ).resolves.toMatchObject({ fulfilled: false });
+    const partial = await db.tutee.findUniqueOrThrow({
+      where: { id: student.id },
+    });
+    expect(partial).toMatchObject({
+      status: "PENDING",
+      signupSource: "STAFF",
+      createdAt: student.createdAt,
+    });
+    expect(
+      await db.pairingTutee.count({ where: { tuteeId: student.id } }),
+    ).toBe(1);
+    await expect(
+      caller().admin.assignSignup({
+        tuteeId: student.id,
+        expectedUpdatedAt: partial.updatedAt,
+        assignments: [{ subject: subjectTwo.name, tutorId: teacher.id }],
+      }),
+    ).resolves.toMatchObject({ fulfilled: true });
+    const reloaded = (await caller().admin.tutees()).find(
+      (row) => row.id === student.id,
+    );
+    expect(reloaded).toMatchObject({
+      status: "ACTIVE",
+      signupSource: "STAFF",
+      createdAt: student.createdAt,
+      user: account ? { id: account.id } : null,
+    });
+    expect(
+      await db.pairingTutee.count({ where: { tuteeId: student.id } }),
+    ).toBe(2);
+    expect(
+      (await db.tutee.findUniqueOrThrow({ where: { id: "review-tutee" } }))
+        .signupSource,
+    ).toBe("UNKNOWN");
+  },
+);
+
+it("interview summaries include waiting applicants, schedule, chair and searchable panel/subjects", async () => {
+  const { app, panel } = await interviewFixture();
+  const schedule = new Date("2026-09-12T08:00:00Z");
+  await db.tutorApplication.update({
+    where: { id: app.id },
+    data: { interviewAt: schedule },
+  });
+  const pending = await db.tutorApplication.create({
+    data: { name: "Waiting for panel", email: "waiting@example.test" },
+  });
+  const all = await caller().interviewManagement.options({
+    completion: "OPEN",
+  });
+  expect(
+    all.applications.rows.find((row) => row.id === pending.id)?.interviewers,
+  ).toEqual([]);
+  const scheduled = all.applications.rows.find((row) => row.id === app.id);
+  expect(scheduled?.interviewAt).toEqual(schedule);
+  expect(scheduled?.interviewers.some((panelist) => panelist.isHead)).toBe(
+    true,
+  );
+  const byPanel = await caller().interviewManagement.options({
+    search: panel[0]!.englishName,
+    completion: "ALL",
+  });
+  expect(byPanel.applications.rows.map((row) => row.id)).toEqual([app.id]);
+  const bySubject = await caller().interviewManagement.options({
+    search: "Review Math",
+    completion: "ALL",
+  });
+  expect(bySubject.applications.rows.map((row) => row.id)).toEqual([app.id]);
+  await expect(tutor().interviewManagement.options()).rejects.toMatchObject({
+    code: "FORBIDDEN",
+  });
+});
 
 it("upgrades legacy meeting deductions across semesters without changing manual adjustments", async () => {
   await db.term.createMany({
@@ -1337,7 +1640,11 @@ it("announcement recipients: snapshots restrict real reads, acknowledgements and
         role: "TUTOR",
         tutorId: "announcement-other-tutor",
       },
-      { id: "announcement-student", email: "announcement-student@example.test", role: "STUDENT" },
+      {
+        id: "announcement-student",
+        email: "announcement-student@example.test",
+        role: "STUDENT",
+      },
     ],
   });
   const post = await caller().admin.createAnnouncement({
@@ -1433,18 +1740,54 @@ it("announcement recipients: empty selections fail atomically and active assignm
   ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
 });
 it("announcement recipients: coordinator publication waits for review and rejects audience drift", async () => {
-  await db.user.create({ data: { id: "announcement-coordinator", email: "announcement-coordinator@example.test", role: "COORDINATOR", name: "Coordinator" } });
+  await db.user.create({
+    data: {
+      id: "announcement-coordinator",
+      email: "announcement-coordinator@example.test",
+      role: "COORDINATOR",
+      name: "Coordinator",
+    },
+  });
   const coordinator = caller("COORDINATOR", "announcement-coordinator");
-  await expect(coordinator.admin.createAnnouncement({ title: "Reviewed audience", body: "Approval-only text", audience: { mode: "filtered", grades: [10] } })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
-  const proposal = await db.approvalRequest.findFirstOrThrow({ where: { operation: "admin.createAnnouncement" } });
+  await expect(
+    coordinator.admin.createAnnouncement({
+      title: "Reviewed audience",
+      body: "Approval-only text",
+      audience: { mode: "filtered", grades: [10] },
+    }),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  const proposal = await db.approvalRequest.findFirstOrThrow({
+    where: { operation: "admin.createAnnouncement" },
+  });
   expect(await db.announcement.count()).toBe(0);
-  expect(await db.notification.count({ where: { body: "Approval-only text" } })).toBe(0);
-  await db.tutor.create({ data: { id: "announcement-new-tutor", englishName: "New recipient", gradeLevel: 10 } });
-  await expect(caller().approval.decide({ id: proposal.id, approve: true, note: "Attempt with changed audience" })).rejects.toMatchObject({ code: "CONFLICT" });
+  expect(
+    await db.notification.count({ where: { body: "Approval-only text" } }),
+  ).toBe(0);
+  await db.tutor.create({
+    data: {
+      id: "announcement-new-tutor",
+      englishName: "New recipient",
+      gradeLevel: 10,
+    },
+  });
+  await expect(
+    caller().approval.decide({
+      id: proposal.id,
+      approve: true,
+      note: "Attempt with changed audience",
+    }),
+  ).rejects.toMatchObject({ code: "CONFLICT" });
   expect(await db.announcement.count()).toBe(0);
   await db.tutor.delete({ where: { id: "announcement-new-tutor" } });
-  await caller().approval.decide({ id: proposal.id, approve: true, note: "Reviewed unchanged recipients" });
-  expect(await db.announcement.findFirstOrThrow()).toMatchObject({ audienceRestricted: true, recipientTutorIds: ["review-tutor"] });
+  await caller().approval.decide({
+    id: proposal.id,
+    approve: true,
+    note: "Reviewed unchanged recipients",
+  });
+  expect(await db.announcement.findFirstOrThrow()).toMatchObject({
+    audienceRestricted: true,
+    recipientTutorIds: ["review-tutor"],
+  });
 });
 
 it("F20: suspended viewer cannot read the admin area", async () => {
@@ -1844,9 +2187,7 @@ it("student card actions detect appeals outside the current appeal-history page"
   const targetCard = first.cards.find((card) => card.id === target.id);
   expect(targetCard?.hasExistingAppeal).toBe(true);
   expect(first.appeals.map((appeal) => appeal.cardId)).not.toContain(target.id);
-  expect(
-    first.cards.slice(1).map((card) => card.id),
-  ).toEqual(
+  expect(first.cards.slice(1).map((card) => card.id)).toEqual(
     fillerCards
       .map((card) => card.id)
       .sort()
@@ -1854,8 +2195,10 @@ it("student card actions detect appeals outside the current appeal-history page"
       .slice(0, 19),
   );
   expect(first.appeals.map((appeal) => appeal.id)).toEqual(
-    Array.from({ length: 20 }, (_, index) =>
-      `appeal-page-history-${String(19 - index).padStart(2, "0")}`,
+    Array.from(
+      { length: 20 },
+      (_, index) =>
+        `appeal-page-history-${String(19 - index).padStart(2, "0")}`,
     ),
   );
   expect((await a.student.me({ page: 1 })).appeals[0]?.cardId).toBe(target.id);

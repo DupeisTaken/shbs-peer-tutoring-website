@@ -1,6 +1,7 @@
 "use client";
 import { EmailDetails } from "~/app/_components/email-details";
 import { StudentRequestBoard } from "./student-request-board";
+import { SignupSourceBadge } from "~/app/_components/signup-source-badge";
 
 import { useEffect, useMemo, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
@@ -26,6 +27,7 @@ type SlotLite = {
 
 type PendingTutee = {
   id: string;
+  signupSource: string;
   unverified?: boolean;
   englishName: string;
   gradeLevel: string | null;
@@ -143,9 +145,7 @@ function RequestCard({
             <p className="font-medium text-slate-900">
               <span className="badge-slate mr-2">#{order}</span>
               {tutee.englishName}
-              <span className="badge-slate ml-2">
-                {t("workflow.manualSource")}
-              </span>
+              <span className="ml-2"><SignupSourceBadge source={tutee.signupSource} /></span>
               {tutee.gradeLevel
                 ? ` · ${t("admin.requests.grade", { grade: tutee.gradeLevel })}`
                 : ""}
@@ -446,6 +446,7 @@ export default function RequestsPage() {
       <div>
         <h1 className="page-title">{t("admin.requests.title")}</h1>
         <p className="muted mt-1">{t("admin.requests.help")}</p>
+        <p className="muted mt-2 text-sm">{t("workflow.sourceHelp")}</p>
       </div>
 
       {!currentPeriod.isLoading && !hasPeriod && (

@@ -2,7 +2,7 @@
 import { EmailDetails } from "~/app/_components/email-details";
 
 import Link from "next/link";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
@@ -73,6 +73,19 @@ function ApplicationCard({
   const readOnly = useReadOnly();
   const { confirm, dialog } = useDialog();
   const [open, setOpen] = useState(false);
+  // A link from Interviews & Panelists opens the existing editor for this exact
+  // application; do not duplicate panel mutations in a competing workflow.
+  useEffect(() => {
+    const reveal = () => {
+      if (window.location.hash === `#application-${app.id}`) {
+        setOpen(true);
+        document.getElementById(`application-${app.id}`)?.scrollIntoView({ block: "start" });
+      }
+    };
+    reveal();
+    window.addEventListener("hashchange", reveal);
+    return () => window.removeEventListener("hashchange", reveal);
+  }, [app.id]);
   const features = api.program.features.useQuery().data;
   const assign = api.admin.assignInterviewers.useMutation({
     onSuccess: () => onChanged(),
@@ -125,11 +138,13 @@ function ApplicationCard({
     !readOnly && !hasInterviewHistory && app.status === "PENDING";
 
   return (
-    <div className="card p-4">
+    <div id={`application-${app.id}`} className="card scroll-mt-6 p-4">
       {/* Collapsed one-line summary (click to expand) */}
       <div className="flex flex-wrap items-center gap-3">
         <button
           className="flex min-w-0 flex-1 items-center gap-2 text-left"
+          aria-expanded={open}
+          aria-controls={`application-panel-${app.id}`}
           onClick={() => setOpen((v) => !v)}
         >
           <DisclosureIcon open={open} />
@@ -215,7 +230,7 @@ function ApplicationCard({
       </div>
 
       {open && (
-        <div className="mt-3 border-t border-slate-100 pt-3">
+        <div id={`application-panel-${app.id}`} className="mt-3 border-t border-slate-100 pt-3">
           <EmailDetails contactOnly email={app.email} name={app.name} />
           {app.preferredContact && (
             <p className="muted text-xs">

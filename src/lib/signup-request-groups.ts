@@ -1,5 +1,14 @@
 export type RequestTab = "matching" | "assigned" | "reviews" | "processed";
 
+/** Historical rows without explicit entry evidence must never be attributed to staff. */
+export function signupSourceLabel(source: string | null | undefined) {
+  return source === "STAFF"
+    ? "manualSource"
+    : source === "SELF_SERVICE"
+      ? "selfServiceSource"
+      : "unknownSource";
+}
+
 /** Explicit intake terms win; a legacy active signup needs current pairing evidence. */
 export function isCurrentManualSignup(
   row: {

@@ -3,9 +3,17 @@ import {
   bySignupPriority,
   signupRequestGroup,
   isCurrentManualSignup,
+  signupSourceLabel,
 } from "./signup-request-groups";
 
 describe("unified signup queue", () => {
+  it("labels only explicit staff provenance and never guesses from missing evidence", () => {
+    expect(signupSourceLabel("STAFF")).toBe("manualSource");
+    expect(signupSourceLabel("SELF_SERVICE")).toBe("selfServiceSource");
+    for (const source of ["UNKNOWN", null, undefined, "old-public-form"]) {
+      expect(signupSourceLabel(source)).toBe("unknownSource");
+    }
+  });
   it("excludes ended-quarter profiles and infers legacy active intake only from current pairings", () => {
     const row = {
       status: "ACTIVE",

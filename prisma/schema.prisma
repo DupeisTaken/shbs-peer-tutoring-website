@@ -545,8 +545,16 @@ model Subject {
   applicationIntents ApplicationSubjectIntent[]
 }
 
+enum SignupSource {
+  UNKNOWN
+  STAFF
+  SELF_SERVICE
+}
+
 model Tutee {
   user User?
+  /// Entry provenance only; never an approval state or a priority override.
+  signupSource SignupSource @default(UNKNOWN)
   intakeTermId String?
   /// Immutable priority timestamp for the current intake, independent of login creation.
   signupSubmittedAt DateTime?

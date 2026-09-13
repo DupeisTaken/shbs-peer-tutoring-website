@@ -1,5 +1,4 @@
 "use client";
-import { AcceptanceRecords } from "./acceptance-records";
 import { SchoolCalendar } from "./school-calendar";
 import Link from "next/link";
 import { useState } from "react";
@@ -180,7 +179,6 @@ export function StudentSupport() {
         </p>
       )}
       {staff && <SchoolCalendar />}
-      {staff && <AcceptanceRecords />}
     </div>
   );
 }

@@ -738,6 +738,7 @@ export default function UsersPage() {
                   <td>
                     <div className="flex flex-col items-end gap-1.5 whitespace-nowrap">
                       <EmailDetails
+                        showPolicyHistory
                         email={u.email}
                         name={u.name}
                         verifiedAt={u.emailVerifiedAt}

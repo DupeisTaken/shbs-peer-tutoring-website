@@ -17,9 +17,11 @@ const mocks = vi.hoisted(() => ({
   setup: vi.fn(),
   mounted: vi.fn(),
   copy: vi.fn(),
+  history: vi.fn(),
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
+    student: { acceptanceRecords: { useQuery: mocks.history } },
     admin: {
       sendAccountVerification: {
         useMutation: () => {
@@ -44,14 +46,53 @@ beforeEach(() => {
     value: { writeText: mocks.copy },
   });
   mocks.copy.mockResolvedValue(undefined);
+  mocks.history.mockReturnValue({
+    data: { current: [], rows: [], more: false },
+  });
 });
 afterEach(cleanup);
+it("opens policy history by account ID even when email is missing, without cross-user carryover", () => {
+  const view = show({
+    email: null,
+    userId: "first-user",
+    showPolicyHistory: true,
+  });
+  expect(mocks.history).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: "User details" }));
+  expect(
+    screen.getByRole("dialog", { name: "User details · Alice" }),
+  ).toBeTruthy();
+  expect(screen.getByText("No email")).toBeTruthy();
+  expect(mocks.history).toHaveBeenLastCalledWith({
+    userId: "first-user",
+    page: 0,
+  });
+  view.rerender(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <EmailDetails
+        email={null}
+        name="Bob"
+        userId="second-user"
+        showPolicyHistory
+      />
+    </NextIntlClientProvider>,
+  );
+  expect(mocks.history).toHaveBeenLastCalledWith({
+    userId: "second-user",
+    page: 0,
+  });
+});
 const address = "a.very.long.email.address.for.a.person@example.test";
 it("labels masked observer contact details as private without exposing email controls", () => {
   render(
     <NextIntlClientProvider locale="en" messages={en}>
       <ReadOnlyProvider value={true}>
-        <EmailDetails email={address} name="Alice" />
+        <EmailDetails
+          email={address}
+          name="Alice"
+          userId="hidden-user"
+          showPolicyHistory
+        />
       </ReadOnlyProvider>
     </NextIntlClientProvider>,
   );
@@ -59,6 +100,7 @@ it("labels masked observer contact details as private without exposing email con
   expect(screen.queryByText(address)).toBeNull();
   expect(screen.queryByRole("button")).toBeNull();
   expect(mocks.mounted).not.toHaveBeenCalled();
+  expect(mocks.history).not.toHaveBeenCalled();
 });
 const show = (props: Partial<Parameters<typeof EmailDetails>[0]> = {}) =>
   render(

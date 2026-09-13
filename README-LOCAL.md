@@ -11,6 +11,14 @@ stack. For production deployment see [README-DEPLOY.md](./README-DEPLOY.md).
 
 ## September admin improvements
 
+The policy/signup/interview update requires migration
+`20260913030000_signup_provenance` and a regenerated Prisma client. Run
+`npm run db:migrate` and `npx prisma generate` before using it. Existing records
+without explicit survey provenance keep the neutral Earlier signup label; do not
+bulk relabel historical data as staff entry. Test consent through the next visit
+and window focus, and inspect a selected account's User details for acceptance
+history. See the [user guide](docs/user-guide.md).
+
 The recipient, student withdrawal, and program timezone changes add three migrations.
 Run `npm run db:migrate` and `npx prisma generate` before starting an updated local
 checkout. Existing announcements remain broadcasts; existing programs default to

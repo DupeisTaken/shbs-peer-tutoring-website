@@ -51,13 +51,21 @@ export const studentWorkflowRouter = createTRPCRouter({
     ctx.session?.user ? studentPolicyStatus(ctx.db, ctx.session.user.id) : null,
   ),
   acceptPolicy: protectedProcedure
-    .input(z.object({ revision: id, ticket, agreed: z.literal(true) }))
+    .input(
+      z.object({
+        revision: id,
+        ticket,
+        agreed: z.literal(true),
+        slug: z.enum(["tutee-policy", "tutor-policy"]).default("tutee-policy"),
+      }),
+    )
     .mutation(({ ctx, input }) =>
       acceptStudentPolicy(
         ctx.db,
         ctx.session.user.id,
         input.revision,
         input.ticket,
+        input.slug,
       ),
     ),
   mine: protectedProcedure.query(async ({ ctx }) => {

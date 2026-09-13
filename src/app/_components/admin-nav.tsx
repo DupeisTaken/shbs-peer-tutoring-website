@@ -51,7 +51,7 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
       },
       {
         href: "/admin/interviews",
-        labelKey: "workflows.interviewComplete",
+        labelKey: "workflows.interviewsPanelists",
         elevatedOnly: true,
         feature: "INTERVIEWS",
       },
