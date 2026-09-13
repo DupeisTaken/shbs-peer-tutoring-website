@@ -53,7 +53,7 @@ describe("bundled policy publication boundaries", () => {
     } as unknown as Parameters<typeof localizedPolicy>[0];
     expect(
       (await localizedPolicy(client, "tutor-policy", "de"))?.body,
-    ).toContain("Repository revision 2026.09.09");
+    ).toContain(`Repository revision ${POLICY_VERSION}`);
     expect(calls).toEqual(["de", "en"]);
     calls.length = 0;
     expect((await localizedPolicy(client, "tutor-policy", "zh"))?.title).toBe(

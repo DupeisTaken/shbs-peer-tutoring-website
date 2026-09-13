@@ -1,5 +1,6 @@
 import { afterAll, beforeEach, expect, it, vi } from "vitest";
 import type { Session } from "next-auth";
+import type { Prisma } from "../../../../generated/prisma";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 import { createCaller } from "../root";
 import { db } from "~/server/db";
@@ -254,6 +255,96 @@ it("uses current database roles and suspension state instead of stale session cl
   await expect(
     admin().admin.createRoom({ name: "Forbidden" }),
   ).rejects.toMatchObject({ code: "FORBIDDEN" });
+});
+
+it("scopes requester options to current reviewers across account/role changes", async () => {
+  await queued(() =>
+    trainee().admin.createRoom({ name: "Coordinator proposal" }),
+  );
+  await queued(() =>
+    actor("approval-other").admin.createRoom({ name: "Other proposal" }),
+  );
+  for (const reviewer of [head(), admin()]) {
+    const queue = await reviewer.approval.list();
+    expect(queue.canReview).toBe(true);
+    expect(queue.requesters.map((u) => u.id).sort()).toEqual([
+      "approval-coordinator",
+      "approval-other",
+    ]);
+  }
+  const ownQueue = await trainee().approval.list({
+    requesterId: "approval-other",
+  });
+  expect(ownQueue).toMatchObject({
+    total: 1,
+    canReview: false,
+    requesters: [],
+  });
+  expect(ownQueue.rows[0]?.requesterId).toBe("approval-coordinator");
+  await expect(trainee().approval.requesters()).rejects.toMatchObject({
+    code: "FORBIDDEN",
+  });
+  await db.user.update({
+    where: { id: "approval-admin" },
+    data: { role: "COORDINATOR" },
+  });
+  // Deliberately retain the former ADMIN session claim: current DB authorization wins.
+  expect(await admin().approval.list()).toMatchObject({
+    canReview: false,
+    requesters: [],
+    total: 0,
+  });
+  await expect(admin().approval.requesters()).rejects.toMatchObject({
+    code: "FORBIDDEN",
+  });
+});
+
+it("paginates history and resolves scoped deep links independently of list filters", async () => {
+  const base = await queued(() =>
+    trainee().admin.createRoom({ name: "History proposal" }),
+  );
+  const states = ["PENDING", "APPROVED", "REJECTED", "CANCELLED"] as const;
+  // These immutable history fixtures exercise query pagination without repeated writes.
+  await db.approvalRequest.createMany({
+    data: Array.from({ length: 30 }, (_, i) => ({
+      ...base,
+      id: `history-${i}`,
+      state: states[i % states.length]!,
+      payload: base.payload as Prisma.InputJsonValue,
+      targets: base.targets as Prisma.InputJsonValue,
+      createdAt: new Date(Date.UTC(2026, 8, 1, 0, i)),
+    })),
+  });
+  const first = await trainee().approval.list({ page: 0 });
+  const second = await trainee().approval.list({ page: 1 });
+  expect(first.rows).toHaveLength(25);
+  expect(second.rows).toHaveLength(6);
+  expect(new Set([...first.rows, ...second.rows].map((r) => r.id)).size).toBe(
+    31,
+  );
+  for (const state of states) {
+    const queue = await trainee().approval.list({ state });
+    expect(queue.total).toBeGreaterThan(0);
+    expect(queue.rows.every((row) => row.state === state)).toBe(true);
+  }
+  for (const caller of [head(), admin(), trainee()]) {
+    const detail = await caller.approval.list({
+      requestId: "history-1",
+      state: "PENDING",
+      page: 99,
+      requesterId: "approval-other",
+    });
+    expect(detail).toMatchObject({
+      total: 1,
+      rows: [{ id: "history-1", state: "APPROVED" }],
+    });
+  }
+  expect(
+    await actor("approval-other").approval.list({
+      requestId: "history-1",
+      requesterId: "approval-coordinator",
+    }),
+  ).toMatchObject({ total: 0, rows: [] });
 });
 
 it.each(["TUTOR", "VIEWER", "CREW"] as const)(
@@ -550,8 +641,16 @@ it("filters all actor IDs including deleted users, combined decisions, dates and
   );
   expect((await admin().admin.auditFilterOptions()).users).toEqual(
     expect.arrayContaining([
-      expect.objectContaining({ id: "deleted-user", label: "Alex Newcomer", former:true }),
-      expect.objectContaining({ id: "approval-coordinator", label: "Alex Newcomer", former:false }),
+      expect.objectContaining({
+        id: "deleted-user",
+        label: "Alex Newcomer",
+        former: true,
+      }),
+      expect.objectContaining({
+        id: "approval-coordinator",
+        label: "Alex Newcomer",
+        former: false,
+      }),
     ]),
   );
 });

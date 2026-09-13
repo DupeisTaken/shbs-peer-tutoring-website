@@ -545,8 +545,16 @@ model Subject {
   applicationIntents ApplicationSubjectIntent[]
 }
 
+enum SignupSource {
+  UNKNOWN
+  STAFF
+  SELF_SERVICE
+}
+
 model Tutee {
   user User?
+  /// Entry provenance only; never an approval state or a priority override.
+  signupSource SignupSource @default(UNKNOWN)
   intakeTermId String?
   /// Immutable priority timestamp for the current intake, independent of login creation.
   signupSubmittedAt DateTime?
@@ -1602,7 +1610,7 @@ model StudentAppeal {
   updatedAt DateTime @updatedAt
 }
 
-/// Each message belongs only to its two participants. Client keys make retries idempotent.
+/// Private deliveries; only disclosed post-upgrade messages allow HEAD/ADMIN supervision.
 model DirectMessage {
   id String @id @default(cuid())
   senderId String
@@ -1611,9 +1619,58 @@ model DirectMessage {
   clientKey String
   createdAt DateTime @default(now())
   readAt DateTime?
+  supervisable Boolean @default(false)
+  hiddenAt DateTime?
   @@unique([senderId, clientKey])
   @@index([recipientId, createdAt])
   @@index([senderId, recipientId, createdAt])
+  @@index([senderId, createdAt])
+  @@index([supervisable, createdAt])
+}
+
+/// A batch receipt fixes the exact payload across retries without exposing sibling recipients.
+model MessageBatch {
+  senderId String
+  clientKey String
+  payloadHash String
+  count Int
+  createdAt DateTime @default(now())
+  @@id([senderId, clientKey])
+}
+
+/// Scope is ROLE:<role> or USER:<id>. An empty override deliberately disables new sends.
+model MessagePermission {
+  scope String @id
+  groups String[]
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+/// Independent messaging restriction; account login and historical inbox access are retained.
+model MessageRestriction {
+  userId String @id
+  restricted Boolean @default(true)
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+/// Database-maintained evidence survives pairing edits/deletion; never infer from email/name.
+model MessageTutorAssignment {
+  tuteeId String
+  tutorId String
+  source String
+  recordedAt DateTime @default(now())
+  @@id([tuteeId, tutorId])
+}
+
+/// Append-only review/moderation evidence, available only through the supervision API.
+model MessageModeration {
+  id String @id @default(cuid())
+  actorId String
+  messageId String?
+  targetUserId String?
+  action String
+  reason String
+  createdAt DateTime @default(now())
+  @@index([messageId, createdAt])
 }
 
 /// Draft proposals never affect public rendering until a management member approves them.

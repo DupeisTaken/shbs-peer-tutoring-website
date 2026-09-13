@@ -17,20 +17,24 @@ import {
 import { humanizeOperation, proposalConfirmation } from "~/lib/approval-policy";
 import { requesterLabels } from "~/lib/requester-labels";
 
+async function reviewRequesterOptions(database: typeof db) {
+  const requests = await database.approvalRequest.findMany({
+    distinct: ["requesterId"],
+    select: { requesterId: true, requesterName: true },
+    orderBy: { createdAt: "desc" },
+  });
+  const users = await database.user.findMany({
+    where: { id: { in: requests.map((request) => request.requesterId) } },
+    select: { id: true, name: true, username: true, email: true },
+  });
+  return requesterLabels(requests, users);
+}
+
 /** Approval is a single atomic transition: revalidation, live change, decision, audit,
  * and notifications either all commit or all roll back. The requester is never impersonated. */
 export const approvalRouter = createTRPCRouter({
   requesters: adminOnlyProcedure.query(async ({ ctx }) => {
-    const requests = await ctx.db.approvalRequest.findMany({
-      distinct: ["requesterId"],
-      select: { requesterId: true, requesterName: true },
-      orderBy: { createdAt: "desc" },
-    });
-    const users = await ctx.db.user.findMany({
-      where: { id: { in: requests.map((request) => request.requesterId) } },
-      select: { id: true, name: true, username: true, email: true },
-    });
-    return requesterLabels(requests, users);
+    return reviewRequesterOptions(ctx.db);
   }),
   list: protectedProcedure
     .input(
@@ -51,20 +55,34 @@ export const approvalRouter = createTRPCRouter({
       const canReview =
         ctx.session.role === "HEAD" || ctx.session.role === "ADMIN";
       const where = {
-        state: input.state,
+        // A detail link addresses one request independently of list filters/pagination.
+        state: input.requestId ? undefined : input.state,
         id: input.requestId,
-        requesterId: canReview ? input.requesterId : ctx.session.user.id,
+        requesterId: canReview
+          ? input.requestId
+            ? undefined
+            : input.requesterId
+          : ctx.session.user.id,
       };
-      const [rows, total] = await Promise.all([
+      const [rows, total, requesters] = await Promise.all([
         ctx.db.approvalRequest.findMany({
           where,
           orderBy: [{ createdAt: "desc" }, { id: "desc" }],
           take: 25,
-          skip: input.page * 25,
+          skip: input.requestId ? 0 : input.page * 25,
         }),
         ctx.db.approvalRequest.count({ where }),
+        // The current server role authorizes the directory in this same response.
+        // Never enable a second privileged query from cached canReview client data.
+        canReview && !input.requestId ? reviewRequesterOptions(ctx.db) : [],
       ]);
-      return { rows, total, canReview, viewerId: ctx.session.user.id };
+      return {
+        rows,
+        total,
+        canReview,
+        viewerId: ctx.session.user.id,
+        requesters,
+      };
     }),
   decide: adminOnlyProcedure
     .input(

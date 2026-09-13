@@ -6,6 +6,7 @@ import { useTranslations } from "next-intl";
 import { ProfileDialog } from "~/app/_components/profile-dialog";
 import { api } from "~/trpc/react";
 import { useReadOnly } from "./read-only";
+import { AcceptanceRecords } from "./acceptance-records";
 
 type EmailDetailsProps = {
   email: string | null | undefined;
@@ -16,6 +17,7 @@ type EmailDetailsProps = {
   canSendSetup?: boolean;
   linked?: boolean;
   contactOnly?: boolean;
+  showPolicyHistory?: boolean;
 };
 
 /** Long addresses live in an accessible detail dialog, never in a roster's width calculation. */
@@ -26,7 +28,7 @@ export function EmailDetails(props: EmailDetailsProps) {
   // Masked API values mean private, not missing; observers must not infer account setup needs.
   if (readOnly)
     return <span className="muted text-xs">{t("privateEmail")}</span>;
-  if (!props.email)
+  if (!props.email && !props.showPolicyHistory)
     return <span className="muted text-xs">{t("noEmail")}</span>;
   return (
     <>
@@ -35,14 +37,26 @@ export function EmailDetails(props: EmailDetailsProps) {
         className="link text-xs whitespace-nowrap"
         onClick={() => setOpen(true)}
       >
-        {t("showEmail")}
+        {t(props.showPolicyHistory ? "showDetails" : "showEmail")}
       </button>
       {open && (
         <ProfileDialog
-          title={t("emailTitle", { name: props.name })}
+          title={t(props.showPolicyHistory ? "detailsTitle" : "emailTitle", {
+            name: props.name,
+          })}
           onClose={() => setOpen(false)}
         >
-          <EmailContent {...props} email={props.email} />
+          {props.email ? (
+            <EmailContent {...props} email={props.email} />
+          ) : (
+            <p className="muted">{t("noEmail")}</p>
+          )}
+          {props.showPolicyHistory && props.userId && (
+            <AcceptanceRecords key={props.userId} userId={props.userId} />
+          )}
+          {props.showPolicyHistory && !props.userId && (
+            <p className="muted mt-4 text-sm">{t("noAccountHistory")}</p>
+          )}
         </ProfileDialog>
       )}
     </>

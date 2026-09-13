@@ -22,7 +22,15 @@ export const interviewManagementRouter = createTRPCRouter({
     .query(async ({ ctx, input }) => {
       const pageSize = 20;
       const where: Prisma.TutorApplicationWhereInput = {
-        interviewers: { some: {} },
+        // Include waiting applicants so staff can reach panel setup from this queue.
+        AND: [
+          {
+            OR: [
+              { interviewers: { some: {} } },
+              { status: { in: ["PENDING", "INTERVIEW"] } },
+            ],
+          },
+        ],
         ...(input.completion === "OPEN"
           ? { interviewCompletedAt: null }
           : input.completion === "COMPLETED"
@@ -33,6 +41,27 @@ export const interviewManagementRouter = createTRPCRouter({
               OR: [
                 { name: { contains: input.search, mode: "insensitive" } },
                 { email: { contains: input.search, mode: "insensitive" } },
+                {
+                  interviewers: {
+                    some: {
+                      tutor: {
+                        englishName: {
+                          contains: input.search,
+                          mode: "insensitive",
+                        },
+                      },
+                    },
+                  },
+                },
+                {
+                  subjectIntents: {
+                    some: {
+                      subject: {
+                        name: { contains: input.search, mode: "insensitive" },
+                      },
+                    },
+                  },
+                },
                 {
                   preferredContact: {
                     contains: input.search,
@@ -46,13 +75,11 @@ export const interviewManagementRouter = createTRPCRouter({
       const [tutors, subjects, qualifications, applications, total] =
         await Promise.all([
           ctx.db.tutor.findMany({
-            where: { status: "ACTIVE" },
-            select: { id: true, englishName: true },
-            orderBy: { englishName: "asc" },
+            select: { id: true, englishName: true, status: true },
+            orderBy: [{ englishName: "asc" }, { id: "asc" }],
           }),
           ctx.db.subject.findMany({
-            where: { active: true },
-            select: { id: true, name: true },
+            select: { id: true, name: true, active: true },
             orderBy: { name: "asc" },
           }),
           ctx.db.tutorQualification.findMany(),
@@ -65,12 +92,18 @@ export const interviewManagementRouter = createTRPCRouter({
             select: {
               id: true,
               name: true,
+              status: true,
+              interviewAt: true,
+              subjectIntents: {
+                select: { subject: { select: { name: true } } },
+              },
               interviewCompletedAt: true,
               interviewDurationMin: true,
               interviewers: {
                 select: {
                   tutorId: true,
                   attended: true,
+                  isHead: true,
                   tutor: { select: { englishName: true } },
                 },
               },

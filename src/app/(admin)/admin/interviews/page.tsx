@@ -15,7 +15,7 @@ export default async function InterviewsPage() {
   const t = await getTranslations("workflows");
   return (
     <div className="space-y-6">
-      <h1 className="page-title">{t("interviewComplete")}</h1>
+      <h1 className="page-title">{t("interviewsPanelists")}</h1>
       <InterviewManagement />
     </div>
   );

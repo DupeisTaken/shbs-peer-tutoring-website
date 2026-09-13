@@ -1805,6 +1805,8 @@ export const adminRouter = createTRPCRouter({
     .mutation(({ ctx, input }) =>
       ctx.db.tutee.create({
         data: {
+          // Persist entry provenance at creation; subsequent edits/links retain it.
+          signupSource: "STAFF",
           englishName: input.englishName,
           email: blankToNull(input.email)?.toLowerCase() ?? null,
           phone: blankToNull(input.phone),

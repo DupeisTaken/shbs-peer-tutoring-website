@@ -54,6 +54,8 @@ Accounts have one primary role: `STUDENT`, `TUTOR`, `CREW`, `COORDINATOR`, `ADMI
 
 Protected requests reload the account’s current role, linkage and suspension state. A stale JWT cannot retain a revoked role. Student ownership is based on stable account/profile links, not a matching name or email. Public student/viewer signup cannot claim a legacy tutor profile merely by matching its email; see [tutor linking](../src/server/auth/tutor-link.ts).
 
+Client caches are partitioned by account, role and tutor link; returning focus and route navigation verify the live session before reusing data. Invalid session cookies are removed at the HTTP proxy before Server Component rendering, without disabling Auth.js logging or server authorization. See [session recovery and configuration diagnosis](session-recovery.md).
+
 | Procedure family | Intended callers |
 | --- | --- |
 | `publicProcedure` | Public operations; each operation still validates its inputs and relevant gates |
@@ -66,7 +68,7 @@ Protected requests reload the account’s current role, linkage and suspension s
 | `viewerProcedure` | Permitted management reads, including masked VIEWER responses |
 | `translatorProcedure` | Assigned translators or management; publication rules still apply |
 
-The user-facing implications are in [role access](user-guide.md#before-you-start). Private messages remain scoped to their two participants, including against other management accounts. Feedback defaults to staff-only and can be shared with the session’s tutor through a management setting.
+The user-facing implications are in [role access](user-guide.md#before-you-start). Private deliveries remain scoped to their two participants in personal inboxes. Disclosed new messages additionally allow HEAD/ADMIN review and reversible moderation through an audited supervision API; pre-upgrade messages stay participant-only, including against management. See [messaging permissions, rollout and evidence](messaging.md). Feedback defaults to staff-only and can be shared with the session’s tutor through a management setting.
 
 ## Approval transactions
 
@@ -87,7 +89,7 @@ Interview scheduling checks the current chair under the same transaction lock as
 A former chair's pending schedule request cannot change a replacement panel's timetable. The schedule
 and panel notifications commit or roll back together in the enclosing transaction.
 
-Successful authenticated mutations add actor and operation audit metadata. Detailed events and undo records remain available where implemented. This is an application action log, not an access log; it does not reconstruct events predating the release. Generic direct-mutation audit summaries are not a promise that every direct operation and audit insert share one universal transaction. The explicit approval/correction transaction contracts are covered by regressions.
+Successful authenticated mutations add actor and operation audit metadata. Detailed events and undo records remain available where implemented. The generic audit records application actions rather than every page read; explicit messaging inspections additionally retain supervisor review events. Neither reconstructs events predating the release. Generic direct-mutation audit summaries are not a promise that every direct operation and audit insert share one universal transaction. The explicit approval/correction transaction contracts are covered by regressions.
 
 ## Student lifecycle and ownership
 
@@ -128,6 +130,8 @@ The running site reads `PolicyDocument` rows, not Markdown files on each request
 The policy editor supports a seed-free installation: staff see blank student/tutor editors when either policy is missing and can save through the existing authorized mutation. It waits for fetched content before mounting editors so an initial blank state cannot conceal saved text. Read-only viewers receive no creation controls. This fixes the former empty page that incorrectly directed operators to run the demo seed.
 
 Policy revisions derive from the published language set and content. Acceptance retains the exact revision, text snapshot, signature and time. A changed policy gates tutor attendance and student participation, while personal history, feedback, appeals, account settings and private messages remain accessible.
+
+The persistent layout refreshes applicable consent on navigation and window focus. The popup may be dismissed; dismissal grants no server capability. Student and tutor links independently determine applicability, including management accounts with participant profiles. Tutor confirmation targets include the policy slug so a ticket for identical student-policy text cannot accept the tutor policy. Existing student confirmation targets remain compatible. The selected user details dialog loads account-ID-scoped acceptance history on demand. It renders immutable snapshot documents as readable Markdown with title, version and timestamps; it never substitutes current edited text for unavailable historical evidence.
 
 UI/website translation drafts have their own approval process and stale-destination checks. Translator assignment does not grant structural editing or policy publication privileges.
 
@@ -196,3 +200,9 @@ These are concrete operational prerequisites, not evidence obtainable from a loc
 ### Account-linked manual withdrawals
 
 Manual enrollments reuse `StudentRequestReview` with `kind=STUDENT_ABORT`, explicit legacy student/term evidence and the existing timed staff decision endpoint. Ownership uses the current account link or retained `StudentProfileOwnership`, never a name/email match. Approval rechecks current ownership and term, removes only current-term pairing memberships, preserves attendance history, and creates `StudentQuarterBlock` evidence linked to the manual profile. Migration `20260912040000_legacy_student_withdrawal` permits these review targets and makes quarter-block source evidence exclusive between a survey and a manual profile. Pending submissions do not alter membership; declined requests remain history.
+
+### Signup provenance and interview presentation
+
+Migration `20260913030000_signup_provenance` adds `Tutee.signupSource`: `STAFF`, `SELF_SERVICE`, or `UNKNOWN`. Staff creation and survey materialization record provenance at the write boundary. Backfill uses explicit survey/profile links only; absent a link, older public forms and staff records remain unknown rather than guessing from signatures, contact details or timestamps. Display labels are Staff-entered, Self-service and Earlier signup. Internal legacy workflow identifiers remain compatible; source is not used for matching, priority, account ownership or withdrawal decisions.
+
+Interviews & Panelists groups qualifications by tutor ID, includes active tutors without qualifications and retains inactive tutors' existing qualifications for review. Search and qualification filters are independent of the paginated open/completed interview queue. Application IDs keep unrelated people with matching names separate. Disclosure state survives filtering; collapsed forms stay mounted to preserve drafts. Waiting applicants can reach the existing panel editor through an application-specific fragment. The read query adds chair, schedule and subject summaries; panel assignment, voting, completion credit and approval mutation rules are unchanged.
