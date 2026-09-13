@@ -28,4 +28,4 @@ Repository edits do **not** publish to an existing database or deploy the websit
 
 Edit the four source files above, update `POLICY_VERSION` in [the catalog](../../prisma/policies.ts), then run `npm run docs:build`, `npm run docs:check` and the policy tests. English and Chinese must express the same rules. Record confirmed mechanics in [REVIEW-QUESTIONS.md](../../REVIEW-QUESTIONS.md).
 
-Use a [documentation request](../../.github/ISSUE_TEMPLATE/documentation.yml) for unclear wording. Changes to program mechanics need a program decision and matching implementation/tests; a wording edit alone cannot change application behavior.
+Use a [documentation request](../../.github/ISSUE_TEMPLATE/04-documentation.yml) for unclear wording. Changes to program mechanics need a program decision and matching implementation/tests; a wording edit alone cannot change application behavior.

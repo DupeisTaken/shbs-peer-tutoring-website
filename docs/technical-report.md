@@ -177,7 +177,7 @@ npm run docs:check
 
 The builder generates printable HTML editions from Markdown with shared styling and a contents sidebar. It uses local assets only. The check validates relative files and heading anchors, required role coverage, generated-report freshness, current policy sources and GitHub issue-form structure. Generated HTML lives in `docs/reports/`; commit it with its source so readers can download it without running the application.
 
-Verify report layout at desktop and mobile widths and check the contents links, tables and print control. For changes to policy loading or application behavior, run the relevant tests and required CI gates too. Reporting instructions and the three guided forms are in [Creating issues](issues.md).
+Verify report layout at desktop and mobile widths and check the contents links, tables and print control. For changes to policy loading or application behavior, run the relevant tests and required CI gates too. Reporting instructions and the four guided forms are in [Creating issues](issues.md).
 
 ## Launch boundaries
 

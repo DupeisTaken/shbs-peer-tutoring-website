@@ -169,6 +169,72 @@ test("issue forms reject duplicate field ids and missing report content", () => 
   );
 });
 
+test("the issue guide links every available form to a valid template", () => {
+  // Discover the chooser's forms so future additions cannot silently lack guidance.
+  const directory = path.join(root, ".github/ISSUE_TEMPLATE");
+  const guide = markdownModel(
+    fs.readFileSync(path.join(root, "docs/issues.md"), "utf8"),
+    "docs/issues.md",
+  );
+  const linkedTemplates = guide.links
+    .filter((href) => href.includes("/issues/new?template="))
+    .map((href) => new URL(href).searchParams.get("template"));
+  const templates = fs
+    .readdirSync(directory)
+    .filter((name) => name.endsWith(".yml") && name !== "config.yml");
+  assert.deepEqual(linkedTemplates, templates.sort());
+  for (const name of templates) {
+    const form = yaml.load(fs.readFileSync(path.join(directory, name), "utf8"));
+    assert.deepEqual(validateForm(form), [], name);
+  }
+});
+
+test("the chooser orders bug, enhancement, feature and docs before support and blank issues", () => {
+  // GitHub sorts YAML forms by filename, then displays contact links and the blank option.
+  const directory = path.join(root, ".github/ISSUE_TEMPLATE");
+  const templates = fs
+    .readdirSync(directory)
+    .filter((name) => name.endsWith(".yml") && name !== "config.yml")
+    .sort();
+  assert.deepEqual(templates, [
+    "01-bug_report.yml",
+    "02-enhancement.yml",
+    "03-feature_request.yml",
+    "04-documentation.yml",
+  ]);
+  const config = yaml.load(
+    fs.readFileSync(path.join(directory, "config.yml"), "utf8"),
+  );
+  assert.deepEqual(
+    config.contact_links.map((link) => link.name),
+    ["Read the role guide"],
+  );
+  assert.equal(config.blank_issues_enabled, true);
+});
+
+test("enhancement requests require context and an outcome while leaving alternatives optional", () => {
+  const form = yaml.load(
+    fs.readFileSync(
+      path.join(root, ".github/ISSUE_TEMPLATE/02-enhancement.yml"),
+      "utf8",
+    ),
+  );
+  assert.equal(form.title, "[Enhancement]: ");
+  for (const id of ["feature", "current_behavior", "improvement"]) {
+    assert.equal(
+      form.body.find((field) => field.id === id)?.validations?.required,
+      true,
+      id,
+    );
+  }
+  for (const id of ["alternatives", "constraints"]) {
+    const field = form.body.find((field) => field.id === id);
+    assert.ok(field, id);
+    assert.notEqual(field.validations?.required, true, id);
+  }
+  assert.deepEqual(validateForm(form), []);
+});
+
 test("image publishing cancels stale runs and fails closed on an old main commit", () => {
   const workflow = yaml.load(
     fs.readFileSync(

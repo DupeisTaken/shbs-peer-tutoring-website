@@ -1,4 +1,4 @@
-blank_issues_enabled: false
+blank_issues_enabled: true
 contact_links:
   - name: Read the role guide
     url: https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/docs/user-guide.md

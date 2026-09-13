@@ -119,7 +119,13 @@ export function checkDocs() {
     if (!roleIds.includes(role))
       errors.push(`Missing user role section: ${role}`);
   }
-  for (const name of ["bug_report", "feature_request", "documentation"]) {
+  // Numeric filename prefixes control GitHub's alphanumeric chooser order.
+  for (const name of [
+    "01-bug_report",
+    "02-enhancement",
+    "03-feature_request",
+    "04-documentation",
+  ]) {
     const file = `.github/ISSUE_TEMPLATE/${name}.yml`;
     errors.push(
       ...validateForm(
@@ -134,7 +140,7 @@ export function checkDocs() {
     ),
   );
   if (
-    config.blank_issues_enabled !== false ||
+    config.blank_issues_enabled !== true ||
     !config.contact_links?.every(
       (link) => link.name && link.about && /^https:\/\//.test(link.url),
     )
@@ -143,7 +149,7 @@ export function checkDocs() {
   buildReports(true);
   if (errors.length) throw new Error(errors.join("\n"));
   console.log(
-    `Validated ${files.length} Markdown documents, all role sections, three issue forms and both HTML reports.`,
+    `Validated ${files.length} Markdown documents, all role sections, four issue forms and both HTML reports.`,
   );
 }
 

@@ -12,7 +12,7 @@ A school peer-tutoring website for student intake, matching, attendance, service
 | Read or publish the current handbooks | [Policy documents](docs/policies/README.md) |
 | Run locally | [Local setup and testing](README-LOCAL.md) |
 | Prepare a production installation | [Deployment runbook](README-DEPLOY.md) |
-| Report a bug, suggest a feature or request a documentation change | [Issue guide](docs/issues.md) |
+| Report a bug, suggest a feature or enhancement, or request a documentation change | [Issue guide](docs/issues.md) |
 
 Printable HTML editions: [user report](docs/reports/user-guide.html) · [technical report](docs/reports/technical-report.html). Download a report and open it in a browser. Markdown above is easier to read directly on GitHub.
 
