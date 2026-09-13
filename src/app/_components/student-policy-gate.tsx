@@ -1,111 +1,154 @@
 "use client";
-import { useState } from "react";
-import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
+import { usePathname, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { Markdown } from "./markdown";
 import { TimedActionDialog } from "./timed-action-dialog";
-import { signOutAction } from "~/app/_actions/auth";
+import { policyActionTarget, type PolicySlug } from "~/lib/policy-evidence";
 
-/** Check on entering authenticated pages and window focus; consent never alters priority. */
+/** The root layout persists across navigation. Refresh on visits and focus, and
+ * prompt for published revisions only. Dismissal never grants participation. */
 export function StudentPolicyGate() {
   const t = useTranslations("workflow");
   const path = usePathname();
-  const [opened, setOpened] = useState(false);
-  // Renewed consent gates participation, never access to personal evidence or private support.
-  const historyAccessible = ["/student", "/messages", "/my-account"].includes(
-    path,
-  );
+  const search = useSearchParams().toString();
+  const [dismissed, setDismissed] = useState<string | null>(null);
   const publicPage = [
-    "/",
     "/signup",
     "/signup/account",
     "/signin",
     "/suspended",
+    "/tutor-signup",
+    "/crew-signup",
+    "/viewer-signup",
   ].includes(path);
   const status = api.studentWorkflow.policyStatus.useQuery(undefined, {
     enabled: !publicPage,
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
-  if (historyAccessible && !opened && (status.error || status.data))
+  const { refetch } = status;
+  useEffect(() => {
+    if (publicPage) {
+      setDismissed(null);
+      return;
+    }
+    let active = true;
+    const onFocus = () => {
+      void (async () => {
+        const result = await refetch();
+        // React Query v5 refreshes on visibilitychange; native window focus also
+        // matters when the user returns from another window without hiding this tab.
+        if (active && !result.error) setDismissed(null);
+      })();
+    };
+    // Query-only student tabs are visits too. Retain this visit's dismissal when
+    // the revision is unchanged so personal navigation is not repeatedly interrupted.
+    void refetch();
+    window.addEventListener("focus", onFocus);
+    return () => {
+      active = false;
+      window.removeEventListener("focus", onFocus);
+    };
+  }, [path, search, publicPage, refetch]);
+  if (publicPage) return null;
+  if (
+    status.error ||
+    (status.data && dismissed === `${status.data.slug}:${status.data.revision}`)
+  )
     return (
       <aside
         className="mx-auto mt-4 w-[calc(100%-2rem)] max-w-5xl rounded-lg border border-amber-200 bg-amber-50 p-4"
         role="status"
       >
         <p className="text-sm">
-          {status.error ? t("policyLoadError") : t("policyHistoryAccess")}
+          {t(status.error ? "policyLoadError" : "policyHistoryAccess")}
         </p>
         <button
           className="btn-secondary mt-3"
-          onClick={() =>
-            status.error ? void status.refetch() : setOpened(true)
-          }
+          onClick={() => {
+            if (status.error) void refetch();
+            else setDismissed(null);
+          }}
         >
-          {status.error ? t("retry") : t("policyTitle")}
+          {t(status.error ? "retry" : "policyTitle")}
         </button>
       </aside>
     );
-  if (status.error && !publicPage)
-    return (
-      <TimedActionDialog
-        mandatory
-        action="POLICY"
-        target="policy-unavailable"
-        title={t("policyTitle")}
-        message={t("policyLoadError")}
-        canConfirm={false}
-        onCancel={() => void signOutAction()}
-        onConfirm={() => undefined}
-      >
-        <button className="btn-secondary" onClick={() => void status.refetch()}>
-          {t("retry")}
-        </button>
-      </TimedActionDialog>
-    );
-  return status.data && !publicPage ? (
-    <PolicyPrompt key={status.data.revision} policy={status.data} />
+  return status.data ? (
+    <PolicyPrompt
+      key={`${status.data.slug}:${status.data.revision}`}
+      policy={status.data}
+      onDismiss={() =>
+        setDismissed(`${status.data!.slug}:${status.data!.revision}`)
+      }
+    />
   ) : null;
 }
+
 function PolicyPrompt({
   policy,
+  onDismiss,
 }: {
   policy: {
+    slug: string;
     revision: string;
-    documents: { locale: string; title: string; body: string }[];
+    documents: {
+      locale: string;
+      title: string;
+      body: string;
+      version?: string | null;
+    }[];
   };
+  onDismiss: () => void;
 }) {
   const t = useTranslations("workflow");
   const locale = useLocale();
   const utils = api.useUtils();
   const [agreed, setAgreed] = useState(false);
+  const [attempt, setAttempt] = useState(0);
   const accept = api.studentWorkflow.acceptPolicy.useMutation({
-    onSuccess: () => utils.studentWorkflow.policyStatus.invalidate(),
+    onSuccess: async () => {
+      // Refresh both the global popup and local participation forms.
+      await Promise.all([
+        utils.studentWorkflow.policyStatus.invalidate(),
+        utils.student.policy.invalidate(),
+      ]);
+    },
   });
   const doc =
     policy.documents.find((d) => d.locale === locale) ??
     policy.documents.find((d) => d.locale === "en")!;
   return (
     <TimedActionDialog
-      mandatory
+      key={attempt}
       action="POLICY"
-      target={policy.revision}
+      target={policyActionTarget(policy.slug, policy.revision)}
       title={t("policyTitle")}
       message={t("policyConsequences")}
       canConfirm={agreed}
       busy={accept.isPending}
       error={accept.error?.message}
-      onCancel={() => void signOutAction()}
+      onCancel={onDismiss}
       onConfirm={(ticket) =>
-        accept.mutate({ revision: policy.revision, ticket, agreed: true })
+        accept.mutate({
+          slug: policy.slug as PolicySlug,
+          revision: policy.revision,
+          ticket,
+          agreed: true,
+        })
       }
     >
+      <p className="text-sm text-slate-600">{t("policyHistoryAccess")}</p>
       <div
-        className="max-h-[40dvh] overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-4"
+        className="max-h-[25dvh] overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-4 sm:max-h-[40dvh]"
         tabIndex={0}
       >
-        <h3 className="mb-3 font-semibold">{doc.title}</h3>
+        <div className="mb-3 flex flex-wrap items-center gap-2">
+          <h3 className="font-semibold">{doc.title}</h3>
+          {doc.version && <span className="badge-slate">{doc.version}</span>}
+        </div>
         <Markdown>{doc.body}</Markdown>
       </div>
       <label className="flex items-start gap-3 text-sm">
@@ -117,6 +160,19 @@ function PolicyPrompt({
         />
         {t("policyAgree")}
       </label>
+      <button
+        className="btn-secondary btn-sm"
+        disabled={accept.isPending}
+        onClick={() => {
+          // Retry renews even expired/preparation-failed tickets and rereads publication.
+          accept.reset();
+          setAgreed(false);
+          setAttempt((value) => value + 1);
+          void utils.studentWorkflow.policyStatus.invalidate();
+        }}
+      >
+        {t("retry")}
+      </button>
     </TimedActionDialog>
   );
 }

@@ -8,6 +8,10 @@ import {
 } from "~/server/api/trpc";
 import { inTransaction, lockEntity } from "~/server/transactions";
 import { currentPolicy } from "~/server/policy-acceptance";
+import {
+  applicablePolicySlugs,
+  policySnapshotDocuments,
+} from "~/lib/policy-evidence";
 import { consumeStudentAction } from "~/server/student-workflow";
 import { ownedStudentIds } from "~/server/student-ownership";
 import { notifyAdmins, notifyUsers } from "~/server/notifications/create";
@@ -40,21 +44,62 @@ export function appealDeadline(
 }
 export const studentRouter = createTRPCRouter({
   acceptanceRecords: adminProcedure
-    .input(paging)
+    .input(
+      z.object({
+        userId: z.string().min(1).max(128),
+        page: z.number().int().min(0).default(0),
+      }),
+    )
     .query(async ({ ctx, input }) => {
+      // Scope by immutable account ID, even when contact details are missing.
+      // Never match names/email or return the old cross-user support feed.
+      const user = await ctx.db.user.findUnique({
+        where: { id: input.userId },
+        select: { studentId: true, tutorId: true },
+      });
+      if (!user) throw new TRPCError({ code: "NOT_FOUND" });
       const rows = await ctx.db.policyAcceptance.findMany({
-        orderBy: { acceptedAt: "desc" },
-        take: 20,
+        where: { userId: input.userId },
+        orderBy: [{ acceptedAt: "desc" }, { id: "desc" }],
+        take: 21,
         skip: input.page * 20,
       });
-      const users = await ctx.db.user.findMany({
-        where: { id: { in: rows.map((r) => r.userId) } },
-        select: { id: true, name: true },
-      });
-      return rows.map((r) => ({
-        ...r,
-        name: users.find((u) => u.id === r.userId)?.name ?? r.signature,
-      }));
+      const current = await Promise.all(
+        applicablePolicySlugs(user).map(async (slug) => {
+          const documents = await ctx.db.policyDocument.count({
+            where: { slug, locale: "en" },
+          });
+          if (!documents)
+            return { slug, documents: [], acceptedAt: null, published: false };
+          const policy = await currentPolicy(ctx.db, slug);
+          const acceptance = await ctx.db.policyAcceptance.findUnique({
+            where: {
+              userId_slug_revision: {
+                userId: input.userId,
+                slug,
+                revision: policy.revision,
+              },
+            },
+          });
+          return {
+            slug,
+            documents: policy.documents,
+            acceptedAt: acceptance?.acceptedAt ?? null,
+            published: true,
+          };
+        }),
+      );
+      return {
+        current,
+        more: rows.length > 20,
+        rows: rows.slice(0, 20).map((r) => ({
+          id: r.id,
+          slug: r.slug,
+          signature: r.signature,
+          acceptedAt: r.acceptedAt,
+          documents: policySnapshotDocuments(r.snapshot),
+        })),
+      };
     }),
   calendar: adminProcedure.query(({ ctx }) =>
     ctx.db.schoolCalendarDay.findMany({ orderBy: { date: "asc" } }),
@@ -195,12 +240,21 @@ export const studentRouter = createTRPCRouter({
       ? await ctx.db.pairing.findMany({
           where: {
             term: { active: true },
-            tutees: { some: { tuteeId: { in: owned }, tutee: { status: { not: "INACTIVE" } } } },
+            tutees: {
+              some: {
+                tuteeId: { in: owned },
+                tutee: { status: { not: "INACTIVE" } },
+              },
+            },
           },
           orderBy: [{ dayOfWeek: "asc" }, { startMin: "asc" }, { id: "asc" }],
           select: {
-            id: true, subject: true, timeSlotId: true, dayOfWeek: true,
-            startMin: true, endMin: true,
+            id: true,
+            subject: true,
+            timeSlotId: true,
+            dayOfWeek: true,
+            startMin: true,
+            endMin: true,
             room: { select: { name: true } },
             tutor: { select: { englishName: true } },
           },

@@ -57,7 +57,10 @@ export default async function AdminLayout({
   const canEnterTutor = !!me?.tutor && me.tutor.status !== "ARCHIVED";
   const features = await getFeatures(db);
   const accountItems = [
-    { href: "/messages", label: t("workflows.messages") },
+    {
+      href: readOnly ? "/messages" : "/admin/messages",
+      label: t("workflows.messages"),
+    },
     { href: "/student", label: t("components.userMenu.enterTutee") },
     {
       href: readOnly ? "/student-support" : "/admin/student-support",
@@ -177,7 +180,7 @@ export default async function AdminLayout({
           {session.role === "COORDINATOR" && (
             <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
               <p>{t("approvals.trainingBanner")}</p>
-              <Link className="link mt-1 inline-block" href="/admin/approvals">
+              <Link className="link mt-1 inline-block" href="/admin/approvals?status=all">
                 {t("approvals.myRequests")}
               </Link>
             </div>

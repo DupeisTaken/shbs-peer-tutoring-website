@@ -1,4 +1,84 @@
 {
+  "messaging": {
+    "privacyTitle": "Private deliveries, with staff oversight",
+    "disclosure": "Each selected person receives a separate message. Recipients cannot see each other or each other's replies. Messages are delivered immediately. HEAD and administrators can review new messages and hide inappropriate content; review and moderation are recorded.",
+    "legacyHelp": "Messages sent before this supervision notice remain participant-only. A new reply follows the current supervision rules. Hidden originals are retained for staff review.",
+    "allowedHelp": "Search by name or username. Your allowed contacts depend on current permissions and recorded tutoring assignments; replies follow the same rules.",
+    "allowed": "Allowed contacts: {groups}",
+    "none": "None",
+    "recipients": "Recipients",
+    "selectedCount": "{count} of {max} recipients selected",
+    "selectedRecipients": "Selected recipients",
+    "remove": "Remove {name}",
+    "results": "Matching contacts",
+    "loading": "Loading…",
+    "noMatches": "No matching contacts or messages.",
+    "retry": "Try again",
+    "previous": "Previous",
+    "next": "Next",
+    "page": "Page {page}",
+    "sending": "Sending…",
+    "sentCount": "Delivered privately to {count, plural, one {# recipient} other {# recipients}}.",
+    "inbox": "Your messages",
+    "supervised": "Private delivery · HEAD/admin supervision",
+    "legacy": "Historical · participant-only",
+    "hiddenMessage": "This message was hidden by a staff moderator. The original is retained for review.",
+    "replyUnavailable": "New messages to this contact are currently unavailable. Your history remains accessible.",
+    "restricted": "Messaging access is restricted. You can still read your message history.",
+    "accountSuspended": "This account is suspended. Messaging remains blocked until the account is reinstated.",
+    "unrestricted": "Messaging access is available within the effective contact permissions.",
+    "allowedGroups": "Allowed groups (combined)",
+    "groups": {
+      "MANAGEMENT": "Management team (HEAD, administrators and coordinators)",
+      "CURRENT_TUTORS": "Your currently assigned tutors",
+      "PAST_TUTORS": "Your previously assigned tutors",
+      "SAME_GROUP": "Other tutees in your current scheduled tutoring group",
+      "ALL_USERS": "All available accounts"
+    },
+    "supervision": "Message supervision",
+    "reviewMessages": "Review messages",
+    "permissions": "Contact permissions",
+    "supervisionHelp": "HEAD and administrators only. Search disclosed messages, open a review with a reason, and hide or restore content without deleting evidence. Historical participant-only messages are excluded from all supervision searches. Reviews do not mark a participant's message as read.",
+    "reason": "Reason for review or change (at least 5 characters)",
+    "supervisionSearch": "Search names, usernames or message text",
+    "visibility": "Visibility",
+    "visibilityOptions": {
+      "ALL": "All disclosed messages",
+      "VISIBLE": "Visible",
+      "HIDDEN": "Hidden by staff"
+    },
+    "openReview": "Open audited review",
+    "viewConversation": "View conversation",
+    "clearConversation": "All conversations",
+    "hide": "Hide from participants",
+    "restore": "Restore for participants",
+    "auditHistory": "Review and moderation history (latest 100)",
+    "actions": {
+      "REVIEW": "Reviewed",
+      "HIDE": "Hidden",
+      "RESTORE": "Restored",
+      "RESTRICT": "Access restricted",
+      "UNRESTRICT": "Access restored"
+    },
+    "rolePermissions": "Permissions by role",
+    "permissionHelp": "Groups combine as a union. A user override replaces the role policy; no groups means no new sends. All available accounts permits everyone except self, suspended or messaging-restricted accounts. Past tutors are supported by retained assignments or attendance; unrecorded old assignments cannot be reconstructed.",
+    "userOverrides": "User overrides and messaging access",
+    "findUser": "Find an account by name or username",
+    "effectiveSource": "Effective permission source: {source}",
+    "sources": {
+      "USER": "user override",
+      "ROLE": "role policy",
+      "DEFAULT": "default policy"
+    },
+    "effectivePermission": "Effective allowed groups",
+    "allowAccess": "Restore messaging access",
+    "restrictAccess": "Restrict new sends and incoming contacts",
+    "save": "Save groups",
+    "saved": "Saved with audit evidence.",
+    "inherit": "Remove override / inherit role",
+    "resetDefault": "Restore default policy",
+    "ownInbox": "Your inbox"
+  },
   "common": {
     "cancel": "Cancel",
     "confirm": "Confirm",
@@ -10,7 +90,8 @@
     "backToMain": "← Back to Main Page",
     "close": "Close",
     "collapseAll": "Collapse All",
-    "expandAll": "Expand All"
+    "expandAll": "Expand All",
+    "loading": "Loading…"
   },
   "auth": {
     "signinTitle": "Sign In",
@@ -135,7 +216,8 @@
     "staleSession": {
       "title": "Session Out of Date",
       "body": "Your tutor account link is no longer valid. Sign out and sign back in to refresh it."
-    }
+    },
+    "sessionExpired": "Your session expired or could not be verified. Please sign in again."
   },
   "landing": {
     "nav": {
@@ -2136,7 +2218,7 @@
     "rejectDraft": "Reject Draft",
     "draftNotice": "Translator changes are saved as drafts. Management reviews them before publication.",
     "interviewComplete": "Record Interview Completion",
-    "interviewSearch": "Search applications",
+    "interviewSearch": "Search applicants, panelists or subjects",
     "interviewFilter": "Interview records",
     "interviewOpen": "Needs completion",
     "interviewCompleted": "Completed",
@@ -2185,7 +2267,28 @@
     "locale": "Language Code",
     "target": "Content to Translate",
     "title": "Title",
-    "translation": "Translation"
+    "translation": "Translation",
+    "interviewsPanelists": "Interviews & Panelists",
+    "interviewRecords": "Interview records",
+    "managePanels": "Manage panels in Tutor Applications",
+    "manageApplicantPanel": "Assign or edit this panel in Tutor Applications",
+    "qualificationSearch": "Search tutors or subjects",
+    "qualificationFilter": "Qualifications",
+    "allTutors": "All tutors",
+    "hasQualifications": "Has qualifications",
+    "noQualifications": "No qualifications",
+    "qualificationCount": "{count, plural, one {# subject} other {# subjects}}",
+    "qualificationEmpty": "No tutors match these filters.",
+    "noInterviewSubjects": "No subjects recorded",
+    "panelSummaryNames": "Panel: {names}",
+    "chairSummary": "Chair: {name}",
+    "scheduleSummary": "Scheduled: {date}",
+    "completionSummary": "Completed: {date} · {minutes} minutes",
+    "unassignedPanel": "Not assigned",
+    "unscheduled": "Not scheduled",
+    "panelRequired": "Assign a qualified panel before recording completion.",
+    "invalidDate": "Enter a valid date and time.",
+    "searchInterviews": "Search"
   },
   "survey": {
     "intro": "Submit your tutoring survey when signup opens. Earlier submissions receive priority. Then check your email to confirm your request and create your tutee account.",
@@ -2246,8 +2349,8 @@
     "working": "Working…",
     "preparing": "Preparing…",
     "wait": "Confirm in {seconds}s",
-    "policyTitle": "Please confirm the updated tutee policy",
-    "policyConsequences": "Read the current policy and confirm that you agree before continuing. This does not change your request, tutor assignment or original priority.",
+    "policyTitle": "Please review the updated policy",
+    "policyConsequences": "Read the policy below and confirm that you agree.",
     "policyAgree": "I have read and agree to this version of the policy.",
     "navigation": "Tutoring request workflow",
     "current": "Current request",
@@ -2315,12 +2418,12 @@
     "denyConsequences": "This closes the application without changing the current request or tutor assignment. The tutee and relevant tutors will be notified.",
     "approveAbortConsequences": "Approval ends this tutee’s participation for the entire current quarter, releases all tutor assignments, and permanently closes this request. Further applications from this tutee in the same quarter will be blocked. This cannot be undone.",
     "approveScheduleConsequences": "Approval releases only the assignment involved in this schedule conflict. The request returns for matching with the original priority. Other tutor assignments remain in place. This does not disqualify the tutee.",
-    "legacyRequests": "Other / manually managed requests",
-    "policyLoadError": "The current policy could not be loaded. Retry or sign out. Your request priority is unchanged.",
+    "legacyRequests": "Staff-entered / earlier requests",
+    "policyLoadError": "The current policy could not be loaded. Retry; your priority is unchanged and personal history, messages and account details remain available.",
     "retry": "Retry",
     "expiredHelp": "If your request was disqualified, resending cannot reactivate it. You must submit a new request.",
-    "policyHistoryAccess": "Read and accept the updated policy before participating. Your history, feedback, appeals, and private messages remain available.",
-    "manualSource": "Manually managed",
+    "policyHistoryAccess": "Accept the current policy before new participation. You can close this popup and continue to history, feedback, appeals, messages and account details.",
+    "manualSource": "Staff-entered",
     "surveySource": "Tutee signup",
     "legacyWithdrawalHelp": "You can ask staff to withdraw from all tutoring this quarter. Your participation stays unchanged until approval. Once approved, you cannot sign up again in the same quarter.",
     "semesterCopy": {
@@ -2332,10 +2435,13 @@
       "abortConsequences": "You are applying to leave the entire tutoring program for the current semester. Your assignments continue while admins review this application. If approved, every assignment will be released, this request will be closed permanently, and you cannot submit any further requests this semester. Admins and your tutors will be notified.",
       "approveAbortConsequences": "Approval ends this tutee’s participation for the entire current semester, releases all tutor assignments, and permanently closes this request. Further applications from this tutee in the same semester will be blocked. This cannot be undone.",
       "legacyWithdrawalHelp": "You can ask staff to withdraw from all tutoring this semester. Your participation stays unchanged until approval. Once approved, you cannot sign up again in the same semester."
-    }
+    },
+    "selfServiceSource": "Self-service",
+    "unknownSource": "Earlier signup",
+    "sourceHelp": "Source describes how a signup was entered. It does not change approval, priority or participation rules. Earlier signup means the original entry source is unconfirmed."
   },
   "approvals": {
-    "title": "Changes Awaiting Approval",
+    "title": "Management Actions",
     "subtitle": "Review changes proposed by coordinators before they take effect. Approve to apply a change, or reject it with an explanation. Use the status filter to view past decisions.",
     "queued": "Submitted for Admin Approval",
     "queuedBody": "Your proposal is pending. The live records stay unchanged until an admin approves it.",
@@ -2370,7 +2476,19 @@
     },
     "confirmConsequences": "This applies the proposed assignment or tutee request decision. Check the affected tutee, tutor, and consequences before confirming; the review is recorded.",
     "emailRetry": "The change was applied, but the verification email was not sent. Retry it from Tutee Requests.",
-    "record": "Record"
+    "record": "Record",
+    "reviewQueue": "Management Review Queue",
+    "ownSubtitle": "Track your proposed changes and feedback. Pending proposals leave live records unchanged; only approved changes have taken effect.",
+    "ownEmptyHint": "Your proposals and past decisions appear here. Try All Statuses to see your full history.",
+    "missingHint": "This request is unavailable or belongs to another account. Return to your list to find your requests.",
+    "proposedChanges": "Proposed Changes",
+    "withdrawnBy": "Withdrawn by {name}",
+    "effects": {
+      "PENDING": "Not applied — awaiting administrator review.",
+      "APPROVED": "Applied when approved. See the decision below.",
+      "REJECTED": "Not applied — rejected with feedback.",
+      "CANCELLED": "Not applied — withdrawn by the requester."
+    }
   },
   "auditFilters": {
     "subtitle": "Trace each user’s actions, proposals, and decisions across the program.",
@@ -2485,6 +2603,26 @@
     "deliveryUnavailable": "Email delivery is unavailable. No email was sent.",
     "contactAddress": "Contact address recorded with this entry",
     "inviteInUsers": "Manage account invitations in Users & Roles.",
-    "privateEmail": "Private contact details"
+    "privateEmail": "Private contact details",
+    "showDetails": "User details",
+    "detailsTitle": "User details · {name}",
+    "noAccountHistory": "Policy acceptance history belongs to a linked account."
+  },
+  "policyHistory": {
+    "title": "Policy acceptance history",
+    "loading": "Loading policy history…",
+    "retry": "Retry",
+    "tutorPolicy": "Tutor policy",
+    "studentPolicy": "Student policy",
+    "unpublished": "No current policy published",
+    "currentAccepted": "Current revision accepted",
+    "pending": "Current revision needs acceptance",
+    "empty": "No acceptance records for this account.",
+    "acceptedAt": "Accepted · {date}",
+    "expand": "Expand to read the exact accepted text",
+    "signature": "Signed by {name}",
+    "unavailable": "The original evidence is retained, but its text is not available in this view.",
+    "previous": "Previous",
+    "next": "Next"
   }
 }

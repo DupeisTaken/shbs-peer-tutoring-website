@@ -99,6 +99,15 @@ export const COORDINATOR_DIRECT_OPERATIONS = new Set([
   // Tutors/crew still perform their own duties through their participant procedures.
 ]);
 
+/** Messaging supervision is immediate ADMIN/HEAD authority, never a coordinator proposal.
+ * Participant sends/read receipts retain protectedProcedure ownership checks. */
+export const MESSAGING_ADMIN_OPERATIONS = new Set([
+  "messaging.setPermission",
+  "messaging.review",
+  "messaging.moderate",
+  "messaging.restrict",
+]);
+
 /** Each reviewer opens a fresh consequence dialog. Never replay another user's ticket. */
 export function proposalConfirmation(operation: string, value: unknown) {
   if (

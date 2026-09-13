@@ -1,5 +1,6 @@
 "use client";
 import { EmailDetails } from "~/app/_components/email-details";
+import { SignupSourceBadge } from "~/app/_components/signup-source-badge";
 import { useState, type ReactNode } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import {
@@ -178,7 +179,7 @@ function RequestCard({ row, tutors }: { row: Row; tutors: Tutor[] }) {
         <div className="min-w-0 space-y-2">
           <h3 className="font-semibold break-words">{row.name}</h3>
           <div className="flex flex-wrap gap-2">
-            <span className="badge-slate">{t("surveySource")}</span>
+            <SignupSourceBadge source="SELF_SERVICE" />
             <span
               className={
                 row.state !== "OPEN"

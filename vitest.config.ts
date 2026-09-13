@@ -5,6 +5,8 @@ export default defineConfig({
     tsconfigPaths: true,
   },
   test: {
+    // Resolve Auth.js's extensionless Next imports through Vite, as Next's bundler does.
+    server: { deps: { inline: ["next-auth"] } },
     environment: "node",
     globals: true,
     setupFiles: ["./src/test/setup.ts"],

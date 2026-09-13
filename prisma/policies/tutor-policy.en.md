@@ -1,6 +1,6 @@
 # Tutor participation handbook
 
-Repository revision 2026.09.09 · School publication review required
+Repository revision 2026.09.13 · School publication review required
 
 ## Tutoring and attendance
 
@@ -49,7 +49,7 @@ Every panelist must vote before a final decision. The majority determines the re
 
 ## Feedback, messages and publishing
 
-Student feedback is staff-only unless management enables sharing with the session's tutor. Access can be revoked for both existing and future feedback. Private messages are visible only to their two participants.
+Student feedback is staff-only unless management enables sharing with the session's tutor. Access can be revoked for both existing and future feedback. Each selected contact receives a separate private message immediately. Recipients cannot see other recipients or their replies. HEAD and ADMIN may review new messages composed with the supervision notice, hide or restore content, and restrict messaging access; these actions are recorded and original evidence is retained. Messages sent under the earlier participant-only notice remain participant-only. New replies follow the current rules. Contact eligibility follows role/user permissions and recorded tutoring assignments; history remains accessible when eligibility changes. Notifications omit message bodies.
 
 Assigned translators prepare drafts. Publication requires management review; coordinators also need ADMIN or HEAD approval. Translator status does not grant structural editing, deletion or account-management powers.
 

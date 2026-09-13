@@ -2,14 +2,14 @@
 
 [Documentation hub](../README.md) · [User guide](../user-guide.md) · [Technical report](../technical-report.md#policy-documents-and-translations)
 
-Repository revision **2026.09.09** incorporates the confirmed program mechanics. These are maintained handbook drafts for school publication review. They do not invent a school contact, effective date, retention period or final school approval.
+Repository revision **2026.09.13** incorporates the confirmed program mechanics. These are maintained handbook drafts for school publication review. They do not invent a school contact, effective date, retention period or final school approval.
 
 | Audience | English | 中文 |
 | --- | --- | --- |
 | Students | [Student policy](../../prisma/policies/tutee-policy.en.md) | [学生政策](../../prisma/policies/tutee-policy.zh.md) |
 | Tutors | [Tutor policy](../../prisma/policies/tutor-policy.en.md) | [导师政策](../../prisma/policies/tutor-policy.zh.md) |
 
-Confirmed mechanics include survey-first priority, fixed verification deadlines, administrator approval of coordinator management changes, preservation of the interview chair's decision, the meeting absence allowance and the existing session rounding. Interview completion credit uses actual recorded duration.
+Confirmed mechanics include survey-first priority, fixed verification deadlines, administrator approval of coordinator management changes, preservation of the interview chair's decision, the meeting absence allowance and the existing session rounding. Interview completion credit uses actual recorded duration. New private messages deliver immediately with disclosed HEAD/ADMIN supervision; historical participant-only messages keep their original privacy. See [messaging rollout](../messaging.md).
 
 The [2025 archive](../archive/policies-2025/README.md) preserves former English and translated publications. Its translations have not been reconciled with the new rules. They are excluded from the bundled catalog; missing policy languages use the application's English fallback. UI language support is independent of policy translation availability.
 
@@ -21,6 +21,10 @@ The [2025 archive](../archive/policies-2025/README.md) preserves former English 
 4. Complete ADMIN/HEAD review for coordinator proposals. A submitted proposal has not changed the published policy. Keep intake closed and schedule a maintenance window while updating multiple translations; each committed content change can trigger renewed consent.
 5. Preview student and tutor policies in English, Chinese and one language using fallback. Check the visible text, not just the version label.
 6. With test participant accounts, exercise renewed consent, the ten-second confirmation, retained acceptance evidence and continued access to history, feedback, appeals, messages and account settings. Reopen intake after policy and delivery setup are ready.
+
+Published changes trigger a dismissible popup on the participant's next visit or window focus. The interface follows the selected locale with English fallback. Accounts linked to both a student and a tutor review both applicable policies. Canceling preserves access to personal screens; the server still requires explicit current acceptance for new participation. Retry refreshes the policy and confirmation ticket after failures. An unchanged publication or a pending coordinator proposal does not change the accepted revision.
+
+Staff review acceptance evidence in **Users & Roles → User details → Policy acceptance history**, including accounts with missing contact email. Current acceptance status is separate from the immutable historical text. Expand a record to read its original title/version, signature and acceptance time, then its recorded language copies. The history belongs to the selected account ID; it is no longer a combined list in Tutee Support. Publication remains in Policy Documents.
 
 Repository edits do **not** publish to an existing database or deploy the website. The development seed loads the four current EN/ZH sources; on an older development database it updates those rows without deleting other pre-existing translations. Rebuild a disposable development database or remove obsolete translations through the editor before testing fallback.
 

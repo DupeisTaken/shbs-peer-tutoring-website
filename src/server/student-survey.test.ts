@@ -412,6 +412,7 @@ describe("survey-first enrollment", () => {
     expect(user.emailVerifiedAt).not.toBeNull();
     expect(verifyPassword(password, user.passwordHash!)).toBe(true);
     expect(user.student?.signupSubmittedAt).toEqual(original.submittedAt);
+    expect(user.student?.signupSource).toBe("SELF_SERVICE");
     expect((await db.policyAcceptance.findFirstOrThrow()).snapshot).toEqual(
       original.policySnapshot,
     );
@@ -447,6 +448,7 @@ describe("survey-first enrollment", () => {
     expect(updated.passwordHash).toBe(user.passwordHash);
     expect(updated.role).toBe("COORDINATOR");
     expect(updated.studentId).not.toBeNull();
+    expect((await db.tutee.findUniqueOrThrow({ where: { id: updated.studentId! } })).signupSource).toBe("SELF_SERVICE");
   });
   it("rejects expired links, then permits recovery without resetting the timestamp", async () => {
     await submitSurvey(db, input());
@@ -906,10 +908,11 @@ describe("student request lifecycle", () => {
     expect(current.firstAssignedAt).toEqual(row.firstAssignedAt);
     expect(await db.studentQuarterBlock.count()).toBe(0);
   });
-  it("lets explicit owners of manual enrollments request withdrawal and staff approval blocks repeat signup", async () => {
+  it.each(["STAFF", "SELF_SERVICE", "UNKNOWN"] as const)("preserves %s provenance while explicit owners withdraw and staff approval blocks repeat signup", async (signupSource) => {
     const { row } = await assigned(true);
     const owner = await db.user.findUniqueOrThrow({ where: { email } });
     await db.studentSurvey.delete({ where: { id: row.id } });
+    await db.tutee.update({ where: { id: row.tuteeId! }, data: { signupSource } });
     const other = await db.user.create({
       data: { email: "different@example.test", role: "STUDENT" },
     });
@@ -951,6 +954,7 @@ describe("student request lifecycle", () => {
       legacyTuteeId: row.tuteeId,
       surveyId: null,
     });
+    expect((await db.tutee.findUniqueOrThrow({ where: { id: row.tuteeId! } })).signupSource).toBe(signupSource);
     await expect(submitSurvey(db, input())).rejects.toMatchObject({
       code: "FORBIDDEN",
     });

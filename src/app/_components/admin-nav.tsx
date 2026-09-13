@@ -28,6 +28,17 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
     items: [
       { href: "/admin", labelKey: "admin.nav.links.dashboard", exact: true },
       { href: "/admin/activity", labelKey: "admin.nav.links.activity" },
+      {
+        href: "/admin/messages",
+        labelKey: "workflows.messages",
+        elevatedOnly: true,
+        exact: true,
+      },
+      {
+        href: "/admin/messages/supervision",
+        labelKey: "messaging.supervision",
+        adminOnly: true,
+      },
       { href: "/admin/history", labelKey: "admin.nav.links.reports" },
       {
         href: "/admin/announcements",
@@ -51,7 +62,7 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
       },
       {
         href: "/admin/interviews",
-        labelKey: "workflows.interviewComplete",
+        labelKey: "workflows.interviewsPanelists",
         elevatedOnly: true,
         feature: "INTERVIEWS",
       },
@@ -204,13 +215,11 @@ export async function NavMobileRow({ role }: { role: string }) {
       sections={NAV_SECTIONS.map((section) => ({
         key: section.titleKey,
         title: t(section.titleKey),
-        items: section.items
-          .filter(visible)
-          .map((item) => ({
-            href: item.href,
-            label: t(item.labelKey),
-            exact: item.exact,
-          })),
+        items: section.items.filter(visible).map((item) => ({
+          href: item.href,
+          label: t(item.labelKey),
+          exact: item.exact,
+        })),
       })).filter((section) => section.items.length > 0)}
       labels={{
         title: t("adminNavigation.title"),
