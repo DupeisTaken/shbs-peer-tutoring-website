@@ -135,6 +135,8 @@ The persistent layout refreshes applicable consent on navigation and window focu
 
 UI/website translation drafts have their own approval process and stale-destination checks. Translator assignment does not grant structural editing or policy publication privileges.
 
+The shared tutor/tutee `PolicyReview` disables agreement until the policy scroll region reaches its end (four-pixel rounding tolerance), then still requires an explicit checkbox selection. Its localized hint and gray label explain the disabled state. A passive scroll listener and `ResizeObserver` on both viewport and content also handle short documents and layout changes, ignoring zero-height regions. Read state latches within a review; a key containing the policy slug, revision and displayed document resets both read and agreement state when content changes. Retry and reopening also reset the review; unchanged refetches preserve it. Listener/observer cleanup follows the review lifecycle. This client-side reading aid does not prove comprehension or replace server-side revision, confirmation-ticket and participation checks. Regression coverage is in `student-policy-gate.test.tsx`.
+
 ## Data and deployment
 
 Follow the [local setup guide](../README-LOCAL.md) or [production runbook](../README-DEPLOY.md). Apply the committed migrations with `npm run db:migrate`; do not substitute `db push` for a production upgrade. The integrated baseline contains 21 migrations, including shared student prerequisites, meeting deduction repair, coordinator approvals and historical student ownership.

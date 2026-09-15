@@ -2352,6 +2352,7 @@
     "policyTitle": "Revisa la política actualizada",
     "policyConsequences": "Lee la política y confirma que estás de acuerdo.",
     "policyAgree": "I have read and agree to this version of the policy.",
+    "policyScrollHint": "Desplázate hasta el final de la política para poder aceptarla.",
     "navigation": "Tutoring request workflow",
     "current": "Current request",
     "processed": "Processed",

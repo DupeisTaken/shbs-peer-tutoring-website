@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
@@ -103,11 +103,77 @@ function PolicyPrompt({
   };
   onDismiss: () => void;
 }) {
-  const t = useTranslations("workflow");
   const locale = useLocale();
+  const doc =
+    policy.documents.find((d) => d.locale === locale) ??
+    policy.documents.find((d) => d.locale === "en")!;
+  // Remount the review when the displayed document changes, including translations.
+  // Refetching the same content must not discard an in-progress review.
+  return (
+    <PolicyReview
+      key={JSON.stringify([
+        policy.slug,
+        policy.revision,
+        doc.locale,
+        doc.title,
+        doc.version,
+        doc.body,
+      ])}
+      slug={policy.slug as PolicySlug}
+      revision={policy.revision}
+      doc={doc}
+      onDismiss={onDismiss}
+    />
+  );
+}
+
+function PolicyReview({
+  slug,
+  revision,
+  doc,
+  onDismiss,
+}: {
+  slug: PolicySlug;
+  revision: string;
+  doc: { locale: string; title: string; body: string; version?: string | null };
+  onDismiss: () => void;
+}) {
+  const t = useTranslations("workflow");
   const utils = api.useUtils();
   const [agreed, setAgreed] = useState(false);
+  const [hasRead, setHasRead] = useState(false);
   const [attempt, setAttempt] = useState(0);
+  const scrollRef = useRef<HTMLDivElement>(null);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const hintId = useId();
+  const titleId = useId();
+  const canAccept = hasRead && agreed;
+
+  useEffect(() => {
+    const container = scrollRef.current;
+    const content = contentRef.current;
+    if (!container || !content) return;
+    const checkBottom = () => {
+      // Ignore unlaid-out/hidden regions. A fully visible short policy needs no scroll.
+      // Latch once reached so scrolling back up does not revoke this review.
+      if (
+        container.clientHeight > 0 &&
+        container.scrollTop + container.clientHeight >=
+          container.scrollHeight - 4
+      ) {
+        setHasRead(true);
+      }
+    };
+    checkBottom();
+    container.addEventListener("scroll", checkBottom, { passive: true });
+    const observer = new ResizeObserver(checkBottom);
+    observer.observe(container);
+    observer.observe(content);
+    return () => {
+      container.removeEventListener("scroll", checkBottom);
+      observer.disconnect();
+    };
+  }, [attempt]);
   const accept = api.studentWorkflow.acceptPolicy.useMutation({
     onSuccess: async () => {
       // Refresh both the global popup and local participation forms.
@@ -117,48 +183,65 @@ function PolicyPrompt({
       ]);
     },
   });
-  const doc =
-    policy.documents.find((d) => d.locale === locale) ??
-    policy.documents.find((d) => d.locale === "en")!;
   return (
     <TimedActionDialog
       key={attempt}
       action="POLICY"
-      target={policyActionTarget(policy.slug, policy.revision)}
+      target={policyActionTarget(slug, revision)}
       title={t("policyTitle")}
       message={t("policyConsequences")}
-      canConfirm={agreed}
+      canConfirm={canAccept}
       busy={accept.isPending}
       error={accept.error?.message}
       onCancel={onDismiss}
-      onConfirm={(ticket) =>
+      onConfirm={(ticket) => {
+        if (!canAccept) return;
         accept.mutate({
-          slug: policy.slug as PolicySlug,
-          revision: policy.revision,
+          slug,
+          revision,
           ticket,
           agreed: true,
-        })
-      }
+        });
+      }}
     >
       <p className="text-sm text-slate-600">{t("policyHistoryAccess")}</p>
       <div
+        ref={scrollRef}
+        role="region"
+        aria-labelledby={titleId}
+        aria-describedby={!hasRead ? hintId : undefined}
         className="max-h-[25dvh] overflow-y-auto rounded-lg border border-slate-200 bg-slate-50 p-4 sm:max-h-[40dvh]"
         tabIndex={0}
       >
-        <div className="mb-3 flex flex-wrap items-center gap-2">
-          <h3 className="font-semibold">{doc.title}</h3>
-          {doc.version && <span className="badge-slate">{doc.version}</span>}
+        <div ref={contentRef}>
+          <div className="mb-3 flex flex-wrap items-center gap-2">
+            <h3 id={titleId} className="font-semibold">
+              {doc.title}
+            </h3>
+            {doc.version && <span className="badge-slate">{doc.version}</span>}
+          </div>
+          <Markdown>{doc.body}</Markdown>
         </div>
-        <Markdown>{doc.body}</Markdown>
       </div>
+      {!hasRead && (
+        <p id={hintId} className="text-sm text-slate-500">
+          {t("policyScrollHint")}
+        </p>
+      )}
       <label className="flex items-start gap-3 text-sm">
         <input
           type="checkbox"
           checked={agreed}
-          onChange={(e) => setAgreed(e.target.checked)}
+          disabled={!hasRead}
+          aria-describedby={!hasRead ? hintId : undefined}
+          onChange={(e) => {
+            if (hasRead) setAgreed(e.target.checked);
+          }}
           className="mt-1"
         />
-        {t("policyAgree")}
+        <span className={hasRead ? "text-slate-900" : "text-slate-400"}>
+          {t("policyAgree")}
+        </span>
       </label>
       <button
         className="btn-secondary btn-sm"
@@ -167,6 +250,7 @@ function PolicyPrompt({
           // Retry renews even expired/preparation-failed tickets and rereads publication.
           accept.reset();
           setAgreed(false);
+          setHasRead(false);
           setAttempt((value) => value + 1);
           void utils.studentWorkflow.policyStatus.invalidate();
         }}

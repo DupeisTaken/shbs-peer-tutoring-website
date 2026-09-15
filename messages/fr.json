@@ -2352,6 +2352,7 @@
     "policyTitle": "Consultez le règlement mis à jour",
     "policyConsequences": "Lisez le règlement ci-dessous et confirmez votre accord.",
     "policyAgree": "I have read and agree to this version of the policy.",
+    "policyScrollHint": "Faites défiler la politique jusqu’en bas pour pouvoir l’accepter.",
     "navigation": "Tutoring request workflow",
     "current": "Current request",
     "processed": "Processed",
