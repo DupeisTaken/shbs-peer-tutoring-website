@@ -1989,9 +1989,10 @@
     },
     "userMenu": {
       "settings": "Configuración",
-      "enterTutor": "Entrar al área de tutor",
+      "enterTutor": "Entrar a la página de tutor",
       "enterAdmin": "Entrar al área de administración",
-      "enterTutee": "Enter Tutee page"
+      "enterTutee": "Entrar a la página de estudiante",
+      "backToManagement": "Volver a gestión"
     },
     "theme": {
       "label": "Tema",

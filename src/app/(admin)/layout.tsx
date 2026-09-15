@@ -1,3 +1,4 @@
+import { WorkspaceLinks } from "~/app/_components/workspace-links";
 import { AdminPreferenceIdentity } from "~/app/_components/dismissible-notice";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -56,24 +57,23 @@ export default async function AdminLayout({
   // `session.tutorId` in sync too, so following the link into the tutor area resolves correctly.
   const canEnterTutor = !!me?.tutor && me.tutor.status !== "ARCHIVED";
   const features = await getFeatures(db);
+  // Use one ordered list for visible shortcuts and the account submenu.
+  const workspaceItems = [
+    ...(canEnterTutor
+      ? [{ href: "/dashboard", label: t("components.userMenu.enterTutor") }]
+      : []),
+    { href: "/student", label: t("components.userMenu.enterTutee") },
+  ];
   const accountItems = [
+    ...workspaceItems,
     {
       href: readOnly ? "/messages" : "/admin/messages",
       label: t("workflows.messages"),
     },
-    { href: "/student", label: t("components.userMenu.enterTutee") },
     {
       href: readOnly ? "/student-support" : "/admin/student-support",
       label: t("workflows.support"),
     },
-    ...(canEnterTutor
-      ? [
-          {
-            href: "/dashboard",
-            label: t("components.userMenu.enterTutor"),
-          },
-        ]
-      : []),
     ...(features.CREW && me?.crewStatus === "ACTIVE"
       ? [{ href: "/patrol", label: t("crew.nav.patrol") }]
       : []),
@@ -92,13 +92,7 @@ export default async function AdminLayout({
             {TEAM_TITLE}
           </Link>
           <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-            <Link
-              href="/student"
-              prefetch={false}
-              className="btn-secondary btn-sm shrink-0"
-            >
-              {t("components.userMenu.enterTutee")}
-            </Link>
+            <WorkspaceLinks items={workspaceItems} />
             <Link
               href="/admin/account"
               className="hidden shrink-0 rounded-md px-2 py-1 text-right leading-tight hover:bg-slate-100 lg:block"
@@ -180,7 +174,10 @@ export default async function AdminLayout({
           {session.role === "COORDINATOR" && (
             <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
               <p>{t("approvals.trainingBanner")}</p>
-              <Link className="link mt-1 inline-block" href="/admin/approvals?status=all">
+              <Link
+                className="link mt-1 inline-block"
+                href="/admin/approvals?status=all"
+              >
                 {t("approvals.myRequests")}
               </Link>
             </div>

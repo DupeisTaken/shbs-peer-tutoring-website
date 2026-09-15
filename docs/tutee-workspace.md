@@ -1,6 +1,6 @@
 # Tutee workspace
 
-Every signed-in, unsuspended account can use **Enter Tutee page**, including tutors,
+Every signed-in, unsuspended account can use **Enter Tutee Page**, including tutors,
 crew, viewers and management. Tutee participation is independent of the account's
 permission role. The existing `/student` URL remains stable for saved links and
 verification flows; the visible interface calls participants **tutees**.
@@ -49,3 +49,5 @@ the current wording until applied.
   mobile widths, including the form link, Requests and Support actions.
 
 Messages and Account are now focused views inside the same tutee navigation and header. They reuse the existing inbox and shared self-service account controls, including verified email/password changes. Legacy /messages and /my-account links remain valid for other workspaces. No messaging recipient permissions or account security rules change.
+
+The header and account submenu share the same workspace switches. Eligible tutors see **Enter Tutor Page**; management roles (including VIEWER) see **Back to Management** without opening a menu.

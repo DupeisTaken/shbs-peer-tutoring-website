@@ -1,3 +1,4 @@
+import { WorkspaceLinks } from "~/app/_components/workspace-links";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getMessages, getTranslations } from "next-intl/server";
@@ -43,15 +44,18 @@ export default async function TuteeLayout({
   if (me.suspendedAt) redirect("/suspended");
   const elevated = ["HEAD", "ADMIN", "COORDINATOR", "VIEWER"].includes(me.role);
   const canTutor = !!me.tutor && (!elevated || me.tutor.status !== "ARCHIVED");
-  const items = [
-    { href: "/student?view=account", label: t("tuteePortal.account") },
-    { href: "/student?view=messages", label: t("tuteePortal.messages") },
+  const workspaceItems = [
     ...(canTutor
       ? [{ href: "/dashboard", label: t("components.userMenu.enterTutor") }]
       : []),
     ...(elevated
-      ? [{ href: "/admin", label: t("components.userMenu.enterAdmin") }]
+      ? [{ href: "/admin", label: t("components.userMenu.backToManagement") }]
       : []),
+  ];
+  const items = [
+    ...workspaceItems,
+    { href: "/student?view=account", label: t("tuteePortal.account") },
+    { href: "/student?view=messages", label: t("tuteePortal.messages") },
     ...(me.crewStatus === "ACTIVE" && features.CREW
       ? [{ href: "/patrol", label: t("crew.nav.patrol") }]
       : []),
@@ -70,6 +74,7 @@ export default async function TuteeLayout({
             {APP_TITLE}
           </Link>
           <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
+            <WorkspaceLinks items={workspaceItems} />
             <Link
               href="/student?view=account"
               className="hidden max-w-48 truncate rounded-md px-2 py-1 text-sm font-medium hover:bg-slate-100 lg:block"
