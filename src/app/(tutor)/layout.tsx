@@ -1,4 +1,4 @@
-import { WorkspaceLinks } from "~/app/_components/workspace-links";
+import { WorkspaceHeader } from "~/app/_components/workspace-header";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -8,9 +8,6 @@ import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { getFeatures } from "~/server/program/features";
 import { SignOutButton } from "~/app/_components/sign-out-button";
-import { NotificationBell } from "~/app/_components/notification-bell";
-import { LanguageSwitcher } from "~/app/_components/language-switcher";
-import { ThemeSwitcher } from "~/app/_components/theme-switcher";
 import { UserAvatar } from "~/app/_components/user-avatar";
 import { APP_TITLE } from "~/lib/branding";
 
@@ -115,48 +112,35 @@ export default async function TutorLayout({
   return (
     <div className="min-h-screen">
       {/* Shared top-bar theme with the admin area: brand left, identity + global controls right. */}
-      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white">
-        <div className="grid min-w-0 gap-2 px-4 py-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:px-6">
+      <WorkspaceHeader
+        href="/dashboard"
+        title={APP_TITLE}
+        items={workspaceItems}
+        identity={
           <Link
-            href="/dashboard"
-            className="flex min-h-11 max-w-full min-w-0 items-center justify-self-start truncate text-left text-lg font-bold whitespace-nowrap text-slate-900"
+            href="/settings"
+            className="hidden shrink-0 rounded-md px-2 py-1 text-right leading-tight hover:bg-slate-100 lg:block"
+            title={t("components.userMenu.settings")}
           >
-            {APP_TITLE}
+            <p className="text-sm font-medium text-slate-900">
+              {session.user.name}
+            </p>
+            <p className="muted text-xs">
+              {me.tutor?.username ? `@${me.tutor.username}` : session.role}
+            </p>
           </Link>
-          <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-            <WorkspaceLinks items={workspaceItems} />
-            <Link
-              href="/settings"
-              className="hidden shrink-0 rounded-md px-2 py-1 text-right leading-tight hover:bg-slate-100 lg:block"
-              title={t("components.userMenu.settings")}
-            >
-              <p className="text-sm font-medium text-slate-900">
-                {session.user.name}
-              </p>
-              <p className="muted text-xs">
-                {me.tutor?.username ? `@${me.tutor.username}` : session.role}
-              </p>
-            </Link>
-            <div className="shrink-0">
-              <ThemeSwitcher compactAtDesktop />
-            </div>
-            <div className="shrink-0">
-              <NotificationBell />
-            </div>
-            <div className="shrink-0">
-              <LanguageSwitcher compactAtDesktop />
-            </div>
-            <UserAvatar
-              name={session.user.name ?? me.email}
-              username={me.tutor?.username}
-              email={me.email}
-              role={session.role}
-              items={accountItems}
-              compactAtDesktop
-            />
-          </div>
-        </div>
-      </header>
+        }
+        account={
+          <UserAvatar
+            name={session.user.name ?? me.email}
+            username={me.tutor?.username}
+            email={me.email}
+            role={session.role}
+            items={accountItems}
+            compactAtDesktop
+          />
+        }
+      />
       {children}
     </div>
   );

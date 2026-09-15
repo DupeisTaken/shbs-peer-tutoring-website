@@ -1,4 +1,4 @@
-import { WorkspaceLinks } from "~/app/_components/workspace-links";
+import { WorkspaceHeader } from "~/app/_components/workspace-header";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getMessages, getTranslations } from "next-intl/server";
@@ -6,9 +6,6 @@ import { NextIntlClientProvider } from "next-intl";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { APP_TITLE } from "~/lib/branding";
-import { NotificationBell } from "~/app/_components/notification-bell";
-import { LanguageSwitcher } from "~/app/_components/language-switcher";
-import { ThemeSwitcher } from "~/app/_components/theme-switcher";
 import { UserAvatar } from "~/app/_components/user-avatar";
 import { TuteeNavigation } from "./navigation";
 import { getFeatures } from "~/server/program/features";
@@ -65,36 +62,29 @@ export default async function TuteeLayout({
   ];
   const content = (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white">
-        <div className="grid min-w-0 gap-2 px-4 py-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:px-6">
+      <WorkspaceHeader
+        href="/student"
+        title={APP_TITLE}
+        items={workspaceItems}
+        identity={
           <Link
-            href="/student"
-            className="flex min-h-11 min-w-0 items-center truncate text-lg font-bold text-slate-900"
+            href="/student?view=account"
+            className="hidden max-w-48 truncate rounded-md px-2 py-1 text-sm font-medium hover:bg-slate-100 lg:block"
           >
-            {APP_TITLE}
+            {me.name ?? me.username}
           </Link>
-          <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-            <WorkspaceLinks items={workspaceItems} />
-            <Link
-              href="/student?view=account"
-              className="hidden max-w-48 truncate rounded-md px-2 py-1 text-sm font-medium hover:bg-slate-100 lg:block"
-            >
-              {me.name ?? me.username}
-            </Link>
-            <ThemeSwitcher compactAtDesktop />
-            <NotificationBell />
-            <LanguageSwitcher compactAtDesktop />
-            <UserAvatar
-              name={me.name ?? me.username ?? me.email}
-              username={me.username}
-              email={me.email}
-              role={me.role}
-              items={items}
-              compactAtDesktop
-            />
-          </div>
-        </div>
-      </header>
+        }
+        account={
+          <UserAvatar
+            name={me.name ?? me.username ?? me.email}
+            username={me.username}
+            email={me.email}
+            role={me.role}
+            items={items}
+            compactAtDesktop
+          />
+        }
+      />
       <main className="mx-auto max-w-6xl space-y-6 px-4 py-5 sm:py-8">
         <TuteeNavigation />
         {children}

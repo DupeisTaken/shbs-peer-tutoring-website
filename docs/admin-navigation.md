@@ -11,3 +11,13 @@ Both participant workspaces show **Back to Management** in the header and accoun
 Header workspace buttons match the language selector: 32 px at desktop widths
 (`lg`, 1024 px and above), with at least 44 px touch targets below that breakpoint.
 The project [control-height hierarchy](../AGENTS.md) defines sizing by interface level.
+
+On mobile, the shared workspace header has three levels: brand and language,
+then the hamburger menu (management only) opposite theme/notifications/account,
+then the workspace switches under a subtle divider. The menu remains a modal drawer
+with its accessible name, keyboard dismissal and link-close behavior. Mobile controls
+retain 44 px touch targets; desktop stays in one compact row.
+
+Management accounts without a tutor profile can still open the tutee workspace and
+return to management. They see no tutor entry link; direct tutor-area access remains
+gated. Tutee participation does not require tutor eligibility.

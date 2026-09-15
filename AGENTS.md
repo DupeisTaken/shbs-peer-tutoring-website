@@ -27,3 +27,15 @@ weight, not an arbitrary height difference.
   on the complete running site at desktop and mobile widths. Capture screenshots
   and compare the entry/return button heights with the language selector. Keep
   browser/server work serial and stop temporary processes after verification.
+
+## Mobile header hierarchy
+
+- Use a prominent brand (20 px on mobile) and the language selector on the top row.
+- Put the management hamburger menu at the far left of the second row; align theme,
+  notifications and account controls to its right. Give the icon an accessible name.
+- Keep workspace entry/return links together on a third row, separated with a subtle
+  top border and space. Let long translated labels wrap without clipping.
+- Preserve 44 px mobile touch targets. Make the header spacious and the rows clear
+  rather than shrinking interactive controls to obtain a shorter header.
+- At desktop widths retain a single compact row, 18 px branding, and 32 px workspace
+  buttons/language selector. Keep only one instance of each interactive control.

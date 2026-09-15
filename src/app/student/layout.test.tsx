@@ -82,6 +82,39 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
+// Management membership does not grant tutoring; tutee access stays independent.
+it.each(["HEAD", "ADMIN", "COORDINATOR", "VIEWER"])(
+  "lets %s without a tutor profile enter tutee and return safely",
+  async (role) => {
+    mocks.auth.mockResolvedValue({
+      user: { id: "account" },
+      role,
+      tutorId: null,
+    });
+    mocks.user.mockResolvedValue({ role, tutor: null });
+    const management = render(
+      await AdminLayout({ children: <p>Management</p> }),
+    );
+    expect(
+      screen.getAllByRole("link", { name: "components.userMenu.enterTutee" }),
+    ).toHaveLength(2);
+    expect(
+      screen.queryByRole("link", { name: "components.userMenu.enterTutor" }),
+    ).toBeNull();
+    management.unmount();
+    render(await TuteeLayout({ children: <p>Tutee content</p> }));
+    expect(screen.getByText("Tutee content")).toBeTruthy();
+    expect(
+      screen.getAllByRole("link", {
+        name: "components.userMenu.backToManagement",
+      }),
+    ).toHaveLength(2);
+    expect(
+      screen.queryByRole("link", { name: "components.userMenu.enterTutor" }),
+    ).toBeNull();
+    await expect(TutorLayout({ children: null })).rejects.toThrow("redirect:/");
+  },
+);
 it.each(["HEAD", "ADMIN", "COORDINATOR"])(
   "keeps mobile management navigation in %s translation workspaces",
   async (role) => {
