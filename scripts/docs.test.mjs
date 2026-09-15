@@ -189,6 +189,25 @@ test("the issue guide links every available form to a valid template", () => {
   }
 });
 
+test("every guided issue form assigns exactly its own category label", () => {
+  // Parse the actual YAML: title prefixes and body field labels do not categorize issues.
+  const categories = {
+    "01-bug_report.yml": "bug",
+    "02-enhancement.yml": "enhancement",
+    "03-feature_request.yml": "feature",
+    "04-documentation.yml": "documentation",
+  };
+  const directory = path.join(root, ".github/ISSUE_TEMPLATE");
+  const templates = fs
+    .readdirSync(directory)
+    .filter((name) => name.endsWith(".yml") && name !== "config.yml");
+  assert.deepEqual(templates.sort(), Object.keys(categories).sort());
+  for (const [name, category] of Object.entries(categories)) {
+    const form = yaml.load(fs.readFileSync(path.join(directory, name), "utf8"));
+    assert.deepEqual(form.labels, [category], name);
+  }
+});
+
 test("the chooser orders bug, enhancement, feature and docs before support and blank issues", () => {
   // GitHub sorts YAML forms by filename, then displays contact links and the blank option.
   const directory = path.join(root, ".github/ISSUE_TEMPLATE");

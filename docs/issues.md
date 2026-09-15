@@ -27,6 +27,17 @@ For an enhancement, identify the existing feature and explain how it works today
 
 ## Triage and completion
 
+Each guided form automatically applies one category label when the issue is submitted:
+
+| Form | Label | Color |
+| --- | --- | --- |
+| Bug report | `bug` | Red (`#D73A4A`) |
+| Enhancement | `enhancement` | Orange (`#D97706`) |
+| Feature suggestion | `feature` | Green (`#2DA44E`) |
+| Documentation update | `documentation` | Blue (`#0075CA`) |
+
+Keep these labels present in the repository: [GitHub requires form labels to already exist](https://docs.github.com/en/communities/using-templates-to-encourage-useful-issues-and-pull-requests/syntax-for-issue-forms). The form's `labels` setting controls categorization; the title prefix alone does not assign a label. Blank issues need manual categorization. If triage changes an issue's category, replace its category label while retaining any unrelated workflow labels.
+
 Maintainers confirm scope, ask for missing reproduction details, and link duplicate issues. A fix should reference its issue and include a regression check when behavior changes. Policy/mechanics questions need an explicit product decision before implementation. Update the technical and user documentation together when the change affects both audiences.
 
 [Choose an issue form](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/new/choose) · [Documentation home](README.md)
