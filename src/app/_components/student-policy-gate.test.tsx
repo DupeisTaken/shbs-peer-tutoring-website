@@ -65,6 +65,12 @@ const policy = (revision = "current") => ({
     { locale: "zh", title: "中文守则", body: "准确原文" },
   ],
 });
+// jsdom has no layout. Model the policy viewport explicitly; observer callbacks
+// let tests exercise real layout changes without timers or a browser process.
+let viewportHeight = 400;
+let documentHeight = 200;
+let resizeCallbacks: (() => void)[] = [];
+const disconnect = vi.fn();
 beforeEach(() => {
   vi.clearAllMocks();
   vi.useFakeTimers();
@@ -73,6 +79,25 @@ beforeEach(() => {
   mocks.search = "";
   mocks.locale = "en";
   mocks.error = null;
+  viewportHeight = 400;
+  documentHeight = 200;
+  resizeCallbacks = [];
+  vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockImplementation(
+    () => viewportHeight,
+  );
+  vi.spyOn(HTMLElement.prototype, "scrollHeight", "get").mockImplementation(
+    () => documentHeight,
+  );
+  vi.stubGlobal(
+    "ResizeObserver",
+    class {
+      constructor(callback: () => void) {
+        resizeCallbacks.push(callback);
+      }
+      observe = vi.fn();
+      disconnect = disconnect;
+    },
+  );
   mocks.refetch.mockResolvedValue({ data: policy(), error: null });
   mocks.status.mockReturnValue({ data: policy(), refetch: mocks.refetch });
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
@@ -84,7 +109,126 @@ beforeEach(() => {
 });
 afterEach(() => {
   cleanup();
+  vi.restoreAllMocks();
+  vi.unstubAllGlobals();
   vi.useRealTimers();
+});
+
+it.each(["tutor-policy", "tutee-policy"])(
+  "%s requires reaching the policy bottom and explicit agreement before acceptance",
+  async (slug) => {
+    documentHeight = 1200;
+    mocks.status.mockReturnValue({
+      data: { ...policy(), slug },
+      refetch: mocks.refetch,
+    });
+    render(<StudentPolicyGate />);
+    const region = screen.getByRole("region", { name: "English rules" });
+    const checkbox = screen.getByRole<HTMLInputElement>("checkbox");
+    expect(checkbox.disabled).toBe(true);
+    expect(checkbox.checked).toBe(false);
+    expect(screen.getByText("policyAgree").className).toContain(
+      "text-slate-400",
+    );
+    expect(checkbox.getAttribute("aria-describedby")).toBe(
+      screen.getByText("policyScrollHint").id,
+    );
+    expect(region.tabIndex).toBe(0);
+    fireEvent.click(screen.getByText("policyAgree"));
+    fireEvent.click(checkbox);
+    fireEvent.keyDown(checkbox, { key: " " });
+    expect(checkbox.checked).toBe(false);
+    // Neither scrolling the surrounding dialog nor waiting out the timer unlocks consent.
+    fireEvent.scroll(screen.getByRole("dialog"), {
+      target: { scrollTop: 1200 },
+    });
+    await act(() => vi.advanceTimersByTime(10000));
+    fireEvent.click(screen.getByRole("button", { name: "confirm" }));
+    expect(mocks.accept).not.toHaveBeenCalled();
+    fireEvent.scroll(region, { target: { scrollTop: 790 } });
+    expect(checkbox.disabled).toBe(true);
+    // Fractional measurements just above the end must not strand the reader.
+    fireEvent.scroll(region, { target: { scrollTop: 797.5 } });
+    expect(checkbox.disabled).toBe(false);
+    expect(checkbox.checked).toBe(false);
+    expect(screen.queryByText("policyScrollHint")).toBeNull();
+    expect(screen.getByText("policyAgree").className).toContain(
+      "text-slate-900",
+    );
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", { name: "confirm" })
+        .disabled,
+    ).toBe(true);
+    fireEvent.scroll(region, { target: { scrollTop: 0 } });
+    expect(checkbox.disabled).toBe(false);
+    fireEvent.click(checkbox);
+    fireEvent.click(screen.getByRole("button", { name: "confirm" }));
+    expect(mocks.accept).toHaveBeenCalledExactlyOnceWith({
+      slug,
+      revision: "current",
+      agreed: true,
+      ticket: "ticket",
+    });
+  },
+);
+
+it("unlocks visible short policies and observes viewport/content resizing, with cleanup", () => {
+  viewportHeight = 0;
+  const view = render(<StudentPolicyGate />);
+  expect(screen.getByRole<HTMLInputElement>("checkbox").disabled).toBe(true);
+  viewportHeight = 100;
+  act(() => resizeCallbacks.forEach((callback) => callback()));
+  expect(screen.getByRole<HTMLInputElement>("checkbox").disabled).toBe(true);
+  viewportHeight = 400;
+  act(() => resizeCallbacks.forEach((callback) => callback()));
+  expect(screen.getByRole<HTMLInputElement>("checkbox").disabled).toBe(false);
+  expect(screen.getByRole<HTMLInputElement>("checkbox").checked).toBe(false);
+  view.unmount();
+  expect(disconnect).toHaveBeenCalled();
+});
+
+it.each(["slug", "revision", "locale", "body"])(
+  "resets read and agreement state when %s changes",
+  (change) => {
+    documentHeight = 1200;
+    const view = render(<StudentPolicyGate />);
+    fireEvent.scroll(screen.getByRole("region"), {
+      target: { scrollTop: 800 },
+    });
+    fireEvent.click(screen.getByRole("checkbox"));
+    const replacement = policy();
+    if (change === "slug") replacement.slug = "tutor-policy";
+    if (change === "revision") replacement.revision = "newer";
+    if (change === "locale") mocks.locale = "zh";
+    if (change === "body")
+      replacement.documents[0]!.body = "Replaced policy content";
+    mocks.status.mockReturnValue({ data: replacement, refetch: mocks.refetch });
+    view.rerender(<StudentPolicyGate />);
+    expect(screen.getByRole<HTMLInputElement>("checkbox").disabled).toBe(true);
+    expect(screen.getByRole<HTMLInputElement>("checkbox").checked).toBe(false);
+    expect(mocks.accept).not.toHaveBeenCalled();
+  },
+);
+
+it("preserves a review on unchanged refetch, but resets it on retry and dismissal", async () => {
+  documentHeight = 1200;
+  const view = render(<StudentPolicyGate />);
+  fireEvent.scroll(screen.getByRole("region"), { target: { scrollTop: 800 } });
+  fireEvent.click(screen.getByRole("checkbox"));
+  mocks.status.mockReturnValue({ data: policy(), refetch: mocks.refetch });
+  view.rerender(<StudentPolicyGate />);
+  expect(screen.getByRole<HTMLInputElement>("checkbox").checked).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: "retry" }));
+  expect(screen.getByRole<HTMLInputElement>("checkbox").disabled).toBe(true);
+  expect(screen.getByRole<HTMLInputElement>("checkbox").checked).toBe(false);
+  fireEvent.scroll(screen.getByRole("region"), { target: { scrollTop: 800 } });
+  expect(screen.getByRole<HTMLInputElement>("checkbox").disabled).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: "cancel" }));
+  fireEvent.click(screen.getByRole("button", { name: "policyTitle" }));
+  expect(screen.getByRole<HTMLInputElement>("checkbox").disabled).toBe(true);
+  await act(() => vi.advanceTimersByTime(10000));
+  fireEvent.click(screen.getByRole("button", { name: "confirm" }));
+  expect(mocks.accept).not.toHaveBeenCalled();
 });
 it.each(["/", "/student", "/messages", "/my-account", "/settings"])(
   "prompts immediately on %s and permits cancellation without accepting",

@@ -2352,6 +2352,7 @@
     "policyTitle": "请确认更新后的守则",
     "policyConsequences": "请阅读以下守则并确认同意。",
     "policyAgree": "我已阅读并同意此版本的守则。",
+    "policyScrollHint": "请滚动至守则底部后勾选同意。",
     "navigation": "辅导申请流程",
     "current": "当前申请",
     "processed": "已处理",
