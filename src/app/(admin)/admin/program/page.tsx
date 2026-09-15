@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ProgramEmailSettings } from "~/app/_components/program-email-settings";
 import { useTranslations, useTimeZone } from "next-intl";
 
 import { ProgramTimeZoneSettings } from "~/app/_components/program-time-zone-settings";
@@ -43,6 +44,7 @@ export default function ProgramPage() {
       </div>
 
       <ProgramTimeZoneSettings />
+      <ProgramEmailSettings />
       {current.isLoading ? (
         <p className="muted">{t("admin.program.loading")}</p>
       ) : !period ? (
@@ -160,7 +162,9 @@ function SignupWindowSettings({
   const timeZone = useTimeZone();
   const [inputError, setInputError] = useState("");
   const [opensAt, setOpensAt] = useState(() =>
-    period.signupOpensAt ? programDateTimeInput(period.signupOpensAt, timeZone) : "",
+    period.signupOpensAt
+      ? programDateTimeInput(period.signupOpensAt, timeZone)
+      : "",
   );
   const [previewUrl, setPreviewUrl] = useState(period.signupPreviewUrl ?? "");
   const [saved, setSaved] = useState(false);
@@ -212,7 +216,16 @@ function SignupWindowSettings({
         onSubmit={(event) => {
           event.preventDefault();
           if (!canSave) return;
-          try { setInputError(""); submitWindow(opensAt ? parseProgramDateTime(opensAt, timeZone) : null); } catch (error) { setInputError(error instanceof Error ? error.message : "Invalid date"); }
+          try {
+            setInputError("");
+            submitWindow(
+              opensAt ? parseProgramDateTime(opensAt, timeZone) : null,
+            );
+          } catch (error) {
+            setInputError(
+              error instanceof Error ? error.message : "Invalid date",
+            );
+          }
         }}
       >
         <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
@@ -230,7 +243,9 @@ function SignupWindowSettings({
               }}
             />
             <span className="muted block text-xs">
-              {t("programTimeZone.inputZone", { zone: timeZone ?? "Asia/Shanghai" })}
+              {t("programTimeZone.inputZone", {
+                zone: timeZone ?? "Asia/Shanghai",
+              })}
             </span>
           </label>
           <label className="space-y-1">
@@ -254,7 +269,11 @@ function SignupWindowSettings({
           </label>
         </div>
 
-        {inputError && <p role="alert" className="text-sm text-red-700">{inputError}</p>}
+        {inputError && (
+          <p role="alert" className="text-sm text-red-700">
+            {inputError}
+          </p>
+        )}
         <div className="flex flex-wrap items-center gap-2">
           <button type="submit" className="btn-primary" disabled={!canSave}>
             {save.isPending

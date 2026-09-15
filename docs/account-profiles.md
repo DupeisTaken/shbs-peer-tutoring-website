@@ -1,5 +1,9 @@
 # Shared account profiles and roster details
 
+Accounts support verified secondary addresses, primary switching, and optional
+category-based email notices. See [account emails and notifications](account-email-notifications.md)
+for verification, recovery, admin enablement, and migration details.
+
 The account is the source of the current display name and optional names in other
 languages. Editing the account, tutor or tutee profile updates the explicitly linked
 current profiles together. Staff role and tutor/tutee participation remain separate.

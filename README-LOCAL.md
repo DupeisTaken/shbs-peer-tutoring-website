@@ -11,6 +11,10 @@ stack. For production deployment see [README-DEPLOY.md](./README-DEPLOY.md).
 
 ## Messaging upgrade
 
+Account email management requires `20260916010000_account_emails` and a regenerated
+Prisma client. Notification delivery is disabled until an ADMIN/HEAD enables it on
+Admin → Program. See [account emails and notifications](docs/account-email-notifications.md).
+
 Apply the supervised-messaging migration and regenerate the local Prisma client before
 starting the updated app. Existing messages remain participant-only; new messages display
 the HEAD/admin supervision notice. Publish reviewed policy wording through the normal

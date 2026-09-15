@@ -1,35 +1,16 @@
+import {
+  assertEmailAvailable as available,
+  MAX_SECONDARY_EMAILS,
+} from "./account-emails";
+import { lockAccountProfile } from "~/server/account-profile";
 import { TRPCError } from "@trpc/server";
 import { rateLimit } from "~/server/rate-limit";
 import { db } from "~/server/db";
-import {
-  inTransaction,
-  lockEntity,
-  type TransactionDb,
-} from "~/server/transactions";
+import { inTransaction, lockEntity } from "~/server/transactions";
 import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
 import { hashCode } from "./registration";
 import { generateRegistrationCode } from "./code";
 import { verifyPassword } from "./password";
-
-async function available(
-  tx: TransactionDb,
-  userId: string,
-  email: string,
-): Promise<void> {
-  const me = await tx.user.findUniqueOrThrow({
-    where: { id: userId },
-    select: { tutorId: true },
-  });
-  const [account, tutor] = await Promise.all([
-    tx.user.findUnique({ where: { email }, select: { id: true } }),
-    tx.tutor.findUnique({ where: { email }, select: { id: true } }),
-  ]);
-  if ((account && account.id !== userId) || (tutor && tutor.id !== me.tutorId))
-    throw new TRPCError({
-      code: "CONFLICT",
-      message: "That email belongs to another account or tutor.",
-    });
-}
 
 /** Reauthentication plus proof of the destination replaces unsafe email-only identity relinking. */
 export async function requestEmailChange(
@@ -62,6 +43,7 @@ export async function requestEmailChange(
   const targetEmail = email.trim().toLowerCase();
   const code = generateRegistrationCode();
   await inTransaction(db, async (tx) => {
+    await lockAccountProfile(tx, userId);
     await lockEntity(tx, `email-change:${userId}`);
     await available(tx, userId, targetEmail);
     const recent = await tx.emailVerificationCode.findFirst({
@@ -103,6 +85,7 @@ export async function confirmEmailChange(
   code: string,
 ): Promise<boolean> {
   return inTransaction(db, async (tx) => {
+    await lockAccountProfile(tx, userId);
     await lockEntity(tx, `email-change:${userId}`);
     const row = await tx.emailVerificationCode.findFirst({
       where: { userId, purpose: "EMAIL_CHANGE", consumedAt: null },
@@ -119,6 +102,20 @@ export async function confirmEmailChange(
     }
     await available(tx, userId, row.targetEmail);
     const before = await tx.user.findUniqueOrThrow({ where: { id: userId } });
+    if (before.email === row.targetEmail) return false;
+    const existing = await tx.accountEmail.findUnique({
+      where: { email: row.targetEmail },
+    });
+    if (
+      !existing &&
+      before.emailVerifiedAt &&
+      (await tx.accountEmail.count({ where: { userId } })) >=
+        MAX_SECONDARY_EMAILS + 1
+    )
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Remove a secondary address before adding another.",
+      });
     await tx.emailVerificationCode.update({
       where: { id: row.id },
       data: { consumedAt: new Date() },
@@ -132,7 +129,11 @@ export async function confirmEmailChange(
         where: { id: before.tutorId },
         data: { email: row.targetEmail },
       });
-    if (before.studentId) await tx.tutee.update({ where: { id: before.studentId }, data: { email: row.targetEmail } });
+    if (before.studentId)
+      await tx.tutee.update({
+        where: { id: before.studentId },
+        data: { email: row.targetEmail },
+      });
     await tx.auditLog.create({
       data: {
         userId,

@@ -183,7 +183,11 @@ Draft text becomes live only after management approval. A coordinator’s transl
 
 ## Account settings and private support
 
-Use **Account Settings** to change your password or request a verified email change. Editing a contact field is not email verification. Keep account links and codes private. If email delivery is unavailable, contact management; a success message from another action does not prove an email arrived.
+Use **Account Settings → Associated emails** to add and verify up to five secondary addresses, promote one to primary, or remove a secondary. Each verified address signs in to and recovers the same account; login codes still go to the primary. Enter your current password for sensitive email changes. The former verified primary stays as a secondary until removed. Editing a contact field is not email verification.
+
+After an ADMIN/HEAD enables **Email notifications** on **Admin → Program**, choose Security, Messages, and Information updates under **Email preferences**. You can include verified secondary addresses as recipients. Essential verification, login, and recovery emails remain available independently. See [account emails and notifications](account-email-notifications.md) for details.
+
+Keep account links and codes private. If email delivery is unavailable, contact management; a success message from another action does not prove an email arrived.
 
 Use **Messages** to send separate private deliveries to allowed contacts. Search by name or username, select up to 20 people, and keep selections while searching or paging. New messages deliver immediately and may be reviewed or hidden by HEAD/ADMIN; reviews and moderation are recorded. Recipients cannot see other recipients or their replies. Historical messages sent under the old participant-only notice remain participant-only. Notifications omit message bodies. Replies follow current permissions; history remains readable after contact eligibility changes. For a suspended account, use the appeal option on the suspension page. See [messaging permissions and supervision](messaging.md).
 

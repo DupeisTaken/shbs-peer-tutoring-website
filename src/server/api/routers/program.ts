@@ -46,27 +46,109 @@ const httpUrl = z
  * can hide a disabled module); staging changes is HEAD-only and takes effect at the next refresh.
  */
 export const programRouter = createTRPCRouter({
+  emailNotificationSettings: adminProcedure.query(async ({ ctx }) => {
+    const settings = await ctx.db.programSettings.findUnique({
+      where: { id: "program" },
+    });
+    const failed = await ctx.db.emailDelivery.count({
+      where: { status: "FAILED" },
+    });
+    return {
+      enabled: settings?.emailNotificationsEnabled ?? false,
+      canEdit: ["HEAD", "ADMIN"].includes(ctx.session.role),
+      deliveryAvailable: isEmailDeliveryAvailable(),
+      failed,
+    };
+  }),
+  setEmailNotifications: adminOnlyProcedure
+    .input(z.object({ enabled: z.boolean(), expectedEnabled: z.boolean() }))
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, "email-notifications-setting");
+        const settings = await tx.programSettings.findUnique({
+          where: { id: "program" },
+        });
+        if (
+          (settings?.emailNotificationsEnabled ?? false) !==
+          input.expectedEnabled
+        )
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "The setting changed. Reload and try again.",
+          });
+        if (input.enabled && !isEmailDeliveryAvailable())
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "Configure email delivery before enabling notifications.",
+          });
+        await tx.programSettings.upsert({
+          where: { id: "program" },
+          create: { id: "program", emailNotificationsEnabled: input.enabled },
+          update: { emailNotificationsEnabled: input.enabled },
+        });
+        // Disabling drops queued notices rather than delivering an old backlog when re-enabled.
+        if (!input.enabled)
+          await tx.emailDelivery.updateMany({
+            where: { status: "PENDING" },
+            data: { status: "SKIPPED", completedAt: new Date() },
+          });
+        return { ok: true };
+      }),
+    ),
   timeZoneSettings: adminProcedure.query(async ({ ctx }) => {
-    const timeZone=await getProgramTimeZone(ctx.db);
-    return {timeZone, timeZoneOptions:programTimeZoneOptions(timeZone),
-      canEdit:ctx.session.role === "HEAD" || ctx.session.role === "ADMIN"};
+    const timeZone = await getProgramTimeZone(ctx.db);
+    return {
+      timeZone,
+      timeZoneOptions: programTimeZoneOptions(timeZone),
+      canEdit: ctx.session.role === "HEAD" || ctx.session.role === "ADMIN",
+    };
   }),
   // Program configuration requires HEAD/ADMIN directly; coordinators cannot queue this change.
   setTimeZone: adminOnlyProcedure
-    .input(z.object({ timeZone: z.string().max(100).refine(isProgramTimeZone, "Choose a valid IANA time zone."), expectedTimeZone: z.string() }))
-    .mutation(async ({ ctx, input }) => inTransaction(ctx.db, async tx => {
-      await lockEntity(tx, "program-timezone");
-      const previous = await getProgramTimeZone(tx);
-      if (previous !== input.expectedTimeZone) throw new TRPCError({ code: "CONFLICT", message: "The program time zone changed. Reload and review the latest setting." });
-      if (previous === input.timeZone) return { timeZone: previous };
-      await tx.programSettings.upsert({ where: { id: "program" }, create: { id: "program", timeZone: input.timeZone }, update: { timeZone: input.timeZone } });
-      await tx.auditLog.create({ data: {
-        userId: ctx.session.user.id, userName: ctx.session.user.name,
-        entity: "ProgramSettings", entityId: "program", operation: "program.setTimeZone",
-        action: "Changed program time zone", details: { before: previous, after: input.timeZone, weeklyClockTimesPreserved: true, storedTimestampsPreserved: true },
-      } });
-      return { timeZone: input.timeZone };
-    })),
+    .input(
+      z.object({
+        timeZone: z
+          .string()
+          .max(100)
+          .refine(isProgramTimeZone, "Choose a valid IANA time zone."),
+        expectedTimeZone: z.string(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, "program-timezone");
+        const previous = await getProgramTimeZone(tx);
+        if (previous !== input.expectedTimeZone)
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "The program time zone changed. Reload and review the latest setting.",
+          });
+        if (previous === input.timeZone) return { timeZone: previous };
+        await tx.programSettings.upsert({
+          where: { id: "program" },
+          create: { id: "program", timeZone: input.timeZone },
+          update: { timeZone: input.timeZone },
+        });
+        await tx.auditLog.create({
+          data: {
+            userId: ctx.session.user.id,
+            userName: ctx.session.user.name,
+            entity: "ProgramSettings",
+            entityId: "program",
+            operation: "program.setTimeZone",
+            action: "Changed program time zone",
+            details: {
+              before: previous,
+              after: input.timeZone,
+              weeklyClockTimesPreserved: true,
+              storedTimestampsPreserved: true,
+            },
+          },
+        });
+        return { timeZone: input.timeZone };
+      }),
+    ),
   /** Effective on/off for every optional module (missing row = on). Public so the landing page and
    *  public signup forms can hide a disabled module. */
   features: publicProcedure.query(async ({ ctx }) => ({

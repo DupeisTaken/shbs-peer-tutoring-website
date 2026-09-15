@@ -8,7 +8,10 @@ import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { SYMBOLS } from "~/lib/symbols";
 import { TwoFactorSettings } from "~/app/_components/two-factor-settings";
-import { EmailChange } from "~/app/_components/email-change";
+import {
+  AccountEmails,
+  EmailPreferences,
+} from "~/app/_components/account-emails";
 
 /** Monogram initials for the identity pass — first+last initial, else the first two characters
  *  of whatever handle we have. Always uppercase; never empty. */
@@ -386,7 +389,8 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
         </div>
       </section>
 
-      <EmailChange />
+      <AccountEmails />
+      <EmailPreferences />
       <TwoFactorSettings />
     </div>
   );

@@ -5,7 +5,10 @@ import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { TwoFactorSettings } from "~/app/_components/two-factor-settings";
-import { EmailChange } from "~/app/_components/email-change";
+import {
+  AccountEmails,
+  EmailPreferences,
+} from "~/app/_components/account-emails";
 
 export default function SettingsPage() {
   const programFormat = useFormatter();
@@ -333,7 +336,8 @@ export default function SettingsPage() {
         </div>
       </section>
 
-      <EmailChange />
+      <AccountEmails />
+      <EmailPreferences />
       <TwoFactorSettings />
 
       {/* Membership — opt-out / reentry */}
@@ -349,9 +353,10 @@ export default function SettingsPage() {
               {statusReq.data.kind === "OPT_OUT"
                 ? statusReq.data.eligibleAt
                   ? t("tutor.settings.optOutPending", {
-                      date: programFormat.dateTime(new Date(
-                        statusReq.data.eligibleAt,
-                      ), { dateStyle: "medium" }),
+                      date: programFormat.dateTime(
+                        new Date(statusReq.data.eligibleAt),
+                        { dateStyle: "medium" },
+                      ),
                     })
                   : t("tutor.settings.optOutPendingNoDate")
                 : t("tutor.settings.reentryPending")}

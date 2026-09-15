@@ -50,6 +50,12 @@ Server-side validation is authoritative. Client-side controls, disabled buttons 
 
 ## Identity and authorization
 
+Primary and secondary login addresses share a unique `AccountEmail` registry. Secondary
+sign-in and recovery require verification, and reset grants are bound to their delivery
+address. Optional account/message notifications use a transactional outbox, gated by
+both immediate ADMIN/HEAD enablement and individual category preferences. See
+[account email design, deployment, and tests](account-email-notifications.md).
+
 Accounts have one primary role: `STUDENT`, `TUTOR`, `CREW`, `COORDINATOR`, `ADMIN`, `HEAD` or `VIEWER`. Tutor linkage, crew membership and translator assignment are additional capabilities. Do not flatten these into a single rank comparison: an administrator without an active tutor profile cannot automatically act as an interview panelist.
 
 Protected requests reload the account’s current role, linkage and suspension state. A stale JWT cannot retain a revoked role. Student ownership is based on stable account/profile links, not a matching name or email. Public student/viewer signup cannot claim a legacy tutor profile merely by matching its email; see [tutor linking](../src/server/auth/tutor-link.ts).

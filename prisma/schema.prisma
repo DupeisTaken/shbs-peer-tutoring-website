@@ -46,6 +46,13 @@ model User {
   profileVersion Int @default(0)
   /// Login identifier. Also the address future email-based 2FA codes are sent to.
   email String  @unique
+  /// All associated addresses, including the primary, share one globally unique namespace.
+  emails AccountEmail[]
+  emailSecurity Boolean @default(true)
+  emailMessages Boolean @default(false)
+  emailInfo Boolean @default(false)
+  emailSecondaryRecipients Boolean @default(false)
+  emailDeliveries EmailDelivery[]
 
   /// Account username — an alternate sign-in identifier (sign in with username OR email) and the
   /// account's stable handle shown across the admin area. Every account has one: for a linked
@@ -1281,6 +1288,7 @@ model AnnouncementAck {
 // ----------------------------------------------------------------------------
 
 enum VerificationPurpose {
+  SECONDARY_EMAIL
   LOGIN_2FA // emailed one-time code as a login second factor
   PASSWORD_RESET // forgot-password reset (see PasswordResetToken)
   PASSWORD_CHANGE // emailed step-up code required to change a password while signed in
@@ -1309,6 +1317,8 @@ model EmailVerificationCode {
 /// The token logic (issue/verify) is implemented in src/server/auth/password-reset.ts;
 /// email delivery goes through src/server/email/sender.ts.
 model PasswordResetToken {
+  /// Bind the grant to the address proved by the emailed link.
+  targetEmail String?
   id         String    @id @default(cuid())
   userId     String
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1704,7 +1714,39 @@ model SchoolCalendarDay {
 
 /// Singleton configuration; changing the zone never rewrites stored instants or weekly slot times.
 model ProgramSettings {
+  /// Immediate ADMIN/HEAD switch, independent of staged program modules and authentication mail.
+  emailNotificationsEnabled Boolean @default(false)
   id String @id @default("program")
   timeZone String @default("Asia/Shanghai")
   updatedAt DateTime @default(now()) @updatedAt
+}
+
+/// Primary addresses are maintained by a database trigger so every provisioning path reserves them.
+model AccountEmail {
+  email String @id
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verifiedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([userId])
+}
+
+/// A transactionally recorded notification, with one row per event/recipient and bounded retries.
+model EmailDelivery {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category String
+  event String
+  recipient String
+  /// Previous primary receives the security notice even if it is subsequently removed.
+  previousPrimary Boolean @default(false)
+  createdAt DateTime @default(now())
+  attempts Int @default(0)
+  availableAt DateTime @default(now())
+  leaseUntil DateTime?
+  completedAt DateTime?
+  status String @default("PENDING")
+  lastError String?
+  @@index([status, availableAt])
 }
