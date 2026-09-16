@@ -57,5 +57,5 @@ response. A coordinator receives only their own requests and no requester direct
 The separate administrator-only directory endpoint remains restricted, but the page
 does not enable it from a potentially stale cached `canReview` flag.
 
-See [local setup](../README-LOCAL.md), [management review](../COORDINATOR-APPROVALS.md)
+See [local setup](local-development.md), [management review](coordinator-approvals.md)
 and [the technical report](technical-report.md#identity-and-authorization).

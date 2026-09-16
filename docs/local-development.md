@@ -1,36 +1,10 @@
 # Local development & testing
 
-Coordinator approval and audit changes require the migration described in
-[COORDINATOR-APPROVALS.md](COORDINATOR-APPROVALS.md). The approval integration suite uses
-explicitly allowed local test databases (the combined suite uses `shbs_shipping_test`); it resets that test
-database between cases. Run tests serially with `npm test -- --maxWorkers=1`.
+Run the app locally, seed synthetic data and verify changes. Run all commands from the repository root. For production, use the [deployment runbook](deployment.md).
 
-How to run the SHBS Peer Tutoring app on your own machine, point it at a local database,
-seed sample data, run the test suite, and (optionally) smoke-test the production Docker
-stack. For production deployment see [README-DEPLOY.md](./README-DEPLOY.md).
+## Updating an existing checkout
 
-## Messaging upgrade
-
-Apply the supervised-messaging migration and regenerate the local Prisma client before
-starting the updated app. Existing messages remain participant-only; new messages display
-the HEAD/admin supervision notice. Publish reviewed policy wording through the normal
-policy editor, without replacing accepted snapshots. See [messaging rollout and tests](docs/messaging.md).
-
-## September admin improvements
-
-The policy/signup/interview update requires migration
-`20260913030000_signup_provenance` and a regenerated Prisma client. Run
-`npm run db:migrate` and `npx prisma generate` before using it. Existing records
-without explicit survey provenance keep the neutral Earlier signup label; do not
-bulk relabel historical data as staff entry. Test consent through the next visit
-and window focus, and inspect a selected account's User details for acceptance
-history. See the [user guide](docs/user-guide.md).
-
-The recipient, student withdrawal, and program timezone changes add three migrations.
-Run `npm run db:migrate` and `npx prisma generate` before starting an updated local
-checkout. Existing announcements remain broadcasts; existing programs default to
-`Asia/Shanghai`. See [announcement recipients](docs/announcement-recipients.md) and
-[program timezone behavior](docs/program-time-zone.md).
+After pulling schema changes, run `npm run db:migrate` and `npx prisma generate`, then restart the app. Apply the complete migration chain; do not reset an existing database just to upgrade it. Feature-specific rollout details are in [messaging](messaging.md), [announcement recipients](announcement-recipients.md), [program timezones](program-time-zone.md) and [coordinator approvals](coordinator-approvals.md).
 
 On Windows, create disposable test/demo databases with UTF-8 encoding rather than
 inheriting a WIN1252 template. The application stores Chinese text and emoji. A new
@@ -70,7 +44,7 @@ Sign-in is username or email + password — there is no external identity provid
 The first address in `AUTH_BOOTSTRAP_ADMIN_EMAILS` becomes `HEAD` when no HEAD exists;
 later entries become `ADMIN`. This promotes an existing account on sign-in; it does not
 create one. Use `npm run admin:create` for a seed-free initial account, following the
-[bootstrap instructions](README-DEPLOY.md#create-the-first-admin-first-deploy).
+[bootstrap instructions](deployment.md#create-the-first-admin-first-deploy).
 
 > **Email-based sign-in 2FA is implemented** and applies when the `EMAIL_2FA` program feature
 > and the user's 2FA preference are both enabled. Without SMTP configuration, development logs
@@ -124,7 +98,7 @@ npm run db:seed
 npx tsx prisma/verify-demo.ts
 ```
 
-Seeding creates synthetic fixtures and refreshes some values. It preserves immutable request history and is not a full reset; create a fresh database to restart a rehearsal. It can overwrite other rehearsal changes; never use it with real program data. See the [demo database guide](docs/demo-database.md) for all roles, example workflows, and database design decisions. Use `npm run admin:create` to bootstrap real deployments.
+Seeding creates synthetic fixtures and refreshes some values. It preserves immutable request history and is not a full reset; create a fresh database to restart a rehearsal. It can overwrite other rehearsal changes; never use it with real program data. See the [demo database guide](demo-database.md) for all roles, example workflows, and database design decisions. Use `npm run admin:create` to bootstrap real deployments.
 
 ## 4. Run the app
 
@@ -151,7 +125,7 @@ Try the public forms (no login required):
 - **Tutor application** at `/tutor-signup` starts recruitment. Assign at least three active tutor accounts, a highest-ranking management chair, and explicit subject qualification coverage. Every panelist votes; the majority determines the outcome and the chair breaks ties. A coordinator chair's decision requires ADMIN/HEAD approval.
 - **Crew application** at `/crew-signup` starts the separate crew membership workflow.
 
-Follow the [role guide](docs/user-guide.md) and [demo walkthrough](docs/demo-database.md). Real SMTP setup and final school policy approval remain launch configuration work; local capture delivers no external mail.
+Follow the [role guide](user-guide.md) and [demo walkthrough](demo-database.md). Real SMTP setup and final school policy approval remain launch configuration work; local capture delivers no external mail.
 
 ## 5. Run the tests
 
@@ -186,7 +160,7 @@ Lint and type-check the same way CI does:
 
 ```bash
 npm run check       # eslint . + tsc --noEmit
-npm run docs:check  # documentation links, report freshness and maintenance regressions
+npm run docs:check  # documentation links, report rendering and maintenance regressions
 ```
 
 ## 6. Smoke-test the production Docker stack (optional)
@@ -218,8 +192,7 @@ docker compose down        # or: docker compose down -v
 
 ## Troubleshooting
 
-- **Expired/unverifiable session or old development cookie** — sign in again when prompted. Keep `AUTH_SECRET` stable; localhost ports share cookies, so use separate browser profiles for worktrees with different secrets. If a fresh sign-in still fails, investigate the running process configuration. See [session recovery](docs/session-recovery.md).
-
+- **Expired/unverifiable session or old development cookie** — sign in again when prompted. Keep `AUTH_SECRET` stable; localhost ports share cookies, so use separate browser profiles for worktrees with different secrets. If a fresh sign-in still fails, investigate the running process configuration. See [session recovery](session-recovery.md).
 
 - **`Invalid environment variables` on startup** — a required var in `.env` is missing or
   malformed. Check it against `.env.example` and the schema in `src/env.js`.
@@ -235,25 +208,32 @@ docker compose down        # or: docker compose down -v
 - **`next build` fails on Windows (file-tracing / EPERM)** — expected for the classic webpack
   build; this project builds with `--turbopack` (`npm run build`), which avoids it.
 
-## Database correction workflow
+## Workflow and maintenance references
 
-- Attendance Submissions → Correct Attendance updates a whole merged block, recalculates hours,
-  withdraws corrected auto-absence cards, reconciles removal/pairing state, and reopens affected
-  crew decisions while removing their linked deductions. A reason and current record version are
-  required. Existing survey students are editable; changing the block's membership is separate work.
-- Crew → Patrol History and Corrections edits room, count, observation time and notes; timestamps
-  explicitly use Asia/Shanghai. Patrol credit remains the configured per-patrol amount.
-- Tutee Roster → Edit Details works for pending, active and inactive profiles, including preferred
-  contact, subject choices and availability. Assignment/removal remain their own operations.
-- Account / tutor settings → Change Account Email verifies the destination before changing both
-  account and roster email. This requires configured email delivery, independently of the 2FA flag.
-- Audit Log keeps correction snapshots with pagination. Snapshots are evidence, not executable
-  undo instructions. Card/application undo rejects changes made after the original decision.
+See the [user guide](user-guide.md) for record corrections and participant workflows, [product rules](product-rules.md) for confirmed decisions, and [repository maintenance](repository-maintenance.md) before deleting runtime fixtures or caches. Store local evidence in ignored `outputs/` or `.validation/`.
 
-After generating a changed Prisma client, restart the local Next server so its cached database
-client includes the new fields. Confirmed product-policy decisions are in `REVIEW-QUESTIONS.md`.
+## Browser tab icon (favicon)
 
-Student workflow navigation and product rules are documented in [STUDENT-WORKFLOWS.md](STUDENT-WORKFLOWS.md).
-Store local reports and screenshots in ignored `outputs/` or `.validation/`; they are excluded
-from lint, type and formatting checks. Follow [repository maintenance](docs/repository-maintenance.md)
-before deleting runtime fixtures or caches: an embedded database may be using those directories.
+Replace **`src/app/icon.png`** with your logo as an actual PNG image, keeping the
+filename. Use a square image (512 × 512 recommended) with a simple design that
+remains readable at 16 × 16. Transparency is supported. The current artwork is a
+temporary placeholder until a replacement logo is supplied.
+
+Next.js serves this file and generates the browser icon link on every page,
+including pages with their own titles. No TypeScript or environment changes are
+needed. Keep this as the single icon source; do not add a competing
+`public/favicon.ico` or `src/app/favicon.ico`.
+
+Restart the development server after replacing the image. For production, rebuild
+and redeploy the app (including rebuilding the Docker image if used). If a browser
+still shows the old icon, close and reopen the tab or clear its cached site data.
+This controls the browser tab/bookmark icon, not an image inside the page.
+
+With the app running locally, verify the icon and its page metadata with:
+
+```bash
+node --test scripts/test-tab-icon.mjs
+```
+
+The smoke test defaults to `http://localhost:3000`; set `TEST_BASE_URL` to test a
+different local port. It only reads public pages and image assets.

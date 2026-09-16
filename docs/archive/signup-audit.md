@@ -1,6 +1,6 @@
 # Student signup and participation audit — 9 September 2026
 
-Historical audit of the standalone survey branch. The current integrated release is [SHIPPING-READINESS.md](SHIPPING-READINESS.md); current ownership and policy behavior are in the [technical report](docs/technical-report.md). Counts and pre-merge statements below describe that earlier audit.
+Historical audit of the standalone survey branch. The current integrated release is [release-verification.md](../release-verification.md); current ownership and policy behavior are in the [technical report](../technical-report.md). Counts and pre-merge statements below describe that earlier audit.
 
 Worktree: `D:/Working Directory/shbs-peer-tutoring-survey-first`  
 Branch: `codex/survey-first-student-signup`  
@@ -10,7 +10,7 @@ Base: `cc6646d` (`origin/main` when the sibling worktree was created)
 
 The survey-first signup implementation now includes the confirmed priority, verification, availability, recall, quarter withdrawal, tutor schedule review and updated-policy rules. The audit was completed in an isolated sibling worktree before committing and opening the pull request. The main checkout is untouched; merging and deployment are separate release steps.
 
-[STUDENT-SIGNUP.md](STUDENT-SIGNUP.md) documents the final workflow, schema invariants and operations. README and CLAUDE.md have also been updated. English and Chinese new UI copy is supplied; other configured locales use English fallback for new messages.
+[student-signup.md](../student-signup.md) documents the final workflow, schema invariants and operations. README and docs/contributing.md have also been updated. English and Chinese new UI copy is supplied; other configured locales use English fallback for new messages.
 
 ## Audit findings addressed
 

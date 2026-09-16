@@ -165,7 +165,7 @@ You cannot review your own proposal, including after promotion. A coordinator in
 
 HEAD has administrator abilities plus the program’s restricted leadership and configuration controls. Use **Users & Roles** for permitted appointments and leadership transfer, and **Program & Refresh** for module and program settings. Confirm consequential actions carefully; switching modules or periods affects what participants can do.
 
-Before opening intake, confirm email delivery, the current policies, subjects, slots, rooms, qualifications, intake timing, school calendar and feedback visibility. Coordinate host, backup and recovery readiness with the technical operator using the [launch runbook](../README-DEPLOY.md).
+Before opening intake, confirm email delivery, the current policies, subjects, slots, rooms, qualifications, intake timing, school calendar and feedback visibility. Coordinate host, backup and recovery readiness with the technical operator using the [launch runbook](deployment.md).
 
 A new period does not erase historical attendance, policy acceptance or audit evidence. Review the new period’s active participation and assignments rather than treating historical records as current availability.
 

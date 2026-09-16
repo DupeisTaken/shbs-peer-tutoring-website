@@ -9,7 +9,71 @@ import prettier from "prettier";
 import ts from "typescript";
 import yaml from "js-yaml";
 import { markdownModel, reportLink, root } from "./build-docs.mjs";
-import { validateLinks, validateForm } from "./check-docs.mjs";
+import { checkDocs, validateLinks, validateForm } from "./check-docs.mjs";
+
+test("the root has one README and all supporting guides live in docs", () => {
+  assert.deepEqual(
+    fs.readdirSync(root).filter((name) => /\.(md|mdx|rst|txt)$/i.test(name)),
+    ["README.md"],
+  );
+  for (const name of [
+    "local-development",
+    "deployment",
+    "contributing",
+    "product-rules",
+    "coordinator-approvals",
+    "student-signup",
+    "release-verification",
+  ]) {
+    assert.ok(fs.existsSync(path.join(root, `docs/${name}.md`)), name);
+  }
+});
+
+test("HTML reports are ignored while source docs and application HTML remain trackable", () => {
+  const ignored = [
+    "docs/reports/user-guide.html",
+    "docs/reports/technical-report.html",
+    "docs/reports/release-audit.html",
+    "docs/reports/nested/print.html",
+    "playwright-report/index.html",
+    "test-report.html",
+    "docs/signup-audit.html",
+  ];
+  const tracked = [
+    "docs/user-guide.md",
+    "scripts/report.css",
+    "public/example.html",
+  ];
+  const result = execFileSync(
+    "git",
+    ["check-ignore", "--no-index", "--stdin"],
+    {
+      cwd: root,
+      input: [...ignored, ...tracked].join("\n") + "\n",
+      encoding: "utf8",
+    },
+  );
+  assert.deepEqual(result.trim().split(/\r?\n/), ignored);
+});
+
+test("documentation checks work without generated HTML and never write exports", (t) => {
+  // Emulate a fresh checkout even when the developer has stale local exports.
+  const read = fs.readFileSync;
+  const exists = fs.existsSync;
+  const isReport = (file) =>
+    /\/reports\/.*\.html$/.test(String(file).replaceAll("\\", "/"));
+  t.mock.method(fs, "existsSync", (file) =>
+    isReport(file) ? false : exists(file),
+  );
+  t.mock.method(fs, "readFileSync", (file, ...args) => {
+    assert.equal(isReport(file), false, "checks must use report sources");
+    return read(file, ...args);
+  });
+  t.mock.method(fs, "writeFileSync", () =>
+    assert.fail("checks must not write exports"),
+  );
+  assert.doesNotThrow(() => checkDocs());
+});
 
 test("local evidence stays outside Git, lint, formatting and TypeScript inputs", async () => {
   const directories = [

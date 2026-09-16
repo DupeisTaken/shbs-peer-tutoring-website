@@ -139,7 +139,7 @@ The shared tutor/tutee `PolicyReview` disables agreement until the policy scroll
 
 ## Data and deployment
 
-Follow the [local setup guide](../README-LOCAL.md) or [production runbook](../README-DEPLOY.md). Apply the committed migrations with `npm run db:migrate`; do not substitute `db push` for a production upgrade. The integrated baseline contains 21 migrations, including shared student prerequisites, meeting deduction repair, coordinator approvals and historical student ownership.
+Follow the [local setup guide](local-development.md) or [production runbook](deployment.md). Apply the committed migrations with `npm run db:migrate`; do not substitute `db push` for a production upgrade. The integrated baseline contains 21 migrations, including shared student prerequisites, meeting deduction repair, coordinator approvals and historical student ownership.
 
 Production starts with an empty database and the seed-free admin bootstrap. Repeating bootstrap preserves the singleton HEAD and active period. **The development seed contains synthetic people and is not a production installation procedure.**
 
@@ -166,7 +166,7 @@ npm audit
 npm run build
 ```
 
-Set `DATABASE_URL` to the isolated test database and supply a local `AUTH_SECRET` first. Detailed environment setup and Windows commands are in [README-LOCAL.md](../README-LOCAL.md).
+Set `DATABASE_URL` to the isolated test database and supply a local `AUTH_SECRET` first. Detailed environment setup and Windows commands are in [local-development.md](local-development.md).
 
 The [CI workflow](../.github/workflows/docker-build.yml) checks clean dependency installation, migrations/schema agreement, lint/types, documentation contracts, full dependency audit, tests, production build and runnable-image acceptance. [The image smoke test](../scripts/smoke-image.sh) boots an empty database, runs bootstrap twice, checks sign-in, restarts with an overdue assignment, and verifies deadline cleanup without a browser mutation. PR validation does not publish an image; main-branch validation can publish to GHCR. Publishing an image does not deploy a host.
 
@@ -181,7 +181,7 @@ npm run docs:build
 npm run docs:check
 ```
 
-The builder generates printable HTML editions from Markdown with shared styling and a contents sidebar. It uses local assets only. The check validates relative files and heading anchors, required role coverage, generated-report freshness, current policy sources and GitHub issue-form structure. Generated HTML lives in `docs/reports/`; commit it with its source so readers can download it without running the application.
+The builder generates printable HTML editions from Markdown with shared styling and a contents sidebar. It uses local assets only. The check validates relative files and heading anchors, required role coverage, report rendering, current policy sources and GitHub issue-form structure. Generated HTML lives in ignored `docs/reports/`; commit only the Markdown sources and report tooling. Checks render reports in memory and work without local exports. To verify an existing export against its source, run `node scripts/build-docs.mjs --check`.
 
 Verify report layout at desktop and mobile widths and check the contents links, tables and print control. For changes to policy loading or application behavior, run the relevant tests and required CI gates too. Reporting instructions and the four guided forms are in [Creating issues](issues.md).
 
@@ -195,7 +195,7 @@ Repository verification does not establish that a public host is deployed correc
 4. Actual intake timing, subjects, slots, rooms, qualifications, calendar overrides and feedback settings.
 5. A backup restored into a separate database and target-host restart/TLS verification.
 
-These are concrete operational prerequisites, not evidence obtainable from a local screenshot or a clean dependency audit. See [the deployment runbook](../README-DEPLOY.md) and [release verification record](../SHIPPING-READINESS.md).
+These are concrete operational prerequisites, not evidence obtainable from a local screenshot or a clean dependency audit. See [the deployment runbook](deployment.md) and [release verification record](release-verification.md).
 
 [Documentation home](README.md) · [User guide](user-guide.md) · [Creating issues](issues.md)
 

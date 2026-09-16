@@ -1,11 +1,8 @@
 # Repository maintenance
 
-[Documentation hub](README.md) · [Local development](../README-LOCAL.md)
+[Documentation hub](README.md) · [Local development](local-development.md)
 
-The 10 September 2026 audit used main commit `93485c2`, after the configurable-icon
-change merged. It checked tracked files, source imports, package usage, documentation
-references, generated artifacts and local branch ancestry. It does not certify a running
-school database, real email delivery or the accuracy of privately supplied timetables.
+Keep `README.md` as the only root documentation file. Maintained guides belong under `docs/`; policy Markdown in `prisma/policies/` remains application input. Store HTML reports and disposable evidence locally.
 
 ## What belongs in the repository
 
@@ -16,27 +13,14 @@ school database, real email delivery or the accuracy of privately supplied timet
 | Development seed and verification helpers | Reproducible synthetic demonstrations | Retain with their existing opt-in and database guards; never substitute them for production bootstrap. |
 | `prisma/policies/` and policy catalog | Maintained English/Chinese policy drafts | Retain. Publication and school approval remain separate operator actions. |
 | `messages/` | Eight referenced UI language catalogs | Retain. Hidden languages remain available to translators; visibility is not evidence of an unused file. |
-| `docs/`, root guides and issue forms | User instructions, technical explanations and operation | Retain maintained guides. Correct local setup instructions and distinguish dated release evidence from current behavior. |
+| `README.md`, `docs/` and issue forms | User instructions, technical explanations and operation | Retain maintained guides. Correct local setup instructions and distinguish dated release evidence from current behavior. |
 | `docs/archive/policies-2025/` | Explicitly labeled policy history for comparison | Retain as historical evidence, excluded from seeding; it is not current policy. |
-| `docs/handbook-drafts/` and root workflow link pages | Compatibility links from older documentation | Retain: these point to maintained sources and no longer duplicate policy text. |
-| `docs/reports/` and referenced screenshots | Printable guides and dated release evidence | Retain. Two guides are generated and freshness-checked; the release audit is an authored historical report. |
+| `docs/handbook-drafts/` | Compatibility links from older documentation | Retain: these point to maintained sources and no longer duplicate policy text. |
+| `docs/reports/` and referenced screenshots | Printable guides and dated release evidence | Ignore HTML reports and keep screenshots in ignored evidence directories. Generate printable guides from Markdown when needed; earlier authored HTML audits remain in Git history. |
 | `scripts/`, CI, Docker, Caddy and root tool configuration | Setup, build, deployment, backup and validation | Retain; align exclusions for local evidence and backups across tools. |
 | `src/app/icon.png`, `public/.gitkeep` | Configurable browser icon and a directory required by Docker COPY | Retain, including the empty placeholder. The icon is still the documented T3 placeholder awaiting school artwork. |
-| `package.json`, lockfile, `.npmrc` | Reproducible dependency installation | Retain. Remove unused direct Auth.js Prisma-adapter and legacy ESLint-config dependencies, plus unused scaffold-version metadata. ESLint still owns its transitive config dependency. |
+| `package.json`, lockfile, `.npmrc` | Reproducible dependency installation | Retain and update together when dependencies change. |
 | `LICENSE`, `.gitattributes` | Licensing and portable shell-script line endings | Retain. |
-
-## Removed and corrected material
-
-- Remove `docs/archive/pre-integration-readme.md` and
-  `docs/archive/pre-integration-developer-notes.md`: they duplicate superseded guidance
-  about permissions, signup and meeting deductions. Their exact text remains in Git history.
-- Move obsolete local review outputs out of the working directory after verifying a recovery
-  archive. One-off merge/publish scripts, old screenshots, PID snapshots, test logs and stale
-  readiness reports are not maintained application code or current release status.
-- Keep files used by running local helpers and their databases. Keep privately supplied
-  timetable workbooks; their authoritative replacement is not established by repository history.
-- Correct the bootstrap-role explanation and require `shbs_shipping_test` for the combined
-  suite. A generic local `_test` name satisfies the shared guard but not every suite's allowlist.
 
 ## Prevent recurring clutter
 

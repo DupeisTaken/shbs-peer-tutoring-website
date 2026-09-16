@@ -14,25 +14,18 @@ Choose the guide for the work you need to do. User instructions follow the websi
 | Understand architecture, permissions, data or tests | [Technical report](technical-report.md) |
 | See every supported function and configurable module | [Program reference](program-reference.md) |
 | Read or publish a policy revision | [Policy documents](policies/README.md) |
-| Install or operate the server | [Local setup](../README-LOCAL.md) · [Deployment runbook](../README-DEPLOY.md) |
+| Install or operate the server | [Local setup](local-development.md) · [Deployment runbook](deployment.md) |
+| Contribute or verify product decisions | [Contributor guidance](contributing.md) · [Product rules](product-rules.md) |
+| Understand signup or management review in detail | [Student signup](student-signup.md) · [Coordinator approvals](coordinator-approvals.md) |
 | Report a bug, suggest a feature or enhancement, or improve these docs | [Creating issues](issues.md) |
 | Understand which files to keep or safely clean | [Repository maintenance](repository-maintenance.md) |
 
-## Two reports
+## Printable reports
 
-- **[User report and role guide](user-guide.md):** tasks, outcomes, approval states and nearby troubleshooting.
-- **[Technical report](technical-report.md):** architecture, authorization, transactions, data lifecycle, validation and launch boundaries.
-
-Both also have printable HTML editions generated with `npm run docs:build` in `docs/reports/`. Markdown is the editable source. See [maintaining the documentation](technical-report.md#maintaining-the-documentation).
+Run `npm run docs:build` to export the user guide and technical report to `docs/reports/`, then open the HTML files in a browser. HTML reports are ignored local artifacts; Markdown is the maintained source. `npm run docs:check` validates sources and rendering without requiring exports. See [maintaining the documentation](technical-report.md#maintaining-the-documentation).
 
 ## Status and history
 
-The [release rehearsal report](reports/release-audit.html) records the September 2026 navigation audit, bounded load tests, demo database, focused fixes and remaining launch setup. It is an authored HTML report; edit it directly rather than regenerating it from the guides.
-
-The [current release verification record](../SHIPPING-READINESS.md) links the integrated shipping PR and distinguishes tested code from live email, school-content and hosting verification. The latest per-PR screenshot audit is a local, ignored HTML artifact; maintained role and technical guides remain versioned here.
-
-The [2025 policy archive](archive/policies-2025/README.md) is historical material, not a policy to publish. Old entry-point documents remain as links to current guides so existing bookmarks continue to work.
-
-Documentation organization is informed by [beatblock-online](https://github.com/DupeisTaken/beatblock-online/tree/main/docs): a short entry page, separate user and technical guides, and links to the exact task or explanation.
+The [release verification record](release-verification.md) preserves dated test evidence and launch checks. The [signup audit](archive/signup-audit.md) and [2025 policy archive](archive/policies-2025/README.md) are historical references, not current release status or policies to publish. Earlier HTML audit reports remain in Git history; new reports and screenshots stay local.
 
 [Return to the project README](../README.md).

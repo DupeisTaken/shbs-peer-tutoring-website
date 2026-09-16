@@ -28,7 +28,7 @@ Apply the new migration using `npm run db:migrate`, regenerate Prisma using `npx
 
 Run `npm run check`, `npm test -- --maxWorkers=1`, and `npm run build`. The approval integration suite refuses to reset any database other than explicitly allowed local test databases; the combined suite uses `shbs_shipping_test`. Never point it at a development or production database. UI tests exercise filters and queued-request announcements; database tests cover permissions, scoping, validation, deduplication, concurrent decisions, stale targets, rollback, and actor attribution.
 
-The integrated implementation merged through PR #9. New management procedures must be classified in the approval policy before coordinators can use them. See the [technical report](docs/technical-report.md#approval-transactions) and [role guide](docs/user-guide.md#coordinators).
+The integrated implementation merged through PR #9. New management procedures must be classified in the approval policy before coordinators can use them. See the [technical report](technical-report.md#approval-transactions) and [role guide](user-guide.md#coordinators).
 
 ## Integrated participant workflows
 

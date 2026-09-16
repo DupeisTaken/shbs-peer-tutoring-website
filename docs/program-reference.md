@@ -1,6 +1,6 @@
 # Program functions and controls
 
-[Documentation home](README.md) · [Role guide](user-guide.md) · [Deployment](../README-DEPLOY.md)
+[Documentation home](README.md) · [Role guide](user-guide.md) · [Deployment](deployment.md)
 
 This is the supported single-program website. Account role, tutor participation, crew membership and translation assignment are separate capabilities. Page visibility follows both permission and the effective program configuration; the server checks access independently.
 

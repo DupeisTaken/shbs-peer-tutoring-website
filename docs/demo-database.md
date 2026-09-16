@@ -1,6 +1,6 @@
 # Demonstration database
 
-[User workflows](user-guide.md) · [Technical report](technical-report.md) · [Local setup](../README-LOCAL.md)
+[User workflows](user-guide.md) · [Technical report](technical-report.md) · [Local setup](local-development.md)
 
 The seed contains synthetic data and shared demonstration passwords. It is a disposable rehearsal environment, never a production bootstrap. Use `admin:create` for a real initial administrator. The seed now rejects production mode, remote database hosts, unacknowledged execution and database names outside `shbs_*_demo` / `shbs_*_test`.
 

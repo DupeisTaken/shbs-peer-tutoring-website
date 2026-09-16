@@ -1,8 +1,8 @@
 # Survey-first student signup and participation
 
-## Merge and migration order
+## Migrations
 
-The shipping integration contains the deployment, participant workflow, survey and approval branches. It resolves the shared student schema, combines `/student`, and preserves both migration prerequisites and existing records. Apply the complete migration set before starting the app. `20260909040000_student_profile_ownership` retains explicit historical account links across later intakes.
+Apply the complete migration set before starting the app. `20260909040000_student_profile_ownership` retains explicit historical account links across later intakes.
 
 ## Student workflow
 
@@ -52,7 +52,7 @@ Tutor pairing cards group current student availability, verification/edit badges
 
 ## Deployment and operations
 
-Apply migrations with `npm run db:migrate`, generate the Prisma client and rebuild. This branch starts from `cc6646d`, independently of the other task's uncommitted student/bootstrap work; reconcile overlapping changes before merging.
+Apply migrations with `npm run db:migrate`, generate the Prisma client and rebuild. See the [deployment runbook](deployment.md) for the complete procedure.
 
 Configure an externally reachable HTTPS `AUTH_URL`, `EMAIL_FROM` and SMTP credentials. Production refuses new surveys without configured email delivery. Development without SMTP logs links locally. Publish the English and Chinese tutee policies, active subjects/time slots and active quarter before opening signup. EN/ZH new UI copy is supplied; other configured locales use English fallback for new messages.
 
@@ -62,11 +62,9 @@ The partial unique OPEN-request index and history/roster triggers are SQL migrat
 
 ## Verification
 
-The integration suite refuses to reset any database except a loopback database named `shbs_survey_first_test`. Use this isolated database with migrations applied for `npm test`; never use a shared database.
+Use the isolated loopback `shbs_shipping_test` database for the combined suite, as CI does. Individual suites apply narrower allowlists; follow [local testing](local-development.md#5-run-the-tests) and never use a shared program database.
 
-GitHub Actions provisions this same disposable database name for its PostgreSQL service, health check and connection URL. Keep these aligned with the suite's safety guard when updating CI.
-
-Tests cover signup timing, duplicate handling, original priority, email recovery, read-only token inspection, concurrent confirmation/resends, account isolation, policy changes, assignment/deadline boundaries, irreversible disqualification and fresh resubmission, availability-only editing, recall notifications, quarter withdrawal restrictions, selective schedule rejection, legacy roster editors, role scoping, confirmation delays/replay, and actual QR PNG decoding. See [SIGNUP-AUDIT.md](SIGNUP-AUDIT.md) for verification results and remaining deployment checks.
+Tests cover signup timing, duplicate handling, original priority, email recovery, read-only token inspection, concurrent confirmation/resends, account isolation, policy changes, assignment/deadline boundaries, irreversible disqualification and fresh resubmission, availability-only editing, recall notifications, quarter withdrawal restrictions, selective schedule rejection, legacy roster editors, role scoping, confirmation delays/replay, and actual QR PNG decoding. See [signup-audit.md](archive/signup-audit.md) for verification results and remaining deployment checks.
 
 ## Integrated coordinator review and identity
 

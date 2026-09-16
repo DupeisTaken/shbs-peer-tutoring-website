@@ -2,7 +2,7 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import yaml from "js-yaml";
-import { root, markdownModel, buildReports } from "./build-docs.mjs";
+import { root, markdownModel, reports, renderReport } from "./build-docs.mjs";
 
 /** Resolve only repository links. External URLs are deliberately not fetched by CI. */
 export function validateLinks(source, model, exists, headingsFor) {
@@ -146,10 +146,12 @@ export function checkDocs() {
     )
   )
     errors.push("Invalid issue chooser configuration");
-  buildReports(true);
+  // Reports are ignored local exports: validate rendering without reading or
+  // writing generated files, so a clean checkout needs only Markdown sources.
+  for (const name of reports) renderReport(name);
   if (errors.length) throw new Error(errors.join("\n"));
   console.log(
-    `Validated ${files.length} Markdown documents, all role sections, four issue forms and both HTML reports.`,
+    `Validated ${files.length} Markdown documents, all role sections, four issue forms and both report renderers.`,
   );
 }
 

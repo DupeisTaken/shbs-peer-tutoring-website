@@ -98,4 +98,4 @@ integration suite, `npm run build`, `npm run docs:build` and `npm run docs:check
 fixtures accept only isolated loopback `shbs_messaging_test` or `shbs_shipping_test` databases.
 Verify management and tutee navigation, desktop/mobile composition, keyboard checkbox access,
 review/restriction controls and translated copy with synthetic accounts. See
-[local setup](../README-LOCAL.md) for bounded resource and evidence conventions.
+[local setup](local-development.md) for bounded resource and evidence conventions.

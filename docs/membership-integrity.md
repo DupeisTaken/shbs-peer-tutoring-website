@@ -28,4 +28,4 @@ A partial unique index for pending requests is a useful future database safeguar
 
 ## Verification
 
-[Integration regressions](../src/server/api/routers/workflows.test.ts) exercise simultaneous submissions, recall-versus-approval, competing reviewers, audit-failure rollback and requests that outlive a manual status change for both membership types. Run against an isolated local test database, serially, as described in [local setup](../README-LOCAL.md).
+[Integration regressions](../src/server/api/routers/workflows.test.ts) exercise simultaneous submissions, recall-versus-approval, competing reviewers, audit-failure rollback and requests that outlive a manual status change for both membership types. Run against an isolated local test database, serially, as described in [local setup](local-development.md).

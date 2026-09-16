@@ -10,9 +10,9 @@
 - Production-browser checks covered management destinations, seven tutee tabs, public/custom pages, HEAD, ADMIN, coordinator, tutor, tutee, crew, viewer and translator entries, bilingual controls, dialogs, recipient selection, profile-save feedback and mobile navigation.
 - CI additionally checks clean installation, fresh migrations/schema agreement, the full suite, production build and an empty-database image boot/restart. Main image publication is separate from updating a live host.
 
-Public signup has explicit prerequisite/error states and a clear tutor application → interview → verified account journey. Management support/interviews/translations preserve navigation. Contact privacy labels, shared actions, applied crew flags and print overflow are consistent. See [supported functions and switches](docs/program-reference.md), [role guide](docs/user-guide.md), and [technical report](docs/technical-report.md).
+Public signup has explicit prerequisite/error states and a clear tutor application → interview → verified account journey. Management support/interviews/translations preserve navigation. Contact privacy labels, shared actions, applied crew flags and print overflow are consistent. See [supported functions and switches](program-reference.md), [role guide](user-guide.md), and [technical report](technical-report.md).
 
-Disposable screenshots, the per-PR HTML audit and intermediate logs are intentionally ignored under `outputs/shipping-audit/`. They contain synthetic data, not school records. Earlier dated release evidence remains in Git history and [the prior rehearsal report](docs/reports/release-audit.html).
+Disposable screenshots, the per-PR HTML audit and intermediate logs are intentionally ignored under `outputs/shipping-audit/`. They contain synthetic data, not school records. Earlier HTML rehearsal reports remain available in Git history. All HTML reports are local, ignored artifacts.
 
 ## Target-host launch checks
 
@@ -24,4 +24,4 @@ Before opening real intake, verify these against the actual deployment:
 4. Real school year/intake, subjects, slots, rooms, qualifications, school calendar, feedback visibility and signup timing.
 5. A backup restored into a separate database, plus target-host TLS and retention checks.
 
-Use the [deployment runbook](README-DEPLOY.md). Local tests and a published image cannot certify public DNS, production email or backup restoration. Never seed production; all destructive tests use an isolated allowlisted database as described in [local setup](README-LOCAL.md).
+Use the [deployment runbook](deployment.md). Local tests and a published image cannot certify public DNS, production email or backup restoration. Never seed production; all destructive tests use an isolated allowlisted database as described in [local setup](local-development.md).

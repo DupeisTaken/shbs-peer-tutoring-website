@@ -220,4 +220,4 @@ docker compose build && docker compose up -d
 
 ### Student Workflow Launch Configuration
 
-Before opening the fresh database to students, verify the integrated signup flow, configure real email delivery, publish the [reviewed policies](docs/policies/README.md), set the intake opening time, confirm subject qualifications, and enter school-calendar exceptions. Feedback defaults to staff-only. The operational guide is [STUDENT-WORKFLOWS.md](STUDENT-WORKFLOWS.md). Real email provider setup remains a separate launch step; it has not been configured by this implementation pass.
+Before opening the fresh database to students, verify the integrated signup flow, configure real email delivery, publish the [reviewed policies](policies/README.md), set the intake opening time, confirm subject qualifications, and enter school-calendar exceptions. Feedback defaults to staff-only. The operational guide is [user-guide.md](user-guide.md). Real email provider setup remains a separate launch step; it has not been configured by this implementation pass.

@@ -10,7 +10,7 @@ import { BarList, type BarItem } from "~/app/_components/charts";
 /**
  * Single pane of glass for the queues the current role may inspect. A hero count and triage chart
  * show how much is waiting and link to the workflow that owns each decision. The panels below hold
- * operational detail and recent attendance history. See the "Admin philosophies" note in CLAUDE.md.
+ * operational detail and recent attendance history. See the "Admin philosophies" note in docs/contributing.md.
  */
 export default function ActivityPage() {
   const programFormat = useFormatter();
