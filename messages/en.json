@@ -1989,9 +1989,10 @@
     },
     "userMenu": {
       "settings": "Settings",
-      "enterTutor": "Enter Tutor Area",
+      "enterTutor": "Enter Tutor Page",
       "enterAdmin": "Enter Admin Area",
-      "enterTutee": "Enter Tutee page"
+      "enterTutee": "Enter Tutee Page",
+      "backToManagement": "Back to Management"
     },
     "theme": {
       "label": "Theme",

@@ -16,10 +16,14 @@ import {
   validateForm,
 } from "./check-docs.mjs";
 
-test("the root has one README and every guide is reachable from the documentation hub", () => {
+test("the root has only its README and agent instructions, and every guide is reachable", () => {
+  // AGENTS.md must remain at the root for agent discovery; user guides still live in docs.
   assert.deepEqual(
-    fs.readdirSync(root).filter((name) => /\.(md|mdx|rst|txt)$/i.test(name)),
-    ["README.md"],
+    fs
+      .readdirSync(root)
+      .filter((name) => /\.(md|mdx|rst|txt)$/i.test(name))
+      .sort(),
+    ["AGENTS.md", "README.md"],
   );
   const readme = markdownModel(
     fs.readFileSync(path.join(root, "README.md"), "utf8"),

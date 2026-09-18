@@ -1989,9 +1989,10 @@
     },
     "userMenu": {
       "settings": "Paramètres",
-      "enterTutor": "Accéder à l'espace tuteur",
+      "enterTutor": "Accéder à la page tuteur",
       "enterAdmin": "Accéder à l'espace administrateur",
-      "enterTutee": "Enter Tutee page"
+      "enterTutee": "Accéder à la page élève",
+      "backToManagement": "Retour à la gestion"
     },
     "theme": {
       "label": "Thème",

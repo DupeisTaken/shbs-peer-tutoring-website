@@ -1989,9 +1989,10 @@
     },
     "userMenu": {
       "settings": "Einstellungen",
-      "enterTutor": "Tutor-Bereich betreten",
+      "enterTutor": "Tutor-Seite öffnen",
       "enterAdmin": "Admin-Bereich betreten",
-      "enterTutee": "Enter Tutee page"
+      "enterTutee": "Tutee-Seite öffnen",
+      "backToManagement": "Zurück zur Verwaltung"
     },
     "theme": {
       "label": "Design",

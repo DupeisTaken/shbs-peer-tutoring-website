@@ -1,3 +1,4 @@
+import { WorkspaceHeader } from "~/app/_components/workspace-header";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 
@@ -7,9 +8,6 @@ import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { getFeatures } from "~/server/program/features";
 import { SignOutButton } from "~/app/_components/sign-out-button";
-import { NotificationBell } from "~/app/_components/notification-bell";
-import { LanguageSwitcher } from "~/app/_components/language-switcher";
-import { ThemeSwitcher } from "~/app/_components/theme-switcher";
 import { UserAvatar } from "~/app/_components/user-avatar";
 import { APP_TITLE } from "~/lib/branding";
 
@@ -35,16 +33,19 @@ export default async function TutorLayout({
     session.role === "ADMIN" ||
     session.role === "COORDINATOR";
 
+  // VIEWER can return to management without gaining elevated write permissions.
+  const canEnterManagement = isElevated || session.role === "VIEWER";
+
   // Stale-session guard: `session.tutorId` lives in the JWT and can outlive the Tutor row it
   // points to (e.g. after a dev DB reseed). Tutor queries (`tutor.me`, …) use it and would throw
-  // "record not found", 500-ing the whole area. Verify it still resolves first: send an elevated
+  // "record not found", 500-ing the whole area. Verify it still resolves first: send a management
   // user back to their admin area; ask a pure tutor to sign out so a fresh sign-in re-links them.
   const linkedTutor = await db.tutor.findUnique({
     where: { id: session.tutorId },
     select: { id: true, status: true },
   });
   if (!linkedTutor) {
-    if (isElevated) redirect("/admin");
+    if (canEnterManagement) redirect("/admin");
     return (
       <main className="flex min-h-screen items-center justify-center px-4">
         <div className="card max-w-sm p-6 text-center">
@@ -58,11 +59,12 @@ export default async function TutorLayout({
     );
   }
 
-  // Can-tutor permission gate. An ARCHIVED tutor linked to an elevated account means can-tutor was
+  // Can-tutor permission gate. An ARCHIVED tutor linked to a management account means can-tutor was
   // turned off (the link is kept only to preserve the record) — so this account is NOT permitted in
   // the tutor area; send them back to their admin area. (A genuine ARCHIVED *pure* tutor isn't
-  // elevated and keeps read-only access to their own history per the lifecycle, so it's unaffected.)
-  if (isElevated && linkedTutor.status === "ARCHIVED") redirect("/admin");
+  // management and keeps read-only access to their own history per the lifecycle, so it's unaffected.)
+  if (canEnterManagement && linkedTutor.status === "ARCHIVED")
+    redirect("/admin");
 
   // First-login gate: confirm contact email + set a real password (auto-provisioned
   // accounts arrive on the shared default with mustChangePassword).
@@ -81,24 +83,22 @@ export default async function TutorLayout({
     redirect("/onboarding/email");
 
   const features = await getFeatures(db);
+  const workspaceItems = [
+    { href: "/student", label: t("components.userMenu.enterTutee") },
+    ...(canEnterManagement
+      ? [{ href: "/admin", label: t("components.userMenu.backToManagement") }]
+      : []),
+  ];
   const accountItems = [
+    ...workspaceItems,
     {
       href: isElevated ? "/admin/messages" : "/messages",
       label: t("workflows.messages"),
     },
-    { href: "/student", label: t("components.userMenu.enterTutee") },
     {
       href: isElevated ? "/admin/student-support" : "/student?view=support",
       label: t("workflows.support"),
     },
-    ...(isElevated
-      ? [
-          {
-            href: "/admin",
-            label: t("components.userMenu.enterAdmin"),
-          },
-        ]
-      : []),
     ...(features.CREW && me.crewStatus === "ACTIVE"
       ? [{ href: "/patrol", label: t("crew.nav.patrol") }]
       : []),
@@ -112,54 +112,35 @@ export default async function TutorLayout({
   return (
     <div className="min-h-screen">
       {/* Shared top-bar theme with the admin area: brand left, identity + global controls right. */}
-      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white">
-        <div className="grid min-w-0 gap-2 px-4 py-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:px-6">
+      <WorkspaceHeader
+        href="/dashboard"
+        title={APP_TITLE}
+        items={workspaceItems}
+        identity={
           <Link
-            href="/dashboard"
-            className="flex min-h-11 max-w-full min-w-0 items-center justify-self-start truncate text-left text-lg font-bold whitespace-nowrap text-slate-900"
+            href="/settings"
+            className="hidden shrink-0 rounded-md px-2 py-1 text-right leading-tight hover:bg-slate-100 lg:block"
+            title={t("components.userMenu.settings")}
           >
-            {APP_TITLE}
+            <p className="text-sm font-medium text-slate-900">
+              {session.user.name}
+            </p>
+            <p className="muted text-xs">
+              {me.tutor?.username ? `@${me.tutor.username}` : session.role}
+            </p>
           </Link>
-          <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-            <Link
-              href="/student"
-              prefetch={false}
-              className="btn-secondary btn-sm shrink-0"
-            >
-              {t("components.userMenu.enterTutee")}
-            </Link>
-            <Link
-              href="/settings"
-              className="hidden shrink-0 rounded-md px-2 py-1 text-right leading-tight hover:bg-slate-100 lg:block"
-              title={t("components.userMenu.settings")}
-            >
-              <p className="text-sm font-medium text-slate-900">
-                {session.user.name}
-              </p>
-              <p className="muted text-xs">
-                {me.tutor?.username ? `@${me.tutor.username}` : session.role}
-              </p>
-            </Link>
-            <div className="shrink-0">
-              <ThemeSwitcher compactAtDesktop />
-            </div>
-            <div className="shrink-0">
-              <NotificationBell />
-            </div>
-            <div className="shrink-0">
-              <LanguageSwitcher compactAtDesktop />
-            </div>
-            <UserAvatar
-              name={session.user.name ?? me.email}
-              username={me.tutor?.username}
-              email={me.email}
-              role={session.role}
-              items={accountItems}
-              compactAtDesktop
-            />
-          </div>
-        </div>
-      </header>
+        }
+        account={
+          <UserAvatar
+            name={session.user.name ?? me.email}
+            username={me.tutor?.username}
+            email={me.email}
+            role={session.role}
+            items={accountItems}
+            compactAtDesktop
+          />
+        }
+      />
       {children}
     </div>
   );
