@@ -8,25 +8,59 @@ import { ESLint } from "eslint";
 import prettier from "prettier";
 import ts from "typescript";
 import yaml from "js-yaml";
-import { markdownModel, reportLink, root } from "./build-docs.mjs";
-import { checkDocs, validateLinks, validateForm } from "./check-docs.mjs";
+import {
+  root,
+  markdownModel,
+  checkDocs,
+  validateLinks,
+  validateForm,
+} from "./check-docs.mjs";
 
-test("the root has one README and all supporting guides live in docs", () => {
+test("the root has one README and every guide is reachable from the documentation hub", () => {
   assert.deepEqual(
     fs.readdirSync(root).filter((name) => /\.(md|mdx|rst|txt)$/i.test(name)),
     ["README.md"],
   );
-  for (const name of [
-    "local-development",
-    "deployment",
-    "contributing",
-    "product-rules",
-    "coordinator-approvals",
-    "student-signup",
-    "release-verification",
-  ]) {
-    assert.ok(fs.existsSync(path.join(root, `docs/${name}.md`)), name);
+  const readme = markdownModel(
+    fs.readFileSync(path.join(root, "README.md"), "utf8"),
+  );
+  assert.equal(
+    readme.links[0],
+    "docs/README.md",
+    "the documentation hub is the first README destination",
+  );
+  // Discover actual guides so a new orphan page cannot silently evade navigation.
+  const discover = (directory) =>
+    fs
+      .readdirSync(path.join(root, directory), { withFileTypes: true })
+      .flatMap((entry) => {
+        const file = path.posix.join(directory, entry.name);
+        if (entry.isDirectory())
+          return entry.name === "reports" ? [] : discover(file);
+        return entry.name.endsWith(".md") ? [file] : [];
+      });
+  const guides = new Set(discover("docs"));
+  const visited = new Set();
+  const pending = ["docs/README.md"];
+  while (pending.length) {
+    const source = pending.pop();
+    if (visited.has(source)) continue;
+    visited.add(source);
+    const model = markdownModel(
+      fs.readFileSync(path.join(root, source), "utf8"),
+    );
+    for (const href of model.links) {
+      if (/^(?:[a-z][a-z\d+.-]*:|\/\/|\/|#)/i.test(href)) continue;
+      const target = path.posix.normalize(
+        path.posix.join(
+          path.posix.dirname(source),
+          decodeURIComponent(href.split("#")[0]),
+        ),
+      );
+      if (guides.has(target)) pending.push(target);
+    }
   }
+  assert.deepEqual([...visited].sort(), [...guides].sort());
 });
 
 test("HTML reports are ignored while source docs and application HTML remain trackable", () => {
@@ -35,13 +69,14 @@ test("HTML reports are ignored while source docs and application HTML remain tra
     "docs/reports/technical-report.html",
     "docs/reports/release-audit.html",
     "docs/reports/nested/print.html",
+    "docs/reports/audit-assets/example.png",
     "playwright-report/index.html",
     "test-report.html",
     "docs/signup-audit.html",
   ];
   const tracked = [
     "docs/user-guide.md",
-    "scripts/report.css",
+    "scripts/check-docs.mjs",
     "public/example.html",
   ];
   const result = execFileSync(
@@ -56,8 +91,8 @@ test("HTML reports are ignored while source docs and application HTML remain tra
   assert.deepEqual(result.trim().split(/\r?\n/), ignored);
 });
 
-test("documentation checks work without generated HTML and never write exports", (t) => {
-  // Emulate a fresh checkout even when the developer has stale local exports.
+test("documentation validation reads Markdown sources without writing files", (t) => {
+  // Local artifacts must never become prerequisites for source validation.
   const read = fs.readFileSync;
   const exists = fs.existsSync;
   const isReport = (file) =>
@@ -66,11 +101,11 @@ test("documentation checks work without generated HTML and never write exports",
     isReport(file) ? false : exists(file),
   );
   t.mock.method(fs, "readFileSync", (file, ...args) => {
-    assert.equal(isReport(file), false, "checks must use report sources");
+    assert.equal(isReport(file), false, "checks must use Markdown sources");
     return read(file, ...args);
   });
   t.mock.method(fs, "writeFileSync", () =>
-    assert.fail("checks must not write exports"),
+    assert.fail("checks must not write files"),
   );
   assert.doesNotThrow(() => checkDocs());
 });
@@ -146,7 +181,6 @@ test("local evidence stays outside Git, lint, formatting and TypeScript inputs",
 test("headings retain Unicode, format-independent anchors and unique duplicate ids", () => {
   const model = markdownModel(
     "## A **bold** heading\n## A bold heading\n## 中文政策\n",
-    "docs/example.md",
   );
   assert.deepEqual(
     model.headings.map((h) => h.id),
@@ -154,20 +188,38 @@ test("headings retain Unicode, format-independent anchors and unique duplicate i
   );
 });
 
-test("Markdown rendering supports tables and excludes raw executable HTML", () => {
+test("Markdown parsing finds table links, reference links and images while ignoring examples", () => {
   const model = markdownModel(
-    "| One | Two |\n| --- | --- |\n| A | B |\n\n<script>alert(1)</script>\n",
-    "docs/example.md",
+    [
+      "| Guide | Image |",
+      "| --- | --- |",
+      "| [setup][local] | ![diagram](diagram.png) |",
+      "",
+      "[local]: local-development.md#prerequisites",
+      "[unused]: missing.md",
+      "",
+      "![badge][asset]",
+      "",
+      "[asset]: badge.png",
+      "",
+      "\`[example](inline.md)\`",
+      "\`\`\`md",
+      "[example](fenced.md)",
+      "\`\`\`",
+    ].join("\n"),
   );
-  assert.match(model.html, /<table>/);
-  assert.doesNotMatch(model.html, /<script>/);
+  assert.deepEqual(model.links, [
+    "local-development.md#prerequisites",
+    "diagram.png",
+    "badge.png",
+  ]);
+  assert.deepEqual(model.headings, []);
 });
 
 test("link validation finds missing files and headings, ignoring code examples", () => {
   const source = "docs/example.md";
   const model = markdownModel(
     "# Present\n[ok](#present) [bad](missing.md) [bad heading](#absent)\n\n```md\n[example](not-real.md)\n```",
-    source,
   );
   const errors = validateLinks(
     source,
@@ -178,24 +230,6 @@ test("link validation finds missing files and headings, ignoring code examples",
   assert.equal(errors.length, 2);
   assert.match(errors[0], /missing target/);
   assert.match(errors[1], /missing heading/);
-});
-
-test("HTML reports link locally to each other and to exact repository sources", () => {
-  assert.equal(
-    reportLink("user-guide.md#tutors", "docs/technical-report.md"),
-    "user-guide.html#tutors",
-  );
-  assert.equal(
-    reportLink("#architecture", "docs/technical-report.md"),
-    "#architecture",
-  );
-  assert.equal(
-    reportLink(
-      "../prisma/policies/tutor-policy.en.md#service-hours",
-      "docs/user-guide.md",
-    ),
-    "https://github.com/DupeisTaken/shbs-peer-tutoring-website/blob/main/prisma/policies/tutor-policy.en.md#service-hours",
-  );
 });
 
 test("issue forms reject duplicate field ids and missing report content", () => {
@@ -238,7 +272,6 @@ test("the issue guide links every available form to a valid template", () => {
   const directory = path.join(root, ".github/ISSUE_TEMPLATE");
   const guide = markdownModel(
     fs.readFileSync(path.join(root, "docs/issues.md"), "utf8"),
-    "docs/issues.md",
   );
   const linkedTemplates = guide.links
     .filter((href) => href.includes("/issues/new?template="))

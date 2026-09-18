@@ -440,7 +440,7 @@ model Tutor {
 ///              On approval the tutor becomes OPTED_OUT (their tutees are re-queued by the admin).
 ///   REENTRY  — an OPTED_OUT tutor asks to return. No cooldown; on approval they become ACTIVE.
 /// New submissions allow one PENDING request per tutor, serialized by the membership helper.
-/// Historical duplicates are preserved for explicit review; see docs/membership-integrity.md.
+/// Membership writes share a transaction boundary; see docs/technical-report.md#membership-changes.
 model TutorStatusRequest {
   id          String                  @id @default(cuid())
   tutorId     String

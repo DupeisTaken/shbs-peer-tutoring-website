@@ -14,13 +14,6 @@ Internet ──443/80──▶ caddy ──▶ app:3000 ──▶ db:5432
 - `app` waits for `db` to be healthy (`pg_isready`), then runs `prisma migrate deploy` and starts.
 - Postgres data lives on the `db-data` named volume; Caddy certs on `caddy-data`.
 
-## Division of labor
-
-**You (operator):** provision the VPS, point DNS, supply real secrets in `.env`, run the deploy.
-**Code/config:** everything in this repo (already written).
-
----
-
 ## 1. Prerequisites
 
 1. A VPS running Ubuntu (22.04/24.04), with a public IP.
@@ -216,8 +209,18 @@ docker compose build && docker compose up -d
 
 - **Cert not issued:** confirm DNS A record resolves to the VPS and ports 80/443 are open.
 - **App restarting:** `docker compose logs app` — usually a bad `.env` value or DB not reachable.
+- **Fresh sign-ins fail or alternate between servers:** confirm every instance uses the same stable `AUTH_SECRET`, canonical `AUTH_URL` and HTTPS proxy settings.
 - **DB healthcheck failing:** `docker compose logs db`; ensure `POSTGRES_*` match across `.env`.
 
-### Student Workflow Launch Configuration
+## Verify before opening intake
 
-Before opening the fresh database to students, verify the integrated signup flow, configure real email delivery, publish the [reviewed policies](policies/README.md), set the intake opening time, confirm subject qualifications, and enter school-calendar exceptions. Feedback defaults to staff-only. The operational guide is [user-guide.md](user-guide.md). Real email provider setup remains a separate launch step; it has not been configured by this implementation pass.
+Complete these checks on the actual host after bootstrap or an update:
+
+1. Confirm the canonical HTTPS domain, application health and a successful container restart with all migrations applied.
+2. Confirm PostgreSQL and uploaded media persist after replacing the app container.
+3. Deliver signup, password-reset and verified email-change messages to real inboxes; check sender identity and usable links.
+4. Publish the [reviewed policies](policies/README.md#publish-a-revision) and school-specific public content. Review translations before enabling hidden languages.
+5. Configure the current school year/intake, subjects, slots, rooms, tutor qualifications, opening time, school calendar and feedback visibility using the [program reference](program-reference.md). Check a test participant's signup and consent flow.
+6. Restore a backup into a separate database and confirm usable records. Check backup retention and off-host copies.
+
+A successful build or published GHCR image does not verify target-host TLS, persistence, delivery or restore readiness. Use current CI results for code verification and record operational evidence privately.

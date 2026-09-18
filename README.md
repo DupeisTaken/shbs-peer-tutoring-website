@@ -4,6 +4,8 @@ A school peer-tutoring website for student intake, matching, attendance, service
 
 ## Documentation
 
+Start with the **[documentation hub](docs/README.md)** to find the guide for your task.
+
 | I want to… | Read… |
 | --- | --- |
 | Use the website as a student, tutor, crew member or staff member | [User guide](docs/user-guide.md) |
@@ -11,7 +13,6 @@ A school peer-tutoring website for student intake, matching, attendance, service
 | Deploy and operate the server | [Deployment runbook](docs/deployment.md) |
 | Contribute code | [Contributor guidance](docs/contributing.md) |
 | Understand architecture and access rules | [Technical report](docs/technical-report.md) |
-| Browse all guides, policies and release evidence | [Documentation hub](docs/README.md) |
 | Report a bug or request a change | [Issue guide](docs/issues.md) |
 
 ## Development
