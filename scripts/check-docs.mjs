@@ -2,7 +2,61 @@ import fs from "node:fs";
 import path from "node:path";
 import { fileURLToPath } from "node:url";
 import yaml from "js-yaml";
-import { root, markdownModel, buildReports } from "./build-docs.mjs";
+import { unified } from "unified";
+import remarkParse from "remark-parse";
+import remarkGfm from "remark-gfm";
+
+export const root = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+);
+
+const parser = unified().use(remarkParse).use(remarkGfm);
+
+/** Read Markdown structure directly; validation does not render or export HTML. */
+export function markdownModel(content) {
+  const tree = parser.parse(content);
+  const headings = [],
+    links = [],
+    used = new Set(),
+    definitions = new Map();
+  const walk = (node, visit) => {
+    visit(node);
+    for (const child of node.children ?? []) walk(child, visit);
+  };
+  const plainText = (node) => {
+    if (node.type === "text" || node.type === "inlineCode") return node.value;
+    if (node.type === "image" || node.type === "imageReference")
+      return node.alt ?? "";
+    return (node.children ?? []).map(plainText).join("");
+  };
+  // Definitions can appear after their references, so collect them first.
+  walk(tree, (node) => {
+    if (node.type === "definition" && !definitions.has(node.identifier))
+      definitions.set(node.identifier, node.url);
+  });
+  walk(tree, (node) => {
+    if (node.type === "heading") {
+      const text = plainText(node);
+      // Match GitHub anchors, retaining Unicode and disambiguating duplicates.
+      const base = text
+        .toLowerCase()
+        .replace(/[^\p{L}\p{N}\p{M}\s_-]/gu, "")
+        .replace(/ /g, "-");
+      let id = base,
+        count = 0;
+      while (used.has(id)) id = `${base}-${++count}`;
+      used.add(id);
+      headings.push({ level: node.depth, text, id });
+    }
+    if (node.type === "link" || node.type === "image") links.push(node.url);
+    if (node.type === "linkReference" || node.type === "imageReference") {
+      const target = definitions.get(node.identifier);
+      if (target) links.push(target);
+    }
+  });
+  return { headings, links };
+}
 
 /** Resolve only repository links. External URLs are deliberately not fetched by CI. */
 export function validateLinks(source, model, exists, headingsFor) {
@@ -72,9 +126,7 @@ function markdownFiles(directory) {
     .flatMap((entry) => {
       const relative = path.posix.join(directory, entry.name);
       if (entry.isDirectory())
-        return entry.name === "archive" || entry.name === "reports"
-          ? []
-          : markdownFiles(relative);
+        return entry.name === "reports" ? [] : markdownFiles(relative);
       return entry.name.endsWith(".md") ? [relative] : [];
     });
 }
@@ -91,7 +143,7 @@ export function checkDocs() {
     if (!cache.has(file))
       cache.set(
         file,
-        markdownModel(fs.readFileSync(path.join(root, file), "utf8"), file),
+        markdownModel(fs.readFileSync(path.join(root, file), "utf8")),
       );
     return cache.get(file);
   };
@@ -146,10 +198,9 @@ export function checkDocs() {
     )
   )
     errors.push("Invalid issue chooser configuration");
-  buildReports(true);
   if (errors.length) throw new Error(errors.join("\n"));
   console.log(
-    `Validated ${files.length} Markdown documents, all role sections, four issue forms and both HTML reports.`,
+    `Validated ${files.length} Markdown documents, all role sections and four issue forms.`,
   );
 }
 

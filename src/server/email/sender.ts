@@ -7,7 +7,7 @@
  * deployment can never report success after dropping a login or step-up code.
  *
  * Aliyun setup: verify a sender domain, create a sender address (发信地址) with an SMTP password,
- * then point the SMTP_* / EMAIL_FROM env vars at it. See README-DEPLOY.md ("Email — Aliyun
+ * then point the SMTP_* / EMAIL_FROM env vars at it. See docs/deployment.md ("Email — Aliyun
  * Direct Mail"). Node runtime only.
  */
 import nodemailer, { type Transporter } from "nodemailer";

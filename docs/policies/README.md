@@ -1,21 +1,19 @@
-# Policy sources and publication
+# Sample policies and publication
 
 [Documentation hub](../README.md) · [User guide](../user-guide.md) · [Technical report](../technical-report.md#policy-documents-and-translations)
 
-Repository revision **2026.09.13** incorporates the confirmed program mechanics. These are maintained handbook drafts for school publication review. They do not invent a school contact, effective date, retention period or final school approval.
+The bundled English and Chinese documents are **sample policies**, not approved school policies. They explain implemented participant workflows and provide a starting point for school review. Adapt them to the enabled modules and school requirements, supply contact details and an effective date, and approve both languages before publication. Their source revision is defined by `POLICY_VERSION` in [the catalog](../../prisma/policies.ts).
 
 | Audience | English | 中文 |
 | --- | --- | --- |
-| Students | [Student policy](../../prisma/policies/tutee-policy.en.md) | [学生政策](../../prisma/policies/tutee-policy.zh.md) |
-| Tutors | [Tutor policy](../../prisma/policies/tutor-policy.en.md) | [导师政策](../../prisma/policies/tutor-policy.zh.md) |
+| Students | [Sample student policy](../../prisma/policies/tutee-policy.en.md) | [学生政策示例](../../prisma/policies/tutee-policy.zh.md) |
+| Tutors | [Sample tutor policy](../../prisma/policies/tutor-policy.en.md) | [导师政策示例](../../prisma/policies/tutor-policy.zh.md) |
 
-Confirmed mechanics include survey-first priority, fixed verification deadlines, administrator approval of coordinator management changes, preservation of the interview chair's decision, the meeting absence allowance and the existing session rounding. Interview completion credit uses actual recorded duration. New private messages deliver immediately with disclosed HEAD/ADMIN supervision; historical participant-only messages keep their original privacy. See [messaging rollout](../messaging.md).
-
-The [2025 archive](../archive/policies-2025/README.md) preserves former English and translated publications. Its translations have not been reconciled with the new rules. They are excluded from the bundled catalog; missing policy languages use the application's English fallback. UI language support is independent of policy translation availability.
+The development seed loads these four sources. Missing policy languages fall back to English; UI language availability is configured separately. The current [user guide](../user-guide.md) and [program reference](../program-reference.md) describe the behavior policies must match.
 
 ## Publish a revision
 
-1. School management reviews both handbooks and confirms the effective date, contact routes, calendar, intake configuration and any additional school-specific expectations. Resolve differences between languages before publication.
+1. School management adapts both sample policies and confirms the effective date, contact routes, calendar, enabled modules, intake configuration and school-specific expectations. Check automatic disciplinary removal, the distinct withdrawal routes, hour calculations and messaging supervision against the implemented behavior. Resolve differences between languages before publication; use an approved school title and revision for the published text.
 2. Retain the currently published policy records and compare the new wording. Preserve historical acceptance snapshots. Do not run the development seed against a production database.
 3. In **Policies** (`/admin/policies`), start with the **Student policy** and **Tutor policy** editors. On a fresh installation these are blank; enter the reviewed title, revision and content and save English first. Add Chinese and every other language intended to remain published with the same reviewed revision. Archive old language content externally and remove its obsolete live translation through the editor so English fallback can apply. Removing a file from Git does not remove a database translation.
 4. Complete ADMIN/HEAD review for coordinator proposals. A submitted proposal has not changed the published policy. Keep intake closed and schedule a maintenance window while updating multiple translations; each committed content change can trigger renewed consent.
@@ -24,12 +22,12 @@ The [2025 archive](../archive/policies-2025/README.md) preserves former English 
 
 Published changes trigger a dismissible popup on the participant's next visit or window focus. The interface follows the selected locale with English fallback. Accounts linked to both a student and a tutor review both applicable policies. Canceling preserves access to personal screens; the server still requires explicit current acceptance for new participation. Retry refreshes the policy and confirmation ticket after failures. An unchanged publication or a pending coordinator proposal does not change the accepted revision.
 
-Staff review acceptance evidence in **Users & Roles → User details → Policy acceptance history**, including accounts with missing contact email. Current acceptance status is separate from the immutable historical text. Expand a record to read its original title/version, signature and acceptance time, then its recorded language copies. The history belongs to the selected account ID; it is no longer a combined list in Tutee Support. Publication remains in Policy Documents.
+Staff review acceptance evidence in **Users & Roles → User details → Policy acceptance history**, including accounts with missing contact email. Current acceptance status is separate from the immutable historical text. Expand a record to read its original title/version, signature and acceptance time, then its recorded language copies. The history belongs to the selected account ID. Publication remains in Policy Documents.
 
 Repository edits do **not** publish to an existing database or deploy the website. The development seed loads the four current EN/ZH sources; on an older development database it updates those rows without deleting other pre-existing translations. Rebuild a disposable development database or remove obsolete translations through the editor before testing fallback.
 
 ## Maintain a revision
 
-Edit the four source files above, update `POLICY_VERSION` in [the catalog](../../prisma/policies.ts), then run `npm run docs:build`, `npm run docs:check` and the policy tests. English and Chinese must express the same rules. Record confirmed mechanics in [REVIEW-QUESTIONS.md](../../REVIEW-QUESTIONS.md).
+Edit the four source files above, update `POLICY_VERSION` in [the catalog](../../prisma/policies.ts), then run `npm run docs:check` and the policy tests. English and Chinese must express the same rules. Update the relevant [user instructions](../user-guide.md) or [configuration guidance](../program-reference.md) when program mechanics change.
 
 Use a [documentation request](../../.github/ISSUE_TEMPLATE/04-documentation.yml) for unclear wording. Changes to program mechanics need a program decision and matching implementation/tests; a wording edit alone cannot change application behavior.

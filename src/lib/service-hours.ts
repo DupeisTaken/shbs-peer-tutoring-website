@@ -54,8 +54,8 @@ export function interviewServiceHours(durationMin: number): number {
 }
 
 /**
- * Service-hour deduction amounts from the tutor policy (Section IV).
- * These reduce a tutor's accrued total; surfaced as PUNISHMENT-type adjustments in the recap.
+ * Adjustment calculation constants. Only the meeting deduction is applied automatically by
+ * server/meeting-hours.ts; attendance submission does not apply the session-absence amounts.
  */
 export const DEDUCTION = {
   /** Per tutor absence beyond the per-semester limit. */
@@ -66,7 +66,7 @@ export const DEDUCTION = {
   MISSED_MEETING_UNEXCUSED: 0.25,
 } as const;
 
-/** Tutors may not exceed this many total absences per semester before deductions apply. */
+/** Threshold used by the calculation helper below, not an attendance-enforced limit. */
 export const ABSENCE_LIMIT_PER_SEMESTER = 3;
 
 /** Deduction for total absences beyond the per-semester limit. */

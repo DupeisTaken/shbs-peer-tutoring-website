@@ -1,6 +1,7 @@
 name: Suggest a feature
 description: Explain a user problem and the outcome you want.
 title: "[Feature]: "
+labels: ["feature"]
 body:
   - type: markdown
     attributes:

@@ -17,7 +17,7 @@ describe("bundled policy publication boundaries", () => {
       }
     }
   });
-  it("loads only reconciled English and Chinese policies with their source revision", () => {
+  it("loads matching English and Chinese samples with their source revision", () => {
     expect(BUNDLED_POLICIES.map((p) => `${p.slug}.${p.locale}`).sort()).toEqual(
       [
         "tutee-policy.en",
@@ -33,7 +33,22 @@ describe("bundled policy publication boundaries", () => {
     }
   });
 
-  it("uses current English for an archived locale and keeps Chinese when available", async () => {
+  it("discloses the sample status before participation instructions in every locale", () => {
+    for (const policy of BUNDLED_POLICIES) {
+      const introduction = policy.body.split("\n## ")[0]!;
+      if (policy.locale === "en") {
+        expect(policy.title).toMatch(/^Sample .* participation policy$/);
+        expect(introduction).toContain("not an approved school policy");
+        expect(introduction).toContain("Adapt and approve before publication");
+      } else {
+        expect(policy.title).toMatch(/参与政策示例$/);
+        expect(introduction).toContain("并非已经批准的校方政策");
+        expect(introduction).toContain("请按学校要求调整并审核后发布");
+      }
+    }
+  });
+
+  it("falls back to English for a missing locale and keeps Chinese when available", async () => {
     const calls: string[] = [];
     const client = {
       policyDocument: {
@@ -53,11 +68,11 @@ describe("bundled policy publication boundaries", () => {
     } as unknown as Parameters<typeof localizedPolicy>[0];
     expect(
       (await localizedPolicy(client, "tutor-policy", "de"))?.body,
-    ).toContain(`Repository revision ${POLICY_VERSION}`);
+    ).toContain(`Sample revision ${POLICY_VERSION}`);
     expect(calls).toEqual(["de", "en"]);
     calls.length = 0;
     expect((await localizedPolicy(client, "tutor-policy", "zh"))?.title).toBe(
-      "导师参与手册",
+      "导师参与政策示例",
     );
     expect(calls).toEqual(["zh"]);
   });

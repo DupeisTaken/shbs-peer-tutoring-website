@@ -2353,6 +2353,7 @@
     "policyTitle": "Bitte prüfe die aktualisierten Richtlinien",
     "policyConsequences": "Lies die folgenden Richtlinien und bestätige deine Zustimmung.",
     "policyAgree": "I have read and agree to this version of the policy.",
+    "policyScrollHint": "Scrollen Sie bis zum Ende der Richtlinie, um zustimmen zu können.",
     "navigation": "Tutoring request workflow",
     "current": "Current request",
     "processed": "Processed",

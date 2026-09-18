@@ -33,7 +33,7 @@ const codeInput = z
   .string()
   .transform(normalizeRegCode)
   .pipe(z.string().regex(/^[0-9A-Z]{5}$/));
-/** The emailed email-verification OTP uses the same 5-char Steam format (see CLAUDE.md). */
+/** The emailed email-verification OTP uses the same 5-char Steam format (see docs/contributing.md). */
 const emailCodeInput = codeInput;
 
 /** Coarse client IP from proxy headers (best-effort; only used for rate-limit keys). */

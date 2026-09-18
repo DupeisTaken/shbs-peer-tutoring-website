@@ -26,7 +26,7 @@ export const env = createEnv({
       .transform((v) => v === "true"),
     // Transactional email via Aliyun Direct Mail (SMTP). Email is "configured" when EMAIL_FROM
     // and SMTP_PASSWORD are both set; otherwise the app falls back to logging mail in dev.
-    // See src/server/email/sender.ts and the email setup notes in README-DEPLOY.md.
+    // See src/server/email/sender.ts and the email setup notes in docs/deployment.md.
     SMTP_HOST: z.string().default("smtpdm.aliyun.com"),
     SMTP_PORT: z.coerce.number().int().positive().default(465),
     // SMTP login. For Aliyun the username IS the sender address; leave unset to use EMAIL_FROM.

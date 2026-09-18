@@ -34,6 +34,10 @@ describe("bundled header translations", () => {
       expect(messages.common.language, `${locale} language label`).toMatch(
         /\S/,
       );
+      expect(
+        messages.workflow.policyScrollHint,
+        `${locale} policy reading hint`,
+      ).toMatch(/\S/);
     }
   });
 });
