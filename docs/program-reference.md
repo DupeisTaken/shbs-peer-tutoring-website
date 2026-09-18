@@ -56,6 +56,12 @@ Switches control available pages and operations; they do not erase historical da
 | Language visibility | English and Chinese are the launch-visible catalogues; six hidden catalogues contain English fallbacks |
 | Personal theme and guidance | Six accent themes; dismissible management guidance can be reopened and remains scoped to the signed-in account |
 
+## Optional email notifications
+
+ADMIN or HEAD can enable **Email notifications** in **Program & Refresh**. This immediate setting defaults off and is separate from staged modules and email 2FA. Production requires configured email delivery. Individuals then choose categories and whether verified secondary addresses receive notices; see [personal preferences](user-guide.md#optional-email-notifications).
+
+Disabling the setting cancels pending notices and preserves personal preferences. The settings panel reports terminal delivery failures; operators should inspect the safe failure summaries in `EmailDelivery` and follow the [delivery operations guide](deployment.md#optional-notification-delivery). Essential authentication mail remains independent.
+
 ## Schedule rooms and periods
 
 Use **Time Slots**, **Rooms** and **Pairings** to plan recurring sessions. A room cannot host overlapping pairings in one program period or a pairing during a recurring blackout; back-to-back sessions are allowed. Availability helps participants agree on a slot and does not prevent staff from assigning a tutor before that agreement.
@@ -110,7 +116,7 @@ In **Announcements → Recipients**, choose all current tutors, filtered tutors 
 
 **Include** adds a tutor regardless of filters; **Exclude** wins over both filters and inclusion. Search narrows only the override picker. Check the complete audience count and name preview before publishing; an empty audience is blocked. Assignment filters need an active term and count unique active tutees in that term.
 
-The published audience is fixed. For coordinator proposals, approval freezes the recipients and rejects changed audience evidence. Editing, pinning, reactivating or restoring a post does not select a new audience; publish a new announcement to change recipients. Tutors can read and dismiss only active posts addressed to their linked identity, plus applicable broadcasts. Notifications stay in the website; announcement publication sends no email.
+The published audience is fixed. For coordinator proposals, approval freezes the recipients and rejects changed audience evidence. Editing, pinning, reactivating or restoring a post does not select a new audience; publish a new announcement to change recipients. Tutors can read and dismiss only active posts addressed to their linked identity, plus applicable broadcasts. In-app notifications can also produce generic program-update email notices when program and personal information-notification preferences are enabled; these notices do not contain the announcement body.
 
 ## Message permissions and supervision
 

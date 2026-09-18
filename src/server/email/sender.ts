@@ -17,6 +17,8 @@ import { env } from "~/env";
 import { APP_TITLE } from "~/lib/branding";
 
 export interface EmailMessage {
+  /** Stable identifier for durable notification retries. */
+  messageId?: string;
   to: string;
   subject: string;
   /** Plain-text body (required). */
@@ -82,6 +84,7 @@ const aliyunSender: EmailSender = {
     try {
       const info = await transporter().sendMail({
         from: fromAddress(),
+        messageId: message.messageId,
         to: message.to,
         subject: message.subject,
         text: message.text,

@@ -170,6 +170,8 @@ npm run check       # eslint . + tsc --noEmit
 npm run docs:check  # documentation links, headings and maintenance regressions
 ```
 
+Email ownership and notification regressions live in `src/server/auth/account-emails.test.ts`, with migration compatibility in `account-email-migration.test.ts` and component interaction coverage in `src/app/_components/account-emails.test.tsx`. Include expiry, failed delivery, legitimate registration, simultaneous claims, removal/recovery, gating and retry scenarios. Use synthetic accounts and captured mail for browser rehearsal; follow [email operations](deployment.md#optional-notification-delivery) for real deployments.
+
 ## 6. Smoke-test the production Docker stack (optional)
 
 This exercises the same `docker-compose.yml` used in production (app + Postgres + Caddy),

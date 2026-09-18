@@ -1,3 +1,5 @@
+import { signinIdentifiers } from "./signin-identifiers";
+import { lockAccountProfile } from "~/server/account-profile";
 import { updateAccountProfile } from "~/server/account-profile";
 /**
  * Forgot-password flow. The reset link is emailed via the configured provider (Aliyun Direct
@@ -44,6 +46,7 @@ export async function issueAccountVerification(
     await tx.passwordResetToken.create({
       data: {
         userId,
+        targetEmail: user.email,
         tokenHash: hashToken(token),
         expiresAt: new Date(Date.now() + SETUP_TOKEN_TTL_MINUTES * 60_000),
       },
@@ -87,21 +90,41 @@ export async function issuePasswordReset(identifier: string): Promise<void> {
   if (!id) return;
 
   const user = await db.user.findFirst({
-    where: { OR: [{ email: id }, { tutor: { username: id } }] },
-    select: { id: true, email: true },
+    where: { OR: signinIdentifiers(id) },
+    select: {
+      id: true,
+      email: true,
+      emails: { where: { verifiedAt: { not: null } }, select: { email: true } },
+    },
   });
   if (!user) return; // silently no-op — don't reveal whether the account exists
 
+  const targetEmail = user.emails.some((address) => address.email === id)
+    ? id
+    : user.email;
   const token = randomBytes(32).toString("hex");
-  await db.passwordResetToken.create({
-    data: {
-      userId: user.id,
-      tokenHash: hashToken(token),
-      expiresAt: new Date(Date.now() + TOKEN_TTL_MINUTES * 60_000),
-    },
+  const issued = await db.$transaction(async (tx) => {
+    await lockAccountProfile(tx, user.id);
+    const address = await tx.accountEmail.findUnique({
+      where: { email: targetEmail },
+    });
+    const current = await tx.user.findUniqueOrThrow({ where: { id: user.id } });
+    if (
+      address?.userId !== user.id ||
+      (current.email !== targetEmail && !address.verifiedAt)
+    )
+      return false;
+    await tx.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        targetEmail,
+        tokenHash: hashToken(token),
+        expiresAt: new Date(Date.now() + TOKEN_TTL_MINUTES * 60_000),
+      },
+    });
+    return true;
   });
-
-  await deliverResetLink(user.email, token);
+  if (issued) await deliverResetLink(targetEmail, token);
 }
 
 /**
@@ -140,33 +163,58 @@ export async function resetPassword(
   newPassword: string,
 ): Promise<{ username: string | null; email: string } | null> {
   const tokenHash = hashToken(token.trim());
+
   const record = await db.passwordResetToken.findUnique({
     where: { tokenHash },
-    select: { id: true, userId: true, expiresAt: true, consumedAt: true },
   });
-  if (!record || record.consumedAt || record.expiresAt < new Date())
-    return null;
-
-  const updated = await db.$transaction(async (tx) => {
-    const user = await tx.user.update({
-      where: { id: record.userId },
+  if (!record) return null;
+  return db.$transaction(async (tx) => {
+    await lockAccountProfile(tx, record.userId);
+    const grant = await tx.passwordResetToken.findUnique({
+      where: { id: record.id },
+    });
+    if (
+      !grant ||
+      grant.consumedAt ||
+      grant.expiresAt <= new Date() ||
+      !grant.targetEmail
+    )
+      return null;
+    const account = await tx.user.findUniqueOrThrow({
+      where: { id: grant.userId },
+    });
+    const address = await tx.accountEmail.findUnique({
+      where: { email: grant.targetEmail },
+    });
+    if (
+      address?.userId !== account.id ||
+      (address.email !== account.email && !address.verifiedAt)
+    )
+      return null;
+    const updated = await tx.user.update({
+      where: { id: account.id },
       data: {
         passwordHash: hashPassword(newPassword),
-        // Setting a real password via the emailed link also clears the temp-password flag and
-        // marks the email confirmed — so an invited tutor lands straight on the dashboard rather
-        // than being bounced back through the onboarding gate.
         mustChangePassword: false,
-        emailVerifiedAt: new Date(),
+        ...(address.email === account.email
+          ? { emailVerifiedAt: new Date() }
+          : {}),
       },
-      select: { email: true, tutor: { select: { username: true } } },
+      select: {
+        email: true,
+        username: true,
+        tutor: { select: { username: true } },
+      },
     });
-    await tx.passwordResetToken.update({
-      where: { id: record.id },
+    await tx.passwordResetToken.updateMany({
+      where: { userId: account.id, consumedAt: null },
       data: { consumedAt: new Date() },
     });
-    return user;
+    return {
+      username: updated.username ?? updated.tutor?.username ?? null,
+      email: updated.email,
+    };
   });
-  return { username: updated.tutor?.username ?? null, email: updated.email };
 }
 
 /**
@@ -237,6 +285,7 @@ export async function issueTutorSetupLink(
   await db.passwordResetToken.create({
     data: {
       userId,
+      targetEmail: email,
       tokenHash: hashToken(token),
       expiresAt: new Date(Date.now() + SETUP_TOKEN_TTL_MINUTES * 60_000),
     },

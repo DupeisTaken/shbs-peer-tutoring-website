@@ -242,6 +242,18 @@ Use **Messages** to send separate private deliveries to allowed contacts. Search
 
 On the Tutee page, **Messages** and **Account** open inside the same navigation and header. Account settings use your shared profile, verified email changes, password changes and two-factor settings. HEAD, ADMIN and COORDINATOR open Messages inside the management shell at `/admin/messages`. HEAD/ADMIN also have **Message supervision** for audited review, reversible hiding, messaging restrictions and role/user contact permissions; coordinators cannot supervise other conversations.
 
+### Associated email addresses
+
+**Account Settings** and tutor **Settings** share the **Associated emails** controls. An account has one primary and up to five secondary addresses, counting pending requests. Enter your current password to add an address, resend its code, promote a verified address or remove a secondary. Codes last ten minutes, allow five attempts and have a one-minute resend interval. Expired requests remain visible for resend or cancellation. Pending requests do not reserve an address or prevent its actual owner from registering; ownership is checked again when you verify.
+
+Any verified address can sign in or recover the same account. Recovery requested with a secondary address goes to that address; recovery by username goes to the primary. Login 2FA and password-change codes still go to the primary, so aliases do not bypass 2FA. Changing primary retains the previous verified primary as a secondary and updates only explicitly linked current tutor/tutee contact rows. Account identity, roles, history and signed agreements remain unchanged. Removing an address revokes its outstanding grants; adding it again does not revive them. Select another verified primary before removing the current one.
+
+### Optional email notifications
+
+When an ADMIN or HEAD enables **Email notifications** in **Program & Refresh**, **Account → Email preferences** offers security notices (default on), private-message notices (default off), and information/program updates (default off). Each category may be disabled independently. Private-message notices omit the message contents. By default notices go only to a verified primary; you can also include verified secondary addresses. A primary change additionally notifies the previous verified primary when security notices are enabled, even if that address is subsequently removed.
+
+Disabling notifications at program level preserves preferences and cancels queued notices; re-enabling does not send the old backlog. Verification, recovery and login/step-up mail remain independent of optional preferences. Already accepted mail cannot be recalled.
+
 ## Renewed policy acceptance
 
 For both tutor and tutee policies, scroll to the bottom inside the policy text box before checking the agreement. The checkbox is disabled and its label stays gray until you reach the end; it never checks itself. You can scroll using a mouse, touch, or the keyboard after focusing the policy box. A short policy that is fully visible unlocks immediately. Scrolling back up keeps agreement available during that review. Retry, reopening the popup, or switching to another policy revision or translation starts a fresh review.

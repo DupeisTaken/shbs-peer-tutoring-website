@@ -1,3 +1,4 @@
+import { signinIdentifiers } from "./signin-identifiers";
 import { db } from "~/server/db";
 import { rateLimit } from "~/server/rate-limit";
 import { verifyPassword } from "./password";
@@ -38,11 +39,7 @@ export async function findSigninTwoFactorUser(
 
   return db.user.findFirst({
     where: {
-      OR: [
-        { email: identifier },
-        { username: identifier },
-        { tutor: { username: identifier } },
-      ],
+      OR: signinIdentifiers(identifier),
     },
     select: { id: true, twoFactorEnabled: true },
   });
@@ -73,11 +70,7 @@ export async function verifySigninPassword(
 
   const user = await db.user.findFirst({
     where: {
-      OR: [
-        { email: identifier },
-        { username: identifier },
-        { tutor: { username: identifier } },
-      ],
+      OR: signinIdentifiers(identifier),
     },
     select: {
       id: true,
@@ -88,7 +81,8 @@ export async function verifySigninPassword(
       twoFactorEnabled: true,
     },
   });
-  if (!user?.passwordHash || user.suspendedAt) return { ok: false, reason: "invalid" };
+  if (!user?.passwordHash || user.suspendedAt)
+    return { ok: false, reason: "invalid" };
   if (!verifyPassword(password, user.passwordHash))
     return { ok: false, reason: "invalid" };
 

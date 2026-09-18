@@ -212,6 +212,14 @@ docker compose build && docker compose up -d
 - **Fresh sign-ins fail or alternate between servers:** confirm every instance uses the same stable `AUTH_SECRET`, canonical `AUTH_URL` and HTTPS proxy settings.
 - **DB healthcheck failing:** `docker compose logs db`; ensure `POSTGRES_*` match across `.env`.
 
+## Optional notification delivery
+
+Apply all migrations with `npm run db:migrate`, regenerate Prisma with `npx prisma generate`, and restart the persistent Node application before enabling optional notifications. The account-email migration atomically backfills primary addresses and recovery-token destinations; normalized collisions abort instead of merging accounts. Resolve legacy collisions before retrying. The follow-up migration releases any unverified secondary claims created by an earlier version and revokes their grants, preserving primary and verified secondary addresses. Affected users can request a new verification code.
+
+The worker polls every 30 seconds and leases up to ten deliveries per batch for five minutes. Row locking coordinates concurrent workers. Failures retry with exponential backoff, up to five attempts; the Program settings panel shows terminal failures. Inspect `EmailDelivery` status and safe failure summaries when diagnosing transport problems. A stable Message-ID identifies retries, but SMTP cannot guarantee exactly-once delivery after a process stops between acceptance and recording success. Short-lived deployments require an external scheduler calling the dispatcher.
+
+Configure and test the real email transport before enabling the immediate ADMIN/HEAD switch. Disabling cancels queued notices without discarding preferences; essential authentication mail remains independent. See [notification controls](program-reference.md#optional-email-notifications) and [personal preferences](user-guide.md#optional-email-notifications).
+
 ## Verify before opening intake
 
 Complete these checks on the actual host after bootstrap or an update:

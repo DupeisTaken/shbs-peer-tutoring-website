@@ -1,4 +1,10 @@
 import { updateAccountProfile } from "~/server/account-profile";
+import {
+  requestSecondaryEmail,
+  confirmSecondaryEmail,
+  manageSecondaryEmail,
+  associatedAccountEmails,
+} from "~/server/auth/account-emails";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
@@ -21,6 +27,113 @@ import {
  * Kept separate from the tutor router so an account without a linked tutor can use it.
  */
 export const accountRouter = createTRPCRouter({
+  emailSettings: protectedProcedure.query(async ({ ctx }) => {
+    const [user, program, emails] = await Promise.all([
+      ctx.db.user.findUniqueOrThrow({
+        where: { id: ctx.session.user.id },
+        select: {
+          email: true,
+          emailSecurity: true,
+          emailMessages: true,
+          emailInfo: true,
+          emailSecondaryRecipients: true,
+        },
+      }),
+      ctx.db.programSettings.findUnique({
+        where: { id: "program" },
+        select: { emailNotificationsEnabled: true },
+      }),
+      associatedAccountEmails(ctx.db, ctx.session.user.id),
+    ]);
+    return {
+      ...user,
+      emails,
+      enabled: program?.emailNotificationsEnabled ?? false,
+      deliveryAvailable: isEmailDeliveryAvailable(),
+    };
+  }),
+  setEmailPreferences: protectedProcedure
+    .input(
+      z.object({
+        emailSecurity: z.boolean(),
+        emailMessages: z.boolean(),
+        emailInfo: z.boolean(),
+        emailSecondaryRecipients: z.boolean(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      return ctx.db.$transaction(async (tx) => {
+        // Serialize with the administrator's gate so a concurrent disable cannot accept preferences.
+        await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended('email-notifications-setting', 0))`;
+        const program = await tx.programSettings.findUnique({
+          where: { id: "program" },
+        });
+        if (!program?.emailNotificationsEnabled)
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message:
+              "Email notifications are disabled by the program administrator.",
+          });
+        await tx.user.update({
+          where: { id: ctx.session.user.id },
+          data: input,
+        });
+        return { ok: true };
+      });
+    }),
+  requestSecondaryEmail: protectedProcedure
+    .input(
+      z.object({
+        email: z.string().trim().email().max(254),
+        currentPassword: z.string().min(1),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await requestSecondaryEmail(
+        ctx.session.user.id,
+        input.email,
+        input.currentPassword,
+      );
+      return { ok: true };
+    }),
+  confirmSecondaryEmail: protectedProcedure
+    .input(
+      z.object({
+        email: z.string().trim().email().max(254),
+        code: z.string().trim().min(1).max(30),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      if (
+        !(await confirmSecondaryEmail(
+          ctx.session.user.id,
+          input.email,
+          input.code,
+        ))
+      )
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "The code is incorrect or expired.",
+        });
+      return { ok: true };
+    }),
+  manageSecondaryEmail: protectedProcedure
+    .input(
+      z.object({
+        email: z.string().trim().email().max(254),
+        currentPassword: z.string().min(1),
+        action: z.enum(["primary", "remove"]),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      await manageSecondaryEmail(
+        ctx.session.user.id,
+        input.email,
+        input.currentPassword,
+        input.action,
+      );
+      return { ok: true };
+    }),
   requestEmailChange: protectedProcedure
     .input(
       z.object({
