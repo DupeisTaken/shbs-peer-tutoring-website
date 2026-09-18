@@ -1989,9 +1989,10 @@
     },
     "userMenu": {
       "settings": "설정",
-      "enterTutor": "튜터 영역으로 이동",
+      "enterTutor": "튜터 페이지로 이동",
       "enterAdmin": "관리자 영역으로 이동",
-      "enterTutee": "Enter Tutee page"
+      "enterTutee": "학습자 페이지로 이동",
+      "backToManagement": "관리 페이지로 돌아가기"
     },
     "theme": {
       "label": "테마",

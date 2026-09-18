@@ -207,11 +207,18 @@ export async function NavSidebar({ role }: { role: string }) {
 }
 
 /** Small screens use a bounded modal drawer with the same role-filtered sections. */
-export async function NavMobileRow({ role }: { role: string }) {
+export async function NavMobileRow({
+  role,
+  embedded = false,
+}: {
+  role: string;
+  embedded?: boolean;
+}) {
   const [t, features] = await Promise.all([getTranslations(), getFeatures(db)]);
   const visible = makeVisible(role, features);
   return (
     <AdminMobileNavigation
+      embedded={embedded}
       sections={NAV_SECTIONS.map((section) => ({
         key: section.titleKey,
         title: t(section.titleKey),

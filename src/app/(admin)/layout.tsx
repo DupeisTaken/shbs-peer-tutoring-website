@@ -1,3 +1,4 @@
+import { WorkspaceHeader } from "~/app/_components/workspace-header";
 import { AdminPreferenceIdentity } from "~/app/_components/dismissible-notice";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -6,9 +7,6 @@ import { getTranslations } from "next-intl/server";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { getFeatures } from "~/server/program/features";
-import { NotificationBell } from "~/app/_components/notification-bell";
-import { LanguageSwitcher } from "~/app/_components/language-switcher";
-import { ThemeSwitcher } from "~/app/_components/theme-switcher";
 import { UserAvatar } from "~/app/_components/user-avatar";
 import { NavSidebar, NavMobileRow } from "~/app/_components/admin-nav";
 import { ReadOnlyProvider } from "~/app/_components/read-only";
@@ -56,24 +54,23 @@ export default async function AdminLayout({
   // `session.tutorId` in sync too, so following the link into the tutor area resolves correctly.
   const canEnterTutor = !!me?.tutor && me.tutor.status !== "ARCHIVED";
   const features = await getFeatures(db);
+  // Use one ordered list for visible shortcuts and the account submenu.
+  const workspaceItems = [
+    ...(canEnterTutor
+      ? [{ href: "/dashboard", label: t("components.userMenu.enterTutor") }]
+      : []),
+    { href: "/student", label: t("components.userMenu.enterTutee") },
+  ];
   const accountItems = [
+    ...workspaceItems,
     {
       href: readOnly ? "/messages" : "/admin/messages",
       label: t("workflows.messages"),
     },
-    { href: "/student", label: t("components.userMenu.enterTutee") },
     {
       href: readOnly ? "/student-support" : "/admin/student-support",
       label: t("workflows.support"),
     },
-    ...(canEnterTutor
-      ? [
-          {
-            href: "/dashboard",
-            label: t("components.userMenu.enterTutor"),
-          },
-        ]
-      : []),
     ...(features.CREW && me?.crewStatus === "ACTIVE"
       ? [{ href: "/patrol", label: t("crew.nav.patrol") }]
       : []),
@@ -83,58 +80,39 @@ export default async function AdminLayout({
   return (
     <div className="admin-shell min-h-dvh lg:flex lg:h-dvh lg:flex-col lg:overflow-hidden">
       {/* Unified top bar (all breakpoints): brand + the global controls. */}
-      <header className="sticky top-0 z-20 shrink-0 border-b border-slate-200 bg-white">
-        <div className="grid min-w-0 gap-2 px-4 py-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:px-6">
+      <WorkspaceHeader
+        href="/admin"
+        title={TEAM_TITLE}
+        items={workspaceItems}
+        identity={
           <Link
-            href="/admin"
-            className="flex min-h-11 max-w-full min-w-0 items-center justify-self-start truncate text-left text-lg font-bold whitespace-nowrap text-slate-900"
+            href="/admin/account"
+            className="hidden shrink-0 rounded-md px-2 py-1 text-right leading-tight hover:bg-slate-100 lg:block"
+            title={t("account.title")}
           >
-            {TEAM_TITLE}
+            <p className="text-sm font-medium text-slate-900">
+              {session.user.name}
+            </p>
+            <p className="muted text-xs">
+              {(me?.username ?? me?.tutor?.username)
+                ? `@${me.username ?? me?.tutor?.username} · `
+                : ""}
+              {t(`admin.users.roles.${session.role}`)}
+            </p>
           </Link>
-          <div className="flex min-w-0 flex-wrap items-center justify-end gap-2">
-            <Link
-              href="/student"
-              prefetch={false}
-              className="btn-secondary btn-sm shrink-0"
-            >
-              {t("components.userMenu.enterTutee")}
-            </Link>
-            <Link
-              href="/admin/account"
-              className="hidden shrink-0 rounded-md px-2 py-1 text-right leading-tight hover:bg-slate-100 lg:block"
-              title={t("account.title")}
-            >
-              <p className="text-sm font-medium text-slate-900">
-                {session.user.name}
-              </p>
-              <p className="muted text-xs">
-                {(me?.username ?? me?.tutor?.username)
-                  ? `@${me.username ?? me?.tutor?.username} · `
-                  : ""}
-                {t(`admin.users.roles.${session.role}`)}
-              </p>
-            </Link>
-            <div className="shrink-0">
-              <ThemeSwitcher compactAtDesktop />
-            </div>
-            <div className="shrink-0">
-              <NotificationBell />
-            </div>
-            <div className="shrink-0">
-              <LanguageSwitcher compactAtDesktop />
-            </div>
-            <UserAvatar
-              name={session.user.name ?? session.user.email ?? session.role}
-              username={me?.username ?? me?.tutor?.username}
-              email={session.user.email}
-              role={session.role}
-              items={accountItems}
-              compactAtDesktop
-            />
-          </div>
-        </div>
-        <NavMobileRow role={session.role} />
-      </header>
+        }
+        account={
+          <UserAvatar
+            name={session.user.name ?? session.user.email ?? session.role}
+            username={me?.username ?? me?.tutor?.username}
+            email={session.user.email}
+            role={session.role}
+            items={accountItems}
+            compactAtDesktop
+          />
+        }
+        navigation={<NavMobileRow role={session.role} embedded />}
+      />
 
       {/* The flex remainder follows the actual header height, including wrapping and zoom.
           Each desktop pane owns its scroll; no fixed pixel header offset can hide links. */}
@@ -180,7 +158,10 @@ export default async function AdminLayout({
           {session.role === "COORDINATOR" && (
             <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
               <p>{t("approvals.trainingBanner")}</p>
-              <Link className="link mt-1 inline-block" href="/admin/approvals?status=all">
+              <Link
+                className="link mt-1 inline-block"
+                href="/admin/approvals?status=all"
+              >
                 {t("approvals.myRequests")}
               </Link>
             </div>

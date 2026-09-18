@@ -1989,9 +1989,10 @@
     },
     "userMenu": {
       "settings": "设置",
-      "enterTutor": "进入导师区",
+      "enterTutor": "进入导师主页",
       "enterAdmin": "进入管理区",
-      "enterTutee": "进入学员主页"
+      "enterTutee": "进入学员主页",
+      "backToManagement": "返回管理主页"
     },
     "theme": {
       "label": "主题",

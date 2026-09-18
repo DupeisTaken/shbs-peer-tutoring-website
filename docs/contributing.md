@@ -34,7 +34,7 @@ The [CI workflow](../.github/workflows/docker-build.yml) also checks dependency 
 
 ## Documentation and repository hygiene
 
-Keep only `README.md` at the repository root. Put instructions in the existing guide for their audience:
+Keep human-facing guides under `docs/`, with only `README.md` at the repository root. The root [AGENTS.md](../AGENTS.md) is the explicit exception: coding agents discover its UI conventions automatically. Keep control-height and responsive-header implementation guidance there rather than duplicating it in feature guides. Put other instructions in the existing guide for their audience:
 
 | Reader's task | Maintained source |
 | --- | --- |

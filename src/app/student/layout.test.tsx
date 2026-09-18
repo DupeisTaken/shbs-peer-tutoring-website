@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import TuteeLayout from "./layout";
 import AdminLayout from "../(admin)/layout";
@@ -82,6 +82,39 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
+// Management membership does not grant tutoring; tutee access stays independent.
+it.each(["HEAD", "ADMIN", "COORDINATOR", "VIEWER"])(
+  "lets %s without a tutor profile enter tutee and return safely",
+  async (role) => {
+    mocks.auth.mockResolvedValue({
+      user: { id: "account" },
+      role,
+      tutorId: null,
+    });
+    mocks.user.mockResolvedValue({ role, tutor: null });
+    const management = render(
+      await AdminLayout({ children: <p>Management</p> }),
+    );
+    expect(
+      screen.getAllByRole("link", { name: "components.userMenu.enterTutee" }),
+    ).toHaveLength(2);
+    expect(
+      screen.queryByRole("link", { name: "components.userMenu.enterTutor" }),
+    ).toBeNull();
+    management.unmount();
+    render(await TuteeLayout({ children: <p>Tutee content</p> }));
+    expect(screen.getByText("Tutee content")).toBeTruthy();
+    expect(
+      screen.getAllByRole("link", {
+        name: "components.userMenu.backToManagement",
+      }),
+    ).toHaveLength(2);
+    expect(
+      screen.queryByRole("link", { name: "components.userMenu.enterTutor" }),
+    ).toBeNull();
+    await expect(TutorLayout({ children: null })).rejects.toThrow("redirect:/");
+  },
+);
 it.each(["HEAD", "ADMIN", "COORDINATOR"])(
   "keeps mobile management navigation in %s translation workspaces",
   async (role) => {
@@ -218,3 +251,149 @@ it("keeps the inherited quarter messages when quarter mode is applied", async ()
   render(await TuteeLayout({ children: <p>Requests</p> }));
   expect(screen.queryByTestId("period-messages")).toBeNull();
 });
+
+// Exercise the real layouts: each shortcut must also retain the same menu destination.
+it.each(["HEAD", "ADMIN", "COORDINATOR", "VIEWER"])(
+  "keeps tutor/tutee management shortcuts adjacent for %s",
+  async (role) => {
+    mocks.auth.mockResolvedValue({ user: { id: "account" }, role });
+    mocks.user.mockResolvedValue({ tutor: { status: "ACTIVE" } });
+    const { container } = render(await AdminLayout({ children: null }));
+    const menu = screen.getByRole("navigation", {
+      name: "Account destinations",
+    });
+    const menuLinks = within(menu).getAllByRole("link");
+    expect(
+      menuLinks.slice(0, 2).map((link) => link.getAttribute("href")),
+    ).toEqual(["/dashboard", "/student"]);
+    const shortcuts = [...container.querySelectorAll("header a")].filter(
+      (link) =>
+        !menu.contains(link) &&
+        ["/dashboard", "/student"].includes(link.getAttribute("href")!),
+    );
+    expect(shortcuts.map((link) => link.getAttribute("href"))).toEqual([
+      "/dashboard",
+      "/student",
+    ]);
+    expect(shortcuts.map((link) => link.textContent)).toEqual([
+      "components.userMenu.enterTutor",
+      "components.userMenu.enterTutee",
+    ]);
+  },
+);
+it.each([null, { status: "ARCHIVED" }])(
+  "hides ineligible tutor entry in both management destinations (%j)",
+  async (tutor) => {
+    mocks.auth.mockResolvedValue({ user: { id: "account" }, role: "ADMIN" });
+    mocks.user.mockResolvedValue({ tutor });
+    render(await AdminLayout({ children: null }));
+    expect(
+      screen.queryByRole("link", { name: "components.userMenu.enterTutor" }),
+    ).toBeNull();
+    expect(
+      screen.getAllByRole("link", { name: "components.userMenu.enterTutee" }),
+    ).toHaveLength(2);
+  },
+);
+for (const [area, Layout] of [
+  ["tutor", TutorLayout],
+  ["tutee", TuteeLayout],
+] as const) {
+  it.each([
+    "HEAD",
+    "ADMIN",
+    "COORDINATOR",
+    "VIEWER",
+    "TUTOR",
+    "CREW",
+    "STUDENT",
+  ])(
+    `${area} exposes a management return only to authorized %s accounts`,
+    async (role) => {
+      mocks.auth.mockResolvedValue({
+        user: { id: "account" },
+        role,
+        tutorId: "tutor",
+      });
+      mocks.user.mockResolvedValue({
+        role,
+        emailVerifiedAt: new Date(),
+        tutor: { status: "ACTIVE" },
+      });
+      mocks.tutor.mockResolvedValue({ id: "tutor", status: "ACTIVE" });
+      const { container } = render(await Layout({ children: null }));
+      const links = screen.queryAllByRole("link", {
+        name: "components.userMenu.backToManagement",
+      });
+      const allowed = ["HEAD", "ADMIN", "COORDINATOR", "VIEWER"].includes(role);
+      expect(links).toHaveLength(allowed ? 2 : 0);
+      if (allowed) {
+        expect(
+          links.every((link) => link.getAttribute("href") === "/admin"),
+        ).toBe(true);
+        const menu = screen.getByRole("navigation", {
+          name: "Account destinations",
+        });
+        expect(
+          links.some(
+            (link) =>
+              container.querySelector("header")!.contains(link) &&
+              !menu.contains(link),
+          ),
+        ).toBe(true);
+      }
+      if (area === "tutor" && role === "VIEWER") {
+        expect(
+          screen
+            .getByRole("link", { name: "workflows.messages" })
+            .getAttribute("href"),
+        ).toBe("/messages");
+      }
+    },
+  );
+}
+it.each([null, { id: "tutor", status: "ARCHIVED" }])(
+  "returns a viewer with an unavailable tutor profile to management (%j)",
+  async (tutor) => {
+    mocks.auth.mockResolvedValue({
+      user: { id: "account" },
+      role: "VIEWER",
+      tutorId: "tutor",
+    });
+    mocks.tutor.mockResolvedValue(tutor);
+    await expect(TutorLayout({ children: null })).rejects.toThrow(
+      "redirect:/admin",
+    );
+  },
+);
+it("keeps archived pure-tutor history accessible without management access", async () => {
+  mocks.auth.mockResolvedValue({
+    user: { id: "account" },
+    role: "TUTOR",
+    tutorId: "tutor",
+  });
+  mocks.tutor.mockResolvedValue({ id: "tutor", status: "ARCHIVED" });
+  mocks.user.mockResolvedValue({ emailVerifiedAt: new Date(), role: "TUTOR" });
+  render(await TutorLayout({ children: <p>Tutor history</p> }));
+  expect(screen.getByText("Tutor history")).toBeTruthy();
+  expect(
+    screen.queryByRole("link", {
+      name: "components.userMenu.backToManagement",
+    }),
+  ).toBeNull();
+});
+it.each([null, { status: "ARCHIVED" }])(
+  "tutee workspace omits unavailable tutor entry (%j)",
+  async (tutor) => {
+    mocks.user.mockResolvedValue({ role: "VIEWER", tutor });
+    render(await TuteeLayout({ children: null }));
+    expect(
+      screen.queryByRole("link", { name: "components.userMenu.enterTutor" }),
+    ).toBeNull();
+    expect(
+      screen.getAllByRole("link", {
+        name: "components.userMenu.backToManagement",
+      }),
+    ).toHaveLength(2);
+  },
+);

@@ -35,6 +35,14 @@ The website supports intake, matching, attendance, hours, interviews, support an
 
 A role and a tutor or crew membership are different things. A management account needs an active linked tutor profile to perform tutor duties. Every signed-in account can use **Enter Tutee page**, including tutors, crew, viewers and administrators. Visiting it does not change your role or create a tutoring request. Tutee participation and history coexist with other account roles. Suspension prevents ordinary participation; follow the suspension page’s appeal route.
 
+### Switch workspaces
+
+Management headers and account menus show **Enter Tutor Page**, then **Enter Tutee Page** together. Tutor entry requires a linked, non-archived tutor profile; tutee entry remains available to every active signed-in account. Management accounts without tutor eligibility can still open the tutee workspace and return to management.
+
+Tutor and tutee workspaces show **Back to Management** for HEAD, ADMIN, COORDINATOR and VIEWER. This shortcut does not grant write access to viewers. Archived pure tutors retain their existing read-only history access.
+
+On mobile, the shared header places the brand and language selector first, global controls second, and available workspace switches below a divider. Management's hamburger button opens the navigation drawer; Escape, its close button or selecting a link closes it. Desktop management keeps the sidebar and main content independently scrollable below the header. Workspace shortcuts wrap on narrow screens and preserve touch targets.
+
 ## Tutees
 
 ### Apply and confirm
