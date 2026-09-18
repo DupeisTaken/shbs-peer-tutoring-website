@@ -11,6 +11,7 @@ outputs
 local-operations
 README.md
 docs/deployment.md
+docs/reports
 **/reports/**/*.html
 **/*-report/**/*.html
 *report*.html

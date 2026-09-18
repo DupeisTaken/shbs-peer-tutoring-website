@@ -57,7 +57,8 @@ yarn-error.log*
 # Private operator notes and deployment details; never part of the shared LMS foundation.
 /local-operations/
 
-# HTML reports are local artifacts; keep their Markdown sources and builders.
+# Local HTML reports and prior exports are not repository source files.
+/docs/reports/
 **/reports/**/*.html
 **/*-report/**/*.html
 *report*.html

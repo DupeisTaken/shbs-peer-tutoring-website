@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
 
-/** Bundled development content; publication to an existing site is a staff action. */
-export const POLICY_VERSION = "2026.09.13";
+/** Sample development policies; staff adapt, review and publish them for a school. */
+export const POLICY_VERSION = "2026.09.18";
 
-// Keep this explicit: archived translations must not silently become current content.
+// Only include reviewed sample translations in development seeds.
 // Missing policy locales already fall back to English in the runtime policy loader.
 export const BUNDLED_POLICIES = ["tutor-policy", "tutee-policy"].flatMap(
   (slug) =>

@@ -4,7 +4,7 @@ Run the app locally, seed synthetic data and verify changes. Run all commands fr
 
 ## Updating an existing checkout
 
-After pulling schema changes, run `npm run db:migrate` and `npx prisma generate`, then restart the app. Apply the complete migration chain; do not reset an existing database just to upgrade it. Feature-specific rollout details are in [messaging](messaging.md), [announcement recipients](announcement-recipients.md), [program timezones](program-time-zone.md) and [coordinator approvals](coordinator-approvals.md).
+After pulling schema changes, run `npm run db:migrate` and `npx prisma generate`, then restart the app. Apply the complete migration chain; do not reset an existing database just to upgrade it. See the [technical guide](technical-report.md) for code responsibilities and the [program reference](program-reference.md) for configuration.
 
 On Windows, create disposable test/demo databases with UTF-8 encoding rather than
 inheriting a WIN1252 template. The application stores Chinese text and emoji. A new
@@ -20,9 +20,7 @@ If a local Turbopack build reports a stale cached module graph, set
 `SHBS_DISABLE_BUILD_CACHE=1` for that build to bypass the compiler cache without deleting it.
 Normal builds retain Next's default cache behavior. `SHBS_BUILD_CPUS=1` limits local build workers.
 
-Local screenshot evidence and the implementation report belong under the ignored
-`outputs/implementation-report/` directory. The report is an offline HTML file with
-local images and diagrams; it is not part of the deployed application.
+Keep local screenshots and verification logs in ignored `outputs/` or `.validation/`.
 
 ## Prerequisites
 
@@ -71,22 +69,6 @@ Create a database and point `DATABASE_URL` at it, e.g.:
 DATABASE_URL="postgresql://postgres:password@localhost:5432/shbs_program_demo"
 ```
 
-### Option C — Embedded Postgres (no Docker, throwaway)
-
-Useful on machines without Docker. In a scratch directory, install
-[`embedded-postgres`](https://www.npmjs.com/package/embedded-postgres) and start it on a
-spare port, then point `DATABASE_URL` at it:
-
-```bash
-# in a temp dir
-npm i embedded-postgres
-node -e "import('embedded-postgres').then(async ({default:EP})=>{const pg=new EP({port:5433,user:'postgres',password:'password',persistent:false});await pg.initialise();await pg.start();await pg.createDatabase('shbs_program_demo');console.log('up on 5433');})"
-```
-
-Then use `DATABASE_URL="postgresql://postgres:password@localhost:5433/shbs_program_demo"`.
-This is the approach used to verify migrations, seeding, and the row-scoping tests on a
-Docker-less Windows box.
-
 ## 3. Apply the schema and seed
 
 Use a fresh local database named `shbs_program_demo`. Set `SHBS_DEMO_SEED=1` in this command's environment (PowerShell: `$env:SHBS_DEMO_SEED="1"`). The seed rejects remote hosts, production mode, and database names outside `shbs_*_demo` / `shbs_*_test`.
@@ -98,7 +80,33 @@ npm run db:seed
 npx tsx prisma/verify-demo.ts
 ```
 
-Seeding creates synthetic fixtures and refreshes some values. It preserves immutable request history and is not a full reset; create a fresh database to restart a rehearsal. It can overwrite other rehearsal changes; never use it with real program data. See the [demo database guide](demo-database.md) for all roles, example workflows, and database design decisions. Use `npm run admin:create` to bootstrap real deployments.
+Seeding creates synthetic fixtures and refreshes some values. It preserves immutable request history and is not a full reset; create a fresh database to restart a rehearsal. It can overwrite other rehearsal changes; never use it with real program data. Use `npm run admin:create` to bootstrap real deployments.
+
+### Demo accounts and workflows
+
+All example accounts use `Password123!`. The identifiers below work at `/signin`.
+
+| Account | Role / example | Start |
+| --- | --- | --- |
+| `admin` | HEAD; collective oversight, decisions and configuration | `/admin/activity` |
+| `manager@example.test` | ADMIN; management review without a tutor identity | `/admin` |
+| `carol@example.edu` | COORDINATOR and tutor; interview chair and approval proposals | `/dashboard`, `/admin` |
+| `alice@example.edu` | Active tutor; attendance, assignments, hours, panel voting | `/dashboard` |
+| `crew@example.edu` | Crew-only member; room patrol and membership | `/patrol` |
+| `iris@example.edu` | Tutor with crew membership | `/patrol` |
+| `emma@example.test` | Assigned student; sessions, feedback and messages | `/student` |
+| `frank@example.test` | Assigned student; pending card appeal and withdrawal review | `/student` |
+| `grace@example.test` | Assigned student; tutor schedule-conflict review | `/student` |
+| `kate@example.test` | Verified student still waiting for assignment | `/student` |
+| `recalled@example.test` | Recalled request retained as history | `/student` |
+| `withdrawn@example.test` | Approved quarter withdrawal and resubmission block | `/student` |
+| `translator@example.test` | VIEWER with translation capability; pending draft | `/localization` |
+| `parent@example.edu` | Ordinary viewer | `/` |
+| `viewer2@example.edu` | Suspended viewer with account appeal | `/` |
+
+The database also includes unverified survey demand before account creation, disqualification history, exact policy acceptance snapshots, school-calendar overrides, active/inactive membership, pending and resolved removals, future meetings, valid qualified interview panels, notifications, private messages, registration codes, custom pages and historical service-hour reports. The Fiona panel has a coordinator chair and a completed interview; Hana demonstrates a tied vote resolved by that chair. Bundled policy text still needs school review before publication.
+
+Seeded survey tokens are deliberately unusable: request a new email link through the form. Local email capture is required to rehearse verification and recovery without delivering real email. Never enable a public mail-capture endpoint on a deployed site. Create coordinator proposals through the interface so their immutable target snapshots reflect the database at submission time.
 
 ## 4. Run the app
 
@@ -116,8 +124,7 @@ in the avatar menu (`/settings`).
 Switch the interface language any time with the **EN / 中文** toggle in the header.
 
 The dev server logs each tRPC call's real handler time as `[trpc] <type> <path> <ms>` —
-handy for spotting a slow query. (Unlike the T3 default, there's no artificial request delay
-unless you set `TRPC_DEV_DELAY=true`, so the numbers reflect true DB + compute cost.)
+Use it to spot slow queries. `TRPC_DEV_DELAY=true` adds an artificial development delay; leave it unset when measuring handlers.
 
 Try the public forms (no login required):
 
@@ -125,7 +132,7 @@ Try the public forms (no login required):
 - **Tutor application** at `/tutor-signup` starts recruitment. Assign at least three active tutor accounts, a highest-ranking management chair, and explicit subject qualification coverage. Every panelist votes; the majority determines the outcome and the chair breaks ties. A coordinator chair's decision requires ADMIN/HEAD approval.
 - **Crew application** at `/crew-signup` starts the separate crew membership workflow.
 
-Follow the [role guide](user-guide.md) and [demo walkthrough](demo-database.md). Real SMTP setup and final school policy approval remain launch configuration work; local capture delivers no external mail.
+Follow the [role guide](user-guide.md) using the [demo accounts](#demo-accounts-and-workflows). Real SMTP setup and final school policy approval remain launch configuration work; local capture delivers no external mail.
 
 ## 5. Run the tests
 
@@ -144,10 +151,10 @@ Application tests live under `src/**/*.test.{ts,tsx}`:
 
 `src/test/setup.ts` supplies `AUTH_SECRET` and a default `DATABASE_URL`, so the unit
 tests pass out of the box. For the integration tests, set `DATABASE_URL` to a database you've
-run `db:migrate` against first. Example with embedded Postgres (Option C):
+run `db:migrate` against first. For example:
 
 ```bash
-DATABASE_URL="postgresql://postgres:password@localhost:5433/shbs_shipping_test" npm test -- --maxWorkers=1
+DATABASE_URL="postgresql://postgres:password@localhost:5432/shbs_shipping_test" npm test -- --maxWorkers=1
 ```
 
 Use a separate loopback database named `shbs_shipping_test` for the complete suite. The shared
@@ -160,7 +167,7 @@ Lint and type-check the same way CI does:
 
 ```bash
 npm run check       # eslint . + tsc --noEmit
-npm run docs:check  # documentation links, report rendering and maintenance regressions
+npm run docs:check  # documentation links, headings and maintenance regressions
 ```
 
 ## 6. Smoke-test the production Docker stack (optional)
@@ -192,12 +199,12 @@ docker compose down        # or: docker compose down -v
 
 ## Troubleshooting
 
-- **Expired/unverifiable session or old development cookie** — sign in again when prompted. Keep `AUTH_SECRET` stable; localhost ports share cookies, so use separate browser profiles for worktrees with different secrets. If a fresh sign-in still fails, investigate the running process configuration. See [session recovery](session-recovery.md).
+- **Expired/unverifiable session or old development cookie** — sign in again when prompted. Keep `AUTH_SECRET` stable; localhost ports share cookies, so use separate browser profiles for worktrees with different secrets. If a fresh sign-in still fails, investigate the running process configuration. Confirm a stable secret on every server instance, the canonical `AUTH_URL` and proxy HTTPS settings. A private browser session helps distinguish stale cookies from a server configuration problem.
 
 - **`Invalid environment variables` on startup** — a required var in `.env` is missing or
   malformed. Check it against `.env.example` and the schema in `src/env.js`.
 - **Prisma can't connect** — confirm your database is running and `DATABASE_URL` host/port
-  match it (the embedded-Postgres example uses port **5433**, not 5432).
+  match it.
 - **Sign-in succeeds but the admin page reports a missing table or column** (for example,
   `StudentSurvey` or `Tutee.signupSubmittedAt`) — the local database is behind the checked-out
   application. Check `npx prisma migrate status`, then run `npm run db:migrate` against the
@@ -210,7 +217,7 @@ docker compose down        # or: docker compose down -v
 
 ## Workflow and maintenance references
 
-See the [user guide](user-guide.md) for record corrections and participant workflows, [product rules](product-rules.md) for confirmed decisions, and [repository maintenance](repository-maintenance.md) before deleting runtime fixtures or caches. Store local evidence in ignored `outputs/` or `.validation/`.
+See the [user guide](user-guide.md) for record corrections and participant workflows, and [repository hygiene](contributing.md#documentation-and-repository-hygiene) before deleting runtime fixtures or caches. Store local evidence in ignored `outputs/` or `.validation/`.
 
 ## Browser tab icon (favicon)
 
