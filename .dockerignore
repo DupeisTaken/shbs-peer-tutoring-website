@@ -10,7 +10,12 @@ npm-debug.log*
 outputs
 local-operations
 README.md
-README-DEPLOY.md
+docs/deployment.md
+docs/reports
+**/reports/**/*.html
+**/*-report/**/*.html
+*report*.html
+*audit*.html
 .vscode
 .idea
 coverage

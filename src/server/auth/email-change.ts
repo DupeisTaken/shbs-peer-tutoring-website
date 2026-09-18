@@ -1,6 +1,7 @@
 import {
   assertEmailAvailable as available,
   MAX_SECONDARY_EMAILS,
+  associatedAccountEmails,
 } from "./account-emails";
 import { lockAccountProfile } from "~/server/account-profile";
 import { TRPCError } from "@trpc/server";
@@ -103,14 +104,11 @@ export async function confirmEmailChange(
     await available(tx, userId, row.targetEmail);
     const before = await tx.user.findUniqueOrThrow({ where: { id: userId } });
     if (before.email === row.targetEmail) return false;
-    const existing = await tx.accountEmail.findUnique({
-      where: { email: row.targetEmail },
-    });
+    const emails = await associatedAccountEmails(tx, userId);
     if (
-      !existing &&
+      !emails.some((address) => address.email === row.targetEmail) &&
       before.emailVerifiedAt &&
-      (await tx.accountEmail.count({ where: { userId } })) >=
-        MAX_SECONDARY_EMAILS + 1
+      emails.length >= MAX_SECONDARY_EMAILS + 1
     )
       throw new TRPCError({
         code: "BAD_REQUEST",
@@ -123,6 +121,16 @@ export async function confirmEmailChange(
     await tx.user.update({
       where: { id: userId },
       data: { email: row.targetEmail, emailVerifiedAt: new Date() },
+    });
+    // A replacement can complete a pending secondary challenge for this account.
+    await tx.emailVerificationCode.updateMany({
+      where: {
+        userId,
+        purpose: "SECONDARY_EMAIL",
+        targetEmail: row.targetEmail,
+        consumedAt: null,
+      },
+      data: { consumedAt: new Date() },
     });
     if (before.tutorId)
       await tx.tutor.update({

@@ -2352,6 +2352,7 @@
     "policyTitle": "更新された規約を確認してください",
     "policyConsequences": "以下の規約を読み、同意することを確認してください。",
     "policyAgree": "I have read and agree to this version of the policy.",
+    "policyScrollHint": "同意するには、ポリシーの一番下までスクロールしてください。",
     "navigation": "Tutoring request workflow",
     "current": "Current request",
     "processed": "Processed",

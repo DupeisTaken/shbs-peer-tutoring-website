@@ -2352,6 +2352,7 @@
     "policyTitle": "업데이트된 규정을 확인해 주세요",
     "policyConsequences": "아래 규정을 읽고 동의 여부를 확인해 주세요.",
     "policyAgree": "I have read and agree to this version of the policy.",
+    "policyScrollHint": "동의하려면 정책의 맨 아래까지 스크롤하세요.",
     "navigation": "Tutoring request workflow",
     "current": "Current request",
     "processed": "Processed",

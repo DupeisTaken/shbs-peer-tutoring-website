@@ -14,7 +14,7 @@ import { useReadOnly } from "~/app/_components/read-only";
 
 /**
  * Audit trail of admin mutations. Entries that carry undo data can be reverted with one
- * click (see src/server/audit/log.ts). Supports the revertibility philosophy in CLAUDE.md.
+ * click (see src/server/audit/log.ts). Supports the revertibility philosophy in docs/contributing.md.
  */
 function AuditLog() {
   const t = useTranslations();

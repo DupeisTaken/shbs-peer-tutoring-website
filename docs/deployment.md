@@ -14,13 +14,6 @@ Internet ──443/80──▶ caddy ──▶ app:3000 ──▶ db:5432
 - `app` waits for `db` to be healthy (`pg_isready`), then runs `prisma migrate deploy` and starts.
 - Postgres data lives on the `db-data` named volume; Caddy certs on `caddy-data`.
 
-## Division of labor
-
-**You (operator):** provision the VPS, point DNS, supply real secrets in `.env`, run the deploy.
-**Code/config:** everything in this repo (already written).
-
----
-
 ## 1. Prerequisites
 
 1. A VPS running Ubuntu (22.04/24.04), with a public IP.
@@ -216,8 +209,26 @@ docker compose build && docker compose up -d
 
 - **Cert not issued:** confirm DNS A record resolves to the VPS and ports 80/443 are open.
 - **App restarting:** `docker compose logs app` — usually a bad `.env` value or DB not reachable.
+- **Fresh sign-ins fail or alternate between servers:** confirm every instance uses the same stable `AUTH_SECRET`, canonical `AUTH_URL` and HTTPS proxy settings.
 - **DB healthcheck failing:** `docker compose logs db`; ensure `POSTGRES_*` match across `.env`.
 
-### Student Workflow Launch Configuration
+## Optional notification delivery
 
-Before opening the fresh database to students, verify the integrated signup flow, configure real email delivery, publish the [reviewed policies](docs/policies/README.md), set the intake opening time, confirm subject qualifications, and enter school-calendar exceptions. Feedback defaults to staff-only. The operational guide is [STUDENT-WORKFLOWS.md](STUDENT-WORKFLOWS.md). Real email provider setup remains a separate launch step; it has not been configured by this implementation pass.
+Apply all migrations with `npm run db:migrate`, regenerate Prisma with `npx prisma generate`, and restart the persistent Node application before enabling optional notifications. The account-email migration atomically backfills primary addresses and recovery-token destinations; normalized collisions abort instead of merging accounts. Resolve legacy collisions before retrying. The follow-up migration releases any unverified secondary claims created by an earlier version and revokes their grants, preserving primary and verified secondary addresses. Affected users can request a new verification code.
+
+The worker polls every 30 seconds and leases up to ten deliveries per batch for five minutes. Row locking coordinates concurrent workers. Failures retry with exponential backoff, up to five attempts; the Program settings panel shows terminal failures. Inspect `EmailDelivery` status and safe failure summaries when diagnosing transport problems. A stable Message-ID identifies retries, but SMTP cannot guarantee exactly-once delivery after a process stops between acceptance and recording success. Short-lived deployments require an external scheduler calling the dispatcher.
+
+Configure and test the real email transport before enabling the immediate ADMIN/HEAD switch. Disabling cancels queued notices without discarding preferences; essential authentication mail remains independent. See [notification controls](program-reference.md#optional-email-notifications) and [personal preferences](user-guide.md#optional-email-notifications).
+
+## Verify before opening intake
+
+Complete these checks on the actual host after bootstrap or an update:
+
+1. Confirm the canonical HTTPS domain, application health and a successful container restart with all migrations applied.
+2. Confirm PostgreSQL and uploaded media persist after replacing the app container.
+3. Deliver signup, password-reset and verified email-change messages to real inboxes; check sender identity and usable links.
+4. Publish the [reviewed policies](policies/README.md#publish-a-revision) and school-specific public content. Review translations before enabling hidden languages.
+5. Configure the current school year/intake, subjects, slots, rooms, tutor qualifications, opening time, school calendar and feedback visibility using the [program reference](program-reference.md). Check a test participant's signup and consent flow.
+6. Restore a backup into a separate database and confirm usable records. Check backup retention and off-host copies.
+
+A successful build or published GHCR image does not verify target-host TLS, persistence, delivery or restore readiness. Use current CI results for code verification and record operational evidence privately.

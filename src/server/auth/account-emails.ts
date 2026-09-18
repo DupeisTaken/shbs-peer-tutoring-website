@@ -1,7 +1,7 @@
 import { TRPCError } from "@trpc/server";
 import { db } from "~/server/db";
 import { lockAccountProfile } from "~/server/account-profile";
-import type { TransactionDb } from "~/server/transactions";
+import { lockEntity, type TransactionDb } from "~/server/transactions";
 import { rateLimit } from "~/server/rate-limit";
 import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
 import { verifyPassword } from "./password";
@@ -10,6 +10,43 @@ import { generateRegistrationCode, normalizeRegCode } from "./code";
 
 export const MAX_SECONDARY_EMAILS = 5;
 export const normalizeEmail = (email: string) => email.trim().toLowerCase();
+
+/** Pending challenges are account-local UI state, never ownership of an address.
+ * Keep expired challenges visible for resend/cancel, without blocking another account.
+ * The same union drives both the settings list and the five-secondary limit.
+ */
+export async function associatedAccountEmails(
+  tx: TransactionDb,
+  userId: string,
+) {
+  const [owned, pending] = await Promise.all([
+    tx.accountEmail.findMany({
+      where: { userId },
+      orderBy: { createdAt: "asc" },
+      select: { email: true, verifiedAt: true },
+    }),
+    tx.emailVerificationCode.findMany({
+      where: {
+        userId,
+        purpose: "SECONDARY_EMAIL",
+        consumedAt: null,
+        targetEmail: { not: null },
+      },
+      distinct: ["targetEmail"],
+      orderBy: { createdAt: "asc" },
+      select: { targetEmail: true },
+    }),
+  ]);
+  const emails = new Map(owned.map((address) => [address.email, address]));
+  for (const challenge of pending) {
+    if (challenge.targetEmail && !emails.has(challenge.targetEmail))
+      emails.set(challenge.targetEmail, {
+        email: challenge.targetEmail,
+        verifiedAt: null,
+      });
+  }
+  return [...emails.values()];
+}
 
 /** All email writers lock User first; ownership is ultimately enforced by the address registry. */
 export async function authenticateEmailAction(
@@ -80,7 +117,7 @@ export async function requestSecondaryEmail(
     });
   const email = normalizeEmail(inputEmail);
   const code = generateRegistrationCode();
-  await db.$transaction(async (tx) => {
+  const challenge = await db.$transaction(async (tx) => {
     const user = await authenticateEmailAction(tx, userId, password);
     if (email === user.email)
       throw new TRPCError({
@@ -94,10 +131,10 @@ export async function requestSecondaryEmail(
         code: "BAD_REQUEST",
         message: "This address is already verified.",
       });
+    const emails = await associatedAccountEmails(tx, userId);
     if (
-      !address &&
-      (await tx.accountEmail.count({ where: { userId } })) >=
-        MAX_SECONDARY_EMAILS + 1
+      !emails.some((entry) => entry.email === email) &&
+      emails.length >= MAX_SECONDARY_EMAILS + 1
     )
       throw new TRPCError({
         code: "BAD_REQUEST",
@@ -117,7 +154,6 @@ export async function requestSecondaryEmail(
         code: "TOO_MANY_REQUESTS",
         message: "Wait one minute before resending.",
       });
-    if (!address) await tx.accountEmail.create({ data: { email, userId } });
     await tx.emailVerificationCode.updateMany({
       where: {
         userId,
@@ -127,7 +163,7 @@ export async function requestSecondaryEmail(
       },
       data: { consumedAt: new Date() },
     });
-    await tx.emailVerificationCode.create({
+    return tx.emailVerificationCode.create({
       data: {
         userId,
         purpose: "SECONDARY_EMAIL",
@@ -137,11 +173,20 @@ export async function requestSecondaryEmail(
       },
     });
   });
-  await emailSender.send({
-    to: email,
-    subject: "Verify your secondary email",
-    text: `Your verification code is ${code}. It expires in ten minutes. If you did not request this, ignore this message.`,
-  });
+  try {
+    await emailSender.send({
+      to: email,
+      subject: "Verify your secondary email",
+      text: `Your verification code is ${code}. It expires in ten minutes. If you did not request this, ignore this message.`,
+    });
+  } catch (error) {
+    // Retire only this failed delivery's challenge; never cancel a newer resend.
+    await db.emailVerificationCode.updateMany({
+      where: { id: challenge.id, consumedAt: null },
+      data: { consumedAt: new Date() },
+    });
+    throw error;
+  }
 }
 
 export async function confirmSecondaryEmail(
@@ -152,8 +197,6 @@ export async function confirmSecondaryEmail(
   const email = normalizeEmail(inputEmail);
   return db.$transaction(async (tx) => {
     await lockAccountProfile(tx, userId);
-    const address = await tx.accountEmail.findUnique({ where: { email } });
-    if (address?.userId !== userId || address.verifiedAt) return false;
     const row = await tx.emailVerificationCode.findFirst({
       where: {
         userId,
@@ -171,14 +214,30 @@ export async function confirmSecondaryEmail(
       });
       return false;
     }
+    // Different accounts can request the same address. Only proof can claim it,
+    // with PostgreSQL's unique key also arbitrating races with legacy signup writers.
+    await lockEntity(tx, `account-email:${email}`);
+    const address = await tx.accountEmail.findUnique({ where: { email } });
+    if (address?.userId === userId) return false;
     await assertEmailAvailable(tx, userId, email);
+    const emails = await associatedAccountEmails(tx, userId);
+    if (emails.length > MAX_SECONDARY_EMAILS + 1)
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "Remove a secondary address before adding another.",
+      });
+    const claimed = await tx.accountEmail.createMany({
+      data: [{ email, userId, verifiedAt: new Date() }],
+      skipDuplicates: true,
+    });
+    if (!claimed.count)
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "That address is unavailable.",
+      });
     await tx.emailVerificationCode.update({
       where: { id: row.id },
       data: { consumedAt: new Date() },
-    });
-    await tx.accountEmail.update({
-      where: { email },
-      data: { verifiedAt: new Date() },
     });
     await tx.$executeRaw`SELECT queue_account_email(${userId}, 'security', 'secondary_added')`;
     return true;
@@ -220,14 +279,26 @@ export async function manageSecondaryEmail(
   await db.$transaction(async (tx) => {
     const user = await authenticateEmailAction(tx, userId, password);
     const address = await tx.accountEmail.findUnique({ where: { email } });
-    if (address?.userId !== userId) throw new TRPCError({ code: "NOT_FOUND" });
+    const pending = await tx.emailVerificationCode.findFirst({
+      where: {
+        userId,
+        purpose: "SECONDARY_EMAIL",
+        targetEmail: email,
+        consumedAt: null,
+      },
+    });
+    if (address?.userId !== userId && !pending)
+      throw new TRPCError({ code: "NOT_FOUND" });
     if (action === "primary") return promoteEmail(tx, userId, email);
     if (email === user.email)
       throw new TRPCError({
         code: "BAD_REQUEST",
         message: "Choose another primary email before removing this address.",
       });
-    await tx.accountEmail.delete({ where: { email } });
+    // A pending challenge can outlive a different person's successful claim.
+    // Cancellation must never remove that person's verified registry row.
+    if (address?.userId === userId)
+      await tx.accountEmail.delete({ where: { email } });
     // The removed address cannot be recovered via an old grant, even if later re-added.
     await tx.passwordResetToken.updateMany({
       where: { userId, targetEmail: email, consumedAt: null },
@@ -244,7 +315,7 @@ export async function manageSecondaryEmail(
       },
       data: { consumedAt: new Date() },
     });
-    if (address.verifiedAt)
+    if (address?.userId === userId && address.verifiedAt)
       await tx.$executeRaw`SELECT queue_account_email(${userId}, 'security', 'secondary_removed')`;
   });
 }

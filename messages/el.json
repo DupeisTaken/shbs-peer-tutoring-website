@@ -2352,6 +2352,7 @@
     "policyTitle": "Διάβασε την ενημερωμένη πολιτική",
     "policyConsequences": "Διάβασε την παρακάτω πολιτική και επιβεβαίωσε ότι συμφωνείς.",
     "policyAgree": "I have read and agree to this version of the policy.",
+    "policyScrollHint": "Μεταβείτε στο τέλος της πολιτικής για να ενεργοποιήσετε τη συγκατάθεση.",
     "navigation": "Tutoring request workflow",
     "current": "Current request",
     "processed": "Processed",

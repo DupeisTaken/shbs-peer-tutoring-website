@@ -1,6 +1,7 @@
 name: Enhance an existing feature
 description: Suggest an improvement to a feature that already exists.
 title: "[Enhancement]: "
+labels: ["enhancement"]
 body:
   - type: markdown
     attributes:

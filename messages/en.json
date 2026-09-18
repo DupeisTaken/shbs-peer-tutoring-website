@@ -2352,6 +2352,7 @@
     "policyTitle": "Please review the updated policy",
     "policyConsequences": "Read the policy below and confirm that you agree.",
     "policyAgree": "I have read and agree to this version of the policy.",
+    "policyScrollHint": "Scroll to the bottom of the policy to enable agreement.",
     "navigation": "Tutoring request workflow",
     "current": "Current request",
     "processed": "Processed",

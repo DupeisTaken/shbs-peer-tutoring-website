@@ -24,6 +24,11 @@ import { verifySigninPassword } from "./credentials";
 import { issuePasswordReset, resetPassword } from "./password-reset";
 import { requestEmailChange, confirmEmailChange } from "./email-change";
 import { deliverNotifications } from "~/server/email/notification-delivery";
+import {
+  startViewerSignup,
+  verifyViewerCode,
+  completeViewerSignup,
+} from "./viewer-signup";
 
 const password = "EmailTestPassword123!";
 let userId = "";
@@ -185,17 +190,139 @@ it("allows only one concurrent confirmation and preserves one primary under conc
   ).toBe(2);
 });
 
-it("reserves aliases against every primary-account creation path, including a concurrent claim", async () => {
+it("reserves verified aliases against every primary-account creation path", async () => {
   await verifiedAlias();
   await expect(
     db.user.create({ data: { email: secondary().toUpperCase() } }),
   ).rejects.toThrow();
-  const contested = `${userId}-race@example.test`;
+});
+
+it.each([false, true])(
+  "pending challenges do not block verified signup, expired=%s",
+  async (expired) => {
+    const email = secondary();
+    await requestSecondaryEmail(userId, email, password);
+    const claimantCode = lastCode();
+    expect(await db.accountEmail.findUnique({ where: { email } })).toBeNull();
+    expect((await caller().account.emailSettings()).emails).toContainEqual({
+      email,
+      verifiedAt: null,
+    });
+    if (expired)
+      await db.emailVerificationCode.updateMany({
+        where: { userId },
+        data: { expiresAt: new Date(0) },
+      });
+    const signup = await startViewerSignup({
+      email,
+      name: "Actual owner",
+      affiliation: "Family",
+    });
+    expect(signup.ok).toBe(true);
+    if (!signup.ok) throw new Error("Expected a fresh signup");
+    expect(await verifyViewerCode(email, signup.code)).toEqual({ ok: true });
+    expect(await completeViewerSignup(email, password)).toEqual({ ok: true });
+    const owner = await db.user.findUniqueOrThrow({ where: { email } });
+    try {
+      if (expired)
+        expect(await confirmSecondaryEmail(userId, email, claimantCode)).toBe(
+          false,
+        );
+      else
+        await expect(
+          confirmSecondaryEmail(userId, email, claimantCode),
+        ).rejects.toThrow("unavailable");
+      // The claimant may cancel their own challenge after another person has claimed the email.
+      await manageSecondaryEmail(userId, email, password, "remove");
+      expect(
+        await db.accountEmail.findUnique({ where: { email } }),
+      ).toMatchObject({ userId: owner.id });
+      expect(
+        (await caller().account.emailSettings()).emails,
+      ).not.toContainEqual({ email, verifiedAt: null });
+    } finally {
+      await db.user.delete({ where: { id: owner.id } });
+      await db.viewerSignup.deleteMany({ where: { email } });
+    }
+  },
+);
+
+it("failed verification delivery neither reserves the address nor occupies a pending slot", async () => {
+  const email = secondary();
+  mail.send.mockRejectedValueOnce(new Error("SMTP unavailable"));
+  await expect(requestSecondaryEmail(userId, email, password)).rejects.toThrow(
+    "SMTP unavailable",
+  );
+  expect(await db.accountEmail.findUnique({ where: { email } })).toBeNull();
+  expect((await caller().account.emailSettings()).emails).toHaveLength(1);
+  await expect(
+    db.user.create({ data: { id: `${userId}-owner`, email } }),
+  ).resolves.toMatchObject({ email });
+});
+
+it("two accounts can request one address but only one proof can claim it", async () => {
+  await db.user.update({
+    where: { id: adminId },
+    data: { passwordHash: hashPassword(password) },
+  });
+  const email = secondary();
+  await requestSecondaryEmail(userId, email, password);
+  const firstCode = lastCode();
+  await requestSecondaryEmail(adminId, email, password);
+  const secondCode = lastCode();
   const results = await Promise.allSettled([
-    requestSecondaryEmail(userId, contested, password),
-    db.user.create({ data: { id: `${userId}-race`, email: contested } }),
+    confirmSecondaryEmail(userId, email, firstCode),
+    confirmSecondaryEmail(adminId, email, secondCode),
   ]);
-  expect(results.filter((r) => r.status === "fulfilled")).toHaveLength(1);
+  expect(
+    results.filter((result) => result.status === "fulfilled" && result.value),
+  ).toHaveLength(1);
+  expect(results.filter((result) => result.status === "rejected")).toHaveLength(
+    1,
+  );
+  expect(await db.accountEmail.count({ where: { email } })).toBe(1);
+});
+
+it("a proof racing primary signup never produces two address owners", async () => {
+  const email = secondary();
+  await requestSecondaryEmail(userId, email, password);
+  const code = lastCode();
+  const results = await Promise.allSettled([
+    confirmSecondaryEmail(userId, email, code),
+    db.user.create({
+      data: { id: `${userId}-race`, email, emailVerifiedAt: new Date() },
+    }),
+  ]);
+  expect(
+    results.filter((result) => result.status === "fulfilled"),
+  ).toHaveLength(1);
+  expect(await db.accountEmail.count({ where: { email } })).toBe(1);
+});
+
+it("counts pending and verified secondaries together without reserving pending addresses", async () => {
+  for (let i = 0; i < 5; i++)
+    await requestSecondaryEmail(
+      userId,
+      `${userId}-pending-${i}@example.test`,
+      password,
+    );
+  expect((await caller().account.emailSettings()).emails).toHaveLength(6);
+  expect(await db.accountEmail.count({ where: { userId } })).toBe(1);
+  await expect(
+    requestSecondaryEmail(userId, secondary(), password),
+  ).rejects.toThrow("five");
+  await requestEmailChange(userId, secondary(), password);
+  await expect(confirmEmailChange(userId, lastCode())).rejects.toThrow(
+    "Remove a secondary",
+  );
+  await manageSecondaryEmail(
+    userId,
+    `${userId}-pending-0@example.test`,
+    password,
+    "remove",
+  );
+  await requestSecondaryEmail(userId, secondary(), password);
+  expect((await caller().account.emailSettings()).emails).toHaveLength(6);
 });
 
 it("caps secondary addresses at five and rejects unrelated roster contacts", async () => {

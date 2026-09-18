@@ -3,6 +3,7 @@ import {
   requestSecondaryEmail,
   confirmSecondaryEmail,
   manageSecondaryEmail,
+  associatedAccountEmails,
 } from "~/server/auth/account-emails";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
@@ -27,15 +28,11 @@ import {
  */
 export const accountRouter = createTRPCRouter({
   emailSettings: protectedProcedure.query(async ({ ctx }) => {
-    const [user, program] = await Promise.all([
+    const [user, program, emails] = await Promise.all([
       ctx.db.user.findUniqueOrThrow({
         where: { id: ctx.session.user.id },
         select: {
           email: true,
-          emails: {
-            orderBy: { createdAt: "asc" },
-            select: { email: true, verifiedAt: true },
-          },
           emailSecurity: true,
           emailMessages: true,
           emailInfo: true,
@@ -46,9 +43,11 @@ export const accountRouter = createTRPCRouter({
         where: { id: "program" },
         select: { emailNotificationsEnabled: true },
       }),
+      associatedAccountEmails(ctx.db, ctx.session.user.id),
     ]);
     return {
       ...user,
+      emails,
       enabled: program?.emailNotificationsEnabled ?? false,
       deliveryAvailable: isEmailDeliveryAvailable(),
     };
