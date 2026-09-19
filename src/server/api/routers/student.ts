@@ -55,7 +55,7 @@ export const studentRouter = createTRPCRouter({
       // Never match names/email or return the old cross-user support feed.
       const user = await ctx.db.user.findUnique({
         where: { id: input.userId },
-        select: { studentId: true, tutorId: true },
+        select: { studentId: true, tutorId: true, tuteeMember: true },
       });
       if (!user) throw new TRPCError({ code: "NOT_FOUND" });
       const rows = await ctx.db.policyAcceptance.findMany({
@@ -65,7 +65,7 @@ export const studentRouter = createTRPCRouter({
         skip: input.page * 20,
       });
       const current = await Promise.all(
-        applicablePolicySlugs(user).map(async (slug) => {
+        applicablePolicySlugs(user).concat(user.tutorId && !user.tuteeMember && !user.studentId ? ["tutee-policy"] : []).map(async (slug) => {
           const documents = await ctx.db.policyDocument.count({
             where: { slug, locale: "en" },
           });
@@ -96,6 +96,7 @@ export const studentRouter = createTRPCRouter({
           id: r.id,
           slug: r.slug,
           signature: r.signature,
+          revision: r.revision,
           acceptedAt: r.acceptedAt,
           documents: policySnapshotDocuments(r.snapshot),
         })),
@@ -167,6 +168,8 @@ export const studentRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) =>
       inTransaction(ctx.db, async (tx) => {
         await lockEntity(tx, `policy:${input.slug}`);
+        const user = await tx.user.findUniqueOrThrow({ where: { id: ctx.session.user.id } });
+        if (user.role === "VIEWER") throw new TRPCError({ code: "FORBIDDEN", message: "Viewer cannot acquire participant membership." });
         const current = await currentPolicy(tx, input.slug);
         if (current.revision !== input.revision)
           throw new TRPCError({
@@ -198,6 +201,7 @@ export const studentRouter = createTRPCRouter({
             snapshot: current.documents,
           },
         });
+        if (input.slug === "tutee-policy") await tx.user.update({ where: { id: user.id }, data: { tuteeMember: true } });
         return { ok: true };
       }),
     ),
