@@ -25,7 +25,8 @@ export async function announcementCandidates(
         },
       },
     }),
-    db.tutorQualification.findMany({
+    db.qualificationGrant.findMany({
+      where: { qualification: { status: "APPROVED" } },
       select: { tutorId: true, subjectId: true },
     }),
     db.subject.findMany({ select: { id: true, name: true } }),

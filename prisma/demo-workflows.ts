@@ -405,6 +405,7 @@ export async function seedModernWorkflows(
           create: {
             tutorId,
             subjectId: intent.subjectId,
+            grants: { create: { subjectId: intent.subjectId } },
             approvedById: headId,
           },
         });
@@ -440,6 +441,7 @@ export async function seedModernWorkflows(
         create: {
           tutorId: pairing.tutorId,
           subjectId: subject.id,
+          grants: { create: { subjectId: subject.id } },
           approvedById: headId,
         },
       });

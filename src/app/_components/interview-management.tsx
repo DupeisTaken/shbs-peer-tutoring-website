@@ -58,6 +58,7 @@ export function InterviewManagement() {
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState("");
   const [searchDraft, setSearchDraft] = useState("");
+  const courseText = useTranslations("courseGroups");
   const [qualificationSearch, setQualificationSearch] = useState("");
   const [qualificationStatus, setQualificationStatus] = useState<
     "ALL" | "QUALIFIED" | "NONE"
@@ -108,7 +109,10 @@ export function InterviewManagement() {
         </Link>
       </div>
       {inputError && <p role="alert">{inputError}</p>}
-      <section className="space-y-3" aria-labelledby="qualification-heading">
+      <section
+        className="space-y-3 max-lg:[&_button]:min-h-11 max-lg:[&_input]:min-h-11 max-lg:[&_select]:min-h-11"
+        aria-labelledby="qualification-heading"
+      >
         <h2 id="qualification-heading" className="section-title">
           {t("qualified")}
         </h2>
@@ -170,7 +174,19 @@ export function InterviewManagement() {
                     key={subject.subjectId}
                     className="flex flex-wrap items-center justify-between gap-3 text-sm"
                   >
-                    <span>{subject.name}</span>
+                    <div>
+                      <span>{subject.name}</span>
+                      {subject.grantedNames.length > 0 && (
+                        <details className="mt-1 text-slate-500">
+                          <summary className="min-h-11 cursor-pointer py-2 lg:min-h-8 lg:py-1">
+                            {courseText("grantCount", {
+                              count: subject.grantedNames.length,
+                            })}
+                          </summary>
+                          <p>{subject.grantedNames.join(" · ")}</p>
+                        </details>
+                      )}
+                    </div>
                     <button
                       className="btn-secondary btn-sm"
                       disabled={qualify.isPending}
