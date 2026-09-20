@@ -4,27 +4,28 @@ import { useState } from "react";
 import Link from "next/link";
 import { useLocale, useTranslations } from "next-intl";
 
+import { signupSettings, fieldMissing, subjectFieldKey, normalizeTutorSubject, missingTutorSubject } from "~/lib/signup-fields";
 import { api } from "~/trpc/react";
 import { APP_TITLE } from "~/lib/branding";
 import { PolicyAgreement } from "~/app/_components/policy-agreement";
 
 type CourseRow = {
   subjectId: string;
-  taken: boolean;
+  taken: boolean | undefined;
   grade: string;
-  hasApScore: boolean;
+  hasApScore: boolean | undefined;
   apScore: string;
-  selfStudied: boolean;
+  selfStudied: boolean | undefined;
   selfStudyNote: string;
 };
 
 const emptyRow: CourseRow = {
   subjectId: "",
-  taken: false,
+  taken: undefined,
   grade: "",
-  hasApScore: false,
+  hasApScore: undefined,
   apScore: "",
-  selfStudied: false,
+  selfStudied: undefined,
   selfStudyNote: "",
 };
 
@@ -38,23 +39,28 @@ export function TutorSignupForm() {
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [preferredContact, setPreferredContact] = useState("");
-  const [rows, setRows] = useState<CourseRow[]>([{ ...emptyRow }]);
-  const [agreed, setAgreed] = useState(false);
+  const [rows, setRows] = useState<CourseRow[]>(Array.from({ length: 3 }, () => ({ ...emptyRow })));
+  const [agreedRevision, setAgreedRevision] = useState<string | null>(null);
+  const agreed = !!policy.data?.revision && agreedRevision === policy.data.revision;
 
-  const courses = options.data ?? [];
+  const courses = options.data?.subjects ?? [];
+  const fields = options.data?.fields ?? signupSettings(null).tutor;
 
   const setRow = (i: number, patch: Partial<CourseRow>) =>
     setRows((rs) => rs.map((r, idx) => (idx === i ? { ...r, ...patch } : r)));
-  const addRow = () =>
-    setRows((rs) => (rs.length < 3 ? [...rs, { ...emptyRow }] : rs));
-  const removeRow = (i: number) =>
-    setRows((rs) => rs.filter((_, idx) => idx !== i));
-
-  const chosen = rows.map((r) => r.subjectId).filter(Boolean);
+  const visibleRows = rows.filter((_, i) => fields[subjectFieldKey(i)] !== "hidden");
+  const chosen = visibleRows.map(r => r.subjectId).filter(Boolean);
+  const requiredSubjectsComplete = rows.every((row, i) => !fieldMissing(fields, subjectFieldKey(i), row.subjectId));
+  const qualificationsComplete = visibleRows.filter(r => r.subjectId).every(row => {
+    const isAp = courses.find(c => c.id === row.subjectId)?.level?.apScored ?? false;
+    return missingTutorSubject(normalizeTutorSubject(row, fields, isAp), fields, isAp).length === 0;
+  });
   const canSubmit =
     name.trim() &&
     email.trim() &&
-    preferredContact.trim() &&
+    !fieldMissing(fields, "preferredContact", preferredContact) &&
+    requiredSubjectsComplete && qualificationsComplete &&
+    policy.data?.revision &&
     chosen.length >= 1 &&
     new Set(chosen).size === chosen.length &&
     agreed &&
@@ -106,7 +112,7 @@ export function TutorSignupForm() {
         {t("workflows.loading")}
       </p>
     );
-  if (!courses.length || !policy.data?.body?.trim())
+  if (!courses.length || !policy.data?.body?.trim() || !policy.data?.revision)
     return (
       <p role="status" className="card p-6">
         {t("public.tutorSignup.unavailable")}
@@ -118,24 +124,16 @@ export function TutorSignupForm() {
       className="card space-y-5 p-6"
       onSubmit={(e) => {
         e.preventDefault();
-        if (!canSubmit) return;
+        if (!canSubmit || !policy.data) return;
         submit.mutate({
           name: name.trim(),
           email: email.trim(),
-          preferredContact: preferredContact.trim(),
-          subjects: rows
-            .filter((r) => r.subjectId)
-            .map((r) => ({
-              subjectId: r.subjectId,
-              taken: r.taken,
-              grade: r.taken ? r.grade.trim() || undefined : undefined,
-              hasApScore: r.hasApScore,
-              apScore: r.hasApScore ? r.apScore.trim() || undefined : undefined,
-              selfStudied: r.selfStudied,
-              selfStudyNote: r.selfStudied
-                ? r.selfStudyNote.trim() || undefined
-                : undefined,
-            })),
+          agreed: true,
+          policyRevision: policy.data.revision,
+          preferredContact: fields.preferredContact === "hidden" ? "" : preferredContact.trim(),
+          // Keep all three positions so a hidden second choice cannot shift the third.
+          subjects: rows.map((row, i) => fields[subjectFieldKey(i)] === "hidden" ? { subjectId: "" } :
+            normalizeTutorSubject(row, fields, courses.find(c => c.id === row.subjectId)?.level?.apScored ?? false)),
         });
       }}
     >
@@ -144,8 +142,9 @@ export function TutorSignupForm() {
         <p className="muted mb-2">{t("public.tutorSignup.coursesHelp")}</p>
         <div className="space-y-3">
           {rows.map((row, i) => {
+            if (fields[subjectFieldKey(i)] === "hidden") return null;
             const usedElsewhere = rows
-              .filter((_, idx) => idx !== i)
+              .filter((_, idx) => idx !== i && fields[subjectFieldKey(idx)] !== "hidden")
               .map((r) => r.subjectId);
             const selected = courses.find((c) => c.id === row.subjectId);
             const isAp = selected?.level?.apScored ?? false;
@@ -157,16 +156,17 @@ export function TutorSignupForm() {
                 <div className="flex flex-wrap items-end gap-2">
                   <label className="space-y-1">
                     <span className="label">
-                      {t("public.tutorSignup.fields.course")}
+                      {t(`signupFields.labels.${subjectFieldKey(i)}`)} <span className="muted text-xs">{t(`signupFields.${fields[subjectFieldKey(i)]}`)}</span>
                     </span>
                     <select
-                      className="select field-auto min-w-48"
+                      className="select field-auto min-h-11 min-w-0 max-w-full lg:min-h-10"
+                      required={fields[subjectFieldKey(i)] === "required"}
                       value={row.subjectId}
                       onChange={(e) =>
                         // Reset the AP-score flag if the new course isn't AP.
                         setRow(i, {
                           subjectId: e.target.value,
-                          hasApScore: false,
+                          hasApScore: undefined,
                           apScore: "",
                         })
                       }
@@ -193,59 +193,34 @@ export function TutorSignupForm() {
                       {selected.level.name}
                     </span>
                   )}
-                  {rows.length > 1 && (
-                    <button
-                      type="button"
-                      className="link-danger mb-2 ml-auto text-sm"
-                      onClick={() => removeRow(i)}
-                    >
-                      {t("public.tutorSignup.remove")}
-                    </button>
-                  )}
+
                 </div>
 
-                {/* Qualification ticks — all checkboxes grouped together. */}
-                <div className="flex flex-wrap items-center gap-x-4 gap-y-2">
-                  <label className="flex items-center gap-2 text-sm text-slate-700">
-                    <input
-                      type="checkbox"
-                      checked={row.taken}
-                      onChange={(e) => setRow(i, { taken: e.target.checked })}
-                    />
-                    {t("public.tutorSignup.qual.taken")}
-                  </label>
-                  {isAp && (
-                    <label className="flex items-center gap-2 text-sm text-slate-700">
-                      <input
-                        type="checkbox"
-                        checked={row.hasApScore}
-                        onChange={(e) =>
-                          setRow(i, { hasApScore: e.target.checked })
-                        }
-                      />
-                      {t("public.tutorSignup.qual.hasApScore")}
-                    </label>
-                  )}
-                  <label className="flex items-center gap-2 text-sm text-slate-700">
-                    <input
-                      type="checkbox"
-                      checked={row.selfStudied}
-                      onChange={(e) =>
-                        setRow(i, { selfStudied: e.target.checked })
-                      }
-                    />
-                    {t("public.tutorSignup.qual.selfStudied")}
-                  </label>
-                </div>
+                {/* Required flags ask for an answer, never require a positive qualification. */}
+                {row.subjectId && <div className="flex flex-wrap items-center gap-3">
+                  {(["taken", "hasApScore", "selfStudied"] as const).map(key => {
+                    if (fields[key] === "hidden" || (key === "hasApScore" && !isAp)) return null;
+                    return <label key={key} className="flex min-h-11 flex-wrap items-center gap-2 text-sm">
+                      <span>{t(`public.tutorSignup.qual.${key}`)}</span>
+                      {fields[key] === "required" ? <select className="select min-h-11 lg:min-h-10" required
+                        aria-label={t(`public.tutorSignup.qual.${key}`)} value={row[key] == null ? "" : String(row[key])}
+                        onChange={e => setRow(i, { [key]: e.target.value === "" ? undefined : e.target.value === "true" })}>
+                        <option value="">{t("signupFields.answer")}</option>
+                        <option value="true">{t("signupFields.yes")}</option><option value="false">{t("signupFields.no")}</option>
+                      </select> : <input type="checkbox" checked={row[key] ?? false} onChange={e => setRow(i, { [key]: e.target.checked })} />}
+                    </label>;
+                  })}
+                </div>}
 
                 {/* Detail boxes — each appears only when its tick is set. */}
-                {row.taken && (
+                {row.subjectId && fields.taken !== "hidden" && fields.grade !== "hidden" && row.taken && (
                   <label className="block space-y-1">
                     <span className="label">
-                      {t("public.tutorSignup.fields.grade")}
+                      {t("public.tutorSignup.fields.grade")} <span className="muted text-xs">{t(`signupFields.${fields.grade}`)}</span>
                     </span>
                     <input
-                      className="input field-auto min-w-32"
+                      className="input field-auto min-h-11 min-w-32 lg:min-h-10"
+                      required={fields.grade === "required"}
                       value={row.grade}
                       onChange={(e) => setRow(i, { grade: e.target.value })}
                       placeholder={t("public.tutorSignup.placeholders.grade")}
@@ -253,13 +228,14 @@ export function TutorSignupForm() {
                   </label>
                 )}
 
-                {isAp && row.hasApScore && (
+                {row.subjectId && isAp && fields.hasApScore !== "hidden" && fields.apScore !== "hidden" && row.hasApScore && (
                   <label className="block space-y-1">
                     <span className="label">
-                      {t("public.tutorSignup.fields.apScore")}
+                      {t("public.tutorSignup.fields.apScore")} <span className="muted text-xs">{t(`signupFields.${fields.apScore}`)}</span>
                     </span>
                     <input
-                      className="input field-auto min-w-32"
+                      className="input field-auto min-h-11 min-w-32 lg:min-h-10"
+                      required={fields.apScore === "required"}
                       value={row.apScore}
                       onChange={(e) => setRow(i, { apScore: e.target.value })}
                       placeholder={t("public.tutorSignup.placeholders.apScore")}
@@ -267,14 +243,15 @@ export function TutorSignupForm() {
                   </label>
                 )}
 
-                {row.selfStudied && (
+                {row.subjectId && fields.selfStudied !== "hidden" && fields.selfStudyNote !== "hidden" && row.selfStudied && (
                   <label className="block space-y-1">
                     <span className="label">
-                      {t("public.tutorSignup.fields.selfStudyNote")}
+                      {t("public.tutorSignup.fields.selfStudyNote")} <span className="muted text-xs">{t(`signupFields.${fields.selfStudyNote}`)}</span>
                     </span>
                     <textarea
                       className="textarea w-full"
                       rows={2}
+                      required={fields.selfStudyNote === "required"}
                       value={row.selfStudyNote}
                       onChange={(e) =>
                         setRow(i, { selfStudyNote: e.target.value })
@@ -289,20 +266,17 @@ export function TutorSignupForm() {
             );
           })}
         </div>
-        {rows.length < 3 && (
-          <button type="button" className="link mt-2 text-sm" onClick={addRow}>
-            {t("public.tutorSignup.addCourse")}
-          </button>
-        )}
+
       </div>
 
       {/* Policy agreement (gated on reading the policy) */}
       <PolicyAgreement
+          key={policy.data.revision}
         messageKey="public.tutorSignup.agree"
         appTitle={APP_TITLE}
         policy={policy.data}
         checked={agreed}
-        onChange={setAgreed}
+        onChange={value => setAgreedRevision(value ? (policy.data?.revision ?? null) : null)}
       />
 
       {/* Contact details last — who they are and how to reach them. */}
@@ -312,7 +286,7 @@ export function TutorSignupForm() {
             {t("public.tutorSignup.fields.fullName")}
           </span>
           <input
-            className="input"
+            className="input min-h-11 lg:min-h-10"
             value={name}
             onChange={(e) => setName(e.target.value)}
             required
@@ -322,7 +296,7 @@ export function TutorSignupForm() {
           <span className="label">{t("public.tutorSignup.fields.email")}</span>
           <input
             type="email"
-            className="input"
+            className="input min-h-11 lg:min-h-10"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             autoComplete="email"
@@ -331,21 +305,21 @@ export function TutorSignupForm() {
         </label>
       </div>
 
-      <label className="space-y-1">
+      {fields.preferredContact !== "hidden" && (<label className="space-y-1">
         <span className="label">
-          {t("public.tutorSignup.fields.preferredContact")}
-        </span>
+          {t("signupFields.labels.preferredContact")}
+         <span className="muted text-xs">{t(`signupFields.${fields.preferredContact}`)}</span></span>
         <input
-          className="input"
+          className="input min-h-11 lg:min-h-10"
           value={preferredContact}
           onChange={(e) => setPreferredContact(e.target.value)}
           placeholder={t("public.tutorSignup.placeholders.preferredContact")}
-          required
+          required={fields.preferredContact === "required"}
         />
         <span className="muted text-xs">
           {t("public.tutorSignup.help.preferredContact")}
         </span>
-      </label>
+      </label>)}
 
       {submit.error && (
         <p role="alert" className="text-sm text-red-600">

@@ -1,3 +1,4 @@
+import { getSignupSettings } from "~/server/program/signup-fields";
 import { z } from "zod";
 
 import {
@@ -101,7 +102,7 @@ export const tuteeRouter = createTRPCRouter({
         },
       }),
     ]);
-    return { subjects, slots };
+    return { subjects, slots, fields: (await getSignupSettings(ctx.db)).tutee };
   }),
 
   /**

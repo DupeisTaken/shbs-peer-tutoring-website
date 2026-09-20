@@ -137,6 +137,7 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
         labelKey: "admin.nav.links.program",
         adminOnly: true,
       },
+      { href: "/admin/signup-forms", labelKey: "signupFields.title", elevatedOnly: true },
       {
         href: "/admin/landing",
         labelKey: "admin.nav.links.landing",

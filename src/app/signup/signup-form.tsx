@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
+import { signupSettings, normalizeTuteeFields, missingTuteeFields } from "~/lib/signup-fields";
 import { api } from "~/trpc/react";
 import { DAY_NAMES, minToHm } from "~/lib/time";
 import { APP_TITLE } from "~/lib/branding";
@@ -26,8 +27,11 @@ export function SignupForm() {
   const [secondChoiceId, setSecondChoiceId] = useState("");
   const [slotIds, setSlotIds] = useState<string[]>([]);
   const [signatureName, setSignatureName] = useState("");
-  const [agreed, setAgreed] = useState(false);
+  const [agreedRevision, setAgreedRevision] = useState<string | null>(null);
+  const agreed = !!policy.data?.revision && agreedRevision === policy.data.revision;
 
+  const fields = options.data?.fields ?? signupSettings(null).tutee;
+  const optionalValues = { gradeLevel, phone, preferredContact, secondChoiceId, slotIds, signatureName };
   const courses = options.data?.subjects ?? [];
   const slots = useMemo(() => options.data?.slots ?? [], [options.data]);
 
@@ -51,10 +55,8 @@ export function SignupForm() {
     englishName.trim() &&
     email.trim() &&
     policy.data?.revision &&
-    preferredContact.trim() &&
+    missingTuteeFields(normalizeTuteeFields(optionalValues, fields), fields).length === 0 &&
     firstChoiceId &&
-    slotIds.length > 0 &&
-    signatureName.trim() &&
     agreed &&
     !submit.isPending;
 
@@ -102,7 +104,7 @@ export function SignupForm() {
         {t("workflows.loading")}
       </p>
     );
-  if (!courses.length || !slots.length || !policy.data?.revision)
+  if (!courses.length || (fields.availability === "required" && !slots.length) || !policy.data?.revision)
     return (
       <p role="status" className="card p-6">
         {t("public.signup.unavailable")}
@@ -115,7 +117,7 @@ export function SignupForm() {
       onSubmit={(e) => {
         e.preventDefault();
         if (!canSubmit || !policy.data) return;
-        submit.mutate({
+        submit.mutate(normalizeTuteeFields({
           englishName: englishName.trim(),
           email: email.trim(),
           policyRevision: policy.data.revision,
@@ -126,8 +128,8 @@ export function SignupForm() {
           secondChoiceId: secondChoiceId || undefined,
           slotIds,
           signatureName: signatureName.trim(),
-          agreed: true,
-        });
+          agreed: true as const,
+        }, fields));
       }}
     >
       {/* Identity */}
@@ -135,27 +137,28 @@ export function SignupForm() {
         <label className="space-y-1">
           <span className="label">{t("public.signup.fields.fullName")}</span>
           <input
-            className="input"
+            className="input min-h-11 lg:min-h-10"
             value={englishName}
             onChange={(e) => setEnglishName(e.target.value)}
             required
           />
         </label>
-        <label className="space-y-1">
-          <span className="label">{t("public.signup.fields.gradeLevel")}</span>
+        {fields.gradeLevel !== "hidden" && (<label className="space-y-1">
+          <span className="label">{t("public.signup.fields.gradeLevel")} <span className="muted text-xs">{t(`signupFields.${fields.gradeLevel}`)}</span></span>
           <input
-            className="input"
+            className="input min-h-11 lg:min-h-10"
+            required={fields.gradeLevel === "required"}
             value={gradeLevel}
             onChange={(e) => setGradeLevel(e.target.value)}
             placeholder={t("public.signup.placeholders.gradeLevel")}
           />
-        </label>
+        </label>)}
         <label className="space-y-1">
           <span className="label">{t("survey.emailLabel")}</span>
           <input
             type="email"
             autoComplete="email"
-            className="input"
+            className="input min-h-11 lg:min-h-10"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -163,39 +166,40 @@ export function SignupForm() {
           />
           <span className="muted text-xs">{t("survey.emailHelp")}</span>
         </label>
-        <label className="space-y-1">
-          <span className="label">{t("public.signup.fields.phone")}</span>
+        {fields.phone !== "hidden" && (<label className="space-y-1">
+          <span className="label">{t("public.signup.fields.phone")} <span className="muted text-xs">{t(`signupFields.${fields.phone}`)}</span></span>
           <input
-            className="input"
+            className="input min-h-11 lg:min-h-10"
+            required={fields.phone === "required"}
             value={phone}
             onChange={(e) => setPhone(e.target.value)}
           />
-        </label>
+        </label>)}
       </div>
 
       {/* Preferred contact — make it unmistakable how to reach this student. */}
-      <label className="space-y-1">
+      {fields.preferredContact !== "hidden" && (<label className="space-y-1">
         <span className="label">
-          {t("public.signup.fields.preferredContact")}
-        </span>
+          {t("signupFields.labels.preferredContact")}
+         <span className="muted text-xs">{t(`signupFields.${fields.preferredContact}`)}</span></span>
         <input
-          className="input"
+          className="input min-h-11 lg:min-h-10"
           value={preferredContact}
           onChange={(e) => setPreferredContact(e.target.value)}
           placeholder={t("public.signup.placeholders.preferredContact")}
-          required
+          required={fields.preferredContact === "required"}
         />
         <span className="muted text-xs">
           {t("public.signup.help.preferredContact")}
         </span>
-      </label>
+      </label>)}
 
       {/* Course choices */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className="space-y-1">
           <span className="label">{t("public.signup.fields.firstChoice")}</span>
           <select
-            className="select"
+            className="select min-h-11 lg:min-h-10"
             value={firstChoiceId}
             onChange={(e) => setFirstChoiceId(e.target.value)}
             required
@@ -210,12 +214,13 @@ export function SignupForm() {
             ))}
           </select>
         </label>
-        <label className="space-y-1">
+        {fields.secondSubject !== "hidden" && (<label className="space-y-1">
           <span className="label">
-            {t("public.signup.fields.secondChoice")}
-          </span>
+            {t("signupFields.labels.secondSubject")}
+           <span className="muted text-xs">{t(`signupFields.${fields.secondSubject}`)}</span></span>
           <select
-            className="select"
+            className="select min-h-11 lg:min-h-10"
+            required={fields.secondSubject === "required"}
             value={secondChoiceId}
             onChange={(e) => setSecondChoiceId(e.target.value)}
           >
@@ -228,13 +233,13 @@ export function SignupForm() {
                 </option>
               ))}
           </select>
-        </label>
+        </label>)}
       </div>
 
       {/* Availability */}
-      <fieldset>
+      {fields.availability !== "hidden" && <fieldset>
         <legend className="label">
-          {t("public.signup.fields.availability")}
+          {t("signupFields.labels.availability")} <span className="muted text-xs">{t(`signupFields.${fields.availability}`)}</span>
         </legend>
         {slots.length === 0 ? (
           <p className="muted mt-1">{t("public.signup.noSlots")}</p>
@@ -251,7 +256,7 @@ export function SignupForm() {
                     return (
                       <label
                         key={s.id}
-                        className={`cursor-pointer rounded-md border px-3 py-1.5 text-sm transition ${
+                        className={`inline-flex min-h-11 cursor-pointer items-center rounded-md border focus-within:ring-2 focus-within:ring-accent-500 px-3 py-1.5 text-sm transition ${
                           checked
                             ? "border-accent-500 bg-accent-50 text-accent-700"
                             : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
@@ -275,27 +280,28 @@ export function SignupForm() {
             ))}
           </div>
         )}
-      </fieldset>
+      </fieldset>}
 
       {/* Policy agreement (gated on reading the policy) + signature */}
       <div className="space-y-4">
         <PolicyAgreement
+          key={policy.data.revision}
           messageKey="public.signup.agree"
           appTitle={APP_TITLE}
           policy={policy.data}
           checked={agreed}
-          onChange={setAgreed}
+          onChange={value => setAgreedRevision(value ? (policy.data?.revision ?? null) : null)}
         />
-        <label className="block space-y-1">
-          <span className="label">{t("public.signup.fields.signature")}</span>
+        {fields.signatureName !== "hidden" && (<label className="block space-y-1">
+          <span className="label">{t("signupFields.labels.signatureName")} <span className="muted text-xs">{t(`signupFields.${fields.signatureName}`)}</span></span>
           <input
-            className="input"
+            className="input min-h-11 lg:min-h-10"
             value={signatureName}
             onChange={(e) => setSignatureName(e.target.value)}
             placeholder={t("public.signup.placeholders.signature")}
-            required
+            required={fields.signatureName === "required"}
           />
-        </label>
+        </label>)}
       </div>
 
       {submit.error && (

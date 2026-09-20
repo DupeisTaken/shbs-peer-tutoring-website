@@ -1,3 +1,5 @@
+import { getSignupSettings } from "~/server/program/signup-fields";
+import { normalizeTuteeFields, missingTuteeFields } from "~/lib/signup-fields";
 import {
   lockAccountProfile,
   updateAccountProfile,
@@ -31,12 +33,12 @@ export const surveyInput = z.object({
     .max(254)
     .transform((v) => v.toLowerCase()),
   phone: z.string().trim().max(40).optional(),
-  preferredContact: z.string().trim().min(1).max(200),
+  preferredContact: z.string().trim().max(200).default(""),
   gradeLevel: z.string().trim().max(40).optional(),
   firstChoiceId: z.string().min(1),
-  secondChoiceId: z.string().min(1).optional(),
-  slotIds: z.array(z.string().min(1)).min(1).max(100),
-  signatureName: z.string().trim().min(1).max(120),
+  secondChoiceId: z.string().trim().max(200).optional().transform(value => value || undefined),
+  slotIds: z.array(z.string().min(1)).max(100).default([]),
+  signatureName: z.string().trim().max(120).default(""),
   agreed: z.literal(true),
   policyRevision: z.string().min(1),
 });
@@ -190,6 +192,12 @@ export async function submitSurvey(
     }
     // Duplicate submissions keep the first payload and timestamp; the email owner can review it.
     if (previous) return { row: previous, duplicate: true };
+    // Validate new submissions only; later configuration never revalidates historical payloads.
+    await lockEntity(tx, "signup-fields");
+    const fields = (await getSignupSettings(tx)).tutee;
+    input = normalizeTuteeFields(input, fields);
+    const missing = missingTuteeFields(input, fields);
+    if (missing.length) throw new TRPCError({ code: "BAD_REQUEST", message: `Complete required fields: ${missing.join(", ")}. Reload the form if settings changed.` });
     const policy = await currentPolicy(tx, "tutee-policy");
     if (policy.revision !== input.policyRevision)
       throw new TRPCError({

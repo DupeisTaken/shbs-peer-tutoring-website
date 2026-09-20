@@ -283,3 +283,11 @@ For a private account, disciplinary or attendance matter, contact management thr
 Use synthetic examples and remove tutee names, contact details, private messages, account links and codes from public reports. [Creating issues](issues.md) explains what information is useful.
 
 [Documentation home](README.md) · [Technical report](technical-report.md) · [Sample policies](policies/README.md)
+
+## Configure signup forms
+
+Open **Management → Signup forms** and choose Tutor signup or Tutee signup. Head can open **Configure** beside an existing field and choose Required, Optional, or Hidden. Other management users can review settings but cannot save them. Save applies immediately to new submissions, including a form opened before the change; reload that form if validation reports changed requirements. Existing submissions and their original answers remain unchanged.
+
+Name, sign-in email, the first subject and policy acceptance are locked as visible and required. Additional subject choices can be configured independently, without reordering or adding fields. Required qualification questions ask for an explicit Yes or No, not a positive qualification. Grade, AP score and self-study details are required only when their visible parent answer is Yes; AP questions apply only to AP-scored subjects. Hidden questions and their dependent details cannot block submission.
+
+Program secondary-email binding settings do not disable the required sign-in email. These forms contain no secondary-email field; additional addresses are managed after account setup, subject to the program switch. The configuration popup supports keyboard navigation, Escape to cancel, and returns focus to Configure when closed.
