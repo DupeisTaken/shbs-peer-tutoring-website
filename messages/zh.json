@@ -28,6 +28,38 @@
     "willing": "愿意授课",
     "unwilling": "不愿授课"
   },
+  "subjectAvailability": {
+    "title": "科目授课意愿",
+    "intro": "分别查看已批准的科目资格和已记录的授课意愿。拥有资格不代表导师愿意授课或当前有空。",
+    "search": "搜索导师、科目组或科目",
+    "filter": "显示科目",
+    "all": "全部科目",
+    "qualified": "具备资格",
+    "willing": "愿意授课",
+    "available": "具备资格且愿意授课",
+    "qualification": "科目资格",
+    "willingness": "授课意愿",
+    "notQualified": "不具备资格",
+    "notRecorded": "未记录",
+    "notWilling": "不愿意授课",
+    "independent": "意愿仅针对当前科目，不授予资格，也不预留时段。",
+    "summary": "{qualified} 项资格 · {willing} 项授课意愿",
+    "inactiveTutor": "导师当前不可授课",
+    "inactiveSubject": "已停用科目",
+    "ungrouped": "未分组科目",
+    "sourceStatus": "直接审批：{status}",
+    "status": {
+      "APPROVED": "已批准",
+      "PENDING": "待审批",
+      "REJECTED": "已拒绝"
+    },
+    "inherited": "已记录的继承资格来自：{subjects}",
+    "removeSource": "移除审批来源",
+    "approveSource": "批准此科目",
+    "willingnessFor": "授课意愿：{subject}",
+    "empty": "没有符合筛选条件的导师或科目。",
+    "emptySubjects": "暂无科目记录。"
+  },
   "messaging": {
     "privacyTitle": "独立私信，接受管理监督",
     "disclosure": "每位所选联系人都会收到一条独立私信。收件人无法看到其他收件人及其回复。消息立即送达。HEAD 和管理员可以审阅新消息并隐藏不当内容；审阅和管理操作均会留痕。",
@@ -2195,6 +2227,7 @@
     "save": "保存详情"
   },
   "workflows": {
+    "interviewsDisabledHistory": "面试功能已关闭。历史记录仍可查看，重新启用后可记录完成情况。",
     "student": "学员页面",
     "messages": "消息",
     "support": "学员支持",

@@ -31,12 +31,14 @@ import { studentRouter } from "./routers/student";
 import { messagingRouter } from "./routers/messaging";
 
 import { interviewManagementRouter } from "./routers/interview-management";
+import { subjectAvailabilityRouter } from "./routers/subject-availability";
 import { translationReviewRouter } from "./routers/translation-review";
 
 export const appRouter = createTRPCRouter({
   approval: approvalRouter,
   /** Lightweight liveness check. */
   interviewManagement: interviewManagementRouter,
+  subjectAvailability: subjectAvailabilityRouter,
   translationReview: translationReviewRouter,
   student: studentRouter,
   messaging: messagingRouter,
