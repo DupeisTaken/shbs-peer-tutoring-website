@@ -142,16 +142,17 @@ function ApplicationCard({
 
   return (
     <div id={`application-${app.id}`} className="card scroll-mt-6 p-4">
-      {/* Collapsed one-line summary (click to expand) */}
+      {/* Give identity and actions their own mobile rows so badges and long
+          translated labels never compete for the same narrow flex space. */}
       <div className="flex flex-wrap items-center gap-3">
         <button
-          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+          className="flex min-h-11 w-full min-w-0 flex-wrap items-center gap-2 text-left lg:min-h-8 lg:w-auto lg:flex-1"
           aria-expanded={open}
           aria-controls={`application-panel-${app.id}`}
           onClick={() => setOpen((v) => !v)}
         >
           <DisclosureIcon open={open} />
-          <span className="font-medium text-slate-900">{app.name}</span>
+          <span className="min-w-0 break-words font-medium text-slate-900">{app.name}</span>
           <StatusBadge status={app.status} />
           <span className="muted hidden truncate text-xs sm:inline">
             {courseNames}
@@ -172,11 +173,11 @@ function ApplicationCard({
             )}
           </span>
         </button>
-        <div className="flex items-center gap-2">
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 lg:w-auto">
           {app.status === "ACCEPTED" && (
             <Link
               href="/admin/users"
-              className="link text-sm whitespace-nowrap"
+              className="link inline-flex min-h-11 max-w-full items-center text-sm break-words lg:min-h-8"
             >
               {t("admin.applications.setupAccount")}
             </Link>
