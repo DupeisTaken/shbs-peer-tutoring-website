@@ -10,6 +10,7 @@ import {
   proposalConfirmation,
 } from "~/lib/approval-policy";
 import { validateInterviewDecision } from "./interviews";
+import { validateRoomBlockProposal } from "./room-block-proposals";
 import { db } from "./db";
 import { inTransaction, lockEntity, type TransactionDb } from "./transactions";
 import { announcementCandidates } from "./announcement-recipients";
@@ -88,6 +89,7 @@ export async function proposalTargets(
   client: TransactionDb,
   operation: string,
   payload: unknown,
+  includeRoomBlockContext = false,
 ) {
   const input: unknown = superjson.deserialize(
     payload as Parameters<typeof superjson.deserialize>[0],
@@ -131,6 +133,26 @@ export async function proposalTargets(
     if (tutees.size) ids.set("Tutee", tutees);
   }
   const targets: Record<string, unknown> = {};
+  // New block edit/removal requests retain a readable room identity. Older
+  // immutable requests keep their original evidence shape during replay.
+  if (includeRoomBlockContext && primary === "RoomUnavailability") {
+    const block =
+      typeof fields.id === "string"
+        ? await client.roomUnavailability.findUnique({
+            where: { id: fields.id },
+            select: { roomId: true },
+          })
+        : null;
+    const roomId =
+      block?.roomId ??
+      (typeof fields.roomId === "string" ? fields.roomId : null);
+    targets.roomBlockContext = roomId
+      ? await client.room.findUnique({
+          where: { id: roomId },
+          select: { id: true, name: true },
+        })
+      : null;
+  }
   // Recipient identities/names are review evidence too. A changed filtered audience must
   // be proposed again, rather than silently expanding when an administrator approves it.
   if (operation === "admin.createAnnouncement") {
@@ -251,7 +273,11 @@ export async function queueProposal(
       tx,
       `proposal:${session.user.id}:${operation}:${fingerprint(payload)}`,
     );
-    const targets = await proposalTargets(tx, operation, payload);
+    const value: unknown = superjson.deserialize(
+      payload as unknown as Parameters<typeof superjson.deserialize>[0],
+    );
+    await validateRoomBlockProposal(tx, operation, value);
+    const targets = await proposalTargets(tx, operation, payload, true);
     const digest = fingerprint(targets);
     const existing = await tx.approvalRequest.findFirst({
       where: {
@@ -263,9 +289,6 @@ export async function queueProposal(
       },
     });
     if (existing) return existing;
-    const value = superjson.deserialize(
-      payload as unknown as Parameters<typeof superjson.deserialize>[0],
-    );
     const confirmation = proposalConfirmation(operation, value);
     if (confirmation) {
       const { consumeStudentAction } = await import("./student-workflow");

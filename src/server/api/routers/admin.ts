@@ -16,6 +16,11 @@ import {
 } from "~/server/student-request-state";
 import { validatePanel } from "~/server/interviews";
 import { reconcileMeetingHours } from "~/server/meeting-hours";
+import {
+  createRoomBlockSchema,
+  updateRoomBlockSchema,
+  removeRoomBlockSchema,
+} from "~/lib/room-blocks";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import type { Prisma } from "../../../../generated/prisma";
@@ -82,6 +87,7 @@ import {
   assertPlannedRoomAvailable,
   assertRoomBlackoutAvailable,
   lockPlannedRoomSchedule,
+  roomBlockForWrite,
 } from "~/server/room-bookings";
 import { studentRequestRows } from "~/server/student-workflow";
 
@@ -2456,22 +2462,8 @@ export const adminRouter = createTRPCRouter({
   // Room unavailability (recurring weekly blackout periods, shown on the grid)
   // --------------------------------------------------------------------------
   createRoomUnavailability: adminProcedure
-    .input(
-      z.object({
-        roomId: cuid,
-        dayOfWeek: z.number().int().min(1).max(7),
-        startMin: z.number().int().min(0).max(1439),
-        endMin: z.number().int().min(1).max(1440),
-        reason: z.string().trim().max(200).optional(),
-      }),
-    )
+    .input(createRoomBlockSchema)
     .mutation(({ ctx, input }) => {
-      if (input.endMin <= input.startMin) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "End must be after start.",
-        });
-      }
       return inTransaction(ctx.db, async (tx) => {
         await assertRoomBlackoutAvailable(tx, input);
         return tx.roomUnavailability.create({
@@ -2486,10 +2478,37 @@ export const adminRouter = createTRPCRouter({
       });
     }),
 
-  deleteRoomUnavailability: adminProcedure
-    .input(z.object({ id: cuid }))
+  updateRoomUnavailability: adminProcedure
+    .input(updateRoomBlockSchema)
     .mutation(({ ctx, input }) =>
-      ctx.db.roomUnavailability.delete({ where: { id: input.id } }),
+      inTransaction(ctx.db, async (tx) => {
+        // Resolve the room from the persisted block; an edit cannot move it to an
+        // unrelated room. Approval replay reuses this transaction and validation.
+        const block = await roomBlockForWrite(tx, input.id);
+        await assertRoomBlackoutAvailable(tx, {
+          ...input,
+          roomId: block.roomId,
+          excludeBlockId: block.id,
+        });
+        return tx.roomUnavailability.update({
+          where: { id: block.id },
+          data: {
+            dayOfWeek: input.dayOfWeek,
+            startMin: input.startMin,
+            endMin: input.endMin,
+            reason: blankToNull(input.reason),
+          },
+        });
+      }),
+    ),
+
+  deleteRoomUnavailability: adminProcedure
+    .input(removeRoomBlockSchema)
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await roomBlockForWrite(tx, input.id);
+        return tx.roomUnavailability.delete({ where: { id: input.id } });
+      }),
     ),
 
   // --------------------------------------------------------------------------

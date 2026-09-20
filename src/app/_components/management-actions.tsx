@@ -8,6 +8,8 @@ import SuperJSON from "superjson";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { humanizeOperation, proposalConfirmation } from "~/lib/approval-policy";
 import { TimedActionDialog } from "~/app/_components/timed-action-dialog";
+import { RoomBlockReview } from "~/app/_components/room-block-review";
+import { roomBlockReview } from "~/lib/room-block-review";
 
 type Request = RouterOutputs["approval"]["list"]["rows"][number];
 type State = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
@@ -42,6 +44,11 @@ function RequestCard({
     request.payload as unknown as Parameters<typeof SuperJSON.deserialize>[0],
   );
   const confirmation = proposalConfirmation(request.operation, payload);
+  const blockSummary = roomBlockReview(
+    request.operation,
+    payload,
+    request.targets,
+  );
   const records = Object.values(request.targets as Record<string, unknown>)
     .flatMap((value): unknown[] =>
       Array.isArray(value) ? (value as unknown[]) : [],
@@ -165,25 +172,40 @@ function RequestCard({
         <h3 className="text-sm font-semibold text-slate-800">
           {t("proposedChanges")}
         </h3>
-        <dl className="grid gap-x-6 gap-y-3 rounded-lg bg-slate-50 p-4 sm:grid-cols-2">
-          {fields.map(([key, value]) => (
-            <div key={key} className="min-w-0">
-              <dt className="text-xs font-medium text-slate-500">
-                {key === "id"
-                  ? t("record")
-                  : humanizeOperation(key.replace(/Ids?$/, ""))}
-              </dt>
-              <dd className="mt-1 text-sm break-words whitespace-pre-wrap text-slate-900">
-                {display(value)}
-              </dd>
-            </div>
-          ))}
-        </dl>
+        {blockSummary && <RoomBlockReview summary={blockSummary} />}
+        {!blockSummary && (
+          <dl className="grid gap-x-6 gap-y-3 rounded-lg bg-slate-50 p-4 sm:grid-cols-2">
+            {fields.map(([key, value]) => (
+              <div key={key} className="min-w-0">
+                <dt className="text-xs font-medium text-slate-500">
+                  {key === "id"
+                    ? t("record")
+                    : humanizeOperation(key.replace(/Ids?$/, ""))}
+                </dt>
+                <dd className="mt-1 text-sm break-words whitespace-pre-wrap text-slate-900">
+                  {display(value)}
+                </dd>
+              </div>
+            ))}
+          </dl>
+        )}
         <details>
-          <summary className="link cursor-pointer text-sm">
+          <summary className="link min-h-11 cursor-pointer content-center text-sm lg:min-h-8">
             {t("evidence")}
           </summary>
           <div className="mt-3 space-y-3">
+            {blockSummary && (
+              <dl className="grid gap-2 rounded-lg border border-slate-200 p-3 sm:grid-cols-2">
+                {fields.map(([key, value]) => (
+                  <div key={key} className="min-w-0 text-xs">
+                    <dt className="text-slate-500">{humanizeOperation(key)}</dt>
+                    <dd className="break-words whitespace-pre-wrap">
+                      {display(value)}
+                    </dd>
+                  </div>
+                ))}
+              </dl>
+            )}
             {records.map((item, index) => {
               const row = (item as { record?: Record<string, unknown> }).record;
               return row ? (
@@ -244,7 +266,7 @@ function RequestCard({
             </label>
             <div className="flex flex-wrap gap-2">
               <button
-                className="btn-primary"
+                className="btn-primary min-h-11 lg:min-h-10"
                 disabled={busy || !note.trim()}
                 onClick={() =>
                   confirmation
@@ -255,7 +277,7 @@ function RequestCard({
                 {t("approve")}
               </button>
               <button
-                className="btn-secondary"
+                className="btn-secondary min-h-11 lg:min-h-10"
                 disabled={busy || !note.trim()}
                 onClick={() =>
                   decision.mutate({ id: request.id, approve: false, note })
