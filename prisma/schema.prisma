@@ -405,6 +405,7 @@ model Term {
 }
 
 model Tutor {
+  qualificationApplications TutorApplication[] @relation("QualificationApplicant")
   id          String   @id @default(cuid())
   /// Split name. `englishName` is kept as the canonical display name (= "First Last")
   /// so the many places that render it don't change.
@@ -557,6 +558,7 @@ model CourseGroup {
 }
 
 model Subject {
+  qualificationApplications TutorApplication[] @relation("RequestedQualification")
   id        String   @id @default(cuid())
   name      String   @unique
   /// Existing IDs remain the stable variant IDs used by all dependent records.
@@ -1104,7 +1106,23 @@ enum TutorApplicationStatus {
   REJECTED
 }
 
+enum TutorApplicationType {
+  INITIAL
+  ADDITIONAL_SUBJECT
+  HIGHER_LEVEL
+}
+
 model TutorApplication {
+  /// Existing tutors apply without entering the initial account-provisioning lifecycle.
+  type TutorApplicationType @default(INITIAL)
+  requestedTutorId String?
+  requestedTutor Tutor? @relation("QualificationApplicant", fields: [requestedTutorId], references: [id], onDelete: Restrict)
+  requestedSubjectId String?
+  requestedSubject Subject? @relation("RequestedQualification", fields: [requestedSubjectId], references: [id], onDelete: Restrict)
+  qualificationReason String?
+  /// Actor ID and concrete subject IDs/names remain historical evidence after catalogue edits.
+  qualificationDecidedById String?
+  qualificationSnapshot Json?
   interviewCompletedAt DateTime?
   interviewDurationMin Int?
   interviewSchoolYear String?
@@ -1136,6 +1154,7 @@ model TutorApplication {
   votes         InterviewVote[]
 
   @@index([status])
+  @@index([requestedTutorId, createdAt])
 }
 
 /// One intended tutoring course on an application (max 3 enforced in the form/mutation),

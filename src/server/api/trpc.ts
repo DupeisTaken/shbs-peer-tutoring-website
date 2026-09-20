@@ -254,6 +254,23 @@ export const protectedProcedure = t.procedure
       });
     // Central classification covers legacy entry points as well as profile editing.
     // Participant requests cannot execute mutations; their eventual reviewer must be Head.
+    // Check additional requests before legacy membership/coordinator proposal middleware.
+    // A coordinator must not turn a prohibited decision into an approval replay loophole.
+    if (type === "mutation" && ["admin.assignInterviewers", "admin.setApplicationStatus", "admin.deleteApplication", "tutor.decideInterview"].includes(path)) {
+      const raw = await getRawInput();
+      if (raw && typeof raw === "object") {
+        const id = "applicationId" in raw ? raw.applicationId : "id" in raw ? raw.id : null;
+        const app = typeof id === "string" ? await ctx.db.tutorApplication.findUnique({ where: { id }, select: { type: true, status: true } }) : null;
+        if (app && app.type !== "INITIAL") {
+          if (!["ADMIN", "HEAD"].includes(account.role))
+            throw new TRPCError({ code: "FORBIDDEN", message: "Only Admin or Head may review qualification requests." });
+          if (path !== "admin.assignInterviewers")
+            throw new TRPCError({ code: "FORBIDDEN", message: "Use the qualification request decision controls. Request history cannot be deleted." });
+          if (app.status !== "PENDING")
+            throw new TRPCError({ code: "CONFLICT", message: "This request already has a review or final decision; its panel history must be retained." });
+        }
+      }
+    }
     let headAssignment = HEAD_APPROVAL_OPERATIONS.has(path);
     if (path === "admin.updateTutor" && type === "mutation") {
       const raw = await getRawInput();
