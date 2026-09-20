@@ -41,7 +41,10 @@ export const accountRouter = createTRPCRouter({
       }),
       ctx.db.programSettings.findUnique({
         where: { id: "program" },
-        select: { emailNotificationsEnabled: true },
+        select: {
+          emailNotificationsEnabled: true,
+          secondaryEmailBindingEnabled: true,
+        },
       }),
       associatedAccountEmails(ctx.db, ctx.session.user.id),
     ]);
@@ -49,13 +52,16 @@ export const accountRouter = createTRPCRouter({
       ...user,
       emails,
       enabled: program?.emailNotificationsEnabled ?? false,
+      secondaryEmailBindingEnabled:
+        program?.secondaryEmailBindingEnabled ?? true,
       deliveryAvailable: isEmailDeliveryAvailable(),
     };
   }),
   setEmailPreferences: protectedProcedure
     .input(
       z.object({
-        emailSecurity: z.boolean(),
+        // Accepted from older clients only; security alerts cannot be opted out of.
+        emailSecurity: z.boolean().optional(),
         emailMessages: z.boolean(),
         emailInfo: z.boolean(),
         emailSecondaryRecipients: z.boolean(),
@@ -76,7 +82,11 @@ export const accountRouter = createTRPCRouter({
           });
         await tx.user.update({
           where: { id: ctx.session.user.id },
-          data: input,
+          data: {
+            emailMessages: input.emailMessages,
+            emailInfo: input.emailInfo,
+            emailSecondaryRecipients: input.emailSecondaryRecipients,
+          },
         });
         return { ok: true };
       });
