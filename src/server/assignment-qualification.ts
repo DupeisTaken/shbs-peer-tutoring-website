@@ -1,7 +1,7 @@
 import { createHash } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
-import { assignmentIdentity, isAssignmentOperation } from "~/lib/assignment-qualification";
+import { assignmentIdentity, isAssignmentOperation, isAssignableTutor } from "~/lib/assignment-qualification";
 import { lockCatalogue } from "~/server/qualifications";
 import { type TransactionDb, lockEntity } from "~/server/transactions";
 
@@ -33,8 +33,8 @@ export async function assignmentMismatches(tx: TransactionDb, operation: string,
     const subject = selection.subjectId
       ? await tx.subject.findUnique({ where: { id: selection.subjectId }, include: { level: true } })
       : selection.subject ? await tx.subject.findUnique({ where: { name: selection.subject }, include: { level: true } }) : null;
-    const tutor = await tx.tutor.findUnique({ where: { id: selection.tutorId } });
-    if (!subject?.active || subject.level?.active === false || tutor?.status !== "ACTIVE" || (selection.subject && selection.subject !== subject.name))
+    const tutor = await tx.tutor.findUnique({ where: { id: selection.tutorId }, include: { user: { select: { tutorAccessRevoked: true } } } });
+    if (!subject?.active || subject.level?.active === false || !tutor || !isAssignableTutor(tutor) || (selection.subject && selection.subject !== subject.name))
       throw new TRPCError({ code: "BAD_REQUEST", message: "Choose an active catalogue subject and tutor. Refresh if the subject changed." });
     if (!(await tx.qualificationGrant.count({ where: { tutorId: tutor.id, subjectId: subject.id, qualification: { status: "APPROVED" } } })))
       mismatches.push({ tutorId: tutor.id, tutorName: tutor.englishName, subjectId: subject.id, subjectName: subject.name });

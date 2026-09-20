@@ -1,4 +1,5 @@
 "use client";
+import { isAssignableTutor } from "~/lib/assignment-qualification";
 
 import { useState } from "react";
 import { QualifiedTutorSelect } from "~/app/_components/qualified-tutor-select";
@@ -104,7 +105,7 @@ export default function PairingsPage() {
               value={form.tutorId}
               subjectId={selectedSubject?.id ?? ""}
               onChange={(value) => set("tutorId", value)}
-              tutors={(tutors.data ?? []).filter((tutor) => tutor.status === "ACTIVE")}
+              tutors={(tutors.data ?? []).filter(isAssignableTutor)}
             />
             <Select
               label={t("admin.pairings.roomOptional")}

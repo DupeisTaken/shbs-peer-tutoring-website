@@ -309,6 +309,7 @@ export const adminRouter = createTRPCRouter({
         user: {
           select: {
             id: true,
+            tutorAccessRevoked: true,
             name: true,
             alternativeNames: true,
             profileVersion: true,

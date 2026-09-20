@@ -13,6 +13,14 @@ export const isAssignmentOperation = (value: string): value is AssignmentOperati
 export type QualificationOption = { id: string; englishName: string };
 export type RecordedGrant = { tutorId: string; subjectId: string };
 
+/** A roster tutor need not have a login. An explicitly revoked linked membership, however,
+ * must not be mistaken for active participation merely because its historical link remains. */
+export function isAssignableTutor(tutor: {
+  status: string; user?: { tutorAccessRevoked: boolean } | null;
+}) {
+  return tutor.status === "ACTIVE" && !tutor.user?.tutorAccessRevoked;
+}
+
 /** Grants have already been filtered to approved sources by the server. Never infer rank. */
 export function groupAssignmentTutors<T extends QualificationOption>(
   tutors: T[], subjectId: string, grants: RecordedGrant[],

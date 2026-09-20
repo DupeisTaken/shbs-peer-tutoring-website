@@ -1,4 +1,5 @@
 "use client";
+import { isAssignableTutor } from "~/lib/assignment-qualification";
 import { QualifiedTutorSelect } from "~/app/_components/qualified-tutor-select";
 import { AssignmentConfirmation } from "~/app/_components/assignment-confirmation";
 import { EmailDetails } from "~/app/_components/email-details";
@@ -468,7 +469,7 @@ export default function RequestsPage() {
                       tutors={(tutors.data ?? []).map((tu) => ({
                         id: tu.id,
                         englishName: tu.englishName,
-                        active: tu.status === "ACTIVE",
+                        active: isAssignableTutor(tu),
                       }))}
                       workload={workload}
                       assigned={assignedByTutee.get(t2.id) ?? new Map()}

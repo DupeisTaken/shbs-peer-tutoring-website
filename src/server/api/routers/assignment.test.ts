@@ -98,6 +98,18 @@ it("rejects a level archived after its warning without consuming the acknowledge
   expect((await db.studentActionConfirmation.findUniqueOrThrow({ where: { id: prepared.ticket!.id } })).usedAt).toBeNull();
 });
 
+it("rejects explicit membership revocation after warning and never restores access", async () => {
+  const { tutor, input } = await fixture();
+  await db.user.update({ where: { id: "assignment-tutor" }, data: { tutorId: tutor.id, tutorAccessRevoked: false } });
+  const prepared = await actor().assignment.prepare({ operation: "admin.createPairing", payload: input });
+  await ready(prepared.ticket!.id);
+  await db.user.update({ where: { id: "assignment-tutor" }, data: { tutorAccessRevoked: true } });
+  await expect(actor().admin.createPairing({ ...input, overrideTicket: prepared.ticket!.id })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  await expect(actor().assignment.prepare({ operation: "admin.createPairing", payload: input })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  expect(await db.pairing.count()).toBe(0);
+  expect((await db.user.findUniqueOrThrow({ where: { id: "assignment-tutor" } })).tutorAccessRevoked).toBe(true);
+});
+
 it("requires fresh reviewer evidence and applies the override within the approval transaction", async () => {
   const { input } = await fixture();
   const coordinator = actor("assignment-coordinator", "COORDINATOR");

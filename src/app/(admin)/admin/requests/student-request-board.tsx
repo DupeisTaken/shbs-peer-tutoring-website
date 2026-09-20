@@ -1,4 +1,5 @@
 "use client";
+import { isAssignableTutor } from "~/lib/assignment-qualification";
 import { QualifiedTutorSelect } from "~/app/_components/qualified-tutor-select";
 import { AssignmentConfirmation } from "~/app/_components/assignment-confirmation";
 import { useReadOnly } from "~/app/_components/read-only";
@@ -134,9 +135,7 @@ export function StudentRequestBoard({
               content: (
                 <RequestCard
                   row={row}
-                  tutors={(tutors.data ?? []).filter(
-                    (tu) => tu.status === "ACTIVE",
-                  )}
+                  tutors={(tutors.data ?? []).filter(isAssignableTutor)}
                 />
               ),
             })),
