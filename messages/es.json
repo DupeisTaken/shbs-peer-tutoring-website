@@ -2539,6 +2539,7 @@
     "dismiss": "Dismiss"
   },
   "programTimeZone": {
+    "referenceDate": "Fecha de vista previa (12:00 UTC; no cambia la configuración)",
     "title": "Program time zone",
     "help": "Use one school time zone for dates, schedules, deadlines and notifications.",
     "zone": "Time zone",
