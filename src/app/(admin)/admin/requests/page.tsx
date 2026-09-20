@@ -1,4 +1,7 @@
 "use client";
+import { isAssignableTutor } from "~/lib/assignment-qualification";
+import { QualifiedTutorSelect } from "~/app/_components/qualified-tutor-select";
+import { AssignmentConfirmation } from "~/app/_components/assignment-confirmation";
 import { EmailDetails } from "~/app/_components/email-details";
 import { StudentRequestBoard } from "./student-request-board";
 import { SignupSourceBadge } from "~/app/_components/signup-source-badge";
@@ -79,8 +82,13 @@ function RequestCard({
   const format = useFormatter();
   const readOnly = useReadOnly();
   const { confirm, dialog } = useDialog();
+  const [confirmCourse, setConfirmCourse] = useState<{
+    id: string;
+    name: string;
+  } | null>(null);
   const assign = api.admin.assignSignup.useMutation({
     onSuccess: (data) => {
+      setConfirmCourse(null);
       if (data.fulfilled) onFulfilled(tutee.id);
       return onChanged();
     },
@@ -112,6 +120,19 @@ function RequestCard({
   ];
   const [picks, setPicks] = useState<Record<string, string>>({});
 
+  const assignmentPayload = confirmCourse
+    ? {
+        tuteeId: tutee.id,
+        expectedUpdatedAt: tutee.updatedAt,
+        assignments: [
+          {
+            subject: confirmCourse.name,
+            subjectId: confirmCourse.id,
+            tutorId: picks[confirmCourse.name] ?? "",
+          },
+        ],
+      }
+    : null;
   const activeTutors = tutors.filter((tu) => tu.active);
   const tutorLabel = (id: string) => {
     const tu = activeTutors.find((x) => x.id === id);
@@ -127,6 +148,18 @@ function RequestCard({
     <div
       className={`rounded-lg border border-slate-200 p-4 ${fulfilled ? "bg-slate-50 opacity-70" : ""}`}
     >
+      {assignmentPayload && (
+        <AssignmentConfirmation
+          operation="admin.assignSignup"
+          payload={assignmentPayload}
+          onCancel={() => setConfirmCourse(null)}
+          busy={assign.isPending}
+          error={assign.error?.message}
+          onConfirm={(overrideTicket) =>
+            assign.mutate({ ...assignmentPayload, overrideTicket })
+          }
+        />
+      )}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="flex min-w-0 items-start gap-2">
           <button
@@ -145,7 +178,9 @@ function RequestCard({
             <p className="font-medium text-slate-900">
               <span className="badge-slate mr-2">#{order}</span>
               {tutee.englishName}
-              <span className="ml-2"><SignupSourceBadge source={tutee.signupSource} /></span>
+              <span className="ml-2">
+                <SignupSourceBadge source={tutee.signupSource} />
+              </span>
               {tutee.gradeLevel
                 ? ` · ${t("admin.requests.grade", { grade: tutee.gradeLevel })}`
                 : ""}
@@ -289,47 +324,28 @@ function RequestCard({
                   )
                 ) : (
                   <>
-                    <select
-                      className="select field-auto min-w-56"
+                    <QualifiedTutorSelect
+                      label={t("admin.requests.assignToTutor")}
                       disabled={!filled}
+                      subjectId={p.course?.id ?? ""}
                       value={filled ? (picks[p.course!.name] ?? "") : ""}
-                      onChange={(e) =>
-                        filled &&
-                        setPicks((prev) => ({
-                          ...prev,
-                          [p.course!.name]: e.target.value,
-                        }))
-                      }
-                    >
-                      <option value="">
-                        {filled
-                          ? t("admin.requests.assignToTutor")
-                          : t("admin.requests.notProvided")}
-                      </option>
-                      {filled &&
-                        activeTutors.map((tu) => (
-                          <option key={tu.id} value={tu.id}>
-                            {tutorLabel(tu.id)}
-                          </option>
-                        ))}
-                    </select>
+                      onChange={(value) => {
+                        setConfirmCourse(null);
+                        if (filled)
+                          setPicks((prev) => ({
+                            ...prev,
+                            [p.course!.name]: value,
+                          }));
+                      }}
+                      tutors={activeTutors}
+                      optionLabel={tutorLabel}
+                    />
                     <button
-                      className="btn-primary btn-sm"
+                      className="btn-primary min-h-11 self-end lg:min-h-10"
                       disabled={
                         !filled || !picks[p.course!.name] || assign.isPending
                       }
-                      onClick={() =>
-                        assign.mutate({
-                          tuteeId: tutee.id,
-                          expectedUpdatedAt: tutee.updatedAt,
-                          assignments: [
-                            {
-                              subject: p.course!.name,
-                              tutorId: picks[p.course!.name]!,
-                            },
-                          ],
-                        })
-                      }
+                      onClick={() => setConfirmCourse(p.course)}
                     >
                       {assign.isPending
                         ? t("admin.requests.assigning")
@@ -485,7 +501,7 @@ export default function RequestsPage() {
                       tutors={(tutors.data ?? []).map((tu) => ({
                         id: tu.id,
                         englishName: tu.englishName,
-                        active: tu.status === "ACTIVE",
+                        active: isAssignableTutor(tu),
                       }))}
                       workload={workload}
                       assigned={assignedByTutee.get(t2.id) ?? new Map()}
