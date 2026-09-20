@@ -31,14 +31,16 @@ async function cleanup() {
 
 beforeEach(async () => {
   await cleanup();
+  // Translation editing is an explicit membership, independent of management rank.
   await db.user.upsert({
     where: { id: adminSession.user.id },
-    update: { role: "ADMIN" },
+    update: { role: "ADMIN", canTranslate: true },
     create: {
       id: adminSession.user.id,
       email: adminSession.user.email!,
       name: adminSession.user.name,
       role: "ADMIN",
+      canTranslate: true,
     },
   });
 });
