@@ -1,4 +1,5 @@
 import { approvalRouter } from "./routers/approval";
+import { qualificationApplicationRouter } from "./routers/qualification-application";
 import {
   createCallerFactory,
   createTRPCRouter,
@@ -33,6 +34,7 @@ import { interviewManagementRouter } from "./routers/interview-management";
 import { translationReviewRouter } from "./routers/translation-review";
 
 export const appRouter = createTRPCRouter({
+  qualificationApplication: qualificationApplicationRouter,
   approval: approvalRouter,
   /** Lightweight liveness check. */
   interviewManagement: interviewManagementRouter,

@@ -330,7 +330,7 @@ export function MyInterviews() {
               )}
 
               {/* Head's final decision */}
-              {a.isHead && (
+              {a.isHead && a.type !== "ADDITIONAL_SUBJECT" && a.type !== "HIGHER_LEVEL" && (
                 <HeadDecision
                   applicationId={a.id}
                   status={a.status}
@@ -341,7 +341,10 @@ export function MyInterviews() {
                   expectedUpdatedAt={a.updatedAt}
                 />
               )}
-              {!a.isHead &&
+              {a.isHead && (a.type === "ADDITIONAL_SUBJECT" || a.type === "HIGHER_LEVEL") && (
+                <a className="link mt-3 inline-flex min-h-11 items-center lg:min-h-8" href={`/admin/applications#application-${a.id}`}>{t("qualificationRequests.reviewLink")}</a>
+              )}
+              {(!a.isHead || a.type === "ADDITIONAL_SUBJECT" || a.type === "HIGHER_LEVEL") &&
                 (a.status === "ACCEPTED" || a.status === "REJECTED") && (
                   <div className="mt-2 rounded-md bg-slate-50 p-2 text-sm">
                     <span

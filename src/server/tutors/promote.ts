@@ -32,9 +32,9 @@ export async function promoteApplicantToTutor(
   return inTransaction(client, async (db) => {
     const app = await db.tutorApplication.findUnique({
       where: { id: applicationId },
-      select: { name: true, email: true },
+      select: { name: true, email: true, type: true },
     });
-    if (!app) return;
+    if (!app || app.type !== "INITIAL") return;
 
     const email = app.email?.trim() ? app.email.trim().toLowerCase() : null;
     if (!email) return; // applications always capture an email; nothing to bind a code to otherwise

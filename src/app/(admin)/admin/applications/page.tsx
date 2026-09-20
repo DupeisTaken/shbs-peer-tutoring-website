@@ -1,5 +1,6 @@
 "use client";
 import { EmailDetails } from "~/app/_components/email-details";
+import { QualificationReview } from "~/app/_components/qualification-review";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -28,6 +29,10 @@ function StatusBadge({ status }: { status: Status }) {
 }
 
 type Application = {
+  type: "INITIAL" | "ADDITIONAL_SUBJECT" | "HIGHER_LEVEL";
+  requestedTutorId: string | null;
+  qualificationReason: string | null;
+  qualificationSnapshot: unknown;
   id: string;
   name: string;
   email: string;
@@ -71,6 +76,9 @@ function ApplicationCard({
   const programFormat = useFormatter();
   const t = useTranslations();
   const readOnly = useReadOnly();
+  const account = api.account.me.useQuery().data;
+  const additional = app.type !== "INITIAL";
+  const canEditPanel = !readOnly && (!additional || (!!account && ["ADMIN", "HEAD"].includes(account.role) && account.tutorId !== app.requestedTutorId && app.status === "PENDING"));
   const { confirm, dialog } = useDialog();
   const [open, setOpen] = useState(false);
   // A link from Interviews & Panelists opens the existing editor for this exact
@@ -130,12 +138,13 @@ function ApplicationCard({
     app.decidedByTutor != null;
   // Generic status controls are only for screening. A panel outcome belongs to its chair.
   const canDirectAccept =
+    !additional &&
     !readOnly &&
     features?.INTERVIEWS === false &&
     !hasInterviewHistory &&
     app.status !== "ACCEPTED";
   const canScreenReject =
-    !readOnly && !hasInterviewHistory && app.status === "PENDING";
+    !additional && !readOnly && !hasInterviewHistory && app.status === "PENDING";
 
   return (
     <div id={`application-${app.id}`} className="card scroll-mt-6 p-4">
@@ -150,6 +159,7 @@ function ApplicationCard({
           <DisclosureIcon open={open} />
           <span className="font-medium text-slate-900">{app.name}</span>
           <StatusBadge status={app.status} />
+          <span className="badge-slate">{t(`qualificationRequests.${app.type}`)}</span>
           <span className="muted hidden truncate text-xs sm:inline">
             {courseNames}
             {features?.INTERVIEWS && (
@@ -170,7 +180,7 @@ function ApplicationCard({
           </span>
         </button>
         <div className="flex items-center gap-2">
-          {app.status === "ACCEPTED" && (
+          {!additional && app.status === "ACCEPTED" && (
             <Link
               href="/admin/users"
               className="link text-sm whitespace-nowrap"
@@ -206,7 +216,7 @@ function ApplicationCard({
               {t("admin.applications.reject")}
             </button>
           )}
-          {!readOnly && (
+          {!readOnly && !additional && (
             <button
               className="btn-danger btn-sm"
               onClick={async () => {
@@ -239,6 +249,7 @@ function ApplicationCard({
           )}
 
           {/* Course intents */}
+          {additional && <QualificationReview app={app} onChanged={onChanged} />}
           <ul className="mt-3 flex flex-wrap gap-2">
             {app.subjectIntents.map((ci, i) => {
               const quals: string[] = [];
@@ -293,7 +304,7 @@ function ApplicationCard({
                   })}
                 </p>
               )}
-              {!readOnly && (
+              {canEditPanel && (
                 <>
                   <div className="mt-2 space-y-2">
                     {picks.map((pick, i) => (

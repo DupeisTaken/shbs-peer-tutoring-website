@@ -2728,6 +2728,19 @@ export const adminRouter = createTRPCRouter({
       await ctx.db.$transaction(async (tx) => {
         await lockEntity(tx, `interview:${input.applicationId}`);
         const lockedApplication = await tx.tutorApplication.findUniqueOrThrow({ where: { id: input.applicationId } });
+        if (lockedApplication.type !== "INITIAL") {
+          if (ctx.session.tutorId === lockedApplication.requestedTutorId || await tx.user.count({ where: { id: ctx.session.user.id, tutorId: lockedApplication.requestedTutorId } }))
+            throw new TRPCError({ code: "FORBIDDEN", message: "Another Admin or Head must choose your review panel." });
+          if (!["ADMIN", "HEAD"].includes(ctx.session.role))
+            throw new TRPCError({ code: "FORBIDDEN" });
+          if (lockedApplication.status !== "PENDING")
+            throw new TRPCError({ code: "CONFLICT", message: "Keep the existing qualification review and panel history." });
+          if (lockedApplication.requestedTutorId && tutorIds.includes(lockedApplication.requestedTutorId))
+            throw new TRPCError({ code: "BAD_REQUEST", message: "An applicant cannot review their own qualification request." });
+          const chair = await tx.user.findUnique({ where: { tutorId: input.headTutorId }, select: { role: true, tutorAccessRevoked: true } });
+          if (!chair || chair.tutorAccessRevoked || !["ADMIN", "HEAD"].includes(chair.role))
+            throw new TRPCError({ code: "BAD_REQUEST", message: "Choose an Admin or Head tutor as chair for additional qualifications." });
+        }
         if (lockedApplication.status === "ACCEPTED" && ctx.session.role !== "HEAD")
           throw new TRPCError({ code: "CONFLICT", message: "Applicant membership changed. Head must review replacement of this panel." });
         await validatePanel(
