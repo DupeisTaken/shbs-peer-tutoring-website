@@ -1,16 +1,12 @@
 import { z } from "zod";
 import superjson from "superjson";
-import { adminProcedure, viewerProcedure, createTRPCRouter } from "../trpc";
+import { adminProcedure, createTRPCRouter } from "../trpc";
 import { assignmentOperations } from "~/lib/assignment-qualification";
 import { prepareAssignmentOverride } from "~/server/assignment-qualification";
 import { parseProposal } from "~/server/approvals";
 import { inTransaction } from "~/server/transactions";
 
 export const assignmentRouter = createTRPCRouter({
-  grants: viewerProcedure.query(({ ctx }) => ctx.db.qualificationGrant.findMany({
-    where: { qualification: { status: "APPROVED" } },
-    select: { tutorId: true, subjectId: true }, distinct: ["tutorId", "subjectId"],
-  })),
   // Preparing/cancelling evidence cannot assign anyone and is safe for coordinators directly.
   prepare: adminProcedure.input(z.object({ operation: z.enum(assignmentOperations), payload: z.unknown() }))
     .mutation(async ({ ctx, input }) => {

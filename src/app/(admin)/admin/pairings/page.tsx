@@ -56,6 +56,8 @@ export default function PairingsPage() {
     (s) => s.active || s.id === form.timeSlotId,
   );
 
+  const originalPairing = pairings.data?.find((pairing) => pairing.id === form.id);
+  const retainsAssignment = !!originalPairing && originalPairing.tutorId === form.tutorId && originalPairing.subject === form.subject && form.tuteeIds.every((id) => originalPairing.tutees.some((row) => row.tuteeId === id));
   const selectedSubject = subjects.data?.find((subject) => subject.name === form.subject);
   const base = {
     tutorId: form.tutorId, roomId: form.roomId || undefined,
@@ -98,7 +100,7 @@ export default function PairingsPage() {
               label={t("admin.pairings.subject")}
               value={form.subject}
               onChange={(value) => set("subject", value)}
-              options={[{ value: "", label: "—" }, ...(subjects.data ?? []).filter((subject) => (subject.active && subject.level?.active !== false) || subject.name === form.subject).map((subject) => ({ value: subject.name, label: subject.name }))]}
+              options={[{ value: "", label: "—" }, ...(!selectedSubject && form.subject ? [{ value: form.subject, label: form.subject }] : []), ...(subjects.data ?? []).filter((subject) => (subject.active && subject.level?.active !== false) || subject.name === form.subject).map((subject) => ({ value: subject.name, label: subject.name }))]}
             />
             <QualifiedTutorSelect
               label={t("admin.pairings.tutor")}
@@ -106,6 +108,7 @@ export default function PairingsPage() {
               subjectId={selectedSubject?.id ?? ""}
               onChange={(value) => set("tutorId", value)}
               tutors={(tutors.data ?? []).filter(isAssignableTutor)}
+              retainedTutor={originalPairing?.tutor}
             />
             <Select
               label={t("admin.pairings.roomOptional")}
@@ -157,7 +160,7 @@ export default function PairingsPage() {
           <div className="mt-4 flex items-center gap-3">
             <button
               onClick={() => setConfirming(true)}
-              disabled={!form.tutorId || !selectedSubject?.active || selectedSubject.level?.active === false || !form.timeSlotId || create.isPending || update.isPending}
+              disabled={!form.tutorId || (!retainsAssignment && (!selectedSubject?.active || selectedSubject.level?.active === false)) || !form.timeSlotId || create.isPending || update.isPending}
               className="btn-primary min-h-11 lg:min-h-10"
             >
               {editing ? t("admin.pairings.saveChanges") : t("admin.pairings.createPairing")}

@@ -50,7 +50,7 @@ it("enforces permission checks on preparation and direct assignment", async () =
 it("approved persisted grants group correctly and assign without an override", async () => {
   const { tutor, subject, input } = await fixture();
   await db.$transaction((tx) => approveQualification(tx, tutor.id, subject.id, "assignment-admin"));
-  expect(await actor().assignment.grants()).toContainEqual({ tutorId: tutor.id, subjectId: subject.id });
+  expect(await actor().admin.subjectEligibility()).toContainEqual({ tutorId: tutor.id, subjectId: subject.id });
   expect(await actor().assignment.prepare({ operation: "admin.createPairing", payload: input })).toEqual({ mismatches: [], ticket: null });
   await expect(actor().admin.createPairing(input)).resolves.toMatchObject({ tutorId: tutor.id, subject: subject.name });
 });
@@ -108,6 +108,21 @@ it("rejects explicit membership revocation after warning and never restores acce
   await expect(actor().assignment.prepare({ operation: "admin.createPairing", payload: input })).rejects.toMatchObject({ code: "BAD_REQUEST" });
   expect(await db.pairing.count()).toBe(0);
   expect((await db.user.findUniqueOrThrow({ where: { id: "assignment-tutor" } })).tutorAccessRevoked).toBe(true);
+});
+
+it("preserves historical schedule-only edits but rejects adding students to an archived course", async () => {
+  const { subject, input } = await fixture();
+  const term = await db.term.findFirstOrThrow({ where: { active: true } });
+  const pairing = await db.pairing.create({ data: {
+    tutorId: input.tutorId, subject: input.subject, timeSlotId: input.timeSlotId,
+    termId: term.id, dayOfWeek: 1, startMin: 900, endMin: 960,
+  } });
+  await db.subject.update({ where: { id: subject.id }, data: { active: false } });
+  const payload = { ...input, id: pairing.id };
+  expect(await actor().assignment.prepare({ operation: "admin.updatePairing", payload })).toEqual({ ticket: null, mismatches: [] });
+  await expect(actor().admin.updatePairing(payload)).resolves.toMatchObject({ id: pairing.id });
+  const student = await db.tutee.create({ data: { englishName: "Synthetic Student" } });
+  await expect(actor().admin.updatePairing({ ...payload, tuteeIds: [student.id] })).rejects.toMatchObject({ code: "BAD_REQUEST" });
 });
 
 it("requires fresh reviewer evidence and applies the override within the approval transaction", async () => {

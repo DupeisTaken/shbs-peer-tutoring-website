@@ -5,14 +5,15 @@ import { api } from "~/trpc/react";
 import { groupAssignmentTutors, type QualificationOption } from "~/lib/assignment-qualification";
 
 /** Native optgroups retain keyboard navigation and announce the meaning of each group. */
-export function QualifiedTutorSelect({ tutors, subjectId, value, onChange, label, disabled = false, optionLabel }: {
+export function QualifiedTutorSelect({ tutors, subjectId, value, onChange, label, disabled = false, optionLabel, retainedTutor }: {
   tutors: QualificationOption[]; subjectId: string; value: string;
   onChange: (value: string) => void; label: string; disabled?: boolean;
   optionLabel?: (id: string) => string;
+  retainedTutor?: QualificationOption;
 }) {
   const t = useTranslations("assignmentQualification");
   const helpId = useId();
-  const grants = api.assignment.grants.useQuery();
+  const grants = api.admin.subjectEligibility.useQuery();
   const subjects = api.admin.subjects.useQuery();
   const subject = subjects.data?.find((item) => item.id === subjectId);
   const unavailable = !subject?.active || subject.level?.active === false;
@@ -24,6 +25,8 @@ export function QualifiedTutorSelect({ tutors, subjectId, value, onChange, label
         disabled={disabled || !subjectId || unavailable || grants.isLoading || subjects.isLoading || !!grants.error || !!subjects.error}
         onChange={(event) => onChange(event.target.value)}>
         <option value="">{t("choose")}</option>
+        {retainedTutor && value === retainedTutor.id && !tutors.some((tu) => tu.id === value) &&
+          <option value={retainedTutor.id} disabled>{retainedTutor.englishName}</option>}
         <optgroup label={t("qualified")}>
           {groups.qualified.map((tu) => <option key={tu.id} value={tu.id}>{optionLabel?.(tu.id) ?? tu.englishName}</option>)}
         </optgroup>

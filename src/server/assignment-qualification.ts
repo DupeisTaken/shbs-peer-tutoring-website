@@ -10,6 +10,7 @@ const inputShape = z.object({
   id: z.string().optional(), tuteeId: z.string().optional(),
   tutorId: z.string().optional(), subjectId: z.string().optional(), subject: z.string().optional(),
   overrideTicket: z.string().optional(),
+  tuteeIds: z.array(z.string()).optional(),
   assignments: z.array(z.object({ tutorId: z.string(), subject: z.string(), subjectId: z.string().optional() })).optional(),
 });
 
@@ -23,6 +24,15 @@ export async function assignmentMismatches(tx: TransactionDb, operation: string,
   if (!isAssignmentOperation(operation)) return [];
   await lockCatalogue(tx);
   const input = inputShape.parse(value);
+  if (operation === "admin.updatePairing") {
+    const current = await tx.pairing.findUniqueOrThrow({ where: { id: input.id }, select: {
+      tutorId: true, subject: true, tutees: { select: { tuteeId: true } },
+    } });
+    // Historical pairings remain editable for scheduling/removing students; only a new
+    // tutor/course assignment or additional student needs renewed qualification evidence.
+    if (current.tutorId === input.tutorId && current.subject === input.subject &&
+      !(input.tuteeIds ?? []).some((id) => !current.tutees.some((row) => row.tuteeId === id))) return [];
+  }
   let selections = input.assignments ?? [{ tutorId: input.tutorId!, subject: input.subject, subjectId: input.subjectId }];
   if (operation === "admin.assignTuteeToTutor" && !input.subject && !input.subjectId) {
     const tutee = await tx.tutee.findUnique({ where: { id: input.tuteeId }, select: { firstChoiceId: true } });

@@ -371,6 +371,8 @@ enum AdjustmentType {
 model SubjectLevel {
   id        String   @id @default(cuid())
   name      String   @unique
+  /// Display prefix; empty for Standard. Independent from the level's label.
+  prefix    String   @default("")
   rank      Int      @default(0)
   apScored  Boolean  @default(false)
   active    Boolean  @default(true)
@@ -544,9 +546,21 @@ model RegistrationCode {
 
 /// A subject offered for tutoring. The catalog is managed by admins; tutees pick a
 /// first (required) and optional second choice from it on the public signup form.
+model CourseGroup {
+  id        String @id @default(cuid())
+  name      String
+  rank      Int @default(0)
+  createdAt DateTime @default(now())
+  subjects  Subject[]
+}
+
 model Subject {
   id        String   @id @default(cuid())
   name      String   @unique
+  /// Existing IDs remain the stable variant IDs used by all dependent records.
+  baseName  String @default("")
+  groupId   String?
+  group     CourseGroup? @relation(fields: [groupId], references: [id], onDelete: Restrict)
   /// Difficulty/track level from the admin-managed catalogue (SubjectLevel). Optional.
   levelId   String?
   level     SubjectLevel? @relation(fields: [levelId], references: [id])
@@ -556,6 +570,7 @@ model Subject {
   firstChoiceTutees  Tutee[]                    @relation("TuteeFirstChoice")
   secondChoiceTutees Tutee[]                    @relation("TuteeSecondChoice")
   applicationIntents ApplicationSubjectIntent[]
+  @@unique([groupId, levelId])
 }
 
 enum SignupSource {
@@ -1707,8 +1722,28 @@ model TutorQualification {
   tutorId String
   subjectId String
   approvedById String
+  status QualificationStatus @default(APPROVED)
   createdAt DateTime @default(now())
+  grants QualificationGrant[]
   @@id([tutorId, subjectId])
+}
+
+enum QualificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// Concrete eligibility snapshot. Multiple approvals can independently grant one variant.
+/// Scalar subject IDs preserve legacy records whose catalogue rows were already removed.
+model QualificationGrant {
+  tutorId String
+  sourceSubjectId String
+  subjectId String
+  grantedAt DateTime @default(now())
+  qualification TutorQualification @relation(fields: [tutorId, sourceSubjectId], references: [tutorId, subjectId], onDelete: Cascade)
+  @@id([tutorId, sourceSubjectId, subjectId])
+  @@index([tutorId, subjectId])
 }
 
 /// Explicit holidays and make-up school days override the default Monday–Friday calendar.

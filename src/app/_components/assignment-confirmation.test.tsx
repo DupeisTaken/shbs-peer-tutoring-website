@@ -7,10 +7,9 @@ import { AssignmentConfirmation } from "./assignment-confirmation";
 import { QualifiedTutorSelect } from "./qualified-tutor-select";
 
 const mocks = vi.hoisted(() => ({ prepare: vi.fn(), cancel: vi.fn(), confirm: vi.fn(), close: vi.fn(), grants: [{ tutorId: "b", subjectId: "math" }] }));
-vi.mock("~/trpc/react", () => ({ api: { admin: { subjects: { useQuery: () => ({ data: [{ id: "math", active: true, level: null }, { id: "other", active: true, level: null }] }) } }, assignment: {
+vi.mock("~/trpc/react", () => ({ api: { admin: { subjectEligibility: { useQuery: () => ({ data: mocks.grants, isLoading: false }) }, subjects: { useQuery: () => ({ data: [{ id: "math", active: true, level: null }, { id: "other", active: true, level: null }] }) } }, assignment: {
   prepare: { useMutation: () => ({ mutateAsync: mocks.prepare }) },
   cancel: { useMutation: () => ({ mutate: mocks.cancel }) },
-  grants: { useQuery: () => ({ data: mocks.grants, isLoading: false }) },
 } } }));
 const result = (id = "ticket") => ({ ticket: { id, readyAt: new Date(Date.now() + 3000) }, mismatches: [{ tutorId: "a", tutorName: "Ada", subjectId: "math", subjectName: "Math" }] });
 beforeEach(() => {
