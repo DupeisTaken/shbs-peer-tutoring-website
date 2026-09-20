@@ -74,7 +74,11 @@ Changing a catalog slot affects linked schedules. Read the Time Slots guidance b
 
 The applied **Quarter System** setting controls labels: Q1/Q2 display in semester one and Q3/Q4 in semester two when quarters are disabled. Requests display their original intake, not whichever intake is currently active. Staged module changes take effect only at refresh; labels do not rewrite stored deadlines or attendance.
 
-**Subjects & Levels** supports individual course edits and a simple `name,level` CSV import with an optional header. Maintain levels and subject qualifications before matching or choosing interview panels. Check dependent records and the displayed validation before deleting catalog entries.
+**Subjects & Levels** configures each subject group once. Select its offered levels and enter a separate base name for each: Standard “Intro to Computer Science” displays without a prefix, while AP “Computer Science A” displays as “AP Computer Science A”. Level prefixes are editable; leave the Standard prefix empty. Reorder groups to control selection order and reorder levels along the **Beginner → Advanced** scale. Each group displays beginner levels first. The `name,level` CSV import accepts base names without prefixes and starts a separate group for each row. To consolidate existing subjects, edit a group and select its existing variants explicitly. No grouping is guessed from similar names.
+
+Staff approve qualifications in **Interviews & Panelists**. Approval records the selected variant and every lower offered level in the same group. Application selections alone confer no eligibility. Later level reordering or newly offered variants never expand or revoke those recorded grants; future approvals use the new order. Expanding an approval shows its recorded subjects. Removing an approval removes only its own grants; overlapping approvals remain valid. Tutor assignment and interview checks use these recorded grants.
+
+Unselecting or removing a subject archives it while retaining choices, assignments and qualifications. Levels with existing variants cannot be deleted, and a variant with recorded grants cannot be changed to a different level. Rename its base name or prefix without replacing its identity. Existing subject and qualification migration preserves all IDs, labels and exact approved eligibility. Management catalogue and qualification writes require ADMIN/HEAD authority; coordinators submit proposals for review, and viewers cannot write.
 
 ## Refresh the program
 

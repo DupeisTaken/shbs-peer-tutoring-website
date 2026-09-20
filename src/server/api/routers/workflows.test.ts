@@ -224,9 +224,19 @@ it.each([false, true])(
     const subjectTwo = await db.subject.create({
       data: { name: "Staff-entry Biology" },
     });
+
     const teacher = await db.tutor.create({
       data: { englishName: "Staff-entry Tutor", status: "ACTIVE" },
     });
+    for (const subject of [subjectOne, subjectTwo])
+      await db.tutorQualification.create({
+        data: {
+          tutorId: teacher.id,
+          subjectId: subject.id,
+          approvedById: "review-head",
+          grants: { create: { subjectId: subject.id } },
+        },
+      });
     const student = await caller().admin.createTutee({
       englishName: "Staff entry",
       status: "PENDING",
@@ -519,6 +529,15 @@ beforeEach(async () => {
   });
   await db.subject.create({
     data: { id: "review-subject", name: "Review Math" },
+  });
+  // Assignment scenarios start with staff-approved expertise; application intent is insufficient.
+  await db.tutorQualification.create({
+    data: {
+      tutorId: "review-tutor",
+      subjectId: "review-subject",
+      approvedById: "review-head",
+      grants: { create: { subjectId: "review-subject" } },
+    },
   });
   await db.timeSlot.create({
     data: {

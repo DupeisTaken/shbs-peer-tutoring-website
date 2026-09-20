@@ -1,3 +1,4 @@
+import { assertQualified } from "~/server/qualifications";
 import { approveLegacyStudentWithdrawal } from "./legacy-student-withdrawal";
 import { TRPCError } from "@trpc/server";
 import { approvalScope } from "./db-scope";
@@ -201,6 +202,7 @@ export async function assignStudentRequest(
     const tutor = await tx.tutor.findUnique({ where: { id: tutorId } });
     if (!subject?.active || tutor?.status !== "ACTIVE")
       fail("Choose an active subject and tutor.");
+    await assertQualified(tx, tutorId, subjectId);
     const student = await materializeStudent(tx, row);
     const existing = await tx.pairingTutee.findFirst({
       where: {

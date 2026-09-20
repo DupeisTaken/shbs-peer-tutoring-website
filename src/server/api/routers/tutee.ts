@@ -1,3 +1,4 @@
+import { subjectOrderBy } from "~/lib/course-catalogue";
 import { z } from "zod";
 
 import {
@@ -86,7 +87,7 @@ export const tuteeRouter = createTRPCRouter({
     const [subjects, slots] = await Promise.all([
       ctx.db.subject.findMany({
         where: { active: true },
-        orderBy: { name: "asc" },
+        orderBy: [...subjectOrderBy],
         select: { id: true, name: true },
       }),
       ctx.db.timeSlot.findMany({
