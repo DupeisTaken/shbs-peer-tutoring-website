@@ -1,5 +1,4 @@
 import { approveQualification, lockCatalogue } from "~/server/qualifications";
-import { subjectOrderBy } from "~/lib/course-catalogue";
 import type { Prisma } from "../../../../generated/prisma";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
@@ -30,6 +29,12 @@ export const interviewManagementRouter = createTRPCRouter({
             OR: [
               { interviewers: { some: {} } },
               { status: { in: ["PENDING", "INTERVIEW"] } },
+              // Retained evidence still belongs to history after a panelist leaves.
+              { interviewCompletedAt: { not: null } },
+              { interviewAt: { not: null } },
+              { votes: { some: {} } },
+              { decidedByTutorId: { not: null } },
+              { decisionComment: { not: null } },
             ],
           },
         ],
@@ -74,52 +79,36 @@ export const interviewManagementRouter = createTRPCRouter({
             }
           : {}),
       };
-      const [tutors, subjects, qualifications, applications, total] =
-        await Promise.all([
-          ctx.db.tutor.findMany({
-            select: { id: true, englishName: true, status: true },
-            orderBy: [{ englishName: "asc" }, { id: "asc" }],
-          }),
-          ctx.db.subject.findMany({
-            select: { id: true, name: true, active: true },
-            orderBy: [...subjectOrderBy],
-          }),
-          ctx.db.tutorQualification.findMany({
-            where: { status: "APPROVED" },
-            include: { grants: true },
-          }),
-          ctx.db.tutorApplication.findMany({
-            where,
-            // Imported/batched applications may share timestamps; offset pages need a total order.
-            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-            take: pageSize,
-            skip: input.page * pageSize,
-            select: {
-              id: true,
-              name: true,
-              status: true,
-              interviewAt: true,
-              subjectIntents: {
-                select: { subject: { select: { name: true } } },
-              },
-              interviewCompletedAt: true,
-              interviewDurationMin: true,
-              interviewers: {
-                select: {
-                  tutorId: true,
-                  attended: true,
-                  isHead: true,
-                  tutor: { select: { englishName: true } },
-                },
+      const [applications, total] = await Promise.all([
+        ctx.db.tutorApplication.findMany({
+          where,
+          // Imported/batched applications may share timestamps; offset pages need a total order.
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          take: pageSize,
+          skip: input.page * pageSize,
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            interviewAt: true,
+            subjectIntents: {
+              select: { subject: { select: { name: true } } },
+            },
+            interviewCompletedAt: true,
+            interviewDurationMin: true,
+            interviewers: {
+              select: {
+                tutorId: true,
+                attended: true,
+                isHead: true,
+                tutor: { select: { englishName: true } },
               },
             },
-          }),
-          ctx.db.tutorApplication.count({ where }),
-        ]);
+          },
+        }),
+        ctx.db.tutorApplication.count({ where }),
+      ]);
       return {
-        tutors,
-        subjects,
-        qualifications,
         applications: { rows: applications, total, pageSize },
       };
     }),
