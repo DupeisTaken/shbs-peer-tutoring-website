@@ -4,8 +4,14 @@ export type QualificationSnapshot = { id: string; name: string }[];
 export function qualificationSnapshot(value: unknown): QualificationSnapshot {
   if (!Array.isArray(value)) return [];
   return value.flatMap((item: unknown) => {
-    if (item && typeof item === "object" && "id" in item && "name" in item &&
-      typeof item.id === "string" && typeof item.name === "string")
+    if (
+      item &&
+      typeof item === "object" &&
+      "id" in item &&
+      "name" in item &&
+      typeof item.id === "string" &&
+      typeof item.name === "string"
+    )
       return [{ id: item.id, name: item.name }];
     return [];
   });

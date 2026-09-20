@@ -79,7 +79,13 @@ function ApplicationCard({
   const readOnly = useReadOnly();
   const account = api.account.me.useQuery().data;
   const additional = app.type !== "INITIAL";
-  const canEditPanel = !readOnly && (!additional || (!!account && ["ADMIN", "HEAD"].includes(account.role) && account.tutorId !== app.requestedTutorId && app.status === "PENDING"));
+  const canEditPanel =
+    !readOnly &&
+    (!additional ||
+      (!!account &&
+        ["ADMIN", "HEAD"].includes(account.role) &&
+        account.tutorId !== app.requestedTutorId &&
+        app.status === "PENDING"));
   const { confirm, dialog } = useDialog();
   const [open, setOpen] = useState(false);
   // A link from interview history opens the existing editor for this exact
@@ -147,7 +153,10 @@ function ApplicationCard({
     !hasInterviewHistory &&
     app.status !== "ACCEPTED";
   const canScreenReject =
-    !additional && !readOnly && !hasInterviewHistory && app.status === "PENDING";
+    !additional &&
+    !readOnly &&
+    !hasInterviewHistory &&
+    app.status === "PENDING";
 
   return (
     <div id={`application-${app.id}`} className="card scroll-mt-6 p-4">
@@ -161,9 +170,13 @@ function ApplicationCard({
           onClick={() => setOpen((v) => !v)}
         >
           <DisclosureIcon open={open} />
-          <span className="min-w-0 break-words font-medium text-slate-900">{app.name}</span>
+          <span className="min-w-0 font-medium break-words text-slate-900">
+            {app.name}
+          </span>
           <StatusBadge status={app.status} />
-          <span className="badge-slate">{t(`qualificationRequests.${app.type}`)}</span>
+          <span className="badge-slate">
+            {t(`qualificationRequests.${app.type}`)}
+          </span>
           <span className="muted hidden truncate text-xs sm:inline">
             {courseNames}
             {(features?.INTERVIEWS === true || hasInterviewHistory) && (
@@ -256,7 +269,9 @@ function ApplicationCard({
           )}
 
           {/* Course intents */}
-          {additional && <QualificationReview app={app} onChanged={onChanged} />}
+          {additional && (
+            <QualificationReview app={app} onChanged={onChanged} />
+          )}
           <ul className="mt-3 flex flex-wrap gap-2">
             {app.subjectIntents.map((ci, i) => {
               const quals: string[] = [];
@@ -286,10 +301,16 @@ function ApplicationCard({
                       {ci.subject.level.name}
                     </span>
                   )}
-                  {" · "}
-                  {quals.length
-                    ? quals.join(" · ")
-                    : t("admin.applications.noQualification")}
+                  {/* Additional requests use their reason and recorded grant result above;
+                      the initial-signup grade checklist must not imply they lack approval. */}
+                  {!additional && (
+                    <>
+                      {" · "}
+                      {quals.length
+                        ? quals.join(" · ")
+                        : t("admin.applications.noQualification")}
+                    </>
+                  )}
                 </li>
               );
             })}
@@ -320,7 +341,7 @@ function ApplicationCard({
                         className="flex flex-wrap items-center gap-2"
                       >
                         <select
-                          className="select field-auto min-w-0 max-w-full flex-1"
+                          className="select field-auto max-w-full min-w-0 flex-1"
                           aria-label={t("admin.applications.panelistSlot", {
                             n: i + 1,
                           })}
@@ -361,7 +382,10 @@ function ApplicationCard({
                   </div>
                   <p className="muted my-3 text-sm">
                     {t("workflows.allVotes")}{" "}
-                    <Link className="link inline-flex min-h-11 items-center lg:min-h-8" href="/admin/subject-availability">
+                    <Link
+                      className="link inline-flex min-h-11 items-center lg:min-h-8"
+                      href="/admin/subject-availability"
+                    >
                       {t("subjectAvailability.title")}
                     </Link>
                   </p>

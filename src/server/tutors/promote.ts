@@ -34,7 +34,7 @@ export async function promoteApplicantToTutor(
       where: { id: applicationId },
       select: { name: true, email: true, type: true },
     });
-    if (!app || app.type !== "INITIAL") return;
+    if (app?.type !== "INITIAL") return;
 
     const email = app.email?.trim() ? app.email.trim().toLowerCase() : null;
     if (!email) return; // applications always capture an email; nothing to bind a code to otherwise
