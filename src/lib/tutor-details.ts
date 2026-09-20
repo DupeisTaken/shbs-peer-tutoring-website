@@ -3,7 +3,7 @@ type Subject = {
   name: string;
   active: boolean;
   group: { id: string; name: string; rank: number } | null;
-  level: { id: string; name: string; rank: number } | null;
+  level: { id: string; name: string; rank: number; active?: boolean } | null;
 };
 type Qualification = { subjectId: string; status: string };
 type Grant = { sourceSubjectId: string; subjectId: string };
@@ -17,9 +17,13 @@ export function tutorSubjectGroups(
   grants: Grant[],
   willingness: Willingness[],
 ) {
-  const sources = new Map(qualifications.map((row) => [row.subjectId, row.status]));
+  const sources = new Map(
+    qualifications.map((row) => [row.subjectId, row.status]),
+  );
   const names = new Map(subjects.map((row) => [row.id, row.name]));
-  const intentions = new Map(willingness.map((row) => [row.subjectId, row.willing]));
+  const intentions = new Map(
+    willingness.map((row) => [row.subjectId, row.willing]),
+  );
   const approved = new Map<string, Set<string>>();
   for (const grant of grants) {
     // Defense in depth: rejected/pending sources cannot confer inherited eligibility.
@@ -28,17 +32,19 @@ export function tutorSubjectGroups(
     ids.add(grant.sourceSubjectId);
     approved.set(grant.subjectId, ids);
   }
-  const ordered = [...subjects].sort((a, b) =>
-    (a.group?.rank ?? 0) - (b.group?.rank ?? 0) ||
-    (a.group?.id ?? a.id).localeCompare(b.group?.id ?? b.id) ||
-    (a.level?.rank ?? 0) - (b.level?.rank ?? 0) ||
-    (a.level?.id ?? "").localeCompare(b.level?.id ?? "") ||
-    a.id.localeCompare(b.id),
+  const ordered = [...subjects].sort(
+    (a, b) =>
+      (a.group?.rank ?? 0) - (b.group?.rank ?? 0) ||
+      (a.group?.id ?? a.id).localeCompare(b.group?.id ?? b.id) ||
+      (a.level?.rank ?? 0) - (b.level?.rank ?? 0) ||
+      (a.level?.id ?? "").localeCompare(b.level?.id ?? "") ||
+      a.id.localeCompare(b.id),
   );
   const rows = ordered.map((subject) => ({
     id: subject.id,
     name: subject.name,
-    active: subject.active,
+    // Archiving a level makes its variants unavailable without erasing evidence.
+    active: subject.active && subject.level?.active !== false,
     level: subject.level?.name ?? null,
     qualified: approved.has(subject.id),
     approval: sources.get(subject.id) ?? null,
@@ -49,11 +55,19 @@ export function tutorSubjectGroups(
     groupId: subject.group?.id ?? subject.id,
     groupName: subject.group?.name ?? subject.name,
   }));
-  const groups = new Map<string, { id: string; name: string; subjects: typeof rows }>();
+  const groups = new Map<
+    string,
+    { id: string; name: string; subjects: typeof rows }
+  >();
   for (const row of rows) {
-    // Archived catalogue entries remain visible when they carry recorded evidence.
-    if (!row.active && !row.qualified && !row.approval && row.willing === null) continue;
-    const group = groups.get(row.groupId) ?? { id: row.groupId, name: row.groupName, subjects: [] };
+    // A detail view summarizes this person's evidence, not the entire catalogue.
+    // Keep explicit false choices and archived grants; omit wholly unrecorded subjects.
+    if (!row.qualified && !row.approval && row.willing === null) continue;
+    const group = groups.get(row.groupId) ?? {
+      id: row.groupId,
+      name: row.groupName,
+      subjects: [],
+    };
     group.subjects.push(row);
     groups.set(row.groupId, group);
   }

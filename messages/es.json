@@ -12,7 +12,7 @@
     "username": "Username",
     "accessRevoked": "Tutoring access is revoked. The account link and recorded history are retained.",
     "subjects": "Subjects & teaching willingness",
-    "subjectHelp": "Qualification and willingness are separate. Inherited qualifications reflect saved approvals. Willingness does not confirm a timetable or assignment; tutor status and account access still apply.",
+    "subjectHelp": "Recorded subjects are shown below. Qualification and willingness are separate. Inherited qualifications reflect saved approvals. Willingness does not confirm a timetable or assignment; tutor status and account access still apply.",
     "empty": "No subjects to display.",
     "archived": "Archived subject",
     "qualification": "Qualification",

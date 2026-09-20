@@ -159,7 +159,8 @@ export default function TutorsPage() {
               <SortHeader sort={sort} sortKey="status">
                 {t("admin.tutors.colStatus")}
               </SortHeader>
-              <th>
+              {/* Anchor the absolute sr-only label inside the scrolling table. */}
+              <th className="relative">
                 <span className="sr-only">
                   {t("accountProfile.editProfile")}
                 </span>
