@@ -37,7 +37,7 @@ function fixture(
         },
       ]),
     },
-    tutorQualification: { findMany: vi.fn().mockResolvedValue([]) },
+    qualificationGrant: { findMany: vi.fn().mockResolvedValue([]) },
     subject: { findMany: vi.fn().mockResolvedValue([]) },
     term: { findFirst: vi.fn().mockResolvedValue({ id: "term" }) },
     announcement: {
