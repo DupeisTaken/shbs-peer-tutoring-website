@@ -2679,5 +2679,25 @@
     "unavailable": "Ρυθμίστε την υπηρεσία email πριν ενεργοποιήσετε τις ειδοποιήσεις.",
     "failed": "{count} αποστολές απέτυχαν μετά τις επαναλήψεις. Ελέγξτε την υπηρεσία και τα αρχεία παράδοσης.",
     "saved": "Η ρύθμιση αποθηκεύτηκε."
+  },
+  "assignmentQualification": {
+    "unavailableCourse": "This subject or level is archived and cannot be assigned.",
+    "choose": "Choose a tutor",
+    "qualified": "Qualified for this subject",
+    "unqualified": "Not qualified — confirmation required",
+    "groupHelp": "Approved qualifications appear first; other tutors require an explicit override.",
+    "noneQualified": "No tutors have an approved qualification for this subject. You can select another tutor with confirmation.",
+    "chooseCourse": "Choose a subject to see tutor qualifications.",
+    "loading": "Loading qualifications…",
+    "loadError": "Qualifications could not be loaded. Refresh to try again.",
+    "warningTitle": "Assign a tutor without this qualification?",
+    "warningHelp": "Review the mismatch below. Wait three seconds, then explicitly confirm or cancel. Normal assignment and scheduling rules still apply.",
+    "checking": "Checking assignment",
+    "checkingHelp": "Checking this tutor’s recorded subject qualifications.",
+    "mismatch": "{tutor} has no approved qualification for {subject}.",
+    "cancel": "Cancel",
+    "confirm": "Confirm unqualified assignment",
+    "wait": "Confirm in {seconds}s",
+    "working": "Assigning…"
   }
 }

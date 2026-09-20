@@ -1,3 +1,4 @@
+import { isAssignmentOperation } from "~/lib/assignment-qualification";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import superjson from "superjson";
@@ -91,6 +92,7 @@ export const approvalRouter = createTRPCRouter({
         approve: z.boolean(),
         note: z.string().trim().min(1).max(2000),
         ticket: z.string().optional(),
+        overrideTicket: z.string().optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -180,11 +182,11 @@ export const approvalRouter = createTRPCRouter({
                     message:
                       "Open the consequence dialog before applying this change.",
                   });
-                await caller[router!]![method!]!(
-                  confirmation
-                    ? { ...(value as object), ticket: input.ticket }
-                    : value,
-                );
+                const replayValue = confirmation ? { ...(value as object), ticket: input.ticket } : value;
+                // Each reviewer acknowledges current eligibility with their own one-use evidence.
+                await caller[router!]![method!]!(isAssignmentOperation(request.operation)
+                  ? { ...(replayValue as object), overrideTicket: input.overrideTicket }
+                  : replayValue);
               }
               const reviewer = await tx.user.findUniqueOrThrow({
                 where: { id: ctx.session.user.id },

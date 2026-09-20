@@ -1,3 +1,4 @@
+import { enforceAssignmentQualification } from "./assignment-qualification";
 import { createHash } from "node:crypto";
 import { TRPCError, type AnyTRPCProcedure } from "@trpc/server";
 import type { Session } from "next-auth";
@@ -266,6 +267,7 @@ export async function queueProposal(
     const value = superjson.deserialize(
       payload as unknown as Parameters<typeof superjson.deserialize>[0],
     );
+    await enforceAssignmentQualification(tx, session.user.id, operation, value);
     const confirmation = proposalConfirmation(operation, value);
     if (confirmation) {
       const { consumeStudentAction } = await import("./student-workflow");

@@ -226,7 +226,7 @@ export const studentWorkflowRouter = createTRPCRouter({
     }));
   }),
   assign: adminProcedure
-    .input(z.object({ id, ticket, subjectId: id, tutorId: id }))
+    .input(z.object({ id, ticket, subjectId: id, tutorId: id, overrideTicket: ticket.optional() }))
     .mutation(({ ctx, input }) =>
       assignStudentRequest(
         ctx.db,
@@ -235,6 +235,7 @@ export const studentWorkflowRouter = createTRPCRouter({
         input.ticket,
         input.subjectId,
         input.tutorId,
+        input.overrideTicket,
       ),
     ),
   resend: adminProcedure

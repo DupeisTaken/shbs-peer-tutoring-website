@@ -2679,5 +2679,25 @@
     "unavailable": "알림을 켜기 전에 이메일 서비스를 설정하세요.",
     "failed": "재시도 후에도 {count}건의 전송에 실패했습니다. 이메일 서비스와 전송 기록을 확인하세요.",
     "saved": "알림 설정이 저장되었습니다."
+  },
+  "assignmentQualification": {
+    "unavailableCourse": "This subject or level is archived and cannot be assigned.",
+    "choose": "Choose a tutor",
+    "qualified": "Qualified for this subject",
+    "unqualified": "Not qualified — confirmation required",
+    "groupHelp": "Approved qualifications appear first; other tutors require an explicit override.",
+    "noneQualified": "No tutors have an approved qualification for this subject. You can select another tutor with confirmation.",
+    "chooseCourse": "Choose a subject to see tutor qualifications.",
+    "loading": "Loading qualifications…",
+    "loadError": "Qualifications could not be loaded. Refresh to try again.",
+    "warningTitle": "Assign a tutor without this qualification?",
+    "warningHelp": "Review the mismatch below. Wait three seconds, then explicitly confirm or cancel. Normal assignment and scheduling rules still apply.",
+    "checking": "Checking assignment",
+    "checkingHelp": "Checking this tutor’s recorded subject qualifications.",
+    "mismatch": "{tutor} has no approved qualification for {subject}.",
+    "cancel": "Cancel",
+    "confirm": "Confirm unqualified assignment",
+    "wait": "Confirm in {seconds}s",
+    "working": "Assigning…"
   }
 }

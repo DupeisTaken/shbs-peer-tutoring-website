@@ -1,3 +1,4 @@
+import { enforceAssignmentQualification } from "~/server/assignment-qualification";
 import {
   lockAccountProfile,
   updateAccountProfile,
@@ -523,7 +524,7 @@ export const adminRouter = createTRPCRouter({
   subjects: viewerProcedure.query(({ ctx }) =>
     ctx.db.subject.findMany({
       orderBy: { name: "asc" },
-      include: { level: { select: { id: true, name: true } } },
+      include: { level: { select: { id: true, name: true, active: true } } },
     }),
   ),
 
@@ -607,18 +608,21 @@ export const adminRouter = createTRPCRouter({
   createPairing: adminProcedure
     .input(
       z.object({
+        overrideTicket: z.string().optional(),
         tutorId: cuid,
         roomId: cuid.optional(),
         // Pairings are scheduled by picking a published time slot — the slot is the single
         // source of truth for day/start/end (no free-form time entry).
         timeSlotId: cuid,
         subject: z.string().min(1),
+        subjectId: cuid.optional(),
         tuteeIds: z.array(cuid).default([]),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const { tuteeIds, ...data } = input;
+      const { tuteeIds, overrideTicket: _overrideTicket, subjectId: _subjectId, ...data } = input;
       return inTransaction(ctx.db, async (tx) => {
+        await enforceAssignmentQualification(tx, ctx.session.user.id, "admin.createPairing", input);
         await lockPlannedRoomSchedule(tx);
         // New pairings always belong to the active program period.
         const [slot, period] = await Promise.all([
@@ -654,18 +658,21 @@ export const adminRouter = createTRPCRouter({
   updatePairing: adminProcedure
     .input(
       z.object({
+        overrideTicket: z.string().optional(),
         id: cuid,
         tutorId: cuid,
         roomId: cuid.nullable().optional(),
         timeSlotId: cuid,
         subject: z.string().min(1),
+        subjectId: cuid.optional(),
         tuteeIds: z.array(cuid),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const { id, tuteeIds, roomId, ...data } = input;
+      const { id, tuteeIds, roomId, overrideTicket: _overrideTicket, subjectId: _subjectId, ...data } = input;
       // Replace roster atomically; day/start/end follow the chosen slot.
       return inTransaction(ctx.db, async (tx) => {
+        await enforceAssignmentQualification(tx, ctx.session.user.id, "admin.updatePairing", input);
         await lockPlannedRoomSchedule(tx);
         const [slot, current] = await Promise.all([
           resolveSlot(tx, input.timeSlotId),
@@ -1934,6 +1941,7 @@ export const adminRouter = createTRPCRouter({
   assignTuteeToTutor: adminProcedure
     .input(
       z.object({
+        overrideTicket: z.string().optional(),
         tuteeId: cuid,
         tutorId: cuid,
         termId: cuid,
@@ -1958,6 +1966,7 @@ export const adminRouter = createTRPCRouter({
       }
 
       return inTransaction(ctx.db, async (tx) => {
+        await enforceAssignmentQualification(tx, ctx.session.user.id, "admin.assignTuteeToTutor", input);
         await assertStudentRequestAssignable(tx, input.tuteeId);
         const pairing = await tx.pairing.create({
           data: {
@@ -1989,10 +1998,11 @@ export const adminRouter = createTRPCRouter({
   assignSignup: adminProcedure
     .input(
       z.object({
+        overrideTicket: z.string().optional(),
         tuteeId: cuid,
         expectedUpdatedAt,
         assignments: z
-          .array(z.object({ subject: z.string().trim().min(1), tutorId: cuid }))
+          .array(z.object({ subject: z.string().trim().min(1), subjectId: cuid.optional(), tutorId: cuid }))
           .min(1, "Pick a tutor for at least one subject"),
       }),
     )
@@ -2000,6 +2010,7 @@ export const adminRouter = createTRPCRouter({
       // New pairings land in the active program period.
       const period = await getActivePeriod(ctx.db);
       return inTransaction(ctx.db, async (tx) => {
+        await enforceAssignmentQualification(tx, ctx.session.user.id, "admin.assignSignup", input);
         await assertStudentRequestAssignable(tx, input.tuteeId);
         const tutee = await tx.tutee.findUnique({
           where: { id: input.tuteeId },

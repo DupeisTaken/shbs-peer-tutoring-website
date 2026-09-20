@@ -1,6 +1,8 @@
 "use client";
 
 import { useState } from "react";
+import { QualifiedTutorSelect } from "~/app/_components/qualified-tutor-select";
+import { AssignmentConfirmation } from "~/app/_components/assignment-confirmation";
 import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
@@ -33,6 +35,7 @@ export default function PairingsPage() {
   const utils = api.useUtils();
   const pairings = api.admin.pairings.useQuery();
   const tutors = api.admin.tutors.useQuery();
+  const subjects = api.admin.subjects.useQuery();
   const tutees = api.admin.tutees.useQuery();
   const rooms = api.admin.rooms.useQuery(undefined, { staleTime: REFERENCE_STALE_TIME });
   const timeSlots = api.admin.timeSlots.useQuery(undefined, { staleTime: REFERENCE_STALE_TIME });
@@ -43,30 +46,26 @@ export default function PairingsPage() {
   const del = api.admin.deletePairing.useMutation({ onSuccess: invalidate });
 
   const [form, setForm] = useState<PairingForm>(EMPTY);
+  const [confirming, setConfirming] = useState(false);
   const editing = form.id !== null;
   const set = <K extends keyof PairingForm>(k: K, v: PairingForm[K]) =>
-    setForm((f) => ({ ...f, [k]: v }));
+    { setConfirming(false); setForm((f) => ({ ...f, [k]: v })); }
 
   const activeSlots = (timeSlots.data ?? []).filter(
     (s) => s.active || s.id === form.timeSlotId,
   );
 
-  const submit = () => {
-    const base = {
-      tutorId: form.tutorId,
-      roomId: form.roomId || undefined,
-      timeSlotId: form.timeSlotId,
-      subject: form.subject,
-      tuteeIds: form.tuteeIds,
-    };
-    if (form.id) {
-      update.mutate(
-        { ...base, id: form.id, roomId: form.roomId || null },
-        { onSuccess: () => setForm(EMPTY) },
-      );
-    } else {
-      create.mutate(base, { onSuccess: () => setForm(EMPTY) });
-    }
+  const selectedSubject = subjects.data?.find((subject) => subject.name === form.subject);
+  const base = {
+    tutorId: form.tutorId, roomId: form.roomId || undefined,
+    timeSlotId: form.timeSlotId, subject: form.subject,
+    subjectId: selectedSubject?.id, tuteeIds: form.tuteeIds,
+  };
+  const payload = form.id ? { ...base, id: form.id, roomId: form.roomId || null } : base;
+  const submit = (overrideTicket?: string) => {
+    const onSuccess = () => { setConfirming(false); setForm(EMPTY); };
+    if (form.id) update.mutate({ ...base, id: form.id, roomId: form.roomId || null, overrideTicket }, { onSuccess });
+    else create.mutate({ ...base, overrideTicket }, { onSuccess });
   };
 
   const error = create.error ?? update.error ?? del.error;
@@ -95,10 +94,17 @@ export default function PairingsPage() {
           <p className="muted mt-1">{t("admin.pairings.slotHelp")}</p>
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
             <Select
+              label={t("admin.pairings.subject")}
+              value={form.subject}
+              onChange={(value) => set("subject", value)}
+              options={[{ value: "", label: "—" }, ...(subjects.data ?? []).filter((subject) => (subject.active && subject.level?.active !== false) || subject.name === form.subject).map((subject) => ({ value: subject.name, label: subject.name }))]}
+            />
+            <QualifiedTutorSelect
               label={t("admin.pairings.tutor")}
               value={form.tutorId}
-              onChange={(v) => set("tutorId", v)}
-              options={(tutors.data ?? []).map((t) => ({ value: t.id, label: t.englishName }))}
+              subjectId={selectedSubject?.id ?? ""}
+              onChange={(value) => set("tutorId", value)}
+              tutors={(tutors.data ?? []).filter((tutor) => tutor.status === "ACTIVE")}
             />
             <Select
               label={t("admin.pairings.roomOptional")}
@@ -121,15 +127,7 @@ export default function PairingsPage() {
                 })),
               ]}
             />
-            <label className="space-y-1 text-sm sm:col-span-2">
-              <span className="label">{t("admin.pairings.subject")}</span>
-              <input
-                value={form.subject}
-                onChange={(e) => set("subject", e.target.value)}
-                placeholder={t("admin.pairings.subjectPlaceholder")}
-                className="input"
-              />
-            </label>
+
           </div>
 
           <fieldset className="mt-3">
@@ -157,9 +155,9 @@ export default function PairingsPage() {
 
           <div className="mt-4 flex items-center gap-3">
             <button
-              onClick={submit}
-              disabled={!form.tutorId || !form.subject || !form.timeSlotId}
-              className="btn-primary"
+              onClick={() => setConfirming(true)}
+              disabled={!form.tutorId || !selectedSubject?.active || selectedSubject.level?.active === false || !form.timeSlotId || create.isPending || update.isPending}
+              className="btn-primary min-h-11 lg:min-h-10"
             >
               {editing ? t("admin.pairings.saveChanges") : t("admin.pairings.createPairing")}
             </button>
@@ -173,6 +171,11 @@ export default function PairingsPage() {
         </section>
       )}
 
+      {confirming && <AssignmentConfirmation
+        operation={editing ? "admin.updatePairing" : "admin.createPairing"}
+        payload={payload} onConfirm={submit} onCancel={() => setConfirming(false)}
+        busy={create.isPending || update.isPending} error={error?.message}
+      />}
       {/* Table */}
       <div className="card overflow-x-auto">
         <table className="data-table">
@@ -245,7 +248,7 @@ function Select({
   return (
     <label className="space-y-1 text-sm">
       <span className="label">{label}</span>
-      <select value={value} onChange={(e) => onChange(e.target.value)} className="select">
+      <select value={value} onChange={(e) => onChange(e.target.value)} className="select min-h-11 lg:min-h-10">
         {!options.some((o) => o.value === "") && <option value="">—</option>}
         {options.map((o) => (
           <option key={o.value} value={o.value}>

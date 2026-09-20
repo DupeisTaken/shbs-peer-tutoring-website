@@ -1,3 +1,4 @@
+import { enforceAssignmentQualification } from "./assignment-qualification";
 import { approveLegacyStudentWithdrawal } from "./legacy-student-withdrawal";
 import { TRPCError } from "@trpc/server";
 import { approvalScope } from "./db-scope";
@@ -188,9 +189,11 @@ export async function assignStudentRequest(
   ticket: string,
   subjectId: string,
   tutorId: string,
+  overrideTicket?: string,
 ) {
   await expireStudentRequests(db);
   const result = await inTransaction(db, async (tx) => {
+    await enforceAssignmentQualification(tx, userId, "studentWorkflow.assign", { id, ticket, subjectId, tutorId, overrideTicket });
     const row = await lockedRequest(tx, id);
     await consumeStudentAction(tx, ticket, userId, "ASSIGN", id);
     const input = surveyInput.parse(row.payload);

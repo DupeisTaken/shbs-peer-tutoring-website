@@ -1,6 +1,8 @@
 "use client";
 
 import Link from "next/link";
+import { isAssignmentOperation } from "~/lib/assignment-qualification";
+import { AssignmentConfirmation } from "./assignment-confirmation";
 import { Suspense, useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useFormatter, useTranslations } from "next-intl";
@@ -29,9 +31,11 @@ function RequestCard({
   const format = useFormatter();
   const [note, setNote] = useState("");
   const [confirming, setConfirming] = useState(false);
+  const [overrideReview, setOverrideReview] = useState<{ ticket?: string } | null>(null);
   const decision = api.approval.decide.useMutation({
     onSuccess: async () => {
       setConfirming(false);
+      setOverrideReview(null);
       await onChanged();
     },
   });
@@ -87,11 +91,21 @@ function RequestCard({
   const fields =
     payload && typeof payload === "object"
       ? Object.entries(payload).filter(
-          ([key]) => !["expectedUpdatedAt", "ticket"].includes(key),
+          ([key]) => !["expectedUpdatedAt", "ticket", "overrideTicket"].includes(key),
         )
       : [];
+  const approve = (ticket?: string) => {
+    setConfirming(false);
+    if (isAssignmentOperation(request.operation)) setOverrideReview({ ticket });
+    else decision.mutate({ id: request.id, approve: true, note, ticket });
+  };
   return (
     <article className="card overflow-hidden">
+      {overrideReview && isAssignmentOperation(request.operation) && <AssignmentConfirmation
+        operation={request.operation} payload={{ ...(payload as object), ...(overrideReview.ticket ? { ticket: overrideReview.ticket } : {}) }}
+        busy={decision.isPending} error={decision.error?.message} onCancel={() => setOverrideReview(null)}
+        onConfirm={(overrideTicket) => decision.mutate({ id: request.id, approve: true, note, ticket: overrideReview.ticket, overrideTicket })}
+      />}
       {confirming && confirmation && (
         <TimedActionDialog
           action={confirmation.action}
@@ -101,9 +115,7 @@ function RequestCard({
           busy={decision.isPending}
           error={decision.error?.message}
           onCancel={() => setConfirming(false)}
-          onConfirm={(ticket) =>
-            decision.mutate({ id: request.id, approve: true, note, ticket })
-          }
+          onConfirm={approve}
         >
           <dl className="space-y-3">
             {fields.map(([key, value]) => (
@@ -249,7 +261,7 @@ function RequestCard({
                 onClick={() =>
                   confirmation
                     ? setConfirming(true)
-                    : decision.mutate({ id: request.id, approve: true, note })
+                    : approve()
                 }
               >
                 {t("approve")}

@@ -2679,5 +2679,25 @@
     "unavailable": "开启通知前，请先配置邮件服务。",
     "failed": "重试后仍有 {count} 封邮件发送失败。请检查邮件服务和发送记录。",
     "saved": "通知设置已保存。"
+  },
+  "assignmentQualification": {
+    "unavailableCourse": "此科目或级别已归档，无法进行分配。",
+    "choose": "选择导师",
+    "qualified": "已具备此科目资格",
+    "unqualified": "未具备资格 — 需要确认",
+    "groupHelp": "已批准资格的导师排在前面；其他导师需要明确确认后才能分配。",
+    "noneQualified": "没有导师具备此科目的已批准资格。您可以选择其他导师并确认分配。",
+    "chooseCourse": "选择科目以查看导师资格。",
+    "loading": "正在加载资格…",
+    "loadError": "无法加载资格。请刷新重试。",
+    "warningTitle": "分配未具备此资格的导师？",
+    "warningHelp": "请查看以下资格不符情况。等待三秒后，明确确认或取消。正常的分配和排课规则仍然适用。",
+    "checking": "正在检查分配",
+    "checkingHelp": "正在检查导师已记录的科目资格。",
+    "mismatch": "{tutor} 未具备 {subject} 的已批准资格。",
+    "cancel": "取消",
+    "confirm": "确认分配未具备资格的导师",
+    "wait": "{seconds}秒后可确认",
+    "working": "正在分配…"
   }
 }

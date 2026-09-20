@@ -91,6 +91,8 @@ export const APPROVAL_OPERATIONS: Record<string, string> = {
 };
 
 export const COORDINATOR_DIRECT_OPERATIONS = new Set([
+  "assignment.prepare",
+  "assignment.cancel",
   "admin.sendTutorSetup",
   // Email proof/setup only; no role, profile link or verified status is changed by sending.
   "admin.sendAccountVerification",
