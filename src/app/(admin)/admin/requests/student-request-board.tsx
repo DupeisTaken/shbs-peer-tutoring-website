@@ -312,7 +312,9 @@ function Assignment({
   const utils = api.useUtils();
   const [tutorId, setTutorId] = useState("");
   const [open, setOpen] = useState(false);
-  const [consequenceTicket, setConsequenceTicket] = useState<string | null>(null);
+  const [consequenceTicket, setConsequenceTicket] = useState<string | null>(
+    null,
+  );
   const readOnly = useReadOnly();
   const assign = api.studentWorkflow.assign.useMutation({
     onSuccess: async () => {
@@ -335,8 +337,14 @@ function Assignment({
         <>
           <QualifiedTutorSelect
             label={t("chooseTutor", { subject: subject.name })}
-            tutors={tutors} subjectId={subject.id} value={tutorId}
-            onChange={(value) => { setOpen(false); setConsequenceTicket(null); setTutorId(value); }}
+            tutors={tutors}
+            subjectId={subject.id}
+            value={tutorId}
+            onChange={(value) => {
+              setOpen(false);
+              setConsequenceTicket(null);
+              setTutorId(value);
+            }}
           />
           <button
             className="btn-primary min-h-11 self-end lg:min-h-10"
@@ -352,10 +360,29 @@ function Assignment({
           {t("resendFailed")}
         </p>
       )}
-      {consequenceTicket && <AssignmentConfirmation operation="studentWorkflow.assign"
-        payload={{ id: row.id, subjectId: subject.id, tutorId, ticket: consequenceTicket }}
-        busy={assign.isPending} error={assign.error?.message} onCancel={() => setConsequenceTicket(null)}
-        onConfirm={(overrideTicket) => assign.mutate({ id: row.id, subjectId: subject.id, tutorId, ticket: consequenceTicket, overrideTicket })} />}
+      {consequenceTicket && (
+        <AssignmentConfirmation
+          operation="studentWorkflow.assign"
+          payload={{
+            id: row.id,
+            subjectId: subject.id,
+            tutorId,
+            ticket: consequenceTicket,
+          }}
+          busy={assign.isPending}
+          error={assign.error?.message}
+          onCancel={() => setConsequenceTicket(null)}
+          onConfirm={(overrideTicket) =>
+            assign.mutate({
+              id: row.id,
+              subjectId: subject.id,
+              tutorId,
+              ticket: consequenceTicket,
+              overrideTicket,
+            })
+          }
+        />
+      )}
       {open && (
         <TimedActionDialog
           key={`${row.id}:${subject.id}:${tutorId}`}
@@ -366,7 +393,10 @@ function Assignment({
           busy={assign.isPending}
           error={assign.error?.message}
           onCancel={() => setOpen(false)}
-          onConfirm={(ticket) => { setOpen(false); setConsequenceTicket(ticket); }}
+          onConfirm={(ticket) => {
+            setOpen(false);
+            setConsequenceTicket(ticket);
+          }}
         />
       )}
     </div>

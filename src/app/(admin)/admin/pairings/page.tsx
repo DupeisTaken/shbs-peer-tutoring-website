@@ -38,8 +38,12 @@ export default function PairingsPage() {
   const tutors = api.admin.tutors.useQuery();
   const subjects = api.admin.subjects.useQuery();
   const tutees = api.admin.tutees.useQuery();
-  const rooms = api.admin.rooms.useQuery(undefined, { staleTime: REFERENCE_STALE_TIME });
-  const timeSlots = api.admin.timeSlots.useQuery(undefined, { staleTime: REFERENCE_STALE_TIME });
+  const rooms = api.admin.rooms.useQuery(undefined, {
+    staleTime: REFERENCE_STALE_TIME,
+  });
+  const timeSlots = api.admin.timeSlots.useQuery(undefined, {
+    staleTime: REFERENCE_STALE_TIME,
+  });
 
   const invalidate = () => utils.admin.pairings.invalidate();
   const create = api.admin.createPairing.useMutation({ onSuccess: invalidate });
@@ -49,25 +53,49 @@ export default function PairingsPage() {
   const [form, setForm] = useState<PairingForm>(EMPTY);
   const [confirming, setConfirming] = useState(false);
   const editing = form.id !== null;
-  const set = <K extends keyof PairingForm>(k: K, v: PairingForm[K]) =>
-    { setConfirming(false); setForm((f) => ({ ...f, [k]: v })); }
+  const set = <K extends keyof PairingForm>(k: K, v: PairingForm[K]) => {
+    setConfirming(false);
+    setForm((f) => ({ ...f, [k]: v }));
+  };
 
   const activeSlots = (timeSlots.data ?? []).filter(
     (s) => s.active || s.id === form.timeSlotId,
   );
 
-  const originalPairing = pairings.data?.find((pairing) => pairing.id === form.id);
-  const retainsAssignment = !!originalPairing && originalPairing.tutorId === form.tutorId && originalPairing.subject === form.subject && form.tuteeIds.every((id) => originalPairing.tutees.some((row) => row.tuteeId === id));
-  const selectedSubject = subjects.data?.find((subject) => subject.name === form.subject);
+  const originalPairing = pairings.data?.find(
+    (pairing) => pairing.id === form.id,
+  );
+  const retainsAssignment =
+    !!originalPairing &&
+    originalPairing.tutorId === form.tutorId &&
+    originalPairing.subject === form.subject &&
+    form.tuteeIds.every((id) =>
+      originalPairing.tutees.some((row) => row.tuteeId === id),
+    );
+  const selectedSubject = subjects.data?.find(
+    (subject) => subject.name === form.subject,
+  );
   const base = {
-    tutorId: form.tutorId, roomId: form.roomId || undefined,
-    timeSlotId: form.timeSlotId, subject: form.subject,
-    subjectId: selectedSubject?.id, tuteeIds: form.tuteeIds,
+    tutorId: form.tutorId,
+    roomId: form.roomId || undefined,
+    timeSlotId: form.timeSlotId,
+    subject: form.subject,
+    subjectId: selectedSubject?.id,
+    tuteeIds: form.tuteeIds,
   };
-  const payload = form.id ? { ...base, id: form.id, roomId: form.roomId || null } : base;
+  const payload = form.id
+    ? { ...base, id: form.id, roomId: form.roomId || null }
+    : base;
   const submit = (overrideTicket?: string) => {
-    const onSuccess = () => { setConfirming(false); setForm(EMPTY); };
-    if (form.id) update.mutate({ ...base, id: form.id, roomId: form.roomId || null, overrideTicket }, { onSuccess });
+    const onSuccess = () => {
+      setConfirming(false);
+      setForm(EMPTY);
+    };
+    if (form.id)
+      update.mutate(
+        { ...base, id: form.id, roomId: form.roomId || null, overrideTicket },
+        { onSuccess },
+      );
     else create.mutate({ ...base, overrideTicket }, { onSuccess });
   };
 
@@ -79,7 +107,9 @@ export default function PairingsPage() {
 
       {/* Slot × room schedule grid */}
       <section>
-        <h2 className="section-title mb-2">{t("admin.pairings.roomSchedule")}</h2>
+        <h2 className="section-title mb-2">
+          {t("admin.pairings.roomSchedule")}
+        </h2>
         <RoomGrid
           rooms={(rooms.data ?? []).map((r) => ({ id: r.id, name: r.name }))}
           slots={(timeSlots.data ?? []).filter((s) => s.active)}
@@ -92,7 +122,9 @@ export default function PairingsPage() {
       {!readOnly && (
         <section className="card p-5">
           <h2 className="section-title">
-            {editing ? t("admin.pairings.editPairing") : t("admin.pairings.newPairing")}
+            {editing
+              ? t("admin.pairings.editPairing")
+              : t("admin.pairings.newPairing")}
           </h2>
           <p className="muted mt-1">{t("admin.pairings.slotHelp")}</p>
           <div className="mt-3 grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -100,7 +132,22 @@ export default function PairingsPage() {
               label={t("admin.pairings.subject")}
               value={form.subject}
               onChange={(value) => set("subject", value)}
-              options={[{ value: "", label: "—" }, ...(!selectedSubject && form.subject ? [{ value: form.subject, label: form.subject }] : []), ...(subjects.data ?? []).filter((subject) => (subject.active && subject.level?.active !== false) || subject.name === form.subject).map((subject) => ({ value: subject.name, label: subject.name }))]}
+              options={[
+                { value: "", label: "—" },
+                ...(!selectedSubject && form.subject
+                  ? [{ value: form.subject, label: form.subject }]
+                  : []),
+                ...(subjects.data ?? [])
+                  .filter(
+                    (subject) =>
+                      (subject.active && subject.level?.active !== false) ||
+                      subject.name === form.subject,
+                  )
+                  .map((subject) => ({
+                    value: subject.name,
+                    label: subject.name,
+                  })),
+              ]}
             />
             <QualifiedTutorSelect
               label={t("admin.pairings.tutor")}
@@ -116,7 +163,10 @@ export default function PairingsPage() {
               onChange={(v) => set("roomId", v)}
               options={[
                 { value: "", label: t("admin.pairings.none") },
-                ...(rooms.data ?? []).map((r) => ({ value: r.id, label: r.name })),
+                ...(rooms.data ?? []).map((r) => ({
+                  value: r.id,
+                  label: r.name,
+                })),
               ]}
             />
             <Select
@@ -131,7 +181,6 @@ export default function PairingsPage() {
                 })),
               ]}
             />
-
           </div>
 
           <fieldset className="mt-3">
@@ -160,26 +209,43 @@ export default function PairingsPage() {
           <div className="mt-4 flex items-center gap-3">
             <button
               onClick={() => setConfirming(true)}
-              disabled={!form.tutorId || (!retainsAssignment && (!selectedSubject?.active || selectedSubject.level?.active === false)) || !form.timeSlotId || create.isPending || update.isPending}
+              disabled={
+                !form.tutorId ||
+                (!retainsAssignment &&
+                  (!selectedSubject?.active ||
+                    selectedSubject.level?.active === false)) ||
+                !form.timeSlotId ||
+                create.isPending ||
+                update.isPending
+              }
               className="btn-primary min-h-11 lg:min-h-10"
             >
-              {editing ? t("admin.pairings.saveChanges") : t("admin.pairings.createPairing")}
+              {editing
+                ? t("admin.pairings.saveChanges")
+                : t("admin.pairings.createPairing")}
             </button>
             {editing && (
               <button onClick={() => setForm(EMPTY)} className="link text-sm">
                 {t("admin.pairings.cancel")}
               </button>
             )}
-            {error && <span className="text-sm text-red-600">{error.message}</span>}
+            {error && (
+              <span className="text-sm text-red-600">{error.message}</span>
+            )}
           </div>
         </section>
       )}
 
-      {confirming && <AssignmentConfirmation
-        operation={editing ? "admin.updatePairing" : "admin.createPairing"}
-        payload={payload} onConfirm={submit} onCancel={() => setConfirming(false)}
-        busy={create.isPending || update.isPending} error={error?.message}
-      />}
+      {confirming && (
+        <AssignmentConfirmation
+          operation={editing ? "admin.updatePairing" : "admin.createPairing"}
+          payload={payload}
+          onConfirm={submit}
+          onCancel={() => setConfirming(false)}
+          busy={create.isPending || update.isPending}
+          error={error?.message}
+        />
+      )}
       {/* Table */}
       <div className="card overflow-x-auto">
         <table className="data-table">
@@ -200,7 +266,8 @@ export default function PairingsPage() {
                 <td>{p.tutor.englishName}</td>
                 <td>{p.subject}</td>
                 <td>
-                  {DAY_NAMES[p.dayOfWeek]} {minToHm(p.startMin)}–{minToHm(p.endMin)}
+                  {DAY_NAMES[p.dayOfWeek]} {minToHm(p.startMin)}–
+                  {minToHm(p.endMin)}
                 </td>
                 <td className="text-slate-500">{p.timeSlot?.label ?? "—"}</td>
                 <td>{p.room?.name ?? "—"}</td>
@@ -223,7 +290,10 @@ export default function PairingsPage() {
                       >
                         {t("admin.pairings.edit")}
                       </button>
-                      <button onClick={() => del.mutate({ id: p.id })} className="link-danger">
+                      <button
+                        onClick={() => del.mutate({ id: p.id })}
+                        className="link-danger"
+                      >
                         {t("admin.pairings.delete")}
                       </button>
                     </>
@@ -252,7 +322,12 @@ function Select({
   return (
     <label className="space-y-1 text-sm">
       <span className="label">{label}</span>
-      <select value={value} onChange={(e) => onChange(e.target.value)} className="select min-h-11 lg:min-h-10">
+      <select
+        aria-label={label}
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        className="select min-h-11 lg:min-h-10"
+      >
         {!options.some((o) => o.value === "") && <option value="">—</option>}
         {options.map((o) => (
           <option key={o.value} value={o.value}>

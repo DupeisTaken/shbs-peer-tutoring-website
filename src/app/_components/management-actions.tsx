@@ -32,7 +32,9 @@ function RequestCard({
   const format = useFormatter();
   const [note, setNote] = useState("");
   const [confirming, setConfirming] = useState(false);
-  const [overrideReview, setOverrideReview] = useState<{ ticket?: string } | null>(null);
+  const [overrideReview, setOverrideReview] = useState<{
+    ticket?: string;
+  } | null>(null);
   const decision = api.approval.decide.useMutation({
     onSuccess: async () => {
       setConfirming(false);
@@ -92,7 +94,8 @@ function RequestCard({
   const fields =
     payload && typeof payload === "object"
       ? Object.entries(payload).filter(
-          ([key]) => !["expectedUpdatedAt", "ticket", "overrideTicket"].includes(key),
+          ([key]) =>
+            !["expectedUpdatedAt", "ticket", "overrideTicket"].includes(key),
         )
       : [];
   const approve = (ticket?: string) => {
@@ -102,11 +105,27 @@ function RequestCard({
   };
   return (
     <article className="card overflow-hidden">
-      {overrideReview && isAssignmentOperation(request.operation) && <AssignmentConfirmation
-        operation={request.operation} payload={{ ...(payload as object), ...(overrideReview.ticket ? { ticket: overrideReview.ticket } : {}) }}
-        busy={decision.isPending} error={decision.error?.message} onCancel={() => setOverrideReview(null)}
-        onConfirm={(overrideTicket) => decision.mutate({ id: request.id, approve: true, note, ticket: overrideReview.ticket, overrideTicket })}
-      />}
+      {overrideReview && isAssignmentOperation(request.operation) && (
+        <AssignmentConfirmation
+          operation={request.operation}
+          payload={{
+            ...(payload as object),
+            ...(overrideReview.ticket ? { ticket: overrideReview.ticket } : {}),
+          }}
+          busy={decision.isPending}
+          error={decision.error?.message}
+          onCancel={() => setOverrideReview(null)}
+          onConfirm={(overrideTicket) =>
+            decision.mutate({
+              id: request.id,
+              approve: true,
+              note,
+              ticket: overrideReview.ticket,
+              overrideTicket,
+            })
+          }
+        />
+      )}
       {confirming && confirmation && (
         <TimedActionDialog
           action={confirmation.action}
@@ -259,11 +278,7 @@ function RequestCard({
               <button
                 className="btn-primary"
                 disabled={busy || !note.trim()}
-                onClick={() =>
-                  confirmation
-                    ? setConfirming(true)
-                    : approve()
-                }
+                onClick={() => (confirmation ? setConfirming(true) : approve())}
               >
                 {t("approve")}
               </button>
@@ -450,7 +465,10 @@ function ApprovalQueue({
           key={request.id}
           request={request}
           canReview={
-            queue.data.canReview && request.requesterId !== queue.data.viewerId && (!HEAD_APPROVAL_OPERATIONS.has(request.operation) || queue.data.headReviewer)
+            queue.data.canReview &&
+            request.requesterId !== queue.data.viewerId &&
+            (!HEAD_APPROVAL_OPERATIONS.has(request.operation) ||
+              queue.data.headReviewer)
           }
           canCancel={request.requesterId === queue.data.viewerId}
           onChanged={refresh}

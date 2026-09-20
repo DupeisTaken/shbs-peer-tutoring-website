@@ -696,7 +696,9 @@ export const adminRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const { tuteeIds, overrideTicket: _overrideTicket, subjectId: _subjectId, ...data } = input;
+      const { tuteeIds, tutorId, roomId, timeSlotId, subject } = input;
+      // Confirmation evidence and catalogue identity are never spread into Pairing columns.
+      const data = { tutorId, roomId, timeSlotId, subject };
       return inTransaction(ctx.db, async (tx) => {
         await enforceAssignmentQualification(tx, ctx.session.user.id, "admin.createPairing", input);
         await lockPlannedRoomSchedule(tx);
@@ -746,7 +748,8 @@ export const adminRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const { id, tuteeIds, roomId, overrideTicket: _overrideTicket, subjectId: _subjectId, ...data } = input;
+      const { id, tuteeIds, roomId, tutorId, timeSlotId, subject } = input;
+      const data = { tutorId, timeSlotId, subject };
       // Replace roster atomically; day/start/end follow the chosen slot.
       return inTransaction(ctx.db, async (tx) => {
         await enforceAssignmentQualification(tx, ctx.session.user.id, "admin.updatePairing", input);
