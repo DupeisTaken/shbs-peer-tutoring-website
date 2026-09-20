@@ -1,3 +1,5 @@
+import { membershipSchema } from "~/lib/account-membership";
+import { queueProposal } from "~/server/approvals";
 import { updateAccountProfile } from "~/server/account-profile";
 import {
   requestSecondaryEmail,
@@ -27,6 +29,11 @@ import {
  * Kept separate from the tutor router so an account without a linked tutor can use it.
  */
 export const accountRouter = createTRPCRouter({
+  // Any active account may request its own badges. Only Head can apply the resulting proposal.
+  requestMemberships: protectedProcedure.input(membershipSchema).mutation(async ({ ctx, input }) => {
+    const request = await queueProposal(ctx.session, "admin.setMemberships", { userId: ctx.session.user.id, membership: input });
+    return { id: request.id, state: request.state };
+  }),
   emailSettings: protectedProcedure.query(async ({ ctx }) => {
     const [user, program, emails] = await Promise.all([
       ctx.db.user.findUniqueOrThrow({
@@ -169,12 +176,17 @@ export const accountRouter = createTRPCRouter({
         name: true,
         alternativeNames: true,
         profileVersion: true,
+        id: true,
+        tutorId: true,
+        tutorAccessRevoked: true,
         email: true,
         username: true,
         role: true,
         twoFactorEnabled: true,
         // The translator route's layout uses this capability to decide whether to render the editor.
         canTranslate: true,
+        tuteeMember: true,
+        crewStatus: true,
         tutor: { select: { id: true, status: true } },
       },
     });

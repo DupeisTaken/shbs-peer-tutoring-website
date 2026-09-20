@@ -184,7 +184,7 @@ const {
               ...(tutorId ? { tutorId } : {}),
               ...(roleBump ? { role: roleBump } : {}),
             },
-            select: { id: true, role: true, tutorId: true },
+            select: { id: true, role: true, tutorId: true, tutorAccessRevoked: true },
           });
           if (tutorId && identity?.tutorId !== tutorId)
             await updateAccountProfile(tx, userId);
@@ -197,18 +197,18 @@ const {
 
         token.sub = dbUser.id;
         token.role = dbUser.role;
-        token.tutorId = dbUser.tutorId;
+        token.tutorId = dbUser.role === "VIEWER" || dbUser.tutorAccessRevoked ? null : dbUser.tutorId;
       } else if (token.sub) {
         // Token reuse (no fresh sign-in): keep the linked `tutorId` in sync with the DB so a
         // can-tutor toggle — which links/creates the Tutor (or archives it) on `/admin/users` —
         // takes effect on the next request without forcing a re-login; roles refresh here too.
         const dbUser = await db.user.findUnique({
           where: { id: token.sub },
-          select: { tutorId: true, role: true },
+          select: { tutorId: true, tutorAccessRevoked: true, role: true },
         });
         // A deleted account must lose its session instead of bouncing between /student and /signin.
         if (!dbUser) return null;
-        token.tutorId = dbUser?.tutorId ?? null;
+        token.tutorId = dbUser.role === "VIEWER" || dbUser.tutorAccessRevoked ? null : dbUser.tutorId;
         token.role = dbUser.role;
       }
       return token;
