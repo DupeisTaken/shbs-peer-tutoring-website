@@ -81,6 +81,8 @@ export const programRouter = createTRPCRouter({
     });
     return {
       enabled: settings?.emailNotificationsEnabled ?? false,
+      secondaryEmailBindingEnabled:
+        settings?.secondaryEmailBindingEnabled ?? true,
       canEdit: ["HEAD", "ADMIN"].includes(ctx.session.role),
       deliveryAvailable: isEmailDeliveryAvailable(),
       failed,
@@ -112,12 +114,41 @@ export const programRouter = createTRPCRouter({
           create: { id: "program", emailNotificationsEnabled: input.enabled },
           update: { emailNotificationsEnabled: input.enabled },
         });
-        // Disabling drops queued notices rather than delivering an old backlog when re-enabled.
+        // Drop only optional backlog on disable; mandatory security alerts must still be delivered.
         if (!input.enabled)
           await tx.emailDelivery.updateMany({
-            where: { status: "PENDING" },
+            where: { status: "PENDING", category: { not: "security" } },
             data: { status: "SKIPPED", completedAt: new Date() },
           });
+        return { ok: true };
+      }),
+    ),
+  // Independent immediate availability setting; never a coordinator proposal.
+  setSecondaryEmailBinding: adminOnlyProcedure
+    .input(z.object({ enabled: z.boolean(), expectedEnabled: z.boolean() }))
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, "secondary-email-binding-setting");
+        const settings = await tx.programSettings.findUnique({
+          where: { id: "program" },
+        });
+        if (
+          (settings?.secondaryEmailBindingEnabled ?? true) !==
+          input.expectedEnabled
+        )
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "The setting changed. Reload and try again.",
+          });
+        await tx.programSettings.upsert({
+          where: { id: "program" },
+          create: {
+            id: "program",
+            secondaryEmailBindingEnabled: input.enabled,
+          },
+          update: { secondaryEmailBindingEnabled: input.enabled },
+        });
+        // Disabling preserves owned addresses, pending state and all authentication flows.
         return { ok: true };
       }),
     ),
