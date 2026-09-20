@@ -1,4 +1,5 @@
 import { getSignupSettings } from "~/server/program/signup-fields";
+import { subjectOrderBy } from "~/lib/course-catalogue";
 import { z } from "zod";
 
 import {
@@ -84,10 +85,10 @@ export const tuteeRouter = createTRPCRouter({
 
   /** Options needed to render the public signup form: active subjects + active time slots. */
   signupOptions: publicProcedure.query(async ({ ctx }) => {
-    const [subjects, slots] = await Promise.all([
+    const [subjects, slots, settings] = await Promise.all([
       ctx.db.subject.findMany({
         where: { active: true },
-        orderBy: { name: "asc" },
+        orderBy: [...subjectOrderBy],
         select: { id: true, name: true },
       }),
       ctx.db.timeSlot.findMany({
@@ -101,8 +102,9 @@ export const tuteeRouter = createTRPCRouter({
           endMin: true,
         },
       }),
+      getSignupSettings(ctx.db),
     ]);
-    return { subjects, slots, fields: (await getSignupSettings(ctx.db)).tutee };
+    return { subjects, slots, fields: settings.tutee };
   }),
 
   /**

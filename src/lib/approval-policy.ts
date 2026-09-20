@@ -26,6 +26,8 @@ export const APPROVAL_OPERATIONS: Record<string, string> = {
   "home.setSectionTranslation": "LandingSection",
   "home.setPageTitle": "CustomPage",
   "localization.setString": "MessageOverride",
+  "admin.saveCourseGroup": "CourseGroup",
+  "admin.reorderCatalogue": "CourseGroup",
   "admin.createSubjectLevel": "SubjectLevel",
   "admin.updateSubjectLevel": "SubjectLevel",
   "admin.deleteSubjectLevel": "SubjectLevel",

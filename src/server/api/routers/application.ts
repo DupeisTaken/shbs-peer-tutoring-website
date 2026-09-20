@@ -1,3 +1,5 @@
+import { lockCatalogue } from "~/server/qualifications";
+import { subjectOrderBy } from "~/lib/course-catalogue";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -17,18 +19,21 @@ import { notifyAdmins } from "~/server/notifications/create";
  */
 export const applicationRouter = createTRPCRouter({
   /** Active subjects for the application's subject pickers (with their level). */
-  options: publicProcedure.query(async ({ ctx }) => ({
-    fields: (await getSignupSettings(ctx.db)).tutor,
-    subjects: await ctx.db.subject.findMany({
+  options: publicProcedure.query(async ({ ctx }) => {
+    const [settings, subjects] = await Promise.all([
+      getSignupSettings(ctx.db),
+      ctx.db.subject.findMany({
       where: { active: true },
-      orderBy: { name: "asc" },
+      orderBy: [...subjectOrderBy],
       select: {
         id: true,
         name: true,
         level: { select: { name: true, apScored: true } },
       },
-    }),
-  })),
+      }),
+    ]);
+    return { fields: settings.tutor, subjects };
+  }),
 
   /**
    * The tutor policy/handbook (admin-editable) shown in the application agreement modal, in the
@@ -87,18 +92,28 @@ export const applicationRouter = createTRPCRouter({
       const subjects = input.subjects.filter((row, i) => fields[subjectFieldKey(i)] !== "hidden" && row.subjectId);
       const subjectIds = subjects.map((c) => c.subjectId);
       if (new Set(subjectIds).size !== subjectIds.length) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Duplicate subject selected." });
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Duplicate subject selected.",
+        });
       }
 
+      // Serialize catalogue edits with validating and storing stable subject IDs.
+      await lockCatalogue(tx);
       const valid = await tx.subject.findMany({
         where: { id: { in: subjectIds }, active: true },
         select: { id: true, level: { select: { apScored: true } } },
       });
       if (valid.length !== subjectIds.length) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid subject selection." });
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Invalid subject selection.",
+        });
       }
       // A subject can carry an AP score only if its level is flagged apScored.
-      const apEligibleById = new Map(valid.map((c) => [c.id, c.level?.apScored ?? false]));
+      const apEligibleById = new Map(
+        valid.map((c) => [c.id, c.level?.apScored ?? false]),
+      );
 
       const normalized = subjects.map(row => {
         const isAp = apEligibleById.get(row.subjectId) === true;
@@ -121,7 +136,9 @@ export const applicationRouter = createTRPCRouter({
               const apEligible = apEligibleById.get(c.subjectId) === true;
               const hasApScore = apEligible && (c.hasApScore ?? false);
               const selfStudyNote =
-                c.selfStudied && c.selfStudyNote?.trim() ? c.selfStudyNote.trim() : null;
+                c.selfStudied && c.selfStudyNote?.trim()
+                  ? c.selfStudyNote.trim()
+                  : null;
               return {
                 subjectId: c.subjectId,
                 taken: c.taken ?? false,

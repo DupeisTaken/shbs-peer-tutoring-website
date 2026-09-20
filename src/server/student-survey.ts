@@ -1,3 +1,4 @@
+import { lockCatalogue } from "~/server/qualifications";
 import { getSignupSettings } from "~/server/program/signup-fields";
 import { normalizeTuteeFields, missingTuteeFields } from "~/lib/signup-fields";
 import {
@@ -89,6 +90,7 @@ async function validateChoices(
   tx: TransactionDb,
   input: z.infer<typeof surveyInput>,
 ) {
+  await lockCatalogue(tx);
   // Prevent deletion/deactivation between validation and creating the related records.
   await tx.$queryRaw`SELECT id FROM "Subject" WHERE id = ${input.firstChoiceId} OR id = ${input.secondChoiceId ?? ""} FOR SHARE`;
   await tx.$queryRaw`SELECT id FROM "TimeSlot" WHERE id = ANY(${input.slotIds}::text[]) ORDER BY id FOR SHARE`;
