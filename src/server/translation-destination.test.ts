@@ -19,7 +19,7 @@ const user = (id: string, role: Session["role"], client = db) =>
     },
   });
 const admin = () => user("translation-admin", "ADMIN");
-const translator = () => user("translation-author", "VIEWER");
+const translator = () => user("translation-author", "STUDENT");
 const targets = ["message", "content", "news", "section", "page"] as const;
 type Target = (typeof targets)[number];
 const write = (target: Target, value: string, staff = false) => {
@@ -126,13 +126,14 @@ beforeEach(async () => {
     data: [
       {
         id: "translation-admin",
+        canTranslate: true,
         email: "translation-admin@example.test",
         role: "ADMIN",
       },
       {
         id: "translation-author",
         email: "translation-author@example.test",
-        role: "VIEWER",
+        role: "STUDENT",
         canTranslate: true,
       },
     ],
@@ -326,7 +327,7 @@ it("unknown languages cannot publish or propose text into English", async () => 
     db.$transaction((tx) =>
       proposeTranslation(
         tx,
-        { role: "VIEWER", user: { id: "translation-author" } },
+        { role: "STUDENT", user: { id: "translation-author" } },
         "localization.setString",
         input,
       ),

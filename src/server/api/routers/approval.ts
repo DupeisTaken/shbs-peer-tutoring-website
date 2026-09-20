@@ -15,7 +15,7 @@ import {
   fingerprint,
   proposalTargets,
 } from "~/server/approvals";
-import { humanizeOperation, proposalConfirmation } from "~/lib/approval-policy";
+import { HEAD_APPROVAL_OPERATIONS, humanizeOperation, proposalConfirmation } from "~/lib/approval-policy";
 import { requesterLabels } from "~/lib/requester-labels";
 
 async function reviewRequesterOptions(database: typeof db) {
@@ -51,8 +51,6 @@ export const approvalRouter = createTRPCRouter({
         .default({ page: 0 }),
     )
     .query(async ({ ctx, input }) => {
-      if (!["HEAD", "ADMIN", "COORDINATOR"].includes(ctx.session.role))
-        throw new TRPCError({ code: "FORBIDDEN" });
       const canReview =
         ctx.session.role === "HEAD" || ctx.session.role === "ADMIN";
       const where = {
@@ -81,6 +79,7 @@ export const approvalRouter = createTRPCRouter({
         rows,
         total,
         canReview,
+        headReviewer: ctx.session.role === "HEAD",
         viewerId: ctx.session.user.id,
         requesters,
       };
@@ -117,6 +116,8 @@ export const approvalRouter = createTRPCRouter({
               const request = await tx.approvalRequest.findUniqueOrThrow({
                 where: { id: input.id },
               });
+              if (HEAD_APPROVAL_OPERATIONS.has(request.operation) && currentReviewer.role !== "HEAD")
+                throw new TRPCError({ code: "FORBIDDEN", message: "Only Head may decide badge changes." });
               if (request.state !== "PENDING")
                 throw new TRPCError({
                   code: "CONFLICT",
@@ -136,7 +137,7 @@ export const approvalRouter = createTRPCRouter({
                 if (
                   !requester ||
                   requester.suspendedAt ||
-                  !["COORDINATOR", "ADMIN", "HEAD"].includes(requester.role)
+                  (request.operation !== "admin.setMemberships" && !["COORDINATOR", "ADMIN", "HEAD"].includes(requester.role))
                 )
                   throw new TRPCError({
                     code: "CONFLICT",

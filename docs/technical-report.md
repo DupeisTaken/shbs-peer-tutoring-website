@@ -33,7 +33,14 @@ Account role, linked tutor profile, crew membership and translator assignment ar
 | `adminProcedure` | Management; sensitive coordinator mutations enter review |
 | `adminOnlyProcedure` / `headProcedure` | ADMIN or HEAD / HEAD only |
 | `viewerProcedure` | Permitted management reads with masked VIEWER responses |
-| `translatorProcedure` | Assigned translators or management, subject to publication rules |
+| `translatorProcedure` | Explicit assigned translators; management rank does not grant editing access |
+| `translationReviewerProcedure` | Management reviewers or assigned translators reading their own drafts |
+
+[Composable membership](../src/lib/account-membership.ts) keeps the exact management rank in `User.role`, tutor identity in `tutorId` with independent `tutorAccessRevoked`, crew lifecycle in `crewStatus`, explicit translation permission in `canTranslate`, and tutee membership in `tuteeMember`. `PolicyAcceptance` remains separate immutable evidence. Viewer exclusivity is validated by the complete membership schema and a database constraint. Legacy mixed Viewer accounts lose read-only management access and retain their explicit participant capabilities; migration never inserts policy acceptance. Outstanding pre-migration registration codes expire because they have no durable Head grant evidence; Head must issue fresh codes.
+
+`admin.setMemberships` applies a complete badge set atomically with identity confirmation. `account.requestMemberships` only queues the caller's own proposal. `HEAD_APPROVAL_OPERATIONS` classifies alternate roster/crew/interview/registration grant paths, and approval replay checks the live Head role. Only Head may provision a new tutor login; sending an existing setup link is still available to management. Existing linked identities/history are preserved when participation is disabled. A tutor entering `/student` must personally accept the current tutee policy, which grants membership in the acceptance transaction; unrelated tutor features do not require tutee consent.
+
+Management draft publication uses a server-only `translationPublicationScope` limited to the validated draft operation and live reviewer identity. It never sets `canTranslate` and cannot authorize subsequent direct edits. Coordinator translator authorization precedes proposal queuing.
 
 Account names synchronize only to explicitly linked current profiles. Shared profile writers lock the account before roster rows and reject stale versions. Signed agreements, submitted survey names and historical snapshots remain evidence of what was submitted.
 

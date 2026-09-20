@@ -2680,6 +2680,28 @@
     "failed": "重试后仍有 {count} 封邮件发送失败。请检查邮件服务和发送记录。",
     "saved": "通知设置已保存。"
   },
+  "membership": {
+    "title": "角色与参与身份",
+    "rank": "管理级别",
+    "none": "无管理级别",
+    "tutor": "导师",
+    "tutee": "学生",
+    "viewer": "观察员",
+    "translator": "翻译员",
+    "crew": "巡视员",
+    "headHelp": "只有负责人可以更改身份徽章。管理级别与参与身份相互独立。",
+    "requestHelp": "将身份申请提交给负责人审批。批准之前权限保持不变。",
+    "policyHelp": "参与学生功能前，还需本人接受当前学生政策。导师获得学生身份后不会重复显示学生徽章。",
+    "viewerExclusive": "观察员不能与任何其他身份同时存在。",
+    "password": "确认您的密码",
+    "save": "应用身份更改",
+    "request": "请求负责人批准",
+    "saved": "身份更改已保存。",
+    "requested": "已请求负责人批准。您的权限尚未更改。",
+    "makeHead": "设为负责人",
+    "transferHelp": "将负责人身份转交给此账户。您将成为管理员；系统仍只有一位负责人。",
+    "confirmTransfer": "确认转交负责人"
+  },
   "assignmentQualification": {
     "unavailableCourse": "此科目或级别已归档，无法进行分配。",
     "choose": "选择导师",

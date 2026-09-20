@@ -2680,6 +2680,28 @@
     "failed": "再試行後も {count} 件の送信に失敗しました。メールサービスと送信記録を確認してください。",
     "saved": "通知設定を保存しました。"
   },
+  "membership": {
+    "title": "Roles and participation",
+    "rank": "Management rank",
+    "none": "No management rank",
+    "tutor": "Tutor",
+    "tutee": "Tutee",
+    "viewer": "Viewer",
+    "translator": "Translator",
+    "crew": "Crew",
+    "headHelp": "Only Head can apply badge changes. Management rank and participation are independent.",
+    "requestHelp": "Submit your proposed badges for Head approval. Access stays unchanged until approved.",
+    "policyHelp": "Tutee participation also requires personal acceptance of the current tutee policy. Tutor accounts keep that membership without a duplicate Tutee badge.",
+    "viewerExclusive": "Viewer cannot be combined with any other badge.",
+    "password": "Confirm your password",
+    "save": "Apply badge changes",
+    "request": "Request Head approval",
+    "saved": "Badge changes saved.",
+    "requested": "Requested Head approval. Your access has not changed.",
+    "makeHead": "Make Head",
+    "transferHelp": "Transfer leadership to this account. You will become an Admin; there will still be exactly one Head.",
+    "confirmTransfer": "Confirm leadership transfer"
+  },
   "assignmentQualification": {
     "unavailableCourse": "This subject or level is archived and cannot be assigned.",
     "choose": "Choose a tutor",
