@@ -436,6 +436,7 @@ model Tutor {
   adjustments          ServiceHourAdjustment[]
   meetingAttendances   MeetingAttendance[]
   availabilities       TutorAvailability[]
+  subjectWillingness    TutorSubjectWillingness[]
   interviewAssignments InterviewAssignment[]
   statusRequests       TutorStatusRequest[]
   sessionFlags         SessionFlag[]
@@ -570,7 +571,23 @@ model Subject {
   firstChoiceTutees  Tutee[]                    @relation("TuteeFirstChoice")
   secondChoiceTutees Tutee[]                    @relation("TuteeSecondChoice")
   applicationIntents ApplicationSubjectIntent[]
+  tutorWillingness TutorSubjectWillingness[]
+
   @@unique([groupId, levelId])
+}
+
+/// Explicit intent for one subject variant. Missing rows mean not recorded, not willing.
+/// Qualification and weekly timetable availability remain independent records.
+model TutorSubjectWillingness {
+  tutorId String
+  subjectId String
+  willing Boolean
+  updatedAt DateTime @updatedAt
+  tutor Tutor @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@id([tutorId, subjectId])
+  @@index([subjectId, willing])
 }
 
 enum SignupSource {
