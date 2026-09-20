@@ -19,7 +19,7 @@ export function SurveyResend({ initialEmail = "" }: { initialEmail?: string }) {
       <label className="block space-y-1">
         <span className="label">{t("emailLabel")}</span>
         <input
-          className="input"
+          className="input min-h-11 lg:min-h-10"
           type="email"
           autoComplete="email"
           required
@@ -27,7 +27,10 @@ export function SurveyResend({ initialEmail = "" }: { initialEmail?: string }) {
           onChange={(e) => setEmail(e.target.value)}
         />
       </label>
-      <button className="btn-secondary" disabled={resend.isPending}>
+      <button
+        className="btn-secondary min-h-11 lg:min-h-10"
+        disabled={resend.isPending}
+      >
         {t("resend")}
       </button>
       {resend.data && (

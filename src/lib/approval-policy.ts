@@ -4,10 +4,16 @@
 // program.setSignupField is a direct Head-only setting; it cannot be proposed or replayed.
 /** These operations assign or restore account capabilities. Only Head can apply/review them. */
 export const HEAD_APPROVAL_OPERATIONS = new Set([
-  "admin.setMemberships", "admin.setUserCanTutor", "admin.setCrewStatus",
-  "admin.decideCrewApplication", "admin.decideCrewRequest", "admin.decideTutorRequest",
-  "admin.issueRegistrationCode", "admin.updateTutor",
-  "admin.setApplicationStatus", "tutor.decideInterview",
+  "admin.setMemberships",
+  "admin.setUserCanTutor",
+  "admin.setCrewStatus",
+  "admin.decideCrewApplication",
+  "admin.decideCrewRequest",
+  "admin.decideTutorRequest",
+  "admin.issueRegistrationCode",
+  "admin.updateTutor",
+  "admin.setApplicationStatus",
+  "tutor.decideInterview",
 ]);
 
 export const APPROVAL_OPERATIONS: Record<string, string> = {

@@ -37,7 +37,12 @@ export const surveyInput = z.object({
   preferredContact: z.string().trim().max(200).default(""),
   gradeLevel: z.string().trim().max(40).optional(),
   firstChoiceId: z.string().min(1),
-  secondChoiceId: z.string().trim().max(200).optional().transform(value => value || undefined),
+  secondChoiceId: z
+    .string()
+    .trim()
+    .max(200)
+    .optional()
+    .transform((value) => (value === "" ? undefined : value)),
   slotIds: z.array(z.string().min(1)).max(100).default([]),
   signatureName: z.string().trim().max(120).default(""),
   agreed: z.literal(true),
@@ -199,7 +204,11 @@ export async function submitSurvey(
     const fields = (await getSignupSettings(tx)).tutee;
     input = normalizeTuteeFields(input, fields);
     const missing = missingTuteeFields(input, fields);
-    if (missing.length) throw new TRPCError({ code: "BAD_REQUEST", message: `Complete required fields: ${missing.join(", ")}. Reload the form if settings changed.` });
+    if (missing.length)
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: `Complete required fields: ${missing.join(", ")}. Reload the form if settings changed.`,
+      });
     const policy = await currentPolicy(tx, "tutee-policy");
     if (policy.revision !== input.policyRevision)
       throw new TRPCError({

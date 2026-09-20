@@ -137,7 +137,11 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
         labelKey: "admin.nav.links.program",
         adminOnly: true,
       },
-      { href: "/admin/signup-forms", labelKey: "signupFields.title", elevatedOnly: true },
+      {
+        href: "/admin/signup-forms",
+        labelKey: "signupFields.title",
+        elevatedOnly: true,
+      },
       {
         href: "/admin/landing",
         labelKey: "admin.nav.links.landing",
@@ -185,7 +189,12 @@ function makeVisible(role: string, features: Features, canTranslate: boolean) {
 export async function NavSidebar({ role }: { role: string }) {
   const [t, features] = await Promise.all([getTranslations(), getFeatures(db)]);
   const session = await auth();
-  const user = session?.user ? await db.user.findUnique({ where: { id: session.user.id }, select: { canTranslate: true } }) : null;
+  const user = session?.user
+    ? await db.user.findUnique({
+        where: { id: session.user.id },
+        select: { canTranslate: true },
+      })
+    : null;
   const visible = makeVisible(role, features, user?.canTranslate ?? false);
   const sections = NAV_SECTIONS.map((section) => ({
     key: section.titleKey,
@@ -221,7 +230,12 @@ export async function NavMobileRow({
 }) {
   const [t, features] = await Promise.all([getTranslations(), getFeatures(db)]);
   const session = await auth();
-  const user = session?.user ? await db.user.findUnique({ where: { id: session.user.id }, select: { canTranslate: true } }) : null;
+  const user = session?.user
+    ? await db.user.findUnique({
+        where: { id: session.user.id },
+        select: { canTranslate: true },
+      })
+    : null;
   const visible = makeVisible(role, features, user?.canTranslate ?? false);
   return (
     <AdminMobileNavigation

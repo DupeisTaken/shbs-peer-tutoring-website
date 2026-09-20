@@ -21,7 +21,11 @@ import { isProgramTimeZone } from "~/lib/program-time";
 import { programTimeZoneOptions } from "~/lib/program-time-zone-options";
 import { inTransaction, lockEntity } from "~/server/transactions";
 
-import { SIGNUP_FIELDS, signupFormSchema, fieldStateSchema } from "~/lib/signup-fields";
+import {
+  SIGNUP_FIELDS,
+  signupFormSchema,
+  fieldStateSchema,
+} from "~/lib/signup-fields";
 import { getSignupSettings } from "~/server/program/signup-fields";
 
 const featureKey = z.enum([
@@ -53,25 +57,59 @@ export const programRouter = createTRPCRouter({
   signupFieldSettings: adminProcedure.query(async ({ ctx }) => ({
     fields: await getSignupSettings(ctx.db),
     canEdit: ctx.session.role === "HEAD",
-    secondaryEmailBindingEnabled: (await ctx.db.programSettings.findUnique({ where: { id: "program" } }))?.secondaryEmailBindingEnabled ?? true,
+    secondaryEmailBindingEnabled:
+      (await ctx.db.programSettings.findUnique({ where: { id: "program" } }))
+        ?.secondaryEmailBindingEnabled ?? true,
   })),
-  setSignupField: headProcedure.input(z.object({
-    form: signupFormSchema, field: z.string(), state: fieldStateSchema, expectedState: fieldStateSchema,
-  }).strict()).mutation(async ({ ctx, input }) => inTransaction(ctx.db, async tx => {
-    const field = SIGNUP_FIELDS[input.form].find(field => field.key === input.field);
-    if (!field || field.locked) throw new TRPCError({ code: "BAD_REQUEST", message: "This field is locked or does not exist." });
-    await lockEntity(tx, "signup-fields");
-    const fields = await getSignupSettings(tx);
-    const before = fields[input.form][input.field];
-    if (before !== input.expectedState) throw new TRPCError({ code: "CONFLICT", message: "The field changed. Reload settings and try again." });
-    fields[input.form][input.field] = input.state;
-    await tx.programSettings.upsert({ where: { id: "program" }, create: { id: "program", signupFields: fields }, update: { signupFields: fields } });
-    await tx.auditLog.create({ data: {
-      userId: ctx.session.user.id, userName: ctx.session.user.name, entity: "ProgramSettings", entityId: "program",
-      operation: "program.setSignupField", action: "Changed signup field", details: { ...input, before, existingSubmissionsPreserved: true },
-    } });
-    return { ok: true };
-  })),
+  setSignupField: headProcedure
+    .input(
+      z
+        .object({
+          form: signupFormSchema,
+          field: z.string(),
+          state: fieldStateSchema,
+          expectedState: fieldStateSchema,
+        })
+        .strict(),
+    )
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        const field = SIGNUP_FIELDS[input.form].find(
+          (field) => field.key === input.field,
+        );
+        if (!field || field.locked)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "This field is locked or does not exist.",
+          });
+        await lockEntity(tx, "signup-fields");
+        const fields = await getSignupSettings(tx);
+        const before = fields[input.form][input.field];
+        if (before !== input.expectedState)
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "The field changed. Reload settings and try again.",
+          });
+        fields[input.form][input.field] = input.state;
+        await tx.programSettings.upsert({
+          where: { id: "program" },
+          create: { id: "program", signupFields: fields },
+          update: { signupFields: fields },
+        });
+        await tx.auditLog.create({
+          data: {
+            userId: ctx.session.user.id,
+            userName: ctx.session.user.name,
+            entity: "ProgramSettings",
+            entityId: "program",
+            operation: "program.setSignupField",
+            action: "Changed signup field",
+            details: { ...input, before, existingSubmissionsPreserved: true },
+          },
+        });
+        return { ok: true };
+      }),
+    ),
   emailNotificationSettings: adminProcedure.query(async ({ ctx }) => {
     const settings = await ctx.db.programSettings.findUnique({
       where: { id: "program" },

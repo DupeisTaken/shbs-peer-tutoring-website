@@ -25,7 +25,20 @@ vi.mock("~/trpc/react", () => ({
   },
 }));
 vi.mock("~/app/_components/policy-agreement", () => ({
-  PolicyAgreement: ({ checked, onChange }: { checked: boolean; onChange: (value: boolean) => void }) => <input type="checkbox" aria-label="Accept policy" checked={checked} onChange={event => onChange(event.target.checked)} />,
+  PolicyAgreement: ({
+    checked,
+    onChange,
+  }: {
+    checked: boolean;
+    onChange: (value: boolean) => void;
+  }) => (
+    <input
+      type="checkbox"
+      aria-label="Accept policy"
+      checked={checked}
+      onChange={(event) => onChange(event.target.checked)}
+    />
+  ),
 }));
 beforeEach(() => {
   vi.clearAllMocks();
@@ -37,7 +50,11 @@ beforeEach(() => {
     data: { title: "Tutor policy", body: "Published rules", revision: "r1" },
     refetch: mocks.retryPolicy,
   });
-  mocks.submit.mockReturnValue({ isPending: false, isSuccess: false, mutate: mocks.mutate });
+  mocks.submit.mockReturnValue({
+    isPending: false,
+    isSuccess: false,
+    mutate: mocks.mutate,
+  });
 });
 afterEach(cleanup);
 it("shows a loading state instead of an empty subject picker", () => {
@@ -57,7 +74,8 @@ it("retries both prerequisite reads without submitting an application", () => {
 it.each(["subjects", "policy"])(
   "explains missing %s instead of offering a dead form",
   (missing) => {
-    if (missing === "subjects") mocks.options.mockReturnValue({ data: { subjects: [] } });
+    if (missing === "subjects")
+      mocks.options.mockReturnValue({ data: { subjects: [] } });
     else mocks.policy.mockReturnValue({ data: null });
     render(<TutorSignupForm />);
     expect(screen.getByRole("status").textContent).toContain("unavailable");
@@ -70,9 +88,11 @@ it("renders a ready form but requires explicit input before submission", () => {
   render(<TutorSignupForm />);
   expect(screen.getAllByRole("combobox")).toHaveLength(3);
   expect(
-      screen.getByRole("button", {
+    screen
+      .getByRole("button", {
         name: "public.tutorSignup.submit",
-      }).hasAttribute("disabled"),
+      })
+      .hasAttribute("disabled"),
   ).toBe(true);
 });
 it("preserves the successful outcome and points accepted applicants to registration", () => {
@@ -88,28 +108,79 @@ it("preserves the successful outcome and points accepted applicants to registrat
 });
 
 it("keeps a required third subject in its original position when the second is hidden", () => {
-  mocks.options.mockReturnValue({ data: { subjects: [{ id: "math", name: "Math" }, { id: "science", name: "Science" }], fields: signupSettings({ tutor: { secondSubject: "hidden", thirdSubject: "required", preferredContact: "hidden" } }).tutor } });
+  mocks.options.mockReturnValue({
+    data: {
+      subjects: [
+        { id: "math", name: "Math" },
+        { id: "science", name: "Science" },
+      ],
+      fields: signupSettings({
+        tutor: {
+          secondSubject: "hidden",
+          thirdSubject: "required",
+          preferredContact: "hidden",
+        },
+      }).tutor,
+    },
+  });
   render(<TutorSignupForm />);
   const selectors = screen.getAllByRole("combobox");
   expect(selectors).toHaveLength(2);
   expect(selectors[1]!.hasAttribute("required")).toBe(true);
-  expect(screen.queryByLabelText(/signupFields.labels.preferredContact/)).toBeNull();
+  expect(
+    screen.queryByLabelText(/signupFields.labels.preferredContact/),
+  ).toBeNull();
   fireEvent.change(selectors[0]!, { target: { value: "math" } });
   fireEvent.change(selectors[1]!, { target: { value: "science" } });
-  fireEvent.change(screen.getByLabelText("public.tutorSignup.fields.fullName"), { target: { value: "Tutor" } });
-  fireEvent.change(screen.getByLabelText("public.tutorSignup.fields.email"), { target: { value: "tutor@example.test" } });
+  fireEvent.change(
+    screen.getByLabelText("public.tutorSignup.fields.fullName"),
+    { target: { value: "Tutor" } },
+  );
+  fireEvent.change(screen.getByLabelText("public.tutorSignup.fields.email"), {
+    target: { value: "tutor@example.test" },
+  });
   fireEvent.click(screen.getByLabelText("Accept policy"));
-  fireEvent.click(screen.getByRole("button", { name: "public.tutorSignup.submit" }));
-  expect(mocks.mutate).toHaveBeenCalledWith(expect.objectContaining({ agreed: true, policyRevision: "r1", subjects: [expect.objectContaining({ subjectId: "math" }), { subjectId: "" }, expect.objectContaining({ subjectId: "science" })] }));
+  fireEvent.click(
+    screen.getByRole("button", { name: "public.tutorSignup.submit" }),
+  );
+  expect(mocks.mutate).toHaveBeenCalledWith(
+    expect.objectContaining({
+      agreed: true,
+      policyRevision: "r1",
+      subjects: [
+        expect.objectContaining({ subjectId: "math" }),
+        { subjectId: "" },
+        expect.objectContaining({ subjectId: "science" }),
+      ],
+    }),
+  );
 });
 it("renders explicit required yes/no answers and conditional required details", () => {
-  mocks.options.mockReturnValue({ data: { subjects: [{ id: "math", name: "Math" }], fields: signupSettings({ tutor: { taken: "required", grade: "required", secondSubject: "hidden", thirdSubject: "hidden" } }).tutor } });
+  mocks.options.mockReturnValue({
+    data: {
+      subjects: [{ id: "math", name: "Math" }],
+      fields: signupSettings({
+        tutor: {
+          taken: "required",
+          grade: "required",
+          secondSubject: "hidden",
+          thirdSubject: "hidden",
+        },
+      }).tutor,
+    },
+  });
   render(<TutorSignupForm />);
   fireEvent.change(screen.getByRole("combobox"), { target: { value: "math" } });
-  const answer = screen.getByRole("combobox", { name: "public.tutorSignup.qual.taken" });
+  const answer = screen.getByRole("combobox", {
+    name: "public.tutorSignup.qual.taken",
+  });
   expect(answer.hasAttribute("required")).toBe(true);
   fireEvent.change(answer, { target: { value: "false" } });
   expect(screen.queryByLabelText(/public.tutorSignup.fields.grade/)).toBeNull();
   fireEvent.change(answer, { target: { value: "true" } });
-  expect(screen.getByLabelText(/public.tutorSignup.fields.grade/).hasAttribute("required")).toBe(true);
+  expect(
+    screen
+      .getByLabelText(/public.tutorSignup.fields.grade/)
+      .hasAttribute("required"),
+  ).toBe(true);
 });
