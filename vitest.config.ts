@@ -1,6 +1,8 @@
 import { defineConfig } from "vitest/config";
 
 export default defineConfig({
+  // Keep runner caches local when sibling worktrees share read-only dependencies.
+  cacheDir: ".validation/vite",
   resolve: {
     tsconfigPaths: true,
   },
