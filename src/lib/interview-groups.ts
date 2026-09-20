@@ -3,16 +3,26 @@
 export function groupTutorQualifications(
   tutors: { id: string; englishName: string; status: string }[],
   subjects: { id: string; name: string }[],
-  qualifications: { tutorId: string; subjectId: string }[],
+  qualifications: {
+    tutorId: string;
+    subjectId: string;
+    grants?: { subjectId: string }[];
+  }[],
 ) {
   const subjectNames = new Map(
     subjects.map((subject) => [subject.id, subject.name]),
   );
-  const byTutor = new Map<string, { subjectId: string; name: string }[]>();
+  const byTutor = new Map<
+    string,
+    { subjectId: string; name: string; grantedNames: string[] }[]
+  >();
   for (const qualification of qualifications) {
     const rows = byTutor.get(qualification.tutorId) ?? [];
     rows.push({
       subjectId: qualification.subjectId,
+      grantedNames: (qualification.grants ?? []).map(
+        (grant) => subjectNames.get(grant.subjectId) ?? grant.subjectId,
+      ),
       name:
         subjectNames.get(qualification.subjectId) ?? qualification.subjectId,
     });

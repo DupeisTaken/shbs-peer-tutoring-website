@@ -74,6 +74,7 @@ const idTables: Record<string, string> = {
   patrolId: "Patrol",
   applicationId: "TutorApplication",
   meetingId: "TutorMeeting",
+  groupId: "CourseGroup",
   levelId: "SubjectLevel",
   subjectId: "Subject",
   postId: "NewsPost",
@@ -95,7 +96,10 @@ export async function proposalTargets(
   );
   const fields = z.record(z.unknown()).parse(input);
   const ids = new Map<string, Set<string>>();
-  const primary = APPROVAL_OPERATIONS[operation]!;
+  const primary =
+    operation === "admin.reorderCatalogue" && fields.kind === "levels"
+      ? "SubjectLevel"
+      : APPROVAL_OPERATIONS[operation]!;
   const collect = (value: unknown, key = "") => {
     const table =
       key === "id" || key === "ids"
@@ -132,6 +136,22 @@ export async function proposalTargets(
     if (tutees.size) ids.set("Tutee", tutees);
   }
   const targets: Record<string, unknown> = {};
+  // Approval consequences include the complete ordered catalogue and concrete eligibility.
+  if (
+    operation === "interviewManagement.qualify" ||
+    operation === "admin.saveCourseGroup" ||
+    operation === "admin.reorderCatalogue"
+  ) {
+    targets.catalogue = await client.subject.findMany({
+      orderBy: { id: "asc" },
+    });
+    targets.levels = await client.subjectLevel.findMany({
+      orderBy: { id: "asc" },
+    });
+    targets.groups = await client.courseGroup.findMany({
+      orderBy: { id: "asc" },
+    });
+  }
   // Recipient identities/names are review evidence too. A changed filtered audience must
   // be proposed again, rather than silently expanding when an administrator approves it.
   if (operation === "admin.createAnnouncement") {
@@ -211,6 +231,8 @@ export async function proposalTargets(
     ["TutorApplication", "InterviewVote", "applicationId"],
     ["TutorApplication", "ApplicationSubjectIntent", "applicationId"],
     ["Tutor", "TutorQualification", "tutorId"],
+    ["Tutor", "QualificationGrant", "tutorId"],
+    ["CourseGroup", "Subject", "groupId"],
     ["StudentSurvey", "StudentRequestReview", "surveyId"],
     ["Tutor", "Pairing", "tutorId"],
     ["Tutor", "TutorAvailability", "tutorId"],
