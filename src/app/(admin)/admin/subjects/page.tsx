@@ -1,388 +1,521 @@
 "use client";
 
+import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { useRef, useState } from "react";
-
-import { api } from "~/trpc/react";
-import { REFERENCE_STALE_TIME } from "~/lib/query";
+import { api, type RouterOutputs } from "~/trpc/react";
+import { courseName } from "~/lib/course-catalogue";
 import { useReadOnly } from "~/app/_components/read-only";
-import { useDialog } from "~/app/_components/confirm-dialog";
 
-/** Parse a simple "name,level" CSV (optional header row) into rows. */
-function parseCsv(text: string): { name: string; level?: string }[] {
-  const rows: { name: string; level?: string }[] = [];
-  for (const line of text.split(/\r?\n/)) {
-    const trimmed = line.trim();
-    if (!trimmed) continue;
-    const [name, level] = trimmed.split(",").map((s) => s.trim());
-    if (!name || name.toLowerCase() === "name") continue; // skip header / blank
-    rows.push({ name, level: level && level.length > 0 ? level : undefined });
-  }
-  return rows;
+type Group = RouterOutputs["admin"]["courseGroups"][number];
+type Level = RouterOutputs["admin"]["subjectLevels"][number];
+type Variant = RouterOutputs["admin"]["subjects"][number];
+
+/** Local drafts keep toggles, per-level names and previews together until a deliberate save. */
+function GroupEditor({
+  group,
+  levels,
+  variants,
+  done,
+  invalidate,
+}: {
+  group?: Group;
+  levels: Level[];
+  variants: Variant[];
+  done: () => void;
+  invalidate: () => Promise<unknown>;
+}) {
+  const t = useTranslations("courseGroups");
+  const [name, setName] = useState(group?.name ?? "");
+  const [offers, setOffers] = useState<
+    Record<string, { baseName: string; subjectId?: string }>
+  >(() =>
+    Object.fromEntries(
+      (group?.subjects ?? [])
+        .filter((s) => s.active)
+        .map((s) => [
+          s.levelId ?? "",
+          { baseName: s.baseName || s.name, subjectId: s.id },
+        ]),
+    ),
+  );
+  const save = api.admin.saveCourseGroup.useMutation({
+    onSuccess: async () => {
+      await invalidate();
+      done();
+    },
+  });
+  const choices = [
+    ...levels.map((l) => ({ id: l.id, name: l.name, prefix: l.prefix })),
+    ...(offers[""] || group?.subjects.some((s) => !s.levelId)
+      ? [{ id: "", name: t("noLevel"), prefix: "" }]
+      : []),
+  ];
+  return (
+    <form
+      className="space-y-4"
+      onSubmit={(event) => {
+        event.preventDefault();
+        save.mutate({
+          id: group?.id,
+          name,
+          offerings: Object.entries(offers).map(([levelId, value]) => ({
+            ...value,
+            levelId: levelId || null,
+          })),
+        });
+      }}
+    >
+      <label className="block">
+        <span className="label">{t("groupName")}</span>
+        <input
+          className="input min-h-11 w-full lg:min-h-9"
+          required
+          maxLength={120}
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+        />
+      </label>
+      <fieldset className="space-y-3">
+        <legend className="label">{t("offeredLevels")}</legend>
+        {choices.map((level) => (
+          <div
+            key={level.id}
+            className="rounded-lg border border-slate-200 p-3"
+          >
+            <label className="flex min-h-11 items-center gap-3 lg:min-h-8">
+              <input
+                type="checkbox"
+                checked={!!offers[level.id]}
+                onChange={(e) =>
+                  setOffers((current) => {
+                    const next = { ...current };
+                    if (e.target.checked) {
+                      const existing = group?.subjects.find(
+                        (s) => s.levelId === level.id,
+                      );
+                      next[level.id] = {
+                        baseName: (existing?.baseName ?? "") || name,
+                        subjectId: existing?.id,
+                      };
+                    } else delete next[level.id];
+                    return next;
+                  })
+                }
+              />
+              <span className="font-medium">{level.name}</span>
+            </label>
+            {offers[level.id] && (
+              <div className="mt-2 grid gap-3 sm:grid-cols-2">
+                <label>
+                  <span className="label">
+                    {t("baseName", { level: level.name })}
+                  </span>
+                  <input
+                    className="input min-h-11 w-full lg:min-h-9"
+                    required
+                    maxLength={160}
+                    value={offers[level.id]!.baseName}
+                    onChange={(e) =>
+                      setOffers({
+                        ...offers,
+                        [level.id]: {
+                          ...offers[level.id]!,
+                          baseName: e.target.value,
+                        },
+                      })
+                    }
+                  />
+                </label>
+                <label>
+                  <span className="label">{t("existingVariant")}</span>
+                  <select
+                    className="select min-h-11 w-full lg:min-h-9"
+                    value={offers[level.id]!.subjectId ?? ""}
+                    onChange={(e) => {
+                      const subject = variants.find(
+                        (s) => s.id === e.target.value,
+                      );
+                      setOffers({
+                        ...offers,
+                        [level.id]: {
+                          baseName:
+                            (subject?.baseName ?? "") ||
+                            (subject?.name ?? name),
+                          subjectId: subject?.id,
+                        },
+                      });
+                    }}
+                  >
+                    <option value="">{t("newVariant")}</option>
+                    {variants
+                      .filter((s) => (s.levelId ?? "") === level.id)
+                      .map((s) => (
+                        <option key={s.id} value={s.id}>
+                          {s.name}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+                <p className="text-sm text-slate-600 sm:col-span-2">
+                  {t("preview")}:{" "}
+                  <strong>
+                    {courseName(offers[level.id]!.baseName, level.prefix)}
+                  </strong>
+                </p>
+              </div>
+            )}
+          </div>
+        ))}
+      </fieldset>
+      <p className="muted text-sm">{t("archiveHelp")}</p>
+      {save.error && (
+        <p role="alert" className="text-sm text-red-600">
+          {save.error.message}
+        </p>
+      )}
+      <div className="flex flex-wrap gap-2">
+        <button
+          className="btn-primary min-h-11 lg:min-h-9"
+          disabled={save.isPending || !Object.keys(offers).length}
+        >
+          {t("save")}
+        </button>
+        <button
+          className="btn-secondary min-h-11 lg:min-h-9"
+          type="button"
+          onClick={done}
+        >
+          {t("cancel")}
+        </button>
+      </div>
+    </form>
+  );
 }
 
 export default function SubjectsPage() {
-  const t = useTranslations();
+  const t = useTranslations("courseGroups");
   const readOnly = useReadOnly();
-  const { confirm, dialog } = useDialog();
   const utils = api.useUtils();
-  const courses = api.admin.subjects.useQuery(undefined, { staleTime: REFERENCE_STALE_TIME });
+  const groups = api.admin.courseGroups.useQuery();
   const levels = api.admin.subjectLevels.useQuery();
-
+  const variants = api.admin.subjects.useQuery();
+  const [editing, setEditing] = useState<string | null>(null);
+  const [newLevel, setNewLevel] = useState("");
+  const [importMessage, setImportMessage] = useState("");
   const invalidate = () =>
-    Promise.all([utils.admin.subjects.invalidate(), utils.admin.subjectLevels.invalidate()]);
-
-  const create = api.admin.createSubject.useMutation({ onSuccess: invalidate });
-  const update = api.admin.updateSubject.useMutation({ onSuccess: invalidate });
-  const del = api.admin.deleteSubject.useMutation({ onSuccess: invalidate });
-  const batch = api.admin.batchUpdateSubjects.useMutation({
+    Promise.all([
+      utils.admin.courseGroups.invalidate(),
+      utils.admin.subjectLevels.invalidate(),
+      utils.admin.subjects.invalidate(),
+    ]);
+  const reorder = api.admin.reorderCatalogue.useMutation({
+    onSuccess: invalidate,
+  });
+  const updateLevel = api.admin.updateSubjectLevel.useMutation({
+    onSuccess: invalidate,
+  });
+  const createLevel = api.admin.createSubjectLevel.useMutation({
     onSuccess: async () => {
-      setSelected(new Set());
+      setNewLevel("");
       await invalidate();
     },
+  });
+  const removeLevel = api.admin.deleteSubjectLevel.useMutation({
+    onSuccess: invalidate,
   });
   const importSubjects = api.admin.importSubjects.useMutation({
-    onSuccess: async (r) => {
-      setImportMsg(t("admin.courses.import.result", { created: r.created, received: r.received }));
-      if (fileRef.current) fileRef.current.value = "";
+    onSuccess: async (result) => {
+      setImportMessage(t("importResult", result));
       await invalidate();
     },
   });
-  const createLevel = api.admin.createSubjectLevel.useMutation({ onSuccess: invalidate });
-  const updateLevel = api.admin.updateSubjectLevel.useMutation({ onSuccess: invalidate });
-  const delLevel = api.admin.deleteSubjectLevel.useMutation({ onSuccess: invalidate });
-
-  const [name, setName] = useState("");
-  const [levelId, setLevelId] = useState("");
-  const [selected, setSelected] = useState<Set<string>>(new Set());
-  const [batchLevel, setBatchLevel] = useState("");
-  const [newLevel, setNewLevel] = useState("");
-  const [importMsg, setImportMsg] = useState<string | null>(null);
-  const fileRef = useRef<HTMLInputElement>(null);
-
-  const levelList = levels.data ?? [];
-  const list = courses.data ?? [];
-  const allSelected = list.length > 0 && selected.size === list.length;
-  const toggle = (id: string) =>
-    setSelected((s) => {
-      const n = new Set(s);
-      if (n.has(id)) n.delete(id);
-      else n.add(id);
-      return n;
-    });
-
-  const onCsv = async (file: File) => {
-    const rows = parseCsv(await file.text());
-    if (rows.length === 0) {
-      setImportMsg(t("admin.courses.import.empty"));
-      return;
-    }
-    importSubjects.mutate({ subjects: rows });
+  const move = (
+    kind: "groups" | "levels",
+    index: number,
+    direction: number,
+  ) => {
+    const ids = (
+      kind === "groups" ? (groups.data ?? []) : (levels.data ?? [])
+    ).map((row) => row.id);
+    [ids[index], ids[index + direction]] = [
+      ids[index + direction]!,
+      ids[index]!,
+    ];
+    reorder.mutate({ kind, ids });
   };
-
+  const errors = [
+    groups.error,
+    levels.error,
+    variants.error,
+    reorder.error,
+    updateLevel.error,
+    createLevel.error,
+    removeLevel.error,
+    importSubjects.error,
+  ].filter(Boolean);
   return (
-    <div className="space-y-8">
+    <div className="space-y-6">
       <div>
-        <h1 className="page-title">{t("admin.courses.title")}</h1>
-        <p className="muted mt-1">{t("admin.courses.subtitle")}</p>
+        <h1 className="page-title">{t("title")}</h1>
+        <p className="muted mt-1">{t("intro")}</p>
       </div>
-
-      {/* Levels */}
-      <section className="card p-5">
-        <h2 className="section-title">{t("admin.courses.levels.title")}</h2>
-        <p className="muted mt-1 text-xs">{t("admin.courses.levels.description")}</p>
-        <div className="mt-3 space-y-2">
-          {levelList.map((l) => (
-            <div
-              key={l.id}
-              className="flex flex-wrap items-center gap-3 rounded-lg border border-slate-200 px-3 py-2"
+      {errors.map((error, index) => (
+        <p key={index} role="alert" className="card p-4 text-red-600">
+          {error!.message}
+        </p>
+      ))}
+      {(groups.isLoading || levels.isLoading || variants.isLoading) && (
+        <p role="status">{t("loading")}</p>
+      )}
+      <section
+        className="card space-y-4 p-4 sm:p-5"
+        aria-labelledby="levels-heading"
+      >
+        <div>
+          <h2 id="levels-heading" className="section-title">
+            {t("levels")}
+          </h2>
+          <p className="text-accent-700 mt-1 font-medium">{t("direction")}</p>
+          <p className="muted mt-1 text-sm">{t("snapshotHelp")}</p>
+        </div>
+        <ol className="space-y-3">
+          {(levels.data ?? []).map((level, index) => (
+            <li
+              key={`${level.id}-${level.name}-${level.prefix}`}
+              className="flex flex-wrap items-end gap-3 rounded-lg border border-slate-200 p-3"
             >
-              {readOnly ? (
-                <span className="min-w-40">{l.name}</span>
-              ) : (
+              <span className="flex min-h-11 items-center font-semibold text-slate-500 lg:min-h-9">
+                {index + 1}
+              </span>
+              <label className="min-w-28 flex-1">
+                <span className="label">{t("levelName")}</span>
                 <input
-                  defaultValue={l.name}
-                  className="input field-auto h-8 min-w-40"
+                  aria-label={t("levelLabel", { name: level.name })}
+                  className="input min-h-11 w-full lg:min-h-9"
+                  defaultValue={level.name}
+                  readOnly={readOnly}
                   onBlur={(e) => {
-                    const v = e.target.value.trim();
-                    if (v && v !== l.name) updateLevel.mutate({ id: l.id, name: v });
+                    if (
+                      e.target.value.trim() &&
+                      e.target.value.trim() !== level.name
+                    )
+                      updateLevel.mutate({
+                        id: level.id,
+                        name: e.target.value.trim(),
+                      });
                   }}
                 />
-              )}
-              {readOnly ? (
-                l.apScored && (
-                  <span className="text-sm text-slate-600">
-                    {t("admin.courses.levels.apScored")}
-                  </span>
-                )
-              ) : (
-                <label className="flex items-center gap-2 text-sm text-slate-600">
-                  <input
-                    type="checkbox"
-                    checked={l.apScored}
-                    onChange={(e) => updateLevel.mutate({ id: l.id, apScored: e.target.checked })}
-                  />
-                  {t("admin.courses.levels.apScored")}
-                </label>
-              )}
-              {!readOnly && (
-                <button
-                  className="link-danger ml-auto text-sm"
-                  onClick={async () => {
-                    if (
-                      await confirm({
-                        title: t("admin.courses.levels.confirmDelete", { name: l.name }),
-                        confirmLabel: t("common.delete"),
-                        cancelLabel: t("common.cancel"),
-                        danger: true,
-                      })
-                    )
-                      delLevel.mutate({ id: l.id });
+              </label>
+              <label className="min-w-28 flex-1">
+                <span className="label">{t("prefix")}</span>
+                <input
+                  aria-label={t("prefixLabel", { name: level.name })}
+                  className="input min-h-11 w-full lg:min-h-9"
+                  defaultValue={level.prefix}
+                  readOnly={readOnly}
+                  onBlur={(e) => {
+                    if (e.target.value.trim() !== level.prefix)
+                      updateLevel.mutate({
+                        id: level.id,
+                        prefix: e.target.value.trim(),
+                      });
                   }}
-                >
-                  {t("admin.courses.levels.remove")}
-                </button>
+                />
+              </label>
+              <label className="flex min-h-11 items-center gap-2 text-sm lg:min-h-9">
+                <input
+                  type="checkbox"
+                  checked={level.apScored}
+                  disabled={readOnly || updateLevel.isPending}
+                  onChange={(e) =>
+                    updateLevel.mutate({
+                      id: level.id,
+                      apScored: e.target.checked,
+                    })
+                  }
+                />
+                {t("apScore")}
+              </label>
+              {!readOnly && (
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    className="btn-secondary min-h-11 lg:min-h-9"
+                    aria-label={t("moveUp", { name: level.name })}
+                    disabled={index === 0 || reorder.isPending}
+                    onClick={() => move("levels", index, -1)}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    className="btn-secondary min-h-11 lg:min-h-9"
+                    aria-label={t("moveDown", { name: level.name })}
+                    disabled={
+                      index === (levels.data?.length ?? 0) - 1 ||
+                      reorder.isPending
+                    }
+                    onClick={() => move("levels", index, 1)}
+                  >
+                    ↓
+                  </button>
+                  <button
+                    className="btn-secondary min-h-11 lg:min-h-9"
+                    disabled={removeLevel.isPending}
+                    onClick={() => removeLevel.mutate({ id: level.id })}
+                  >
+                    {t("remove")}
+                  </button>
+                </div>
               )}
-            </div>
+            </li>
           ))}
-          {!readOnly && (
-            <form
-              className="flex items-center gap-2 pt-1"
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (newLevel.trim())
-                  createLevel.mutate(
-                    { name: newLevel.trim(), rank: levelList.length },
-                    { onSuccess: () => setNewLevel("") },
-                  );
-              }}
-            >
+        </ol>
+        {!readOnly && (
+          <form
+            className="flex flex-wrap items-end gap-2"
+            onSubmit={(e) => {
+              e.preventDefault();
+              createLevel.mutate({
+                name: newLevel,
+                rank:
+                  Math.max(-1, ...(levels.data ?? []).map((l) => l.rank)) + 1,
+              });
+            }}
+          >
+            <label className="min-w-28 flex-1">
+              <span className="label">{t("newLevel")}</span>
               <input
+                className="input min-h-11 w-full lg:min-h-9"
+                required
+                maxLength={60}
                 value={newLevel}
                 onChange={(e) => setNewLevel(e.target.value)}
-                placeholder={t("admin.courses.levels.addPlaceholder")}
-                className="input field-auto h-8 min-w-44"
-              />
-              <button
-                className="btn-secondary btn-sm"
-                disabled={!newLevel.trim() || createLevel.isPending}
-              >
-                {t("admin.courses.levels.add")}
-              </button>
-            </form>
-          )}
-        </div>
-      </section>
-
-      {/* Add a course + CSV import */}
-      {!readOnly && (
-        <>
-          <div className="flex flex-wrap items-end justify-between gap-3">
-            <form
-              className="flex flex-wrap gap-2"
-              onSubmit={(e) => {
-                e.preventDefault();
-                if (name.trim())
-                  create.mutate(
-                    { name: name.trim(), levelId: levelId || null },
-                    { onSuccess: () => setName("") },
-                  );
-              }}
-            >
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={t("admin.courses.add.namePlaceholder")}
-                className="input field-auto min-w-48"
-              />
-              <select
-                className="select field-auto min-w-40"
-                value={levelId}
-                onChange={(e) => setLevelId(e.target.value)}
-              >
-                <option value="">{t("admin.courses.noLevel")}</option>
-                {levelList.map((l) => (
-                  <option key={l.id} value={l.id}>
-                    {l.name}
-                  </option>
-                ))}
-              </select>
-              <button className="btn-primary" disabled={!name.trim() || create.isPending}>
-                {t("admin.courses.add.submit")}
-              </button>
-            </form>
-
-            <label className="btn-secondary btn-sm cursor-pointer">
-              {importSubjects.isPending ? t("admin.courses.import.importing") : t("admin.courses.import.upload")}
-              <input
-                ref={fileRef}
-                type="file"
-                accept=".csv,text/csv"
-                className="hidden"
-                onChange={(e) => {
-                  const f = e.target.files?.[0];
-                  if (f) void onCsv(f);
-                }}
               />
             </label>
-          </div>
-          <p className="muted text-xs">
-            {t("admin.courses.import.formatPrefix")} <code>name,level</code>{" "}
-            {t("admin.courses.import.formatSuffix")}
-          </p>
-          {importMsg && <p className="text-sm text-green-600">{importMsg}</p>}
-          {create.error && <p className="text-sm text-red-600">{create.error.message}</p>}
-          {del.error && <p className="text-sm text-red-600">{del.error.message}</p>}
-        </>
-      )}
-
-      {/* Batch toolbar */}
-      {!readOnly && selected.size > 0 && (
-        <div className="flex flex-wrap items-center gap-2 rounded-lg border border-accent-200 bg-accent-50 px-3 py-2">
-          <span className="text-sm font-medium text-accent-800">{t("admin.courses.batch.selected", { count: selected.size })}</span>
-          <select
-            className="select field-auto min-w-40"
-            value={batchLevel}
-            onChange={(e) => setBatchLevel(e.target.value)}
-          >
-            <option value="">{t("admin.courses.noLevel")}</option>
-            {levelList.map((l) => (
-              <option key={l.id} value={l.id}>
-                {l.name}
-              </option>
-            ))}
-          </select>
-          <button
-            className="btn-secondary btn-sm"
-            disabled={batch.isPending}
-            onClick={() => batch.mutate({ ids: [...selected], levelId: batchLevel || null })}
-          >
-            {t("admin.courses.batch.setLevel")}
-          </button>
-          <button
-            className="btn-secondary btn-sm"
-            onClick={() => batch.mutate({ ids: [...selected], active: true })}
-          >
-            {t("admin.courses.batch.activate")}
-          </button>
-          <button
-            className="btn-secondary btn-sm"
-            onClick={() => batch.mutate({ ids: [...selected], active: false })}
-          >
-            {t("admin.courses.batch.deactivate")}
-          </button>
-          <button className="link text-sm" onClick={() => setSelected(new Set())}>
-            {t("admin.courses.batch.clear")}
-          </button>
+            <button
+              className="btn-secondary min-h-11 lg:min-h-9"
+              disabled={!newLevel.trim() || createLevel.isPending}
+            >
+              {t("addLevel")}
+            </button>
+          </form>
+        )}
+      </section>
+      <section className="space-y-4" aria-labelledby="groups-heading">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 id="groups-heading" className="section-title">
+            {t("groups")}
+          </h2>
+          {!readOnly && (
+            <button
+              className="btn-primary min-h-11 lg:min-h-9"
+              onClick={() => setEditing("new")}
+            >
+              {t("addGroup")}
+            </button>
+          )}
         </div>
-      )}
-
-      <div className="card overflow-x-auto">
-        <table className="data-table">
-          <thead>
-            <tr>
+        {editing === "new" && (
+          <div className="card p-4 sm:p-5">
+            <GroupEditor
+              levels={levels.data ?? []}
+              variants={variants.data ?? []}
+              done={() => setEditing(null)}
+              invalidate={invalidate}
+            />
+          </div>
+        )}
+        {(groups.data ?? []).map((group, index) => (
+          <article className="card space-y-3 p-4 sm:p-5" key={group.id}>
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <h3 className="font-semibold">{group.name}</h3>
               {!readOnly && (
-                <th className="w-8">
-                  <input
-                    type="checkbox"
-                    checked={allSelected}
-                    onChange={() =>
-                      setSelected(allSelected ? new Set() : new Set(list.map((c) => c.id)))
+                <div className="flex gap-2">
+                  <button
+                    className="btn-secondary min-h-11 lg:min-h-9"
+                    aria-label={t("moveUp", { name: group.name })}
+                    disabled={index === 0 || reorder.isPending}
+                    onClick={() => move("groups", index, -1)}
+                  >
+                    ↑
+                  </button>
+                  <button
+                    className="btn-secondary min-h-11 lg:min-h-9"
+                    aria-label={t("moveDown", { name: group.name })}
+                    disabled={
+                      index === (groups.data?.length ?? 0) - 1 ||
+                      reorder.isPending
                     }
-                  />
-                </th>
+                    onClick={() => move("groups", index, 1)}
+                  >
+                    ↓
+                  </button>
+                  <button
+                    className="btn-secondary min-h-11 lg:min-h-9"
+                    onClick={() => setEditing(group.id)}
+                  >
+                    {t("edit")}
+                  </button>
+                </div>
               )}
-              <th>{t("admin.courses.table.name")}</th>
-              <th>{t("admin.courses.table.level")}</th>
-              <th>{t("admin.courses.table.active")}</th>
-              <th></th>
-            </tr>
-          </thead>
-          <tbody>
-            {list.map((c) => (
-              <tr key={c.id}>
-                {!readOnly && (
-                  <td>
-                    <input
-                      type="checkbox"
-                      checked={selected.has(c.id)}
-                      onChange={() => toggle(c.id)}
-                    />
-                  </td>
-                )}
-                <td>
-                  {readOnly ? (
-                    <span>{c.name}</span>
-                  ) : (
-                    <input
-                      defaultValue={c.name}
-                      className="input field-auto min-w-40"
-                      onBlur={(e) => {
-                        const v = e.target.value.trim();
-                        if (v && v !== c.name)
-                          update.mutate({ id: c.id, name: v, active: c.active });
-                      }}
-                    />
-                  )}
-                </td>
-                <td>
-                  {readOnly ? (
-                    <span>{c.level?.name ?? t("admin.courses.table.noLevelShort")}</span>
-                  ) : (
-                    <select
-                      className="select field-auto min-w-40"
-                      value={c.level?.id ?? ""}
-                      onChange={(e) =>
-                        update.mutate({
-                          id: c.id,
-                          name: c.name,
-                          levelId: e.target.value || null,
-                          active: c.active,
-                        })
-                      }
-                    >
-                      <option value="">{t("admin.courses.table.noLevelShort")}</option>
-                      {levelList.map((l) => (
-                        <option key={l.id} value={l.id}>
-                          {l.name}
-                        </option>
-                      ))}
-                    </select>
-                  )}
-                </td>
-                <td>
-                  {readOnly ? (
-                    <input type="checkbox" checked={c.active} disabled readOnly />
-                  ) : (
-                    <input
-                      type="checkbox"
-                      checked={c.active}
-                      onChange={(e) =>
-                        update.mutate({ id: c.id, name: c.name, active: e.target.checked })
-                      }
-                    />
-                  )}
-                </td>
-                <td className="text-right">
-                  {!readOnly && (
-                    <button className="link-danger" onClick={() => del.mutate({ id: c.id })}>
-                      {t("admin.courses.table.delete")}
-                    </button>
-                  )}
-                </td>
-              </tr>
-            ))}
-            {list.length === 0 && (
-              <tr>
-                <td colSpan={readOnly ? 4 : 5} className="text-slate-500">
-                  {t("admin.courses.table.empty")}
-                </td>
-              </tr>
+            </div>
+            {editing === group.id ? (
+              <GroupEditor
+                group={group}
+                levels={levels.data ?? []}
+                variants={variants.data ?? []}
+                done={() => setEditing(null)}
+                invalidate={invalidate}
+              />
+            ) : (
+              <ul className="flex flex-wrap gap-2">
+                {group.subjects.map((subject) => (
+                  <li
+                    className={
+                      subject.active ? "badge-slate" : "badge-slate opacity-60"
+                    }
+                    key={subject.id}
+                  >
+                    {subject.name}
+                    {!subject.active && ` · ${t("inactive")}`}
+                  </li>
+                ))}
+              </ul>
             )}
-          </tbody>
-        </table>
-      </div>
-      {dialog}
+          </article>
+        ))}
+        {groups.data?.length === 0 && (
+          <p className="card p-5 text-slate-500">{t("empty")}</p>
+        )}
+      </section>
+      {!readOnly && (
+        <section className="card space-y-3 p-4">
+          <h2 className="section-title">{t("import")}</h2>
+          <p className="muted text-sm">{t("importHelp")}</p>
+          <label className="block">
+            <span className="label">{t("csvFile")}</span>
+            <input
+              className="min-h-11 max-w-full"
+              type="file"
+              accept=".csv,text/csv"
+              disabled={importSubjects.isPending}
+              onChange={async (event) => {
+                const file = event.target.files?.[0];
+                if (!file) return;
+                const rows = (await file.text())
+                  .split(/\r?\n/)
+                  .map((line) => line.split(",").map((cell) => cell.trim()))
+                  .filter(([name]) => name && name.toLowerCase() !== "name")
+                  .map(([name, level]) => ({
+                    name: name!,
+                    level: level ?? undefined,
+                  }));
+                if (rows.length) importSubjects.mutate({ subjects: rows });
+              }}
+            />
+          </label>
+          {importMessage && <p role="status">{importMessage}</p>}
+        </section>
+      )}
     </div>
   );
 }

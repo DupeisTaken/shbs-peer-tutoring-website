@@ -177,6 +177,31 @@ beforeAll(async () => {
   tutorA = firstTutor.id;
   tutorB = secondTutor.id;
   tutorC = thirdTutor.id;
+  // Room conflict tests use explicit approved catalogue subjects so room validation is reached.
+  for (const name of [
+    "Overlap",
+    "Blackout",
+    "Adjacent",
+    "Self update",
+    "Conflicting update",
+    "Race A",
+    "Race B",
+  ]) {
+    const subject = await db.subject.upsert({
+      where: { name },
+      update: {},
+      create: { name },
+    });
+    for (const tutorId of [tutorA, tutorB, tutorC])
+      await db.tutorQualification.create({
+        data: {
+          tutorId,
+          subjectId: subject.id,
+          approvedById: adminSession.user.id,
+          grants: { create: { subjectId: subject.id } },
+        },
+      });
+  }
   await db.user.create({
     data: {
       id: adminSession.user.id,

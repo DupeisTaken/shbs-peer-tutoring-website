@@ -138,6 +138,14 @@ Use the [deployment runbook](deployment.md) for bootstrap, SMTP, migrations, bac
 
 For focused regressions, start with the tests alongside the changed domain: `student-survey.test.ts`, `account-profile.test.ts`, `translation-destination.test.ts`, router `workflows.test.ts`, `home-slugs.test.ts`, `program-timezone.test.ts`, and messaging/announcement tests. Integration tests reset fixtures and must use an allowed isolated local database. Add cases for stale state, concurrent decisions, authorization and transaction rollback when changing these boundaries.
 
+### Subject groups and qualification snapshots
+
+`CourseGroup` holds offered-group order. `Subject` remains the stable variant referenced by surveys, choices and application intents; `baseName` and `SubjectLevel.prefix` generate its display name. All catalogue writers use [course-catalogue.ts](../src/server/course-catalogue.ts) and preserve archived variants. Pairing labels are synchronized transactionally when a variant name changes. Selection queries share `subjectOrderBy` (group rank/ID, level rank/ID, subject ID).
+
+`TutorQualification` records an approval source and its status; `QualificationGrant` stores each concrete granted subject with its source and time. [Qualification helpers](../src/server/qualifications.ts) snapshot lower offered levels only on approval. Eligibility reads filter the source to `APPROVED`, never derive eligibility from application intent or the current level scale. Catalogue edits, approvals and assignment checks share a transaction lock. Repeated approval is idempotent; deleting one source cascades only its own grants. Historical assignments remain intact, while new assignments require an approved grant.
+
+The migration assigns one group per legacy subject and exactly one original-subject grant per legacy approval, including retained historical scalar references. It does not guess relationships or grant new eligibility. Nullable group links support legacy fixture/import compatibility; catalogue APIs always create explicit groups. New code must use `approveQualification` rather than creating approval rows without grants. `admin.subjectEligibility` exposes distinct approved tutor/subject pairs. Subject willingness remains independent from qualification and should be intersected with these grants for availability.
+
 ## Maintaining the documentation
 
 Edit the existing guide for the reader's task. Keep each procedure in one place and link to it from related guides. [Documentation ownership](contributing.md#documentation-and-repository-hygiene) explains where content belongs.
