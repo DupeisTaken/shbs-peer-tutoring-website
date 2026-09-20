@@ -2651,35 +2651,38 @@
     "resend": "Resend code",
     "sent": "Verification code sent. Enter it below; it expires in ten minutes.",
     "verifiedNotice": "Email verified. You can now use it to sign in, recover this account, or make it primary.",
-    "saved": "Email settings saved."
+    "saved": "Email settings saved.",
+    "optional": "Secondary emails are optional. Your primary email is enough to set up and use your account.",
+    "bindingDisabled": "Secondary-email binding is disabled by the program administrator. Existing addresses remain available for sign-in, recovery, promotion or removal; new addresses cannot be added or verified here."
   },
   "emailPreferences": {
     "title": "Email preferences",
     "help": "Choose the updates you want in your inbox.",
     "disabled": "Email notifications are currently disabled by the program administrator. Your preferences are saved.",
-    "emailSecurity": "Security",
-    "emailSecurityHelp": "Password, two-factor authentication, and associated-email changes.",
     "emailMessages": "Messages",
     "emailMessagesHelp": "A notice when a new private message arrives. Message contents stay in the app.",
     "emailInfo": "Information updates",
     "emailInfoHelp": "Profile, role, account status, and program notifications.",
     "emailSecondaryRecipients": "Include verified secondary emails",
     "emailSecondaryRecipientsHelp": "Send your selected notifications to all verified addresses. Otherwise, use the primary only.",
-    "essential": "Verification, sign-in codes, and recovery emails always remain available. Enabled security notices for a primary-email change also go to the previous verified primary.",
+    "essential": "Verification, sign-in codes, recovery emails and account security alerts always remain available. Primary-email changes also notify the previous verified primary.",
     "save": "Save preferences",
     "saving": "Saving…",
     "saved": "Preferences saved."
   },
   "programEmail": {
     "title": "Email notifications",
-    "help": "Enable optional email notifications for the program. Individuals then choose security, messages, and information updates in account preferences.",
+    "help": "Enable optional message and information emails. Each person chooses which updates to receive in account preferences.",
     "on": "Enabled",
     "off": "Disabled",
     "enable": "Enable email notifications",
-    "essential": "Applies immediately. Turning this off keeps individual preferences and discards queued notifications. Authentication and recovery emails are unaffected.",
+    "essential": "Applies immediately. Turning this off preserves preferences and discards queued optional notices. Verification, recovery and security emails continue.",
     "unavailable": "Configure email delivery before enabling notifications.",
     "failed": "{count} deliveries failed after retries. Check the email transport and delivery records.",
-    "saved": "Notification setting saved."
+    "saved": "Email settings saved.",
+    "bindingTitle": "Secondary-email binding",
+    "bindingHelp": "Let people optionally add and verify secondary emails. Independent of notifications. Turning this off preserves existing addresses and primary sign-in requirements.",
+    "bindingEnable": "Allow secondary-email binding"
   },
   "membership": {
     "title": "Roles and participation",
