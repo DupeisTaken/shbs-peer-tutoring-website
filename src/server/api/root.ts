@@ -6,6 +6,7 @@ import {
   publicProcedure,
 } from "~/server/api/trpc";
 import { tutorRouter } from "~/server/api/routers/tutor";
+import { tutorDetailsRouter } from "~/server/api/routers/tutor-details";
 import { tuteeRouter } from "~/server/api/routers/tutee";
 import { applicationRouter } from "~/server/api/routers/application";
 import { adminRouter } from "~/server/api/routers/admin";
@@ -46,6 +47,7 @@ export const appRouter = createTRPCRouter({
   health: publicProcedure.query(() => ({ ok: true, ts: Date.now() })),
   studentWorkflow: studentWorkflowRouter,
   tutor: tutorRouter,
+  tutorDetails: tutorDetailsRouter,
   tutee: tuteeRouter,
   application: applicationRouter,
   admin: adminRouter,
