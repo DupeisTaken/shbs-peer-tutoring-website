@@ -298,6 +298,231 @@ afterAll(async () => {
 });
 
 describe("planned room booking integrity", () => {
+  it("adds, edits every block field, excludes itself and removes a period", async () => {
+    const block = await admin().admin.createRoomUnavailability({
+      roomId: roomRace,
+      dayOfWeek: 1,
+      startMin: 720,
+      endMin: 780,
+      reason: "Assembly",
+    });
+    await expect(
+      admin().admin.updateRoomUnavailability({
+        id: block.id,
+        dayOfWeek: 1,
+        startMin: 720,
+        endMin: 780,
+        reason: "Updated reason",
+      }),
+    ).resolves.toMatchObject({ id: block.id, reason: "Updated reason" });
+    await expect(
+      admin().admin.updateRoomUnavailability({
+        id: block.id,
+        dayOfWeek: 7,
+        startMin: 0,
+        endMin: 1440,
+        reason: "  ",
+      }),
+    ).resolves.toMatchObject({
+      roomId: roomRace,
+      dayOfWeek: 7,
+      startMin: 0,
+      endMin: 1440,
+      reason: null,
+    });
+    await admin().admin.deleteRoomUnavailability({ id: block.id });
+    expect(
+      await db.roomUnavailability.findUnique({ where: { id: block.id } }),
+    ).toBeNull();
+    // Removal actually releases the interval for new bookings.
+    const reusable = await admin().admin.createRoomUnavailability({
+      roomId: roomRace,
+      dayOfWeek: 1,
+      startMin: 900,
+      endMin: 960,
+    });
+    await admin().admin.deleteRoomUnavailability({ id: reusable.id });
+    await expect(
+      admin().admin.createPairing({
+        roomId: roomRace,
+        tutorId: tutorA,
+        timeSlotId: slotMonday,
+        subject: "Released",
+        tuteeIds: [],
+      }),
+    ).resolves.toMatchObject({ roomId: roomRace });
+  });
+
+  it.each([
+    { dayOfWeek: 0, startMin: 0, endMin: 60 },
+    { dayOfWeek: 8, startMin: 0, endMin: 60 },
+    { dayOfWeek: 1, startMin: -1, endMin: 60 },
+    { dayOfWeek: 1, startMin: 60.5, endMin: 120 },
+    { dayOfWeek: 1, startMin: 60, endMin: 60 },
+    { dayOfWeek: 1, startMin: 120, endMin: 60 },
+    { dayOfWeek: 1, startMin: 60, endMin: 1441 },
+  ])("rejects invalid create and edit ranges: %j", async (input) => {
+    const block = await db.roomUnavailability.findFirstOrThrow({
+      where: { roomId: roomA },
+    });
+    await expect(
+      admin().admin.createRoomUnavailability({ roomId: roomRace, ...input }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(
+      admin().admin.updateRoomUnavailability({ id: block.id, ...input }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(
+      await db.roomUnavailability.findUnique({ where: { id: block.id } }),
+    ).toEqual(block);
+  });
+
+  it("rejects overlapping creates/edits while allowing adjacent blocks and separate rooms/days", async () => {
+    const original = await db.roomUnavailability.findFirstOrThrow({
+      where: { roomId: roomA },
+    });
+    await expect(
+      admin().admin.createRoomUnavailability({
+        roomId: roomA,
+        dayOfWeek: 2,
+        startMin: 930,
+        endMin: 990,
+      }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    const adjacent = await admin().admin.createRoomUnavailability({
+      roomId: roomA,
+      dayOfWeek: 2,
+      startMin: 960,
+      endMin: 1020,
+    });
+    await expect(
+      admin().admin.updateRoomUnavailability({
+        id: adjacent.id,
+        dayOfWeek: 2,
+        startMin: 959,
+        endMin: 1020,
+      }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(
+      admin().admin.updateRoomUnavailability({
+        id: adjacent.id,
+        dayOfWeek: 1,
+        startMin: 930,
+        endMin: 990,
+      }),
+    ).rejects.toMatchObject({
+      code: "CONFLICT",
+      message: "That room already has a planned booking during this time.",
+    });
+    expect(
+      await db.roomUnavailability.findUnique({ where: { id: adjacent.id } }),
+    ).toEqual(adjacent);
+    await expect(
+      admin().admin.createRoomUnavailability({
+        roomId: roomRace,
+        dayOfWeek: 2,
+        startMin: original.startMin,
+        endMin: original.endMin,
+      }),
+    ).resolves.toMatchObject({ roomId: roomRace });
+    await expect(
+      admin().admin.updateRoomUnavailability({
+        id: adjacent.id,
+        dayOfWeek: 3,
+        startMin: original.startMin,
+        endMin: original.endMin,
+      }),
+    ).resolves.toMatchObject({ dayOfWeek: 3 });
+  });
+
+  it("returns useful missing-target errors and rejects long reasons", async () => {
+    await expect(
+      admin().admin.createRoomUnavailability({
+        roomId: "missing-room",
+        dayOfWeek: 1,
+        startMin: 60,
+        endMin: 120,
+      }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(
+      admin().admin.updateRoomUnavailability({
+        id: "missing-block",
+        dayOfWeek: 1,
+        startMin: 60,
+        endMin: 120,
+      }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(
+      admin().admin.deleteRoomUnavailability({ id: "missing-block" }),
+    ).rejects.toMatchObject({ code: "NOT_FOUND" });
+    await expect(
+      admin().admin.createRoomUnavailability({
+        roomId: roomRace,
+        dayOfWeek: 1,
+        startMin: 60,
+        endMin: 120,
+        reason: "x".repeat(201),
+      }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  });
+
+  it("enforces block overlap and range rules on direct database writes", async () => {
+    await expect(
+      db.roomUnavailability.create({
+        data: { roomId: roomA, dayOfWeek: 2, startMin: 930, endMin: 990 },
+      }),
+    ).rejects.toThrow();
+    await expect(
+      db.roomUnavailability.create({
+        data: { roomId: roomRace, dayOfWeek: 1, startMin: 80, endMin: 60 },
+      }),
+    ).rejects.toThrow();
+    const block = await db.roomUnavailability.create({
+      data: { roomId: roomA, dayOfWeek: 2, startMin: 960, endMin: 1020 },
+    });
+    await expect(
+      db.roomUnavailability.update({
+        where: { id: block.id },
+        data: { startMin: 950 },
+      }),
+    ).rejects.toThrow();
+  });
+
+  it("serializes competing blocks and a booking against a new block", async () => {
+    const input = {
+      roomId: roomRace,
+      dayOfWeek: 1,
+      startMin: 900,
+      endMin: 960,
+    };
+    const blocks = await Promise.allSettled([
+      admin().admin.createRoomUnavailability(input),
+      admin().admin.createRoomUnavailability(input),
+    ]);
+    expect(
+      blocks.filter((result) => result.status === "fulfilled"),
+    ).toHaveLength(1);
+    expect(
+      blocks.filter((result) => result.status === "rejected"),
+    ).toHaveLength(1);
+    await db.roomUnavailability.deleteMany({ where: { roomId: roomRace } });
+    const competing = await Promise.allSettled([
+      admin().admin.createRoomUnavailability(input),
+      admin().admin.createPairing({
+        roomId: roomRace,
+        tutorId: tutorA,
+        timeSlotId: slotMonday,
+        subject: "Competing",
+        tuteeIds: [],
+      }),
+    ]);
+    expect(
+      competing.filter((result) => result.status === "fulfilled"),
+    ).toHaveLength(1);
+    expect(
+      competing.filter((result) => result.status === "rejected"),
+    ).toHaveLength(1);
+  });
+
   it("rejects overlapping and blacked-out admin creates but permits adjacency", async () => {
     await expect(
       admin().admin.createPairing({
