@@ -22,15 +22,21 @@ export const translationReviewRouter = createTRPCRouter({
   list: translationReviewerProcedure
     .input(
       z
-        .object({ page: z.number().int().min(0).default(0) })
+        .object({
+          page: z.number().int().min(0).default(0),
+          state: z.enum(["PENDING", "APPROVED", "REJECTED"]).optional(),
+        })
         .default({ page: 0 }),
     )
     .query(async ({ ctx, input }) => {
       const rows = await ctx.db.translationDraft.findMany({
-        where: ["HEAD", "ADMIN", "COORDINATOR"].includes(ctx.session.role)
-          ? {}
-          : { authorId: ctx.session.user.id },
-        orderBy: { createdAt: "desc" },
+        where: {
+          state: input.state,
+          authorId: ["HEAD", "ADMIN", "COORDINATOR"].includes(ctx.session.role)
+            ? undefined
+            : ctx.session.user.id,
+        },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: 30,
         skip: input.page * 30,
       });
@@ -71,56 +77,59 @@ export const translationReviewRouter = createTRPCRouter({
             key: z.string(),
             value: z.string(),
           });
-          await translationPublicationScope.run({ reviewerId: ctx.session.user.id, operation: draft.operation }, async () => {
-          switch (draft.operation) {
-            case "localization.setString":
-              await localization.setString(value.parse(draft.payload));
-              break;
-            case "home.setContent":
-              await home.setContent(value.parse(draft.payload));
-              break;
-            case "home.setNewsTranslation":
-              await home.setNewsTranslation(
-                z
-                  .object({
-                    postId: z.string(),
-                    locale: z.string(),
-                    title: z.string(),
-                    body: z.string(),
-                  })
-                  .parse(draft.payload),
-              );
-              break;
-            case "home.setSectionTranslation":
-              await home.setSectionTranslation(
-                z
-                  .object({
-                    sectionId: z.string(),
-                    locale: z.string(),
-                    title: z.string(),
-                    body: z.string(),
-                  })
-                  .parse(draft.payload),
-              );
-              break;
-            case "home.setPageTitle":
-              await home.setPageTitle(
-                z
-                  .object({
-                    id: z.string(),
-                    locale: z.string(),
-                    value: z.string(),
-                  })
-                  .parse(draft.payload),
-              );
-              break;
-            default:
-              throw new TRPCError({
-                code: "BAD_REQUEST",
-                message: "Unknown draft type.",
-              });
-          }
-          });
+          await translationPublicationScope.run(
+            { reviewerId: ctx.session.user.id, operation: draft.operation },
+            async () => {
+              switch (draft.operation) {
+                case "localization.setString":
+                  await localization.setString(value.parse(draft.payload));
+                  break;
+                case "home.setContent":
+                  await home.setContent(value.parse(draft.payload));
+                  break;
+                case "home.setNewsTranslation":
+                  await home.setNewsTranslation(
+                    z
+                      .object({
+                        postId: z.string(),
+                        locale: z.string(),
+                        title: z.string(),
+                        body: z.string(),
+                      })
+                      .parse(draft.payload),
+                  );
+                  break;
+                case "home.setSectionTranslation":
+                  await home.setSectionTranslation(
+                    z
+                      .object({
+                        sectionId: z.string(),
+                        locale: z.string(),
+                        title: z.string(),
+                        body: z.string(),
+                      })
+                      .parse(draft.payload),
+                  );
+                  break;
+                case "home.setPageTitle":
+                  await home.setPageTitle(
+                    z
+                      .object({
+                        id: z.string(),
+                        locale: z.string(),
+                        value: z.string(),
+                      })
+                      .parse(draft.payload),
+                  );
+                  break;
+                default:
+                  throw new TRPCError({
+                    code: "BAD_REQUEST",
+                    message: "Unknown draft type.",
+                  });
+              }
+            },
+          );
         }
         await tx.translationDraft.update({
           where: { id: input.id },
