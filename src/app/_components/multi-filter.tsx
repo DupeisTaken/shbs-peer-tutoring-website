@@ -17,7 +17,7 @@ export function MultiFilter({
   const t = useTranslations("userMultiFilters");
   return (
     <details className="relative min-w-48 rounded-lg border border-slate-200 bg-white p-3">
-      <summary className="cursor-pointer text-sm font-medium">
+      <summary className="min-h-11 cursor-pointer content-center text-sm font-medium lg:min-h-8">
         {label}
         <span className="ml-2 text-xs text-slate-500">
           {value.include.length + value.exclude.length || t("all")}
@@ -37,20 +37,22 @@ export function MultiFilter({
           >
             <span>{option.label}</span>
             {(["include", "exclude"] as const).map((mode) => (
-              <input
-                key={mode}
-                type="checkbox"
-                aria-label={`${t(mode)} ${option.label}`}
-                checked={value[mode].includes(option.value)}
-                onChange={(event) =>
-                  onChange({
-                    ...value,
-                    [mode]: event.target.checked
-                      ? [...value[mode], option.value]
-                      : value[mode].filter((item) => item !== option.value),
-                  })
-                }
-              />
+              // The label provides a touch target without enlarging the checkbox artwork.
+              <label key={mode} className="flex min-h-11 items-center lg:min-h-8">
+                <input
+                  type="checkbox"
+                  aria-label={`${t(mode)} ${option.label}`}
+                  checked={value[mode].includes(option.value)}
+                  onChange={(event) =>
+                    onChange({
+                      ...value,
+                      [mode]: event.target.checked
+                        ? [...value[mode], option.value]
+                        : value[mode].filter((item) => item !== option.value),
+                    })
+                  }
+                />
+              </label>
             ))}
           </div>
         ))}
