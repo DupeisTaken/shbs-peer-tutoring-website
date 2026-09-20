@@ -95,6 +95,11 @@ export async function proposalTargets(
     payload as Parameters<typeof superjson.deserialize>[0],
   );
   const fields = z.record(z.unknown()).parse(input);
+  // A tutor may update intent while a staff proposal is pending. Lock the same
+  // compound record as live writes before capturing/rechecking review evidence.
+  if (operation === "subjectAvailability.setWillingness") {
+    await lockEntity(client, `subject-willingness:${z.string().parse(fields.tutorId)}:${z.string().parse(fields.subjectId)}`);
+  }
   const ids = new Map<string, Set<string>>();
   const primary =
     operation === "admin.reorderCatalogue" && fields.kind === "levels"
@@ -221,6 +226,14 @@ export async function proposalTargets(
     targets[table] = await client.$queryRaw(
       Prisma.sql`SELECT ${Prisma.raw(fields)} AS record FROM ${Prisma.raw('"' + table + '"')} t WHERE t.id IN (${Prisma.join([...values].sort())}) ORDER BY t.id`,
     );
+  }
+  if (operation === "subjectAvailability.setWillingness") {
+    targets.willingness = await client.tutorSubjectWillingness.findUnique({
+      where: { tutorId_subjectId: {
+        tutorId: z.string().parse(fields.tutorId),
+        subjectId: z.string().parse(fields.subjectId),
+      } },
+    });
   }
   // Child rows can change without touching their parent's updatedAt.
   for (const [parent, child, field] of [

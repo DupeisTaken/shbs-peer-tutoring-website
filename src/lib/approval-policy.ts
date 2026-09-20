@@ -14,6 +14,7 @@ export const APPROVAL_OPERATIONS: Record<string, string> = {
   "corrections.correctAttendance": "Session",
   "corrections.correctPatrol": "Patrol",
   "interviewManagement.qualify": "Tutor",
+  "subjectAvailability.setWillingness": "Tutor",
   "interviewManagement.complete": "TutorApplication",
   "student.setCalendarDay": "SchoolCalendarDay",
   "student.setFeedbackSettings": "StudentSettings",

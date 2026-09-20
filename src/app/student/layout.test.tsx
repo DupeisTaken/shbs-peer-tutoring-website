@@ -12,10 +12,23 @@ const mocks = vi.hoisted(() => ({
   tutor: vi.fn(),
   features: vi.fn(),
   messages: vi.fn(),
+  currentPolicy: vi.fn(),
+  acceptance: vi.fn(),
+  pastAcceptance: vi.fn(),
 }));
 vi.mock("~/server/auth", () => ({ auth: mocks.auth }));
 vi.mock("~/server/db", () => ({
-  db: { user: { findUnique: mocks.user }, tutor: { findUnique: mocks.tutor } },
+  db: {
+    user: { findUnique: mocks.user },
+    tutor: { findUnique: mocks.tutor },
+    policyAcceptance: {
+      findUnique: mocks.acceptance,
+      findFirst: mocks.pastAcceptance,
+    },
+  },
+}));
+vi.mock("~/server/policy-acceptance", () => ({
+  currentPolicy: mocks.currentPolicy,
 }));
 vi.mock("~/app/_components/admin-nav", () => ({
   NavSidebar: () => null,
@@ -72,7 +85,12 @@ vi.mock("~/app/_components/user-avatar", () => ({
 }));
 vi.mock("./navigation", () => ({ TuteeNavigation: () => null }));
 beforeEach(() => {
+  vi.clearAllMocks();
   mocks.auth.mockResolvedValue({ user: { id: "account" } });
+  // Navigation fixtures represent members with personal consent; gate cases override it.
+  mocks.currentPolicy.mockResolvedValue({ revision: "published-policy" });
+  mocks.acceptance.mockResolvedValue({ revision: "published-policy" });
+  mocks.pastAcceptance.mockResolvedValue(null);
   mocks.features.mockResolvedValue({ QUARTER_SYSTEM: true });
   mocks.messages.mockResolvedValue({
     workflow: {
@@ -83,7 +101,7 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 // Management membership does not grant tutoring; tutee access stays independent.
-it.each(["HEAD", "ADMIN", "COORDINATOR", "VIEWER"])(
+it.each(["HEAD", "ADMIN", "COORDINATOR"])(
   "lets %s without a tutor profile enter tutee and return safely",
   async (role) => {
     mocks.auth.mockResolvedValue({
@@ -91,7 +109,7 @@ it.each(["HEAD", "ADMIN", "COORDINATOR", "VIEWER"])(
       role,
       tutorId: null,
     });
-    mocks.user.mockResolvedValue({ role, tutor: null });
+    mocks.user.mockResolvedValue({ role, tutor: null, tuteeMember: true });
     const management = render(
       await AdminLayout({ children: <p>Management</p> }),
     );
@@ -119,7 +137,7 @@ it.each(["HEAD", "ADMIN", "COORDINATOR"])(
   "keeps mobile management navigation in %s translation workspaces",
   async (role) => {
     mocks.auth.mockResolvedValue({ user: { id: "account" }, role });
-    mocks.user.mockResolvedValue({ canTranslate: false });
+    mocks.user.mockResolvedValue({ canTranslate: true });
     render(await LocalizationLayout({ children: null }));
     expect(
       screen.getByRole("navigation", { name: "Mobile management navigation" }),
@@ -127,8 +145,18 @@ it.each(["HEAD", "ADMIN", "COORDINATOR"])(
     expect(screen.getByText(`admin.users.roles.${role}`)).toBeTruthy();
   },
 );
+it.each(["HEAD", "ADMIN", "COORDINATOR", "VIEWER", "STUDENT"])(
+  "denies the translation workspace to %s without explicit Translator membership",
+  async (role) => {
+    mocks.auth.mockResolvedValue({ user: { id: "account" }, role });
+    mocks.user.mockResolvedValue({ role, canTranslate: false });
+    await expect(LocalizationLayout({ children: null })).rejects.toThrow(
+      "redirect:/",
+    );
+  },
+);
 it("keeps assigned translators focused and redirects suspended translators", async () => {
-  mocks.auth.mockResolvedValue({ user: { id: "account" }, role: "VIEWER" });
+  mocks.auth.mockResolvedValue({ user: { id: "account" }, role: "STUDENT" });
   mocks.user.mockResolvedValue({ canTranslate: true });
   render(await LocalizationLayout({ children: null }));
   expect(
@@ -172,6 +200,7 @@ it("preserves crew and translator return paths from the tutee workspace", async 
   mocks.user.mockResolvedValue({
     name: "Crew Translator",
     role: "CREW",
+    tuteeMember: true,
     crewStatus: "ACTIVE",
     canTranslate: true,
   });
@@ -190,25 +219,83 @@ it("hides the crew return link when the module is disabled", async () => {
   mocks.user.mockResolvedValue({
     name: "Crew",
     role: "CREW",
+    tuteeMember: true,
     crewStatus: "ACTIVE",
   });
   render(await TuteeLayout({ children: null }));
   expect(screen.queryByRole("link", { name: "crew.nav.patrol" })).toBeNull();
 });
-it.each(["HEAD", "ADMIN", "COORDINATOR", "VIEWER", "TUTOR", "CREW", "STUDENT"])(
-  "allows %s accounts without requiring a tutee profile or verification change",
+it.each(["HEAD", "ADMIN", "COORDINATOR", "TUTOR", "CREW", "STUDENT"])(
+  "allows %s tutee members without requiring a tutee profile or verification change",
   async (role) => {
     mocks.user.mockResolvedValue({
       name: "Current account name",
       username: "name",
       email: "name@example.test",
       role,
+      tuteeMember: true,
       suspendedAt: null,
       tutor: null,
     });
     render(await TuteeLayout({ children: <p>My tutoring</p> }));
     expect(screen.getByText("My tutoring")).toBeTruthy();
     expect(screen.getByText("Current account name")).toBeTruthy();
+  },
+);
+it("keeps Viewer participation unavailable in management and tutee workspaces", async () => {
+  mocks.auth.mockResolvedValue({
+    user: { id: "account" },
+    role: "VIEWER",
+    tutorId: null,
+  });
+  mocks.user.mockResolvedValue({
+    role: "VIEWER",
+    tutor: null,
+    tuteeMember: false,
+    canTranslate: false,
+  });
+  render(await AdminLayout({ children: null }));
+  expect(
+    screen.queryByRole("link", { name: "components.userMenu.enterTutee" }),
+  ).toBeNull();
+  expect(
+    screen.queryByRole("link", { name: "components.userMenu.enterTutor" }),
+  ).toBeNull();
+  await expect(TuteeLayout({ children: null })).rejects.toThrow(
+    "redirect:/admin/account",
+  );
+  await expect(TutorLayout({ children: null })).rejects.toThrow("redirect:/");
+  expect(mocks.currentPolicy).not.toHaveBeenCalled();
+});
+it.each(["HEAD", "TUTOR"])(
+  "keeps %s tutee content gated until membership and personal consent exist",
+  async (role) => {
+    mocks.user.mockResolvedValue({
+      role, tutor: { status: "ACTIVE" }, tuteeMember: false,
+    });
+    const withoutMembership = render(
+      await TuteeLayout({ children: <p>Private tutee content</p> }),
+    );
+    expect(screen.queryByText("Private tutee content")).toBeNull();
+    expect(screen.getByText("workflow.policyTitle")).toBeTruthy();
+    withoutMembership.unmount();
+
+    mocks.user.mockResolvedValue({
+      role, tutor: { status: "ACTIVE" }, tuteeMember: true,
+    });
+    mocks.acceptance.mockResolvedValue(null);
+    const withoutConsent = render(
+      await TuteeLayout({ children: <p>Private tutee content</p> }),
+    );
+    expect(screen.queryByText("Private tutee content")).toBeNull();
+    expect(screen.getByText("workflow.policyTitle")).toBeTruthy();
+    withoutConsent.unmount();
+
+    mocks.acceptance.mockResolvedValue({ revision: "published-policy" });
+    render(
+      await TuteeLayout({ children: <p>Private tutee content</p> }),
+    );
+    expect(screen.getByText("Private tutee content")).toBeTruthy();
   },
 );
 it("keeps unauthenticated access behind sign-in", async () => {
@@ -231,6 +318,7 @@ it("uses applied semester wording only within the tutee workspace", async () => 
     username: "sam",
     email: "sam@example.test",
     role: "ADMIN",
+    tuteeMember: true,
     suspendedAt: null,
     tutor: null,
   });
@@ -245,6 +333,7 @@ it("keeps the inherited quarter messages when quarter mode is applied", async ()
     username: "sam",
     email: "sam@example.test",
     role: "TUTOR",
+    tuteeMember: true,
     suspendedAt: null,
     tutor: null,
   });
@@ -253,7 +342,7 @@ it("keeps the inherited quarter messages when quarter mode is applied", async ()
 });
 
 // Exercise the real layouts: each shortcut must also retain the same menu destination.
-it.each(["HEAD", "ADMIN", "COORDINATOR", "VIEWER"])(
+it.each(["HEAD", "ADMIN", "COORDINATOR"])(
   "keeps tutor/tutee management shortcuts adjacent for %s",
   async (role) => {
     mocks.auth.mockResolvedValue({ user: { id: "account" }, role });
@@ -303,7 +392,6 @@ for (const [area, Layout] of [
     "HEAD",
     "ADMIN",
     "COORDINATOR",
-    "VIEWER",
     "TUTOR",
     "CREW",
     "STUDENT",
@@ -317,6 +405,7 @@ for (const [area, Layout] of [
       });
       mocks.user.mockResolvedValue({
         role,
+        tuteeMember: true,
         emailVerifiedAt: new Date(),
         tutor: { status: "ACTIVE" },
       });
@@ -325,7 +414,7 @@ for (const [area, Layout] of [
       const links = screen.queryAllByRole("link", {
         name: "components.userMenu.backToManagement",
       });
-      const allowed = ["HEAD", "ADMIN", "COORDINATOR", "VIEWER"].includes(role);
+      const allowed = ["HEAD", "ADMIN", "COORDINATOR"].includes(role);
       expect(links).toHaveLength(allowed ? 2 : 0);
       if (allowed) {
         expect(
@@ -342,7 +431,7 @@ for (const [area, Layout] of [
           ),
         ).toBe(true);
       }
-      if (area === "tutor" && role === "VIEWER") {
+      if (area === "tutor" && !allowed) {
         expect(
           screen
             .getByRole("link", { name: "workflows.messages" })
@@ -385,7 +474,7 @@ it("keeps archived pure-tutor history accessible without management access", asy
 it.each([null, { status: "ARCHIVED" }])(
   "tutee workspace omits unavailable tutor entry (%j)",
   async (tutor) => {
-    mocks.user.mockResolvedValue({ role: "VIEWER", tutor });
+    mocks.user.mockResolvedValue({ role: "ADMIN", tutor, tuteeMember: true });
     render(await TuteeLayout({ children: null }));
     expect(
       screen.queryByRole("link", { name: "components.userMenu.enterTutor" }),

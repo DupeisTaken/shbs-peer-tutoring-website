@@ -17,7 +17,7 @@ export function QualificationReview({ app, onChanged }: {
   const utils = api.useUtils();
   const [comment, setComment] = useState("");
   const mutation = api.qualificationApplication.decide.useMutation({ onSuccess: async () => {
-    await Promise.all([onChanged(), utils.qualificationApplication.mine.invalidate(), utils.subjectAvailability.options.invalidate()]);
+    await Promise.all([onChanged(), utils.qualificationApplication.mine.invalidate(), utils.subjectAvailability.options.invalidate(), utils.admin.tutors.invalidate()]);
   }, onError: () => onChanged() });
   const canReview = !!me && ["ADMIN", "HEAD"].includes(me.role) && me.tutorId !== app.requestedTutorId &&
     (app.status !== "INTERVIEW" || (!me.tutorAccessRevoked && app.interviewers?.some(person => person.isHead && person.tutor.id === me.tutorId)));

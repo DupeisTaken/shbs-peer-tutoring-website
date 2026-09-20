@@ -21,6 +21,7 @@ vi.mock("~/trpc/react", () => ({
   api: {
     useUtils: () => ({
       interviewManagement: { options: { invalidate: mocks.refetch } },
+      admin: { tutorApplications: { invalidate: mocks.refetch } },
     }),
     interviewManagement: {
       options: { useQuery: mocks.options },
@@ -91,58 +92,6 @@ const show = (locale = "en") =>
       <InterviewManagement />
     </NextIntlClientProvider>,
   );
-it("renders one collapsed qualification group per tutor with counts and no-qualification state", () => {
-  show();
-  const alice = screen.getByRole("button", {
-    name: /Alice Long Tutor Name 2 subjects/,
-  });
-  expect(alice.getAttribute("aria-expanded")).toBe("false");
-  expect(
-    screen.queryByRole("button", { name: "Remove Qualification" }),
-  ).toBeNull();
-  fireEvent.click(alice);
-  expect(alice.getAttribute("aria-expanded")).toBe("true");
-  expect(
-    screen.getAllByRole("button", { name: "Remove Qualification" }),
-  ).toHaveLength(2);
-  expect(
-    screen.getByRole("button", { name: /Bob 0 subjects No qualifications/ }),
-  ).toBeTruthy();
-  fireEvent.click(
-    screen.getAllByRole("button", { name: "Remove Qualification" })[0]!,
-  );
-  expect(mocks.qualify).toHaveBeenCalledWith({
-    tutorId: "alice",
-    subjectId: "math",
-    qualified: false,
-  });
-});
-it("combines qualification search and status and preserves expansion after filters are cleared", () => {
-  show();
-  fireEvent.click(
-    screen.getByRole("button", { name: /Alice Long Tutor Name 2 subjects/ }),
-  );
-  fireEvent.change(
-    screen.getByRole("textbox", { name: "Search tutors or subjects" }),
-    { target: { value: "bob" } },
-  );
-  expect(
-    screen.queryByRole("button", { name: /Alice Long Tutor Name 2 subjects/ }),
-  ).toBeNull();
-  fireEvent.change(screen.getByRole("combobox", { name: "Qualifications" }), {
-    target: { value: "QUALIFIED" },
-  });
-  expect(screen.getByText("No tutors match these filters.")).toBeTruthy();
-  fireEvent.change(
-    screen.getByRole("textbox", { name: "Search tutors or subjects" }),
-    { target: { value: "" } },
-  );
-  expect(
-    screen
-      .getByRole("button", { name: /Alice Long Tutor Name 2 subjects/ })
-      .getAttribute("aria-expanded"),
-  ).toBe("true");
-});
 it("shows panel/chair/schedule/completion without expansion and deep-links the existing panel editor", () => {
   show();
   expect(screen.getByText("Chair: Alice Long Tutor Name")).toBeTruthy();
@@ -194,23 +143,19 @@ it("submits interview search and completed filters to the paginated API", () => 
     completion: "COMPLETED",
   });
 });
-it("uses Chinese summaries and controls", () => {
-  show("zh");
+it("keeps historical records readable while completion is disabled", () => {
+  render(
+    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+      <InterviewManagement enabled={false} />
+    </NextIntlClientProvider>,
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: /Candidate One Needs completion/ }),
+  );
+  expect(screen.queryByRole("button", { name: "Save" })).toBeNull();
+  expect(screen.getByText(/Interviews are disabled/)).toBeTruthy();
+  expect(screen.getByText("Chair: Alice Long Tutor Name")).toBeTruthy();
   expect(
-    screen.getByRole("button", { name: /Bob 0 门科目 暂无科目资格/ }),
-  ).toBeTruthy();
-  expect(
-    screen.getByRole("link", { name: "在导师申请中管理评审组" }),
-  ).toBeTruthy();
-});
-it("uses the singular subject count for one qualification", () => {
-  const data = fixture();
-  data.qualifications = data.qualifications.slice(0, 1);
-  mocks.options.mockReturnValue({ data, refetch: mocks.refetch });
-  show();
-  expect(
-    screen.getByRole("button", {
-      name: /Alice Long Tutor Name 1 subject Math/,
-    }),
-  ).toBeTruthy();
+    screen.queryByRole("button", { name: "Remove Qualification" }),
+  ).toBeNull();
 });

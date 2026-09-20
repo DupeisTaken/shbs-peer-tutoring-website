@@ -10,7 +10,7 @@ const mocks = vi.hoisted(() => ({ role: "ADMIN", tutorId: "reviewer", decide: vi
 vi.mock("~/trpc/react", () => ({ api: {
   account: { me: { useQuery: () => ({ data: { role: mocks.role, tutorId: mocks.tutorId } }) } },
   qualificationApplication: { decide: { useMutation: () => ({ mutate: mocks.decide }) } },
-  useUtils: () => ({ qualificationApplication: { mine: { invalidate: vi.fn() } }, subjectAvailability: { options: { invalidate: vi.fn() } } }),
+  useUtils: () => ({ qualificationApplication: { mine: { invalidate: vi.fn() } }, subjectAvailability: { options: { invalidate: vi.fn() } }, admin: { tutors: { invalidate: vi.fn() } } }),
 } }));
 const base = { id: "request", status: "PENDING", updatedAt: new Date("2026-09-01T00:00:00Z"), decisionComment: null, requestedTutorId: "applicant", qualificationReason: "Synthetic evidence" };
 beforeEach(() => { vi.clearAllMocks(); mocks.role = "ADMIN"; mocks.tutorId = "reviewer"; });

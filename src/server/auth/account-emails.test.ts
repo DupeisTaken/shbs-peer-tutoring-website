@@ -361,7 +361,12 @@ it("promotes verified aliases, keeps the former primary, and synchronizes only e
   });
   await db.user.update({
     where: { id: userId },
-    data: { tutorId: tutor.id, studentId: student.id },
+    // Viewers may retain historical identity links without participant access.
+    data: {
+      tutorId: tutor.id,
+      studentId: student.id,
+      tutorAccessRevoked: true,
+    },
   });
   await verifiedAlias();
   await manageSecondaryEmail(userId, secondary(), password, "primary");
@@ -371,6 +376,8 @@ it("promotes verified aliases, keeps the former primary, and synchronizes only e
   });
   expect(account.emails).toHaveLength(2);
   expect(account.role).toBe("VIEWER");
+  expect(account.tutorAccessRevoked).toBe(true);
+  expect(account.tuteeMember).toBe(false);
   expect(account.tutor?.email).toBe(secondary());
   expect(account.student?.email).toBe(secondary());
   expect(account.student?.signatureName).toBe("Historical signature");
