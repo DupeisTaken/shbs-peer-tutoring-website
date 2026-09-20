@@ -1123,6 +1123,10 @@ model TutorApplication {
   /// Actor ID and concrete subject IDs/names remain historical evidence after catalogue edits.
   qualificationDecidedById String?
   qualificationSnapshot Json?
+  /// Exact public consent evidence; null for historical applications, never backfilled.
+  policyRevision String?
+  policySnapshot Json?
+  policyAcceptedAt DateTime?
   interviewCompletedAt DateTime?
   interviewDurationMin Int?
   interviewSchoolYear String?
@@ -1792,6 +1796,8 @@ model SchoolCalendarDay {
 
 /// Singleton configuration; changing the zone never rewrites stored instants or weekly slot times.
 model ProgramSettings {
+  /// Head-only configuration for existing signup fields; missing keys use original defaults.
+  signupFields Json @default("{}")
   /// Immediate ADMIN/HEAD switch, independent of staged program modules and authentication mail.
   emailNotificationsEnabled Boolean @default(false)
   // Availability only: existing verified aliases and primary authentication remain intact.

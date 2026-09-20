@@ -27,15 +27,18 @@ export function SigninAccess() {
             {t("signinAccess")}
           </h3>
           <p className="muted text-sm">{t("signinHelp")}</p>
-          <Link href="/signin" className="btn-primary">
+          <Link href="/signin" className="btn-primary min-h-11 lg:min-h-10">
             {t("signIn")}
           </Link>
-          <a href={url} className="link block text-sm break-all">
+          <a
+            href={url}
+            className="link flex min-h-11 items-center text-sm break-all lg:min-h-8"
+          >
             {url}
           </a>
           <button
             type="button"
-            className="link text-sm"
+            className="link inline-flex min-h-11 items-center text-sm lg:min-h-8"
             onClick={async () => {
               try {
                 await navigator.clipboard.writeText(url);
@@ -66,7 +69,7 @@ export function SigninAccess() {
           <a
             href="/api/signin-qr?download=1"
             download="student-signin.png"
-            className="link text-sm"
+            className="link inline-flex min-h-11 items-center text-sm lg:min-h-8"
           >
             {t("saveQr")}
           </a>

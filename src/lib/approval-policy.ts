@@ -1,14 +1,21 @@
 /** Explicitly reviewed management operations. Unknown coordinator writes fail closed.
  * Account privileges, program configuration and irreversible file deletion are never proposals.
  * program.setEmailNotifications and program.setSecondaryEmailBinding require ADMIN/HEAD directly. */
+// program.setSignupField is a direct Head-only setting; it cannot be proposed or replayed.
 /** These operations assign or restore account capabilities. Only Head can apply/review them.
  * qualificationApplication.decide deliberately uses adminOnlyProcedure instead: subject grants
  * do not change account badges and coordinators cannot submit/replay these decisions. */
 export const HEAD_APPROVAL_OPERATIONS = new Set([
-  "admin.setMemberships", "admin.setUserCanTutor", "admin.setCrewStatus",
-  "admin.decideCrewApplication", "admin.decideCrewRequest", "admin.decideTutorRequest",
-  "admin.issueRegistrationCode", "admin.updateTutor",
-  "admin.setApplicationStatus", "tutor.decideInterview",
+  "admin.setMemberships",
+  "admin.setUserCanTutor",
+  "admin.setCrewStatus",
+  "admin.decideCrewApplication",
+  "admin.decideCrewRequest",
+  "admin.decideTutorRequest",
+  "admin.issueRegistrationCode",
+  "admin.updateTutor",
+  "admin.setApplicationStatus",
+  "tutor.decideInterview",
 ]);
 export const APPROVAL_OPERATIONS: Record<string, string> = {
   "corrections.correctAttendance": "Session",
