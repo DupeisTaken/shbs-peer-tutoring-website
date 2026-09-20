@@ -33,6 +33,11 @@ export function QualificationReview({
         utils.qualificationApplication.mine.invalidate(),
         utils.subjectAvailability.options.invalidate(),
         utils.admin.tutors.invalidate(),
+        // Roster details have a separate cache; reopening the same tutor must
+        // reflect this decision even within the query client's freshness window.
+        app.requestedTutorId
+          ? utils.tutorDetails.get.invalidate({ tutorId: app.requestedTutorId })
+          : Promise.resolve(),
       ]);
     },
     onError: () => onChanged(),
