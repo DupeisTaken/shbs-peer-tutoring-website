@@ -231,7 +231,7 @@ export async function assignStudentRequest(
     await notifyRequest(
       tx,
       { ...row, tuteeId: student.id },
-      "Tutor assigned / 已分配导师",
+      "Tutor assigned / 已分配辅导伙伴",
     );
     return { email: row.email, needsVerification: !row.confirmedAt };
   });
@@ -279,7 +279,7 @@ export async function editStudentAvailability(
     await notifyRequest(
       tx,
       row,
-      "Tutee availability edited / 学生可用时间已修改",
+      "Tutee availability edited / 学习伙伴可用时间已修改",
     );
     return { ok: true };
   });
@@ -397,7 +397,7 @@ export async function applyScheduleRejection(
         tx,
         tuteeId,
         userId,
-        "Tutor schedule conflict awaiting review / 导师时间冲突待审核",
+        "Tutor schedule conflict awaiting review / 辅导伙伴时间冲突待审核",
       );
       return { ok: true };
     }
@@ -440,7 +440,7 @@ export async function applyScheduleRejection(
     await notifyRequest(
       tx,
       row,
-      "Tutor schedule conflict awaiting review / 导师时间冲突待审核",
+      "Tutor schedule conflict awaiting review / 辅导伙伴时间冲突待审核",
     );
     return { ok: true };
   });

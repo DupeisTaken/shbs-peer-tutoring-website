@@ -999,10 +999,11 @@ async function main() {
   // --- Custom landing subpages -----------------------------------------------
   // Standalone /p/<slug> pages built from content blocks (as createPage + setLayout + updatePage
   // produce them). Published + shown in the top nav. Fixed block ids keep the layout idempotent.
+  // These EN/ZH peer-role examples are development defaults, not a publication migration.
   const SUBPAGES = [
     {
       slug: "about",
-      title: { en: "About the Program" },
+      title: { en: "About the Program", zh: "关于同伴辅导项目" },
       navOrder: 0,
       blocks: [
         {
@@ -1010,7 +1011,8 @@ async function main() {
           type: "RICH_TEXT",
           align: "center",
           text: {
-            en: "## About the program\n\nOur peer-tutoring program pairs students with trained tutors across a range of subjects, at times that work for them.",
+            en: "## About the program\n\nTutors and tutees are fellow students who learn together and support one another. Our peer-tutoring program connects them across subjects, at times they agree on.",
+            zh: "## 关于同伴辅导项目\n\n辅导伙伴（Tutor）与学习伙伴（Tutee）都是一起学习、相互支持的同学。项目让大家在不同科目上分享经验、交流问题，并协商合适的辅导时间。",
           },
         },
         {
@@ -1018,8 +1020,8 @@ async function main() {
           type: "COLUMNS",
           card: true,
           columns: [
-            [{ id: "about-c1", type: "RICH_TEXT", text: { en: "**For students**\n\nGet free help in the subjects you choose." } }],
-            [{ id: "about-c2", type: "RICH_TEXT", text: { en: "**For tutors**\n\nShare what you know and earn service hours." } }],
+            [{ id: "about-c1", type: "RICH_TEXT", text: { en: "**For tutees**\n\nGet free support from fellow students in the subjects you choose.", zh: "**面向学习伙伴**\n\n在你选择的科目上获得同伴的免费学习支持。" } }],
+            [{ id: "about-c2", type: "RICH_TEXT", text: { en: "**For tutors**\n\nShare your learning experience, support your peers and earn service hours.", zh: "**面向辅导伙伴**\n\n分享学习经验、支持同伴，并积累服务时数。" } }],
           ],
         },
         {
@@ -1027,8 +1029,8 @@ async function main() {
           type: "BUTTONS",
           align: "center",
           buttons: [
-            { label: { en: "Request a tutor" }, href: "/signup", style: "primary" },
-            { label: { en: "Become a tutor" }, href: "/tutor-signup", style: "secondary" },
+            { label: { en: "Request a tutor", zh: "申请同伴辅导" }, href: "/signup", style: "primary" },
+            { label: { en: "Become a tutor", zh: "成为辅导伙伴" }, href: "/tutor-signup", style: "secondary" },
           ],
         },
       ],

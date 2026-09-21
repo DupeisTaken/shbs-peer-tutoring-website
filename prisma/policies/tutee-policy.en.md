@@ -1,6 +1,6 @@
 # Sample tutee participation policy
 
-Sample revision 2026.09.18 · Adapt and approve before publication
+Sample revision 2026.09.21 · Adapt and approve before publication
 
 This is a sample policy for the peer-tutoring website, not an approved school policy. The school must review the wording, choose which program modules to use, and add its contact details and effective date before publishing. Here, “management” means coordinators, administrators (ADMIN) and the program leader (HEAD). Sensitive coordinator changes require ADMIN or HEAD approval.
 

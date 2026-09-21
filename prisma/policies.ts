@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 
 /** Sample development policies; staff adapt, review and publish them for a school. */
-export const POLICY_VERSION = "2026.09.18";
+export const POLICY_VERSION = "2026.09.21";
 
 // Only include reviewed sample translations in development seeds.
 // Missing policy locales already fall back to English in the runtime policy loader.

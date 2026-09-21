@@ -6,8 +6,8 @@ The bundled English and Chinese documents are **sample policies**, not approved 
 
 | Audience | English | 中文 |
 | --- | --- | --- |
-| Students | [Sample student policy](../../prisma/policies/tutee-policy.en.md) | [学生政策示例](../../prisma/policies/tutee-policy.zh.md) |
-| Tutors | [Sample tutor policy](../../prisma/policies/tutor-policy.en.md) | [导师政策示例](../../prisma/policies/tutor-policy.zh.md) |
+| Students | [Sample student policy](../../prisma/policies/tutee-policy.en.md) | [学习伙伴政策示例](../../prisma/policies/tutee-policy.zh.md) |
+| Tutors | [Sample tutor policy](../../prisma/policies/tutor-policy.en.md) | [辅导伙伴政策示例](../../prisma/policies/tutor-policy.zh.md) |
 
 The development seed loads these four sources. Missing policy languages fall back to English; UI language availability is configured separately. The current [user guide](../user-guide.md) and [program reference](../program-reference.md) describe the behavior policies must match.
 

@@ -293,17 +293,17 @@
     },
     "tagline": "Peer Tutoring Program",
     "heroTitle": "Learn together. Grow together.",
-    "intro": "Connect with peer tutors, find support in the subjects you study, and keep track of your tutoring through {appTitle}.",
+    "intro": "At {appTitle}, tutors and tutees are fellow students who learn together and support one another. Share experience in subjects you know well, ask peers for help where you need it, and grow together.",
     "ctaPrimary": "Request a Tutor",
     "ctaSecondary": "Become a Tutor",
     "features": {
       "students": {
         "title": "For Tutees",
-        "body": "Request help in your chosen subjects, share your availability, and follow your tutoring assignments."
+        "body": "Find support from fellow students in your chosen subjects, share your availability, and follow your tutoring assignments."
       },
       "tutors": {
         "title": "For Tutors",
-        "body": "Apply to share your knowledge, support other students, and manage your sessions and availability."
+        "body": "Apply to share your learning experience, support your peers, and manage your sessions and availability."
       },
       "team": {
         "title": "For the Team",
