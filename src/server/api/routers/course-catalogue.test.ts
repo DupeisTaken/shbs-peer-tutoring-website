@@ -102,7 +102,7 @@ it("creates separate names per level and orders all selection APIs by group then
     "Intro to Computer Science",
     "AP Computer Science A",
   ];
-  expect((await caller().application.options()).map((s) => s.name)).toEqual(
+  expect((await caller().application.options()).subjects.map((s) => s.name)).toEqual(
     expected,
   );
   expect(
@@ -115,7 +115,7 @@ it("creates separate names per level and orders all selection APIs by group then
     kind: "groups",
     ids: [computer.id, group.id],
   });
-  expect((await caller().application.options()).map((s) => s.name)).toEqual([
+  expect((await caller().application.options()).subjects.map((s) => s.name)).toEqual([
     ...expected.slice(3),
     ...expected.slice(0, 3),
   ]);

@@ -3,6 +3,11 @@
 import { useMemo, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 
+import {
+  signupSettings,
+  normalizeTuteeFields,
+  missingTuteeFields,
+} from "~/lib/signup-fields";
 import { api } from "~/trpc/react";
 import { DAY_NAMES, minToHm } from "~/lib/time";
 import { APP_TITLE } from "~/lib/branding";
@@ -26,8 +31,19 @@ export function SignupForm() {
   const [secondChoiceId, setSecondChoiceId] = useState("");
   const [slotIds, setSlotIds] = useState<string[]>([]);
   const [signatureName, setSignatureName] = useState("");
-  const [agreed, setAgreed] = useState(false);
+  const [agreedRevision, setAgreedRevision] = useState<string | null>(null);
+  const agreed =
+    !!policy.data?.revision && agreedRevision === policy.data.revision;
 
+  const fields = options.data?.fields ?? signupSettings(null).tutee;
+  const optionalValues = {
+    gradeLevel,
+    phone,
+    preferredContact,
+    secondChoiceId,
+    slotIds,
+    signatureName,
+  };
   const courses = options.data?.subjects ?? [];
   const slots = useMemo(() => options.data?.slots ?? [], [options.data]);
 
@@ -51,10 +67,9 @@ export function SignupForm() {
     englishName.trim() &&
     email.trim() &&
     policy.data?.revision &&
-    preferredContact.trim() &&
+    missingTuteeFields(normalizeTuteeFields(optionalValues, fields), fields)
+      .length === 0 &&
     firstChoiceId &&
-    slotIds.length > 0 &&
-    signatureName.trim() &&
     agreed &&
     !submit.isPending;
 
@@ -102,7 +117,11 @@ export function SignupForm() {
         {t("workflows.loading")}
       </p>
     );
-  if (!courses.length || !slots.length || !policy.data?.revision)
+  if (
+    !courses.length ||
+    (fields.availability === "required" && !slots.length) ||
+    !policy.data?.revision
+  )
     return (
       <p role="status" className="card p-6">
         {t("public.signup.unavailable")}
@@ -115,19 +134,24 @@ export function SignupForm() {
       onSubmit={(e) => {
         e.preventDefault();
         if (!canSubmit || !policy.data) return;
-        submit.mutate({
-          englishName: englishName.trim(),
-          email: email.trim(),
-          policyRevision: policy.data.revision,
-          phone: phone.trim() || undefined,
-          preferredContact: preferredContact.trim(),
-          gradeLevel: gradeLevel.trim() || undefined,
-          firstChoiceId,
-          secondChoiceId: secondChoiceId || undefined,
-          slotIds,
-          signatureName: signatureName.trim(),
-          agreed: true,
-        });
+        submit.mutate(
+          normalizeTuteeFields(
+            {
+              englishName: englishName.trim(),
+              email: email.trim(),
+              policyRevision: policy.data.revision,
+              phone: phone.trim() || undefined,
+              preferredContact: preferredContact.trim(),
+              gradeLevel: gradeLevel.trim() || undefined,
+              firstChoiceId,
+              secondChoiceId: secondChoiceId || undefined,
+              slotIds,
+              signatureName: signatureName.trim(),
+              agreed: true as const,
+            },
+            fields,
+          ),
+        );
       }}
     >
       {/* Identity */}
@@ -135,27 +159,35 @@ export function SignupForm() {
         <label className="space-y-1">
           <span className="label">{t("public.signup.fields.fullName")}</span>
           <input
-            className="input"
+            className="input min-h-11 lg:min-h-10"
             value={englishName}
             onChange={(e) => setEnglishName(e.target.value)}
             required
           />
         </label>
-        <label className="space-y-1">
-          <span className="label">{t("public.signup.fields.gradeLevel")}</span>
-          <input
-            className="input"
-            value={gradeLevel}
-            onChange={(e) => setGradeLevel(e.target.value)}
-            placeholder={t("public.signup.placeholders.gradeLevel")}
-          />
-        </label>
+        {fields.gradeLevel !== "hidden" && (
+          <label className="space-y-1">
+            <span className="label">
+              {t("public.signup.fields.gradeLevel")}{" "}
+              <span className="muted inline-block text-xs">
+                {t(`signupFields.${fields.gradeLevel}`)}
+              </span>
+            </span>
+            <input
+              className="input min-h-11 lg:min-h-10"
+              required={fields.gradeLevel === "required"}
+              value={gradeLevel}
+              onChange={(e) => setGradeLevel(e.target.value)}
+              placeholder={t("public.signup.placeholders.gradeLevel")}
+            />
+          </label>
+        )}
         <label className="space-y-1">
           <span className="label">{t("survey.emailLabel")}</span>
           <input
             type="email"
             autoComplete="email"
-            className="input"
+            className="input min-h-11 lg:min-h-10"
             value={email}
             onChange={(e) => setEmail(e.target.value)}
             required
@@ -163,39 +195,52 @@ export function SignupForm() {
           />
           <span className="muted text-xs">{t("survey.emailHelp")}</span>
         </label>
-        <label className="space-y-1">
-          <span className="label">{t("public.signup.fields.phone")}</span>
-          <input
-            className="input"
-            value={phone}
-            onChange={(e) => setPhone(e.target.value)}
-          />
-        </label>
+        {fields.phone !== "hidden" && (
+          <label className="space-y-1">
+            <span className="label">
+              {t("public.signup.fields.phone")}{" "}
+              <span className="muted inline-block text-xs">
+                {t(`signupFields.${fields.phone}`)}
+              </span>
+            </span>
+            <input
+              className="input min-h-11 lg:min-h-10"
+              required={fields.phone === "required"}
+              value={phone}
+              onChange={(e) => setPhone(e.target.value)}
+            />
+          </label>
+        )}
       </div>
 
       {/* Preferred contact — make it unmistakable how to reach this student. */}
-      <label className="space-y-1">
-        <span className="label">
-          {t("public.signup.fields.preferredContact")}
-        </span>
-        <input
-          className="input"
-          value={preferredContact}
-          onChange={(e) => setPreferredContact(e.target.value)}
-          placeholder={t("public.signup.placeholders.preferredContact")}
-          required
-        />
-        <span className="muted text-xs">
-          {t("public.signup.help.preferredContact")}
-        </span>
-      </label>
+      {fields.preferredContact !== "hidden" && (
+        <label className="space-y-1">
+          <span className="label">
+            {t("signupFields.labels.preferredContact")}{" "}
+            <span className="muted inline-block text-xs">
+              {t(`signupFields.${fields.preferredContact}`)}
+            </span>
+          </span>
+          <input
+            className="input min-h-11 lg:min-h-10"
+            value={preferredContact}
+            onChange={(e) => setPreferredContact(e.target.value)}
+            placeholder={t("public.signup.placeholders.preferredContact")}
+            required={fields.preferredContact === "required"}
+          />
+          <span className="muted text-xs">
+            {t("public.signup.help.preferredContact")}
+          </span>
+        </label>
+      )}
 
       {/* Course choices */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <label className="space-y-1">
           <span className="label">{t("public.signup.fields.firstChoice")}</span>
           <select
-            className="select"
+            className="select min-h-11 lg:min-h-10"
             value={firstChoiceId}
             onChange={(e) => setFirstChoiceId(e.target.value)}
             required
@@ -210,92 +255,113 @@ export function SignupForm() {
             ))}
           </select>
         </label>
-        <label className="space-y-1">
-          <span className="label">
-            {t("public.signup.fields.secondChoice")}
-          </span>
-          <select
-            className="select"
-            value={secondChoiceId}
-            onChange={(e) => setSecondChoiceId(e.target.value)}
-          >
-            <option value="">{t("public.signup.options.none")}</option>
-            {courses
-              .filter((c) => c.id !== firstChoiceId)
-              .map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-          </select>
-        </label>
+        {fields.secondSubject !== "hidden" && (
+          <label className="space-y-1">
+            <span className="label">
+              {t("signupFields.labels.secondSubject")}{" "}
+              <span className="muted inline-block text-xs">
+                {t(`signupFields.${fields.secondSubject}`)}
+              </span>
+            </span>
+            <select
+              className="select min-h-11 lg:min-h-10"
+              required={fields.secondSubject === "required"}
+              value={secondChoiceId}
+              onChange={(e) => setSecondChoiceId(e.target.value)}
+            >
+              <option value="">{t("public.signup.options.none")}</option>
+              {courses
+                .filter((c) => c.id !== firstChoiceId)
+                .map((c) => (
+                  <option key={c.id} value={c.id}>
+                    {c.name}
+                  </option>
+                ))}
+            </select>
+          </label>
+        )}
       </div>
 
       {/* Availability */}
-      <fieldset>
-        <legend className="label">
-          {t("public.signup.fields.availability")}
-        </legend>
-        {slots.length === 0 ? (
-          <p className="muted mt-1">{t("public.signup.noSlots")}</p>
-        ) : (
-          <div className="mt-2 space-y-3">
-            {slotsByDay.map(([day, daySlots]) => (
-              <div key={day}>
-                <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
-                  {DAY_NAMES[day]}
-                </p>
-                <div className="mt-1 flex flex-wrap gap-2">
-                  {daySlots.map((s) => {
-                    const checked = slotIds.includes(s.id);
-                    return (
-                      <label
-                        key={s.id}
-                        className={`cursor-pointer rounded-md border px-3 py-1.5 text-sm transition ${
-                          checked
-                            ? "border-accent-500 bg-accent-50 text-accent-700"
-                            : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
-                        }`}
-                      >
-                        <input
-                          type="checkbox"
-                          className="sr-only"
-                          checked={checked}
-                          onChange={() => toggleSlot(s.id)}
-                        />
-                        {s.label}{" "}
-                        <span className="text-slate-400">
-                          ({minToHm(s.startMin)}–{minToHm(s.endMin)})
-                        </span>
-                      </label>
-                    );
-                  })}
+      {fields.availability !== "hidden" && (
+        <fieldset>
+          <legend className="label">
+            {t("signupFields.labels.availability")}{" "}
+            <span className="muted inline-block text-xs">
+              {t(`signupFields.${fields.availability}`)}
+            </span>
+          </legend>
+          {slots.length === 0 ? (
+            <p className="muted mt-1">{t("public.signup.noSlots")}</p>
+          ) : (
+            <div className="mt-2 space-y-3">
+              {slotsByDay.map(([day, daySlots]) => (
+                <div key={day}>
+                  <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
+                    {DAY_NAMES[day]}
+                  </p>
+                  <div className="mt-1 flex flex-wrap gap-2">
+                    {daySlots.map((s) => {
+                      const checked = slotIds.includes(s.id);
+                      return (
+                        <label
+                          key={s.id}
+                          className={`focus-within:ring-accent-500 inline-flex min-h-11 cursor-pointer items-center rounded-md border px-3 py-1.5 text-sm transition focus-within:ring-2 ${
+                            checked
+                              ? "border-accent-500 bg-accent-50 text-accent-700"
+                              : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
+                          }`}
+                        >
+                          <input
+                            type="checkbox"
+                            className="sr-only"
+                            checked={checked}
+                            onChange={() => toggleSlot(s.id)}
+                          />
+                          {s.label}{" "}
+                          <span className="text-slate-400">
+                            ({minToHm(s.startMin)}–{minToHm(s.endMin)})
+                          </span>
+                        </label>
+                      );
+                    })}
+                  </div>
                 </div>
-              </div>
-            ))}
-          </div>
-        )}
-      </fieldset>
+              ))}
+            </div>
+          )}
+        </fieldset>
+      )}
 
       {/* Policy agreement (gated on reading the policy) + signature */}
       <div className="space-y-4">
         <PolicyAgreement
+          key={policy.data.revision}
           messageKey="public.signup.agree"
           appTitle={APP_TITLE}
           policy={policy.data}
           checked={agreed}
-          onChange={setAgreed}
+          onChange={(value) =>
+            setAgreedRevision(value ? (policy.data?.revision ?? null) : null)
+          }
         />
-        <label className="block space-y-1">
-          <span className="label">{t("public.signup.fields.signature")}</span>
-          <input
-            className="input"
-            value={signatureName}
-            onChange={(e) => setSignatureName(e.target.value)}
-            placeholder={t("public.signup.placeholders.signature")}
-            required
-          />
-        </label>
+        {fields.signatureName !== "hidden" && (
+          <label className="block space-y-1">
+            <span className="label">
+              {t("signupFields.labels.signatureName")}{" "}
+              <span className="muted inline-block text-xs">
+                {t(`signupFields.${fields.signatureName}`)}
+              </span>
+            </span>
+            <input
+              className="input min-h-11 lg:min-h-10"
+              value={signatureName}
+              onChange={(e) => setSignatureName(e.target.value)}
+              placeholder={t("public.signup.placeholders.signature")}
+              required={fields.signatureName === "required"}
+            />
+          </label>
+        )}
       </div>
 
       {submit.error && (
@@ -306,7 +372,7 @@ export function SignupForm() {
 
       <button
         type="submit"
-        className="btn-primary w-full"
+        className="btn-primary min-h-11 w-full lg:min-h-10"
         disabled={!canSubmit}
       >
         {submit.isPending
