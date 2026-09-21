@@ -374,7 +374,7 @@ it("enforces persisted eligibility on real assignment routes and preserves histo
     tuteeIds: [],
   };
   await expect(caller().admin.createPairing(input)).rejects.toMatchObject({
-    code: "BAD_REQUEST",
+    code: "PRECONDITION_FAILED",
   });
   await caller().interviewManagement.qualify({
     tutorId: "tutor",
@@ -397,7 +397,7 @@ it("enforces persisted eligibility on real assignment routes and preserves histo
       id: pairing.id,
       tutorId: "future",
     }),
-  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
   expect(await db.pairing.count()).toBe(1);
 });
 
