@@ -1,8 +1,9 @@
+import { translationPublicationScope } from "~/server/db-scope";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import {
   createTRPCRouter,
-  translatorProcedure,
+  translationReviewerProcedure,
   adminProcedure,
 } from "~/server/api/trpc";
 import { lockEntity } from "~/server/transactions";
@@ -18,7 +19,7 @@ import type { PrismaClient } from "../../../../generated/prisma";
 /** Approval runs the original validated staff mutation and the decision in the same transaction.
  * The called text-only mutations use transaction-compatible delegates, never nested $transaction. */
 export const translationReviewRouter = createTRPCRouter({
-  list: translatorProcedure
+  list: translationReviewerProcedure
     .input(
       z
         .object({ page: z.number().int().min(0).default(0) })
@@ -70,6 +71,7 @@ export const translationReviewRouter = createTRPCRouter({
             key: z.string(),
             value: z.string(),
           });
+          await translationPublicationScope.run({ reviewerId: ctx.session.user.id, operation: draft.operation }, async () => {
           switch (draft.operation) {
             case "localization.setString":
               await localization.setString(value.parse(draft.payload));
@@ -118,6 +120,7 @@ export const translationReviewRouter = createTRPCRouter({
                 message: "Unknown draft type.",
               });
           }
+          });
         }
         await tx.translationDraft.update({
           where: { id: input.id },

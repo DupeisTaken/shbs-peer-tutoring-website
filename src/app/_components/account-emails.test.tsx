@@ -12,6 +12,8 @@ const mocks = vi.hoisted(() => ({
   manage: vi.fn(),
   preferences: vi.fn(),
   program: vi.fn(),
+  binding: vi.fn(),
+  canEdit: true,
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
@@ -42,13 +44,17 @@ vi.mock("~/trpc/react", () => ({
         useQuery: () => ({
           data: {
             enabled: false,
-            canEdit: true,
+            canEdit: mocks.canEdit,
+            secondaryEmailBindingEnabled: true,
             deliveryAvailable: true,
             failed: 0,
           },
         }),
       },
       setEmailNotifications: { useMutation: () => ({ mutate: mocks.program }) },
+      setSecondaryEmailBinding: {
+        useMutation: () => ({ mutate: mocks.binding }),
+      },
     },
   },
 }));
@@ -62,6 +68,7 @@ const view = (component: React.ReactNode) =>
   );
 beforeEach(() => {
   vi.clearAllMocks();
+  mocks.canEdit = true;
   mocks.data = {
     email: "primary@example.test",
     emails: [
@@ -70,6 +77,7 @@ beforeEach(() => {
       { email: "pending@example.test", verifiedAt: null },
     ],
     enabled: true,
+    secondaryEmailBindingEnabled: true,
     deliveryAvailable: true,
     emailSecurity: true,
     emailMessages: false,
@@ -135,7 +143,6 @@ it("saves independent categories and recipients", () => {
   fireEvent.click(screen.getByRole("checkbox", { name: /Include verified/ }));
   fireEvent.click(screen.getByRole("button", { name: "Save preferences" }));
   expect(mocks.preferences).toHaveBeenCalledWith({
-    emailSecurity: true,
     emailMessages: true,
     emailInfo: false,
     emailSecondaryRecipients: true,
@@ -157,8 +164,65 @@ it("disables preference editing behind the admin gate while explaining essential
       .hasAttribute("disabled"),
   ).toBe(true);
   expect(
-    screen.getByText(/recovery emails always remain available/),
+    screen.getByText(/account security alerts always remain available/),
   ).toBeTruthy();
+});
+
+it("blocks additions and pending verification while keeping existing addresses manageable", () => {
+  mocks.data = { ...mocks.data, secondaryEmailBindingEnabled: false };
+  view(<AccountEmails />);
+  expect(screen.getByText(/binding is disabled/)).toBeTruthy();
+  expect(screen.queryByLabelText("Add a secondary email")).toBeNull();
+  expect(
+    screen.getByRole("button", { name: "Verify" }).hasAttribute("disabled"),
+  ).toBe(true);
+  fireEvent.change(screen.getByLabelText("Current password"), {
+    target: { value: "synthetic-password" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Remove" }));
+  expect(mocks.manage).toHaveBeenCalledWith({
+    email: "secondary@example.test",
+    currentPassword: "synthetic-password",
+    action: "remove",
+  });
+  expect(screen.getByText(/Secondary emails are optional/)).toBeTruthy();
+});
+
+it("supports accounts without secondary addresses and does not offer a security opt-out", () => {
+  mocks.data = {
+    ...mocks.data,
+    emails: [{ email: "primary@example.test", verifiedAt: new Date() }],
+  };
+  view(
+    <>
+      <AccountEmails />
+      <EmailPreferences />
+    </>,
+  );
+  expect(screen.getByText("primary@example.test")).toBeTruthy();
+  expect(screen.queryByRole("checkbox", { name: /Security/ })).toBeNull();
+  expect(
+    screen.getByRole("checkbox", { name: /Messages/ }).hasAttribute("disabled"),
+  ).toBe(false);
+});
+
+it("saves binding availability independently of the notification gate", () => {
+  view(<ProgramEmailSettings />);
+  fireEvent.click(
+    screen.getByRole("checkbox", { name: "Allow secondary-email binding" }),
+  );
+  expect(mocks.binding).toHaveBeenCalledWith({
+    enabled: false,
+    expectedEnabled: true,
+  });
+  expect(mocks.program).not.toHaveBeenCalled();
+});
+
+it("shows read-only program availability without admin controls", () => {
+  mocks.canEdit = false;
+  view(<ProgramEmailSettings />);
+  expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
+  expect(screen.getByText("Secondary-email binding")).toBeTruthy();
 });
 
 it("lets admins enable immediately with the current value for conflict checking", () => {

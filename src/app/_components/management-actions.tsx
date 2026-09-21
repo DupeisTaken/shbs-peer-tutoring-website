@@ -1,4 +1,5 @@
 "use client";
+import { HEAD_APPROVAL_OPERATIONS } from "~/lib/approval-policy";
 
 import Link from "next/link";
 import { Suspense, useState } from "react";
@@ -459,7 +460,7 @@ function ApprovalQueue({
           key={request.id}
           request={request}
           canReview={
-            queue.data.canReview && request.requesterId !== queue.data.viewerId
+            queue.data.canReview && request.requesterId !== queue.data.viewerId && (!HEAD_APPROVAL_OPERATIONS.has(request.operation) || queue.data.headReviewer)
           }
           canCancel={request.requesterId === queue.data.viewerId}
           onChanged={refresh}

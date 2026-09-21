@@ -21,6 +21,7 @@ export async function seedModernWorkflows(
     signature: string,
     policy: typeof studentPolicy,
   ) => {
+    if (policy.slug === "tutee-policy") await db.user.update({ where: { id: userId }, data: { tuteeMember: true } });
     await db.policyAcceptance.upsert({
       where: {
         userId_slug_revision: {
@@ -44,7 +45,7 @@ export async function seedModernWorkflows(
 
   for (const [key, name, role, translate] of [
     ["manager", "Morgan Administrator", "ADMIN", false],
-    ["translator", "Taylor Translator", "VIEWER", true],
+    ["translator", "Taylor Translator", "STUDENT", true],
   ] as const) {
     const data = {
       name,
@@ -405,6 +406,7 @@ export async function seedModernWorkflows(
           create: {
             tutorId,
             subjectId: intent.subjectId,
+            grants: { create: { subjectId: intent.subjectId } },
             approvedById: headId,
           },
         });
@@ -440,6 +442,7 @@ export async function seedModernWorkflows(
         create: {
           tutorId: pairing.tutorId,
           subjectId: subject.id,
+          grants: { create: { subjectId: subject.id } },
           approvedById: headId,
         },
       });

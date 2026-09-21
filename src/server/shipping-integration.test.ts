@@ -136,6 +136,15 @@ beforeEach(async () => {
       status: "ACTIVE",
     },
   });
+  // Shipping workflows assign a qualified tutor rather than relying on implicit eligibility.
+  await db.tutorQualification.create({
+    data: {
+      tutorId: "shipping-tutor",
+      subjectId: "shipping-subject",
+      approvedById: "shipping-admin",
+      grants: { create: { subjectId: "shipping-subject" } },
+    },
+  });
   await db.policyDocument.create({
     data: {
       slug: "tutee-policy",
@@ -354,7 +363,7 @@ it("keeps history, feedback and appeals after a new intake profile and verified 
     submitSurvey(db, signup("changed-shipping@example.test")),
   ).rejects.toMatchObject({ code: "CONFLICT" });
   await db.user.create({
-    data: { id: "outsider", email: "outsider@example.test", role: "STUDENT" },
+    data: { id: "outsider", email: "outsider@example.test", role: "STUDENT", tuteeMember: true },
   });
   expect(
     (await actor("outsider").student.me({ page: 0 })).sessions,
@@ -487,6 +496,7 @@ it("requires just one admin approval for a coordinator's translation review and 
       expectedUpdatedAt: next.updatedAt,
     }),
   );
+  await db.user.update({ where: { id: "shipping-admin" }, data: { canTranslate: true } });
   await admin().localization.setString({
     locale: "en",
     key: "approvals.title",
@@ -546,7 +556,7 @@ it.each(["VIEWER", "STUDENT"] as const)(
     ).toBeNull();
     await db.user.update({
       where: { id: "public-account" },
-      data: { tutorId: "shipping-tutor" },
+      data: { role: "TUTOR", tutorId: "shipping-tutor" },
     });
     expect(
       await resolveTutorLink(db, "public-account", "public@example.test"),
@@ -627,7 +637,6 @@ it("queues a historical correction and applies it atomically under the reviewer'
   ).toBeGreaterThan(0);
 });
 
-
 it("consolidates current tutee schedules for admin and tutor accounts using explicit ownership only", async () => {
   await db.term.create({data:{id:"past-term",name:"Past",schoolYear:"25-26",quarter:"Q4",active:false}});
   await db.tutee.createMany({data:[
@@ -636,7 +645,7 @@ it("consolidates current tutee schedules for admin and tutor accounts using expl
     {id:"foreign",englishName:"Shared Name",status:"ACTIVE",intakeTermId:"shipping-term"},
     {id:"inactive-owned",englishName:"Shared Name",status:"INACTIVE",intakeTermId:"shipping-term"},
   ]});
-  await db.user.update({where:{id:"shipping-admin"},data:{studentId:"owned-a"}});
+  await db.user.update({where:{id:"shipping-admin"},data:{studentId:"owned-a",tuteeMember:true}});
   await db.studentProfileOwnership.createMany({data:[
     {userId:"shipping-admin",tuteeId:"owned-b"},
     {userId:"shipping-admin",tuteeId:"inactive-owned"},
@@ -648,12 +657,24 @@ it("consolidates current tutee schedules for admin and tutor accounts using expl
     ["past-schedule","owned-a","past-term",780],
     ["inactive-schedule","inactive-owned","shipping-term",840],
   ] as const) {
-    await db.pairing.create({data:{id,subject:id,termId,tutorId:"shipping-tutor",dayOfWeek:1,startMin,endMin:startMin+30,tutees:{create:{tuteeId}}}});
+    await db.pairing.create({
+      data: {
+        id,
+        subject: id,
+        termId,
+        tutorId: "shipping-tutor",
+        dayOfWeek: 1,
+        startMin,
+        endMin: startMin + 30,
+        tutees: { create: { tuteeId } },
+      },
+    });
   }
   // Two owned profiles on one pairing must still produce one schedule entry.
   await db.pairingTutee.create({data:{pairingId:"schedule-a",tuteeId:"owned-b"}});
   expect((await admin().student.me({page:0})).schedule.map(row=>row.id)).toEqual(["schedule-a","schedule-b"]);
   await db.user.update({where:{id:"shipping-admin"},data:{role:"TUTOR",tutorId:"shipping-tutor"}});
+  await db.policyAcceptance.create({ data: { userId: "shipping-admin", slug: "tutee-policy", revision, signature: "Synthetic manager", snapshot: [] } });
   expect((await actor("shipping-admin","TUTOR").student.me({page:0})).schedule.map(row=>row.id)).toEqual(["schedule-a","schedule-b"]);
-  expect((await coordinator().student.me({page:0})).schedule).toEqual([]);
+  await expect(coordinator().student.me({page:0})).rejects.toMatchObject({ code: "FORBIDDEN" });
 });

@@ -652,15 +652,54 @@ it("paginates history and resolves scoped deep links independently of list filte
 });
 
 it.each(["TUTOR", "VIEWER", "CREW"] as const)(
-  "refuses management proposals and queue access for %s",
+  "refuses management proposals and scopes membership requests to their %s owner",
   async (role) => {
-    const user = actor(`approval-${role.toLowerCase()}`, role);
+    const userId = `approval-${role.toLowerCase()}`;
+    const user = actor(userId, role);
     await expect(
       user.admin.createRoom({ name: "Forbidden" }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await expect(user.approval.list({})).rejects.toMatchObject({
+
+    const otherRequest = await queued(() =>
+      trainee().admin.createRoom({ name: "Private management proposal" }),
+    );
+    const ownRequest = await user.account.requestMemberships({
+      rank: "NONE",
+      viewer: false,
+      tutor: false,
+      tutee: false,
+      translator: true,
+      crew: false,
+    });
+    // Self-service requests expose only the owner's history, never the review queue.
+    const ownQueue = await user.approval.list({
+      requesterId: "approval-coordinator",
+    });
+    expect(ownQueue).toMatchObject({
+      total: 1,
+      canReview: false,
+      headReviewer: false,
+      requesters: [],
+      rows: [{ id: ownRequest.id, requesterId: userId, state: "PENDING" }],
+    });
+    expect(
+      await user.approval.list({ requestId: otherRequest.id }),
+    ).toMatchObject({ total: 0, rows: [] });
+    await expect(user.approval.requesters()).rejects.toMatchObject({
       code: "FORBIDDEN",
     });
+    await expect(
+      user.approval.decide({
+        id: ownRequest.id,
+        approve: true,
+        note: "Self review is forbidden",
+      }),
+    ).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    expect(
+      await db.user.findUniqueOrThrow({ where: { id: userId } }),
+    ).toMatchObject({ canTranslate: false });
   },
 );
 
@@ -738,6 +777,11 @@ it("serializes competing approvals without double application", async () => {
 });
 
 it("queues translation publishing and detects edits to compound-key targets", async () => {
+  // Both editors have explicit Translator grants; the reviewer needs no editing grant.
+  await db.user.updateMany({
+    where: { id: { in: ["approval-coordinator", "approval-admin"] } },
+    data: { canTranslate: true },
+  });
   const request = await queued(() =>
     trainee().localization.setString({
       locale: "en",
@@ -795,6 +839,15 @@ it("applies a nested transaction and its helper audit records as one decision", 
       timeSlotId: slot.id,
     },
   });
+  const physics = await db.subject.create({ data: { name: "Physics" } });
+  await db.tutorQualification.create({
+    data: {
+      tutorId: tutor.id,
+      subjectId: physics.id,
+      approvedById: "approval-admin",
+      grants: { create: { subjectId: physics.id } },
+    },
+  });
   const request = await queued(() =>
     trainee().admin.updatePairing({
       id: pairing.id,
@@ -818,7 +871,7 @@ it("applies a nested transaction and its helper audit records as one decision", 
   expect(databaseScope.getStore()).toBeUndefined();
 });
 
-it("requires approval for a coordinator chair's final interview decision", async () => {
+it("requires Head approval for a coordinator chair's final interview decision", async () => {
   const tutor = await db.tutor.create({
     data: { englishName: "Trainee Chair" },
   });
@@ -847,9 +900,10 @@ it("requires approval for a coordinator chair's final interview decision", async
       tutorId: tutor.id,
       subjectId: subject.id,
       approvedById: "approval-admin",
+      grants: { create: { subjectId: subject.id } },
     },
   });
-  // A four-person qualified panel ties 2–2. The coordinator chair's choice must survive admin review.
+  // A four-person qualified panel ties 2–2. The chair's choice must survive Head review.
   for (let index = 0; index < 3; index++) {
     const member = await db.tutor.create({
       data: { englishName: "Panel " + index, status: "ACTIVE" },
@@ -886,7 +940,20 @@ it("requires approval for a coordinator chair's final interview decision", async
   expect(
     await db.tutorApplication.findUnique({ where: { id: application.id } }),
   ).toMatchObject({ status: "INTERVIEW" });
-  await admin().approval.decide({
+  await expect(
+    admin().approval.decide({
+      id: request.id,
+      approve: true,
+      note: "Admin cannot decide participation changes",
+    }),
+  ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect(
+    await db.approvalRequest.findUniqueOrThrow({ where: { id: request.id } }),
+  ).toMatchObject({ state: "PENDING", reviewerId: null });
+  expect(
+    await db.tutorApplication.findUnique({ where: { id: application.id } }),
+  ).toMatchObject({ status: "INTERVIEW" });
+  await head().approval.decide({
     id: request.id,
     approve: true,
     note: "Reviewed interview evidence",

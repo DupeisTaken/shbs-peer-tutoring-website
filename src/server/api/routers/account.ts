@@ -1,3 +1,5 @@
+import { membershipSchema } from "~/lib/account-membership";
+import { queueProposal } from "~/server/approvals";
 import { updateAccountProfile } from "~/server/account-profile";
 import {
   requestSecondaryEmail,
@@ -27,6 +29,11 @@ import {
  * Kept separate from the tutor router so an account without a linked tutor can use it.
  */
 export const accountRouter = createTRPCRouter({
+  // Any active account may request its own badges. Only Head can apply the resulting proposal.
+  requestMemberships: protectedProcedure.input(membershipSchema).mutation(async ({ ctx, input }) => {
+    const request = await queueProposal(ctx.session, "admin.setMemberships", { userId: ctx.session.user.id, membership: input });
+    return { id: request.id, state: request.state };
+  }),
   emailSettings: protectedProcedure.query(async ({ ctx }) => {
     const [user, program, emails] = await Promise.all([
       ctx.db.user.findUniqueOrThrow({
@@ -41,7 +48,10 @@ export const accountRouter = createTRPCRouter({
       }),
       ctx.db.programSettings.findUnique({
         where: { id: "program" },
-        select: { emailNotificationsEnabled: true },
+        select: {
+          emailNotificationsEnabled: true,
+          secondaryEmailBindingEnabled: true,
+        },
       }),
       associatedAccountEmails(ctx.db, ctx.session.user.id),
     ]);
@@ -49,13 +59,16 @@ export const accountRouter = createTRPCRouter({
       ...user,
       emails,
       enabled: program?.emailNotificationsEnabled ?? false,
+      secondaryEmailBindingEnabled:
+        program?.secondaryEmailBindingEnabled ?? true,
       deliveryAvailable: isEmailDeliveryAvailable(),
     };
   }),
   setEmailPreferences: protectedProcedure
     .input(
       z.object({
-        emailSecurity: z.boolean(),
+        // Accepted from older clients only; security alerts cannot be opted out of.
+        emailSecurity: z.boolean().optional(),
         emailMessages: z.boolean(),
         emailInfo: z.boolean(),
         emailSecondaryRecipients: z.boolean(),
@@ -76,7 +89,11 @@ export const accountRouter = createTRPCRouter({
           });
         await tx.user.update({
           where: { id: ctx.session.user.id },
-          data: input,
+          data: {
+            emailMessages: input.emailMessages,
+            emailInfo: input.emailInfo,
+            emailSecondaryRecipients: input.emailSecondaryRecipients,
+          },
         });
         return { ok: true };
       });
@@ -169,12 +186,17 @@ export const accountRouter = createTRPCRouter({
         name: true,
         alternativeNames: true,
         profileVersion: true,
+        id: true,
+        tutorId: true,
+        tutorAccessRevoked: true,
         email: true,
         username: true,
         role: true,
         twoFactorEnabled: true,
         // The translator route's layout uses this capability to decide whether to render the editor.
         canTranslate: true,
+        tuteeMember: true,
+        crewStatus: true,
         tutor: { select: { id: true, status: true } },
       },
     });

@@ -1,5 +1,6 @@
 "use client";
 
+import { accountMembership, membershipBadges } from "~/lib/account-membership";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 
@@ -16,16 +17,6 @@ import { api } from "~/trpc/react";
 import { SortHeader, useSort, compare } from "~/app/_components/sortable";
 import { useDialog } from "~/app/_components/confirm-dialog";
 
-/** Roles an admin/head may assign via the dropdown (HEAD is set only via leadership transfer). */
-const ASSIGNABLE_ROLES = [
-  "STUDENT",
-  "VIEWER",
-  "TUTOR",
-  "COORDINATOR",
-  "ADMIN",
-] as const;
-type RoleValue = (typeof ASSIGNABLE_ROLES)[number];
-
 const ALL_ROLES = [
   "STUDENT",
   "VIEWER",
@@ -33,6 +24,8 @@ const ALL_ROLES = [
   "COORDINATOR",
   "ADMIN",
   "HEAD",
+  "CREW",
+  "TRANSLATOR",
 ] as const;
 const TUTOR_STATUSES = [
   "ACTIVE",
@@ -42,43 +35,6 @@ const TUTOR_STATUSES = [
   "ARCHIVED",
 ] as const;
 const ACCOUNT_STATES = ["registered", "setup", "invited", "none"] as const;
-
-/** Elevated roles: they live in the admin area and can translate by default (no flag needed). */
-const ELEVATED_ROLES: readonly string[] = ["COORDINATOR", "ADMIN", "HEAD"];
-
-/** A small on/off switch used for the can-tutor / can-translate columns. */
-function Toggle({
-  on,
-  disabled,
-  onClick,
-  label,
-}: {
-  on: boolean;
-  disabled?: boolean;
-  onClick: () => void;
-  label: string;
-}) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={on}
-      aria-label={label}
-      title={label}
-      disabled={disabled}
-      onClick={onClick}
-      className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-        on ? "bg-accent-600" : "bg-slate-300"
-      } ${disabled ? "cursor-not-allowed opacity-50" : "cursor-pointer"}`}
-    >
-      <span
-        className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${
-          on ? "translate-x-6" : "translate-x-1"
-        }`}
-      />
-    </button>
-  );
-}
 
 /**
  * Step-up identity check for dangerous actions (role change, leadership transfer, account
@@ -192,15 +148,7 @@ export default function UsersPage() {
     onError: (e: { message: string }) => setConfirmError(e.message),
   };
 
-  const setRole = api.admin.setUserRole.useMutation(guardedMutation);
-  const transferHead = api.admin.transferHead.useMutation(guardedMutation);
   const deleteUser = api.admin.deleteUser.useMutation(guardedMutation);
-  const setCanTutor = api.admin.setUserCanTutor.useMutation({
-    onSuccess: invalidate,
-  });
-  const setCanTranslate = api.admin.setUserCanTranslate.useMutation({
-    onSuccess: invalidate,
-  });
   const appeals = api.admin.appeals.useQuery();
   const refreshUsers = () =>
     Promise.all([invalidate(), utils.admin.appeals.invalidate()]);
@@ -230,8 +178,7 @@ export default function UsersPage() {
   const callerRole = accounts.data?.caller.role;
   const isHead = callerRole === "HEAD";
   const isAdminTier = isHead || callerRole === "ADMIN";
-  const confirmPending =
-    setRole.isPending || transferHead.isPending || deleteUser.isPending;
+  const confirmPending = deleteUser.isPending;
   const sort = useSort("name");
 
   // Persist by account only after loading that account's preference; never overwrite on hydration.
@@ -308,6 +255,8 @@ export default function UsersPage() {
             alternativeNames: editingProfile.alternativeNames,
             profileVersion: editingProfile.profileVersion,
           }}
+          membership={accountMembership(editingProfile)}
+          isHead={isHead}
           onClose={() => setEditingProfileId(null)}
         />
       )}
@@ -328,7 +277,7 @@ export default function UsersPage() {
             options={[
               ...ALL_ROLES.map((value) => ({
                 value,
-                label: t(`admin.users.roles.${value}`),
+                label: value === "TRANSLATOR" ? t("membership.translator") : t(`admin.users.roles.${value}`),
               })),
               { value: "__none__", label: t("userMultiFilters.noRole") },
             ]}
@@ -458,29 +407,12 @@ export default function UsersPage() {
               <SortHeader sort={sort} sortKey="role">
                 {t("admin.users.columns.role")}
               </SortHeader>
-              <th>{t("admin.users.columns.canTutor")}</th>
-              <th>{t("admin.users.columns.canTranslate")}</th>
               <th>{t("admin.users.columns.actions")}</th>
             </tr>
           </thead>
           <tbody>
             {rows.map((u) => {
               const key = u.userId ?? `tutor-${u.tutorId}`;
-              const canTutorApplies =
-                !!u.role && ELEVATED_ROLES.includes(u.role);
-              const linkedActive = !!u.tutorId && u.tutorStatus === "ACTIVE";
-              // Coordinators may only flip their own "can tutor"; the admin tier, anyone's.
-              const canEditCanTutor = isAdminTier || u.isSelf;
-              // Only the head may change an admin's role or promote to admin.
-              const targetIsAdminTier = u.role === "ADMIN" || u.role === "HEAD";
-              const canEditRole =
-                isAdminTier &&
-                !!u.userId &&
-                u.role !== "HEAD" &&
-                (isHead || !targetIsAdminTier);
-              const roleOptions = isHead
-                ? ASSIGNABLE_ROLES
-                : ASSIGNABLE_ROLES.filter((r) => r !== "ADMIN");
               return (
                 <tr key={key}>
                   {/* Identity contains names and the handle; all row actions live in the last column. */}
@@ -607,132 +539,14 @@ export default function UsersPage() {
                     )}
                   </td>
 
-                  {/* Role — head manages admins + transfer; admins manage up to coordinator. */}
-                  <td>
-                    {u.role == null ? (
-                      <span className="text-slate-400">—</span>
-                    ) : (
-                      <div className="flex flex-col items-center gap-1 leading-tight">
-                        {u.role === "HEAD" ? (
-                          <span className="badge-green">
-                            {t("admin.users.roles.HEAD")}
-                          </span>
-                        ) : canEditRole ? (
-                          <select
-                            value={u.role}
-                            onChange={(e) => {
-                              const userId = u.userId;
-                              const role = e.target.value as RoleValue;
-                              if (!userId) return;
-                              setConfirmError(null);
-                              setConfirm({
-                                title: t("admin.users.confirm.roleTitle"),
-                                body: t("admin.users.confirm.roleBody", {
-                                  name: u.name,
-                                  role: t(`admin.users.roles.${role}`),
-                                }),
-                                confirmLabel: t(
-                                  "admin.users.confirm.roleConfirm",
-                                ),
-                                run: (pwd) =>
-                                  setRole.mutate({
-                                    userId,
-                                    role,
-                                    confirmPassword: pwd,
-                                  }),
-                              });
-                            }}
-                            className="select field-auto min-w-36"
-                          >
-                            {roleOptions.map((r) => (
-                              <option key={r} value={r}>
-                                {t(`admin.users.roles.${r}`)}
-                              </option>
-                            ))}
-                          </select>
-                        ) : (
-                          <span className="badge-slate">
-                            {t(`admin.users.roles.${u.role}`)}
-                          </span>
-                        )}
-                        {/* Leadership transfer (head only) to an admin/coordinator. */}
-                        {isHead &&
-                          !u.isSelf &&
-                          u.userId &&
-                          (u.role === "ADMIN" || u.role === "COORDINATOR") && (
-                            <button
-                              className="link text-xs whitespace-nowrap"
-                              onClick={() => {
-                                const userId = u.userId;
-                                if (!userId) return;
-                                setConfirmError(null);
-                                setConfirm({
-                                  title: t("admin.users.confirm.transferTitle"),
-                                  body: t("admin.users.confirmTransfer", {
-                                    name: u.name,
-                                  }),
-                                  confirmLabel: t("admin.users.makeHead"),
-                                  run: (pwd) =>
-                                    transferHead.mutate({
-                                      userId,
-                                      confirmPassword: pwd,
-                                    }),
-                                });
-                              }}
-                            >
-                              {t("admin.users.makeHead")}
-                            </button>
-                          )}
-                      </div>
-                    )}
-                  </td>
-
-                  {/* Can tutor — admin tier for anyone; coordinators only for themselves. */}
-                  <td>
-                    {canTutorApplies && u.userId ? (
-                      <Toggle
-                        on={linkedActive}
-                        disabled={!canEditCanTutor || setCanTutor.isPending}
-                        label={t("admin.users.canTutorLabel")}
-                        onClick={() =>
-                          u.userId &&
-                          setCanTutor.mutate({
-                            userId: u.userId,
-                            canTutor: !linkedActive,
-                          })
-                        }
-                      />
-                    ) : (
-                      <span className="text-slate-400">—</span>
-                    )}
-                  </td>
-
-                  {/* Can translate — admins/coordinators always can (default); others assignable. */}
-                  <td>
-                    {u.role == null ? (
-                      <span className="text-slate-400">—</span>
-                    ) : ELEVATED_ROLES.includes(u.role) ? (
-                      <span
-                        className="badge-slate"
-                        title={t("admin.users.translateDefaultHint")}
-                      >
-                        {t("admin.users.translateDefault")}
+                  {/* Readable, composable badges; assignments live inside Edit Profile. */}
+                  <td><div className="flex flex-wrap gap-1.5">
+                    {membershipBadges(accountMembership(u)).map(badge => (
+                      <span key={badge} className={badge === "HEAD" ? "badge-green" : "badge-slate"}>
+                        {badge === "TRANSLATOR" ? t("membership.translator") : t(`admin.users.roles.${badge}`)}
                       </span>
-                    ) : (
-                      <Toggle
-                        on={u.canTranslate}
-                        disabled={!isAdminTier || setCanTranslate.isPending}
-                        label={t("admin.users.canTranslateLabel")}
-                        onClick={() =>
-                          u.userId &&
-                          setCanTranslate.mutate({
-                            userId: u.userId,
-                            canTranslate: !u.canTranslate,
-                          })
-                        }
-                      />
-                    )}
-                  </td>
+                    ))}
+                  </div></td>
 
                   {/* Contact/profile actions stay available to permitted staff. Only deletion is head-only. */}
                   <td>
@@ -789,7 +603,7 @@ export default function UsersPage() {
             })}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={7} className="text-slate-500">
+                <td colSpan={5} className="text-slate-500">
                   {t("admin.users.empty")}
                 </td>
               </tr>
@@ -798,10 +612,10 @@ export default function UsersPage() {
         </table>
       </div>
       {/* Errors from the dangerous (dialog-gated) actions surface inside the dialog itself. */}
-      {(setCanTutor.error ?? setCanTranslate.error ?? sendSetup.error) && (
+      {sendSetup.error && (
         <p className="text-sm text-red-600">
           {
-            (setCanTutor.error ?? setCanTranslate.error ?? sendSetup.error)
+            sendSetup.error
               ?.message
           }
         </p>

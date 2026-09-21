@@ -1,3 +1,4 @@
+import { assertQualified } from "~/server/qualifications";
 import { approveLegacyStudentWithdrawal } from "./legacy-student-withdrawal";
 import { TRPCError } from "@trpc/server";
 import { approvalScope } from "./db-scope";
@@ -140,7 +141,7 @@ export async function acceptStudentPolicy(
       policyActionTarget(slug, revision),
     );
     const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
-    if (!applicablePolicySlugs(user).includes(slug) || user.suspendedAt)
+    if (user.role === "VIEWER" || (slug !== "tutee-policy" && !applicablePolicySlugs(user).includes(slug)) || user.suspendedAt)
       throw new TRPCError({ code: "FORBIDDEN" });
     await tx.policyAcceptance.upsert({
       where: { userId_slug_revision: { userId, slug: policy.slug, revision } },
@@ -154,18 +155,19 @@ export async function acceptStudentPolicy(
         acceptedAt: new Date(),
       },
     });
+    if (slug === "tutee-policy") await tx.user.update({ where: { id: userId }, data: { tuteeMember: true } });
     return { ok: true };
   });
 }
 
-export async function studentPolicyStatus(db: DomainDb, userId: string) {
+export async function studentPolicyStatus(db: DomainDb, userId: string, tuteeEntry = false) {
   const user = await db.user.findUnique({
     where: { id: userId },
-    select: { studentId: true, tutorId: true, suspendedAt: true },
+    select: { studentId: true, tutorId: true, tuteeMember: true, role: true, suspendedAt: true },
   });
-  if (!user || user.suspendedAt) return null;
+  if (!user || user.suspendedAt || user.role === "VIEWER") return null;
   // Return one outstanding applicable policy at a time; acceptance refreshes the next.
-  for (const slug of applicablePolicySlugs(user)) {
+  for (const slug of (tuteeEntry ? ["tutee-policy" as const] : applicablePolicySlugs(user))) {
     const policy = await currentPolicy(db, slug);
     const acceptance = await db.policyAcceptance.findUnique({
       where: {
@@ -176,7 +178,7 @@ export async function studentPolicyStatus(db: DomainDb, userId: string) {
         },
       },
     });
-    if (!acceptance) return policy;
+    if (!acceptance || (tuteeEntry && !user.tuteeMember)) return policy;
   }
   return null;
 }
@@ -200,6 +202,7 @@ export async function assignStudentRequest(
     const tutor = await tx.tutor.findUnique({ where: { id: tutorId } });
     if (!subject?.active || tutor?.status !== "ACTIVE")
       fail("Choose an active subject and tutor.");
+    await assertQualified(tx, tutorId, subjectId);
     const student = await materializeStudent(tx, row);
     const existing = await tx.pairingTutee.findFirst({
       where: {

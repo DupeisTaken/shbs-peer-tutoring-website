@@ -36,3 +36,8 @@ it("revokes tutor participation on the next request when management removes the 
     }),
   ).toMatchObject({ sub: "student", tutorId: null });
 });
+
+it("revokes tutor session access while retaining historical identity links", async () => {
+  mocks.findUser.mockResolvedValue({ tutorId: "historical-tutor", tutorAccessRevoked: true, role: "VIEWER" });
+  expect(await mocks.jwt!({ token: { sub: "historic", role: "TUTOR", tutorId: "historical-tutor" } })).toMatchObject({ role: "VIEWER", tutorId: null });
+});
