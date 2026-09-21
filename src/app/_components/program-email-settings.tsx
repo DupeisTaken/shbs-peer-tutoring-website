@@ -2,12 +2,20 @@
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 
-/** Notification enablement is immediate and available to ADMIN/HEAD, unlike staged modules. */
+/** Independent immediate controls share query invalidation, never a combined toggle. */
 export function ProgramEmailSettings() {
   const t = useTranslations("programEmail");
   const utils = api.useUtils();
   const settings = api.program.emailNotificationSettings.useQuery();
   const save = api.program.setEmailNotifications.useMutation({
+    onSuccess: async () => {
+      await Promise.all([
+        utils.program.emailNotificationSettings.invalidate(),
+        utils.account.emailSettings.invalidate(),
+      ]);
+    },
+  });
+  const binding = api.program.setSecondaryEmailBinding.useMutation({
     onSuccess: async () => {
       await Promise.all([
         utils.program.emailNotificationSettings.invalidate(),
@@ -49,6 +57,44 @@ export function ProgramEmailSettings() {
         </label>
       )}
       <p className="muted text-xs">{t("essential")}</p>
+      <div className="space-y-3 border-t border-slate-100 pt-4">
+        <div className="flex items-start justify-between gap-4">
+          <div>
+            <h3 className="text-sm font-semibold text-slate-900">
+              {t("bindingTitle")}
+            </h3>
+            <p className="muted mt-1 text-sm">{t("bindingHelp")}</p>
+          </div>
+          {data && (
+            <span
+              className={
+                data.secondaryEmailBindingEnabled
+                  ? "badge-green"
+                  : "badge-slate"
+              }
+            >
+              {t(data.secondaryEmailBindingEnabled ? "on" : "off")}
+            </span>
+          )}
+        </div>
+        {data?.canEdit && (
+          <label className="flex min-h-11 items-center gap-3 rounded-lg border border-slate-200 p-3 text-sm font-medium">
+            <input
+              type="checkbox"
+              checked={data.secondaryEmailBindingEnabled}
+              disabled={binding.isPending}
+              onChange={(e) =>
+                binding.mutate({
+                  enabled: e.target.checked,
+                  expectedEnabled: data.secondaryEmailBindingEnabled,
+                })
+              }
+              className="accent-accent-600 h-4 w-4 shrink-0"
+            />
+            {t("bindingEnable")}
+          </label>
+        )}
+      </div>
       {data && !data.deliveryAvailable && (
         <p className="text-sm text-amber-800">{t("unavailable")}</p>
       )}
@@ -57,14 +103,14 @@ export function ProgramEmailSettings() {
           {t("failed", { count: data.failed })}
         </p>
       )}
-      {save.isSuccess && (
+      {(save.isSuccess || binding.isSuccess) && (
         <p role="status" className="text-sm text-green-700">
           {t("saved")}
         </p>
       )}
-      {(settings.error ?? save.error) && (
+      {(settings.error ?? save.error ?? binding.error) && (
         <p role="alert" className="text-sm text-red-700">
-          {(settings.error ?? save.error)?.message}
+          {(settings.error ?? save.error ?? binding.error)?.message}
         </p>
       )}
     </section>

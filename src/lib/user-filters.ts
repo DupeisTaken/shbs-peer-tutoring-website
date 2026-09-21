@@ -10,6 +10,21 @@ export const emptyUserFilters = (): UserFilters => ({
   status: { include: [], exclude: [] },
   account: { include: [], exclude: [] },
 });
+/** Only an explicit Tutor-only include makes lifecycle status meaningful. */
+export function isTutorStatusApplicable(role: Selection): boolean {
+  return (
+    role.include.length > 0 &&
+    role.include.every((value) => value === "TUTOR") &&
+    !role.exclude.includes("TUTOR")
+  );
+}
+
+/** Normalize on both restoration and edits so a hidden selection cannot return later. */
+export function normalizeUserFilters(filters: UserFilters): UserFilters {
+  return isTutorStatusApplicable(filters.role)
+    ? filters
+    : { ...filters, status: { include: [], exclude: [] } };
+}
 /** OR inside one include list, AND across dimensions; exclusion always takes precedence. */
 export function matchesSelection(
   value: string | null | undefined,
@@ -31,7 +46,8 @@ export function matchesUserFilters(
   return (
     !badges.some(badge => filters.role.exclude.includes(badge)) &&
     (!filters.role.include.length || badges.some(badge => filters.role.include.includes(badge))) &&
-    matchesSelection(row.tutorStatus, filters.status) &&
+    // Also guard matching itself for callers with old, unnormalized preferences.
+    (!isTutorStatusApplicable(filters.role) || matchesSelection(row.tutorStatus, filters.status)) &&
     matchesSelection(row.account, filters.account)
   );
 }
@@ -51,7 +67,7 @@ export function parseUserFilters(raw: string | null): UserFilters {
           );
       }
     }
-    return result;
+    return normalizeUserFilters(result);
   } catch {
     return emptyUserFilters();
   }

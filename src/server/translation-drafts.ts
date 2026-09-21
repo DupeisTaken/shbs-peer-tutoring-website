@@ -7,14 +7,14 @@ import {
   withTranslationWrite,
 } from "./translation-destination";
 import { z } from "zod";
-/** Public tables are never written by translator-only accounts. Staff review an immutable proposal. */
+/** Translators, including Coordinators, submit immutable drafts. Only Admin/Head publish. */
 export async function proposeTranslation(
   db: TransactionDb,
   session: { role: string; user: { id: string } },
   operation: string,
   payload: Prisma.InputJsonValue,
 ) {
-  if (["HEAD", "ADMIN", "COORDINATOR"].includes(session.role)) return false;
+  if (["HEAD", "ADMIN"].includes(session.role)) return false;
   await withTranslationWrite(db, async (tx) => {
     const fields = z.record(z.unknown()).parse(payload);
     const baseline = await translationBaseline(tx, operation, fields);
@@ -29,7 +29,10 @@ export async function proposeTranslation(
       },
     });
     await notifyAdmins(
-      { title: "Translation awaiting review", link: "/translation-review" },
+      {
+        title: "Translation awaiting review",
+        link: "/localization?view=review",
+      },
       undefined,
       tx,
     );

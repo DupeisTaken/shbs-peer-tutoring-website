@@ -206,42 +206,105 @@ export const protectedProcedure = t.procedure
     // Participant reads and writes share the same consent boundary as the tutee page.
     // Policy/onboarding and staff inspection remain available before participation is granted.
     const tuteeOperations = new Set([
-      "student.me", "student.feedback", "student.appeal", "studentWorkflow.mine",
-      "studentWorkflow.legacyParticipation", "studentWorkflow.applyLegacyWithdrawal",
-      "studentWorkflow.editAvailability", "studentWorkflow.recall", "studentWorkflow.applyAbort",
+      "student.me",
+      "student.feedback",
+      "student.appeal",
+      "studentWorkflow.mine",
+      "studentWorkflow.legacyParticipation",
+      "studentWorkflow.applyLegacyWithdrawal",
+      "studentWorkflow.editAvailability",
+      "studentWorkflow.recall",
+      "studentWorkflow.applyAbort",
     ]);
     if (tuteeOperations.has(path)) {
       if (account.role === "VIEWER" || !account.tuteeMember)
-        throw new TRPCError({ code: "FORBIDDEN", message: "Accept the tutee policy before entering the tutee area." });
-      if (account.tutorId && !(await ctx.db.policyAcceptance.findFirst({ where: { userId: ctx.session.user.id, slug: "tutee-policy" }, select: { id: true } })))
-        throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Accept the tutee policy before participating." });
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Accept the tutee policy before entering the tutee area.",
+        });
+      if (
+        account.tutorId &&
+        !(await ctx.db.policyAcceptance.findFirst({
+          where: { userId: ctx.session.user.id, slug: "tutee-policy" },
+          select: { id: true },
+        }))
+      )
+        throw new TRPCError({
+          code: "PRECONDITION_FAILED",
+          message: "Accept the tutee policy before participating.",
+        });
     }
     // A rank never substitutes for an explicit translator assignment, including queued writes.
-    if ((path.startsWith("localization.") || path === "i18n.addLanguage" ||
-      (path.startsWith("home.") && ["home.setContent", "home.setNewsTranslation", "home.setSectionTranslation", "home.setPageTitle"].includes(path))) && !account.canTranslate && !isTranslationPublication(ctx.session.user.id, account.role, path))
-      throw new TRPCError({ code: "FORBIDDEN", message: "Translation access required." });
+    if (
+      (path.startsWith("localization.") ||
+        path === "i18n.addLanguage" ||
+        (path.startsWith("home.") &&
+          [
+            "home.setContent",
+            "home.setNewsTranslation",
+            "home.setSectionTranslation",
+            "home.setPageTitle",
+          ].includes(path))) &&
+      !account.canTranslate &&
+      !isTranslationPublication(ctx.session.user.id, account.role, path)
+    )
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Translation access required.",
+      });
     // Central classification covers legacy entry points as well as profile editing.
     // Participant requests cannot execute mutations; their eventual reviewer must be Head.
     let headAssignment = HEAD_APPROVAL_OPERATIONS.has(path);
     if (path === "admin.updateTutor" && type === "mutation") {
       const raw = await getRawInput();
-      if (raw && typeof raw === "object" && "id" in raw && typeof raw.id === "string" && "status" in raw) {
-        const tutor = await ctx.db.tutor.findUnique({ where: { id: raw.id }, select: { status: true } });
+      if (
+        raw &&
+        typeof raw === "object" &&
+        "id" in raw &&
+        typeof raw.id === "string" &&
+        "status" in raw
+      ) {
+        const tutor = await ctx.db.tutor.findUnique({
+          where: { id: raw.id },
+          select: { status: true },
+        });
         headAssignment = !!tutor && tutor.status !== raw.status;
       }
     }
     if (type === "mutation" && account.role !== "HEAD" && headAssignment) {
-      if (!["ADMIN", "COORDINATOR"].includes(account.role) && path !== "tutor.decideInterview")
-        throw new TRPCError({ code: "FORBIDDEN", message: "Request badge changes from your account profile." });
-      const request = await queueProposal({ ...ctx.session, role: account.role }, path, await getRawInput());
+      if (
+        !["ADMIN", "COORDINATOR"].includes(account.role) &&
+        path !== "tutor.decideInterview"
+      )
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message: "Request badge changes from your account profile.",
+        });
+      const request = await queueProposal(
+        { ...ctx.session, role: account.role },
+        path,
+        await getRawInput(),
+      );
       const cause = new ApprovalQueued(request.id);
-      throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Submitted for Head approval. No access has changed.", cause });
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message: "Submitted for Head approval. No access has changed.",
+        cause,
+      });
     }
-    // Translator-facing editors also publish live content. Coordinator access always
-    // goes through review, regardless of which UI or procedure family is used.
+    // Text-only translator mutations validate and create destination-bound drafts in
+    // their resolvers. Other coordinator website changes use the general approval queue.
+    const translationDraftWrite = [
+      "localization.setString",
+      "home.setContent",
+      "home.setNewsTranslation",
+      "home.setSectionTranslation",
+      "home.setPageTitle",
+    ].includes(path);
     if (
       account.role === "COORDINATOR" &&
       type === "mutation" &&
+      !translationDraftWrite &&
       (path.startsWith("home.") ||
         path.startsWith("localization.") ||
         path === "tutor.decideInterview")
@@ -269,7 +332,10 @@ export const protectedProcedure = t.procedure
         session: {
           ...ctx.session,
           role: account.role,
-          tutorId: account.role === "VIEWER" || account.tutorAccessRevoked ? null : account.tutorId,
+          tutorId:
+            account.role === "VIEWER" || account.tutorAccessRevoked
+              ? null
+              : account.tutorId,
           user: ctx.session.user,
         },
       },
@@ -430,7 +496,8 @@ export const activeTutorProcedure = tutorProcedure.use(
  */
 export const translatorProcedure = protectedProcedure.use(
   async ({ ctx, next, path }) => {
-    if (isTranslationPublication(ctx.session.user.id, ctx.session.role, path)) return next();
+    if (isTranslationPublication(ctx.session.user.id, ctx.session.role, path))
+      return next();
     const me = await ctx.db.user.findUnique({
       where: { id: ctx.session.user.id },
       select: { canTranslate: true, role: true },
@@ -446,12 +513,22 @@ export const translatorProcedure = protectedProcedure.use(
 );
 
 /** Management may inspect/review submitted drafts without acquiring editing permission. */
-export const translationReviewerProcedure = protectedProcedure.use(async ({ ctx, next }) => {
-  if (["HEAD", "ADMIN", "COORDINATOR"].includes(ctx.session.role)) return next();
-  const user = await ctx.db.user.findUniqueOrThrow({ where: { id: ctx.session.user.id }, select: { canTranslate: true } });
-  if (!user.canTranslate) throw new TRPCError({ code: "FORBIDDEN", message: "Translation access required." });
-  return next();
-});
+export const translationReviewerProcedure = protectedProcedure.use(
+  async ({ ctx, next }) => {
+    if (["HEAD", "ADMIN", "COORDINATOR"].includes(ctx.session.role))
+      return next();
+    const user = await ctx.db.user.findUniqueOrThrow({
+      where: { id: ctx.session.user.id },
+      select: { canTranslate: true },
+    });
+    if (!user.canTranslate)
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Translation access required.",
+      });
+    return next();
+  },
+);
 
 /**
  * Crew procedure: an ACTIVE crew member (`crewStatus === "ACTIVE"`; a tutor can also be crew).

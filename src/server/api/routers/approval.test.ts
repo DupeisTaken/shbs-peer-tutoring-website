@@ -4,7 +4,12 @@ import type { Prisma } from "../../../../generated/prisma";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 import { createCaller } from "../root";
 import { db } from "~/server/db";
-import { ApprovalQueued, parseProposal } from "~/server/approvals";
+import {
+  ApprovalQueued,
+  parseProposal,
+  fingerprint,
+  proposalTargets,
+} from "~/server/approvals";
 import { databaseScope } from "~/server/db-scope";
 import { APPROVAL_OPERATIONS } from "~/lib/approval-policy";
 import { appRouter } from "../root";
@@ -83,6 +88,305 @@ beforeEach(async () => {
   });
 });
 afterAll(() => db.$disconnect());
+
+it("captures room identity for block review while retaining legacy proposal fingerprints", async () => {
+  const room = await db.room.create({ data: { name: "Immutable room name" } });
+  const block = await admin().admin.createRoomUnavailability({
+    roomId: room.id,
+    dayOfWeek: 1,
+    startMin: 60,
+    endMin: 120,
+  });
+  const request = await queued(() =>
+    trainee().admin.deleteRoomUnavailability({ id: block.id }),
+  );
+  expect(request.targets).toMatchObject({
+    roomBlockContext: { id: room.id, name: "Immutable room name" },
+  });
+  // Existing requests never had this display context. Replaying one must compare
+  // the old evidence shape, rather than forcing an unrelated stale rejection.
+  const legacyTargets = await proposalTargets(
+    db,
+    request.operation,
+    request.payload,
+  );
+  await db.approvalRequest.update({
+    where: { id: request.id },
+    data: { targets: legacyTargets, fingerprint: fingerprint(legacyTargets) },
+  });
+  await head().approval.decide({
+    id: request.id,
+    approve: true,
+    note: "Legacy evidence remains valid",
+  });
+  expect(
+    await db.roomUnavailability.findUnique({ where: { id: block.id } }),
+  ).toBeNull();
+});
+
+it("queues room block additions, edits and removals until Admin/Head approval", async () => {
+  const room = await db.room.create({ data: { name: "Room block requests" } });
+  const addition = await queued(() =>
+    trainee().admin.createRoomUnavailability({
+      roomId: room.id,
+      dayOfWeek: 1,
+      startMin: 720,
+      endMin: 780,
+      reason: "Assembly",
+    }),
+  );
+  expect(await db.roomUnavailability.count()).toBe(0);
+  await admin().approval.decide({
+    id: addition.id,
+    approve: true,
+    note: "Available for assembly",
+  });
+  const block = await db.roomUnavailability.findFirstOrThrow();
+  const edit = await queued(() =>
+    trainee().admin.updateRoomUnavailability({
+      id: block.id,
+      dayOfWeek: 2,
+      startMin: 780,
+      endMin: 840,
+      reason: "Moved assembly",
+    }),
+  );
+  expect(
+    await db.roomUnavailability.findUnique({ where: { id: block.id } }),
+  ).toEqual(block);
+  await head().approval.decide({
+    id: edit.id,
+    approve: true,
+    note: "New time confirmed",
+  });
+  expect(
+    await db.roomUnavailability.findUnique({ where: { id: block.id } }),
+  ).toMatchObject({
+    dayOfWeek: 2,
+    startMin: 780,
+    endMin: 840,
+    reason: "Moved assembly",
+  });
+  const removal = await queued(() =>
+    trainee().admin.deleteRoomUnavailability({ id: block.id }),
+  );
+  expect(await db.roomUnavailability.count()).toBe(1);
+  await admin().approval.decide({
+    id: removal.id,
+    approve: true,
+    note: "Room reopened",
+  });
+  expect(await db.roomUnavailability.count()).toBe(0);
+});
+
+it("rejection of each room block request leaves availability unchanged", async () => {
+  const room = await db.room.create({
+    data: { name: "Rejected block requests" },
+  });
+  const block = await head().admin.createRoomUnavailability({
+    roomId: room.id,
+    dayOfWeek: 1,
+    startMin: 60,
+    endMin: 120,
+  });
+  for (const submit of [
+    () =>
+      trainee().admin.createRoomUnavailability({
+        roomId: room.id,
+        dayOfWeek: 2,
+        startMin: 60,
+        endMin: 120,
+      }),
+    () =>
+      trainee().admin.updateRoomUnavailability({
+        id: block.id,
+        dayOfWeek: 3,
+        startMin: 120,
+        endMin: 180,
+      }),
+    () => trainee().admin.deleteRoomUnavailability({ id: block.id }),
+  ]) {
+    const request = await queued(submit);
+    await head().approval.decide({
+      id: request.id,
+      approve: false,
+      note: "Keep current availability",
+    });
+    expect(await db.roomUnavailability.findMany()).toEqual([block]);
+    expect(
+      await db.approvalRequest.findUnique({ where: { id: request.id } }),
+    ).toMatchObject({ state: "REJECTED" });
+  }
+});
+
+it("rejects invalid or conflicting coordinator blocks before creating requests", async () => {
+  const room = await db.room.create({ data: { name: "Block preflight" } });
+  const block = await admin().admin.createRoomUnavailability({
+    roomId: room.id,
+    dayOfWeek: 1,
+    startMin: 60,
+    endMin: 120,
+  });
+  await expect(
+    trainee().admin.createRoomUnavailability({
+      roomId: room.id,
+      dayOfWeek: 1,
+      startMin: 90,
+      endMin: 150,
+    }),
+  ).rejects.toMatchObject({ code: "CONFLICT" });
+  await expect(
+    trainee().admin.updateRoomUnavailability({
+      id: block.id,
+      dayOfWeek: 1,
+      startMin: 120,
+      endMin: 60,
+    }),
+  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  await expect(
+    trainee().admin.deleteRoomUnavailability({ id: "missing" }),
+  ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  expect(await db.approvalRequest.count()).toBe(0);
+});
+
+it.each(["VIEWER", "TUTOR", "CREW"] as const)(
+  "forbids %s direct room block writes",
+  async (role) => {
+    const room = await db.room.create({ data: { name: "Restricted room" } });
+    const block = await admin().admin.createRoomUnavailability({
+      roomId: room.id,
+      dayOfWeek: 1,
+      startMin: 60,
+      endMin: 120,
+    });
+    const caller = actor(`approval-${role.toLowerCase()}`, role);
+    await expect(
+      caller.admin.createRoomUnavailability({
+        roomId: room.id,
+        dayOfWeek: 2,
+        startMin: 60,
+        endMin: 120,
+      }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(
+      caller.admin.updateRoomUnavailability({
+        id: block.id,
+        dayOfWeek: 2,
+        startMin: 60,
+        endMin: 120,
+      }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(
+      caller.admin.deleteRoomUnavailability({ id: block.id }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(await db.roomUnavailability.findMany()).toEqual([block]);
+  },
+);
+
+it("forbids coordinator self-approval and detects stale block edit/remove targets", async () => {
+  const room = await db.room.create({ data: { name: "Stale block" } });
+  const block = await admin().admin.createRoomUnavailability({
+    roomId: room.id,
+    dayOfWeek: 1,
+    startMin: 60,
+    endMin: 120,
+  });
+  const edit = await queued(() =>
+    trainee().admin.updateRoomUnavailability({
+      id: block.id,
+      dayOfWeek: 2,
+      startMin: 120,
+      endMin: 180,
+    }),
+  );
+  const removal = await queued(() =>
+    trainee().admin.deleteRoomUnavailability({ id: block.id }),
+  );
+  await expect(
+    trainee().approval.decide({
+      id: edit.id,
+      approve: true,
+      note: "Attempt self approval",
+    }),
+  ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await head().admin.updateRoomUnavailability({
+    id: block.id,
+    dayOfWeek: 3,
+    startMin: 180,
+    endMin: 240,
+  });
+  for (const request of [edit, removal]) {
+    await expect(
+      admin().approval.decide({
+        id: request.id,
+        approve: true,
+        note: "Outdated",
+      }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(
+      await db.approvalRequest.findUnique({ where: { id: request.id } }),
+    ).toMatchObject({ state: "PENDING" });
+  }
+  expect(
+    await db.roomUnavailability.findUnique({ where: { id: block.id } }),
+  ).toMatchObject({ dayOfWeek: 3, startMin: 180, endMin: 240 });
+});
+
+it("revalidates booking conflicts at approval and does not reserve proposed times", async () => {
+  const room = await db.room.create({
+    data: { name: "Booking after proposal" },
+  });
+  const block = await admin().admin.createRoomUnavailability({
+    roomId: room.id,
+    dayOfWeek: 1,
+    startMin: 60,
+    endMin: 120,
+  });
+  const request = await queued(() =>
+    trainee().admin.updateRoomUnavailability({
+      id: block.id,
+      dayOfWeek: 2,
+      startMin: 120,
+      endMin: 180,
+    }),
+  );
+  const tutor = await db.tutor.create({
+    data: { englishName: "Synthetic room tutor" },
+  });
+  await db.pairing.create({
+    data: {
+      termId: "approval-term",
+      tutorId: tutor.id,
+      roomId: room.id,
+      subject: "Math",
+      dayOfWeek: 2,
+      startMin: 120,
+      endMin: 180,
+    },
+  });
+  await expect(
+    admin().approval.decide({
+      id: request.id,
+      approve: true,
+      note: "Now conflicting",
+    }),
+  ).rejects.toMatchObject({ code: "CONFLICT" });
+  expect(
+    await db.roomUnavailability.findUnique({ where: { id: block.id } }),
+  ).toEqual(block);
+  expect(
+    await db.approvalRequest.findUnique({ where: { id: request.id } }),
+  ).toMatchObject({ state: "PENDING" });
+  // The same conflict is caught before a fresh request enters the queue.
+  await expect(
+    trainee().admin.createRoomUnavailability({
+      roomId: room.id,
+      dayOfWeek: 2,
+      startMin: 120,
+      endMin: 180,
+    }),
+  ).rejects.toMatchObject({ code: "CONFLICT" });
+});
 
 it("queues coordinator changes without live writes and deduplicates retries", async () => {
   const request = await queued(() =>
@@ -478,11 +782,17 @@ it("queues translation publishing and detects edits to compound-key targets", as
     where: { id: { in: ["approval-coordinator", "approval-admin"] } },
     data: { canTranslate: true },
   });
+  await trainee().localization.setString({
+    locale: "en",
+    key: "approvals.title",
+    value: "Training approvals",
+  });
+  const draft = await db.translationDraft.findFirstOrThrow();
   const request = await queued(() =>
-    trainee().localization.setString({
-      locale: "en",
-      key: "approvals.title",
-      value: "Training approvals",
+    trainee().translationReview.decide({
+      id: draft.id,
+      approve: true,
+      expectedUpdatedAt: draft.updatedAt,
     }),
   );
   expect(await db.messageOverride.count()).toBe(0);
