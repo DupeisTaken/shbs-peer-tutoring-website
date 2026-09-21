@@ -1,11 +1,15 @@
 "use client";
 import { useState } from "react";
-import { useTranslations, useTimeZone } from "next-intl";
+import { useLocale, useTranslations, useTimeZone } from "next-intl";
 import { api, type RouterInputs } from "~/trpc/react";
 import { humanizeOperation } from "~/lib/approval-policy";
 import { auditActorLabel } from "~/lib/audit-actors";
 
 import { programDayStart, programDayEnd } from "~/lib/program-time";
+import {
+  programTimeZoneInputLabel,
+  programTimeZoneLabel,
+} from "~/lib/program-time-zone-label";
 export type AuditFilterInput = NonNullable<RouterInputs["admin"]["auditLog"]>;
 const empty = {
   userId: "",
@@ -25,6 +29,8 @@ export function AuditFilters({
 }) {
   const t = useTranslations("auditFilters");
   const timeZone = useTimeZone() ?? "Asia/Shanghai";
+  const locale = useLocale();
+  const [referenceTime] = useState(() => new Date());
   const [inputError, setInputError] = useState("");
   const [draft, setDraft] = useState(empty);
   const options = api.admin.auditFilterOptions.useQuery();
@@ -39,7 +45,10 @@ export function AuditFilters({
         { id: "__system__", label: t("system") },
         ...(options.data?.users.map((u) => ({
           id: u.id,
-          label: auditActorLabel(u, {unnamed:t("unnamedAccount"),former:t("formerAccount")}),
+          label: auditActorLabel(u, {
+            unnamed: t("unnamedAccount"),
+            former: t("formerAccount"),
+          }),
         })) ?? []),
       ],
     },
@@ -77,20 +86,27 @@ export function AuditFilters({
       className="card grid gap-4 p-5 sm:grid-cols-2 xl:grid-cols-4"
       onSubmit={(e) => {
         e.preventDefault();
-        try { setInputError(""); onApply({
-          userId: draft.userId || undefined,
-          kind: (draft.kind || undefined) as
-            "ACTION" | "DECISION" | "SUBMISSION" | "CANCELLATION" | undefined,
-          operation: draft.operation || undefined,
-          entity: draft.entity || undefined,
-          search: draft.search || undefined,
-          from: draft.from ? programDayStart(draft.from, timeZone) : undefined,
-          until: draft.until
-            ? new Date(
-                programDayEnd(draft.until, timeZone).getTime() + 1,
-              )
-            : undefined,
-        }); } catch (error) { setInputError(error instanceof Error ? error.message : "Invalid date"); }
+        try {
+          setInputError("");
+          onApply({
+            userId: draft.userId || undefined,
+            kind: (draft.kind || undefined) as
+              "ACTION" | "DECISION" | "SUBMISSION" | "CANCELLATION" | undefined,
+            operation: draft.operation || undefined,
+            entity: draft.entity || undefined,
+            search: draft.search || undefined,
+            from: draft.from
+              ? programDayStart(draft.from, timeZone)
+              : undefined,
+            until: draft.until
+              ? new Date(programDayEnd(draft.until, timeZone).getTime() + 1)
+              : undefined,
+          });
+        } catch (error) {
+          setInputError(
+            error instanceof Error ? error.message : "Invalid date",
+          );
+        }
       }}
     >
       {inputError && <p role="alert">{inputError}</p>}
@@ -159,7 +175,33 @@ export function AuditFilters({
         >
           {t("clear")}
         </button>
-        <p className="muted ml-auto text-xs">{t("utc", { zone: timeZone })}</p>
+        <p className="muted ml-auto text-xs">
+          {t("utc", {
+            // A date range can cross DST: show both endpoint labels instead of
+            // suggesting that today's offset applies to every historical record.
+            zone:
+              draft.from || draft.until
+                ? [
+                    ...new Set(
+                      [
+                        draft.from &&
+                          programTimeZoneInputLabel(
+                            `${draft.from}T00:00`,
+                            timeZone,
+                            locale,
+                          ),
+                        draft.until &&
+                          programTimeZoneInputLabel(
+                            `${draft.until}T23:59`,
+                            timeZone,
+                            locale,
+                          ),
+                      ].filter(Boolean),
+                    ),
+                  ].join(" → ")
+                : programTimeZoneLabel(timeZone, referenceTime, locale),
+          })}
+        </p>
       </div>
       {options.error && (
         <p role="alert" className="text-red-700 sm:col-span-2">

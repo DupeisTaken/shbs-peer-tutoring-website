@@ -1,3 +1,5 @@
+import { TRPCError } from "@trpc/server";
+import { currentPolicy } from "~/server/policy-acceptance";
 import { WorkspaceHeader } from "~/app/_components/workspace-header";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -27,7 +29,9 @@ export default async function TuteeLayout({
         email: true,
         username: true,
         role: true,
+        tuteeMember: true,
         crewStatus: true,
+      tutorAccessRevoked: true,
         canTranslate: true,
         suspendedAt: true,
         tutor: { select: { status: true } },
@@ -39,8 +43,20 @@ export default async function TuteeLayout({
   ]);
   if (!me) redirect("/signin");
   if (me.suspendedAt) redirect("/suspended");
+  if (me.role === "VIEWER") redirect("/admin/account");
+  // Visiting offers onboarding, never silently grants participation. The root policy gate
+  // records an exact revision and refreshes this server boundary after acceptance.
+  const policy = await currentPolicy(db, "tutee-policy").catch((error: unknown) => {
+    if (error instanceof TRPCError && error.code === "PRECONDITION_FAILED") return null;
+    throw error;
+  });
+  const acceptance = policy ? await db.policyAcceptance.findUnique({ where: {
+    userId_slug_revision: { userId: session.user.id, slug: "tutee-policy", revision: policy.revision },
+  } }) : null;
+  const pastAcceptance = acceptance ?? (me.tutor ? await db.policyAcceptance.findFirst({ where: { userId: session.user.id, slug: "tutee-policy" } }) : null);
+  const hasAccess = me.tuteeMember && (!me.tutor || !!pastAcceptance);
   const elevated = ["HEAD", "ADMIN", "COORDINATOR", "VIEWER"].includes(me.role);
-  const canTutor = !!me.tutor && (!elevated || me.tutor.status !== "ARCHIVED");
+  const canTutor = !me.tutorAccessRevoked && !!me.tutor && (!elevated || me.tutor.status !== "ARCHIVED");
   const workspaceItems = [
     ...(canTutor
       ? [{ href: "/dashboard", label: t("components.userMenu.enterTutor") }]
@@ -86,8 +102,12 @@ export default async function TuteeLayout({
         }
       />
       <main className="mx-auto max-w-6xl space-y-6 px-4 py-5 sm:py-8">
-        <TuteeNavigation />
-        {children}
+        {hasAccess ? <><TuteeNavigation />{children}</> : (
+          <section className="card space-y-3 p-5">
+            <h1 className="page-title">{t("workflow.policyTitle")}</h1>
+            <p className="muted">{t(policy ? "workflow.policyConsequences" : "workflow.policyLoadError")}</p>
+          </section>
+        )}
       </main>
     </div>
   );

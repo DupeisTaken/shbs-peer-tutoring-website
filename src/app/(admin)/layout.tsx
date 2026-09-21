@@ -42,6 +42,7 @@ export default async function AdminLayout({
     select: {
       username: true,
       crewStatus: true,
+      tutorAccessRevoked: true,
       suspendedAt: true,
       tutor: { select: { username: true, status: true } },
     },
@@ -52,14 +53,14 @@ export default async function AdminLayout({
   // Keyed off the DB link (`me.tutor`), not the JWT's `session.tutorId`, so toggling can-tutor on
   // shows the button on the next render without waiting for a re-login. The jwt callback keeps
   // `session.tutorId` in sync too, so following the link into the tutor area resolves correctly.
-  const canEnterTutor = !!me?.tutor && me.tutor.status !== "ARCHIVED";
+  const canEnterTutor = !me?.tutorAccessRevoked && !!me?.tutor && me.tutor.status !== "ARCHIVED";
   const features = await getFeatures(db);
   // Use one ordered list for visible shortcuts and the account submenu.
   const workspaceItems = [
     ...(canEnterTutor
       ? [{ href: "/dashboard", label: t("components.userMenu.enterTutor") }]
       : []),
-    { href: "/student", label: t("components.userMenu.enterTutee") },
+    ...(!readOnly ? [{ href: "/student", label: t("components.userMenu.enterTutee") }] : []),
   ];
   const accountItems = [
     ...workspaceItems,

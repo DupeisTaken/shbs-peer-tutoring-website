@@ -6,6 +6,7 @@ import { z } from "zod";
 import { Prisma } from "../../generated/prisma";
 import {
   APPROVAL_OPERATIONS,
+  HEAD_APPROVAL_OPERATIONS,
   humanizeOperation,
   proposalConfirmation,
 } from "~/lib/approval-policy";
@@ -215,7 +216,7 @@ export async function proposalTargets(
         ? operation === "admin.updateAccountProfile"
           ? // Review both explicit links and the current alternative name without exposing credentials.
             "jsonb_build_object('id', t.id, 'name', t.name, 'alternativeNames', t.\"alternativeNames\", 'profileVersion', t.\"profileVersion\", 'role', t.role, 'tutorId', t.\"tutorId\", 'studentId', t.\"studentId\")"
-          : "jsonb_build_object('id', t.id, 'name', t.name, 'role', t.role, 'tutorId', t.\"tutorId\", 'crewStatus', t.\"crewStatus\", 'suspendedAt', t.\"suspendedAt\")"
+          : "jsonb_build_object('id', t.id, 'name', t.name, 'role', t.role, 'tutorId', t.\"tutorId\", 'tutorAccessRevoked', t.\"tutorAccessRevoked\", 'tuteeMember', t.\"tuteeMember\", 'canTranslate', t.\"canTranslate\", 'crewStatus', t.\"crewStatus\", 'suspendedAt', t.\"suspendedAt\")"
         : "to_jsonb(t) - ARRAY['passwordHash','tokenHash','codeHash','undoData','details','data','policySnapshot']::text[]";
     targets[table] = await client.$queryRaw(
       Prisma.sql`SELECT ${Prisma.raw(fields)} AS record FROM ${Prisma.raw('"' + table + '"')} t WHERE t.id IN (${Prisma.join([...values].sort())}) ORDER BY t.id`,
@@ -266,6 +267,11 @@ export async function queueProposal(
   operation: string,
   input: unknown,
 ) {
+  // Identity challenges belong to the acting Head, never to persisted/requester payloads.
+  if (operation === "admin.setMemberships") {
+    const value = z.object({ userId: z.string(), membership: z.unknown() }).parse(input);
+    input = value;
+  }
   const payload = await parseProposal(operation, input);
   return inTransaction(db, async (tx) => {
     // Retry/double-click of the same unchanged proposal returns its existing request.
@@ -359,13 +365,13 @@ export async function queueProposal(
       },
     });
     const reviewers = await tx.user.findMany({
-      where: { role: { in: ["HEAD", "ADMIN"] }, suspendedAt: null },
+      where: { role: { in: HEAD_APPROVAL_OPERATIONS.has(operation) ? ["HEAD"] : ["HEAD", "ADMIN"] }, suspendedAt: null },
       select: { id: true },
     });
     await tx.notification.createMany({
       data: reviewers.map((u) => ({
         userId: u.id,
-        title: "Coordinator change awaiting approval",
+        title: HEAD_APPROVAL_OPERATIONS.has(operation) ? "Badge change awaiting Head approval" : "Coordinator change awaiting approval",
         body: `${requesterName}: ${humanizeOperation(operation)}`,
         link: `/admin/approvals?request=${request.id}`,
       })),

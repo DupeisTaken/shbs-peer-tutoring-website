@@ -37,7 +37,7 @@ export async function authorizeHomeEditor(): Promise<{
     select: { canTranslate: true, role: true, suspendedAt: true },
   });
   return {
-    ok: Boolean(me && !me.suspendedAt && ELEVATED_ROLES.includes(me.role)),
+    ok: Boolean(me && !me.suspendedAt && me.canTranslate && ELEVATED_ROLES.includes(me.role)),
     name,
   };
 }

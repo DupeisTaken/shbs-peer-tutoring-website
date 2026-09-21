@@ -1,14 +1,25 @@
 "use client";
 import { useState } from "react";
-import { useFormatter, useTranslations, useTimeZone } from "next-intl";
+import {
+  useFormatter,
+  useLocale,
+  useTranslations,
+  useTimeZone,
+} from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { useReadOnly } from "./read-only";
 
 import { programDateTimeInput, parseProgramDateTime } from "~/lib/program-time";
+import {
+  programTimeZoneInputLabel,
+  programTimeZoneLabel,
+} from "~/lib/program-time-zone-label";
 type Patrol = RouterOutputs["corrections"]["patrols"][number];
 function PatrolEditor({ row }: { row: Patrol }) {
   const t = useTranslations("corrections");
   const timeZone = useTimeZone() ?? "Asia/Shanghai";
+  const locale = useLocale();
+  const [draftTimes, setDraftTimes] = useState<Record<string, string>>({});
   const localTime = (date: Date) => programDateTimeInput(date, timeZone);
   const [inputError, setInputError] = useState("");
   const [open, setOpen] = useState(false);
@@ -21,7 +32,13 @@ function PatrolEditor({ row }: { row: Patrol }) {
     },
   });
   return (
-    <details open={open} onToggle={(e) => setOpen(e.currentTarget.open)}>
+    <details
+      open={open}
+      onToggle={(e) => {
+        setOpen(e.currentTarget.open);
+        if (!e.currentTarget.open) setDraftTimes({});
+      }}
+    >
       <summary className="link cursor-pointer">{t("editPatrol")}</summary>
       {open && rooms.data && (
         <form
@@ -34,21 +51,28 @@ function PatrolEditor({ row }: { row: Patrol }) {
               typeof data.get(key) === "string"
                 ? (data.get(key) as string)
                 : "";
-            try { setInputError(""); save.mutate({
-              id: row.id,
-              expectedUpdatedAt: row.updatedAt,
-              reason: v("reason"),
-              note: v("note") || null,
-              observations: row.observations.map((o) => ({
-                id: o.id,
-                roomId: v(`room-${o.id}`),
-                headcount: v(`count-${o.id}`) as typeof o.headcount,
-                observedAt:
-                  v(`time-${o.id}`) === localTime(o.observedAt)
-                    ? o.observedAt
-                    : parseProgramDateTime(v(`time-${o.id}`), timeZone),
-              })),
-            }); } catch (error) { setInputError(error instanceof Error ? error.message : "Invalid date"); }
+            try {
+              setInputError("");
+              save.mutate({
+                id: row.id,
+                expectedUpdatedAt: row.updatedAt,
+                reason: v("reason"),
+                note: v("note") || null,
+                observations: row.observations.map((o) => ({
+                  id: o.id,
+                  roomId: v(`room-${o.id}`),
+                  headcount: v(`count-${o.id}`) as typeof o.headcount,
+                  observedAt:
+                    v(`time-${o.id}`) === localTime(o.observedAt)
+                      ? o.observedAt
+                      : parseProgramDateTime(v(`time-${o.id}`), timeZone),
+                })),
+              });
+            } catch (error) {
+              setInputError(
+                error instanceof Error ? error.message : "Invalid date",
+              );
+            }
           }}
         >
           <p className="muted">{t("patrolHelp", { zone: timeZone })}</p>
@@ -88,13 +112,32 @@ function PatrolEditor({ row }: { row: Patrol }) {
                 </select>
               </label>
               <label>
-                <span className="label">{timeZone}</span>
+                <span className="label">
+                  {
+                    // Preserve the known instant (including a repeated DST hour)
+                    // until the user actually changes the observation's local time.
+                    draftTimes[o.id] === undefined ||
+                    draftTimes[o.id] === localTime(o.observedAt)
+                      ? programTimeZoneLabel(timeZone, o.observedAt, locale)
+                      : programTimeZoneInputLabel(
+                          draftTimes[o.id]!,
+                          timeZone,
+                          locale,
+                        )
+                  }
+                </span>
                 <input
                   className="input"
                   name={`time-${o.id}`}
                   type="datetime-local"
                   required
                   defaultValue={localTime(o.observedAt)}
+                  onChange={(event) =>
+                    setDraftTimes((previous) => ({
+                      ...previous,
+                      [o.id]: event.target.value,
+                    }))
+                  }
                 />
               </label>
             </fieldset>
@@ -143,8 +186,12 @@ export function PatrolCorrections() {
           className="space-y-2 border-t border-slate-100 pt-3"
         >
           <p className="font-medium">
-            {row.crewUser.name} · {programFormat.dateTime(row.createdAt, { dateStyle: "medium", timeStyle: "short" })} · {row.hours}{" "}
-            h
+            {row.crewUser.name} ·{" "}
+            {programFormat.dateTime(row.createdAt, {
+              dateStyle: "medium",
+              timeStyle: "short",
+            })}{" "}
+            · {row.hours} h
           </p>
           <p className="muted">
             {row.observations

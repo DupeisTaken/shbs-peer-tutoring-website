@@ -37,7 +37,7 @@ export default async function LocalizationLayout({
     },
   });
   if (me?.suspendedAt) redirect("/suspended");
-  if (!elevated && !me?.canTranslate) redirect("/");
+  if (!me?.canTranslate) redirect("/");
 
   const t = await getTranslations();
   // Where "home"/back goes: admin-area roles to /admin, a linked tutor to their dashboard.
