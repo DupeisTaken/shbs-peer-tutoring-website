@@ -2539,6 +2539,7 @@
     "dismiss": "关闭"
   },
   "programTimeZone": {
+    "referenceDate": "预览日期（UTC 12:00；不会更改设置）",
     "title": "项目时区",
     "help": "日期、时间安排、截止时间及通知统一使用学校时区。",
     "zone": "时区",
