@@ -1,3 +1,5 @@
+import { approveQualification, lockCatalogue } from "~/server/qualifications";
+import { subjectOrderBy } from "~/lib/course-catalogue";
 import type { Prisma } from "../../../../generated/prisma";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
@@ -80,9 +82,12 @@ export const interviewManagementRouter = createTRPCRouter({
           }),
           ctx.db.subject.findMany({
             select: { id: true, name: true, active: true },
-            orderBy: { name: "asc" },
+            orderBy: [...subjectOrderBy],
           }),
-          ctx.db.tutorQualification.findMany(),
+          ctx.db.tutorQualification.findMany({
+            where: { status: "APPROVED" },
+            include: { grants: true },
+          }),
           ctx.db.tutorApplication.findMany({
             where,
             // Imported/batched applications may share timestamps; offset pages need a total order.
@@ -130,21 +135,14 @@ export const interviewManagementRouter = createTRPCRouter({
       inTransaction(ctx.db, async (tx) => {
         await tx.tutor.findUniqueOrThrow({ where: { id: input.tutorId } });
         await tx.subject.findUniqueOrThrow({ where: { id: input.subjectId } });
+        await lockCatalogue(tx);
         if (input.qualified)
-          await tx.tutorQualification.upsert({
-            where: {
-              tutorId_subjectId: {
-                tutorId: input.tutorId,
-                subjectId: input.subjectId,
-              },
-            },
-            update: { approvedById: ctx.session.user.id },
-            create: {
-              tutorId: input.tutorId,
-              subjectId: input.subjectId,
-              approvedById: ctx.session.user.id,
-            },
-          });
+          await approveQualification(
+            tx,
+            input.tutorId,
+            input.subjectId,
+            ctx.session.user.id,
+          );
         else
           await tx.tutorQualification.deleteMany({
             where: { tutorId: input.tutorId, subjectId: input.subjectId },

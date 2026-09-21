@@ -85,9 +85,9 @@ const ROOM_BLOCKS = [
 ];
 
 const LEVELS = [
-  { id: seedId("level-ap"), name: "AP", rank: 0, apScored: true },
-  { id: seedId("level-honors"), name: "Honors", rank: 1, apScored: false },
-  { id: seedId("level-standard"), name: "Standard", rank: 2, apScored: false },
+  { id: seedId("level-ap"), name: "AP", rank: 2, apScored: true, prefix: "AP" },
+  { id: seedId("level-honors"), name: "Honors", rank: 1, apScored: false, prefix: "Honors" },
+  { id: seedId("level-standard"), name: "Standard", rank: 0, apScored: false, prefix: "" },
 ];
 
 const SUBJECTS = [
@@ -654,10 +654,17 @@ async function main() {
 
   // --- Subject levels + subjects ---------------------------------------------
   for (const level of LEVELS) {
-    await db.subjectLevel.upsert({ where: { id: level.id }, update: { name: level.name, rank: level.rank, apScored: level.apScored }, create: level });
+    await db.subjectLevel.upsert({ where: { id: level.id }, update: { name: level.name, rank: level.rank, apScored: level.apScored, prefix: level.prefix }, create: level });
   }
-  for (const subject of SUBJECTS) {
-    await db.subject.upsert({ where: { id: subject.id }, update: { name: subject.name, levelId: subject.levelId }, create: subject });
+  for (const [rank, subject] of SUBJECTS.entries()) {
+    // Stable demo group/variant IDs preserve references when the seed is rerun.
+    const prefix = LEVELS.find((level) => level.id === subject.levelId)?.prefix ?? "";
+    const baseName = prefix && subject.name.startsWith(`${prefix} `) ? subject.name.slice(prefix.length + 1) : subject.name;
+    const groupId = `legacy_${subject.id}`;
+    await db.courseGroup.upsert({ where: { id: groupId }, update: { name: baseName, rank }, create: { id: groupId, name: baseName, rank } });
+    const name = [prefix, baseName].filter(Boolean).join(" ");
+    const data = { name, levelId: subject.levelId, baseName, groupId };
+    await db.subject.upsert({ where: { id: subject.id }, update: data, create: { id: subject.id, ...data } });
   }
 
   // --- Time slots ------------------------------------------------------------
@@ -709,7 +716,9 @@ async function main() {
 
   // --- Pairings (with rostered tutees) ---------------------------------------
   for (const p of PAIRINGS) {
-    const data = { subject: p.subject, dayOfWeek: p.day, startMin: hm(p.start), endMin: hm(p.end), tutorId: p.tutorId, termId: term.id, roomId: p.roomId, timeSlotId: p.slotId };
+    const source = SUBJECTS.find((subject) => subject.name === p.subject);
+    const displaySubject = source ? (await db.subject.findUniqueOrThrow({ where: { id: source.id } })).name : p.subject;
+    const data = { subject: displaySubject, dayOfWeek: p.day, startMin: hm(p.start), endMin: hm(p.end), tutorId: p.tutorId, termId: term.id, roomId: p.roomId, timeSlotId: p.slotId };
     await db.pairing.upsert({ where: { id: p.id }, update: data, create: { id: p.id, ...data } });
     for (const tuteeId of p.tuteeIds) {
       await db.pairingTutee.upsert({ where: { pairingId_tuteeId: { pairingId: p.id, tuteeId } }, update: {}, create: { pairingId: p.id, tuteeId } });

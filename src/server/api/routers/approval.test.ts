@@ -535,6 +535,15 @@ it("applies a nested transaction and its helper audit records as one decision", 
       timeSlotId: slot.id,
     },
   });
+  const physics = await db.subject.create({ data: { name: "Physics" } });
+  await db.tutorQualification.create({
+    data: {
+      tutorId: tutor.id,
+      subjectId: physics.id,
+      approvedById: "approval-admin",
+      grants: { create: { subjectId: physics.id } },
+    },
+  });
   const request = await queued(() =>
     trainee().admin.updatePairing({
       id: pairing.id,
@@ -587,6 +596,7 @@ it("requires Head approval for a coordinator chair's final interview decision", 
       tutorId: tutor.id,
       subjectId: subject.id,
       approvedById: "approval-admin",
+      grants: { create: { subjectId: subject.id } },
     },
   });
   // A four-person qualified panel ties 2–2. The chair's choice must survive Head review.

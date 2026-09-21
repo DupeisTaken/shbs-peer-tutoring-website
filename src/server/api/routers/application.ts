@@ -1,3 +1,4 @@
+import { subjectOrderBy } from "~/lib/course-catalogue";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -17,7 +18,7 @@ export const applicationRouter = createTRPCRouter({
   options: publicProcedure.query(({ ctx }) =>
     ctx.db.subject.findMany({
       where: { active: true },
-      orderBy: { name: "asc" },
+      orderBy: [...subjectOrderBy],
       select: {
         id: true,
         name: true,
@@ -32,7 +33,9 @@ export const applicationRouter = createTRPCRouter({
    */
   policy: publicProcedure
     .input(z.object({ locale: z.string().optional() }).optional())
-    .query(({ ctx, input }) => localizedPolicy(ctx.db, "tutor-policy", input?.locale)),
+    .query(({ ctx, input }) =>
+      localizedPolicy(ctx.db, "tutor-policy", input?.locale),
+    ),
 
   submit: publicProcedure
     .input(
@@ -66,7 +69,10 @@ export const applicationRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const subjectIds = input.subjects.map((c) => c.subjectId);
       if (new Set(subjectIds).size !== subjectIds.length) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Duplicate subject selected." });
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Duplicate subject selected.",
+        });
       }
 
       const valid = await ctx.db.subject.findMany({
@@ -74,10 +80,15 @@ export const applicationRouter = createTRPCRouter({
         select: { id: true, level: { select: { apScored: true } } },
       });
       if (valid.length !== subjectIds.length) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Invalid subject selection." });
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Invalid subject selection.",
+        });
       }
       // A subject can carry an AP score only if its level is flagged apScored.
-      const apEligibleById = new Map(valid.map((c) => [c.id, c.level?.apScored ?? false]));
+      const apEligibleById = new Map(
+        valid.map((c) => [c.id, c.level?.apScored ?? false]),
+      );
 
       await ctx.db.tutorApplication.create({
         data: {
@@ -91,13 +102,16 @@ export const applicationRouter = createTRPCRouter({
               const apEligible = apEligibleById.get(c.subjectId) === true;
               const hasApScore = apEligible && c.hasApScore;
               const selfStudyNote =
-                c.selfStudied && c.selfStudyNote?.trim() ? c.selfStudyNote.trim() : null;
+                c.selfStudied && c.selfStudyNote?.trim()
+                  ? c.selfStudyNote.trim()
+                  : null;
               return {
                 subjectId: c.subjectId,
                 taken: c.taken,
                 grade: c.taken && c.grade?.trim() ? c.grade.trim() : null,
                 hasApScore,
-                apScore: hasApScore && c.apScore?.trim() ? c.apScore.trim() : null,
+                apScore:
+                  hasApScore && c.apScore?.trim() ? c.apScore.trim() : null,
                 selfStudied: c.selfStudied,
                 selfStudyNote,
               };

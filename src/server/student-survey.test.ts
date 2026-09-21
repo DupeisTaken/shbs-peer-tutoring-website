@@ -1,3 +1,4 @@
+import { approveQualification } from "~/server/qualifications";
 import { applyLegacyStudentWithdrawal } from "./legacy-student-withdrawal";
 import { beforeEach, afterAll, describe, it, expect, vi } from "vitest";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
@@ -60,6 +61,9 @@ async function assigned(verify = false) {
   const tutor = await db.tutor.create({
     data: { englishName: "Tutor One", status: "ACTIVE" },
   });
+  await db.$transaction((tx) =>
+    approveQualification(tx, tutor.id, "survey-math", "manager"),
+  );
   const tutorUser = await db.user.create({
     data: { email: "tutor@example.test", role: "TUTOR", tutorId: tutor.id },
   });
@@ -448,7 +452,10 @@ describe("survey-first enrollment", () => {
     expect(updated.passwordHash).toBe(user.passwordHash);
     expect(updated.role).toBe("COORDINATOR");
     expect(updated.studentId).not.toBeNull();
-    expect((await db.tutee.findUniqueOrThrow({ where: { id: updated.studentId! } })).signupSource).toBe("SELF_SERVICE");
+    expect(
+      (await db.tutee.findUniqueOrThrow({ where: { id: updated.studentId! } }))
+        .signupSource,
+    ).toBe("SELF_SERVICE");
   });
   it("rejects expired links, then permits recovery without resetting the timestamp", async () => {
     await submitSurvey(db, input());
@@ -547,6 +554,9 @@ describe("student request lifecycle", () => {
     const tutor = await db.tutor.create({
       data: { englishName: "Tutor", status: "ACTIVE" },
     });
+    await db.$transaction((tx) =>
+      approveQualification(tx, tutor.id, "survey-math", "manager"),
+    );
     const ticket = await prepareStudentAction(db, "manager", "ASSIGN", row.id);
     await expect(
       assignStudentRequest(
@@ -711,6 +721,9 @@ describe("student request lifecycle", () => {
     const tutor = await db.tutor.create({
       data: { englishName: "Roster Tutor", status: "ACTIVE" },
     });
+    await db.$transaction((tx) =>
+      approveQualification(tx, tutor.id, "survey-math", "manager"),
+    );
     const caller = createCallerFactory(adminRouter)({
       db,
       headers: new Headers(),
@@ -908,57 +921,66 @@ describe("student request lifecycle", () => {
     expect(current.firstAssignedAt).toEqual(row.firstAssignedAt);
     expect(await db.studentQuarterBlock.count()).toBe(0);
   });
-  it.each(["STAFF", "SELF_SERVICE", "UNKNOWN"] as const)("preserves %s provenance while explicit owners withdraw and staff approval blocks repeat signup", async (signupSource) => {
-    const { row } = await assigned(true);
-    const owner = await db.user.findUniqueOrThrow({ where: { email } });
-    await db.studentSurvey.delete({ where: { id: row.id } });
-    await db.tutee.update({ where: { id: row.tuteeId! }, data: { signupSource } });
-    const other = await db.user.create({
-      data: { email: "different@example.test", role: "STUDENT" },
-    });
-    const target = `legacy:${row.tuteeId}`;
-    await expect(
-      applyLegacyStudentWithdrawal(
+  it.each(["STAFF", "SELF_SERVICE", "UNKNOWN"] as const)(
+    "preserves %s provenance while explicit owners withdraw and staff approval blocks repeat signup",
+    async (signupSource) => {
+      const { row } = await assigned(true);
+      const owner = await db.user.findUniqueOrThrow({ where: { email } });
+      await db.studentSurvey.delete({ where: { id: row.id } });
+      await db.tutee.update({
+        where: { id: row.tuteeId! },
+        data: { signupSource },
+      });
+      const other = await db.user.create({
+        data: { email: "different@example.test", role: "STUDENT" },
+      });
+      const target = `legacy:${row.tuteeId}`;
+      await expect(
+        applyLegacyStudentWithdrawal(
+          db,
+          other.id,
+          row.tuteeId!,
+          "Leaving",
+          await ready("ABORT", target, other.id),
+        ),
+      ).rejects.toMatchObject({ code: "FORBIDDEN" });
+      await applyLegacyStudentWithdrawal(
         db,
-        other.id,
+        owner.id,
         row.tuteeId!,
         "Leaving",
-        await ready("ABORT", target, other.id),
-      ),
-    ).rejects.toMatchObject({ code: "FORBIDDEN" });
-    await applyLegacyStudentWithdrawal(
-      db,
-      owner.id,
-      row.tuteeId!,
-      "Leaving",
-      await ready("ABORT", target, owner.id),
-    );
-    expect(await db.pairingTutee.count()).toBe(1);
-    const review = await db.studentRequestReview.findFirstOrThrow();
-    expect(review.kind).toBe("STUDENT_ABORT");
-    expect(review.surveyId).toBeNull();
-    await resolveStudentReview(
-      db,
-      "manager",
-      review.id,
-      true,
-      await ready("APPROVE", review.id),
-    );
-    expect(await db.pairingTutee.count()).toBe(0);
-    expect(
-      (await db.tutee.findUniqueOrThrow({ where: { id: row.tuteeId! } }))
-        .status,
-    ).toBe("INACTIVE");
-    expect(await db.studentQuarterBlock.findFirstOrThrow()).toMatchObject({
-      userId: owner.id,
-      legacyTuteeId: row.tuteeId,
-      surveyId: null,
-    });
-    expect((await db.tutee.findUniqueOrThrow({ where: { id: row.tuteeId! } })).signupSource).toBe(signupSource);
-    await expect(submitSurvey(db, input())).rejects.toMatchObject({
-      code: "FORBIDDEN",
-    });
-  });
+        await ready("ABORT", target, owner.id),
+      );
+      expect(await db.pairingTutee.count()).toBe(1);
+      const review = await db.studentRequestReview.findFirstOrThrow();
+      expect(review.kind).toBe("STUDENT_ABORT");
+      expect(review.surveyId).toBeNull();
+      await resolveStudentReview(
+        db,
+        "manager",
+        review.id,
+        true,
+        await ready("APPROVE", review.id),
+      );
+      expect(await db.pairingTutee.count()).toBe(0);
+      expect(
+        (await db.tutee.findUniqueOrThrow({ where: { id: row.tuteeId! } }))
+          .status,
+      ).toBe("INACTIVE");
+      expect(await db.studentQuarterBlock.findFirstOrThrow()).toMatchObject({
+        userId: owner.id,
+        legacyTuteeId: row.tuteeId,
+        surveyId: null,
+      });
+      expect(
+        (await db.tutee.findUniqueOrThrow({ where: { id: row.tuteeId! } }))
+          .signupSource,
+      ).toBe(signupSource);
+      await expect(submitSurvey(db, input())).rejects.toMatchObject({
+        code: "FORBIDDEN",
+      });
+    },
+  );
   it("declining a manual student withdrawal leaves the student assigned", async () => {
     const { row } = await assigned(true);
     const owner = await db.user.findUniqueOrThrow({ where: { email } });
