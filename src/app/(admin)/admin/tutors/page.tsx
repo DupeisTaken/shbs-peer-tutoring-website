@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 
 import { EmailDetails } from "~/app/_components/email-details";
 import { TutorProfileEditor } from "~/app/_components/tutor-profile-editor";
+import { TutorDetailsButton } from "~/app/_components/tutor-details";
 import { api } from "~/trpc/react";
 import { SortHeader, useSort, compare } from "~/app/_components/sortable";
 import { useReadOnly } from "~/app/_components/read-only";
@@ -158,7 +159,8 @@ export default function TutorsPage() {
               <SortHeader sort={sort} sortKey="status">
                 {t("admin.tutors.colStatus")}
               </SortHeader>
-              <th>
+              {/* Anchor the absolute sr-only label inside the scrolling table. */}
+              <th className="relative">
                 <span className="sr-only">
                   {t("accountProfile.editProfile")}
                 </span>
@@ -185,6 +187,7 @@ export default function TutorsPage() {
                       {t("accountProfile.setupRequired")}
                     </p>
                   )}
+                  <TutorDetailsButton tutorId={row.id} name={row.englishName} />
                 </td>
                 <td>
                   <EmailDetails
