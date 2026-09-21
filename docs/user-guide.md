@@ -22,16 +22,16 @@ Use this guide with the website address supplied by your program. Page names bel
 
 The website supports intake, matching, attendance, hours, interviews, support and reviewed management changes. The operator must configure real email delivery and publish the current school policies before opening public intake. The repository contains [sample policies](policies/README.md) for adaptation; changing a sample does not publish a school policy.
 
-| Your access | Start with | Important boundary |
-| --- | --- | --- |
-| Tutee participation (any account role) | Enter Tutee page | Your own records and participation |
-| Tutor | Dashboard | Your linked tutor profile and assignments |
-| Crew | Patrol | Active crew participation; the crew module must be enabled |
-| Coordinator | Management area / Management Actions | Sensitive changes wait for ADMIN or HEAD review |
-| Administrator | Management area | Operational management; HEAD-only powers remain restricted |
-| HEAD | Program & Refresh / Users & Roles | One program leader; controls leadership and elevated configuration |
-| Viewer | Read-only management area | Permitted summaries with personal contact details masked |
-| Assigned translator | Translations / Translation Review | Draft translations; assignment is an extra permission, not a management role |
+| Your access                            | Start with                           | Important boundary                                                                                                |
+| -------------------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| Tutee participation (any account role) | Enter Tutee page                     | Your own records and participation                                                                                |
+| Tutor                                  | Dashboard                            | Your linked tutor profile and assignments                                                                         |
+| Crew                                   | Patrol                               | Active crew participation; the crew module must be enabled                                                        |
+| Coordinator                            | Management area / Management Actions | Sensitive changes wait for ADMIN or HEAD review                                                                   |
+| Administrator                          | Management area                      | Operational management; HEAD-only powers remain restricted                                                        |
+| HEAD                                   | Program & Refresh / Users & Roles    | One program leader; controls leadership and elevated configuration                                                |
+| Viewer                                 | Read-only management area            | Permitted summaries with personal contact details masked                                                          |
+| Assigned translator                    | Translations                         | Edit interface or website text and follow draft review in one editor; assignment is separate from management rank |
 
 A role and a tutor or crew membership are different things. A management account needs an active linked tutor profile to perform tutor duties. Every active non-Viewer account can enter tutee onboarding, including tutors, crew and administrators. First accept the published tutee policy; acceptance records its exact revision and grants tutee membership. Visiting alone does not grant access or create a tutoring request. Tutee participation and history coexist with other account roles. Suspension prevents ordinary participation; follow the suspension page’s appeal route.
 
@@ -59,15 +59,15 @@ An account link lasts 24 hours. Request a new link if it expires; a successful r
 
 The tutee page uses the same top bar, account menu, theme and card layout as the tutor page. Choose a section from its navigation:
 
-| Section | What you can do |
-| --- | --- |
-| Dashboard | See current scheduled sessions and verified open requests, then follow a link to the task you need |
-| My Tutors & Schedule | See current tutoring sessions, tutors, times and rooms across your explicitly linked profiles |
-| Requests | Review confirmed requests, change availability and manage participation; completed requests remain in the current period’s history |
-| Attendance | Review recorded sessions across intakes and submit feedback |
-| Support | Review your disciplinary cards and appeals or open a private conversation |
-| Messages | Read and send messages within the tutee workspace |
-| Account | Manage your shared account within the tutee workspace |
+| Section              | What you can do                                                                                                                    |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Dashboard            | See current scheduled sessions and verified open requests, then follow a link to the task you need                                 |
+| My Tutors & Schedule | See current tutoring sessions, tutors, times and rooms across your explicitly linked profiles                                      |
+| Requests             | Review confirmed requests, change availability and manage participation; completed requests remain in the current period’s history |
+| Attendance           | Review recorded sessions across intakes and submit feedback                                                                        |
+| Support              | Review your disciplinary cards and appeals or open a private conversation                                                          |
+| Messages             | Read and send messages within the tutee workspace                                                                                  |
+| Account              | Manage your shared account within the tutee workspace                                                                              |
 
 **Request a Tutor** is available in every section and opens the existing request form. A program period is labeled **Quarter** when quarters are enabled and **Semester** when semester mode is applied; request and withdrawal wording follows that setting. A staged mode change does not change the current display.
 
@@ -75,12 +75,12 @@ Current schedules include only active-period assignments on explicitly owned, no
 
 ### Manage a request
 
-| What you need | Action | What happens |
-| --- | --- | --- |
-| Change your available times | **Edit availability** | Subjects, priority and current assignments stay the same; coordinate the actual meeting with your tutor |
-| Cancel an unassigned request | Recall it and confirm the consequences | That request closes permanently; applying again creates a new timestamp |
-| Leave after assignment | **Request withdrawal…** and give a reason | Assignment continues during review; approval ends participation and blocks another request in the current program period |
-| See the result | **Current request** and **Processed** | Review state and assignment are shown separately |
+| What you need                | Action                                    | What happens                                                                                                             |
+| ---------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Change your available times  | **Edit availability**                     | Subjects, priority and current assignments stay the same; coordinate the actual meeting with your tutor                  |
+| Cancel an unassigned request | Recall it and confirm the consequences    | That request closes permanently; applying again creates a new timestamp                                                  |
+| Leave after assignment       | **Request withdrawal…** and give a reason | Assignment continues during review; approval ends participation and blocks another request in the current program period |
+| See the result               | **Current request** and **Processed**     | Review state and assignment are shown separately                                                                         |
 
 Important actions display consequences and a countdown before confirmation. A pending request is not an approved change. If a tutor reports a schedule conflict, an approved rejection removes only that tutor’s assignment and returns your request for matching at its original priority.
 
@@ -226,9 +226,9 @@ If you need a different role or access to your own participation record, request
 
 ## Translators
 
-Translator access requires an explicit HEAD-approved assignment, even for management accounts. Management can review submitted drafts without receiving translation editing permission. Use **Translations** for interface text and **Translation Review** for website text drafts. Choose the correct language and destination, preserve meaning, and submit a draft for review.
+Translator access requires an explicit HEAD-approved assignment, even for management accounts. **Translations** opens the integrated editor: **Interface text**, **Website text**, and **Draft review**. Management without Translator assignment sees draft review only. Choose the correct language and destination, preserve meaning, and submit for review. Interface text submits when focus leaves a changed field; website text has an explicit submission button.
 
-Draft text becomes live only after management approval. A coordinator’s translation decision also requires ADMIN/HEAD review. If the destination changes before approval, submit a fresh draft against the current text. Translator assignment does not permit structural page deletion, account administration or unilateral policy publication. Policy translations require the separate [policy review process](policies/README.md).
+Translator and Coordinator edits create private drafts, including all five text destinations. Only ADMIN/HEAD can approve and publish or reject a draft. Coordinators can **Request Admin/Head approval**, which leaves the draft pending. ADMIN/HEAD with an explicit Translator assignment may also publish their own direct edits; the editor identifies these as live changes. Filter draft review by pending, published, rejected or all drafts. Historical drafts remain available, and old review bookmarks open this editor. If the destination changes before approval, submit a fresh draft against the current text. Translator assignment does not permit structural page deletion, account administration or unilateral policy publication. Policy translations require the separate [policy review process](policies/README.md).
 
 ## Account settings and private support
 
@@ -262,19 +262,19 @@ When a published policy applicable to your linked student or tutor profile chang
 
 ## Troubleshooting
 
-| What you see | What to do |
-| --- | --- |
-| Intake has not opened | Check the displayed opening time or preview; account creation does not change survey priority |
-| Confirmation link expired | Request a new link; use the most recent successfully sent link |
-| Verification deadline passed | Submit a new request if eligible; resending the old link cannot extend the deadline |
-| A new policy is required | Read and accept the displayed revision; history and private support remain accessible |
-| Change is pending | Open Management Actions; live records stay unchanged until approval |
-| Affected records changed | Reviewer rejects the stale proposal; coordinator prepares a new one using current records |
-| Assignment applied but email failed | Keep the assignment; resend its verification link and check delivery configuration |
-| Interview decision blocked | Check every vote, active panel membership, highest-ranking chair and subject qualification |
-| A permission/page is missing | Check role, linked membership, suspension and enabled module with management |
-| Hours look different from ordinary rounding | Compare recorded attendance with the [implemented rounding examples](../prisma/policies/tutor-policy.en.md#service-hours) in the sample policy |
-| A correction did not change the expected record | Check approval state, date/program period and the audit trail; ask management to investigate |
+| What you see                                    | What to do                                                                                                                                     |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Intake has not opened                           | Check the displayed opening time or preview; account creation does not change survey priority                                                  |
+| Confirmation link expired                       | Request a new link; use the most recent successfully sent link                                                                                 |
+| Verification deadline passed                    | Submit a new request if eligible; resending the old link cannot extend the deadline                                                            |
+| A new policy is required                        | Read and accept the displayed revision; history and private support remain accessible                                                          |
+| Change is pending                               | Open Management Actions; live records stay unchanged until approval                                                                            |
+| Affected records changed                        | Reviewer rejects the stale proposal; coordinator prepares a new one using current records                                                      |
+| Assignment applied but email failed             | Keep the assignment; resend its verification link and check delivery configuration                                                             |
+| Interview decision blocked                      | Check every vote, active panel membership, highest-ranking chair and subject qualification                                                     |
+| A permission/page is missing                    | Check role, linked membership, suspension and enabled module with management                                                                   |
+| Hours look different from ordinary rounding     | Compare recorded attendance with the [implemented rounding examples](../prisma/policies/tutor-policy.en.md#service-hours) in the sample policy |
+| A correction did not change the expected record | Check approval state, date/program period and the audit trail; ask management to investigate                                                   |
 
 ## Report a problem
 

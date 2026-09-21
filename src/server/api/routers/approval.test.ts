@@ -782,11 +782,17 @@ it("queues translation publishing and detects edits to compound-key targets", as
     where: { id: { in: ["approval-coordinator", "approval-admin"] } },
     data: { canTranslate: true },
   });
+  await trainee().localization.setString({
+    locale: "en",
+    key: "approvals.title",
+    value: "Training approvals",
+  });
+  const draft = await db.translationDraft.findFirstOrThrow();
   const request = await queued(() =>
-    trainee().localization.setString({
-      locale: "en",
-      key: "approvals.title",
-      value: "Training approvals",
+    trainee().translationReview.decide({
+      id: draft.id,
+      approve: true,
+      expectedUpdatedAt: draft.updatedAt,
     }),
   );
   expect(await db.messageOverride.count()).toBe(0);

@@ -6,35 +6,35 @@ Use this guide to find the code responsible for current behavior and understand 
 
 The application runs as a persistent Next.js 16 / React 19 Node server with tRPC 11, Prisma 7/PostgreSQL, Auth.js JWT sessions, next-intl and Tailwind CSS 4. It is not a static export: background verification deadlines, authentication and database mutations require the server.
 
-| Change you need | Start here |
-| --- | --- |
-| Add or change a page | [App routes](../src/app), [shared components](../src/app/_components) and [message catalogs](../messages) |
-| Add an API operation or access rule | [Router composition](../src/server/api/root.ts) and [procedure middleware](../src/server/api/trpc.ts) |
-| Change schema or transactions | [Prisma schema](../prisma/schema.prisma), [migrations](../prisma/migrations), [database client](../src/server/db.ts) and [transaction helpers](../src/server/transactions.ts) |
-| Change management review | [Operation classification](../src/lib/approval-policy.ts), [proposals](../src/server/approvals.ts) and [approval router](../src/server/api/routers/approval.ts) |
-| Change intake or participation | [Surveys](../src/server/student-survey.ts), [student workflow](../src/server/student-workflow.ts), [ownership](../src/server/student-ownership.ts) and [membership](../src/server/membership.ts) |
-| Change profile synchronization | [Account profiles](../src/server/account-profile.ts) |
-| Change messaging or recipient access | [Messaging permissions](../src/server/messaging-permissions.ts) and [messaging router](../src/server/api/routers/messaging.ts) |
-| Change hours or historical corrections | [Hour calculator](../src/lib/service-hours.ts), [meeting hours](../src/server/meeting-hours.ts) and [corrections](../src/server/api/routers/corrections.ts) |
-| Change published content or translations | [Slug allocation](../src/server/home/slugs.ts), [translation destination checks](../src/server/translation-destination.ts) and [policy acceptance](../src/server/policy-acceptance.ts) |
-| Change dates or intake labels | [Program time](../src/lib/program-time.ts) and [period display](../src/lib/period.ts) |
-| Change delivery or deadline processing | [Email sender](../src/server/email/sender.ts), [instrumentation](../src/instrumentation.ts) and [deadline worker](../src/server/student-deadline-worker.ts) |
+| Change you need                          | Start here                                                                                                                                                                                       |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Add or change a page                     | [App routes](../src/app), [shared components](../src/app/_components) and [message catalogs](../messages)                                                                                        |
+| Add an API operation or access rule      | [Router composition](../src/server/api/root.ts) and [procedure middleware](../src/server/api/trpc.ts)                                                                                            |
+| Change schema or transactions            | [Prisma schema](../prisma/schema.prisma), [migrations](../prisma/migrations), [database client](../src/server/db.ts) and [transaction helpers](../src/server/transactions.ts)                    |
+| Change management review                 | [Operation classification](../src/lib/approval-policy.ts), [proposals](../src/server/approvals.ts) and [approval router](../src/server/api/routers/approval.ts)                                  |
+| Change intake or participation           | [Surveys](../src/server/student-survey.ts), [student workflow](../src/server/student-workflow.ts), [ownership](../src/server/student-ownership.ts) and [membership](../src/server/membership.ts) |
+| Change profile synchronization           | [Account profiles](../src/server/account-profile.ts)                                                                                                                                             |
+| Change messaging or recipient access     | [Messaging permissions](../src/server/messaging-permissions.ts) and [messaging router](../src/server/api/routers/messaging.ts)                                                                   |
+| Change hours or historical corrections   | [Hour calculator](../src/lib/service-hours.ts), [meeting hours](../src/server/meeting-hours.ts) and [corrections](../src/server/api/routers/corrections.ts)                                      |
+| Change published content or translations | [Slug allocation](../src/server/home/slugs.ts), [translation destination checks](../src/server/translation-destination.ts) and [policy acceptance](../src/server/policy-acceptance.ts)           |
+| Change dates or intake labels            | [Program time](../src/lib/program-time.ts) and [period display](../src/lib/period.ts)                                                                                                            |
+| Change delivery or deadline processing   | [Email sender](../src/server/email/sender.ts), [instrumentation](../src/instrumentation.ts) and [deadline worker](../src/server/student-deadline-worker.ts)                                      |
 
 ## Identity and authorization
 
 Account role, linked tutor profile, crew membership and translator assignment are separate capabilities. Protected requests reload current role, linkage and suspension state. Navigation and client controls do not replace server authorization. Student records require explicit account/profile ownership; a matching name or email never grants access.
 
-| Procedure family | Intended callers |
-| --- | --- |
-| `publicProcedure` | Public operations with their own input validation and feature gates |
-| `protectedProcedure` | Authenticated accounts with current authorization |
-| `tutorProcedure` / `activeTutorProcedure` | Linked tutor access / active tutor duties |
-| `crewProcedure` | Permitted active crew or management access with the crew module enabled |
-| `adminProcedure` | Management; sensitive coordinator mutations enter review |
-| `adminOnlyProcedure` / `headProcedure` | ADMIN or HEAD / HEAD only |
-| `viewerProcedure` | Permitted management reads with masked VIEWER responses |
-| `translatorProcedure` | Explicit assigned translators; management rank does not grant editing access |
-| `translationReviewerProcedure` | Management reviewers or assigned translators reading their own drafts |
+| Procedure family                          | Intended callers                                                             |
+| ----------------------------------------- | ---------------------------------------------------------------------------- |
+| `publicProcedure`                         | Public operations with their own input validation and feature gates          |
+| `protectedProcedure`                      | Authenticated accounts with current authorization                            |
+| `tutorProcedure` / `activeTutorProcedure` | Linked tutor access / active tutor duties                                    |
+| `crewProcedure`                           | Permitted active crew or management access with the crew module enabled      |
+| `adminProcedure`                          | Management; sensitive coordinator mutations enter review                     |
+| `adminOnlyProcedure` / `headProcedure`    | ADMIN or HEAD / HEAD only                                                    |
+| `viewerProcedure`                         | Permitted management reads with masked VIEWER responses                      |
+| `translatorProcedure`                     | Explicit assigned translators; management rank does not grant editing access |
+| `translationReviewerProcedure`            | Management reviewers or assigned translators reading their own drafts        |
 
 [Composable membership](../src/lib/account-membership.ts) keeps the exact management rank in `User.role`, tutor identity in `tutorId` with independent `tutorAccessRevoked`, crew lifecycle in `crewStatus`, explicit translation permission in `canTranslate`, and tutee membership in `tuteeMember`. `PolicyAcceptance` remains separate immutable evidence. Viewer exclusivity is validated by the complete membership schema and a database constraint. Legacy mixed Viewer accounts lose read-only management access and retain their explicit participant capabilities; migration never inserts policy acceptance. Outstanding pre-migration registration codes expire because they have no durable Head grant evidence; Head must issue fresh codes.
 
@@ -67,15 +67,15 @@ Audit events identify actors by stable account ID. Generic mutation summaries re
 
 The original survey submission determines queue priority. Confirmation creates or links an account without replacing its existing role or password. Account links expire after 24 hours. First assignment of an unverified request starts a fixed seven-day deadline; neither resends nor reassignment extends it.
 
-| Action | Invariant |
-| --- | --- |
-| Submit or repeat an open survey | Preserve the first payload, timestamp and exact accepted policy snapshot |
-| Confirm the email link | Consume a single-use challenge; merely opening a link does not confirm it |
-| Resend a link | Failed delivery preserves the usable link; successful delivery replaces it |
-| Edit availability | Preserve subjects, priority and assignments |
-| Recall an unassigned request | Close it permanently; a later application receives a new request and priority |
-| Approve withdrawal | Release all assignments and block another signup for that account/email in the period |
-| Approve a schedule rejection | Remove only the affected pairing and return the request for matching |
+| Action                          | Invariant                                                                                   |
+| ------------------------------- | ------------------------------------------------------------------------------------------- |
+| Submit or repeat an open survey | Preserve the first payload, timestamp and exact accepted policy snapshot                    |
+| Confirm the email link          | Consume a single-use challenge; merely opening a link does not confirm it                   |
+| Resend a link                   | Failed delivery preserves the usable link; successful delivery replaces it                  |
+| Edit availability               | Preserve subjects, priority and assignments                                                 |
+| Recall an unassigned request    | Close it permanently; a later application receives a new request and priority               |
+| Approve withdrawal              | Release all assignments and block another signup for that account/email in the period       |
+| Approve a schedule rejection    | Remove only the affected pairing and return the request for matching                        |
 | Expire an unverified assignment | Permanently disqualify it and release assignments; a fresh eligible application is separate |
 
 `StudentProfileOwnership` retains explicit links across intakes and verified email changes. Attendance, feedback and appeals use all owned profiles. Staff-entered enrollment withdrawal also requires explicit ownership and current-term evidence; it never relies on a matching email. Signup-source labels describe recorded provenance and do not change permissions or priority.
@@ -133,6 +133,8 @@ Database triggers enqueue `EmailDelivery` in the event transaction for account c
 Acceptance keeps the exact revision, text, signature and timestamp. Participation requires current consent; history, feedback, appeals, account settings and messages stay available during renewal. Student and tutor applicability are checked independently. Client scrolling and confirmation controls assist review but do not replace server revision and action-ticket validation.
 
 Translation drafts capture a fingerprint of their destination. Publication rechecks it under a shared transaction lock covering direct edits and deletion; changed or missing destinations require a fresh draft. UI strings, fixed landing text, news, sections and page titles follow this rule. Publication, draft state and audit evidence roll back together on failure. Unknown/deleted UI language codes are rejected rather than silently writing English.
+
+The `/localization` editor contains interface text, website text and draft review. The retired `/translation-review` route only redirects to its review view; no draft data is migrated or deleted. The route checks live account privileges. Assigned translators mount editing queries; management reviewers without that assignment mount review only. Draft listing filters state while retaining author scoping for non-management accounts. Coordinator text mutations pass explicit Translator authorization and create destination-bound drafts; structural mutations retain general approval queuing. Coordinator review requests still queue `translationReview.decide`, with Admin/Head publication replay limited to the validated draft operation. Draft state, publication and audit retain the existing atomic transaction.
 
 Custom pages and page-mode landing sections share `/p/<slug>`. Their writers must use the shared namespace lock and [slug allocator](../src/server/home/slugs.ts) through commit. Collision suffixes fit the 60-character limit, unpublished content reserves its slug, and text-only translations do not allocate URLs. Direct database imports need their own cross-table validation.
 

@@ -137,7 +137,7 @@ it.each(["HEAD", "ADMIN", "COORDINATOR"])(
   "keeps mobile management navigation in %s translation workspaces",
   async (role) => {
     mocks.auth.mockResolvedValue({ user: { id: "account" }, role });
-    mocks.user.mockResolvedValue({ canTranslate: true });
+    mocks.user.mockResolvedValue({ role, canTranslate: true });
     render(await LocalizationLayout({ children: null }));
     expect(
       screen.getByRole("navigation", { name: "Mobile management navigation" }),
@@ -145,7 +145,21 @@ it.each(["HEAD", "ADMIN", "COORDINATOR"])(
     expect(screen.getByText(`admin.users.roles.${role}`)).toBeTruthy();
   },
 );
-it.each(["HEAD", "ADMIN", "COORDINATOR", "VIEWER", "STUDENT"])(
+// Review access follows the live management rank, while editing remains an explicit badge.
+it.each(["HEAD", "ADMIN", "COORDINATOR"])(
+  "admits %s reviewers without explicit Translator membership",
+  async (role) => {
+    mocks.auth.mockResolvedValue({ user: { id: "account" }, role: "STUDENT" });
+    mocks.user.mockResolvedValue({ role, canTranslate: false });
+    render(await LocalizationLayout({ children: <p>Translation review</p> }));
+    expect(screen.getByText("Translation review")).toBeTruthy();
+    expect(
+      screen.getByRole("navigation", { name: "Mobile management navigation" }),
+    ).toBeTruthy();
+    expect(screen.getByText(`admin.users.roles.${role}`)).toBeTruthy();
+  },
+);
+it.each(["VIEWER", "STUDENT"])(
   "denies the translation workspace to %s without explicit Translator membership",
   async (role) => {
     mocks.auth.mockResolvedValue({ user: { id: "account" }, role });
@@ -157,7 +171,7 @@ it.each(["HEAD", "ADMIN", "COORDINATOR", "VIEWER", "STUDENT"])(
 );
 it("keeps assigned translators focused and redirects suspended translators", async () => {
   mocks.auth.mockResolvedValue({ user: { id: "account" }, role: "STUDENT" });
-  mocks.user.mockResolvedValue({ canTranslate: true });
+  mocks.user.mockResolvedValue({ role: "STUDENT", canTranslate: true });
   render(await LocalizationLayout({ children: null }));
   expect(
     screen.queryByRole("navigation", { name: "Mobile management navigation" }),
