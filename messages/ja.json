@@ -1,4 +1,36 @@
 {
+  "subjectAvailability": {
+    "title": "Subject Availability",
+    "intro": "Review approved subject qualifications and recorded willingness to teach separately. A qualification does not mean a tutor is willing or currently available.",
+    "search": "Search tutors, groups or subjects",
+    "filter": "Show subjects",
+    "all": "All subjects",
+    "qualified": "Qualified",
+    "willing": "Willing to teach",
+    "available": "Qualified and willing",
+    "qualification": "Qualification",
+    "willingness": "Willingness to teach",
+    "notQualified": "Not qualified",
+    "notRecorded": "Not recorded",
+    "notWilling": "Not willing to teach",
+    "independent": "Willingness is recorded for this subject only; it does not grant qualification or reserve a time slot.",
+    "summary": "{qualified} qualified · {willing} willing",
+    "inactiveTutor": "Tutor unavailable",
+    "inactiveSubject": "Archived subject",
+    "ungrouped": "Ungrouped subject",
+    "sourceStatus": "Direct approval: {status}",
+    "status": {
+      "APPROVED": "Approved",
+      "PENDING": "Pending",
+      "REJECTED": "Rejected"
+    },
+    "inherited": "Recorded inheritance from: {subjects}",
+    "removeSource": "Remove approval source",
+    "approveSource": "Approve this subject",
+    "willingnessFor": "Willingness: {subject}",
+    "empty": "No tutors or subjects match these filters.",
+    "emptySubjects": "No subjects are recorded."
+  },
   "messaging": {
     "privacyTitle": "Private deliveries, with staff oversight",
     "disclosure": "Each selected person receives a separate message. Recipients cannot see each other or each other's replies. Messages are delivered immediately. HEAD and administrators can review new messages and hide inappropriate content; review and moderation are recorded.",
@@ -2166,6 +2198,7 @@
     "save": "詳細を保存"
   },
   "workflows": {
+    "interviewsDisabledHistory": "Interviews are disabled. Existing records remain available; enable interviews to record completion.",
     "student": "Tutee Portal",
     "messages": "Messages",
     "support": "Tutee Support",
