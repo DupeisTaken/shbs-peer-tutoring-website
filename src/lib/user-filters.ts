@@ -1,3 +1,4 @@
+import { accountMembership, membershipBadges } from "./account-membership";
 export type Selection = { include: string[]; exclude: string[] };
 export type UserFilters = {
   role: Selection;
@@ -21,11 +22,15 @@ export function matchesSelection(
   );
 }
 export function matchesUserFilters(
-  row: { role: string | null; tutorStatus: string | null; account: string },
+  row: { role: string | null; tutorStatus: string | null; account: string; tutorId?: string | null; tutorAccessRevoked?: boolean; tuteeMember?: boolean; canTranslate?: boolean; crewStatus?: string | null },
   filters: UserFilters,
 ) {
+  // Match every applicable badge, including independent Translator/Crew participation.
+  const badges = "tuteeMember" in row ? membershipBadges(accountMembership(row)) : [row.role ?? "__none__"];
+  if (!badges.length) badges.push("__none__");
   return (
-    matchesSelection(row.role, filters.role) &&
+    !badges.some(badge => filters.role.exclude.includes(badge)) &&
+    (!filters.role.include.length || badges.some(badge => filters.role.include.includes(badge))) &&
     matchesSelection(row.tutorStatus, filters.status) &&
     matchesSelection(row.account, filters.account)
   );

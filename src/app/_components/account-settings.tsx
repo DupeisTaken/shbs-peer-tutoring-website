@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 
+import { MembershipEditor } from "./membership-editor";
+import { accountMembership } from "~/lib/account-membership";
 import { api } from "~/trpc/react";
 import { SYMBOLS } from "~/lib/symbols";
 import { TwoFactorSettings } from "~/app/_components/two-factor-settings";
@@ -389,6 +391,7 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
         </div>
       </section>
 
+      {me.data && <MembershipEditor userId={me.data.id} initial={accountMembership(me.data)} selfService />}
       <AccountEmails />
       <EmailPreferences />
       <TwoFactorSettings />

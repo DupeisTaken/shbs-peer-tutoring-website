@@ -80,6 +80,11 @@ model User {
 
   role Role @default(TUTOR)
 
+  /// Tutee membership is independent of rank and identity; consent lives in PolicyAcceptance.
+  tuteeMember Boolean @default(false)
+  /// Revocation preserves the tutor identity/history without retaining tutor access.
+  tutorAccessRevoked Boolean @default(false)
+
   /// Assigned translator: may edit UI translations on /localization even without an admin role.
   canTranslate Boolean @default(false)
 

@@ -47,9 +47,11 @@ export const studentWorkflowRouter = createTRPCRouter({
         input.target,
       );
     }),
-  policyStatus: publicProcedure.query(({ ctx }) =>
-    ctx.session?.user ? studentPolicyStatus(ctx.db, ctx.session.user.id) : null,
-  ),
+  policyStatus: publicProcedure
+    .input(z.object({ tuteeEntry: z.boolean().default(false) }).optional())
+    .query(({ ctx, input }) =>
+      ctx.session?.user ? studentPolicyStatus(ctx.db, ctx.session.user.id, input?.tuteeEntry) : null,
+    ),
   acceptPolicy: protectedProcedure
     .input(
       z.object({
