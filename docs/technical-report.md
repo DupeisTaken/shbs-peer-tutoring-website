@@ -4,37 +4,39 @@ Use this guide to find the code responsible for current behavior and understand 
 
 ## Architecture
 
+Tutor Roster details use the read-only `tutorDetails.get` procedure, guarded by the same management permission as account policy history. Its explicit field selection excludes authentication secrets; the UI mounts the query only after a staff member opens a tutor. Subject grouping reads concrete grants from approved qualification sources, never recalculating inheritance from current level ranks. Willingness remains a separate three-state value (true, false, or no record). Policy history uses the linked account ID through `student.acceptanceRecords`; neither matching contact data nor viewing a record grants account or role-edit access.
+
 The application runs as a persistent Next.js 16 / React 19 Node server with tRPC 11, Prisma 7/PostgreSQL, Auth.js JWT sessions, next-intl and Tailwind CSS 4. It is not a static export: background verification deadlines, authentication and database mutations require the server.
 
-| Change you need | Start here |
-| --- | --- |
-| Add or change a page | [App routes](../src/app), [shared components](../src/app/_components) and [message catalogs](../messages) |
-| Add an API operation or access rule | [Router composition](../src/server/api/root.ts) and [procedure middleware](../src/server/api/trpc.ts) |
-| Change schema or transactions | [Prisma schema](../prisma/schema.prisma), [migrations](../prisma/migrations), [database client](../src/server/db.ts) and [transaction helpers](../src/server/transactions.ts) |
-| Change management review | [Operation classification](../src/lib/approval-policy.ts), [proposals](../src/server/approvals.ts) and [approval router](../src/server/api/routers/approval.ts) |
-| Change intake or participation | [Surveys](../src/server/student-survey.ts), [student workflow](../src/server/student-workflow.ts), [ownership](../src/server/student-ownership.ts) and [membership](../src/server/membership.ts) |
-| Change profile synchronization | [Account profiles](../src/server/account-profile.ts) |
-| Change messaging or recipient access | [Messaging permissions](../src/server/messaging-permissions.ts) and [messaging router](../src/server/api/routers/messaging.ts) |
-| Change hours or historical corrections | [Hour calculator](../src/lib/service-hours.ts), [meeting hours](../src/server/meeting-hours.ts) and [corrections](../src/server/api/routers/corrections.ts) |
-| Change published content or translations | [Slug allocation](../src/server/home/slugs.ts), [translation destination checks](../src/server/translation-destination.ts) and [policy acceptance](../src/server/policy-acceptance.ts) |
-| Change dates or intake labels | [Program time](../src/lib/program-time.ts) and [period display](../src/lib/period.ts) |
-| Change delivery or deadline processing | [Email sender](../src/server/email/sender.ts), [instrumentation](../src/instrumentation.ts) and [deadline worker](../src/server/student-deadline-worker.ts) |
+| Change you need                          | Start here                                                                                                                                                                                       |
+| ---------------------------------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------ |
+| Add or change a page                     | [App routes](../src/app), [shared components](../src/app/_components) and [message catalogs](../messages)                                                                                        |
+| Add an API operation or access rule      | [Router composition](../src/server/api/root.ts) and [procedure middleware](../src/server/api/trpc.ts)                                                                                            |
+| Change schema or transactions            | [Prisma schema](../prisma/schema.prisma), [migrations](../prisma/migrations), [database client](../src/server/db.ts) and [transaction helpers](../src/server/transactions.ts)                    |
+| Change management review                 | [Operation classification](../src/lib/approval-policy.ts), [proposals](../src/server/approvals.ts) and [approval router](../src/server/api/routers/approval.ts)                                  |
+| Change intake or participation           | [Surveys](../src/server/student-survey.ts), [student workflow](../src/server/student-workflow.ts), [ownership](../src/server/student-ownership.ts) and [membership](../src/server/membership.ts) |
+| Change profile synchronization           | [Account profiles](../src/server/account-profile.ts)                                                                                                                                             |
+| Change messaging or recipient access     | [Messaging permissions](../src/server/messaging-permissions.ts) and [messaging router](../src/server/api/routers/messaging.ts)                                                                   |
+| Change hours or historical corrections   | [Hour calculator](../src/lib/service-hours.ts), [meeting hours](../src/server/meeting-hours.ts) and [corrections](../src/server/api/routers/corrections.ts)                                      |
+| Change published content or translations | [Slug allocation](../src/server/home/slugs.ts), [translation destination checks](../src/server/translation-destination.ts) and [policy acceptance](../src/server/policy-acceptance.ts)           |
+| Change dates or intake labels            | [Program time](../src/lib/program-time.ts) and [period display](../src/lib/period.ts)                                                                                                            |
+| Change delivery or deadline processing   | [Email sender](../src/server/email/sender.ts), [instrumentation](../src/instrumentation.ts) and [deadline worker](../src/server/student-deadline-worker.ts)                                      |
 
 ## Identity and authorization
 
 Account role, linked tutor profile, crew membership and translator assignment are separate capabilities. Protected requests reload current role, linkage and suspension state. Navigation and client controls do not replace server authorization. Student records require explicit account/profile ownership; a matching name or email never grants access.
 
-| Procedure family | Intended callers |
-| --- | --- |
-| `publicProcedure` | Public operations with their own input validation and feature gates |
-| `protectedProcedure` | Authenticated accounts with current authorization |
-| `tutorProcedure` / `activeTutorProcedure` | Linked tutor access / active tutor duties |
-| `crewProcedure` | Permitted active crew or management access with the crew module enabled |
-| `adminProcedure` | Management; sensitive coordinator mutations enter review |
-| `adminOnlyProcedure` / `headProcedure` | ADMIN or HEAD / HEAD only |
-| `viewerProcedure` | Permitted management reads with masked VIEWER responses |
-| `translatorProcedure` | Explicit assigned translators; management rank does not grant editing access |
-| `translationReviewerProcedure` | Management reviewers or assigned translators reading their own drafts |
+| Procedure family                          | Intended callers                                                             |
+| ----------------------------------------- | ---------------------------------------------------------------------------- |
+| `publicProcedure`                         | Public operations with their own input validation and feature gates          |
+| `protectedProcedure`                      | Authenticated accounts with current authorization                            |
+| `tutorProcedure` / `activeTutorProcedure` | Linked tutor access / active tutor duties                                    |
+| `crewProcedure`                           | Permitted active crew or management access with the crew module enabled      |
+| `adminProcedure`                          | Management; sensitive coordinator mutations enter review                     |
+| `adminOnlyProcedure` / `headProcedure`    | ADMIN or HEAD / HEAD only                                                    |
+| `viewerProcedure`                         | Permitted management reads with masked VIEWER responses                      |
+| `translatorProcedure`                     | Explicit assigned translators; management rank does not grant editing access |
+| `translationReviewerProcedure`            | Management reviewers or assigned translators reading their own drafts        |
 
 [Composable membership](../src/lib/account-membership.ts) keeps the exact management rank in `User.role`, tutor identity in `tutorId` with independent `tutorAccessRevoked`, crew lifecycle in `crewStatus`, explicit translation permission in `canTranslate`, and tutee membership in `tuteeMember`. `PolicyAcceptance` remains separate immutable evidence. Viewer exclusivity is validated by the complete membership schema and a database constraint. Legacy mixed Viewer accounts lose read-only management access and retain their explicit participant capabilities; migration never inserts policy acceptance. Outstanding pre-migration registration codes expire because they have no durable Head grant evidence; Head must issue fresh codes.
 
@@ -42,11 +44,17 @@ Account role, linked tutor profile, crew membership and translator assignment ar
 
 Management draft publication uses a server-only `translationPublicationScope` limited to the validated draft operation and live reviewer identity. It never sets `canTranslate` and cannot authorize subsequent direct edits. Coordinator translator authorization precedes proposal queuing.
 
+The [user filter helpers](../src/lib/user-filters.ts) match composable membership badges. Tutor status applies only to an explicit Tutor-only role inclusion without a Tutor exclusion. Edits and saved-filter restoration normalize away inapplicable status; the matcher independently ignores it as a defensive boundary. Preferences are scoped to the signed-in account. The underlying `admin.accounts` query remains protected by `adminProcedure`; client filters do not provide authorization.
+
 Account names synchronize only to explicitly linked current profiles. Shared profile writers lock the account before roster rows and reject stale versions. Signed agreements, submitted survey names and historical snapshots remain evidence of what was submitted.
 
 Client caches belong to the account, role and tutor link. Navigation and focus changes check the live identity before reusing data. The HTTP proxy removes rejected session cookies before page rendering; API authorization remains in force. Background responses must not restore a prior login after sign-out. Keep `AUTH_SECRET` stable and shared across production instances; diagnose failed sign-ins using [local troubleshooting](local-development.md#troubleshooting).
 
 ## Approval transactions
+
+Additional tutor qualifications use `qualificationApplication` and explicit `ADDITIONAL_SUBJECT` / `HIGHER_LEVEL` application types linked to an existing tutor and stable subject ID. Submission is self-only for active, non-revoked tutors; an open-request unique index plus transaction locks prevents duplicate pending/interview requests. Only Admin/Head may choose a panel or decide, and an interviewed request retains the existing votes/majority/chair checks. Initial-signup reconciliation is bypassed: no roles, membership, registration codes, willingness or existing grants change. Approval uses `approveQualification` in the decision transaction and copies its concrete grants into immutable request evidence; later catalogue reordering never recalculates this evidence. SQL guards preserve request identity and final decisions. Legacy status, delete and interview-decision entry points reject additional applications before proposal middleware.
+
+Successful additional-qualification decisions invalidate the affected tutor's `tutorDetails.get` cache alongside the application, availability and roster queries. The detail cache is independent of `admin.tutors`; scoped invalidation ensures reopening the same tutor within the query freshness window shows the new approval without invalidating unrelated tutor details.
 
 Classify every management write in the [approval policy](../src/lib/approval-policy.ts). Unknown coordinator operations fail closed. A sensitive coordinator write creates an immutable proposal; it has not applied the change.
 
@@ -57,7 +65,7 @@ Classify every management write in the [approval policy](../src/lib/approval-pol
 5. Commit the domain change, proposal decision, related notifications and decision audit together. Competing reviewers cannot apply a proposal twice.
 6. Send external email after commit. Delivery failure must remain retryable without undoing an applied assignment.
 
-Use [database scope](../src/server/db-scope.ts) so helpers participate in the enclosing transaction. An independent client escapes rollback. Interview review revalidates panel membership, qualifications and votes while preserving the coordinator chair's result and authorship. Scheduling checks the current chair under the same lock as panel replacement.
+Use [database scope](../src/server/db-scope.ts) so helpers participate in the enclosing transaction. An independent client escapes rollback. Interview review revalidates panel membership, qualifications and votes while preserving the coordinator chair's result and authorship. Scheduling checks the current chair under the same lock as panel replacement. Interview history and completion live in Tutor Applications; legacy interview routes redirect there. Subject Availability is a separate staff-only route and API, independent of interview enablement. `TutorSubjectWillingness` records explicit per-variant intent with no inferred migration backfill: an absent row means not recorded. Staff writes use coordinator approval; active tutors can update only their own willingness. `availableSubjectIds` intersects explicit willingness with stored approved qualification grants and active subjects, excluding inactive or access-revoked tutors. Callers must still enforce timetable and capacity constraints. Changing willingness never edits approvals, grants or interview records.
 
 Audit events identify actors by stable account ID. Generic mutation summaries record operations without raw passwords or tokens; detailed correction and approval evidence is retained separately. The audit is not a page-access log, and a generic summary does not guarantee that every direct operation and audit insert share one transaction. Review metadata and undo payloads are not exposed to VIEWER accounts.
 
@@ -65,15 +73,15 @@ Audit events identify actors by stable account ID. Generic mutation summaries re
 
 The original survey submission determines queue priority. Confirmation creates or links an account without replacing its existing role or password. Account links expire after 24 hours. First assignment of an unverified request starts a fixed seven-day deadline; neither resends nor reassignment extends it.
 
-| Action | Invariant |
-| --- | --- |
-| Submit or repeat an open survey | Preserve the first payload, timestamp and exact accepted policy snapshot |
-| Confirm the email link | Consume a single-use challenge; merely opening a link does not confirm it |
-| Resend a link | Failed delivery preserves the usable link; successful delivery replaces it |
-| Edit availability | Preserve subjects, priority and assignments |
-| Recall an unassigned request | Close it permanently; a later application receives a new request and priority |
-| Approve withdrawal | Release all assignments and block another signup for that account/email in the period |
-| Approve a schedule rejection | Remove only the affected pairing and return the request for matching |
+| Action                          | Invariant                                                                                   |
+| ------------------------------- | ------------------------------------------------------------------------------------------- |
+| Submit or repeat an open survey | Preserve the first payload, timestamp and exact accepted policy snapshot                    |
+| Confirm the email link          | Consume a single-use challenge; merely opening a link does not confirm it                   |
+| Resend a link                   | Failed delivery preserves the usable link; successful delivery replaces it                  |
+| Edit availability               | Preserve subjects, priority and assignments                                                 |
+| Recall an unassigned request    | Close it permanently; a later application receives a new request and priority               |
+| Approve withdrawal              | Release all assignments and block another signup for that account/email in the period       |
+| Approve a schedule rejection    | Remove only the affected pairing and return the request for matching                        |
 | Expire an unverified assignment | Permanently disqualify it and release assignments; a fresh eligible application is separate |
 
 `StudentProfileOwnership` retains explicit links across intakes and verified email changes. Attendance, feedback and appeals use all owned profiles. Staff-entered enrollment withdrawal also requires explicit ownership and current-term evidence; it never relies on a matching email. Signup-source labels describe recorded provenance and do not change permissions or priority.
@@ -88,9 +96,17 @@ These requests differ from non-survey tutee opt-outs relayed by a tutor: [remova
 
 Application locks protect supported API writes. Do not import directly into request tables assuming a unique pending-request index exists. Validate membership and pending-request invariants when designing import tooling, and preserve decision history.
 
+### Assignment qualification confirmations
+
+`src/server/assignment-qualification.ts` checks stored grants from approved qualification sources under the catalogue lock. Assignment entry points and coordinator proposal creation share this guard. An unqualified assignment requires a one-use `StudentActionConfirmation` with action `ASSIGNMENT_OVERRIDE`, a three-second server deadline, and a hash of the operation and complete parsed assignment payload. The actor, course, tutor, request version, roster and schedule are bound; confirmation tokens themselves are excluded. New warning preparation invalidates older unused override tickets, cancellation deletes the current unused ticket, and approval replay requires the reviewer's fresh evidence. Existing student consequence confirmation remains a separate requirement. Active unlinked roster tutors remain eligible for assignment; a linked account with explicitly revoked tutoring membership is excluded and assignment never restores account access. No additional schema is needed beyond the course grant migration.
+
 ## Scheduling, hours and discipline
 
 Planned room bookings cannot overlap within a program period or conflict with a recurring blackout. Adjacent bookings are allowed. Shared transaction locks keep application validation coherent; database triggers enforce the final constraint. Actual historical attendance can differ from a plan and is recorded with conflict warnings and management notification.
+
+Room block create/edit/remove operations use `adminProcedure` and the approval allowlist: Admin/Head apply writes, while Coordinators submit proposals. The shared [room block schemas](../src/lib/room-blocks.ts) validate day, minute bounds, reason length and increasing times before a request enters review. [Room validation](../src/server/room-bookings.ts) serializes block edits and removals with planned booking writes, excludes the edited block from overlap checks, and rejects conflicts with other blocks or active-term pairings. [Proposal preflight](../src/server/room-block-proposals.ts) validates current feasibility without reserving a time; approval checks target evidence and reruns the mutation inside the review transaction. Rejected or failed approvals do not change availability. The room-block migration extends the existing database trigger to enforce valid ranges and disjoint blocks on inserts/updates without rewriting historical rows.
+
+Room-block review summaries use immutable payload/target evidence, not current room lookups. New proposals capture `roomBlockContext` for readable room identity. Review recomputes this context only when it was originally recorded, preserving the fingerprint shape of legacy requests. Missing legacy details are explicitly unavailable; raw proposal values remain in the evidence disclosure.
 
 The [hour calculator](../src/lib/service-hours.ts) owns session rounding; use the [policy examples](../prisma/policies/tutor-policy.en.md#service-hours) rather than ordinary nearest-half-hour rounding. Completed interviews credit actual duration. Meeting deductions use the semester allowance in [meeting-hours.ts](../src/server/meeting-hours.ts); corrections recompute system credits while preserving manual adjustments.
 
@@ -99,6 +115,8 @@ The [hour calculator](../src/lib/service-hours.ts) owns session rounding; use th
 Attendance and patrol corrections preserve reasons and snapshots, reconcile dependent hours and discipline, and notify HEAD. [Crew flag reconciliation](../src/server/crew/flags.ts) compares exact observations with distinct attendance in shared blocks; `4+` cannot prove an undercount. Flags require a management decision before a penalty. Corrected evidence may reopen review and remove a linked penalty; manual adjustments remain separate.
 
 Program timezone conversion distinguishes instants, calendar dates and weekly wall-clock slots. Use the shared helpers rather than browser-local conversions. [Configuration effects](program-reference.md#program-time-zone) explain what changes when the school timezone changes.
+
+[Timezone labels](../src/lib/program-time-zone-label.ts) are display-only and require an explicit instant. Intl resolves localized names, seasonal abbreviations and GMT offsets using that instant; retain the IANA region as the persisted value. Local-input labels reuse strict program-time conversion and omit the offset when an input has no unique instant. Selector previews use one shared noon-UTC reference date and memoize option labels. No timestamp, recurring slot, permission or schema changes accompany display formatting.
 
 ## Communication
 
@@ -125,6 +143,8 @@ Database triggers enqueue `EmailDelivery` in the event transaction for account c
 Acceptance keeps the exact revision, text, signature and timestamp. Participation requires current consent; history, feedback, appeals, account settings and messages stay available during renewal. Student and tutor applicability are checked independently. Client scrolling and confirmation controls assist review but do not replace server revision and action-ticket validation.
 
 Translation drafts capture a fingerprint of their destination. Publication rechecks it under a shared transaction lock covering direct edits and deletion; changed or missing destinations require a fresh draft. UI strings, fixed landing text, news, sections and page titles follow this rule. Publication, draft state and audit evidence roll back together on failure. Unknown/deleted UI language codes are rejected rather than silently writing English.
+
+The `/localization` editor contains interface text, website text and draft review. The retired `/translation-review` route only redirects to its review view; no draft data is migrated or deleted. The route checks live account privileges. Assigned translators mount editing queries; management reviewers without that assignment mount review only. Draft listing filters state while retaining author scoping for non-management accounts. Coordinator text mutations pass explicit Translator authorization and create destination-bound drafts; structural mutations retain general approval queuing. Coordinator review requests still queue `translationReview.decide`, with Admin/Head publication replay limited to the validated draft operation. Draft state, publication and audit retain the existing atomic transaction.
 
 Custom pages and page-mode landing sections share `/p/<slug>`. Their writers must use the shared namespace lock and [slug allocator](../src/server/home/slugs.ts) through commit. Collision suffixes fit the 60-character limit, unpublished content reserves its slug, and text-only translations do not allocate URLs. Direct database imports need their own cross-table validation.
 

@@ -71,7 +71,7 @@ export function AcceptanceRecords({ userId }: { userId: string }) {
             key={row.id}
             className="rounded-lg border border-slate-200 p-3 text-sm"
           >
-            <summary className="cursor-pointer space-y-1 [overflow-wrap:anywhere]">
+            <summary className="min-h-11 cursor-pointer space-y-1 [overflow-wrap:anywhere] lg:min-h-8">
               <span className="font-medium">
                 {doc?.title ??
                   t(
@@ -105,7 +105,7 @@ export function AcceptanceRecords({ userId }: { userId: string }) {
                   open={document.locale === doc?.locale}
                   className="mt-3"
                 >
-                  <summary className="cursor-pointer font-medium">
+                  <summary className="min-h-11 cursor-pointer py-2 font-medium lg:min-h-8 lg:py-1">
                     {document.title} · {document.locale}
                     {document.version ? ` · ${document.version}` : ""}
                   </summary>

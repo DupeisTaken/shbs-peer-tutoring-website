@@ -23,8 +23,346 @@ import { hashCode } from "~/server/auth/registration";
 import { databaseScope } from "~/server/db-scope";
 import { lockEntity } from "~/server/transactions";
 import * as audit from "~/server/audit/log";
+import { availableSubjectIds } from "~/server/subject-willingness";
 
 const password = "ReviewPassword123!";
+
+// The responsive adjustment view must preserve the same server-side data and permissions.
+it("hour adjustments preserve month, fractional amount and full reason through create/list/delete", async () => {
+  const reason = "Synthetic adjustment explanation. " + "UnbrokenReason".repeat(20);
+  const adjustment = await caller().admin.createAdjustment({
+    tutorId: "review-tutor", month: "2026-09", type: "EXTRA", amount: 1.5, reason,
+  });
+  expect(adjustment).toMatchObject({ month: "2026-09", amount: 1.5, reason, schoolYear: "26-27", quarter: "Q1" });
+  expect(await caller().admin.adjustments({ month: "2026-09" })).toEqual([
+    expect.objectContaining({ id: adjustment.id, month: "2026-09", amount: 1.5, reason }),
+  ]);
+  expect(await caller().admin.adjustments({ month: "2026-10" })).toEqual([]);
+  await caller().admin.deleteAdjustment({ id: adjustment.id });
+  expect(await db.serviceHourAdjustment.count()).toBe(0);
+});
+
+it("hour adjustments redact viewer reasons and reject direct viewer writes", async () => {
+  const input = { tutorId: "review-tutor", month: "2026-09", type: "PUNISHMENT" as const, amount: 0.5, reason: "Private synthetic reason" };
+  const adjustment = await caller().admin.createAdjustment(input);
+  const viewer = caller("VIEWER", "review-viewer");
+  expect(await viewer.admin.adjustments({})).toEqual([
+    expect.objectContaining({ id: adjustment.id, month: "2026-09", reason: null }),
+  ]);
+  await expect(viewer.admin.createAdjustment(input)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(viewer.admin.deleteAdjustment({ id: adjustment.id })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect(await db.serviceHourAdjustment.count()).toBe(1);
+});
+
+it("hour adjustments reject tutor access and malformed month input", async () => {
+  const input = { tutorId: "review-tutor", month: "2026-09", type: "EXTRA" as const, amount: 1 };
+  await expect(tutor().admin.adjustments({})).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(tutor().admin.createAdjustment(input)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(caller().admin.createAdjustment({ ...input, month: "2026-9" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  await expect(caller().admin.createAdjustment({ ...input, amount: 0 })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  expect(await db.serviceHourAdjustment.count()).toBe(0);
+});
+
+it("hour adjustments cannot be written when the service-hours module is disabled", async () => {
+  const input = { tutorId: "review-tutor", month: "2026-09", type: "EXTRA" as const, amount: 1 };
+  const adjustment = await caller().admin.createAdjustment(input);
+  await db.programFeature.create({ data: { key: "SERVICE_HOURS", enabled: false } });
+  await expect(caller().admin.createAdjustment(input)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(caller().admin.deleteAdjustment({ id: adjustment.id })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect(await db.serviceHourAdjustment.count()).toBe(1);
+});
+
+it("hour adjustments queue coordinator writes without changing live records", async () => {
+  await db.user.update({ where: { id: "review-viewer" }, data: { role: "COORDINATOR" } });
+  const coordinator = caller("COORDINATOR", "review-viewer");
+  const input = { tutorId: "review-tutor", month: "2026-09", type: "EXTRA" as const, amount: 1 };
+  await expect(coordinator.admin.createAdjustment(input)).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect(await db.serviceHourAdjustment.count()).toBe(0);
+  const adjustment = await caller().admin.createAdjustment(input);
+  await expect(coordinator.admin.deleteAdjustment({ id: adjustment.id })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect(await db.serviceHourAdjustment.count()).toBe(1);
+  expect(await db.approvalRequest.count()).toBe(2);
+});
+
+it("keeps completed and decided interview history when no panel assignments remain", async () => {
+  const completed = await db.tutorApplication.create({ data: {
+    name: "Historical completed candidate", email: "history-completed@example.test", status: "ACCEPTED",
+    interviewCompletedAt: new Date("2026-09-01"), interviewDurationMin: 40,
+  } });
+  const decided = await db.tutorApplication.create({ data: {
+    name: "Historical decided candidate", email: "history-decided@example.test", status: "REJECTED", decisionComment: "Retained panel decision",
+  } });
+  const all = await caller().interviewManagement.options({ completion: "ALL" });
+  expect(all.applications.rows.map((row) => row.id)).toEqual(expect.arrayContaining([completed.id, decided.id]));
+  const history = await caller().interviewManagement.options({ completion: "COMPLETED" });
+  expect(history.applications.rows.map((row) => row.id)).toEqual([completed.id]);
+});
+
+it("keeps willingness independent of approved grants with interviews disabled", async () => {
+  await db.programFeature.upsert({
+    where: { key: "INTERVIEWS" },
+    create: { key: "INTERVIEWS", enabled: false },
+    update: { enabled: false },
+  });
+  const input = { tutorId: "review-tutor", subjectId: "review-subject" };
+  await caller().interviewManagement.qualify({ ...input, qualified: true });
+  expect(await availableSubjectIds(db, input.tutorId)).toEqual([]);
+  const grants = await db.qualificationGrant.findMany();
+  await tutor().subjectAvailability.setMine({
+    subjectId: input.subjectId,
+    willing: true,
+  });
+  expect(await availableSubjectIds(db, input.tutorId)).toEqual([
+    input.subjectId,
+  ]);
+  await caller().subjectAvailability.setWillingness({
+    ...input,
+    willing: false,
+  });
+  expect(await availableSubjectIds(db, input.tutorId)).toEqual([]);
+  expect(await db.qualificationGrant.findMany()).toEqual(grants);
+  const result = await caller().subjectAvailability.options();
+  expect(result.willingness).toEqual([
+    expect.objectContaining({ ...input, willing: false }),
+  ]);
+  expect(result.grants).toHaveLength(grants.length);
+  await tutor().subjectAvailability.setMine({
+    subjectId: input.subjectId,
+    willing: true,
+  });
+  await caller().interviewManagement.qualify({ ...input, qualified: false });
+  expect((await tutor().subjectAvailability.mine())[0]?.willing).toBe(true);
+  expect(await availableSubjectIds(db, input.tutorId)).toEqual([]);
+});
+
+it("enforces staff-only subject reads/writes and fresh tutor access for self willingness", async () => {
+  const input = {
+    tutorId: "review-tutor",
+    subjectId: "review-subject",
+    willing: true,
+  };
+  await expect(tutor().subjectAvailability.options()).rejects.toMatchObject({
+    code: "FORBIDDEN",
+  });
+  await expect(
+    tutor().subjectAvailability.setWillingness(input),
+  ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(
+    caller("VIEWER", "review-viewer").subjectAvailability.options(),
+  ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await db.user.update({
+    where: { id: "review-user" },
+    data: { tutorAccessRevoked: true },
+  });
+  await expect(
+    tutor().subjectAvailability.setMine(input),
+  ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await db.user.update({
+    where: { id: "review-user" },
+    data: { tutorAccessRevoked: false },
+  });
+  await db.tutor.update({
+    where: { id: "review-tutor" },
+    data: { status: "OPTED_OUT" },
+  });
+  await expect(
+    tutor().subjectAvailability.setMine(input),
+  ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect(await db.tutorSubjectWillingness.count()).toBe(0);
+});
+
+it("binds self willingness to the authenticated tutor even if input includes another tutor ID", async () => {
+  const other = await db.tutor.create({ data: { englishName: "Other willing tutor" } });
+  const forged = { tutorId: other.id, subjectId: "review-subject", willing: true };
+  await tutor().subjectAvailability.setMine(forged);
+  expect(await db.tutorSubjectWillingness.findMany()).toEqual([
+    expect.objectContaining({ tutorId: "review-tutor", subjectId: "review-subject", willing: true }),
+  ]);
+  expect((await tutor().subjectAvailability.mine()).every((row) => row.tutorId === "review-tutor")).toBe(true);
+});
+
+it("queues coordinator willingness changes and applies them only after independent approval", async () => {
+  const previousGrants = await db.qualificationGrant.findMany();
+  await db.user.update({
+    where: { id: "review-viewer" },
+    data: { role: "COORDINATOR" },
+  });
+  const input = {
+    tutorId: "review-tutor",
+    subjectId: "review-subject",
+    willing: true,
+  };
+  await expect(
+    caller("COORDINATOR", "review-viewer").subjectAvailability.setWillingness(
+      input,
+    ),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect(await db.tutorSubjectWillingness.count()).toBe(0);
+  const proposal = await db.approvalRequest.findFirstOrThrow({
+    where: {
+      operation: "subjectAvailability.setWillingness",
+      state: "PENDING",
+    },
+  });
+  await caller().approval.decide({
+    id: proposal.id,
+    approve: true,
+    note: "Confirmed participant intent",
+  });
+  expect(await db.tutorSubjectWillingness.findFirst()).toMatchObject(input);
+  expect(await db.qualificationGrant.findMany()).toEqual(previousGrants);
+});
+
+it("preserves interview records on the new history destination while disabling completion writes", async () => {
+  const { app } = await interviewFixture();
+  const before = await db.tutorApplication.findUniqueOrThrow({
+    where: { id: app.id },
+    include: { interviewers: true, votes: true },
+  });
+  await db.programFeature.upsert({
+    where: { key: "INTERVIEWS" },
+    create: { key: "INTERVIEWS", enabled: false },
+    update: { enabled: false },
+  });
+  expect(
+    (
+      await caller().interviewManagement.options({ completion: "ALL" })
+    ).applications.rows.some((row) => row.id === app.id),
+  ).toBe(true);
+  await expect(
+    caller().interviewManagement.complete({
+      applicationId: app.id,
+      durationMin: 30,
+      completedAt: new Date("2026-09-01"),
+      attendedTutorIds: before.interviewers.map((row) => row.tutorId),
+      reason: "Disabled completion",
+    }),
+  ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect(
+    await db.tutorApplication.findUniqueOrThrow({
+      where: { id: app.id },
+      include: { interviewers: true, votes: true },
+    }),
+  ).toEqual(before);
+});
+
+it("does not replay stale staff willingness over a tutor's more recent choice", async () => {
+  await db.user.update({
+    where: { id: "review-viewer" },
+    data: { role: "COORDINATOR" },
+  });
+  const input = {
+    tutorId: "review-tutor",
+    subjectId: "review-subject",
+    willing: true,
+  };
+  await expect(
+    caller("COORDINATOR", "review-viewer").subjectAvailability.setWillingness(
+      input,
+    ),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  const proposal = await db.approvalRequest.findFirstOrThrow({
+    where: {
+      operation: "subjectAvailability.setWillingness",
+      state: "PENDING",
+    },
+  });
+  await tutor().subjectAvailability.setMine({
+    subjectId: input.subjectId,
+    willing: false,
+  });
+  await expect(
+    caller().approval.decide({
+      id: proposal.id,
+      approve: true,
+      note: "Outdated intent",
+    }),
+  ).rejects.toMatchObject({ code: "CONFLICT" });
+  expect((await tutor().subjectAvailability.mine())[0]?.willing).toBe(false);
+  expect(
+    await db.approvalRequest.findUnique({ where: { id: proposal.id } }),
+  ).toMatchObject({ state: "PENDING" });
+});
+
+it("filters inactive subjects and unavailable tutors without discarding recorded willingness", async () => {
+  const input = {
+    tutorId: "review-tutor",
+    subjectId: "review-subject",
+    willing: true,
+  };
+  await caller().interviewManagement.qualify({
+    tutorId: input.tutorId,
+    subjectId: input.subjectId,
+    qualified: true,
+  });
+  await tutor().subjectAvailability.setMine(input);
+  await db.subject.update({
+    where: { id: input.subjectId },
+    data: { active: false },
+  });
+  expect(await availableSubjectIds(db, input.tutorId)).toEqual([]);
+  await expect(
+    tutor().subjectAvailability.setMine(input),
+  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  await db.subject.update({
+    where: { id: input.subjectId },
+    data: { active: true },
+  });
+  await db.user.update({
+    where: { id: "review-user" },
+    data: { tutorAccessRevoked: true },
+  });
+  expect(await availableSubjectIds(db, input.tutorId)).toEqual([]);
+  await db.user.update({
+    where: { id: "review-user" },
+    data: { tutorAccessRevoked: false },
+  });
+  await db.tutor.update({
+    where: { id: input.tutorId },
+    data: { status: "OPTED_OUT" },
+  });
+  expect(await availableSubjectIds(db, input.tutorId)).toEqual([]);
+  expect(await db.tutorSubjectWillingness.findFirst()).toMatchObject(input);
+});
+
+it("excludes archived-level variants but retains legacy level-less subjects and grant snapshots", async () => {
+  const input = {
+    tutorId: "review-tutor",
+    subjectId: "review-subject",
+    willing: true,
+  };
+  await caller().interviewManagement.qualify({
+    tutorId: input.tutorId,
+    subjectId: input.subjectId,
+    qualified: true,
+  });
+  await tutor().subjectAvailability.setMine(input);
+  // The existing fixture is deliberately level-less for migration compatibility.
+  expect(await availableSubjectIds(db, input.tutorId)).toEqual([
+    input.subjectId,
+  ]);
+  const grants = await db.qualificationGrant.findMany();
+  const level = await db.subjectLevel.create({
+    data: { name: "Archived test level", active: false },
+  });
+  await db.subject.update({
+    where: { id: input.subjectId },
+    data: { levelId: level.id },
+  });
+  expect(await availableSubjectIds(db, input.tutorId)).toEqual([]);
+  await expect(
+    tutor().subjectAvailability.setMine(input),
+  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  expect(await db.qualificationGrant.findMany()).toEqual(grants);
+  expect((await tutor().subjectAvailability.mine())[0]?.willing).toBe(true);
+  await db.subjectLevel.update({
+    where: { id: level.id },
+    data: { active: true },
+  });
+  expect(await availableSubjectIds(db, input.tutorId)).toEqual([
+    input.subjectId,
+  ]);
+});
 
 it.each(["HEAD", "ADMIN", "COORDINATOR"] as const)(
   "%s reads only the selected account's immutable policy history",
@@ -2656,11 +2994,22 @@ it("interview outcomes cannot bypass the assigned chair", async () => {
       expectedUpdatedAt: current.updatedAt,
     }),
   ).rejects.toMatchObject({ code: "BAD_REQUEST" });
-  await expect(chair.tutor.decideInterview({
-    applicationId: app.id, accept: true, comment: "Majority accepts", expectedUpdatedAt: current.updatedAt,
-  })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
-  const proposal = await db.approvalRequest.findFirstOrThrow({ where: { operation: "tutor.decideInterview", state: "PENDING" } });
-  await caller().approval.decide({ id: proposal.id, approve: true, note: "Head approved the chair's decision" });
+  await expect(
+    chair.tutor.decideInterview({
+      applicationId: app.id,
+      accept: true,
+      comment: "Majority accepts",
+      expectedUpdatedAt: current.updatedAt,
+    }),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  const proposal = await db.approvalRequest.findFirstOrThrow({
+    where: { operation: "tutor.decideInterview", state: "PENDING" },
+  });
+  await caller().approval.decide({
+    id: proposal.id,
+    approve: true,
+    note: "Head approved the chair's decision",
+  });
   await expect(
     caller("TUTOR", "panel-user-1", panel[1]!.id).tutor.castInterviewVote({
       applicationId: app.id,
@@ -2866,11 +3215,22 @@ it("only the highest-ranking staff chair can break an interview tie", async () =
       expectedUpdatedAt: current.updatedAt,
     }),
   ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
-  await expect(caller("ADMIN", "panel-user-0", panel[0]!.id).tutor.decideInterview({
-    applicationId: app.id, accept: true, comment: "Chair tie-break", expectedUpdatedAt: current.updatedAt,
-  })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
-  const proposal = await db.approvalRequest.findFirstOrThrow({ where: { operation: "tutor.decideInterview", state: "PENDING" } });
-  await caller().approval.decide({ id: proposal.id, approve: true, note: "Head approved the chair tie-break" });
+  await expect(
+    caller("ADMIN", "panel-user-0", panel[0]!.id).tutor.decideInterview({
+      applicationId: app.id,
+      accept: true,
+      comment: "Chair tie-break",
+      expectedUpdatedAt: current.updatedAt,
+    }),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  const proposal = await db.approvalRequest.findFirstOrThrow({
+    where: { operation: "tutor.decideInterview", state: "PENDING" },
+  });
+  await caller().approval.decide({
+    id: proposal.id,
+    approve: true,
+    note: "Head approved the chair tie-break",
+  });
   expect(
     (await db.tutorApplication.findUniqueOrThrow({ where: { id: app.id } }))
       .status,

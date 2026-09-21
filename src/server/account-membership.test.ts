@@ -7,6 +7,7 @@ import { hashPassword } from "~/server/auth/password";
 import { currentPolicy } from "~/server/policy-acceptance";
 import { acceptStudentPolicy, prepareStudentAction, studentPolicyStatus } from "~/server/student-workflow";
 import { accountMembership, type AccountMembership } from "~/lib/account-membership";
+import { emptyUserFilters, matchesUserFilters } from "~/lib/user-filters";
 
 const head = "c000000000000000000000001";
 const admin = "c000000000000000000000002";
@@ -34,6 +35,21 @@ beforeEach(async () => {
   await db.policyDocument.createMany({ data: ["tutee-policy", "tutor-policy"].map(slug => ({ slug, locale: "en", title: "Synthetic policy", body: "Synthetic consent text", version: "1" })) });
 });
 afterAll(() => db.$disconnect());
+
+it("restricts account filter data to management and returns effective combined Tutor membership", async () => {
+  await caller().admin.setMemberships({ userId: person, membership: { ...base, rank: "ADMIN", tutor: true }, confirmPassword: password });
+  const filters = emptyUserFilters();
+  filters.role.include = ["TUTOR"];
+  const listed = await caller(admin).admin.accounts();
+  const combined = listed.rows.find(row => row.userId === person)!;
+  expect(matchesUserFilters(combined, filters)).toBe(true);
+  await db.user.update({ where: { id: person }, data: { tutorAccessRevoked: true } });
+  const refreshed = await caller(admin).admin.accounts();
+  expect(matchesUserFilters(refreshed.rows.find(row => row.userId === person)!, filters)).toBe(false);
+  await expect(caller(viewer).admin.accounts()).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await db.user.update({ where: { id: person }, data: { role: "STUDENT" } });
+  await expect(caller(person).admin.accounts()).rejects.toMatchObject({ code: "FORBIDDEN" });
+});
 
 it("supports management-only and management with both kinds of participation without fabricating consent", async () => {
   await caller().admin.setMemberships({ userId: person, membership: { ...base, rank: "ADMIN" }, confirmPassword: password });

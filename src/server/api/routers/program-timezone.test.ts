@@ -86,6 +86,18 @@ it("rejects unauthorized, invalid and stale changes without changing settings", 
       expectedTimeZone: "Asia/Shanghai",
     }),
   ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  // Readable labels and numeric offsets must never replace the stored IANA ID.
+  for (const timeZone of [
+    "America / New York — EDT (GMT-04:00)",
+    "GMT-04:00",
+    "EDT",
+  ])
+    await expect(
+      caller("ADMIN").program.setTimeZone({
+        timeZone,
+        expectedTimeZone: "Asia/Shanghai",
+      }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   await expect(
     caller("ADMIN").program.setTimeZone({
       timeZone: "UTC",

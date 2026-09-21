@@ -1,10 +1,13 @@
+import { assignmentRouter } from "./routers/assignment";
 import { approvalRouter } from "./routers/approval";
+import { qualificationApplicationRouter } from "./routers/qualification-application";
 import {
   createCallerFactory,
   createTRPCRouter,
   publicProcedure,
 } from "~/server/api/trpc";
 import { tutorRouter } from "~/server/api/routers/tutor";
+import { tutorDetailsRouter } from "~/server/api/routers/tutor-details";
 import { tuteeRouter } from "~/server/api/routers/tutee";
 import { applicationRouter } from "~/server/api/routers/application";
 import { adminRouter } from "~/server/api/routers/admin";
@@ -30,18 +33,23 @@ import { studentRouter } from "./routers/student";
 import { messagingRouter } from "./routers/messaging";
 
 import { interviewManagementRouter } from "./routers/interview-management";
+import { subjectAvailabilityRouter } from "./routers/subject-availability";
 import { translationReviewRouter } from "./routers/translation-review";
 
 export const appRouter = createTRPCRouter({
+  assignment: assignmentRouter,
+  qualificationApplication: qualificationApplicationRouter,
   approval: approvalRouter,
   /** Lightweight liveness check. */
   interviewManagement: interviewManagementRouter,
+  subjectAvailability: subjectAvailabilityRouter,
   translationReview: translationReviewRouter,
   student: studentRouter,
   messaging: messagingRouter,
   health: publicProcedure.query(() => ({ ok: true, ts: Date.now() })),
   studentWorkflow: studentWorkflowRouter,
   tutor: tutorRouter,
+  tutorDetails: tutorDetailsRouter,
   tutee: tuteeRouter,
   application: applicationRouter,
   admin: adminRouter,

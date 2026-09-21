@@ -1187,6 +1187,8 @@ export const tutorRouter = createTRPCRouter({
           select: {
             id: true,
             name: true,
+            type: true,
+            qualificationReason: true,
             email: true,
             status: true,
             updatedAt: true,

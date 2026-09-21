@@ -9,12 +9,13 @@ This is the supported single-program website. Account role, tutor participation,
 | Purpose | User entry | Management entry / outcome |
 | --- | --- | --- |
 | Request tutoring | Home → Request a Tutor; `/signup` | Signup Requests (`/admin/requests`): verify demand, match at original survey priority, review current and processed requests |
-| Become a tutor | Home → Become a Tutor; `/tutor-signup` | Tutor Applications: select qualified panel and chair, interview, vote and decide; record actual completion in `/admin/interviews` |
+| Become a tutor | Home → Become a Tutor; `/tutor-signup` | Tutor Applications: select qualified panel and chair, interview, vote and decide; record actual completion in `/admin/applications#interview-records` |
 | Create an accepted tutor account | Registration code at `/register`, then emailed verification/setup | Registration Codes and Users & Roles; an application or roster row alone is not a login |
 | Participate as a tutee | `/student`, with Dashboard, Schedule, Requests, Attendance, Support, Messages and Account tabs | Tutee Roster, Pairings, withdrawals and discipline; explicit account ownership controls records |
 | Teach and record attendance | Tutor Dashboard (`/dashboard`), Settings (`/settings`), Handbook (`/handbook`) | Attendance Submissions, Attendance Flags, Service Hours and Hour Adjustments |
 | Schedule teaching | Tutors maintain availability and pairing defaults | Subjects & Levels, Time Slots, Rooms and Pairings; room blocks warn against conflicts |
-| Manage interviews | Assigned panelists vote in Tutor Dashboard; the chair schedules and records the decision | Tutor Applications assigns the panel; Interviews & Panelists groups qualifications and records, links to panel controls, and records actual completion duration |
+| Manage interviews | Assigned panelists vote in Tutor Dashboard; the chair schedules and records the decision | Tutor Applications assigns panels and retains interview history/completion; Subject Availability independently shows approvals, recorded inheritance and willingness |
+| Review subject availability | Staff → Tutors → Subject Availability; `/admin/subject-availability` | HEAD, ADMIN and COORDINATOR can inspect qualifications and willingness separately, including inherited grants. Coordinator changes require approval. Availability requires an active subject and level (or no level), an active tutor with tutoring access, a recorded approved grant and explicit willingness; timetable/capacity checks remain separate. |
 | Communicate | Workspace Messages and notifications | Announcements support immutable recipient snapshots, filters and individual overrides; private deliveries remain isolated per recipient; disclosed new messages allow audited HEAD/ADMIN supervision ([contact controls](#message-permissions-and-supervision)) |
 | Get support | Tutee Support tab, session feedback, card appeals and private messages | Tutee Support (`/admin/student-support`) handles shared feedback, appeals and school calendar; Users & Roles → User details holds account-scoped policy acceptance history |
 | Review sensitive changes | Coordinators prepare changes | Management Actions: ADMIN/HEAD recheck evidence before applying or declining; pending is not applied |
@@ -70,6 +71,10 @@ The settings panel reports terminal delivery failures; operators should inspect 
 
 Use **Time Slots**, **Rooms** and **Pairings** to plan recurring sessions. A room cannot host overlapping pairings in one program period or a pairing during a recurring blackout; back-to-back sessions are allowed. Availability helps participants agree on a slot and does not prevent staff from assigning a tutor before that agreement.
 
+In **Rooms**, each room shows its blocked-period count. Open **Manage blocked periods** to add a weekly block or edit its day, start/end times and optional reason. Use the program time zone and 24-hour times; an end of `24:00` means midnight. Split overnight blocks across two days. **Remove Period** opens a confirmation before releasing the time. No blocked periods means no recurring restrictions, not that the room has no bookings.
+
+Admin and Head changes take effect after a successful save. Coordinators use **Request new block**, **Request edit** or **Request removal**; availability stays unchanged until Admin/Head approves in **Management Actions**. **View request** opens the submitted proposal with its recorded room name, weekday, clock times and reason; edits compare the original and proposed periods. Older requests explicitly identify missing recorded details. Rejection leaves the schedule unchanged. Viewers can inspect periods but cannot submit changes. Conflicting blocks, reversed/empty intervals and overlaps with active-period bookings are rejected, including during approval if the schedule changed after submission. Adjacent periods are allowed. A failed edit retains the form values for correction.
+
 Changing a catalog slot affects linked schedules. Read the Time Slots guidance before saving; **How schedule changes work** reopens dismissed guidance. The tutor's default-slot control links a pairing to the catalog. Clearing that link retains its copied day and time; it does not erase the schedule. Record completed attendance truthfully even when it differs from the plan, then review any conflict warning.
 
 The applied **Quarter System** setting controls labels: Q1/Q2 display in semester one and Q3/Q4 in semester two when quarters are disabled. Requests display their original intake, not whichever intake is currently active. Staged module changes take effect only at refresh; labels do not rewrite stored deadlines or attendance.
@@ -100,6 +105,14 @@ Reload if another administrator has already changed the period. After refresh, c
 
 A lower exact headcount creates a pending flag. Management reviews the evidence and chooses **Dismiss**, **Warn**, **Penalize** or **Escalate**; coordinator decisions need approval. A penalty records a service-hour deduction for the session's period, defaulting to 0.5 hours unless another allowed amount is entered. Escalation requests further review and does not itself remove the tutor. Attendance or patrol corrections can reopen review and remove its linked deduction. Use corrections to fix the underlying record, and retain a clear decision note.
 
+## Tutor hour adjustments
+
+Open **Hour Adjustments** (`/admin/hour-adjustments`) to add extra hours or a punishment deduction for a tutor and month. Amounts remain positive; the type determines whether they add or deduct hours. The active program period is recorded with each adjustment. The service-hours module must be enabled for writes.
+
+Months remain in `YYYY-MM` format. Desktop tables reserve space for months and wrap long names, reasons and translated labels; a constrained desktop table can scroll within its card. On mobile, each record stacks its labelled fields and delete action so the full reason stays readable. Form controls and row actions support touch and keyboard use.
+
+HEAD and ADMIN can apply additions and deletions. Coordinator writes become approval proposals, without immediately changing live hours. VIEWER has no mutation controls, cannot write through the API, and receives records with private reasons withheld by the server. Tutor accounts cannot access this management listing.
+
 ## Reports and exports
 
 Open **Reports** (`/admin/history`) and choose a school year and quarter, semester or whole-year scope. **Summary** shows totals and tutors; **Detailed** adds sessions, cards, meetings, meeting attendance, adjustments, crew and attendance flags; **Full** also includes applications, signups, removals and tutor participation requests. Sections follow enabled modules.
@@ -109,6 +122,10 @@ Download a displayed table as CSV, or use **Print / Save as PDF** and the browse
 ## Program time zone
 
 HEAD or ADMIN selects a supported IANA region in **Program & Refresh → Program time zone**; coordinators can read it. The default is Asia/Shanghai. Review the current/proposed time preview and confirm before saving. Reload a stale editor or other open pages after another staff member changes the setting.
+
+Options show the readable region, a localized zone name, an abbreviation where available, and a GMT offset. Use **Preview date** to compare seasonal offsets at 12:00 UTC on that date; this preview does not save a setting. New York shows EST (GMT-05:00) in winter and EDT (GMT-04:00) in summer. UTC and fractional offsets such as India's GMT+05:30 are supported. The selected label also appears below the dropdown so its full text remains readable on narrow screens.
+
+Signup opening notices, opening-time inputs and patrol correction inputs resolve their labels at the event's date. Audit date-range labels show each endpoint's offset when they differ. An empty, skipped or repeated local time shows only the region until it resolves to one instant. Permissions are unchanged: the server permits only HEAD/ADMIN to save a timezone; coordinators can inspect date previews without saving.
 
 - Weekly slots keep their wall-clock values: 15:30 stays 15:30.
 - Saved appointments and deadlines keep their instants and display in the selected zone.

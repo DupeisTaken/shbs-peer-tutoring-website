@@ -21,7 +21,9 @@ function HeadScheduler({
   const utils = api.useUtils();
   const timeZone = useTimeZone();
   const [inputError, setInputError] = useState("");
-  const [value, setValue] = useState(current ? programDateTimeInput(current, timeZone) : "");
+  const [value, setValue] = useState(
+    current ? programDateTimeInput(current, timeZone) : "",
+  );
   const save = api.tutor.setInterviewTime.useMutation({
     onSuccess: () => utils.tutor.myInterviews.invalidate(),
   });
@@ -30,18 +32,27 @@ function HeadScheduler({
     <div className="mt-2 flex flex-wrap items-center gap-2">
       <input
         type="datetime-local"
-        className="input w-auto"
+        className="input min-h-11 w-auto max-w-full lg:min-h-10"
+        aria-label={t("tutor.interviews.setTime")}
         value={value}
         onChange={(e) => setValue(e.target.value)}
       />
       <button
-        className="btn-primary btn-sm"
+        className="btn-primary btn-sm min-h-11 lg:min-h-10"
         disabled={save.isPending}
-        onClick={() => { try { setInputError("");
-          save.mutate({
-            applicationId,
-            interviewAt: value ? parseProgramDateTime(value, timeZone) : null,
-          }); } catch (error) { setInputError(error instanceof Error ? error.message : "Invalid date"); } }}
+        onClick={() => {
+          try {
+            setInputError("");
+            save.mutate({
+              applicationId,
+              interviewAt: value ? parseProgramDateTime(value, timeZone) : null,
+            });
+          } catch (error) {
+            setInputError(
+              error instanceof Error ? error.message : "Invalid date",
+            );
+          }
+        }}
       >
         {save.isPending
           ? t("tutor.interviews.saving")
@@ -77,7 +88,8 @@ function VoteForm({
   return (
     <div className="mt-2 space-y-2">
       <input
-        className="input w-full"
+        className="input min-h-11 w-full lg:min-h-10"
+        aria-label={t("tutor.interviews.voteCommentPlaceholder")}
         placeholder={t("tutor.interviews.voteCommentPlaceholder")}
         value={comment}
         disabled={votingClosed || cast.isPending}
@@ -88,9 +100,9 @@ function VoteForm({
           {t("tutor.interviews.votingClosed")}
         </p>
       )}
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button
-          className={`btn-sm ${myVote?.accept === true ? "btn-primary" : "btn-secondary"}`}
+          className={`btn-sm min-h-11 lg:min-h-8 ${myVote?.accept === true ? "btn-primary" : "btn-secondary"}`}
           disabled={votingClosed || cast.isPending}
           onClick={() =>
             cast.mutate({
@@ -103,7 +115,7 @@ function VoteForm({
           👍 {t("tutor.interviews.accept")}
         </button>
         <button
-          className={`btn-sm ${myVote?.accept === false ? "btn-primary" : "btn-secondary"}`}
+          className={`btn-sm min-h-11 lg:min-h-8 ${myVote?.accept === false ? "btn-primary" : "btn-secondary"}`}
           disabled={votingClosed || cast.isPending}
           onClick={() =>
             cast.mutate({
@@ -197,7 +209,7 @@ function HeadDecision({
         value={comment}
         onChange={(e) => setComment(e.target.value)}
       />
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button
           className="btn-primary btn-sm"
           disabled={
@@ -280,12 +292,20 @@ export function MyInterviews() {
                     className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700"
                   >
                     {ci.subject.name}
-                    {ci.taken
-                      ? ` · ${ci.grade ?? t("tutor.interviews.taken")}`
-                      : ` · ${t("tutor.interviews.notTaken")}`}
+                    {/* Course-taking evidence belongs only to the initial intake. */}
+                    {a.type === "INITIAL" &&
+                      (ci.taken
+                        ? ` · ${ci.grade ?? t("tutor.interviews.taken")}`
+                        : ` · ${t("tutor.interviews.notTaken")}`)}
                   </li>
                 ))}
               </ul>
+
+              {a.type !== "INITIAL" && a.qualificationReason && (
+                <p className="mt-2 text-sm break-words whitespace-pre-wrap">
+                  {a.qualificationReason}
+                </p>
+              )}
 
               <p className="muted mt-2">
                 {t("tutor.interviews.panel", {
@@ -304,7 +324,10 @@ export function MyInterviews() {
                 <p className="muted mt-2">
                   {a.interviewAt
                     ? t("tutor.interviews.scheduled", {
-                        time: programFormat.dateTime(new Date(a.interviewAt), { dateStyle: "medium", timeStyle: "short" }),
+                        time: programFormat.dateTime(new Date(a.interviewAt), {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        }),
                       })
                     : t("tutor.interviews.awaitingSchedule")}
                 </p>
@@ -330,18 +353,32 @@ export function MyInterviews() {
               )}
 
               {/* Head's final decision */}
-              {a.isHead && (
-                <HeadDecision
-                  applicationId={a.id}
-                  status={a.status}
-                  tally={a.tally}
-                  panelSize={a.interviewers.length}
-                  decisionComment={a.decisionComment}
-                  decidedBy={a.decidedByTutor?.englishName ?? null}
-                  expectedUpdatedAt={a.updatedAt}
-                />
-              )}
-              {!a.isHead &&
+              {a.isHead &&
+                a.type !== "ADDITIONAL_SUBJECT" &&
+                a.type !== "HIGHER_LEVEL" && (
+                  <HeadDecision
+                    applicationId={a.id}
+                    status={a.status}
+                    tally={a.tally}
+                    panelSize={a.interviewers.length}
+                    decisionComment={a.decisionComment}
+                    decidedBy={a.decidedByTutor?.englishName ?? null}
+                    expectedUpdatedAt={a.updatedAt}
+                  />
+                )}
+              {a.isHead &&
+                (a.type === "ADDITIONAL_SUBJECT" ||
+                  a.type === "HIGHER_LEVEL") && (
+                  <a
+                    className="link mt-3 inline-flex min-h-11 items-center lg:min-h-8"
+                    href={`/admin/applications#application-${a.id}`}
+                  >
+                    {t("qualificationRequests.reviewLink")}
+                  </a>
+                )}
+              {(!a.isHead ||
+                a.type === "ADDITIONAL_SUBJECT" ||
+                a.type === "HIGHER_LEVEL") &&
                 (a.status === "ACCEPTED" || a.status === "REJECTED") && (
                   <div className="mt-2 rounded-md bg-slate-50 p-2 text-sm">
                     <span

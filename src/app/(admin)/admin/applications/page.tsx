@@ -1,5 +1,6 @@
 "use client";
 import { EmailDetails } from "~/app/_components/email-details";
+import { QualificationReview } from "~/app/_components/qualification-review";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -9,6 +10,7 @@ import { api } from "~/trpc/react";
 import { DisclosureIcon } from "~/app/_components/icons";
 import { useReadOnly } from "~/app/_components/read-only";
 import { useDialog } from "~/app/_components/confirm-dialog";
+import { InterviewManagement } from "~/app/_components/interview-management";
 
 type Status = "PENDING" | "INTERVIEW" | "ACCEPTED" | "REJECTED";
 
@@ -28,6 +30,10 @@ function StatusBadge({ status }: { status: Status }) {
 }
 
 type Application = {
+  type: "INITIAL" | "ADDITIONAL_SUBJECT" | "HIGHER_LEVEL";
+  requestedTutorId: string | null;
+  qualificationReason: string | null;
+  qualificationSnapshot: unknown;
   id: string;
   name: string;
   email: string;
@@ -71,15 +77,26 @@ function ApplicationCard({
   const programFormat = useFormatter();
   const t = useTranslations();
   const readOnly = useReadOnly();
+  const account = api.account.me.useQuery().data;
+  const additional = app.type !== "INITIAL";
+  const canEditPanel =
+    !readOnly &&
+    (!additional ||
+      (!!account &&
+        ["ADMIN", "HEAD"].includes(account.role) &&
+        account.tutorId !== app.requestedTutorId &&
+        app.status === "PENDING"));
   const { confirm, dialog } = useDialog();
   const [open, setOpen] = useState(false);
-  // A link from Interviews & Panelists opens the existing editor for this exact
+  // A link from interview history opens the existing editor for this exact
   // application; do not duplicate panel mutations in a competing workflow.
   useEffect(() => {
     const reveal = () => {
       if (window.location.hash === `#application-${app.id}`) {
         setOpen(true);
-        document.getElementById(`application-${app.id}`)?.scrollIntoView({ block: "start" });
+        document
+          .getElementById(`application-${app.id}`)
+          ?.scrollIntoView({ block: "start" });
       }
     };
     reveal();
@@ -130,29 +147,39 @@ function ApplicationCard({
     app.decidedByTutor != null;
   // Generic status controls are only for screening. A panel outcome belongs to its chair.
   const canDirectAccept =
+    !additional &&
     !readOnly &&
     features?.INTERVIEWS === false &&
     !hasInterviewHistory &&
     app.status !== "ACCEPTED";
   const canScreenReject =
-    !readOnly && !hasInterviewHistory && app.status === "PENDING";
+    !additional &&
+    !readOnly &&
+    !hasInterviewHistory &&
+    app.status === "PENDING";
 
   return (
     <div id={`application-${app.id}`} className="card scroll-mt-6 p-4">
-      {/* Collapsed one-line summary (click to expand) */}
+      {/* Give identity and actions their own mobile rows so badges and long
+          translated labels never compete for the same narrow flex space. */}
       <div className="flex flex-wrap items-center gap-3">
         <button
-          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+          className="flex min-h-11 w-full min-w-0 flex-wrap items-center gap-2 text-left lg:min-h-8 lg:w-auto lg:flex-1"
           aria-expanded={open}
           aria-controls={`application-panel-${app.id}`}
           onClick={() => setOpen((v) => !v)}
         >
           <DisclosureIcon open={open} />
-          <span className="font-medium text-slate-900">{app.name}</span>
+          <span className="min-w-0 font-medium break-words text-slate-900">
+            {app.name}
+          </span>
           <StatusBadge status={app.status} />
+          <span className="badge-slate">
+            {t(`qualificationRequests.${app.type}`)}
+          </span>
           <span className="muted hidden truncate text-xs sm:inline">
             {courseNames}
-            {features?.INTERVIEWS && (
+            {(features?.INTERVIEWS === true || hasInterviewHistory) && (
               <>
                 {" · "}
                 {t("admin.applications.panelSummary", {
@@ -169,11 +196,11 @@ function ApplicationCard({
             )}
           </span>
         </button>
-        <div className="flex items-center gap-2">
-          {app.status === "ACCEPTED" && (
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 lg:w-auto">
+          {!additional && app.status === "ACCEPTED" && (
             <Link
               href="/admin/users"
-              className="link text-sm whitespace-nowrap"
+              className="link inline-flex min-h-11 max-w-full items-center text-sm break-words lg:min-h-8"
             >
               {t("admin.applications.setupAccount")}
             </Link>
@@ -206,7 +233,7 @@ function ApplicationCard({
               {t("admin.applications.reject")}
             </button>
           )}
-          {!readOnly && (
+          {!readOnly && !additional && (
             <button
               className="btn-danger btn-sm"
               onClick={async () => {
@@ -230,7 +257,10 @@ function ApplicationCard({
       </div>
 
       {open && (
-        <div id={`application-panel-${app.id}`} className="mt-3 border-t border-slate-100 pt-3">
+        <div
+          id={`application-panel-${app.id}`}
+          className="mt-3 border-t border-slate-100 pt-3"
+        >
           <EmailDetails contactOnly email={app.email} name={app.name} />
           {app.preferredContact && (
             <p className="muted text-xs">
@@ -239,6 +269,9 @@ function ApplicationCard({
           )}
 
           {/* Course intents */}
+          {additional && (
+            <QualificationReview app={app} onChanged={onChanged} />
+          )}
           <ul className="mt-3 flex flex-wrap gap-2">
             {app.subjectIntents.map((ci, i) => {
               const quals: string[] = [];
@@ -268,17 +301,23 @@ function ApplicationCard({
                       {ci.subject.level.name}
                     </span>
                   )}
-                  {" · "}
-                  {quals.length
-                    ? quals.join(" · ")
-                    : t("admin.applications.noQualification")}
+                  {/* Additional requests use their reason and recorded grant result above;
+                      the initial-signup grade checklist must not imply they lack approval. */}
+                  {!additional && (
+                    <>
+                      {" · "}
+                      {quals.length
+                        ? quals.join(" · ")
+                        : t("admin.applications.noQualification")}
+                    </>
+                  )}
                 </li>
               );
             })}
           </ul>
 
           {/* Interviewer assignment — three fixed panelists, one head (hidden when interviews off) */}
-          {features?.INTERVIEWS && (
+          {(features?.INTERVIEWS === true || hasInterviewHistory) && (
             <div className="mt-4 border-t border-slate-100 pt-3">
               <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
                 {t("admin.applications.panelHeading", { n: PANEL_SIZE })}
@@ -293,13 +332,19 @@ function ApplicationCard({
                   })}
                 </p>
               )}
-              {!readOnly && (
+              {canEditPanel && features?.INTERVIEWS && (
                 <>
                   <div className="mt-2 space-y-2">
                     {picks.map((pick, i) => (
-                      <div key={i} className="flex items-center gap-2">
+                      <div
+                        key={i}
+                        className="flex flex-wrap items-center gap-2"
+                      >
                         <select
-                          className="select field-auto min-w-48"
+                          className="select field-auto max-w-full min-w-0 flex-1"
+                          aria-label={t("admin.applications.panelistSlot", {
+                            n: i + 1,
+                          })}
                           value={pick}
                           onChange={(e) =>
                             setPicks((p) =>
@@ -322,7 +367,7 @@ function ApplicationCard({
                               </option>
                             ))}
                         </select>
-                        <label className="flex items-center gap-1 text-sm text-slate-600">
+                        <label className="flex min-h-11 items-center gap-1 text-sm text-slate-600 lg:min-h-8">
                           <input
                             type="radio"
                             name={`head-${app.id}`}
@@ -337,8 +382,11 @@ function ApplicationCard({
                   </div>
                   <p className="muted my-3 text-sm">
                     {t("workflows.allVotes")}{" "}
-                    <Link className="link" href="/interview-management">
-                      {t("workflows.qualified")}
+                    <Link
+                      className="link inline-flex min-h-11 items-center lg:min-h-8"
+                      href="/admin/subject-availability"
+                    >
+                      {t("subjectAvailability.title")}
                     </Link>
                   </p>
                   <div className="my-3 flex gap-3">
@@ -401,48 +449,47 @@ function ApplicationCard({
           )}
 
           {/* Panel votes + head decision (recorded on the head's dashboard; hidden when off) */}
-          {features?.INTERVIEWS &&
-            (app.votes.length > 0 || app.decisionComment) && (
-              <div className="mt-4 border-t border-slate-100 pt-3">
-                <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
-                  {t("admin.applications.votesDecisionHeading")}
-                </p>
-                {app.votes.length > 0 ? (
-                  <>
-                    <p className="muted mt-1 text-sm">
-                      {t("admin.applications.voteTally", {
-                        accepts,
-                        rejects: app.votes.length - accepts,
-                      })}
-                    </p>
-                    <ul className="mt-1 space-y-0.5">
-                      {app.votes.map((v, i) => (
-                        <li key={i} className="text-xs text-slate-600">
-                          {v.accept ? "👍" : "👎"} {v.tutor.englishName}
-                          {v.comment ? ` — ${v.comment}` : ""}
-                        </li>
-                      ))}
-                    </ul>
-                  </>
-                ) : (
+          {(app.votes.length > 0 || app.decisionComment) && (
+            <div className="mt-4 border-t border-slate-100 pt-3">
+              <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
+                {t("admin.applications.votesDecisionHeading")}
+              </p>
+              {app.votes.length > 0 ? (
+                <>
                   <p className="muted mt-1 text-sm">
-                    {t("admin.applications.noVotes")}
-                  </p>
-                )}
-                {app.decisionComment && (
-                  <p className="mt-2 text-sm text-slate-700">
-                    {t("admin.applications.decision", {
-                      comment: app.decisionComment,
+                    {t("admin.applications.voteTally", {
+                      accepts,
+                      rejects: app.votes.length - accepts,
                     })}
-                    {app.decidedByTutor
-                      ? ` — ${t("admin.applications.decidedByHead", {
-                          name: app.decidedByTutor.englishName,
-                        })}`
-                      : ""}
                   </p>
-                )}
-              </div>
-            )}
+                  <ul className="mt-1 space-y-0.5">
+                    {app.votes.map((v, i) => (
+                      <li key={i} className="text-xs text-slate-600">
+                        {v.accept ? "👍" : "👎"} {v.tutor.englishName}
+                        {v.comment ? ` — ${v.comment}` : ""}
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              ) : (
+                <p className="muted mt-1 text-sm">
+                  {t("admin.applications.noVotes")}
+                </p>
+              )}
+              {app.decisionComment && (
+                <p className="mt-2 text-sm text-slate-700">
+                  {t("admin.applications.decision", {
+                    comment: app.decisionComment,
+                  })}
+                  {app.decidedByTutor
+                    ? ` — ${t("admin.applications.decidedByHead", {
+                        name: app.decidedByTutor.englishName,
+                      })}`
+                    : ""}
+                </p>
+              )}
+            </div>
+          )}
         </div>
       )}
       {dialog}
@@ -455,12 +502,18 @@ export default function ApplicationsPage() {
   const utils = api.useUtils();
   const apps = api.admin.tutorApplications.useQuery();
   const tutors = api.admin.tutors.useQuery();
-  const invalidate = () => utils.admin.tutorApplications.invalidate();
+  const features = api.program.features.useQuery();
+  const readOnly = useReadOnly();
+  const invalidate = () =>
+    Promise.all([
+      utils.admin.tutorApplications.invalidate(),
+      utils.interviewManagement.options.invalidate(),
+    ]);
 
   const list = apps.data ?? [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-lg:[&_button]:min-h-11 max-lg:[&_select]:min-h-11">
       <div>
         <h1 className="page-title">{t("admin.applications.title")}</h1>
         <p className="muted mt-1">
@@ -469,6 +522,8 @@ export default function ApplicationsPage() {
       </div>
 
       <div className="space-y-3">
+        {apps.isLoading && <p role="status">{t("workflows.loading")}</p>}
+        {apps.error && <p role="alert">{apps.error.message}</p>}
         {list.map((app) => (
           <ApplicationCard
             key={app.id}
@@ -481,10 +536,19 @@ export default function ApplicationsPage() {
             onChanged={invalidate}
           />
         ))}
-        {list.length === 0 && (
+        {!apps.isLoading && !apps.error && list.length === 0 && (
           <p className="muted">{t("admin.applications.empty")}</p>
         )}
       </div>
+      {/* Completion stays staff-only; the server retains the same permission checks. */}
+      {!readOnly && features.data && (
+        <div
+          id="interview-records"
+          className="scroll-mt-6 border-t border-slate-200 pt-6"
+        >
+          <InterviewManagement enabled={features.data.INTERVIEWS} />
+        </div>
+      )}
     </div>
   );
 }

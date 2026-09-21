@@ -1,4 +1,8 @@
 "use client";
+import { isAssignableTutor } from "~/lib/assignment-qualification";
+import { QualifiedTutorSelect } from "~/app/_components/qualified-tutor-select";
+import { AssignmentConfirmation } from "~/app/_components/assignment-confirmation";
+import { useReadOnly } from "~/app/_components/read-only";
 import { EmailDetails } from "~/app/_components/email-details";
 import { SignupSourceBadge } from "~/app/_components/signup-source-badge";
 import { useState, type ReactNode } from "react";
@@ -131,9 +135,7 @@ export function StudentRequestBoard({
               content: (
                 <RequestCard
                   row={row}
-                  tutors={(tutors.data ?? []).filter(
-                    (tu) => tu.status === "ACTIVE",
-                  )}
+                  tutors={(tutors.data ?? []).filter(isAssignableTutor)}
                 />
               ),
             })),
@@ -310,9 +312,14 @@ function Assignment({
   const utils = api.useUtils();
   const [tutorId, setTutorId] = useState("");
   const [open, setOpen] = useState(false);
+  const [consequenceTicket, setConsequenceTicket] = useState<string | null>(
+    null,
+  );
+  const readOnly = useReadOnly();
   const assign = api.studentWorkflow.assign.useMutation({
     onSuccess: async () => {
       setOpen(false);
+      setConsequenceTicket(null);
       await Promise.all([
         utils.studentWorkflow.adminRequests.invalidate(),
         utils.admin.tutees.invalidate(),
@@ -326,37 +333,59 @@ function Assignment({
       <span className="min-w-36 text-sm font-medium">{subject.name}</span>
       {pairing ? (
         <span className="badge-green">{pairing.tutor.englishName}</span>
-      ) : (
+      ) : !readOnly ? (
         <>
-          <select
-            aria-label={t("chooseTutor", { subject: subject.name })}
-            className="select field-auto min-w-48"
+          <QualifiedTutorSelect
+            label={t("chooseTutor", { subject: subject.name })}
+            tutors={tutors}
+            subjectId={subject.id}
             value={tutorId}
-            onChange={(e) => setTutorId(e.target.value)}
-          >
-            <option value="">{t("selectTutor")}</option>
-            {tutors.map((tu) => (
-              <option key={tu.id} value={tu.id}>
-                {tu.englishName}
-              </option>
-            ))}
-          </select>
+            onChange={(value) => {
+              setOpen(false);
+              setConsequenceTicket(null);
+              setTutorId(value);
+            }}
+          />
           <button
-            className="btn-primary btn-sm"
+            className="btn-primary min-h-11 self-end lg:min-h-10"
             disabled={!tutorId}
             onClick={() => setOpen(true)}
           >
             {t("assign")}
           </button>
         </>
-      )}
+      ) : null}
       {assign.isSuccess && !assign.data.emailSent && (
         <p role="status" className="text-amber-800">
           {t("resendFailed")}
         </p>
       )}
+      {consequenceTicket && (
+        <AssignmentConfirmation
+          operation="studentWorkflow.assign"
+          payload={{
+            id: row.id,
+            subjectId: subject.id,
+            tutorId,
+            ticket: consequenceTicket,
+          }}
+          busy={assign.isPending}
+          error={assign.error?.message}
+          onCancel={() => setConsequenceTicket(null)}
+          onConfirm={(overrideTicket) =>
+            assign.mutate({
+              id: row.id,
+              subjectId: subject.id,
+              tutorId,
+              ticket: consequenceTicket,
+              overrideTicket,
+            })
+          }
+        />
+      )}
       {open && (
         <TimedActionDialog
+          key={`${row.id}:${subject.id}:${tutorId}`}
           action="ASSIGN"
           target={row.id}
           title={t("assignTitle", { name: row.name })}
@@ -364,14 +393,10 @@ function Assignment({
           busy={assign.isPending}
           error={assign.error?.message}
           onCancel={() => setOpen(false)}
-          onConfirm={(ticket) =>
-            assign.mutate({
-              id: row.id,
-              subjectId: subject.id,
-              tutorId,
-              ticket,
-            })
-          }
+          onConfirm={(ticket) => {
+            setOpen(false);
+            setConsequenceTicket(ticket);
+          }}
         />
       )}
     </div>
