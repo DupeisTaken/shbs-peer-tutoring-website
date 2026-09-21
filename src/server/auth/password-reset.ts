@@ -226,6 +226,7 @@ export async function resetPassword(
  */
 export async function issueTutorSetupLink(
   tutorId: string,
+  actorId: string,
 ): Promise<
   | { ok: true; emailed: boolean; link: string }
   | { ok: false; error: "no-tutor" | "no-email" }
@@ -247,14 +248,19 @@ export async function issueTutorSetupLink(
 
   let userId = tutor.user?.id ?? null;
   if (!userId) {
+    const actor = await db.user.findUnique({ where: { id: actorId }, select: { role: true, suspendedAt: true } });
+    if (actor?.role !== "HEAD" || actor.suspendedAt)
+      throw new TRPCError({ code: "FORBIDDEN", message: "Only Head can provision tutor access. Existing account setup links may be resent." });
     const existing = await db.user.findUnique({
       where: { email },
-      select: { id: true },
+      select: { id: true, role: true, tutorId: true },
     });
     if (existing) {
+      if (existing.role === "VIEWER" || (existing.tutorId && existing.tutorId !== tutor.id))
+        throw new TRPCError({ code: "CONFLICT", message: "Review the existing account membership before linking this tutor." });
       await db.user.update({
         where: { id: existing.id },
-        data: { tutorId: tutor.id },
+        data: { tutorId: tutor.id, tutorAccessRevoked: false },
       });
       userId = existing.id;
     } else {

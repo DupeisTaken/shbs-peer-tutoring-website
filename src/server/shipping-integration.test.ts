@@ -354,7 +354,7 @@ it("keeps history, feedback and appeals after a new intake profile and verified 
     submitSurvey(db, signup("changed-shipping@example.test")),
   ).rejects.toMatchObject({ code: "CONFLICT" });
   await db.user.create({
-    data: { id: "outsider", email: "outsider@example.test", role: "STUDENT" },
+    data: { id: "outsider", email: "outsider@example.test", role: "STUDENT", tuteeMember: true },
   });
   expect(
     (await actor("outsider").student.me({ page: 0 })).sessions,
@@ -487,6 +487,7 @@ it("requires just one admin approval for a coordinator's translation review and 
       expectedUpdatedAt: next.updatedAt,
     }),
   );
+  await db.user.update({ where: { id: "shipping-admin" }, data: { canTranslate: true } });
   await admin().localization.setString({
     locale: "en",
     key: "approvals.title",
@@ -546,7 +547,7 @@ it.each(["VIEWER", "STUDENT"] as const)(
     ).toBeNull();
     await db.user.update({
       where: { id: "public-account" },
-      data: { tutorId: "shipping-tutor" },
+      data: { role: "TUTOR", tutorId: "shipping-tutor" },
     });
     expect(
       await resolveTutorLink(db, "public-account", "public@example.test"),
@@ -636,7 +637,7 @@ it("consolidates current tutee schedules for admin and tutor accounts using expl
     {id:"foreign",englishName:"Shared Name",status:"ACTIVE",intakeTermId:"shipping-term"},
     {id:"inactive-owned",englishName:"Shared Name",status:"INACTIVE",intakeTermId:"shipping-term"},
   ]});
-  await db.user.update({where:{id:"shipping-admin"},data:{studentId:"owned-a"}});
+  await db.user.update({where:{id:"shipping-admin"},data:{studentId:"owned-a",tuteeMember:true}});
   await db.studentProfileOwnership.createMany({data:[
     {userId:"shipping-admin",tuteeId:"owned-b"},
     {userId:"shipping-admin",tuteeId:"inactive-owned"},
@@ -654,6 +655,7 @@ it("consolidates current tutee schedules for admin and tutor accounts using expl
   await db.pairingTutee.create({data:{pairingId:"schedule-a",tuteeId:"owned-b"}});
   expect((await admin().student.me({page:0})).schedule.map(row=>row.id)).toEqual(["schedule-a","schedule-b"]);
   await db.user.update({where:{id:"shipping-admin"},data:{role:"TUTOR",tutorId:"shipping-tutor"}});
+  await db.policyAcceptance.create({ data: { userId: "shipping-admin", slug: "tutee-policy", revision, signature: "Synthetic manager", snapshot: [] } });
   expect((await actor("shipping-admin","TUTOR").student.me({page:0})).schedule.map(row=>row.id)).toEqual(["schedule-a","schedule-b"]);
-  expect((await coordinator().student.me({page:0})).schedule).toEqual([]);
+  await expect(coordinator().student.me({page:0})).rejects.toMatchObject({ code: "FORBIDDEN" });
 });

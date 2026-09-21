@@ -33,11 +33,11 @@ The website supports intake, matching, attendance, hours, interviews, support an
 | Viewer | Read-only management area | Permitted summaries with personal contact details masked |
 | Assigned translator | Translations / Translation Review | Draft translations; assignment is an extra permission, not a management role |
 
-A role and a tutor or crew membership are different things. A management account needs an active linked tutor profile to perform tutor duties. Every signed-in account can use **Enter Tutee page**, including tutors, crew, viewers and administrators. Visiting it does not change your role or create a tutoring request. Tutee participation and history coexist with other account roles. Suspension prevents ordinary participation; follow the suspension page’s appeal route.
+A role and a tutor or crew membership are different things. A management account needs an active linked tutor profile to perform tutor duties. Every active non-Viewer account can enter tutee onboarding, including tutors, crew and administrators. First accept the published tutee policy; acceptance records its exact revision and grants tutee membership. Visiting alone does not grant access or create a tutoring request. Tutee participation and history coexist with other account roles. Suspension prevents ordinary participation; follow the suspension page’s appeal route.
 
 ### Switch workspaces
 
-Management headers and account menus show **Enter Tutor Page**, then **Enter Tutee Page** together. Tutor entry requires a linked, non-archived tutor profile; tutee entry remains available to every active signed-in account. Management accounts without tutor eligibility can still open the tutee workspace and return to management.
+Management headers and account menus show **Enter Tutor Page**, then **Enter Tutee Page** together. Tutor entry requires a linked, non-archived tutor profile; tutee onboarding remains available to every active non-Viewer account. Management accounts without tutor eligibility can still open the tutee workspace and return to management.
 
 Tutor and tutee workspaces show **Back to Management** for HEAD, ADMIN, COORDINATOR and VIEWER. This shortcut does not grant write access to viewers. Archived pure tutors retain their existing read-only history access.
 
@@ -158,7 +158,7 @@ Coordinators prepare management changes and learn through review. Their own auth
 4. Follow **View request** to **Management Actions**. Check the proposed values and wait for review. You can withdraw your own pending request.
 5. Read the reviewer’s note. Check the live record after approval; an email-delivery warning may still require a link resend.
 
-Requests cover assignments, schedules, roster changes, policy/content changes, corrections, discipline, hours, interview completion and other supported management operations. Account role changes, program refresh and HEAD-only powers are not obtained by creating a request. Sending an existing verification/setup link is a supported direct action and does not extend a verification deadline.
+Requests cover assignments, schedules, roster changes, policy/content changes, corrections, discipline, hours, interview completion and other supported management operations. Badge and membership changes require HEAD approval, including requests from administrators. Program refresh and leadership transfer retain their restricted controls. Sending an existing verification/setup link is a supported direct action and does not extend a verification deadline.
 
 If records change while a proposal is pending, the reviewer must reject it and request a fresh proposal. Do not reuse old values or assume a withdrawn/failed request changed the website. See [approval troubleshooting](#troubleshooting).
 
@@ -182,7 +182,7 @@ On desktop, the navigation and content scroll independently. On mobile, open **M
 
 In **Users & Roles**, combine Role, Tutor Status and Account filters. Alternatives within one filter match any included value; every filter must match, and exclusions win. **No account role** and **No linked tutor** identify unlinked records. **Clear filters** restores all rows. Filters are remembered for the signed-in account in the current browser.
 
-Use **Edit profile** to update linked current names and **Show email** to inspect/copy the contact and its verification state. Opening the dialog sends no email. Verification/setup requires an explicit action; sending a link does not itself verify an account. **Account setup required** identifies contacts without a linked login. Verified account email changes use the account holder's verification flow.
+Use **Edit profile** to edit the independent Tutor, Tutee, Translator and Crew badges and exact management rank, or transfer leadership with **Make Head**. Only HEAD applies badge changes; other staff submit proposals. Any account can request its own badge changes from Account settings. Viewer is exclusive of every other badge. Removing participation and assigning sole Viewer preserves historical identity links while revoking participant access. Tutor membership suppresses the redundant Tutee badge without discarding consent. Use **Edit profile** to update linked current names and **Show email** to inspect/copy the contact and its verification state. Opening the dialog sends no email. Verification/setup requires an explicit action; sending a link does not itself verify an account. **Account setup required** identifies contacts without a linked login. Verified account email changes use the account holder's verification flow.
 
 ### Run the program
 
@@ -214,19 +214,19 @@ HEAD has administrator abilities plus the program’s restricted leadership and 
 
 Before opening intake, confirm email delivery, the current policies, subjects, slots, rooms, qualifications, intake timing, school calendar and feedback visibility. Coordinate host, backup and recovery readiness with the technical operator using the [launch runbook](deployment.md).
 
-ADMIN or HEAD can perform the [program refresh](program-reference.md#refresh-the-program); only HEAD stages module switches. Refresh advances the period, applies pending switches and changes participation, so confirm the displayed consequences first. A new period preserves historical attendance, policy acceptance and audit evidence. Only HEAD can promote or demote administrators, transfer leadership, or delete eligible accounts; the current HEAD cannot be deleted. Leadership transfer appoints an eligible administrator or coordinator and makes the outgoing HEAD an administrator.
+ADMIN or HEAD can perform the [program refresh](program-reference.md#refresh-the-program); only HEAD stages module switches. Refresh advances the period, applies pending switches and changes participation, so confirm the displayed consequences first. A new period preserves historical attendance, policy acceptance and audit evidence. Only HEAD can grant or change roles and badges, approve membership changes, provision new tutor accounts, transfer leadership, or delete eligible accounts; the current HEAD cannot be deleted. Leadership transfer appoints an eligible administrator or coordinator and makes the outgoing HEAD an administrator.
 
 ## Viewers
 
 When viewer signup is enabled, use the public viewer registration form, provide your name, affiliation and email, confirm the emailed code, then set your password. If that email already has an account, sign in or recover it instead. Email delivery must be available.
 
-Viewers can browse permitted read-only management summaries. Personal contact details are masked, and management mutations are unavailable. Viewer access does not expose private message conversations or another person’s tutee records. Viewers can use **Enter Tutee page** for their own tutoring requests and records.
+Viewers can browse permitted read-only management summaries. Personal contact details are masked, and management mutations are unavailable. Viewer access does not expose private message conversations or another person’s tutee records. Viewer cannot coexist with tutoring, tutee, translation or crew membership. Request a replacement membership from Account settings and wait for HEAD approval before participating.
 
-If you need a different role or access to your own participation record, contact management. Do not create another account to work around permissions.
+If you need a different role or access to your own participation record, request the change in Account settings. Do not create another account to work around permissions.
 
 ## Translators
 
-Translator access is assigned to an existing account. Use **Translations** for interface text and **Translation Review** for website text drafts. Choose the correct language and destination, preserve meaning, and submit a draft for review.
+Translator access requires an explicit HEAD-approved assignment, even for management accounts. Management can review submitted drafts without receiving translation editing permission. Use **Translations** for interface text and **Translation Review** for website text drafts. Choose the correct language and destination, preserve meaning, and submit a draft for review.
 
 Draft text becomes live only after management approval. A coordinator’s translation decision also requires ADMIN/HEAD review. If the destination changes before approval, submit a fresh draft against the current text. Translator assignment does not permit structural page deletion, account administration or unilateral policy publication. Policy translations require the separate [policy review process](policies/README.md).
 

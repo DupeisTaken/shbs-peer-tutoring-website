@@ -2539,6 +2539,7 @@
     "dismiss": "Dismiss"
   },
   "programTimeZone": {
+    "referenceDate": "미리보기 날짜 (UTC 12:00, 설정은 변경되지 않음)",
     "title": "Program time zone",
     "help": "Use one school time zone for dates, schedules, deadlines and notifications.",
     "zone": "Time zone",
@@ -2682,5 +2683,27 @@
     "bindingTitle": "보조 이메일 연결",
     "bindingHelp": "사용자가 선택적으로 보조 이메일을 추가하고 인증할 수 있도록 합니다. 알림과 독립적이며, 비활성화해도 기존 주소와 기본 로그인 요건은 유지됩니다.",
     "bindingEnable": "보조 이메일 연결 허용"
+  },
+  "membership": {
+    "title": "Roles and participation",
+    "rank": "Management rank",
+    "none": "No management rank",
+    "tutor": "Tutor",
+    "tutee": "Tutee",
+    "viewer": "Viewer",
+    "translator": "Translator",
+    "crew": "Crew",
+    "headHelp": "Only Head can apply badge changes. Management rank and participation are independent.",
+    "requestHelp": "Submit your proposed badges for Head approval. Access stays unchanged until approved.",
+    "policyHelp": "Tutee participation also requires personal acceptance of the current tutee policy. Tutor accounts keep that membership without a duplicate Tutee badge.",
+    "viewerExclusive": "Viewer cannot be combined with any other badge.",
+    "password": "Confirm your password",
+    "save": "Apply badge changes",
+    "request": "Request Head approval",
+    "saved": "Badge changes saved.",
+    "requested": "Requested Head approval. Your access has not changed.",
+    "makeHead": "Make Head",
+    "transferHelp": "Transfer leadership to this account. You will become an Admin; there will still be exactly one Head.",
+    "confirmTransfer": "Confirm leadership transfer"
   }
 }

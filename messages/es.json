@@ -2539,6 +2539,7 @@
     "dismiss": "Dismiss"
   },
   "programTimeZone": {
+    "referenceDate": "Fecha de vista previa (12:00 UTC; no cambia la configuración)",
     "title": "Program time zone",
     "help": "Use one school time zone for dates, schedules, deadlines and notifications.",
     "zone": "Time zone",
@@ -2682,5 +2683,27 @@
     "bindingTitle": "Vinculación de correos secundarios",
     "bindingHelp": "Permite añadir y verificar correos secundarios de forma opcional, independientemente de las notificaciones. Al desactivar, se conservan los correos existentes y los requisitos del correo principal.",
     "bindingEnable": "Permitir vincular correos secundarios"
+  },
+  "membership": {
+    "title": "Roles y participación",
+    "rank": "Rango de gestión",
+    "none": "Sin rango de gestión",
+    "tutor": "Tutor",
+    "tutee": "Estudiante",
+    "viewer": "Observador",
+    "translator": "Traductor",
+    "crew": "Equipo de supervisión",
+    "headHelp": "Solo la jefatura puede cambiar las insignias. El rango de gestión y la participación son independientes.",
+    "requestHelp": "Solicita la aprobación de la jefatura. El acceso no cambia hasta recibir la aprobación.",
+    "policyHelp": "La participación estudiantil requiere aceptar personalmente la política vigente. Los tutores conservan esta membresía sin una insignia duplicada.",
+    "viewerExclusive": "Observador no puede combinarse con ninguna otra insignia.",
+    "password": "Confirma tu contraseña",
+    "save": "Aplicar cambios de insignias",
+    "request": "Solicitar aprobación",
+    "saved": "Cambios guardados.",
+    "requested": "Se solicitó aprobación. Tu acceso no ha cambiado.",
+    "makeHead": "Nombrar jefe",
+    "transferHelp": "Transfiere la jefatura a esta cuenta. Pasarás a ser administrador; seguirá habiendo una sola jefatura.",
+    "confirmTransfer": "Confirmar transferencia"
   }
 }

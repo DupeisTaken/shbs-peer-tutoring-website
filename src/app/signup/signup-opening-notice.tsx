@@ -2,9 +2,16 @@
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
-import { useFormatter, useTranslations } from "next-intl";
+import {
+  useFormatter,
+  useLocale,
+  useTimeZone,
+  useTranslations,
+} from "next-intl";
 
 import { signupCountdown } from "~/lib/signup-window";
+import { DEFAULT_TIME_ZONE } from "~/i18n/config";
+import { programTimeZoneLabel } from "~/lib/program-time-zone-label";
 
 /** Retry a failed/stale server refresh without hammering the route once the gate reaches zero. */
 const OPENING_REFRESH_RETRY_MS = 5_000;
@@ -29,6 +36,8 @@ export function SignupOpeningNotice({
 }: SignupOpeningNoticeProps) {
   const t = useTranslations("public.signup.gate");
   const format = useFormatter();
+  const locale = useLocale();
+  const timeZone = useTimeZone() ?? DEFAULT_TIME_ZONE;
   const router = useRouter();
   const openingTime = useMemo(() => new Date(opensAt), [opensAt]);
   const openingMs = openingTime.getTime();
@@ -111,6 +120,9 @@ export function SignupOpeningNotice({
         >
           {t("periodTitle", { period: periodLabel, time: formattedOpening })}
         </h2>
+        <p className="muted mt-3 text-sm break-words">
+          {programTimeZoneLabel(timeZone, openingTime, locale)}
+        </p>
 
         <div
           className="mt-7 grid grid-cols-4 gap-2 sm:gap-3"

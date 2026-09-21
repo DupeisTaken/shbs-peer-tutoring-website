@@ -9,9 +9,10 @@ export function policyActionTarget(slug: string, revision: string) {
 export function applicablePolicySlugs(user: {
   studentId: string | null;
   tutorId: string | null;
+  tuteeMember?: boolean;
 }): PolicySlug[] {
   return [
-    ...(user.studentId ? ["tutee-policy" as const] : []),
+    ...(user.studentId || user.tuteeMember ? ["tutee-policy" as const] : []),
     ...(user.tutorId ? ["tutor-policy" as const] : []),
   ];
 }

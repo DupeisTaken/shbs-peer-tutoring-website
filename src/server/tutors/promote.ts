@@ -91,6 +91,7 @@ export async function promoteApplicantToTutor(
         where: { id: hasLogin.id },
         data: {
           tutorId,
+          tutorAccessRevoked: false,
           ...(hasLogin.role === "STUDENT" ||
           hasLogin.role === "VIEWER" ||
           hasLogin.role === "CREW"

@@ -376,7 +376,7 @@ export async function confirmSurvey(
       });
     let user = await tx.user.findUnique({ where: { email: row.email } });
     if (user) await lockAccountProfile(tx, user.id);
-    if (user?.suspendedAt)
+    if (user?.suspendedAt || user?.role === "VIEWER")
       throw new TRPCError({
         code: "FORBIDDEN",
         message: "Contact the team about your account.",
@@ -420,6 +420,7 @@ export async function confirmSurvey(
       where: { id: user.id },
       data: {
         studentId: student.id,
+        tuteeMember: true,
         emailVerifiedAt: user.emailVerifiedAt ?? new Date(),
       },
     });

@@ -333,6 +333,8 @@ export async function completeRegistration(
     return { ok: false, error: "email-taken" };
   }
 
+  if (existingUser?.role === "VIEWER") return { ok: false, error: "email-taken" };
+
   const passwordHash = hashPassword(input.password);
 
   // ---- Crew-only registration (no Tutor) -----------------------------------
@@ -442,6 +444,7 @@ export async function completeRegistration(
         where: { id: existingUser.id },
         data: {
           tutorId,
+          tutorAccessRevoked: false,
           username: desiredUsername,
           name: `${firstName} ${lastName}`,
           passwordHash,
@@ -462,6 +465,7 @@ export async function completeRegistration(
           name: `${firstName} ${lastName}`,
           role: "TUTOR",
           tutorId,
+          tutorAccessRevoked: false,
           passwordHash,
           mustChangePassword: false,
           emailVerifiedAt: new Date(),
