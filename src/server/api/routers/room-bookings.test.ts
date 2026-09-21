@@ -179,6 +179,7 @@ beforeAll(async () => {
   tutorC = thirdTutor.id;
   // Room conflict tests use explicit approved catalogue subjects so room validation is reached.
   for (const name of [
+    "Released",
     "Overlap",
     "Blackout",
     "Adjacent",
