@@ -11,6 +11,20 @@ import { generateRegistrationCode, normalizeRegCode } from "./code";
 export const MAX_SECONDARY_EMAILS = 5;
 export const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
+/** Share the administrator's lock so disabling cannot race a new binding or proof. */
+async function requireSecondaryEmailBinding(tx: TransactionDb) {
+  await lockEntity(tx, "secondary-email-binding-setting");
+  const settings = await tx.programSettings.findUnique({
+    where: { id: "program" },
+  });
+  if (!(settings?.secondaryEmailBindingEnabled ?? true))
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message:
+        "Secondary-email binding is disabled by the program administrator.",
+    });
+}
+
 /** Pending challenges are account-local UI state, never ownership of an address.
  * Keep expired challenges visible for resend/cancel, without blocking another account.
  * The same union drives both the settings list and the five-secondary limit.
@@ -118,6 +132,7 @@ export async function requestSecondaryEmail(
   const email = normalizeEmail(inputEmail);
   const code = generateRegistrationCode();
   const challenge = await db.$transaction(async (tx) => {
+    await requireSecondaryEmailBinding(tx);
     const user = await authenticateEmailAction(tx, userId, password);
     if (email === user.email)
       throw new TRPCError({
@@ -196,6 +211,7 @@ export async function confirmSecondaryEmail(
 ) {
   const email = normalizeEmail(inputEmail);
   return db.$transaction(async (tx) => {
+    await requireSecondaryEmailBinding(tx);
     await lockAccountProfile(tx, userId);
     const row = await tx.emailVerificationCode.findFirst({
       where: {

@@ -58,9 +58,13 @@ Switches control available pages and operations; they do not erase historical da
 
 ## Optional email notifications
 
-ADMIN or HEAD can enable **Email notifications** in **Program & Refresh**. This immediate setting defaults off and is separate from staged modules and email 2FA. Production requires configured email delivery. Individuals then choose categories and whether verified secondary addresses receive notices; see [personal preferences](user-guide.md#optional-email-notifications).
+ADMIN or HEAD can enable **Email notifications** in **Program & Refresh**. This immediate setting defaults off and is separate from staged modules and email 2FA. Production requires configured email delivery. Individuals then choose private-message and information/program categories, and whether verified secondary addresses receive copies; see [personal preferences](user-guide.md#optional-email-notifications).
 
-Disabling the setting cancels pending notices and preserves personal preferences. The settings panel reports terminal delivery failures; operators should inspect the safe failure summaries in `EmailDelivery` and follow the [delivery operations guide](deployment.md#optional-notification-delivery). Essential authentication mail remains independent.
+Disabling the setting cancels pending optional notices and preserves personal preferences. Users cannot enable notifications themselves while this program switch is off. Security alerts remain mandatory.
+
+The independent **Secondary-email binding** switch is also immediate and editable only by ADMIN/HEAD; coordinators cannot propose changes to either email switch. Binding availability defaults on to preserve the existing workflow. Turning it off blocks add/resend/confirm operations, including a code issued before the switch changed. It preserves existing account addresses, sign-in/recovery, primary-email changes and removal/cancellation. A secondary email is never required for signup, setup or use. This switch does not require notification emails to be enabled.
+
+The settings panel reports terminal delivery failures; operators should inspect the safe failure summaries in `EmailDelivery` and follow the [delivery operations guide](deployment.md#optional-notification-delivery). Essential authentication mail remains independent.
 
 ## Schedule rooms and periods
 
