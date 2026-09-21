@@ -32,6 +32,14 @@ The [CI workflow](../.github/workflows/docker-build.yml) also checks dependency 
 - Keep bundled sample policies separate from published database documents. Follow [policy publication](policies/README.md) when wording changes.
 - Before changing Next.js behavior, read the relevant bundled guide under `node_modules/next/dist/docs/`. Use the existing Turbopack build command and local resource settings rather than global runtime changes.
 
+## Chinese peer-tutoring wording
+
+Use **辅导伙伴** for Tutor and **学习伙伴** for Tutee in role labels, participant workflows, notifications and sample policies. Both are fellow students; these names describe their roles in a particular tutoring relationship, not a teacher/student hierarchy. Use **辅导** for tutoring and **参与中** for active participation, rather than 授课 or 在职. Keep genuine school references such as 学生家长、数学教师 and the calendar's 上课日. Keep message keys, ICU arguments/plural branches, role enums and permission rules unchanged when editing display text.
+
+The homepage introduction and role cards use `messages/en.json` and `messages/zh.json` defaults. Environment message overrides take precedence over bundled messages, and published database message overrides take precedence over both. A locale-specific `HomeContent` override wins over the resolved homepage message; clearing that override restores the resolved default. Review existing overrides through localization and landing editors to adopt new wording. Repository edits do not overwrite them.
+
+The bilingual `/p/about` example in `prisma/seed.ts` is development seed content. Existing custom pages retain their stored blocks; missing block translations fall back to English. Update a published page through the landing editor after review, never by running the demo seed on real data. Policies likewise use published database documents with English fallback, not live reads of sample files. Preserve accepted text/version snapshots and follow [policy publication](policies/README.md) to publish a reviewed revision.
+
 ## Documentation and repository hygiene
 
 Keep human-facing guides under `docs/`, with only `README.md` at the repository root. The root [AGENTS.md](../AGENTS.md) is the explicit exception: coding agents discover its UI conventions automatically. Keep control-height and responsive-header implementation guidance there rather than duplicating it in feature guides. Put other instructions in the existing guide for their audience:

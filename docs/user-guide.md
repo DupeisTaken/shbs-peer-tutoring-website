@@ -98,7 +98,7 @@ Use **My Tutors & Schedule** for current assignments, **Attendance** for recorde
 
 With discipline enabled, an unexcused student absence automatically creates a valid red card. Tutor-requested cards count only after validation. Every three valid yellow cards contribute one effective red; at two effective reds, an active tutee is automatically made inactive and removed from current-period assignments, without separate removal approval. An upheld appeal invalidates the card and recalculates standing. Eligible effects may be restored if no later independent status change intervened; accounts and past records remain.
 
-See the [sample student policy](../prisma/policies/tutee-policy.en.md) or [中文学生政策示例](../prisma/policies/tutee-policy.zh.md). Participation uses the school's published version displayed on the website.
+See the [sample student policy](../prisma/policies/tutee-policy.en.md) or [中文学习伙伴政策示例](../prisma/policies/tutee-policy.zh.md). Participation uses the school's published version displayed on the website.
 
 ## Tutors
 
@@ -142,7 +142,7 @@ For a student enrolled outside the survey flow, the tutor can relay the student'
 - On an interview panel, review the application and submit your own vote. Every panelist must vote before a final decision. The majority decides; a tie is resolved by the selected highest-ranking management chair.
 - A coordinator chair’s outcome goes to ADMIN/HEAD for approval. The reviewer preserves the chair’s decision and identity. Hours are earned from recorded interview completion and attendance, not scheduling alone.
 
-Read addressed announcements and acknowledge them when prompted. Review session hours, interview credits, meeting deductions and manual adjustments in your period totals. See the [sample tutor policy](../prisma/policies/tutor-policy.en.md) or [中文导师政策示例](../prisma/policies/tutor-policy.zh.md); follow the school's published version when participating.
+Read addressed announcements and acknowledge them when prompted. Review session hours, interview credits, meeting deductions and manual adjustments in your period totals. See the [sample tutor policy](../prisma/policies/tutor-policy.en.md) or [中文辅导伙伴政策示例](../prisma/policies/tutor-policy.zh.md); follow the school's published version when participating.
 
 ## Crew
 

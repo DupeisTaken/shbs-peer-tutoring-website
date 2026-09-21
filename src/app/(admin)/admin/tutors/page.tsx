@@ -203,7 +203,8 @@ export default function TutorsPage() {
                   />
                 </td>
                 <td>{row.gradeLevel ?? "—"}</td>
-                <td>
+                {/* Keep translated status badges readable inside the scrolling roster. */}
+                <td className="whitespace-nowrap">
                   <span
                     className={
                       row.status === "ACTIVE" ? "badge-green" : "badge-slate"

@@ -72,7 +72,7 @@ describe("bundled policy publication boundaries", () => {
     expect(calls).toEqual(["de", "en"]);
     calls.length = 0;
     expect((await localizedPolicy(client, "tutor-policy", "zh"))?.title).toBe(
-      "导师参与政策示例",
+      "辅导伙伴参与政策示例",
     );
     expect(calls).toEqual(["zh"]);
   });
