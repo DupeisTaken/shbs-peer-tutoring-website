@@ -58,6 +58,7 @@ export const APPROVAL_OPERATIONS: Record<string, string> = {
   "admin.updateRoom": "Room",
   "admin.deleteRoom": "Room",
   "admin.createRoomUnavailability": "RoomUnavailability",
+  "admin.updateRoomUnavailability": "RoomUnavailability",
   "admin.deleteRoomUnavailability": "RoomUnavailability",
   "admin.createMeeting": "TutorMeeting",
   "admin.deleteMeeting": "TutorMeeting",
