@@ -27,6 +27,63 @@ import { availableSubjectIds } from "~/server/subject-willingness";
 
 const password = "ReviewPassword123!";
 
+// The responsive adjustment view must preserve the same server-side data and permissions.
+it("hour adjustments preserve month, fractional amount and full reason through create/list/delete", async () => {
+  const reason = "Synthetic adjustment explanation. " + "UnbrokenReason".repeat(20);
+  const adjustment = await caller().admin.createAdjustment({
+    tutorId: "review-tutor", month: "2026-09", type: "EXTRA", amount: 1.5, reason,
+  });
+  expect(adjustment).toMatchObject({ month: "2026-09", amount: 1.5, reason, schoolYear: "26-27", quarter: "Q1" });
+  expect(await caller().admin.adjustments({ month: "2026-09" })).toEqual([
+    expect.objectContaining({ id: adjustment.id, month: "2026-09", amount: 1.5, reason }),
+  ]);
+  expect(await caller().admin.adjustments({ month: "2026-10" })).toEqual([]);
+  await caller().admin.deleteAdjustment({ id: adjustment.id });
+  expect(await db.serviceHourAdjustment.count()).toBe(0);
+});
+
+it("hour adjustments redact viewer reasons and reject direct viewer writes", async () => {
+  const input = { tutorId: "review-tutor", month: "2026-09", type: "PUNISHMENT" as const, amount: 0.5, reason: "Private synthetic reason" };
+  const adjustment = await caller().admin.createAdjustment(input);
+  const viewer = caller("VIEWER", "review-viewer");
+  expect(await viewer.admin.adjustments({})).toEqual([
+    expect.objectContaining({ id: adjustment.id, month: "2026-09", reason: null }),
+  ]);
+  await expect(viewer.admin.createAdjustment(input)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(viewer.admin.deleteAdjustment({ id: adjustment.id })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect(await db.serviceHourAdjustment.count()).toBe(1);
+});
+
+it("hour adjustments reject tutor access and malformed month input", async () => {
+  const input = { tutorId: "review-tutor", month: "2026-09", type: "EXTRA" as const, amount: 1 };
+  await expect(tutor().admin.adjustments({})).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(tutor().admin.createAdjustment(input)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(caller().admin.createAdjustment({ ...input, month: "2026-9" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  await expect(caller().admin.createAdjustment({ ...input, amount: 0 })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  expect(await db.serviceHourAdjustment.count()).toBe(0);
+});
+
+it("hour adjustments cannot be written when the service-hours module is disabled", async () => {
+  const input = { tutorId: "review-tutor", month: "2026-09", type: "EXTRA" as const, amount: 1 };
+  const adjustment = await caller().admin.createAdjustment(input);
+  await db.programFeature.create({ data: { key: "SERVICE_HOURS", enabled: false } });
+  await expect(caller().admin.createAdjustment(input)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(caller().admin.deleteAdjustment({ id: adjustment.id })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect(await db.serviceHourAdjustment.count()).toBe(1);
+});
+
+it("hour adjustments queue coordinator writes without changing live records", async () => {
+  await db.user.update({ where: { id: "review-viewer" }, data: { role: "COORDINATOR" } });
+  const coordinator = caller("COORDINATOR", "review-viewer");
+  const input = { tutorId: "review-tutor", month: "2026-09", type: "EXTRA" as const, amount: 1 };
+  await expect(coordinator.admin.createAdjustment(input)).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect(await db.serviceHourAdjustment.count()).toBe(0);
+  const adjustment = await caller().admin.createAdjustment(input);
+  await expect(coordinator.admin.deleteAdjustment({ id: adjustment.id })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect(await db.serviceHourAdjustment.count()).toBe(1);
+  expect(await db.approvalRequest.count()).toBe(2);
+});
+
 it("keeps completed and decided interview history when no panel assignments remain", async () => {
   const completed = await db.tutorApplication.create({ data: {
     name: "Historical completed candidate", email: "history-completed@example.test", status: "ACCEPTED",

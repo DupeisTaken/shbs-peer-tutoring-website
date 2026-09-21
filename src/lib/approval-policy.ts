@@ -1,5 +1,6 @@
 /** Explicitly reviewed management operations. Unknown coordinator writes fail closed.
- * Account privileges, program configuration and irreversible file deletion are never proposals. */
+ * Account privileges, program configuration and irreversible file deletion are never proposals.
+ * program.setEmailNotifications and program.setSecondaryEmailBinding require ADMIN/HEAD directly. */
 /** These operations assign or restore account capabilities. Only Head can apply/review them. */
 export const HEAD_APPROVAL_OPERATIONS = new Set([
   "admin.setMemberships", "admin.setUserCanTutor", "admin.setCrewStatus",
@@ -7,7 +8,6 @@ export const HEAD_APPROVAL_OPERATIONS = new Set([
   "admin.issueRegistrationCode", "admin.updateTutor",
   "admin.setApplicationStatus", "tutor.decideInterview",
 ]);
-
 export const APPROVAL_OPERATIONS: Record<string, string> = {
   "corrections.correctAttendance": "Session",
   "corrections.correctPatrol": "Patrol",
