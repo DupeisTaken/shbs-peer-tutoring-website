@@ -2,15 +2,20 @@
 import { useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
+import { translationAccess } from "~/lib/translation-access";
 /** A dedicated translator surface avoids granting access to structural publishing controls. */
 export function TranslationComposer() {
   const t = useTranslations("workflows");
+  const editor = useTranslations("translationEditor");
+  const me = api.account.me.useQuery();
+  const access = translationAccess(me.data);
   const initialLocale = useLocale();
   const [locale, setLocale] = useState(initialLocale);
   const [kind, setKind] = useState("content");
   const [target, setTarget] = useState("");
   const [title, setTitle] = useState("");
   const [body, setBody] = useState("");
+  const languages = api.i18n.managedLanguages.useQuery();
   const content = api.home.content.useQuery(
     { locale },
     { enabled: kind === "content" },
@@ -23,13 +28,25 @@ export function TranslationComposer() {
     enabled: kind === "pages",
   });
   const utils = api.useUtils();
-  const done = () => utils.translationReview.list.invalidate();
+  const done = async () => {
+    await Promise.all([
+      utils.translationReview.list.invalidate(),
+      utils.home.invalidate(),
+    ]);
+  };
   const saveContent = api.home.setContent.useMutation({ onSuccess: done });
   const saveNews = api.home.setNewsTranslation.useMutation({ onSuccess: done });
   const saveSection = api.home.setSectionTranslation.useMutation({
     onSuccess: done,
   });
   const savePage = api.home.setPageTitle.useMutation({ onSuccess: done });
+  // Outcomes describe the submitted form only, never another language or destination.
+  const resetOutcome = () => {
+    saveContent.reset();
+    saveNews.reset();
+    saveSection.reset();
+    savePage.reset();
+  };
   const options =
     kind === "content"
       ? (content.data ?? [])
@@ -75,11 +92,21 @@ export function TranslationComposer() {
     saveNews.isPending ||
     saveSection.isPending ||
     savePage.isPending;
+  const loading =
+    languages.isLoading ||
+    (kind === "content"
+      ? content.isLoading
+      : kind === "news"
+        ? news.isLoading
+        : kind === "sections"
+          ? sections.isLoading
+          : pages.isLoading);
   const error =
     saveContent.error ??
     saveNews.error ??
     saveSection.error ??
     savePage.error ??
+    languages.error ??
     content.error ??
     news.error ??
     sections.error ??
@@ -105,7 +132,10 @@ export function TranslationComposer() {
           <select
             className="input w-full"
             value={kind}
+            aria-label={t("contentType")}
+            disabled={pending}
             onChange={(e) => {
+              resetOutcome();
               setKind(e.target.value);
               setTarget("");
               setTitle("");
@@ -121,16 +151,26 @@ export function TranslationComposer() {
         </label>
         <label>
           <span className="label">{t("locale")}</span>
-          <input
-            className="input w-full"
+          <select
+            className="select w-full"
             value={locale}
+            aria-label={t("locale")}
+            disabled={pending}
             onChange={(e) => {
+              resetOutcome();
               setLocale(e.target.value);
               setTarget("");
+              setTitle("");
+              setBody("");
             }}
             required
-            maxLength={10}
-          />
+          >
+            {(languages.data ?? []).map((language) => (
+              <option key={language.code} value={language.code}>
+                {language.label}
+              </option>
+            ))}
+          </select>
         </label>
       </div>
       <label className="block">
@@ -139,7 +179,10 @@ export function TranslationComposer() {
           className="input w-full"
           required
           value={target}
+          aria-label={t("target")}
+          disabled={pending || loading}
           onChange={(e) => {
+            resetOutcome();
             setTarget(e.target.value);
             const value = options.find((v) => v.id === e.target.value);
             setTitle(value?.title ?? "");
@@ -160,7 +203,12 @@ export function TranslationComposer() {
           <input
             className="input w-full"
             value={title}
-            onChange={(e) => setTitle(e.target.value)}
+            aria-label={t("title")}
+            disabled={pending}
+            onChange={(e) => {
+              resetOutcome();
+              setTitle(e.target.value);
+            }}
             required
             maxLength={200}
           />
@@ -171,18 +219,36 @@ export function TranslationComposer() {
         <textarea
           className="input min-h-40 w-full"
           value={body}
-          onChange={(e) => setBody(e.target.value)}
+          aria-label={t("translation")}
+          disabled={pending}
+          onChange={(e) => {
+            resetOutcome();
+            setBody(e.target.value);
+          }}
           maxLength={kind === "pages" ? 200 : 20000}
         />
       </label>
-      <button className="btn-primary" disabled={pending || !target}>
-        {t("save")}
+      {loading && <p role="status">{editor("loading")}</p>}
+      <button
+        className="btn-primary"
+        disabled={
+          pending ||
+          loading ||
+          !target ||
+          !languages.data?.some((language) => language.code === locale)
+        }
+      >
+        {editor(access.publish ? "publishEdit" : "submitDraft")}
       </button>
       {error && <p role="alert">{error.message}</p>}
       {(saveContent.isSuccess ||
         saveNews.isSuccess ||
         saveSection.isSuccess ||
-        savePage.isSuccess) && <p role="status">{t("saved")}</p>}
+        savePage.isSuccess) && (
+        <p role="status">
+          {editor(access.publish ? "published" : "submitted")}
+        </p>
+      )}
     </form>
   );
 }

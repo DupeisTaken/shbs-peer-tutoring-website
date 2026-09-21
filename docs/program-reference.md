@@ -59,13 +59,21 @@ Switches control available pages and operations; they do not erase historical da
 
 ## Optional email notifications
 
-ADMIN or HEAD can enable **Email notifications** in **Program & Refresh**. This immediate setting defaults off and is separate from staged modules and email 2FA. Production requires configured email delivery. Individuals then choose categories and whether verified secondary addresses receive notices; see [personal preferences](user-guide.md#optional-email-notifications).
+ADMIN or HEAD can enable **Email notifications** in **Program & Refresh**. This immediate setting defaults off and is separate from staged modules and email 2FA. Production requires configured email delivery. Individuals then choose private-message and information/program categories, and whether verified secondary addresses receive copies; see [personal preferences](user-guide.md#optional-email-notifications).
 
-Disabling the setting cancels pending notices and preserves personal preferences. The settings panel reports terminal delivery failures; operators should inspect the safe failure summaries in `EmailDelivery` and follow the [delivery operations guide](deployment.md#optional-notification-delivery). Essential authentication mail remains independent.
+Disabling the setting cancels pending optional notices and preserves personal preferences. Users cannot enable notifications themselves while this program switch is off. Security alerts remain mandatory.
+
+The independent **Secondary-email binding** switch is also immediate and editable only by ADMIN/HEAD; coordinators cannot propose changes to either email switch. Binding availability defaults on to preserve the existing workflow. Turning it off blocks add/resend/confirm operations, including a code issued before the switch changed. It preserves existing account addresses, sign-in/recovery, primary-email changes and removal/cancellation. A secondary email is never required for signup, setup or use. This switch does not require notification emails to be enabled.
+
+The settings panel reports terminal delivery failures; operators should inspect the safe failure summaries in `EmailDelivery` and follow the [delivery operations guide](deployment.md#optional-notification-delivery). Essential authentication mail remains independent.
 
 ## Schedule rooms and periods
 
 Use **Time Slots**, **Rooms** and **Pairings** to plan recurring sessions. A room cannot host overlapping pairings in one program period or a pairing during a recurring blackout; back-to-back sessions are allowed. Availability helps participants agree on a slot and does not prevent staff from assigning a tutor before that agreement.
+
+In **Rooms**, each room shows its blocked-period count. Open **Manage blocked periods** to add a weekly block or edit its day, start/end times and optional reason. Use the program time zone and 24-hour times; an end of `24:00` means midnight. Split overnight blocks across two days. **Remove Period** opens a confirmation before releasing the time. No blocked periods means no recurring restrictions, not that the room has no bookings.
+
+Admin and Head changes take effect after a successful save. Coordinators use **Request new block**, **Request edit** or **Request removal**; availability stays unchanged until Admin/Head approves in **Management Actions**. **View request** opens the submitted proposal with its recorded room name, weekday, clock times and reason; edits compare the original and proposed periods. Older requests explicitly identify missing recorded details. Rejection leaves the schedule unchanged. Viewers can inspect periods but cannot submit changes. Conflicting blocks, reversed/empty intervals and overlaps with active-period bookings are rejected, including during approval if the schedule changed after submission. Adjacent periods are allowed. A failed edit retains the form values for correction.
 
 Changing a catalog slot affects linked schedules. Read the Time Slots guidance before saving; **How schedule changes work** reopens dismissed guidance. The tutor's default-slot control links a pairing to the catalog. Clearing that link retains its copied day and time; it does not erase the schedule. Record completed attendance truthfully even when it differs from the plan, then review any conflict warning.
 
@@ -97,6 +105,14 @@ Reload if another administrator has already changed the period. After refresh, c
 
 A lower exact headcount creates a pending flag. Management reviews the evidence and chooses **Dismiss**, **Warn**, **Penalize** or **Escalate**; coordinator decisions need approval. A penalty records a service-hour deduction for the session's period, defaulting to 0.5 hours unless another allowed amount is entered. Escalation requests further review and does not itself remove the tutor. Attendance or patrol corrections can reopen review and remove its linked deduction. Use corrections to fix the underlying record, and retain a clear decision note.
 
+## Tutor hour adjustments
+
+Open **Hour Adjustments** (`/admin/hour-adjustments`) to add extra hours or a punishment deduction for a tutor and month. Amounts remain positive; the type determines whether they add or deduct hours. The active program period is recorded with each adjustment. The service-hours module must be enabled for writes.
+
+Months remain in `YYYY-MM` format. Desktop tables reserve space for months and wrap long names, reasons and translated labels; a constrained desktop table can scroll within its card. On mobile, each record stacks its labelled fields and delete action so the full reason stays readable. Form controls and row actions support touch and keyboard use.
+
+HEAD and ADMIN can apply additions and deletions. Coordinator writes become approval proposals, without immediately changing live hours. VIEWER has no mutation controls, cannot write through the API, and receives records with private reasons withheld by the server. Tutor accounts cannot access this management listing.
+
 ## Reports and exports
 
 Open **Reports** (`/admin/history`) and choose a school year and quarter, semester or whole-year scope. **Summary** shows totals and tutors; **Detailed** adds sessions, cards, meetings, meeting attendance, adjustments, crew and attendance flags; **Full** also includes applications, signups, removals and tutor participation requests. Sections follow enabled modules.
@@ -106,6 +122,10 @@ Download a displayed table as CSV, or use **Print / Save as PDF** and the browse
 ## Program time zone
 
 HEAD or ADMIN selects a supported IANA region in **Program & Refresh → Program time zone**; coordinators can read it. The default is Asia/Shanghai. Review the current/proposed time preview and confirm before saving. Reload a stale editor or other open pages after another staff member changes the setting.
+
+Options show the readable region, a localized zone name, an abbreviation where available, and a GMT offset. Use **Preview date** to compare seasonal offsets at 12:00 UTC on that date; this preview does not save a setting. New York shows EST (GMT-05:00) in winter and EDT (GMT-04:00) in summer. UTC and fractional offsets such as India's GMT+05:30 are supported. The selected label also appears below the dropdown so its full text remains readable on narrow screens.
+
+Signup opening notices, opening-time inputs and patrol correction inputs resolve their labels at the event's date. Audit date-range labels show each endpoint's offset when they differ. An empty, skipped or repeated local time shows only the region until it resolves to one instant. Permissions are unchanged: the server permits only HEAD/ADMIN to save a timezone; coordinators can inspect date previews without saving.
 
 - Weekly slots keep their wall-clock values: 15:30 stays 15:30.
 - Saved appointments and deadlines keep their instants and display in the selected zone.
