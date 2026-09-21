@@ -58,9 +58,13 @@ Switches control available pages and operations; they do not erase historical da
 
 ## Optional email notifications
 
-ADMIN or HEAD can enable **Email notifications** in **Program & Refresh**. This immediate setting defaults off and is separate from staged modules and email 2FA. Production requires configured email delivery. Individuals then choose categories and whether verified secondary addresses receive notices; see [personal preferences](user-guide.md#optional-email-notifications).
+ADMIN or HEAD can enable **Email notifications** in **Program & Refresh**. This immediate setting defaults off and is separate from staged modules and email 2FA. Production requires configured email delivery. Individuals then choose private-message and information/program categories, and whether verified secondary addresses receive copies; see [personal preferences](user-guide.md#optional-email-notifications).
 
-Disabling the setting cancels pending notices and preserves personal preferences. The settings panel reports terminal delivery failures; operators should inspect the safe failure summaries in `EmailDelivery` and follow the [delivery operations guide](deployment.md#optional-notification-delivery). Essential authentication mail remains independent.
+Disabling the setting cancels pending optional notices and preserves personal preferences. Users cannot enable notifications themselves while this program switch is off. Security alerts remain mandatory.
+
+The independent **Secondary-email binding** switch is also immediate and editable only by ADMIN/HEAD; coordinators cannot propose changes to either email switch. Binding availability defaults on to preserve the existing workflow. Turning it off blocks add/resend/confirm operations, including a code issued before the switch changed. It preserves existing account addresses, sign-in/recovery, primary-email changes and removal/cancellation. A secondary email is never required for signup, setup or use. This switch does not require notification emails to be enabled.
+
+The settings panel reports terminal delivery failures; operators should inspect the safe failure summaries in `EmailDelivery` and follow the [delivery operations guide](deployment.md#optional-notification-delivery). Essential authentication mail remains independent.
 
 ## Schedule rooms and periods
 
@@ -70,7 +74,11 @@ Changing a catalog slot affects linked schedules. Read the Time Slots guidance b
 
 The applied **Quarter System** setting controls labels: Q1/Q2 display in semester one and Q3/Q4 in semester two when quarters are disabled. Requests display their original intake, not whichever intake is currently active. Staged module changes take effect only at refresh; labels do not rewrite stored deadlines or attendance.
 
-**Subjects & Levels** supports individual course edits and a simple `name,level` CSV import with an optional header. Maintain levels and subject qualifications before matching or choosing interview panels. Check dependent records and the displayed validation before deleting catalog entries.
+**Subjects & Levels** configures each subject group once. Select its offered levels and enter a separate base name for each: Standard “Intro to Computer Science” displays without a prefix, while AP “Computer Science A” displays as “AP Computer Science A”. Level prefixes are editable; leave the Standard prefix empty. Reorder groups to control selection order and reorder levels along the **Beginner → Advanced** scale. Each group displays beginner levels first. The `name,level` CSV import accepts base names without prefixes and starts a separate group for each row. To consolidate existing subjects, edit a group and select its existing variants explicitly. No grouping is guessed from similar names.
+
+Staff approve qualifications in **Interviews & Panelists**. Approval records the selected variant and every lower offered level in the same group. Application selections alone confer no eligibility. Later level reordering or newly offered variants never expand or revoke those recorded grants; future approvals use the new order. Expanding an approval shows its recorded subjects. Removing an approval removes only its own grants; overlapping approvals remain valid. Tutor assignment and interview checks use these recorded grants.
+
+Unselecting or removing a subject archives it while retaining choices, assignments and qualifications. Levels with existing variants cannot be deleted, and a variant with recorded grants cannot be changed to a different level. Rename its base name or prefix without replacing its identity. Existing subject and qualification migration preserves all IDs, labels and exact approved eligibility. Management catalogue and qualification writes require ADMIN/HEAD authority; coordinators submit proposals for review, and viewers cannot write.
 
 ## Refresh the program
 
@@ -109,6 +117,10 @@ Download a displayed table as CSV, or use **Print / Save as PDF** and the browse
 ## Program time zone
 
 HEAD or ADMIN selects a supported IANA region in **Program & Refresh → Program time zone**; coordinators can read it. The default is Asia/Shanghai. Review the current/proposed time preview and confirm before saving. Reload a stale editor or other open pages after another staff member changes the setting.
+
+Options show the readable region, a localized zone name, an abbreviation where available, and a GMT offset. Use **Preview date** to compare seasonal offsets at 12:00 UTC on that date; this preview does not save a setting. New York shows EST (GMT-05:00) in winter and EDT (GMT-04:00) in summer. UTC and fractional offsets such as India's GMT+05:30 are supported. The selected label also appears below the dropdown so its full text remains readable on narrow screens.
+
+Signup opening notices, opening-time inputs and patrol correction inputs resolve their labels at the event's date. Audit date-range labels show each endpoint's offset when they differ. An empty, skipped or repeated local time shows only the region until it resolves to one instant. Permissions are unchanged: the server permits only HEAD/ADMIN to save a timezone; coordinators can inspect date previews without saving.
 
 - Weekly slots keep their wall-clock values: 15:30 stays 15:30.
 - Saved appointments and deadlines keep their instants and display in the selected zone.

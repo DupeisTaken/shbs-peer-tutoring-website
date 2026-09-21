@@ -33,7 +33,7 @@ export function ProfileDialog({
         </h2>
         <button
           type="button"
-          className="btn-secondary btn-sm"
+          className="btn-secondary btn-sm min-h-11 lg:min-h-8"
           onClick={onClose}
         >
           {t("close")}

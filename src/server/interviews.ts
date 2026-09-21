@@ -1,3 +1,4 @@
+import { lockCatalogue } from "~/server/qualifications";
 import { TRPCError } from "@trpc/server";
 import type { TransactionDb } from "~/server/transactions";
 
@@ -40,8 +41,10 @@ export async function validatePanel(
     where: { applicationId },
     select: { subjectId: true },
   });
-  const qualified = await tx.tutorQualification.count({
+  await lockCatalogue(tx);
+  const qualified = await tx.qualificationGrant.count({
     where: {
+      qualification: { status: "APPROVED" },
       tutorId: { in: tutorIds },
       subjectId: { in: subjects.map((s) => s.subjectId) },
     },

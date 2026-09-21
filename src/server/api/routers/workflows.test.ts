@@ -281,9 +281,19 @@ it.each([false, true])(
     const subjectTwo = await db.subject.create({
       data: { name: "Staff-entry Biology" },
     });
+
     const teacher = await db.tutor.create({
       data: { englishName: "Staff-entry Tutor", status: "ACTIVE" },
     });
+    for (const subject of [subjectOne, subjectTwo])
+      await db.tutorQualification.create({
+        data: {
+          tutorId: teacher.id,
+          subjectId: subject.id,
+          approvedById: "review-head",
+          grants: { create: { subjectId: subject.id } },
+        },
+      });
     const student = await caller().admin.createTutee({
       englishName: "Staff entry",
       status: "PENDING",
@@ -547,6 +557,7 @@ beforeEach(async () => {
     data: [
       {
         id: "review-head",
+        canTranslate: true,
         name: "Review Head",
         email: "review-head@example.test",
         username: "reviewhead",
@@ -575,6 +586,15 @@ beforeEach(async () => {
   });
   await db.subject.create({
     data: { id: "review-subject", name: "Review Math" },
+  });
+  // Assignment scenarios start with staff-approved expertise; application intent is insufficient.
+  await db.tutorQualification.create({
+    data: {
+      tutorId: "review-tutor",
+      subjectId: "review-subject",
+      approvedById: "review-head",
+      grants: { create: { subjectId: "review-subject" } },
+    },
   });
   await db.timeSlot.create({
     data: {
@@ -976,7 +996,7 @@ it("stale audit undo cannot overwrite a later card review", async () => {
 it("inactive crew can still view their own patrol history", async () => {
   await db.user.update({
     where: { id: "review-viewer" },
-    data: { crewStatus: "INACTIVE" },
+    data: { role: "CREW", crewStatus: "INACTIVE" },
   });
   await db.patrol.create({ data: { crewUserId: "review-viewer", hours: 0.5 } });
   expect(await caller("VIEWER", "review-viewer").crew.myPatrols()).toHaveLength(
@@ -1499,7 +1519,7 @@ it("F11: two administrators deciding one flag must create only one penalty", asy
 it("F12: a suspended assigned translator must not retain publishing rights", async () => {
   await db.user.update({
     where: { id: "review-viewer" },
-    data: { canTranslate: true, suspendedAt: new Date() },
+    data: { role: "STUDENT", canTranslate: true, suspendedAt: new Date() },
   });
   await expect(
     caller("VIEWER", "review-viewer").home.createNews({
@@ -1980,6 +2000,7 @@ async function studentAccount(
       name: id,
       role: "STUDENT",
       studentId,
+      tuteeMember: true,
       emailVerifiedAt: new Date(),
       passwordHash: hashPassword(password),
     },
@@ -2692,12 +2713,11 @@ it("interview outcomes cannot bypass the assigned chair", async () => {
       expectedUpdatedAt: current.updatedAt,
     }),
   ).rejects.toMatchObject({ code: "BAD_REQUEST" });
-  await chair.tutor.decideInterview({
-    applicationId: app.id,
-    accept: true,
-    comment: "Majority accepts",
-    expectedUpdatedAt: current.updatedAt,
-  });
+  await expect(chair.tutor.decideInterview({
+    applicationId: app.id, accept: true, comment: "Majority accepts", expectedUpdatedAt: current.updatedAt,
+  })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  const proposal = await db.approvalRequest.findFirstOrThrow({ where: { operation: "tutor.decideInterview", state: "PENDING" } });
+  await caller().approval.decide({ id: proposal.id, approve: true, note: "Head approved the chair's decision" });
   await expect(
     caller("TUTOR", "panel-user-1", panel[1]!.id).tutor.castInterviewVote({
       applicationId: app.id,
@@ -2903,12 +2923,11 @@ it("only the highest-ranking staff chair can break an interview tie", async () =
       expectedUpdatedAt: current.updatedAt,
     }),
   ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
-  await caller("ADMIN", "panel-user-0", panel[0]!.id).tutor.decideInterview({
-    applicationId: app.id,
-    accept: true,
-    comment: "Chair tie-break",
-    expectedUpdatedAt: current.updatedAt,
-  });
+  await expect(caller("ADMIN", "panel-user-0", panel[0]!.id).tutor.decideInterview({
+    applicationId: app.id, accept: true, comment: "Chair tie-break", expectedUpdatedAt: current.updatedAt,
+  })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  const proposal = await db.approvalRequest.findFirstOrThrow({ where: { operation: "tutor.decideInterview", state: "PENDING" } });
+  await caller().approval.decide({ id: proposal.id, approve: true, note: "Head approved the chair tie-break" });
   expect(
     (await db.tutorApplication.findUniqueOrThrow({ where: { id: app.id } }))
       .status,
@@ -3208,7 +3227,7 @@ for (const kind of ["tutor", "crew"] as const) {
       else
         await db.user.update({
           where: { id: "review-user" },
-          data: { crewStatus: "INACTIVE" },
+          data: { role: "CREW", crewStatus: "INACTIVE" },
         });
       await expect(decide(id)).rejects.toThrow("Membership changed");
       expect((await findRequests())[0]!.state).toBe("PENDING");

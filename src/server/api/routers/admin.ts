@@ -1,3 +1,13 @@
+import { accountMembership, membershipSchema } from "~/lib/account-membership";
+import { databaseScope, approvalScope } from "~/server/db-scope";
+import { subjectOrderBy } from "~/lib/course-catalogue";
+import {
+  courseGroupInput,
+  saveCourseGroup,
+  writeVariant,
+  reorderCatalogue,
+} from "~/server/course-catalogue";
+import { lockCatalogue, assertQualifiedByName } from "~/server/qualifications";
 import {
   lockAccountProfile,
   updateAccountProfile,
@@ -522,53 +532,118 @@ export const adminRouter = createTRPCRouter({
   ),
   subjects: viewerProcedure.query(({ ctx }) =>
     ctx.db.subject.findMany({
-      orderBy: { name: "asc" },
-      include: { level: { select: { id: true, name: true } } },
+      orderBy: [...subjectOrderBy],
+      include: { level: true, group: true },
     }),
   ),
 
-  /** The admin-managed level catalogue (AP / Honors / Standard / …), ordered by rank. */
+  /** Concrete approved eligibility; consumers must not infer it from application intents. */
+  subjectEligibility: viewerProcedure.query(({ ctx }) =>
+    ctx.db.qualificationGrant.findMany({
+      where: { qualification: { status: "APPROVED" } },
+      distinct: ["tutorId", "subjectId"],
+      select: { tutorId: true, subjectId: true },
+    }),
+  ),
+  courseGroups: viewerProcedure.query(({ ctx }) =>
+    ctx.db.courseGroup.findMany({
+      orderBy: [{ rank: "asc" }, { id: "asc" }],
+      include: {
+        subjects: {
+          include: { level: true },
+          orderBy: [
+            { level: { rank: "asc" } },
+            { level: { id: "asc" } },
+            { id: "asc" },
+          ],
+        },
+      },
+    }),
+  ),
+  saveCourseGroup: adminProcedure
+    .input(courseGroupInput)
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, (tx) => saveCourseGroup(tx, input)),
+    ),
+  reorderCatalogue: adminProcedure
+    .input(z.object({ kind: z.enum(["levels", "groups"]), ids: z.array(cuid) }))
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, (tx) =>
+        reorderCatalogue(tx, input.kind, input.ids),
+      ),
+    ),
   subjectLevels: viewerProcedure.query(({ ctx }) =>
     ctx.db.subjectLevel.findMany({
-      orderBy: [{ rank: "asc" }, { name: "asc" }],
+      orderBy: [{ rank: "asc" }, { id: "asc" }],
     }),
   ),
-
   createSubjectLevel: adminProcedure
     .input(
       z.object({
         name: z.string().trim().min(1).max(60),
+        prefix: z.string().trim().max(60).optional(),
         rank: z.number().int().default(0),
         apScored: z.boolean().default(false),
       }),
     )
-    .mutation(({ ctx, input }) => ctx.db.subjectLevel.create({ data: input })),
-
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockCatalogue(tx);
+        return tx.subjectLevel.create({
+          data: {
+            ...input,
+            prefix:
+              input.prefix ??
+              (input.name.toLowerCase() === "standard" ? "" : input.name),
+          },
+        });
+      }),
+    ),
   updateSubjectLevel: adminProcedure
     .input(
       z.object({
         id: cuid,
         name: z.string().trim().min(1).max(60).optional(),
+        prefix: z.string().trim().max(60).optional(),
         rank: z.number().int().optional(),
         apScored: z.boolean().optional(),
         active: z.boolean().optional(),
       }),
     )
-    .mutation(({ ctx, input }) => {
-      const { id, ...data } = input;
-      return ctx.db.subjectLevel.update({ where: { id }, data });
-    }),
-
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockCatalogue(tx);
+        const { id, ...data } = input;
+        const level = await tx.subjectLevel.update({ where: { id }, data });
+        if (input.prefix !== undefined) {
+          const variants = await tx.subject.findMany({
+            where: { levelId: id },
+          });
+          for (const variant of variants)
+            await writeVariant(tx, {
+              id: variant.id,
+              baseName: variant.baseName || variant.name,
+              levelId: id,
+              active: variant.active,
+            });
+        }
+        return level;
+      }),
+    ),
   deleteSubjectLevel: adminProcedure
     .input(z.object({ id: cuid }))
-    .mutation(async ({ ctx, input }) => {
-      // Detach any subjects on this level first (revertible: reassign on the subjects page).
-      await ctx.db.subject.updateMany({
-        where: { levelId: input.id },
-        data: { levelId: null },
-      });
-      return ctx.db.subjectLevel.delete({ where: { id: input.id } });
-    }),
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockCatalogue(tx);
+        if (await tx.subject.count({ where: { levelId: input.id } }))
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "This level has subject variants. Retain it to preserve their meaning.",
+          });
+        return tx.subjectLevel.delete({ where: { id: input.id } });
+      }),
+    ),
   timeSlots: viewerProcedure.query(({ ctx }) =>
     ctx.db.timeSlot.findMany({
       orderBy: [{ dayOfWeek: "asc" }, { startMin: "asc" }],
@@ -620,6 +695,7 @@ export const adminRouter = createTRPCRouter({
       const { tuteeIds, ...data } = input;
       return inTransaction(ctx.db, async (tx) => {
         await lockPlannedRoomSchedule(tx);
+        await assertQualifiedByName(tx, input.tutorId, input.subject);
         // New pairings always belong to the active program period.
         const [slot, period] = await Promise.all([
           resolveSlot(tx, input.timeSlotId),
@@ -671,9 +747,22 @@ export const adminRouter = createTRPCRouter({
           resolveSlot(tx, input.timeSlotId),
           tx.pairing.findUniqueOrThrow({
             where: { id },
-            select: { termId: true },
+            select: {
+              termId: true,
+              tutorId: true,
+              subject: true,
+              tutees: { select: { tuteeId: true } },
+            },
           }),
         ]);
+        if (
+          current.tutorId !== input.tutorId ||
+          current.subject !== input.subject ||
+          tuteeIds.some(
+            (id) => !current.tutees.some((row) => row.tuteeId === id),
+          )
+        )
+          await assertQualifiedByName(tx, input.tutorId, input.subject);
         await assertPlannedRoomAvailable(tx, {
           roomId,
           termId: current.termId,
@@ -1709,6 +1798,9 @@ export const adminRouter = createTRPCRouter({
         const before = await tx.tutor.findUniqueOrThrow({
           where: { id: input.id },
         });
+        // The middleware's routing decision is not authority for a later state transition.
+        if (before.status !== input.status && ctx.session.role !== "HEAD")
+          throw new TRPCError({ code: "CONFLICT", message: "Tutor membership changed. Ask Head to review this status change." });
         if (
           input.expectedUpdatedAt &&
           before.updatedAt.getTime() !== input.expectedUpdatedAt.getTime()
@@ -1765,7 +1857,7 @@ export const adminRouter = createTRPCRouter({
   sendTutorSetup: adminProcedure
     .input(z.object({ tutorId: cuid }))
     .mutation(async ({ ctx, input }) => {
-      const result = await issueTutorSetupLink(input.tutorId);
+      const result = await issueTutorSetupLink(input.tutorId, ctx.session.user.id);
       if (!result.ok) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -1959,6 +2051,7 @@ export const adminRouter = createTRPCRouter({
 
       return inTransaction(ctx.db, async (tx) => {
         await assertStudentRequestAssignable(tx, input.tuteeId);
+        await assertQualifiedByName(tx, input.tutorId, subject);
         const pairing = await tx.pairing.create({
           data: {
             tutorId: input.tutorId,
@@ -2035,6 +2128,7 @@ export const adminRouter = createTRPCRouter({
             });
           }
           if (assignedSubjects.has(a.subject)) continue;
+          await assertQualifiedByName(tx, a.tutorId, a.subject);
           await tx.pairing.create({
             data: {
               tutorId: a.tutorId,
@@ -2144,6 +2238,7 @@ export const adminRouter = createTRPCRouter({
   // --------------------------------------------------------------------------
   // Subject catalog (subjects offered; tutees pick first/second choice at signup)
   // --------------------------------------------------------------------------
+  // Compatibility endpoints keep base-name semantics and the same transactional invariants.
   createSubject: adminProcedure
     .input(
       z.object({
@@ -2152,11 +2247,14 @@ export const adminRouter = createTRPCRouter({
       }),
     )
     .mutation(({ ctx, input }) =>
-      ctx.db.subject.create({
-        data: { name: input.name, levelId: input.levelId ?? null },
+      inTransaction(ctx.db, async (tx) => {
+        const group = await saveCourseGroup(tx, {
+          name: input.name,
+          offerings: [{ baseName: input.name, levelId: input.levelId ?? null }],
+        });
+        return tx.subject.findFirstOrThrow({ where: { groupId: group.id } });
       }),
     ),
-
   updateSubject: adminProcedure
     .input(
       z.object({
@@ -2168,57 +2266,30 @@ export const adminRouter = createTRPCRouter({
     )
     .mutation(({ ctx, input }) =>
       inTransaction(ctx.db, async (tx) => {
+        await lockCatalogue(tx);
         const before = await tx.subject.findUniqueOrThrow({
           where: { id: input.id },
         });
-        // Pairing stores the catalogue label: rename it atomically with its source.
-        await tx.pairing.updateMany({
-          where: { subject: before.name },
-          data: { subject: input.name },
-        });
-        return tx.subject.update({
-          where: { id: input.id },
-          data: {
-            name: input.name,
-            ...(input.levelId === undefined ? {} : { levelId: input.levelId }),
-            active: input.active,
-          },
+        return writeVariant(tx, {
+          id: input.id,
+          baseName: input.name,
+          levelId: input.levelId === undefined ? before.levelId : input.levelId,
+          active: input.active,
         });
       }),
     ),
-
+  // Archive instead of deleting: surveys and historical scalar references must remain resolvable.
   deleteSubject: adminProcedure
     .input(z.object({ id: cuid }))
-    .mutation(async ({ ctx, input }) => {
-      const used = await ctx.db.tutee.count({
-        where: {
-          OR: [{ firstChoiceId: input.id }, { secondChoiceId: input.id }],
-        },
-      });
-      if (used > 0) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message:
-            "Subject is chosen by one or more tutees. Mark it inactive instead.",
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockCatalogue(tx);
+        return tx.subject.update({
+          where: { id: input.id },
+          data: { active: false },
         });
-      }
-      const subject = await ctx.db.subject.findUniqueOrThrow({
-        where: { id: input.id },
-        select: { id: true, name: true, levelId: true, active: true },
-      });
-      const deleted = await ctx.db.subject.delete({ where: { id: input.id } });
-      await recordAudit({
-        userId: ctx.session.user.id,
-        userName: ctx.session.user.name,
-        action: `Deleted subject "${subject.name}"`,
-        entity: "Subject",
-        entityId: subject.id,
-        undo: { kind: "subject.restore", payload: subject },
-      });
-      return deleted;
-    }),
-
-  /** Batch-edit selected subjects: set their level and/or active flag in one go. */
+      }),
+    ),
   batchUpdateSubjects: adminProcedure
     .input(
       z.object({
@@ -2228,17 +2299,22 @@ export const adminRouter = createTRPCRouter({
       }),
     )
     .mutation(({ ctx, input }) =>
-      ctx.db.subject.updateMany({
-        where: { id: { in: input.ids } },
-        data: {
-          ...(input.levelId === undefined ? {} : { levelId: input.levelId }),
-          ...(input.active === undefined ? {} : { active: input.active }),
-        },
+      inTransaction(ctx.db, async (tx) => {
+        await lockCatalogue(tx);
+        const variants = await tx.subject.findMany({
+          where: { id: { in: input.ids } },
+        });
+        for (const variant of variants)
+          await writeVariant(tx, {
+            id: variant.id,
+            baseName: variant.baseName || variant.name,
+            levelId:
+              input.levelId === undefined ? variant.levelId : input.levelId,
+            active: input.active ?? variant.active,
+          });
+        return { count: variants.length };
       }),
     ),
-
-  /** Bulk-create subjects (e.g. from a CSV upload). Duplicate names are skipped. The optional
-   *  level column is matched by name against the existing level catalogue (case-insensitive). */
   importSubjects: adminProcedure
     .input(
       z.object({
@@ -2253,34 +2329,33 @@ export const adminRouter = createTRPCRouter({
           .max(500),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
-      const levels = await ctx.db.subjectLevel.findMany({
-        select: { id: true, name: true },
-      });
-      const levelByName = new Map(
-        levels.map((l) => [l.name.toLowerCase(), l.id]),
-      );
-
-      // De-dupe by name within the batch, then let the DB skip names that already exist.
-      const seen = new Set<string>();
-      const data: { name: string; levelId: string | null }[] = [];
-      for (const c of input.subjects) {
-        const key = c.name.toLowerCase();
-        if (seen.has(key)) continue;
-        seen.add(key);
-        data.push({
-          name: c.name,
-          levelId: c.level
-            ? (levelByName.get(c.level.toLowerCase()) ?? null)
-            : null,
-        });
-      }
-      const result = await ctx.db.subject.createMany({
-        data,
-        skipDuplicates: true,
-      });
-      return { created: result.count, received: input.subjects.length };
-    }),
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockCatalogue(tx);
+        const levels = await tx.subjectLevel.findMany();
+        let created = 0;
+        for (const row of input.subjects) {
+          const level = row.level
+            ? levels.find(
+                (l) => l.name.toLowerCase() === row.level!.toLowerCase(),
+              )
+            : null;
+          if (row.level && !level)
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `Unknown level: ${row.level}`,
+            });
+          const name = [level?.prefix, row.name].filter(Boolean).join(" ");
+          if (await tx.subject.count({ where: { name } })) continue;
+          await saveCourseGroup(tx, {
+            name: row.name,
+            offerings: [{ baseName: row.name, levelId: level?.id ?? null }],
+          });
+          created++;
+        }
+        return { created, received: input.subjects.length };
+      }),
+    ),
 
   // --------------------------------------------------------------------------
   // Time-slot catalog (reference scheduling; tutors/tutees mark availability)
@@ -2701,13 +2776,15 @@ export const adminRouter = createTRPCRouter({
       }
       const app = await ctx.db.tutorApplication.findUnique({
         where: { id: input.applicationId },
-        select: { name: true },
+        select: { name: true, status: true },
       });
       if (!app)
         throw new TRPCError({
           code: "NOT_FOUND",
           message: "Application not found.",
         });
+      if (app.status === "ACCEPTED" && ctx.session.role !== "HEAD")
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only Head can replace the panel of an accepted applicant and revoke its tutor grant." });
       const found = await ctx.db.tutor.count({
         where: { id: { in: tutorIds }, status: "ACTIVE" },
       });
@@ -2720,6 +2797,9 @@ export const adminRouter = createTRPCRouter({
 
       await ctx.db.$transaction(async (tx) => {
         await lockEntity(tx, `interview:${input.applicationId}`);
+        const lockedApplication = await tx.tutorApplication.findUniqueOrThrow({ where: { id: input.applicationId } });
+        if (lockedApplication.status === "ACCEPTED" && ctx.session.role !== "HEAD")
+          throw new TRPCError({ code: "CONFLICT", message: "Applicant membership changed. Head must review replacement of this panel." });
         await validatePanel(
           tx,
           input.applicationId,
@@ -3184,7 +3264,7 @@ export const adminRouter = createTRPCRouter({
   /** Hard-delete a crew-only login (role CREW). Soft-remove (INACTIVE) is preferred + revertible;
    *  this is the explicit, irreversible option. Guarded to crew-only accounts so it can never nuke
    *  a tutor/admin login. Patrols + requests cascade. */
-  deleteCrewMember: adminOnlyProcedure
+  deleteCrewMember: headProcedure
     .input(z.object({ userId: cuid }))
     .mutation(async ({ ctx, input }) => {
       const target = await ctx.db.user.findUniqueOrThrow({
@@ -3792,6 +3872,9 @@ export const adminRouter = createTRPCRouter({
           username: true,
           role: true,
           canTranslate: true,
+          tuteeMember: true,
+          tutorAccessRevoked: true,
+          crewStatus: true,
           affiliation: true,
           suspendedAt: true,
           emailVerifiedAt: true,
@@ -3875,6 +3958,9 @@ export const adminRouter = createTRPCRouter({
       tutorStatus: u.tutor?.status ?? null,
       classOf: classOf(u.tutor?.gradeLevel),
       canTranslate: u.canTranslate,
+      tuteeMember: u.tuteeMember,
+      tutorAccessRevoked: u.tutorAccessRevoked,
+      crewStatus: u.crewStatus,
       tutorHasEmail: !!u.tutor?.email,
       // Viewer (VIEWER) identity + suspension state, for the suspend/reinstate controls.
       affiliation: u.affiliation,
@@ -3906,6 +3992,9 @@ export const adminRouter = createTRPCRouter({
       tutorStatus: tu.status,
       classOf: classOf(tu.gradeLevel),
       canTranslate: false,
+      tuteeMember: false,
+      tutorAccessRevoked: false,
+      crewStatus: null,
       tutorHasEmail: !!tu.email,
       affiliation: null,
       suspended: false,
@@ -3926,49 +4015,51 @@ export const adminRouter = createTRPCRouter({
    *   - ADMINs may only set roles up to COORDINATOR on non-admin, non-head users.
    * adminOnlyProcedure already restricts the caller to ADMIN or HEAD.
    */
-  setUserRole: adminOnlyProcedure
-    .input(
-      z.object({
-        userId: cuid,
-        role: z.enum(["STUDENT", "VIEWER", "TUTOR", "COORDINATOR", "ADMIN"]),
-        confirmPassword: z.string().min(1),
-      }),
-    )
+  setUserRole: headProcedure
+    .input(z.object({ userId: cuid, role: z.enum(["STUDENT", "VIEWER", "TUTOR", "COORDINATOR", "ADMIN"]), confirmPassword: z.string().min(1) }))
     .mutation(async ({ ctx, input }) => {
       await assertCallerPassword(ctx.session.user.id, input.confirmPassword);
-      const target = await ctx.db.user.findUniqueOrThrow({
-        where: { id: input.userId },
-        select: { id: true, role: true, name: true, email: true },
+      return inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, "program:leadership");
+        if ((await tx.user.findUniqueOrThrow({ where: { id: ctx.session.user.id } })).role !== "HEAD")
+          throw new TRPCError({ code: "FORBIDDEN", message: "Head access required." });
+        const target = await tx.user.findUniqueOrThrow({ where: { id: input.userId } });
+        if (target.role === "HEAD") throw new TRPCError({ code: "FORBIDDEN", message: "Use leadership transfer to change the Head." });
+        if (input.role === "VIEWER" && ((target.tutorId && !target.tutorAccessRevoked) || target.tuteeMember || target.canTranslate || target.crewStatus))
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Viewer cannot be combined with any other badge or participant identity." });
+        if (input.role === "TUTOR" && !target.tutorId)
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Assign tutor membership in Edit Profile." });
+        return tx.user.update({ where: { id: input.userId }, data: { role: input.role } });
       });
-      const callerIsHead = ctx.session.role === "HEAD";
-      const touchesAdminTier =
-        target.role === "HEAD" ||
-        input.role === "ADMIN" ||
-        target.role === "ADMIN";
-      if (target.role === "HEAD") {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Use leadership transfer to change the head.",
-        });
-      }
-      if (touchesAdminTier && !callerIsHead) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Only the head can promote or demote administrators.",
-        });
-      }
-      const updated = await ctx.db.user.update({
-        where: { id: input.userId },
-        data: { role: input.role },
-      });
-      await recordAudit({
-        userId: ctx.session.user.id,
-        userName: ctx.session.user.name,
-        action: `Set role of ${target.name ?? target.email} to ${input.role}`,
-        entity: "User",
-        entityId: target.id,
-      });
-      return updated;
+    }),
+
+  /** Apply a complete badge set atomically. Approval replays use the Head's fresh identity;
+   * password values are never stored inside proposal evidence. Links/history survive removal. */
+  setMemberships: headProcedure
+    .input(z.object({ userId: cuid, membership: membershipSchema, confirmPassword: z.string().min(1).optional() }))
+    .mutation(async ({ ctx, input }) => {
+      if (!approvalScope.getStore()) await assertCallerPassword(ctx.session.user.id, input.confirmPassword ?? "");
+      return inTransaction(ctx.db, (tx) => databaseScope.run(databaseScope.getStore() ?? tx, async () => {
+        await lockEntity(tx, "program:leadership");
+        await lockAccountProfile(tx, input.userId);
+        if ((await tx.user.findUniqueOrThrow({ where: { id: ctx.session.user.id } })).role !== "HEAD")
+          throw new TRPCError({ code: "FORBIDDEN", message: "Head access required." });
+        const target = await tx.user.findUniqueOrThrow({ where: { id: input.userId }, include: { tutor: true } });
+        const value = input.membership;
+        if ((target.role === "HEAD") !== (value.rank === "HEAD"))
+          throw new TRPCError({ code: "FORBIDDEN", message: "Use leadership transfer to change the Head." });
+        const role = value.viewer ? "VIEWER" : value.rank !== "NONE" ? value.rank : value.tutor ? "TUTOR" : value.crew ? "CREW" : "STUDENT";
+        // Leave Viewer before assigning any capability; the database enforces exclusivity too.
+        await tx.user.update({ where: { id: target.id }, data: {
+          role, tuteeMember: value.tutee, tutorAccessRevoked: !value.tutor, canTranslate: value.translator,
+          crewStatus: value.crew ? target.crewStatus ?? "ACTIVE" : null,
+        } });
+        if (accountMembership(target).tutor !== value.tutor) {
+          const { createCaller } = await import("../root");
+          await createCaller({ ...ctx, db: ctx.db }).admin.setUserCanTutor({ userId: target.id, canTutor: value.tutor });
+        }
+        return { ok: true };
+      }));
     }),
 
   /**
@@ -3998,6 +4089,9 @@ export const adminRouter = createTRPCRouter({
       }
       await inTransaction(ctx.db, async (tx) => {
         await lockEntity(tx, "program:leadership");
+        const liveTarget = await tx.user.findUniqueOrThrow({ where: { id: target.id } });
+        if (!["ADMIN", "COORDINATOR"].includes(liveTarget.role) || liveTarget.suspendedAt)
+          throw new TRPCError({ code: "CONFLICT", message: "Leadership target changed. Review the current profile." });
         const demoted = await tx.user.updateMany({
           where: { id: ctx.session.user.id, role: "HEAD" },
           data: { role: "ADMIN" },
@@ -4074,14 +4168,14 @@ export const adminRouter = createTRPCRouter({
     }),
 
   /** Assign (or unassign) a user as a translator — grants access to the /localization editor. */
-  setUserCanTranslate: adminOnlyProcedure
+  setUserCanTranslate: headProcedure
     .input(z.object({ userId: cuid, canTranslate: z.boolean() }))
-    .mutation(({ ctx, input }) =>
-      ctx.db.user.update({
-        where: { id: input.userId },
-        data: { canTranslate: input.canTranslate },
-      }),
-    ),
+    .mutation(async ({ ctx, input }) => {
+      const target = await ctx.db.user.findUniqueOrThrow({ where: { id: input.userId } });
+      if (target.role === "VIEWER" && input.canTranslate)
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Viewer cannot be a Translator." });
+      return ctx.db.user.update({ where: { id: input.userId }, data: { canTranslate: input.canTranslate } });
+    }),
 
   /** Suspend a suspicious viewer (VIEWER) account: blocks access until reinstated; the user is
    *  notified and can appeal. Scoped to viewer accounts so it can't lock out staff. */
@@ -4236,7 +4330,7 @@ export const adminRouter = createTRPCRouter({
    * a tutor area. Re-enables an existing linked/email-matched tutor, or creates one from their
    * name. Disabling deactivates the tutor and unlinks it (revertible — re-enable relinks).
    */
-  setUserCanTutor: adminProcedure
+  setUserCanTutor: headProcedure
     .input(z.object({ userId: cuid, canTutor: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
       // Coordinators may only change their own tutoring access; the admin tier (ADMIN/HEAD), anyone's.
@@ -4250,10 +4344,13 @@ export const adminRouter = createTRPCRouter({
       }
       const user = await ctx.db.user.findUniqueOrThrow({
         where: { id: input.userId },
-        select: { id: true, name: true, email: true, tutorId: true },
+        select: { id: true, name: true, email: true, tutorId: true, role: true },
       });
 
+      if (user.role === "VIEWER" && input.canTutor)
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Viewer cannot be a Tutor." });
       if (!input.canTutor) {
+        await ctx.db.user.update({ where: { id: user.id }, data: { tutorAccessRevoked: true } });
         // Archive the tutor but KEEP the link, so the account keeps its other attributes
         // (username, class, history) and the toggle is cleanly reversible. Re-enabling
         // reactivates the same record. (Tutor-area access is denied while ARCHIVED — see the
@@ -4313,7 +4410,7 @@ export const adminRouter = createTRPCRouter({
         });
         tutorId = created.id;
       }
-      await ctx.db.user.update({ where: { id: user.id }, data: { tutorId } });
+      await ctx.db.user.update({ where: { id: user.id }, data: { tutorId, tutorAccessRevoked: false } });
       await updateAccountProfile(ctx.db, user.id);
       // Guarantee the account carries a username (mirrors the linked tutor if it had none).
       await ensureUserUsername(user.id);

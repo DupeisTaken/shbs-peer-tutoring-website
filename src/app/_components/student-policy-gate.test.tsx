@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock("next/navigation", () => ({
   usePathname: () => mocks.path,
+  useRouter: () => ({ refresh: vi.fn() }),
   useSearchParams: () => new URLSearchParams(mocks.search),
 }));
 vi.mock("next-intl", () => ({
@@ -34,6 +35,7 @@ vi.mock("~/trpc/react", () => ({
     useUtils: () => ({
       studentWorkflow: { policyStatus: { invalidate: mocks.invalidate } },
       student: { policy: { invalidate: mocks.invalidate } },
+      account: { me: { invalidate: mocks.invalidate } },
     }),
     studentWorkflow: {
       policyStatus: { useQuery: mocks.status },
@@ -266,7 +268,7 @@ it("requires explicit agreement and the full wait, retries failures and refreshe
   expect(mocks.prepare).toHaveBeenCalledTimes(2);
   expect(screen.getByRole<HTMLInputElement>("checkbox").checked).toBe(false);
   await act(async () => mocks.onSuccess?.());
-  expect(mocks.invalidate).toHaveBeenCalledTimes(3);
+  expect(mocks.invalidate).toHaveBeenCalledTimes(4);
   mocks.status.mockReturnValue({ data: null, refetch: mocks.refetch });
   view.rerender(<StudentPolicyGate />);
   expect(screen.queryByRole("dialog")).toBeNull();

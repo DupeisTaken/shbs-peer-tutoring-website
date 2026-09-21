@@ -2,10 +2,11 @@
 
 import { useState } from "react";
 import { ProgramEmailSettings } from "~/app/_components/program-email-settings";
-import { useTranslations, useTimeZone } from "next-intl";
+import { useLocale, useTranslations, useTimeZone } from "next-intl";
 
 import { ProgramTimeZoneSettings } from "~/app/_components/program-time-zone-settings";
 import { programDateTimeInput, parseProgramDateTime } from "~/lib/program-time";
+import { programTimeZoneInputLabel } from "~/lib/program-time-zone-label";
 import { api } from "~/trpc/react";
 
 type RefreshResult = {
@@ -167,6 +168,7 @@ function SignupWindowSettings({
       : "",
   );
   const [previewUrl, setPreviewUrl] = useState(period.signupPreviewUrl ?? "");
+  const locale = useLocale();
   const [saved, setSaved] = useState(false);
   const save = api.program.setSignupWindow.useMutation({
     onSuccess: async () => {
@@ -244,7 +246,7 @@ function SignupWindowSettings({
             />
             <span className="muted block text-xs">
               {t("programTimeZone.inputZone", {
-                zone: timeZone ?? "Asia/Shanghai",
+                zone: programTimeZoneInputLabel(opensAt, timeZone, locale),
               })}
             </span>
           </label>
