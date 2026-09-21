@@ -63,3 +63,5 @@ Keep Markdown, policy inputs, reusable scripts, tests and the complete migration
 Keep documentation as Markdown. Local reports, screenshots and temporary logs belong in ignored `outputs/` or `.validation/`. Database dumps belong in ignored `backups/` and private operator notes in `local-operations/`. Reusable helpers belong in `scripts/` or `src/`, where checks can exercise them.
 
 Before removing caches, check whether a running helper owns them: `node_modules/.cache/` may contain an embedded PostgreSQL database. Stop or relocate it through its own lifecycle before deleting files or running `npm ci`. Preserve private timetables and other irreplaceable local input. Before removing a branch/worktree, fetch, inspect uncommitted work and verify its commits are merged; retain unique work and active worktrees.
+
+The standard npm check command generates Next.js route and framework types before lint and TypeScript checks. This also supports fresh CI checkouts that have never started the development server.

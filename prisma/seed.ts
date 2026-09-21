@@ -9,6 +9,7 @@
 import "dotenv/config";
 import { assertDemoDatabase, seedId } from "./demo-support";
 import { seedModernWorkflows } from "./demo-workflows";
+import { DEFAULT_SUBJECT_LEVELS as LEVELS } from "./default-subject-levels";
 
 import { PrismaPg } from "@prisma/adapter-pg";
 
@@ -82,12 +83,6 @@ const ROOM_BLOCKS = [
   { id: seedId("block-library-mon"), roomId: seedId("room-library"), dayOfWeek: 1, start: "15:30", end: "16:30", reason: "Book club" },
   { id: seedId("block-a101-wed"), roomId: seedId("room-a101"), dayOfWeek: 3, start: "16:00", end: "17:00", reason: "Faculty meeting" },
   { id: seedId("block-lab1-thu"), roomId: seedId("room-lab1"), dayOfWeek: 4, start: "15:30", end: "16:30", reason: "Robotics club" },
-];
-
-const LEVELS = [
-  { id: seedId("level-ap"), name: "AP", rank: 2, apScored: true, prefix: "AP" },
-  { id: seedId("level-honors"), name: "Honors", rank: 1, apScored: false, prefix: "Honors" },
-  { id: seedId("level-standard"), name: "Standard", rank: 0, apScored: false, prefix: "" },
 ];
 
 const SUBJECTS = [
