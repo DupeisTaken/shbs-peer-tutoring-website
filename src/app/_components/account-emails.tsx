@@ -4,7 +4,8 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 
-/** One shared address manager for account and tutor settings. Passwords remain local to the form. */
+/** One shared address manager for account and tutor settings. Passwords remain local to the form.
+ * Form actions retain 44px touch targets; compact desktop address actions share 32px rows. */
 export function AccountEmails() {
   const t = useTranslations("accountEmails");
   const utils = api.useUtils();
@@ -74,6 +75,15 @@ export function AccountEmails() {
         {settings.isLoading && <p className="muted">{t("loading")}</p>}
         {data && (
           <>
+            <p className="muted text-sm">{t("optional")}</p>
+            {!data.secondaryEmailBindingEnabled && (
+              <p
+                className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600"
+                role="status"
+              >
+                {t("bindingDisabled")}
+              </p>
+            )}
             <ul className="divide-y divide-slate-100">
               {data.emails.map((address) => (
                 <li
@@ -102,7 +112,7 @@ export function AccountEmails() {
                       {address.verifiedAt ? (
                         <button
                           type="button"
-                          className="btn-secondary text-xs"
+                          className="btn-secondary min-h-11 text-xs lg:min-h-8"
                           disabled={busy || !password}
                           onClick={() => {
                             clear();
@@ -118,8 +128,8 @@ export function AccountEmails() {
                       ) : (
                         <button
                           type="button"
-                          className="btn-secondary text-xs"
-                          disabled={busy}
+                          className="btn-secondary min-h-11 text-xs lg:min-h-8"
+                          disabled={busy || !data.secondaryEmailBindingEnabled}
                           onClick={() => {
                             clear();
                             setSelected(address.email);
@@ -131,7 +141,7 @@ export function AccountEmails() {
                       )}
                       <button
                         type="button"
-                        className="btn-secondary text-xs"
+                        className="btn-secondary min-h-11 text-xs lg:min-h-8"
                         disabled={busy || !password}
                         onClick={() => {
                           clear();
@@ -149,62 +159,67 @@ export function AccountEmails() {
                 </li>
               ))}
             </ul>
-            <label className="block space-y-1 border-t border-slate-100 pt-4">
-              <span className="label">{t("password")}</span>
-              <input
-                type="password"
-                aria-label={t("password")}
-                aria-describedby="associated-email-password-help"
-                autoComplete="current-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="input"
-              />
-              <span
-                id="associated-email-password-help"
-                className="muted block text-xs"
-              >
-                {t("passwordHelp")}
-              </span>
-            </label>
+            {(data.secondaryEmailBindingEnabled ||
+              data.emails.some((address) => address.email !== data.email)) && (
+              <label className="block space-y-1 border-t border-slate-100 pt-4">
+                <span className="label">{t("password")}</span>
+                <input
+                  type="password"
+                  aria-label={t("password")}
+                  aria-describedby="associated-email-password-help"
+                  autoComplete="current-password"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  className="input min-h-11 lg:min-h-10"
+                />
+                <span
+                  id="associated-email-password-help"
+                  className="muted block text-xs"
+                >
+                  {t("passwordHelp")}
+                </span>
+              </label>
+            )}
             {!data.deliveryAvailable && (
               <p className="text-sm text-amber-800">{t("unavailable")}</p>
             )}
-            <form
-              className="space-y-2"
-              onSubmit={(e) => {
-                e.preventDefault();
-                clear();
-                request.mutate({ email, currentPassword: password });
-              }}
-            >
-              <label className="block space-y-1">
-                <span className="label">{t("addLabel")}</span>
-                <input
-                  type="email"
-                  autoComplete="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  maxLength={254}
-                  required
-                  className="input"
-                />
-              </label>
-              <button
-                className="btn-primary"
-                disabled={
-                  busy ||
-                  !password ||
-                  !email.trim() ||
-                  !data.deliveryAvailable ||
-                  data.emails.length >= 6
-                }
+            {data.secondaryEmailBindingEnabled && (
+              <form
+                className="space-y-2"
+                onSubmit={(e) => {
+                  e.preventDefault();
+                  clear();
+                  request.mutate({ email, currentPassword: password });
+                }}
               >
-                {t(busy ? "working" : "add")}
-              </button>
-              <p className="muted text-xs">{t("limit")}</p>
-            </form>
-            {selected && (
+                <label className="block space-y-1">
+                  <span className="label">{t("addLabel")}</span>
+                  <input
+                    type="email"
+                    autoComplete="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    maxLength={254}
+                    required
+                    className="input min-h-11 lg:min-h-10"
+                  />
+                </label>
+                <button
+                  className="btn-primary min-h-11 lg:min-h-10"
+                  disabled={
+                    busy ||
+                    !password ||
+                    !email.trim() ||
+                    !data.deliveryAvailable ||
+                    data.emails.length >= 6
+                  }
+                >
+                  {t(busy ? "working" : "add")}
+                </button>
+                <p className="muted text-xs">{t("limit")}</p>
+              </form>
+            )}
+            {selected && data.secondaryEmailBindingEnabled && (
               <form
                 className="border-accent-200 bg-accent-50/50 space-y-3 rounded-lg border p-4"
                 onSubmit={(e) => {
@@ -223,20 +238,20 @@ export function AccountEmails() {
                     onChange={(e) => setCode(e.target.value.toUpperCase())}
                     autoComplete="one-time-code"
                     maxLength={30}
-                    className="input font-mono tracking-widest"
+                    className="input min-h-11 font-mono tracking-widest lg:min-h-10"
                     required
                   />
                 </label>
                 <div className="flex flex-wrap gap-2">
                   <button
-                    className="btn-primary"
+                    className="btn-primary min-h-11 lg:min-h-10"
                     disabled={busy || !code.trim()}
                   >
                     {t("verify")}
                   </button>
                   <button
                     type="button"
-                    className="btn-secondary"
+                    className="btn-secondary min-h-11 lg:min-h-10"
                     disabled={busy || !password || !data.deliveryAvailable}
                     onClick={() => {
                       clear();
@@ -290,7 +305,6 @@ export function EmailPreferences() {
       <PreferenceForm
         key={[
           data.enabled,
-          data.emailSecurity,
           data.emailMessages,
           data.emailInfo,
           data.emailSecondaryRecipients,
@@ -313,7 +327,6 @@ function PreferenceForm({
 }: {
   data: {
     enabled: boolean;
-    emailSecurity: boolean;
     emailMessages: boolean;
     emailInfo: boolean;
     emailSecondaryRecipients: boolean;
@@ -323,7 +336,6 @@ function PreferenceForm({
   const t = useTranslations("emailPreferences");
   const utils = api.useUtils();
   const [preferences, setPreferences] = useState({
-    emailSecurity: data.emailSecurity,
     emailMessages: data.emailMessages,
     emailInfo: data.emailInfo,
     emailSecondaryRecipients: data.emailSecondaryRecipients,
@@ -347,12 +359,7 @@ function PreferenceForm({
         className="divide-y divide-slate-100 disabled:opacity-60"
       >
         {(
-          [
-            "emailSecurity",
-            "emailMessages",
-            "emailInfo",
-            "emailSecondaryRecipients",
-          ] as const
+          ["emailMessages", "emailInfo", "emailSecondaryRecipients"] as const
         ).map((key) => (
           <label
             key={key}
@@ -378,7 +385,7 @@ function PreferenceForm({
       </fieldset>
       <p className="muted text-xs">{t("essential")}</p>
       <button
-        className="btn-primary"
+        className="btn-primary min-h-11 lg:min-h-10"
         disabled={!data.enabled || save.isPending}
       >
         {t(save.isPending ? "saving" : "save")}

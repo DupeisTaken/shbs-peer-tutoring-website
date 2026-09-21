@@ -21,7 +21,11 @@ import {
   manageSecondaryEmail,
 } from "./account-emails";
 import { verifySigninPassword } from "./credentials";
-import { issuePasswordReset, resetPassword } from "./password-reset";
+import {
+  issueAccountVerification,
+  issuePasswordReset,
+  resetPassword,
+} from "./password-reset";
 import { requestEmailChange, confirmEmailChange } from "./email-change";
 import { deliverNotifications } from "~/server/email/notification-delivery";
 import {
@@ -69,8 +73,15 @@ beforeEach(async () => {
   await db.emailDelivery.deleteMany();
   await db.programSettings.upsert({
     where: { id: "program" },
-    create: { id: "program", emailNotificationsEnabled: true },
-    update: { emailNotificationsEnabled: true },
+    create: {
+      id: "program",
+      emailNotificationsEnabled: true,
+      secondaryEmailBindingEnabled: true,
+    },
+    update: {
+      emailNotificationsEnabled: true,
+      secondaryEmailBindingEnabled: true,
+    },
   });
   await db.user.createMany({
     data: [
@@ -449,7 +460,7 @@ it("admin enablement and personal categories gate notifications without affectin
   ).rejects.toThrow("disabled");
   await verifiedAlias();
   expect(mail.send).toHaveBeenCalledTimes(1);
-  expect(await db.emailDelivery.count({ where: { userId } })).toBe(0);
+  expect(await db.emailDelivery.count({ where: { userId } })).toBe(1);
   await expect(
     caller().program.setEmailNotifications({
       enabled: true,
@@ -470,13 +481,13 @@ it("admin enablement and personal categories gate notifications without affectin
     where: { id: userId },
     data: { twoFactorEnabled: true },
   });
-  expect(await db.emailDelivery.count({ where: { userId } })).toBe(0);
+  expect(await db.emailDelivery.count({ where: { userId } })).toBe(3);
   await db.notification.create({
     data: { userId, title: "Hidden private content", link: "/messages" },
   });
   await caller().account.updateName({ name: "Updated" });
   await deliverNotifications();
-  expect(mail.send).toHaveBeenCalledTimes(5);
+  expect(mail.send).toHaveBeenCalledTimes(8);
   expect(
     mail.send.mock.calls
       .slice(1)
@@ -521,14 +532,17 @@ it("notifies both primary addresses and drops ordinary notices to removed second
   );
 });
 
-it("rechecks preferences at dispatch and preserves them when the admin disables and re-enables", async () => {
+it("rechecks optional preferences at dispatch and preserves them when the admin disables and re-enables", async () => {
   await db.user.update({
     where: { id: userId },
-    data: { twoFactorEnabled: true },
+    data: { emailMessages: true },
+  });
+  await db.notification.create({
+    data: { userId, title: "Private", link: "/messages" },
   });
   await caller().account.setEmailPreferences({
     emailSecurity: false,
-    emailMessages: true,
+    emailMessages: false,
     emailInfo: true,
     emailSecondaryRecipients: true,
   });
@@ -543,8 +557,8 @@ it("rechecks preferences at dispatch and preserves them when the admin disables 
     expectedEnabled: false,
   });
   expect(await caller().account.emailSettings()).toMatchObject({
-    emailSecurity: false,
-    emailMessages: true,
+    emailSecurity: true,
+    emailMessages: false,
     emailInfo: true,
     emailSecondaryRecipients: true,
   });
@@ -645,4 +659,265 @@ it("rechecks secondary recipients and stops retries after five failures", async 
   expect(
     await db.emailDelivery.count({ where: { status: "PENDING", userId } }),
   ).toBe(0);
+});
+
+// Exercise the database event trigger and worker together, not a replica of their predicates.
+it.each([
+  [false, false],
+  [false, true],
+  [true, false],
+  [true, true],
+])(
+  "program=%s and personal=%s gate only optional emails",
+  async (programEnabled, personalEnabled) => {
+    await db.programSettings.update({
+      where: { id: "program" },
+      data: { emailNotificationsEnabled: programEnabled },
+    });
+    await db.user.update({
+      where: { id: userId },
+      data: {
+        emailSecurity: false,
+        emailMessages: personalEnabled,
+        emailInfo: personalEnabled,
+      },
+    });
+    await db.notification.createMany({
+      data: [
+        { userId, title: "Private synthetic content", link: "/messages" },
+        { userId, title: "Program update", link: "/student" },
+      ],
+    });
+    await db.user.update({
+      where: { id: userId },
+      data: { twoFactorEnabled: true },
+    });
+    await deliverNotifications();
+    expect(mail.send).toHaveBeenCalledTimes(
+      programEnabled && personalEnabled ? 3 : 1,
+    );
+    expect(
+      mail.send.mock.calls.some(([message]) =>
+        message.subject.includes("security"),
+      ),
+    ).toBe(true);
+    expect(
+      mail.send.mock.calls.every(
+        ([message]) => message.to === `${userId}@example.test`,
+      ),
+    ).toBe(true);
+  },
+);
+
+it("disabling drops optional backlog but preserves queued security alerts and personal choices", async () => {
+  await db.user.update({
+    where: { id: userId },
+    data: { emailMessages: true, emailSecurity: false, twoFactorEnabled: true },
+  });
+  await db.notification.create({
+    data: { userId, title: "Private", link: "/messages" },
+  });
+  await caller(adminId, "ADMIN").program.setEmailNotifications({
+    enabled: false,
+    expectedEnabled: true,
+  });
+  expect(
+    await db.emailDelivery.findFirst({
+      where: { userId, category: "messages" },
+    }),
+  ).toMatchObject({ status: "SKIPPED" });
+  expect(
+    await db.emailDelivery.findFirst({
+      where: { userId, category: "security" },
+    }),
+  ).toMatchObject({ status: "PENDING" });
+  await deliverNotifications();
+  expect(mail.send).toHaveBeenCalledTimes(1);
+  await caller(adminId, "ADMIN").program.setEmailNotifications({
+    enabled: true,
+    expectedEnabled: false,
+  });
+  await deliverNotifications();
+  expect(mail.send).toHaveBeenCalledTimes(1);
+  expect(await caller().account.emailSettings()).toMatchObject({
+    emailMessages: true,
+    emailSecurity: false,
+  });
+});
+
+it.each([false, true])(
+  "binding restrictions are independent of notifications=%s and preserve account data",
+  async (notifications) => {
+    await verifiedAlias();
+    const pending = `${userId}-pending@example.test`;
+    await requestSecondaryEmail(userId, pending, password);
+    const code = lastCode();
+    await db.programSettings.update({
+      where: { id: "program" },
+      data: { emailNotificationsEnabled: notifications },
+    });
+    await caller(adminId, "ADMIN").program.setSecondaryEmailBinding({
+      enabled: false,
+      expectedEnabled: true,
+    });
+    expect(await caller().account.emailSettings()).toMatchObject({
+      enabled: notifications,
+      secondaryEmailBindingEnabled: false,
+    });
+    mail.send.mockClear();
+    await expect(
+      caller().account.requestSecondaryEmail({
+        email: `${userId}-new@example.test`,
+        currentPassword: password,
+      }),
+    ).rejects.toThrow("disabled");
+    await expect(
+      caller().account.requestSecondaryEmail({
+        email: pending,
+        currentPassword: password,
+      }),
+    ).rejects.toThrow("disabled");
+    await expect(
+      caller().account.confirmSecondaryEmail({ email: pending, code }),
+    ).rejects.toThrow("disabled");
+    expect(mail.send).not.toHaveBeenCalled();
+    expect(await db.accountEmail.count({ where: { userId } })).toBe(2);
+    expect(
+      await verifySigninPassword(`${userId}@example.test`, password, userId),
+    ).toMatchObject({ ok: true });
+    expect(
+      await verifySigninPassword(secondary(), password, `${userId}-alias`),
+    ).toMatchObject({ ok: true });
+    await manageSecondaryEmail(userId, pending, password, "remove");
+    await manageSecondaryEmail(userId, secondary(), password, "remove");
+    expect((await caller().account.emailSettings()).emails).toHaveLength(1);
+    await caller(adminId, "ADMIN").program.setSecondaryEmailBinding({
+      enabled: true,
+      expectedEnabled: false,
+    });
+    await requestSecondaryEmail(userId, `${userId}-new@example.test`, password);
+    expect(
+      await confirmSecondaryEmail(
+        userId,
+        `${userId}-new@example.test`,
+        lastCode(),
+      ),
+    ).toBe(true);
+  },
+);
+
+it("allows primary-only sign-in, recovery and email verification with both optional features off", async () => {
+  await db.programSettings.update({
+    where: { id: "program" },
+    data: {
+      emailNotificationsEnabled: false,
+      secondaryEmailBindingEnabled: false,
+    },
+  });
+  await db.user.update({
+    where: { id: userId },
+    data: { emailSecurity: false, emailMessages: false, emailInfo: false },
+  });
+  expect((await caller().account.emailSettings()).emails).toHaveLength(1);
+  expect(
+    await verifySigninPassword(`${userId}@example.test`, password, userId),
+  ).toMatchObject({ ok: true });
+  await issuePasswordReset(`${userId}@example.test`);
+  expect(mail.send).toHaveBeenCalledTimes(1);
+  const token = /token=([a-f0-9]+)/.exec(
+    mail.send.mock.calls.at(-1)?.[0].text ?? "",
+  )![1]!;
+  expect(await resetPassword(token, "RecoveredPassword123!")).not.toBeNull();
+  await deliverNotifications();
+  await requestEmailChange(
+    userId,
+    `${userId}-replacement@example.test`,
+    "RecoveredPassword123!",
+  );
+  expect(await confirmEmailChange(userId, lastCode())).toBe(true);
+  expect(
+    await verifySigninPassword(
+      `${userId}-replacement@example.test`,
+      "RecoveredPassword123!",
+      `${userId}-new`,
+    ),
+  ).toMatchObject({ ok: true });
+  await deliverNotifications();
+  expect(
+    mail.send.mock.calls.some(([message]) =>
+      message.subject.includes("security"),
+    ),
+  ).toBe(true);
+  expect(
+    new Set(
+      mail.send.mock.calls
+        .filter(([message]) => message.subject.includes("primary"))
+        .map(([message]) => message.to),
+    ),
+  ).toEqual(
+    new Set([`${userId}@example.test`, `${userId}-replacement@example.test`]),
+  );
+});
+
+it.each(["VIEWER", "COORDINATOR", "TUTOR"] as const)(
+  "rejects %s program changes on the server",
+  async (role) => {
+    await expect(
+      caller(userId, role).program.setSecondaryEmailBinding({
+        enabled: false,
+        expectedEnabled: true,
+      }),
+    ).rejects.toThrow();
+    await expect(
+      caller(userId, role).program.setEmailNotifications({
+        enabled: false,
+        expectedEnabled: true,
+      }),
+    ).rejects.toThrow();
+  },
+);
+
+it("permits HEAD changes and rejects stale binding writes", async () => {
+  await caller(adminId, "HEAD").program.setSecondaryEmailBinding({
+    enabled: false,
+    expectedEnabled: true,
+  });
+  await expect(
+    caller(adminId, "HEAD").program.setSecondaryEmailBinding({
+      enabled: true,
+      expectedEnabled: true,
+    }),
+  ).rejects.toThrow("changed");
+  expect(
+    await caller(adminId, "HEAD").program.emailNotificationSettings(),
+  ).toMatchObject({ enabled: true, secondaryEmailBindingEnabled: false });
+});
+
+it("completes primary account verification without requiring any secondary binding", async () => {
+  await db.programSettings.update({
+    where: { id: "program" },
+    data: {
+      emailNotificationsEnabled: false,
+      secondaryEmailBindingEnabled: false,
+    },
+  });
+  await db.user.update({
+    where: { id: userId },
+    data: { emailVerifiedAt: null, emailSecurity: false },
+  });
+  expect(await issueAccountVerification(userId)).toEqual({ emailed: true });
+  const token = /token=([a-f0-9]+)/.exec(
+    mail.send.mock.calls.at(-1)?.[0].text ?? "",
+  )![1]!;
+  expect(await resetPassword(token, "SetupPassword123!")).toMatchObject({
+    email: `${userId}@example.test`,
+  });
+  expect(await db.accountEmail.count({ where: { userId } })).toBe(1);
+  expect(
+    await verifySigninPassword(
+      `${userId}@example.test`,
+      "SetupPassword123!",
+      userId,
+    ),
+  ).toMatchObject({ ok: true });
 });

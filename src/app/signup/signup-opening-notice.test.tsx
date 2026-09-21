@@ -23,6 +23,25 @@ afterEach(() => {
 });
 
 describe("signup opening notice", () => {
+  it("labels the opening instant's winter offset even when viewed in summer", () => {
+    const markup = renderToStaticMarkup(
+      <NextIntlClientProvider
+        locale="en"
+        messages={en}
+        timeZone="America/New_York"
+      >
+        <SignupOpeningNotice
+          periodLabel="Synthetic Q1"
+          opensAt="2027-01-15T14:00:00Z"
+          previewUrl={null}
+          serverNow="2026-07-01T12:00:00Z"
+        />
+      </NextIntlClientProvider>,
+    );
+    expect(markup).toContain("EST (GMT-05:00)");
+    expect(markup).not.toContain("EDT");
+    expect(markup).toContain("9:00");
+  });
   it("shows the quarter, countdown, and linked preview sheet before opening", () => {
     const markup = renderToStaticMarkup(
       <NextIntlClientProvider

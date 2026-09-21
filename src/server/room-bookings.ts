@@ -17,6 +17,7 @@ type RoomBlackout = {
   dayOfWeek: number;
   startMin: number;
   endMin: number;
+  excludeBlockId?: string;
 };
 
 /** All planned-room writers share one infrequent lock, including slot propagation and blackouts. */
@@ -78,12 +79,38 @@ export async function assertPlannedRoomAvailable(
   }
 }
 
-/** Keep a newly declared recurring blackout from invalidating a current planned booking. */
+/** Validate creates and edits against other blocks and current planned bookings. */
 export async function assertRoomBlackoutAvailable(
   db: TransactionDb,
   blackout: RoomBlackout,
 ): Promise<void> {
   await lockPlannedRoomSchedule(db);
+  const room = await db.room.findUnique({
+    where: { id: blackout.roomId },
+    select: { id: true },
+  });
+  if (!room)
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "This room no longer exists.",
+    });
+  const otherBlock = await db.roomUnavailability.findFirst({
+    where: {
+      roomId: blackout.roomId,
+      dayOfWeek: blackout.dayOfWeek,
+      startMin: { lt: blackout.endMin },
+      endMin: { gt: blackout.startMin },
+      ...(blackout.excludeBlockId
+        ? { id: { not: blackout.excludeBlockId } }
+        : {}),
+    },
+    select: { id: true },
+  });
+  if (otherBlock)
+    throw new TRPCError({
+      code: "CONFLICT",
+      message: "This time overlaps another blocked period for the room.",
+    });
   const pairing = await db.pairing.findFirst({
     where: {
       roomId: blackout.roomId,
@@ -102,6 +129,18 @@ export async function assertRoomBlackoutAvailable(
       message: "That room already has a planned booking during this time.",
     });
   }
+}
+
+/** Read edit/remove targets under the same lock as schedule writers. */
+export async function roomBlockForWrite(db: TransactionDb, id: string) {
+  await lockPlannedRoomSchedule(db);
+  const block = await db.roomUnavailability.findUnique({ where: { id } });
+  if (!block)
+    throw new TRPCError({
+      code: "NOT_FOUND",
+      message: "This blocked period no longer exists. Refresh the room list.",
+    });
+  return block;
 }
 
 /** Validate the prospective schedule shared by every pairing linked to a catalog slot. */

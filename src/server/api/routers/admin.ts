@@ -1,5 +1,13 @@
 import { accountMembership, membershipSchema } from "~/lib/account-membership";
 import { databaseScope, approvalScope } from "~/server/db-scope";
+import { subjectOrderBy } from "~/lib/course-catalogue";
+import {
+  courseGroupInput,
+  saveCourseGroup,
+  writeVariant,
+  reorderCatalogue,
+} from "~/server/course-catalogue";
+import { lockCatalogue, assertQualifiedByName } from "~/server/qualifications";
 import {
   lockAccountProfile,
   updateAccountProfile,
@@ -18,6 +26,11 @@ import {
 } from "~/server/student-request-state";
 import { validatePanel } from "~/server/interviews";
 import { reconcileMeetingHours } from "~/server/meeting-hours";
+import {
+  createRoomBlockSchema,
+  updateRoomBlockSchema,
+  removeRoomBlockSchema,
+} from "~/lib/room-blocks";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import type { Prisma } from "../../../../generated/prisma";
@@ -84,6 +97,7 @@ import {
   assertPlannedRoomAvailable,
   assertRoomBlackoutAvailable,
   lockPlannedRoomSchedule,
+  roomBlockForWrite,
 } from "~/server/room-bookings";
 import { studentRequestRows } from "~/server/student-workflow";
 
@@ -524,53 +538,118 @@ export const adminRouter = createTRPCRouter({
   ),
   subjects: viewerProcedure.query(({ ctx }) =>
     ctx.db.subject.findMany({
-      orderBy: { name: "asc" },
-      include: { level: { select: { id: true, name: true } } },
+      orderBy: [...subjectOrderBy],
+      include: { level: true, group: true },
     }),
   ),
 
-  /** The admin-managed level catalogue (AP / Honors / Standard / …), ordered by rank. */
+  /** Concrete approved eligibility; consumers must not infer it from application intents. */
+  subjectEligibility: viewerProcedure.query(({ ctx }) =>
+    ctx.db.qualificationGrant.findMany({
+      where: { qualification: { status: "APPROVED" } },
+      distinct: ["tutorId", "subjectId"],
+      select: { tutorId: true, subjectId: true },
+    }),
+  ),
+  courseGroups: viewerProcedure.query(({ ctx }) =>
+    ctx.db.courseGroup.findMany({
+      orderBy: [{ rank: "asc" }, { id: "asc" }],
+      include: {
+        subjects: {
+          include: { level: true },
+          orderBy: [
+            { level: { rank: "asc" } },
+            { level: { id: "asc" } },
+            { id: "asc" },
+          ],
+        },
+      },
+    }),
+  ),
+  saveCourseGroup: adminProcedure
+    .input(courseGroupInput)
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, (tx) => saveCourseGroup(tx, input)),
+    ),
+  reorderCatalogue: adminProcedure
+    .input(z.object({ kind: z.enum(["levels", "groups"]), ids: z.array(cuid) }))
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, (tx) =>
+        reorderCatalogue(tx, input.kind, input.ids),
+      ),
+    ),
   subjectLevels: viewerProcedure.query(({ ctx }) =>
     ctx.db.subjectLevel.findMany({
-      orderBy: [{ rank: "asc" }, { name: "asc" }],
+      orderBy: [{ rank: "asc" }, { id: "asc" }],
     }),
   ),
-
   createSubjectLevel: adminProcedure
     .input(
       z.object({
         name: z.string().trim().min(1).max(60),
+        prefix: z.string().trim().max(60).optional(),
         rank: z.number().int().default(0),
         apScored: z.boolean().default(false),
       }),
     )
-    .mutation(({ ctx, input }) => ctx.db.subjectLevel.create({ data: input })),
-
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockCatalogue(tx);
+        return tx.subjectLevel.create({
+          data: {
+            ...input,
+            prefix:
+              input.prefix ??
+              (input.name.toLowerCase() === "standard" ? "" : input.name),
+          },
+        });
+      }),
+    ),
   updateSubjectLevel: adminProcedure
     .input(
       z.object({
         id: cuid,
         name: z.string().trim().min(1).max(60).optional(),
+        prefix: z.string().trim().max(60).optional(),
         rank: z.number().int().optional(),
         apScored: z.boolean().optional(),
         active: z.boolean().optional(),
       }),
     )
-    .mutation(({ ctx, input }) => {
-      const { id, ...data } = input;
-      return ctx.db.subjectLevel.update({ where: { id }, data });
-    }),
-
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockCatalogue(tx);
+        const { id, ...data } = input;
+        const level = await tx.subjectLevel.update({ where: { id }, data });
+        if (input.prefix !== undefined) {
+          const variants = await tx.subject.findMany({
+            where: { levelId: id },
+          });
+          for (const variant of variants)
+            await writeVariant(tx, {
+              id: variant.id,
+              baseName: variant.baseName || variant.name,
+              levelId: id,
+              active: variant.active,
+            });
+        }
+        return level;
+      }),
+    ),
   deleteSubjectLevel: adminProcedure
     .input(z.object({ id: cuid }))
-    .mutation(async ({ ctx, input }) => {
-      // Detach any subjects on this level first (revertible: reassign on the subjects page).
-      await ctx.db.subject.updateMany({
-        where: { levelId: input.id },
-        data: { levelId: null },
-      });
-      return ctx.db.subjectLevel.delete({ where: { id: input.id } });
-    }),
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockCatalogue(tx);
+        if (await tx.subject.count({ where: { levelId: input.id } }))
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "This level has subject variants. Retain it to preserve their meaning.",
+          });
+        return tx.subjectLevel.delete({ where: { id: input.id } });
+      }),
+    ),
   timeSlots: viewerProcedure.query(({ ctx }) =>
     ctx.db.timeSlot.findMany({
       orderBy: [{ dayOfWeek: "asc" }, { startMin: "asc" }],
@@ -622,6 +701,7 @@ export const adminRouter = createTRPCRouter({
       const { tuteeIds, ...data } = input;
       return inTransaction(ctx.db, async (tx) => {
         await lockPlannedRoomSchedule(tx);
+        await assertQualifiedByName(tx, input.tutorId, input.subject);
         // New pairings always belong to the active program period.
         const [slot, period] = await Promise.all([
           resolveSlot(tx, input.timeSlotId),
@@ -673,9 +753,22 @@ export const adminRouter = createTRPCRouter({
           resolveSlot(tx, input.timeSlotId),
           tx.pairing.findUniqueOrThrow({
             where: { id },
-            select: { termId: true },
+            select: {
+              termId: true,
+              tutorId: true,
+              subject: true,
+              tutees: { select: { tuteeId: true } },
+            },
           }),
         ]);
+        if (
+          current.tutorId !== input.tutorId ||
+          current.subject !== input.subject ||
+          tuteeIds.some(
+            (id) => !current.tutees.some((row) => row.tuteeId === id),
+          )
+        )
+          await assertQualifiedByName(tx, input.tutorId, input.subject);
         await assertPlannedRoomAvailable(tx, {
           roomId,
           termId: current.termId,
@@ -1964,6 +2057,7 @@ export const adminRouter = createTRPCRouter({
 
       return inTransaction(ctx.db, async (tx) => {
         await assertStudentRequestAssignable(tx, input.tuteeId);
+        await assertQualifiedByName(tx, input.tutorId, subject);
         const pairing = await tx.pairing.create({
           data: {
             tutorId: input.tutorId,
@@ -2040,6 +2134,7 @@ export const adminRouter = createTRPCRouter({
             });
           }
           if (assignedSubjects.has(a.subject)) continue;
+          await assertQualifiedByName(tx, a.tutorId, a.subject);
           await tx.pairing.create({
             data: {
               tutorId: a.tutorId,
@@ -2149,6 +2244,7 @@ export const adminRouter = createTRPCRouter({
   // --------------------------------------------------------------------------
   // Subject catalog (subjects offered; tutees pick first/second choice at signup)
   // --------------------------------------------------------------------------
+  // Compatibility endpoints keep base-name semantics and the same transactional invariants.
   createSubject: adminProcedure
     .input(
       z.object({
@@ -2157,11 +2253,14 @@ export const adminRouter = createTRPCRouter({
       }),
     )
     .mutation(({ ctx, input }) =>
-      ctx.db.subject.create({
-        data: { name: input.name, levelId: input.levelId ?? null },
+      inTransaction(ctx.db, async (tx) => {
+        const group = await saveCourseGroup(tx, {
+          name: input.name,
+          offerings: [{ baseName: input.name, levelId: input.levelId ?? null }],
+        });
+        return tx.subject.findFirstOrThrow({ where: { groupId: group.id } });
       }),
     ),
-
   updateSubject: adminProcedure
     .input(
       z.object({
@@ -2173,57 +2272,30 @@ export const adminRouter = createTRPCRouter({
     )
     .mutation(({ ctx, input }) =>
       inTransaction(ctx.db, async (tx) => {
+        await lockCatalogue(tx);
         const before = await tx.subject.findUniqueOrThrow({
           where: { id: input.id },
         });
-        // Pairing stores the catalogue label: rename it atomically with its source.
-        await tx.pairing.updateMany({
-          where: { subject: before.name },
-          data: { subject: input.name },
-        });
-        return tx.subject.update({
-          where: { id: input.id },
-          data: {
-            name: input.name,
-            ...(input.levelId === undefined ? {} : { levelId: input.levelId }),
-            active: input.active,
-          },
+        return writeVariant(tx, {
+          id: input.id,
+          baseName: input.name,
+          levelId: input.levelId === undefined ? before.levelId : input.levelId,
+          active: input.active,
         });
       }),
     ),
-
+  // Archive instead of deleting: surveys and historical scalar references must remain resolvable.
   deleteSubject: adminProcedure
     .input(z.object({ id: cuid }))
-    .mutation(async ({ ctx, input }) => {
-      const used = await ctx.db.tutee.count({
-        where: {
-          OR: [{ firstChoiceId: input.id }, { secondChoiceId: input.id }],
-        },
-      });
-      if (used > 0) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message:
-            "Subject is chosen by one or more tutees. Mark it inactive instead.",
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockCatalogue(tx);
+        return tx.subject.update({
+          where: { id: input.id },
+          data: { active: false },
         });
-      }
-      const subject = await ctx.db.subject.findUniqueOrThrow({
-        where: { id: input.id },
-        select: { id: true, name: true, levelId: true, active: true },
-      });
-      const deleted = await ctx.db.subject.delete({ where: { id: input.id } });
-      await recordAudit({
-        userId: ctx.session.user.id,
-        userName: ctx.session.user.name,
-        action: `Deleted subject "${subject.name}"`,
-        entity: "Subject",
-        entityId: subject.id,
-        undo: { kind: "subject.restore", payload: subject },
-      });
-      return deleted;
-    }),
-
-  /** Batch-edit selected subjects: set their level and/or active flag in one go. */
+      }),
+    ),
   batchUpdateSubjects: adminProcedure
     .input(
       z.object({
@@ -2233,17 +2305,22 @@ export const adminRouter = createTRPCRouter({
       }),
     )
     .mutation(({ ctx, input }) =>
-      ctx.db.subject.updateMany({
-        where: { id: { in: input.ids } },
-        data: {
-          ...(input.levelId === undefined ? {} : { levelId: input.levelId }),
-          ...(input.active === undefined ? {} : { active: input.active }),
-        },
+      inTransaction(ctx.db, async (tx) => {
+        await lockCatalogue(tx);
+        const variants = await tx.subject.findMany({
+          where: { id: { in: input.ids } },
+        });
+        for (const variant of variants)
+          await writeVariant(tx, {
+            id: variant.id,
+            baseName: variant.baseName || variant.name,
+            levelId:
+              input.levelId === undefined ? variant.levelId : input.levelId,
+            active: input.active ?? variant.active,
+          });
+        return { count: variants.length };
       }),
     ),
-
-  /** Bulk-create subjects (e.g. from a CSV upload). Duplicate names are skipped. The optional
-   *  level column is matched by name against the existing level catalogue (case-insensitive). */
   importSubjects: adminProcedure
     .input(
       z.object({
@@ -2258,34 +2335,33 @@ export const adminRouter = createTRPCRouter({
           .max(500),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
-      const levels = await ctx.db.subjectLevel.findMany({
-        select: { id: true, name: true },
-      });
-      const levelByName = new Map(
-        levels.map((l) => [l.name.toLowerCase(), l.id]),
-      );
-
-      // De-dupe by name within the batch, then let the DB skip names that already exist.
-      const seen = new Set<string>();
-      const data: { name: string; levelId: string | null }[] = [];
-      for (const c of input.subjects) {
-        const key = c.name.toLowerCase();
-        if (seen.has(key)) continue;
-        seen.add(key);
-        data.push({
-          name: c.name,
-          levelId: c.level
-            ? (levelByName.get(c.level.toLowerCase()) ?? null)
-            : null,
-        });
-      }
-      const result = await ctx.db.subject.createMany({
-        data,
-        skipDuplicates: true,
-      });
-      return { created: result.count, received: input.subjects.length };
-    }),
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockCatalogue(tx);
+        const levels = await tx.subjectLevel.findMany();
+        let created = 0;
+        for (const row of input.subjects) {
+          const level = row.level
+            ? levels.find(
+                (l) => l.name.toLowerCase() === row.level!.toLowerCase(),
+              )
+            : null;
+          if (row.level && !level)
+            throw new TRPCError({
+              code: "BAD_REQUEST",
+              message: `Unknown level: ${row.level}`,
+            });
+          const name = [level?.prefix, row.name].filter(Boolean).join(" ");
+          if (await tx.subject.count({ where: { name } })) continue;
+          await saveCourseGroup(tx, {
+            name: row.name,
+            offerings: [{ baseName: row.name, levelId: level?.id ?? null }],
+          });
+          created++;
+        }
+        return { created, received: input.subjects.length };
+      }),
+    ),
 
   // --------------------------------------------------------------------------
   // Time-slot catalog (reference scheduling; tutors/tutees mark availability)
@@ -2461,22 +2537,8 @@ export const adminRouter = createTRPCRouter({
   // Room unavailability (recurring weekly blackout periods, shown on the grid)
   // --------------------------------------------------------------------------
   createRoomUnavailability: adminProcedure
-    .input(
-      z.object({
-        roomId: cuid,
-        dayOfWeek: z.number().int().min(1).max(7),
-        startMin: z.number().int().min(0).max(1439),
-        endMin: z.number().int().min(1).max(1440),
-        reason: z.string().trim().max(200).optional(),
-      }),
-    )
+    .input(createRoomBlockSchema)
     .mutation(({ ctx, input }) => {
-      if (input.endMin <= input.startMin) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "End must be after start.",
-        });
-      }
       return inTransaction(ctx.db, async (tx) => {
         await assertRoomBlackoutAvailable(tx, input);
         return tx.roomUnavailability.create({
@@ -2491,10 +2553,37 @@ export const adminRouter = createTRPCRouter({
       });
     }),
 
-  deleteRoomUnavailability: adminProcedure
-    .input(z.object({ id: cuid }))
+  updateRoomUnavailability: adminProcedure
+    .input(updateRoomBlockSchema)
     .mutation(({ ctx, input }) =>
-      ctx.db.roomUnavailability.delete({ where: { id: input.id } }),
+      inTransaction(ctx.db, async (tx) => {
+        // Resolve the room from the persisted block; an edit cannot move it to an
+        // unrelated room. Approval replay reuses this transaction and validation.
+        const block = await roomBlockForWrite(tx, input.id);
+        await assertRoomBlackoutAvailable(tx, {
+          ...input,
+          roomId: block.roomId,
+          excludeBlockId: block.id,
+        });
+        return tx.roomUnavailability.update({
+          where: { id: block.id },
+          data: {
+            dayOfWeek: input.dayOfWeek,
+            startMin: input.startMin,
+            endMin: input.endMin,
+            reason: blankToNull(input.reason),
+          },
+        });
+      }),
+    ),
+
+  deleteRoomUnavailability: adminProcedure
+    .input(removeRoomBlockSchema)
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await roomBlockForWrite(tx, input.id);
+        return tx.roomUnavailability.delete({ where: { id: input.id } });
+      }),
     ),
 
   // --------------------------------------------------------------------------

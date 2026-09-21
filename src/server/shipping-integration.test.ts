@@ -136,6 +136,15 @@ beforeEach(async () => {
       status: "ACTIVE",
     },
   });
+  // Shipping workflows assign a qualified tutor rather than relying on implicit eligibility.
+  await db.tutorQualification.create({
+    data: {
+      tutorId: "shipping-tutor",
+      subjectId: "shipping-subject",
+      approvedById: "shipping-admin",
+      grants: { create: { subjectId: "shipping-subject" } },
+    },
+  });
   await db.policyDocument.create({
     data: {
       slug: "tutee-policy",
@@ -628,7 +637,6 @@ it("queues a historical correction and applies it atomically under the reviewer'
   ).toBeGreaterThan(0);
 });
 
-
 it("consolidates current tutee schedules for admin and tutor accounts using explicit ownership only", async () => {
   await db.term.create({data:{id:"past-term",name:"Past",schoolYear:"25-26",quarter:"Q4",active:false}});
   await db.tutee.createMany({data:[
@@ -649,7 +657,18 @@ it("consolidates current tutee schedules for admin and tutor accounts using expl
     ["past-schedule","owned-a","past-term",780],
     ["inactive-schedule","inactive-owned","shipping-term",840],
   ] as const) {
-    await db.pairing.create({data:{id,subject:id,termId,tutorId:"shipping-tutor",dayOfWeek:1,startMin,endMin:startMin+30,tutees:{create:{tuteeId}}}});
+    await db.pairing.create({
+      data: {
+        id,
+        subject: id,
+        termId,
+        tutorId: "shipping-tutor",
+        dayOfWeek: 1,
+        startMin,
+        endMin: startMin + 30,
+        tutees: { create: { tuteeId } },
+      },
+    });
   }
   // Two owned profiles on one pairing must still produce one schedule entry.
   await db.pairingTutee.create({data:{pairingId:"schedule-a",tuteeId:"owned-b"}});
