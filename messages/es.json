@@ -2680,5 +2680,27 @@
     "unavailable": "Configura el servicio de correo antes de activar los avisos.",
     "failed": "{count} envíos fallaron tras reintentarlos. Revisa el servicio y los registros de entrega.",
     "saved": "Configuración guardada."
+  },
+  "membership": {
+    "title": "Roles y participación",
+    "rank": "Rango de gestión",
+    "none": "Sin rango de gestión",
+    "tutor": "Tutor",
+    "tutee": "Estudiante",
+    "viewer": "Observador",
+    "translator": "Traductor",
+    "crew": "Equipo de supervisión",
+    "headHelp": "Solo la jefatura puede cambiar las insignias. El rango de gestión y la participación son independientes.",
+    "requestHelp": "Solicita la aprobación de la jefatura. El acceso no cambia hasta recibir la aprobación.",
+    "policyHelp": "La participación estudiantil requiere aceptar personalmente la política vigente. Los tutores conservan esta membresía sin una insignia duplicada.",
+    "viewerExclusive": "Observador no puede combinarse con ninguna otra insignia.",
+    "password": "Confirma tu contraseña",
+    "save": "Aplicar cambios de insignias",
+    "request": "Solicitar aprobación",
+    "saved": "Cambios guardados.",
+    "requested": "Se solicitó aprobación. Tu acceso no ha cambiado.",
+    "makeHead": "Nombrar jefe",
+    "transferHelp": "Transfiere la jefatura a esta cuenta. Pasarás a ser administrador; seguirá habiendo una sola jefatura.",
+    "confirmTransfer": "Confirmar transferencia"
   }
 }

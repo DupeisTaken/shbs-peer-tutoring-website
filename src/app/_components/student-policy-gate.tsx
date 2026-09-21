@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useId, useRef, useState } from "react";
-import { usePathname, useSearchParams } from "next/navigation";
+import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { Markdown } from "./markdown";
@@ -23,7 +23,7 @@ export function StudentPolicyGate() {
     "/crew-signup",
     "/viewer-signup",
   ].includes(path);
-  const status = api.studentWorkflow.policyStatus.useQuery(undefined, {
+  const status = api.studentWorkflow.policyStatus.useQuery({ tuteeEntry: path === "/student" || path.startsWith("/student/") }, {
     enabled: !publicPage,
     staleTime: 0,
     refetchOnWindowFocus: true,
@@ -140,6 +140,7 @@ function PolicyReview({
 }) {
   const t = useTranslations("workflow");
   const utils = api.useUtils();
+  const router = useRouter();
   const [agreed, setAgreed] = useState(false);
   const [hasRead, setHasRead] = useState(false);
   const [attempt, setAttempt] = useState(0);
@@ -180,7 +181,9 @@ function PolicyReview({
       await Promise.all([
         utils.studentWorkflow.policyStatus.invalidate(),
         utils.student.policy.invalidate(),
+        utils.account.me.invalidate(),
       ]);
+      router.refresh();
     },
   });
   return (

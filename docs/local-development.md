@@ -100,7 +100,7 @@ All example accounts use `Password123!`. The identifiers below work at `/signin`
 | `kate@example.test` | Verified student still waiting for assignment | `/student` |
 | `recalled@example.test` | Recalled request retained as history | `/student` |
 | `withdrawn@example.test` | Approved quarter withdrawal and resubmission block | `/student` |
-| `translator@example.test` | VIEWER with translation capability; pending draft | `/localization` |
+| `translator@example.test` | Explicit Translator, without Viewer access; pending draft | `/localization` |
 | `parent@example.edu` | Ordinary viewer | `/` |
 | `viewer2@example.edu` | Suspended viewer with account appeal | `/` |
 

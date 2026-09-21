@@ -8,14 +8,15 @@ export async function resolveTutorLink(
 ) {
   const user = await db.user.findUnique({
     where: { id: userId },
-    select: { role: true, tutorId: true, emailVerifiedAt: true },
+    select: { role: true, tutorId: true, emailVerifiedAt: true, tutorAccessRevoked: true },
   });
   if (
     !user ||
+    user.tutorAccessRevoked ||
     user.tutorId ||
     !email ||
     !user.emailVerifiedAt ||
-    !["TUTOR", "COORDINATOR", "ADMIN", "HEAD"].includes(user.role)
+    user.role !== "TUTOR"
   )
     return user?.tutorId ?? null;
   const tutor = await db.tutor.findUnique({
