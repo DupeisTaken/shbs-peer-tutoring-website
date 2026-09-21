@@ -9,7 +9,9 @@ import { AccountProfileEditor } from "~/app/_components/account-profile-editor";
 import { MultiFilter } from "~/app/_components/multi-filter";
 import {
   emptyUserFilters,
+  isTutorStatusApplicable,
   matchesUserFilters,
+  normalizeUserFilters,
   parseUserFilters,
   type UserFilters,
 } from "~/lib/user-filters";
@@ -195,7 +197,14 @@ export default function UsersPage() {
     } catch {
       /* Private browsing may disable storage. */
     }
-    setFilterState({ userId: viewerId, filters: parseUserFilters(raw) });
+    const restored = parseUserFilters(raw);
+    setFilterState({ userId: viewerId, filters: restored });
+    // Repair this account's saved preference after reading it, including stale hidden status.
+    try {
+      if (raw !== null) localStorage.setItem(`shbs:user-filters:${viewerId}:v1`, JSON.stringify(restored));
+    } catch {
+      /* Storage restrictions must not prevent the normalized in-memory result. */
+    }
   }, [viewerId]);
   const filters = useMemo(
     () =>
@@ -206,11 +215,12 @@ export default function UsersPage() {
   );
   const updateFilters = (next: UserFilters) => {
     if (!viewerId) return;
-    setFilterState({ userId: viewerId, filters: next });
+    const normalized = normalizeUserFilters(next);
+    setFilterState({ userId: viewerId, filters: normalized });
     try {
       localStorage.setItem(
         `shbs:user-filters:${viewerId}:v1`,
-        JSON.stringify(next),
+        JSON.stringify(normalized),
       );
     } catch {
       /* Keep in-memory filtering usable. */
@@ -271,7 +281,7 @@ export default function UsersPage() {
 
       <section className="card space-y-3 p-4">
         <p className="muted text-sm">{t("userMultiFilters.hint")}</p>
-        <div className="grid items-start gap-3 md:grid-cols-3">
+        <div className={`grid items-start gap-3 ${isTutorStatusApplicable(filters.role) ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
           <MultiFilter
             label={t("admin.users.filters.role")}
             options={[
@@ -284,7 +294,7 @@ export default function UsersPage() {
             value={filters.role}
             onChange={(role) => updateFilters({ ...filters, role })}
           />
-          <MultiFilter
+          {isTutorStatusApplicable(filters.role) && <MultiFilter
             label={t("admin.users.filters.status")}
             options={[
               ...TUTOR_STATUSES.map((value) => ({
@@ -295,7 +305,7 @@ export default function UsersPage() {
             ]}
             value={filters.status}
             onChange={(status) => updateFilters({ ...filters, status })}
-          />
+          />}
           <MultiFilter
             label={t("admin.users.filters.account")}
             options={ACCOUNT_STATES.map((value) => ({
@@ -315,7 +325,7 @@ export default function UsersPage() {
           </p>
           <button
             type="button"
-            className="btn-secondary btn-sm"
+            className="btn-secondary btn-sm min-h-11 lg:min-h-8"
             onClick={() => updateFilters(emptyUserFilters())}
           >
             {t("userMultiFilters.clear")}
