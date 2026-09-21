@@ -20,7 +20,7 @@ it("candidate attributes deduplicate active tutees and merge approved/current-te
   ]);
   const db = {
     tutor: { findMany: tutorFind },
-    tutorQualification: {
+    qualificationGrant: {
       findMany: vi.fn().mockResolvedValue([
         { tutorId: "a", subjectId: "bio" },
         { tutorId: "a", subjectId: "chem" },

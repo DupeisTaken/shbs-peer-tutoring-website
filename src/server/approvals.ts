@@ -11,6 +11,7 @@ import {
   proposalConfirmation,
 } from "~/lib/approval-policy";
 import { validateInterviewDecision } from "./interviews";
+import { validateRoomBlockProposal } from "./room-block-proposals";
 import { db } from "./db";
 import { inTransaction, lockEntity, type TransactionDb } from "./transactions";
 import { announcementCandidates } from "./announcement-recipients";
@@ -74,6 +75,7 @@ const idTables: Record<string, string> = {
   patrolId: "Patrol",
   applicationId: "TutorApplication",
   meetingId: "TutorMeeting",
+  groupId: "CourseGroup",
   levelId: "SubjectLevel",
   subjectId: "Subject",
   postId: "NewsPost",
@@ -89,13 +91,22 @@ export async function proposalTargets(
   client: TransactionDb,
   operation: string,
   payload: unknown,
+  includeRoomBlockContext = false,
 ) {
   const input: unknown = superjson.deserialize(
     payload as Parameters<typeof superjson.deserialize>[0],
   );
   const fields = z.record(z.unknown()).parse(input);
+  // A tutor may update intent while a staff proposal is pending. Lock the same
+  // compound record as live writes before capturing/rechecking review evidence.
+  if (operation === "subjectAvailability.setWillingness") {
+    await lockEntity(client, `subject-willingness:${z.string().parse(fields.tutorId)}:${z.string().parse(fields.subjectId)}`);
+  }
   const ids = new Map<string, Set<string>>();
-  const primary = APPROVAL_OPERATIONS[operation]!;
+  const primary =
+    operation === "admin.reorderCatalogue" && fields.kind === "levels"
+      ? "SubjectLevel"
+      : APPROVAL_OPERATIONS[operation]!;
   const collect = (value: unknown, key = "") => {
     const table =
       key === "id" || key === "ids"
@@ -132,6 +143,42 @@ export async function proposalTargets(
     if (tutees.size) ids.set("Tutee", tutees);
   }
   const targets: Record<string, unknown> = {};
+  // Approval consequences include the complete ordered catalogue and concrete eligibility.
+  if (
+    operation === "interviewManagement.qualify" ||
+    operation === "admin.saveCourseGroup" ||
+    operation === "admin.reorderCatalogue"
+  ) {
+    targets.catalogue = await client.subject.findMany({
+      orderBy: { id: "asc" },
+    });
+    targets.levels = await client.subjectLevel.findMany({
+      orderBy: { id: "asc" },
+    });
+    targets.groups = await client.courseGroup.findMany({
+      orderBy: { id: "asc" },
+    });
+  }
+  // New block edit/removal requests retain a readable room identity. Older
+  // immutable requests keep their original evidence shape during replay.
+  if (includeRoomBlockContext && primary === "RoomUnavailability") {
+    const block =
+      typeof fields.id === "string"
+        ? await client.roomUnavailability.findUnique({
+            where: { id: fields.id },
+            select: { roomId: true },
+          })
+        : null;
+    const roomId =
+      block?.roomId ??
+      (typeof fields.roomId === "string" ? fields.roomId : null);
+    targets.roomBlockContext = roomId
+      ? await client.room.findUnique({
+          where: { id: roomId },
+          select: { id: true, name: true },
+        })
+      : null;
+  }
   // Recipient identities/names are review evidence too. A changed filtered audience must
   // be proposed again, rather than silently expanding when an administrator approves it.
   if (operation === "admin.createAnnouncement") {
@@ -202,6 +249,14 @@ export async function proposalTargets(
       Prisma.sql`SELECT ${Prisma.raw(fields)} AS record FROM ${Prisma.raw('"' + table + '"')} t WHERE t.id IN (${Prisma.join([...values].sort())}) ORDER BY t.id`,
     );
   }
+  if (operation === "subjectAvailability.setWillingness") {
+    targets.willingness = await client.tutorSubjectWillingness.findUnique({
+      where: { tutorId_subjectId: {
+        tutorId: z.string().parse(fields.tutorId),
+        subjectId: z.string().parse(fields.subjectId),
+      } },
+    });
+  }
   // Child rows can change without touching their parent's updatedAt.
   for (const [parent, child, field] of [
     ["Pairing", "PairingTutee", "pairingId"],
@@ -211,6 +266,8 @@ export async function proposalTargets(
     ["TutorApplication", "InterviewVote", "applicationId"],
     ["TutorApplication", "ApplicationSubjectIntent", "applicationId"],
     ["Tutor", "TutorQualification", "tutorId"],
+    ["Tutor", "QualificationGrant", "tutorId"],
+    ["CourseGroup", "Subject", "groupId"],
     ["StudentSurvey", "StudentRequestReview", "surveyId"],
     ["Tutor", "Pairing", "tutorId"],
     ["Tutor", "TutorAvailability", "tutorId"],
@@ -257,7 +314,11 @@ export async function queueProposal(
       tx,
       `proposal:${session.user.id}:${operation}:${fingerprint(payload)}`,
     );
-    const targets = await proposalTargets(tx, operation, payload);
+    const value: unknown = superjson.deserialize(
+      payload as unknown as Parameters<typeof superjson.deserialize>[0],
+    );
+    await validateRoomBlockProposal(tx, operation, value);
+    const targets = await proposalTargets(tx, operation, payload, true);
     const digest = fingerprint(targets);
     const existing = await tx.approvalRequest.findFirst({
       where: {
@@ -269,9 +330,6 @@ export async function queueProposal(
       },
     });
     if (existing) return existing;
-    const value = superjson.deserialize(
-      payload as unknown as Parameters<typeof superjson.deserialize>[0],
-    );
     const confirmation = proposalConfirmation(operation, value);
     if (confirmation) {
       const { consumeStudentAction } = await import("./student-workflow");

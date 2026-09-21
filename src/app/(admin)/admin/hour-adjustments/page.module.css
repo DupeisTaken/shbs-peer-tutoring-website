@@ -1,0 +1,156 @@
+/* Scope sizing to this page; shared tables and header controls retain their hierarchy. */
+.page {
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.form {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  gap: 0.5rem;
+  align-items: end;
+}
+
+.form > * {
+  min-width: 0;
+  max-width: 100%;
+  min-height: 2.75rem;
+}
+
+.add {
+  white-space: normal;
+}
+
+.records {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
+/* Fixed compact columns protect months from free-text pressure. The scroll boundary
+   is the card, never the document; names/reasons can break even without whitespace. */
+.table {
+  table-layout: fixed;
+  min-width: 48rem;
+}
+
+.table th:nth-child(1) {
+  width: 22%;
+}
+.table th:nth-child(2) {
+  width: 7.5rem;
+}
+.table th:nth-child(3) {
+  width: 8rem;
+}
+.table th:nth-child(4) {
+  width: 6rem;
+}
+.table th:nth-child(6) {
+  width: 6.5rem;
+}
+
+.table th,
+.table td {
+  overflow-wrap: anywhere;
+}
+
+.month {
+  display: inline-block;
+  white-space: nowrap;
+  font-variant-numeric: tabular-nums;
+}
+
+.mobileLabel {
+  display: none;
+}
+
+.delete {
+  min-height: 2rem;
+  max-width: 100%;
+  padding: 0.25rem 0.5rem;
+  border-radius: 0.375rem;
+  white-space: normal;
+}
+
+.delete:focus-visible {
+  outline: 2px solid var(--accent-500);
+  outline-offset: 2px;
+}
+
+.delete:disabled {
+  opacity: 0.5;
+}
+
+@media (min-width: 640px) {
+  .form {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+}
+
+@media (min-width: 1024px) {
+  .form {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+  .form > * {
+    min-height: 2.5rem;
+  }
+  .reasonInput {
+    grid-column: span 3;
+  }
+}
+
+/* Reflow the same accessible records on touch layouts. A single column also handles
+   enlarged text and long translations without squeezing the month or hiding actions. */
+@media (max-width: 1023px) {
+  .table {
+    display: block;
+    min-width: 0;
+  }
+
+  .table thead {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip-path: inset(50%);
+  }
+
+  .table tbody {
+    display: block;
+  }
+
+  .table tbody tr {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr);
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+
+  .table tbody tr + tr {
+    border-top: 1px solid var(--color-slate-200);
+  }
+
+  .table.table tbody td {
+    display: block;
+    min-width: 0;
+    padding: 0;
+    border: 0;
+    text-align: left;
+  }
+
+  .mobileLabel {
+    display: block;
+    margin-bottom: 0.125rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--color-slate-500);
+  }
+
+  .tutor {
+    font-weight: 600;
+  }
+  .delete {
+    min-width: 2.75rem;
+    min-height: 2.75rem;
+  }
+}

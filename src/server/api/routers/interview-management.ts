@@ -1,3 +1,4 @@
+import { approveQualification, lockCatalogue } from "~/server/qualifications";
 import type { Prisma } from "../../../../generated/prisma";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
@@ -28,6 +29,12 @@ export const interviewManagementRouter = createTRPCRouter({
             OR: [
               { interviewers: { some: {} } },
               { status: { in: ["PENDING", "INTERVIEW"] } },
+              // Retained evidence still belongs to history after a panelist leaves.
+              { interviewCompletedAt: { not: null } },
+              { interviewAt: { not: null } },
+              { votes: { some: {} } },
+              { decidedByTutorId: { not: null } },
+              { decisionComment: { not: null } },
             ],
           },
         ],
@@ -72,49 +79,36 @@ export const interviewManagementRouter = createTRPCRouter({
             }
           : {}),
       };
-      const [tutors, subjects, qualifications, applications, total] =
-        await Promise.all([
-          ctx.db.tutor.findMany({
-            select: { id: true, englishName: true, status: true },
-            orderBy: [{ englishName: "asc" }, { id: "asc" }],
-          }),
-          ctx.db.subject.findMany({
-            select: { id: true, name: true, active: true },
-            orderBy: { name: "asc" },
-          }),
-          ctx.db.tutorQualification.findMany(),
-          ctx.db.tutorApplication.findMany({
-            where,
-            // Imported/batched applications may share timestamps; offset pages need a total order.
-            orderBy: [{ createdAt: "desc" }, { id: "desc" }],
-            take: pageSize,
-            skip: input.page * pageSize,
-            select: {
-              id: true,
-              name: true,
-              status: true,
-              interviewAt: true,
-              subjectIntents: {
-                select: { subject: { select: { name: true } } },
-              },
-              interviewCompletedAt: true,
-              interviewDurationMin: true,
-              interviewers: {
-                select: {
-                  tutorId: true,
-                  attended: true,
-                  isHead: true,
-                  tutor: { select: { englishName: true } },
-                },
+      const [applications, total] = await Promise.all([
+        ctx.db.tutorApplication.findMany({
+          where,
+          // Imported/batched applications may share timestamps; offset pages need a total order.
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          take: pageSize,
+          skip: input.page * pageSize,
+          select: {
+            id: true,
+            name: true,
+            status: true,
+            interviewAt: true,
+            subjectIntents: {
+              select: { subject: { select: { name: true } } },
+            },
+            interviewCompletedAt: true,
+            interviewDurationMin: true,
+            interviewers: {
+              select: {
+                tutorId: true,
+                attended: true,
+                isHead: true,
+                tutor: { select: { englishName: true } },
               },
             },
-          }),
-          ctx.db.tutorApplication.count({ where }),
-        ]);
+          },
+        }),
+        ctx.db.tutorApplication.count({ where }),
+      ]);
       return {
-        tutors,
-        subjects,
-        qualifications,
         applications: { rows: applications, total, pageSize },
       };
     }),
@@ -130,21 +124,14 @@ export const interviewManagementRouter = createTRPCRouter({
       inTransaction(ctx.db, async (tx) => {
         await tx.tutor.findUniqueOrThrow({ where: { id: input.tutorId } });
         await tx.subject.findUniqueOrThrow({ where: { id: input.subjectId } });
+        await lockCatalogue(tx);
         if (input.qualified)
-          await tx.tutorQualification.upsert({
-            where: {
-              tutorId_subjectId: {
-                tutorId: input.tutorId,
-                subjectId: input.subjectId,
-              },
-            },
-            update: { approvedById: ctx.session.user.id },
-            create: {
-              tutorId: input.tutorId,
-              subjectId: input.subjectId,
-              approvedById: ctx.session.user.id,
-            },
-          });
+          await approveQualification(
+            tx,
+            input.tutorId,
+            input.subjectId,
+            ctx.session.user.id,
+          );
         else
           await tx.tutorQualification.deleteMany({
             where: { tutorId: input.tutorId, subjectId: input.subjectId },

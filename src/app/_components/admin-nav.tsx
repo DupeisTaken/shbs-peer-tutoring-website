@@ -53,6 +53,11 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
     items: [
       { href: "/admin/tutors", labelKey: "admin.nav.links.tutorRoster" },
       {
+        href: "/admin/subject-availability",
+        labelKey: "subjectAvailability.title",
+        elevatedOnly: true,
+      },
+      {
         href: "/admin/applications",
         labelKey: "admin.nav.links.tutorApplications",
       },
@@ -60,12 +65,6 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
         href: "/admin/tutor-requests",
         labelKey: "admin.nav.links.tutorRequests",
         elevatedOnly: true,
-      },
-      {
-        href: "/admin/interviews",
-        labelKey: "workflows.interviewsPanelists",
-        elevatedOnly: true,
-        feature: "INTERVIEWS",
       },
       {
         href: "/admin/meetings",

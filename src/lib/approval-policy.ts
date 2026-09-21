@@ -1,5 +1,6 @@
 /** Explicitly reviewed management operations. Unknown coordinator writes fail closed.
- * Account privileges, program configuration and irreversible file deletion are never proposals. */
+ * Account privileges, program configuration and irreversible file deletion are never proposals.
+ * program.setEmailNotifications and program.setSecondaryEmailBinding require ADMIN/HEAD directly. */
 /** These operations assign or restore account capabilities. Only Head can apply/review them. */
 export const HEAD_APPROVAL_OPERATIONS = new Set([
   "admin.setMemberships", "admin.setUserCanTutor", "admin.setCrewStatus",
@@ -7,11 +8,11 @@ export const HEAD_APPROVAL_OPERATIONS = new Set([
   "admin.issueRegistrationCode", "admin.updateTutor",
   "admin.setApplicationStatus", "tutor.decideInterview",
 ]);
-
 export const APPROVAL_OPERATIONS: Record<string, string> = {
   "corrections.correctAttendance": "Session",
   "corrections.correctPatrol": "Patrol",
   "interviewManagement.qualify": "Tutor",
+  "subjectAvailability.setWillingness": "Tutor",
   "interviewManagement.complete": "TutorApplication",
   "student.setCalendarDay": "SchoolCalendarDay",
   "student.setFeedbackSettings": "StudentSettings",
@@ -25,6 +26,8 @@ export const APPROVAL_OPERATIONS: Record<string, string> = {
   "home.setSectionTranslation": "LandingSection",
   "home.setPageTitle": "CustomPage",
   "localization.setString": "MessageOverride",
+  "admin.saveCourseGroup": "CourseGroup",
+  "admin.reorderCatalogue": "CourseGroup",
   "admin.createSubjectLevel": "SubjectLevel",
   "admin.updateSubjectLevel": "SubjectLevel",
   "admin.deleteSubjectLevel": "SubjectLevel",
@@ -55,6 +58,7 @@ export const APPROVAL_OPERATIONS: Record<string, string> = {
   "admin.updateRoom": "Room",
   "admin.deleteRoom": "Room",
   "admin.createRoomUnavailability": "RoomUnavailability",
+  "admin.updateRoomUnavailability": "RoomUnavailability",
   "admin.deleteRoomUnavailability": "RoomUnavailability",
   "admin.createMeeting": "TutorMeeting",
   "admin.deleteMeeting": "TutorMeeting",

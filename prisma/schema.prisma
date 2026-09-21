@@ -49,6 +49,7 @@ model User {
   /// Primary and verified secondary addresses share one globally unique namespace.
   /// Pending secondary challenges live only in EmailVerificationCode until proof succeeds.
   emails AccountEmail[]
+  // Legacy preference retained for data compatibility; security alerts are always sent.
   emailSecurity Boolean @default(true)
   emailMessages Boolean @default(false)
   emailInfo Boolean @default(false)
@@ -371,6 +372,8 @@ enum AdjustmentType {
 model SubjectLevel {
   id        String   @id @default(cuid())
   name      String   @unique
+  /// Display prefix; empty for Standard. Independent from the level's label.
+  prefix    String   @default("")
   rank      Int      @default(0)
   apScored  Boolean  @default(false)
   active    Boolean  @default(true)
@@ -434,6 +437,7 @@ model Tutor {
   adjustments          ServiceHourAdjustment[]
   meetingAttendances   MeetingAttendance[]
   availabilities       TutorAvailability[]
+  subjectWillingness    TutorSubjectWillingness[]
   interviewAssignments InterviewAssignment[]
   statusRequests       TutorStatusRequest[]
   sessionFlags         SessionFlag[]
@@ -544,9 +548,21 @@ model RegistrationCode {
 
 /// A subject offered for tutoring. The catalog is managed by admins; tutees pick a
 /// first (required) and optional second choice from it on the public signup form.
+model CourseGroup {
+  id        String @id @default(cuid())
+  name      String
+  rank      Int @default(0)
+  createdAt DateTime @default(now())
+  subjects  Subject[]
+}
+
 model Subject {
   id        String   @id @default(cuid())
   name      String   @unique
+  /// Existing IDs remain the stable variant IDs used by all dependent records.
+  baseName  String @default("")
+  groupId   String?
+  group     CourseGroup? @relation(fields: [groupId], references: [id], onDelete: Restrict)
   /// Difficulty/track level from the admin-managed catalogue (SubjectLevel). Optional.
   levelId   String?
   level     SubjectLevel? @relation(fields: [levelId], references: [id])
@@ -556,6 +572,23 @@ model Subject {
   firstChoiceTutees  Tutee[]                    @relation("TuteeFirstChoice")
   secondChoiceTutees Tutee[]                    @relation("TuteeSecondChoice")
   applicationIntents ApplicationSubjectIntent[]
+  tutorWillingness TutorSubjectWillingness[]
+
+  @@unique([groupId, levelId])
+}
+
+/// Explicit intent for one subject variant. Missing rows mean not recorded, not willing.
+/// Qualification and weekly timetable availability remain independent records.
+model TutorSubjectWillingness {
+  tutorId String
+  subjectId String
+  willing Boolean
+  updatedAt DateTime @updatedAt
+  tutor Tutor @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@id([tutorId, subjectId])
+  @@index([subjectId, willing])
 }
 
 enum SignupSource {
@@ -1707,8 +1740,28 @@ model TutorQualification {
   tutorId String
   subjectId String
   approvedById String
+  status QualificationStatus @default(APPROVED)
   createdAt DateTime @default(now())
+  grants QualificationGrant[]
   @@id([tutorId, subjectId])
+}
+
+enum QualificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// Concrete eligibility snapshot. Multiple approvals can independently grant one variant.
+/// Scalar subject IDs preserve legacy records whose catalogue rows were already removed.
+model QualificationGrant {
+  tutorId String
+  sourceSubjectId String
+  subjectId String
+  grantedAt DateTime @default(now())
+  qualification TutorQualification @relation(fields: [tutorId, sourceSubjectId], references: [tutorId, subjectId], onDelete: Cascade)
+  @@id([tutorId, sourceSubjectId, subjectId])
+  @@index([tutorId, subjectId])
 }
 
 /// Explicit holidays and make-up school days override the default Monday–Friday calendar.
@@ -1722,6 +1775,8 @@ model SchoolCalendarDay {
 model ProgramSettings {
   /// Immediate ADMIN/HEAD switch, independent of staged program modules and authentication mail.
   emailNotificationsEnabled Boolean @default(false)
+  // Availability only: existing verified aliases and primary authentication remain intact.
+  secondaryEmailBindingEnabled Boolean @default(true)
   id String @id @default("program")
   timeZone String @default("Asia/Shanghai")
   updatedAt DateTime @default(now()) @updatedAt

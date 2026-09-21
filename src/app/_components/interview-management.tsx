@@ -5,10 +5,6 @@ import Link from "next/link";
 import { useTranslations, useTimeZone, useFormatter } from "next-intl";
 import { api } from "~/trpc/react";
 import { programDateTimeInput, parseProgramDateTime } from "~/lib/program-time";
-import {
-  groupTutorQualifications,
-  filterTutorQualifications,
-} from "~/lib/interview-groups";
 import { DisclosureIcon } from "./icons";
 
 /** Explicit disclosure state survives filtering; form state stays mounted while collapsed. */
@@ -48,7 +44,7 @@ function InterviewDisclosure({
   );
 }
 
-export function InterviewManagement() {
+export function InterviewManagement({ enabled = true }: { enabled?: boolean }) {
   const t = useTranslations("workflows");
   const allT = useTranslations();
   const format = useFormatter();
@@ -58,10 +54,6 @@ export function InterviewManagement() {
   const [page, setPage] = useState(0);
   const [search, setSearch] = useState("");
   const [searchDraft, setSearchDraft] = useState("");
-  const [qualificationSearch, setQualificationSearch] = useState("");
-  const [qualificationStatus, setQualificationStatus] = useState<
-    "ALL" | "QUALIFIED" | "NONE"
-  >("ALL");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
   const toggle = (id: string) =>
     setExpanded((previous) => {
@@ -78,169 +70,28 @@ export function InterviewManagement() {
     search,
     completion,
   });
-  const qualify = api.interviewManagement.qualify.useMutation({
-    onSuccess: () => data.refetch(),
-  });
   const complete = api.interviewManagement.complete.useMutation({
     onSuccess: async () => {
       setPage(0);
-      await utils.interviewManagement.options.invalidate();
+      await Promise.all([
+        utils.interviewManagement.options.invalidate(),
+        utils.admin.tutorApplications.invalidate(),
+      ]);
     },
   });
   if (data.error) return <p role="alert">{data.error.message}</p>;
   if (!data.data) return <p>{t("loading")}</p>;
-  const { tutors, subjects, qualifications, applications } = data.data;
-  const groups = filterTutorQualifications(
-    groupTutorQualifications(tutors, subjects, qualifications),
-    qualificationSearch,
-    qualificationStatus,
-  );
+  const { applications } = data.data;
   const first = applications.total === 0 ? 0 : page * applications.pageSize + 1;
   const last = Math.min(applications.total, (page + 1) * applications.pageSize);
   const date = (value: Date) =>
     format.dateTime(value, { dateStyle: "medium", timeStyle: "short" });
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <p className="muted max-w-3xl text-sm">{t("allVotes")}</p>
-        <Link href="/admin/applications" className="btn-secondary btn-sm">
-          {t("managePanels")}
-        </Link>
-      </div>
+    <div className="space-y-6 max-lg:[&_button]:min-h-11 max-lg:[&_.input]:min-h-11 max-lg:[&_select]:min-h-11">
+      {!enabled && (
+        <p className="muted card p-4">{t("interviewsDisabledHistory")}</p>
+      )}
       {inputError && <p role="alert">{inputError}</p>}
-      <section className="space-y-3" aria-labelledby="qualification-heading">
-        <h2 id="qualification-heading" className="section-title">
-          {t("qualified")}
-        </h2>
-        <div className="card grid gap-3 p-4 sm:grid-cols-[1fr_auto]">
-          <label className="min-w-0">
-            <span className="label">{t("qualificationSearch")}</span>
-            <input
-              className="input w-full"
-              value={qualificationSearch}
-              onChange={(event) => setQualificationSearch(event.target.value)}
-            />
-          </label>
-          <label>
-            <span className="label">{t("qualificationFilter")}</span>
-            <select
-              className="select w-full"
-              value={qualificationStatus}
-              onChange={(event) =>
-                setQualificationStatus(
-                  event.target.value as typeof qualificationStatus,
-                )
-              }
-            >
-              <option value="ALL">{t("allTutors")}</option>
-              <option value="QUALIFIED">{t("hasQualifications")}</option>
-              <option value="NONE">{t("noQualifications")}</option>
-            </select>
-          </label>
-        </div>
-        {groups.map((group) => {
-          const id = `qualifications-${group.id}`;
-          return (
-            <InterviewDisclosure
-              key={id}
-              id={id}
-              open={expanded.has(id)}
-              toggle={() => toggle(id)}
-              summary={
-                <>
-                  <span className="flex flex-wrap items-center gap-2">
-                    <span className="font-semibold">{group.englishName}</span>{" "}
-                    <span className="badge-slate">
-                      {t("qualificationCount", {
-                        count: group.subjects.length,
-                      })}
-                    </span>
-                  </span>{" "}
-                  <span className="muted mt-1 block text-sm">
-                    {group.subjects
-                      .map((subject) => subject.name)
-                      .join(" · ") || t("noQualifications")}
-                  </span>
-                </>
-              }
-            >
-              <div className="space-y-3">
-                {group.subjects.map((subject) => (
-                  <div
-                    key={subject.subjectId}
-                    className="flex flex-wrap items-center justify-between gap-3 text-sm"
-                  >
-                    <span>{subject.name}</span>
-                    <button
-                      className="btn-secondary btn-sm"
-                      disabled={qualify.isPending}
-                      onClick={() =>
-                        qualify.mutate({
-                          tutorId: group.id,
-                          subjectId: subject.subjectId,
-                          qualified: false,
-                        })
-                      }
-                    >
-                      {t("removeQualification")}
-                    </button>
-                  </div>
-                ))}
-                {group.status === "ACTIVE" && (
-                  <form
-                    className="flex flex-wrap items-end gap-3"
-                    onSubmit={(event) => {
-                      event.preventDefault();
-                      qualify.mutate({
-                        tutorId: group.id,
-                        subjectId: formText(
-                          new FormData(event.currentTarget),
-                          "subjectId",
-                        ),
-                        qualified: true,
-                      });
-                    }}
-                  >
-                    <label className="min-w-0 flex-1">
-                      <span className="label">{t("subject")}</span>
-                      <select
-                        name="subjectId"
-                        className="input w-full"
-                        required
-                        defaultValue=""
-                      >
-                        <option value="">—</option>
-                        {subjects
-                          .filter(
-                            (subject) =>
-                              subject.active &&
-                              !group.subjects.some(
-                                (q) => q.subjectId === subject.id,
-                              ),
-                          )
-                          .map((subject) => (
-                            <option key={subject.id} value={subject.id}>
-                              {subject.name}
-                            </option>
-                          ))}
-                      </select>
-                    </label>
-                    <button
-                      className="btn-primary btn-sm"
-                      disabled={qualify.isPending}
-                    >
-                      {t("addQualification")}
-                    </button>
-                  </form>
-                )}
-              </div>
-            </InterviewDisclosure>
-          );
-        })}
-        {groups.length === 0 && (
-          <p className="muted card p-4">{t("qualificationEmpty")}</p>
-        )}
-      </section>
       <section className="space-y-3" aria-labelledby="interview-heading">
         <h2 id="interview-heading" className="section-title">
           {t("interviewRecords")}
@@ -350,13 +201,13 @@ export function InterviewManagement() {
             >
               <Link
                 href={`/admin/applications#application-${a.id}`}
-                className="link text-sm"
+                className="link inline-flex min-h-11 items-center text-sm lg:min-h-8"
               >
                 {t("manageApplicantPanel")}
               </Link>
               {a.interviewers.length === 0 ? (
                 <p className="muted mt-3 text-sm">{t("panelRequired")}</p>
-              ) : (
+              ) : enabled ? (
                 <form
                   key={a.interviewCompletedAt?.toISOString() ?? "open"}
                   className="mt-4 space-y-4"
@@ -419,7 +270,10 @@ export function InterviewManagement() {
                     <legend className="label">{t("attended")}</legend>
                     <div className="flex flex-wrap gap-4">
                       {a.interviewers.map((panelist) => (
-                        <label className="flex gap-2" key={panelist.tutorId}>
+                        <label
+                          className="flex min-h-11 items-center gap-2 lg:min-h-8"
+                          key={panelist.tutorId}
+                        >
                           <input
                             type="checkbox"
                             name="attended"
@@ -444,7 +298,7 @@ export function InterviewManagement() {
                     {t("save")}
                   </button>
                 </form>
-              )}
+              ) : null}
             </InterviewDisclosure>
           );
         })}
@@ -473,12 +327,8 @@ export function InterviewManagement() {
           </button>
         </div>
       </section>
-      {(complete.error ?? qualify.error) && (
-        <p role="alert">{(complete.error ?? qualify.error)?.message}</p>
-      )}
-      {(complete.isSuccess || qualify.isSuccess) && (
-        <p role="status">{t("saved")}</p>
-      )}
+      {complete.error && <p role="alert">{complete.error?.message}</p>}
+      {complete.isSuccess && <p role="status">{t("saved")}</p>}
     </div>
   );
 }

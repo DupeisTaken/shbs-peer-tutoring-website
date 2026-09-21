@@ -152,6 +152,9 @@ export const approvalRouter = createTRPCRouter({
                   tx,
                   request.operation,
                   request.payload,
+                  // Preserve legacy fingerprints: only recompute optional room
+                  // context when the immutable request originally captured it.
+                  Object.hasOwn(request.targets as object, "roomBlockContext"),
                 );
                 if (fingerprint(targets) !== request.fingerprint)
                   throw new TRPCError({

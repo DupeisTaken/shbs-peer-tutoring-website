@@ -54,7 +54,7 @@ export function StudentSupport() {
           <Link href="/messages" className="btn-secondary">
             {t("messages")}
           </Link>
-          <Link href="/interview-management" className="link">
+          <Link href="/admin/applications#interview-records" className="link">
             {t("qualified")}
           </Link>
           <Link href="/localization?view=review" className="link">
