@@ -57,7 +57,7 @@ export function StudentSupport() {
           <Link href="/admin/applications#interview-records" className="link">
             {t("qualified")}
           </Link>
-          <Link href="/translation-review" className="link">
+          <Link href="/localization?view=review" className="link">
             {t("reviewDrafts")}
           </Link>
         </section>
@@ -78,7 +78,12 @@ export function StudentSupport() {
               {f.studentName} · {f.subject} · {f.rating}/5
             </p>
             <p className="mt-2 whitespace-pre-wrap">{f.body}</p>
-            <p className="muted mt-2 text-xs">{programFormat.dateTime(f.updatedAt, { dateStyle: "medium", timeStyle: "short" })}</p>
+            <p className="muted mt-2 text-xs">
+              {programFormat.dateTime(f.updatedAt, {
+                dateStyle: "medium",
+                timeStyle: "short",
+              })}
+            </p>
           </article>
         ))}
         <Pager

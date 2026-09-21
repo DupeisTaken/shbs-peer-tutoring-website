@@ -363,3 +363,158 @@ it("a later approval failure rolls back both text and draft decision", async () 
   ).toBe(0);
   await approve(draft);
 });
+
+for (const target of targets) {
+  it(
+    target +
+      ": Coordinator submissions remain drafts until an unassigned Admin reviews",
+    async () => {
+      await db.user.update({
+        where: { id: "translation-author" },
+        data: { role: "COORDINATOR" },
+      });
+      await db.user.update({
+        where: { id: "translation-admin" },
+        data: { canTranslate: false },
+      });
+      const before = await read(target);
+      // The caller deliberately carries its former role: permission checks use the database.
+      await write(target, "Coordinator proposal");
+      const draft = await latest();
+      expect(draft.state).toBe("PENDING");
+      expect(await read(target)).toEqual(before);
+      expect(await db.approvalRequest.count()).toBe(0);
+      await expect(
+        translator().translationReview.decide({
+          id: draft.id,
+          approve: true,
+          expectedUpdatedAt: draft.updatedAt,
+        }),
+      ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+      expect(await read(target)).toEqual(before);
+      expect((await latest()).state).toBe("PENDING");
+      const request = await db.approvalRequest.findFirstOrThrow();
+      await admin().approval.decide({
+        id: request.id,
+        approve: true,
+        note: "Checked destination and translation",
+      });
+      expect((await latest()).state).toBe("APPROVED");
+      expect(await read(target)).toEqual(
+        target === "page"
+          ? { en: "Coordinator proposal" }
+          : "Coordinator proposal",
+      );
+      expect(
+        (
+          await db.user.findUniqueOrThrow({
+            where: { id: "translation-admin" },
+          })
+        ).canTranslate,
+      ).toBe(false);
+      await expect(
+        admin().localization.setString({
+          locale: "en",
+          key: "common.save",
+          value: "Unassigned direct edit",
+        }),
+      ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    },
+  );
+}
+
+it("retains draft data and author scoping when filtering history", async () => {
+  await write("message", "First draft");
+  const rejected = await latest();
+  await admin().translationReview.decide({
+    id: rejected.id,
+    approve: false,
+    expectedUpdatedAt: rejected.updatedAt,
+  });
+  await write("content", "Pending draft");
+  await db.user.create({
+    data: {
+      id: "other-translator",
+      email: "other-translator@example.test",
+      role: "STUDENT",
+      canTranslate: true,
+    },
+  });
+  await user("other-translator", "STUDENT").home.setContent({
+    locale: "en",
+    key: "tagline",
+    value: "Other author",
+  });
+  const own = await translator().translationReview.list({
+    page: 0,
+    state: "PENDING",
+  });
+  expect(own).toHaveLength(1);
+  expect(own[0]!.authorId).toBe("translation-author");
+  expect(
+    await admin().translationReview.list({ page: 0, state: "PENDING" }),
+  ).toHaveLength(2);
+  expect(
+    await translator().translationReview.list({ page: 0, state: "REJECTED" }),
+  ).toMatchObject([{ id: rejected.id }]);
+  expect(await db.translationDraft.count()).toBe(3);
+  expect(await db.messageOverride.count()).toBe(0);
+});
+
+it.each(["HEAD", "ADMIN"] as const)(
+  "%s can reject without Translator assignment and cannot edit directly",
+  async (role) => {
+    await write("content", "Do not publish");
+    const draft = await latest();
+    await db.user.update({
+      where: { id: "translation-admin" },
+      data: { role, canTranslate: false },
+    });
+    await admin().translationReview.decide({
+      id: draft.id,
+      approve: false,
+      expectedUpdatedAt: draft.updatedAt,
+    });
+    expect((await latest()).state).toBe("REJECTED");
+    expect(await read("content")).toBeUndefined();
+    await expect(
+      admin().home.setContent({
+        locale: "en",
+        key: "tagline",
+        value: "Not assigned",
+      }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  },
+);
+
+it("rejects unassigned Coordinator edits before creating drafts or approval requests", async () => {
+  await db.user.update({
+    where: { id: "translation-author" },
+    data: { role: "COORDINATOR", canTranslate: false },
+  });
+  await expect(write("message", "Blocked")).rejects.toMatchObject({
+    code: "FORBIDDEN",
+  });
+  expect(await db.translationDraft.count()).toBe(0);
+  expect(await db.approvalRequest.count()).toBe(0);
+});
+
+it("withdraws draft access immediately after suspension or Translator revocation", async () => {
+  await write("message", "Keep evidence");
+  await db.user.update({
+    where: { id: "translation-author" },
+    data: { canTranslate: false },
+  });
+  await expect(translator().translationReview.list()).rejects.toMatchObject({
+    code: "FORBIDDEN",
+  });
+  await db.user.update({
+    where: { id: "translation-admin" },
+    data: { suspendedAt: new Date() },
+  });
+  await expect(approve(await latest())).rejects.toMatchObject({
+    code: "FORBIDDEN",
+  });
+  expect((await latest()).state).toBe("PENDING");
+  expect(await db.messageOverride.count()).toBe(0);
+});

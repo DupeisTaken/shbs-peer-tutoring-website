@@ -20,10 +20,9 @@ export async function deliverNotifications(limit = 10) {
   });
   if (!settings?.emailNotificationsEnabled) {
     await db.emailDelivery.updateMany({
-      where: { status: "PENDING" },
+      where: { status: "PENDING", category: { not: "security" } },
       data: { status: "SKIPPED", completedAt: new Date() },
     });
-    return;
   }
   if (!isEmailDeliveryAvailable()) return;
   const rows = await db.$queryRaw<{ id: string }[]>`
@@ -40,9 +39,11 @@ export async function deliverNotifications(limit = 10) {
     const current = await db.programSettings.findUnique({
       where: { id: "program" },
     });
+    // Security notices are essential, including for legacy users with emailSecurity=false.
+    const essential = row.category === "security";
     const preference =
       row.category === "security"
-        ? row.user.emailSecurity
+        ? true
         : row.category === "messages"
           ? row.user.emailMessages
           : row.user.emailInfo;
@@ -53,7 +54,7 @@ export async function deliverNotifications(limit = 10) {
         (address.email === row.user.email || row.user.emailSecondaryRecipients),
     );
     if (
-      !current?.emailNotificationsEnabled ||
+      (!essential && !current?.emailNotificationsEnabled) ||
       !preference ||
       (!owned && !row.previousPrimary)
     ) {
