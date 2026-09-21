@@ -102,6 +102,10 @@ See the [sample student policy](../prisma/policies/tutee-policy.en.md) or [ä¸­æ–
 
 ## Tutors
 
+Existing tutors can use **Subject qualifications** on their dashboard to request another subject or a higher offered level in a subject they already teach. Choose a subject, explain your qualifications and submit; the request history shows pending, interview, approved and rejected outcomes, the decision note, and the subjects granted on approval. Pending/rejected requests do not change current qualifications. Duplicate open requests for the same subject and level are blocked. Inactive tutors retain read-only history.
+
+In **Tutor Applications**, additional-subject and higher-level requests have distinct badges. Only Admin or Head may approve directly, reject with a decision note, or assign an interview panel. Direct approval is available even when interviews are enabled. An interview uses the existing votes and majority rules with an Admin/Head tutor as chair; that chair records the outcome in Tutor Applications. Panelists see the requested course and the tutor's qualification explanation on their dashboard. Coordinators cannot make or queue these decisions. Applicants cannot review themselves. Review history and final decisions are retained. Approval records the requested level and lower offered levels in that course group under the ordering at approval time; reordering later does not change those grants. Subject willingness remains a separate choice in Subject Availability.
+
 ### Start tutoring
 
 1. Choose **Become a Tutor** on the home page. Select up to three subjects, explain your qualifications, read the current policy and submit your contact details.

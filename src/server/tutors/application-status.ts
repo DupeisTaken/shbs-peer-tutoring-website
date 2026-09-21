@@ -15,6 +15,9 @@ export async function reconcileApplication(
     const app = await tx.tutorApplication.findUniqueOrThrow({
       where: { id: applicationId },
     });
+    // Additional qualifications never create/revoke membership, registration codes or pairings.
+    // Their approval transaction owns concrete grants and immutable decision evidence.
+    if (app.type !== "INITIAL") return;
     if (app.status === "ACCEPTED") {
       await promoteApplicantToTutor(applicationId, tx);
       return;

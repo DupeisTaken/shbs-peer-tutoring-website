@@ -10,6 +10,9 @@ const mocks = vi.hoisted(() => ({
   enabled: true,
   history: vi.fn(),
   invalidate: vi.fn(),
+  additional: false,
+  role: "HEAD",
+  decide: vi.fn(),
 }));
 vi.mock("~/app/_components/confirm-dialog", () => ({
   useDialog: () => ({ confirm: vi.fn(), dialog: null }),
@@ -26,9 +29,22 @@ vi.mock("~/app/_components/interview-management", () => ({
 vi.mock("~/trpc/react", () => ({
   api: {
     useUtils: () => ({
-      admin: { tutorApplications: { invalidate: mocks.invalidate } },
+      admin: {
+        tutorApplications: { invalidate: mocks.invalidate },
+        tutors: { invalidate: mocks.invalidate },
+      },
       interviewManagement: { options: { invalidate: mocks.invalidate } },
+      qualificationApplication: { mine: { invalidate: mocks.invalidate } },
+      subjectAvailability: { options: { invalidate: mocks.invalidate } },
     }),
+    account: {
+      me: {
+        useQuery: () => ({ data: { role: mocks.role, tutorId: "chair" } }),
+      },
+    },
+    qualificationApplication: {
+      decide: { useMutation: () => ({ mutate: mocks.decide }) },
+    },
     program: {
       features: { useQuery: () => ({ data: { INTERVIEWS: mocks.enabled } }) },
     },
@@ -38,28 +54,52 @@ vi.mock("~/trpc/react", () => ({
           data: [
             {
               id: "candidate",
+              type: mocks.additional ? "ADDITIONAL_SUBJECT" : "INITIAL",
+              requestedTutorId: mocks.additional ? "candidate-tutor" : null,
+              qualificationReason: mocks.additional
+                ? "New subject evidence"
+                : null,
+              qualificationSnapshot: null,
               name: "Candidate One",
               email: "candidate@example.test",
               preferredContact: null,
-              status: "ACCEPTED",
+              status: mocks.additional ? "PENDING" : "ACCEPTED",
               updatedAt: new Date("2026-09-01"),
               interviewAt: null,
-              subjectIntents: [],
-              interviewers: [
-                {
-                  isHead: true,
-                  tutor: { id: "chair", englishName: "Panel Chair" },
-                },
-              ],
-              votes: [
-                {
-                  accept: true,
-                  comment: "Preserved vote",
-                  tutor: { englishName: "Panel Chair" },
-                },
-              ],
-              decisionComment: "Preserved decision",
-              decidedByTutor: { englishName: "Panel Chair" },
+              subjectIntents: mocks.additional
+                ? [
+                    {
+                      taken: false,
+                      grade: null,
+                      hasApScore: false,
+                      apScore: null,
+                      selfStudied: false,
+                      selfStudyNote: null,
+                      subject: { name: "AP Literature", level: { name: "AP" } },
+                    },
+                  ]
+                : [],
+              interviewers: mocks.additional
+                ? []
+                : [
+                    {
+                      isHead: true,
+                      tutor: { id: "chair", englishName: "Panel Chair" },
+                    },
+                  ],
+              votes: mocks.additional
+                ? []
+                : [
+                    {
+                      accept: true,
+                      comment: "Preserved vote",
+                      tutor: { englishName: "Panel Chair" },
+                    },
+                  ],
+              decisionComment: mocks.additional ? null : "Preserved decision",
+              decidedByTutor: mocks.additional
+                ? null
+                : { englishName: "Panel Chair" },
             },
           ],
         }),
@@ -74,6 +114,8 @@ vi.mock("~/trpc/react", () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.enabled = true;
+  mocks.additional = false;
+  mocks.role = "HEAD";
 });
 afterEach(cleanup);
 const show = (viewer = false) =>
@@ -113,4 +155,34 @@ it("does not mount the staff-only completion query for a viewer", () => {
   show(true);
   expect(mocks.history).not.toHaveBeenCalled();
   expect(screen.queryByText("Interview history destination")).toBeNull();
+});
+
+it("keeps additional qualification review alongside consolidated history without account setup or deletion", () => {
+  mocks.additional = true;
+  show();
+  expect(screen.getByText("Additional subject")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
+  expect(screen.getByText("New subject evidence")).toBeTruthy();
+  expect(screen.getAllByText("AP Literature").length).toBeGreaterThan(0);
+  expect(screen.queryByText(/no qualification given/i)).toBeNull();
+  expect(
+    screen.getByRole("button", { name: "Approve qualification" }),
+  ).toBeTruthy();
+  expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
+  expect(screen.queryByRole("link", { name: /account/i })).toBeNull();
+  expect(mocks.history).toHaveBeenCalledWith({ enabled: true });
+});
+
+it("does not expose additional request decisions or panel setup to Coordinators", () => {
+  mocks.additional = true;
+  mocks.role = "COORDINATOR";
+  show();
+  fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
+  expect(
+    screen.queryByRole("button", { name: "Approve qualification" }),
+  ).toBeNull();
+  expect(screen.queryByRole("combobox")).toBeNull();
+  expect(
+    screen.getByText("Another Admin or Head must review this request."),
+  ).toBeTruthy();
 });

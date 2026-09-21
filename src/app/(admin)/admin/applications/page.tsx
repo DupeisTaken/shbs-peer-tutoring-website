@@ -1,5 +1,6 @@
 "use client";
 import { EmailDetails } from "~/app/_components/email-details";
+import { QualificationReview } from "~/app/_components/qualification-review";
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
@@ -29,6 +30,10 @@ function StatusBadge({ status }: { status: Status }) {
 }
 
 type Application = {
+  type: "INITIAL" | "ADDITIONAL_SUBJECT" | "HIGHER_LEVEL";
+  requestedTutorId: string | null;
+  qualificationReason: string | null;
+  qualificationSnapshot: unknown;
   id: string;
   name: string;
   email: string;
@@ -72,6 +77,15 @@ function ApplicationCard({
   const programFormat = useFormatter();
   const t = useTranslations();
   const readOnly = useReadOnly();
+  const account = api.account.me.useQuery().data;
+  const additional = app.type !== "INITIAL";
+  const canEditPanel =
+    !readOnly &&
+    (!additional ||
+      (!!account &&
+        ["ADMIN", "HEAD"].includes(account.role) &&
+        account.tutorId !== app.requestedTutorId &&
+        app.status === "PENDING"));
   const { confirm, dialog } = useDialog();
   const [open, setOpen] = useState(false);
   // A link from interview history opens the existing editor for this exact
@@ -133,12 +147,16 @@ function ApplicationCard({
     app.decidedByTutor != null;
   // Generic status controls are only for screening. A panel outcome belongs to its chair.
   const canDirectAccept =
+    !additional &&
     !readOnly &&
     features?.INTERVIEWS === false &&
     !hasInterviewHistory &&
     app.status !== "ACCEPTED";
   const canScreenReject =
-    !readOnly && !hasInterviewHistory && app.status === "PENDING";
+    !additional &&
+    !readOnly &&
+    !hasInterviewHistory &&
+    app.status === "PENDING";
 
   return (
     <div id={`application-${app.id}`} className="card scroll-mt-6 p-4">
@@ -152,8 +170,13 @@ function ApplicationCard({
           onClick={() => setOpen((v) => !v)}
         >
           <DisclosureIcon open={open} />
-          <span className="min-w-0 break-words font-medium text-slate-900">{app.name}</span>
+          <span className="min-w-0 font-medium break-words text-slate-900">
+            {app.name}
+          </span>
           <StatusBadge status={app.status} />
+          <span className="badge-slate">
+            {t(`qualificationRequests.${app.type}`)}
+          </span>
           <span className="muted hidden truncate text-xs sm:inline">
             {courseNames}
             {(features?.INTERVIEWS === true || hasInterviewHistory) && (
@@ -174,7 +197,7 @@ function ApplicationCard({
           </span>
         </button>
         <div className="flex w-full min-w-0 flex-wrap items-center gap-2 lg:w-auto">
-          {app.status === "ACCEPTED" && (
+          {!additional && app.status === "ACCEPTED" && (
             <Link
               href="/admin/users"
               className="link inline-flex min-h-11 max-w-full items-center text-sm break-words lg:min-h-8"
@@ -210,7 +233,7 @@ function ApplicationCard({
               {t("admin.applications.reject")}
             </button>
           )}
-          {!readOnly && (
+          {!readOnly && !additional && (
             <button
               className="btn-danger btn-sm"
               onClick={async () => {
@@ -246,6 +269,9 @@ function ApplicationCard({
           )}
 
           {/* Course intents */}
+          {additional && (
+            <QualificationReview app={app} onChanged={onChanged} />
+          )}
           <ul className="mt-3 flex flex-wrap gap-2">
             {app.subjectIntents.map((ci, i) => {
               const quals: string[] = [];
@@ -275,10 +301,16 @@ function ApplicationCard({
                       {ci.subject.level.name}
                     </span>
                   )}
-                  {" · "}
-                  {quals.length
-                    ? quals.join(" · ")
-                    : t("admin.applications.noQualification")}
+                  {/* Additional requests use their reason and recorded grant result above;
+                      the initial-signup grade checklist must not imply they lack approval. */}
+                  {!additional && (
+                    <>
+                      {" · "}
+                      {quals.length
+                        ? quals.join(" · ")
+                        : t("admin.applications.noQualification")}
+                    </>
+                  )}
                 </li>
               );
             })}
@@ -300,7 +332,7 @@ function ApplicationCard({
                   })}
                 </p>
               )}
-              {!readOnly && features?.INTERVIEWS && (
+              {canEditPanel && features?.INTERVIEWS && (
                 <>
                   <div className="mt-2 space-y-2">
                     {picks.map((pick, i) => (
@@ -309,7 +341,7 @@ function ApplicationCard({
                         className="flex flex-wrap items-center gap-2"
                       >
                         <select
-                          className="select field-auto min-w-0 max-w-full flex-1"
+                          className="select field-auto max-w-full min-w-0 flex-1"
                           aria-label={t("admin.applications.panelistSlot", {
                             n: i + 1,
                           })}
@@ -350,7 +382,10 @@ function ApplicationCard({
                   </div>
                   <p className="muted my-3 text-sm">
                     {t("workflows.allVotes")}{" "}
-                    <Link className="link inline-flex min-h-11 items-center lg:min-h-8" href="/admin/subject-availability">
+                    <Link
+                      className="link inline-flex min-h-11 items-center lg:min-h-8"
+                      href="/admin/subject-availability"
+                    >
                       {t("subjectAvailability.title")}
                     </Link>
                   </p>
