@@ -590,15 +590,23 @@ it("retries delivery without duplicate concurrent sends or rolling back an accou
 });
 
 it("password rotation invalidates pending address verification and recovery grants", async () => {
+  // Exercise the enabled password-change email challenge independently of earlier suites' flags.
+  await db.programFeature.upsert({
+    where: { key: "EMAIL_2FA" },
+    create: { key: "EMAIL_2FA", enabled: true },
+    update: { enabled: true },
+  });
   await requestSecondaryEmail(userId, secondary(), password);
   const code = lastCode();
   await issuePasswordReset(`${userId}@example.test`);
   const token = /token=([a-f0-9]+)/.exec(
     mail.send.mock.calls.at(-1)?.[0].text ?? "",
   )![1]!;
+  await caller().account.requestPasswordChangeCode({ currentPassword: password });
   await caller().account.changePassword({
     currentPassword: password,
     newPassword: "RotatedPassword123!",
+    code: lastCode(),
   });
   expect(await confirmSecondaryEmail(userId, secondary(), code)).toBe(false);
   expect(await resetPassword(token, "AnotherPassword123!")).toBeNull();
