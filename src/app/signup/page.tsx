@@ -4,7 +4,7 @@ import { getTranslations } from "next-intl/server";
 import { brandingMetadata } from "~/server/branding-metadata";
 import { SignupForm } from "./signup-form";
 import { SignupOpeningNotice } from "./signup-opening-notice";
-import { isSignupWindowOpen } from "~/lib/signup-window";
+import { recruitmentStatus, recruitmentWindow } from "~/lib/recruitment";
 import { db } from "~/server/db";
 import { getActivePeriodOrNull } from "~/server/period";
 import { getFeatures } from "~/server/program/features";
@@ -28,7 +28,9 @@ export default async function SignupPage() {
     period && getPeriodDisplay(period, features.QUARTER_SYSTEM);
   const now = new Date();
   const waitingPeriod =
-    period?.signupOpensAt && !isSignupWindowOpen(period.signupOpensAt, now)
+    period?.signupOpensAt &&
+    recruitmentStatus(recruitmentWindow(period, "tutee"), now.getTime()) ===
+      "scheduled"
       ? { ...period, signupOpensAt: period.signupOpensAt }
       : null;
 
@@ -61,9 +63,10 @@ export default async function SignupPage() {
           previewUrl={waitingPeriod.signupPreviewUrl}
           serverNow={now.toISOString()}
         />
-      ) : (
+      ) : null}
+      <div className="mt-6">
         <SignupForm />
-      )}
+      </div>
     </main>
   );
 }

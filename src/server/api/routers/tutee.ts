@@ -1,3 +1,4 @@
+import { getRecruitment } from "~/server/program/recruitment";
 import { getSignupSettings } from "~/server/program/signup-fields";
 import { subjectOrderBy } from "~/lib/course-catalogue";
 import { z } from "zod";
@@ -8,7 +9,7 @@ import {
   adminProcedure,
 } from "~/server/api/trpc";
 import { localizedPolicy } from "~/server/policy";
-import { currentPolicy } from "~/server/policy-acceptance";
+import { publicSignupPolicy } from "~/server/policy-acceptance";
 import {
   surveyInput,
   surveyToken,
@@ -38,11 +39,7 @@ export const tuteeRouter = createTRPCRouter({
   surveyPolicy: publicProcedure
     .input(z.object({ locale: z.string() }))
     .query(async ({ ctx, input }) => {
-      const policy = await currentPolicy(ctx.db, "tutee-policy");
-      const document =
-        policy.documents.find((d) => d.locale === input.locale) ??
-        policy.documents.find((d) => d.locale === "en")!;
-      return { ...document, revision: policy.revision };
+      return publicSignupPolicy(ctx.db, "tutee-policy", input.locale);
     }),
   submitSurvey: publicProcedure
     .input(surveyInput)
@@ -85,7 +82,7 @@ export const tuteeRouter = createTRPCRouter({
 
   /** Options needed to render the public signup form: active subjects + active time slots. */
   signupOptions: publicProcedure.query(async ({ ctx }) => {
-    const [subjects, slots, settings] = await Promise.all([
+    const [subjects, slots, settings, recruitment] = await Promise.all([
       ctx.db.subject.findMany({
         where: { active: true },
         orderBy: [...subjectOrderBy],
@@ -103,8 +100,9 @@ export const tuteeRouter = createTRPCRouter({
         },
       }),
       getSignupSettings(ctx.db),
+      getRecruitment(ctx.db, "tutee"),
     ]);
-    return { subjects, slots, fields: settings.tutee };
+    return { subjects, slots, fields: settings.tutee, recruitment };
   }),
 
   /**

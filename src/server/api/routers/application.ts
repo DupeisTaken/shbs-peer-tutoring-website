@@ -1,10 +1,12 @@
+import { recruitmentStatus } from "~/lib/recruitment";
+import { getRecruitment } from "~/server/program/recruitment";
 import { lockCatalogue } from "~/server/qualifications";
 import { subjectOrderBy } from "~/lib/course-catalogue";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
-import { currentPolicy } from "~/server/policy-acceptance";
+import { currentPolicy, publicSignupPolicy } from "~/server/policy-acceptance";
 import { getSignupSettings } from "~/server/program/signup-fields";
 import {
   fieldMissing,
@@ -23,7 +25,7 @@ import { notifyAdmins } from "~/server/notifications/create";
 export const applicationRouter = createTRPCRouter({
   /** Active subjects for the application's subject pickers (with their level). */
   options: publicProcedure.query(async ({ ctx }) => {
-    const [settings, subjects] = await Promise.all([
+    const [settings, subjects, recruitment] = await Promise.all([
       getSignupSettings(ctx.db),
       ctx.db.subject.findMany({
         where: { active: true },
@@ -34,8 +36,9 @@ export const applicationRouter = createTRPCRouter({
           level: { select: { name: true, apScored: true } },
         },
       }),
+      getRecruitment(ctx.db, "tutor"),
     ]);
-    return { fields: settings.tutor, subjects };
+    return { fields: settings.tutor, subjects, recruitment };
   }),
 
   /**
@@ -45,11 +48,7 @@ export const applicationRouter = createTRPCRouter({
   policy: publicProcedure
     .input(z.object({ locale: z.string().optional() }).optional())
     .query(async ({ ctx, input }) => {
-      const policy = await currentPolicy(ctx.db, "tutor-policy");
-      const document =
-        policy.documents.find((d) => d.locale === input?.locale) ??
-        policy.documents.find((d) => d.locale === "en")!;
-      return { ...document, revision: policy.revision };
+      return publicSignupPolicy(ctx.db, "tutor-policy", input?.locale);
     }),
 
   submit: publicProcedure
@@ -81,6 +80,14 @@ export const applicationRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       await inTransaction(ctx.db, async (tx) => {
+        // Serialize schedule edits and period refresh with accepting an application.
+        await lockEntity(tx, "program:period");
+        if (recruitmentStatus(await getRecruitment(tx, "tutor")) !== "open")
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message:
+              "Tutor recruitment is currently closed. You can still preview the form.",
+          });
         await lockEntity(tx, "signup-fields");
         await lockEntity(tx, "policy:tutor-policy");
         const fields = (await getSignupSettings(tx)).tutor;

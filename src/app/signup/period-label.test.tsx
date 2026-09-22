@@ -51,10 +51,10 @@ it.each([true, false])(
   },
 );
 
-it("uses semester wording in the pre-opening notice without exposing the form early", async () => {
+it("uses semester wording in the pre-opening notice while retaining a form preview", async () => {
   state.quarterSystem = false;
   state.waiting = true;
   const html = renderToStaticMarkup(await SignupPage());
   expect(html).toContain("Opens: 2026–27 S2");
-  expect(html).not.toContain("Request form");
+  expect(html).toContain("Request form");
 });

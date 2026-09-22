@@ -37,3 +37,24 @@ export async function requirePolicy(
       message: "Read and accept the current policy before participating.",
     });
 }
+
+/** A missing publication is expected during initial setup, not a failed network read. */
+export async function publicSignupPolicy(
+  tx: TransactionDb,
+  slug: string,
+  locale?: string,
+) {
+  try {
+    const policy = await currentPolicy(tx, slug);
+    const english = policy.documents.find((d) => d.locale === "en");
+    if (!english?.body.trim()) return null;
+    const document =
+      policy.documents.find((d) => d.locale === locale && d.body.trim()) ??
+      english;
+    return { ...document, revision: policy.revision };
+  } catch (error) {
+    if (error instanceof TRPCError && error.code === "PRECONDITION_FAILED")
+      return null;
+    throw error;
+  }
+}

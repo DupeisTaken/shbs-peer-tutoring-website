@@ -8,6 +8,7 @@ import type { PrismaClient } from "../../../../generated/prisma";
 import { createCallerFactory } from "~/server/api/trpc";
 import { programRouter } from "./program";
 import { tuteeRouter } from "./tutee";
+import { applicationRouter } from "./application";
 
 const createProgramCaller = createCallerFactory(programRouter);
 const createTuteeCaller = createCallerFactory(tuteeRouter);
@@ -31,21 +32,20 @@ const coordinatorSession: Session = {
 function context(db: unknown, session: Session | null) {
   return {
     db: {
+      $executeRaw: vi.fn(),
       ...(db as object),
       user: {
-        findUnique: vi
-          .fn()
-          .mockResolvedValue(
-            session
-              ? {
-                  role: session.role,
-                  tutorId: session.tutorId,
-                  suspendedAt: null,
-                  name: session.user.name,
-                  username: null,
-                }
-              : null,
-          ),
+        findUnique: vi.fn().mockResolvedValue(
+          session
+            ? {
+                role: session.role,
+                tutorId: session.tutorId,
+                suspendedAt: null,
+                name: session.user.name,
+                username: null,
+              }
+            : null,
+        ),
       },
       auditLog: { create: vi.fn().mockResolvedValue({}) },
     } as unknown as PrismaClient,
@@ -135,16 +135,24 @@ describe("tutee signup window procedures", () => {
     );
   });
 
-  it("requires a preview link for a scheduled opening", async () => {
+  it("allows scheduling without an external preview link", async () => {
+    const update = vi.fn().mockResolvedValue({ id: "term" });
     const caller = createProgramCaller(
-      context({ term: { findFirst: vi.fn() } }, adminSession),
+      context(
+        {
+          term: {
+            findFirst: vi.fn().mockResolvedValue({ id: "term" }),
+            update,
+          },
+        },
+        adminSession,
+      ),
     );
-    await expect(
-      caller.setSignupWindow({
-        opensAt: new Date("2026-09-01T00:00:00Z"),
-        previewUrl: null,
-      }),
-    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await caller.setSignupWindow({
+      opensAt: new Date("2099-01-01"),
+      previewUrl: null,
+    });
+    expect(update).toHaveBeenCalled();
   });
 
   it("does not let coordinators change program-wide signup timing", async () => {
@@ -155,4 +163,106 @@ describe("tutee signup window procedures", () => {
       caller.setSignupWindow({ opensAt: null, previewUrl: null }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
+});
+
+const createTutorCaller = createCallerFactory(applicationRouter);
+it.each(["paused", "scheduled", "ended", "no-period"])(
+  "rejects both submission APIs when recruitment is %s",
+  async (state) => {
+    const term =
+      state === "no-period"
+        ? null
+        : {
+            signupEnabled: state !== "paused",
+            tutorSignupEnabled: state !== "paused",
+            signupOpensAt:
+              state === "scheduled" ? new Date(Date.now() + 60_000) : null,
+            tutorSignupOpensAt:
+              state === "scheduled" ? new Date(Date.now() + 60_000) : null,
+            signupClosesAt:
+              state === "ended" ? new Date(Date.now() - 60_000) : null,
+            tutorSignupClosesAt:
+              state === "ended" ? new Date(Date.now() - 60_000) : null,
+          };
+    const create = vi.fn();
+    const ctx = context(
+      {
+        term: { findFirst: vi.fn().mockResolvedValue(term) },
+        $queryRaw: vi.fn(),
+        studentSurvey: { findMany: vi.fn().mockResolvedValue([]), create },
+        tutorApplication: { create },
+      },
+      null,
+    );
+    await expect(
+      createTutorCaller(ctx).submit({
+        name: "Test Tutor",
+        email: "closed-tutor@example.test",
+        agreed: true,
+        policyRevision: "r1",
+        subjects: [{ subjectId: "math" }],
+      }),
+    ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    await expect(
+      createTuteeCaller(ctx).submitSurvey({
+        englishName: "Test Student",
+        email: `closed-${state}@example.test`,
+        agreed: true,
+        policyRevision: "r1",
+        firstChoiceId: "math",
+      }),
+    ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    expect(create).not.toHaveBeenCalled();
+  },
+);
+it.each(["tutor", "tutee"] as const)(
+  "saves only the %s schedule and prevents invalid/stale writes",
+  async (audience) => {
+    const update = vi.fn().mockResolvedValue({ id: "current" });
+    const caller = createProgramCaller(
+      context(
+        {
+          term: {
+            findFirst: vi.fn().mockResolvedValue({ id: "current" }),
+            update,
+          },
+        },
+        adminSession,
+      ),
+    );
+    const input = {
+      audience,
+      expectedTermId: "current",
+      enabled: false,
+      opensAt: new Date("2090-01-01"),
+      closesAt: new Date("2090-02-01"),
+      previewUrl: null,
+    };
+    await caller.setSignupWindow(input);
+    const data = (update.mock.calls[0]![0] as {data: Record<string, unknown>}).data;
+    expect(
+      Object.keys(data).every((key) =>
+        audience === "tutor"
+          ? key.startsWith("tutorSignup")
+          : key.startsWith("signup"),
+      ),
+    ).toBe(true);
+    expect(Object.values(data)).toContain(false);
+    update.mockClear();
+    await expect(
+      caller.setSignupWindow({ ...input, closesAt: input.opensAt }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    await expect(
+      caller.setSignupWindow({ ...input, expectedTermId: "previous" }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(update).not.toHaveBeenCalled();
+  },
+);
+it("rejects anonymous management writes", async () => {
+  await expect(
+    createProgramCaller(context({}, null)).setSignupWindow({
+      opensAt: null,
+      previewUrl: null,
+    }),
+  ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
 });
