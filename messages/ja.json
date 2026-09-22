@@ -2595,6 +2595,7 @@
     "sourceHelp": "申込元は入力方法を示し、承認・優先順位・参加規則は変わりません。「以前の申込」は元の入力方法を確認できない記録です。"
   },
   "approvals": {
+    "reviewPermissions": "通常の管理申請はAdminとHeadが審査します。役割・バッジの変更はHeadのみが審査できます。Headは自分の申請も審査できますが、他の人には別の権限を持つ審査担当者が必要です。",
     "title": "Change Approvals",
     "subtitle": "Review proposed changes, explain your decision, and help new team members learn.",
     "queued": "Submitted for Admin Approval",

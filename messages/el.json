@@ -2595,6 +2595,7 @@
     "sourceHelp": "Η πηγή περιγράφει πώς καταχωρίστηκε η εγγραφή. Δεν αλλάζει την έγκριση, την προτεραιότητα ή τους κανόνες συμμετοχής. Η παλαιότερη εγγραφή έχει μη επιβεβαιωμένη αρχική πηγή."
   },
   "approvals": {
+    "reviewPermissions": "Οι Admin και Head εξετάζουν τα συνήθη αιτήματα διαχείρισης. Μόνο ο Head εξετάζει αλλαγές ρόλων και σημάτων. Ο Head μπορεί να εξετάζει τα δικά του αιτήματα· οι υπόλοιποι χρειάζονται άλλον εξουσιοδοτημένο αξιολογητή.",
     "title": "Change Approvals",
     "subtitle": "Review proposed changes, explain your decision, and help new team members learn.",
     "queued": "Submitted for Admin Approval",
