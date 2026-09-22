@@ -2595,6 +2595,7 @@
     "sourceHelp": "La source décrit comment une inscription a été saisie. Elle ne change ni approbation, ni priorité, ni règles de participation. Une inscription antérieure a une source initiale non confirmée."
   },
   "approvals": {
+    "reviewPermissions": "Admin et Head examinent les demandes de gestion ordinaires. Seul Head examine les changements de rôles et de badges. Head peut examiner ses propres demandes ; les autres doivent faire appel à une autre personne autorisée.",
     "title": "Change Approvals",
     "subtitle": "Review proposed changes, explain your decision, and help new team members learn.",
     "queued": "Submitted for Admin Approval",

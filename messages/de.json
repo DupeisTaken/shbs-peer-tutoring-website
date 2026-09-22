@@ -2595,6 +2595,7 @@
     "sourceHelp": "Die Quelle beschreibt die Erfassung der Anmeldung. Sie ändert weder Genehmigung, Priorität noch Teilnahmeregeln. Bei früheren Anmeldungen ist die ursprüngliche Quelle unbestätigt."
   },
   "approvals": {
+    "reviewPermissions": "Admin und Head prüfen allgemeine Verwaltungsanträge. Nur Head prüft Rollen- und Abzeichenänderungen. Head darf eigene Anträge prüfen; alle anderen benötigen eine andere berechtigte Person.",
     "title": "Change Approvals",
     "subtitle": "Review proposed changes, explain your decision, and help new team members learn.",
     "queued": "Submitted for Admin Approval",

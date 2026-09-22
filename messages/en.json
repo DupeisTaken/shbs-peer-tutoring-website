@@ -2595,6 +2595,7 @@
     "sourceHelp": "Source describes how a signup was entered. It does not change approval, priority or participation rules. Earlier signup means the original entry source is unconfirmed."
   },
   "approvals": {
+    "reviewPermissions": "Admin and Head review ordinary management requests. Only Head reviews role and badge changes. Head may review their own requests; everyone else needs another eligible reviewer.",
     "title": "Management Actions",
     "subtitle": "Review changes proposed by coordinators before they take effect. Approve to apply a change, or reject it with an explanation. Use the status filter to view past decisions.",
     "queued": "Submitted for Admin Approval",

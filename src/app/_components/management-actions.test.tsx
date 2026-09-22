@@ -59,13 +59,14 @@ const row = (state = "PENDING") => ({
   payload: SuperJSON.serialize({ id: "room-1", name: "New room name" }),
   targets: { rooms: [{ record: { id: "room-1", name: "Original room" } }] },
 });
-function queue(rows = [row()], canReview = false, total = rows.length) {
+function queue(rows = [row()], canReview = false, total = rows.length, headReviewer = false) {
   mocks.list.mockReturnValue({
     data: {
       rows,
       canReview,
+      headReviewer,
       total,
-      viewerId: canReview ? "admin" : "coordinator",
+      viewerId: canReview && !headReviewer ? "admin" : "coordinator",
       requesters: canReview
         ? [{ id: "coordinator", label: "Alex Coordinator" }]
         : [],
@@ -228,4 +229,10 @@ it("renders localized loading, error and unavailable detail states", () => {
   queue([]);
   rendered.rerender(view(false, "zh"));
   expect(screen.getByText(zh.approvals.missingHint)).toBeTruthy();
+});
+
+it.each([true, false])("only shows self-review controls for a live Head: %s", (headReviewer) => {
+  queue([{ ...row(), requesterId: headReviewer ? "coordinator" : "admin" }], true, 1, headReviewer);
+  render(view(true));
+  expect(screen.queryByRole("button", { name: "Approve and Apply" }) !== null).toBe(headReviewer);
 });

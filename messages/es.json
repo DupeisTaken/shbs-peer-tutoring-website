@@ -2595,6 +2595,7 @@
     "sourceHelp": "La fuente indica cómo se registró la inscripción. No cambia la aprobación, la prioridad ni las reglas de participación. Inscripción anterior indica que no se conoce la fuente original."
   },
   "approvals": {
+    "reviewPermissions": "Admin y Head revisan las solicitudes de gestión ordinarias. Solo Head revisa cambios de roles y credenciales. Head puede revisar sus propias solicitudes; los demás necesitan otro revisor autorizado.",
     "title": "Change Approvals",
     "subtitle": "Review proposed changes, explain your decision, and help new team members learn.",
     "queued": "Submitted for Admin Approval",

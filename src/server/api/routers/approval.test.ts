@@ -1059,3 +1059,28 @@ it("logs participant actions without secrets and masks decision details from vie
     true,
   );
 });
+
+// Promotion must use live authority; immutable requester evidence remains unchanged.
+it("lets the current Head approve their own earlier proposal exactly once", async () => {
+  const request = await queued(() => trainee().admin.createRoom({ name: "Head room" }));
+  await db.user.update({ where: { id: "approval-head" }, data: { role: "ADMIN" } });
+  await db.user.update({ where: { id: "approval-coordinator" }, data: { role: "HEAD" } });
+  expect(await trainee().approval.list()).toMatchObject({ canReview: true, headReviewer: true });
+  await expect(trainee().approval.decide({ id: request.id, approve: true, note: " " })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  await trainee().approval.decide({ id: request.id, approve: true, note: "Checked as current Head" });
+  expect(await db.room.count({ where: { name: "Head room" } })).toBe(1);
+  expect(await db.approvalRequest.findUnique({ where: { id: request.id } })).toMatchObject({
+    state: "APPROVED", requesterId: "approval-coordinator", reviewerId: "approval-coordinator",
+  });
+  expect(await db.auditLog.findFirst({ where: { approvalId: request.id, kind: "DECISION" } })).toMatchObject({
+    userId: "approval-coordinator", details: { requesterId: "approval-coordinator" },
+  });
+  await expect(trainee().approval.decide({ id: request.id, approve: true, note: "Again" })).rejects.toMatchObject({ code: "CONFLICT" });
+});
+
+it.each(["ADMIN", "COORDINATOR", "SUSPENDED"])("blocks former Head self-review after %s", async (state) => {
+  const request = await queued(() => trainee().admin.createRoom({ name: "No authority" }));
+  await db.user.update({ where: { id: "approval-coordinator" }, data: state === "SUSPENDED" ? { role: "HEAD", suspendedAt: new Date() } : { role: state as "ADMIN" | "COORDINATOR" } });
+  await expect(actor("approval-coordinator", "HEAD").approval.decide({ id: request.id, approve: true, note: "Old cookie" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect(await db.room.count()).toBe(0);
+});

@@ -60,7 +60,7 @@ Classify every management write in the [approval policy](../src/lib/approval-pol
 
 1. Capture validated input, affected records, active period and a fingerprint of review evidence.
 2. Consume the coordinator's confirmation ticket when queuing a ticketed action.
-3. Recheck requester/reviewer status, prevent self-review and compare current evidence before approval.
+3. Recheck requester/reviewer status, permit self-review only for the active Head and compare current evidence before approval.
 4. Replay the original parser and resolver under reviewer privileges. Ticketed actions require the reviewer's own fresh confirmation.
 5. Commit the domain change, proposal decision, related notifications and decision audit together. Competing reviewers cannot apply a proposal twice.
 6. Send external email after commit. Delivery failure must remain retryable without undoing an applied assignment.
@@ -177,3 +177,7 @@ Run `npm run docs:check` to validate Markdown links, heading anchors, guide disc
 `src/lib/signup-fields.ts` defines the fixed field order, immutable essentials, defaults and shared normalization. `ProgramSettings.signupFields` stores per-form states; hidden/required cannot coexist. `program.setSignupField` uses Head authorization, a transaction lock, an expected-state conflict guard and an audit record. Unknown/custom fields and essential changes are rejected. The public forms consume the same settings; each new submission reads current settings on the server and strips hidden answers. Existing survey payloads are decoded without applying current configuration, preserving historical answers and confirmation flows.
 
 Tutor application submission requires explicit agreement and the current published policy revision. New applications store exact policy documents, revision and acceptance time together; historical applications retain null evidence. This application-level evidence never fabricates a user-level `PolicyAcceptance`. Qualification answers and subject intents remain application data, never qualification grants. Secondary-email availability belongs to the program email configuration; the existing signup forms collect only primary sign-in email.
+
+### Reviewing your own management requests
+
+Admin and Head can review eligible ordinary Management Actions. Only the current active Head can review role/badge changes or their own pending requests. Other reviewers cannot decide their own requests, including after promotion to Admin. Current database permissions apply after promotion, demotion or suspension. Head self-review preserves required notes, consequence confirmations, stale-record checks and atomic application; requester and reviewer audit identities remain recorded even when they match. This exception applies to Management Actions, not participant interview voting or qualification decisions.
