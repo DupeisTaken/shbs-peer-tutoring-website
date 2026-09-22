@@ -113,19 +113,19 @@ export const viewerRouter = createTRPCRouter({
                 : "That code is incorrect.";
         throw new TRPCError({ code: "BAD_REQUEST", message });
       }
-      return { ok: true };
+      return { ok: true, completionProof: res.completionProof };
     }),
 
   /** Finish: set a password, creating the verified VIEWER login. */
   complete: publicProcedure
-    .input(z.object({ email: z.string().trim().email(), password: z.string().min(8).max(200) }))
+    .input(z.object({ email: z.string().trim().email(), password: z.string().min(8).max(200), completionProof: z.string().regex(/^[a-f0-9]{64}$/) }))
     .mutation(async ({ ctx, input }) => {
       await assertEnabled(ctx.db);
       const ip = clientIp(ctx.headers);
       enforceRateLimit(`viewer:ip:${ip}`, 20);
       enforceRateLimit(`viewer:complete:${input.email.toLowerCase()}`, 10);
 
-      const res = await completeViewerSignup(input.email, input.password);
+      const res = await completeViewerSignup(input.email, input.password, input.completionProof);
       if (!res.ok) {
         const message =
           res.error === "email-unverified"

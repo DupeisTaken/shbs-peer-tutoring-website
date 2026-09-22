@@ -62,6 +62,20 @@ export function hashCode(code: string): string {
     .digest("hex");
 }
 
+/** Completion grants are high-entropy, purpose-bound proofs returned only after an OTP succeeds.
+ * The exact challenge hash and verification timestamp invalidate grants on resend/reverification.
+ * Expiry and single use are enforced by the account-write transaction, not by browser state. */
+export function registrationCompletionProof(
+  purpose: "viewer" | "invitation",
+  id: string,
+  codeHash: string,
+  verifiedAt: Date,
+): string {
+  return createHmac("sha256", secret())
+    .update(JSON.stringify(["registration-completion", purpose, id, codeHash, verifiedAt.toISOString()]))
+    .digest("hex");
+}
+
 export interface IssueCodeOptions {
   email?: string | null;
   tutorId?: string | null;
@@ -257,7 +271,7 @@ export async function confirmEmailCode(
   row: CodeRow,
   emailCode: string,
 ): Promise<
-  | { ok: true }
+  | { ok: true; completionProof: string }
   | {
       ok: false;
       error: "no-pending" | "expired" | "too-many-attempts" | "mismatch";
@@ -283,6 +297,7 @@ export async function confirmEmailCode(
     });
     return { ok: false, error: "mismatch" };
   }
+  const verifiedAt = new Date();
   const verified = await db.registrationCode.updateMany({
     where: {
       id: row.id,
@@ -292,12 +307,15 @@ export async function confirmEmailCode(
       emailCodeAttempts: { lt: MAX_EMAIL_CODE_ATTEMPTS },
       emailCodeExpiresAt: { gt: new Date() },
     },
-    data: { emailVerifiedAt: new Date() },
+    data: { emailVerifiedAt: verifiedAt },
   });
-  return verified.count === 1 ? { ok: true } : { ok: false, error: "mismatch" };
+  return verified.count === 1
+    ? { ok: true, completionProof: registrationCompletionProof("invitation", row.id, row.emailCodeHash, verifiedAt) }
+    : { ok: false, error: "mismatch" };
 }
 
 export interface CompleteRegistrationInput {
+  completionProof: string;
   firstName: string;
   lastName: string;
   alternativeNames?: string | null;
@@ -317,7 +335,9 @@ export async function completeRegistration(
   | { ok: true; username: string }
   | { ok: false; error: "email-unverified" | "email-taken" }
 > {
-  if (!row.emailVerifiedAt || !row.pendingEmail) {
+  if (!row.emailVerifiedAt || !row.pendingEmail || !row.emailCodeHash ||
+      !row.emailCodeExpiresAt || row.emailCodeExpiresAt <= new Date() ||
+      input.completionProof !== registrationCompletionProof("invitation", row.id, row.emailCodeHash, row.emailVerifiedAt)) {
     return { ok: false, error: "email-unverified" };
   }
   const email = (row.email ?? row.pendingEmail).toLowerCase();
@@ -551,6 +571,7 @@ async function claimRegistration(
       pendingEmail: row.pendingEmail,
       emailVerifiedAt: row.emailVerifiedAt,
       emailCodeHash: row.emailCodeHash,
+      emailCodeExpiresAt: { gt: new Date() },
     },
     data: { usedAt: new Date() },
   });

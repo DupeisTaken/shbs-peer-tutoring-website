@@ -220,17 +220,18 @@ export async function resetPassword(
 /**
  * Provision (if needed) and invite a tutor to set up their login. Ensures a `User` exists for
  * the tutor — reusing one already on their email, else creating a `TUTOR` account linked to the
- * tutor — then issues a longer-lived setup token and emails a "set your password" link. Returns
- * the link so the admin can copy it (handy when email delivery isn't configured — the sender
- * only logs in dev). Requires the tutor to have an email.
+ * tutor — then emails a longer-lived setup token. Recovery secrets are delivered only to the
+ * account owner: returning one to staff would let a coordinator reset a tutor-linked Head.
  */
 export async function issueTutorSetupLink(
   tutorId: string,
   actorId: string,
 ): Promise<
-  | { ok: true; emailed: boolean; link: string }
+  | { ok: true; emailed: boolean }
   | { ok: false; error: "no-tutor" | "no-email" }
 > {
+  if (!isEmailDeliveryAvailable())
+    throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Email delivery must be configured before sending account setup links." });
   const tutor = await db.tutor.findUnique({
     where: { id: tutorId },
     select: {
@@ -239,11 +240,12 @@ export async function issueTutorSetupLink(
       englishName: true,
       alternativeNames: true,
       username: true,
-      user: { select: { id: true } },
+      user: { select: { id: true, email: true } },
     },
   });
   if (!tutor) return { ok: false, error: "no-tutor" };
-  const email = tutor.email?.trim().toLowerCase();
+  // An existing login's primary email is authoritative; editable roster contact is not proof.
+  const email = (tutor.user?.email ?? tutor.email)?.trim().toLowerCase();
   if (!email) return { ok: false, error: "no-email" };
 
   let userId = tutor.user?.id ?? null;
@@ -311,5 +313,5 @@ export async function issueTutorSetupLink(
       `<p>After that you can sign in with this email or your username.</p>`,
   });
 
-  return { ok: true, emailed: isEmailConfigured(), link };
+  return { ok: true, emailed: isEmailConfigured() };
 }

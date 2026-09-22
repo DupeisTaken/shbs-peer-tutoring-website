@@ -42,13 +42,16 @@ export async function WorkflowShell({
           <Link className="link" href="/">
             {t("home")}
           </Link>
-          <Link
-            className="btn-secondary btn-sm"
-            href="/student"
-            prefetch={false}
-          >
-            {account("enterTutee")}
-          </Link>
+          {/* Viewers must request a membership change before entering tutee onboarding. */}
+          {user.role !== "VIEWER" && (
+            <Link
+              className="btn-secondary btn-sm"
+              href="/student"
+              prefetch={false}
+            >
+              {account("enterTutee")}
+            </Link>
+          )}
           <Link className="link" href="/messages">
             {t("messages")}
           </Link>

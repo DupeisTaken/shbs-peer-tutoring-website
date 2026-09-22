@@ -18,6 +18,12 @@ import { TEAM_TITLE } from "~/lib/branding";
 export default async function PatrolLayout({ children }: { children: React.ReactNode }) {
   const session = await auth();
   if (!session?.user) redirect("/signin");
+  // Keep appeal access available even when crew access or the entire module is disabled.
+  const me = await db.user.findUnique({
+    where: { id: session.user.id },
+    select: { crewStatus: true, suspendedAt: true },
+  });
+  if (me?.suspendedAt) redirect("/suspended");
 
   // Crew module switched off program-wide -> no portal.
   const features = await getFeatures(db);
@@ -25,10 +31,6 @@ export default async function PatrolLayout({ children }: { children: React.React
 
   const elevated =
     session.role === "HEAD" || session.role === "ADMIN" || session.role === "COORDINATOR";
-  const me = await db.user.findUnique({
-    where: { id: session.user.id },
-    select: { crewStatus: true },
-  });
   // Crew (any status) and crew-only logins reach the portal; the page itself gates patrolling on
   // ACTIVE and shows a read-only notice otherwise. Elevated roles oversee the crew.
   const isCrew = me?.crewStatus != null || session.role === "CREW";

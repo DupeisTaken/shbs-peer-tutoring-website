@@ -6,25 +6,10 @@ import { useFormatter, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { useBranding } from "~/app/_components/branding-provider";
 import { useReadOnly } from "~/app/_components/read-only";
+import { toCsv, type CsvCell as Cell } from "~/lib/csv";
 
 type Scope = "year" | "S1" | "S2" | "Q1" | "Q2" | "Q3" | "Q4";
 type Depth = "summary" | "detailed" | "full";
-type Cell = string | number | null;
-
-/** Quote a CSV cell when it contains a comma, quote, or newline. */
-function toCsv(rows: Cell[][]): string {
-  return rows
-    .map((r) =>
-      r
-        .map((c) => {
-          const s = c == null ? "" : String(c);
-          return /[",\n\r]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
-        })
-        .join(","),
-    )
-    .join("\r\n");
-}
-
 /** Trigger a client-side CSV download (UTF-8 BOM so Excel reads accents correctly). */
 function downloadCsv(filename: string, rows: Cell[][]) {
   const blob = new Blob(["﻿" + toCsv(rows)], { type: "text/csv;charset=utf-8" });
@@ -212,7 +197,7 @@ export default function ReportsPage() {
             onCsv={() =>
               downloadCsv(`report_${slug}_tutors.csv`, [
                 ["Tutor", "Active", "Sessions", "Earned", "Extras", "Penalties", "Total"],
-                ...r.tutors.map((x) => [x.englishName, x.active ? "yes" : "no", x.sessions, x.earned.toFixed(2), x.extras.toFixed(2), x.punishments.toFixed(2), x.total.toFixed(2)]),
+                ...r.tutors.map((x) => [x.englishName, x.active ? "yes" : "no", x.sessions, Number(x.earned.toFixed(2)), Number(x.extras.toFixed(2)), Number(x.punishments.toFixed(2)), Number(x.total.toFixed(2))]),
               ])
             }
             csvLabel={t("admin.reports.csv")}
@@ -248,7 +233,7 @@ export default function ReportsPage() {
                 onCsv={() =>
                   downloadCsv(`report_${slug}_sessions.csv`, [
                     ["Date", "Tutor", "Subject", "Status", "Hours", "Tutees", "Comments"],
-                    ...r.sessions.map((s) => [calendarDate(s.date), s.tutor, s.subject, s.tutorStatus, s.shCount.toFixed(2), s.tutees.map((tt) => `${tt.name} (${tt.status})`).join("; "), s.comments]),
+                    ...r.sessions.map((s) => [calendarDate(s.date), s.tutor, s.subject, s.tutorStatus, Number(s.shCount.toFixed(2)), s.tutees.map((tt) => `${tt.name} (${tt.status})`).join("; "), s.comments]),
                   ])
                 }
                 csvLabel={t("admin.reports.csv")}
@@ -386,7 +371,7 @@ export default function ReportsPage() {
                 onCsv={() =>
                   downloadCsv(`report_${slug}_adjustments.csv`, [
                     ["Date", "Tutor", "Type", "Amount", "Reason"],
-                    ...r.adjustments.map((a) => [d(a.date), a.tutor, a.type, a.amount.toFixed(2), a.reason]),
+                    ...r.adjustments.map((a) => [d(a.date), a.tutor, a.type, Number(a.amount.toFixed(2)), a.reason]),
                   ])
                 }
                 csvLabel={t("admin.reports.csv")}
@@ -420,7 +405,7 @@ export default function ReportsPage() {
                 onCsv={() =>
                   downloadCsv(`report_${slug}_crew.csv`, [
                     ["Member", "Patrols", "Hours"],
-                    ...r.crewStats.map((x) => [x.member, x.patrols, x.hours.toFixed(2)]),
+                    ...r.crewStats.map((x) => [x.member, x.patrols, Number(x.hours.toFixed(2))]),
                   ])
                 }
                 csvLabel={t("admin.reports.csv")}

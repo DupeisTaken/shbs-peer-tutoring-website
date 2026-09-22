@@ -238,13 +238,13 @@
     },
     "register": {
       "grantedRole": "Account role: {role}",
-      "title": "Create Your Account",
-      "subtitle": "Use the security key an admin gave you.",
+      "title": "Register with an Invitation",
+      "subtitle": "For invited tutors, crew and management. Enter the registration code supplied by the program team.",
       "backToSignIn": "← Back to Sign In",
       "step": {
         "code": {
-          "label": "Security Key",
-          "help": "Enter the code an admin or coordinator gave you.",
+          "label": "Registration Code",
+          "help": "Enter the 5-character invitation code supplied by the program team. This is different from the email verification code sent in the next step.",
           "submit": "Continue"
         },
         "email": {
@@ -274,6 +274,13 @@
         "body": "Your account is ready. Sign in with your email or username {username}.",
         "signIn": "Go to Sign In"
       }
+    },
+    "signupRoutes": {
+      "viewerHelp": "Only following the program? Viewer registration needs no invitation code; you will verify your email.",
+      "viewerLink": "Register as a Viewer",
+      "invitationHelp": "Have a registration code from the program team?",
+      "invitationLink": "Register with an Invitation Code",
+      "tuteeHelp": "Need tutoring? Start a tutee request. No invitation code is required; account setup follows email confirmation."
     },
     "staleSession": {
       "title": "Session Out of Date",
@@ -410,8 +417,8 @@
         "none": "No Login",
         "sendSetup": "Send Setup Link",
         "needEmail": "Add an Email First",
-        "linkEmailed": "Setup email sent. You can also copy the link below to share directly.",
-        "linkManual": "Account ready. Share this setup link with the tutor (email isn't configured):",
+        "linkEmailed": "Setup email sent to the account holder.",
+        "linkManual": "Email delivery is not configured. Contact the deployment administrator before sending account setup mail.",
         "dismiss": "Dismiss"
       }
     },
@@ -494,7 +501,7 @@
       }
     },
     "readOnly": {
-      "banner": "Read-only access — you can browse everything but can't make changes, and contact details are hidden."
+      "banner": "Read-only management access: browse permitted summaries; personal contact details are hidden."
     },
     "nav": {
       "sections": {
@@ -777,7 +784,7 @@
     },
     "users": {
       "title": "Users & Roles",
-      "subtitle": "Manage logins, roles, and tutor account setup. Role changes take effect on the user's next sign-in.",
+      "subtitle": "Manage logins, roles, and tutor account setup. Saved role changes apply on the next request; refresh the page to update navigation.",
       "coordinatorHint": "As a coordinator you can send setup links and request changes to your own tutoring access. Other account permissions require an administrator.",
       "columns": {
         "user": "User",
@@ -1474,7 +1481,7 @@
     },
     "landing": {
       "title": "Landing Page",
-      "subtitle": "Edit what visitors see on the public home page — text, program news, and images. Changes go live immediately.",
+      "subtitle": "Edit public website text, news and images. Coordinator changes and translator text edits require review. Authorized Admin/Head changes apply directly; draft news stays private until published.",
       "loading": "Loading…",
       "defaultLang": "default",
       "revert": "Revert to Default",
@@ -2065,7 +2072,7 @@
     },
     "viewerSignup": {
       "title": "Follow the Program",
-      "intro": "Create a free read-only account to follow the program. Parents, faculty, and community members are welcome — you'll see the same overview the team does, with personal details hidden.",
+      "intro": "Create a read-only viewer account to follow permitted program summaries, with personal contact details masked. No invitation or registration code is needed; we will email you a verification code. This account does not enroll you as a tutee, tutor or crew member.",
       "alreadyHave": "Already have an account?",
       "signIn": "Sign In",
       "sendCode": "Send Verification Code",

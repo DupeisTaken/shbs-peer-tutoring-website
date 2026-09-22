@@ -77,8 +77,11 @@ async function verified(kind: RegistrationKind, email = "new@example.test") {
   const staged = await setEmailVerification(row, email);
   if (!staged.ok) throw Error("Expected verification challenge");
   row = await db.registrationCode.findUniqueOrThrow({ where: { id: row.id } });
-  expect(await confirmEmailCode(row, staged.emailCode)).toEqual({ ok: true });
-  return db.registrationCode.findUniqueOrThrow({ where: { id: row.id } });
+  const confirmed = await confirmEmailCode(row, staged.emailCode);
+  if (!confirmed.ok) throw Error("Expected email verification");
+  const verifiedRow = await db.registrationCode.findUniqueOrThrow({ where: { id: row.id } });
+  if (!verifiedRow.code) throw Error("Expected an issued invitation code");
+  return { ...verifiedRow, code: verifiedRow.code, completionProof: confirmed.completionProof };
 }
 const profile = {
   firstName: "New",
@@ -97,7 +100,7 @@ it.each(REGISTRATION_KINDS)(
       await client.registration.check({ code: issued.code }),
     ).toMatchObject({ kind, emailVerified: false });
     await expect(
-      client.registration.complete({ code: issued.code, ...profile }),
+      client.registration.complete({ code: issued.code, completionProof: "0".repeat(64), ...profile }),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
     await client.registration.sendEmailCode({
       code: issued.code,
@@ -112,11 +115,11 @@ it.each(REGISTRATION_KINDS)(
         emailCode: "WRONG",
       }),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
-    await client.registration.verifyEmail({
+    const { completionProof } = await client.registration.verifyEmail({
       code: issued.code,
       emailCode: otp,
     });
-    await client.registration.complete({ code: issued.code, ...profile });
+    await client.registration.complete({ code: issued.code, completionProof, ...profile });
     const user = await db.user.findUniqueOrThrow({
       where: { email: "new@example.test" },
     });
@@ -130,7 +133,7 @@ it.each(REGISTRATION_KINDS)(
       await db.registrationCode.findUnique({ where: { id: issued.id } }),
     ).toMatchObject({ issuedById: "head", usedByUserId: user.id });
     await expect(
-      client.registration.complete({ code: issued.code, ...profile }),
+      client.registration.complete({ code: issued.code, completionProof, ...profile }),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   },
 );
@@ -184,7 +187,7 @@ it.each(["ADMIN", "COORDINATOR"] as const)(
     const before = await db.user.findUniqueOrThrow({ where: { id: "admin" } });
     for (const email of ["admin@example.test", "alias@example.test"]) {
       const row = await verified(kind, email);
-      expect(await completeRegistration(row, profile)).toEqual({
+      expect(await completeRegistration(row, { ...profile, completionProof: row.completionProof })).toEqual({
         ok: false,
         error: "email-taken",
       });
@@ -205,18 +208,18 @@ it.each(["ADMIN", "COORDINATOR"] as const)(
       where: { id: row.id },
       data: { expiresAt: new Date(0) },
     });
-    await expect(completeRegistration(row, profile)).rejects.toMatchObject({
+    await expect(completeRegistration(row, { ...profile, completionProof: row.completionProof })).rejects.toMatchObject({
       code: "CONFLICT",
     });
     await db.registrationCode.update({
       where: { id: row.id },
       data: { expiresAt: new Date("2099-01-01"), emailVerifiedAt: null },
     });
-    await expect(completeRegistration(row, profile)).rejects.toMatchObject({
+    await expect(completeRegistration(row, { ...profile, completionProof: row.completionProof })).rejects.toMatchObject({
       code: "CONFLICT",
     });
     await actor("head").admin.revokeRegistrationCode({ id: row.id });
-    await expect(completeRegistration(row, profile)).rejects.toMatchObject({
+    await expect(completeRegistration(row, { ...profile, completionProof: row.completionProof })).rejects.toMatchObject({
       code: "CONFLICT",
     });
     expect(
@@ -267,8 +270,8 @@ it("keeps email binding and public request rate limits", async () => {
 it("serializes competing redemptions and retains used invitation history", async () => {
   const row = await verified("ADMIN");
   const results = await Promise.allSettled([
-    completeRegistration(row, profile),
-    completeRegistration(row, profile),
+    completeRegistration(row, { ...profile, completionProof: row.completionProof }),
+    completeRegistration(row, { ...profile, completionProof: row.completionProof }),
   ]);
   expect(
     results.filter((r) => r.status === "fulfilled" && r.value.ok),
@@ -281,4 +284,32 @@ it("serializes competing redemptions and retains used invitation history", async
     (await db.registrationCode.findUniqueOrThrow({ where: { id: row.id } }))
       .usedByUserId,
   ).not.toBeNull();
+});
+
+it.each(REGISTRATION_KINDS)("requires the verifier's completion proof for %s invitations", async (kind) => {
+  const row = await verified(kind);
+  const attacker = publicCaller();
+  const inspected = await attacker.registration.check({ code: row.code });
+  expect(inspected).not.toHaveProperty("completionProof");
+  await expect(attacker.registration.complete({ code: row.code, ...profile, completionProof: "0".repeat(64) }))
+    .rejects.toMatchObject({ code: "BAD_REQUEST" });
+  expect(await db.user.findUnique({ where: { email: row.pendingEmail! } })).toBeNull();
+  await expect(publicCaller().registration.complete({ code: row.code, ...profile, completionProof: row.completionProof }))
+    .resolves.toMatchObject({ ok: true });
+});
+
+it("expires verified invitation grants and invalidates them when mail is resent", async () => {
+  const row = await verified("ADMIN");
+  await db.registrationCode.update({ where: { id: row.id }, data: { emailCodeExpiresAt: new Date(0) } });
+  await expect(publicCaller().registration.complete({ code: row.code, ...profile, completionProof: row.completionProof }))
+    .rejects.toMatchObject({ code: "BAD_REQUEST" });
+  const staged = await setEmailVerification(row, row.pendingEmail!);
+  if (!staged.ok) throw Error("Expected resend");
+  const replacement = await db.registrationCode.findUniqueOrThrow({ where: { id: row.id } });
+  const verifiedAgain = await confirmEmailCode(replacement, staged.emailCode);
+  if (!verifiedAgain.ok) throw Error("Expected replacement verification");
+  await expect(publicCaller().registration.complete({ code: row.code, ...profile, completionProof: row.completionProof }))
+    .rejects.toMatchObject({ code: "BAD_REQUEST" });
+  await expect(publicCaller().registration.complete({ code: row.code, ...profile, completionProof: verifiedAgain.completionProof }))
+    .resolves.toMatchObject({ ok: true });
 });

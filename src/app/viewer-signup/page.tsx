@@ -31,6 +31,28 @@ export default async function ViewerSignupPage() {
 
       <ViewerSignupFlow />
 
+      {/* Invitations and tutoring requests create different access from a read-only viewer. */}
+      <div className="mt-6 space-y-3 text-sm">
+        <p>
+          {t("auth.signupRoutes.invitationHelp")}{" "}
+          <Link
+            href="/register"
+            className="link inline-flex min-h-11 items-center"
+          >
+            {t("auth.signupRoutes.invitationLink")}
+          </Link>
+        </p>
+        <p>
+          {t("auth.signupRoutes.tuteeHelp")}{" "}
+          <Link
+            href="/signup"
+            className="link inline-flex min-h-11 items-center"
+          >
+            {t("survey.requestTutor")}
+          </Link>
+        </p>
+      </div>
+
       <p className="muted mt-6 text-center">
         {t("public.viewerSignup.alreadyHave")}{" "}
         <Link href="/signin" className="link">

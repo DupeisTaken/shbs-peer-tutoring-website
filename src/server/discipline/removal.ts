@@ -147,6 +147,8 @@ export async function syncPunishmentRemoval(
 /** Due voluntary removals are idempotent, even when several readers trigger processing. */
 export async function finalizeDueOptOuts(db: DomainDb): Promise<number> {
   return inTransaction(db, async (tx) => {
+    // A relay from an earlier period must never remove newly enrolled participation.
+    await lockEntity(tx, "program:period");
     const due = await tx.tuteeRemovalRequest.findMany({
       where: {
         kind: "VOLUNTARY",
@@ -162,6 +164,24 @@ export async function finalizeDueOptOuts(db: DomainDb): Promise<number> {
         where: { id: request.id },
       });
       if (current?.state !== "PENDING") continue;
+      const participation = current.pairingId && current.requestedByTutorId
+        ? await tx.pairingTutee.findFirst({
+            where: {
+              pairingId: current.pairingId,
+              tuteeId: current.tuteeId,
+              pairing: { tutorId: current.requestedByTutorId, term: { active: true } },
+              tutee: { status: "ACTIVE" },
+            },
+            select: { tuteeId: true },
+          })
+        : null;
+      if (!participation) {
+        await tx.tuteeRemovalRequest.update({
+          where: { id: current.id },
+          data: { state: "DENIED", resolvedAt: new Date(), resolvedByName: "Participation changed; stale withdrawal cancelled" },
+        });
+        continue;
+      }
       await finalizeRemoval(tx, request.tuteeId, request.id);
       count++;
     }

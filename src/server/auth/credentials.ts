@@ -81,7 +81,9 @@ export async function verifySigninPassword(
       twoFactorEnabled: true,
     },
   });
-  if (!user?.passwordHash || user.suspendedAt)
+  // Suspension removes participation permissions, not proof of identity. A verified login
+  // is necessary to reach the restricted suspension/appeal page; API middleware gates access.
+  if (!user?.passwordHash)
     return { ok: false, reason: "invalid" };
   if (!verifyPassword(password, user.passwordHash))
     return { ok: false, reason: "invalid" };

@@ -149,7 +149,7 @@ export const registrationRouter = createTRPCRouter({
                 : "That code is incorrect.";
         throw new TRPCError({ code: "BAD_REQUEST", message });
       }
-      return { ok: true };
+      return { ok: true, completionProof: confirmed.completionProof };
     }),
 
   /** Finish: set profile + password, creating/linking the Tutor and verified login. */
@@ -157,6 +157,7 @@ export const registrationRouter = createTRPCRouter({
     .input(
       z.object({
         code: codeInput,
+        completionProof: z.string().regex(/^[a-f0-9]{64}$/),
         firstName: z.string().trim().min(1).max(80),
         lastName: z.string().trim().min(1).max(80),
         alternativeNames: z.string().trim().max(200).optional(),
@@ -173,6 +174,7 @@ export const registrationRouter = createTRPCRouter({
       if (!resolved.ok) codeError(resolved.error);
 
       const done = await completeRegistration(resolved.row, {
+        completionProof: input.completionProof,
         firstName: input.firstName,
         lastName: input.lastName,
         alternativeNames: input.alternativeNames,

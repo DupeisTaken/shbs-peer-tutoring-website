@@ -7,6 +7,8 @@ import { auth } from "~/server/auth";
 import { SESSION_RECOVERY_COOKIE } from "~/lib/session-recovery";
 import { SignInForm } from "./sign-in-form";
 import { FloatingLanguageSwitcher } from "~/app/_components/floating-language-switcher";
+import { db } from "~/server/db";
+import { getFeatures } from "~/server/program/features";
 
 export default async function SignInPage({
   searchParams,
@@ -17,7 +19,7 @@ export default async function SignInPage({
   const session = await auth();
   if (session?.user) redirect("/");
 
-  const t = await getTranslations();
+  const [t, features] = await Promise.all([getTranslations(), getFeatures(db)]);
   const expired =
     (await searchParams).reason === "session-expired" ||
     (await cookies()).has(SESSION_RECOVERY_COOKIE);
@@ -45,11 +47,29 @@ export default async function SignInPage({
               {t("survey.requestTutor")}
             </Link>
           </p>
-          <div className="mt-4 flex items-center justify-between gap-3 text-sm">
-            <Link href="/register" className="link">
-              {t("auth.createAccount")}
+          {/* Name each signup destination explicitly: viewers never receive invitations. */}
+          <div className="mt-4 flex flex-col items-start gap-2 text-sm">
+            <Link
+              href="/register"
+              className="link inline-flex min-h-11 items-center"
+            >
+              {t("auth.signupRoutes.invitationLink")}
             </Link>
-            <Link href="/forgot-password" className="link">
+            {features.VIEWER_SIGNUP && (
+              <p>
+                {t("auth.signupRoutes.viewerHelp")}{" "}
+                <Link
+                  href="/viewer-signup"
+                  className="link inline-flex min-h-11 items-center"
+                >
+                  {t("auth.signupRoutes.viewerLink")}
+                </Link>
+              </p>
+            )}
+            <Link
+              href="/forgot-password"
+              className="link inline-flex min-h-11 items-center"
+            >
               {t("auth.forgotPassword")}
             </Link>
           </div>

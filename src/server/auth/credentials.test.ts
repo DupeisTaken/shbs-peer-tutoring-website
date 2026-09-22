@@ -1,12 +1,13 @@
 import { beforeEach, expect, it, vi } from "vitest";
-const mocks = vi.hoisted(() => ({ findFirst: vi.fn() }));
+const mocks = vi.hoisted(() => ({ findFirst: vi.fn(), verifyPassword: vi.fn() }));
 vi.mock("~/server/db", () => ({
   db: { user: { findFirst: mocks.findFirst } },
 }));
-vi.mock("./password", () => ({ verifyPassword: () => true }));
+vi.mock("./password", () => ({ verifyPassword: mocks.verifyPassword }));
 import { verifySigninPassword } from "./credentials";
 
 beforeEach(() => {
+  mocks.verifyPassword.mockReset().mockReturnValue(true);
   mocks.findFirst.mockReset().mockResolvedValue({
     id: "student",
     email: "student@example.test",
@@ -48,9 +49,10 @@ it("retains the ten-attempt per-identifier limit across different IP addresses",
     ),
   ).toEqual({ ok: false, reason: "rate_limited" });
 });
-it("does not authenticate a suspended account", async () => {
+it("authenticates a suspended account so it can reach the restricted appeal page", async () => {
   mocks.findFirst.mockResolvedValueOnce({
     id: "suspended",
+    email: "suspended@example.test",
     passwordHash: "hash",
     suspendedAt: new Date(),
   });
@@ -60,5 +62,12 @@ it("does not authenticate a suspended account", async () => {
       "password",
       "suspended-ip",
     ),
-  ).toEqual({ ok: false, reason: "invalid" });
+  ).toMatchObject({ ok: true, user: { id: "suspended" } });
+});
+
+it("still rejects incorrect credentials for a suspended account", async () => {
+  mocks.findFirst.mockResolvedValueOnce({ id: "suspended", passwordHash: "hash", suspendedAt: new Date() });
+  mocks.verifyPassword.mockReturnValue(false);
+  expect(await verifySigninPassword("suspended-wrong@example.test", "wrong", "suspended-wrong-ip"))
+    .toEqual({ ok: false, reason: "invalid" });
 });

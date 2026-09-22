@@ -89,7 +89,8 @@ const {
               suspendedAt: true,
             },
           });
-          if (!user?.twoFactorEnabled || user.suspendedAt) return null;
+          // Suspended users still prove both factors before entering the appeal-only area.
+          if (!user?.twoFactorEnabled) return null;
           const features = await getFeatures(db);
           if (!features.EMAIL_2FA) return null;
           const ok = await verifyLoginCode(user.id, loginCode.data.code);
