@@ -25,6 +25,20 @@ const bundledMessages = {
 >;
 
 describe("bundled header translations", () => {
+  it("limits the viewer banner to permitted management summaries", () => {
+    for (const locale of LOCALES) {
+      expect(bundledMessages[locale].admin.readOnly.banner, locale).toMatch(/\S/);
+    }
+    // Viewer accounts can still edit their own profile and exchange permitted messages.
+    // The banner must describe the management area, not promise every page or ban every write.
+    expect(en.admin.readOnly.banner).toContain("management access");
+    expect(en.admin.readOnly.banner).toContain("permitted summaries");
+    expect(en.admin.readOnly.banner).not.toMatch(/everything|can't make changes/);
+    expect(zh.admin.readOnly.banner).toContain("管理区域");
+    expect(zh.admin.readOnly.banner).toContain("允许浏览");
+    expect(zh.admin.readOnly.banner).not.toMatch(/全部内容|无法进行更改/);
+  });
+
   it("keeps every configured locale aligned with the public mobile menu", () => {
     expect(Object.keys(bundledMessages).sort()).toEqual([...LOCALES].sort());
 

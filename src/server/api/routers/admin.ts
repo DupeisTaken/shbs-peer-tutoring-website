@@ -1857,8 +1857,8 @@ export const adminRouter = createTRPCRouter({
 
   /**
    * Provision + invite a tutor to set up their login: ensures a `User` exists and emails a
-   * "set your password" link (which also confirms their email). Returns the link so the admin can
-   * copy/share it directly — useful when email delivery isn't configured. Needs a tutor email.
+   * "set your password" link (which also confirms their email). Only the recipient receives the
+   * recovery secret; staff receive delivery status. Needs a tutor/account email.
    */
   sendTutorSetup: adminProcedure
     .input(z.object({ tutorId: cuid }))
@@ -1884,7 +1884,7 @@ export const adminRouter = createTRPCRouter({
         entity: "Tutor",
         entityId: input.tutorId,
       });
-      return { emailed: result.emailed, link: result.link };
+      return { emailed: result.emailed };
     }),
 
   createTutee: adminProcedure
@@ -2196,12 +2196,15 @@ export const adminRouter = createTRPCRouter({
     .input(
       z.object({ id: cuid, status: z.enum(TUTEE_STATUS), expectedUpdatedAt }),
     )
-    .mutation(async ({ ctx, input }) => {
-      const prev = await ctx.db.tutee.findUniqueOrThrow({
+    .mutation(async ({ ctx, input }) => inTransaction(ctx.db, async (tx) => {
+      // Keep status, current roster removal and audit atomic; historical assignments survive.
+      await lockEntity(tx, "program:period");
+      await lockEntity(tx, `tutee:${input.id}`);
+      const prev = await tx.tutee.findUniqueOrThrow({
         where: { id: input.id },
         select: { status: true, englishName: true },
       });
-      const updated = await ctx.db.tutee.updateMany({
+      const updated = await tx.tutee.updateMany({
         where: { id: input.id, updatedAt: input.expectedUpdatedAt },
         data: { status: input.status },
       });
@@ -2210,7 +2213,7 @@ export const adminRouter = createTRPCRouter({
       // rosters/attendance immediately. Session history is kept. (Re-activating doesn't re-pair —
       // a coordinator reassigns on /admin/requests, consistent with requeueTutorTutees.)
       if (input.status === "INACTIVE" && prev.status !== "INACTIVE") {
-        await ctx.db.pairingTutee.deleteMany({ where: { tuteeId: input.id } });
+        await tx.pairingTutee.deleteMany({ where: { tuteeId: input.id, pairing: { term: { active: true } } } });
       }
       if (prev.status !== input.status) {
         await recordAudit({
@@ -2223,10 +2226,10 @@ export const adminRouter = createTRPCRouter({
             kind: "tutee.status",
             payload: { id: input.id, status: prev.status },
           },
-        });
+        }, tx);
       }
       return { ok: true };
-    }),
+    })),
 
   deleteTutee: adminProcedure
     .input(z.object({ id: cuid }))
@@ -4165,23 +4168,32 @@ export const adminRouter = createTRPCRouter({
           message: "You cannot delete your own account.",
         });
       }
-      const target = await ctx.db.user.findUniqueOrThrow({
-        where: { id: input.userId },
-        select: {
-          id: true,
-          role: true,
-          name: true,
-          email: true,
-          tutorId: true,
-        },
-      });
-      if (target.role === "HEAD") {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "Transfer leadership before deleting the head account.",
+      const target = await inTransaction(ctx.db, async (tx) => {
+        // Account deletion and leadership transfer share one serialization boundary. The
+        // middleware's earlier role snapshot cannot authorize a request after transfer.
+        await lockEntity(tx, "program:leadership");
+        const actor = await tx.user.findUnique({
+          where: { id: ctx.session.user.id },
+          select: { role: true, suspendedAt: true },
         });
-      }
-      await ctx.db.$transaction(async (tx) => {
+        if (actor?.role !== "HEAD" || actor.suspendedAt)
+          throw new TRPCError({ code: "FORBIDDEN", message: "Only the current active Head can delete accounts." });
+        const target = await tx.user.findUniqueOrThrow({
+          where: { id: input.userId },
+          select: {
+            id: true,
+            role: true,
+            name: true,
+            email: true,
+            tutorId: true,
+          },
+        });
+        if (target.role === "HEAD") {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "Transfer leadership before deleting the head account.",
+          });
+        }
         // Preserve the tutor: detach it from the login before deleting so the roster row
         // (username, class, attendance history) survives.
         if (target.tutorId) {
@@ -4191,6 +4203,7 @@ export const adminRouter = createTRPCRouter({
           });
         }
         await tx.user.delete({ where: { id: target.id } });
+        return target;
       });
       await recordAudit({
         userId: ctx.session.user.id,

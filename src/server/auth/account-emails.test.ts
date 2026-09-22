@@ -231,8 +231,9 @@ it.each([false, true])(
     });
     expect(signup.ok).toBe(true);
     if (!signup.ok) throw new Error("Expected a fresh signup");
-    expect(await verifyViewerCode(email, signup.code)).toEqual({ ok: true });
-    expect(await completeViewerSignup(email, password)).toEqual({ ok: true });
+    const verified = await verifyViewerCode(email, signup.code);
+    if (!verified.ok) throw new Error("Expected email verification");
+    expect(await completeViewerSignup(email, password, verified.completionProof)).toEqual({ ok: true });
     const owner = await db.user.findUniqueOrThrow({ where: { email } });
     try {
       if (expired)

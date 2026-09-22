@@ -279,7 +279,14 @@
       "title": "セッションが古くなっています",
       "body": "チューターアカウントの連携が無効になりました。サインアウトして再度サインインし直してください。"
     },
-    "sessionExpired": "Your session expired or could not be verified. Please sign in again."
+    "sessionExpired": "Your session expired or could not be verified. Please sign in again.",
+    "signupRoutes": {
+      "viewerHelp": "プログラムの閲覧のみをご希望ですか？閲覧者の登録には招待コードは不要ですが、メールアドレスの確認が必要です。",
+      "viewerLink": "閲覧者として登録",
+      "invitationHelp": "運営チームから登録コードを受け取りましたか？",
+      "invitationLink": "招待コードで登録",
+      "tuteeHelp": "学習支援をご希望ですか？まずチューターを申請してください。招待コードは不要で、メール確認後にアカウントを設定します。"
+    }
   },
   "landing": {
     "nav": {
@@ -410,8 +417,8 @@
         "none": "ログインなし",
         "sendSetup": "セットアップリンクを送信",
         "needEmail": "先にメールアドレスを追加してください",
-        "linkEmailed": "セットアップメールを送信しました。以下のリンクをコピーして直接共有することもできます。",
-        "linkManual": "アカウントの準備ができました。このセットアップリンクをチューターに共有してください（メールは設定されていません）：",
+        "linkEmailed": "アカウント所有者にセットアップメールを送信しました。",
+        "linkManual": "メール送信が設定されていません。アカウントのセットアップメールを送信する前に、運用管理者へご連絡ください。",
         "dismiss": "閉じる"
       }
     },
@@ -494,7 +501,7 @@
       }
     },
     "readOnly": {
-      "banner": "読み取り専用アクセスです — 閲覧はできますが変更はできません。連絡先の詳細は非表示です。"
+      "banner": "管理エリアは閲覧専用です。許可された概要を閲覧できます。個人の連絡先情報は非表示です。"
     },
     "nav": {
       "sections": {
@@ -777,7 +784,7 @@
     },
     "users": {
       "title": "ユーザーと権限",
-      "subtitle": "ログイン、役割、チューターアカウントのセットアップを管理します。役割の変更はユーザーの次回サインイン時に反映されます。",
+      "subtitle": "ログイン、役割、チューターアカウントを管理します。保存された役割の変更は次のリクエストから適用されます。ナビゲーションを更新するにはページを再読み込みしてください。",
       "coordinatorHint": "As a coordinator you can send setup links and request changes to your own tutoring access. Other account permissions require an administrator.",
       "columns": {
         "user": "ユーザー",
@@ -1474,7 +1481,7 @@
     },
     "landing": {
       "title": "トップページ",
-      "subtitle": "公開トップページで訪問者に表示される内容（テキスト・お知らせ・画像）を編集します。変更は即時に反映されます。",
+      "subtitle": "公開サイトの文章、ニュース、画像を編集します。コーディネーターの変更と翻訳担当者の文章編集には審査が必要です。管理者・責任者による権限内の変更は直接反映されます。ニュースの下書きは公開するまで非公開です。",
       "loading": "読み込み中…",
       "defaultLang": "デフォルト",
       "revert": "デフォルトに戻す",

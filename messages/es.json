@@ -279,7 +279,14 @@
       "title": "Sesión desactualizada",
       "body": "El vínculo de tu cuenta de tutor ya no es válido. Cierra sesión y vuelve a entrar para actualizarlo."
     },
-    "sessionExpired": "Your session expired or could not be verified. Please sign in again."
+    "sessionExpired": "Your session expired or could not be verified. Please sign in again.",
+    "signupRoutes": {
+      "viewerHelp": "¿Solo quieres seguir el programa? El registro como observador no requiere código de invitación; deberás verificar tu correo.",
+      "viewerLink": "Registrarse como observador",
+      "invitationHelp": "¿Tienes un código de registro del equipo del programa?",
+      "invitationLink": "Registrarse con código de invitación",
+      "tuteeHelp": "¿Necesitas tutoría? Envía primero una solicitud. No se requiere código de invitación; configurarás tu cuenta tras confirmar el correo."
+    }
   },
   "landing": {
     "nav": {
@@ -406,8 +413,8 @@
         "none": "Sin inicio de sesión",
         "sendSetup": "Enviar enlace de configuración",
         "needEmail": "Agrega un correo primero",
-        "linkEmailed": "Correo de configuración enviado. También puedes copiar el enlace de abajo para compartirlo directamente.",
-        "linkManual": "Cuenta lista. Comparte este enlace de configuración con el tutor (el correo no está configurado):",
+        "linkEmailed": "Se envió el correo de configuración al titular de la cuenta.",
+        "linkManual": "El envío de correo no está configurado. Contacta con el administrador del despliegue antes de enviar correos de configuración de cuentas.",
         "dismiss": "Descartar",
         "registered": "Registrado",
         "setup": "Configuración pendiente",
@@ -487,7 +494,7 @@
       }
     },
     "readOnly": {
-      "banner": "Acceso de solo lectura: puedes explorar todo pero no realizar cambios, y los datos de contacto están ocultos."
+      "banner": "Acceso de solo lectura al área de gestión: consulta los resúmenes permitidos; los datos de contacto personales están ocultos."
     },
     "nav": {
       "sections": {
@@ -770,7 +777,7 @@
     },
     "users": {
       "title": "Usuarios y roles",
-      "subtitle": "Gestiona inicios de sesión, roles y la configuración de cuentas de tutores. Los cambios de rol surten efecto en el siguiente inicio de sesión del usuario.",
+      "subtitle": "Gestiona accesos, roles y cuentas de tutores. Los cambios de rol guardados se aplican en la siguiente solicitud; actualiza la página para renovar la navegación.",
       "coordinatorHint": "As a coordinator you can send setup links and request changes to your own tutoring access. Other account permissions require an administrator.",
       "columns": {
         "user": "Usuario",
@@ -1474,7 +1481,7 @@
     },
     "landing": {
       "title": "Página de inicio",
-      "subtitle": "Edita lo que ven los visitantes en la página pública de inicio: texto, novedades del programa e imágenes. Los cambios se publican al instante.",
+      "subtitle": "Edita textos, noticias e imágenes del sitio público. Los cambios de coordinadores y textos de traductores requieren revisión. Los cambios autorizados de Admin/Head se aplican directamente; las noticias en borrador siguen privadas hasta publicarse.",
       "loading": "Cargando…",
       "defaultLang": "predeterminado",
       "revert": "Restaurar Predeterminado",

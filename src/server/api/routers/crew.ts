@@ -16,6 +16,7 @@ import { getActivePeriodOrNull } from "~/server/period";
 import { syncSessionFlag } from "~/server/crew/flags";
 import { getFeatures } from "~/server/program/features";
 import { notifyAdmins } from "~/server/notifications/create";
+import { assertObservedTimes } from "~/server/crew/observation-time";
 
 /** Service hours credited per completed patrol (policy). */
 export const PATROL_HOURS = 0.5;
@@ -134,6 +135,7 @@ export const crewRouter = createTRPCRouter({
           });
         const active = await getActivePeriodOrNull(tx);
         const now = new Date();
+        assertObservedTimes(input.observations, now);
         const patrol = await tx.patrol.create({
           data: {
             submissionKey: input.submissionKey,

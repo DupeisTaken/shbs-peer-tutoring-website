@@ -12,7 +12,7 @@
  */
 import { db } from "~/server/db";
 import { hashPassword } from "./password";
-import { hashCode } from "./registration";
+import { hashCode, registrationCompletionProof } from "./registration";
 import { generateRegistrationCode } from "./code";
 
 export const VIEWER_CODE_TTL_MINUTES = 15;
@@ -49,34 +49,51 @@ export async function startViewerSignup(input: {
 export async function verifyViewerCode(
   email: string,
   code: string,
-): Promise<{ ok: true } | { ok: false; error: "not-found" | "expired" | "too-many-attempts" | "mismatch" }> {
+): Promise<{ ok: true; completionProof: string } | { ok: false; error: "not-found" | "expired" | "too-many-attempts" | "mismatch" }> {
   const row = await db.viewerSignup.findUnique({ where: { email: email.trim().toLowerCase() } });
   if (!row || row.usedAt) return { ok: false, error: "not-found" };
   if (row.codeExpiresAt < new Date()) return { ok: false, error: "expired" };
   if (row.attempts >= MAX_ATTEMPTS) return { ok: false, error: "too-many-attempts" };
   if (hashCode(code) !== row.codeHash) {
-    await db.viewerSignup.update({ where: { id: row.id }, data: { attempts: { increment: 1 } } });
+    await db.viewerSignup.updateMany({ where: { id: row.id, codeHash: row.codeHash, usedAt: null, attempts: { lt: MAX_ATTEMPTS } }, data: { attempts: { increment: 1 } } });
     return { ok: false, error: "mismatch" };
   }
-  await db.viewerSignup.update({ where: { id: row.id }, data: { verifiedAt: new Date() } });
-  return { ok: true };
+  // A resend or competing verification must not turn stale evidence into a fresh grant.
+  const verifiedAt = new Date();
+  const verified = await db.viewerSignup.updateMany({
+    where: { id: row.id, codeHash: row.codeHash, usedAt: null, attempts: { lt: MAX_ATTEMPTS }, codeExpiresAt: { gt: verifiedAt } },
+    data: { verifiedAt },
+  });
+  return verified.count === 1
+    ? { ok: true, completionProof: registrationCompletionProof("viewer", row.id, row.codeHash, verifiedAt) }
+    : { ok: false, error: "mismatch" };
 }
 
 /** Finish: create a verified VIEWER login from a verified signup, then burn the row. */
 export async function completeViewerSignup(
   email: string,
   password: string,
+  completionProof: string,
 ): Promise<{ ok: true } | { ok: false; error: "not-found" | "email-unverified" | "email-taken" }> {
   const e = email.trim().toLowerCase();
   const row = await db.viewerSignup.findUnique({ where: { email: e } });
   if (!row || row.usedAt) return { ok: false, error: "not-found" };
-  if (!row.verifiedAt) return { ok: false, error: "email-unverified" };
+  if (!row.verifiedAt || row.codeExpiresAt <= new Date() ||
+      completionProof !== registrationCompletionProof("viewer", row.id, row.codeHash, row.verifiedAt))
+    return { ok: false, error: "email-unverified" };
 
   const existing = await db.user.findUnique({ where: { email: e }, select: { id: true } });
   if (existing) return { ok: false, error: "email-taken" };
 
   const passwordHash = hashPassword(password);
-  await db.$transaction(async (tx) => {
+  return db.$transaction(async (tx) => {
+    // Reserve the exact verified challenge before creating credentials. A resend, expiry,
+    // or concurrent completion invalidates the grant and leaves account data untouched.
+    const claimed = await tx.viewerSignup.updateMany({
+      where: { id: row.id, usedAt: null, codeHash: row.codeHash, verifiedAt: row.verifiedAt, codeExpiresAt: { gt: new Date() }, attempts: { lt: MAX_ATTEMPTS } },
+      data: { usedAt: new Date() },
+    });
+    if (claimed.count !== 1) return { ok: false as const, error: "email-unverified" as const };
     await tx.user.create({
       data: {
         email: e,
@@ -89,7 +106,6 @@ export async function completeViewerSignup(
         emailVerifiedAt: new Date(),
       },
     });
-    await tx.viewerSignup.update({ where: { id: row.id }, data: { usedAt: new Date() } });
+    return { ok: true as const };
   });
-  return { ok: true };
 }

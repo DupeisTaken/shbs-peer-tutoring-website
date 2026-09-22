@@ -25,6 +25,20 @@ export default async function TutorLayout({
   const session = await auth();
 
   if (!session?.user) redirect("/signin");
+  // Suspension precedes link/onboarding checks so every suspended tutor can reach their appeal.
+  const me = await db.user.findUnique({
+    where: { id: session.user.id },
+    select: {
+      suspendedAt: true,
+      email: true,
+      emailVerifiedAt: true,
+      mustChangePassword: true,
+      canTranslate: true,
+      crewStatus: true,
+      tutor: { select: { username: true } },
+    },
+  });
+  if (me?.suspendedAt) redirect("/suspended");
   if (!session.tutorId) redirect("/");
 
   const t = await getTranslations();
@@ -68,17 +82,6 @@ export default async function TutorLayout({
 
   // First-login gate: confirm contact email + set a real password (auto-provisioned
   // accounts arrive on the shared default with mustChangePassword).
-  const me = await db.user.findUnique({
-    where: { id: session.user.id },
-    select: {
-      email: true,
-      emailVerifiedAt: true,
-      mustChangePassword: true,
-      canTranslate: true,
-      crewStatus: true,
-      tutor: { select: { username: true } },
-    },
-  });
   if (!me?.emailVerifiedAt || me.mustChangePassword)
     redirect("/onboarding/email");
 

@@ -24,6 +24,7 @@ export function RegisterFlow() {
   const [boundEmail, setBoundEmail] = useState<string | null>(null);
   const [email, setEmail] = useState("");
   const [emailCode, setEmailCode] = useState("");
+  const [completionProof, setCompletionProof] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [altNames, setAltNames] = useState("");
@@ -41,14 +42,16 @@ export function RegisterFlow() {
       if (data.lastName) setLastName(data.lastName);
       if (data.alternativeNames) setAltNames(data.alternativeNames);
       if (data.gradeLevel != null) setGrade(String(data.gradeLevel));
-      setStep(data.emailVerified ? "profile" : "email");
+      // Database verification belongs to its original browser; checking an invitation is not proof.
+      setCompletionProof("");
+      setStep("email");
     },
   });
   const sendCode = api.registration.sendEmailCode.useMutation({
-    onSuccess: () => setStep("emailCode"),
+    onSuccess: () => { setCompletionProof(""); setEmailCode(""); setStep("emailCode"); },
   });
   const verifyEmail = api.registration.verifyEmail.useMutation({
-    onSuccess: () => setStep("profile"),
+    onSuccess: (data) => { setCompletionProof(data.completionProof); setStep("profile"); },
   });
   const complete = api.registration.complete.useMutation({
     onSuccess: (data) => {
@@ -150,6 +153,7 @@ export function RegisterFlow() {
             className="input w-full text-center text-2xl tracking-[0.4em] uppercase"
           />
           {verifyEmail.error && <p className="text-sm text-red-600">{verifyEmail.error.message}</p>}
+          {sendCode.error && <p className="text-sm text-red-600">{sendCode.error.message}</p>}
           <button
             className="btn-primary w-full"
             disabled={!/^[0-9A-Z]{5}$/.test(emailCode) || verifyEmail.isPending}
@@ -173,9 +177,10 @@ export function RegisterFlow() {
           className="space-y-3"
           onSubmit={(e) => {
             e.preventDefault();
-            if (firstName.trim() && lastName.trim() && password.length >= 8 && !passwordMismatch) {
+            if (firstName.trim() && lastName.trim() && password.length >= 8 && confirm === password && completionProof && !sendCode.isPending) {
               complete.mutate({
                 code,
+                completionProof,
                 firstName: firstName.trim(),
                 lastName: lastName.trim(),
                 alternativeNames: altNames.trim() || undefined,
@@ -270,11 +275,18 @@ export function RegisterFlow() {
               !firstName.trim() ||
               !lastName.trim() ||
               password.length < 8 ||
+              confirm !== password ||
+              sendCode.isPending ||
               passwordMismatch ||
               complete.isPending
             }
           >
             {t("auth.register.step.profile.submit")}
+          </button>
+          {sendCode.error && <p className="text-sm text-red-600">{sendCode.error.message}</p>}
+          <button type="button" className="link text-sm" disabled={sendCode.isPending || complete.isPending}
+            onClick={() => sendCode.mutate({ code, email: email.trim() })}>
+            {t("auth.register.step.email.resend")}
           </button>
         </form>
       )}

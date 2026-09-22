@@ -18,6 +18,7 @@ import {
 import { syncSessionFlag } from "~/server/crew/flags";
 import { syncPunishmentRemoval } from "~/server/discipline/removal";
 import { getFeatures } from "~/server/program/features";
+import { assertObservedTimes } from "~/server/crew/observation-time";
 
 const reason = z.string().trim().min(1, "Explain the correction.").max(1000);
 const rating = z.number().int().min(1).max(5).nullable();
@@ -143,6 +144,11 @@ export const correctionsRouter = createTRPCRouter({
           include: { tutees: true, cards: true, flags: true },
         });
         const primary = before.find((s) => s.id === primaryId)!;
+        // Corrections share the tutor/day locks used by attendance submission. Lock dates in
+        // order so two corrections moving between days cannot introduce duplicate credit.
+        const dateKeys = [...new Set([primary.date, input.date].map((date) => date.toISOString().slice(0, 10)))].sort();
+        for (const dateKey of dateKeys)
+          await lockEntity(tx, `attendance-day:${primary.tutorId}:${dateKey}`);
         if (primary.updatedAt.getTime() !== input.expectedUpdatedAt.getTime())
           throw new TRPCError({
             code: "CONFLICT",
@@ -186,6 +192,25 @@ export const correctionsRouter = createTRPCRouter({
               ),
             ),
           );
+        const timeChanged = primary.date.getTime() !== input.date.getTime() ||
+          primary.startMin !== input.startMin || primary.endMin !== input.endMin;
+        // Preserve the ability to correct old overlapping data without moving its window;
+        // new overlaps need the existing block corrected rather than another credit.
+        if (timeChanged) {
+          const dayStart = new Date(`${input.date.toISOString().slice(0, 10)}T00:00:00Z`);
+          const overlap = await tx.session.findFirst({
+            where: {
+              tutorId: primary.tutorId,
+              id: { notIn: before.map((session) => session.id) },
+              date: { gte: dayStart, lt: new Date(dayStart.getTime() + 24 * 60 * 60 * 1000) },
+              startMin: { lt: input.endMin },
+              endMin: { gt: input.startMin },
+            },
+            select: { id: true },
+          });
+          if (overlap)
+            throw new TRPCError({ code: "CONFLICT", message: "This correction overlaps another saved attendance block for the tutor." });
+        }
         for (const s of before) {
           await tx.session.update({
             where: { id: s.id },
@@ -323,6 +348,7 @@ export const correctionsRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) =>
       inTransaction(ctx.db, async (tx) => {
         await lockEntity(tx, `patrol:${input.id}`);
+        assertObservedTimes(input.observations);
         const before = await tx.patrol.findUniqueOrThrow({
           where: { id: input.id },
           include: { observations: true },

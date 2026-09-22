@@ -501,6 +501,10 @@ export const tutorRouter = createTRPCRouter({
         async (tx) => {
           await lockEntity(tx, "policy:tutor-policy");
           await requirePolicy(tx, ctx.session.user.id, "tutor-policy");
+          // Pairing subsets and slightly changed times must not buy a second credit for the
+          // same teaching time. Serialize all of this tutor's submissions for the school date.
+          const dateKey = input.date.toISOString().slice(0, 10);
+          await lockEntity(tx, `attendance-day:${tutorId}:${dateKey}`);
           // Same tutoring block means one attendance record, even across retries/processes.
           const submissionKey = createHash("sha256")
             .update(
@@ -540,6 +544,22 @@ export const tutorRouter = createTRPCRouter({
               shCount: previous.shCount,
             };
           }
+          const dayStart = new Date(`${dateKey}T00:00:00Z`);
+          const dayEnd = new Date(dayStart.getTime() + 24 * 60 * 60 * 1000);
+          const overlapping = await tx.session.findFirst({
+            where: {
+              tutorId,
+              date: { gte: dayStart, lt: dayEnd },
+              startMin: { lt: endMin },
+              endMin: { gt: startMin },
+            },
+            select: { id: true },
+          });
+          if (overlapping)
+            throw new TRPCError({
+              code: "CONFLICT",
+              message: "Attendance already covers part of this time. Ask management to correct the saved block, including any combined subjects.",
+            });
           const sessionIds: string[] = [];
           let primaryId = "";
           for (const [i, p] of ordered.entries()) {
@@ -1060,7 +1080,7 @@ export const tutorRouter = createTRPCRouter({
    * Row-scoped: the pairing MUST belong to this tutor. Choosing a slot copies its
    * day/start/end onto the pairing so attendance defaults follow the slot.
    */
-  setPairingSlot: tutorProcedure
+  setPairingSlot: activeTutorProcedure
     .input(
       z.object({
         pairingId: z.string().min(1),
@@ -1069,17 +1089,23 @@ export const tutorRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) => {
       return inTransaction(ctx.db, async (tx) => {
+        // A refresh or membership change must not turn this write into an edit of history.
+        await lockEntity(tx, "program:period");
+        await tx.$queryRaw`SELECT id FROM "Tutor" WHERE id = ${ctx.session.tutorId} FOR UPDATE`;
+        const tutor = await tx.tutor.findUniqueOrThrow({ where: { id: ctx.session.tutorId } });
+        if (tutor.status !== "ACTIVE")
+          throw new TRPCError({ code: "FORBIDDEN", message: "This action requires an active tutor account." });
         // Lock before reading the room so a concurrent management room change
         // cannot combine with this slot change into an unvalidated final tuple.
         await lockPlannedRoomSchedule(tx);
         const pairing = await tx.pairing.findFirst({
-          where: { id: input.pairingId, tutorId: ctx.session.tutorId },
+          where: { id: input.pairingId, tutorId: ctx.session.tutorId, term: { active: true } },
           select: { id: true, roomId: true, termId: true },
         });
         if (!pairing) {
           throw new TRPCError({
             code: "NOT_FOUND",
-            message: "Pairing not found for this tutor.",
+            message: "Current pairing not found for this tutor.",
           });
         }
 
@@ -1544,13 +1570,16 @@ export const tutorRouter = createTRPCRouter({
         reason: z.string().trim().max(1000).optional(),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
-      // Verify the pairing belongs to the caller and the tutee is on its roster.
-      const link = await ctx.db.pairingTutee.findFirst({
+    .mutation(async ({ ctx, input }) => inTransaction(ctx.db, async (tx) => {
+      // Bind the relay to live participation, and serialize duplicate requests and refresh.
+      await lockEntity(tx, "program:period");
+      await lockEntity(tx, `tutee:${input.tuteeId}`);
+      const link = await tx.pairingTutee.findFirst({
         where: {
           tuteeId: input.tuteeId,
           pairingId: input.pairingId,
-          pairing: { tutorId: ctx.session.tutorId },
+          pairing: { tutorId: ctx.session.tutorId, term: { active: true } },
+          tutee: { status: "ACTIVE" },
         },
         select: { tuteeId: true },
       });
@@ -1561,7 +1590,7 @@ export const tutorRouter = createTRPCRouter({
         });
       }
       if (
-        await ctx.db.studentSurvey.findUnique({
+        await tx.studentSurvey.findUnique({
           where: { tuteeId: input.tuteeId },
         })
       )
@@ -1570,7 +1599,7 @@ export const tutorRouter = createTRPCRouter({
           message:
             "Tutees apply to leave the quarter from their own account. Use schedule rejection for scheduling problems.",
         });
-      const open = await ctx.db.tuteeRemovalRequest.findFirst({
+      const open = await tx.tuteeRemovalRequest.findFirst({
         where: { tuteeId: input.tuteeId, state: "PENDING" },
         select: { id: true },
       });
@@ -1581,11 +1610,11 @@ export const tutorRouter = createTRPCRouter({
         });
       }
       const [tutee, tutor] = await Promise.all([
-        ctx.db.tutee.findUnique({
+        tx.tutee.findUnique({
           where: { id: input.tuteeId },
           select: { englishName: true },
         }),
-        ctx.db.tutor.findUnique({
+        tx.tutor.findUnique({
           where: { id: ctx.session.tutorId },
           select: { englishName: true },
         }),
@@ -1593,7 +1622,7 @@ export const tutorRouter = createTRPCRouter({
       const eligibleAt = new Date(
         Date.now() + TUTEE_OPT_OUT_COOLDOWN_DAYS * 24 * 60 * 60 * 1000,
       );
-      const req = await ctx.db.tuteeRemovalRequest.create({
+      const req = await tx.tuteeRemovalRequest.create({
         data: {
           tuteeId: input.tuteeId,
           kind: "VOLUNTARY",
@@ -1608,9 +1637,9 @@ export const tutorRouter = createTRPCRouter({
         title: "Tutee opt-out",
         body: `${tutor?.englishName ?? "A tutor"} relayed an opt-out for ${tutee?.englishName ?? "a tutee"} (auto-approves in ${TUTEE_OPT_OUT_COOLDOWN_DAYS} days).`,
         link: "/admin/tutee-requests",
-      });
+      }, undefined, tx);
       return { ok: true, id: req.id, eligibleAt };
-    }),
+    })),
 
   /** Recall (cancel) the caller's own pending opt-out while it's still in the recall window. */
   recallTuteeRemoval: tutorProcedure

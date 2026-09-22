@@ -16,7 +16,7 @@ import { reconcileApplication } from "~/server/tutors/application-status";
 import { hashPassword } from "~/server/auth/password";
 import { syncSessionFlag } from "~/server/crew/flags";
 import * as flags from "~/server/crew/flags";
-import { completeRegistration } from "~/server/auth/registration";
+import { completeRegistration, registrationCompletionProof } from "~/server/auth/registration";
 import { initializeProgram } from "~/server/program/bootstrap";
 import { confirmEmailChange } from "~/server/auth/email-change";
 import { hashCode } from "~/server/auth/registration";
@@ -1835,12 +1835,15 @@ it("F14: an existing tutor account can add crew membership using a CREW invite",
       email: "review-user@example.test",
       pendingEmail: "review-user@example.test",
       emailVerifiedAt: new Date(),
+      emailCodeHash: hashCode("EMAIL"),
+      emailCodeExpiresAt: new Date("2099-01-01"),
       expiresAt: new Date("2099-01-01"),
     },
   });
   expect(
     (
       await completeRegistration(row, {
+        completionProof: registrationCompletionProof("invitation", row.id, row.emailCodeHash!, row.emailVerifiedAt!),
         firstName: "Review",
         lastName: "Tutor",
         password,
@@ -1857,11 +1860,14 @@ it("F15: an unchanged completed registration must not be executable twice", asyn
       email: "review-user@example.test",
       pendingEmail: "review-user@example.test",
       emailVerifiedAt: new Date(),
+      emailCodeHash: hashCode("EMAIL"),
+      emailCodeExpiresAt: new Date("2099-01-01"),
       expiresAt: new Date("2099-01-01"),
     },
   });
   // Two HTTP requests can resolve the same usable row before either consumes it.
   await completeRegistration(row, {
+        completionProof: registrationCompletionProof("invitation", row.id, row.emailCodeHash!, row.emailVerifiedAt!),
     firstName: "Review",
     lastName: "Tutor",
     password,
@@ -1869,6 +1875,7 @@ it("F15: an unchanged completed registration must not be executable twice", asyn
   let second;
   try {
     second = await completeRegistration(row, {
+        completionProof: registrationCompletionProof("invitation", row.id, row.emailCodeHash!, row.emailVerifiedAt!),
       firstName: "Changed",
       lastName: "Again",
       password: "DifferentReviewPassword!",

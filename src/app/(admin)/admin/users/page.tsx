@@ -167,13 +167,11 @@ export default function UsersPage() {
     onSuccess: (data, variables) =>
       setSetupInfo({
         tutorId: variables.tutorId,
-        link: data.link,
         emailed: data.emailed,
       }),
   });
   const [setupInfo, setSetupInfo] = useState<{
     tutorId: string;
-    link: string;
     emailed: boolean;
   } | null>(null);
 
@@ -346,12 +344,6 @@ export default function UsersPage() {
               {t("admin.tutors.account.dismiss")}
             </button>
           </div>
-          <input
-            readOnly
-            value={setupInfo.link}
-            onFocus={(e) => e.target.select()}
-            className="input mt-2 w-full font-mono text-xs"
-          />
         </div>
       )}
 

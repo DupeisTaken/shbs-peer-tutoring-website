@@ -279,7 +279,14 @@
       "title": "Sitzung veraltet",
       "body": "Die Verknüpfung Ihres Tutoren-Kontos ist nicht mehr gültig. Melden Sie sich ab und wieder an, um sie zu aktualisieren."
     },
-    "sessionExpired": "Your session expired or could not be verified. Please sign in again."
+    "sessionExpired": "Your session expired or could not be verified. Please sign in again.",
+    "signupRoutes": {
+      "viewerHelp": "Sie möchten das Programm nur verfolgen? Die Registrierung als Beobachter benötigt keinen Einladungscode; Ihre E-Mail-Adresse wird bestätigt.",
+      "viewerLink": "Als Beobachter registrieren",
+      "invitationHelp": "Haben Sie einen Registrierungscode vom Programmteam erhalten?",
+      "invitationLink": "Mit Einladungscode registrieren",
+      "tuteeHelp": "Benötigen Sie Nachhilfe? Stellen Sie zuerst eine Anfrage. Kein Einladungscode erforderlich; nach der E-Mail-Bestätigung richten Sie Ihr Konto ein."
+    }
   },
   "landing": {
     "nav": {
@@ -410,8 +417,8 @@
         "none": "Kein Login",
         "sendSetup": "Einrichtungslink senden",
         "needEmail": "Zuerst eine E-Mail hinzufügen",
-        "linkEmailed": "Einrichtungs-E-Mail gesendet. Den Link unten können Sie auch kopieren und direkt weitergeben.",
-        "linkManual": "Konto bereit. Diesen Einrichtungslink an den Tutor weitergeben (E-Mail nicht konfiguriert):",
+        "linkEmailed": "Die Einrichtungs-E-Mail wurde an den Kontoinhaber gesendet.",
+        "linkManual": "Der E-Mail-Versand ist nicht eingerichtet. Wenden Sie sich vor dem Versand von Kontoeinrichtungs-E-Mails an die für die Bereitstellung zuständige Person.",
         "dismiss": "Schließen"
       }
     },
@@ -494,7 +501,7 @@
       }
     },
     "readOnly": {
-      "banner": "Lesezugriff – Sie können alles einsehen, aber keine Änderungen vornehmen; Kontaktdaten sind ausgeblendet."
+      "banner": "Schreibgeschützter Verwaltungszugang: Sie können freigegebene Übersichten einsehen; persönliche Kontaktdaten sind ausgeblendet."
     },
     "nav": {
       "sections": {
@@ -777,7 +784,7 @@
     },
     "users": {
       "title": "Benutzer & Rollen",
-      "subtitle": "Logins, Rollen und Tutor-Kontoeinrichtung verwalten. Rollenänderungen werden bei der nächsten Anmeldung wirksam.",
+      "subtitle": "Anmeldungen, Rollen und Tutorkonten verwalten. Gespeicherte Rollenänderungen gelten ab der nächsten Anfrage; laden Sie die Seite neu, um die Navigation zu aktualisieren.",
       "coordinatorHint": "As a coordinator you can send setup links and request changes to your own tutoring access. Other account permissions require an administrator.",
       "columns": {
         "user": "Benutzer",
@@ -1474,7 +1481,7 @@
     },
     "landing": {
       "title": "Startseite",
-      "subtitle": "Bearbeiten Sie, was Besucher auf der öffentlichen Startseite sehen — Text, Neuigkeiten und Bilder. Änderungen werden sofort wirksam.",
+      "subtitle": "Öffentliche Webseitentexte, Neuigkeiten und Bilder bearbeiten. Änderungen von Koordinatoren und Textänderungen von Übersetzern müssen geprüft werden. Berechtigte Änderungen von Admin/Head gelten direkt; Nachrichtenentwürfe bleiben bis zur Veröffentlichung privat.",
       "loading": "Wird geladen…",
       "defaultLang": "Standard",
       "revert": "Auf Standard Zurücksetzen",

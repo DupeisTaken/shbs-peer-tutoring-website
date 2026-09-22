@@ -279,7 +279,14 @@
       "title": "Session obsolète",
       "body": "Le lien de votre compte de tuteur n'est plus valide. Déconnectez-vous puis reconnectez-vous pour l'actualiser."
     },
-    "sessionExpired": "Your session expired or could not be verified. Please sign in again."
+    "sessionExpired": "Your session expired or could not be verified. Please sign in again.",
+    "signupRoutes": {
+      "viewerHelp": "Vous souhaitez seulement suivre le programme ? L’inscription comme observateur ne nécessite aucun code d’invitation ; votre adresse e-mail sera vérifiée.",
+      "viewerLink": "S’inscrire comme observateur",
+      "invitationHelp": "Vous avez reçu un code d’inscription de l’équipe du programme ?",
+      "invitationLink": "S’inscrire avec un code d’invitation",
+      "tuteeHelp": "Besoin de tutorat ? Envoyez d’abord une demande. Aucun code d’invitation n’est requis ; vous créerez votre compte après confirmation de votre e-mail."
+    }
   },
   "landing": {
     "nav": {
@@ -410,8 +417,8 @@
         "none": "Pas de connexion",
         "sendSetup": "Envoyer le lien de configuration",
         "needEmail": "Ajoutez d'abord un e-mail",
-        "linkEmailed": "E-mail de configuration envoyé. Vous pouvez aussi copier le lien ci-dessous pour le partager directement.",
-        "linkManual": "Compte prêt. Partagez ce lien de configuration avec le tuteur (l'e-mail n'est pas configuré) :",
+        "linkEmailed": "L’e-mail de configuration a été envoyé au titulaire du compte.",
+        "linkManual": "L’envoi d’e-mails n’est pas configuré. Contactez l’administrateur du déploiement avant d’envoyer un e-mail de configuration de compte.",
         "dismiss": "Fermer"
       }
     },
@@ -494,7 +501,7 @@
       }
     },
     "readOnly": {
-      "banner": "Accès en lecture seule — vous pouvez tout consulter mais ne pouvez pas faire de modifications, et les coordonnées sont masquées."
+      "banner": "Accès en lecture seule à l’espace de gestion : consultez les synthèses autorisées ; les coordonnées personnelles sont masquées."
     },
     "nav": {
       "sections": {
@@ -777,7 +784,7 @@
     },
     "users": {
       "title": "Utilisateurs & rôles",
-      "subtitle": "Gérez les connexions, les rôles et la configuration des comptes tuteurs. Les changements de rôle prennent effet à la prochaine connexion de l'utilisateur.",
+      "subtitle": "Gérez les accès, les rôles et les comptes de tuteurs. Les changements de rôle enregistrés s’appliquent dès la requête suivante ; actualisez la page pour mettre à jour la navigation.",
       "coordinatorHint": "As a coordinator you can send setup links and request changes to your own tutoring access. Other account permissions require an administrator.",
       "columns": {
         "user": "Utilisateur",
@@ -1474,7 +1481,7 @@
     },
     "landing": {
       "title": "Page d’accueil",
-      "subtitle": "Modifiez ce que les visiteurs voient sur la page d’accueil publique — texte, actualités du programme et images. Les modifications sont appliquées immédiatement.",
+      "subtitle": "Modifiez les textes, actualités et images du site public. Les modifications des coordinateurs et les textes des traducteurs nécessitent une validation. Les modifications autorisées des Admin/Head s’appliquent directement ; les brouillons d’actualités restent privés jusqu’à leur publication.",
       "loading": "Chargement…",
       "defaultLang": "par défaut",
       "revert": "Rétablir la Valeur par Défaut",
