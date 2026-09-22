@@ -183,7 +183,7 @@ export const registrationRouter = createTRPCRouter({
         const message =
           done.error === "email-unverified"
             ? "Verify your email before finishing."
-            : "An account already exists for this email. Use password reset instead.";
+            : "An account already uses this email. Sign in or reset your password; ask Head to change its roles in Users & Roles.";
         throw new TRPCError({ code: "BAD_REQUEST", message });
       }
       return { ok: true, username: done.username };

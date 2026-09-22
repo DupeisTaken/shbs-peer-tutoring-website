@@ -237,6 +237,7 @@
       "saving": "Enregistrement…"
     },
     "register": {
+      "grantedRole": "Rôle du compte : {role}",
       "title": "Créer votre compte",
       "subtitle": "Utilisez la clé de sécurité qu'un administrateur vous a donnée.",
       "backToSignIn": "← Retour à la connexion",
@@ -838,8 +839,11 @@
       }
     },
     "registrationCodes": {
+      "kindAdmin": "Admin",
+      "kindCoordinator": "Coordinateur",
+      "managementHelp": "Head autorise chaque invitation de rôle. Les autres membres du personnel soumettent une demande. Seul Head peut voir et partager les codes de gestion. Ces codes créent de nouveaux comptes de gestion uniquement ; pour un compte existant, demandez à Head de modifier les rôles.",
       "title": "Codes d'inscription",
-      "help": "Émettez une clé de sécurité à usage unique pour qu'un nouveau tuteur ou membre de la ronde s'inscrive. Le code est conservé pour la gestion et peut être consulté à nouveau tant qu'il est actif. Partagez-le uniquement avec le destinataire prévu ; il expire après 7 jours et ne peut plus être utilisé après son utilisation ou sa révocation.",
+      "help": "Émettez une clé à usage unique pour un nouveau compte. Elle reste consultable tant qu’elle est active. Partagez-la uniquement avec le destinataire prévu ; elle expire après 7 jours et ne peut plus être utilisée après activation ou révocation.",
       "labelField": "Pour (étiquette)",
       "labelPlaceholder": "ex. Jane Doe (G11)",
       "emailField": "Lier à un e-mail (optionnel)",

@@ -1,3 +1,4 @@
+import { REGISTRATION_KINDS, isManagementCode } from "~/lib/registration-kind";
 import { enforceAssignmentQualification } from "~/server/assignment-qualification";
 import { accountUsernameSchema, updateAccountUsername } from "~/server/account-username";
 import { accountMembership, membershipSchema } from "~/lib/account-membership";
@@ -3732,6 +3733,7 @@ export const adminRouter = createTRPCRouter({
     // The code + issuer email are withheld from the read-only VIEWER.
     const canSee = ctx.session.role !== "VIEWER";
     const codes = await ctx.db.registrationCode.findMany({
+      where: ctx.session.role === "HEAD" ? {} : { kind: { in: ["TUTOR", "CREW"] } },
       orderBy: { createdAt: "desc" },
       select: {
         id: true,
@@ -3788,7 +3790,7 @@ export const adminRouter = createTRPCRouter({
         email: z.string().email().optional(),
         tutorId: cuid.optional(),
         label: z.string().trim().max(120).optional(),
-        kind: z.enum(["TUTOR", "CREW"]).optional(),
+        kind: z.enum(REGISTRATION_KINDS).optional(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -3809,6 +3811,8 @@ export const adminRouter = createTRPCRouter({
         label ??= tutor.englishName;
         email ??= tutor.email?.toLowerCase() ?? null;
       }
+      if (isManagementCode(kind) && input.tutorId)
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Management invitations cannot link a tutor." });
       const result = await issueRegistrationCode({
         email,
         tutorId: kind === "TUTOR" ? (input.tutorId ?? null) : null,
@@ -3825,40 +3829,32 @@ export const adminRouter = createTRPCRouter({
         entityId: result.id,
       });
       // The plaintext code is in the return value only — copy it now.
-      return { id: result.id, code: result.code, expiresAt: result.expiresAt };
+      return { id: result.id, code: result.code, expiresAt: result.expiresAt, kind };
     }),
 
   /** Revoke an unused registration code (deletes it). Used codes stay for the record. */
   revokeRegistrationCode: adminProcedure
     .input(z.object({ id: cuid }))
     .mutation(async ({ ctx, input }) => {
-      const code = await ctx.db.registrationCode.findUniqueOrThrow({
-        where: { id: input.id },
-        select: { usedAt: true, crewApplicationId: true },
-      });
-      if (code.usedAt) {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "This code has already been used.",
-        });
-      }
-      await ctx.db.$transaction(async (tx) => {
+      return ctx.db.$transaction(async (tx) => {
+        // Redemption claims this same row. A concurrent revoke must not delete used history.
+        await tx.$queryRaw`SELECT id FROM "RegistrationCode" WHERE id = ${input.id} FOR UPDATE`;
+        const code = await tx.registrationCode.findUniqueOrThrow({ where: { id: input.id } });
+        if (isManagementCode(code.kind)) {
+          const actor = await tx.user.findUnique({ where: { id: ctx.session.user.id } });
+          if (actor?.role !== "HEAD" || actor.suspendedAt)
+            throw new TRPCError({ code: "FORBIDDEN", message: "Only Head may access management invitations." });
+        }
+        if (code.usedAt) throw new TRPCError({ code: "BAD_REQUEST", message: "This code has already been used." });
         await tx.registrationCode.delete({ where: { id: input.id } });
-        // Revertability: revoking a crew-application code returns the application to the pending
-        // queue (visible/actionable again on /admin/crew).
         if (code.crewApplicationId) {
           await tx.crewApplication.updateMany({
             where: { id: code.crewApplicationId, status: "ACCEPTED" },
-            data: {
-              status: "PENDING",
-              decidedByName: null,
-              decidedAt: null,
-              decisionComment: null,
-            },
+            data: { status: "PENDING", decidedByName: null, decidedAt: null, decisionComment: null },
           });
         }
+        return { ok: true };
       });
-      return { ok: true };
     }),
 
   // --------------------------------------------------------------------------

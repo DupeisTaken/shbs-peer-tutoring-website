@@ -237,6 +237,7 @@
       "saving": "Guardando…"
     },
     "register": {
+      "grantedRole": "Rol de la cuenta: {role}",
       "title": "Crea tu cuenta",
       "subtitle": "Usa la clave de seguridad que te dio un administrador.",
       "backToSignIn": "← Volver al inicio de sesión",
@@ -1204,8 +1205,11 @@
       "ARCHIVED": "Archivado"
     },
     "registrationCodes": {
+      "kindAdmin": "Admin",
+      "kindCoordinator": "Coordinador",
+      "managementHelp": "Head autoriza todas las invitaciones de roles. El resto del personal envía solicitudes para su aprobación. Solo Head puede ver o compartir códigos de gestión. Estos códigos crean cuentas nuevas solo de gestión; para cuentas existentes, solicita a Head el cambio de roles en Usuarios y roles.",
       "title": "Códigos de registro",
-      "help": "Emite una clave de seguridad de un solo uso para que un nuevo tutor o miembro de la ronda se registre. El código se almacena para la administración y puede volver a consultarse mientras esté activo. Compártelo solo con la persona destinataria; caduca después de 7 días y no puede usarse tras canjearse o revocarse.",
+      "help": "Emite una clave de un solo uso para una cuenta nueva. Puedes consultarla mientras esté activa. Compártela solo con el destinatario previsto; caduca a los 7 días y no puede usarse tras canjearla o revocarla.",
       "labelField": "Para (etiqueta)",
       "labelPlaceholder": "p. ej. Jane Doe (G11)",
       "emailField": "Vincular a correo electrónico (opcional)",

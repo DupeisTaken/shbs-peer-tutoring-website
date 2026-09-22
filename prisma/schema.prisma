@@ -504,6 +504,8 @@ enum TutorRequestState {
 enum RegistrationCodeKind {
   TUTOR
   CREW
+  ADMIN
+  COORDINATOR
 }
 
 model RegistrationCode {
