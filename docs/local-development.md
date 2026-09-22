@@ -257,6 +257,13 @@ keys with the unprefixed names. Static assets and source changes still require a
 production rebuild. See [configuration and update workflows](deployment.md#6-updates)
 for Compose deployment and secret handling.
 
+An existing `.env` is not upgraded by `git pull`. Compare its keys with
+`.env.example` and rename those five old keys in place, preserving values; do not
+replace the file or regenerate credentials. Your local `.env` is independent of
+the VPS file. See [production updates](deployment.md#6-updates) to retain server
+data, or [reset and redeploy](deployment.md#start-fresh-from-an-existing-deployment)
+to start with an empty database and a new environment file.
+
 With a running production build, `node --test scripts/test-runtime-branding.mjs`
 checks public metadata, the client branding payload and browser bundles. Set
 `TEST_BASE_URL` and the expected branding environment variables to match the server;

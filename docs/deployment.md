@@ -13,6 +13,77 @@ Internet ──443/80──▶ caddy ──▶ app:3000 ──▶ db:5432
 - Only **caddy** publishes ports (80/443). `app` and `db` are internal-only.
 - `app` waits for `db` to be healthy (`pg_isready`), then runs `prisma migrate deploy` and starts.
 - Postgres data lives on the `db-data` named volume; Caddy certs on `caddy-data`.
+- The image runs a non-root Node 22 / Next.js 16 standalone server, with Prisma 7
+  migrations and PostgreSQL 16. Uploaded `HomeImage` bytes are stored in PostgreSQL,
+  so they are included in the database backup; repository assets are in the image.
+- GitHub Actions publishes images after verification; it does **not** update the VPS.
+  The host must pull and recreate the app. There is no automatic deployment agent
+  or separate notification service in the supplied Compose stack.
+
+## Start fresh from an existing deployment
+
+Use this path when the old deployment's data is disposable. For a first installation,
+start at [prerequisites](#1-prerequisites); for an update that retains data, use
+[updates](#6-updates).
+
+**The reset deletes the project's PostgreSQL database, including all accounts,
+program settings, published content and uploaded images, plus Caddy's certificate
+and configuration volumes.** Caddy obtains certificates again on the next start.
+It does not remove the checkout, host backup files or other Compose projects.
+
+Review the desired release and confirm its image has been published before taking
+anything down. Run the following stages separately on the VPS and stop on errors.
+Use the existing deployment directory and any existing Compose project-name
+options so the reset targets the intended stack.
+
+1. Inspect the stack, then remove its containers and volumes:
+
+   ```bash
+   cd /opt/shbs  # substitute the existing deployment directory
+   docker compose ps
+   docker compose config --volumes
+   # Optional, if you want a recovery copy before discarding the data:
+   # bash scripts/backup.sh
+   # (umask 077; cp .env ".env.backup-$(date +%Y%m%d-%H%M%S)")
+   docker compose down --volumes
+   ```
+
+2. Update the checkout to the selected release. For a checkout following `main`,
+   use the commands below, reconciling local changes if the pull refuses. Replace
+   the old environment file with the current template only after the reset:
+
+   ```bash
+   git pull --ff-only
+   (umask 077; cp .env.example .env)
+   chmod 600 .env
+   nano .env
+   ```
+
+   Follow [runtime configuration](#3-configure-runtime-settings-and-secrets): set
+   the real `DOMAIN`, published `APP_IMAGE`, a new `AUTH_SECRET` of at least 32
+   characters, and new `POSTGRES_*` credentials with a URL-safe password. Configure
+   the verified SMTP sender/password and use the current unprefixed branding keys
+   (`APP_TITLE`, `TEAM_TITLE`, `ORG_NAME`, `SUPPORT_EMAIL`, `PROGRAM_TERM_LABEL`).
+   No old-key migration is needed when starting from the current template.
+   SMTP credentials can be reused; they belong to the mail provider, not the deleted
+   database. Keep the DNS pointing at the VPS if the domain and host are unchanged.
+
+3. Start the fresh stack:
+
+   ```bash
+   docker compose config --quiet
+   docker compose pull
+   docker compose up -d
+   docker compose ps
+   docker compose logs --since=10m --tail=100 app
+   docker compose exec app node node_modules/prisma/build/index.js migrate status
+   ```
+
+   The database initializes from `POSTGRES_*`; the app applies migrations and starts
+   with no accounts or program data. Complete [first-admin bootstrap](#create-the-first-admin-first-deploy),
+   then configure the program and publish content through the website. Do not run
+   the demonstration seed. Finish with [deployment verification](#verify-either-update)
+   and [intake checks](#verify-before-opening-intake).
 
 ## 1. Prerequisites
 
@@ -78,6 +149,7 @@ production secrets or branding arguments.
 | `DOMAIN` | VPS `.env`; replace example domain with real DNS name | Update DNS; recreate app **and Caddy** |
 | `APP_IMAGE` | VPS `.env`; replace `OWNER` with lowercase GitHub owner | Pull and recreate app |
 | `BACKUP_DIR`, `BACKUP_RCLONE_REMOTE`, `BACKUP_S3_URI`, `BACKUP_SCP_DEST` | Host `.env`; output defaults to checkout `backups/`, destinations empty | Next host backup invocation; no container recreation |
+| `TRPC_DEV_DELAY` | Local development `.env`; `false` | Restart development server; no effect in production |
 
 Only the five branding fields are deliberately projected into the browser. They
 are public information; never place credentials in them. Server-rendered UI,
@@ -88,6 +160,14 @@ Blank branding values use repository defaults. Rename existing
 `NEXT_PUBLIC_SUPPORT_EMAIL`, and `NEXT_PUBLIC_PROGRAM_TERM_LABEL` keys by removing
 `NEXT_PUBLIC_`; the old names are no longer read. No GitHub Actions variables are
 needed for branding.
+
+`MESSAGES_OVERRIDE` is JSON read directly by the server, outside the `src/env.js`
+schema; malformed JSON is ignored. Message precedence is bundled locale JSON →
+environment override → database translations edited in `/localization`.
+`SKIP_ENV_VALIDATION` is a build/test escape hatch; leave it unset in production
+(even the string `false` is nonempty and skips validation). Local build controls
+`SHBS_WORKSPACE_ROOT`, `SHBS_BUILD_CPUS` and `SHBS_DISABLE_BUILD_CACHE` are not
+required VPS runtime settings.
 
 PostgreSQL applies `POSTGRES_*` only when initializing an **empty** data directory.
 Editing those values later does not rename the database/user or change its password;
@@ -244,10 +324,8 @@ through their administration screens when required.
 ```bash
 cd /opt/shbs
 nano .env
-# Validate interpolation and inspect locally; the rendered output may contain secrets.
-docker compose config
-# Do not paste/share the rendered configuration or save it in public logs.
-# For validation without printing values: docker compose config --quiet
+# Validate interpolation without printing secrets.
+docker compose config --quiet
 docker compose up -d --force-recreate app
 ```
 
@@ -324,7 +402,11 @@ gunzip -c backups/<file>.sql.gz | docker compose exec -T db psql -v ON_ERROR_STO
 
 ## Optional notification delivery
 
-Apply all migrations with `npm run db:migrate`, regenerate Prisma with `npx prisma generate`, and restart the persistent Node application before enabling optional notifications. The account-email migration atomically backfills primary addresses and recovery-token destinations; normalized collisions abort instead of merging accounts. Resolve legacy collisions before retrying. The follow-up migration releases any unverified secondary claims created by an earlier version and revokes their grants, preserving primary and verified secondary addresses. Affected users can request a new verification code.
+For the supplied Docker deployment, pull and recreate the app as above: the image
+contains the generated Prisma client and its entrypoint runs migrations. For a
+source-based deployment outside Docker, apply all migrations with `npm run db:migrate`,
+regenerate Prisma with `npx prisma generate`, build the application and restart the
+persistent Node process before enabling optional notifications. The account-email migration atomically backfills primary addresses and recovery-token destinations; normalized collisions abort instead of merging accounts. Resolve legacy collisions before retrying. The follow-up migration releases any unverified secondary claims created by an earlier version and revokes their grants, preserving primary and verified secondary addresses. Affected users can request a new verification code.
 
 The worker polls every 30 seconds and leases up to ten deliveries per batch for five minutes. Row locking coordinates concurrent workers. Failures retry with exponential backoff, up to five attempts; the Program settings panel shows terminal failures. Inspect `EmailDelivery` status and safe failure summaries when diagnosing transport problems. A stable Message-ID identifies retries, but SMTP cannot guarantee exactly-once delivery after a process stops between acceptance and recording success. Short-lived deployments require an external scheduler calling the dispatcher.
 

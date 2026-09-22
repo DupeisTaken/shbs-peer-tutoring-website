@@ -6,6 +6,7 @@ These guides describe the current application. Choose the task you need to compl
 | --- | --- |
 | Install locally, create demo accounts, run tests or troubleshoot | [Local development](local-development.md) |
 | Deploy, create the first administrator, configure email or restore a backup | [Deployment runbook](deployment.md) |
+| Reset an existing deployment and start fresh | [Reset and redeploy](deployment.md#start-fresh-from-an-existing-deployment) |
 | Contribute changes and maintain repository files | [Contributor guidance](contributing.md) |
 | Find implementation files and understand authorization or transaction rules | [Technical guide](technical-report.md) |
 | Use the website as a tutee, tutor, crew member, coordinator, administrator, HEAD, viewer or translator | [User guide](user-guide.md) |

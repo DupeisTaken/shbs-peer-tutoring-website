@@ -11,6 +11,7 @@ Start with the **[documentation hub](docs/README.md)** to find the guide for you
 | Use the website as a student, tutor, crew member or staff member | [User guide](docs/user-guide.md) |
 | Run locally and test | [Local development](docs/local-development.md) |
 | Deploy and operate the server | [Deployment runbook](docs/deployment.md) |
+| Reset an existing deployment and start fresh | [Reset and redeploy](docs/deployment.md#start-fresh-from-an-existing-deployment) |
 | Contribute code | [Contributor guidance](docs/contributing.md) |
 | Understand architecture and access rules | [Technical report](docs/technical-report.md) |
 | Report a bug or request a change | [Issue guide](docs/issues.md) |
