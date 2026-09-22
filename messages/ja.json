@@ -2735,6 +2735,9 @@
     "scheduleEmpty": "No tutoring sessions are assigned yet. Follow your request under Requests or use the request form to get started."
   },
   "accountProfile": {
+    "username": "ユーザー名",
+    "usernameHelp": "Headのみ変更できます。半角英数字1～64文字を使用してください。新しいユーザー名または現在のメールアドレスでログインできます。パスワードは変わりません。",
+    "saveUsername": "ユーザー名を保存",
     "editProfile": "Edit profile",
     "close": "Close",
     "name": "Display name",

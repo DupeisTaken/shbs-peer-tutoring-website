@@ -42,7 +42,6 @@ export function TutorProfileEditor({
             firstName: firstName!,
             lastName: rest.join(" "),
             alternativeNames: value("alternativeNames") || null,
-            username: value("username"),
             email: value("email") || null,
             gradeLevel: value("grade") ? Number(value("grade")) : null,
             status: value("status") as typeof row.status,
@@ -64,7 +63,6 @@ export function TutorProfileEditor({
               t("accountProfile.alternativeNames"),
               row.alternativeNames,
             ],
-            ["username", t("admin.tutors.colUsername"), row.username],
             ["email", t("admin.tutors.colEmail"), row.user?.email ?? row.email],
             ["grade", t("admin.tutors.colGrade"), row.gradeLevel],
           ] as const

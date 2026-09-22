@@ -2735,6 +2735,9 @@
     "scheduleEmpty": "暂无已安排的辅导课程。可在申请页面查看进展，或填写申请表开始申请。"
   },
   "accountProfile": {
+    "username": "用户名",
+    "usernameHelp": "仅负责人可修改。请输入 1–64 个英文字母或数字。修改后使用新用户名或原有邮箱登录，密码保持不变。",
+    "saveUsername": "保存用户名",
     "editProfile": "编辑个人资料",
     "close": "关闭",
     "name": "显示姓名",

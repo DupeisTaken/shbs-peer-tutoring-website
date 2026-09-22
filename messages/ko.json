@@ -2735,6 +2735,9 @@
     "scheduleEmpty": "No tutoring sessions are assigned yet. Follow your request under Requests or use the request form to get started."
   },
   "accountProfile": {
+    "username": "사용자 이름",
+    "usernameHelp": "Head만 변경할 수 있습니다. 영문자 또는 숫자 1~64자를 사용하세요. 새 사용자 이름이나 기존 이메일로 로그인하며 비밀번호는 유지됩니다.",
+    "saveUsername": "사용자 이름 저장",
     "editProfile": "Edit profile",
     "close": "Close",
     "name": "Display name",

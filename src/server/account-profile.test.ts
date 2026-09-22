@@ -329,3 +329,53 @@ it("sends verification only after a staff action to the resolved account, rate l
   ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   expect(delivery.send).toHaveBeenCalledTimes(1);
 });
+
+async function headCaller() {
+  await db.user.update({ where: { id: "profile-admin" }, data: { role: "HEAD" } });
+  return caller(); // Deliberately keep the old cookie role.
+}
+it.each(["profile-admin", "profile-person", "profile-viewer", "profile-coordinator"])("Head renames %s with current permissions and preserves identity", async (userId) => {
+  const head = await headCaller();
+  const before = await db.user.findUniqueOrThrow({ where: { id: userId } });
+  const updated = await head.admin.updateAccountUsername({ userId, username: "  NewHandle93  ", expectedProfileVersion: 0 });
+  expect(updated).toMatchObject({ id: userId, username: "newhandle93", role: before.role, email: before.email, passwordHash: before.passwordHash, tutorId: before.tutorId, studentId: before.studentId });
+  if (before.tutorId) expect(await db.tutor.findUnique({ where: { id: before.tutorId } })).toMatchObject({ username: "newhandle93" });
+  expect(await db.auditLog.findFirst({ where: { operation: "admin.updateAccountUsername" } })).toMatchObject({ userId: "profile-admin", entityId: userId, details: { oldUsername: before.username, newUsername: "newhandle93" } });
+  await head.admin.updateAccountUsername({ userId, username: "newhandle93", expectedProfileVersion: 1 });
+  expect(await db.auditLog.count({ where: { operation: "admin.updateAccountUsername", action: "Updated account username" } })).toBe(1);
+  await expect(head.admin.updateAccountUsername({ userId, username: "stale", expectedProfileVersion: 0 })).rejects.toMatchObject({ code: "CONFLICT" });
+});
+it.each(["profile-admin", "profile-coordinator", "profile-person", "profile-viewer"])("rejects unauthorized rename by %s despite a Head cookie", async (id) => {
+  await expect(caller(id, "HEAD").admin.updateAccountUsername({ userId: "profile-person", username: "forbidden", expectedProfileVersion: 0 })).rejects.toMatchObject({ code: "FORBIDDEN" });
+});
+it("rejects invalid and colliding usernames in both tables without partial changes", async () => {
+  const head = await headCaller();
+  for (const username of ["", "a@b", "a-b", "a b", "爱丽", "a".repeat(65)]) {
+    await expect(head.admin.updateAccountUsername({ userId: "profile-person", username, expectedProfileVersion: 0 })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  }
+  await db.user.update({ where: { id: "profile-viewer" }, data: { username: "takenuser" } });
+  await db.tutor.create({ data: { englishName: "Unlinked", username: "takentutor" } });
+  for (const username of ["TakenUser", "TakenTutor"]) await expect(head.admin.updateAccountUsername({ userId: "profile-person", username, expectedProfileVersion: 0 })).rejects.toMatchObject({ code: "CONFLICT" });
+  expect(await db.user.findUnique({ where: { id: "profile-person" } })).toMatchObject({ username: "profileperson", profileVersion: 0 });
+});
+it("renaming removes the old tutor sign-in alias and preserves email and credentials", async () => {
+  const { hashPassword } = await import("~/server/auth/password");
+  const { verifySigninPassword } = await import("~/server/auth/credentials");
+  const head = await headCaller();
+  await db.user.update({ where: { id: "profile-person" }, data: { passwordHash: hashPassword("Password123!") } });
+  await head.admin.updateAccountUsername({ userId: "profile-person", username: "renamed93", expectedProfileVersion: 0 });
+  expect(await verifySigninPassword("profileperson", "Password123!", "rename-test")).toMatchObject({ ok: false });
+  for (const identifier of [" RENAMED93 ", "person@example.test"]) expect(await verifySigninPassword(identifier, "Password123!", "rename-test")).toMatchObject({ ok: true, user: { id: "profile-person" } });
+});
+
+it("ordinary tutor profile edits preserve handles and reject the legacy rename path", async () => {
+  await expect(caller().admin.updateTutor({ id: "profile-tutor", firstName: "New", lastName: "Name", username: "bypass", status: "ACTIVE" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await caller().admin.updateTutor({ id: "profile-tutor", firstName: "New", lastName: "Name", status: "ACTIVE" });
+  expect(await db.user.findUnique({ where: { id: "profile-person" } })).toMatchObject({ username: "profileperson" });
+  expect(await db.tutor.findUnique({ where: { id: "profile-tutor" } })).toMatchObject({ username: "profileperson", englishName: "New Name" });
+});
+it("suspended Head cannot rename an account", async () => {
+  const head = await headCaller();
+  await db.user.update({ where: { id: "profile-admin" }, data: { suspendedAt: new Date() } });
+  await expect(head.admin.updateAccountUsername({ userId: "profile-person", username: "denied", expectedProfileVersion: 0 })).rejects.toMatchObject({ code: "FORBIDDEN" });
+});

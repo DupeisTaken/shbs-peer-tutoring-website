@@ -2735,6 +2735,9 @@
     "scheduleEmpty": "No tutoring sessions are assigned yet. Follow your request under Requests or use the request form to get started."
   },
   "accountProfile": {
+    "username": "Όνομα χρήστη",
+    "usernameHelp": "Μόνο Head. Χρησιμοποιήστε 1–64 λατινικά γράμματα ή αριθμούς. Συνδεθείτε με το νέο όνομα ή το υπάρχον email· ο κωδικός πρόσβασης παραμένει ίδιος.",
+    "saveUsername": "Αποθήκευση ονόματος χρήστη",
     "editProfile": "Edit profile",
     "close": "Close",
     "name": "Display name",

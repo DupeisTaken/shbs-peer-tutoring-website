@@ -2735,6 +2735,9 @@
     "scheduleEmpty": "No tutoring sessions are assigned yet. Follow your request under Requests or use the request form to get started."
   },
   "accountProfile": {
+    "username": "Username",
+    "usernameHelp": "Head only. Use 1–64 letters or numbers. Sign in with the new username or your existing email; your password stays the same.",
+    "saveUsername": "Save username",
     "editProfile": "Edit profile",
     "close": "Close",
     "name": "Display name",

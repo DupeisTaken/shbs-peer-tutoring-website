@@ -1,6 +1,7 @@
 "use client";
 
 import { MembershipEditor } from "./membership-editor";
+import { AccountUsernameEditor } from "./account-username-editor";
 import type { AccountMembership } from "~/lib/account-membership";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
@@ -15,6 +16,7 @@ export function AccountProfileEditor({
 }: {
   profile: {
     userId: string;
+    username?: string | null;
     name: string;
     alternativeNames: string | null;
     profileVersion: number;
@@ -87,6 +89,7 @@ export function AccountProfileEditor({
           </p>
         )}
       </form>
+      {isHead && <AccountUsernameEditor userId={profile.userId} username={profile.username} profileVersion={profile.profileVersion} onSaved={onClose} />}
       {membership && <MembershipEditor userId={profile.userId} initial={membership} isHead={isHead} />}
     </ProfileDialog>
   );
