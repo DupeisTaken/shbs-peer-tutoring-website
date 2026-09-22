@@ -261,6 +261,7 @@ export default function UsersPage() {
         <AccountProfileEditor
           profile={{
             userId: editingProfile.userId,
+            username: editingProfile.username,
             name: editingProfile.name,
             alternativeNames: editingProfile.alternativeNames,
             profileVersion: editingProfile.profileVersion,

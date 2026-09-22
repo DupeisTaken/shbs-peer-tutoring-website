@@ -1,4 +1,5 @@
 import { enforceAssignmentQualification } from "~/server/assignment-qualification";
+import { accountUsernameSchema, updateAccountUsername } from "~/server/account-username";
 import { accountMembership, membershipSchema } from "~/lib/account-membership";
 import { databaseScope, approvalScope } from "~/server/db-scope";
 import { subjectOrderBy } from "~/lib/course-catalogue";
@@ -1765,7 +1766,7 @@ export const adminRouter = createTRPCRouter({
         firstName: z.string().trim().min(1),
         lastName: z.string().trim(),
         alternativeNames: z.string().trim().max(200).nullable().optional(),
-        // Admin may override the auto-generated handle; blank regenerates the default.
+        // Login usernames are managed only through the Head account editor.
         username: z.string().trim().optional(),
         email: z.string().email().nullable().optional(),
         gradeLevel: z.number().int().min(6).max(12).nullable().optional(),
@@ -1773,12 +1774,6 @@ export const adminRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const trimmedUsername = input.username?.trim();
-      const gradYear = await activeGradYear(ctx.db, input.gradeLevel);
-      const desired =
-        trimmedUsername && trimmedUsername.length > 0
-          ? trimmedUsername
-          : defaultUsername(input.firstName, input.lastName, gradYear);
       const account = await ctx.db.user.findUnique({
         where: { tutorId: input.id },
         select: { id: true, email: true },
@@ -1794,10 +1789,9 @@ export const adminRouter = createTRPCRouter({
             "Change a linked account email through verified account settings.",
         });
       }
-      const username = await ensureUniqueUsername(desired, {
-        excludeTutorId: input.id,
-        excludeUserId: account?.id,
-      });
+      const roster = await ctx.db.tutor.findUniqueOrThrow({ where: { id: input.id } });
+      if (input.username !== undefined && input.username.trim().toLowerCase() !== (roster.username ?? ""))
+        throw new TRPCError({ code: "FORBIDDEN", message: "Edit login usernames through Users & Roles as Head." });
       const prev = await ctx.db.tutor.findUnique({
         where: { id: input.id },
         select: { status: true },
@@ -1827,7 +1821,7 @@ export const adminRouter = createTRPCRouter({
             alternativeNames: input.alternativeNames?.trim()
               ? input.alternativeNames.trim()
               : null,
-            username,
+            username: before.username,
             status: input.status,
             ...(input.gradeLevel === undefined
               ? {}
@@ -1840,7 +1834,7 @@ export const adminRouter = createTRPCRouter({
         if (account) {
           await tx.user.update({
             where: { id: account.id },
-            data: { username },
+            data: { username: before.username },
           });
           await updateAccountProfile(tx, account.id, {
             name: updated.englishName,
@@ -3876,6 +3870,10 @@ export const adminRouter = createTRPCRouter({
    * tutor's account/setup status and a `isSelf` flag; `caller` lets the client gate controls
    * (coordinators may only send links + toggle their own "can tutor"). ADMIN or COORDINATOR only.
    */
+  updateAccountUsername: headProcedure
+    .input(z.object({ userId: cuid, username: accountUsernameSchema, expectedProfileVersion: z.number().int().nonnegative() }))
+    .mutation(({ ctx, input }) => updateAccountUsername(ctx.db, ctx.session.user.id, input)),
+
   updateAccountProfile: adminProcedure
     .input(
       z.object({

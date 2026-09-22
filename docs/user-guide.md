@@ -224,6 +224,10 @@ Before opening intake, confirm email delivery, the current policies, subjects, s
 
 ADMIN or HEAD can perform the [program refresh](program-reference.md#refresh-the-program); only HEAD stages module switches. Refresh advances the period, applies pending switches and changes participation, so confirm the displayed consequences first. A new period preserves historical attendance, policy acceptance and audit evidence. Only HEAD can grant or change roles and badges, approve membership changes, provision new tutor accounts, transfer leadership, or delete eligible accounts; the current HEAD cannot be deleted. Leadership transfer appoints an eligible administrator or coordinator and makes the outgoing HEAD an administrator.
 
+### Head username editing
+
+In **Users & Roles → Edit profile**, Head can save a username for any login account, including their own. Use 1–64 ASCII letters or digits; surrounding whitespace is trimmed and letters are lowercased. Taken usernames in either the login or tutor roster are rejected. The linked tutor is updated atomically, so the old handle no longer signs in. Email sign-in, passwords, IDs, badges and history remain unchanged. Ordinary roster name edits retain the username. Admins and coordinators cannot rename accounts. Saves record the actor and old/new handles and refresh the account list and current header. An unchanged save is a no-op; stale profile versions require reopening the editor.
+
 ## Viewers
 
 When viewer signup is enabled, use the public viewer registration form, provide your name, affiliation and email, confirm the emailed code, then set your password. If that email already has an account, sign in or recover it instead. Email delivery must be available.
