@@ -6,6 +6,7 @@ import {
   adminProcedure,
   createTRPCRouter,
   publicProcedure,
+  protectedProcedure,
   translatorProcedure,
 } from "~/server/api/trpc";
 import {
@@ -15,6 +16,24 @@ import {
   LOCALE_LABELS,
 } from "~/i18n/config";
 import { listLanguages } from "~/server/i18n/languages";
+import { translationAccess } from "~/lib/translation-access";
+
+/** Catalog reads serve both translators and administrators; text editing stays separately gated. */
+const languageCatalogProcedure = protectedProcedure.use(
+  async ({ ctx, next }) => {
+    const account = await ctx.db.user.findUniqueOrThrow({
+      where: { id: ctx.session.user.id },
+      select: { role: true, canTranslate: true },
+    });
+    const access = translationAccess(account);
+    if (!access.publish && !access.edit)
+      throw new TRPCError({
+        code: "FORBIDDEN",
+        message: "Language management or translation access required.",
+      });
+    return next();
+  },
+);
 
 /**
  * UI languages. `languages` is public (the language picker is everywhere). Translators can add a
@@ -25,13 +44,13 @@ import { listLanguages } from "~/server/i18n/languages";
 export const i18nRouter = createTRPCRouter({
   languages: publicProcedure.query(() => listLanguages()),
 
-  /** Hidden languages remain available to translators while they are being polished. */
-  managedLanguages: translatorProcedure.query(() =>
+  /** Translators and management can inspect the catalog without granting text-editing access. */
+  managedLanguages: languageCatalogProcedure.query(() =>
     listLanguages({ includeDisabled: true }),
   ),
 
-  /** Whether the current translator may also reorder/remove languages (head/admins/coordinators). */
-  canManageLanguages: translatorProcedure.query(
+  /** Only Admin/Head may change catalog visibility, ordering or removal. */
+  canManageLanguages: languageCatalogProcedure.query(
     ({ ctx }) => ctx.session.role === "HEAD" || ctx.session.role === "ADMIN",
   ),
 
