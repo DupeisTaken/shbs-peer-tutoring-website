@@ -142,7 +142,7 @@ export default function RegistrationCodesPage() {
               id="invite-kind"
               value={kind}
               onChange={(e) => setKind(e.target.value as RegistrationKind)}
-              className="select field-auto min-w-32"
+              className="select field-auto min-h-11 min-w-32 lg:min-h-10"
             >
               {REGISTRATION_KINDS.map((value) => <option key={value} value={value}>{t(`admin.registrationCodes.${registrationKindLabel[value]}`)}</option>)}
             </select>
@@ -155,7 +155,7 @@ export default function RegistrationCodesPage() {
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               placeholder={t("admin.registrationCodes.labelPlaceholder")}
-              className="input field-auto min-w-44"
+              className="input field-auto min-h-11 min-w-44 lg:min-h-10"
             />
           </div>
           <div>
@@ -167,10 +167,10 @@ export default function RegistrationCodesPage() {
               onChange={(e) => setEmail(e.target.value)}
               type="email"
               placeholder={t("admin.registrationCodes.emailPlaceholder")}
-              className="input field-auto min-w-52"
+              className="input field-auto min-h-11 min-w-52 lg:min-h-10"
             />
           </div>
-          <button className="btn-primary" disabled={issue.isPending}>
+          <button className="btn-primary min-h-11 lg:min-h-10" disabled={issue.isPending}>
             {t("admin.registrationCodes.issue")}
           </button>
         </form>
