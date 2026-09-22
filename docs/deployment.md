@@ -38,17 +38,64 @@ the user's 2FA preference are both enabled.
 sudo ./scripts/setup.sh          # installs Docker + Compose, ufw allows only 22/80/443
 ```
 
-## 3. Configure secrets
+## 3. Configure runtime settings and secrets
+
+Run deployment commands from the same VPS checkout (for example `/opt/shbs`)
+throughout its lifetime. Its Compose project name selects the existing named
+volumes; keep the directory/project name stable.
+
+For a **first installation only**:
 
 ```bash
-cp .env.example .env
-# Edit .env and set:
-#   DOMAIN, APP_IMAGE (ghcr.io/<owner>/shbs-peer-tutoring-website:latest)
-#   AUTH_SECRET           (required in prod, ≥32 chars — generate: openssl rand -base64 32)
-#   POSTGRES_USER / POSTGRES_PASSWORD / POSTGRES_DB
-#   AUTH_BOOTSTRAP_ADMIN_EMAILS=you@school.edu   (first entry becomes HEAD when no HEAD exists)
-#   EMAIL_FROM / SMTP_PASSWORD / SMTP_HOST / SMTP_PORT   (Aliyun Direct Mail — see below)
+cd /opt/shbs
+# Never overwrite an existing .env during an update.
+[ -f .env ] || (umask 077; cp .env.example .env)
+chmod 600 .env
+nano .env
+# Set DOMAIN, APP_IMAGE=ghcr.io/<owner>/shbs-peer-tutoring-website:latest
+# Generate AUTH_SECRET once: openssl rand -base64 32 (at least 32 characters)
+# Choose POSTGRES_USER, POSTGRES_DB, and a URL-safe POSTGRES_PASSWORD once:
+# openssl rand -hex 32
+# Set EMAIL_FROM, SMTP_PASSWORD and the provider's SMTP_HOST / SMTP_PORT.
+docker compose config --quiet
 ```
+
+Keep production values in the private VPS `.env`, not Git, GitHub Actions build
+arguments, Dockerfile `ENV`, or `NEXT_PUBLIC_*` fields. `.dockerignore` excludes
+real `.env` files. CI uses disposable test credentials and builds the image without
+production secrets or branding arguments.
+
+| Configuration | Where it is set / default | Apply a change |
+| --- | --- | --- |
+| Application/UI source, `src/app/icon.png`, repository logos/assets, bundled translations and branding defaults in `src/lib/branding-config.ts` | Git; the tab icon is the single repository-owned PNG | Commit → main → CI → GHCR → pull app image |
+| `APP_TITLE`, `TEAM_TITLE` | VPS `.env`; `SHBS Peer Tutoring`, `SHBS Peer Tutoring Team` | Recreate app; no rebuild |
+| `ORG_NAME`, `SUPPORT_EMAIL`, `PROGRAM_TERM_LABEL` | VPS `.env`; organization falls back to app title, other labels are empty | Recreate app; no rebuild |
+| `MESSAGES_OVERRIDE`, `AUTH_BOOTSTRAP_ADMIN_EMAILS` | VPS `.env`; empty by default | Recreate app; existing published content can override messages |
+| `AUTH_SECRET`, `SMTP_PASSWORD` | VPS `.env`; no production secret defaults | Recreate app; keep the auth secret stable across restarts/instances |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `EMAIL_FROM`, `EMAIL_FROM_NAME` | Server-only VPS `.env`; host `smtpdm.aliyun.com`, port `465`, login falls back to sender address, display name to `APP_TITLE`; sender/password unset | Recreate app; verify real delivery |
+| `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | VPS `.env`, chosen at database initialization | Preserve for existing volume; credential changes need a separate database operation |
+| `DATABASE_URL`, `AUTH_URL`, `AUTH_TRUST_HOST`, `NODE_ENV` | Compose derives database URL from `POSTGRES_*`, sets `https://${DOMAIN}`, `true`, `production` | Do not override derived values in `.env` |
+| `DOMAIN` | VPS `.env`; replace example domain with real DNS name | Update DNS; recreate app **and Caddy** |
+| `APP_IMAGE` | VPS `.env`; replace `OWNER` with lowercase GitHub owner | Pull and recreate app |
+| `BACKUP_DIR`, `BACKUP_RCLONE_REMOTE`, `BACKUP_S3_URI`, `BACKUP_SCP_DEST` | Host `.env`; output defaults to checkout `backups/`, destinations empty | Next host backup invocation; no container recreation |
+
+Only the five branding fields are deliberately projected into the browser. They
+are public information; never place credentials in them. Server-rendered UI,
+client components, page metadata and email subjects use the same runtime titles.
+An explicit `EMAIL_FROM_NAME` overrides only the email sender display name.
+Blank branding values use repository defaults. Rename existing
+`NEXT_PUBLIC_APP_TITLE`, `NEXT_PUBLIC_TEAM_TITLE`, `NEXT_PUBLIC_ORG_NAME`,
+`NEXT_PUBLIC_SUPPORT_EMAIL`, and `NEXT_PUBLIC_PROGRAM_TERM_LABEL` keys by removing
+`NEXT_PUBLIC_`; the old names are no longer read. No GitHub Actions variables are
+needed for branding.
+
+PostgreSQL applies `POSTGRES_*` only when initializing an **empty** data directory.
+Editing those values later does not rename the database/user or change its password;
+it instead breaks app connections or backups. Preserve the existing `.env` and
+`db-data` volume. Do not regenerate credentials, rename the Compose project, run
+`docker compose down -v`, delete volumes, or reseed as part of an application update.
+If a credential must change, back up first and plan a coordinated PostgreSQL role
+change and app/backup configuration update separately.
 
 > **Accepted applicants self-register:** accepting a tutor application issues a single-use
 > registration code (bound to their email, re-viewable on `/admin/registration-codes`); the recruit
@@ -93,7 +140,7 @@ SMTP_PASSWORD="<the SMTP password from step 4>"
 # SMTP_USER is optional — it defaults to EMAIL_FROM (Aliyun logs in as the sender address).
 ```
 
-Recreate the app container (`docker compose up -d app`) and test via **Forgot password** at `/signin`.
+Recreate the app container (`docker compose up -d --force-recreate app`) and test via **Forgot password** at `/signin`.
 If mail doesn't arrive: confirm the domain shows verified, the `From` exactly equals the sender
 address, outbound port 465 is open from the host, and check `docker compose logs app` for SMTP errors.
 
@@ -164,15 +211,86 @@ Production migrations still run on every boot so later upgrades preserve product
 
 The image includes the complete production Prisma CLI dependency tree plus the bootstrap script.
 CI boots that exact image against an empty `shbs_boot_test` database, verifies the health and
-sign-in routes, runs bootstrap twice, and restarts the image to verify automatic expiry of overdue unverified assignments. Image publishing depends on that gate passing. The integrated test suite uses only the loopback `shbs_shipping_test` database; never point destructive fixtures at production.
+sign-in routes, runs bootstrap twice, checks default and runtime branding, metadata and public-bundle secret exclusion, and recreates that same image with changed branding to verify record preservation and automatic expiry of overdue unverified assignments. Image publishing depends on that gate passing. The integrated test suite uses only the loopback `shbs_shipping_test` database; never point destructive fixtures at production.
 
 > Password reset works once Aliyun Direct Mail is configured (see "Email" above). After the first
 > HEAD exists, tutor accounts and setup links can be managed from the admin UI.
 
 ## 6. Updates
 
+### Application, UI and repository assets
+
+Edit locally, including `src/app/icon.png` or logos when needed → commit → push or
+merge to `main` → wait for successful CI publication → GHCR → update the VPS:
+
 ```bash
-docker compose pull app && docker compose up -d app   # pull new image, recreate; migrations re-run
+cd /opt/shbs
+docker compose pull app
+docker compose up -d app
+```
+
+Do not edit application source inside the VPS checkout or running containers to
+change the deployed UI. The app runs the published image, not that checkout's
+source. If a release changes Compose, Caddy or host scripts, also update those
+tracked deployment files with `git pull --ff-only` after reviewing the release;
+preserve `.env` and keep the Compose project name unchanged. An image update
+reruns pending migrations and preserves the database volume and existing records.
+A customized runtime title takes precedence over a changed repository default.
+Database-managed landing content/translations remain as published; update those
+through their administration screens when required.
+
+### App runtime settings and branding
+
+```bash
+cd /opt/shbs
+nano .env
+# Validate interpolation and inspect locally; the rendered output may contain secrets.
+docker compose config
+# Do not paste/share the rendered configuration or save it in public logs.
+# For validation without printing values: docker compose config --quiet
+docker compose up -d --force-recreate app
+```
+
+This applies `APP_TITLE`, `TEAM_TITLE`, contact labels, SMTP and other server
+settings without rebuilding. `docker compose restart` alone does not reload the
+container environment. Compose validation checks structure/interpolation; app
+startup validates required runtime values and logs connection/migration failures.
+
+For a domain change, update DNS and `DOMAIN`, then recreate both consumers:
+
+```bash
+docker compose config --quiet
+docker compose up -d --force-recreate app caddy
+```
+
+Caddy keeps ports 80/443 and its certificate volume. Host backup settings are read
+by `scripts/backup.sh` on its next run; edit `.env`, keep values shell-compatible
+and quoted, and run `./scripts/backup.sh` to verify a changed destination. Provider
+CLI credentials stay in the host's private provider configuration, never the image.
+
+### Verify either update
+
+```bash
+docker compose ps
+docker compose logs --since=10m --tail=100 app
+docker compose logs --since=10m --tail=50 caddy
+# Substitute the actual DOMAIN; do not use --insecure to bypass TLS validation.
+curl --fail --show-error --silent https://tutoring.example.edu/signin -o /dev/null
+curl --fail --show-error --silent https://tutoring.example.edu/api/trpc/health
+curl --fail --show-error --silent https://tutoring.example.edu/icon.png -o /dev/null
+```
+
+Confirm app startup completed after successful Prisma migrations (or no pending
+migrations), `db` is healthy, Caddy is running, and health returns
+`result.data.json.ok: true`. Open the HTTPS homepage and signup pages, check their
+titles and browser tab icon, then sign in and check the management title and an
+existing record. Refresh open tabs after runtime changes. For a replaced icon,
+close/reopen the tab or clear cached site data. Check a password-reset email's
+subject and sender after changing branding/SMTP. Keep operational evidence private.
+The public icon smoke test can also target the deployment from your local checkout:
+
+```bash
+TEST_BASE_URL=https://tutoring.example.edu node --test scripts/test-tab-icon.mjs
 ```
 
 ## 7. Backups
@@ -195,14 +313,6 @@ Restore:
 docker compose exec -T db createdb -U "$POSTGRES_USER" shbs_restore_test
 gunzip -c backups/<file>.sql.gz | docker compose exec -T db psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" shbs_restore_test
 # Check restored records and application behavior before planning a production recovery.
-```
-
-## 8. Build on the VPS instead of CI (fallback)
-
-If you can't use GHCR, build on the box (needs RAM — add swap on a 4 GB host):
-
-```bash
-docker compose build && docker compose up -d
 ```
 
 ## Troubleshooting

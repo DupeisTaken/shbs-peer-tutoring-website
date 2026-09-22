@@ -12,7 +12,7 @@ import {
   missingTutorSubject,
 } from "~/lib/signup-fields";
 import { api } from "~/trpc/react";
-import { APP_TITLE } from "~/lib/branding";
+import { useBranding } from "~/app/_components/branding-provider";
 import { PolicyAgreement } from "~/app/_components/policy-agreement";
 
 type CourseRow = {
@@ -36,6 +36,7 @@ const emptyRow: CourseRow = {
 };
 
 export function TutorSignupForm() {
+  const { APP_TITLE } = useBranding();
   const t = useTranslations();
   const locale = useLocale();
   const options = api.application.options.useQuery();

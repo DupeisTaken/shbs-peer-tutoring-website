@@ -1,9 +1,9 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
+import { brandingMetadata } from "~/server/branding-metadata";
 import { SignupForm } from "./signup-form";
 import { SignupOpeningNotice } from "./signup-opening-notice";
-import { APP_TITLE } from "~/lib/branding";
 import { isSignupWindowOpen } from "~/lib/signup-window";
 import { db } from "~/server/db";
 import { getActivePeriodOrNull } from "~/server/period";
@@ -11,9 +11,9 @@ import { getFeatures } from "~/server/program/features";
 import { getPeriodDisplay } from "~/lib/period";
 import { FloatingLanguageSwitcher } from "~/app/_components/floating-language-switcher";
 
-export const metadata = {
-  title: `Request a tutor · ${APP_TITLE}`,
-};
+export async function generateMetadata() {
+  return brandingMetadata("Request a tutor");
+}
 
 // This page depends on both current database configuration and the wall clock at request time.
 export const dynamic = "force-dynamic";

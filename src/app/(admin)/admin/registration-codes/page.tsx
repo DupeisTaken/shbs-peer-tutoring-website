@@ -5,7 +5,7 @@ import { useEffect, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
-import { APP_TITLE } from "~/lib/branding";
+import { useBranding } from "~/app/_components/branding-provider";
 import { DisclosureIcon } from "~/app/_components/icons";
 import { useReadOnly } from "~/app/_components/read-only";
 
@@ -24,6 +24,7 @@ function ShareCard({
   registerUrl: string;
 }) {
   const programFormat = useFormatter();
+  const { APP_TITLE } = useBranding();
   const t = useTranslations();
   return (
     <div className="border-accent-200 mx-auto max-w-sm rounded-xl border bg-white p-5 text-center shadow-sm">

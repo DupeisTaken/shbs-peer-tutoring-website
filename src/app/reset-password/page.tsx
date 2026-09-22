@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
-import { APP_TITLE } from "~/lib/branding";
+import { brandingMetadata } from "~/server/branding-metadata";
 import { ResetPasswordForm } from "./reset-password-form";
 import { FloatingLanguageSwitcher } from "~/app/_components/floating-language-switcher";
 
-export const metadata = {
-  title: `Reset password · ${APP_TITLE}`,
-};
+export async function generateMetadata() {
+  return brandingMetadata("Reset password");
+}
 
 export default async function ResetPasswordPage({
   searchParams,
