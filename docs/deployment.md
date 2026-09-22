@@ -192,8 +192,10 @@ Transactional email — password-reset and tutor-setup links, emailed sign-in an
 send and failure). Until `EMAIL_FROM` + `SMTP_PASSWORD` are set the app logs mail in development
 and rejects production flows that require email. SMTP is optional for a first boot only if those
 flows remain unused; it is **required** for password resets, registration/viewer verification, and
-any emailed code. The `EMAIL_2FA` feature defaults off and cannot be enabled until delivery is
-configured.
+any emailed code. The `EMAIL_2FA` feature defaults on; users opt into sign-in 2FA in Settings.
+The same program feature requires an emailed verification code for password changes, regardless
+of personal sign-in 2FA enrollment. Enrollment and emailed-code flows require configured delivery
+in production. Explicitly saved program feature settings are preserved when upgrading.
 
 **Set it up in the Aliyun console** (https://dm.console.aliyun.com):
 

@@ -39,9 +39,11 @@ HEAD stages these switches in **Program & Refresh**. They take effect at the **n
 | Service hours (`SERVICE_HOURS`) | On | Enables service-hour views and related program controls |
 | Quarter system (`QUARTER_SYSTEM`) | On | On uses Q1–Q4; Off uses S1/S2. Applied mode controls intake and withdrawal wording |
 | Viewer signup (`VIEWER_SIGNUP`) | On | Allows public observer account registration; does not expand viewer permissions |
-| Email 2FA (`EMAIL_2FA`) | Off | Makes email two-factor functionality available; configure and test SMTP first |
+| Email 2FA (`EMAIL_2FA`) | On | Makes email two-factor functionality available; users opt into sign-in 2FA in Settings. Configure and test SMTP for production email flows |
 
 Switches control available pages and operations; they do not erase historical data. Turning off service-hour views does not stop attendance from recording calculated hours. See [feature implementation](../src/server/program/features.ts) and [refresh behavior](#refresh-the-program).
+
+When Email 2FA is on, password changes also require an emailed verification code, even if the user has not opted into sign-in 2FA. Configure working email delivery before relying on this flow in production.
 
 ## Other configurable behavior
 

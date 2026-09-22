@@ -45,7 +45,8 @@ create one. Use `npm run admin:create` for a seed-free initial account, followin
 [bootstrap instructions](deployment.md#create-the-first-admin-first-deploy).
 
 > **Email-based sign-in 2FA is implemented** and applies when the `EMAIL_2FA` program feature
-> and the user's 2FA preference are both enabled. Without SMTP configuration, development logs
+> (on by default) and the user's opt-in 2FA preference are both enabled. Existing saved feature
+> settings take precedence over defaults. Without SMTP configuration, development logs
 > the single-use code instead of sending it; see `src/server/auth/two-factor.ts`.
 
 ## 2. Get a database running

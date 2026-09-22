@@ -27,8 +27,8 @@ export type FeatureKey = (typeof FEATURE_KEYS)[number];
 export type Features = Record<FeatureKey, boolean>;
 
 /**
- * Defaults for an unconfigured deployment. Email 2FA is deliberately opt-in: enabling it before
- * SMTP is configured can lock a user out of an otherwise healthy installation.
+ * Defaults for an unconfigured deployment. Email 2FA is available by default; individual
+ * sign-in enrollment remains opt-in, and email flows still enforce delivery availability.
  */
 export const DEFAULT_FEATURES: Features = {
   CREW: true,
@@ -38,7 +38,7 @@ export const DEFAULT_FEATURES: Features = {
   SERVICE_HOURS: true,
   QUARTER_SYSTEM: true,
   VIEWER_SIGNUP: true,
-  EMAIL_2FA: false,
+  EMAIL_2FA: true,
 };
 
 /** Effective on/off for every module (missing row = its safe default). */
