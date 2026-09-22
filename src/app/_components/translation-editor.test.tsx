@@ -15,10 +15,15 @@ vi.mock("./translation-composer", () => ({
 vi.mock("./translation-review", () => ({
   TranslationReview: () => <div>draft-review</div>,
 }));
+vi.mock("./languages-panel", () => ({
+  LanguagesPanel: ({ canAdd }: { canAdd: boolean }) => (
+    <div>language-management{canAdd && <span>add-language</span>}</div>
+  ),
+}));
 import { TranslationEditor } from "./translation-editor";
 afterEach(cleanup);
 it.each(["ADMIN", "HEAD", "COORDINATOR"])(
-  "mounts review only for unassigned %s",
+  "defaults to review without mounting text editors for unassigned %s",
   (role) => {
     state.me = { role, canTranslate: false };
     render(<TranslationEditor />);
@@ -27,6 +32,38 @@ it.each(["ADMIN", "HEAD", "COORDINATOR"])(
     expect(screen.queryByRole("button", { name: "website" })).toBeNull();
   },
 );
+it.each(["ADMIN", "HEAD"])(
+  "lets unassigned %s manage languages independently",
+  (role) => {
+    state.me = { role, canTranslate: false };
+    render(<TranslationEditor />);
+    fireEvent.click(screen.getByRole("button", { name: "languagesHeading" }));
+    expect(screen.getByText("language-management")).toBeTruthy();
+    expect(screen.queryByText("string-editor")).toBeNull();
+    expect(screen.queryByText("website-editor")).toBeNull();
+    expect(screen.queryByText("add-language")).toBeNull();
+  },
+);
+it("does not expose language administration to an unassigned coordinator", () => {
+  state.me = { role: "COORDINATOR", canTranslate: false };
+  render(<TranslationEditor />);
+  expect(screen.queryByRole("button", { name: "languagesHeading" })).toBeNull();
+});
+it("keeps adding languages available to assigned translators", () => {
+  state.me = { role: "TUTOR", canTranslate: true };
+  render(<TranslationEditor />);
+  fireEvent.click(screen.getByRole("button", { name: "languagesHeading" }));
+  expect(screen.getByText("add-language")).toBeTruthy();
+});
+it("removes language administration after management rank is revoked", () => {
+  state.me = { role: "ADMIN", canTranslate: false };
+  const { rerender } = render(<TranslationEditor />);
+  fireEvent.click(screen.getByRole("button", { name: "languagesHeading" }));
+  state.me = { role: "COORDINATOR", canTranslate: false };
+  rerender(<TranslationEditor />);
+  expect(screen.queryByText("language-management")).toBeNull();
+  expect(screen.getByText("draft-review")).toBeTruthy();
+});
 it("keeps all three workflows in one assigned translator editor", () => {
   state.me = { role: "TUTOR", canTranslate: true };
   render(<TranslationEditor />);

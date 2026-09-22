@@ -4,11 +4,12 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { translationAccess } from "~/lib/translation-access";
+import { LanguagesPanel } from "./languages-panel";
 import { TranslationStrings } from "./translation-strings";
 import { TranslationComposer } from "./translation-composer";
 import { TranslationReview } from "./translation-review";
 
-type View = "strings" | "website" | "review";
+type View = "strings" | "website" | "review" | "languages";
 
 /** Mount only the selected editor: reviewers never issue translator-only content queries. */
 export function TranslationEditor({
@@ -17,10 +18,20 @@ export function TranslationEditor({
   initialView?: View;
 }) {
   const t = useTranslations("translationEditor");
+  const languageLabel = useTranslations("localization")("languagesHeading");
   const me = api.account.me.useQuery();
   const access = translationAccess(me.data);
   const [selected, setSelected] = useState<View>(initialView);
-  const view = access.edit ? selected : "review";
+  // Catalog administration is independent of permission to edit translation text.
+  const canOpenLanguages = access.publish || access.edit;
+  const view =
+    selected === "languages" && canOpenLanguages
+      ? "languages"
+      : access.edit && selected !== "languages"
+        ? selected
+        : "review";
+  const viewLabel = (tab: View) =>
+    tab === "languages" ? languageLabel : t(tab);
   if (me.isLoading) return <p role="status">{t("loading")}</p>;
   if (me.error) return <p role="alert">{me.error.message}</p>;
   if (!access.enter) return <p role="alert">{t("noAccess")}</p>;
@@ -46,6 +57,7 @@ export function TranslationEditor({
           [
             ...(access.edit ? (["strings", "website"] as const) : []),
             "review",
+            ...(canOpenLanguages ? (["languages"] as const) : []),
           ] as const
         ).map((tab) => (
           <button
@@ -56,12 +68,14 @@ export function TranslationEditor({
             className={view === tab ? "btn-primary" : "btn-secondary"}
             onClick={() => setSelected(tab)}
           >
-            {t(tab)}
+            {viewLabel(tab)}
           </button>
         ))}
       </nav>
-      <section id="translation-panel" aria-label={t(view)}>
-        {view === "strings" ? (
+      <section id="translation-panel" aria-label={viewLabel(view)}>
+        {view === "languages" ? (
+          <LanguagesPanel canAdd={access.edit} />
+        ) : view === "strings" ? (
           <TranslationStrings />
         ) : view === "website" ? (
           <TranslationComposer />

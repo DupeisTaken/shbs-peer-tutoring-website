@@ -52,6 +52,111 @@ afterAll(async () => {
 });
 
 describe("language publishing", () => {
+  it.each(["ADMIN", "HEAD"] as const)(
+    "allows unassigned %s to manage visibility and order without text editing",
+    async (role) => {
+      await db.user.update({
+        where: { id: adminSession.user.id },
+        data: { role, canTranslate: false },
+      });
+      await db.language.create({
+        data: {
+          code: LANGUAGE,
+          label: "Test Language",
+          enabled: false,
+          builtIn: false,
+          sortOrder: 2000,
+        },
+      });
+      expect(await admin().i18n.canManageLanguages()).toBe(true);
+      expect(
+        (await admin().i18n.managedLanguages()).some(
+          (l) => l.code === LANGUAGE,
+        ),
+      ).toBe(true);
+      await admin().i18n.setLanguageEnabled({ code: LANGUAGE, enabled: true });
+      await admin().i18n.reorderLanguages({ codes: [LANGUAGE] });
+      expect(
+        await db.language.findUnique({ where: { code: LANGUAGE } }),
+      ).toMatchObject({ enabled: true, sortOrder: 0 });
+      expect(
+        (await publicCaller().i18n.languages()).some(
+          (l) => l.code === LANGUAGE,
+        ),
+      ).toBe(true);
+      await admin().i18n.setLanguageEnabled({ code: LANGUAGE, enabled: false });
+      expect(
+        (await publicCaller().i18n.languages()).some(
+          (l) => l.code === LANGUAGE,
+        ),
+      ).toBe(false);
+      await expect(
+        admin().localization.strings({ locale: "zh" }),
+      ).rejects.toMatchObject({ code: "FORBIDDEN" });
+      await expect(
+        admin().i18n.addLanguage({ code: "zx", label: "Restricted" }),
+      ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    },
+  );
+
+  it.each(["COORDINATOR", "TUTOR", "STUDENT", "VIEWER"] as const)(
+    "rejects catalog access and mutations after demotion to unassigned %s",
+    async (role) => {
+      // Keep the ADMIN session deliberately stale: live account permissions must win.
+      await db.user.update({
+        where: { id: adminSession.user.id },
+        data: { role, canTranslate: false },
+      });
+      await expect(admin().i18n.managedLanguages()).rejects.toMatchObject({
+        code: "FORBIDDEN",
+      });
+      await expect(admin().i18n.canManageLanguages()).rejects.toMatchObject({
+        code: "FORBIDDEN",
+      });
+      await expect(
+        admin().i18n.setLanguageEnabled({ code: "zh", enabled: false }),
+      ).rejects.toMatchObject({ code: "FORBIDDEN" });
+      await expect(
+        admin().i18n.reorderLanguages({ codes: ["zh", "en"] }),
+      ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    },
+  );
+
+  it("lets assigned translators read hidden languages but not manage them", async () => {
+    await db.user.update({
+      where: { id: adminSession.user.id },
+      data: { role: "TUTOR", canTranslate: true },
+    });
+    expect((await admin().i18n.managedLanguages()).length).toBeGreaterThan(0);
+    expect(await admin().i18n.canManageLanguages()).toBe(false);
+    await expect(
+      admin().i18n.setLanguageEnabled({ code: "zh", enabled: false }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    await expect(
+      admin().i18n.reorderLanguages({ codes: ["zh", "en"] }),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+  });
+
+  it("rejects anonymous and suspended catalog requests", async () => {
+    await expect(publicCaller().i18n.managedLanguages()).rejects.toMatchObject({
+      code: "UNAUTHORIZED",
+    });
+    await db.user.update({
+      where: { id: adminSession.user.id },
+      data: { suspendedAt: new Date() },
+    });
+    try {
+      await expect(admin().i18n.managedLanguages()).rejects.toMatchObject({
+        code: "FORBIDDEN",
+      });
+    } finally {
+      await db.user.update({
+        where: { id: adminSession.user.id },
+        data: { suspendedAt: null },
+      });
+    }
+  });
+
   it("keeps a newly added language hidden until a manager enables it", async () => {
     await admin().i18n.addLanguage({ code: LANGUAGE, label: "Test Language" });
 
