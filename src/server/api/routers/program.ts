@@ -251,56 +251,83 @@ export const programRouter = createTRPCRouter({
     EMAIL_DELIVERY_AVAILABLE: isEmailDeliveryAvailable(),
   })),
 
-  /** Save the active quarter's tutee-signup opening time and optional preview sheet. This takes
-   *  effect immediately; the public mutation independently enforces the timestamp. */
+  /** Immediate, independent intake settings; serialize with submissions and period refresh. */
   setSignupWindow: adminOnlyProcedure
     .input(
       z
         .object({
+          audience: z.enum(["tutor", "tutee"]).default("tutee"),
+          expectedTermId: z.string().optional(),
+          enabled: z.boolean().optional(),
           opensAt: z.date().nullable(),
+          closesAt: z.date().nullable().optional(),
           previewUrl: httpUrl.nullable(),
         })
         .superRefine((value, ctx) => {
-          if (value.opensAt && !value.previewUrl) {
+          if (
+            value.opensAt &&
+            value.closesAt &&
+            value.closesAt <= value.opensAt
+          )
             ctx.addIssue({
               code: z.ZodIssueCode.custom,
-              path: ["previewUrl"],
-              message:
-                "A preview sheet link is required while signups are scheduled.",
+              path: ["closesAt"],
+              message: "Closing time must be after opening time.",
             });
-          }
         }),
     )
     .mutation(async ({ ctx, input }) => {
-      const active = await ctx.db.term.findFirst({
-        where: { active: true },
-        orderBy: { createdAt: "desc" },
-        select: { id: true, quarter: true },
-      });
-      if (!active) {
-        throw new TRPCError({
-          code: "PRECONDITION_FAILED",
-          message: "No active program period. Create or seed one first.",
+      const updated = await inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, "program:period");
+        const active = await tx.term.findFirst({
+          where: { active: true },
+          orderBy: { createdAt: "desc" },
         });
-      }
-
-      const updated = await ctx.db.term.update({
-        where: { id: active.id },
-        data: {
-          signupOpensAt: input.opensAt,
-          signupPreviewUrl: input.previewUrl,
-        },
-        select: { signupOpensAt: true, signupPreviewUrl: true },
+        if (!active)
+          throw new TRPCError({
+            code: "PRECONDITION_FAILED",
+            message: "Create an active program period first.",
+          });
+        if (input.expectedTermId && active.id !== input.expectedTermId)
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "The program period changed. Reload before saving.",
+          });
+        const tutor = input.audience === "tutor";
+        const closesAt =
+          input.closesAt === undefined
+            ? tutor
+              ? active.tutorSignupClosesAt
+              : active.signupClosesAt
+            : input.closesAt;
+        if (input.opensAt && closesAt && closesAt <= input.opensAt)
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Closing time must be after opening time.",
+          });
+        return tx.term.update({
+          where: { id: active.id },
+          data: tutor
+            ? {
+                tutorSignupEnabled: input.enabled,
+                tutorSignupOpensAt: input.opensAt,
+                tutorSignupClosesAt: input.closesAt,
+                tutorSignupPreviewUrl: input.previewUrl,
+              }
+            : {
+                signupEnabled: input.enabled,
+                signupOpensAt: input.opensAt,
+                signupClosesAt: input.closesAt,
+                signupPreviewUrl: input.previewUrl,
+              },
+        });
       });
-      const openingDescription = input.opensAt
-        ? `at ${input.opensAt.toISOString()}`
-        : "immediately";
       await recordAudit({
         userId: ctx.session.user.id,
         userName: ctx.session.user.name,
-        action: `Set ${active.quarter} tutee signups to open ${openingDescription}`,
+        action: `Updated ${input.audience} recruitment window`,
         entity: "Term",
-        entityId: active.id,
+        entityId: updated.id,
       });
       return updated;
     }),

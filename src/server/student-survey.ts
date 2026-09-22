@@ -17,7 +17,7 @@ import {
 } from "~/server/transactions";
 import { currentPolicy } from "~/server/policy-acceptance";
 import { retainStudentOwnership } from "./student-ownership";
-import { isSignupWindowOpen } from "~/lib/signup-window";
+import { recruitmentStatus, recruitmentWindow } from "~/lib/recruitment";
 import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
 import { hashPassword } from "~/server/auth/password";
 import { expireStudentRequests } from "./student-request-state";
@@ -150,10 +150,11 @@ export async function submitSurvey(
     await lockEntity(tx, `student-survey:${input.email}`);
     await lockEntity(tx, "policy:tutee-policy");
     const term = await activeIntake(tx);
-    if (!term || !isSignupWindowOpen(term.signupOpensAt))
+    if (!term || recruitmentStatus(recruitmentWindow(term, "tutee")) !== "open")
       throw new TRPCError({
         code: "PRECONDITION_FAILED",
-        message: "Tutee signups have not opened yet.",
+        message:
+          "Tutee recruitment is currently closed. You can still preview the form.",
       });
     const account = await tx.user.findUnique({
       where: { email: input.email },

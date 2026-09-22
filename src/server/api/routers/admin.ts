@@ -51,7 +51,7 @@ import {
   viewerProcedure,
 } from "~/server/api/trpc";
 import { monthKey, shCount } from "~/lib/service-hours";
-import { isSignupWindowOpen } from "~/lib/signup-window";
+import { recruitmentStatus, recruitmentWindow } from "~/lib/recruitment";
 import {
   defaultUsername,
   ensureUniqueUsername,
@@ -870,9 +870,10 @@ export const adminRouter = createTRPCRouter({
       quarter: active.quarter,
       semester: active.semester,
       name: curSemester ? periodLabel(from, true) : active.name,
+      recruitment: { tutor: recruitmentWindow(active, "tutor"), tutee: recruitmentWindow(active, "tutee") },
       signupOpensAt: active.signupOpensAt,
       signupPreviewUrl: active.signupPreviewUrl,
-      signupIsOpen: isSignupWindowOpen(active.signupOpensAt),
+      signupIsOpen: recruitmentStatus(recruitmentWindow(active, "tutee")) === "open",
       next: {
         schoolYear: np.schoolYear,
         quarter: np.quarter,

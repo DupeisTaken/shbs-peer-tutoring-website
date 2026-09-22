@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock("next-intl", () => ({
   useLocale: () => "en",
+  useTimeZone: () => "Asia/Shanghai",
   useTranslations: () => (key: string) => key,
 }));
 vi.mock("~/trpc/react", () => ({
@@ -83,10 +84,12 @@ it.each(["subjects", "policy"])(
       mocks.options.mockReturnValue({ data: { subjects: [] } });
     else mocks.policy.mockReturnValue({ data: null });
     render(<TutorSignupForm />);
-    expect(screen.getByRole("status").textContent).toContain("unavailable");
+    expect(screen.getByRole("status").textContent).toContain("setup");
     expect(
-      screen.queryByRole("button", { name: "public.tutorSignup.submit" }),
-    ).toBeNull();
+      screen
+        .getByRole("button", { name: "public.tutorSignup.submit" })
+        .matches(":disabled"),
+    ).toBe(true);
   },
 );
 it("renders a ready form but requires explicit input before submission", () => {
@@ -202,3 +205,36 @@ it("uses the server's runtime title in policy consent", () => {
     screen.getByLabelText("Accept policy").getAttribute("data-app-title"),
   ).toBe("Runtime Campus");
 });
+
+it.each(["paused", "scheduled", "ended"])(
+  "keeps %s recruitment visible but prevents every response edit and direct form submit",
+  (state) => {
+    const existing = mocks.options() as {data: Record<string, unknown>};
+    mocks.options.mockReturnValue({
+      ...existing,
+      data: {
+        ...existing.data,
+        recruitment: {
+          enabled: state !== "paused",
+          opensAt: state === "scheduled" ? new Date(Date.now() + 60000) : null,
+          closesAt: state === "ended" ? new Date(Date.now() - 60000) : null,
+          previewUrl: null,
+          serverNow: new Date().toISOString(),
+        },
+      },
+    });
+    const { container } = render(<TutorSignupForm />);
+    expect(screen.getByRole("status").textContent).toContain(state);
+    expect(
+      container.querySelectorAll("form input, form select, form textarea")
+        .length,
+    ).toBeGreaterThan(0);
+    for (const input of container.querySelectorAll(
+      "form input, form select, form textarea",
+    ))
+      expect(input.matches(":disabled")).toBe(true);
+    fireEvent.submit(container.querySelector("form")!);
+    expect(mocks.mutate).not.toHaveBeenCalled();
+    expect(screen.getByText("Tutor policy").closest("details")).toBeTruthy();
+  },
+);

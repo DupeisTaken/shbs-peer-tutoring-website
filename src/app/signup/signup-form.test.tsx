@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock("next-intl", () => ({
   useLocale: () => "en",
+  useTimeZone: () => "Asia/Shanghai",
   useTranslations: () => (key: string) => key,
 }));
 vi.mock("~/trpc/react", () => ({
@@ -85,8 +86,12 @@ it.each(["subjects", "slots", "policy"])(
         },
       });
     render(<SignupForm />);
-    expect(screen.getByRole("status").textContent).toContain("unavailable");
-    expect(screen.queryByRole("textbox")).toBeNull();
+    expect(screen.getByRole("status").textContent).toContain("setup");
+    expect(
+      screen
+        .getAllByRole("textbox")
+        .every((input) => input.matches(":disabled")),
+    ).toBe(true);
   },
 );
 it("shows a ready request form with submission disabled until completed", () => {
@@ -189,3 +194,36 @@ it("uses the server's runtime title in policy consent", () => {
     screen.getByLabelText("Accept policy").getAttribute("data-app-title"),
   ).toBe("Runtime Campus");
 });
+
+it.each(["paused", "scheduled", "ended"])(
+  "keeps %s recruitment visible but prevents every response edit and direct form submit",
+  (state) => {
+    const existing = mocks.options() as {data: Record<string, unknown>};
+    mocks.options.mockReturnValue({
+      ...existing,
+      data: {
+        ...existing.data,
+        recruitment: {
+          enabled: state !== "paused",
+          opensAt: state === "scheduled" ? new Date(Date.now() + 60000) : null,
+          closesAt: state === "ended" ? new Date(Date.now() - 60000) : null,
+          previewUrl: null,
+          serverNow: new Date().toISOString(),
+        },
+      },
+    });
+    const { container } = render(<SignupForm />);
+    expect(screen.getByRole("status").textContent).toContain(state);
+    expect(
+      container.querySelectorAll("form input, form select, form textarea")
+        .length,
+    ).toBeGreaterThan(0);
+    for (const input of container.querySelectorAll(
+      "form input, form select, form textarea",
+    ))
+      expect(input.matches(":disabled")).toBe(true);
+    fireEvent.submit(container.querySelector("form")!);
+    expect(mocks.mutate).not.toHaveBeenCalled();
+    expect(screen.getByText("Policy").closest("details")).toBeTruthy();
+  },
+);

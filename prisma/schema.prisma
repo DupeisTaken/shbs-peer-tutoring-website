@@ -393,6 +393,13 @@ model Term {
   endDate    DateTime?
   /// Optional public tutee-signup gate. Null means signups are open immediately.
   signupOpensAt DateTime?
+  /// Independent recruitment switches and optional exclusive closing times.
+  signupEnabled Boolean @default(true)
+  signupClosesAt DateTime?
+  tutorSignupEnabled Boolean @default(true)
+  tutorSignupOpensAt DateTime?
+  tutorSignupClosesAt DateTime?
+  tutorSignupPreviewUrl String?
   /// Optional read-only sheet applicants can preview while the signup gate is closed.
   signupPreviewUrl String?
   active     Boolean        @default(false)

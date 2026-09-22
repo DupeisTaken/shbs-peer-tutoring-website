@@ -342,3 +342,9 @@ Complete these checks on the actual host after bootstrap or an update:
 6. Restore a backup into a separate database and confirm usable records. Check backup retention and off-host copies.
 
 A successful build or published GHCR image does not verify target-host TLS, persistence, delivery or restore readiness. Use current CI results for code verification and record operational evidence privately.
+
+### Public application forms show a loading error
+
+On a fresh deployment, inspect the public `tutee.signupOptions`, `application.options`, `tutee.surveyPolicy`, and `application.policy` requests. Before the recruitment-preview fix, an unpublished English policy returned HTTP 412 and appeared as a generic “could not load” error. Empty subjects or required tutee slots are separate setup gaps. Retrying or restarting does not create this configuration.
+
+Apply migration `20260922140000_recruitment_windows` with the release, regenerate the Prisma client when running from source, and restart the app. The updated public policy reads return an explicit absent-policy state; forms render a read-only preview with the missing prerequisites listed. Database/network failures still surface as loading errors. Use **Policy Documents**, **Subjects & Levels**, **Time Slots**, and the separate recruitment panels in **Program & Refresh** to complete setup. Publish reviewed school policy content; do not seed demo data in production. Verify both public forms before and after their configured opening/closing boundaries.

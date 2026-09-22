@@ -313,3 +313,7 @@ Program secondary-email binding settings do not disable the required sign-in ema
 ### Reviewing your own management requests
 
 Admin and Head can review eligible ordinary Management Actions. Only the current active Head can review role/badge changes or their own pending requests. Other reviewers cannot decide their own requests, including after promotion to Admin. Current database permissions apply after promotion, demotion or suspension. Head self-review preserves required notes, consequence confirmations, stale-record checks and atomic application; requester and reviewer audit identities remain recorded even when they match. This exception applies to Management Actions, not participant interview voting or qualification decisions.
+
+### Previewing applications outside recruitment
+
+The tutor application and tutee request are separate forms with separate recruitment periods. When a period has not started, has ended, is paused, or is awaiting setup, you can still read the questions and any published policy. The response fields and submission button are disabled. Return when recruitment opens to complete your application. Any additional sheet link is supplied by the team for viewing; it is not a list of other participants' responses.
