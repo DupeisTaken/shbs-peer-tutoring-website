@@ -22,7 +22,9 @@ import {
  * Node runtime only (touches the database + Node crypto).
  */
 import { createHmac } from "crypto";
+import { isManagementCode, type RegistrationKind } from "~/lib/registration-kind";
 import { TRPCError } from "@trpc/server";
+import { inTransaction, type DomainDb } from "~/server/transactions";
 import type { TransactionDb } from "~/server/transactions";
 
 import { env } from "~/env";
@@ -69,8 +71,8 @@ export interface IssueCodeOptions {
   label?: string | null;
   issuedById?: string | null;
   issuedByName?: string | null;
-  /** TUTOR (default) creates a tutor login; CREW creates a crew-only login. */
-  kind?: "TUTOR" | "CREW";
+  /** Participation codes create Tutor/Crew access; management kinds create only their rank. */
+  kind?: RegistrationKind;
 }
 
 /**
@@ -79,8 +81,25 @@ export interface IssueCodeOptions {
  */
 export async function issueRegistrationCode(
   opts: IssueCodeOptions,
-  client: TransactionDb = db,
+  client: DomainDb = db,
 ): Promise<{ id: string; code: string; expiresAt: Date }> {
+  // Management invitations are durable Head authorization. Check the issuer even
+  // when called outside the admin router, and never attach participation records.
+  if (isManagementCode(opts.kind ?? "TUTOR")) {
+    return inTransaction(client, async (tx) => {
+      if (opts.issuedById) await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${opts.issuedById} FOR SHARE`;
+      const issuer = opts.issuedById ? await tx.user.findUnique({ where: { id: opts.issuedById } }) : null;
+      if (issuer?.role !== "HEAD" || issuer.suspendedAt)
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only Head may issue management invitations." });
+      if (opts.tutorId || opts.applicationId || opts.crewApplicationId)
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Management invitations cannot grant participation." });
+      return createRegistrationCode(opts, tx);
+    });
+  }
+  return createRegistrationCode(opts, client);
+}
+
+async function createRegistrationCode(opts: IssueCodeOptions, client: DomainDb) {
   const expiresAt = new Date(Date.now() + CODE_TTL_DAYS * 24 * 60 * 60 * 1000);
   const email = opts.email?.trim() ? opts.email.trim().toLowerCase() : null;
   for (let attempt = 0; attempt < 5; attempt++) {
@@ -336,6 +355,33 @@ export async function completeRegistration(
   if (existingUser?.role === "VIEWER") return { ok: false, error: "email-taken" };
 
   const passwordHash = hashPassword(input.password);
+
+  // Elevated codes only create new accounts. Existing primary/secondary email owners
+  // must use Head's profile workflow; redemption never resets credentials or ranks.
+  if (isManagementCode(row.kind)) {
+    const role = row.kind;
+    return db.$transaction(async (tx) => {
+      await tx.$executeRaw`LOCK TABLE "User", "AccountEmail", "Tutor" IN SHARE ROW EXCLUSIVE MODE`;
+      const owner = await tx.user.findFirst({ where: { OR: [
+        { email: { equals: email, mode: "insensitive" } },
+        { emails: { some: { email: { equals: email, mode: "insensitive" } } } },
+      ] } });
+      if (owner) return { ok: false as const, error: "email-taken" as const };
+      await claimRegistration(tx, row);
+      const username = await ensureUniqueUsername(defaultUsername(firstName, lastName, gradYear), {}, tx);
+      const user = await tx.user.create({ data: {
+        email, username, name: `${firstName} ${lastName}`, alternativeNames, role, gradeLevel,
+        passwordHash, emailVerifiedAt: new Date(), mustChangePassword: false,
+      } });
+      await tx.registrationCode.update({ where: { id: row.id }, data: { usedByUserId: user.id } });
+      await tx.auditLog.create({ data: {
+        userId: user.id, userName: user.name, entity: "RegistrationCode", entityId: row.id,
+        operation: "registration.complete", kind: "ACTION", action: `Redeemed ${role} registration code`,
+        details: { role, issuedById: row.issuedById, recipientId: user.id },
+      } });
+      return { ok: true as const, username };
+    });
+  }
 
   // ---- Crew-only registration (no Tutor) -----------------------------------
   if (row.kind === "CREW") {

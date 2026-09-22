@@ -1,4 +1,5 @@
 "use client";
+import { REGISTRATION_KINDS, registrationKindLabel, type RegistrationKind } from "~/lib/registration-kind";
 import { EmailDetails } from "~/app/_components/email-details";
 
 import { useEffect, useState } from "react";
@@ -18,10 +19,12 @@ function ShareCard({
   code,
   expiresAt,
   registerUrl,
+  kind,
 }: {
   code: string;
   expiresAt: Date;
   registerUrl: string;
+  kind: RegistrationKind;
 }) {
   const programFormat = useFormatter();
   const t = useTranslations();
@@ -31,6 +34,7 @@ function ShareCard({
         {t("admin.registrationCodes.share.heading", { appTitle: APP_TITLE })}
       </p>
 
+      <p className="mt-2 font-semibold text-slate-700">{t(`admin.registrationCodes.${registrationKindLabel[kind]}`)}</p>
       {/* The code box — two centered lines: label + digits (same dashed-green scheme). */}
       <div className="mt-3 inline-block rounded-lg border-2 border-dashed border-green-300 bg-green-50 px-6 py-3 text-center">
         <p className="text-xs font-semibold tracking-wide text-green-700 uppercase">
@@ -70,12 +74,13 @@ export default function RegistrationCodesPage() {
 
   const [email, setEmail] = useState("");
   const [label, setLabel] = useState("");
-  const [kind, setKind] = useState<"TUTOR" | "CREW">("TUTOR");
+  const [kind, setKind] = useState<RegistrationKind>("TUTOR");
   const [issued, setIssued] = useState<{
     code: string;
     label: string | null;
     email: string | null;
     expiresAt: Date;
+    kind: RegistrationKind;
   } | null>(null);
   const [expandedId, setExpandedId] = useState<string | null>(null);
   // Site origin (client-only) for the full /register URL shown to tutors.
@@ -88,6 +93,7 @@ export default function RegistrationCodesPage() {
     onSuccess: async (data) => {
       setIssued({
         code: data.code,
+        kind: data.kind,
         label: label.trim() || email.trim() || null,
         email: email.trim() || null,
         expiresAt: data.expiresAt,
@@ -113,6 +119,7 @@ export default function RegistrationCodesPage() {
       <div>
         <h1 className="page-title">{t("admin.registrationCodes.title")}</h1>
         <p className="muted mt-1">{t("admin.registrationCodes.help")}</p>
+        <p className="muted mt-2 text-sm">{t("admin.registrationCodes.managementHelp")}</p>
       </div>
 
       {!readOnly && (
@@ -128,20 +135,16 @@ export default function RegistrationCodesPage() {
           }}
         >
           <div>
-            <label className="label">
+            <label className="label" htmlFor="invite-kind">
               {t("admin.registrationCodes.kindField")}
             </label>
             <select
+              id="invite-kind"
               value={kind}
-              onChange={(e) => setKind(e.target.value as "TUTOR" | "CREW")}
+              onChange={(e) => setKind(e.target.value as RegistrationKind)}
               className="select field-auto min-w-32"
             >
-              <option value="TUTOR">
-                {t("admin.registrationCodes.kindTutor")}
-              </option>
-              <option value="CREW">
-                {t("admin.registrationCodes.kindCrew")}
-              </option>
+              {REGISTRATION_KINDS.map((value) => <option key={value} value={value}>{t(`admin.registrationCodes.${registrationKindLabel[value]}`)}</option>)}
             </select>
           </div>
           <div>
@@ -186,6 +189,7 @@ export default function RegistrationCodesPage() {
           </p>
           <ShareCard
             code={issued.code}
+            kind={issued.kind}
             expiresAt={issued.expiresAt}
             registerUrl={registerUrl}
           />
@@ -234,11 +238,7 @@ export default function RegistrationCodesPage() {
                       <span className={`${statusBadge(c.status)} ml-2`}>
                         {t(`admin.registrationCodes.status.${c.status}`)}
                       </span>
-                      {c.kind === "CREW" && (
-                        <span className="badge-slate ml-2">
-                          {t("admin.registrationCodes.kindCrew")}
-                        </span>
-                      )}
+                      <span className="badge-slate ml-2">{t(`admin.registrationCodes.${registrationKindLabel[c.kind]}`)}</span>
                     </p>
                   </div>
                 </div>
@@ -289,6 +289,7 @@ export default function RegistrationCodesPage() {
                   {c.code && c.status === "active" ? (
                     <ShareCard
                       code={c.code}
+                      kind={c.kind}
                       expiresAt={c.expiresAt}
                       registerUrl={registerUrl}
                     />

@@ -237,6 +237,7 @@
       "saving": "Saving…"
     },
     "register": {
+      "grantedRole": "Account role: {role}",
       "title": "Create Your Account",
       "subtitle": "Use the security key an admin gave you.",
       "backToSignIn": "← Back to Sign In",
@@ -838,8 +839,11 @@
       }
     },
     "registrationCodes": {
+      "kindAdmin": "Admin",
+      "kindCoordinator": "Coordinator",
+      "managementHelp": "Head authorizes every role invitation. Other staff submit requests for Head approval. Only Head can view or share management codes. Admin/Coordinator codes create a new management-only account; for existing accounts, ask Head to edit roles in Users & Roles.",
       "title": "Registration Codes",
-      "help": "Issue a single-use security key for a new tutor or crew member to self-register. The code is stored for administration and can be re-viewed while active. Share it only with the intended recipient; it expires after 7 days and cannot be used after redemption or revocation.",
+      "help": "Issue a single-use security key for a new account. Codes can be viewed again while active. Share only with the intended recipient; codes expire after 7 days and cannot be used after redemption or revocation.",
       "labelField": "For (Label)",
       "labelPlaceholder": "e.g. Jane Doe (G11)",
       "emailField": "Bind to Email (Optional)",

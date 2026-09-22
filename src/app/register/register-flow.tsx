@@ -4,6 +4,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 
+import { registrationKindLabel, type RegistrationKind } from "~/lib/registration-kind";
 import { api } from "~/trpc/react";
 
 type Step = "code" | "email" | "emailCode" | "profile" | "done";
@@ -15,6 +16,7 @@ type Step = "code" | "email" | "emailCode" | "profile" | "done";
  */
 export function RegisterFlow() {
   const t = useTranslations();
+  const [kind, setKind] = useState<RegistrationKind | null>(null);
   const [step, setStep] = useState<Step>("code");
 
   // Collected across steps.
@@ -32,6 +34,7 @@ export function RegisterFlow() {
 
   const check = api.registration.check.useMutation({
     onSuccess: (data) => {
+      setKind(data.kind);
       setBoundEmail(data.boundEmail);
       if (data.boundEmail) setEmail(data.boundEmail);
       if (data.firstName) setFirstName(data.firstName);
@@ -58,6 +61,7 @@ export function RegisterFlow() {
 
   return (
     <div className="space-y-4">
+      {kind && <p className="rounded-lg bg-slate-50 p-3 text-sm font-semibold">{t("auth.register.grantedRole", { role: t(`admin.registrationCodes.${registrationKindLabel[kind]}`) })}</p>}
       {/* Step 1 — security key */}
       {step === "code" && (
         <form

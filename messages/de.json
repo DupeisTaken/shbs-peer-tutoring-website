@@ -237,6 +237,7 @@
       "saving": "Wird gespeichert…"
     },
     "register": {
+      "grantedRole": "Kontorolle: {role}",
       "title": "Konto erstellen",
       "subtitle": "Verwenden Sie den Sicherheitsschlüssel, den Ihnen ein Admin gegeben hat.",
       "backToSignIn": "← Zurück zur Anmeldung",
@@ -838,8 +839,11 @@
       }
     },
     "registrationCodes": {
+      "kindAdmin": "Admin",
+      "kindCoordinator": "Koordinator",
+      "managementHelp": "Head genehmigt alle Rolleneinladungen. Andere Mitarbeitende reichen Anträge zur Genehmigung ein. Nur Head kann Verwaltungscodes sehen und teilen. Diese erstellen neue Konten ausschließlich für die Verwaltung. Bestehende Rollen ändert Head unter Benutzer und Rollen.",
       "title": "Registrierungscodes",
-      "help": "Stellen Sie einen Einmal-Sicherheitsschlüssel aus, mit dem sich ein neuer Tutor oder ein Rundgang-Mitglied selbst registriert. Der Code wird zur Verwaltung gespeichert und kann angezeigt werden, solange er aktiv ist. Teilen Sie ihn nur mit dem vorgesehenen Empfänger; er läuft nach 7 Tagen ab und kann nach Einlösung oder Widerruf nicht mehr verwendet werden.",
+      "help": "Erstelle einen einmaligen Sicherheitsschlüssel für ein neues Konto. Aktive Codes können erneut angezeigt werden. Teile ihn nur mit der vorgesehenen Person; er verfällt nach 7 Tagen und ist nach Einlösung oder Widerruf ungültig.",
       "labelField": "Für (Bezeichnung)",
       "labelPlaceholder": "z. B. Jane Doe (G11)",
       "emailField": "An E-Mail binden (optional)",
