@@ -2,15 +2,15 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
+import { brandingMetadata } from "~/server/branding-metadata";
 import { CrewSignupForm } from "./crew-signup-form";
-import { APP_TITLE } from "~/lib/branding";
 import { FloatingLanguageSwitcher } from "~/app/_components/floating-language-switcher";
 import { db } from "~/server/db";
 import { getFeatures } from "~/server/program/features";
 
-export const metadata = {
-  title: `Join the crew · ${APP_TITLE}`,
-};
+export async function generateMetadata() {
+  return brandingMetadata("Join the crew");
+}
 
 export default async function CrewSignupPage() {
   // Crew module off -> no public crew application.

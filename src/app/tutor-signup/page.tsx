@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
+import { brandingMetadata } from "~/server/branding-metadata";
 import { TutorSignupForm } from "./tutor-signup-form";
-import { APP_TITLE } from "~/lib/branding";
 import { FloatingLanguageSwitcher } from "~/app/_components/floating-language-switcher";
 
-export const metadata = {
-  title: `Become a tutor · ${APP_TITLE}`,
-};
+export async function generateMetadata() {
+  return brandingMetadata("Become a tutor");
+}
 
 export default async function TutorSignupPage() {
   const t = await getTranslations();

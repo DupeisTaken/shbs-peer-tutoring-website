@@ -7,12 +7,20 @@ export const env = createEnv({
    * isn't built with invalid env vars.
    */
   server: {
+    // Runtime branding: defaults and the browser-safe allowlist live in branding-config.ts.
+    APP_TITLE: z.string().optional(),
+    TEAM_TITLE: z.string().optional(),
+    ORG_NAME: z.string().optional(),
+    SUPPORT_EMAIL: z.string().optional(),
+    PROGRAM_TERM_LABEL: z.string().optional(),
     // Keys the session JWT and the HMAC that hashes every emailed OTP / registration
     // email-code (see src/server/auth/registration.ts `secret()`). A weak or missing value
     // makes those hashes forgeable, so production startup fails rather than running without it.
     AUTH_SECRET:
       process.env.NODE_ENV === "production"
-        ? z.string().min(32, "AUTH_SECRET must be at least 32 characters in production")
+        ? z
+            .string()
+            .min(32, "AUTH_SECRET must be at least 32 characters in production")
         : z.string().optional(),
     // Optional: comma-separated emails granted ADMIN on sign-in (bootstrap, no DB editing).
     AUTH_BOOTSTRAP_ADMIN_EMAILS: z.string().optional(),
@@ -42,25 +50,8 @@ export const env = createEnv({
       .default("development"),
   },
 
-  /**
-   * Specify your client-side environment variables schema here. This way you can ensure the app
-   * isn't built with invalid env vars. To expose them to the client, prefix them with
-   * `NEXT_PUBLIC_`.
-   */
-  client: {
-    // Display titles (branding). Override in .env to rebrand without code changes;
-    // see src/lib/branding.ts. Public title is used everywhere students see the app;
-    // team title brands the tutor/coordinator/admin management area.
-    NEXT_PUBLIC_APP_TITLE: z.string().min(1).default("SHBS Peer Tutoring"),
-    NEXT_PUBLIC_TEAM_TITLE: z.string().min(1).default("SHBS Peer Tutoring Team"),
-    // Optional program identity labels (white-labeling). Empty = fall back in src/lib/branding.ts.
-    // Organization / school name (letterhead, emails, footer); distinct from the app title.
-    NEXT_PUBLIC_ORG_NAME: z.string().default(""),
-    // Public support/contact address shown in footers + help text.
-    NEXT_PUBLIC_SUPPORT_EMAIL: z.string().default(""),
-    // Display label for the program season/year, e.g. "2025–26" (headings + reports).
-    NEXT_PUBLIC_PROGRAM_TERM_LABEL: z.string().default(""),
-  },
+  // Public branding is projected explicitly by the server, never bundled from env.
+  client: {},
 
   /**
    * You can't destruct `process.env` as a regular object in the Next.js edge runtimes (e.g.
@@ -78,11 +69,11 @@ export const env = createEnv({
     EMAIL_FROM_NAME: process.env.EMAIL_FROM_NAME,
     DATABASE_URL: process.env.DATABASE_URL,
     NODE_ENV: process.env.NODE_ENV,
-    NEXT_PUBLIC_APP_TITLE: process.env.NEXT_PUBLIC_APP_TITLE,
-    NEXT_PUBLIC_TEAM_TITLE: process.env.NEXT_PUBLIC_TEAM_TITLE,
-    NEXT_PUBLIC_ORG_NAME: process.env.NEXT_PUBLIC_ORG_NAME,
-    NEXT_PUBLIC_SUPPORT_EMAIL: process.env.NEXT_PUBLIC_SUPPORT_EMAIL,
-    NEXT_PUBLIC_PROGRAM_TERM_LABEL: process.env.NEXT_PUBLIC_PROGRAM_TERM_LABEL,
+    APP_TITLE: process.env.APP_TITLE,
+    TEAM_TITLE: process.env.TEAM_TITLE,
+    ORG_NAME: process.env.ORG_NAME,
+    SUPPORT_EMAIL: process.env.SUPPORT_EMAIL,
+    PROGRAM_TERM_LABEL: process.env.PROGRAM_TERM_LABEL,
   },
   /**
    * Run `build` or `dev` with `SKIP_ENV_VALIDATION` to skip env validation. This is especially

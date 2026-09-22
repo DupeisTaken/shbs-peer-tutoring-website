@@ -1,6 +1,7 @@
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
+import { brandingMetadata } from "~/server/branding-metadata";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { getFeatures } from "~/server/program/features";
@@ -9,9 +10,9 @@ import { APP_TITLE } from "~/lib/branding";
 import { OnboardingForm } from "./onboarding-form";
 import { FloatingLanguageSwitcher } from "~/app/_components/floating-language-switcher";
 
-export const metadata = {
-  title: `Confirm your email · ${APP_TITLE}`,
-};
+export async function generateMetadata() {
+  return brandingMetadata("Confirm your email");
+}
 
 /**
  * First-login gate. A signed-in tutor whose `emailVerifiedAt` is null lands here (routed

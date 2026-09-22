@@ -22,7 +22,8 @@ RUN apk add --no-cache libc6-compat openssl
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-# Env is validated at runtime, not build time.
+# Env is validated at runtime, not build time. Branding is read by the running server.
+# Never pass production secrets or branding as build arguments.
 ENV SKIP_ENV_VALIDATION=1
 RUN npx prisma generate
 RUN npm run build

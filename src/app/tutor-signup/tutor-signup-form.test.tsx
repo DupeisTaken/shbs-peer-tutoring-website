@@ -1,6 +1,8 @@
 // @vitest-environment jsdom
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { BrandingProvider } from "~/app/_components/branding-provider";
+import { resolveBranding } from "~/lib/branding-config";
 import { signupSettings } from "~/lib/signup-fields";
 import { TutorSignupForm } from "./tutor-signup-form";
 const mocks = vi.hoisted(() => ({
@@ -26,15 +28,18 @@ vi.mock("~/trpc/react", () => ({
 }));
 vi.mock("~/app/_components/policy-agreement", () => ({
   PolicyAgreement: ({
+    appTitle,
     checked,
     onChange,
   }: {
+    appTitle: string;
     checked: boolean;
     onChange: (value: boolean) => void;
   }) => (
     <input
       type="checkbox"
       aria-label="Accept policy"
+      data-app-title={appTitle}
       checked={checked}
       onChange={(event) => onChange(event.target.checked)}
     />
@@ -183,4 +188,17 @@ it("renders explicit required yes/no answers and conditional required details", 
       .getByLabelText(/public.tutorSignup.fields.grade/)
       .hasAttribute("required"),
   ).toBe(true);
+});
+
+it("uses the server's runtime title in policy consent", () => {
+  render(
+    <BrandingProvider
+      branding={resolveBranding({ APP_TITLE: "Runtime Campus" })}
+    >
+      <TutorSignupForm />
+    </BrandingProvider>,
+  );
+  expect(
+    screen.getByLabelText("Accept policy").getAttribute("data-app-title"),
+  ).toBe("Runtime Campus");
 });

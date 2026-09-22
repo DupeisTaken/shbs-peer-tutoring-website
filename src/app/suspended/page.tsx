@@ -1,13 +1,15 @@
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
+import { brandingMetadata } from "~/server/branding-metadata";
 import { auth } from "~/server/auth";
 import { api } from "~/trpc/server";
 import { SignOutButton } from "~/app/_components/sign-out-button";
 import { SuspendedAppeal } from "./appeal-form";
-import { APP_TITLE } from "~/lib/branding";
 
-export const metadata = { title: `Account suspended · ${APP_TITLE}` };
+export async function generateMetadata() {
+  return brandingMetadata("Account suspended");
+}
 
 /** Shown to a suspended account in place of any normal area: the reason + an appeal form. */
 export default async function SuspendedPage() {

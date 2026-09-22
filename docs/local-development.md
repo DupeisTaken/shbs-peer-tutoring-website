@@ -246,3 +246,19 @@ node --test scripts/test-tab-icon.mjs
 
 The smoke test defaults to `http://localhost:3000`; set `TEST_BASE_URL` to test a
 different local port. It only reads public pages and image assets.
+
+## Runtime branding
+
+Set `APP_TITLE`, `TEAM_TITLE`, `ORG_NAME`, `SUPPORT_EMAIL` and
+`PROGRAM_TERM_LABEL` in your local `.env` and restart the server. Blank values use
+repository defaults. These values are read on the server and passed to client
+components; they need no build arguments. Replace old `NEXT_PUBLIC_*` branding
+keys with the unprefixed names. Static assets and source changes still require a
+production rebuild. See [configuration and update workflows](deployment.md#6-updates)
+for Compose deployment and secret handling.
+
+With a running production build, `node --test scripts/test-runtime-branding.mjs`
+checks public metadata, the client branding payload and browser bundles. Set
+`TEST_BASE_URL` and the expected branding environment variables to match the server;
+provide only disposable secret sentinels when exercising secret-exclusion checks.
+CI runs this with defaults and overrides against the same image across recreation.

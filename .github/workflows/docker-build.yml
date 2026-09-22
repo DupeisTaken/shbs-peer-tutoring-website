@@ -63,7 +63,8 @@ jobs:
           tags: shbs-smoke:local
           cache-from: type=gha
           cache-to: type=gha,mode=max
-      - name: Boot image with an empty database
+      # Recreate the same image with runtime branding; verify metadata, secret exclusion and data preservation.
+      - name: Boot and recreate image with runtime configuration
         env:
           DATABASE_URL: postgresql://postgres:postgres@localhost:5432/shbs_boot_test
         run: |

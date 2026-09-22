@@ -1,13 +1,13 @@
 import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
-import { APP_TITLE } from "~/lib/branding";
+import { brandingMetadata } from "~/server/branding-metadata";
 import { RegisterFlow } from "./register-flow";
 import { FloatingLanguageSwitcher } from "~/app/_components/floating-language-switcher";
 
-export const metadata = {
-  title: `Register · ${APP_TITLE}`,
-};
+export async function generateMetadata() {
+  return brandingMetadata("Register");
+}
 
 /**
  * Public self-registration. A tutor turns the 6-digit security key an admin handed them into a

@@ -4,7 +4,7 @@ import { useMemo, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
-import { TEAM_TITLE } from "~/lib/branding";
+import { useBranding } from "~/app/_components/branding-provider";
 import { useReadOnly } from "~/app/_components/read-only";
 
 type Scope = "year" | "S1" | "S2" | "Q1" | "Q2" | "Q3" | "Q4";
@@ -39,6 +39,7 @@ function downloadCsv(filename: string, rows: Cell[][]) {
 
 
 export default function ReportsPage() {
+  const { TEAM_TITLE } = useBranding();
   const programFormat = useFormatter();
   const d = (v: string | Date) => programFormat.dateTime(new Date(v), { dateStyle: "medium" });
   const calendarDate = (v: string | Date) => programFormat.dateTime(new Date(v), { dateStyle: "medium", timeZone: "UTC" });

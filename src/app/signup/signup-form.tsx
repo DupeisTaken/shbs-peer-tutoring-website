@@ -10,12 +10,13 @@ import {
 } from "~/lib/signup-fields";
 import { api } from "~/trpc/react";
 import { DAY_NAMES, minToHm } from "~/lib/time";
-import { APP_TITLE } from "~/lib/branding";
+import { useBranding } from "~/app/_components/branding-provider";
 import { PolicyAgreement } from "~/app/_components/policy-agreement";
 import { SigninAccess } from "./signin-access";
 import { SurveyResend } from "./survey-resend";
 
 export function SignupForm() {
+  const { APP_TITLE } = useBranding();
   const t = useTranslations();
   const locale = useLocale();
   const options = api.tutee.signupOptions.useQuery();
