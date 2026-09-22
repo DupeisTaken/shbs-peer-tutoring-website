@@ -123,7 +123,8 @@ export const approvalRouter = createTRPCRouter({
                   code: "CONFLICT",
                   message: "This request has already been decided.",
                 });
-              if (request.requesterId === ctx.session.user.id)
+              // Only the current active Head may review their own pending proposal.
+              if (request.requesterId === ctx.session.user.id && currentReviewer.role !== "HEAD")
                 throw new TRPCError({
                   code: "FORBIDDEN",
                   message:

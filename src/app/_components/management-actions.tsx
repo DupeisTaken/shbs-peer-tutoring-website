@@ -406,6 +406,7 @@ function ApprovalQueue({
         <p className="muted mt-2 max-w-2xl">
           {t(reviewer ? "subtitle" : "ownSubtitle")}
         </p>
+        <p className="muted mt-2 max-w-2xl text-sm">{t("reviewPermissions")}</p>
       </header>
       <div className="card flex flex-wrap items-end gap-3 p-4">
         {!requestId && (
@@ -488,7 +489,7 @@ function ApprovalQueue({
           request={request}
           canReview={
             queue.data.canReview &&
-            request.requesterId !== queue.data.viewerId &&
+            (request.requesterId !== queue.data.viewerId || queue.data.headReviewer) &&
             (!HEAD_APPROVAL_OPERATIONS.has(request.operation) ||
               queue.data.headReviewer)
           }
