@@ -104,8 +104,9 @@ it("requires explicit Translator even for management, before coordinator queuein
 
 it("gates the first tutor tutee visit, grants membership atomically, and preserves repeated acceptance evidence", async () => {
   await caller().admin.setMemberships({ userId: person, membership: { ...base, tutor: true }, confirmPassword: password });
-  expect((await studentPolicyStatus(db, person))?.slug).toBe("tutor-policy");
+  expect(await studentPolicyStatus(db, person)).toMatchObject({state:"review",slug:"tutor-policy"});
   const policy = await studentPolicyStatus(db, person, true);
+  if (policy?.state !== "review") throw new Error("Expected a published policy review");
   expect(policy?.slug).toBe("tutee-policy");
   await expect(caller(person).student.me()).rejects.toMatchObject({ code: "FORBIDDEN" });
   const accept = async (revision: string) => {
@@ -113,15 +114,15 @@ it("gates the first tutor tutee visit, grants membership atomically, and preserv
     await db.studentActionConfirmation.update({ where: { id: ticket.id }, data: { readyAt: new Date(0) } });
     return acceptStudentPolicy(db, person, revision, ticket.id);
   };
-  await accept(policy!.revision);
+  await accept(policy.revision);
   const evidence = await db.policyAcceptance.findFirstOrThrow({ where: { userId: person, slug: "tutee-policy" } });
   expect((await db.user.findUniqueOrThrow({ where: { id: person } })).tuteeMember).toBe(true);
   expect(await studentPolicyStatus(db, person, true)).toBeNull();
-  await accept(policy!.revision);
+  await accept(policy.revision);
   expect(await db.policyAcceptance.findFirstOrThrow({ where: { id: evidence.id } })).toEqual(evidence);
   await db.policyDocument.updateMany({ where: { slug: "tutee-policy" }, data: { version: "2", body: "New consent" } });
   await expect(caller(person).student.me()).resolves.toBeDefined();
-  expect((await studentPolicyStatus(db, person, true))?.documents[0]?.version).toBe("2");
+  expect(await studentPolicyStatus(db, person, true)).toMatchObject({state:"review",documents:[{version:"2"}]});
   const history = await caller(admin).student.acceptanceRecords({ userId: person });
   expect(history.rows[0]).toMatchObject({ revision: evidence.revision, documents: [{ version: "1", body: "Synthetic consent text" }] });
   expect((await currentPolicy(db, "tutee-policy")).revision).not.toBe(evidence.revision);

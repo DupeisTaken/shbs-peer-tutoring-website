@@ -1059,12 +1059,13 @@ describe("student request lifecycle", () => {
       data: { body: "Updated student policy" },
     });
     const policy = await studentPolicyStatus(db, user.id);
+  if (policy?.state !== "review") throw new Error("Expected a published policy review");
     expect(policy).not.toBeNull();
     await expect(
       editStudentAvailability(db, user.id, row.id, ["survey-slot"]),
     ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
-    const ticket = await ready("POLICY", policy!.revision, user.id);
-    await acceptStudentPolicy(db, user.id, policy!.revision, ticket);
+    const ticket = await ready("POLICY", policy.revision, user.id);
+    await acceptStudentPolicy(db, user.id, policy.revision, ticket);
     expect(await studentPolicyStatus(db, user.id)).toBeNull();
     expect(
       (await db.studentSurvey.findUniqueOrThrow({ where: { id: row.id } }))

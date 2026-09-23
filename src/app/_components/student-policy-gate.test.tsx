@@ -60,6 +60,7 @@ vi.mock("~/trpc/react", () => ({
   },
 }));
 const policy = (revision = "current") => ({
+  state: "review",
   slug: "tutee-policy",
   revision,
   documents: [
@@ -121,9 +122,15 @@ it("leaves the public privacy notice readable despite outstanding agreements or 
   const view = render(<StudentPolicyGate />);
   await act(async () => undefined);
   expect(screen.queryByRole("dialog")).toBeNull();
-  expect(mocks.status).toHaveBeenLastCalledWith(expect.anything(), expect.objectContaining({ enabled: false }));
+  expect(mocks.status).toHaveBeenLastCalledWith(
+    expect.anything(),
+    expect.objectContaining({ enabled: false }),
+  );
   expect(mocks.refetch).not.toHaveBeenCalled();
-  mocks.status.mockReturnValue({ error: { message: "Offline" }, refetch: mocks.refetch });
+  mocks.status.mockReturnValue({
+    error: { message: "Offline" },
+    refetch: mocks.refetch,
+  });
   view.rerender(<StudentPolicyGate />);
   expect(screen.queryByRole("status")).toBeNull();
   expect(mocks.accept).not.toHaveBeenCalled();
@@ -326,43 +333,45 @@ it("uses chosen policy locale, falls back to English and skips accepted/public p
   view.rerender(<StudentPolicyGate />);
   expect(screen.queryByRole("dialog")).toBeNull();
 });
-it.each(["/privacy", "/onboarding/email", "/forgot-password", "/reset-password"])(
-  "keeps %s free of cached policy prompts and load errors",
-  async (path) => {
-    const view = render(<StudentPolicyGate />);
+it.each([
+  "/privacy",
+  "/onboarding/email",
+  "/forgot-password",
+  "/reset-password",
+])("keeps %s free of cached policy prompts and load errors", async (path) => {
+  const view = render(<StudentPolicyGate />);
+  await act(async () => undefined);
+  expect(screen.getByRole("dialog")).toBeTruthy();
+
+  for (const status of [
+    { data: policy(), error: null },
+    { data: null, error: { message: "Offline" } },
+  ]) {
+    const priorRefetches = mocks.refetch.mock.calls.length;
+    mocks.path = path;
+    mocks.status.mockReturnValue({ ...status, refetch: mocks.refetch });
+    view.rerender(<StudentPolicyGate />);
     await act(async () => undefined);
-    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(mocks.status).toHaveBeenLastCalledWith(
+      { tuteeEntry: false },
+      expect.objectContaining({ enabled: false }),
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(mocks.refetch).toHaveBeenCalledTimes(priorRefetches);
 
-    for (const status of [
-      { data: policy(), error: null },
-      { data: null, error: { message: "Offline" } },
-    ]) {
-      const priorRefetches = mocks.refetch.mock.calls.length;
-      mocks.path = path;
-      mocks.status.mockReturnValue({ ...status, refetch: mocks.refetch });
-      view.rerender(<StudentPolicyGate />);
-      await act(async () => undefined);
-      expect(mocks.status).toHaveBeenLastCalledWith(
-        { tuteeEntry: false },
-        expect.objectContaining({ enabled: false }),
-      );
-      expect(screen.queryByRole("dialog")).toBeNull();
-      expect(screen.queryByRole("status")).toBeNull();
-      expect(mocks.refetch).toHaveBeenCalledTimes(priorRefetches);
-
-      // Revisiting an ordinary student route still resumes the policy gate.
-      mocks.path = "/student";
-      view.rerender(<StudentPolicyGate />);
-      expect(mocks.status).toHaveBeenLastCalledWith(
-        { tuteeEntry: true },
-        expect.objectContaining({ enabled: true }),
-      );
-      if (status.error) expect(screen.getByRole("status")).toBeTruthy();
-      else expect(screen.getByRole("dialog")).toBeTruthy();
-      await act(async () => undefined);
-    }
-  },
-);
+    // Revisiting an ordinary student route still resumes the policy gate.
+    mocks.path = "/student";
+    view.rerender(<StudentPolicyGate />);
+    expect(mocks.status).toHaveBeenLastCalledWith(
+      { tuteeEntry: true },
+      expect.objectContaining({ enabled: true }),
+    );
+    if (status.error) expect(screen.getByRole("status")).toBeTruthy();
+    else expect(screen.getByRole("dialog")).toBeTruthy();
+    await act(async () => undefined);
+  }
+});
 it("policy-load errors leave personal screens accessible and offer a retry", async () => {
   mocks.status.mockReturnValue({
     error: { message: "Offline" },
@@ -404,4 +413,49 @@ it("refreshes query-only student tabs without interrupting personal navigation f
   });
   view.rerender(<StudentPolicyGate />);
   expect(screen.getByRole("dialog")).toBeTruthy();
+});
+
+it.each([true, false])(
+  "renders setup without retry or consent (manager: %s)",
+  async (canManagePolicies) => {
+    mocks.status.mockReturnValue({
+      data: {
+        state: "setup",
+        missingSlugs: ["tutor-policy"],
+        canManagePolicies,
+      },
+      refetch: mocks.refetch,
+    });
+    render(<StudentPolicyGate />);
+    await act(async () => undefined);
+    expect(screen.getByText("policySetupTitle")).toBeTruthy();
+    expect(
+      screen.getByText(
+        canManagePolicies ? "policySetupManager" : "policySetupParticipant",
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByRole("button", { name: "retry" })).toBeNull();
+    expect(screen.queryByRole("dialog")).toBeNull();
+    const link = screen.queryByRole("link", { name: "policySetupAction" });
+    expect(link?.getAttribute("href") ?? null).toBe(
+      canManagePolicies ? "/admin/policies" : null,
+    );
+    expect(mocks.accept).not.toHaveBeenCalled();
+  },
+);
+it("keeps genuine failures retryable even with cached setup data", async () => {
+  mocks.status.mockReturnValue({
+    data: {
+      state: "setup",
+      missingSlugs: ["tutor-policy"],
+      canManagePolicies: true,
+    },
+    error: new Error("offline"),
+    refetch: mocks.refetch,
+  });
+  render(<StudentPolicyGate />);
+  expect(screen.getByText("policyLoadError")).toBeTruthy();
+  const previousRequests = mocks.refetch.mock.calls.length;
+  fireEvent.click(screen.getByRole("button", { name: "retry" }));
+  expect(mocks.refetch).toHaveBeenCalledTimes(previousRequests + 1);
 });

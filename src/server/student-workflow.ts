@@ -5,7 +5,7 @@ import { approvalScope } from "./db-scope";
 import { ownedStudentIds } from "./student-ownership";
 import type { DomainDb, TransactionDb } from "./transactions";
 import { inTransaction, lockEntity } from "./transactions";
-import { currentPolicy, requirePolicy } from "./policy-acceptance";
+import { currentPolicy, publishedPolicy, requirePolicy } from "./policy-acceptance";
 import {
   applicablePolicySlugs,
   policyActionTarget,
@@ -160,15 +160,33 @@ export async function acceptStudentPolicy(
   });
 }
 
-export async function studentPolicyStatus(db: DomainDb, userId: string, tuteeEntry = false) {
+export async function studentPolicyStatus(
+  db: DomainDb,
+  userId: string,
+  tuteeEntry = false,
+) {
   const user = await db.user.findUnique({
     where: { id: userId },
-    select: { studentId: true, tutorId: true, tuteeMember: true, role: true, suspendedAt: true },
+    select: {
+      studentId: true,
+      tutorId: true,
+      tuteeMember: true,
+      role: true,
+      suspendedAt: true,
+    },
   });
   if (!user || user.suspendedAt || user.role === "VIEWER") return null;
-  // Return one outstanding applicable policy at a time; acceptance refreshes the next.
-  for (const slug of (tuteeEntry ? ["tutee-policy" as const] : applicablePolicySlugs(user))) {
-    const policy = await currentPolicy(db, slug);
+  // An unpublished membership must not hide another membership's published review.
+  // Only publication absence is a setup state; database errors still propagate.
+  const missingSlugs: PolicySlug[] = [];
+  for (const slug of tuteeEntry
+    ? ["tutee-policy" as const]
+    : applicablePolicySlugs(user)) {
+    const policy = await publishedPolicy(db, slug);
+    if (!policy) {
+      missingSlugs.push(slug);
+      continue;
+    }
     const acceptance = await db.policyAcceptance.findUnique({
       where: {
         userId_slug_revision: {
@@ -178,8 +196,15 @@ export async function studentPolicyStatus(db: DomainDb, userId: string, tuteeEnt
         },
       },
     });
-    if (!acceptance || (tuteeEntry && !user.tuteeMember)) return policy;
+    if (!acceptance || (tuteeEntry && !user.tuteeMember))
+      return { state: "review" as const, ...policy };
   }
+  if (missingSlugs.length)
+    return {
+      state: "setup" as const,
+      missingSlugs,
+      canManagePolicies: ["HEAD", "ADMIN", "COORDINATOR"].includes(user.role),
+    };
   return null;
 }
 

@@ -387,8 +387,8 @@ it.each(["HEAD", "ADMIN", "COORDINATOR"] as const)(
       acceptedAt: null,
       published: true,
     });
-    expect(result.rows[0]?.documents[0]?.body).toBe("Test consent");
-    expect(result.rows[0]?.documents[0]?.version).toBe("1");
+    expect(result.rows[0]?.documents?.[0]?.body).toBe("Test consent");
+    expect(result.rows[0]?.documents?.[0]?.version).toBe("1");
     expect(
       await db.policyAcceptance.findMany({ where: { userId: "review-user" } }),
     ).toEqual(saved);
@@ -459,6 +459,7 @@ it("prompts for both participant capabilities and rejects cross-policy tickets e
   });
   await db.policyAcceptance.deleteMany({ where: { userId: "review-user" } });
   const studentPolicy = await studentPolicyStatus(db, "review-user");
+  if (studentPolicy?.state !== "review") throw new Error("Expected a published policy review");
   const tutorPolicy = await currentPolicy(db, "tutor-policy");
   expect(studentPolicy?.slug).toBe("tutee-policy");
   expect(studentPolicy?.revision).toBe(tutorPolicy.revision);
@@ -475,7 +476,7 @@ it("prompts for both participant capabilities and rejects cross-policy tickets e
     });
     return ticket.id;
   };
-  const studentTicket = await readyPolicy(studentPolicy!.revision);
+  const studentTicket = await readyPolicy(studentPolicy.revision);
   await expect(
     acceptStudentPolicy(
       db,
@@ -488,12 +489,10 @@ it("prompts for both participant capabilities and rejects cross-policy tickets e
   await acceptStudentPolicy(
     db,
     "review-user",
-    studentPolicy!.revision,
+    studentPolicy.revision,
     studentTicket,
   );
-  expect((await studentPolicyStatus(db, "review-user"))?.slug).toBe(
-    "tutor-policy",
-  );
+  expect(await studentPolicyStatus(db, "review-user")).toMatchObject({state:"review",slug:"tutor-policy"});
   const tutorTicket = await readyPolicy(
     policyActionTarget("tutor-policy", tutorPolicy.revision),
   );
@@ -3552,3 +3551,74 @@ for (const kind of ["tutor", "crew"] as const) {
     },
   );
 }
+
+// Initial setup is read-only state; current-policy participation guards remain strict.
+it.each(["missing", "empty"])(
+  "reports %s English policy without granting participation",
+  async (publication) => {
+    await db.policyAcceptance.deleteMany({ where: { userId: "review-user" } });
+    if (publication === "missing")
+      await db.policyDocument.deleteMany({
+        where: { slug: "tutor-policy", locale: "en" },
+      });
+    else
+      await db.policyDocument.updateMany({
+        where: { slug: "tutor-policy", locale: "en" },
+        data: { body: "  " },
+      });
+    await db.user.update({
+      where: { id: "review-user" },
+      data: { role: "HEAD" },
+    });
+    expect(await studentPolicyStatus(db, "review-user")).toEqual({
+      state: "setup",
+      missingSlugs: ["tutor-policy"],
+      canManagePolicies: true,
+    });
+    await expect(currentPolicy(db, "tutor-policy")).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+    });
+    await expect(
+      acceptStudentPolicy(
+        db,
+        "review-user",
+        "obsolete",
+        "unused-ticket",
+        "tutor-policy",
+      ),
+    ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    expect(
+      await db.policyAcceptance.count({ where: { userId: "review-user" } }),
+    ).toBe(0);
+    await db.user.update({
+      where: { id: "review-user" },
+      data: { role: "TUTOR" },
+    });
+    expect(await studentPolicyStatus(db, "review-user")).toMatchObject({
+      state: "setup",
+      canManagePolicies: false,
+    });
+  },
+);
+it("reviews published memberships even when another membership has no publication", async () => {
+  await db.user.update({
+    where: { id: "review-user" },
+    data: { tuteeMember: true },
+  });
+  await db.policyAcceptance.deleteMany({ where: { userId: "review-user" } });
+  await db.policyDocument.deleteMany({ where: { slug: "tutee-policy" } });
+  expect(await studentPolicyStatus(db, "review-user")).toMatchObject({
+    state: "review",
+    slug: "tutor-policy",
+  });
+  expect(await studentPolicyStatus(db, "review-user", true)).toMatchObject({
+    state: "setup",
+    missingSlugs: ["tutee-policy"],
+  });
+  await db.user.update({
+    where: { id: "review-user" },
+    data: { role: "VIEWER", tuteeMember: false, tutorId: null },
+  });
+  expect(await studentPolicyStatus(db, "review-user", true)).toBeNull();
+  expect(await studentPolicyStatus(db, "review-head")).toBeNull();
+});
