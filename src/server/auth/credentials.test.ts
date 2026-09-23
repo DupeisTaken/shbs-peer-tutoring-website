@@ -13,6 +13,7 @@ beforeEach(() => {
     email: "student@example.test",
     name: "Student",
     passwordHash: "hash",
+    sessionVersion: 0,
     twoFactorEnabled: false,
     suspendedAt: null,
   });
@@ -54,6 +55,7 @@ it("authenticates a suspended account so it can reach the restricted appeal page
     id: "suspended",
     email: "suspended@example.test",
     passwordHash: "hash",
+    sessionVersion: 0,
     suspendedAt: new Date(),
   });
   expect(

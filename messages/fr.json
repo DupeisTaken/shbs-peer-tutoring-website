@@ -220,6 +220,10 @@
       "saving": "Enregistrement…"
     },
     "onboarding": {
+      "proofRequired": "Ouvrez le lien envoyé à l’adresse de votre compte pour la vérifier et définir un mot de passe. Sans accès à cette adresse, contactez l’équipe du programme. Gérez l’authentification à deux facteurs après la connexion.",
+      "sendLink": "Envoyer le lien de configuration",
+      "linkSent": "Consultez votre messagerie et ouvrez le lien. Après avoir défini votre mot de passe, reconnectez-vous.",
+      "linkFailed": "Impossible d’envoyer le lien. Attendez une minute et réessayez. Si la messagerie est indisponible, contactez l’équipe du programme.",
       "welcome": "Bienvenue sur {appTitle}",
       "title": "Configurer votre compte",
       "intro": "Une étape rapide avant votre tableau de bord — confirmez votre e-mail et choisissez votre propre mot de passe (en remplacement d'un éventuel mot de passe temporaire).",
@@ -280,6 +284,7 @@
       "body": "Le lien de votre compte de tuteur n'est plus valide. Déconnectez-vous puis reconnectez-vous pour l'actualiser."
     },
     "sessionExpired": "Your session expired or could not be verified. Please sign in again.",
+    "passwordChangedSignIn": "Votre mot de passe a été modifié. Toutes les sessions ont été déconnectées, y compris celle de ce navigateur. Reconnectez-vous avec votre nouveau mot de passe.",
     "signupRoutes": {
       "viewerHelp": "Vous souhaitez seulement suivre le programme ? L’inscription comme observateur ne nécessite aucun code d’invitation ; votre adresse e-mail sera vérifiée.",
       "viewerLink": "S’inscrire comme observateur",

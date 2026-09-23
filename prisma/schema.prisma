@@ -65,6 +65,8 @@ model User {
 
   /// scrypt password hash (see src/server/auth/password.ts). Null until a password is set.
   passwordHash String?
+  /// Database-maintained credential generation. Password writes revoke every earlier JWT.
+  sessionVersion Int @default(0)
 
   /// True for auto-provisioned accounts that signed in with the shared default password —
   /// the first-login onboarding forces a real password (and email) before the dashboard.

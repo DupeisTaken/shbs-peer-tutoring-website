@@ -220,6 +220,10 @@
       "saving": "Wird gespeichert…"
     },
     "onboarding": {
+      "proofRequired": "Öffne den Link an deine Konto-E-Mail-Adresse, um sie zu bestätigen und ein Passwort festzulegen. Ohne Zugriff auf diese Adresse kontaktiere das Programmteam. Die Zwei-Faktor-Authentifizierung verwaltest du nach der Anmeldung.",
+      "sendLink": "Einrichtungslink senden",
+      "linkSent": "Prüfe deine E-Mails und öffne den Einrichtungslink. Melde dich danach mit deinem neuen Passwort an.",
+      "linkFailed": "Der Link konnte nicht gesendet werden. Warte eine Minute und versuche es erneut. Bei Problemen mit dem E-Mail-Versand kontaktiere das Programmteam.",
       "welcome": "Willkommen bei {appTitle}",
       "title": "Konto einrichten",
       "intro": "Ein kurzer Schritt vor dem Dashboard – E-Mail bestätigen und eigenes Passwort wählen (ersetzt ein eventuelles Temporary-Passwort).",
@@ -280,6 +284,7 @@
       "body": "Die Verknüpfung Ihres Tutoren-Kontos ist nicht mehr gültig. Melden Sie sich ab und wieder an, um sie zu aktualisieren."
     },
     "sessionExpired": "Your session expired or could not be verified. Please sign in again.",
+    "passwordChangedSignIn": "Dein Passwort wurde geändert. Alle Sitzungen wurden abgemeldet, auch in diesem Browser. Melde dich mit deinem neuen Passwort erneut an.",
     "signupRoutes": {
       "viewerHelp": "Sie möchten das Programm nur verfolgen? Die Registrierung als Beobachter benötigt keinen Einladungscode; Ihre E-Mail-Adresse wird bestätigt.",
       "viewerLink": "Als Beobachter registrieren",

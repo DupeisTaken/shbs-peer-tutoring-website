@@ -220,6 +220,10 @@
       "saving": "Saving…"
     },
     "onboarding": {
+      "proofRequired": "Open the link sent to your account email to verify ownership and set a password. If you cannot access this address, contact the program team. Manage two-factor authentication after signing in.",
+      "sendLink": "Send setup link",
+      "linkSent": "Check your email and open the setup link. After setting your password, sign in again.",
+      "linkFailed": "Could not send the link. Wait one minute and retry. If email delivery is unavailable, contact the program team.",
       "welcome": "Welcome to {appTitle}",
       "title": "Set Up Your Account",
       "intro": "One quick step before your dashboard — confirm your email and choose your own password (replacing any temporary one).",
@@ -286,7 +290,8 @@
       "title": "Session Out of Date",
       "body": "Your tutor account link is no longer valid. Sign out and sign back in to refresh it."
     },
-    "sessionExpired": "Your session expired or could not be verified. Please sign in again."
+    "sessionExpired": "Your session expired or could not be verified. Please sign in again.",
+    "passwordChangedSignIn": "Your password changed. All sessions have been signed out, including this browser. Sign in again with your new password."
   },
   "landing": {
     "nav": {

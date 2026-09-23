@@ -54,6 +54,14 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+it.each(["en", "zh"])("explains that a password change signs out all browsers in %s", async (locale) => {
+  state.locale = locale;
+  const copy = locale === "zh" ? zh : en;
+  render(await SignInPage({ searchParams: Promise.resolve({ reason: "password-changed" }) }));
+  expect(screen.getByRole("status").textContent).toContain(copy.auth.passwordChangedSignIn);
+  expect(screen.queryByText(copy.auth.sessionExpired)).toBeNull();
+});
+
 // Exercise each rendered entry point and its feature gate, not just literal href source text.
 it.each(["en", "zh"])(
   "explains the viewer and invitation boundary in %s",

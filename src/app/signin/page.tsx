@@ -20,8 +20,10 @@ export default async function SignInPage({
   if (session?.user) redirect("/");
 
   const [t, features] = await Promise.all([getTranslations(), getFeatures(db)]);
+  const reason = (await searchParams).reason;
+  const passwordChanged = reason === "password-changed";
   const expired =
-    (await searchParams).reason === "session-expired" ||
+    reason === "session-expired" ||
     (await cookies()).has(SESSION_RECOVERY_COOKIE);
 
   return (
@@ -32,12 +34,12 @@ export default async function SignInPage({
           {t("auth.signinTitle")}
         </h1>
         <p className="muted mt-1">{t("auth.signinSubtitle")}</p>
-        {expired && (
+        {(expired || passwordChanged) && (
           <p
             role="status"
             className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"
           >
-            {t("auth.sessionExpired")}
+            {t(passwordChanged ? "auth.passwordChangedSignIn" : "auth.sessionExpired")}
           </p>
         )}
         <div className="card mt-6 p-6 text-left">

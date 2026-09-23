@@ -16,6 +16,7 @@ export type SigninPasswordResult =
         name: string | null;
         email: string;
         twoFactorEnabled: boolean;
+        sessionVersion: number;
       };
     }
   | { ok: false; reason: "invalid" | "rate_limited" };
@@ -79,6 +80,7 @@ export async function verifySigninPassword(
       passwordHash: true,
       suspendedAt: true,
       twoFactorEnabled: true,
+      sessionVersion: true,
     },
   });
   // Suspension removes participation permissions, not proof of identity. A verified login
@@ -95,6 +97,8 @@ export async function verifySigninPassword(
       name: user.name,
       email: user.email,
       twoFactorEnabled: user.twoFactorEnabled,
+      // Carry the generation read alongside the verified hash, not a later refreshed value.
+      sessionVersion: user.sessionVersion,
     },
   };
 }

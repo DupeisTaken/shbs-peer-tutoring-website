@@ -14,23 +14,27 @@ export function StudentPolicyGate() {
   const path = usePathname();
   const search = useSearchParams().toString();
   const [dismissed, setDismissed] = useState<string | null>(null);
-  const publicPage = [
+  // Credential setup and recovery must stay usable before policy participation.
+  const skipPolicyGate = [
     "/signup",
     "/signup/account",
     "/signin",
+    "/onboarding/email",
+    "/forgot-password",
+    "/reset-password",
     "/suspended",
     "/tutor-signup",
     "/crew-signup",
     "/viewer-signup",
   ].includes(path);
   const status = api.studentWorkflow.policyStatus.useQuery({ tuteeEntry: path === "/student" || path.startsWith("/student/") }, {
-    enabled: !publicPage,
+    enabled: !skipPolicyGate,
     staleTime: 0,
     refetchOnWindowFocus: true,
   });
   const { refetch } = status;
   useEffect(() => {
-    if (publicPage) {
+    if (skipPolicyGate) {
       setDismissed(null);
       return;
     }
@@ -51,8 +55,9 @@ export function StudentPolicyGate() {
       active = false;
       window.removeEventListener("focus", onFocus);
     };
-  }, [path, search, publicPage, refetch]);
-  if (publicPage) return null;
+  }, [path, search, skipPolicyGate, refetch]);
+  // A disabled query can still expose cached data or an earlier error.
+  if (skipPolicyGate) return null;
   if (
     status.error ||
     (status.data && dismissed === `${status.data.slug}:${status.data.revision}`)

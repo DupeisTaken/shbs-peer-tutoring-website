@@ -54,7 +54,7 @@ afterAll(async () => {
 
 describe("login 2FA codes", () => {
   it("emails a hashed, single-use login code", async () => {
-    const result = await issueLoginCode(USER_ID);
+    const result = await issueLoginCode(USER_ID, 0);
     const code = extractCode();
 
     expect(result.email).toBe(EMAIL);
@@ -80,7 +80,7 @@ describe("login 2FA codes", () => {
   });
 
   it("rejects a code after the attempt cap", async () => {
-    await issueLoginCode(USER_ID);
+    await issueLoginCode(USER_ID, 0);
     const code = extractCode();
     const wrong = code === "AAAAA" ? "BBBBB" : "AAAAA";
 
@@ -97,7 +97,7 @@ describe("login 2FA codes", () => {
   });
 
   it("allows only one concurrent consumer of the same code", async () => {
-    await issueLoginCode(USER_ID);
+    await issueLoginCode(USER_ID, 0);
     const code = extractCode();
 
     const results = await Promise.all(

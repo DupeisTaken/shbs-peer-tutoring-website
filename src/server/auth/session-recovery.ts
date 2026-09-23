@@ -1,4 +1,4 @@
-import { getToken } from "next-auth/jwt";
+import { getToken, type JWT } from "next-auth/jwt";
 import { NextResponse, type NextRequest } from "next/server";
 import type { NextAuthConfig } from "next-auth";
 import { SESSION_RECOVERY_COOKIE } from "~/lib/session-recovery";
@@ -39,6 +39,7 @@ export function withoutSessionRefreshCookies(
 export async function recoverInvalidSession(
   request: NextRequest,
   secret: NextAuthConfig["secret"],
+  isCurrent?: (token: JWT) => Promise<boolean>,
 ): Promise<NextResponse | null> {
   const cookies = request.cookies
     .getAll()
@@ -61,7 +62,7 @@ export async function recoverInvalidSession(
       cookieName,
       secret,
     });
-    if (!token)
+    if (!token || (isCurrent && !(await isCurrent(token))))
       invalidNames.push(
         ...cookies
           .filter(
@@ -83,10 +84,12 @@ export async function recoverInvalidSession(
     "cookie",
     kept.map(({ name, value }) => `${name}=${value}`).join("; "),
   );
+  const reason = request.nextUrl.pathname === "/signin" && request.nextUrl.searchParams.get("reason") === "password-changed"
+    ? "password-changed" : "session-expired";
   const response = request.nextUrl.pathname.startsWith("/api/")
     ? NextResponse.next({ request: { headers } })
     : NextResponse.redirect(
-        new URL("/signin?reason=session-expired", request.url),
+        new URL(`/signin?reason=${reason}`, request.url),
       );
   for (const name of invalidNames)
     response.cookies.set(name, "", {

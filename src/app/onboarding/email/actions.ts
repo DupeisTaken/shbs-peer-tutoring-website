@@ -1,67 +1,37 @@
 "use server";
 
 import { redirect } from "next/navigation";
-import { z } from "zod";
-
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
-import { getFeatures } from "~/server/program/features";
+import { issuePasswordReset } from "~/server/auth/password-reset";
 import { isEmailDeliveryAvailable } from "~/server/email/sender";
-import { hashPassword } from "~/server/auth/password";
+import { rateLimit } from "~/server/rate-limit";
 
-const schema = z.object({
-  email: z.string().email(),
-  password: z.string().min(8),
-  enable2fa: z.boolean(),
-});
+export type OnboardingState = { sent: boolean };
 
-/**
- * Completes first-login onboarding: confirm the contact email, set a real password (auto-
- * provisioned accounts arrive on a shared default), opt into email 2FA, and stamp
- * `User.emailVerifiedAt` + clear `mustChangePassword` so the tutor shell stops routing here.
- */
+/** Legacy accounts finish setup through the existing single-use mailbox-proof flow.
+ * Never accept posted email, password or 2FA fields as proof of ownership. In particular,
+ * this action cannot overwrite credentials after another browser has recovered the account. */
 export async function completeOnboardingAction(
-  _prevState: string | undefined,
-  formData: FormData,
-): Promise<string | undefined> {
+  _prevState: OnboardingState | undefined,
+  _formData: FormData,
+): Promise<OnboardingState> {
   const session = await auth();
   if (!session?.user) redirect("/signin");
-
-  const emailRaw = formData.get("email");
-  const passwordRaw = formData.get("password");
-  const confirmRaw = formData.get("confirm");
-  const password = typeof passwordRaw === "string" ? passwordRaw : "";
-  const confirm = typeof confirmRaw === "string" ? confirmRaw : "";
-
-  if (password.length < 8) return "Password must be at least 8 characters.";
-  if (password !== confirm) return "Passwords don't match.";
-
-  const parsed = schema.safeParse({
-    email: (typeof emailRaw === "string" ? emailRaw : "").trim().toLowerCase(),
-    password,
-    enable2fa: formData.get("enable2fa") === "on",
+  const user = await db.user.findUnique({
+    where: { id: session.user.id },
+    select: { email: true, emailVerifiedAt: true, mustChangePassword: true },
   });
-  if (!parsed.success) return "Please enter a valid email address.";
-
-  // Only honour the 2FA opt-in when the program has email 2FA enabled (the checkbox is hidden
-  // otherwise; this also rejects a crafted POST).
-  const { EMAIL_2FA } = await getFeatures(db);
-
+  if (!user || (user.emailVerifiedAt && !user.mustChangePassword) || !isEmailDeliveryAvailable())
+    return { sent: false };
+  // Share the recovery identifier budget and prevent repeated clicks from flooding the mailbox.
+  if (!rateLimit(`onboarding:${session.user.id}`, { max: 1, windowMs: 60_000 }).ok ||
+      !rateLimit(`pwreset:id:${user.email}`, { max: 3, windowMs: 60 * 60_000 }).ok)
+    return { sent: false };
   try {
-    await db.user.update({
-      where: { id: session.user.id },
-      data: {
-        email: parsed.data.email,
-        passwordHash: hashPassword(parsed.data.password),
-        mustChangePassword: false,
-        twoFactorEnabled:
-          EMAIL_2FA && isEmailDeliveryAvailable() && parsed.data.enable2fa,
-        emailVerifiedAt: new Date(),
-      },
-    });
+    await issuePasswordReset(user.email);
+    return { sent: true };
   } catch {
-    return "That email is already in use by another account.";
+    return { sent: false };
   }
-
-  redirect("/dashboard");
 }
