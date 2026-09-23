@@ -7,13 +7,16 @@ import {
 } from "next/server";
 
 import { authConfig } from "~/server/auth/config";
+import { db } from "~/server/db";
+import { isSessionCurrent } from "~/server/auth/session-version";
 import { SESSION_RECOVERY_COOKIE } from "~/lib/session-recovery";
 import {
   recoverInvalidSession,
   withoutSessionRefreshCookies,
 } from "~/server/auth/session-recovery";
 
-// Edge-safe Auth.js instance (base config only — no Prisma adapter). The `authorized`
+// Next 16 Proxy runs in Node: reject revoked credentials before page rendering and clear
+// stale cookies here, where response cookies are writable. The `authorized`
 // callback in `authConfig` blocks unauthenticated requests; the landing page is public.
 // NextAuth fills its environment defaults on this object. Recovery must verify
 // with that exact secret configuration rather than inventing a development key.
@@ -31,6 +34,7 @@ export default async function proxy(
   const recovery = await recoverInvalidSession(
     request,
     runtimeAuthConfig.secret,
+    (token) => isSessionCurrent(db, token),
   );
   if (recovery) return recovery;
   if (request.nextUrl.pathname.startsWith("/api/")) return NextResponse.next();

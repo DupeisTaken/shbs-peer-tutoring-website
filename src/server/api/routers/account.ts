@@ -11,7 +11,8 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import { hashPassword, verifyPassword } from "~/server/auth/password";
+import { verifyPassword } from "~/server/auth/password";
+import { changeVerifiedPassword } from "~/server/auth/session-version";
 import { ensureUserUsername } from "~/server/auth/username";
 import { issueStepUpCode, verifyStepUpCode } from "~/server/auth/step-up";
 import { getFeatures } from "~/server/program/features";
@@ -422,13 +423,7 @@ export const accountRouter = createTRPCRouter({
           throw new TRPCError({ code: "BAD_REQUEST", message });
         }
       }
-      await ctx.db.user.update({
-        where: { id: ctx.session.user.id },
-        data: {
-          passwordHash: hashPassword(input.newPassword),
-          mustChangePassword: false,
-        },
-      });
+      await changeVerifiedPassword(ctx.db, ctx.session.user.id, user.passwordHash, input.newPassword);
       return { ok: true };
     }),
 });

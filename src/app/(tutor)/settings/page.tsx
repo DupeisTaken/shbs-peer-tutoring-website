@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
+import { signInAfterPasswordChange } from "~/lib/password-session";
 import { TwoFactorSettings } from "~/app/_components/two-factor-settings";
 import {
   AccountEmails,
@@ -77,7 +78,7 @@ export default function SettingsPage() {
     onSuccess: (data) => setSentTo(data.email),
   });
   const changePassword = api.tutor.changePassword.useMutation({
-    onSuccess: resetPasswordForm,
+    onSuccess: () => { resetPasswordForm(); signInAfterPasswordChange(); },
   });
 
   // Step 1: validate the new password locally, then ask for the emailed code.

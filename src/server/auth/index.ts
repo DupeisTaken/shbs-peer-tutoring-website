@@ -51,7 +51,7 @@ class TwoFactorRequiredSignin extends CredentialsSignin {
 }
 
 /**
- * Full (Node-runtime) Auth.js instance: the edge-safe base plus the Credentials provider
+ * Full (Node-runtime) Auth.js instance: the shared base plus the Credentials provider
  * (email + password) and the DB-backed `jwt` callback that resolves the user's role +
  * tutorId on sign-in.
  */
@@ -87,6 +87,7 @@ const {
               email: true,
               twoFactorEnabled: true,
               suspendedAt: true,
+              sessionVersion: true,
             },
           });
           // Suspended users still prove both factors before entering the appeal-only area.
@@ -95,7 +96,7 @@ const {
           if (!features.EMAIL_2FA) return null;
           const ok = await verifyLoginCode(user.id, loginCode.data.code);
           return ok
-            ? { id: user.id, name: user.name, email: user.email }
+            ? { id: user.id, name: user.name, email: user.email, sessionVersion: user.sessionVersion }
             : null;
         }
 
@@ -122,6 +123,7 @@ const {
           id: verified.user.id,
           name: verified.user.name,
           email: verified.user.email,
+          sessionVersion: verified.user.sessionVersion,
         };
       },
     }),
@@ -135,14 +137,18 @@ const {
      */
     async jwt({ token, user }) {
       if (user?.id) {
+        // The provider captured this generation with credential evidence. Refreshing it from
+        // the DB here would incorrectly turn an old password checked before a reset into a login.
+        if (!Number.isSafeInteger(user.sessionVersion)) return null;
         const userId = user.id;
         const email =
           (user.email ?? token.email ?? null)?.toLowerCase() ?? null;
 
         const identity = await db.user.findUnique({
           where: { id: userId },
-          select: { emailVerifiedAt: true, tutorId: true },
+          select: { emailVerifiedAt: true, tutorId: true, sessionVersion: true },
         });
+        if (!identity || identity.sessionVersion !== user.sessionVersion) return null;
         const tutorId = await resolveTutorLink(db, userId, email);
 
         // Bootstrap roles. The FIRST email in AUTH_BOOTSTRAP_ADMIN_EMAILS is the designated HEAD
@@ -156,6 +162,10 @@ const {
 
         const dbUser = await db.$transaction(async (tx) => {
           await lockEntity(tx, "program:leadership");
+          await lockAccountProfile(tx, userId);
+          await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`;
+          const credentialState = await tx.user.findUnique({ where: { id: userId }, select: { sessionVersion: true } });
+          if (!credentialState || credentialState.sessionVersion !== user.sessionVersion) return null;
           let roleBump: "HEAD" | "ADMIN" | undefined;
           if (isBootstrapAdmin && identity?.emailVerifiedAt) {
             const [current, headCount] = await Promise.all([
@@ -177,26 +187,26 @@ const {
           }
 
           // Persist the linkage/role bump so the admin UI can manage them later.
-          if (tutorId && identity?.tutorId !== tutorId)
-            await lockAccountProfile(tx, userId);
           const updated = await tx.user.update({
             where: { id: userId },
             data: {
               ...(tutorId ? { tutorId } : {}),
               ...(roleBump ? { role: roleBump } : {}),
             },
-            select: { id: true, role: true, tutorId: true, tutorAccessRevoked: true },
+            select: { id: true, role: true, tutorId: true, tutorAccessRevoked: true, sessionVersion: true },
           });
           if (tutorId && identity?.tutorId !== tutorId)
             await updateAccountProfile(tx, userId);
           return updated;
         });
+        if (!dbUser) return null;
 
         // Uphold the "every account has a username" invariant — assign one on first sign-in if
         // this login predates the field (mirrors the linked tutor's handle when present).
         await ensureUserUsername(dbUser.id);
 
         token.sub = dbUser.id;
+        token.sessionVersion = user.sessionVersion;
         token.role = dbUser.role;
         token.tutorId = dbUser.role === "VIEWER" || dbUser.tutorAccessRevoked ? null : dbUser.tutorId;
       } else if (token.sub) {
@@ -205,10 +215,10 @@ const {
         // takes effect on the next request without forcing a re-login; roles refresh here too.
         const dbUser = await db.user.findUnique({
           where: { id: token.sub },
-          select: { tutorId: true, tutorAccessRevoked: true, role: true },
+          select: { tutorId: true, tutorAccessRevoked: true, role: true, sessionVersion: true },
         });
         // A deleted account must lose its session instead of bouncing between /student and /signin.
-        if (!dbUser) return null;
+        if (!dbUser || !Number.isSafeInteger(token.sessionVersion) || dbUser.sessionVersion !== token.sessionVersion) return null;
         token.tutorId = dbUser.role === "VIEWER" || dbUser.tutorAccessRevoked ? null : dbUser.tutorId;
         token.role = dbUser.role;
       }

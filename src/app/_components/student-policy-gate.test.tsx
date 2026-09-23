@@ -313,6 +313,43 @@ it("uses chosen policy locale, falls back to English and skips accepted/public p
   view.rerender(<StudentPolicyGate />);
   expect(screen.queryByRole("dialog")).toBeNull();
 });
+it.each(["/onboarding/email", "/forgot-password", "/reset-password"])(
+  "keeps %s free of cached policy prompts and load errors",
+  async (path) => {
+    const view = render(<StudentPolicyGate />);
+    await act(async () => undefined);
+    expect(screen.getByRole("dialog")).toBeTruthy();
+
+    for (const status of [
+      { data: policy(), error: null },
+      { data: null, error: { message: "Offline" } },
+    ]) {
+      const priorRefetches = mocks.refetch.mock.calls.length;
+      mocks.path = path;
+      mocks.status.mockReturnValue({ ...status, refetch: mocks.refetch });
+      view.rerender(<StudentPolicyGate />);
+      await act(async () => undefined);
+      expect(mocks.status).toHaveBeenLastCalledWith(
+        { tuteeEntry: false },
+        expect.objectContaining({ enabled: false }),
+      );
+      expect(screen.queryByRole("dialog")).toBeNull();
+      expect(screen.queryByRole("status")).toBeNull();
+      expect(mocks.refetch).toHaveBeenCalledTimes(priorRefetches);
+
+      // Revisiting an ordinary student route still resumes the policy gate.
+      mocks.path = "/student";
+      view.rerender(<StudentPolicyGate />);
+      expect(mocks.status).toHaveBeenLastCalledWith(
+        { tuteeEntry: true },
+        expect.objectContaining({ enabled: true }),
+      );
+      if (status.error) expect(screen.getByRole("status")).toBeTruthy();
+      else expect(screen.getByRole("dialog")).toBeTruthy();
+      await act(async () => undefined);
+    }
+  },
+);
 it("policy-load errors leave personal screens accessible and offer a retry", async () => {
   mocks.status.mockReturnValue({
     error: { message: "Offline" },

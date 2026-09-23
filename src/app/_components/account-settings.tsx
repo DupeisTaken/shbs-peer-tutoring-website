@@ -9,6 +9,7 @@ import { MembershipEditor } from "./membership-editor";
 import { accountMembership } from "~/lib/account-membership";
 import { api } from "~/trpc/react";
 import { SYMBOLS } from "~/lib/symbols";
+import { signInAfterPasswordChange } from "~/lib/password-session";
 import { TwoFactorSettings } from "~/app/_components/two-factor-settings";
 import {
   AccountEmails,
@@ -82,7 +83,7 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
     onSuccess: (data) => setSentTo(data.email),
   });
   const changePassword = api.account.changePassword.useMutation({
-    onSuccess: resetPasswordForm,
+    onSuccess: () => { resetPasswordForm(); signInAfterPasswordChange(); },
   });
 
   // Step 1: validate the new password locally, then ask for the emailed code.

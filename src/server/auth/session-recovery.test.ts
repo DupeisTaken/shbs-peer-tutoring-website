@@ -16,6 +16,39 @@ const token = (key = secret, salt = cookieName, maxAge = 3600) =>
   });
 
 describe("session recovery at the HTTP boundary", () => {
+  it("expires a correctly signed but revoked session, including every chunk", async () => {
+    const value = await token();
+    const response = await recoverInvalidSession(
+      request(`${cookieName}.0=${value.slice(0, 90)}; ${cookieName}.1=${value.slice(90)}; theme=dark`),
+      secret,
+      async () => false,
+    );
+    expect(response?.headers.get("location")).toBe("http://localhost:3109/signin?reason=session-expired");
+    expect(response?.cookies.get(`${cookieName}.0`)?.maxAge).toBe(0);
+    expect(response?.cookies.get(`${cookieName}.1`)?.maxAge).toBe(0);
+    expect(response?.cookies.get("theme")).toBeUndefined();
+    // The next navigation has no rejected cookie and cannot loop back to itself.
+    expect(await recoverInvalidSession(request("theme=dark", "/signin?reason=session-expired"), secret, async () => false)).toBeNull();
+  });
+
+  it("keeps the password-change explanation when clearing the requesting browser", async () => {
+    const response = await recoverInvalidSession(
+      request(`${cookieName}=${await token()}`, "/signin?reason=password-changed&callbackUrl=https://evil.example"),
+      secret, async () => false,
+    );
+    expect(response?.headers.get("location")).toBe("http://localhost:3109/signin?reason=password-changed");
+    expect(response?.cookies.get(cookieName)?.maxAge).toBe(0);
+  });
+
+  it("strips revoked API credentials before a handler sees them but retains current sessions", async () => {
+    const apiRequest = request(`${cookieName}=${await token()}; theme=dark`, "/api/trpc/account.me");
+    expect(await recoverInvalidSession(apiRequest, secret, async () => true)).toBeNull();
+    const response = await recoverInvalidSession(apiRequest, secret, async () => false);
+    expect(response?.headers.get("location")).toBeNull();
+    expect(response?.headers.get("x-middleware-request-cookie")).toBe("theme=dark");
+    expect(response?.cookies.get(cookieName)?.maxAge).toBe(0);
+  });
+
   it("leaves anonymous and valid sessions to the normal authorization checks", async () => {
     expect(
       await recoverInvalidSession(request("theme=dark"), undefined),
