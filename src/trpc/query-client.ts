@@ -13,7 +13,12 @@ import { APPROVAL_OPERATIONS } from "~/lib/approval-policy";
 export function retryQuery(failureCount: number, error: Error) {
   if (error instanceof TRPCClientError) {
     const code = (error as TRPCClientError<AppRouter>).data?.code;
-    if (code === "UNAUTHORIZED" || code === "FORBIDDEN") return false;
+    if (
+      code === "UNAUTHORIZED" ||
+      code === "FORBIDDEN" ||
+      code === "PRECONDITION_FAILED"
+    )
+      return false;
   }
   return failureCount < 2;
 }
