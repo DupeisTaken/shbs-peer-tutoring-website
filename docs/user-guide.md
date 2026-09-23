@@ -20,6 +20,8 @@ Use this guide with the website address supplied by your program. Page names bel
 
 ## Before you start
 
+Read **Privacy policy** from the homepage information menu or footer, or open `/privacy` directly. It is available without signing in and remains readable when participation agreements need renewal. The notice covers information collected, uses, access, browser storage, retention and privacy requests. English and Chinese are provided; other interface languages show the English document. Use the contact details at the end for privacy questions.
+
 The website supports intake, matching, attendance, hours, interviews, support and reviewed management changes. The operator must configure real email delivery and publish the current school policies before opening public intake. The repository contains [sample policies](policies/README.md) for adaptation; changing a sample does not publish a school policy.
 
 | Your access                            | Start with                           | Important boundary                                                                                                |
