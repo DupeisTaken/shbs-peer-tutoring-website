@@ -2,7 +2,7 @@
 import { useEffect, useId, useRef, useState } from "react";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
-import { api } from "~/trpc/react";
+import { api, useIdentityFocus } from "~/trpc/react";
 import { Markdown } from "./markdown";
 import { TimedActionDialog } from "./timed-action-dialog";
 import { policyActionTarget, type PolicySlug } from "~/lib/policy-evidence";
@@ -13,6 +13,7 @@ export function StudentPolicyGate() {
   const t = useTranslations("workflow");
   const path = usePathname();
   const search = useSearchParams().toString();
+  const focusVersion = useIdentityFocus();
   const [dismissed, setDismissed] = useState<string | null>(null);
   // Credential setup and recovery must stay usable before policy participation.
   const skipPolicyGate = [
@@ -29,34 +30,30 @@ export function StudentPolicyGate() {
     "/crew-signup",
     "/viewer-signup",
   ].includes(path);
-  const status = api.studentWorkflow.policyStatus.useQuery({ tuteeEntry: path === "/student" || path.startsWith("/student/") }, {
-    enabled: !skipPolicyGate,
-    staleTime: 0,
-    refetchOnWindowFocus: true,
-  });
+  const status = api.studentWorkflow.policyStatus.useQuery(
+    { tuteeEntry: path === "/student" || path.startsWith("/student/") },
+    {
+      enabled: !skipPolicyGate,
+      staleTime: 0,
+      refetchOnWindowFocus: false,
+    },
+  );
   const { refetch } = status;
   useEffect(() => {
     if (skipPolicyGate) {
       setDismissed(null);
       return;
     }
-    let active = true;
-    const onFocus = () => {
-      void (async () => {
-        const result = await refetch();
-        // React Query v5 refreshes on visibilitychange; native window focus also
-        // matters when the user returns from another window without hiding this tab.
-        if (active && !result.error) setDismissed(null);
-      })();
-    };
-    // Query-only student tabs are visits too. Retain this visit's dismissal when
-    // the revision is unchanged so personal navigation is not repeatedly interrupted.
-    void refetch();
-    window.addEventListener("focus", onFocus);
-    return () => {
-      active = false;
-      window.removeEventListener("focus", onFocus);
-    };
+    setDismissed(null);
+  }, [focusVersion, skipPolicyGate]);
+  // Path/focus refreshes belong to the identity provider. Only query-only tabs
+  // need a local refresh; mounting/enabling this query already fetches once.
+  const previousVisit = useRef({ path, search });
+  useEffect(() => {
+    const previous = previousVisit.current;
+    previousVisit.current = { path, search };
+    if (!skipPolicyGate && previous.path === path && previous.search !== search)
+      void refetch({ cancelRefetch: false });
   }, [path, search, skipPolicyGate, refetch]);
   // A disabled query can still expose cached data or an earlier error.
   if (skipPolicyGate) return null;
