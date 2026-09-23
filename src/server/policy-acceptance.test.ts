@@ -1,6 +1,10 @@
 import { expect, it, vi } from "vitest";
 import type { TransactionDb } from "./transactions";
-import { publicSignupPolicy } from "./policy-acceptance";
+import {
+  currentPolicy,
+  requirePolicy,
+  publicSignupPolicy,
+} from "./policy-acceptance";
 const client = (findMany: unknown) =>
   ({ policyDocument: { findMany } }) as TransactionDb;
 it.each([
@@ -35,3 +39,19 @@ it("does not disguise real database failures as missing configuration", async ()
     ),
   ).rejects.toThrow("offline");
 });
+
+it.each([
+  { documents: [] },
+  { documents: [{ locale: "en", body: " ", title: "Draft", version: "1" }] },
+])(
+  "rejects participation without non-empty English publication",
+  async ({ documents }) => {
+    const db = client(vi.fn().mockResolvedValue(documents));
+    await expect(currentPolicy(db, "tutee-policy")).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+    });
+    await expect(
+      requirePolicy(db, "user", "tutee-policy"),
+    ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  },
+);

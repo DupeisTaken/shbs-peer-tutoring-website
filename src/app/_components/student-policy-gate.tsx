@@ -1,4 +1,5 @@
 "use client";
+import Link from "next/link";
 import { useEffect, useId, useRef, useState } from "react";
 import { usePathname, useSearchParams, useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
@@ -57,9 +58,35 @@ export function StudentPolicyGate() {
   }, [path, search, skipPolicyGate, refetch]);
   // A disabled query can still expose cached data or an earlier error.
   if (skipPolicyGate) return null;
+  // Setup is successful query data, so it needs neither retries nor a consent dialog.
+  if (!status.error && status.data?.state === "setup")
+    return (
+      <aside
+        role="status"
+        className="mx-auto mt-4 w-[calc(100%-2rem)] max-w-5xl rounded-lg border border-amber-200 bg-amber-50 p-4 text-slate-900"
+      >
+        <p className="font-semibold">{t("policySetupTitle")}</p>
+        <p className="mt-1 text-sm">
+          {t(
+            status.data.canManagePolicies
+              ? "policySetupManager"
+              : "policySetupParticipant",
+          )}
+        </p>
+        {status.data.canManagePolicies && (
+          <Link
+            className="btn-secondary mt-3 min-h-11 lg:min-h-9"
+            href="/admin/policies"
+          >
+            {t("policySetupAction")}
+          </Link>
+        )}
+      </aside>
+    );
+  const policy = status.data?.state === "review" ? status.data : null;
   if (
     status.error ||
-    (status.data && dismissed === `${status.data.slug}:${status.data.revision}`)
+    (policy && dismissed === `${policy.slug}:${policy.revision}`)
   )
     return (
       <aside
@@ -80,13 +107,11 @@ export function StudentPolicyGate() {
         </button>
       </aside>
     );
-  return status.data ? (
+  return policy ? (
     <PolicyPrompt
-      key={`${status.data.slug}:${status.data.revision}`}
-      policy={status.data}
-      onDismiss={() =>
-        setDismissed(`${status.data!.slug}:${status.data!.revision}`)
-      }
+      key={`${policy.slug}:${policy.revision}`}
+      policy={policy}
+      onDismiss={() => setDismissed(`${policy.slug}:${policy.revision}`)}
     />
   ) : null;
 }
