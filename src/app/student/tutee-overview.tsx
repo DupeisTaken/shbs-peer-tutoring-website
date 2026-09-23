@@ -38,7 +38,7 @@ export function TuteeOverview() {
           <p className="mt-3 text-3xl font-bold">
             {personal.isLoading || personal.error
               ? "—"
-              : (personal.data?.schedule.length ?? 0)}
+              : (personal.data?.schedule.filter((pairing) => pairing.scheduleConfirmed).length ?? 0)}
           </p>
           <p className="muted mt-1 text-sm">{t("scheduledSubjects")}</p>
         </Link>

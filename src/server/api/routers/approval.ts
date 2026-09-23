@@ -17,6 +17,11 @@ import {
 } from "~/server/approvals";
 import { HEAD_APPROVAL_OPERATIONS, humanizeOperation, proposalConfirmation } from "~/lib/approval-policy";
 import { requesterLabels } from "~/lib/requester-labels";
+import {
+  isAttendanceApproval,
+  lockAttendanceApproval,
+  lockAttendanceApprovalTarget,
+} from "~/server/attendance-approval";
 
 async function reviewRequesterOptions(database: typeof db) {
   const requests = await database.approvalRequest.findMany({
@@ -95,10 +100,24 @@ export const approvalRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      // Classify only the immutable operation; authorization and proposal evidence are
+      // re-read below while locked. Other approvals retain serializable isolation.
+      const initial = input.approve
+        ? await ctx.db.approvalRequest.findUniqueOrThrow({
+            where: { id: input.id },
+            select: { operation: true, requesterId: true },
+          })
+        : null;
+      const attendanceApproval = initial && isAttendanceApproval(initial.operation);
       const result = await ctx.db.$transaction(
         async (tx) =>
           databaseScope.run(tx, () =>
             approvalScope.run(input.id, async () => {
+              if (attendanceApproval)
+                await lockAttendanceApproval(tx, initial.operation, [
+                  ctx.session.user.id,
+                  initial.requesterId,
+                ]);
               await lockEntity(tx, `approval:${input.id}`);
               const currentReviewer = await tx.user.findUnique({
                 where: { id: ctx.session.user.id },
@@ -116,6 +135,8 @@ export const approvalRouter = createTRPCRouter({
               const request = await tx.approvalRequest.findUniqueOrThrow({
                 where: { id: input.id },
               });
+              if (initial && (request.operation !== initial.operation || request.requesterId !== initial.requesterId))
+                throw new TRPCError({ code: "CONFLICT", message: "The approval request changed. Reload before reviewing it." });
               if (HEAD_APPROVAL_OPERATIONS.has(request.operation) && currentReviewer.role !== "HEAD")
                 throw new TRPCError({ code: "FORBIDDEN", message: "Only Head may decide badge changes." });
               if (request.state !== "PENDING")
@@ -151,6 +172,8 @@ export const approvalRouter = createTRPCRouter({
                   >[0],
                 );
                 await parseProposal(request.operation, value);
+                if (attendanceApproval)
+                  await lockAttendanceApprovalTarget(tx, request.operation, value);
                 const targets = await proposalTargets(
                   tx,
                   request.operation,
@@ -240,7 +263,7 @@ export const approvalRouter = createTRPCRouter({
               return result;
             }),
           ),
-        { isolationLevel: "Serializable", timeout: 20000 },
+        { isolationLevel: attendanceApproval ? "ReadCommitted" : "Serializable", timeout: 20000 },
       );
       // SMTP happens only after the durable decision commits. A failed send is explicitly retryable.
       let emailSent: boolean | null = null;

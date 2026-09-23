@@ -230,6 +230,7 @@ beforeEach(async () => {
   const rows = await Promise.all([
     db.pairing.create({
       data: {
+      scheduleConfirmed: true,
         termId,
         tutorId: tutorA,
         roomId: roomA,
@@ -242,6 +243,7 @@ beforeEach(async () => {
     }),
     db.pairing.create({
       data: {
+      scheduleConfirmed: true,
         termId,
         tutorId: tutorB,
         roomId: roomB,
@@ -254,6 +256,7 @@ beforeEach(async () => {
     }),
     db.pairing.create({
       data: {
+      scheduleConfirmed: true,
         termId,
         tutorId: tutorC,
         roomId: roomC,
@@ -266,6 +269,7 @@ beforeEach(async () => {
     }),
     db.pairing.create({
       data: {
+      scheduleConfirmed: true,
         termId,
         tutorId: tutorA,
         roomId: roomC,
@@ -698,4 +702,14 @@ describe("planned room booking integrity", () => {
       db.pairing.count({ where: { roomId: roomRace, termId } }),
     ).resolves.toBe(1);
   });
+});
+
+
+it("unscheduled placeholders do not reserve rooms, but confirmation rechecks database guards", async () => {
+  const pending = await db.pairing.create({ data: { tutorId: tutorA, termId, roomId: roomA, subject: "Awaiting", dayOfWeek: 1, startMin: 930, endMin: 990 } });
+  expect(pending.scheduleConfirmed).toBe(false);
+  await expect(db.pairing.update({ where: { id: pending.id }, data: { scheduleConfirmed: true } })).rejects.toThrow("Room already allocated");
+  await db.pairing.update({ where: { id: pending.id }, data: { roomId: roomRace } });
+  await expect(admin().admin.createRoomUnavailability({ roomId: roomRace, dayOfWeek: 1, startMin: 930, endMin: 990 })).resolves.toMatchObject({ roomId: roomRace });
+  await expect(db.pairing.update({ where: { id: pending.id }, data: { scheduleConfirmed: true } })).rejects.toThrow("Room already allocated");
 });

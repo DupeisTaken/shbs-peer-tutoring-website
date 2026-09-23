@@ -79,7 +79,7 @@ The tutee page uses the same top bar, account menu, theme and card layout as the
 
 **Request a Tutor** is available in every section and opens the existing request form. A program period is labeled **Quarter** when quarters are enabled and **Semester** when semester mode is applied; request and withdrawal wording follows that setting. A staged mode change does not change the current display.
 
-Current schedules include only active-period assignments on explicitly owned, non-inactive profiles. Multiple profiles on the same assignment produce one schedule entry. A matching name or email does not grant access to another person’s records. Historical attendance remains available after a refresh.
+Current schedules include only active-period assignments on explicitly owned, non-inactive profiles. A new tutor assignment displays **Awaiting schedule** until a tutor or manager chooses a time slot; the assigned tutor remains visible. The dashboard counts only subjects with confirmed schedules. Multiple profiles on the same assignment produce one schedule entry. A matching name or email does not grant access to another person’s records. Historical attendance remains available after a refresh.
 
 ### Manage a request
 
@@ -127,7 +127,7 @@ Management records actual interview completion through **Tutor Applications** in
 
 ### Record a session
 
-1. Confirm the assigned tutees, actual date, start/end time, and room or online status. Future school dates cannot be submitted.
+1. Confirm the assigned tutees, actual date, start/end time, and room or online status. Future school dates cannot be submitted. An assignment marked **Awaiting schedule** has no default appointment time. Enter actual start and end times, including when such an assignment is added to a combined block; recording attendance does not set its recurring schedule.
 2. Record your attendance and each tutee's actual attendance. Supply comments, reasons for your absence or excused student absences, the requested session ratings, and reasons for requested disciplinary cards.
 3. Read any room-conflict warning. A truthful historical report is allowed and alerts management; it does not reserve a conflicting room for a future session.
 4. Submit once and check the saved record. If the result is unclear after a network error, check the record before retrying.

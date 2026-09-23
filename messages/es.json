@@ -1,4 +1,10 @@
 {
+  "scheduling": {
+    "awaiting": "Horario pendiente",
+    "noLinkedSlot": "Sin franja del catálogo vinculada",
+    "retained": "El día y las horas acordadas se conservan al desvincular la franja del catálogo.",
+    "actualTimesRequired": "Esta asignación aún no tiene horario. Introduce las horas reales de inicio y fin de esta asistencia."
+  },
   "tutorDetails": {
     "open": "View user details",
     "openFor": "View user details for {name}",
@@ -888,7 +894,7 @@
       "end": "Fin",
       "addSlot": "Agregar horario",
       "propagationTitle": "Los cambios de horario se mantienen sincronizados",
-      "propagationNote": "Editar un horario actualiza todos los emparejamientos y sesiones vinculados. Las fechas de las sesiones no cambian y las horas de servicio se recalculan con la nueva duración.",
+      "propagationNote": "Cambiar las horas actualiza los horarios vinculados y los bloques completos de asistencia combinada. Las fechas se conservan; se revisan las horas, las alertas de asistencia y las deducciones vinculadas. Se rechazan los cambios que se solapen con otro bloque guardado del mismo tutor y fecha. Cambiar solo el día de la semana no modifica las horas de asistencia registradas.",
       "colLabel": "Etiqueta",
       "colDay": "Día",
       "colTime": "Hora",

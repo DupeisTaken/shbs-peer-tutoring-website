@@ -161,6 +161,7 @@ it("matches evening crew observations after UTC midnight to their school calenda
   const room = await db.room.create({ data: { name: "Evening room" } });
   const pairing = await db.pairing.create({
     data: {
+      scheduleConfirmed: true,
       tutorId: tutor.id,
       termId: term.id,
       subject: "Mathematics",

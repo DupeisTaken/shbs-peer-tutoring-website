@@ -121,6 +121,7 @@ beforeEach(async () => {
   ] as const)
     await db.pairing.create({
       data: {
+      scheduleConfirmed: true,
         id,
         tutorId,
         termId,

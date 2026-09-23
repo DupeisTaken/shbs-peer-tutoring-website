@@ -1,4 +1,5 @@
 "use client";
+import { pairingScheduleText } from "~/lib/pairing-schedule";
 import Link from "next/link";
 import { useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
@@ -78,6 +79,7 @@ export function StudentWorkspace() {
 function CurrentRequest({ row }: { row: Request }) {
   const format = useFormatter();
   const t = useTranslations("workflow");
+  const scheduling = useTranslations("scheduling");
   const utils = api.useUtils();
   const options = api.tutee.signupOptions.useQuery();
   const [slots, setSlots] = useState(row.slots.map((s) => s.id));
@@ -129,8 +131,7 @@ function CurrentRequest({ row }: { row: Request }) {
           {row.pairings.length ? (
             row.pairings.map((p) => (
               <p key={p.id} className="mt-2 text-sm">
-                {p.subject} · {p.tutor.englishName} · {DAY_NAMES[p.dayOfWeek]}{" "}
-                {minToHm(p.startMin)}–{minToHm(p.endMin)}
+                {p.subject} · {p.tutor.englishName} · {pairingScheduleText(p, scheduling("awaiting"))}
               </p>
             ))
           ) : (

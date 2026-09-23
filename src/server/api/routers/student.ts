@@ -226,6 +226,7 @@ export const studentRouter = createTRPCRouter({
                   select: {
                     subject: true,
                     timeSlotId: true,
+                    scheduleConfirmed: true,
                     dayOfWeek: true,
                     startMin: true,
                     endMin: true,
@@ -256,6 +257,7 @@ export const studentRouter = createTRPCRouter({
             id: true,
             subject: true,
             timeSlotId: true,
+            scheduleConfirmed: true,
             dayOfWeek: true,
             startMin: true,
             endMin: true,

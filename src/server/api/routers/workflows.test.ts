@@ -900,6 +900,7 @@ beforeEach(async () => {
   });
   await db.pairing.create({
     data: {
+      scheduleConfirmed: true,
       id: "review-pairing",
       tutorId: "review-tutor",
       termId: "review-term",
@@ -1061,6 +1062,7 @@ it("attendance correction reverses automatic removal, restores current pairing a
 it("a merged attendance correction credits the combined block exactly once", async () => {
   await db.pairing.create({
     data: {
+      scheduleConfirmed: true,
       id: "merge-pairing",
       tutorId: "review-tutor",
       termId: "review-term",
@@ -1488,6 +1490,7 @@ it("attendance requires the complete merged roster exactly once", async () => {
   });
   await db.pairing.create({
     data: {
+      scheduleConfirmed: true,
       id: "second-pairing",
       tutorId: "review-tutor",
       termId: "review-term",
@@ -2673,6 +2676,7 @@ it("room overlaps are blocked at the database boundary, including concurrent boo
     termId: "review-term",
     roomId,
     subject: "Other",
+    scheduleConfirmed: true,
     dayOfWeek: 1,
     startMin: 950,
     endMin: 1000,
@@ -2689,6 +2693,7 @@ it("room overlaps are blocked at the database boundary, including concurrent boo
 it("room boundaries and separate terms permit non-overlapping allocations", async () => {
   await db.pairing.create({
     data: {
+      scheduleConfirmed: true,
       tutorId: "review-tutor",
       termId: "review-term",
       roomId,
@@ -2709,6 +2714,7 @@ it("room boundaries and separate terms permit non-overlapping allocations", asyn
   });
   await db.pairing.create({
     data: {
+      scheduleConfirmed: true,
       tutorId: "review-tutor",
       termId: "next-term",
       roomId,

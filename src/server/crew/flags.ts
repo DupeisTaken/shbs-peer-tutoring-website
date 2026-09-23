@@ -17,6 +17,7 @@ import {
   inTransaction,
   lockEntity,
   type DomainDb,
+  type TransactionDb,
 } from "~/server/transactions";
 import { getProgramTimeZone } from "~/server/program/time-zone";
 import { programDateKey, programMinuteOfDay, programDayStart, programDayEnd } from "~/lib/program-time";
@@ -40,6 +41,21 @@ export function headcountMin(h: Headcount): number {
 
 /** A small grace (minutes) around a session window so a patrol just inside the door still matches. */
 const MATCH_GRACE_MIN = 15;
+
+/** A change to actual attendance evidence invalidates its reviewed flag and linked deduction.
+ * Callers preserve the previous state in their audit snapshot before invoking this helper. */
+export async function reconsiderSessionFlag(tx: TransactionDb, sessionId: string) {
+  await lockEntity(tx, `session-flag:${sessionId}`);
+  const flag = await tx.sessionFlag.findUnique({ where: { sessionId } });
+  if (flag) {
+    await tx.serviceHourAdjustment.deleteMany({ where: { id: `flag:${flag.id}` } });
+    await tx.sessionFlag.update({
+      where: { id: flag.id },
+      data: { state: "PENDING", resolvedAt: null, resolvedById: null, resolvedByName: null, decisionNote: null },
+    });
+  }
+  await syncSessionFlag(tx, sessionId);
+}
 
 /**
  * Reconcile a session's discrepancy flag with the current crew evidence. Returns whether a flag is

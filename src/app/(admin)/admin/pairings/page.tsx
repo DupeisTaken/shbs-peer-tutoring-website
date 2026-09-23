@@ -1,4 +1,5 @@
 "use client";
+import { pairingScheduleText } from "~/lib/pairing-schedule";
 import { isAssignableTutor } from "~/lib/assignment-qualification";
 
 import { useState } from "react";
@@ -266,8 +267,7 @@ export default function PairingsPage() {
                 <td>{p.tutor.englishName}</td>
                 <td>{p.subject}</td>
                 <td>
-                  {DAY_NAMES[p.dayOfWeek]} {minToHm(p.startMin)}–
-                  {minToHm(p.endMin)}
+                  {pairingScheduleText(p, t("scheduling.awaiting"))}
                 </td>
                 <td className="text-slate-500">{p.timeSlot?.label ?? "—"}</td>
                 <td>{p.room?.name ?? "—"}</td>
