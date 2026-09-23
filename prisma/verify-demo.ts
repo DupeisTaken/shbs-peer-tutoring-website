@@ -91,6 +91,9 @@ try {
     z.string().uuid().parse(message.clientKey);
   assert.equal(await db.user.count({ where: { role: "HEAD" } }), 1);
   assert.equal(await db.term.count({ where: { active: true } }), 1);
+  // Demo pairings have authored timetables; repeat seeding must keep them confirmed.
+  assert.ok(await db.pairing.count());
+  assert.equal(await db.pairing.count({ where: { scheduleConfirmed: false } }), 0);
   console.log(
     "Demo verified: API-valid identities, legal interview panels and outcomes, student ownership/consent, modern queues and singleton leadership/term.",
   );

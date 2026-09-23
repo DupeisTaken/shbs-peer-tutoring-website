@@ -135,6 +135,7 @@ beforeAll(async () => {
   });
   await db.pairing.create({
     data: {
+      scheduleConfirmed: true,
       id: PAIRING_A,
       tutorId: TUTOR_A,
       termId: TERM,

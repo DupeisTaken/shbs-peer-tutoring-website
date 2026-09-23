@@ -1,4 +1,5 @@
 "use client";
+import { pairingScheduleText } from "~/lib/pairing-schedule";
 import { useDialog } from "~/app/_components/confirm-dialog";
 
 import { zodResolver } from "@hookform/resolvers/zod";
@@ -124,7 +125,10 @@ export function AttendanceForm() {
   const comments = watch("comments");
   // The always-required fields — gray the submit until they're filled (the rest is
   // validated on submit with inline messages).
-  const incomplete = !selectedPairingId || !comments?.trim();
+  const startTime = watch("startTime");
+  const endTime = watch("endTime");
+  const incomplete =
+    !selectedPairingId || !comments?.trim() || !startTime || !endTime;
   const pairings = pairingsQuery.data ?? [];
   const selectedPairing = pairings.find((p) => p.id === selectedPairingId);
   // Tutee attendance is tracked for any held session (present / rescheduled / extra).
@@ -154,8 +158,14 @@ export function AttendanceForm() {
     // Tell "My pairings" which pairing is primary so it can offer eligible merges.
     setPrimaryPairingId(selectedPairingId ?? "");
     if (!selectedPairing) return;
-    setValue("startTime", minToHm(selectedPairing.startMin));
-    setValue("endTime", minToHm(selectedPairing.endMin));
+    setValue(
+      "startTime",
+      selectedPairing.scheduleConfirmed ? minToHm(selectedPairing.startMin) : "",
+    );
+    setValue(
+      "endTime",
+      selectedPairing.scheduleConfirmed ? minToHm(selectedPairing.endMin) : "",
+    );
     setOnline(false);
     setActualRoomId(selectedPairing.room?.id ?? "");
     setMergeIds([]);
@@ -170,7 +180,24 @@ export function AttendanceForm() {
     setCards({});
     setFormError(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPairingId]);
+  }, [
+    selectedPairingId,
+    selectedPairing?.scheduleConfirmed,
+    selectedPairing?.startMin,
+    selectedPairing?.endMin,
+  ]);
+
+  const unscheduledMergeIds = mergedPairings
+    .filter((p) => !p.scheduleConfirmed)
+    .map((p) => p.id)
+    .sort()
+    .join(",");
+  // Adding an unscheduled course must not inherit another course's assumed attendance times.
+  useEffect(() => {
+    if (!unscheduledMergeIds) return;
+    setValue("startTime", "");
+    setValue("endTime", "");
+  }, [unscheduledMergeIds, setValue]);
 
   const onSubmit = (values: FormValues) => {
     if (!selectedPairing) return;
@@ -282,7 +309,7 @@ export function AttendanceForm() {
           </option>
           {pairings.map((p) => (
             <option key={p.id} value={p.id}>
-              {p.subject} · {minToHm(p.startMin)}–{minToHm(p.endMin)}
+              {p.subject} · {pairingScheduleText(p, t("scheduling.awaiting"))}
               {p.room ? ` · ${p.room.name}` : ""}
             </option>
           ))}
@@ -354,6 +381,9 @@ export function AttendanceForm() {
         </div>
       )}
 
+      {(selectedPairing && (!selectedPairing.scheduleConfirmed || unscheduledMergeIds)) && (
+        <p className="muted text-sm">{t("scheduling.actualTimesRequired")}</p>
+      )}
       {/* Time (with "now") */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-1">
@@ -419,15 +449,15 @@ export function AttendanceForm() {
                       !mergeIds.includes(p.id) &&
                       p.roomId === roomId &&
                       p.dayOfWeek === day &&
-                      p.startMin < selectedPairing.endMin &&
-                      p.endMin > selectedPairing.startMin,
+                      p.startMin < hmToMin(endTime || "00:00") &&
+                      p.endMin > hmToMin(startTime || "24:00"),
                   ) ||
                   schedule.data?.blocks.some(
                     (b) =>
                       b.roomId === roomId &&
                       b.dayOfWeek === day &&
-                      b.startMin < selectedPairing.endMin &&
-                      b.endMin > selectedPairing.startMin,
+                      b.startMin < hmToMin(endTime || "00:00") &&
+                      b.endMin > hmToMin(startTime || "24:00"),
                   );
                 if (
                   occupied &&

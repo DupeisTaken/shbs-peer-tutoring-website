@@ -317,6 +317,8 @@ source. If a release changes Compose, Caddy or host scripts, also update those
 tracked deployment files with `git pull --ff-only` after reviewing the release;
 preserve `.env` and keep the Compose project name unchanged. An image update
 reruns pending migrations and preserves the database volume and existing records.
+The pairing-scheduling migration preserves all existing copied schedules as confirmed, including records with no catalog link. Their historical provenance is unknown, so it does not guess which old values were placeholders or rewrite attendance. New assignments default to **Awaiting schedule** until a slot is selected. Deploy the migration and application together; do not replace the migration chain with `db push`, which omits the room guards.
+
 A customized runtime title takes precedence over a changed repository default.
 Database-managed landing content/translations remain as published; update those
 through their administration screens when required.

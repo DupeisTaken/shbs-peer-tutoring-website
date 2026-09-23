@@ -1,4 +1,10 @@
 {
+  "scheduling": {
+    "awaiting": "Termin noch offen",
+    "noLinkedSlot": "Kein Katalogzeitfenster verknüpft",
+    "retained": "Beim Entfernen der Zeitfensterverknüpfung bleiben der vereinbarte Wochentag und die Uhrzeiten erhalten.",
+    "actualTimesRequired": "Für diese Zuweisung steht der Termin noch aus. Gib die tatsächliche Start- und Endzeit für diesen Anwesenheitseintrag ein."
+  },
   "tutorDetails": {
     "open": "View user details",
     "openFor": "View user details for {name}",
@@ -962,7 +968,7 @@
       "end": "Ende",
       "addSlot": "Zeitfenster hinzufügen",
       "propagationTitle": "Terminänderungen bleiben synchron",
-      "propagationNote": "Beim Bearbeiten eines Zeitfensters werden alle verknüpften Zuordnungen und Sitzungen aktualisiert. Die Sitzungsdaten bleiben gleich; Servicestunden werden aus der neuen Dauer neu berechnet.",
+      "propagationNote": "Änderungen der Uhrzeiten aktualisieren verknüpfte Pläne und ganze kombinierte Anwesenheitsblöcke. Sitzungsdaten bleiben gleich; Stunden, Anwesenheitsmeldungen und verknüpfte Abzüge werden neu bewertet. Überschneidungen mit einem anderen gespeicherten Block derselben Lehrperson am selben Datum werden abgelehnt. Eine reine Wochentagsänderung verändert keine aufgezeichneten Anwesenheitszeiten.",
       "colLabel": "Bezeichnung",
       "colDay": "Tag",
       "colTime": "Uhrzeit",

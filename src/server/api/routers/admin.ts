@@ -50,7 +50,8 @@ import {
   headProcedure,
   viewerProcedure,
 } from "~/server/api/trpc";
-import { monthKey, shCount } from "~/lib/service-hours";
+import { monthKey } from "~/lib/service-hours";
+import { lockAttendanceSchedule, propagateSlotAttendance } from "~/server/attendance-schedule";
 import { recruitmentStatus, recruitmentWindow } from "~/lib/recruitment";
 import {
   defaultUsername,
@@ -730,6 +731,7 @@ export const adminRouter = createTRPCRouter({
           data: {
             ...data,
             termId: period.termId,
+            scheduleConfirmed: true,
             dayOfWeek: slot.dayOfWeek,
             startMin: slot.startMin,
             endMin: slot.endMin,
@@ -791,6 +793,7 @@ export const adminRouter = createTRPCRouter({
           data: {
             ...data,
             roomId: roomId ?? null,
+            scheduleConfirmed: true,
             dayOfWeek: slot.dayOfWeek,
             startMin: slot.startMin,
             endMin: slot.endMin,
@@ -2066,6 +2069,7 @@ export const adminRouter = createTRPCRouter({
             termId: input.termId,
             subject,
             // Placeholder schedule — the tutor sets the real time when they pick a slot.
+            scheduleConfirmed: false,
             dayOfWeek: 1,
             startMin: 15 * 60 + 30,
             endMin: 16 * 60 + 30,
@@ -2145,6 +2149,7 @@ export const adminRouter = createTRPCRouter({
               termId: period.termId,
               subject: a.subject,
               // Placeholder schedule — the tutor sets the real time when they pick a slot.
+              scheduleConfirmed: false,
               dayOfWeek: 1,
               startMin: 15 * 60 + 30,
               endMin: 16 * 60 + 30,
@@ -2411,11 +2416,11 @@ export const adminRouter = createTRPCRouter({
         });
       }
       const { id, ...data } = input;
-      const durationMin = data.endMin - data.startMin;
 
       // One transaction keeps the catalog, copied pairing schedule, attendance history, and
       // derived service-hour totals from ever exposing a partially updated timetable.
       return inTransaction(ctx.db, async (tx) => {
+        await lockAttendanceSchedule(tx, true);
         await lockPlannedRoomSchedule(tx);
         const current = await tx.timeSlot.findUniqueOrThrow({
           where: { id },
@@ -2445,6 +2450,7 @@ export const adminRouter = createTRPCRouter({
         const pairings = await tx.pairing.updateMany({
           where: { timeSlotId: id },
           data: {
+            scheduleConfirmed: true,
             dayOfWeek: data.dayOfWeek,
             startMin: data.startMin,
             endMin: data.endMin,
@@ -2462,38 +2468,14 @@ export const adminRouter = createTRPCRouter({
           };
         }
 
-        const sessions = await tx.session.findMany({
-          where: { timeSlotId: id },
-          select: { id: true, shFactor: true },
-        });
-        const idsByCount = new Map<number, string[]>();
-        for (const session of sessions) {
-          const recalculated = shCount(durationMin, session.shFactor);
-          const ids = idsByCount.get(recalculated) ?? [];
-          ids.push(session.id);
-          idsByCount.set(recalculated, ids);
-        }
-
-        // Grouping by the resulting credit avoids issuing one update query per session. Merged
-        // sibling sessions already carry factor 0, so they correctly remain at zero hours.
-        await Promise.all(
-          [...idsByCount].map(([recalculated, sessionIds]) =>
-            tx.session.updateMany({
-              where: { id: { in: sessionIds } },
-              data: {
-                startMin: data.startMin,
-                endMin: data.endMin,
-                durationMin,
-                shCount: recalculated,
-              },
-            }),
-          ),
+        const updatedSessions = await propagateSlotAttendance(
+          tx, id, { startMin: data.startMin, endMin: data.endMin }, ctx.session.user,
         );
 
         return {
           ...slot,
           updatedPairings: pairings.count,
-          updatedSessions: sessions.length,
+          updatedSessions,
         };
       });
     }),

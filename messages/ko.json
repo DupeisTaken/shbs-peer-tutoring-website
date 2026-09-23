@@ -1,4 +1,10 @@
 {
+  "scheduling": {
+    "awaiting": "일정 확정 대기",
+    "noLinkedSlot": "등록 시간대 연결 없음",
+    "retained": "등록 시간대 연결을 해제해도 합의한 요일과 시간은 유지됩니다.",
+    "actualTimesRequired": "이 배정은 일정 확정 대기 중입니다. 이 출석 기록의 실제 시작 및 종료 시간을 입력하세요."
+  },
   "tutorDetails": {
     "open": "View user details",
     "openFor": "View user details for {name}",
@@ -962,7 +968,7 @@
       "end": "종료",
       "addSlot": "슬롯 추가",
       "propagationTitle": "일정 변경 사항이 자동으로 동기화됩니다",
-      "propagationNote": "시간대를 수정하면 연결된 모든 매칭과 세션이 업데이트됩니다. 세션 날짜는 유지되며 봉사 시간은 새 수업 길이에 따라 다시 계산됩니다.",
+      "propagationNote": "시작·종료 시간을 변경하면 연결된 일정과 통합 출석 블록 전체가 업데이트됩니다. 기록된 날짜는 유지되며 봉사 시간, 출석 경고 및 연결된 차감이 재검토됩니다. 같은 튜터의 같은 날짜에 저장된 다른 블록과 겹치는 변경은 거부됩니다. 요일만 변경하면 기록된 출석 시간은 바뀌지 않습니다.",
       "colLabel": "레이블",
       "colDay": "요일",
       "colTime": "시간",

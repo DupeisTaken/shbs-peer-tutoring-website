@@ -713,7 +713,7 @@ async function main() {
   for (const p of PAIRINGS) {
     const source = SUBJECTS.find((subject) => subject.name === p.subject);
     const displaySubject = source ? (await db.subject.findUniqueOrThrow({ where: { id: source.id } })).name : p.subject;
-    const data = { subject: displaySubject, dayOfWeek: p.day, startMin: hm(p.start), endMin: hm(p.end), tutorId: p.tutorId, termId: term.id, roomId: p.roomId, timeSlotId: p.slotId };
+    const data = { scheduleConfirmed: true, subject: displaySubject, dayOfWeek: p.day, startMin: hm(p.start), endMin: hm(p.end), tutorId: p.tutorId, termId: term.id, roomId: p.roomId, timeSlotId: p.slotId };
     await db.pairing.upsert({ where: { id: p.id }, update: data, create: { id: p.id, ...data } });
     for (const tuteeId of p.tuteeIds) {
       await db.pairingTutee.upsert({ where: { pairingId_tuteeId: { pairingId: p.id, tuteeId } }, update: {}, create: { pairingId: p.id, tuteeId } });

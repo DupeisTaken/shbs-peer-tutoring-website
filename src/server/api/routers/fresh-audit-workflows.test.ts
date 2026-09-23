@@ -106,6 +106,7 @@ beforeEach(async () => {
   ).id;
   const pairing = {
     tutorId,
+    scheduleConfirmed: true,
     subject: "Audit math",
     dayOfWeek: 1,
     startMin: 900,
@@ -162,11 +163,13 @@ it("audit: active tutor cannot edit historical schedules or another tutor's pair
 });
 
 it("audit: active tutor can set a current slot and clearing it preserves copied times", async () => {
+  await db.pairing.update({ where: { id: pairingId }, data: { scheduleConfirmed: false } });
   await tutor().tutor.setPairingSlot({ pairingId, slotId });
   expect(
     await db.pairing.findUniqueOrThrow({ where: { id: pairingId } }),
   ).toMatchObject({
     timeSlotId: slotId,
+    scheduleConfirmed: true,
     dayOfWeek: 2,
     startMin: 900,
     endMin: 960,
@@ -176,6 +179,7 @@ it("audit: active tutor can set a current slot and clearing it preserves copied 
     await db.pairing.findUniqueOrThrow({ where: { id: pairingId } }),
   ).toMatchObject({
     timeSlotId: null,
+    scheduleConfirmed: true,
     dayOfWeek: 2,
     startMin: 900,
     endMin: 960,
@@ -608,4 +612,26 @@ it("audit: notification list, unread counts and read updates stay within the cal
   expect(
     await db.notification.findUniqueOrThrow({ where: { id: foreign.id } }),
   ).toMatchObject({ readAt: null });
+});
+
+
+it("an unscheduled primary or merged assignment requires explicit actual times", async () => {
+  const { input, otherPairingId } = await attendanceFixture();
+  await db.pairing.updateMany({ where: { id: { in: [pairingId, otherPairingId] } }, data: { scheduleConfirmed: false } });
+  const withoutTimes = { ...input, startMin: undefined, endMin: undefined };
+  for (const partial of [withoutTimes, { ...withoutTimes, startMin: 900 }, { ...withoutTimes, endMin: 960 }]) {
+    await expect(tutor().tutor.submitAttendance(partial)).rejects.toThrow("Enter actual start and end times");
+  }
+  expect(await db.session.count()).toBe(0);
+  await db.pairing.update({ where: { id: pairingId }, data: { scheduleConfirmed: true } });
+  await expect(tutor().tutor.submitAttendance({ ...withoutTimes, mergePairingIds: [otherPairingId] })).rejects.toThrow("Enter actual start and end times");
+  await tutor().tutor.submitAttendance({ ...input, pairingId: otherPairingId, startMin: 800, endMin: 840 });
+  expect(await db.session.findFirstOrThrow()).toMatchObject({ startMin: 800, endMin: 840, durationMin: 40 });
+  expect(await db.pairing.findUniqueOrThrow({ where: { id: otherPairingId } })).toMatchObject({ scheduleConfirmed: false });
+});
+it("clearing an unscheduled assignment never confirms placeholder times", async () => {
+  await db.pairing.update({ where: { id: pairingId }, data: { scheduleConfirmed: false } });
+  await tutor().tutor.setPairingSlot({ pairingId, slotId: null });
+  expect(await db.pairing.findUniqueOrThrow({ where: { id: pairingId } })).toMatchObject({ scheduleConfirmed: false, timeSlotId: null });
+  expect((await tutor().tutor.schedule()).pairings.map((p) => p.id)).not.toContain(pairingId);
 });

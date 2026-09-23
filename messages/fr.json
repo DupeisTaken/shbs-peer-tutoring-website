@@ -1,4 +1,10 @@
 {
+  "scheduling": {
+    "awaiting": "Horaire en attente",
+    "noLinkedSlot": "Aucun créneau du catalogue lié",
+    "retained": "Le jour et les heures convenus sont conservés lorsque le créneau du catalogue est dissocié.",
+    "actualTimesRequired": "Cette affectation attend un horaire. Saisissez les heures réelles de début et de fin pour cette présence."
+  },
   "tutorDetails": {
     "open": "View user details",
     "openFor": "View user details for {name}",
@@ -962,7 +968,7 @@
       "end": "Fin",
       "addSlot": "Ajouter un créneau",
       "propagationTitle": "Les modifications du planning restent synchronisées",
-      "propagationNote": "Modifier un créneau met à jour tous les pairages et toutes les séances liés. Les dates des séances restent inchangées et les heures de service sont recalculées selon la nouvelle durée.",
+      "propagationNote": "Modifier les heures met à jour les horaires liés et les blocs complets de présence combinée. Les dates restent identiques ; les heures, les alertes de présence et les déductions liées sont réévaluées. Tout chevauchement avec un autre bloc enregistré pour le même tuteur à la même date est refusé. Modifier uniquement le jour de la semaine ne change pas les heures de présence enregistrées.",
       "colLabel": "Étiquette",
       "colDay": "Jour",
       "colTime": "Heure",

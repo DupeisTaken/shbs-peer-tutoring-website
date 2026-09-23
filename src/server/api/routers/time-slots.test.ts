@@ -88,6 +88,7 @@ beforeAll(async () => {
       tutorId: TUTOR,
       termId: TERM,
       timeSlotId: SLOT,
+      scheduleConfirmed: true,
       subject: "Mathematics",
       dayOfWeek: 1,
       startMin: 900,

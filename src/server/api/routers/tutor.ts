@@ -14,6 +14,7 @@ import { z } from "zod";
 import { announcementVisibility } from "~/lib/announcement-recipients";
 import { createHash } from "node:crypto";
 import { inTransaction, lockEntity } from "~/server/transactions";
+import { lockAttendanceSchedule } from "~/server/attendance-schedule";
 
 import {
   activeTutorProcedure,
@@ -463,6 +464,11 @@ export const tutorRouter = createTRPCRouter({
         }
       }
 
+      // Placeholder assignment times are never evidence of when a session actually ran.
+      if (found.some((pairing) => !pairing.scheduleConfirmed) &&
+          (input.startMin === undefined || input.endMin === undefined)) {
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Enter actual start and end times for an assignment awaiting scheduling." });
+      }
       const startMin = input.startMin ?? primary.startMin;
       const endMin = input.endMin ?? primary.endMin;
       if (endMin <= startMin) {
@@ -499,6 +505,18 @@ export const tutorRouter = createTRPCRouter({
 
       return ctx.db.$transaction(
         async (tx) => {
+          await lockAttendanceSchedule(tx);
+          // Defaults were prepared before the write transaction. A catalogue edit that won
+          // the barrier must not leave a newly submitted record outside its propagation.
+          // Explicit actual times remain valid; changed defaults/linkage require a refresh.
+          const currentPairing = await tx.pairing.findUnique({
+            where: { id: primary.id },
+            select: { startMin: true, endMin: true, timeSlotId: true },
+          });
+          if (currentPairing?.timeSlotId !== primary.timeSlotId ||
+            (input.startMin === undefined && currentPairing.startMin !== startMin) ||
+            (input.endMin === undefined && currentPairing.endMin !== endMin))
+            throw new TRPCError({ code: "CONFLICT", message: "The pairing schedule changed. Reload before recording attendance." });
           await lockEntity(tx, "policy:tutor-policy");
           await requirePolicy(tx, ctx.session.user.id, "tutor-policy");
           // Pairing subsets and slightly changed times must not buy a second credit for the
@@ -702,6 +720,7 @@ export const tutorRouter = createTRPCRouter({
             const dayOfWeek = input.date.getUTCDay() || 7;
             const conflict = await tx.pairing.findFirst({
               where: {
+                scheduleConfirmed: true,
                 id: { notIn: ordered.map((p) => p.id) },
                 termId: primary.termId,
                 roomId: actualRoomId,
@@ -1137,6 +1156,7 @@ export const tutorRouter = createTRPCRouter({
         return tx.pairing.update({
           where: { id: pairing.id },
           data: {
+            scheduleConfirmed: true,
             timeSlotId: input.slotId,
             dayOfWeek: slot.dayOfWeek,
             startMin: slot.startMin,
@@ -1169,7 +1189,7 @@ export const tutorRouter = createTRPCRouter({
         },
       }),
       ctx.db.pairing.findMany({
-        where: { term: { active: true } },
+        where: { term: { active: true }, scheduleConfirmed: true },
         select: {
           id: true,
           subject: true,

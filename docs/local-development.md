@@ -78,7 +78,7 @@ Use a fresh local database named `shbs_program_demo`. Set `SHBS_DEMO_SEED=1` in 
 npm run db:migrate
 npm run db:seed
 npm run db:seed
-npx tsx prisma/verify-demo.ts
+npx tsx --conditions=react-server prisma/verify-demo.ts
 ```
 
 Seeding creates synthetic fixtures and refreshes some values. It preserves immutable request history and is not a full reset; create a fresh database to restart a rehearsal. It can overwrite other rehearsal changes; never use it with real program data. Use `npm run admin:create` to bootstrap real deployments.

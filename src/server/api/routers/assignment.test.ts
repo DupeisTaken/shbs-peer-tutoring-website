@@ -200,6 +200,7 @@ it.each(["manual", "legacy", "survey"] as const)(
         where: { tutorId: input.tutorId, subject: subject.name },
       }),
     ).toBe(1);
+    expect(await db.pairing.findFirstOrThrow({ where: { tutorId: input.tutorId } })).toMatchObject({ scheduleConfirmed: false, timeSlotId: null });
     expect(
       (
         await db.studentActionConfirmation.findUniqueOrThrow({
@@ -250,6 +251,7 @@ it("approved persisted grants group correctly and assign without an override", a
   await expect(actor().admin.createPairing(input)).resolves.toMatchObject({
     tutorId: tutor.id,
     subject: subject.name,
+    scheduleConfirmed: true,
   });
 });
 
@@ -404,6 +406,7 @@ it("preserves historical schedule-only edits but rejects adding students to an a
   const term = await db.term.findFirstOrThrow({ where: { active: true } });
   const pairing = await db.pairing.create({
     data: {
+      scheduleConfirmed: true,
       tutorId: input.tutorId,
       subject: input.subject,
       timeSlotId: input.timeSlotId,
@@ -426,6 +429,7 @@ it("preserves historical schedule-only edits but rejects adding students to an a
   ).toEqual({ ticket: null, mismatches: [] });
   await expect(actor().admin.updatePairing(payload)).resolves.toMatchObject({
     id: pairing.id,
+    scheduleConfirmed: true,
   });
   const student = await db.tutee.create({
     data: { englishName: "Synthetic Student" },
