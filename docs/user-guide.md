@@ -121,7 +121,7 @@ In **Tutor Applications**, additional-subject and higher-level requests have dis
 3. After acceptance, use the registration code or setup link supplied by the team. Verify your email and set your password. An application or roster entry alone is not a login.
 4. Use **Dashboard** to check assignments and record sessions; use **Settings** to maintain availability. Accept the current tutor policy when prompted before further participation.
 
-The application explains loading failures and offers a retry. Intake needs configured subjects and a published policy; contact management if it is unavailable. If management also granted you tutor participation, use the account menu to switch between management and tutor areas. Active crew members and assigned translators retain their return links when using the tutee workspace.
+The application explains loading failures and offers a retry. Intake needs configured subjects and a published policy; contact management if it is unavailable. Repeating a tutor or crew application while that email's application is under review keeps the original submission and displays the same confirmation. It does not replace your answers or send the team another notification. Contact the program team to correct an application. If management also granted you tutor participation, use the account menu to switch between management and tutor areas. Active crew members and assigned translators retain their return links when using the tutee workspace.
 
 Management records actual interview completion through **Tutor Applications** in the Tutors navigation group. **Tutee Support** remains in the management layout and is reachable from the Tutees group. See the [full function and control reference](program-reference.md).
 

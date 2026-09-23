@@ -126,7 +126,9 @@
 
 /* Base utilities (registered with @utility so they can be composed via @apply). */
 @utility btn {
-  @apply focus-visible:ring-accent-500 inline-flex items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold whitespace-nowrap transition focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50;
+  /* Minimum targets, rather than fixed heights, let translated labels wrap on touch screens.
+     Desktop keeps its existing row-specific sizes (including compact header controls). */
+  @apply focus-visible:ring-accent-500 inline-flex min-h-11 min-w-11 items-center justify-center gap-2 rounded-md px-4 py-2 text-sm font-semibold whitespace-normal transition focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 lg:min-h-0 lg:min-w-0 lg:whitespace-nowrap;
 }
 @utility badge {
   @apply inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium;
@@ -175,7 +177,16 @@
   .input,
   .select,
   .textarea {
-    @apply focus:border-accent-500 focus:ring-accent-500 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm placeholder:text-slate-400 focus:ring-1 focus:outline-none;
+    @apply focus:border-accent-500 focus:ring-accent-500 min-h-11 w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm placeholder:text-slate-400 focus:ring-1 focus:outline-none lg:min-h-0;
+  }
+
+  /* Standalone text actions (resend, account recovery and table actions) remain usable on
+     touch screens too. Avoid changing ordinary unstyled prose links or icon artwork. */
+  @media (width < 64rem) {
+    :is(a, button, summary).link,
+    :is(a, button, summary).link-danger {
+      @apply inline-flex min-h-11 min-w-11 items-center whitespace-normal;
+    }
   }
 
   /* Surfaces -------------------------------------------------------------- */
@@ -235,7 +246,7 @@
 
   /* Navigation ------------------------------------------------------------ */
   .nav-link {
-    @apply flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900;
+    @apply flex min-h-11 items-center gap-2 rounded-md px-3 py-2 text-sm font-medium text-slate-600 transition hover:bg-slate-100 hover:text-slate-900 lg:min-h-0;
   }
   .nav-link-active {
     @apply bg-accent-50 text-accent-700 hover:bg-accent-50 hover:text-accent-700;

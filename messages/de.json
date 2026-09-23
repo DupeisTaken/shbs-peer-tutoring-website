@@ -1943,6 +1943,7 @@
     }
   },
   "public": {
+    "applicationRetryNotice": "Wenn bereits eine Bewerbung mit dieser E-Mail-Adresse geprüft wird, behalten wir die ursprüngliche Einreichung. Für Änderungen wende dich an das Programmteam.",
     "signup": {
       "title": "Peer-Tutor anfragen",
       "intro": "Teilen Sie uns mit, wobei Sie Hilfe benötigen, und wann Sie verfügbar sind. Ein Koordinator prüft Ihren Antrag und vermittelt Ihnen einen Tutor.",

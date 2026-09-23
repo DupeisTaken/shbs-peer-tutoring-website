@@ -116,6 +116,7 @@ export function TutorSignupForm() {
             email: email.trim(),
           })}
         </p>
+        <p className="muted mt-4">{t("public.applicationRetryNotice")}</p>
         <p className="muted mt-4">
           {t("public.tutorSignup.journey.registerHelp")}
         </p>

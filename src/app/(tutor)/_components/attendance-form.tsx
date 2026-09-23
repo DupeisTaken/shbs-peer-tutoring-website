@@ -552,10 +552,11 @@ export function AttendanceForm() {
                 {t(`tutor.attendance.rating.${name}`)}
               </p>
               <div className="mt-1 grid grid-cols-1 gap-1 sm:flex sm:flex-wrap">
+                {/* The label provides the touch target; native radio artwork stays compact. */}
                 {LIKERT_VALUES.map((value) => (
                   <label
                     key={value}
-                    className="has-[:checked]:border-accent-500 has-[:checked]:bg-accent-50 has-[:checked]:text-accent-700 flex cursor-pointer items-center justify-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 sm:justify-start"
+                    className="has-[:checked]:border-accent-500 has-[:checked]:bg-accent-50 has-[:checked]:text-accent-700 flex min-h-11 cursor-pointer items-center justify-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 sm:justify-start lg:min-h-0"
                   >
                     <input
                       type="radio"

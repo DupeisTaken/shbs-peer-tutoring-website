@@ -1943,6 +1943,7 @@
     }
   },
   "public": {
+    "applicationRetryNotice": "Si ya se está revisando una solicitud con este correo electrónico, conservamos la solicitud original. Para modificarla, contacta con el equipo del programa.",
     "signup": {
       "title": "Solicitar un tutor par",
       "intro": "Cuéntanos en qué te gustaría recibir ayuda y cuándo estás libre. Un coordinador revisará tu solicitud y te emparejará con un tutor.",
