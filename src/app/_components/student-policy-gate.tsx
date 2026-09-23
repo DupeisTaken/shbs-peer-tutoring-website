@@ -15,6 +15,8 @@ export function StudentPolicyGate() {
   const search = useSearchParams().toString();
   const [dismissed, setDismissed] = useState<string | null>(null);
   const publicPage = [
+    // A privacy notice must stay readable even when participation consent is due.
+    "/privacy",
     "/signup",
     "/signup/account",
     "/signin",

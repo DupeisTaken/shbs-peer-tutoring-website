@@ -116,6 +116,19 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+it("leaves the public privacy notice readable despite outstanding agreements or errors", async () => {
+  mocks.path = "/privacy";
+  const view = render(<StudentPolicyGate />);
+  await act(async () => undefined);
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(mocks.status).toHaveBeenLastCalledWith(expect.anything(), expect.objectContaining({ enabled: false }));
+  expect(mocks.refetch).not.toHaveBeenCalled();
+  mocks.status.mockReturnValue({ error: { message: "Offline" }, refetch: mocks.refetch });
+  view.rerender(<StudentPolicyGate />);
+  expect(screen.queryByRole("status")).toBeNull();
+  expect(mocks.accept).not.toHaveBeenCalled();
+});
+
 it.each(["tutor-policy", "tutee-policy"])(
   "%s requires reaching the policy bottom and explicit agreement before acceptance",
   async (slug) => {

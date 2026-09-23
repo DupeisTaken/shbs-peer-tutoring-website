@@ -38,12 +38,20 @@ it("keeps the unauthenticated redirect and public/API authorization boundaries",
   expect(new URL(privateResponse!.headers.get("location")!).pathname).toBe(
     "/signin",
   );
-  for (const path of ["/", "/signin", "/api/trpc/approval.list"]) {
+  for (const path of ["/", "/privacy", "/signin", "/api/trpc/approval.list"]) {
     const response = await proxy(
       pageRequest(`http://localhost:3109${path}`),
       event,
     );
     expect(response?.headers.get("location")).toBeNull();
+  }
+});
+
+it("does not make nested or similarly named privacy routes public", async () => {
+  for (const path of ["/privacy/admin", "/privacy-settings"]) {
+    const response = await proxy(pageRequest(`http://localhost:3109${path}`), event);
+    expect(response?.status).toBe(307);
+    expect(new URL(response!.headers.get("location")!).pathname).toBe("/signin");
   }
 });
 
