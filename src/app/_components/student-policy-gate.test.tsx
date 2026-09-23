@@ -326,7 +326,7 @@ it("uses chosen policy locale, falls back to English and skips accepted/public p
   view.rerender(<StudentPolicyGate />);
   expect(screen.queryByRole("dialog")).toBeNull();
 });
-it.each(["/onboarding/email", "/forgot-password", "/reset-password"])(
+it.each(["/privacy", "/onboarding/email", "/forgot-password", "/reset-password"])(
   "keeps %s free of cached policy prompts and load errors",
   async (path) => {
     const view = render(<StudentPolicyGate />);
