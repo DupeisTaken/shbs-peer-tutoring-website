@@ -9,6 +9,7 @@ import {
 } from "@testing-library/react";
 import { StudentPolicyGate } from "./student-policy-gate";
 const mocks = vi.hoisted(() => ({
+  focusVersion: 0,
   status: vi.fn(),
   refetch: vi.fn(),
   accept: vi.fn(),
@@ -31,6 +32,7 @@ vi.mock("next-intl", () => ({
   useTranslations: () => (key: string) => key,
 }));
 vi.mock("~/trpc/react", () => ({
+  useIdentityFocus: () => mocks.focusVersion,
   api: {
     useUtils: () => ({
       studentWorkflow: { policyStatus: { invalidate: mocks.invalidate } },
@@ -78,6 +80,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   vi.useFakeTimers();
   vi.setSystemTime(new Date("2030-01-01T00:00:00Z"));
+  mocks.focusVersion = 0;
   mocks.path = "/student";
   mocks.search = "";
   mocks.locale = "en";
@@ -293,15 +296,16 @@ it("requires explicit agreement and the full wait, retries failures and refreshe
   view.rerender(<StudentPolicyGate />);
   expect(screen.queryByRole("dialog")).toBeNull();
 });
-it("refreshes publication on native window focus and route changes, resetting consent for a new revision", async () => {
+it("uses verified focus without duplicate requests and resets consent for a new revision", async () => {
   const view = render(<StudentPolicyGate />);
   await act(async () => undefined);
   fireEvent.click(screen.getByRole("checkbox"));
   fireEvent.click(screen.getByRole("button", { name: "cancel" }));
   await act(async () => {
-    fireEvent(window, new Event("focus"));
+    mocks.focusVersion++;
+    view.rerender(<StudentPolicyGate />);
   });
-  expect(mocks.refetch).toHaveBeenCalledTimes(2);
+  expect(mocks.refetch).not.toHaveBeenCalled();
   expect(screen.getByRole("dialog")).toBeTruthy();
   mocks.status.mockReturnValue({
     data: policy("new-publication"),
@@ -310,7 +314,7 @@ it("refreshes publication on native window focus and route changes, resetting co
   mocks.path = "/messages";
   view.rerender(<StudentPolicyGate />);
   await act(async () => undefined);
-  expect(mocks.refetch).toHaveBeenCalledTimes(3);
+  expect(mocks.refetch).not.toHaveBeenCalled();
   expect(screen.getByRole<HTMLInputElement>("checkbox").checked).toBe(false);
   expect(mocks.prepare).toHaveBeenLastCalledWith({
     action: "POLICY",
@@ -381,7 +385,7 @@ it("policy-load errors leave personal screens accessible and offer a retry", asy
   await act(async () => undefined);
   expect(screen.queryByRole("dialog")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "retry" }));
-  expect(mocks.refetch).toHaveBeenCalledTimes(2);
+  expect(mocks.refetch).toHaveBeenCalledTimes(1);
 });
 it("does not carry dismissal across different policies with identical revision text", async () => {
   const view = render(<StudentPolicyGate />);
@@ -405,7 +409,7 @@ it("refreshes query-only student tabs without interrupting personal navigation f
   mocks.search = "view=messages";
   view.rerender(<StudentPolicyGate />);
   await act(async () => undefined);
-  expect(mocks.refetch).toHaveBeenCalledTimes(2);
+  expect(mocks.refetch).toHaveBeenCalledTimes(1);
   expect(screen.queryByRole("dialog")).toBeNull();
   mocks.status.mockReturnValue({
     data: policy("newer"),
