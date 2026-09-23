@@ -113,6 +113,7 @@ it("preserves the successful outcome and points accepted applicants to registrat
       .getAttribute("href"),
   ).toBe("/register");
   expect(screen.queryByRole("alert")).toBeNull();
+  expect(screen.getByText("public.applicationRetryNotice")).toBeTruthy();
 });
 
 it("keeps a required third subject in its original position when the second is hidden", () => {
@@ -209,7 +210,7 @@ it("uses the server's runtime title in policy consent", () => {
 it.each(["paused", "scheduled", "ended"])(
   "keeps %s recruitment visible but prevents every response edit and direct form submit",
   (state) => {
-    const existing = mocks.options() as {data: Record<string, unknown>};
+    const existing = mocks.options() as { data: Record<string, unknown> };
     mocks.options.mockReturnValue({
       ...existing,
       data: {

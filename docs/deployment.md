@@ -103,6 +103,10 @@ Transactional email (reset links plus sign-in and password-change 2FA codes) goe
 Direct Mail — see "Email" below. Sign-in 2FA is enforced when the `EMAIL_2FA` program feature and
 the user's 2FA preference are both enabled.
 
+Public tutor and crew intake share database-backed limits: five distinct accepted submissions per normalized email in 24 hours, and 500 per network address in one hour. Pending retries return the same confirmation without another record, counter increment or notification; tutor applications awaiting an interview also count as pending. Decided applications may be submitted again within these limits. Counters, application writes and in-app notifications commit together, and counters survive server restarts and multiple instances. New distinct submissions prune hashed counter keys that expired more than seven days ago, in bounded batches; an idle deployment retains those expired keys until intake resumes.
+
+Configure the trusted reverse proxy to replace incoming `X-Forwarded-For`/`X-Real-IP` values rather than trusting values supplied by visitors, and keep the application port private. The first forwarded address is only an abuse signal, not identity. IPv6 uses a /64 bucket; missing or invalid addresses share one fallback bucket. The generous network allowance supports shared school networks; email ownership is not verified by these application forms, so operators needing stronger abuse protection should enforce it at the proxy too.
+
 ## 2. Host setup (once)
 
 ```bash

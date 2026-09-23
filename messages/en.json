@@ -1943,6 +1943,7 @@
     }
   },
   "public": {
+    "applicationRetryNotice": "If an application for this email is already under review, we keep the original submission. To change it, contact the program team.",
     "signup": {
       "title": "Request a Peer Tutor",
       "intro": "Tell us what you'd like help with and when you're free. A coordinator will review your request and match you with a tutor.",

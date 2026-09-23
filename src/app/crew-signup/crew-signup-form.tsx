@@ -22,13 +22,17 @@ export function CrewSignupForm() {
   if (apply.isSuccess) {
     return (
       <div className="card p-6 text-center">
-        <p className="text-lg font-semibold text-slate-900">{t("public.crewSignup.doneTitle")}</p>
+        <p className="text-lg font-semibold text-slate-900">
+          {t("public.crewSignup.doneTitle")}
+        </p>
         <p className="muted mt-2">{t("public.crewSignup.doneBody")}</p>
+        <p className="muted mt-4">{t("public.applicationRetryNotice")}</p>
       </div>
     );
   }
 
-  const valid = name.trim().length > 0 && /^[^@\s]+@[^@\s]+$/.test(email.trim());
+  const valid =
+    name.trim().length > 0 && /^[^@\s]+@[^@\s]+$/.test(email.trim());
 
   return (
     <form
@@ -49,7 +53,12 @@ export function CrewSignupForm() {
         <label className="label" htmlFor="crew-name">
           {t("public.crewSignup.fields.fullName")}
         </label>
-        <input id="crew-name" value={name} onChange={(e) => setName(e.target.value)} className="input w-full" />
+        <input
+          id="crew-name"
+          value={name}
+          onChange={(e) => setName(e.target.value)}
+          className="input w-full"
+        />
       </div>
       <div>
         <label className="label" htmlFor="crew-email">
@@ -100,9 +109,16 @@ export function CrewSignupForm() {
           className="textarea w-full"
         />
       </div>
-      {apply.error && <p className="text-sm text-red-600">{apply.error.message}</p>}
-      <button className="btn-primary w-full" disabled={!valid || apply.isPending}>
-        {apply.isPending ? t("public.crewSignup.submitting") : t("public.crewSignup.submit")}
+      {apply.error && (
+        <p className="text-sm text-red-600">{apply.error.message}</p>
+      )}
+      <button
+        className="btn-primary w-full"
+        disabled={!valid || apply.isPending}
+      >
+        {apply.isPending
+          ? t("public.crewSignup.submitting")
+          : t("public.crewSignup.submit")}
       </button>
     </form>
   );

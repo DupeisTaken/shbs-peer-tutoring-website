@@ -1845,3 +1845,12 @@ model EmailDelivery {
   lastError String?
   @@index([status, availableAt])
 }
+
+/// Expiring, hashed counters for accepted public applications across server replicas.
+model PublicApplicationRateLimit {
+  key String @id
+  count Int @default(0)
+  resetsAt DateTime
+
+  @@index([resetsAt])
+}
