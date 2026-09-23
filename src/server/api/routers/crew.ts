@@ -17,6 +17,7 @@ import { syncSessionFlag } from "~/server/crew/flags";
 import { getFeatures } from "~/server/program/features";
 import { notifyAdmins } from "~/server/notifications/create";
 import { assertObservedTimes } from "~/server/crew/observation-time";
+import { acceptPublicApplication } from "~/server/public-application-intake";
 
 /** Service hours credited per completed patrol (policy). */
 export const PATROL_HOURS = 0.5;
@@ -158,7 +159,11 @@ export const crewRouter = createTRPCRouter({
         // Reconcile the sessions in the patrolled rooms around the observed times.
         const roomIds = [...new Set(input.observations.map((o) => o.roomId))];
         const timeZone = await getProgramTimeZone(tx);
-        const dates = input.observations.map(o => Date.parse(programDateKey(o.observedAt ?? now, timeZone) + "T00:00:00Z"));
+        const dates = input.observations.map((o) =>
+          Date.parse(
+            programDateKey(o.observedAt ?? now, timeZone) + "T00:00:00Z",
+          ),
+        );
         const dayStart = new Date(Math.min(...dates));
         const dayEnd = new Date(Math.max(...dates));
         const sessions = await tx.session.findMany({
@@ -181,38 +186,50 @@ export const crewRouter = createTRPCRouter({
     .input(
       z.object({
         name: z.string().trim().min(1).max(120),
-        email: z.string().trim().email(),
+        email: z.string().trim().email().max(254),
         gradeLevel: z.number().int().min(6).max(12).nullable().optional(),
         preferredContact: z.string().trim().max(200).optional(),
         message: z.string().trim().max(1000).optional(),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
-      const features = await getFeatures(ctx.db);
-      if (!features.CREW) {
-        throw new TRPCError({
-          code: "FORBIDDEN",
-          message: "The crew module is disabled.",
-        });
-      }
-      await ctx.db.crewApplication.create({
-        data: {
-          name: input.name,
-          email: input.email.toLowerCase(),
-          gradeLevel: input.gradeLevel ?? null,
-          preferredContact: input.preferredContact?.trim()
-            ? input.preferredContact.trim()
-            : null,
-          message: input.message?.trim() ? input.message.trim() : null,
-        },
-      });
-      await notifyAdmins({
-        title: "New crew application",
-        body: `${input.name} applied to join the crew.`,
-        link: "/admin/crew",
-      });
-      return { ok: true };
-    }),
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        const features = await getFeatures(tx);
+        if (!features.CREW) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "The crew module is disabled.",
+          });
+        }
+        await acceptPublicApplication(
+          tx,
+          { kind: "crew", email: input.email, headers: ctx.headers },
+          async (email) => {
+            await tx.crewApplication.create({
+              data: {
+                name: input.name,
+                email,
+                gradeLevel: input.gradeLevel ?? null,
+                preferredContact: input.preferredContact?.trim()
+                  ? input.preferredContact.trim()
+                  : null,
+                message: input.message?.trim() ? input.message.trim() : null,
+              },
+            });
+            await notifyAdmins(
+              {
+                title: "New crew application",
+                body: `${input.name} applied to join the crew.`,
+                link: "/admin/crew",
+              },
+              undefined,
+              tx,
+            );
+          },
+        );
+        return { ok: true };
+      }),
+    ),
 
   /** The caller's crew lifecycle state + any pending opt-out/reentry request, for the portal. */
   myStatus: protectedProcedure.query(async ({ ctx }) => {

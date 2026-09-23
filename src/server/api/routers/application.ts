@@ -16,6 +16,7 @@ import {
 } from "~/lib/signup-fields";
 import { inTransaction, lockEntity } from "~/server/transactions";
 import { notifyAdmins } from "~/server/notifications/create";
+import { acceptPublicApplication } from "~/server/public-application-intake";
 
 /**
  * Public tutor-application intake. Submitting does NOT create a login — it records an
@@ -167,48 +168,59 @@ export const applicationRouter = createTRPCRouter({
             });
           return value;
         });
-        await tx.tutorApplication.create({
-          data: {
-            name: input.name,
-            email: input.email.trim().toLowerCase(),
-            preferredContact:
-              fields.preferredContact === "hidden"
-                ? null
-                : input.preferredContact || null,
-            policyRevision: policy.revision,
-            policySnapshot: policy.documents,
-            policyAcceptedAt: new Date(),
-            status: "PENDING",
-            subjectIntents: {
-              create: normalized.map((c) => {
-                // AP score only applies to subjects whose level is AP-scored.
-                const apEligible = apEligibleById.get(c.subjectId) === true;
-                const hasApScore = apEligible && (c.hasApScore ?? false);
-                const selfStudyNote =
-                  c.selfStudied && c.selfStudyNote?.trim()
-                    ? c.selfStudyNote.trim()
-                    : null;
-                return {
-                  subjectId: c.subjectId,
-                  taken: c.taken ?? false,
-                  grade: c.taken && c.grade?.trim() ? c.grade.trim() : null,
-                  hasApScore,
-                  apScore:
-                    hasApScore && c.apScore?.trim() ? c.apScore.trim() : null,
-                  selfStudied: c.selfStudied ?? false,
-                  selfStudyNote,
-                };
-              }),
-            },
+        await acceptPublicApplication(
+          tx,
+          { kind: "tutor", email: input.email, headers: ctx.headers },
+          async (email) => {
+            await tx.tutorApplication.create({
+              data: {
+                name: input.name,
+                email,
+                preferredContact:
+                  fields.preferredContact === "hidden"
+                    ? null
+                    : input.preferredContact || null,
+                policyRevision: policy.revision,
+                policySnapshot: policy.documents,
+                policyAcceptedAt: new Date(),
+                status: "PENDING",
+                subjectIntents: {
+                  create: normalized.map((c) => {
+                    // AP score only applies to subjects whose level is AP-scored.
+                    const apEligible = apEligibleById.get(c.subjectId) === true;
+                    const hasApScore = apEligible && (c.hasApScore ?? false);
+                    const selfStudyNote =
+                      c.selfStudied && c.selfStudyNote?.trim()
+                        ? c.selfStudyNote.trim()
+                        : null;
+                    return {
+                      subjectId: c.subjectId,
+                      taken: c.taken ?? false,
+                      grade: c.taken && c.grade?.trim() ? c.grade.trim() : null,
+                      hasApScore,
+                      apScore:
+                        hasApScore && c.apScore?.trim()
+                          ? c.apScore.trim()
+                          : null,
+                      selfStudied: c.selfStudied ?? false,
+                      selfStudyNote,
+                    };
+                  }),
+                },
+              },
+            });
+            // Only an accepted distinct application fans out; the write and in-app notices are atomic.
+            await notifyAdmins(
+              {
+                title: "New tutor application",
+                body: `${input.name} applied to tutor.`,
+                link: "/admin/applications",
+              },
+              undefined,
+              tx,
+            );
           },
-        });
-      });
-
-      // Notify the admin team there's a new application to review / assign interviewers.
-      await notifyAdmins({
-        title: "New tutor application",
-        body: `${input.name} applied to tutor.`,
-        link: "/admin/applications",
+        );
       });
 
       return { ok: true };
