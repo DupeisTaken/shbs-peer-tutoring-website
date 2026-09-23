@@ -42,6 +42,8 @@ The bilingual `/p/about` example in `prisma/seed.ts` is development seed content
 
 ## Documentation and repository hygiene
 
+The public `/privacy` notice is maintained in [privacy-policy.ts](../src/lib/privacy-policy.ts), with English and Chinese text and an explicit English fallback. Update both versions and `PRIVACY_POLICY_UPDATED` when information handling changes. Its homepage links are permanent and independent of editable landing blocks. This notice is separate from database-backed participation agreements and acceptance snapshots. Before deployment, the operator should review the wording against actual hosting, email, storage and retention arrangements and configure `ORG_NAME` and `SUPPORT_EMAIL`. The page supplies a school-contact fallback when no support email is configured; it does not invent a provider, retention deadline or legal compliance guarantee.
+
 Keep human-facing guides under `docs/`, with only `README.md` at the repository root. The root [AGENTS.md](../AGENTS.md) is the explicit exception: coding agents discover its UI conventions automatically. Keep control-height and responsive-header implementation guidance there rather than duplicating it in feature guides. Put other instructions in the existing guide for their audience:
 
 | Reader's task | Maintained source |

@@ -116,6 +116,19 @@ afterEach(() => {
   vi.useRealTimers();
 });
 
+it("leaves the public privacy notice readable despite outstanding agreements or errors", async () => {
+  mocks.path = "/privacy";
+  const view = render(<StudentPolicyGate />);
+  await act(async () => undefined);
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(mocks.status).toHaveBeenLastCalledWith(expect.anything(), expect.objectContaining({ enabled: false }));
+  expect(mocks.refetch).not.toHaveBeenCalled();
+  mocks.status.mockReturnValue({ error: { message: "Offline" }, refetch: mocks.refetch });
+  view.rerender(<StudentPolicyGate />);
+  expect(screen.queryByRole("status")).toBeNull();
+  expect(mocks.accept).not.toHaveBeenCalled();
+});
+
 it.each(["tutor-policy", "tutee-policy"])(
   "%s requires reaching the policy bottom and explicit agreement before acceptance",
   async (slug) => {
@@ -313,7 +326,7 @@ it("uses chosen policy locale, falls back to English and skips accepted/public p
   view.rerender(<StudentPolicyGate />);
   expect(screen.queryByRole("dialog")).toBeNull();
 });
-it.each(["/onboarding/email", "/forgot-password", "/reset-password"])(
+it.each(["/privacy", "/onboarding/email", "/forgot-password", "/reset-password"])(
   "keeps %s free of cached policy prompts and load errors",
   async (path) => {
     const view = render(<StudentPolicyGate />);

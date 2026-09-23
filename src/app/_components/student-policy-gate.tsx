@@ -16,6 +16,8 @@ export function StudentPolicyGate() {
   const [dismissed, setDismissed] = useState<string | null>(null);
   // Credential setup and recovery must stay usable before policy participation.
   const skipPolicyGate = [
+    // A privacy notice must stay readable even when participation consent is due.
+    "/privacy",
     "/signup",
     "/signup/account",
     "/signin",
