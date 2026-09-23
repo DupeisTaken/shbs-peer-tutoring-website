@@ -2,9 +2,9 @@ import { type DefaultSession, type NextAuthConfig } from "next-auth";
 import { type DefaultJWT } from "next-auth/jwt";
 
 /**
- * App roles. Kept as a local union (rather than importing from the Prisma client) so this
- * module stays edge-safe — it is imported by `middleware.ts`, which runs on the Edge runtime
- * where the Prisma client cannot be bundled. Must match the `Role` enum in schema.prisma.
+ * App roles. Keep the shared configuration independent of the Prisma client.
+ * The Next 16 Node proxy checks credential generations before using these callbacks.
+ * Must match the `Role` enum in schema.prisma.
  */
 export type Role =
   "STUDENT" | "VIEWER" | "CREW" | "TUTOR" | "COORDINATOR" | "ADMIN" | "HEAD";
@@ -14,6 +14,10 @@ export type Role =
  * server can authorize without extra lookups.
  */
 declare module "next-auth" {
+  interface User {
+    /** Version read with the password/OTP evidence, never copied from a client request. */
+    sessionVersion?: number;
+  }
   interface Session extends DefaultSession {
     user: {
       id: string;
@@ -25,21 +29,23 @@ declare module "next-auth" {
 
 declare module "next-auth/jwt" {
   interface JWT extends DefaultJWT {
+    /** Missing on pre-migration sessions, which must sign in again. */
+    sessionVersion?: number;
     role: Role;
     tutorId: string | null;
   }
 }
 
 /**
- * Edge-safe base Auth.js config.
+ * Provider-independent base Auth.js config.
  *
- * Contains only what the Edge middleware needs: the JWT session strategy, custom sign-in page,
+ * Contains the proxy session configuration: the JWT session strategy, custom sign-in page,
  * and pure callbacks (`authorized`, `session`). The Credentials provider (whose `authorize`
  * touches the database to verify passwords) and the DB-backed `jwt` callback are added in
  * `index.ts`, which runs on the Node runtime only.
  *
- * The middleware doesn't need the providers array to validate the session cookie, so it's
- * left empty here to keep Prisma and Node-only crypto out of the Edge bundle.
+ * The proxy does not need the Credentials provider to decode cookies, so it stays empty here.
+ * Both the Node proxy and the full auth callbacks separately verify live session generations.
  *
  * @see https://authjs.dev/getting-started/providers/credentials
  */

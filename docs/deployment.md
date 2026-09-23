@@ -327,6 +327,12 @@ A customized runtime title takes precedence over a changed repository default.
 Database-managed landing content/translations remain as published; update those
 through their administration screens when required.
 
+### Password-session revocation release
+
+Apply migration `20260922200000_session_revocation` before serving this release; the standard container startup runs it automatically. No database reset is needed. The migration adds a database-maintained credential generation. Every password change, reset or setup invalidates all prior sessions, including the browser making the change. Sessions created before this release lack the generation and must sign in once again. Keep `AUTH_SECRET` stable; do not rotate it to perform this migration.
+
+Email two-factor requirements and preferences remain unchanged. Legacy onboarding sends a setup link only to the stored primary address, and the account owner must open it before any password or verification state changes. Account data and history are preserved. Revocation is checked on subsequent authenticated requests; already-running work is not cancelled.
+
 ### App runtime settings and branding
 
 ```bash

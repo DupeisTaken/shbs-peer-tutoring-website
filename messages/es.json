@@ -226,6 +226,10 @@
       "saving": "Guardando…"
     },
     "onboarding": {
+      "proofRequired": "Abre el enlace enviado al correo de tu cuenta para verificar que te pertenece y establecer una contraseña. Si no puedes acceder a esa dirección, contacta con el equipo del programa. Gestiona la autenticación de dos factores después de iniciar sesión.",
+      "sendLink": "Enviar enlace de configuración",
+      "linkSent": "Revisa tu correo y abre el enlace de configuración. Tras establecer tu contraseña, vuelve a iniciar sesión.",
+      "linkFailed": "No se pudo enviar el enlace. Espera un minuto y vuelve a intentarlo. Si el correo no está disponible, contacta con el equipo del programa.",
       "welcome": "Te damos la bienvenida a {appTitle}",
       "title": "Configura tu cuenta",
       "intro": "Un paso rápido antes de tu panel: confirma tu correo y elige tu propia contraseña (reemplazando cualquier temporal).",
@@ -286,6 +290,7 @@
       "body": "El vínculo de tu cuenta de tutor ya no es válido. Cierra sesión y vuelve a entrar para actualizarlo."
     },
     "sessionExpired": "Your session expired or could not be verified. Please sign in again.",
+    "passwordChangedSignIn": "Tu contraseña ha cambiado. Se han cerrado todas las sesiones, incluida la de este navegador. Vuelve a iniciar sesión con tu nueva contraseña.",
     "signupRoutes": {
       "viewerHelp": "¿Solo quieres seguir el programa? El registro como observador no requiere código de invitación; deberás verificar tu correo.",
       "viewerLink": "Registrarse como observador",

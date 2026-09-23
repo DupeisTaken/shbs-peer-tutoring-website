@@ -33,6 +33,7 @@ function hashesEqual(a: string, b: string): boolean {
 /** Issue and email a fresh login code for a user. Returns the target email for masked UI hints. */
 export async function issueLoginCode(
   userId: string,
+  verifiedSessionVersion: number,
 ): Promise<{ email: string }> {
   if (!isEmailDeliveryAvailable()) {
     throw new Error(
@@ -40,27 +41,29 @@ export async function issueLoginCode(
     );
   }
 
-  const user = await db.user.findUniqueOrThrow({
-    where: { id: userId },
-    select: { email: true, name: true },
-  });
-
   const code = generateRegistrationCode();
   const expiresAt = new Date(Date.now() + CODE_TTL_MINUTES * 60_000);
 
-  await db.$transaction([
-    db.emailVerificationCode.deleteMany({
+  const user = await db.$transaction(async (tx) => {
+    // Serialize with password rotation before issuing a code. A request whose password was
+    // verified before the rotation must not create a fresh login grant afterward.
+    await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`;
+    const current = await tx.user.findUnique({ where: { id: userId }, select: { email: true, name: true, sessionVersion: true } });
+    if (current?.sessionVersion !== verifiedSessionVersion)
+      throw new Error("Credentials changed; sign in again before requesting a login code.");
+    await tx.emailVerificationCode.deleteMany({
       where: { userId, purpose: "LOGIN_2FA", consumedAt: null },
-    }),
-    db.emailVerificationCode.create({
+    });
+    await tx.emailVerificationCode.create({
       data: {
         userId,
         purpose: "LOGIN_2FA",
         codeHash: hashCode(code),
         expiresAt,
       },
-    }),
-  ]);
+    });
+    return current;
+  });
 
   await emailSender.send({
     to: user.email,

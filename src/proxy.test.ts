@@ -1,7 +1,10 @@
-import { expect, it } from "vitest";
+import { beforeEach, expect, it, vi } from "vitest";
 import { decode, encode } from "next-auth/jwt";
 import { Auth } from "@auth/core";
 import { NextRequest, type NextFetchEvent } from "next/server";
+const account = vi.hoisted(() => ({ findUnique: vi.fn() }));
+vi.mock("~/server/db", () => ({ db: { user: { findUnique: account.findUnique } } }));
+beforeEach(() => { account.findUnique.mockReset().mockResolvedValue({ sessionVersion: 0 }); });
 import proxy from "./proxy";
 import { authConfig } from "./server/auth/config";
 import { withoutSessionRefreshCookies } from "./server/auth/session-recovery";
@@ -53,7 +56,7 @@ it("delivers a delayed prefetch response after real Auth.js sign-out without res
   const token = await encode({
     secret,
     salt: name,
-    token: { sub: "head", role: "HEAD", tutorId: null },
+    token: { sub: "head", role: "HEAD", tutorId: null, sessionVersion: 0 },
   });
   const config = {
     ...authConfig,
@@ -106,7 +109,7 @@ it("delivers a delayed prefetch response after real Auth.js sign-out without res
   const newAccount = await encode({
     secret,
     salt: name,
-    token: { sub: "coordinator", role: "COORDINATOR", tutorId: null },
+    token: { sub: "coordinator", role: "COORDINATOR", tutorId: null, sessionVersion: 0 },
   });
   jar.set(name, newAccount);
   deliver(lateResponse!);
@@ -120,7 +123,7 @@ it("preserves document expiry/secret rotation and Auth.js deletion of a valid bu
   const token = await encode({
     secret: oldSecret,
     salt: name,
-    token: { sub: "head", role: "HEAD", tutorId: null },
+    token: { sub: "head", role: "HEAD", tutorId: null, sessionVersion: 0 },
   });
   const request = new Request("http://localhost:3109/api/auth/session", {
     headers: { cookie: `${name}=${token}` },
@@ -159,7 +162,7 @@ it("never renews an old valid cookie from a late page/prefetch response after si
   const token = await encode({
     secret: process.env.AUTH_SECRET!,
     salt: name,
-    token: { sub: "head", role: "HEAD", tutorId: null },
+    token: { sub: "head", role: "HEAD", tutorId: null, sessionVersion: 0 },
   });
   for (const method of ["GET", "POST"]) {
     const response = await proxy(
@@ -173,5 +176,17 @@ it("never renews an old valid cookie from a late page/prefetch response after si
     expect(
       response?.headers.getSetCookie().filter((c) => c.startsWith(name)),
     ).toEqual([]);
+  }
+});
+
+it.each([null, { sessionVersion: 1 }])("clears revoked or deleted-account cookies before public, private and API requests", async (current) => {
+  account.findUnique.mockResolvedValue(current);
+  const name = "authjs.session-token";
+  const token = await encode({ secret: process.env.AUTH_SECRET!, salt: name, token: { sub: "head", role: "HEAD", tutorId: null, sessionVersion: 0 } });
+  for (const path of ["/", "/admin/approvals", "/api/trpc/account.me"]) {
+    const response = await proxy(pageRequest(`http://localhost:3109${path}`, { headers: { cookie: `${name}=${token}; theme=dark` } }), event);
+    expect(response?.headers.getSetCookie()).toEqual(expect.arrayContaining([expect.stringMatching(/authjs\.session-token=;.*Max-Age=0/i)]));
+    if (path.startsWith("/api/")) expect(response?.headers.get("x-middleware-request-cookie")).toBe("theme=dark");
+    else expect(response?.headers.get("location")).toBe("http://localhost:3109/signin?reason=session-expired");
   }
 });

@@ -264,6 +264,10 @@ Translator and Coordinator edits create private drafts, including all five text 
 
 Use **Account Settings** to edit your name and optional names in other languages, change your password or request a verified email change. Current explicitly linked tutor/tutee profiles share those names; signed agreements and submitted survey records retain their original text. Editing a contact field is not email verification. Keep account links and codes private. If email delivery is unavailable, contact management; a success message from another action does not prove an email arrived.
 
+Changing or resetting your password signs out every existing session, including the browser making the change. Account Settings and tutor Settings return you to Sign In; use your new password. Other browsers require sign-in on their next request. Your account, permissions and tutoring history remain. This update also requires one fresh sign-in for sessions created before session revocation was introduced. Existing email two-factor requirements remain in effect.
+
+Legacy accounts that need email verification or a new password receive a setup link at their existing account email. Open that link to prove mailbox ownership and set the password. The setup page shows your current email address; it cannot be changed there. If you cannot access the address, contact the program team. Two-factor preferences stay unchanged and can be managed after sign-in.
+
 Use password recovery when you cannot sign in. Personal email two-factor authentication requires both the program switch and your account preference, plus working email delivery. If suspended, sign in with your normal password and complete two-factor authentication if enabled; you will be directed to the suspension page to submit or review an account appeal. Suspension continues to block ordinary program access, and a pending appeal does not restore it. This is separate from appealing a student's disciplinary card.
 
 The notification menu shows your own recent notices and unread count. Follow a notice to its related task, mark it read, or mark all as read. Private message bodies and recipient lists are excluded from notifications.
@@ -289,6 +293,8 @@ Disabling notifications at program level preserves preferences and cancels queue
 For both tutor and tutee policies, scroll to the bottom inside the policy text box before checking the agreement. The checkbox is disabled and its label stays gray until you reach the end; it never checks itself. You can scroll using a mouse, touch, or the keyboard after focusing the policy box. A short policy that is fully visible unlocks immediately. Scrolling back up keeps agreement available during that review. Retry, reopening the popup, or switching to another policy revision or translation starts a fresh review.
 
 When a published policy applicable to your linked student or tutor profile changes, a popup opens on your next visit or window focus. Accounts with both profiles review each applicable policy. Read the text in your selected language (or English when unavailable), check the agreement and complete the ten-second confirmation. Use **Retry** if loading or acceptance fails. You may cancel the popup to access messages, account details, personal history, feedback and appeals; new participation still requires current acceptance on the server. The reminder lets you reopen the popup. Already accepted revisions and unpublished proposals do not require renewed consent. Policy editing and publication remain under **Policy Documents**.
+
+Email confirmation and password recovery pages remain available without a policy reminder; current acceptance is still required before participating.
 
 ## Troubleshooting
 

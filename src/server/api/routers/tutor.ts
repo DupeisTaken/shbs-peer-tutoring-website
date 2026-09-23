@@ -27,7 +27,8 @@ import { semesterQuarters } from "~/lib/period";
 import { getActivePeriodOrNull } from "~/server/period";
 import { reconcileApplication } from "~/server/tutors/application-status";
 import { notifyAdmins, notifyTutors } from "~/server/notifications/create";
-import { hashPassword, verifyPassword } from "~/server/auth/password";
+import { verifyPassword } from "~/server/auth/password";
+import { changeVerifiedPassword } from "~/server/auth/session-version";
 import { issueStepUpCode, verifyStepUpCode } from "~/server/auth/step-up";
 import { isEmailDeliveryAvailable } from "~/server/email/sender";
 import { getFeatures, assertFeatureEnabled } from "~/server/program/features";
@@ -1024,13 +1025,7 @@ export const tutorRouter = createTRPCRouter({
           throw new TRPCError({ code: "BAD_REQUEST", message });
         }
       }
-      await ctx.db.user.update({
-        where: { id: ctx.session.user.id },
-        data: {
-          passwordHash: hashPassword(input.newPassword),
-          mustChangePassword: false,
-        },
-      });
+      await changeVerifiedPassword(ctx.db, ctx.session.user.id, user.passwordHash, input.newPassword);
       return { ok: true };
     }),
 

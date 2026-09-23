@@ -96,7 +96,7 @@ export async function signInAction(
         return { step: "password", error: t("twoFactor.unavailable") };
       }
       try {
-        const { email } = await issueLoginCode(verified.user.id);
+        const { email } = await issueLoginCode(verified.user.id, verified.user.sessionVersion);
         return {
           step: "code",
           userId: verified.user.id,

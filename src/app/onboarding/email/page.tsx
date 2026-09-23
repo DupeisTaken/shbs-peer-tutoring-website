@@ -4,8 +4,6 @@ import { getTranslations } from "next-intl/server";
 import { brandingMetadata } from "~/server/branding-metadata";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
-import { getFeatures } from "~/server/program/features";
-import { isEmailDeliveryAvailable } from "~/server/email/sender";
 import { APP_TITLE } from "~/lib/branding";
 import { OnboardingForm } from "./onboarding-form";
 import { FloatingLanguageSwitcher } from "~/app/_components/floating-language-switcher";
@@ -15,9 +13,9 @@ export async function generateMetadata() {
 }
 
 /**
- * First-login gate. A signed-in tutor whose `emailVerifiedAt` is null lands here (routed
- * from the tutor shell) to confirm their contact email and 2FA preference before reaching
- * the dashboard. If they've already onboarded, send them on.
+ * First-login gate for an unverified email or a required password change. Both conditions
+ * must be cleared before leaving this page, matching the tutor layout. Mailbox proof and
+ * password setup happen through the existing emailed recovery link; 2FA stays unchanged.
  */
 export default async function OnboardingEmailPage() {
   const session = await auth();
@@ -25,16 +23,15 @@ export default async function OnboardingEmailPage() {
 
   const user = await db.user.findUnique({
     where: { id: session.user.id },
-    select: { email: true, emailVerifiedAt: true },
+    select: { email: true, emailVerifiedAt: true, mustChangePassword: true },
   });
 
   const isElevated =
     session.role === "HEAD" ||
     session.role === "ADMIN" ||
     session.role === "COORDINATOR";
-  if (user?.emailVerifiedAt) redirect(isElevated ? "/admin" : "/dashboard");
+  if (user?.emailVerifiedAt && !user.mustChangePassword) redirect(isElevated ? "/admin" : "/dashboard");
 
-  const features = await getFeatures(db);
   const t = await getTranslations();
 
   return (
@@ -51,7 +48,6 @@ export default async function OnboardingEmailPage() {
         <div className="card mt-6 p-6 text-left">
           <OnboardingForm
             defaultEmail={user?.email ?? ""}
-            email2fa={features.EMAIL_2FA && isEmailDeliveryAvailable()}
           />
         </div>
       </div>
