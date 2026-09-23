@@ -1,9 +1,9 @@
 "use client";
+import { pairingScheduleText } from "~/lib/pairing-schedule";
 import { formText } from "~/lib/form-values";
 import { useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
-import { minToHm, DAY_NAMES } from "~/lib/time";
 import { useDialog } from "./confirm-dialog";
 
 /** Pending and valid cards may be appealed once while their school-day window is open. */
@@ -25,6 +25,7 @@ export function StudentPortal({ view = "all" }: { view?: "all" | "schedule" | "a
   const programFormat = useFormatter();
   const t = useTranslations("workflows");
   const portal = useTranslations("tuteePortal");
+  const scheduling = useTranslations("scheduling");
   const [page, setPage] = useState(0);
   const data = api.student.me.useQuery({ page });
   const shared = api.student.feedbackSettings.useQuery(undefined, { enabled: view === "all" || view === "attendance" });
@@ -49,8 +50,8 @@ export function StudentPortal({ view = "all" }: { view?: "all" | "schedule" | "a
               {p.subject} · {p.tutor.englishName}
             </p>
             <p className="muted">
-              {DAY_NAMES[p.dayOfWeek]} · {minToHm(p.startMin)}–
-              {minToHm(p.endMin)} · {p.room?.name}
+              {pairingScheduleText(p, scheduling("awaiting"))}
+              {p.scheduleConfirmed && p.room ? ` · ${p.room.name}` : ""}
             </p>
           </div>
         ))}

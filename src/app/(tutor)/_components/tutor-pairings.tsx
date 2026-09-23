@@ -1,4 +1,5 @@
 "use client";
+import { pairingScheduleText } from "~/lib/pairing-schedule";
 
 import { StudentScheduleAction } from "./student-schedule-action";
 import { useState } from "react";
@@ -21,7 +22,12 @@ export function TutorPairings() {
   const availability = api.tutor.myAvailability.useQuery();
   const removalRequests = api.tutor.myTuteeRemovalRequests.useQuery();
   const setSlot = api.tutor.setPairingSlot.useMutation({
-    onSuccess: () => utils.tutor.myPairings.invalidate(),
+    onSuccess: async () => {
+      await Promise.all([
+        utils.tutor.myPairings.invalidate(),
+        utils.tutor.schedule.invalidate(),
+      ]);
+    },
   });
 
   const refreshRemoval = () => utils.tutor.myTuteeRemovalRequests.invalidate();
@@ -80,8 +86,7 @@ export function TutorPairings() {
               {p.subject}
               <span className="muted font-normal">
                 {" · "}
-                {DAY_NAMES[p.dayOfWeek]} {minToHm(p.startMin)}–
-                {minToHm(p.endMin)}
+                {pairingScheduleText(p, t("scheduling.awaiting"))}
               </span>
             </p>
             <p className="muted">
@@ -213,7 +218,7 @@ export function TutorPairings() {
                 }
                 className="select min-w-0 sm:w-auto"
               >
-                <option value="">{t("tutor.pairings.notSet")}</option>
+                <option value="">{t("scheduling.noLinkedSlot")}</option>
                 {slots.map((s) => (
                   <option key={s.id} value={s.id}>
                     {s.label} · {DAY_NAMES[s.dayOfWeek]} {minToHm(s.startMin)}–
@@ -228,6 +233,9 @@ export function TutorPairings() {
                 </span>
               )}
             </div>
+            {p.scheduleConfirmed && !p.timeSlotId && (
+              <p className="muted mt-1 text-sm">{t("scheduling.retained")}</p>
+            )}
           </li>
         ))}
         {setSlot.error && (
@@ -264,8 +272,7 @@ export function TutorPairings() {
                     }
                   />
                   <span className="truncate">
-                    {p.subject} · {DAY_NAMES[p.dayOfWeek]} {minToHm(p.startMin)}
-                    –{minToHm(p.endMin)}
+                    {p.subject} · {pairingScheduleText(p, t("scheduling.awaiting"))}
                   </span>
                 </label>
               ))}

@@ -870,6 +870,7 @@ describe("student request lifecycle", () => {
     // A second subject must survive approval of the first subject's schedule conflict.
     const second = await db.pairing.create({
       data: {
+      scheduleConfirmed: true,
         tutorId: tutor.id,
         termId: row.intakeTermId,
         subject: "Physics",

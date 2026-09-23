@@ -13,9 +13,9 @@ import { computeSessionHours } from "~/lib/service-hours";
 import {
   inTransaction,
   lockEntity,
-  type TransactionDb,
 } from "~/server/transactions";
-import { syncSessionFlag } from "~/server/crew/flags";
+import { reconsiderSessionFlag } from "~/server/crew/flags";
+import { lockAttendanceSchedule } from "~/server/attendance-schedule";
 import { syncPunishmentRemoval } from "~/server/discipline/removal";
 import { getFeatures } from "~/server/program/features";
 import { assertObservedTimes } from "~/server/crew/observation-time";
@@ -24,29 +24,6 @@ const reason = z.string().trim().min(1, "Explain the correction.").max(1000);
 const rating = z.number().int().min(1).max(5).nullable();
 const json = (value: unknown) =>
   JSON.parse(JSON.stringify(value)) as Prisma.InputJsonValue;
-
-/** Corrected evidence invalidates an earlier flag decision and its linked deduction. The
- * caller saves the previous flag in the audit snapshot before invoking this helper. */
-async function reconsiderFlag(tx: TransactionDb, sessionId: string) {
-  await lockEntity(tx, `session-flag:${sessionId}`);
-  const flag = await tx.sessionFlag.findUnique({ where: { sessionId } });
-  if (flag) {
-    await tx.serviceHourAdjustment.deleteMany({
-      where: { id: `flag:${flag.id}` },
-    });
-    await tx.sessionFlag.update({
-      where: { id: flag.id },
-      data: {
-        state: "PENDING",
-        resolvedAt: null,
-        resolvedById: null,
-        resolvedByName: null,
-        decisionNote: null,
-      },
-    });
-  }
-  await syncSessionFlag(tx, sessionId);
-}
 
 export const correctionsRouter = createTRPCRouter({
   attendance: viewerProcedure
@@ -134,6 +111,7 @@ export const correctionsRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) =>
       inTransaction(ctx.db, async (tx) => {
+        await lockAttendanceSchedule(tx);
         const requested = await tx.session.findUniqueOrThrow({
           where: { id: input.id },
         });
@@ -282,7 +260,7 @@ export const correctionsRouter = createTRPCRouter({
             });
           await syncPunishmentRemoval(tx, tt.tuteeId);
         }
-        if (evidenceChanged) await reconsiderFlag(tx, primaryId);
+        if (evidenceChanged) await reconsiderSessionFlag(tx, primaryId);
         await tx.auditLog.create({
           data: {
             userId: ctx.session.user.id,
@@ -347,6 +325,7 @@ export const correctionsRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) =>
       inTransaction(ctx.db, async (tx) => {
+        await lockAttendanceSchedule(tx);
         await lockEntity(tx, `patrol:${input.id}`);
         assertObservedTimes(input.observations);
         const before = await tx.patrol.findUniqueOrThrow({
@@ -397,7 +376,7 @@ export const correctionsRouter = createTRPCRouter({
           );
         });
         if (changedEvidence)
-          for (const s of sessions) await reconsiderFlag(tx, s.id);
+          for (const s of sessions) await reconsiderSessionFlag(tx, s.id);
         await tx.auditLog.create({
           data: {
             userId: ctx.session.user.id,

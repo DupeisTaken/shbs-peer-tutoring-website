@@ -13,7 +13,7 @@ Run commands from the repository root:
 | Application behavior | Focused tests, then the relevant integration suite with `npm test -- --maxWorkers=1` |
 | Routes, environment or Prisma | `npm run build` in addition to relevant tests |
 | Schema | A committed migration, `npm run db:migrate`, and schema agreement against an isolated database |
-| Demo seed | Run it twice on a disposable database, then `npx tsx prisma/verify-demo.ts` |
+| Demo seed | Run it twice on a disposable database, then `npx tsx --conditions=react-server prisma/verify-demo.ts` |
 | User interface | Desktop/mobile screenshots and checks of interaction, loading, errors and permissions |
 
 Integration tests reset fixtures. Use the isolated loopback `shbs_shipping_test` database for the combined suite and follow [test setup](local-development.md#5-run-the-tests). Never seed or run destructive tests against real program data. Run one bounded server/browser at a time and stop processes you started; do not kill unrelated Node processes.

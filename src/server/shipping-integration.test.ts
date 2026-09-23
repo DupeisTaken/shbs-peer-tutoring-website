@@ -280,6 +280,7 @@ it("keeps history, feedback and appeals after a new intake profile and verified 
   const { user, survey, student } = await confirmed();
   const pairing = await db.pairing.create({
     data: {
+      scheduleConfirmed: true,
       tutorId: "shipping-tutor",
       termId: "shipping-term",
       subject: "Mathematics",
@@ -568,6 +569,7 @@ it("queues a historical correction and applies it atomically under the reviewer'
   const { survey } = await confirmed();
   const pairing = await db.pairing.create({
     data: {
+      scheduleConfirmed: true,
       tutorId: "shipping-tutor",
       termId: "shipping-term",
       subject: "Mathematics",
@@ -659,6 +661,7 @@ it("consolidates current tutee schedules for admin and tutor accounts using expl
   ] as const) {
     await db.pairing.create({
       data: {
+      scheduleConfirmed: true,
         id,
         subject: id,
         termId,

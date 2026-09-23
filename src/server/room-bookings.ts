@@ -57,6 +57,7 @@ export async function assertPlannedRoomAvailable(
       where: {
         roomId: booking.roomId,
         termId: booking.termId,
+        scheduleConfirmed: true,
         dayOfWeek: booking.dayOfWeek,
         ...overlap,
         ...(excludedIds.length ? { id: { notIn: excludedIds } } : {}),
@@ -120,6 +121,7 @@ export async function assertRoomBlackoutAvailable(
       // A newly configured recurring blackout governs the live room calendar;
       // completed program periods remain historical evidence.
       term: { active: true },
+      scheduleConfirmed: true,
     },
     select: { id: true },
   });

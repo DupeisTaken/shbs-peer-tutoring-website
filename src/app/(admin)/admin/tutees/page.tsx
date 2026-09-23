@@ -1,11 +1,11 @@
 "use client";
+import { pairingScheduleText } from "~/lib/pairing-schedule";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
-import { DAY_NAMES, minToHm } from "~/lib/time";
 import { REFERENCE_STALE_TIME } from "~/lib/query";
 import { SortHeader, useSort, compare } from "~/app/_components/sortable";
 import { useReadOnly } from "~/app/_components/read-only";
@@ -305,8 +305,7 @@ export default function TuteesPage() {
                     </td>
                     <td>{p.subject}</td>
                     <td className="text-slate-600">
-                      {DAY_NAMES[p.dayOfWeek]} {minToHm(p.startMin)}–
-                      {minToHm(p.endMin)}
+                      {pairingScheduleText(p, t("scheduling.awaiting"))}
                     </td>
                     <td className="text-slate-600">
                       {p.timeSlot?.label ?? t("admin.tutees.tbd")}

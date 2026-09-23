@@ -774,6 +774,8 @@ model RoomUnavailability {
 }
 
 model Pairing {
+  // Legacy rows retain copied schedules; new assignments await an explicit slot choice.
+  scheduleConfirmed Boolean @default(false)
   id        String   @id @default(cuid())
   subject   String
   dayOfWeek Int // 1 = Monday .. 7 = Sunday

@@ -253,6 +253,7 @@ it("archives offerings and renames dependent pairing labels without losing choic
   });
   const pairing = await db.pairing.create({
     data: {
+      scheduleConfirmed: true,
       termId: term.id,
       tutorId: "tutor",
       subject: ap.name,

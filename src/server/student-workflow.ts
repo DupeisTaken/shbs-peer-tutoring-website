@@ -217,6 +217,7 @@ export async function assignStudentRequest(
         tutorId,
         termId: row.intakeTermId,
         subject: subject.name,
+        scheduleConfirmed: false,
         dayOfWeek: 1,
         startMin: 930,
         endMin: 990,

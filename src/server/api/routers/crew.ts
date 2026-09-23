@@ -3,6 +3,7 @@ import { programDateKey } from "~/lib/program-time";
 import { requestMembership, recallMembership } from "~/server/membership";
 import { createHash } from "node:crypto";
 import { inTransaction, lockEntity } from "~/server/transactions";
+import { lockAttendanceSchedule } from "~/server/attendance-schedule";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -100,6 +101,7 @@ export const crewRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) =>
       inTransaction(ctx.db, async (tx) => {
+        await lockAttendanceSchedule(tx);
         await lockEntity(tx, `patrol-submit:${input.submissionKey}`);
         const payloadHash = createHash("sha256")
           .update(

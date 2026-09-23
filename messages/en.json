@@ -1,4 +1,10 @@
 {
+  "scheduling": {
+    "awaiting": "Awaiting schedule",
+    "noLinkedSlot": "No linked catalog slot",
+    "retained": "The agreed day and times are retained when the catalog slot is cleared.",
+    "actualTimesRequired": "This assignment is awaiting a schedule. Enter the actual start and end times for this attendance record."
+  },
   "tutorDetails": {
     "open": "View user details",
     "openFor": "View user details for {name}",
@@ -962,7 +968,7 @@
       "end": "End",
       "addSlot": "Add Slot",
       "propagationTitle": "Schedule changes stay in sync",
-      "propagationNote": "Editing a slot updates every linked pairing and session. Session dates stay the same, and service hours are recalculated from the new duration.",
+      "propagationNote": "Changing a slot’s clock times updates linked schedules and entire combined attendance blocks. Session dates stay the same; hours, attendance flags and linked deductions are reconsidered. Changes that would overlap another saved block for the same tutor and date are rejected. Weekday-only changes leave recorded attendance times unchanged.",
       "colLabel": "Label",
       "colDay": "Day",
       "colTime": "Time",

@@ -355,6 +355,7 @@ it("revalidates booking conflicts at approval and does not reserve proposed time
   });
   await db.pairing.create({
     data: {
+      scheduleConfirmed: true,
       termId: "approval-term",
       tutorId: tutor.id,
       roomId: room.id,
@@ -836,6 +837,7 @@ it("applies a nested transaction and its helper audit records as one decision", 
   });
   const pairing = await db.pairing.create({
     data: {
+      scheduleConfirmed: true,
       tutorId: tutor.id,
       termId: "approval-term",
       subject: "Math",
