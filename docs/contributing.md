@@ -20,6 +20,40 @@ Integration tests reset fixtures. Use the isolated loopback `shbs_shipping_test`
 
 The [CI workflow](../.github/workflows/docker-build.yml) also checks dependency installation, migrations, schema agreement, dependency audit, production build and image boot/restart. Use its result for the commit being reviewed; old test totals are not current verification.
 
+## Pull request size labels
+
+The [PR Size workflow](../.github/workflows/pr-size.yml) automatically maintains one
+size label when a PR is opened, reopened, updated, edited (including a new base),
+or switched between draft and ready. It applies to all target branches and forks.
+It becomes active after the workflow is merged into the default branch; existing
+PRs receive labels on their next matching event.
+
+Following [t3code's sizing rules](https://github.com/pingdotgg/t3code/blob/main/.github/workflows/pr-size.yml),
+size counts added plus deleted lines from the PR's merge base, ignoring whitespace
+and blank-line changes. Binary files contribute zero lines. Tests are excluded
+when non-test lines change; test-only PRs use their full count. Lockfiles and
+documentation count normally.
+
+| Label | Effective changed lines |
+| --- | --- |
+| `size:XS` | 0–9 |
+| `size:S` | 10–29 |
+| `size:M` | 30–99 |
+| `size:L` | 100–499 |
+| `size:XL` | 500–999 |
+| `size:XXL` | 1,000+ |
+
+Test paths include `test/`, `tests/`, `__tests__/`, files containing `.test.`,
+`.spec.`, `.browser.` or `.integration.`, and `scripts/test-*` / `scripts/smoke-*`.
+Keep the workflow's exclusions aligned with new test entrypoints.
+
+Missing label definitions are created automatically; colors and descriptions stay
+synchronized while unrelated PR labels are preserved. The workflow uses the
+built-in GitHub token. Its `pull_request_target` job reads PR commits only as Git
+data: never add PR checkouts, dependency installation, builds or cache restores.
+Run `npm run test:pr-size` to verify sizing and label updates locally; CI also runs
+these tests.
+
 ## Implementation conventions
 
 - Validate permissions and invariants on the server. Role, tutor linkage, crew membership and translation assignment are distinct; a matching name or email never establishes student ownership.

@@ -22,6 +22,7 @@
     "start": "next start",
     "test": "vitest run",
     "test:watch": "vitest",
+    "test:pr-size": "node --test scripts/pr-size.test.mjs",
     "typecheck": "tsc --noEmit",
     "docs:check": "node scripts/check-docs.mjs && node --test scripts/docs.test.mjs"
   },

@@ -48,6 +48,7 @@ jobs:
       - run: npx prisma migrate diff --from-config-datasource --to-schema prisma/schema.prisma --exit-code
       - run: npm run check
       - run: npm run docs:check
+      - run: npm run test:pr-size
       # Protect developer tooling as well as the pruned production dependency graph.
       - run: npm audit
       - run: npm test
