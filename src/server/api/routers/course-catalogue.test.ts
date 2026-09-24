@@ -9,6 +9,7 @@ import {
   eligibleSubjectIds,
 } from "~/server/qualifications";
 import { ApprovalQueued } from "~/server/approvals";
+import { qualificationOptions } from "~/server/qualification-applications";
 
 const caller = (role: Session["role"] = "HEAD") =>
   createCaller({
@@ -86,7 +87,7 @@ async function calculus() {
   };
 }
 
-it("creates separate names per level and orders all selection APIs by group then beginner level", async () => {
+it("creates separate names per level and orders all selection APIs by beginner level then base name", async () => {
   const { group } = await calculus();
   const computer = await caller().admin.saveCourseGroup({
     name: "Computer Science",
@@ -97,9 +98,9 @@ it("creates separate names per level and orders all selection APIs by group then
   });
   const expected = [
     "Calculus",
+    "Intro to Computer Science",
     "Honors Calculus",
     "AP Calculus AB",
-    "Intro to Computer Science",
     "AP Computer Science A",
   ];
   expect(
@@ -117,7 +118,61 @@ it("creates separate names per level and orders all selection APIs by group then
   });
   expect(
     (await caller().application.options()).subjects.map((s) => s.name),
-  ).toEqual([...expected.slice(3), ...expected.slice(0, 3)]);
+  ).toEqual(expected);
+});
+
+it("keeps public and tutor qualification pickers consistent for unlevelled, inactive and added levels", async () => {
+  await calculus();
+  await db.subjectLevel.create({
+    data: { id: "ib", name: "IB", prefix: "IB", rank: 3 },
+  });
+  await db.subject.createMany({
+    data: [
+      { id: "legacy", name: "Biology", baseName: "Biology" },
+      {
+        id: "ib-biology",
+        name: "IB Biology",
+        baseName: "Biology",
+        levelId: "ib",
+      },
+      { id: "hidden", name: "Algebra", baseName: "Algebra", active: false },
+      {
+        id: "ap-algebra",
+        name: "AP Algebra",
+        baseName: "Algebra",
+        levelId: "ap",
+      },
+    ],
+  });
+  const expected = [
+    "Biology",
+    "Calculus",
+    "Honors Calculus",
+    "AP Algebra",
+    "AP Calculus AB",
+    "IB Biology",
+  ];
+  const tutee = (await caller().tutee.signupOptions()).subjects;
+  expect(tutee.map((s) => s.name)).toEqual(expected);
+  expect(
+    (await caller().application.options()).subjects.map((s) => s.name),
+  ).toEqual(expected);
+  expect((await qualificationOptions(db, "tutor")).map((s) => s.name)).toEqual(
+    expected,
+  );
+  expect(
+    (await db.subject.findUniqueOrThrow({ where: { id: "legacy" } })).levelId,
+  ).toBeNull();
+  await caller().admin.reorderCatalogue({
+    kind: "levels",
+    ids: ["ib", "standard", "honors", "ap"],
+  });
+  expect(
+    (await caller().tutee.signupOptions()).subjects.map((s) => s.name),
+  ).toEqual(["IB Biology", ...expected.slice(0, -1)]);
+  expect(
+    (await caller().application.options()).subjects.map((s) => s.id).sort(),
+  ).toEqual(tutee.map((s) => s.id).sort());
 });
 
 it("snapshots grants, isolates other groups, retains old eligibility after reorder and uses the new order only for future approvals", async () => {

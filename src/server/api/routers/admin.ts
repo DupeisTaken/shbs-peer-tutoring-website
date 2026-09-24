@@ -3,7 +3,7 @@ import { enforceAssignmentQualification } from "~/server/assignment-qualificatio
 import { accountUsernameSchema, updateAccountUsername } from "~/server/account-username";
 import { accountMembership, membershipSchema } from "~/lib/account-membership";
 import { databaseScope, approvalScope } from "~/server/db-scope";
-import { subjectOrderBy } from "~/lib/course-catalogue";
+import { courseChoices } from "~/server/course-choices";
 import { courseImportInput } from "~/lib/course-import";
 import { importCourseGroups } from "~/server/course-import";
 import {
@@ -544,10 +544,7 @@ export const adminRouter = createTRPCRouter({
     ctx.db.term.findMany({ orderBy: { createdAt: "desc" } }),
   ),
   subjects: viewerProcedure.query(({ ctx }) =>
-    ctx.db.subject.findMany({
-      orderBy: [...subjectOrderBy],
-      include: { level: true, group: true },
-    }),
+    courseChoices(ctx.db),
   ),
 
   /** Concrete approved eligibility; consumers must not infer it from application intents. */

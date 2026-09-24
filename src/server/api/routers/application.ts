@@ -1,7 +1,7 @@
 import { recruitmentStatus } from "~/lib/recruitment";
 import { getRecruitment } from "~/server/program/recruitment";
 import { lockCatalogue } from "~/server/qualifications";
-import { subjectOrderBy } from "~/lib/course-catalogue";
+import { courseChoices } from "~/server/course-choices";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -28,18 +28,18 @@ export const applicationRouter = createTRPCRouter({
   options: publicProcedure.query(async ({ ctx }) => {
     const [settings, subjects, recruitment] = await Promise.all([
       getSignupSettings(ctx.db),
-      ctx.db.subject.findMany({
-        where: { active: true },
-        orderBy: [...subjectOrderBy],
-        select: {
-          id: true,
-          name: true,
-          level: { select: { name: true, apScored: true } },
-        },
-      }),
+      courseChoices(ctx.db, { active: true }),
       getRecruitment(ctx.db, "tutor"),
     ]);
-    return { fields: settings.tutor, subjects, recruitment };
+    return {
+      fields: settings.tutor,
+      subjects: subjects.map(({ id, name, level }) => ({
+        id,
+        name,
+        level: level ? { name: level.name, apScored: level.apScored } : null,
+      })),
+      recruitment,
+    };
   }),
 
   /**

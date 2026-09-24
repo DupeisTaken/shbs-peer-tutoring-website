@@ -5,6 +5,7 @@ import {
   eligibleSubjectIds,
   lockCatalogue,
 } from "~/server/qualifications";
+import { courseChoices } from "~/server/course-choices";
 import { subjectOrderBy } from "~/lib/course-catalogue";
 import { lockEntity } from "~/server/transactions";
 import { validateInterviewDecision } from "~/server/interviews";
@@ -23,10 +24,7 @@ export function assertQualificationReviewer(role: string) {
 /** A variant is requestable only if it adds a subject or advances an already approved group. */
 export async function qualificationOptions(db: TransactionDb, tutorId: string) {
   const [subjects, eligible] = await Promise.all([
-    db.subject.findMany({
-      orderBy: [...subjectOrderBy],
-      include: { level: true },
-    }),
+    courseChoices(db),
     eligibleSubjectIds(db, tutorId),
   ]);
   const approved = new Set(eligible);

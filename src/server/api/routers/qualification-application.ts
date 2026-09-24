@@ -15,7 +15,7 @@ import {
 import { expectedUpdatedAt } from "~/server/concurrency";
 import { notifyUsers } from "~/server/notifications/create";
 import { qualificationSnapshot } from "~/lib/qualification-applications";
-import { subjectOrderBy } from "~/lib/course-catalogue";
+import { courseChoices } from "~/server/course-choices";
 
 export const qualificationApplicationRouter = createTRPCRouter({
   mine: tutorProcedure.query(async ({ ctx }) => {
@@ -40,11 +40,9 @@ export const qualificationApplicationRouter = createTRPCRouter({
       qualificationOptions(ctx.db, tutorId),
       eligibleSubjectIds(ctx.db, tutorId),
     ]);
-    const approved = await ctx.db.subject.findMany({
-      where: { id: { in: eligible } },
-      orderBy: [...subjectOrderBy],
-      select: { id: true, name: true },
-    });
+    const approved = (
+      await courseChoices(ctx.db, { id: { in: eligible } })
+    ).map(({ id, name }) => ({ id, name }));
     const pending = new Set(
       requests
         .filter(

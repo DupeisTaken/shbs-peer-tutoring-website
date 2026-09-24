@@ -1,6 +1,6 @@
 import { getRecruitment } from "~/server/program/recruitment";
 import { getSignupSettings } from "~/server/program/signup-fields";
-import { subjectOrderBy } from "~/lib/course-catalogue";
+import { courseChoices } from "~/server/course-choices";
 import { z } from "zod";
 
 import {
@@ -83,11 +83,7 @@ export const tuteeRouter = createTRPCRouter({
   /** Options needed to render the public signup form: active subjects + active time slots. */
   signupOptions: publicProcedure.query(async ({ ctx }) => {
     const [subjects, slots, settings, recruitment] = await Promise.all([
-      ctx.db.subject.findMany({
-        where: { active: true },
-        orderBy: [...subjectOrderBy],
-        select: { id: true, name: true },
-      }),
+      courseChoices(ctx.db, { active: true }),
       ctx.db.timeSlot.findMany({
         where: { active: true },
         orderBy: [{ dayOfWeek: "asc" }, { startMin: "asc" }],
@@ -102,7 +98,12 @@ export const tuteeRouter = createTRPCRouter({
       getSignupSettings(ctx.db),
       getRecruitment(ctx.db, "tutee"),
     ]);
-    return { subjects, slots, fields: settings.tutee, recruitment };
+    return {
+      subjects: subjects.map(({ id, name }) => ({ id, name })),
+      slots,
+      fields: settings.tutee,
+      recruitment,
+    };
   }),
 
   /**
