@@ -29,12 +29,12 @@ The [CI workflow](../.github/workflows/docker-build.yml) also checks dependency 
 - Prisma CLI configuration lives in [prisma.config.ts](../prisma.config.ts). Schema changes need migrations; `db push` is for disposable experimentation and does not replace committed SQL constraints.
 - Keep display names synchronized through the shared account-profile helper and account settings through the shared component. Do not import another route's page as a reusable component.
 - Use “subjects” in interface copy and localize in [messages](../messages). Catalog tests validate ICU syntax and argument parity; review translations before enabling hidden languages.
-- Keep bundled sample policies separate from published database documents. Follow [policy publication](policies/README.md) when wording changes.
+- Keep bundled policy drafts separate from published database documents. Follow [policy publication](policies/README.md) when wording changes.
 - Before changing Next.js behavior, read the relevant bundled guide under `node_modules/next/dist/docs/`. Use the existing Turbopack build command and local resource settings rather than global runtime changes.
 
 ## Chinese peer-tutoring wording
 
-Use **辅导伙伴** for Tutor and **学习伙伴** for Tutee in role labels, participant workflows, notifications and sample policies. Both are fellow students; these names describe their roles in a particular tutoring relationship, not a teacher/student hierarchy. Use **辅导** for tutoring and **参与中** for active participation, rather than 授课 or 在职. Keep genuine school references such as 学生家长、数学教师 and the calendar's 上课日. Keep message keys, ICU arguments/plural branches, role enums and permission rules unchanged when editing display text.
+Use **辅导伙伴** for Tutor and **学习伙伴** for Tutee in role labels, participant workflows, notifications and policy drafts. Both are fellow students; these names describe their roles in a particular tutoring relationship, not a teacher/student hierarchy. Use **辅导** for tutoring and **参与中** for active participation, rather than 授课 or 在职. Keep genuine school references such as 学生家长、数学教师 and the calendar's 上课日. Keep message keys, ICU arguments/plural branches, role enums and permission rules unchanged when editing display text.
 
 The homepage introduction and role cards use `messages/en.json` and `messages/zh.json` defaults. Environment message overrides take precedence over bundled messages, and published database message overrides take precedence over both. A locale-specific `HomeContent` override wins over the resolved homepage message; clearing that override restores the resolved default. Review existing overrides through localization and landing editors to adopt new wording. Repository edits do not overwrite them.
 
@@ -54,7 +54,7 @@ Keep human-facing guides under `docs/`, with only `README.md` at the repository 
 | Understand code responsibilities and invariants | [Technical guide](technical-report.md) |
 | Install, seed, test or troubleshoot locally | [Local development](local-development.md) |
 | Deploy, bootstrap, back up or recover | [Deployment](deployment.md) |
-| Adapt sample policies and publish approved revisions | [Sample policies and publication](policies/README.md) |
+| Adapt policy drafts and publish approved revisions | [Policy drafts and publication](policies/README.md) |
 | Contribute, verify or maintain the repository | This guide |
 | Report a reproducible problem or request a change | [Issue guide](issues.md) |
 

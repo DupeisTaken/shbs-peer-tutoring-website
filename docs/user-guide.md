@@ -22,7 +22,7 @@ Use this guide with the website address supplied by your program. Page names bel
 
 Read **Privacy policy** from the homepage information menu or footer, or open `/privacy` directly. It is available without signing in and remains readable when participation agreements need renewal. The notice covers information collected, uses, access, browser storage, retention and privacy requests. English and Chinese are provided; other interface languages show the English document. Use the contact details at the end for privacy questions.
 
-The website supports intake, matching, attendance, hours, interviews, support and reviewed management changes. The operator must configure real email delivery and publish the current school policies before opening public intake. The repository contains [sample policies](policies/README.md) for adaptation; changing a sample does not publish a school policy.
+The website supports intake, matching, attendance, hours, interviews, support and reviewed management changes. The operator must configure real email delivery and publish the current school policies before opening public intake. The repository contains [policy drafts](policies/README.md) for adaptation; changing a draft does not publish a school policy.
 
 | Your access                            | Start with                           | Important boundary                                                                                                |
 | -------------------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
@@ -108,7 +108,7 @@ Use **My Tutors & Schedule** for current assignments, **Attendance** for recorde
 
 With discipline enabled, an unexcused student absence automatically creates a valid red card. Tutor-requested cards count only after validation. Every three valid yellow cards contribute one effective red; at two effective reds, an active tutee is automatically made inactive and removed from current-period assignments, without separate removal approval. An upheld appeal invalidates the card and recalculates standing. Eligible effects may be restored if no later independent status change intervened; accounts and past records remain.
 
-See the [sample student policy](../prisma/policies/tutee-policy.en.md) or [中文学习伙伴政策示例](../prisma/policies/tutee-policy.zh.md). Participation uses the school's published version displayed on the website.
+See the [tutee policy draft](../prisma/policies/tutee-policy.en.md) or [中文学习伙伴政策草案](../prisma/policies/tutee-policy.zh.md). Participation uses the school's published version displayed on the website.
 
 ## Tutors
 
@@ -135,7 +135,7 @@ Management records actual interview completion through **Tutor Applications** in
 4. Submit once and check the saved record. If the result is unclear after a network error, check the record before retrying.
 5. Ask management for a historical correction with the date, affected record and reason. Coordinators must obtain approval for corrections.
 
-Current tutor-policy acceptance is required for attendance submission. Your service hours are calculated from the saved attendance; see [session-hour examples](../prisma/policies/tutor-policy.en.md#service-hours).
+Current tutor-policy acceptance is required for attendance submission. Your service hours are calculated from the saved attendance; see [session-hour examples](../prisma/policies/tutor-policy.en.md#iii-service-hours-accrual).
 
 Use combined attendance when several assigned subjects share one block: shared time and each distinct student count once. An identical retry does not create another credit; changed answers for a saved block require a correction. Changing the selected subjects or shifting the time does not permit another submission that overlaps your saved attendance. Ask management to correct the existing block; corrections cannot overlap another saved block. Adjacent, non-overlapping sessions remain valid. Present, rescheduled and extra sessions use the same calculation. Online sessions have no physical room check.
 
@@ -152,7 +152,7 @@ For a student enrolled outside the survey flow, the tutor can relay the student'
 - On an interview panel, review the application and submit your own vote. Every panelist must vote before a final decision. The majority decides; a tie is resolved by the selected highest-ranking management chair.
 - A coordinator chair’s outcome goes to ADMIN/HEAD for approval. The reviewer preserves the chair’s decision and identity. Hours are earned from recorded interview completion and attendance, not scheduling alone.
 
-Read addressed announcements and acknowledge them when prompted. Review session hours, interview credits, meeting deductions and manual adjustments in your period totals. See the [sample tutor policy](../prisma/policies/tutor-policy.en.md) or [中文辅导伙伴政策示例](../prisma/policies/tutor-policy.zh.md); follow the school's published version when participating.
+Read addressed announcements and acknowledge them when prompted. Review session hours, interview credits, meeting deductions and manual adjustments in your period totals. See the [tutor policy draft](../prisma/policies/tutor-policy.en.md) or [中文辅导伙伴政策草案](../prisma/policies/tutor-policy.zh.md); follow the school's published version when participating.
 
 ## Crew
 
@@ -311,7 +311,7 @@ Email confirmation and password recovery pages remain available without a policy
 | Assignment applied but email failed             | Keep the assignment; resend its verification link and check delivery configuration                                                             |
 | Interview decision blocked                      | Check every vote, active panel membership, highest-ranking chair and subject qualification                                                     |
 | A permission/page is missing                    | Check role, linked membership, suspension and enabled module with management                                                                   |
-| Hours look different from ordinary rounding     | Compare recorded attendance with the [implemented rounding examples](../prisma/policies/tutor-policy.en.md#service-hours) in the sample policy |
+| Hours look different from ordinary rounding     | Compare recorded attendance with the [implemented rounding examples](../prisma/policies/tutor-policy.en.md#iii-service-hours-accrual) in the policy draft |
 | A correction did not change the expected record | Check approval state, date/program period and the audit trail; ask management to investigate                                                   |
 
 ## Report a problem
@@ -320,7 +320,7 @@ For a private account, disciplinary or attendance matter, contact management thr
 
 Use synthetic examples and remove tutee names, contact details, private messages, account links and codes from public reports. [Creating issues](issues.md) explains what information is useful.
 
-[Documentation home](README.md) · [Technical report](technical-report.md) · [Sample policies](policies/README.md)
+[Documentation home](README.md) · [Technical report](technical-report.md) · [Policy drafts](policies/README.md)
 
 ## Configure signup forms
 

@@ -1,19 +1,19 @@
-# Sample policies and publication
+# Policy drafts and publication
 
 [Documentation hub](../README.md) · [User guide](../user-guide.md) · [Technical report](../technical-report.md#policy-documents-and-translations)
 
-The bundled English and Chinese documents are **sample policies**, not approved school policies. They explain implemented participant workflows and provide a starting point for school review. Adapt them to the enabled modules and school requirements, supply contact details and an effective date, and approve both languages before publication. Their source revision is defined by `POLICY_VERSION` in [the catalog](../../prisma/policies.ts).
+The bundled English and Chinese documents are **policy review drafts**, not approved school policies. Revision 2026.09.24 preserves the legacy tutor I–VIII and tutee I–IV structure while incorporating current website workflows. The [revision review](revision-notes.md) identifies retained expectations, changed rules, legacy sources and printable PDF export instructions. Adapt the drafts to enabled modules and school requirements, supply contact details and an effective date, and approve both languages before publication. Their source revision is defined by `POLICY_VERSION` in [the catalog](../../prisma/policies.ts).
 
 | Audience | English | 中文 |
 | --- | --- | --- |
-| Students | [Sample student policy](../../prisma/policies/tutee-policy.en.md) | [学习伙伴政策示例](../../prisma/policies/tutee-policy.zh.md) |
-| Tutors | [Sample tutor policy](../../prisma/policies/tutor-policy.en.md) | [辅导伙伴政策示例](../../prisma/policies/tutor-policy.zh.md) |
+| Students | [Tutee policy draft](../../prisma/policies/tutee-policy.en.md) | [学习伙伴政策草案](../../prisma/policies/tutee-policy.zh.md) |
+| Tutors | [Tutor policy draft](../../prisma/policies/tutor-policy.en.md) | [辅导伙伴政策草案](../../prisma/policies/tutor-policy.zh.md) |
 
 The development seed loads these four sources. Missing policy languages fall back to English; UI language availability is configured separately. The current [user guide](../user-guide.md) and [program reference](../program-reference.md) describe the behavior policies must match.
 
 ## Publish a revision
 
-1. School management adapts both sample policies and confirms the effective date, contact routes, calendar, enabled modules, intake configuration and school-specific expectations. Check automatic disciplinary removal, the distinct withdrawal routes, hour calculations and messaging supervision against the implemented behavior. Resolve differences between languages before publication; use an approved school title and revision for the published text.
+1. School management adapts both policy drafts and confirms the effective date, contact routes, calendar, enabled modules, intake configuration and school-specific expectations. Check automatic disciplinary removal, the distinct withdrawal routes, hour calculations and messaging supervision against the implemented behavior. Resolve differences between languages before publication; use an approved school title and revision for the published text.
 2. Retain the currently published policy records and compare the new wording. Preserve historical acceptance snapshots. Do not run the development seed against a production database.
 3. In **Policies** (`/admin/policies`), start with the **Student policy** and **Tutor policy** editors. On a fresh installation these are blank; enter the reviewed title, revision and content and save English first. Add Chinese and every other language intended to remain published with the same reviewed revision. Archive old language content externally and remove its obsolete live translation through the editor so English fallback can apply. Removing a file from Git does not remove a database translation.
 4. Complete ADMIN/HEAD review for coordinator proposals. A submitted proposal has not changed the published policy. Keep intake closed and schedule a maintenance window while updating multiple translations; each committed content change can trigger renewed consent.

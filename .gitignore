@@ -52,6 +52,7 @@ yarn-error.log*
 
 # Local reports, runtime fixtures and database dumps are not source files.
 /outputs/
+/output/pdf/
 /backups/
 
 # Private operator notes and deployment details; never part of the shared LMS foundation.

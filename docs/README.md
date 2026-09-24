@@ -11,7 +11,7 @@ These guides describe the current application. Choose the task you need to compl
 | Find implementation files and understand authorization or transaction rules | [Technical guide](technical-report.md) |
 | Use the website as a tutee, tutor, crew member, coordinator, administrator, HEAD, viewer or translator | [User guide](user-guide.md) |
 | Configure modules, periods, schedules, timezones, recipients or public content | [Program reference](program-reference.md) |
-| Adapt the English/Chinese sample policies and publish school-approved revisions | [Sample policies and publication](policies/README.md) |
+| Adapt the English/Chinese policy drafts and publish school-approved revisions | [Policy drafts and publication](policies/README.md) |
 | Report a bug, enhancement, feature or documentation request | [Issue guide](issues.md) |
 
 ## Maintaining the guides

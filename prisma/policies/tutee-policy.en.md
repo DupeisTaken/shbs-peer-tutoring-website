@@ -1,65 +1,105 @@
-# Sample tutee participation policy
+# SHBS Peer Tutoring Tutee Policy
 
-Sample revision 2026.09.21 · Adapt and approve before publication
+**Revision:** 2026.09.24 | **Status:** Draft for school review
 
-This is a sample policy for the peer-tutoring website, not an approved school policy. The school must review the wording, choose which program modules to use, and add its contact details and effective date before publishing. Here, “management” means coordinators, administrators (ADMIN) and the program leader (HEAD). Sensitive coordinator changes require ADMIN or HEAD approval.
+This policy establishes expectations for tutees in the SHBS Peer Tutoring Program, respecting everyone's time and effort. It retains the structure of the April 2025 policy and incorporates the program website. “Tutee” means a student receiving peer tutoring.
 
-Feature-specific sections apply where the school has enabled those workflows. Read the school's published version and the current controls shown in your account.
+This draft takes effect only after school approval and publication with an effective date and a confirmed management contact. Until then, follow the school's currently published policy. “Management” means coordinators, administrators (ADMIN) and the program leader (HEAD). Sensitive coordinator actions require ADMIN or HEAD approval. Optional-module rules apply when the relevant module is enabled. Dates and deadlines use the displayed program timezone.
 
-## Applying and confirming your account
+## I. Tutee Responsibilities
 
-Submit your subject choices, available times, contact details and signed policy agreement when intake opens. Your first open survey submission determines your place in the matching queue. Creating an account earlier does not improve that priority. Repeating an open application preserves its original answers and timestamp.
+### 1. Pre-session preparation
 
-Open the emailed confirmation link to review the request and confirm it. Opening the link alone does not complete confirmation. Create a password if you need a new account; an existing account keeps its role and password. Each link lasts 24 hours. A successful resend replaces the previous link without changing queue priority; a failed resend leaves the usable link intact.
+Provide course materials preferably at least 48 hours before each session. Review topics and agreed preparation work. Provide accurate signup and availability information and keep your agreed contact route usable.
 
-Staff may assign a tutor before you confirm. The first assignment starts a fixed seven-day verification deadline. Reassignment and resending a link do not extend it. If you remain unverified at the deadline, the request closes permanently and its assignments are removed. You may submit a new eligible request, which receives a new priority timestamp.
+### 2. Session participation
 
-## Your workspace and schedule
+Attend punctually, participate actively, respect the session agenda and treat others respectfully. Agree the time and location with your tutor and check **My Tutors & Schedule**. **Awaiting schedule** means a tutor is assigned but a slot still needs agreement.
 
-After confirmation, sign in and choose **Enter Tutee page**. Dashboard, My Tutors & Schedule, Requests, Attendance, Support, Messages and Account separate your current tasks from your history. Any account role can also participate as a tutee; opening this workspace does not create an application or grant access to another person's records.
+### 3. Post-session work and feedback
 
-You may edit the availability on an open request. Its subjects, priority and current assignments stay the same. Agree on the actual schedule with your tutor. If an assignment cannot work, the tutor may request a schedule review. Approval removes only the affected assignment and returns the request for matching without resetting its priority or verification deadline.
+Complete agreed tasks by their deadlines. Submit feedback through **Attendance** within 24 hours after the session appears in your account. This is a program expectation, not an automatic website deadline or penalty. You may give feedback only on your own recorded sessions. Report missing or inaccurate attendance to management with the date and details.
 
-The program uses its configured school timezone. Current intake labels may say quarter or semester. A program refresh starts a new period: current participation and matching must be arranged for that period, while your recorded attendance and account-linked history remain available.
+Feedback is management-only by default. Management may share it with the responsible tutor or revoke sharing; the current setting also applies to older feedback. Read the visibility notice before submitting.
 
-## Recalling a request or leaving the program
+### 4. Communication and account responsibilities
 
-An unassigned survey request can be recalled after you confirm the consequences. It closes permanently; a later application is a new request with a new timestamp.
+Use **Messages** for permitted contacts and **Support** for cards and appeals. Messages deliver immediately and separately to up to 20 recipients per send; recipients cannot see others or their replies. If any selected recipient becomes ineligible before sending, none of that send is delivered. Identical retries do not duplicate deliveries. Replies use current permissions. Losing contact eligibility preserves readable history; messaging restrictions block new sends and incoming eligibility. Use the school's program contact if messaging is unavailable.
 
-To leave after assignment, open **Requests → Participation → Request withdrawal…**, give a reason and confirm. Account-linked staff-entered enrollments also support this request. Tutoring continues while staff review it and if it is denied. Approval ends all your tutoring in the current program period and blocks another signup for that period, including after a verified account email change. Future intakes remain separate.
+Read the composer's supervision disclosure. HEAD and ADMIN may review disclosed messages with a recorded reason, hide or restore content, and restrict messaging. Coordinators cannot supervise other people's conversations. Hidden content is retained for authorized review. Participant-only messages remain outside that supervision workflow; a newly disclosed reply follows its own rules. Notifications omit message bodies and recipient lists. Private messaging is not end-to-end encrypted.
 
-For enrollments that offer a tutor-relayed opt-out instead of the survey withdrawal flow, the tutor can relay your request. That route has a seven-day recall window and is processed automatically after the window if it has not been recalled or cancelled. It is a different process from a withdrawal waiting for staff approval; check the route and effective time shown on your request.
+Read the website's **Privacy policy** for information handling. Leaving does not automatically delete attendance, messages, appeals or acceptance history. Use private support for personal matters; keep participant names, contact details, private messages, account links and codes out of public software reports.
 
-Consequential request actions use a five-second confirmation delay. A submitted coordinator proposal has not changed your participation until ADMIN or HEAD approves it.
+Keep passwords and verification links private. Change login email through verified account settings; a contact-field edit is not verification. Secondary email is optional and subject to program settings. Optional email notices depend on program and personal preferences; security notices are independent. Use account recovery as needed and email two-factor authentication when enabled and available. Suspended accounts use their suspension appeal page; a pending appeal does not restore ordinary access.
 
-## Attendance, discipline and appeals
+## II. Attendance Policy
 
-Attend agreed sessions, bring the material you need help with, communicate absences promptly and treat others respectfully. Tutors record actual attendance, including a reason for an excused absence. Ask management to correct an inaccurate record with the session date and details; corrections retain reasons and audit evidence.
+### 1. Notification
 
-When the discipline module is enabled, a recorded unexcused student absence automatically creates a valid red card. Other cards requested by a tutor stay pending until management validates them. Invalid and pending cards do not count toward your standing.
+Notify your tutor at least 24 hours before an absence where possible. In an emergency, communicate as soon as possible and explain the circumstances. Respond to session arrangements promptly. A response delayed beyond 24 hours may lead to a reasoned yellow-card request under Section III; it does not itself create an automatic card.
 
-Every 3 valid yellow cards count as 1 effective red card. At 2 effective red cards, the website automatically makes an active tutee inactive and removes their current-period assignments. This does not wait for a separate removal approval, and it does not delete the account or past records.
+### 2. Tardiness
 
-You can appeal a card once through **Support**, by the end of the fifth school day after its recorded issue date in the program timezone. Weekdays count unless staff have marked a holiday or make-up school day. A pending appeal does not suspend the card or its effects. An upheld appeal invalidates the card and recalculates standing. A correction can restore eligible assignments removed by that disciplinary action when there has been no later independent status change; restoration is not guaranteed to every former assignment. Contact management if the appeal window has closed or reassignment is needed.
+Arriving 15 minutes or more late without notice is normally recorded as unexcused absent under this policy. Explain emergencies or disputed records to the tutor and management promptly. The website does not time arrivals; the tutor records the facts and attendance classification. With discipline enabled, a recorded unexcused absence creates one valid red card, without a separate automatic lateness card.
 
-## Feedback and access to records
+### 3. Rescheduling and record accuracy
 
-You can submit feedback for your own recorded sessions. It is visible only to management by default. Management can enable or revoke sharing with the tutor responsible for that session; the current setting also applies to earlier feedback. Check the visibility notice before submitting.
+Arrange changes in advance and prioritize agreed rescheduling over simply missing a session. A message proposing a change does not confirm a new slot. Tutors record actual attendance, including reasons for excused absences. Management corrections require reasons and audit evidence and may affect cards and assignments.
 
-Your attendance, feedback, appeals and policy acceptance evidence remain linked to your account across intakes and verified email changes. Staff review acceptance history by account. Public software issues must not contain participant names, private messages, contact details, account links or codes; use the website's private support routes for personal matters.
+### 4. Attendance penalties
 
-## Messages and privacy
+With discipline enabled, each recorded unexcused absence automatically creates one valid red card. Excused absences must be recorded accurately; the website does not automatically issue a red card for every three excused absences. Card thresholds and appeals are set out below.
 
-Select permitted contacts in **Messages**, with at most 20 recipients per send. Each receives a separate message immediately; recipients cannot see the other recipients or their replies. If any chosen recipient becomes ineligible before sending, no messages in that send are delivered. Retrying the same send does not create duplicate deliveries.
+## III. Disciplinary Measures (Card System)
 
-Contact eligibility follows role-based groups, individual overrides and recorded tutoring relationships. Replies are new sends and use current permissions. Losing contact eligibility does not erase your readable history. A messaging restriction blocks new sending and incoming contact eligibility while retaining history.
+### 1. Yellow and red cards
 
-The composer explains when messages are subject to supervision. HEAD and ADMIN may review those messages with a recorded reason, hide or restore content, and restrict messaging. Coordinators cannot supervise other people's conversations. Hidden content is unavailable to participants but retained for authorized review. Messages originally marked participant-only remain outside supervision; a newly disclosed reply follows its own supervision rules. Notifications omit message bodies and recipient lists.
+Yellow-card requests may concern a response delayed beyond 24 hours, incomplete agreed work or other documented minor conduct issues. Serious disrespect may lead to a red-card request. Tutor-requested cards require written reasons and remain pending until management validates them. A comment or request alone is not a valid card. Avoid duplicating a card already created for the same attendance incident.
 
-## Policy acceptance and account security
+Every **3 valid yellow cards count as 1 effective red card**. At **2 effective red cards**, the website automatically makes an active tutee inactive and removes current-period assignments without a separate final-removal approval. Pending and invalid cards do not count. Your account and past records remain.
 
-Use the school's published policy on the website when participating. A changed policy prompts renewed acceptance on your next visit or window focus. Scroll through the displayed text, explicitly check the agreement and complete the ten-second confirmation. Accounts linked to both tutor and tutee profiles review both applicable policies. Unavailable translations fall back to English.
+### 2. Appeals and corrections
 
-Acceptance records the exact revision, text, signature and time without changing queue priority. You may dismiss a renewal prompt to use history, feedback, appeals, messages and account settings; new participation still requires current acceptance. These access rules do not override account suspension or other permissions.
+Review cards in **Support**. You may appeal each card once, by the end of the fifth school day after its recorded issue date in the program timezone. Weekdays count unless management has marked a holiday or make-up school day. Explain the issue and relevant facts. A pending appeal does not suspend the card or its consequences.
 
-Change your login email through the verified account-settings flow. Editing a contact field does not verify it. Keep passwords, sign-in codes and verification links private. Email two-factor authentication is available when the program enables it and delivery is configured; it applies when your account preference is also enabled. Use password recovery if needed. A suspended account must use its suspension appeal page; a pending account appeal does not restore access.
+An upheld appeal invalidates the card and recalculates standing. A correction may restore eligible assignments removed by that disciplinary action if no later independent status change prevents it. Restoration of every former assignment is not guaranteed. Contact management if the window has closed, a record is inaccurate or reassignment is needed.
+
+## IV. Pairing and Allocations of Pairs
+
+### 1. Recruitment and current-period applications
+
+Submit the current **Request a Tutor** form during tutee recruitment, even if you participated previously. Tutor and tutee windows are separate. A form outside its window, paused or awaiting setup is viewable but cannot accept submissions. Complete displayed required fields, subject choices and policy agreement. Required and optional fields depend on school configuration.
+
+Management announces the current quarter or semester, recruitment and orientation arrangements. Do not assume the legacy twice-per-semester reshuffle or P&B orientation schedule applies automatically. A refresh starts a new period; current participation and matching must be arranged for it while account-linked history remains.
+
+### 2. Matching priority and email confirmation
+
+Matching considers subject preferences, qualified tutor availability and capacity. The original open survey submission determines queue priority; creating an account earlier does not improve it. An assignment is not guaranteed. Repeating an open application preserves its original answers and timestamp.
+
+Open the emailed confirmation link, review the request and complete confirmation; opening the link alone is insufficient. Set a password if creating an account. Existing accounts keep their role and password. Each link lasts 24 hours. Successful resending replaces the earlier link without changing priority; a failed resend leaves the usable link intact.
+
+Staff may assign a tutor before confirmation. The first assignment starts a fixed seven-day verification deadline. Reassignment and resending do not extend it. An unverified request closes permanently at the deadline and its assignments are removed. A later eligible application receives a new timestamp.
+
+### 3. Confirming and changing arrangements
+
+After confirmation, sign in and choose **Enter Tutee page**. Use **My Tutors & Schedule** for assignments and **Requests** for applications. You may edit availability on an open request without changing subjects, original priority or current assignments. Agree the actual schedule promptly. Any account role may also have a linked tutee profile; access is limited to explicitly owned records.
+
+If no workable time can be agreed, the tutor may request schedule review. The assignment continues pending review. Approval removes only the affected assignment and returns the request for matching without resetting priority or verification deadline. A pending coordinator proposal has not changed participation until ADMIN or HEAD approves it.
+
+### 4. Recall, withdrawal and tutor-relayed opt-out
+
+An unassigned survey request can be recalled after confirming the consequences. It closes permanently; a later application is a new request with a new priority timestamp.
+
+After assignment, use **Requests → Participation → Request withdrawal…**, give a reason and confirm. Account-linked staff-entered enrollments also support this request. Tutoring continues during review and if the request is denied. Approval ends all your tutoring in the current program period and blocks another signup for that period, including after a verified email change. Future intakes remain separate.
+
+If your enrollment instead offers tutor-relayed opt-out, ask your tutor to relay your request. It has a seven-day recall window and is processed automatically afterward unless recalled or cancelled. If the period refreshes or its originating assignment is removed first, the outdated relay is cancelled. This differs from withdrawal awaiting staff approval; check the route and effective time shown. Consequential request actions use a five-second confirmation delay.
+
+### 5. Policy acceptance and continued access
+
+Read the displayed policy and explicitly complete its agreement and signature requirements. A published change prompts renewed review on your next visit or window focus. Read to the end, check agreement and complete the ten-second confirmation. Accounts linked to both tutee and tutor profiles review both policies. Missing translations fall back to English; unpublished proposals do not renew consent.
+
+Acceptance records the exact revision, text, signature and time without changing queue priority. Dismissing a renewal prompt preserves access to history, feedback, appeals, messages and account settings, subject to ordinary permissions. New participation still requires current acceptance; these provisions do not override suspension. Records remain linked to your account across intakes and verified email changes.
+
+By explicitly accepting the school's published version, tutees agree to these responsibilities and procedures. Contact management with questions before accepting.
+
+**The Peer Tutoring Team** | **Revision:** 2026.09.24 | **Draft for school review**

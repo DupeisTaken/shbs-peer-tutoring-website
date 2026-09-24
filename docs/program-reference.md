@@ -52,7 +52,7 @@ When Email 2FA is on, password changes also require an emailed verification code
 | Program timezone | ADMIN/HEAD saves a supported IANA region after reviewing consequences; dates and deadlines use it consistently. Existing instants remain fixed; weekly slots remain school wall-clock times |
 | Signup opening and preview link | ADMIN/HEAD changes the current intake immediately; a scheduled opening requires an HTTP(S) preview link. Clearing the opening time opens intake immediately |
 | Subjects, levels, slots and rooms | Management catalogues used by application, availability and pairing workflows |
-| Policy versions | Published database revisions require new acceptance for participation; changing a bundled sample policy does not publish it |
+| Policy versions | Published database revisions require new acceptance for participation; changing a bundled policy draft does not publish it |
 | School calendar | Staff define holidays and make-up days used for school-day appeal deadlines |
 | Feedback visibility | Management-only by default; configured sharing also affects earlier feedback |
 | Announcements | Filters combine across groups; alternatives within a group match any choice; explicit exclusions win. Published recipients are fixed |

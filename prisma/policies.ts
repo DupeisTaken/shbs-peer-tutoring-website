@@ -1,9 +1,9 @@
 import { readFileSync } from "node:fs";
 
-/** Sample development policies; staff adapt, review and publish them for a school. */
-export const POLICY_VERSION = "2026.09.21";
+/** Review drafts for development; school approval and runtime publication remain separate. */
+export const POLICY_VERSION = "2026.09.24";
 
-// Only include reviewed sample translations in development seeds.
+// Include only the maintained English/Chinese drafts in development seeds.
 // Missing policy locales already fall back to English in the runtime policy loader.
 export const BUNDLED_POLICIES = ["tutor-policy", "tutee-policy"].flatMap(
   (slug) =>
