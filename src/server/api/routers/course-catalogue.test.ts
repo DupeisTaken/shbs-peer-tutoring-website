@@ -102,9 +102,9 @@ it("creates separate names per level and orders all selection APIs by group then
     "Intro to Computer Science",
     "AP Computer Science A",
   ];
-  expect((await caller().application.options()).subjects.map((s) => s.name)).toEqual(
-    expected,
-  );
+  expect(
+    (await caller().application.options()).subjects.map((s) => s.name),
+  ).toEqual(expected);
   expect(
     (await caller().tutee.signupOptions()).subjects.map((s) => s.name),
   ).toEqual(expected);
@@ -115,10 +115,9 @@ it("creates separate names per level and orders all selection APIs by group then
     kind: "groups",
     ids: [computer.id, group.id],
   });
-  expect((await caller().application.options()).subjects.map((s) => s.name)).toEqual([
-    ...expected.slice(3),
-    ...expected.slice(0, 3),
-  ]);
+  expect(
+    (await caller().application.options()).subjects.map((s) => s.name),
+  ).toEqual([...expected.slice(3), ...expected.slice(0, 3)]);
 });
 
 it("snapshots grants, isolates other groups, retains old eligibility after reorder and uses the new order only for future approvals", async () => {
@@ -434,4 +433,204 @@ it("explicitly regroups existing variants without changing IDs or prior grants",
     [first.id, second.id].sort(),
   );
   expect(await db.subject.count()).toBe(2);
+});
+
+const groupedImport = {
+  groups: [
+    {
+      name: "Computer Science",
+      offerings: [
+        { baseName: "Intro to Computer Science", level: "standard" },
+        { baseName: "Computer Science A", level: "AP" },
+      ],
+    },
+  ],
+};
+
+it("imports complete groups, preserves ordering and skips exact repeats with stable IDs", async () => {
+  expect(await caller().admin.importCourseGroups(groupedImport)).toEqual({
+    created: 1,
+    skipped: 0,
+    received: 1,
+  });
+  const before = await db.subject.findMany({ orderBy: { name: "asc" } });
+  expect(before.map((s) => s.name)).toEqual([
+    "AP Computer Science A",
+    "Intro to Computer Science",
+  ]);
+  expect(new Set(before.map((s) => s.groupId)).size).toBe(1);
+  expect(await caller().admin.importCourseGroups(groupedImport)).toEqual({
+    created: 0,
+    skipped: 1,
+    received: 1,
+  });
+  expect(await db.subject.findMany({ orderBy: { name: "asc" } })).toEqual(
+    before,
+  );
+  await caller().admin.importCourseGroups({
+    groups: [{ name: "Art", offerings: [{ baseName: "Art", level: null }] }],
+  });
+  expect(
+    (await db.courseGroup.findMany({ orderBy: { rank: "asc" } })).map(
+      (g) => g.name,
+    ),
+  ).toEqual(["Computer Science", "Art"]);
+});
+
+it.each(["Unknown", "Honors"])(
+  "rolls back earlier groups when a level is invalid or inactive: %s",
+  async (level) => {
+    await db.subjectLevel.update({
+      where: { id: "honors" },
+      data: { active: false },
+    });
+    await expect(
+      caller().admin.importCourseGroups({
+        groups: [
+          ...groupedImport.groups,
+          { name: "Other", offerings: [{ baseName: "Other", level }] },
+        ],
+      }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(await db.courseGroup.count()).toBe(0);
+    expect(await db.subject.count()).toBe(0);
+  },
+);
+
+it("rejects duplicate display names across imported groups atomically", async () => {
+  await expect(
+    caller().admin.importCourseGroups({
+      groups: [
+        ...groupedImport.groups,
+        {
+          name: "Other",
+          offerings: [{ baseName: "Computer Science A", level: "AP" }],
+        },
+      ],
+    }),
+  ).rejects.toMatchObject({ code: "CONFLICT" });
+  expect(await db.courseGroup.count()).toBe(0);
+});
+
+it("never merges existing variants or reactivates archived groups", async () => {
+  await caller().admin.importCourseGroups(groupedImport);
+  const before = await db.subject.findMany();
+  await expect(
+    caller().admin.importCourseGroups({
+      groups: [
+        {
+          name: "Different group",
+          offerings: groupedImport.groups[0]!.offerings,
+        },
+      ],
+    }),
+  ).rejects.toMatchObject({ code: "CONFLICT" });
+  await expect(
+    caller().admin.importCourseGroups({
+      groups: [
+        {
+          name: "Computer Science",
+          offerings: [{ baseName: "Changed", level: "AP" }],
+        },
+      ],
+    }),
+  ).rejects.toMatchObject({ code: "CONFLICT" });
+  expect(await db.subject.findMany()).toEqual(before);
+  await db.subject.updateMany({ data: { active: false } });
+  await expect(
+    caller().admin.importCourseGroups(groupedImport),
+  ).rejects.toMatchObject({ code: "CONFLICT" });
+  expect(await db.subject.count({ where: { active: true } })).toBe(0);
+});
+
+it("validates duplicate levels and unknown keys on the server", async () => {
+  await expect(
+    caller().admin.importCourseGroups({
+      groups: [
+        {
+          name: "Science",
+          offerings: [
+            { baseName: "One", level: "AP" },
+            { baseName: "Two", level: "ap" },
+          ],
+        },
+      ],
+    }),
+  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  await expect(
+    caller().admin.importCourseGroups({
+      ...groupedImport,
+      extra: true,
+    } as typeof groupedImport),
+  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  expect(await db.courseGroup.count()).toBe(0);
+});
+
+it.each(["VIEWER", "TUTOR"] as const)(
+  "denies %s grouped imports",
+  async (role) => {
+    await expect(
+      caller(role).admin.importCourseGroups(groupedImport),
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(await db.courseGroup.count()).toBe(0);
+  },
+);
+
+it("queues coordinator imports with catalogue dependencies and no immediate writes", async () => {
+  try {
+    await caller("COORDINATOR").admin.importCourseGroups(groupedImport);
+    throw Error("Expected approval queue");
+  } catch (error) {
+    expect((error as { cause: unknown }).cause).toBeInstanceOf(ApprovalQueued);
+  }
+  expect(await db.courseGroup.count()).toBe(0);
+  const request = await db.approvalRequest.findFirstOrThrow({
+    where: { operation: "admin.importCourseGroups" },
+  });
+  expect(JSON.stringify(request)).toContain("catalogue");
+  expect(JSON.stringify(request)).toContain("levels");
+  expect(JSON.stringify(request)).toContain("Computer Science");
+  await caller().approval.decide({
+    id: request.id,
+    approve: true,
+    note: "Reviewed grouped import",
+  });
+  expect(await db.courseGroup.count()).toBe(1);
+  expect(await db.subject.count()).toBe(2);
+});
+
+it("rejects a queued grouped import when its catalogue dependencies change", async () => {
+  await expect(
+    caller("COORDINATOR").admin.importCourseGroups(groupedImport),
+  ).rejects.toThrow();
+  const request = await db.approvalRequest.findFirstOrThrow({
+    where: { operation: "admin.importCourseGroups" },
+  });
+  await caller().admin.updateSubjectLevel({ id: "ap", prefix: "Advanced" });
+  await expect(
+    caller().approval.decide({
+      id: request.id,
+      approve: true,
+      note: "Review stale import",
+    }),
+  ).rejects.toMatchObject({ code: "CONFLICT" });
+  expect(await db.courseGroup.count()).toBe(0);
+});
+
+it("retains legacy CSV imports as separate groups and skips existing display names", async () => {
+  const input = {
+    subjects: [
+      { name: "Science", level: "Standard" },
+      { name: "Science", level: "AP" },
+    ],
+  };
+  expect(await caller().admin.importSubjects(input)).toEqual({
+    created: 2,
+    received: 2,
+  });
+  expect(await db.courseGroup.count()).toBe(2);
+  expect(await caller().admin.importSubjects(input)).toEqual({
+    created: 0,
+    received: 2,
+  });
 });

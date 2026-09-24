@@ -148,6 +148,7 @@ export async function proposalTargets(
   if (
     operation === "interviewManagement.qualify" ||
     operation === "admin.saveCourseGroup" ||
+    operation === "admin.importCourseGroups" ||
     operation === "admin.reorderCatalogue"
   ) {
     targets.catalogue = await client.subject.findMany({

@@ -1,0 +1,11 @@
+{
+  "groups": [
+    {
+      "name": "Computer Science",
+      "offerings": [
+        { "baseName": "Intro to Computer Science", "level": "Standard" },
+        { "baseName": "Computer Science A", "level": "AP" }
+      ]
+    }
+  ]
+}

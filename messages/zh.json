@@ -3025,11 +3025,18 @@
     "empty": "添加第一个科目组并选择开设级别。",
     "loading": "正在加载科目…",
     "import": "导入科目",
-    "importHelp": "CSV 列：name,level。输入不含前缀的基础名称。每一行将建立独立科目组。",
+    "importHelp": "使用 JSON 导入包含多个级别的科目组。输入不含前缀的基础名称及已有级别名称（无级别时用 null）。完全相同的科目组会跳过；冲突需手动编辑。仍支持 CSV（name,level），每个新行创建独立科目组。最多 500 个科目，文件不超过 1 MB。",
     "csvFile": "CSV 文件",
     "importResult": "已创建 {created} 条，共 {received} 条。",
     "granted": "已记录资格",
-    "grantCount": "{count, plural, other {# 项已记录科目}}"
+    "grantCount": "{count, plural, other {# 项已记录科目}}",
+    "importFile": "JSON 或 CSV 文件",
+    "importExample": "下载 JSON 示例",
+    "groupImportResult": "共 {received} 个科目组，已创建 {created} 个，跳过 {skipped} 个未变更的科目组。",
+    "importTooLarge": "请选择不超过 1 MB 的文件。",
+    "importEmpty": "文件中没有科目。",
+    "importFileType": "请选择 .json 或 .csv 文件。",
+    "importInvalid": "无法导入文件：{detail}"
   },
   "recruitment": {
     "preview": "只读表单预览",
