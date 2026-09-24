@@ -3067,5 +3067,33 @@
     "view": "フォームを見る",
     "opens": "開始",
     "closes": "終了"
+  },
+  "courseCatalogue": {
+    "title": "開講科目一覧",
+    "help": "名前・レベル・状態で検索できます。科目名は下の科目グループで編集してください。",
+    "search": "科目名を検索",
+    "level": "レベル",
+    "status": "状態",
+    "allLevels": "すべてのレベル",
+    "noLevel": "レベルなし",
+    "allStatuses": "すべての状態",
+    "active": "有効",
+    "inactive": "無効",
+    "clearFilters": "絞り込みを解除",
+    "count": "{total} 科目中 {count} 科目",
+    "selectAll": "表示中の科目をすべて選択",
+    "selected": "{count} 科目を選択 · {hidden} 科目は非表示",
+    "clearSelection": "選択を解除",
+    "batchLevel": "レベルを設定",
+    "batchStatus": "状態を設定",
+    "keep": "変更しない",
+    "apply": "表示中の選択 {count} 科目に適用",
+    "batchHelp": "表示中の選択科目のみ変更されます。非表示の選択は解除するまで保持されます。",
+    "selection": "選択",
+    "name": "科目名",
+    "select": "{name} を選択",
+    "noMatches": "条件に一致する科目はありません。",
+    "empty": "科目はまだありません。",
+    "emptyHelp": "検索条件を変更するか、絞り込みを解除して全科目を表示してください。"
   }
 }

@@ -5,6 +5,7 @@ import { useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { courseName } from "~/lib/course-catalogue";
 import { MAX_IMPORT_BYTES, parseCourseImport } from "~/lib/course-import";
+import { CourseCatalogueTable } from "~/app/_components/course-catalogue-table";
 import { useReadOnly } from "~/app/_components/read-only";
 
 type Group = RouterOutputs["admin"]["courseGroups"][number];
@@ -211,6 +212,9 @@ export default function SubjectsPage() {
       utils.admin.subjectLevels.invalidate(),
       utils.admin.subjects.invalidate(),
     ]);
+  const batchUpdate = api.admin.batchUpdateSubjects.useMutation({
+    onSuccess: invalidate,
+  });
   const reorder = api.admin.reorderCatalogue.useMutation({
     onSuccess: invalidate,
   });
@@ -253,6 +257,7 @@ export default function SubjectsPage() {
     reorder.mutate({ kind, ids });
   };
   const errors = [
+    batchUpdate.error,
     groups.error,
     levels.error,
     variants.error,
@@ -410,6 +415,15 @@ export default function SubjectsPage() {
           </form>
         )}
       </section>
+      <CourseCatalogueTable
+        subjects={[...(variants.data ?? [])].sort((a, b) =>
+          a.name.localeCompare(b.name),
+        )}
+        levels={levels.data ?? []}
+        readOnly={readOnly}
+        pending={batchUpdate.isPending}
+        onApply={batchUpdate.mutateAsync}
+      />
       <section className="space-y-4" aria-labelledby="groups-heading">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h2 id="groups-heading" className="section-title">

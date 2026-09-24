@@ -3067,5 +3067,33 @@
     "view": "View form",
     "opens": "Opens",
     "closes": "Closes"
+  },
+  "courseCatalogue": {
+    "title": "Offered course catalogue",
+    "help": "Find offerings by name, level or status. Edit course names in the subject groups below.",
+    "search": "Search course names",
+    "level": "Level",
+    "status": "Status",
+    "allLevels": "All levels",
+    "noLevel": "No level",
+    "allStatuses": "All statuses",
+    "active": "Active",
+    "inactive": "Inactive",
+    "clearFilters": "Clear filters",
+    "count": "{count} of {total} subjects",
+    "selectAll": "Select all visible",
+    "selected": "{count} selected · {hidden} hidden",
+    "clearSelection": "Clear selection",
+    "batchLevel": "Set level",
+    "batchStatus": "Set status",
+    "keep": "Keep unchanged",
+    "apply": "Apply to {count} visible selected",
+    "batchHelp": "Only visible selected subjects will change. Hidden selections are kept until you clear them.",
+    "selection": "Selection",
+    "name": "Course name",
+    "select": "Select {name}",
+    "noMatches": "No subjects match these filters.",
+    "empty": "No subjects yet.",
+    "emptyHelp": "Try another search or clear the filters to see the full catalogue."
   }
 }
