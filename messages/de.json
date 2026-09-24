@@ -3025,11 +3025,18 @@
     "empty": "Add your first subject group and choose its offered levels.",
     "loading": "Loading catalogue…",
     "import": "Import subjects",
-    "importHelp": "CSV columns: name,level. Enter base names without prefixes. Each imported row starts as a separate group.",
+    "importHelp": "Use JSON to import subject groups with multiple offerings. Enter base names without prefixes and existing level names (or null for no level). Exact repeats are skipped; conflicts must be edited manually. CSV (name,level) is still supported and creates one group per new row. Maximum 500 offerings, 1 MB.",
     "csvFile": "CSV file",
     "importResult": "Created {created} of {received} rows.",
     "granted": "Recorded eligibility",
-    "grantCount": "{count, plural, one {# recorded subject} other {# recorded subjects}}"
+    "grantCount": "{count, plural, one {# recorded subject} other {# recorded subjects}}",
+    "importFile": "JSON or CSV file",
+    "importExample": "Download JSON example",
+    "groupImportResult": "Created {created} of {received} groups; skipped {skipped} unchanged groups.",
+    "importTooLarge": "Choose a file smaller than 1 MB.",
+    "importEmpty": "The file contains no subjects.",
+    "importFileType": "Choose a .json or .csv file.",
+    "importInvalid": "Could not import file: {detail}"
   },
   "recruitment": {
     "preview": "Schreibgeschützte Formularvorschau",

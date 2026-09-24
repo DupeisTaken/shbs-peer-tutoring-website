@@ -60,6 +60,7 @@ export const APPROVAL_OPERATIONS: Record<string, string> = {
   "admin.deleteSubject": "Subject",
   "admin.batchUpdateSubjects": "Subject",
   "admin.importSubjects": "Subject",
+  "admin.importCourseGroups": "CourseGroup",
   "admin.createTimeSlot": "TimeSlot",
   "admin.updateTimeSlot": "TimeSlot",
   "admin.deleteTimeSlot": "TimeSlot",

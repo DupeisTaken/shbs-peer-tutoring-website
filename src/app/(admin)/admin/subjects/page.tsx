@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { courseName } from "~/lib/course-catalogue";
+import { MAX_IMPORT_BYTES, parseCourseImport } from "~/lib/course-import";
 import { useReadOnly } from "~/app/_components/read-only";
 
 type Group = RouterOutputs["admin"]["courseGroups"][number];
@@ -202,6 +203,8 @@ export default function SubjectsPage() {
   const [editing, setEditing] = useState<string | null>(null);
   const [newLevel, setNewLevel] = useState("");
   const [importMessage, setImportMessage] = useState("");
+  const [importError, setImportError] = useState<string | null>(null);
+  const [readingImport, setReadingImport] = useState(false);
   const invalidate = () =>
     Promise.all([
       utils.admin.courseGroups.invalidate(),
@@ -229,6 +232,12 @@ export default function SubjectsPage() {
       await invalidate();
     },
   });
+  const importGroups = api.admin.importCourseGroups.useMutation({
+    onSuccess: async (result) => {
+      setImportMessage(t("groupImportResult", result));
+      await invalidate();
+    },
+  });
   const move = (
     kind: "groups" | "levels",
     index: number,
@@ -251,8 +260,9 @@ export default function SubjectsPage() {
     updateLevel.error,
     createLevel.error,
     removeLevel.error,
-    importSubjects.error,
   ].filter(Boolean);
+  const importFailure =
+    importError ?? importSubjects.error?.message ?? importGroups.error?.message;
   return (
     <div className="space-y-6">
       <div>
@@ -491,29 +501,72 @@ export default function SubjectsPage() {
         <section className="card space-y-3 p-4">
           <h2 className="section-title">{t("import")}</h2>
           <p className="muted text-sm">{t("importHelp")}</p>
+          <a
+            className="link inline-flex min-h-11 items-center"
+            href="/examples/course-groups.json"
+            download
+          >
+            {t("importExample")}
+          </a>
           <label className="block">
-            <span className="label">{t("csvFile")}</span>
+            <span className="label">{t("importFile")}</span>
             <input
               className="min-h-11 max-w-full"
               type="file"
-              accept=".csv,text/csv"
-              disabled={importSubjects.isPending}
+              accept=".json,application/json,.csv,text/csv"
+              disabled={
+                readingImport ||
+                importSubjects.isPending ||
+                importGroups.isPending
+              }
               onChange={async (event) => {
-                const file = event.target.files?.[0];
+                const input = event.currentTarget;
+                const file = input.files?.[0];
                 if (!file) return;
-                const rows = (await file.text())
-                  .split(/\r?\n/)
-                  .map((line) => line.split(",").map((cell) => cell.trim()))
-                  .filter(([name]) => name && name.toLowerCase() !== "name")
-                  .map(([name, level]) => ({
-                    name: name!,
-                    level: level ?? undefined,
-                  }));
-                if (rows.length) importSubjects.mutate({ subjects: rows });
+                setImportError(null);
+                setImportMessage("");
+                importSubjects.reset();
+                importGroups.reset();
+                setReadingImport(true);
+                try {
+                  if (file.size > MAX_IMPORT_BYTES)
+                    throw new Error(t("importTooLarge"));
+                  const text = await file.text();
+                  if (file.name.toLowerCase().endsWith(".json")) {
+                    importGroups.mutate(parseCourseImport(text));
+                  } else if (file.name.toLowerCase().endsWith(".csv")) {
+                    const rows = text
+                      .split(/\r?\n/)
+                      .map((line) => line.split(",").map((cell) => cell.trim()))
+                      .filter(([name]) => name && name.toLowerCase() !== "name")
+                      .map(([name, level]) => ({
+                        name: name!,
+                        level: level ?? undefined,
+                      }));
+                    if (!rows.length) throw new Error(t("importEmpty"));
+                    importSubjects.mutate({ subjects: rows });
+                  } else throw new Error(t("importFileType"));
+                } catch (error) {
+                  setImportError(
+                    t("importInvalid", {
+                      detail:
+                        error instanceof Error ? error.message : String(error),
+                    }),
+                  );
+                } finally {
+                  // Reset even after a failure so selecting the same corrected file triggers change.
+                  input.value = "";
+                  setReadingImport(false);
+                }
               }}
             />
           </label>
           {importMessage && <p role="status">{importMessage}</p>}
+          {importFailure && (
+            <p role="alert" className="text-sm break-words text-red-600">
+              {importFailure}
+            </p>
+          )}
         </section>
       )}
     </div>

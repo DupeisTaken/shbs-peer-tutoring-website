@@ -3025,11 +3025,18 @@
     "empty": "Añade el primer grupo y sus niveles.",
     "loading": "Cargando catálogo…",
     "import": "Importar asignaturas",
-    "importHelp": "Columnas CSV: name,level. Introduce nombres base sin prefijos. Cada fila inicia un grupo separado.",
+    "importHelp": "Usa JSON para importar grupos de materias con varios niveles. Introduce nombres base sin prefijos y nombres de niveles activos existentes (o null si no hay nivel). Los grupos idénticos se omiten; los conflictos requieren edición manual. CSV (name,level) sigue disponible y crea un grupo por cada fila nueva. Máximo: 500 materias y 1 MB.",
     "csvFile": "Archivo CSV",
     "importResult": "Se crearon {created} de {received} filas.",
     "granted": "Competencias registradas",
-    "grantCount": "{count, plural, one {# asignatura registrada} other {# asignaturas registradas}}"
+    "grantCount": "{count, plural, one {# asignatura registrada} other {# asignaturas registradas}}",
+    "importFile": "Archivo JSON o CSV",
+    "importExample": "Descargar ejemplo JSON",
+    "groupImportResult": "Se crearon {created} de {received} grupos; se omitieron {skipped} grupos sin cambios.",
+    "importTooLarge": "Elige un archivo de hasta 1 MB.",
+    "importEmpty": "El archivo no contiene materias.",
+    "importFileType": "Elige un archivo .json o .csv.",
+    "importInvalid": "No se pudo importar el archivo: {detail}"
   },
   "recruitment": {
     "preview": "Vista previa de solo lectura",

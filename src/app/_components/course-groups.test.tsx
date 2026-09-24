@@ -6,6 +6,7 @@ import {
   render,
   screen,
   within,
+  waitFor,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
@@ -15,6 +16,8 @@ const mocks = vi.hoisted(() => ({
   save: vi.fn(),
   reorder: vi.fn(),
   readOnly: false,
+  importGroups: vi.fn(),
+  importSubjects: vi.fn(),
 }));
 const levels = [
   { id: "standard", name: "Standard", prefix: "", rank: 0, active: true },
@@ -42,7 +45,12 @@ vi.mock("~/trpc/react", () => ({
       updateSubjectLevel: { useMutation: () => ({ mutate: vi.fn() }) },
       createSubjectLevel: { useMutation: () => ({ mutate: vi.fn() }) },
       deleteSubjectLevel: { useMutation: () => ({ mutate: vi.fn() }) },
-      importSubjects: { useMutation: () => ({ mutate: vi.fn() }) },
+      importSubjects: {
+        useMutation: () => ({ mutate: mocks.importSubjects, reset: vi.fn() }),
+      },
+      importCourseGroups: {
+        useMutation: () => ({ mutate: mocks.importGroups, reset: vi.fn() }),
+      },
     },
   },
 }));
@@ -108,3 +116,54 @@ it("hides catalogue mutations for a read-only viewer", () => {
     screen.getByLabelText<HTMLInputElement>("Level name: AP").readOnly,
   ).toBe(true);
 });
+
+const upload = (name: string, text: string, size = text.length) =>
+  fireEvent.change(screen.getByLabelText("JSON or CSV file"), {
+    target: { files: [{ name, size, text: async () => text }] },
+  });
+
+it("uploads grouped JSON and retains the CSV path", async () => {
+  show();
+  expect(
+    screen
+      .getByRole("link", { name: "Download JSON example" })
+      .getAttribute("href"),
+  ).toBe("/examples/course-groups.json");
+  const input = {
+    groups: [
+      { name: "Science", offerings: [{ baseName: "Science", level: "AP" }] },
+    ],
+  };
+  upload("courses.JSON", JSON.stringify(input));
+  await waitFor(() => expect(mocks.importGroups).toHaveBeenCalledWith(input));
+  upload("courses.csv", "name,level\nScience,AP");
+  await waitFor(() =>
+    expect(mocks.importSubjects).toHaveBeenCalledWith({
+      subjects: [{ name: "Science", level: "AP" }],
+    }),
+  );
+});
+
+it.each([
+  ["courses.json", "{bad", 4],
+  ["courses.json", '{"groups":[]}', 13],
+  ["courses.json", "{}", 1024 * 1024 + 1],
+  ["courses.txt", "{}", 2],
+  ["courses.csv", "name,level", 10],
+] as const)(
+  "shows file errors without importing (%s, %s)",
+  async (name, text, size) => {
+    show();
+    upload(name, text, size);
+    await waitFor(() =>
+      expect(screen.getByRole("alert").textContent).toContain(
+        "Could not import file",
+      ),
+    );
+    expect(mocks.importGroups).not.toHaveBeenCalled();
+    expect(mocks.importSubjects).not.toHaveBeenCalled();
+    expect(
+      screen.getByLabelText<HTMLInputElement>("JSON or CSV file").disabled,
+    ).toBe(false);
+  },
+);

@@ -4,6 +4,8 @@ import { accountUsernameSchema, updateAccountUsername } from "~/server/account-u
 import { accountMembership, membershipSchema } from "~/lib/account-membership";
 import { databaseScope, approvalScope } from "~/server/db-scope";
 import { subjectOrderBy } from "~/lib/course-catalogue";
+import { courseImportInput } from "~/lib/course-import";
+import { importCourseGroups } from "~/server/course-import";
 import {
   courseGroupInput,
   saveCourseGroup,
@@ -2332,6 +2334,11 @@ export const adminRouter = createTRPCRouter({
           });
         return { count: variants.length };
       }),
+    ),
+  importCourseGroups: adminProcedure
+    .input(courseImportInput)
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, (tx) => importCourseGroups(tx, input)),
     ),
   importSubjects: adminProcedure
     .input(
