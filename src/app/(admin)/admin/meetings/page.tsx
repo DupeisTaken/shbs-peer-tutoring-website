@@ -1,8 +1,9 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations, useTimeZone } from "next-intl";
 
+import { parseProgramDateTime, programDateKey } from "~/lib/program-time";
 import { api } from "~/trpc/react";
 import { useReadOnly } from "~/app/_components/read-only";
 
@@ -15,17 +16,20 @@ const ATTENDANCE_OPTIONS = [
 type MeetingStatus = "PRESENT" | "EXCUSED_ABSENT" | "UNEXCUSED_ABSENT" | "EXEMPT";
 
 export default function MeetingsPage() {
+  const programFormat = useFormatter();
   const t = useTranslations();
+  const timeZone = useTimeZone();
+  const [inputError, setInputError] = useState("");
   const readOnly = useReadOnly();
   const utils = api.useUtils();
   const meetings = api.admin.meetings.useQuery();
   const tutors = api.admin.tutors.useQuery();
   const invalidate = () => utils.admin.meetings.invalidate();
-  const create = api.admin.createMeeting.useMutation({ onSuccess: invalidate });
+  const create = api.admin.createMeeting.useMutation({ onSuccess: async () => { setTitle(""); await invalidate(); } });
   const del = api.admin.deleteMeeting.useMutation({ onSuccess: invalidate });
 
   const [title, setTitle] = useState("");
-  const [date, setDate] = useState(new Date().toISOString().slice(0, 10));
+  const [date, setDate] = useState(() => programDateKey(new Date(), timeZone));
   const [time, setTime] = useState("12:00");
   const [selected, setSelected] = useState<string | null>(null);
   const [showSummary, setShowSummary] = useState(false);
@@ -39,6 +43,7 @@ export default function MeetingsPage() {
 
   return (
     <div className="space-y-6">
+      {inputError && <p role="alert">{inputError}</p>}
       <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="page-title">{t("admin.meetings.title")}</h1>
         <button className="btn-secondary btn-sm" onClick={() => setShowSummary((v) => !v)}>
@@ -56,8 +61,7 @@ export default function MeetingsPage() {
           onSubmit={(e) => {
             e.preventDefault();
             if (title.trim()) {
-              create.mutate({ title: title.trim(), date: new Date(`${date}T${time || "00:00"}`) });
-              setTitle("");
+              try { setInputError(""); create.mutate({ title: title.trim(), date: parseProgramDateTime(`${date}T${time || "00:00"}`, timeZone) }); } catch (error) { setInputError(error instanceof Error ? error.message : "Invalid date"); }
             }
           }}
         >
@@ -96,7 +100,7 @@ export default function MeetingsPage() {
                   onClick={() => setSelected(selected === m.id ? null : m.id)}
                   className="text-left font-medium text-slate-900 hover:text-accent-600"
                 >
-                  {m.title} · {new Date(m.date).toLocaleString()}
+                  {m.title} · {programFormat.dateTime(new Date(m.date), { dateStyle: "medium", timeStyle: "short" })}
                 </button>
                 {!readOnly && (
                   <button onClick={() => del.mutate({ id: m.id })} className="link-danger">
@@ -229,6 +233,7 @@ function MeetingSummary({
   meetings: { id: string; title: string; date: Date; attendances: { tutorId: string; status: string }[] }[];
   tutors: { id: string; englishName: string; active: boolean }[];
 }) {
+  const programFormat = useFormatter();
   const t = useTranslations();
   const byMeeting = new Map<string, Map<string, string>>();
   for (const m of meetings) {
@@ -259,7 +264,7 @@ function MeetingSummary({
             <th className="sticky left-0 z-10 bg-white">{t("admin.meetings.summary.tutor")}</th>
             {meetings.map((m) => (
               <th key={m.id} className="text-center whitespace-nowrap" title={m.title}>
-                {new Date(m.date).toLocaleDateString()}
+                {programFormat.dateTime(new Date(m.date), { dateStyle: "medium" })}
               </th>
             ))}
           </tr>

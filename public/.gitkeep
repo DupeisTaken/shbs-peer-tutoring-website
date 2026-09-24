@@ -1,0 +1,2 @@
+# Keep the static-assets directory present for the Docker runtime COPY step.
+# The browser tab icon lives in src/app/icon.png.

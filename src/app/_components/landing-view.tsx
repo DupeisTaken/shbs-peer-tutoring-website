@@ -9,6 +9,7 @@ import { getLandingSections } from "~/server/home/sections";
 import { getLandingLayout, type Block } from "~/server/home/blocks";
 import { getNavPages } from "~/server/home/pages";
 import { APP_TITLE, SUPPORT_EMAIL } from "~/lib/branding";
+import { getPrivacyPolicy } from "~/lib/privacy-policy";
 import { Markdown } from "~/app/_components/markdown";
 import { LandingSections } from "~/app/_components/landing-sections";
 import {
@@ -53,6 +54,7 @@ export async function LandingView({ preview = false }: { preview?: boolean }) {
   const heroImageId = overrides.heroImageId;
   const draftLabel = t("preview.draftBadge");
   const informationItems = [
+    { href: "/privacy", label: getPrivacyPolicy(locale).title },
     ...navPages.map((page) => ({
       href: `/p/${page.slug}`,
       label: page.label,
@@ -269,6 +271,12 @@ export async function LandingView({ preview = false }: { preview?: boolean }) {
 
       <footer className="border-t border-slate-200 py-6">
         <p className="muted text-center text-sm">{text("footer")}</p>
+        {/* Keep the privacy notice discoverable even when editors remove every landing block. */}
+        <p className="mt-2 text-center text-sm">
+          <Link href="/privacy" className="link inline-flex min-h-11 items-center px-3">
+            {getPrivacyPolicy(locale).title}
+          </Link>
+        </p>
         {SUPPORT_EMAIL && (
           <p className="muted mt-1 text-center text-sm">
             <a href={`mailto:${SUPPORT_EMAIL}`} className="link">

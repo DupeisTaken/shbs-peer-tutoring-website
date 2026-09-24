@@ -1,33 +1,46 @@
 import "~/styles/globals.css";
 
-import { type Metadata } from "next";
+import { Suspense } from "react";
 import { GeistSans } from "geist/font/sans";
 import { cookies } from "next/headers";
-import { getLocale, getMessages } from "next-intl/server";
+import { getLocale, getMessages, getTimeZone } from "next-intl/server";
 
 import { TRPCReactProvider } from "~/trpc/react";
 import { IntlProvider } from "~/app/_components/intl-provider";
-import { APP_TITLE } from "~/lib/branding";
+import { BRANDING } from "~/lib/branding";
+import { BrandingProvider } from "~/app/_components/branding-provider";
+import { brandingMetadata } from "~/server/branding-metadata";
 import { DEFAULT_THEME, THEME_COOKIE, isTheme } from "~/lib/theme";
+import { StudentPolicyGate } from "~/app/_components/student-policy-gate";
+import { auth } from "~/server/auth";
+import { sessionIdentity } from "~/lib/session-identity";
 
-export const metadata: Metadata = {
-  title: APP_TITLE,
-  description: `Pairings, attendance, and service-hour tracking for the ${APP_TITLE} program.`,
-  icons: [{ rel: "icon", url: "/favicon.ico" }],
-};
+export async function generateMetadata() {
+  return brandingMetadata();
+}
 
 export default async function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   const locale = await getLocale();
   const messages = await getMessages();
+  const timeZone = await getTimeZone();
   const themeCookie = (await cookies()).get(THEME_COOKIE)?.value;
   const theme = isTheme(themeCookie) ? themeCookie : DEFAULT_THEME;
+  const session = await auth();
+  const identity = sessionIdentity(session);
   return (
     <html lang={locale} data-theme={theme} className={GeistSans.variable}>
       <body>
-        <IntlProvider locale={locale} messages={messages}>
-          <TRPCReactProvider>{children}</TRPCReactProvider>
+        <IntlProvider locale={locale} messages={messages} timeZone={timeZone}>
+          <BrandingProvider branding={BRANDING}>
+            <TRPCReactProvider identity={identity}>
+              <Suspense fallback={null}>
+                <StudentPolicyGate />
+              </Suspense>
+              {children}
+            </TRPCReactProvider>
+          </BrandingProvider>
         </IntlProvider>
       </body>
     </html>

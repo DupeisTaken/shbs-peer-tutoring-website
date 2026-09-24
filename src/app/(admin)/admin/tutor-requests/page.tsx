@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { useReadOnly } from "~/app/_components/read-only";
@@ -12,6 +12,7 @@ import { useReadOnly } from "~/app/_components/read-only";
  * tutees onto the signup page. VIEWER is read-only.
  */
 export default function TutorRequestsPage() {
+  const programFormat = useFormatter();
   const t = useTranslations();
   const readOnly = useReadOnly();
   const utils = api.useUtils();
@@ -91,7 +92,7 @@ export default function TutorRequestsPage() {
                   ? req.approvable
                     ? t("admin.tutorRequests.cooldownDone")
                     : t("admin.tutorRequests.cooldownUntil", {
-                        date: new Date(req.eligibleAt).toLocaleDateString(),
+                        date: programFormat.dateTime(new Date(req.eligibleAt), { dateStyle: "medium" }),
                       })
                   : null}
                 {req.kind === "OPT_OUT" && req.affectedTutees > 0

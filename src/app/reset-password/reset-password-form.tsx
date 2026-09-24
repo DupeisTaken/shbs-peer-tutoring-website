@@ -22,7 +22,7 @@ export function ResetPasswordForm({ token }: { token: string }) {
             {state.username ?? state.email}
           </p>
         </div>
-        <Link href="/signin" className="btn-primary inline-block">
+        <Link href="/signin?reason=password-changed" className="btn-primary inline-block">
           {t("auth.reset.goToSignIn")}
         </Link>
       </div>

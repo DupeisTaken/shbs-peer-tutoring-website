@@ -22,6 +22,7 @@ datasource db {
 // ----------------------------------------------------------------------------
 
 enum Role {
+  STUDENT
   /// Read-only access to the admin area, with personal/contact info masked. Cannot mutate.
   VIEWER
   /// Crew-only login: reaches only the /patrol portal (no admin or tutor area). Created via a
@@ -36,10 +37,24 @@ enum Role {
 }
 
 model User {
+  studentId String? @unique
+  student Tutee? @relation(fields: [studentId], references: [id], onDelete: SetNull)
   id    String  @id @default(cuid())
   name  String?
+  /// Canonical person profile; mirrored only through explicit tutor/student links.
+  alternativeNames String?
+  profileVersion Int @default(0)
   /// Login identifier. Also the address future email-based 2FA codes are sent to.
   email String  @unique
+  /// Primary and verified secondary addresses share one globally unique namespace.
+  /// Pending secondary challenges live only in EmailVerificationCode until proof succeeds.
+  emails AccountEmail[]
+  // Legacy preference retained for data compatibility; security alerts are always sent.
+  emailSecurity Boolean @default(true)
+  emailMessages Boolean @default(false)
+  emailInfo Boolean @default(false)
+  emailSecondaryRecipients Boolean @default(false)
+  emailDeliveries EmailDelivery[]
 
   /// Account username — an alternate sign-in identifier (sign in with username OR email) and the
   /// account's stable handle shown across the admin area. Every account has one: for a linked
@@ -50,6 +65,8 @@ model User {
 
   /// scrypt password hash (see src/server/auth/password.ts). Null until a password is set.
   passwordHash String?
+  /// Database-maintained credential generation. Password writes revoke every earlier JWT.
+  sessionVersion Int @default(0)
 
   /// True for auto-provisioned accounts that signed in with the shared default password —
   /// the first-login onboarding forces a real password (and email) before the dashboard.
@@ -65,6 +82,11 @@ model User {
   emailVerifiedAt DateTime?
 
   role Role @default(TUTOR)
+
+  /// Tutee membership is independent of rank and identity; consent lives in PolicyAcceptance.
+  tuteeMember Boolean @default(false)
+  /// Revocation preserves the tutor identity/history without retaining tutor access.
+  tutorAccessRevoked Boolean @default(false)
 
   /// Assigned translator: may edit UI translations on /localization even without an admin role.
   canTranslate Boolean @default(false)
@@ -126,6 +148,8 @@ model Language {
   label     String
   sortOrder Int      @default(0)
   builtIn   Boolean  @default(false)
+  /// Hidden languages remain editable, but do not appear in the public language picker.
+  enabled   Boolean  @default(false)
   createdAt DateTime @default(now())
 }
 
@@ -214,6 +238,12 @@ model AccountAppeal {
 /// An audit record of an admin mutation, with optional typed data to revert it. Actor
 /// id/name are denormalised so history survives user deletion. See src/server/audit/log.ts.
 model AuditLog {
+  /// Read-only evidence for corrections; separate from executable undo instructions.
+  /// Structured actor/decision filters; metadata excludes account secrets.
+  kind String @default("ACTION")
+  operation String?
+  approvalId String?
+  details Json?
   id        String    @id @default(cuid())
   userId    String?
   userName  String?
@@ -227,6 +257,37 @@ model AuditLog {
   createdAt DateTime  @default(now())
 
   @@index([createdAt])
+  @@index([userId, createdAt, id])
+  @@index([kind, createdAt, id])
+  @@index([approvalId])
+}
+
+enum ApprovalStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  CANCELLED
+}
+
+/// Immutable coordinator proposal. Actor IDs and names are snapshots, preserved after deletion.
+model ApprovalRequest {
+  id String @id @default(cuid())
+  requesterId String
+  requesterName String
+  operation String
+  payload Json
+  fingerprint String
+  /// Target evidence shown to the reviewer; never includes passwords or tokens.
+  targets Json
+  state ApprovalStatus @default(PENDING)
+  reviewerId String?
+  reviewerName String?
+  reviewNote String?
+  createdAt DateTime @default(now())
+  reviewedAt DateTime?
+
+  @@index([state, createdAt, id])
+  @@index([requesterId, createdAt, id])
 }
 
 /// A lightweight in-app notification for any user (tutor / coordinator / admin).
@@ -313,6 +374,8 @@ enum AdjustmentType {
 model SubjectLevel {
   id        String   @id @default(cuid())
   name      String   @unique
+  /// Display prefix; empty for Standard. Independent from the level's label.
+  prefix    String   @default("")
   rank      Int      @default(0)
   apScored  Boolean  @default(false)
   active    Boolean  @default(true)
@@ -330,6 +393,17 @@ model Term {
   name       String // e.g. "25-26 Q3"
   startDate  DateTime?
   endDate    DateTime?
+  /// Optional public tutee-signup gate. Null means signups are open immediately.
+  signupOpensAt DateTime?
+  /// Independent recruitment switches and optional exclusive closing times.
+  signupEnabled Boolean @default(true)
+  signupClosesAt DateTime?
+  tutorSignupEnabled Boolean @default(true)
+  tutorSignupOpensAt DateTime?
+  tutorSignupClosesAt DateTime?
+  tutorSignupPreviewUrl String?
+  /// Optional read-only sheet applicants can preview while the signup gate is closed.
+  signupPreviewUrl String?
   active     Boolean        @default(false)
   pairings   Pairing[]
   meetings   TutorMeeting[]
@@ -340,6 +414,7 @@ model Term {
 }
 
 model Tutor {
+  qualificationApplications TutorApplication[] @relation("QualificationApplicant")
   id          String   @id @default(cuid())
   /// Split name. `englishName` is kept as the canonical display name (= "First Last")
   /// so the many places that render it don't change.
@@ -364,6 +439,7 @@ model Tutor {
   /// from this + the active school year (tutors can't edit the derived year). See src/lib/period.ts.
   gradeLevel  Int?
   createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
 
   user                 User?
   pairings             Pairing[]
@@ -371,6 +447,7 @@ model Tutor {
   adjustments          ServiceHourAdjustment[]
   meetingAttendances   MeetingAttendance[]
   availabilities       TutorAvailability[]
+  subjectWillingness    TutorSubjectWillingness[]
   interviewAssignments InterviewAssignment[]
   statusRequests       TutorStatusRequest[]
   sessionFlags         SessionFlag[]
@@ -389,7 +466,8 @@ model Tutor {
 ///              and an admin can't approve before then. The tutor may RECALL it during the wait.
 ///              On approval the tutor becomes OPTED_OUT (their tutees are re-queued by the admin).
 ///   REENTRY  — an OPTED_OUT tutor asks to return. No cooldown; on approval they become ACTIVE.
-/// Exactly one PENDING request per tutor at a time (enforced in the router).
+/// New submissions allow one PENDING request per tutor, serialized by the membership helper.
+/// Membership writes share a transaction boundary; see docs/technical-report.md#membership-changes.
 model TutorStatusRequest {
   id          String                  @id @default(cuid())
   tutorId     String
@@ -435,6 +513,8 @@ enum TutorRequestState {
 enum RegistrationCodeKind {
   TUTOR
   CREW
+  ADMIN
+  COORDINATOR
 }
 
 model RegistrationCode {
@@ -480,9 +560,22 @@ model RegistrationCode {
 
 /// A subject offered for tutoring. The catalog is managed by admins; tutees pick a
 /// first (required) and optional second choice from it on the public signup form.
+model CourseGroup {
+  id        String @id @default(cuid())
+  name      String
+  rank      Int @default(0)
+  createdAt DateTime @default(now())
+  subjects  Subject[]
+}
+
 model Subject {
+  qualificationApplications TutorApplication[] @relation("RequestedQualification")
   id        String   @id @default(cuid())
   name      String   @unique
+  /// Existing IDs remain the stable variant IDs used by all dependent records.
+  baseName  String @default("")
+  groupId   String?
+  group     CourseGroup? @relation(fields: [groupId], references: [id], onDelete: Restrict)
   /// Difficulty/track level from the admin-managed catalogue (SubjectLevel). Optional.
   levelId   String?
   level     SubjectLevel? @relation(fields: [levelId], references: [id])
@@ -492,11 +585,41 @@ model Subject {
   firstChoiceTutees  Tutee[]                    @relation("TuteeFirstChoice")
   secondChoiceTutees Tutee[]                    @relation("TuteeSecondChoice")
   applicationIntents ApplicationSubjectIntent[]
+  tutorWillingness TutorSubjectWillingness[]
+
+  @@unique([groupId, levelId])
+}
+
+/// Explicit intent for one subject variant. Missing rows mean not recorded, not willing.
+/// Qualification and weekly timetable availability remain independent records.
+model TutorSubjectWillingness {
+  tutorId String
+  subjectId String
+  willing Boolean
+  updatedAt DateTime @updatedAt
+  tutor Tutor @relation(fields: [tutorId], references: [id], onDelete: Cascade)
+  subject Subject @relation(fields: [subjectId], references: [id], onDelete: Cascade)
+
+  @@id([tutorId, subjectId])
+  @@index([subjectId, willing])
+}
+
+enum SignupSource {
+  UNKNOWN
+  STAFF
+  SELF_SERVICE
 }
 
 model Tutee {
+  user User?
+  /// Entry provenance only; never an approval state or a priority override.
+  signupSource SignupSource @default(UNKNOWN)
+  intakeTermId String?
+  /// Immutable priority timestamp for the current intake, independent of login creation.
+  signupSubmittedAt DateTime?
   id          String      @id @default(cuid())
   englishName String
+  alternativeNames String?
   email       String?
   phone       String?
   /// Free-text "how can we reach you?" captured on the public signup form (required there).
@@ -536,6 +659,8 @@ model Tutee {
 /// denying just closes it. `pairingId`/`requestedByTutorId` are scalar (no relation) — names are
 /// resolved in the admin query — so adding this needs no edits to Pairing/Tutor.
 model TuteeRemovalRequest {
+  /// Active pairings retained for reversal of this removal's effects.
+  pairingSnapshot Json?
   id        String            @id @default(cuid())
   tuteeId   String
   tutee     Tutee             @relation(fields: [tuteeId], references: [id], onDelete: Cascade)
@@ -580,9 +705,8 @@ enum TuteeRemovalKind {
 }
 
 /// A reusable named time slot (e.g. "Mon 3:30–4:30"). The catalog is admin-managed.
-/// Tutors and tutees mark which slots they are available for; a Pairing may reference
-/// one as its default/reference time. Slots are reference-only — actual session times
-/// are still entered on each attendance submission.
+/// Tutors and tutees mark which slots they are available for; pairings and their submitted
+/// sessions retain the slot reference so schedule edits can propagate consistently.
 model TimeSlot {
   id        String   @id @default(cuid())
   label     String
@@ -593,6 +717,7 @@ model TimeSlot {
   createdAt DateTime @default(now())
 
   pairings            Pairing[]
+  sessions            Session[]
   tutorAvailabilities TutorAvailability[]
   tuteeAvailabilities TuteeAvailability[]
 
@@ -651,6 +776,8 @@ model RoomUnavailability {
 }
 
 model Pairing {
+  // Legacy rows retain copied schedules; new assignments await an explicit slot choice.
+  scheduleConfirmed Boolean @default(false)
   id        String   @id @default(cuid())
   subject   String
   dayOfWeek Int // 1 = Monday .. 7 = Sunday
@@ -664,8 +791,8 @@ model Pairing {
   term       Term      @relation(fields: [termId], references: [id])
   roomId     String?
   room       Room?     @relation(fields: [roomId], references: [id])
-  // Optional reference to the catalog time slot this pairing was scheduled into.
-  // Reference-only: the day/start/end above remain the source of truth.
+  // Optional reference to the catalog time slot this pairing was scheduled into. The copied
+  // day/start/end fields make schedule reads cheap and are kept in sync when the slot changes.
   timeSlotId String?
   timeSlot   TimeSlot? @relation(fields: [timeSlotId], references: [id])
 
@@ -689,6 +816,10 @@ model PairingTutee {
 
 /// One attendance submission for a pairing meeting.
 model Session {
+  updatedAt DateTime @updatedAt
+  /// Stable request fingerprint prevents repeated attendance credit.
+  submissionKey String? @unique
+  submissionPayloadHash String?
   id     String             @id @default(cuid())
   date   DateTime
   /// The tutor's own status (did the session happen?). Tutee attendance is per-tutee on
@@ -696,7 +827,8 @@ model Session {
   tutorStatus       SessionTutorStatus @default(PRESENT)
   tutorAbsentReason String?
 
-  // Start/end captured at submission (defaults from the pairing, may be overridden).
+  // Start/end captured at submission (defaults from the pairing, may be overridden). If the
+  // referenced catalog slot is edited later, these times and their derived hours are refreshed.
   startMin Int
   endMin   Int
 
@@ -728,6 +860,10 @@ model Session {
 
   pairingId String
   pairing   Pairing @relation(fields: [pairingId], references: [id])
+  /// The catalog slot used when attendance was submitted. Unlike Pairing.timeSlotId, this is a
+  /// stable historical association, so moving a pairing later does not relabel old sessions.
+  timeSlotId String?
+  timeSlot   TimeSlot? @relation(fields: [timeSlotId], references: [id], onDelete: SetNull)
   tutorId   String
   tutor     Tutor   @relation(fields: [tutorId], references: [id])
 
@@ -748,6 +884,7 @@ model Session {
   @@index([tutorId, schoolYear, quarter])
   @@index([schoolYear, quarter])
   @@index([pairingId])
+  @@index([timeSlotId])
   @@index([mergeGroupId])
   @@index([actualRoomId])
 }
@@ -837,6 +974,10 @@ enum Headcount {
 
 /// One crew sweep. Credits 0.5h to the crew member on submit.
 model Patrol {
+  updatedAt DateTime @updatedAt
+  /// Browser-generated key makes network retries credit the same patrol once.
+  submissionKey String? @unique
+  submissionPayloadHash String?
   id          String   @id @default(cuid())
   crewUserId  String
   crewUser    User     @relation(fields: [crewUserId], references: [id], onDelete: Cascade)
@@ -978,7 +1119,33 @@ enum TutorApplicationStatus {
   REJECTED
 }
 
+enum TutorApplicationType {
+  INITIAL
+  ADDITIONAL_SUBJECT
+  HIGHER_LEVEL
+}
+
 model TutorApplication {
+  /// Existing tutors apply without entering the initial account-provisioning lifecycle.
+  type TutorApplicationType @default(INITIAL)
+  requestedTutorId String?
+  requestedTutor Tutor? @relation("QualificationApplicant", fields: [requestedTutorId], references: [id], onDelete: Restrict)
+  requestedSubjectId String?
+  requestedSubject Subject? @relation("RequestedQualification", fields: [requestedSubjectId], references: [id], onDelete: Restrict)
+  qualificationReason String?
+  /// Actor ID and concrete subject IDs/names remain historical evidence after catalogue edits.
+  qualificationDecidedById String?
+  qualificationSnapshot Json?
+  /// Exact public consent evidence; null for historical applications, never backfilled.
+  policyRevision String?
+  policySnapshot Json?
+  policyAcceptedAt DateTime?
+  interviewCompletedAt DateTime?
+  interviewDurationMin Int?
+  interviewSchoolYear String?
+  interviewQuarter Quarter?
+  /// Provenance for revoking this application's grant even when the applicant already had a login.
+  promotedTutorId String?
   id              String                 @id @default(cuid())
   name            String
   /// Contact email used for application review and account invitations.
@@ -1004,6 +1171,7 @@ model TutorApplication {
   votes         InterviewVote[]
 
   @@index([status])
+  @@index([requestedTutorId, createdAt])
 }
 
 /// One intended tutoring course on an application (max 3 enforced in the form/mutation),
@@ -1028,6 +1196,7 @@ model ApplicationSubjectIntent {
 
 /// Join: a tutor assigned to interview an applicant. Exactly one per application is head.
 model InterviewAssignment {
+  attended Boolean @default(false)
   applicationId String
   application   TutorApplication @relation(fields: [applicationId], references: [id], onDelete: Cascade)
   tutorId       String
@@ -1162,6 +1331,9 @@ model Announcement {
   /// Pinned announcements stay surfaced even after acknowledgement.
   pinned      Boolean  @default(false)
   active      Boolean  @default(true)
+  /// Old broadcasts remain visible to all tutors; new posts freeze tutor identities at publication.
+  audienceRestricted Boolean @default(false)
+  recipientTutorIds String[] @default([])
   createdById String?
   createdBy   User?    @relation("AnnouncementAuthor", fields: [createdById], references: [id])
   createdAt   DateTime @default(now())
@@ -1191,15 +1363,17 @@ model AnnouncementAck {
 // ----------------------------------------------------------------------------
 
 enum VerificationPurpose {
+  SECONDARY_EMAIL
   LOGIN_2FA // emailed one-time code as a login second factor
   PASSWORD_RESET // forgot-password reset (see PasswordResetToken)
   PASSWORD_CHANGE // emailed step-up code required to change a password while signed in
-  // Future: EMAIL_CHANGE, ...
+  EMAIL_CHANGE // verifies the destination before changing account identity
 }
 
 /// A short-lived, single-use one-time code emailed to a user as a second factor.
 /// Only the hash of the code is stored — never the plaintext.
 model EmailVerificationCode {
+  targetEmail String?
   id         String              @id @default(cuid())
   userId     String
   user       User                @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1218,6 +1392,8 @@ model EmailVerificationCode {
 /// The token logic (issue/verify) is implemented in src/server/auth/password-reset.ts;
 /// email delivery goes through src/server/email/sender.ts.
 model PasswordResetToken {
+  /// Bind the grant to the address proved by the emailed link.
+  targetEmail String?
   id         String    @id @default(cuid())
   userId     String
   user       User      @relation(fields: [userId], references: [id], onDelete: Cascade)
@@ -1376,4 +1552,309 @@ model CustomPage {
   updatedAt     DateTime @updatedAt
 
   @@index([published, navOrder])
+}
+
+/// Separate, single-use email challenge for student account creation.
+model StudentSignup {
+  email String @id
+  name String
+  codeHash String
+  expiresAt DateTime
+  attempts Int @default(0)
+  usedAt DateTime?
+}
+
+/// Snapshot the exact text accepted, even if an editor later changes or deletes a document.
+/// Public surveys reserve their timestamp before the email owner confirms participation.
+/// The payload and policy evidence survive link resends and account creation delays.
+model StudentSurvey {
+  id String @id @default(cuid())
+  email String
+  intakeTermId String
+  payload Json
+  policyRevision String
+  policySnapshot Json
+  submittedAt DateTime @default(now())
+  tokenHash String @unique
+  expiresAt DateTime
+  confirmedAt DateTime?
+  /// Terminal requests are immutable history. A fresh submission receives a new id and priority.
+  state StudentSurveyState @default(OPEN)
+  tuteeId String? @unique
+  firstAssignedAt DateTime?
+  verificationDueAt DateTime?
+  editedAt DateTime?
+  resolvedAt DateTime?
+  lastLinkSentAt DateTime?
+  reviews StudentRequestReview[]
+  @@index([email, intakeTermId, submittedAt])
+  @@index([state, confirmedAt, verificationDueAt])
+}
+
+enum StudentSurveyState {
+  OPEN
+  RECALLED
+  DISQUALIFIED
+  ABORTED
+}
+
+/// Approval is required for assigned-student withdrawal and tutor schedule rejection.
+model StudentRequestReview {
+  id String @id @default(cuid())
+  surveyId String?
+  // Preserve the originating request as review evidence, matching the deployed constraint.
+  survey StudentSurvey? @relation(fields: [surveyId], references: [id], onDelete: NoAction, onUpdate: NoAction)
+  /// Account-linked manual tutees can request withdrawal or schedule review without a survey.
+  legacyTuteeId String?
+  legacyIntakeTermId String?
+  kind StudentReviewKind
+  requestedByUserId String
+  pairingId String?
+  reason String
+  state TuteeRequestState @default(PENDING)
+  createdAt DateTime @default(now())
+  resolvedAt DateTime?
+  resolvedByUserId String?
+  @@index([state, createdAt])
+}
+
+enum StudentReviewKind {
+  STUDENT_ABORT
+  SCHEDULE_CONFLICT
+}
+
+/// Approved quarter withdrawal blocks a verified email from fresh requests in that quarter.
+model StudentQuarterBlock {
+  id String @id @default(cuid())
+  email String
+  intakeTermId String
+  surveyId String?
+  legacyTuteeId String?
+  userId String?
+  createdAt DateTime @default(now())
+  @@unique([email, intakeTermId])
+  @@index([userId, intakeTermId])
+}
+
+/// Verified ownership survives a fresh intake profile and account email changes.
+model StudentProfileOwnership {
+  tuteeId String @id
+  userId String
+  @@index([userId])
+}
+
+/// Short-lived, user/action-bound confirmation tickets enforce the popup delay on the server.
+model StudentActionConfirmation {
+  id String @id @default(cuid())
+  userId String
+  action String
+  target String
+  readyAt DateTime
+  expiresAt DateTime
+  usedAt DateTime?
+  @@index([expiresAt])
+}
+
+/// Evidence of the exact policy agreed to in the survey.
+model PolicyAcceptance {
+  id String @id @default(cuid())
+  userId String
+  slug String
+  revision String
+  snapshot Json
+  signature String
+  acceptedAt DateTime @default(now())
+  @@unique([userId, slug, revision])
+}
+
+model StudentSettings {
+  id String @id @default("program")
+  shareFeedbackWithTutors Boolean @default(false)
+}
+
+model StudentFeedback {
+  id String @id @default(cuid())
+  studentId String
+  sessionId String
+  rating Int
+  body String
+  updatedAt DateTime @updatedAt
+  @@unique([studentId, sessionId])
+}
+
+/// A student's appeal concerns one disciplinary card; history survives record corrections.
+model StudentAppeal {
+  id String @id @default(cuid())
+  studentId String
+  cardId String @unique
+  body String
+  state String @default("PENDING")
+  decision String?
+  decidedById String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+/// Private deliveries; only disclosed post-upgrade messages allow HEAD/ADMIN supervision.
+model DirectMessage {
+  id String @id @default(cuid())
+  senderId String
+  recipientId String
+  body String
+  clientKey String
+  createdAt DateTime @default(now())
+  readAt DateTime?
+  supervisable Boolean @default(false)
+  hiddenAt DateTime?
+  @@unique([senderId, clientKey])
+  @@index([recipientId, createdAt])
+  @@index([senderId, recipientId, createdAt])
+  @@index([senderId, createdAt])
+  @@index([supervisable, createdAt])
+}
+
+/// A batch receipt fixes the exact payload across retries without exposing sibling recipients.
+model MessageBatch {
+  senderId String
+  clientKey String
+  payloadHash String
+  count Int
+  createdAt DateTime @default(now())
+  @@id([senderId, clientKey])
+}
+
+/// Scope is ROLE:<role> or USER:<id>. An empty override deliberately disables new sends.
+model MessagePermission {
+  scope String @id
+  groups String[]
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+/// Independent messaging restriction; account login and historical inbox access are retained.
+model MessageRestriction {
+  userId String @id
+  restricted Boolean @default(true)
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+/// Database-maintained evidence survives pairing edits/deletion; never infer from email/name.
+model MessageTutorAssignment {
+  tuteeId String
+  tutorId String
+  source String
+  recordedAt DateTime @default(now())
+  @@id([tuteeId, tutorId])
+}
+
+/// Append-only review/moderation evidence, available only through the supervision API.
+model MessageModeration {
+  id String @id @default(cuid())
+  actorId String
+  messageId String?
+  targetUserId String?
+  action String
+  reason String
+  createdAt DateTime @default(now())
+  @@index([messageId, createdAt])
+}
+
+/// Draft proposals never affect public rendering until a management member approves them.
+model TranslationDraft {
+  id String @id @default(cuid())
+  authorId String
+  operation String
+  payload Json
+  state String @default("PENDING")
+  reviewedById String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  @@index([state, createdAt])
+}
+
+/// Staff-confirmed subject expertise; separate from availability and active pairings.
+model TutorQualification {
+  tutorId String
+  subjectId String
+  approvedById String
+  status QualificationStatus @default(APPROVED)
+  createdAt DateTime @default(now())
+  grants QualificationGrant[]
+  @@id([tutorId, subjectId])
+}
+
+enum QualificationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+/// Concrete eligibility snapshot. Multiple approvals can independently grant one variant.
+/// Scalar subject IDs preserve legacy records whose catalogue rows were already removed.
+model QualificationGrant {
+  tutorId String
+  sourceSubjectId String
+  subjectId String
+  grantedAt DateTime @default(now())
+  qualification TutorQualification @relation(fields: [tutorId, sourceSubjectId], references: [tutorId, subjectId], onDelete: Cascade)
+  @@id([tutorId, sourceSubjectId, subjectId])
+  @@index([tutorId, subjectId])
+}
+
+/// Explicit holidays and make-up school days override the default Monday–Friday calendar.
+model SchoolCalendarDay {
+  date String @id
+  isSchoolDay Boolean
+  note String?
+}
+
+/// Singleton configuration; changing the zone never rewrites stored instants or weekly slot times.
+model ProgramSettings {
+  /// Head-only configuration for existing signup fields; missing keys use original defaults.
+  signupFields Json @default("{}")
+  /// Immediate ADMIN/HEAD switch, independent of staged program modules and authentication mail.
+  emailNotificationsEnabled Boolean @default(false)
+  // Availability only: existing verified aliases and primary authentication remain intact.
+  secondaryEmailBindingEnabled Boolean @default(true)
+  id String @id @default("program")
+  timeZone String @default("Asia/Shanghai")
+  updatedAt DateTime @default(now()) @updatedAt
+}
+
+/// Primary addresses are maintained by a database trigger so every provisioning path reserves them.
+model AccountEmail {
+  email String @id
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  verifiedAt DateTime?
+  createdAt DateTime @default(now())
+  @@index([userId])
+}
+
+/// A transactionally recorded notification, with one row per event/recipient and bounded retries.
+model EmailDelivery {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  category String
+  event String
+  recipient String
+  /// Previous primary receives the security notice even if it is subsequently removed.
+  previousPrimary Boolean @default(false)
+  createdAt DateTime @default(now())
+  attempts Int @default(0)
+  availableAt DateTime @default(now())
+  leaseUntil DateTime?
+  completedAt DateTime?
+  status String @default("PENDING")
+  lastError String?
+  @@index([status, availableAt])
+}
+
+/// Expiring, hashed counters for accepted public applications across server replicas.
+model PublicApplicationRateLimit {
+  key String @id
+  count Int @default(0)
+  resetsAt DateTime
+
+  @@index([resetsAt])
 }

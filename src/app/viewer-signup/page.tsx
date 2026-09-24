@@ -2,15 +2,15 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
+import { brandingMetadata } from "~/server/branding-metadata";
 import { ViewerSignupFlow } from "./viewer-signup-flow";
-import { APP_TITLE } from "~/lib/branding";
 import { FloatingLanguageSwitcher } from "~/app/_components/floating-language-switcher";
 import { db } from "~/server/db";
 import { getFeatures } from "~/server/program/features";
 
-export const metadata = {
-  title: `Follow the program · ${APP_TITLE}`,
-};
+export async function generateMetadata() {
+  return brandingMetadata("Follow the program");
+}
 
 export default async function ViewerSignupPage() {
   // Viewer registration off -> no public signup.
@@ -30,6 +30,28 @@ export default async function ViewerSignupPage() {
       </div>
 
       <ViewerSignupFlow />
+
+      {/* Invitations and tutoring requests create different access from a read-only viewer. */}
+      <div className="mt-6 space-y-3 text-sm">
+        <p>
+          {t("auth.signupRoutes.invitationHelp")}{" "}
+          <Link
+            href="/register"
+            className="link inline-flex min-h-11 items-center"
+          >
+            {t("auth.signupRoutes.invitationLink")}
+          </Link>
+        </p>
+        <p>
+          {t("auth.signupRoutes.tuteeHelp")}{" "}
+          <Link
+            href="/signup"
+            className="link inline-flex min-h-11 items-center"
+          >
+            {t("survey.requestTutor")}
+          </Link>
+        </p>
+      </div>
 
       <p className="muted mt-6 text-center">
         {t("public.viewerSignup.alreadyHave")}{" "}

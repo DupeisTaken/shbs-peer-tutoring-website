@@ -1,0 +1,145 @@
+name: PR Size
+
+on:
+  pull_request_target:
+    types:
+      [
+        opened,
+        reopened,
+        synchronize,
+        edited,
+        ready_for_review,
+        converted_to_draft,
+      ]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: pr-size-${{ github.event.pull_request.number }}
+  cancel-in-progress: true
+
+jobs:
+  label:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      # The privileged job only reads PR commits as git data. Never check out or
+      # execute PR code, install its dependencies, or restore its caches here.
+      - name: Checkout base repository
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.repository.default_branch }}
+          fetch-depth: 0
+
+      - name: Sync PR size label
+        uses: actions/github-script@v8
+        with:
+          script: |
+            const { execFileSync } = require("node:child_process");
+            const repo = context.repo;
+            const issue_number = context.payload.pull_request.number;
+            const pullParams = { ...repo, pull_number: issue_number };
+            const { data: pr } = await github.rest.pulls.get(pullParams);
+            if (pr.state !== "open") return;
+
+            // Match pingdotgg/t3code's effective-line thresholds and colors.
+            const sizes = [
+              { name: "size:XS", limit: 10, color: "0e8a16", range: "0-9" },
+              { name: "size:S", limit: 30, color: "5ebd3e", range: "10-29" },
+              { name: "size:M", limit: 100, color: "fbca04", range: "30-99" },
+              { name: "size:L", limit: 500, color: "fe7d37", range: "100-499" },
+              { name: "size:XL", limit: 1000, color: "d93f0b", range: "500-999" },
+              { name: "size:XXL", limit: Infinity, color: "b60205", range: "1,000+" },
+            ];
+            const managedNames = new Set(sizes.map(({ name }) => name));
+            const git = (...args) => execFileSync("git", args, {
+              encoding: "utf8", maxBuffer: 32 * 1024 * 1024,
+            });
+            const headRef = `refs/remotes/pr-size/${issue_number}`;
+            git("fetch", "--no-tags", "origin", pr.base.sha);
+            git("fetch", "--no-tags", "origin", `+refs/pull/${issue_number}/head:${headRef}`);
+            if (git("rev-parse", headRef).trim() !== pr.head.sha) {
+              core.info("PR changed during fetch; the newer event will label it.");
+              return;
+            }
+
+            // Three-dot diff measures this PR from its merge base, including stacked
+            // branches. Whitespace, blank lines, and binary files add no line count.
+            const diffArgs = [
+              "diff", "--numstat", "--ignore-all-space", "--ignore-blank-lines",
+              `${pr.base.sha}...${pr.head.sha}`,
+            ];
+            const testExclusions = [
+              ":(glob,exclude)**/__tests__/**",
+              ":(glob,exclude)**/test/**",
+              ":(glob,exclude)**/tests/**",
+              ":(glob,exclude)**/*.test.*",
+              ":(glob,exclude)**/*.spec.*",
+              ":(glob,exclude)**/*.browser.*",
+              ":(glob,exclude)**/*.integration.*",
+              ":(glob,exclude)scripts/test-*",
+              ":(glob,exclude)scripts/smoke-*",
+            ];
+            const sumLines = (numstat) => numstat.split("\n").filter(Boolean)
+              .reduce((total, line) => {
+                const [added, removed] = line.split("\t");
+                return total + (Number.parseInt(added, 10) || 0)
+                  + (Number.parseInt(removed, 10) || 0);
+              }, 0);
+            const total = sumLines(git(...diffArgs));
+            const nonTest = sumLines(git(...diffArgs, "--", ".", ...testExclusions));
+            // Test-only PRs still receive a meaningful size instead of always XS.
+            const effective = nonTest === 0 ? total : nonTest;
+            const nextLabel = sizes.find(({ limit }) => effective < limit).name;
+
+            const { data: latest } = await github.rest.pulls.get(pullParams);
+            if (latest.state !== "open" || latest.head.sha !== pr.head.sha
+                || latest.base.sha !== pr.base.sha) {
+              core.info("PR changed during sizing; skipping stale labels.");
+              return;
+            }
+
+            // Bootstrap labels on first use; reconcile their color/description later.
+            for (const { name, color, range } of sizes) {
+              const label = { ...repo, name, color,
+                description: `${range} effective changed lines (test files excluded in mixed PRs).` };
+              let existing;
+              try {
+                ({ data: existing } = await github.rest.issues.getLabel({ ...repo, name }));
+              } catch (error) {
+                if (error.status !== 404) throw error;
+                try {
+                  await github.rest.issues.createLabel(label);
+                  continue;
+                } catch (createError) {
+                  if (createError.status !== 422) throw createError;
+                  // Another PR may have created it concurrently. Verify it exists.
+                  ({ data: existing } = await github.rest.issues.getLabel({ ...repo, name }));
+                }
+              }
+              if (existing.color !== color || existing.description !== label.description) {
+                await github.rest.issues.updateLabel(label);
+              }
+            }
+
+            const labels = await github.paginate(github.rest.issues.listLabelsOnIssue,
+              { ...repo, issue_number, per_page: 100 });
+            // Add first so an API failure never removes the PR's only size label.
+            if (!labels.some(({ name }) => name === nextLabel)) {
+              await github.rest.issues.addLabels({ ...repo, issue_number, labels: [nextLabel] });
+            }
+            for (const { name } of labels) {
+              if (!managedNames.has(name) || name === nextLabel) continue;
+              try {
+                await github.rest.issues.removeLabel({ ...repo, issue_number, name });
+              } catch (error) {
+                if (error.status !== 404) throw error;
+              }
+            }
+            core.info(`PR #${issue_number}: ${total} total lines, ${nonTest} non-test lines, `
+              + `${effective} effective lines -> ${nextLabel}`);

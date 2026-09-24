@@ -2,24 +2,28 @@
 
 import { useState } from "react";
 
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations, useTimeZone } from "next-intl";
 
 import { api } from "~/trpc/react";
 
-/** Convert a Date to the value a <input type="datetime-local"> expects (local time). */
-function toLocalInput(d: Date | null): string {
-  if (!d) return "";
-  const dt = new Date(d);
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${dt.getFullYear()}-${pad(dt.getMonth() + 1)}-${pad(dt.getDate())}T${pad(dt.getHours())}:${pad(dt.getMinutes())}`;
-}
+import { programDateTimeInput, parseProgramDateTime } from "~/lib/program-time";
 
 type Status = "PENDING" | "INTERVIEW" | "ACCEPTED" | "REJECTED";
 
-function HeadScheduler({ applicationId, current }: { applicationId: string; current: Date | null }) {
+function HeadScheduler({
+  applicationId,
+  current,
+}: {
+  applicationId: string;
+  current: Date | null;
+}) {
   const t = useTranslations();
   const utils = api.useUtils();
-  const [value, setValue] = useState(toLocalInput(current));
+  const timeZone = useTimeZone();
+  const [inputError, setInputError] = useState("");
+  const [value, setValue] = useState(
+    current ? programDateTimeInput(current, timeZone) : "",
+  );
   const save = api.tutor.setInterviewTime.useMutation({
     onSuccess: () => utils.tutor.myInterviews.invalidate(),
   });
@@ -28,21 +32,37 @@ function HeadScheduler({ applicationId, current }: { applicationId: string; curr
     <div className="mt-2 flex flex-wrap items-center gap-2">
       <input
         type="datetime-local"
-        className="input w-auto"
+        className="input min-h-11 w-auto max-w-full lg:min-h-10"
+        aria-label={t("tutor.interviews.setTime")}
         value={value}
         onChange={(e) => setValue(e.target.value)}
       />
       <button
-        className="btn-primary btn-sm"
+        className="btn-primary btn-sm min-h-11 lg:min-h-10"
         disabled={save.isPending}
-        onClick={() =>
-          save.mutate({ applicationId, interviewAt: value ? new Date(value) : null })
-        }
+        onClick={() => {
+          try {
+            setInputError("");
+            save.mutate({
+              applicationId,
+              interviewAt: value ? parseProgramDateTime(value, timeZone) : null,
+            });
+          } catch (error) {
+            setInputError(
+              error instanceof Error ? error.message : "Invalid date",
+            );
+          }
+        }}
       >
-        {save.isPending ? t("tutor.interviews.saving") : t("tutor.interviews.setTime")}
+        {save.isPending
+          ? t("tutor.interviews.saving")
+          : t("tutor.interviews.setTime")}
       </button>
+      {inputError && <p role="alert">{inputError}</p>}
       {save.isSuccess && (
-        <span className="text-sm text-green-600">{t("tutor.interviews.saved")}</span>
+        <span className="text-sm text-green-600">
+          {t("tutor.interviews.saved")}
+        </span>
       )}
     </div>
   );
@@ -51,13 +71,16 @@ function HeadScheduler({ applicationId, current }: { applicationId: string; curr
 function VoteForm({
   applicationId,
   myVote,
+  status,
 }: {
   applicationId: string;
   myVote: { accept: boolean; comment: string | null } | null;
+  status: Status;
 }) {
   const t = useTranslations();
   const utils = api.useUtils();
   const [comment, setComment] = useState(myVote?.comment ?? "");
+  const votingClosed = status === "ACCEPTED" || status === "REJECTED";
   const cast = api.tutor.castInterviewVote.useMutation({
     onSuccess: () => utils.tutor.myInterviews.invalidate(),
   });
@@ -65,26 +88,41 @@ function VoteForm({
   return (
     <div className="mt-2 space-y-2">
       <input
-        className="input w-full"
+        className="input min-h-11 w-full lg:min-h-10"
+        aria-label={t("tutor.interviews.voteCommentPlaceholder")}
         placeholder={t("tutor.interviews.voteCommentPlaceholder")}
         value={comment}
+        disabled={votingClosed || cast.isPending}
         onChange={(e) => setComment(e.target.value)}
       />
-      <div className="flex items-center gap-2">
+      {votingClosed && (
+        <p className="muted text-xs" role="status">
+          {t("tutor.interviews.votingClosed")}
+        </p>
+      )}
+      <div className="flex flex-wrap items-center gap-2">
         <button
-          className={`btn-sm ${myVote?.accept === true ? "btn-primary" : "btn-secondary"}`}
-          disabled={cast.isPending}
+          className={`btn-sm min-h-11 lg:min-h-8 ${myVote?.accept === true ? "btn-primary" : "btn-secondary"}`}
+          disabled={votingClosed || cast.isPending}
           onClick={() =>
-            cast.mutate({ applicationId, accept: true, comment: comment.trim() || undefined })
+            cast.mutate({
+              applicationId,
+              accept: true,
+              comment: comment.trim() || undefined,
+            })
           }
         >
           👍 {t("tutor.interviews.accept")}
         </button>
         <button
-          className={`btn-sm ${myVote?.accept === false ? "btn-primary" : "btn-secondary"}`}
-          disabled={cast.isPending}
+          className={`btn-sm min-h-11 lg:min-h-8 ${myVote?.accept === false ? "btn-primary" : "btn-secondary"}`}
+          disabled={votingClosed || cast.isPending}
           onClick={() =>
-            cast.mutate({ applicationId, accept: false, comment: comment.trim() || undefined })
+            cast.mutate({
+              applicationId,
+              accept: false,
+              comment: comment.trim() || undefined,
+            })
           }
         >
           👎 {t("tutor.interviews.reject")}
@@ -107,7 +145,7 @@ function HeadDecision({
   applicationId,
   status,
   tally,
-  headVote,
+  panelSize,
   decisionComment,
   decidedBy,
   expectedUpdatedAt,
@@ -115,7 +153,7 @@ function HeadDecision({
   applicationId: string;
   status: Status;
   tally: { accepts: number; rejects: number };
-  headVote: { accept: boolean; comment: string | null } | null;
+  panelSize: number;
   decisionComment: string | null;
   decidedBy: string | null;
   expectedUpdatedAt: Date;
@@ -135,11 +173,7 @@ function HeadDecision({
       ? t("tutor.interviews.majorityAccept")
       : tally.rejects > tally.accepts
         ? t("tutor.interviews.majorityReject")
-        : headVote
-          ? headVote.accept
-            ? t("tutor.interviews.majorityAcceptHeadTie")
-            : t("tutor.interviews.majorityRejectHeadTie")
-          : t("tutor.interviews.majorityTie");
+        : t("tutor.interviews.majorityTie");
 
   if (decided) {
     return (
@@ -149,7 +183,9 @@ function HeadDecision({
             ? t("tutor.interviews.statusAccepted")
             : t("tutor.interviews.statusRejected")}
         </span>
-        {decisionComment && <span className="ml-2 text-slate-700">“{decisionComment}”</span>}
+        {decisionComment && (
+          <span className="ml-2 text-slate-700">“{decisionComment}”</span>
+        )}
         {decidedBy && <span className="muted ml-1 text-xs">— {decidedBy}</span>}
       </div>
     );
@@ -173,32 +209,55 @@ function HeadDecision({
         value={comment}
         onChange={(e) => setComment(e.target.value)}
       />
-      <div className="flex items-center gap-2">
+      <div className="flex flex-wrap items-center gap-2">
         <button
           className="btn-primary btn-sm"
-          disabled={!comment.trim() || decide.isPending}
+          disabled={
+            !comment.trim() ||
+            decide.isPending ||
+            tally.accepts + tally.rejects < panelSize ||
+            tally.accepts < tally.rejects
+          }
           onClick={() =>
-            decide.mutate({ applicationId, accept: true, comment: comment.trim(), expectedUpdatedAt })
+            decide.mutate({
+              applicationId,
+              accept: true,
+              comment: comment.trim(),
+              expectedUpdatedAt,
+            })
           }
         >
           {t("tutor.interviews.approve")}
         </button>
         <button
           className="btn-secondary btn-sm"
-          disabled={!comment.trim() || decide.isPending}
+          disabled={
+            !comment.trim() ||
+            decide.isPending ||
+            tally.accepts + tally.rejects < panelSize ||
+            tally.rejects < tally.accepts
+          }
           onClick={() =>
-            decide.mutate({ applicationId, accept: false, comment: comment.trim(), expectedUpdatedAt })
+            decide.mutate({
+              applicationId,
+              accept: false,
+              comment: comment.trim(),
+              expectedUpdatedAt,
+            })
           }
         >
           {t("tutor.interviews.reject")}
         </button>
-        {decide.error && <span className="text-sm text-red-600">{decide.error.message}</span>}
+        {decide.error && (
+          <span className="text-sm text-red-600">{decide.error.message}</span>
+        )}
       </div>
     </div>
   );
 }
 
 export function MyInterviews() {
+  const programFormat = useFormatter();
   const t = useTranslations();
   const interviews = api.tutor.myInterviews.useQuery();
   const list = interviews.data ?? [];
@@ -218,7 +277,7 @@ export function MyInterviews() {
                 <p className="font-medium text-slate-900">
                   {a.name}
                   {a.isHead && (
-                    <span className="badge ml-2 bg-accent-100 text-accent-700">
+                    <span className="badge bg-accent-100 text-accent-700 ml-2">
                       {t("tutor.interviews.youAreHead")}
                     </span>
                   )}
@@ -228,14 +287,25 @@ export function MyInterviews() {
 
               <ul className="mt-2 flex flex-wrap gap-2">
                 {a.subjectIntents.map((ci, i) => (
-                  <li key={i} className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700">
+                  <li
+                    key={i}
+                    className="rounded bg-slate-100 px-2 py-0.5 text-xs text-slate-700"
+                  >
                     {ci.subject.name}
-                    {ci.taken
-                      ? ` · ${ci.grade ?? t("tutor.interviews.taken")}`
-                      : ` · ${t("tutor.interviews.notTaken")}`}
+                    {/* Course-taking evidence belongs only to the initial intake. */}
+                    {a.type === "INITIAL" &&
+                      (ci.taken
+                        ? ` · ${ci.grade ?? t("tutor.interviews.taken")}`
+                        : ` · ${t("tutor.interviews.notTaken")}`)}
                   </li>
                 ))}
               </ul>
+
+              {a.type !== "INITIAL" && a.qualificationReason && (
+                <p className="mt-2 text-sm break-words whitespace-pre-wrap">
+                  {a.qualificationReason}
+                </p>
+              )}
 
               <p className="muted mt-2">
                 {t("tutor.interviews.panel", {
@@ -254,14 +324,21 @@ export function MyInterviews() {
                 <p className="muted mt-2">
                   {a.interviewAt
                     ? t("tutor.interviews.scheduled", {
-                        time: new Date(a.interviewAt).toLocaleString(),
+                        time: programFormat.dateTime(new Date(a.interviewAt), {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        }),
                       })
                     : t("tutor.interviews.awaitingSchedule")}
                 </p>
               )}
 
               {/* Your vote */}
-              <VoteForm applicationId={a.id} myVote={a.myVote} />
+              <VoteForm
+                applicationId={a.id}
+                myVote={a.myVote}
+                status={a.status}
+              />
 
               {/* Panel votes (visible to all panelists) */}
               {votes.length > 0 && (
@@ -276,29 +353,50 @@ export function MyInterviews() {
               )}
 
               {/* Head's final decision */}
-              {a.isHead && (
-                <HeadDecision
-                  applicationId={a.id}
-                  status={a.status}
-                  tally={a.tally}
-                  headVote={a.myVote}
-                  decisionComment={a.decisionComment}
-                  decidedBy={a.decidedByTutor?.englishName ?? null}
-                  expectedUpdatedAt={a.updatedAt}
-                />
-              )}
-              {!a.isHead && (a.status === "ACCEPTED" || a.status === "REJECTED") && (
-                <div className="mt-2 rounded-md bg-slate-50 p-2 text-sm">
-                  <span className={a.status === "ACCEPTED" ? "badge-green" : "badge-red"}>
-                    {a.status === "ACCEPTED"
-                      ? t("tutor.interviews.statusAccepted")
-                      : t("tutor.interviews.statusRejected")}
-                  </span>
-                  {a.decisionComment && (
-                    <span className="ml-2 text-slate-700">“{a.decisionComment}”</span>
-                  )}
-                </div>
-              )}
+              {a.isHead &&
+                a.type !== "ADDITIONAL_SUBJECT" &&
+                a.type !== "HIGHER_LEVEL" && (
+                  <HeadDecision
+                    applicationId={a.id}
+                    status={a.status}
+                    tally={a.tally}
+                    panelSize={a.interviewers.length}
+                    decisionComment={a.decisionComment}
+                    decidedBy={a.decidedByTutor?.englishName ?? null}
+                    expectedUpdatedAt={a.updatedAt}
+                  />
+                )}
+              {a.isHead &&
+                (a.type === "ADDITIONAL_SUBJECT" ||
+                  a.type === "HIGHER_LEVEL") && (
+                  <a
+                    className="link mt-3 inline-flex min-h-11 items-center lg:min-h-8"
+                    href={`/admin/applications#application-${a.id}`}
+                  >
+                    {t("qualificationRequests.reviewLink")}
+                  </a>
+                )}
+              {(!a.isHead ||
+                a.type === "ADDITIONAL_SUBJECT" ||
+                a.type === "HIGHER_LEVEL") &&
+                (a.status === "ACCEPTED" || a.status === "REJECTED") && (
+                  <div className="mt-2 rounded-md bg-slate-50 p-2 text-sm">
+                    <span
+                      className={
+                        a.status === "ACCEPTED" ? "badge-green" : "badge-red"
+                      }
+                    >
+                      {a.status === "ACCEPTED"
+                        ? t("tutor.interviews.statusAccepted")
+                        : t("tutor.interviews.statusRejected")}
+                    </span>
+                    {a.decisionComment && (
+                      <span className="ml-2 text-slate-700">
+                        “{a.decisionComment}”
+                      </span>
+                    )}
+                  </div>
+                )}
             </div>
           );
         })}

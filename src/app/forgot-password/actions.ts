@@ -4,6 +4,9 @@ import { headers } from "next/headers";
 
 import { issuePasswordReset } from "~/server/auth/password-reset";
 import { rateLimit } from "~/server/rate-limit";
+import { isEmailDeliveryAvailable } from "~/server/email/sender";
+
+export type ForgotPasswordState = { sent: boolean; unavailable?: boolean };
 
 /** Best-effort client IP from the proxy headers (Caddy sets x-forwarded-for in production). */
 async function clientIp(): Promise<string> {
@@ -21,9 +24,12 @@ async function clientIp(): Promise<string> {
  * "sent" state) — no email is sent and nothing about account existence is revealed.
  */
 export async function forgotPasswordAction(
-  _prevState: { sent: boolean } | undefined,
+  _prevState: ForgotPasswordState | undefined,
   formData: FormData,
-): Promise<{ sent: boolean }> {
+): Promise<ForgotPasswordState> {
+  // This state is identical for every identifier, preserving the anti-enumeration guarantee.
+  if (!isEmailDeliveryAvailable()) return { sent: false, unavailable: true };
+
   const raw = formData.get("identifier");
   const identifier = typeof raw === "string" ? raw : "";
   const id = identifier.trim().toLowerCase();

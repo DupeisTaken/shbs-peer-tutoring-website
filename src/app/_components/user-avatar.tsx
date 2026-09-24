@@ -62,7 +62,7 @@ export async function UserAvatar({
           {email && <p className="muted truncate text-xs">{email}</p>}
           {role && (
             <span className="badge-slate mt-2 inline-block text-[10px]">
-              {role}
+              {t.has(`admin.users.roles.${role}`) ? t(`admin.users.roles.${role}`) : role}
             </span>
           )}
         </div>

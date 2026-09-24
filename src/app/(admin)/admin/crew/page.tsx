@@ -1,10 +1,12 @@
 "use client";
+import { EmailDetails } from "~/app/_components/email-details";
 
 import { useEffect, useState } from "react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { useReadOnly } from "~/app/_components/read-only";
+import { PatrolCorrections } from "~/app/_components/patrol-corrections";
 import { useDialog } from "~/app/_components/confirm-dialog";
 
 /**
@@ -13,6 +15,7 @@ import { useDialog } from "~/app/_components/confirm-dialog";
  * Crew service hours (0.5h/patrol) are tallied separately from tutoring. VIEWER is read-only.
  */
 export default function CrewPage() {
+  const programFormat = useFormatter();
   const t = useTranslations();
   const readOnly = useReadOnly();
   const { confirm, dialog } = useDialog();
@@ -36,21 +39,29 @@ export default function CrewPage() {
   const setOrder = api.admin.setPatrolOrder.useMutation({
     onSuccess: () => utils.admin.patrolOrder.invalidate(),
   });
-  const setStatus = api.admin.setCrewStatus.useMutation({ onSuccess: invalidateAll });
-  const removeCrew = api.admin.deleteCrewMember.useMutation({ onSuccess: invalidateAll });
+  const setStatus = api.admin.setCrewStatus.useMutation({
+    onSuccess: invalidateAll,
+  });
+  const removeCrew = api.admin.deleteCrewMember.useMutation({
+    onSuccess: invalidateAll,
+  });
   const [issuedCode, setIssuedCode] = useState<Record<string, string>>({});
   const decideApp = api.admin.decideCrewApplication.useMutation({
     onSuccess: (res, vars) => {
-      if (res.code) setIssuedCode((m) => ({ ...m, [vars.applicationId]: res.code! }));
+      if (res.code)
+        setIssuedCode((m) => ({ ...m, [vars.applicationId]: res.code! }));
       void invalidateAll();
     },
   });
-  const decideReq = api.admin.decideCrewRequest.useMutation({ onSuccess: invalidateAll });
+  const decideReq = api.admin.decideCrewRequest.useMutation({
+    onSuccess: invalidateAll,
+  });
 
   // Local, reorderable copy of the room order.
   const [rooms, setRooms] = useState<{ id: string; name: string }[]>([]);
   useEffect(() => {
-    if (order.data) setRooms(order.data.map((r) => ({ id: r.id, name: r.name })));
+    if (order.data)
+      setRooms(order.data.map((r) => ({ id: r.id, name: r.name })));
   }, [order.data]);
 
   const move = (i: number, dir: -1 | 1) => {
@@ -65,7 +76,11 @@ export default function CrewPage() {
 
   const apps = applications.data ?? [];
   const reqs = requests.data ?? [];
-  const busy = setStatus.isPending || removeCrew.isPending || decideApp.isPending || decideReq.isPending;
+  const busy =
+    setStatus.isPending ||
+    removeCrew.isPending ||
+    decideApp.isPending ||
+    decideReq.isPending;
 
   return (
     <div className="space-y-8">
@@ -74,27 +89,56 @@ export default function CrewPage() {
         <p className="muted mt-1">{t("admin.crew.subtitle")}</p>
       </div>
 
-      {(decideApp.error ?? decideReq.error ?? setStatus.error ?? removeCrew.error ?? setOrder.error) && (
+      {(decideApp.error ??
+        decideReq.error ??
+        setStatus.error ??
+        removeCrew.error ??
+        setOrder.error) && (
         <p className="text-sm text-red-600">
-          {(decideApp.error ?? decideReq.error ?? setStatus.error ?? removeCrew.error ?? setOrder.error)?.message}
+          {
+            (
+              decideApp.error ??
+              decideReq.error ??
+              setStatus.error ??
+              removeCrew.error ??
+              setOrder.error
+            )?.message
+          }
         </p>
       )}
 
+      <PatrolCorrections />
       {/* Crew applications */}
       <section className="card overflow-hidden">
         <div className="px-5 py-3">
-          <h2 className="section-title">{t("admin.crew.applicationsHeading")}</h2>
+          <h2 className="section-title">
+            {t("admin.crew.applicationsHeading")}
+          </h2>
         </div>
         <div className="divide-y divide-slate-100 px-5 pb-3">
           {apps.length === 0 ? (
             <p className="muted py-2">{t("admin.crew.applicationsEmpty")}</p>
           ) : (
             apps.map((a) => (
-              <div key={a.id} className="flex flex-wrap items-center gap-3 py-3 text-sm">
+              <div
+                key={a.id}
+                className="flex flex-wrap items-center gap-3 py-3 text-sm"
+              >
                 <span className="font-medium text-slate-800">{a.name}</span>
-                {a.gradeLevel != null && <span className="badge-slate">G{a.gradeLevel}</span>}
-                <span className="muted text-xs">{a.preferredContact ?? a.email}</span>
-                {a.message && <span className="muted truncate text-xs italic">“{a.message}”</span>}
+                {a.gradeLevel != null && (
+                  <span className="badge-slate">G{a.gradeLevel}</span>
+                )}
+                {a.preferredContact && a.preferredContact !== a.email && (
+                  <span className="muted max-w-64 text-xs [overflow-wrap:anywhere]">
+                    {a.preferredContact}
+                  </span>
+                )}
+                <EmailDetails contactOnly email={a.email} name={a.name} />
+                {a.message && (
+                  <span className="muted truncate text-xs italic">
+                    “{a.message}”
+                  </span>
+                )}
                 {issuedCode[a.id] ? (
                   <span className="badge-green ml-auto font-mono tracking-widest">
                     {t("admin.crew.codeIssued", { code: issuedCode[a.id]! })}
@@ -105,14 +149,24 @@ export default function CrewPage() {
                       <button
                         className="btn-primary btn-sm"
                         disabled={busy}
-                        onClick={() => decideApp.mutate({ applicationId: a.id, action: "ACCEPT" })}
+                        onClick={() =>
+                          decideApp.mutate({
+                            applicationId: a.id,
+                            action: "ACCEPT",
+                          })
+                        }
                       >
                         {t("admin.crew.accept")}
                       </button>
                       <button
                         className="btn-secondary btn-sm"
                         disabled={busy}
-                        onClick={() => decideApp.mutate({ applicationId: a.id, action: "REJECT" })}
+                        onClick={() =>
+                          decideApp.mutate({
+                            applicationId: a.id,
+                            action: "REJECT",
+                          })
+                        }
                       >
                         {t("admin.crew.reject")}
                       </button>
@@ -135,13 +189,22 @@ export default function CrewPage() {
           </div>
           <div className="divide-y divide-slate-100 px-5 pb-3">
             {(issuedCodes.data ?? []).map((c) => (
-              <div key={c.id} className="flex flex-wrap items-center gap-3 py-3 text-sm">
+              <div
+                key={c.id}
+                className="flex flex-wrap items-center gap-3 py-3 text-sm"
+              >
                 <span className="font-medium text-slate-800">{c.name}</span>
                 {c.code && (
-                  <span className="badge-green font-mono tracking-widest">{c.code}</span>
+                  <span className="badge-green font-mono tracking-widest">
+                    {c.code}
+                  </span>
                 )}
                 <span className="muted ml-auto text-xs">
-                  {t("admin.crew.issuedExpires", { date: new Date(c.expiresAt).toLocaleDateString() })}
+                  {t("admin.crew.issuedExpires", {
+                    date: programFormat.dateTime(new Date(c.expiresAt), {
+                      dateStyle: "medium",
+                    }),
+                  })}
                 </span>
               </div>
             ))}
@@ -159,17 +222,32 @@ export default function CrewPage() {
             <p className="muted py-2">{t("admin.crew.requestsEmpty")}</p>
           ) : (
             reqs.map((r) => (
-              <div key={r.id} className="flex flex-wrap items-center gap-3 py-3 text-sm">
+              <div
+                key={r.id}
+                className="flex flex-wrap items-center gap-3 py-3 text-sm"
+              >
                 <span className="font-medium text-slate-800">{r.member}</span>
-                <span className={r.kind === "OPT_OUT" ? "badge-amber" : "badge-green"}>
+                <span
+                  className={
+                    r.kind === "OPT_OUT" ? "badge-amber" : "badge-green"
+                  }
+                >
                   {t(`admin.crew.reqKind.${r.kind}`)}
                 </span>
-                {r.reason && <span className="muted truncate text-xs italic">“{r.reason}”</span>}
+                {r.reason && (
+                  <span className="muted truncate text-xs italic">
+                    “{r.reason}”
+                  </span>
+                )}
                 <span className="muted ml-auto text-xs">
                   {r.approvable
                     ? t("admin.crew.cooldownDone")
                     : r.eligibleAt
-                      ? t("admin.crew.cooldownUntil", { date: new Date(r.eligibleAt).toLocaleDateString() })
+                      ? t("admin.crew.cooldownUntil", {
+                          date: programFormat.dateTime(new Date(r.eligibleAt), {
+                            dateStyle: "medium",
+                          }),
+                        })
                       : ""}
                 </span>
                 {!readOnly && (
@@ -177,14 +255,18 @@ export default function CrewPage() {
                     <button
                       className="btn-primary btn-sm"
                       disabled={busy || !r.approvable}
-                      onClick={() => decideReq.mutate({ requestId: r.id, action: "APPROVE" })}
+                      onClick={() =>
+                        decideReq.mutate({ requestId: r.id, action: "APPROVE" })
+                      }
                     >
                       {t("admin.crew.approve")}
                     </button>
                     <button
                       className="btn-secondary btn-sm"
                       disabled={busy}
-                      onClick={() => decideReq.mutate({ requestId: r.id, action: "DENY" })}
+                      onClick={() =>
+                        decideReq.mutate({ requestId: r.id, action: "DENY" })
+                      }
                     >
                       {t("admin.crew.deny")}
                     </button>
@@ -203,8 +285,12 @@ export default function CrewPage() {
         <ol className="mt-3 divide-y divide-slate-100">
           {rooms.map((room, i) => (
             <li key={room.id} className="flex items-center gap-3 py-2">
-              <span className="w-6 text-sm font-semibold text-slate-400">{i + 1}</span>
-              <span className="flex-1 font-medium text-slate-800">{room.name}</span>
+              <span className="w-6 text-sm font-semibold text-slate-400">
+                {i + 1}
+              </span>
+              <span className="flex-1 font-medium text-slate-800">
+                {room.name}
+              </span>
               {!readOnly && (
                 <div className="flex gap-1">
                   <button
@@ -227,18 +313,28 @@ export default function CrewPage() {
               )}
             </li>
           ))}
-          {rooms.length === 0 && <li className="muted py-2">{t("admin.crew.noRooms")}</li>}
+          {rooms.length === 0 && (
+            <li className="muted py-2">{t("admin.crew.noRooms")}</li>
+          )}
         </ol>
         {!readOnly && rooms.length > 0 && (
           <div className="mt-3 flex items-center gap-3">
             <button
               className="btn-primary btn-sm"
               disabled={setOrder.isPending}
-              onClick={() => setOrder.mutate({ roomIds: rooms.map((r) => r.id) })}
+              onClick={() =>
+                setOrder.mutate({ roomIds: rooms.map((r) => r.id) })
+              }
             >
-              {setOrder.isPending ? t("admin.crew.saving") : t("admin.crew.saveOrder")}
+              {setOrder.isPending
+                ? t("admin.crew.saving")
+                : t("admin.crew.saveOrder")}
             </button>
-            {setOrder.isSuccess && <span className="text-sm text-green-600">{t("admin.crew.saved")}</span>}
+            {setOrder.isSuccess && (
+              <span className="text-sm text-green-600">
+                {t("admin.crew.saved")}
+              </span>
+            )}
           </div>
         )}
       </section>
@@ -260,13 +356,20 @@ export default function CrewPage() {
           </thead>
           <tbody>
             {(roster.data ?? []).map((u) => (
-              <tr key={u.id} className={u.status === "ACTIVE" ? "" : "text-slate-400"}>
+              <tr
+                key={u.id}
+                className={u.status === "ACTIVE" ? "" : "text-slate-400"}
+              >
                 <td>
                   <span className="font-medium text-slate-800">{u.name}</span>
                   {u.tutor ? (
-                    <span className="muted ml-2 text-xs">{t("admin.crew.alsoTutor")}</span>
+                    <span className="muted ml-2 text-xs">
+                      {t("admin.crew.alsoTutor")}
+                    </span>
                   ) : (
-                    <span className="muted ml-2 text-xs">{t("admin.crew.crewOnly")}</span>
+                    <span className="muted ml-2 text-xs">
+                      {t("admin.crew.crewOnly")}
+                    </span>
                   )}
                 </td>
                 <td>
@@ -283,7 +386,9 @@ export default function CrewPage() {
                   </span>
                 </td>
                 <td className="text-right">{u.patrols || ""}</td>
-                <td className="text-right">{u.hours > 0 ? `${u.hours.toFixed(1)} h` : ""}</td>
+                <td className="text-right">
+                  {u.hours > 0 ? `${u.hours.toFixed(1)} h` : ""}
+                </td>
                 <td>
                   {!readOnly && (
                     <div className="flex flex-wrap gap-2">
@@ -291,7 +396,9 @@ export default function CrewPage() {
                         <button
                           className="btn-secondary btn-sm"
                           disabled={busy}
-                          onClick={() => setStatus.mutate({ userId: u.id, status: "ACTIVE" })}
+                          onClick={() =>
+                            setStatus.mutate({ userId: u.id, status: "ACTIVE" })
+                          }
                         >
                           {t("admin.crew.enable")}
                         </button>
@@ -300,7 +407,12 @@ export default function CrewPage() {
                         <button
                           className="btn-secondary btn-sm"
                           disabled={busy}
-                          onClick={() => setStatus.mutate({ userId: u.id, status: "INACTIVE" })}
+                          onClick={() =>
+                            setStatus.mutate({
+                              userId: u.id,
+                              status: "INACTIVE",
+                            })
+                          }
                         >
                           {t("admin.crew.softRemove")}
                         </button>
@@ -312,7 +424,9 @@ export default function CrewPage() {
                           onClick={async () => {
                             if (
                               await confirm({
-                                title: t("admin.crew.deleteConfirm", { name: u.name }),
+                                title: t("admin.crew.deleteConfirm", {
+                                  name: u.name,
+                                }),
                                 confirmLabel: t("common.delete"),
                                 cancelLabel: t("common.cancel"),
                                 danger: true,

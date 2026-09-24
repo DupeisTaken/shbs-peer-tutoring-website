@@ -1,9 +1,12 @@
 "use client";
+import { pairingScheduleText } from "~/lib/pairing-schedule";
+import { useDialog } from "~/app/_components/confirm-dialog";
 
 import { zodResolver } from "@hookform/resolvers/zod";
 import { useEffect, useState } from "react";
 import { useForm } from "react-hook-form";
-import { useTranslations } from "next-intl";
+import { useTranslations, useTimeZone } from "next-intl";
+import { useRouter } from "next/navigation";
 import { z } from "zod";
 
 import { api } from "~/trpc/react";
@@ -58,20 +61,20 @@ type CardColor = "" | "YELLOW" | "RED";
 type CardEntry = { color: CardColor; reason: string };
 type TuteeEntry = { status: TuteeStatus; reason: string };
 
-/** Current local time as "HH:MM" and today's date as "YYYY-MM-DD". */
-const nowHm = () => {
-  const d = new Date();
-  const pad = (n: number) => String(n).padStart(2, "0");
-  return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
-};
-const todayIso = () => new Date().toISOString().slice(0, 10);
+import { programDateKey, programDateTimeInput } from "~/lib/program-time";
 
 export function AttendanceForm() {
   const t = useTranslations();
+  const timeZone = useTimeZone();
+  const todayIso = () => programDateKey(new Date(), timeZone);
+  const nowHm = () => programDateTimeInput(new Date(), timeZone).slice(11);
+  const router = useRouter();
   const utils = api.useUtils();
   const pairingsQuery = api.tutor.myPairings.useQuery();
   const disciplineQuery = api.tutor.myTuteeDiscipline.useQuery();
   const roomsQuery = api.tutor.rooms.useQuery();
+  const schedule = api.tutor.schedule.useQuery();
+  const { confirm, dialog } = useDialog();
   const features = api.program.features.useQuery().data;
   const submit = api.tutor.submitAttendance.useMutation({
     onSuccess: async () => {
@@ -79,6 +82,9 @@ export function AttendanceForm() {
         utils.tutor.myMonthlyTotal.invalidate(),
         utils.tutor.mySessions.invalidate(),
       ]);
+      // The dashboard's hour total is server-rendered, so replace its stale
+      // server payload while retaining this form's client state and confirmation.
+      router.refresh();
     },
   });
 
@@ -119,7 +125,10 @@ export function AttendanceForm() {
   const comments = watch("comments");
   // The always-required fields — gray the submit until they're filled (the rest is
   // validated on submit with inline messages).
-  const incomplete = !selectedPairingId || !comments?.trim();
+  const startTime = watch("startTime");
+  const endTime = watch("endTime");
+  const incomplete =
+    !selectedPairingId || !comments?.trim() || !startTime || !endTime;
   const pairings = pairingsQuery.data ?? [];
   const selectedPairing = pairings.find((p) => p.id === selectedPairingId);
   // Tutee attendance is tracked for any held session (present / rescheduled / extra).
@@ -149,8 +158,14 @@ export function AttendanceForm() {
     // Tell "My pairings" which pairing is primary so it can offer eligible merges.
     setPrimaryPairingId(selectedPairingId ?? "");
     if (!selectedPairing) return;
-    setValue("startTime", minToHm(selectedPairing.startMin));
-    setValue("endTime", minToHm(selectedPairing.endMin));
+    setValue(
+      "startTime",
+      selectedPairing.scheduleConfirmed ? minToHm(selectedPairing.startMin) : "",
+    );
+    setValue(
+      "endTime",
+      selectedPairing.scheduleConfirmed ? minToHm(selectedPairing.endMin) : "",
+    );
     setOnline(false);
     setActualRoomId(selectedPairing.room?.id ?? "");
     setMergeIds([]);
@@ -165,7 +180,24 @@ export function AttendanceForm() {
     setCards({});
     setFormError(null);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedPairingId]);
+  }, [
+    selectedPairingId,
+    selectedPairing?.scheduleConfirmed,
+    selectedPairing?.startMin,
+    selectedPairing?.endMin,
+  ]);
+
+  const unscheduledMergeIds = mergedPairings
+    .filter((p) => !p.scheduleConfirmed)
+    .map((p) => p.id)
+    .sort()
+    .join(",");
+  // Adding an unscheduled course must not inherit another course's assumed attendance times.
+  useEffect(() => {
+    if (!unscheduledMergeIds) return;
+    setValue("startTime", "");
+    setValue("endTime", "");
+  }, [unscheduledMergeIds, setValue]);
 
   const onSubmit = (values: FormValues) => {
     if (!selectedPairing) return;
@@ -263,14 +295,21 @@ export function AttendanceForm() {
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-6">
       {/* Pairing */}
       <div className="space-y-1">
-        <label className="label">{t("tutor.attendance.pairing")}</label>
-        <select {...register("pairingId")} className="select" defaultValue="">
+        <label className="label" htmlFor="attendance-pairing">
+          {t("tutor.attendance.pairing")}
+        </label>
+        <select
+          {...register("pairingId")}
+          id="attendance-pairing"
+          className="select"
+          defaultValue=""
+        >
           <option value="" disabled>
             {t("tutor.attendance.selectPairing")}
           </option>
           {pairings.map((p) => (
             <option key={p.id} value={p.id}>
-              {p.subject} · {minToHm(p.startMin)}–{minToHm(p.endMin)}
+              {p.subject} · {pairingScheduleText(p, t("scheduling.awaiting"))}
               {p.room ? ` · ${p.room.name}` : ""}
             </option>
           ))}
@@ -290,11 +329,15 @@ export function AttendanceForm() {
       {/* Date + tutor status */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-1">
-          <label className="label">{t("tutor.attendance.date")}</label>
+          <label className="label" htmlFor="attendance-date">
+            {t("tutor.attendance.date")}
+          </label>
           <div className="flex flex-wrap gap-2">
             <input
+              id="attendance-date"
               type="date"
               {...register("date")}
+              max={todayIso()}
               className="input min-w-0 flex-1"
             />
             <button
@@ -307,8 +350,14 @@ export function AttendanceForm() {
           </div>
         </div>
         <div className="space-y-1">
-          <label className="label">{t("tutor.attendance.tutorStatus")}</label>
-          <select {...register("tutorStatus")} className="select">
+          <label className="label" htmlFor="attendance-tutor-status">
+            {t("tutor.attendance.tutorStatus")}
+          </label>
+          <select
+            {...register("tutorStatus")}
+            id="attendance-tutor-status"
+            className="select"
+          >
             {TUTOR_STATUS_VALUES.map((s) => (
               <option key={s} value={s}>
                 {t(`tutor.attendance.tutorStatusOpt.${s}`)}
@@ -321,19 +370,29 @@ export function AttendanceForm() {
       {/* Tutor absence reason */}
       {tutorStatus === "TUTOR_ABSENT" && (
         <div className="space-y-1">
-          <label className="label">
+          <label className="label" htmlFor="attendance-tutor-absence-reason">
             {t("tutor.attendance.tutorAbsentReason")}
           </label>
-          <input {...register("tutorAbsentReason")} className="input" />
+          <input
+            {...register("tutorAbsentReason")}
+            id="attendance-tutor-absence-reason"
+            className="input"
+          />
         </div>
       )}
 
+      {(selectedPairing && (!selectedPairing.scheduleConfirmed || unscheduledMergeIds)) && (
+        <p className="muted text-sm">{t("scheduling.actualTimesRequired")}</p>
+      )}
       {/* Time (with "now") */}
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div className="space-y-1">
-          <label className="label">{t("tutor.attendance.start")}</label>
+          <label className="label" htmlFor="attendance-start-time">
+            {t("tutor.attendance.start")}
+          </label>
           <div className="flex flex-wrap gap-2">
             <input
+              id="attendance-start-time"
               type="time"
               {...register("startTime")}
               className="input min-w-0 flex-1"
@@ -348,9 +407,12 @@ export function AttendanceForm() {
           </div>
         </div>
         <div className="space-y-1">
-          <label className="label">{t("tutor.attendance.end")}</label>
+          <label className="label" htmlFor="attendance-end-time">
+            {t("tutor.attendance.end")}
+          </label>
           <div className="flex flex-wrap gap-2">
             <input
+              id="attendance-end-time"
               type="time"
               {...register("endTime")}
               className="input min-w-0 flex-1"
@@ -366,14 +428,49 @@ export function AttendanceForm() {
         </div>
       </div>
 
+      {dialog}
       {/* Where the session ran — the room used (or online). Lets the crew validate attendance. */}
       {selectedPairing && held && (
         <div className="space-y-1">
-          <label className="label">{t("tutor.attendance.roomUsed")}</label>
+          <label className="label" htmlFor="attendance-room-used">
+            {t("tutor.attendance.roomUsed")}
+          </label>
           <div className="flex flex-wrap items-center gap-3">
             <select
+              id="attendance-room-used"
               value={actualRoomId}
-              onChange={(e) => setActualRoomId(e.target.value)}
+              onChange={async (e) => {
+                const roomId = e.target.value;
+                const day = new Date(watch("date")).getUTCDay() || 7;
+                const occupied =
+                  !!schedule.data?.pairings.some(
+                    (p) =>
+                      p.id !== selectedPairing.id &&
+                      !mergeIds.includes(p.id) &&
+                      p.roomId === roomId &&
+                      p.dayOfWeek === day &&
+                      p.startMin < hmToMin(endTime || "00:00") &&
+                      p.endMin > hmToMin(startTime || "24:00"),
+                  ) ||
+                  schedule.data?.blocks.some(
+                    (b) =>
+                      b.roomId === roomId &&
+                      b.dayOfWeek === day &&
+                      b.startMin < hmToMin(endTime || "00:00") &&
+                      b.endMin > hmToMin(startTime || "24:00"),
+                  );
+                if (
+                  occupied &&
+                  !(await confirm({
+                    title: t("workflows.roomWarning"),
+                    message: t("workflows.roomWarningBody"),
+                    confirmLabel: t("workflows.reportActual"),
+                    cancelLabel: t("workflows.cancel"),
+                  }))
+                )
+                  return;
+                setActualRoomId(roomId);
+              }}
               disabled={online}
               className="select field-auto min-w-44"
             >
@@ -443,6 +540,7 @@ export function AttendanceForm() {
                     </span>
                   )}
                   <select
+                    aria-label={`${t2.tutee.englishName} ${t("tutor.attendance.tuteeAttendance")}`}
                     className="select sm:field-auto min-w-0 sm:min-w-40"
                     value={status}
                     onChange={(e) =>
@@ -484,10 +582,11 @@ export function AttendanceForm() {
                 {t(`tutor.attendance.rating.${name}`)}
               </p>
               <div className="mt-1 grid grid-cols-1 gap-1 sm:flex sm:flex-wrap">
+                {/* The label provides the touch target; native radio artwork stays compact. */}
                 {LIKERT_VALUES.map((value) => (
                   <label
                     key={value}
-                    className="has-[:checked]:border-accent-500 has-[:checked]:bg-accent-50 has-[:checked]:text-accent-700 flex cursor-pointer items-center justify-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 sm:justify-start"
+                    className="has-[:checked]:border-accent-500 has-[:checked]:bg-accent-50 has-[:checked]:text-accent-700 flex min-h-11 cursor-pointer items-center justify-center gap-1 rounded-md border border-slate-200 px-2 py-1 text-xs text-slate-600 sm:justify-start lg:min-h-0"
                   >
                     <input
                       type="radio"
@@ -506,8 +605,15 @@ export function AttendanceForm() {
 
       {/* Comments (required) */}
       <div className="space-y-1">
-        <label className="label">{t("tutor.attendance.comments")}</label>
-        <textarea {...register("comments")} rows={3} className="textarea" />
+        <label className="label" htmlFor="attendance-comments">
+          {t("tutor.attendance.comments")}
+        </label>
+        <textarea
+          {...register("comments")}
+          id="attendance-comments"
+          rows={3}
+          className="textarea"
+        />
         {errors.comments && (
           <p className="text-sm text-red-600">{errors.comments.message}</p>
         )}
@@ -534,6 +640,7 @@ export function AttendanceForm() {
                     {t2.tutee.englishName}
                   </span>
                   <select
+                    aria-label={`${t2.tutee.englishName} ${t("tutor.attendance.cardsTitle")}`}
                     className="select sm:field-auto min-w-0 sm:min-w-32"
                     value={color}
                     onChange={(e) =>

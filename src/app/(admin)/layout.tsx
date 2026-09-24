@@ -1,12 +1,12 @@
+import { WorkspaceHeader } from "~/app/_components/workspace-header";
+import { AdminPreferenceIdentity } from "~/app/_components/dismissible-notice";
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
-import { NotificationBell } from "~/app/_components/notification-bell";
-import { LanguageSwitcher } from "~/app/_components/language-switcher";
-import { ThemeSwitcher } from "~/app/_components/theme-switcher";
+import { getFeatures } from "~/server/program/features";
 import { UserAvatar } from "~/app/_components/user-avatar";
 import { NavSidebar, NavMobileRow } from "~/app/_components/admin-nav";
 import { ReadOnlyProvider } from "~/app/_components/read-only";
@@ -42,6 +42,7 @@ export default async function AdminLayout({
     select: {
       username: true,
       crewStatus: true,
+      tutorAccessRevoked: true,
       suspendedAt: true,
       tutor: { select: { username: true, status: true } },
     },
@@ -52,79 +53,80 @@ export default async function AdminLayout({
   // Keyed off the DB link (`me.tutor`), not the JWT's `session.tutorId`, so toggling can-tutor on
   // shows the button on the next render without waiting for a re-login. The jwt callback keeps
   // `session.tutorId` in sync too, so following the link into the tutor area resolves correctly.
-  const canEnterTutor = !!me?.tutor && me.tutor.status !== "ARCHIVED";
-  const accountItems = [
+  const canEnterTutor = !me?.tutorAccessRevoked && !!me?.tutor && me.tutor.status !== "ARCHIVED";
+  const features = await getFeatures(db);
+  // Use one ordered list for visible shortcuts and the account submenu.
+  const workspaceItems = [
     ...(canEnterTutor
-      ? [
-          {
-            href: "/dashboard",
-            label: t("components.userMenu.enterTutor"),
-          },
-        ]
+      ? [{ href: "/dashboard", label: t("components.userMenu.enterTutor") }]
       : []),
-    ...(me?.crewStatus === "ACTIVE"
+    ...(!readOnly ? [{ href: "/student", label: t("components.userMenu.enterTutee") }] : []),
+  ];
+  const accountItems = [
+    ...workspaceItems,
+    {
+      href: readOnly ? "/messages" : "/admin/messages",
+      label: t("workflows.messages"),
+    },
+    {
+      href: readOnly ? "/student-support" : "/admin/student-support",
+      label: t("workflows.support"),
+    },
+    ...(features.CREW && me?.crewStatus === "ACTIVE"
       ? [{ href: "/patrol", label: t("crew.nav.patrol") }]
       : []),
     { href: "/admin/account", label: t("account.title") },
   ];
 
   return (
-    <div className="min-h-screen">
+    <div className="admin-shell min-h-dvh lg:flex lg:h-dvh lg:flex-col lg:overflow-hidden">
       {/* Unified top bar (all breakpoints): brand + the global controls. */}
-      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white">
-        <div className="grid min-w-0 gap-2 px-4 py-3 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-center lg:px-6">
+      <WorkspaceHeader
+        href="/admin"
+        title={TEAM_TITLE}
+        items={workspaceItems}
+        identity={
           <Link
-            href="/admin"
-            className="flex min-h-11 max-w-full min-w-0 items-center justify-self-start truncate text-left text-lg font-bold whitespace-nowrap text-slate-900"
+            href="/admin/account"
+            className="hidden shrink-0 rounded-md px-2 py-1 text-right leading-tight hover:bg-slate-100 lg:block"
+            title={t("account.title")}
           >
-            {TEAM_TITLE}
+            <p className="text-sm font-medium text-slate-900">
+              {session.user.name}
+            </p>
+            <p className="muted text-xs">
+              {(me?.username ?? me?.tutor?.username)
+                ? `@${me.username ?? me?.tutor?.username} · `
+                : ""}
+              {t(`admin.users.roles.${session.role}`)}
+            </p>
           </Link>
-          <div className="flex min-w-0 items-center justify-end gap-2">
-            <Link
-              href="/admin/account"
-              className="hidden shrink-0 rounded-md px-2 py-1 text-right leading-tight hover:bg-slate-100 lg:block"
-              title={t("account.title")}
-            >
-              <p className="text-sm font-medium text-slate-900">
-                {session.user.name}
-              </p>
-              <p className="muted text-xs">
-                {(me?.username ?? me?.tutor?.username)
-                  ? `@${me.username ?? me?.tutor?.username} · `
-                  : ""}
-                {session.role}
-              </p>
-            </Link>
-            <div className="shrink-0">
-              <ThemeSwitcher compactAtDesktop />
-            </div>
-            <div className="shrink-0">
-              <NotificationBell />
-            </div>
-            <div className="shrink-0">
-              <LanguageSwitcher compactAtDesktop />
-            </div>
-            <UserAvatar
-              name={session.user.name ?? session.user.email ?? session.role}
-              username={me?.username ?? me?.tutor?.username}
-              email={session.user.email}
-              role={session.role}
-              items={accountItems}
-              compactAtDesktop
-            />
-          </div>
-        </div>
-        <NavMobileRow role={session.role} />
-      </header>
+        }
+        account={
+          <UserAvatar
+            name={session.user.name ?? session.user.email ?? session.role}
+            username={me?.username ?? me?.tutor?.username}
+            email={session.user.email}
+            role={session.role}
+            items={accountItems}
+            compactAtDesktop
+          />
+        }
+        navigation={<NavMobileRow role={session.role} embedded />}
+      />
 
-      <div className="mx-auto flex max-w-7xl gap-8 px-4 py-5 sm:py-6 lg:px-6">
+      {/* The flex remainder follows the actual header height, including wrapping and zoom.
+          Each desktop pane owns its scroll; no fixed pixel header offset can hide links. */}
+      <div className="admin-workspace mx-auto flex w-full max-w-7xl gap-6 px-4 py-5 sm:py-6 lg:min-h-0 lg:flex-1 lg:overflow-hidden lg:px-6">
         <NavSidebar role={session.role} />
 
         {/* Main content. `data-readonly` exposes the read-only VIEWER role to globals.css, which keeps
             only a thin destructive-control backstop; mutation panels are hidden per-page via
             useReadOnly(), and the server-side adminProcedure checks are the real guard. */}
         <main
-          className="min-w-0 flex-1"
+          id="admin-content"
+          tabIndex={0}
+          className="min-w-0 flex-1 focus-visible:outline-2 focus-visible:outline-offset-2 lg:overflow-y-auto lg:overscroll-contain lg:pr-3"
           data-readonly={readOnly ? "" : undefined}
         >
           {readOnly && (
@@ -154,7 +156,22 @@ export default async function AdminLayout({
               </p>
             </div>
           )}
-          <ReadOnlyProvider value={readOnly}>{children}</ReadOnlyProvider>
+          {session.role === "COORDINATOR" && (
+            <div className="mb-5 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-950">
+              <p>{t("approvals.trainingBanner")}</p>
+              <Link
+                className="link mt-1 inline-block"
+                href="/admin/approvals?status=all"
+              >
+                {t("approvals.myRequests")}
+              </Link>
+            </div>
+          )}
+          <ReadOnlyProvider value={readOnly}>
+            <AdminPreferenceIdentity value={session.user.id}>
+              {children}
+            </AdminPreferenceIdentity>
+          </ReadOnlyProvider>
         </main>
       </div>
     </div>

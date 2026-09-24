@@ -1,49 +1,29 @@
+import { withTranslationWrite } from "~/server/translation-destination";
+import { inTransaction, lockEntity } from "~/server/transactions";
+import { slugify, uniquePageSlug } from "~/server/home/slugs";
+import { proposeTranslation } from "~/server/translation-drafts";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
-import { createTRPCRouter, translatorProcedure } from "~/server/api/trpc";
+import {
+  createTRPCRouter,
+  translatorProcedure,
+  adminProcedure,
+} from "~/server/api/trpc";
 import {
   HOME_FIELDS,
   isHomeFieldKey,
   storageLocale,
 } from "~/server/home/content";
 import { landingDefault } from "~/server/home/defaults";
-import { getLandingLayout, getLayout, layoutSchema } from "~/server/home/blocks";
+import {
+  getLandingLayout,
+  getLayout,
+  layoutSchema,
+} from "~/server/home/blocks";
 import { pageOwnerKey } from "~/server/home/pages";
 
 const NEWS_STATUS = z.enum(["DRAFT", "PUBLISHED", "ARCHIVED"]);
-
-/** Title → URL slug (lowercase, hyphenated, ASCII-ish). */
-function slugify(s: string): string {
-  return s
-    .toLowerCase()
-    .normalize("NFKD")
-    .replace(/[^a-z0-9]+/g, "-")
-    .replace(/^-+|-+$/g, "")
-    .slice(0, 60);
-}
-
-/** A slug used by no other section *or* custom page (they share the /p/<slug> namespace; appends
- *  -2, -3, … on collision). `self` excludes the row being updated from its own table. */
-async function ensureUniqueSlug(
-  db: Parameters<typeof getLandingLayout>[0],
-  base: string,
-  self: { sectionId?: string; pageId?: string },
-): Promise<string> {
-  let candidate = base;
-  for (let n = 2; ; n++) {
-    const inSection = await db.landingSection.findFirst({
-      where: { slug: candidate, ...(self.sectionId ? { id: { not: self.sectionId } } : {}) },
-      select: { id: true },
-    });
-    const inPage = await db.customPage.findFirst({
-      where: { slug: candidate, ...(self.pageId ? { id: { not: self.pageId } } : {}) },
-      select: { id: true },
-    });
-    if (!inSection && !inPage) return candidate;
-    candidate = `${base}-${n}`;
-  }
-}
 
 const SLUG_RE = /^[a-z0-9]+(?:-[a-z0-9]+)*$/;
 /** Owner of a block layout: the landing page, or a custom page by id. */
@@ -69,13 +49,17 @@ export const homeRouter = createTRPCRouter({
       return HOME_FIELDS.map((field) => {
         const want = storageLocale(field.key, input.locale);
         const override =
-          rows.find((r) => r.key === field.key && r.locale === want)?.value ?? null;
+          rows.find((r) => r.key === field.key && r.locale === want)?.value ??
+          null;
         return {
           key: field.key,
           kind: field.kind,
           global: Boolean(field.global),
           hasAppTitle: Boolean(field.hasAppTitle),
-          default: field.kind === "image" ? null : landingDefault(input.locale, field.key),
+          default:
+            field.kind === "image"
+              ? null
+              : landingDefault(input.locale, field.key),
           override,
         };
       });
@@ -90,31 +74,49 @@ export const homeRouter = createTRPCRouter({
         value: z.string(),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
-      if (!isHomeFieldKey(input.key)) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Unknown content key." });
-      }
-      const locale = storageLocale(input.key, input.locale);
-      const value = input.value;
-      const def = landingDefault(input.locale, input.key);
-      if (!value.trim() || value === def) {
-        await ctx.db.homeContent.deleteMany({ where: { key: input.key, locale } });
-        return { ok: true, cleared: true };
-      }
-      await ctx.db.homeContent.upsert({
-        where: { key_locale: { key: input.key, locale } },
-        update: { value, updatedByName: ctx.session.user.name },
-        create: { key: input.key, locale, value, updatedByName: ctx.session.user.name },
-      });
-      return { ok: true, cleared: false };
-    }),
+    .mutation(({ ctx, input }) =>
+      withTranslationWrite(ctx.db, async (tx) => {
+        if (await proposeTranslation(tx, ctx.session, "home.setContent", input))
+          return { ok: true, cleared: false };
+        if (!isHomeFieldKey(input.key)) {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Unknown content key.",
+          });
+        }
+        const locale = storageLocale(input.key, input.locale);
+        const value = input.value;
+        const def = landingDefault(input.locale, input.key);
+        if (!value.trim() || value === def) {
+          await tx.homeContent.deleteMany({
+            where: { key: input.key, locale },
+          });
+          return { ok: true, cleared: true };
+        }
+        await tx.homeContent.upsert({
+          where: { key_locale: { key: input.key, locale } },
+          update: { value, updatedByName: ctx.session.user.name },
+          create: {
+            key: input.key,
+            locale,
+            value,
+            updatedByName: ctx.session.user.name,
+          },
+        });
+        return { ok: true, cleared: false };
+      }),
+    ),
 
   // ---- Program news ---------------------------------------------------------
 
   /** All posts (any status) with their translations, for the admin list. */
   news: translatorProcedure.query(async ({ ctx }) => {
     const posts = await ctx.db.newsPost.findMany({
-      orderBy: [{ pinned: "desc" }, { publishedAt: "desc" }, { createdAt: "desc" }],
+      orderBy: [
+        { pinned: "desc" },
+        { publishedAt: "desc" },
+        { createdAt: "desc" },
+      ],
       select: {
         id: true,
         status: true,
@@ -130,7 +132,7 @@ export const homeRouter = createTRPCRouter({
   }),
 
   /** Create a draft post with its required English translation. */
-  createNews: translatorProcedure
+  createNews: adminProcedure
     .input(
       z.object({
         title: z.string().trim().min(1).max(200),
@@ -151,7 +153,7 @@ export const homeRouter = createTRPCRouter({
     }),
 
   /** Update lifecycle / ordering / date. Publishing stamps the date if not already set. */
-  updateNews: translatorProcedure
+  updateNews: adminProcedure
     .input(
       z.object({
         id: z.string(),
@@ -176,10 +178,16 @@ export const homeRouter = createTRPCRouter({
       if (input.status) data.status = input.status;
       if (input.pinned !== undefined) data.pinned = input.pinned;
       if (input.publishedAt !== undefined) {
-        data.publishedAt = input.publishedAt ? new Date(input.publishedAt) : null;
+        data.publishedAt = input.publishedAt
+          ? new Date(input.publishedAt)
+          : null;
       }
       // Stamp a publish date the first time it goes live and none was given.
-      if (input.status === "PUBLISHED" && !post.publishedAt && data.publishedAt === undefined) {
+      if (
+        input.status === "PUBLISHED" &&
+        !post.publishedAt &&
+        data.publishedAt === undefined
+      ) {
         data.publishedAt = new Date();
       }
       await ctx.db.newsPost.update({ where: { id: input.id }, data });
@@ -196,43 +204,61 @@ export const homeRouter = createTRPCRouter({
         body: z.string().max(20_000),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
-      await ctx.db.newsTranslation.upsert({
-        where: { postId_locale: { postId: input.postId, locale: input.locale } },
-        update: { title: input.title, body: input.body },
-        create: {
-          postId: input.postId,
-          locale: input.locale,
-          title: input.title,
-          body: input.body,
-        },
-      });
-      return { ok: true };
-    }),
+    .mutation(({ ctx, input }) =>
+      withTranslationWrite(ctx.db, async (tx) => {
+        if (
+          await proposeTranslation(
+            tx,
+            ctx.session,
+            "home.setNewsTranslation",
+            input,
+          )
+        )
+          return { ok: true };
+        await tx.newsTranslation.upsert({
+          where: {
+            postId_locale: { postId: input.postId, locale: input.locale },
+          },
+          update: { title: input.title, body: input.body },
+          create: {
+            postId: input.postId,
+            locale: input.locale,
+            title: input.title,
+            body: input.body,
+          },
+        });
+        return { ok: true };
+      }),
+    ),
 
   /** Remove a translation. The `en` fallback can't be removed. */
-  removeNewsTranslation: translatorProcedure
+  removeNewsTranslation: adminProcedure
     .input(z.object({ postId: z.string(), locale: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      if (input.locale === "en") {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "The English version is the fallback and can't be removed.",
+    .mutation(({ ctx, input }) =>
+      withTranslationWrite(ctx.db, async (tx) => {
+        if (input.locale === "en") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "The English version is the fallback and can't be removed.",
+          });
+        }
+        await tx.newsTranslation.deleteMany({
+          where: { postId: input.postId, locale: input.locale },
         });
-      }
-      await ctx.db.newsTranslation.deleteMany({
-        where: { postId: input.postId, locale: input.locale },
-      });
-      return { ok: true };
-    }),
+        return { ok: true };
+      }),
+    ),
 
   /** Hard-delete a post (and its translations). Archiving via updateNews is the reversible default. */
-  deleteNews: translatorProcedure
+  deleteNews: adminProcedure
     .input(z.object({ id: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      await ctx.db.newsPost.delete({ where: { id: input.id } });
-      return { ok: true };
-    }),
+    .mutation(({ ctx, input }) =>
+      withTranslationWrite(ctx.db, async (tx) => {
+        await tx.newsPost.delete({ where: { id: input.id } });
+        return { ok: true };
+      }),
+    ),
 
   // ---- Image library --------------------------------------------------------
 
@@ -252,7 +278,7 @@ export const homeRouter = createTRPCRouter({
     return rows.map((r) => ({ ...r, url: `/api/images/${r.id}` }));
   }),
 
-  setImageAlt: translatorProcedure
+  setImageAlt: adminProcedure
     .input(z.object({ id: z.string(), alt: z.string().max(300) }))
     .mutation(async ({ ctx, input }) => {
       await ctx.db.homeImage.update({
@@ -262,9 +288,33 @@ export const homeRouter = createTRPCRouter({
       return { ok: true };
     }),
 
-  deleteImage: translatorProcedure
+  deleteImage: adminProcedure
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
+      const url = `/api/images/${input.id}`;
+      // Draft and archived content still owns its images; deleting one would break later restore.
+      const [fixed, news, sections, policies, layouts] = await Promise.all([
+        ctx.db.homeContent.count({ where: { value: { contains: input.id } } }),
+        ctx.db.newsTranslation.count({ where: { body: { contains: url } } }),
+        ctx.db.landingSectionTranslation.count({
+          where: { body: { contains: url } },
+        }),
+        ctx.db.policyDocument.count({ where: { body: { contains: url } } }),
+        ctx.db.pageLayout.findMany({ select: { blocks: true } }),
+      ]);
+      if (
+        fixed ||
+        news ||
+        sections ||
+        policies ||
+        layouts.some((row) => JSON.stringify(row.blocks).includes(input.id))
+      ) {
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "This image is used by website content. Replace its references before deleting it.",
+        });
+      }
       await ctx.db.homeImage.delete({ where: { id: input.id } });
       return { ok: true };
     }),
@@ -291,7 +341,7 @@ export const homeRouter = createTRPCRouter({
   }),
 
   /** Create a hidden section with its required English translation, appended to the end. */
-  createSection: translatorProcedure
+  createSection: adminProcedure
     .input(
       z.object({
         title: z.string().trim().min(1).max(200),
@@ -299,12 +349,16 @@ export const homeRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const max = await ctx.db.landingSection.aggregate({ _max: { sortOrder: true } });
+      const max = await ctx.db.landingSection.aggregate({
+        _max: { sortOrder: true },
+      });
       const section = await ctx.db.landingSection.create({
         data: {
           sortOrder: (max._max.sortOrder ?? 0) + 1,
           createdByName: ctx.session.user.name,
-          translations: { create: { locale: "en", title: input.title, body: input.body } },
+          translations: {
+            create: { locale: "en", title: input.title, body: input.body },
+          },
         },
         select: { id: true },
       });
@@ -312,7 +366,7 @@ export const homeRouter = createTRPCRouter({
     }),
 
   /** Toggle visibility / expanded-by-default / inline-vs-page mode (+ its detail-page slug). */
-  updateSection: translatorProcedure
+  updateSection: adminProcedure
     .input(
       z.object({
         id: z.string(),
@@ -324,54 +378,71 @@ export const homeRouter = createTRPCRouter({
           .string()
           .trim()
           .max(60)
-          .regex(/^[a-z0-9]+(?:-[a-z0-9]+)*$/, "Use lowercase letters, numbers and hyphens.")
+          .regex(
+            /^[a-z0-9]+(?:-[a-z0-9]+)*$/,
+            "Use lowercase letters, numbers and hyphens.",
+          )
           .or(z.literal(""))
           .optional(),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
-      const data: {
-        published?: boolean;
-        openByDefault?: boolean;
-        mode?: "INLINE" | "PAGE";
-        slug?: string;
-      } = {};
-      if (input.published !== undefined) data.published = input.published;
-      if (input.openByDefault !== undefined) data.openByDefault = input.openByDefault;
-      if (input.mode !== undefined) data.mode = input.mode;
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        // The namespace is shared by custom pages and PAGE-mode landing sections.
+        await lockEntity(tx, "home:page-slugs");
+        const data: {
+          published?: boolean;
+          openByDefault?: boolean;
+          mode?: "INLINE" | "PAGE";
+          slug?: string;
+        } = {};
+        if (input.published !== undefined) data.published = input.published;
+        if (input.openByDefault !== undefined)
+          data.openByDefault = input.openByDefault;
+        if (input.mode !== undefined) data.mode = input.mode;
 
-      const current = await ctx.db.landingSection.findUnique({
-        where: { id: input.id },
-        select: { slug: true, mode: true, translations: { select: { locale: true, title: true } } },
-      });
-      if (!current) throw new TRPCError({ code: "NOT_FOUND" });
+        const current = await tx.landingSection.findUnique({
+          where: { id: input.id },
+          select: {
+            slug: true,
+            mode: true,
+            translations: { select: { locale: true, title: true } },
+          },
+        });
+        if (!current) throw new TRPCError({ code: "NOT_FOUND" });
 
-      const goingToPage = (input.mode ?? current.mode) === "PAGE";
-      // An explicit slug wins; otherwise a PAGE section without one gets a slug derived from its title.
-      let desiredSlug: string | undefined;
-      if (input.slug) desiredSlug = input.slug;
-      else if (goingToPage && !current.slug) {
-        const enTitle =
-          current.translations.find((tr) => tr.locale === "en")?.title ??
-          current.translations[0]?.title ??
-          "section";
-        desiredSlug = slugify(enTitle) || "section";
-      }
-      if (desiredSlug) {
-        data.slug = await ensureUniqueSlug(ctx.db, desiredSlug, { sectionId: input.id });
-      }
+        const goingToPage = (input.mode ?? current.mode) === "PAGE";
+        // An explicit slug wins; otherwise a PAGE section without one gets a slug derived from its title.
+        let desiredSlug: string | undefined;
+        if (input.slug) desiredSlug = input.slug;
+        else if (goingToPage && !current.slug) {
+          const enTitle =
+            current.translations.find((tr) => tr.locale === "en")?.title ??
+            current.translations[0]?.title ??
+            "section";
+          desiredSlug = slugify(enTitle) || "section";
+        }
+        if (desiredSlug) {
+          data.slug = await uniquePageSlug(tx, desiredSlug, {
+            sectionId: input.id,
+          });
+        }
 
-      await ctx.db.landingSection.update({ where: { id: input.id }, data });
-      return { ok: true };
-    }),
+        await tx.landingSection.update({ where: { id: input.id }, data });
+        return { ok: true };
+      }),
+    ),
 
   /** Persist a new display order (ids in the desired order). */
-  reorderSections: translatorProcedure
+  reorderSections: adminProcedure
     .input(z.object({ ids: z.array(z.string()).min(1) }))
     .mutation(async ({ ctx, input }) => {
       await ctx.db.$transaction(
         input.ids.map((id, i) =>
-          ctx.db.landingSection.update({ where: { id }, data: { sortOrder: i } }),
+          ctx.db.landingSection.update({
+            where: { id },
+            data: { sortOrder: i },
+          }),
         ),
       );
       return { ok: true };
@@ -386,41 +457,62 @@ export const homeRouter = createTRPCRouter({
         body: z.string().max(20_000),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
-      await ctx.db.landingSectionTranslation.upsert({
-        where: { sectionId_locale: { sectionId: input.sectionId, locale: input.locale } },
-        update: { title: input.title, body: input.body },
-        create: {
-          sectionId: input.sectionId,
-          locale: input.locale,
-          title: input.title,
-          body: input.body,
-        },
-      });
-      return { ok: true };
-    }),
-
-  removeSectionTranslation: translatorProcedure
-    .input(z.object({ sectionId: z.string(), locale: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      if (input.locale === "en") {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "The English version is the fallback and can't be removed.",
+    .mutation(({ ctx, input }) =>
+      withTranslationWrite(ctx.db, async (tx) => {
+        if (
+          await proposeTranslation(
+            tx,
+            ctx.session,
+            "home.setSectionTranslation",
+            input,
+          )
+        )
+          return { ok: true };
+        await tx.landingSectionTranslation.upsert({
+          where: {
+            sectionId_locale: {
+              sectionId: input.sectionId,
+              locale: input.locale,
+            },
+          },
+          update: { title: input.title, body: input.body },
+          create: {
+            sectionId: input.sectionId,
+            locale: input.locale,
+            title: input.title,
+            body: input.body,
+          },
         });
-      }
-      await ctx.db.landingSectionTranslation.deleteMany({
-        where: { sectionId: input.sectionId, locale: input.locale },
-      });
-      return { ok: true };
-    }),
+        return { ok: true };
+      }),
+    ),
 
-  deleteSection: translatorProcedure
+  removeSectionTranslation: adminProcedure
+    .input(z.object({ sectionId: z.string(), locale: z.string() }))
+    .mutation(({ ctx, input }) =>
+      withTranslationWrite(ctx.db, async (tx) => {
+        if (input.locale === "en") {
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "The English version is the fallback and can't be removed.",
+          });
+        }
+        await tx.landingSectionTranslation.deleteMany({
+          where: { sectionId: input.sectionId, locale: input.locale },
+        });
+        return { ok: true };
+      }),
+    ),
+
+  deleteSection: adminProcedure
     .input(z.object({ id: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      await ctx.db.landingSection.delete({ where: { id: input.id } });
-      return { ok: true };
-    }),
+    .mutation(({ ctx, input }) =>
+      withTranslationWrite(ctx.db, async (tx) => {
+        await tx.landingSection.delete({ where: { id: input.id } });
+        return { ok: true };
+      }),
+    ),
 
   // ---- Block layout (landing page or a custom page) -------------------------
 
@@ -428,18 +520,24 @@ export const homeRouter = createTRPCRouter({
   layout: translatorProcedure
     .input(z.object({ owner: ownerInput.default("landing") }))
     .query(({ ctx, input }) =>
-      input.owner === "landing" ? getLandingLayout(ctx.db) : getLayout(ctx.db, input.owner),
+      input.owner === "landing"
+        ? getLandingLayout(ctx.db)
+        : getLayout(ctx.db, input.owner),
     ),
 
   /** Persist the whole block array for a container (one document). First save creates the row. */
-  setLayout: translatorProcedure
+  setLayout: adminProcedure
     .input(z.object({ owner: ownerInput, blocks: layoutSchema }))
     .mutation(async ({ ctx, input }) => {
       const blocks = input.blocks as object;
       await ctx.db.pageLayout.upsert({
         where: { ownerKey: input.owner },
         update: { blocks, updatedByName: ctx.session.user.name },
-        create: { ownerKey: input.owner, blocks, updatedByName: ctx.session.user.name },
+        create: {
+          ownerKey: input.owner,
+          blocks,
+          updatedByName: ctx.session.user.name,
+        },
       });
       return { ok: true };
     }),
@@ -464,67 +562,104 @@ export const homeRouter = createTRPCRouter({
   ),
 
   /** Create an unpublished page with an English title and a slug derived from it. */
-  createPage: translatorProcedure
+  createPage: adminProcedure
     .input(z.object({ title: z.string().trim().min(1).max(200) }))
-    .mutation(async ({ ctx, input }) => {
-      const slug = await ensureUniqueSlug(ctx.db, slugify(input.title) || "page", {});
-      const max = await ctx.db.customPage.aggregate({ _max: { navOrder: true } });
-      const page = await ctx.db.customPage.create({
-        data: {
-          slug,
-          title: { en: input.title },
-          navOrder: (max._max.navOrder ?? 0) + 1,
-          createdByName: ctx.session.user.name,
-        },
-        select: { id: true },
-      });
-      return page;
-    }),
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        // The namespace is shared by custom pages and PAGE-mode landing sections.
+        await lockEntity(tx, "home:page-slugs");
+        const slug = await uniquePageSlug(
+          tx,
+          slugify(input.title) || "page",
+          {},
+        );
+        const max = await tx.customPage.aggregate({
+          _max: { navOrder: true },
+        });
+        const page = await tx.customPage.create({
+          data: {
+            slug,
+            title: { en: input.title },
+            navOrder: (max._max.navOrder ?? 0) + 1,
+            createdByName: ctx.session.user.name,
+          },
+          select: { id: true },
+        });
+        return page;
+      }),
+    ),
 
   /** Update a page's flags / slug / nav order. */
-  updatePage: translatorProcedure
+  updatePage: adminProcedure
     .input(
       z.object({
         id: z.string(),
         published: z.boolean().optional(),
         showInNav: z.boolean().optional(),
         navOrder: z.number().int().optional(),
-        slug: z.string().trim().max(60).regex(SLUG_RE, "Use lowercase letters, numbers and hyphens.").optional(),
+        slug: z
+          .string()
+          .trim()
+          .max(60)
+          .regex(SLUG_RE, "Use lowercase letters, numbers and hyphens.")
+          .optional(),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
-      const data: {
-        published?: boolean;
-        showInNav?: boolean;
-        navOrder?: number;
-        slug?: string;
-      } = {};
-      if (input.published !== undefined) data.published = input.published;
-      if (input.showInNav !== undefined) data.showInNav = input.showInNav;
-      if (input.navOrder !== undefined) data.navOrder = input.navOrder;
-      if (input.slug) data.slug = await ensureUniqueSlug(ctx.db, input.slug, { pageId: input.id });
-      await ctx.db.customPage.update({ where: { id: input.id }, data });
-      return { ok: true };
-    }),
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        // The namespace is shared by custom pages and PAGE-mode landing sections.
+        await lockEntity(tx, "home:page-slugs");
+        const data: {
+          published?: boolean;
+          showInNav?: boolean;
+          navOrder?: number;
+          slug?: string;
+        } = {};
+        if (input.published !== undefined) data.published = input.published;
+        if (input.showInNav !== undefined) data.showInNav = input.showInNav;
+        if (input.navOrder !== undefined) data.navOrder = input.navOrder;
+        if (input.slug)
+          data.slug = await uniquePageSlug(tx, input.slug, {
+            pageId: input.id,
+          });
+        await tx.customPage.update({ where: { id: input.id }, data });
+        return { ok: true };
+      }),
+    ),
 
   /** Set one locale of a page's title (blank clears it; en is the fallback). */
   setPageTitle: translatorProcedure
-    .input(z.object({ id: z.string(), locale: z.string().min(2), value: z.string().max(200) }))
-    .mutation(async ({ ctx, input }) => {
-      const page = await ctx.db.customPage.findUnique({
-        where: { id: input.id },
-        select: { title: true },
-      });
-      if (!page) throw new TRPCError({ code: "NOT_FOUND" });
-      const title = { ...(page.title as Record<string, string>) };
-      if (input.value.trim()) title[input.locale] = input.value.trim();
-      else delete title[input.locale];
-      await ctx.db.customPage.update({ where: { id: input.id }, data: { title } });
-      return { ok: true };
-    }),
+    .input(
+      z.object({
+        id: z.string(),
+        locale: z.string().min(2),
+        value: z.string().max(200),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      withTranslationWrite(ctx.db, async (tx) => {
+        if (
+          await proposeTranslation(tx, ctx.session, "home.setPageTitle", input)
+        )
+          return { ok: true };
+        const page = await tx.customPage.findUnique({
+          where: { id: input.id },
+          select: { title: true },
+        });
+        if (!page) throw new TRPCError({ code: "NOT_FOUND" });
+        const title = { ...(page.title as Record<string, string>) };
+        if (input.value.trim()) title[input.locale] = input.value.trim();
+        else delete title[input.locale];
+        await tx.customPage.update({
+          where: { id: input.id },
+          data: { title },
+        });
+        return { ok: true };
+      }),
+    ),
 
   /** Persist page order (ids in the desired order) — drives nav order. */
-  reorderPages: translatorProcedure
+  reorderPages: adminProcedure
     .input(z.object({ ids: z.array(z.string()).min(1) }))
     .mutation(async ({ ctx, input }) => {
       await ctx.db.$transaction(
@@ -536,11 +671,15 @@ export const homeRouter = createTRPCRouter({
     }),
 
   /** Delete a page and its block layout. */
-  deletePage: translatorProcedure
+  deletePage: adminProcedure
     .input(z.object({ id: z.string() }))
-    .mutation(async ({ ctx, input }) => {
-      await ctx.db.pageLayout.deleteMany({ where: { ownerKey: pageOwnerKey(input.id) } });
-      await ctx.db.customPage.delete({ where: { id: input.id } });
-      return { ok: true };
-    }),
+    .mutation(({ ctx, input }) =>
+      withTranslationWrite(ctx.db, async (tx) => {
+        await tx.pageLayout.deleteMany({
+          where: { ownerKey: pageOwnerKey(input.id) },
+        });
+        await tx.customPage.delete({ where: { id: input.id } });
+        return { ok: true };
+      }),
+    ),
 });

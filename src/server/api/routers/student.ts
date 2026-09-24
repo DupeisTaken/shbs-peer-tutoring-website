@@ -1,0 +1,613 @@
+import type { Prisma } from "../../../../generated/prisma";
+import { z } from "zod";
+import { TRPCError } from "@trpc/server";
+import {
+  createTRPCRouter,
+  protectedProcedure,
+  adminProcedure,
+} from "~/server/api/trpc";
+import { inTransaction, lockEntity } from "~/server/transactions";
+import { currentPolicy } from "~/server/policy-acceptance";
+import {
+  applicablePolicySlugs,
+  policySnapshotDocuments,
+} from "~/lib/policy-evidence";
+import { consumeStudentAction } from "~/server/student-workflow";
+import { ownedStudentIds } from "~/server/student-ownership";
+import { notifyAdmins, notifyUsers } from "~/server/notifications/create";
+import { syncPunishmentRemoval } from "~/server/discipline/removal";
+import { assertFeatureEnabled } from "~/server/program/features";
+
+import { getProgramTimeZone } from "~/server/program/time-zone";
+import { programDateKey, programDayEnd } from "~/lib/program-time";
+import { DEFAULT_TIME_ZONE } from "~/i18n/config";
+const staff = (role: string) => ["HEAD", "ADMIN", "COORDINATOR"].includes(role);
+const text = z.string().trim().min(1).max(2000);
+const paging = z
+  .object({ page: z.number().int().min(0).default(0) })
+  .default({ page: 0 });
+/** Weekday deadline uses the configured school calendar; staff may still correct cards independently. */
+export function appealDeadline(
+  date: Date,
+  overrides: { date: string; isSchoolDay: boolean }[] = [],
+  timeZone = DEFAULT_TIME_ZONE,
+) {
+  const day = new Date(`${programDateKey(date, timeZone)}T00:00:00Z`);
+  for (let remaining = 5; remaining > 0;) {
+    day.setUTCDate(day.getUTCDate() + 1);
+    const override = overrides.find(
+      (o) => o.date === day.toISOString().slice(0, 10),
+    );
+    if (override?.isSchoolDay ?? ![0, 6].includes(day.getUTCDay())) remaining--;
+  }
+  return programDayEnd(day.toISOString().slice(0, 10), timeZone);
+}
+export const studentRouter = createTRPCRouter({
+  acceptanceRecords: adminProcedure
+    .input(
+      z.object({
+        userId: z.string().min(1).max(128),
+        page: z.number().int().min(0).default(0),
+      }),
+    )
+    .query(async ({ ctx, input }) => {
+      // Scope by immutable account ID, even when contact details are missing.
+      // Never match names/email or return the old cross-user support feed.
+      const user = await ctx.db.user.findUnique({
+        where: { id: input.userId },
+        select: { studentId: true, tutorId: true, tuteeMember: true },
+      });
+      if (!user) throw new TRPCError({ code: "NOT_FOUND" });
+      const rows = await ctx.db.policyAcceptance.findMany({
+        where: { userId: input.userId },
+        orderBy: [{ acceptedAt: "desc" }, { id: "desc" }],
+        take: 21,
+        skip: input.page * 20,
+      });
+      const current = await Promise.all(
+        applicablePolicySlugs(user).concat(user.tutorId && !user.tuteeMember && !user.studentId ? ["tutee-policy"] : []).map(async (slug) => {
+          const documents = await ctx.db.policyDocument.count({
+            where: { slug, locale: "en" },
+          });
+          if (!documents)
+            return { slug, documents: [], acceptedAt: null, published: false };
+          const policy = await currentPolicy(ctx.db, slug);
+          const acceptance = await ctx.db.policyAcceptance.findUnique({
+            where: {
+              userId_slug_revision: {
+                userId: input.userId,
+                slug,
+                revision: policy.revision,
+              },
+            },
+          });
+          return {
+            slug,
+            documents: policy.documents,
+            acceptedAt: acceptance?.acceptedAt ?? null,
+            published: true,
+          };
+        }),
+      );
+      return {
+        current,
+        more: rows.length > 20,
+        rows: rows.slice(0, 20).map((r) => ({
+          id: r.id,
+          slug: r.slug,
+          signature: r.signature,
+          revision: r.revision,
+          acceptedAt: r.acceptedAt,
+          documents: policySnapshotDocuments(r.snapshot),
+        })),
+      };
+    }),
+  calendar: adminProcedure.query(({ ctx }) =>
+    ctx.db.schoolCalendarDay.findMany({ orderBy: { date: "asc" } }),
+  ),
+  setCalendarDay: adminProcedure
+    .input(
+      z.object({
+        date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+        isSchoolDay: z.boolean(),
+        note: z.string().trim().max(300),
+      }),
+    )
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        if (
+          Number.isNaN(Date.parse(input.date)) ||
+          new Date(input.date).toISOString().slice(0, 10) !== input.date
+        )
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Invalid calendar date.",
+          });
+        await tx.schoolCalendarDay.upsert({
+          where: { date: input.date },
+          update: input,
+          create: input,
+        });
+        await tx.auditLog.create({
+          data: {
+            userId: ctx.session.user.id,
+            entity: "SchoolCalendarDay",
+            entityId: input.date,
+            action: `School calendar: ${input.isSchoolDay ? "school day" : "holiday"}`,
+            details: input,
+          },
+        });
+        return { ok: true };
+      }),
+    ),
+
+  policy: protectedProcedure
+    .input(z.object({ slug: z.enum(["tutee-policy", "tutor-policy"]) }))
+    .query(async ({ ctx, input }) => {
+      const policy = await currentPolicy(ctx.db, input.slug);
+      const accepted = await ctx.db.policyAcceptance.findUnique({
+        where: {
+          userId_slug_revision: {
+            userId: ctx.session.user.id,
+            slug: input.slug,
+            revision: policy.revision,
+          },
+        },
+      });
+      return { ...policy, accepted: !!accepted };
+    }),
+  acceptPolicy: protectedProcedure
+    .input(
+      z.object({
+        slug: z.enum(["tutee-policy", "tutor-policy"]),
+        revision: z.string(),
+        signature: z.string().trim().min(1).max(120),
+        ticket: z.string().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, `policy:${input.slug}`);
+        const user = await tx.user.findUniqueOrThrow({ where: { id: ctx.session.user.id } });
+        if (user.role === "VIEWER") throw new TRPCError({ code: "FORBIDDEN", message: "Viewer cannot acquire participant membership." });
+        const current = await currentPolicy(tx, input.slug);
+        if (current.revision !== input.revision)
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "Policy changed. Read the latest version.",
+          });
+        if (input.slug === "tutee-policy")
+          await consumeStudentAction(
+            tx,
+            input.ticket ?? "",
+            ctx.session.user.id,
+            "POLICY",
+            current.revision,
+          );
+        await tx.policyAcceptance.upsert({
+          where: {
+            userId_slug_revision: {
+              userId: ctx.session.user.id,
+              slug: input.slug,
+              revision: input.revision,
+            },
+          },
+          update: {},
+          create: {
+            userId: ctx.session.user.id,
+            slug: input.slug,
+            revision: input.revision,
+            signature: input.signature,
+            snapshot: current.documents,
+          },
+        });
+        if (input.slug === "tutee-policy") await tx.user.update({ where: { id: user.id }, data: { tuteeMember: true } });
+        return { ok: true };
+      }),
+    ),
+  me: protectedProcedure.input(paging).query(async ({ ctx, input }) => {
+    const owned = await ownedStudentIds(ctx.db, ctx.session.user.id);
+    const user = await ctx.db.user.findUniqueOrThrow({
+      where: { id: ctx.session.user.id },
+      select: { studentId: true, name: true, email: true },
+    });
+    const student = user.studentId
+      ? await ctx.db.tutee.findUnique({
+          where: { id: user.studentId },
+          select: {
+            id: true,
+            englishName: true,
+            status: true,
+            intakeTermId: true,
+            pairings: {
+              where: { pairing: { term: { active: true } } },
+              select: {
+                pairing: {
+                  select: {
+                    subject: true,
+                    timeSlotId: true,
+                    scheduleConfirmed: true,
+                    dayOfWeek: true,
+                    startMin: true,
+                    endMin: true,
+                    room: { select: { name: true } },
+                    tutor: { select: { englishName: true } },
+                  },
+                },
+              },
+            },
+          },
+        })
+      : null;
+    // A verified account can retain several profiles across intakes. Query pairings once
+    // across explicit ownership, so the current pointer cannot hide another current subject.
+    const schedule = owned.length
+      ? await ctx.db.pairing.findMany({
+          where: {
+            term: { active: true },
+            tutees: {
+              some: {
+                tuteeId: { in: owned },
+                tutee: { status: { not: "INACTIVE" } },
+              },
+            },
+          },
+          orderBy: [{ dayOfWeek: "asc" }, { startMin: "asc" }, { id: "asc" }],
+          select: {
+            id: true,
+            subject: true,
+            timeSlotId: true,
+            scheduleConfirmed: true,
+            dayOfWeek: true,
+            startMin: true,
+            endMin: true,
+            room: { select: { name: true } },
+            tutor: { select: { englishName: true } },
+          },
+        })
+      : [];
+    const sessions = owned.length
+      ? await ctx.db.sessionTutee.findMany({
+          where: { tuteeId: { in: owned } },
+          orderBy: { session: { date: "desc" } },
+          take: 20,
+          skip: input.page * 20,
+          select: {
+            status: true,
+            session: {
+              select: {
+                id: true,
+                date: true,
+                pairing: { select: { subject: true } },
+              },
+            },
+          },
+        })
+      : [];
+    const calendar = await ctx.db.schoolCalendarDay.findMany();
+    const cards = owned.length
+      ? await ctx.db.disciplinaryCard.findMany({
+          where: { tuteeId: { in: owned } },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          take: 20,
+          skip: input.page * 20,
+          select: {
+            id: true,
+            color: true,
+            reason: true,
+            reviewStatus: true,
+            createdAt: true,
+          },
+        })
+      : [];
+    const appeals = owned.length
+      ? await ctx.db.studentAppeal.findMany({
+          where: { studentId: { in: owned } },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          take: 20,
+          skip: input.page * 20,
+        })
+      : [];
+    // Appeal history is paginated independently, so derive the action state from every
+    // card on this page instead of assuming its appeal appears on the same history page.
+    const appealedCardIds = cards.length
+      ? await ctx.db.studentAppeal.findMany({
+          where: {
+            cardId: { in: cards.map((card) => card.id) },
+            studentId: { in: owned },
+          },
+          select: { cardId: true },
+        })
+      : [];
+    const timeZone = await getProgramTimeZone(ctx.db);
+    const appealedCards = new Set(appealedCardIds.map((row) => row.cardId));
+    const feedback = owned.length
+      ? await ctx.db.studentFeedback.findMany({
+          where: {
+            studentId: { in: owned },
+            sessionId: { in: sessions.map((s) => s.session.id) },
+          },
+        })
+      : [];
+    return {
+      user,
+      student,
+      schedule,
+      sessions: sessions.map((s) => ({
+        ...s,
+        feedback: feedback.find((f) => f.sessionId === s.session.id) ?? null,
+      })),
+      cards: cards.map((c) => ({
+        ...c,
+        deadline: appealDeadline(c.createdAt, calendar, timeZone),
+        hasExistingAppeal: appealedCards.has(c.id),
+      })),
+      appeals,
+    };
+  }),
+  feedbackSettings: protectedProcedure.query(
+    async ({ ctx }) =>
+      (await ctx.db.studentSettings.findUnique({ where: { id: "program" } }))
+        ?.shareFeedbackWithTutors ?? false,
+  ),
+  setFeedbackSettings: adminProcedure
+    .input(z.object({ share: z.boolean() }))
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await tx.studentSettings.upsert({
+          where: { id: "program" },
+          update: { shareFeedbackWithTutors: input.share },
+          create: { shareFeedbackWithTutors: input.share },
+        });
+        await tx.auditLog.create({
+          data: {
+            userId: ctx.session.user.id,
+            action: `Feedback visibility: ${input.share ? "staff and assigned tutors" : "staff only"}`,
+            entity: "StudentSettings",
+            entityId: "program",
+          },
+        });
+        return { ok: true };
+      }),
+    ),
+  feedback: protectedProcedure
+    .input(
+      z.object({
+        sessionId: z.string(),
+        rating: z.number().int().min(1).max(5),
+        body: text,
+      }),
+    )
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        const owned = await ownedStudentIds(tx, ctx.session.user.id);
+        const attendance = await tx.sessionTutee.findFirst({
+          where: { sessionId: input.sessionId, tuteeId: { in: owned } },
+        });
+        if (!attendance) throw new TRPCError({ code: "FORBIDDEN" });
+        const row = await tx.studentFeedback.upsert({
+          where: {
+            studentId_sessionId: {
+              studentId: attendance.tuteeId,
+              sessionId: input.sessionId,
+            },
+          },
+          update: { rating: input.rating, body: input.body },
+          create: { studentId: attendance.tuteeId, ...input },
+        });
+        await notifyAdmins(
+          { title: "Tutee feedback received", link: "/student-support" },
+          undefined,
+          tx,
+        );
+        return row;
+      }),
+    ),
+  feedbackList: protectedProcedure
+    .input(paging)
+    .query(async ({ ctx, input }) => {
+      const shared =
+        (await ctx.db.studentSettings.findUnique({ where: { id: "program" } }))
+          ?.shareFeedbackWithTutors ?? false;
+      if (!staff(ctx.session.role) && (!shared || !ctx.session.tutorId))
+        throw new TRPCError({ code: "FORBIDDEN" });
+      const sessions = !staff(ctx.session.role)
+        ? await ctx.db.session.findMany({
+            where: { tutorId: ctx.session.tutorId! },
+            select: { id: true },
+          })
+        : null;
+      const rows = await ctx.db.studentFeedback.findMany({
+        where: sessions ? { sessionId: { in: sessions.map((s) => s.id) } } : {},
+        orderBy: { updatedAt: "desc" },
+        take: 20,
+        skip: input.page * 20,
+      });
+      const [students, lessons] = await Promise.all([
+        ctx.db.tutee.findMany({
+          where: { id: { in: rows.map((r) => r.studentId) } },
+          select: { id: true, englishName: true },
+        }),
+        ctx.db.session.findMany({
+          where: { id: { in: rows.map((r) => r.sessionId) } },
+          select: { id: true, pairing: { select: { subject: true } } },
+        }),
+      ]);
+      return rows.map((r) => ({
+        ...r,
+        studentName:
+          students.find((s) => s.id === r.studentId)?.englishName ??
+          "Deleted tutee",
+        subject:
+          lessons.find((l) => l.id === r.sessionId)?.pairing.subject ??
+          "Archived session",
+      }));
+    }),
+  appeal: protectedProcedure
+    .input(z.object({ cardId: z.string(), body: text }))
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await assertFeatureEnabled(tx, "DISCIPLINE");
+        const owned = await ownedStudentIds(tx, ctx.session.user.id);
+        const card = await tx.disciplinaryCard.findUnique({
+          where: { id: input.cardId },
+        });
+        if (!card || !owned.includes(card.tuteeId))
+          throw new TRPCError({ code: "FORBIDDEN" });
+        if (card.reviewStatus === "INVALID")
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "This card has already been invalidated.",
+          });
+        if (
+          appealDeadline(
+            card.createdAt,
+            await tx.schoolCalendarDay.findMany(),
+            await getProgramTimeZone(tx),
+          ) < new Date()
+        )
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message:
+              "The five-school-day appeal window has ended. Contact the team.",
+          });
+        const existing = await tx.studentAppeal.findFirst({
+          where: { cardId: card.id },
+          select: { id: true },
+        });
+        if (existing)
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "This card already has an appeal.",
+          });
+        await tx.studentAppeal.create({
+          data: { studentId: card.tuteeId, ...input },
+        });
+        await notifyAdmins(
+          { title: "Tutee card appeal", link: "/student-support" },
+          undefined,
+          tx,
+        );
+        return { ok: true };
+      }),
+    ),
+  appeals: adminProcedure
+    .input(
+      z
+        .object({
+          page: z.number().int().min(0).default(0),
+          state: z.enum(["PENDING", "RESOLVED"]).default("PENDING"),
+        })
+        .default({ page: 0, state: "PENDING" }),
+    )
+    .query(async ({ ctx, input }) => {
+      const where =
+        input.state === "PENDING"
+          ? { state: "PENDING" }
+          : { state: { in: ["UPHELD", "REJECTED"] } };
+      const [rows, total] = await Promise.all([
+        ctx.db.studentAppeal.findMany({
+          where,
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          take: 20,
+          skip: input.page * 20,
+        }),
+        ctx.db.studentAppeal.count({ where }),
+      ]);
+      const [students, cards] = await Promise.all([
+        ctx.db.tutee.findMany({
+          where: { id: { in: rows.map((r) => r.studentId) } },
+          select: { id: true, englishName: true },
+        }),
+        ctx.db.disciplinaryCard.findMany({
+          where: { id: { in: rows.map((r) => r.cardId) } },
+          select: { id: true, reason: true },
+        }),
+      ]);
+      return {
+        rows: rows.map((r) => ({
+          ...r,
+          studentName:
+            students.find((s) => s.id === r.studentId)?.englishName ??
+            "Deleted tutee",
+          cardReason: cards.find((c) => c.id === r.cardId)?.reason,
+        })),
+        total,
+      };
+    }),
+  decideAppeal: adminProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        overturn: z.boolean(),
+        reason: text,
+        expectedUpdatedAt: z.coerce.date(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await assertFeatureEnabled(tx, "DISCIPLINE");
+        const appeal = await tx.studentAppeal.findUniqueOrThrow({
+          where: { id: input.id },
+        });
+        const updated = await tx.studentAppeal.updateMany({
+          where: {
+            id: input.id,
+            state: "PENDING",
+            updatedAt: input.expectedUpdatedAt,
+          },
+          data: {
+            state: input.overturn ? "UPHELD" : "REJECTED",
+            decision: input.reason,
+            decidedById: ctx.session.user.id,
+          },
+        });
+        if (!updated.count)
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "This appeal was already reviewed. Refresh the page.",
+          });
+        const before = await tx.disciplinaryCard.findUniqueOrThrow({
+          where: { id: appeal.cardId },
+        });
+        if (input.overturn) {
+          await tx.disciplinaryCard.update({
+            where: { id: appeal.cardId },
+            data: {
+              reviewStatus: "INVALID",
+              reviewNote: input.reason,
+              reviewedAt: new Date(),
+              reviewedById: ctx.session.user.id,
+            },
+          });
+          await syncPunishmentRemoval(tx, appeal.studentId);
+        }
+        await tx.auditLog.create({
+          data: {
+            userId: ctx.session.user.id,
+            entity: "StudentAppeal",
+            entityId: appeal.id,
+            action: `Appeal ${input.overturn ? "upheld" : "rejected"}: ${input.reason}`,
+            details: JSON.parse(
+              JSON.stringify({ before, appeal }),
+            ) as Prisma.InputJsonValue,
+          },
+        });
+        const historyOwner = await tx.studentProfileOwnership.findUnique({
+          where: { tuteeId: appeal.studentId },
+        });
+        const owner = await tx.user.findUnique({
+          where: historyOwner
+            ? { id: historyOwner.userId }
+            : { studentId: appeal.studentId },
+        });
+        if (owner)
+          await notifyUsers(
+            [owner.id],
+            { title: "Your appeal was reviewed", link: "/student" },
+            tx,
+          );
+        return { ok: true };
+      }),
+    ),
+});

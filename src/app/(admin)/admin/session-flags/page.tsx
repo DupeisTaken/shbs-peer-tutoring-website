@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { minToHm } from "~/lib/time";
@@ -13,6 +13,7 @@ import { useReadOnly } from "~/app/_components/read-only";
  * removal queues. VIEWER is read-only.
  */
 export default function SessionFlagsPage() {
+  const programFormat = useFormatter();
   const t = useTranslations();
   const readOnly = useReadOnly();
   const utils = api.useUtils();
@@ -62,7 +63,7 @@ export default function SessionFlagsPage() {
                 <p className="muted mt-1 text-xs">
                   {t("admin.sessionFlags.context", {
                     room: f.room ?? "—",
-                    date: new Date(f.date).toLocaleDateString(),
+                    date: programFormat.dateTime(new Date(f.date), { dateStyle: "medium", timeZone: "UTC" }),
                     start: minToHm(f.startMin),
                     end: minToHm(f.endMin),
                   })}

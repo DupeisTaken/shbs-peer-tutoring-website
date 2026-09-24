@@ -1,3 +1,9 @@
+import { getProgramTimeZone } from "~/server/program/time-zone";
+import { programDateKey } from "~/lib/program-time";
+import { requestMembership, recallMembership } from "~/server/membership";
+import { createHash } from "node:crypto";
+import { inTransaction, lockEntity } from "~/server/transactions";
+import { lockAttendanceSchedule } from "~/server/attendance-schedule";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -11,6 +17,8 @@ import { getActivePeriodOrNull } from "~/server/period";
 import { syncSessionFlag } from "~/server/crew/flags";
 import { getFeatures } from "~/server/program/features";
 import { notifyAdmins } from "~/server/notifications/create";
+import { assertObservedTimes } from "~/server/crew/observation-time";
+import { acceptPublicApplication } from "~/server/public-application-intake";
 
 /** Service hours credited per completed patrol (policy). */
 export const PATROL_HOURS = 0.5;
@@ -46,7 +54,7 @@ export const crewRouter = createTRPCRouter({
   }),
 
   /** The caller's recent patrols (with per-room observations) for their history view. */
-  myPatrols: crewProcedure.query(({ ctx }) =>
+  myPatrols: protectedProcedure.query(({ ctx }) =>
     ctx.db.patrol.findMany({
       where: { crewUserId: ctx.session.user.id },
       orderBy: { createdAt: "desc" },
@@ -77,6 +85,7 @@ export const crewRouter = createTRPCRouter({
   submitPatrol: crewProcedure
     .input(
       z.object({
+        submissionKey: z.string().uuid(),
         note: z.string().trim().max(500).optional(),
         observations: z
           .array(
@@ -90,42 +99,88 @@ export const crewRouter = createTRPCRouter({
           .min(1, "Record at least one room."),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
-      const active = await getActivePeriodOrNull(ctx.db);
-      const now = new Date();
-      const patrol = await ctx.db.patrol.create({
-        data: {
-          crewUserId: ctx.session.user.id,
-          termId: active?.termId ?? null,
-          hours: PATROL_HOURS,
-          note: input.note?.trim() ? input.note.trim() : null,
-          observations: {
-            create: input.observations.map((o) => ({
-              roomId: o.roomId,
-              headcount: o.headcount,
-              observedAt: o.observedAt ?? now,
-            })),
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        await lockAttendanceSchedule(tx);
+        await lockEntity(tx, `patrol-submit:${input.submissionKey}`);
+        const payloadHash = createHash("sha256")
+          .update(
+            JSON.stringify({
+              ...input,
+              observations: [...input.observations].sort((a, b) =>
+                a.roomId.localeCompare(b.roomId),
+              ),
+            }),
+          )
+          .digest("hex");
+        const previous = await tx.patrol.findUnique({
+          where: { submissionKey: input.submissionKey },
+        });
+        if (previous) {
+          if (
+            previous.crewUserId !== ctx.session.user.id ||
+            previous.submissionPayloadHash !== payloadHash
+          )
+            throw new TRPCError({
+              code: "CONFLICT",
+              message:
+                "That patrol submission already exists with different observations.",
+            });
+          return { ok: true, id: previous.id, hours: previous.hours };
+        }
+        if (
+          new Set(input.observations.map((o) => o.roomId)).size !==
+          input.observations.length
+        )
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Record each room once per patrol.",
+          });
+        const active = await getActivePeriodOrNull(tx);
+        const now = new Date();
+        assertObservedTimes(input.observations, now);
+        const patrol = await tx.patrol.create({
+          data: {
+            submissionKey: input.submissionKey,
+            submissionPayloadHash: payloadHash,
+            crewUserId: ctx.session.user.id,
+            termId: active?.termId ?? null,
+            hours: PATROL_HOURS,
+            note: input.note?.trim() ? input.note.trim() : null,
+            observations: {
+              create: input.observations.map((o) => ({
+                roomId: o.roomId,
+                headcount: o.headcount,
+                observedAt: o.observedAt ?? now,
+              })),
+            },
           },
-        },
-        select: { id: true },
-      });
+          select: { id: true },
+        });
 
-      // Reconcile the sessions in the patrolled rooms around the observed times.
-      const roomIds = [...new Set(input.observations.map((o) => o.roomId))];
-      const dayStart = new Date(now.getTime() - 24 * 60 * 60 * 1000);
-      const dayEnd = new Date(now.getTime() + 24 * 60 * 60 * 1000);
-      const sessions = await ctx.db.session.findMany({
-        where: {
-          actualRoomId: { in: roomIds },
-          online: false,
-          date: { gte: dayStart, lte: dayEnd },
-        },
-        select: { id: true },
-      });
-      for (const s of sessions) await syncSessionFlag(ctx.db, s.id);
+        // Reconcile the sessions in the patrolled rooms around the observed times.
+        const roomIds = [...new Set(input.observations.map((o) => o.roomId))];
+        const timeZone = await getProgramTimeZone(tx);
+        const dates = input.observations.map((o) =>
+          Date.parse(
+            programDateKey(o.observedAt ?? now, timeZone) + "T00:00:00Z",
+          ),
+        );
+        const dayStart = new Date(Math.min(...dates));
+        const dayEnd = new Date(Math.max(...dates));
+        const sessions = await tx.session.findMany({
+          where: {
+            actualRoomId: { in: roomIds },
+            online: false,
+            date: { gte: dayStart, lte: dayEnd },
+          },
+          select: { id: true },
+        });
+        for (const s of sessions) await syncSessionFlag(tx, s.id);
 
-      return { ok: true, id: patrol.id, hours: PATROL_HOURS };
-    }),
+        return { ok: true, id: patrol.id, hours: PATROL_HOURS };
+      }),
+    ),
 
   /** Public "apply to be crew" form (no login created — like /signup & /tutor-signup). Creates a
    *  PENDING CrewApplication an admin reviews; accepting issues a crew registration code. */
@@ -133,33 +188,50 @@ export const crewRouter = createTRPCRouter({
     .input(
       z.object({
         name: z.string().trim().min(1).max(120),
-        email: z.string().trim().email(),
+        email: z.string().trim().email().max(254),
         gradeLevel: z.number().int().min(6).max(12).nullable().optional(),
         preferredContact: z.string().trim().max(200).optional(),
         message: z.string().trim().max(1000).optional(),
       }),
     )
-    .mutation(async ({ ctx, input }) => {
-      const features = await getFeatures(ctx.db);
-      if (!features.CREW) {
-        throw new TRPCError({ code: "FORBIDDEN", message: "The crew module is disabled." });
-      }
-      await ctx.db.crewApplication.create({
-        data: {
-          name: input.name,
-          email: input.email.toLowerCase(),
-          gradeLevel: input.gradeLevel ?? null,
-          preferredContact: input.preferredContact?.trim() ? input.preferredContact.trim() : null,
-          message: input.message?.trim() ? input.message.trim() : null,
-        },
-      });
-      await notifyAdmins({
-        title: "New crew application",
-        body: `${input.name} applied to join the crew.`,
-        link: "/admin/crew",
-      });
-      return { ok: true };
-    }),
+    .mutation(async ({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        const features = await getFeatures(tx);
+        if (!features.CREW) {
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "The crew module is disabled.",
+          });
+        }
+        await acceptPublicApplication(
+          tx,
+          { kind: "crew", email: input.email, headers: ctx.headers },
+          async (email) => {
+            await tx.crewApplication.create({
+              data: {
+                name: input.name,
+                email,
+                gradeLevel: input.gradeLevel ?? null,
+                preferredContact: input.preferredContact?.trim()
+                  ? input.preferredContact.trim()
+                  : null,
+                message: input.message?.trim() ? input.message.trim() : null,
+              },
+            });
+            await notifyAdmins(
+              {
+                title: "New crew application",
+                body: `${input.name} applied to join the crew.`,
+                link: "/admin/crew",
+              },
+              undefined,
+              tx,
+            );
+          },
+        );
+        return { ok: true };
+      }),
+    ),
 
   /** The caller's crew lifecycle state + any pending opt-out/reentry request, for the portal. */
   myStatus: protectedProcedure.query(async ({ ctx }) => {
@@ -179,73 +251,26 @@ export const crewRouter = createTRPCRouter({
    *  approves after it elapses, and the member can recall it meanwhile. */
   requestOptOut: protectedProcedure
     .input(z.object({ reason: z.string().trim().max(500).optional() }))
-    .mutation(async ({ ctx, input }) => {
-      const me = await ctx.db.user.findUnique({
-        where: { id: ctx.session.user.id },
-        select: { crewStatus: true },
-      });
-      if (me?.crewStatus !== "ACTIVE") {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Only active crew can opt out." });
-      }
-      const open = await ctx.db.crewStatusRequest.findFirst({
-        where: { userId: ctx.session.user.id, state: "PENDING" },
-        select: { id: true },
-      });
-      if (open) {
-        throw new TRPCError({ code: "BAD_REQUEST", message: "You already have a pending request." });
-      }
-      const eligibleAt = new Date(Date.now() + CREW_OPT_OUT_COOLDOWN_DAYS * 24 * 60 * 60 * 1000);
-      await ctx.db.crewStatusRequest.create({
-        data: {
-          userId: ctx.session.user.id,
-          kind: "OPT_OUT",
-          eligibleAt,
-          reason: input.reason?.trim() ? input.reason.trim() : null,
-        },
-      });
-      await notifyAdmins({
-        title: "Crew opt-out requested",
-        body: "A crew member requested to opt out.",
-        link: "/admin/crew",
-      });
-      return { ok: true };
-    }),
+    .mutation(({ ctx, input }) =>
+      requestMembership(
+        ctx.db,
+        { kind: "crew", id: ctx.session.user.id },
+        "OPT_OUT",
+        input.reason,
+      ),
+    ),
 
   /** Recall a still-pending opt-out request (before an admin approves it). */
-  recallOptOut: protectedProcedure.mutation(async ({ ctx }) => {
-    const req = await ctx.db.crewStatusRequest.findFirst({
-      where: { userId: ctx.session.user.id, kind: "OPT_OUT", state: "PENDING" },
-      select: { id: true },
-    });
-    if (!req) throw new TRPCError({ code: "BAD_REQUEST", message: "No pending opt-out to recall." });
-    await ctx.db.crewStatusRequest.update({ where: { id: req.id }, data: { state: "RECALLED" } });
-    return { ok: true };
-  }),
+  recallOptOut: protectedProcedure.mutation(({ ctx }) =>
+    recallMembership(ctx.db, { kind: "crew", id: ctx.session.user.id }),
+  ),
 
   /** Request reentry to the crew (OPTED_OUT members only; no cooldown). */
-  requestReentry: protectedProcedure.mutation(async ({ ctx }) => {
-    const me = await ctx.db.user.findUnique({
-      where: { id: ctx.session.user.id },
-      select: { crewStatus: true },
-    });
-    if (me?.crewStatus !== "OPTED_OUT") {
-      throw new TRPCError({ code: "BAD_REQUEST", message: "Only opted-out crew can request reentry." });
-    }
-    const open = await ctx.db.crewStatusRequest.findFirst({
-      where: { userId: ctx.session.user.id, state: "PENDING" },
-      select: { id: true },
-    });
-    if (open) {
-      throw new TRPCError({ code: "BAD_REQUEST", message: "You already have a pending request." });
-    }
-    await ctx.db.crewStatusRequest.create({
-      data: { userId: ctx.session.user.id, kind: "REENTRY" },
-    });
-    await notifyAdmins({
-      title: "Crew reentry requested",
-      body: "A crew member requested to rejoin.",
-      link: "/admin/crew",
-    });
-    return { ok: true };
-  }),
+  requestReentry: protectedProcedure.mutation(({ ctx }) =>
+    requestMembership(
+      ctx.db,
+      { kind: "crew", id: ctx.session.user.id },
+      "REENTRY",
+    ),
+  ),
 });

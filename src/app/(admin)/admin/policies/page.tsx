@@ -1,6 +1,6 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 
 import { api } from "~/trpc/react";
@@ -46,6 +46,7 @@ function PolicyVersionEditor({
   readOnly: boolean;
   onSaved: () => void;
 }) {
+  const programFormat = useFormatter();
   const t = useTranslations();
   const [title, setTitle] = useState(doc?.title ?? "");
   const [version, setVersion] = useState(doc?.version ?? "");
@@ -81,7 +82,7 @@ function PolicyVersionEditor({
           <>
             {" "}
             {t("admin.policies.editor.lastEdited", {
-              date: new Date(doc.updatedAt).toLocaleString(),
+              date: programFormat.dateTime(new Date(doc.updatedAt), { dateStyle: "medium", timeStyle: "short" }),
             })}
             {doc.updatedBy
               ? " " +
@@ -161,6 +162,7 @@ function ArchiveModal({ doc, onClose }: { doc: ArchiveDoc; onClose: () => void }
 
 /** Collapsible list of a policy version's earlier (archived) copies for one locale. */
 function VersionHistory({ archives }: { archives: ArchiveDoc[] }) {
+  const programFormat = useFormatter();
   const t = useTranslations();
   const [open, setOpen] = useState(false);
   const [viewing, setViewing] = useState<ArchiveDoc | null>(null);
@@ -183,7 +185,7 @@ function VersionHistory({ archives }: { archives: ArchiveDoc[] }) {
             {archives.map((a) => (
               <li key={a.id} className="flex items-center justify-between gap-3 py-1.5 text-sm">
                 <span className="muted">
-                  {t("admin.policies.archivedOn", { date: new Date(a.archivedAt).toLocaleString() })}
+                  {t("admin.policies.archivedOn", { date: programFormat.dateTime(new Date(a.archivedAt), { dateStyle: "medium", timeStyle: "short" }) })}
                   {a.version ? ` · ${a.version}` : ""}
                   {a.archivedByName ? ` · ${a.archivedByName}` : ""}
                 </span>
@@ -228,8 +230,9 @@ function PolicyCard({ slug, byLocale, archivesByLocale, languages, readOnly, onS
   // Languages this policy already has, in the configured order; any stranded ones (a doc for a
   // language no longer listed) are kept at the end so they stay editable.
   const existing = [
-    ...codes.filter((c) => byLocale.has(c)),
-    ...[...byLocale.keys()].filter((c) => !codes.includes(c)),
+    DEFAULT_LOCALE,
+    ...codes.filter((c) => c !== DEFAULT_LOCALE && byLocale.has(c)),
+    ...[...byLocale.keys()].filter((c) => c !== DEFAULT_LOCALE && !codes.includes(c)),
   ];
   // Languages the editor has opened a blank draft for (not yet saved).
   const [drafts, setDrafts] = useState<string[]>([]);
@@ -237,10 +240,13 @@ function PolicyCard({ slug, byLocale, archivesByLocale, languages, readOnly, onS
   const notAdded = codes.filter((c) => !available.includes(c));
 
   const [active, setActive] = useState<string>(() =>
-    byLocale.has(DEFAULT_LOCALE) ? DEFAULT_LOCALE : (existing[0] ?? DEFAULT_LOCALE),
+    byLocale.has(DEFAULT_LOCALE) ? DEFAULT_LOCALE
+      : (existing.find((locale) => byLocale.has(locale)) ?? DEFAULT_LOCALE),
   );
   // English title is the friendliest label for the group header.
-  const heading = byLocale.get(DEFAULT_LOCALE)?.title ?? byLocale.values().next().value?.title ?? slug;
+  const heading = byLocale.get(DEFAULT_LOCALE)?.title ?? byLocale.values().next().value?.title
+    ?? (slug === "tutee-policy" ? t("admin.policies.studentTitle")
+      : slug === "tutor-policy" ? t("admin.policies.tutorTitle") : slug);
 
   const isDraft = !byLocale.has(active);
 
@@ -342,16 +348,22 @@ export default function PoliciesPage() {
   const invalidate = () =>
     Promise.all([utils.admin.policies.invalidate(), utils.admin.policyArchives.invalidate()]);
 
-  // Group the flat rows into slug -> (locale -> doc).
+  // A seed-free installation still needs editors for both required policies. Wait for
+  // the query before mounting them so a blank draft cannot hide subsequently loaded text.
   const groups = useMemo(() => {
     const m = new Map<string, Map<string, PolicyDoc>>();
+    if (!policies.data) return m;
+    if (!readOnly) {
+      m.set("tutee-policy", new Map());
+      m.set("tutor-policy", new Map());
+    }
     for (const doc of policies.data ?? []) {
       const inner = m.get(doc.slug) ?? new Map<string, PolicyDoc>();
       inner.set(doc.locale, doc);
       m.set(doc.slug, inner);
     }
     return m;
-  }, [policies.data]);
+  }, [policies.data, readOnly]);
 
   // Group archives into slug -> (locale -> [archives newest-first]).
   const archiveGroups = useMemo(() => {

@@ -1,6 +1,6 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 
@@ -10,6 +10,7 @@ import { api } from "~/trpc/react";
  * visible (as a quieter note) even after acknowledgement.
  */
 export function AnnouncementsBanner() {
+  const programFormat = useFormatter();
   const t = useTranslations();
   const utils = api.useUtils();
   const announcements = api.tutor.myAnnouncements.useQuery();
@@ -44,7 +45,7 @@ export function AnnouncementsBanner() {
                 {a.body}
               </p>
               <p className="text-accent-400 mt-1 text-xs">
-                {new Date(a.createdAt).toLocaleDateString()}
+                {programFormat.dateTime(new Date(a.createdAt), { dateStyle: "medium" })}
               </p>
             </div>
             <button

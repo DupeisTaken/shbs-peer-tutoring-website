@@ -1,0 +1,345 @@
+# User guide
+
+Use this guide with the website address supplied by your program. Page names below match the interface. Features and navigation can vary when HEAD disables a program module. A hidden page does not grant permission to use its address directly.
+
+## Contents
+
+- [Before you start](#before-you-start)
+- [Tutees](#tutees)
+- [Tutors](#tutors)
+- [Crew](#crew)
+- [Coordinators](#coordinators)
+- [Administrators](#administrators)
+- [HEAD](#head)
+- [Viewers](#viewers)
+- [Translators](#translators)
+- [Account settings and private support](#account-settings-and-private-support)
+- [Renewed policy acceptance](#renewed-policy-acceptance)
+- [Troubleshooting](#troubleshooting)
+- [Report a problem](#report-a-problem)
+
+## Before you start
+
+Read **Privacy policy** from the homepage information menu or footer, or open `/privacy` directly. It is available without signing in and remains readable when participation agreements need renewal. The notice covers information collected, uses, access, browser storage, retention and privacy requests. English and Chinese are provided; other interface languages show the English document. Use the contact details at the end for privacy questions.
+
+The website supports intake, matching, attendance, hours, interviews, support and reviewed management changes. The operator must configure real email delivery and publish the current school policies before opening public intake. The repository contains [policy drafts](policies/README.md) for adaptation; changing a draft does not publish a school policy.
+
+| Your access                            | Start with                           | Important boundary                                                                                                |
+| -------------------------------------- | ------------------------------------ | ----------------------------------------------------------------------------------------------------------------- |
+| Tutee participation (any account role) | Enter Tutee page                     | Your own records and participation                                                                                |
+| Tutor                                  | Dashboard                            | Your linked tutor profile and assignments                                                                         |
+| Crew                                   | Patrol                               | Active crew participation; the crew module must be enabled                                                        |
+| Coordinator                            | Management area / Management Actions | Sensitive changes wait for ADMIN or HEAD review                                                                   |
+| Administrator                          | Management area                      | Operational management; HEAD-only powers remain restricted                                                        |
+| HEAD                                   | Program & Refresh / Users & Roles    | One program leader; controls leadership and elevated configuration                                                |
+| Viewer                                 | Read-only management area            | Permitted summaries with personal contact details masked                                                          |
+| Assigned translator                    | Translations                         | Edit interface or website text and follow draft review in one editor; assignment is separate from management rank |
+
+A role and a tutor or crew membership are different things. A management account needs an active linked tutor profile to perform tutor duties. Every active non-Viewer account can enter tutee onboarding, including tutors, crew and administrators. First accept the published tutee policy; acceptance records its exact revision and grants tutee membership. Visiting alone does not grant access or create a tutoring request. Tutee participation and history coexist with other account roles. Suspension prevents ordinary participation; follow the suspension page’s appeal route.
+
+### Choose the right registration form
+
+- **Register with an Invitation Code** (`/register`) is for invited tutors, crew and management. Enter the five-character registration code supplied by the program team, then complete email verification and account setup. The invitation code and emailed verification code are different.
+- **Register as a Viewer** (`/viewer-signup`) creates read-only access when viewer signup is enabled. Viewers do not receive or need a staff invitation code; the form sends an email verification code after you provide your details. It does not enroll you as a tutee, tutor or crew member.
+- **Request a Tutor** (`/signup`) starts a tutee request without an invitation code. Follow the emailed confirmation link to set up your account if needed.
+
+Sign In names the invitation and viewer routes separately. The invitation and viewer pages link to each other and to Request a Tutor, so you can switch if you opened the wrong form. Viewer links are hidden when public viewer signup is disabled. If you already have an account, sign in or recover your password rather than registering again.
+
+### Switch workspaces
+
+Management headers and account menus show **Enter Tutor Page**, then **Enter Tutee Page** together. Tutor entry requires a linked, non-archived tutor profile; tutee onboarding remains available to every active non-Viewer account. Management accounts without tutor eligibility can still open the tutee workspace and return to management.
+
+Tutor and tutee workspaces show **Back to Management** for HEAD, ADMIN, COORDINATOR and VIEWER. This shortcut does not grant write access to viewers. Archived pure tutors retain their existing read-only history access.
+
+On mobile, the shared header places the brand and language selector first, global controls second, and available workspace switches below a divider. Management's hamburger button opens the navigation drawer; Escape, its close button or selecting a link closes it. Desktop management keeps the sidebar and main content independently scrollable below the header. Workspace shortcuts wrap on narrow screens and preserve touch targets.
+
+## Tutees
+
+### Apply and confirm
+
+1. Open **Request a Tutor** on the home page or any section of the tutee page when intake is open. You can start with the form before creating an account.
+2. Enter your name, email, preferred contact method, subject choices and available times. Read the displayed tutee policy and sign the agreement.
+3. Choose **Submit Request**. Your original survey submission sets your priority. Repeating the same open request does not buy an earlier place.
+4. Open the account-confirmation link sent to your email. Create a password if you need an account. Existing accounts retain their role and password.
+5. Sign in and choose **Enter Tutee page**, then **Requests**, to check your confirmed request and available times. Until you confirm, keep using the emailed confirmation link.
+
+An account link lasts 24 hours. Request a new link if it expires; a successful resend replaces the previous link. Staff may assign a tutor before you confirm. That first assignment starts a fixed seven-day verification deadline. Reassignment and link resends do not extend it. An unverified request closes when its deadline passes and its assignments are released; you must submit a new request with a new priority timestamp.
+
+### Find your way around
+
+The tutee page uses the same top bar, account menu, theme and card layout as the tutor page. Choose a section from its navigation:
+
+| Section              | What you can do                                                                                                                    |
+| -------------------- | ---------------------------------------------------------------------------------------------------------------------------------- |
+| Dashboard            | See current scheduled sessions and verified open requests, then follow a link to the task you need                                 |
+| My Tutors & Schedule | See current tutoring sessions, tutors, times and rooms across your explicitly linked profiles                                      |
+| Requests             | Review confirmed requests, change availability and manage participation; completed requests remain in the current period’s history |
+| Attendance           | Review recorded sessions across intakes and submit feedback                                                                        |
+| Support              | Review your disciplinary cards and appeals or open a private conversation                                                          |
+| Messages             | Read and send messages within the tutee workspace                                                                                  |
+| Account              | Manage your shared account within the tutee workspace                                                                              |
+
+**Request a Tutor** is available in every section and opens the existing request form. A program period is labeled **Quarter** when quarters are enabled and **Semester** when semester mode is applied; request and withdrawal wording follows that setting. A staged mode change does not change the current display.
+
+Current schedules include only active-period assignments on explicitly owned, non-inactive profiles. A new tutor assignment displays **Awaiting schedule** until a tutor or manager chooses a time slot; the assigned tutor remains visible. The dashboard counts only subjects with confirmed schedules. Multiple profiles on the same assignment produce one schedule entry. A matching name or email does not grant access to another person’s records. Historical attendance remains available after a refresh.
+
+### Manage a request
+
+| What you need                | Action                                    | What happens                                                                                                             |
+| ---------------------------- | ----------------------------------------- | ------------------------------------------------------------------------------------------------------------------------ |
+| Change your available times  | **Edit availability**                     | Subjects, priority and current assignments stay the same; coordinate the actual meeting with your tutor                  |
+| Cancel an unassigned request | Recall it and confirm the consequences    | That request closes permanently; applying again creates a new timestamp                                                  |
+| Leave after assignment       | **Request withdrawal…** and give a reason | Assignment continues during review; approval ends participation and blocks another request in the current program period |
+| See the result               | **Current request** and **Processed**     | Review state and assignment are shown separately                                                                         |
+
+Important actions display consequences and a countdown before confirmation. A pending request is not an approved change. If a tutor reports a schedule conflict, an approved rejection removes only that tutor’s assignment and returns your request for matching at its original priority.
+
+### Withdrawal requests
+
+Open **Requests → Participation → Request withdrawal…**. The button names the current quarter or semester and also works for staff-entered enrollments explicitly linked to your account. Give a reason and complete the timed confirmation; check the decision before assuming your participation has ended.
+
+### Records, feedback and appeals
+
+Use **My Tutors & Schedule** for current assignments, **Attendance** for recorded sessions and feedback, and **Support** for disciplinary cards and appeals. Records remain linked to your account across new intakes and verified email changes.
+
+- Submit feedback for one of your recorded sessions. The portal explains whether management has enabled sharing with that session’s tutor. Feedback is management-only by default; a later visibility change also affects earlier feedback.
+- Appeal your own card once, by the end of the **fifth school day** after its recorded issue date in the program timezone. Holidays and make-up days follow the school calendar maintained by staff. A pending appeal does not invalidate the card or suspend its effects.
+- Use **Messages** for a private management conversation. Policy renewal does not remove access to your history, feedback, appeals, messages or account settings. Further participation requires accepting the revised policy.
+
+With discipline enabled, an unexcused student absence automatically creates a valid red card. Tutor-requested cards count only after validation. Every three valid yellow cards contribute one effective red; at two effective reds, an active tutee is automatically made inactive and removed from current-period assignments, without separate removal approval. An upheld appeal invalidates the card and recalculates standing. Eligible effects may be restored if no later independent status change intervened; accounts and past records remain.
+
+See the [tutee policy draft](../prisma/policies/tutee-policy.en.md) or [中文学习伙伴政策草案](../prisma/policies/tutee-policy.zh.md). Participation uses the school's published version displayed on the website.
+
+## Tutors
+
+Existing tutors can use **Subject qualifications** on their dashboard to request another subject or a higher offered level in a subject they already teach. Choose a subject, explain your qualifications and submit; the request history shows pending, interview, approved and rejected outcomes, the decision note, and the subjects granted on approval. Pending/rejected requests do not change current qualifications. Duplicate open requests for the same subject and level are blocked. Inactive tutors retain read-only history.
+
+In **Tutor Applications**, additional-subject and higher-level requests have distinct badges. Only Admin or Head may approve directly, reject with a decision note, or assign an interview panel. Direct approval is available even when interviews are enabled. An interview uses the existing votes and majority rules with an Admin/Head tutor as chair; that chair records the outcome in Tutor Applications. Panelists see the requested course and the tutor's qualification explanation on their dashboard. Coordinators cannot make or queue these decisions. Applicants cannot review themselves. Review history and final decisions are retained. Approval records the requested level and lower offered levels in that course group under the ordering at approval time; reordering later does not change those grants. Subject willingness remains a separate choice in Subject Availability.
+
+### Start tutoring
+
+1. Choose **Become a Tutor** on the home page. Select up to three subjects, explain your qualifications, read the current policy and submit your contact details.
+2. The team reviews the application and contacts you for a panel interview. The panel chair schedules the interview and records the decision after voting; this is distinct from the program's HEAD account role.
+3. After acceptance, use the registration code or setup link supplied by the team. Verify your email and set your password. An application or roster entry alone is not a login.
+4. Use **Dashboard** to check assignments and record sessions; use **Settings** to maintain availability. Accept the current tutor policy when prompted before further participation.
+
+The application explains loading failures and offers a retry. Intake needs configured subjects and a published policy; contact management if it is unavailable. Repeating a tutor or crew application while that email's application is under review keeps the original submission and displays the same confirmation. It does not replace your answers or send the team another notification. Contact the program team to correct an application. If management also granted you tutor participation, use the account menu to switch between management and tutor areas. Active crew members and assigned translators retain their return links when using the tutee workspace.
+
+Management records actual interview completion through **Tutor Applications** in the Tutors navigation group. **Tutee Support** remains in the management layout and is reachable from the Tutees group. See the [full function and control reference](program-reference.md).
+
+### Record a session
+
+1. Confirm the assigned tutees, actual date, start/end time, and room or online status. Future school dates cannot be submitted. An assignment marked **Awaiting schedule** has no default appointment time. Enter actual start and end times, including when such an assignment is added to a combined block; recording attendance does not set its recurring schedule.
+2. Record your attendance and each tutee's actual attendance. Supply comments, reasons for your absence or excused student absences, the requested session ratings, and reasons for requested disciplinary cards.
+3. Read any room-conflict warning. A truthful historical report is allowed and alerts management; it does not reserve a conflicting room for a future session.
+4. Submit once and check the saved record. If the result is unclear after a network error, check the record before retrying.
+5. Ask management for a historical correction with the date, affected record and reason. Coordinators must obtain approval for corrections.
+
+Current tutor-policy acceptance is required for attendance submission. Your service hours are calculated from the saved attendance; see [session-hour examples](../prisma/policies/tutor-policy.en.md#iii-service-hours-accrual).
+
+Use combined attendance when several assigned subjects share one block: shared time and each distinct student count once. An identical retry does not create another credit; changed answers for a saved block require a correction. Changing the selected subjects or shifting the time does not permit another submission that overlaps your saved attendance. Ask management to correct the existing block; corrections cannot overlap another saved block. Adjacent, non-overlapping sessions remain valid. Present, rescheduled and extra sessions use the same calculation. Online sessions have no physical room check.
+
+### Manage your participation
+
+An active tutor can request opt-out and recall a pending request. Participation continues until staff approval, which is allowed only after seven days. An opted-out tutor can request reentry without another waiting period, but approval is still required. Only one pending membership request is allowed. At a semester refresh, continuing active tutors become pending and choose whether they are available or opting out; check your status before teaching in the new period.
+
+For a student enrolled outside the survey flow, the tutor can relay the student's request to leave their current active assignment. The seven-day recall window ends in automatic processing unless recalled or cancelled by staff. If the program refreshes or the originating assignment is removed before processing, the outdated relay is cancelled and does not remove a new enrollment. Survey students instead request whole-period withdrawal in their own workspace. Use schedule rejection for an assignment conflict.
+
+### Conflicts, meetings and interviews
+
+- If an assigned tutee’s availability cannot work, submit a reasoned schedule-rejection request. The assignment continues until approval.
+- Submit or cancel your own meeting excuse at least **60 minutes** before the start. The first three unexcused tutor-meeting absences in a semester have no automatic deduction; each further one deducts **0.25 hours**. Excused absences do not consume this allowance. Staff-recorded statuses require staff correction.
+- On an interview panel, review the application and submit your own vote. Every panelist must vote before a final decision. The majority decides; a tie is resolved by the selected highest-ranking management chair.
+- A coordinator chair’s outcome goes to ADMIN/HEAD for approval. The reviewer preserves the chair’s decision and identity. Hours are earned from recorded interview completion and attendance, not scheduling alone.
+
+Read addressed announcements and acknowledge them when prompted. Review session hours, interview credits, meeting deductions and manual adjustments in your period totals. See the [tutor policy draft](../prisma/policies/tutor-policy.en.md) or [中文辅导伙伴政策草案](../prisma/policies/tutor-policy.zh.md); follow the school's published version when participating.
+
+## Crew
+
+Apply through the public crew application. Review can issue a registration code; the application itself is not a login. Active crew members use **Patrol** to record each visited room once with the actual observation time and student headcount: 0, 1, 2, 3 or 4+. Submit at least one observation. Observation times cannot be in the future; a one-minute allowance accommodates differences between your device clock and the server. This also applies to management corrections. Each submitted patrol earns **0.5 crew service hours**, separately from tutoring credit; an identical retry does not duplicate it. Report mistakes to management with enough context to identify the record. Historical patrol corrections require a reason and audit evidence; coordinator corrections wait for approval.
+
+Crew access depends on membership and the program's crew module. A crew-only account does not automatically receive tutor assignments or management powers. Opt-out requires a seven-day wait and staff approval; reentry requires approval without that wait. A pending opt-out can be recalled. Check the decision before assuming membership has changed. Observations can flag an apparent attendance mismatch for [management review](program-reference.md#review-attendance-flags); a flag alone does not impose a penalty.
+
+## Coordinators
+
+Coordinators prepare management changes and learn through review. Their own authorized tutor or crew duties continue normally.
+
+### Submit a change
+
+1. Open the relevant management page and inspect the current record.
+2. Enter the proposed change and any required reason. For tutee assignment/review actions, read the consequence dialog and wait for confirmation.
+3. Submit. **Submitted for admin approval** means no live management change has been applied.
+4. Follow **View request** to **Management Actions**. Check the proposed values and wait for review. You can withdraw your own pending request.
+5. Read the reviewer’s note. Check the live record after approval; an email-delivery warning may still require a link resend.
+
+Requests cover assignments, schedules, roster changes, policy/content changes, corrections, discipline, hours, interview completion and other supported management operations. Badge and membership changes require HEAD approval, including requests from administrators. Program refresh and leadership transfer retain their restricted controls. Sending an existing verification/setup link is a supported direct action and does not extend a verification deadline.
+
+If records change while a proposal is pending, the reviewer must reject it and request a fresh proposal. Do not reuse old values or assume a withdrawn/failed request changed the website. See [approval troubleshooting](#troubleshooting).
+
+## Administrators
+
+### Review a coordinator change
+
+1. Open **Management Actions**, select a pending request and inspect its values and recorded evidence.
+2. Check the affected tutee/tutor, program period and consequences.
+3. Enter an explanatory review note. Choose **Approve and Apply** or reject with feedback.
+4. For tutee actions, complete your own fresh timed confirmation. The coordinator’s earlier confirmation cannot stand in for yours.
+5. Check the applied state and audit link. If the target changed, reject and request a fresh proposal. If application fails, the request remains pending; do not report it as approved.
+
+Use the request state and **Requested by** filters to find proposals; the coordinator’s **My Approval Requests** shows their own history. **All Requests** returns from a detail to the queue. Requester labels retain readable identities even when an account has been removed. Only the current active Head may review their own proposal. Other reviewers cannot, including after promotion to Admin. A coordinator interview chair remains the author of their proposed outcome. A failed email after a successful assignment does not undo that assignment; use the link resend control and investigate delivery.
+
+### Find records and confirm saves
+
+On desktop, the navigation and content scroll independently. On mobile, open **Menu**, choose a page, or close it with Escape. Navigation follows your role and enabled modules.
+
+**Changes saved** appears after a successful write. A persistent error needs attention even if a later edit succeeds; check the affected record before retrying. **Submitted for approval** means a coordinator proposal is pending, not saved to live records.
+
+In **Users & Roles**, combine Role and Account filters. **Tutor Status** appears only when Tutor is the sole included role and Tutor is not excluded. Selecting multiple roles, removing Tutor, or excluding Tutor clears the status selection; a hidden or previously saved status never narrows those results. A person with Admin and Tutor badges still matches a Tutor-only selection, unless another selected exclusion removes them. Historical tutor links with revoked access or archived tutors do not grant a Tutor badge. Alternatives within one filter match any included value; every applicable filter must match, and exclusions win. **No account role** identifies records without displayed role badges. **Clear filters** restores all rows. Filters are remembered for the signed-in account in the current browser, with stale inapplicable status selections removed on restoration. Account data remains available only to Head, administrators and coordinators; filter selections do not grant access.
+
+Use **Edit profile** to edit the independent Tutor, Tutee, Translator and Crew badges and exact management rank, or transfer leadership with **Make Head**. Only HEAD applies badge changes; other staff submit proposals. Any account can request its own badge changes from Account settings. Viewer is exclusive of every other badge. Removing participation and assigning sole Viewer preserves historical identity links while revoking participant access. Tutor membership suppresses the redundant Tutee badge without discarding consent. Use **Edit profile** to update linked current names and **Show email** to inspect/copy the contact and its verification state. Opening the dialog sends no email. Verification/setup requires an explicit action; sending a link does not itself verify an account. **Account setup required** identifies contacts without a linked login. Verified account email changes use the account holder's verification flow.
+
+Account setup links are sent privately to the account holder by email. Management cannot copy the password-setting link from the website. If mail delivery is unavailable, ask the deployment administrator to configure it before retrying.
+
+### Find and batch-edit offered courses
+
+In **Subjects & Levels**, use the **Offered course catalogue** above the subject groups. Search names without regard to case, choose a configured level (or **No level**), and choose **All statuses**, **Active** or **Inactive**. Filters combine, and the count shows matches out of the full catalogue. **Clear filters** restores all rows. Filtering is available to read-only viewers and never changes signup offerings.
+
+**Select all visible** selects only the matching rows. The selection summary shows the total and how many are hidden by filters; **Clear selection** removes both visible and hidden selections. Choose a batch level and/or status and use **Apply to … visible selected**. Only those visible selected courses are changed; hidden selections remain. Successful changes clear the submitted selection, while failures preserve it for retry. Group editing and JSON/CSV import remain below the table.
+
+### Run the program
+
+- In **Tutor Roster**, choose **View user details** below a tutor's name. HEAD, administrators and coordinators can inspect grouped subjects and named level variants, saved approval/inherited qualifications, and independent teaching willingness. **Not recorded** means no willingness choice has been saved; qualification alone does not mean willing. Catalogue reordering does not change saved qualification grants. Only subjects with recorded qualification or willingness appear; unrelated catalogue entries are omitted. Archived subjects with recorded evidence remain visible. Tutor status, account access, schedules and capacity still constrain assignments.
+- The roster details also show linked-login status and the same account-scoped policy history described below, including tutee policy acceptance. Unlinked tutors have no account acceptance history. Revoked tutoring access keeps historical evidence but removes the Tutor badge; active Tutor membership suppresses a redundant Tutee badge. Opening details grants no role-edit permissions. Viewers cannot open these private details.
+- Maintain subjects, slots, rooms, rosters and assignments; check current intake and availability before matching. Use the [program configuration guide](program-reference.md) for schedules, timezones, announcements and contact permissions.
+- Use **Tutee Support** for feedback visibility, tutee appeals and school-calendar overrides. Staff see pending appeals first, can switch to resolved history, and each list has its own page navigation. Calendar overrides affect the five-school-day appeal window.
+- In **Users & Roles**, open a person's **User details** to read their policy acceptance status and history. Expand an acceptance to read its original title, version, signature, time and exact text in each recorded language. This works for linked accounts with missing email; unlinked contacts have no account acceptance history. Only HEAD, administrators and coordinators can access these records.
+- Assign interview panels with at least three active tutors, a management member, and staff-confirmed qualification in an applicant subject. The highest-ranking management member chairs the panel (HEAD, then ADMIN, then COORDINATOR); choose a chair among equal ranks. Use **Subject Availability**, immediately below Tutor Roster, to review subject groups and variants, direct approval status, recorded inherited qualifications and independent willingness to teach. Missing willingness means not recorded; approving a subject never records willingness. Expand a tutor to approve a subject, remove an approval source or record willingness. Approving an advanced variant records the lower offered levels of its group at that time; later catalogue reordering does not change those grants. Removing one source does not remove qualifications granted by other sources. This screen remains available when interviews are disabled. Use **Tutor Applications** for panel assignment, votes, decisions, completion, duration and attendees. Applicant summaries show status, panel, chair, schedule and completion without expanding. Search applicants, panelists or subjects and switch between open, completed and all records. Expand an interview record and follow its panel link to the applicant editor on the same page. Interview history remains readable when interviews are disabled; completion and panel writes are disabled. Correcting completion replaces earlier automatic credits; panel qualifications, voting, chair authority and coordinator approval still apply.
+- Correct historical attendance or patrols with a reason. Review hours, discipline and related effects after the correction; HEAD receives an in-system notification.
+- Use **Policies** to publish revised documents following the [publication steps](policies/README.md#publish-a-revision). On a fresh site, start with the blank **Tutee policy** and **Tutor policy** editors and save the reviewed English text before adding translations. Updating repository files alone does not change an already running site.
+- Use **Audit Log** to filter by actor, event, operation, record or UTC date. A proposal and its applied action are distinct events. Actor filters use stable account identities: matching names stay separate, and removed users appear as Former account.
+
+### Signup request tabs
+
+Signup Requests includes self-service and **Staff-entered** requests in the same tabs and counts. The source badge describes how the signup was entered; it does not change approval status, priority or participation rules. **Earlier signup** means the original source cannot be confirmed. Staff can still enter tutees through the roster. Needs matching includes empty or partially assigned requests; Assigned contains requests whose requested subjects all have tutors. Sources keep their original submission order. Needs review contains pending review decisions; Processed retains closed requests and completed review history.
+
+Course-aware tutor selectors in Signup Requests and Pairings list tutors with approved, recorded subject grants first, followed by a separate unqualified group. Inherited grants remain valid after level reordering. Choose the subject first in Pairings. Assigning an unqualified tutor opens a warning naming the tutor and subject; confirmation becomes available after three full seconds. Cancel or change the selection to discard that acknowledgement. Coordinators still submit proposals, and the reviewer must confirm any remaining qualification mismatch independently. This override does not waive active-tutor, request, permission, or scheduling checks.
+
+### Review withdrawals and membership
+
+Staff use **Withdrawal Requests & Removals** to review self-submitted requests and their decision history. Tutee requests show their source, scope, submission time and approval-dependent effective date. Tutor-relayed withdrawals remain in a separate section with their existing seven-day recall window and exact scheduled effective time. Tutor relays remain available; staff can cancel them before they take effect.
+
+Tutor and crew opt-out/reentry requests remain pending until reviewed. Opt-out approval requires seven days to have elapsed; reentry has no seven-day wait. Recall controls depend on the request type; crew members can recall a pending opt-out. After approving a tutor opt-out, use the explicit student-requeue action to return affected students for matching. If the member's status has changed since submission, decline the stale request and review the current roster.
+
+### Review records and reports
+
+Use [Attendance Flags](program-reference.md#review-attendance-flags) to assess crew evidence before applying a decision. Use [Reports](program-reference.md#reports-and-exports) to choose a period, review totals, download table CSVs or print a report. Check the privacy setting before sharing. Audits and policy acceptance history remain separate evidence views.
+
+CSV exports preserve numeric quantities and quote names or comments containing commas, quotes or newlines. Text beginning with spreadsheet formula markers or control characters receives a protective apostrophe so it is treated as text on initial import. That apostrophe may be visible in other CSV readers; preserve it when handling the export. Spreadsheet edits or re-saving the file can change how another import interprets it.
+
+### Management registration codes
+
+Registration Codes supports Tutor, Crew, Admin and Coordinator invitations. Every code grants only its displayed role. Head can issue directly; other staff submit a proposal requiring Head approval. Only Head can list, share or revoke Admin/Coordinator codes. The selected role appears in the list, share card and every redemption step after code validation. There is no Head code; leadership transfer remains separate.
+
+Admin/Coordinator redemption requires email verification and creates a new management-only account without Tutor, Crew, Tutee or Translator participation. Existing primary or secondary email owners must sign in and ask Head to change roles in Users & Roles; a code never resets their credentials or replaces their roles. Expiry, rate limits, email binding and single use remain enforced, and issuer/recipient history is retained. The additive registration-kind migration preserves outstanding Tutor/Crew invitations. Apply migrations before starting the updated application.
+
+## HEAD
+
+HEAD has administrator abilities plus the program’s restricted leadership and configuration controls. Use **Users & Roles** for permitted appointments and leadership transfer, and **Program & Refresh** for module and program settings. Confirm consequential actions carefully; switching modules or periods affects what participants can do.
+
+Before opening intake, confirm email delivery, the current policies, subjects, slots, rooms, qualifications, intake timing, school calendar and feedback visibility. Coordinate host, backup and recovery readiness with the technical operator using the [launch runbook](deployment.md).
+
+ADMIN or HEAD can perform the [program refresh](program-reference.md#refresh-the-program); only HEAD stages module switches. Refresh advances the period, applies pending switches and changes participation, so confirm the displayed consequences first. A new period preserves historical attendance, policy acceptance and audit evidence. Only HEAD can grant or change roles and badges, approve membership changes, provision new tutor accounts, transfer leadership, or delete eligible accounts; the current HEAD cannot be deleted. Leadership transfer appoints an eligible administrator or coordinator and makes the outgoing HEAD an administrator.
+
+### Head username editing
+
+In **Users & Roles → Edit profile**, Head can save a username for any login account, including their own. Use 1–64 ASCII letters or digits; surrounding whitespace is trimmed and letters are lowercased. Taken usernames in either the login or tutor roster are rejected. The linked tutor is updated atomically, so the old handle no longer signs in. Email sign-in, passwords, IDs, badges and history remain unchanged. Ordinary roster name edits retain the username. Admins and coordinators cannot rename accounts. Saves record the actor and old/new handles and refresh the account list and current header. An unchanged save is a no-op; stale profile versions require reopening the editor.
+
+## Viewers
+
+When viewer signup is enabled, use the public viewer registration form, provide your name, affiliation and email, confirm the emailed code, then set your password. If that email already has an account, sign in or recover it instead. Email delivery must be available.
+
+Viewers can browse permitted read-only management summaries. Personal contact details are masked, and management mutations are unavailable. Viewer access does not expose private message conversations or another person’s tutee records. Viewer cannot coexist with tutoring, tutee, translation or crew membership. Request a replacement membership from Account settings and wait for HEAD approval before participating.
+
+If you need a different role or access to your own participation record, request the change in Account settings. Do not create another account to work around permissions.
+
+## Translators
+
+Translator access requires an explicit HEAD-approved assignment, even for management accounts. **Translations** opens the integrated editor: **Interface text**, **Website text**, and **Draft review**. Management without Translator assignment can review drafts. ADMIN/HEAD also have a **Languages** tab to show/hide languages in the public selector, move them up/down, and remove custom languages. These controls do not require Translator assignment; English remains enabled as the fallback. Assigned translators use the same tab to add languages, which start hidden until ADMIN/HEAD enables them. Choose the correct language and destination, preserve meaning, and submit for review. Interface text submits when focus leaves a changed field; website text has an explicit submission button.
+
+Translator and Coordinator edits create private drafts, including all five text destinations. Only ADMIN/HEAD can approve and publish or reject a draft. Coordinators can **Request Admin/Head approval**, which leaves the draft pending. ADMIN/HEAD with an explicit Translator assignment may also publish their own direct edits; the editor identifies these as live changes. Filter draft review by pending, published, rejected or all drafts. Historical drafts remain available, and old review bookmarks open this editor. If the destination changes before approval, submit a fresh draft against the current text. Translator assignment does not permit structural page deletion, account administration or unilateral policy publication. Policy translations require the separate [policy review process](policies/README.md).
+
+## Account settings and private support
+
+Use **Account Settings** to edit your name and optional names in other languages, change your password or request a verified email change. Current explicitly linked tutor/tutee profiles share those names; signed agreements and submitted survey records retain their original text. Editing a contact field is not email verification. Keep account links and codes private. If email delivery is unavailable, contact management; a success message from another action does not prove an email arrived.
+
+Changing or resetting your password signs out every existing session, including the browser making the change. Account Settings and tutor Settings return you to Sign In; use your new password. Other browsers require sign-in on their next request. Your account, permissions and tutoring history remain. This update also requires one fresh sign-in for sessions created before session revocation was introduced. Existing email two-factor requirements remain in effect.
+
+Legacy accounts that need email verification or a new password receive a setup link at their existing account email. Open that link to prove mailbox ownership and set the password. The setup page shows your current email address; it cannot be changed there. If you cannot access the address, contact the program team. Two-factor preferences stay unchanged and can be managed after sign-in.
+
+Use password recovery when you cannot sign in. Personal email two-factor authentication requires both the program switch and your account preference, plus working email delivery. If suspended, sign in with your normal password and complete two-factor authentication if enabled; you will be directed to the suspension page to submit or review an account appeal. Suspension continues to block ordinary program access, and a pending appeal does not restore it. This is separate from appealing a student's disciplinary card.
+
+The notification menu shows your own recent notices and unread count. Follow a notice to its related task, mark it read, or mark all as read. Private message bodies and recipient lists are excluded from notifications.
+
+Use **Messages** to send separate private deliveries to allowed contacts. Search by name or username, select up to 20 people, and keep selections while searching or paging. New messages deliver immediately and may be reviewed or hidden by HEAD/ADMIN; reviews and moderation are recorded. Recipients cannot see other recipients or their replies. Historical messages sent under the old participant-only notice remain participant-only. Notifications omit message bodies. Replies follow current permissions; history remains readable after contact eligibility changes. If any selected recipient becomes ineligible before a send, nothing is delivered: review your selections and retry. Retrying the same send does not duplicate deliveries. A messaging restriction prevents new sending and incoming eligibility while retaining history; account suspension instead leads to the appeal page. For a suspended account, use the appeal option on the suspension page. See [contact permissions and supervision](program-reference.md#message-permissions-and-supervision) for management configuration.
+
+On the Tutee page, **Messages** and **Account** open inside the same navigation and header. Account settings use your shared profile, verified email changes, password changes and two-factor settings. HEAD, ADMIN and COORDINATOR open Messages inside the management shell at `/admin/messages`. HEAD/ADMIN also have **Message supervision** for audited review, reversible hiding, messaging restrictions and role/user contact permissions; coordinators cannot supervise other conversations.
+
+### Associated email addresses
+
+**Account Settings** and tutor **Settings** share the **Associated emails** controls. Only the primary email is required for signup, account setup and normal site use; secondary addresses are optional. An account may have up to five secondary addresses, counting pending requests. ADMIN/HEAD can independently disable **Secondary-email binding** in **Program & Refresh**. While disabled, adding, resending and confirming secondary addresses is blocked in settings and on the server; existing verified addresses remain usable and removable, and pending requests can be cancelled. Primary-email changes remain available and preserve the previous verified primary. Enter your current password to add an address, resend its code, promote a verified address or remove a secondary. Codes last ten minutes, allow five attempts and have a one-minute resend interval. Expired requests remain visible for resend or cancellation. Pending requests do not reserve an address or prevent its actual owner from registering; ownership is checked again when you verify.
+
+Any verified address can sign in or recover the same account. Recovery requested with a secondary address goes to that address; recovery by username goes to the primary. Login 2FA and password-change codes still go to the primary, so aliases do not bypass 2FA. Changing primary retains the previous verified primary as a secondary and updates only explicitly linked current tutor/tutee contact rows. Account identity, roles, history and signed agreements remain unchanged. Removing an address revokes its outstanding grants; adding it again does not revive them. Select another verified primary before removing the current one.
+
+### Optional email notifications
+
+When an ADMIN or HEAD enables **Email notifications** in **Program & Refresh**, **Account → Email preferences** offers private-message notices and information/program updates (both default off). Each category may be enabled or disabled independently. Security alerts for password, two-factor and associated-email changes are essential and cannot be disabled. Private-message notices omit the message contents. By default notices go only to a verified primary; you can also include verified secondary addresses. A primary change additionally notifies the previous verified primary regardless of notification preferences, even if that address is subsequently removed.
+
+Disabling notifications at program level preserves preferences and cancels queued optional notices; re-enabling does not send the old backlog. While program notifications are disabled, users cannot enable them or edit notification preferences. Verification, recovery, login/step-up mail and security alerts remain independent of both optional switches and personal notification preferences. Already accepted mail cannot be recalled.
+
+## Renewed policy acceptance
+
+For both tutor and tutee policies, scroll to the bottom inside the policy text box before checking the agreement. The checkbox is disabled and its label stays gray until you reach the end; it never checks itself. You can scroll using a mouse, touch, or the keyboard after focusing the policy box. A short policy that is fully visible unlocks immediately. Scrolling back up keeps agreement available during that review. Retry, reopening the popup, or switching to another policy revision or translation starts a fresh review.
+
+When a published policy applicable to your linked student or tutor profile changes, a popup opens on your next visit or window focus. Accounts with both profiles review each applicable policy. Read the text in your selected language (or English when unavailable), check the agreement and complete the ten-second confirmation. Use **Retry** if loading or acceptance fails. You may cancel the popup to access messages, account details, personal history, feedback and appeals; new participation still requires current acceptance on the server. The reminder lets you reopen the popup. Already accepted revisions and unpublished proposals do not require renewed consent. Policy editing and publication remain under **Policy Documents**.
+
+Email confirmation and password recovery pages remain available without a policy reminder; current acceptance is still required before participating.
+
+## Troubleshooting
+
+| What you see                                    | What to do                                                                                                                                     |
+| ----------------------------------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------- |
+| Intake has not opened                           | Check the displayed opening time or preview; account creation does not change survey priority                                                  |
+| Confirmation link expired                       | Request a new link; use the most recent successfully sent link                                                                                 |
+| Verification deadline passed                    | Submit a new request if eligible; resending the old link cannot extend the deadline                                                            |
+| A new policy is required                        | Read and accept the displayed revision; history and private support remain accessible                                                          |
+| Change is pending                               | Open Management Actions; live records stay unchanged until approval                                                                            |
+| Affected records changed                        | Reviewer rejects the stale proposal; coordinator prepares a new one using current records                                                      |
+| Assignment applied but email failed             | Keep the assignment; resend its verification link and check delivery configuration                                                             |
+| Interview decision blocked                      | Check every vote, active panel membership, highest-ranking chair and subject qualification                                                     |
+| A permission/page is missing                    | Check role, linked membership, suspension and enabled module with management                                                                   |
+| Hours look different from ordinary rounding     | Compare recorded attendance with the [implemented rounding examples](../prisma/policies/tutor-policy.en.md#iii-service-hours-accrual) in the policy draft |
+| A correction did not change the expected record | Check approval state, date/program period and the audit trail; ask management to investigate                                                   |
+
+## Report a problem
+
+For a private account, disciplinary or attendance matter, contact management through the website. For a reproducible software bug, use the [bug form](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/new?template=01-bug_report.yml). You can also [suggest a feature](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/new?template=03-feature_request.yml), [enhance an existing feature](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/new?template=02-enhancement.yml) or [request a documentation update](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/new?template=04-documentation.yml).
+
+Use synthetic examples and remove tutee names, contact details, private messages, account links and codes from public reports. [Creating issues](issues.md) explains what information is useful.
+
+[Documentation home](README.md) · [Technical report](technical-report.md) · [Policy drafts](policies/README.md)
+
+## Configure signup forms
+
+Open **Management → Signup forms** and choose Tutor signup or Tutee signup. Head can open **Configure** beside an existing field and choose Required, Optional, or Hidden. Other management users can review settings but cannot save them. Save applies immediately to new submissions, including a form opened before the change; reload that form if validation reports changed requirements. Existing submissions and their original answers remain unchanged.
+
+Name, sign-in email, the first subject and policy acceptance are locked as visible and required. Additional subject choices can be configured independently, without reordering or adding fields. Required qualification questions ask for an explicit Yes or No, not a positive qualification. Grade, AP score and self-study details are required only when their visible parent answer is Yes; AP questions apply only to AP-scored subjects. Hidden questions and their dependent details cannot block submission.
+
+Program secondary-email binding settings do not disable the required sign-in email. These forms contain no secondary-email field; additional addresses are managed after account setup, subject to the program switch. The configuration popup supports keyboard navigation, Escape to cancel, and returns focus to Configure when closed.
+
+### Reviewing your own management requests
+
+Admin and Head can review eligible ordinary Management Actions. Only the current active Head can review role/badge changes or their own pending requests. Other reviewers cannot decide their own requests, including after promotion to Admin. Current database permissions apply after promotion, demotion or suspension. Head self-review preserves required notes, consequence confirmations, stale-record checks and atomic application; requester and reviewer audit identities remain recorded even when they match. This exception applies to Management Actions, not participant interview voting or qualification decisions.
+
+### Previewing applications outside recruitment
+
+The tutor application and tutee request are separate forms with separate recruitment periods. When a period has not started, has ended, is paused, or is awaiting setup, you can still read the questions and any published policy. The response fields and submission button are disabled. Return when recruitment opens to complete your application. Any additional sheet link is supplied by the team for viewing; it is not a list of other participants' responses.

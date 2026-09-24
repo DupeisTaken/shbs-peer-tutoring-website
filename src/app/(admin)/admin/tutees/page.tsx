@@ -1,14 +1,16 @@
 "use client";
+import { pairingScheduleText } from "~/lib/pairing-schedule";
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
-import { DAY_NAMES, minToHm } from "~/lib/time";
 import { REFERENCE_STALE_TIME } from "~/lib/query";
 import { SortHeader, useSort, compare } from "~/app/_components/sortable";
 import { useReadOnly } from "~/app/_components/read-only";
+import { EmailDetails } from "~/app/_components/email-details";
+import { TuteeEditor } from "~/app/_components/tutee-editor";
 
 type Status = "PENDING" | "ACTIVE" | "INACTIVE";
 
@@ -32,7 +34,13 @@ type TuteeStat = {
 };
 
 /** Two table cells: session attendance (present/total) and discipline standing. */
-function StatsCells({ s, removalLabel }: { s?: TuteeStat; removalLabel: string }) {
+function StatsCells({
+  s,
+  removalLabel,
+}: {
+  s?: TuteeStat;
+  removalLabel: string;
+}) {
   if (!s) {
     return (
       <>
@@ -70,9 +78,12 @@ function StatsCells({ s, removalLabel }: { s?: TuteeStat; removalLabel: string }
 export default function TuteesPage() {
   const t = useTranslations();
   const readOnly = useReadOnly();
+  const [editingId, setEditingId] = useState<string | null>(null);
   const utils = api.useUtils();
   const tutees = api.admin.tutees.useQuery();
-  const courses = api.admin.subjects.useQuery(undefined, { staleTime: REFERENCE_STALE_TIME });
+  const courses = api.admin.subjects.useQuery(undefined, {
+    staleTime: REFERENCE_STALE_TIME,
+  });
   const tutors = api.admin.tutors.useQuery();
   const pairings = api.admin.pairings.useQuery();
   const stats = api.admin.tuteeStats.useQuery();
@@ -81,7 +92,6 @@ export default function TuteesPage() {
 
   const invalidate = () => utils.admin.tutees.invalidate();
   const create = api.admin.createTutee.useMutation({ onSuccess: invalidate });
-  const update = api.admin.updateTutee.useMutation({ onSuccess: invalidate });
   const del = api.admin.deleteTutee.useMutation({ onSuccess: invalidate });
 
   const [name, setName] = useState("");
@@ -90,6 +100,7 @@ export default function TuteesPage() {
   const [secondChoiceId, setSecondChoiceId] = useState("");
 
   const all = tutees.data ?? [];
+  const editing = all.find((row) => row.id === editingId);
   const pendingCount = all.filter((t) => t.status === "PENDING").length;
   const courseList = courses.data ?? [];
 
@@ -97,7 +108,8 @@ export default function TuteesPage() {
 
   // Active + inactive tutees, sorted by the chosen column.
   const rows = useMemo(() => {
-    const rest = (tutees.data ?? []).filter((t) => t.status !== "PENDING");
+    // Pending profiles also need corrections before staff can assign them.
+    const rest = [...(tutees.data ?? [])];
     const dir = sort.dir === "asc" ? 1 : -1;
     return rest.sort((a, b) => {
       const sa = stats.data?.[a.id];
@@ -145,100 +157,114 @@ export default function TuteesPage() {
       </div>
 
       {/* Manual add */}
+      {!readOnly && editing && (
+        <TuteeEditor
+          key={editing.id}
+          row={editing}
+          onClose={() => setEditingId(null)}
+        />
+      )}
       {!readOnly && (
-      <section className="card p-5">
-        <h2 className="section-title">{t("admin.tutees.addTutee")}</h2>
-        <form
-          className="mt-3 flex flex-wrap items-end gap-3"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (!name.trim()) return;
-            create.mutate(
-              {
-                englishName: name.trim(),
-                gradeLevel: gradeLevel.trim() || undefined,
-                firstChoiceId: firstChoiceId || undefined,
-                secondChoiceId: secondChoiceId || undefined,
-                status: "ACTIVE",
-              },
-              {
-                onSuccess: () => {
-                  setName("");
-                  setGradeLevel("");
-                  setFirstChoiceId("");
-                  setSecondChoiceId("");
+        <section className="card p-5">
+          <h2 className="section-title">{t("admin.tutees.addTutee")}</h2>
+          <form
+            className="mt-3 flex flex-wrap items-end gap-3"
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!name.trim()) return;
+              create.mutate(
+                {
+                  englishName: name.trim(),
+                  gradeLevel: gradeLevel.trim() || undefined,
+                  firstChoiceId: firstChoiceId || undefined,
+                  secondChoiceId: secondChoiceId || undefined,
+                  status: "ACTIVE",
                 },
-              },
-            );
-          }}
-        >
-          <label className="space-y-1">
-            <span className="label">{t("admin.tutees.fullName")}</span>
-            <input
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={t("admin.tutees.phName")}
-              className="input field-auto min-w-48"
-            />
-          </label>
-          <label className="space-y-1">
-            <span className="label">{t("admin.tutees.grade")}</span>
-            <input
-              value={gradeLevel}
-              onChange={(e) => setGradeLevel(e.target.value)}
-              placeholder={t("admin.tutees.phGrade")}
-              className="input field-auto min-w-20"
-            />
-          </label>
-          <label className="space-y-1">
-            <span className="label">{t("admin.tutees.firstChoice")}</span>
-            <select
-              value={firstChoiceId}
-              onChange={(e) => setFirstChoiceId(e.target.value)}
-              className="select field-auto min-w-40"
-            >
-              <option value="">—</option>
-              {courseList.map((c) => (
-                <option key={c.id} value={c.id}>
-                  {c.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="space-y-1">
-            <span className="label">{t("admin.tutees.secondChoice")}</span>
-            <select
-              value={secondChoiceId}
-              onChange={(e) => setSecondChoiceId(e.target.value)}
-              className="select field-auto min-w-40"
-            >
-              <option value="">—</option>
-              {courseList
-                .filter((c) => c.id !== firstChoiceId)
-                .map((c) => (
+                {
+                  onSuccess: () => {
+                    setName("");
+                    setGradeLevel("");
+                    setFirstChoiceId("");
+                    setSecondChoiceId("");
+                  },
+                },
+              );
+            }}
+          >
+            <label className="space-y-1">
+              <span className="label">{t("admin.tutees.fullName")}</span>
+              <input
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={t("admin.tutees.phName")}
+                className="input field-auto min-w-48"
+              />
+            </label>
+            <label className="space-y-1">
+              <span className="label">{t("admin.tutees.grade")}</span>
+              <input
+                value={gradeLevel}
+                onChange={(e) => setGradeLevel(e.target.value)}
+                placeholder={t("admin.tutees.phGrade")}
+                className="input field-auto min-w-20"
+              />
+            </label>
+            <label className="space-y-1">
+              <span className="label">{t("admin.tutees.firstChoice")}</span>
+              <select
+                value={firstChoiceId}
+                onChange={(e) => setFirstChoiceId(e.target.value)}
+                className="select field-auto min-w-40"
+              >
+                <option value="">—</option>
+                {courseList.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name}
                   </option>
                 ))}
-            </select>
-          </label>
-          <button className="btn-primary" disabled={!name.trim() || create.isPending}>
-            {t("admin.tutees.addTuteeBtn")}
-          </button>
-        </form>
-      </section>
+              </select>
+            </label>
+            <label className="space-y-1">
+              <span className="label">{t("admin.tutees.secondChoice")}</span>
+              <select
+                value={secondChoiceId}
+                onChange={(e) => setSecondChoiceId(e.target.value)}
+                className="select field-auto min-w-40"
+              >
+                <option value="">—</option>
+                {courseList
+                  .filter((c) => c.id !== firstChoiceId)
+                  .map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
+              </select>
+            </label>
+            <button
+              className="btn-primary"
+              disabled={!name.trim() || create.isPending}
+            >
+              {t("admin.tutees.addTuteeBtn")}
+            </button>
+          </form>
+        </section>
       )}
 
       {/* Bottom table — toggled between the tutee list and the tutor/pairings view */}
       <div className="flex gap-2">
         <button
-          className={view === "tutees" ? "btn-primary btn-sm" : "btn-secondary btn-sm"}
+          className={
+            view === "tutees" ? "btn-primary btn-sm" : "btn-secondary btn-sm"
+          }
           onClick={() => setView("tutees")}
         >
           {t("admin.tutees.viewTutees")}
         </button>
         <button
-          className={view === "tutors" ? "btn-primary btn-sm" : "btn-secondary btn-sm"}
+          className={
+            view === "tutors" ? "btn-primary btn-sm" : "btn-secondary btn-sm"
+          }
           onClick={() => setView("tutors")}
         >
           {t("admin.tutees.viewTutors")}
@@ -263,7 +289,9 @@ export default function TuteesPage() {
                 if (tps.length === 0) {
                   return [
                     <tr key={tutor.id}>
-                      <td className="font-medium text-slate-800">{tutor.englishName}</td>
+                      <td className="font-medium text-slate-800">
+                        {tutor.englishName}
+                      </td>
                       <td colSpan={4} className="text-slate-400">
                         {t("admin.tutees.noPairings")}
                       </td>
@@ -277,11 +305,14 @@ export default function TuteesPage() {
                     </td>
                     <td>{p.subject}</td>
                     <td className="text-slate-600">
-                      {DAY_NAMES[p.dayOfWeek]} {minToHm(p.startMin)}–{minToHm(p.endMin)}
+                      {pairingScheduleText(p, t("scheduling.awaiting"))}
                     </td>
-                    <td className="text-slate-600">{p.timeSlot?.label ?? t("admin.tutees.tbd")}</td>
                     <td className="text-slate-600">
-                      {p.tutees.map((t) => t.tutee.englishName).join(", ") || "—"}
+                      {p.timeSlot?.label ?? t("admin.tutees.tbd")}
+                    </td>
+                    <td className="text-slate-600">
+                      {p.tutees.map((t) => t.tutee.englishName).join(", ") ||
+                        "—"}
                     </td>
                   </tr>
                 ));
@@ -293,67 +324,100 @@ export default function TuteesPage() {
 
       {view === "tutees" && (
         <section className="card overflow-x-auto">
-          <table className="data-table">
+          <table className="data-table [&_td]:px-2 [&_th]:px-2">
             <thead>
               <tr>
-                <SortHeader sort={sort} sortKey="name">{t("admin.tutees.colName")}</SortHeader>
-                <SortHeader sort={sort} sortKey="grade">{t("admin.tutees.colGrade")}</SortHeader>
+                <SortHeader sort={sort} sortKey="name">
+                  {t("admin.tutees.colName")}
+                </SortHeader>
+                <SortHeader sort={sort} sortKey="grade">
+                  {t("admin.tutees.colGrade")}
+                </SortHeader>
                 <th>{t("admin.tutees.colCourses")}</th>
-                <SortHeader sort={sort} sortKey="sessions">{t("admin.tutees.colSessions")}</SortHeader>
-                <SortHeader sort={sort} sortKey="discipline">{t("admin.tutees.colDiscipline")}</SortHeader>
+                <SortHeader sort={sort} sortKey="sessions">
+                  {t("admin.tutees.colSessions")}
+                </SortHeader>
+                <SortHeader sort={sort} sortKey="discipline">
+                  {t("admin.tutees.colDiscipline")}
+                </SortHeader>
                 <th>{t("admin.tutees.colContact")}</th>
-                <SortHeader sort={sort} sortKey="status">{t("admin.tutees.colStatus")}</SortHeader>
+                <SortHeader sort={sort} sortKey="status">
+                  {t("admin.tutees.colStatus")}
+                </SortHeader>
                 <th></th>
               </tr>
             </thead>
             <tbody>
               {rows.map((t2) => (
                 <tr key={t2.id}>
-                  <td>
-                    {readOnly ? (
-                      <span>{t2.englishName}</span>
-                    ) : (
-                      <input
-                        defaultValue={t2.englishName}
-                        className="input field-auto min-w-40"
-                        onBlur={(e) => {
-                          const v = e.target.value.trim();
-                          if (v && v !== t2.englishName)
-                            update.mutate({
-                              id: t2.id,
-                              englishName: v,
-                              gradeLevel: t2.gradeLevel,
-                              email: t2.email,
-                              phone: t2.phone,
-                              notes: t2.notes,
-                              status: t2.status,
-                              firstChoiceId: t2.firstChoiceId,
-                              secondChoiceId: t2.secondChoiceId,
-                            });
-                        }}
-                      />
+                  <td className="max-w-52 min-w-40">
+                    <p className="font-medium [overflow-wrap:anywhere] text-slate-900">
+                      {t2.englishName}
+                    </p>
+                    {t2.alternativeNames && (
+                      <p className="muted text-xs [overflow-wrap:anywhere]">
+                        {t2.alternativeNames}
+                      </p>
                     )}
+                    <p className="muted mt-1 text-xs">
+                      {t2.user?.username
+                        ? `@${t2.user.username}`
+                        : t("accountProfile.setupRequired")}
+                    </p>
                   </td>
                   <td>{t2.gradeLevel ?? "—"}</td>
-                  <td className="text-slate-600">
-                    {t2.firstChoice?.name ?? "—"}
-                    {t2.secondChoice ? ` / ${t2.secondChoice.name}` : ""}
+                  <td className="w-36 max-w-36 whitespace-normal text-slate-600">
+                    <ul className="space-y-1 text-sm">
+                      {[t2.firstChoice, t2.secondChoice]
+                        .filter((subject) => subject !== null)
+                        .map((subject) => (
+                          <li key={subject.id}>{subject.name}</li>
+                        ))}
+                    </ul>
+                    {!t2.firstChoice && !t2.secondChoice && "—"}
                   </td>
-                  <StatsCells s={stats.data?.[t2.id]} removalLabel={t("admin.tutees.removalBadge")} />
+                  <StatsCells
+                    s={stats.data?.[t2.id]}
+                    removalLabel={t("admin.tutees.removalBadge")}
+                  />
                   <td className="text-slate-600">
-                    {t2.preferredContact ?? t2.email ?? t2.phone ?? "—"}
+                    <EmailDetails
+                      name={t2.englishName}
+                      email={t2.user?.email ?? t2.email}
+                      verifiedAt={t2.user?.emailVerifiedAt}
+                      userId={t2.user?.id}
+                      canSendSetup={!readOnly && !!t2.user}
+                      linked={!!t2.user}
+                    />
                   </td>
                   {/* Status is read-only here — transitions follow the procedures: assignment on
                       /admin/requests, removal & reinstatement on /admin/tutee-requests. */}
                   <td>
-                    <StatusBadge status={t2.status} label={statusLabel(t2.status)} />
+                    <StatusBadge
+                      status={t2.status}
+                      label={statusLabel(t2.status)}
+                    />
                   </td>
-                  <td className="text-right">
-                    {!readOnly && (
-                      <button className="link-danger" onClick={() => del.mutate({ id: t2.id })}>
-                        {t("admin.tutees.deleteBtn")}
-                      </button>
-                    )}
+                  {/* Reserve one unbroken action group even when other columns grow. */}
+                  <td className="w-px text-right whitespace-nowrap">
+                    <div className="inline-flex flex-col items-end justify-center gap-2">
+                      {!readOnly && (
+                        <button
+                          className="link whitespace-nowrap"
+                          onClick={() => setEditingId(t2.id)}
+                        >
+                          {t("accountProfile.editProfile")}
+                        </button>
+                      )}
+                      {!readOnly && (
+                        <button
+                          className="link-danger whitespace-nowrap"
+                          onClick={() => del.mutate({ id: t2.id })}
+                        >
+                          {t("admin.tutees.deleteBtn")}
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
               ))}

@@ -14,6 +14,14 @@ export interface ActivePeriod {
   quarter: Quarter;
   semester: Semester;
   name: string;
+  signupOpensAt: Date | null;
+  signupPreviewUrl: string | null;
+  signupEnabled: boolean;
+  signupClosesAt: Date | null;
+  tutorSignupEnabled: boolean;
+  tutorSignupOpensAt: Date | null;
+  tutorSignupClosesAt: Date | null;
+  tutorSignupPreviewUrl: string | null;
 }
 
 type TermClient = Pick<PrismaClient, "term">;
@@ -36,11 +44,21 @@ export async function getActivePeriod(db: TermClient): Promise<ActivePeriod> {
     quarter: term.quarter,
     semester: quarterSemester(term.quarter),
     name: term.name,
+    signupEnabled: term.signupEnabled,
+    signupClosesAt: term.signupClosesAt,
+    tutorSignupEnabled: term.tutorSignupEnabled,
+    tutorSignupOpensAt: term.tutorSignupOpensAt,
+    tutorSignupClosesAt: term.tutorSignupClosesAt,
+    tutorSignupPreviewUrl: term.tutorSignupPreviewUrl,
+    signupOpensAt: term.signupOpensAt,
+    signupPreviewUrl: term.signupPreviewUrl,
   };
 }
 
 /** Same as getActivePeriod but returns null instead of throwing (for read-only views). */
-export async function getActivePeriodOrNull(db: TermClient): Promise<ActivePeriod | null> {
+export async function getActivePeriodOrNull(
+  db: TermClient,
+): Promise<ActivePeriod | null> {
   const term = await db.term.findFirst({
     where: { active: true },
     orderBy: { createdAt: "desc" },
@@ -52,5 +70,13 @@ export async function getActivePeriodOrNull(db: TermClient): Promise<ActivePerio
     quarter: term.quarter,
     semester: quarterSemester(term.quarter),
     name: term.name,
+    signupEnabled: term.signupEnabled,
+    signupClosesAt: term.signupClosesAt,
+    tutorSignupEnabled: term.tutorSignupEnabled,
+    tutorSignupOpensAt: term.tutorSignupOpensAt,
+    tutorSignupClosesAt: term.tutorSignupClosesAt,
+    tutorSignupPreviewUrl: term.tutorSignupPreviewUrl,
+    signupOpensAt: term.signupOpensAt,
+    signupPreviewUrl: term.signupPreviewUrl,
   };
 }

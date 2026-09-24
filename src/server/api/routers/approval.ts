@@ -1,0 +1,328 @@
+import { isAssignmentOperation } from "~/lib/assignment-qualification";
+import { z } from "zod";
+import { TRPCError } from "@trpc/server";
+import superjson from "superjson";
+import {
+  createTRPCRouter,
+  protectedProcedure,
+  adminOnlyProcedure,
+} from "../trpc";
+import { db } from "~/server/db";
+import { databaseScope, approvalScope } from "~/server/db-scope";
+import { lockEntity } from "~/server/transactions";
+import {
+  parseProposal,
+  fingerprint,
+  proposalTargets,
+} from "~/server/approvals";
+import { HEAD_APPROVAL_OPERATIONS, humanizeOperation, proposalConfirmation } from "~/lib/approval-policy";
+import { requesterLabels } from "~/lib/requester-labels";
+import {
+  isAttendanceApproval,
+  lockAttendanceApproval,
+  lockAttendanceApprovalTarget,
+} from "~/server/attendance-approval";
+
+async function reviewRequesterOptions(database: typeof db) {
+  const requests = await database.approvalRequest.findMany({
+    distinct: ["requesterId"],
+    select: { requesterId: true, requesterName: true },
+    orderBy: { createdAt: "desc" },
+  });
+  const users = await database.user.findMany({
+    where: { id: { in: requests.map((request) => request.requesterId) } },
+    select: { id: true, name: true, username: true, email: true },
+  });
+  return requesterLabels(requests, users);
+}
+
+/** Approval is a single atomic transition: revalidation, live change, decision, audit,
+ * and notifications either all commit or all roll back. The requester is never impersonated. */
+export const approvalRouter = createTRPCRouter({
+  requesters: adminOnlyProcedure.query(async ({ ctx }) => {
+    return reviewRequesterOptions(ctx.db);
+  }),
+  list: protectedProcedure
+    .input(
+      z
+        .object({
+          state: z
+            .enum(["PENDING", "APPROVED", "REJECTED", "CANCELLED"])
+            .optional(),
+          requesterId: z.string().optional(),
+          requestId: z.string().optional(),
+          page: z.number().int().min(0).default(0),
+        })
+        .default({ page: 0 }),
+    )
+    .query(async ({ ctx, input }) => {
+      const canReview =
+        ctx.session.role === "HEAD" || ctx.session.role === "ADMIN";
+      const where = {
+        // A detail link addresses one request independently of list filters/pagination.
+        state: input.requestId ? undefined : input.state,
+        id: input.requestId,
+        requesterId: canReview
+          ? input.requestId
+            ? undefined
+            : input.requesterId
+          : ctx.session.user.id,
+      };
+      const [rows, total, requesters] = await Promise.all([
+        ctx.db.approvalRequest.findMany({
+          where,
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          take: 25,
+          skip: input.requestId ? 0 : input.page * 25,
+        }),
+        ctx.db.approvalRequest.count({ where }),
+        // The current server role authorizes the directory in this same response.
+        // Never enable a second privileged query from cached canReview client data.
+        canReview && !input.requestId ? reviewRequesterOptions(ctx.db) : [],
+      ]);
+      return {
+        rows,
+        total,
+        canReview,
+        headReviewer: ctx.session.role === "HEAD",
+        viewerId: ctx.session.user.id,
+        requesters,
+      };
+    }),
+  decide: adminOnlyProcedure
+    .input(
+      z.object({
+        id: z.string(),
+        approve: z.boolean(),
+        note: z.string().trim().min(1).max(2000),
+        ticket: z.string().optional(),
+        overrideTicket: z.string().optional(),
+      }),
+    )
+    .mutation(async ({ ctx, input }) => {
+      // Classify only the immutable operation; authorization and proposal evidence are
+      // re-read below while locked. Other approvals retain serializable isolation.
+      const initial = input.approve
+        ? await ctx.db.approvalRequest.findUniqueOrThrow({
+            where: { id: input.id },
+            select: { operation: true, requesterId: true },
+          })
+        : null;
+      const attendanceApproval = initial && isAttendanceApproval(initial.operation);
+      const result = await ctx.db.$transaction(
+        async (tx) =>
+          databaseScope.run(tx, () =>
+            approvalScope.run(input.id, async () => {
+              if (attendanceApproval)
+                await lockAttendanceApproval(tx, initial.operation, [
+                  ctx.session.user.id,
+                  initial.requesterId,
+                ]);
+              await lockEntity(tx, `approval:${input.id}`);
+              const currentReviewer = await tx.user.findUnique({
+                where: { id: ctx.session.user.id },
+                select: { role: true, suspendedAt: true },
+              });
+              if (
+                !currentReviewer ||
+                currentReviewer.suspendedAt ||
+                !["HEAD", "ADMIN"].includes(currentReviewer.role)
+              )
+                throw new TRPCError({
+                  code: "FORBIDDEN",
+                  message: "Administrator access required.",
+                });
+              const request = await tx.approvalRequest.findUniqueOrThrow({
+                where: { id: input.id },
+              });
+              if (initial && (request.operation !== initial.operation || request.requesterId !== initial.requesterId))
+                throw new TRPCError({ code: "CONFLICT", message: "The approval request changed. Reload before reviewing it." });
+              if (HEAD_APPROVAL_OPERATIONS.has(request.operation) && currentReviewer.role !== "HEAD")
+                throw new TRPCError({ code: "FORBIDDEN", message: "Only Head may decide badge changes." });
+              if (request.state !== "PENDING")
+                throw new TRPCError({
+                  code: "CONFLICT",
+                  message: "This request has already been decided.",
+                });
+              // Only the current active Head may review their own pending proposal.
+              if (request.requesterId === ctx.session.user.id && currentReviewer.role !== "HEAD")
+                throw new TRPCError({
+                  code: "FORBIDDEN",
+                  message:
+                    "A different administrator must review your request.",
+                });
+              if (input.approve) {
+                const requester = await tx.user.findUnique({
+                  where: { id: request.requesterId },
+                  select: { role: true, suspendedAt: true },
+                });
+                if (
+                  !requester ||
+                  requester.suspendedAt ||
+                  (request.operation !== "admin.setMemberships" && !["COORDINATOR", "ADMIN", "HEAD"].includes(requester.role))
+                )
+                  throw new TRPCError({
+                    code: "CONFLICT",
+                    message:
+                      "The requester no longer has active management access. Reject this request.",
+                  });
+                const value: unknown = superjson.deserialize(
+                  request.payload as unknown as Parameters<
+                    typeof superjson.deserialize
+                  >[0],
+                );
+                await parseProposal(request.operation, value);
+                if (attendanceApproval)
+                  await lockAttendanceApprovalTarget(tx, request.operation, value);
+                const targets = await proposalTargets(
+                  tx,
+                  request.operation,
+                  request.payload,
+                  // Preserve legacy fingerprints: only recompute optional room
+                  // context when the immutable request originally captured it.
+                  Object.hasOwn(request.targets as object, "roomBlockContext"),
+                );
+                if (fingerprint(targets) !== request.fingerprint)
+                  throw new TRPCError({
+                    code: "CONFLICT",
+                    message:
+                      "The affected records changed. Reject this request and ask for a fresh proposal.",
+                  });
+                const { createCaller } = await import("../root");
+                // The allowlist and original input parser above precede this dynamic dispatch.
+                const caller = createCaller({
+                  ...ctx,
+                  db,
+                }) as unknown as Record<
+                  string,
+                  Record<string, (value: unknown) => Promise<unknown>>
+                >;
+                const [router, method] = request.operation.split(".");
+                // A coordinator's consumed/expired confirmation is evidence of their proposal,
+                // not authority for the reviewer. The original handler consumes the fresh ticket.
+                const confirmation = proposalConfirmation(
+                  request.operation,
+                  value,
+                );
+                if (confirmation && !input.ticket)
+                  throw new TRPCError({
+                    code: "PRECONDITION_FAILED",
+                    message:
+                      "Open the consequence dialog before applying this change.",
+                  });
+                const replayValue = confirmation ? { ...(value as object), ticket: input.ticket } : value;
+                // Each reviewer acknowledges current eligibility with their own one-use evidence.
+                await caller[router!]![method!]!(isAssignmentOperation(request.operation)
+                  ? { ...(replayValue as object), overrideTicket: input.overrideTicket }
+                  : replayValue);
+              }
+              const reviewer = await tx.user.findUniqueOrThrow({
+                where: { id: ctx.session.user.id },
+                select: { name: true, username: true },
+              });
+              const reviewerName =
+                reviewer.name ?? reviewer.username ?? ctx.session.user.id;
+              const state = input.approve ? "APPROVED" : "REJECTED";
+              const result = await tx.approvalRequest.update({
+                where: { id: request.id },
+                data: {
+                  state,
+                  reviewerId: ctx.session.user.id,
+                  reviewerName,
+                  reviewNote: input.note,
+                  reviewedAt: new Date(),
+                },
+              });
+              await tx.auditLog.create({
+                data: {
+                  userId: ctx.session.user.id,
+                  userName: reviewerName,
+                  action: `${input.approve ? "Approved and applied" : "Rejected"}: ${humanizeOperation(request.operation)}`,
+                  entity: "ApprovalRequest",
+                  entityId: request.id,
+                  approvalId: request.id,
+                  operation: request.operation,
+                  kind: "DECISION",
+                  details: {
+                    outcome: state,
+                    note: input.note,
+                    requesterId: request.requesterId,
+                    requesterName: request.requesterName,
+                  },
+                },
+              });
+              if (await tx.user.count({ where: { id: request.requesterId } }))
+                await tx.notification.create({
+                  data: {
+                    userId: request.requesterId,
+                    title: `Change ${input.approve ? "approved" : "rejected"}`,
+                    body: `${reviewerName}: ${input.note}`,
+                    link: `/admin/approvals?request=${request.id}`,
+                  },
+                });
+              return result;
+            }),
+          ),
+        { isolationLevel: attendanceApproval ? "ReadCommitted" : "Serializable", timeout: 20000 },
+      );
+      // SMTP happens only after the durable decision commits. A failed send is explicitly retryable.
+      let emailSent: boolean | null = null;
+      if (input.approve && result.operation === "studentWorkflow.assign") {
+        const payload = z
+          .object({ id: z.string() })
+          .parse(
+            superjson.deserialize(
+              result.payload as unknown as Parameters<
+                typeof superjson.deserialize
+              >[0],
+            ),
+          );
+        const survey = await ctx.db.studentSurvey.findUnique({
+          where: { id: payload.id },
+        });
+        if (survey && !survey.confirmedAt) {
+          const { resendSurvey } = await import("~/server/student-survey");
+          try {
+            emailSent = await resendSurvey(ctx.db, survey.email, false);
+          } catch {
+            emailSent = false;
+          }
+        }
+      }
+      return { ...result, emailSent };
+    }),
+  cancel: protectedProcedure
+    .input(z.object({ id: z.string() }))
+    .mutation(async ({ ctx, input }) =>
+      ctx.db.$transaction(async (tx) => {
+        await lockEntity(tx, `approval:${input.id}`);
+        const request = await tx.approvalRequest.findUniqueOrThrow({
+          where: { id: input.id },
+        });
+        if (request.requesterId !== ctx.session.user.id)
+          throw new TRPCError({ code: "FORBIDDEN" });
+        if (request.state !== "PENDING")
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "This request has already been decided.",
+          });
+        await tx.approvalRequest.update({
+          where: { id: request.id },
+          data: { state: "CANCELLED", reviewedAt: new Date() },
+        });
+        await tx.auditLog.create({
+          data: {
+            userId: ctx.session.user.id,
+            userName: request.requesterName,
+            action: `Cancelled request: ${humanizeOperation(request.operation)}`,
+            entity: "ApprovalRequest",
+            entityId: request.id,
+            approvalId: request.id,
+            operation: request.operation,
+            kind: "CANCELLATION",
+          },
+        });
+        return { ok: true };
+      }),
+    ),
+});

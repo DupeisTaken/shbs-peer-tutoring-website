@@ -22,10 +22,16 @@ RUN apk add --no-cache libc6-compat openssl
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
 ENV NEXT_TELEMETRY_DISABLED=1
-# Env is validated at runtime, not build time.
+# Env is validated at runtime, not build time. Branding is read by the running server.
+# Never pass production secrets or branding as build arguments.
 ENV SKIP_ENV_VALIDATION=1
 RUN npx prisma generate
 RUN npm run build
+
+# Keep the complete production dependency graph, including Prisma's migration CLI. Copying
+# just @prisma and prisma omits transitive CLI dependencies and cannot be boot-tested reliably.
+FROM build AS runtime-deps
+RUN npm prune --omit=dev --ignore-scripts
 
 ############################
 # 3. Runtime (slim, non-root)
@@ -50,8 +56,12 @@ COPY --from=build --chown=nextjs:nodejs /app/public ./public
 # entrypoint can run `prisma migrate deploy` at startup.
 COPY --from=build --chown=nextjs:nodejs /app/generated ./generated
 COPY --from=build --chown=nextjs:nodejs /app/prisma ./prisma
-COPY --from=build --chown=nextjs:nodejs /app/node_modules/prisma ./node_modules/prisma
-COPY --from=build --chown=nextjs:nodejs /app/node_modules/@prisma ./node_modules/@prisma
+COPY --from=runtime-deps --chown=nextjs:nodejs /app/node_modules ./node_modules
+COPY --from=build --chown=nextjs:nodejs /app/prisma.config.ts ./prisma.config.ts
+COPY --from=build --chown=nextjs:nodejs /app/package.json /app/tsconfig.json ./
+COPY --from=build --chown=nextjs:nodejs /app/scripts/create-admin.ts ./scripts/create-admin.ts
+COPY --from=build --chown=nextjs:nodejs /app/src/server/auth/password.ts ./src/server/auth/password.ts
+COPY --from=build --chown=nextjs:nodejs /app/src/server/program/bootstrap.ts ./src/server/program/bootstrap.ts
 
 COPY --chown=nextjs:nodejs entrypoint.sh ./entrypoint.sh
 RUN chmod +x ./entrypoint.sh

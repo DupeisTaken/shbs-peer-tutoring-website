@@ -1,40 +1,68 @@
 import { db } from "~/server/db";
-import { LOCALES, LOCALE_LABELS } from "~/i18n/config";
+import {
+  DEFAULT_LOCALE,
+  LOCALES,
+  LOCALE_LABELS,
+  isDefaultEnabledLocale,
+  isLocale,
+} from "~/i18n/config";
 
-export type LanguageInfo = { code: string; label: string; builtIn: boolean };
+export type LanguageInfo = {
+  code: string;
+  label: string;
+  builtIn: boolean;
+  enabled: boolean;
+};
+
+export type StoredLanguage = LanguageInfo & { sortOrder: number };
+export type ListLanguageOptions = { includeDisabled?: boolean };
 
 /**
- * Every available UI language, ordered for the picker. Built-in locales (bundled JSON) are always
- * present even without a `Language` row; DB rows override their label/order and add new languages.
- * Falls back to the built-ins if the table is missing / the DB is unavailable.
+ * Merge stored language settings with the bundled catalogs. Keeping this transformation pure makes
+ * visibility rules testable without a database and preserves English as the reliable fallback.
  */
-export async function listLanguages(): Promise<LanguageInfo[]> {
+export function mergeLanguages(
+  rows: StoredLanguage[],
+  { includeDisabled = false }: ListLanguageOptions = {},
+): LanguageInfo[] {
+  const present = new Set(rows.map((row) => row.code));
+  const merged = rows.map((row) => ({
+    ...row,
+    builtIn: row.builtIn || isLocale(row.code),
+    enabled: row.code === DEFAULT_LOCALE || row.enabled,
+  }));
+
+  LOCALES.forEach((code, index) => {
+    if (!present.has(code)) {
+      merged.push({
+        code,
+        label: LOCALE_LABELS[code] ?? code,
+        builtIn: true,
+        enabled: isDefaultEnabledLocale(code),
+        sortOrder: 1000 + index,
+      });
+    }
+  });
+
+  merged.sort((a, b) => a.sortOrder - b.sortOrder || a.code.localeCompare(b.code));
+  return merged
+    .filter((language) => includeDisabled || language.enabled)
+    .map(({ code, label, builtIn, enabled }) => ({ code, label, builtIn, enabled }));
+}
+
+/**
+ * UI languages ordered for selectors and management. Public callers receive enabled languages;
+ * translation tools opt into hidden ones. Bundled catalogs are synthesized when rows are missing.
+ */
+export async function listLanguages(
+  options: ListLanguageOptions = {},
+): Promise<LanguageInfo[]> {
   try {
     const rows = await db.language.findMany({
       orderBy: [{ sortOrder: "asc" }, { code: "asc" }],
     });
-    const present = new Set(rows.map((r) => r.code));
-    const merged = rows.map((r) => ({
-      code: r.code,
-      label: r.label,
-      builtIn: r.builtIn,
-      sortOrder: r.sortOrder,
-    }));
-    // Ensure built-ins appear even if they don't have a row yet (after the built-ins so any
-    // explicitly-ordered rows lead; their relative order stays the bundled order).
-    LOCALES.forEach((code, i) => {
-      if (!present.has(code)) {
-        merged.push({
-          code,
-          label: LOCALE_LABELS[code] ?? code,
-          builtIn: true,
-          sortOrder: 1000 + i,
-        });
-      }
-    });
-    merged.sort((a, b) => a.sortOrder - b.sortOrder || a.code.localeCompare(b.code));
-    return merged.map(({ code, label, builtIn }) => ({ code, label, builtIn }));
+    return mergeLanguages(rows, options);
   } catch {
-    return LOCALES.map((code) => ({ code, label: LOCALE_LABELS[code] ?? code, builtIn: true }));
+    return mergeLanguages([], options);
   }
 }

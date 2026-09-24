@@ -1,10 +1,11 @@
 /**
  * Tutee disciplinary standing (pure, unit-tested).
  *
- * Policy (tutee + tutor handbooks):
+ * Implemented discipline rules (also described in the sample policies):
  *   - Yellow and red cards are issued for violations; some are auto-issued from attendance.
  *   - 3 yellow cards = 1 red card.
- *   - 2 red cards = removal from the program (pending final team review).
+ *   - 2 effective red cards trigger automatic removal of an active tutee from current pairings
+ *     through server/discipline/removal.ts, without separate removal approval.
  *
  * Only cards the team has marked VALID count toward standing; PENDING cards (tutor requests
  * awaiting recheck) and INVALID cards do not. The "3 yellow -> 1 red" escalation is computed
@@ -22,7 +23,7 @@ export interface CardLike {
 
 /** Yellow cards that escalate into one red. */
 export const YELLOW_PER_RED = 3;
-/** Effective red cards that trigger removal-pending. */
+/** Effective red cards that meet the automatic removal threshold. */
 export const REDS_FOR_REMOVAL = 2;
 
 export interface DisciplineStanding {

@@ -20,11 +20,12 @@ export function ViewerSignupFlow() {
   const [affiliation, setAffiliation] = useState("");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
+  const [completionProof, setCompletionProof] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
 
-  const start = api.viewer.start.useMutation({ onSuccess: () => setStep("code") });
-  const verify = api.viewer.verify.useMutation({ onSuccess: () => setStep("password") });
+  const start = api.viewer.start.useMutation({ onSuccess: () => { setCompletionProof(""); setCode(""); setStep("code"); } });
+  const verify = api.viewer.verify.useMutation({ onSuccess: (data) => { setCompletionProof(data.completionProof); setStep("password"); } });
   const complete = api.viewer.complete.useMutation({ onSuccess: () => setStep("done") });
 
   const detailsValid =
@@ -104,6 +105,7 @@ export function ViewerSignupFlow() {
             className="input w-full text-center text-2xl tracking-[0.4em] uppercase"
           />
           {verify.error && <p className="text-sm text-red-600">{verify.error.message}</p>}
+          {start.error && <p className="text-sm text-red-600">{start.error.message}</p>}
           <button className="btn-primary w-full" disabled={!/^[0-9A-Z]{5}$/.test(code) || verify.isPending}>
             {t("public.viewerSignup.verify")}
           </button>
@@ -124,7 +126,7 @@ export function ViewerSignupFlow() {
           className="space-y-3"
           onSubmit={(e) => {
             e.preventDefault();
-            if (password.length >= 8 && !mismatch) complete.mutate({ email: email.trim(), password });
+            if (password.length >= 8 && confirm === password && completionProof && !start.isPending) complete.mutate({ email: email.trim(), password, completionProof });
           }}
         >
           <div>
@@ -154,8 +156,13 @@ export function ViewerSignupFlow() {
           </div>
           {mismatch && <p className="text-sm text-red-600">{t("public.viewerSignup.mismatch")}</p>}
           {complete.error && <p className="text-sm text-red-600">{complete.error.message}</p>}
-          <button className="btn-primary w-full" disabled={password.length < 8 || mismatch || complete.isPending}>
+          <button className="btn-primary w-full" disabled={password.length < 8 || confirm !== password || start.isPending || complete.isPending}>
             {complete.isPending ? t("public.viewerSignup.creating") : t("public.viewerSignup.createAccount")}
+          </button>
+          {start.error && <p className="text-sm text-red-600">{start.error.message}</p>}
+          <button type="button" className="link text-sm" disabled={start.isPending || complete.isPending}
+            onClick={() => start.mutate({ name: name.trim(), affiliation: affiliation.trim(), email: email.trim() })}>
+            {t("public.viewerSignup.resend")}
           </button>
         </form>
       )}

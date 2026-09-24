@@ -6,7 +6,7 @@ import { useTransition } from "react";
 
 import { api } from "~/trpc/react";
 import { setLocale } from "~/app/_actions/locale";
-import { LOCALES, LOCALE_LABELS } from "~/i18n/config";
+import { DEFAULT_ENABLED_LOCALES, LOCALE_LABELS } from "~/i18n/config";
 import { useHeaderMenuClose } from "~/app/_components/header-menu";
 
 /**
@@ -29,10 +29,10 @@ export function LanguageSwitcher({
   const router = useRouter();
   const [pending, startTransition] = useTransition();
   const languages = api.i18n.languages.useQuery();
-  // Fall back to the bundled built-ins until the dynamic list loads.
+  // Avoid briefly exposing unfinished catalogs while the dynamic list loads.
   const options =
     languages.data ??
-    LOCALES.map((c) => ({ code: c, label: LOCALE_LABELS[c] ?? c }));
+    DEFAULT_ENABLED_LOCALES.map((c) => ({ code: c, label: LOCALE_LABELS[c] ?? c }));
 
   const select = (
     <select

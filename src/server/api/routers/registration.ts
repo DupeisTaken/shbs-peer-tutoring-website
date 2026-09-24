@@ -14,7 +14,7 @@ import { z } from "zod";
 
 import { createTRPCRouter, publicProcedure } from "~/server/api/trpc";
 import { rateLimit } from "~/server/rate-limit";
-import { emailSender } from "~/server/email/sender";
+import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
 import { APP_TITLE } from "~/lib/branding";
 import {
   EMAIL_CODE_TTL_MINUTES,
@@ -33,7 +33,7 @@ const codeInput = z
   .string()
   .transform(normalizeRegCode)
   .pipe(z.string().regex(/^[0-9A-Z]{5}$/));
-/** The emailed email-verification OTP uses the same 5-char Steam format (see CLAUDE.md). */
+/** The emailed email-verification OTP uses the same 5-char Steam format (see docs/contributing.md). */
 const emailCodeInput = codeInput;
 
 /** Coarse client IP from proxy headers (best-effort; only used for rate-limit keys). */
@@ -92,6 +92,12 @@ export const registrationRouter = createTRPCRouter({
   sendEmailCode: publicProcedure
     .input(z.object({ code: codeInput, email: z.string().email() }))
     .mutation(async ({ ctx, input }) => {
+      if (!isEmailDeliveryAvailable()) {
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Email verification is temporarily unavailable. Contact the program team.",
+        });
+      }
       const ip = clientIp(ctx.headers);
       enforceRateLimit(`reg:ip:${ip}`, 30);
       enforceRateLimit(`reg:email:${input.code}`, 6);
@@ -143,7 +149,7 @@ export const registrationRouter = createTRPCRouter({
                 : "That code is incorrect.";
         throw new TRPCError({ code: "BAD_REQUEST", message });
       }
-      return { ok: true };
+      return { ok: true, completionProof: confirmed.completionProof };
     }),
 
   /** Finish: set profile + password, creating/linking the Tutor and verified login. */
@@ -151,6 +157,7 @@ export const registrationRouter = createTRPCRouter({
     .input(
       z.object({
         code: codeInput,
+        completionProof: z.string().regex(/^[a-f0-9]{64}$/),
         firstName: z.string().trim().min(1).max(80),
         lastName: z.string().trim().min(1).max(80),
         alternativeNames: z.string().trim().max(200).optional(),
@@ -167,6 +174,7 @@ export const registrationRouter = createTRPCRouter({
       if (!resolved.ok) codeError(resolved.error);
 
       const done = await completeRegistration(resolved.row, {
+        completionProof: input.completionProof,
         firstName: input.firstName,
         lastName: input.lastName,
         alternativeNames: input.alternativeNames,
@@ -177,7 +185,7 @@ export const registrationRouter = createTRPCRouter({
         const message =
           done.error === "email-unverified"
             ? "Verify your email before finishing."
-            : "An account already exists for this email. Use password reset instead.";
+            : "An account already uses this email. Sign in or reset your password; ask Head to change its roles in Users & Roles.";
         throw new TRPCError({ code: "BAD_REQUEST", message });
       }
       return { ok: true, username: done.username };

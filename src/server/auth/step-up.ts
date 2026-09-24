@@ -6,8 +6,8 @@
  * `EmailVerificationCode` (keyed with AUTH_SECRET, never the plaintext). Verification is
  * constant-time, single-use, expiring, and attempt-capped.
  *
- * When email isn't configured, the shared sender logs the code in dev and warns in production
- * (see src/server/email/sender.ts), so the flow still works locally.
+ * When email isn't configured, the shared sender logs the code in development. Production fails
+ * closed before creating a code so a sensitive flow cannot claim that undeliverable mail was sent.
  *
  * Node runtime only (DB + Node crypto + SMTP).
  */
@@ -15,7 +15,7 @@ import { timingSafeEqual } from "crypto";
 import type { VerificationPurpose } from "../../../generated/prisma";
 
 import { db } from "~/server/db";
-import { emailSender } from "~/server/email/sender";
+import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
 import { APP_TITLE } from "~/lib/branding";
 import { hashCode } from "./registration";
 import { generateRegistrationCode } from "./code";
@@ -41,6 +41,12 @@ export async function issueStepUpCode(
   userId: string,
   purpose: VerificationPurpose,
 ): Promise<{ email: string }> {
+  if (!isEmailDeliveryAvailable()) {
+    throw new Error(
+      "Email delivery is unavailable; refusing to issue a step-up code.",
+    );
+  }
+
   const user = await db.user.findUniqueOrThrow({
     where: { id: userId },
     select: { email: true, name: true },
@@ -50,7 +56,9 @@ export async function issueStepUpCode(
   const expiresAt = new Date(Date.now() + STEP_UP_CODE_TTL_MINUTES * 60_000);
 
   await db.$transaction([
-    db.emailVerificationCode.deleteMany({ where: { userId, purpose, consumedAt: null } }),
+    db.emailVerificationCode.deleteMany({
+      where: { userId, purpose, consumedAt: null },
+    }),
     db.emailVerificationCode.create({
       data: { userId, purpose, codeHash: hashCode(code), expiresAt },
     }),
@@ -68,7 +76,8 @@ export async function issueStepUpCode(
   return { email: user.email };
 }
 
-export type StepUpError = "no-code" | "expired" | "too-many-attempts" | "incorrect";
+export type StepUpError =
+  "no-code" | "expired" | "too-many-attempts" | "incorrect";
 
 /**
  * Verify a step-up code. Checks the latest unconsumed code for the purpose; on success marks it
@@ -86,19 +95,29 @@ export async function verifyStepUpCode(
   });
   if (!row) return { ok: false, error: "no-code" };
   if (row.expiresAt < new Date()) return { ok: false, error: "expired" };
-  if (row.attempts >= MAX_STEP_UP_ATTEMPTS) return { ok: false, error: "too-many-attempts" };
+  if (row.attempts >= MAX_STEP_UP_ATTEMPTS)
+    return { ok: false, error: "too-many-attempts" };
 
   if (!hashesEqual(row.codeHash, hashCode(code))) {
-    await db.emailVerificationCode.update({
-      where: { id: row.id },
+    await db.emailVerificationCode.updateMany({
+      where: {
+        id: row.id,
+        consumedAt: null,
+        attempts: { lt: MAX_STEP_UP_ATTEMPTS },
+      },
       data: { attempts: { increment: 1 } },
     });
     return { ok: false, error: "incorrect" };
   }
 
-  await db.emailVerificationCode.update({
-    where: { id: row.id },
+  const consumed = await db.emailVerificationCode.updateMany({
+    where: {
+      id: row.id,
+      consumedAt: null,
+      attempts: { lt: MAX_STEP_UP_ATTEMPTS },
+      expiresAt: { gte: new Date() },
+    },
     data: { consumedAt: new Date() },
   });
-  return { ok: true };
+  return consumed.count === 1 ? { ok: true } : { ok: false, error: "no-code" };
 }

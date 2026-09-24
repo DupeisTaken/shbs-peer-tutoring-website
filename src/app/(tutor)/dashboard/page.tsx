@@ -1,3 +1,4 @@
+import { PolicyConsent } from "~/app/_components/policy-consent";
 import { redirect } from "next/navigation";
 
 import { auth } from "~/server/auth";
@@ -13,6 +14,7 @@ import { MyInterviews } from "~/app/(tutor)/_components/my-interviews";
 import { TutorMeetings } from "~/app/(tutor)/_components/tutor-meetings";
 import { TutorActivation } from "~/app/(tutor)/_components/tutor-activation";
 import { TutorDiscipline } from "~/app/(tutor)/_components/tutor-discipline";
+import { QualificationRequests } from "~/app/(tutor)/_components/qualification-requests";
 import { getTranslations } from "next-intl/server";
 
 import { RoomGrid } from "~/app/_components/room-grid";
@@ -45,6 +47,7 @@ export default async function TutorDashboard() {
     <div className="mx-auto max-w-6xl space-y-7 px-4 py-5 sm:space-y-8 sm:py-8">
       {/* Team announcements — shown on every login until acknowledged. */}
       <AnnouncementsBanner />
+      <PolicyConsent slug="tutor-policy" />
 
       {pending && <TutorActivation />}
 
@@ -113,6 +116,7 @@ export default async function TutorDashboard() {
       </section>
 
       {/* Pending interviews + session-time confirmations (self-hides when none). */}
+      <QualificationRequests active={!inactive} />
       {!inactive && features.INTERVIEWS && <MyInterviews />}
 
       {/* Upcoming meetings + self-excuse (self-hides when none). */}

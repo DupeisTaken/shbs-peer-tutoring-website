@@ -129,3 +129,17 @@ export function periodLabel(period: Period, semesterMode = false): string {
 export function semesterLabel(schoolYear: string, semester: Semester): string {
   return `${schoolYear} ${semester}`;
 }
+
+/** Public display uses the applied mode only; stored quarter boundaries never change here. */
+export function getPeriodDisplay(
+  period: Period,
+  quarterSystemEnabled: boolean,
+) {
+  const schoolYear = isSchoolYear(period.schoolYear)
+    ? `20${period.schoolYear.slice(0, 2)}–${period.schoolYear.slice(3)}`
+    : period.schoolYear;
+  return {
+    kind: quarterSystemEnabled ? ("quarter" as const) : ("semester" as const),
+    label: periodLabel({ ...period, schoolYear }, !quarterSystemEnabled),
+  };
+}

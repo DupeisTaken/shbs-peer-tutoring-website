@@ -36,7 +36,7 @@ export function PolicyAgreement({
 
   return (
     <div className="rounded-lg border border-slate-200 bg-slate-50 p-4">
-      <label className="flex items-start gap-2 text-sm">
+      <label className="flex min-h-11 items-start gap-2 text-sm">
         <input
           type="checkbox"
           className="mt-1"
@@ -50,7 +50,7 @@ export function PolicyAgreement({
             policy: (chunks) => (
               <button
                 type="button"
-                className="link"
+                className="link inline-flex min-h-11 items-center text-left lg:min-h-0"
                 onClick={() => requiresRead && setOpen(true)}
               >
                 {chunks}
@@ -105,7 +105,8 @@ function PolicyModal({
 
   const onScroll = () => {
     const el = scrollRef.current;
-    if (el && el.scrollTop + el.clientHeight >= el.scrollHeight - 8) setAtBottom(true);
+    if (el && el.scrollTop + el.clientHeight >= el.scrollHeight - 8)
+      setAtBottom(true);
   };
 
   return (
@@ -125,7 +126,7 @@ function PolicyModal({
             type="button"
             onClick={onClose}
             aria-label={t("public.policy.close")}
-            className="text-slate-400 hover:text-slate-700"
+            className="flex min-h-11 min-w-11 items-center justify-center text-slate-400 hover:text-slate-700"
           >
             ✕
           </button>
@@ -139,11 +140,13 @@ function PolicyModal({
         </div>
         <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-5 py-3">
           <span className="muted text-xs">
-            {atBottom ? t("public.policy.readPrompt") : t("public.policy.scrollPrompt")}
+            {atBottom
+              ? t("public.policy.readPrompt")
+              : t("public.policy.scrollPrompt")}
           </span>
           <button
             type="button"
-            className="btn-primary"
+            className="btn-primary min-h-11 lg:min-h-10"
             disabled={!atBottom}
             onClick={onRead}
           >

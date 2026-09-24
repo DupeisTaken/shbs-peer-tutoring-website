@@ -1,6 +1,6 @@
 "use client";
 
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { DisciplineSlots } from "~/app/_components/discipline-slots";
@@ -12,6 +12,7 @@ import { NativeDisclosureIcon } from "~/app/_components/icons";
  * standing and the outcome of each card. Self-hides when the tutor has no tutees with cards.
  */
 export function TutorDiscipline() {
+  const programFormat = useFormatter();
   const t = useTranslations();
   const discipline = api.tutor.myTuteeDiscipline.useQuery();
 
@@ -52,7 +53,7 @@ export function TutorDiscipline() {
                 <li key={c.id} className="text-xs text-slate-600">
                   {dot(c.color)}{" "}
                   <span className="text-slate-400">
-                    {new Date(c.date).toLocaleDateString()} ·{" "}
+                    {programFormat.dateTime(new Date(c.date), { dateStyle: "medium", timeZone: "UTC" })} ·{" "}
                     {t(`tutor.discipline.cardStatus.${c.reviewStatus}`)}
                   </span>
                 </li>

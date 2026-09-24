@@ -1,13 +1,16 @@
 "use client";
+import { EmailDetails } from "~/app/_components/email-details";
+import { QualificationReview } from "~/app/_components/qualification-review";
 
 import Link from "next/link";
-import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useEffect, useState } from "react";
+import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { DisclosureIcon } from "~/app/_components/icons";
 import { useReadOnly } from "~/app/_components/read-only";
 import { useDialog } from "~/app/_components/confirm-dialog";
+import { InterviewManagement } from "~/app/_components/interview-management";
 
 type Status = "PENDING" | "INTERVIEW" | "ACCEPTED" | "REJECTED";
 
@@ -21,10 +24,16 @@ function StatusBadge({ status }: { status: Status }) {
         : status === "INTERVIEW"
           ? "badge bg-accent-100 text-accent-700"
           : "badge-slate";
-  return <span className={cls}>{t(`admin.applications.status.${status}`)}</span>;
+  return (
+    <span className={cls}>{t(`admin.applications.status.${status}`)}</span>
+  );
 }
 
 type Application = {
+  type: "INITIAL" | "ADDITIONAL_SUBJECT" | "HIGHER_LEVEL";
+  requestedTutorId: string | null;
+  qualificationReason: string | null;
+  qualificationSnapshot: unknown;
   id: string;
   name: string;
   email: string;
@@ -41,8 +50,15 @@ type Application = {
     selfStudyNote: string | null;
     subject: { name: string; level: { name: string } | null };
   }[];
-  interviewers: { isHead: boolean; tutor: { id: string; englishName: string } }[];
-  votes: { accept: boolean; comment: string | null; tutor: { englishName: string } }[];
+  interviewers: {
+    isHead: boolean;
+    tutor: { id: string; englishName: string };
+  }[];
+  votes: {
+    accept: boolean;
+    comment: string | null;
+    tutor: { englishName: string };
+  }[];
   decisionComment: string | null;
   decidedByTutor: { englishName: string } | null;
 };
@@ -58,10 +74,35 @@ function ApplicationCard({
   tutors: { id: string; englishName: string; active: boolean }[];
   onChanged: () => Promise<unknown> | void;
 }) {
+  const programFormat = useFormatter();
   const t = useTranslations();
   const readOnly = useReadOnly();
+  const account = api.account.me.useQuery().data;
+  const additional = app.type !== "INITIAL";
+  const canEditPanel =
+    !readOnly &&
+    (!additional ||
+      (!!account &&
+        ["ADMIN", "HEAD"].includes(account.role) &&
+        account.tutorId !== app.requestedTutorId &&
+        app.status === "PENDING"));
   const { confirm, dialog } = useDialog();
   const [open, setOpen] = useState(false);
+  // A link from interview history opens the existing editor for this exact
+  // application; do not duplicate panel mutations in a competing workflow.
+  useEffect(() => {
+    const reveal = () => {
+      if (window.location.hash === `#application-${app.id}`) {
+        setOpen(true);
+        document
+          .getElementById(`application-${app.id}`)
+          ?.scrollIntoView({ block: "start" });
+      }
+    };
+    reveal();
+    window.addEventListener("hashchange", reveal);
+    return () => window.removeEventListener("hashchange", reveal);
+  }, [app.id]);
   const features = api.program.features.useQuery().data;
   const assign = api.admin.assignInterviewers.useMutation({
     onSuccess: () => onChanged(),
@@ -71,11 +112,16 @@ function ApplicationCard({
     onSuccess: () => onChanged(),
     onError: () => onChanged(),
   });
-  const del = api.admin.deleteApplication.useMutation({ onSuccess: () => onChanged() });
+  const del = api.admin.deleteApplication.useMutation({
+    onSuccess: () => onChanged(),
+  });
 
-  // Exactly three fixed panelist slots, seeded from any existing assignment.
+  // Start with at least three slots and retain larger existing panels.
   const [picks, setPicks] = useState<string[]>(() =>
-    Array.from({ length: PANEL_SIZE }, (_, i) => app.interviewers[i]?.tutor.id ?? ""),
+    Array.from(
+      { length: Math.max(PANEL_SIZE, app.interviewers.length) },
+      (_, i) => app.interviewers[i]?.tutor.id ?? "",
+    ),
   );
   const [head, setHead] = useState<string>(
     app.interviewers.find((x) => x.isHead)?.tutor.id ?? "",
@@ -84,8 +130,9 @@ function ApplicationCard({
   const chosen = picks.filter(Boolean);
   const activeTutors = tutors.filter((t) => t.active);
   const canAssign =
-    chosen.length === PANEL_SIZE &&
-    new Set(chosen).size === PANEL_SIZE &&
+    chosen.length >= PANEL_SIZE &&
+    chosen.length === picks.length &&
+    new Set(chosen).size === chosen.length &&
     !!head &&
     chosen.includes(head) &&
     !assign.isPending;
@@ -94,21 +141,45 @@ function ApplicationCard({
   const courseNames =
     app.subjectIntents.map((ci) => ci.subject.name).join(", ") ||
     t("admin.applications.noCourses");
+  const hasInterviewHistory =
+    app.status === "INTERVIEW" ||
+    app.interviewers.length > 0 ||
+    app.decidedByTutor != null;
+  // Generic status controls are only for screening. A panel outcome belongs to its chair.
+  const canDirectAccept =
+    !additional &&
+    !readOnly &&
+    features?.INTERVIEWS === false &&
+    !hasInterviewHistory &&
+    app.status !== "ACCEPTED";
+  const canScreenReject =
+    !additional &&
+    !readOnly &&
+    !hasInterviewHistory &&
+    app.status === "PENDING";
 
   return (
-    <div className="card p-4">
-      {/* Collapsed one-line summary (click to expand) */}
+    <div id={`application-${app.id}`} className="card scroll-mt-6 p-4">
+      {/* Give identity and actions their own mobile rows so badges and long
+          translated labels never compete for the same narrow flex space. */}
       <div className="flex flex-wrap items-center gap-3">
         <button
-          className="flex min-w-0 flex-1 items-center gap-2 text-left"
+          className="flex min-h-11 w-full min-w-0 flex-wrap items-center gap-2 text-left lg:min-h-8 lg:w-auto lg:flex-1"
+          aria-expanded={open}
+          aria-controls={`application-panel-${app.id}`}
           onClick={() => setOpen((v) => !v)}
         >
           <DisclosureIcon open={open} />
-          <span className="font-medium text-slate-900">{app.name}</span>
+          <span className="min-w-0 font-medium break-words text-slate-900">
+            {app.name}
+          </span>
           <StatusBadge status={app.status} />
+          <span className="badge-slate">
+            {t(`qualificationRequests.${app.type}`)}
+          </span>
           <span className="muted hidden truncate text-xs sm:inline">
             {courseNames}
-            {features?.INTERVIEWS && (
+            {(features?.INTERVIEWS === true || hasInterviewHistory) && (
               <>
                 {" · "}
                 {t("admin.applications.panelSummary", {
@@ -125,13 +196,16 @@ function ApplicationCard({
             )}
           </span>
         </button>
-        <div className="flex items-center gap-2">
-          {app.status === "ACCEPTED" && (
-            <Link href="/admin/users" className="link text-sm whitespace-nowrap">
+        <div className="flex w-full min-w-0 flex-wrap items-center gap-2 lg:w-auto">
+          {!additional && app.status === "ACCEPTED" && (
+            <Link
+              href="/admin/users"
+              className="link inline-flex min-h-11 max-w-full items-center text-sm break-words lg:min-h-8"
+            >
               {t("admin.applications.setupAccount")}
             </Link>
           )}
-          {!readOnly && app.status !== "ACCEPTED" && (
+          {canDirectAccept && (
             <button
               className="btn-secondary btn-sm"
               onClick={() =>
@@ -145,7 +219,7 @@ function ApplicationCard({
               {t("admin.applications.accept")}
             </button>
           )}
-          {!readOnly && app.status !== "REJECTED" && (
+          {canScreenReject && (
             <button
               className="btn-secondary btn-sm"
               onClick={() =>
@@ -159,13 +233,15 @@ function ApplicationCard({
               {t("admin.applications.reject")}
             </button>
           )}
-          {!readOnly && (
+          {!readOnly && !additional && (
             <button
               className="btn-danger btn-sm"
               onClick={async () => {
                 if (
                   await confirm({
-                    title: t("admin.applications.confirmDelete", { name: app.name }),
+                    title: t("admin.applications.confirmDelete", {
+                      name: app.name,
+                    }),
                     confirmLabel: t("common.delete"),
                     cancelLabel: t("common.cancel"),
                     danger: true,
@@ -181,8 +257,11 @@ function ApplicationCard({
       </div>
 
       {open && (
-        <div className="mt-3 border-t border-slate-100 pt-3">
-          <p className="muted">{app.email}</p>
+        <div
+          id={`application-panel-${app.id}`}
+          className="mt-3 border-t border-slate-100 pt-3"
+        >
+          <EmailDetails contactOnly email={app.email} name={app.name} />
           {app.preferredContact && (
             <p className="muted text-xs">
               {t("admin.applications.reach", { contact: app.preferredContact })}
@@ -190,112 +269,187 @@ function ApplicationCard({
           )}
 
           {/* Course intents */}
+          {additional && (
+            <QualificationReview app={app} onChanged={onChanged} />
+          )}
           <ul className="mt-3 flex flex-wrap gap-2">
             {app.subjectIntents.map((ci, i) => {
               const quals: string[] = [];
               const na = t("admin.applications.na");
               if (ci.taken)
-                quals.push(t("admin.applications.qual.took", { grade: ci.grade ?? na }));
+                quals.push(
+                  t("admin.applications.qual.took", { grade: ci.grade ?? na }),
+                );
               if (ci.hasApScore)
-                quals.push(t("admin.applications.qual.ap", { score: ci.apScore ?? na }));
+                quals.push(
+                  t("admin.applications.qual.ap", { score: ci.apScore ?? na }),
+                );
               if (ci.selfStudied)
                 quals.push(
-                  t("admin.applications.qual.selfStudied", { note: ci.selfStudyNote ?? na }),
+                  t("admin.applications.qual.selfStudied", {
+                    note: ci.selfStudyNote ?? na,
+                  }),
                 );
               return (
-                <li key={i} className="rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-700">
+                <li
+                  key={i}
+                  className="rounded-md bg-slate-100 px-2 py-1 text-xs text-slate-700"
+                >
                   <span className="font-medium">{ci.subject.name}</span>
                   {ci.subject.level && (
-                    <span className="badge-slate ml-1 align-middle">{ci.subject.level.name}</span>
+                    <span className="badge-slate ml-1 align-middle">
+                      {ci.subject.level.name}
+                    </span>
                   )}
-                  {" · "}
-                  {quals.length ? quals.join(" · ") : t("admin.applications.noQualification")}
+                  {/* Additional requests use their reason and recorded grant result above;
+                      the initial-signup grade checklist must not imply they lack approval. */}
+                  {!additional && (
+                    <>
+                      {" · "}
+                      {quals.length
+                        ? quals.join(" · ")
+                        : t("admin.applications.noQualification")}
+                    </>
+                  )}
                 </li>
               );
             })}
           </ul>
 
           {/* Interviewer assignment — three fixed panelists, one head (hidden when interviews off) */}
-          {features?.INTERVIEWS && (
-          <div className="mt-4 border-t border-slate-100 pt-3">
-            <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
-              {t("admin.applications.panelHeading", { n: PANEL_SIZE })}
-            </p>
-            {app.interviewAt && (
-              <p className="muted mt-1">
-                {t("admin.applications.scheduled", {
-                  when: new Date(app.interviewAt).toLocaleString(),
-                })}
+          {(features?.INTERVIEWS === true || hasInterviewHistory) && (
+            <div className="mt-4 border-t border-slate-100 pt-3">
+              <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
+                {t("admin.applications.panelHeading", { n: PANEL_SIZE })}
               </p>
-            )}
-            {!readOnly && (
-              <>
-                <div className="mt-2 space-y-2">
-                  {picks.map((pick, i) => (
-                    <div key={i} className="flex items-center gap-2">
-                      <select
-                        className="select field-auto min-w-48"
-                        value={pick}
-                        onChange={(e) =>
-                          setPicks((p) => p.map((v, idx) => (idx === i ? e.target.value : v)))
-                        }
+              {app.interviewAt && (
+                <p className="muted mt-1">
+                  {t("admin.applications.scheduled", {
+                    when: programFormat.dateTime(new Date(app.interviewAt), {
+                      dateStyle: "medium",
+                      timeStyle: "short",
+                    }),
+                  })}
+                </p>
+              )}
+              {canEditPanel && features?.INTERVIEWS && (
+                <>
+                  <div className="mt-2 space-y-2">
+                    {picks.map((pick, i) => (
+                      <div
+                        key={i}
+                        className="flex flex-wrap items-center gap-2"
                       >
-                        <option value="">{t("admin.applications.panelistSlot", { n: i + 1 })}</option>
-                        {activeTutors
-                          .filter((t) => t.id === pick || !picks.includes(t.id))
-                          .map((t) => (
-                            <option key={t.id} value={t.id}>
-                              {t.englishName}
-                            </option>
-                          ))}
-                      </select>
-                      <label className="flex items-center gap-1 text-sm text-slate-600">
-                        <input
-                          type="radio"
-                          name={`head-${app.id}`}
-                          checked={!!pick && head === pick}
-                          disabled={!pick}
-                          onChange={() => setHead(pick)}
-                        />
-                        {t("admin.applications.head")}
-                      </label>
-                    </div>
-                  ))}
-                </div>
-                <div className="mt-2 flex items-center gap-3">
-                  <button
-                    className="btn-primary btn-sm"
-                    disabled={!canAssign}
-                    onClick={() =>
-                      assign.mutate({
-                        applicationId: app.id,
-                        tutorIds: chosen,
-                        headTutorId: head,
-                        expectedUpdatedAt: app.updatedAt,
-                      })
-                    }
-                  >
-                    {assign.isPending
-                      ? t("admin.applications.saving")
-                      : t("admin.applications.savePanel")}
-                  </button>
-                  {!canAssign && !assign.isPending && (
-                    <span className="muted text-xs">
-                      {t("admin.applications.pickHint", { n: PANEL_SIZE })}
-                    </span>
-                  )}
-                  {assign.isSuccess && (
-                    <span className="text-sm text-green-600">{t("admin.applications.saved")}</span>
-                  )}
-                  {assign.error && <span className="text-sm text-red-600">{assign.error.message}</span>}
-                </div>
-              </>
-            )}
-          </div>
+                        <select
+                          className="select field-auto max-w-full min-w-0 flex-1"
+                          aria-label={t("admin.applications.panelistSlot", {
+                            n: i + 1,
+                          })}
+                          value={pick}
+                          onChange={(e) =>
+                            setPicks((p) =>
+                              p.map((v, idx) =>
+                                idx === i ? e.target.value : v,
+                              ),
+                            )
+                          }
+                        >
+                          <option value="">
+                            {t("admin.applications.panelistSlot", { n: i + 1 })}
+                          </option>
+                          {activeTutors
+                            .filter(
+                              (t) => t.id === pick || !picks.includes(t.id),
+                            )
+                            .map((t) => (
+                              <option key={t.id} value={t.id}>
+                                {t.englishName}
+                              </option>
+                            ))}
+                        </select>
+                        <label className="flex min-h-11 items-center gap-1 text-sm text-slate-600 lg:min-h-8">
+                          <input
+                            type="radio"
+                            name={`head-${app.id}`}
+                            checked={!!pick && head === pick}
+                            disabled={!pick}
+                            onChange={() => setHead(pick)}
+                          />
+                          {t("admin.applications.head")}
+                        </label>
+                      </div>
+                    ))}
+                  </div>
+                  <p className="muted my-3 text-sm">
+                    {t("workflows.allVotes")}{" "}
+                    <Link
+                      className="link inline-flex min-h-11 items-center lg:min-h-8"
+                      href="/admin/subject-availability"
+                    >
+                      {t("subjectAvailability.title")}
+                    </Link>
+                  </p>
+                  <div className="my-3 flex gap-3">
+                    <button
+                      type="button"
+                      className="btn-secondary btn-sm"
+                      disabled={picks.length >= 8}
+                      onClick={() => setPicks((p) => [...p, ""])}
+                    >
+                      {t("workflows.addPanelist")}
+                    </button>
+                    <button
+                      type="button"
+                      className="btn-secondary btn-sm"
+                      disabled={picks.length <= 3}
+                      onClick={() => {
+                        setPicks((p) => p.slice(0, -1));
+                        if (head === picks[picks.length - 1]) setHead("");
+                      }}
+                    >
+                      {t("workflows.removePanelist")}
+                    </button>
+                  </div>
+                  <div className="mt-2 flex items-center gap-3">
+                    <button
+                      className="btn-primary btn-sm"
+                      disabled={!canAssign}
+                      onClick={() =>
+                        assign.mutate({
+                          applicationId: app.id,
+                          tutorIds: chosen,
+                          headTutorId: head,
+                          expectedUpdatedAt: app.updatedAt,
+                        })
+                      }
+                    >
+                      {assign.isPending
+                        ? t("admin.applications.saving")
+                        : t("admin.applications.savePanel")}
+                    </button>
+                    {!canAssign && !assign.isPending && (
+                      <span className="muted text-xs">
+                        {t("admin.applications.pickHint", { n: PANEL_SIZE })}
+                      </span>
+                    )}
+                    {assign.isSuccess && (
+                      <span className="text-sm text-green-600">
+                        {t("admin.applications.saved")}
+                      </span>
+                    )}
+                    {assign.error && (
+                      <span className="text-sm text-red-600">
+                        {assign.error.message}
+                      </span>
+                    )}
+                  </div>
+                </>
+              )}
+            </div>
           )}
 
           {/* Panel votes + head decision (recorded on the head's dashboard; hidden when off) */}
-          {features?.INTERVIEWS && (app.votes.length > 0 || app.decisionComment) && (
+          {(app.votes.length > 0 || app.decisionComment) && (
             <div className="mt-4 border-t border-slate-100 pt-3">
               <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
                 {t("admin.applications.votesDecisionHeading")}
@@ -318,11 +472,15 @@ function ApplicationCard({
                   </ul>
                 </>
               ) : (
-                <p className="muted mt-1 text-sm">{t("admin.applications.noVotes")}</p>
+                <p className="muted mt-1 text-sm">
+                  {t("admin.applications.noVotes")}
+                </p>
               )}
               {app.decisionComment && (
                 <p className="mt-2 text-sm text-slate-700">
-                  {t("admin.applications.decision", { comment: app.decisionComment })}
+                  {t("admin.applications.decision", {
+                    comment: app.decisionComment,
+                  })}
                   {app.decidedByTutor
                     ? ` — ${t("admin.applications.decidedByHead", {
                         name: app.decidedByTutor.englishName,
@@ -344,18 +502,28 @@ export default function ApplicationsPage() {
   const utils = api.useUtils();
   const apps = api.admin.tutorApplications.useQuery();
   const tutors = api.admin.tutors.useQuery();
-  const invalidate = () => utils.admin.tutorApplications.invalidate();
+  const features = api.program.features.useQuery();
+  const readOnly = useReadOnly();
+  const invalidate = () =>
+    Promise.all([
+      utils.admin.tutorApplications.invalidate(),
+      utils.interviewManagement.options.invalidate(),
+    ]);
 
   const list = apps.data ?? [];
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-6 max-lg:[&_button]:min-h-11 max-lg:[&_select]:min-h-11">
       <div>
         <h1 className="page-title">{t("admin.applications.title")}</h1>
-        <p className="muted mt-1">{t("admin.applications.intro", { n: PANEL_SIZE })}</p>
+        <p className="muted mt-1">
+          {t("admin.applications.intro", { n: PANEL_SIZE })}
+        </p>
       </div>
 
       <div className="space-y-3">
+        {apps.isLoading && <p role="status">{t("workflows.loading")}</p>}
+        {apps.error && <p role="alert">{apps.error.message}</p>}
         {list.map((app) => (
           <ApplicationCard
             key={app.id}
@@ -368,8 +536,19 @@ export default function ApplicationsPage() {
             onChanged={invalidate}
           />
         ))}
-        {list.length === 0 && <p className="muted">{t("admin.applications.empty")}</p>}
+        {!apps.isLoading && !apps.error && list.length === 0 && (
+          <p className="muted">{t("admin.applications.empty")}</p>
+        )}
       </div>
+      {/* Completion stays staff-only; the server retains the same permission checks. */}
+      {!readOnly && features.data && (
+        <div
+          id="interview-records"
+          className="scroll-mt-6 border-t border-slate-200 pt-6"
+        >
+          <InterviewManagement enabled={features.data.INTERVIEWS} />
+        </div>
+      )}
     </div>
   );
 }

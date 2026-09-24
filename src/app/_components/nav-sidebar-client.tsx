@@ -22,10 +22,12 @@ export function NavSidebarClient({
   sections,
   collapseAllLabel,
   expandAllLabel,
+  sticky = true,
 }: {
   sections: NavSection[];
   collapseAllLabel: string;
   expandAllLabel: string;
+  sticky?: boolean;
 }) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [hydrated, setHydrated] = useState(false);
@@ -55,7 +57,7 @@ export function NavSidebarClient({
     persist(Object.fromEntries(sections.map((s) => [s.key, value])));
 
   return (
-    <nav className="sticky top-20 space-y-3">
+    <nav className={sticky ? "sticky top-20 space-y-3" : "space-y-3"}>
       <button
         type="button"
         className="link px-3 text-xs"

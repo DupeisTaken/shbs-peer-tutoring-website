@@ -1,3 +1,6 @@
+import { signinIdentifiers } from "./signin-identifiers";
+import { lockAccountProfile } from "~/server/account-profile";
+import { updateAccountProfile } from "~/server/account-profile";
 /**
  * Forgot-password flow. The reset link is emailed via the configured provider (Aliyun Direct
  * Mail — see src/server/email/sender.ts). When email isn't configured, the sender logs the
@@ -6,10 +9,58 @@
 import { createHash, randomBytes } from "crypto";
 
 import { db } from "~/server/db";
-import { emailSender, isEmailConfigured } from "~/server/email/sender";
+import {
+  emailSender,
+  isEmailConfigured,
+  isEmailDeliveryAvailable,
+} from "~/server/email/sender";
 import { APP_TITLE } from "~/lib/branding";
 import { hashPassword } from "./password";
 import { ensureUniqueUsername, ensureUserUsername } from "./username";
+import { TRPCError } from "@trpc/server";
+import { lockEntity } from "~/server/transactions";
+
+/** Staff can resend setup to an existing account ID, never to a client-supplied address.
+ * Uses the existing email-proof/password setup flow and does not alter any participation link. */
+export async function issueAccountVerification(
+  userId: string,
+): Promise<{ emailed: boolean }> {
+  if (!isEmailDeliveryAvailable()) return { emailed: false };
+  const token = randomBytes(32).toString("hex");
+  const email = await db.$transaction(async (tx) => {
+    await lockEntity(tx, `account-verification:${userId}`);
+    const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
+    if (user.emailVerifiedAt)
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "This account email is already verified.",
+      });
+    const recent = await tx.passwordResetToken.count({
+      where: { userId, createdAt: { gt: new Date(Date.now() - 60_000) } },
+    });
+    if (recent)
+      throw new TRPCError({
+        code: "TOO_MANY_REQUESTS",
+        message: "Wait one minute before sending another verification link.",
+      });
+    await tx.passwordResetToken.create({
+      data: {
+        userId,
+        targetEmail: user.email,
+        tokenHash: hashToken(token),
+        expiresAt: new Date(Date.now() + SETUP_TOKEN_TTL_MINUTES * 60_000),
+      },
+    });
+    return user.email;
+  });
+  const link = `${appBaseUrl()}/reset-password?token=${token}`;
+  await emailSender.send({
+    to: email,
+    subject: `Verify and set up your ${APP_TITLE} account`,
+    text: `The program team sent you an account setup link. Open it to verify this email and set your password. This does not change your tutor or tutee participation.\n\n${link}\n\nThe link expires in seven days. Ignore it if you did not request an account.`,
+  });
+  return { emailed: isEmailConfigured() };
+}
 
 /** How long an issued reset token stays valid. */
 const TOKEN_TTL_MINUTES = 60;
@@ -33,25 +84,47 @@ function hashToken(token: string): string {
  * was found — callers must show an identical message either way (no account enumeration).
  */
 export async function issuePasswordReset(identifier: string): Promise<void> {
+  if (!isEmailDeliveryAvailable()) return;
+
   const id = identifier.trim().toLowerCase();
   if (!id) return;
 
   const user = await db.user.findFirst({
-    where: { OR: [{ email: id }, { tutor: { username: id } }] },
-    select: { id: true, email: true },
+    where: { OR: signinIdentifiers(id) },
+    select: {
+      id: true,
+      email: true,
+      emails: { where: { verifiedAt: { not: null } }, select: { email: true } },
+    },
   });
   if (!user) return; // silently no-op — don't reveal whether the account exists
 
+  const targetEmail = user.emails.some((address) => address.email === id)
+    ? id
+    : user.email;
   const token = randomBytes(32).toString("hex");
-  await db.passwordResetToken.create({
-    data: {
-      userId: user.id,
-      tokenHash: hashToken(token),
-      expiresAt: new Date(Date.now() + TOKEN_TTL_MINUTES * 60_000),
-    },
+  const issued = await db.$transaction(async (tx) => {
+    await lockAccountProfile(tx, user.id);
+    const address = await tx.accountEmail.findUnique({
+      where: { email: targetEmail },
+    });
+    const current = await tx.user.findUniqueOrThrow({ where: { id: user.id } });
+    if (
+      address?.userId !== user.id ||
+      (current.email !== targetEmail && !address.verifiedAt)
+    )
+      return false;
+    await tx.passwordResetToken.create({
+      data: {
+        userId: user.id,
+        targetEmail,
+        tokenHash: hashToken(token),
+        expiresAt: new Date(Date.now() + TOKEN_TTL_MINUTES * 60_000),
+      },
+    });
+    return true;
   });
-
-  await deliverResetLink(user.email, token);
+  if (issued) await deliverResetLink(targetEmail, token);
 }
 
 /**
@@ -90,73 +163,119 @@ export async function resetPassword(
   newPassword: string,
 ): Promise<{ username: string | null; email: string } | null> {
   const tokenHash = hashToken(token.trim());
+
   const record = await db.passwordResetToken.findUnique({
     where: { tokenHash },
-    select: { id: true, userId: true, expiresAt: true, consumedAt: true },
   });
-  if (!record || record.consumedAt || record.expiresAt < new Date()) return null;
-
-  const updated = await db.$transaction(async (tx) => {
-    const user = await tx.user.update({
-      where: { id: record.userId },
+  if (!record) return null;
+  return db.$transaction(async (tx) => {
+    await lockAccountProfile(tx, record.userId);
+    const grant = await tx.passwordResetToken.findUnique({
+      where: { id: record.id },
+    });
+    if (
+      !grant ||
+      grant.consumedAt ||
+      grant.expiresAt <= new Date() ||
+      !grant.targetEmail
+    )
+      return null;
+    const account = await tx.user.findUniqueOrThrow({
+      where: { id: grant.userId },
+    });
+    const address = await tx.accountEmail.findUnique({
+      where: { email: grant.targetEmail },
+    });
+    if (
+      address?.userId !== account.id ||
+      (address.email !== account.email && !address.verifiedAt)
+    )
+      return null;
+    const updated = await tx.user.update({
+      where: { id: account.id },
       data: {
         passwordHash: hashPassword(newPassword),
-        // Setting a real password via the emailed link also clears the temp-password flag and
-        // marks the email confirmed — so an invited tutor lands straight on the dashboard rather
-        // than being bounced back through the onboarding gate.
         mustChangePassword: false,
-        emailVerifiedAt: new Date(),
+        ...(address.email === account.email
+          ? { emailVerifiedAt: new Date() }
+          : {}),
       },
-      select: { email: true, tutor: { select: { username: true } } },
+      select: {
+        email: true,
+        username: true,
+        tutor: { select: { username: true } },
+      },
     });
-    await tx.passwordResetToken.update({
-      where: { id: record.id },
+    await tx.passwordResetToken.updateMany({
+      where: { userId: account.id, consumedAt: null },
       data: { consumedAt: new Date() },
     });
-    return user;
+    return {
+      username: updated.username ?? updated.tutor?.username ?? null,
+      email: updated.email,
+    };
   });
-  return { username: updated.tutor?.username ?? null, email: updated.email };
 }
 
 /**
  * Provision (if needed) and invite a tutor to set up their login. Ensures a `User` exists for
  * the tutor — reusing one already on their email, else creating a `TUTOR` account linked to the
- * tutor — then issues a longer-lived setup token and emails a "set your password" link. Returns
- * the link so the admin can copy it (handy when email delivery isn't configured — the sender
- * only logs in dev). Requires the tutor to have an email.
+ * tutor — then emails a longer-lived setup token. Recovery secrets are delivered only to the
+ * account owner: returning one to staff would let a coordinator reset a tutor-linked Head.
  */
-export async function issueTutorSetupLink(tutorId: string): Promise<
-  | { ok: true; emailed: boolean; link: string }
+export async function issueTutorSetupLink(
+  tutorId: string,
+  actorId: string,
+): Promise<
+  | { ok: true; emailed: boolean }
   | { ok: false; error: "no-tutor" | "no-email" }
 > {
+  if (!isEmailDeliveryAvailable())
+    throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Email delivery must be configured before sending account setup links." });
   const tutor = await db.tutor.findUnique({
     where: { id: tutorId },
     select: {
       id: true,
       email: true,
       englishName: true,
+      alternativeNames: true,
       username: true,
-      user: { select: { id: true } },
+      user: { select: { id: true, email: true } },
     },
   });
   if (!tutor) return { ok: false, error: "no-tutor" };
-  const email = tutor.email?.trim().toLowerCase();
+  // An existing login's primary email is authoritative; editable roster contact is not proof.
+  const email = (tutor.user?.email ?? tutor.email)?.trim().toLowerCase();
   if (!email) return { ok: false, error: "no-email" };
 
   let userId = tutor.user?.id ?? null;
   if (!userId) {
-    const existing = await db.user.findUnique({ where: { email }, select: { id: true } });
+    const actor = await db.user.findUnique({ where: { id: actorId }, select: { role: true, suspendedAt: true } });
+    if (actor?.role !== "HEAD" || actor.suspendedAt)
+      throw new TRPCError({ code: "FORBIDDEN", message: "Only Head can provision tutor access. Existing account setup links may be resent." });
+    const existing = await db.user.findUnique({
+      where: { email },
+      select: { id: true, role: true, tutorId: true },
+    });
     if (existing) {
-      await db.user.update({ where: { id: existing.id }, data: { tutorId: tutor.id } });
+      if (existing.role === "VIEWER" || (existing.tutorId && existing.tutorId !== tutor.id))
+        throw new TRPCError({ code: "CONFLICT", message: "Review the existing account membership before linking this tutor." });
+      await db.user.update({
+        where: { id: existing.id },
+        data: { tutorId: tutor.id, tutorAccessRevoked: false },
+      });
       userId = existing.id;
     } else {
       // Mirror the tutor's handle onto the login (unique across both spaces).
-      const username = await ensureUniqueUsername(tutor.username ?? tutor.englishName);
+      const username = await ensureUniqueUsername(
+        tutor.username ?? tutor.englishName,
+      );
       const created = await db.user.create({
         data: {
           email,
           username,
           name: tutor.englishName,
+          alternativeNames: tutor.alternativeNames,
           role: "TUTOR",
           tutorId: tutor.id,
           mustChangePassword: true,
@@ -166,6 +285,7 @@ export async function issueTutorSetupLink(tutorId: string): Promise<
       userId = created.id;
     }
   }
+  await updateAccountProfile(db, userId);
   // Make sure the (possibly pre-existing) login carries a username.
   await ensureUserUsername(userId);
 
@@ -173,6 +293,7 @@ export async function issueTutorSetupLink(tutorId: string): Promise<
   await db.passwordResetToken.create({
     data: {
       userId,
+      targetEmail: email,
       tokenHash: hashToken(token),
       expiresAt: new Date(Date.now() + SETUP_TOKEN_TTL_MINUTES * 60_000),
     },
@@ -192,5 +313,5 @@ export async function issueTutorSetupLink(tutorId: string): Promise<
       `<p>After that you can sign in with this email or your username.</p>`,
   });
 
-  return { ok: true, emailed: isEmailConfigured(), link };
+  return { ok: true, emailed: isEmailConfigured() };
 }

@@ -1,9 +1,11 @@
+import { signinIdentifiers } from "./signin-identifiers";
 import { db } from "~/server/db";
 import { rateLimit } from "~/server/rate-limit";
 import { verifyPassword } from "./password";
 
 export const SIGNIN_WINDOW_MS = 15 * 60_000;
-export const SIGNIN_MAX_PER_IP = 10;
+// A school shares one public IP; keep the tight per-account guard without locking out the class.
+export const SIGNIN_MAX_PER_IP = 1000;
 export const SIGNIN_MAX_PER_IDENTIFIER = 10;
 
 export type SigninPasswordResult =
@@ -14,6 +16,7 @@ export type SigninPasswordResult =
         name: string | null;
         email: string;
         twoFactorEnabled: boolean;
+        sessionVersion: number;
       };
     }
   | { ok: false; reason: "invalid" | "rate_limited" };
@@ -23,6 +26,24 @@ export function clientIpFromRequest(request: Request | undefined): string {
   const xff = request?.headers.get("x-forwarded-for");
   if (xff) return xff.split(",")[0]!.trim();
   return request?.headers.get("x-real-ip")?.trim() ?? "unknown";
+}
+
+/**
+ * Look up only the sign-in routing state. This intentionally does not verify a password or consume
+ * a rate-limit attempt; Auth.js remains the sole verifier for ordinary, non-2FA sign-ins.
+ */
+export async function findSigninTwoFactorUser(
+  identifierInput: string,
+): Promise<{ id: string; twoFactorEnabled: boolean } | null> {
+  const identifier = identifierInput.trim().toLowerCase();
+  if (!identifier) return null;
+
+  return db.user.findFirst({
+    where: {
+      OR: signinIdentifiers(identifier),
+    },
+    select: { id: true, twoFactorEnabled: true },
+  });
 }
 
 /**
@@ -50,18 +71,24 @@ export async function verifySigninPassword(
 
   const user = await db.user.findFirst({
     where: {
-      OR: [{ email: identifier }, { username: identifier }, { tutor: { username: identifier } }],
+      OR: signinIdentifiers(identifier),
     },
     select: {
       id: true,
       name: true,
       email: true,
       passwordHash: true,
+      suspendedAt: true,
       twoFactorEnabled: true,
+      sessionVersion: true,
     },
   });
-  if (!user?.passwordHash) return { ok: false, reason: "invalid" };
-  if (!verifyPassword(password, user.passwordHash)) return { ok: false, reason: "invalid" };
+  // Suspension removes participation permissions, not proof of identity. A verified login
+  // is necessary to reach the restricted suspension/appeal page; API middleware gates access.
+  if (!user?.passwordHash)
+    return { ok: false, reason: "invalid" };
+  if (!verifyPassword(password, user.passwordHash))
+    return { ok: false, reason: "invalid" };
 
   return {
     ok: true,
@@ -70,6 +97,8 @@ export async function verifySigninPassword(
       name: user.name,
       email: user.email,
       twoFactorEnabled: user.twoFactorEnabled,
+      // Carry the generation read alongside the verified hash, not a later refreshed value.
+      sessionVersion: user.sessionVersion,
     },
   };
 }

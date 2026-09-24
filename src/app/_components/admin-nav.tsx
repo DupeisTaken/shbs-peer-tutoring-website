@@ -1,6 +1,7 @@
+import { auth } from "~/server/auth";
 import { getTranslations } from "next-intl/server";
 
-import { NavLink } from "~/app/_components/nav-link";
+import { AdminMobileNavigation } from "~/app/_components/admin-mobile-navigation";
 import { NavSidebarClient } from "~/app/_components/nav-sidebar-client";
 import { db } from "~/server/db";
 import {
@@ -28,6 +29,17 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
     items: [
       { href: "/admin", labelKey: "admin.nav.links.dashboard", exact: true },
       { href: "/admin/activity", labelKey: "admin.nav.links.activity" },
+      {
+        href: "/admin/messages",
+        labelKey: "workflows.messages",
+        elevatedOnly: true,
+        exact: true,
+      },
+      {
+        href: "/admin/messages/supervision",
+        labelKey: "messaging.supervision",
+        adminOnly: true,
+      },
       { href: "/admin/history", labelKey: "admin.nav.links.reports" },
       {
         href: "/admin/announcements",
@@ -40,6 +52,11 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
     titleKey: "admin.nav.sections.tutors",
     items: [
       { href: "/admin/tutors", labelKey: "admin.nav.links.tutorRoster" },
+      {
+        href: "/admin/subject-availability",
+        labelKey: "subjectAvailability.title",
+        elevatedOnly: true,
+      },
       {
         href: "/admin/applications",
         labelKey: "admin.nav.links.tutorApplications",
@@ -72,6 +89,11 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
     items: [
       { href: "/admin/tutees", labelKey: "admin.nav.links.tuteeRoster" },
       { href: "/admin/requests", labelKey: "admin.nav.links.signupRequests" },
+      {
+        href: "/admin/student-support",
+        labelKey: "workflows.support",
+        elevatedOnly: true,
+      },
       {
         href: "/admin/tutee-requests",
         labelKey: "admin.nav.links.tuteeRequests",
@@ -115,6 +137,11 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
         adminOnly: true,
       },
       {
+        href: "/admin/signup-forms",
+        labelKey: "signupFields.title",
+        elevatedOnly: true,
+      },
+      {
         href: "/admin/landing",
         labelKey: "admin.nav.links.landing",
         elevatedOnly: true,
@@ -131,6 +158,11 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
         elevatedOnly: true,
       },
       // Audit Log + Users & Roles stay pinned to the bottom of the section.
+      {
+        href: "/admin/approvals",
+        labelKey: "approvals.title",
+        elevatedOnly: true,
+      },
       { href: "/admin/audit", labelKey: "admin.nav.links.auditLog" },
       {
         href: "/admin/users",
@@ -141,10 +173,11 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
   },
 ];
 
-function makeVisible(role: string, features: Features) {
+function makeVisible(role: string, features: Features, canTranslate: boolean) {
   const isAdminTier = role === "ADMIN" || role === "HEAD";
   const isElevated = isAdminTier || role === "COORDINATOR";
   return (item: NavItem) =>
+    (item.href !== "/localization" || canTranslate || isElevated) &&
     (!item.adminOnly || isAdminTier) &&
     (!item.elevatedOnly || isElevated) &&
     (!item.feature || features[item.feature]);
@@ -154,21 +187,30 @@ function makeVisible(role: string, features: Features) {
  *  role. Labels resolve server-side; the client component owns collapse state (persisted). */
 export async function NavSidebar({ role }: { role: string }) {
   const [t, features] = await Promise.all([getTranslations(), getFeatures(db)]);
-  const visible = makeVisible(role, features);
+  const session = await auth();
+  const user = session?.user
+    ? await db.user.findUnique({
+        where: { id: session.user.id },
+        select: { canTranslate: true },
+      })
+    : null;
+  const visible = makeVisible(role, features, user?.canTranslate ?? false);
   const sections = NAV_SECTIONS.map((section) => ({
     key: section.titleKey,
     title: t(section.titleKey),
-    items: section.items
-      .filter(visible)
-      .map((item) => ({
-        href: item.href,
-        label: t(item.labelKey),
-        exact: item.exact,
-      })),
+    items: section.items.filter(visible).map((item) => ({
+      href: item.href,
+      label: t(item.labelKey),
+      exact: item.exact,
+    })),
   })).filter((s) => s.items.length > 0);
   return (
-    <aside className="hidden w-56 shrink-0 lg:block">
+    <aside
+      className="hidden min-h-0 w-56 shrink-0 overflow-y-auto overscroll-contain pr-2 lg:block"
+      aria-label={t("adminNavigation.title")}
+    >
       <NavSidebarClient
+        sticky={false}
         sections={sections}
         collapseAllLabel={t("common.collapseAll")}
         expandAllLabel={t("common.expandAll")}
@@ -177,24 +219,42 @@ export async function NavSidebar({ role }: { role: string }) {
   );
 }
 
-/** Horizontally-scrolling nav row shown below the top bar on small screens. */
-export async function NavMobileRow({ role }: { role: string }) {
+/** Small screens use a bounded modal drawer with the same role-filtered sections. */
+export async function NavMobileRow({
+  role,
+  embedded = false,
+}: {
+  role: string;
+  embedded?: boolean;
+}) {
   const [t, features] = await Promise.all([getTranslations(), getFeatures(db)]);
-  const visible = makeVisible(role, features);
+  const session = await auth();
+  const user = session?.user
+    ? await db.user.findUnique({
+        where: { id: session.user.id },
+        select: { canTranslate: true },
+      })
+    : null;
+  const visible = makeVisible(role, features, user?.canTranslate ?? false);
   return (
-    <nav className="flex gap-1 overflow-x-auto px-2 pb-2 lg:hidden">
-      {NAV_SECTIONS.flatMap((s) => s.items)
-        .filter(visible)
-        .map((item) => (
-          <div key={item.href} className="shrink-0">
-            <NavLink
-              href={item.href}
-              label={t(item.labelKey)}
-              exact={item.exact}
-              className="min-h-11"
-            />
-          </div>
-        ))}
-    </nav>
+    <AdminMobileNavigation
+      embedded={embedded}
+      sections={NAV_SECTIONS.map((section) => ({
+        key: section.titleKey,
+        title: t(section.titleKey),
+        items: section.items.filter(visible).map((item) => ({
+          href: item.href,
+          label: t(item.labelKey),
+          exact: item.exact,
+        })),
+      })).filter((section) => section.items.length > 0)}
+      labels={{
+        title: t("adminNavigation.title"),
+        open: t("adminNavigation.open"),
+        close: t("common.close"),
+        collapse: t("common.collapseAll"),
+        expand: t("common.expandAll"),
+      }}
+    />
   );
 }
