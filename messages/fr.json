@@ -3067,5 +3067,33 @@
     "view": "Voir le formulaire",
     "opens": "Ouverture",
     "closes": "Fermeture"
+  },
+  "courseCatalogue": {
+    "title": "Catalogue des cours proposés",
+    "help": "Recherchez par nom, niveau ou statut. Modifiez les noms dans les groupes ci-dessous.",
+    "search": "Rechercher des cours",
+    "level": "Niveau",
+    "status": "Statut",
+    "allLevels": "Tous les niveaux",
+    "noLevel": "Sans niveau",
+    "allStatuses": "Tous les statuts",
+    "active": "Actif",
+    "inactive": "Inactif",
+    "clearFilters": "Effacer les filtres",
+    "count": "{count} matières sur {total}",
+    "selectAll": "Tout sélectionner parmi les lignes visibles",
+    "selected": "{count} sélectionnées · {hidden} masquées",
+    "clearSelection": "Effacer la sélection",
+    "batchLevel": "Définir le niveau",
+    "batchStatus": "Définir le statut",
+    "keep": "Conserver",
+    "apply": "Appliquer aux {count} sélections visibles",
+    "batchHelp": "Seules les matières sélectionnées visibles seront modifiées. Les sélections masquées sont conservées jusqu’à leur effacement.",
+    "selection": "Sélection",
+    "name": "Nom du cours",
+    "select": "Sélectionner {name}",
+    "noMatches": "Aucune matière ne correspond à ces filtres.",
+    "empty": "Aucune matière pour le moment.",
+    "emptyHelp": "Essayez une autre recherche ou effacez les filtres pour voir tout le catalogue."
   }
 }

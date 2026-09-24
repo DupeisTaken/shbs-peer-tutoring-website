@@ -3067,5 +3067,33 @@
     "view": "Formular ansehen",
     "opens": "Beginn",
     "closes": "Ende"
+  },
+  "courseCatalogue": {
+    "title": "Angebotene Kurse",
+    "help": "Nach Name, Stufe oder Status suchen. Kursnamen in den Gruppen unten bearbeiten.",
+    "search": "Kursnamen suchen",
+    "level": "Stufe",
+    "status": "Status",
+    "allLevels": "Alle Stufen",
+    "noLevel": "Ohne Stufe",
+    "allStatuses": "Alle Status",
+    "active": "Aktiv",
+    "inactive": "Inaktiv",
+    "clearFilters": "Filter zurücksetzen",
+    "count": "{count} von {total} Fächern",
+    "selectAll": "Alle sichtbaren auswählen",
+    "selected": "{count} ausgewählt · {hidden} ausgeblendet",
+    "clearSelection": "Auswahl aufheben",
+    "batchLevel": "Stufe festlegen",
+    "batchStatus": "Status festlegen",
+    "keep": "Unverändert lassen",
+    "apply": "Auf {count} sichtbare Auswahlen anwenden",
+    "batchHelp": "Nur sichtbare ausgewählte Fächer werden geändert. Ausgeblendete Auswahlen bleiben erhalten, bis die Auswahl aufgehoben wird.",
+    "selection": "Auswahl",
+    "name": "Kursname",
+    "select": "{name} auswählen",
+    "noMatches": "Keine Fächer entsprechen diesen Filtern.",
+    "empty": "Noch keine Fächer.",
+    "emptyHelp": "Andere Suche versuchen oder Filter zurücksetzen, um den gesamten Katalog zu sehen."
   }
 }

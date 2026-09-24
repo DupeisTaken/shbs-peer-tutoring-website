@@ -3067,5 +3067,33 @@
     "view": "Ver formulario",
     "opens": "Inicio",
     "closes": "Cierre"
+  },
+  "courseCatalogue": {
+    "title": "Catálogo de cursos ofrecidos",
+    "help": "Busca por nombre, nivel o estado. Edita los nombres en los grupos de abajo.",
+    "search": "Buscar cursos",
+    "level": "Nivel",
+    "status": "Estado",
+    "allLevels": "Todos los niveles",
+    "noLevel": "Sin nivel",
+    "allStatuses": "Todos los estados",
+    "active": "Activo",
+    "inactive": "Inactivo",
+    "clearFilters": "Borrar filtros",
+    "count": "{count} de {total} asignaturas",
+    "selectAll": "Seleccionar todos los visibles",
+    "selected": "{count} seleccionados · {hidden} ocultos",
+    "clearSelection": "Borrar selección",
+    "batchLevel": "Establecer nivel",
+    "batchStatus": "Establecer estado",
+    "keep": "Sin cambios",
+    "apply": "Aplicar a {count} seleccionados visibles",
+    "batchHelp": "Solo cambiarán las asignaturas seleccionadas visibles. Las selecciones ocultas se conservan hasta borrarlas.",
+    "selection": "Selección",
+    "name": "Nombre del curso",
+    "select": "Seleccionar {name}",
+    "noMatches": "Ninguna asignatura coincide con estos filtros.",
+    "empty": "Aún no hay asignaturas.",
+    "emptyHelp": "Prueba otra búsqueda o borra los filtros para ver todo el catálogo."
   }
 }

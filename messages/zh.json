@@ -3067,5 +3067,33 @@
     "view": "查看表单",
     "opens": "开始时间",
     "closes": "结束时间"
+  },
+  "courseCatalogue": {
+    "title": "开设课程目录",
+    "help": "按名称、级别或状态查找课程。在下方课程组中编辑课程名称。",
+    "search": "搜索课程名称",
+    "level": "级别",
+    "status": "状态",
+    "allLevels": "所有级别",
+    "noLevel": "无级别",
+    "allStatuses": "所有状态",
+    "active": "启用",
+    "inactive": "停用",
+    "clearFilters": "清除筛选",
+    "count": "显示 {count} / {total} 门课程",
+    "selectAll": "全选当前可见课程",
+    "selected": "已选 {count} 门 · 隐藏 {hidden} 门",
+    "clearSelection": "清除选择",
+    "batchLevel": "设置级别",
+    "batchStatus": "设置状态",
+    "keep": "保持不变",
+    "apply": "应用于 {count} 门可见已选课程",
+    "batchHelp": "仅修改当前可见且已选择的课程。隐藏的选择将保留，直到清除选择。",
+    "selection": "选择",
+    "name": "课程名称",
+    "select": "选择 {name}",
+    "noMatches": "没有符合筛选条件的课程。",
+    "empty": "暂无课程。",
+    "emptyHelp": "尝试其他关键词，或清除筛选以查看完整目录。"
   }
 }

@@ -3067,5 +3067,33 @@
     "view": "양식 보기",
     "opens": "시작",
     "closes": "종료"
+  },
+  "courseCatalogue": {
+    "title": "개설 과목 목록",
+    "help": "이름, 수준 또는 상태로 검색하세요. 과목 이름은 아래 과목 그룹에서 편집할 수 있습니다.",
+    "search": "과목 이름 검색",
+    "level": "수준",
+    "status": "상태",
+    "allLevels": "모든 수준",
+    "noLevel": "수준 없음",
+    "allStatuses": "모든 상태",
+    "active": "활성",
+    "inactive": "비활성",
+    "clearFilters": "필터 초기화",
+    "count": "전체 {total}개 중 {count}개 과목",
+    "selectAll": "표시된 과목 모두 선택",
+    "selected": "{count}개 선택 · {hidden}개 숨김",
+    "clearSelection": "선택 해제",
+    "batchLevel": "수준 설정",
+    "batchStatus": "상태 설정",
+    "keep": "변경하지 않음",
+    "apply": "표시된 선택 과목 {count}개에 적용",
+    "batchHelp": "표시된 선택 과목만 변경됩니다. 숨겨진 선택은 해제할 때까지 유지됩니다.",
+    "selection": "선택",
+    "name": "과목 이름",
+    "select": "{name} 선택",
+    "noMatches": "필터와 일치하는 과목이 없습니다.",
+    "empty": "아직 과목이 없습니다.",
+    "emptyHelp": "검색어를 변경하거나 필터를 초기화하여 전체 목록을 확인하세요."
   }
 }

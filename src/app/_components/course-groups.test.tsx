@@ -40,6 +40,9 @@ vi.mock("~/trpc/react", () => ({
       courseGroups: { useQuery: () => ({ data: [] }) },
       subjectLevels: { useQuery: () => ({ data: levels }) },
       subjects: { useQuery: () => ({ data: [] }) },
+      batchUpdateSubjects: {
+        useMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
+      },
       saveCourseGroup: { useMutation: () => ({ mutate: mocks.save }) },
       reorderCatalogue: { useMutation: () => ({ mutate: mocks.reorder }) },
       updateSubjectLevel: { useMutation: () => ({ mutate: vi.fn() }) },
@@ -111,7 +114,10 @@ it("labels the direction and exposes accessible reorder controls", () => {
 it("hides catalogue mutations for a read-only viewer", () => {
   mocks.readOnly = true;
   show();
-  expect(screen.queryByRole("button")).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: "Add subject group" }),
+  ).toBeNull();
+  expect(screen.getByRole("searchbox")).toBeTruthy();
   expect(
     screen.getByLabelText<HTMLInputElement>("Level name: AP").readOnly,
   ).toBe(true);
