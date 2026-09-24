@@ -48,7 +48,7 @@ describe("Chinese peer roles", () => {
     expect(en.landing.features.tutors.body).toContain("peers");
   });
 
-  it("keeps Chinese sample policy headings and referenced entry labels consistent", () => {
+  it("keeps Chinese draft policy headings and referenced entry labels consistent", () => {
     for (const [slug, role] of [
       ["tutor-policy", "辅导伙伴"],
       ["tutee-policy", "学习伙伴"],
@@ -56,8 +56,9 @@ describe("Chinese peer roles", () => {
       const policy = BUNDLED_POLICIES.find(
         (p) => p.slug === slug && p.locale === "zh",
       )!;
-      expect(policy.title).toBe(`${role}参与政策示例`);
-      expect(policy.body).not.toMatch(/导师|辅导员|学员|学生|授课|在职/);
+      expect(policy.title).toBe(`SHBS 同伴辅导项目${role}政策`);
+      // The draft may describe participants as students; role names stay peer-oriented.
+      expect(policy.body).not.toMatch(/导师|辅导员|学员|授课|在职/);
       if (slug === "tutee-policy") {
         expect(policy.body).toContain(zh.components.userMenu.enterTutee);
       } else {

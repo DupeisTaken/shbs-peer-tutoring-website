@@ -9,9 +9,15 @@ function files(root: string): string[] {
       : [join(root, entry.name)],
   );
 }
-/** Validate route references against Next's filesystem routes, including groups and dynamic slugs.
+/** Validate links against Next's routes and files served from public/.
  * Runtime CMS URLs and interpolated IDs are checked separately in the browser/API audit. */
-it("every literal internal page/notification link resolves to a deployed route", () => {
+it("every literal internal page/notification link resolves to a deployed route or asset", () => {
+  // Enumerate actual files so downloads count without exempting broken asset URLs.
+  const publicAssets = new Set(
+    files("public").map(
+      (path) => "/" + relative("public", path).replaceAll("\\", "/"),
+    ),
+  );
   const routes = files("src/app")
     .filter((path) => /[\\/](page|route)\.[tj]sx?$/.test(path))
     .map((path) => {
@@ -48,7 +54,10 @@ it("every literal internal page/notification link resolves to a deployed route",
       if (!href.startsWith("/") || href.startsWith("//") || href.includes("${"))
         continue;
       const pathname = href.split(/[?#]/)[0]!;
-      if (!routes.some((route) => route.test(pathname)))
+      if (
+        !publicAssets.has(pathname) &&
+        !routes.some((route) => route.test(pathname))
+      )
         missing.push(`${path}: ${href}`);
     }
   }
