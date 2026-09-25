@@ -4,6 +4,8 @@ Open [`index.html`](./index.html) in a browser for the identity and academic-pro
 
 Both HTML files are self-contained and work offline; their screenshots are embedded. The adjacent JSON files contain the compact, machine-readable browser evidence used to build each report.
 
+Review the published implementation in [pull request #155](https://github.com/DupeisTaken/shbs-peer-tutoring-website/pull/155), from branch `codex/issues-145-154-pr`. The validated source commit below remains recorded separately from the publication commit that adds these reports.
+
 Latest validation for source commit `ad1e747af9a816b22591e78f3e1c56c60563f7d1`:
 
 - 1,625 tests passed across 188 files.

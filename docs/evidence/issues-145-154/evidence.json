@@ -1,6 +1,8 @@
 {
   "summary": "Ten GitHub issues addressed in two isolated work groups: stable usernames across enrollment and account changes, and shared academic records with an explicit reference school year. A third branch combines both groups for integration verification.",
   "date": "25 September 2026",
+  "pullRequest": "https://github.com/DupeisTaken/shbs-peer-tutoring-website/pull/155",
+  "publicationBranch": "codex/issues-145-154-pr",
   "followup": {
     "title": "Program Profile Policy Follow-up",
     "href": "program-policy/index.html",
