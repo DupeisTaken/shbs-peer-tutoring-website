@@ -2,6 +2,13 @@
 
 import { useMemo, useState } from "react";
 import {
+  useProfilePolicy,
+  ProfilePolicyHint,
+  ProfilePolicyError,
+  OfferedGradeSelect,
+} from "~/app/_components/profile-policy";
+import { PreferredLatinName } from "~/app/_components/preferred-latin-name";
+import {
   RecruitmentNotice,
   useRecruitmentStatus,
 } from "~/app/_components/recruitment-notice";
@@ -22,6 +29,7 @@ import { SurveyResend } from "./survey-resend";
 export function SignupForm() {
   const { APP_TITLE } = useBranding();
   const t = useTranslations();
+  const profilePolicy = useProfilePolicy();
   const locale = useLocale();
   const options = api.tutee.signupOptions.useQuery(undefined, {
     refetchInterval: 30_000,
@@ -30,6 +38,7 @@ export function SignupForm() {
   const submit = api.tutee.submitSurvey.useMutation();
 
   const [englishName, setEnglishName] = useState("");
+  const [preferredLatinName, setPreferredLatinName] = useState("");
   const [gradeLevel, setGradeLevel] = useState("");
   const [email, setEmail] = useState("");
   const [phone, setPhone] = useState("");
@@ -79,6 +88,7 @@ export function SignupForm() {
   const readOnly = status !== "open" || missing.length > 0;
   const canSubmit =
     !readOnly &&
+    (!gradeLevel || profilePolicy.offeredGrades.includes(Number(gradeLevel))) &&
     englishName.trim() &&
     email.trim() &&
     policy.data?.revision &&
@@ -151,6 +161,7 @@ export function SignupForm() {
             normalizeTuteeFields(
               {
                 englishName: englishName.trim(),
+                preferredLatinName: preferredLatinName.trim() || undefined,
                 email: email.trim(),
                 policyRevision: policy.data.revision,
                 phone: phone.trim() || undefined,
@@ -186,6 +197,14 @@ export function SignupForm() {
                 required
               />
             </label>
+            <div className="sm:col-span-2">
+              <ProfilePolicyHint />
+            </div>
+            <PreferredLatinName
+              name={englishName}
+              value={preferredLatinName}
+              onChange={setPreferredLatinName}
+            />
             {fields.gradeLevel !== "hidden" && (
               <label className="space-y-1">
                 <span className="label">
@@ -194,12 +213,11 @@ export function SignupForm() {
                     {t(`signupFields.${fields.gradeLevel}`)}
                   </span>
                 </span>
-                <input
-                  className="input min-h-11 lg:min-h-10"
+                <OfferedGradeSelect
                   required={fields.gradeLevel === "required"}
                   value={gradeLevel}
-                  onChange={(e) => setGradeLevel(e.target.value)}
-                  placeholder={t("public.signup.placeholders.gradeLevel")}
+                  onChange={setGradeLevel}
+                  offeredGrades={profilePolicy.offeredGrades}
                 />
               </label>
             )}
@@ -391,7 +409,7 @@ export function SignupForm() {
 
           {submit.error && (
             <p role="alert" className="text-sm text-red-600">
-              {submit.error.message}
+              <ProfilePolicyError message={submit.error.message} />
             </p>
           )}
 

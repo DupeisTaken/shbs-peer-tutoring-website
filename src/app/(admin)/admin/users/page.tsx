@@ -4,7 +4,7 @@ import { accountMembership, membershipBadges } from "~/lib/account-membership";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 
-import { EmailDetails } from "~/app/_components/email-details";
+import { EmailDetails, USER_ROW_ACTION } from "~/app/_components/email-details";
 import { AccountProfileEditor } from "~/app/_components/account-profile-editor";
 import { MultiFilter } from "~/app/_components/multi-filter";
 import {
@@ -128,7 +128,10 @@ export default function UsersPage() {
   const invalidate = () => utils.admin.accounts.invalidate();
 
   // Designed confirm/prompt dialog (replaces native window.prompt for the suspension reason).
-  const { promptText, dialog } = useDialog();
+  const { promptText, confirm: confirmUsername, dialog } = useDialog();
+  const assignUsername = api.admin.backfillStudentUsernames.useMutation({
+    onSuccess: async () => { await Promise.all([invalidate(), utils.account.me.invalidate()]); },
+  });
 
   // Dangerous actions run behind an identity-confirmation dialog (see ConfirmIdentityDialog).
   const [confirm, setConfirm] = useState<{
@@ -199,7 +202,11 @@ export default function UsersPage() {
     setFilterState({ userId: viewerId, filters: restored });
     // Repair this account's saved preference after reading it, including stale hidden status.
     try {
-      if (raw !== null) localStorage.setItem(`shbs:user-filters:${viewerId}:v1`, JSON.stringify(restored));
+      if (raw !== null)
+        localStorage.setItem(
+          `shbs:user-filters:${viewerId}:v1`,
+          JSON.stringify(restored),
+        );
     } catch {
       /* Storage restrictions must not prevent the normalized in-memory result. */
     }
@@ -280,31 +287,38 @@ export default function UsersPage() {
 
       <section className="card space-y-3 p-4">
         <p className="muted text-sm">{t("userMultiFilters.hint")}</p>
-        <div className={`grid items-start gap-3 ${isTutorStatusApplicable(filters.role) ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
+        <div
+          className={`grid items-start gap-3 ${isTutorStatusApplicable(filters.role) ? "md:grid-cols-3" : "md:grid-cols-2"}`}
+        >
           <MultiFilter
             label={t("admin.users.filters.role")}
             options={[
               ...ALL_ROLES.map((value) => ({
                 value,
-                label: value === "TRANSLATOR" ? t("membership.translator") : t(`admin.users.roles.${value}`),
+                label:
+                  value === "TRANSLATOR"
+                    ? t("membership.translator")
+                    : t(`admin.users.roles.${value}`),
               })),
               { value: "__none__", label: t("userMultiFilters.noRole") },
             ]}
             value={filters.role}
             onChange={(role) => updateFilters({ ...filters, role })}
           />
-          {isTutorStatusApplicable(filters.role) && <MultiFilter
-            label={t("admin.users.filters.status")}
-            options={[
-              ...TUTOR_STATUSES.map((value) => ({
-                value,
-                label: t(`admin.tutorStatus.${value}`),
-              })),
-              { value: "__none__", label: t("userMultiFilters.noTutor") },
-            ]}
-            value={filters.status}
-            onChange={(status) => updateFilters({ ...filters, status })}
-          />}
+          {isTutorStatusApplicable(filters.role) && (
+            <MultiFilter
+              label={t("admin.users.filters.status")}
+              options={[
+                ...TUTOR_STATUSES.map((value) => ({
+                  value,
+                  label: t(`admin.tutorStatus.${value}`),
+                })),
+                { value: "__none__", label: t("userMultiFilters.noTutor") },
+              ]}
+              value={filters.status}
+              onChange={(status) => updateFilters({ ...filters, status })}
+            />
+          )}
           <MultiFilter
             label={t("admin.users.filters.account")}
             options={ACCOUNT_STATES.map((value) => ({
@@ -394,6 +408,7 @@ export default function UsersPage() {
         </section>
       )}
 
+      {assignUsername.error && <p role="alert" className="text-sm text-red-600">{assignUsername.error.message}</p>}
       <div className="card overflow-x-auto">
         <table className="data-table">
           <thead>
@@ -422,9 +437,13 @@ export default function UsersPage() {
                   <td>
                     <div className="leading-tight">
                       <p className="font-medium text-slate-900">{u.name}</p>
-                      {(u.username ?? u.tutor?.username) && (
+                      {(u.username ?? u.tutor?.username) ? (
                         <p className="muted text-xs">
                           @{u.username ?? u.tutor?.username}
+                        </p>
+                      ) : (
+                        <p className="muted text-xs">
+                          {t("academics.usernameMissing")}
                         </p>
                       )}
                       {u.alternativeNames && (
@@ -433,21 +452,19 @@ export default function UsersPage() {
                     </div>
                   </td>
 
-                  {/* Linked tutor: name, class-of year + grade, lifecycle status. */}
+                  {/* Tutor participation remains separate from account-wide academics. */}
                   <td className="text-slate-600">
                     {u.tutor ? (
                       <div className="leading-tight">
                         <p>{u.tutor.englishName}</p>
                         <p className="muted text-xs">
-                          {u.classOf != null
-                            ? `${t("admin.tutors.classOf", { year: u.classOf })} · `
-                            : u.tutor.gradeLevel != null
-                              ? `G${u.tutor.gradeLevel} · `
-                              : ""}
                           {u.tutorStatus
                             ? t(`admin.tutorStatus.${u.tutorStatus}`)
                             : ""}
                         </p>
+                        {u.academic.expectedGraduationYear != null && (
+                          <p className="muted text-xs">{t("admin.tutors.classOf", { year: u.academic.expectedGraduationYear })}</p>
+                        )}
                       </div>
                     ) : (
                       "—"
@@ -543,18 +560,29 @@ export default function UsersPage() {
                   </td>
 
                   {/* Readable, composable badges; assignments live inside Edit Profile. */}
-                  <td><div className="flex flex-wrap gap-1.5">
-                    {membershipBadges(accountMembership(u)).map(badge => (
-                      <span key={badge} className={badge === "HEAD" ? "badge-green" : "badge-slate"}>
-                        {badge === "TRANSLATOR" ? t("membership.translator") : t(`admin.users.roles.${badge}`)}
-                      </span>
-                    ))}
-                  </div></td>
+                  <td>
+                    <div className="flex flex-wrap gap-1.5">
+                      {membershipBadges(accountMembership(u)).map((badge) => (
+                        <span
+                          key={badge}
+                          className={
+                            badge === "HEAD" ? "badge-green" : "badge-slate"
+                          }
+                        >
+                          {badge === "TRANSLATOR"
+                            ? t("membership.translator")
+                            : t(`admin.users.roles.${badge}`)}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
 
                   {/* Contact/profile actions stay available to permitted staff. Only deletion is head-only. */}
                   <td>
-                    <div className="flex flex-col items-end gap-1.5 whitespace-nowrap">
+                    <div className="flex min-w-28 flex-col items-stretch gap-1.5">
                       <EmailDetails
+                        academic={u.academic}
+                        triggerClassName={USER_ROW_ACTION}
                         showPolicyHistory
                         email={u.email}
                         name={u.name}
@@ -569,15 +597,25 @@ export default function UsersPage() {
                       />
                       {u.userId && (
                         <button
-                          className="link mt-1 block text-xs"
+                          className={`link ${USER_ROW_ACTION}`}
                           onClick={() => setEditingProfileId(u.userId)}
                         >
                           {t("accountProfile.editProfile")}
                         </button>
                       )}
+                      {isHead && u.userId && u.role === "STUDENT" && u.emailVerifiedAt && !u.username && (
+                        <button className="btn-secondary min-h-11 max-w-48 whitespace-normal text-xs lg:min-h-8"
+                          disabled={assignUsername.isPending}
+                          onClick={async () => {
+                            if (!u.userId) return;
+                            if (await confirmUsername({ title: t("identityUsername.assignTitle", { name: u.name }),
+                              message: t("identityUsername.assignHelp"), confirmLabel: t("identityUsername.assign"), cancelLabel: t("common.cancel") }))
+                              assignUsername.mutate({ userIds: [u.userId] });
+                          }}>{t("identityUsername.assign")}</button>
+                      )}
                       {isHead && u.userId && !u.isSelf && u.role !== "HEAD" ? (
                         <button
-                          className="link-danger text-xs whitespace-nowrap"
+                          className={`link-danger ${USER_ROW_ACTION}`}
                           onClick={() => {
                             const userId = u.userId;
                             if (!userId) return;
@@ -606,7 +644,7 @@ export default function UsersPage() {
             })}
             {rows.length === 0 && (
               <tr>
-                <td colSpan={5} className="text-slate-500">
+                <td colSpan={6} className="text-slate-500">
                   {t("admin.users.empty")}
                 </td>
               </tr>
@@ -616,12 +654,7 @@ export default function UsersPage() {
       </div>
       {/* Errors from the dangerous (dialog-gated) actions surface inside the dialog itself. */}
       {sendSetup.error && (
-        <p className="text-sm text-red-600">
-          {
-            sendSetup.error
-              ?.message
-          }
-        </p>
+        <p className="text-sm text-red-600">{sendSetup.error?.message}</p>
       )}
 
       {confirm && (

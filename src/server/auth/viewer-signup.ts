@@ -1,3 +1,4 @@
+import { assertPrimaryName } from "~/server/program/profile-policy";
 /**
  * Public viewer self-registration (read-only VIEWER accounts) — the ONE open account-creation
  * path (everything else is admin-gated). Gated only by email validation: a visitor enters their
@@ -31,6 +32,7 @@ export async function startViewerSignup(input: {
   const existing = await db.user.findUnique({ where: { email }, select: { id: true } });
   if (existing) return { ok: false, error: "email-taken" };
 
+  await assertPrimaryName(db, input.name);
   const code = generateRegistrationCode();
   const data = {
     name: input.name.trim(),
@@ -94,6 +96,9 @@ export async function completeViewerSignup(
       data: { usedAt: new Date() },
     });
     if (claimed.count !== 1) return { ok: false as const, error: "email-unverified" as const };
+    // Recheck at the actual identity write: a verified challenge may predate a
+    // policy change. Rejection rolls back the claim so the signup is not consumed.
+    await assertPrimaryName(tx, row.name);
     await tx.user.create({
       data: {
         email: e,

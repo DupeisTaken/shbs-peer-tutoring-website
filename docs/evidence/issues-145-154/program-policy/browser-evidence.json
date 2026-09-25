@@ -1,0 +1,100 @@
+{
+  "branch": "codex/program-profile-policy",
+  "pullRequest": "https://github.com/DupeisTaken/shbs-peer-tutoring-website/pull/155",
+  "publicationBranch": "codex/issues-145-154-pr",
+  "commit": "ad1e747af9a816b22591e78f3e1c56c60563f7d1",
+  "capturedAt": "2026-09-25T09:50:01+08:00",
+  "baseUrl": "http://localhost:3100",
+  "browser": "Microsoft Edge via Playwright, headless",
+  "screenshots": [
+    "settings-en-desktop.png",
+    "settings-en-mobile.png",
+    "settings-en-mobile-grades.png",
+    "settings-zh-mobile.png",
+    "settings-zh-mobile-grades.png",
+    "settings-zh-desktop.png",
+    "users-en-desktop.png",
+    "users-actions-en-desktop.png",
+    "user-details-emma-en-desktop.png",
+    "users-en-mobile.png",
+    "users-actions-en-mobile.png",
+    "name-policy-rejected-en-desktop.png",
+    "name-policy-allowed-en-desktop.png",
+    "self-profile-en-desktop.png",
+    "self-profile-en-mobile.png",
+    "signup-en-desktop.png",
+    "signup-en-mobile.png",
+    "signup-zh-desktop.png",
+    "signup-zh-mobile.png"
+  ],
+  "policy": {
+    "requireLatinNames": true,
+    "offeredGrades": [9, 10, 11, 12],
+    "locales": ["en", "zh"],
+    "viewports": {
+      "desktop": { "width": 1440, "height": 1050 },
+      "mobile": { "width": 390, "height": 844 }
+    }
+  },
+  "userTable": {
+    "columnCount": 5,
+    "academicDetailsColumnPresent": false,
+    "academicDetailsMovedToUserDetails": true
+  },
+  "userActions": {
+    "labels": ["User details", "Edit profile", "Delete"],
+    "desktop": {
+      "fontSize": "14px",
+      "heightPx": 32,
+      "equalWidth": true,
+      "widthPx": 148
+    },
+    "mobile": {
+      "fontSize": "14px",
+      "heightPx": 44,
+      "equalWidth": true,
+      "widthPx": 113
+    }
+  },
+  "userDetails": {
+    "name": "Emma Sun",
+    "grade": 10,
+    "schoolYear": "26-27",
+    "expectedGraduation": 2029,
+    "policyHistoryLoadedBeforeCapture": true
+  },
+  "profileNamePolicy": {
+    "nonLatinPrimaryRejected": true,
+    "latinPrimaryWithChineseSecondaryAccepted": true,
+    "originalNameRestored": true,
+    "originalSecondaryNameRestored": true
+  },
+  "selfProfile": {
+    "offeredGrades": [9, 10, 11, 12],
+    "editableReferenceYear": false,
+    "currentSchoolYear": "26-27",
+    "expectedGraduation": 2029
+  },
+  "signup": {
+    "locales": ["en", "zh"],
+    "latinNamePolicyHint": true,
+    "offeredGrades": [9, 10, 11, 12]
+  },
+  "registration": {
+    "optionalCaptureSkipped": true,
+    "reason": "The verified invitation path was already exercised in separate identity evidence. This follow-up prioritized the shared profile editor and public signup policy propagation."
+  },
+  "validation": {
+    "tests": { "files": 188, "tests": 1625, "passed": true, "log": ".validation/policy-full-tests-final.log" },
+    "check": { "errors": 0, "preexistingWarnings": 18, "passed": true, "log": ".validation/policy-check-final.log" },
+    "docs": { "tests": 13, "passed": true },
+    "productionBuild": { "staticPages": 64, "workers": 1, "passed": true, "log": ".validation/policy-build.log" }
+  },
+  "cleanup": {
+    "appPort3100Closed": true,
+    "databasePorts55439And55440Closed": true,
+    "localPostgresStopped": true,
+    "cacheDeletionBlockedByAutomaticApprovalReview": [".next/cache", ".validation/vite"]
+  },
+  "browserClosed": true
+}

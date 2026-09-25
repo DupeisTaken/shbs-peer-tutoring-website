@@ -1,3 +1,4 @@
+import { assertPrimaryName, assertOfferedGrade } from "~/server/program/profile-policy";
 import { getProgramTimeZone } from "~/server/program/time-zone";
 import { programDateKey } from "~/lib/program-time";
 import { requestMembership, recallMembership } from "~/server/membership";
@@ -189,7 +190,7 @@ export const crewRouter = createTRPCRouter({
       z.object({
         name: z.string().trim().min(1).max(120),
         email: z.string().trim().email().max(254),
-        gradeLevel: z.number().int().min(6).max(12).nullable().optional(),
+        gradeLevel: z.number().int().min(1).max(12).nullable().optional(),
         preferredContact: z.string().trim().max(200).optional(),
         message: z.string().trim().max(1000).optional(),
       }),
@@ -207,6 +208,9 @@ export const crewRouter = createTRPCRouter({
           tx,
           { kind: "crew", email: input.email, headers: ctx.headers },
           async (email) => {
+            // Check current policy only for a new record; historical retries stay idempotent.
+            await assertPrimaryName(tx, input.name);
+            await assertOfferedGrade(tx, input.gradeLevel);
             await tx.crewApplication.create({
               data: {
                 name: input.name,

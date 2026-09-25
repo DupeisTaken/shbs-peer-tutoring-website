@@ -44,6 +44,7 @@ model User {
   /// Canonical person profile; mirrored only through explicit tutor/student links.
   alternativeNames String?
   profileVersion Int @default(0)
+  academicProfile AcademicProfile?
   /// Login identifier. Also the address future email-based 2FA codes are sent to.
   email String  @unique
   /// Primary and verified secondary addresses share one globally unique namespace.
@@ -98,8 +99,7 @@ model User {
   /// service hours (0.5h per patrol) are accounted separately from tutoring hours.
   crewStatus CrewStatus?
 
-  /// Grade level (G-number) for crew-only logins (tutors keep grade on their Tutor record). Drives
-  /// the class-of year in the username suffix. Null for non-crew / unknown.
+  /// Compatibility mirror; AcademicProfile is the authoritative account academic report.
   gradeLevel Int?
 
   /// Who an observer is (self-registered read-only VIEWER): a free-text affiliation like
@@ -318,7 +318,7 @@ enum Quarter {
 
 /// Lifecycle state of a tutor. ACTIVE tutors are eligible for pairings/attendance; the other
 /// three are "inactive" (read-only program access + own history). GRADUATED is set automatically
-/// when the program advances into Q4 for G12+; OPTED_OUT is set when an approved opt-out request
+/// when the program advances into Q4 for confirmed current-year G12; OPTED_OUT is set when an approved opt-out request
 /// is processed; ARCHIVED is the generic admin/crew deactivation (e.g. unavailable at rollover).
 enum TutorStatus {
   ACTIVE
@@ -434,10 +434,13 @@ model Tutor {
   /// Lifecycle state (see TutorStatus). ACTIVE = eligible for pairings/attendance; the rest are
   /// inactive (read-only). Replaces the former `active` boolean.
   status      TutorStatus @default(ACTIVE)
-  /// School grade (e.g. 9–12), self-reported by the tutor. Increments by one when the program
-  /// refreshes across a school year; G12 tutors graduate at that point. Class-of year is derived
-  /// from this + the active school year (tutors can't edit the derived year). See src/lib/period.ts.
+  /// Compatibility grade mirror for linked accounts; provisional grade for roster-only tutors.
+  /// Reported grades never advance automatically. G12 graduation requires its confirmed reference
+  /// year; academic estimates use that reference rather than the currently active term.
   gradeLevel  Int?
+  /// Provisional roster academic reference; account profile owns linked records.
+  gradeSchoolYear String?
+  gradeConfirmedAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now()) @updatedAt
 
@@ -1811,6 +1814,8 @@ model SchoolCalendarDay {
 model ProgramSettings {
   /// Head-only configuration for existing signup fields; missing keys use original defaults.
   signupFields Json @default("{}")
+  requireLatinNames Boolean @default(false)
+  offeredGrades Int[] @default([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
   /// Immediate ADMIN/HEAD switch, independent of staged program modules and authentication mail.
   emailNotificationsEnabled Boolean @default(false)
   // Availability only: existing verified aliases and primary authentication remain intact.
@@ -1857,4 +1862,46 @@ model PublicApplicationRateLimit {
   resetsAt DateTime
 
   @@index([resetsAt])
+}
+
+
+/// One academic identity for every account, independent of participation and login handle.
+model AcademicProfile {
+  userId String @id
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status AcademicStatus @default(UNKNOWN)
+  gradeLevel Int?
+  rawGrade String?
+  schoolYear String?
+  confirmedAt DateTime?
+  reconfirmRequired Boolean @default(true)
+  history AcademicConfirmation[]
+}
+
+enum AcademicStatus {
+  REPORTED
+  UNKNOWN
+  NOT_APPLICABLE
+}
+
+/// Append-only confirmations/corrections; prior intake/signature snapshots remain untouched.
+model AcademicConfirmation {
+  id String @id @default(cuid())
+  userId String
+  profile AcademicProfile @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  status AcademicStatus
+  gradeLevel Int?
+  rawGrade String?
+  schoolYear String?
+  confirmedAt DateTime @default(now())
+  actorId String?
+  source String
+  reason String?
+  @@index([userId, confirmedAt])
+}
+
+/// Shared write fence: even repeatable-read/serializable identity transactions must see a fresh namespace.
+model UsernameNamespaceGuard {
+  id       Int    @id
+  revision BigInt @default(0)
 }

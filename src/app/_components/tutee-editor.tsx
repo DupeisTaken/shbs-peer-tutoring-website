@@ -2,6 +2,14 @@
 import { useTranslations } from "next-intl";
 import { ProfileDialog } from "~/app/_components/profile-dialog";
 import { api, type RouterOutputs } from "~/trpc/react";
+import { AcademicPanel } from "./academic-profile";
+import { AcademicError } from "./academic-error";
+import {
+  useProfilePolicy,
+  ProfilePolicyHint,
+  OfferedGradeSelect,
+} from "./profile-policy";
+import { useState } from "react";
 
 /** Profile correction stays separate from assignment/removal, while the version protects both. */
 export function TuteeEditor({
@@ -13,6 +21,10 @@ export function TuteeEditor({
 }) {
   const t = useTranslations("profileCorrection");
   const profileText = useTranslations("accountProfile");
+  const academicText = useTranslations("academics");
+  const [expectedUpdatedAt] = useState(row.updatedAt);
+  const policy = useProfilePolicy();
+  const [grade, setGrade] = useState(row.gradeLevel?.toString() ?? "");
   const utils = api.useUtils();
   const subjects = api.admin.subjects.useQuery();
   const slots = api.admin.timeSlots.useQuery();
@@ -46,14 +58,14 @@ export function TuteeEditor({
               ).trim() || null;
             save.mutate({
               id: row.id,
-              expectedUpdatedAt: row.updatedAt,
+              expectedUpdatedAt,
               englishName: value("name")!,
               alternativeNames: value("alternativeNames"),
               status: row.status,
               email: value("email"),
               phone: value("phone"),
               preferredContact: value("preferredContact"),
-              gradeLevel: value("grade"),
+              ...(row.user ? {} : { gradeLevel: value("grade") }),
               notes: value("notes"),
               firstChoiceId: value("firstChoice"),
               secondChoiceId: value("secondChoice"),
@@ -69,29 +81,45 @@ export function TuteeEditor({
                 profileText("alternativeNames"),
                 row.alternativeNames,
               ],
-              ["grade", t("grade"), row.gradeLevel],
+              ["grade", academicText("legacyGrade"), row.gradeLevel],
               ["email", t("email"), row.user?.email ?? row.email],
               ["phone", t("phone"), row.phone],
               ["preferredContact", t("contact"), row.preferredContact],
             ] as const
-          ).map(([name, label, value]) => (
-            <label key={name} className="block">
-              <span className="label">{label}</span>
-              <input
-                className="input w-full"
-                name={name}
-                defaultValue={value ?? ""}
-                type={name === "email" ? "email" : "text"}
-                required={name === "name"}
-                readOnly={name === "email" && !!row.user}
-              />
-              {name === "email" && row.user && (
-                <span className="muted text-xs">
-                  {profileText("emailProtected")}
-                </span>
-              )}
-            </label>
-          ))}
+          )
+            .filter(([name]) => name !== "grade" || !row.user)
+            .map(([name, label, value]) => (
+              <label key={name} className="block">
+                <span className="label">{label}</span>
+                {name === "grade" ? (
+                  <OfferedGradeSelect
+                    name="grade"
+                    value={grade}
+                    onChange={setGrade}
+                    offeredGrades={policy.offeredGrades}
+                    preserveLegacy
+                  />
+                ) : (
+                  <input
+                    className="input w-full"
+                    name={name}
+                    defaultValue={value ?? ""}
+                    type={name === "email" ? "email" : "text"}
+                    required={name === "name"}
+                    readOnly={name === "email" && !!row.user}
+                  />
+                )}
+
+                {name === "email" && row.user && (
+                  <span className="muted text-xs">
+                    {profileText("emailProtected")}
+                  </span>
+                )}
+              </label>
+            ))}
+          <div className="sm:col-span-2">
+            <ProfilePolicyHint />
+          </div>
           {(
             [
               ["firstChoice", t("first"), row.firstChoiceId],
@@ -149,10 +177,15 @@ export function TuteeEditor({
           </button>
           {save.error && (
             <p role="alert" className="text-sm text-red-600">
-              {save.error.message}
+              <AcademicError message={save.error.message} />
             </p>
           )}
         </form>
+      )}
+      {row.user && (
+        <div className="mt-5">
+          <AcademicPanel userId={row.user.id} />
+        </div>
       )}
     </ProfileDialog>
   );

@@ -1,11 +1,22 @@
 "use client";
 
 import { useState } from "react";
+import { AcademicError } from "~/app/_components/academic-error";
+import { PreferredLatinName } from "~/app/_components/preferred-latin-name";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 
-import { registrationKindLabel, type RegistrationKind } from "~/lib/registration-kind";
+import {
+  registrationKindLabel,
+  type RegistrationKind,
+} from "~/lib/registration-kind";
 import { api } from "~/trpc/react";
+import {
+  useProfilePolicy,
+  ProfilePolicyHint,
+  ProfilePolicyError,
+  OfferedGradeSelect,
+} from "~/app/_components/profile-policy";
 
 type Step = "code" | "email" | "emailCode" | "profile" | "done";
 
@@ -16,6 +27,7 @@ type Step = "code" | "email" | "emailCode" | "profile" | "done";
  */
 export function RegisterFlow() {
   const t = useTranslations();
+  const policy = useProfilePolicy();
   const [kind, setKind] = useState<RegistrationKind | null>(null);
   const [step, setStep] = useState<Step>("code");
 
@@ -27,11 +39,14 @@ export function RegisterFlow() {
   const [completionProof, setCompletionProof] = useState("");
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
+  const [preferredLatinName, setPreferredLatinName] = useState("");
   const [altNames, setAltNames] = useState("");
   const [grade, setGrade] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");
   const [username, setUsername] = useState("");
+  const [academicConfirmationRequired, setAcademicConfirmationRequired] =
+    useState(false);
 
   const check = api.registration.check.useMutation({
     onSuccess: (data) => {
@@ -48,23 +63,38 @@ export function RegisterFlow() {
     },
   });
   const sendCode = api.registration.sendEmailCode.useMutation({
-    onSuccess: () => { setCompletionProof(""); setEmailCode(""); setStep("emailCode"); },
+    onSuccess: () => {
+      setCompletionProof("");
+      setEmailCode("");
+      setStep("emailCode");
+    },
   });
   const verifyEmail = api.registration.verifyEmail.useMutation({
-    onSuccess: (data) => { setCompletionProof(data.completionProof); setStep("profile"); },
+    onSuccess: (data) => {
+      setCompletionProof(data.completionProof);
+      setStep("profile");
+    },
   });
   const complete = api.registration.complete.useMutation({
     onSuccess: (data) => {
       setUsername(data.username);
+      setAcademicConfirmationRequired(data.academicConfirmationRequired);
       setStep("done");
     },
   });
 
-  const passwordMismatch = password.length > 0 && confirm.length > 0 && password !== confirm;
+  const passwordMismatch =
+    password.length > 0 && confirm.length > 0 && password !== confirm;
 
   return (
     <div className="space-y-4">
-      {kind && <p className="rounded-lg bg-slate-50 p-3 text-sm font-semibold">{t("auth.register.grantedRole", { role: t(`admin.registrationCodes.${registrationKindLabel[kind]}`) })}</p>}
+      {kind && (
+        <p className="rounded-lg bg-slate-50 p-3 text-sm font-semibold">
+          {t("auth.register.grantedRole", {
+            role: t(`admin.registrationCodes.${registrationKindLabel[kind]}`),
+          })}
+        </p>
+      )}
       {/* Step 1 — security key */}
       {step === "code" && (
         <form
@@ -83,12 +113,21 @@ export function RegisterFlow() {
             autoComplete="one-time-code"
             maxLength={5}
             value={code}
-            onChange={(e) => setCode(e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, "").slice(0, 5))}
+            onChange={(e) =>
+              setCode(
+                e.target.value
+                  .toUpperCase()
+                  .replace(/[^0-9A-Z]/g, "")
+                  .slice(0, 5),
+              )
+            }
             placeholder="XXXXX"
             className="input w-full text-center text-2xl tracking-[0.4em] uppercase"
           />
           <p className="muted text-xs">{t("auth.register.step.code.help")}</p>
-          {check.error && <p className="text-sm text-red-600">{check.error.message}</p>}
+          {check.error && (
+            <p className="text-sm text-red-600">{check.error.message}</p>
+          )}
           <button
             className="btn-primary w-full"
             disabled={!/^[0-9A-Z]{5}$/.test(code) || check.isPending}
@@ -119,9 +158,18 @@ export function RegisterFlow() {
             placeholder={t("auth.register.step.email.placeholder")}
             className="input w-full"
           />
-          {boundEmail && <p className="muted text-xs">{t("auth.register.step.email.bound")}</p>}
-          {sendCode.error && <p className="text-sm text-red-600">{sendCode.error.message}</p>}
-          <button className="btn-primary w-full" disabled={!email.trim() || sendCode.isPending}>
+          {boundEmail && (
+            <p className="muted text-xs">
+              {t("auth.register.step.email.bound")}
+            </p>
+          )}
+          {sendCode.error && (
+            <p className="text-sm text-red-600">{sendCode.error.message}</p>
+          )}
+          <button
+            className="btn-primary w-full"
+            disabled={!email.trim() || sendCode.isPending}
+          >
             {t("auth.register.step.email.send")}
           </button>
         </form>
@@ -133,7 +181,8 @@ export function RegisterFlow() {
           className="space-y-3"
           onSubmit={(e) => {
             e.preventDefault();
-            if (/^[0-9A-Z]{5}$/.test(emailCode)) verifyEmail.mutate({ code, emailCode });
+            if (/^[0-9A-Z]{5}$/.test(emailCode))
+              verifyEmail.mutate({ code, emailCode });
           }}
         >
           <p className="text-sm text-slate-700">
@@ -148,12 +197,23 @@ export function RegisterFlow() {
             autoComplete="one-time-code"
             maxLength={5}
             value={emailCode}
-            onChange={(e) => setEmailCode(e.target.value.toUpperCase().replace(/[^0-9A-Z]/g, "").slice(0, 5))}
+            onChange={(e) =>
+              setEmailCode(
+                e.target.value
+                  .toUpperCase()
+                  .replace(/[^0-9A-Z]/g, "")
+                  .slice(0, 5),
+              )
+            }
             placeholder="XXXXX"
             className="input w-full text-center text-2xl tracking-[0.4em] uppercase"
           />
-          {verifyEmail.error && <p className="text-sm text-red-600">{verifyEmail.error.message}</p>}
-          {sendCode.error && <p className="text-sm text-red-600">{sendCode.error.message}</p>}
+          {verifyEmail.error && (
+            <p className="text-sm text-red-600">{verifyEmail.error.message}</p>
+          )}
+          {sendCode.error && (
+            <p className="text-sm text-red-600">{sendCode.error.message}</p>
+          )}
           <button
             className="btn-primary w-full"
             disabled={!/^[0-9A-Z]{5}$/.test(emailCode) || verifyEmail.isPending}
@@ -177,10 +237,20 @@ export function RegisterFlow() {
           className="space-y-3"
           onSubmit={(e) => {
             e.preventDefault();
-            if (firstName.trim() && lastName.trim() && password.length >= 8 && confirm === password && completionProof && !sendCode.isPending) {
+            if (
+              firstName.trim() &&
+              password.length >= 8 &&
+              confirm === password &&
+              completionProof &&
+              !sendCode.isPending &&
+              (!grade.trim() ||
+                (!!policy.currentSchoolYear &&
+                  policy.offeredGrades.includes(Number(grade))))
+            ) {
               complete.mutate({
                 code,
                 completionProof,
+                preferredLatinName: preferredLatinName.trim() || undefined,
                 firstName: firstName.trim(),
                 lastName: lastName.trim(),
                 alternativeNames: altNames.trim() || undefined,
@@ -214,6 +284,12 @@ export function RegisterFlow() {
               />
             </div>
           </div>
+          <ProfilePolicyHint />
+          <PreferredLatinName
+            name={`${firstName} ${lastName}`}
+            value={preferredLatinName}
+            onChange={setPreferredLatinName}
+          />
           <div>
             <label className="label" htmlFor="reg-alt">
               {t("auth.register.step.profile.altNames")}
@@ -230,16 +306,20 @@ export function RegisterFlow() {
             <label className="label" htmlFor="reg-grade">
               {t("auth.register.step.profile.grade")}
             </label>
-            <input
+            <OfferedGradeSelect
               id="reg-grade"
-              type="number"
-              min={6}
-              max={12}
               value={grade}
-              onChange={(e) => setGrade(e.target.value)}
-              className="input w-full"
+              onChange={setGrade}
+              offeredGrades={policy.offeredGrades}
             />
           </div>
+          {grade.trim() && (
+            <p className="muted text-sm">
+              {policy.currentSchoolYear
+                ? t("academics.autoYear", { year: policy.currentSchoolYear })
+                : t("academics.noCurrentYear")}
+            </p>
+          )}
           <div>
             <label className="label" htmlFor="reg-pass">
               {t("auth.register.step.profile.password")}
@@ -251,7 +331,9 @@ export function RegisterFlow() {
               onChange={(e) => setPassword(e.target.value)}
               className="input w-full"
             />
-            <p className="muted text-xs">{t("auth.register.step.profile.passwordHint")}</p>
+            <p className="muted text-xs">
+              {t("auth.register.step.profile.passwordHint")}
+            </p>
           </div>
           <div>
             <label className="label" htmlFor="reg-confirm">
@@ -266,14 +348,22 @@ export function RegisterFlow() {
             />
           </div>
           {passwordMismatch && (
-            <p className="text-sm text-red-600">{t("auth.register.step.profile.mismatch")}</p>
+            <p className="text-sm text-red-600">
+              {t("auth.register.step.profile.mismatch")}
+            </p>
           )}
-          {complete.error && <p className="text-sm text-red-600">{complete.error.message}</p>}
+          {complete.error && (
+            <p className="text-sm text-red-600">
+              <ProfilePolicyError message={complete.error.message} />
+            </p>
+          )}
           <button
             className="btn-primary w-full"
             disabled={
               !firstName.trim() ||
-              !lastName.trim() ||
+              (!!grade.trim() &&
+                (!policy.currentSchoolYear ||
+                  !policy.offeredGrades.includes(Number(grade)))) ||
               password.length < 8 ||
               confirm !== password ||
               sendCode.isPending ||
@@ -283,9 +373,15 @@ export function RegisterFlow() {
           >
             {t("auth.register.step.profile.submit")}
           </button>
-          {sendCode.error && <p className="text-sm text-red-600">{sendCode.error.message}</p>}
-          <button type="button" className="link text-sm" disabled={sendCode.isPending || complete.isPending}
-            onClick={() => sendCode.mutate({ code, email: email.trim() })}>
+          {sendCode.error && (
+            <p className="text-sm text-red-600">{sendCode.error.message}</p>
+          )}
+          <button
+            type="button"
+            className="link text-sm"
+            disabled={sendCode.isPending || complete.isPending}
+            onClick={() => sendCode.mutate({ code, email: email.trim() })}
+          >
             {t("auth.register.step.email.resend")}
           </button>
         </form>
@@ -294,10 +390,23 @@ export function RegisterFlow() {
       {/* Done */}
       {step === "done" && (
         <div className="space-y-4 text-center">
-          <p className="text-lg font-semibold text-slate-900">{t("auth.register.done.title")}</p>
+          <p className="text-lg font-semibold text-slate-900">
+            {t("auth.register.done.title")}
+          </p>
           <p className="text-sm text-slate-700">
             {t("auth.register.done.body", { username })}
           </p>
+          {academicConfirmationRequired && (
+            <p
+              role="status"
+              className="rounded-lg bg-amber-50 p-3 text-sm text-amber-900"
+            >
+              <AcademicError
+                message="ACADEMIC_CONFIRMATION_REQUIRED"
+                selfService
+              />
+            </p>
+          )}
           <Link href="/signin" className="btn-primary inline-block">
             {t("auth.register.done.signIn")}
           </Link>

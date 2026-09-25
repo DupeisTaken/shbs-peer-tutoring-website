@@ -5,12 +5,14 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 
+import { useProfilePolicy, ProfilePolicyHint, ProfilePolicyError, OfferedGradeSelect } from "~/app/_components/profile-policy";
 import { api } from "~/trpc/react";
 import { REFERENCE_STALE_TIME } from "~/lib/query";
 import { SortHeader, useSort, compare } from "~/app/_components/sortable";
 import { useReadOnly } from "~/app/_components/read-only";
 import { EmailDetails } from "~/app/_components/email-details";
 import { TuteeEditor } from "~/app/_components/tutee-editor";
+import { AcademicDetails } from "~/app/_components/academic-profile";
 
 type Status = "PENDING" | "ACTIVE" | "INACTIVE";
 
@@ -77,6 +79,7 @@ function StatsCells({
 
 export default function TuteesPage() {
   const t = useTranslations();
+  const policy = useProfilePolicy();
   const readOnly = useReadOnly();
   const [editingId, setEditingId] = useState<string | null>(null);
   const utils = api.useUtils();
@@ -116,7 +119,9 @@ export default function TuteesPage() {
       const sb = stats.data?.[b.id];
       switch (sort.key) {
         case "grade":
-          return compare(a.gradeLevel ?? "", b.gradeLevel ?? "") * dir;
+          return (
+            ((a.academic.gradeLevel ?? 0) - (b.academic.gradeLevel ?? 0)) * dir
+          );
         case "sessions":
           return ((sa?.sessions ?? 0) - (sb?.sessions ?? 0)) * dir;
         case "discipline":
@@ -167,6 +172,7 @@ export default function TuteesPage() {
       {!readOnly && (
         <section className="card p-5">
           <h2 className="section-title">{t("admin.tutees.addTutee")}</h2>
+          <ProfilePolicyHint />
           <form
             className="mt-3 flex flex-wrap items-end gap-3"
             onSubmit={(e) => {
@@ -202,12 +208,7 @@ export default function TuteesPage() {
             </label>
             <label className="space-y-1">
               <span className="label">{t("admin.tutees.grade")}</span>
-              <input
-                value={gradeLevel}
-                onChange={(e) => setGradeLevel(e.target.value)}
-                placeholder={t("admin.tutees.phGrade")}
-                className="input field-auto min-w-20"
-              />
+              <OfferedGradeSelect value={gradeLevel} onChange={setGradeLevel} offeredGrades={policy.offeredGrades} />
             </label>
             <label className="space-y-1">
               <span className="label">{t("admin.tutees.firstChoice")}</span>
@@ -248,6 +249,11 @@ export default function TuteesPage() {
               {t("admin.tutees.addTuteeBtn")}
             </button>
           </form>
+          {create.error && (
+            <p role="alert" className="mt-3 text-sm text-red-600">
+              <ProfilePolicyError message={create.error.message} />
+            </p>
+          )}
         </section>
       )}
 
@@ -331,7 +337,7 @@ export default function TuteesPage() {
                   {t("admin.tutees.colName")}
                 </SortHeader>
                 <SortHeader sort={sort} sortKey="grade">
-                  {t("admin.tutees.colGrade")}
+                  {t("academics.title")}
                 </SortHeader>
                 <th>{t("admin.tutees.colCourses")}</th>
                 <SortHeader sort={sort} sortKey="sessions">
@@ -365,7 +371,9 @@ export default function TuteesPage() {
                         : t("accountProfile.setupRequired")}
                     </p>
                   </td>
-                  <td>{t2.gradeLevel ?? "—"}</td>
+                  <td>
+                    <AcademicDetails academic={t2.academic} />
+                  </td>
                   <td className="w-36 max-w-36 whitespace-normal text-slate-600">
                     <ul className="space-y-1 text-sm">
                       {[t2.firstChoice, t2.secondChoice]

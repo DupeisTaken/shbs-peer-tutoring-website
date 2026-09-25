@@ -1,3 +1,4 @@
+import { requireAcademicConfirmation } from "~/server/academics";
 import {
   lockAccountProfile,
   updateAccountProfile,
@@ -908,8 +909,11 @@ export const tutorRouter = createTRPCRouter({
           ? input.alternativeNames.trim()
           : null;
       }
-      if (input.gradeLevel !== undefined)
-        tutorData.gradeLevel = input.gradeLevel;
+      if (input.gradeLevel !== undefined) {
+        const current = await ctx.db.tutor.findUniqueOrThrow({ where: { id: ctx.session.tutorId }, select: { gradeLevel: true } });
+        if (input.gradeLevel !== current.gradeLevel)
+          throw new TRPCError({ code: "BAD_REQUEST", message: "ACADEMIC_SHARED_EDITOR_REQUIRED" });
+      }
       if (Object.keys(tutorData).length > 0) {
         await inTransaction(ctx.db, async (tx) => {
           await lockAccountProfile(tx, ctx.session.user.id);
@@ -1689,20 +1693,22 @@ export const tutorRouter = createTRPCRouter({
   activateAccount: tutorProcedure
     .input(z.object({ available: z.boolean() }))
     .mutation(async ({ ctx, input }) => {
-      const tutor = await ctx.db.tutor.findUniqueOrThrow({
-        where: { id: ctx.session.tutorId },
-        select: { status: true, englishName: true },
-      });
-      if (tutor.status !== "PENDING") {
-        throw new TRPCError({
-          code: "BAD_REQUEST",
-          message: "Your account isn't awaiting activation.",
+      // Match rollover's period lock, then take the account lock before its tutor mirror.
+      // Validation and transition see one academic report and one active school year.
+      const { tutor, status } = await inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, "program:period");
+        await lockAccountProfile(tx, ctx.session.user.id);
+        const tutor = await tx.tutor.findUniqueOrThrow({
+          where: { id: ctx.session.tutorId },
+          select: { status: true, englishName: true },
         });
-      }
-      const status = input.available ? "ACTIVE" : "OPTED_OUT";
-      await ctx.db.tutor.update({
-        where: { id: ctx.session.tutorId },
-        data: { status },
+        if (tutor.status !== "PENDING") {
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Your account isn't awaiting activation." });
+        }
+        if (input.available) await requireAcademicConfirmation(tx, ctx.session.user.id);
+        const status = input.available ? "ACTIVE" as const : "OPTED_OUT" as const;
+        await tx.tutor.update({ where: { id: ctx.session.tutorId }, data: { status } });
+        return { tutor, status };
       });
       await notifyAdmins({
         title: input.available ? "Tutor reactivated" : "Tutor opted out",

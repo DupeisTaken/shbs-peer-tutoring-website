@@ -250,6 +250,30 @@ Before opening intake, confirm email delivery, the current policies, subjects, s
 
 ADMIN or HEAD can perform the [program refresh](program-reference.md#refresh-the-program); only HEAD stages module switches. Refresh advances the period, applies pending switches and changes participation, so confirm the displayed consequences first. A new period preserves historical attendance, policy acceptance and audit evidence. Only HEAD can grant or change roles and badges, approve membership changes, provision new tutor accounts, transfer leadership, or delete eligible accounts; the current HEAD cannot be deleted. Leadership transfer appoints an eligible administrator or coordinator and makes the outgoing HEAD an administrator.
 
+### Stable account usernames
+
+Verified participant accounts share one permanent account handle with any linked tutor record.
+Invitation redemption, account setup, joining tutoring, re-enrollment, name changes and academic
+corrections preserve an established account handle. A new login for a roster tutor adopts that
+roster handle. Old linked mismatches are reconciled to the account handle and recorded in the
+audit log; if another identity owns that handle, Head must resolve the conflict explicitly.
+
+New handles use lowercase ASCII letters/digits, up to 64 characters including collision suffixes.
+Decomposable accents are normalized (`José García` → `jgarcia`); single-token names use the full
+token. Names without usable Latin letters may supply an optional Latin spelling at signup or
+invitation registration. Otherwise a neutral `member` base is used, without guessed
+transliteration. A graduation suffix is only an initial naming hint supported by confirmed grade
+and reference year; it is never an academic record and never changes after a correction. Collision
+letters/counters disambiguate names while preserving the length limit. Existing handles are not
+normalized or migrated by this policy.
+
+Student handles are assigned only after successful survey/email verification. Unverified surveys
+and roster-only tutees reserve no handle and gain no tutor access. Email sign-in remains available.
+Head can use **Users & Roles → Assign Username** for a verified student missing a handle.
+Existing verified STUDENT accounts are assigned only through deliberate Head backfill or verified
+re-enrollment, never by opening profile/list pages. VIEWER accounts keep their separate email-only
+automatic-allocation policy; an explicitly assigned existing handle remains valid.
+
 ### Head username editing
 
 In **Users & Roles → Edit profile**, Head can save a username for any login account, including their own. Use 1–64 ASCII letters or digits; surrounding whitespace is trimmed and letters are lowercased. Taken usernames in either the login or tutor roster are rejected. The linked tutor is updated atomically, so the old handle no longer signs in. Email sign-in, passwords, IDs, badges and history remain unchanged. Ordinary roster name edits retain the username. Admins and coordinators cannot rename accounts. Saves record the actor and old/new handles and refresh the account list and current header. An unchanged save is a no-op; stale profile versions require reopening the editor.
@@ -271,6 +295,12 @@ Translator and Coordinator edits create private drafts, including all five text 
 ## Account settings and private support
 
 Use **Account Settings** to edit your name and optional names in other languages, change your password or request a verified email change. Current explicitly linked tutor/tutee profiles share those names; signed agreements and submitted survey records retain their original text. Editing a contact field is not email verification. Keep account links and codes private. If email delivery is unavailable, contact management; a success message from another action does not prove an email arrived.
+
+**Academic Details** is shared across Account Settings, tutor Settings and staff **Edit Profile** dialogs. It is available to tutees, tutors, crew, management and accounts with multiple participation types. Choose **Review Academic Details** or **Edit Academic Details**, select one of the program’s offered grades, then confirm. The current program school year is filled automatically and cannot be edited. This is self-reported information: participants can correct their own records. Head and administrators can correct other accounts; coordinators submit corrections for approval. Confirmation History records the reported values, date, source and optional correction context.
+
+Expected graduation is the reference school year's ending year plus the remaining grades through Grade 12. For example, Grade 10 in `26-27` gives 2029. It is an estimate, not a separate editable graduation field. Grades do not advance automatically: after a gap, repeated year or new school year, confirm the grade that actually applies in the current program school year. Stale or imported values are marked for review. Choose **Unknown / Other School System** to retain a nonstandard original report without a graduation estimate, or **Not Applicable** for a non-student account.
+
+Staff **Edit Profile** dialogs show grade, reference year and expected graduation together, independently of tutor participation; tutor and tutee rosters use the same canonical account information. A roster record without an account retains its original unconfirmed grade. Academic saves preserve usernames, participation, signed agreements and historical survey answers. An account without a username explicitly shows **Username not assigned**. If another edit changes the profile while a draft is open, review the conflict and deliberately reload before retrying; unsaved drafts are not silently replaced.
 
 Changing or resetting your password signs out every existing session, including the browser making the change. Account Settings and tutor Settings return you to Sign In; use your new password. Other browsers require sign-in on their next request. Your account, permissions and tutoring history remain. This update also requires one fresh sign-in for sessions created before session revocation was introduced. Existing email two-factor requirements remain in effect.
 
@@ -343,3 +373,9 @@ Admin and Head can review eligible ordinary Management Actions. Only the current
 ### Previewing applications outside recruitment
 
 The tutor application and tutee request are separate forms with separate recruitment periods. When a period has not started, has ended, is paused, or is awaiting setup, you can still read the questions and any published policy. The response fields and submission button are disabled. Return when recruitment opens to complete your application. Any additional sheet link is supplied by the team for viewing; it is not a list of other participants' responses.
+
+An invitation can finish creating or linking a login while an old or conflicting academic report still needs confirmation. The completion screen directs you to **Account Settings → Academic Details**. After confirming, tutors complete the normal dashboard activation; crew members request reentry from the crew workspace. Crew access remains opted out until that request is approved. Previously inactive crew accounts remain inactive and need staff restoration. Optional unknown or nonstandard grades do not prevent participation. An explicit conflict with a previous **Not Applicable** report does require review.
+
+In **Program → Names and Grades**, Head and administrators can set the offered grades (at least one of Grades 1–12) and optionally require Latin letters in primary names. Coordinators can view these settings. Accented Latin letters, spaces, apostrophes and hyphens are accepted; secondary names remain unrestricted. Existing primary names are preserved unless changed. Changing only a secondary name does not force a primary-name update. Policy changes take effect immediately for new submissions, while historical records remain unchanged. If another administrator changes the policy while a settings draft is open, reload and review before saving.
+
+Academic confirmation uses the current program year and calculates graduation from that year and the selected grade. There is no separate editable year or graduation field. A form opened before a school-year rollover requires a reload before confirmation. When no current year is configured, staff must set the program period before a reported grade can be confirmed; unknown and not-applicable reports remain available.
