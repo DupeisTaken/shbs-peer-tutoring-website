@@ -27,6 +27,8 @@ import {
   fieldStateSchema,
 } from "~/lib/signup-fields";
 import { getSignupSettings } from "~/server/program/signup-fields";
+import { profilePolicySchema } from "~/lib/profile-policy";
+import { getProfilePolicy } from "~/server/program/profile-policy";
 
 const featureKey = z.enum([
   "CREW",
@@ -53,6 +55,31 @@ const httpUrl = z
  * can hide a disabled module); staging changes is HEAD-only and takes effect at the next refresh.
  */
 export const programRouter = createTRPCRouter({
+  profilePolicy: publicProcedure.query(async ({ ctx }) => ({
+    ...(await getProfilePolicy(ctx.db)),
+    currentSchoolYear: (await ctx.db.term.findFirst({ where: { active: true }, select: { schoolYear: true } }))?.schoolYear ?? null,
+  })),
+  profilePolicySettings: adminProcedure.query(async ({ ctx }) => ({
+    ...(await getProfilePolicy(ctx.db)),
+    canEdit: ctx.session.role === "HEAD" || ctx.session.role === "ADMIN",
+  })),
+  setProfilePolicy: adminOnlyProcedure
+    .input(profilePolicySchema.extend({ expectedPolicy: profilePolicySchema }))
+    .mutation(({ ctx, input }) => inTransaction(ctx.db, async (tx) => {
+      // Compare the complete policy under one lock so stale admin tabs cannot overwrite it.
+      await lockEntity(tx, "program:profile-policy");
+      const before = await getProfilePolicy(tx);
+      if (JSON.stringify(before) !== JSON.stringify(input.expectedPolicy))
+        throw new TRPCError({ code: "CONFLICT", message: "PROFILE_POLICY_CHANGED" });
+      const after = { requireLatinNames: input.requireLatinNames, offeredGrades: input.offeredGrades };
+      await tx.programSettings.upsert({ where: { id: "program" }, create: { id: "program", ...after }, update: after });
+      await tx.auditLog.create({ data: {
+        userId: ctx.session.user.id, userName: ctx.session.user.name,
+        entity: "ProgramSettings", entityId: "program", operation: "program.setProfilePolicy",
+        action: "Changed primary name and grade policy", details: { before, after, existingRecordsPreserved: true },
+      } });
+      return after;
+    })),
   // Read-only management access; the mutation below never queues coordinator proposals.
   signupFieldSettings: adminProcedure.query(async ({ ctx }) => ({
     fields: await getSignupSettings(ctx.db),

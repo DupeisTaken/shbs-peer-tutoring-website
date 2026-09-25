@@ -1,3 +1,5 @@
+import { lockAccountProfile } from "~/server/account-profile";
+import { requireAcademicConfirmation } from "~/server/academics";
 import { TRPCError } from "@trpc/server";
 import {
   inTransaction,
@@ -154,6 +156,10 @@ export async function decideMembership(
       kind,
       id: "tutorId" in initial ? initial.tutorId : initial.userId,
     };
+    // Reentry checks and the membership transition share rollover/account lock ordering.
+    await lockEntity(tx, "program:period");
+    const ownerId = member.kind === "crew" ? member.id : (await tx.user.findUnique({ where: { tutorId: member.id }, select: { id: true } }))?.id;
+    if (ownerId) await lockAccountProfile(tx, ownerId);
     const current = await lockMember(tx, member);
     const request =
       kind === "tutor"
@@ -212,6 +218,10 @@ export async function decideMembership(
         message: "This request is already resolved.",
       });
     if (approve) {
+      if (request.kind === "REENTRY") {
+        const owner = kind === "crew" ? member.id : (await tx.user.findUnique({ where: { tutorId: member.id }, select: { id: true } }))?.id;
+        if (owner) await requireAcademicConfirmation(tx, owner);
+      }
       const status = request.kind === "OPT_OUT" ? "OPTED_OUT" : "ACTIVE";
       if (kind === "tutor")
         await tx.tutor.update({ where: { id: member.id }, data: { status } });

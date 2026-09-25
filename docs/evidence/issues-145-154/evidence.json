@@ -1,0 +1,266 @@
+{
+  "summary": "Ten GitHub issues addressed in two isolated work groups: stable usernames across enrollment and account changes, and shared academic records with an explicit reference school year. A third branch combines both groups for integration verification.",
+  "date": "25 September 2026",
+  "followup": {
+    "title": "Program Profile Policy Follow-up",
+    "href": "program-policy/index.html",
+    "branch": "codex/program-profile-policy",
+    "commit": "ad1e747af9a816b22591e78f3e1c56c60563f7d1",
+    "summary": "Adds a configurable Latin-name and offered-grade policy, simplifies Users & Roles, and makes the current program year authoritative in shared academic editors.",
+    "validation": {
+      "tests": 1625,
+      "files": 188,
+      "checkErrors": 0,
+      "preexistingWarnings": 18,
+      "docs": 13,
+      "staticPages": 64,
+      "buildWorkers": 1
+    }
+  },
+  "groups": [
+    {
+      "title": "Identity and Stable Usernames",
+      "summary": "Issues #145, #146, #147, #148, #149 and #152.",
+      "changes": [
+        "Preserve established account handles during setup, invitation redemption and enabling tutor participation; synchronize linked roster handles.",
+        "Reserve the namespace across User and Tutor records through transaction locks and a persistent guard; reject stale Serializable snapshots and retry only safe pre-dispatch approval failures.",
+        "Normalize accents, preserve full single-token names, offer an optional Latin spelling for non-Latin names, and fall back to member. Limit final handles to 64 characters, including collision suffixes.",
+        "Allocate verified student handles once and provide an explicit Head-only backfill for selected existing verified students."
+      ],
+      "branch": "codex/issues-145-149-152-identity",
+      "folder": "E:/shbs-issue-work/identity",
+      "commit": "ebcdf4575777aa333f88d236716975a2760ca8a8"
+    },
+    {
+      "title": "Shared Academic Profiles",
+      "summary": "Issues #150, #151, #153 and #154.",
+      "changes": [
+        "Record self-reported G1–G12 with a reference school year and confirmation history; preserve unknown and nonstandard reports.",
+        "Derive expected graduation from that reference year. Stop automatic grade advancement and require reconfirmation when known grades become stale.",
+        "Share canonical academic values across tutee, tutor, crew and mixed accounts, with version-protected self-service and authorized staff corrections.",
+        "Show grade, school year and expected graduation together in Users & Roles and account profiles. Preserve historical intake answers and stable usernames."
+      ],
+      "branch": "codex/issues-150-151-153-154-academics",
+      "folder": "E:/shbs-issue-work/academics",
+      "commit": "edc25dfabc276ba90af52a67f6525ac56f801d05"
+    }
+  ],
+  "pull": "Fetched origin/main at 0e3884e079366acbe03977fd209cc349431d9a95 and reconciled it with the existing local responsive commits. Main now contains merge ceee4eb; the local history was retained. The original untracked AGENTS.md was backed up in the coordination folder.",
+  "issues": [
+    {
+      "number": 145,
+      "change": "Account setup recognizes the linked tutor's existing username instead of treating it as an unrelated collision.",
+      "evidence": "Real PostgreSQL setup regression tests; linked identity namespace checks."
+    },
+    {
+      "number": 146,
+      "change": "Invitation redemption preserves an established account handle and synchronizes its linked tutor.",
+      "evidence": "Invitation, collision and stale profile regression tests."
+    },
+    {
+      "number": 147,
+      "change": "Enabling tutoring adopts the canonical account identity and keeps both records aligned.",
+      "evidence": "Participation enablement and membership lock-order regression tests."
+    },
+    {
+      "number": 148,
+      "change": "All automatic writers reserve one shared namespace atomically, including stale Serializable approval snapshots.",
+      "evidence": "Concurrent User/Tutor allocation in both directions, guard creation races, and actual blocked approval replay tests."
+    },
+    {
+      "number": 149,
+      "change": "One length and naming policy covers generation and edits; optional Latin spelling and member fallback handle non-Latin names.",
+      "evidence": "Accents, Unicode, single-token names, dense collisions and 64-character boundary tests; form screenshots."
+    },
+    {
+      "number": 150,
+      "change": "Academic grade belongs to an explicitly confirmed school year; gaps and repeats use new confirmations rather than program-driven grade changes.",
+      "evidence": "Academic history, stale-year, graduation boundary, activation and reentry regression tests."
+    },
+    {
+      "number": 151,
+      "change": "Verified intake updates a shared academic profile safely while retaining original survey responses and enrollment history.",
+      "evidence": "Intake normalization, stale links, re-enrollment, omitted fields and unrelated-record isolation tests."
+    },
+    {
+      "number": 152,
+      "change": "Verified students receive a stable handle once; Head can explicitly assign handles to existing verified students.",
+      "evidence": "Verification/idempotency tests, Unicode student integration tests, authorization tests and browser backfill exercise."
+    },
+    {
+      "number": 153,
+      "change": "Users & Roles exposes grade and graduation together for tutor, tutee, crew and mixed accounts.",
+      "evidence": "Account payload and table rendering tests; English/Chinese desktop/mobile screenshots."
+    },
+    {
+      "number": 154,
+      "change": "Shared self-service and staff editors display and correct academics with confirmation history and stale-edit protection.",
+      "evidence": "Permissions, profile-version conflicts, UI draft tests, and browser verification on both profile surfaces."
+    }
+  ],
+  "screenshots": [
+    {
+      "file": "before-account-desktop.png",
+      "title": "Account Settings Before the Change",
+      "label": "Before · Desktop",
+      "caption": "The upstream account page has identity and participation controls but no shared academic profile."
+    },
+    {
+      "file": "after-account-en-desktop.png",
+      "title": "Confirmed Academic Profile",
+      "label": "After · English · Desktop",
+      "caption": "Emma confirms Grade 10 for 26–27. The page shows the derived graduation year 2029 and confirmation history; her existing @emma handle is preserved."
+    },
+    {
+      "file": "after-account-en-mobile.png",
+      "title": "Academic History on a Phone",
+      "label": "After · English · Mobile",
+      "caption": "The same academic record and confirmation history at a 390-pixel viewport."
+    },
+    {
+      "file": "after-account-zh-mobile.png",
+      "title": "Academic Editor in Chinese",
+      "label": "After · Chinese · Mobile",
+      "caption": "Localized, stacked controls explain reference years, gaps and repeated grades. Mobile controls meet the 44-pixel target."
+    },
+    {
+      "file": "after-account-zh-desktop.png",
+      "title": "Shared Self-Service Editor",
+      "label": "After · Chinese · Desktop",
+      "caption": "The self-service academic editor uses the same canonical record as management views."
+    },
+    {
+      "file": "before-users-desktop.png",
+      "title": "Users & Roles Before the Change",
+      "label": "Before · Desktop",
+      "caption": "The old table omits separate academic data for tutees and crew and shows tutor graduation without the reported grade."
+    },
+    {
+      "file": "after-users-en-desktop.png",
+      "title": "Grade and Graduation Together",
+      "label": "After · English · Desktop",
+      "caption": "Users & Roles now has an academic column independent of participation. Legacy reports are explicitly unconfirmed."
+    },
+    {
+      "file": "after-users-zh-mobile.png",
+      "title": "Management Table on a Phone",
+      "label": "After · Chinese · Mobile",
+      "caption": "The wide table remains horizontally scrollable within its container rather than overflowing the page."
+    },
+    {
+      "file": "after-staff-en-desktop.png",
+      "title": "Staff Academic Correction",
+      "label": "After · English · Desktop",
+      "caption": "Authorized staff can edit grade, reference year and correction context inside the shared profile dialog."
+    },
+    {
+      "file": "after-staff-en-mobile.png",
+      "title": "Staff Editor on a Phone",
+      "label": "After · English · Mobile",
+      "caption": "The dialog scrolls while keeping its close control available. Academic controls remain usable at phone width."
+    },
+    {
+      "file": "after-staff-zh-desktop.png",
+      "title": "Localized Staff Correction",
+      "label": "After · Chinese · Desktop",
+      "caption": "The Chinese management editor exposes the same confirmation and history workflow."
+    },
+    {
+      "file": "after-staff-zh-mobile.png",
+      "title": "Localized Staff Mobile Form",
+      "label": "After · Chinese · Mobile",
+      "caption": "The scrollable staff dialog keeps the correction fields, explanation and confirmation controls within the viewport width."
+    },
+    {
+      "file": "identity-signup-en-desktop.png",
+      "title": "Optional Latin Spelling",
+      "label": "After · English · Desktop",
+      "caption": "Entering a non-Latin name reveals an optional spelling field. Leaving it blank uses the neutral member username base."
+    },
+    {
+      "file": "identity-signup-zh-mobile.png",
+      "title": "Non-Latin Name on Mobile",
+      "label": "After · Chinese · Mobile",
+      "caption": "The localized signup explains the optional spelling, stable existing handles and email sign-in."
+    },
+    {
+      "file": "identity-register-name-en-desktop.png",
+      "title": "Single-Token Registration Name",
+      "label": "After · English · Desktop",
+      "caption": "A one-token name is accepted without inventing or duplicating a last name."
+    },
+    {
+      "file": "identity-register-en-mobile.png",
+      "title": "Verified Registration Spelling",
+      "label": "After · English · Mobile",
+      "caption": "The optional Latin spelling is also available during invitation-based registration after email verification."
+    },
+    {
+      "file": "identity-register-zh-desktop.png",
+      "title": "Registration in Chinese",
+      "label": "After · Chinese · Desktop",
+      "caption": "The same naming policy is explained in the Chinese registration flow."
+    },
+    {
+      "file": "identity-register-zh-mobile.png",
+      "title": "Registration on a Phone",
+      "label": "After · Chinese · Mobile",
+      "caption": "The localized optional-spelling control retains a 44-pixel touch target. The completed registration produced lming29."
+    },
+    {
+      "file": "identity-kate-before-backfill.png",
+      "title": "Explicit Backfill Before Assignment",
+      "label": "Before Assignment · Head UI",
+      "caption": "An existing verified student clearly shows that no username is assigned, with an explicit Head action."
+    },
+    {
+      "file": "identity-kate-after-backfill.png",
+      "title": "Stable Student Handle Assigned",
+      "label": "After Assignment · Head UI",
+      "caption": "The Head action assigns @kpark once. No graduation suffix is invented from an unconfirmed legacy grade."
+    }
+  ],
+  "validation": [
+    {
+      "title": "Complete Automated Suite",
+      "items": [
+        "npm test -- --maxWorkers=1: 1,570 tests passed across all 183 test files. Final run completed in 193 seconds.",
+        "Coverage includes real PostgreSQL cross-table username races, Serializable snapshot conflicts, bounded approval retries, account linking, verified intake, re-enrollment, migration preservation, academic transitions, permissions, stale edits and localized UI rendering.",
+        "Two integration mismatches found during the first full run were corrected: the registration response expectation and the Chinese peer-role glossary. The complete suite was rerun and passed.",
+        "Evidence: E:/shbs-issue-work/review/.validation/final-tests.log"
+      ]
+    },
+    {
+      "title": "Static Checks, Documentation and Production Build",
+      "items": [
+        "npm run check: passed Next route type generation, ESLint and TypeScript. The 18 pre-existing lint warnings remain; there are no lint errors.",
+        "npm run docs:check: all 13 documentation tests passed.",
+        "npm run build: optimized Next.js 16.3.3 Turbopack production build passed using one build worker.",
+        "Evidence: final-check.log, final-docs.log and final-build.log in the review worktree .validation folder."
+      ]
+    },
+    {
+      "title": "Database Upgrade and Actual Browser Workflows",
+      "items": [
+        "Applied both new migrations to an isolated database populated using the upstream schema and synthetic seed. Legacy crew grade 10 was preserved as unconfirmed, without inventing a reference year. Existing student usernames were not silently backfilled.",
+        "Self-service confirmation: Emma reported G10 for 26–27; expected graduation became 2029 and the staff view matched. Existing @emma remained unchanged.",
+        "Verified invitation registration: 李明 with optional Latin spelling Li Ming, G10 and reference year 26–27 completed with username lming29.",
+        "Explicit Head backfill: Kate Park moved from no assigned username to @kpark through the management UI.",
+        "Verified self-service and staff profile surfaces in English and Chinese at 1440-pixel desktop and 390-pixel phone widths. Checked wrapping, page overflow and mobile controls; new controls measured at least 44 pixels.",
+        "Captured 25 application images; the report embeds 20 selected screenshots. The portable HTML opens offline, its image preview works, and its mobile layout has no page overflow.",
+        "Machine-readable evidence: browser-evidence.json, identity-browser-evidence.json, migration-evidence.json and report-verification.json beside this report."
+      ]
+    }
+  ],
+  "resources": "Temporary web and PostgreSQL servers were stopped; ports 3100, 55439 and 55440 were verified closed. Browser contexts were closed after each run. Verification used synthetic local data, serial tests and one build worker. Automatic approval review rejected deletion of the generated .next and test caches with “blocked by policy”; these caches remain on disk. Source worktrees, logs, screenshots, task-local dependencies and demonstration databases are retained for review.",
+  "handoff": [
+    "Complete validated result: codex/issues-145-154-review in E:/shbs-issue-work/review, commit 7638623a68b9bdd1761e37f1aea546527921c679. Use this combined review branch for the complete change set.",
+    "The two isolated work-group branches retain their implementation histories. The combined branch also contains integration corrections: canonical academic years for initial usernames, pending confirmation on returning invitations, explicit not-applicable conflicts, and the shared namespace guard.",
+    "Both schema migrations are committed: 20260924160108_canonical_academic_profiles and 20260924162723_username_namespace_guard. Deployment must apply them with the normal migrate-deploy workflow before using the new code.",
+    "Reference-year confirmation is the agreed academic policy. Existing handles remain stable; optional Latin spelling is offered for new non-Latin names, with member as the fallback.",
+    "Documentation was updated in docs/user-guide.md, docs/technical-report.md and docs/program-reference.md. Existing untracked repository instructions were preserved in E:/shbs-issue-work/coordination/AGENTS.local-before-pull.md.",
+    "Main contains the origin synchronization only. No implementation branch was pushed, no pull request was opened, and no GitHub issue was closed.",
+    "For local re-verification, start the task-owned databases with node E:/shbs-issue-work/runtime/start-databases.mjs, then run checks from the review worktree. Its local .env points to the isolated shbs_shipping_test database; browser demonstrations used the separate shbs_issues_demo database."
+  ],
+  "footer": "Changes are local; GitHub issues have not been closed and no branch has been pushed."
+}

@@ -3,6 +3,12 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 
+import {
+  useProfilePolicy,
+  ProfilePolicyHint,
+  ProfilePolicyError,
+  OfferedGradeSelect,
+} from "~/app/_components/profile-policy";
 import { api } from "~/trpc/react";
 
 /**
@@ -11,6 +17,7 @@ import { api } from "~/trpc/react";
  */
 export function CrewSignupForm() {
   const t = useTranslations();
+  const policy = useProfilePolicy();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
   const [grade, setGrade] = useState("");
@@ -32,7 +39,9 @@ export function CrewSignupForm() {
   }
 
   const valid =
-    name.trim().length > 0 && /^[^@\s]+@[^@\s]+$/.test(email.trim());
+    (!grade || policy.offeredGrades.includes(Number(grade))) &&
+    name.trim().length > 0 &&
+    /^[^@\s]+@[^@\s]+$/.test(email.trim());
 
   return (
     <form
@@ -60,6 +69,7 @@ export function CrewSignupForm() {
           className="input w-full"
         />
       </div>
+      <ProfilePolicyHint />
       <div>
         <label className="label" htmlFor="crew-email">
           {t("public.crewSignup.fields.email")}
@@ -76,14 +86,11 @@ export function CrewSignupForm() {
         <label className="label" htmlFor="crew-grade">
           {t("public.crewSignup.fields.grade")}
         </label>
-        <input
+        <OfferedGradeSelect
           id="crew-grade"
-          type="number"
-          min={6}
-          max={12}
           value={grade}
-          onChange={(e) => setGrade(e.target.value)}
-          className="input w-full"
+          onChange={setGrade}
+          offeredGrades={policy.offeredGrades}
         />
       </div>
       <div>
@@ -110,7 +117,9 @@ export function CrewSignupForm() {
         />
       </div>
       {apply.error && (
-        <p className="text-sm text-red-600">{apply.error.message}</p>
+        <p className="text-sm text-red-600">
+          <ProfilePolicyError message={apply.error.message} />
+        </p>
       )}
       <button
         className="btn-primary w-full"

@@ -1,3 +1,5 @@
+import { preferredLatinNameSchema } from "~/lib/username";
+import { isSchoolYear } from "~/lib/period";
 /**
  * Public self-registration flow (no auth). A prospective tutor turns a 6-digit registration code
  * (issued + handed out by an admin/coordinator) into a fully-verified account at /register:
@@ -83,6 +85,7 @@ export const registrationRouter = createTRPCRouter({
       lastName: prefill.lastName,
       alternativeNames: prefill.alternativeNames,
       gradeLevel: prefill.gradeLevel,
+      gradeSchoolYear: prefill.gradeSchoolYear,
       emailVerified: !!resolved.row.emailVerifiedAt,
       pendingEmail: resolved.row.pendingEmail,
     };
@@ -159,9 +162,11 @@ export const registrationRouter = createTRPCRouter({
         code: codeInput,
         completionProof: z.string().regex(/^[a-f0-9]{64}$/),
         firstName: z.string().trim().min(1).max(80),
-        lastName: z.string().trim().min(1).max(80),
+        lastName: z.string().trim().max(80),
+        preferredLatinName: preferredLatinNameSchema,
         alternativeNames: z.string().trim().max(200).optional(),
-        gradeLevel: z.number().int().min(6).max(12).nullable().optional(),
+        gradeLevel: z.number().int().min(1).max(12).nullable().optional(),
+        gradeSchoolYear: z.string().refine(isSchoolYear).nullable().optional(),
         password: z.string().min(8).max(200),
       }),
     )
@@ -175,10 +180,12 @@ export const registrationRouter = createTRPCRouter({
 
       const done = await completeRegistration(resolved.row, {
         completionProof: input.completionProof,
+        preferredLatinName: input.preferredLatinName,
         firstName: input.firstName,
         lastName: input.lastName,
         alternativeNames: input.alternativeNames,
         gradeLevel: input.gradeLevel ?? null,
+        gradeSchoolYear: input.gradeSchoolYear,
         password: input.password,
       });
       if (!done.ok) {
@@ -188,6 +195,6 @@ export const registrationRouter = createTRPCRouter({
             : "An account already uses this email. Sign in or reset your password; ask Head to change its roles in Users & Roles.";
         throw new TRPCError({ code: "BAD_REQUEST", message });
       }
-      return { ok: true, username: done.username };
+      return { ok: true, username: done.username, academicConfirmationRequired: done.academicConfirmationRequired ?? false };
     }),
 });

@@ -5,6 +5,7 @@ import { useEffect, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
+import { AcademicError } from "~/app/_components/academic-error";
 import { useReadOnly } from "~/app/_components/read-only";
 import { PatrolCorrections } from "~/app/_components/patrol-corrections";
 import { useDialog } from "~/app/_components/confirm-dialog";
@@ -94,16 +95,14 @@ export default function CrewPage() {
         setStatus.error ??
         removeCrew.error ??
         setOrder.error) && (
-        <p className="text-sm text-red-600">
-          {
-            (
+        <p role="alert" className="text-sm text-red-600">
+          <AcademicError message={(
               decideApp.error ??
               decideReq.error ??
               setStatus.error ??
               removeCrew.error ??
               setOrder.error
-            )?.message
-          }
+            )?.message} />
         </p>
       )}
 

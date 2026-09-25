@@ -54,6 +54,29 @@ The global participation-policy query uses this shared navigation/focus refresh.
 
 Client caches belong to the account, role and tutor link. Navigation and focus changes check the live identity before reusing data. The HTTP proxy removes rejected session cookies before page rendering; API authorization remains in force. Background responses must not restore a prior login after sign-out. Keep `AUTH_SECRET` stable and shared across production instances; diagnose failed sign-ins using [local troubleshooting](local-development.md#troubleshooting).
 
+### Stable account usernames
+
+Verified participant accounts share one permanent account handle with any linked tutor record.
+Invitation redemption, account setup, joining tutoring, re-enrollment, name changes and academic
+corrections preserve an established account handle. A new login for a roster tutor adopts that
+roster handle. Old linked mismatches are reconciled to the account handle and recorded in the
+audit log; if another identity owns that handle, Head must resolve the conflict explicitly.
+
+New handles use lowercase ASCII letters/digits, up to 64 characters including collision suffixes.
+Decomposable accents are normalized (`José García` → `jgarcia`); single-token names use the full
+token. Names without usable Latin letters may supply an optional Latin spelling at signup or
+invitation registration. Otherwise a neutral `member` base is used, without guessed
+transliteration. A graduation suffix is only an initial naming hint supported by confirmed grade
+and reference year; it is never an academic record and never changes after a correction. Collision
+letters/counters disambiguate names while preserving the length limit. Existing handles are not
+normalized or migrated by this policy.
+
+Student handles are assigned only after successful survey/email verification. Unverified surveys
+and roster-only tutees reserve no handle and gain no tutor access. Email sign-in remains available.
+Existing verified STUDENT accounts are assigned only through deliberate Head backfill or verified
+re-enrollment, never by opening profile/list pages. VIEWER accounts keep their separate email-only
+automatic-allocation policy; an explicitly assigned existing handle remains valid.
+
 ### Head username editing
 
 In **Users & Roles → Edit profile**, Head can save a username for any login account, including their own. Use 1–64 ASCII letters or digits; surrounding whitespace is trimmed and letters are lowercased. Taken usernames in either the login or tutor roster are rejected. The linked tutor is updated atomically, so the old handle no longer signs in. Email sign-in, passwords, IDs, badges and history remain unchanged. Ordinary roster name edits retain the username. Admins and coordinators cannot rename accounts. Saves record the actor and old/new handles and refresh the account list and current header. An unchanged save is a no-op; stale profile versions require reopening the editor.
@@ -199,3 +222,103 @@ Tutor application submission requires explicit agreement and the current publish
 ### Reviewing your own management requests
 
 Admin and Head can review eligible ordinary Management Actions. Only the current active Head can review role/badge changes or their own pending requests. Other reviewers cannot decide their own requests, including after promotion to Admin. Current database permissions apply after promotion, demotion or suspension. Head self-review preserves required notes, consequence confirmations, stale-record checks and atomic application; requester and reviewer audit identities remain recorded even when they match. This exception applies to Management Actions, not participant interview voting or qualification decisions.
+
+### Username allocation and bounded student backfill
+
+`src/lib/username.ts` owns the editor/generation character and length rules. All runtime handle
+writers use the transaction-scoped PostgreSQL advisory lock `identity:username-namespace` before
+profile/identity writes and retain it from the cross-table availability check through persistence.
+`ensureUniqueUsername` requires the active transaction client; callers must not pass the root
+client or persist its result after the transaction ends. Conflicting automatic creations serialize
+and select the next suffix. Explicit Head renames and canonical account/tutor mirroring use the
+same lock. An established-handle collision is a reviewable conflict, never an automatic rename.
+
+Head can use **Users & Roles → Assign Username** for an eligible verified student without a handle.
+The confirmation names that one account and refreshes account/list data after assignment.
+For explicit batches, Head can invoke `admin.backfillStudentUsernames` with `{ userIds: [...] }`, an explicit batch of
+1–100 distinct verified STUDENT account IDs. The operation validates the whole batch in a
+transaction, leaves established handles unchanged, records each assignment and rejects other
+roles/unverified accounts. It does not scan or migrate all users automatically. Review the intended
+IDs in Users & Roles before invoking the staff API; repeat with the next explicit batch as needed.
+Only Head's authorized, audited username editor deliberately changes an established handle.
+
+`src/server/auth/username.test.ts` exercises real PostgreSQL same-table/cross-table races,
+rename versus allocation, simultaneous backfill, rollback, setup, promotion and canonical mirror
+reconciliation. Naming and optional-spelling rendering have separate pure/UI regression tests.
+
+## Canonical academic profiles
+
+`AcademicProfile` is one row per `User`, independent of tutor, tutee and crew membership.
+It holds an explicit `REPORTED`, `UNKNOWN` or `NOT_APPLICABLE` state, supported G1–G12
+number, optional raw school-system text, reference school year (`YY-YY`), confirmation
+instant and reconfirmation flag. `AcademicConfirmation` preserves successive confirmed
+values, actor, source and optional correction reason. Expected graduation is derived as
+the reference school-year end plus `12 - grade`; no override or username parsing is used.
+
+Interactive confirmations and invitation registration take the reference school year
+from the active program term on the server. Clients cannot supply an alternative year.
+The editor sends its observed year so a concurrent program-year change rejects the stale
+confirmation. Internal historical confirmations retain their original reference year.
+Users & Roles shows a compact class year where known; full academic evidence is in
+User Details.
+
+`ProgramSettings.requireLatinNames` and `offeredGrades` are immediate, audited ADMIN/HEAD
+settings in Program & Refresh. Defaults preserve unrestricted primary names and G1–G12.
+New or changed primary names accept Latin letters (including accents), spaces, hyphens
+and apostrophes when enabled. Secondary names and unchanged legacy names are exempt.
+New grade reports must use an offered grade; changing the setting never rewrites history.
+Public forms read these settings, and server write paths recheck them, including pending
+signup completions. Migration `20260925012820_program_profile_policy` adds these defaults.
+
+Self-service writes own the current authenticated account. ADMIN/HEAD can correct other
+accounts; coordinator corrections follow the same proposal/approval workflow as account
+name edits. Academic and name changes share the account advisory/row lock and
+`User.profileVersion`; two concurrent edits cannot silently replace one another. Linked
+Tutor grade fields are compatibility mirrors. Historical `Tutee.gradeLevel`, surveys,
+policy/signature snapshots and unrelated names/emails are never rewritten. Roster APIs
+return a separate `academic` summary for the current explicit account link. Tutor records
+without accounts retain provisional fields and an unknown/unconfirmed summary.
+
+Migration deliberately does not invent reference years or confirmation dates for legacy
+grades. Recognized `G10`, `Grade 10` and numeric `10` forms normalize to G1–G12; nonstandard
+school systems remain raw text with no inferred graduation. Conflicting User/Tutor/Tutee
+sources retain their original values together and require an explicit correction.
+
+Verified student intake records the server-observed account ID/profile version in its
+immutable payload. After email proof establishes explicit ownership, a matching version
+can confirm a repeated grade, a changed grade or a new reference year. Later profile edits
+win over old verification links. Existing conflicting registration/legacy data stays
+unchanged and prompts confirmation; hidden/omitted optional grade input is a no-op.
+Intake verification is bound to its original active intake term, so a later link cannot
+stamp a new school year onto an old answer. Crew application grade/name prefill transfers
+to registration for deliberate confirmation without mutating the application snapshot.
+
+Rollover never advances grades. A known report becomes stale at the year boundary and its
+expected graduation stays anchored to its original reference. Only an ACTIVE tutor with
+confirmed current-year G12 may graduate at the configured graduation boundary (Q4 entry,
+or year crossing in semester mode). Known stale reports require confirmation before
+reactivation/reentry; unknown/optional and not-applicable data cannot create a new signup
+barrier. A tutoring participation break never implies an academic gap. Repeated years,
+acceleration and school gaps are new self-reported confirmations with the correct year.
+
+Tests in `src/lib/academics.test.ts` and `src/server/academics.test.ts` cover normalization,
+role-independent API ownership, version races, historical preservation, rollout states,
+G12 exceptions, reference-year estimates, verified intake and migration fixtures. The
+migration regression runs inside a rollback-only PostgreSQL schema in the allowlisted
+local test database.
+## Serializable username allocation
+
+The namespace lock also updates the singleton `UsernameNamespaceGuard` row. Advisory locking
+alone cannot refresh a snapshot already established by a Serializable approval transaction:
+a later User allocation could otherwise be invisible when that snapshot creates a Tutor (and
+vice versa). The persisted write fence causes PostgreSQL to reject stale snapshots before handle
+selection. Its upsert recreates the singleton after isolated fixture resets; failed transactions
+roll back both the fence revision and their account writes.
+
+Identity-capable approval replays acquire this fence before dispatch or profile/leadership locks.
+Only a serialization failure tagged by that fence is retried, at most three times at the outer
+approval transaction boundary, with a fresh snapshot and rechecked authority/proposal evidence.
+Generic commit failures and callbacks that fail after external work are not automatically repeated.
+SMTP delivery remains after the committed approval result. Tests reproduce the former ambiguity
+in both cross-table directions and exercise a real blocked approval replay, bounded retries and
+non-retryable failures.

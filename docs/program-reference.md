@@ -99,8 +99,8 @@ ADMIN or HEAD runs refresh in **Program & Refresh** after checking the displayed
 | --- | --- |
 | Advance the period | Pending and active tutees become inactive and must sign up again; past pairings remain historical |
 | Cross a semester boundary | Continuing active tutors become pending and must choose whether they are available or opting out |
-| Graduate senior tutors | Active tutors in grade 12 or above graduate on entry to Q4 in quarter mode, or at the school-year boundary in semester mode |
-| Cross a school-year boundary | Remaining active tutors with a recorded grade advance one grade |
+| Graduate senior tutors | Active tutors with confirmed G12 for the graduating reference year graduate on entry to Q4 in quarter mode, or at the school-year boundary in semester mode |
+| Cross a school-year boundary | Reported grades remain unchanged; academic profiles need reconfirmation for the new year |
 | Preserve evidence | Attendance, service hours, policy acceptances and audit records remain; current-period totals and participation are evaluated separately |
 
 Reload if another administrator has already changed the period. After refresh, check applied switches, tutor availability, intake settings and new assignments before resuming the program.

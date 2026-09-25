@@ -144,6 +144,8 @@ export async function proposalTargets(
     if (tutees.size) ids.set("Tutee", tutees);
   }
   const targets: Record<string, unknown> = {};
+  if (operation === "admin.updateAccountAcademics")
+    targets.academic = await client.academicProfile.findUnique({ where: { userId: z.string().parse(fields.userId) } });
   // Approval consequences include the complete ordered catalogue and concrete eligibility.
   if (
     operation === "interviewManagement.qualify" ||
@@ -242,7 +244,7 @@ export async function proposalTargets(
     // User secrets and audit undo payloads are never proposal evidence.
     const fields =
       table === "User"
-        ? operation === "admin.updateAccountProfile"
+        ? ["admin.updateAccountProfile", "admin.updateAccountAcademics"].includes(operation)
           ? // Review both explicit links and the current alternative name without exposing credentials.
             "jsonb_build_object('id', t.id, 'name', t.name, 'alternativeNames', t.\"alternativeNames\", 'profileVersion', t.\"profileVersion\", 'role', t.role, 'tutorId', t.\"tutorId\", 'studentId', t.\"studentId\")"
           : "jsonb_build_object('id', t.id, 'name', t.name, 'role', t.role, 'tutorId', t.\"tutorId\", 'tutorAccessRevoked', t.\"tutorAccessRevoked\", 'tuteeMember', t.\"tuteeMember\", 'canTranslate', t.\"canTranslate\", 'crewStatus', t.\"crewStatus\", 'suspendedAt', t.\"suspendedAt\")"
