@@ -1146,7 +1146,8 @@
         "PENDING": "pendiente",
         "INTERVIEW": "entrevista",
         "ACCEPTED": "aceptada",
-        "REJECTED": "rechazada"
+        "REJECTED": "rechazada",
+        "RECALLED": "Recalled"
       },
       "noCourses": "sin materias",
       "panelSummary": "panel {n}/{total}",
@@ -2943,7 +2944,15 @@
     "decisionNote": "Decision note",
     "approve": "Approve qualification",
     "reject": "Reject request",
-    "reviewLink": "Review qualification request in Tutor Applications"
+    "reviewLink": "Review qualification request in Tutor Applications",
+    "RECALLED": "Recalled",
+    "recall": "Recall request",
+    "recallTitle": "Recall qualification request?",
+    "recallHelp": "Withdraw your request for {subject}? Review will stop. Your history and existing qualifications will be kept, and you can submit a new request later.",
+    "keepRequest": "Keep request",
+    "recalling": "Recalling…",
+    "recalled": "Request recalled. You can submit a new request when ready.",
+    "recalledOn": "Recalled on {date}"
   },
   "signupFields": {
     "title": "Formularios de inscripción",

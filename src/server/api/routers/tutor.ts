@@ -1314,6 +1314,11 @@ export const tutorRouter = createTRPCRouter({
             message: "Only the head interviewer can set the interview time.",
           });
         }
+        const application = await tx.tutorApplication.findUniqueOrThrow({
+          where: { id: input.applicationId }, select: { status: true },
+        });
+        if (application.status === "RECALLED")
+          throw new TRPCError({ code: "CONFLICT", message: "This qualification request was recalled." });
         const updated = await tx.tutorApplication.update({
           where: { id: input.applicationId },
           data: { interviewAt: input.interviewAt },
