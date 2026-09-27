@@ -8,7 +8,14 @@ import { utcDatabaseUrl } from "./database-url";
 // Prisma 7 connects through a driver adapter (the connection URL is no longer in the schema).
 const createPrismaClient = () =>
   new PrismaClient({
-    adapter: new PrismaPg({ connectionString: utcDatabaseUrl(env.DATABASE_URL) }),
+    adapter: new PrismaPg({
+      // Docker builds skip env validation and import server routes without secrets.
+      // Leave the pool unconfigured until runtime; importing never needs a connection.
+      // Normal runtime env validation still requires a valid DATABASE_URL.
+      connectionString: env.DATABASE_URL
+        ? utcDatabaseUrl(env.DATABASE_URL)
+        : undefined,
+    }),
     log:
       env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
   });
