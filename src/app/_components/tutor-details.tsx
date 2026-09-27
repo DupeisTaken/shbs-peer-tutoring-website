@@ -8,8 +8,7 @@ import { ProfileDialog } from "./profile-dialog";
 import { useReadOnly } from "./read-only";
 import { AcademicDetails } from "./academic-profile";
 
-/** Keep the entry beside the tutor's name, within reach on horizontally scrolling rosters.
- * No detail/history query is mounted until staff explicitly open this person. */
+/** No detail/history query is mounted until staff explicitly open this person. */
 export function TutorDetailsButton({
   tutorId,
   name,
@@ -27,7 +26,7 @@ export function TutorDetailsButton({
       <button
         ref={trigger}
         type="button"
-        className="btn-secondary btn-sm mt-2 min-h-11 text-left whitespace-normal lg:min-h-8"
+        className="btn-secondary btn-sm min-h-11 text-left whitespace-normal lg:min-h-8"
         aria-label={t("openFor", { name })}
         aria-haspopup="dialog"
         onClick={() => setOpen(true)}

@@ -158,6 +158,30 @@ it.each([false, true])(
   },
 );
 
+it.each([false, true])(
+  "can omit the roster reference year while keeping graduation and review warnings (Chinese=%s)",
+  (chinese) => {
+    render(
+      wrap(
+        <AcademicDetails academic={academic} showSchoolYear={false} />,
+        chinese,
+      ),
+    );
+    expect(screen.getByText(chinese ? "10 年级" : "Grade 10")).toBeTruthy();
+    expect(
+      screen.queryByText(chinese ? "26-27 学年" : "School year 26-27"),
+    ).toBeNull();
+    expect(
+      screen.getByText(
+        chinese ? "预计毕业年份：2029" : "Expected graduation: 2029",
+      ),
+    ).toBeTruthy();
+    expect(
+      screen.getByText((chinese ? zh : en).academics.needsConfirmation),
+    ).toBeTruthy();
+  },
+);
+
 it.each([null, 10])(
   "preserves raw unknown reports, including migrated numeric grades (%s)",
   (gradeLevel) => {
