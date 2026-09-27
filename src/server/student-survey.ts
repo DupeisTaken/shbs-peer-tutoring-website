@@ -1,3 +1,8 @@
+import { preferredLatinNameSchema } from "~/lib/username";
+import { normalizeGrade } from "~/lib/academics";
+import { assertPrimaryName, assertOfferedGrade } from "~/server/program/profile-policy";
+import { ensureUserUsername, lockUsernameNamespace } from "~/server/auth/username";
+import { applyAcademicIntake, accountAcademics } from "~/server/academics";
 import { lockCatalogue } from "~/server/qualifications";
 import { getSignupSettings } from "~/server/program/signup-fields";
 import { normalizeTuteeFields, missingTuteeFields } from "~/lib/signup-fields";
@@ -27,6 +32,7 @@ import { getPeriodDisplay } from "~/lib/period";
 
 export const surveyInput = z.object({
   englishName: z.string().trim().min(1).max(120),
+  preferredLatinName: preferredLatinNameSchema,
   email: z
     .string()
     .trim()
@@ -158,7 +164,7 @@ export async function submitSurvey(
       });
     const account = await tx.user.findUnique({
       where: { email: input.email },
-      select: { id: true },
+      select: { id: true, profileVersion: true, name: true },
     });
     const block = await tx.studentQuarterBlock.findFirst({
       where: {
@@ -204,6 +210,8 @@ export async function submitSurvey(
     await lockEntity(tx, "signup-fields");
     const fields = (await getSignupSettings(tx)).tutee;
     input = normalizeTuteeFields(input, fields);
+    await assertPrimaryName(tx, account?.name ?? input.englishName, account?.name);
+    await assertOfferedGrade(tx, normalizeGrade(input.gradeLevel).gradeLevel);
     const missing = missingTuteeFields(input, fields);
     if (missing.length)
       throw new TRPCError({
@@ -228,7 +236,9 @@ export async function submitSurvey(
         email: input.email,
         intakeTermId: term.id,
         submittedAt: new Date(),
-        payload: { ...input, slotIds: slots },
+        payload: { ...input, slotIds: slots,
+          // Server-captured concurrency evidence; clients cannot choose these values.
+          academicAccountId: account?.id ?? null, academicProfileVersion: account?.profileVersion ?? null },
         policyRevision: policy.revision,
         policySnapshot: policy.documents,
         tokenHash: digest(token),
@@ -394,7 +404,12 @@ export async function confirmSurvey(
         message:
           "A selected subject or time slot is no longer available. Contact the team; your original submission time is saved.",
       });
+    await lockUsernameNamespace(tx);
     let user = await tx.user.findUnique({ where: { email: row.email } });
+    // Recheck at verification: a link issued before the policy changed cannot create a
+    // noncompliant identity. Existing verified identities remain the canonical source.
+    await assertPrimaryName(tx, user?.name ?? input.englishName, user?.name);
+    await assertOfferedGrade(tx, normalizeGrade(input.gradeLevel).gradeLevel);
     if (user) await lockAccountProfile(tx, user.id);
     if (user?.suspendedAt || user?.role === "VIEWER")
       throw new TRPCError({
@@ -445,7 +460,17 @@ export async function confirmSurvey(
       },
     });
     // Verification establishes the explicit link; the existing account remains the identity source.
+    // A verified, explicitly linked owner may confirm this intake's academic report only
+    // while its server-captured profile version still matches. Old email links cannot undo edits.
+    const academicSnapshot = z.object({ academicAccountId: z.string().nullable().optional(),
+      academicProfileVersion: z.number().int().nullable().optional() }).parse(row.payload);
+    const snapshotVersion = academicSnapshot.academicAccountId === user.id
+      ? academicSnapshot.academicProfileVersion ?? undefined : undefined;
+    await applyAcademicIntake(tx, user.id, input.gradeLevel, term?.schoolYear ?? null, row.submittedAt, "VERIFIED_SURVEY", snapshotVersion);
     await updateAccountProfile(tx, user.id);
+    const academic = (await accountAcademics(tx, user.id)).academic;
+    await ensureUserUsername(user.id, tx, { verifiedStudent: true, preferredLatinName: input.preferredLatinName,
+      graduationYear: academic.confirmedAt ? academic.expectedGraduationYear : null });
     await tx.policyAcceptance.upsert({
       where: {
         userId_slug_revision: {

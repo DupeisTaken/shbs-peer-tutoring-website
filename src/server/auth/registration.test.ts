@@ -88,6 +88,29 @@ const profile = {
   lastName: "Person",
   password: "Password123!",
 };
+it("preserves a Head-selected account handle when tutor registration changes name and grade", async () => {
+  await db.user.create({ data: { email: "new@example.test", name: "Old Name", role: "STUDENT", username: "customhandle", emailVerifiedAt: new Date() } });
+  await db.term.create({ data: { name: "Test Term", schoolYear: "26-27", quarter: "Q1", active: true } });
+  const row = await verified("TUTOR");
+  expect(await completeRegistration(row, { ...profile, gradeLevel: 11, completionProof: row.completionProof })).toEqual({ ok: true, username: "customhandle" });
+  const account = await db.user.findUniqueOrThrow({ where: { email: "new@example.test" }, include: { tutor: true } });
+  expect(account.username).toBe("customhandle");
+  expect(account.tutor?.username).toBe("customhandle");
+});
+it("adopts a new account's provisional roster username instead of regenerating it", async () => {
+  // A reported grade now belongs to the active program year, never a free-form client year.
+  await db.term.create({ data: { name: "Test Term", schoolYear: "26-27", quarter: "Q1", active: true } });
+  const roster = await db.tutor.create({ data: { englishName: "Old Name", email: "new@example.test", username: "rosterhandle" } });
+  const row = await verified("TUTOR");
+  await db.registrationCode.update({ where: { id: row.id }, data: { tutorId: roster.id } });
+  expect(await completeRegistration({ ...row, tutorId: roster.id }, { ...profile, gradeLevel: 12, completionProof: row.completionProof })).toEqual({ ok: true, username: "rosterhandle" });
+});
+it("accepts single-token names and optional Latin spelling for new verified accounts", async () => {
+  const row = await verified("CREW");
+  // No reported grade means no academic suffix or mandatory confirmation; the
+  // completion contract still explicitly distinguishes login creation from activation.
+  expect(await publicCaller().registration.complete({ code: row.code, completionProof: row.completionProof, firstName: "王小明", lastName: "", preferredLatinName: "Xiaoming Wang", password: profile.password })).toEqual({ ok: true, username: "xwang", academicConfirmationRequired: false });
+});
 it.each(REGISTRATION_KINDS)(
   "completes verified %s registration with only the intended participation",
   async (kind) => {

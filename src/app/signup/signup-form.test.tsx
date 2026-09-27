@@ -18,6 +18,18 @@ vi.mock("next-intl", () => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
+    program: {
+      profilePolicy: {
+        useQuery: () => ({
+          data: {
+            requireLatinNames: false,
+            offeredGrades: Array.from({ length: 12 }, (_, i) => i + 1),
+            currentSchoolYear: "26-27",
+          },
+          refetch: async () => ({ data: {} }),
+        }),
+      },
+    },
     tutee: {
       signupOptions: { useQuery: mocks.options },
       surveyPolicy: { useQuery: mocks.policy },
@@ -135,7 +147,7 @@ it("hides configured tutee fields and allows submission without hidden required 
   fireEvent.change(screen.getByLabelText(/survey.emailLabel/), {
     target: { value: "student@example.test" },
   });
-  fireEvent.change(screen.getByRole("combobox"), { target: { value: "math" } });
+  fireEvent.change(screen.getByRole("combobox", { name: "public.signup.fields.firstChoice" }), { target: { value: "math" } });
   fireEvent.click(screen.getByLabelText("Accept policy"));
   fireEvent.click(screen.getByRole("button", { name: "public.signup.submit" }));
   expect(mocks.mutate).toHaveBeenCalledWith(
@@ -198,7 +210,7 @@ it("uses the server's runtime title in policy consent", () => {
 it.each(["paused", "scheduled", "ended"])(
   "keeps %s recruitment visible but prevents every response edit and direct form submit",
   (state) => {
-    const existing = mocks.options() as {data: Record<string, unknown>};
+    const existing = mocks.options() as { data: Record<string, unknown> };
     mocks.options.mockReturnValue({
       ...existing,
       data: {

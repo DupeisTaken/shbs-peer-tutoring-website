@@ -3,6 +3,7 @@
 import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
+import { AcademicError } from "~/app/_components/academic-error";
 
 /**
  * Start-of-term activation prompt, shown when the tutor's status is PENDING (a semester refresh
@@ -37,7 +38,7 @@ export function TutorActivation() {
         </button>
       </div>
       <p className="muted mt-2 text-xs">{t("tutor.activate.note")}</p>
-      {activate.error && <p className="mt-2 text-sm text-red-600">{activate.error.message}</p>}
+      {activate.error && <p role="alert" className="mt-2 text-sm text-red-600"><AcademicError message={activate.error.message} selfService /></p>}
     </section>
   );
 }

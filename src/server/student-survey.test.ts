@@ -160,6 +160,37 @@ beforeEach(async () => {
 afterAll(() => db.$disconnect());
 
 describe("survey-first enrollment", () => {
+  it.each([
+    ["王小明", undefined, "member"],
+    ["王小明", "Xiaoming Wang", "xwang"],
+    ["Madonna", undefined, "madonna"],
+    ["José García", undefined, "jgarcia"],
+  ])("allocates %s once after verification, with optional spelling %s", async (englishName, preferredLatinName, username) => {
+    await submitSurvey(db, { ...input(), englishName, preferredLatinName, gradeLevel: undefined });
+    expect(await db.user.findUnique({ where: { email } })).toBeNull();
+    const token = lastToken();
+    await confirmSurvey(db, token, password);
+    const account = await db.user.findUniqueOrThrow({ where: { email } });
+    expect(account.username).toBe(username);
+    expect(account.tutorId).toBeNull();
+    await expect(confirmSurvey(db, token, password)).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(await ensureUserUsername(account.id)).toBe(username);
+  });
+  it("gives concurrent same-name verified students distinct stable handles", async () => {
+    await submitSurvey(db, { ...input(), email: "first@example.test", englishName: "Same Name" });
+    const firstToken = lastToken();
+    await submitSurvey(db, { ...input(), email: "second@example.test", englishName: "Same Name" });
+    const secondToken = lastToken();
+    await Promise.all([confirmSurvey(db, firstToken, password), confirmSurvey(db, secondToken, password)]);
+    const accounts = await db.user.findMany({ where: { role: "STUDENT" } });
+    expect(new Set(accounts.map((account) => account.username))).toEqual(new Set(["sname", "snameb"]));
+  });
+  it("retains an existing custom handle when a participant joins as a tutee", async () => {
+    await db.user.create({ data: { email, name: "Established Name", username: "customhandle", role: "CREW", emailVerifiedAt: new Date(), passwordHash: hashPassword(password) } });
+    await submitSurvey(db, { ...input(), englishName: "Different Name", preferredLatinName: "Unrelated Spelling" });
+    await confirmSurvey(db, lastToken());
+    expect(await db.user.findUnique({ where: { email } })).toMatchObject({ username: "customhandle", role: "CREW", tutorId: null });
+  });
   it.each([true, false])(
     "describes the submitted intake in confirmation with quarter mode %s",
     async (enabled) => {
@@ -256,7 +287,7 @@ describe("survey-first enrollment", () => {
     await confirmSurvey(db, lastToken(), password);
     const user = await db.user.findUniqueOrThrow({ where: { email } });
     expect(await resolveTutorLink(db, user.id, email)).toBeNull();
-    expect(await ensureUserUsername(user.id)).toBe("");
+    expect(await ensureUserUsername(user.id)).toBe("sone");
     await db.user.update({
       where: { id: user.id },
       data: { tutorId: tutor.id },

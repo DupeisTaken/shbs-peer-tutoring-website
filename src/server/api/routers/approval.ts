@@ -1,3 +1,5 @@
+import { lockUsernameNamespace } from "~/server/auth/username";
+import { retryUsernameSnapshot } from "~/server/auth/username-snapshot";
 import { isAssignmentOperation } from "~/lib/assignment-qualification";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
@@ -109,10 +111,15 @@ export const approvalRouter = createTRPCRouter({
           })
         : null;
       const attendanceApproval = initial && isAttendanceApproval(initial.operation);
-      const result = await ctx.db.$transaction(
+      // Fence identity-capable replays before profile locks or mutation callbacks. A stale
+      // Serializable snapshot may retry here; no callback/email has executed at that point.
+      const identityApproval = !!initial && ["admin.createTutor", "admin.updateTutor", "admin.setUserCanTutor",
+        "admin.setMemberships", "admin.setApplicationStatus", "tutor.decideInterview"].includes(initial.operation);
+      const runDecision = () => ctx.db.$transaction(
         async (tx) =>
           databaseScope.run(tx, () =>
             approvalScope.run(input.id, async () => {
+              if (identityApproval) await lockUsernameNamespace(tx);
               if (attendanceApproval)
                 await lockAttendanceApproval(tx, initial.operation, [
                   ctx.session.user.id,
@@ -265,6 +272,7 @@ export const approvalRouter = createTRPCRouter({
           ),
         { isolationLevel: attendanceApproval ? "ReadCommitted" : "Serializable", timeout: 20000 },
       );
+      const result = identityApproval ? await retryUsernameSnapshot(runDecision) : await runDecision();
       // SMTP happens only after the durable decision commits. A failed send is explicitly retryable.
       let emailSent: boolean | null = null;
       if (input.approve && result.operation === "studentWorkflow.assign") {

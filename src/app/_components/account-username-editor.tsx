@@ -11,6 +11,8 @@ export function AccountUsernameEditor({ userId, username: initial, profileVersio
 }) {
   const t = useTranslations("accountProfile");
   const [username, setUsername] = useState(initial ?? "");
+  // Academic saves refetch this same account. Keep the version that belongs to this draft.
+  const [expectedProfileVersion, setExpectedProfileVersion] = useState(profileVersion);
   const utils = api.useUtils();
   const router = useRouter();
   const save = api.admin.updateAccountUsername.useMutation({
@@ -22,7 +24,7 @@ export function AccountUsernameEditor({ userId, username: initial, profileVersio
     },
   });
   return <form className="mt-5 space-y-3 border-t border-slate-200 pt-4" onSubmit={(event) => {
-    event.preventDefault(); save.mutate({ userId, username, expectedProfileVersion: profileVersion });
+    event.preventDefault(); save.mutate({ userId, username, expectedProfileVersion });
   }}>
     <label className="block">
       <span className="label">{t("username")}</span>
@@ -31,5 +33,12 @@ export function AccountUsernameEditor({ userId, username: initial, profileVersio
     </label>
     <button className="btn-secondary min-h-11 lg:min-h-10" disabled={save.isPending || !username.trim()}>{t("saveUsername")}</button>
     {save.error && <p role="alert" className="text-sm text-red-600">{save.error.message}</p>}
+    {save.error?.data?.code === "CONFLICT" && <button type="button" className="btn-secondary min-h-11 lg:min-h-10" onClick={async () => {
+      const accounts = await utils.admin.accounts.fetch();
+      const latest = accounts.rows.find(row => row.userId === userId);
+      if (latest?.profileVersion != null) {
+        setUsername(latest.username ?? ""); setExpectedProfileVersion(latest.profileVersion); save.reset();
+      }
+    }}>{t("reloadUsername")}</button>}
   </form>;
 }

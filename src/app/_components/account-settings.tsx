@@ -6,7 +6,12 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 
 import { MembershipEditor } from "./membership-editor";
+import { AcademicPanel } from "./academic-profile";
 import { accountMembership } from "~/lib/account-membership";
+import {
+  ProfilePolicyHint,
+  ProfilePolicyError,
+} from "~/app/_components/profile-policy";
 import { api } from "~/trpc/react";
 import { SYMBOLS } from "~/lib/symbols";
 import { signInAfterPasswordChange } from "~/lib/password-session";
@@ -54,12 +59,18 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
   // Name form — seeded from the loaded account.
   const [name, setName] = useState("");
   const [alternativeNames, setAlternativeNames] = useState("");
+  const [nameDraftVersion, setNameDraftVersion] = useState<
+    number | undefined
+  >();
+  const [nameDirty, setNameDirty] = useState(false);
   useEffect(() => {
-    if (me.data) {
+    // Other profile sections refetch this query. Keep unsaved identity edits and their version.
+    if (me.data && !nameDirty) {
       setName(me.data.name ?? "");
       setAlternativeNames(me.data.alternativeNames ?? "");
+      setNameDraftVersion(me.data.profileVersion);
     }
-  }, [me.data]);
+  }, [me.data, nameDirty]);
 
   // Password form — a two-step flow: verify the current password to get an emailed code, then
   // submit the code with the new password (step-up email 2FA).
@@ -83,7 +94,10 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
     onSuccess: (data) => setSentTo(data.email),
   });
   const changePassword = api.account.changePassword.useMutation({
-    onSuccess: () => { resetPasswordForm(); signInAfterPasswordChange(); },
+    onSuccess: () => {
+      resetPasswordForm();
+      signInAfterPasswordChange();
+    },
   });
 
   // Step 1: validate the new password locally, then ask for the emailed code.
@@ -172,7 +186,9 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
               </div>
               <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
                 <span className="text-accent-700 font-mono font-medium">
-                  {me.data?.username ? `@${me.data.username}` : "—"}
+                  {me.data?.username
+                    ? `@${me.data.username}`
+                    : t("academics.usernameMissing")}
                 </span>
                 {me.data?.email && (
                   <>
@@ -196,18 +212,24 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
             <div className="flex flex-wrap items-center gap-2">
               <input
                 value={name}
-                onChange={(e) => setName(e.target.value)}
+                onChange={(e) => {
+                  setName(e.target.value);
+                  setNameDirty(true);
+                }}
                 className="input min-w-60 flex-1"
               />
               <button
                 className="btn-secondary"
                 disabled={updateName.isPending || !name.trim()}
                 onClick={() =>
-                  updateName.mutate({
-                    name: name.trim(),
-                    alternativeNames: alternativeNames.trim() || null,
-                    expectedProfileVersion: me.data?.profileVersion,
-                  })
+                  updateName.mutate(
+                    {
+                      name: name.trim(),
+                      alternativeNames: alternativeNames.trim() || null,
+                      expectedProfileVersion: nameDraftVersion,
+                    },
+                    { onSuccess: () => setNameDirty(false) },
+                  )
                 }
               >
                 {updateName.isPending
@@ -216,6 +238,7 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
               </button>
             </div>
           </label>
+          <ProfilePolicyHint />
           <label className="block space-y-1">
             <span className="label">
               {t("accountProfile.alternativeNames")}
@@ -223,7 +246,10 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
             <input
               className="input w-full"
               value={alternativeNames}
-              onChange={(event) => setAlternativeNames(event.target.value)}
+              onChange={(event) => {
+                setAlternativeNames(event.target.value);
+                setNameDirty(true);
+              }}
               maxLength={200}
             />
             <span className="muted text-xs">
@@ -236,7 +262,22 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
             </p>
           )}
           {updateName.error && (
-            <p className="text-sm text-red-600">{updateName.error.message}</p>
+            <p className="text-sm text-red-600">
+              <ProfilePolicyError message={updateName.error.message} />
+            </p>
+          )}
+          {updateName.error?.data?.code === "CONFLICT" && (
+            <button
+              type="button"
+              className="btn-secondary min-h-11 lg:min-h-10"
+              onClick={async () => {
+                await me.refetch();
+                setNameDirty(false);
+                updateName.reset();
+              }}
+            >
+              {t("accountProfile.reloadIdentity")}
+            </button>
           )}
 
           {me.data?.tutor && (
@@ -249,6 +290,8 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
           )}
         </div>
       </section>
+
+      <AcademicPanel />
 
       {/* Password — two-step: verify current password to email a code, then submit code + new pw. */}
       <section className="card space-y-4 p-5 sm:p-6">
@@ -392,7 +435,13 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
         </div>
       </section>
 
-      {me.data && <MembershipEditor userId={me.data.id} initial={accountMembership(me.data)} selfService />}
+      {me.data && (
+        <MembershipEditor
+          userId={me.data.id}
+          initial={accountMembership(me.data)}
+          selfService
+        />
+      )}
       <AccountEmails />
       <EmailPreferences />
       <TwoFactorSettings />

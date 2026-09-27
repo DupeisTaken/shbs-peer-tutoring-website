@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { ProgramProfileSettings } from "~/app/_components/program-profile-settings";
 import { ProgramEmailSettings } from "~/app/_components/program-email-settings";
 import { useTranslations } from "next-intl";
 
@@ -44,6 +45,7 @@ export default function ProgramPage() {
 
       <ProgramTimeZoneSettings />
       <ProgramEmailSettings />
+      <ProgramProfileSettings />
       {current.isLoading ? (
         <p className="muted">{t("admin.program.loading")}</p>
       ) : !period ? (

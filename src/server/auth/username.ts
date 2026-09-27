@@ -1,22 +1,31 @@
-/**
- * Username generation for tutors and login accounts.
- *
- * The default username is first initial + last name + 2-digit graduation year, lowercased and
- * stripped of anything that isn't a letter or digit — e.g. "John" + "Smith", class of 2027 ->
- * "jsmith27". (Without a known grad year it's just "jsmith".) Usernames are an alternate sign-in
- * identifier (sign in with username OR email), so they must be unique. To keep a single global
- * handle space, uniqueness is enforced across BOTH `Tutor.username` and `User.username`
- * (`ensureUniqueUsername` appends a letter, then a counter, on collision). `ensureUserUsername`
- * guarantees a given login has one, mirroring its linked tutor's handle when present.
- *
- * Node runtime only (touches the database).
- */
+import { academicSummary } from "~/lib/academics";
+/** Stable canonical account handles and one transaction-scoped User/Tutor namespace. */
+import { TRPCError } from "@trpc/server";
 import { db } from "~/server/db";
-import type { TransactionDb } from "~/server/transactions";
+import { lockAccountProfile } from "~/server/account-profile";
+import {
+  inTransaction,
+  lockEntity,
+  type DomainDb,
+  type TransactionDb,
+} from "~/server/transactions";
+import { defaultUsername, usernameCandidates } from "~/lib/username";
+import { isSerializationFailure, UsernameSnapshotConflict } from "./username-snapshot";
+export { defaultUsername } from "~/lib/username";
 
-/** Keep only [a-z0-9], lowercased. */
-function slug(value: string): string {
-  return value.toLowerCase().replace(/[^a-z0-9]/g, "");
+/** Acquire BEFORE account/profile/row writes and hold through persistence. No process-local lock. */
+export async function lockUsernameNamespace(tx: TransactionDb): Promise<void> {
+  await lockEntity(tx, "identity:username-namespace");
+  try {
+    // Advisory locks serialize writers, but cannot refresh an old Serializable snapshot.
+    // Updating one persistent tuple makes PostgreSQL reject that stale snapshot BEFORE
+    // it can select a handle. Upsert also recreates the fence after isolated test resets.
+    await tx.$executeRaw`INSERT INTO "UsernameNamespaceGuard" (id, revision) VALUES (1, 1)
+      ON CONFLICT (id) DO UPDATE SET revision = "UsernameNamespaceGuard".revision + 1`;
+  } catch (error) {
+    if (isSerializationFailure(error)) throw new UsernameSnapshotConflict(error);
+    throw error;
+  }
 }
 
 /**
@@ -38,118 +47,198 @@ export function splitDisplayName(display: string): {
   return { firstName, lastName, englishName };
 }
 
-/** Two-digit form of a class-of year (2027 -> "27"), or "" when none is known. */
-function gradSuffix(gradYear?: number | null): string {
-  if (gradYear == null) return "";
-  return String(((gradYear % 100) + 100) % 100).padStart(2, "0");
+type UsernameOwner = { excludeTutorId?: string; excludeUserId?: string };
+
+async function usernameTaken(
+  tx: TransactionDb,
+  username: string,
+  owner: UsernameOwner,
+) {
+  const [user, tutor] = await Promise.all([
+    tx.user.findFirst({
+      where: {
+        username: { equals: username, mode: "insensitive" },
+        ...(owner.excludeUserId ? { id: { not: owner.excludeUserId } } : {}),
+      },
+      select: { id: true },
+    }),
+    tx.tutor.findFirst({
+      where: {
+        username: { equals: username, mode: "insensitive" },
+        ...(owner.excludeTutorId ? { id: { not: owner.excludeTutorId } } : {}),
+      },
+      select: { id: true },
+    }),
+  ]);
+  return user !== null || tutor !== null;
 }
 
-/**
- * The default username for a tutor: first initial + last name + graduation year
- * (e.g. "jsmith27"). Pass `gradYear` (the class-of year — see `graduationYear` in
- * src/lib/period.ts); omit it to fall back to the bare "jsmith". Returns "" when neither
- * name part yields any usable characters.
- */
-export function defaultUsername(
-  firstName: string,
-  lastName: string,
-  gradYear?: number | null,
-): string {
-  const first = slug(firstName);
-  const last = slug(lastName);
-  if (!first && !last) return "";
-  return `${first.slice(0, 1)}${last}${gradSuffix(gradYear)}`;
-}
-
-/**
- * Candidate usernames for a base, in priority order:
- *   1. the bare base            (jsmith27)
- *   2. base + a letter          (jsmith27b, jsmith27c, …)
- *   3. base + a counter         (jsmith272, jsmith273, …)  — final fallback, guarantees termination
- * The base already carries the grad year, so a letter suffix disambiguates same-name classmates
- * without producing an opaque number.
- */
-function* usernameCandidates(root: string): Generator<string> {
-  yield root;
-  for (const c of "bcdefghijklmnopqrstuvwxyz") yield `${root}${c}`;
-  for (let n = 2; ; n++) yield `${root}${n}`;
-}
-
-/**
- * Resolve a unique username from a desired base, skipping collisions in BOTH the `Tutor` and
- * `User` handle spaces (so a tutor and an admin can never share a sign-in handle). Pass
- * `excludeTutorId` / `excludeUserId` when editing an existing row so its own username isn't
- * counted as a clash.
- */
+/** A required transaction client prevents accidentally releasing the lock before saving. */
 export async function ensureUniqueUsername(
   base: string,
-  opts: { excludeTutorId?: string; excludeUserId?: string } = {},
-  client: TransactionDb = db,
+  opts: UsernameOwner,
+  tx: TransactionDb,
 ): Promise<string> {
-  const root = slug(base) || "tutor";
-  for (const candidate of usernameCandidates(root)) {
-    const [tutor, user] = await Promise.all([
-      client.tutor.findUnique({
-        where: { username: candidate },
-        select: { id: true },
-      }),
-      client.user.findUnique({
-        where: { username: candidate },
-        select: { id: true },
-      }),
-    ]);
-    const tutorClash = tutor && tutor.id !== opts.excludeTutorId;
-    const userClash = user && user.id !== opts.excludeUserId;
-    if (!tutorClash && !userClash) return candidate;
+  // Recent Prisma transactions support nested $transaction, but never root $connect.
+  if ("$connect" in tx) throw new Error("Username allocation requires an active transaction.");
+  await lockUsernameNamespace(tx);
+  for (const candidate of usernameCandidates(base)) {
+    if (!(await usernameTaken(tx, candidate, opts))) return candidate;
   }
-  return root; // unreachable — the counter tier is infinite
+  throw new Error("Username namespace exhausted.");
 }
 
-/**
- * Ensure a login account has a username, assigning one if missing. For a linked tutor it mirrors
- * the tutor's handle; otherwise it derives one from the display name (falling back to the email
- * local-part). Idempotent — returns the existing username untouched when already set. Used to
- * uphold the "every account has a username" invariant on sign-in, creation, and backfill.
- */
+/** Existing identity handles are never silently suffixed, normalized or renamed on collision. */
+export async function canonicalUsername(
+  tx: TransactionDb,
+  base: string,
+  owner: UsernameOwner & {
+    userUsername?: string | null;
+    tutorUsername?: string | null;
+  },
+): Promise<string> {
+  await lockUsernameNamespace(tx);
+  const established = [owner.userUsername, owner.tutorUsername].find((value) => value != null && value.length > 0);
+  if (!established) return ensureUniqueUsername(base, owner, tx);
+  if (await usernameTaken(tx, established, owner))
+    throw new TRPCError({
+      code: "CONFLICT",
+      message:
+        "This established username belongs to another identity. Ask Head to reconcile the accounts.",
+    });
+  return established;
+}
+
+/** Reconcile linked mirrors under the account-owned handle; allocate students only on explicit enrollment/backfill. */
 export async function ensureUserUsername(
   userId: string,
-  client: TransactionDb = db,
+  client: DomainDb = db,
+  options: {
+    verifiedStudent?: boolean;
+    preferredLatinName?: string;
+    graduationYear?: number | null;
+  } = {},
 ): Promise<string> {
-  const user = await client.user.findUnique({
-    where: { id: userId },
-    select: {
-      id: true,
-      username: true,
-      role: true,
-      name: true,
-      email: true,
-      tutor: { select: { id: true, username: true } },
-    },
-  });
-  if (!user) return "";
-  if (user.username) return user.username;
-  // Public student/viewer accounts sign in by email and do not need generated handles.
-  if (["VIEWER", "STUDENT"].includes(user.role) && !user.tutor) return "";
-
-  let base = user.tutor?.username ?? "";
-  if (!base) {
-    const parts = (user.name ?? "").trim().split(/\s+/).filter(Boolean);
-    if (parts.length >= 2) {
-      base = defaultUsername(parts[0]!, parts.slice(1).join(" "));
-    } else if (parts.length === 1) {
-      base = slug(parts[0]!);
+  return inTransaction(client, async (tx) => {
+    await lockUsernameNamespace(tx);
+    await lockAccountProfile(tx, userId);
+    const user = await tx.user.findUnique({
+      where: { id: userId },
+      select: {
+        id: true,
+        username: true,
+        role: true,
+        name: true,
+        emailVerifiedAt: true,
+        academicProfile: true,
+        tutor: { select: { id: true, username: true } },
+      },
+    });
+    if (!user) return "";
+    if (
+      !user.tutor &&
+      (user.role === "VIEWER" ||
+        (user.role === "STUDENT" &&
+          (!options.verifiedStudent || !user.emailVerifiedAt)))
+    )
+      return user.username ?? "";
+    // Canonical academic evidence wins over creation hints, including after a rejected intake
+    // correction. Unknown legacy reports never acquire an invented graduation suffix.
+    const graduationYear = user.academicProfile
+      ? user.academicProfile.confirmedAt ? academicSummary(user.academicProfile).expectedGraduationYear : null
+      : options.graduationYear;
+    const names = splitDisplayName(user.name ?? "");
+    const username = await canonicalUsername(
+      tx,
+      defaultUsername(
+        names.firstName,
+        names.lastName,
+        graduationYear,
+        options.preferredLatinName,
+      ),
+      {
+        excludeUserId: user.id,
+        excludeTutorId: user.tutor?.id,
+        userUsername: user.username,
+        tutorUsername: user.tutor?.username,
+      },
+    );
+    if (user.username !== username)
+      await tx.user.update({
+        where: { id: user.id },
+        data: { username, profileVersion: { increment: 1 } },
+      });
+    if (user.tutor && user.tutor.username !== username) {
+      await tx.tutor.update({
+        where: { id: user.tutor.id },
+        data: { username },
+      });
+      // Preserve a trace when repairing old divergence; historical names/signatures remain untouched.
+      await tx.auditLog.create({
+        data: {
+          userId: user.id,
+          entity: "User",
+          entityId: user.id,
+          operation: "identity.reconcileUsername",
+          kind: "ACTION",
+          action: "Synchronized tutor username to account",
+          details: {
+            username,
+            oldTutorUsername: user.tutor.username,
+            tutorId: user.tutor.id,
+          },
+        },
+      });
     }
-  }
-  if (!base) base = slug(user.email.split("@")[0] ?? "");
+    return username;
+  });
+}
 
-  const username = await ensureUniqueUsername(
-    base,
-    {
-      excludeUserId: user.id,
-      excludeTutorId: user.tutor?.id,
-    },
-    client,
-  );
-  await client.user.update({ where: { id: user.id }, data: { username } });
-  return username;
+/** Head chooses an explicit bounded set; page reads never assign old student identities. */
+export async function backfillStudentUsernames(
+  client: DomainDb,
+  actorId: string,
+  userIds: string[],
+) {
+  if (
+    userIds.length < 1 ||
+    userIds.length > 100 ||
+    new Set(userIds).size !== userIds.length
+  )
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "Select between 1 and 100 distinct student accounts.",
+    });
+  return inTransaction(client, async (tx) => {
+    await lockUsernameNamespace(tx);
+    const actor = await tx.user.findUniqueOrThrow({ where: { id: actorId } });
+    if (actor.role !== "HEAD" || actor.suspendedAt)
+      throw new TRPCError({ code: "FORBIDDEN" });
+    const results = [];
+    for (const id of userIds) {
+      const user = await tx.user.findUnique({ where: { id } });
+      if (user?.role !== "STUDENT" || !user.emailVerifiedAt)
+        throw new TRPCError({
+          code: "BAD_REQUEST",
+          message: "Backfill requires verified student accounts.",
+        });
+      const username = await ensureUserUsername(id, tx, {
+        verifiedStudent: true,
+      });
+      results.push({ id, username });
+      if (!user.username)
+        await tx.auditLog.create({
+          data: {
+            userId: actorId,
+            entity: "User",
+            entityId: id,
+            operation: "admin.backfillStudentUsernames",
+            kind: "ACTION",
+            action: "Assigned verified student username",
+            details: { username },
+          },
+        });
+    }
+    return results;
+  });
 }

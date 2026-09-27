@@ -1,10 +1,15 @@
 "use client";
 
 import { MembershipEditor } from "./membership-editor";
+import { AcademicPanel } from "./academic-profile";
 import { AccountUsernameEditor } from "./account-username-editor";
 import type { AccountMembership } from "~/lib/account-membership";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import {
+  ProfilePolicyHint,
+  ProfilePolicyError,
+} from "~/app/_components/profile-policy";
 import { api } from "~/trpc/react";
 import { ProfileDialog } from "~/app/_components/profile-dialog";
 
@@ -27,6 +32,9 @@ export function AccountProfileEditor({
 }) {
   const t = useTranslations("accountProfile");
   const [name, setName] = useState(profile.name);
+  const [expectedProfileVersion, setExpectedProfileVersion] = useState(
+    profile.profileVersion,
+  );
   const [alternativeNames, setAlternativeNames] = useState(
     profile.alternativeNames ?? "",
   );
@@ -52,7 +60,7 @@ export function AccountProfileEditor({
             userId: profile.userId,
             name,
             alternativeNames: alternativeNames.trim() || null,
-            expectedProfileVersion: profile.profileVersion,
+            expectedProfileVersion,
           });
         }}
       >
@@ -67,6 +75,7 @@ export function AccountProfileEditor({
             maxLength={100}
           />
         </label>
+        <ProfilePolicyHint />
         <label className="block">
           <span className="label">{t("alternativeNames")}</span>
           <input
@@ -85,12 +94,48 @@ export function AccountProfileEditor({
         </button>
         {save.error && (
           <p role="alert" className="text-sm text-red-600">
-            {save.error.message}
+            <ProfilePolicyError message={save.error.message} />
           </p>
         )}
+        {save.error?.data?.code === "CONFLICT" && (
+          <button
+            type="button"
+            className="btn-secondary min-h-11 lg:min-h-10"
+            onClick={async () => {
+              const accounts = await utils.admin.accounts.fetch();
+              const latest = accounts.rows.find(
+                (row) => row.userId === profile.userId,
+              );
+              if (latest?.profileVersion != null) {
+                setName(latest.name);
+                setAlternativeNames(latest.alternativeNames ?? "");
+                setExpectedProfileVersion(latest.profileVersion);
+                save.reset();
+              }
+            }}
+          >
+            {t("reloadIdentity")}
+          </button>
+        )}
       </form>
-      {isHead && <AccountUsernameEditor userId={profile.userId} username={profile.username} profileVersion={profile.profileVersion} onSaved={onClose} />}
-      {membership && <MembershipEditor userId={profile.userId} initial={membership} isHead={isHead} />}
+      <div className="mt-5">
+        <AcademicPanel userId={profile.userId} />
+      </div>
+      {isHead && (
+        <AccountUsernameEditor
+          userId={profile.userId}
+          username={profile.username}
+          profileVersion={profile.profileVersion}
+          onSaved={onClose}
+        />
+      )}
+      {membership && (
+        <MembershipEditor
+          userId={profile.userId}
+          initial={membership}
+          isHead={isHead}
+        />
+      )}
     </ProfileDialog>
   );
 }

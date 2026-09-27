@@ -49,6 +49,7 @@ export const APPROVAL_OPERATIONS: Record<string, string> = {
   "admin.createTutor": "Tutor",
   "admin.updateTutor": "Tutor",
   "admin.updateAccountProfile": "User",
+  "admin.updateAccountAcademics": "User",
   "admin.createTutee": "Tutee",
   "admin.updateTutee": "Tutee",
   "admin.assignTuteeToTutor": "Tutee",

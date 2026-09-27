@@ -15,6 +15,10 @@ import {
   normalizeTutorSubject,
   missingTutorSubject,
 } from "~/lib/signup-fields";
+import {
+  ProfilePolicyHint,
+  ProfilePolicyError,
+} from "~/app/_components/profile-policy";
 import { api } from "~/trpc/react";
 import { useBranding } from "~/app/_components/branding-provider";
 import { PolicyAgreement } from "~/app/_components/policy-agreement";
@@ -461,6 +465,8 @@ export function TutorSignupForm() {
             </label>
           </div>
 
+          <ProfilePolicyHint />
+
           {fields.preferredContact !== "hidden" && (
             <label className="space-y-1">
               <span className="label">
@@ -486,7 +492,7 @@ export function TutorSignupForm() {
 
           {submit.error && (
             <p role="alert" className="text-sm text-red-600">
-              {submit.error.message}
+              <ProfilePolicyError message={submit.error.message} />
             </p>
           )}
 

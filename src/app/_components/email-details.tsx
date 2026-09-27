@@ -7,6 +7,11 @@ import { ProfileDialog } from "~/app/_components/profile-dialog";
 import { api } from "~/trpc/react";
 import { useReadOnly } from "./read-only";
 import { AcceptanceRecords } from "./acceptance-records";
+import { AcademicDetails } from "./academic-profile";
+import type { AcademicSummary } from "~/lib/academics";
+
+/** Compact management links share typography/height; mobile retains full touch targets. */
+export const USER_ROW_ACTION = "inline-flex min-h-11 w-full items-center justify-end py-2 text-right text-sm leading-5 whitespace-normal lg:min-h-8 lg:py-1";
 
 type EmailDetailsProps = {
   email: string | null | undefined;
@@ -18,6 +23,8 @@ type EmailDetailsProps = {
   linked?: boolean;
   contactOnly?: boolean;
   showPolicyHistory?: boolean;
+  academic?: AcademicSummary;
+  triggerClassName?: string;
 };
 
 /** Long addresses live in an accessible detail dialog, never in a roster's width calculation. */
@@ -34,7 +41,7 @@ export function EmailDetails(props: EmailDetailsProps) {
     <>
       <button
         type="button"
-        className="link text-xs whitespace-nowrap"
+        className={`link ${props.triggerClassName ?? "text-xs whitespace-nowrap"}`}
         onClick={() => setOpen(true)}
       >
         {t(props.showPolicyHistory ? "showDetails" : "showEmail")}
@@ -46,6 +53,12 @@ export function EmailDetails(props: EmailDetailsProps) {
           })}
           onClose={() => setOpen(false)}
         >
+          {props.showPolicyHistory && props.academic && (
+            <section className="mb-5 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <AcademicSectionTitle />
+              <AcademicDetails academic={props.academic} />
+            </section>
+          )}
           {props.email ? (
             <EmailContent {...props} email={props.email} />
           ) : (
@@ -61,6 +74,11 @@ export function EmailDetails(props: EmailDetailsProps) {
       )}
     </>
   );
+}
+
+function AcademicSectionTitle() {
+  const t = useTranslations("academics");
+  return <h3 className="font-semibold">{t("title")}</h3>;
 }
 
 /** Mutation observers only exist while a dialog is open, even on a long roster. */

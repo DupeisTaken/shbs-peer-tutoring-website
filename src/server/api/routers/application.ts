@@ -1,3 +1,4 @@
+import { assertPrimaryName } from "~/server/program/profile-policy";
 import { recruitmentStatus } from "~/lib/recruitment";
 import { getRecruitment } from "~/server/program/recruitment";
 import { lockCatalogue } from "~/server/qualifications";
@@ -172,6 +173,8 @@ export const applicationRouter = createTRPCRouter({
           tx,
           { kind: "tutor", email: input.email, headers: ctx.headers },
           async (email) => {
+            // Check current policy only for a new record; historical retries stay idempotent.
+            await assertPrimaryName(tx, input.name);
             await tx.tutorApplication.create({
               data: {
                 name: input.name,

@@ -1,3 +1,4 @@
+import { initializeAccountAcademics } from "~/server/academics";
 import { signinIdentifiers } from "./signin-identifiers";
 import { lockAccountProfile } from "~/server/account-profile";
 import { updateAccountProfile } from "~/server/account-profile";
@@ -16,7 +17,7 @@ import {
 } from "~/server/email/sender";
 import { APP_TITLE } from "~/lib/branding";
 import { hashPassword } from "./password";
-import { ensureUniqueUsername, ensureUserUsername } from "./username";
+import { ensureUserUsername, lockUsernameNamespace } from "./username";
 import { TRPCError } from "@trpc/server";
 import { lockEntity } from "~/server/transactions";
 
@@ -232,62 +233,65 @@ export async function issueTutorSetupLink(
 > {
   if (!isEmailDeliveryAvailable())
     throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Email delivery must be configured before sending account setup links." });
-  const tutor = await db.tutor.findUnique({
-    where: { id: tutorId },
-    select: {
-      id: true,
-      email: true,
-      englishName: true,
-      alternativeNames: true,
-      username: true,
-      user: { select: { id: true, email: true } },
-    },
-  });
-  if (!tutor) return { ok: false, error: "no-tutor" };
-  // An existing login's primary email is authoritative; editable roster contact is not proof.
-  const email = (tutor.user?.email ?? tutor.email)?.trim().toLowerCase();
-  if (!email) return { ok: false, error: "no-email" };
-
-  let userId = tutor.user?.id ?? null;
-  if (!userId) {
-    const actor = await db.user.findUnique({ where: { id: actorId }, select: { role: true, suspendedAt: true } });
-    if (actor?.role !== "HEAD" || actor.suspendedAt)
-      throw new TRPCError({ code: "FORBIDDEN", message: "Only Head can provision tutor access. Existing account setup links may be resent." });
-    const existing = await db.user.findUnique({
-      where: { email },
-      select: { id: true, role: true, tutorId: true },
+  const provisioned = await db.$transaction(async (tx) => {
+    await lockUsernameNamespace(tx);
+    const tutor = await tx.tutor.findUnique({
+      where: { id: tutorId },
+      select: {
+        id: true,
+        email: true,
+        englishName: true,
+        alternativeNames: true,
+        username: true,
+        user: { select: { id: true, email: true } },
+      },
     });
-    if (existing) {
-      if (existing.role === "VIEWER" || (existing.tutorId && existing.tutorId !== tutor.id))
-        throw new TRPCError({ code: "CONFLICT", message: "Review the existing account membership before linking this tutor." });
-      await db.user.update({
-        where: { id: existing.id },
-        data: { tutorId: tutor.id, tutorAccessRevoked: false },
+    if (!tutor) return { ok: false as const, error: "no-tutor" as const };
+    // An existing login's primary email is authoritative; editable roster contact is not proof.
+    const email = (tutor.user?.email ?? tutor.email)?.trim().toLowerCase();
+    if (!email) return { ok: false as const, error: "no-email" as const };
+
+    let userId = tutor.user?.id ?? null;
+    if (!userId) {
+      const actor = await tx.user.findUnique({ where: { id: actorId }, select: { role: true, suspendedAt: true } });
+      if (actor?.role !== "HEAD" || actor.suspendedAt)
+        throw new TRPCError({ code: "FORBIDDEN", message: "Only Head can provision tutor access. Existing account setup links may be resent." });
+      const existing = await tx.user.findUnique({
+        where: { email },
+        select: { id: true, role: true, tutorId: true },
       });
-      userId = existing.id;
-    } else {
-      // Mirror the tutor's handle onto the login (unique across both spaces).
-      const username = await ensureUniqueUsername(
-        tutor.username ?? tutor.englishName,
-      );
-      const created = await db.user.create({
-        data: {
-          email,
-          username,
-          name: tutor.englishName,
-          alternativeNames: tutor.alternativeNames,
-          role: "TUTOR",
-          tutorId: tutor.id,
-          mustChangePassword: true,
-        },
-        select: { id: true },
-      });
-      userId = created.id;
+      if (existing) {
+        if (existing.role === "VIEWER" || (existing.tutorId && existing.tutorId !== tutor.id))
+          throw new TRPCError({ code: "CONFLICT", message: "Review the existing account membership before linking this tutor." });
+        await tx.user.update({
+          where: { id: existing.id },
+          data: { tutorId: tutor.id, tutorAccessRevoked: false },
+        });
+        userId = existing.id;
+      } else {
+        const created = await tx.user.create({
+          data: {
+            email,
+            name: tutor.englishName,
+            alternativeNames: tutor.alternativeNames,
+            role: "TUTOR",
+            tutorId: tutor.id,
+            mustChangePassword: true,
+          },
+          select: { id: true },
+        });
+        userId = created.id;
+      }
     }
-  }
-  await updateAccountProfile(db, userId);
-  // Make sure the (possibly pre-existing) login carries a username.
-  await ensureUserUsername(userId);
+    await initializeAccountAcademics(tx, userId);
+    await updateAccountProfile(tx, userId);
+    // Make sure the (possibly pre-existing) login carries a username.
+    await ensureUserUsername(userId, tx);
+
+    return { ok: true as const, userId, email };
+  });
+  if (!provisioned.ok) return provisioned;
+  const { userId, email } = provisioned;
 
   const token = randomBytes(32).toString("hex");
   await db.passwordResetToken.create({

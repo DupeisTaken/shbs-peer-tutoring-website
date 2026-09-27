@@ -4,14 +4,17 @@ import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { EmailDetails } from "~/app/_components/email-details";
+import { AcademicDetails } from "~/app/_components/academic-profile";
 import { TutorProfileEditor } from "~/app/_components/tutor-profile-editor";
 import { TutorDetailsButton } from "~/app/_components/tutor-details";
+import { useProfilePolicy, ProfilePolicyHint, ProfilePolicyError, OfferedGradeSelect } from "~/app/_components/profile-policy";
 import { api } from "~/trpc/react";
 import { SortHeader, useSort, compare } from "~/app/_components/sortable";
 import { useReadOnly } from "~/app/_components/read-only";
 
 export default function TutorsPage() {
   const t = useTranslations();
+  const policy = useProfilePolicy();
   const readOnly = useReadOnly();
   // Translate a tutor status outside the row map, where `t` is shadowed by the row variable.
   const statusLabel = (s: string) => t(`admin.tutorStatus.${s}`);
@@ -56,7 +59,9 @@ export default function TutorsPage() {
         case "email":
           return compare(a.email ?? "", b.email ?? "") * dir;
         case "grade":
-          return ((a.gradeLevel ?? 0) - (b.gradeLevel ?? 0)) * dir;
+          return (
+            ((a.academic.gradeLevel ?? 0) - (b.academic.gradeLevel ?? 0)) * dir
+          );
         case "status":
           return compare(a.status, b.status) * dir;
         case "lastName":
@@ -116,15 +121,7 @@ export default function TutorsPage() {
             placeholder={t("admin.tutors.phEmail")}
             className="input field-auto min-w-48"
           />
-          <input
-            value={grade}
-            onChange={(e) => setGrade(e.target.value)}
-            type="number"
-            min={6}
-            max={12}
-            placeholder={t("admin.tutors.phGrade")}
-            className="input field-auto min-w-20"
-          />
+          <label className="min-w-32"><span className="sr-only">{t("admin.tutors.phGrade")}</span><OfferedGradeSelect value={grade} onChange={setGrade} offeredGrades={policy.offeredGrades} /></label>
           <button
             className="btn-primary"
             disabled={!firstName.trim() || !lastName.trim() || create.isPending}
@@ -133,8 +130,9 @@ export default function TutorsPage() {
           </button>
         </form>
       )}
+      {!readOnly && <ProfilePolicyHint />}
       {!readOnly && create.error && (
-        <p className="text-sm text-red-600">{create.error.message}</p>
+        <p role="alert" className="text-sm text-red-600"><ProfilePolicyError message={create.error.message} /></p>
       )}
       <p className="muted text-xs">{t("admin.tutors.accountMovedNote")}</p>
 
@@ -154,7 +152,7 @@ export default function TutorsPage() {
               </SortHeader>
               <th>{t("admin.tutors.colEmail")}</th>
               <SortHeader sort={sort} sortKey="grade">
-                {t("admin.tutors.colGrade")}
+                {t("academics.title")}
               </SortHeader>
               <SortHeader sort={sort} sortKey="status">
                 {t("admin.tutors.colStatus")}
@@ -202,7 +200,9 @@ export default function TutorsPage() {
                     }
                   />
                 </td>
-                <td>{row.gradeLevel ?? "—"}</td>
+                <td>
+                  <AcademicDetails academic={row.academic} />
+                </td>
                 {/* Keep translated status badges readable inside the scrolling roster. */}
                 <td className="whitespace-nowrap">
                   <span

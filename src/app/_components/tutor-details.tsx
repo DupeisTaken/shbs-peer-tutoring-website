@@ -6,6 +6,7 @@ import { api } from "~/trpc/react";
 import { AcceptanceRecords } from "./acceptance-records";
 import { ProfileDialog } from "./profile-dialog";
 import { useReadOnly } from "./read-only";
+import { AcademicDetails } from "./academic-profile";
 
 /** Keep the entry beside the tutor's name, within reach on horizontally scrolling rosters.
  * No detail/history query is mounted until staff explicitly open this person. */
@@ -94,8 +95,10 @@ function TutorDetails({ tutorId }: { tutorId: string }) {
             <dd className="mt-1">{t(detail.userId ? "linked" : "unlinked")}</dd>
           </div>
           <div>
-            <dt className="muted">{common("admin.tutors.colGrade")}</dt>
-            <dd className="mt-1">{detail.gradeLevel ?? "—"}</dd>
+            <dt className="muted">{common("academics.title")}</dt>
+            <dd className="mt-1">
+              <AcademicDetails academic={detail.academic} />
+            </dd>
           </div>
           <div>
             <dt className="muted">{common("admin.tutors.colEmail")}</dt>

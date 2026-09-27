@@ -3,6 +3,14 @@
 import { useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { ProfileDialog } from "~/app/_components/profile-dialog";
+import { AcademicPanel } from "./academic-profile";
+import { AcademicError } from "./academic-error";
+import {
+  useProfilePolicy,
+  ProfilePolicyHint,
+  OfferedGradeSelect,
+} from "./profile-policy";
+import { useState } from "react";
 
 /** One deliberate save avoids racing field-by-field corrections of the same person. */
 export function TutorProfileEditor({
@@ -13,6 +21,9 @@ export function TutorProfileEditor({
   onClose: () => void;
 }) {
   const t = useTranslations();
+  const [expectedUpdatedAt] = useState(row.updatedAt);
+  const policy = useProfilePolicy();
+  const [grade, setGrade] = useState(row.gradeLevel?.toString() ?? "");
   const utils = api.useUtils();
   const save = api.admin.updateTutor.useMutation({
     onSuccess: async () => {
@@ -38,12 +49,14 @@ export function TutorProfileEditor({
           const [firstName, ...rest] = value("name").split(/\s+/);
           save.mutate({
             id: row.id,
-            expectedUpdatedAt: row.updatedAt,
+            expectedUpdatedAt,
             firstName: firstName!,
             lastName: rest.join(" "),
             alternativeNames: value("alternativeNames") || null,
             email: value("email") || null,
-            gradeLevel: value("grade") ? Number(value("grade")) : null,
+            ...(row.user
+              ? {}
+              : { gradeLevel: value("grade") ? Number(value("grade")) : null }),
             status: value("status") as typeof row.status,
           });
         }}
@@ -64,30 +77,42 @@ export function TutorProfileEditor({
               row.alternativeNames,
             ],
             ["email", t("admin.tutors.colEmail"), row.user?.email ?? row.email],
-            ["grade", t("admin.tutors.colGrade"), row.gradeLevel],
+            ["grade", t("academics.legacyGrade"), row.gradeLevel],
           ] as const
-        ).map(([key, label, value]) => (
-          <label key={key} className="block">
-            <span className="label">{label}</span>
-            <input
-              className="input w-full"
-              name={key}
-              defaultValue={value ?? ""}
-              required={key === "name"}
-              type={
-                key === "email" ? "email" : key === "grade" ? "number" : "text"
-              }
-              min={key === "grade" ? 6 : undefined}
-              max={key === "grade" ? 12 : undefined}
-              readOnly={key === "email" && !!row.user}
-            />
-            {key === "email" && row.user && (
-              <span className="muted text-xs">
-                {t("accountProfile.emailProtected")}
-              </span>
-            )}
-          </label>
-        ))}
+        )
+          .filter(([key]) => key !== "grade" || !row.user)
+          .map(([key, label, value]) => (
+            <label key={key} className="block">
+              <span className="label">{label}</span>
+              {key === "grade" ? (
+                <OfferedGradeSelect
+                  name="grade"
+                  value={grade}
+                  onChange={setGrade}
+                  offeredGrades={policy.offeredGrades}
+                  preserveLegacy
+                />
+              ) : (
+                <input
+                  className="input w-full"
+                  name={key}
+                  defaultValue={value ?? ""}
+                  required={key === "name"}
+                  type={key === "email" ? "email" : "text"}
+                  readOnly={key === "email" && !!row.user}
+                />
+              )}
+
+              {key === "email" && row.user && (
+                <span className="muted text-xs">
+                  {t("accountProfile.emailProtected")}
+                </span>
+              )}
+            </label>
+          ))}
+        <div className="sm:col-span-2">
+          <ProfilePolicyHint />
+        </div>
         <label className="block">
           <span className="label">{t("admin.tutors.colStatus")}</span>
           <select
@@ -118,10 +143,15 @@ export function TutorProfileEditor({
         </button>
         {save.error && (
           <p role="alert" className="text-sm text-red-600 sm:col-span-2">
-            {save.error.message}
+            <AcademicError message={save.error.message} />
           </p>
         )}
       </form>
+      {row.user && (
+        <div className="mt-5">
+          <AcademicPanel userId={row.user.id} />
+        </div>
+      )}
     </ProfileDialog>
   );
 }

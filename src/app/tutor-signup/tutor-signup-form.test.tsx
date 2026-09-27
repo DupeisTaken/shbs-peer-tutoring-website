@@ -20,6 +20,18 @@ vi.mock("next-intl", () => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
+    program: {
+      profilePolicy: {
+        useQuery: () => ({
+          data: {
+            requireLatinNames: false,
+            offeredGrades: Array.from({ length: 12 }, (_, i) => i + 1),
+            currentSchoolYear: "26-27",
+          },
+          refetch: async () => ({ data: {} }),
+        }),
+      },
+    },
     application: {
       options: { useQuery: mocks.options },
       policy: { useQuery: mocks.policy },

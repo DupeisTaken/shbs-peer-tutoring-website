@@ -1,3 +1,5 @@
+import { assertPrimaryName } from "~/server/program/profile-policy";
+import { initializeAccountAcademics } from "~/server/academics";
 import {
   lockAccountProfile,
   updateAccountProfile,
@@ -21,7 +23,9 @@ import { inTransaction, type TransactionDb } from "~/server/transactions";
 import { issueRegistrationCode } from "~/server/auth/registration";
 import {
   defaultUsername,
-  ensureUniqueUsername,
+  canonicalUsername,
+  ensureUserUsername,
+  lockUsernameNamespace,
   splitDisplayName,
 } from "~/server/auth/username";
 
@@ -30,6 +34,7 @@ export async function promoteApplicantToTutor(
   client: TransactionDb = db,
 ): Promise<void> {
   return inTransaction(client, async (db) => {
+    await lockUsernameNamespace(db);
     const app = await db.tutorApplication.findUnique({
       where: { id: applicationId },
       select: { name: true, email: true, type: true },
@@ -41,11 +46,14 @@ export async function promoteApplicantToTutor(
 
     const hasLogin = await db.user.findUnique({
       where: { email },
-      select: { id: true, tutorId: true, role: true, emailVerifiedAt: true },
+      select: { id: true, name: true, tutorId: true, role: true, emailVerifiedAt: true, username: true },
     });
     if (hasLogin?.emailVerifiedAt) await lockAccountProfile(db, hasLogin.id);
 
-    const { firstName, lastName, englishName } = splitDisplayName(app.name);
+    // A verified account already owns its name; a historical application cannot
+    // replace it when participation is granted. Unlinked applicants establish a new name.
+    const canonicalName = hasLogin?.emailVerifiedAt && hasLogin.name?.trim() ? hasLogin.name : null;
+    const { firstName, lastName, englishName } = splitDisplayName(canonicalName ?? app.name);
 
     // Resolve (or create) the Tutor record — reactivated if one already exists for this email.
     const existing = await db.tutor.findUnique({
@@ -60,10 +68,16 @@ export async function promoteApplicantToTutor(
       });
       tutorId = existing.id;
     } else {
+      // Recheck old applications against today's rule before creating a roster identity.
+      // Reactivating an unchanged existing roster above remains grandfathered.
+      await assertPrimaryName(db, englishName, canonicalName);
       const usernameBase = lastName
         ? defaultUsername(firstName, lastName)
         : firstName;
-      const username = await ensureUniqueUsername(usernameBase, {}, db);
+      const username = await canonicalUsername(db, usernameBase, {
+        excludeUserId: hasLogin?.emailVerifiedAt ? hasLogin.id : undefined,
+        userUsername: hasLogin?.emailVerifiedAt ? hasLogin.username : undefined,
+      });
       const tutor = await db.tutor.create({
         data: {
           firstName,
@@ -99,6 +113,8 @@ export async function promoteApplicantToTutor(
             : {}),
         },
       });
+      await initializeAccountAcademics(db, hasLogin.id);
+      await ensureUserUsername(hasLogin.id, db);
       await updateAccountProfile(db, hasLogin.id);
       return;
     }
