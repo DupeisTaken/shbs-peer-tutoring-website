@@ -60,6 +60,8 @@ COPY --from=runtime-deps --chown=nextjs:nodejs /app/node_modules ./node_modules
 COPY --from=build --chown=nextjs:nodejs /app/prisma.config.ts ./prisma.config.ts
 COPY --from=build --chown=nextjs:nodejs /app/package.json /app/tsconfig.json ./
 COPY --from=build --chown=nextjs:nodejs /app/scripts/create-admin.ts ./scripts/create-admin.ts
+# Shared UTC startup policy is also imported by the migration CLI and bootstrap script.
+COPY --from=build --chown=nextjs:nodejs /app/src/server/database-url.ts ./src/server/database-url.ts
 COPY --from=build --chown=nextjs:nodejs /app/src/server/auth/password.ts ./src/server/auth/password.ts
 COPY --from=build --chown=nextjs:nodejs /app/src/server/program/bootstrap.ts ./src/server/program/bootstrap.ts
 

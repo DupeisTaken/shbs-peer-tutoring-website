@@ -10,6 +10,7 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 import { PrismaClient } from "../generated/prisma";
+import { utcDatabaseUrl } from "../src/server/database-url";
 import { hashPassword } from "../src/server/auth/password";
 import { initializeProgram } from "../src/server/program/bootstrap";
 
@@ -34,7 +35,9 @@ if (!password || password.length < 12) {
 }
 const passwordHash = hashPassword(password);
 
-const db = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
+const db = new PrismaClient({
+  adapter: new PrismaPg({ connectionString: utcDatabaseUrl(connectionString) }),
+});
 
 try {
   const account = await db.$transaction(async (tx) => {

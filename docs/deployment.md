@@ -181,6 +181,8 @@ it instead breaks app connections or backups. Preserve the existing `.env` and
 If a credential must change, back up first and plan a coordinated PostgreSQL role
 change and app/backup configuration update separately.
 
+The application, Prisma migration CLI, seed/demo utilities and administrator bootstrap enforce UTC on every database connection through a shared URL policy. This is independent of the school's program timezone and the host operating-system timezone. Deploying this policy requires restarting the application so its pool uses new connections; it does not require a schema migration or timestamp rewrite. For manual SQL or external import tools, explicitly use a UTC session (`SET TIME ZONE 'UTC'`) because existing `TIMESTAMP(3)` instant fields follow the UTC convention. Previously written data is not repaired automatically; audit any suspected historical offset before correcting it.
+
 > **Accepted applicants self-register:** accepting a tutor application issues a single-use
 > registration code (bound to their email, re-viewable on `/admin/registration-codes`); the recruit
 > redeems it at `/register` to verify their email and set their own password. No shared default

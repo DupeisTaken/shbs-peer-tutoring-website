@@ -3,11 +3,12 @@ import { PrismaPg } from "@prisma/adapter-pg";
 import { env } from "~/env";
 import { PrismaClient } from "../../generated/prisma";
 import { scopedDatabase } from "./db-scope";
+import { utcDatabaseUrl } from "./database-url";
 
 // Prisma 7 connects through a driver adapter (the connection URL is no longer in the schema).
 const createPrismaClient = () =>
   new PrismaClient({
-    adapter: new PrismaPg({ connectionString: env.DATABASE_URL }),
+    adapter: new PrismaPg({ connectionString: utcDatabaseUrl(env.DATABASE_URL) }),
     log:
       env.NODE_ENV === "development" ? ["query", "error", "warn"] : ["error"],
   });
