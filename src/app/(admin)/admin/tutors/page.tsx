@@ -185,7 +185,6 @@ export default function TutorsPage() {
                       {t("accountProfile.setupRequired")}
                     </p>
                   )}
-                  <TutorDetailsButton tutorId={row.id} name={row.englishName} />
                 </td>
                 <td>
                   <EmailDetails
@@ -200,8 +199,12 @@ export default function TutorsPage() {
                     }
                   />
                 </td>
-                <td>
-                  <AcademicDetails academic={row.academic} />
+                <td className="min-w-44">
+                  {/* Keep the roster concise; full details retain the reference year. */}
+                  <AcademicDetails
+                    academic={row.academic}
+                    showSchoolYear={false}
+                  />
                 </td>
                 {/* Keep translated status badges readable inside the scrolling roster. */}
                 <td className="whitespace-nowrap">
@@ -213,15 +216,18 @@ export default function TutorsPage() {
                     {statusLabel(row.status)}
                   </span>
                 </td>
-                <td className="text-right whitespace-nowrap">
-                  {!readOnly && (
-                    <button
-                      className="link"
-                      onClick={() => setEditingId(row.id)}
-                    >
-                      {t("accountProfile.editProfile")}
-                    </button>
-                  )}
+                <td className="min-w-40 text-right">
+                  <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
+                    <TutorDetailsButton tutorId={row.id} name={row.englishName} />
+                    {!readOnly && (
+                      <button
+                        className="link min-h-11 lg:min-h-8"
+                        onClick={() => setEditingId(row.id)}
+                      >
+                        {t("accountProfile.editProfile")}
+                      </button>
+                    )}
+                  </div>
                 </td>
               </tr>
             ))}

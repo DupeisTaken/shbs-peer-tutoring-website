@@ -15,7 +15,13 @@ import {
 import { academicInput, type AcademicSummary } from "~/lib/academics";
 
 /** Grade and graduation share one reference year; participation never determines academics. */
-export function AcademicDetails({ academic }: { academic?: AcademicSummary }) {
+export function AcademicDetails({
+  academic,
+  showSchoolYear = true,
+}: {
+  academic?: AcademicSummary;
+  showSchoolYear?: boolean;
+}) {
   const t = useTranslations("academics");
   return (
     <div className="space-y-1 text-sm">
@@ -31,7 +37,7 @@ export function AcademicDetails({ academic }: { academic?: AcademicSummary }) {
           {t("original", { value: academic.rawGrade })}
         </p>
       )}
-      {academic?.schoolYear && (
+      {showSchoolYear && academic?.schoolYear && (
         <p className="text-slate-600">
           {t("reference", { year: academic.schoolYear })}
         </p>
