@@ -39,7 +39,7 @@ export const interviewManagementRouter = createTRPCRouter({
           },
         ],
         ...(input.completion === "OPEN"
-          ? { interviewCompletedAt: null }
+          ? { interviewCompletedAt: null, status: { not: "RECALLED" } }
           : input.completion === "COMPLETED"
             ? { interviewCompletedAt: { not: null } }
             : {}),

@@ -145,3 +145,23 @@ it("gives an additional-request chair labelled scheduling controls and routes de
     ),
   ).toBeNull();
 });
+
+it("retains recalled interview evidence with voting and scheduling closed", () => {
+  state.status = "RECALLED";
+  state.type = "HIGHER_LEVEL";
+  state.isHead = true;
+  render(<MyInterviews />);
+  expect(screen.getByText("qualificationRequests.RECALLED")).toBeTruthy();
+  expect(screen.getByText(/Strong demo/)).toBeTruthy();
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: /tutor\.interviews\.accept/,
+    }).disabled,
+  ).toBe(true);
+  expect(
+    screen.queryByRole("button", { name: "tutor.interviews.setTime" }),
+  ).toBeNull();
+  expect(
+    screen.queryByRole("link", { name: "qualificationRequests.reviewLink" }),
+  ).toBeNull();
+});

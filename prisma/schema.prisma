@@ -1120,6 +1120,7 @@ enum TutorApplicationStatus {
   INTERVIEW // interviewers assigned / scheduling
   ACCEPTED
   REJECTED
+  RECALLED // qualification request withdrawn by its applicant
 }
 
 enum TutorApplicationType {
@@ -1139,6 +1140,9 @@ model TutorApplication {
   /// Actor ID and concrete subject IDs/names remain historical evidence after catalogue edits.
   qualificationDecidedById String?
   qualificationSnapshot Json?
+  /// Recall is applicant action, separate from a reviewer's decision evidence.
+  recalledAt DateTime?
+  recalledById String?
   /// Exact public consent evidence; null for historical applications, never backfilled.
   policyRevision String?
   policySnapshot Json?

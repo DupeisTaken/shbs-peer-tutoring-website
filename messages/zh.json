@@ -1146,7 +1146,8 @@
         "PENDING": "待处理",
         "INTERVIEW": "面试中",
         "ACCEPTED": "已通过",
-        "REJECTED": "已拒绝"
+        "REJECTED": "已拒绝",
+        "RECALLED": "已撤回"
       },
       "noCourses": "暂无科目",
       "panelSummary": "面试小组 {n}/{total}",
@@ -2943,7 +2944,15 @@
     "decisionNote": "审核意见",
     "approve": "批准资格",
     "reject": "拒绝申请",
-    "reviewLink": "前往辅导伙伴申请页面审核资格申请"
+    "reviewLink": "前往辅导伙伴申请页面审核资格申请",
+    "RECALLED": "已撤回",
+    "recall": "撤回申请",
+    "recallTitle": "撤回科目资格申请？",
+    "recallHelp": "确定撤回 {subject} 的申请吗？审核将停止，申请记录和现有科目资格将保留，你可以稍后重新提交申请。",
+    "keepRequest": "保留申请",
+    "recalling": "正在撤回…",
+    "recalled": "申请已撤回，你可以在准备好后重新提交。",
+    "recalledOn": "撤回时间：{date}"
   },
   "signupFields": {
     "title": "报名表设置",

@@ -3,17 +3,35 @@
 import { useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
+import { useDialog } from "~/app/_components/confirm-dialog";
 
 /** Self-only query supplies choices, actual grants and history; pending intents never appear approved. */
 export function QualificationRequests({ active }: { active: boolean }) {
   const t = useTranslations("qualificationRequests");
   const format = useFormatter();
   const utils = api.useUtils();
+  const { confirm, dialog } = useDialog();
   const query = api.qualificationApplication.mine.useQuery();
   const [subjectId, setSubjectId] = useState("");
   const [reason, setReason] = useState("");
+  // Refresh both participant history and staff/panel caches after withdrawing a request.
+  const refreshRecall = () =>
+    Promise.all([
+      utils.qualificationApplication.mine.invalidate(),
+      utils.admin.tutorApplications.invalidate(),
+      utils.interviewManagement.options.invalidate(),
+      utils.tutor.myInterviews.invalidate(),
+    ]);
+  const recall = api.qualificationApplication.recall.useMutation({
+    onSuccess: async () => {
+      submit.reset();
+      await refreshRecall();
+    },
+    onError: refreshRecall,
+  });
   const submit = api.qualificationApplication.submit.useMutation({
     onSuccess: async () => {
+      recall.reset();
       setSubjectId("");
       setReason("");
       await utils.qualificationApplication.mine.invalidate();
@@ -25,6 +43,7 @@ export function QualificationRequests({ active }: { active: boolean }) {
       className="card scroll-mt-6 p-4 sm:p-5"
     >
       <h2 className="section-title">{t("title")}</h2>
+      {dialog}
       <p className="muted mt-1">{t("help")}</p>
       {query.isLoading && (
         <p role="status" className="mt-3">
@@ -117,6 +136,16 @@ export function QualificationRequests({ active }: { active: boolean }) {
             </form>
           )}
           <h3 className="mt-6 font-semibold">{t("history")}</h3>
+          {recall.error && (
+            <p role="alert" className="mt-2 text-sm text-red-700">
+              {recall.error.message}
+            </p>
+          )}
+          {recall.isSuccess && (
+            <p role="status" className="mt-2 text-sm text-green-700">
+              {t("recalled")}
+            </p>
+          )}
           {!query.data.requests.length && (
             <p className="muted mt-1">{t("empty")}</p>
           )}
@@ -137,7 +166,9 @@ export function QualificationRequests({ active }: { active: boolean }) {
                         ? "badge-green"
                         : request.status === "REJECTED"
                           ? "badge-red"
-                          : "badge-amber"
+                          : request.status === "RECALLED"
+                            ? "badge-slate"
+                            : "badge-amber"
                     }
                   >
                     {t(request.status)}
@@ -146,7 +177,17 @@ export function QualificationRequests({ active }: { active: boolean }) {
                 <p className="muted mt-1 text-xs">
                   {format.dateTime(request.createdAt, { dateStyle: "medium" })}
                 </p>
-                {request.interviewAt && (
+                {request.recalledAt && (
+                  <p className="muted mt-1 text-xs">
+                    {t("recalledOn", {
+                      date: format.dateTime(request.recalledAt, {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      }),
+                    })}
+                  </p>
+                )}
+                {request.interviewAt && request.status !== "RECALLED" && (
                   <p className="mt-2 text-sm">
                     {t("scheduled", {
                       date: format.dateTime(request.interviewAt, {
@@ -173,6 +214,35 @@ export function QualificationRequests({ active }: { active: boolean }) {
                     })}
                   </p>
                 )}
+                {active &&
+                  (request.status === "PENDING" ||
+                    request.status === "INTERVIEW") && (
+                    <button
+                      type="button"
+                      className="btn-secondary mt-3 min-h-11 max-w-full whitespace-normal lg:min-h-8 lg:py-0"
+                      disabled={recall.isPending}
+                      onClick={async () => {
+                        if (
+                          await confirm({
+                            title: t("recallTitle"),
+                            message: t("recallHelp", {
+                              subject: request.requestedSubject?.name ?? "",
+                            }),
+                            confirmLabel: t("recall"),
+                            cancelLabel: t("keepRequest"),
+                          })
+                        )
+                          recall.mutate({
+                            id: request.id,
+                            expectedUpdatedAt: request.updatedAt,
+                          });
+                      }}
+                    >
+                      {recall.isPending && recall.variables?.id === request.id
+                        ? t("recalling")
+                        : t("recall")}
+                    </button>
+                  )}
               </li>
             ))}
           </ul>

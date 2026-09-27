@@ -2912,6 +2912,9 @@ export const adminRouter = createTRPCRouter({
             message: "Application not found.",
           });
 
+        // Recalled qualification requests cannot enter the legacy status/undo workflow.
+        if (prev.status === "RECALLED")
+          throw new TRPCError({ code: "CONFLICT", message: "This qualification request was recalled." });
         const interviewsEnabled = (await getFeatures(tx)).INTERVIEWS;
         const hasInterviewHistory =
           prev.status === "INTERVIEW" ||

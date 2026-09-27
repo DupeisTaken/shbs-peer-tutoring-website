@@ -12,7 +12,7 @@ import { useReadOnly } from "~/app/_components/read-only";
 import { useDialog } from "~/app/_components/confirm-dialog";
 import { InterviewManagement } from "~/app/_components/interview-management";
 
-type Status = "PENDING" | "INTERVIEW" | "ACCEPTED" | "REJECTED";
+type Status = "PENDING" | "INTERVIEW" | "ACCEPTED" | "REJECTED" | "RECALLED";
 
 function StatusBadge({ status }: { status: Status }) {
   const t = useTranslations();

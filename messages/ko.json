@@ -1220,7 +1220,8 @@
         "PENDING": "대기 중",
         "INTERVIEW": "면접",
         "ACCEPTED": "합격",
-        "REJECTED": "불합격"
+        "REJECTED": "불합격",
+        "RECALLED": "Recalled"
       },
       "noCourses": "과목 없음",
       "panelSummary": "패널 {n}/{total}",
@@ -2943,7 +2944,15 @@
     "decisionNote": "Decision note",
     "approve": "Approve qualification",
     "reject": "Reject request",
-    "reviewLink": "Review qualification request in Tutor Applications"
+    "reviewLink": "Review qualification request in Tutor Applications",
+    "RECALLED": "Recalled",
+    "recall": "Recall request",
+    "recallTitle": "Recall qualification request?",
+    "recallHelp": "Withdraw your request for {subject}? Review will stop. Your history and existing qualifications will be kept, and you can submit a new request later.",
+    "keepRequest": "Keep request",
+    "recalling": "Recalling…",
+    "recalled": "Request recalled. You can submit a new request when ready.",
+    "recalledOn": "Recalled on {date}"
   },
   "signupFields": {
     "title": "신청 양식",
