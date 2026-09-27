@@ -137,9 +137,12 @@ Signup opening notices, opening-time inputs and patrol correction inputs resolve
 - Saved appointments and deadlines keep their instants and display in the selected zone.
 - Calendar-only attendance dates keep their recorded day.
 - New date validation, appeal school-day calculations, crew observations and datetime inputs use the selected zone.
+- Existing cards' appeal deadlines are derived again using the selected zone, so their appeal windows can change. Reconciliation of historical crew observations also uses the current zone when rerun.
 - Existing service-hour totals are not recalculated.
 
 Inputs in skipped or repeated daylight-saving hours are rejected; choose an unambiguous time. Each change records the previous and new zones in the audit log. No host operating-system or environment change is needed.
+
+Database connections always use UTC independently of this school setting. Saving a program timezone does not rewrite stored timestamps or start a bulk recalculation; it writes the setting and audit entry and refreshes the current page.
 
 ## Publish an announcement
 

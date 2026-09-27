@@ -151,6 +151,12 @@ Attendance and patrol corrections preserve reasons and snapshots, reconcile depe
 
 Program timezone conversion distinguishes instants, calendar dates and weekly wall-clock slots. Use the shared helpers rather than browser-local conversions. [Configuration effects](program-reference.md#program-time-zone) explain what changes when the school timezone changes.
 
+Database instant fields currently use PostgreSQL `TIMESTAMP(3)` without time zone, with Prisma reading and writing UTC values. The shared [connection policy](../src/server/database-url.ts) forces `timezone=UTC` through connection startup options for the application pool, Prisma CLI, seed, demo verification and administrator bootstrap. This keeps database defaults, trigger writes and expiry comparisons consistent even when the database or role defaults to another zone. Existing connection options are preserved, with UTC taking precedence. No rows or column types are migrated; calendar-only dates and weekly clock values retain their existing representation.
+
+Docker builds omit database credentials and set `SKIP_ENV_VALIDATION=1`. Importing the database module during Next page-data collection must therefore allow an absent URL without parsing it or opening a connection. Production runtime validation still requires a valid URL; every configured application connection receives the UTC policy. `db-build.test.ts` covers this build/runtime boundary.
+
+Changing the program timezone writes only the singleton setting and audit entry, then refreshes the editor's page. It does not scan or rewrite historical timestamps or recalculate service hours. Derived appeal deadlines for existing cards and crew-observation matching when reconciliation reruns use the current program zone. UTC connection enforcement does not freeze those school-calendar rules. A future `timestamptz` migration needs a separate field/data audit: true instants can be converted explicitly from UTC, while calendar dates and weekly slots must retain their distinct meaning.
+
 [Timezone labels](../src/lib/program-time-zone-label.ts) are display-only and require an explicit instant. Intl resolves localized names, seasonal abbreviations and GMT offsets using that instant; retain the IANA region as the persisted value. Local-input labels reuse strict program-time conversion and omit the offset when an input has no unique instant. Selector previews use one shared noon-UTC reference date and memoize option labels. No timestamp, recurring slot, permission or schema changes accompany display formatting.
 
 ## Communication

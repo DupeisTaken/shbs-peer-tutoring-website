@@ -14,6 +14,7 @@ import { DEFAULT_SUBJECT_LEVELS as LEVELS } from "./default-subject-levels";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 import { PrismaClient } from "../generated/prisma";
+import { utcDatabaseUrl } from "../src/server/database-url";
 import { hashPassword } from "../src/server/auth/password";
 import { generateRegistrationCode } from "../src/server/auth/code";
 import {
@@ -44,7 +45,9 @@ function seedUsername(firstName: string, lastName: string, gradeLevel: number): 
 const connectionString = process.env.DATABASE_URL;
 if (!connectionString) throw new Error("DATABASE_URL is required to seed.");
 assertDemoDatabase(connectionString);
-const db = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
+const db = new PrismaClient({
+  adapter: new PrismaPg({ connectionString: utcDatabaseUrl(connectionString) }),
+});
 
 /** Dev-only login password shared by every seeded user. CHANGE before any real use. */
 const DEV_PASSWORD = "Password123!";
