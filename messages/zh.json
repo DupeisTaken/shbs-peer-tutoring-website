@@ -2359,6 +2359,7 @@
     "signature": "请输入您的全名",
     "accept": "接受此版本政策",
     "accepted": "您已接受当前政策。",
+    "acceptedWithPolicy": "您已接受<policy>当前政策</policy>。",
     "loading": "正在加载…",
     "empty": "暂无内容。",
     "attendance": "我的出勤",
@@ -2952,7 +2953,12 @@
     "keepRequest": "保留申请",
     "recalling": "正在撤回…",
     "recalled": "申请已撤回，你可以在准备好后重新提交。",
-    "recalledOn": "撤回时间：{date}"
+    "recalledOn": "撤回时间：{date}",
+    "pendingFilter": "待处理",
+    "historyFilters": "按状态筛选申请记录",
+    "collapseHistory": "收起",
+    "expandHistory": "展开",
+    "emptyFilter": "此类别暂无申请。"
   },
   "signupFields": {
     "title": "报名表设置",
