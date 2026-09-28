@@ -73,7 +73,7 @@ it("opens policy history by account ID even when email is missing, without cross
   expect(mocks.history).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "User details" }));
   expect(
-    screen.getByRole("dialog", { name: "User details · Alice" }),
+    screen.getByRole("dialog", { name: "User Details · Alice" }),
   ).toBeTruthy();
   expect(screen.getByText("No email")).toBeTruthy();
   expect(mocks.history).toHaveBeenLastCalledWith({

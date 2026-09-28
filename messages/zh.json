@@ -3185,5 +3185,31 @@
     "previousGrade": "原有年级：{grade}（当前不可选）",
     "loadFailed": "无法加载姓名与年级设置，请重试。",
     "retry": "重新加载设置"
+  },
+  "recordTransfer": {
+    "title": "项目记录",
+    "subtitle": "导入历史项目记录，或下载完整的 CSV 记录归档。",
+    "headOnly": "仅限负责人",
+    "exportTitle": "导出项目记录",
+    "exportHelp": "下载包含各类记录 CSV 文件的 ZIP 压缩包，使用固定 ID 保留关联关系。模板包含列名和格式说明。",
+    "exportButton": "导出 CSV 归档",
+    "templates": "下载 CSV 模板",
+    "importTitle": "导入历史记录",
+    "importHelp": "同时选择相关 CSV 文件，或上传导出的 ZIP。预览会检查每行数据和数据库关联，不会覆盖现有记录。",
+    "select": "CSV 文件或 ZIP 压缩包",
+    "limits": "每次最多导入 5 MiB CSV 数据和 5,000 条记录。",
+    "selected": "已选择 {count} 个 CSV 文件",
+    "preview": "预览导入",
+    "previewTitle": "导入预览 — 尚未保存更改",
+    "recordType": "记录类型",
+    "new": "新增记录",
+    "skipped": "已存在",
+    "confirm": "我已核对这些记录及其 ID，同意将新记录导入数据库。",
+    "importButton": "导入记录",
+    "complete": "导入完成",
+    "success": "记录已成功保存，本次导入已记入操作日志。",
+    "working": "处理中…",
+    "readError": "无法读取此文件。",
+    "scope": "包含参与者、学期、科目、配对、可用时间、出勤、服务时长、申请、面试、巡查、纪律、请求、学业及协议接受历史和公告。新增学期必须为非当前学期；导入配对和辅导记录须属于非当前学期。引用的账号必须已存在。不包含密码、账号权限、私信、可执行审批、网站内容、配置和上传文件。"
   }
 }

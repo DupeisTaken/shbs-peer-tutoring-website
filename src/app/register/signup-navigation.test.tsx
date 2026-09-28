@@ -6,15 +6,22 @@ import { resolve } from "node:path";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 
-const state = vi.hoisted(() => ({ viewerSignup: true, locale: "en" }));
+const state = vi.hoisted(() => ({
+  viewerSignup: true,
+  locale: "en",
+  signedIn: false,
+  expiredCookie: false,
+}));
 vi.mock("~/server/db", () => ({ db: {} }));
 vi.mock("~/server/branding-metadata", () => ({ brandingMetadata: vi.fn() }));
 vi.mock("~/server/program/features", () => ({
   getFeatures: async () => ({ VIEWER_SIGNUP: state.viewerSignup }),
 }));
-vi.mock("~/server/auth", () => ({ auth: async () => null }));
+vi.mock("~/server/auth", () => ({
+  auth: async () => (state.signedIn ? { user: { id: "test" } } : null),
+}));
 vi.mock("next/headers", () => ({
-  cookies: async () => ({ has: () => false }),
+  cookies: async () => ({ has: () => state.expiredCookie }),
 }));
 vi.mock("next/navigation", () => ({
   redirect: (path: string) => {
@@ -31,8 +38,12 @@ vi.mock("next-intl/server", () => ({
     return value;
   },
 }));
-vi.mock("~/app/_components/floating-language-switcher", () => ({
-  FloatingLanguageSwitcher: () => null,
+vi.mock("~/app/_components/language-switcher", () => ({
+  LanguageSwitcher: () => (
+    <select aria-label="Language">
+      <option>English</option>
+    </select>
+  ),
 }));
 vi.mock("./register-flow", () => ({
   RegisterFlow: () => <div>Invitation form</div>,
@@ -51,16 +62,68 @@ import SignInPage from "../signin/page";
 beforeEach(() => {
   state.viewerSignup = true;
   state.locale = "en";
+  state.signedIn = false;
+  state.expiredCookie = false;
 });
 afterEach(cleanup);
 
-it.each(["en", "zh"])("explains that a password change signs out all browsers in %s", async (locale) => {
-  state.locale = locale;
-  const copy = locale === "zh" ? zh : en;
-  render(await SignInPage({ searchParams: Promise.resolve({ reason: "password-changed" }) }));
-  expect(screen.getByRole("status").textContent).toContain(copy.auth.passwordChangedSignIn);
-  expect(screen.queryByText(copy.auth.sessionExpired)).toBeNull();
+it("keeps recovery next to sign-in and alternate account routes outside the form card", async () => {
+  render(await SignInPage({ searchParams: Promise.resolve({}) }));
+  expect(
+    screen
+      .getByRole("link", { name: en.auth.forgotPassword })
+      .closest(".public-form-card"),
+  ).not.toBeNull();
+  for (const name of [
+    en.survey.requestTutor,
+    en.auth.signupRoutes.invitationLink,
+    en.auth.signupRoutes.viewerLink,
+  ]) {
+    const link = screen.getByRole("link", { name });
+    expect(link.closest(".public-form-card")).toBeNull();
+    expect(link.closest(".public-form-footer")).not.toBeNull();
+  }
+  expect(screen.getAllByRole("combobox", { name: "Language" })).toHaveLength(1);
 });
+
+it.each(["query", "cookie"])(
+  "preserves session recovery from %s",
+  async (source) => {
+    state.expiredCookie = source === "cookie";
+    render(
+      await SignInPage({
+        searchParams: Promise.resolve(
+          source === "query" ? { reason: "session-expired" } : {},
+        ),
+      }),
+    );
+    expect(screen.getByRole("status").textContent).toBe(en.auth.sessionExpired);
+  },
+);
+
+it("redirects an authenticated visitor before rendering account choices", async () => {
+  state.signedIn = true;
+  await expect(
+    SignInPage({ searchParams: Promise.resolve({}) }),
+  ).rejects.toThrow("redirect:/");
+});
+
+it.each(["en", "zh"])(
+  "explains that a password change signs out all browsers in %s",
+  async (locale) => {
+    state.locale = locale;
+    const copy = locale === "zh" ? zh : en;
+    render(
+      await SignInPage({
+        searchParams: Promise.resolve({ reason: "password-changed" }),
+      }),
+    );
+    expect(screen.getByRole("status").textContent).toContain(
+      copy.auth.passwordChangedSignIn,
+    );
+    expect(screen.queryByText(copy.auth.sessionExpired)).toBeNull();
+  },
+);
 
 // Exercise each rendered entry point and its feature gate, not just literal href source text.
 it.each(["en", "zh"])(

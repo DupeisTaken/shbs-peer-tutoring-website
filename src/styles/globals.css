@@ -213,6 +213,26 @@
     @apply text-sm text-slate-500;
   }
 
+  /* Public entry forms share a calm surface and predictable control rhythm.
+     Scope these rules so workspace headers and compact table controls keep
+     their own height hierarchy. Minimum heights allow translations to wrap. */
+  .public-form .card {
+    @apply rounded-2xl border-slate-200 shadow-sm;
+  }
+  .public-form :is(.input, .select, .btn-primary, .btn-secondary) {
+    @apply min-h-11 lg:min-h-10;
+  }
+  .public-form .label {
+    @apply mb-1.5;
+  }
+  .public-form-link {
+    @apply text-accent-700 hover:text-accent-800 focus-visible:ring-accent-500 inline-flex min-h-11 max-w-full items-center justify-center rounded-md px-1 py-1 font-medium text-wrap underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none lg:min-h-8;
+  }
+  /* Header controls keep the 32px desktop / 44px mobile contract. */
+  .public-form > div:first-child .select {
+    @apply min-h-11 lg:min-h-8;
+  }
+
   /* Data tables ----------------------------------------------------------- */
   .data-table {
     @apply w-full border-collapse text-sm;

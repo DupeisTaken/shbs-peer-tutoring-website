@@ -8,7 +8,7 @@
   "tutorDetails": {
     "open": "View user details",
     "openFor": "View user details for {name}",
-    "title": "User details · {name}",
+    "title": "User Details · {name}",
     "loading": "Loading user details…",
     "error": "User details could not be loaded. Please try again.",
     "retry": "Retry",
@@ -67,7 +67,7 @@
     "emptySubjects": "No subjects are recorded."
   },
   "messaging": {
-    "privacyTitle": "Private deliveries, with staff oversight",
+    "privacyTitle": "Private Deliveries, with Staff Oversight",
     "disclosure": "Each selected person receives a separate message. Recipients cannot see each other or each other's replies. Messages are delivered immediately. HEAD and administrators can review new messages and hide inappropriate content; review and moderation are recorded.",
     "legacyHelp": "Messages sent before this supervision notice remain participant-only. A new reply follows the current supervision rules. Hidden originals are retained for staff review.",
     "allowedHelp": "Search by name or username. Your allowed contacts depend on current permissions and recorded tutoring assignments; replies follow the same rules.",
@@ -86,7 +86,7 @@
     "page": "Page {page}",
     "sending": "Sending…",
     "sentCount": "Delivered privately to {count, plural, one {# recipient} other {# recipients}}.",
-    "inbox": "Your messages",
+    "inbox": "Your Messages",
     "supervised": "Private delivery · HEAD/admin supervision",
     "legacy": "Historical · participant-only",
     "hiddenMessage": "This message was hidden by a staff moderator. The original is retained for review.",
@@ -102,7 +102,7 @@
       "SAME_GROUP": "Other tutees in your current scheduled tutoring group",
       "ALL_USERS": "All available accounts"
     },
-    "supervision": "Message supervision",
+    "supervision": "Message Supervision",
     "reviewMessages": "Review messages",
     "permissions": "Contact permissions",
     "supervisionHelp": "HEAD and administrators only. Search disclosed messages, open a review with a reason, and hide or restore content without deleting evidence. Historical participant-only messages are excluded from all supervision searches. Reviews do not mark a participant's message as read.",
@@ -127,9 +127,9 @@
       "RESTRICT": "Access restricted",
       "UNRESTRICT": "Access restored"
     },
-    "rolePermissions": "Permissions by role",
+    "rolePermissions": "Permissions by Role",
     "permissionHelp": "Groups combine as a union. A user override replaces the role policy; no groups means no new sends. All available accounts permits everyone except self, suspended or messaging-restricted accounts. Past tutors are supported by retained assignments or attendance; unrecorded old assignments cannot be reconstructed.",
-    "userOverrides": "User overrides and messaging access",
+    "userOverrides": "User Overrides and Messaging Access",
     "findUser": "Find an account by name or username",
     "effectiveSource": "Effective permission source: {source}",
     "sources": {
@@ -280,7 +280,7 @@
         }
       },
       "done": {
-        "title": "You're all set!",
+        "title": "You're All Set!",
         "body": "Your account is ready. Sign in with your email or username {username}.",
         "signIn": "Go to Sign In"
       }
@@ -307,7 +307,7 @@
       "requestTutor": "Request a Tutor",
       "becomeTutor": "Become a Tutor",
       "teamSignin": "Sign In",
-      "becomeCrew": "Join the crew",
+      "becomeCrew": "Join the Crew",
       "viewerSignup": "Follow the Program"
     },
     "tagline": "Peer Tutoring Program",
@@ -656,7 +656,7 @@
           "empty": "No pending crew applications."
         },
         "crewRequests": {
-          "title": "Crew Opt-out / Reentry",
+          "title": "Crew Opt-Out / Reentry",
           "empty": "No pending crew requests."
         }
       },
@@ -747,7 +747,7 @@
       "noActiveTutors": "No active tutors to review.",
       "cancel": "Cancel",
       "signupWindow": {
-        "heading": "Tutee signup opening",
+        "heading": "Tutee Signup Opening",
         "help": "Schedule when {quarter} tutee signups become available to the public.",
         "opensAt": "Signups open at",
         "timeZone": "China Standard Time (UTC+8). Leave blank to keep signups open.",
@@ -762,7 +762,7 @@
         "previewRequired": "Add the preview sheet link before scheduling the opening time."
       },
       "features": {
-        "heading": "Optional features",
+        "heading": "Optional Features",
         "help": "Switch off modules your program doesn't use. Only the head can change these, and changes take effect at the next refresh.",
         "on": "On",
         "off": "Off",
@@ -891,7 +891,7 @@
       "invalidNote": "This code is no longer valid.",
       "noCode": "Code not available.",
       "share": {
-        "heading": "Set up your {appTitle} account",
+        "heading": "Set Up Your {appTitle} Account",
         "goTo": "Go to:",
         "enterAt": "Enter code at {url}",
         "enterCode": "Enter this code:",
@@ -972,7 +972,7 @@
       "start": "Start",
       "end": "End",
       "addSlot": "Add Slot",
-      "propagationTitle": "Schedule changes stay in sync",
+      "propagationTitle": "Schedule Changes Stay in Sync",
       "propagationNote": "Changing a slot’s clock times updates linked schedules and entire combined attendance blocks. Session dates stay the same; hours, attendance flags and linked deductions are reconsidered. Changes that would overlap another saved block for the same tutor and date are rejected. Weekday-only changes leave recorded attendance times unchanged.",
       "colLabel": "Label",
       "colDay": "Day",
@@ -1186,8 +1186,8 @@
         "save": "Save",
         "saved": "Saved."
       },
-      "studentTitle": "Tutee policy",
-      "tutorTitle": "Tutor policy"
+      "studentTitle": "Tutee Policy",
+      "tutorTitle": "Tutor Policy"
     },
     "adjustments": {
       "title": "Tutor Hour Adjustments",
@@ -1297,7 +1297,7 @@
         "VOLUNTARY": "Opt-Out",
         "PUNISHMENT": "Discipline"
       },
-      "pendingHeading": "Tutor-relayed withdrawals",
+      "pendingHeading": "Tutor-Relayed Withdrawals",
       "pendingHelp": "A tutor submitted these on a tutee’s behalf. They take effect after the seven-day recall window unless the tutor recalls or staff cancels.",
       "pendingEmpty": "No tutor-relayed withdrawals awaiting their effective date.",
       "relayedBy": "Relayed by {tutor} · {subject}",
@@ -1309,7 +1309,7 @@
       "removedDiscipline": "Discipline Removal",
       "removedOptOut": "Opted Out (Via {tutor})",
       "reinstate": "Reinstate",
-      "studentHeading": "Tutee withdrawal requests",
+      "studentHeading": "Tutee Withdrawal Requests",
       "studentHelp": "Submitted from the tutee’s own account. All tutoring for this quarter continues until staff approves the request. Approval ends participation and blocks a new signup for the same quarter.",
       "studentSource": "Submitted by tutee",
       "wholeProgram": "All tutoring this quarter",
@@ -1446,7 +1446,7 @@
       "accept": "Accept & issue code",
       "reject": "Reject",
       "codeIssued": "Code: {code}",
-      "requestsHeading": "Opt-out & Reentry Requests",
+      "requestsHeading": "Opt-Out & Reentry Requests",
       "requestsEmpty": "No pending requests.",
       "approve": "Approve",
       "deny": "Deny",
@@ -1962,7 +1962,7 @@
       "term": "Current term: {term}",
       "gate": {
         "eyebrow": "Signups scheduled",
-        "title": "{quarter} Tutee Signups will open by {time}",
+        "title": "{quarter} Tutee Signups Will Open by {time}",
         "preview": "You may preview the sheet <link>here</link>.",
         "noPreview": "The read-only application form is available below.",
         "countdownLabel": "Time until tutee signups open",
@@ -1971,7 +1971,7 @@
         "minutes": "Minutes",
         "seconds": "Seconds",
         "opening": "Opening signups…",
-        "periodTitle": "{period} Tutee Signups will open by {time}"
+        "periodTitle": "{period} Tutee Signups Will Open by {time}"
       },
       "becomeTutorPrompt": "Want to tutor instead?",
       "becomeTutorLink": "Apply to Become a Tutor",
@@ -2050,7 +2050,7 @@
       "unavailable": "Tutor applications are not ready yet. The team must publish the tutor policy and open at least one subject. Please contact the program team or check back later.",
       "haveCode": "Already accepted? Use your registration code",
       "journey": {
-        "title": "Becoming a tutor",
+        "title": "Becoming a Tutor",
         "apply": "Apply",
         "applyHelp": "Choose subjects and explain your qualifications. This does not create an account.",
         "interview": "Interview",
@@ -2073,7 +2073,7 @@
       "signIn": "Sign in",
       "submit": "Submit application",
       "submitting": "Submitting…",
-      "doneTitle": "Application received",
+      "doneTitle": "Application Received",
       "doneBody": "Thanks! An admin will review your application and email you a registration code if accepted.",
       "fields": {
         "fullName": "Full name",
@@ -2095,7 +2095,7 @@
       "resend": "Resend Code",
       "creating": "Creating…",
       "createAccount": "Create Account",
-      "doneTitle": "You're all set!",
+      "doneTitle": "You're All Set!",
       "doneBody": "Your read-only account is ready. You can sign in with your email now.",
       "passwordHint": "At least 8 characters.",
       "mismatch": "Passwords don't match.",
@@ -2210,7 +2210,7 @@
       "submitted": "Patrol recorded.",
       "recent": "Recent Patrols",
       "optedOut": {
-        "title": "You've opted out of the crew",
+        "title": "You've Opted Out of the Crew",
         "body": "You can request to rejoin anytime."
       },
       "reentry": {
@@ -2218,7 +2218,7 @@
         "pending": "Reentry requested — awaiting admin approval."
       },
       "inactive": {
-        "title": "Crew access paused",
+        "title": "Crew Access Paused",
         "body": "An admin paused your crew access. Contact them to restore it."
       },
       "optOut": {
@@ -2526,12 +2526,12 @@
     "working": "Working…",
     "preparing": "Preparing…",
     "wait": "Confirm in {seconds}s",
-    "policyTitle": "Please review the updated policy",
+    "policyTitle": "Please Review the Updated Policy",
     "policyConsequences": "Read the policy below and confirm that you agree.",
     "policyAgree": "I have read and agree to this version of the policy.",
     "policyScrollHint": "Scroll to the bottom of the policy to enable agreement.",
     "navigation": "Tutoring request workflow",
-    "current": "Current request",
+    "current": "Current Request",
     "processed": "Processed",
     "loading": "Loading requests…",
     "noActive": "You have no active confirmed request for this quarter. Check your email if you have just submitted.",
@@ -2555,13 +2555,13 @@
     "unverified": "Awaiting verification",
     "edited": "[Edited]",
     "priority": "Original submission: {time}",
-    "assignments": "Your tutor assignments",
+    "assignments": "Your Tutor Assignments",
     "waitingMatch": "Awaiting tutor matching.",
     "availability": "Availability",
     "editAvailability": "Edit availability",
     "availabilityHelp": "Only availability can be changed. Your subjects, original survey and priority stay the same. Coordinate the actual schedule with your tutor; edits do not cancel assignments.",
     "saveAvailability": "Save availability",
-    "participation": "Participation changes",
+    "participation": "Participation Changes",
     "abortHelp": "Because you have a tutor, leaving requires an application. Approval ends your participation and prevents any further applications this quarter.",
     "recallHelp": "You can recall this unassigned request. It will move to Processed, and admins will be notified.",
     "abortPending": "Your quarter-withdrawal application is awaiting admin review. Current assignments remain in place.",
@@ -2570,7 +2570,7 @@
     "abortConsequences": "You are applying to leave the entire tutoring program for the current quarter. Your assignments continue while admins review this application. If approved, every assignment will be released, this request will be closed permanently, and you cannot submit any further requests this quarter. Admins and your tutors will be notified.",
     "recallConsequences": "This withdraws your unassigned request immediately and permanently. It will appear in Processed with a Recalled badge, and admins will be notified. It cannot be reopened. If you apply again, you will receive a new submission time and priority.",
     "reason": "Reason",
-    "boardTitle": "Tutee request workflow",
+    "boardTitle": "Tutee Request Workflow",
     "boardHelp": "All signup sources share these tabs and counts, ordered by original submission time. Needs matching includes partially assigned requests; Assigned means every requested subject has a tutor. Tutee account verification deadlines remain fixed from the first assignment. Closed requests stay in Processed.",
     "matching": "Needs matching",
     "assigned": "Assigned",
@@ -2585,7 +2585,7 @@
     "chooseTutor": "Choose a tutor for {subject}",
     "selectTutor": "Select a tutor",
     "assign": "Assign tutor",
-    "assignTitle": "Assign a tutor to {name}",
+    "assignTitle": "Assign a Tutor to {name}",
     "assignConsequences": "This assignment starts a seven-day verification deadline if this is the first assignment. A new signup link will be emailed. Resending or changing tutors does not extend the deadline. Without verification by the deadline, the request is permanently disqualified and assignments are released.",
     "assignVerifiedConsequences": "This adds the selected tutor assignment. The tutee keeps the original request priority. The tutor and tutee should agree on the actual meeting schedule.",
     "scheduleReject": "Apply to reject: schedule conflict",
@@ -2597,7 +2597,7 @@
     "approveAbortConsequences": "Approval ends this tutee’s participation for the entire current quarter, releases all tutor assignments, and permanently closes this request. Further applications from this tutee in the same quarter will be blocked. This cannot be undone.",
     "approveScheduleConsequences": "Approval releases only the assignment involved in this schedule conflict. The request returns for matching with the original priority. Other tutor assignments remain in place. This does not disqualify the tutee.",
     "legacyRequests": "Staff-entered / earlier requests",
-    "policySetupTitle": "Participation policies are not ready",
+    "policySetupTitle": "Participation Policies Are Not Ready",
     "policySetupManager": "Publish a non-empty English policy in Policy Documents before opening participation. Management, account settings and history remain available.",
     "policySetupParticipant": "The team has not published the required participation policy yet. Contact the team before participating. Your account, messages and history remain available.",
     "policySetupAction": "Open Policy Documents",
@@ -2721,7 +2721,7 @@
   },
   "programTimeZone": {
     "referenceDate": "Preview date (12:00 UTC; does not change the setting)",
-    "title": "Program time zone",
+    "title": "Program Time Zone",
     "help": "Use one school time zone for dates, schedules, deadlines and notifications.",
     "zone": "Time zone",
     "iana": "Choose a region and city from the list. Daylight saving time is handled automatically.",
@@ -2737,11 +2737,11 @@
     "inputZone": "Time is entered in {zone}."
   },
   "adminNavigation": {
-    "title": "Admin navigation",
+    "title": "Admin Navigation",
     "open": "Menu"
   },
   "tuteePortal": {
-    "title": "Tutee page",
+    "title": "Tutee Page",
     "navigation": "Tutee navigation",
     "dashboard": "Dashboard",
     "schedule": "My Tutors & Schedule",
@@ -2760,7 +2760,7 @@
     "attendanceHelp": "Review recorded sessions and leave feedback.",
     "supportHelp": "Review disciplinary cards and appeals, or open Messages to contact the team privately.",
     "accountHelp": "Manage your shared account profile and sign-in details.",
-    "needHelp": "Get help",
+    "needHelp": "Get Help",
     "scheduleEmpty": "No tutoring sessions are assigned yet. Follow your request under Requests or use the request form to get started."
   },
   "accountProfile": {
@@ -2792,13 +2792,13 @@
     "inviteInUsers": "Manage account invitations in Users & Roles.",
     "privateEmail": "Private contact details",
     "showDetails": "User details",
-    "detailsTitle": "User details · {name}",
+    "detailsTitle": "User Details · {name}",
     "noAccountHistory": "Policy acceptance history belongs to a linked account.",
     "reloadIdentity": "Discard Name Draft and Reload",
     "reloadUsername": "Discard Username Draft and Reload"
   },
   "policyHistory": {
-    "title": "Policy acceptance history",
+    "title": "Policy Acceptance History",
     "loading": "Loading policy history…",
     "retry": "Retry",
     "tutorPolicy": "Tutor policy",
@@ -2815,7 +2815,7 @@
     "next": "Next"
   },
   "accountEmails": {
-    "title": "Associated emails",
+    "title": "Associated Emails",
     "help": "Use any verified address to sign in or recover this account. Your primary address receives sign-in codes. Switching keeps the previous verified primary as a secondary.",
     "loading": "Loading email addresses…",
     "primary": "Primary",
@@ -2842,7 +2842,7 @@
     "bindingDisabled": "Secondary-email binding is disabled by the program administrator. Existing addresses remain available for sign-in, recovery, promotion or removal; new addresses cannot be added or verified here."
   },
   "emailPreferences": {
-    "title": "Email preferences",
+    "title": "Email Preferences",
     "help": "Choose the updates you want in your inbox.",
     "disabled": "Email notifications are currently disabled by the program administrator. Your preferences are saved.",
     "emailMessages": "Messages",
@@ -2857,7 +2857,7 @@
     "saved": "Preferences saved."
   },
   "programEmail": {
-    "title": "Email notifications",
+    "title": "Email Notifications",
     "help": "Enable optional message and information emails. Each person chooses which updates to receive in account preferences.",
     "on": "Enabled",
     "off": "Disabled",
@@ -2866,12 +2866,12 @@
     "unavailable": "Configure email delivery before enabling notifications.",
     "failed": "{count} deliveries failed after retries. Check the email transport and delivery records.",
     "saved": "Email settings saved.",
-    "bindingTitle": "Secondary-email binding",
+    "bindingTitle": "Secondary-Email Binding",
     "bindingHelp": "Let people optionally add and verify secondary emails. Independent of notifications. Turning this off preserves existing addresses and primary sign-in requirements.",
     "bindingEnable": "Allow secondary-email binding"
   },
   "membership": {
-    "title": "Roles and participation",
+    "title": "Roles and Participation",
     "rank": "Management rank",
     "none": "No management rank",
     "tutor": "Tutor",
@@ -2902,7 +2902,7 @@
     "chooseCourse": "Choose a subject to see tutor qualifications.",
     "loading": "Loading qualifications…",
     "loadError": "Qualifications could not be loaded. Refresh to try again.",
-    "warningTitle": "Assign a tutor without this qualification?",
+    "warningTitle": "Assign a Tutor Without This Qualification?",
     "warningHelp": "Review the mismatch below. Wait three seconds, then explicitly confirm or cancel. Normal assignment and scheduling rules still apply.",
     "checking": "Checking assignment",
     "checkingHelp": "Checking this tutor’s recorded subject qualifications.",
@@ -2913,11 +2913,11 @@
     "working": "Assigning…"
   },
   "qualificationRequests": {
-    "title": "Subject qualifications",
+    "title": "Subject Qualifications",
     "help": "Apply for another subject or a higher level. Existing approvals stay in place while your request is reviewed.",
     "loading": "Loading qualifications…",
     "retry": "Try again",
-    "approved": "Currently approved subjects",
+    "approved": "Currently Approved Subjects",
     "noApproved": "No approved subjects recorded.",
     "subject": "Subject and level",
     "choose": "Choose a subject and level",
@@ -2926,7 +2926,7 @@
     "saving": "Submitting…",
     "submit": "Request qualification",
     "submitted": "Request submitted. Your current qualifications have not changed.",
-    "history": "Your requests",
+    "history": "Your Requests",
     "empty": "No additional qualification requests yet.",
     "INITIAL": "Initial application",
     "ADDITIONAL_SUBJECT": "Additional subject",
@@ -2947,7 +2947,7 @@
     "reviewLink": "Review qualification request in Tutor Applications",
     "RECALLED": "Recalled",
     "recall": "Recall request",
-    "recallTitle": "Recall qualification request?",
+    "recallTitle": "Recall Qualification Request?",
     "recallHelp": "Withdraw your request for {subject}? Review will stop. Your history and existing qualifications will be kept, and you can submit a new request later.",
     "keepRequest": "Keep request",
     "recalling": "Recalling…",
@@ -2955,7 +2955,7 @@
     "recalledOn": "Recalled on {date}"
   },
   "signupFields": {
-    "title": "Signup forms",
+    "title": "Signup Forms",
     "help": "Configure existing fields for future tutor and tutee submissions. Existing submissions stay unchanged.",
     "lockedHelp": "Name, sign-in email, the first subject and policy acceptance are always visible and required.",
     "conditionalHelp": "Qualification details apply only when their visible parent answer is Yes; AP answers apply only to AP-scored subjects. Required Yes/No questions allow either answer.",
@@ -3035,7 +3035,7 @@
     "inactive": "Inactive",
     "empty": "Add your first subject group and choose its offered levels.",
     "loading": "Loading catalogue…",
-    "import": "Import subjects",
+    "import": "Import Subjects",
     "importHelp": "Use JSON to import subject groups with multiple offerings. Enter base names without prefixes and existing level names (or null for no level). Exact repeats are skipped; conflicts must be edited manually. CSV (name,level) is still supported and creates one group per new row. Maximum 500 offerings, 1 MB.",
     "csvFile": "CSV file",
     "importResult": "Created {created} of {received} rows.",
@@ -3080,7 +3080,7 @@
     "closes": "Closes"
   },
   "courseCatalogue": {
-    "title": "Offered course catalogue",
+    "title": "Offered Course Catalogue",
     "help": "Find offerings by name, level or status. Edit course names in the subject groups below.",
     "search": "Search course names",
     "level": "Level",
@@ -3185,5 +3185,31 @@
     "previousGrade": "Previous grade: {grade} (not currently offered)",
     "loadFailed": "Unable to load name and grade settings. Please try again.",
     "retry": "Retry Loading Settings"
+  },
+  "recordTransfer": {
+    "title": "Program Records",
+    "subtitle": "Bring past program records into one place, or download a complete CSV archive.",
+    "headOnly": "HEAD only",
+    "exportTitle": "Export Program Records",
+    "exportHelp": "Download one ZIP containing a CSV for each record type, with stable IDs to preserve relationships. Templates include column headers and format instructions.",
+    "exportButton": "Export CSV archive",
+    "templates": "Download CSV templates",
+    "importTitle": "Import Past Records",
+    "importHelp": "Select the CSVs together, or upload an exported ZIP. Preview checks every row and database reference. Existing records are never overwritten.",
+    "select": "CSV files or a ZIP archive",
+    "limits": "Up to 5 MiB of CSV data and 5,000 records per transfer.",
+    "selected": "{count, plural, one {# CSV file selected} other {# CSV files selected}}",
+    "preview": "Preview import",
+    "previewTitle": "Preview — No Changes Saved",
+    "recordType": "Record type",
+    "new": "New records",
+    "skipped": "Already present",
+    "confirm": "I have reviewed these records and their IDs. Import the new records into the database.",
+    "importButton": "Import records",
+    "complete": "Import complete",
+    "success": "Records saved successfully. The import is recorded in the audit log.",
+    "working": "Working…",
+    "readError": "Could not read this file.",
+    "scope": "Includes participants, terms, subjects, pairings, availability, attendance, hours, applications, interviews, patrols, discipline, requests, academic and policy-acceptance history, and announcements. New terms must be inactive; imported pairings and sessions must belong to inactive terms. Account references must already exist. Credentials, account roles, private messages, executable approvals, website content, configuration and uploaded files are excluded."
   }
 }

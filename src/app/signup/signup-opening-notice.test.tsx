@@ -58,7 +58,7 @@ describe("signup opening notice", () => {
       </NextIntlClientProvider>,
     );
 
-    expect(markup).toContain("2026–27 Q3 Tutee Signups will open by");
+    expect(markup).toContain("2026–27 Q3 Tutee Signups Will Open by");
     expect(markup).toContain('role="timer"');
     expect(markup).toContain('href="https://example.com/preview-sheet"');
     expect(markup).toContain("You may preview the sheet");
