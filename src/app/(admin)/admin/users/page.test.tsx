@@ -25,7 +25,7 @@ vi.mock("~/trpc/react", () => {
     },
   } };
 });
-vi.mock("~/app/_components/email-details", () => ({ USER_ROW_ACTION: "shared-user-row-action", EmailDetails: () => null }));
+vi.mock("~/app/_components/email-details", () => ({ EmailDetails: ({ triggerClassName }: { triggerClassName: string }) => <button className={`link ${triggerClassName}`}>User details</button> }));
 vi.mock("~/app/_components/account-profile-editor", () => ({ AccountProfileEditor: () => null }));
 vi.mock("~/app/_components/confirm-dialog", () => ({ useDialog: () => ({ dialog: null, promptText: vi.fn(), confirm: fixture.confirm }) }));
 
@@ -116,4 +116,15 @@ it("hides student username backfill from other staff", () => {
   fixture.role = "ADMIN";
   mount();
   expect(screen.queryByRole("button", { name: messages.identityUsername.assign })).toBeNull();
+});
+
+it("shares compact text styling across details, edit, username assignment and deletion", () => {
+  mount();
+  const row = screen.getByText("Verified student").closest("tr")!;
+  const group = row.querySelector(".table-account-actions")!;
+  const actions = group.querySelectorAll("button");
+  expect(actions).toHaveLength(4);
+  for (const action of actions) expect(action.classList.contains("table-account-action")).toBe(true);
+  expect(actions[2]!.textContent).toBe(messages.identityUsername.assign);
+  expect(actions[3]!.classList.contains("link-danger")).toBe(true);
 });

@@ -225,47 +225,115 @@ it("makes missing and not-applicable data explicit without a graduation guess", 
   expect(screen.queryByText(en.academics.needsConfirmation)).toBeNull();
 });
 
-it("shows and saves graduated as an academic choice without a future estimate", () => {
-  const save = vi.fn();
-  render(
+it.each([false, true])(
+  "shows and saves graduated without a future estimate (compact=%s)",
+  (compact) => {
+    const save = vi.fn();
+    render(
+      wrap(
+        <AcademicForm
+          snapshot={{ academic, profileVersion: 3, currentSchoolYear: null }}
+          pending={false}
+          onSave={save}
+          onCancel={vi.fn()}
+        />,
+      ),
+    );
+    fireEvent.change(screen.getByLabelText(en.academics.status), {
+      target: { value: "GRADUATED" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: en.academics.confirm }));
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "GRADUATED",
+        gradeLevel: null,
+        schoolYear: null,
+        rawGrade: null,
+      }),
+    );
+    cleanup();
+    render(
+      wrap(
+        <AcademicDetails
+          academic={{
+            ...academic,
+            status: "GRADUATED",
+            gradeLevel: null,
+            schoolYear: null,
+            expectedGraduationYear: null,
+            needsConfirmation: false,
+          }}
+          compact={compact}
+        />,
+      ),
+    );
+    expect(screen.getByText(en.academics.graduated)).toBeTruthy();
+    expect(screen.queryByText(en.academics.graduationUnknown)).toBeNull();
+    // Graduated is an explicit academic status, never an uncertain roster grade.
+    expect(screen.queryByText(en.academics.rosterUnknown)).toBeNull();
+    expect(screen.queryByText(en.academics.rosterNeedsConfirmation)).toBeNull();
+  },
+);
+
+it.each([false, true])(
+  "uses exactly two roster lines for uncertain grades (Chinese=%s)",
+  (chinese) => {
+    const messages = chinese ? zh : en;
+    const scenarios: (AcademicSummary | undefined)[] = [
+      undefined,
+      academic, // A reported grade awaiting reconfirmation must not look confirmed.
+      { ...academic, status: "UNKNOWN", rawGrade: "11", gradeLevel: null },
+      {
+        ...academic,
+        status: "UNKNOWN",
+        rawGrade: "IB year 1",
+        needsConfirmation: false,
+      },
+    ];
+    const view = render(wrap(<AcademicDetails compact />, chinese));
+    for (const value of scenarios) {
+      view.rerender(
+        wrap(<AcademicDetails academic={value} compact />, chinese),
+      );
+      expect(
+        Array.from(view.container.querySelectorAll("p"), (p) => p.textContent),
+      ).toEqual([
+        messages.academics.rosterUnknown,
+        messages.academics.rosterNeedsConfirmation,
+      ]);
+    }
+  },
+);
+
+it("retains confirmed grades and explicit not-applicable status in compact rosters", () => {
+  const view = render(
     wrap(
-      <AcademicForm
-        snapshot={{ academic, profileVersion: 3, currentSchoolYear: null }}
-        pending={false}
-        onSave={save}
-        onCancel={vi.fn()}
+      <AcademicDetails
+        academic={{ ...academic, needsConfirmation: false }}
+        compact
       />,
     ),
   );
-  fireEvent.change(screen.getByLabelText(en.academics.status), {
-    target: { value: "GRADUATED" },
-  });
-  fireEvent.click(screen.getByRole("button", { name: en.academics.confirm }));
-  expect(save).toHaveBeenCalledWith(
-    expect.objectContaining({
-      status: "GRADUATED",
-      gradeLevel: null,
-      schoolYear: null,
-      rawGrade: null,
-    }),
-  );
-  cleanup();
-  render(
+  expect(screen.getByText("Grade 10")).toBeTruthy();
+  expect(screen.getByText("Expected graduation: 2029")).toBeTruthy();
+  expect(screen.queryByText(en.academics.rosterUnknown)).toBeNull();
+  view.rerender(
     wrap(
       <AcademicDetails
         academic={{
           ...academic,
-          status: "GRADUATED",
+          status: "NOT_APPLICABLE",
           gradeLevel: null,
           schoolYear: null,
           expectedGraduationYear: null,
           needsConfirmation: false,
         }}
+        compact
       />,
     ),
   );
-  expect(screen.getByText(en.academics.graduated)).toBeTruthy();
-  expect(screen.queryByText(en.academics.graduationUnknown)).toBeNull();
+  expect(screen.getByText(en.academics.notApplicable)).toBeTruthy();
+  expect(screen.queryByText(en.academics.rosterNeedsConfirmation)).toBeNull();
 });
 
 it("uses the program year and offered grades while preserving the draft's original version", () => {

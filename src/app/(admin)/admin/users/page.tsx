@@ -4,7 +4,7 @@ import { accountMembership, membershipBadges } from "~/lib/account-membership";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 
-import { EmailDetails, USER_ROW_ACTION } from "~/app/_components/email-details";
+import { EmailDetails } from "~/app/_components/email-details";
 import { AccountProfileEditor } from "~/app/_components/account-profile-editor";
 import { MultiFilter } from "~/app/_components/multi-filter";
 import {
@@ -579,10 +579,10 @@ export default function UsersPage() {
 
                   {/* Contact/profile actions stay available to permitted staff. Only deletion is head-only. */}
                   <td>
-                    <div className="flex min-w-28 flex-col items-stretch gap-1.5">
+                    <div className="table-account-actions">
                       <EmailDetails
                         academic={u.academic}
-                        triggerClassName={USER_ROW_ACTION}
+                        triggerClassName="table-account-action"
                         showPolicyHistory
                         email={u.email}
                         name={u.name}
@@ -597,14 +597,14 @@ export default function UsersPage() {
                       />
                       {u.userId && (
                         <button
-                          className={`link ${USER_ROW_ACTION}`}
+                          className="link table-account-action"
                           onClick={() => setEditingProfileId(u.userId)}
                         >
                           {t("accountProfile.editProfile")}
                         </button>
                       )}
                       {isHead && u.userId && u.role === "STUDENT" && u.emailVerifiedAt && !u.username && (
-                        <button className="btn-secondary min-h-11 max-w-48 whitespace-normal text-xs lg:min-h-8"
+                        <button className="link table-account-action max-w-48"
                           disabled={assignUsername.isPending}
                           onClick={async () => {
                             if (!u.userId) return;
@@ -615,7 +615,7 @@ export default function UsersPage() {
                       )}
                       {isHead && u.userId && !u.isSelf && u.role !== "HEAD" ? (
                         <button
-                          className={`link-danger ${USER_ROW_ACTION}`}
+                          className="link-danger table-account-action"
                           onClick={() => {
                             const userId = u.userId;
                             if (!userId) return;

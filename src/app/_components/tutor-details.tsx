@@ -26,7 +26,7 @@ export function TutorDetailsButton({
       <button
         ref={trigger}
         type="button"
-        className="btn-secondary btn-sm min-h-11 text-left whitespace-normal lg:min-h-8"
+        className="link table-account-action"
         aria-label={t("openFor", { name })}
         aria-haspopup="dialog"
         onClick={() => setOpen(true)}

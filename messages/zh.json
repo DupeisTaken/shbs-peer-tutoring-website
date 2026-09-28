@@ -3126,6 +3126,8 @@
     "needsConfirmation": "请核对并重新确认",
     "unknown": "未知",
     "graduated": "已毕业",
+    "rosterUnknown": "年级未知",
+    "rosterNeedsConfirmation": "待核对并确认",
     "notApplicable": "不适用",
     "reported": "学校年级（1–12 年级）",
     "original": "原始填报：{value}",

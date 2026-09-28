@@ -3126,6 +3126,8 @@
     "needsConfirmation": "Please Review and Reconfirm",
     "unknown": "Desconocido",
     "graduated": "Graduado",
+    "rosterUnknown": "Grado desconocido",
+    "rosterNeedsConfirmation": "Requiere revisión y confirmación",
     "notApplicable": "Not Applicable",
     "reported": "School Grade (1–12)",
     "original": "Original report: {value}",

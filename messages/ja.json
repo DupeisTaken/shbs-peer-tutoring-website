@@ -3126,6 +3126,8 @@
     "needsConfirmation": "Please Review and Reconfirm",
     "unknown": "不明",
     "graduated": "卒業済み",
+    "rosterUnknown": "学年不明",
+    "rosterNeedsConfirmation": "見直しと確認が必要",
     "notApplicable": "Not Applicable",
     "reported": "School Grade (1–12)",
     "original": "Original report: {value}",
