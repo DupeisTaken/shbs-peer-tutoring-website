@@ -222,7 +222,7 @@ it("shows read-only program availability without admin controls", () => {
   mocks.canEdit = false;
   view(<ProgramEmailSettings />);
   expect(screen.queryAllByRole("checkbox")).toHaveLength(0);
-  expect(screen.getByText("Secondary-email binding")).toBeTruthy();
+  expect(screen.getByText("Secondary-Email Binding")).toBeTruthy();
 });
 
 it("lets admins enable immediately with the current value for conflict checking", () => {
