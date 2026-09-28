@@ -90,3 +90,5 @@ over a simulated 800 seconds from one school network (including reads and wrong-
 retries). Existing expiry, replay, priority and account-linking regressions also run.
 This is functional acceptance testing, not a production flood test or upstream
 network-capacity guarantee.
+
+[Desktop and mobile verification evidence](evidence/issues-181-182/README.md).
