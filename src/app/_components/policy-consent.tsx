@@ -4,6 +4,7 @@ import { useLocale, useTranslations } from "next-intl";
 import { Markdown } from "./markdown";
 import { api } from "~/trpc/react";
 import { TimedActionDialog } from "./timed-action-dialog";
+import { CurrentPolicyDialog } from "./current-policy-dialog";
 
 /** The server verifies the revision again on acceptance and on participation mutations. */
 export function PolicyConsent({
@@ -18,19 +19,54 @@ export function PolicyConsent({
   const query = api.student.policy.useQuery({ slug });
   const [signature, setSignature] = useState("");
   const [confirming, setConfirming] = useState(false);
+  const [viewing, setViewing] = useState(false);
   const save = api.student.acceptPolicy.useMutation({
     onSuccess: () => query.refetch(),
   });
-  if (query.error)
+  // Keep the reader open if a refresh finds a newly published, unaccepted revision.
+  // Closing it reveals the ordinary consent flow; reading never records acceptance.
+  const reader = viewing ? (
+    <CurrentPolicyDialog
+      documents={query.data?.documents}
+      loading={query.isFetching}
+      error={!!query.error}
+      onRetry={() => void query.refetch()}
+      onClose={() => setViewing(false)}
+    />
+  ) : null;
+  if (query.error && !viewing)
     return (
       <p role="alert" className="card p-6 text-red-700">
         {query.error.message}
       </p>
     );
-  if (!query.data) return <p>{t("loading")}</p>;
-  if (query.data.accepted)
+  if (!query.data) return reader ?? <p>{t("loading")}</p>;
+  if (query.data.accepted || viewing)
     return (
-      <>{children ?? <p className="text-emerald-700">{t("accepted")}</p>}</>
+      <>
+        {query.data.accepted &&
+          (children ?? (
+            <p className="text-emerald-700">
+              {/* A new rich-text key avoids legacy plain-text translation overrides. */}
+              {t.rich("acceptedWithPolicy", {
+                policy: (chunks) => (
+                  <button
+                    type="button"
+                    aria-haspopup="dialog"
+                    className="inline-flex min-h-11 items-center rounded-sm font-medium underline decoration-emerald-700/50 underline-offset-4 hover:decoration-emerald-700 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-700 lg:min-h-0"
+                    onClick={() => {
+                      setViewing(true);
+                      void query.refetch();
+                    }}
+                  >
+                    {chunks}
+                  </button>
+                ),
+              })}
+            </p>
+          ))}
+        {reader}
+      </>
     );
   const document =
     query.data.documents.find((d) => d.locale === locale) ??

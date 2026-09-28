@@ -2359,6 +2359,7 @@
     "signature": "Type Your Full Name",
     "accept": "Accept This Policy Version",
     "accepted": "You have accepted the current policy.",
+    "acceptedWithPolicy": "You have accepted the <policy>current policy</policy>.",
     "loading": "Loading…",
     "empty": "Nothing here yet.",
     "attendance": "My Attendance",
@@ -2952,7 +2953,12 @@
     "keepRequest": "Keep request",
     "recalling": "Recalling…",
     "recalled": "Request recalled. You can submit a new request when ready.",
-    "recalledOn": "Recalled on {date}"
+    "recalledOn": "Recalled on {date}",
+    "pendingFilter": "Ausstehend",
+    "historyFilters": "Antragsverlauf filtern",
+    "collapseHistory": "Einklappen",
+    "expandHistory": "Ausklappen",
+    "emptyFilter": "Keine Anträge in dieser Kategorie."
   },
   "signupFields": {
     "title": "Anmeldeformulare",
