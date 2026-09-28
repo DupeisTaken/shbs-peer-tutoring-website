@@ -181,6 +181,27 @@ it("binds self willingness to the authenticated tutor even if input includes ano
   expect((await tutor().subjectAvailability.mine()).every((row) => row.tutorId === "review-tutor")).toBe(true);
 });
 
+it("loads only the authenticated tutor's subject evidence and preserves unknown intent", async () => {
+  const other = await db.tutor.create({ data: { englishName: "Private tutor", status: "ACTIVE" } });
+  await db.tutorSubjectWillingness.create({ data: { tutorId: other.id, subjectId: "review-subject", willing: true } });
+  const own = await tutor().subjectAvailability.mySubjects();
+  expect(own.canEdit).toBe(true);
+  expect(own.rows.find((row) => row.id === "review-subject")).toMatchObject({ willing: null });
+  await tutor().subjectAvailability.setMine({ subjectId: "review-subject", willing: false });
+  expect((await tutor().subjectAvailability.mySubjects()).rows.find((row) => row.id === "review-subject")?.willing).toBe(false);
+  await db.tutor.update({ where: { id: "review-tutor" }, data: { status: "OPTED_OUT" } });
+  expect((await tutor().subjectAvailability.mySubjects()).canEdit).toBe(false);
+  await expect(caller("VIEWER", "review-viewer").subjectAvailability.mySubjects()).rejects.toMatchObject({ code: "FORBIDDEN" });
+});
+
+it("exposes only open additional qualification requests to the pending-review filter", async () => {
+  const data = { name: "Pending tutor", qualificationReason: "Synthetic qualification evidence", email: "pending@example.test", type: "ADDITIONAL_SUBJECT" as const, requestedTutorId: "review-tutor", requestedSubjectId: "review-subject" };
+  const request = await db.tutorApplication.create({ data: { ...data, status: "INTERVIEW" } });
+  expect((await caller().subjectAvailability.options()).pendingRequests).toEqual([{ requestedTutorId: "review-tutor", requestedSubjectId: "review-subject" }]);
+  await db.tutorApplication.update({ where: { id: request.id }, data: { status: "REJECTED", decisionComment: "Reviewed", qualificationDecidedById: "review-head", decidedAt: new Date() } });
+  expect((await caller().subjectAvailability.options()).pendingRequests).toEqual([]);
+});
+
 it("queues coordinator willingness changes and applies them only after independent approval", async () => {
   const previousGrants = await db.qualificationGrant.findMany();
   await db.user.update({

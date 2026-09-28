@@ -64,7 +64,18 @@
     "approveSource": "批准此科目",
     "willingnessFor": "辅导意愿：{subject}",
     "empty": "没有符合筛选条件的辅导伙伴或科目。",
-    "emptySubjects": "暂无科目记录。"
+    "emptySubjects": "暂无科目记录。",
+    "pendingReview": "待审核",
+    "filtersFor": "{name} 的科目筛选",
+    "noMatchingSubjects": "没有符合筛选条件的科目。",
+    "myTitle": "我的辅导意愿",
+    "myHelp": "选择您目前愿意辅导的科目。资格与时间安排单独管理。",
+    "editMine": "编辑辅导意愿",
+    "searchMine": "搜索科目或等级",
+    "autoSave": "每次更改都会立即保存。完成后可关闭窗口。",
+    "readOnly": "您的辅导伙伴账号未处于活跃状态。您可以查看选择，但无法编辑。",
+    "saving": "保存中…",
+    "retry": "重试"
   },
   "messaging": {
     "privacyTitle": "独立私信，接受管理监督",
