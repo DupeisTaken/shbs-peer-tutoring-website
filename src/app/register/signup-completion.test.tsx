@@ -24,6 +24,9 @@ vi.mock("~/trpc/react", () => {
         isResend && mocks.resendError
           ? { message: "Mail could not be delivered" }
           : null,
+      mutateAsync: async (_input: object) => {
+        if (!(isResend && mocks.resendError)) options.onSuccess(data);
+      },
       mutate: (input: object) => {
         if (isComplete) {
           mocks.complete(input);
@@ -253,3 +256,5 @@ it.each([false, true])(
     }
   },
 );
+
+vi.mock("~/app/_components/signup-captcha", () => ({ useSignupCaptcha: () => ({ run: (work: (grant?: string) => Promise<unknown>) => work(), panel: null, pending: false }), CaptchaError: ({ error }: { error: { message: string } }) => <>{error.message}</> }));

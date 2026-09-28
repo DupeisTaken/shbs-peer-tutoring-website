@@ -1820,6 +1820,8 @@ model SchoolCalendarDay {
 
 /// Singleton configuration; changing the zone never rewrites stored instants or weekly slot times.
 model ProgramSettings {
+  captchaEnabled Boolean @default(false)
+  captchaVersion Int @default(0)
   /// Head-only configuration for existing signup fields; missing keys use original defaults.
   signupFields Json @default("{}")
   requireLatinNames Boolean @default(false)
@@ -1926,4 +1928,19 @@ model SignupLease {
  slot String @id
  owner String
  expiresAt DateTime
+}
+
+model CaptchaProof {
+ key String @id
+ expiresAt DateTime
+ @@index([expiresAt])
+}
+model CaptchaGrant {
+ tokenHash String @id
+ action String
+ identityHash String
+ scene String
+ version Int
+ expiresAt DateTime
+ @@index([expiresAt])
 }

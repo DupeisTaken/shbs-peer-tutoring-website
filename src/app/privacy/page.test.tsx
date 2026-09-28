@@ -48,7 +48,7 @@ it.each(["en", "zh", "fr", "custom"])(
       );
     }
     expect(within(article).getAllByRole("heading", { level: 2 })).toHaveLength(
-      9,
+      10,
     );
     expect(
       screen.getByRole("link", { name: "backToMain" }).getAttribute("href"),

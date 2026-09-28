@@ -243,3 +243,11 @@ Participants can always read `/tutor-signup` and `/signup`. Before the start, af
 Publish the English source of both policies through **Policy Documents**, configure active **Subjects & Levels**, and add **Time Slots** when tutee availability is required. Missing or empty policy publication is shown as incomplete setup, rather than a retryable loading error. Real database/network failures still show Retry. Tutee submission also requires working transactional email.
 
 The server rechecks the current recruitment window on every submission. Open browser tabs update timed boundaries and poll schedule changes every 30 seconds. A form submitted after closing is rejected even before its next poll. Schedule saves reject an ending time at or before the start and reject a stale active-period ID. Existing opening times and external preview links survive the recruitment migration.
+
+## CAPTCHA verification
+
+Management → Program & Refresh includes an immediate CAPTCHA Verification switch
+for public tutee and viewer signup/resend. ADMIN/HEAD can change it; other authorized
+readers see status. Enabling requires local provider configuration and uses paid
+Aliyun checks. Disabling leaves signup quotas active and never needs a provider
+call. See [setup, costs and outage procedure](captcha.md).

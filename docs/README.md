@@ -24,3 +24,5 @@ For contribution checks and where to add information, see [documentation ownersh
 [Project README](../README.md).
 
 [Public signup protection and operational limits](signup-protection.md).
+
+[Optional Aliyun CAPTCHA, costs and rollout](captcha.md).

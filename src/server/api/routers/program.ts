@@ -1,3 +1,7 @@
+import { captchaAction } from "~/lib/captcha";
+import { captchaStatus, publicCaptcha, verifySignupCaptcha } from "~/server/captcha";
+import { aliyunProvider } from "~/server/captcha/aliyun";
+import { withSignupAdmission } from "~/server/signup-admission";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 
@@ -55,6 +59,19 @@ const httpUrl = z
  * can hide a disabled module); staging changes is HEAD-only and takes effect at the next refresh.
  */
 export const programRouter = createTRPCRouter({
+  captchaPublic: publicProcedure.query(({ ctx }) => withSignupAdmission(ctx.db, ctx.headers, "read", undefined, () => publicCaptcha(ctx.db))),
+  verifySignupCaptcha: publicProcedure.input(z.object({ action: captchaAction, email: z.string().trim().email().max(254), proof: z.string().min(1).max(16_384) })).mutation(({ ctx, input }) => verifySignupCaptcha(ctx.db, ctx.headers, input)),
+  captchaSettings: adminProcedure.query(async ({ ctx }) => ({ ...(await captchaStatus(ctx.db)), ready: !!aliyunProvider(), canEdit: ["ADMIN", "HEAD"].includes(ctx.session.role) })),
+  setCaptcha: adminOnlyProcedure.input(z.object({ enabled: z.boolean(), expectedVersion: z.number().int().nonnegative() }).strict()).mutation(({ ctx, input }) => inTransaction(ctx.db, async tx => {
+    await lockEntity(tx, "program:captcha");
+    const before = await captchaStatus(tx);
+    if (before.version !== input.expectedVersion) throw new TRPCError({ code: "CONFLICT", message: "CAPTCHA_CHANGED" });
+    // Local validation only. Disabling never calls or depends on provider availability.
+    if (input.enabled && !aliyunProvider()) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "CAPTCHA_CONFIG" });
+    await tx.programSettings.upsert({ where: { id: "program" }, create: { id: "program", captchaEnabled: input.enabled, captchaVersion: 1 }, update: { captchaEnabled: input.enabled, captchaVersion: { increment: 1 } } });
+    await tx.auditLog.create({ data: { userId: ctx.session.user.id, userName: ctx.session.user.name, entity: "ProgramSettings", entityId: "program", operation: "program.setCaptcha", action: "Changed public signup CAPTCHA verification", details: { before, after: { enabled: input.enabled, version: before.version + 1 } } } });
+    return { enabled: input.enabled, version: before.version + 1 };
+  })),
   profilePolicy: publicProcedure.query(async ({ ctx }) => ({
     ...(await getProfilePolicy(ctx.db)),
     currentSchoolYear: (await ctx.db.term.findFirst({ where: { active: true }, select: { schoolYear: true } }))?.schoolYear ?? null,

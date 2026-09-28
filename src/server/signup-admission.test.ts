@@ -142,7 +142,7 @@ it("concurrent viewer starts send one mail and failed delivery retains previous 
     where: { email: input.email },
   });
   await db.signupQuota.deleteMany({
-    where: { key: { startsWith: "mail:cooldown:" } },
+    where: { OR: [{ key: { startsWith: "mail:cooldown:" } }, { key: { startsWith: "mail:delivery-cooldown:" } }] },
   });
   send.mockRejectedValueOnce(new Error("SMTP failed"));
   await expect(caller().viewer.start(input)).rejects.toMatchObject({

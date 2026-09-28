@@ -33,7 +33,7 @@ vi.mock("~/trpc/react", () => ({
     tutee: {
       signupOptions: { useQuery: mocks.options },
       surveyPolicy: { useQuery: mocks.policy },
-      submitSurvey: { useMutation: () => ({ mutate: mocks.mutate }) },
+      submitSurvey: { useMutation: () => ({ mutateAsync: mocks.mutate, mutate: mocks.mutate }) },
     },
   },
 }));
@@ -271,3 +271,5 @@ it("labels fixed and configurable requirements consistently", () => {
       .hasAttribute("required"),
   ).toBe(true);
 });
+
+vi.mock("~/app/_components/signup-captcha", () => ({ useSignupCaptcha: () => ({ run: (work: (grant?: string) => Promise<unknown>) => work(), panel: null, pending: false }), CaptchaError: ({ error }: { error: { message: string } }) => <>{error.message}</> }));

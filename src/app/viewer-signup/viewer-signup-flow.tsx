@@ -1,5 +1,6 @@
 "use client";
 import { SignupError } from "~/app/_components/signup-error";
+import { useSignupCaptcha, CaptchaError } from "~/app/_components/signup-captcha";
 
 import { FieldRequirement } from "~/app/_components/field-requirement";
 
@@ -23,6 +24,7 @@ export function ViewerSignupFlow() {
   const [name, setName] = useState("");
   const [affiliation, setAffiliation] = useState("");
   const [email, setEmail] = useState("");
+  const captcha = useSignupCaptcha("viewer.start", email);
   const [code, setCode] = useState("");
   const [completionProof, setCompletionProof] = useState("");
   const [password, setPassword] = useState("");
@@ -45,7 +47,7 @@ export function ViewerSignupFlow() {
           onSubmit={(e) => {
             e.preventDefault();
             if (detailsValid)
-              start.mutate({ name: name.trim(), affiliation: affiliation.trim(), email: email.trim() });
+              void captcha.run(captchaGrant => start.mutateAsync({ name: name.trim(), affiliation: affiliation.trim(), email: email.trim(), captchaGrant }));
           }}
         >
           <div>
@@ -86,8 +88,9 @@ export function ViewerSignupFlow() {
               className="input w-full"
             />
           </div>
-          {start.error && <p role="alert" className="text-sm text-red-600"><SignupError error={start.error} /></p>}
-          <button className="btn-primary w-full" disabled={!detailsValid || start.isPending}>
+          {captcha.panel}
+          {start.error && <p role="alert" className="text-sm text-red-600"><CaptchaError error={start.error} /></p>}
+          <button className="btn-primary w-full" disabled={!detailsValid || start.isPending || captcha.pending}>
             {start.isPending ? t("public.viewerSignup.sending") : t("public.viewerSignup.sendCode")}
           </button>
         </form>
@@ -118,15 +121,16 @@ export function ViewerSignupFlow() {
             className="input w-full text-center text-2xl tracking-[0.4em] uppercase"
           />
           {verify.error && <p role="alert" className="text-sm text-red-600"><SignupError error={verify.error} /></p>}
-          {start.error && <p role="alert" className="text-sm text-red-600"><SignupError error={start.error} /></p>}
+          {captcha.panel}
+          {start.error && <p role="alert" className="text-sm text-red-600"><CaptchaError error={start.error} /></p>}
           <button className="btn-primary w-full" disabled={!/^[0-9A-Z]{5}$/.test(code) || verify.isPending}>
             {t("public.viewerSignup.verify")}
           </button>
           <button
             type="button"
             className="link text-sm"
-            onClick={() => start.mutate({ name: name.trim(), affiliation: affiliation.trim(), email: email.trim() })}
-            disabled={start.isPending}
+            onClick={() => void captcha.run(captchaGrant => start.mutateAsync({ name: name.trim(), affiliation: affiliation.trim(), email: email.trim(), captchaGrant }))}
+            disabled={start.isPending || captcha.pending}
           >
             {t("public.viewerSignup.resend")}
           </button>
@@ -139,7 +143,7 @@ export function ViewerSignupFlow() {
           className="space-y-5"
           onSubmit={(e) => {
             e.preventDefault();
-            if (password.length >= 8 && confirm === password && completionProof && !start.isPending) complete.mutate({ email: email.trim(), password, completionProof });
+            if (password.length >= 8 && confirm === password && completionProof && !start.isPending && !captcha.pending) complete.mutate({ email: email.trim(), password, completionProof });
           }}
         >
           <div>
@@ -171,12 +175,13 @@ export function ViewerSignupFlow() {
           </div>
           {mismatch && <p role="alert" className="text-sm text-red-600">{t("public.viewerSignup.mismatch")}</p>}
           {complete.error && <p role="alert" className="text-sm text-red-600"><SignupError error={complete.error} /></p>}
-          <button className="btn-primary w-full" disabled={password.length < 8 || confirm !== password || start.isPending || complete.isPending}>
+          <button className="btn-primary w-full" disabled={password.length < 8 || confirm !== password || start.isPending || complete.isPending || captcha.pending}>
             {complete.isPending ? t("public.viewerSignup.creating") : t("public.viewerSignup.createAccount")}
           </button>
-          {start.error && <p role="alert" className="text-sm text-red-600"><SignupError error={start.error} /></p>}
-          <button type="button" className="link text-sm" disabled={start.isPending || complete.isPending}
-            onClick={() => start.mutate({ name: name.trim(), affiliation: affiliation.trim(), email: email.trim() })}>
+          {captcha.panel}
+          {start.error && <p role="alert" className="text-sm text-red-600"><CaptchaError error={start.error} /></p>}
+          <button type="button" className="link text-sm" disabled={start.isPending || complete.isPending || captcha.pending}
+            onClick={() => void captcha.run(captchaGrant => start.mutateAsync({ name: name.trim(), affiliation: affiliation.trim(), email: email.trim(), captchaGrant }))}>
             {t("public.viewerSignup.resend")}
           </button>
         </form>
