@@ -7,7 +7,7 @@ import {
   screen,
   within,
 } from "@testing-library/react";
-import { NextIntlClientProvider } from "next-intl";
+import { NextIntlClientProvider, type AbstractIntlMessages } from "next-intl";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import de from "../../../messages/de.json";
@@ -54,7 +54,8 @@ let query: {
 };
 function subject(
   locale = "en",
-  messages = en,
+  // Locales can omit keys served by the application's English fallback.
+  messages: AbstractIntlMessages = en,
   slug: "tutor-policy" | "tutee-policy" = "tutor-policy",
 ) {
   return (
