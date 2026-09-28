@@ -74,4 +74,27 @@ describe("historical CSV files", () => {
       ),
     ).toThrow(/limits/);
   });
+  it("rejects a ZIP64 sentinel without its required extra field", () => {
+    const regular = zipSync({ "Tutor.csv": strToU8("id\na") });
+    const endOffset = regular.length - 22;
+    const directoryOffset = new DataView(regular.buffer).getUint32(endOffset + 16, true);
+    const archive = new Uint8Array(regular.length + 76);
+    archive.set(regular.subarray(0, endOffset));
+    archive.set(regular.subarray(endOffset), endOffset + 76);
+    const view = new DataView(archive.buffer);
+    // ZIP64 end record and locator identify this as a ZIP64 archive.
+    view.setUint32(endOffset, 0x06064b50, true);
+    view.setBigUint64(endOffset + 4, 44n, true);
+    view.setBigUint64(endOffset + 24, 1n, true);
+    view.setBigUint64(endOffset + 32, 1n, true);
+    view.setBigUint64(endOffset + 40, BigInt(endOffset - directoryOffset), true);
+    view.setBigUint64(endOffset + 48, BigInt(directoryOffset), true);
+    view.setUint32(endOffset + 56, 0x07064b50, true);
+    view.setBigUint64(endOffset + 64, BigInt(endOffset), true);
+    view.setUint32(endOffset + 72, 1, true);
+    // A missing ZIP64 extra field previously trapped fflate's parser in a loop.
+    // Corrupt the central directory's compressed size without adding that field.
+    view.setUint32(directoryOffset + 20, 0xffffffff, true);
+    expect(() => readRecordArchive(archive)).toThrow();
+  });
 });
