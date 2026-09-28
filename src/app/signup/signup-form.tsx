@@ -1,5 +1,7 @@
 "use client";
 
+import { FieldRequirement } from "~/app/_components/field-requirement";
+
 import { useMemo, useState } from "react";
 import {
   useProfilePolicy,
@@ -25,6 +27,7 @@ import { useBranding } from "~/app/_components/branding-provider";
 import { PolicyAgreement } from "~/app/_components/policy-agreement";
 import { SigninAccess } from "./signin-access";
 import { SurveyResend } from "./survey-resend";
+import { SignupEmailField } from "./signup-email-field";
 
 export function SignupForm() {
   const { APP_TITLE } = useBranding();
@@ -185,10 +188,12 @@ export function SignupForm() {
           aria-label={t("recruitment.responses")}
         >
           {/* Identity */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+          {/* Align identity labels with the email help trigger's mobile touch target. */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 [&_.label]:min-h-11 [&_.label]:content-center lg:[&_.label]:min-h-0">
             <label className="space-y-1">
               <span className="label">
                 {t("public.signup.fields.fullName")}
+                <FieldRequirement state="required" />
               </span>
               <input
                 className="input min-h-11 lg:min-h-10"
@@ -208,10 +213,8 @@ export function SignupForm() {
             {fields.gradeLevel !== "hidden" && (
               <label className="space-y-1">
                 <span className="label">
-                  {t("public.signup.fields.gradeLevel")}{" "}
-                  <span className="muted inline-block text-xs">
-                    {t(`signupFields.${fields.gradeLevel}`)}
-                  </span>
+                  {t("public.signup.fields.gradeLevel")}
+                  <FieldRequirement state={fields.gradeLevel} />
                 </span>
                 <OfferedGradeSelect
                   required={fields.gradeLevel === "required"}
@@ -221,26 +224,16 @@ export function SignupForm() {
                 />
               </label>
             )}
-            <label className="space-y-1">
-              <span className="label">{t("survey.emailLabel")}</span>
-              <input
-                type="email"
-                autoComplete="email"
-                className="input min-h-11 lg:min-h-10"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                required
-                maxLength={254}
-              />
-              <span className="muted text-xs">{t("survey.emailHelp")}</span>
-            </label>
+            <SignupEmailField
+              value={email}
+              onChange={setEmail}
+              disabled={readOnly}
+            />
             {fields.phone !== "hidden" && (
               <label className="space-y-1">
                 <span className="label">
-                  {t("public.signup.fields.phone")}{" "}
-                  <span className="muted inline-block text-xs">
-                    {t(`signupFields.${fields.phone}`)}
-                  </span>
+                  {t("public.signup.fields.phone")}
+                  <FieldRequirement state={fields.phone} />
                 </span>
                 <input
                   className="input min-h-11 lg:min-h-10"
@@ -256,10 +249,8 @@ export function SignupForm() {
           {fields.preferredContact !== "hidden" && (
             <label className="space-y-1">
               <span className="label">
-                {t("signupFields.labels.preferredContact")}{" "}
-                <span className="muted inline-block text-xs">
-                  {t(`signupFields.${fields.preferredContact}`)}
-                </span>
+                {t("signupFields.labels.preferredContact")}
+                <FieldRequirement state={fields.preferredContact} />
               </span>
               <input
                 className="input min-h-11 lg:min-h-10"
@@ -279,6 +270,7 @@ export function SignupForm() {
             <label className="space-y-1">
               <span className="label">
                 {t("public.signup.fields.firstChoice")}
+                <FieldRequirement state="required" />
               </span>
               <select
                 className="select min-h-11 lg:min-h-10"
@@ -299,10 +291,8 @@ export function SignupForm() {
             {fields.secondSubject !== "hidden" && (
               <label className="space-y-1">
                 <span className="label">
-                  {t("signupFields.labels.secondSubject")}{" "}
-                  <span className="muted inline-block text-xs">
-                    {t(`signupFields.${fields.secondSubject}`)}
-                  </span>
+                  {t("signupFields.labels.secondSubject")}
+                  <FieldRequirement state={fields.secondSubject} />
                 </span>
                 <select
                   className="select min-h-11 lg:min-h-10"
@@ -327,10 +317,8 @@ export function SignupForm() {
           {fields.availability !== "hidden" && (
             <fieldset>
               <legend className="label">
-                {t("signupFields.labels.availability")}{" "}
-                <span className="muted inline-block text-xs">
-                  {t(`signupFields.${fields.availability}`)}
-                </span>
+                {t("signupFields.labels.availability")}
+                <FieldRequirement state={fields.availability} />
               </legend>
               {slots.length === 0 ? (
                 <p className="muted mt-1">{t("public.signup.noSlots")}</p>
@@ -391,10 +379,8 @@ export function SignupForm() {
             {fields.signatureName !== "hidden" && (
               <label className="block space-y-1">
                 <span className="label">
-                  {t("signupFields.labels.signatureName")}{" "}
-                  <span className="muted inline-block text-xs">
-                    {t(`signupFields.${fields.signatureName}`)}
-                  </span>
+                  {t("signupFields.labels.signatureName")}
+                  <FieldRequirement state={fields.signatureName} />
                 </span>
                 <input
                   className="input min-h-11 lg:min-h-10"

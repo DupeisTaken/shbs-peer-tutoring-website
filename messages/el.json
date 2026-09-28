@@ -1978,15 +1978,15 @@
       "successTitle": "Αίτημα παραλήφθηκε 🎉",
       "successBody": "Ευχαριστούμε, {name}. Ένας συντονιστής θα ελέγξει το αίτημά σας και θα επικοινωνήσει μαζί σας σχετικά με τον βοηθό και το πρόγραμμά σας.",
       "fields": {
-        "fullName": "Ονοματεπώνυμο *",
+        "fullName": "Ονοματεπώνυμο",
         "gradeLevel": "Τάξη",
         "email": "Email",
         "phone": "Τηλέφωνο",
-        "preferredContact": "Πώς να επικοινωνήσουμε μαζί σας; *",
-        "firstChoice": "Μάθημα — πρώτη επιλογή *",
-        "secondChoice": "Μάθημα — δεύτερη επιλογή (προαιρετικό)",
-        "availability": "Διαθέσιμες χρονοθυρίδες *",
-        "signature": "Ηλεκτρονική υπογραφή * (πληκτρολογήστε το πλήρες όνομά σας)"
+        "preferredContact": "Πώς να επικοινωνήσουμε μαζί σας;",
+        "firstChoice": "Μάθημα — πρώτη επιλογή",
+        "secondChoice": "Μάθημα — δεύτερη επιλογή",
+        "availability": "Διαθέσιμες χρονοθυρίδες",
+        "signature": "Ηλεκτρονική υπογραφή (πληκτρολογήστε το πλήρες όνομά σας)"
       },
       "placeholders": {
         "gradeLevel": "π.χ. 10",
@@ -2016,10 +2016,10 @@
       "successTitle": "Αίτηση παραλήφθηκε 🎉",
       "successBody": "Ευχαριστούμε, {name}. Η ομάδα συντονιστών θα ελέγξει την αίτησή σας και θα διοργανώσει συνέντευξη. Θα επικοινωνήσουμε στο {email}.",
       "fields": {
-        "fullName": "Ονοματεπώνυμο *",
-        "email": "Email επικοινωνίας *",
-        "preferredContact": "Πώς να επικοινωνήσουμε μαζί σας; *",
-        "courses": "Μαθήματα που θέλετε να διδάξετε (έως 3) *",
+        "fullName": "Ονοματεπώνυμο",
+        "email": "Email επικοινωνίας",
+        "preferredContact": "Πώς να επικοινωνήσουμε μαζί σας;",
+        "courses": "Μαθήματα που θέλετε να διδάξετε (έως 3)",
         "course": "Μάθημα",
         "grade": "Βαθμός που αποκτήθηκε",
         "apScore": "Βαθμολογία AP",
@@ -2079,8 +2079,8 @@
         "fullName": "Ονοματεπώνυμο",
         "email": "Email",
         "grade": "Τάξη",
-        "contact": "Προτιμώμενη επικοινωνία (προαιρετικό)",
-        "message": "Κάτι άλλο; (προαιρετικό)"
+        "contact": "Προτιμώμενη επικοινωνία",
+        "message": "Κάτι άλλο;"
       }
     },
     "viewerSignup": {
@@ -3108,7 +3108,7 @@
     "emptyHelp": "Δοκιμάστε άλλη αναζήτηση ή εκκαθαρίστε τα φίλτρα για να δείτε όλο τον κατάλογο."
   },
   "identityUsername": {
-    "preferredLatinName": "Latin Spelling (Optional)",
+    "preferredLatinName": "Latin Spelling",
     "preferredLatinHelp": "If you use a Latin spelling of your name, enter it here for your first username. Otherwise we use a neutral member handle. Existing usernames stay unchanged; email sign-in remains available.",
     "assign": "Assign Username",
     "assignTitle": "Assign a Username to {name}",

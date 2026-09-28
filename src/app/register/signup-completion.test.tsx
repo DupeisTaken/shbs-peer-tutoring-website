@@ -102,7 +102,9 @@ function reachEmailCode(viewer: boolean) {
 }
 it("keeps the affiliation example readable and associated with its input", () => {
   render(wrap(true));
-  const affiliation = screen.getByLabelText(en.public.viewerSignup.fields.affiliation);
+  const affiliation = screen.getByLabelText(
+    `${en.public.viewerSignup.fields.affiliation} ${en.signupFields.required}`,
+  );
   const hint = document.getElementById(affiliation.getAttribute("aria-describedby") ?? "");
   expect(hint?.textContent).toBe(en.public.viewerSignup.fields.affiliationPlaceholder);
   expect(affiliation.getAttribute("placeholder")).toBeNull();
@@ -132,7 +134,9 @@ it("uses offered grades and the current program year without sending a client-se
   fill("reg-confirm", "Password123!");
   fill("reg-grade", "1");
   expect(
-    screen.getByLabelText(en.auth.register.step.profile.grade).tagName,
+    screen.getByLabelText(
+      `${en.auth.register.step.profile.grade} ${en.signupFields.optional}`,
+    ).tagName,
   ).toBe("SELECT");
   expect(
     screen.queryByRole("textbox", { name: en.academics.schoolYear }),
@@ -224,6 +228,28 @@ it.each([true, false])(
           .getByRole("link", { name: en.academics.review })
           .getAttribute("href"),
       ).toBe("/my-account");
+    }
+  },
+);
+
+it.each([false, true])(
+  "labels requirements through every registration step (viewer=%s)",
+  (viewer) => {
+    render(wrap(viewer));
+    const assertLabels = () => {
+      for (const label of document.querySelectorAll("form label.label"))
+        expect(label.textContent).toMatch(/ (Required|Optional)$/);
+    };
+    assertLabels();
+    reachEmailCode(viewer);
+    assertLabels();
+    fill(viewer ? "obs-code" : "reg-emailcode", "FGHJK");
+    submit();
+    assertLabels();
+    if (!viewer) {
+      expect(screen.getByLabelText("First Name Required")).toBeTruthy();
+      for (const label of ["Last Name", "Alternative Name(s)", "Grade"])
+        expect(screen.getByLabelText(label + " Optional")).toBeTruthy();
     }
   },
 );

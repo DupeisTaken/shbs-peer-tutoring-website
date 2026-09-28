@@ -1978,15 +1978,15 @@
       "successTitle": "申请已收到 🎉",
       "successBody": "谢谢你，{name}。协调员会审核你的申请，并就你的辅导伙伴和时间安排与你联系。",
       "fields": {
-        "fullName": "姓名 *",
+        "fullName": "姓名",
         "gradeLevel": "年级",
         "email": "邮箱",
         "phone": "电话",
-        "preferredContact": "我们如何联系你？*",
-        "firstChoice": "科目 — 第一志愿 *",
-        "secondChoice": "科目 — 第二志愿（可选）",
-        "availability": "你的空闲时间段 *",
-        "signature": "电子签名 *（请输入你的全名）"
+        "preferredContact": "我们如何联系你？",
+        "firstChoice": "科目 — 第一志愿",
+        "secondChoice": "科目 — 第二志愿",
+        "availability": "你的空闲时间段",
+        "signature": "电子签名（请输入你的全名）"
       },
       "placeholders": {
         "gradeLevel": "例如 10",
@@ -2016,10 +2016,10 @@
       "successTitle": "申请已收到 🎉",
       "successBody": "谢谢你，{name}。协调团队会审核你的申请并安排面试。我们会通过 {email} 与你联系。",
       "fields": {
-        "fullName": "姓名 *",
-        "email": "联系邮箱 *",
-        "preferredContact": "我们如何联系你？*",
-        "courses": "你想辅导的科目（最多 3 门）*",
+        "fullName": "姓名",
+        "email": "联系邮箱",
+        "preferredContact": "我们如何联系你？",
+        "courses": "你想辅导的科目（最多 3 门）",
         "course": "科目",
         "grade": "所获成绩",
         "apScore": "AP 分数",
@@ -2079,8 +2079,8 @@
         "fullName": "姓名",
         "email": "邮箱",
         "grade": "年级",
-        "contact": "首选联系方式（可选）",
-        "message": "其他说明（可选）"
+        "contact": "首选联系方式",
+        "message": "其他说明"
       }
     },
     "viewerSignup": {
@@ -3108,7 +3108,7 @@
     "emptyHelp": "尝试其他关键词，或清除筛选以查看完整目录。"
   },
   "identityUsername": {
-    "preferredLatinName": "拉丁字母拼写（选填）",
+    "preferredLatinName": "拉丁字母拼写",
     "preferredLatinHelp": "如果您的姓名有常用的拉丁字母拼写，可填写于此，用于首次生成用户名。留空则使用中性的 member 用户名。已有用户名不会更改，您仍可使用邮箱登录。",
     "assign": "分配用户名",
     "assignTitle": "为 {name} 分配用户名",
