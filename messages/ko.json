@@ -1978,15 +1978,15 @@
       "successTitle": "신청 접수 완료 🎉",
       "successBody": "감사합니다, {name}님. 코디네이터가 요청을 검토하고 튜터 및 일정에 대해 연락드릴 것입니다.",
       "fields": {
-        "fullName": "전체 이름 *",
+        "fullName": "전체 이름",
         "gradeLevel": "학년",
         "email": "이메일",
         "phone": "전화번호",
-        "preferredContact": "연락 방법 *",
-        "firstChoice": "과목 — 1지망 *",
-        "secondChoice": "과목 — 2지망 (선택)",
-        "availability": "가능한 시간대 *",
-        "signature": "전자 서명 * (전체 이름 입력)"
+        "preferredContact": "연락 방법",
+        "firstChoice": "과목 — 1지망",
+        "secondChoice": "과목 — 2지망",
+        "availability": "가능한 시간대",
+        "signature": "전자 서명 (전체 이름 입력)"
       },
       "placeholders": {
         "gradeLevel": "예: 10",
@@ -2016,10 +2016,10 @@
       "successTitle": "지원 접수 완료 🎉",
       "successBody": "감사합니다, {name}님. 코디네이터 팀이 지원을 검토하고 면접을 진행할 것입니다. {email}로 연락드리겠습니다.",
       "fields": {
-        "fullName": "전체 이름 *",
-        "email": "연락처 이메일 *",
-        "preferredContact": "연락 방법 *",
-        "courses": "튜터링하고 싶은 과목 (최대 3개) *",
+        "fullName": "전체 이름",
+        "email": "연락처 이메일",
+        "preferredContact": "연락 방법",
+        "courses": "튜터링하고 싶은 과목 (최대 3개)",
         "course": "과목",
         "grade": "취득 학점",
         "apScore": "AP 점수",
@@ -2079,8 +2079,8 @@
         "fullName": "이름",
         "email": "이메일",
         "grade": "학년",
-        "contact": "선호 연락처 (선택)",
-        "message": "추가 사항 (선택)"
+        "contact": "선호 연락처",
+        "message": "추가 사항"
       }
     },
     "viewerSignup": {
@@ -3108,7 +3108,7 @@
     "emptyHelp": "검색어를 변경하거나 필터를 초기화하여 전체 목록을 확인하세요."
   },
   "identityUsername": {
-    "preferredLatinName": "Latin Spelling (Optional)",
+    "preferredLatinName": "Latin Spelling",
     "preferredLatinHelp": "If you use a Latin spelling of your name, enter it here for your first username. Otherwise we use a neutral member handle. Existing usernames stay unchanged; email sign-in remains available.",
     "assign": "Assign Username",
     "assignTitle": "Assign a Username to {name}",

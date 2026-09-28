@@ -1,5 +1,7 @@
 "use client";
 
+import { FieldRequirement } from "~/app/_components/field-requirement";
+
 import { useId } from "react";
 import { useTranslations } from "next-intl";
 import { hasLatinName } from "~/lib/username";
@@ -21,6 +23,7 @@ export function PreferredLatinName({
     <div className="space-y-1 sm:col-span-2">
       <label htmlFor={id} className="label">
         {t("preferredLatinName")}
+        <FieldRequirement state="optional" />
       </label>
       <input
         id={id}

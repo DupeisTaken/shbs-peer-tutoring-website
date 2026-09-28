@@ -17,7 +17,7 @@ it.each(["en", "zh"])(
       </NextIntlClientProvider>,
     );
     const input = screen.getByRole<HTMLInputElement>("textbox", {
-      name: messages.identityUsername.preferredLatinName,
+      name: `${messages.identityUsername.preferredLatinName} ${messages.signupFields.optional}`,
     });
     expect(input.required).toBe(false);
     expect(input.getAttribute("aria-describedby")).toBeTruthy();

@@ -1978,15 +1978,15 @@
       "successTitle": "Solicitud recibida 🎉",
       "successBody": "Gracias, {name}. Un coordinador revisará tu solicitud y se pondrá en contacto sobre tu tutor y tu horario.",
       "fields": {
-        "fullName": "Nombre completo *",
+        "fullName": "Nombre completo",
         "gradeLevel": "Grado",
         "email": "Correo",
         "phone": "Teléfono",
-        "preferredContact": "¿Cómo podemos contactarte? *",
-        "firstChoice": "Materia — primera opción *",
-        "secondChoice": "Materia — segunda opción (opcional)",
-        "availability": "Tus horarios disponibles *",
-        "signature": "Firma electrónica * (escribe tu nombre completo)"
+        "preferredContact": "¿Cómo podemos contactarte?",
+        "firstChoice": "Materia — primera opción",
+        "secondChoice": "Materia — segunda opción",
+        "availability": "Tus horarios disponibles",
+        "signature": "Firma electrónica (escribe tu nombre completo)"
       },
       "placeholders": {
         "gradeLevel": "p. ej. 10",
@@ -2016,10 +2016,10 @@
       "successTitle": "Solicitud recibida 🎉",
       "successBody": "Gracias, {name}. El equipo de coordinación revisará tu solicitud y organizará una entrevista. Te contactaremos en {email}.",
       "fields": {
-        "fullName": "Nombre completo *",
-        "email": "Correo de contacto *",
-        "preferredContact": "¿Cómo podemos contactarte? *",
-        "courses": "Materias que quieres tutorar (hasta 3) *",
+        "fullName": "Nombre completo",
+        "email": "Correo de contacto",
+        "preferredContact": "¿Cómo podemos contactarte?",
+        "courses": "Materias que quieres tutorar (hasta 3)",
         "course": "Materia",
         "grade": "Calificación obtenida",
         "apScore": "Puntaje AP",
@@ -2079,8 +2079,8 @@
         "fullName": "Nombre completo",
         "email": "Correo",
         "grade": "Nivel de grado",
-        "contact": "Contacto preferido (opcional)",
-        "message": "¿Algo más? (opcional)"
+        "contact": "Contacto preferido",
+        "message": "¿Algo más?"
       }
     },
     "viewerSignup": {
@@ -3108,7 +3108,7 @@
     "emptyHelp": "Prueba otra búsqueda o borra los filtros para ver todo el catálogo."
   },
   "identityUsername": {
-    "preferredLatinName": "Latin Spelling (Optional)",
+    "preferredLatinName": "Latin Spelling",
     "preferredLatinHelp": "If you use a Latin spelling of your name, enter it here for your first username. Otherwise we use a neutral member handle. Existing usernames stay unchanged; email sign-in remains available.",
     "assign": "Assign Username",
     "assignTitle": "Assign a Username to {name}",

@@ -1978,15 +1978,15 @@
       "successTitle": "Request Received 🎉",
       "successBody": "Thanks, {name}. A coordinator will review your request and be in touch about your tutor and schedule.",
       "fields": {
-        "fullName": "Full Name *",
+        "fullName": "Full Name",
         "gradeLevel": "Grade Level",
         "email": "Email",
         "phone": "Phone",
-        "preferredContact": "How can we reach you? *",
-        "firstChoice": "Subject — First Choice *",
-        "secondChoice": "Subject — Second Choice (Optional)",
-        "availability": "Your Available Time Slots *",
-        "signature": "Electronic Signature * (Type Your Full Name)"
+        "preferredContact": "How can we reach you?",
+        "firstChoice": "Subject — First Choice",
+        "secondChoice": "Subject — Second Choice",
+        "availability": "Your Available Time Slots",
+        "signature": "Electronic Signature (Type Your Full Name)"
       },
       "placeholders": {
         "gradeLevel": "e.g. 10",
@@ -2016,10 +2016,10 @@
       "successTitle": "Application Received 🎉",
       "successBody": "Thanks, {name}. The coordinator team will review your application and arrange an interview. We'll reach you at {email}.",
       "fields": {
-        "fullName": "Full Name *",
-        "email": "Contact Email *",
-        "preferredContact": "How can we reach you? *",
-        "courses": "Subjects you want to tutor (up to 3) *",
+        "fullName": "Full Name",
+        "email": "Contact Email",
+        "preferredContact": "How can we reach you?",
+        "courses": "Subjects you want to tutor (up to 3)",
         "course": "Subject",
         "grade": "Grade Earned",
         "apScore": "AP Score",
@@ -2079,8 +2079,8 @@
         "fullName": "Full name",
         "email": "Email",
         "grade": "Grade level",
-        "contact": "Preferred contact (optional)",
-        "message": "Anything else? (optional)"
+        "contact": "Preferred contact",
+        "message": "Anything else?"
       }
     },
     "viewerSignup": {
@@ -3108,7 +3108,7 @@
     "emptyHelp": "Try another search or clear the filters to see the full catalogue."
   },
   "identityUsername": {
-    "preferredLatinName": "Latin Spelling (Optional)",
+    "preferredLatinName": "Latin Spelling",
     "preferredLatinHelp": "If you use a Latin spelling of your name, enter it here for your first username. Otherwise we use a neutral member handle. Existing usernames stay unchanged; email sign-in remains available.",
     "assign": "Assign Username",
     "assignTitle": "Assign a Username to {name}",

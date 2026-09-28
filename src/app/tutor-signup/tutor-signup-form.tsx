@@ -1,5 +1,7 @@
 "use client";
 
+import { FieldRequirement } from "~/app/_components/field-requirement";
+
 import { useState } from "react";
 import Link from "next/link";
 import {
@@ -225,10 +227,10 @@ export function TutorSignupForm() {
                     <div className="flex flex-wrap items-end gap-2">
                       <label className="min-w-0 flex-1 space-y-1">
                         <span className="label">
-                          {t(`signupFields.labels.${subjectFieldKey(i)}`)}{" "}
-                          <span className="muted inline-block text-xs">
-                            {t(`signupFields.${fields[subjectFieldKey(i)]}`)}
-                          </span>
+                          {t(`signupFields.labels.${subjectFieldKey(i)}`)}
+                          <FieldRequirement
+                            state={fields[subjectFieldKey(i)]}
+                          />
                         </span>
                         <select
                           className="select field-auto min-h-11 max-w-full min-w-0 lg:min-h-10"
@@ -296,6 +298,7 @@ export function TutorSignupForm() {
                               >
                                 <span>
                                   {t(`public.tutorSignup.qual.${key}`)}
+                                  <FieldRequirement state={fields[key]} />
                                 </span>
                                 {fields[key] === "required" ? (
                                   <select
@@ -349,10 +352,8 @@ export function TutorSignupForm() {
                       (readOnly || row.taken) && (
                         <label className="block space-y-1">
                           <span className="label">
-                            {t("public.tutorSignup.fields.grade")}{" "}
-                            <span className="muted inline-block text-xs">
-                              {t(`signupFields.${fields.grade}`)}
-                            </span>
+                            {t("public.tutorSignup.fields.grade")}
+                            <FieldRequirement state={fields.grade} />
                           </span>
                           <input
                             className="input field-auto min-h-11 min-w-32 lg:min-h-10"
@@ -375,10 +376,8 @@ export function TutorSignupForm() {
                       (readOnly || row.hasApScore) && (
                         <label className="block space-y-1">
                           <span className="label">
-                            {t("public.tutorSignup.fields.apScore")}{" "}
-                            <span className="muted inline-block text-xs">
-                              {t(`signupFields.${fields.apScore}`)}
-                            </span>
+                            {t("public.tutorSignup.fields.apScore")}
+                            <FieldRequirement state={fields.apScore} />
                           </span>
                           <input
                             className="input field-auto min-h-11 min-w-32 lg:min-h-10"
@@ -400,10 +399,8 @@ export function TutorSignupForm() {
                       (readOnly || row.selfStudied) && (
                         <label className="block space-y-1">
                           <span className="label">
-                            {t("public.tutorSignup.fields.selfStudyNote")}{" "}
-                            <span className="muted inline-block text-xs">
-                              {t(`signupFields.${fields.selfStudyNote}`)}
-                            </span>
+                            {t("public.tutorSignup.fields.selfStudyNote")}
+                            <FieldRequirement state={fields.selfStudyNote} />
                           </span>
                           <textarea
                             className="textarea w-full"
@@ -442,6 +439,7 @@ export function TutorSignupForm() {
             <label className="space-y-1">
               <span className="label">
                 {t("public.tutorSignup.fields.fullName")}
+                <FieldRequirement state="required" />
               </span>
               <input
                 className="input min-h-11 lg:min-h-10"
@@ -453,6 +451,7 @@ export function TutorSignupForm() {
             <label className="space-y-1">
               <span className="label">
                 {t("public.tutorSignup.fields.email")}
+                <FieldRequirement state="required" />
               </span>
               <input
                 type="email"
@@ -470,10 +469,8 @@ export function TutorSignupForm() {
           {fields.preferredContact !== "hidden" && (
             <label className="space-y-1">
               <span className="label">
-                {t("signupFields.labels.preferredContact")}{" "}
-                <span className="muted inline-block text-xs">
-                  {t(`signupFields.${fields.preferredContact}`)}
-                </span>
+                {t("signupFields.labels.preferredContact")}
+                <FieldRequirement state={fields.preferredContact} />
               </span>
               <input
                 className="input min-h-11 lg:min-h-10"

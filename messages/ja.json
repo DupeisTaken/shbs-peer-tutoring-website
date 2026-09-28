@@ -1978,15 +1978,15 @@
       "successTitle": "申請を受け付けました 🎉",
       "successBody": "ありがとう、{name}。コーディネーターが申請を確認して、チューターとスケジュールについてご連絡します。",
       "fields": {
-        "fullName": "氏名 *",
+        "fullName": "氏名",
         "gradeLevel": "学年",
         "email": "メールアドレス",
         "phone": "電話番号",
-        "preferredContact": "連絡方法 *",
-        "firstChoice": "科目 — 第1希望 *",
-        "secondChoice": "科目 — 第2希望（任意）",
-        "availability": "空き時間 *",
-        "signature": "電子署名 *（氏名を入力）"
+        "preferredContact": "連絡方法",
+        "firstChoice": "科目 — 第1希望",
+        "secondChoice": "科目 — 第2希望",
+        "availability": "空き時間",
+        "signature": "電子署名（氏名を入力）"
       },
       "placeholders": {
         "gradeLevel": "例：10",
@@ -2016,10 +2016,10 @@
       "successTitle": "応募を受け付けました 🎉",
       "successBody": "ありがとう、{name}。コーディネーターチームが応募を審査して面接の日程を調整します。{email}にご連絡します。",
       "fields": {
-        "fullName": "氏名 *",
-        "email": "連絡先メールアドレス *",
-        "preferredContact": "連絡方法 *",
-        "courses": "指導したい科目（最大3つ） *",
+        "fullName": "氏名",
+        "email": "連絡先メールアドレス",
+        "preferredContact": "連絡方法",
+        "courses": "指導したい科目（最大3つ）",
         "course": "科目",
         "grade": "取得した成績",
         "apScore": "APスコア",
@@ -2079,8 +2079,8 @@
         "fullName": "氏名",
         "email": "メール",
         "grade": "学年",
-        "contact": "希望連絡先（任意）",
-        "message": "その他（任意）"
+        "contact": "希望連絡先",
+        "message": "その他"
       }
     },
     "viewerSignup": {
@@ -3108,7 +3108,7 @@
     "emptyHelp": "検索条件を変更するか、絞り込みを解除して全科目を表示してください。"
   },
   "identityUsername": {
-    "preferredLatinName": "Latin Spelling (Optional)",
+    "preferredLatinName": "Latin Spelling",
     "preferredLatinHelp": "If you use a Latin spelling of your name, enter it here for your first username. Otherwise we use a neutral member handle. Existing usernames stay unchanged; email sign-in remains available.",
     "assign": "Assign Username",
     "assignTitle": "Assign a Username to {name}",

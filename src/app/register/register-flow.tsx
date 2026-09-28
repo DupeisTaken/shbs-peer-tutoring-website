@@ -1,5 +1,7 @@
 "use client";
 
+import { FieldRequirement } from "~/app/_components/field-requirement";
+
 import { useState } from "react";
 import { AcademicError } from "~/app/_components/academic-error";
 import { PreferredLatinName } from "~/app/_components/preferred-latin-name";
@@ -106,6 +108,7 @@ export function RegisterFlow() {
         >
           <label className="label" htmlFor="reg-code">
             {t("auth.register.step.code.label")}
+            <FieldRequirement state="required" />
           </label>
           <input
             id="reg-code"
@@ -148,6 +151,7 @@ export function RegisterFlow() {
         >
           <label className="label" htmlFor="reg-email">
             {t("auth.register.step.email.label")}
+            <FieldRequirement state="required" />
           </label>
           <input
             id="reg-email"
@@ -190,6 +194,7 @@ export function RegisterFlow() {
           </p>
           <label className="label" htmlFor="reg-emailcode">
             {t("auth.register.step.email.codeLabel")}
+            <FieldRequirement state="required" />
           </label>
           <input
             id="reg-emailcode"
@@ -264,6 +269,7 @@ export function RegisterFlow() {
             <div>
               <label className="label" htmlFor="reg-first">
                 {t("auth.register.step.profile.firstName")}
+                <FieldRequirement state="required" />
               </label>
               <input
                 id="reg-first"
@@ -275,6 +281,7 @@ export function RegisterFlow() {
             <div>
               <label className="label" htmlFor="reg-last">
                 {t("auth.register.step.profile.lastName")}
+                <FieldRequirement state="optional" />
               </label>
               <input
                 id="reg-last"
@@ -293,6 +300,7 @@ export function RegisterFlow() {
           <div>
             <label className="label" htmlFor="reg-alt">
               {t("auth.register.step.profile.altNames")}
+              <FieldRequirement state="optional" />
             </label>
             <input
               id="reg-alt"
@@ -305,6 +313,7 @@ export function RegisterFlow() {
           <div>
             <label className="label" htmlFor="reg-grade">
               {t("auth.register.step.profile.grade")}
+              <FieldRequirement state="optional" />
             </label>
             <OfferedGradeSelect
               id="reg-grade"
@@ -323,6 +332,7 @@ export function RegisterFlow() {
           <div>
             <label className="label" htmlFor="reg-pass">
               {t("auth.register.step.profile.password")}
+              <FieldRequirement state="required" />
             </label>
             <input
               id="reg-pass"
@@ -338,6 +348,7 @@ export function RegisterFlow() {
           <div>
             <label className="label" htmlFor="reg-confirm">
               {t("auth.register.step.profile.confirm")}
+              <FieldRequirement state="required" />
             </label>
             <input
               id="reg-confirm"
