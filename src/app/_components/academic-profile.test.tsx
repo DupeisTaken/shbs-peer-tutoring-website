@@ -225,6 +225,49 @@ it("makes missing and not-applicable data explicit without a graduation guess", 
   expect(screen.queryByText(en.academics.needsConfirmation)).toBeNull();
 });
 
+it("shows and saves graduated as an academic choice without a future estimate", () => {
+  const save = vi.fn();
+  render(
+    wrap(
+      <AcademicForm
+        snapshot={{ academic, profileVersion: 3, currentSchoolYear: null }}
+        pending={false}
+        onSave={save}
+        onCancel={vi.fn()}
+      />,
+    ),
+  );
+  fireEvent.change(screen.getByLabelText(en.academics.status), {
+    target: { value: "GRADUATED" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: en.academics.confirm }));
+  expect(save).toHaveBeenCalledWith(
+    expect.objectContaining({
+      status: "GRADUATED",
+      gradeLevel: null,
+      schoolYear: null,
+      rawGrade: null,
+    }),
+  );
+  cleanup();
+  render(
+    wrap(
+      <AcademicDetails
+        academic={{
+          ...academic,
+          status: "GRADUATED",
+          gradeLevel: null,
+          schoolYear: null,
+          expectedGraduationYear: null,
+          needsConfirmation: false,
+        }}
+      />,
+    ),
+  );
+  expect(screen.getByText(en.academics.graduated)).toBeTruthy();
+  expect(screen.queryByText(en.academics.graduationUnknown)).toBeNull();
+});
+
 it("uses the program year and offered grades while preserving the draft's original version", () => {
   const save = vi.fn();
   const snapshot = {

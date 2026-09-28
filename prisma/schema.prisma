@@ -438,6 +438,8 @@ model Tutor {
   /// Reported grades never advance automatically. G12 graduation requires its confirmed reference
   /// year; academic estimates use that reference rather than the currently active term.
   gradeLevel  Int?
+  /// Provisional academic choice until a linked account owns the canonical profile.
+  academicallyGraduated Boolean @default(false)
   /// Provisional roster academic reference; account profile owns linked records.
   gradeSchoolYear String?
   gradeConfirmedAt DateTime?
@@ -628,6 +630,8 @@ model Tutee {
   /// Free-text "how can we reach you?" captured on the public signup form (required there).
   preferredContact String?
   gradeLevel  String?
+  /// Provisional academic choice until a linked account owns the canonical profile.
+  academicallyGraduated Boolean @default(false)
   notes       String?
   status      TuteeStatus @default(ACTIVE)
 
@@ -1885,6 +1889,7 @@ model AcademicProfile {
 enum AcademicStatus {
   REPORTED
   UNKNOWN
+  GRADUATED
   NOT_APPLICABLE
 }
 

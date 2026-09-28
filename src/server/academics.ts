@@ -34,20 +34,40 @@ export async function accountAcademics(db: DomainDb, userId: string) {
 /** Public edits use the active program year under the same lock as refresh. History/intake
  * imports retain their original year through confirmAccountAcademics instead. */
 export async function confirmCurrentAccountAcademics(
-  db: DomainDb, userId: string, input: z.infer<typeof currentAcademicInput>,
+  db: DomainDb,
+  userId: string,
+  input: z.infer<typeof currentAcademicInput>,
   options: { actorId: string; source: string },
 ) {
   return inTransaction(db, async (tx) => {
     await lockEntity(tx, "program:period");
-    const term = await tx.term.findFirst({ where: { active: true }, select: { schoolYear: true } });
+    const term = await tx.term.findFirst({
+      where: { active: true },
+      select: { schoolYear: true },
+    });
     if (input.status === "REPORTED" && !term)
-      throw new TRPCError({ code: "PRECONDITION_FAILED", message: "PROFILE_NO_CURRENT_YEAR" });
-    if (input.expectedSchoolYear !== undefined && input.expectedSchoolYear !== (term?.schoolYear ?? null))
-      throw new TRPCError({ code: "CONFLICT", message: "PROFILE_PROGRAM_YEAR_CHANGED" });
+      throw new TRPCError({
+        code: "PRECONDITION_FAILED",
+        message: "PROFILE_NO_CURRENT_YEAR",
+      });
+    if (
+      input.expectedSchoolYear !== undefined &&
+      input.expectedSchoolYear !== (term?.schoolYear ?? null)
+    )
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "PROFILE_PROGRAM_YEAR_CHANGED",
+      });
     await assertOfferedGrade(tx, input.gradeLevel);
-    return confirmAccountAcademics(tx, userId, {
-      ...input, schoolYear: input.status === "REPORTED" ? term!.schoolYear : null,
-    }, options);
+    return confirmAccountAcademics(
+      tx,
+      userId,
+      {
+        ...input,
+        schoolYear: input.status === "REPORTED" ? term!.schoolYear : null,
+      },
+      options,
+    );
   });
 }
 
@@ -68,7 +88,7 @@ export async function confirmAccountAcademics(
       status: parsed.status,
       gradeLevel: parsed.gradeLevel,
       rawGrade: parsed.rawGrade ?? null,
-      schoolYear: parsed.status === "NOT_APPLICABLE" ? null : parsed.schoolYear,
+      schoolYear: parsed.status === "REPORTED" ? parsed.schoolYear : null,
       confirmedAt: new Date(),
       reconfirmRequired: parsed.status === "UNKNOWN",
     };
@@ -99,9 +119,15 @@ export async function confirmAccountAcademics(
         where: { id: user.tutorId },
         data: {
           gradeLevel: data.gradeLevel,
+          academicallyGraduated: data.status === "GRADUATED",
           gradeSchoolYear: data.schoolYear,
           gradeConfirmedAt: data.confirmedAt,
         },
+      });
+    if (user.studentId)
+      await tx.tutee.update({
+        where: { id: user.studentId },
+        data: { academicallyGraduated: data.status === "GRADUATED" },
       });
     return { profileVersion: updated.profileVersion };
   });
@@ -144,6 +170,7 @@ export async function applyAcademicIntake(
       existing &&
       !confirmsLegacyGrade &&
       (existing.status === "NOT_APPLICABLE" ||
+        existing.status === "GRADUATED" ||
         existing.gradeLevel !== normalized.gradeLevel ||
         existing.schoolYear !== schoolYear)
     ) {
@@ -176,11 +203,12 @@ export async function applyAcademicIntake(
 /** Legacy data has no trustworthy reference year. Never turn migration time into confirmation. */
 export function legacyAcademic(
   raw: string | number | null | undefined,
+  graduated = false,
 ): AcademicRecord {
   const value = normalizeGrade(raw);
   return {
-    status: "UNKNOWN",
-    ...value,
+    status: graduated ? "GRADUATED" : "UNKNOWN",
+    ...(graduated ? { gradeLevel: null, rawGrade: null } : value),
     schoolYear: null,
     confirmedAt: null,
     reconfirmRequired: true,
@@ -219,9 +247,15 @@ export async function synchronizeAcademicMirrors(db: DomainDb, userId: string) {
         where: { id: user.tutorId },
         data: {
           gradeLevel: profile.gradeLevel,
+          academicallyGraduated: profile.status === "GRADUATED",
           gradeSchoolYear: profile.schoolYear,
           gradeConfirmedAt: profile.confirmedAt,
         },
+      });
+    if (user.studentId)
+      await tx.tutee.update({
+        where: { id: user.studentId },
+        data: { academicallyGraduated: profile.status === "GRADUATED" },
       });
   });
 }
@@ -238,11 +272,12 @@ export async function initializeAccountAcademics(db: DomainDb, userId: string) {
         tutor: {
           select: {
             gradeLevel: true,
+            academicallyGraduated: true,
             gradeSchoolYear: true,
             gradeConfirmedAt: true,
           },
         },
-        student: { select: { gradeLevel: true } },
+        student: { select: { gradeLevel: true, academicallyGraduated: true } },
       },
     });
     const profile = user.academicProfile;
@@ -265,8 +300,12 @@ export async function initializeAccountAcademics(db: DomainDb, userId: string) {
           (value.gradeLevel !== null ||
             value.rawGrade === normalized[0]?.rawGrade),
       );
+      const rosterGraduated =
+        (user.tutor?.academicallyGraduated ?? false) ||
+        (user.student?.academicallyGraduated ?? false);
       const legacy = legacyAcademic(
         consistent ? sources[0] : sources.join("; "),
+        rosterGraduated,
       );
       const confirmed =
         consistent &&
