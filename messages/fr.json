@@ -3125,6 +3125,8 @@
     "graduationUnknown": "Expected graduation: unavailable",
     "needsConfirmation": "Please Review and Reconfirm",
     "unknown": "Unknown / Other School System",
+    "rosterUnknown": "Niveau scolaire inconnu",
+    "rosterNeedsConfirmation": "Vérification et confirmation requises",
     "notApplicable": "Not Applicable",
     "reported": "School Grade (1–12)",
     "original": "Original report: {value}",
