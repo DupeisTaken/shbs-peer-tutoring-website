@@ -1,6 +1,6 @@
 # Signup protection verification
 
-Issue #181: 101 targeted unit, UI and PostgreSQL integration tests pass. TypeScript,
+Issue #181: 103 targeted unit, UI and PostgreSQL integration tests pass. TypeScript,
 changed-file ESLint and documentation checks pass. The HTTP rejection envelope was
 also checked with the application's streaming tRPC client.
 
@@ -13,4 +13,5 @@ horizontal overflow. Entered values remain present after rejection.
 - [Viewer mobile](signup-retry-zh-390.png)
 - [Tutee resend desktop](tutee-retry-en-1280.png)
 - [Tutee resend mobile](tutee-retry-zh-390.png)
+
 

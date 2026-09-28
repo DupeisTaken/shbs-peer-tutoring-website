@@ -160,7 +160,11 @@ export async function withSignupLease<T>(
   slots = 8,
 ): Promise<T> {
   const owner = randomUUID();
-  const leases = await db.$queryRaw<
+  // Serialize only allocation, never the protected work. Without this lock, two
+  // concurrent snapshots choose the same empty slot and reject despite spare capacity.
+  const leases = await db.$transaction(async (tx) => {
+    await tx.$executeRaw`SELECT pg_advisory_xact_lock(hashtextextended(${`signup-lease:${lane}`}, 0))`;
+    return tx.$queryRaw<
     { slot: string }[]
   >`INSERT INTO "SignupLease" ("slot", "owner", "expiresAt")
     SELECT ${lane} || ':' || n::text, ${owner}, NOW() + INTERVAL '120 seconds'
@@ -170,6 +174,7 @@ export async function withSignupLease<T>(
     ON CONFLICT ("slot") DO UPDATE SET "owner" = EXCLUDED."owner", "expiresAt" = EXCLUDED."expiresAt"
       WHERE "SignupLease"."expiresAt" <= NOW()
     RETURNING "slot"`;
+  }, { maxWait: 1000, timeout: 3000 });
   const slot = leases[0]?.slot;
   if (!slot) {
     signupMetric("busy");
