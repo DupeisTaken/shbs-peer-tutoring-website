@@ -11,6 +11,7 @@
  * Direct Mail"). Node runtime only.
  */
 import nodemailer from "nodemailer";
+import { Socket } from "node:net";
 
 import { env } from "~/env";
 import { APP_TITLE } from "~/lib/branding";
@@ -56,8 +57,9 @@ const globalForEmail = globalThis as unknown as {
   mailTransport?: ReturnType<typeof createTransport>;
 };
 
-function createTransport(pool: boolean) {
+function createTransport(pool: boolean, socket?: Socket) {
   const options = {
+    socket,
     host: env.SMTP_HOST,
     port: env.SMTP_PORT,
     // Aliyun: 465 = implicit TLS (SSL), 587/25/80 = STARTTLS. The login user is the sender address.
@@ -87,7 +89,9 @@ function transporter() {
 
 const aliyunSender: EmailSender = {
   async send(message) {
-    const transport = message.signup ? createTransport(false) : transporter();
+    // Hold the underlying socket: SMTPTransport.close() alone does not abort active delivery.
+    const socket = message.signup ? new Socket() : undefined;
+    const transport = message.signup ? createTransport(false, socket) : transporter();
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       const delivery = transport.sendMail({
@@ -103,6 +107,7 @@ const aliyunSender: EmailSender = {
           delivery,
           new Promise<never>((_, reject) => {
             timer = setTimeout(() => {
+              socket?.destroy();
               transport.close();
               reject(new Error("Signup SMTP deadline"));
             }, 30_000);
@@ -117,7 +122,7 @@ const aliyunSender: EmailSender = {
       throw err;
     } finally {
       clearTimeout(timer);
-      if (message.signup) transport.close();
+      if (message.signup) { socket?.destroy(); transport.close(); }
     }
   },
 };
