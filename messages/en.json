@@ -78,7 +78,11 @@
     "retry": "Retry",
     "willingChoice": "Willing to Tutor",
     "unwillingChoice": "Unwilling to Tutor",
-    "noQualifiedSubjects": "You do not have any qualified subjects yet. Request qualification in Subject Qualifications."
+    "noQualifiedSubjects": "You do not have any qualified subjects yet. Request qualification in Subject Qualifications.",
+    "qualifiedOnly": "Your qualified subjects",
+    "choiceHelp": "Choose what you would like to tutor right now.",
+    "scheduleSeparate": "Your timetable is arranged separately.",
+    "savesAutomatically": "Changes save automatically"
   },
   "messaging": {
     "privacyTitle": "Private Deliveries, with Staff Oversight",

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { ProfileDialog } from "~/app/_components/profile-dialog";
+import styles from "./subject-willingness.module.css";
 
 /** Keep subject intent discoverable beside qualifications, independent of timetable slots. */
 export function SubjectWillingness() {
@@ -23,21 +24,24 @@ export function SubjectWillingness() {
     setOpen(false);
   };
   return (
-    <section className="card flex flex-col items-start justify-between gap-4 p-4 sm:flex-row sm:items-center sm:p-5">
+    <section className={`card ${styles.entrance}`}>
       <div className="min-w-0 flex-1">
         <h2 className="section-title">{t("myTitle")}</h2>
-        <p className="muted mt-1">{t("myHelp")}</p>
+        <p className="muted mt-1 max-w-xl text-sm leading-relaxed">
+          {t("myHelp")}
+        </p>
       </div>
       <button
         ref={trigger}
         type="button"
-        className="btn-secondary min-h-11 whitespace-normal lg:min-h-10"
+        className="btn-secondary min-h-11 shrink-0 gap-3 whitespace-normal lg:min-h-10"
         onClick={() => setOpen(true)}
       >
         {t("editMine")}
+        <span aria-hidden="true">↗</span>
       </button>
       {open && (
-        <ProfileDialog title={t("myTitle")} onClose={close}>
+        <ProfileDialog title={t("myTitle")} onClose={close} size="wide">
           <WillingnessEditor />
         </ProfileDialog>
       )}
@@ -85,65 +89,70 @@ function WillingnessEditor() {
       ),
   );
   return (
-    <div className="space-y-4">
-      <p className="muted text-sm">{t("independent")}</p>
-      <p className="text-sm">
-        {t(query.data.canEdit ? "autoSave" : "readOnly")}
-      </p>
-      <label className="block">
-        <span className="label">{t("searchMine")}</span>
-        <input
-          className="input min-h-11 w-full lg:min-h-10"
-          value={search}
-          onChange={(event) => setSearch(event.target.value)}
-        />
-      </label>
+    <div className={styles.editor}>
+      <div className={styles.intro}>
+        <div>
+          <p className={styles.eyebrow}>{t("qualifiedOnly")}</p>
+          <p className={styles.description}>{t("choiceHelp")}</p>
+        </div>
+        <label className={styles.search}>
+          <span className="sr-only">{t("searchMine")}</span>
+          <svg
+            aria-hidden="true"
+            viewBox="0 0 24 24"
+            fill="none"
+            stroke="currentColor"
+            strokeWidth="1.5"
+          >
+            <circle cx="10.5" cy="10.5" r="6.5" />
+            <path d="m16 16 4 4" />
+          </svg>
+          <input
+            className="input min-h-11 w-full lg:min-h-10"
+            placeholder={t("searchMine")}
+            value={search}
+            onChange={(event) => setSearch(event.target.value)}
+          />
+        </label>
+      </div>
+      {!query.data.canEdit && (
+        <p className={styles.description}>{t("readOnly")}</p>
+      )}
       {save.error && (
         <p role="alert" className="text-sm text-red-700">
           {save.error.message}
         </p>
       )}
-      <p role="status" className="text-sm text-green-700">
-        {save.isPending ? t("saving") : save.isSuccess ? workflow("saved") : ""}
-      </p>
-      {rows.map((row) => (
-        <article
-          key={row.id}
-          aria-label={row.name}
-          className="grid gap-3 rounded-lg border border-slate-200 p-4 sm:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]"
-        >
-          <div className="min-w-0">
-            <p className="muted text-xs">
-              {row.group?.name ?? t("ungrouped")}
-              {row.level ? ` · ${row.level.name}` : ""}
-            </p>
-            <h3 className="mt-1 font-semibold [overflow-wrap:anywhere]">
-              {row.name}
-            </h3>
-            <span
-              className={`${row.qualified ? "badge-green" : "badge-slate"} mt-2`}
+      <div className={styles.list}>
+        {rows.map((row) => (
+          <article key={row.id} aria-label={row.name} className={styles.row}>
+            <div className="min-w-0">
+              <h3 className={styles.subjectName}>{row.name}</h3>
+              <p className={styles.metadata}>
+                {row.group?.name ?? t("ungrouped")}
+                {row.level ? ` · ${row.level.name}` : ""}
+              </p>
+              {row.willing === null && (
+                <span className={styles.unrecorded}>{t("notRecorded")}</span>
+              )}
+              {!row.active && (
+                <span className="badge-slate mt-2 ml-2">
+                  {t("inactiveSubject")}
+                </span>
+              )}
+            </div>
+            <div
+              role="group"
+              aria-label={t("willingnessFor", { subject: row.name })}
+              className={styles.choices}
             >
-              {t(row.qualified ? "qualified" : "notQualified")}
-            </span>
-            {!row.active && (
-              <span className="badge-slate mt-2 ml-2">
-                {t("inactiveSubject")}
-              </span>
-            )}
-          </div>
-          <div
-            role="group"
-            aria-label={t("willingnessFor", { subject: row.name })}
-          >
-            <p className="label">{t("willingness")}</p>
-            <div className="grid grid-cols-2 gap-2">
               {/* Unknown intent selects neither button. A repeated choice never clears a saved answer. */}
               {[true, false].map((willing) => (
                 <button
                   key={String(willing)}
                   type="button"
                   aria-pressed={row.willing === willing}
-                  className={`${row.willing === willing ? "btn-primary" : "btn-secondary"} btn-sm min-h-11 whitespace-normal lg:min-h-10`}
+                  className={styles.choice}
                   disabled={
                     !query.data.canEdit ||
                     save.isPending ||
@@ -154,25 +163,51 @@ function WillingnessEditor() {
                       save.mutate({ subjectId: row.id, willing });
                   }}
                 >
-                  {t(willing ? "willingChoice" : "unwillingChoice")}
+                  <span className={styles.indicator} aria-hidden="true">
+                    {row.willing === willing && (
+                      <svg
+                        viewBox="0 0 16 16"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                      >
+                        <path d="m4 8 2.5 2.5L12 5" />
+                      </svg>
+                    )}
+                  </span>
+                  <span className={styles.choiceLabel}>
+                    {t(willing ? "willingChoice" : "unwillingChoice")}
+                  </span>
                 </button>
               ))}
             </div>
-            {row.willing === null && (
-              <p className="muted mt-2 text-xs">{t("notRecorded")}</p>
+          </article>
+        ))}
+        {rows.length === 0 && (
+          <p className="muted">
+            {t(
+              query.data.rows.some((row) => row.qualified)
+                ? "noMatchingSubjects"
+                : "noQualifiedSubjects",
             )}
-          </div>
-        </article>
-      ))}
-      {rows.length === 0 && (
-        <p className="muted">
-          {t(
-            query.data.rows.some((row) => row.qualified)
-              ? "noMatchingSubjects"
-              : "noQualifiedSubjects",
-          )}
+          </p>
+        )}
+      </div>
+      <div className={styles.footer}>
+        <p>{t("scheduleSeparate")}</p>
+        {/* A permanent status slot prevents rows moving when a save starts or completes. */}
+        <p role="status" className={styles.saveStatus}>
+          {save.isPending
+            ? t("saving")
+            : save.error
+              ? ""
+              : save.isSuccess
+                ? workflow("saved")
+                : query.data.canEdit
+                  ? t("savesAutomatically")
+                  : ""}
         </p>
-      )}
+      </div>
     </div>
   );
 }

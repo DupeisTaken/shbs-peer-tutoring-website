@@ -78,7 +78,11 @@
     "retry": "重试",
     "willingChoice": "愿意辅导",
     "unwillingChoice": "不愿意辅导",
-    "noQualifiedSubjects": "你目前还没有已获批资格的科目。请在“科目资格”中申请资格。"
+    "noQualifiedSubjects": "你目前还没有已获批资格的科目。请在“科目资格”中申请资格。",
+    "qualifiedOnly": "已获批的科目",
+    "choiceHelp": "选择你目前愿意辅导的科目。",
+    "scheduleSeparate": "时间安排需另行确认。",
+    "savesAutomatically": "更改自动保存"
   },
   "messaging": {
     "privacyTitle": "独立私信，接受管理监督",

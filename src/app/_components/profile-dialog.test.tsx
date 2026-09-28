@@ -35,7 +35,7 @@ it("wraps first/last enabled controls without interfering with intermediate typi
   const onClose = vi.fn();
   render(
     <NextIntlClientProvider locale="en" messages={en}>
-      <ProfileDialog title="Details" onClose={onClose}>
+      <ProfileDialog title="Details" onClose={onClose} size="wide">
         <button disabled>Unavailable</button>
         <button>Retry</button>
       </ProfileDialog>
