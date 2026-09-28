@@ -2359,6 +2359,7 @@
     "signature": "请输入您的全名",
     "accept": "接受此版本政策",
     "accepted": "您已接受当前政策。",
+    "acceptedWithPolicy": "您已接受<policy>当前政策</policy>。",
     "loading": "正在加载…",
     "empty": "暂无内容。",
     "attendance": "我的出勤",

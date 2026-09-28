@@ -2359,6 +2359,7 @@
     "signature": "Type Your Full Name",
     "accept": "Accept This Policy Version",
     "accepted": "You have accepted the current policy.",
+    "acceptedWithPolicy": "You have accepted the <policy>current policy</policy>.",
     "loading": "Loading…",
     "empty": "Nothing here yet.",
     "attendance": "My Attendance",

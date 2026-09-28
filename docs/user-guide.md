@@ -332,6 +332,8 @@ Disabling notifications at program level preserves preferences and cancels queue
 
 ## Renewed policy acceptance
 
+On the tutor dashboard, select **current policy** in the accepted-policy message to reopen the latest published policy in a read-only popup. It refreshes on every opening and displays your selected translation, falling back to English. Close it with the close button, Escape, or the backdrop. Viewing does not record acceptance; a newly published revision still requires the usual consent flow.
+
 For both tutor and tutee policies, scroll to the bottom inside the policy text box before checking the agreement. The checkbox is disabled and its label stays gray until you reach the end; it never checks itself. You can scroll using a mouse, touch, or the keyboard after focusing the policy box. A short policy that is fully visible unlocks immediately. Scrolling back up keeps agreement available during that review. Retry, reopening the popup, or switching to another policy revision or translation starts a fresh review.
 
 When a published policy applicable to your linked student or tutor profile changes, a popup opens on your next visit or window focus. Accounts with both profiles review each applicable policy. Read the text in your selected language (or English when unavailable), check the agreement and complete the ten-second confirmation. Use **Retry** if loading or acceptance fails. You may cancel the popup to access messages, account details, personal history, feedback and appeals; new participation still requires current acceptance on the server. The reminder lets you reopen the popup. Already accepted revisions and unpublished proposals do not require renewed consent. Policy editing and publication remain under **Policy Documents**.
