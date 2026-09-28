@@ -123,7 +123,63 @@ HEAD and ADMIN can apply additions and deletions. Coordinator writes become appr
 
 Open **Reports** (`/admin/history`) and choose a school year and quarter, semester or whole-year scope. **Summary** shows totals and tutors; **Detailed** adds sessions, cards, meetings, meeting attendance, adjustments, crew and attendance flags; **Full** also includes applications, signups, removals and tutor participation requests. Sections follow enabled modules.
 
-Download a displayed table as CSV, or use **Print / Save as PDF** and the browser's print dialog. Review the private-data masking option before sharing; VIEWER responses are always masked by the server. Exports reflect the chosen scope and current records. They are not backups or substitutes for the separate audit and policy-acceptance histories.
+HEAD can download a displayed table as CSV. Use **Print / Save as PDF** and the browser's print dialog for a printable report. Review the private-data masking option before sharing; VIEWER responses are always masked by the server. Report exports reflect the chosen scope and current records. They are not database backups and do not use the import format below.
+
+## Import and export program records
+
+Only **HEAD** can open **Program records** (`/admin/records`), download CSV archives/templates, preview an import or commit it. ADMIN and COORDINATOR cannot submit imports for approval. Access is checked against the current database role, including after a demotion or suspension.
+
+**Export CSV archive** downloads one ZIP containing a CSV for every supported record type plus `README.txt`. **Download CSV templates** supplies the same headers without data. Use these templates for past records from spreadsheets: rename/map the source columns to the template columns, keep the filenames, and provide stable IDs for each record and its references. An export includes all available program periods, independent of the Reports page filters.
+
+| Included records | CSV families |
+| --- | --- |
+| People and reference data | Tutor, Tutee, User account references, Term, SubjectLevel, CourseGroup, Subject, Room, TimeSlot, SchoolCalendarDay |
+| Scheduling | RoomUnavailability, TutorAvailability, TuteeAvailability, TutorSubjectWillingness, Pairing, PairingTutee |
+| Attendance and hours | Session, SessionTutee, TutorMeeting, MeetingAttendance, ServiceHourAdjustment, Patrol, PatrolObservation, SessionFlag |
+| Applications and membership history | TutorApplication, ApplicationSubjectIntent, InterviewAssignment, InterviewVote, TutorStatusRequest, TuteeRemovalRequest, CrewApplication, CrewStatusRequest |
+| Student and academic history | StudentSurvey, StudentRequestReview, StudentQuarterBlock, StudentProfileOwnership, PolicyAcceptance, StudentFeedback, StudentAppeal, TutorQualification, QualificationGrant, AcademicProfile, AcademicConfirmation |
+| Announcements | Announcement, AnnouncementAck |
+
+This is a program-record archive, not a full deployment backup. It excludes account passwords, roles and access settings; verification/registration/reset tokens; private messages; executable approval and audit payloads; live program configuration; website content; and uploaded files. `User.csv` contains reference IDs, names and emails only. Its accounts must already exist with matching values; importing never creates logins or changes account privileges. New tutor handles cannot collide with account handles, and account-owned email addresses must be reconciled through account management first. Existing users retain their own account-to-tutor links; the archive does not create those links by matching names or email addresses. Student ownership rows use explicit IDs and cannot claim a profile linked to another account. Imported survey verification hashes are newly randomized, so an old verification link cannot become usable again.
+
+### Prepare CSV files
+
+- Use UTF-8, unchanged case-sensitive filenames such as `Tutor.csv`, and exact column names from the templates. Quoted commas, quotes and multiline text are supported.
+- Provide each primary key, including all columns of a composite key. Keep IDs unchanged on retries. Omit columns with defaults to use those defaults; otherwise supply every required column. Do not leave a required timestamp or number empty.
+- Use `true`/`false`, numeric quantities, enum values from the application's schema, and ISO timestamps with `Z` or a timezone offset. Use JSON inside a quoted cell for arrays and objects.
+- `\N` means a database null. An empty cell means empty text. Double a literal leading backslash or apostrophe. Exports prefix formula-like text with an apostrophe for spreadsheet safety; the importer reverses that prefix.
+- New terms must have `active=false`. New pairings and sessions must belong to inactive terms. Importing history never changes the active program period. Stored historical service hours are retained, rather than recalculated with a later policy.
+- Select related CSV files together; the importer orders them by dependency. References must point to another selected record or an existing database record. A transfer supports up to **5 MiB of expanded CSV data and 5,000 records**. For larger complete exports, use an operator-managed database backup.
+
+For example, import these three files together to add an archived tutor and pairing. IDs are synthetic; replace them with your own stable identifiers. The tutor record does not create a login.
+
+`Tutor.csv`:
+
+```csv
+id,englishName,status
+legacy-tutor-001,Example Tutor,GRADUATED
+```
+
+`Term.csv`:
+
+```csv
+id,schoolYear,quarter,name,active
+legacy-term-001,24-25,Q1,24-25 Q1,false
+```
+
+`Pairing.csv`:
+
+```csv
+id,tutorId,termId,subject,dayOfWeek,startMin,endMin
+legacy-pairing-001,legacy-tutor-001,legacy-term-001,Mathematics,2,600,630
+```
+
+### Preview and import
+
+1. Select the CSV files together or select an exported ZIP, then choose **Preview import**.
+2. Review the counts of new and already-present records. Preview saves no records. An invalid row reports its filename and CSV row number; correct it and select the files again.
+3. Check the confirmation box and choose **Import records**. Confirmation authorizes exactly the previewed files for 15 minutes. Changing files clears the preview.
+4. Check the success message and Audit Log. All new records and import evidence commit together. A failed import leaves no partial records. A network retry with the same IDs and values skips existing records; a conflicting ID or unique value rejects the whole batch. If records changed after preview, correct the conflict and preview again.
 
 ## Program Time Zone
 

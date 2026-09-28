@@ -3183,5 +3183,31 @@
     "previousGrade": "Previous grade: {grade} (not currently offered)",
     "loadFailed": "Unable to load name and grade settings. Please try again.",
     "retry": "Retry Loading Settings"
+  },
+  "recordTransfer": {
+    "title": "プログラム記録",
+    "subtitle": "過去のプログラム記録をまとめたり、完全なCSVアーカイブをダウンロードしたりできます。",
+    "headOnly": "HEAD専用",
+    "exportTitle": "プログラム記録をエクスポート",
+    "exportHelp": "記録の種類ごとにCSVを含むZIPをダウンロードします。固定IDにより関連付けを維持します。テンプレートには列名と形式の説明が含まれます。",
+    "exportButton": "CSVアーカイブをエクスポート",
+    "templates": "CSVテンプレートをダウンロード",
+    "importTitle": "過去の記録をインポート",
+    "importHelp": "CSVをまとめて選択するか、エクスポート済みのZIPをアップロードしてください。プレビューで各行とデータベースの参照を確認します。既存の記録は上書きされません。",
+    "select": "CSVファイルまたはZIPアーカイブ",
+    "limits": "1回の転送につきCSVデータは5 MiB、記録は5,000件までです。",
+    "selected": "{count, plural, other {CSVファイルを#件選択}}",
+    "preview": "インポートをプレビュー",
+    "previewTitle": "プレビュー — 変更は保存されていません",
+    "recordType": "記録の種類",
+    "new": "新規記録",
+    "skipped": "既存の記録",
+    "confirm": "これらの記録とIDを確認しました。新しい記録をデータベースにインポートします。",
+    "importButton": "記録をインポート",
+    "complete": "インポート完了",
+    "success": "記録を保存しました。インポートは監査ログに記録されています。",
+    "working": "処理中…",
+    "readError": "このファイルを読み取れませんでした。",
+    "scope": "参加者、期間、科目、ペアリング、対応可能時間、出席、活動時間、応募、面接、巡回、懲戒、申請、学業履歴、ポリシー同意履歴、お知らせを含みます。新しい期間は非アクティブである必要があります。インポートするペアリングとセッションは非アクティブな期間に属している必要があります。参照先のアカウントは既存のものに限ります。認証情報、アカウントの役割、私信、実行可能な承認、ウェブサイトのコンテンツ、設定、アップロードされたファイルは対象外です。"
   }
 }

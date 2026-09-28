@@ -3183,5 +3183,31 @@
     "previousGrade": "Previous grade: {grade} (not currently offered)",
     "loadFailed": "Unable to load name and grade settings. Please try again.",
     "retry": "Retry Loading Settings"
+  },
+  "recordTransfer": {
+    "title": "Registros del programa",
+    "subtitle": "Importa registros históricos o descarga un archivo CSV completo.",
+    "headOnly": "Solo HEAD",
+    "exportTitle": "Exportar registros",
+    "exportHelp": "Descarga un ZIP con un CSV por tipo de registro e identificadores estables. Las plantillas incluyen encabezados e instrucciones.",
+    "exportButton": "Exportar archivo CSV",
+    "templates": "Descargar plantillas CSV",
+    "importTitle": "Importar registros históricos",
+    "importHelp": "Selecciona los CSV juntos o carga un ZIP exportado. La vista previa comprueba cada fila y sus referencias. No se sobrescriben registros existentes.",
+    "select": "Archivos CSV o un archivo ZIP",
+    "limits": "Hasta 5 MiB de datos CSV y 5.000 registros por transferencia.",
+    "selected": "{count, plural, one {# archivo CSV seleccionado} other {# archivos CSV seleccionados}}",
+    "preview": "Revisar importación",
+    "previewTitle": "Vista previa — sin cambios guardados",
+    "recordType": "Tipo de registro",
+    "new": "Registros nuevos",
+    "skipped": "Ya existentes",
+    "confirm": "He revisado los registros y sus identificadores. Importar los nuevos registros a la base de datos.",
+    "importButton": "Importar registros",
+    "complete": "Importación completada",
+    "success": "Registros guardados. La importación consta en el registro de auditoría.",
+    "working": "Procesando…",
+    "readError": "No se pudo leer el archivo.",
+    "scope": "Incluye participantes, períodos, asignaturas, emparejamientos, disponibilidad, asistencia, horas, solicitudes, entrevistas, patrullas, disciplina, historial académico, aceptación de políticas y anuncios. Los períodos nuevos deben estar inactivos; los emparejamientos y sesiones importados deben pertenecer a períodos inactivos. Las cuentas referenciadas deben existir. Se excluyen credenciales, roles, mensajes privados, aprobaciones ejecutables, contenido web, configuración y archivos adjuntos."
   }
 }

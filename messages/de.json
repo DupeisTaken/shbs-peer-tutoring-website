@@ -3183,5 +3183,31 @@
     "previousGrade": "Previous grade: {grade} (not currently offered)",
     "loadFailed": "Unable to load name and grade settings. Please try again.",
     "retry": "Retry Loading Settings"
+  },
+  "recordTransfer": {
+    "title": "Programmdaten",
+    "subtitle": "Vergangene Programmdaten zusammenführen oder ein vollständiges CSV-Archiv herunterladen.",
+    "headOnly": "Nur HEAD",
+    "exportTitle": "Programmdaten exportieren",
+    "exportHelp": "Eine ZIP-Datei mit einer CSV-Datei pro Datentyp herunterladen. Stabile IDs erhalten die Verknüpfungen. Vorlagen enthalten Spaltenüberschriften und Formathinweise.",
+    "exportButton": "CSV-Archiv exportieren",
+    "templates": "CSV-Vorlagen herunterladen",
+    "importTitle": "Vergangene Daten importieren",
+    "importHelp": "Die CSV-Dateien gemeinsam auswählen oder eine exportierte ZIP-Datei hochladen. Die Vorschau prüft jede Zeile und jeden Datenbankverweis. Vorhandene Datensätze werden niemals überschrieben.",
+    "select": "CSV-Dateien oder ZIP-Archiv",
+    "limits": "Bis zu 5 MiB CSV-Daten und 5.000 Datensätze pro Übertragung.",
+    "selected": "{count, plural, one {# CSV-Datei ausgewählt} other {# CSV-Dateien ausgewählt}}",
+    "preview": "Importvorschau",
+    "previewTitle": "Vorschau — keine Änderungen gespeichert",
+    "recordType": "Datentyp",
+    "new": "Neue Datensätze",
+    "skipped": "Bereits vorhanden",
+    "confirm": "Ich habe diese Datensätze und ihre IDs geprüft. Die neuen Datensätze in die Datenbank importieren.",
+    "importButton": "Datensätze importieren",
+    "complete": "Import abgeschlossen",
+    "success": "Die Datensätze wurden gespeichert. Der Import ist im Auditprotokoll erfasst.",
+    "working": "Wird verarbeitet…",
+    "readError": "Diese Datei konnte nicht gelesen werden.",
+    "scope": "Umfasst Teilnehmende, Zeiträume, Fächer, Zuordnungen, Verfügbarkeit, Anwesenheit, Stunden, Bewerbungen, Interviews, Aufsichten, Disziplinarmaßnahmen, Anträge, akademische Daten, Richtlinienzustimmungen und Ankündigungen. Neue Zeiträume müssen inaktiv sein; importierte Zuordnungen und Sitzungen müssen zu inaktiven Zeiträumen gehören. Referenzierte Konten müssen bereits existieren. Zugangsdaten, Kontorollen, private Nachrichten, ausführbare Genehmigungen, Website-Inhalte, Konfiguration und hochgeladene Dateien sind ausgeschlossen."
   }
 }

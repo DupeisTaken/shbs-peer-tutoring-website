@@ -2,6 +2,7 @@
  * Account privileges, program configuration and irreversible file deletion are never proposals.
  * program.setEmailNotifications and program.setSecondaryEmailBinding require ADMIN/HEAD directly. */
 // program.setSignupField is a direct Head-only setting; it cannot be proposed or replayed.
+// recordTransfer.* requires HEAD directly. Imports/exports cannot be proposed or replayed.
 /** These operations assign or restore account capabilities. Only Head can apply/review them.
  * qualificationApplication.decide deliberately uses adminOnlyProcedure instead: subject grants
  * do not change account badges and coordinators cannot submit/replay these decisions. */

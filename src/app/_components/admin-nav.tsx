@@ -16,6 +16,7 @@ export type NavItem = {
   exact?: boolean;
   /** Admin tier only (ADMIN or HEAD). */
   adminOnly?: boolean;
+  headOnly?: boolean;
   /** Elevated (HEAD/ADMIN/COORDINATOR) — hidden from the read-only VIEWER. */
   elevatedOnly?: boolean;
   /** Hidden when this optional module is switched off (see /admin/program). */
@@ -41,6 +42,7 @@ export const NAV_SECTIONS: { titleKey: string; items: NavItem[] }[] = [
         adminOnly: true,
       },
       { href: "/admin/history", labelKey: "admin.nav.links.reports" },
+      { href: "/admin/records", labelKey: "recordTransfer.title", headOnly: true },
       {
         href: "/admin/announcements",
         labelKey: "admin.nav.links.announcements",
@@ -179,6 +181,7 @@ function makeVisible(role: string, features: Features, canTranslate: boolean) {
   return (item: NavItem) =>
     (item.href !== "/localization" || canTranslate || isElevated) &&
     (!item.adminOnly || isAdminTier) &&
+    (!item.headOnly || role === "HEAD") &&
     (!item.elevatedOnly || isElevated) &&
     (!item.feature || features[item.feature]);
 }

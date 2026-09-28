@@ -3183,5 +3183,31 @@
     "previousGrade": "Previous grade: {grade} (not currently offered)",
     "loadFailed": "Unable to load name and grade settings. Please try again.",
     "retry": "Retry Loading Settings"
+  },
+  "recordTransfer": {
+    "title": "Données du programme",
+    "subtitle": "Regroupez les données historiques du programme ou téléchargez une archive CSV complète.",
+    "headOnly": "HEAD uniquement",
+    "exportTitle": "Exporter les données du programme",
+    "exportHelp": "Téléchargez un ZIP contenant un CSV par type de données, avec des identifiants stables pour préserver les relations. Les modèles incluent les en-têtes et les consignes de format.",
+    "exportButton": "Exporter une archive CSV",
+    "templates": "Télécharger les modèles CSV",
+    "importTitle": "Importer des données historiques",
+    "importHelp": "Sélectionnez les CSV ensemble ou téléversez un ZIP exporté. L’aperçu vérifie chaque ligne et chaque référence à la base de données. Les données existantes ne sont jamais écrasées.",
+    "select": "Fichiers CSV ou archive ZIP",
+    "limits": "Au maximum 5 Mio de données CSV et 5 000 enregistrements par transfert.",
+    "selected": "{count, plural, one {# fichier CSV sélectionné} other {# fichiers CSV sélectionnés}}",
+    "preview": "Prévisualiser l’importation",
+    "previewTitle": "Aperçu — aucune modification enregistrée",
+    "recordType": "Type de données",
+    "new": "Nouveaux enregistrements",
+    "skipped": "Déjà présents",
+    "confirm": "J’ai vérifié ces données et leurs identifiants. Importer les nouveaux enregistrements dans la base de données.",
+    "importButton": "Importer les données",
+    "complete": "Importation terminée",
+    "success": "Les données ont été enregistrées. L’importation figure dans le journal d’audit.",
+    "working": "Traitement en cours…",
+    "readError": "Impossible de lire ce fichier.",
+    "scope": "Inclut les participants, périodes, matières, binômes, disponibilités, présences, heures, candidatures, entretiens, rondes, mesures disciplinaires, demandes, historiques scolaires et d’acceptation des règles, ainsi que les annonces. Les nouvelles périodes doivent être inactives ; les binômes et séances importés doivent appartenir à des périodes inactives. Les comptes référencés doivent déjà exister. Les identifiants de connexion, rôles des comptes, messages privés, approbations exécutables, contenus du site, configurations et fichiers téléversés sont exclus."
   }
 }

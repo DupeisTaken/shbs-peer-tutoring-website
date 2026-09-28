@@ -3183,5 +3183,31 @@
     "previousGrade": "Previous grade: {grade} (not currently offered)",
     "loadFailed": "Unable to load name and grade settings. Please try again.",
     "retry": "Retry Loading Settings"
+  },
+  "recordTransfer": {
+    "title": "Program Records",
+    "subtitle": "Bring past program records into one place, or download a complete CSV archive.",
+    "headOnly": "HEAD only",
+    "exportTitle": "Export Program Records",
+    "exportHelp": "Download one ZIP containing a CSV for each record type, with stable IDs to preserve relationships. Templates include column headers and format instructions.",
+    "exportButton": "Export CSV archive",
+    "templates": "Download CSV templates",
+    "importTitle": "Import Past Records",
+    "importHelp": "Select the CSVs together, or upload an exported ZIP. Preview checks every row and database reference. Existing records are never overwritten.",
+    "select": "CSV files or a ZIP archive",
+    "limits": "Up to 5 MiB of CSV data and 5,000 records per transfer.",
+    "selected": "{count, plural, one {# CSV file selected} other {# CSV files selected}}",
+    "preview": "Preview import",
+    "previewTitle": "Preview — No Changes Saved",
+    "recordType": "Record type",
+    "new": "New records",
+    "skipped": "Already present",
+    "confirm": "I have reviewed these records and their IDs. Import the new records into the database.",
+    "importButton": "Import records",
+    "complete": "Import complete",
+    "success": "Records saved successfully. The import is recorded in the audit log.",
+    "working": "Working…",
+    "readError": "Could not read this file.",
+    "scope": "Includes participants, terms, subjects, pairings, availability, attendance, hours, applications, interviews, patrols, discipline, requests, academic and policy-acceptance history, and announcements. New terms must be inactive; imported pairings and sessions must belong to inactive terms. Account references must already exist. Credentials, account roles, private messages, executable approvals, website content, configuration and uploaded files are excluded."
   }
 }

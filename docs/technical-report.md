@@ -314,6 +314,8 @@ migration regression runs inside a rollback-only PostgreSQL schema in the allowl
 local test database.
 ## Serializable username allocation
 
+Program-record transfer uses the same username namespace fence before importing Tutor rows. See [CSV archive internals](#csv-archive-internals) for its transaction and permission boundaries.
+
 The namespace lock also updates the singleton `UsernameNamespaceGuard` row. Advisory locking
 alone cannot refresh a snapshot already established by a Serializable approval transaction:
 a later User allocation could otherwise be invisible when that snapshot creates a Tutor (and
@@ -328,3 +330,15 @@ Generic commit failures and callbacks that fail after external work are not auto
 SMTP delivery remains after the committed approval result. Tests reproduce the former ambiguity
 in both cross-table directions and exercise a real blocked approval replay, bounded retries and
 non-retryable failures.
+
+## CSV archive internals
+
+`src/server/api/routers/record-transfer.ts` exposes HEAD-only export, preview and import procedures. Each rechecks and locks the active account within its transaction; a stale HEAD session cannot authorize a transfer. These procedures are deliberately absent from coordinator approval operations. Export uses a Repeatable Read snapshot and writes export audit evidence. Preview and import use Serializable transactions plus the shared import advisory lock. Tutor files acquire the username namespace fence before the account lock.
+
+`src/server/record-transfer.ts` declares the domain-table allowlist in dependency order. PostgreSQL metadata supplies column types, nullability, defaults, enums and primary keys. Only allowlisted tables and validated column names enter SQL identifiers; cell values use bound JSON parameters through `jsonb_populate_record`. New columns require security review: User remains restricted to ID/name/email, and survey token hashes remain excluded. `User.csv` validates existing accounts without writing them. Scalar ownership and other live references receive explicit checks in addition to database foreign keys; historical actor snapshots can survive account deletion.
+
+Preview runs the same validation/insertion code and deliberately rolls back the transaction. This exercises actual unique and referential constraints without retained writes, notifications or emails. A 15-minute HMAC ticket binds the exact uploaded files to the actor. Import verifies the ticket and revalidates against the current database. Exact primary-key matches are skipped only when all supplied values match; conflicting rows abort the transaction. The import audit entry commits with the data. These three operations bypass the generic post-mutation audit hook because export/import already write transactional evidence and preview must remain a dry run. Imported survey tokens are random hashes with no issued plaintext link.
+
+`src/lib/record-transfer.ts` defines strict CSV parsing and reversible, formula-safe encoding; `record-transfer-archive.ts` checks ZIP names and expanded sizes before extraction. `src/app/_components/record-transfer.tsx` loads ZIP support only on demand and clears preview/confirmation state when files change. The server page and navigation both restrict the feature to HEAD; existing Reports CSV controls use the refreshed account role. Limits are 5 MiB and 5,000 rows across a transfer. This feature is additive history ingestion, not a replacement for database backup/restore or account provisioning.
+
+Regression coverage is in the three `record-transfer.test` files under `src/lib`, `src/server/api/routers` and `src/app/_components`: role denial, stale privileges, rollback, related-record ordering, retries/conflicts, ticket integrity, CSV/ZIP encoding and bounds, upload/confirmation states and error display. Integration fixtures require the isolated `shbs_shipping_test` database.

@@ -3183,5 +3183,31 @@
     "previousGrade": "Previous grade: {grade} (not currently offered)",
     "loadFailed": "Unable to load name and grade settings. Please try again.",
     "retry": "Retry Loading Settings"
+  },
+  "recordTransfer": {
+    "title": "프로그램 기록",
+    "subtitle": "지난 프로그램 기록을 한곳에 모으거나 전체 CSV 아카이브를 다운로드하세요.",
+    "headOnly": "HEAD 전용",
+    "exportTitle": "프로그램 기록 내보내기",
+    "exportHelp": "각 기록 유형의 CSV가 포함된 ZIP을 다운로드합니다. 고정 ID로 관계를 유지합니다. 템플릿에는 열 제목과 형식 안내가 포함됩니다.",
+    "exportButton": "CSV 아카이브 내보내기",
+    "templates": "CSV 템플릿 다운로드",
+    "importTitle": "지난 기록 가져오기",
+    "importHelp": "CSV 파일을 함께 선택하거나 내보낸 ZIP을 업로드하세요. 미리보기에서 모든 행과 데이터베이스 참조를 확인합니다. 기존 기록은 덮어쓰지 않습니다.",
+    "select": "CSV 파일 또는 ZIP 아카이브",
+    "limits": "전송당 CSV 데이터 최대 5 MiB, 기록 최대 5,000개입니다.",
+    "selected": "{count, plural, other {CSV 파일 #개 선택됨}}",
+    "preview": "가져오기 미리보기",
+    "previewTitle": "미리보기 — 변경 사항이 저장되지 않음",
+    "recordType": "기록 유형",
+    "new": "새 기록",
+    "skipped": "이미 존재함",
+    "confirm": "이 기록과 ID를 검토했습니다. 새 기록을 데이터베이스로 가져옵니다.",
+    "importButton": "기록 가져오기",
+    "complete": "가져오기 완료",
+    "success": "기록이 저장되었습니다. 가져오기 내역이 감사 로그에 기록되었습니다.",
+    "working": "처리 중…",
+    "readError": "이 파일을 읽을 수 없습니다.",
+    "scope": "참가자, 기간, 과목, 매칭, 가능 시간, 출석, 활동 시간, 지원서, 면접, 순찰, 징계, 요청, 학업 및 정책 동의 이력, 공지사항을 포함합니다. 새 기간은 비활성 상태여야 하며, 가져오는 매칭과 세션은 비활성 기간에 속해야 합니다. 참조하는 계정은 이미 존재해야 합니다. 인증 정보, 계정 역할, 비공개 메시지, 실행 가능한 승인, 웹사이트 콘텐츠, 설정 및 업로드된 파일은 제외됩니다."
   }
 }
