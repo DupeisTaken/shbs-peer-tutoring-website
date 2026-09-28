@@ -336,6 +336,7 @@ export default function TuteesPage() {
                 <SortHeader sort={sort} sortKey="name">
                   {t("admin.tutees.colName")}
                 </SortHeader>
+                <th>{t("admin.tutees.colContact")}</th>
                 <SortHeader sort={sort} sortKey="grade">
                   {t("academics.title")}
                 </SortHeader>
@@ -346,7 +347,6 @@ export default function TuteesPage() {
                 <SortHeader sort={sort} sortKey="discipline">
                   {t("admin.tutees.colDiscipline")}
                 </SortHeader>
-                <th>{t("admin.tutees.colContact")}</th>
                 <SortHeader sort={sort} sortKey="status">
                   {t("admin.tutees.colStatus")}
                 </SortHeader>
@@ -371,8 +371,18 @@ export default function TuteesPage() {
                         : t("accountProfile.setupRequired")}
                     </p>
                   </td>
-                  <td>
-                    <AcademicDetails academic={t2.academic} />
+                  <td className="text-slate-600">
+                    <EmailDetails
+                      name={t2.englishName}
+                      email={t2.user?.email ?? t2.email}
+                      verifiedAt={t2.user?.emailVerifiedAt}
+                      userId={t2.user?.id}
+                      canSendSetup={!readOnly && !!t2.user}
+                      linked={!!t2.user}
+                    />
+                  </td>
+                  <td className="min-w-52">
+                    <AcademicDetails academic={t2.academic} compact />
                   </td>
                   <td className="w-36 max-w-36 whitespace-normal text-slate-600">
                     <ul className="space-y-1 text-sm">
@@ -388,16 +398,6 @@ export default function TuteesPage() {
                     s={stats.data?.[t2.id]}
                     removalLabel={t("admin.tutees.removalBadge")}
                   />
-                  <td className="text-slate-600">
-                    <EmailDetails
-                      name={t2.englishName}
-                      email={t2.user?.email ?? t2.email}
-                      verifiedAt={t2.user?.emailVerifiedAt}
-                      userId={t2.user?.id}
-                      canSendSetup={!readOnly && !!t2.user}
-                      linked={!!t2.user}
-                    />
-                  </td>
                   {/* Status is read-only here — transitions follow the procedures: assignment on
                       /admin/requests, removal & reinstatement on /admin/tutee-requests. */}
                   <td>
@@ -406,12 +406,12 @@ export default function TuteesPage() {
                       label={statusLabel(t2.status)}
                     />
                   </td>
-                  {/* Reserve one unbroken action group even when other columns grow. */}
-                  <td className="w-px text-right whitespace-nowrap">
-                    <div className="inline-flex flex-col items-end justify-center gap-2">
+                  {/* Shared account actions keep the same rhythm across management tables. */}
+                  <td className="w-px text-right">
+                    <div className="table-account-actions">
                       {!readOnly && (
                         <button
-                          className="link whitespace-nowrap"
+                          className="link table-account-action"
                           onClick={() => setEditingId(t2.id)}
                         >
                           {t("accountProfile.editProfile")}
@@ -419,7 +419,7 @@ export default function TuteesPage() {
                       )}
                       {!readOnly && (
                         <button
-                          className="link-danger whitespace-nowrap"
+                          className="link-danger table-account-action"
                           onClick={() => del.mutate({ id: t2.id })}
                         >
                           {t("admin.tutees.deleteBtn")}

@@ -10,9 +10,6 @@ import { AcceptanceRecords } from "./acceptance-records";
 import { AcademicDetails } from "./academic-profile";
 import type { AcademicSummary } from "~/lib/academics";
 
-/** Compact management links share typography/height; mobile retains full touch targets. */
-export const USER_ROW_ACTION = "inline-flex min-h-11 w-full items-center justify-end py-2 text-right text-sm leading-5 whitespace-normal lg:min-h-8 lg:py-1";
-
 type EmailDetailsProps = {
   email: string | null | undefined;
   name: string;

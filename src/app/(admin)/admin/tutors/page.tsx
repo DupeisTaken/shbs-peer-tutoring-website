@@ -199,11 +199,12 @@ export default function TutorsPage() {
                     }
                   />
                 </td>
-                <td className="min-w-44">
+                <td className="min-w-52">
                   {/* Keep the roster concise; full details retain the reference year. */}
                   <AcademicDetails
                     academic={row.academic}
                     showSchoolYear={false}
+                    compact
                   />
                 </td>
                 {/* Keep translated status badges readable inside the scrolling roster. */}
@@ -217,11 +218,11 @@ export default function TutorsPage() {
                   </span>
                 </td>
                 <td className="min-w-40 text-right">
-                  <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-2">
+                  <div className="table-account-actions">
                     <TutorDetailsButton tutorId={row.id} name={row.englishName} />
                     {!readOnly && (
                       <button
-                        className="link min-h-11 lg:min-h-8"
+                        className="link table-account-action"
                         onClick={() => setEditingId(row.id)}
                       >
                         {t("accountProfile.editProfile")}

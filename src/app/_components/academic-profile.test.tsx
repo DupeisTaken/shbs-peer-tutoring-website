@@ -225,6 +225,67 @@ it("makes missing and not-applicable data explicit without a graduation guess", 
   expect(screen.queryByText(en.academics.needsConfirmation)).toBeNull();
 });
 
+it.each([false, true])(
+  "uses exactly two roster lines for uncertain grades (Chinese=%s)",
+  (chinese) => {
+    const messages = chinese ? zh : en;
+    const scenarios: (AcademicSummary | undefined)[] = [
+      undefined,
+      academic, // A reported grade awaiting reconfirmation must not look confirmed.
+      { ...academic, status: "UNKNOWN", rawGrade: "11", gradeLevel: null },
+      {
+        ...academic,
+        status: "UNKNOWN",
+        rawGrade: "IB year 1",
+        needsConfirmation: false,
+      },
+    ];
+    const view = render(wrap(<AcademicDetails compact />, chinese));
+    for (const value of scenarios) {
+      view.rerender(
+        wrap(<AcademicDetails academic={value} compact />, chinese),
+      );
+      expect(
+        Array.from(view.container.querySelectorAll("p"), (p) => p.textContent),
+      ).toEqual([
+        messages.academics.rosterUnknown,
+        messages.academics.rosterNeedsConfirmation,
+      ]);
+    }
+  },
+);
+
+it("retains confirmed grades and explicit not-applicable status in compact rosters", () => {
+  const view = render(
+    wrap(
+      <AcademicDetails
+        academic={{ ...academic, needsConfirmation: false }}
+        compact
+      />,
+    ),
+  );
+  expect(screen.getByText("Grade 10")).toBeTruthy();
+  expect(screen.getByText("Expected graduation: 2029")).toBeTruthy();
+  expect(screen.queryByText(en.academics.rosterUnknown)).toBeNull();
+  view.rerender(
+    wrap(
+      <AcademicDetails
+        academic={{
+          ...academic,
+          status: "NOT_APPLICABLE",
+          gradeLevel: null,
+          schoolYear: null,
+          expectedGraduationYear: null,
+          needsConfirmation: false,
+        }}
+        compact
+      />,
+    ),
+  );
+  expect(screen.getByText(en.academics.notApplicable)).toBeTruthy();
+  expect(screen.queryByText(en.academics.rosterNeedsConfirmation)).toBeNull();
+});
+
 it("uses the program year and offered grades while preserving the draft's original version", () => {
   const save = vi.fn();
   const snapshot = {

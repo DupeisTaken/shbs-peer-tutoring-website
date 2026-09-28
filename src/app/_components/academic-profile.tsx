@@ -18,11 +18,29 @@ import { academicInput, type AcademicSummary } from "~/lib/academics";
 export function AcademicDetails({
   academic,
   showSchoolYear = true,
+  compact = false,
 }: {
   academic?: AcademicSummary;
   showSchoolYear?: boolean;
+  compact?: boolean;
 }) {
   const t = useTranslations("academics");
+  // Rosters flag uncertain grades in two lines; detail views preserve the original report.
+  if (
+    compact &&
+    (!academic ||
+      academic.status === "UNKNOWN" ||
+      (academic.status === "REPORTED" && academic.needsConfirmation))
+  ) {
+    return (
+      <div className="text-sm leading-5">
+        <p className="font-medium text-slate-900">{t("rosterUnknown")}</p>
+        <p className="text-xs font-medium text-amber-800">
+          {t("rosterNeedsConfirmation")}
+        </p>
+      </div>
+    );
+  }
   return (
     <div className="space-y-1 text-sm">
       <p className="font-medium text-slate-900">

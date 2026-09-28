@@ -40,6 +40,17 @@ vi.mock("~/trpc/react", () => ({
                 expectedGraduationYear: 2027,
               },
             },
+            {
+              id: "tutor-unknown",
+              englishName: "Unconfirmed Tutor",
+              status: "ACTIVE",
+              academic: {
+                status: "UNKNOWN",
+                rawGrade: "11",
+                gradeLevel: null,
+                needsConfirmation: true,
+              },
+            },
           ],
         }),
       },
@@ -88,4 +99,21 @@ it("keeps private row actions hidden for read-only viewers", () => {
   const row = screen.getByText("Example Tutor").closest("tr")!;
   expect(within(row).queryByRole("button")).toBeNull();
   expect(within(row).getByText("Grade 12")).toBeTruthy();
+});
+
+it("uses the shared text-action stack and compact unknown grade summary", () => {
+  mount();
+  const row = screen.getByText("Unconfirmed Tutor").closest("tr")!;
+  expect(within(row).getByText("Unknown Grade Level")).toBeTruthy();
+  expect(within(row).getByText("Needs Review & Confirmation")).toBeTruthy();
+  expect(
+    within(row).queryByText(/Original report|Expected graduation/),
+  ).toBeNull();
+  const actions = row.querySelector(".table-account-actions")!;
+  expect(within(actions as HTMLElement).getAllByRole("button")).toHaveLength(2);
+  for (const button of actions.querySelectorAll("button")) {
+    expect(button.classList.contains("table-account-action")).toBe(true);
+    expect(button.classList.contains("link")).toBe(true);
+    expect(button.classList.contains("btn-secondary")).toBe(false);
+  }
 });
