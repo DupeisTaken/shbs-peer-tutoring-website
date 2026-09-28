@@ -95,7 +95,14 @@ export async function signupIngress(
         chunks.push(result.value);
       }
       clearTimeout(timer);
-      guarded = new Request(req, { body: Buffer.concat(chunks) });
+      // Next can proxy its Request; Undici's copy constructor reads private state
+      // through that proxy and fails. Rebuild from the public HTTP properties.
+      guarded = new Request(req.url, {
+        method: req.method,
+        headers: req.headers,
+        signal: req.signal,
+        body: Buffer.concat(chunks),
+      });
     }
     return await handle(guarded);
   } catch (error) {

@@ -3,6 +3,25 @@ import { signupIngress, signupLane } from "./signup-ingress";
 import { signupNetwork, signupBurst } from "./signup-admission";
 
 afterEach(() => vi.unstubAllEnvs());
+it("forwards a framework-proxied POST with its body, credentials and abort signal", async () => {
+  const controller = new AbortController();
+  const original = new Request("http://localhost/api/trpc/program.setCaptcha", {
+    method: "POST", headers: { cookie: "session=test", "content-type": "application/json" },
+    body: '{"enabled":true}', signal: controller.signal,
+  });
+  const proxied = new Proxy(original, {
+    get: (target, key) => Reflect.get(target, key, target) as unknown,
+  });
+  const response = await signupIngress(proxied, async (request) => {
+    expect(request.method).toBe("POST");
+    expect(request.headers.get("cookie")).toBe("session=test");
+    expect(await request.json()).toEqual({ enabled: true });
+    controller.abort();
+    expect(request.signal.aborted).toBe(true);
+    return new Response("ok");
+  });
+  expect(response.status).toBe(200);
+});
 it("trusts only the explicitly enabled overwritten proxy header and normalizes networks", () => {
   vi.stubEnv("SIGNUP_TRUST_PROXY", "false");
   expect(signupNetwork(new Headers({ "x-signup-client-ip": "1.2.3.4" }))).toBe(
