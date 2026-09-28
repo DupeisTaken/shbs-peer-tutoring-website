@@ -194,6 +194,31 @@ it("loads only the authenticated tutor's subject evidence and preserves unknown 
   await expect(caller("VIEWER", "review-viewer").subjectAvailability.mySubjects()).rejects.toMatchObject({ code: "FORBIDDEN" });
 });
 
+it("shows only qualified subjects to tutors, including inherited grants, while retaining staff history", async () => {
+  await db.subject.createMany({ data: [
+    { id: "unqualified", name: "Unqualified subject" },
+    { id: "pending", name: "Pending subject" },
+    { id: "inherited", name: "Inherited subject" },
+  ] });
+  await db.tutorQualification.create({ data: { tutorId: "review-tutor", subjectId: "pending", status: "PENDING", approvedById: "review-head" } });
+  // Inheritance follows the persisted grant, not current catalogue ordering or willingness.
+  await db.qualificationGrant.create({ data: { tutorId: "review-tutor", sourceSubjectId: "review-subject", subjectId: "inherited" } });
+  await db.tutorSubjectWillingness.createMany({ data: [
+    { tutorId: "review-tutor", subjectId: "unqualified", willing: true },
+    { tutorId: "review-tutor", subjectId: "pending", willing: true },
+    { tutorId: "review-tutor", subjectId: "inherited", willing: false },
+  ] });
+  const own = await tutor().subjectAvailability.mySubjects();
+  expect(own.rows.map((row) => row.id).sort()).toEqual(["inherited", "review-subject"]);
+  expect(own.rows.find((row) => row.id === "inherited")).toMatchObject({ qualified: true, willing: false, inheritedFrom: ["Review Math"] });
+  const staff = await caller().subjectAvailability.options();
+  expect(staff.subjects.map((row) => row.id)).toEqual(expect.arrayContaining(["unqualified", "pending"]));
+  expect(staff.willingness).toHaveLength(3);
+  await caller().interviewManagement.qualify({ tutorId: "review-tutor", subjectId: "review-subject", qualified: false });
+  expect((await tutor().subjectAvailability.mySubjects()).rows).toEqual([]);
+  expect(await tutor().subjectAvailability.mine()).toHaveLength(3);
+});
+
 it("exposes only open additional qualification requests to the pending-review filter", async () => {
   const data = { name: "Pending tutor", qualificationReason: "Synthetic qualification evidence", email: "pending@example.test", type: "ADDITIONAL_SUBJECT" as const, requestedTutorId: "review-tutor", requestedSubjectId: "review-subject" };
   const request = await db.tutorApplication.create({ data: { ...data, status: "INTERVIEW" } });

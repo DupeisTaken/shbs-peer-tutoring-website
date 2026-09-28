@@ -82,6 +82,15 @@ beforeEach(() => {
           group: null,
           level: null,
         },
+        {
+          id: "chem",
+          name: "Chemistry",
+          active: true,
+          qualified: true,
+          willing: false,
+          group: null,
+          level: null,
+        },
       ],
     },
     refetch: mocks.refetch,
@@ -96,20 +105,19 @@ const show = () =>
   );
 const open = () =>
   fireEvent.click(screen.getByRole("button", { name: "Edit willingness" }));
-it("loads only on open, shows all three intent states and saves a self-scoped choice", async () => {
+it("loads only on open, hides unqualified subjects and saves a self-scoped choice", async () => {
   show();
   expect(mocks.query).not.toHaveBeenCalled();
   open();
   const dialog = screen.getByRole("dialog", { name: "My Subject Willingness" });
-  const selects = within(dialog).getAllByRole<HTMLSelectElement>("combobox");
-  expect(selects.map((select) => select.value)).toEqual([
-    "UNKNOWN",
-    "NO",
-    "YES",
-  ]);
-  fireEvent.change(selects[1]!, { target: { value: "YES" } });
+  expect(within(dialog).queryByRole("combobox")).toBeNull();
+  expect(within(dialog).queryByRole("article", { name: "Biology" })).toBeNull();
+  const math = within(screen.getByRole("article", { name: "Math" }));
+  expect(math.getAllByRole("button", { pressed: false })).toHaveLength(2);
+  expect(math.getByText("Not recorded")).toBeTruthy();
+  fireEvent.click(math.getByRole("button", { name: "Willing to Tutor" }));
   expect(mocks.mutate).toHaveBeenCalledWith({
-    subjectId: "bio",
+    subjectId: "math",
     willing: true,
   });
   await mocks.options.onSuccess?.();
@@ -117,8 +125,9 @@ it("loads only on open, shows all three intent states and saves a self-scoped ch
   expect(
     within(
       screen.getByRole("article", { name: "Archived Physics" }),
-    ).getByRole<HTMLOptionElement>("option", {
-      name: en.subjectAvailability.willing,
+    ).getByRole<HTMLButtonElement>("button", {
+      name: "Willing to Tutor",
+      pressed: true,
     }).disabled,
   ).toBe(true);
   fireEvent.click(screen.getByRole("button", { name: "Close" }));
@@ -126,6 +135,43 @@ it("loads only on open, shows all three intent states and saves a self-scoped ch
   expect(document.activeElement).toBe(
     screen.getByRole("button", { name: "Edit willingness" }),
   );
+});
+it("keeps choices mutually exclusive and does not clear a selected answer on repeat clicks", () => {
+  show();
+  open();
+  const chemistry = within(screen.getByRole("article", { name: "Chemistry" }));
+  expect(chemistry.getAllByRole("button", { pressed: true })).toHaveLength(1);
+  fireEvent.click(
+    chemistry.getByRole("button", {
+      name: "Unwilling to Tutor",
+      pressed: true,
+    }),
+  );
+  expect(mocks.mutate).not.toHaveBeenCalled();
+  fireEvent.click(
+    chemistry.getByRole("button", { name: "Willing to Tutor", pressed: false }),
+  );
+  expect(mocks.mutate).toHaveBeenLastCalledWith({
+    subjectId: "chem",
+    willing: true,
+  });
+  const archived = within(
+    screen.getByRole("article", { name: "Archived Physics" }),
+  );
+  fireEvent.click(archived.getByRole("button", { name: "Unwilling to Tutor" }));
+  expect(mocks.mutate).toHaveBeenLastCalledWith({
+    subjectId: "old",
+    willing: false,
+  });
+});
+it("guides tutors without qualified subjects to request qualification", () => {
+  mocks.query.mockReturnValue({ data: { canEdit: true, rows: [] } });
+  show();
+  open();
+  expect(screen.queryByRole("article")).toBeNull();
+  expect(
+    screen.getByText(en.subjectAvailability.noQualifiedSubjects),
+  ).toBeTruthy();
 });
 it("supports search, empty results and Escape dismissal", () => {
   show();
@@ -151,8 +197,10 @@ it("keeps inactive accounts read-only and blocks duplicate saves while pending",
   open();
   expect(
     screen
-      .getAllByRole<HTMLSelectElement>("combobox")
-      .every((select) => select.disabled),
+      .getAllByRole<HTMLButtonElement>("button", {
+        name: /^(Unwilling|Willing) to Tutor$/,
+      })
+      .every((button) => button.disabled),
   ).toBe(true);
   view.unmount();
   result.data.canEdit = true;
@@ -161,8 +209,10 @@ it("keeps inactive accounts read-only and blocks duplicate saves while pending",
   open();
   expect(
     screen
-      .getAllByRole<HTMLSelectElement>("combobox")
-      .every((select) => select.disabled),
+      .getAllByRole<HTMLButtonElement>("button", {
+        name: /^(Unwilling|Willing) to Tutor$/,
+      })
+      .every((button) => button.disabled),
   ).toBe(true);
   expect(screen.getByRole("status").textContent).toBe("Saving…");
 });
@@ -171,9 +221,12 @@ it("reports failed saves without changing confirmed values", () => {
   show();
   open();
   expect(screen.getByRole("alert").textContent).toBe("Save failed");
-  expect(screen.getAllByRole<HTMLSelectElement>("combobox")[0]!.value).toBe(
-    "UNKNOWN",
-  );
+  expect(
+    within(screen.getByRole("article", { name: "Math" })).getAllByRole(
+      "button",
+      { pressed: false },
+    ),
+  ).toHaveLength(2);
   expect(screen.getByRole("status").textContent).toBe("");
 });
 it("reports loading and lets a failed query retry", async () => {

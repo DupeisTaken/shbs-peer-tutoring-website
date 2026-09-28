@@ -107,13 +107,15 @@ export const subjectAvailabilityRouter = createTRPCRouter({
       ]);
     return {
       canEdit: tutor?.status === "ACTIVE",
+      // Only saved approved grants belong in the tutor editor, including inherited grants.
+      // Staff retain the complete catalogue; hiding old intent here never deletes it.
       rows: tutorSubjectRows(
         tutorId,
         subjects,
         qualifications,
         grants,
         willingness,
-      ),
+      ).filter((row) => row.qualified),
     };
   }),
   // tutorId is derived from the fresh authorized session, never accepted from the caller.

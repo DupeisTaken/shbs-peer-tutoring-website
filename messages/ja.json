@@ -69,13 +69,16 @@
     "filtersFor": "Subject filters for {name}",
     "noMatchingSubjects": "No subjects match these filters.",
     "myTitle": "My Subject Willingness",
-    "myHelp": "Choose the subjects you are currently willing to tutor. Your qualifications and timetable are managed separately.",
+    "myHelp": "Choose which qualified subjects you are currently willing to tutor. Qualifications and timetable are managed separately.",
     "editMine": "Edit willingness",
     "searchMine": "Search subjects or levels",
     "autoSave": "Each change saves immediately. Close this window when you are done.",
     "readOnly": "Your tutor account is inactive. You can view your choices, but cannot edit them.",
     "saving": "Saving…",
-    "retry": "Retry"
+    "retry": "Retry",
+    "willingChoice": "Willing to Tutor",
+    "unwillingChoice": "Unwilling to Tutor",
+    "noQualifiedSubjects": "You do not have any qualified subjects yet. Request qualification in Subject Qualifications."
   },
   "messaging": {
     "privacyTitle": "Private Deliveries, with Staff Oversight",

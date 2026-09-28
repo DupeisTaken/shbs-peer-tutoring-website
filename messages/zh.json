@@ -69,13 +69,16 @@
     "filtersFor": "{name} 的科目筛选",
     "noMatchingSubjects": "没有符合筛选条件的科目。",
     "myTitle": "我的辅导意愿",
-    "myHelp": "选择您目前愿意辅导的科目。资格与时间安排单独管理。",
+    "myHelp": "选择你目前愿意辅导的已获批科目。资格和时间安排分别管理。",
     "editMine": "编辑辅导意愿",
     "searchMine": "搜索科目或等级",
     "autoSave": "每次更改都会立即保存。完成后可关闭窗口。",
     "readOnly": "您的辅导伙伴账号未处于活跃状态。您可以查看选择，但无法编辑。",
     "saving": "保存中…",
-    "retry": "重试"
+    "retry": "重试",
+    "willingChoice": "愿意辅导",
+    "unwillingChoice": "不愿意辅导",
+    "noQualifiedSubjects": "你目前还没有已获批资格的科目。请在“科目资格”中申请资格。"
   },
   "messaging": {
     "privacyTitle": "独立私信，接受管理监督",

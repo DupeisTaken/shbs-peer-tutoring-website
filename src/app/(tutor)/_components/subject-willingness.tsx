@@ -23,7 +23,7 @@ export function SubjectWillingness() {
     setOpen(false);
   };
   return (
-    <section className="card flex flex-wrap items-center justify-between gap-4 p-4 sm:p-5">
+    <section className="card flex flex-col items-start justify-between gap-4 p-4 sm:flex-row sm:items-center sm:p-5">
       <div className="min-w-0 flex-1">
         <h2 className="section-title">{t("myTitle")}</h2>
         <p className="muted mt-1">{t("myHelp")}</p>
@@ -76,10 +76,13 @@ function WillingnessEditor() {
     );
   if (!query.data) return <p role="status">{workflow("loading")}</p>;
   const needle = search.trim().toLocaleLowerCase();
-  const rows = query.data.rows.filter((row) =>
-    [row.name, row.group?.name ?? "", row.level?.name ?? ""].some((value) =>
-      value.toLocaleLowerCase().includes(needle),
-    ),
+  // Also exclude unqualified entries from any previously cached catalogue response.
+  const rows = query.data.rows.filter(
+    (row) =>
+      row.qualified &&
+      [row.name, row.group?.name ?? "", row.level?.name ?? ""].some((value) =>
+        value.toLocaleLowerCase().includes(needle),
+      ),
   );
   return (
     <div className="space-y-4">
@@ -107,7 +110,7 @@ function WillingnessEditor() {
         <article
           key={row.id}
           aria-label={row.name}
-          className="grid gap-3 rounded-lg border border-slate-200 p-4 sm:grid-cols-[minmax(0,1fr)_minmax(0,1fr)]"
+          className="grid gap-3 rounded-lg border border-slate-200 p-4 sm:grid-cols-[minmax(0,0.85fr)_minmax(0,1.15fr)]"
         >
           <div className="min-w-0">
             <p className="muted text-xs">
@@ -128,34 +131,48 @@ function WillingnessEditor() {
               </span>
             )}
           </div>
-          <label>
-            <span className="label">{t("willingness")}</span>
-            <select
-              className="select min-h-11 w-full lg:min-h-10"
-              aria-label={t("willingnessFor", { subject: row.name })}
-              disabled={!query.data.canEdit || save.isPending}
-              value={
-                row.willing === null ? "UNKNOWN" : row.willing ? "YES" : "NO"
-              }
-              onChange={(event) =>
-                save.mutate({
-                  subjectId: row.id,
-                  willing: event.target.value === "YES",
-                })
-              }
-            >
-              <option value="UNKNOWN" disabled>
-                {t("notRecorded")}
-              </option>
-              <option value="YES" disabled={!row.active}>
-                {t("willing")}
-              </option>
-              <option value="NO">{t("notWilling")}</option>
-            </select>
-          </label>
+          <div
+            role="group"
+            aria-label={t("willingnessFor", { subject: row.name })}
+          >
+            <p className="label">{t("willingness")}</p>
+            <div className="grid grid-cols-2 gap-2">
+              {/* Unknown intent selects neither button. A repeated choice never clears a saved answer. */}
+              {[true, false].map((willing) => (
+                <button
+                  key={String(willing)}
+                  type="button"
+                  aria-pressed={row.willing === willing}
+                  className={`${row.willing === willing ? "btn-primary" : "btn-secondary"} btn-sm min-h-11 whitespace-normal lg:min-h-10`}
+                  disabled={
+                    !query.data.canEdit ||
+                    save.isPending ||
+                    (willing && !row.active)
+                  }
+                  onClick={() => {
+                    if (row.willing !== willing)
+                      save.mutate({ subjectId: row.id, willing });
+                  }}
+                >
+                  {t(willing ? "willingChoice" : "unwillingChoice")}
+                </button>
+              ))}
+            </div>
+            {row.willing === null && (
+              <p className="muted mt-2 text-xs">{t("notRecorded")}</p>
+            )}
+          </div>
         </article>
       ))}
-      {rows.length === 0 && <p className="muted">{t("noMatchingSubjects")}</p>}
+      {rows.length === 0 && (
+        <p className="muted">
+          {t(
+            query.data.rows.some((row) => row.qualified)
+              ? "noMatchingSubjects"
+              : "noQualifiedSubjects",
+          )}
+        </p>
+      )}
     </div>
   );
 }
