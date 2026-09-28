@@ -226,6 +226,56 @@ it("makes missing and not-applicable data explicit without a graduation guess", 
 });
 
 it.each([false, true])(
+  "shows and saves graduated without a future estimate (compact=%s)",
+  (compact) => {
+    const save = vi.fn();
+    render(
+      wrap(
+        <AcademicForm
+          snapshot={{ academic, profileVersion: 3, currentSchoolYear: null }}
+          pending={false}
+          onSave={save}
+          onCancel={vi.fn()}
+        />,
+      ),
+    );
+    fireEvent.change(screen.getByLabelText(en.academics.status), {
+      target: { value: "GRADUATED" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: en.academics.confirm }));
+    expect(save).toHaveBeenCalledWith(
+      expect.objectContaining({
+        status: "GRADUATED",
+        gradeLevel: null,
+        schoolYear: null,
+        rawGrade: null,
+      }),
+    );
+    cleanup();
+    render(
+      wrap(
+        <AcademicDetails
+          academic={{
+            ...academic,
+            status: "GRADUATED",
+            gradeLevel: null,
+            schoolYear: null,
+            expectedGraduationYear: null,
+            needsConfirmation: false,
+          }}
+          compact={compact}
+        />,
+      ),
+    );
+    expect(screen.getByText(en.academics.graduated)).toBeTruthy();
+    expect(screen.queryByText(en.academics.graduationUnknown)).toBeNull();
+    // Graduated is an explicit academic status, never an uncertain roster grade.
+    expect(screen.queryByText(en.academics.rosterUnknown)).toBeNull();
+    expect(screen.queryByText(en.academics.rosterNeedsConfirmation)).toBeNull();
+  },
+);
+
+it.each([false, true])(
   "uses exactly two roster lines for uncertain grades (Chinese=%s)",
   (chinese) => {
     const messages = chinese ? zh : en;

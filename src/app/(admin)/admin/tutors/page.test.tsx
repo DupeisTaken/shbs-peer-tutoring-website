@@ -12,6 +12,8 @@ import en from "../../../../../messages/en.json";
 import { ReadOnlyProvider } from "~/app/_components/read-only";
 import TutorsPage from "./page";
 
+const createTutor = vi.hoisted(() => vi.fn());
+
 vi.mock("~/trpc/react", () => ({
   api: {
     useUtils: () => ({}),
@@ -54,7 +56,7 @@ vi.mock("~/trpc/react", () => ({
           ],
         }),
       },
-      createTutor: { useMutation: () => ({}) },
+      createTutor: { useMutation: () => ({ mutate: createTutor }) },
     },
   },
 }));
@@ -116,4 +118,32 @@ it("uses the shared text-action stack and compact unknown grade summary", () => 
     expect(button.classList.contains("link")).toBe(true);
     expect(button.classList.contains("btn-secondary")).toBe(false);
   }
+});
+
+it("offers Unknown and Graduated when adding a tutor", () => {
+  createTutor.mockClear();
+  mount();
+  const grade = screen.getByRole<HTMLSelectElement>("combobox", {
+    name: en.admin.tutors.phGrade,
+  });
+  expect(within(grade).getByRole("option", { name: "Unknown" })).toBeTruthy();
+  expect(within(grade).getByRole("option", { name: "Graduated" })).toBeTruthy();
+  fireEvent.change(screen.getByPlaceholderText(en.admin.tutors.phFirstName), {
+    target: { value: "Ada" },
+  });
+  fireEvent.change(screen.getByPlaceholderText(en.admin.tutors.phLastName), {
+    target: { value: "Lovelace" },
+  });
+  fireEvent.change(grade, { target: { value: "GRADUATED" } });
+  fireEvent.click(
+    screen.getByRole("button", { name: en.admin.tutors.addTutor }),
+  );
+  expect(createTutor).toHaveBeenCalledWith(
+    expect.objectContaining({
+      firstName: "Ada",
+      lastName: "Lovelace",
+      academicallyGraduated: true,
+      gradeLevel: undefined,
+    }),
+  );
 });

@@ -86,4 +86,31 @@ describe("academic references", () => {
         false,
       );
   });
+  it("accepts graduated without a grade or year and gives no future estimate", () => {
+    const graduated = {
+      status: "GRADUATED" as const,
+      gradeLevel: null,
+      rawGrade: null,
+      schoolYear: null,
+      expectedProfileVersion: 2,
+    };
+    expect(academicInput.safeParse(graduated).success).toBe(true);
+    expect(
+      academicInput.safeParse({ ...graduated, gradeLevel: 12 }).success,
+    ).toBe(false);
+    expect(
+      academicSummary(
+        {
+          ...graduated,
+          confirmedAt: new Date("2026-09-28"),
+          reconfirmRequired: false,
+        },
+        "26-27",
+      ),
+    ).toMatchObject({
+      status: "GRADUATED",
+      expectedGraduationYear: null,
+      needsConfirmation: false,
+    });
+  });
 });

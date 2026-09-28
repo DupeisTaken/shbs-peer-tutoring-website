@@ -1,5 +1,7 @@
 "use client";
 
+import { FieldRequirement } from "~/app/_components/field-requirement";
+
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 
@@ -61,6 +63,7 @@ export function CrewSignupForm() {
       <div>
         <label className="label" htmlFor="crew-name">
           {t("public.crewSignup.fields.fullName")}
+          <FieldRequirement state="required" />
         </label>
         <input
           id="crew-name"
@@ -73,6 +76,7 @@ export function CrewSignupForm() {
       <div>
         <label className="label" htmlFor="crew-email">
           {t("public.crewSignup.fields.email")}
+          <FieldRequirement state="required" />
         </label>
         <input
           id="crew-email"
@@ -85,6 +89,7 @@ export function CrewSignupForm() {
       <div>
         <label className="label" htmlFor="crew-grade">
           {t("public.crewSignup.fields.grade")}
+          <FieldRequirement state="optional" />
         </label>
         <OfferedGradeSelect
           id="crew-grade"
@@ -96,6 +101,7 @@ export function CrewSignupForm() {
       <div>
         <label className="label" htmlFor="crew-contact">
           {t("public.crewSignup.fields.contact")}
+          <FieldRequirement state="optional" />
         </label>
         <input
           id="crew-contact"
@@ -107,6 +113,7 @@ export function CrewSignupForm() {
       <div>
         <label className="label" htmlFor="crew-message">
           {t("public.crewSignup.fields.message")}
+          <FieldRequirement state="optional" />
         </label>
         <textarea
           id="crew-message"

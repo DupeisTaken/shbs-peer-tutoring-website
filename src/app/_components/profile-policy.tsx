@@ -2,6 +2,7 @@
 
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
+import { GRADUATED_GRADE } from "~/lib/academics";
 
 /** The public policy is cached once by tRPC, even when several fields share these helpers. */
 export function useProfilePolicy() {
@@ -78,6 +79,7 @@ export function OfferedGradeSelect({
   id,
   name,
   preserveLegacy = false,
+  includeGraduated = false,
   value,
   onChange,
   offeredGrades,
@@ -86,13 +88,17 @@ export function OfferedGradeSelect({
   id?: string;
   name?: string;
   preserveLegacy?: boolean;
+  includeGraduated?: boolean;
   value: string;
   onChange: (value: string) => void;
   offeredGrades: number[];
   required?: boolean;
 }) {
   const t = useTranslations();
-  const unavailable = !!value && !offeredGrades.includes(Number(value));
+  const unavailable =
+    !!value &&
+    value !== GRADUATED_GRADE &&
+    !offeredGrades.includes(Number(value));
   return (
     <select
       id={id}
@@ -115,6 +121,9 @@ export function OfferedGradeSelect({
           {t("academics.gradeValue", { grade })}
         </option>
       ))}
+      {includeGraduated && (
+        <option value={GRADUATED_GRADE}>{t("academics.graduated")}</option>
+      )}
     </select>
   );
 }

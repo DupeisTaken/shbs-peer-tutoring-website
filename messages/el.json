@@ -1978,15 +1978,15 @@
       "successTitle": "Αίτημα παραλήφθηκε 🎉",
       "successBody": "Ευχαριστούμε, {name}. Ένας συντονιστής θα ελέγξει το αίτημά σας και θα επικοινωνήσει μαζί σας σχετικά με τον βοηθό και το πρόγραμμά σας.",
       "fields": {
-        "fullName": "Ονοματεπώνυμο *",
+        "fullName": "Ονοματεπώνυμο",
         "gradeLevel": "Τάξη",
         "email": "Email",
         "phone": "Τηλέφωνο",
-        "preferredContact": "Πώς να επικοινωνήσουμε μαζί σας; *",
-        "firstChoice": "Μάθημα — πρώτη επιλογή *",
-        "secondChoice": "Μάθημα — δεύτερη επιλογή (προαιρετικό)",
-        "availability": "Διαθέσιμες χρονοθυρίδες *",
-        "signature": "Ηλεκτρονική υπογραφή * (πληκτρολογήστε το πλήρες όνομά σας)"
+        "preferredContact": "Πώς να επικοινωνήσουμε μαζί σας;",
+        "firstChoice": "Μάθημα — πρώτη επιλογή",
+        "secondChoice": "Μάθημα — δεύτερη επιλογή",
+        "availability": "Διαθέσιμες χρονοθυρίδες",
+        "signature": "Ηλεκτρονική υπογραφή (πληκτρολογήστε το πλήρες όνομά σας)"
       },
       "placeholders": {
         "gradeLevel": "π.χ. 10",
@@ -2016,10 +2016,10 @@
       "successTitle": "Αίτηση παραλήφθηκε 🎉",
       "successBody": "Ευχαριστούμε, {name}. Η ομάδα συντονιστών θα ελέγξει την αίτησή σας και θα διοργανώσει συνέντευξη. Θα επικοινωνήσουμε στο {email}.",
       "fields": {
-        "fullName": "Ονοματεπώνυμο *",
-        "email": "Email επικοινωνίας *",
-        "preferredContact": "Πώς να επικοινωνήσουμε μαζί σας; *",
-        "courses": "Μαθήματα που θέλετε να διδάξετε (έως 3) *",
+        "fullName": "Ονοματεπώνυμο",
+        "email": "Email επικοινωνίας",
+        "preferredContact": "Πώς να επικοινωνήσουμε μαζί σας;",
+        "courses": "Μαθήματα που θέλετε να διδάξετε (έως 3)",
         "course": "Μάθημα",
         "grade": "Βαθμός που αποκτήθηκε",
         "apScore": "Βαθμολογία AP",
@@ -2079,8 +2079,8 @@
         "fullName": "Ονοματεπώνυμο",
         "email": "Email",
         "grade": "Τάξη",
-        "contact": "Προτιμώμενη επικοινωνία (προαιρετικό)",
-        "message": "Κάτι άλλο; (προαιρετικό)"
+        "contact": "Προτιμώμενη επικοινωνία",
+        "message": "Κάτι άλλο;"
       }
     },
     "viewerSignup": {
@@ -3108,7 +3108,7 @@
     "emptyHelp": "Δοκιμάστε άλλη αναζήτηση ή εκκαθαρίστε τα φίλτρα για να δείτε όλο τον κατάλογο."
   },
   "identityUsername": {
-    "preferredLatinName": "Latin Spelling (Optional)",
+    "preferredLatinName": "Latin Spelling",
     "preferredLatinHelp": "If you use a Latin spelling of your name, enter it here for your first username. Otherwise we use a neutral member handle. Existing usernames stay unchanged; email sign-in remains available.",
     "assign": "Assign Username",
     "assignTitle": "Assign a Username to {name}",
@@ -3124,7 +3124,8 @@
     "graduationValue": "Expected graduation: {year}",
     "graduationUnknown": "Expected graduation: unavailable",
     "needsConfirmation": "Please Review and Reconfirm",
-    "unknown": "Unknown / Other School System",
+    "unknown": "Άγνωστο",
+    "graduated": "Αποφοίτησε",
     "rosterUnknown": "Άγνωστη τάξη",
     "rosterNeedsConfirmation": "Απαιτείται έλεγχος και επιβεβαίωση",
     "notApplicable": "Not Applicable",
@@ -3135,8 +3136,8 @@
     "status": "Academic Status",
     "selectGrade": "Choose a Grade",
     "yearHelp": "The current program period determines the school year automatically.",
-    "rawGrade": "Original Grade or School System (Optional)",
-    "rawHelp": "Keep a nonstandard grade as reported. It will not be converted into a graduation estimate.",
+    "rawGrade": "Original Grade (Optional)",
+    "rawHelp": "Keep an imported grade exactly as recorded. It will not be used to estimate graduation.",
     "reason": "Correction or Context (Optional)",
     "confirmHelp": "Expected graduation is calculated from the current program school year and your selected grade. After a gap or repeated year, confirm your actual grade. Saving records this confirmation without changing your username or participation.",
     "confirm": "Confirm Academic Details",
@@ -3181,7 +3182,7 @@
     "gradeNotOffered": "This grade is no longer offered. Reload the form and choose an available grade.",
     "yearChanged": "The program school year changed while you were editing. Reload and confirm your grade for the current year.",
     "noCurrentYear": "The program has no current school year. Ask a staff member to set the current period before confirming a grade.",
-    "unknownGrade": "Not specified / Other school system",
+    "unknownGrade": "Άγνωστο",
     "previousGrade": "Previous grade: {grade} (not currently offered)",
     "loadFailed": "Unable to load name and grade settings. Please try again.",
     "retry": "Retry Loading Settings"

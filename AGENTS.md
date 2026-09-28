@@ -1,5 +1,16 @@
 # Project UI guidelines
 
+## Signup field requirements
+
+- Use `FieldRequirement` beside signup field names for translated Required/Optional
+  text. Keep asterisks and parenthetical requirement markers out of field-name
+  translations; use the same treatment for fixed, configurable and conditional fields.
+- Match the existing validation rules and configured state. Hidden fields have no
+  marker, and required tutor qualification questions still accept a negative answer.
+- The student signup email label opens its guidance on hover, keyboard focus or
+  click/tap. Keep the input's accessible name/description, dismiss on Escape or
+  outside interaction, and preserve the 44 px mobile trigger target and row alignment.
+
 ## Control-height hierarchy
 
 Choose control height by its place in the interface. Keep controls in the same

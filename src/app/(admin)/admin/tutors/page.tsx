@@ -7,10 +7,16 @@ import { EmailDetails } from "~/app/_components/email-details";
 import { AcademicDetails } from "~/app/_components/academic-profile";
 import { TutorProfileEditor } from "~/app/_components/tutor-profile-editor";
 import { TutorDetailsButton } from "~/app/_components/tutor-details";
-import { useProfilePolicy, ProfilePolicyHint, ProfilePolicyError, OfferedGradeSelect } from "~/app/_components/profile-policy";
+import {
+  useProfilePolicy,
+  ProfilePolicyHint,
+  ProfilePolicyError,
+  OfferedGradeSelect,
+} from "~/app/_components/profile-policy";
 import { api } from "~/trpc/react";
 import { SortHeader, useSort, compare } from "~/app/_components/sortable";
 import { useReadOnly } from "~/app/_components/read-only";
+import { GRADUATED_GRADE } from "~/lib/academics";
 
 export default function TutorsPage() {
   const t = useTranslations();
@@ -92,7 +98,11 @@ export default function TutorsPage() {
                 lastName: lastName.trim(),
                 alternativeNames: altNames.trim() || undefined,
                 email: email.trim() || undefined,
-                gradeLevel: grade.trim() ? Number(grade) : undefined,
+                gradeLevel:
+                  grade && grade !== GRADUATED_GRADE
+                    ? Number(grade)
+                    : undefined,
+                academicallyGraduated: grade === GRADUATED_GRADE,
               });
           }}
         >
@@ -121,7 +131,15 @@ export default function TutorsPage() {
             placeholder={t("admin.tutors.phEmail")}
             className="input field-auto min-w-48"
           />
-          <label className="min-w-32"><span className="sr-only">{t("admin.tutors.phGrade")}</span><OfferedGradeSelect value={grade} onChange={setGrade} offeredGrades={policy.offeredGrades} /></label>
+          <label className="min-w-32">
+            <span className="sr-only">{t("admin.tutors.phGrade")}</span>
+            <OfferedGradeSelect
+              value={grade}
+              onChange={setGrade}
+              offeredGrades={policy.offeredGrades}
+              includeGraduated
+            />
+          </label>
           <button
             className="btn-primary"
             disabled={!firstName.trim() || !lastName.trim() || create.isPending}
@@ -132,7 +150,9 @@ export default function TutorsPage() {
       )}
       {!readOnly && <ProfilePolicyHint />}
       {!readOnly && create.error && (
-        <p role="alert" className="text-sm text-red-600"><ProfilePolicyError message={create.error.message} /></p>
+        <p role="alert" className="text-sm text-red-600">
+          <ProfilePolicyError message={create.error.message} />
+        </p>
       )}
       <p className="muted text-xs">{t("admin.tutors.accountMovedNote")}</p>
 
@@ -219,7 +239,10 @@ export default function TutorsPage() {
                 </td>
                 <td className="min-w-40 text-right">
                   <div className="table-account-actions">
-                    <TutorDetailsButton tutorId={row.id} name={row.englishName} />
+                    <TutorDetailsButton
+                      tutorId={row.id}
+                      name={row.englishName}
+                    />
                     {!readOnly && (
                       <button
                         className="link table-account-action"

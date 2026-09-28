@@ -21,6 +21,7 @@ export const tutorDetailsRouter = createTRPCRouter({
           username: true,
           email: true,
           gradeLevel: true,
+          academicallyGraduated: true,
           gradeSchoolYear: true,
           gradeConfirmedAt: true,
           status: true,
@@ -76,7 +77,9 @@ export const tutorDetailsRouter = createTRPCRouter({
       return {
         academic: academicSummary(
           tutor.user?.academicProfile ??
-            (tutor.gradeSchoolYear && tutor.gradeConfirmedAt
+            (!tutor.academicallyGraduated &&
+            tutor.gradeSchoolYear &&
+            tutor.gradeConfirmedAt
               ? {
                   status: "REPORTED",
                   gradeLevel: tutor.gradeLevel,
@@ -85,7 +88,7 @@ export const tutorDetailsRouter = createTRPCRouter({
                   confirmedAt: tutor.gradeConfirmedAt,
                   reconfirmRequired: false,
                 }
-              : legacyAcademic(tutor.gradeLevel)),
+              : legacyAcademic(tutor.gradeLevel, tutor.academicallyGraduated)),
           term?.schoolYear,
         ),
         id: tutor.id,

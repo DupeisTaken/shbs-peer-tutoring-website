@@ -11,6 +11,7 @@ import {
   OfferedGradeSelect,
 } from "./profile-policy";
 import { useState } from "react";
+import { GRADUATED_GRADE } from "~/lib/academics";
 
 /** One deliberate save avoids racing field-by-field corrections of the same person. */
 export function TutorProfileEditor({
@@ -23,7 +24,11 @@ export function TutorProfileEditor({
   const t = useTranslations();
   const [expectedUpdatedAt] = useState(row.updatedAt);
   const policy = useProfilePolicy();
-  const [grade, setGrade] = useState(row.gradeLevel?.toString() ?? "");
+  const [grade, setGrade] = useState(
+    row.academicallyGraduated
+      ? GRADUATED_GRADE
+      : (row.gradeLevel?.toString() ?? ""),
+  );
   const utils = api.useUtils();
   const save = api.admin.updateTutor.useMutation({
     onSuccess: async () => {
@@ -56,7 +61,13 @@ export function TutorProfileEditor({
             email: value("email") || null,
             ...(row.user
               ? {}
-              : { gradeLevel: value("grade") ? Number(value("grade")) : null }),
+              : {
+                  gradeLevel:
+                    value("grade") && value("grade") !== GRADUATED_GRADE
+                      ? Number(value("grade"))
+                      : null,
+                  academicallyGraduated: value("grade") === GRADUATED_GRADE,
+                }),
             status: value("status") as typeof row.status,
           });
         }}
@@ -91,6 +102,7 @@ export function TutorProfileEditor({
                   onChange={setGrade}
                   offeredGrades={policy.offeredGrades}
                   preserveLegacy
+                  includeGraduated
                 />
               ) : (
                 <input

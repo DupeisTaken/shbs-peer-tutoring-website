@@ -1,5 +1,7 @@
 "use client";
 
+import { FieldRequirement } from "~/app/_components/field-requirement";
+
 import { useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -48,6 +50,7 @@ export function ViewerSignupFlow() {
           <div>
             <label className="label" htmlFor="obs-name">
               {t("public.viewerSignup.fields.name")}
+              <FieldRequirement state="required" />
             </label>
             <input id="obs-name" value={name} onChange={(e) => setName(e.target.value)} className="input w-full" />
           </div>
@@ -55,6 +58,7 @@ export function ViewerSignupFlow() {
           <div>
             <label className="label" htmlFor="obs-aff">
               {t("public.viewerSignup.fields.affiliation")}
+              <FieldRequirement state="required" />
             </label>
             <input
               id="obs-aff"
@@ -71,6 +75,7 @@ export function ViewerSignupFlow() {
           <div>
             <label className="label" htmlFor="obs-email">
               {t("public.viewerSignup.fields.email")}
+              <FieldRequirement state="required" />
             </label>
             <input
               id="obs-email"
@@ -99,6 +104,7 @@ export function ViewerSignupFlow() {
           <p className="text-sm text-slate-700">{t("public.viewerSignup.sent", { email })}</p>
           <label className="label" htmlFor="obs-code">
             {t("public.viewerSignup.fields.code")}
+            <FieldRequirement state="required" />
           </label>
           <input
             id="obs-code"
@@ -138,6 +144,7 @@ export function ViewerSignupFlow() {
           <div>
             <label className="label" htmlFor="obs-pass">
               {t("public.viewerSignup.fields.password")}
+              <FieldRequirement state="required" />
             </label>
             <input
               id="obs-pass"
@@ -151,6 +158,7 @@ export function ViewerSignupFlow() {
           <div>
             <label className="label" htmlFor="obs-confirm">
               {t("public.viewerSignup.fields.confirm")}
+              <FieldRequirement state="required" />
             </label>
             <input
               id="obs-confirm"

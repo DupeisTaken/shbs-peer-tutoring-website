@@ -1978,15 +1978,15 @@
       "successTitle": "Solicitud recibida 🎉",
       "successBody": "Gracias, {name}. Un coordinador revisará tu solicitud y se pondrá en contacto sobre tu tutor y tu horario.",
       "fields": {
-        "fullName": "Nombre completo *",
+        "fullName": "Nombre completo",
         "gradeLevel": "Grado",
         "email": "Correo",
         "phone": "Teléfono",
-        "preferredContact": "¿Cómo podemos contactarte? *",
-        "firstChoice": "Materia — primera opción *",
-        "secondChoice": "Materia — segunda opción (opcional)",
-        "availability": "Tus horarios disponibles *",
-        "signature": "Firma electrónica * (escribe tu nombre completo)"
+        "preferredContact": "¿Cómo podemos contactarte?",
+        "firstChoice": "Materia — primera opción",
+        "secondChoice": "Materia — segunda opción",
+        "availability": "Tus horarios disponibles",
+        "signature": "Firma electrónica (escribe tu nombre completo)"
       },
       "placeholders": {
         "gradeLevel": "p. ej. 10",
@@ -2016,10 +2016,10 @@
       "successTitle": "Solicitud recibida 🎉",
       "successBody": "Gracias, {name}. El equipo de coordinación revisará tu solicitud y organizará una entrevista. Te contactaremos en {email}.",
       "fields": {
-        "fullName": "Nombre completo *",
-        "email": "Correo de contacto *",
-        "preferredContact": "¿Cómo podemos contactarte? *",
-        "courses": "Materias que quieres tutorar (hasta 3) *",
+        "fullName": "Nombre completo",
+        "email": "Correo de contacto",
+        "preferredContact": "¿Cómo podemos contactarte?",
+        "courses": "Materias que quieres tutorar (hasta 3)",
         "course": "Materia",
         "grade": "Calificación obtenida",
         "apScore": "Puntaje AP",
@@ -2079,8 +2079,8 @@
         "fullName": "Nombre completo",
         "email": "Correo",
         "grade": "Nivel de grado",
-        "contact": "Contacto preferido (opcional)",
-        "message": "¿Algo más? (opcional)"
+        "contact": "Contacto preferido",
+        "message": "¿Algo más?"
       }
     },
     "viewerSignup": {
@@ -3108,7 +3108,7 @@
     "emptyHelp": "Prueba otra búsqueda o borra los filtros para ver todo el catálogo."
   },
   "identityUsername": {
-    "preferredLatinName": "Latin Spelling (Optional)",
+    "preferredLatinName": "Latin Spelling",
     "preferredLatinHelp": "If you use a Latin spelling of your name, enter it here for your first username. Otherwise we use a neutral member handle. Existing usernames stay unchanged; email sign-in remains available.",
     "assign": "Assign Username",
     "assignTitle": "Assign a Username to {name}",
@@ -3124,7 +3124,8 @@
     "graduationValue": "Expected graduation: {year}",
     "graduationUnknown": "Expected graduation: unavailable",
     "needsConfirmation": "Please Review and Reconfirm",
-    "unknown": "Unknown / Other School System",
+    "unknown": "Desconocido",
+    "graduated": "Graduado",
     "rosterUnknown": "Grado desconocido",
     "rosterNeedsConfirmation": "Requiere revisión y confirmación",
     "notApplicable": "Not Applicable",
@@ -3135,8 +3136,8 @@
     "status": "Academic Status",
     "selectGrade": "Choose a Grade",
     "yearHelp": "The current program period determines the school year automatically.",
-    "rawGrade": "Original Grade or School System (Optional)",
-    "rawHelp": "Keep a nonstandard grade as reported. It will not be converted into a graduation estimate.",
+    "rawGrade": "Original Grade (Optional)",
+    "rawHelp": "Keep an imported grade exactly as recorded. It will not be used to estimate graduation.",
     "reason": "Correction or Context (Optional)",
     "confirmHelp": "Expected graduation is calculated from the current program school year and your selected grade. After a gap or repeated year, confirm your actual grade. Saving records this confirmation without changing your username or participation.",
     "confirm": "Confirm Academic Details",
@@ -3181,7 +3182,7 @@
     "gradeNotOffered": "This grade is no longer offered. Reload the form and choose an available grade.",
     "yearChanged": "The program school year changed while you were editing. Reload and confirm your grade for the current year.",
     "noCurrentYear": "The program has no current school year. Ask a staff member to set the current period before confirming a grade.",
-    "unknownGrade": "Not specified / Other school system",
+    "unknownGrade": "Desconocido",
     "previousGrade": "Previous grade: {grade} (not currently offered)",
     "loadFailed": "Unable to load name and grade settings. Please try again.",
     "retry": "Retry Loading Settings"

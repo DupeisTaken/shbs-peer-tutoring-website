@@ -1978,15 +1978,15 @@
       "successTitle": "신청 접수 완료 🎉",
       "successBody": "감사합니다, {name}님. 코디네이터가 요청을 검토하고 튜터 및 일정에 대해 연락드릴 것입니다.",
       "fields": {
-        "fullName": "전체 이름 *",
+        "fullName": "전체 이름",
         "gradeLevel": "학년",
         "email": "이메일",
         "phone": "전화번호",
-        "preferredContact": "연락 방법 *",
-        "firstChoice": "과목 — 1지망 *",
-        "secondChoice": "과목 — 2지망 (선택)",
-        "availability": "가능한 시간대 *",
-        "signature": "전자 서명 * (전체 이름 입력)"
+        "preferredContact": "연락 방법",
+        "firstChoice": "과목 — 1지망",
+        "secondChoice": "과목 — 2지망",
+        "availability": "가능한 시간대",
+        "signature": "전자 서명 (전체 이름 입력)"
       },
       "placeholders": {
         "gradeLevel": "예: 10",
@@ -2016,10 +2016,10 @@
       "successTitle": "지원 접수 완료 🎉",
       "successBody": "감사합니다, {name}님. 코디네이터 팀이 지원을 검토하고 면접을 진행할 것입니다. {email}로 연락드리겠습니다.",
       "fields": {
-        "fullName": "전체 이름 *",
-        "email": "연락처 이메일 *",
-        "preferredContact": "연락 방법 *",
-        "courses": "튜터링하고 싶은 과목 (최대 3개) *",
+        "fullName": "전체 이름",
+        "email": "연락처 이메일",
+        "preferredContact": "연락 방법",
+        "courses": "튜터링하고 싶은 과목 (최대 3개)",
         "course": "과목",
         "grade": "취득 학점",
         "apScore": "AP 점수",
@@ -2079,8 +2079,8 @@
         "fullName": "이름",
         "email": "이메일",
         "grade": "학년",
-        "contact": "선호 연락처 (선택)",
-        "message": "추가 사항 (선택)"
+        "contact": "선호 연락처",
+        "message": "추가 사항"
       }
     },
     "viewerSignup": {
@@ -3108,7 +3108,7 @@
     "emptyHelp": "검색어를 변경하거나 필터를 초기화하여 전체 목록을 확인하세요."
   },
   "identityUsername": {
-    "preferredLatinName": "Latin Spelling (Optional)",
+    "preferredLatinName": "Latin Spelling",
     "preferredLatinHelp": "If you use a Latin spelling of your name, enter it here for your first username. Otherwise we use a neutral member handle. Existing usernames stay unchanged; email sign-in remains available.",
     "assign": "Assign Username",
     "assignTitle": "Assign a Username to {name}",
@@ -3124,7 +3124,8 @@
     "graduationValue": "Expected graduation: {year}",
     "graduationUnknown": "Expected graduation: unavailable",
     "needsConfirmation": "Please Review and Reconfirm",
-    "unknown": "Unknown / Other School System",
+    "unknown": "알 수 없음",
+    "graduated": "졸업",
     "rosterUnknown": "학년 미상",
     "rosterNeedsConfirmation": "검토 및 확인 필요",
     "notApplicable": "Not Applicable",
@@ -3135,8 +3136,8 @@
     "status": "Academic Status",
     "selectGrade": "Choose a Grade",
     "yearHelp": "The current program period determines the school year automatically.",
-    "rawGrade": "Original Grade or School System (Optional)",
-    "rawHelp": "Keep a nonstandard grade as reported. It will not be converted into a graduation estimate.",
+    "rawGrade": "Original Grade (Optional)",
+    "rawHelp": "Keep an imported grade exactly as recorded. It will not be used to estimate graduation.",
     "reason": "Correction or Context (Optional)",
     "confirmHelp": "Expected graduation is calculated from the current program school year and your selected grade. After a gap or repeated year, confirm your actual grade. Saving records this confirmation without changing your username or participation.",
     "confirm": "Confirm Academic Details",
@@ -3181,7 +3182,7 @@
     "gradeNotOffered": "This grade is no longer offered. Reload the form and choose an available grade.",
     "yearChanged": "The program school year changed while you were editing. Reload and confirm your grade for the current year.",
     "noCurrentYear": "The program has no current school year. Ask a staff member to set the current period before confirming a grade.",
-    "unknownGrade": "Not specified / Other school system",
+    "unknownGrade": "알 수 없음",
     "previousGrade": "Previous grade: {grade} (not currently offered)",
     "loadFailed": "Unable to load name and grade settings. Please try again.",
     "retry": "Retry Loading Settings"

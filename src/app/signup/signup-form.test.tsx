@@ -141,13 +141,23 @@ it("hides configured tutee fields and allows submission without hidden required 
   expect(
     screen.queryByLabelText(/signupFields.labels.signatureName/),
   ).toBeNull();
-  fireEvent.change(screen.getByLabelText("public.signup.fields.fullName"), {
-    target: { value: "Student" },
-  });
+  fireEvent.change(
+    screen.getByLabelText(
+      "public.signup.fields.fullName signupFields.required",
+    ),
+    {
+      target: { value: "Student" },
+    },
+  );
   fireEvent.change(screen.getByLabelText(/survey.emailLabel/), {
     target: { value: "student@example.test" },
   });
-  fireEvent.change(screen.getByRole("combobox", { name: "public.signup.fields.firstChoice" }), { target: { value: "math" } });
+  fireEvent.change(
+    screen.getByRole("combobox", {
+      name: "public.signup.fields.firstChoice signupFields.required",
+    }),
+    { target: { value: "math" } },
+  );
   fireEvent.click(screen.getByLabelText("Accept policy"));
   fireEvent.click(screen.getByRole("button", { name: "public.signup.submit" }));
   expect(mocks.mutate).toHaveBeenCalledWith(
@@ -239,3 +249,25 @@ it.each(["paused", "scheduled", "ended"])(
     expect(screen.getByText("Policy").closest("details")).toBeTruthy();
   },
 );
+
+it("labels fixed and configurable requirements consistently", () => {
+  render(<SignupForm />);
+  for (const name of ["public.signup.fields.fullName", "survey.emailLabel"])
+    expect(
+      screen
+        .getByLabelText(new RegExp(name + " signupFields.required"))
+        .hasAttribute("required"),
+    ).toBe(true);
+  expect(
+    screen
+      .getByLabelText("public.signup.fields.phone signupFields.optional")
+      .hasAttribute("required"),
+  ).toBe(false);
+  expect(
+    screen
+      .getByLabelText(
+        /signupFields.labels.preferredContact signupFields.required/,
+      )
+      .hasAttribute("required"),
+  ).toBe(true);
+});
