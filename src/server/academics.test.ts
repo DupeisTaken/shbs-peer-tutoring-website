@@ -100,6 +100,95 @@ beforeEach(async () => {
   mail.send.mockReset().mockResolvedValue(undefined);
 });
 afterAll(() => db.$disconnect());
+it("persists graduated on provisional rosters and carries it into a linked account", async () => {
+  const staff = caller("academic-head", "HEAD");
+  const tutor = await staff.admin.createTutor({
+    firstName: "Graduate",
+    lastName: "Tutor",
+    academicallyGraduated: true,
+  });
+  const tutee = await staff.admin.createTutee({
+    englishName: "Graduate Tutee",
+    academicallyGraduated: true,
+  });
+  expect(
+    (await staff.admin.tutors()).find((row) => row.id === tutor.id)?.academic
+      .status,
+  ).toBe("GRADUATED");
+  expect(
+    (await staff.admin.tutees()).find((row) => row.id === tutee.id)?.academic
+      .status,
+  ).toBe("GRADUATED");
+  await staff.admin.updateTutor({
+    id: tutor.id,
+    firstName: "Graduate",
+    lastName: "Tutor",
+    status: "ACTIVE",
+    gradeLevel: 12,
+    academicallyGraduated: false,
+  });
+  await db.tutor.update({
+    where: { id: tutor.id },
+    data: { gradeSchoolYear: "26-27", gradeConfirmedAt: new Date() },
+  });
+  await staff.admin.updateTutor({
+    id: tutor.id,
+    firstName: "Graduate",
+    lastName: "Tutor",
+    status: "ACTIVE",
+    gradeLevel: null,
+    academicallyGraduated: true,
+  });
+  expect(
+    await db.tutor.findUniqueOrThrow({ where: { id: tutor.id } }),
+  ).toMatchObject({
+    academicallyGraduated: true,
+    gradeLevel: null,
+    gradeSchoolYear: null,
+    gradeConfirmedAt: null,
+  });
+  await db.user.update({
+    where: { id: "academic-person" },
+    data: { tutorId: tutor.id },
+  });
+  await initializeAccountAcademics(db, "academic-person");
+  const before = await accountAcademics(db, "academic-person");
+  expect(before.academic).toMatchObject({
+    status: "GRADUATED",
+    gradeLevel: null,
+    expectedGraduationYear: null,
+  });
+  await caller("academic-person").account.updateAcademics({
+    status: "GRADUATED",
+    gradeLevel: null,
+    schoolYear: null,
+    expectedProfileVersion: before.profileVersion,
+  });
+  expect(
+    (await accountAcademics(db, "academic-person")).academic,
+  ).toMatchObject({
+    status: "GRADUATED",
+    needsConfirmation: false,
+    expectedGraduationYear: null,
+  });
+  expect(
+    await db.tutor.findUniqueOrThrow({ where: { id: tutor.id } }),
+  ).toMatchObject({
+    academicallyGraduated: true,
+    gradeLevel: null,
+    status: "ACTIVE",
+  });
+  const confirmed = await accountAcademics(db, "academic-person");
+  await caller("academic-person").account.updateAcademics({
+    status: "UNKNOWN",
+    gradeLevel: null,
+    schoolYear: null,
+    expectedProfileVersion: confirmed.profileVersion,
+  });
+  expect(
+    await db.tutor.findUniqueOrThrow({ where: { id: tutor.id } }),
+  ).toMatchObject({ academicallyGraduated: false, status: "ACTIVE" });
+});
 it.each(["student", "tutor", "crew", "mixed"])(
   "shares self-reported academics for %s with staff lists",
   async (kind) => {

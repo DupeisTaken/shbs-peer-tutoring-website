@@ -1,8 +1,11 @@
 import { z } from "zod";
 import { graduationYear, isSchoolYear } from "./period";
 
+/** Form value for the nonnumeric provisional grade choice. */
+export const GRADUATED_GRADE = "GRADUATED";
+
 export const academicFields = z.object({
-  status: z.enum(["REPORTED", "UNKNOWN", "NOT_APPLICABLE"]),
+  status: z.enum(["REPORTED", "UNKNOWN", "GRADUATED", "NOT_APPLICABLE"]),
   gradeLevel: z.number().int().min(1).max(12).nullable(),
   rawGrade: z.string().trim().max(200).nullable().optional(),
   schoolYear: z
@@ -29,13 +32,15 @@ export const academicInput = academicFields
       });
   });
 /** Public confirmations describe today's grade; legacy client years are accepted but never trusted. */
-export const currentAcademicInput = academicFields.omit({ schoolYear: true }).extend({
-  schoolYear: z.string().nullable().optional(),
-  expectedSchoolYear: z.string().nullable().optional(),
-  expectedProfileVersion: z.number().int().nonnegative(),
-});
+export const currentAcademicInput = academicFields
+  .omit({ schoolYear: true })
+  .extend({
+    schoolYear: z.string().nullable().optional(),
+    expectedSchoolYear: z.string().nullable().optional(),
+    expectedProfileVersion: z.number().int().nonnegative(),
+  });
 export type AcademicRecord = {
-  status: "REPORTED" | "UNKNOWN" | "NOT_APPLICABLE";
+  status: "REPORTED" | "UNKNOWN" | "GRADUATED" | "NOT_APPLICABLE";
   gradeLevel: number | null;
   rawGrade: string | null;
   schoolYear: string | null;
@@ -82,6 +87,7 @@ export function academicSummary(
     needsConfirmation:
       value.reconfirmRequired ||
       (value.status !== "NOT_APPLICABLE" &&
+        value.status !== "GRADUATED" &&
         (!value.confirmedAt ||
           !value.schoolYear ||
           !currentSchoolYear ||

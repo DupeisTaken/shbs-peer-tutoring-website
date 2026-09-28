@@ -336,8 +336,8 @@ export const adminRouter = createTRPCRouter({
       }),
     ]);
     return tutors.map((tutor) => ({ ...tutor, academic: academicSummary(tutor.user?.academicProfile ?? (
-      tutor.gradeSchoolYear && tutor.gradeConfirmedAt ? { status: "REPORTED", gradeLevel: tutor.gradeLevel, rawGrade: null,
-        schoolYear: tutor.gradeSchoolYear, confirmedAt: tutor.gradeConfirmedAt, reconfirmRequired: false } : legacyAcademic(tutor.gradeLevel)
+      !tutor.academicallyGraduated && tutor.gradeSchoolYear && tutor.gradeConfirmedAt ? { status: "REPORTED", gradeLevel: tutor.gradeLevel, rawGrade: null,
+        schoolYear: tutor.gradeSchoolYear, confirmedAt: tutor.gradeConfirmedAt, reconfirmRequired: false } : legacyAcademic(tutor.gradeLevel, tutor.academicallyGraduated)
     ), term?.schoolYear) }));
   }),
   /**
@@ -525,7 +525,7 @@ export const adminRouter = createTRPCRouter({
       const bannedMatch =
         match && (match.name || match.email || match.phone) ? match : null;
       // Withhold staff free-text (notes) and the tutee's typed legal-name signature from VIEWER.
-      const academic = academicSummary(t.user?.academicProfile ?? legacyAcademic(t.gradeLevel), active?.schoolYear);
+      const academic = academicSummary(t.user?.academicProfile ?? legacyAcademic(t.gradeLevel, t.academicallyGraduated), active?.schoolYear);
       return isViewer
         ? { ...t, notes: null, signatureName: null, bannedMatch, academic }
         : { ...t, bannedMatch, academic };
@@ -1726,10 +1726,13 @@ export const adminRouter = createTRPCRouter({
         alternativeNames: z.string().trim().max(200).optional(),
         email: z.string().email().optional(),
         gradeLevel: z.number().int().min(1).max(12).nullable().optional(),
+        academicallyGraduated: z.boolean().optional(),
         status: z.enum(TUTOR_STATUS).default("ACTIVE"),
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      if (input.academicallyGraduated && input.gradeLevel != null)
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Graduated cannot have a current grade." });
       const tutor = await inTransaction(ctx.db, async (tx) => {
         await assertPrimaryName(tx, `${input.firstName} ${input.lastName}`);
         await assertOfferedGrade(tx, input.gradeLevel);
@@ -1748,6 +1751,7 @@ export const adminRouter = createTRPCRouter({
             username,
             status: input.status,
             gradeLevel: input.gradeLevel ?? null,
+            academicallyGraduated: input.academicallyGraduated ?? false,
             email: input.email?.trim() ? input.email.trim().toLowerCase() : null,
           },
         });
@@ -1776,10 +1780,13 @@ export const adminRouter = createTRPCRouter({
         username: z.string().trim().optional(),
         email: z.string().email().nullable().optional(),
         gradeLevel: z.number().int().min(1).max(12).nullable().optional(),
+        academicallyGraduated: z.boolean().optional(),
         status: z.enum(TUTOR_STATUS),
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      if (input.academicallyGraduated && input.gradeLevel != null)
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Graduated cannot have a current grade." });
       const account = await ctx.db.user.findUnique({
         where: { tutorId: input.id },
         select: { id: true, email: true },
@@ -1798,6 +1805,8 @@ export const adminRouter = createTRPCRouter({
       const roster = await ctx.db.tutor.findUniqueOrThrow({ where: { id: input.id } });
       if (account && input.gradeLevel !== undefined && input.gradeLevel !== roster.gradeLevel)
         throw new TRPCError({ code: "BAD_REQUEST", message: "ACADEMIC_SHARED_EDITOR_REQUIRED" });
+      if (account && input.academicallyGraduated !== undefined && input.academicallyGraduated !== roster.academicallyGraduated)
+        throw new TRPCError({ code: "BAD_REQUEST", message: "ACADEMIC_SHARED_EDITOR_REQUIRED" });
       if (input.username !== undefined && input.username.trim().toLowerCase() !== (roster.username ?? ""))
         throw new TRPCError({ code: "FORBIDDEN", message: "Edit login usernames through Users & Roles as Head." });
       const prev = await ctx.db.tutor.findUnique({
@@ -1811,8 +1820,15 @@ export const adminRouter = createTRPCRouter({
         const before = await tx.tutor.findUniqueOrThrow({
           where: { id: input.id },
         });
+        if ((input.academicallyGraduated ?? before.academicallyGraduated) &&
+          (input.gradeLevel === undefined ? before.gradeLevel : input.gradeLevel) != null)
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Graduated cannot have a current grade." });
         await assertPrimaryName(tx, [input.firstName, input.lastName].filter(Boolean).join(" "), before.englishName);
         if (!account && input.gradeLevel !== before.gradeLevel) await assertOfferedGrade(tx, input.gradeLevel);
+        const changedAcademicChoice = !account && (
+          (input.gradeLevel !== undefined && input.gradeLevel !== before.gradeLevel) ||
+          (input.academicallyGraduated !== undefined && input.academicallyGraduated !== before.academicallyGraduated)
+        );
         // The middleware's routing decision is not authority for a later state transition.
         if (before.status !== input.status && ctx.session.role !== "HEAD")
           throw new TRPCError({ code: "CONFLICT", message: "Tutor membership changed. Ask Head to review this status change." });
@@ -1835,9 +1851,11 @@ export const adminRouter = createTRPCRouter({
             username: before.username,
             status: input.status,
             // Linked academic mirrors are written only by the versioned academic workflow.
-            ...(account || input.gradeLevel === undefined
-              ? {}
-              : { gradeLevel: input.gradeLevel }),
+            ...(account ? {} : {
+              ...(input.gradeLevel === undefined ? {} : { gradeLevel: input.gradeLevel }),
+              ...(input.academicallyGraduated === undefined ? {} : { academicallyGraduated: input.academicallyGraduated }),
+              ...(changedAcademicChoice ? { gradeSchoolYear: null, gradeConfirmedAt: null } : {}),
+            }),
             ...(input.email === undefined
               ? {}
               : { email: blankToNull(input.email)?.toLowerCase() ?? null }),
@@ -1901,6 +1919,7 @@ export const adminRouter = createTRPCRouter({
         email: z.string().email().nullable().optional(),
         phone: z.string().trim().nullable().optional(),
         gradeLevel: z.string().trim().nullable().optional(),
+        academicallyGraduated: z.boolean().optional(),
         notes: z.string().trim().nullable().optional(),
         status: z.enum(TUTEE_STATUS).default("ACTIVE"),
         firstChoiceId: cuid.nullable().optional(),
@@ -1908,6 +1927,8 @@ export const adminRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      if (input.academicallyGraduated && input.gradeLevel != null)
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Graduated cannot have a current grade." });
       await assertPrimaryName(ctx.db, input.englishName);
       await assertOfferedGrade(ctx.db, normalizeGrade(input.gradeLevel).gradeLevel);
       return ctx.db.tutee.create({
@@ -1918,6 +1939,7 @@ export const adminRouter = createTRPCRouter({
           email: blankToNull(input.email)?.toLowerCase() ?? null,
           phone: blankToNull(input.phone),
           gradeLevel: blankToNull(input.gradeLevel),
+          academicallyGraduated: input.academicallyGraduated ?? false,
           notes: blankToNull(input.notes),
           status: input.status,
           firstChoiceId: input.firstChoiceId ?? null,
@@ -1938,6 +1960,7 @@ export const adminRouter = createTRPCRouter({
         email: z.string().email().nullable().optional(),
         phone: z.string().trim().nullable().optional(),
         gradeLevel: z.string().trim().nullable().optional(),
+        academicallyGraduated: z.boolean().optional(),
         notes: z.string().trim().nullable().optional(),
         status: z.enum(TUTEE_STATUS),
         firstChoiceId: cuid.nullable().optional(),
@@ -1946,6 +1969,8 @@ export const adminRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) =>
       inTransaction(ctx.db, async (tx) => {
+        if (input.academicallyGraduated && input.gradeLevel != null)
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Graduated cannot have a current grade." });
         const linkedStudent = await tx.user.findUnique({
           where: { studentId: input.id },
           select: { id: true, email: true },
@@ -1956,6 +1981,9 @@ export const adminRouter = createTRPCRouter({
           where: { id: input.id },
           include: { availabilities: true },
         });
+        if ((input.academicallyGraduated ?? before.academicallyGraduated) &&
+          (input.gradeLevel === undefined ? before.gradeLevel : input.gradeLevel) != null)
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Graduated cannot have a current grade." });
         await assertPrimaryName(tx, input.englishName, before.englishName);
         if (!linkedStudent && input.gradeLevel !== before.gradeLevel)
           await assertOfferedGrade(tx, normalizeGrade(input.gradeLevel).gradeLevel);
@@ -1972,6 +2000,8 @@ export const adminRouter = createTRPCRouter({
               "Tutee login emails must be changed through verified account settings.",
           });
         if (linkedStudent && input.gradeLevel !== undefined && input.gradeLevel !== before.gradeLevel)
+          throw new TRPCError({ code: "BAD_REQUEST", message: "ACADEMIC_SHARED_EDITOR_REQUIRED" });
+        if (linkedStudent && input.academicallyGraduated !== undefined && input.academicallyGraduated !== before.academicallyGraduated)
           throw new TRPCError({ code: "BAD_REQUEST", message: "ACADEMIC_SHARED_EDITOR_REQUIRED" });
         const { id, expectedUpdatedAt: _version, slotIds, ...fields } = input;
         void _version;
@@ -3933,6 +3963,7 @@ export const adminRouter = createTRPCRouter({
               status: true,
               username: true,
               gradeLevel: true,
+              academicallyGraduated: true,
               email: true,
             },
           },
@@ -3947,6 +3978,7 @@ export const adminRouter = createTRPCRouter({
           status: true,
           username: true,
           gradeLevel: true,
+          academicallyGraduated: true,
           email: true,
         },
       }),
@@ -4035,7 +4067,7 @@ export const adminRouter = createTRPCRouter({
       },
       tutorStatus: tu.status,
       classOf: null,
-      academic: academicSummary(legacyAcademic(tu.gradeLevel), term?.schoolYear),
+      academic: academicSummary(legacyAcademic(tu.gradeLevel, tu.academicallyGraduated), term?.schoolYear),
       canTranslate: false,
       tuteeMember: false,
       tutorAccessRevoked: false,

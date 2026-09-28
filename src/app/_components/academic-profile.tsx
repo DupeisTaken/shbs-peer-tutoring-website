@@ -28,9 +28,11 @@ export function AcademicDetails({
       <p className="font-medium text-slate-900">
         {academic?.status === "NOT_APPLICABLE"
           ? t("notApplicable")
-          : academic?.status === "REPORTED" && academic.gradeLevel !== null
-            ? t("gradeValue", { grade: academic.gradeLevel })
-            : t("unknown")}
+          : academic?.status === "GRADUATED"
+            ? t("graduated")
+            : academic?.status === "REPORTED" && academic.gradeLevel !== null
+              ? t("gradeValue", { grade: academic.gradeLevel })
+              : t("unknown")}
       </p>
       {academic?.rawGrade && academic.status === "UNKNOWN" && (
         <p className="break-words text-slate-600">
@@ -42,13 +44,15 @@ export function AcademicDetails({
           {t("reference", { year: academic.schoolYear })}
         </p>
       )}
-      <p className="text-slate-600">
-        {academic?.expectedGraduationYear != null
-          ? t("graduationValue", {
-              year: String(academic.expectedGraduationYear),
-            })
-          : t("graduationUnknown")}
-      </p>
+      {academic?.status !== "GRADUATED" && (
+        <p className="text-slate-600">
+          {academic?.expectedGraduationYear != null
+            ? t("graduationValue", {
+                year: String(academic.expectedGraduationYear),
+              })
+            : t("graduationUnknown")}
+        </p>
+      )}
       {academic?.needsConfirmation && (
         <p className="font-medium text-amber-800">{t("needsConfirmation")}</p>
       )}
@@ -133,6 +137,7 @@ export function AcademicForm({
           >
             <option value="REPORTED">{t("reported")}</option>
             <option value="UNKNOWN">{t("unknown")}</option>
+            <option value="GRADUATED">{t("graduated")}</option>
             <option value="NOT_APPLICABLE">{t("notApplicable")}</option>
           </select>
         </label>
@@ -395,7 +400,9 @@ export function AcademicPanel({ userId }: { userId?: string }) {
                     : t(
                         item.status === "NOT_APPLICABLE"
                           ? "notApplicable"
-                          : "unknown",
+                          : item.status === "GRADUATED"
+                            ? "graduated"
+                            : "unknown",
                       )}
                   {item.schoolYear ? ` · ${item.schoolYear}` : ""}
                 </p>

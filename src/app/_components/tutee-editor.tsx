@@ -10,6 +10,7 @@ import {
   OfferedGradeSelect,
 } from "./profile-policy";
 import { useState } from "react";
+import { GRADUATED_GRADE } from "~/lib/academics";
 
 /** Profile correction stays separate from assignment/removal, while the version protects both. */
 export function TuteeEditor({
@@ -24,7 +25,11 @@ export function TuteeEditor({
   const academicText = useTranslations("academics");
   const [expectedUpdatedAt] = useState(row.updatedAt);
   const policy = useProfilePolicy();
-  const [grade, setGrade] = useState(row.gradeLevel?.toString() ?? "");
+  const [grade, setGrade] = useState(
+    row.academicallyGraduated
+      ? GRADUATED_GRADE
+      : (row.gradeLevel?.toString() ?? ""),
+  );
   const utils = api.useUtils();
   const subjects = api.admin.subjects.useQuery();
   const slots = api.admin.timeSlots.useQuery();
@@ -65,7 +70,15 @@ export function TuteeEditor({
               email: value("email"),
               phone: value("phone"),
               preferredContact: value("preferredContact"),
-              ...(row.user ? {} : { gradeLevel: value("grade") }),
+              ...(row.user
+                ? {}
+                : {
+                    gradeLevel:
+                      value("grade") === GRADUATED_GRADE
+                        ? null
+                        : value("grade"),
+                    academicallyGraduated: value("grade") === GRADUATED_GRADE,
+                  }),
               notes: value("notes"),
               firstChoiceId: value("firstChoice"),
               secondChoiceId: value("secondChoice"),
@@ -98,6 +111,7 @@ export function TuteeEditor({
                     onChange={setGrade}
                     offeredGrades={policy.offeredGrades}
                     preserveLegacy
+                    includeGraduated
                   />
                 ) : (
                   <input

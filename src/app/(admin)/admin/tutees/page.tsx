@@ -5,7 +5,12 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 
-import { useProfilePolicy, ProfilePolicyHint, ProfilePolicyError, OfferedGradeSelect } from "~/app/_components/profile-policy";
+import {
+  useProfilePolicy,
+  ProfilePolicyHint,
+  ProfilePolicyError,
+  OfferedGradeSelect,
+} from "~/app/_components/profile-policy";
 import { api } from "~/trpc/react";
 import { REFERENCE_STALE_TIME } from "~/lib/query";
 import { SortHeader, useSort, compare } from "~/app/_components/sortable";
@@ -13,6 +18,7 @@ import { useReadOnly } from "~/app/_components/read-only";
 import { EmailDetails } from "~/app/_components/email-details";
 import { TuteeEditor } from "~/app/_components/tutee-editor";
 import { AcademicDetails } from "~/app/_components/academic-profile";
+import { GRADUATED_GRADE } from "~/lib/academics";
 
 type Status = "PENDING" | "ACTIVE" | "INACTIVE";
 
@@ -181,7 +187,11 @@ export default function TuteesPage() {
               create.mutate(
                 {
                   englishName: name.trim(),
-                  gradeLevel: gradeLevel.trim() || undefined,
+                  gradeLevel:
+                    gradeLevel && gradeLevel !== GRADUATED_GRADE
+                      ? gradeLevel
+                      : undefined,
+                  academicallyGraduated: gradeLevel === GRADUATED_GRADE,
                   firstChoiceId: firstChoiceId || undefined,
                   secondChoiceId: secondChoiceId || undefined,
                   status: "ACTIVE",
@@ -208,7 +218,12 @@ export default function TuteesPage() {
             </label>
             <label className="space-y-1">
               <span className="label">{t("admin.tutees.grade")}</span>
-              <OfferedGradeSelect value={gradeLevel} onChange={setGradeLevel} offeredGrades={policy.offeredGrades} />
+              <OfferedGradeSelect
+                value={gradeLevel}
+                onChange={setGradeLevel}
+                offeredGrades={policy.offeredGrades}
+                includeGraduated
+              />
             </label>
             <label className="space-y-1">
               <span className="label">{t("admin.tutees.firstChoice")}</span>
