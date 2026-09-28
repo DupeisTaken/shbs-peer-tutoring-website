@@ -1,4 +1,5 @@
 "use client";
+import { SignupError } from "~/app/_components/signup-error";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
@@ -40,7 +41,7 @@ export function SurveyResend({ initialEmail = "" }: { initialEmail?: string }) {
       )}
       {resend.error && (
         <p role="alert" className="text-red-700">
-          {resend.error.message}
+          <SignupError error={resend.error} />
         </p>
       )}
     </form>

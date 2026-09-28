@@ -3212,5 +3212,9 @@
     "working": "Working…",
     "readError": "Could not read this file.",
     "scope": "Includes participants, terms, subjects, pairings, availability, attendance, hours, applications, interviews, patrols, discipline, requests, academic and policy-acceptance history, and announcements. New terms must be inactive; imported pairings and sessions must belong to inactive terms. Account references must already exist. Credentials, account roles, private messages, executable approvals, website content, configuration and uploaded files are excluded."
+  },
+  "signupProtection": {
+    "retry": "Please wait {seconds} seconds before trying again. Your entered details and original place are saved. Contact the program team if this continues.",
+    "mailFailed": "Email could not be delivered. Please wait one minute and retry, or contact the program team. Your original place is saved."
   }
 }

@@ -1914,3 +1914,16 @@ model UsernameNamespaceGuard {
   id       Int    @id
   revision BigInt @default(0)
 }
+
+// Security accounting uses raw atomic SQL; these models keep schema/migrations in sync.
+model SignupQuota {
+ key String @id
+ count Int
+ expiresAt DateTime
+ @@index([expiresAt])
+}
+model SignupLease {
+ slot String @id
+ owner String
+ expiresAt DateTime
+}

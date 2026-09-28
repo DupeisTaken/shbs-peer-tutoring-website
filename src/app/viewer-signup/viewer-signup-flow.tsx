@@ -1,4 +1,5 @@
 "use client";
+import { SignupError } from "~/app/_components/signup-error";
 
 import { FieldRequirement } from "~/app/_components/field-requirement";
 
@@ -6,7 +7,7 @@ import { useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 
-import { ProfilePolicyHint, ProfilePolicyError } from "~/app/_components/profile-policy";
+import { ProfilePolicyHint } from "~/app/_components/profile-policy";
 import { api } from "~/trpc/react";
 
 type Step = "details" | "code" | "password" | "done";
@@ -85,7 +86,7 @@ export function ViewerSignupFlow() {
               className="input w-full"
             />
           </div>
-          {start.error && <p className="text-sm text-red-600"><ProfilePolicyError message={start.error.message} /></p>}
+          {start.error && <p role="alert" className="text-sm text-red-600"><SignupError error={start.error} /></p>}
           <button className="btn-primary w-full" disabled={!detailsValid || start.isPending}>
             {start.isPending ? t("public.viewerSignup.sending") : t("public.viewerSignup.sendCode")}
           </button>
@@ -116,8 +117,8 @@ export function ViewerSignupFlow() {
             placeholder="XXXXX"
             className="input w-full text-center text-2xl tracking-[0.4em] uppercase"
           />
-          {verify.error && <p className="text-sm text-red-600">{verify.error.message}</p>}
-          {start.error && <p className="text-sm text-red-600"><ProfilePolicyError message={start.error.message} /></p>}
+          {verify.error && <p role="alert" className="text-sm text-red-600"><SignupError error={verify.error} /></p>}
+          {start.error && <p role="alert" className="text-sm text-red-600"><SignupError error={start.error} /></p>}
           <button className="btn-primary w-full" disabled={!/^[0-9A-Z]{5}$/.test(code) || verify.isPending}>
             {t("public.viewerSignup.verify")}
           </button>
@@ -168,12 +169,12 @@ export function ViewerSignupFlow() {
               className="input w-full"
             />
           </div>
-          {mismatch && <p className="text-sm text-red-600">{t("public.viewerSignup.mismatch")}</p>}
-          {complete.error && <p className="text-sm text-red-600"><ProfilePolicyError message={complete.error.message} /></p>}
+          {mismatch && <p role="alert" className="text-sm text-red-600">{t("public.viewerSignup.mismatch")}</p>}
+          {complete.error && <p role="alert" className="text-sm text-red-600"><SignupError error={complete.error} /></p>}
           <button className="btn-primary w-full" disabled={password.length < 8 || confirm !== password || start.isPending || complete.isPending}>
             {complete.isPending ? t("public.viewerSignup.creating") : t("public.viewerSignup.createAccount")}
           </button>
-          {start.error && <p className="text-sm text-red-600"><ProfilePolicyError message={start.error.message} /></p>}
+          {start.error && <p role="alert" className="text-sm text-red-600"><SignupError error={start.error} /></p>}
           <button type="button" className="link text-sm" disabled={start.isPending || complete.isPending}
             onClick={() => start.mutate({ name: name.trim(), affiliation: affiliation.trim(), email: email.trim() })}>
             {t("public.viewerSignup.resend")}

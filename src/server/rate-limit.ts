@@ -54,6 +54,9 @@ export function rateLimit(key: string, opts: RateLimitOptions): RateLimitResult 
   const now = Date.now();
   maybeSweep(now);
 
+  // Never evict a live bucket to admit a rotating identity.
+  if (!store.has(key) && store.size >= 10_000)
+    return { ok: false, remaining: 0, retryAfterMs: SWEEP_INTERVAL_MS };
   const windowStart = now - opts.windowMs;
   const entry = store.get(key);
   const hits = (entry?.hits ?? []).filter((t) => t > windowStart);

@@ -1,4 +1,5 @@
 "use client";
+import { SignupError } from "~/app/_components/signup-error";
 
 import { FieldRequirement } from "~/app/_components/field-requirement";
 
@@ -6,7 +7,6 @@ import { useMemo, useState } from "react";
 import {
   useProfilePolicy,
   ProfilePolicyHint,
-  ProfilePolicyError,
   OfferedGradeSelect,
 } from "~/app/_components/profile-policy";
 import { PreferredLatinName } from "~/app/_components/preferred-latin-name";
@@ -395,7 +395,7 @@ export function SignupForm() {
 
           {submit.error && (
             <p role="alert" className="text-sm text-red-600">
-              <ProfilePolicyError message={submit.error.message} />
+              <SignupError error={submit.error} />
             </p>
           )}
 

@@ -3,5 +3,8 @@
 # must point at this server before the first start (so the ACME challenge passes).
 
 {$DOMAIN} {
-	reverse_proxy app:3000
+	reverse_proxy app:3000 {
+		# Single public proxy: overwrite, never append a client-supplied identity.
+		header_up X-Signup-Client-IP {remote_host}
+	}
 }

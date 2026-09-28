@@ -1,3 +1,4 @@
+import { withSignupAdmission } from "~/server/signup-admission";
 import { getRecruitment } from "~/server/program/recruitment";
 import { getSignupSettings } from "~/server/program/signup-fields";
 import { courseChoices } from "~/server/course-choices";
@@ -17,7 +18,6 @@ import {
   resendSurvey,
   inspectSurvey,
   confirmSurvey,
-  surveyLimit,
   pendingSurveys,
 } from "~/server/student-survey";
 
@@ -33,19 +33,23 @@ export const tuteeRouter = createTRPCRouter({
   requestSignup: publicProcedure
     .input(surveyInput)
     .mutation(({ ctx, input }) => {
-      surveyLimit(`ip:${ctx.headers.get("x-forwarded-for") ?? "local"}`, 1000);
-      return submitSurvey(ctx.db, input);
+      return withSignupAdmission(ctx.db, ctx.headers, "mail", input.email, () =>
+        submitSurvey(ctx.db, input),
+      );
     }),
   surveyPolicy: publicProcedure
     .input(z.object({ locale: z.string() }))
     .query(async ({ ctx, input }) => {
-      return publicSignupPolicy(ctx.db, "tutee-policy", input.locale);
+      return withSignupAdmission(ctx.db, ctx.headers, "read", undefined, () =>
+        publicSignupPolicy(ctx.db, "tutee-policy", input.locale),
+      );
     }),
   submitSurvey: publicProcedure
     .input(surveyInput)
     .mutation(({ ctx, input }) => {
-      surveyLimit(`ip:${ctx.headers.get("x-forwarded-for") ?? "local"}`, 1000);
-      return submitSurvey(ctx.db, input);
+      return withSignupAdmission(ctx.db, ctx.headers, "mail", input.email, () =>
+        submitSurvey(ctx.db, input),
+      );
     }),
   resendSurvey: publicProcedure
     .input(
@@ -58,12 +62,21 @@ export const tuteeRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      surveyLimit(`ip:${ctx.headers.get("x-forwarded-for") ?? "local"}`, 1000);
-      return { emailSent: await resendSurvey(ctx.db, input.email) };
+      return withSignupAdmission(
+        ctx.db,
+        ctx.headers,
+        "mail",
+        input.email,
+        async () => ({ emailSent: await resendSurvey(ctx.db, input.email) }),
+      );
     }),
   inspectSurvey: publicProcedure
     .input(z.object({ token: surveyToken }))
-    .query(({ ctx, input }) => inspectSurvey(ctx.db, input.token)),
+    .query(({ ctx, input }) =>
+      withSignupAdmission(ctx.db, ctx.headers, "complete", input.token, () =>
+        inspectSurvey(ctx.db, input.token),
+      ),
+    ),
   confirmSurvey: publicProcedure
     .input(
       z.object({
@@ -72,39 +85,43 @@ export const tuteeRouter = createTRPCRouter({
       }),
     )
     .mutation(({ ctx, input }) => {
-      surveyLimit(
-        `confirm:${ctx.headers.get("x-forwarded-for") ?? "local"}`,
-        1000,
+      return withSignupAdmission(
+        ctx.db,
+        ctx.headers,
+        "complete",
+        input.token,
+        () => confirmSurvey(ctx.db, input.token, input.password),
       );
-      return confirmSurvey(ctx.db, input.token, input.password);
     }),
   pendingSurveys: adminProcedure.query(({ ctx }) => pendingSurveys(ctx.db)),
 
   /** Options needed to render the public signup form: active subjects + active time slots. */
-  signupOptions: publicProcedure.query(async ({ ctx }) => {
-    const [subjects, slots, settings, recruitment] = await Promise.all([
-      courseChoices(ctx.db, { active: true }),
-      ctx.db.timeSlot.findMany({
-        where: { active: true },
-        orderBy: [{ dayOfWeek: "asc" }, { startMin: "asc" }],
-        select: {
-          id: true,
-          label: true,
-          dayOfWeek: true,
-          startMin: true,
-          endMin: true,
-        },
-      }),
-      getSignupSettings(ctx.db),
-      getRecruitment(ctx.db, "tutee"),
-    ]);
-    return {
-      subjects: subjects.map(({ id, name }) => ({ id, name })),
-      slots,
-      fields: settings.tutee,
-      recruitment,
-    };
-  }),
+  signupOptions: publicProcedure.query(async ({ ctx }) =>
+    withSignupAdmission(ctx.db, ctx.headers, "read", undefined, async () => {
+      const [subjects, slots, settings, recruitment] = await Promise.all([
+        courseChoices(ctx.db, { active: true }),
+        ctx.db.timeSlot.findMany({
+          where: { active: true },
+          orderBy: [{ dayOfWeek: "asc" }, { startMin: "asc" }],
+          select: {
+            id: true,
+            label: true,
+            dayOfWeek: true,
+            startMin: true,
+            endMin: true,
+          },
+        }),
+        getSignupSettings(ctx.db),
+        getRecruitment(ctx.db, "tutee"),
+      ]);
+      return {
+        subjects: subjects.map(({ id, name }) => ({ id, name })),
+        slots,
+        fields: settings.tutee,
+        recruitment,
+      };
+    }),
+  ),
 
   /**
    * The tutee policy/handbook (admin-editable) shown in the signup agreement modal, in the
@@ -113,6 +130,8 @@ export const tuteeRouter = createTRPCRouter({
   policy: publicProcedure
     .input(z.object({ locale: z.string().optional() }).optional())
     .query(({ ctx, input }) =>
-      localizedPolicy(ctx.db, "tutee-policy", input?.locale),
+      withSignupAdmission(ctx.db, ctx.headers, "read", undefined, () =>
+        localizedPolicy(ctx.db, "tutee-policy", input?.locale),
+      ),
     ),
 });

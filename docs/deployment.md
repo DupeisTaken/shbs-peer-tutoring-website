@@ -446,3 +446,9 @@ A successful build or published GHCR image does not verify target-host TLS, pers
 On a fresh deployment, inspect the public `tutee.signupOptions`, `application.options`, `tutee.surveyPolicy`, and `application.policy` requests. Before the recruitment-preview fix, an unpublished English policy returned HTTP 412 and appeared as a generic “could not load” error. Empty subjects or required tutee slots are separate setup gaps. Retrying or restarting does not create this configuration.
 
 Apply migration `20260922140000_recruitment_windows` with the release, regenerate the Prisma client when running from source, and restart the app. The updated public policy reads return an explicit absent-policy state; forms render a read-only preview with the missing prerequisites listed. Database/network failures still surface as loading errors. Use **Policy Documents**, **Subjects & Levels**, **Time Slots**, and the separate recruitment panels in **Program & Refresh** to complete setup. Publish reviewed school policy content; do not seed demo data in production. Verify both public forms before and after their configured opening/closing boundaries.
+
+## Public signup abuse controls
+
+Apply migrations and review [public signup protection](signup-protection.md) for
+quota defaults, the trusted Caddy boundary, SMTP deadlines and outage troubleshooting.
+Keep the application port private. No paid external service is required.
