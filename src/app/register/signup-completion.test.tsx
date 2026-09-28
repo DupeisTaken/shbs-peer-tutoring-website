@@ -100,6 +100,27 @@ function reachEmailCode(viewer: boolean) {
     submit();
   }
 }
+it("keeps the affiliation example readable and associated with its input", () => {
+  render(wrap(true));
+  const affiliation = screen.getByLabelText(en.public.viewerSignup.fields.affiliation);
+  const hint = document.getElementById(affiliation.getAttribute("aria-describedby") ?? "");
+  expect(hint?.textContent).toBe(en.public.viewerSignup.fields.affiliationPlaceholder);
+  expect(affiliation.getAttribute("placeholder")).toBeNull();
+});
+
+it("shows the viewer completion action after verification and matching passwords", () => {
+  mocks.completionResult = { username: "visual", academicConfirmationRequired: false };
+  render(wrap(true));
+  reachEmailCode(true);
+  fill("obs-code", "FGHJK");
+  submit();
+  fill("obs-pass", "Password123!");
+  fill("obs-confirm", "Password123!");
+  submit();
+  expect(screen.getByText(en.public.viewerSignup.doneTitle)).toBeTruthy();
+  expect(screen.getByRole("link", { name: en.public.viewerSignup.signIn }).getAttribute("href")).toBe("/signin");
+});
+
 it("uses offered grades and the current program year without sending a client-selected year", () => {
   render(wrap(false));
   reachEmailCode(false);

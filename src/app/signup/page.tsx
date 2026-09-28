@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 
 import { brandingMetadata } from "~/server/branding-metadata";
@@ -9,7 +8,7 @@ import { db } from "~/server/db";
 import { getActivePeriodOrNull } from "~/server/period";
 import { getFeatures } from "~/server/program/features";
 import { getPeriodDisplay } from "~/lib/period";
-import { FloatingLanguageSwitcher } from "~/app/_components/floating-language-switcher";
+import { PublicFormPage } from "~/app/_components/public-form-page";
 
 export async function generateMetadata() {
   return brandingMetadata("Request a tutor");
@@ -35,25 +34,25 @@ export default async function SignupPage() {
       : null;
 
   return (
-    <main className="mx-auto min-h-screen max-w-2xl px-4 py-12">
-      <FloatingLanguageSwitcher />
-      <Link href="/" className="link text-sm">
-        {t("common.backToMain")}
-      </Link>
-      <div className="mb-8 text-center">
-        <h1 className="page-title">{t("public.signup.title")}</h1>
-        {displayPeriod && (
-          <p className="mt-2">
-            <span className="badge-slate">
-              {t(`public.signup.${displayPeriod.kind}`, {
-                period: displayPeriod.label,
-              })}
-            </span>
-          </p>
-        )}
-        <p className="muted mt-2">{t("survey.intro")}</p>
-      </div>
-
+    <PublicFormPage
+      wide
+      title={t("public.signup.title")}
+      backLabel={t("common.backToMain")}
+      description={
+        <>
+          {displayPeriod && (
+            <p className="mb-2">
+              <span className="badge-slate">
+                {t(`public.signup.${displayPeriod.kind}`, {
+                  period: displayPeriod.label,
+                })}
+              </span>
+            </p>
+          )}
+          <p>{t("survey.intro")}</p>
+        </>
+      }
+    >
       {waitingPeriod ? (
         <SignupOpeningNotice
           periodLabel={
@@ -67,6 +66,6 @@ export default async function SignupPage() {
       <div className="mt-6">
         <SignupForm />
       </div>
-    </main>
+    </PublicFormPage>
   );
 }
