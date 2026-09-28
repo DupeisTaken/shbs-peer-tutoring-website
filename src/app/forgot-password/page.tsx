@@ -1,9 +1,12 @@
-import Link from "next/link";
+import {
+  PublicFormPage,
+  PublicFormCard,
+  PublicFormRoute,
+} from "~/app/_components/public-form-page";
 import { getTranslations } from "next-intl/server";
 
 import { brandingMetadata } from "~/server/branding-metadata";
 import { ForgotPasswordForm } from "./forgot-password-form";
-import { FloatingLanguageSwitcher } from "~/app/_components/floating-language-switcher";
 
 export async function generateMetadata() {
   return brandingMetadata("Forgot password");
@@ -12,22 +15,17 @@ export async function generateMetadata() {
 export default async function ForgotPasswordPage() {
   const t = await getTranslations();
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center px-4">
-      <FloatingLanguageSwitcher />
-      <div className="w-full max-w-sm text-center">
-        <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
-          {t("auth.forgot.title")}
-        </h1>
-        <p className="muted mt-1">{t("auth.forgot.intro")}</p>
-        <div className="card mt-6 p-6 text-left">
-          <ForgotPasswordForm />
-        </div>
-        <p className="mt-6">
-          <Link href="/signin" className="link">
-            {t("auth.forgot.backToSignIn")}
-          </Link>
-        </p>
-      </div>
-    </main>
+    <PublicFormPage
+      title={t("auth.forgot.title")}
+      description={t("auth.forgot.intro")}
+      backLabel={t("common.backToMain")}
+      footer={
+        <PublicFormRoute href="/signin" label={t("auth.forgot.backToSignIn")} />
+      }
+    >
+      <PublicFormCard>
+        <ForgotPasswordForm />
+      </PublicFormCard>
+    </PublicFormPage>
   );
 }

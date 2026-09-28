@@ -34,11 +34,11 @@ export function ViewerSignupFlow() {
   const mismatch = password.length > 0 && confirm.length > 0 && password !== confirm;
 
   return (
-    <div className="card space-y-4 p-6">
+    <div className="space-y-5">
       {/* Step 1 — identity + email */}
       {step === "details" && (
         <form
-          className="space-y-3"
+          className="space-y-5"
           onSubmit={(e) => {
             e.preventDefault();
             if (detailsValid)
@@ -60,9 +60,13 @@ export function ViewerSignupFlow() {
               id="obs-aff"
               value={affiliation}
               onChange={(e) => setAffiliation(e.target.value)}
-              placeholder={t("public.viewerSignup.fields.affiliationPlaceholder")}
+              aria-describedby="obs-aff-hint"
               className="input w-full"
             />
+            {/* Examples wrap below the field instead of being clipped in a mobile placeholder. */}
+            <p id="obs-aff-hint" className="mt-2 text-xs leading-5 text-slate-500">
+              {t("public.viewerSignup.fields.affiliationPlaceholder")}
+            </p>
           </div>
           <div>
             <label className="label" htmlFor="obs-email">
@@ -86,7 +90,7 @@ export function ViewerSignupFlow() {
       {/* Step 2 — email code */}
       {step === "code" && (
         <form
-          className="space-y-3"
+          className="space-y-5"
           onSubmit={(e) => {
             e.preventDefault();
             if (/^[0-9A-Z]{5}$/.test(code)) verify.mutate({ email: email.trim(), code });
@@ -125,7 +129,7 @@ export function ViewerSignupFlow() {
       {/* Step 3 — password */}
       {step === "password" && (
         <form
-          className="space-y-3"
+          className="space-y-5"
           onSubmit={(e) => {
             e.preventDefault();
             if (password.length >= 8 && confirm === password && completionProof && !start.isPending) complete.mutate({ email: email.trim(), password, completionProof });
