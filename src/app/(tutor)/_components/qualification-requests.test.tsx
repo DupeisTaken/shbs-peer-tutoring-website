@@ -20,6 +20,8 @@ const mocks = vi.hoisted(() => ({
   error: false,
   loading: false,
   status: "REJECTED",
+  extraStatuses: [] as string[],
+  empty: false,
   recall: vi.fn(),
   recallPending: false,
   recallError: "",
@@ -71,23 +73,33 @@ vi.mock("~/trpc/react", () => ({
                       type: "ADDITIONAL_SUBJECT",
                     },
                   ],
-                  requests: [
-                    {
-                      id: "past",
-                      requestedSubject: { name: "History" },
-                      type: "HIGHER_LEVEL",
-                      status: mocks.status,
-                      updatedAt: new Date("2026-09-02T00:00:00Z"),
-                      recalledAt:
-                        mocks.status === "RECALLED"
-                          ? new Date("2026-09-03T00:00:00Z")
-                          : null,
-                      qualificationReason: "Synthetic evidence",
-                      decisionComment: "More evidence needed",
-                      qualificationSnapshot: [],
-                      createdAt: new Date("2026-09-01T00:00:00Z"),
+                  requests: (mocks.empty
+                    ? []
+                    : [mocks.status, ...mocks.extraStatuses]
+                  ).map((status, index) => ({
+                    id: index === 0 ? "past" : `past-${index}`,
+                    requestedSubject: {
+                      name: index === 0 ? "History" : `History ${status}`,
                     },
-                  ],
+                    type: "HIGHER_LEVEL",
+                    status,
+                    updatedAt: new Date("2026-09-02T00:00:00Z"),
+                    recalledAt:
+                      status === "RECALLED"
+                        ? new Date("2026-09-03T00:00:00Z")
+                        : null,
+                    qualificationReason: "Synthetic evidence",
+                    interviewAt:
+                      status === "INTERVIEW"
+                        ? new Date("2026-10-01T00:00:00Z")
+                        : null,
+                    decisionComment: "More evidence needed",
+                    qualificationSnapshot:
+                      status === "ACCEPTED"
+                        ? [{ name: "Granted subject" }]
+                        : [],
+                    createdAt: new Date("2026-09-01T00:00:00Z"),
+                  })),
                 },
         }),
       },
@@ -99,6 +111,8 @@ beforeEach(() => {
   mocks.error = false;
   mocks.loading = false;
   mocks.status = "REJECTED";
+  mocks.extraStatuses = [];
+  mocks.empty = false;
   mocks.recallPending = false;
   mocks.recallError = "";
   mocks.recallSuccess = false;
@@ -114,6 +128,9 @@ const show = (active = true) =>
       <QualificationRequests active={active} />
     </NextIntlClientProvider>,
   );
+
+const filter = (name: string, count: number) =>
+  screen.getByRole("button", { name: `${name} ${count}` });
 
 it("submits one chosen subject and evidence without any caller-supplied tutor identity", () => {
   show();
@@ -132,13 +149,15 @@ it("submits one chosen subject and evidence without any caller-supplied tutor id
     subjectId: "history",
     reason: "Completed the course",
   });
-  expect(screen.getByText("Rejected")).toBeTruthy();
+  fireEvent.click(filter("Rejected", 1));
+  expect(screen.getByRole("listitem").textContent).toContain("Rejected");
   expect(screen.getByText("Decision: More evidence needed")).toBeTruthy();
 });
 it("retains history and approved subjects while inactive without exposing submission controls", () => {
   show(false);
   expect(screen.getByText("Science")).toBeTruthy();
-  expect(screen.getByText("Rejected")).toBeTruthy();
+  fireEvent.click(filter("Rejected", 1));
+  expect(screen.getByRole("listitem").textContent).toContain("Rejected");
   expect(
     screen.queryByRole("button", { name: "Request qualification" }),
   ).toBeNull();
@@ -196,6 +215,16 @@ it.each(["ACCEPTED", "REJECTED", "RECALLED"])(
   (status) => {
     mocks.status = status;
     show();
+    fireEvent.click(
+      filter(
+        status === "ACCEPTED"
+          ? "Approved"
+          : status === "REJECTED"
+            ? "Rejected"
+            : "Recalled",
+        1,
+      ),
+    );
     expect(screen.queryByRole("button", { name: "Recall request" })).toBeNull();
     if (status === "RECALLED")
       expect(screen.getByText(/^Recalled on/)).toBeTruthy();
@@ -222,11 +251,112 @@ it("prevents duplicate clicks and reports mutation failure/success", async () =>
   mocks.recallSuccess = true;
   mocks.status = "RECALLED";
   show();
-  expect(screen.getByRole("status").textContent).toContain("Request recalled");
+  expect(screen.getByText(/Request recalled/).getAttribute("role")).toBe(
+    "status",
+  );
 });
 
 it("hides recall for inactive tutors even with an open request", () => {
   mocks.status = "PENDING";
   show(false);
   expect(screen.queryByRole("button", { name: "Recall request" })).toBeNull();
+});
+
+it("starts with pending and interview requests and filters every terminal status with counts", () => {
+  mocks.status = "PENDING";
+  mocks.extraStatuses = ["INTERVIEW", "ACCEPTED", "REJECTED", "RECALLED"];
+  show();
+  expect(filter("Pending", 2).getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getAllByRole("listitem")).toHaveLength(2);
+  expect(screen.getByText(/^Interview:/)).toBeTruthy();
+  expect(
+    screen.getAllByRole("button", { name: "Recall request" }),
+  ).toHaveLength(2);
+
+  for (const [label, status] of [
+    ["Approved", "ACCEPTED"],
+    ["Rejected", "REJECTED"],
+    ["Recalled", "RECALLED"],
+  ] as const) {
+    fireEvent.click(filter(label, 1));
+    expect(filter(label, 1).getAttribute("aria-pressed")).toBe("true");
+    expect(filter("Pending", 2).getAttribute("aria-pressed")).toBe("false");
+    expect(screen.getAllByRole("listitem")).toHaveLength(1);
+    expect(screen.getByRole("listitem").textContent).toContain(
+      `History ${status}`,
+    );
+    expect(screen.queryByRole("button", { name: "Recall request" })).toBeNull();
+    if (status === "ACCEPTED")
+      expect(
+        screen.getByText("Granted at approval: Granted subject"),
+      ).toBeTruthy();
+  }
+});
+
+it.each([true, false])(
+  "distinguishes empty history from an empty filter (no history: %s)",
+  (empty) => {
+    mocks.empty = empty;
+    show();
+    expect(screen.getByRole("status").textContent).toBe(
+      empty
+        ? messages.qualificationRequests.empty
+        : messages.qualificationRequests.emptyFilter,
+    );
+    expect(screen.queryByRole("listitem")).toBeNull();
+    expect(filter("Pending", 0)).toBeTruthy();
+    if (!empty) {
+      fireEvent.click(filter("Rejected", 1));
+      expect(screen.queryByRole("status")).toBeNull();
+      expect(screen.getByRole("listitem")).toBeTruthy();
+    }
+  },
+);
+
+it("collapses only history, preserves its filter, and keeps mutation feedback visible", () => {
+  mocks.recallSuccess = true;
+  show();
+  fireEvent.click(filter("Rejected", 1));
+  const collapse = screen.getByRole("button", { name: "Collapse" });
+  const content = document.getElementById(
+    collapse.getAttribute("aria-controls")!,
+  )!;
+  expect(collapse.getAttribute("aria-expanded")).toBe("true");
+  fireEvent.click(collapse);
+  expect(content.hidden).toBe(true);
+  expect(
+    screen.queryByRole("group", { name: "Filter request history" }),
+  ).toBeNull();
+  expect(screen.queryByRole("listitem")).toBeNull();
+  expect(screen.getByLabelText("Subject and level")).toBeTruthy();
+  expect(screen.getByText("Science")).toBeTruthy();
+  expect(screen.getByText(/Request recalled/)).toBeTruthy();
+  const expand = screen.getByRole("button", { name: "Expand" });
+  expect(expand.getAttribute("aria-expanded")).toBe("false");
+  fireEvent.click(expand);
+  expect(content.hidden).toBe(false);
+  expect(filter("Rejected", 1).getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getByRole("listitem")).toBeTruthy();
+});
+
+it("updates groups after a recall without resetting selection or collapse state", () => {
+  mocks.status = "PENDING";
+  const view = show();
+  fireEvent.click(filter("Recalled", 0));
+  fireEvent.click(screen.getByRole("button", { name: "Collapse" }));
+  mocks.status = "RECALLED";
+  view.rerender(
+    <NextIntlClientProvider
+      locale="en"
+      timeZone="Asia/Shanghai"
+      messages={messages}
+    >
+      <QualificationRequests active />
+    </NextIntlClientProvider>,
+  );
+  expect(screen.queryByRole("listitem")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Expand" }));
+  expect(filter("Recalled", 1).getAttribute("aria-pressed")).toBe("true");
+  expect(filter("Pending", 0)).toBeTruthy();
+  expect(screen.getByText(/^Recalled on/)).toBeTruthy();
 });
