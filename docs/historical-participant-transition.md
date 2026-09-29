@@ -1,6 +1,6 @@
 # Historical participant transition
 
-This workflow preserves pre-site tutoring records without requiring each historical participant to register. It reuses the existing Tutor, Tutee and StudentProfileOwnership tables and the existing Merge accounts feature.
+This workflow preserves pre-site tutoring records without requiring each historical participant to register. It reuses the existing Tutor, Tutee and StudentProfileOwnership tables and the existing [Combine accounts feature](user-guide.md#combine-duplicate-accounts-head-only).
 
 ## Import and inspect
 
@@ -27,7 +27,7 @@ An Admin or Head opens **Link Historical Records** from a historical tutee row, 
 
 The write adds explicit retained ownership. It does not replace User.studentId, enroll someone in the current term, change membership, copy academics, fabricate consent, or rewrite sessions, meetings or hour amendments. The person can find linked records through **My Tutoring History** in the account menu, without accepting current participation policies solely to read history.
 
-A Head must resolve an existing retained-owner conflict and confirm their password. If another login currently owns the enrollment, use the existing Head-only **Merge accounts** workflow. The new link workflow never merges two login accounts.
+A Head must resolve an existing retained-owner conflict and confirm their password. If another login currently owns the enrollment, review the existing Head-only **Combine accounts** workflow and its blockers; accounts with school-departure history need a reviewed data migration. The link workflow never combines two login accounts.
 
 Concurrent profile/record changes invalidate the preview. Refresh and review again. Each successful link records the actor, target, previous owner and staff evidence in the audit log.
 
@@ -55,7 +55,7 @@ All supported operational actions below have website controls; staff do not need
 | Read original academics and attendance | Tutee row → View History | Staff or the linked owner; general observers cannot read private details. |
 | Correct an accountless participant profile | Tutee row → Edit profile | Individual correction; school-year confirmation history and bulk corrections remain #195. |
 | Link an existing verified account | Historical row → Link Historical Records → search → Review Link → Confirm Link | Admin/Head, identity evidence and acknowledgement required. |
-| Correct retained ownership | Same link dialog → Head password → Confirm Link | Current login ownership conflicts use existing Merge accounts instead. |
+| Correct retained ownership | Same link dialog → Head password → Confirm Link | Current login ownership conflicts require Head review through Combine accounts and its conflict checks. |
 | Invite a later participant | Link Historical Records → invited email → Send Invitation | Record must be accountless; email configuration is required in production. |
 | Accept an invitation | Email link → Sign In → review → Link My History | Sign-in returns to the same claim. Signup requires reopening the email after verification. |
 | Read personal historical attendance | Account menu → My Tutoring History → View History | Does not reactivate participation or restore revoked observer access. |
@@ -68,7 +68,7 @@ All supported operational actions below have website controls; staff do not need
 
 Apply the additive `20260929150000_tutee_history_invitations` migration before deploying. It adds an invitation table; it does not migrate participant identities or remove accounts. Normal backups and migration procedures still apply.
 
-This work does not infer transfer from ARCHIVED status or graduation from inactivity. The separate departure/access work in issue #194 defines those policies. Bulk on-screen and CSV academic correction tools remain supporting follow-up work in #195; the additive archive importer still rejects changed existing IDs instead of silently overwriting history.
+Transfer is not inferred from ARCHIVED status, nor graduation from inactivity. Follow the implemented [school departure and viewer-access workflow](program-reference.md#school-departure-and-viewer-access) for those decisions. Bulk on-screen and CSV academic correction tools remain supporting follow-up work in #195; the additive archive importer still rejects changed existing IDs instead of silently overwriting history.
 
 The original imported ZIP was unavailable for this task. Validation uses synthetic records covering the owner-confirmed families: sessions, stored service credit, tutee attendance, meetings, meeting attendance and hour amendments. It does not claim a new reconciliation of the deployed archive.
 
