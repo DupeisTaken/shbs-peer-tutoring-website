@@ -14,6 +14,7 @@ const fixture = vi.hoisted(() => ({ fetch: vi.fn(), mutate: vi.fn() }));
 vi.mock("~/trpc/react", () => ({
   api: {
     useUtils: () => ({
+      invalidate: vi.fn(),
       accountCombine: {
         preview: { fetch: fixture.fetch },
         candidates: { invalidate: vi.fn() },

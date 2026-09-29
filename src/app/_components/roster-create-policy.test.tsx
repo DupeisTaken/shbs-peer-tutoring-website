@@ -27,6 +27,7 @@ vi.mock("~/trpc/react", () => {
           tutees: { invalidate: vi.fn() },
         },
       }),
+      tuteeHistory: {permissions: {useQuery: () => ({data: {canLink:true,isHead:true}})}},
       program: {
         profilePolicy: {
           useQuery: () => ({

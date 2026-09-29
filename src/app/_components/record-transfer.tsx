@@ -11,6 +11,7 @@ import {
 
 export function RecordTransfer() {
   const t = useTranslations("recordTransfer");
+  const history = useTranslations("tuteeHistory");
   const utils = api.useUtils();
   const [files, setFiles] = useState<TransferFile[]>([]);
   const [fileError, setFileError] = useState<string | null>(null);
@@ -101,6 +102,7 @@ export function RecordTransfer() {
         <div>
           <h1 className="page-title">{t("title")}</h1>
           <p className="muted mt-2 max-w-2xl">{t("subtitle")}</p>
+          <p className="mt-3 max-w-2xl rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm">{history("importHelp")}</p>
         </div>
         <span className="rounded-full bg-amber-50 px-3 py-1 text-xs font-semibold text-amber-800">
           {t("headOnly")}

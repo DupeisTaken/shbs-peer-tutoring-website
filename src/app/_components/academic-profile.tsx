@@ -262,6 +262,7 @@ export function AcademicPanel({ userId }: { userId?: string }) {
       utils.admin.accounts.invalidate(),
       utils.admin.tutors.invalidate(),
       utils.admin.tutees.invalidate(),
+        utils.tuteeHistory.invalidate(),
       utils.tutor.me.invalidate(),
       utils.tutor.myProfile.invalidate(),
       utils.tutorDetails.invalidate(),

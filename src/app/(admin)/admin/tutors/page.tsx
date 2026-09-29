@@ -17,7 +17,8 @@ import { api } from "~/trpc/react";
 import { SortHeader, useSort, compare } from "~/app/_components/sortable";
 import { useReadOnly } from "~/app/_components/read-only";
 import { GRADUATED_GRADE } from "~/lib/academics";
-import { visibleTutors } from "~/lib/tutor-visibility";
+import { EnrollmentGrade } from "~/app/_components/tutee-history";
+import { isPastTutor, visibleTutors } from "~/lib/tutor-visibility";
 import { PastTutorsToggle } from "~/app/_components/past-tutors-toggle";
 
 export default function TutorsPage() {
@@ -206,7 +207,7 @@ export default function TutorsPage() {
                   )}
                   {!row.user && (
                     <p className="muted mt-1 text-xs">
-                      {t("accountProfile.setupRequired")}
+                      {t("tuteeHistory.noAccount")}
                     </p>
                   )}
                 </td>
@@ -225,11 +226,7 @@ export default function TutorsPage() {
                 </td>
                 <td className="min-w-52">
                   {/* Keep the roster concise; full details retain the reference year. */}
-                  <AcademicDetails
-                    academic={row.academic}
-                    showSchoolYear={false}
-                    compact
-                  />
+                  {isPastTutor(row.status) ? <EnrollmentGrade grade={row.gradeLevel?.toString()} graduated={row.academicallyGraduated} /> : <AcademicDetails academic={row.academic} showSchoolYear={false} compact />}
                 </td>
                 {/* Keep translated status badges readable inside the scrolling roster. */}
                 <td className="whitespace-nowrap">

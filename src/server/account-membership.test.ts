@@ -40,6 +40,8 @@ it("restricts account filter data to management and returns effective combined T
   await caller().admin.setMemberships({ userId: person, membership: { ...base, rank: "ADMIN", tutor: true }, confirmPassword: password });
   const filters = emptyUserFilters();
   filters.role.include = ["TUTOR"];
+  // This test inspects membership matching, including the deliberately unverified fixture.
+  filters.showUnverified = true;
   const listed = await caller(admin).admin.accounts();
   const combined = listed.rows.find(row => row.userId === person)!;
   expect(matchesUserFilters(combined, filters)).toBe(true);

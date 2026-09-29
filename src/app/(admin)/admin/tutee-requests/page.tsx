@@ -1,4 +1,5 @@
 "use client";
+import { invalidateTuteeViews } from "~/lib/tutee-cache";
 
 import { StudentWithdrawals } from "./student-withdrawals";
 import { useFormatter, useTranslations } from "next-intl";
@@ -18,7 +19,11 @@ export default function TuteeRequestsPage() {
   const utils = api.useUtils();
   const data = api.admin.tuteeRemovalRequests.useQuery();
 
-  const invalidate = () => utils.admin.tuteeRemovalRequests.invalidate();
+  const invalidate = () =>
+    Promise.all([
+      utils.admin.tuteeRemovalRequests.invalidate(),
+      invalidateTuteeViews(utils),
+    ]);
   const cancel = api.admin.cancelTuteeOptOut.useMutation({
     onSuccess: invalidate,
   });

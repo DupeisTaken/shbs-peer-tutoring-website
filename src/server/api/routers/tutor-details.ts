@@ -97,6 +97,7 @@ export const tutorDetailsRouter = createTRPCRouter({
         username: tutor.user?.username ?? tutor.username,
         email: tutor.user?.email ?? tutor.email,
         gradeLevel: tutor.gradeLevel,
+        academicallyGraduated: tutor.academicallyGraduated,
         status: tutor.status,
         // A historical account link does not imply current tutoring access.
         tutorAccessRevoked: tutor.user?.tutorAccessRevoked ?? false,
