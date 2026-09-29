@@ -15,6 +15,8 @@ import { renderEmail } from "./template";
 const uid = "email192-synthetic";
 beforeEach(async () => {
   assertIsolatedTestDatabase(process.env.DATABASE_URL);
+  // The worker leases the entire queue, so isolate it from other integration suites.
+  await db.emailDelivery.deleteMany();
   await db.user.deleteMany({ where: { id: uid } });
   await db.programSettings.upsert({
     where: { id: "program" },

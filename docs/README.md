@@ -14,6 +14,7 @@ These guides describe the current application. Choose the task you need to compl
 | Adapt the English/Chinese policy drafts and publish school-approved revisions | [Policy drafts and publication](policies/README.md) |
 | Report a bug, enhancement, feature or documentation request | [Issue guide](issues.md) |
 | Review the identity, academic profile and program policy fixes with screenshots | [Issue-fix verification reports](evidence/issues-145-154/README.md) |
+| Review email notification rendering and destination-link checks | [Email redesign verification](evidence/issue-192/README.md) |
 
 ## Maintaining the guides
 
