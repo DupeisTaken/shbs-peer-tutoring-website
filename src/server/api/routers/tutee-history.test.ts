@@ -246,6 +246,7 @@ it("imports all historical record families without participant logins and preser
   expect(roster.find((row) => row.id === "past")).toMatchObject({
     id: "past",
     historical: true,
+    enrollmentPeriod: { schoolYear: "24-25", quarter: "Q1" },
     user: null,
     owner: { id: "student" },
   });

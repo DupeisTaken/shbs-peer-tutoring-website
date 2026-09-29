@@ -35,3 +35,16 @@ The complete [website action matrix](../../historical-participant-transition.md#
 ![Explicit mobile invitation confirmation](claim-mobile.png)
 
 ![Personal enrollment evidence and attendance after claiming](personal-history-mobile.png)
+
+## Tutee table refinement (follow-up to #204)
+
+- The Tutee List uses Users & Roles table spacing, typography and action sizes. Each writable row has exactly View History, Edit Profile and Delete; linking/invitations are inside Edit Profile.
+- Grade & Class retains original enrollment grade/period for historical records. A class year requires a numeric grade and known school year. Confirmed current account academics remain separate.
+- Browser verification linked Alex's synthetic historical enrollment through Edit Profile. The dialog remained open, unsaved notes survived, focus returned to the link summary, and the roster refreshed. No nested forms or dialogs.
+- Desktop actions measured 28px and mobile actions 44px. At 390px the page remained 390px wide; only the table scrolls horizontally. Browser console and uncaught-error checks were clear.
+- 28 UI tests and 15 real PostgreSQL history tests passed. TypeScript and repository check passed (18 existing lint warnings); 13 documentation checks passed.
+- Updated local HTML report: `outputs/historical-participant-transition/audit.html`. It embeds fresh desktop/mobile screenshots, the Users & Roles reference and measured interaction evidence. Historical reports describe previous verification runs.
+
+![Tutee List with compact academics and three actions](ui-history-desktop.png)
+
+![Historical linking inside Edit Profile](ui-editor-desktop.png)

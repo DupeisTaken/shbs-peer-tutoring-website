@@ -513,7 +513,15 @@ export const adminRouter = createTRPCRouter({
       removed.map((r) => norm(r.tutee.phone)).filter(Boolean),
     );
 
-    const retainedOwners = await historicalOwners(ctx.db, tutees.map(row => row.id));
+    // Resolve enrollment periods in one query; historical grades must never borrow today's year.
+    const [retainedOwners, enrollmentTerms] = await Promise.all([
+      historicalOwners(ctx.db, tutees.map(row => row.id)),
+      ctx.db.term.findMany({
+        where: { id: { in: [...new Set(tutees.flatMap(row => row.intakeTermId ? [row.intakeTermId] : []))] } },
+        select: { id: true, schoolYear: true, quarter: true },
+      }),
+    ]);
+    const periods = new Map(enrollmentTerms.map(({ id, ...period }) => [id, period]));
     return tutees.map((t) => {
       // Flag a (still-pending) re-signup that matches a banned identity this quarter — by exact
       // name / email / phone — so an admin can vet it. Never auto-blocks; it just labels.
@@ -531,10 +539,11 @@ export const adminRouter = createTRPCRouter({
       // Withhold staff free-text (notes) and the tutee's typed legal-name signature from VIEWER.
       const owner = t.user ?? retainedOwners.get(t.id) ?? null;
       const historical = isHistoricalTutee(t, active?.termId ?? null);
+      const enrollmentPeriod = t.intakeTermId ? periods.get(t.intakeTermId) ?? null : null;
       const academic = academicSummary(owner?.academicProfile ?? legacyAcademic(t.gradeLevel, t.academicallyGraduated), active?.schoolYear);
       return isViewer
-        ? { ...t, notes: null, signatureName: null, bannedMatch, academic, owner, historical }
-        : { ...t, bannedMatch, academic, owner, historical };
+        ? { ...t, notes: null, signatureName: null, bannedMatch, academic, owner, historical, enrollmentPeriod }
+        : { ...t, bannedMatch, academic, owner, historical, enrollmentPeriod };
     });
   }),
   rooms: viewerProcedure.query(({ ctx }) =>

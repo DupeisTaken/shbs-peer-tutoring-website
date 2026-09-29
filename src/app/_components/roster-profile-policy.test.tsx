@@ -10,6 +10,11 @@ const mock = vi.hoisted(() => ({
   mutate: vi.fn(),
   error: undefined as undefined | { message: string },
 }));
+vi.mock("./tutee-history", () => ({
+  TuteeHistoryLinkForm: ({ onLinked }: { onLinked: () => void }) => (
+    <button onClick={onLinked}>Complete test link</button>
+  ),
+}));
 vi.mock("./academic-profile", () => ({
   AcademicPanel: ({ userId }: { userId: string }) => (
     <div>Shared academics: {userId}</div>
@@ -121,5 +126,49 @@ it.each([true, false])(
     expect(screen.getByRole("alert").textContent).toBe(
       en.profilePolicy.latinRequired,
     );
+  },
+);
+
+it.each([true, false])(
+  "gates embedded linking and preserves unsaved profile edits (allowed=%s)",
+  (canLink) => {
+    const row = {
+      id: "past",
+      englishName: "Alex",
+      historical: true,
+      status: "INACTIVE",
+      gradeLevel: "9",
+      availabilities: [],
+      updatedAt: new Date(),
+    } as unknown as ComponentProps<typeof TuteeEditor>["row"];
+    const close = vi.fn();
+    const { container } = render(
+      <NextIntlClientProvider locale="en" messages={en}>
+        <TuteeEditor
+          row={row}
+          onClose={close}
+          historyPermissions={{ canLink, isHead: false }}
+        />
+      </NextIntlClientProvider>,
+    );
+    const name =
+      container.querySelector<HTMLInputElement>('input[name="name"]')!;
+    fireEvent.change(name, { target: { value: "Alex corrected" } });
+    const section = container.querySelector("details");
+    if (!canLink) {
+      expect(section).toBeNull();
+      return;
+    }
+    expect(section).not.toBeNull();
+    expect(section!.closest("form")).toBeNull();
+    section!.open = true;
+    fireEvent.click(screen.getByRole("button", { name: "Complete test link" }));
+    expect(section!.open).toBe(false);
+    expect(name.value).toBe("Alex corrected");
+    expect(close).not.toHaveBeenCalled();
+    expect(screen.getByRole("status").textContent).toBe(
+      en.tuteeHistory.linkSaved,
+    );
+    expect(document.activeElement).toBe(section!.querySelector("summary"));
   },
 );

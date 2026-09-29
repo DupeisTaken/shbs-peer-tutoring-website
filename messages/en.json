@@ -3306,6 +3306,10 @@
     }
   },
   "tuteeHistory": {
+    "gradeClass": "Grade & Class",
+    "classOf": "Class of {year}",
+    "reviewNeeded": "Review needed",
+    "linkSaved": "Historical records linked.",
     "failed": "Could not complete this request. Refresh and try again.",
     "HISTORY_ACCOUNT_NOT_READY": "Choose an account with completed setup and a verified email.",
     "HISTORY_NOT_HISTORICAL": "This is a current enrollment. Use the current enrollment workflow.",
