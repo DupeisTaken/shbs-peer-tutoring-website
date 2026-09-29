@@ -47,6 +47,7 @@ it.each([undefined, "Campus Peer Support"])(
     expect(mocks.connection).toHaveBeenCalledTimes(2);
     const { emailSender } = await import("./email/sender");
     await emailSender.send({
+      category: "SECURITY",
       to: "recipient@example.test",
       subject: "Test",
       text: "Test",
@@ -66,6 +67,7 @@ it("allows a separate server-only sender display name", async () => {
   vi.stubEnv("EMAIL_FROM_NAME", "School Mail Office");
   const { emailSender } = await import("./email/sender");
   await emailSender.send({
+    category: "SECURITY",
     to: "recipient@example.test",
     subject: "Test",
     text: "Test",

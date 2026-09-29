@@ -194,11 +194,39 @@ On desktop, the navigation and content scroll independently. On mobile, open **M
 
 **Changes saved** appears after a successful write. A persistent error needs attention even if a later edit succeeds; check the affected record before retrying. **Submitted for approval** means a coordinator proposal is pending, not saved to live records.
 
-In **Users & Roles**, combine Role and Account filters. **Tutor Status** appears only when Tutor is the sole included role and Tutor is not excluded. Selecting multiple roles, removing Tutor, or excluding Tutor clears the status selection; a hidden or previously saved status never narrows those results. A person with Admin and Tutor badges still matches a Tutor-only selection, unless another selected exclusion removes them. Historical tutor links with revoked access or archived tutors do not grant a Tutor badge. Alternatives within one filter match any included value; every applicable filter must match, and exclusions win. **No account role** identifies records without displayed role badges. **Clear filters** restores all rows. Filters are remembered for the signed-in account in the current browser, with stale inapplicable status selections removed on restoration. Account data remains available only to Head, administrators and coordinators; filter selections do not grant access.
+In **Users & Roles**, combine Role and Account filters. **Tutor Status** appears only when Tutor is the sole included role and Tutor is not excluded. Selecting multiple roles, removing Tutor, or excluding Tutor clears the status selection; a hidden or previously saved status never narrows those results. A person with Admin and Tutor badges still matches a Tutor-only selection, unless another selected exclusion removes them. Historical tutor links with revoked access or archived tutors do not grant a Tutor badge. Alternatives within one filter match any included value; every applicable filter must match, and exclusions win. **No account role** identifies records without displayed role badges. **Show past tutors / Hide past tutors** reveals or hides Archived and Graduated tutor records without changing the other filters. The default hides these past tutors; Active, Pending, Opted Out and accounts without tutor records remain visible. An explicit Tutor Status include for Archived or Graduated finds those historical records even without a current Tutor badge. **Clear filters** restores the default view with past tutors hidden. Filters and past-tutor visibility are remembered for the signed-in account in the current browser, with stale inapplicable status selections removed on restoration. Account data remains available only to Head, administrators and coordinators; filter selections do not grant access.
 
 Use **Edit profile** to edit the independent Tutor, Tutee, Translator and Crew badges and exact management rank, or transfer leadership with **Make Head**. Only HEAD applies badge changes; other staff submit proposals. Any account can request its own badge changes from Account settings. Viewer is exclusive of every other badge. Removing participation and assigning sole Viewer preserves historical identity links while revoking participant access. Tutor membership suppresses the redundant Tutee badge without discarding consent. Use **Edit profile** to update linked current names and **Show email** to inspect/copy the contact and its verification state. Opening the dialog sends no email. Verification/setup requires an explicit action; sending a link does not itself verify an account. **Account setup required** identifies contacts without a linked login. Verified account email changes use the account holder's verification flow.
 
 Account setup links are sent privately to the account holder by email. Management cannot copy the password-setting link from the website. If mail delivery is unavailable, ask the deployment administrator to configure it before retrying.
+
+### Combine duplicate accounts (Head only)
+
+In **Users & Roles → Combine accounts**, select the **Login to keep** and the
+**Duplicate login to retire**. Use this only after independently confirming they
+belong to the same person. Matching names or addresses never combine accounts.
+Choose **Preview combine** to review the retained email/username, membership,
+linked profiles, counts of retained history, and blocking conflicts. Confirm the
+review checkbox and enter your own Head password to perform the combine.
+
+The retained account’s current name and alternative names become the linked tutor/tutee
+profile names. Original intake and signature snapshots stay unchanged. The retained
+account keeps its password, primary address, verified secondary
+addresses and security preferences. Duplicate identifiers remain reserved for
+historical identity; they cannot sign in or recover the retained account. Its
+sessions and recovery/verification links are revoked. Original messages, policy
+signatures, academic confirmations, patrol authorship and audit evidence retain
+their original account IDs; the retained login can access that history. Notifications
+and tutee ownership pointers move to the retained account. The combine records the
+Head and both identities in the audit log in the same transaction.
+
+Conflicting management/Viewer ranks, tutor or current tutee links, academic details,
+crew states, messaging permissions/restrictions, suspensions, and pending requests
+must be resolved explicitly first. Participant memberships can be consolidated only
+as shown in the preview. Leadership must be transferred before retiring a Head.
+Changed account details require a fresh preview. Combined identity records cannot
+be deleted or restored; combining an already combined account requires a reviewed
+data migration. Original identifiers are never assigned to another person.
 
 ### Find and batch-edit offered courses
 
@@ -395,3 +423,9 @@ interval. Tutee resends preserve your original submission time and place. A fail
 email does not mean you need to submit a new survey. Contact the team if delivery
 continues to fail. Existing emailed verification links remain independently usable.
 Tutors can use **My Subject Willingness → Edit willingness** on the Tutor Dashboard to change their own subject choices in a popup. Only subjects with saved approved qualifications, including inherited qualifications, appear. Choose **Willing to Tutor** or **Unwilling to Tutor**; only one can be selected. An unanswered subject shows **Not recorded** with neither button selected. Each change saves immediately; inactive tutors have read-only access. If no subjects qualify, request qualification in **Subject Qualifications**. Qualification and timetable availability are separate. In management Subject Availability, expand a tutor to reveal **Qualified**, **Pending Review** and the willingness filter. Only one filter can be active per tutor; click it again to clear it. These filters combine with the page search/filter. Pending Review includes direct pending qualifications and open additional-subject/higher-level requests.
+
+### Past tutor records and unlinked profiles
+
+Current-work tutor lists hide Archived and Graduated records by default. Use **Show past tutors** in the Tutors roster, Attendance tutor filter, Hour Adjustments selector, the Tutees tutor view or an expanded Meeting attendance editor when you need them. Hiding past tutors keeps an already selected tutor visible. Existing pairings and recorded meeting attendance retain their tutor names; historical reports and summaries retain all records. Assignment selectors continue to enforce their existing Active-tutor eligibility rules; revealing a record does not make it eligible.
+
+In **Users & Roles**, reveal past tutors and choose **Edit profile** on an unlinked tutor row. Staff can correct the display name, other names, email and grade in the same editor used by the Tutors roster. Head can also correct its username; the shared username rules and uniqueness checks apply. Coordinator edits retain their existing admin approval workflow, and status changes retain Head approval. Saving leaves the record unlinked and preserves its selected status: it does not invite, create a login or reactivate the tutor. After saving a valid email, the same row enables **Send setup link**, which remains a separate action. Identifier conflicts and stale edits show an error. Linked account email changes continue through verified account settings.

@@ -40,6 +40,7 @@ export async function findSigninTwoFactorUser(
 
   return db.user.findFirst({
     where: {
+      mergedIntoId: null,
       OR: signinIdentifiers(identifier),
     },
     select: { id: true, twoFactorEnabled: true },
@@ -71,6 +72,7 @@ export async function verifySigninPassword(
 
   const user = await db.user.findFirst({
     where: {
+      mergedIntoId: null,
       OR: signinIdentifiers(identifier),
     },
     select: {

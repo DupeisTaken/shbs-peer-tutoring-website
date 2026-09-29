@@ -65,7 +65,11 @@ beforeEach(async () => {
   });
   mail.send.mockReset();
 });
-afterAll(() => db.$disconnect());
+afterAll(async () => {
+  // Retired identity guards intentionally reject deletes; isolated fixture cleanup uses TRUNCATE.
+  await db.$executeRawUnsafe('TRUNCATE "User" CASCADE');
+  await db.$disconnect();
+});
 async function verified(kind: RegistrationKind, email = "new@example.test") {
   const issued = await actor("head").admin.issueRegistrationCode({
     kind,
@@ -129,6 +133,7 @@ it.each(REGISTRATION_KINDS)(
       code: issued.code,
       email: "new@example.test",
     });
+    expect(mail.send).toHaveBeenLastCalledWith(expect.objectContaining({ category: "SECURITY" }));
     const sent = mail.send.mock.calls[0]?.[0] as { text: string };
     const otp = /verification code is ([A-Z0-9]{5})/.exec(sent.text)?.[1];
     if (!otp) throw Error("No email OTP captured");
@@ -335,4 +340,18 @@ it("expires verified invitation grants and invalidates them when mail is resent"
     .rejects.toMatchObject({ code: "BAD_REQUEST" });
   await expect(publicCaller().registration.complete({ code: row.code, ...profile, completionProof: verifiedAgain.completionProof }))
     .resolves.toMatchObject({ ok: true });
+});
+
+
+it.each(["TUTOR", "CREW"] as const)("rejects a %s invitation for a retired email without consuming it or changing history", async (kind) => {
+  const row = await verified(kind);
+  const retired = await db.user.create({ data: {
+    email: "new@example.test", name: "Retired Person", role: "CREW", username: "retiredhandle",
+    mergedIntoId: "admin", passwordHash: null,
+  } });
+  const before = await db.user.findUniqueOrThrow({ where: { id: retired.id } });
+  expect(await completeRegistration(row, { ...profile, completionProof: row.completionProof })).toEqual({ ok: false, error: "email-taken" });
+  expect(await db.user.findUniqueOrThrow({ where: { id: retired.id } })).toEqual(before);
+  expect((await db.registrationCode.findUniqueOrThrow({ where: { id: row.id } })).usedAt).toBeNull();
+  expect(await db.tutor.count()).toBe(0);
 });

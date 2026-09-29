@@ -17,9 +17,11 @@ import { GRADUATED_GRADE } from "~/lib/academics";
 export function TutorProfileEditor({
   row,
   onClose,
+  isHead = false,
 }: {
   row: RouterOutputs["admin"]["tutors"][number];
   onClose: () => void;
+  isHead?: boolean;
 }) {
   const t = useTranslations();
   const [expectedUpdatedAt] = useState(row.updatedAt);
@@ -59,6 +61,9 @@ export function TutorProfileEditor({
             lastName: rest.join(" "),
             alternativeNames: value("alternativeNames") || null,
             email: value("email") || null,
+            // Unlinked handles still share the login namespace and Head-only authority.
+            ...(!row.user && isHead && value("username") !== (row.username ?? "")
+              ? { username: value("username") } : {}),
             ...(row.user
               ? {}
               : {
@@ -79,6 +84,13 @@ export function TutorProfileEditor({
               : "accountProfile.setupRequired",
           )}
         </p>
+        {!row.user && (
+          <label className="block">
+            <span className="label">{t("accountProfile.username")}</span>
+            <input className="input w-full" name="username" defaultValue={row.username ?? ""}
+              readOnly={!isHead} autoCapitalize="none" autoCorrect="off" maxLength={64} />
+          </label>
+        )}
         {(
           [
             ["name", t("accountProfile.name"), row.englishName],

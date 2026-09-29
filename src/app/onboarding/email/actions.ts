@@ -22,7 +22,7 @@ export async function completeOnboardingAction(
     where: { id: session.user.id },
     select: { email: true, emailVerifiedAt: true, mustChangePassword: true },
   });
-  if (!user || (user.emailVerifiedAt && !user.mustChangePassword) || !isEmailDeliveryAvailable())
+  if (!user || (user.emailVerifiedAt && !user.mustChangePassword) || !isEmailDeliveryAvailable("SECURITY"))
     return { sent: false };
   // Share the recovery identifier budget and prevent repeated clicks from flooding the mailbox.
   if (!rateLimit(`onboarding:${session.user.id}`, { max: 1, windowMs: 60_000 }).ok ||

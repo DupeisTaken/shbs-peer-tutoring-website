@@ -69,6 +69,7 @@ it("persists distinct notification destinations for all verified recipients and 
   await deliverNotifications();
   expect(mail.send).toHaveBeenCalledTimes(4);
   for (const [message] of mail.send.mock.calls) {
+    expect(message.category).toBe("PROGRAM");
     const url = new URL(message.presentation!.action!.url);
     expect(paths).toContain(url.searchParams.get("callbackUrl"));
     expect(message.text).toContain(url.href);

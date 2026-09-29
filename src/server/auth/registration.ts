@@ -372,7 +372,7 @@ export async function completeRegistration(
   // hijacking a DIFFERENT person's account: only reuse it when it's unlinked or links this tutor.
   const existingUser = await db.user.findUnique({
     where: { email },
-    select: { id: true, tutorId: true, role: true, username: true },
+    select: { id: true, tutorId: true, role: true, username: true, mergedIntoId: true },
   });
   if (
     row.kind !== "CREW" &&
@@ -382,7 +382,7 @@ export async function completeRegistration(
     return { ok: false, error: "email-taken" };
   }
 
-  if (existingUser?.role === "VIEWER") return { ok: false, error: "email-taken" };
+  if (existingUser?.mergedIntoId || existingUser?.role === "VIEWER") return { ok: false, error: "email-taken" };
 
   const passwordHash = hashPassword(input.password);
 
@@ -433,7 +433,9 @@ export async function completeRegistration(
       await assertPrimaryName(tx, existingUser?.name ?? [firstName, lastName].filter(Boolean).join(" "), existingUser?.name);
       await assertOfferedGrade(tx, gradeLevel);
       if (gradeLevel != null && !term) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "PROFILE_NO_CURRENT_YEAR" });
-      if (existingUser?.role === "VIEWER")
+      // Namespace locking serializes this check with account combination. Retired identities
+      // reserve their email; an invitation must never attach fresh membership to their history.
+      if (existingUser?.mergedIntoId || existingUser?.role === "VIEWER")
         throw new TRPCError({ code: "CONFLICT", message: "Account membership changed. Ask Head to review this invitation." });
       await claimRegistration(tx, row);
       if (existingUser) {
@@ -507,7 +509,7 @@ export async function completeRegistration(
     }
     await assertOfferedGrade(tx, gradeLevel);
     if (gradeLevel != null && !term) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "PROFILE_NO_CURRENT_YEAR" });
-    if (existingUser?.role === "VIEWER" || (existingUser?.tutorId && existingUser.tutorId !== row.tutorId))
+    if (existingUser?.mergedIntoId || existingUser?.role === "VIEWER" || (existingUser?.tutorId && existingUser.tutorId !== row.tutorId))
       throw new TRPCError({ code: "CONFLICT", message: "Account membership changed. Ask Head to review this invitation." });
     await claimRegistration(tx, row);
     if (existingUser) {

@@ -6,6 +6,8 @@ import { useFormatter, useTranslations, useTimeZone } from "next-intl";
 import { parseProgramDateTime, programDateKey } from "~/lib/program-time";
 import { api } from "~/trpc/react";
 import { useReadOnly } from "~/app/_components/read-only";
+import { visibleTutors } from "~/lib/tutor-visibility";
+import { PastTutorsToggle } from "~/app/_components/past-tutors-toggle";
 
 /** The statuses an admin picks directly. EXEMPT (X) is auto-applied to inactive tutors;
  *  EXCUSED_ABSENT comes only from a tutor's self-excuse and shows as a read-only badge. */
@@ -24,6 +26,7 @@ export default function MeetingsPage() {
   const utils = api.useUtils();
   const meetings = api.admin.meetings.useQuery();
   const tutors = api.admin.tutors.useQuery();
+  const [showPast, setShowPast] = useState(false);
   const invalidate = () => utils.admin.meetings.invalidate();
   const create = api.admin.createMeeting.useMutation({ onSuccess: async () => { setTitle(""); await invalidate(); } });
   const del = api.admin.deleteMeeting.useMutation({ onSuccess: invalidate });
@@ -39,6 +42,7 @@ export default function MeetingsPage() {
     id: tu.id,
     englishName: tu.englishName,
     active: tu.status === "ACTIVE",
+    status: tu.status,
   }));
 
   return (
@@ -90,20 +94,20 @@ export default function MeetingsPage() {
         </form>
       )}
 
-      <div className="grid items-start gap-6 lg:grid-cols-5">
-        <div className="card overflow-hidden lg:col-span-3">
+      <div className="grid min-w-0 grid-cols-1 items-start gap-6 lg:grid-cols-5">
+        <div className="card min-w-0 lg:col-span-3">
         <ul className="divide-y divide-slate-100">
           {(meetings.data ?? []).map((m) => (
             <li key={m.id} className="px-4 py-3">
-              <div className="flex items-center justify-between gap-3">
+              <div className="flex min-w-0 flex-wrap items-center justify-between gap-3">
                 <button
                   onClick={() => setSelected(selected === m.id ? null : m.id)}
-                  className="text-left font-medium text-slate-900 hover:text-accent-600"
+                  className="min-h-11 min-w-0 flex-1 text-left font-medium text-slate-900 [overflow-wrap:anywhere] hover:text-accent-600 lg:min-h-8"
                 >
                   {m.title} · {programFormat.dateTime(new Date(m.date), { dateStyle: "medium", timeStyle: "short" })}
                 </button>
                 {!readOnly && (
-                  <button onClick={() => del.mutate({ id: m.id })} className="link-danger">
+                  <button onClick={() => del.mutate({ id: m.id })} className="link-danger min-h-11 lg:min-h-8">
                     {t("admin.meetings.delete")}
                   </button>
                 )}
@@ -129,14 +133,17 @@ export default function MeetingsPage() {
                 );
               })()}
               {selected === m.id && (
+                <div className="mt-3 space-y-3">
+                <PastTutorsToggle showPast={showPast} onChange={setShowPast} />
                 <AttendanceEditor
                   meetingId={m.id}
                   readOnly={readOnly}
-                  tutors={tutorOpts}
+                  tutors={visibleTutors(tutorOpts, showPast, m.attendances.map((a) => a.tutorId))}
                   current={Object.fromEntries(
                     m.attendances.map((a) => [a.tutorId, a.status]),
                   )}
                 />
+                </div>
               )}
             </li>
           ))}
@@ -144,7 +151,7 @@ export default function MeetingsPage() {
         </div>
 
         {/* Per-tutor meeting attendance summary, alongside the list. */}
-        <div className="lg:col-span-2">
+        <div className="min-w-0 lg:col-span-2">
           <TutorMeetingStats meetings={meetings.data ?? []} tutors={tutorOpts} />
         </div>
       </div>
@@ -183,7 +190,7 @@ function TutorMeetingStats({
     );
 
   return (
-    <div className="card overflow-hidden">
+    <div className="card min-w-0 overflow-x-auto">
       <div className="border-b border-slate-100 px-4 py-3">
         <h2 className="section-title">{t("admin.meetings.stats.title")}</h2>
         <p className="muted mt-0.5 text-xs">{t("admin.meetings.stats.help")}</p>
@@ -317,17 +324,19 @@ function AttendanceEditor({
   });
 
   return (
-    <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 p-3">
-      <div className="space-y-1.5">
+    <div className="mt-3 min-w-0 rounded-lg border border-slate-200 bg-slate-50 p-3">
+      {/* Narrow rows put choices beneath names; grid items and long labels can shrink
+          without clipping. Desktop keeps the compact name/choices arrangement. */}
+      <div className="space-y-3 lg:space-y-1.5">
         {tutors.map((tu) => {
           // Inactive (unavailable) tutors are exempt (X) — shown grayed and not editable.
           if (!tu.active) {
             return (
               <div
                 key={tu.id}
-                className="flex items-center justify-between gap-2 text-sm text-slate-400"
+                className="flex min-w-0 flex-wrap items-center justify-between gap-2 text-sm text-slate-400"
               >
-                <span>{tu.englishName}</span>
+                <span className="min-w-0 [overflow-wrap:anywhere]">{tu.englishName}</span>
                 <span className="badge-slate">{t("admin.meetings.exempt")}</span>
               </div>
             );
@@ -336,25 +345,26 @@ function AttendanceEditor({
           // A self-excused tutor (EXCUSED_ABSENT) is shown as a read-only badge, not editable here.
           if (value === "EXCUSED_ABSENT") {
             return (
-              <div key={tu.id} className="flex items-center justify-between gap-2 text-sm">
-                <span className="text-slate-700">{tu.englishName}</span>
+              <div key={tu.id} className="flex min-w-0 flex-wrap items-center justify-between gap-2 text-sm">
+                <span className="min-w-0 text-slate-700 [overflow-wrap:anywhere]">{tu.englishName}</span>
                 <span className="badge-amber">{t("admin.meetings.status.excusedAbsent")}</span>
               </div>
             );
           }
           return (
-            <div key={tu.id} className="flex items-center justify-between gap-2 text-sm">
-              <span className="text-slate-700">{tu.englishName}</span>
-              <div className="flex flex-wrap gap-1">
+            <div key={tu.id} className="flex min-w-0 flex-col items-start justify-between gap-2 text-sm sm:flex-row sm:items-center">
+              <span className="min-w-0 text-slate-700 [overflow-wrap:anywhere]">{tu.englishName}</span>
+              <div className="flex max-w-full flex-wrap gap-1 sm:justify-end" role="group" aria-label={tu.englishName}>
                 {ATTENDANCE_OPTIONS.map((opt) => {
                   const activeChoice = value === opt.value;
                   return (
                     <button
                       key={opt.value}
                       type="button"
+                      aria-pressed={activeChoice}
                       disabled={readOnly}
                       onClick={() => setDraft((d) => ({ ...d, [tu.id]: opt.value }))}
-                      className={`rounded-md px-2 py-1 text-xs font-medium whitespace-nowrap ${
+                      className={`min-h-11 max-w-full rounded-md px-2 py-1 text-xs font-medium [overflow-wrap:anywhere] lg:min-h-8 ${
                         activeChoice
                           ? "bg-accent-600 text-white"
                           : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100"

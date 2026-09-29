@@ -126,6 +126,7 @@ async function deliver(
 ) {
   try {
     await emailSender.send({
+      category: "PROGRAM",
       signup: true,
       to,
       subject: "Tutoring signup received — confirm your email",
@@ -150,7 +151,7 @@ export async function submitSurvey(
 ) {
   surveyLimit(input.email);
   await expireStudentRequests(db);
-  if (!isEmailDeliveryAvailable())
+  if (!isEmailDeliveryAvailable("PROGRAM"))
     throw new TRPCError({
       code: "PRECONDITION_FAILED",
       message: "Email delivery is unavailable. Contact the team.",
@@ -170,8 +171,10 @@ export async function submitSurvey(
       });
     const account = await tx.user.findUnique({
       where: { email: input.email },
-      select: { id: true, profileVersion: true, name: true },
+      select: { id: true, profileVersion: true, name: true, mergedIntoId: true },
     });
+    if (account?.mergedIntoId)
+      throw new TRPCError({ code: "FORBIDDEN", message: "Contact the team about your account." });
     const block = await tx.studentQuarterBlock.findFirst({
       where: {
         intakeTermId: term.id,
@@ -280,7 +283,7 @@ export async function resendSurvey(
   if (enforceLimit) surveyLimit(email);
   await expireStudentRequests(db);
   const origin = emailOrigin();
-  if (!isEmailDeliveryAvailable()) return false;
+  if (!isEmailDeliveryAvailable("PROGRAM")) return false;
   const token = randomBytes(32).toString("hex");
   const updated = await inTransaction(db, async (tx) => {
     await lockEntity(tx, "program:period");
@@ -297,6 +300,7 @@ export async function resendSurvey(
   if (updated === "confirmed") {
     try {
       await emailSender.send({
+        category: "PROGRAM",
         signup: true,
         to: email,
         subject: "Your tutoring request is already confirmed",
@@ -348,6 +352,8 @@ export async function inspectSurvey(db: DomainDb, token: string) {
   await expireStudentRequests(db);
   const row = await validSurvey(db, token);
   const user = await db.user.findUnique({ where: { email: row.email } });
+  if (user?.mergedIntoId)
+    throw new TRPCError({ code: "FORBIDDEN", message: "Contact the team about your account." });
   const input = surveyInput.parse(row.payload);
   // Confirmation describes the intake actually submitted, even after the active period changes.
   const [intake, features] = await Promise.all([
@@ -427,7 +433,9 @@ export async function confirmSurvey(
     await assertPrimaryName(tx, user?.name ?? input.englishName, user?.name);
     await assertOfferedGrade(tx, normalizeGrade(input.gradeLevel).gradeLevel);
     if (user) await lockAccountProfile(tx, user.id);
-    if (user?.suspendedAt || user?.role === "VIEWER")
+    // A retired login also has no password. Do not mistake it for an unfinished invitation.
+    // The namespace lock above serializes this decision with account combination.
+    if (user?.mergedIntoId || user?.suspendedAt || user?.role === "VIEWER")
       throw new TRPCError({
         code: "FORBIDDEN",
         message: "Contact the team about your account.",

@@ -45,8 +45,12 @@ try {
     const headExists = (await tx.user.count({ where: { role: "HEAD" } })) > 0;
     const existing = await tx.user.findUnique({
       where: { email },
-      select: { role: true },
+      select: { role: true, mergedIntoId: true },
     });
+    // Leadership locking serializes this check with combination: recovery must never revive
+    // a retired identity or silently assign an inaccessible replacement Head.
+    if (existing?.mergedIntoId)
+      throw new Error("This email belongs to a retired login. Use the surviving account for administrator recovery.");
     const role = existing?.role === "HEAD" || !headExists ? "HEAD" : "ADMIN";
     const today = new Date();
     const year = today.getUTCFullYear() - (today.getUTCMonth() < 7 ? 1 : 0);

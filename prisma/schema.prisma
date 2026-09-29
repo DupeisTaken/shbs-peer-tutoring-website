@@ -68,6 +68,11 @@ model User {
   passwordHash String?
   /// Database-maintained credential generation. Password writes revoke every earlier JWT.
   sessionVersion Int @default(0)
+  /// Permanently retired login. Historical authorship stays on this row; explicit HEAD merge
+  /// grants the surviving account access to its evidence. Identifiers remain reserved.
+  mergedIntoId String?
+  mergedInto User? @relation("CombinedAccounts", fields: [mergedIntoId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  combinedAccounts User[] @relation("CombinedAccounts")
 
   /// True for auto-provisioned accounts that signed in with the shared default password —
   /// the first-login onboarding forces a real password (and email) before the dashboard.
@@ -138,6 +143,8 @@ model User {
   notifications    Notification[]
 
   createdAt DateTime @default(now())
+
+  @@index([mergedIntoId])
 }
 
 /// An available UI language. Built-in locales (en/zh/es) ship with bundled JSON; translators can

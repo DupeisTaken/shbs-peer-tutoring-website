@@ -27,11 +27,17 @@ import { lockEntity } from "~/server/transactions";
 export async function issueAccountVerification(
   userId: string,
 ): Promise<{ emailed: boolean }> {
-  if (!isEmailDeliveryAvailable()) return { emailed: false };
+  if (!isEmailDeliveryAvailable("SECURITY")) return { emailed: false };
   const token = randomBytes(32).toString("hex");
   const email = await db.$transaction(async (tx) => {
     await lockEntity(tx, `account-verification:${userId}`);
+    await lockAccountProfile(tx, userId);
     const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
+    if (user.mergedIntoId)
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "This login has been retired.",
+      });
     if (user.emailVerifiedAt)
       throw new TRPCError({
         code: "BAD_REQUEST",
@@ -57,12 +63,13 @@ export async function issueAccountVerification(
   });
   const link = `${appBaseUrl()}/reset-password?token=${token}`;
   await emailSender.send({
+    category: "SECURITY",
     to: email,
     subject: `Verify and set up your ${APP_TITLE} account`,
     presentation: { action: { label: "Set up your account", url: link } },
     text: `The program team sent you an account setup link. Open it to verify this email and set your password. This does not change your tutor or tutee participation.\n\n${link}\n\nThe link expires in seven days. Ignore it if you did not request an account.`,
   });
-  return { emailed: isEmailConfigured() };
+  return { emailed: isEmailConfigured("SECURITY") };
 }
 
 /** How long an issued reset token stays valid. */
@@ -87,13 +94,13 @@ function hashToken(token: string): string {
  * was found — callers must show an identical message either way (no account enumeration).
  */
 export async function issuePasswordReset(identifier: string): Promise<void> {
-  if (!isEmailDeliveryAvailable()) return;
+  if (!isEmailDeliveryAvailable("SECURITY")) return;
 
   const id = identifier.trim().toLowerCase();
   if (!id) return;
 
   const user = await db.user.findFirst({
-    where: { OR: signinIdentifiers(id) },
+    where: { mergedIntoId: null, OR: signinIdentifiers(id) },
     select: {
       id: true,
       email: true,
@@ -113,6 +120,7 @@ export async function issuePasswordReset(identifier: string): Promise<void> {
     });
     const current = await tx.user.findUniqueOrThrow({ where: { id: user.id } });
     if (
+      current.mergedIntoId ||
       address?.userId !== user.id ||
       (current.email !== targetEmail && !address.verifiedAt)
     )
@@ -138,6 +146,7 @@ async function deliverResetLink(to: string, token: string): Promise<void> {
   const link = `${appBaseUrl()}/reset-password?token=${token}`;
 
   await emailSender.send({
+    category: "SECURITY",
     to,
     subject: `Reset your ${APP_TITLE} password`,
     text:
@@ -187,6 +196,7 @@ export async function resetPassword(
       where: { email: grant.targetEmail },
     });
     if (
+      account.mergedIntoId ||
       address?.userId !== account.id ||
       (address.email !== account.email && !address.verifiedAt)
     )
@@ -229,7 +239,7 @@ export async function issueTutorSetupLink(
 ): Promise<
   { ok: true; emailed: boolean } | { ok: false; error: "no-tutor" | "no-email" }
 > {
-  if (!isEmailDeliveryAvailable())
+  if (!isEmailDeliveryAvailable("SECURITY"))
     throw new TRPCError({
       code: "PRECONDITION_FAILED",
       message:
@@ -267,9 +277,15 @@ export async function issueTutorSetupLink(
         });
       const existing = await tx.user.findUnique({
         where: { email },
-        select: { id: true, role: true, tutorId: true },
+        select: { id: true, role: true, tutorId: true, mergedIntoId: true },
       });
       if (existing) {
+        if (existing.mergedIntoId)
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "This email belongs to a retired login. Use the retained account.",
+          });
         if (
           existing.role === "VIEWER" ||
           (existing.tutorId && existing.tutorId !== tutor.id)
@@ -310,17 +326,27 @@ export async function issueTutorSetupLink(
   const { userId, email } = provisioned;
 
   const token = randomBytes(32).toString("hex");
-  await db.passwordResetToken.create({
-    data: {
-      userId,
-      targetEmail: email,
-      tokenHash: hashToken(token),
-      expiresAt: new Date(Date.now() + SETUP_TOKEN_TTL_MINUTES * 60_000),
-    },
+  await db.$transaction(async (tx) => {
+    await lockAccountProfile(tx, userId);
+    const current = await tx.user.findUniqueOrThrow({ where: { id: userId } });
+    if (current.mergedIntoId || current.email !== email)
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "Account changed. Refresh before sending a setup link.",
+      });
+    await tx.passwordResetToken.create({
+      data: {
+        userId,
+        targetEmail: email,
+        tokenHash: hashToken(token),
+        expiresAt: new Date(Date.now() + SETUP_TOKEN_TTL_MINUTES * 60_000),
+      },
+    });
   });
 
   const link = `${appBaseUrl()}/reset-password?token=${token}`;
   await emailSender.send({
+    category: "SECURITY",
     to: email,
     subject: `Set up your ${APP_TITLE} account`,
     text:
@@ -330,5 +356,5 @@ export async function issueTutorSetupLink(
     presentation: { action: { label: "Set your password", url: link } },
   });
 
-  return { ok: true, emailed: isEmailConfigured() };
+  return { ok: true, emailed: isEmailConfigured("SECURITY") };
 }

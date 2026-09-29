@@ -1,4 +1,5 @@
 import { assignmentRouter } from "./routers/assignment";
+import { accountCombineRouter } from "./routers/account-combine";
 import { recordTransferRouter } from "./routers/record-transfer";
 import { approvalRouter } from "./routers/approval";
 import { qualificationApplicationRouter } from "./routers/qualification-application";
@@ -38,6 +39,7 @@ import { subjectAvailabilityRouter } from "./routers/subject-availability";
 import { translationReviewRouter } from "./routers/translation-review";
 
 export const appRouter = createTRPCRouter({
+  accountCombine: accountCombineRouter,
   recordTransfer: recordTransferRouter,
   assignment: assignmentRouter,
   qualificationApplication: qualificationApplicationRouter,

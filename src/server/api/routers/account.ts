@@ -1,3 +1,4 @@
+import { accountHistoryIds } from "~/server/account-history";
 import { currentAcademicInput, academicSummary } from "~/lib/academics";
 import { confirmCurrentAccountAcademics } from "~/server/academics";
 import { membershipSchema } from "~/lib/account-membership";
@@ -34,8 +35,8 @@ import {
 export const accountRouter = createTRPCRouter({
   updateAcademics: protectedProcedure.input(currentAcademicInput).mutation(({ ctx, input }) =>
     confirmCurrentAccountAcademics(ctx.db, ctx.session.user.id, input, { actorId: ctx.session.user.id, source: "SELF_SERVICE" })),
-  academicHistory: protectedProcedure.query(({ ctx }) => ctx.db.academicConfirmation.findMany({
-    where: { userId: ctx.session.user.id }, orderBy: { confirmedAt: "desc" }, take: 50,
+  academicHistory: protectedProcedure.query(async ({ ctx }) => ctx.db.academicConfirmation.findMany({
+    where: { userId: { in: await accountHistoryIds(ctx.db, ctx.session.user.id) } }, orderBy: { confirmedAt: "desc" }, take: 50,
     select: { id: true, status: true, gradeLevel: true, rawGrade: true, schoolYear: true, confirmedAt: true, source: true, reason: true },
   })),
   // Any active account may request its own badges. Only Head can apply the resulting proposal.
@@ -70,7 +71,7 @@ export const accountRouter = createTRPCRouter({
       enabled: program?.emailNotificationsEnabled ?? false,
       secondaryEmailBindingEnabled:
         program?.secondaryEmailBindingEnabled ?? true,
-      deliveryAvailable: isEmailDeliveryAvailable(),
+      deliveryAvailable: isEmailDeliveryAvailable("SECURITY"),
     };
   }),
   setEmailPreferences: protectedProcedure
@@ -318,7 +319,7 @@ export const accountRouter = createTRPCRouter({
               "Email two-factor authentication is disabled for this program.",
           });
         }
-        if (!isEmailDeliveryAvailable()) {
+        if (!isEmailDeliveryAvailable("SECURITY")) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "Email delivery is unavailable. Contact the program team.",
@@ -362,7 +363,7 @@ export const accountRouter = createTRPCRouter({
             "Email two-factor authentication is disabled for this program.",
         });
       }
-      if (!isEmailDeliveryAvailable()) {
+      if (!isEmailDeliveryAvailable("SECURITY")) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "Email delivery is unavailable. Contact the program team.",
@@ -405,7 +406,7 @@ export const accountRouter = createTRPCRouter({
       // password is sufficient; with it on, a delivery outage fails closed below.
       const { EMAIL_2FA } = await getFeatures(ctx.db);
       if (EMAIL_2FA) {
-        if (!isEmailDeliveryAvailable()) {
+        if (!isEmailDeliveryAvailable("SECURITY")) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "Email delivery is unavailable. Contact the program team.",

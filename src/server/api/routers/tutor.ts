@@ -1,4 +1,5 @@
 import { requireAcademicConfirmation } from "~/server/academics";
+import { accountHistoryIds } from "~/server/account-history";
 import {
   lockAccountProfile,
   updateAccountProfile,
@@ -194,7 +195,7 @@ export const tutorRouter = createTRPCRouter({
     });
     if (!me?.crewStatus) return { isCrew: false, patrols: 0, hours: 0 };
     const agg = await ctx.db.patrol.aggregate({
-      where: { crewUserId: ctx.session.user.id },
+      where: { crewUserId: { in: await accountHistoryIds(ctx.db, ctx.session.user.id) } },
       _sum: { hours: true },
       _count: { _all: true },
     });
@@ -957,7 +958,7 @@ export const tutorRouter = createTRPCRouter({
             "Email two-factor authentication is disabled for this program.",
         });
       }
-      if (!isEmailDeliveryAvailable()) {
+      if (!isEmailDeliveryAvailable("SECURITY")) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "Email delivery is unavailable. Contact the program team.",
@@ -1000,7 +1001,7 @@ export const tutorRouter = createTRPCRouter({
       // password is sufficient; with it on, a delivery outage fails closed below.
       const { EMAIL_2FA } = await getFeatures(ctx.db);
       if (EMAIL_2FA) {
-        if (!isEmailDeliveryAvailable()) {
+        if (!isEmailDeliveryAvailable("SECURITY")) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "Email delivery is unavailable. Contact the program team.",

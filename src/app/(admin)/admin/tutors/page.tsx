@@ -17,6 +17,8 @@ import { api } from "~/trpc/react";
 import { SortHeader, useSort, compare } from "~/app/_components/sortable";
 import { useReadOnly } from "~/app/_components/read-only";
 import { GRADUATED_GRADE } from "~/lib/academics";
+import { visibleTutors } from "~/lib/tutor-visibility";
+import { PastTutorsToggle } from "~/app/_components/past-tutors-toggle";
 
 export default function TutorsPage() {
   const t = useTranslations();
@@ -26,6 +28,7 @@ export default function TutorsPage() {
   const statusLabel = (s: string) => t(`admin.tutorStatus.${s}`);
   const utils = api.useUtils();
   const tutors = api.admin.tutors.useQuery();
+  const [showPast, setShowPast] = useState(false);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [altNames, setAltNames] = useState("");
@@ -49,7 +52,7 @@ export default function TutorsPage() {
   const editing = tutors.data?.find((row) => row.id === editingId);
 
   const rows = useMemo(() => {
-    const data = tutors.data ?? [];
+    const data = visibleTutors(tutors.data ?? [], showPast);
     const dir = sort.dir === "asc" ? 1 : -1;
     return [...data].sort((a, b) => {
       switch (sort.key) {
@@ -78,7 +81,7 @@ export default function TutorsPage() {
           );
       }
     });
-  }, [tutors.data, sort.key, sort.dir]);
+  }, [tutors.data, sort.key, sort.dir, showPast]);
 
   return (
     <div className="space-y-6">
@@ -155,6 +158,7 @@ export default function TutorsPage() {
         </p>
       )}
       <p className="muted text-xs">{t("admin.tutors.accountMovedNote")}</p>
+      <PastTutorsToggle showPast={showPast} onChange={setShowPast} />
 
       {editing && !readOnly && (
         <TutorProfileEditor

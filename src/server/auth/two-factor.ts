@@ -35,7 +35,7 @@ export async function issueLoginCode(
   userId: string,
   verifiedSessionVersion: number,
 ): Promise<{ email: string }> {
-  if (!isEmailDeliveryAvailable()) {
+  if (!isEmailDeliveryAvailable("SECURITY")) {
     throw new Error(
       "Email delivery is unavailable; refusing to issue a login code.",
     );
@@ -50,9 +50,18 @@ export async function issueLoginCode(
     await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`;
     const current = await tx.user.findUnique({
       where: { id: userId },
-      select: { email: true, name: true, sessionVersion: true },
+      select: {
+        email: true,
+        name: true,
+        sessionVersion: true,
+        mergedIntoId: true,
+      },
     });
-    if (current?.sessionVersion !== verifiedSessionVersion)
+    if (
+      !current ||
+      current.mergedIntoId ||
+      current.sessionVersion !== verifiedSessionVersion
+    )
       throw new Error(
         "Credentials changed; sign in again before requesting a login code.",
       );
@@ -71,6 +80,7 @@ export async function issueLoginCode(
   });
 
   await emailSender.send({
+    category: "SECURITY",
     to: user.email,
     subject: `${APP_TITLE}: your sign-in code`,
     presentation: { code, eyebrow: "SIGN IN" },
