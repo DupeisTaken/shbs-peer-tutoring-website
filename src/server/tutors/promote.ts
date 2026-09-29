@@ -1,3 +1,4 @@
+import { requireSchoolParticipation } from "~/server/school-departure";
 import { assertPrimaryName } from "~/server/program/profile-policy";
 import { initializeAccountAcademics } from "~/server/academics";
 import {
@@ -48,7 +49,7 @@ export async function promoteApplicantToTutor(
       where: { email },
       select: { id: true, name: true, tutorId: true, role: true, emailVerifiedAt: true, username: true },
     });
-    if (hasLogin?.emailVerifiedAt) await lockAccountProfile(db, hasLogin.id);
+    if (hasLogin) { await lockAccountProfile(db, hasLogin.id); await requireSchoolParticipation(db, hasLogin.id); }
 
     // A verified account already owns its name; a historical application cannot
     // replace it when participation is granted. Unlinked applicants establish a new name.

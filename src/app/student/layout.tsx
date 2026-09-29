@@ -1,3 +1,5 @@
+import { portalAccess } from "~/lib/portal-access";
+import { DepartureBanner } from "~/app/_components/school-departure";
 import { TRPCError } from "@trpc/server";
 import { currentPolicy } from "~/server/policy-acceptance";
 import { WorkspaceHeader } from "~/app/_components/workspace-header";
@@ -34,6 +36,7 @@ export default async function TuteeLayout({
       tutorAccessRevoked: true,
         canTranslate: true,
         suspendedAt: true,
+        schoolDeparture: true,
         tutor: { select: { status: true } },
       },
     }),
@@ -54,15 +57,16 @@ export default async function TuteeLayout({
     userId_slug_revision: { userId: session.user.id, slug: "tutee-policy", revision: policy.revision },
   } }) : null;
   const pastAcceptance = acceptance ?? (me.tutor ? await db.policyAcceptance.findFirst({ where: { userId: session.user.id, slug: "tutee-policy" } }) : null);
-  const hasAccess = me.tuteeMember && (!me.tutor || !!pastAcceptance);
+  const access = portalAccess(me);
+  const hasAccess = access.departed || (me.tuteeMember && (!me.tutor || !!pastAcceptance));
   const elevated = ["HEAD", "ADMIN", "COORDINATOR", "VIEWER"].includes(me.role);
   const canTutor = !me.tutorAccessRevoked && !!me.tutor && (!elevated || me.tutor.status !== "ARCHIVED");
   const workspaceItems = [
     ...(canTutor
       ? [{ href: "/dashboard", label: t("components.userMenu.enterTutor") }]
       : []),
-    ...(elevated
-      ? [{ href: "/admin", label: t("components.userMenu.backToManagement") }]
+    ...(access.canReadManagement
+      ? [{ href: "/admin", label: t(access.managementReadOnly ? "schoolDeparture.enter" : "components.userMenu.backToManagement") }]
       : []),
   ];
   const items = [
@@ -102,6 +106,7 @@ export default async function TuteeLayout({
         }
       />
       <main className="mx-auto max-w-6xl space-y-6 px-4 py-5 sm:py-8">
+        <DepartureBanner />
         {hasAccess ? <><TuteeNavigation />{children}</> : (
           <section className="card space-y-3 p-5">
             <h1 className="page-title">{t("workflow.policyTitle")}</h1>

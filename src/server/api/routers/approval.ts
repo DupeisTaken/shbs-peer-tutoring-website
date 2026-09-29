@@ -166,7 +166,7 @@ export const approvalRouter = createTRPCRouter({
                 if (
                   !requester ||
                   requester.suspendedAt ||
-                  (request.operation !== "admin.setMemberships" && !["COORDINATOR", "ADMIN", "HEAD"].includes(requester.role))
+                  (!["admin.setMemberships", "departure.setState"].includes(request.operation) && !["COORDINATOR", "ADMIN", "HEAD"].includes(requester.role))
                 )
                   throw new TRPCError({
                     code: "CONFLICT",
@@ -264,7 +264,9 @@ export const approvalRouter = createTRPCRouter({
                     userId: request.requesterId,
                     title: `Change ${input.approve ? "approved" : "rejected"}`,
                     body: `${reviewerName}: ${input.note}`,
-                    link: `/admin/approvals?request=${request.id}`,
+                    link: request.operation === "departure.setState"
+                      ? "/student?view=account"
+                      : `/admin/approvals?request=${request.id}`,
                   },
                 });
               return result;

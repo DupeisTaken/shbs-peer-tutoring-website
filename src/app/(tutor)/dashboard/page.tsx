@@ -1,3 +1,4 @@
+import { DepartureBanner } from "~/app/_components/school-departure";
 import { PolicyConsent } from "~/app/_components/policy-consent";
 import { redirect } from "next/navigation";
 
@@ -50,6 +51,7 @@ export default async function TutorDashboard() {
       <AnnouncementsBanner />
       <PolicyConsent slug="tutor-policy" />
 
+      <DepartureBanner />
       {pending && <TutorActivation />}
 
       {inactive && !pending && (

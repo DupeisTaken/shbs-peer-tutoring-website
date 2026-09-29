@@ -45,6 +45,8 @@ model User {
   alternativeNames String?
   profileVersion Int @default(0)
   academicProfile AcademicProfile?
+  schoolDeparture SchoolDeparture?
+  departureEvents SchoolDepartureEvent[]
   /// Login identifier. Also the address future email-based 2FA codes are sent to.
   email String  @unique
   /// Primary and verified secondary addresses share one globally unique namespace.
@@ -321,6 +323,7 @@ enum Quarter {
 /// when the program advances into Q4 for confirmed current-year G12; OPTED_OUT is set when an approved opt-out request
 /// is processed; ARCHIVED is the generic admin/crew deactivation (e.g. unavailable at rollover).
 enum TutorStatus {
+  TRANSFERRED
   ACTIVE
   /// Awaiting the tutor's start-of-term activation: after a semester refresh, continuing tutors are
   /// set PENDING and must reactivate (choose available -> ACTIVE, or opt out -> OPTED_OUT) from
@@ -1943,4 +1946,32 @@ model CaptchaGrant {
  version Int
  expiresAt DateTime
  @@index([expiresAt])
+}
+
+/// Confirmed school departure is authority; academic reports and imported roster states are not.
+model SchoolDeparture {
+  userId String @id
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reason String?
+  effectiveAt DateTime?
+  confirmedAt DateTime @default(now())
+  confirmedById String?
+  source String
+  revision Int @default(1)
+  observerRevoked Boolean @default(false)
+  tutorDerived Boolean @default(false)
+}
+
+/// Append-only evidence survives a return or a correction of the current state.
+model SchoolDepartureEvent {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action String
+  actorId String?
+  source String
+  explanation String
+  revision Int
+  createdAt DateTime @default(now())
+  @@unique([userId, revision])
 }

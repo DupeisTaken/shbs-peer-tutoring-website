@@ -144,6 +144,7 @@ export async function proposalTargets(
     if (tutees.size) ids.set("Tutee", tutees);
   }
   const targets: Record<string, unknown> = {};
+  if (operation === "departure.setState") targets.departure = await client.schoolDeparture.findUnique({ where: { userId: z.string().parse(fields.userId) } });
   if (operation === "admin.updateAccountAcademics")
     targets.academic = await client.academicProfile.findUnique({ where: { userId: z.string().parse(fields.userId) } });
   // Approval consequences include the complete ordered catalogue and concrete eligibility.

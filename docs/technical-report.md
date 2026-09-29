@@ -24,6 +24,16 @@ The application runs as a persistent Next.js 16 / React 19 Node server with tRPC
 
 ## Identity and authorization
 
+Confirmed school departures are stored separately in `SchoolDeparture`, with versioned
+`SchoolDepartureEvent` records. [Portal access](../src/lib/portal-access.ts) derives
+read-only observer access without rewriting roles. Protected procedures and workspace
+layouts reload this state; Viewer masking applies equally to departure-based observers.
+[Departure transitions](../src/server/school-departure.ts) serialize with period refresh
+and account changes, close current participation, and preserve historical records.
+Self-service and non-Head decisions use the Head approval queue; stale revisions fail.
+See [migration instructions](deployment.md#school-departure-migration) for the explicit
+legacy graduation backfill and [program behavior](program-reference.md) for access rules.
+
 Account role, linked tutor profile, crew membership and translator assignment are separate capabilities. Protected requests reload current role, linkage and suspension state. Navigation and client controls do not replace server authorization. Student records require explicit account/profile ownership; a matching name or email never grants access.
 
 | Procedure family                          | Intended callers                                                             |

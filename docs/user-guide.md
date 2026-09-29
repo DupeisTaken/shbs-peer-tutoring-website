@@ -12,6 +12,7 @@ Use this guide with the website address supplied by your program. Page names bel
 - [Administrators](#administrators)
 - [HEAD](#head)
 - [Viewers](#viewers)
+- [Graduation and school transfers](#graduation-and-school-transfers)
 - [Translators](#translators)
 - [Account settings and private support](#account-settings-and-private-support)
 - [Renewed policy acceptance](#renewed-policy-acceptance)
@@ -52,6 +53,24 @@ Management headers and account menus show **Enter Tutor Page**, then **Enter Tut
 Tutor and tutee workspaces show **Back to Management** for HEAD, ADMIN, COORDINATOR and VIEWER. This shortcut does not grant write access to viewers. Archived pure tutors retain their existing read-only history access.
 
 On mobile, the shared header places the brand and language selector first, global controls second, and available workspace switches below a divider. Management's hamburger button opens the navigation drawer; Escape, its close button or selecting a link closes it. Desktop management keeps the sidebar and main content independently scrollable below the header. Workspace shortcuts wrap on narrow screens and preserve touch targets.
+
+## Graduation and school transfers
+
+All student accounts, including students who only receive tutoring, can report graduation
+or transfer in **School Departure** in their account settings. Explain the change and
+confirm the request. Head reviews it through Management Actions. Staff can also open
+the account editor to propose the change; only Head confirms it.
+
+After confirmation, **Enter Viewers Portal** appears on the tutor dashboard or tutee
+page. It opens the same masked, read-only summaries available to Viewers. Your account
+role and personal history remain available. Current tutoring assignments and pending
+learning requests close; a departing tutor's current learners return to the waiting list.
+Archive, opt-out and self-reported academic graduation alone do not grant this access.
+
+Head can revoke or restore observer access and approve a return to school. A return
+does not restore assignments automatically; tutor activation and learning enrollment
+follow their normal workflows. Suspension and an existing tutor-access revocation
+still apply. Independently assigned management, crew and translator permissions remain.
 
 ## Tutees
 

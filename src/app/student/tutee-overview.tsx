@@ -4,7 +4,7 @@ import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 
 /** Overview reads the same owned records as the detailed panels; it never creates an enrollment. */
-export function TuteeOverview() {
+export function TuteeOverview({ departed = false }: { departed?: boolean }) {
   const t = useTranslations("tuteePortal");
   const personal = api.student.me.useQuery({ page: 0 });
   const requests = api.studentWorkflow.mine.useQuery();
@@ -17,9 +17,9 @@ export function TuteeOverview() {
         </h2>
         <p className="muted mt-2 max-w-2xl">{t("intro")}</p>
         <div className="mt-5 flex flex-wrap gap-3">
-          <Link href="/signup" className="btn-primary" prefetch={false}>
+          {!departed && <Link href="/signup" className="btn-primary" prefetch={false}>
             {t("requestTutor")}
-          </Link>
+          </Link>}
           <Link href="/student?view=requests" className="btn-secondary">
             {t("manageRequests")}
           </Link>

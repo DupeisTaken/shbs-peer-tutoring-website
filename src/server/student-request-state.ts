@@ -1,3 +1,4 @@
+import { requireStudentSchoolParticipation } from "./school-departure";
 import { TRPCError } from "@trpc/server";
 import type { StudentSurvey } from "../../generated/prisma";
 import {
@@ -125,6 +126,7 @@ export async function assertStudentRequestAssignable(
   tx: TransactionDb,
   tuteeId: string,
 ) {
+  await requireStudentSchoolParticipation(tx, tuteeId);
   const row = await tx.studentSurvey.findUnique({ where: { tuteeId } });
   if (!row) {
     // Manual withdrawals are terminal for their quarter just like survey withdrawals.

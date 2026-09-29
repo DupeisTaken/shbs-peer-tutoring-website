@@ -1,3 +1,4 @@
+import { requireSchoolParticipation } from "~/server/school-departure";
 import { applyAcademicIntake, synchronizeAcademicMirrors, accountAcademics } from "~/server/academics";
 import {
   lockAccountProfile,
@@ -501,6 +502,7 @@ export async function completeRegistration(
     let existingUser = await tx.user.findUnique({ where: { email } });
     if (existingUser) {
       await lockAccountProfile(tx, existingUser.id);
+      await requireSchoolParticipation(tx, existingUser.id);
       // The unchanged-name exemption must use the current locked identity. A profile
       // edit may have committed while registration was waiting for the account lock.
       existingUser = await tx.user.findUniqueOrThrow({ where: { id: existingUser.id } });

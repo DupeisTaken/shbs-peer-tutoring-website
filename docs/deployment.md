@@ -459,3 +459,25 @@ See [Aliyun CAPTCHA configuration and rollout](captcha.md) before enabling the
 management switch. Install provider credentials as deployment secrets, apply the
 migration, and perform the bounded operator smoke check after separate service
 activation. The switch defaults off and is independent of period refresh.
+
+## School departure migration
+
+After deploying the school-departure schema, inspect existing graduated tutor accounts:
+
+```powershell
+npx tsx scripts/backfill-school-departures.ts
+```
+
+This defaults to a dry run. After reviewing its counts and account IDs, apply with
+`npx tsx scripts/backfill-school-departures.ts --apply`. Repeating the command skips
+accounts already confirmed. Revoked/suspended accounts, standalone Viewers and accounts
+with active learning participation are reported for individual Head review.
+
+The migration preserves account roles and historical records. Self-reported academic
+graduation, ordinary archives and opt-outs do not grant access. New imports never run this
+migration automatically. Review later-linked historical accounts explicitly.
+
+The new `TRANSFERRED` tutor enum requires compatible application code. To disable the
+feature, revoke departure-based observer grants or deploy a compatible corrective release;
+do not run an older application that cannot read the enum or remove departure data to
+restore participation implicitly.

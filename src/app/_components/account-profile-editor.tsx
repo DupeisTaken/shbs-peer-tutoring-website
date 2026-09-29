@@ -1,5 +1,6 @@
 "use client";
 
+import { SchoolDeparturePanel } from "./school-departure";
 import { MembershipEditor } from "./membership-editor";
 import { AcademicPanel } from "./academic-profile";
 import { AccountUsernameEditor } from "./account-username-editor";
@@ -136,6 +137,7 @@ export function AccountProfileEditor({
           isHead={isHead}
         />
       )}
+      <SchoolDeparturePanel userId={profile.userId} />
     </ProfileDialog>
   );
 }

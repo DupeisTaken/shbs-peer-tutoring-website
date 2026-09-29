@@ -1955,7 +1955,8 @@
       "GRADUATED": "Graduado",
       "OPTED_OUT": "Dado de baja",
       "PENDING": "Pendiente",
-      "ARCHIVED": "Archivado"
+      "ARCHIVED": "Archivado",
+      "TRANSFERRED": "Transferred"
     },
     "discipline": {
       "title": "Conducta del alumno",
@@ -3262,5 +3263,33 @@
     "billingBoundary": "This switch does not deactivate Aliyun billing features or stop direct abuse of a public provider scene.",
     "privacy": "Verification uses Aliyun in mainland China to process device and interaction signals.",
     "privacyLink": "Privacy Notice"
+  },
+  "schoolDeparture": {
+    "title": "School Departure",
+    "eyebrow": "Stay connected",
+    "graduated": "Graduated",
+    "transferred": "Transferred to another school",
+    "historyHelp": "Your tutoring and learning records remain available here. You can follow the program through the read-only viewer portal.",
+    "enter": "Enter viewer portal",
+    "help": "Request a confirmed graduation, school transfer or return. Head reviews requests. Academic profile edits do not change portal access.",
+    "current": "Current status",
+    "enrolled": "No confirmed departure",
+    "revoked": "Viewer access revoked",
+    "change": "Change",
+    "reason": "Reason for review",
+    "return": "Return to school",
+    "revoke": "Revoke viewer access",
+    "restore": "Restore viewer access",
+    "review": "Review departure change",
+    "request": "Request change",
+    "saved": "Departure updated.",
+    "requested": "Submitted for Head review. Access has not changed.",
+    "returnHelp": "This removes departure-based viewer access. Tutoring returns to pending and requires activation. Tutee enrollment and assignments must be requested again.",
+    "accessHelp": "This changes viewer-portal access only. The departure record and personal history remain.",
+    "consequences": "Confirming departure stops tutoring and tutee participation. Current assignments are detached; affected learners return to the assignment queue. Past attendance and service hours are preserved.",
+    "retained": "Separately granted crew, translator and management permissions remain unchanged and can be reviewed in Memberships.",
+    "confirm": "Confirm change",
+    "requests": "My requests and decisions",
+    "history": "Departure history"
   }
 }
