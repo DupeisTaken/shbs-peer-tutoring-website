@@ -16,6 +16,7 @@ import {
   isEmailDeliveryAvailable,
 } from "~/server/email/sender";
 import { APP_TITLE } from "~/lib/branding";
+import { emailOrigin } from "~/server/email/urls";
 import { hashPassword } from "./password";
 import { ensureUserUsername, lockUsernameNamespace } from "./username";
 import { TRPCError } from "@trpc/server";
@@ -58,6 +59,7 @@ export async function issueAccountVerification(
   await emailSender.send({
     to: email,
     subject: `Verify and set up your ${APP_TITLE} account`,
+    presentation: { action: { label: "Set up your account", url: link } },
     text: `The program team sent you an account setup link. Open it to verify this email and set your password. This does not change your tutor or tutee participation.\n\n${link}\n\nThe link expires in seven days. Ignore it if you did not request an account.`,
   });
   return { emailed: isEmailConfigured() };
@@ -71,7 +73,7 @@ const SETUP_TOKEN_TTL_MINUTES = 7 * 24 * 60; // 7 days
 
 /** Base URL for links in emails (no trailing slash). */
 function appBaseUrl(): string {
-  return (process.env.AUTH_URL ?? "http://localhost:3000").replace(/\/+$/, "");
+  return emailOrigin();
 }
 
 /** SHA-256 of the token (the plaintext token is high-entropy, so a fast hash is fine). */
@@ -142,10 +144,7 @@ async function deliverResetLink(to: string, token: string): Promise<void> {
       `We received a request to reset your ${APP_TITLE} password.\n\n` +
       `Reset it within ${TOKEN_TTL_MINUTES} minutes:\n${link}\n\n` +
       `If you didn't request this, you can safely ignore this email.`,
-    html:
-      `<p>We received a request to reset your <strong>${APP_TITLE}</strong> password.</p>` +
-      `<p><a href="${link}">Reset your password</a> — link valid for ${TOKEN_TTL_MINUTES} minutes.</p>` +
-      `<p>If you didn't request this, you can safely ignore this email.</p>`,
+    presentation: { action: { label: "Reset your password", url: link } },
   });
 }
 
@@ -228,11 +227,14 @@ export async function issueTutorSetupLink(
   tutorId: string,
   actorId: string,
 ): Promise<
-  | { ok: true; emailed: boolean }
-  | { ok: false; error: "no-tutor" | "no-email" }
+  { ok: true; emailed: boolean } | { ok: false; error: "no-tutor" | "no-email" }
 > {
   if (!isEmailDeliveryAvailable())
-    throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Email delivery must be configured before sending account setup links." });
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message:
+        "Email delivery must be configured before sending account setup links.",
+    });
   const provisioned = await db.$transaction(async (tx) => {
     await lockUsernameNamespace(tx);
     const tutor = await tx.tutor.findUnique({
@@ -253,16 +255,30 @@ export async function issueTutorSetupLink(
 
     let userId = tutor.user?.id ?? null;
     if (!userId) {
-      const actor = await tx.user.findUnique({ where: { id: actorId }, select: { role: true, suspendedAt: true } });
+      const actor = await tx.user.findUnique({
+        where: { id: actorId },
+        select: { role: true, suspendedAt: true },
+      });
       if (actor?.role !== "HEAD" || actor.suspendedAt)
-        throw new TRPCError({ code: "FORBIDDEN", message: "Only Head can provision tutor access. Existing account setup links may be resent." });
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message:
+            "Only Head can provision tutor access. Existing account setup links may be resent.",
+        });
       const existing = await tx.user.findUnique({
         where: { email },
         select: { id: true, role: true, tutorId: true },
       });
       if (existing) {
-        if (existing.role === "VIEWER" || (existing.tutorId && existing.tutorId !== tutor.id))
-          throw new TRPCError({ code: "CONFLICT", message: "Review the existing account membership before linking this tutor." });
+        if (
+          existing.role === "VIEWER" ||
+          (existing.tutorId && existing.tutorId !== tutor.id)
+        )
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "Review the existing account membership before linking this tutor.",
+          });
         await tx.user.update({
           where: { id: existing.id },
           data: { tutorId: tutor.id, tutorAccessRevoked: false },
@@ -311,10 +327,7 @@ export async function issueTutorSetupLink(
       `An account has been created for you on ${APP_TITLE}.\n\n` +
       `Set your password to finish setting up (link valid for 7 days):\n${link}\n\n` +
       `After that you can sign in with this email or your username.`,
-    html:
-      `<p>An account has been created for you on <strong>${APP_TITLE}</strong>.</p>` +
-      `<p><a href="${link}">Set your password</a> to finish setting up — link valid for 7 days.</p>` +
-      `<p>After that you can sign in with this email or your username.</p>`,
+    presentation: { action: { label: "Set your password", url: link } },
   });
 
   return { ok: true, emailed: isEmailConfigured() };
