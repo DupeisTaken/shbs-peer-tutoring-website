@@ -386,4 +386,10 @@ In **Program → Names and Grades**, Head and administrators can set the offered
 
 Academic confirmation uses the current program year and calculates graduation from that year and the selected grade. There is no separate editable year or graduation field. A form opened before a school-year rollover requires a reload before confirmation. When no current year is configured, staff must set the program period before a reported grade can be confirmed; unknown and not-applicable reports remain available.
 
+### Retrying public signup
+
+If signup asks you to wait, keep your form open and retry after the displayed
+interval. Tutee resends preserve your original submission time and place. A failed
+email does not mean you need to submit a new survey. Contact the team if delivery
+continues to fail. Existing emailed verification links remain independently usable.
 Tutors can use **My Subject Willingness → Edit willingness** on the Tutor Dashboard to change their own subject choices in a popup. Only subjects with saved approved qualifications, including inherited qualifications, appear. Choose **Willing to Tutor** or **Unwilling to Tutor**; only one can be selected. An unanswered subject shows **Not recorded** with neither button selected. Each change saves immediately; inactive tutors have read-only access. If no subjects qualify, request qualification in **Subject Qualifications**. Qualification and timetable availability are separate. In management Subject Availability, expand a tutor to reveal **Qualified**, **Pending Review** and the willingness filter. Only one filter can be active per tutor; click it again to clear it. These filters combine with the page search/filter. Pending Review includes direct pending qualifications and open additional-subject/higher-level requests.

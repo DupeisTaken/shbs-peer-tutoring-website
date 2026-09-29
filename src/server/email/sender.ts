@@ -10,13 +10,15 @@
  * then point the SMTP_* / EMAIL_FROM env vars at it. See docs/deployment.md ("Email — Aliyun
  * Direct Mail"). Node runtime only.
  */
-import nodemailer, { type Transporter } from "nodemailer";
-import type SMTPPool from "nodemailer/lib/smtp-pool";
+import nodemailer from "nodemailer";
+import { Socket } from "node:net";
 
 import { env } from "~/env";
 import { APP_TITLE } from "~/lib/branding";
 
 export interface EmailMessage {
+  /** Public signup uses a separate bounded transport, leaving recovery mail independent. */
+  signup?: boolean;
   /** Stable identifier for durable notification retries. */
   messageId?: string;
   to: string;
@@ -52,11 +54,12 @@ function fromAddress(): { name: string; address: string } {
 
 // Reuse a single SMTP transporter across requests / hot reloads.
 const globalForEmail = globalThis as unknown as {
-  mailTransport?: Transporter<SMTPPool.SentMessageInfo>;
+  mailTransport?: ReturnType<typeof createTransport>;
 };
 
-function transporter(): Transporter<SMTPPool.SentMessageInfo> {
-  globalForEmail.mailTransport ??= nodemailer.createTransport({
+function createTransport(pool: boolean, socket?: Socket) {
+  const options = {
+    socket,
     host: env.SMTP_HOST,
     port: env.SMTP_PORT,
     // Aliyun: 465 = implicit TLS (SSL), 587/25/80 = STARTTLS. The login user is the sender address.
@@ -68,21 +71,30 @@ function transporter(): Transporter<SMTPPool.SentMessageInfo> {
       pass: env.SMTP_PASSWORD!,
     },
     // Long-lived Node server: pool connections instead of dialing Aliyun per message.
-    pool: true,
     maxConnections: 3,
     maxMessages: 50,
     // Never let a stuck SMTP dialog hang the request that triggered the send.
     connectionTimeout: 10_000,
     greetingTimeout: 10_000,
     socketTimeout: 20_000,
-  });
-  return globalForEmail.mailTransport;
+  };
+  return pool
+    ? nodemailer.createTransport({ ...options, pool: true })
+    : nodemailer.createTransport(options);
+}
+
+function transporter() {
+  return (globalForEmail.mailTransport ??= createTransport(true));
 }
 
 const aliyunSender: EmailSender = {
   async send(message) {
+    // Hold the underlying socket: SMTPTransport.close() alone does not abort active delivery.
+    const socket = message.signup ? new Socket() : undefined;
+    const transport = message.signup ? createTransport(false, socket) : transporter();
+    let timer: ReturnType<typeof setTimeout> | undefined;
     try {
-      const info = await transporter().sendMail({
+      const delivery = transport.sendMail({
         from: fromAddress(),
         messageId: message.messageId,
         to: message.to,
@@ -90,18 +102,27 @@ const aliyunSender: EmailSender = {
         text: message.text,
         html: message.html,
       });
-      console.info(
-        `[email] sent to=${message.to} subject="${message.subject}" id=${info.messageId}`,
-      );
+      if (message.signup) {
+        await Promise.race([
+          delivery,
+          new Promise<never>((_, reject) => {
+            timer = setTimeout(() => {
+              socket?.destroy();
+              transport.close();
+              reject(new Error("Signup SMTP deadline"));
+            }, 30_000);
+          }),
+        ]);
+      } else await delivery;
+      console.info("[email] delivered");
     } catch (err) {
       // Surface to the caller — security flows (OTP / reset link) must know delivery failed — but
       // log context first so an Aliyun misconfiguration is diagnosable from `docker compose logs`.
-      console.error(
-        `[email] FAILED to=${message.to} subject="${message.subject}": ${
-          err instanceof Error ? err.message : String(err)
-        }`,
-      );
+      console.error("[email] delivery failed");
       throw err;
+    } finally {
+      clearTimeout(timer);
+      if (message.signup) { socket?.destroy(); transport.close(); }
     }
   },
 };

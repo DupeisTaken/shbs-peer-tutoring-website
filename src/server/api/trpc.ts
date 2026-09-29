@@ -1,3 +1,4 @@
+import { SignupRetry } from "~/server/signup-admission";
 import { ApprovalQueued, queueProposal } from "~/server/approvals";
 import { approvalScope, isTranslationPublication } from "~/server/db-scope";
 import {
@@ -64,6 +65,7 @@ export function formatTRPCErrorShape<
         error.cause instanceof ApprovalQueued ? error.cause.approvalId : null,
       zodError: zodError ? zodError.flatten() : null,
       validationSummary: summary,
+      retryAfterSeconds: error.cause instanceof SignupRetry ? error.cause.retryAfterSeconds : null,
     },
   };
 }

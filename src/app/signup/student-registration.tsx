@@ -1,4 +1,5 @@
 "use client";
+import { SignupError } from "~/app/_components/signup-error";
 import Link from "next/link";
 import { useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
@@ -167,7 +168,7 @@ export function StudentRegistration({
         </button>
         {complete.error && (
           <p role="alert" className="text-red-700">
-            {complete.error.message}
+            <SignupError error={complete.error} />
           </p>
         )}
       </form>

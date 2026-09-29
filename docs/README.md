@@ -22,3 +22,5 @@ Read and edit the Markdown files directly. Run `npm run docs:check` to validate 
 For contribution checks and where to add information, see [documentation ownership](contributing.md#documentation-and-repository-hygiene). Historical reports and superseded documents remain available in Git history.
 
 [Project README](../README.md).
+
+[Public signup protection and operational limits](signup-protection.md).
