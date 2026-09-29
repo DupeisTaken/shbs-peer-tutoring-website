@@ -19,6 +19,8 @@ import {
   assertPrimaryName,
   assertOfferedGrade,
 } from "~/server/program/profile-policy";
+import { historicalOwners } from "~/server/tutee-history";
+import { isHistoricalTutee } from "~/lib/tutee-history";
 import { REGISTRATION_KINDS, isManagementCode } from "~/lib/registration-kind";
 import { enforceAssignmentQualification } from "~/server/assignment-qualification";
 import { accountUsernameSchema, updateAccountUsername } from "~/server/account-username";
@@ -528,6 +530,7 @@ export const adminRouter = createTRPCRouter({
       removed.map((r) => norm(r.tutee.phone)).filter(Boolean),
     );
 
+    const retainedOwners = await historicalOwners(ctx.db, tutees.map(row => row.id));
     return tutees.map((t) => {
       // Flag a (still-pending) re-signup that matches a banned identity this quarter — by exact
       // name / email / phone — so an admin can vet it. Never auto-blocks; it just labels.
@@ -543,10 +546,12 @@ export const adminRouter = createTRPCRouter({
       const bannedMatch =
         match && (match.name || match.email || match.phone) ? match : null;
       // Withhold staff free-text (notes) and the tutee's typed legal-name signature from VIEWER.
-      const academic = academicSummary(t.user?.academicProfile ?? legacyAcademic(t.gradeLevel, t.academicallyGraduated), active?.schoolYear);
+      const owner = t.user ?? retainedOwners.get(t.id) ?? null;
+      const historical = isHistoricalTutee(t, active?.termId ?? null);
+      const academic = academicSummary(owner?.academicProfile ?? legacyAcademic(t.gradeLevel, t.academicallyGraduated), active?.schoolYear);
       return isViewer
-        ? { ...t, notes: null, signatureName: null, bannedMatch, academic }
-        : { ...t, bannedMatch, academic };
+        ? { ...t, notes: null, signatureName: null, bannedMatch, academic, owner, historical }
+        : { ...t, bannedMatch, academic, owner, historical };
     });
   }),
   rooms: viewerProcedure.query(({ ctx }) =>
@@ -4058,10 +4063,10 @@ export const adminRouter = createTRPCRouter({
 
   accounts: adminProcedure.query(async ({ ctx }) => {
     const now = new Date();
-    const [term, users, unlinkedTutors, openCodes] = await Promise.all([
+    const [term, users, unlinkedTutors, openCodes, historyOwners] = await Promise.all([
       ctx.db.term.findFirst({
         where: { active: true },
-        select: { schoolYear: true },
+        select: { id: true, schoolYear: true },
       }),
       ctx.db.user.findMany({
         where: { mergedIntoId: null },
@@ -4087,6 +4092,7 @@ export const adminRouter = createTRPCRouter({
           suspendedAt: true,
           emailVerifiedAt: true,
           mustChangePassword: true,
+          student: { select: { status: true, intakeTermId: true } },
           tutorId: true,
           tutor: {
             select: {
@@ -4118,6 +4124,7 @@ export const adminRouter = createTRPCRouter({
         where: { usedAt: null, expiresAt: { gt: now } },
         select: { tutorId: true, email: true },
       }),
+      ctx.db.studentProfileOwnership.findMany({ select: { userId: true }, distinct: ["userId"] }),
     ]);
 
     // Uphold the "every account has a username" invariant: backfill any login that predates the
@@ -4149,6 +4156,7 @@ export const adminRouter = createTRPCRouter({
       (tutorId != null && codedTutorIds.has(tutorId)) ||
       (!!email && codedEmails.has(email.toLowerCase()));
 
+    const historicalOwnerIds = new Set(historyOwners.map(owner => owner.userId));
     const userRows = users.map((u) => ({
       userId: u.id,
       name: u.name ?? u.email,
@@ -4170,6 +4178,8 @@ export const adminRouter = createTRPCRouter({
       academic: academicSummary(u.academicProfile, term?.schoolYear),
       canTranslate: u.canTranslate,
       tuteeMember: u.tuteeMember,
+      hasTuteeHistory: historicalOwnerIds.has(u.id) || (!!u.student && isHistoricalTutee(u.student, term?.id ?? null)),
+      currentTutee: u.tuteeMember && !!u.student && !isHistoricalTutee(u.student, term?.id ?? null),
       tutorAccessRevoked: u.tutorAccessRevoked,
       crewStatus: u.crewStatus,
       tutorHasEmail: !!u.tutor?.email,
@@ -4209,6 +4219,8 @@ export const adminRouter = createTRPCRouter({
       academic: academicSummary(legacyAcademic(tu.gradeLevel, tu.academicallyGraduated), term?.schoolYear),
       canTranslate: false,
       tuteeMember: false,
+      currentTutee: false,
+      hasTuteeHistory: false,
       tutorAccessRevoked: false,
       crewStatus: null,
       tutorHasEmail: !!tu.email,

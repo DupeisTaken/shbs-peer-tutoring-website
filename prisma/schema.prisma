@@ -637,6 +637,7 @@ enum SignupSource {
 }
 
 model Tutee {
+  historyInvitation TuteeHistoryInvitation?
   user User?
   /// Entry provenance only; never an approval state or a priority override.
   signupSource SignupSource @default(UNKNOWN)
@@ -1685,6 +1686,20 @@ model StudentProfileOwnership {
   tuteeId String @id
   userId String
   @@index([userId])
+}
+
+/// Exact-record invitations establish historical ownership only, never participation.
+/// Tokens are hashed, single-use and excluded from program-record exports/imports.
+model TuteeHistoryInvitation {
+  tuteeId String @id
+  tutee Tutee @relation(fields: [tuteeId], references: [id], onDelete: Cascade)
+  tokenHash String @unique
+  email String
+  expectedUpdatedAt DateTime
+  issuedById String
+  reason String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
 }
 
 /// Short-lived, user/action-bound confirmation tickets enforce the popup delay on the server.

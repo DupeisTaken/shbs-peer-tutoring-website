@@ -1,4 +1,5 @@
 "use client";
+import { invalidateTuteeViews } from "~/lib/tutee-cache";
 import { useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
@@ -24,6 +25,7 @@ export function StudentWithdrawals() {
         utils.studentWorkflow.adminRequests.invalidate(),
         utils.studentWorkflow.legacyReviews.invalidate(),
         utils.admin.tuteeRemovalRequests.invalidate(),
+        invalidateTuteeViews(utils),
       ]);
     },
   });

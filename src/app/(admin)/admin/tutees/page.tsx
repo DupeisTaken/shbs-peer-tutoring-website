@@ -2,6 +2,7 @@
 import { PersonNameFields } from "~/app/_components/person-name-fields";
 import { nameDraft, fullPersonName } from "~/lib/person-name";
 
+import { invalidateTuteeViews } from "~/lib/tutee-cache";
 import { visibleTutors } from "~/lib/tutor-visibility";
 import { PastTutorsToggle } from "~/app/_components/past-tutors-toggle";
 import { pairingScheduleText } from "~/lib/pairing-schedule";
@@ -23,7 +24,14 @@ import { useReadOnly } from "~/app/_components/read-only";
 import { EmailDetails } from "~/app/_components/email-details";
 import { TuteeEditor } from "~/app/_components/tutee-editor";
 import { AcademicDetails } from "~/app/_components/academic-profile";
-import { GRADUATED_GRADE } from "~/lib/academics";
+import {
+  EnrollmentGrade,
+  HistoryError,
+  TuteeHistoryDialog,
+  TuteeHistoryLinkDialog,
+} from "~/app/_components/tutee-history";
+import { type TuteeHistoryView } from "~/lib/tutee-history";
+import { GRADUATED_GRADE, normalizeGrade } from "~/lib/academics";
 
 type Status = "PENDING" | "ACTIVE" | "INACTIVE";
 
@@ -90,6 +98,13 @@ function StatsCells({
 
 export default function TuteesPage() {
   const t = useTranslations();
+  const h = useTranslations("tuteeHistory");
+  const [historyView, setHistoryView] = useState<TuteeHistoryView>("current");
+  const [detailsId, setDetailsId] = useState<string | null>(null);
+  const [linkId, setLinkId] = useState<string | null>(null);
+  const [search, setSearch] = useState("");
+  const [showUnverified, setShowUnverified] = useState(false);
+  const permissions = api.tuteeHistory.permissions.useQuery();
   const policy = useProfilePolicy();
   const readOnly = useReadOnly();
   const [editingId, setEditingId] = useState<string | null>(null);
@@ -105,7 +120,7 @@ export default function TuteesPage() {
   const [view, setView] = useState<"tutees" | "tutors">("tutees");
   const sort = useSort("name");
 
-  const invalidate = () => utils.admin.tutees.invalidate();
+  const invalidate = () => invalidateTuteeViews(utils);
   const create = api.admin.createTutee.useMutation({ onSuccess: invalidate });
   const del = api.admin.deleteTutee.useMutation({ onSuccess: invalidate });
 
@@ -125,15 +140,38 @@ export default function TuteesPage() {
   // Active + inactive tutees, sorted by the chosen column.
   const rows = useMemo(() => {
     // Pending profiles also need corrections before staff can assign them.
-    const rest = [...(tutees.data ?? [])];
+    const rest = (tutees.data ?? []).filter((row) => {
+      const owner = row.owner ?? row.user;
+      return (
+        (historyView === "all" ||
+          (historyView === "historical" ? row.historical : !row.historical)) &&
+        (showUnverified || !owner || !!owner.emailVerifiedAt) &&
+        [
+          row.englishName,
+          row.alternativeNames,
+          owner?.username,
+          owner?.email,
+        ].some((value) =>
+          value?.toLowerCase().includes(search.trim().toLowerCase()),
+        )
+      );
+    });
     const dir = sort.dir === "asc" ? 1 : -1;
     return rest.sort((a, b) => {
       const sa = stats.data?.[a.id];
       const sb = stats.data?.[b.id];
       switch (sort.key) {
         case "grade":
+          // Sort the grade shown in the row: historical evidence is independent
+          // of the linked account's current academic profile.
           return (
-            ((a.academic.gradeLevel ?? 0) - (b.academic.gradeLevel ?? 0)) * dir
+            ((a.historical
+              ? (normalizeGrade(a.gradeLevel).gradeLevel ?? 0)
+              : (a.academic.gradeLevel ?? 0)) -
+              (b.historical
+                ? (normalizeGrade(b.gradeLevel).gradeLevel ?? 0)
+                : (b.academic.gradeLevel ?? 0))) *
+            dir
           );
         case "sessions":
           return ((sa?.sessions ?? 0) - (sb?.sessions ?? 0)) * dir;
@@ -146,7 +184,15 @@ export default function TuteesPage() {
           return compare(a.englishName, b.englishName) * dir;
       }
     });
-  }, [tutees.data, stats.data, sort.key, sort.dir]);
+  }, [
+    tutees.data,
+    stats.data,
+    sort.key,
+    sort.dir,
+    historyView,
+    showUnverified,
+    search,
+  ]);
 
   // Group pairings by tutor for the tutor-centric view.
   const pairingsByTutor = new Map<string, typeof pairings.data>();
@@ -174,6 +220,21 @@ export default function TuteesPage() {
         </p>
       </div>
 
+      {detailsId && (
+        <TuteeHistoryDialog
+          tuteeId={detailsId}
+          onClose={() => setDetailsId(null)}
+        />
+      )}
+      {linkId &&
+        all.find((row) => row.id === linkId) &&
+        permissions.data?.canLink && (
+          <TuteeHistoryLinkDialog
+            row={all.find((row) => row.id === linkId)!}
+            isHead={permissions.data.isHead}
+            onClose={() => setLinkId(null)}
+          />
+        )}
       {/* Manual add */}
       {!readOnly && editing && (
         <TuteeEditor
@@ -310,7 +371,9 @@ export default function TuteesPage() {
               </tr>
             </thead>
             <tbody>
-              {visibleTutors(tutors.data ?? [], showPast, [...pairingsByTutor.keys()]).flatMap((tutor) => {
+              {visibleTutors(tutors.data ?? [], showPast, [
+                ...pairingsByTutor.keys(),
+              ]).flatMap((tutor) => {
                 const tps = pairingsByTutor.get(tutor.id) ?? [];
                 if (tps.length === 0) {
                   return [
@@ -349,6 +412,60 @@ export default function TuteesPage() {
       )}
 
       {view === "tutees" && (
+        <section className="space-y-3" aria-label={h("filterTitle")}>
+          <div className="flex flex-wrap items-center gap-2">
+            {(["current", "historical", "all"] as const).map((value) => (
+              <button
+                key={value}
+                className={`${historyView === value ? "btn-primary" : "btn-secondary"} btn-sm min-h-11 lg:h-8 lg:min-h-8 lg:py-0`}
+                aria-pressed={historyView === value}
+                onClick={() => setHistoryView(value)}
+              >
+                {h(value)}
+              </button>
+            ))}
+            <button
+              className="btn-secondary btn-sm min-h-11 lg:h-8 lg:min-h-8 lg:py-0"
+              disabled={tutees.isFetching}
+              onClick={() => void invalidate()}
+            >
+              {h("refresh")}
+            </button>
+          </div>
+          <p className="muted text-sm">{h("historyHelp")}</p>
+          <div className="flex flex-wrap items-center gap-3">
+            <label className="flex-1">
+              <span className="sr-only">{h("searchRecords")}</span>
+              <input
+                className="input min-h-11 w-full lg:min-h-10"
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                placeholder={h("searchRecords")}
+              />
+            </label>
+            <label className="flex min-h-11 items-center gap-2 text-sm">
+              <input
+                type="checkbox"
+                checked={showUnverified}
+                onChange={(e) => setShowUnverified(e.target.checked)}
+              />
+              {h("showUnverified")}
+            </label>
+          </div>
+          <p className="muted text-xs" role="status">
+            {tutees.isFetching
+              ? h("loading")
+              : h("visibleCount", {
+                  count: rows.length,
+                  total: all.length,
+                })}{" "}
+            · {h("allPeriods")}
+          </p>
+          {tutees.error && <HistoryError message={tutees.error.message} />}
+          <p className="muted text-xs lg:hidden">{h("scrollHint")}</p>
+        </section>
+      )}
+      {view === "tutees" && (
         <section className="card overflow-x-auto">
           <table className="data-table [&_td]:px-2 [&_th]:px-2">
             <thead>
@@ -381,23 +498,32 @@ export default function TuteesPage() {
                       {t2.englishName}
                     </p>
                     <p className="muted mt-1 text-xs">
-                      {t2.user?.username
-                        ? `@${t2.user.username}`
-                        : t("accountProfile.setupRequired")}
+                      {(t2.owner ?? t2.user)?.username
+                        ? `@${(t2.owner ?? t2.user)?.username}`
+                        : (t2.owner ?? t2.user)
+                          ? h("linkedAccount")
+                          : h("noAccount")}
                     </p>
                   </td>
                   <td className="text-slate-600">
                     <EmailDetails
                       name={t2.englishName}
-                      email={t2.user?.email ?? t2.email}
-                      verifiedAt={t2.user?.emailVerifiedAt}
-                      userId={t2.user?.id}
+                      email={t2.owner?.email ?? t2.user?.email ?? t2.email}
+                      verifiedAt={(t2.owner ?? t2.user)?.emailVerifiedAt}
+                      userId={(t2.owner ?? t2.user)?.id}
                       canSendSetup={!readOnly && !!t2.user}
-                      linked={!!t2.user}
+                      linked={!!(t2.owner ?? t2.user)}
                     />
                   </td>
                   <td className="min-w-52">
-                    <AcademicDetails academic={t2.academic} compact />
+                    {t2.historical || !(t2.owner ?? t2.user) ? (
+                      <EnrollmentGrade
+                        grade={t2.gradeLevel}
+                        graduated={t2.academicallyGraduated}
+                      />
+                    ) : (
+                      <AcademicDetails academic={t2.academic} compact />
+                    )}
                   </td>
                   <td className="w-36 max-w-36 whitespace-normal text-slate-600">
                     <ul className="space-y-1 text-sm">
@@ -424,6 +550,22 @@ export default function TuteesPage() {
                   {/* Shared account actions keep the same rhythm across management tables. */}
                   <td className="w-px text-right">
                     <div className="table-account-actions">
+                      {!readOnly && (
+                        <button
+                          className="link table-account-action"
+                          onClick={() => setDetailsId(t2.id)}
+                        >
+                          {h("details")}
+                        </button>
+                      )}
+                      {t2.historical && permissions.data?.canLink && (
+                        <button
+                          className="link table-account-action"
+                          onClick={() => setLinkId(t2.id)}
+                        >
+                          {h("linkTitle")}
+                        </button>
+                      )}
                       {!readOnly && (
                         <button
                           className="link table-account-action"

@@ -6,6 +6,8 @@ import { api } from "~/trpc/react";
 import { AcceptanceRecords } from "./acceptance-records";
 import { ProfileDialog } from "./profile-dialog";
 import { useReadOnly } from "./read-only";
+import { isPastTutor } from "~/lib/tutor-visibility";
+import { EnrollmentGrade } from "./tutee-history";
 import { AcademicDetails } from "./academic-profile";
 
 /** No detail/history query is mounted until staff explicitly open this person. */
@@ -91,7 +93,7 @@ function TutorDetails({ tutorId }: { tutorId: string }) {
           <div>
             <dt className="muted">{common("academics.title")}</dt>
             <dd className="mt-1">
-              <AcademicDetails academic={detail.academic} />
+              {isPastTutor(detail.status) ? <EnrollmentGrade grade={detail.gradeLevel?.toString()} graduated={detail.academicallyGraduated} /> : <AcademicDetails academic={detail.academic} />}
             </dd>
           </div>
           <div>

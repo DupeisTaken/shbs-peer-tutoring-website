@@ -1,3 +1,4 @@
+import { TRPC_BATCH_OPTIONS } from "~/lib/trpc-batch";
 import {
   SignupRetry,
   signupBurst,
@@ -67,7 +68,7 @@ export async function signupIngress(
     const paths = decodeURIComponent(
       url.pathname.split("/api/trpc/")[1] ?? "",
     ).split(",");
-    if (paths.length > 20) return reject(413, "Too many batched operations");
+    if (paths.length > TRPC_BATCH_OPTIONS.maxItems) return reject(413, "Too many batched operations");
     const lanes = paths.map(signupLane);
     const publicRequest = lanes.some(Boolean);
     // Count every public operation, including malformed JSON/input, and mixed batches.

@@ -13,7 +13,7 @@ import zh from "../../../../../messages/zh.json";
 import { ReadOnlyProvider } from "~/app/_components/read-only";
 import TuteesPage from "./page";
 
-const mocks = vi.hoisted(() => ({ remove: vi.fn() }));
+const mocks = vi.hoisted(() => ({ remove: vi.fn(), moreHistory: false }));
 vi.mock("~/trpc/react", () => {
   const empty = { useQuery: () => ({ data: [] }) };
   return {
@@ -26,6 +26,11 @@ vi.mock("~/trpc/react", () => {
           }),
         },
       },
+      tuteeHistory: {
+        permissions: {
+          useQuery: () => ({ data: { canLink: true, isHead: true } }),
+        },
+      },
       admin: {
         subjects: empty,
         tutors: empty,
@@ -36,6 +41,7 @@ vi.mock("~/trpc/react", () => {
             data: [
               {
                 id: "tutee-1",
+                historical: false,
                 englishName: "Example Tutee",
                 email: "tutee@example.test",
                 status: "ACTIVE",
@@ -48,6 +54,40 @@ vi.mock("~/trpc/react", () => {
                   needsConfirmation: true,
                 },
               },
+              {
+                id: "historical",
+                englishName: "Archive Learner",
+                historical: true,
+                status: "INACTIVE",
+                firstChoice: null,
+                secondChoice: null,
+                gradeLevel: "9",
+                academic: { status: "REPORTED", gradeLevel: 12 },
+              },
+              {
+                id: "unverified",
+                englishName: "Unverified Learner",
+                historical: false,
+                status: "ACTIVE",
+                firstChoice: null,
+                secondChoice: null,
+                user: { id: "login", emailVerifiedAt: null },
+                academic: { status: "UNKNOWN" },
+              },
+              ...(mocks.moreHistory
+                ? [
+                    {
+                      id: "later-grade",
+                      firstChoice: null,
+                      secondChoice: null,
+                      englishName: "Later Grade",
+                      historical: true,
+                      status: "INACTIVE",
+                      gradeLevel: "10",
+                      academic: { status: "REPORTED", gradeLevel: 1 },
+                    },
+                  ]
+                : []),
             ],
           }),
         },
@@ -66,6 +106,7 @@ vi.mock("~/app/_components/tutee-editor", () => ({
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  mocks.moreHistory = false;
 });
 function mount(chinese = false, readOnly = false) {
   return render(
@@ -99,8 +140,8 @@ it.each([false, true])(
     expect(
       Array.from(cells[2]!.querySelectorAll("p"), (p) => p.textContent),
     ).toEqual([
-      messages.academics.rosterUnknown,
-      messages.academics.rosterNeedsConfirmation,
+      messages.tuteeHistory.notRecorded,
+      messages.tuteeHistory.enrollmentEvidence,
     ]);
     const actions = within(cells.at(-1)!);
     const edit = actions.getByRole("button", {
@@ -123,5 +164,46 @@ it("hides private account actions for read-only viewers", () => {
   const row = screen.getByText("Example Tutee").closest("tr")!;
   expect(within(row).queryByRole("button")).toBeNull();
   expect(within(row).getByText(en.accountProfile.privateEmail)).toBeTruthy();
-  expect(within(row).getByText(en.academics.rosterUnknown)).toBeTruthy();
+  expect(within(row).getByText(en.tuteeHistory.notRecorded)).toBeTruthy();
+});
+
+it("reveals historical and unverified records independently without setup or current-grade demands", () => {
+  mount();
+  expect(screen.queryByText("Archive Learner")).toBeNull();
+  expect(screen.queryByText("Unverified Learner")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "History" }));
+  const row = screen.getByText("Archive Learner").closest("tr")!;
+  expect(within(row).getByText("Recorded grade: 9")).toBeTruthy();
+  expect(within(row).queryByText(en.accountProfile.setupRequired)).toBeNull();
+  expect(
+    within(row).getByRole("button", { name: en.tuteeHistory.linkTitle }),
+  ).toBeTruthy();
+  expect(screen.queryByText("Example Tutee")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "All Records" }));
+  fireEvent.click(
+    screen.getByRole("checkbox", { name: "Show unverified accounts" }),
+  );
+  expect(screen.getByText("Unverified Learner")).toBeTruthy();
+  fireEvent.change(
+    screen.getByRole("textbox", { name: "Search tutee records" }),
+    { target: { value: "archive" } },
+  );
+  expect(screen.getByText("Archive Learner")).toBeTruthy();
+  expect(screen.queryByText("Unverified Learner")).toBeNull();
+});
+it("sorts historical rows by original grades instead of the owner's current grade", () => {
+  mocks.moreHistory = true;
+  mount();
+  fireEvent.click(
+    screen.getByRole("button", { name: en.tuteeHistory.historical }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: new RegExp(en.academics.title) }),
+  );
+  const names = screen
+    .getAllByRole("row")
+    .slice(1)
+    .map((row) => row.textContent);
+  expect(names[0]).toContain("Archive Learner");
+  expect(names[1]).toContain("Later Grade");
 });

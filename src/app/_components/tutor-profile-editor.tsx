@@ -82,7 +82,7 @@ export function TutorProfileEditor({
           {t(
             row.user
               ? "accountProfile.canonicalHelp"
-              : "accountProfile.setupRequired",
+              : "tuteeHistory.noAccountHelp",
           )}
         </p>
         {!row.user && (

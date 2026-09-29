@@ -178,7 +178,7 @@ it("only sends verification on click and sends the account ID instead of a clien
 it("does not create links or send verification for an unlinked tutor contact", () => {
   show({ tutorId: "unlinked-tutor", canSendSetup: true });
   fireEvent.click(screen.getByRole("button", { name: "Show email" }));
-  expect(screen.getByText("Account setup required")).toBeTruthy();
+  expect(screen.getByText("Participant record · no login")).toBeTruthy();
   expect(
     screen
       .getByRole("link", {

@@ -8,7 +8,6 @@ import { EmailDetails } from "~/app/_components/email-details";
 import { CombineAccounts } from "~/app/_components/combine-accounts";
 import { AccountProfileEditor } from "~/app/_components/account-profile-editor";
 import { TutorProfileEditor } from "~/app/_components/tutor-profile-editor";
-import { PastTutorsToggle } from "~/app/_components/past-tutors-toggle";
 import { MultiFilter } from "~/app/_components/multi-filter";
 import {
   emptyUserFilters,
@@ -363,8 +362,12 @@ export default function UsersPage() {
             })}
           </p>
           <div className="flex flex-wrap gap-2">
-          <PastTutorsToggle showPast={filters.showPastTutors}
-            onChange={(showPastTutors) => updateFilters({ ...filters, showPastTutors })} />
+          <button type="button" className="btn-secondary btn-sm min-h-11 lg:min-h-8"
+            aria-pressed={filters.showUnverified}
+            onClick={() => updateFilters({ ...filters, showUnverified: !filters.showUnverified })}>
+            {t(filters.showUnverified ? "tuteeHistory.hideUnverified" : "tuteeHistory.showUnverified")}
+          </button>
+          <button type="button" className="btn-secondary btn-sm min-h-11 lg:min-h-8" aria-pressed={filters.showPastTutors} onClick={() => updateFilters({ ...filters, showPastTutors: !filters.showPastTutors })}>{t(filters.showPastTutors ? "tuteeHistory.hideHistorical" : "tuteeHistory.showHistorical")}</button>
           <button
             type="button"
             className="btn-secondary btn-sm min-h-11 lg:min-h-8"
@@ -477,7 +480,7 @@ export default function UsersPage() {
                         </p>
                       ) : (
                         <p className="muted text-xs">
-                          {t("academics.usernameMissing")}
+                          {t(u.userId ? "academics.usernameMissing" : "tuteeHistory.noAccount")}
                         </p>
                       )}
                     </div>
