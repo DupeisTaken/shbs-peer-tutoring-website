@@ -1,28 +1,56 @@
 import { TRPCError } from "@trpc/server";
 import { ALL_GRADES, isLatinPrimaryName, type ProfilePolicy } from "~/lib/profile-policy";
 import type { DomainDb } from "~/server/transactions";
+import { personNameSchema } from "~/lib/person-name";
+
+/** Domain writers use the same rules even when invoked outside a tRPC router. */
+export function parsePersonNames(input: unknown) {
+  const result = personNameSchema.safeParse(input);
+  if (!result.success)
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: result.error.issues.some(
+        (issue) => issue.message === "PROFILE_LATIN_NAME_REQUIRED",
+      )
+        ? "PROFILE_LATIN_NAME_REQUIRED"
+        : "Enter your first name and review the name fields.",
+    });
+  return result.data;
+}
 
 /** Missing settings preserve the existing program until an administrator chooses a policy. */
 export async function getProfilePolicy(db: DomainDb): Promise<ProfilePolicy> {
   const settings = await db.programSettings.findUnique({
-    where: { id: "program" }, select: { requireLatinNames: true, requireLatinLegalNames: true, offeredGrades: true },
+    where: { id: "program" },
+    select: {
+      offeredGrades: true,
+      usePreferredNames: true,
+      showAlternateNames: true,
+    },
   });
-  return settings ?? { requireLatinNames: false, requireLatinLegalNames: false, offeredGrades: [...ALL_GRADES] };
+  // The old booleans remain in the wire shape for older clients. Script rules are now fixed.
+  return {
+    requireLatinNames: true,
+    requireLatinLegalNames: false,
+    usePreferredNames: settings?.usePreferredNames ?? false,
+    showAlternateNames: settings?.showAlternateNames ?? false,
+    offeredGrades: settings?.offeredGrades ?? [...ALL_GRADES],
+  };
 }
 
-/** Existing preferred names remain valid until changed. */
-export async function assertPrimaryName(db: DomainDb, name: string, previousName?: string | null) {
+/** Unstructured historical names remain valid until explicitly changed. */
+export async function assertPrimaryName(
+  db: DomainDb,
+  name: string,
+  previousName?: string | null,
+) {
   if (name.trim() === previousName?.trim()) return;
-  if ((await getProfilePolicy(db)).requireLatinNames && !isLatinPrimaryName(name))
-    throw new TRPCError({ code: "BAD_REQUEST", message: "PROFILE_LATIN_NAME_REQUIRED" });
-}
-
-/** Legal names use the legacy alternativeNames column. Blank remains optional, and
- * unchanged historical values are preserved without treating them as verified identity. */
-export async function assertLegalName(db: DomainDb, name: string | null | undefined, previousName?: string | null) {
-  if (!name?.trim() || name.trim() === previousName?.trim()) return;
-  if ((await getProfilePolicy(db)).requireLatinLegalNames && !isLatinPrimaryName(name))
-    throw new TRPCError({ code: "BAD_REQUEST", message: "PROFILE_LATIN_LEGAL_NAME_REQUIRED" });
+  void db;
+  if (!isLatinPrimaryName(name))
+    throw new TRPCError({
+      code: "BAD_REQUEST",
+      message: "PROFILE_LATIN_NAME_REQUIRED",
+    });
 }
 
 /** Offered grades constrain new reports, not historical records or optional unknown values. */

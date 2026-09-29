@@ -41,6 +41,10 @@ export function validationSummary(error: ZodError): string {
   ];
   const unique = [...new Set(messages)].filter(Boolean);
   if (!unique.length) return "Please review the submitted values.";
+  // Preserve a shared translation key for name validation instead of embedding a raw
+  // server code inside Zod's English summary. Field details remain available below.
+  if (unique.length === 1 && unique[0] === "PROFILE_LATIN_NAME_REQUIRED")
+    return unique[0];
 
   const shown = unique.slice(0, 3).join("; ");
   const omitted = unique.length - 3;

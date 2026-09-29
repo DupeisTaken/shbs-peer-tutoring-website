@@ -41,7 +41,8 @@ it("explains that an application retry preserves the original and directs edits 
 it("distinguishes required identity from optional application details", () => {
   state.isSuccess = false;
   render(<CrewSignupForm />);
-  for (const field of ["fullName", "email"])
+  expect(screen.getByLabelText("firstName signupFields.required")).toBeTruthy();
+  for (const field of ["email"])
     expect(
       screen.getByLabelText(
         "public.crewSignup.fields." + field + " signupFields.required",

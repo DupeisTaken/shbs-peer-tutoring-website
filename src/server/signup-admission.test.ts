@@ -185,7 +185,7 @@ it("allows 100 mixed registrations, reads, verification and ordinary retries fro
     const email = `school-${i}@example.test`;
     if (i % 2 === 0) {
       await caller().tutee.requestSignup({
-        englishName: `Student ${i}`,
+        englishName: `Student ${String.fromCharCode(65 + (i % 26))}`,
         email,
         firstChoiceId: "math",
         slotIds: ["slot"],

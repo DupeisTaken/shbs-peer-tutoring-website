@@ -1,4 +1,6 @@
 "use client";
+import { PersonNameFields } from "~/app/_components/person-name-fields";
+import { nameDraft, fullPersonName } from "~/lib/person-name";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -9,10 +11,7 @@ import { MembershipEditor } from "./membership-editor";
 import { SchoolDeparturePanel } from "~/app/_components/school-departure";
 import { AcademicPanel } from "./academic-profile";
 import { accountMembership } from "~/lib/account-membership";
-import {
-  ProfilePolicyHint,
-  ProfilePolicyError,
-} from "~/app/_components/profile-policy";
+import { ProfilePolicyError } from "~/app/_components/profile-policy";
 import { api } from "~/trpc/react";
 import { SYMBOLS } from "~/lib/symbols";
 import { signInAfterPasswordChange } from "~/lib/password-session";
@@ -54,12 +53,15 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
   const email2fa = features.data?.EMAIL_2FA ?? false;
 
   const updateName = api.account.updateName.useMutation({
-    onSuccess: () => utils.account.me.invalidate(),
+    onSuccess: async () => {
+      await utils.account.me.invalidate();
+      router.refresh();
+    },
   });
 
   // Name form — seeded from the loaded account.
-  const [name, setName] = useState("");
-  const [alternativeNames, setAlternativeNames] = useState("");
+  const [names, setNames] = useState(() => nameDraft());
+  const name = fullPersonName(names);
   const [nameDraftVersion, setNameDraftVersion] = useState<
     number | undefined
   >();
@@ -67,8 +69,7 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
   useEffect(() => {
     // Other profile sections refetch this query. Keep unsaved identity edits and their version.
     if (me.data && !nameDirty) {
-      setName(me.data.name ?? "");
-      setAlternativeNames(me.data.alternativeNames ?? "");
+      setNames(nameDraft(me.data));
       setNameDraftVersion(me.data.profileVersion);
     }
   }, [me.data, nameDirty]);
@@ -208,56 +209,28 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
 
         {/* Editable display name + the optional tutor cross-link. */}
         <div className="space-y-4 border-t border-slate-100 px-5 py-5 sm:px-6">
-          <label className="block space-y-1">
-            <span className="label">{t("tutor.settings.name")}</span>
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                value={name}
-                onChange={(e) => {
-                  setName(e.target.value);
-                  setNameDirty(true);
-                }}
-                className="input min-w-60 flex-1"
-              />
-              <button
-                className="btn-secondary"
-                disabled={updateName.isPending || !name.trim()}
-                onClick={() =>
-                  updateName.mutate(
-                    {
-                      name: name.trim(),
-                      alternativeNames: alternativeNames.trim() || null,
-                      expectedProfileVersion: nameDraftVersion,
-                    },
-                    { onSuccess: () => setNameDirty(false) },
-                  )
-                }
-              >
-                {updateName.isPending
-                  ? t("tutor.settings.saving")
-                  : t("tutor.settings.save")}
-              </button>
-            </div>
-          </label>
-          <ProfilePolicyHint />
-          <ProfilePolicyHint field="legal" />
-          <label className="block space-y-1">
-            <span className="label">
-              {t("accountProfile.alternativeNames")}
-            </span>
-            <input
-              className="input w-full"
-              value={alternativeNames}
-              onChange={(event) => {
-                setAlternativeNames(event.target.value);
-                setNameDirty(true);
-              }}
-              maxLength={200}
-            />
-            <span className="muted text-xs">
-              {t("accountProfile.canonicalHelp")}
-            </span>
-          </label>
+          <PersonNameFields
+            value={names}
+            onChange={(value) => {
+              setNames(value);
+              setNameDirty(true);
+            }}
+            legacyName={me.data?.legacyName ?? me.data?.name}
+          />
+          <button
+            className="btn-secondary min-h-11 lg:min-h-10"
+            disabled={updateName.isPending || !names.firstName.trim()}
+            onClick={() =>
+              updateName.mutate(
+                { ...names, name, expectedProfileVersion: nameDraftVersion },
+                { onSuccess: () => setNameDirty(false) },
+              )
+            }
+          >
+            {updateName.isPending
+              ? t("tutor.settings.saving")
+              : t("tutor.settings.save")}
+          </button>
           {updateName.isSuccess && (
             <p className="text-sm text-green-600">
               {t("tutor.settings.saved")}

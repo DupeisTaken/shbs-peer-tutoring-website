@@ -1,9 +1,26 @@
+import { optionalPersonNameFields } from "~/lib/person-name";
+import {
+  changeSchoolDeparture,
+  requireSchoolParticipation,
+  requireStudentSchoolParticipation,
+} from "~/server/school-departure";
+import {
+  currentAcademicInput,
+  academicSummary,
+  normalizeGrade,
+} from "~/lib/academics";
+import {
+  accountAcademics,
+  confirmCurrentAccountAcademics,
+  initializeAccountAcademics,
+  legacyAcademic,
+} from "~/server/academics";
+import {
+  assertPrimaryName,
+  assertOfferedGrade,
+} from "~/server/program/profile-policy";
 import { historicalOwners } from "~/server/tutee-history";
 import { isHistoricalTutee } from "~/lib/tutee-history";
-import { changeSchoolDeparture, requireSchoolParticipation, requireStudentSchoolParticipation } from "~/server/school-departure";
-import { currentAcademicInput, academicSummary, normalizeGrade } from "~/lib/academics";
-import { accountAcademics, confirmCurrentAccountAcademics, initializeAccountAcademics, legacyAcademic } from "~/server/academics";
-import { assertLegalName, assertPrimaryName, assertOfferedGrade } from "~/server/program/profile-policy";
 import { REGISTRATION_KINDS, isManagementCode } from "~/lib/registration-kind";
 import { enforceAssignmentQualification } from "~/server/assignment-qualification";
 import { accountUsernameSchema, updateAccountUsername } from "~/server/account-username";
@@ -1731,9 +1748,12 @@ export const adminRouter = createTRPCRouter({
   createTutor: adminProcedure
     .input(
       z.object({
-        firstName: z.string().trim().min(1),
-        lastName: z.string().trim().min(1),
-        // Optional legal name; the program's script policy is checked in the transaction.
+        ...optionalPersonNameFields,
+        firstName: optionalPersonNameFields.firstName.unwrap(),
+        lastName: optionalPersonNameFields.lastName
+          .unwrap()
+          .refine((value) => !!value),
+        // Optional name in another language; Unicode is preserved.
         alternativeNames: z.string().trim().max(200).optional(),
         email: z.string().email().optional(),
         gradeLevel: z.number().int().min(1).max(12).nullable().optional(),
@@ -1746,7 +1766,7 @@ export const adminRouter = createTRPCRouter({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Graduated cannot have a current grade." });
       const tutor = await inTransaction(ctx.db, async (tx) => {
         await assertPrimaryName(tx, `${input.firstName} ${input.lastName}`);
-        await assertLegalName(tx, input.alternativeNames);
+
         await assertOfferedGrade(tx, input.gradeLevel);
         await lockUsernameNamespace(tx);
         const username = await ensureUniqueUsername(
@@ -1754,6 +1774,8 @@ export const adminRouter = createTRPCRouter({
         );
         return await tx.tutor.create({
           data: {
+            preferredName: input.preferredName,
+            nameFieldsConfirmed: true,
             firstName: input.firstName,
             lastName: input.lastName,
             englishName: `${input.firstName} ${input.lastName}`,
@@ -1785,8 +1807,9 @@ export const adminRouter = createTRPCRouter({
       z.object({
         id: cuid,
         expectedUpdatedAt: expectedUpdatedAt.optional(),
-        firstName: z.string().trim().min(1),
-        lastName: z.string().trim(),
+        ...optionalPersonNameFields,
+        firstName: optionalPersonNameFields.firstName.unwrap(),
+        lastName: optionalPersonNameFields.lastName.unwrap(),
         alternativeNames: z.string().trim().max(200).nullable().optional(),
         // Head can correct an unlinked handle; linked logins use the account editor.
         username: z.string().trim().optional(),
@@ -1862,16 +1885,30 @@ export const adminRouter = createTRPCRouter({
           if (userClash || tutorClash || secondaryClash)
             throw new TRPCError({ code: "CONFLICT", message: "That email is already in use." });
         }
-        if ((input.academicallyGraduated ?? before.academicallyGraduated) &&
-          (input.gradeLevel === undefined ? before.gradeLevel : input.gradeLevel) != null)
-          throw new TRPCError({ code: "BAD_REQUEST", message: "Graduated cannot have a current grade." });
-        await assertPrimaryName(tx, [input.firstName, input.lastName].filter(Boolean).join(" "), before.englishName);
-        await assertLegalName(tx, input.alternativeNames, before.alternativeNames);
-        if (!account && input.gradeLevel !== before.gradeLevel) await assertOfferedGrade(tx, input.gradeLevel);
-        const changedAcademicChoice = !account && (
-          (input.gradeLevel !== undefined && input.gradeLevel !== before.gradeLevel) ||
-          (input.academicallyGraduated !== undefined && input.academicallyGraduated !== before.academicallyGraduated)
+        if (
+          (input.academicallyGraduated ?? before.academicallyGraduated) &&
+          (input.gradeLevel === undefined
+            ? before.gradeLevel
+            : input.gradeLevel) != null
+        )
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Graduated cannot have a current grade.",
+          });
+        await assertPrimaryName(
+          tx,
+          [input.firstName, input.lastName].filter(Boolean).join(" "),
+          before.englishName,
         );
+
+        if (!account && input.gradeLevel !== before.gradeLevel)
+          await assertOfferedGrade(tx, input.gradeLevel);
+        const changedAcademicChoice =
+          !account &&
+          ((input.gradeLevel !== undefined &&
+            input.gradeLevel !== before.gradeLevel) ||
+            (input.academicallyGraduated !== undefined &&
+              input.academicallyGraduated !== before.academicallyGraduated));
         // The middleware's routing decision is not authority for a later state transition.
         if (before.status !== input.status && ctx.session.role !== "HEAD")
           throw new TRPCError({ code: "CONFLICT", message: "Tutor membership changed. Ask Head to review this status change." });
@@ -1890,6 +1927,8 @@ export const adminRouter = createTRPCRouter({
         const updated = await tx.tutor.update({
           where: { id: input.id },
           data: {
+            nameFieldsConfirmed: true,
+            preferredName: input.preferredName,
             firstName: input.firstName,
             lastName: input.lastName,
             englishName: [input.firstName, input.lastName]
@@ -1914,7 +1953,10 @@ export const adminRouter = createTRPCRouter({
         if (account) {
           updated.username = await ensureUserUsername(account.id, tx);
           await updateAccountProfile(tx, account.id, {
-            name: updated.englishName,
+            firstName: input.firstName,
+            lastName: input.lastName,
+            preferredName: input.preferredName,
+            name: [input.firstName, input.lastName].filter(Boolean).join(" "),
             alternativeNames: updated.alternativeNames,
             expectedTutorId: input.id,
           });
@@ -1965,6 +2007,7 @@ export const adminRouter = createTRPCRouter({
   createTutee: adminProcedure
     .input(
       z.object({
+        ...optionalPersonNameFields,
         englishName: z.string().trim().min(1),
         email: z.string().email().nullable().optional(),
         phone: z.string().trim().nullable().optional(),
@@ -1985,6 +2028,10 @@ export const adminRouter = createTRPCRouter({
         data: {
           // Persist entry provenance at creation; subsequent edits/links retain it.
           signupSource: "STAFF",
+          firstName: input.firstName,
+          lastName: input.lastName,
+          preferredName: input.preferredName,
+          alternativeNames: input.alternativeNames,
           englishName: input.englishName,
           email: blankToNull(input.email)?.toLowerCase() ?? null,
           phone: blankToNull(input.phone),
@@ -2005,6 +2052,7 @@ export const adminRouter = createTRPCRouter({
         expectedUpdatedAt,
         preferredContact: z.string().trim().max(200).nullable().optional(),
         slotIds: z.array(cuid).optional(),
+        ...optionalPersonNameFields,
         englishName: z.string().trim().min(1),
         alternativeNames: z.string().trim().max(200).nullable().optional(),
         email: z.string().email().nullable().optional(),
@@ -2038,7 +2086,7 @@ export const adminRouter = createTRPCRouter({
           (input.gradeLevel === undefined ? before.gradeLevel : input.gradeLevel) != null)
           throw new TRPCError({ code: "BAD_REQUEST", message: "Graduated cannot have a current grade." });
         await assertPrimaryName(tx, input.englishName, before.englishName);
-        await assertLegalName(tx, input.alternativeNames, before.alternativeNames);
+
         if (!linkedStudent && input.gradeLevel !== before.gradeLevel)
           await assertOfferedGrade(tx, normalizeGrade(input.gradeLevel).gradeLevel);
         if (before.updatedAt.getTime() !== input.expectedUpdatedAt.getTime())
@@ -2096,6 +2144,9 @@ export const adminRouter = createTRPCRouter({
         });
         if (linkedStudent)
           await updateAccountProfile(tx, linkedStudent.id, {
+            firstName: fields.firstName,
+            lastName: fields.lastName,
+            preferredName: fields.preferredName,
             name: fields.englishName,
             alternativeNames: fields.alternativeNames,
             expectedStudentId: input.id,
@@ -2908,8 +2959,19 @@ export const adminRouter = createTRPCRouter({
         await lockEntity(tx, `interview:${input.applicationId}`);
         const lockedApplication = await tx.tutorApplication.findUniqueOrThrow({ where: { id: input.applicationId } });
         if (lockedApplication.type !== "INITIAL") {
-          if (ctx.session.tutorId === lockedApplication.requestedTutorId || await tx.user.count({ where: { id: ctx.session.user.id, tutorId: lockedApplication.requestedTutorId } }))
-            throw new TRPCError({ code: "FORBIDDEN", message: "Another Admin or Head must choose your review panel." });
+          if (
+            ctx.session.tutorId === lockedApplication.requestedTutorId ||
+            (await tx.user.count({
+              where: {
+                id: ctx.session.user.id,
+                tutorId: lockedApplication.requestedTutorId,
+              },
+            }))
+          )
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "Another Admin or Head must choose your review panel.",
+            });
           if (!["ADMIN", "HEAD"].includes(ctx.session.role))
             throw new TRPCError({ code: "FORBIDDEN" });
           if (lockedApplication.status !== "PENDING")
@@ -3396,8 +3458,15 @@ export const adminRouter = createTRPCRouter({
         where: { id: input.userId },
         select: { id: true, role: true, name: true, email: true, mergedIntoId: true },
       });
-      if (target.mergedIntoId || await ctx.db.user.count({ where: { mergedIntoId: target.id } }))
-        throw new TRPCError({ code: "CONFLICT", message: "Combined account history must be retained. Change the surviving account's crew status instead." });
+      if (
+        target.mergedIntoId ||
+        (await ctx.db.user.count({ where: { mergedIntoId: target.id } }))
+      )
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "Combined account history must be retained. Change the surviving account's crew status instead.",
+        });
       if (target.role !== "CREW") {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -3977,7 +4046,8 @@ export const adminRouter = createTRPCRouter({
     .input(
       z.object({
         userId: cuid,
-        name: z.string().trim().min(1).max(100),
+        ...optionalPersonNameFields,
+        name: z.string().trim().min(1).max(200),
         alternativeNames: z.string().trim().max(200).nullable(),
         expectedProfileVersion: z.number().int().nonnegative(),
       }),
@@ -4004,6 +4074,10 @@ export const adminRouter = createTRPCRouter({
         select: {
           id: true,
           name: true,
+          firstName: true,
+          lastName: true,
+          preferredName: true,
+          legacyName: true,
           alternativeNames: true,
           profileVersion: true,
             academicProfile: true,
@@ -4086,6 +4160,10 @@ export const adminRouter = createTRPCRouter({
     const userRows = users.map((u) => ({
       userId: u.id,
       name: u.name ?? u.email,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      preferredName: u.preferredName,
+      legacyName: u.legacyName,
       alternativeNames: u.alternativeNames,
       profileVersion: u.profileVersion,
       emailVerifiedAt: u.emailVerifiedAt,
@@ -4117,6 +4195,10 @@ export const adminRouter = createTRPCRouter({
     const tutorRows = unlinkedTutors.map((tu) => ({
       userId: null,
       name: tu.englishName,
+      firstName: null,
+      lastName: null,
+      preferredName: null,
+      legacyName: tu.englishName,
       alternativeNames: null,
       profileVersion: null,
       emailVerifiedAt: null,
@@ -4184,30 +4266,68 @@ export const adminRouter = createTRPCRouter({
   setMemberships: headProcedure
     .input(z.object({ userId: cuid, membership: membershipSchema, confirmPassword: z.string().min(1).optional() }))
     .mutation(async ({ ctx, input }) => {
-      if (!approvalScope.getStore()) await assertCallerPassword(ctx.session.user.id, input.confirmPassword ?? "");
-      return inTransaction(ctx.db, (tx) => databaseScope.run(databaseScope.getStore() ?? tx, async () => {
-        // This wrapper can delegate tutor creation; take the namespace before account locks.
-        await lockUsernameNamespace(tx);
-        await lockEntity(tx, "program:leadership");
-        await lockAccountProfile(tx, input.userId);
-        if ((await tx.user.findUniqueOrThrow({ where: { id: ctx.session.user.id } })).role !== "HEAD")
-          throw new TRPCError({ code: "FORBIDDEN", message: "Head access required." });
-        const target = await tx.user.findUniqueOrThrow({ where: { id: input.userId }, include: { tutor: true } });
-        const value = input.membership;
-        if ((target.role === "HEAD") !== (value.rank === "HEAD"))
-          throw new TRPCError({ code: "FORBIDDEN", message: "Use leadership transfer to change the Head." });
-        const role = value.viewer ? "VIEWER" : value.rank !== "NONE" ? value.rank : value.tutor ? "TUTOR" : value.crew ? "CREW" : "STUDENT";
-        // Leave Viewer before assigning any capability; the database enforces exclusivity too.
-        await tx.user.update({ where: { id: target.id }, data: {
-          role, tuteeMember: value.tutee, tutorAccessRevoked: !value.tutor, canTranslate: value.translator,
-          crewStatus: value.crew ? target.crewStatus ?? "ACTIVE" : null,
-        } });
-        if (accountMembership(target).tutor !== value.tutor) {
-          const { createCaller } = await import("../root");
-          await createCaller({ ...ctx, db: ctx.db }).admin.setUserCanTutor({ userId: target.id, canTutor: value.tutor });
-        }
-        return { ok: true };
-      }));
+      if (!approvalScope.getStore())
+        await assertCallerPassword(
+          ctx.session.user.id,
+          input.confirmPassword ?? "",
+        );
+      return inTransaction(ctx.db, (tx) =>
+        databaseScope.run(databaseScope.getStore() ?? tx, async () => {
+          // This wrapper can delegate tutor creation; take the namespace before account locks.
+          await lockUsernameNamespace(tx);
+          await lockEntity(tx, "program:leadership");
+          await lockAccountProfile(tx, input.userId);
+          if (
+            (
+              await tx.user.findUniqueOrThrow({
+                where: { id: ctx.session.user.id },
+              })
+            ).role !== "HEAD"
+          )
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "Head access required.",
+            });
+          const target = await tx.user.findUniqueOrThrow({
+            where: { id: input.userId },
+            include: { tutor: true },
+          });
+          const value = input.membership;
+          if ((target.role === "HEAD") !== (value.rank === "HEAD"))
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "Use leadership transfer to change the Head.",
+            });
+          const role = value.viewer
+            ? "VIEWER"
+            : value.rank !== "NONE"
+              ? value.rank
+              : value.tutor
+                ? "TUTOR"
+                : value.crew
+                  ? "CREW"
+                  : "STUDENT";
+          // Leave Viewer before assigning any capability; the database enforces exclusivity too.
+          await tx.user.update({
+            where: { id: target.id },
+            data: {
+              role,
+              tuteeMember: value.tutee,
+              tutorAccessRevoked: !value.tutor,
+              canTranslate: value.translator,
+              crewStatus: value.crew ? (target.crewStatus ?? "ACTIVE") : null,
+            },
+          });
+          if (accountMembership(target).tutor !== value.tutor) {
+            const { createCaller } = await import("../root");
+            await createCaller({ ...ctx, db: ctx.db }).admin.setUserCanTutor({
+              userId: target.id,
+              canTutor: value.tutor,
+            });
+          }
+          return { ok: true };
+        }),
+      );
     }),
 
   /**
@@ -4299,8 +4419,15 @@ export const adminRouter = createTRPCRouter({
             mergedIntoId: true,
           },
         });
-        if (target.mergedIntoId || await tx.user.count({ where: { mergedIntoId: target.id } }))
-          throw new TRPCError({ code: "CONFLICT", message: "Combined account history must be retained. Update the surviving account's memberships instead." });
+        if (
+          target.mergedIntoId ||
+          (await tx.user.count({ where: { mergedIntoId: target.id } }))
+        )
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "Combined account history must be retained. Update the surviving account's memberships instead.",
+          });
         if (target.role === "HEAD") {
           throw new TRPCError({
             code: "FORBIDDEN",
@@ -4508,7 +4635,17 @@ export const adminRouter = createTRPCRouter({
         await lockAccountProfile(tx, input.userId);
         const user = await tx.user.findUniqueOrThrow({
           where: { id: input.userId },
-          select: { id: true, name: true, email: true, tutorId: true, role: true, username: true },
+          select: {
+            id: true,
+            name: true,
+            firstName: true,
+            lastName: true,
+            legacyName: true,
+            email: true,
+            tutorId: true,
+            role: true,
+            username: true,
+          },
         });
 
         if (input.canTutor) await requireSchoolParticipation(tx, user.id);
@@ -4553,19 +4690,20 @@ export const adminRouter = createTRPCRouter({
           });
           tutorId = existing.id;
         } else {
-          // Derive a tutor name from the display name. A single-word name (e.g. "Admin") keeps an
-          // empty last name — never duplicate it into "Admin Admin" (see splitDisplayName).
-          const { firstName, lastName, englishName } = splitDisplayName(
-            user.name ?? user.email,
-          );
+          // Split only a legacy string for a username suggestion. Explicit identity
+          // fields are mirrored by updateAccountProfile below.
+          const { firstName, lastName } = user.firstName
+            ? { firstName: user.firstName, lastName: user.lastName ?? "" }
+            : splitDisplayName(user.legacyName ?? user.name ?? user.email);
+          const englishName = user.name ?? user.email;
           const usernameBase = lastName
             ? defaultUsername(firstName, lastName)
             : firstName;
           const username = await canonicalUsername(tx, usernameBase, { excludeUserId: user.id, userUsername: user.username });
           const created = await tx.tutor.create({
             data: {
-              firstName,
-              lastName,
+              firstName: user.firstName,
+              lastName: user.lastName,
               englishName,
               username,
               email: user.email,

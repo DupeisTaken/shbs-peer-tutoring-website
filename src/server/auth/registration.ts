@@ -1,3 +1,4 @@
+import { parsePersonNames } from "~/server/program/profile-policy";
 import { requireSchoolParticipation } from "~/server/school-departure";
 import { applyAcademicIntake, synchronizeAcademicMirrors, accountAcademics } from "~/server/academics";
 import {
@@ -33,8 +34,17 @@ import { env } from "~/env";
 import { db } from "~/server/db";
 import { hashPassword } from "./password";
 import { generateRegistrationCode, normalizeRegCode } from "./code";
-import { defaultUsername, ensureUniqueUsername, canonicalUsername, ensureUserUsername, lockUsernameNamespace } from "./username";
-import { assertLegalName, assertPrimaryName, assertOfferedGrade } from "~/server/program/profile-policy";
+import {
+  defaultUsername,
+  ensureUniqueUsername,
+  canonicalUsername,
+  ensureUserUsername,
+  lockUsernameNamespace,
+} from "./username";
+import {
+  assertPrimaryName,
+  assertOfferedGrade,
+} from "~/server/program/profile-policy";
 import { needsAcademicConfirmationForParticipation } from "~/lib/academics";
 import { graduationYear } from "~/lib/period";
 
@@ -182,68 +192,33 @@ export async function bumpCodeAttempt(id: string): Promise<void> {
  * existing roster Tutor or an accepted application) the known name + grade so the form starts
  * pre-populated.
  */
-export async function codePrefill(row: CodeRow): Promise<{
-  boundEmail: string | null;
-  firstName: string;
-  lastName: string;
-  alternativeNames: string;
-  gradeLevel: number | null;
-  gradeSchoolYear: string | null;
-}> {
-  let firstName = "";
-  let lastName = "";
-  let alternativeNames = "";
-  let gradeLevel: number | null = null;
-  let gradeSchoolYear: string | null = null;
-
-  if (row.tutorId) {
-    const tutor = await db.tutor.findUnique({
-      where: { id: row.tutorId },
-      select: {
-        firstName: true,
-        lastName: true,
-        englishName: true,
-        alternativeNames: true,
-        gradeLevel: true,
-        gradeSchoolYear: true,
-      },
-    });
-    if (tutor) {
-      const [efirst, ...erest] = tutor.englishName.trim().split(/\s+/);
-      firstName = tutor.firstName ?? efirst ?? "";
-      lastName = tutor.lastName ?? erest.join(" ");
-      alternativeNames = tutor.alternativeNames ?? "";
-      gradeLevel = tutor.gradeLevel;
-      gradeSchoolYear = tutor.gradeSchoolYear;
-    }
-  } else if (row.applicationId) {
-    const app = await db.tutorApplication.findUnique({
-      where: { id: row.applicationId },
-      select: { name: true },
-    });
-    if (app) {
-      const [afirst, ...arest] = app.name.trim().split(/\s+/);
-      firstName = afirst ?? app.name.trim();
-      lastName = arest.join(" ");
-    }
-  }
-  if (row.crewApplicationId) {
-    const application = await db.crewApplication.findUnique({ where: { id: row.crewApplicationId }, select: { name: true, gradeLevel: true } });
-    if (application) {
-      const [first, ...rest] = application.name.trim().split(/\s+/);
-      firstName = first ?? "";
-      lastName = rest.join(" ");
-      gradeLevel = application.gradeLevel;
-      // A historical application has no academic reference year; the registrant confirms it.
-    }
-  }
+export async function codePrefill(row: CodeRow) {
+  // Only explicit name parts prefill the four-field editor; old full names remain visible context.
+  const source = row.tutorId
+    ? await db.tutor.findUnique({ where: { id: row.tutorId } })
+    : row.applicationId
+      ? await db.tutorApplication.findUnique({
+          where: { id: row.applicationId },
+        })
+      : row.crewApplicationId
+        ? await db.crewApplication.findUnique({
+            where: { id: row.crewApplicationId },
+          })
+        : null;
   return {
     boundEmail: row.email?.toLowerCase() ?? null,
-    firstName,
-    lastName,
-    alternativeNames,
-    gradeLevel,
-    gradeSchoolYear,
+    firstName: source?.firstName ?? "",
+    lastName: source?.lastName ?? "",
+    preferredName: source?.preferredName ?? "",
+    alternativeNames: source?.alternativeNames ?? "",
+    legacyName: source
+      ? "englishName" in source
+        ? source.englishName
+        : source.name
+      : null,
+    gradeLevel: source && "gradeLevel" in source ? source.gradeLevel : null,
+    gradeSchoolYear:
+      source && "gradeSchoolYear" in source ? source.gradeSchoolYear : null,
   };
 }
 
@@ -337,6 +312,7 @@ export interface CompleteRegistrationInput {
   completionProof: string;
   firstName: string;
   lastName: string;
+  preferredName?: string | null;
   alternativeNames?: string | null;
   gradeLevel?: number | null;
   preferredLatinName?: string;
@@ -361,6 +337,8 @@ export async function completeRegistration(
       input.completionProof !== registrationCompletionProof("invitation", row.id, row.emailCodeHash, row.emailVerifiedAt)) {
     return { ok: false, error: "email-unverified" };
   }
+  parsePersonNames(input);
+  const preferredName = input.preferredName?.trim() ? input.preferredName.trim() : null;
   const email = (row.email ?? row.pendingEmail).toLowerCase();
   const firstName = input.firstName.trim();
   const lastName = input.lastName.trim();
@@ -393,10 +371,19 @@ export async function completeRegistration(
     const role = row.kind;
     return db.$transaction(async (tx) => {
       await lockEntity(tx, "program:period");
-      const term = await tx.term.findFirst({ where: { active: true }, select: { schoolYear: true } });
-      const gradYear = gradeLevel != null && term ? graduationYear(gradeLevel, term.schoolYear) : null;
-      await assertPrimaryName(tx, [firstName, lastName].filter(Boolean).join(" "));
-      await assertLegalName(tx, alternativeNames);
+      const term = await tx.term.findFirst({
+        where: { active: true },
+        select: { schoolYear: true },
+      });
+      const gradYear =
+        gradeLevel != null && term
+          ? graduationYear(gradeLevel, term.schoolYear)
+          : null;
+      await assertPrimaryName(
+        tx,
+        [firstName, lastName].filter(Boolean).join(" "),
+      );
+
       await assertOfferedGrade(tx, gradeLevel);
       if (gradeLevel != null && !term) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "PROFILE_NO_CURRENT_YEAR" });
       await lockUsernameNamespace(tx);
@@ -407,18 +394,56 @@ export async function completeRegistration(
       ] } });
       if (owner) return { ok: false as const, error: "email-taken" as const };
       await claimRegistration(tx, row);
-      const username = await ensureUniqueUsername(defaultUsername(firstName, lastName, gradYear, input.preferredLatinName), {}, tx);
-      const user = await tx.user.create({ data: {
-        email, username, name: `${firstName} ${lastName}`, alternativeNames, role, gradeLevel,
-        passwordHash, emailVerifiedAt: new Date(), mustChangePassword: false,
-      } });
-      await applyAcademicIntake(tx, user.id, gradeLevel, term?.schoolYear ?? null, new Date(), "REGISTRATION");
-      await tx.registrationCode.update({ where: { id: row.id }, data: { usedByUserId: user.id } });
-      await tx.auditLog.create({ data: {
-        userId: user.id, userName: user.name, entity: "RegistrationCode", entityId: row.id,
-        operation: "registration.complete", kind: "ACTION", action: `Redeemed ${role} registration code`,
-        details: { role, issuedById: row.issuedById, recipientId: user.id },
-      } });
+      const username = await ensureUniqueUsername(
+        defaultUsername(
+          firstName,
+          lastName,
+          gradYear,
+          input.preferredLatinName,
+        ),
+        {},
+        tx,
+      );
+      const user = await tx.user.create({
+        data: {
+          email,
+          username,
+          firstName,
+          lastName,
+          preferredName,
+          name: `${firstName} ${lastName}`,
+          alternativeNames,
+          role,
+          gradeLevel,
+          passwordHash,
+          emailVerifiedAt: new Date(),
+          mustChangePassword: false,
+        },
+      });
+      await applyAcademicIntake(
+        tx,
+        user.id,
+        gradeLevel,
+        term?.schoolYear ?? null,
+        new Date(),
+        "REGISTRATION",
+      );
+      await tx.registrationCode.update({
+        where: { id: row.id },
+        data: { usedByUserId: user.id },
+      });
+      await tx.auditLog.create({
+        data: {
+          userId: user.id,
+          userName: user.name,
+          entity: "RegistrationCode",
+          entityId: row.id,
+          operation: "registration.complete",
+          kind: "ACTION",
+          action: `Redeemed ${role} registration code`,
+          details: { role, issuedById: row.issuedById, recipientId: user.id },
+        },
+      });
       return { ok: true as const, username };
     });
   }
@@ -434,7 +459,7 @@ export async function completeRegistration(
       const existingUser = await tx.user.findUnique({ where: { email } });
       await assertPrimaryName(tx, existingUser?.name ?? [firstName, lastName].filter(Boolean).join(" "), existingUser?.name);
       // Crew invitations keep an existing account identity; only new accounts adopt input.
-      if (!existingUser) await assertLegalName(tx, alternativeNames);
+
       await assertOfferedGrade(tx, gradeLevel);
       if (gradeLevel != null && !term) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "PROFILE_NO_CURRENT_YEAR" });
       // Namespace locking serializes this check with account combination. Retired identities
@@ -475,6 +500,9 @@ export async function completeRegistration(
         data: {
           email,
           username: desiredUsername,
+          firstName,
+          lastName,
+          preferredName,
           name: `${firstName} ${lastName}`,
           alternativeNames,
           role: "CREW",
@@ -543,9 +571,12 @@ export async function completeRegistration(
     // An invited roster is already an identity too. Preserve its unchanged name when
     // creating its first login, while any existing canonical account takes precedence.
     // The namespace lock serializes edits to provisional roster names.
-    await assertPrimaryName(tx, [firstName, lastName].filter(Boolean).join(" "),
-      existingUser ? existingUser.name : rosterTutor?.englishName);
-    await assertLegalName(tx, alternativeNames, existingUser ? existingUser.alternativeNames : rosterTutor?.alternativeNames);
+    await assertPrimaryName(
+      tx,
+      [firstName, lastName].filter(Boolean).join(" "),
+      existingUser ? existingUser.name : rosterTutor?.englishName,
+    );
+
     // Account ownership wins; a genuinely new account adopts its roster's provisional handle.
     const desiredUsername = await canonicalUsername(tx,
       defaultUsername(firstName, lastName, usernameGradYear, input.preferredLatinName), {
@@ -559,6 +590,7 @@ export async function completeRegistration(
         data: {
           firstName,
           lastName,
+          preferredName,
           englishName: `${firstName} ${lastName}`,
           alternativeNames,
           gradeLevel,
@@ -572,6 +604,7 @@ export async function completeRegistration(
         data: {
           firstName,
           lastName,
+          preferredName,
           englishName: `${firstName} ${lastName}`,
           alternativeNames,
           gradeLevel,
@@ -593,6 +626,9 @@ export async function completeRegistration(
           tutorId,
           tutorAccessRevoked: false,
           username: desiredUsername,
+          firstName,
+          lastName,
+          preferredName,
           name: `${firstName} ${lastName}`,
           passwordHash,
           mustChangePassword: false,
@@ -609,6 +645,9 @@ export async function completeRegistration(
         data: {
           email,
           username: desiredUsername,
+          firstName,
+          lastName,
+          preferredName,
           name: `${firstName} ${lastName}`,
           role: "TUTOR",
           // Seed the already-validated legal name so unchanged roster values are preserved.
@@ -625,6 +664,9 @@ export async function completeRegistration(
     }
 
     await updateAccountProfile(tx, userId, {
+      firstName,
+      lastName,
+      preferredName,
       name: `${firstName} ${lastName}`,
       alternativeNames,
     });

@@ -113,7 +113,7 @@ it("accepts single-token names and optional Latin spelling for new verified acco
   const row = await verified("CREW");
   // No reported grade means no academic suffix or mandatory confirmation; the
   // completion contract still explicitly distinguishes login creation from activation.
-  expect(await publicCaller().registration.complete({ code: row.code, completionProof: row.completionProof, firstName: "王小明", lastName: "", preferredLatinName: "Xiaoming Wang", password: profile.password })).toEqual({ ok: true, username: "xwang", academicConfirmationRequired: false });
+  expect(await publicCaller().registration.complete({ code: row.code, completionProof: row.completionProof, firstName: "Xiaoming", lastName: "Wang", alternativeNames: "王小明", password: profile.password })).toEqual({ ok: true, username: "xwang", academicConfirmationRequired: false });
 });
 it.each(REGISTRATION_KINDS)(
   "completes verified %s registration with only the intended participation",

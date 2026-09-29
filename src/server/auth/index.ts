@@ -193,7 +193,15 @@ const {
               ...(tutorId ? { tutorId } : {}),
               ...(roleBump ? { role: roleBump } : {}),
             },
-            select: { id: true, role: true, tutorId: true, tutorAccessRevoked: true, sessionVersion: true, mergedIntoId: true },
+            select: {
+              id: true,
+              name: true,
+              role: true,
+              tutorId: true,
+              tutorAccessRevoked: true,
+              sessionVersion: true,
+              mergedIntoId: true,
+            },
           });
           if (tutorId && identity?.tutorId !== tutorId)
             await updateAccountProfile(tx, userId);
@@ -208,19 +216,31 @@ const {
         token.sub = dbUser.id;
         token.sessionVersion = user.sessionVersion;
         token.role = dbUser.role;
-        token.tutorId = dbUser.role === "VIEWER" || dbUser.tutorAccessRevoked ? null : dbUser.tutorId;
+        token.name = dbUser.name;
+        token.tutorId =
+          dbUser.role === "VIEWER" || dbUser.tutorAccessRevoked
+            ? null
+            : dbUser.tutorId;
       } else if (token.sub) {
         // Token reuse (no fresh sign-in): keep the linked `tutorId` in sync with the DB so a
         // can-tutor toggle — which links/creates the Tutor (or archives it) on `/admin/users` —
         // takes effect on the next request without forcing a re-login; roles refresh here too.
         const dbUser = await db.user.findUnique({
           where: { id: token.sub },
-          select: { tutorId: true, tutorAccessRevoked: true, role: true, sessionVersion: true, mergedIntoId: true },
+          select: {
+            name: true,
+            tutorId: true,
+            tutorAccessRevoked: true,
+            role: true,
+            sessionVersion: true,
+            mergedIntoId: true,
+          },
         });
         // A deleted account must lose its session instead of bouncing between /student and /signin.
         if (!dbUser || dbUser.mergedIntoId || !Number.isSafeInteger(token.sessionVersion) || dbUser.sessionVersion !== token.sessionVersion) return null;
         token.tutorId = dbUser.role === "VIEWER" || dbUser.tutorAccessRevoked ? null : dbUser.tutorId;
         token.role = dbUser.role;
+        token.name = dbUser.name;
       }
       return token;
     },

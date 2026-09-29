@@ -9,9 +9,24 @@ import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { confirmAccountAcademics } from "~/server/academics";
 import { issueRegistrationCode, setEmailVerification, confirmEmailCode, completeRegistration } from "~/server/auth/registration";
 
-const defaults = { requireLatinNames: false, requireLatinLegalNames: false, offeredGrades: ALL_GRADES };
-const caller = (role: Session["role"] = "STUDENT") => createCaller({ db, headers: new Headers(),
-  session: { user: { id: `policy-${role}`, name: role }, role, tutorId: null, expires: "2099-01-01" } });
+const defaults = {
+  requireLatinNames: true,
+  requireLatinLegalNames: false,
+  usePreferredNames: false,
+  showAlternateNames: false,
+  offeredGrades: ALL_GRADES,
+};
+const caller = (role: Session["role"] = "STUDENT") =>
+  createCaller({
+    db,
+    headers: new Headers(),
+    session: {
+      user: { id: `policy-${role}`, name: role },
+      role,
+      tutorId: null,
+      expires: "2099-01-01",
+    },
+  });
 beforeEach(async () => {
   assertIsolatedTestDatabase(process.env.DATABASE_URL);
   if (new URL(process.env.DATABASE_URL!).pathname !== "/shbs_shipping_test") throw Error("Use isolated shbs_shipping_test");
@@ -23,24 +38,69 @@ beforeEach(async () => {
 });
 afterAll(() => db.$disconnect());
 
-it("audits independent legal-name settings and detects a stale draft when only that rule changed", async () => {
-  const changed = await caller("HEAD").program.setProfilePolicy({ ...defaults, requireLatinLegalNames: true, expectedPolicy: defaults });
-  expect(changed).toEqual({ ...defaults, requireLatinLegalNames: true });
-  expect(await db.auditLog.findFirst({ where: { operation: "program.setProfilePolicy" } })).toMatchObject({ details: { before: defaults, after: changed } });
-  await expect(caller("ADMIN").program.setProfilePolicy({ ...defaults, requireLatinNames: true, expectedPolicy: defaults })).rejects.toMatchObject({ message: "PROFILE_POLICY_CHANGED" });
+it("audits independent alternate-name display and detects stale drafts", async () => {
+  const changed = await caller("HEAD").program.setProfilePolicy({
+    ...defaults,
+    showAlternateNames: true,
+    expectedPolicy: defaults,
+  });
+  expect(changed).toEqual({ ...defaults, showAlternateNames: true });
+  expect(
+    await db.auditLog.findFirst({
+      where: { operation: "program.setProfilePolicy" },
+    }),
+  ).toMatchObject({ details: { before: defaults, after: changed } });
+  await expect(
+    caller("ADMIN").program.setProfilePolicy({
+      ...defaults,
+      requireLatinNames: true,
+      expectedPolicy: defaults,
+    }),
+  ).rejects.toMatchObject({ message: "PROFILE_POLICY_CHANGED" });
   expect(await caller().program.profilePolicy()).toMatchObject(changed);
 });
 
 it("publishes safe defaults and permits audited, immediate, reversible administrator settings", async () => {
-  expect(await createCaller({ db, headers: new Headers(), session: null }).program.profilePolicy()).toEqual({ ...defaults, currentSchoolYear: "26-27" });
-  expect((await caller("COORDINATOR").program.profilePolicySettings()).canEdit).toBe(false);
-  const beforeUser = await db.user.findUniqueOrThrow({ where: { id: "policy-STUDENT" } });
-  const changed = await caller("ADMIN").program.setProfilePolicy({ requireLatinNames: true, requireLatinLegalNames: false, offeredGrades: [12, 10, 11], expectedPolicy: defaults });
-  expect(changed).toEqual({ requireLatinNames: true, requireLatinLegalNames: false, offeredGrades: [10, 11, 12] });
-  expect(await db.auditLog.findFirst({ where: { operation: "program.setProfilePolicy" } })).toMatchObject({ details: { before: defaults, after: changed, existingRecordsPreserved: true } });
-  expect(await db.user.findUniqueOrThrow({ where: { id: beforeUser.id } })).toEqual(beforeUser);
-  await caller("HEAD").program.setProfilePolicy({ ...defaults, expectedPolicy: changed });
-  expect((await caller().program.profilePolicy()).offeredGrades).toEqual(ALL_GRADES);
+  expect(
+    await createCaller({
+      db,
+      headers: new Headers(),
+      session: null,
+    }).program.profilePolicy(),
+  ).toEqual({ ...defaults, currentSchoolYear: "26-27" });
+  expect(
+    (await caller("COORDINATOR").program.profilePolicySettings()).canEdit,
+  ).toBe(false);
+  const beforeUser = await db.user.findUniqueOrThrow({
+    where: { id: "policy-STUDENT" },
+  });
+  const changed = await caller("ADMIN").program.setProfilePolicy({
+    ...defaults,
+    offeredGrades: [12, 10, 11],
+    expectedPolicy: defaults,
+  });
+  expect(changed).toEqual({ ...defaults, offeredGrades: [10, 11, 12] });
+  expect(
+    await db.auditLog.findFirst({
+      where: { operation: "program.setProfilePolicy" },
+    }),
+  ).toMatchObject({
+    details: {
+      before: defaults,
+      after: changed,
+      existingRecordsPreserved: true,
+    },
+  });
+  expect(
+    await db.user.findUniqueOrThrow({ where: { id: beforeUser.id } }),
+  ).toEqual(beforeUser);
+  await caller("HEAD").program.setProfilePolicy({
+    ...defaults,
+    expectedPolicy: changed,
+  });
+  expect((await caller().program.profilePolicy()).offeredGrades).toEqual(
+    ALL_GRADES,
+  );
 });
 
 it("rejects unauthorized, invalid and stale policy changes", async () => {
@@ -64,13 +124,61 @@ it("ignores a forged school year and records the active program year for self-se
 });
 
 it("keeps historical years intact, rejects stale year displays, and confirms only offered grades", async () => {
-  await confirmAccountAcademics(db, "policy-STUDENT", { status: "REPORTED", gradeLevel: 9, schoolYear: "25-26", expectedProfileVersion: 0 }, { actorId: "policy-STUDENT", source: "VERIFIED_SURVEY" });
-  await caller("HEAD").program.setProfilePolicy({ ...defaults, offeredGrades: [10, 11, 12], expectedPolicy: defaults });
-  await expect(caller().account.updateAcademics({ status: "REPORTED", gradeLevel: 9, expectedProfileVersion: 1 })).rejects.toMatchObject({ message: "PROFILE_GRADE_NOT_OFFERED" });
-  await expect(caller().account.updateAcademics({ status: "REPORTED", gradeLevel: 10, expectedProfileVersion: 1, expectedSchoolYear: "25-26" })).rejects.toMatchObject({ code: "CONFLICT", message: "PROFILE_PROGRAM_YEAR_CHANGED" });
-  expect((await db.academicProfile.findUniqueOrThrow({ where: { userId: "policy-STUDENT" } })).schoolYear).toBe("25-26");
-  await caller().account.updateAcademics({ status: "REPORTED", gradeLevel: 10, expectedProfileVersion: 1, expectedSchoolYear: "26-27" });
-  expect((await db.academicConfirmation.findMany({ where: { userId: "policy-STUDENT" }, orderBy: { confirmedAt: "asc" } })).map(row => row.schoolYear)).toEqual(["25-26", "26-27"]);
+  await confirmAccountAcademics(
+    db,
+    "policy-STUDENT",
+    {
+      status: "REPORTED",
+      gradeLevel: 9,
+      schoolYear: "25-26",
+      expectedProfileVersion: 0,
+    },
+    { actorId: "policy-STUDENT", source: "VERIFIED_SURVEY" },
+  );
+  await caller("HEAD").program.setProfilePolicy({
+    ...defaults,
+    offeredGrades: [10, 11, 12],
+    expectedPolicy: defaults,
+  });
+  await expect(
+    caller().account.updateAcademics({
+      status: "REPORTED",
+      gradeLevel: 9,
+      expectedProfileVersion: 1,
+    }),
+  ).rejects.toMatchObject({ message: "PROFILE_GRADE_NOT_OFFERED" });
+  await expect(
+    caller().account.updateAcademics({
+      status: "REPORTED",
+      gradeLevel: 10,
+      expectedProfileVersion: 1,
+      expectedSchoolYear: "25-26",
+    }),
+  ).rejects.toMatchObject({
+    code: "CONFLICT",
+    message: "PROFILE_PROGRAM_YEAR_CHANGED",
+  });
+  expect(
+    (
+      await db.academicProfile.findUniqueOrThrow({
+        where: { userId: "policy-STUDENT" },
+      })
+    ).schoolYear,
+  ).toBe("25-26");
+  await caller().account.updateAcademics({
+    status: "REPORTED",
+    gradeLevel: 10,
+    expectedProfileVersion: 1,
+    expectedSchoolYear: "26-27",
+  });
+  expect(
+    (
+      await db.academicConfirmation.findMany({
+        where: { userId: "policy-STUDENT" },
+        orderBy: { confirmedAt: "asc" },
+      })
+    ).map((row) => row.schoolYear),
+  ).toEqual(["25-26", "26-27"]);
 });
 
 it("requires a current program year for reported grades but still accepts explicit unknown and not applicable", async () => {

@@ -5,7 +5,7 @@ import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
 
 const mocks = vi.hoisted(() => ({ redirect: vi.fn(), change: vi.fn(), updateName: vi.fn(), succeed: true,
-  account: null as null | { id: string; name: string; username: null; email: null; alternativeNames: string | null; role: string; profileVersion: number },
+  account: null as null | { id: string; name: string; firstName: string; lastName: string; username: null; email: null; alternativeNames: string | null; role: string; profileVersion: number },
 }));
 vi.mock("~/lib/password-session", () => ({ signInAfterPasswordChange: mocks.redirect }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
@@ -39,13 +39,13 @@ beforeEach(() => { mocks.redirect.mockReset(); mocks.change.mockReset(); mocks.u
 afterEach(cleanup);
 
 it("preserves an unsaved name draft and its original version when academic changes refetch the account", () => {
-  mocks.account = { id: "self", name: "Original Name", username: null, email: null, alternativeNames: null, role: "STUDENT", profileVersion: 3 };
+  mocks.account = { id: "self", name: "Original Name", firstName: "Original", lastName: "Name", username: null, email: null, alternativeNames: null, role: "STUDENT", profileVersion: 3 };
   const ui = () => <NextIntlClientProvider locale="en" messages={en}><AccountSettings /></NextIntlClientProvider>;
   const view = render(ui());
-  fireEvent.change(screen.getByDisplayValue("Original Name"), { target: { value: "Draft Name" } });
-  mocks.account = { ...mocks.account, name: "Other Editor", profileVersion: 4 };
+  fireEvent.change(screen.getByDisplayValue("Original"), { target: { value: "Draft" } });
+  mocks.account = { ...mocks.account, name: "Other Editor", firstName: "Other", lastName: "Editor", profileVersion: 4 };
   view.rerender(ui());
-  expect(screen.getByDisplayValue("Draft Name")).toBeTruthy();
+  expect(screen.getByDisplayValue("Draft")).toBeTruthy();
   expect(screen.getByText(en.academics.usernameMissing)).toBeTruthy();
   fireEvent.click(screen.getByRole("button", { name: en.tutor.settings.save }));
   expect(mocks.updateName).toHaveBeenCalledWith(expect.objectContaining({ name: "Draft Name", expectedProfileVersion: 3 }), expect.any(Object));

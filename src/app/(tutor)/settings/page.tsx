@@ -1,4 +1,6 @@
 "use client";
+import { PersonNameFields } from "~/app/_components/person-name-fields";
+import { nameDraft } from "~/lib/person-name";
 
 import { useEffect, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
@@ -6,10 +8,7 @@ import { useFormatter, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { SchoolDeparturePanel } from "~/app/_components/school-departure";
 import { AcademicPanel } from "~/app/_components/academic-profile";
-import {
-  ProfilePolicyHint,
-  ProfilePolicyError,
-} from "~/app/_components/profile-policy";
+import { ProfilePolicyError } from "~/app/_components/profile-policy";
 import { AcademicError } from "~/app/_components/academic-error";
 import { signInAfterPasswordChange } from "~/lib/password-session";
 import { TwoFactorSettings } from "~/app/_components/two-factor-settings";
@@ -49,13 +48,15 @@ export default function SettingsPage() {
   });
 
   // Profile form — seeded from the loaded profile.
-  const [altNames, setAltNames] = useState("");
+  const [names, setNames] = useState(() => nameDraft());
+  const [profileVersion, setProfileVersion] = useState<number>();
   const [profileDirty, setProfileDirty] = useState(false);
   const [email, setEmail] = useState("");
   const [optOutReason, setOptOutReason] = useState("");
   useEffect(() => {
     if (profile.data && !profileDirty) {
-      setAltNames(profile.data.alternativeNames ?? "");
+      setNames(nameDraft(profile.data));
+      setProfileVersion(profile.data.profileVersion);
       setEmail(profile.data.email ?? "");
     }
   }, [profile.data, profileDirty]);
@@ -143,21 +144,14 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <ProfilePolicyHint field="legal" />
-        <label className="block space-y-1">
-          <span className="label">{t("tutor.settings.altNames")}</span>
-          <input
-            value={altNames}
-            onChange={(e) => {
-              setAltNames(e.target.value);
-              setProfileDirty(true);
-            }}
-            className="input"
-          />
-          <span className="muted text-xs">
-            {t("tutor.settings.altNamesHelp")}
-          </span>
-        </label>
+        <PersonNameFields
+          value={names}
+          legacyName={profile.data?.legacyName ?? profile.data?.englishName}
+          onChange={(value) => {
+            setNames(value);
+            setProfileDirty(true);
+          }}
+        />
 
         <label className="block space-y-1">
           <span className="label">{t("tutor.settings.email")}</span>
@@ -168,11 +162,12 @@ export default function SettingsPage() {
         <div className="flex items-center gap-3">
           <button
             className="btn-primary"
-            disabled={updateProfile.isPending}
+            disabled={updateProfile.isPending || !names.firstName.trim()}
             onClick={() =>
               updateProfile.mutate(
                 {
-                  alternativeNames: altNames.trim() || null,
+                  ...names,
+                  expectedProfileVersion: profileVersion,
                 },
                 { onSuccess: () => setProfileDirty(false) },
               )
