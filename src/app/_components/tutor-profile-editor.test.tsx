@@ -23,11 +23,12 @@ beforeEach(() => { state.save.mockReset(); state.error = null; });
 afterEach(cleanup);
 it("saves an archived unlinked correction without an email and preserves status", () => {
   mount();
-  fireEvent.change(screen.getByLabelText("Display name"), { target: { value: "Corrected Tutor" } });
+  fireEvent.change(screen.getByLabelText("Preferred Name"), { target: { value: "Corrected Tutor" } });
+  fireEvent.change(screen.getByLabelText("Legal Name"), { target: { value: "José García" } });
   fireEvent.change(screen.getByLabelText("Username"), { target: { value: "corrected93" } });
   fireEvent.click(screen.getByRole("button", { name: "Save profile" }));
   expect(state.save).toHaveBeenCalledWith(expect.objectContaining({ id: "past-tutor", expectedUpdatedAt: row.updatedAt,
-    firstName: "Corrected", lastName: "Tutor", username: "corrected93", email: null, gradeLevel: 10, status: "ARCHIVED" }));
+    firstName: "Corrected", lastName: "Tutor", alternativeNames: "José García", username: "corrected93", email: null, gradeLevel: 10, status: "ARCHIVED" }));
 });
 it("keeps ordinary staff username fields read-only and surfaces validation failures", () => {
   state.error = { message: "That username is already taken." };
