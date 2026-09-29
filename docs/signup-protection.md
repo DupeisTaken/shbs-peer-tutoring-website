@@ -92,3 +92,8 @@ This is functional acceptance testing, not a production flood test or upstream
 network-capacity guarantee.
 
 [Desktop and mobile verification evidence](evidence/issues-181-182/README.md).
+
+The SMTP runtime is pinned to Nodemailer 10.0.12, including the upstream TLS
+servername cache fix. Its Node 20 minimum is covered by the deployment's Node 22
+image. A loopback-only SMTP test checks the actual library's caller-owned socket
+and message-delivery contract; deadline and recovery-pool tests remain separate.
