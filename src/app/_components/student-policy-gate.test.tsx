@@ -463,3 +463,12 @@ it("keeps genuine failures retryable even with cached setup data", async () => {
   fireEvent.click(screen.getByRole("button", { name: "retry" }));
   expect(mocks.refetch).toHaveBeenCalledTimes(previousRequests + 1);
 });
+
+it.each(["/history", "/history/claim"])("allows %s without requiring new participation consent", path => {
+ mocks.path=path;
+ mocks.status.mockReturnValue({data:policy(),refetch:mocks.refetch});
+ render(<StudentPolicyGate />);
+ expect(mocks.status).toHaveBeenLastCalledWith(expect.anything(),expect.objectContaining({enabled:false}));
+ expect(screen.queryByRole("dialog")).toBeNull();
+ expect(screen.queryByText("policyTitle")).toBeNull();
+});

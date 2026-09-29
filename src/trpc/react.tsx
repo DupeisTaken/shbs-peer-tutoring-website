@@ -15,6 +15,7 @@ import {
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import SuperJSON from "superjson";
+import { TRPC_BATCH_OPTIONS } from "~/lib/trpc-batch";
 
 // Pure `import type` (not inline) so Turbopack never traces the server router graph (→ nodemailer)
 // into the client bundle.
@@ -172,6 +173,7 @@ function IdentityQueryProvider(props: {
             (op.direction === "down" && op.result instanceof Error),
         }),
         httpBatchStreamLink({
+          ...TRPC_BATCH_OPTIONS,
           transformer: SuperJSON,
           url: getBaseUrl() + "/api/trpc",
           headers: () => {

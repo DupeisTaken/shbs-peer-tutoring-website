@@ -21,6 +21,7 @@ const mock = vi.hoisted(() => ({
   own: vi.fn(),
   staff: vi.fn(),
   invalidate: vi.fn(),
+  historyInvalidate: vi.fn(),
   refresh: vi.fn(),
   staffQuery: vi.fn(),
   selfQuery: vi.fn(),
@@ -99,6 +100,7 @@ vi.mock("~/trpc/react", () => {
         },
         tutor: { me: invalidator, myProfile: invalidator },
         tutorDetails: invalidator,
+        tuteeHistory: {invalidate:mock.historyInvalidate},
       }),
       account: {
         me: query(false),
@@ -470,6 +472,7 @@ it.each(["STUDENT", "TUTOR", "CREW", "ADMIN", "VIEWER"])(
     expect(mock.staff).not.toHaveBeenCalled();
     await waitFor(() => expect(mock.refresh).toHaveBeenCalledOnce());
     expect(mock.invalidate).toHaveBeenCalledTimes(9);
+    expect(mock.historyInvalidate).toHaveBeenCalledOnce();
   },
 );
 

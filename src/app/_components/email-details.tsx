@@ -89,6 +89,7 @@ function EmailContent({
   contactOnly = false,
 }: EmailDetailsProps & { email: string }) {
   const t = useTranslations("accountProfile");
+  const history = useTranslations("tuteeHistory");
   const [copyState, setCopyState] = useState<"idle" | "copied" | "error">(
     "idle",
   );
@@ -105,7 +106,7 @@ function EmailContent({
             ? t("verified")
             : linked
               ? t("unverified")
-              : t("setupRequired")}
+              : history("noAccount")}
       </p>
       <p className="muted text-sm">
         {linked ? t("emailProtected") : t("unlinkedEmail")}

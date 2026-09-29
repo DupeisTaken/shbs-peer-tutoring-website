@@ -10,6 +10,7 @@ import {
   OfferedGradeSelect,
 } from "./profile-policy";
 import { useState } from "react";
+import { invalidateTuteeViews } from "~/lib/tutee-cache";
 import { GRADUATED_GRADE } from "~/lib/academics";
 
 /** Profile correction stays separate from assignment/removal, while the version protects both. */
@@ -21,6 +22,7 @@ export function TuteeEditor({
   onClose: () => void;
 }) {
   const t = useTranslations("profileCorrection");
+  const history = useTranslations("tuteeHistory");
   const profileText = useTranslations("accountProfile");
   const academicText = useTranslations("academics");
   const [expectedUpdatedAt] = useState(row.updatedAt);
@@ -36,10 +38,7 @@ export function TuteeEditor({
   const save = api.admin.updateTutee.useMutation({
     onSuccess: async () => {
       await Promise.all([
-        utils.admin.tutees.invalidate(),
-        utils.admin.pairings.invalidate(),
-        utils.admin.tuteeStats.invalidate(),
-        utils.admin.accounts.invalidate(),
+        invalidateTuteeViews(utils),
         utils.admin.tutors.invalidate(),
       ]);
       onClose();
@@ -48,7 +47,7 @@ export function TuteeEditor({
   return (
     <ProfileDialog title={profileText("editProfile")} onClose={onClose}>
       <p className="muted text-sm">
-        {row.user ? profileText("canonicalHelp") : profileText("setupRequired")}
+        {row.user ? profileText("canonicalHelp") : history("noAccountHelp")}
       </p>
       {subjects.data && slots.data && (
         <form
@@ -132,8 +131,12 @@ export function TuteeEditor({
               </label>
             ))}
           <div className="sm:col-span-2">
-            <ProfilePolicyHint />
-            <ProfilePolicyHint field="legal" />
+            {!row.historical && (
+              <>
+                <ProfilePolicyHint />
+                <ProfilePolicyHint field="legal" />
+              </>
+            )}
           </div>
           {(
             [

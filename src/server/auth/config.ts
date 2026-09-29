@@ -72,6 +72,7 @@ export const authConfig = {
         "/forgot-password",
         "/reset-password",
         "/register",
+        "/history/claim",
       ];
       // Public landing-section detail pages (/p/<slug>) — the page itself gates unpublished ones.
       if (PUBLIC.includes(pathname) || pathname.startsWith("/p/")) return true;

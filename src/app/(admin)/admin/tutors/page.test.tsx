@@ -42,6 +42,7 @@ vi.mock("~/trpc/react", () => ({
                 expectedGraduationYear: 2027,
               },
             },
+            { id: "tutor-historical", englishName: "Historical Tutor", status: "ARCHIVED", user: null, gradeLevel: null, academic: {status: "UNKNOWN",needsConfirmation:true} },
             {
               id: "tutor-unknown",
               englishName: "Unconfirmed Tutor",
@@ -146,4 +147,14 @@ it("offers Unknown and Graduated when adding a tutor", () => {
       gradeLevel: undefined,
     }),
   );
+});
+
+it("shows archived accountless tutors without a current academic or setup requirement",()=>{
+ mount();expect(screen.queryByText("Historical Tutor")).toBeNull();
+ fireEvent.click(screen.getByRole("button",{name:"Show past tutors"}));
+ const row=screen.getByText("Historical Tutor").closest("tr")!;
+ expect(within(row).getByText(en.tuteeHistory.noAccount)).toBeTruthy();
+ expect(within(row).getByText(en.tuteeHistory.notRecorded)).toBeTruthy();
+ expect(within(row).queryByText(en.academics.rosterNeedsConfirmation)).toBeNull();
+ expect(within(row).queryByText(en.accountProfile.setupRequired)).toBeNull();
 });

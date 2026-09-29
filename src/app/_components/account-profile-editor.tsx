@@ -46,6 +46,7 @@ export function AccountProfileEditor({
         utils.admin.accounts.invalidate(),
         utils.admin.tutors.invalidate(),
         utils.admin.tutees.invalidate(),
+        utils.tuteeHistory.invalidate(),
         utils.account.me.invalidate(),
       ]);
       onClose();

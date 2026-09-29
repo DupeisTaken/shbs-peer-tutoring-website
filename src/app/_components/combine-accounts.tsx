@@ -31,10 +31,8 @@ export function CombineAccounts() {
       setSurvivorId("");
       setDuplicateId("");
       setDone(true);
-      await Promise.all([
-        utils.admin.accounts.invalidate(),
-        utils.accountCombine.candidates.invalidate(),
-      ]);
+      // A merge changes ownership across every workspace, including retained history.
+      await utils.invalidate();
     },
     onError: (failure) => {
       setError(failure.message);

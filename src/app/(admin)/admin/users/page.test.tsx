@@ -45,9 +45,9 @@ it("keeps full academic details out of the compact account table", () => {
   expect(screen.queryByRole("columnheader", { name: messages.academics.title })).toBeNull();
   expect(screen.queryByText("Grade 10")).toBeNull();
   expect(screen.queryByText("Grade 8")).toBeNull();
-  // The combined fixture also keeps the identity-branch student rows, so all four
-  // account identities intentionally exercise the missing-username presentation.
-  expect(screen.getAllByText(messages.academics.usernameMissing)).toHaveLength(4);
+  // Unverified accounts are hidden by default; the three visible accounts still
+  // exercise the missing-username presentation.
+  expect(screen.getAllByText(messages.academics.usernameMissing)).toHaveLength(3);
   expect(screen.queryByText(messages.academics.needsConfirmation)).toBeNull();
 });
 
@@ -56,20 +56,20 @@ it("reveals past tutors, preserves account filters, persists and clears back to 
   localStorage.setItem(storageKey, JSON.stringify(saved));
   mount();
   expect(screen.queryByText("@pasttutor")).toBeNull();
-  fireEvent.click(screen.getByRole("button", { name: "Show past tutors" }));
+  fireEvent.click(screen.getByRole("button", { name: messages.tuteeHistory.showHistorical }));
   expect(screen.getByText("@pasttutor")).toBeTruthy();
   const stored = JSON.parse(localStorage.getItem(storageKey)!) as UserFilters;
   expect(stored.account.include).toEqual(["none"]);
   expect(stored.showPastTutors).toBe(true);
   cleanup(); mount();
-  expect(screen.getByRole("button", { name: "Hide past tutors" }).getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getByRole("button", { name: messages.tuteeHistory.hideHistorical }).getAttribute("aria-pressed")).toBe("true");
   const row = screen.getByText("@pasttutor").closest("tr")!;
   expect(within(row).getByRole<HTMLButtonElement>("button", { name: messages.admin.tutors.account.sendSetup }).disabled).toBe(true);
   fireEvent.click(within(row).getByRole("button", { name: "Edit profile" }));
   expect(screen.getByRole("dialog").textContent).toBe("Editing tutor archived");
   fireEvent.click(screen.getByRole("button", { name: messages.userMultiFilters.clear }));
   expect(screen.queryByText("@pasttutor")).toBeNull();
-  expect(screen.getByRole("button", { name: "Show past tutors" })).toBeTruthy();
+  expect(screen.getByRole("button", { name: messages.tuteeHistory.showHistorical })).toBeTruthy();
 });
 
 it("shows status for Tutor-only, then clears it on mixed selection and Tutor exclusion", () => {
@@ -152,4 +152,14 @@ it("shares compact text styling across details, edit, username assignment and de
   for (const action of actions) expect(action.classList.contains("table-account-action")).toBe(true);
   expect(actions[2]!.textContent).toBe(messages.identityUsername.assign);
   expect(actions[3]!.classList.contains("link-danger")).toBe(true);
+});
+
+it("reveals unverified accounts explicitly and resets the saved choice",()=>{
+ mount();
+ expect(screen.queryByText("Unverified student")).toBeNull();
+ fireEvent.click(screen.getByRole("button",{name:messages.tuteeHistory.showUnverified}));
+ expect(screen.getByText("Unverified student")).toBeTruthy();
+ expect((JSON.parse(localStorage.getItem(storageKey)!) as UserFilters).showUnverified).toBe(true);
+ fireEvent.click(screen.getByRole("button",{name:messages.userMultiFilters.clear}));
+ expect(screen.queryByText("Unverified student")).toBeNull();
 });
