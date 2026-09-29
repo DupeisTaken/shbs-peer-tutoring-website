@@ -6,6 +6,8 @@ import { useFormatter, useTranslations, useTimeZone } from "next-intl";
 import { parseProgramDateTime, programDateKey } from "~/lib/program-time";
 import { api } from "~/trpc/react";
 import { useReadOnly } from "~/app/_components/read-only";
+import { visibleTutors } from "~/lib/tutor-visibility";
+import { PastTutorsToggle } from "~/app/_components/past-tutors-toggle";
 
 /** The statuses an admin picks directly. EXEMPT (X) is auto-applied to inactive tutors;
  *  EXCUSED_ABSENT comes only from a tutor's self-excuse and shows as a read-only badge. */
@@ -24,6 +26,7 @@ export default function MeetingsPage() {
   const utils = api.useUtils();
   const meetings = api.admin.meetings.useQuery();
   const tutors = api.admin.tutors.useQuery();
+  const [showPast, setShowPast] = useState(false);
   const invalidate = () => utils.admin.meetings.invalidate();
   const create = api.admin.createMeeting.useMutation({ onSuccess: async () => { setTitle(""); await invalidate(); } });
   const del = api.admin.deleteMeeting.useMutation({ onSuccess: invalidate });
@@ -39,6 +42,7 @@ export default function MeetingsPage() {
     id: tu.id,
     englishName: tu.englishName,
     active: tu.status === "ACTIVE",
+    status: tu.status,
   }));
 
   return (
@@ -129,14 +133,17 @@ export default function MeetingsPage() {
                 );
               })()}
               {selected === m.id && (
+                <div className="mt-3 space-y-3">
+                <PastTutorsToggle showPast={showPast} onChange={setShowPast} />
                 <AttendanceEditor
                   meetingId={m.id}
                   readOnly={readOnly}
-                  tutors={tutorOpts}
+                  tutors={visibleTutors(tutorOpts, showPast, m.attendances.map((a) => a.tutorId))}
                   current={Object.fromEntries(
                     m.attendances.map((a) => [a.tutorId, a.status]),
                   )}
                 />
+                </div>
               )}
             </li>
           ))}

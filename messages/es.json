@@ -3262,5 +3262,9 @@
     "billingBoundary": "This switch does not deactivate Aliyun billing features or stop direct abuse of a public provider scene.",
     "privacy": "Verification uses Aliyun in mainland China to process device and interaction signals.",
     "privacyLink": "Privacy Notice"
+  },
+  "pastTutors": {
+    "show": "Mostrar tutores anteriores",
+    "hide": "Ocultar tutores anteriores"
   }
 }

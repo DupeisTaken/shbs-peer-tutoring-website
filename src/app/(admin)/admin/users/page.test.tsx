@@ -1,6 +1,6 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import messages from "../../../../../messages/en.json";
 import { emptyUserFilters, type UserFilters } from "~/lib/user-filters";
@@ -12,7 +12,9 @@ vi.mock("~/trpc/react", () => {
   return { api: {
     useUtils: () => ({ account: { me: { invalidate: vi.fn() } }, admin: { accounts: { invalidate: vi.fn() }, appeals: { invalidate: vi.fn() } } }),
     admin: {
+      tutors: { useQuery: () => ({ data: [{ id: "archived", englishName: "Past tutor", user: null }] }) },
       accounts: { useQuery: () => ({ data: { caller: { id: fixture.viewerId, role: fixture.role }, rows: [
+        { userId: null, name: "Past tutor", role: null, tutorId: "archived", tutorStatus: "ARCHIVED", tuteeMember: false, tutorAccessRevoked: false, account: "none", tutorHasEmail: false, tutor: { englishName: "Past tutor", username: "pasttutor" }, academic: {} },
         { userId: "synthetic-combined", name: "Combined account", role: "ADMIN", tutorId: "synthetic-tutor", tutorStatus: "ACTIVE", tuteeMember: false, tutorAccessRevoked: false, account: "registered", tutor: null, academic: { status: "REPORTED", gradeLevel: 10, schoolYear: "26-27", expectedGraduationYear: 2029, needsConfirmation: false } },
         { userId: "synthetic-management", name: "Management account", role: "ADMIN", tutorId: null, tutorStatus: null, tuteeMember: false, tutorAccessRevoked: false, account: "registered", tutor: null, academic: { status: "REPORTED", gradeLevel: 8, schoolYear: "26-27", expectedGraduationYear: 2031, needsConfirmation: true } },
         { userId: "synthetic-student", name: "Verified student", role: "STUDENT", username: null, emailVerifiedAt: new Date(), tutorId: null, tuteeMember: true, account: "registered", tutor: null },
@@ -27,6 +29,7 @@ vi.mock("~/trpc/react", () => {
 });
 vi.mock("~/app/_components/email-details", () => ({ EmailDetails: ({ triggerClassName }: { triggerClassName: string }) => <button className={`link ${triggerClassName}`}>User details</button> }));
 vi.mock("~/app/_components/account-profile-editor", () => ({ AccountProfileEditor: () => null }));
+vi.mock("~/app/_components/tutor-profile-editor", () => ({ TutorProfileEditor: ({ row }: { row: { id: string } }) => <div role="dialog">Editing tutor {row.id}</div> }));
 vi.mock("~/app/_components/confirm-dialog", () => ({ useDialog: () => ({ dialog: null, promptText: vi.fn(), confirm: fixture.confirm }) }));
 
 const storageKey = "shbs:user-filters:synthetic-head:v1";
@@ -45,6 +48,27 @@ it("keeps full academic details out of the compact account table", () => {
   // account identities intentionally exercise the missing-username presentation.
   expect(screen.getAllByText(messages.academics.usernameMissing)).toHaveLength(4);
   expect(screen.queryByText(messages.academics.needsConfirmation)).toBeNull();
+});
+
+it("reveals past tutors, preserves account filters, persists and clears back to the default", () => {
+  const saved = emptyUserFilters(); saved.account.include = ["none"];
+  localStorage.setItem(storageKey, JSON.stringify(saved));
+  mount();
+  expect(screen.queryByText("@pasttutor")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Show past tutors" }));
+  expect(screen.getByText("@pasttutor")).toBeTruthy();
+  const stored = JSON.parse(localStorage.getItem(storageKey)!) as UserFilters;
+  expect(stored.account.include).toEqual(["none"]);
+  expect(stored.showPastTutors).toBe(true);
+  cleanup(); mount();
+  expect(screen.getByRole("button", { name: "Hide past tutors" }).getAttribute("aria-pressed")).toBe("true");
+  const row = screen.getByText("@pasttutor").closest("tr")!;
+  expect(within(row).getByRole<HTMLButtonElement>("button", { name: messages.admin.tutors.account.sendSetup }).disabled).toBe(true);
+  fireEvent.click(within(row).getByRole("button", { name: "Edit profile" }));
+  expect(screen.getByRole("dialog").textContent).toBe("Editing tutor archived");
+  fireEvent.click(screen.getByRole("button", { name: messages.userMultiFilters.clear }));
+  expect(screen.queryByText("@pasttutor")).toBeNull();
+  expect(screen.getByRole("button", { name: "Show past tutors" })).toBeTruthy();
 });
 
 it("shows status for Tutor-only, then clears it on mixed selection and Tutor exclusion", () => {

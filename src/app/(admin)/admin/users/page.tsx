@@ -6,6 +6,8 @@ import { useTranslations } from "next-intl";
 
 import { EmailDetails } from "~/app/_components/email-details";
 import { AccountProfileEditor } from "~/app/_components/account-profile-editor";
+import { TutorProfileEditor } from "~/app/_components/tutor-profile-editor";
+import { PastTutorsToggle } from "~/app/_components/past-tutors-toggle";
 import { MultiFilter } from "~/app/_components/multi-filter";
 import {
   emptyUserFilters,
@@ -122,6 +124,10 @@ export default function UsersPage() {
   const utils = api.useUtils();
   const accounts = api.admin.accounts.useQuery();
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
+  const [editingTutorId, setEditingTutorId] = useState<string | null>(null);
+  // Fetch the full roster record only when staff open an unlinked profile.
+  const tutorProfiles = api.admin.tutors.useQuery(undefined, { enabled: !!editingTutorId });
+  const editingTutor = tutorProfiles.data?.find((row) => row.id === editingTutorId);
   const editingProfile = accounts.data?.rows.find(
     (row) => row.userId === editingProfileId,
   );
@@ -262,6 +268,12 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
+      {editingTutor && !editingTutor.user && (
+        <TutorProfileEditor key={editingTutor.id} row={editingTutor} isHead={isHead}
+          onClose={() => setEditingTutorId(null)} />
+      )}
+      {editingTutorId && tutorProfiles.isLoading && <p role="status">{t("common.loading")}</p>}
+      {editingTutorId && tutorProfiles.error && <p role="alert">{tutorProfiles.error.message}</p>}
       {editingProfile?.userId && editingProfile.profileVersion !== null && (
         <AccountProfileEditor
           profile={{
@@ -329,13 +341,16 @@ export default function UsersPage() {
             onChange={(account) => updateFilters({ ...filters, account })}
           />
         </div>
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <p role="status" className="muted text-sm">
             {t("userMultiFilters.count", {
               count: rows.length,
               total: accounts.data?.rows.length ?? 0,
             })}
           </p>
+          <div className="flex flex-wrap gap-2">
+          <PastTutorsToggle showPast={filters.showPastTutors}
+            onChange={(showPastTutors) => updateFilters({ ...filters, showPastTutors })} />
           <button
             type="button"
             className="btn-secondary btn-sm min-h-11 lg:min-h-8"
@@ -343,6 +358,7 @@ export default function UsersPage() {
           >
             {t("userMultiFilters.clear")}
           </button>
+          </div>
         </div>
       </section>
 
@@ -600,6 +616,12 @@ export default function UsersPage() {
                           className="link table-account-action"
                           onClick={() => setEditingProfileId(u.userId)}
                         >
+                          {t("accountProfile.editProfile")}
+                        </button>
+                      )}
+                      {!u.userId && u.tutorId && (
+                        <button className="link table-account-action"
+                          onClick={() => setEditingTutorId(u.tutorId)}>
                           {t("accountProfile.editProfile")}
                         </button>
                       )}

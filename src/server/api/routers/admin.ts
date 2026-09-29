@@ -1776,7 +1776,7 @@ export const adminRouter = createTRPCRouter({
         firstName: z.string().trim().min(1),
         lastName: z.string().trim(),
         alternativeNames: z.string().trim().max(200).nullable().optional(),
-        // Login usernames are managed only through the Head account editor.
+        // Head can correct an unlinked handle; linked logins use the account editor.
         username: z.string().trim().optional(),
         email: z.string().email().nullable().optional(),
         gradeLevel: z.number().int().min(1).max(12).nullable().optional(),
@@ -1807,7 +1807,7 @@ export const adminRouter = createTRPCRouter({
         throw new TRPCError({ code: "BAD_REQUEST", message: "ACADEMIC_SHARED_EDITOR_REQUIRED" });
       if (account && input.academicallyGraduated !== undefined && input.academicallyGraduated !== roster.academicallyGraduated)
         throw new TRPCError({ code: "BAD_REQUEST", message: "ACADEMIC_SHARED_EDITOR_REQUIRED" });
-      if (input.username !== undefined && input.username.trim().toLowerCase() !== (roster.username ?? ""))
+      if (account && input.username !== undefined && input.username.trim().toLowerCase() !== (roster.username ?? ""))
         throw new TRPCError({ code: "FORBIDDEN", message: "Edit login usernames through Users & Roles as Head." });
       const prev = await ctx.db.tutor.findUnique({
         where: { id: input.id },
@@ -1820,6 +1820,35 @@ export const adminRouter = createTRPCRouter({
         const before = await tx.tutor.findUniqueOrThrow({
           where: { id: input.id },
         });
+        // Setup and profile edits share the namespace lock. Recheck linkage before
+        // writing so a concurrently created login cannot bypass verified email changes.
+        const linkedNow = await tx.user.findUnique({ where: { tutorId: input.id }, select: { id: true } });
+        if ((linkedNow?.id ?? null) !== (account?.id ?? null)) staleConflict();
+        let username = before.username;
+        if (input.username !== undefined && input.username.trim().toLowerCase() !== (before.username ?? "")) {
+          if (account || ctx.session.role !== "HEAD")
+            throw new TRPCError({ code: "FORBIDDEN", message: "Only Head may edit an unlinked tutor username." });
+          const parsed = accountUsernameSchema.safeParse(input.username);
+          if (!parsed.success)
+            throw new TRPCError({ code: "BAD_REQUEST", message: "Use 1–64 letters or numbers for the username." });
+          username = parsed.data;
+          const [userClash, tutorClash] = await Promise.all([
+            tx.user.findFirst({ where: { username: { equals: username, mode: "insensitive" } } }),
+            tx.tutor.findFirst({ where: { username: { equals: username, mode: "insensitive" }, id: { not: input.id } } }),
+          ]);
+          if (userClash || tutorClash)
+            throw new TRPCError({ code: "CONFLICT", message: "That username is already taken." });
+        }
+        const email = input.email?.trim().toLowerCase();
+        if (!account && email && email !== before.email?.toLowerCase()) {
+          const [userClash, tutorClash, secondaryClash] = await Promise.all([
+            tx.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } } }),
+            tx.tutor.findFirst({ where: { email: { equals: email, mode: "insensitive" }, id: { not: input.id } } }),
+            tx.accountEmail.findFirst({ where: { email: { equals: email, mode: "insensitive" }, verifiedAt: { not: null } } }),
+          ]);
+          if (userClash || tutorClash || secondaryClash)
+            throw new TRPCError({ code: "CONFLICT", message: "That email is already in use." });
+        }
         if ((input.academicallyGraduated ?? before.academicallyGraduated) &&
           (input.gradeLevel === undefined ? before.gradeLevel : input.gradeLevel) != null)
           throw new TRPCError({ code: "BAD_REQUEST", message: "Graduated cannot have a current grade." });
@@ -1848,7 +1877,7 @@ export const adminRouter = createTRPCRouter({
             alternativeNames: input.alternativeNames?.trim()
               ? input.alternativeNames.trim()
               : null,
-            username: before.username,
+            username,
             status: input.status,
             // Linked academic mirrors are written only by the versioned academic workflow.
             ...(account ? {} : {

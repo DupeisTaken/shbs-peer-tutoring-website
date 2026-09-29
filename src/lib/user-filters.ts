@@ -1,14 +1,17 @@
 import { accountMembership, membershipBadges } from "./account-membership";
+import { isPastTutor } from "./tutor-visibility";
 export type Selection = { include: string[]; exclude: string[] };
 export type UserFilters = {
   role: Selection;
   status: Selection;
   account: Selection;
+  showPastTutors: boolean;
 };
 export const emptyUserFilters = (): UserFilters => ({
   role: { include: [], exclude: [] },
   status: { include: [], exclude: [] },
   account: { include: [], exclude: [] },
+  showPastTutors: false,
 });
 /** Only an explicit Tutor-only include makes lifecycle status meaningful. */
 export function isTutorStatusApplicable(role: Selection): boolean {
@@ -42,8 +45,14 @@ export function matchesUserFilters(
 ) {
   // Match every applicable badge, including independent Translator/Crew participation.
   const badges = "tuteeMember" in row ? membershipBadges(accountMembership(row)) : [row.role ?? "__none__"];
+  // An explicit lifecycle search includes historical tutor records even when their
+  // archived membership no longer grants the Tutor badge or workspace access.
+  const explicitPast = isTutorStatusApplicable(filters.role) &&
+    filters.status.include.includes(row.tutorStatus ?? "__none__") && isPastTutor(row.tutorStatus);
+  if (explicitPast && !badges.includes("TUTOR")) badges.push("TUTOR");
   if (!badges.length) badges.push("__none__");
   return (
+    (!isPastTutor(row.tutorStatus) || filters.showPastTutors || explicitPast) &&
     !badges.some(badge => filters.role.exclude.includes(badge)) &&
     (!filters.role.include.length || badges.some(badge => filters.role.include.includes(badge))) &&
     // Also guard matching itself for callers with old, unnormalized preferences.
@@ -56,6 +65,7 @@ export function parseUserFilters(raw: string | null): UserFilters {
     const value: unknown = JSON.parse(raw ?? "null");
     if (!value || typeof value !== "object") return emptyUserFilters();
     const result = emptyUserFilters();
+    result.showPastTutors = (value as Record<string, unknown>).showPastTutors === true;
     for (const key of ["role", "status", "account"] as const) {
       const group: unknown = (value as Record<string, unknown>)[key];
       if (!group || typeof group !== "object") continue;
