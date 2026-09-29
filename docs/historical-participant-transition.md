@@ -86,4 +86,6 @@ New interface copy is provided in English and Chinese; the other bundled languag
 | Shared cache invalidation | `src/lib/tutee-cache.ts` |
 | Users & Roles default filters | `src/lib/user-filters.ts` |
 
+[Website audit and screenshots](evidence/historical-participant-transition/README.md)
+
 [Documentation index](README.md) · [User guide](user-guide.md)
