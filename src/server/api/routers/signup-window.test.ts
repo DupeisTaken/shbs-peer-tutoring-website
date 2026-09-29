@@ -1,4 +1,5 @@
 import type { Session } from "next-auth";
+import type * as SignupAdmission from "~/server/signup-admission";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
@@ -6,7 +7,7 @@ vi.mock("~/server/audit/log", () => ({ recordAudit: vi.fn() }));
 // These procedure-unit tests isolate recruitment windows. Durable admission and
 // its ordering are exercised against PostgreSQL in signup-admission.test.ts.
 vi.mock("~/server/signup-admission", async (importOriginal) => ({
-  ...(await importOriginal<typeof import("~/server/signup-admission")>()),
+  ...(await importOriginal<typeof SignupAdmission>()),
   withSignupAdmission: (_db: unknown, _headers: Headers, _lane: unknown, _identity: unknown, work: () => Promise<unknown>) => work(),
 }));
 
