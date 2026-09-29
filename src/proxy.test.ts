@@ -191,10 +191,16 @@ it.each([null, { sessionVersion: 1 }])("clears revoked or deleted-account cookie
   account.findUnique.mockResolvedValue(current);
   const name = "authjs.session-token";
   const token = await encode({ secret: process.env.AUTH_SECRET!, salt: name, token: { sub: "head", role: "HEAD", tutorId: null, sessionVersion: 0 } });
-  for (const path of ["/", "/admin/approvals", "/api/trpc/account.me"]) {
+  for (const path of ["/", "/admin/approvals", "/admin/approvals?request=synthetic", "/api/trpc/account.me"]) {
     const response = await proxy(pageRequest(`http://localhost:3109${path}`, { headers: { cookie: `${name}=${token}; theme=dark` } }), event);
     expect(response?.headers.getSetCookie()).toEqual(expect.arrayContaining([expect.stringMatching(/authjs\.session-token=;.*Max-Age=0/i)]));
     if (path.startsWith("/api/")) expect(response?.headers.get("x-middleware-request-cookie")).toBe("theme=dark");
-    else expect(response?.headers.get("location")).toBe("http://localhost:3109/signin?reason=session-expired");
+    else {
+      // Recovery must revoke the cookie without losing the requested workflow.
+      const location = new URL(response!.headers.get("location")!);
+      expect(location.origin + location.pathname).toBe("http://localhost:3109/signin");
+      expect(location.searchParams.get("reason")).toBe("session-expired");
+      expect(location.searchParams.get("callbackUrl")).toBe(path === "/" ? null : path);
+    }
   }
 });
