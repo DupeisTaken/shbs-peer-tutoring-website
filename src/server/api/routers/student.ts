@@ -1,3 +1,5 @@
+import { accountHistoryIds } from "~/server/account-history";
+import { findAccountPolicy } from "~/server/policy-acceptance";
 import type { Prisma } from "../../../../generated/prisma";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
@@ -59,7 +61,7 @@ export const studentRouter = createTRPCRouter({
       });
       if (!user) throw new TRPCError({ code: "NOT_FOUND" });
       const rows = await ctx.db.policyAcceptance.findMany({
-        where: { userId: input.userId },
+        where: { userId: { in: await accountHistoryIds(ctx.db, input.userId) } },
         orderBy: [{ acceptedAt: "desc" }, { id: "desc" }],
         take: 21,
         skip: input.page * 20,
@@ -72,15 +74,7 @@ export const studentRouter = createTRPCRouter({
           if (!documents)
             return { slug, documents: [], acceptedAt: null, published: false };
           const policy = await currentPolicy(ctx.db, slug);
-          const acceptance = await ctx.db.policyAcceptance.findUnique({
-            where: {
-              userId_slug_revision: {
-                userId: input.userId,
-                slug,
-                revision: policy.revision,
-              },
-            },
-          });
+          const acceptance = await findAccountPolicy(ctx.db, input.userId, slug, policy.revision);
           return {
             slug,
             documents: policy.documents,
@@ -145,15 +139,7 @@ export const studentRouter = createTRPCRouter({
     .input(z.object({ slug: z.enum(["tutee-policy", "tutor-policy"]) }))
     .query(async ({ ctx, input }) => {
       const policy = await currentPolicy(ctx.db, input.slug);
-      const accepted = await ctx.db.policyAcceptance.findUnique({
-        where: {
-          userId_slug_revision: {
-            userId: ctx.session.user.id,
-            slug: input.slug,
-            revision: policy.revision,
-          },
-        },
-      });
+      const accepted = await findAccountPolicy(ctx.db, ctx.session.user.id, input.slug, policy.revision);
       return { ...policy, accepted: !!accepted };
     }),
   acceptPolicy: protectedProcedure

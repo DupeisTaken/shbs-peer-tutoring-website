@@ -157,7 +157,11 @@ beforeEach(async () => {
   });
   revision = (await currentPolicy(db, "tutee-policy")).revision;
 });
-afterAll(() => db.$disconnect());
+afterAll(async () => {
+  // Retired identity guards intentionally reject deletes; isolated fixture cleanup uses TRUNCATE.
+  await db.$executeRawUnsafe('TRUNCATE "User" CASCADE');
+  await db.$disconnect();
+});
 
 describe("survey-first enrollment", () => {
   it.each([
@@ -1133,4 +1137,25 @@ describe("student request lifecycle", () => {
       caller.resolveReview({ id: "review", approve: true, ticket: "ticket" }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
+});
+
+
+it("rejects student signup for an already retired email without creating a request", async () => {
+  await db.user.create({ data: { id: "surviving-student", email: "survivor@example.test", role: "STUDENT" } });
+  await db.user.create({ data: { email, role: "STUDENT", mergedIntoId: "surviving-student" } });
+  await expect(submitSurvey(db, input())).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect(await db.studentSurvey.count()).toBe(0);
+  expect(send).not.toHaveBeenCalled();
+});
+
+it("refuses an old signup link after its passwordless account is retired", async () => {
+  await db.user.create({ data: { id: "surviving-student", email: "survivor@example.test", role: "STUDENT" } });
+  const account = await db.user.create({ data: { email, role: "STUDENT", passwordHash: null } });
+  await submitSurvey(db, input());
+  const token = lastToken();
+  await db.user.update({ where: { id: account.id }, data: { mergedIntoId: "surviving-student" } });
+  await expect(inspectSurvey(db, token)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(confirmSurvey(db, token, password)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect(await db.user.findUniqueOrThrow({ where: { id: account.id } })).toMatchObject({ passwordHash: null, studentId: null, mergedIntoId: "surviving-student" });
+  expect((await db.studentSurvey.findFirstOrThrow()).confirmedAt).toBeNull();
 });

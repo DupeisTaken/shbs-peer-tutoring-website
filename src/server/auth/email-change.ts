@@ -45,6 +45,11 @@ export async function requestEmailChange(
   const code = generateRegistrationCode();
   await inTransaction(db, async (tx) => {
     await lockAccountProfile(tx, userId);
+    // Password verification before the transaction is only an early rejection. Recheck the
+    // locked identity so an in-flight request cannot issue proof after retirement/rotation.
+    const current = await tx.user.findUniqueOrThrow({ where: { id: userId } });
+    if (current.mergedIntoId || current.passwordHash !== user.passwordHash)
+      throw new TRPCError({ code: "FORBIDDEN", message: "Account changed. Sign in again before requesting a code." });
     await lockEntity(tx, `email-change:${userId}`);
     await available(tx, userId, targetEmail);
     const recent = await tx.emailVerificationCode.findFirst({
@@ -104,6 +109,7 @@ export async function confirmEmailChange(
     }
     await available(tx, userId, row.targetEmail);
     const before = await tx.user.findUniqueOrThrow({ where: { id: userId } });
+    if (before.mergedIntoId) return false;
     if (before.email === row.targetEmail) return false;
     const emails = await associatedAccountEmails(tx, userId);
     if (

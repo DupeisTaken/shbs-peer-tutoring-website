@@ -1,3 +1,4 @@
+import { findAccountPolicy } from "./policy-acceptance";
 import { enforceAssignmentQualification } from "./assignment-qualification";
 import { approveLegacyStudentWithdrawal } from "./legacy-student-withdrawal";
 import { TRPCError } from "@trpc/server";
@@ -187,15 +188,7 @@ export async function studentPolicyStatus(
       missingSlugs.push(slug);
       continue;
     }
-    const acceptance = await db.policyAcceptance.findUnique({
-      where: {
-        userId_slug_revision: {
-          userId,
-          slug: policy.slug,
-          revision: policy.revision,
-        },
-      },
-    });
+    const acceptance = await findAccountPolicy(db, userId, policy.slug, policy.revision);
     if (!acceptance || (tuteeEntry && !user.tuteeMember))
       return { state: "review" as const, ...policy };
   }

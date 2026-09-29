@@ -1,4 +1,5 @@
 import { SignupRetry } from "~/server/signup-admission";
+import { accountHistoryIds } from "~/server/account-history";
 import { ApprovalQueued, queueProposal } from "~/server/approvals";
 import { approvalScope, isTranslationPublication } from "~/server/db-scope";
 import {
@@ -183,6 +184,7 @@ export const protectedProcedure = t.procedure
       where: { id: ctx.session.user.id },
       select: {
         role: true,
+        mergedIntoId: true,
         tutorId: true,
         tutorAccessRevoked: true,
         canTranslate: true,
@@ -193,7 +195,7 @@ export const protectedProcedure = t.procedure
         username: true,
       },
     });
-    if (!account) throw new TRPCError({ code: "UNAUTHORIZED" });
+    if (!account || account.mergedIntoId) throw new TRPCError({ code: "UNAUTHORIZED" });
     if (
       account.suspendedAt &&
       !["account.me", "account.suspension", "account.submitAppeal"].includes(
@@ -227,7 +229,7 @@ export const protectedProcedure = t.procedure
       if (
         account.tutorId &&
         !(await ctx.db.policyAcceptance.findFirst({
-          where: { userId: ctx.session.user.id, slug: "tutee-policy" },
+          where: { userId: { in: await accountHistoryIds(ctx.db, ctx.session.user.id) }, slug: "tutee-policy" },
           select: { id: true },
         }))
       )
@@ -362,7 +364,7 @@ export const protectedProcedure = t.procedure
     // Attribute every successful signed-in mutation, including participant actions.
     // Store only operation metadata: passwords, message bodies and tokens never enter this log.
     // Record transfer writes their audit evidence inside the transaction; previews roll back.
-    if (type === "mutation" && result.ok && !path.startsWith("approval.") && !path.startsWith("recordTransfer.")) {
+    if (type === "mutation" && result.ok && !path.startsWith("approval.") && !path.startsWith("recordTransfer.") && !path.startsWith("accountCombine.")) {
       await ctx.db.auditLog.create({
         data: {
           userId: ctx.session.user.id,

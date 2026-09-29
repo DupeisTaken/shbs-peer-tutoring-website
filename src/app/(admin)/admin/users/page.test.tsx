@@ -5,6 +5,7 @@ import { NextIntlClientProvider } from "next-intl";
 import messages from "../../../../../messages/en.json";
 import { emptyUserFilters, type UserFilters } from "~/lib/user-filters";
 import UsersPage from "./page";
+vi.mock("~/app/_components/combine-accounts", () => ({ CombineAccounts: () => <div>Head combine controls</div> }));
 
 const fixture = vi.hoisted(() => ({ viewerId: "synthetic-head", role: "HEAD", assign: vi.fn(), confirm: vi.fn().mockResolvedValue(true) }));
 vi.mock("~/trpc/react", () => {

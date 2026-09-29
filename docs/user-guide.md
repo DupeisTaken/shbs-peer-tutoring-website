@@ -200,6 +200,34 @@ Use **Edit profile** to edit the independent Tutor, Tutee, Translator and Crew b
 
 Account setup links are sent privately to the account holder by email. Management cannot copy the password-setting link from the website. If mail delivery is unavailable, ask the deployment administrator to configure it before retrying.
 
+### Combine duplicate accounts (Head only)
+
+In **Users & Roles → Combine accounts**, select the **Login to keep** and the
+**Duplicate login to retire**. Use this only after independently confirming they
+belong to the same person. Matching names or addresses never combine accounts.
+Choose **Preview combine** to review the retained email/username, membership,
+linked profiles, counts of retained history, and blocking conflicts. Confirm the
+review checkbox and enter your own Head password to perform the combine.
+
+The retained account’s current name and alternative names become the linked tutor/tutee
+profile names. Original intake and signature snapshots stay unchanged. The retained
+account keeps its password, primary address, verified secondary
+addresses and security preferences. Duplicate identifiers remain reserved for
+historical identity; they cannot sign in or recover the retained account. Its
+sessions and recovery/verification links are revoked. Original messages, policy
+signatures, academic confirmations, patrol authorship and audit evidence retain
+their original account IDs; the retained login can access that history. Notifications
+and tutee ownership pointers move to the retained account. The combine records the
+Head and both identities in the audit log in the same transaction.
+
+Conflicting management/Viewer ranks, tutor or current tutee links, academic details,
+crew states, messaging permissions/restrictions, suspensions, and pending requests
+must be resolved explicitly first. Participant memberships can be consolidated only
+as shown in the preview. Leadership must be transferred before retiring a Head.
+Changed account details require a fresh preview. Combined identity records cannot
+be deleted or restored; combining an already combined account requires a reviewed
+data migration. Original identifiers are never assigned to another person.
+
 ### Find and batch-edit offered courses
 
 In **Subjects & Levels**, use the **Offered Course Catalogue** above the subject groups. Search names without regard to case, choose a configured level (or **No level**), and choose **All statuses**, **Active** or **Inactive**. Filters combine, and the count shows matches out of the full catalogue. **Clear filters** restores all rows. Filtering is available to read-only viewers and never changes signup offerings.

@@ -40,7 +40,7 @@ export async function eligibleMessageRecipients(
   senderId: string,
 ): Promise<Prisma.UserWhereInput> {
   const permission = await effectiveMessagePermission(db, senderId);
-  if (permission.restricted || permission.user.suspendedAt)
+  if (permission.restricted || permission.user.suspendedAt || permission.user.mergedIntoId)
     return { id: { in: [] } };
   const groups = new Set(permission.groups);
   const union: Prisma.UserWhereInput[] = [];
@@ -94,6 +94,7 @@ export async function eligibleMessageRecipients(
     select: { userId: true },
   });
   const available: Prisma.UserWhereInput = {
+    mergedIntoId: null,
     id: { not: senderId, notIn: restricted.map((r) => r.userId) },
     suspendedAt: null,
   };

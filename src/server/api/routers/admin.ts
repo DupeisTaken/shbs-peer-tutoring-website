@@ -3368,8 +3368,10 @@ export const adminRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const target = await ctx.db.user.findUniqueOrThrow({
         where: { id: input.userId },
-        select: { id: true, role: true, name: true, email: true },
+        select: { id: true, role: true, name: true, email: true, mergedIntoId: true },
       });
+      if (target.mergedIntoId || await ctx.db.user.count({ where: { mergedIntoId: target.id } }))
+        throw new TRPCError({ code: "CONFLICT", message: "Combined account history must be retained. Change the surviving account's crew status instead." });
       if (target.role !== "CREW") {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -3399,9 +3401,9 @@ export const adminRouter = createTRPCRouter({
   /** Crew members (anyone with a crewStatus) + their patrol tally. Crew hours are separate from
    *  tutoring. Crew-only logins (role CREW) can be hard-deleted; tutor-crew are managed via status. */
   crewRoster: viewerProcedure.query(async ({ ctx }) => {
-    const [users, agg] = await Promise.all([
+    const [users, agg, retired] = await Promise.all([
       ctx.db.user.findMany({
-        where: { crewStatus: { not: null } },
+        where: { crewStatus: { not: null }, mergedIntoId: null },
         orderBy: { name: "asc" },
         // Fall back to username (never email) for the label — emails are PII masked from VIEWER, and
         // the unmasked `name` key must never carry one.
@@ -3419,13 +3421,17 @@ export const adminRouter = createTRPCRouter({
         _sum: { hours: true },
         _count: { _all: true },
       }),
+      ctx.db.user.findMany({ where: { mergedIntoId: { not: null } }, select: { id: true, mergedIntoId: true } }),
     ]);
-    const byUser = new Map(
-      agg.map((p) => [
-        p.crewUserId,
-        { hours: p._sum.hours ?? 0, count: p._count._all },
-      ]),
-    );
+    // Attribute current totals through the explicit merge map; patrol evidence keeps
+    // its original author, while each live crew member appears only once.
+    const survivorById = new Map(retired.map((user) => [user.id, user.mergedIntoId!]));
+    const byUser = new Map<string, { hours: number; count: number }>();
+    for (const patrol of agg) {
+      const id = survivorById.get(patrol.crewUserId) ?? patrol.crewUserId;
+      const previous = byUser.get(id) ?? { hours: 0, count: 0 };
+      byUser.set(id, { hours: previous.hours + (patrol._sum.hours ?? 0), count: previous.count + patrol._count._all });
+    }
     const rank = { ACTIVE: 0, OPTED_OUT: 1, INACTIVE: 2 } as Record<
       string,
       number
@@ -3932,7 +3938,7 @@ export const adminRouter = createTRPCRouter({
    */
   accountAcademics: adminProcedure.input(z.object({ userId: cuid })).query(async ({ ctx, input }) => ({
     ...(await accountAcademics(ctx.db, input.userId)),
-    history: await ctx.db.academicConfirmation.findMany({ where: { userId: input.userId }, orderBy: { confirmedAt: "desc" }, take: 50 }),
+    history: await ctx.db.academicConfirmation.findMany({ where: { userId: { in: await accountHistoryIds(ctx.db, input.userId) } }, orderBy: { confirmedAt: "desc" }, take: 50 }),
   })),
   updateAccountAcademics: adminProcedure.input(currentAcademicInput.extend({ userId: cuid }))
     .mutation(({ ctx, input }) => confirmCurrentAccountAcademics(ctx.db, input.userId, input, { actorId: ctx.session.user.id, source: "STAFF" })),
@@ -3967,6 +3973,7 @@ export const adminRouter = createTRPCRouter({
         select: { schoolYear: true },
       }),
       ctx.db.user.findMany({
+        where: { mergedIntoId: null },
         orderBy: { email: "asc" },
         select: {
           id: true,
@@ -4256,8 +4263,11 @@ export const adminRouter = createTRPCRouter({
             name: true,
             email: true,
             tutorId: true,
+            mergedIntoId: true,
           },
         });
+        if (target.mergedIntoId || await tx.user.count({ where: { mergedIntoId: target.id } }))
+          throw new TRPCError({ code: "CONFLICT", message: "Combined account history must be retained. Update the surviving account's memberships instead." });
         if (target.role === "HEAD") {
           throw new TRPCError({
             code: "FORBIDDEN",
@@ -5044,3 +5054,4 @@ export const adminRouter = createTRPCRouter({
       }),
     ),
 });
+import { accountHistoryIds } from "~/server/account-history";

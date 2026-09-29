@@ -1,4 +1,5 @@
 import { requireAcademicConfirmation } from "~/server/academics";
+import { accountHistoryIds } from "~/server/account-history";
 import {
   lockAccountProfile,
   updateAccountProfile,
@@ -194,7 +195,7 @@ export const tutorRouter = createTRPCRouter({
     });
     if (!me?.crewStatus) return { isCrew: false, patrols: 0, hours: 0 };
     const agg = await ctx.db.patrol.aggregate({
-      where: { crewUserId: ctx.session.user.id },
+      where: { crewUserId: { in: await accountHistoryIds(ctx.db, ctx.session.user.id) } },
       _sum: { hours: true },
       _count: { _all: true },
     });

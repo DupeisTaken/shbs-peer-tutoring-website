@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { accountHistoryIds } from "./account-history";
 import { TRPCError } from "@trpc/server";
 import type { TransactionDb } from "~/server/transactions";
 
@@ -33,16 +34,17 @@ export async function requirePolicy(
   slug: string,
 ) {
   const policy = await currentPolicy(tx, slug);
-  const accepted = await tx.policyAcceptance.findUnique({
-    where: {
-      userId_slug_revision: { userId, slug, revision: policy.revision },
-    },
-  });
+  const accepted = await findAccountPolicy(tx, userId, slug, policy.revision);
   if (!accepted)
     throw new TRPCError({
       code: "PRECONDITION_FAILED",
       message: "Read and accept the current policy before participating.",
     });
+}
+
+/** Resolve the evidence through explicit merge ownership without rewriting its author/signature. */
+export async function findAccountPolicy(tx: TransactionDb, userId: string, slug: string, revision?: string) {
+  return tx.policyAcceptance.findFirst({ where: { userId: { in: await accountHistoryIds(tx, userId) }, slug, ...(revision ? { revision } : {}) }, orderBy: { acceptedAt: "desc" } });
 }
 
 /** A missing publication is expected during initial setup, not a failed network read. */

@@ -5,6 +5,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { EmailDetails } from "~/app/_components/email-details";
+import { CombineAccounts } from "~/app/_components/combine-accounts";
 import { AccountProfileEditor } from "~/app/_components/account-profile-editor";
 import { TutorProfileEditor } from "~/app/_components/tutor-profile-editor";
 import { PastTutorsToggle } from "~/app/_components/past-tutors-toggle";
@@ -297,6 +298,7 @@ export default function UsersPage() {
         </p>
       </div>
 
+      {isHead && <CombineAccounts />}
       <section className="card space-y-3 p-4">
         <p className="muted text-sm">{t("userMultiFilters.hint")}</p>
         <div

@@ -68,7 +68,7 @@ export const approvalRouter = createTRPCRouter({
           ? input.requestId
             ? undefined
             : input.requesterId
-          : ctx.session.user.id,
+          : { in: await accountHistoryIds(ctx.db, ctx.session.user.id) },
       };
       const [rows, total, requesters] = await Promise.all([
         ctx.db.approvalRequest.findMany({
@@ -334,3 +334,4 @@ export const approvalRouter = createTRPCRouter({
       }),
     ),
 });
+import { accountHistoryIds } from "~/server/account-history";

@@ -3266,5 +3266,39 @@
   "pastTutors": {
     "show": "Εμφάνιση παλαιών εκπαιδευτών",
     "hide": "Απόκρυψη παλαιών εκπαιδευτών"
+  },
+  "combineAccounts": {
+    "title": "Combine accounts",
+    "intro": "Head only · Review two accounts and choose the login to keep.",
+    "open": "Combine accounts",
+    "close": "Close",
+    "warning": "Combine only accounts confirmed to belong to the same person. The duplicate login is permanently retired. Resolve conflicts before continuing.",
+    "survivor": "Login to keep",
+    "duplicate": "Duplicate login to retire",
+    "choose": "Choose an account…",
+    "preview": "Preview combine",
+    "loading": "Loading preview…",
+    "failed": "Could not load the preview. Try again.",
+    "success": "Accounts combined. The person can use the retained login to access their records.",
+    "retained": "Retained login",
+    "retired": "Retired login",
+    "reserved": "These addresses stay reserved and will not sign in or recover the retained account: {emails}",
+    "access": "Tutor profile: {tutor} · Tutee profile: {student} · Crew: {crew} · Translator: {translator}",
+    "yes": "Yes",
+    "no": "No",
+    "history": "Original messages, policy signatures, academic confirmations and audit actors are preserved. The retained login can read its combined history. Its password and verified email addresses stay unchanged. The linked tutor handle and email will match the retained login. The retained account name and alternative names become the linked current profile names.",
+    "blocked": "Resolve these conflicts first",
+    "acknowledge": "I verified that both accounts belong to the same person and reviewed the retained access, identifiers and history. I understand the duplicate login cannot be restored.",
+    "password": "Your Head account password",
+    "working": "Combining…",
+    "confirm": "Confirm and combine",
+    "counts": {
+      "messages": "Messages retained",
+      "policies": "Policy records retained",
+      "notifications": "Notifications moved",
+      "patrols": "Patrols retained",
+      "academicConfirmations": "Academic confirmations retained",
+      "tuteeProfiles": "Tutee ownership links moved"
+    }
   }
 }

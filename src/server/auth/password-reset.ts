@@ -30,7 +30,9 @@ export async function issueAccountVerification(
   const token = randomBytes(32).toString("hex");
   const email = await db.$transaction(async (tx) => {
     await lockEntity(tx, `account-verification:${userId}`);
+    await lockAccountProfile(tx, userId);
     const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
+    if (user.mergedIntoId) throw new TRPCError({ code: "BAD_REQUEST", message: "This login has been retired." });
     if (user.emailVerifiedAt)
       throw new TRPCError({
         code: "BAD_REQUEST",
@@ -92,7 +94,7 @@ export async function issuePasswordReset(identifier: string): Promise<void> {
   if (!id) return;
 
   const user = await db.user.findFirst({
-    where: { OR: signinIdentifiers(id) },
+    where: { mergedIntoId: null, OR: signinIdentifiers(id) },
     select: {
       id: true,
       email: true,
@@ -112,6 +114,7 @@ export async function issuePasswordReset(identifier: string): Promise<void> {
     });
     const current = await tx.user.findUniqueOrThrow({ where: { id: user.id } });
     if (
+      current.mergedIntoId ||
       address?.userId !== user.id ||
       (current.email !== targetEmail && !address.verifiedAt)
     )
@@ -190,6 +193,7 @@ export async function resetPassword(
       where: { email: grant.targetEmail },
     });
     if (
+      account.mergedIntoId ||
       address?.userId !== account.id ||
       (address.email !== account.email && !address.verifiedAt)
     )
@@ -260,9 +264,10 @@ export async function issueTutorSetupLink(
         throw new TRPCError({ code: "FORBIDDEN", message: "Only Head can provision tutor access. Existing account setup links may be resent." });
       const existing = await tx.user.findUnique({
         where: { email },
-        select: { id: true, role: true, tutorId: true },
+        select: { id: true, role: true, tutorId: true, mergedIntoId: true },
       });
       if (existing) {
+        if (existing.mergedIntoId) throw new TRPCError({ code: "CONFLICT", message: "This email belongs to a retired login. Use the retained account." });
         if (existing.role === "VIEWER" || (existing.tutorId && existing.tutorId !== tutor.id))
           throw new TRPCError({ code: "CONFLICT", message: "Review the existing account membership before linking this tutor." });
         await tx.user.update({
@@ -296,13 +301,16 @@ export async function issueTutorSetupLink(
   const { userId, email } = provisioned;
 
   const token = randomBytes(32).toString("hex");
-  await db.passwordResetToken.create({
-    data: {
+  await db.$transaction(async (tx) => {
+    await lockAccountProfile(tx, userId);
+    const current = await tx.user.findUniqueOrThrow({ where: { id: userId } });
+    if (current.mergedIntoId || current.email !== email) throw new TRPCError({ code: "CONFLICT", message: "Account changed. Refresh before sending a setup link." });
+    await tx.passwordResetToken.create({ data: {
       userId,
       targetEmail: email,
       tokenHash: hashToken(token),
       expiresAt: new Date(Date.now() + SETUP_TOKEN_TTL_MINUTES * 60_000),
-    },
+    } });
   });
 
   const link = `${appBaseUrl()}/reset-password?token=${token}`;

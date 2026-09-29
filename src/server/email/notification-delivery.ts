@@ -68,6 +68,7 @@ export async function deliverNotifications(limit = 10) {
         (address.email === row.user.email || row.user.emailSecondaryRecipients),
     );
     if (
+      row.user.mergedIntoId ||
       (!essential && !current?.emailNotificationsEnabled) ||
       !preference ||
       (!owned && !row.previousPrimary)

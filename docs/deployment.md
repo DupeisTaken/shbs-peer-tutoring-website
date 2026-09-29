@@ -517,3 +517,21 @@ See [Aliyun CAPTCHA configuration and rollout](captcha.md) before enabling the
 management switch. Install provider credentials as deployment secrets, apply the
 migration, and perform the bounded operator smoke check after separate service
 activation. The switch defaults off and is independent of period refresh.
+
+### Combined-account identity retention
+
+Deploy `20260929010000_combine_accounts` and
+`20260929020000_retired_credential_grants` before running code with the Head-only
+account-combine workflow. The nullable `User.mergedIntoId` self-reference records an
+explicit, one-level historical ownership relationship. Existing accounts remain active.
+The database guards reject deleting either side of a combined identity, restoring
+retired credentials/links, and issuing new recovery or verification grants to a retired
+login. Duplicate primary/secondary addresses and usernames remain reserved; they are
+not aliases of the surviving login. Merge chains are deliberately blocked.
+
+Rollback of a completed combine is not an ordinary account edit or audit undo. Preserve
+the original accounts, messages, policy evidence and audit records; use a reviewed data
+migration if the ownership decision needs correction. Never remove the database guards
+or reuse a retired identifier as a shortcut. The application checks retirement on login,
+JWT validation, recovery, signup and live API authorization. Concurrent credential issuance
+is fenced by a User-row lock, and the merge's actor/evidence audit commits atomically.
