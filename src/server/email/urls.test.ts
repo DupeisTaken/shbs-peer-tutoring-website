@@ -40,6 +40,9 @@ it("allows a development-only localhost fallback", () => {
 it.each([
   "https://evil.example",
   "//evil.example",
+  "/a/..//evil.example",
+  "/a/%2e%2e//evil.example",
+  "https://school.example/a/..//evil.example",
   "/\\evil.example",
   "/%2fevil.example",
   "/messages\n",
