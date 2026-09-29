@@ -3218,5 +3218,9 @@
     "working": "Επεξεργασία…",
     "readError": "Δεν ήταν δυνατή η ανάγνωση αυτού του αρχείου.",
     "scope": "Περιλαμβάνει συμμετέχοντες, περιόδους, μαθήματα, αντιστοιχίσεις, διαθεσιμότητα, παρουσίες, ώρες, αιτήσεις, συνεντεύξεις, περιπολίες, πειθαρχικά μέτρα, αιτήματα, ακαδημαϊκό ιστορικό, αποδοχές πολιτικών και ανακοινώσεις. Οι νέες περίοδοι πρέπει να είναι ανενεργές· οι εισαγόμενες αντιστοιχίσεις και συνεδρίες πρέπει να ανήκουν σε ανενεργές περιόδους. Οι αναφερόμενοι λογαριασμοί πρέπει να υπάρχουν ήδη. Εξαιρούνται διαπιστευτήρια, ρόλοι λογαριασμών, ιδιωτικά μηνύματα, εκτελέσιμες εγκρίσεις, περιεχόμενο ιστοτόπου, ρυθμίσεις και μεταφορτωμένα αρχεία."
+  },
+  "signupProtection": {
+    "retry": "Please wait {seconds} seconds before trying again. Your entered details and original place are saved. Contact the program team if this continues.",
+    "mailFailed": "Email could not be delivered. Please wait one minute and retry, or contact the program team. Your original place is saved."
   }
 }

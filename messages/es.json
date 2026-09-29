@@ -3218,5 +3218,9 @@
     "working": "Procesando…",
     "readError": "No se pudo leer el archivo.",
     "scope": "Incluye participantes, períodos, asignaturas, emparejamientos, disponibilidad, asistencia, horas, solicitudes, entrevistas, patrullas, disciplina, historial académico, aceptación de políticas y anuncios. Los períodos nuevos deben estar inactivos; los emparejamientos y sesiones importados deben pertenecer a períodos inactivos. Las cuentas referenciadas deben existir. Se excluyen credenciales, roles, mensajes privados, aprobaciones ejecutables, contenido web, configuración y archivos adjuntos."
+  },
+  "signupProtection": {
+    "retry": "Please wait {seconds} seconds before trying again. Your entered details and original place are saved. Contact the program team if this continues.",
+    "mailFailed": "Email could not be delivered. Please wait one minute and retry, or contact the program team. Your original place is saved."
   }
 }

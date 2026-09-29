@@ -3218,5 +3218,9 @@
     "working": "Wird verarbeitet…",
     "readError": "Diese Datei konnte nicht gelesen werden.",
     "scope": "Umfasst Teilnehmende, Zeiträume, Fächer, Zuordnungen, Verfügbarkeit, Anwesenheit, Stunden, Bewerbungen, Interviews, Aufsichten, Disziplinarmaßnahmen, Anträge, akademische Daten, Richtlinienzustimmungen und Ankündigungen. Neue Zeiträume müssen inaktiv sein; importierte Zuordnungen und Sitzungen müssen zu inaktiven Zeiträumen gehören. Referenzierte Konten müssen bereits existieren. Zugangsdaten, Kontorollen, private Nachrichten, ausführbare Genehmigungen, Website-Inhalte, Konfiguration und hochgeladene Dateien sind ausgeschlossen."
+  },
+  "signupProtection": {
+    "retry": "Please wait {seconds} seconds before trying again. Your entered details and original place are saved. Contact the program team if this continues.",
+    "mailFailed": "Email could not be delivered. Please wait one minute and retry, or contact the program team. Your original place is saved."
   }
 }

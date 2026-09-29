@@ -3218,5 +3218,9 @@
     "working": "処理中…",
     "readError": "このファイルを読み取れませんでした。",
     "scope": "参加者、期間、科目、ペアリング、対応可能時間、出席、活動時間、応募、面接、巡回、懲戒、申請、学業履歴、ポリシー同意履歴、お知らせを含みます。新しい期間は非アクティブである必要があります。インポートするペアリングとセッションは非アクティブな期間に属している必要があります。参照先のアカウントは既存のものに限ります。認証情報、アカウントの役割、私信、実行可能な承認、ウェブサイトのコンテンツ、設定、アップロードされたファイルは対象外です。"
+  },
+  "signupProtection": {
+    "retry": "Please wait {seconds} seconds before trying again. Your entered details and original place are saved. Contact the program team if this continues.",
+    "mailFailed": "Email could not be delivered. Please wait one minute and retry, or contact the program team. Your original place is saved."
   }
 }

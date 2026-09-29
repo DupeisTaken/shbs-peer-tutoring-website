@@ -3218,5 +3218,9 @@
     "working": "Traitement en cours…",
     "readError": "Impossible de lire ce fichier.",
     "scope": "Inclut les participants, périodes, matières, binômes, disponibilités, présences, heures, candidatures, entretiens, rondes, mesures disciplinaires, demandes, historiques scolaires et d’acceptation des règles, ainsi que les annonces. Les nouvelles périodes doivent être inactives ; les binômes et séances importés doivent appartenir à des périodes inactives. Les comptes référencés doivent déjà exister. Les identifiants de connexion, rôles des comptes, messages privés, approbations exécutables, contenus du site, configurations et fichiers téléversés sont exclus."
+  },
+  "signupProtection": {
+    "retry": "Please wait {seconds} seconds before trying again. Your entered details and original place are saved. Contact the program team if this continues.",
+    "mailFailed": "Email could not be delivered. Please wait one minute and retry, or contact the program team. Your original place is saved."
   }
 }
