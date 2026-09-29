@@ -15,6 +15,7 @@ import { Socket } from "node:net";
 
 import { env } from "~/env";
 import { APP_TITLE } from "~/lib/branding";
+import { renderEmail, type EmailPresentation } from "./template";
 
 export interface EmailMessage {
   /** Public signup uses a separate bounded transport, leaving recovery mail independent. */
@@ -27,6 +28,8 @@ export interface EmailMessage {
   text: string;
   /** Optional HTML body. */
   html?: string;
+  /** Shared visual hierarchy without changing the required plain-text content. */
+  presentation?: EmailPresentation;
 }
 
 export interface EmailSender {
@@ -91,7 +94,9 @@ const aliyunSender: EmailSender = {
   async send(message) {
     // Hold the underlying socket: SMTPTransport.close() alone does not abort active delivery.
     const socket = message.signup ? new Socket() : undefined;
-    const transport = message.signup ? createTransport(false, socket) : transporter();
+    const transport = message.signup
+      ? createTransport(false, socket)
+      : transporter();
     let timer: ReturnType<typeof setTimeout> | undefined;
     try {
       const delivery = transport.sendMail({
@@ -100,7 +105,7 @@ const aliyunSender: EmailSender = {
         to: message.to,
         subject: message.subject,
         text: message.text,
-        html: message.html,
+        html: message.html ?? renderEmail({ brand: APP_TITLE, ...message }),
       });
       if (message.signup) {
         await Promise.race([
@@ -122,7 +127,10 @@ const aliyunSender: EmailSender = {
       throw err;
     } finally {
       clearTimeout(timer);
-      if (message.signup) { socket?.destroy(); transport.close(); }
+      if (message.signup) {
+        socket?.destroy();
+        transport.close();
+      }
     }
   },
 };

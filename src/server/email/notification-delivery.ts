@@ -1,5 +1,6 @@
 import { db } from "~/server/db";
 import { emailSender, isEmailDeliveryAvailable } from "./sender";
+import { emailUrl, notificationDestination } from "./urls";
 
 const descriptions: Record<string, string> = {
   primary_changed: "Your primary account email changed",
@@ -65,17 +66,46 @@ export async function deliverNotifications(limit = 10) {
       continue;
     }
     const subject = descriptions[row.event] ?? "Your account was updated";
-    const base = (process.env.AUTH_URL ?? "http://localhost:3000").replace(
-      /\/+$/,
-      "",
-    );
-    const path = row.category === "messages" ? "/messages" : "/my-account";
     try {
+      // Build inside the retry boundary: bad origin configuration must release the lease too.
+      const link = emailUrl(
+        notificationDestination(
+          row.category,
+          row.event,
+          row.destination,
+          row.user.role,
+        ),
+      );
+      const timeZone = current?.timeZone ?? "Asia/Shanghai";
+      const time = new Intl.DateTimeFormat("en", {
+        dateStyle: "long",
+        timeStyle: "short",
+        timeZone,
+      }).format(row.createdAt);
+      const footer = essential
+        ? "If you do not recognize this activity, contact the program team through private support."
+        : "Sign in to review the update. You can manage optional email notifications in account settings.";
       await emailSender.send({
         to: row.recipient,
         subject,
         messageId: `<account-notice-${id}@shbs-notifications>`,
-        text: `${subject}.\n\nTime: ${row.createdAt.toISOString()}\nReview: ${base}${path}\n\nIf you do not recognize this activity, contact the program team through private support.`,
+        text: `${subject}.\n\n${time} (${timeZone})\n\n${footer}\n\n${link}`,
+        presentation: {
+          eyebrow: essential
+            ? "ACCOUNT SECURITY"
+            : row.category === "messages"
+              ? "PRIVATE MESSAGES"
+              : "PROGRAM UPDATE",
+          action: {
+            label:
+              row.category === "messages"
+                ? "Open your inbox"
+                : row.event === "program_update"
+                  ? "View program update"
+                  : "Review your account",
+            url: link,
+          },
+        },
       });
       await db.emailDelivery.update({
         where: { id },
