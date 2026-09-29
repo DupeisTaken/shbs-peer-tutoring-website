@@ -1,15 +1,19 @@
 "use client";
-import { useSignupCaptcha, CaptchaError } from "~/app/_components/signup-captcha";
+import { PersonNameFields } from "~/app/_components/person-name-fields";
+import { nameDraft, fullPersonName } from "~/lib/person-name";
+
+import {
+  useSignupCaptcha,
+  CaptchaError,
+} from "~/app/_components/signup-captcha";
 
 import { FieldRequirement } from "~/app/_components/field-requirement";
 
 import { useMemo, useState } from "react";
 import {
   useProfilePolicy,
-  ProfilePolicyHint,
   OfferedGradeSelect,
 } from "~/app/_components/profile-policy";
-import { PreferredLatinName } from "~/app/_components/preferred-latin-name";
 import {
   RecruitmentNotice,
   useRecruitmentStatus,
@@ -40,8 +44,8 @@ export function SignupForm() {
   const policy = api.tutee.surveyPolicy.useQuery({ locale });
   const submit = api.tutee.submitSurvey.useMutation();
 
-  const [englishName, setEnglishName] = useState("");
-  const [preferredLatinName, setPreferredLatinName] = useState("");
+  const [names, setNames] = useState(() => nameDraft());
+  const englishName = fullPersonName(names);
   const [gradeLevel, setGradeLevel] = useState("");
   const [email, setEmail] = useState("");
   const captcha = useSignupCaptcha("tutee.submit", email);
@@ -162,23 +166,28 @@ export function SignupForm() {
           e.preventDefault();
           if (!canSubmit || !policy.data) return;
           const policyRevision = policy.data.revision;
-          void captcha.run(captchaGrant => submit.mutateAsync({ captchaGrant, ...normalizeTuteeFields(
-              {
-                englishName: englishName.trim(),
-                preferredLatinName: preferredLatinName.trim() || undefined,
-                email: email.trim(),
-                policyRevision,
-                phone: phone.trim() || undefined,
-                preferredContact: preferredContact.trim(),
-                gradeLevel: gradeLevel.trim() || undefined,
-                firstChoiceId,
-                secondChoiceId: secondChoiceId || undefined,
-                slotIds,
-                signatureName: signatureName.trim(),
-                agreed: true as const,
-              },
-              fields,
-            ) }));
+          void captcha.run((captchaGrant) =>
+            submit.mutateAsync({
+              captchaGrant,
+              ...normalizeTuteeFields(
+                {
+                  ...names,
+                  englishName: englishName.trim(),
+                  email: email.trim(),
+                  policyRevision,
+                  phone: phone.trim() || undefined,
+                  preferredContact: preferredContact.trim(),
+                  gradeLevel: gradeLevel.trim() || undefined,
+                  firstChoiceId,
+                  secondChoiceId: secondChoiceId || undefined,
+                  slotIds,
+                  signatureName: signatureName.trim(),
+                  agreed: true as const,
+                },
+                fields,
+              ),
+            }),
+          );
         }}
       >
         {/* Native fieldset prevents mouse, keyboard and assistive-input edits in preview mode. */}
@@ -190,26 +199,9 @@ export function SignupForm() {
           {/* Identity */}
           {/* Align identity labels with the email help trigger's mobile touch target. */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 [&_.label]:min-h-11 [&_.label]:content-center lg:[&_.label]:min-h-0">
-            <label className="space-y-1">
-              <span className="label">
-                {t("public.signup.fields.fullName")}
-                <FieldRequirement state="required" />
-              </span>
-              <input
-                className="input min-h-11 lg:min-h-10"
-                value={englishName}
-                onChange={(e) => setEnglishName(e.target.value)}
-                required
-              />
-            </label>
             <div className="sm:col-span-2">
-              <ProfilePolicyHint />
+              <PersonNameFields value={names} onChange={setNames} />
             </div>
-            <PreferredLatinName
-              name={englishName}
-              value={preferredLatinName}
-              onChange={setPreferredLatinName}
-            />
             {fields.gradeLevel !== "hidden" && (
               <label className="space-y-1">
                 <span className="label">

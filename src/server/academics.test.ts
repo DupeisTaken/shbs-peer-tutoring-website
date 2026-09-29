@@ -907,7 +907,7 @@ it("activation checks the current reference year atomically and still permits op
   ).toBe("OPTED_OUT");
 });
 
-it("verified Unicode student chooses Latin spelling with confirmed year and retains the handle through correction and return", async () => {
+it("verified student keeps a name in another language with confirmed year and retains the handle through correction and return", async () => {
   await db.subject.create({ data: { id: "academic-subject", name: "Math" } });
   await db.timeSlot.create({
     data: {
@@ -929,8 +929,7 @@ it("verified Unicode student chooses Latin spelling with confirmed year and reta
   const policy = await currentPolicy(db, "tutee-policy");
   const input = surveyInput.parse({
     email: "unicode@example.test",
-    englishName: "王小明",
-    preferredLatinName: "Xiaoming Wang",
+    englishName: "Xiaoming Wang", firstName: "Xiaoming", lastName: "Wang", alternativeNames: "王小明",
     gradeLevel: "G10",
     firstChoiceId: "academic-subject",
     slotIds: ["academic-slot"],

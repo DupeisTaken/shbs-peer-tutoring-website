@@ -128,10 +128,10 @@ it("offers Unknown and Graduated when adding a tutor", () => {
   });
   expect(within(grade).getByRole("option", { name: "Unknown" })).toBeTruthy();
   expect(within(grade).getByRole("option", { name: "Graduated" })).toBeTruthy();
-  fireEvent.change(screen.getByPlaceholderText(en.admin.tutors.phFirstName), {
+  fireEvent.change(screen.getByLabelText("First Name Required"), {
     target: { value: "Ada" },
   });
-  fireEvent.change(screen.getByPlaceholderText(en.admin.tutors.phLastName), {
+  fireEvent.change(screen.getByLabelText("Last Name Required"), {
     target: { value: "Lovelace" },
   });
   fireEvent.change(grade, { target: { value: "GRADUATED" } });

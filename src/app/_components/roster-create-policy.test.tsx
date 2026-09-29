@@ -78,15 +78,15 @@ it.each([
     const view = render(ui());
     if (tutor) {
       fireEvent.change(
-        screen.getByPlaceholderText(messages.admin.tutors.phFirstName),
+        screen.getByLabelText(messages.personName.firstName + " " + messages.signupFields.required),
         { target: { value: "Draft" } },
       );
       fireEvent.change(
-        screen.getByPlaceholderText(messages.admin.tutors.phLastName),
+        screen.getByLabelText(messages.personName.lastName + " " + messages.signupFields.required),
         { target: { value: "Name" } },
       );
     } else
-      fireEvent.change(screen.getByLabelText(messages.admin.tutees.fullName), {
+      fireEvent.change(screen.getByLabelText(messages.personName.firstName + " " + messages.signupFields.required), {
         target: { value: "Draft Name" },
       });
     fireEvent.submit(document.querySelector("form")!);

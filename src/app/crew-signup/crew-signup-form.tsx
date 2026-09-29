@@ -1,4 +1,6 @@
 "use client";
+import { PersonNameFields } from "~/app/_components/person-name-fields";
+import { nameDraft, fullPersonName } from "~/lib/person-name";
 
 import { FieldRequirement } from "~/app/_components/field-requirement";
 
@@ -20,7 +22,8 @@ import { api } from "~/trpc/react";
 export function CrewSignupForm() {
   const t = useTranslations();
   const policy = useProfilePolicy();
-  const [name, setName] = useState("");
+  const [names, setNames] = useState(() => nameDraft());
+  const name = fullPersonName(names);
   const [email, setEmail] = useState("");
   const [grade, setGrade] = useState("");
   const [contact, setContact] = useState("");
@@ -52,6 +55,7 @@ export function CrewSignupForm() {
         e.preventDefault();
         if (!valid) return;
         apply.mutate({
+          ...names,
           name: name.trim(),
           email: email.trim(),
           gradeLevel: grade.trim() ? Number(grade) : null,
@@ -60,18 +64,7 @@ export function CrewSignupForm() {
         });
       }}
     >
-      <div>
-        <label className="label" htmlFor="crew-name">
-          {t("public.crewSignup.fields.fullName")}
-          <FieldRequirement state="required" />
-        </label>
-        <input
-          id="crew-name"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-          className="input w-full"
-        />
-      </div>
+      <PersonNameFields value={names} onChange={setNames} />
       <ProfilePolicyHint />
       <div>
         <label className="label" htmlFor="crew-email">

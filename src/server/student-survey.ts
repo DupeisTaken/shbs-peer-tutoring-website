@@ -1,3 +1,4 @@
+import { optionalPersonNameFields } from "~/lib/person-name";
 import { requireSchoolParticipation } from "~/server/school-departure";
 import { emailOrigin as publicEmailOrigin } from "~/server/email/urls";
 import { signupMetric } from "~/server/signup-admission";
@@ -40,7 +41,8 @@ import { getFeatures } from "~/server/program/features";
 import { getPeriodDisplay } from "~/lib/period";
 
 export const surveyInput = z.object({
-  englishName: z.string().trim().min(1).max(120),
+  ...optionalPersonNameFields,
+  englishName: z.string().trim().min(1).max(200),
   preferredLatinName: preferredLatinNameSchema,
   email: z
     .string()
@@ -451,6 +453,10 @@ export async function confirmSurvey(
       user = await tx.user.create({
         data: {
           email: row.email,
+          firstName: input.firstName,
+          lastName: input.lastName,
+          preferredName: input.preferredName,
+          alternativeNames: input.alternativeNames,
           name: input.englishName,
           passwordHash: hashPassword(password),
           emailVerifiedAt: new Date(),

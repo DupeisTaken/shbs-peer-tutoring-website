@@ -1,3 +1,4 @@
+import { optionalPersonNameFields } from "~/lib/person-name";
 import { assertPrimaryName } from "~/server/program/profile-policy";
 import { recruitmentStatus } from "~/lib/recruitment";
 import { getRecruitment } from "~/server/program/recruitment";
@@ -56,7 +57,8 @@ export const applicationRouter = createTRPCRouter({
   submit: publicProcedure
     .input(
       z.object({
-        name: z.string().trim().min(1, "Name is required").max(120),
+        ...optionalPersonNameFields,
+        name: z.string().trim().min(1).max(200),
         email: z.string().trim().email().max(254),
         agreed: z.literal(true),
         policyRevision: z.string().min(1),
@@ -177,6 +179,10 @@ export const applicationRouter = createTRPCRouter({
             await assertPrimaryName(tx, input.name);
             await tx.tutorApplication.create({
               data: {
+                firstName: input.firstName,
+                lastName: input.lastName,
+                preferredName: input.preferredName,
+                alternativeNames: input.alternativeNames,
                 name: input.name,
                 email,
                 preferredContact:

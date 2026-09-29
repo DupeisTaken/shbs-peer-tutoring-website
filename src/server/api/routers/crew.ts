@@ -1,3 +1,4 @@
+import { optionalPersonNameFields } from "~/lib/person-name";
 import { accountHistoryIds } from "~/server/account-history";
 import { assertPrimaryName, assertOfferedGrade } from "~/server/program/profile-policy";
 import { getProgramTimeZone } from "~/server/program/time-zone";
@@ -189,7 +190,8 @@ export const crewRouter = createTRPCRouter({
   submitApplication: publicProcedure
     .input(
       z.object({
-        name: z.string().trim().min(1).max(120),
+        ...optionalPersonNameFields,
+        name: z.string().trim().min(1).max(200),
         email: z.string().trim().email().max(254),
         gradeLevel: z.number().int().min(1).max(12).nullable().optional(),
         preferredContact: z.string().trim().max(200).optional(),
@@ -214,6 +216,10 @@ export const crewRouter = createTRPCRouter({
             await assertOfferedGrade(tx, input.gradeLevel);
             await tx.crewApplication.create({
               data: {
+                firstName: input.firstName,
+                lastName: input.lastName,
+                preferredName: input.preferredName,
+                alternativeNames: input.alternativeNames,
                 name: input.name,
                 email,
                 gradeLevel: input.gradeLevel ?? null,

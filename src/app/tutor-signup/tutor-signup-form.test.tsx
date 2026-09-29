@@ -155,7 +155,7 @@ it("keeps a required third subject in its original position when the second is h
   fireEvent.change(selectors[1]!, { target: { value: "science" } });
   fireEvent.change(
     screen.getByLabelText(
-      "public.tutorSignup.fields.fullName signupFields.required",
+      "firstName signupFields.required",
     ),
     { target: { value: "Tutor" } },
   );
@@ -264,7 +264,7 @@ it("labels qualification answers and their conditional details", () => {
   expect(
     screen
       .getByLabelText(
-        "public.tutorSignup.fields.fullName signupFields.required",
+        "firstName signupFields.required",
       )
       .hasAttribute("required"),
   ).toBe(true);

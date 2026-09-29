@@ -165,12 +165,12 @@ afterAll(async () => {
 
 describe("survey-first enrollment", () => {
   it.each([
-    ["王小明", undefined, "member"],
-    ["王小明", "Xiaoming Wang", "xwang"],
+    ["Xiaoming Wang", undefined, "xwang"],
+    ["Xiaoming Wang", "Xiaoming Wang", "xwang"],
     ["Madonna", undefined, "madonna"],
     ["José García", undefined, "jgarcia"],
   ])("allocates %s once after verification, with optional spelling %s", async (englishName, preferredLatinName, username) => {
-    await submitSurvey(db, { ...input(), englishName, preferredLatinName, gradeLevel: undefined });
+    await submitSurvey(db, { ...input(), englishName, alternativeNames: "王小明", preferredLatinName, gradeLevel: undefined });
     expect(await db.user.findUnique({ where: { email } })).toBeNull();
     const token = lastToken();
     await confirmSurvey(db, token, password);

@@ -32,7 +32,7 @@ const en: PrivacyPolicy = {
       id: "information",
       title: "Information we collect",
       paragraphs: [
-        "Account and contact information includes your preferred name, optional legal name, username, email addresses, password hash, verification status and account preferences. Depending on the form and your role, you may also provide your grade, phone number, preferred contact method or school affiliation.",
+        "Account and contact information includes your first and last names, optional preferred name and name in another language, username, email addresses, password hash, verification status and account preferences. Depending on the form and your role, you may also provide your grade, phone number, preferred contact method or school affiliation.",
         "Program records include signup and application answers, subject choices and qualifications, availability, assignments, attendance, service hours, interview notes and votes, patrol observations, feedback, disciplinary records, appeals and membership requests. Policy acceptance records include the accepted text, version, signature and time. Signup information can be stored before you verify your email or finish creating an account.",
         "We store messages, recipients, read status, notifications and delivery records, as well as management decisions and audit history. Security processing uses verification and recovery records and request information, such as an IP address, to limit abuse. The hosting service may also keep technical request and error logs.",
       ],
@@ -105,7 +105,7 @@ const zh: PrivacyPolicy = {
       id: "information",
       title: "我们收集的信息",
       paragraphs: [
-        "账号与联系信息包括常用姓名、选填的法定姓名、用户名、电子邮箱、密码哈希值、验证状态和账号偏好设置。根据表单和参与角色，你还可能提供年级、电话号码、偏好的联系方式或与学校的关系。",
+        "账号与联系信息包括名和姓、选填的常用名和其他语言姓名、用户名、电子邮箱、密码哈希值、验证状态和账号偏好设置。根据表单和参与角色，你还可能提供年级、电话号码、偏好的联系方式或与学校的关系。",
         "项目记录包括报名与申请内容、科目选择与资格、可用时间、辅导安排、出勤、服务时数、面试记录与投票、巡查记录、反馈、纪律记录、申诉和成员资格申请。政策同意记录包括当时同意的正文、版本、签名和时间。报名信息可能在你验证邮箱或完成账号创建前就已保存。",
         "我们保存消息内容、收件人、已读状态、通知与发送记录，以及管理决定和操作审计记录。安全处理会使用验证与账号恢复记录，以及 IP 地址等请求信息，以限制滥用。托管服务也可能保留技术请求与错误日志。",
       ],

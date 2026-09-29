@@ -112,15 +112,17 @@ afterAll(() => db.$disconnect());
 
 it("uses the account profile for both explicit participation links without touching lookalikes or signatures", async () => {
   await caller("profile-person", "TUTOR").account.updateName({
-    name: "林",
-    alternativeNames: "Lin",
+    name: "Lin",
+    firstName: "Lin",
+    lastName: "",
+    alternativeNames: "林",
     expectedProfileVersion: 0,
   });
   expect(
     await db.user.findUnique({ where: { id: "profile-person" } }),
   ).toMatchObject({
-    name: "林",
-    alternativeNames: "Lin",
+    name: "Lin",
+    alternativeNames: "林",
     role: "TUTOR",
     tutorId: "profile-tutor",
     studentId: "profile-tutee",
@@ -129,17 +131,17 @@ it("uses the account profile for both explicit participation links without touch
   expect(
     await db.tutor.findUnique({ where: { id: "profile-tutor" } }),
   ).toMatchObject({
-    englishName: "林",
-    firstName: "林",
-    lastName: null,
-    alternativeNames: "Lin",
+    englishName: "Lin",
+    firstName: "Lin",
+    lastName: "",
+    alternativeNames: "林",
     username: "profileperson",
   });
   expect(
     await db.tutee.findUnique({ where: { id: "profile-tutee" } }),
   ).toMatchObject({
-    englishName: "林",
-    alternativeNames: "Lin",
+    englishName: "Lin",
+    alternativeNames: "林",
     signatureName: "Original signature",
   });
   expect(

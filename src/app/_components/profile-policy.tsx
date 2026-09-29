@@ -28,14 +28,9 @@ export function ProfilePolicyHint({
         onRetry={() => void policy.refetch()}
       />
     );
-  const required =
-    field === "legal"
-      ? policy.data?.requireLatinLegalNames
-      : policy.data?.requireLatinNames;
-  return required ? (
-    <p className="muted text-sm">
-      {t(field === "legal" ? "legalNameHint" : "nameHint")}
-    </p>
+  // The other-language field is unrestricted; Latin guidance is a fixed rule now.
+  return field !== "legal" ? (
+    <p className="muted text-sm">{t("nameHint")}</p>
   ) : null;
 }
 

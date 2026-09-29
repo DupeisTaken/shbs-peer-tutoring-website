@@ -1,4 +1,6 @@
 "use client";
+import { PersonNameFields } from "~/app/_components/person-name-fields";
+import { nameDraft } from "~/lib/person-name";
 
 import { useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
@@ -29,9 +31,8 @@ export default function TutorsPage() {
   const utils = api.useUtils();
   const tutors = api.admin.tutors.useQuery();
   const [showPast, setShowPast] = useState(false);
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [altNames, setAltNames] = useState("");
+  const [names, setNames] = useState(() => nameDraft());
+  const { firstName, lastName } = names;
   const [email, setEmail] = useState("");
   const [grade, setGrade] = useState("");
 
@@ -40,9 +41,7 @@ export default function TutorsPage() {
   const invalidate = () => utils.admin.tutors.invalidate();
   const create = api.admin.createTutor.useMutation({
     onSuccess: async () => {
-      setFirstName("");
-      setLastName("");
-      setAltNames("");
+      setNames(nameDraft());
       setEmail("");
       setGrade("");
       await invalidate();
@@ -97,9 +96,7 @@ export default function TutorsPage() {
             e.preventDefault();
             if (firstName.trim() && lastName.trim())
               create.mutate({
-                firstName: firstName.trim(),
-                lastName: lastName.trim(),
-                alternativeNames: altNames.trim() || undefined,
+                ...names,
                 email: email.trim() || undefined,
                 gradeLevel:
                   grade && grade !== GRADUATED_GRADE
@@ -109,24 +106,13 @@ export default function TutorsPage() {
               });
           }}
         >
-          <input
-            value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
-            placeholder={t("admin.tutors.phFirstName")}
-            className="input field-auto min-w-36"
-          />
-          <input
-            value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
-            placeholder={t("admin.tutors.phLastName")}
-            className="input field-auto min-w-36"
-          />
-          <input
-            value={altNames}
-            onChange={(e) => setAltNames(e.target.value)}
-            placeholder={t("admin.tutors.phAltNames")}
-            className="input field-auto min-w-40"
-          />
+          <div className="w-full max-w-2xl">
+            <PersonNameFields
+              value={names}
+              onChange={setNames}
+              requireLastName
+            />
+          </div>
           <input
             value={email}
             onChange={(e) => setEmail(e.target.value)}
@@ -201,11 +187,6 @@ export default function TutorsPage() {
                   <p className="font-medium [overflow-wrap:anywhere] text-slate-900">
                     {row.englishName}
                   </p>
-                  {row.alternativeNames && (
-                    <p className="muted text-xs [overflow-wrap:anywhere]">
-                      {row.alternativeNames}
-                    </p>
-                  )}
                   {row.username && (
                     <p className="muted mt-1 text-xs">@{row.username}</p>
                   )}
