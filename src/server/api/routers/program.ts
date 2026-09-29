@@ -166,7 +166,7 @@ export const programRouter = createTRPCRouter({
       secondaryEmailBindingEnabled:
         settings?.secondaryEmailBindingEnabled ?? true,
       canEdit: ["HEAD", "ADMIN"].includes(ctx.session.role),
-      deliveryAvailable: isEmailDeliveryAvailable(),
+      deliveryAvailable: isEmailDeliveryAvailable("PROGRAM"),
       failed,
     };
   }),
@@ -186,7 +186,7 @@ export const programRouter = createTRPCRouter({
             code: "CONFLICT",
             message: "The setting changed. Reload and try again.",
           });
-        if (input.enabled && !isEmailDeliveryAvailable())
+        if (input.enabled && !isEmailDeliveryAvailable("PROGRAM"))
           throw new TRPCError({
             code: "PRECONDITION_FAILED",
             message: "Configure email delivery before enabling notifications.",
@@ -292,7 +292,7 @@ export const programRouter = createTRPCRouter({
    *  public signup forms can hide a disabled module. */
   features: publicProcedure.query(async ({ ctx }) => ({
     ...(await getFeatures(ctx.db)),
-    EMAIL_DELIVERY_AVAILABLE: isEmailDeliveryAvailable(),
+    EMAIL_DELIVERY_AVAILABLE: isEmailDeliveryAvailable("SECURITY"),
   })),
 
   /** Immediate, independent intake settings; serialize with submissions and period refresh. */
@@ -401,7 +401,7 @@ export const programRouter = createTRPCRouter({
       if (
         input.key === "EMAIL_2FA" &&
         input.enabled &&
-        !isEmailDeliveryAvailable()
+        !isEmailDeliveryAvailable("SECURITY")
       ) {
         throw new TRPCError({
           code: "BAD_REQUEST",

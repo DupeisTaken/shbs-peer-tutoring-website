@@ -26,7 +26,7 @@ import { lockEntity } from "~/server/transactions";
 export async function issueAccountVerification(
   userId: string,
 ): Promise<{ emailed: boolean }> {
-  if (!isEmailDeliveryAvailable()) return { emailed: false };
+  if (!isEmailDeliveryAvailable("SECURITY")) return { emailed: false };
   const token = randomBytes(32).toString("hex");
   const email = await db.$transaction(async (tx) => {
     await lockEntity(tx, `account-verification:${userId}`);
@@ -56,11 +56,12 @@ export async function issueAccountVerification(
   });
   const link = `${appBaseUrl()}/reset-password?token=${token}`;
   await emailSender.send({
+    category: "SECURITY",
     to: email,
     subject: `Verify and set up your ${APP_TITLE} account`,
     text: `The program team sent you an account setup link. Open it to verify this email and set your password. This does not change your tutor or tutee participation.\n\n${link}\n\nThe link expires in seven days. Ignore it if you did not request an account.`,
   });
-  return { emailed: isEmailConfigured() };
+  return { emailed: isEmailConfigured("SECURITY") };
 }
 
 /** How long an issued reset token stays valid. */
@@ -85,7 +86,7 @@ function hashToken(token: string): string {
  * was found — callers must show an identical message either way (no account enumeration).
  */
 export async function issuePasswordReset(identifier: string): Promise<void> {
-  if (!isEmailDeliveryAvailable()) return;
+  if (!isEmailDeliveryAvailable("SECURITY")) return;
 
   const id = identifier.trim().toLowerCase();
   if (!id) return;
@@ -136,6 +137,7 @@ async function deliverResetLink(to: string, token: string): Promise<void> {
   const link = `${appBaseUrl()}/reset-password?token=${token}`;
 
   await emailSender.send({
+    category: "SECURITY",
     to,
     subject: `Reset your ${APP_TITLE} password`,
     text:
@@ -231,7 +233,7 @@ export async function issueTutorSetupLink(
   | { ok: true; emailed: boolean }
   | { ok: false; error: "no-tutor" | "no-email" }
 > {
-  if (!isEmailDeliveryAvailable())
+  if (!isEmailDeliveryAvailable("SECURITY"))
     throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Email delivery must be configured before sending account setup links." });
   const provisioned = await db.$transaction(async (tx) => {
     await lockUsernameNamespace(tx);
@@ -305,6 +307,7 @@ export async function issueTutorSetupLink(
 
   const link = `${appBaseUrl()}/reset-password?token=${token}`;
   await emailSender.send({
+    category: "SECURITY",
     to: email,
     subject: `Set up your ${APP_TITLE} account`,
     text:
@@ -317,5 +320,5 @@ export async function issueTutorSetupLink(
       `<p>After that you can sign in with this email or your username.</p>`,
   });
 
-  return { ok: true, emailed: isEmailConfigured() };
+  return { ok: true, emailed: isEmailConfigured("SECURITY") };
 }

@@ -35,7 +35,7 @@ export async function requestEmailChange(
       code: "BAD_REQUEST",
       message: "Current password is incorrect.",
     });
-  if (!isEmailDeliveryAvailable())
+  if (!isEmailDeliveryAvailable("SECURITY"))
     throw new TRPCError({
       code: "PRECONDITION_FAILED",
       message:
@@ -74,6 +74,7 @@ export async function requestEmailChange(
     });
   });
   await emailSender.send({
+    category: "SECURITY",
     to: targetEmail,
     subject: "Verify your new account email",
     text: `Your email change code is ${code}. It expires in ten minutes.`,

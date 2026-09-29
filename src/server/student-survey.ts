@@ -129,7 +129,8 @@ async function deliver(
 ) {
   try {
     await emailSender.send({
-        signup: true,
+      category: "PROGRAM",
+      signup: true,
       to,
       subject: "Tutoring signup received — confirm your email",
       text: `${deadline ? `Verify by ${deadline.toISOString()}. Your request will be permanently disqualified and all assignments released after this deadline. Resends do not extend it. 验证截止时间：${deadline.toISOString()}。逾期将永久取消申请资格并解除辅导伙伴安排，重发邮件不会延长期限。\n\n` : ""}Your tutoring survey has been saved. Priority is based on when you first submitted it after signup opened, not when you create your account.\n\nReview and confirm your request, then create your student account using this link:\n${origin}/signup/account?token=${token}\n\nAlready have an account? Confirm your request using the same link, then sign in with your existing password. The link expires in 24 hours. You can request another link without losing your submission time. If you did not submit this survey, ignore this email.`,
@@ -147,7 +148,7 @@ export async function submitSurvey(
 ) {
   surveyLimit(input.email);
   await expireStudentRequests(db);
-  if (!isEmailDeliveryAvailable())
+  if (!isEmailDeliveryAvailable("PROGRAM"))
     throw new TRPCError({
       code: "PRECONDITION_FAILED",
       message: "Email delivery is unavailable. Contact the team.",
@@ -269,7 +270,7 @@ export async function resendSurvey(
   if (enforceLimit) surveyLimit(email);
   await expireStudentRequests(db);
   const origin = emailOrigin();
-  if (!isEmailDeliveryAvailable()) return false;
+  if (!isEmailDeliveryAvailable("PROGRAM")) return false;
   const token = randomBytes(32).toString("hex");
   const updated = await inTransaction(db, async (tx) => {
     await lockEntity(tx, "program:period");
@@ -286,7 +287,8 @@ export async function resendSurvey(
   if (updated === "confirmed") {
     try {
       await emailSender.send({
-        signup: true,
+        category: "PROGRAM",
+      signup: true,
         to: email,
         subject: "Your tutoring request is already confirmed",
         text: `Your original tutoring request is already confirmed. Its submission time has not changed. Sign in here:\n${origin}/signin\n\nContact the team if you need to change your request.`,

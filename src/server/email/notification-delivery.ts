@@ -24,7 +24,11 @@ export async function deliverNotifications(limit = 10) {
       data: { status: "SKIPPED", completedAt: new Date() },
     });
   }
-  if (!isEmailDeliveryAvailable()) return;
+  if (
+    !isEmailDeliveryAvailable("SECURITY") &&
+    !isEmailDeliveryAvailable("PROGRAM")
+  )
+    return;
   const rows = await db.$queryRaw<{ id: string }[]>`
     UPDATE "EmailDelivery" SET "leaseUntil" = NOW() + INTERVAL '5 minutes'
     WHERE id IN (SELECT id FROM "EmailDelivery" WHERE status = 'PENDING' AND "availableAt" <= NOW()
@@ -36,6 +40,16 @@ export async function deliverNotifications(limit = 10) {
       include: { user: { include: { emails: true } } },
     });
     if (row.status !== "PENDING") continue;
+    // Account security notices are essential; other notifications are program mail.
+    const category = row.category === "security" ? "SECURITY" : "PROGRAM";
+    if (!isEmailDeliveryAvailable(category)) {
+      // Defer unavailable-category notices without consuming a delivery attempt.
+      await db.emailDelivery.update({
+        where: { id },
+        data: { leaseUntil: null, availableAt: new Date(Date.now() + 60_000) },
+      });
+      continue;
+    }
     const current = await db.programSettings.findUnique({
       where: { id: "program" },
     });
@@ -72,6 +86,7 @@ export async function deliverNotifications(limit = 10) {
     const path = row.category === "messages" ? "/messages" : "/my-account";
     try {
       await emailSender.send({
+        category,
         to: row.recipient,
         subject,
         messageId: `<account-notice-${id}@shbs-notifications>`,

@@ -70,7 +70,7 @@ export const accountRouter = createTRPCRouter({
       enabled: program?.emailNotificationsEnabled ?? false,
       secondaryEmailBindingEnabled:
         program?.secondaryEmailBindingEnabled ?? true,
-      deliveryAvailable: isEmailDeliveryAvailable(),
+      deliveryAvailable: isEmailDeliveryAvailable("SECURITY"),
     };
   }),
   setEmailPreferences: protectedProcedure
@@ -318,7 +318,7 @@ export const accountRouter = createTRPCRouter({
               "Email two-factor authentication is disabled for this program.",
           });
         }
-        if (!isEmailDeliveryAvailable()) {
+        if (!isEmailDeliveryAvailable("SECURITY")) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "Email delivery is unavailable. Contact the program team.",
@@ -362,7 +362,7 @@ export const accountRouter = createTRPCRouter({
             "Email two-factor authentication is disabled for this program.",
         });
       }
-      if (!isEmailDeliveryAvailable()) {
+      if (!isEmailDeliveryAvailable("SECURITY")) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "Email delivery is unavailable. Contact the program team.",
@@ -405,7 +405,7 @@ export const accountRouter = createTRPCRouter({
       // password is sufficient; with it on, a delivery outage fails closed below.
       const { EMAIL_2FA } = await getFeatures(ctx.db);
       if (EMAIL_2FA) {
-        if (!isEmailDeliveryAvailable()) {
+        if (!isEmailDeliveryAvailable("SECURITY")) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "Email delivery is unavailable. Contact the program team.",

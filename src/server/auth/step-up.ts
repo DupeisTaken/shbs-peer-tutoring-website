@@ -41,7 +41,7 @@ export async function issueStepUpCode(
   userId: string,
   purpose: VerificationPurpose,
 ): Promise<{ email: string }> {
-  if (!isEmailDeliveryAvailable()) {
+  if (!isEmailDeliveryAvailable("SECURITY")) {
     throw new Error(
       "Email delivery is unavailable; refusing to issue a step-up code.",
     );
@@ -65,6 +65,7 @@ export async function issueStepUpCode(
   ]);
 
   await emailSender.send({
+    category: "SECURITY",
     to: user.email,
     subject: `${APP_TITLE}: your verification code`,
     text:

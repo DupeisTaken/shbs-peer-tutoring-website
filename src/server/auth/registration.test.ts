@@ -129,6 +129,7 @@ it.each(REGISTRATION_KINDS)(
       code: issued.code,
       email: "new@example.test",
     });
+    expect(mail.send).toHaveBeenLastCalledWith(expect.objectContaining({ category: "SECURITY" }));
     const sent = mail.send.mock.calls[0]?.[0] as { text: string };
     const otp = /verification code is ([A-Z0-9]{5})/.exec(sent.text)?.[1];
     if (!otp) throw Error("No email OTP captured");

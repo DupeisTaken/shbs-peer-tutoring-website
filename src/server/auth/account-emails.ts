@@ -124,7 +124,7 @@ export async function requestSecondaryEmail(
   inputEmail: string,
   password: string,
 ) {
-  if (!isEmailDeliveryAvailable())
+  if (!isEmailDeliveryAvailable("SECURITY"))
     throw new TRPCError({
       code: "PRECONDITION_FAILED",
       message: "Email delivery is unavailable.",
@@ -190,6 +190,7 @@ export async function requestSecondaryEmail(
   });
   try {
     await emailSender.send({
+      category: "SECURITY",
       to: email,
       subject: "Verify your secondary email",
       text: `Your verification code is ${code}. It expires in ten minutes. If you did not request this, ignore this message.`,

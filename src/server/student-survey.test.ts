@@ -360,6 +360,7 @@ describe("survey-first enrollment", () => {
     expect(await pendingSurveys(db)).toMatchObject([
       { email, unverified: true, firstChoice: { name: "Mathematics" } },
     ]);
+    expect(send.mock.calls[0]?.[0]).toMatchObject({ category: "PROGRAM" });
     expect(send.mock.calls[0]?.[0].text).toContain("/signup/account?token=");
   });
   it("requires a valid login email and explicit policy acceptance", () => {

@@ -146,8 +146,8 @@ production secrets or branding arguments.
 | `APP_TITLE`, `TEAM_TITLE` | VPS `.env`; `SHBS Peer Tutoring`, `SHBS Peer Tutoring Team` | Recreate app; no rebuild |
 | `ORG_NAME`, `SUPPORT_EMAIL`, `PROGRAM_TERM_LABEL` | VPS `.env`; organization falls back to app title, other labels are empty | Recreate app; no rebuild |
 | `MESSAGES_OVERRIDE`, `AUTH_BOOTSTRAP_ADMIN_EMAILS` | VPS `.env`; empty by default | Recreate app; existing published content can override messages |
-| `AUTH_SECRET`, `SMTP_PASSWORD` | VPS `.env`; no production secret defaults | Recreate app; keep the auth secret stable across restarts/instances |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `EMAIL_FROM`, `EMAIL_FROM_NAME` | Server-only VPS `.env`; host `smtpdm.aliyun.com`, port `465`, login falls back to sender address, display name to `APP_TITLE`; sender/password unset | Recreate app; verify real delivery |
+| `AUTH_SECRET`, `SMTP_PASSWORD`, `SMTP_SECURITY_PASSWORD`, `SMTP_PROGRAM_PASSWORD` | VPS `.env`; no production secret defaults | Recreate app; keep the auth secret stable across restarts/instances |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `EMAIL_FROM`, `EMAIL_FROM_NAME`, `EMAIL_SECURITY_FROM`, `SMTP_SECURITY_USER`, `EMAIL_PROGRAM_FROM`, `SMTP_PROGRAM_USER` | Server-only VPS `.env`; host `smtpdm.aliyun.com`, port `465`, login falls back to sender address, display name to `APP_TITLE`; sender/password unset | Recreate app; verify real delivery |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | VPS `.env`, chosen at database initialization | Preserve for existing volume; credential changes need a separate database operation |
 | `DATABASE_URL`, `AUTH_URL`, `AUTH_TRUST_HOST`, `NODE_ENV` | Compose derives database URL from `POSTGRES_*`, sets `https://${DOMAIN}`, `true`, `production` | Do not override derived values in `.env` |
 | `DOMAIN` | VPS `.env`; replace example domain with real DNS name | Update DNS; recreate app **and Caddy** |
@@ -195,8 +195,10 @@ The application, Prisma migration CLI, seed/demo utilities and administrator boo
 Transactional email — password-reset and tutor-setup links, emailed sign-in and password-change
 2FA codes, and registration / viewer one-time codes — is sent through **Aliyun Direct Mail** over SMTP
 (`src/server/email/sender.ts`: a pooled, TLS-enforced, timeout-bounded transporter that logs each
-send and failure). Until `EMAIL_FROM` + `SMTP_PASSWORD` are set the app logs mail in development
-and rejects production flows that require email. SMTP is optional for a first boot only if those
+send and failure). Every call declares its category; sender choice is centralized and never inferred
+from the subject. Each category uses its own complete sender account, falling back to the legacy
+`EMAIL_FROM` + `SMTP_PASSWORD` pair. Without either, the app logs that category
+in development and rejects production flows that require it. SMTP is optional for a first boot only if those
 flows remain unused; it is **required** for password resets, registration/viewer verification, and
 any emailed code. The `EMAIL_2FA` feature defaults on; users opt into sign-in 2FA in Settings.
 The same program feature requires an emailed verification code for password changes, regardless
@@ -228,9 +230,65 @@ SMTP_PASSWORD="<the SMTP password from step 4>"
 # SMTP_USER is optional — it defaults to EMAIL_FROM (Aliyun logs in as the sender address).
 ```
 
-Recreate the app container (`docker compose up -d --force-recreate app`) and test via **Forgot password** at `/signin`.
-If mail doesn't arrive: confirm the domain shows verified, the `From` exactly equals the sender
-address, outbound port 465 is open from the host, and check `docker compose logs app` for SMTP errors.
+**Separate sender identities (recommended):**
+
+| Category | Messages | Dedicated account |
+| --- | --- | --- |
+| `SECURITY` | Account/tutor setup and reset links; sign-in and step-up codes; email changes and binding; registration and viewer verification; account security notices | `EMAIL_SECURITY_FROM`, `SMTP_SECURITY_PASSWORD`, optional `SMTP_SECURITY_USER` |
+| `PROGRAM` | Student signup confirmation links and already-confirmed reminders; program, information, and private-message notification emails | `EMAIL_PROGRAM_FROM`, `SMTP_PROGRAM_PASSWORD`, optional `SMTP_PROGRAM_USER` |
+
+Viewer registration proves account ownership, so it is security mail. Student signup confirmation
+belongs to program intake and remains program mail, including the link into student account creation.
+The signup transport deadline is independent of sender purpose: viewer mail still uses the security
+identity even though it runs on a bounded signup connection.
+
+Repeat sender creation, verification and SMTP-password setup for **each** address. Aliyun passwords
+belong to individual sender addresses; never assume they can be shared. Add these server-only
+settings to the VPS `.env` (the existing `env_file` passes them to the app):
+
+```bash
+EMAIL_SECURITY_FROM="credentials@mail.your-school.edu"
+SMTP_SECURITY_PASSWORD="<that sender's SMTP password>"
+# SMTP_SECURITY_USER defaults to EMAIL_SECURITY_FROM.
+EMAIL_PROGRAM_FROM="noreply@mail.your-school.edu"
+SMTP_PROGRAM_PASSWORD="<that sender's own SMTP password>"
+# SMTP_PROGRAM_USER defaults to EMAIL_PROGRAM_FROM.
+```
+
+Both use `SMTP_HOST`, `SMTP_PORT`, and the optional `EMAIL_FROM_NAME` display name. Dedicated
+passwords and usernames are never inherited from the legacy account. Each category switches as
+soon as its own address **and** password are present; the other category can keep using the legacy
+account during rollout. A partial dedicated configuration falls back to the **entire** legacy
+account, including its From address. If neither complete account exists, only that category is
+unavailable in production. Keep the legacy pair until both dedicated senders pass their inbox tests;
+afterward it may be removed. Changing `.env` requires recreating the app container. A configured
+account with a bad password fails delivery; the application does **not** silently retry through a
+different identity. Failed essential/security sends never report successful delivery. Deferred
+notification jobs retain their existing bounded retry policy; an unconfigured category stays pending.
+
+**Real-inbox smoke test (operator action, after configuring real sender secrets):**
+
+1. Recreate the app with `docker compose up -d --force-recreate app`.
+2. **Security:** use Forgot password for a known test account with an inbox you control. Check inbox
+   and spam, open the received message, confirm From is `credentials@...`, and follow the reset link
+   to verify that it is accepted. Exercise viewer registration with another controlled address and
+   verify its code comes from the same security sender. Do not use participant accounts for testing.
+3. **Program:** during an open intake window, submit a test student signup using a controlled inbox.
+   Confirm From is `noreply@...`, follow the confirmation link, and confirm the request successfully.
+   Clean up the test request through the management interface afterward.
+4. Check each message's raw headers for the expected sender and provider authentication results
+   (SPF/DKIM/DMARC); record only sender identity, timestamp, and success in the release evidence.
+   Never copy OTPs, reset links, participant addresses, or credentials into reports or logs.
+5. In staging, temporarily give only the security sender an invalid SMTP password and repeat its
+   test: the flow must fail without exposing credentials, while a program signup still sends.
+   Restore the correct secret and recreate the app. Test legacy fallback in staging by removing a
+   dedicated pair while keeping a valid legacy pair; From should become the legacy address.
+
+These inbox checks are separate from mocked automated tests and must be completed by the deployment
+operator; automated tests do not establish real Aliyun delivery. If mail does not arrive, confirm the
+domain and each sender show verified, From exactly matches the account, and outbound SMTP is allowed.
+Application logs identify the category and failure without printing provider exceptions or secrets.
+
 
 ## 4. Image build (CI → GHCR)
 

@@ -35,7 +35,7 @@ export async function issueLoginCode(
   userId: string,
   verifiedSessionVersion: number,
 ): Promise<{ email: string }> {
-  if (!isEmailDeliveryAvailable()) {
+  if (!isEmailDeliveryAvailable("SECURITY")) {
     throw new Error(
       "Email delivery is unavailable; refusing to issue a login code.",
     );
@@ -66,6 +66,7 @@ export async function issueLoginCode(
   });
 
   await emailSender.send({
+    category: "SECURITY",
     to: user.email,
     subject: `${APP_TITLE}: your sign-in code`,
     text:
