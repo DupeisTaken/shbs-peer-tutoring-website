@@ -9,10 +9,13 @@ export function ProfileDialog({
   title,
   onClose,
   children,
+  size = "default",
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
+  /** Wider subject-choice rows opt in without changing existing profile dialogs. */
+  size?: "default" | "wide";
 }) {
   const t = useTranslations("accountProfile");
   const titleId = useId();
@@ -49,9 +52,11 @@ export function ProfileDialog({
           (event.shiftKey ? last : first).focus();
         }
       }}
-      className="m-auto max-h-[min(88dvh,850px)] w-[calc(100%-2rem)] max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-0 text-slate-900 shadow-2xl backdrop:bg-slate-950/40"
+      className={`m-auto max-h-[min(88dvh,850px)] w-[calc(100%-2rem)] ${size === "wide" ? "max-w-4xl" : "max-w-2xl"} overflow-y-auto rounded-2xl border border-slate-200 bg-white p-0 text-slate-900 shadow-2xl backdrop:bg-slate-950/40`}
     >
-      <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-slate-200 bg-white px-5 py-4">
+      <div
+        className={`sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-slate-200 bg-white py-4 ${size === "wide" ? "px-4 sm:px-6" : "px-5"}`}
+      >
         <h2 id={titleId} className="section-title">
           {title}
         </h2>
@@ -63,7 +68,7 @@ export function ProfileDialog({
           {t("close")}
         </button>
       </div>
-      <div className="p-5">{children}</div>
+      <div className={size === "wide" ? "p-4 sm:p-6" : "p-5"}>{children}</div>
     </dialog>,
     document.body,
   );
