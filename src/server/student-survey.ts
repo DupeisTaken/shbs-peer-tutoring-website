@@ -626,6 +626,12 @@ export async function materializeStudent(
     });
   const student = await tx.tutee.create({
     data: {
+      // Staff may materialize a verified intake before the account-link step.
+      // Preserve every explicit field here; the canonical account can mirror over it later.
+      firstName: input.firstName,
+      lastName: input.lastName,
+      preferredName: input.preferredName,
+      alternativeNames: input.alternativeNames,
       englishName: input.englishName,
       email: row.email,
       phone: input.phone ?? null,

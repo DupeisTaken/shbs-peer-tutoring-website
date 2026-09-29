@@ -1159,3 +1159,12 @@ it("refuses an old signup link after its passwordless account is retired", async
   expect(await db.user.findUniqueOrThrow({ where: { id: account.id } })).toMatchObject({ passwordHash: null, studentId: null, mergedIntoId: "surviving-student" });
   expect((await db.studentSurvey.findFirstOrThrow()).confirmedAt).toBeNull();
 });
+
+it("preserves all four name fields when staff materialize an intake before account confirmation", async () => {
+  await submitSurvey(db, { ...input(), englishName: "Alexander Chen", firstName: "Alexander", lastName: "Chen", preferredName: "Alex", alternativeNames: "陈晓明" });
+  const row = await db.studentSurvey.findFirstOrThrow();
+  const { materializeStudent } = await import("./student-survey");
+  const profile = await db.$transaction(tx => materializeStudent(tx, row));
+  expect(profile).toMatchObject({ firstName: "Alexander", lastName: "Chen", preferredName: "Alex", alternativeNames: "陈晓明", englishName: "Alexander Chen" });
+  expect(await db.user.findUnique({ where: { email } })).toBeNull();
+});
