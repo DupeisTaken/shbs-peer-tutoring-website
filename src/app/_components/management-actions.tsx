@@ -31,6 +31,7 @@ function RequestCard({
   onChanged: () => Promise<void>;
 }) {
   const t = useTranslations("approvals");
+  const departureText = useTranslations("schoolDeparture");
   const format = useFormatter();
   const [note, setNote] = useState("");
   const [confirming, setConfirming] = useState(false);
@@ -51,6 +52,11 @@ function RequestCard({
     request.payload as unknown as Parameters<typeof SuperJSON.deserialize>[0],
   );
   const confirmation = proposalConfirmation(request.operation, payload);
+  const isDeparture = request.operation === "departure.setState";
+  const departureAction =
+    isDeparture && payload && typeof payload === "object" && "action" in payload
+      ? String(payload.action)
+      : null;
   const blockSummary = roomBlockReview(
     request.operation,
     payload,
@@ -102,7 +108,8 @@ function RequestCard({
     payload && typeof payload === "object"
       ? Object.entries(payload).filter(
           ([key]) =>
-            !["expectedUpdatedAt", "ticket", "overrideTicket"].includes(key),
+            !["expectedUpdatedAt", "ticket", "overrideTicket"].includes(key) &&
+            !(isDeparture && key === "expectedRevision"),
         )
       : [];
   const approve = (ticket?: string) => {
@@ -169,7 +176,9 @@ function RequestCard({
                 className="hover:underline"
                 href={`/admin/approvals?request=${encodeURIComponent(request.id)}`}
               >
-                {humanizeOperation(request.operation)}
+                {isDeparture
+                  ? departureText("title")
+                  : humanizeOperation(request.operation)}
               </Link>
             </h2>
             <p className="mt-1 text-sm text-slate-500">
@@ -205,6 +214,21 @@ function RequestCard({
           {t("proposedChanges")}
         </h3>
         {blockSummary && <RoomBlockReview summary={blockSummary} />}
+        {isDeparture && (
+          <div className="space-y-2 rounded-lg border border-teal-200 bg-teal-50 p-4 text-sm text-slate-800">
+            <p>
+              {departureText(
+                departureAction === "RETURN"
+                  ? "returnHelp"
+                  : departureAction === "REVOKE" ||
+                      departureAction === "RESTORE"
+                    ? "accessHelp"
+                    : "consequences",
+              )}
+            </p>
+            <p>{departureText("retained")}</p>
+          </div>
+        )}
         {!blockSummary && (
           <dl className="grid gap-x-6 gap-y-3 rounded-lg bg-slate-50 p-4 sm:grid-cols-2">
             {fields.map(([key, value]) => (
@@ -489,7 +513,8 @@ function ApprovalQueue({
           request={request}
           canReview={
             queue.data.canReview &&
-            (request.requesterId !== queue.data.viewerId || queue.data.headReviewer) &&
+            (request.requesterId !== queue.data.viewerId ||
+              queue.data.headReviewer) &&
             (!HEAD_APPROVAL_OPERATIONS.has(request.operation) ||
               queue.data.headReviewer)
           }

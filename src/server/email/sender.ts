@@ -14,6 +14,7 @@ import { Socket } from "node:net";
 
 import { env } from "~/env";
 import { APP_TITLE } from "~/lib/branding";
+import { renderEmail, type EmailPresentation } from "./template";
 
 export type EmailCategory = "SECURITY" | "PROGRAM";
 
@@ -30,6 +31,8 @@ export interface EmailMessage {
   text: string;
   /** Optional HTML body. */
   html?: string;
+  /** Shared visual hierarchy without changing the required plain-text content. */
+  presentation?: EmailPresentation;
 }
 
 export interface EmailSender {
@@ -144,7 +147,8 @@ async function sendSmtp(message: EmailMessage, account: SenderAccount) {
       to: message.to,
       subject: message.subject,
       text: message.text,
-      html: message.html,
+      // Keep the shared template independent of the selected SMTP identity.
+      html: message.html ?? renderEmail({ brand: APP_TITLE, ...message }),
     });
     const result = message.signup
       ? await Promise.race([

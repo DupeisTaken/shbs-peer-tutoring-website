@@ -68,6 +68,7 @@ export async function issueStepUpCode(
     category: "SECURITY",
     to: user.email,
     subject: `${APP_TITLE}: your verification code`,
+    presentation: { code, eyebrow: "ACCOUNT SECURITY" },
     text:
       `Hi ${user.name ?? "there"},\n\n` +
       `Your verification code is ${code}. It expires in ${STEP_UP_CODE_TTL_MINUTES} minutes.\n\n` +

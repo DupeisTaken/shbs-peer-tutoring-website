@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({ redirect: vi.fn(), change: vi.fn(), updateName
 }));
 vi.mock("~/lib/password-session", () => ({ signInAfterPasswordChange: mocks.redirect }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
+vi.mock("./school-departure", () => ({ SchoolDeparturePanel: () => null }));
 vi.mock("./membership-editor", () => ({ MembershipEditor: () => null }));
 vi.mock("./academic-profile", () => ({ AcademicPanel: () => null }));
 vi.mock("./account-emails", () => ({ AccountEmails: () => null, EmailPreferences: () => null }));

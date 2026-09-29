@@ -136,6 +136,7 @@ export function TutorProfileEditor({
           ))}
         <div className="sm:col-span-2">
           <ProfilePolicyHint />
+          <ProfilePolicyHint field="legal" />
         </div>
         <label className="block">
           <span className="label">{t("admin.tutors.colStatus")}</span>
@@ -148,7 +149,7 @@ export function TutorProfileEditor({
               [
                 "ACTIVE",
                 "PENDING",
-                "GRADUATED",
+                "GRADUATED", "TRANSFERRED",
                 "OPTED_OUT",
                 "ARCHIVED",
               ] as const

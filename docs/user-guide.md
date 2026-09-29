@@ -12,6 +12,7 @@ Use this guide with the website address supplied by your program. Page names bel
 - [Administrators](#administrators)
 - [HEAD](#head)
 - [Viewers](#viewers)
+- [Graduation and school transfers](#graduation-and-school-transfers)
 - [Translators](#translators)
 - [Account settings and private support](#account-settings-and-private-support)
 - [Renewed policy acceptance](#renewed-policy-acceptance)
@@ -52,6 +53,24 @@ Management headers and account menus show **Enter Tutor Page**, then **Enter Tut
 Tutor and tutee workspaces show **Back to Management** for HEAD, ADMIN, COORDINATOR and VIEWER. This shortcut does not grant write access to viewers. Archived pure tutors retain their existing read-only history access.
 
 On mobile, the shared header places the brand and language selector first, global controls second, and available workspace switches below a divider. Management's hamburger button opens the navigation drawer; Escape, its close button or selecting a link closes it. Desktop management keeps the sidebar and main content independently scrollable below the header. Workspace shortcuts wrap on narrow screens and preserve touch targets.
+
+## Graduation and school transfers
+
+All student accounts, including students who only receive tutoring, can report graduation
+or transfer in **School Departure** in their account settings. Explain the change and
+confirm the request. Head reviews it through Management Actions. Staff can also open
+the account editor to propose the change; only Head confirms it.
+
+After confirmation, **Enter Viewers Portal** appears on the tutor dashboard or tutee
+page. It opens the same masked, read-only summaries available to Viewers. Your account
+role and personal history remain available. Current tutoring assignments and pending
+learning requests close; a departing tutor's current learners return to the waiting list.
+Archive, opt-out and self-reported academic graduation alone do not grant this access.
+
+Head can revoke or restore observer access and approve a return to school. A return
+does not restore assignments automatically; tutor activation and learning enrollment
+follow their normal workflows. Suspension and an existing tutor-access revocation
+still apply. Independently assigned management, crew and translator permissions remain.
 
 ## Tutees
 
@@ -354,6 +373,8 @@ Any verified address can sign in or recover the same account. Recovery requested
 
 ### Optional email notifications
 
+Email notices include a clear action button and a copyable link, with a plain-text version for mail readers that do not show HTML. Program notices open the relevant workflow; message notices open your role's inbox; account/security notices open account settings. If sign-in or a verification code is needed, you return to the linked page afterward. Older queued program notices may open the home page. Your current permissions still apply, so a removed record or changed role may limit what you can open.
+
 When an ADMIN or HEAD enables **Email Notifications** in **Program & Refresh**, **Account → Email Preferences** offers private-message notices and information/program updates (both default off). Each category may be enabled or disabled independently. Security alerts for password, two-factor and associated-email changes are essential and cannot be disabled. Private-message notices omit the message contents. By default notices go only to a verified primary; you can also include verified secondary addresses. A primary change additionally notifies the previous verified primary regardless of notification preferences, even if that address is subsequently removed.
 
 Disabling notifications at program level preserves preferences and cancels queued optional notices; re-enabling does not send the old backlog. While program notifications are disabled, users cannot enable them or edit notification preferences. Verification, recovery, login/step-up mail and security alerts remain independent of both optional switches and personal notification preferences. Already accepted mail cannot be recalled.
@@ -410,7 +431,7 @@ The tutor application and tutee request are separate forms with separate recruit
 
 An invitation can finish creating or linking a login while an old or conflicting academic report still needs confirmation. The completion screen directs you to **Account Settings → Academic Details**. After confirming, tutors complete the normal dashboard activation; crew members request reentry from the crew workspace. Crew access remains opted out until that request is approved. Previously inactive crew accounts remain inactive and need staff restoration. Optional unknown or nonstandard grades do not prevent participation. An explicit conflict with a previous **Not Applicable** report does require review.
 
-In **Program → Names and Grades**, Head and administrators can set the offered grades (at least one of Grades 1–12) and optionally require Latin letters in primary names. Coordinators can view these settings. Accented Latin letters, spaces, apostrophes and hyphens are accepted; secondary names remain unrestricted. Existing primary names are preserved unless changed. Changing only a secondary name does not force a primary-name update. Policy changes take effect immediately for new submissions, while historical records remain unchanged. If another administrator changes the policy while a settings draft is open, reload and review before saving.
+In **Program → Names and Grades**, Head and administrators can set the offered grades (at least one of Grades 1–12) and independently require Latin letters in Preferred Name and Legal Name. Coordinators can view these settings. Accented Latin letters, spaces, apostrophes and hyphens are accepted. Each rule applies only when its name is added or changed; unchanged existing names are preserved. Legal Name remains optional, and clearing it is allowed. Preferred Name is used for program display; Legal Name is the name on official records. Existing values from the former alternative-name field are retained, so review them before relying on them as legal names. The application does not verify legal identity. Policy changes take effect immediately for new submissions, while historical records remain unchanged. If another administrator changes the policy while a settings draft is open, reload and review before saving.
 
 Academic confirmation uses the current program year and calculates graduation from that year and the selected grade. There is no separate editable year or graduation field. A form opened before a school-year rollover requires a reload before confirmation. When no current year is configured, staff must set the program period before a reported grade can be confirmed; unknown and not-applicable reports remain available.
 

@@ -1,3 +1,4 @@
+import { requireSchoolParticipation } from "./school-departure";
 import { createHash } from "node:crypto";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
@@ -109,8 +110,9 @@ export async function assignmentMismatches(
         : null;
     const tutor = await tx.tutor.findUnique({
       where: { id: selection.tutorId },
-      include: { user: { select: { tutorAccessRevoked: true } } },
+      include: { user: { select: { id: true, tutorAccessRevoked: true } } },
     });
+    if (tutor?.user) await requireSchoolParticipation(tx, tutor.user.id);
     if (
       !subject?.active ||
       subject.level?.active === false ||
@@ -180,6 +182,7 @@ export async function enforceAssignmentQualification(
   input: unknown,
 ) {
   if (!isAssignmentOperation(operation)) return;
+  await lockEntity(tx, "program:period");
   const mismatches = await assignmentMismatches(tx, operation, input);
   if (!mismatches.length) return;
   const ticket = inputShape.parse(input).overrideTicket;

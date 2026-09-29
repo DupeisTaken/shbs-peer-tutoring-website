@@ -55,6 +55,8 @@ it.each([undefined, "Campus Peer Support"])(
     expect(mocks.sendMail).toHaveBeenLastCalledWith(
       expect.objectContaining({
         from: { name: expected, address: "sender@example.test" },
+        text: "Test",
+        html: expect.stringContaining(expected) as string,
       }),
     );
     expect(JSON.stringify(BRANDING)).not.toContain("private-smtp-sentinel");

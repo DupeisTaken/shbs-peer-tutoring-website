@@ -1,8 +1,16 @@
+import { requireSchoolParticipation } from "~/server/school-departure";
+import { emailOrigin as publicEmailOrigin } from "~/server/email/urls";
 import { signupMetric } from "~/server/signup-admission";
 import { preferredLatinNameSchema } from "~/lib/username";
 import { normalizeGrade } from "~/lib/academics";
-import { assertPrimaryName, assertOfferedGrade } from "~/server/program/profile-policy";
-import { ensureUserUsername, lockUsernameNamespace } from "~/server/auth/username";
+import {
+  assertPrimaryName,
+  assertOfferedGrade,
+} from "~/server/program/profile-policy";
+import {
+  ensureUserUsername,
+  lockUsernameNamespace,
+} from "~/server/auth/username";
 import { applyAcademicIntake, accountAcademics } from "~/server/academics";
 import { lockCatalogue } from "~/server/qualifications";
 import { getSignupSettings } from "~/server/program/signup-fields";
@@ -69,24 +77,14 @@ export function surveyLimit(key: string, max = 6) {
 
 /** Use the configured origin, never a caller-controlled Host header, for account links. */
 function emailOrigin() {
-  const origin =
-    process.env.AUTH_URL ??
-    (process.env.NODE_ENV !== "production" ? "http://localhost:3000" : "");
-  if (!origin)
-    throw new TRPCError({
-      code: "PRECONDITION_FAILED",
-      message: "The team must configure AUTH_URL before signup opens.",
-    });
-  const url = new URL(origin);
-  if (
-    !["http:", "https:"].includes(url.protocol) ||
-    (process.env.NODE_ENV === "production" && url.protocol !== "https:")
-  )
+  try {
+    return publicEmailOrigin();
+  } catch {
     throw new TRPCError({
       code: "PRECONDITION_FAILED",
       message: "Configure a public HTTPS AUTH_URL before signup opens.",
     });
-  return url.origin;
+  }
 }
 
 /** Row locks also coordinate with existing management updates that do not use advisory locks. */
@@ -133,6 +131,12 @@ async function deliver(
       signup: true,
       to,
       subject: "Tutoring signup received — confirm your email",
+      presentation: {
+        action: {
+          label: "Confirm your tutoring request",
+          url: `${origin}/signup/account?token=${token}`,
+        },
+      },
       text: `${deadline ? `Verify by ${deadline.toISOString()}. Your request will be permanently disqualified and all assignments released after this deadline. Resends do not extend it. 验证截止时间：${deadline.toISOString()}。逾期将永久取消申请资格并解除辅导伙伴安排，重发邮件不会延长期限。\n\n` : ""}Your tutoring survey has been saved. Priority is based on when you first submitted it after signup opened, not when you create your account.\n\nReview and confirm your request, then create your student account using this link:\n${origin}/signup/account?token=${token}\n\nAlready have an account? Confirm your request using the same link, then sign in with your existing password. The link expires in 24 hours. You can request another link without losing your submission time. If you did not submit this survey, ignore this email.`,
     });
     return true;
@@ -170,6 +174,7 @@ export async function submitSurvey(
       where: { email: input.email },
       select: { id: true, profileVersion: true, name: true, mergedIntoId: true },
     });
+    if (account) await requireSchoolParticipation(tx, account.id);
     if (account?.mergedIntoId)
       throw new TRPCError({ code: "FORBIDDEN", message: "Contact the team about your account." });
     const block = await tx.studentQuarterBlock.findFirst({
@@ -216,7 +221,11 @@ export async function submitSurvey(
     await lockEntity(tx, "signup-fields");
     const fields = (await getSignupSettings(tx)).tutee;
     input = normalizeTuteeFields(input, fields);
-    await assertPrimaryName(tx, account?.name ?? input.englishName, account?.name);
+    await assertPrimaryName(
+      tx,
+      account?.name ?? input.englishName,
+      account?.name,
+    );
     await assertOfferedGrade(tx, normalizeGrade(input.gradeLevel).gradeLevel);
     const missing = missingTuteeFields(input, fields);
     if (missing.length)
@@ -242,9 +251,13 @@ export async function submitSurvey(
         email: input.email,
         intakeTermId: term.id,
         submittedAt: new Date(),
-        payload: { ...input, slotIds: slots,
+        payload: {
+          ...input,
+          slotIds: slots,
           // Server-captured concurrency evidence; clients cannot choose these values.
-          academicAccountId: account?.id ?? null, academicProfileVersion: account?.profileVersion ?? null },
+          academicAccountId: account?.id ?? null,
+          academicProfileVersion: account?.profileVersion ?? null,
+        },
         policyRevision: policy.revision,
         policySnapshot: policy.documents,
         tokenHash: digest(token),
@@ -290,9 +303,10 @@ export async function resendSurvey(
     try {
       await emailSender.send({
         category: "PROGRAM",
-      signup: true,
+        signup: true,
         to: email,
         subject: "Your tutoring request is already confirmed",
+        presentation: { action: { label: "Sign in", url: `${origin}/signin` } },
         text: `Your original tutoring request is already confirmed. Its submission time has not changed. Sign in here:\n${origin}/signin\n\nContact the team if you need to change your request.`,
       });
       return true;
@@ -420,7 +434,7 @@ export async function confirmSurvey(
     // noncompliant identity. Existing verified identities remain the canonical source.
     await assertPrimaryName(tx, user?.name ?? input.englishName, user?.name);
     await assertOfferedGrade(tx, normalizeGrade(input.gradeLevel).gradeLevel);
-    if (user) await lockAccountProfile(tx, user.id);
+    if (user) { await lockAccountProfile(tx, user.id); await requireSchoolParticipation(tx, user.id); }
     // A retired login also has no password. Do not mistake it for an unfinished invitation.
     // The namespace lock above serializes this decision with account combination.
     if (user?.mergedIntoId || user?.suspendedAt || user?.role === "VIEWER")
@@ -474,15 +488,34 @@ export async function confirmSurvey(
     // Verification establishes the explicit link; the existing account remains the identity source.
     // A verified, explicitly linked owner may confirm this intake's academic report only
     // while its server-captured profile version still matches. Old email links cannot undo edits.
-    const academicSnapshot = z.object({ academicAccountId: z.string().nullable().optional(),
-      academicProfileVersion: z.number().int().nullable().optional() }).parse(row.payload);
-    const snapshotVersion = academicSnapshot.academicAccountId === user.id
-      ? academicSnapshot.academicProfileVersion ?? undefined : undefined;
-    await applyAcademicIntake(tx, user.id, input.gradeLevel, term?.schoolYear ?? null, row.submittedAt, "VERIFIED_SURVEY", snapshotVersion);
+    const academicSnapshot = z
+      .object({
+        academicAccountId: z.string().nullable().optional(),
+        academicProfileVersion: z.number().int().nullable().optional(),
+      })
+      .parse(row.payload);
+    const snapshotVersion =
+      academicSnapshot.academicAccountId === user.id
+        ? (academicSnapshot.academicProfileVersion ?? undefined)
+        : undefined;
+    await applyAcademicIntake(
+      tx,
+      user.id,
+      input.gradeLevel,
+      term?.schoolYear ?? null,
+      row.submittedAt,
+      "VERIFIED_SURVEY",
+      snapshotVersion,
+    );
     await updateAccountProfile(tx, user.id);
     const academic = (await accountAcademics(tx, user.id)).academic;
-    await ensureUserUsername(user.id, tx, { verifiedStudent: true, preferredLatinName: input.preferredLatinName,
-      graduationYear: academic.confirmedAt ? academic.expectedGraduationYear : null });
+    await ensureUserUsername(user.id, tx, {
+      verifiedStudent: true,
+      preferredLatinName: input.preferredLatinName,
+      graduationYear: academic.confirmedAt
+        ? academic.expectedGraduationYear
+        : null,
+    });
     await tx.policyAcceptance.upsert({
       where: {
         userId_slug_revision: {

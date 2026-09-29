@@ -1,3 +1,5 @@
+import { auth } from "~/server/auth";
+import { accountPortalAccess } from "~/server/portal-access";
 import Link from "next/link";
 import { MessageInbox } from "~/app/_components/message-inbox";
 import { AccountSettings } from "~/app/_components/account-settings";
@@ -28,6 +30,8 @@ export default async function StudentPage({
       getFeatures(db),
       getTranslations("workflows"),
     ]);
+  const session = await auth();
+  const access = session?.user ? await accountPortalAccess(session.user.id) : null;
   const view = resolveTuteeView(params.view);
   const period = currentPeriod
     ? getPeriodDisplay(currentPeriod, features.QUARTER_SYSTEM)
@@ -46,11 +50,11 @@ export default async function StudentPage({
             </p>
           )}
         </div>
-        <Link href="/signup" className="btn-primary" prefetch={false}>
+        {!access?.departed && <Link href="/signup" className="btn-primary" prefetch={false}>
           {t("requestTutor")}
-        </Link>
+        </Link>}
       </div>
-      {view === "dashboard" && <TuteeOverview />}
+      {view === "dashboard" && <TuteeOverview departed={access?.departed} />}
       {view === "messages" && <MessageInbox />}
       {view === "account" && <AccountSettings embedded />}
       {view === "requests" && (

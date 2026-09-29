@@ -64,6 +64,42 @@ beforeEach(() => {
 afterEach(() => vi.restoreAllMocks());
 
 describe("purpose-based sender routing", () => {
+  it.each(["SECURITY", "PROGRAM"] as const)(
+    "renders the shared action template through the selected %s sender",
+    async (category) => {
+      dedicated(category);
+      const url =
+        "https://tutoring.example.test/signin?callbackUrl=%2Fmessages";
+      const text = `Review <this> update.\n\n${url}`;
+      await emailSender.send({
+        ...message(category),
+        text,
+        presentation: { action: { label: "Review update", url } },
+      });
+      expect(smtp.send).toHaveBeenCalledWith(
+        expect.objectContaining({
+          from: expect.objectContaining({
+            address: `${category.toLowerCase()}@example.test`,
+          }) as unknown,
+          text,
+          html: expect.stringContaining(`href="${url}"`) as unknown,
+        }),
+      );
+      const delivered = smtp.send.mock.calls[0]![0] as { html: string };
+      expect(delivered.html).toContain("Review &lt;this&gt; update.");
+      expect(delivered.html).toContain("Review update");
+    },
+  );
+  it("preserves explicitly supplied HTML while routing by purpose", async () => {
+    dedicated("PROGRAM");
+    await emailSender.send({
+      ...message("PROGRAM"),
+      html: "<p>Custom HTML</p>",
+    });
+    expect(smtp.send).toHaveBeenCalledWith(
+      expect.objectContaining({ html: "<p>Custom HTML</p>" }),
+    );
+  });
   it("uses independently authenticated accounts and pools regardless of identical subjects", async () => {
     legacy();
     dedicated("SECURITY");

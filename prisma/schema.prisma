@@ -45,6 +45,8 @@ model User {
   alternativeNames String?
   profileVersion Int @default(0)
   academicProfile AcademicProfile?
+  schoolDeparture SchoolDeparture?
+  departureEvents SchoolDepartureEvent[]
   /// Login identifier. Also the address future email-based 2FA codes are sent to.
   email String  @unique
   /// Primary and verified secondary addresses share one globally unique namespace.
@@ -328,6 +330,7 @@ enum Quarter {
 /// when the program advances into Q4 for confirmed current-year G12; OPTED_OUT is set when an approved opt-out request
 /// is processed; ARCHIVED is the generic admin/crew deactivation (e.g. unavailable at rollover).
 enum TutorStatus {
+  TRANSFERRED
   ACTIVE
   /// Awaiting the tutor's start-of-term activation: after a semester refresh, continuing tutors are
   /// set PENDING and must reactivate (choose available -> ACTIVE, or opt out -> OPTED_OUT) from
@@ -1847,6 +1850,8 @@ model ProgramSettings {
   /// Head-only configuration for existing signup fields; missing keys use original defaults.
   signupFields Json @default("{}")
   requireLatinNames Boolean @default(false)
+  /// Independent legal-name script rule; alternativeNames retains its storage key.
+  requireLatinLegalNames Boolean @default(false)
   offeredGrades Int[] @default([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
   /// Immediate ADMIN/HEAD switch, independent of staged program modules and authentication mail.
   emailNotificationsEnabled Boolean @default(false)
@@ -1874,6 +1879,8 @@ model EmailDelivery {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   category String
   event String
+  /// Internal notification destination, retained without copying private message contents.
+  destination String?
   recipient String
   /// Previous primary receives the security notice even if it is subsequently removed.
   previousPrimary Boolean @default(false)
@@ -1965,4 +1972,32 @@ model CaptchaGrant {
  version Int
  expiresAt DateTime
  @@index([expiresAt])
+}
+
+/// Confirmed school departure is authority; academic reports and imported roster states are not.
+model SchoolDeparture {
+  userId String @id
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reason String?
+  effectiveAt DateTime?
+  confirmedAt DateTime @default(now())
+  confirmedById String?
+  source String
+  revision Int @default(1)
+  observerRevoked Boolean @default(false)
+  tutorDerived Boolean @default(false)
+}
+
+/// Append-only evidence survives a return or a correction of the current state.
+model SchoolDepartureEvent {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action String
+  actorId String?
+  source String
+  explanation String
+  revision Int
+  createdAt DateTime @default(now())
+  @@unique([userId, revision])
 }

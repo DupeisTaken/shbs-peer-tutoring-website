@@ -152,7 +152,12 @@ export default function TutorsPage() {
           </button>
         </form>
       )}
-      {!readOnly && <ProfilePolicyHint />}
+      {!readOnly && (
+        <>
+          <ProfilePolicyHint />
+          <ProfilePolicyHint field="legal" />
+        </>
+      )}
       {!readOnly && create.error && (
         <p role="alert" className="text-sm text-red-600">
           <ProfilePolicyError message={create.error.message} />

@@ -105,6 +105,34 @@ ADMIN or HEAD runs refresh in **Program & Refresh** after checking the displayed
 
 Reload if another administrator has already changed the period. After refresh, check applied switches, tutor availability, intake settings and new assignments before resuming the program.
 
+## School departure and viewer access
+
+Graduated and transferred students keep their personal dashboards and historical records.
+Confirmed departure adds **Enter viewer portal** to the tutor or student workspace. The
+portal shows the same permitted summaries and masked private fields as a standalone Viewer.
+It does not convert the account to the exclusive Viewer membership.
+
+Use **School Departure** in personal account settings to request graduation, transfer or
+return. Head reviews requests through **Management Actions**; pending requests grant no
+access. Staff can also open **Users & Roles → Edit Profile → School Departure**. Head can
+apply the reviewed change directly; other management accounts submit a proposal.
+Academic self-reports and imported roster records do not grant observer access.
+
+Confirmation ends tutoring and tutee participation, removes current assignments and requeues
+affected learners. Historical attendance, pairings and service hours remain. School transfer
+does not change academic graduation or grade reports. Separately assigned crew, translator
+and management permissions remain in place for independent review.
+
+Head can revoke or restore departure-based observer access without erasing departure
+history. Account suspension takes precedence. Revoked tutor access also blocks an observer
+grant derived from that tutor membership. A reviewed return removes the departure grant,
+puts an eligible tutor back into pending activation, and requires fresh tutee enrollment;
+it never reconstructs old assignments. Ordinary archived/opted-out accounts acquire no
+observer access merely from those statuses.
+
+Program refresh records eligible senior graduation automatically. Existing graduated tutor
+accounts require the explicit migration described in the deployment guide.
+
 ## Review attendance flags
 
 **Attendance Flags** compares an in-person session's distinct present students with crew observations in the same room and school date, within the session window plus 15 minutes on either side. Online sessions are excluded. Shared subject blocks count distinct students once. A `4+` observation is a lower bound and cannot establish an undercount.

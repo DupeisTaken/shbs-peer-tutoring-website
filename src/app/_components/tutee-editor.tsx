@@ -131,7 +131,12 @@ export function TuteeEditor({
               </label>
             ))}
           <div className="sm:col-span-2">
-            {!row.historical && <ProfilePolicyHint />}
+            {!row.historical && (
+              <>
+                <ProfilePolicyHint />
+                <ProfilePolicyHint field="legal" />
+              </>
+            )}
           </div>
           {(
             [

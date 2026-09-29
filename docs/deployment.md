@@ -476,6 +476,14 @@ gunzip -c backups/<file>.sql.gz | docker compose exec -T db psql -v ON_ERROR_STO
 
 ## Optional notification delivery
 
+Email actions require `AUTH_URL` to be the canonical public HTTPS origin in production (no path, query, credentials or localhost). Notification, password/setup and signup link builders share this validation; invalid configuration fails delivery instead of emailing a localhost link. Development alone may fall back to `http://localhost:3000`.
+
+Apply `20260929120000_email_notification_destinations` and regenerate Prisma before starting the updated worker. It retains each notification's internal destination in the outbox, in the same transaction as the event. Legacy program-update rows without a destination fall back to the home page. Account notices retain account settings; message notices use the role-aware inbox entry. A role downgrade falls back from staff-only links, and destination pages still enforce current access. Query parameters and fragments survive the notification's sign-in link, password/2FA completion, and expired-session recovery.
+
+Outgoing mail includes a shared branded HTML layout plus the original plain-text content. The layout needs no external images, fonts, or scripts; inspect representative clients, mobile widths, dark mode and images-disabled mode before rollout. Notification timestamps use the configured program timezone. Mail copy remains English, with existing bilingual signup instructions preserved: account records currently have no persisted mail-language preference. Sender-address routing is unchanged (tracked separately in #187).
+
+Generate synthetic, offline previews with `npx tsx scripts/preview-emails.ts`; output defaults to `.validation/email-previews`. These files never use the database or live SMTP. Browser previews supplement, but do not replace, the real-inbox checks below.
+
 For the supplied Docker deployment, pull and recreate the app as above: the image
 contains the generated Prisma client and its entrypoint runs migrations. For a
 source-based deployment outside Docker, apply all migrations with `npm run db:migrate`,
@@ -518,7 +526,33 @@ management switch. Install provider credentials as deployment secrets, apply the
 migration, and perform the bounded operator smoke check after separate service
 activation. The switch defaults off and is independent of period refresh.
 
-### Combined-account identity retention
+## School departure migration
+
+After deploying the school-departure schema, inspect existing graduated tutor accounts:
+
+```powershell
+npx tsx scripts/backfill-school-departures.ts
+```
+
+This defaults to a dry run. After reviewing its counts and account IDs, apply with
+`npx tsx scripts/backfill-school-departures.ts --apply`. Repeating the command skips
+accounts already confirmed. Revoked/suspended accounts, standalone Viewers and accounts
+with active learning participation are reported for individual Head review.
+
+The migration preserves account roles and historical records. Self-reported academic
+graduation, ordinary archives and opt-outs do not grant access. New imports never run this
+migration automatically. Review later-linked historical accounts explicitly.
+
+The new `TRANSFERRED` tutor enum requires compatible application code. To disable the
+feature, revoke departure-based observer grants or deploy a compatible corrective release;
+do not run an older application that cannot read the enum or remove departure data to
+restore participation implicitly.
+
+The generic account-combine tool refuses accounts with departure history, including
+reviewed returns. Combining those identities needs a reviewed data migration that keeps
+departure events and explicit access revocations; do not delete departure rows to bypass it.
+
+## Combined-account identity retention
 
 Deploy `20260929010000_combine_accounts` and
 `20260929020000_retired_credential_grants` before running code with the Head-only

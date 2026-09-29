@@ -1,3 +1,4 @@
+import { requireSchoolParticipation } from "./school-departure";
 import { lockAccountProfile } from "~/server/account-profile";
 import { requireAcademicConfirmation } from "~/server/academics";
 import { TRPCError } from "@trpc/server";
@@ -220,7 +221,10 @@ export async function decideMembership(
     if (approve) {
       if (request.kind === "REENTRY") {
         const owner = kind === "crew" ? member.id : (await tx.user.findUnique({ where: { tutorId: member.id }, select: { id: true } }))?.id;
-        if (owner) await requireAcademicConfirmation(tx, owner);
+        if (owner) {
+          if (kind === "tutor") await requireSchoolParticipation(tx, owner);
+          await requireAcademicConfirmation(tx, owner);
+        }
       }
       const status = request.kind === "OPT_OUT" ? "OPTED_OUT" : "ACTIVE";
       if (kind === "tutor")

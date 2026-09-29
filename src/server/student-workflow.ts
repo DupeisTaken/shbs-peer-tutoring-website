@@ -174,9 +174,10 @@ export async function studentPolicyStatus(
       tuteeMember: true,
       role: true,
       suspendedAt: true,
+      schoolDeparture: true,
     },
   });
-  if (!user || user.suspendedAt || user.role === "VIEWER") return null;
+  if (!user || user.suspendedAt || user.role === "VIEWER" || user.schoolDeparture?.reason) return null;
   // An unpublished membership must not hide another membership's published review.
   // Only publication absence is a setup state; database errors still propagate.
   const missingSlugs: PolicySlug[] = [];

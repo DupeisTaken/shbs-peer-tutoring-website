@@ -14,6 +14,7 @@ import { maskEmail } from "~/server/auth/mask";
 import { issueLoginCode } from "~/server/auth/two-factor";
 import { isEmailDeliveryAvailable } from "~/server/email/sender";
 import { getFeatures } from "~/server/program/features";
+import { returnDestination } from "~/lib/return-destination";
 
 export type SignInState =
   | { step: "password"; error?: string }
@@ -38,6 +39,8 @@ export async function signInAction(
 ): Promise<SignInState> {
   const t = await getTranslations("auth");
   const step = formData.get("step");
+  // Hidden fields are untrusted: validate again at the server-action boundary.
+  const redirectTo = returnDestination(formData.get("callbackUrl"));
 
   if (step === "code") {
     const userIdRaw = formData.get("userId");
@@ -59,7 +62,7 @@ export async function signInAction(
         intent: "login_2fa",
         userId,
         code: formData.get("code"),
-        redirectTo: "/",
+        redirectTo,
       });
     } catch (error) {
       if (error instanceof AuthError) {
@@ -96,7 +99,10 @@ export async function signInAction(
         return { step: "password", error: t("twoFactor.unavailable") };
       }
       try {
-        const { email } = await issueLoginCode(verified.user.id, verified.user.sessionVersion);
+        const { email } = await issueLoginCode(
+          verified.user.id,
+          verified.user.sessionVersion,
+        );
         return {
           step: "code",
           userId: verified.user.id,
@@ -112,7 +118,7 @@ export async function signInAction(
     await signIn("credentials", {
       identifier,
       password,
-      redirectTo: "/",
+      redirectTo,
     });
   } catch (error) {
     if (error instanceof CredentialsSignin && error.code === "rate_limited") {

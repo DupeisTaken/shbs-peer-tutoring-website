@@ -4,8 +4,12 @@ import { useEffect, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
+import { SchoolDeparturePanel } from "~/app/_components/school-departure";
 import { AcademicPanel } from "~/app/_components/academic-profile";
-import { ProfilePolicyHint, ProfilePolicyError } from "~/app/_components/profile-policy";
+import {
+  ProfilePolicyHint,
+  ProfilePolicyError,
+} from "~/app/_components/profile-policy";
 import { AcademicError } from "~/app/_components/academic-error";
 import { signInAfterPasswordChange } from "~/lib/password-session";
 import { TwoFactorSettings } from "~/app/_components/two-factor-settings";
@@ -139,14 +143,15 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <ProfilePolicyHint />
+        <ProfilePolicyHint field="legal" />
         <label className="block space-y-1">
           <span className="label">{t("tutor.settings.altNames")}</span>
           <input
             value={altNames}
-            onChange={(e) => { setAltNames(e.target.value); setProfileDirty(true); }}
-            placeholder="中文名 / preferred name"
-            lang="zh"
+            onChange={(e) => {
+              setAltNames(e.target.value);
+              setProfileDirty(true);
+            }}
             className="input"
           />
           <span className="muted text-xs">
@@ -165,9 +170,12 @@ export default function SettingsPage() {
             className="btn-primary"
             disabled={updateProfile.isPending}
             onClick={() =>
-              updateProfile.mutate({
-                alternativeNames: altNames.trim() || null,
-              }, { onSuccess: () => setProfileDirty(false) })
+              updateProfile.mutate(
+                {
+                  alternativeNames: altNames.trim() || null,
+                },
+                { onSuccess: () => setProfileDirty(false) },
+              )
             }
           >
             {updateProfile.isPending
@@ -188,6 +196,7 @@ export default function SettingsPage() {
       </section>
 
       <AcademicPanel />
+      <SchoolDeparturePanel />
 
       {/* Password — two-step: verify current password to email a code, then submit code + new pw. */}
       <section className="card space-y-4 p-5">
@@ -401,7 +410,9 @@ export default function SettingsPage() {
               {t("tutor.settings.reentryBtn")}
             </button>
             {reentry.error && (
-              <p role="alert" className="text-sm text-red-600"><AcademicError message={reentry.error.message} selfService /></p>
+              <p role="alert" className="text-sm text-red-600">
+                <AcademicError message={reentry.error.message} selfService />
+              </p>
             )}
           </div>
         ) : (

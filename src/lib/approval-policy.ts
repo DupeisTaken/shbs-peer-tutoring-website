@@ -7,6 +7,7 @@
  * qualificationApplication.decide deliberately uses adminOnlyProcedure instead: subject grants
  * do not change account badges and coordinators cannot submit/replay these decisions. */
 export const HEAD_APPROVAL_OPERATIONS = new Set([
+  "departure.setState",
   "admin.setMemberships",
   "admin.setUserCanTutor",
   "admin.setCrewStatus",
@@ -19,6 +20,7 @@ export const HEAD_APPROVAL_OPERATIONS = new Set([
   "tutor.decideInterview",
 ]);
 export const APPROVAL_OPERATIONS: Record<string, string> = {
+  "departure.setState": "User",
   "corrections.correctAttendance": "Session",
   "corrections.correctPatrol": "Patrol",
   "interviewManagement.qualify": "Tutor",
