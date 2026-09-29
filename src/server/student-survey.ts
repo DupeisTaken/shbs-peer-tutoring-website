@@ -1,3 +1,4 @@
+import { requireSchoolParticipation } from "~/server/school-departure";
 import { emailOrigin as publicEmailOrigin } from "~/server/email/urls";
 import { signupMetric } from "~/server/signup-admission";
 import { preferredLatinNameSchema } from "~/lib/username";
@@ -173,6 +174,7 @@ export async function submitSurvey(
       where: { email: input.email },
       select: { id: true, profileVersion: true, name: true, mergedIntoId: true },
     });
+    if (account) await requireSchoolParticipation(tx, account.id);
     if (account?.mergedIntoId)
       throw new TRPCError({ code: "FORBIDDEN", message: "Contact the team about your account." });
     const block = await tx.studentQuarterBlock.findFirst({
@@ -432,7 +434,7 @@ export async function confirmSurvey(
     // noncompliant identity. Existing verified identities remain the canonical source.
     await assertPrimaryName(tx, user?.name ?? input.englishName, user?.name);
     await assertOfferedGrade(tx, normalizeGrade(input.gradeLevel).gradeLevel);
-    if (user) await lockAccountProfile(tx, user.id);
+    if (user) { await lockAccountProfile(tx, user.id); await requireSchoolParticipation(tx, user.id); }
     // A retired login also has no password. Do not mistake it for an unfinished invitation.
     // The namespace lock above serializes this decision with account combination.
     if (user?.mergedIntoId || user?.suspendedAt || user?.role === "VIEWER")

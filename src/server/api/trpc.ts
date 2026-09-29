@@ -1,3 +1,4 @@
+import { portalAccess } from "~/lib/portal-access";
 import { SignupRetry } from "~/server/signup-admission";
 import { accountHistoryIds } from "~/server/account-history";
 import { ApprovalQueued, queueProposal } from "~/server/approvals";
@@ -187,6 +188,7 @@ export const protectedProcedure = t.procedure
         mergedIntoId: true,
         tutorId: true,
         tutorAccessRevoked: true,
+        schoolDeparture: true,
         canTranslate: true,
         tuteeMember: true,
         studentId: true,
@@ -207,6 +209,9 @@ export const protectedProcedure = t.procedure
         message: "Your account is suspended.",
       });
     }
+    const access = portalAccess(account);
+    if (type === "mutation" && access.departed && ["tutor.activateAccount", "tutor.requestReentry", "tutor.setAvailability", "tutor.setInterviewTime", "studentWorkflow.editAvailability", "studentWorkflow.applyAbort", "studentWorkflow.applyLegacyWithdrawal"].includes(path))
+      throw new TRPCError({ code: "FORBIDDEN", message: "School departure is confirmed. Ask Head to review your return." });
     // Participant reads and writes share the same consent boundary as the tutee page.
     // Policy/onboarding and staff inspection remain available before participation is granted.
     const tuteeOperations = new Set([
@@ -221,13 +226,13 @@ export const protectedProcedure = t.procedure
       "studentWorkflow.applyAbort",
     ]);
     if (tuteeOperations.has(path)) {
-      if (account.role === "VIEWER" || !account.tuteeMember)
+      if (account.role === "VIEWER" || (!account.tuteeMember && !access.departed))
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "Accept the tutee policy before entering the tutee area.",
         });
       if (
-        account.tutorId &&
+        account.tutorId && !access.departed &&
         !(await ctx.db.policyAcceptance.findFirst({
           where: { userId: { in: await accountHistoryIds(ctx.db, ctx.session.user.id) }, slug: "tutee-policy" },
           select: { id: true },
@@ -349,6 +354,7 @@ export const protectedProcedure = t.procedure
     }
     const result = await next({
       ctx: {
+        portalAccess: access,
         // infers the `session` as non-nullable
         session: {
           ...ctx.session,
@@ -502,7 +508,7 @@ export const activeTutorProcedure = tutorProcedure.use(
       where: { id: ctx.session.tutorId },
       select: { status: true },
     });
-    if (tutor?.status !== "ACTIVE") {
+    if (tutor?.status !== "ACTIVE" || !ctx.portalAccess.canParticipate) {
       throw new TRPCError({
         code: "FORBIDDEN",
         message: "This action requires an active tutor account.",
@@ -610,7 +616,7 @@ function maskViewerPII(value: unknown): unknown {
  */
 export const viewerProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   const { role } = ctx.session;
-  if (!isElevated(role) && role !== "VIEWER") {
+  if (!ctx.portalAccess.canReadManagement) {
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "Admin access required.",
@@ -630,7 +636,7 @@ export const viewerProcedure = protectedProcedure.use(async ({ ctx, next }) => {
     }
   }
   const result = await next();
-  if (role === "VIEWER" && result.ok) {
+  if (ctx.portalAccess.maskManagementData && result.ok) {
     return { ...result, data: maskViewerPII(result.data) };
   }
   return result;

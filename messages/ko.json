@@ -1765,7 +1765,8 @@
       "GRADUATED": "졸업",
       "OPTED_OUT": "탈퇴",
       "PENDING": "대기 중",
-      "ARCHIVED": "보관됨"
+      "ARCHIVED": "보관됨",
+      "TRANSFERRED": "Transferred"
     },
     "attendance": {
       "loading": "매칭 불러오는 중…",
@@ -3303,5 +3304,33 @@
       "academicConfirmations": "Academic confirmations retained",
       "tuteeProfiles": "Tutee ownership links moved"
     }
+  },
+  "schoolDeparture": {
+    "title": "School Departure",
+    "eyebrow": "Stay connected",
+    "graduated": "Graduated",
+    "transferred": "Transferred to another school",
+    "historyHelp": "Your tutoring and learning records remain available here. You can follow the program through the read-only viewer portal.",
+    "enter": "Enter viewer portal",
+    "help": "Request a confirmed graduation, school transfer or return. Head reviews requests. Academic profile edits do not change portal access.",
+    "current": "Current status",
+    "enrolled": "No confirmed departure",
+    "revoked": "Viewer access revoked",
+    "change": "Change",
+    "reason": "Reason for review",
+    "return": "Return to school",
+    "revoke": "Revoke viewer access",
+    "restore": "Restore viewer access",
+    "review": "Review departure change",
+    "request": "Request change",
+    "saved": "Departure updated.",
+    "requested": "Submitted for Head review. Access has not changed.",
+    "returnHelp": "This removes departure-based viewer access. Tutoring returns to pending and requires activation. Tutee enrollment and assignments must be requested again.",
+    "accessHelp": "This changes viewer-portal access only. The departure record and personal history remain.",
+    "consequences": "Confirming departure stops tutoring and tutee participation. Current assignments are detached; affected learners return to the assignment queue. Past attendance and service hours are preserved.",
+    "retained": "Separately granted crew, translator and management permissions remain unchanged and can be reviewed in Memberships.",
+    "confirm": "Confirm change",
+    "requests": "My requests and decisions",
+    "history": "Departure history"
   }
 }

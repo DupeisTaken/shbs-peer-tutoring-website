@@ -1,3 +1,4 @@
+import { requireSchoolParticipation } from "~/server/school-departure";
 import { requireAcademicConfirmation } from "~/server/academics";
 import { accountHistoryIds } from "~/server/account-history";
 import {
@@ -802,7 +803,7 @@ export const tutorRouter = createTRPCRouter({
   }),
 
   /** Replace the signed-in tutor's availability with the given set of slot ids. */
-  setAvailability: tutorProcedure
+  setAvailability: activeTutorProcedure
     .input(z.object({ slotIds: z.array(z.string().min(1)) }))
     .mutation(async ({ ctx, input }) => {
       const slotIds = [...new Set(input.slotIds)];
@@ -1287,7 +1288,7 @@ export const tutorRouter = createTRPCRouter({
    * Set the interview time for an application. Only the HEAD interviewer of that
    * application may do this (row-scoped check on the caller's tutorId + isHead).
    */
-  setInterviewTime: tutorProcedure
+  setInterviewTime: activeTutorProcedure
     .input(
       z.object({
         applicationId: z.string().min(1),
@@ -1711,6 +1712,7 @@ export const tutorRouter = createTRPCRouter({
         if (tutor.status !== "PENDING") {
           throw new TRPCError({ code: "BAD_REQUEST", message: "Your account isn't awaiting activation." });
         }
+        await requireSchoolParticipation(tx, ctx.session.user.id);
         if (input.available) await requireAcademicConfirmation(tx, ctx.session.user.id);
         const status = input.available ? "ACTIVE" as const : "OPTED_OUT" as const;
         await tx.tutor.update({ where: { id: ctx.session.tutorId }, data: { status } });

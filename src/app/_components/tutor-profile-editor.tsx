@@ -149,7 +149,7 @@ export function TutorProfileEditor({
               [
                 "ACTIVE",
                 "PENDING",
-                "GRADUATED",
+                "GRADUATED", "TRANSFERRED",
                 "OPTED_OUT",
                 "ARCHIVED",
               ] as const

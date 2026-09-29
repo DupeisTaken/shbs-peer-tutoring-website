@@ -87,6 +87,42 @@ afterAll(async () => {
   await db.$disconnect();
 });
 
+it.each(["GRADUATED", "TRANSFERRED", null])(
+  "preserves departure history and revocation across a rejected combine (%s)",
+  async (reason) => {
+    const preview = await previewCombine(db, pair());
+    await db.schoolDeparture.create({
+      data: {
+        userId: duplicateId,
+        reason,
+        source: "TEST",
+        observerRevoked: true,
+      },
+    });
+    expect((await previewCombine(db, pair())).conflicts.join(" ")).toContain(
+      "school-departure history",
+    );
+    await expect(
+      caller(headId).accountCombine.combine({
+        ...pair(),
+        fingerprint: preview.fingerprint,
+        confirmPassword: password,
+      }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+    expect(
+      (await db.user.findUniqueOrThrow({ where: { id: duplicateId } }))
+        .mergedIntoId,
+    ).toBeNull();
+    expect(
+      (
+        await db.schoolDeparture.findUniqueOrThrow({
+          where: { userId: duplicateId },
+        })
+      ).observerRevoked,
+    ).toBe(true);
+  },
+);
+
 it("combines links and delivery ownership, preserves immutable evidence, and revokes the duplicate", async () => {
   const student = await db.tutee.create({
     data: { englishName: "Combined student", status: "ACTIVE" },

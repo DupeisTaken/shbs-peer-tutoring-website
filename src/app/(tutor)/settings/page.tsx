@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
+import { SchoolDeparturePanel } from "~/app/_components/school-departure";
 import { AcademicPanel } from "~/app/_components/academic-profile";
 import {
   ProfilePolicyHint,
@@ -195,6 +196,7 @@ export default function SettingsPage() {
       </section>
 
       <AcademicPanel />
+      <SchoolDeparturePanel />
 
       {/* Password — two-step: verify current password to email a code, then submit code + new pw. */}
       <section className="card space-y-4 p-5">

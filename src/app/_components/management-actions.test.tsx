@@ -59,7 +59,12 @@ const row = (state = "PENDING") => ({
   payload: SuperJSON.serialize({ id: "room-1", name: "New room name" }),
   targets: { rooms: [{ record: { id: "room-1", name: "Original room" } }] },
 });
-function queue(rows = [row()], canReview = false, total = rows.length, headReviewer = false) {
+function queue(
+  rows = [row()],
+  canReview = false,
+  total = rows.length,
+  headReviewer = false,
+) {
   mocks.list.mockReturnValue({
     data: {
       rows,
@@ -93,6 +98,28 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+it("shows departure consequences to Head without exposing the revision counter", () => {
+  const departure = {
+    ...row(),
+    operation: "departure.setState",
+    payload: SuperJSON.serialize({
+      userId: "student",
+      action: "RETURN",
+      expectedRevision: 3,
+      explanation: "Returning next term",
+    }),
+  };
+  queue([departure], true, 1, true);
+  render(view(true));
+  expect(
+    screen.getByRole("heading", { name: "School Departure" }),
+  ).toBeTruthy();
+  expect(
+    screen.getByText(/This removes departure-based viewer access/),
+  ).toBeTruthy();
+  expect(screen.queryByText("Expected Revision")).toBeNull();
+});
+
 it("restores linked filters and makes the banner's full-list URL reset older pages", () => {
   mocks.params = "status=REJECTED&page=1";
   queue([row("REJECTED")], false, 30);
@@ -100,9 +127,7 @@ it("restores linked filters and makes the banner's full-list URL reset older pag
   expect(mocks.list).toHaveBeenLastCalledWith(
     expect.objectContaining({ state: "REJECTED", page: 1 }),
   );
-  fireEvent.click(
-    screen.getByRole("button", { name: "Approved" }),
-  );
+  fireEvent.click(screen.getByRole("button", { name: "Approved" }));
   expect(mocks.replace).toHaveBeenCalledWith(
     "/admin/approvals?status=APPROVED",
     { scroll: false },
@@ -231,8 +256,18 @@ it("renders localized loading, error and unavailable detail states", () => {
   expect(screen.getByText(zh.approvals.missingHint)).toBeTruthy();
 });
 
-it.each([true, false])("only shows self-review controls for a live Head: %s", (headReviewer) => {
-  queue([{ ...row(), requesterId: headReviewer ? "coordinator" : "admin" }], true, 1, headReviewer);
-  render(view(true));
-  expect(screen.queryByRole("button", { name: "Approve and Apply" }) !== null).toBe(headReviewer);
-});
+it.each([true, false])(
+  "only shows self-review controls for a live Head: %s",
+  (headReviewer) => {
+    queue(
+      [{ ...row(), requesterId: headReviewer ? "coordinator" : "admin" }],
+      true,
+      1,
+      headReviewer,
+    );
+    render(view(true));
+    expect(
+      screen.queryByRole("button", { name: "Approve and Apply" }) !== null,
+    ).toBe(headReviewer);
+  },
+);

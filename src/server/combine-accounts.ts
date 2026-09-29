@@ -42,6 +42,7 @@ export async function previewCombine(db: DomainDb, input: Pair) {
         where: { id },
         include: {
           academicProfile: true,
+          schoolDeparture: true,
           emails: { orderBy: { email: "asc" } },
         },
       }),
@@ -69,6 +70,12 @@ export async function previewCombine(db: DomainDb, input: Pair) {
     );
   if (survivor.suspendedAt || duplicate.suspendedAt)
     conflicts.push("Resolve account suspensions before combining accounts.");
+  // The generic combine has no reviewed choice for departure grants/revocations or their
+  // event history. Keep both identities until an explicit migration preserves that evidence.
+  if (survivor.schoolDeparture || duplicate.schoolDeparture)
+    conflicts.push(
+      "Accounts with school-departure history require a reviewed data migration before combining; preserve their departure decisions and observer access.",
+    );
   if (
     await db.studentSurvey.count({
       where: {

@@ -1,3 +1,4 @@
+import { accountPortalAccess } from "~/server/portal-access";
 import { WorkspaceHeader } from "~/app/_components/workspace-header";
 import { AdminPreferenceIdentity } from "~/app/_components/dismissible-notice";
 import Link from "next/link";
@@ -12,12 +13,9 @@ import { NavSidebar, NavMobileRow } from "~/app/_components/admin-nav";
 import { ReadOnlyProvider } from "~/app/_components/read-only";
 import { TEAM_TITLE } from "~/lib/branding";
 
-// Roles allowed into the /admin area. VIEWER is read-only (see viewerProcedure + PII masking).
-// HEAD outranks ADMIN and shares the same admin-area access.
-const ADMIN_AREA_ROLES = ["HEAD", "ADMIN", "COORDINATOR", "VIEWER"];
-
 /**
- * Gates the entire admin section. Requires an elevated role (ADMIN or COORDINATOR).
+ * Gates management reads using current account capabilities. Departure observers receive
+ * the same read-only UI and API masking as standalone Viewers.
  * Server-enforced; the middleware only checks authentication, not role.
  */
 export default async function AdminLayout({
@@ -29,9 +27,9 @@ export default async function AdminLayout({
   const t = await getTranslations();
 
   if (!session?.user) redirect("/signin");
-  if (!ADMIN_AREA_ROLES.includes(session.role)) redirect("/");
-
-  const readOnly = session.role === "VIEWER";
+  const access = await accountPortalAccess(session.user.id);
+  if (!access.canReadManagement) redirect("/");
+  const readOnly = access.managementReadOnly;
 
   // Username for the identity block in the top bar (account handle, falling back to a linked
   // tutor's). The block links to the self-service account page. The tutor `status` decides whether
@@ -60,7 +58,7 @@ export default async function AdminLayout({
     ...(canEnterTutor
       ? [{ href: "/dashboard", label: t("components.userMenu.enterTutor") }]
       : []),
-    ...(!readOnly ? [{ href: "/student", label: t("components.userMenu.enterTutee") }] : []),
+    ...(!readOnly || access.departed ? [{ href: "/student", label: t("components.userMenu.enterTutee") }] : []),
   ];
   const accountItems = [
     ...workspaceItems,

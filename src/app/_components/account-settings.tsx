@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 
 import { MembershipEditor } from "./membership-editor";
+import { SchoolDeparturePanel } from "~/app/_components/school-departure";
 import { AcademicPanel } from "./academic-profile";
 import { accountMembership } from "~/lib/account-membership";
 import {
@@ -293,6 +294,7 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
       </section>
 
       <AcademicPanel />
+      <SchoolDeparturePanel />
 
       {/* Password — two-step: verify current password to email a code, then submit code + new pw. */}
       <section className="card space-y-4 p-5 sm:p-6">
