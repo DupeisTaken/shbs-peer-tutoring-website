@@ -33,7 +33,7 @@ import { db } from "~/server/db";
 import { hashPassword } from "./password";
 import { generateRegistrationCode, normalizeRegCode } from "./code";
 import { defaultUsername, ensureUniqueUsername, canonicalUsername, ensureUserUsername, lockUsernameNamespace } from "./username";
-import { assertPrimaryName, assertOfferedGrade } from "~/server/program/profile-policy";
+import { assertLegalName, assertPrimaryName, assertOfferedGrade } from "~/server/program/profile-policy";
 import { needsAcademicConfirmationForParticipation } from "~/lib/academics";
 import { graduationYear } from "~/lib/period";
 
@@ -395,6 +395,7 @@ export async function completeRegistration(
       const term = await tx.term.findFirst({ where: { active: true }, select: { schoolYear: true } });
       const gradYear = gradeLevel != null && term ? graduationYear(gradeLevel, term.schoolYear) : null;
       await assertPrimaryName(tx, [firstName, lastName].filter(Boolean).join(" "));
+      await assertLegalName(tx, alternativeNames);
       await assertOfferedGrade(tx, gradeLevel);
       if (gradeLevel != null && !term) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "PROFILE_NO_CURRENT_YEAR" });
       await lockUsernameNamespace(tx);
@@ -431,6 +432,8 @@ export async function completeRegistration(
         ? graduationYear(gradeLevel, term.schoolYear) : null;
       const existingUser = await tx.user.findUnique({ where: { email } });
       await assertPrimaryName(tx, existingUser?.name ?? [firstName, lastName].filter(Boolean).join(" "), existingUser?.name);
+      // Crew invitations keep an existing account identity; only new accounts adopt input.
+      if (!existingUser) await assertLegalName(tx, alternativeNames);
       await assertOfferedGrade(tx, gradeLevel);
       if (gradeLevel != null && !term) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "PROFILE_NO_CURRENT_YEAR" });
       // Namespace locking serializes this check with account combination. Retired identities
@@ -540,6 +543,7 @@ export async function completeRegistration(
     // The namespace lock serializes edits to provisional roster names.
     await assertPrimaryName(tx, [firstName, lastName].filter(Boolean).join(" "),
       existingUser ? existingUser.name : rosterTutor?.englishName);
+    await assertLegalName(tx, alternativeNames, existingUser ? existingUser.alternativeNames : rosterTutor?.alternativeNames);
     // Account ownership wins; a genuinely new account adopts its roster's provisional handle.
     const desiredUsername = await canonicalUsername(tx,
       defaultUsername(firstName, lastName, usernameGradYear, input.preferredLatinName), {
@@ -605,6 +609,8 @@ export async function completeRegistration(
           username: desiredUsername,
           name: `${firstName} ${lastName}`,
           role: "TUTOR",
+          // Seed the already-validated legal name so unchanged roster values are preserved.
+          alternativeNames,
           tutorId,
           tutorAccessRevoked: false,
           passwordHash,

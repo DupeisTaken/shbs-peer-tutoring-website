@@ -133,6 +133,7 @@ export function TuteeEditor({
             ))}
           <div className="sm:col-span-2">
             <ProfilePolicyHint />
+            <ProfilePolicyHint field="legal" />
           </div>
           {(
             [

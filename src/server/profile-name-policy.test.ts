@@ -101,6 +101,231 @@ beforeEach(async () => {
 });
 afterAll(() => db.$disconnect());
 
+const legalError = {
+  code: "BAD_REQUEST",
+  message: "PROFILE_LATIN_LEGAL_NAME_REQUIRED",
+};
+const requireLegal = () =>
+  db.programSettings.update({
+    where: { id: "program" },
+    data: { requireLatinLegalNames: true },
+  });
+
+it.each(["王小明", "Аlice Chen", "Alice123", "Alice🙂", "Ali\u200bce"])(
+  "rejects new legal name %s independently through account API",
+  async (name) => {
+    await setRequired(false);
+    await requireLegal();
+    const user = await db.user.create({
+      data: { email: "legal@example.test", name: "王小明" },
+    });
+    const caller = createCaller({
+      db,
+      headers: new Headers(),
+      session: {
+        user: { id: user.id },
+        role: "STUDENT",
+        tutorId: null,
+        expires: "2099-01-01",
+      },
+    });
+    await expect(
+      caller.account.updateName({ name: "李小明", alternativeNames: name }),
+    ).rejects.toMatchObject(legalError);
+    expect(
+      await db.user.findUniqueOrThrow({ where: { id: user.id } }),
+    ).toMatchObject({
+      name: "王小明",
+      alternativeNames: null,
+      profileVersion: 0,
+    });
+  },
+);
+
+it.each([
+  "José García",
+  "Jose\u0301 García",
+  "Zoë O’Connor",
+  "Jean-Luc",
+  "Łukasz",
+  "",
+  "   ",
+  null,
+  undefined,
+])("accepts legal name %s and synchronizes linked profiles", async (name) => {
+  await requireLegal();
+  const tutor = await db.tutor.create({ data: { englishName: "Alice Chen" } });
+  const student = await db.tutee.create({
+    data: { englishName: "Alice Chen" },
+  });
+  const user = await db.user.create({
+    data: {
+      email: "legal@example.test",
+      name: "Alice Chen",
+      tutorId: tutor.id,
+      studentId: student.id,
+    },
+  });
+  await updateAccountProfile(db, user.id, { alternativeNames: name });
+  const trimmed = name?.trim() ?? "";
+  const expected = trimmed.length === 0 ? null : trimmed;
+  expect(
+    await db.user.findUniqueOrThrow({ where: { id: user.id } }),
+  ).toMatchObject({ alternativeNames: expected });
+  expect(
+    await db.tutor.findUniqueOrThrow({ where: { id: tutor.id } }),
+  ).toMatchObject({ alternativeNames: expected });
+  expect(
+    await db.tutee.findUniqueOrThrow({ where: { id: student.id } }),
+  ).toMatchObject({ alternativeNames: expected });
+});
+
+it("preserves unchanged legacy legal names, permits clearing, and rejects changed non-Latin names", async () => {
+  await requireLegal();
+  const user = await db.user.create({
+    data: {
+      email: "legal@example.test",
+      name: "王小明",
+      alternativeNames: "王小明",
+    },
+  });
+  await updateAccountProfile(db, user.id, {
+    name: "Alice Chen",
+    alternativeNames: " 王小明 ",
+  });
+  await expect(
+    updateAccountProfile(db, user.id, { alternativeNames: "李小明" }),
+  ).rejects.toMatchObject(legalError);
+  await updateAccountProfile(db, user.id, { alternativeNames: null });
+  expect(
+    await db.user.findUniqueOrThrow({ where: { id: user.id } }),
+  ).toMatchObject({ name: "Alice Chen", alternativeNames: null });
+});
+
+it.each(["TUTOR", "CREW", "ADMIN"] as const)(
+  "rechecks legal-name policy at %s registration without consuming the invitation",
+  async (kind) => {
+    const invitation = await verifiedInvitation("legal@example.test", kind);
+    await requireLegal();
+    const input = {
+      firstName: "Alice",
+      lastName: "Chen",
+      password,
+      completionProof: invitation.completionProof,
+      alternativeNames: "王小明",
+    };
+    await expect(
+      completeRegistration(invitation.row, input),
+    ).rejects.toMatchObject(legalError);
+    expect(
+      await db.registrationCode.findUniqueOrThrow({
+        where: { id: invitation.row.id },
+      }),
+    ).toMatchObject({ usedAt: null });
+    expect(
+      await db.user.count({ where: { email: "legal@example.test" } }),
+    ).toBe(0);
+    expect(await db.tutor.count()).toBe(0);
+    await expect(
+      completeRegistration(invitation.row, {
+        ...input,
+        alternativeNames: "José García",
+      }),
+    ).resolves.toMatchObject({ ok: true });
+  },
+);
+
+it("preserves an invited roster's unchanged legal name when creating its first account", async () => {
+  await requireLegal();
+  const roster = await db.tutor.create({
+    data: {
+      email: "legal-roster@example.test",
+      englishName: "Alice Chen",
+      alternativeNames: "王小明",
+    },
+  });
+  const invitation = await verifiedInvitation(roster.email!, "TUTOR");
+  const row = await db.registrationCode.update({
+    where: { id: invitation.row.id },
+    data: { tutorId: roster.id },
+  });
+  await expect(
+    completeRegistration(row, {
+      firstName: "Alice",
+      lastName: "Chen",
+      alternativeNames: "王小明",
+      password,
+      completionProof: invitation.completionProof,
+    }),
+  ).resolves.toMatchObject({ ok: true });
+  expect(
+    await db.user.findUniqueOrThrow({ where: { email: roster.email! } }),
+  ).toMatchObject({ alternativeNames: "王小明", tutorId: roster.id });
+});
+
+it("enforces legal names for new tutors and unlinked tutor/tutee edits", async () => {
+  await requireLegal();
+  const head = await db.user.create({
+    data: { email: "head@example.test", role: "HEAD", name: "Head" },
+  });
+  const caller = createCaller({
+    db,
+    headers: new Headers(),
+    session: {
+      user: { id: head.id, name: head.name },
+      role: "HEAD",
+      tutorId: null,
+      expires: "2099-01-01",
+    },
+  });
+  await expect(
+    caller.admin.createTutor({
+      firstName: "Alice",
+      lastName: "Chen",
+      alternativeNames: "王小明",
+    }),
+  ).rejects.toMatchObject(legalError);
+  expect(await db.tutor.count()).toBe(0);
+  const tutor = await db.tutor.create({
+    data: { englishName: "Alice Chen", alternativeNames: "王小明" },
+  });
+  const student = await db.tutee.create({
+    data: { englishName: "Alice Chen", alternativeNames: "王小明" },
+  });
+  await expect(
+    caller.admin.updateTutor({
+      id: tutor.id,
+      firstName: "Alice",
+      lastName: "Chen",
+      alternativeNames: "李小明",
+      status: tutor.status,
+    }),
+  ).rejects.toMatchObject(legalError);
+  await expect(
+    caller.admin.updateTutee({
+      id: student.id,
+      englishName: "Alice Chen",
+      alternativeNames: "李小明",
+      status: student.status,
+      expectedUpdatedAt: student.updatedAt,
+    }),
+  ).rejects.toMatchObject(legalError);
+  await caller.admin.updateTutee({
+    id: student.id,
+    englishName: "Alice Chen",
+    alternativeNames: "王小明",
+    status: student.status,
+    expectedUpdatedAt: student.updatedAt,
+  });
+  await caller.admin.updateTutor({
+    id: tutor.id,
+    firstName: "Alice",
+    lastName: "Chen",
+    alternativeNames: "José García",
+    status: tutor.status,
+  });
+});
+
 it.each([
   "José García",
   "Jose\u0301 Garci\u0301a",
@@ -292,8 +517,21 @@ it("rechecks an in-flight viewer signup at completion without consuming the veri
   ).toEqual({ ok: true });
 });
 
-async function verifiedInvitation(email: string, kind: "TUTOR" | "CREW") {
-  const issued = await issueRegistrationCode({ kind, email });
+async function verifiedInvitation(
+  email: string,
+  kind: "TUTOR" | "CREW" | "ADMIN",
+) {
+  const issuer =
+    kind === "ADMIN"
+      ? await db.user.create({
+          data: { email: "issuer@example.test", role: "HEAD" },
+        })
+      : null;
+  const issued = await issueRegistrationCode({
+    kind,
+    email,
+    issuedById: issuer?.id,
+  });
   let row = await db.registrationCode.findUniqueOrThrow({
     where: { id: issued.id },
   });

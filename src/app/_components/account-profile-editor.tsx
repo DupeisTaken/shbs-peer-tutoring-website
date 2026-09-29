@@ -76,6 +76,7 @@ export function AccountProfileEditor({
           />
         </label>
         <ProfilePolicyHint />
+        <ProfilePolicyHint field="legal" />
         <label className="block">
           <span className="label">{t("alternativeNames")}</span>
           <input

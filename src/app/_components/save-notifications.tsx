@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { useTranslations } from "next-intl";
+import { ProfilePolicyError } from "./profile-policy-error";
 
 type Result = { kind: "success" | "error"; message?: string; id: number };
 /** One bounded viewport prevents approval and saved/error notices covering one another. */
@@ -80,7 +81,9 @@ export function SaveNotifications() {
         </button>
       </div>
       {result.kind === "error" && (
-        <p className="mt-2 text-sm">{result.message}</p>
+        <p className="mt-2 text-sm">
+          <ProfilePolicyError message={result.message} />
+        </p>
       )}
     </aside>
   ));

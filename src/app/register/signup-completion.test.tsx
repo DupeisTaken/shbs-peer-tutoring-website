@@ -108,13 +108,20 @@ it("keeps the affiliation example readable and associated with its input", () =>
   const affiliation = screen.getByLabelText(
     `${en.public.viewerSignup.fields.affiliation} ${en.signupFields.required}`,
   );
-  const hint = document.getElementById(affiliation.getAttribute("aria-describedby") ?? "");
-  expect(hint?.textContent).toBe(en.public.viewerSignup.fields.affiliationPlaceholder);
+  const hint = document.getElementById(
+    affiliation.getAttribute("aria-describedby") ?? "",
+  );
+  expect(hint?.textContent).toBe(
+    en.public.viewerSignup.fields.affiliationPlaceholder,
+  );
   expect(affiliation.getAttribute("placeholder")).toBeNull();
 });
 
 it("shows the viewer completion action after verification and matching passwords", () => {
-  mocks.completionResult = { username: "visual", academicConfirmationRequired: false };
+  mocks.completionResult = {
+    username: "visual",
+    academicConfirmationRequired: false,
+  };
   render(wrap(true));
   reachEmailCode(true);
   fill("obs-code", "FGHJK");
@@ -123,7 +130,11 @@ it("shows the viewer completion action after verification and matching passwords
   fill("obs-confirm", "Password123!");
   submit();
   expect(screen.getByText(en.public.viewerSignup.doneTitle)).toBeTruthy();
-  expect(screen.getByRole("link", { name: en.public.viewerSignup.signIn }).getAttribute("href")).toBe("/signin");
+  expect(
+    screen
+      .getByRole("link", { name: en.public.viewerSignup.signIn })
+      .getAttribute("href"),
+  ).toBe("/signin");
 });
 
 it("uses offered grades and the current program year without sending a client-selected year", () => {
@@ -250,11 +261,22 @@ it.each([false, true])(
     submit();
     assertLabels();
     if (!viewer) {
-      expect(screen.getByLabelText("First Name Required")).toBeTruthy();
-      for (const label of ["Last Name", "Alternative Name(s)", "Grade"])
+      expect(
+        screen.getByLabelText("Preferred First Name Required"),
+      ).toBeTruthy();
+      for (const label of ["Preferred Last Name", "Legal Name", "Grade"])
         expect(screen.getByLabelText(label + " Optional")).toBeTruthy();
     }
   },
 );
 
-vi.mock("~/app/_components/signup-captcha", () => ({ useSignupCaptcha: () => ({ run: (work: (grant?: string) => Promise<unknown>) => work(), panel: null, pending: false }), CaptchaError: ({ error }: { error: { message: string } }) => <>{error.message}</> }));
+vi.mock("~/app/_components/signup-captcha", () => ({
+  useSignupCaptcha: () => ({
+    run: (work: (grant?: string) => Promise<unknown>) => work(),
+    panel: null,
+    pending: false,
+  }),
+  CaptchaError: ({ error }: { error: { message: string } }) => (
+    <>{error.message}</>
+  ),
+}));

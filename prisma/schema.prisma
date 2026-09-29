@@ -1832,6 +1832,8 @@ model ProgramSettings {
   /// Head-only configuration for existing signup fields; missing keys use original defaults.
   signupFields Json @default("{}")
   requireLatinNames Boolean @default(false)
+  /// Independent legal-name script rule; alternativeNames retains its storage key.
+  requireLatinLegalNames Boolean @default(false)
   offeredGrades Int[] @default([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
   /// Immediate ADMIN/HEAD switch, independent of staged program modules and authentication mail.
   emailNotificationsEnabled Boolean @default(false)

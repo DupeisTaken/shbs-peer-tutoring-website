@@ -3,6 +3,7 @@ import { z } from "zod";
 export const ALL_GRADES = Array.from({ length: 12 }, (_, index) => index + 1);
 export const profilePolicySchema = z.object({
   requireLatinNames: z.boolean(),
+  requireLatinLegalNames: z.boolean(),
   offeredGrades: z.array(z.number().int().min(1).max(12)).min(1).max(12)
     .refine((grades) => new Set(grades).size === grades.length, "Choose each grade once.")
     .transform((grades) => [...grades].sort((a, b) => a - b)),

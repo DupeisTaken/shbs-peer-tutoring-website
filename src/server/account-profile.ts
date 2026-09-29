@@ -1,4 +1,4 @@
-import { assertPrimaryName } from "~/server/program/profile-policy";
+import { assertPrimaryName, assertLegalName } from "~/server/program/profile-policy";
 import { staleConflict } from "~/server/concurrency";
 import {
   inTransaction,
@@ -42,9 +42,9 @@ export async function updateAccountProfile(
     )
       staleConflict();
     const name = input.name?.trim() ?? current.name;
-    // Validate only intentional primary-name changes. Existing names and secondary
-    // spellings remain editable when the program tightens its naming policy.
+    // Validate each intentional name change independently against the locked profile.
     if (input.name !== undefined) await assertPrimaryName(tx, input.name, current.name);
+    await assertLegalName(tx, input.alternativeNames, current.alternativeNames);
     const alternative = input.alternativeNames?.trim() ?? "";
     const alternativeNames =
       input.alternativeNames === undefined

@@ -54,7 +54,7 @@ afterEach(cleanup);
 it("shows locked essentials without edit controls and sends a field-specific expected state", () => {
   wrap(<SignupFormsPage />);
   expect(
-    screen.queryByRole("button", { name: "Configure Full name" }),
+    screen.queryByRole("button", { name: "Configure Preferred Name" }),
   ).toBeNull();
   expect(
     screen.queryByRole("button", { name: "Configure Policy acceptance" }),

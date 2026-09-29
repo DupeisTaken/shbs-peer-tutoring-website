@@ -11,6 +11,7 @@ const mock = vi.hoisted(() => ({
   mutate: vi.fn(),
   invalidate: vi.fn(),
   requireLatinNames: false,
+  requireLatinLegalNames: false,
   error: null as null | { message: string; data: { code: string } },
 }));
 vi.mock("~/trpc/react", () => ({
@@ -26,6 +27,7 @@ vi.mock("~/trpc/react", () => ({
         useQuery: () => ({
           data: {
             requireLatinNames: mock.requireLatinNames,
+            requireLatinLegalNames: mock.requireLatinLegalNames,
             offeredGrades: [9, 10, 11, 12],
             currentSchoolYear: "26-27",
           },
@@ -41,7 +43,11 @@ vi.mock("~/trpc/react", () => ({
     },
   },
 }));
-const policy = { requireLatinNames: false, offeredGrades: [9, 10, 11, 12] };
+const policy = {
+  requireLatinNames: false,
+  requireLatinLegalNames: false,
+  offeredGrades: [9, 10, 11, 12],
+};
 const wrap = (child: React.ReactNode, chinese = false) => (
   <NextIntlClientProvider
     locale={chinese ? "zh" : "en"}
@@ -55,6 +61,7 @@ beforeEach(() => {
   vi.clearAllMocks();
   mock.error = null;
   mock.requireLatinNames = false;
+  mock.requireLatinLegalNames = false;
 });
 afterEach(cleanup);
 
@@ -70,7 +77,11 @@ it("saves the selected grades and toggle against the original policy snapshot", 
   view.rerender(
     wrap(
       <ProfilePolicyEditor
-        policy={{ requireLatinNames: true, offeredGrades: [12] }}
+        policy={{
+          requireLatinNames: true,
+          requireLatinLegalNames: false,
+          offeredGrades: [12],
+        }}
         canEdit
         onReload={vi.fn()}
       />,
@@ -79,6 +90,7 @@ it("saves the selected grades and toggle against the original policy snapshot", 
   fireEvent.click(screen.getByRole("button", { name: en.profilePolicy.save }));
   expect(mock.mutate).toHaveBeenCalledWith({
     requireLatinNames: true,
+    requireLatinLegalNames: false,
     offeredGrades: [1, 10, 11, 12],
     expectedPolicy: policy,
   });
@@ -155,6 +167,7 @@ it.each([false, true])(
   },
 );
 it.each([
+  ["PROFILE_LATIN_LEGAL_NAME_REQUIRED", "latinLegalRequired"],
   ["PROFILE_LATIN_NAME_REQUIRED", "latinRequired"],
   ["PROFILE_GRADE_NOT_OFFERED", "gradeNotOffered"],
   ["PROFILE_POLICY_CHANGED", "conflict"],
@@ -164,3 +177,40 @@ it.each([
   render(wrap(<ProfilePolicyError message={message} />, true));
   expect(screen.getByText(zh.profilePolicy[key])).toBeTruthy();
 });
+
+it("saves legal-name enforcement independently of the preferred-name rule", () => {
+  render(
+    wrap(<ProfilePolicyEditor policy={policy} canEdit onReload={vi.fn()} />),
+  );
+  fireEvent.click(
+    screen.getByRole("checkbox", {
+      name: en.profilePolicy.requireLatinLegalNames,
+    }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: en.profilePolicy.save }));
+  expect(mock.mutate).toHaveBeenCalledWith({
+    ...policy,
+    requireLatinLegalNames: true,
+    expectedPolicy: policy,
+  });
+  expect(
+    screen.getByRole<HTMLInputElement>("checkbox", {
+      name: en.profilePolicy.requireLatinNames,
+    }).checked,
+  ).toBe(false);
+});
+
+it.each([false, true])(
+  "shows independent legal-name guidance (Chinese=%s)",
+  (chinese) => {
+    mock.requireLatinNames = true;
+    const view = render(wrap(<ProfilePolicyHint field="legal" />, chinese));
+    expect(view.container.textContent).toBe("");
+    mock.requireLatinLegalNames = true;
+    mock.requireLatinNames = false;
+    view.rerender(wrap(<ProfilePolicyHint field="legal" />, chinese));
+    expect(view.container.textContent).toBe(
+      (chinese ? zh : en).profilePolicy.legalNameHint,
+    );
+  },
+);

@@ -9,7 +9,7 @@ import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { confirmAccountAcademics } from "~/server/academics";
 import { issueRegistrationCode, setEmailVerification, confirmEmailCode, completeRegistration } from "~/server/auth/registration";
 
-const defaults = { requireLatinNames: false, offeredGrades: ALL_GRADES };
+const defaults = { requireLatinNames: false, requireLatinLegalNames: false, offeredGrades: ALL_GRADES };
 const caller = (role: Session["role"] = "STUDENT") => createCaller({ db, headers: new Headers(),
   session: { user: { id: `policy-${role}`, name: role }, role, tutorId: null, expires: "2099-01-01" } });
 beforeEach(async () => {
@@ -23,12 +23,20 @@ beforeEach(async () => {
 });
 afterAll(() => db.$disconnect());
 
+it("audits independent legal-name settings and detects a stale draft when only that rule changed", async () => {
+  const changed = await caller("HEAD").program.setProfilePolicy({ ...defaults, requireLatinLegalNames: true, expectedPolicy: defaults });
+  expect(changed).toEqual({ ...defaults, requireLatinLegalNames: true });
+  expect(await db.auditLog.findFirst({ where: { operation: "program.setProfilePolicy" } })).toMatchObject({ details: { before: defaults, after: changed } });
+  await expect(caller("ADMIN").program.setProfilePolicy({ ...defaults, requireLatinNames: true, expectedPolicy: defaults })).rejects.toMatchObject({ message: "PROFILE_POLICY_CHANGED" });
+  expect(await caller().program.profilePolicy()).toMatchObject(changed);
+});
+
 it("publishes safe defaults and permits audited, immediate, reversible administrator settings", async () => {
   expect(await createCaller({ db, headers: new Headers(), session: null }).program.profilePolicy()).toEqual({ ...defaults, currentSchoolYear: "26-27" });
   expect((await caller("COORDINATOR").program.profilePolicySettings()).canEdit).toBe(false);
   const beforeUser = await db.user.findUniqueOrThrow({ where: { id: "policy-STUDENT" } });
-  const changed = await caller("ADMIN").program.setProfilePolicy({ requireLatinNames: true, offeredGrades: [12, 10, 11], expectedPolicy: defaults });
-  expect(changed).toEqual({ requireLatinNames: true, offeredGrades: [10, 11, 12] });
+  const changed = await caller("ADMIN").program.setProfilePolicy({ requireLatinNames: true, requireLatinLegalNames: false, offeredGrades: [12, 10, 11], expectedPolicy: defaults });
+  expect(changed).toEqual({ requireLatinNames: true, requireLatinLegalNames: false, offeredGrades: [10, 11, 12] });
   expect(await db.auditLog.findFirst({ where: { operation: "program.setProfilePolicy" } })).toMatchObject({ details: { before: defaults, after: changed, existingRecordsPreserved: true } });
   expect(await db.user.findUniqueOrThrow({ where: { id: beforeUser.id } })).toEqual(beforeUser);
   await caller("HEAD").program.setProfilePolicy({ ...defaults, expectedPolicy: changed });

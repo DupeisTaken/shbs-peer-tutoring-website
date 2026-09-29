@@ -49,12 +49,16 @@ export function ProfilePolicyEditor({
   const utils = api.useUtils();
   const [expectedPolicy, setExpectedPolicy] = useState<ProfilePolicy>(() => ({
     requireLatinNames: policy.requireLatinNames,
+    requireLatinLegalNames: policy.requireLatinLegalNames,
     offeredGrades: [...policy.offeredGrades],
   }));
   const [requireLatinNames, setRequireLatinNames] = useState(
     policy.requireLatinNames,
   );
   const [offeredGrades, setOfferedGrades] = useState(policy.offeredGrades);
+  const [requireLatinLegalNames, setRequireLatinLegalNames] = useState(
+    policy.requireLatinLegalNames,
+  );
   const [saved, setSaved] = useState(false);
   const save = api.program.setProfilePolicy.useMutation({
     onSuccess: async (result) => {
@@ -78,7 +82,12 @@ export function ProfilePolicyEditor({
         onSubmit={(event) => {
           event.preventDefault();
           if (canEdit && offeredGrades.length && !save.isPending)
-            save.mutate({ requireLatinNames, offeredGrades, expectedPolicy });
+            save.mutate({
+              requireLatinNames,
+              requireLatinLegalNames,
+              offeredGrades,
+              expectedPolicy,
+            });
         }}
       >
         <fieldset
@@ -99,8 +108,22 @@ export function ProfilePolicyEditor({
               <span className="font-medium">{t("requireLatinNames")}</span>
             </label>
             <p className="muted text-sm">{t("nameHint")}</p>
-            <p className="muted mt-1 text-sm">{t("existingNames")}</p>
           </div>
+          <div>
+            <label className="flex min-h-11 items-center gap-3 lg:min-h-10">
+              <input
+                type="checkbox"
+                checked={requireLatinLegalNames}
+                onChange={(event) => {
+                  setRequireLatinLegalNames(event.target.checked);
+                  setSaved(false);
+                }}
+              />
+              <span className="font-medium">{t("requireLatinLegalNames")}</span>
+            </label>
+            <p className="muted text-sm">{t("legalNameHint")}</p>
+          </div>
+          <p className="muted text-sm">{t("existingNames")}</p>
           <fieldset>
             <legend className="label">{t("offeredGrades")}</legend>
             <p className="muted mb-2 text-sm">{t("gradesHelp")}</p>

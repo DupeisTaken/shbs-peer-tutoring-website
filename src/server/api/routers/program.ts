@@ -88,12 +88,12 @@ export const programRouter = createTRPCRouter({
       const before = await getProfilePolicy(tx);
       if (JSON.stringify(before) !== JSON.stringify(input.expectedPolicy))
         throw new TRPCError({ code: "CONFLICT", message: "PROFILE_POLICY_CHANGED" });
-      const after = { requireLatinNames: input.requireLatinNames, offeredGrades: input.offeredGrades };
+      const after = { requireLatinNames: input.requireLatinNames, requireLatinLegalNames: input.requireLatinLegalNames, offeredGrades: input.offeredGrades };
       await tx.programSettings.upsert({ where: { id: "program" }, create: { id: "program", ...after }, update: after });
       await tx.auditLog.create({ data: {
         userId: ctx.session.user.id, userName: ctx.session.user.name,
         entity: "ProgramSettings", entityId: "program", operation: "program.setProfilePolicy",
-        action: "Changed primary name and grade policy", details: { before, after, existingRecordsPreserved: true },
+        action: "Changed preferred name, legal name and grade policy", details: { before, after, existingRecordsPreserved: true },
       } });
       return after;
     })),
