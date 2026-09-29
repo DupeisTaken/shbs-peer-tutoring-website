@@ -82,6 +82,7 @@ export async function requestEmailChange(
     category: "SECURITY",
     to: targetEmail,
     subject: "Verify your new account email",
+    presentation: { code, eyebrow: "EMAIL VERIFICATION" },
     text: `Your email change code is ${code}. It expires in ten minutes.`,
   });
 }

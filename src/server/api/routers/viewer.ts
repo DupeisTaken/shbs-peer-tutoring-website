@@ -81,10 +81,7 @@ export const viewerRouter = createTRPCRouter({
               text:
                 `Your ${APP_TITLE} email verification code is ${res.code}.\n\n` +
                 `It expires in ${VIEWER_CODE_TTL_MINUTES} minutes. If you didn't request this, ignore this email.`,
-              html:
-                `<p>Your <strong>${APP_TITLE}</strong> email verification code is ` +
-                `<strong style="font-size:1.2em;letter-spacing:2px">${res.code}</strong>.</p>` +
-                `<p>It expires in ${VIEWER_CODE_TTL_MINUTES} minutes.</p>`,
+              presentation: { code: res.code, eyebrow: "EMAIL VERIFICATION" },
             });
           } catch {
             signupMetric("delivery-failed");

@@ -1859,6 +1859,8 @@ model EmailDelivery {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   category String
   event String
+  /// Internal notification destination, retained without copying private message contents.
+  destination String?
   recipient String
   /// Previous primary receives the security notice even if it is subsequently removed.
   previousPrimary Boolean @default(false)

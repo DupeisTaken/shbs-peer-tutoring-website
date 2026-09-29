@@ -48,9 +48,23 @@ export async function issueLoginCode(
     // Serialize with password rotation before issuing a code. A request whose password was
     // verified before the rotation must not create a fresh login grant afterward.
     await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`;
-    const current = await tx.user.findUnique({ where: { id: userId }, select: { email: true, name: true, sessionVersion: true, mergedIntoId: true } });
-    if (!current || current.mergedIntoId || current.sessionVersion !== verifiedSessionVersion)
-      throw new Error("Credentials changed; sign in again before requesting a login code.");
+    const current = await tx.user.findUnique({
+      where: { id: userId },
+      select: {
+        email: true,
+        name: true,
+        sessionVersion: true,
+        mergedIntoId: true,
+      },
+    });
+    if (
+      !current ||
+      current.mergedIntoId ||
+      current.sessionVersion !== verifiedSessionVersion
+    )
+      throw new Error(
+        "Credentials changed; sign in again before requesting a login code.",
+      );
     await tx.emailVerificationCode.deleteMany({
       where: { userId, purpose: "LOGIN_2FA", consumedAt: null },
     });
@@ -69,6 +83,7 @@ export async function issueLoginCode(
     category: "SECURITY",
     to: user.email,
     subject: `${APP_TITLE}: your sign-in code`,
+    presentation: { code, eyebrow: "SIGN IN" },
     text:
       `Hi ${user.name ?? "there"},\n\n` +
       `Your sign-in code is ${code}. It expires in ${CODE_TTL_MINUTES} minutes.\n\n` +
