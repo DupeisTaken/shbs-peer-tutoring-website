@@ -44,6 +44,26 @@ After checking identity, an Admin or Head can send an invitation from the specif
 
 Invitations are for people joining or already holding a verified account. This does not create a separate alumni registration flow.
 
+## Website action coverage
+
+All supported operational actions below have website controls; staff do not need a database console or command-line script.
+
+| Action | Website path | Boundary |
+| --- | --- | --- |
+| Import historical sessions, attendance, meetings and hour amendments | Program Records → preview → import | Existing additive import; changed existing rows are not a bulk update. |
+| Find past/accountless tutees | Tutees → History or All Records → search | Show unverified accounts when needed. |
+| Read original academics and attendance | Tutee row → View History | Staff or the linked owner; general observers cannot read private details. |
+| Correct an accountless participant profile | Tutee row → Edit profile | Individual correction; school-year confirmation history and bulk corrections remain #195. |
+| Link an existing verified account | Historical row → Link Historical Records → search → Review Link → Confirm Link | Admin/Head, identity evidence and acknowledgement required. |
+| Correct retained ownership | Same link dialog → Head password → Confirm Link | Current login ownership conflicts use existing Merge accounts instead. |
+| Invite a later participant | Link Historical Records → invited email → Send Invitation | Record must be accountless; email configuration is required in production. |
+| Accept an invitation | Email link → Sign In → review → Link My History | Sign-in returns to the same claim. Signup requires reopening the email after verification. |
+| Read personal historical attendance | Account menu → My Tutoring History → View History | Does not reactivate participation or restore revoked observer access. |
+| Refresh roster after edits | Automatic invalidation or Tutees → Refresh | Other sessions can explicitly refresh; no polling is added. |
+| Reveal hidden Users & Roles entries | Show historical records / Show unverified accounts | Filters retain records and do not change access. |
+
+**Unimplemented boundary:** a history invitation is not an account-creation invitation. The existing public tutee signup requests current tutoring. A departed person without a login who only wants past records cannot self-create a history-only account in this change; contact the program team. Their archive remains available to staff without creating a dummy login. Do not use tutor/crew/management registration codes merely to grant historical access.
+
 ## Boundaries and deployment
 
 Apply the additive `20260929150000_tutee_history_invitations` migration before deploying. It adds an invitation table; it does not migrate participant identities or remove accounts. Normal backups and migration procedures still apply.

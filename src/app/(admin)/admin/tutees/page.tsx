@@ -28,7 +28,7 @@ import {
   TuteeHistoryLinkDialog,
 } from "~/app/_components/tutee-history";
 import { type TuteeHistoryView } from "~/lib/tutee-history";
-import { GRADUATED_GRADE } from "~/lib/academics";
+import { GRADUATED_GRADE, normalizeGrade } from "~/lib/academics";
 
 type Status = "PENDING" | "ACTIVE" | "INACTIVE";
 
@@ -158,8 +158,16 @@ export default function TuteesPage() {
       const sb = stats.data?.[b.id];
       switch (sort.key) {
         case "grade":
+          // Sort the grade shown in the row: historical evidence is independent
+          // of the linked account's current academic profile.
           return (
-            ((a.academic.gradeLevel ?? 0) - (b.academic.gradeLevel ?? 0)) * dir
+            ((a.historical
+              ? (normalizeGrade(a.gradeLevel).gradeLevel ?? 0)
+              : (a.academic.gradeLevel ?? 0)) -
+              (b.historical
+                ? (normalizeGrade(b.gradeLevel).gradeLevel ?? 0)
+                : (b.academic.gradeLevel ?? 0))) *
+            dir
           );
         case "sessions":
           return ((sa?.sessions ?? 0) - (sb?.sessions ?? 0)) * dir;

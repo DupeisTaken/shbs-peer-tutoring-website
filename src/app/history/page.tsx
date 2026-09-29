@@ -7,7 +7,7 @@ import { PersonalTuteeHistory } from "./personal-history";
 /** Past attendance remains accessible without accepting current participation policies. */
 export default async function HistoryPage() {
   const session = await auth();
-  if (!session?.user) redirect("/signin");
+  if (!session?.user) redirect("/signin?callbackUrl=%2Fhistory");
   const t = await getTranslations("tuteeHistory");
   return (
     <main className="mx-auto max-w-5xl space-y-6 p-4 py-8 sm:p-8">

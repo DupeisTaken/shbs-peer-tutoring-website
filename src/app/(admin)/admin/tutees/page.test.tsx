@@ -13,7 +13,7 @@ import zh from "../../../../../messages/zh.json";
 import { ReadOnlyProvider } from "~/app/_components/read-only";
 import TuteesPage from "./page";
 
-const mocks = vi.hoisted(() => ({ remove: vi.fn() }));
+const mocks = vi.hoisted(() => ({ remove: vi.fn(), moreHistory: false }));
 vi.mock("~/trpc/react", () => {
   const empty = { useQuery: () => ({ data: [] }) };
   return {
@@ -62,7 +62,7 @@ vi.mock("~/trpc/react", () => {
                 firstChoice: null,
                 secondChoice: null,
                 gradeLevel: "9",
-                academic: { status: "UNKNOWN" },
+                academic: { status: "REPORTED", gradeLevel: 12 },
               },
               {
                 id: "unverified",
@@ -74,6 +74,20 @@ vi.mock("~/trpc/react", () => {
                 user: { id: "login", emailVerifiedAt: null },
                 academic: { status: "UNKNOWN" },
               },
+              ...(mocks.moreHistory
+                ? [
+                    {
+                      id: "later-grade",
+                      firstChoice: null,
+                      secondChoice: null,
+                      englishName: "Later Grade",
+                      historical: true,
+                      status: "INACTIVE",
+                      gradeLevel: "10",
+                      academic: { status: "REPORTED", gradeLevel: 1 },
+                    },
+                  ]
+                : []),
             ],
           }),
         },
@@ -92,6 +106,7 @@ vi.mock("~/app/_components/tutee-editor", () => ({
 afterEach(() => {
   cleanup();
   vi.clearAllMocks();
+  mocks.moreHistory = false;
 });
 function mount(chinese = false, readOnly = false) {
   return render(
@@ -175,4 +190,20 @@ it("reveals historical and unverified records independently without setup or cur
   );
   expect(screen.getByText("Archive Learner")).toBeTruthy();
   expect(screen.queryByText("Unverified Learner")).toBeNull();
+});
+it("sorts historical rows by original grades instead of the owner's current grade", () => {
+  mocks.moreHistory = true;
+  mount();
+  fireEvent.click(
+    screen.getByRole("button", { name: en.tuteeHistory.historical }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: new RegExp(en.academics.title) }),
+  );
+  const names = screen
+    .getAllByRole("row")
+    .slice(1)
+    .map((row) => row.textContent);
+  expect(names[0]).toContain("Archive Learner");
+  expect(names[1]).toContain("Later Grade");
 });

@@ -1,4 +1,4 @@
-import { afterAll, beforeEach, expect, it, vi } from "vitest";
+import { afterAll, afterEach, beforeEach, expect, it, vi } from "vitest";
 import type { Session } from "next-auth";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 const mail = vi.hoisted(() => ({
@@ -110,6 +110,9 @@ const files = () => [
   ]),
 ];
 beforeEach(async () => {
+  // Invitations require an origin even when delivery is mocked. Never rely on a
+  // developer's .env: CI intentionally starts without an application origin.
+  vi.stubEnv("AUTH_URL", "https://history.example.test");
   const url = new URL(process.env.DATABASE_URL!);
   if (
     !["localhost", "127.0.0.1"].includes(url.hostname) ||
@@ -167,6 +170,7 @@ beforeEach(async () => {
   });
 });
 afterAll(() => db.$disconnect());
+afterEach(() => vi.unstubAllEnvs());
 const link = async (id = "admin", userId = "student") => {
   const input = { tuteeId: "past", userId };
   const preview = await caller(id).tuteeHistory.preview(input);
@@ -239,7 +243,12 @@ it("imports all historical record families without participant logins and preser
   expect(await events()).toEqual(before);
   expect(await db.user.count()).toBe(6);
   const roster = await caller().admin.tutees();
-  expect(roster.find(row => row.id === "past")).toMatchObject({id:"past",historical:true,user:null,owner:{id:"student"}});
+  expect(roster.find((row) => row.id === "past")).toMatchObject({
+    id: "past",
+    historical: true,
+    user: null,
+    owner: { id: "student" },
+  });
 });
 it("rejects stale previews, active enrollment, unverified and suspended targets", async () => {
   const preview = await caller().tuteeHistory.preview(pair);
@@ -375,6 +384,15 @@ it("keeps the old invitation usable if replacement delivery fails", async () => 
     caller("student", "STUDENT").tuteeHistory.inspectClaim({ token }),
   ).resolves.toMatchObject({ name: "Historical Learner" });
 });
+it("rejects missing email configuration without issuing an invitation", async () => {
+  vi.stubEnv("AUTH_URL", "");
+  await expect(invite()).rejects.toThrow("HISTORY_EMAIL_UNAVAILABLE");
+  vi.stubEnv("AUTH_URL", "https://history.example.test");
+  mail.available.mockReturnValue(false);
+  await expect(invite()).rejects.toThrow("HISTORY_EMAIL_UNAVAILABLE");
+  expect(await db.tuteeHistoryInvitation.count()).toBe(0);
+  expect(mail.send).not.toHaveBeenCalled();
+});
 it("revokes changed, expired and demoted-issuer invitations", async () => {
   const token = await invite();
   await db.tuteeHistoryInvitation.update({
@@ -412,4 +430,63 @@ it("accepts verified secondary email but never an unverified address", async () 
   });
   await caller("student", "STUDENT").tuteeHistory.claim({ token });
   expect(await db.studentProfileOwnership.count()).toBe(1);
+});
+
+// Linking retained evidence must remain possible for departed people without
+// restoring current participation or independently revoked observer access.
+it.each(["GRADUATED", "TRANSFERRED"])(
+  "preserves %s restrictions through staff linking and personal reading",
+  async (departureReason) => {
+    const departure = await db.schoolDeparture.create({
+      data: {
+        userId: "student",
+        reason: departureReason,
+        source: "HEAD",
+        observerRevoked: true,
+        effectiveAt: new Date("2025-06-01"),
+      },
+    });
+    const before = await events();
+    const account = await db.user.findUniqueOrThrow({
+      where: { id: "student" },
+    });
+    await link();
+    expect(
+      await db.schoolDeparture.findUnique({ where: { userId: "student" } }),
+    ).toEqual(departure);
+    expect(
+      await db.user.findUniqueOrThrow({ where: { id: "student" } }),
+    ).toEqual(account);
+    expect(await events()).toEqual(before);
+    expect(
+      await caller("student", "STUDENT").tuteeHistory.myDetails({
+        tuteeId: "past",
+      }),
+    ).toMatchObject({ count: 1 });
+    await expect(caller("student", "STUDENT").admin.tutees()).rejects.toThrow(
+      "Admin access required",
+    );
+  },
+);
+
+it("allows a departed participant to claim their invitation without restoring observer access", async () => {
+  const departure = await db.schoolDeparture.create({
+    data: {
+      userId: "student",
+      reason: "TRANSFERRED",
+      source: "HEAD",
+      observerRevoked: true,
+    },
+  });
+  const token = await invite();
+  await caller("student", "STUDENT").tuteeHistory.claim({ token });
+  expect(
+    await db.schoolDeparture.findUnique({ where: { userId: "student" } }),
+  ).toEqual(departure);
+  expect(
+    await db.user.findUniqueOrThrow({ where: { id: "student" } }),
+  ).toMatchObject({ studentId: null, tuteeMember: false });
+  expect(
+    await caller("student", "STUDENT").tuteeHistory.myRecords(),
+  ).toHaveLength(1);
 });
