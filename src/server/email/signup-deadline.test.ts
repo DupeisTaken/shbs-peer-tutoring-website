@@ -7,8 +7,8 @@ import { emailSender } from "./sender";
 afterEach(() => { vi.useRealTimers(); vi.clearAllMocks(); });
 it("aborts the actual signup socket at the overall deadline, even if SMTP keeps the dialog alive", async () => {
   vi.useFakeTimers(); smtp.send.mockImplementationOnce(() => new Promise(() => undefined));
-  const attempt = emailSender.send({ signup: true, to: "recipient@example.test", subject: "Test", text: "Test" });
-  const assertion = expect(attempt).rejects.toThrow("Signup SMTP deadline");
+  const attempt = emailSender.send({ category: "SECURITY", signup: true, to: "recipient@example.test", subject: "Test", text: "Test" });
+  const assertion = expect(attempt).rejects.toThrow("Email delivery failed");
   const options = smtp.create.mock.calls[0]![0] as { socket: Socket; secure: boolean };
   expect(options.secure).toBe(true);
   expect(options.socket.destroyed).toBe(false);
@@ -19,7 +19,7 @@ it("aborts the actual signup socket at the overall deadline, even if SMTP keeps 
 });
 it("keeps recovery mail on its independent pool without a signup socket", async () => {
   smtp.send.mockResolvedValueOnce({});
-  await emailSender.send({ to: "recipient@example.test", subject: "Recovery", text: "Test" });
+  await emailSender.send({ category: "SECURITY", to: "recipient@example.test", subject: "Recovery", text: "Test" });
   expect(smtp.create).toHaveBeenCalledWith(expect.objectContaining({ pool: true, socket: undefined }));
   expect(smtp.close).not.toHaveBeenCalled();
 });

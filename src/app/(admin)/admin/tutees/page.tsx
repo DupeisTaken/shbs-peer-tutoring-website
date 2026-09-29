@@ -1,4 +1,6 @@
 "use client";
+import { visibleTutors } from "~/lib/tutor-visibility";
+import { PastTutorsToggle } from "~/app/_components/past-tutors-toggle";
 import { pairingScheduleText } from "~/lib/pairing-schedule";
 
 import Link from "next/link";
@@ -94,6 +96,7 @@ export default function TuteesPage() {
     staleTime: REFERENCE_STALE_TIME,
   });
   const tutors = api.admin.tutors.useQuery();
+  const [showPast, setShowPast] = useState(false);
   const pairings = api.admin.pairings.useQuery();
   const stats = api.admin.tuteeStats.useQuery();
   const [view, setView] = useState<"tutees" | "tutors">("tutees");
@@ -292,6 +295,7 @@ export default function TuteesPage() {
         </button>
       </div>
 
+      {view === "tutors" && <PastTutorsToggle showPast={showPast} onChange={setShowPast} />}
       {view === "tutors" && (
         <section className="card overflow-x-auto">
           <table className="data-table">
@@ -305,7 +309,7 @@ export default function TuteesPage() {
               </tr>
             </thead>
             <tbody>
-              {(tutors.data ?? []).flatMap((tutor) => {
+              {visibleTutors(tutors.data ?? [], showPast, [...pairingsByTutor.keys()]).flatMap((tutor) => {
                 const tps = pairingsByTutor.get(tutor.id) ?? [];
                 if (tps.length === 0) {
                   return [

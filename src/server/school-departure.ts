@@ -53,6 +53,12 @@ export async function changeSchoolDeparture(
       include: { schoolDeparture: true, tutor: true },
     });
     const previous = user.schoolDeparture;
+    if (user.mergedIntoId)
+      throw new TRPCError({
+        code: "CONFLICT",
+        message:
+          "This login was combined into another account. Review the surviving account.",
+      });
     if ((previous?.revision ?? 0) !== input.expectedRevision)
       throw new TRPCError({
         code: "CONFLICT",

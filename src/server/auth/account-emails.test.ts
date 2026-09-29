@@ -54,6 +54,7 @@ const lastCode = () =>
   /code is ([A-Z0-9]+)/.exec(mail.send.mock.calls.at(-1)?.[0].text ?? "")![1]!;
 async function verifiedAlias() {
   await requestSecondaryEmail(userId, secondary(), password);
+  expect(mail.send).toHaveBeenLastCalledWith(expect.objectContaining({ category: "SECURITY" }));
   expect(await confirmSecondaryEmail(userId, secondary(), lastCode())).toBe(
     true,
   );
@@ -403,6 +404,7 @@ it("promotes verified aliases, keeps the former primary, and synchronizes only e
 
 it("retains verified replacement compatibility and rejects reuse", async () => {
   await requestEmailChange(userId, secondary(), password);
+  expect(mail.send).toHaveBeenLastCalledWith(expect.objectContaining({ category: "SECURITY" }));
   expect(await confirmEmailChange(userId, lastCode())).toBe(true);
   expect(await confirmEmailChange(userId, lastCode())).toBe(false);
   expect(await db.accountEmail.count({ where: { userId } })).toBe(2);
@@ -528,6 +530,7 @@ it("notifies both primary addresses and drops ordinary notices to removed second
   const notices = mail.send.mock.calls.filter(([m]) =>
     m.subject.includes("primary"),
   );
+  expect(notices.every(([message]) => message.category === "SECURITY")).toBe(true);
   expect(new Set(notices.map(([m]) => m.to))).toEqual(
     new Set([`${userId}@example.test`, secondary()]),
   );

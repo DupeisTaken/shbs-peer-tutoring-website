@@ -95,7 +95,7 @@ export async function signInAction(
               : t("invalidCredentials"),
         };
       }
-      if (!isEmailDeliveryAvailable()) {
+      if (!isEmailDeliveryAvailable("SECURITY")) {
         return { step: "password", error: t("twoFactor.unavailable") };
       }
       try {

@@ -1,4 +1,5 @@
 import { translationPublicationScope } from "~/server/db-scope";
+import { accountHistoryIds } from "~/server/account-history";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import {
@@ -34,7 +35,7 @@ export const translationReviewRouter = createTRPCRouter({
           state: input.state,
           authorId: ["HEAD", "ADMIN", "COORDINATOR"].includes(ctx.session.role)
             ? undefined
-            : ctx.session.user.id,
+            : { in: await accountHistoryIds(ctx.db, ctx.session.user.id) },
         },
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: 30,

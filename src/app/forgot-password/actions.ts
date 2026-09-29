@@ -28,7 +28,7 @@ export async function forgotPasswordAction(
   formData: FormData,
 ): Promise<ForgotPasswordState> {
   // This state is identical for every identifier, preserving the anti-enumeration guarantee.
-  if (!isEmailDeliveryAvailable()) return { sent: false, unavailable: true };
+  if (!isEmailDeliveryAvailable("SECURITY")) return { sent: false, unavailable: true };
 
   const raw = formData.get("identifier");
   const identifier = typeof raw === "string" ? raw : "";

@@ -374,6 +374,42 @@ it("ordinary tutor profile edits preserve handles and reject the legacy rename p
   expect(await db.user.findUnique({ where: { id: "profile-person" } })).toMatchObject({ username: "profileperson" });
   expect(await db.tutor.findUnique({ where: { id: "profile-tutor" } })).toMatchObject({ username: "profileperson", englishName: "New Name" });
 });
+
+it("edits an unlinked archived tutor without creating a login, sending mail or reactivating", async () => {
+  const head = await headCaller();
+  const tutor = await db.tutor.create({ data: { id: "profile-past", englishName: "Past Tutor", username: "pasttutor", status: "ARCHIVED" } });
+  const saved = await head.admin.updateTutor({ id: tutor.id, expectedUpdatedAt: tutor.updatedAt,
+    firstName: "Corrected", lastName: "Tutor", username: "Corrected93", email: "corrected@example.test", gradeLevel: 10, status: "ARCHIVED" });
+  expect(saved).toMatchObject({ englishName: "Corrected Tutor", username: "corrected93", email: "corrected@example.test", gradeLevel: 10, status: "ARCHIVED" });
+  expect(await db.user.findUnique({ where: { tutorId: tutor.id } })).toBeNull();
+  expect(delivery.send).not.toHaveBeenCalled();
+  expect((await head.admin.accounts()).rows.find((row) => row.tutorId === tutor.id)).toMatchObject({ account: "none", tutorHasEmail: true });
+  await expect(head.admin.updateTutor({ id: tutor.id, expectedUpdatedAt: tutor.updatedAt, firstName: "Stale", lastName: "Tutor", status: "ARCHIVED" })).rejects.toMatchObject({ code: "CONFLICT" });
+});
+
+it("keeps unlinked identifier correction Head-only and reports conflicts atomically", async () => {
+  const head = await headCaller();
+  const tutor = await db.tutor.create({ data: { id: "profile-past", englishName: "Past Tutor", username: "pasttutor", status: "ARCHIVED" } });
+  const input = { id: tutor.id, firstName: "Past", lastName: "Tutor", status: "ARCHIVED" as const };
+  // Coordinators retain the existing proposal workflow; Admin can save ordinary fields.
+  await expect(caller("profile-coordinator", "COORDINATOR").admin.updateTutor({ ...input, email: "past@example.test" })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  await db.user.update({ where: { id: "profile-coordinator" }, data: { role: "ADMIN" } });
+  await caller("profile-coordinator", "ADMIN").admin.updateTutor({ ...input, email: "past@example.test" });
+  await expect(caller("profile-coordinator", "ADMIN").admin.updateTutor({ ...input, username: "changed" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  for (const username of ["profileperson", "ProfilePerson"]) {
+    await expect(head.admin.updateTutor({ ...input, firstName: "Not Saved", username })).rejects.toMatchObject({ code: "CONFLICT" });
+  }
+  await db.tutor.create({ data: { englishName: "Other", username: "otherpast", email: "other@example.test" } });
+  await db.accountEmail.create({ data: { email: "secondary@example.test", userId: "profile-person", verifiedAt: new Date() } });
+  await expect(head.admin.updateTutor({ ...input, username: "otherpast" })).rejects.toMatchObject({ code: "CONFLICT" });
+  for (const email of ["person@example.test", "other@example.test", "Secondary@example.test"])
+    await expect(head.admin.updateTutor({ ...input, email })).rejects.toMatchObject({ code: "CONFLICT" });
+  for (const username of ["", "bad-name", "a".repeat(65)])
+    await expect(head.admin.updateTutor({ ...input, username })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  expect(await db.tutor.findUnique({ where: { id: tutor.id } })).toMatchObject({ englishName: "Past Tutor", username: "pasttutor", email: "past@example.test", status: "ARCHIVED" });
+  expect(await db.user.findUnique({ where: { tutorId: tutor.id } })).toBeNull();
+  expect(delivery.send).not.toHaveBeenCalled();
+});
 it("suspended Head cannot rename an account", async () => {
   const head = await headCaller();
   await db.user.update({ where: { id: "profile-admin" }, data: { suspendedAt: new Date() } });

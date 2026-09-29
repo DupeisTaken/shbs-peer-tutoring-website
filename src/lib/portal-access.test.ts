@@ -55,6 +55,9 @@ it("prioritizes suspension and observer/tutor revocation without misusing tutor 
     portalAccess({ ...account, suspendedAt: new Date() }).canReadManagement,
   ).toBe(false);
   expect(
+    portalAccess({ ...account, mergedIntoId: "survivor" }).canReadManagement,
+  ).toBe(false);
+  expect(
     portalAccess({ ...account, tutorAccessRevoked: true }).canReadManagement,
   ).toBe(false);
   expect(

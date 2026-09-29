@@ -24,16 +24,14 @@ export const env = createEnv({
         : z.string().optional(),
     // Optional: comma-separated emails granted ADMIN on sign-in (bootstrap, no DB editing).
     AUTH_BOOTSTRAP_ADMIN_EMAILS: z.string().optional(),
-    // NOTE: email-based 2FA (future) will add an email-provider config here once a
-    // provider is chosen — see src/server/email/sender.ts.
     // Opt-in: inject an artificial 100–500ms delay into every tRPC call in dev (the T3
     // starter default) to surface request waterfalls. Off by default so local dev is snappy.
     TRPC_DEV_DELAY: z
       .enum(["true", "false"])
       .default("false")
       .transform((v) => v === "true"),
-    // Transactional email via Aliyun Direct Mail (SMTP). Email is "configured" when EMAIL_FROM
-    // and SMTP_PASSWORD are both set; otherwise the app falls back to logging mail in dev.
+    // Dedicated SMTP accounts fall back to the complete legacy pair during rollout.
+    // Each sender uses its own password; development retains log delivery.
     // See src/server/email/sender.ts and the email setup notes in docs/deployment.md.
     SMTP_HOST: z.string().default("smtpdm.aliyun.com"),
     SMTP_PORT: z.coerce.number().int().positive().default(465),
@@ -44,6 +42,13 @@ export const env = createEnv({
     EMAIL_FROM: z.string().email().optional(),
     // Optional display name on the From header (defaults to the app title).
     EMAIL_FROM_NAME: z.string().optional(),
+    // Separately verified senders: missing dedicated passwords never borrow legacy credentials.
+    EMAIL_SECURITY_FROM: z.string().email().optional(),
+    SMTP_SECURITY_USER: z.string().optional(),
+    SMTP_SECURITY_PASSWORD: z.string().optional(),
+    EMAIL_PROGRAM_FROM: z.string().email().optional(),
+    SMTP_PROGRAM_USER: z.string().optional(),
+    SMTP_PROGRAM_PASSWORD: z.string().optional(),
     DATABASE_URL: z.string().url(),
     NODE_ENV: z
       .enum(["development", "test", "production"])
@@ -67,6 +72,12 @@ export const env = createEnv({
     SMTP_PASSWORD: process.env.SMTP_PASSWORD,
     EMAIL_FROM: process.env.EMAIL_FROM,
     EMAIL_FROM_NAME: process.env.EMAIL_FROM_NAME,
+    EMAIL_SECURITY_FROM: process.env.EMAIL_SECURITY_FROM,
+    SMTP_SECURITY_USER: process.env.SMTP_SECURITY_USER,
+    SMTP_SECURITY_PASSWORD: process.env.SMTP_SECURITY_PASSWORD,
+    EMAIL_PROGRAM_FROM: process.env.EMAIL_PROGRAM_FROM,
+    SMTP_PROGRAM_USER: process.env.SMTP_PROGRAM_USER,
+    SMTP_PROGRAM_PASSWORD: process.env.SMTP_PROGRAM_PASSWORD,
     DATABASE_URL: process.env.DATABASE_URL,
     NODE_ENV: process.env.NODE_ENV,
     APP_TITLE: process.env.APP_TITLE,

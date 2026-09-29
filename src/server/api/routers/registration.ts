@@ -97,7 +97,7 @@ export const registrationRouter = createTRPCRouter({
   sendEmailCode: publicProcedure
     .input(z.object({ code: codeInput, email: z.string().email() }))
     .mutation(async ({ ctx, input }) => {
-      if (!isEmailDeliveryAvailable()) {
+      if (!isEmailDeliveryAvailable("SECURITY")) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message:
@@ -119,6 +119,7 @@ export const registrationRouter = createTRPCRouter({
         });
       }
       await emailSender.send({
+        category: "SECURITY",
         to: input.email.trim().toLowerCase(),
         subject: `Your ${APP_TITLE} verification code`,
         text:

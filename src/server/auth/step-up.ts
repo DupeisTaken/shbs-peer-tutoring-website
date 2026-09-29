@@ -15,6 +15,7 @@ import { timingSafeEqual } from "crypto";
 import type { VerificationPurpose } from "../../../generated/prisma";
 
 import { db } from "~/server/db";
+import { lockAccountProfile } from "~/server/account-profile";
 import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
 import { APP_TITLE } from "~/lib/branding";
 import { hashCode } from "./registration";
@@ -41,30 +42,30 @@ export async function issueStepUpCode(
   userId: string,
   purpose: VerificationPurpose,
 ): Promise<{ email: string }> {
-  if (!isEmailDeliveryAvailable()) {
+  if (!isEmailDeliveryAvailable("SECURITY")) {
     throw new Error(
       "Email delivery is unavailable; refusing to issue a step-up code.",
     );
   }
 
-  const user = await db.user.findUniqueOrThrow({
-    where: { id: userId },
-    select: { email: true, name: true },
-  });
-
   const code = generateRegistrationCode();
   const expiresAt = new Date(Date.now() + STEP_UP_CODE_TTL_MINUTES * 60_000);
-
-  await db.$transaction([
-    db.emailVerificationCode.deleteMany({
-      where: { userId, purpose, consumedAt: null },
-    }),
-    db.emailVerificationCode.create({
+  const user = await db.$transaction(async (tx) => {
+    // Serialize with combine; a request accepted before retirement must recheck before issuing.
+    await lockAccountProfile(tx, userId);
+    const current = await tx.user.findUniqueOrThrow({
+      where: { id: userId }, select: { email: true, name: true, mergedIntoId: true },
+    });
+    if (current.mergedIntoId) throw new Error("This login has been retired.");
+    await tx.emailVerificationCode.deleteMany({ where: { userId, purpose, consumedAt: null } });
+    await tx.emailVerificationCode.create({
       data: { userId, purpose, codeHash: hashCode(code), expiresAt },
-    }),
-  ]);
+    });
+    return current;
+  });
 
   await emailSender.send({
+    category: "SECURITY",
     to: user.email,
     subject: `${APP_TITLE}: your verification code`,
     presentation: { code, eyebrow: "ACCOUNT SECURITY" },

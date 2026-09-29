@@ -53,7 +53,7 @@ export const viewerRouter = createTRPCRouter({
         input.captchaGrant,
         async () => {
           await assertEnabled(ctx.db);
-          if (!isEmailDeliveryAvailable()) {
+          if (!isEmailDeliveryAvailable("SECURITY")) {
             throw new TRPCError({
               code: "BAD_REQUEST",
               message:
@@ -74,6 +74,7 @@ export const viewerRouter = createTRPCRouter({
           }
           try {
             await emailSender.send({
+              category: "SECURITY",
               signup: true,
               to: input.email.trim().toLowerCase(),
               subject: `Your ${APP_TITLE} verification code`,

@@ -8,6 +8,7 @@ export async function accountPortalAccess(userId: string) {
     select: {
       role: true,
       suspendedAt: true,
+      mergedIntoId: true,
       tutorAccessRevoked: true,
       schoolDeparture: true,
     },

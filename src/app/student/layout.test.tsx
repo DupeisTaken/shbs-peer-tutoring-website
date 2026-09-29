@@ -36,6 +36,10 @@ vi.mock("~/server/db", () => ({
 }));
 vi.mock("~/server/policy-acceptance", () => ({
   currentPolicy: mocks.currentPolicy,
+  // Layout tests exercise policy-gate rendering; merge-family evidence resolution is
+  // covered by the database integration tests. Preserve current-versus-past fixtures.
+  findAccountPolicy: (_db: unknown, _userId: string, _slug: string, revision?: string) =>
+    (revision ? mocks.acceptance() : mocks.pastAcceptance()) as Promise<unknown>,
 }));
 vi.mock("~/app/_components/school-departure", () => ({
   DepartureBanner: () => null,

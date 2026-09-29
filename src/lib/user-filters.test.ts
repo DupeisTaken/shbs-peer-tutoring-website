@@ -7,6 +7,29 @@ import {
   parseUserFilters,
 } from "./user-filters";
 const admin = { role: "ADMIN", tutorStatus: "ACTIVE", account: "registered" };
+it.each(["ACTIVE", "PENDING", "OPTED_OUT", "ARCHIVED", "GRADUATED", null])("applies default past-tutor visibility to %s", (tutorStatus) => {
+  const row = { ...admin, tutorStatus };
+  const past = tutorStatus === "ARCHIVED" || tutorStatus === "GRADUATED";
+  expect(matchesUserFilters(row, emptyUserFilters())).toBe(!past);
+  expect(matchesUserFilters(row, { ...emptyUserFilters(), showPastTutors: true })).toBe(true);
+});
+it.each(["ARCHIVED", "GRADUATED"])("finds explicit %s records despite historical membership", (tutorStatus) => {
+  const filters = emptyUserFilters();
+  filters.role.include = ["TUTOR"];
+  filters.status.include = [tutorStatus];
+  const row = { role: null, tutorStatus, tutorId: "past", tuteeMember: false, account: "none" };
+  expect(matchesUserFilters(row, filters)).toBe(true);
+  filters.status.exclude = [tutorStatus];
+  expect(matchesUserFilters(row, filters)).toBe(false);
+  filters.status.exclude = [];
+  filters.account.exclude = ["none"];
+  expect(matchesUserFilters(row, filters)).toBe(false);
+});
+it("restores only boolean visibility preferences and defaults older preferences to hidden", () => {
+  expect(parseUserFilters('{"showPastTutors":true}').showPastTutors).toBe(true);
+  expect(parseUserFilters('{"showPastTutors":"true"}').showPastTutors).toBe(false);
+  expect(parseUserFilters('{}').showPastTutors).toBe(false);
+});
 it("combines OR within includes with AND across filters and exclusion priority", () => {
   const filters = emptyUserFilters();
   filters.role.include = ["ADMIN", "COORDINATOR"];

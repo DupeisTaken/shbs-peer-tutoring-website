@@ -1,7 +1,7 @@
 import { portalAccess } from "~/lib/portal-access";
 import { DepartureBanner } from "~/app/_components/school-departure";
 import { TRPCError } from "@trpc/server";
-import { currentPolicy } from "~/server/policy-acceptance";
+import { currentPolicy, findAccountPolicy } from "~/server/policy-acceptance";
 import { WorkspaceHeader } from "~/app/_components/workspace-header";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -53,10 +53,8 @@ export default async function TuteeLayout({
     if (error instanceof TRPCError && error.code === "PRECONDITION_FAILED") return null;
     throw error;
   });
-  const acceptance = policy ? await db.policyAcceptance.findUnique({ where: {
-    userId_slug_revision: { userId: session.user.id, slug: "tutee-policy", revision: policy.revision },
-  } }) : null;
-  const pastAcceptance = acceptance ?? (me.tutor ? await db.policyAcceptance.findFirst({ where: { userId: session.user.id, slug: "tutee-policy" } }) : null);
+  const acceptance = policy ? await findAccountPolicy(db, session.user.id, "tutee-policy", policy.revision) : null;
+  const pastAcceptance = acceptance ?? (me.tutor ? await findAccountPolicy(db, session.user.id, "tutee-policy") : null);
   const access = portalAccess(me);
   const hasAccess = access.departed || (me.tuteeMember && (!me.tutor || !!pastAcceptance));
   const elevated = ["HEAD", "ADMIN", "COORDINATOR", "VIEWER"].includes(me.role);

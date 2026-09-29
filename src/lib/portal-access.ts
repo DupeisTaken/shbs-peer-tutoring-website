@@ -2,6 +2,7 @@
 export function portalAccess(account: {
   role: string;
   suspendedAt?: Date | null;
+  mergedIntoId?: string | null;
   tutorAccessRevoked?: boolean;
   schoolDeparture?: {
     reason: string | null;
@@ -19,10 +20,14 @@ export function portalAccess(account: {
       !(departure?.tutorDerived && account.tutorAccessRevoked));
   return {
     departed,
-    canReadManagement: !account.suspendedAt && (elevated || observer),
+    canReadManagement:
+      !account.suspendedAt && !account.mergedIntoId && (elevated || observer),
     managementReadOnly: !elevated,
     maskManagementData: !elevated,
     canParticipate:
-      !account.suspendedAt && !departed && account.role !== "VIEWER",
+      !account.suspendedAt &&
+      !account.mergedIntoId &&
+      !departed &&
+      account.role !== "VIEWER",
   };
 }
