@@ -12,18 +12,25 @@ import { SESSION_RECOVERY_COOKIE } from "~/lib/session-recovery";
 import { SignInForm } from "./sign-in-form";
 import { db } from "~/server/db";
 import { getFeatures } from "~/server/program/features";
+import { returnDestination } from "~/lib/return-destination";
 
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ reason?: string }>;
+  searchParams: Promise<{ reason?: string; callbackUrl?: string }>;
 }) {
-  // Already signed in — send them home (which routes to the right area by role).
+  // An authenticated email click can continue directly; otherwise retain the same
+  // validated destination through both form steps. Home is the safe fallback.
   const session = await auth();
-  if (session?.user) redirect("/");
+  const params = await searchParams;
+  const callbackUrl = returnDestination(
+    params.callbackUrl,
+    process.env.AUTH_URL ?? "http://localhost:3000",
+  );
+  if (session?.user) redirect(callbackUrl);
 
   const [t, features] = await Promise.all([getTranslations(), getFeatures(db)]);
-  const reason = (await searchParams).reason;
+  const reason = params.reason;
   const passwordChanged = reason === "password-changed";
   const expired =
     reason === "session-expired" ||
@@ -71,7 +78,7 @@ export default async function SignInPage({
       }
     >
       <PublicFormCard>
-        <SignInForm />
+        <SignInForm callbackUrl={callbackUrl} />
         <div className="mt-3 text-center">
           <PublicFormRoute
             href="/forgot-password"

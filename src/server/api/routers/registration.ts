@@ -70,26 +70,28 @@ function enforceRateLimit(key: string, max: number): void {
 
 export const registrationRouter = createTRPCRouter({
   /** Validate a code and return any prefill + email binding so the form can start populated. */
-  check: publicProcedure.input(z.object({ code: codeInput })).mutation(async ({ ctx, input }) => {
-    const ip = clientIp(ctx.headers);
-    enforceRateLimit(`reg:ip:${ip}`, 30);
-    enforceRateLimit(`reg:code:${input.code}`, 10);
+  check: publicProcedure
+    .input(z.object({ code: codeInput }))
+    .mutation(async ({ ctx, input }) => {
+      const ip = clientIp(ctx.headers);
+      enforceRateLimit(`reg:ip:${ip}`, 30);
+      enforceRateLimit(`reg:code:${input.code}`, 10);
 
-    const resolved = await resolveUsableCode(input.code);
-    if (!resolved.ok) codeError(resolved.error);
-    const prefill = await codePrefill(resolved.row);
-    return {
-      kind: resolved.row.kind,
-      boundEmail: prefill.boundEmail,
-      firstName: prefill.firstName,
-      lastName: prefill.lastName,
-      alternativeNames: prefill.alternativeNames,
-      gradeLevel: prefill.gradeLevel,
-      gradeSchoolYear: prefill.gradeSchoolYear,
-      emailVerified: !!resolved.row.emailVerifiedAt,
-      pendingEmail: resolved.row.pendingEmail,
-    };
-  }),
+      const resolved = await resolveUsableCode(input.code);
+      if (!resolved.ok) codeError(resolved.error);
+      const prefill = await codePrefill(resolved.row);
+      return {
+        kind: resolved.row.kind,
+        boundEmail: prefill.boundEmail,
+        firstName: prefill.firstName,
+        lastName: prefill.lastName,
+        alternativeNames: prefill.alternativeNames,
+        gradeLevel: prefill.gradeLevel,
+        gradeSchoolYear: prefill.gradeSchoolYear,
+        emailVerified: !!resolved.row.emailVerifiedAt,
+        pendingEmail: resolved.row.pendingEmail,
+      };
+    }),
 
   /** Stage email verification and email a 6-digit code to the chosen address. */
   sendEmailCode: publicProcedure
@@ -98,7 +100,8 @@ export const registrationRouter = createTRPCRouter({
       if (!isEmailDeliveryAvailable()) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Email verification is temporarily unavailable. Contact the program team.",
+          message:
+            "Email verification is temporarily unavailable. Contact the program team.",
         });
       }
       const ip = clientIp(ctx.headers);
@@ -121,10 +124,7 @@ export const registrationRouter = createTRPCRouter({
         text:
           `Your ${APP_TITLE} email verification code is ${staged.emailCode}.\n\n` +
           `It expires in ${EMAIL_CODE_TTL_MINUTES} minutes. If you didn't request this, ignore this email.`,
-        html:
-          `<p>Your <strong>${APP_TITLE}</strong> email verification code is ` +
-          `<strong style="font-size:1.2em;letter-spacing:2px">${staged.emailCode}</strong>.</p>` +
-          `<p>It expires in ${EMAIL_CODE_TTL_MINUTES} minutes.</p>`,
+        presentation: { code: staged.emailCode, eyebrow: "EMAIL VERIFICATION" },
       });
       return { ok: true };
     }),
@@ -195,6 +195,11 @@ export const registrationRouter = createTRPCRouter({
             : "An account already uses this email. Sign in or reset your password; ask Head to change its roles in Users & Roles.";
         throw new TRPCError({ code: "BAD_REQUEST", message });
       }
-      return { ok: true, username: done.username, academicConfirmationRequired: done.academicConfirmationRequired ?? false };
+      return {
+        ok: true,
+        username: done.username,
+        academicConfirmationRequired:
+          done.academicConfirmationRequired ?? false,
+      };
     }),
 });
