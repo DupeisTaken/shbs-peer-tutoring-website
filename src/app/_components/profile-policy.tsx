@@ -14,7 +14,11 @@ export function useProfilePolicy() {
   };
 }
 
-export function ProfilePolicyHint() {
+export function ProfilePolicyHint({
+  field = "preferred",
+}: {
+  field?: "preferred" | "legal";
+}) {
   const t = useTranslations("profilePolicy");
   const policy = useProfilePolicy();
   if (policy.error)
@@ -24,28 +28,18 @@ export function ProfilePolicyHint() {
         onRetry={() => void policy.refetch()}
       />
     );
-  return policy.data?.requireLatinNames ? (
-    <p className="muted text-sm">{t("nameHint")}</p>
+  const required =
+    field === "legal"
+      ? policy.data?.requireLatinLegalNames
+      : policy.data?.requireLatinNames;
+  return required ? (
+    <p className="muted text-sm">
+      {t(field === "legal" ? "legalNameHint" : "nameHint")}
+    </p>
   ) : null;
 }
 
-const errorKeys = {
-  PROFILE_LATIN_NAME_REQUIRED: "latinRequired",
-  PROFILE_GRADE_NOT_OFFERED: "gradeNotOffered",
-  PROFILE_POLICY_CHANGED: "conflict",
-  PROFILE_PROGRAM_YEAR_CHANGED: "yearChanged",
-  PROFILE_NO_CURRENT_YEAR: "noCurrentYear",
-} as const;
-export function ProfilePolicyError({ message }: { message?: string }) {
-  const t = useTranslations("profilePolicy");
-  return (
-    <>
-      {message && Object.hasOwn(errorKeys, message)
-        ? t(errorKeys[message as keyof typeof errorKeys])
-        : message}
-    </>
-  );
-}
+export { ProfilePolicyError } from "./profile-policy-error";
 
 /** Failed policy reads must be visible; form fields never guess which grades are currently offered. */
 export function ProfilePolicyLoadError({

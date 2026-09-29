@@ -272,13 +272,19 @@ confirmation. Internal historical confirmations retain their original reference 
 Users & Roles shows a compact class year where known; full academic evidence is in
 User Details.
 
-`ProgramSettings.requireLatinNames` and `offeredGrades` are immediate, audited ADMIN/HEAD
-settings in Program & Refresh. Defaults preserve unrestricted primary names and G1–G12.
-New or changed primary names accept Latin letters (including accents), spaces, hyphens
-and apostrophes when enabled. Secondary names and unchanged legacy names are exempt.
+`ProgramSettings.requireLatinNames`, `requireLatinLegalNames` and `offeredGrades` are immediate, audited ADMIN/HEAD
+settings in Program & Refresh. The independent name rules default off; grades default to G1–G12.
+Preferred Name keeps the existing `name`/`englishName` storage keys; Legal Name keeps
+`alternativeNames`. The label change preserves historical values without verifying their
+legal status. New or changed names accept Latin letters (including accents), spaces, hyphens
+and apostrophes when their rule is enabled. Optional blank legal names and unchanged
+legacy values are exempt. Account, registration and roster writers enforce the legal-name
+rule on the server; shared account updates synchronize linked roster names atomically.
+The complete policy, including both switches, participates in stale-draft checks and audit logs.
 New grade reports must use an offered grade; changing the setting never rewrites history.
 Public forms read these settings, and server write paths recheck them, including pending
-signup completions. Migration `20260925012820_program_profile_policy` adds these defaults.
+signup completions. Migration `20260925012820_program_profile_policy` adds the initial defaults;
+`20260929090000_legal_name_policy` adds the independent legal-name switch without changing names.
 
 Self-service writes own the current authenticated account. ADMIN/HEAD can correct other
 accounts; coordinator corrections follow the same proposal/approval workflow as account

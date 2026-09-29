@@ -239,6 +239,7 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
             </div>
           </label>
           <ProfilePolicyHint />
+          <ProfilePolicyHint field="legal" />
           <label className="block space-y-1">
             <span className="label">
               {t("accountProfile.alternativeNames")}
@@ -262,7 +263,7 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
             </p>
           )}
           {updateName.error && (
-            <p className="text-sm text-red-600">
+            <p role="alert" className="text-sm text-red-600">
               <ProfilePolicyError message={updateName.error.message} />
             </p>
           )}

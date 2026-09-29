@@ -304,12 +304,12 @@ export function RegisterFlow() {
             </label>
             <input
               id="reg-alt"
-              lang="zh"
               value={altNames}
               onChange={(e) => setAltNames(e.target.value)}
               className="input w-full"
             />
           </div>
+          <ProfilePolicyHint field="legal" />
           <div>
             <label className="label" htmlFor="reg-grade">
               {t("auth.register.step.profile.grade")}

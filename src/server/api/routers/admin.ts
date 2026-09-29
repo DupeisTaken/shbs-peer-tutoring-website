@@ -1,6 +1,6 @@
 import { currentAcademicInput, academicSummary, normalizeGrade } from "~/lib/academics";
 import { accountAcademics, confirmCurrentAccountAcademics, initializeAccountAcademics, legacyAcademic } from "~/server/academics";
-import { assertPrimaryName, assertOfferedGrade } from "~/server/program/profile-policy";
+import { assertLegalName, assertPrimaryName, assertOfferedGrade } from "~/server/program/profile-policy";
 import { REGISTRATION_KINDS, isManagementCode } from "~/lib/registration-kind";
 import { enforceAssignmentQualification } from "~/server/assignment-qualification";
 import { accountUsernameSchema, updateAccountUsername } from "~/server/account-username";
@@ -1722,7 +1722,7 @@ export const adminRouter = createTRPCRouter({
       z.object({
         firstName: z.string().trim().min(1),
         lastName: z.string().trim().min(1),
-        // Free-text, full Unicode (e.g. Chinese name) — no charset restriction.
+        // Optional legal name; the program's script policy is checked in the transaction.
         alternativeNames: z.string().trim().max(200).optional(),
         email: z.string().email().optional(),
         gradeLevel: z.number().int().min(1).max(12).nullable().optional(),
@@ -1735,6 +1735,7 @@ export const adminRouter = createTRPCRouter({
         throw new TRPCError({ code: "BAD_REQUEST", message: "Graduated cannot have a current grade." });
       const tutor = await inTransaction(ctx.db, async (tx) => {
         await assertPrimaryName(tx, `${input.firstName} ${input.lastName}`);
+        await assertLegalName(tx, input.alternativeNames);
         await assertOfferedGrade(tx, input.gradeLevel);
         await lockUsernameNamespace(tx);
         const username = await ensureUniqueUsername(
@@ -1853,6 +1854,7 @@ export const adminRouter = createTRPCRouter({
           (input.gradeLevel === undefined ? before.gradeLevel : input.gradeLevel) != null)
           throw new TRPCError({ code: "BAD_REQUEST", message: "Graduated cannot have a current grade." });
         await assertPrimaryName(tx, [input.firstName, input.lastName].filter(Boolean).join(" "), before.englishName);
+        await assertLegalName(tx, input.alternativeNames, before.alternativeNames);
         if (!account && input.gradeLevel !== before.gradeLevel) await assertOfferedGrade(tx, input.gradeLevel);
         const changedAcademicChoice = !account && (
           (input.gradeLevel !== undefined && input.gradeLevel !== before.gradeLevel) ||
@@ -2014,6 +2016,7 @@ export const adminRouter = createTRPCRouter({
           (input.gradeLevel === undefined ? before.gradeLevel : input.gradeLevel) != null)
           throw new TRPCError({ code: "BAD_REQUEST", message: "Graduated cannot have a current grade." });
         await assertPrimaryName(tx, input.englishName, before.englishName);
+        await assertLegalName(tx, input.alternativeNames, before.alternativeNames);
         if (!linkedStudent && input.gradeLevel !== before.gradeLevel)
           await assertOfferedGrade(tx, normalizeGrade(input.gradeLevel).gradeLevel);
         if (before.updatedAt.getTime() !== input.expectedUpdatedAt.getTime())
