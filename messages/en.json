@@ -3240,5 +3240,27 @@
   "signupProtection": {
     "retry": "Please wait {seconds} seconds before trying again. Your entered details and original place are saved. Contact the program team if this continues.",
     "mailFailed": "Email could not be delivered. Please wait one minute and retry, or contact the program team. Your original place is saved."
+  },
+  "captcha": {
+    "title": "CAPTCHA Verification",
+    "on": "On",
+    "off": "Off",
+    "scope": "Protects public tutee submission/resend and viewer signup/resend immediately. Email confirmation, existing-account sign-in and recruitment availability are unchanged.",
+    "cost": "Enabling uses paid Aliyun checks. When off, signup rate limits and email budgets remain active.",
+    "ready": "Local configuration is ready. This does not guarantee Aliyun service availability.",
+    "notReady": "Provider configuration is missing or invalid. Configure deployment secrets before enabling. Disabling remains available during an outage.",
+    "readOnly": "Only Administrators and Head can change this setting.",
+    "loading": "Loading verification…",
+    "retry": "Try Again",
+    "verify": "Verify and Continue",
+    "cancel": "Cancel Verification",
+    "required": "Complete a fresh verification to continue. Your form values are kept.",
+    "rejected": "Verification was rejected or expired. Try a fresh challenge. If you cannot complete it, contact the program team.",
+    "unavailable": "Verification is temporarily unavailable. Wait a minute and retry, or contact the program team. Your form values are kept.",
+    "scriptFailed": "The verification script could not load. Check your connection and retry, or contact the program team.",
+    "changed": "This setting changed in another session. Reload the status before trying again.",
+    "billingBoundary": "This switch does not deactivate Aliyun billing features or stop direct abuse of a public provider scene.",
+    "privacy": "Verification uses Aliyun in mainland China to process device and interaction signals.",
+    "privacyLink": "Privacy Notice"
   }
 }

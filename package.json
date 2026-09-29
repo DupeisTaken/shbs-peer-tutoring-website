@@ -27,6 +27,9 @@
     "docs:check": "node scripts/check-docs.mjs && node --test scripts/docs.test.mjs"
   },
   "dependencies": {
+    "@alicloud/captcha20230305": "^1.1.4",
+    "@alicloud/openapi-core": "^1.0.8",
+    "@darabonba/typescript": "^1.0.5",
     "@formatjs/icu-messageformat-parser": "3.5.12",
     "@hookform/resolvers": "^5.4.0",
     "@prisma/adapter-pg": "^7.8.0",

@@ -1,5 +1,5 @@
 "use client";
-import { SignupError } from "~/app/_components/signup-error";
+import { useSignupCaptcha, CaptchaError } from "~/app/_components/signup-captcha";
 
 import { FieldRequirement } from "~/app/_components/field-requirement";
 
@@ -44,6 +44,7 @@ export function SignupForm() {
   const [preferredLatinName, setPreferredLatinName] = useState("");
   const [gradeLevel, setGradeLevel] = useState("");
   const [email, setEmail] = useState("");
+  const captcha = useSignupCaptcha("tutee.submit", email);
   const [phone, setPhone] = useState("");
   const [preferredContact, setPreferredContact] = useState("");
   const [firstChoiceId, setFirstChoiceId] = useState("");
@@ -99,7 +100,7 @@ export function SignupForm() {
       .length === 0 &&
     firstChoiceId &&
     agreed &&
-    !submit.isPending;
+    !submit.isPending && !captcha.pending;
 
   if (submit.isSuccess) {
     return (
@@ -160,13 +161,13 @@ export function SignupForm() {
         onSubmit={(e) => {
           e.preventDefault();
           if (!canSubmit || !policy.data) return;
-          submit.mutate(
-            normalizeTuteeFields(
+          const policyRevision = policy.data.revision;
+          void captcha.run(captchaGrant => submit.mutateAsync({ captchaGrant, ...normalizeTuteeFields(
               {
                 englishName: englishName.trim(),
                 preferredLatinName: preferredLatinName.trim() || undefined,
                 email: email.trim(),
-                policyRevision: policy.data.revision,
+                policyRevision,
                 phone: phone.trim() || undefined,
                 preferredContact: preferredContact.trim(),
                 gradeLevel: gradeLevel.trim() || undefined,
@@ -177,8 +178,7 @@ export function SignupForm() {
                 agreed: true as const,
               },
               fields,
-            ),
-          );
+            ) }));
         }}
       >
         {/* Native fieldset prevents mouse, keyboard and assistive-input edits in preview mode. */}
@@ -393,9 +393,10 @@ export function SignupForm() {
             )}
           </div>
 
+          {captcha.panel}
           {submit.error && (
             <p role="alert" className="text-sm text-red-600">
-              <SignupError error={submit.error} />
+              <CaptchaError error={submit.error} />
             </p>
           )}
 

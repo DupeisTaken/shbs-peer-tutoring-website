@@ -1,3 +1,5 @@
+import { captchaGrantInput } from "~/lib/captcha";
+import { withProtectedSignup } from "~/server/captcha";
 /**
  * Public viewer self-registration (read-only VIEWER accounts). The only open account-creation
  * path — gated by email validation + the VIEWER_SIGNUP feature flag, and rate-limited per IP +
@@ -36,17 +38,19 @@ export const viewerRouter = createTRPCRouter({
   start: publicProcedure
     .input(
       z.object({
+        captchaGrant: captchaGrantInput,
         name: z.string().trim().min(1).max(120),
         affiliation: z.string().trim().min(1).max(200),
         email: z.string().trim().email().max(254),
       }),
     )
     .mutation(async ({ ctx, input }) =>
-      withSignupAdmission(
+      withProtectedSignup(
         ctx.db,
         ctx.headers,
-        "mail",
+        "viewer.start",
         input.email,
+        input.captchaGrant,
         async () => {
           await assertEnabled(ctx.db);
           if (!isEmailDeliveryAvailable()) {

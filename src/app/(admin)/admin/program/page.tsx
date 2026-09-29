@@ -1,5 +1,6 @@
 "use client";
 
+import { ProgramCaptchaSettings } from "~/app/_components/program-captcha-settings";
 import { useState } from "react";
 import { ProgramProfileSettings } from "~/app/_components/program-profile-settings";
 import { ProgramEmailSettings } from "~/app/_components/program-email-settings";
@@ -45,6 +46,7 @@ export default function ProgramPage() {
 
       <ProgramTimeZoneSettings />
       <ProgramEmailSettings />
+      <ProgramCaptchaSettings />
       <ProgramProfileSettings />
       {current.isLoading ? (
         <p className="muted">{t("admin.program.loading")}</p>

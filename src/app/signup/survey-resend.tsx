@@ -1,5 +1,5 @@
 "use client";
-import { SignupError } from "~/app/_components/signup-error";
+import { useSignupCaptcha, CaptchaError } from "~/app/_components/signup-captcha";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
@@ -8,13 +8,14 @@ import { api } from "~/trpc/react";
 export function SurveyResend({ initialEmail = "" }: { initialEmail?: string }) {
   const t = useTranslations("survey");
   const [email, setEmail] = useState(initialEmail);
+  const captcha = useSignupCaptcha("tutee.resend", email);
   const resend = api.tutee.resendSurvey.useMutation();
   return (
     <form
       className="mt-6 space-y-3 text-left"
       onSubmit={(e) => {
         e.preventDefault();
-        resend.mutate({ email });
+        void captcha.run(captchaGrant => resend.mutateAsync({ email, captchaGrant }));
       }}
     >
       <label className="block space-y-1">
@@ -28,9 +29,10 @@ export function SurveyResend({ initialEmail = "" }: { initialEmail?: string }) {
           onChange={(e) => setEmail(e.target.value)}
         />
       </label>
+      {captcha.panel}
       <button
         className="btn-secondary min-h-11 lg:min-h-10"
-        disabled={resend.isPending}
+        disabled={resend.isPending || captcha.pending}
       >
         {t("resend")}
       </button>
@@ -41,7 +43,7 @@ export function SurveyResend({ initialEmail = "" }: { initialEmail?: string }) {
       )}
       {resend.error && (
         <p role="alert" className="text-red-700">
-          <SignupError error={resend.error} />
+          <CaptchaError error={resend.error} />
         </p>
       )}
     </form>

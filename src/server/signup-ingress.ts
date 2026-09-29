@@ -12,6 +12,7 @@ export function signupLane(path: string): SignupLane | null {
       "tutee.submitSurvey",
       "tutee.resendSurvey",
       "viewer.start",
+      "program.verifySignupCaptcha",
     ].includes(path)
   )
     return "mail";

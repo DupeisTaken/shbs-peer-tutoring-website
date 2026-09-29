@@ -1,3 +1,5 @@
+import { captchaGrantInput } from "~/lib/captcha";
+import { withProtectedSignup } from "~/server/captcha";
 import { withSignupAdmission } from "~/server/signup-admission";
 import { getRecruitment } from "~/server/program/recruitment";
 import { getSignupSettings } from "~/server/program/signup-fields";
@@ -31,10 +33,15 @@ import {
 export const tuteeRouter = createTRPCRouter({
   // Keep the previous endpoint name without retaining its unverified-account bypass.
   requestSignup: publicProcedure
-    .input(surveyInput)
+    .input(surveyInput.extend({ captchaGrant: captchaGrantInput }))
     .mutation(({ ctx, input }) => {
-      return withSignupAdmission(ctx.db, ctx.headers, "mail", input.email, () =>
-        submitSurvey(ctx.db, input),
+      return withProtectedSignup(
+        ctx.db,
+        ctx.headers,
+        "tutee.submit",
+        input.email,
+        input.captchaGrant,
+        () => submitSurvey(ctx.db, surveyInput.parse(input)),
       );
     }),
   surveyPolicy: publicProcedure
@@ -45,15 +52,21 @@ export const tuteeRouter = createTRPCRouter({
       );
     }),
   submitSurvey: publicProcedure
-    .input(surveyInput)
+    .input(surveyInput.extend({ captchaGrant: captchaGrantInput }))
     .mutation(({ ctx, input }) => {
-      return withSignupAdmission(ctx.db, ctx.headers, "mail", input.email, () =>
-        submitSurvey(ctx.db, input),
+      return withProtectedSignup(
+        ctx.db,
+        ctx.headers,
+        "tutee.submit",
+        input.email,
+        input.captchaGrant,
+        () => submitSurvey(ctx.db, surveyInput.parse(input)),
       );
     }),
   resendSurvey: publicProcedure
     .input(
       z.object({
+        captchaGrant: captchaGrantInput,
         email: z
           .string()
           .trim()
@@ -62,11 +75,12 @@ export const tuteeRouter = createTRPCRouter({
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      return withSignupAdmission(
+      return withProtectedSignup(
         ctx.db,
         ctx.headers,
-        "mail",
+        "tutee.resend",
         input.email,
+        input.captchaGrant,
         async () => ({ emailSent: await resendSurvey(ctx.db, input.email) }),
       );
     }),

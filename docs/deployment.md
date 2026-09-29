@@ -452,3 +452,10 @@ Apply migration `20260922140000_recruitment_windows` with the release, regenerat
 Apply migrations and review [public signup protection](signup-protection.md) for
 quota defaults, the trusted Caddy boundary, SMTP deadlines and outage troubleshooting.
 Keep the application port private. No paid external service is required.
+
+## Optional CAPTCHA
+
+See [Aliyun CAPTCHA configuration and rollout](captcha.md) before enabling the
+management switch. Install provider credentials as deployment secrets, apply the
+migration, and perform the bounded operator smoke check after separate service
+activation. The switch defaults off and is independent of period refresh.

@@ -151,3 +151,5 @@ it("links an already signed-in participant directly to their tutoring page", () 
     screen.getByRole("link", { name: "View My Tutoring" }).getAttribute("href"),
   ).toBe("/student");
 });
+
+vi.mock("~/app/_components/signup-captcha", () => ({ useSignupCaptcha: () => ({ run: (work: (grant?: string) => Promise<unknown>) => work(), panel: null, pending: false }), CaptchaError: ({ error }: { error: { message: string } }) => <>{error.message}</> }));
