@@ -3643,6 +3643,10 @@
     }
   },
   "tuteeHistory": {
+    "noSearchMatches": "검색과 일치하는 학습 파트너가 없습니다.",
+    "emptyHistory": "표시할 학습 파트너의 과거 기록이 없습니다.",
+    "emptyCurrent": "표시할 현재 학습 파트너가 없습니다.",
+    "emptyAll": "표시할 학습 파트너 기록이 없습니다.",
     "gradeClass": "Grade & Class",
     "classOf": "Class of {year}",
     "reviewNeeded": "Review needed",
