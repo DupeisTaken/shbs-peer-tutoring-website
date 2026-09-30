@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -10,13 +11,15 @@ import {
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
 import type { RouterOutputs } from "~/trpc/react";
-import { TuteeHistoryLinkDialog } from "./tutee-history";
+import { TuteeHistoryLinkForm } from "./tutee-history";
 import { HistoryClaim } from "../history/claim/history-claim";
 const mock = vi.hoisted(() => ({
   preview: vi.fn(),
   link: vi.fn(),
   invite: vi.fn(),
   claim: vi.fn(),
+  success: undefined as undefined | (() => Promise<void>),
+  invalidate: vi.fn(async () => undefined),
 }));
 vi.mock("./profile-dialog", () => ({
   ProfileDialog: ({ children }: { children: React.ReactNode }) => (
@@ -25,7 +28,19 @@ vi.mock("./profile-dialog", () => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
-    useUtils: () => ({ tuteeHistory: { preview: { fetch: mock.preview } } }),
+    useUtils: () => ({
+      admin: {
+        tutees: { invalidate: mock.invalidate },
+        tuteeStats: { invalidate: mock.invalidate },
+        pairings: { invalidate: mock.invalidate },
+        accounts: { invalidate: mock.invalidate },
+      },
+      student: { invalidate: mock.invalidate },
+      tuteeHistory: {
+        invalidate: mock.invalidate,
+        preview: { fetch: mock.preview },
+      },
+    }),
     tuteeHistory: {
       candidates: {
         useQuery: () => ({
@@ -38,7 +53,12 @@ vi.mock("~/trpc/react", () => ({
           ],
         }),
       },
-      link: { useMutation: () => ({ mutate: mock.link }) },
+      link: {
+        useMutation: (options: { onSuccess: () => Promise<void> }) => {
+          mock.success = options.onSuccess;
+          return { mutate: mock.link };
+        },
+      },
       invite: { useMutation: () => ({ mutate: mock.invite }) },
       inspectClaim: {
         useQuery: () => ({ data: { name: "Alex Historical", sessions: 6 } }),
@@ -57,10 +77,10 @@ const row = {
 const mount = (head = false) =>
   render(
     <NextIntlClientProvider locale="en" messages={en}>
-      <TuteeHistoryLinkDialog
+      <TuteeHistoryLinkForm
         row={row}
         isHead={head}
-        onClose={() => undefined}
+        onLinked={() => undefined}
       />
     </NextIntlClientProvider>,
   );
@@ -207,4 +227,16 @@ it("sends an exact-record invitation from the website with staff evidence", () =
     expectedUpdatedAt: row.updatedAt,
     reason: "Verified identity and email against the school archive",
   });
+});
+
+it("clears a completed ownership preview and refreshes dependent views while remaining mounted", async () => {
+  mount();
+  await review();
+  expect(screen.getByRole("button", { name: "Confirm Link" })).toBeTruthy();
+  await act(async () => {
+    await mock.success!();
+  });
+  expect(mock.invalidate).toHaveBeenCalledTimes(6);
+  expect(screen.queryByRole("button", { name: "Confirm Link" })).toBeNull();
+  expect(screen.getByRole("button", { name: "Review Link" })).toBeTruthy();
 });

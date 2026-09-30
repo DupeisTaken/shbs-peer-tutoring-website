@@ -3312,6 +3312,10 @@
     }
   },
   "tuteeHistory": {
+    "gradeClass": "年级与毕业届别",
+    "classOf": "{year}届",
+    "reviewNeeded": "待确认",
+    "linkSaved": "历史记录已关联。",
     "failed": "未能完成操作，请刷新后重试。",
     "HISTORY_ACCOUNT_NOT_READY": "请选择已完成设置并验证邮箱的账号。",
     "HISTORY_NOT_HISTORICAL": "这是当前报名记录，请使用当前报名流程。",

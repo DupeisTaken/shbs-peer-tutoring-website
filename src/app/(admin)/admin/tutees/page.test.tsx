@@ -43,6 +43,7 @@ vi.mock("~/trpc/react", () => {
                 id: "tutee-1",
                 historical: false,
                 englishName: "Example Tutee",
+                alternativeNames: "示例学生",
                 email: "tutee@example.test",
                 status: "ACTIVE",
                 firstChoice: null,
@@ -129,7 +130,7 @@ it.each([false, true])(
     const messages = chinese ? zh : en;
     const headers = screen.getAllByRole("columnheader");
     expect(headers[1]!.textContent).toBe(messages.admin.tutees.colContact);
-    expect(headers[2]!.textContent).toContain(messages.academics.title);
+    expect(headers[2]!.textContent).toContain(messages.tuteeHistory.gradeClass);
     const row = screen.getByText("Example Tutee").closest("tr")!;
     const cells = within(row).getAllByRole("cell");
     expect(
@@ -139,10 +140,7 @@ it.each([false, true])(
     ).toBeTruthy();
     expect(
       Array.from(cells[2]!.querySelectorAll("p"), (p) => p.textContent),
-    ).toEqual([
-      messages.tuteeHistory.notRecorded,
-      messages.tuteeHistory.enrollmentEvidence,
-    ]);
+    ).toEqual([messages.tuteeHistory.notRecorded]);
     const actions = within(cells.at(-1)!);
     const edit = actions.getByRole("button", {
       name: messages.accountProfile.editProfile,
@@ -167,17 +165,33 @@ it("hides private account actions for read-only viewers", () => {
   expect(within(row).getByText(en.tuteeHistory.notRecorded)).toBeTruthy();
 });
 
+it("uses the server-composed display name without separately revealing hidden additional names", () => {
+  mount();
+  const row = screen.getByText("Example Tutee").closest("tr")!;
+  expect(within(row).queryByText("示例学生")).toBeNull();
+  expect(within(row).queryByText(en.tuteeHistory.noAccount)).toBeNull();
+});
+
 it("reveals historical and unverified records independently without setup or current-grade demands", () => {
   mount();
   expect(screen.queryByText("Archive Learner")).toBeNull();
   expect(screen.queryByText("Unverified Learner")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "History" }));
   const row = screen.getByText("Archive Learner").closest("tr")!;
-  expect(within(row).getByText("Recorded grade: 9")).toBeTruthy();
+  expect(within(row).getByText("Grade 9")).toBeTruthy();
   expect(within(row).queryByText(en.accountProfile.setupRequired)).toBeNull();
   expect(
-    within(row).getByRole("button", { name: en.tuteeHistory.linkTitle }),
-  ).toBeTruthy();
+    within(row).queryByRole("button", { name: en.tuteeHistory.linkTitle }),
+  ).toBeNull();
+  expect(
+    within(row.querySelector("td:last-child")!)
+      .getAllByRole("button")
+      .map((button) => button.textContent),
+  ).toEqual([
+    en.tuteeHistory.details,
+    en.accountProfile.editProfile,
+    en.admin.tutees.deleteBtn,
+  ]);
   expect(screen.queryByText("Example Tutee")).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "All Records" }));
   fireEvent.click(
@@ -198,7 +212,9 @@ it("sorts historical rows by original grades instead of the owner's current grad
     screen.getByRole("button", { name: en.tuteeHistory.historical }),
   );
   fireEvent.click(
-    screen.getByRole("button", { name: new RegExp(en.academics.title) }),
+    screen.getByRole("button", {
+      name: new RegExp(en.tuteeHistory.gradeClass),
+    }),
   );
   const names = screen
     .getAllByRole("row")

@@ -35,3 +35,27 @@ The complete [website action matrix](../../historical-participant-transition.md#
 ![Explicit mobile invitation confirmation](claim-mobile.png)
 
 ![Personal enrollment evidence and attendance after claiming](personal-history-mobile.png)
+
+## Tutee table refinement (follow-up to #204)
+
+- The Tutee List uses Users & Roles table spacing, typography and action sizes. Each writable row has exactly View History, Edit Profile and Delete; linking/invitations are inside Edit Profile.
+- Grade & Class retains original enrollment grade/period for historical records. A class year requires a numeric grade and known school year. Confirmed current account academics remain separate.
+- Browser verification linked Alex's synthetic historical enrollment through Edit Profile. The dialog remained open, unsaved notes survived, focus returned to the link summary, and the roster refreshed. No nested forms or dialogs.
+- Desktop actions measured 28px and mobile actions 44px. At 390px the page remained 390px wide; only the table scrolls horizontally. Browser console and uncaught-error checks were clear.
+- 28 UI tests and 15 real PostgreSQL history tests passed. TypeScript and repository check passed (18 existing lint warnings); 13 documentation checks passed.
+- Updated local HTML report: `outputs/historical-participant-transition/audit.html`. It embeds fresh desktop/mobile screenshots, the Users & Roles reference and measured interaction evidence. Historical reports describe previous verification runs.
+
+![Tutee List with compact academics and three actions](ui-history-desktop.png)
+
+![Historical linking inside Edit Profile](ui-editor-desktop.png)
+
+### Integration with four-name fields (#208)
+
+PR #209 was reconciled with main `c761c78`. The Tutee List keeps three actions and the server-composed display name; it does not separately reveal or duplicate Name in Another Language. Edit Profile retains all four explicit name fields alongside embedded historical linking.
+
+- 59 focused UI/name/history tests passed across seven files against an isolated UTF-8 PostgreSQL database. The first database run found the previous local test service stopped; the complete rerun passed on the dedicated merge-verification cluster.
+- Repository check and TypeScript passed (18 existing warnings); all 13 documentation tests passed.
+- A real browser link preserved all four unsaved names and notes, kept one dialog with no nested forms, collapsed the linking section and restored summary focus. Desktop and 390 px mobile views had no page overflow or browser errors.
+- [Integrated desktop profile](merge-editor-desktop.png), [mobile four-name profile](merge-editor-mobile.png), and [successful mobile link](merge-link-success-mobile.png) use synthetic fixtures only.
+
+Full GitHub checks run on the updated PR head before merging; the earlier screenshots above describe the pre-integration UI.
