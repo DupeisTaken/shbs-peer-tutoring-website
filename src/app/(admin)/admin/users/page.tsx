@@ -269,17 +269,29 @@ export default function UsersPage() {
   return (
     <div className="space-y-6">
       {editingTutor && !editingTutor.user && (
-        <TutorProfileEditor key={editingTutor.id} row={editingTutor} isHead={isHead}
-          onClose={() => setEditingTutorId(null)} />
+        <TutorProfileEditor
+          key={editingTutor.id}
+          row={editingTutor}
+          isHead={isHead}
+          onClose={() => setEditingTutorId(null)}
+        />
       )}
-      {editingTutorId && tutorProfiles.isLoading && <p role="status">{t("common.loading")}</p>}
-      {editingTutorId && tutorProfiles.error && <p role="alert">{tutorProfiles.error.message}</p>}
+      {editingTutorId && tutorProfiles.isLoading && (
+        <p role="status">{t("common.loading")}</p>
+      )}
+      {editingTutorId && tutorProfiles.error && (
+        <p role="alert">{tutorProfiles.error.message}</p>
+      )}
       {editingProfile?.userId && editingProfile.profileVersion !== null && (
         <AccountProfileEditor
           profile={{
             userId: editingProfile.userId,
             username: editingProfile.username,
             name: editingProfile.name,
+            firstName: editingProfile.firstName,
+            lastName: editingProfile.lastName,
+            preferredName: editingProfile.preferredName,
+            legacyName: editingProfile.legacyName,
             alternativeNames: editingProfile.alternativeNames,
             profileVersion: editingProfile.profileVersion,
           }}
@@ -429,7 +441,11 @@ export default function UsersPage() {
         </section>
       )}
 
-      {assignUsername.error && <p role="alert" className="text-sm text-red-600">{assignUsername.error.message}</p>}
+      {assignUsername.error && (
+        <p role="alert" className="text-sm text-red-600">
+          {assignUsername.error.message}
+        </p>
+      )}
       <div className="card overflow-x-auto">
         <table className="data-table">
           <thead>
@@ -466,9 +482,6 @@ export default function UsersPage() {
                         <p className="muted text-xs">
                           {t(u.userId ? "academics.usernameMissing" : "tuteeHistory.noAccount")}
                         </p>
-                      )}
-                      {u.alternativeNames && (
-                        <p className="muted text-xs">{u.alternativeNames}</p>
                       )}
                     </div>
                   </td>

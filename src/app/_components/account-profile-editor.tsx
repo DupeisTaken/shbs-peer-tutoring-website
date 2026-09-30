@@ -1,4 +1,6 @@
 "use client";
+import { PersonNameFields } from "~/app/_components/person-name-fields";
+import { nameDraft, fullPersonName } from "~/lib/person-name";
 
 import { SchoolDeparturePanel } from "./school-departure";
 import { MembershipEditor } from "./membership-editor";
@@ -7,10 +9,7 @@ import { AccountUsernameEditor } from "./account-username-editor";
 import type { AccountMembership } from "~/lib/account-membership";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import {
-  ProfilePolicyHint,
-  ProfilePolicyError,
-} from "~/app/_components/profile-policy";
+import { ProfilePolicyError } from "~/app/_components/profile-policy";
 import { api } from "~/trpc/react";
 import { ProfileDialog } from "~/app/_components/profile-dialog";
 
@@ -24,6 +23,10 @@ export function AccountProfileEditor({
     userId: string;
     username?: string | null;
     name: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    preferredName?: string | null;
+    legacyName?: string | null;
     alternativeNames: string | null;
     profileVersion: number;
   };
@@ -32,13 +35,12 @@ export function AccountProfileEditor({
   isHead?: boolean;
 }) {
   const t = useTranslations("accountProfile");
-  const [name, setName] = useState(profile.name);
+  const [names, setNames] = useState(() => nameDraft(profile));
+  const name = fullPersonName(names);
   const [expectedProfileVersion, setExpectedProfileVersion] = useState(
     profile.profileVersion,
   );
-  const [alternativeNames, setAlternativeNames] = useState(
-    profile.alternativeNames ?? "",
-  );
+
   const utils = api.useUtils();
   const save = api.admin.updateAccountProfile.useMutation({
     onSuccess: async () => {
@@ -61,34 +63,17 @@ export function AccountProfileEditor({
           save.mutate({
             userId: profile.userId,
             name,
-            alternativeNames: alternativeNames.trim() || null,
+            ...names,
             expectedProfileVersion,
           });
         }}
       >
         <p className="muted text-sm">{t("canonicalHelp")}</p>
-        <label className="block">
-          <span className="label">{t("name")}</span>
-          <input
-            className="input min-h-11 w-full lg:min-h-10"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            maxLength={100}
-          />
-        </label>
-        <ProfilePolicyHint />
-        <ProfilePolicyHint field="legal" />
-        <label className="block">
-          <span className="label">{t("alternativeNames")}</span>
-          <input
-            className="input min-h-11 w-full lg:min-h-10"
-            value={alternativeNames}
-            onChange={(e) => setAlternativeNames(e.target.value)}
-            maxLength={200}
-          />
-          <span className="muted text-xs">{t("alternativeHelp")}</span>
-        </label>
+        <PersonNameFields
+          value={names}
+          onChange={setNames}
+          legacyName={profile.legacyName ?? profile.name}
+        />
         <button
           className="btn-primary min-h-11 lg:min-h-10"
           disabled={save.isPending || !name.trim()}
@@ -110,8 +95,7 @@ export function AccountProfileEditor({
                 (row) => row.userId === profile.userId,
               );
               if (latest?.profileVersion != null) {
-                setName(latest.name);
-                setAlternativeNames(latest.alternativeNames ?? "");
+                setNames(nameDraft(latest));
                 setExpectedProfileVersion(latest.profileVersion);
                 save.reset();
               }

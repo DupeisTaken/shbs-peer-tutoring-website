@@ -292,19 +292,32 @@ confirmation. Internal historical confirmations retain their original reference 
 Users & Roles shows a compact class year where known; full academic evidence is in
 User Details.
 
-`ProgramSettings.requireLatinNames`, `requireLatinLegalNames` and `offeredGrades` are immediate, audited ADMIN/HEAD
-settings in Program & Refresh. The independent name rules default off; grades default to G1–G12.
-Preferred Name keeps the existing `name`/`englishName` storage keys; Legal Name keeps
-`alternativeNames`. The label change preserves historical values without verifying their
-legal status. New or changed names accept Latin letters (including accents), spaces, hyphens
-and apostrophes when their rule is enabled. Optional blank legal names and unchanged
-legacy values are exempt. Account, registration and roster writers enforce the legal-name
-rule on the server; shared account updates synchronize linked roster names atomically.
-The complete policy, including both switches, participates in stale-draft checks and audit logs.
-New grade reports must use an offered grade; changing the setting never rewrites history.
-Public forms read these settings, and server write paths recheck them, including pending
-signup completions. Migration `20260925012820_program_profile_policy` adds the initial defaults;
-`20260929090000_legal_name_policy` adds the independent legal-name switch without changing names.
+Current identity records (User, Tutor, Tutee) store explicit `firstName`, `lastName`,
+`preferredName`, and `alternativeNames` (the UI's Name in Another Language).
+First, last and preferred names have fixed server-side Latin-script validation, with accents,
+spaces, apostrophes and hyphens allowed. Alternate names accept Unicode. Blank optional
+names are allowed. The legacy policy booleans remain for wire/storage compatibility; the
+current API always reports true/false and ignores attempts to change the fixed rules.
+
+`ProgramSettings.usePreferredNames` and `showAlternateNames` default off. ADMIN/HEAD
+can change them with stale-draft checking and an audit record. The preferred name replaces
+only the first name; the alternate name is appended with a middle-dot separator. PostgreSQL
+triggers materialize this label in `User.name` and roster `englishName`, so existing
+readers, exports and refreshed authentication sessions agree. The settings writer takes the
+username namespace lock then identity table locks before refreshing labels in one transaction.
+Saving invalid names rolls back the profile operation. Shared account writes copy explicit
+fields to linked rosters; they never split a display label. Username generation uses the
+explicit fields rather than the display label.
+
+Migration `20260930010000_four_name_fields` preserves original labels in `legacyName`
+and copies only already-explicit matching tutor fields. Unconfirmed old tutor splits retain
+the original label until edited. Intake snapshots gain nullable explicit fields without
+rewriting old submissions. No trigger touches signatures or audit snapshots. Apply migrations
+before deploying the matching application; regenerate Prisma after changing the schema.
+The new migration follows the historical `program_profile_policy` and `legal_name_policy`
+migrations. New grade reports must still use an offered grade.
+
+See [name-field wording and behavior](design/name-fields.md) for labels and display examples.
 
 Self-service writes own the current authenticated account. ADMIN/HEAD can correct other
 accounts; coordinator corrections follow the same proposal/approval workflow as account

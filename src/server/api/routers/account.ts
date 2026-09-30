@@ -1,3 +1,4 @@
+import { optionalPersonNameFields } from "~/lib/person-name";
 import { accountHistoryIds } from "~/server/account-history";
 import { currentAcademicInput, academicSummary } from "~/lib/academics";
 import { confirmCurrentAccountAcademics } from "~/server/academics";
@@ -194,6 +195,10 @@ export const accountRouter = createTRPCRouter({
       where: { id: ctx.session.user.id },
       select: {
         name: true,
+        firstName: true,
+        lastName: true,
+        preferredName: true,
+        legacyName: true,
         alternativeNames: true,
         profileVersion: true,
         academicProfile: true,
@@ -275,7 +280,8 @@ export const accountRouter = createTRPCRouter({
   updateName: protectedProcedure
     .input(
       z.object({
-        name: z.string().trim().min(1, "Enter a name.").max(100),
+        ...optionalPersonNameFields,
+        name: z.string().trim().min(1, "Enter a name.").max(200),
         alternativeNames: z.string().trim().max(200).nullable().optional(),
         expectedProfileVersion: z.number().int().nonnegative().optional(),
       }),

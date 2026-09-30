@@ -38,7 +38,15 @@ export async function promoteApplicantToTutor(
     await lockUsernameNamespace(db);
     const app = await db.tutorApplication.findUnique({
       where: { id: applicationId },
-      select: { name: true, email: true, type: true },
+      select: {
+        name: true,
+        firstName: true,
+        lastName: true,
+        preferredName: true,
+        alternativeNames: true,
+        email: true,
+        type: true,
+      },
     });
     if (app?.type !== "INITIAL") return;
 
@@ -81,8 +89,10 @@ export async function promoteApplicantToTutor(
       });
       const tutor = await db.tutor.create({
         data: {
-          firstName,
-          lastName,
+          firstName: canonicalName ? null : app.firstName,
+          lastName: canonicalName ? null : app.lastName,
+          preferredName: canonicalName ? null : app.preferredName,
+          alternativeNames: canonicalName ? null : app.alternativeNames,
           englishName,
           username,
           email,

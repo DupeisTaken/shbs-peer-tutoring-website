@@ -101,21 +101,12 @@ beforeEach(async () => {
 });
 afterAll(() => db.$disconnect());
 
-const legalError = {
-  code: "BAD_REQUEST",
-  message: "PROFILE_LATIN_LEGAL_NAME_REQUIRED",
-};
-const requireLegal = () =>
-  db.programSettings.update({
-    where: { id: "program" },
-    data: { requireLatinLegalNames: true },
-  });
+const fieldError = { code: "BAD_REQUEST" };
 
 it.each(["王小明", "Аlice Chen", "Alice123", "Alice🙂", "Ali\u200bce"])(
-  "rejects new legal name %s independently through account API",
+  "rejects invalid preferred name %s through account API",
   async (name) => {
     await setRequired(false);
-    await requireLegal();
     const user = await db.user.create({
       data: { email: "legal@example.test", name: "王小明" },
     });
@@ -130,8 +121,14 @@ it.each(["王小明", "Аlice Chen", "Alice123", "Alice🙂", "Ali\u200bce"])(
       },
     });
     await expect(
-      caller.account.updateName({ name: "李小明", alternativeNames: name }),
-    ).rejects.toMatchObject(legalError);
+      caller.account.updateName({
+        name: "Alice Chen",
+        firstName: "Alice",
+        lastName: "Chen",
+        preferredName: name,
+        alternativeNames: "李小明",
+      }),
+    ).rejects.toMatchObject(fieldError);
     expect(
       await db.user.findUniqueOrThrow({ where: { id: user.id } }),
     ).toMatchObject({
@@ -152,36 +149,44 @@ it.each([
   "   ",
   null,
   undefined,
-])("accepts legal name %s and synchronizes linked profiles", async (name) => {
-  await requireLegal();
-  const tutor = await db.tutor.create({ data: { englishName: "Alice Chen" } });
-  const student = await db.tutee.create({
-    data: { englishName: "Alice Chen" },
-  });
-  const user = await db.user.create({
-    data: {
-      email: "legal@example.test",
-      name: "Alice Chen",
-      tutorId: tutor.id,
-      studentId: student.id,
-    },
-  });
-  await updateAccountProfile(db, user.id, { alternativeNames: name });
-  const trimmed = name?.trim() ?? "";
-  const expected = trimmed.length === 0 ? null : trimmed;
-  expect(
-    await db.user.findUniqueOrThrow({ where: { id: user.id } }),
-  ).toMatchObject({ alternativeNames: expected });
-  expect(
-    await db.tutor.findUniqueOrThrow({ where: { id: tutor.id } }),
-  ).toMatchObject({ alternativeNames: expected });
-  expect(
-    await db.tutee.findUniqueOrThrow({ where: { id: student.id } }),
-  ).toMatchObject({ alternativeNames: expected });
-});
+])(
+  "accepts preferred name %s and synchronizes linked profiles",
+  async (name) => {
+    const tutor = await db.tutor.create({
+      data: { englishName: "Alice Chen" },
+    });
+    const student = await db.tutee.create({
+      data: { englishName: "Alice Chen" },
+    });
+    const user = await db.user.create({
+      data: {
+        email: "legal@example.test",
+        name: "Alice Chen",
+        tutorId: tutor.id,
+        studentId: student.id,
+      },
+    });
+    await updateAccountProfile(db, user.id, {
+      firstName: "Alice",
+      lastName: "Chen",
+      preferredName: name,
+      alternativeNames: "陈爱丽",
+    });
+    const trimmed = name?.trim() ?? "";
+    const expected = trimmed.length === 0 ? null : trimmed;
+    expect(
+      await db.user.findUniqueOrThrow({ where: { id: user.id } }),
+    ).toMatchObject({ preferredName: expected, alternativeNames: "陈爱丽" });
+    expect(
+      await db.tutor.findUniqueOrThrow({ where: { id: tutor.id } }),
+    ).toMatchObject({ preferredName: expected, alternativeNames: "陈爱丽" });
+    expect(
+      await db.tutee.findUniqueOrThrow({ where: { id: student.id } }),
+    ).toMatchObject({ preferredName: expected, alternativeNames: "陈爱丽" });
+  },
+);
 
-it("preserves unchanged legacy legal names, permits clearing, and rejects changed non-Latin names", async () => {
-  await requireLegal();
+it("preserves, changes and clears Unicode alternate names independently of Latin fields", async () => {
   const user = await db.user.create({
     data: {
       email: "legal@example.test",
@@ -193,9 +198,10 @@ it("preserves unchanged legacy legal names, permits clearing, and rejects change
     name: "Alice Chen",
     alternativeNames: " 王小明 ",
   });
-  await expect(
-    updateAccountProfile(db, user.id, { alternativeNames: "李小明" }),
-  ).rejects.toMatchObject(legalError);
+  await updateAccountProfile(db, user.id, { alternativeNames: "李小明" });
+  expect(await db.user.findUnique({ where: { id: user.id } })).toMatchObject({
+    alternativeNames: "李小明",
+  });
   await updateAccountProfile(db, user.id, { alternativeNames: null });
   expect(
     await db.user.findUniqueOrThrow({ where: { id: user.id } }),
@@ -203,20 +209,20 @@ it("preserves unchanged legacy legal names, permits clearing, and rejects change
 });
 
 it.each(["TUTOR", "CREW", "ADMIN"] as const)(
-  "rechecks legal-name policy at %s registration without consuming the invitation",
+  "validates preferred name at %s registration without consuming the invitation",
   async (kind) => {
     const invitation = await verifiedInvitation("legal@example.test", kind);
-    await requireLegal();
     const input = {
       firstName: "Alice",
       lastName: "Chen",
       password,
       completionProof: invitation.completionProof,
+      preferredName: "王小明",
       alternativeNames: "王小明",
     };
     await expect(
       completeRegistration(invitation.row, input),
-    ).rejects.toMatchObject(legalError);
+    ).rejects.toMatchObject(fieldError);
     expect(
       await db.registrationCode.findUniqueOrThrow({
         where: { id: invitation.row.id },
@@ -229,14 +235,13 @@ it.each(["TUTOR", "CREW", "ADMIN"] as const)(
     await expect(
       completeRegistration(invitation.row, {
         ...input,
-        alternativeNames: "José García",
+        preferredName: "José García",
       }),
     ).resolves.toMatchObject({ ok: true });
   },
 );
 
-it("preserves an invited roster's unchanged legal name when creating its first account", async () => {
-  await requireLegal();
+it("preserves an invited roster's name in another language when creating its first account", async () => {
   const roster = await db.tutor.create({
     data: {
       email: "legal-roster@example.test",
@@ -263,8 +268,7 @@ it("preserves an invited roster's unchanged legal name when creating its first a
   ).toMatchObject({ alternativeNames: "王小明", tutorId: roster.id });
 });
 
-it("enforces legal names for new tutors and unlinked tutor/tutee edits", async () => {
-  await requireLegal();
+it("validates preferred names for new tutors and unlinked roster edits", async () => {
   const head = await db.user.create({
     data: { email: "head@example.test", role: "HEAD", name: "Head" },
   });
@@ -282,9 +286,10 @@ it("enforces legal names for new tutors and unlinked tutor/tutee edits", async (
     caller.admin.createTutor({
       firstName: "Alice",
       lastName: "Chen",
+      preferredName: "王小明",
       alternativeNames: "王小明",
     }),
-  ).rejects.toMatchObject(legalError);
+  ).rejects.toMatchObject(fieldError);
   expect(await db.tutor.count()).toBe(0);
   const tutor = await db.tutor.create({
     data: { englishName: "Alice Chen", alternativeNames: "王小明" },
@@ -297,19 +302,23 @@ it("enforces legal names for new tutors and unlinked tutor/tutee edits", async (
       id: tutor.id,
       firstName: "Alice",
       lastName: "Chen",
+      preferredName: "李小明",
       alternativeNames: "李小明",
       status: tutor.status,
     }),
-  ).rejects.toMatchObject(legalError);
+  ).rejects.toMatchObject(fieldError);
   await expect(
     caller.admin.updateTutee({
       id: student.id,
       englishName: "Alice Chen",
+      firstName: "Alice",
+      lastName: "Chen",
+      preferredName: "李小明",
       alternativeNames: "李小明",
       status: student.status,
       expectedUpdatedAt: student.updatedAt,
     }),
-  ).rejects.toMatchObject(legalError);
+  ).rejects.toMatchObject(fieldError);
   await caller.admin.updateTutee({
     id: student.id,
     englishName: "Alice Chen",
@@ -455,12 +464,14 @@ it("enforces new tutor and crew application names while preserving historical du
   expect(await db.crewApplication.count()).toBe(0);
   expect(await db.publicApplicationRateLimit.count()).toBe(0);
   await setRequired(false);
-  await publicCaller().application.submit(await tutorInput("王小明"));
+  await publicCaller().application.submit(await tutorInput("Xiaoming Wang"));
+  await db.tutorApplication.updateMany({ data: { name: "王小明" } });
   await publicCaller().crew.submitApplication({
-    name: "王小明",
+    name: "Xiaoming Wang",
     email: "crew@example.test",
     gradeLevel: 4,
   });
+  await db.crewApplication.updateMany({ data: { name: "王小明" } });
   await setRequired(true);
   await db.programSettings.update({
     where: { id: "program" },
@@ -493,10 +504,11 @@ it("rechecks an in-flight viewer signup at completion without consuming the veri
   const email = "inflight-viewer@example.test";
   const started = await startViewerSignup({
     email,
-    name: "王小明",
+    name: "Xiaoming Wang",
     affiliation: "Family",
   });
   if (!started.ok) throw Error("Expected viewer signup");
+  await db.viewerSignup.update({ where: { email }, data: { name: "王小明" } });
   const verified = await verifyViewerCode(email, started.code);
   if (!verified.ok) throw Error("Expected verified signup");
   await setRequired(true);
@@ -511,7 +523,10 @@ it("rechecks an in-flight viewer signup at completion without consuming the veri
   expect(await db.viewerSignup.findUnique({ where: { email } })).toMatchObject({
     usedAt: null,
   });
-  await setRequired(false);
+  await db.viewerSignup.update({
+    where: { email },
+    data: { name: "Xiaoming Wang" },
+  });
   expect(
     await completeViewerSignup(email, password, verified.completionProof),
   ).toEqual({ ok: true });
@@ -563,7 +578,7 @@ it.each(["TUTOR", "CREW"] as const)(
         preferredLatinName: "Xiaoming Wang",
         password,
       }),
-    ).rejects.toMatchObject(policyError);
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
     expect(await db.user.count({ where: { email } })).toBe(0);
     expect(
       await db.registrationCode.findUnique({
@@ -582,7 +597,7 @@ it.each(["TUTOR", "CREW"] as const)(
   },
 );
 
-it("allows an unchanged legacy primary name during tutor registration but rejects a changed non-Latin name", async () => {
+it("requires explicit Latin fields when an existing account completes tutor registration", async () => {
   const email = "legacy-invitation@example.test";
   const user = await db.user.create({
     data: {
@@ -610,12 +625,13 @@ it("allows an unchanged legacy primary name during tutor registration but reject
   expect(
     await completeRegistration(invitation.row, {
       ...profile,
-      firstName: "王小明",
+      firstName: "Xiaoming",
+      lastName: "Wang",
       alternativeNames: "任意文字",
     }),
   ).toMatchObject({ ok: true, username: "legacyhandle" });
   expect(await db.user.findUnique({ where: { id: user.id } })).toMatchObject({
-    name: "王小明",
+    name: "Xiaoming Wang",
     alternativeNames: "任意文字",
     username: "legacyhandle",
   });
@@ -649,7 +665,11 @@ it("checks a new student survey and rechecks pre-policy submissions when creatin
   ).rejects.toMatchObject(policyError);
   expect(await db.studentSurvey.count()).toBe(0);
   await setRequired(false);
-  await submitSurvey(db, await studentInput("王小明"));
+  const historicalPayload = await studentInput("Xiaoming Wang");
+  await submitSurvey(db, historicalPayload);
+  await db.studentSurvey.updateMany({
+    data: { payload: { ...historicalPayload, englishName: "王小明" } },
+  });
   const token = lastStudentToken();
   await setRequired(true);
   await expect(confirmSurvey(db, token, password)).rejects.toMatchObject(
@@ -660,7 +680,7 @@ it("checks a new student survey and rechecks pre-policy submissions when creatin
     confirmedAt: null,
     tuteeId: null,
   });
-  await setRequired(false);
+  await db.studentSurvey.updateMany({ data: { payload: historicalPayload } });
   await expect(confirmSurvey(db, token, password)).resolves.toEqual({
     ok: true,
   });
@@ -757,7 +777,7 @@ it("uses an existing verified account's grandfathered name when promotion create
   expect(await db.registrationCode.count()).toBe(0);
 });
 
-it("rechecks the current name after a concurrent profile edit before grandfathering an invitation name", async () => {
+it("rejects invalid registration fields before waiting on a concurrent profile edit", async () => {
   const email = "concurrent-invitation@example.test";
   const user = await db.user.create({
     data: {
@@ -793,27 +813,10 @@ it("rechecks the current name after a concurrent profile edit before grandfather
     (value) => ({ value }),
     (error: unknown) => ({ error }),
   );
-  let waiting = false;
-  try {
-    // Observe the real database lock wait, ensuring registration read the old name
-    // before the account editor commits its new canonical primary name.
-    for (let attempt = 0; attempt < 50; attempt++) {
-      const rows = await db.$queryRaw<
-        { count: bigint }[]
-      >`SELECT count(*) FROM pg_stat_activity
-        WHERE datname = current_database() AND wait_event = 'advisory' AND pid <> pg_backend_pid()`;
-      if (Number(rows[0]?.count) > 0) {
-        waiting = true;
-        break;
-      }
-      await new Promise((resolve) => setTimeout(resolve, 10));
-    }
-  } finally {
-    proceed();
-  }
+  expect(await registration).toMatchObject({ error: policyError });
+  proceed();
   await profileEdit;
   expect(await registration).toMatchObject({ error: policyError });
-  expect(waiting).toBe(true);
   expect(await db.user.findUnique({ where: { id: user.id } })).toMatchObject({
     name: "Xiaoming Wang",
     username: "stablehandle",
@@ -825,7 +828,7 @@ it("rechecks the current name after a concurrent profile edit before grandfather
   expect(await db.tutor.count()).toBe(0);
 });
 
-it("grandfathers an invited roster's unchanged name for its first login but rejects another non-Latin name", async () => {
+it("preserves an invited roster until Latin fields are supplied for its first login", async () => {
   const email = "roster-invitation@example.test";
   const roster = await db.tutor.create({
     data: { email, englishName: "王小明", username: "rosterhandle" },
@@ -853,14 +856,15 @@ it("grandfathers an invited roster's unchanged name for its first login but reje
   expect(
     await completeRegistration(row, {
       ...profile,
-      firstName: "王小明",
-      alternativeNames: "Xiaoming Wang",
+      firstName: "Xiaoming",
+      lastName: "Wang",
+      alternativeNames: "王小明",
     }),
   ).toMatchObject({ ok: true, username: "rosterhandle" });
   expect(await db.user.findUnique({ where: { email } })).toMatchObject({
-    name: "王小明",
+    name: "Xiaoming Wang",
     username: "rosterhandle",
     tutorId: roster.id,
-    alternativeNames: "Xiaoming Wang",
+    alternativeNames: "王小明",
   });
 });

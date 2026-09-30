@@ -1,4 +1,6 @@
 "use client";
+import { PersonNameFields } from "~/app/_components/person-name-fields";
+import { nameDraft } from "~/lib/person-name";
 
 import { useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
@@ -25,6 +27,7 @@ export function TutorProfileEditor({
 }) {
   const t = useTranslations();
   const [expectedUpdatedAt] = useState(row.updatedAt);
+  const [names, setNames] = useState(() => nameDraft(row));
   const policy = useProfilePolicy();
   const [grade, setGrade] = useState(
     row.academicallyGraduated
@@ -53,13 +56,11 @@ export function TutorProfileEditor({
             const field = data.get(key);
             return typeof field === "string" ? field.trim() : "";
           };
-          const [firstName, ...rest] = value("name").split(/\s+/);
+
           save.mutate({
             id: row.id,
             expectedUpdatedAt,
-            firstName: firstName!,
-            lastName: rest.join(" "),
-            alternativeNames: value("alternativeNames") || null,
+            ...names,
             email: value("email") || null,
             // Unlinked handles still share the login namespace and Head-only authority.
             ...(!row.user && isHead && value("username") !== (row.username ?? "")
@@ -91,14 +92,15 @@ export function TutorProfileEditor({
               readOnly={!isHead} autoCapitalize="none" autoCorrect="off" maxLength={64} />
           </label>
         )}
+        <div className="sm:col-span-2">
+          <PersonNameFields
+            value={names}
+            onChange={setNames}
+            legacyName={row.legacyName ?? row.englishName}
+          />
+        </div>
         {(
           [
-            ["name", t("accountProfile.name"), row.englishName],
-            [
-              "alternativeNames",
-              t("accountProfile.alternativeNames"),
-              row.alternativeNames,
-            ],
             ["email", t("admin.tutors.colEmail"), row.user?.email ?? row.email],
             ["grade", t("academics.legacyGrade"), row.gradeLevel],
           ] as const
@@ -121,7 +123,6 @@ export function TutorProfileEditor({
                   className="input w-full"
                   name={key}
                   defaultValue={value ?? ""}
-                  required={key === "name"}
                   type={key === "email" ? "email" : "text"}
                   readOnly={key === "email" && !!row.user}
                 />

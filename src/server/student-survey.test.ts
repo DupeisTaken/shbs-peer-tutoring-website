@@ -165,12 +165,12 @@ afterAll(async () => {
 
 describe("survey-first enrollment", () => {
   it.each([
-    ["王小明", undefined, "member"],
-    ["王小明", "Xiaoming Wang", "xwang"],
+    ["Xiaoming Wang", undefined, "xwang"],
+    ["Xiaoming Wang", "Xiaoming Wang", "xwang"],
     ["Madonna", undefined, "madonna"],
     ["José García", undefined, "jgarcia"],
   ])("allocates %s once after verification, with optional spelling %s", async (englishName, preferredLatinName, username) => {
-    await submitSurvey(db, { ...input(), englishName, preferredLatinName, gradeLevel: undefined });
+    await submitSurvey(db, { ...input(), englishName, alternativeNames: "王小明", preferredLatinName, gradeLevel: undefined });
     expect(await db.user.findUnique({ where: { email } })).toBeNull();
     const token = lastToken();
     await confirmSurvey(db, token, password);
@@ -1158,4 +1158,13 @@ it("refuses an old signup link after its passwordless account is retired", async
   await expect(confirmSurvey(db, token, password)).rejects.toMatchObject({ code: "FORBIDDEN" });
   expect(await db.user.findUniqueOrThrow({ where: { id: account.id } })).toMatchObject({ passwordHash: null, studentId: null, mergedIntoId: "surviving-student" });
   expect((await db.studentSurvey.findFirstOrThrow()).confirmedAt).toBeNull();
+});
+
+it("preserves all four name fields when staff materialize an intake before account confirmation", async () => {
+  await submitSurvey(db, { ...input(), englishName: "Alexander Chen", firstName: "Alexander", lastName: "Chen", preferredName: "Alex", alternativeNames: "陈晓明" });
+  const row = await db.studentSurvey.findFirstOrThrow();
+  const { materializeStudent } = await import("./student-survey");
+  const profile = await db.$transaction(tx => materializeStudent(tx, row));
+  expect(profile).toMatchObject({ firstName: "Alexander", lastName: "Chen", preferredName: "Alex", alternativeNames: "陈晓明", englishName: "Alexander Chen" });
+  expect(await db.user.findUnique({ where: { email } })).toBeNull();
 });

@@ -51,7 +51,7 @@ When Email 2FA is on, password changes also require an emailed verification code
 | --- | --- |
 | Program timezone | ADMIN/HEAD saves a supported IANA region after reviewing consequences; dates and deadlines use it consistently. Existing instants remain fixed; weekly slots remain school wall-clock times |
 | Tutor and tutee recruitment | ADMIN/HEAD saves each active-period window separately: acceptance switch, optional start/end times and optional preview link. Clearing a start time still respects the switch, end time and setup requirements; see [recruitment windows](#tutor-and-tutee-recruitment-windows) |
-| Names and grades | ADMIN/HEAD sets offered grades and independent Latin-letter rules for Preferred Name and optional Legal Name; see [account profiles](user-guide.md#account-settings-and-private-support) |
+| Names and grades | ADMIN/HEAD sets offered grades and independently controls **Use preferred names** and **Show names in another language**; see [name fields and display settings](user-guide.md#configure-signup-forms) |
 | Subjects, levels, slots and rooms | Management catalogues used by application, availability and pairing workflows |
 | Policy versions | Published database revisions require new acceptance for participation; changing a bundled policy draft does not publish it |
 | School calendar | Staff define holidays and make-up days used for school-day appeal deadlines |

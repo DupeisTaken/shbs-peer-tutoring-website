@@ -1,10 +1,10 @@
 "use client";
+import { PersonNameFields } from "~/app/_components/person-name-fields";
 
 import { FieldRequirement } from "~/app/_components/field-requirement";
 
 import { useState } from "react";
 import { AcademicError } from "~/app/_components/academic-error";
-import { PreferredLatinName } from "~/app/_components/preferred-latin-name";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 
@@ -15,7 +15,6 @@ import {
 import { api } from "~/trpc/react";
 import {
   useProfilePolicy,
-  ProfilePolicyHint,
   ProfilePolicyError,
   OfferedGradeSelect,
 } from "~/app/_components/profile-policy";
@@ -39,9 +38,10 @@ export function RegisterFlow() {
   const [email, setEmail] = useState("");
   const [emailCode, setEmailCode] = useState("");
   const [completionProof, setCompletionProof] = useState("");
+  const [legacyName, setLegacyName] = useState<string | null>(null);
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
-  const [preferredLatinName, setPreferredLatinName] = useState("");
+  const [preferredName, setPreferredName] = useState("");
   const [altNames, setAltNames] = useState("");
   const [grade, setGrade] = useState("");
   const [password, setPassword] = useState("");
@@ -53,11 +53,13 @@ export function RegisterFlow() {
   const check = api.registration.check.useMutation({
     onSuccess: (data) => {
       setKind(data.kind);
+      setLegacyName(data.legacyName);
       setBoundEmail(data.boundEmail);
       if (data.boundEmail) setEmail(data.boundEmail);
       if (data.firstName) setFirstName(data.firstName);
       if (data.lastName) setLastName(data.lastName);
       if (data.alternativeNames) setAltNames(data.alternativeNames);
+      if (data.preferredName) setPreferredName(data.preferredName);
       if (data.gradeLevel != null) setGrade(String(data.gradeLevel));
       // Database verification belongs to its original browser; checking an invitation is not proof.
       setCompletionProof("");
@@ -255,7 +257,7 @@ export function RegisterFlow() {
               complete.mutate({
                 code,
                 completionProof,
-                preferredLatinName: preferredLatinName.trim() || undefined,
+                preferredName: preferredName.trim() || undefined,
                 firstName: firstName.trim(),
                 lastName: lastName.trim(),
                 alternativeNames: altNames.trim() || undefined,
@@ -265,51 +267,21 @@ export function RegisterFlow() {
             }
           }}
         >
-          <div className="grid grid-cols-2 gap-2">
-            <div>
-              <label className="label" htmlFor="reg-first">
-                {t("auth.register.step.profile.firstName")}
-                <FieldRequirement state="required" />
-              </label>
-              <input
-                id="reg-first"
-                value={firstName}
-                onChange={(e) => setFirstName(e.target.value)}
-                className="input w-full"
-              />
-            </div>
-            <div>
-              <label className="label" htmlFor="reg-last">
-                {t("auth.register.step.profile.lastName")}
-                <FieldRequirement state="optional" />
-              </label>
-              <input
-                id="reg-last"
-                value={lastName}
-                onChange={(e) => setLastName(e.target.value)}
-                className="input w-full"
-              />
-            </div>
-          </div>
-          <ProfilePolicyHint />
-          <PreferredLatinName
-            name={`${firstName} ${lastName}`}
-            value={preferredLatinName}
-            onChange={setPreferredLatinName}
+          <PersonNameFields
+            legacyName={legacyName}
+            value={{
+              firstName,
+              lastName,
+              preferredName,
+              alternativeNames: altNames,
+            }}
+            onChange={(value) => {
+              setFirstName(value.firstName);
+              setLastName(value.lastName);
+              setPreferredName(value.preferredName);
+              setAltNames(value.alternativeNames);
+            }}
           />
-          <div>
-            <label className="label" htmlFor="reg-alt">
-              {t("auth.register.step.profile.altNames")}
-              <FieldRequirement state="optional" />
-            </label>
-            <input
-              id="reg-alt"
-              value={altNames}
-              onChange={(e) => setAltNames(e.target.value)}
-              className="input w-full"
-            />
-          </div>
-          <ProfilePolicyHint field="legal" />
           <div>
             <label className="label" htmlFor="reg-grade">
               {t("auth.register.step.profile.grade")}
