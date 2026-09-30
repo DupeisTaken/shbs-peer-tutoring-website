@@ -1,5 +1,6 @@
 "use client";
 import { PersonNameFields } from "~/app/_components/person-name-fields";
+import { FieldRequirement } from "~/app/_components/field-requirement";
 import { nameDraft } from "~/lib/person-name";
 
 import { useMemo, useState } from "react";
@@ -92,7 +93,7 @@ export default function TutorsPage() {
 
       {!readOnly && (
         <form
-          className="flex flex-wrap gap-2"
+          className="grid items-start gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"
           onSubmit={(e) => {
             e.preventDefault();
             if (firstName.trim() && lastName.trim())
@@ -107,35 +108,51 @@ export default function TutorsPage() {
               });
           }}
         >
-          <div className="w-full max-w-2xl">
+          <div className="min-w-0">
             <PersonNameFields
               value={names}
               onChange={setNames}
               requireLastName
             />
           </div>
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            type="email"
-            placeholder={t("admin.tutors.phEmail")}
-            className="input field-auto min-w-48"
-          />
-          <label className="min-w-32">
-            <span className="sr-only">{t("admin.tutors.phGrade")}</span>
-            <OfferedGradeSelect
-              value={grade}
-              onChange={setGrade}
-              offeredGrades={policy.offeredGrades}
-              includeGraduated
-            />
-          </label>
-          <button
-            className="btn-primary"
-            disabled={!firstName.trim() || !lastName.trim() || create.isPending}
-          >
-            {t("admin.tutors.addTutor")}
-          </button>
+          {/* Single-line controls live inside labels, never as stretchable peers
+              of the multirow name block. Labels can wrap without sizing inputs. */}
+          <div className="flex min-w-0 flex-col gap-4">
+            <label className="block min-w-0">
+              <span className="label">
+                {t("admin.tutors.colEmail")}
+                <FieldRequirement state="optional" />
+              </span>
+              <input
+                name="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                type="email"
+                autoComplete="email"
+                className="input min-h-11 w-full lg:min-h-10"
+              />
+            </label>
+            <label className="block min-w-0">
+              <span className="label">
+                {t("admin.tutors.colGrade")}
+                <FieldRequirement state="optional" />
+              </span>
+              <OfferedGradeSelect
+                value={grade}
+                onChange={setGrade}
+                offeredGrades={policy.offeredGrades}
+                includeGraduated
+              />
+            </label>
+            <button
+              className="btn-primary min-h-11 self-start lg:min-h-10"
+              disabled={
+                !firstName.trim() || !lastName.trim() || create.isPending
+              }
+            >
+              {t("admin.tutors.addTutor")}
+            </button>
+          </div>
         </form>
       )}
       {!readOnly && (
@@ -212,7 +229,18 @@ export default function TutorsPage() {
                 </td>
                 <td className="min-w-52">
                   {/* Keep the roster concise; full details retain the reference year. */}
-                  {isPastTutor(row.status) ? <EnrollmentGrade grade={row.gradeLevel?.toString()} graduated={row.academicallyGraduated} /> : <AcademicDetails academic={row.academic} showSchoolYear={false} compact />}
+                  {isPastTutor(row.status) ? (
+                    <EnrollmentGrade
+                      grade={row.gradeLevel?.toString()}
+                      graduated={row.academicallyGraduated}
+                    />
+                  ) : (
+                    <AcademicDetails
+                      academic={row.academic}
+                      showSchoolYear={false}
+                      compact
+                    />
+                  )}
                 </td>
                 {/* Keep translated status badges readable inside the scrolling roster. */}
                 <td className="whitespace-nowrap">

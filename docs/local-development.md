@@ -164,6 +164,14 @@ allowlists; an arbitrary `_test` name does not satisfy every suite. Create the d
 `DATABASE_URL` for both `npm run db:migrate` and `npm test -- --maxWorkers=1`, and never point these
 destructive fixtures at a development site or production database.
 
+For the tutor creation layout regression, run `node scripts/test-tutor-form-layout.mjs`
+against a running loopback site with synthetic data. Set `TEST_BASE_URL`,
+`SHBS_BROWSER_STATE` to an authenticated staff Playwright storage-state file, and
+optionally `SHBS_BROWSER_MODULE` to an existing Playwright module URL and
+`SHBS_BROWSER_CHANNEL` to your installed browser channel. `SHBS_BROWSER_OUTPUT`
+selects the ignored evidence directory. The script checks English/Chinese at five
+widths, native validation and enlarged text, captures screenshots and submits no data.
+
 Lint and type-check the same way CI does:
 
 ```bash

@@ -8,6 +8,7 @@ import {
   within,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import zh from "../../../../../messages/zh.json";
 import en from "../../../../../messages/en.json";
 import { ReadOnlyProvider } from "~/app/_components/read-only";
 import TutorsPage from "./page";
@@ -42,7 +43,14 @@ vi.mock("~/trpc/react", () => ({
                 expectedGraduationYear: 2027,
               },
             },
-            { id: "tutor-historical", englishName: "Historical Tutor", status: "ARCHIVED", user: null, gradeLevel: null, academic: {status: "UNKNOWN",needsConfirmation:true} },
+            {
+              id: "tutor-historical",
+              englishName: "Historical Tutor",
+              status: "ARCHIVED",
+              user: null,
+              gradeLevel: null,
+              academic: { status: "UNKNOWN", needsConfirmation: true },
+            },
             {
               id: "tutor-unknown",
               englishName: "Unconfirmed Tutor",
@@ -69,9 +77,13 @@ vi.mock("~/app/_components/tutor-profile-editor", () => ({
 }));
 afterEach(cleanup);
 
-function mount(readOnly = false) {
+function mount(readOnly = false, chinese = false) {
   render(
-    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+    <NextIntlClientProvider
+      locale={chinese ? "zh" : "en"}
+      messages={chinese ? zh : en}
+      timeZone="Asia/Shanghai"
+    >
       <ReadOnlyProvider value={readOnly}>
         <TutorsPage />
       </ReadOnlyProvider>
@@ -125,7 +137,7 @@ it("offers Unknown and Graduated when adding a tutor", () => {
   createTutor.mockClear();
   mount();
   const grade = screen.getByRole<HTMLSelectElement>("combobox", {
-    name: en.admin.tutors.phGrade,
+    name: `${en.admin.tutors.colGrade} ${en.signupFields.optional}`,
   });
   expect(within(grade).getByRole("option", { name: "Unknown" })).toBeTruthy();
   expect(within(grade).getByRole("option", { name: "Graduated" })).toBeTruthy();
@@ -149,12 +161,59 @@ it("offers Unknown and Graduated when adding a tutor", () => {
   );
 });
 
-it("shows archived accountless tutors without a current academic or setup requirement",()=>{
- mount();expect(screen.queryByText("Historical Tutor")).toBeNull();
- fireEvent.click(screen.getByRole("button",{name:"Show past tutors"}));
- const row=screen.getByText("Historical Tutor").closest("tr")!;
- expect(within(row).getByText(en.tuteeHistory.noAccount)).toBeTruthy();
- expect(within(row).getByText(en.tuteeHistory.notRecorded)).toBeTruthy();
- expect(within(row).queryByText(en.academics.rosterNeedsConfirmation)).toBeNull();
- expect(within(row).queryByText(en.accountProfile.setupRequired)).toBeNull();
+it("shows archived accountless tutors without a current academic or setup requirement", () => {
+  mount();
+  expect(screen.queryByText("Historical Tutor")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Show past tutors" }));
+  const row = screen.getByText("Historical Tutor").closest("tr")!;
+  expect(within(row).getByText(en.tuteeHistory.noAccount)).toBeTruthy();
+  expect(within(row).getByText(en.tuteeHistory.notRecorded)).toBeTruthy();
+  expect(
+    within(row).queryByText(en.academics.rosterNeedsConfirmation),
+  ).toBeNull();
+  expect(within(row).queryByText(en.accountProfile.setupRequired)).toBeNull();
 });
+
+it.each([false, true])(
+  "labels optional controls and preserves native email validation (Chinese=%s)",
+  (chinese) => {
+    createTutor.mockClear();
+    mount(false, chinese);
+    const messages = chinese ? zh : en;
+    const email = screen.getByRole<HTMLInputElement>("textbox", {
+      name: `${messages.admin.tutors.colEmail} ${messages.signupFields.optional}`,
+    });
+    const first = screen.getByLabelText<HTMLInputElement>(
+      `${messages.personName.firstName} ${messages.signupFields.required}`,
+    );
+    const last = screen.getByLabelText<HTMLInputElement>(
+      `${messages.personName.lastName} ${messages.signupFields.required}`,
+    );
+    const form = email.closest("form")!;
+    expect(first.required).toBe(true);
+    expect(last.required).toBe(true);
+    expect(email.required).toBe(false);
+    expect(form.checkValidity()).toBe(false);
+    fireEvent.change(first, { target: { value: "Ada" } });
+    fireEvent.change(last, { target: { value: "Lovelace" } });
+    expect(form.checkValidity()).toBe(true);
+    fireEvent.change(email, { target: { value: "invalid" } });
+    expect(form.checkValidity()).toBe(false);
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.admin.tutors.addTutor }),
+    );
+    expect(createTutor).not.toHaveBeenCalled();
+    fireEvent.change(email, { target: { value: "" } });
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.admin.tutors.addTutor }),
+    );
+    expect(createTutor).toHaveBeenCalledWith(
+      expect.objectContaining({
+        firstName: "Ada",
+        lastName: "Lovelace",
+        email: undefined,
+        gradeLevel: undefined,
+      }),
+    );
+  },
+);
