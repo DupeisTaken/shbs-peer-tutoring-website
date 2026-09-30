@@ -1,5 +1,6 @@
 "use client";
 import { PersonNameFields } from "~/app/_components/person-name-fields";
+import { FieldRequirement } from "~/app/_components/field-requirement";
 import { nameDraft, fullPersonName } from "~/lib/person-name";
 
 import { invalidateTuteeViews } from "~/lib/tutee-cache";
@@ -8,7 +9,7 @@ import { PastTutorsToggle } from "~/app/_components/past-tutors-toggle";
 import { pairingScheduleText } from "~/lib/pairing-schedule";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import {
@@ -104,6 +105,9 @@ export default function TuteesPage() {
   const permissions = api.tuteeHistory.permissions.useQuery();
   const policy = useProfilePolicy();
   const readOnly = useReadOnly();
+  const [creationOpen, setCreationOpen] = useState(false);
+  const addTrigger = useRef<HTMLButtonElement>(null);
+  const restoreAddFocus = useRef(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const utils = api.useUtils();
   const tutees = api.admin.tutees.useQuery();
@@ -120,6 +124,14 @@ export default function TuteesPage() {
   const invalidate = () => invalidateTuteeViews(utils);
   const create = api.admin.createTutee.useMutation({ onSuccess: invalidate });
   const del = api.admin.deleteTutee.useMutation({ onSuccess: invalidate });
+  useEffect(() => {
+    // Mutation callbacks can run while the trigger is still disabled. Restore
+    // focus only after React renders the closed form and enabled trigger.
+    if (!creationOpen && !create.isPending && restoreAddFocus.current) {
+      restoreAddFocus.current = false;
+      addTrigger.current?.focus();
+    }
+  }, [creationOpen, create.isPending]);
 
   const [names, setNames] = useState(() => nameDraft());
   const name = fullPersonName(names);
@@ -202,7 +214,26 @@ export default function TuteesPage() {
   return (
     <div className="space-y-8">
       <div>
-        <h1 className="page-title">{t("admin.tutees.title")}</h1>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h1 className="page-title">{t("admin.tutees.title")}</h1>
+          {!readOnly && (
+            <button
+              ref={addTrigger}
+              type="button"
+              className="btn-primary min-h-11 lg:min-h-10"
+              aria-expanded={creationOpen}
+              aria-controls="add-tutee-form"
+              disabled={create.isPending}
+              onClick={() => setCreationOpen((open) => !open)}
+            >
+              {t(
+                creationOpen
+                  ? "admin.tutees.hideAddForm"
+                  : "admin.tutees.addTutee",
+              )}
+            </button>
+          )}
+        </div>
         <p className="muted mt-1">
           {t("admin.tutees.help")}{" "}
           <Link href="/admin/requests" className="link">
@@ -233,8 +264,18 @@ export default function TuteesPage() {
         />
       )}
       {!readOnly && (
-        <section className="card p-5">
-          <h2 className="section-title">{t("admin.tutees.addTutee")}</h2>
+        // Keep the form mounted when hidden: names, choices and validation stay
+        // intact until a successful save or navigation away from this page.
+        <section
+          id="add-tutee-form"
+          hidden={!creationOpen}
+          aria-labelledby="add-tutee-title"
+          className="card p-5"
+        >
+          <h2 id="add-tutee-title" className="section-title">
+            {t("admin.tutees.addTutee")}
+          </h2>
+          <p className="muted mt-1 text-sm">{t("admin.tutees.addDraftHelp")}</p>
           <ProfilePolicyHint />
           <form
             className="mt-3 flex flex-wrap items-end gap-3"
@@ -260,6 +301,8 @@ export default function TuteesPage() {
                     setGradeLevel("");
                     setFirstChoiceId("");
                     setSecondChoiceId("");
+                    restoreAddFocus.current = true;
+                    setCreationOpen(false);
                   },
                 },
               );
@@ -269,7 +312,10 @@ export default function TuteesPage() {
               <PersonNameFields value={names} onChange={setNames} />
             </div>
             <label className="space-y-1">
-              <span className="label">{t("admin.tutees.grade")}</span>
+              <span className="label">
+                {t("admin.tutees.grade")}
+                <FieldRequirement state="optional" />
+              </span>
               <OfferedGradeSelect
                 value={gradeLevel}
                 onChange={setGradeLevel}
@@ -278,7 +324,10 @@ export default function TuteesPage() {
               />
             </label>
             <label className="space-y-1">
-              <span className="label">{t("admin.tutees.firstChoice")}</span>
+              <span className="label">
+                {t("admin.tutees.firstChoice")}
+                <FieldRequirement state="optional" />
+              </span>
               <select
                 value={firstChoiceId}
                 onChange={(e) => setFirstChoiceId(e.target.value)}
@@ -293,7 +342,10 @@ export default function TuteesPage() {
               </select>
             </label>
             <label className="space-y-1">
-              <span className="label">{t("admin.tutees.secondChoice")}</span>
+              <span className="label">
+                {t("admin.tutees.secondChoice")}
+                <FieldRequirement state="optional" />
+              </span>
               <select
                 value={secondChoiceId}
                 onChange={(e) => setSecondChoiceId(e.target.value)}
@@ -310,10 +362,21 @@ export default function TuteesPage() {
               </select>
             </label>
             <button
-              className="btn-primary"
+              className="btn-primary min-h-11 lg:min-h-10"
               disabled={!name.trim() || create.isPending}
             >
               {t("admin.tutees.addTuteeBtn")}
+            </button>
+            <button
+              type="button"
+              className="btn-secondary min-h-11 lg:min-h-10"
+              disabled={create.isPending}
+              onClick={() => {
+                setCreationOpen(false);
+                addTrigger.current?.focus();
+              }}
+            >
+              {t("admin.tutees.hideAddForm")}
             </button>
           </form>
           {create.error && (
@@ -322,6 +385,12 @@ export default function TuteesPage() {
             </p>
           )}
         </section>
+      )}
+
+      {!readOnly && create.isSuccess && !creationOpen && (
+        <p role="status" className="text-sm text-green-800">
+          {t("admin.tutees.addSaved")}
+        </p>
       )}
 
       {/* Bottom table — toggled between the tutee list and the tutor/pairings view */}
