@@ -37,10 +37,16 @@ enum Role {
 }
 
 model User {
-  studentId String? @unique
-  student Tutee? @relation(fields: [studentId], references: [id], onDelete: SetNull)
-  id    String  @id @default(cuid())
-  name  String?
+  studentId                String?                @unique
+  student                  Tutee?                 @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  id                       String                 @id @default(cuid())
+  name                     String?
+  /// Explicit identity fields; name is the materialized program display label.
+  firstName                String?
+  lastName                 String?
+  preferredName            String?
+  /// Preserves an unstructured legacy name without guessing given/family boundaries.
+  legacyName               String?
   /// Canonical person profile; mirrored only through explicit tutor/student links.
   alternativeNames String?
   profileVersion Int @default(0)
@@ -210,16 +216,20 @@ model ProgramFeature {
 /// password it becomes a read-only VIEWER login. Rate-limited at the router. One row per email.
 /// See src/server/auth/viewer-signup.ts.
 model ViewerSignup {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  name          String
-  affiliation   String
-  codeHash      String
-  codeExpiresAt DateTime
-  attempts      Int       @default(0)
-  verifiedAt    DateTime?
-  usedAt        DateTime?
-  createdAt     DateTime  @default(now())
+  firstName        String?
+  lastName         String?
+  preferredName    String?
+  alternativeNames String?
+  id               String    @id @default(cuid())
+  email            String    @unique
+  name             String
+  affiliation      String
+  codeHash         String
+  codeExpiresAt    DateTime
+  attempts         Int       @default(0)
+  verifiedAt       DateTime?
+  usedAt           DateTime?
+  createdAt        DateTime  @default(now())
 }
 
 /// Review state of a suspended user's reinstatement appeal.
@@ -426,13 +436,14 @@ model Term {
 model Tutor {
   qualificationApplications TutorApplication[] @relation("QualificationApplicant")
   id          String   @id @default(cuid())
-  /// Split name. `englishName` is kept as the canonical display name (= "First Last")
-  /// so the many places that render it don't change.
-  firstName   String?
-  lastName    String?
-  englishName String
-  /// Free-text alternative name(s) — full Unicode (e.g. 简体中文 / 漢字 / etc.). Display only;
-  /// shown alongside englishName. No charset restriction is applied anywhere.
+  /// Explicit fields feed the materialized program display label in englishName.
+  firstName                 String?
+  lastName                  String?
+  englishName               String
+  preferredName             String?
+  legacyName                String?
+  nameFieldsConfirmed       Boolean            @default(true)
+  /// Name in another language, shown alongside the main name when the program enables it.
   alternativeNames String?
   /// Login handle — default is first initial + full last name (e.g. "jsmith"), lowercased.
   /// Unique; lets a tutor sign in with username OR email. Resolved to the User via the
@@ -632,12 +643,16 @@ model Tutee {
   signupSource SignupSource @default(UNKNOWN)
   intakeTermId String?
   /// Immutable priority timestamp for the current intake, independent of login creation.
-  signupSubmittedAt DateTime?
-  id          String      @id @default(cuid())
-  englishName String
-  alternativeNames String?
-  email       String?
-  phone       String?
+  signupSubmittedAt     DateTime?
+  id                    String       @id @default(cuid())
+  englishName           String
+  firstName             String?
+  lastName              String?
+  preferredName         String?
+  legacyName            String?
+  alternativeNames      String?
+  email                 String?
+  phone                 String?
   /// Free-text "how can we reach you?" captured on the public signup form (required there).
   preferredContact String?
   gradeLevel  String?
@@ -933,6 +948,10 @@ enum CrewApplicationStatus {
 /// A public application to join the crew (no login is created — mirrors /signup & /tutor-signup).
 /// An admin reviews it on /admin/crew; accepting issues a CREW registration code bound to the email.
 model CrewApplication {
+  firstName        String?
+  lastName         String?
+  preferredName    String?
+  alternativeNames String?
   id               String                @id @default(cuid())
   name             String
   email            String
@@ -1145,6 +1164,10 @@ enum TutorApplicationType {
 }
 
 model TutorApplication {
+  firstName                String?
+  lastName                 String?
+  preferredName            String?
+  alternativeNames         String?
   /// Existing tutors apply without entering the initial account-provisioning lifecycle.
   type TutorApplicationType @default(INITIAL)
   requestedTutorId String?
@@ -1851,8 +1874,11 @@ model ProgramSettings {
   signupFields Json @default("{}")
   requireLatinNames Boolean @default(false)
   /// Independent legal-name script rule; alternativeNames retains its storage key.
-  requireLatinLegalNames Boolean @default(false)
-  offeredGrades Int[] @default([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
+  requireLatinLegalNames       Boolean  @default(false)
+  /// Display switches never remove any of the four stored name fields.
+  usePreferredNames            Boolean  @default(false)
+  showAlternateNames           Boolean  @default(false)
+  offeredGrades                Int[]    @default([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
   /// Immediate ADMIN/HEAD switch, independent of staged program modules and authentication mail.
   emailNotificationsEnabled Boolean @default(false)
   // Availability only: existing verified aliases and primary authentication remain intact.

@@ -85,11 +85,6 @@ function TutorDetails({ tutorId }: { tutorId: string }) {
             {common(`admin.tutorStatus.${detail.status}`)}
           </span>
         </div>
-        {detail.alternativeNames && (
-          <p className="text-sm [overflow-wrap:anywhere]">
-            {detail.alternativeNames}
-          </p>
-        )}
         <dl className="grid gap-3 rounded-xl bg-slate-50 p-4 text-sm sm:grid-cols-2">
           <div>
             <dt className="muted">{t("account")}</dt>

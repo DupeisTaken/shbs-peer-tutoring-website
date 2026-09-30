@@ -129,6 +129,9 @@ export async function ensureUserUsername(
         username: true,
         role: true,
         name: true,
+        firstName: true,
+        lastName: true,
+        legacyName: true,
         emailVerifiedAt: true,
         academicProfile: true,
         tutor: { select: { id: true, username: true } },
@@ -147,7 +150,9 @@ export async function ensureUserUsername(
     const graduationYear = user.academicProfile
       ? user.academicProfile.confirmedAt ? academicSummary(user.academicProfile).expectedGraduationYear : null
       : options.graduationYear;
-    const names = splitDisplayName(user.name ?? "");
+    const names = user.firstName
+      ? { firstName: user.firstName, lastName: user.lastName ?? "" }
+      : splitDisplayName(user.legacyName ?? user.name ?? "");
     const username = await canonicalUsername(
       tx,
       defaultUsername(

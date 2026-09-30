@@ -80,7 +80,15 @@ const wrap = (viewer: boolean) => (
   </NextIntlClientProvider>
 );
 function fill(id: string, value: string) {
-  const field = document.getElementById(id);
+  const names: Record<string, string> = {
+    "obs-name": "firstName",
+    "reg-first": "firstName",
+    "reg-last": "lastName",
+    "reg-alt": "alternativeNames",
+  };
+  const field = names[id]
+    ? document.querySelector('[name="' + names[id] + '"]')
+    : document.getElementById(id);
   if (!field) throw Error(`Missing field ${id}`);
   fireEvent.change(field, { target: { value } });
 }
@@ -261,10 +269,13 @@ it.each([false, true])(
     submit();
     assertLabels();
     if (!viewer) {
-      expect(
-        screen.getByLabelText("Preferred First Name Required"),
-      ).toBeTruthy();
-      for (const label of ["Preferred Last Name", "Legal Name", "Grade"])
+      expect(screen.getByLabelText("First Name Required")).toBeTruthy();
+      for (const label of [
+        "Last Name",
+        "Preferred Name",
+        "Name in Another Language",
+        "Grade",
+      ])
         expect(screen.getByLabelText(label + " Optional")).toBeTruthy();
     }
   },

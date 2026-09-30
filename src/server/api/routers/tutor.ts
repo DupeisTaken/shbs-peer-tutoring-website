@@ -1,3 +1,4 @@
+import { optionalPersonNameFields } from "~/lib/person-name";
 import { requireSchoolParticipation } from "~/server/school-departure";
 import { requireAcademicConfirmation } from "~/server/academics";
 import { accountHistoryIds } from "~/server/account-history";
@@ -854,15 +855,19 @@ export const tutorRouter = createTRPCRouter({
           englishName: true,
           username: true,
           alternativeNames: true,
+          firstName: true,
+          lastName: true,
+          preferredName: true,
+          legacyName: true,
           gradeLevel: true,
         },
       }),
       ctx.db.user.findUniqueOrThrow({
         where: { id: ctx.session.user.id },
-        select: { email: true },
+        select: { email: true, profileVersion: true },
       }),
     ]);
-    return { ...tutor, email: user.email };
+    return { ...tutor, email: user.email, profileVersion: user.profileVersion };
   }),
 
   /**
@@ -873,6 +878,8 @@ export const tutorRouter = createTRPCRouter({
   updateProfile: tutorProcedure
     .input(
       z.object({
+        ...optionalPersonNameFields,
+        expectedProfileVersion: z.number().int().nonnegative().optional(),
         alternativeNames: z.string().trim().max(200).nullable().optional(),
         email: z.string().email().optional(),
         gradeLevel: z.number().int().min(6).max(12).nullable().optional(),
@@ -916,7 +923,7 @@ export const tutorRouter = createTRPCRouter({
         if (input.gradeLevel !== current.gradeLevel)
           throw new TRPCError({ code: "BAD_REQUEST", message: "ACADEMIC_SHARED_EDITOR_REQUIRED" });
       }
-      if (Object.keys(tutorData).length > 0) {
+      if (Object.keys(tutorData).length > 0 || input.firstName !== undefined || input.lastName !== undefined || input.preferredName !== undefined) {
         await inTransaction(ctx.db, async (tx) => {
           await lockAccountProfile(tx, ctx.session.user.id);
           await tx.tutor.update({
@@ -924,6 +931,10 @@ export const tutorRouter = createTRPCRouter({
             data: tutorData,
           });
           await updateAccountProfile(tx, ctx.session.user.id, {
+            firstName: input.firstName,
+            lastName: input.lastName,
+            preferredName: input.preferredName,
+            expectedProfileVersion: input.expectedProfileVersion,
             alternativeNames: input.alternativeNames,
           });
         });
@@ -1713,9 +1724,15 @@ export const tutorRouter = createTRPCRouter({
           throw new TRPCError({ code: "BAD_REQUEST", message: "Your account isn't awaiting activation." });
         }
         await requireSchoolParticipation(tx, ctx.session.user.id);
-        if (input.available) await requireAcademicConfirmation(tx, ctx.session.user.id);
-        const status = input.available ? "ACTIVE" as const : "OPTED_OUT" as const;
-        await tx.tutor.update({ where: { id: ctx.session.tutorId }, data: { status } });
+        if (input.available)
+          await requireAcademicConfirmation(tx, ctx.session.user.id);
+        const status = input.available
+          ? ("ACTIVE" as const)
+          : ("OPTED_OUT" as const);
+        await tx.tutor.update({
+          where: { id: ctx.session.tutorId },
+          data: { status },
+        });
         return { tutor, status };
       });
       await notifyAdmins({

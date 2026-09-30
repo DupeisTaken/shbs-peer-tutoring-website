@@ -48,3 +48,14 @@ The complete [website action matrix](../../historical-participant-transition.md#
 ![Tutee List with compact academics and three actions](ui-history-desktop.png)
 
 ![Historical linking inside Edit Profile](ui-editor-desktop.png)
+
+### Integration with four-name fields (#208)
+
+PR #209 was reconciled with main `c761c78`. The Tutee List keeps three actions and the server-composed display name; it does not separately reveal or duplicate Name in Another Language. Edit Profile retains all four explicit name fields alongside embedded historical linking.
+
+- 59 focused UI/name/history tests passed across seven files against an isolated UTF-8 PostgreSQL database. The first database run found the previous local test service stopped; the complete rerun passed on the dedicated merge-verification cluster.
+- Repository check and TypeScript passed (18 existing warnings); all 13 documentation tests passed.
+- A real browser link preserved all four unsaved names and notes, kept one dialog with no nested forms, collapsed the linking section and restored summary focus. Desktop and 390 px mobile views had no page overflow or browser errors.
+- [Integrated desktop profile](merge-editor-desktop.png), [mobile four-name profile](merge-editor-mobile.png), and [successful mobile link](merge-link-success-mobile.png) use synthetic fixtures only.
+
+Full GitHub checks run on the updated PR head before merging; the earlier screenshots above describe the pre-integration UI.

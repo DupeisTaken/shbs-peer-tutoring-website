@@ -1,3 +1,4 @@
+import { optionalPersonNameFields } from "~/lib/person-name";
 import { preferredLatinNameSchema } from "~/lib/username";
 import { isSchoolYear } from "~/lib/period";
 /**
@@ -83,8 +84,10 @@ export const registrationRouter = createTRPCRouter({
       return {
         kind: resolved.row.kind,
         boundEmail: prefill.boundEmail,
+        legacyName: prefill.legacyName,
         firstName: prefill.firstName,
         lastName: prefill.lastName,
+        preferredName: prefill.preferredName,
         alternativeNames: prefill.alternativeNames,
         gradeLevel: prefill.gradeLevel,
         gradeSchoolYear: prefill.gradeSchoolYear,
@@ -162,8 +165,9 @@ export const registrationRouter = createTRPCRouter({
       z.object({
         code: codeInput,
         completionProof: z.string().regex(/^[a-f0-9]{64}$/),
-        firstName: z.string().trim().min(1).max(80),
-        lastName: z.string().trim().max(80),
+        ...optionalPersonNameFields,
+        firstName: optionalPersonNameFields.firstName.unwrap(),
+        lastName: optionalPersonNameFields.lastName.unwrap(),
         preferredLatinName: preferredLatinNameSchema,
         alternativeNames: z.string().trim().max(200).optional(),
         gradeLevel: z.number().int().min(1).max(12).nullable().optional(),
@@ -182,6 +186,7 @@ export const registrationRouter = createTRPCRouter({
       const done = await completeRegistration(resolved.row, {
         completionProof: input.completionProof,
         preferredLatinName: input.preferredLatinName,
+        preferredName: input.preferredName,
         firstName: input.firstName,
         lastName: input.lastName,
         alternativeNames: input.alternativeNames,

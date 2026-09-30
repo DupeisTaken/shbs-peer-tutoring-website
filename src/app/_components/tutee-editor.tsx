@@ -1,4 +1,7 @@
 "use client";
+import { PersonNameFields } from "~/app/_components/person-name-fields";
+import { nameDraft, fullPersonName } from "~/lib/person-name";
+
 import { useTranslations } from "next-intl";
 import { ProfileDialog } from "~/app/_components/profile-dialog";
 import { api, type RouterOutputs } from "~/trpc/react";
@@ -29,8 +32,10 @@ export function TuteeEditor({
   const profileText = useTranslations("accountProfile");
   const academicText = useTranslations("academics");
   const [expectedUpdatedAt] = useState(row.updatedAt);
+  // Keep explicit name drafts mounted while historical linking refreshes roster data.
   const historySection = useRef<HTMLDetailsElement>(null);
   const [historyLinked, setHistoryLinked] = useState(false);
+  const [names, setNames] = useState(() => nameDraft(row));
   const policy = useProfilePolicy();
   const [grade, setGrade] = useState(
     row.academicallyGraduated
@@ -68,8 +73,8 @@ export function TuteeEditor({
             save.mutate({
               id: row.id,
               expectedUpdatedAt,
-              englishName: value("name")!,
-              alternativeNames: value("alternativeNames"),
+              ...names,
+              englishName: fullPersonName(names),
               status: row.status,
               email: value("email"),
               phone: value("phone"),
@@ -90,14 +95,15 @@ export function TuteeEditor({
             });
           }}
         >
+          <div className="sm:col-span-2">
+            <PersonNameFields
+              value={names}
+              onChange={setNames}
+              legacyName={row.legacyName ?? row.englishName}
+            />
+          </div>
           {(
             [
-              ["name", t("name"), row.englishName],
-              [
-                "alternativeNames",
-                profileText("alternativeNames"),
-                row.alternativeNames,
-              ],
               ["grade", academicText("legacyGrade"), row.gradeLevel],
               ["email", t("email"), row.user?.email ?? row.email],
               ["phone", t("phone"), row.phone],
@@ -123,7 +129,6 @@ export function TuteeEditor({
                     name={name}
                     defaultValue={value ?? ""}
                     type={name === "email" ? "email" : "text"}
-                    required={name === "name"}
                     readOnly={name === "email" && !!row.user}
                   />
                 )}

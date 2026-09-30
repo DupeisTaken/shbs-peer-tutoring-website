@@ -143,7 +143,7 @@ it("hides configured tutee fields and allows submission without hidden required 
   ).toBeNull();
   fireEvent.change(
     screen.getByLabelText(
-      "public.signup.fields.fullName signupFields.required",
+      "firstName signupFields.required",
     ),
     {
       target: { value: "Student" },
@@ -252,7 +252,7 @@ it.each(["paused", "scheduled", "ended"])(
 
 it("labels fixed and configurable requirements consistently", () => {
   render(<SignupForm />);
-  for (const name of ["public.signup.fields.fullName", "survey.emailLabel"])
+  for (const name of ["firstName", "survey.emailLabel"])
     expect(
       screen
         .getByLabelText(new RegExp(name + " signupFields.required"))

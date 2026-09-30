@@ -43,6 +43,7 @@ vi.mock("~/trpc/react", () => {
                 id: "tutee-1",
                 historical: false,
                 englishName: "Example Tutee",
+                alternativeNames: "示例学生",
                 email: "tutee@example.test",
                 status: "ACTIVE",
                 firstChoice: null,
@@ -162,6 +163,13 @@ it("hides private account actions for read-only viewers", () => {
   expect(within(row).queryByRole("button")).toBeNull();
   expect(within(row).getByText(en.accountProfile.privateEmail)).toBeTruthy();
   expect(within(row).getByText(en.tuteeHistory.notRecorded)).toBeTruthy();
+});
+
+it("uses the server-composed display name without separately revealing hidden additional names", () => {
+  mount();
+  const row = screen.getByText("Example Tutee").closest("tr")!;
+  expect(within(row).queryByText("示例学生")).toBeNull();
+  expect(within(row).queryByText(en.tuteeHistory.noAccount)).toBeNull();
 });
 
 it("reveals historical and unverified records independently without setup or current-grade demands", () => {

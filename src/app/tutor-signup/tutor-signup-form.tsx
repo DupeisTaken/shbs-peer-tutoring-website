@@ -1,4 +1,6 @@
 "use client";
+import { PersonNameFields } from "~/app/_components/person-name-fields";
+import { nameDraft, fullPersonName } from "~/lib/person-name";
 
 import { FieldRequirement } from "~/app/_components/field-requirement";
 
@@ -55,7 +57,8 @@ export function TutorSignupForm() {
   const policy = api.application.policy.useQuery({ locale });
   const submit = api.application.submit.useMutation();
 
-  const [name, setName] = useState("");
+  const [names, setNames] = useState(() => nameDraft());
+  const name = fullPersonName(names);
   const [email, setEmail] = useState("");
   const [preferredContact, setPreferredContact] = useState("");
   const [rows, setRows] = useState<CourseRow[]>(
@@ -176,6 +179,7 @@ export function TutorSignupForm() {
           e.preventDefault();
           if (!canSubmit || !policy.data) return;
           submit.mutate({
+            ...names,
             name: name.trim(),
             email: email.trim(),
             agreed: true,
@@ -436,18 +440,9 @@ export function TutorSignupForm() {
 
           {/* Contact details last — who they are and how to reach them. */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <label className="space-y-1">
-              <span className="label">
-                {t("public.tutorSignup.fields.fullName")}
-                <FieldRequirement state="required" />
-              </span>
-              <input
-                className="input min-h-11 lg:min-h-10"
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                required
-              />
-            </label>
+            <div className="sm:col-span-2">
+              <PersonNameFields value={names} onChange={setNames} />
+            </div>
             <label className="space-y-1">
               <span className="label">
                 {t("public.tutorSignup.fields.email")}

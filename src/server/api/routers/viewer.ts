@@ -1,3 +1,4 @@
+import { optionalPersonNameFields } from "~/lib/person-name";
 import { captchaGrantInput } from "~/lib/captcha";
 import { withProtectedSignup } from "~/server/captcha";
 /**
@@ -39,7 +40,8 @@ export const viewerRouter = createTRPCRouter({
     .input(
       z.object({
         captchaGrant: captchaGrantInput,
-        name: z.string().trim().min(1).max(120),
+        ...optionalPersonNameFields,
+        name: z.string().trim().min(1).max(200),
         affiliation: z.string().trim().min(1).max(200),
         email: z.string().trim().email().max(254),
       }),

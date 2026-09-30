@@ -151,9 +151,22 @@ it.each([true, false])(
         />
       </NextIntlClientProvider>,
     );
-    const name =
-      container.querySelector<HTMLInputElement>('input[name="name"]')!;
-    fireEvent.change(name, { target: { value: "Alex corrected" } });
+    // All four controlled name drafts must survive linking, not just plain form fields.
+    const drafts = {
+      firstName: "Alexander",
+      lastName: "Chen",
+      preferredName: "Alex",
+      alternativeNames: "陈同学",
+    };
+    for (const [key, value] of Object.entries(drafts)) {
+      fireEvent.change(container.querySelector(`input[name="${key}"]`)!, {
+        target: { value },
+      });
+    }
+    const notes = container.querySelector<HTMLTextAreaElement>(
+      'textarea[name="notes"]',
+    )!;
+    fireEvent.change(notes, { target: { value: "Keep this draft" } });
     const section = container.querySelector("details");
     if (!canLink) {
       expect(section).toBeNull();
@@ -164,7 +177,21 @@ it.each([true, false])(
     section!.open = true;
     fireEvent.click(screen.getByRole("button", { name: "Complete test link" }));
     expect(section!.open).toBe(false);
-    expect(name.value).toBe("Alex corrected");
+    for (const [key, value] of Object.entries(drafts)) {
+      expect(
+        container.querySelector<HTMLInputElement>(`input[name="${key}"]`)!
+          .value,
+      ).toBe(value);
+    }
+    expect(notes.value).toBe("Keep this draft");
+    fireEvent.submit(container.querySelector("form")!);
+    expect(mock.mutate).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        ...drafts,
+        englishName: "Alexander Chen",
+        notes: "Keep this draft",
+      }),
+    );
     expect(close).not.toHaveBeenCalled();
     expect(screen.getByRole("status").textContent).toBe(
       en.tuteeHistory.linkSaved,

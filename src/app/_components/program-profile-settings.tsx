@@ -1,5 +1,6 @@
 "use client";
 
+import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
@@ -47,27 +48,29 @@ export function ProfilePolicyEditor({
 }) {
   const t = useTranslations("profilePolicy");
   const utils = api.useUtils();
+  const router = useRouter();
   const [expectedPolicy, setExpectedPolicy] = useState<ProfilePolicy>(() => ({
-    requireLatinNames: policy.requireLatinNames,
-    requireLatinLegalNames: policy.requireLatinLegalNames,
+    requireLatinNames: true,
+    requireLatinLegalNames: false,
+    usePreferredNames: policy.usePreferredNames,
+    showAlternateNames: policy.showAlternateNames,
     offeredGrades: [...policy.offeredGrades],
   }));
-  const [requireLatinNames, setRequireLatinNames] = useState(
-    policy.requireLatinNames,
+  const [usePreferredNames, setUsePreferredNames] = useState(
+    policy.usePreferredNames,
   );
   const [offeredGrades, setOfferedGrades] = useState(policy.offeredGrades);
-  const [requireLatinLegalNames, setRequireLatinLegalNames] = useState(
-    policy.requireLatinLegalNames,
+  const [showAlternateNames, setShowAlternateNames] = useState(
+    policy.showAlternateNames,
   );
   const [saved, setSaved] = useState(false);
   const save = api.program.setProfilePolicy.useMutation({
     onSuccess: async (result) => {
       setExpectedPolicy(result);
       setSaved(true);
-      await Promise.all([
-        utils.program.profilePolicy.invalidate(),
-        utils.program.profilePolicySettings.invalidate(),
-      ]);
+      // Display settings affect every current roster and profile query.
+      await utils.invalidate();
+      router.refresh();
     },
   });
   return (
@@ -83,8 +86,10 @@ export function ProfilePolicyEditor({
           event.preventDefault();
           if (canEdit && offeredGrades.length && !save.isPending)
             save.mutate({
-              requireLatinNames,
-              requireLatinLegalNames,
+              requireLatinNames: true,
+              requireLatinLegalNames: false,
+              usePreferredNames,
+              showAlternateNames,
               offeredGrades,
               expectedPolicy,
             });
@@ -99,30 +104,41 @@ export function ProfilePolicyEditor({
             <label className="flex min-h-11 items-center gap-3 lg:min-h-10">
               <input
                 type="checkbox"
-                checked={requireLatinNames}
+                checked={usePreferredNames}
                 onChange={(event) => {
-                  setRequireLatinNames(event.target.checked);
+                  setUsePreferredNames(event.target.checked);
                   setSaved(false);
                 }}
               />
-              <span className="font-medium">{t("requireLatinNames")}</span>
+              <span className="font-medium">{t("usePreferredNames")}</span>
             </label>
-            <p className="muted text-sm">{t("nameHint")}</p>
+            <p className="muted text-sm">{t("preferredDisplayHint")}</p>
           </div>
           <div>
             <label className="flex min-h-11 items-center gap-3 lg:min-h-10">
               <input
                 type="checkbox"
-                checked={requireLatinLegalNames}
+                checked={showAlternateNames}
                 onChange={(event) => {
-                  setRequireLatinLegalNames(event.target.checked);
+                  setShowAlternateNames(event.target.checked);
                   setSaved(false);
                 }}
               />
-              <span className="font-medium">{t("requireLatinLegalNames")}</span>
+              <span className="font-medium">{t("showAlternateNames")}</span>
             </label>
-            <p className="muted text-sm">{t("legalNameHint")}</p>
+            <p className="muted text-sm">{t("alternateDisplayHint")}</p>
           </div>
+          <div
+            className="rounded-lg border border-slate-200 bg-slate-50 p-4"
+            aria-live="polite"
+          >
+            <p className="muted text-xs font-medium">{t("displayPreview")}</p>
+            <p className="mt-1 font-semibold text-slate-900">
+              {usePreferredNames ? "Alex Chen" : "Alexander Chen"}
+              {showAlternateNames ? " · 陈晓明" : ""}
+            </p>
+          </div>
+          <p className="muted text-sm">{t("latinRule")}</p>
           <p className="muted text-sm">{t("existingNames")}</p>
           <fieldset>
             <legend className="label">{t("offeredGrades")}</legend>

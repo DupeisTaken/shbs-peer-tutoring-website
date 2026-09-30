@@ -1,4 +1,7 @@
 "use client";
+import { PersonNameFields } from "~/app/_components/person-name-fields";
+import { nameDraft, fullPersonName } from "~/lib/person-name";
+
 import { invalidateTuteeViews } from "~/lib/tutee-cache";
 import { visibleTutors } from "~/lib/tutor-visibility";
 import { PastTutorsToggle } from "~/app/_components/past-tutors-toggle";
@@ -118,7 +121,8 @@ export default function TuteesPage() {
   const create = api.admin.createTutee.useMutation({ onSuccess: invalidate });
   const del = api.admin.deleteTutee.useMutation({ onSuccess: invalidate });
 
-  const [name, setName] = useState("");
+  const [names, setNames] = useState(() => nameDraft());
+  const name = fullPersonName(names);
   const [gradeLevel, setGradeLevel] = useState("");
   const [firstChoiceId, setFirstChoiceId] = useState("");
   const [secondChoiceId, setSecondChoiceId] = useState("");
@@ -239,6 +243,7 @@ export default function TuteesPage() {
               if (!name.trim()) return;
               create.mutate(
                 {
+                  ...names,
                   englishName: name.trim(),
                   gradeLevel:
                     gradeLevel && gradeLevel !== GRADUATED_GRADE
@@ -251,7 +256,7 @@ export default function TuteesPage() {
                 },
                 {
                   onSuccess: () => {
-                    setName("");
+                    setNames(nameDraft());
                     setGradeLevel("");
                     setFirstChoiceId("");
                     setSecondChoiceId("");
@@ -260,15 +265,9 @@ export default function TuteesPage() {
               );
             }}
           >
-            <label className="space-y-1">
-              <span className="label">{t("admin.tutees.fullName")}</span>
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                placeholder={t("admin.tutees.phName")}
-                className="input field-auto min-w-48"
-              />
-            </label>
+            <div className="w-full max-w-2xl">
+              <PersonNameFields value={names} onChange={setNames} />
+            </div>
             <label className="space-y-1">
               <span className="label">{t("admin.tutees.grade")}</span>
               <OfferedGradeSelect
@@ -487,11 +486,7 @@ export default function TuteesPage() {
                     <p className="font-medium [overflow-wrap:anywhere] text-slate-900">
                       {t2.englishName}
                     </p>
-                    {t2.alternativeNames && (
-                      <p className="muted text-xs [overflow-wrap:anywhere]">
-                        {t2.alternativeNames}
-                      </p>
-                    )}
+                    {/* The display name already applies the program's additional-name setting. */}
                     {(t2.owner ?? t2.user)?.username && (
                       <p className="muted text-xs">
                         @{(t2.owner ?? t2.user)?.username}
