@@ -98,14 +98,14 @@ verification code; and outsiders can self-register a **read-only viewer (VIEWER)
 **`/viewer-signup`** (email-validated, behind the `VIEWER_SIGNUP` feature flag). The public tutee
 signup (`/signup`) first saves a survey; email confirmation then creates or links a student login. Tutor application (`/tutor-signup`) and crew application (`/crew-signup`) create pending records for review. Credential sign-in, the
 registration steps, and viewer signup are all **rate-limited in-app** (per IP + per code / email /
-identifier; `src/server/rate-limit.ts`); a CAPTCHA in front is still worth considering at scale.
+identifier; `src/server/rate-limit.ts`). Public tutee/viewer signup also uses [durable signup quotas](signup-protection.md) and supports [optional Aliyun CAPTCHA](captcha.md), disabled by default.
 Transactional email (reset links plus sign-in and password-change 2FA codes) goes through Aliyun
 Direct Mail — see "Email" below. Sign-in 2FA is enforced when the `EMAIL_2FA` program feature and
 the user's 2FA preference are both enabled.
 
 Public tutor and crew intake share database-backed limits: five distinct accepted submissions per normalized email in 24 hours, and 500 per network address in one hour. Pending retries return the same confirmation without another record, counter increment or notification; tutor applications awaiting an interview also count as pending. Decided applications may be submitted again within these limits. Counters, application writes and in-app notifications commit together, and counters survive server restarts and multiple instances. New distinct submissions prune hashed counter keys that expired more than seven days ago, in bounded batches; an idle deployment retains those expired keys until intake resumes.
 
-Configure the trusted reverse proxy to replace incoming `X-Forwarded-For`/`X-Real-IP` values rather than trusting values supplied by visitors, and keep the application port private. The first forwarded address is only an abuse signal, not identity. IPv6 uses a /64 bucket; missing or invalid addresses share one fallback bucket. The generous network allowance supports shared school networks; email ownership is not verified by these application forms, so operators needing stronger abuse protection should enforce it at the proxy too.
+Tutor/crew intake and credential sign-in use the proxy-supplied `X-Forwarded-For`/`X-Real-IP`; configure the proxy to replace visitor-supplied values and keep the application port private. Tutee/viewer signup instead requires the dedicated `X-Signup-Client-IP` boundary and `SIGNUP_TRUST_PROXY=true`, already configured in the supplied Caddy/Compose stack; see [proxy trust and network buckets](signup-protection.md#trusted-network-boundary). Network addresses are abuse signals, not identity. Tutor/crew application forms do not verify email ownership.
 
 ## 2. Host setup (once)
 
@@ -480,7 +480,7 @@ Email actions require `AUTH_URL` to be the canonical public HTTPS origin in prod
 
 Apply `20260929120000_email_notification_destinations` and regenerate Prisma before starting the updated worker. It retains each notification's internal destination in the outbox, in the same transaction as the event. Legacy program-update rows without a destination fall back to the home page. Account notices retain account settings; message notices use the role-aware inbox entry. A role downgrade falls back from staff-only links, and destination pages still enforce current access. Query parameters and fragments survive the notification's sign-in link, password/2FA completion, and expired-session recovery.
 
-Outgoing mail includes a shared branded HTML layout plus the original plain-text content. The layout needs no external images, fonts, or scripts; inspect representative clients, mobile widths, dark mode and images-disabled mode before rollout. Notification timestamps use the configured program timezone. Mail copy remains English, with existing bilingual signup instructions preserved: account records currently have no persisted mail-language preference. Sender-address routing is unchanged (tracked separately in #187).
+Outgoing mail includes a shared branded HTML layout plus the original plain-text content. The layout needs no external images, fonts, or scripts; inspect representative clients, mobile widths, dark mode and images-disabled mode before rollout. Notification timestamps use the configured program timezone. Mail copy remains English, with existing bilingual signup instructions preserved: account records currently have no persisted mail-language preference. Configure and test the separate SECURITY and PROGRAM senders under [Email](#email--aliyun-direct-mail-邮件推送); each category needs a complete dedicated account or the complete legacy fallback.
 
 Generate synthetic, offline previews with `npx tsx scripts/preview-emails.ts`; output defaults to `.validation/email-previews`. These files never use the database or live SMTP. Browser previews supplement, but do not replace, the real-inbox checks below.
 

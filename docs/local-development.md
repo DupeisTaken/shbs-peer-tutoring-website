@@ -167,7 +167,7 @@ destructive fixtures at a development site or production database.
 Lint and type-check the same way CI does:
 
 ```bash
-npm run check       # eslint . + tsc --noEmit
+npm run check       # next typegen + eslint . + tsc --noEmit
 npm run docs:check  # documentation links, headings and maintenance regressions
 ```
 

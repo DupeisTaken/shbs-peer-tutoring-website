@@ -50,7 +50,8 @@ When Email 2FA is on, password changes also require an emailed verification code
 | Control | Scope / timing |
 | --- | --- |
 | Program timezone | ADMIN/HEAD saves a supported IANA region after reviewing consequences; dates and deadlines use it consistently. Existing instants remain fixed; weekly slots remain school wall-clock times |
-| Signup opening and preview link | ADMIN/HEAD changes the current intake immediately; a scheduled opening requires an HTTP(S) preview link. Clearing the opening time opens intake immediately |
+| Tutor and tutee recruitment | ADMIN/HEAD saves each active-period window separately: acceptance switch, optional start/end times and optional preview link. Clearing a start time still respects the switch, end time and setup requirements; see [recruitment windows](#tutor-and-tutee-recruitment-windows) |
+| Names and grades | ADMIN/HEAD sets offered grades and independently controls **Use preferred names** and **Show names in another language**; see [name fields and display settings](user-guide.md#configure-signup-forms) |
 | Subjects, levels, slots and rooms | Management catalogues used by application, availability and pairing workflows |
 | Policy versions | Published database revisions require new acceptance for participation; changing a bundled policy draft does not publish it |
 | School calendar | Staff define holidays and make-up days used for school-day appeal deadlines |
@@ -87,7 +88,7 @@ The applied **Quarter System** setting controls labels: Q1/Q2 display in semeste
 
 The default demo seed uses **Standard → Honors → AP**, with ranks 0, 1 and 2 respectively. Standard has no display prefix; only AP accepts an AP score. Reseeding the disposable demo restores this order using the same level IDs. This default does not overwrite an existing school's custom ordering during migration or normal startup.
 
-Staff approve qualifications in **Interviews & Panelists**. Approval records the selected variant and every lower offered level in the same group. Application selections alone confer no eligibility. Later level reordering or newly offered variants never expand or revoke those recorded grants; future approvals use the new order. Expanding an approval shows its recorded subjects. Removing an approval removes only its own grants; overlapping approvals remain valid. Tutor assignment and interview checks use these recorded grants.
+Staff manage recorded qualifications in **Subject Availability**; application decisions and interviews are in **Tutor Applications**. Approval records the selected variant and every lower offered level in the same group. Application selections alone confer no eligibility. Later level reordering or newly offered variants never expand or revoke those recorded grants; future approvals use the new order. Expanding an approval shows its recorded subjects. Removing an approval removes only its own grants; overlapping approvals remain valid. Tutor assignment and interview checks use these recorded grants.
 
 Unselecting or removing a subject archives it while retaining choices, assignments and qualifications. Levels with existing variants cannot be deleted, and a variant with recorded grants cannot be changed to a different level. Rename its base name or prefix without replacing its identity. Existing subject and qualification migration preserves all IDs, labels and exact approved eligibility. Management catalogue and qualification writes require ADMIN/HEAD authority; coordinators submit proposals for review, and viewers cannot write.
 
@@ -158,6 +159,8 @@ HEAD can download a displayed table as CSV. Use **Print / Save as PDF** and the 
 Only **HEAD** can open **Program records** (`/admin/records`), download CSV archives/templates, preview an import or commit it. ADMIN and COORDINATOR cannot submit imports for approval. Access is checked against the current database role, including after a demotion or suspension.
 
 **Export CSV archive** downloads one ZIP containing a CSV for every supported record type plus `README.txt`. **Download CSV templates** supplies the same headers without data. Use these templates for past records from spreadsheets: rename/map the source columns to the template columns, keep the filenames, and provide stable IDs for each record and its references. An export includes all available program periods, independent of the Reports page filters.
+
+Historical participants can remain accountless. After import, use [historical record views and reviewed account linking](historical-participant-transition.md) to inspect original enrollment information or give an eligible verified account access to its own history. Importing records or linking history does not grant current participation or departure-based observer access.
 
 | Included records | CSV families |
 | --- | --- |
