@@ -1269,7 +1269,32 @@
       "noVotes": "아직 투표가 없습니다.",
       "decision": "결정: \"{comment}\"",
       "decidedByHead": "{name} (대표)",
-      "setupAccount": "계정 설정 →"
+      "setupAccount": "계정 설정 →",
+      "filters": {
+        "heading": "지원서 필터",
+        "search": "이름 또는 이메일",
+        "status": "지원 상태",
+        "allStatuses": "모든 상태",
+        "type": "신청 유형",
+        "allTypes": "모든 신청 유형",
+        "subject": "신청 과목",
+        "allSubjects": "모든 신청 과목",
+        "count": "전체 {total}개 중 {count}개 지원서",
+        "reset": "필터 초기화",
+        "noMatches": "조건에 맞는 지원서가 없습니다. 다른 검색어를 사용하거나 필터를 초기화하세요."
+      },
+      "picker": {
+        "subjectFocus": "과목별 면접위원 분류",
+        "anySubject": "신청 과목 중 하나",
+        "qualified": "선택 과목 자격 보유",
+        "unqualified": "기타 선택 가능한 튜터",
+        "help": "자격은 승인된 기록에 근거합니다. 면접위원 중 최소 한 명은 신청 과목 자격을 보유해야 하며, 관리 직급이 가장 높은 위원을 의장으로 선택해야 합니다. 과목을 변경하면 선택지 분류만 바뀝니다.",
+        "loading": "과목 자격을 불러오는 중…",
+        "loadError": "과목 자격을 불러오지 못했습니다. 위원을 선택하거나 저장하기 전에 다시 시도하세요.",
+        "retry": "자격 다시 불러오기",
+        "unavailable": "{name} (선택 불가 — 교체 필요)",
+        "chairSlot": "면접위원 {n}을 의장으로 선택"
+      }
     },
     "cards": {
       "title": "학생 규정 준수",

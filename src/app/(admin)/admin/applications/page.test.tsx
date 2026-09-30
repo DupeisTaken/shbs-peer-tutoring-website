@@ -69,6 +69,7 @@ vi.mock("~/trpc/react", () => ({
               subjectIntents: mocks.additional
                 ? [
                     {
+                      subjectId: "literature",
                       taken: false,
                       grade: null,
                       hasApScore: false,
@@ -104,6 +105,7 @@ vi.mock("~/trpc/react", () => ({
           ],
         }),
       },
+      subjectEligibility: { useQuery: () => ({ data: [], isLoading: false }) },
       tutors: { useQuery: () => ({ data: [] }) },
       assignInterviewers: { useMutation: () => ({ mutate: vi.fn() }) },
       setApplicationStatus: { useMutation: () => ({ mutate: vi.fn() }) },
@@ -134,7 +136,9 @@ it("mounts interview history alongside application panel management", () => {
       .getByText("Interview history destination")
       .closest("#interview-records"),
   ).toBeTruthy();
-  expect(mocks.history).toHaveBeenCalledWith({ enabled: true });
+  expect(mocks.history).toHaveBeenCalledWith(
+    expect.objectContaining({ enabled: true }),
+  );
   fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
   expect(
     screen
@@ -145,11 +149,24 @@ it("mounts interview history alongside application panel management", () => {
 it("retains vote and decision evidence when interviews are disabled", () => {
   mocks.enabled = false;
   show();
-  expect(mocks.history).toHaveBeenCalledWith({ enabled: false });
+  expect(mocks.history).toHaveBeenCalledWith(
+    expect.objectContaining({ enabled: false }),
+  );
   fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
   expect(screen.getByText(/Preserved vote/)).toBeTruthy();
   expect(screen.getByText(/Preserved decision/)).toBeTruthy();
-  expect(screen.queryByRole("combobox")).toBeNull();
+  expect(screen.queryByRole("combobox", { name: /Panelist/ })).toBeNull();
+});
+
+it("retains an unsaved panel draft when the application is collapsed and reopened", () => {
+  show();
+  const toggle = screen.getByRole("button", { name: /Candidate One/ });
+  fireEvent.click(toggle);
+  fireEvent.click(screen.getByRole("button", { name: "Add Interviewer" }));
+  fireEvent.click(toggle);
+  expect(screen.queryByRole("combobox", { name: /Panelist 4/ })).toBeNull();
+  fireEvent.click(toggle);
+  expect(screen.getByRole("combobox", { name: /Panelist 4/ })).toBeTruthy();
 });
 it("does not mount the staff-only completion query for a viewer", () => {
   show(true);
@@ -160,7 +177,7 @@ it("does not mount the staff-only completion query for a viewer", () => {
 it("keeps additional qualification review alongside consolidated history without account setup or deletion", () => {
   mocks.additional = true;
   show();
-  expect(screen.getByText("Additional subject")).toBeTruthy();
+  expect(screen.getAllByText("Additional subject").length).toBeGreaterThan(0);
   fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
   expect(screen.getByText("New subject evidence")).toBeTruthy();
   expect(screen.getAllByText("AP Literature").length).toBeGreaterThan(0);
@@ -170,7 +187,9 @@ it("keeps additional qualification review alongside consolidated history without
   ).toBeTruthy();
   expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
   expect(screen.queryByRole("link", { name: /account/i })).toBeNull();
-  expect(mocks.history).toHaveBeenCalledWith({ enabled: true });
+  expect(mocks.history).toHaveBeenCalledWith(
+    expect.objectContaining({ enabled: true }),
+  );
 });
 
 it("does not expose additional request decisions or panel setup to Coordinators", () => {
@@ -181,7 +200,7 @@ it("does not expose additional request decisions or panel setup to Coordinators"
   expect(
     screen.queryByRole("button", { name: "Approve qualification" }),
   ).toBeNull();
-  expect(screen.queryByRole("combobox")).toBeNull();
+  expect(screen.queryByRole("combobox", { name: /Panelist/ })).toBeNull();
   expect(
     screen.getByText("Another Admin or Head must review this request."),
   ).toBeTruthy();

@@ -1269,7 +1269,32 @@
       "noVotes": "No votes yet.",
       "decision": "Decision: “{comment}”",
       "decidedByHead": "{name} (Chair)",
-      "setupAccount": "Set Up Account →"
+      "setupAccount": "Set Up Account →",
+      "filters": {
+        "heading": "Filter applications",
+        "search": "Name or email",
+        "status": "Application status",
+        "allStatuses": "All statuses",
+        "type": "Request type",
+        "allTypes": "All request types",
+        "subject": "Requested subject",
+        "allSubjects": "All requested subjects",
+        "count": "{count} of {total} applications",
+        "reset": "Reset filters",
+        "noMatches": "No applications match these filters. Try another search or reset the filters."
+      },
+      "picker": {
+        "subjectFocus": "Group panelists by subject",
+        "anySubject": "Any requested subject",
+        "qualified": "Qualified in the selected subjects",
+        "unqualified": "Other available tutors",
+        "help": "Qualifications are recorded approvals. The panel needs at least one tutor qualified in an applicant subject; choose its highest-ranking management member as chair. Changing the subject only regroups choices.",
+        "loading": "Loading subject qualifications…",
+        "loadError": "Subject qualifications could not be loaded. Retry before choosing or saving a panel.",
+        "retry": "Retry qualifications",
+        "unavailable": "{name} (unavailable — replace this selection)",
+        "chairSlot": "Choose panelist {n} as chair"
+      }
     },
     "cards": {
       "title": "Tutee Discipline",

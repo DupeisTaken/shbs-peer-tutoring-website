@@ -44,7 +44,13 @@ function InterviewDisclosure({
   );
 }
 
-export function InterviewManagement({ enabled = true }: { enabled?: boolean }) {
+export function InterviewManagement({
+  enabled = true,
+  onManageApplicant,
+}: {
+  enabled?: boolean;
+  onManageApplicant?: () => void;
+}) {
   const t = useTranslations("workflows");
   const allT = useTranslations();
   const format = useFormatter();
@@ -87,7 +93,7 @@ export function InterviewManagement({ enabled = true }: { enabled?: boolean }) {
   const date = (value: Date) =>
     format.dateTime(value, { dateStyle: "medium", timeStyle: "short" });
   return (
-    <div className="space-y-6 max-lg:[&_button]:min-h-11 max-lg:[&_.input]:min-h-11 max-lg:[&_select]:min-h-11">
+    <div className="space-y-6 max-lg:[&_.input]:min-h-11 max-lg:[&_button]:min-h-11 max-lg:[&_select]:min-h-11">
       {!enabled && (
         <p className="muted card p-4">{t("interviewsDisabledHistory")}</p>
       )}
@@ -201,6 +207,7 @@ export function InterviewManagement({ enabled = true }: { enabled?: boolean }) {
             >
               <Link
                 href={`/admin/applications#application-${a.id}`}
+                onClick={onManageApplicant}
                 className="link inline-flex min-h-11 items-center text-sm lg:min-h-8"
               >
                 {t("manageApplicantPanel")}

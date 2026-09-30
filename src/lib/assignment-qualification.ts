@@ -27,11 +27,14 @@ export function isAssignableTutor(tutor: {
 /** Grants have already been filtered to approved sources by the server. Never infer rank. */
 export function groupAssignmentTutors<T extends QualificationOption>(
   tutors: T[],
-  subjectId: string,
+  subjectId: string | string[],
   grants: RecordedGrant[],
 ) {
+  // Interview panels may cover any requested subject; assignment callers still
+  // pass one exact subject. Only explicit approved grants establish either match.
+  const subjects = new Set(Array.isArray(subjectId) ? subjectId : [subjectId]);
   const qualifiedIds = new Set(
-    grants.filter((g) => g.subjectId === subjectId).map((g) => g.tutorId),
+    grants.filter((g) => subjects.has(g.subjectId)).map((g) => g.tutorId),
   );
   return {
     qualified: tutors.filter((tutor) => qualifiedIds.has(tutor.id)),

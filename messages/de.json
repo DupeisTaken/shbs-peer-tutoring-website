@@ -1269,7 +1269,32 @@
       "noVotes": "Noch keine Stimmen.",
       "decision": "Entscheidung: \"{comment}\"",
       "decidedByHead": "{name} (Leiter)",
-      "setupAccount": "Konto einrichten →"
+      "setupAccount": "Konto einrichten →",
+      "filters": {
+        "heading": "Bewerbungen filtern",
+        "search": "Name oder E-Mail",
+        "status": "Bewerbungsstatus",
+        "allStatuses": "Alle Status",
+        "type": "Antragsart",
+        "allTypes": "Alle Antragsarten",
+        "subject": "Beantragtes Fach",
+        "allSubjects": "Alle beantragten Fächer",
+        "count": "{count} von {total} Bewerbungen",
+        "reset": "Filter zurücksetzen",
+        "noMatches": "Keine Bewerbung entspricht den Filtern. Ändere die Suche oder setze die Filter zurück."
+      },
+      "picker": {
+        "subjectFocus": "Interviewmitglieder nach Fach gruppieren",
+        "anySubject": "Beliebiges beantragtes Fach",
+        "qualified": "Für ausgewählte Fächer qualifiziert",
+        "unqualified": "Weitere verfügbare Tutoren",
+        "help": "Qualifikationen beruhen auf dokumentierten Genehmigungen. Mindestens ein Mitglied muss für ein beantragtes Fach qualifiziert sein. Den Vorsitz übernimmt das ranghöchste Verwaltungsmitglied. Ein Fachwechsel gruppiert nur die Auswahl neu.",
+        "loading": "Fachqualifikationen werden geladen…",
+        "loadError": "Fachqualifikationen konnten nicht geladen werden. Vor Auswahl oder Speicherung erneut versuchen.",
+        "retry": "Qualifikationen erneut laden",
+        "unavailable": "{name} (nicht verfügbar — Auswahl ersetzen)",
+        "chairSlot": "Interviewmitglied {n} als Vorsitz wählen"
+      }
     },
     "cards": {
       "title": "Disziplin der Lernenden",
