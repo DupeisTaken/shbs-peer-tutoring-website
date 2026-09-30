@@ -12,6 +12,16 @@ import { useReadOnly } from "~/app/_components/read-only";
 import { useDialog } from "~/app/_components/confirm-dialog";
 import { InterviewManagement } from "~/app/_components/interview-management";
 
+import { ApplicationFilters } from "~/app/_components/application-filters";
+import {
+  InterviewPanelEditor,
+  type PanelTutor,
+} from "~/app/_components/interview-panel-editor";
+import {
+  emptyApplicationFilters,
+  matchesApplicationFilters,
+} from "~/lib/application-filters";
+
 type Status = "PENDING" | "INTERVIEW" | "ACCEPTED" | "REJECTED" | "RECALLED";
 
 function StatusBadge({ status }: { status: Status }) {
@@ -42,6 +52,7 @@ type Application = {
   updatedAt: Date;
   interviewAt: Date | null;
   subjectIntents: {
+    subjectId: string;
     taken: boolean;
     grade: string | null;
     hasApScore: boolean;
@@ -71,7 +82,7 @@ function ApplicationCard({
   onChanged,
 }: {
   app: Application;
-  tutors: { id: string; englishName: string; active: boolean }[];
+  tutors: PanelTutor[];
   onChanged: () => Promise<unknown> | void;
 }) {
   const programFormat = useFormatter();
@@ -87,13 +98,18 @@ function ApplicationCard({
         account.tutorId !== app.requestedTutorId &&
         app.status === "PENDING"));
   const { confirm, dialog } = useDialog();
-  const [open, setOpen] = useState(false);
+  // Mount details lazily, then retain the editor while collapsed so panel drafts
+  // survive reopening without fetching qualifications for every unopened card.
+  const [disclosure, setDisclosure] = useState<"new" | "open" | "closed">(
+    "new",
+  );
+  const open = disclosure === "open";
   // A link from interview history opens the existing editor for this exact
   // application; do not duplicate panel mutations in a competing workflow.
   useEffect(() => {
     const reveal = () => {
       if (window.location.hash === `#application-${app.id}`) {
-        setOpen(true);
+        setDisclosure("open");
         document
           .getElementById(`application-${app.id}`)
           ?.scrollIntoView({ block: "start" });
@@ -104,10 +120,6 @@ function ApplicationCard({
     return () => window.removeEventListener("hashchange", reveal);
   }, [app.id]);
   const features = api.program.features.useQuery().data;
-  const assign = api.admin.assignInterviewers.useMutation({
-    onSuccess: () => onChanged(),
-    onError: () => onChanged(),
-  });
   const setStatus = api.admin.setApplicationStatus.useMutation({
     onSuccess: () => onChanged(),
     onError: () => onChanged(),
@@ -115,27 +127,6 @@ function ApplicationCard({
   const del = api.admin.deleteApplication.useMutation({
     onSuccess: () => onChanged(),
   });
-
-  // Start with at least three slots and retain larger existing panels.
-  const [picks, setPicks] = useState<string[]>(() =>
-    Array.from(
-      { length: Math.max(PANEL_SIZE, app.interviewers.length) },
-      (_, i) => app.interviewers[i]?.tutor.id ?? "",
-    ),
-  );
-  const [head, setHead] = useState<string>(
-    app.interviewers.find((x) => x.isHead)?.tutor.id ?? "",
-  );
-
-  const chosen = picks.filter(Boolean);
-  const activeTutors = tutors.filter((t) => t.active);
-  const canAssign =
-    chosen.length >= PANEL_SIZE &&
-    chosen.length === picks.length &&
-    new Set(chosen).size === chosen.length &&
-    !!head &&
-    chosen.includes(head) &&
-    !assign.isPending;
 
   const accepts = app.votes.filter((v) => v.accept).length;
   const courseNames =
@@ -167,7 +158,7 @@ function ApplicationCard({
           className="flex min-h-11 w-full min-w-0 flex-wrap items-center gap-2 text-left lg:min-h-8 lg:w-auto lg:flex-1"
           aria-expanded={open}
           aria-controls={`application-panel-${app.id}`}
-          onClick={() => setOpen((v) => !v)}
+          onClick={() => setDisclosure(open ? "closed" : "open")}
         >
           <DisclosureIcon open={open} />
           <span className="min-w-0 font-medium break-words text-slate-900">
@@ -256,8 +247,9 @@ function ApplicationCard({
         </div>
       </div>
 
-      {open && (
+      {disclosure !== "new" && (
         <div
+          hidden={!open}
           id={`application-panel-${app.id}`}
           className="mt-3 border-t border-slate-100 pt-3"
         >
@@ -316,7 +308,7 @@ function ApplicationCard({
             })}
           </ul>
 
-          {/* Interviewer assignment — three fixed panelists, one head (hidden when interviews off) */}
+          {/* Panels retain three to eight slots and one chair; edits stay hidden when interviews are off. */}
           {(features?.INTERVIEWS === true || hasInterviewHistory) && (
             <div className="mt-4 border-t border-slate-100 pt-3">
               <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
@@ -334,52 +326,20 @@ function ApplicationCard({
               )}
               {canEditPanel && features?.INTERVIEWS && (
                 <>
-                  <div className="mt-2 space-y-2">
-                    {picks.map((pick, i) => (
-                      <div
-                        key={i}
-                        className="flex flex-wrap items-center gap-2"
-                      >
-                        <select
-                          className="select field-auto max-w-full min-w-0 flex-1"
-                          aria-label={t("admin.applications.panelistSlot", {
-                            n: i + 1,
-                          })}
-                          value={pick}
-                          onChange={(e) =>
-                            setPicks((p) =>
-                              p.map((v, idx) =>
-                                idx === i ? e.target.value : v,
-                              ),
-                            )
-                          }
-                        >
-                          <option value="">
-                            {t("admin.applications.panelistSlot", { n: i + 1 })}
-                          </option>
-                          {activeTutors
-                            .filter(
-                              (t) => t.id === pick || !picks.includes(t.id),
-                            )
-                            .map((t) => (
-                              <option key={t.id} value={t.id}>
-                                {t.englishName}
-                              </option>
-                            ))}
-                        </select>
-                        <label className="flex min-h-11 items-center gap-1 text-sm text-slate-600 lg:min-h-8">
-                          <input
-                            type="radio"
-                            name={`head-${app.id}`}
-                            checked={!!pick && head === pick}
-                            disabled={!pick}
-                            onChange={() => setHead(pick)}
-                          />
-                          {t("admin.applications.head")}
-                        </label>
-                      </div>
-                    ))}
-                  </div>
+                  <InterviewPanelEditor
+                    applicationId={app.id}
+                    updatedAt={app.updatedAt}
+                    requestedTutorId={app.requestedTutorId}
+                    subjects={app.subjectIntents.map((intent) => ({
+                      id: intent.subjectId,
+                      label: [intent.subject.name, intent.subject.level?.name]
+                        .filter(Boolean)
+                        .join(" · "),
+                    }))}
+                    interviewers={app.interviewers}
+                    tutors={tutors}
+                    onChanged={onChanged}
+                  />
                   <p className="muted my-3 text-sm">
                     {t("workflows.allVotes")}{" "}
                     <Link
@@ -389,60 +349,6 @@ function ApplicationCard({
                       {t("subjectAvailability.title")}
                     </Link>
                   </p>
-                  <div className="my-3 flex gap-3">
-                    <button
-                      type="button"
-                      className="btn-secondary btn-sm"
-                      disabled={picks.length >= 8}
-                      onClick={() => setPicks((p) => [...p, ""])}
-                    >
-                      {t("workflows.addPanelist")}
-                    </button>
-                    <button
-                      type="button"
-                      className="btn-secondary btn-sm"
-                      disabled={picks.length <= 3}
-                      onClick={() => {
-                        setPicks((p) => p.slice(0, -1));
-                        if (head === picks[picks.length - 1]) setHead("");
-                      }}
-                    >
-                      {t("workflows.removePanelist")}
-                    </button>
-                  </div>
-                  <div className="mt-2 flex items-center gap-3">
-                    <button
-                      className="btn-primary btn-sm"
-                      disabled={!canAssign}
-                      onClick={() =>
-                        assign.mutate({
-                          applicationId: app.id,
-                          tutorIds: chosen,
-                          headTutorId: head,
-                          expectedUpdatedAt: app.updatedAt,
-                        })
-                      }
-                    >
-                      {assign.isPending
-                        ? t("admin.applications.saving")
-                        : t("admin.applications.savePanel")}
-                    </button>
-                    {!canAssign && !assign.isPending && (
-                      <span className="muted text-xs">
-                        {t("admin.applications.pickHint", { n: PANEL_SIZE })}
-                      </span>
-                    )}
-                    {assign.isSuccess && (
-                      <span className="text-sm text-green-600">
-                        {t("admin.applications.saved")}
-                      </span>
-                    )}
-                    {assign.error && (
-                      <span className="text-sm text-red-600">
-                        {assign.error.message}
-                      </span>
-                    )}
-                  </div>
                 </>
               )}
             </div>
@@ -510,7 +416,40 @@ export default function ApplicationsPage() {
       utils.interviewManagement.options.invalidate(),
     ]);
 
+  const [filters, setFilters] = useState(emptyApplicationFilters);
+  // History links reveal their destination even when a previous filter hid it.
+  // Ordinary filtering does not otherwise change the selected criteria.
+  useEffect(() => {
+    const reveal = () => {
+      if (window.location.hash.startsWith("#application-"))
+        setFilters(emptyApplicationFilters);
+    };
+    window.addEventListener("hashchange", reveal);
+    return () => window.removeEventListener("hashchange", reveal);
+  }, []);
   const list = apps.data ?? [];
+  const filtered = list.filter((app) =>
+    matchesApplicationFilters(app, filters),
+  );
+  // Build choices from the full queue so applying one filter never erases another.
+  const subjects = Array.from(
+    new Map(
+      list.flatMap((app) =>
+        app.subjectIntents.map(
+          (intent) =>
+            [
+              intent.subjectId,
+              {
+                id: intent.subjectId,
+                label: [intent.subject.name, intent.subject.level?.name]
+                  .filter(Boolean)
+                  .join(" · "),
+              },
+            ] as const,
+        ),
+      ),
+    ).values(),
+  ).sort((a, b) => a.label.localeCompare(b.label));
 
   return (
     <div className="space-y-6 max-lg:[&_button]:min-h-11 max-lg:[&_select]:min-h-11">
@@ -521,21 +460,35 @@ export default function ApplicationsPage() {
         </p>
       </div>
 
+      {apps.data && (
+        <ApplicationFilters
+          value={filters}
+          onChange={setFilters}
+          subjects={subjects}
+          count={filtered.length}
+          total={list.length}
+        />
+      )}
       <div className="space-y-3">
         {apps.isLoading && <p role="status">{t("workflows.loading")}</p>}
         {apps.error && <p role="alert">{apps.error.message}</p>}
-        {list.map((app) => (
+        {tutors.error && <p role="alert">{tutors.error.message}</p>}
+        {filtered.map((app) => (
           <ApplicationCard
             key={app.id}
             app={app}
-            tutors={(tutors.data ?? []).map((tu) => ({
-              id: tu.id,
-              englishName: tu.englishName,
-              active: tu.status === "ACTIVE",
-            }))}
+            tutors={tutors.data ?? []}
             onChanged={invalidate}
           />
         ))}
+        {!apps.isLoading &&
+          !apps.error &&
+          list.length > 0 &&
+          filtered.length === 0 && (
+            <p className="muted card p-6 text-center">
+              {t("admin.applications.filters.noMatches")}
+            </p>
+          )}
         {!apps.isLoading && !apps.error && list.length === 0 && (
           <p className="muted">{t("admin.applications.empty")}</p>
         )}
@@ -546,7 +499,10 @@ export default function ApplicationsPage() {
           id="interview-records"
           className="scroll-mt-6 border-t border-slate-200 pt-6"
         >
-          <InterviewManagement enabled={features.data.INTERVIEWS} />
+          <InterviewManagement
+            enabled={features.data.INTERVIEWS}
+            onManageApplicant={() => setFilters(emptyApplicationFilters)}
+          />
         </div>
       )}
     </div>

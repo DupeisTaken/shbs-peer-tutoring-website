@@ -1269,7 +1269,32 @@
       "noVotes": "まだ投票がありません。",
       "decision": "判定：「{comment}」",
       "decidedByHead": "{name}（代表）",
-      "setupAccount": "アカウントをセットアップ →"
+      "setupAccount": "アカウントをセットアップ →",
+      "filters": {
+        "heading": "申請を絞り込む",
+        "search": "氏名またはメール",
+        "status": "申請状況",
+        "allStatuses": "すべての状況",
+        "type": "申請の種類",
+        "allTypes": "すべての種類",
+        "subject": "申請科目",
+        "allSubjects": "すべての申請科目",
+        "count": "{total} 件中 {count} 件の申請",
+        "reset": "絞り込みをリセット",
+        "noMatches": "条件に一致する申請はありません。検索条件を変えるか、絞り込みをリセットしてください。"
+      },
+      "picker": {
+        "subjectFocus": "科目別に面接担当者を分類",
+        "anySubject": "いずれかの申請科目",
+        "qualified": "選択科目の資格あり",
+        "unqualified": "その他の選択可能なチューター",
+        "help": "資格は承認済みの記録に基づきます。面接委員には申請科目の資格を持つチューターが少なくとも1人必要で、管理上の役職が最も高いメンバーを議長に選びます。科目の変更は選択肢の分類のみを変えます。",
+        "loading": "科目資格を読み込み中…",
+        "loadError": "科目資格を読み込めませんでした。再試行してから委員を選択・保存してください。",
+        "retry": "資格を再読み込み",
+        "unavailable": "{name}（選択不可・変更してください）",
+        "chairSlot": "面接担当者 {n} を議長に選択"
+      }
     },
     "cards": {
       "title": "生徒指導",

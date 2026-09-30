@@ -1195,7 +1195,32 @@
       "noVotes": "暂无投票。",
       "decision": "决定：“{comment}”",
       "decidedByHead": "{name}（组长）",
-      "setupAccount": "设置账户 →"
+      "setupAccount": "设置账户 →",
+      "filters": {
+        "heading": "筛选辅导伙伴申请",
+        "search": "姓名或邮箱",
+        "status": "申请状态",
+        "allStatuses": "所有状态",
+        "type": "申请类型",
+        "allTypes": "所有申请类型",
+        "subject": "申请科目",
+        "allSubjects": "所有申请科目",
+        "count": "显示 {count} / {total} 份申请",
+        "reset": "重置筛选",
+        "noMatches": "没有符合筛选条件的申请。请尝试其他搜索或重置筛选。"
+      },
+      "picker": {
+        "subjectFocus": "按科目分组面试成员",
+        "anySubject": "任一申请科目",
+        "qualified": "具备所选科目资格",
+        "unqualified": "其他可选辅导伙伴",
+        "help": "资格以已批准的记录为准。面试小组至少需要一位具备申请科目资格的辅导伙伴，并由管理级别最高的成员担任主席。切换科目只会重新分组选项。",
+        "loading": "正在加载科目资格…",
+        "loadError": "无法加载科目资格。请重试后再选择或保存面试小组。",
+        "retry": "重新加载资格",
+        "unavailable": "{name}（不可用，请替换）",
+        "chairSlot": "选择第 {n} 位面试成员为主席"
+      }
     },
     "cards": {
       "title": "学习伙伴纪律",

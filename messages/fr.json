@@ -1269,7 +1269,32 @@
       "noVotes": "Aucun vote pour l'instant.",
       "decision": "Décision : \"{comment}\"",
       "decidedByHead": "{name} (responsable)",
-      "setupAccount": "Configurer le compte →"
+      "setupAccount": "Configurer le compte →",
+      "filters": {
+        "heading": "Filtrer les candidatures",
+        "search": "Nom ou e-mail",
+        "status": "Statut de candidature",
+        "allStatuses": "Tous les statuts",
+        "type": "Type de demande",
+        "allTypes": "Tous les types",
+        "subject": "Matière demandée",
+        "allSubjects": "Toutes les matières demandées",
+        "count": "{count} candidatures sur {total}",
+        "reset": "Réinitialiser les filtres",
+        "noMatches": "Aucune candidature ne correspond. Modifiez la recherche ou réinitialisez les filtres."
+      },
+      "picker": {
+        "subjectFocus": "Regrouper les membres par matière",
+        "anySubject": "Toute matière demandée",
+        "qualified": "Qualifiés dans les matières sélectionnées",
+        "unqualified": "Autres tuteurs disponibles",
+        "help": "Les qualifications reposent sur des approbations enregistrées. Le jury doit inclure au moins un tuteur qualifié dans une matière demandée et être présidé par son membre de direction le plus haut placé. Changer de matière ne fait que regrouper les choix.",
+        "loading": "Chargement des qualifications…",
+        "loadError": "Impossible de charger les qualifications. Réessayez avant de choisir ou enregistrer le jury.",
+        "retry": "Recharger les qualifications",
+        "unavailable": "{name} (indisponible — remplacer cette sélection)",
+        "chairSlot": "Choisir le membre {n} comme président"
+      }
     },
     "cards": {
       "title": "Discipline des élèves",

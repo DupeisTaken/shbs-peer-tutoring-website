@@ -1195,7 +1195,32 @@
       "noVotes": "Aún no hay votos.",
       "decision": "Decisión: «{comment}»",
       "decidedByHead": "{name} (responsable)",
-      "setupAccount": "Configurar cuenta →"
+      "setupAccount": "Configurar cuenta →",
+      "filters": {
+        "heading": "Filtrar solicitudes",
+        "search": "Nombre o correo",
+        "status": "Estado de la solicitud",
+        "allStatuses": "Todos los estados",
+        "type": "Tipo de solicitud",
+        "allTypes": "Todos los tipos",
+        "subject": "Asignatura solicitada",
+        "allSubjects": "Todas las asignaturas solicitadas",
+        "count": "{count} de {total} solicitudes",
+        "reset": "Restablecer filtros",
+        "noMatches": "Ninguna solicitud coincide. Prueba otra búsqueda o restablece los filtros."
+      },
+      "picker": {
+        "subjectFocus": "Agrupar entrevistadores por asignatura",
+        "anySubject": "Cualquier asignatura solicitada",
+        "qualified": "Cualificados en las asignaturas seleccionadas",
+        "unqualified": "Otros tutores disponibles",
+        "help": "Las cualificaciones corresponden a aprobaciones registradas. El panel necesita al menos un tutor cualificado en una asignatura solicitada; debe presidirlo su miembro de gestión de mayor rango. Cambiar la asignatura solo reagrupa las opciones.",
+        "loading": "Cargando cualificaciones…",
+        "loadError": "No se pudieron cargar las cualificaciones. Reintenta antes de elegir o guardar el panel.",
+        "retry": "Reintentar cualificaciones",
+        "unavailable": "{name} (no disponible; sustituye esta selección)",
+        "chairSlot": "Elegir al entrevistador {n} como presidente"
+      }
     },
     "cards": {
       "title": "Disciplina de estudiantes",

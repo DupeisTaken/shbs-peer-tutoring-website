@@ -139,6 +139,10 @@ In **Tutor Applications**, additional-subject and higher-level requests have dis
 
 Use **My Subject Willingness → Edit willingness** on the Tutor Dashboard to change your own subject choices. Only subjects with saved approved qualifications, including inherited qualifications, appear. Choose **Willing to Tutor** or **Unwilling to Tutor**; an unanswered subject shows **Not recorded** with neither selected. Each change saves immediately; check the saved result or error before continuing. Inactive tutors have read-only access. If no subjects qualify, request qualification in **Subject Qualifications**. Willingness does not change qualifications or timetable availability.
 
+Staff can narrow **Tutor Applications** by name or email, application status, request type and requested subject. Filters combine, and the matching count always refers to the complete application queue. **Reset filters** restores all applications. Interview records have their own search and remain visible below the queue; a record's panel link reveals the relevant application.
+
+When selecting interviewers, **Group panelists by subject** puts tutors with recorded qualifications first, using the same grouped selector as tutee assignment. Choose any requested subject or focus on one; qualification labels list the requested subjects each tutor covers. Changing the focus preserves current selections. Other available tutors remain selectable for panel and chair roles. Tutors must have active, non-suspended accounts and cannot review their own additional qualification request. Unavailable existing panelists stay labelled until replaced. Select three to eight distinct panelists and a chair, then **Save Panel**; the server still checks qualification and chair requirements.
+
 ### Start tutoring
 
 1. Choose **Become a Tutor** on the home page. Select up to three subjects, explain your qualifications, read the current policy and submit your contact details.
