@@ -1,6 +1,12 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  within,
+} from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import SuperJSON from "superjson";
 import en from "../../../messages/en.json";
@@ -15,6 +21,41 @@ const mocks = vi.hoisted(() => ({
   refetch: vi.fn(),
   requesters: vi.fn(),
   replace: vi.fn(),
+  decisionState: {},
+}));
+// Dialog internals have their own tests; these doubles verify that this panel
+// preserves the staged review flow and only forwards fresh reviewer tickets.
+vi.mock("./timed-action-dialog", () => ({
+  TimedActionDialog: ({
+    children,
+    onConfirm,
+    onCancel,
+  }: {
+    children: React.ReactNode;
+    onConfirm: (ticket: string) => void;
+    onCancel: () => void;
+  }) => (
+    <div role="dialog" aria-label="Consequence confirmation">
+      {children}
+      <button onClick={() => onConfirm("fresh-review-ticket")}>
+        Confirm consequences
+      </button>
+      <button onClick={onCancel}>Cancel confirmation</button>
+    </div>
+  ),
+}));
+vi.mock("./assignment-confirmation", () => ({
+  AssignmentConfirmation: ({
+    onConfirm,
+  }: {
+    onConfirm: (ticket: string) => void;
+  }) => (
+    <div role="dialog" aria-label="Qualification confirmation">
+      <button onClick={() => onConfirm("fresh-qualification-ticket")}>
+        Confirm qualifications
+      </button>
+    </div>
+  ),
 }));
 vi.mock("next/navigation", () => ({
   useRouter: () => ({ replace: mocks.replace }),
@@ -27,6 +68,7 @@ vi.mock("~/trpc/react", () => ({
       requesters: { useQuery: mocks.requesters },
       decide: {
         useMutation: (options: { onSuccess: () => void }) => ({
+          ...mocks.decisionState,
           mutate: (value: unknown) => {
             mocks.decide(value);
             options.onSuccess();
@@ -93,6 +135,7 @@ function view(reviewer = false, locale = "en") {
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.params = "";
+  mocks.decisionState = {};
   mocks.refetch.mockResolvedValue({});
   queue();
 });
@@ -112,12 +155,140 @@ it("shows departure consequences to Head without exposing the revision counter",
   queue([departure], true, 1, true);
   render(view(true));
   expect(
-    screen.getByRole("heading", { name: "School Departure" }),
+    screen.getByRole("heading", {
+      name: "Change school departure or viewer access",
+    }),
   ).toBeTruthy();
   expect(
     screen.getByText(/This removes departure-based viewer access/),
   ).toBeTruthy();
   expect(screen.queryByText("Expected Revision")).toBeNull();
+});
+
+it("requires a nonblank note and explains both proposal outcomes", () => {
+  queue([row()], true);
+  render(view(true));
+  const approve = screen.getByRole("button", {
+    name: "Approve and Apply",
+  });
+  const reject = screen.getByRole("button", {
+    name: "Reject with Feedback",
+  });
+  expect(approve.hasAttribute("disabled")).toBe(true);
+  expect(reject.hasAttribute("disabled")).toBe(true);
+  fireEvent.change(screen.getByLabelText("Your decision note (required)"), {
+    target: { value: "   " },
+  });
+  expect(approve.hasAttribute("disabled")).toBe(true);
+  expect(screen.getByText(en.approvals.review.decisionHelp)).toBeTruthy();
+  fireEvent.change(screen.getByRole("textbox"), {
+    target: { value: "Please check the name" },
+  });
+  fireEvent.click(reject);
+  expect(mocks.decide).toHaveBeenCalledWith({
+    id: "request-1",
+    approve: false,
+    note: "Please check the name",
+  });
+});
+
+it("explains Head-only requests when an Admin cannot decide them", () => {
+  queue([{ ...row(), operation: "admin.setMemberships" }], true);
+  render(view(true));
+  expect(screen.getByText("Only Head can decide this request.")).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: "Approve and Apply" }),
+  ).toBeNull();
+});
+
+it("shows the requested rejection in both the card and fresh consequence confirmation", () => {
+  queue(
+    [
+      {
+        ...row(),
+        operation: "studentWorkflow.resolveReview",
+        payload: SuperJSON.serialize({
+          id: "underlying",
+          approve: false,
+          ticket: "old-ticket",
+        }),
+      },
+    ],
+    true,
+  );
+  render(view(true));
+  expect(
+    screen.getByText(en.approvals.review.decisionRequestHelp),
+  ).toBeTruthy();
+  fireEvent.change(screen.getByRole("textbox"), {
+    target: { value: "Decline the withdrawal as proposed" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Approve and Apply" }));
+  expect(mocks.decide).not.toHaveBeenCalled();
+  expect(
+    within(screen.getByRole("dialog")).getByText(
+      "Reject the underlying request",
+    ),
+  ).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Confirm consequences" }));
+  expect(mocks.decide).toHaveBeenCalledWith({
+    id: "request-1",
+    approve: true,
+    note: "Decline the withdrawal as proposed",
+    ticket: "fresh-review-ticket",
+  });
+});
+
+it("still requires the assignment qualification step after consequence confirmation", () => {
+  queue(
+    [
+      {
+        ...row(),
+        operation: "studentWorkflow.assign",
+        payload: SuperJSON.serialize({ id: "signup", tutorId: "tutor" }),
+      },
+    ],
+    true,
+  );
+  render(view(true));
+  fireEvent.change(screen.getByRole("textbox"), {
+    target: { value: "Both checks reviewed" },
+  });
+  fireEvent.click(screen.getByRole("button", { name: "Approve and Apply" }));
+  fireEvent.click(screen.getByRole("button", { name: "Confirm consequences" }));
+  expect(mocks.decide).not.toHaveBeenCalled();
+  fireEvent.click(
+    screen.getByRole("button", { name: "Confirm qualifications" }),
+  );
+  expect(mocks.decide).toHaveBeenCalledWith({
+    id: "request-1",
+    approve: true,
+    note: "Both checks reviewed",
+    ticket: "fresh-review-ticket",
+    overrideTicket: "fresh-qualification-ticket",
+  });
+});
+
+it("keeps a failed decision visible and disables decisions while saving", () => {
+  queue([row()], true);
+  mocks.decisionState = {
+    error: new Error("The affected records changed"),
+    isPending: true,
+  };
+  render(view(true));
+  expect(screen.getByRole("alert").textContent).toBe(
+    "The affected records changed",
+  );
+  fireEvent.change(screen.getByRole("textbox"), {
+    target: { value: "Reviewed" },
+  });
+  expect(
+    screen
+      .getByRole("button", {
+        name: "Approve and Apply",
+      })
+      .hasAttribute("disabled"),
+  ).toBe(true);
 });
 
 it("restores linked filters and makes the banner's full-list URL reset older pages", () => {
@@ -149,7 +320,16 @@ it("shows coordinator history and proposed/affected records without privileged r
       .getByRole("button", { name: "All Statuses" })
       .getAttribute("aria-pressed"),
   ).toBe("true");
-  expect(screen.getAllByText("Original room")).toHaveLength(2);
+  expect(
+    within(screen.getByRole("region", { name: "Affected record" })).getByText(
+      "Original room",
+    ),
+  ).toBeTruthy();
+  expect(
+    within(screen.getByRole("region", { name: "What is requested" })).getByText(
+      "Original room",
+    ),
+  ).toBeTruthy();
   expect(screen.getByText("New room name")).toBeTruthy();
   expect(screen.getByText(/Not applied — awaiting/)).toBeTruthy();
   expect(screen.queryByRole("combobox")).toBeNull();

@@ -196,12 +196,16 @@ Coordinators prepare management changes and learn through review. Their own auth
 1. Open the relevant management page and inspect the current record.
 2. Enter the proposed change and any required reason. For tutee assignment/review actions, read the consequence dialog and wait for confirmation.
 3. Submit. **Submitted for admin approval** means no live management change has been applied.
-4. Follow **View request** to **Management Actions**. Check the proposed values and wait for review. You can withdraw your own pending request.
+4. Follow **View request** to **Management Actions**. Read the action title, **Affected record** and **What is requested**. For edits, compare **At submission** with **Requested**; unchanged submitted values are in a separate disclosure. You can withdraw your own pending request.
 5. Read the reviewer’s note. Check the live record after approval; an email-delivery warning may still require a link resend.
 
 Requests cover assignments, schedules, roster changes, policy/content changes, corrections, discipline, hours, interview completion and other supported management operations. Badge and membership changes require HEAD approval, including requests from administrators. Program refresh and leadership transfer retain their restricted controls. Sending an existing verification/setup link is a supported direct action and does not extend a verification deadline.
 
 If records change while a proposal is pending, the reviewer must reject it and request a fresh proposal. Do not reuse old values or assume a withdrawn/failed request changed the website. See [approval troubleshooting](#troubleshooting).
+
+**At submission** and **Supporting records from submission** show saved historical evidence, including when reading an approved request. They do not claim to show today's live records. **Not recorded in this request** means the old evidence is unavailable; **Not set** means an available field was empty. Deletions identify the record to remove, and additions show the values to create.
+
+Reviewers enter **Your decision note (required)** before either decision. **Approve and Apply** executes the action being requested. If that action is **Reject the underlying request**, approving the proposal applies that rejection. **Reject with Feedback** declines the management proposal without applying it. Head-only and own-request restrictions are explained beside the request; the existing consequence and qualification confirmations still apply.
 
 ## Administrators
 
