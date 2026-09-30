@@ -23,12 +23,10 @@ import { SortHeader, useSort, compare } from "~/app/_components/sortable";
 import { useReadOnly } from "~/app/_components/read-only";
 import { EmailDetails } from "~/app/_components/email-details";
 import { TuteeEditor } from "~/app/_components/tutee-editor";
-import { AcademicDetails } from "~/app/_components/academic-profile";
+import { TuteeAcademicCell } from "~/app/_components/tutee-academic-cell";
 import {
-  EnrollmentGrade,
   HistoryError,
   TuteeHistoryDialog,
-  TuteeHistoryLinkDialog,
 } from "~/app/_components/tutee-history";
 import { type TuteeHistoryView } from "~/lib/tutee-history";
 import { GRADUATED_GRADE, normalizeGrade } from "~/lib/academics";
@@ -101,7 +99,6 @@ export default function TuteesPage() {
   const h = useTranslations("tuteeHistory");
   const [historyView, setHistoryView] = useState<TuteeHistoryView>("current");
   const [detailsId, setDetailsId] = useState<string | null>(null);
-  const [linkId, setLinkId] = useState<string | null>(null);
   const [search, setSearch] = useState("");
   const [showUnverified, setShowUnverified] = useState(false);
   const permissions = api.tuteeHistory.permissions.useQuery();
@@ -226,20 +223,12 @@ export default function TuteesPage() {
           onClose={() => setDetailsId(null)}
         />
       )}
-      {linkId &&
-        all.find((row) => row.id === linkId) &&
-        permissions.data?.canLink && (
-          <TuteeHistoryLinkDialog
-            row={all.find((row) => row.id === linkId)!}
-            isHead={permissions.data.isHead}
-            onClose={() => setLinkId(null)}
-          />
-        )}
       {/* Manual add */}
       {!readOnly && editing && (
         <TuteeEditor
           key={editing.id}
           row={editing}
+          historyPermissions={permissions.data}
           onClose={() => setEditingId(null)}
         />
       )}
@@ -467,7 +456,7 @@ export default function TuteesPage() {
       )}
       {view === "tutees" && (
         <section className="card overflow-x-auto">
-          <table className="data-table [&_td]:px-2 [&_th]:px-2">
+          <table className="data-table">
             <thead>
               <tr>
                 <SortHeader sort={sort} sortKey="name">
@@ -475,7 +464,7 @@ export default function TuteesPage() {
                 </SortHeader>
                 <th>{t("admin.tutees.colContact")}</th>
                 <SortHeader sort={sort} sortKey="grade">
-                  {t("academics.title")}
+                  {h("gradeClass")}
                 </SortHeader>
                 <th>{t("admin.tutees.colCourses")}</th>
                 <SortHeader sort={sort} sortKey="sessions">
@@ -487,7 +476,7 @@ export default function TuteesPage() {
                 <SortHeader sort={sort} sortKey="status">
                   {t("admin.tutees.colStatus")}
                 </SortHeader>
-                <th></th>
+                <th>{t("admin.users.columns.actions")}</th>
               </tr>
             </thead>
             <tbody>
@@ -497,13 +486,12 @@ export default function TuteesPage() {
                     <p className="font-medium [overflow-wrap:anywhere] text-slate-900">
                       {t2.englishName}
                     </p>
-                    <p className="muted mt-1 text-xs">
-                      {(t2.owner ?? t2.user)?.username
-                        ? `@${(t2.owner ?? t2.user)?.username}`
-                        : (t2.owner ?? t2.user)
-                          ? h("linkedAccount")
-                          : h("noAccount")}
-                    </p>
+                    {/* The display name already applies the program's additional-name setting. */}
+                    {(t2.owner ?? t2.user)?.username && (
+                      <p className="muted text-xs">
+                        @{(t2.owner ?? t2.user)?.username}
+                      </p>
+                    )}
                   </td>
                   <td className="text-slate-600">
                     <EmailDetails
@@ -515,15 +503,8 @@ export default function TuteesPage() {
                       linked={!!(t2.owner ?? t2.user)}
                     />
                   </td>
-                  <td className="min-w-52">
-                    {t2.historical || !(t2.owner ?? t2.user) ? (
-                      <EnrollmentGrade
-                        grade={t2.gradeLevel}
-                        graduated={t2.academicallyGraduated}
-                      />
-                    ) : (
-                      <AcademicDetails academic={t2.academic} compact />
-                    )}
+                  <td className="min-w-40 text-slate-600">
+                    <TuteeAcademicCell row={t2} />
                   </td>
                   <td className="w-36 max-w-36 whitespace-normal text-slate-600">
                     <ul className="space-y-1 text-sm">
@@ -556,14 +537,6 @@ export default function TuteesPage() {
                           onClick={() => setDetailsId(t2.id)}
                         >
                           {h("details")}
-                        </button>
-                      )}
-                      {t2.historical && permissions.data?.canLink && (
-                        <button
-                          className="link table-account-action"
-                          onClick={() => setLinkId(t2.id)}
-                        >
-                          {h("linkTitle")}
                         </button>
                       )}
                       {!readOnly && (

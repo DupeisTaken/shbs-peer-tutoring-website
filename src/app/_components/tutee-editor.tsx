@@ -12,7 +12,8 @@ import {
   ProfilePolicyHint,
   OfferedGradeSelect,
 } from "./profile-policy";
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { TuteeHistoryLinkForm } from "./tutee-history";
 import { invalidateTuteeViews } from "~/lib/tutee-cache";
 import { GRADUATED_GRADE } from "~/lib/academics";
 
@@ -20,15 +21,20 @@ import { GRADUATED_GRADE } from "~/lib/academics";
 export function TuteeEditor({
   row,
   onClose,
+  historyPermissions,
 }: {
   row: RouterOutputs["admin"]["tutees"][number];
   onClose: () => void;
+  historyPermissions?: { canLink: boolean; isHead: boolean };
 }) {
   const t = useTranslations("profileCorrection");
   const history = useTranslations("tuteeHistory");
   const profileText = useTranslations("accountProfile");
   const academicText = useTranslations("academics");
   const [expectedUpdatedAt] = useState(row.updatedAt);
+  // Keep explicit name drafts mounted while historical linking refreshes roster data.
+  const historySection = useRef<HTMLDetailsElement>(null);
+  const [historyLinked, setHistoryLinked] = useState(false);
   const [names, setNames] = useState(() => nameDraft(row));
   const policy = useProfilePolicy();
   const [grade, setGrade] = useState(
@@ -208,6 +214,34 @@ export function TuteeEditor({
         <div className="mt-5">
           <AcademicPanel userId={row.user.id} />
         </div>
+      )}
+      {row.historical && historyPermissions?.canLink && (
+        <section className="mt-5 border-t border-slate-200 pt-4">
+          {/* Separate forms preserve unsaved profile edits and avoid nested dialogs/forms. */}
+          <details ref={historySection}>
+            <summary className="link flex min-h-11 cursor-pointer items-center text-sm font-medium lg:min-h-8">
+              {history("linkTitle")}
+            </summary>
+            <div className="pt-4">
+              <TuteeHistoryLinkForm
+                row={row}
+                isHead={historyPermissions.isHead}
+                onLinked={() => {
+                  setHistoryLinked(true);
+                  if (historySection.current) {
+                    historySection.current.open = false;
+                    historySection.current.querySelector("summary")?.focus();
+                  }
+                }}
+              />
+            </div>
+          </details>
+          {historyLinked && (
+            <p role="status" className="mt-2 text-sm text-green-800">
+              {history("linkSaved")}
+            </p>
+          )}
+        </section>
       )}
     </ProfileDialog>
   );

@@ -1,5 +1,14 @@
 # Project UI guidelines
 
+## Participant tables
+
+- Use Users & Roles as the design reference for the Tutee List: shared table spacing,
+  identity typography and action sizing, with session counts and discipline standing added.
+- Keep row actions to View History, Edit Profile and Delete. Historical linking belongs
+  inside Edit Profile. Use Grade & Class for compact academics; class means graduating class.
+- Keep participant names free of added scenario labels. Historical grades and class years
+  must use the original enrollment period, never the linked account's current grade.
+
 ## Signup field requirements
 
 - Use `FieldRequirement` beside signup field names for translated Required/Optional

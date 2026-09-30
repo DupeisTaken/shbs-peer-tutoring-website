@@ -23,7 +23,7 @@ Users & Roles contains login accounts and the existing unlinked tutor entries; a
 
 ## Link an accountless historical tutee
 
-An Admin or Head opens **Link Historical Records** from a historical tutee row, records identity evidence, selects an eligible verified account and reviews the named record and session count before confirming.
+An Admin or Head opens **Edit Profile → Link Historical Records** from a historical tutee row, records identity evidence, selects an eligible verified account and reviews the named record and session count before confirming.
 
 The write adds explicit retained ownership. It does not replace User.studentId, enroll someone in the current term, change membership, copy academics, fabricate consent, or rewrite sessions, meetings or hour amendments. The person can find linked records through **My Tutoring History** in the account menu, without accepting current participation policies solely to read history.
 
@@ -54,9 +54,9 @@ All supported operational actions below have website controls; staff do not need
 | Find past/accountless tutees | Tutees → History or All Records → search | Show unverified accounts when needed. |
 | Read original academics and attendance | Tutee row → View History | Staff or the linked owner; general observers cannot read private details. |
 | Correct an accountless participant profile | Tutee row → Edit profile | Individual correction; school-year confirmation history and bulk corrections remain #195. |
-| Link an existing verified account | Historical row → Link Historical Records → search → Review Link → Confirm Link | Admin/Head, identity evidence and acknowledgement required. |
-| Correct retained ownership | Same link dialog → Head password → Confirm Link | Current login ownership conflicts require Head review through Combine accounts and its conflict checks. |
-| Invite a later participant | Link Historical Records → invited email → Send Invitation | Record must be accountless; email configuration is required in production. |
+| Link an existing verified account | Historical row → Edit Profile → Link Historical Records → search → Review Link → Confirm Link | Admin/Head, identity evidence and acknowledgement required. |
+| Correct retained ownership | Same link section → Head password → Confirm Link | Current login ownership conflicts require Head review through Combine accounts and its conflict checks. |
+| Invite a later participant | Historical row → Edit Profile → Link Historical Records → invited email → Send Invitation | Record must be accountless; email configuration is required in production. |
 | Accept an invitation | Email link → Sign In → review → Link My History | Sign-in returns to the same claim. Signup requires reopening the email after verification. |
 | Read personal historical attendance | Account menu → My Tutoring History → View History | Does not reactivate participation or restore revoked observer access. |
 | Refresh roster after edits | Automatic invalidation or Tutees → Refresh | Other sessions can explicitly refresh; no polling is added. |
@@ -89,3 +89,7 @@ New interface copy is provided in English and Chinese; the other bundled languag
 [Website audit and screenshots](evidence/historical-participant-transition/README.md)
 
 [Documentation index](README.md) · [User guide](user-guide.md)
+
+### Compact tutee roster
+
+The Tutee List follows the Users & Roles table styling and action sizing, with attendance counts and discipline standing. Its row actions are View History, Edit Profile and Delete. Admin/Head linking and invitations live inside Edit Profile. Names are displayed unchanged, without synthetic scenario labels. Grade & Class shows the enrollment grade and its reference period for historical/accountless records, or current confirmed account academics. Expected graduating class requires a numeric grade and a known school year; missing years are never replaced with the current year. Full historical and current academic details remain in View History.

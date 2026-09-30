@@ -10,6 +10,11 @@ const mock = vi.hoisted(() => ({
   mutate: vi.fn(),
   error: undefined as undefined | { message: string },
 }));
+vi.mock("./tutee-history", () => ({
+  TuteeHistoryLinkForm: ({ onLinked }: { onLinked: () => void }) => (
+    <button onClick={onLinked}>Complete test link</button>
+  ),
+}));
 vi.mock("./academic-profile", () => ({
   AcademicPanel: ({ userId }: { userId: string }) => (
     <div>Shared academics: {userId}</div>
@@ -121,5 +126,76 @@ it.each([true, false])(
     expect(screen.getByRole("alert").textContent).toBe(
       en.profilePolicy.latinRequired,
     );
+  },
+);
+
+it.each([true, false])(
+  "gates embedded linking and preserves unsaved profile edits (allowed=%s)",
+  (canLink) => {
+    const row = {
+      id: "past",
+      englishName: "Alex",
+      historical: true,
+      status: "INACTIVE",
+      gradeLevel: "9",
+      availabilities: [],
+      updatedAt: new Date(),
+    } as unknown as ComponentProps<typeof TuteeEditor>["row"];
+    const close = vi.fn();
+    const { container } = render(
+      <NextIntlClientProvider locale="en" messages={en}>
+        <TuteeEditor
+          row={row}
+          onClose={close}
+          historyPermissions={{ canLink, isHead: false }}
+        />
+      </NextIntlClientProvider>,
+    );
+    // All four controlled name drafts must survive linking, not just plain form fields.
+    const drafts = {
+      firstName: "Alexander",
+      lastName: "Chen",
+      preferredName: "Alex",
+      alternativeNames: "陈同学",
+    };
+    for (const [key, value] of Object.entries(drafts)) {
+      fireEvent.change(container.querySelector(`input[name="${key}"]`)!, {
+        target: { value },
+      });
+    }
+    const notes = container.querySelector<HTMLTextAreaElement>(
+      'textarea[name="notes"]',
+    )!;
+    fireEvent.change(notes, { target: { value: "Keep this draft" } });
+    const section = container.querySelector("details");
+    if (!canLink) {
+      expect(section).toBeNull();
+      return;
+    }
+    expect(section).not.toBeNull();
+    expect(section!.closest("form")).toBeNull();
+    section!.open = true;
+    fireEvent.click(screen.getByRole("button", { name: "Complete test link" }));
+    expect(section!.open).toBe(false);
+    for (const [key, value] of Object.entries(drafts)) {
+      expect(
+        container.querySelector<HTMLInputElement>(`input[name="${key}"]`)!
+          .value,
+      ).toBe(value);
+    }
+    expect(notes.value).toBe("Keep this draft");
+    fireEvent.submit(container.querySelector("form")!);
+    expect(mock.mutate).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        ...drafts,
+        englishName: "Alexander Chen",
+        notes: "Keep this draft",
+      }),
+    );
+    expect(close).not.toHaveBeenCalled();
+    expect(screen.getByRole("status").textContent).toBe(
+      en.tuteeHistory.linkSaved,
+    );
+    expect(document.activeElement).toBe(section!.querySelector("summary"));
   },
 );
