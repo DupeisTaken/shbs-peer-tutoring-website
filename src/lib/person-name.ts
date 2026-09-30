@@ -58,3 +58,35 @@ export function fullPersonName(person: {
     .filter(Boolean)
     .join(" ");
 }
+
+/** An existing unsplit identity may be kept, but never inferred from a display label.
+ * Editing any Latin field opts into the complete structured-name validation. */
+export function preservesLegacyName(
+  value: PersonNameDraft,
+  original: PersonNameDraft | undefined,
+  legacyName?: string | null,
+) {
+  return (
+    !!legacyName?.trim() &&
+    !!original &&
+    !original.firstName.trim() &&
+    (["firstName", "lastName", "preferredName"] as const).every(
+      (key) => value[key].trim() === original[key].trim(),
+    )
+  );
+}
+
+/** Omit unchanged legacy Latin fields so domain writers retain nulls and provenance.
+ * The independent additional-language field remains editable. */
+export function personNameEdit(
+  value: PersonNameDraft,
+  original: PersonNameDraft,
+  legacyName?: string | null,
+) {
+  const preserved = preservesLegacyName(value, original, legacyName);
+  return {
+    name: preserved ? legacyName! : fullPersonName(value),
+    fields: preserved ? { alternativeNames: value.alternativeNames } : value,
+    preserved,
+  };
+}

@@ -1,4 +1,4 @@
-import { optionalPersonNameFields } from "~/lib/person-name";
+import { optionalPersonNameFields, fullPersonName } from "~/lib/person-name";
 import {
   changeSchoolDeparture,
   requireSchoolParticipation,
@@ -17,6 +17,7 @@ import {
 } from "~/server/academics";
 import {
   assertPrimaryName,
+  parsePersonNames,
   assertOfferedGrade,
 } from "~/server/program/profile-policy";
 import { historicalOwners } from "~/server/tutee-history";
@@ -1818,8 +1819,6 @@ export const adminRouter = createTRPCRouter({
         id: cuid,
         expectedUpdatedAt: expectedUpdatedAt.optional(),
         ...optionalPersonNameFields,
-        firstName: optionalPersonNameFields.firstName.unwrap(),
-        lastName: optionalPersonNameFields.lastName.unwrap(),
         alternativeNames: z.string().trim().max(200).nullable().optional(),
         // Head can correct an unlinked handle; linked logins use the account editor.
         username: z.string().trim().optional(),
@@ -1905,11 +1904,17 @@ export const adminRouter = createTRPCRouter({
             code: "BAD_REQUEST",
             message: "Graduated cannot have a current grade.",
           });
-        await assertPrimaryName(
-          tx,
-          [input.firstName, input.lastName].filter(Boolean).join(" "),
-          before.englishName,
-        );
+        // Omitted Latin fields preserve the locked legacy identity. Any explicit
+        // edit is validated as a complete name, including partial API updates.
+        const explicitNames =
+          input.firstName !== undefined || input.lastName !== undefined || input.preferredName !== undefined
+            ? parsePersonNames({
+                ...before,
+                ...input,
+                firstName: input.firstName ?? before.firstName ?? "",
+                lastName: input.lastName ?? before.lastName ?? "",
+              })
+            : null;
 
         if (!account && input.gradeLevel !== before.gradeLevel)
           await assertOfferedGrade(tx, input.gradeLevel);
@@ -1937,16 +1942,18 @@ export const adminRouter = createTRPCRouter({
         const updated = await tx.tutor.update({
           where: { id: input.id },
           data: {
-            nameFieldsConfirmed: true,
-            preferredName: input.preferredName,
-            firstName: input.firstName,
-            lastName: input.lastName,
-            englishName: [input.firstName, input.lastName]
-              .filter(Boolean)
-              .join(" "),
-            alternativeNames: input.alternativeNames?.trim()
-              ? input.alternativeNames.trim()
-              : null,
+            ...(explicitNames
+              ? {
+                  nameFieldsConfirmed: true,
+                  preferredName: explicitNames.preferredName,
+                  firstName: explicitNames.firstName,
+                  lastName: explicitNames.lastName,
+                  englishName: fullPersonName(explicitNames),
+                }
+              : {}),
+            ...(input.alternativeNames === undefined
+              ? {}
+              : { alternativeNames: blankToNull(input.alternativeNames) }),
             username,
             status: input.status,
             // Linked academic mirrors are written only by the versioned academic workflow.
@@ -1966,7 +1973,7 @@ export const adminRouter = createTRPCRouter({
             firstName: input.firstName,
             lastName: input.lastName,
             preferredName: input.preferredName,
-            name: [input.firstName, input.lastName].filter(Boolean).join(" "),
+            name: explicitNames ? fullPersonName(explicitNames) : undefined,
             alternativeNames: updated.alternativeNames,
             expectedTutorId: input.id,
           });
@@ -2095,7 +2102,8 @@ export const adminRouter = createTRPCRouter({
         if ((input.academicallyGraduated ?? before.academicallyGraduated) &&
           (input.gradeLevel === undefined ? before.gradeLevel : input.gradeLevel) != null)
           throw new TRPCError({ code: "BAD_REQUEST", message: "Graduated cannot have a current grade." });
-        await assertPrimaryName(tx, input.englishName, before.englishName);
+        if (input.englishName !== before.englishName)
+          await assertPrimaryName(tx, input.englishName, before.firstName ? before.englishName : before.legacyName ?? before.englishName);
 
         if (!linkedStudent && input.gradeLevel !== before.gradeLevel)
           await assertOfferedGrade(tx, normalizeGrade(input.gradeLevel).gradeLevel);

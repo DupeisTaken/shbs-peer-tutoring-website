@@ -1,6 +1,6 @@
 "use client";
 import { PersonNameFields } from "~/app/_components/person-name-fields";
-import { nameDraft, fullPersonName } from "~/lib/person-name";
+import { nameDraft, personNameEdit } from "~/lib/person-name";
 
 import { useTranslations } from "next-intl";
 import { ProfileDialog } from "~/app/_components/profile-dialog";
@@ -36,6 +36,9 @@ export function TuteeEditor({
   const historySection = useRef<HTMLDetailsElement>(null);
   const [historyLinked, setHistoryLinked] = useState(false);
   const [names, setNames] = useState(() => nameDraft(row));
+  const [originalNames] = useState(() => nameDraft(row));
+  const [legacyName] = useState(row.legacyName ?? row.englishName);
+  const identity = personNameEdit(names, originalNames, legacyName);
   const policy = useProfilePolicy();
   const [grade, setGrade] = useState(
     row.academicallyGraduated
@@ -73,8 +76,8 @@ export function TuteeEditor({
             save.mutate({
               id: row.id,
               expectedUpdatedAt,
-              ...names,
-              englishName: fullPersonName(names),
+              ...identity.fields,
+              englishName: identity.name,
               status: row.status,
               email: value("email"),
               phone: value("phone"),
@@ -99,7 +102,8 @@ export function TuteeEditor({
             <PersonNameFields
               value={names}
               onChange={setNames}
-              legacyName={row.legacyName ?? row.englishName}
+              legacyName={legacyName}
+              originalValue={originalNames}
             />
           </div>
           {(
