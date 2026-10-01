@@ -58,9 +58,16 @@ export function PersonNameFields({
               <FieldRequirement state={required ? "required" : "optional"} />
             </label>
             <input
+              ref={(input) => {
+                // Keep native validity in sync even for prefilled drafts and
+                // prop updates. Known Latin-name errors need no server round trip.
+                input?.setCustomValidity(
+                  invalid ? policyText("latinRequired") : "",
+                );
+              }}
               id={`${id}-${key}`}
               name={key}
-              className="input min-h-11 w-full lg:min-h-10"
+              className="input min-h-11 w-full aria-invalid:border-red-400 lg:min-h-10"
               value={value[key]}
               required={required}
               maxLength={key === "alternativeNames" ? 200 : 100}
