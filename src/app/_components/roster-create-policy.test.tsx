@@ -55,6 +55,13 @@ vi.mock("~/trpc/react", () => {
 beforeEach(() => {
   mock.mutate.mockReset();
   mock.error = undefined;
+  // JSDOM needs the native dialog opening behavior exposed to role queries.
+  Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.setAttribute("open", "");
+    },
+  });
 });
 afterEach(cleanup);
 
@@ -78,6 +85,13 @@ it.each([
     );
     const view = render(ui());
     if (tutor) {
+      expect(screen.queryByRole("dialog")).toBeNull();
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: messages.admin.tutors.addTutor,
+          exact: true,
+        }),
+      );
       fireEvent.change(
         screen.getByLabelText(messages.personName.firstName + " " + messages.signupFields.required),
         { target: { value: "Draft" } },
@@ -86,10 +100,18 @@ it.each([
         screen.getByLabelText(messages.personName.lastName + " " + messages.signupFields.required),
         { target: { value: "Name" } },
       );
-    } else
+    } else {
+      // Creation policy is exercised through the visible panel, as a user opens it.
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: messages.admin.tutees.addTutee,
+          exact: true,
+        }),
+      );
       fireEvent.change(screen.getByLabelText(messages.personName.firstName + " " + messages.signupFields.required), {
         target: { value: "Draft Name" },
       });
+    }
     fireEvent.submit(document.querySelector("form")!);
     expect(mock.mutate).toHaveBeenCalledOnce();
     // A rejected mutation leaves its error beside the same form and retains the user's input.
