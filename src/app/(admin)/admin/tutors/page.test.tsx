@@ -15,12 +15,19 @@ import { ReadOnlyProvider } from "~/app/_components/read-only";
 import TutorsPage from "./page";
 
 const createTutor = vi.hoisted(() => vi.fn());
-const mutation = vi.hoisted(() => ({
-  isPending: false,
-  error: null as null | { message: string },
-  onSuccess: () => Promise.resolve(),
-  invalidate: vi.fn().mockResolvedValue(undefined),
-}));
+const mutation = vi.hoisted(() => {
+  const queryData: unknown = undefined;
+  return {
+    isPending: false,
+    error: null as null | { message: string },
+    queryData,
+    queryError: null as { message: string } | null,
+    fetching: false,
+    retry: vi.fn(),
+    onSuccess: () => Promise.resolve(),
+    invalidate: vi.fn().mockResolvedValue(undefined),
+  };
+});
 
 vi.mock("~/trpc/react", () => ({
   api: {
@@ -37,41 +44,47 @@ vi.mock("~/trpc/react", () => ({
     admin: {
       tutors: {
         useQuery: () => ({
-          data: [
-            {
-              id: "tutor-1",
-              englishName: "Example Tutor",
-              username: "example",
-              user: { id: "user-1", email: null },
-              status: "ACTIVE",
-              email: null,
-              academic: {
-                status: "REPORTED",
-                gradeLevel: 12,
-                schoolYear: "26-27",
-                expectedGraduationYear: 2027,
-              },
-            },
-            {
-              id: "tutor-historical",
-              englishName: "Historical Tutor",
-              status: "ARCHIVED",
-              user: null,
-              gradeLevel: null,
-              academic: { status: "UNKNOWN", needsConfirmation: true },
-            },
-            {
-              id: "tutor-unknown",
-              englishName: "Unconfirmed Tutor",
-              status: "ACTIVE",
-              academic: {
-                status: "UNKNOWN",
-                rawGrade: "11",
-                gradeLevel: null,
-                needsConfirmation: true,
-              },
-            },
-          ],
+          error: mutation.queryError,
+          isFetching: mutation.fetching,
+          refetch: mutation.retry,
+          data:
+            mutation.queryData === null
+              ? undefined
+              : (mutation.queryData ?? [
+                  {
+                    id: "tutor-1",
+                    englishName: "Example Tutor",
+                    username: "example",
+                    user: { id: "user-1", email: null },
+                    status: "ACTIVE",
+                    email: null,
+                    academic: {
+                      status: "REPORTED",
+                      gradeLevel: 12,
+                      schoolYear: "26-27",
+                      expectedGraduationYear: 2027,
+                    },
+                  },
+                  {
+                    id: "tutor-historical",
+                    englishName: "Historical Tutor",
+                    status: "ARCHIVED",
+                    user: null,
+                    gradeLevel: null,
+                    academic: { status: "UNKNOWN", needsConfirmation: true },
+                  },
+                  {
+                    id: "tutor-unknown",
+                    englishName: "Unconfirmed Tutor",
+                    status: "ACTIVE",
+                    academic: {
+                      status: "UNKNOWN",
+                      rawGrade: "11",
+                      gradeLevel: null,
+                      needsConfirmation: true,
+                    },
+                  },
+                ]),
         }),
       },
       createTutor: {
@@ -98,6 +111,10 @@ beforeEach(() => {
   createTutor.mockClear();
   mutation.isPending = false;
   mutation.error = null;
+  mutation.queryData = undefined;
+  mutation.queryError = null;
+  mutation.fetching = false;
+  mutation.retry.mockReset();
   mutation.invalidate.mockClear();
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
     configurable: true,
@@ -168,11 +185,10 @@ it("uses the shared text-action stack and compact unknown grade summary", () => 
   expect(
     within(row).queryByText(/Original report|Expected graduation/),
   ).toBeNull();
-  const actions = row.querySelector(".table-account-actions")!;
+  const actions = row.querySelector(".table-action-list")!;
   expect(within(actions as HTMLElement).getAllByRole("button")).toHaveLength(2);
   for (const button of actions.querySelectorAll("button")) {
-    expect(button.classList.contains("table-account-action")).toBe(true);
-    expect(button.classList.contains("link")).toBe(true);
+    expect(button.classList.contains("table-action-link")).toBe(true);
     expect(button.classList.contains("btn-secondary")).toBe(false);
   }
 });
@@ -400,4 +416,40 @@ it("shows server errors inside the dialog and preserves the rejected draft for r
     reopened.querySelector<HTMLInputElement>('[name="firstName"]')!.value,
   ).toBe("张");
   expect(within(reopened).getByRole("alert")).toBeTruthy();
+});
+
+it("distinguishes cold load, failed load, and an empty tutor roster", () => {
+  mutation.queryData = null;
+  mount();
+  expect(
+    screen
+      .getAllByRole("status")
+      .some((node) => node.textContent?.includes(en.common.loading)),
+  ).toBe(true);
+  expect(screen.queryByText("0 records")).toBeNull();
+  cleanup();
+  mutation.queryError = { message: "offline" };
+  mount();
+  expect(screen.getByRole("alert").textContent).toContain(
+    en.uiPatterns.loadFailed,
+  );
+  fireEvent.click(screen.getByRole("button", { name: en.uiPatterns.retry }));
+  expect(mutation.retry).toHaveBeenCalledOnce();
+  cleanup();
+  mutation.queryError = null;
+  mutation.queryData = [];
+  mount();
+  expect(screen.getByText("0 records")).toBeTruthy();
+});
+
+it("keeps cached tutor rows and their trailing actions after a refresh fails", () => {
+  mutation.queryError = { message: "offline" };
+  mount();
+  expect(screen.getByRole("alert")).toBeTruthy();
+  const table = screen.getByRole("table", { name: en.admin.tutors.title });
+  expect(table.parentElement?.getAttribute("tabindex")).toBe("0");
+  expect(within(table).getByText("Example Tutor")).toBeTruthy();
+  expect(
+    within(table).getByRole("columnheader", { name: en.tablePatterns.actions }),
+  ).toBeTruthy();
 });

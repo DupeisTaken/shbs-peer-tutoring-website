@@ -12,6 +12,8 @@ import { api, type RouterOutputs } from "~/trpc/react";
 import { humanizeOperation, proposalConfirmation } from "~/lib/approval-policy";
 import { TimedActionDialog } from "~/app/_components/timed-action-dialog";
 import { ApprovalReviewDetails } from "./approval-review-details";
+import { Button, ChoiceButton } from "./ui/button";
+import { FilterToolbar } from "./ui/patterns";
 
 type Request = RouterOutputs["approval"]["list"]["rows"][number];
 type State = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
@@ -317,70 +319,72 @@ function ApprovalQueue({
         </p>
         <p className="muted mt-2 max-w-2xl text-sm">{t("reviewPermissions")}</p>
       </header>
-      <div className="card flex flex-wrap items-end gap-3 p-4">
-        {!requestId && (
-          <div
-            role="group"
-            aria-label={t("status")}
-            className="flex flex-wrap gap-2"
-          >
-            {(
-              ["PENDING", "APPROVED", "REJECTED", "CANCELLED", ""] as const
-            ).map((value) => (
-              <button
-                type="button"
-                key={value}
-                aria-pressed={state === value}
-                className={state === value ? "btn-primary" : "btn-secondary"}
-                onClick={() => {
-                  setState(value);
+      <div className="card p-4">
+        <FilterToolbar label={t("status")}>
+          {!requestId && (
+            <div
+              role="group"
+              aria-label={t("status")}
+              className="flex flex-wrap gap-2"
+            >
+              {(
+                ["PENDING", "APPROVED", "REJECTED", "CANCELLED", ""] as const
+              ).map((value) => (
+                <ChoiceButton
+                  key={value}
+                  selected={state === value}
+                  onClick={() => {
+                    setState(value);
+                    setPage(0);
+                    navigateList({ state: value, page: 0 });
+                  }}
+                >
+                  {value ? t(`states.${value}`) : t("allStates")}
+                </ChoiceButton>
+              ))}
+            </div>
+          )}
+          {queue.data?.canReview && !requestId && (
+            <label className="min-w-48">
+              <span className="label">{t("requester")}</span>
+              {/* Native inputs declare their own padding/min-height after shared
+                  controls; keep this toolbar's desktop baseline explicit. */}
+              <select
+                className="input control-compact mt-1 block w-full lg:min-h-8 lg:py-1"
+                value={requesterId}
+                onChange={(e) => {
+                  setRequesterId(e.target.value);
                   setPage(0);
-                  navigateList({ state: value, page: 0 });
+                  navigateList({ requesterId: e.target.value, page: 0 });
                 }}
               >
-                {value ? t(`states.${value}`) : t("allStates")}
-              </button>
-            ))}
-          </div>
-        )}
-        {queue.data?.canReview && !requestId && (
-          <label className="min-w-48">
-            <span className="label">{t("requester")}</span>
-            <select
-              className="input mt-1 block w-full"
-              value={requesterId}
-              onChange={(e) => {
-                setRequesterId(e.target.value);
-                setPage(0);
-                navigateList({ requesterId: e.target.value, page: 0 });
-              }}
-            >
-              <option value="">{t("allUsers")}</option>
-              {queue.data.requesters.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        <button
-          className="btn-secondary"
-          onClick={() => void refresh()}
-          disabled={queue.isFetching}
-        >
-          {t("refresh")}
-        </button>
-        {requestId && (
-          <Link className="link" href="/admin/approvals?status=all">
-            {t("allRequests")}
-          </Link>
-        )}
-        {queue.data && (
-          <p className="muted ml-auto text-sm">
-            {t("count", { count: queue.data.total })}
-          </p>
-        )}
+                <option value="">{t("allUsers")}</option>
+                {queue.data.requesters.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <Button
+            size="compact"
+            onClick={() => void refresh()}
+            disabled={queue.isFetching}
+          >
+            {t("refresh")}
+          </Button>
+          {requestId && (
+            <Link className="link" href="/admin/approvals?status=all">
+              {t("allRequests")}
+            </Link>
+          )}
+          {queue.data && (
+            <p className="muted ml-auto text-sm">
+              {t("count", { count: queue.data.total })}
+            </p>
+          )}
+        </FilterToolbar>
       </div>
       {queue.isLoading && (
         <p role="status" className="muted">

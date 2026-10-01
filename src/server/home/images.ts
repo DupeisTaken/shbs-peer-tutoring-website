@@ -3,9 +3,9 @@ import { db } from "~/server/db";
 
 /**
  * Image-upload policy + the auth gate shared by the upload route handler. Editing the landing page
- * (text + news + images) is open to the same set as the in-app translator tools: elevated staff
- * (HEAD/ADMIN/COORDINATOR) or any user an admin has flagged `canTranslate` (mirrors
- * `translatorProcedure`). The serve route (`/api/images/[id]`) is public — landing images are public.
+ * (text + news + images) requires both a management role (HEAD/ADMIN/COORDINATOR) and an
+ * explicit `canTranslate` assignment. The editor entry and draft Preview reuse this gate;
+ * API writes retain their own authorization. Serving published images is public.
  */
 
 const ELEVATED_ROLES = ["HEAD", "ADMIN", "COORDINATOR"];

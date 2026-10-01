@@ -1,4 +1,6 @@
 "use client";
+import { ProfileEditSection } from "./profile-edit-section";
+import { Button } from "./ui/button";
 import { PersonNameFields } from "~/app/_components/person-name-fields";
 import { nameDraft, personNameEdit } from "~/lib/person-name";
 
@@ -7,7 +9,7 @@ import { MembershipEditor } from "./membership-editor";
 import { AcademicPanel } from "./academic-profile";
 import { AccountUsernameEditor } from "./account-username-editor";
 import type { AccountMembership } from "~/lib/account-membership";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { ProfilePolicyError } from "~/app/_components/profile-policy";
 import { api } from "~/trpc/react";
@@ -47,7 +49,12 @@ export function AccountProfileEditor({
   );
 
   const utils = api.useUtils();
+  // Guard the interval before mutation state renders, so one request owns this draft.
+  const submitting = useRef(false);
   const save = api.admin.updateAccountProfile.useMutation({
+    onSettled: () => {
+      submitting.current = false;
+    },
     onSuccess: async () => {
       await Promise.all([
         utils.admin.accounts.invalidate(),
@@ -60,11 +67,17 @@ export function AccountProfileEditor({
     },
   });
   return (
-    <ProfileDialog title={t("editProfile")} onClose={onClose}>
+    <ProfileDialog
+      title={t("editProfile")}
+      pending={save.isPending}
+      onClose={onClose}
+    >
       <form
         className="space-y-4"
         onSubmit={(event) => {
           event.preventDefault();
+          if (save.isPending || submitting.current) return;
+          submitting.current = true;
           save.mutate({
             userId: profile.userId,
             name,
@@ -73,45 +86,53 @@ export function AccountProfileEditor({
           });
         }}
       >
-        <p className="muted text-sm">{t("canonicalHelp")}</p>
-        <PersonNameFields
-          value={names}
-          onChange={setNames}
-          legacyName={legacyName}
-          originalValue={originalNames}
-        />
-        <button
-          className="btn-primary min-h-11 lg:min-h-10"
-          disabled={save.isPending || !name.trim()}
+        <ProfileEditSection
+          title={t("name")}
+          busy={save.isPending}
+          actions={
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={save.isPending || !name.trim()}
+            >
+              {t("save")}
+            </Button>
+          }
         >
-          {t("save")}
-        </button>
-        {save.error && (
-          <p role="alert" className="text-sm text-red-600">
-            <ProfilePolicyError message={save.error.message} />
-          </p>
-        )}
-        {save.error?.data?.code === "CONFLICT" && (
-          <button
-            type="button"
-            className="btn-secondary min-h-11 lg:min-h-10"
-            onClick={async () => {
-              const accounts = await utils.admin.accounts.fetch();
-              const latest = accounts.rows.find(
-                (row) => row.userId === profile.userId,
-              );
-              if (latest?.profileVersion != null) {
-                setNames(nameDraft(latest));
-                setOriginalNames(nameDraft(latest));
-                setLegacyName(latest.legacyName ?? latest.name);
-                setExpectedProfileVersion(latest.profileVersion);
-                save.reset();
-              }
-            }}
-          >
-            {t("reloadIdentity")}
-          </button>
-        )}
+          <p className="muted text-sm">{t("canonicalHelp")}</p>
+          <PersonNameFields
+            value={names}
+            onChange={setNames}
+            legacyName={legacyName}
+            originalValue={originalNames}
+          />
+          {save.error && (
+            <p role="alert" className="text-sm text-red-600">
+              <ProfilePolicyError message={save.error.message} />
+            </p>
+          )}
+          {save.error?.data?.code === "CONFLICT" && (
+            <button
+              type="button"
+              className="btn-secondary min-h-11 lg:min-h-10"
+              onClick={async () => {
+                const accounts = await utils.admin.accounts.fetch();
+                const latest = accounts.rows.find(
+                  (row) => row.userId === profile.userId,
+                );
+                if (latest?.profileVersion != null) {
+                  setNames(nameDraft(latest));
+                  setOriginalNames(nameDraft(latest));
+                  setLegacyName(latest.legacyName ?? latest.name);
+                  setExpectedProfileVersion(latest.profileVersion);
+                  save.reset();
+                }
+              }}
+            >
+              {t("reloadIdentity")}
+            </button>
+          )}
+        </ProfileEditSection>
       </form>
       <div className="mt-5">
         <AcademicPanel userId={profile.userId} />

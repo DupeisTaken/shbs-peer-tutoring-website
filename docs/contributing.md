@@ -20,6 +20,26 @@ Integration tests reset fixtures. Use the isolated loopback `shbs_shipping_test`
 
 The [CI workflow](../.github/workflows/docker-build.yml) also checks dependency installation, migrations, schema agreement, dependency audit, production build and image boot/restart. Use its result for the commit being reviewed; old test totals are not current verification.
 
+## Reuse interaction patterns
+
+Review the development-only [UI gallery](local-development.md#ui-pattern-gallery) before building a new interaction. Its examples use the same [shared components](../src/app/_components/ui) as the application. Keep the existing slate surfaces, white cards and accent themes. The [agent entry point](../AGENTS.md#start-with-the-shared-patterns) maps interactions to components and owns the control-height, table-action and responsive-header conventions.
+
+- Use links for navigation, `SectionTabs` for in-page panels and `ChoiceButton` for persistent selections. A selected value is not a submitted action.
+- Put related fields in `FormSection` and place its Save/Cancel actions after all fields they affect. Keep mutation state, validation and permission checks in the feature that owns the operation.
+- Use `Modal` for review and confirmation, with a specific action label and consequence. Existing action tickets, countdowns and approval rules still apply; the component does not authorize a write.
+- Use `StatePanel` to distinguish loading, empty results, errors and denied access. Failed queries need recovery, and denied access must not appear as an indefinite loader.
+- Use `SummaryTable` for tables: only brief names, dates, counts and statuses in columns. Put existing details and editors behind compact text links in the rightmost `TableActions` cell. Read-only history tables can omit actions; only explicit action cells become sticky. `TableDetails` opens an on-demand dialog. Keep contact, account, course and history access separate and preserve existing authorization.
+- Compose new screens from the gallery's long-dialog, participant-form, filter, disclosure, settings, change-review and inline-notice examples. Reuse existing domain components. Set disclosure lifetime deliberately so collapsing a form never discards its draft.
+- Register each dialog form's own pending write with `useDialogPending`; do not feed its aggregate return value back into registration. Keep independent forms and their version snapshots separate. Preserve cached drafts on refresh failure. Clear or replace them through the feature's confirmed save/synchronization path, an explicit successful reload or cancellation; a background refetch alone must not discard edits.
+
+Start by identifying the save boundary, query lifetime and authorized audience, then select a composition. Use an existing feature integration as well as a gallery example: long editors, immediate settings and staged forms intentionally have different save behavior. Keep new domain logic in the owning feature; a generic component must not infer permissions or expected versions from its visual state.
+
+For a new reusable pattern, add an interactive example and behavior tests after implementation. Follow the [UI verification matrix](local-development.md#ui-verification-matrix), including English/Chinese, keyboard focus, all six accent palettes, long labels and narrow screens. Capture screenshots from the running application as well as the gallery; gallery fixtures cannot prove feature permissions or mutations. Check the [technical boundaries](technical-report.md#shared-ui-patterns) before migrating existing workflows.
+
+File new proposals using the [issue conventions](issues.md), with the affected workflow, expected behavior, validation and behavior to preserve. The remaining page migrations are tracked in [issue #219](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/219); the current gallery and pilot pages do not imply a complete site migration.
+
+In a UI PR, state the trigger and resulting behavior, identify the shared patterns and affected page families, and link the issues it addresses. Record the tested commit and distinguish a full-suite run from later focused reruns. Cite measured control heights and the tested languages/viewports; palette fit alone is not a contrast result. Keep generated HTML reports, browser session files and local logs out of the commit. Close specific delivered issues through the PR, while referencing broader migration trackers that still have remaining scope.
+
 ## Pull request size labels
 
 The [PR Size workflow](../.github/workflows/pr-size.yml) automatically maintains one

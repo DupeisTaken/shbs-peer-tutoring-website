@@ -1,4 +1,36 @@
 {
+  "uiPatterns": {
+    "meetingDate": "회의 날짜",
+    "profile": "프로필",
+    "saveProfile": "프로필 저장",
+    "cancel": "취소",
+    "retry": "다시 시도",
+    "loadFailed": "이 섹션을 불러올 수 없습니다",
+    "editorDenied": "홈페이지 편집기에 접근할 수 없습니다",
+    "editorDeniedHelp": "홈페이지 콘텐츠를 편집하고 미리 보려면 관리 역할과 명시적으로 부여된 번역 담당자 권한이 모두 필요합니다. 프로그램 책임자에게 접근 권한 확인을 요청하세요.",
+    "returnManagement": "관리 화면으로 돌아가기",
+    "scrollTable": "모든 열을 비교하려면 가로로 스크롤하세요.",
+    "deleteMeeting": "회의를 삭제할까요?",
+    "deleteMeetingHelp": "‘{title}’ 회의와 출석 기록을 삭제할까요? 이 작업은 되돌릴 수 없습니다.",
+    "attendanceFor": "{name}의 출석"
+  },
+  "tablePatterns": {
+    "actions": "작업",
+    "details": "상세 보기",
+    "edit": "수정",
+    "close": "닫기",
+    "summary": "요약",
+    "records": "{count, plural, other {#개 기록}}",
+    "schedule": "일정 보기",
+    "occupied": "사용 중",
+    "available": "사용 가능",
+    "unavailable": "사용 불가",
+    "reason": "사유",
+    "slot": "시간대",
+    "room": "교실",
+    "select": "선택",
+    "selected": "선택됨"
+  },
   "scheduling": {
     "awaiting": "일정 확정 대기",
     "noLinkedSlot": "등록 시간대 연결 없음",
@@ -458,7 +490,8 @@
       "GRADUATED": "졸업",
       "OPTED_OUT": "탈퇴",
       "PENDING": "대기 중",
-      "ARCHIVED": "보관됨"
+      "ARCHIVED": "보관됨",
+      "TRANSFERRED": "전학"
     },
     "tutees": {
       "title": "학생 명단",
@@ -1314,7 +1347,7 @@
       "pendingReview": "검토 대기 중",
       "nothingPending": "검토 대기 항목이 없습니다.",
       "standingHeading": "학생 현황",
-      "standingHelp": "🟥는 3칸, 🟨는 1칸을 차지합니다 (유효한 카드만). 총 6칸이면 제거 대기. 이름을 클릭하면 카드 상세 정보를 볼 수 있습니다.",
+      "standingHelp": "🟥는 3칸, 🟨는 1칸을 차지합니다(유효한 카드만). 6칸이 모두 차면 프로그램 제외 처리 대기 상태가 됩니다. 카드를 보려면 맨 오른쪽 열의 상세 보기 링크를 이용하세요.",
       "standing": {
         "removalPending": "제거 대기 중",
         "onWarning": "경고 상태",
@@ -1890,6 +1923,7 @@
       "empty": "아직 공개된 시간대가 없습니다.",
       "save": "가용 시간 저장",
       "saving": "저장 중…",
+      "refreshFailed": "저장은 처리되었지만 업데이트된 가용 시간을 불러오지 못했습니다. 추가로 변경하기 전에 다시 불러오기를 시도하세요.",
       "saved": "저장되었습니다."
     },
     "interviews": {
@@ -3645,7 +3679,8 @@
       "patrols": "Patrols retained",
       "academicConfirmations": "Academic confirmations retained",
       "tuteeProfiles": "Tutee ownership links moved"
-    }
+    },
+    "noCandidates": "통합할 수 있는 계정이 없습니다."
   },
   "tuteeHistory": {
     "noSearchMatches": "검색과 일치하는 학습 파트너가 없습니다.",

@@ -5,6 +5,11 @@ import { db } from "~/server/db";
 import { getFeatures } from "~/server/program/features";
 import { api } from "~/trpc/server";
 import { BarList, SegmentBar, type BarItem } from "~/app/_components/charts";
+import {
+  SummaryTable,
+  TableActions,
+  TableDetails,
+} from "~/app/_components/ui/summary-table";
 
 const STATUS_TONE: Record<string, string> = {
   PRESENT: "badge-green",
@@ -254,53 +259,84 @@ export default async function AdminHome() {
             {t("admin.dashboard.recentSubmissions.viewAll")}
           </Link>
         </div>
-        <div className="overflow-x-auto">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>{t("admin.dashboard.recentSubmissions.columns.date")}</th>
-                <th>{t("admin.dashboard.recentSubmissions.columns.tutor")}</th>
-                <th>
-                  {t("admin.dashboard.recentSubmissions.columns.subject")}
-                </th>
-                <th>{t("admin.dashboard.recentSubmissions.columns.status")}</th>
-                <th className="text-right">
-                  {t("admin.dashboard.recentSubmissions.columns.sh")}
-                </th>
-              </tr>
-            </thead>
-            <tbody>
-              {recent.map((s) => (
-                <tr key={s.id}>
-                  <td className="whitespace-nowrap text-slate-500 tabular-nums">
-                    {programFormat.dateTime(new Date(s.date), { dateStyle: "medium", timeZone: "UTC" })}
-                  </td>
-                  <td className="font-medium text-slate-800">
-                    {s.tutor.englishName}
-                  </td>
-                  <td>{s.pairing.subject}</td>
-                  <td>
-                    <span
-                      className={STATUS_TONE[s.tutorStatus] ?? "badge-slate"}
+        <SummaryTable label={t("admin.dashboard.recentSubmissions.title")}>
+          <thead>
+            <tr>
+              <th>{t("admin.dashboard.recentSubmissions.columns.date")}</th>
+              <th>{t("admin.dashboard.recentSubmissions.columns.tutor")}</th>
+              <th>{t("admin.dashboard.recentSubmissions.columns.subject")}</th>
+              <th>{t("admin.dashboard.recentSubmissions.columns.status")}</th>
+              <th className="text-right">
+                {t("admin.dashboard.recentSubmissions.columns.sh")}
+              </th>
+              <th className="table-actions-heading">
+                {t("tablePatterns.actions")}
+              </th>
+            </tr>
+          </thead>
+          <tbody>
+            {recent.map((s) => (
+              <tr key={s.id}>
+                <td className="whitespace-nowrap text-slate-500 tabular-nums">
+                  {programFormat.dateTime(new Date(s.date), {
+                    dateStyle: "medium",
+                    timeZone: "UTC",
+                  })}
+                </td>
+                <td className="font-medium text-slate-800">
+                  {s.tutor.englishName}
+                </td>
+                <td>{s.pairing.subject}</td>
+                <td>
+                  <span className={STATUS_TONE[s.tutorStatus] ?? "badge-slate"}>
+                    {s.tutorStatus}
+                  </span>
+                </td>
+                <td className="text-right font-semibold text-slate-900 tabular-nums">
+                  {s.shCount.toFixed(1)}
+                </td>
+                <TableActions>
+                  <TableDetails
+                    title={`${s.tutor.englishName} · ${s.pairing.subject}`}
+                  >
+                    <p>
+                      {programFormat.dateTime(new Date(s.date), {
+                        dateStyle: "full",
+                        timeZone: "UTC",
+                      })}{" "}
+                      · {s.tutorStatus}
+                    </p>
+                    <h3 className="font-semibold">
+                      {t("admin.submissions.colTutees")}
+                    </h3>
+                    <ul className="list-inside list-disc">
+                      {s.tutees.map((entry) => (
+                        <li key={entry.tuteeId}>{entry.tutee.englishName}</li>
+                      ))}
+                    </ul>
+                    <p>
+                      {t("admin.dashboard.recentSubmissions.columns.sh")}:{" "}
+                      {s.shCount.toFixed(1)}
+                    </p>
+                    <Link
+                      href="/admin/attendance"
+                      className="table-action-link"
                     >
-                      {s.tutorStatus}
-                    </span>
-                  </td>
-                  <td className="text-right font-semibold text-slate-900 tabular-nums">
-                    {s.shCount.toFixed(1)}
-                  </td>
-                </tr>
-              ))}
-              {recent.length === 0 && (
-                <tr>
-                  <td colSpan={5} className="text-slate-500">
-                    {t("admin.dashboard.recentSubmissions.empty")}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </div>
+                      {t("admin.dashboard.recentSubmissions.viewAll")}
+                    </Link>
+                  </TableDetails>
+                </TableActions>
+              </tr>
+            ))}
+            {recent.length === 0 && (
+              <tr>
+                <td colSpan={6} className="text-slate-500">
+                  {t("admin.dashboard.recentSubmissions.empty")}
+                </td>
+              </tr>
+            )}
+          </tbody>
+        </SummaryTable>
       </section>
     </div>
   );

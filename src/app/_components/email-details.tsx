@@ -1,8 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { Button } from "./ui/button";
+import { useDialogPending } from "./ui/modal";
 import { ProfileDialog } from "~/app/_components/profile-dialog";
 import { api } from "~/trpc/react";
 import { useReadOnly } from "./read-only";
@@ -20,6 +22,8 @@ type EmailDetailsProps = {
   linked?: boolean;
   contactOnly?: boolean;
   showPolicyHistory?: boolean;
+  /** Optional identity metadata shares the on-demand dialog instead of widening summary cells. */
+  details?: ReactNode;
   academic?: AcademicSummary;
   triggerClassName?: string;
 };
@@ -38,7 +42,8 @@ export function EmailDetails(props: EmailDetailsProps) {
     <>
       <button
         type="button"
-        className={`link ${props.triggerClassName ?? "text-xs whitespace-nowrap"}`}
+        className={`table-action-link ${props.triggerClassName ?? ""}`}
+        aria-haspopup="dialog"
         onClick={() => setOpen(true)}
       >
         {t(props.showPolicyHistory ? "showDetails" : "showEmail")}
@@ -50,6 +55,7 @@ export function EmailDetails(props: EmailDetailsProps) {
           })}
           onClose={() => setOpen(false)}
         >
+          {props.details}
           {props.showPolicyHistory && props.academic && (
             <section className="mb-5 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
               <AcademicSectionTitle />
@@ -94,6 +100,7 @@ function EmailContent({
     "idle",
   );
   const verify = api.admin.sendAccountVerification.useMutation();
+  const busy = useDialogPending(verify.isPending);
   return (
     <div className="space-y-4">
       <p className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-base [overflow-wrap:anywhere] select-all">
@@ -119,9 +126,7 @@ function EmailContent({
         </p>
       )}
       <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          className="btn-secondary"
+        <Button
           onClick={async () => {
             try {
               if (!navigator.clipboard)
@@ -134,16 +139,15 @@ function EmailContent({
           }}
         >
           {t("copyEmail")}
-        </button>
+        </Button>
         {!contactOnly && canSendSetup && userId && !verifiedAt && (
-          <button
-            type="button"
-            className="btn-primary"
-            disabled={verify.isPending}
+          <Button
+            variant="primary"
+            disabled={busy}
             onClick={() => verify.mutate({ userId })}
           >
             {t("sendVerification")}
-          </button>
+          </Button>
         )}
       </div>
       {copyState !== "idle" && (
