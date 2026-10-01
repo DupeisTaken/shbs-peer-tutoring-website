@@ -40,6 +40,8 @@ Tutor availability keeps a local draft once editing begins, so background query 
 
 The [development gallery](../src/app/ui-gallery/gallery.tsx) imports the same components and styles. It owns only local synthetic state, including locale and temporary theme previews; its [server route](../src/app/ui-gallery/page.tsx) refuses production rendering. See [local verification](local-development.md#ui-pattern-gallery) and [contribution rules](contributing.md#reuse-interaction-patterns).
 
+The [composition examples](../src/app/ui-gallery/recipes.tsx) cover seven reusable workflows: long dialogs, participant forms, filter toolbars, disclosure lifetimes, setting rows, change review and inline recovery. Existing feature implementations remain the reference for domain behavior: [profile policy settings](../src/app/_components/program-profile-settings.tsx) demonstrate cached draft/version recovery, [management actions](../src/app/_components/management-actions.tsx) demonstrate compact mixed controls, and [profile dialog tests](../src/app/_components/profile-dialog.test.tsx) cover child-write registration and focus ownership. Use the [agent component map](../AGENTS.md#start-with-the-shared-patterns) to choose the composition and the [verification matrix](local-development.md#ui-verification-matrix) to check its integration.
+
 ## Identity and authorization
 
 Confirmed school departures are stored separately in `SchoolDeparture`, with versioned

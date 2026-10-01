@@ -151,6 +151,35 @@ npx vitest run src/app/ui-gallery --maxWorkers=1
 
 See [contributor guidance](contributing.md#reuse-interaction-patterns) for adding patterns and [technical boundaries](technical-report.md#shared-ui-patterns) for their responsibilities.
 
+### UI verification matrix
+
+Use one running local site with synthetic data and one browser session at a time.
+Record the commit, role, language, viewport, interaction and observed result beside
+the screenshots. Verify the affected application pages; a gallery screenshot alone
+does not establish authorization, native browser focus or persisted behavior.
+
+| Surface | Check in the running application |
+| --- | --- |
+| Tables | Brief cells; authorized text actions at the right edge before/after local scrolling; named region reachable by keyboard; populated, empty, error and read-only states |
+| Forms and dialogs | Save scope; pending fields/dismissal; failed-save draft retention; nested Escape/Tab and focus return; successful child write with pending refetch; actual long-content scrolling |
+| Cached queries | Initial loading/error/empty are distinct; background failure retains content and draft; Retry completes; explicit conflict Reload adopts data only on success |
+| Filters and settings | Pressed selections versus content tabs; filter/page reset rules; consistent control heights; immediate switches, unknown/yes/no choices and staged saves keep their own semantics |
+| Participant/public flows | Native invalid-name correction, legacy names, requirement markers, creation collapse/reopen, translated back/language navigation and existing consent boundaries |
+
+Use an actual narrow viewport such as 390 CSS pixels and a desktop viewport such
+as 1440 pixels; include the 1024 px boundary when sizing rules change. Check
+English/Chinese, long labels and enlarged text, and inspect all six accent palettes
+when shared styles change. Measure control bounds with `getBoundingClientRect()`
+against [the height hierarchy](../AGENTS.md#control-height-hierarchy). Check normal,
+hover, selected, disabled and focus states where the patch changes them. Distinguish
+palette layout checks from measured foreground/background contrast.
+
+Take clean screenshots after loading completes and separate captures for deliberate
+failure/pending scenarios. Wait for the specific recovery notice to clear before
+claiming Retry succeeded; another query may have its own error banner. Keep full
+mobile forms reviewable across multiple captures. Inspect the screenshots, record
+test limitations, and stop owned browser/server/database processes after checking.
+
 ## 5. Run the tests
 
 ```bash
