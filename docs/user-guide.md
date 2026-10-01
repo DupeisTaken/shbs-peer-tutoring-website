@@ -271,7 +271,7 @@ In **Subjects & Levels**, use the **Offered Course Catalogue** above the subject
 
 ### Run the program
 
-In **Tutees**, use **Current**, **History** or **All Records**, then **View History** to inspect attendance and original enrollment academics. Accountless tutees remain in this roster, even though they have no Users & Roles entry. **Refresh** reloads roster and related records. Admin/Head can review history links and invitations; see the [historical participant workflow](historical-participant-transition.md).
+In **Tutees**, use **Current**, **History** or **All Records**, then **View History** to inspect attendance and original enrollment academics. Accountless tutees remain in this roster, even though they have no Users & Roles entry. **Refresh** reloads roster and related records. Admin/Head can review history links and invitations; see the [historical participant workflow](historical-participant-transition.md). Search matches saved first, last, preferred and additional-language names, including full first/last and preferred/last combinations, regardless of name display settings. An empty roster view is distinguished from a search with no matches.
 
 Older profiles may retain a full name without separate first and last names. Leave those Latin name fields unchanged to save notes, contact details or a name in another language without replacing the original identity. This also applies to tutor and account editors, including account settings. Changing First Name, Last Name or Preferred Name requires a valid Latin First Name; enter the person's actual name rather than guessing how an old full name should be split.
 

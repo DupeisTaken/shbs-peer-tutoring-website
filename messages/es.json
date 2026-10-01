@@ -3643,6 +3643,10 @@
     }
   },
   "tuteeHistory": {
+    "noSearchMatches": "Ningún alumno coincide con la búsqueda.",
+    "emptyHistory": "No hay registros históricos de alumnos para mostrar.",
+    "emptyCurrent": "No hay alumnos actuales para mostrar.",
+    "emptyAll": "No hay registros de alumnos para mostrar.",
     "gradeClass": "Grade & Class",
     "classOf": "Class of {year}",
     "reviewNeeded": "Review needed",
