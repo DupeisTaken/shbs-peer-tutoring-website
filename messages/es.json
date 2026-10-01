@@ -2249,7 +2249,7 @@
     },
     "patrol": {
       "title": "Ronda de aulas",
-      "subtitle": "Recorre las aulas en orden y marca cuántos estudiantes hay en cada una. Enviar una ronda otorga 0,5 horas de servicio.",
+      "subtitle": "Record room headcounts. A sweep with all observations from the last 20 minutes can earn 0.5 hours, at most once every 20 minutes. Older or repeated observations are saved without extra credit.",
       "myHours": "Mis horas de ronda",
       "patrolCount": "{count, plural, =1 {# ronda} other {# rondas}}",
       "noRooms": "Aún no hay aulas que recorrer.",
@@ -2257,6 +2257,7 @@
       "submit": "Enviar ronda ({count})",
       "submitting": "Enviando…",
       "submitted": "Ronda registrada.",
+      "recordedWithoutCredit": "Observations saved with no additional hours. Credit requires a recent sweep and an unused 20-minute allowance. Existing credit is unchanged.",
       "recent": "Rondas recientes",
       "optedOut": {
         "title": "Has dejado la ronda",

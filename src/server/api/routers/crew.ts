@@ -21,10 +21,11 @@ import { syncSessionFlag } from "~/server/crew/flags";
 import { getFeatures } from "~/server/program/features";
 import { notifyAdmins } from "~/server/notifications/create";
 import { assertObservedTimes } from "~/server/crew/observation-time";
+import { eligiblePatrolCredit, lockPatrolCreditOwner, reservePatrolEvidence, PATROL_HOURS } from "~/server/crew/patrol-credit";
 import { acceptPublicApplication } from "~/server/public-application-intake";
 
 /** Service hours credited per completed patrol (policy). */
-export const PATROL_HOURS = 0.5;
+export { PATROL_HOURS } from "~/server/crew/patrol-credit";
 
 /** Recall window before a crew opt-out becomes admin-approvable (mirrors the tutor opt-out). */
 export const CREW_OPT_OUT_COOLDOWN_DAYS = 7;
@@ -82,7 +83,7 @@ export const crewRouter = createTRPCRouter({
 
   /**
    * Record a completed patrol: one headcount per visited room (with the time observed). Credits
-   * 0.5h, then reconciles every session in those rooms against the crew evidence (under-counts
+   * up to 0.5h subject to the shared credit budget, then reconciles sessions against evidence (under-counts
    * raise a SessionFlag for admins). At least one observation is required.
    */
   submitPatrol: crewProcedure
@@ -105,6 +106,7 @@ export const crewRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) =>
       inTransaction(ctx.db, async (tx) => {
         await lockAttendanceSchedule(tx);
+        const ownerIds = await lockPatrolCreditOwner(tx, ctx.session.user.id);
         await lockEntity(tx, `patrol-submit:${input.submissionKey}`);
         const payloadHash = createHash("sha256")
           .update(
@@ -142,24 +144,30 @@ export const crewRouter = createTRPCRouter({
         const active = await getActivePeriodOrNull(tx);
         const now = new Date();
         assertObservedTimes(input.observations, now);
+        const observations = input.observations.map((o) => ({ ...o, observedAt: o.observedAt ?? now }));
+        const credited = await eligiblePatrolCredit(tx, ownerIds, observations, now);
+        const hours = credited ? PATROL_HOURS : 0;
         const patrol = await tx.patrol.create({
           data: {
             submissionKey: input.submissionKey,
             submissionPayloadHash: payloadHash,
             crewUserId: ctx.session.user.id,
             termId: active?.termId ?? null,
-            hours: PATROL_HOURS,
+            hours,
+            creditAwardedAt: credited ? now : null,
             note: input.note?.trim() ? input.note.trim() : null,
             observations: {
-              create: input.observations.map((o) => ({
+              create: observations.map((o) => ({
                 roomId: o.roomId,
                 headcount: o.headcount,
-                observedAt: o.observedAt ?? now,
+                observedAt: o.observedAt,
               })),
             },
           },
           select: { id: true },
         });
+        if (credited)
+          await reservePatrolEvidence(tx, { id: patrol.id, crewUserId: ctx.session.user.id }, observations);
 
         // Reconcile the sessions in the patrolled rooms around the observed times.
         const roomIds = [...new Set(input.observations.map((o) => o.roomId))];
@@ -181,7 +189,7 @@ export const crewRouter = createTRPCRouter({
         });
         for (const s of sessions) await syncSessionFlag(tx, s.id);
 
-        return { ok: true, id: patrol.id, hours: PATROL_HOURS };
+        return { ok: true, id: patrol.id, hours };
       }),
     ),
 

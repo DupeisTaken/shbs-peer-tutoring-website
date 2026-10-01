@@ -2249,7 +2249,7 @@
     },
     "patrol": {
       "title": "Raumrundgang",
-      "subtitle": "Gehen Sie die Räume der Reihe nach ab und tippen Sie an, wie viele Schüler in jedem sind. Ein abgeschickter Rundgang bringt 0,5 Servicestunden.",
+      "subtitle": "Record room headcounts. A sweep with all observations from the last 20 minutes can earn 0.5 hours, at most once every 20 minutes. Older or repeated observations are saved without extra credit.",
       "myHours": "Meine Rundgang-Stunden",
       "patrolCount": "{count, plural, =1 {# Rundgang} other {# Rundgänge}}",
       "noRooms": "Noch keine Räume für den Rundgang.",
@@ -2257,6 +2257,7 @@
       "submit": "Rundgang absenden ({count})",
       "submitting": "Wird gesendet…",
       "submitted": "Rundgang erfasst.",
+      "recordedWithoutCredit": "Observations saved with no additional hours. Credit requires a recent sweep and an unused 20-minute allowance. Existing credit is unchanged.",
       "recent": "Letzte Rundgänge",
       "optedOut": {
         "title": "Sie haben den Rundgang verlassen",

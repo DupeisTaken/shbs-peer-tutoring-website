@@ -2249,7 +2249,7 @@
     },
     "patrol": {
       "title": "Περίπολος αιθουσών",
-      "subtitle": "Περπατήστε τις αίθουσες με τη σειρά και πατήστε πόσοι μαθητές είναι σε καθεμία. Η υποβολή μιας περιπόλου αποδίδει 0,5 ώρες υπηρεσίας.",
+      "subtitle": "Record room headcounts. A sweep with all observations from the last 20 minutes can earn 0.5 hours, at most once every 20 minutes. Older or repeated observations are saved without extra credit.",
       "myHours": "Οι ώρες περιπόλου μου",
       "patrolCount": "{count, plural, =1 {# περίπολος} other {# περίπολοι}}",
       "noRooms": "Δεν υπάρχουν ακόμη αίθουσες για περίπολο.",
@@ -2257,6 +2257,7 @@
       "submit": "Υποβολή περιπόλου ({count})",
       "submitting": "Υποβολή…",
       "submitted": "Η περίπολος καταγράφηκε.",
+      "recordedWithoutCredit": "Observations saved with no additional hours. Credit requires a recent sweep and an unused 20-minute allowance. Existing credit is unchanged.",
       "recent": "Πρόσφατες περίπολοι",
       "optedOut": {
         "title": "Αποχωρήσατε από την περίπολο",

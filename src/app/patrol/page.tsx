@@ -17,7 +17,7 @@ const BUCKETS: { value: Headcount; label: string }[] = [
 
 /**
  * Crew patrol portal: walk the rooms (in the set patrol order), tap each room's student count, and
- * submit the sweep. One submitted patrol credits 0.5h. Only ACTIVE crew (or elevated admins) can
+ * submit the sweep. An eligible sweep credits 0.5h within the server-enforced 20-minute budget. Only ACTIVE crew (or elevated admins) can
  * patrol; opted-out / paused members see a read-only notice and can request reentry.
  */
 export default function PatrolPage() {
@@ -195,7 +195,7 @@ export default function PatrolPage() {
               rows={2}
               className="textarea"
             />
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <button
                 className="btn-primary"
                 disabled={recorded === 0 || submit.isPending}
@@ -206,8 +206,8 @@ export default function PatrolPage() {
                   : t("crew.patrol.submit", { count: recorded })}
               </button>
               {submit.isSuccess && (
-                <span className="text-sm text-green-600">
-                  {t("crew.patrol.submitted")}
+                <span role="status" className="text-sm text-green-600">
+                  {t(submit.data?.hours === 0 ? "crew.patrol.recordedWithoutCredit" : "crew.patrol.submitted")}
                 </span>
               )}
               {submit.error && (
