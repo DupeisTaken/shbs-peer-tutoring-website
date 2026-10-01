@@ -8,6 +8,7 @@ import { TutorProfileEditor } from "./tutor-profile-editor";
 import { TuteeEditor } from "./tutee-editor";
 const mock = vi.hoisted(() => ({
   mutate: vi.fn(),
+  settled: (): void => undefined,
   error: undefined as undefined | { message: string },
 }));
 vi.mock("./tutee-history", () => ({
@@ -43,10 +44,16 @@ vi.mock("~/trpc/react", () => ({
       subjects: { useQuery: () => ({ data: [] }) },
       timeSlots: { useQuery: () => ({ data: [] }) },
       updateTutor: {
-        useMutation: () => ({ mutate: mock.mutate, error: mock.error }),
+        useMutation: (options: { onSettled: () => void }) => {
+          mock.settled = options.onSettled;
+          return { mutate: mock.mutate, error: mock.error };
+        },
       },
       updateTutee: {
-        useMutation: () => ({ mutate: mock.mutate, error: mock.error }),
+        useMutation: (options: { onSettled: () => void }) => {
+          mock.settled = options.onSettled;
+          return { mutate: mock.mutate, error: mock.error };
+        },
       },
     },
   },
@@ -101,6 +108,8 @@ it.each([true, false])(
     expect(mock.mutate).toHaveBeenLastCalledWith(
       expect.objectContaining({ gradeLevel: tutor ? 2 : "IB year 1" }),
     );
+    // Finish the first request before deliberately submitting the next correction.
+    mock.settled();
     fireEvent.change(grade, { target: { value: "12" } });
     fireEvent.submit(document.querySelector("form")!);
     expect(mock.mutate).toHaveBeenLastCalledWith(

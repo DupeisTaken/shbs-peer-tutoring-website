@@ -22,6 +22,26 @@ The application runs as a persistent Next.js 16 / React 19 Node server with tRPC
 | Change dates or intake labels            | [Program time](../src/lib/program-time.ts) and [period display](../src/lib/period.ts)                                                                                                            |
 | Change delivery or deadline processing   | [Email sender](../src/server/email/sender.ts), [instrumentation](../src/instrumentation.ts) and [deadline worker](../src/server/student-deadline-worker.ts)                                      |
 
+### Shared UI patterns
+
+[UI components](../src/app/_components/ui) provide behavior and composition without owning domain mutations. `Button` exposes action emphasis separately from context size; `ChoiceButton` uses pressed state for a selection; `Switch` exposes checked state. `SectionTabs` uses manual keyboard activation so arrow-key exploration does not switch an editor and discard its draft. `FormSection` groups one save scope and disables its fields/actions while busy. `StatePanel` keeps loading, empty, error and denied states distinct.
+
+`NativeDialog` supplies native modality, portal event ownership, radio-aware keyboard focus and exact trigger restoration. `Modal`, the wide/sticky `ProfileDialog`, and `CurrentPolicyDialog` share this behavior while retaining their own layout and scrolling. A nested review owns its Escape event. Independent forms call `useDialogPending(ownPending)` to prevent dismissal during any registered write; its return value disables sibling controls. Register only the form's own pending state, never the returned aggregate, so the guard releases when writes settle. Callers retain validation, versions, permissions, approval policy and action tickets.
+
+`SummaryTable` provides a named keyboard-scrollable region around a semantic table. Keep names, counts and statuses brief. When a row has detail/editor actions, place them in the trailing `TableActions` cell; only explicit action cells stick at the right edge. Read-only history tables need no invented action column. `TableAction` preserves button semantics with compact accent text links (28 px desktop, 44 px below `lg`, no extra vertical gap). `TableDetails` mounts a native modal only when opened. Roster course details keep their original read access; contact, account and history disclosures retain separate authorization and lazy queries. History exports and printed reports preserve full detail.
+
+`FilterToolbar`, `SettingRow`, `ChangeReview` and `InlineNotice` are presentation compositions with caller-owned state. A filter uses pressed choices; only actual content views use tabs. Immediate switches, explicit unknown/yes/no willingness and staged checkbox settings preserve their distinct save behavior. Change review accepts domain-owned immutable evidence such as `ApprovalReviewDetails`; it never generates authorization or confirmation tickets. Announce new failures or completions explicitly and avoid wrapping existing alerts in another alert.
+
+`DisclosureSection` requires an explicit lifetime: `lazy` unmounts closed read details, `retained` mounts once and keeps drafts through collapse, and `mounted` preserves existing creation forms from the start. Participant forms compose `PersonNameFields`, `FieldRequirement`, offered-grade and academic controls without recreating name/version rules. `PublicFormPage`, `PublicFormCard` and `PublicPageNavigation` share public framing and language/back navigation; wide personal history retains its separate layout.
+
+Feature integrations include the three participant/account editors, roster actions, account identity settings, meeting attendance, interview panels, profile/CAPTCHA settings, combine-account candidates and public history. Cached query failures retain usable content and drafts. Background refetches preserve the profile policy snapshot; successful saves and explicit successful Reloads update it. Other pages may still use older patterns; [issue #219](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/219) tracks wider migration.
+
+Tutor availability keeps a local draft once editing begins, so background query updates cannot discard it. A successful mutation is followed by an explicit throwing refetch before releasing the draft: the server filters inactive slot IDs and returns only a count, so the submitted list is not authoritative. If synchronization fails, the submitted choices remain visible and locked with a read-only retry; only the refreshed result unlocks editing. See [issue #223](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/223).
+
+The [development gallery](../src/app/ui-gallery/gallery.tsx) imports the same components and styles. It owns only local synthetic state, including locale and temporary theme previews; its [server route](../src/app/ui-gallery/page.tsx) refuses production rendering. See [local verification](local-development.md#ui-pattern-gallery) and [contribution rules](contributing.md#reuse-interaction-patterns).
+
+The [composition examples](../src/app/ui-gallery/recipes.tsx) cover seven reusable workflows: long dialogs, participant forms, filter toolbars, disclosure lifetimes, setting rows, change review and inline recovery. Existing feature implementations remain the reference for domain behavior: [profile policy settings](../src/app/_components/program-profile-settings.tsx) demonstrate cached draft/version recovery, [management actions](../src/app/_components/management-actions.tsx) demonstrate compact mixed controls, and [profile dialog tests](../src/app/_components/profile-dialog.test.tsx) cover child-write registration and focus ownership. Use the [agent component map](../AGENTS.md#start-with-the-shared-patterns) to choose the composition and the [verification matrix](local-development.md#ui-verification-matrix) to check its integration.
+
 ## Identity and authorization
 
 Confirmed school departures are stored separately in `SchoolDeparture`, with versioned
@@ -64,6 +84,12 @@ historical actions containing appeal/correction explanations. Staff responses an
 search retain their existing behavior. Own-account and explicitly owned participant history
 remain under their separate ownership guards. When adding management queries or relations,
 update the read-model inventory and its RPC regression tests rather than adding blacklist keys.
+
+Summary-table detail dialogs consume the same projected observer response as their
+rows. Moving information into a lazy dialog must not fetch a richer staff record or
+introduce an edit action. The management privacy component tests open attendance
+and audit details in English and Chinese using the actual server projections,
+including masked fields, and verify focus restoration after closing.
 
 [Composable membership](../src/lib/account-membership.ts) keeps the exact management rank in `User.role`, tutor identity in `tutorId` with independent `tutorAccessRevoked`, crew lifecycle in `crewStatus`, explicit translation permission in `canTranslate`, and tutee membership in `tuteeMember`. `PolicyAcceptance` remains separate immutable evidence. Viewer exclusivity is validated by the complete membership schema and a database constraint. Legacy mixed Viewer accounts lose read-only management access and retain their explicit participant capabilities; migration never inserts policy acceptance. Outstanding pre-migration registration codes expire because they have no durable Head grant evidence; Head must issue fresh codes.
 

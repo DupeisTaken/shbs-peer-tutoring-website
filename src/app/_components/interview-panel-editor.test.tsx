@@ -135,6 +135,21 @@ it("requires three distinct panelists and a chair and sends the original concurr
   fireEvent.change(slot(3), { target: { value: "d" } });
   expect(save().disabled).toBe(true);
 });
+it("uses a standard commit action while retaining compact panel-slot tools", () => {
+  show();
+  expect(save().classList.contains("control-standard")).toBe(true);
+  expect(save().classList.contains("btn-sm")).toBe(false);
+  expect(
+    screen
+      .getByRole("button", { name: /Add Interviewer/ })
+      .classList.contains("control-compact"),
+  ).toBe(true);
+  expect(
+    screen
+      .getByRole("button", { name: /Remove Last Interviewer/ })
+      .classList.contains("control-compact"),
+  ).toBe(true);
+});
 it("retains unavailable historical labels and blocks saving until replacement", () => {
   show({
     interviewers: [

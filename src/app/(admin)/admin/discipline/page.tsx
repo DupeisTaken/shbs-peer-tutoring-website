@@ -8,6 +8,11 @@ import { disciplineStanding } from "~/lib/discipline";
 import { NativeDisclosureIcon } from "~/app/_components/icons";
 import { DisciplineSlots } from "~/app/_components/discipline-slots";
 import { useReadOnly } from "~/app/_components/read-only";
+import {
+  SummaryTable,
+  TableActions,
+  TableDetails,
+} from "~/app/_components/ui/summary-table";
 
 type Card = {
   id: string;
@@ -25,7 +30,13 @@ type Card = {
 
 const dot = (color: "YELLOW" | "RED") => (color === "RED" ? "🟥" : "🟨");
 
-function PendingCard({ card, onChanged }: { card: Card; onChanged: () => void }) {
+function PendingCard({
+  card,
+  onChanged,
+}: {
+  card: Card;
+  onChanged: () => void;
+}) {
   const programFormat = useFormatter();
   const t = useTranslations();
   const readOnly = useReadOnly();
@@ -45,9 +56,12 @@ function PendingCard({ card, onChanged }: { card: Card; onChanged: () => void })
               {card.source === "AUTO"
                 ? t("admin.cards.autoIssued")
                 : t("admin.cards.issuedBy", {
-                    name: card.issuedByTutor?.englishName ?? t("admin.cards.tutor"),
+                    name:
+                      card.issuedByTutor?.englishName ?? t("admin.cards.tutor"),
                   })}
-              {card.session ? ` · ${programFormat.dateTime(new Date(card.session.date), { dateStyle: "medium", timeZone: "UTC" })}` : ""}
+              {card.session
+                ? ` · ${programFormat.dateTime(new Date(card.session.date), { dateStyle: "medium", timeZone: "UTC" })}`
+                : ""}
             </span>
           </p>
           <p className="muted mt-1 text-sm">{card.reason ?? "—"}</p>
@@ -58,6 +72,7 @@ function PendingCard({ card, onChanged }: { card: Card; onChanged: () => void })
           <input
             className="input min-w-[12rem] flex-1"
             placeholder={t("admin.cards.reviewNotePlaceholder")}
+            aria-label={t("admin.cards.reviewNotePlaceholder")}
             value={note}
             onChange={(e) => setNote(e.target.value)}
           />
@@ -101,6 +116,7 @@ function PendingCard({ card, onChanged }: { card: Card; onChanged: () => void })
 export default function CardsPage() {
   const programFormat = useFormatter();
   const t = useTranslations();
+  const readOnly = useReadOnly();
   const utils = api.useUtils();
   const cards = api.admin.disciplinaryCards.useQuery();
   const invalidate = () => utils.admin.disciplinaryCards.invalidate();
@@ -112,7 +128,10 @@ export default function CardsPage() {
   const standings = useMemo(() => {
     const byTutee = new Map<string, { name: string; cards: Card[] }>();
     for (const c of all) {
-      const entry = byTutee.get(c.tutee.id) ?? { name: c.tutee.englishName, cards: [] };
+      const entry = byTutee.get(c.tutee.id) ?? {
+        name: c.tutee.englishName,
+        cards: [],
+      };
       entry.cards.push(c);
       byTutee.set(c.tutee.id, entry);
     }
@@ -122,7 +141,10 @@ export default function CardsPage() {
         name: v.name,
         cards: v.cards,
         ...disciplineStanding(
-          v.cards.map((c) => ({ color: c.color, reviewStatus: c.reviewStatus })),
+          v.cards.map((c) => ({
+            color: c.color,
+            reviewStatus: c.reviewStatus,
+          })),
         ),
       }))
       .sort((a, b) => b.effectiveReds - a.effectiveReds);
@@ -140,65 +162,140 @@ export default function CardsPage() {
           {t("admin.cards.pendingReview")}{" "}
           <span className="badge-amber ml-1">{pending.length}</span>
         </h2>
-        <div className="mt-3 space-y-3">
-          {pending.map((c) => (
-            <PendingCard key={c.id} card={c} onChanged={invalidate} />
-          ))}
-          {pending.length === 0 && <p className="muted">{t("admin.cards.nothingPending")}</p>}
+        <div className="mt-3">
+          <SummaryTable label={t("admin.cards.pendingReview")}>
+            <thead>
+              <tr>
+                <th>{t("admin.cards.table.tutee")}</th>
+                <th>{t("admin.cards.table.card")}</th>
+                <th>{t("admin.cards.table.status")}</th>
+                <th className="table-actions-heading">
+                  {t("tablePatterns.actions")}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {pending.map((c) => (
+                <tr key={c.id}>
+                  <td>{c.tutee.englishName}</td>
+                  <td>{dot(c.color)}</td>
+                  <td>{t(`admin.cards.reviewStatus.${c.reviewStatus}`)}</td>
+                  <TableActions>
+                    <TableDetails
+                      label={t(
+                        readOnly
+                          ? "tablePatterns.details"
+                          : "tablePatterns.edit",
+                      )}
+                      title={`${c.tutee.englishName} · ${t("admin.cards.pendingReview")}`}
+                    >
+                      <PendingCard card={c} onChanged={invalidate} />
+                    </TableDetails>
+                  </TableActions>
+                </tr>
+              ))}
+              {pending.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="muted">
+                    {t("admin.cards.nothingPending")}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </SummaryTable>
         </div>
       </section>
 
       <section className="card p-5">
         <h2 className="section-title">{t("admin.cards.standingHeading")}</h2>
         <p className="muted mt-1 text-xs">{t("admin.cards.standingHelp")}</p>
-        <div className="mt-3 divide-y divide-slate-100">
-          {standings.map((s) => (
-            <details key={s.id} className="group py-2">
-              <summary className="flex cursor-pointer flex-wrap items-center gap-3 [&::-webkit-details-marker]:hidden">
-                <NativeDisclosureIcon />
-                <span className="w-40 truncate font-medium text-slate-800 group-open:text-accent-700">
-                  {s.name}
-                </span>
-                <DisciplineSlots validRed={s.validRed} validYellow={s.validYellow} />
-                {s.removalPending ? (
-                  <span className="badge-red">{t("admin.cards.standing.removalPending")}</span>
-                ) : s.effectiveReds >= 1 ? (
-                  <span className="badge-amber">{t("admin.cards.standing.onWarning")}</span>
-                ) : (
-                  <span className="badge-slate">{t("admin.cards.standing.ok")}</span>
-                )}
-                {s.pendingYellow + s.pendingRed > 0 && (
-                  <span className="muted text-xs">
-                    {t("admin.cards.pendingCount", { n: s.pendingYellow + s.pendingRed })}
-                  </span>
-                )}
-              </summary>
-              <ul className="mt-2 ml-1 space-y-1">
-                {s.cards.map((c) => (
-                  <li key={c.id} className="text-xs text-slate-600">
-                    {dot(c.color)}{" "}
-                    <span
-                      className={
-                        c.reviewStatus === "INVALID" ? "text-slate-400 line-through" : ""
-                      }
-                    >
-                      {c.reason ?? "—"}
-                    </span>{" "}
-                    <span className="text-slate-400">
-                      · {t(`admin.cards.reviewStatus.${c.reviewStatus}`)} ·{" "}
-                      {c.source === "AUTO"
-                        ? t("admin.cards.auto")
-                        : (c.issuedByTutor?.englishName ?? t("admin.cards.tutor"))}
-                      {c.session ? ` · ${programFormat.dateTime(new Date(c.session.date), { dateStyle: "medium", timeZone: "UTC" })}` : ""}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            </details>
-          ))}
-          {standings.length === 0 && (
-            <p className="muted py-2">{t("admin.cards.noCardsOnRecord")}</p>
-          )}
+        <div className="mt-3">
+          <SummaryTable label={t("admin.cards.standingHeading")}>
+            <thead>
+              <tr>
+                <th>{t("admin.cards.table.tutee")}</th>
+                <th>{t("admin.cards.table.card")}</th>
+                <th>{t("admin.cards.table.status")}</th>
+                <th className="table-actions-heading">
+                  {t("tablePatterns.actions")}
+                </th>
+              </tr>
+            </thead>
+            <tbody>
+              {standings.map((s) => (
+                <tr key={s.id}>
+                  <td className="font-medium text-slate-800">{s.name}</td>
+                  <td>
+                    <DisciplineSlots
+                      validRed={s.validRed}
+                      validYellow={s.validYellow}
+                    />
+                  </td>
+                  <td>
+                    {s.removalPending ? (
+                      <span className="badge-red">
+                        {t("admin.cards.standing.removalPending")}
+                      </span>
+                    ) : s.effectiveReds >= 1 ? (
+                      <span className="badge-amber">
+                        {t("admin.cards.standing.onWarning")}
+                      </span>
+                    ) : (
+                      <span className="badge-slate">
+                        {t("admin.cards.standing.ok")}
+                      </span>
+                    )}
+                    {s.pendingYellow + s.pendingRed > 0 && (
+                      <span className="muted text-xs">
+                        {t("admin.cards.pendingCount", {
+                          n: s.pendingYellow + s.pendingRed,
+                        })}
+                      </span>
+                    )}
+                  </td>
+                  <TableActions>
+                    <TableDetails title={s.name}>
+                      <ul className="space-y-3">
+                        {s.cards.map((c) => (
+                          <li key={c.id} className="text-xs text-slate-600">
+                            {dot(c.color)}{" "}
+                            <span
+                              className={
+                                c.reviewStatus === "INVALID"
+                                  ? "text-slate-400 line-through"
+                                  : ""
+                              }
+                            >
+                              {c.reason ?? "—"}
+                            </span>{" "}
+                            <span className="text-slate-400">
+                              ·{" "}
+                              {t(`admin.cards.reviewStatus.${c.reviewStatus}`)}{" "}
+                              ·{" "}
+                              {c.source === "AUTO"
+                                ? t("admin.cards.auto")
+                                : (c.issuedByTutor?.englishName ??
+                                  t("admin.cards.tutor"))}
+                              {c.session
+                                ? ` · ${programFormat.dateTime(new Date(c.session.date), { dateStyle: "medium", timeZone: "UTC" })}`
+                                : ""}
+                            </span>
+                          </li>
+                        ))}
+                      </ul>
+                    </TableDetails>
+                  </TableActions>
+                </tr>
+              ))}
+              {standings.length === 0 && (
+                <tr>
+                  <td colSpan={4} className="muted">
+                    {t("admin.cards.noCardsOnRecord")}
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </SummaryTable>
         </div>
       </section>
 
@@ -210,33 +307,39 @@ export default function CardsPage() {
             <h2 className="section-title">{t("admin.cards.historyHeading")}</h2>
             <span className="badge-slate">{all.length}</span>
           </summary>
-          <div className="mt-3 overflow-x-auto">
-            <table className="data-table">
+          <div className="mt-3">
+            <SummaryTable label={t("admin.cards.historyHeading")}>
               <thead>
                 <tr>
                   <th>{t("admin.cards.table.date")}</th>
                   <th>{t("admin.cards.table.tutee")}</th>
                   <th>{t("admin.cards.table.card")}</th>
-                  <th>{t("admin.cards.table.reason")}</th>
                   <th>{t("admin.cards.table.source")}</th>
                   <th>{t("admin.cards.table.status")}</th>
+                  <th className="table-actions-heading">
+                    {t("tablePatterns.actions")}
+                  </th>
                 </tr>
               </thead>
               <tbody>
                 {[...all]
-                  .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
+                  .sort(
+                    (a, b) => +new Date(b.createdAt) - +new Date(a.createdAt),
+                  )
                   .map((c) => (
                     <tr key={c.id}>
                       <td className="text-xs text-slate-500">
-                        {programFormat.dateTime(new Date(c.createdAt), { dateStyle: "medium" })}
+                        {programFormat.dateTime(new Date(c.createdAt), {
+                          dateStyle: "medium",
+                        })}
                       </td>
                       <td className="text-slate-700">{c.tutee.englishName}</td>
                       <td>{dot(c.color)}</td>
-                      <td className="text-slate-600">{c.reason ?? "—"}</td>
                       <td className="text-slate-500">
                         {c.source === "AUTO"
                           ? t("admin.cards.auto")
-                          : (c.issuedByTutor?.englishName ?? t("admin.cards.tutor"))}
+                          : (c.issuedByTutor?.englishName ??
+                            t("admin.cards.tutor"))}
                       </td>
                       <td>
                         <span
@@ -251,6 +354,31 @@ export default function CardsPage() {
                           {t(`admin.cards.reviewStatus.${c.reviewStatus}`)}
                         </span>
                       </td>
+                      <TableActions>
+                        <TableDetails
+                          title={`${c.tutee.englishName} · ${programFormat.dateTime(new Date(c.createdAt), { dateStyle: "medium" })}`}
+                        >
+                          <dl className="space-y-2">
+                            <dt className="font-semibold">
+                              {t("admin.cards.table.reason")}
+                            </dt>
+                            <dd>{c.reason ?? "—"}</dd>
+                            <dt className="font-semibold">
+                              {t("admin.cards.reviewNotePlaceholder")}
+                            </dt>
+                            <dd>{c.reviewNote ?? "—"}</dd>
+                            <dt className="font-semibold">
+                              {t("admin.cards.table.source")}
+                            </dt>
+                            <dd>
+                              {c.source === "AUTO"
+                                ? t("admin.cards.auto")
+                                : (c.issuedByTutor?.englishName ??
+                                  t("admin.cards.tutor"))}
+                            </dd>
+                          </dl>
+                        </TableDetails>
+                      </TableActions>
                     </tr>
                   ))}
                 {all.length === 0 && (
@@ -261,7 +389,7 @@ export default function CardsPage() {
                   </tr>
                 )}
               </tbody>
-            </table>
+            </SummaryTable>
           </div>
         </details>
       </section>

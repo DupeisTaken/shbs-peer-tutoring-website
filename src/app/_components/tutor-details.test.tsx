@@ -83,6 +83,12 @@ beforeEach(() => {
       this.setAttribute("open", "");
     },
   });
+  Object.defineProperty(HTMLDialogElement.prototype, "close", {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.removeAttribute("open");
+    },
+  });
   mocks.details.mockReturnValue({ data: detail });
   mocks.history.mockReturnValue({
     data: {

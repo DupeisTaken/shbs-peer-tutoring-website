@@ -1,4 +1,36 @@
 {
+  "uiPatterns": {
+    "meetingDate": "Date de la réunion",
+    "profile": "Profil",
+    "saveProfile": "Enregistrer le profil",
+    "cancel": "Annuler",
+    "retry": "Réessayer",
+    "loadFailed": "Impossible de charger cette section",
+    "editorDenied": "Accès à l’éditeur de la page d’accueil indisponible",
+    "editorDeniedHelp": "Pour modifier ou prévisualiser le contenu de la page d’accueil, vous devez avoir un rôle de gestion et être explicitement désigné comme traducteur. Demandez au responsable du programme de vérifier vos droits d’accès.",
+    "returnManagement": "Retour à la gestion",
+    "scrollTable": "Faites défiler horizontalement pour comparer toutes les colonnes.",
+    "deleteMeeting": "Supprimer la réunion ?",
+    "deleteMeetingHelp": "Supprimer « {title} » et ses relevés de présence ? Cette action est irréversible.",
+    "attendanceFor": "Présences de {name}"
+  },
+  "tablePatterns": {
+    "actions": "Actions",
+    "details": "Voir les détails",
+    "edit": "Modifier",
+    "close": "Fermer",
+    "summary": "Résumé",
+    "records": "{count, plural, one {# enregistrement} other {# enregistrements}}",
+    "schedule": "Voir le planning",
+    "occupied": "Occupé",
+    "available": "Disponible",
+    "unavailable": "Indisponible",
+    "reason": "Motif",
+    "slot": "Créneau horaire",
+    "room": "Salle",
+    "select": "Sélectionner",
+    "selected": "Sélectionné"
+  },
   "scheduling": {
     "awaiting": "Horaire en attente",
     "noLinkedSlot": "Aucun créneau du catalogue lié",
@@ -458,7 +490,8 @@
       "GRADUATED": "Diplômé",
       "OPTED_OUT": "Retrait",
       "PENDING": "En attente",
-      "ARCHIVED": "Archivé"
+      "ARCHIVED": "Archivé",
+      "TRANSFERRED": "Transféré"
     },
     "tutees": {
       "title": "Liste des élèves",
@@ -1314,7 +1347,7 @@
       "pendingReview": "En attente de révision",
       "nothingPending": "Rien en attente de révision.",
       "standingHeading": "Bilan des élèves",
-      "standingHelp": "🟥 occupe 3 cases, 🟨 occupe 1 (cartes valides uniquement). 6 cases pleines = retrait en attente. Cliquez sur un nom pour voir les détails des cartes.",
+      "standingHelp": "🟥 occupe 3 cases et 🟨 en occupe 1 (cartes valides uniquement). Lorsque les 6 cases sont remplies, le retrait du programme est en attente. Utilisez le lien de détails dans la colonne tout à droite pour consulter les cartes.",
       "standing": {
         "removalPending": "retrait en attente",
         "onWarning": "en avertissement",
@@ -1890,6 +1923,7 @@
       "empty": "Aucun créneau horaire n'a encore été publié.",
       "save": "Enregistrer les disponibilités",
       "saving": "Enregistrement…",
+      "refreshFailed": "L’enregistrement a été accepté, mais les disponibilités actualisées n’ont pas pu être chargées. Réessayez de les charger avant d’apporter d’autres modifications.",
       "saved": "Enregistré."
     },
     "interviews": {
@@ -3645,7 +3679,8 @@
       "patrols": "Patrols retained",
       "academicConfirmations": "Academic confirmations retained",
       "tuteeProfiles": "Tutee ownership links moved"
-    }
+    },
+    "noCandidates": "Aucun compte ne peut être fusionné."
   },
   "tuteeHistory": {
     "noSearchMatches": "Aucun élève ne correspond à votre recherche.",

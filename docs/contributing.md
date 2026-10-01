@@ -20,6 +20,45 @@ Integration tests reset fixtures. Use the isolated loopback `shbs_shipping_test`
 
 The [CI workflow](../.github/workflows/docker-build.yml) also checks dependency installation, migrations, schema agreement, dependency audit, production build and image boot/restart. Use its result for the commit being reviewed; old test totals are not current verification.
 
+## Reuse interaction patterns
+
+Review the development-only [UI gallery](local-development.md#ui-pattern-gallery) before building a new interaction. Its examples use the same [shared components](../src/app/_components/ui) as the application. Keep the existing slate surfaces, white cards and accent themes. The [agent entry point](../AGENTS.md#start-with-the-shared-patterns) maps interactions to components and owns the control-height, table-action and responsive-header conventions.
+
+- Use links for navigation, `SectionTabs` for in-page panels and `ChoiceButton` for persistent selections. A selected value is not a submitted action.
+- Put related fields in `FormSection` and place its Save/Cancel actions after all fields they affect. Keep mutation state, validation and permission checks in the feature that owns the operation.
+- Use `Modal` for review and confirmation, with a specific action label and consequence. Existing action tickets, countdowns and approval rules still apply; the component does not authorize a write.
+- Use `StatePanel` to distinguish loading, empty results, errors and denied access. Failed queries need recovery, and denied access must not appear as an indefinite loader.
+- Use `SummaryTable` for tables: only brief names, dates, counts and statuses in columns. Put existing details and editors behind compact text links in the rightmost `TableActions` cell. Read-only history tables can omit actions; only explicit action cells become sticky. `TableDetails` opens an on-demand dialog. Keep contact, account, course and history access separate and preserve existing authorization.
+- Compose new screens from the gallery's long-dialog, participant-form, filter, disclosure, settings, change-review and inline-notice examples. Reuse existing domain components. Set disclosure lifetime deliberately so collapsing a form never discards its draft.
+- Register each dialog form's own pending write with `useDialogPending`; do not feed its aggregate return value back into registration. Keep independent forms and their version snapshots separate. Preserve cached drafts on refresh failure. Clear or replace them through the feature's confirmed save/synchronization path, an explicit successful reload or cancellation; a background refetch alone must not discard edits.
+
+Start by identifying the save boundary, query lifetime and authorized audience, then select a composition. Use an existing feature integration as well as a gallery example: long editors, immediate settings and staged forms intentionally have different save behavior. Keep new domain logic in the owning feature; a generic component must not infer permissions or expected versions from its visual state.
+
+The seven [gallery compositions](../src/app/ui-gallery/recipes.tsx) have these
+production references and boundaries. Each example supports English and Chinese;
+verify it at real desktop and mobile viewports. The global form-state selector
+controls the participant example; other recipes expose their own state transitions.
+
+| Recipe and intent | First production references | States to verify | Boundary / non-goal |
+| --- | --- | --- | --- |
+| Long dialog: keep a large editor or reader usable | [Profile editor](../src/app/_components/profile-dialog.tsx), [policy reader](../src/app/_components/current-policy-dialog.tsx) | Nested Escape/Tab, exact focus return, long scroll, pending dismissal, rejection ([#231](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/231)) | Does not decide consent, review consequences or write authorization |
+| Participant form: group one identity save | [Account](../src/app/_components/account-profile-editor.tsx), [tutor](../src/app/_components/tutor-profile-editor.tsx), [tutee](../src/app/_components/tutee-editor.tsx) editors | Editable, pending, failed and read-only; four-part/legacy names and retained drafts ([#232](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/232)) | Academic, membership and historical-link writes retain separate drafts and versions |
+| Filter toolbar: select which records to show | [Management actions](../src/app/_components/management-actions.tsx), [account roster](../src/app/(admin)/admin/users/page.tsx) | Selected filters, native search/select, reset/count, pending refresh and pagination reset ([#237](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/237)) | Filters are not content tabs or commit actions |
+| Disclosure: choose when content mounts | [Tutee creation](../src/app/(admin)/admin/tutees/page.tsx), [tutor details](../src/app/_components/tutor-details.tsx) | Closed/open, lazy read queries, retained drafts, collapse/reopen | Does not infer a draft lifetime or grant detail access |
+| Setting row: explain when a choice saves | [CAPTCHA](../src/app/_components/program-captcha-settings.tsx), [Names and Grades](../src/app/_components/program-profile-settings.tsx), [subject willingness](../src/app/_components/subject-availability.tsx) | Immediate switch, staged save, unknown/yes/no, unavailable provider, read-only and failed refresh ([#234](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/234)) | Does not turn unknown into No or merge independent mutation/version rules |
+| Change review: show the proposed consequence | [Approval evidence](../src/app/_components/approval-review-details.tsx), [departure review](../src/app/_components/school-departure.tsx) | Before/after, acknowledgement, changed input invalidating preview, pending commit | Does not generate confirmation tickets or replace immutable evidence |
+| Inline notice: recover alongside usable content | [Profile settings](../src/app/_components/program-profile-settings.tsx), [availability](../src/app/(tutor)/_components/availability-editor.tsx) | Initial versus background failure, retained draft, successful Retry, explicit conflict Reload ([#233](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/233), [#223](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/223)) | Does not silently replace a version snapshot or repeat an accepted write |
+
+For a recipe migration, link its feature issue and the corresponding running-page
+and gallery screenshots in the local verification report. Record language, viewport,
+role and state for each capture; keep the images and report in ignored `outputs/`.
+
+For a new reusable pattern, add an interactive example and behavior tests after implementation. Follow the [UI verification matrix](local-development.md#ui-verification-matrix), including English/Chinese, keyboard focus, all six accent palettes, long labels and narrow screens. Capture screenshots from the running application as well as the gallery; gallery fixtures cannot prove feature permissions or mutations. Check the [technical boundaries](technical-report.md#shared-ui-patterns) before migrating existing workflows.
+
+File new proposals using the [issue conventions](issues.md), with the affected workflow, expected behavior, validation and behavior to preserve. The remaining page migrations are tracked in [issue #219](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/219); the current gallery and pilot pages do not imply a complete site migration.
+
+In a UI PR, state the trigger and resulting behavior, identify the shared patterns and affected page families, and link the issues it addresses. Record the tested commit and distinguish a full-suite run from later focused reruns. Cite measured control heights and the tested languages/viewports; palette fit alone is not a contrast result. Keep generated HTML reports, browser session files and local logs out of the commit. Close specific delivered issues through the PR, while referencing broader migration trackers that still have remaining scope.
+
 ## Pull request size labels
 
 The [PR Size workflow](../.github/workflows/pr-size.yml) automatically maintains one

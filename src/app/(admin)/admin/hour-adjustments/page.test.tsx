@@ -97,6 +97,18 @@ beforeEach(() => {
   state.error = null;
   state.deleteError = null;
   vi.clearAllMocks();
+  Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.setAttribute("open", "");
+    },
+  });
+  Object.defineProperty(HTMLDialogElement.prototype, "close", {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.removeAttribute("open");
+    },
+  });
 });
 afterEach(cleanup);
 
@@ -116,22 +128,29 @@ it("reveals past choices and retains a selected past tutor after hiding the othe
 });
 
 it.each(["en", "zh"])(
-  "keeps complete records and semantic columns in %s",
+  "keeps brief columns and opens the complete reason from rightmost text actions in %s",
   (locale) => {
     renderPage(locale);
     const table = screen.getByRole("table");
-    expect(within(table).getAllByRole("columnheader")).toHaveLength(6);
+    expect(within(table).getAllByRole("columnheader")).toHaveLength(5);
     const row = within(table).getAllByRole("row")[1]!;
     expect(row.textContent).toContain(state.rows[0]!.tutor.englishName);
-    expect(row.textContent).toContain(state.rows[0]!.reason);
+    expect(row.textContent).not.toContain(state.rows[0]!.reason);
     expect(within(row).getByText("1.5")).toBeTruthy();
     const month = within(row).getByText("2026-09", { selector: "time" });
     expect(month.getAttribute("datetime")).toBe("2026-09");
-    // One action survives the responsive reflow, with the record identified for assistive tech.
-    expect(within(row).getAllByRole("button")).toHaveLength(1);
+    const actions = within(row).getAllByRole("cell").at(-1)!;
+    expect(within(actions).getAllByRole("button")).toHaveLength(2);
+    const detail = within(actions).getByRole("button", {
+      name: new RegExp(
+        `^${locale === "zh" ? zh.tablePatterns.details : en.tablePatterns.details}:`,
+      ),
+    });
+    expect(detail.className).toContain("table-action-link");
+    fireEvent.click(detail);
     expect(
-      within(row).getByRole("button").getAttribute("aria-label"),
-    ).toContain("2026-09");
+      within(screen.getByRole("dialog")).getByText(state.rows[0]!.reason),
+    ).toBeTruthy();
   },
 );
 
@@ -174,10 +193,11 @@ it("deletes the selected row and disables repeat requests while pending", () => 
   ).toBe(true);
 });
 
-it("hides mutation controls and their unused column for viewers", () => {
+it("hides mutations while retaining the rightmost detail action for viewers", () => {
   renderPage("en", true);
   expect(screen.queryByRole("combobox")).toBeNull();
-  expect(screen.queryByRole("button")).toBeNull();
+  expect(screen.queryByRole("button", { name: /^Delete:/ })).toBeNull();
+  expect(screen.getByRole("button", { name: /^View details:/ })).toBeTruthy();
   expect(screen.getAllByRole("columnheader")).toHaveLength(5);
   expect(screen.getByText("2026-09", { selector: "time" })).toBeTruthy();
 });

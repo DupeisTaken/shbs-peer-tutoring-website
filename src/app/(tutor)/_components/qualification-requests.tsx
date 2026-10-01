@@ -1,6 +1,8 @@
 "use client";
 
 import { useId, useState } from "react";
+import { ChoiceButton } from "~/app/_components/ui/button";
+import { FilterToolbar } from "~/app/_components/ui/patterns";
 import { useFormatter, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { useDialog } from "~/app/_components/confirm-dialog";
@@ -191,29 +193,32 @@ export function QualificationRequests({ active }: { active: boolean }) {
               {t("recalled")}
             </p>
           )}
-          <div id={historyId} hidden={!historyExpanded}>
-            <div
-              role="group"
-              aria-label={t("historyFilters")}
-              className="mt-3 flex flex-wrap gap-2"
-            >
-              {historyGroups.map((group) => (
-                <button
-                  key={group.status}
-                  type="button"
-                  aria-pressed={historyFilter === group.status}
-                  onClick={() => setHistoryFilter(group.status)}
-                  className={`${historyFilter === group.status ? "btn-primary" : "btn-secondary"} min-h-11 max-w-full gap-2 whitespace-normal lg:min-h-8 lg:py-0`}
-                >
-                  {t(
-                    group.status === "PENDING" ? "pendingFilter" : group.status,
-                  )}{" "}
-                  <span className="rounded-full bg-current/10 px-1.5 text-xs tabular-nums">
-                    {format.number(group.requests.length)}
-                  </span>
-                </button>
-              ))}
-            </div>
+          <div id={historyId} hidden={!historyExpanded} className="pt-3">
+            <FilterToolbar label={t("historyFilters")}>
+              <div
+                role="group"
+                aria-label={t("historyFilters")}
+                className="flex flex-wrap gap-2"
+              >
+                {historyGroups.map((group) => (
+                  <ChoiceButton
+                    key={group.status}
+                    selected={historyFilter === group.status}
+                    onClick={() => setHistoryFilter(group.status)}
+                    className="max-w-full gap-2"
+                  >
+                    {t(
+                      group.status === "PENDING"
+                        ? "pendingFilter"
+                        : group.status,
+                    )}{" "}
+                    <span className="rounded-full bg-current/10 px-1.5 text-xs tabular-nums">
+                      {format.number(group.requests.length)}
+                    </span>
+                  </ChoiceButton>
+                ))}
+              </div>
+            </FilterToolbar>
             {!visibleRequests.length && (
               <p role="status" className="muted mt-3">
                 {t(query.data.requests.length ? "emptyFilter" : "empty")}
