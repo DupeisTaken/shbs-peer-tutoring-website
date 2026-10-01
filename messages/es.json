@@ -449,7 +449,9 @@
         "setup": "Configuración pendiente",
         "invited": "Código emitido"
       },
-      "colStatus": "Estado"
+      "colStatus": "Estado",
+      "createDraftHint": "Al cerrar este diálogo, se conservan los datos hasta que salgas de esta página.",
+      "created": "Tutor añadido."
     },
     "tutees": {
       "title": "Lista de estudiantes",

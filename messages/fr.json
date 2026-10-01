@@ -449,7 +449,9 @@
         "linkEmailed": "L’e-mail de configuration a été envoyé au titulaire du compte.",
         "linkManual": "L’envoi d’e-mails n’est pas configuré. Contactez l’administrateur du déploiement avant d’envoyer un e-mail de configuration de compte.",
         "dismiss": "Fermer"
-      }
+      },
+      "createDraftHint": "Fermer cette fenêtre conserve vos saisies jusqu’à ce que vous quittiez cette page.",
+      "created": "Tuteur ajouté."
     },
     "tutorStatus": {
       "ACTIVE": "Actif",

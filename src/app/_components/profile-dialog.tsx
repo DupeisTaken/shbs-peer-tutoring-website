@@ -10,12 +10,15 @@ export function ProfileDialog({
   onClose,
   children,
   size = "default",
+  pending = false,
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
   /** Wider subject-choice rows opt in without changing existing profile dialogs. */
   size?: "default" | "wide";
+  /** Creation workflows keep the dialog open until their in-flight write settles. */
+  pending?: boolean;
 }) {
   const t = useTranslations("accountProfile");
   const titleId = useId();
@@ -27,7 +30,12 @@ export function ProfileDialog({
     <dialog
       ref={ref}
       aria-labelledby={titleId}
-      onCancel={onClose}
+      aria-busy={pending || undefined}
+      onCancel={(event) => {
+        // Prevent the native close as well as React unmounting while saving.
+        event.preventDefault();
+        if (!pending) onClose();
+      }}
       onKeyDown={(event) => {
         if (event.key !== "Tab") return;
         // Native modal inertness excludes the page, but a single-control dialog can
@@ -42,6 +50,10 @@ export function ProfileDialog({
         );
         const first = controls[0];
         const last = controls.at(-1);
+        if (!first) {
+          event.preventDefault();
+          event.currentTarget.focus();
+        }
         if (
           first &&
           last &&
@@ -64,6 +76,7 @@ export function ProfileDialog({
           type="button"
           className="btn-secondary btn-sm min-h-11 lg:min-h-8"
           onClick={onClose}
+          disabled={pending}
         >
           {t("close")}
         </button>

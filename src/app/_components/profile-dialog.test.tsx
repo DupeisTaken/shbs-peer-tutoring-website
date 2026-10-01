@@ -55,3 +55,34 @@ it("wraps first/last enabled controls without interfering with intermediate typi
   );
   expect(onClose).toHaveBeenCalledOnce();
 });
+
+it("blocks Escape, Close and tabbing out while a creation write is pending", () => {
+  const onClose = vi.fn();
+  const view = render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <ProfileDialog title="Add Tutor" onClose={onClose} pending>
+        <fieldset disabled>
+          <input aria-label="Name" />
+          <button>Save</button>
+        </fieldset>
+      </ProfileDialog>
+    </NextIntlClientProvider>,
+  );
+  const dialog = screen.getByRole("dialog");
+  expect(dialog.getAttribute("aria-busy")).toBe("true");
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  expect(
+    fireEvent(dialog, new Event("cancel", { bubbles: true, cancelable: true })),
+  ).toBe(false);
+  expect(fireEvent.keyDown(dialog, { key: "Tab" })).toBe(false);
+  expect(onClose).not.toHaveBeenCalled();
+  view.rerender(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <ProfileDialog title="Add Tutor" onClose={onClose}>
+        <button>Save</button>
+      </ProfileDialog>
+    </NextIntlClientProvider>,
+  );
+  fireEvent(dialog, new Event("cancel", { bubbles: true, cancelable: true }));
+  expect(onClose).toHaveBeenCalledOnce();
+});

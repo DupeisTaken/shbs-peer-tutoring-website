@@ -55,6 +55,13 @@ vi.mock("~/trpc/react", () => {
 beforeEach(() => {
   mock.mutate.mockReset();
   mock.error = undefined;
+  // JSDOM needs the native dialog opening behavior exposed to role queries.
+  Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.setAttribute("open", "");
+    },
+  });
 });
 afterEach(cleanup);
 
@@ -78,6 +85,12 @@ it.each([
     );
     const view = render(ui());
     if (tutor) {
+      expect(screen.queryByRole("dialog")).toBeNull();
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: messages.admin.tutors.addTutor,
+        }),
+      );
       fireEvent.change(
         screen.getByLabelText(messages.personName.firstName + " " + messages.signupFields.required),
         { target: { value: "Draft" } },
