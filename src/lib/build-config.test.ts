@@ -9,6 +9,11 @@ afterEach(() => {
   vi.resetModules();
 });
 
+it("omits framework identification even when the app is inspected directly", async () => {
+  const { default: config } = await import("../../next.config.js");
+  expect(config.poweredByHeader).toBe(false);
+});
+
 it("retains normal compiler cache defaults without local overrides", async () => {
   vi.stubEnv("SHBS_BUILD_CPUS", "");
   vi.stubEnv("SHBS_DISABLE_BUILD_CACHE", "");

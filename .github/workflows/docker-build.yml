@@ -49,6 +49,7 @@ jobs:
       - run: npm run check
       - run: npm run docs:check
       - run: npm run test:pr-size
+      - run: npm run test:deployment
       # Protect developer tooling as well as the pruned production dependency graph.
       - run: npm audit
       - run: npm test

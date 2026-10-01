@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # One-time host setup for a fresh Ubuntu server (run as root or with sudo).
-# Installs Docker + the Compose plugin and locks the firewall to 22/80/443.
+# Installs Docker + Compose and configures the host INPUT policy for 22/80/443.
+# Docker-published ports and SSH source/auth policy require the deployment review.
 set -euo pipefail
 
 if [ "$(id -u)" -ne 0 ]; then
@@ -21,7 +22,7 @@ if [ -n "${DEPLOY_USER:-}" ]; then
   echo "[setup] Added $DEPLOY_USER to the docker group (re-login required)."
 fi
 
-echo "[setup] Configuring UFW firewall (allow only 22/80/443)…"
+echo "[setup] Configuring UFW host policy (22/80/443; review Docker forwarding separately)…"
 if ! command -v ufw >/dev/null 2>&1; then
   apt-get update && apt-get install -y ufw
 fi

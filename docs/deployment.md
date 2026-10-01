@@ -110,8 +110,72 @@ Tutor/crew intake and credential sign-in use the proxy-supplied `X-Forwarded-For
 ## 2. Host setup (once)
 
 ```bash
-sudo ./scripts/setup.sh          # installs Docker + Compose, ufw allows only 22/80/443
+sudo ./scripts/setup.sh          # installs Docker + Compose and configures UFW host rules
 ```
+
+The setup script allows SSH from any source and does not configure SSH authentication.
+Its UFW INPUT policy is not proof of container isolation: Docker manages forwarding
+rules separately. Complete the [effective network review](#effective-network-and-ssh-review)
+before treating a host as verified.
+
+### Effective network and SSH review
+
+Use an existing authorized operator session; these are read-only checks, not a
+firewall/SSH change procedure. Record the date, host identity, vantage point and
+deployed image/source identity. Keep raw output private: mappings, addresses and
+operator identities may be sensitive. Do not paste full `.env`, `docker inspect`,
+`docker compose config` or authenticated response headers into public issues.
+
+| Boundary | Required evidence and expected result |
+| --- | --- |
+| Host listeners | `sudo ss -lntup` for IPv4 **and** IPv6, including listening address/process; explain every listener. Public HTTP/HTTPS are intended. App 3000, PostgreSQL 5432, Caddy admin 2019, Prisma Studio 5555 and alternate web 8080 must not have unintended Internet paths. |
+| Effective containers | `docker compose ps --all` plus `docker ps --format 'table {{.Names}}\t{{.Ports}}'` for other stacks. Inspect actual container mappings, network mode and network options as below; source Compose alone does not cover overrides, stale containers or direct routing. |
+| Cloud perimeter | Review the instance's attached security groups, ingress rules, IPv4/IPv6 ranges, load balancers/NAT and any alternate public addresses in the cloud console. Record approved sources per administrative port; retain a sanitized rule inventory. |
+| Host firewall | `sudo ufw status verbose`, `sudo nft list ruleset`, and/or `sudo iptables-save` / `sudo ip6tables-save`, as applicable to the active backend. Inspect Docker forwarding/NAT and direct-routing rules, not only INPUT. Do not disable Docker's firewall management as a shortcut. |
+| SSH | `sudo sshd -T` and `sudo sshd -T -C user=<operator>,addr=<client-ip>,host=<client-hostname>` for each relevant `Match` context. Review `listenaddress`, `port`, `permitrootlogin`, `pubkeyauthentication`, `passwordauthentication`, `kbdinteractiveauthentication`, `authenticationmethods`, `allowusers`/`allowgroups` and any deny rules. Confirm intended keys/MFA and trusted source or VPN restrictions. |
+| Independent external vantage | Verify DNS A/AAAA against the cloud IPs and use a network outside the server and local proxy/TUN. Check protocol responses as well as host/cloud rules. A TCP handshake alone may come from an interception proxy; timeout/no protocol reply is **inconclusive**, not proof a port is closed. |
+
+From the deployment directory, inspect only the fields needed (these do not print
+container environment secrets):
+
+```bash
+for service in app db caddy; do
+  container_id=$(docker compose ps --all -q "$service")
+  test -n "$container_id" || { echo "Missing service: $service"; continue; }
+  docker inspect --format '{{.Name}} network={{.HostConfig.NetworkMode}} configured={{json .HostConfig.PortBindings}} effective={{json .NetworkSettings.Ports}}' "$container_id"
+  docker inspect --format '{{json .NetworkSettings.Networks}}' "$container_id"
+done
+# Inspect each named network from the preceding output, including routing options.
+docker network inspect <network-name> --format '{{.Name}} internal={{.Internal}} options={{json .Options}}'
+```
+
+`app`/`db` should have no host publication; Caddy should publish only 80/443.
+Caddy's admin endpoint should remain container-local. `ss` alone can miss
+NAT-published listeners. [Docker's firewall guide](https://docs.docker.com/engine/network/packet-filtering-firewalls/)
+explains why published containers can bypass UFW rules; apply the guidance for the
+host's actual iptables/nftables backend before planning changes. Public SSH by
+itself is not a vulnerability: document the effective source/authentication policy.
+Any hardening change requires a separate maintenance plan with tested recovery
+console access and a second verified operator session to avoid lockout.
+
+Record what is actually running, separately from the checkout or mutable tag:
+
+```bash
+git rev-parse HEAD
+git status --short
+sha256sum Caddyfile docker-compose.yml
+app_container=$(docker compose ps -q app)
+app_image_id=$(docker inspect --format '{{.Image}}' "$app_container")
+docker inspect --format 'requested={{.Config.Image}} image_id={{.Image}}' "$app_container"
+docker image inspect --format 'digests={{json .RepoDigests}} revision={{index .Config.Labels "org.opencontainers.image.revision"}} source={{index .Config.Labels "org.opencontainers.image.source"}}' "$app_image_id"
+```
+
+Match the digest/revision to the exact successful CI publish run. A local build may
+lack a registry digest or revision label; record that gap instead of assuming the
+checkout is deployed. Record the Caddy image ID/digest and mounted configuration
+too, including any Compose overrides. The effective network/SSH review remains
+**operator verification pending** until host, cloud and independent external
+evidence agree. Missing host access does not resolve issue #242; keep it open.
 
 ## 3. Configure runtime settings and secrets
 
@@ -444,6 +508,71 @@ The public icon smoke test can also target the deployment from your local checko
 ```bash
 TEST_BASE_URL=https://tutoring.example.edu node --test scripts/test-tab-icon.mjs
 ```
+
+### Browser response policy and rollout
+
+The public policy lives in [Caddyfile](../Caddyfile), with deferred header writes
+so upstream headers cannot undo it. `next.config.js` also disables `X-Powered-By`
+at source. The same policy applies in Caddy's error handler when an upstream
+connection fails, preserving the error status without exposing internal details.
+Direct access to the app still bypasses the proxy policy and must stay
+private. The existing `X-Signup-Client-IP {remote_host}` request-header overwrite
+is unchanged; never turn it into an append or trust a visitor-provided value.
+
+| Policy | Current behavior |
+| --- | --- |
+| HTTPS/HSTS | Automatic HTTPS stays enabled. `max-age=86400` initially remembers HTTPS for one day on the exact hostname, without `includeSubDomains` or `preload`. Increase only after certificate renewal/HTTPS stability is verified. |
+| Framing and document context | Enforced CSP `frame-ancestors 'none'; object-src 'none'; base-uri 'self'` plus `X-Frame-Options: DENY`. Pages cannot be embedded, even by the same origin. No current application workflow requires embedding. |
+| MIME/referrer | `X-Content-Type-Options: nosniff` and `Referrer-Policy: strict-origin-when-cross-origin`. Cross-origin navigation sends the origin rather than account/signup URL paths or queries. |
+| Resource CSP | **Report-only**, not an XSS-prevention claim: first-party resources, the known Aliyun CAPTCHA script origin, image data/blob URLs and existing inline styles are listed. Inline scripts and additional CAPTCHA endpoints intentionally remain visible as violations for inventory. |
+| Cookies and TLS | No cookie header rewriting, TLS relaxation, or authentication change. Verify Secure, HttpOnly and SameSite on disposable authenticated sessions. |
+
+The report-only policy has **no reporting collector** or `report-to` endpoint.
+It does not collect production telemetry or block resource loads. Inspect browser
+console/`securitypolicyviolation` events during the controlled rehearsal; preserve
+only sanitized evidence. The optional CAPTCHA SDK dynamically loads resources,
+so its full destination set must be observed with synthetic provider test settings.
+See [Caddy headers](https://caddyserver.com/docs/caddyfile/directives/header) and
+[Next.js CSP guidance](https://nextjs.org/docs/app/guides/content-security-policy).
+Next emits inline framework scripts; a strict enforced script policy needs fresh
+per-request nonces integrated with rendering/caching. Do not simply rename the
+report-only header to an enforced CSP or add a static nonce. A future reporting
+collector needs explicit retention/privacy and rate/size limits; reports can
+contain sensitive document URLs.
+
+Before rollout, run `npm run test:deployment`, `npm run check`, `npm run docs:check`
+and a production build, then rehearse the exact Caddy config with an isolated
+application/database on loopback. Use a local test domain/certificate trusted only
+for that rehearsal; preserve production TLS verification. Validate/adapt the
+config with the selected Caddy version and ensure only test web ports are bound.
+Do not repurpose a production database or start a shared daemon just for this test.
+
+1. Run `TEST_BASE_URL=https://<test-host> node --test scripts/test-security-headers.mjs`
+   through Caddy, not the internal app port. Check HTTP→HTTPS redirect separately.
+   The probe uses unauthenticated GETs and does not establish authenticated page behavior.
+2. In one bounded browser session, capture desktop/mobile screenshots and exercise
+   sign-in/sign-out, each signup flow (including CAPTCHA off/on), language switching,
+   `/localization`, management navigation/writes and uploaded images. Use disposable
+   accounts and local email capture. Inspect final HTML, assets, redirects, 404s,
+   MIME types, CSP console events and cookie attributes. Confirm hydration/navigation
+   works and an embedding test is blocked by the enforced frame policy.
+3. Check a request with a synthetic `X-Signup-Client-IP` at an isolated upstream:
+   Caddy must replace it with the connection address. Check a mock upstream response
+   carrying conflicting policy headers: the final public values must win, while
+   `Set-Cookie` attributes and TLS remain intact. Include an upstream failure response.
+4. Only after approval, update the host checkout/config and verify it with
+   `docker compose exec caddy caddy validate --config /etc/caddy/Caddyfile --adapter caddyfile`.
+   Reload with `docker compose exec caddy caddy reload --config /etc/caddy/Caddyfile --adapter caddyfile`
+   and repeat the public/interactive checks. If the bind-mounted file was replaced
+   and the running container sees an old inode, recreate **only Caddy** with the
+   existing project/volumes. App header suppression additionally needs the new image.
+
+Retain the prior Caddyfile for rollback and validate/reload it if compatibility
+breaks. HSTS already stored by a browser cannot be undone over HTTP: keep HTTPS
+working; an approved `max-age=0` response over valid HTTPS clears it on the next
+visit. Keep report-only CSP until the nonce/resource work and browser matrix pass.
+Repository checks alone do not prove the new policy is deployed or resolve the
+operational verification items.
 
 ## 7. Backups
 
