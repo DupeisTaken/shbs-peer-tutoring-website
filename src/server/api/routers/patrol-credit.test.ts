@@ -10,6 +10,7 @@ import { hashPassword } from "~/server/auth/password";
 import { previewCombine } from "~/server/combine-accounts";
 import * as credit from "~/server/crew/patrol-credit";
 import { recordCsv } from "~/lib/record-transfer";
+import * as transactions from "~/server/transactions";
 
 assertIsolatedTestDatabase(process.env.DATABASE_URL);
 if (new URL(process.env.DATABASE_URL!).pathname !== "/shbs_shipping_test") throw Error("Use shbs_shipping_test");
@@ -21,6 +22,12 @@ const caller = (id = crewId, role: Session["role"] = "CREW") => createCaller({
 const input = (time: Date | undefined = new Date()) => ({
   submissionKey: randomUUID(), observations: [{ roomId, headcount: "ONE" as const, observedAt: time }],
 });
+// Test barriers use the project's existing Promise library target, not newer runtime-only APIs.
+function signal() {
+  let resolve!: () => void;
+  const promise = new Promise<void>((ready) => { resolve = ready; });
+  return { promise, resolve };
+}
 beforeEach(async () => {
   // Network and driver timers remain real. Only the server clock advances between awards.
   vi.useFakeTimers({ toFake: ["Date"] }); vi.setSystemTime(new Date("2026-09-01T08:19:59Z"));
@@ -149,4 +156,83 @@ it("exports credit history and backfills legacy archive reservations without rew
   expect((await caller().crew.submitPatrol(input())).hours).toBe(0);
   const archive = await staff.recordTransfer.export({});
   expect(archive.files.find((file) => file.name === "PatrolCreditWindow.csv")?.text).toContain(oldPatrol.id);
+});
+
+it("waits for an in-flight correction before deciding whether its corrected interval can earn credit", async () => {
+  const first = await caller().crew.submitPatrol(input());
+  vi.setSystemTime(new Date(Date.now() + PATROL_CREDIT_INTERVAL_MS));
+  const before = await db.patrol.findUniqueOrThrow({ where: { id: first.id }, include: { observations: true } });
+  const held = signal();
+  const release = signal();
+  const submitting = signal();
+  const lockOwner = credit.lockPatrolCreditOwner;
+  // Pause a real transaction after acquiring its account locks, before reserving new evidence.
+  const spy = vi.spyOn(credit, "lockPatrolCreditOwner").mockImplementation(async (...args) => {
+    if (!args[2]) submitting.resolve();
+    const ids = await lockOwner(...args);
+    if (args[2]) { held.resolve(); await release.promise; }
+    return ids;
+  });
+  const correction = caller(headId, "HEAD").corrections.correctPatrol({
+    id: before.id, expectedUpdatedAt: before.updatedAt, reason: "Correct observation time", note: null,
+    observations: before.observations.map((row) => ({ id: row.id, roomId, headcount: "TWO", observedAt: new Date() })),
+  });
+  let submission: ReturnType<ReturnType<typeof caller>["crew"]["submitPatrol"]> | undefined;
+  let completed = false;
+  try {
+    await held.promise;
+    submission = caller().crew.submitPatrol(input()).then((result) => { completed = true; return result; });
+    await submitting.promise;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(completed).toBe(false);
+    release.resolve();
+    await correction;
+    expect((await submission).hours).toBe(0);
+    expect((await caller().crew.patrolConfig()).myHours).toBe(0.5);
+  } finally {
+    release.resolve(); await Promise.allSettled([correction, ...(submission ? [submission] : [])]); spy.mockRestore();
+  }
+});
+
+it("fences a correction waiting behind account combination, then permits retry with the retained author", async () => {
+  const first = await caller(otherId).crew.submitPatrol(input());
+  const before = await db.patrol.findUniqueOrThrow({ where: { id: first.id }, include: { observations: true } });
+  const pair = { survivorId: crewId, duplicateId: otherId };
+  const preview = await previewCombine(db, pair);
+  const held = signal();
+  const release = signal();
+  const correcting = signal();
+  const lockEntity = transactions.lockEntity;
+  let firstLock = true;
+  const spy = vi.spyOn(transactions, "lockEntity").mockImplementation(async (tx, key) => {
+    const pause = key === `account-profile:${otherId}` && firstLock;
+    if (pause) firstLock = false;
+    else if (key === `account-profile:${otherId}`) correcting.resolve();
+    await lockEntity(tx, key);
+    if (pause) { held.resolve(); await release.promise; }
+  });
+  const combining = caller(headId, "HEAD").accountCombine.combine({ ...pair, fingerprint: preview.fingerprint, confirmPassword: password });
+  const correctionInput = {
+    id: before.id, expectedUpdatedAt: before.updatedAt, reason: "Correct count after account combine", note: null,
+    observations: before.observations.map((row) => ({ id: row.id, roomId, headcount: "TWO" as const, observedAt: row.observedAt })),
+  };
+  let correction: Promise<{ ok: true } | { error: unknown }> | undefined;
+  let completed = false;
+  try {
+    await held.promise;
+    correction = caller(headId, "HEAD").corrections.correctPatrol(correctionInput)
+      .then(() => { completed = true; return { ok: true as const }; }, (error: unknown) => ({ error }));
+    await correcting.promise;
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(completed).toBe(false);
+    release.resolve();
+    await combining;
+    expect(await correction).toMatchObject({ error: { code: "CONFLICT" } });
+    await caller(headId, "HEAD").corrections.correctPatrol(correctionInput);
+    expect((await caller().crew.submitPatrol(input())).hours).toBe(0);
+    expect((await caller().crew.patrolConfig()).myHours).toBe(0.5);
+    expect(await db.patrol.findUnique({ where: { id: first.id } })).toMatchObject({ crewUserId: otherId });
+  } finally {
+    release.resolve(); await Promise.allSettled([combining, ...(correction ? [correction] : [])]); spy.mockRestore();
+  }
 });
