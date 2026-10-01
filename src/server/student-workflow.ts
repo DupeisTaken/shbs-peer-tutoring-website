@@ -1,3 +1,4 @@
+import { findAccountPolicy } from "./policy-acceptance";
 import { enforceAssignmentQualification } from "./assignment-qualification";
 import { approveLegacyStudentWithdrawal } from "./legacy-student-withdrawal";
 import { TRPCError } from "@trpc/server";
@@ -173,9 +174,10 @@ export async function studentPolicyStatus(
       tuteeMember: true,
       role: true,
       suspendedAt: true,
+      schoolDeparture: true,
     },
   });
-  if (!user || user.suspendedAt || user.role === "VIEWER") return null;
+  if (!user || user.suspendedAt || user.role === "VIEWER" || user.schoolDeparture?.reason) return null;
   // An unpublished membership must not hide another membership's published review.
   // Only publication absence is a setup state; database errors still propagate.
   const missingSlugs: PolicySlug[] = [];
@@ -187,15 +189,7 @@ export async function studentPolicyStatus(
       missingSlugs.push(slug);
       continue;
     }
-    const acceptance = await db.policyAcceptance.findUnique({
-      where: {
-        userId_slug_revision: {
-          userId,
-          slug: policy.slug,
-          revision: policy.revision,
-        },
-      },
-    });
+    const acceptance = await findAccountPolicy(db, userId, policy.slug, policy.revision);
     if (!acceptance || (tuteeEntry && !user.tuteeMember))
       return { state: "review" as const, ...policy };
   }

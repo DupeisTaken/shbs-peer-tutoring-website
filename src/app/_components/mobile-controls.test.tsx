@@ -51,6 +51,14 @@ vi.mock("next/navigation", () => ({ usePathname: () => "/admin/rooms" }));
 vi.mock("~/app/_components/program-email-settings", () => ({
   ProgramEmailSettings: () => null,
 }));
+// This integration suite owns staged feature switches; the independent settings
+// have dedicated loading/error/permission tests and must not share its mocks.
+vi.mock("~/app/_components/program-captcha-settings", () => ({
+  ProgramCaptchaSettings: () => null,
+}));
+vi.mock("~/app/_components/program-profile-settings", () => ({
+  ProgramProfileSettings: () => null,
+}));
 vi.mock("~/app/_components/program-time-zone-settings", () => ({
   ProgramTimeZoneSettings: () => null,
 }));

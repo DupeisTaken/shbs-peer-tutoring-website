@@ -27,8 +27,8 @@ vi.mock("./signup-opening-notice", () => ({
     <div>Opens: {periodLabel}</div>
   ),
 }));
-vi.mock("~/app/_components/floating-language-switcher", () => ({
-  FloatingLanguageSwitcher: () => null,
+vi.mock("~/app/_components/language-switcher", () => ({
+  LanguageSwitcher: () => null,
 }));
 
 afterEach(() => {

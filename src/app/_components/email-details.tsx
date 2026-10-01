@@ -3,10 +3,14 @@
 import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
+import { Button } from "./ui/button";
+import { useDialogPending } from "./ui/modal";
 import { ProfileDialog } from "~/app/_components/profile-dialog";
 import { api } from "~/trpc/react";
 import { useReadOnly } from "./read-only";
 import { AcceptanceRecords } from "./acceptance-records";
+import { AcademicDetails } from "./academic-profile";
+import type { AcademicSummary } from "~/lib/academics";
 
 type EmailDetailsProps = {
   email: string | null | undefined;
@@ -20,6 +24,8 @@ type EmailDetailsProps = {
   showPolicyHistory?: boolean;
   /** Optional identity metadata shares the on-demand dialog instead of widening summary cells. */
   details?: ReactNode;
+  academic?: AcademicSummary;
+  triggerClassName?: string;
 };
 
 /** Long addresses live in an accessible detail dialog, never in a roster's width calculation. */
@@ -36,7 +42,7 @@ export function EmailDetails(props: EmailDetailsProps) {
     <>
       <button
         type="button"
-        className="table-action-link"
+        className={`table-action-link ${props.triggerClassName ?? ""}`}
         aria-haspopup="dialog"
         onClick={() => setOpen(true)}
       >
@@ -50,6 +56,12 @@ export function EmailDetails(props: EmailDetailsProps) {
           onClose={() => setOpen(false)}
         >
           {props.details}
+          {props.showPolicyHistory && props.academic && (
+            <section className="mb-5 space-y-2 rounded-xl border border-slate-200 bg-slate-50 p-4">
+              <AcademicSectionTitle />
+              <AcademicDetails academic={props.academic} />
+            </section>
+          )}
           {props.email ? (
             <EmailContent {...props} email={props.email} />
           ) : (
@@ -67,6 +79,11 @@ export function EmailDetails(props: EmailDetailsProps) {
   );
 }
 
+function AcademicSectionTitle() {
+  const t = useTranslations("academics");
+  return <h3 className="font-semibold">{t("title")}</h3>;
+}
+
 /** Mutation observers only exist while a dialog is open, even on a long roster. */
 function EmailContent({
   email,
@@ -78,10 +95,12 @@ function EmailContent({
   contactOnly = false,
 }: EmailDetailsProps & { email: string }) {
   const t = useTranslations("accountProfile");
+  const history = useTranslations("tuteeHistory");
   const [copyState, setCopyState] = useState<"idle" | "copied" | "error">(
     "idle",
   );
   const verify = api.admin.sendAccountVerification.useMutation();
+  const busy = useDialogPending(verify.isPending);
   return (
     <div className="space-y-4">
       <p className="rounded-xl border border-slate-200 bg-slate-50 p-4 text-base [overflow-wrap:anywhere] select-all">
@@ -94,7 +113,7 @@ function EmailContent({
             ? t("verified")
             : linked
               ? t("unverified")
-              : t("setupRequired")}
+              : history("noAccount")}
       </p>
       <p className="muted text-sm">
         {linked ? t("emailProtected") : t("unlinkedEmail")}
@@ -107,9 +126,7 @@ function EmailContent({
         </p>
       )}
       <div className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          className="btn-secondary"
+        <Button
           onClick={async () => {
             try {
               if (!navigator.clipboard)
@@ -122,16 +139,15 @@ function EmailContent({
           }}
         >
           {t("copyEmail")}
-        </button>
+        </Button>
         {!contactOnly && canSendSetup && userId && !verifiedAt && (
-          <button
-            type="button"
-            className="btn-primary"
-            disabled={verify.isPending}
+          <Button
+            variant="primary"
+            disabled={busy}
             onClick={() => verify.mutate({ userId })}
           >
             {t("sendVerification")}
-          </button>
+          </Button>
         )}
       </div>
       {copyState !== "idle" && (

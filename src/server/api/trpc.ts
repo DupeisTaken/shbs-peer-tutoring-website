@@ -1,3 +1,6 @@
+import { portalAccess } from "~/lib/portal-access";
+import { SignupRetry } from "~/server/signup-admission";
+import { accountHistoryIds } from "~/server/account-history";
 import { ApprovalQueued, queueProposal } from "~/server/approvals";
 import { approvalScope, isTranslationPublication } from "~/server/db-scope";
 import {
@@ -38,6 +41,10 @@ export function validationSummary(error: ZodError): string {
   ];
   const unique = [...new Set(messages)].filter(Boolean);
   if (!unique.length) return "Please review the submitted values.";
+  // Preserve a shared translation key for name validation instead of embedding a raw
+  // server code inside Zod's English summary. Field details remain available below.
+  if (unique.length === 1 && unique[0] === "PROFILE_LATIN_NAME_REQUIRED")
+    return unique[0];
 
   const shown = unique.slice(0, 3).join("; ");
   const omitted = unique.length - 3;
@@ -64,6 +71,7 @@ export function formatTRPCErrorShape<
         error.cause instanceof ApprovalQueued ? error.cause.approvalId : null,
       zodError: zodError ? zodError.flatten() : null,
       validationSummary: summary,
+      retryAfterSeconds: error.cause instanceof SignupRetry ? error.cause.retryAfterSeconds : null,
     },
   };
 }
@@ -181,8 +189,10 @@ export const protectedProcedure = t.procedure
       where: { id: ctx.session.user.id },
       select: {
         role: true,
+        mergedIntoId: true,
         tutorId: true,
         tutorAccessRevoked: true,
+        schoolDeparture: true,
         canTranslate: true,
         tuteeMember: true,
         studentId: true,
@@ -191,7 +201,7 @@ export const protectedProcedure = t.procedure
         username: true,
       },
     });
-    if (!account) throw new TRPCError({ code: "UNAUTHORIZED" });
+    if (!account || account.mergedIntoId) throw new TRPCError({ code: "UNAUTHORIZED" });
     if (
       account.suspendedAt &&
       !["account.me", "account.suspension", "account.submitAppeal"].includes(
@@ -203,6 +213,9 @@ export const protectedProcedure = t.procedure
         message: "Your account is suspended.",
       });
     }
+    const access = portalAccess(account);
+    if (type === "mutation" && access.departed && ["tutor.activateAccount", "tutor.requestReentry", "tutor.setAvailability", "tutor.setInterviewTime", "studentWorkflow.editAvailability", "studentWorkflow.applyAbort", "studentWorkflow.applyLegacyWithdrawal"].includes(path))
+      throw new TRPCError({ code: "FORBIDDEN", message: "School departure is confirmed. Ask Head to review your return." });
     // Participant reads and writes share the same consent boundary as the tutee page.
     // Policy/onboarding and staff inspection remain available before participation is granted.
     const tuteeOperations = new Set([
@@ -217,15 +230,15 @@ export const protectedProcedure = t.procedure
       "studentWorkflow.applyAbort",
     ]);
     if (tuteeOperations.has(path)) {
-      if (account.role === "VIEWER" || !account.tuteeMember)
+      if (account.role === "VIEWER" || (!account.tuteeMember && !access.departed))
         throw new TRPCError({
           code: "FORBIDDEN",
           message: "Accept the tutee policy before entering the tutee area.",
         });
       if (
-        account.tutorId &&
+        account.tutorId && !access.departed &&
         !(await ctx.db.policyAcceptance.findFirst({
-          where: { userId: ctx.session.user.id, slug: "tutee-policy" },
+          where: { userId: { in: await accountHistoryIds(ctx.db, ctx.session.user.id) }, slug: "tutee-policy" },
           select: { id: true },
         }))
       )
@@ -345,6 +358,7 @@ export const protectedProcedure = t.procedure
     }
     const result = await next({
       ctx: {
+        portalAccess: access,
         // infers the `session` as non-nullable
         session: {
           ...ctx.session,
@@ -359,7 +373,8 @@ export const protectedProcedure = t.procedure
     });
     // Attribute every successful signed-in mutation, including participant actions.
     // Store only operation metadata: passwords, message bodies and tokens never enter this log.
-    if (type === "mutation" && result.ok && !path.startsWith("approval.")) {
+    // Record transfer writes their audit evidence inside the transaction; previews roll back.
+    if (type === "mutation" && result.ok && !path.startsWith("approval.") && !path.startsWith("recordTransfer.") && !path.startsWith("accountCombine.")) {
       await ctx.db.auditLog.create({
         data: {
           userId: ctx.session.user.id,
@@ -497,7 +512,7 @@ export const activeTutorProcedure = tutorProcedure.use(
       where: { id: ctx.session.tutorId },
       select: { status: true },
     });
-    if (tutor?.status !== "ACTIVE") {
+    if (tutor?.status !== "ACTIVE" || !ctx.portalAccess.canParticipate) {
       throw new TRPCError({
         code: "FORBIDDEN",
         message: "This action requires an active tutor account.",
@@ -605,7 +620,7 @@ function maskViewerPII(value: unknown): unknown {
  */
 export const viewerProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   const { role } = ctx.session;
-  if (!isElevated(role) && role !== "VIEWER") {
+  if (!ctx.portalAccess.canReadManagement) {
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "Admin access required.",
@@ -625,7 +640,7 @@ export const viewerProcedure = protectedProcedure.use(async ({ ctx, next }) => {
     }
   }
   const result = await next();
-  if (role === "VIEWER" && result.ok) {
+  if (ctx.portalAccess.maskManagementData && result.ok) {
     return { ...result, data: maskViewerPII(result.data) };
   }
   return result;

@@ -1025,13 +1025,14 @@ function ReportTable({
       </TableActions>,
     );
   });
+  const canExport = api.account.me.useQuery().data?.role === "HEAD";
   return (
     <section className="space-y-2">
       <div className="report-section-head flex items-center justify-between">
         <h3 className="section-title">{title}</h3>
-        <button className="no-print link text-sm" onClick={onCsv}>
+        {canExport && <button className="no-print link text-sm" onClick={onCsv}>
           {csvLabel}
-        </button>
+        </button>}
       </div>
       <div className="card">
         <SummaryTable label={title}>

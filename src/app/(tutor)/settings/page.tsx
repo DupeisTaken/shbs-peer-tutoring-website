@@ -1,9 +1,15 @@
 "use client";
+import { PersonNameFields } from "~/app/_components/person-name-fields";
+import { nameDraft, personNameEdit } from "~/lib/person-name";
 
 import { useEffect, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
+import { SchoolDeparturePanel } from "~/app/_components/school-departure";
+import { AcademicPanel } from "~/app/_components/academic-profile";
+import { ProfilePolicyError } from "~/app/_components/profile-policy";
+import { AcademicError } from "~/app/_components/academic-error";
 import { signInAfterPasswordChange } from "~/lib/password-session";
 import { TwoFactorSettings } from "~/app/_components/two-factor-settings";
 import {
@@ -42,19 +48,23 @@ export default function SettingsPage() {
   });
 
   // Profile form — seeded from the loaded profile.
-  const [altNames, setAltNames] = useState("");
+  const [names, setNames] = useState(() => nameDraft());
+  const [originalNames, setOriginalNames] = useState(() => nameDraft());
+  const [legacyName, setLegacyName] = useState<string | null | undefined>();
+  const identity = personNameEdit(names, originalNames, legacyName);
+  const [profileVersion, setProfileVersion] = useState<number>();
+  const [profileDirty, setProfileDirty] = useState(false);
   const [email, setEmail] = useState("");
-  const [grade, setGrade] = useState("");
   const [optOutReason, setOptOutReason] = useState("");
   useEffect(() => {
-    if (profile.data) {
-      setAltNames(profile.data.alternativeNames ?? "");
+    if (profile.data && !profileDirty) {
+      setNames(nameDraft(profile.data));
+      setOriginalNames(nameDraft(profile.data));
+      setLegacyName(profile.data?.legacyName ?? profile.data?.englishName);
+      setProfileVersion(profile.data.profileVersion);
       setEmail(profile.data.email ?? "");
-      setGrade(
-        profile.data.gradeLevel != null ? String(profile.data.gradeLevel) : "",
-      );
     }
-  }, [profile.data]);
+  }, [profile.data, profileDirty]);
 
   // Password form — two-step: verify the current password to get an emailed code, then submit
   // the code with the new password (step-up email 2FA).
@@ -78,7 +88,10 @@ export default function SettingsPage() {
     onSuccess: (data) => setSentTo(data.email),
   });
   const changePassword = api.tutor.changePassword.useMutation({
-    onSuccess: () => { resetPasswordForm(); signInAfterPasswordChange(); },
+    onSuccess: () => {
+      resetPasswordForm();
+      signInAfterPasswordChange();
+    },
   });
 
   // Step 1: validate the new password locally, then ask for the emailed code.
@@ -136,32 +149,15 @@ export default function SettingsPage() {
           </div>
         </div>
 
-        <label className="block space-y-1">
-          <span className="label">{t("tutor.settings.grade")}</span>
-          <input
-            value={grade}
-            onChange={(e) => setGrade(e.target.value)}
-            type="number"
-            min={6}
-            max={12}
-            className="input field-auto min-w-20"
-          />
-          <span className="muted text-xs">{t("tutor.settings.gradeHelp")}</span>
-        </label>
-
-        <label className="block space-y-1">
-          <span className="label">{t("tutor.settings.altNames")}</span>
-          <input
-            value={altNames}
-            onChange={(e) => setAltNames(e.target.value)}
-            placeholder="中文名 / preferred name"
-            lang="zh"
-            className="input"
-          />
-          <span className="muted text-xs">
-            {t("tutor.settings.altNamesHelp")}
-          </span>
-        </label>
+        <PersonNameFields
+          value={names}
+          legacyName={legacyName}
+          originalValue={originalNames}
+          onChange={(value) => {
+            setNames(value);
+            setProfileDirty(true);
+          }}
+        />
 
         <label className="block space-y-1">
           <span className="label">{t("tutor.settings.email")}</span>
@@ -172,12 +168,18 @@ export default function SettingsPage() {
         <div className="flex items-center gap-3">
           <button
             className="btn-primary"
-            disabled={updateProfile.isPending}
+            disabled={
+              updateProfile.isPending ||
+              (!identity.preserved && !names.firstName.trim())
+            }
             onClick={() =>
-              updateProfile.mutate({
-                alternativeNames: altNames.trim() || null,
-                gradeLevel: grade.trim() ? Number(grade) : null,
-              })
+              updateProfile.mutate(
+                {
+                  ...identity.fields,
+                  expectedProfileVersion: profileVersion,
+                },
+                { onSuccess: () => setProfileDirty(false) },
+              )
             }
           >
             {updateProfile.isPending
@@ -191,11 +193,14 @@ export default function SettingsPage() {
           )}
           {updateProfile.error && (
             <span className="text-sm text-red-600">
-              {updateProfile.error.message}
+              <ProfilePolicyError message={updateProfile.error.message} />
             </span>
           )}
         </div>
       </section>
+
+      <AcademicPanel />
+      <SchoolDeparturePanel />
 
       {/* Password — two-step: verify current password to email a code, then submit code + new pw. */}
       <section className="card space-y-4 p-5">
@@ -409,7 +414,9 @@ export default function SettingsPage() {
               {t("tutor.settings.reentryBtn")}
             </button>
             {reentry.error && (
-              <p className="text-sm text-red-600">{reentry.error.message}</p>
+              <p role="alert" className="text-sm text-red-600">
+                <AcademicError message={reentry.error.message} selfService />
+              </p>
             )}
           </div>
         ) : (

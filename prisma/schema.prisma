@@ -37,13 +37,22 @@ enum Role {
 }
 
 model User {
-  studentId String? @unique
-  student Tutee? @relation(fields: [studentId], references: [id], onDelete: SetNull)
-  id    String  @id @default(cuid())
-  name  String?
+  studentId                String?                @unique
+  student                  Tutee?                 @relation(fields: [studentId], references: [id], onDelete: SetNull)
+  id                       String                 @id @default(cuid())
+  name                     String?
+  /// Explicit identity fields; name is the materialized program display label.
+  firstName                String?
+  lastName                 String?
+  preferredName            String?
+  /// Preserves an unstructured legacy name without guessing given/family boundaries.
+  legacyName               String?
   /// Canonical person profile; mirrored only through explicit tutor/student links.
   alternativeNames String?
   profileVersion Int @default(0)
+  academicProfile AcademicProfile?
+  schoolDeparture SchoolDeparture?
+  departureEvents SchoolDepartureEvent[]
   /// Login identifier. Also the address future email-based 2FA codes are sent to.
   email String  @unique
   /// Primary and verified secondary addresses share one globally unique namespace.
@@ -67,6 +76,11 @@ model User {
   passwordHash String?
   /// Database-maintained credential generation. Password writes revoke every earlier JWT.
   sessionVersion Int @default(0)
+  /// Permanently retired login. Historical authorship stays on this row; explicit HEAD merge
+  /// grants the surviving account access to its evidence. Identifiers remain reserved.
+  mergedIntoId String?
+  mergedInto User? @relation("CombinedAccounts", fields: [mergedIntoId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  combinedAccounts User[] @relation("CombinedAccounts")
 
   /// True for auto-provisioned accounts that signed in with the shared default password —
   /// the first-login onboarding forces a real password (and email) before the dashboard.
@@ -98,8 +112,7 @@ model User {
   /// service hours (0.5h per patrol) are accounted separately from tutoring hours.
   crewStatus CrewStatus?
 
-  /// Grade level (G-number) for crew-only logins (tutors keep grade on their Tutor record). Drives
-  /// the class-of year in the username suffix. Null for non-crew / unknown.
+  /// Compatibility mirror; AcademicProfile is the authoritative account academic report.
   gradeLevel Int?
 
   /// Who an observer is (self-registered read-only VIEWER): a free-text affiliation like
@@ -138,6 +151,8 @@ model User {
   notifications    Notification[]
 
   createdAt DateTime @default(now())
+
+  @@index([mergedIntoId])
 }
 
 /// An available UI language. Built-in locales (en/zh/es) ship with bundled JSON; translators can
@@ -201,16 +216,20 @@ model ProgramFeature {
 /// password it becomes a read-only VIEWER login. Rate-limited at the router. One row per email.
 /// See src/server/auth/viewer-signup.ts.
 model ViewerSignup {
-  id            String    @id @default(cuid())
-  email         String    @unique
-  name          String
-  affiliation   String
-  codeHash      String
-  codeExpiresAt DateTime
-  attempts      Int       @default(0)
-  verifiedAt    DateTime?
-  usedAt        DateTime?
-  createdAt     DateTime  @default(now())
+  firstName        String?
+  lastName         String?
+  preferredName    String?
+  alternativeNames String?
+  id               String    @id @default(cuid())
+  email            String    @unique
+  name             String
+  affiliation      String
+  codeHash         String
+  codeExpiresAt    DateTime
+  attempts         Int       @default(0)
+  verifiedAt       DateTime?
+  usedAt           DateTime?
+  createdAt        DateTime  @default(now())
 }
 
 /// Review state of a suspended user's reinstatement appeal.
@@ -318,9 +337,10 @@ enum Quarter {
 
 /// Lifecycle state of a tutor. ACTIVE tutors are eligible for pairings/attendance; the other
 /// three are "inactive" (read-only program access + own history). GRADUATED is set automatically
-/// when the program advances into Q4 for G12+; OPTED_OUT is set when an approved opt-out request
+/// when the program advances into Q4 for confirmed current-year G12; OPTED_OUT is set when an approved opt-out request
 /// is processed; ARCHIVED is the generic admin/crew deactivation (e.g. unavailable at rollover).
 enum TutorStatus {
+  TRANSFERRED
   ACTIVE
   /// Awaiting the tutor's start-of-term activation: after a semester refresh, continuing tutors are
   /// set PENDING and must reactivate (choose available -> ACTIVE, or opt out -> OPTED_OUT) from
@@ -416,13 +436,14 @@ model Term {
 model Tutor {
   qualificationApplications TutorApplication[] @relation("QualificationApplicant")
   id          String   @id @default(cuid())
-  /// Split name. `englishName` is kept as the canonical display name (= "First Last")
-  /// so the many places that render it don't change.
-  firstName   String?
-  lastName    String?
-  englishName String
-  /// Free-text alternative name(s) — full Unicode (e.g. 简体中文 / 漢字 / etc.). Display only;
-  /// shown alongside englishName. No charset restriction is applied anywhere.
+  /// Explicit fields feed the materialized program display label in englishName.
+  firstName                 String?
+  lastName                  String?
+  englishName               String
+  preferredName             String?
+  legacyName                String?
+  nameFieldsConfirmed       Boolean            @default(true)
+  /// Name in another language, shown alongside the main name when the program enables it.
   alternativeNames String?
   /// Login handle — default is first initial + full last name (e.g. "jsmith"), lowercased.
   /// Unique; lets a tutor sign in with username OR email. Resolved to the User via the
@@ -434,10 +455,15 @@ model Tutor {
   /// Lifecycle state (see TutorStatus). ACTIVE = eligible for pairings/attendance; the rest are
   /// inactive (read-only). Replaces the former `active` boolean.
   status      TutorStatus @default(ACTIVE)
-  /// School grade (e.g. 9–12), self-reported by the tutor. Increments by one when the program
-  /// refreshes across a school year; G12 tutors graduate at that point. Class-of year is derived
-  /// from this + the active school year (tutors can't edit the derived year). See src/lib/period.ts.
+  /// Compatibility grade mirror for linked accounts; provisional grade for roster-only tutors.
+  /// Reported grades never advance automatically. G12 graduation requires its confirmed reference
+  /// year; academic estimates use that reference rather than the currently active term.
   gradeLevel  Int?
+  /// Provisional academic choice until a linked account owns the canonical profile.
+  academicallyGraduated Boolean @default(false)
+  /// Provisional roster academic reference; account profile owns linked records.
+  gradeSchoolYear String?
+  gradeConfirmedAt DateTime?
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now()) @updatedAt
 
@@ -611,20 +637,27 @@ enum SignupSource {
 }
 
 model Tutee {
+  historyInvitation TuteeHistoryInvitation?
   user User?
   /// Entry provenance only; never an approval state or a priority override.
   signupSource SignupSource @default(UNKNOWN)
   intakeTermId String?
   /// Immutable priority timestamp for the current intake, independent of login creation.
-  signupSubmittedAt DateTime?
-  id          String      @id @default(cuid())
-  englishName String
-  alternativeNames String?
-  email       String?
-  phone       String?
+  signupSubmittedAt     DateTime?
+  id                    String       @id @default(cuid())
+  englishName           String
+  firstName             String?
+  lastName              String?
+  preferredName         String?
+  legacyName            String?
+  alternativeNames      String?
+  email                 String?
+  phone                 String?
   /// Free-text "how can we reach you?" captured on the public signup form (required there).
   preferredContact String?
   gradeLevel  String?
+  /// Provisional academic choice until a linked account owns the canonical profile.
+  academicallyGraduated Boolean @default(false)
   notes       String?
   status      TuteeStatus @default(ACTIVE)
 
@@ -915,6 +948,10 @@ enum CrewApplicationStatus {
 /// A public application to join the crew (no login is created — mirrors /signup & /tutor-signup).
 /// An admin reviews it on /admin/crew; accepting issues a CREW registration code bound to the email.
 model CrewApplication {
+  firstName        String?
+  lastName         String?
+  preferredName    String?
+  alternativeNames String?
   id               String                @id @default(cuid())
   name             String
   email            String
@@ -1117,6 +1154,7 @@ enum TutorApplicationStatus {
   INTERVIEW // interviewers assigned / scheduling
   ACCEPTED
   REJECTED
+  RECALLED // qualification request withdrawn by its applicant
 }
 
 enum TutorApplicationType {
@@ -1126,6 +1164,10 @@ enum TutorApplicationType {
 }
 
 model TutorApplication {
+  firstName                String?
+  lastName                 String?
+  preferredName            String?
+  alternativeNames         String?
   /// Existing tutors apply without entering the initial account-provisioning lifecycle.
   type TutorApplicationType @default(INITIAL)
   requestedTutorId String?
@@ -1136,6 +1178,9 @@ model TutorApplication {
   /// Actor ID and concrete subject IDs/names remain historical evidence after catalogue edits.
   qualificationDecidedById String?
   qualificationSnapshot Json?
+  /// Recall is applicant action, separate from a reviewer's decision evidence.
+  recalledAt DateTime?
+  recalledById String?
   /// Exact public consent evidence; null for historical applications, never backfilled.
   policyRevision String?
   policySnapshot Json?
@@ -1643,6 +1688,20 @@ model StudentProfileOwnership {
   @@index([userId])
 }
 
+/// Exact-record invitations establish historical ownership only, never participation.
+/// Tokens are hashed, single-use and excluded from program-record exports/imports.
+model TuteeHistoryInvitation {
+  tuteeId String @id
+  tutee Tutee @relation(fields: [tuteeId], references: [id], onDelete: Cascade)
+  tokenHash String @unique
+  email String
+  expectedUpdatedAt DateTime
+  issuedById String
+  reason String
+  expiresAt DateTime
+  createdAt DateTime @default(now())
+}
+
 /// Short-lived, user/action-bound confirmation tickets enforce the popup delay on the server.
 model StudentActionConfirmation {
   id String @id @default(cuid())
@@ -1809,8 +1868,17 @@ model SchoolCalendarDay {
 
 /// Singleton configuration; changing the zone never rewrites stored instants or weekly slot times.
 model ProgramSettings {
+  captchaEnabled Boolean @default(false)
+  captchaVersion Int @default(0)
   /// Head-only configuration for existing signup fields; missing keys use original defaults.
   signupFields Json @default("{}")
+  requireLatinNames Boolean @default(false)
+  /// Independent legal-name script rule; alternativeNames retains its storage key.
+  requireLatinLegalNames       Boolean  @default(false)
+  /// Display switches never remove any of the four stored name fields.
+  usePreferredNames            Boolean  @default(false)
+  showAlternateNames           Boolean  @default(false)
+  offeredGrades                Int[]    @default([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
   /// Immediate ADMIN/HEAD switch, independent of staged program modules and authentication mail.
   emailNotificationsEnabled Boolean @default(false)
   // Availability only: existing verified aliases and primary authentication remain intact.
@@ -1837,6 +1905,8 @@ model EmailDelivery {
   user User @relation(fields: [userId], references: [id], onDelete: Cascade)
   category String
   event String
+  /// Internal notification destination, retained without copying private message contents.
+  destination String?
   recipient String
   /// Previous primary receives the security notice even if it is subsequently removed.
   previousPrimary Boolean @default(false)
@@ -1857,4 +1927,103 @@ model PublicApplicationRateLimit {
   resetsAt DateTime
 
   @@index([resetsAt])
+}
+
+
+/// One academic identity for every account, independent of participation and login handle.
+model AcademicProfile {
+  userId String @id
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  status AcademicStatus @default(UNKNOWN)
+  gradeLevel Int?
+  rawGrade String?
+  schoolYear String?
+  confirmedAt DateTime?
+  reconfirmRequired Boolean @default(true)
+  history AcademicConfirmation[]
+}
+
+enum AcademicStatus {
+  REPORTED
+  UNKNOWN
+  GRADUATED
+  NOT_APPLICABLE
+}
+
+/// Append-only confirmations/corrections; prior intake/signature snapshots remain untouched.
+model AcademicConfirmation {
+  id String @id @default(cuid())
+  userId String
+  profile AcademicProfile @relation(fields: [userId], references: [userId], onDelete: Cascade)
+  status AcademicStatus
+  gradeLevel Int?
+  rawGrade String?
+  schoolYear String?
+  confirmedAt DateTime @default(now())
+  actorId String?
+  source String
+  reason String?
+  @@index([userId, confirmedAt])
+}
+
+/// Shared write fence: even repeatable-read/serializable identity transactions must see a fresh namespace.
+model UsernameNamespaceGuard {
+  id       Int    @id
+  revision BigInt @default(0)
+}
+
+// Security accounting uses raw atomic SQL; these models keep schema/migrations in sync.
+model SignupQuota {
+ key String @id
+ count Int
+ expiresAt DateTime
+ @@index([expiresAt])
+}
+model SignupLease {
+ slot String @id
+ owner String
+ expiresAt DateTime
+}
+
+model CaptchaProof {
+ key String @id
+ expiresAt DateTime
+ @@index([expiresAt])
+}
+model CaptchaGrant {
+ tokenHash String @id
+ action String
+ identityHash String
+ scene String
+ version Int
+ expiresAt DateTime
+ @@index([expiresAt])
+}
+
+/// Confirmed school departure is authority; academic reports and imported roster states are not.
+model SchoolDeparture {
+  userId String @id
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  reason String?
+  effectiveAt DateTime?
+  confirmedAt DateTime @default(now())
+  confirmedById String?
+  source String
+  revision Int @default(1)
+  observerRevoked Boolean @default(false)
+  tutorDerived Boolean @default(false)
+}
+
+/// Append-only evidence survives a return or a correction of the current state.
+model SchoolDepartureEvent {
+  id String @id @default(cuid())
+  userId String
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  action String
+  actorId String?
+  source String
+  explanation String
+  revision Int
+  createdAt DateTime @default(now())
+  @@unique([userId, revision])
 }

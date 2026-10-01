@@ -98,14 +98,14 @@ verification code; and outsiders can self-register a **read-only viewer (VIEWER)
 **`/viewer-signup`** (email-validated, behind the `VIEWER_SIGNUP` feature flag). The public tutee
 signup (`/signup`) first saves a survey; email confirmation then creates or links a student login. Tutor application (`/tutor-signup`) and crew application (`/crew-signup`) create pending records for review. Credential sign-in, the
 registration steps, and viewer signup are all **rate-limited in-app** (per IP + per code / email /
-identifier; `src/server/rate-limit.ts`); a CAPTCHA in front is still worth considering at scale.
+identifier; `src/server/rate-limit.ts`). Public tutee/viewer signup also uses [durable signup quotas](signup-protection.md) and supports [optional Aliyun CAPTCHA](captcha.md), disabled by default.
 Transactional email (reset links plus sign-in and password-change 2FA codes) goes through Aliyun
 Direct Mail — see "Email" below. Sign-in 2FA is enforced when the `EMAIL_2FA` program feature and
 the user's 2FA preference are both enabled.
 
 Public tutor and crew intake share database-backed limits: five distinct accepted submissions per normalized email in 24 hours, and 500 per network address in one hour. Pending retries return the same confirmation without another record, counter increment or notification; tutor applications awaiting an interview also count as pending. Decided applications may be submitted again within these limits. Counters, application writes and in-app notifications commit together, and counters survive server restarts and multiple instances. New distinct submissions prune hashed counter keys that expired more than seven days ago, in bounded batches; an idle deployment retains those expired keys until intake resumes.
 
-Configure the trusted reverse proxy to replace incoming `X-Forwarded-For`/`X-Real-IP` values rather than trusting values supplied by visitors, and keep the application port private. The first forwarded address is only an abuse signal, not identity. IPv6 uses a /64 bucket; missing or invalid addresses share one fallback bucket. The generous network allowance supports shared school networks; email ownership is not verified by these application forms, so operators needing stronger abuse protection should enforce it at the proxy too.
+Tutor/crew intake and credential sign-in use the proxy-supplied `X-Forwarded-For`/`X-Real-IP`; configure the proxy to replace visitor-supplied values and keep the application port private. Tutee/viewer signup instead requires the dedicated `X-Signup-Client-IP` boundary and `SIGNUP_TRUST_PROXY=true`, already configured in the supplied Caddy/Compose stack; see [proxy trust and network buckets](signup-protection.md#trusted-network-boundary). Network addresses are abuse signals, not identity. Tutor/crew application forms do not verify email ownership.
 
 ## 2. Host setup (once)
 
@@ -146,8 +146,8 @@ production secrets or branding arguments.
 | `APP_TITLE`, `TEAM_TITLE` | VPS `.env`; `SHBS Peer Tutoring`, `SHBS Peer Tutoring Team` | Recreate app; no rebuild |
 | `ORG_NAME`, `SUPPORT_EMAIL`, `PROGRAM_TERM_LABEL` | VPS `.env`; organization falls back to app title, other labels are empty | Recreate app; no rebuild |
 | `MESSAGES_OVERRIDE`, `AUTH_BOOTSTRAP_ADMIN_EMAILS` | VPS `.env`; empty by default | Recreate app; existing published content can override messages |
-| `AUTH_SECRET`, `SMTP_PASSWORD` | VPS `.env`; no production secret defaults | Recreate app; keep the auth secret stable across restarts/instances |
-| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `EMAIL_FROM`, `EMAIL_FROM_NAME` | Server-only VPS `.env`; host `smtpdm.aliyun.com`, port `465`, login falls back to sender address, display name to `APP_TITLE`; sender/password unset | Recreate app; verify real delivery |
+| `AUTH_SECRET`, `SMTP_PASSWORD`, `SMTP_SECURITY_PASSWORD`, `SMTP_PROGRAM_PASSWORD` | VPS `.env`; no production secret defaults | Recreate app; keep the auth secret stable across restarts/instances |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `EMAIL_FROM`, `EMAIL_FROM_NAME`, `EMAIL_SECURITY_FROM`, `SMTP_SECURITY_USER`, `EMAIL_PROGRAM_FROM`, `SMTP_PROGRAM_USER` | Server-only VPS `.env`; host `smtpdm.aliyun.com`, port `465`, login falls back to sender address, display name to `APP_TITLE`; sender/password unset | Recreate app; verify real delivery |
 | `POSTGRES_USER`, `POSTGRES_PASSWORD`, `POSTGRES_DB` | VPS `.env`, chosen at database initialization | Preserve for existing volume; credential changes need a separate database operation |
 | `DATABASE_URL`, `AUTH_URL`, `AUTH_TRUST_HOST`, `NODE_ENV` | Compose derives database URL from `POSTGRES_*`, sets `https://${DOMAIN}`, `true`, `production` | Do not override derived values in `.env` |
 | `DOMAIN` | VPS `.env`; replace example domain with real DNS name | Update DNS; recreate app **and Caddy** |
@@ -181,6 +181,8 @@ it instead breaks app connections or backups. Preserve the existing `.env` and
 If a credential must change, back up first and plan a coordinated PostgreSQL role
 change and app/backup configuration update separately.
 
+The application, Prisma migration CLI, seed/demo utilities and administrator bootstrap enforce UTC on every database connection through a shared URL policy. This is independent of the school's program timezone and the host operating-system timezone. Deploying this policy requires restarting the application so its pool uses new connections; it does not require a schema migration or timestamp rewrite. For manual SQL or external import tools, explicitly use a UTC session (`SET TIME ZONE 'UTC'`) because existing `TIMESTAMP(3)` instant fields follow the UTC convention. Previously written data is not repaired automatically; audit any suspected historical offset before correcting it.
+
 > **Accepted applicants self-register:** accepting a tutor application issues a single-use
 > registration code (bound to their email, re-viewable on `/admin/registration-codes`); the recruit
 > redeems it at `/register` to verify their email and set their own password. No shared default
@@ -193,8 +195,10 @@ change and app/backup configuration update separately.
 Transactional email — password-reset and tutor-setup links, emailed sign-in and password-change
 2FA codes, and registration / viewer one-time codes — is sent through **Aliyun Direct Mail** over SMTP
 (`src/server/email/sender.ts`: a pooled, TLS-enforced, timeout-bounded transporter that logs each
-send and failure). Until `EMAIL_FROM` + `SMTP_PASSWORD` are set the app logs mail in development
-and rejects production flows that require email. SMTP is optional for a first boot only if those
+send and failure). Every call declares its category; sender choice is centralized and never inferred
+from the subject. Each category uses its own complete sender account, falling back to the legacy
+`EMAIL_FROM` + `SMTP_PASSWORD` pair. Without either, the app logs that category
+in development and rejects production flows that require it. SMTP is optional for a first boot only if those
 flows remain unused; it is **required** for password resets, registration/viewer verification, and
 any emailed code. The `EMAIL_2FA` feature defaults on; users opt into sign-in 2FA in Settings.
 The same program feature requires an emailed verification code for password changes, regardless
@@ -226,9 +230,65 @@ SMTP_PASSWORD="<the SMTP password from step 4>"
 # SMTP_USER is optional — it defaults to EMAIL_FROM (Aliyun logs in as the sender address).
 ```
 
-Recreate the app container (`docker compose up -d --force-recreate app`) and test via **Forgot password** at `/signin`.
-If mail doesn't arrive: confirm the domain shows verified, the `From` exactly equals the sender
-address, outbound port 465 is open from the host, and check `docker compose logs app` for SMTP errors.
+**Separate sender identities (recommended):**
+
+| Category | Messages | Dedicated account |
+| --- | --- | --- |
+| `SECURITY` | Account/tutor setup and reset links; sign-in and step-up codes; email changes and binding; registration and viewer verification; account security notices | `EMAIL_SECURITY_FROM`, `SMTP_SECURITY_PASSWORD`, optional `SMTP_SECURITY_USER` |
+| `PROGRAM` | Student signup confirmation links and already-confirmed reminders; program, information, and private-message notification emails | `EMAIL_PROGRAM_FROM`, `SMTP_PROGRAM_PASSWORD`, optional `SMTP_PROGRAM_USER` |
+
+Viewer registration proves account ownership, so it is security mail. Student signup confirmation
+belongs to program intake and remains program mail, including the link into student account creation.
+The signup transport deadline is independent of sender purpose: viewer mail still uses the security
+identity even though it runs on a bounded signup connection.
+
+Repeat sender creation, verification and SMTP-password setup for **each** address. Aliyun passwords
+belong to individual sender addresses; never assume they can be shared. Add these server-only
+settings to the VPS `.env` (the existing `env_file` passes them to the app):
+
+```bash
+EMAIL_SECURITY_FROM="credentials@mail.your-school.edu"
+SMTP_SECURITY_PASSWORD="<that sender's SMTP password>"
+# SMTP_SECURITY_USER defaults to EMAIL_SECURITY_FROM.
+EMAIL_PROGRAM_FROM="noreply@mail.your-school.edu"
+SMTP_PROGRAM_PASSWORD="<that sender's own SMTP password>"
+# SMTP_PROGRAM_USER defaults to EMAIL_PROGRAM_FROM.
+```
+
+Both use `SMTP_HOST`, `SMTP_PORT`, and the optional `EMAIL_FROM_NAME` display name. Dedicated
+passwords and usernames are never inherited from the legacy account. Each category switches as
+soon as its own address **and** password are present; the other category can keep using the legacy
+account during rollout. A partial dedicated configuration falls back to the **entire** legacy
+account, including its From address. If neither complete account exists, only that category is
+unavailable in production. Keep the legacy pair until both dedicated senders pass their inbox tests;
+afterward it may be removed. Changing `.env` requires recreating the app container. A configured
+account with a bad password fails delivery; the application does **not** silently retry through a
+different identity. Failed essential/security sends never report successful delivery. Deferred
+notification jobs retain their existing bounded retry policy; an unconfigured category stays pending.
+
+**Real-inbox smoke test (operator action, after configuring real sender secrets):**
+
+1. Recreate the app with `docker compose up -d --force-recreate app`.
+2. **Security:** use Forgot password for a known test account with an inbox you control. Check inbox
+   and spam, open the received message, confirm From is `credentials@...`, and follow the reset link
+   to verify that it is accepted. Exercise viewer registration with another controlled address and
+   verify its code comes from the same security sender. Do not use participant accounts for testing.
+3. **Program:** during an open intake window, submit a test student signup using a controlled inbox.
+   Confirm From is `noreply@...`, follow the confirmation link, and confirm the request successfully.
+   Clean up the test request through the management interface afterward.
+4. Check each message's raw headers for the expected sender and provider authentication results
+   (SPF/DKIM/DMARC); record only sender identity, timestamp, and success in the release evidence.
+   Never copy OTPs, reset links, participant addresses, or credentials into reports or logs.
+5. In staging, temporarily give only the security sender an invalid SMTP password and repeat its
+   test: the flow must fail without exposing credentials, while a program signup still sends.
+   Restore the correct secret and recreate the app. Test legacy fallback in staging by removing a
+   dedicated pair while keeping a valid legacy pair; From should become the legacy address.
+
+These inbox checks are separate from mocked automated tests and must be completed by the deployment
+operator; automated tests do not establish real Aliyun delivery. If mail does not arrive, confirm the
+domain and each sender show verified, From exactly matches the account, and outbound SMTP is allowed.
+Application logs identify the category and failure without printing provider exceptions or secrets.
+
 
 ## 4. Image build (CI → GHCR)
 
@@ -416,6 +476,14 @@ gunzip -c backups/<file>.sql.gz | docker compose exec -T db psql -v ON_ERROR_STO
 
 ## Optional notification delivery
 
+Email actions require `AUTH_URL` to be the canonical public HTTPS origin in production (no path, query, credentials or localhost). Notification, password/setup and signup link builders share this validation; invalid configuration fails delivery instead of emailing a localhost link. Development alone may fall back to `http://localhost:3000`.
+
+Apply `20260929120000_email_notification_destinations` and regenerate Prisma before starting the updated worker. It retains each notification's internal destination in the outbox, in the same transaction as the event. Legacy program-update rows without a destination fall back to the home page. Account notices retain account settings; message notices use the role-aware inbox entry. A role downgrade falls back from staff-only links, and destination pages still enforce current access. Query parameters and fragments survive the notification's sign-in link, password/2FA completion, and expired-session recovery.
+
+Outgoing mail includes a shared branded HTML layout plus the original plain-text content. The layout needs no external images, fonts, or scripts; inspect representative clients, mobile widths, dark mode and images-disabled mode before rollout. Notification timestamps use the configured program timezone. Mail copy remains English, with existing bilingual signup instructions preserved: account records currently have no persisted mail-language preference. Configure and test the separate SECURITY and PROGRAM senders under [Email](#email--aliyun-direct-mail-邮件推送); each category needs a complete dedicated account or the complete legacy fallback.
+
+Generate synthetic, offline previews with `npx tsx scripts/preview-emails.ts`; output defaults to `.validation/email-previews`. These files never use the database or live SMTP. Browser previews supplement, but do not replace, the real-inbox checks below.
+
 For the supplied Docker deployment, pull and recreate the app as above: the image
 contains the generated Prisma client and its entrypoint runs migrations. For a
 source-based deployment outside Docker, apply all migrations with `npm run db:migrate`,
@@ -444,3 +512,60 @@ A successful build or published GHCR image does not verify target-host TLS, pers
 On a fresh deployment, inspect the public `tutee.signupOptions`, `application.options`, `tutee.surveyPolicy`, and `application.policy` requests. Before the recruitment-preview fix, an unpublished English policy returned HTTP 412 and appeared as a generic “could not load” error. Empty subjects or required tutee slots are separate setup gaps. Retrying or restarting does not create this configuration.
 
 Apply migration `20260922140000_recruitment_windows` with the release, regenerate the Prisma client when running from source, and restart the app. The updated public policy reads return an explicit absent-policy state; forms render a read-only preview with the missing prerequisites listed. Database/network failures still surface as loading errors. Use **Policy Documents**, **Subjects & Levels**, **Time Slots**, and the separate recruitment panels in **Program & Refresh** to complete setup. Publish reviewed school policy content; do not seed demo data in production. Verify both public forms before and after their configured opening/closing boundaries.
+
+## Public signup abuse controls
+
+Apply migrations and review [public signup protection](signup-protection.md) for
+quota defaults, the trusted Caddy boundary, SMTP deadlines and outage troubleshooting.
+Keep the application port private. No paid external service is required.
+
+## Optional CAPTCHA
+
+See [Aliyun CAPTCHA configuration and rollout](captcha.md) before enabling the
+management switch. Install provider credentials as deployment secrets, apply the
+migration, and perform the bounded operator smoke check after separate service
+activation. The switch defaults off and is independent of period refresh.
+
+## School departure migration
+
+After deploying the school-departure schema, inspect existing graduated tutor accounts:
+
+```powershell
+npx tsx scripts/backfill-school-departures.ts
+```
+
+This defaults to a dry run. After reviewing its counts and account IDs, apply with
+`npx tsx scripts/backfill-school-departures.ts --apply`. Repeating the command skips
+accounts already confirmed. Revoked/suspended accounts, standalone Viewers and accounts
+with active learning participation are reported for individual Head review.
+
+The migration preserves account roles and historical records. Self-reported academic
+graduation, ordinary archives and opt-outs do not grant access. New imports never run this
+migration automatically. Review later-linked historical accounts explicitly.
+
+The new `TRANSFERRED` tutor enum requires compatible application code. To disable the
+feature, revoke departure-based observer grants or deploy a compatible corrective release;
+do not run an older application that cannot read the enum or remove departure data to
+restore participation implicitly.
+
+The generic account-combine tool refuses accounts with departure history, including
+reviewed returns. Combining those identities needs a reviewed data migration that keeps
+departure events and explicit access revocations; do not delete departure rows to bypass it.
+
+## Combined-account identity retention
+
+Deploy `20260929010000_combine_accounts` and
+`20260929020000_retired_credential_grants` before running code with the Head-only
+account-combine workflow. The nullable `User.mergedIntoId` self-reference records an
+explicit, one-level historical ownership relationship. Existing accounts remain active.
+The database guards reject deleting either side of a combined identity, restoring
+retired credentials/links, and issuing new recovery or verification grants to a retired
+login. Duplicate primary/secondary addresses and usernames remain reserved; they are
+not aliases of the surviving login. Merge chains are deliberately blocked.
+
+Rollback of a completed combine is not an ordinary account edit or audit undo. Preserve
+the original accounts, messages, policy evidence and audit records; use a reviewed data
+migration if the ownership decision needs correction. Never remove the database guards
+or reuse a retired identifier as a shortcut. The application checks retirement on login,
+JWT validation, recovery, signup and live API authorization. Concurrent credential issuance
+is fenced by a User-row lock, and the merge's actor/evidence audit commits atomically.

@@ -94,3 +94,13 @@ it("hides self-review and final decision controls", () => {
   show({ ...base, status: "ACCEPTED" });
   expect(screen.queryByLabelText("Decision note")).toBeNull();
 });
+
+it("retains recalled evidence without offering staff decision controls", () => {
+  show({ ...base, status: "RECALLED" });
+  expect(screen.getByText("Synthetic evidence")).toBeTruthy();
+  expect(
+    screen.queryByRole("button", { name: "Approve qualification" }),
+  ).toBeNull();
+  expect(screen.queryByRole("button", { name: "Reject request" })).toBeNull();
+  expect(screen.queryByLabelText("Decision note")).toBeNull();
+});

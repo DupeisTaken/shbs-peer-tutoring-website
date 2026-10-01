@@ -1,8 +1,21 @@
 import type { Session } from "next-auth";
+import type * as SignupAdmission from "~/server/signup-admission";
+import type * as SignupCaptcha from "~/server/captcha";
 import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 vi.mock("~/server/audit/log", () => ({ recordAudit: vi.fn() }));
+// These procedure-unit tests isolate recruitment windows. Durable admission and
+// its ordering are exercised against PostgreSQL in signup-admission.test.ts.
+vi.mock("~/server/signup-admission", async (importOriginal) => ({
+  ...(await importOriginal<typeof SignupAdmission>()),
+  withSignupAdmission: (_db: unknown, _headers: Headers, _lane: unknown, _identity: unknown, work: () => Promise<unknown>) => work(),
+}));
+// CAPTCHA has its own direct-API integration suite; keep this fixture focused on windows.
+vi.mock("~/server/captcha", async (importOriginal) => ({
+  ...(await importOriginal<typeof SignupCaptcha>()),
+  withProtectedSignup: (_db: unknown, _headers: Headers, _action: unknown, _email: string, _grant: unknown, work: () => Promise<unknown>) => work(),
+}));
 
 import type { PrismaClient } from "../../../../generated/prisma";
 import { createCallerFactory } from "~/server/api/trpc";

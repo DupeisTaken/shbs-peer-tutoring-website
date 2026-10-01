@@ -465,3 +465,195 @@ it("keeps direct review available without interviews but rolls back approval of 
   ).toBe("PENDING");
   expect(await eligibleSubjectIds(db, "other-tutor")).toEqual([]);
 });
+
+async function recall(id: string, actor = "applicant") {
+  const app = await db.tutorApplication.findUniqueOrThrow({ where: { id } });
+  return caller(actor).qualificationApplication.recall({
+    id,
+    expectedUpdatedAt: app.updatedAt,
+  });
+}
+
+it.each([false, true])(
+  "recalls an owned request with interview=%s, retains evidence and permits resubmission",
+  async (interview) => {
+    if (interview)
+      await db.$transaction((tx) =>
+        approveQualification(tx, "applicant-tutor", "history-standard", "head"),
+      );
+    const { id } = await request();
+    if (interview) {
+      await panel(id);
+      await caller("panel-a").tutor.castInterviewVote({
+        applicationId: id,
+        accept: true,
+      });
+    }
+    const grants = await eligibleSubjectIds(db, "applicant-tutor");
+    await recall(id);
+    const app = await db.tutorApplication.findUniqueOrThrow({ where: { id } });
+    expect(app).toMatchObject({
+      status: "RECALLED",
+      recalledById: "applicant",
+      decidedAt: null,
+      qualificationDecidedById: null,
+      qualificationReason: "Synthetic qualification evidence",
+    });
+    expect(app.recalledAt).toBeInstanceOf(Date);
+    expect(app.type).toBe(interview ? "HIGHER_LEVEL" : "ADDITIONAL_SUBJECT");
+    expect(await eligibleSubjectIds(db, "applicant-tutor")).toEqual(grants);
+    expect(await db.tutorSubjectWillingness.count()).toBe(0);
+    expect(
+      await db.auditLog.count({
+        where: {
+          entityId: id,
+          userId: "applicant",
+          action: "Recalled subject qualification request",
+        },
+      }),
+    ).toBe(1);
+    expect(
+      (await caller().qualificationApplication.mine()).options.some(
+        (s) => s.id === "history-ap",
+      ),
+    ).toBe(true);
+    await expect(decide(id)).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(panel(id)).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(recall(id)).rejects.toMatchObject({ code: "CONFLICT" });
+    // The database protects history even if a future route bypasses the recall procedure.
+    await expect(
+      db.tutorApplication.update({
+        where: { id },
+        data: { status: "PENDING", recalledAt: null, recalledById: null },
+      }),
+    ).rejects.toThrow();
+    await expect(
+      db.tutorApplication.delete({ where: { id } }),
+    ).rejects.toThrow();
+    if (interview) {
+      expect(
+        await db.interviewAssignment.count({ where: { applicationId: id } }),
+      ).toBe(3);
+      expect(
+        await db.interviewVote.count({ where: { applicationId: id } }),
+      ).toBe(1);
+      await expect(
+        caller("panel-a").tutor.castInterviewVote({
+          applicationId: id,
+          accept: false,
+        }),
+      ).rejects.toMatchObject({ code: "CONFLICT" });
+      await expect(
+        caller("admin").tutor.setInterviewTime({
+          applicationId: id,
+          interviewAt: new Date(),
+        }),
+      ).rejects.toMatchObject({ code: "CONFLICT" });
+      expect(
+        (
+          await caller("admin").interviewManagement.options({
+            completion: "OPEN",
+          })
+        ).applications.rows.map((a) => a.id),
+      ).not.toContain(id);
+      expect(
+        (
+          await caller("admin").interviewManagement.options({
+            completion: "ALL",
+          })
+        ).applications.rows.map((a) => a.id),
+      ).toContain(id);
+    }
+    expect((await request()).id).not.toBe(id);
+    expect(
+      (await caller().qualificationApplication.mine()).requests,
+    ).toHaveLength(2);
+  },
+);
+
+it("refuses other applicants, initial applications, missing IDs, stale forms and inactive/revoked accounts", async () => {
+  const { id } = await request();
+  await expect(recall(id, "other")).rejects.toMatchObject({
+    code: "NOT_FOUND",
+  });
+  await expect(
+    caller().qualificationApplication.recall({
+      id: "missing",
+      expectedUpdatedAt: new Date(),
+    }),
+  ).rejects.toMatchObject({ code: "NOT_FOUND" });
+  await expect(
+    caller().qualificationApplication.recall({
+      id,
+      expectedUpdatedAt: new Date(0),
+    }),
+  ).rejects.toMatchObject({ code: "CONFLICT" });
+  const initial = await db.tutorApplication.create({
+    data: { name: "Initial", email: "initial@example.test" },
+  });
+  await expect(recall(initial.id)).rejects.toMatchObject({ code: "NOT_FOUND" });
+  await expect(
+    db.tutorApplication.update({
+      where: { id: initial.id },
+      data: {
+        status: "RECALLED",
+        recalledAt: new Date(),
+        recalledById: "applicant",
+      },
+    }),
+  ).rejects.toThrow();
+  await expect(
+    db.tutorApplication.update({ where: { id }, data: { status: "RECALLED" } }),
+  ).rejects.toThrow();
+  await db.tutor.update({
+    where: { id: "applicant-tutor" },
+    data: { status: "OPTED_OUT" },
+  });
+  await expect(recall(id)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await db.tutor.update({
+    where: { id: "applicant-tutor" },
+    data: { status: "ACTIVE" },
+  });
+  await db.user.update({
+    where: { id: "applicant" },
+    data: { tutorAccessRevoked: true },
+  });
+  await expect(recall(id)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect(
+    (await db.tutorApplication.findUniqueOrThrow({ where: { id } })).status,
+  ).toBe("PENDING");
+});
+
+it.each([true, false])(
+  "cannot recall a completed decision (accepted=%s)",
+  async (accept) => {
+    const { id } = await request();
+    await decide(id, accept);
+    await expect(recall(id)).rejects.toMatchObject({ code: "CONFLICT" });
+  },
+);
+
+it("serializes recall against approval so only one terminal outcome wins", async () => {
+  const { id } = await request();
+  const app = await db.tutorApplication.findUniqueOrThrow({ where: { id } });
+  const attempts = await Promise.allSettled([
+    caller().qualificationApplication.recall({
+      id,
+      expectedUpdatedAt: app.updatedAt,
+    }),
+    caller("admin").qualificationApplication.decide({
+      id,
+      accept: true,
+      comment: "Concurrent decision",
+      expectedUpdatedAt: app.updatedAt,
+    }),
+  ]);
+  expect(
+    attempts.filter((result) => result.status === "fulfilled"),
+  ).toHaveLength(1);
+  const after = await db.tutorApplication.findUniqueOrThrow({ where: { id } });
+  expect(["RECALLED", "ACCEPTED"]).toContain(after.status);
+  expect(
+    (await eligibleSubjectIds(db, "applicant-tutor")).includes("history-ap"),
+  ).toBe(after.status === "ACCEPTED");
+});

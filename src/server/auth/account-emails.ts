@@ -78,6 +78,8 @@ export async function authenticateEmailAction(
     });
   await lockAccountProfile(tx, userId);
   const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
+  if (user.mergedIntoId)
+    throw new TRPCError({ code: "FORBIDDEN", message: "This login has been retired." });
   if (!user.passwordHash || !verifyPassword(password, user.passwordHash))
     throw new TRPCError({
       code: "BAD_REQUEST",
@@ -93,6 +95,8 @@ export async function assertEmailAvailable(
   email: string,
 ) {
   const me = await tx.user.findUniqueOrThrow({ where: { id: userId } });
+  if (me.mergedIntoId)
+    throw new TRPCError({ code: "FORBIDDEN", message: "This login has been retired." });
   const [address, tutor, tutee] = await Promise.all([
     tx.accountEmail.findUnique({ where: { email } }),
     tx.tutor.findFirst({
@@ -124,7 +128,7 @@ export async function requestSecondaryEmail(
   inputEmail: string,
   password: string,
 ) {
-  if (!isEmailDeliveryAvailable())
+  if (!isEmailDeliveryAvailable("SECURITY"))
     throw new TRPCError({
       code: "PRECONDITION_FAILED",
       message: "Email delivery is unavailable.",
@@ -190,8 +194,10 @@ export async function requestSecondaryEmail(
   });
   try {
     await emailSender.send({
+      category: "SECURITY",
       to: email,
       subject: "Verify your secondary email",
+      presentation: { code, eyebrow: "EMAIL VERIFICATION" },
       text: `Your verification code is ${code}. It expires in ten minutes. If you did not request this, ignore this message.`,
     });
   } catch (error) {
@@ -213,6 +219,9 @@ export async function confirmSecondaryEmail(
   return db.$transaction(async (tx) => {
     await requireSecondaryEmailBinding(tx);
     await lockAccountProfile(tx, userId);
+    // Recheck after the same lock used by combine: admitted requests may have waited behind it.
+    const owner = await tx.user.findUniqueOrThrow({ where: { id: userId } });
+    if (owner.mergedIntoId) return false;
     const row = await tx.emailVerificationCode.findFirst({
       where: {
         userId,
@@ -267,6 +276,8 @@ export async function promoteEmail(
   email: string,
 ) {
   const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
+  if (user.mergedIntoId)
+    throw new TRPCError({ code: "FORBIDDEN", message: "This login has been retired." });
   if (email === user.email) return;
   await assertEmailAvailable(tx, userId, email);
   const address = await tx.accountEmail.findUnique({ where: { email } });

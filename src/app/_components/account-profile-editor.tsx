@@ -1,10 +1,17 @@
 "use client";
+import { ProfileEditSection } from "./profile-edit-section";
+import { Button } from "./ui/button";
+import { PersonNameFields } from "~/app/_components/person-name-fields";
+import { nameDraft, personNameEdit } from "~/lib/person-name";
 
+import { SchoolDeparturePanel } from "./school-departure";
 import { MembershipEditor } from "./membership-editor";
+import { AcademicPanel } from "./academic-profile";
 import { AccountUsernameEditor } from "./account-username-editor";
 import type { AccountMembership } from "~/lib/account-membership";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
+import { ProfilePolicyError } from "~/app/_components/profile-policy";
 import { api } from "~/trpc/react";
 import { ProfileDialog } from "~/app/_components/profile-dialog";
 
@@ -18,6 +25,10 @@ export function AccountProfileEditor({
     userId: string;
     username?: string | null;
     name: string;
+    firstName?: string | null;
+    lastName?: string | null;
+    preferredName?: string | null;
+    legacyName?: string | null;
     alternativeNames: string | null;
     profileVersion: number;
   };
@@ -26,71 +37,122 @@ export function AccountProfileEditor({
   isHead?: boolean;
 }) {
   const t = useTranslations("accountProfile");
-  const [name, setName] = useState(profile.name);
-  const [alternativeNames, setAlternativeNames] = useState(
-    profile.alternativeNames ?? "",
+  const [names, setNames] = useState(() => nameDraft(profile));
+  const [originalNames, setOriginalNames] = useState(() => nameDraft(profile));
+  const [legacyName, setLegacyName] = useState(
+    profile.legacyName ?? profile.name,
   );
+  const identity = personNameEdit(names, originalNames, legacyName);
+  const name = identity.name;
+  const [expectedProfileVersion, setExpectedProfileVersion] = useState(
+    profile.profileVersion,
+  );
+
   const utils = api.useUtils();
+  // Guard the interval before mutation state renders, so one request owns this draft.
+  const submitting = useRef(false);
   const save = api.admin.updateAccountProfile.useMutation({
+    onSettled: () => {
+      submitting.current = false;
+    },
     onSuccess: async () => {
       await Promise.all([
         utils.admin.accounts.invalidate(),
         utils.admin.tutors.invalidate(),
         utils.admin.tutees.invalidate(),
+        utils.tuteeHistory.invalidate(),
         utils.account.me.invalidate(),
       ]);
       onClose();
     },
   });
   return (
-    <ProfileDialog title={t("editProfile")} onClose={onClose}>
+    <ProfileDialog
+      title={t("editProfile")}
+      pending={save.isPending}
+      onClose={onClose}
+    >
       <form
         className="space-y-4"
         onSubmit={(event) => {
           event.preventDefault();
+          if (save.isPending || submitting.current) return;
+          submitting.current = true;
           save.mutate({
             userId: profile.userId,
             name,
-            alternativeNames: alternativeNames.trim() || null,
-            expectedProfileVersion: profile.profileVersion,
+            ...identity.fields,
+            expectedProfileVersion,
           });
         }}
       >
-        <p className="muted text-sm">{t("canonicalHelp")}</p>
-        <label className="block">
-          <span className="label">{t("name")}</span>
-          <input
-            className="input min-h-11 w-full lg:min-h-10"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            required
-            maxLength={100}
-          />
-        </label>
-        <label className="block">
-          <span className="label">{t("alternativeNames")}</span>
-          <input
-            className="input min-h-11 w-full lg:min-h-10"
-            value={alternativeNames}
-            onChange={(e) => setAlternativeNames(e.target.value)}
-            maxLength={200}
-          />
-          <span className="muted text-xs">{t("alternativeHelp")}</span>
-        </label>
-        <button
-          className="btn-primary min-h-11 lg:min-h-10"
-          disabled={save.isPending || !name.trim()}
+        <ProfileEditSection
+          title={t("name")}
+          busy={save.isPending}
+          actions={
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={save.isPending || !name.trim()}
+            >
+              {t("save")}
+            </Button>
+          }
         >
-          {t("save")}
-        </button>
-        {save.error && (
-          <p role="alert" className="text-sm text-red-600">
-            {save.error.message}
-          </p>
-        )}
+          <p className="muted text-sm">{t("canonicalHelp")}</p>
+          <PersonNameFields
+            value={names}
+            onChange={setNames}
+            legacyName={legacyName}
+            originalValue={originalNames}
+          />
+          {save.error && (
+            <p role="alert" className="text-sm text-red-600">
+              <ProfilePolicyError message={save.error.message} />
+            </p>
+          )}
+          {save.error?.data?.code === "CONFLICT" && (
+            <button
+              type="button"
+              className="btn-secondary min-h-11 lg:min-h-10"
+              onClick={async () => {
+                const accounts = await utils.admin.accounts.fetch();
+                const latest = accounts.rows.find(
+                  (row) => row.userId === profile.userId,
+                );
+                if (latest?.profileVersion != null) {
+                  setNames(nameDraft(latest));
+                  setOriginalNames(nameDraft(latest));
+                  setLegacyName(latest.legacyName ?? latest.name);
+                  setExpectedProfileVersion(latest.profileVersion);
+                  save.reset();
+                }
+              }}
+            >
+              {t("reloadIdentity")}
+            </button>
+          )}
+        </ProfileEditSection>
       </form>
-      {isHead && <AccountUsernameEditor userId={profile.userId} username={profile.username} profileVersion={profile.profileVersion} onSaved={onClose} />}
-      {membership && <MembershipEditor userId={profile.userId} initial={membership} isHead={isHead} />}
+      <div className="mt-5">
+        <AcademicPanel userId={profile.userId} />
+      </div>
+      {isHead && (
+        <AccountUsernameEditor
+          userId={profile.userId}
+          username={profile.username}
+          profileVersion={profile.profileVersion}
+          onSaved={onClose}
+        />
+      )}
+      {membership && (
+        <MembershipEditor
+          userId={profile.userId}
+          initial={membership}
+          isHead={isHead}
+        />
+      )}
+      <SchoolDeparturePanel userId={profile.userId} />
     </ProfileDialog>
   );
 }

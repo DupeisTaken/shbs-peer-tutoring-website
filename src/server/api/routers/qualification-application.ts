@@ -12,7 +12,7 @@ import {
   qualificationOptions,
   decideQualificationApplication,
 } from "~/server/qualification-applications";
-import { expectedUpdatedAt } from "~/server/concurrency";
+import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
 import { notifyUsers } from "~/server/notifications/create";
 import { qualificationSnapshot } from "~/lib/qualification-applications";
 import { courseChoices } from "~/server/course-choices";
@@ -29,6 +29,8 @@ export const qualificationApplicationRouter = createTRPCRouter({
           type: true,
           status: true,
           createdAt: true,
+          updatedAt: true,
+          recalledAt: true,
           interviewAt: true,
           decidedAt: true,
           decisionComment: true,
@@ -142,6 +144,65 @@ export const qualificationApplicationRouter = createTRPCRouter({
           tx,
         );
         return request;
+      }),
+    ),
+
+  recall: activeTutorProcedure
+    .input(z.object({ id: z.string().min(1), expectedUpdatedAt }).strict())
+    .mutation(({ ctx, input }) =>
+      inTransaction(ctx.db, async (tx) => {
+        // Serialize against decisions, panel assignment, votes and scheduling.
+        await lockEntity(tx, `interview:${input.id}`);
+        const app = await tx.tutorApplication.findFirst({
+          where: {
+            id: input.id,
+            requestedTutorId: ctx.session.tutorId,
+            type: { not: "INITIAL" },
+          },
+        });
+        if (!app)
+          throw new TRPCError({
+            code: "NOT_FOUND",
+            message: "Qualification request not found.",
+          });
+        const user = await tx.user.findUniqueOrThrow({
+          where: { id: ctx.session.user.id },
+          include: { tutor: true },
+        });
+        if (
+          user.tutorId !== app.requestedTutorId ||
+          user.tutorAccessRevoked ||
+          user.suspendedAt ||
+          user.tutor?.status !== "ACTIVE"
+        )
+          throw new TRPCError({
+            code: "FORBIDDEN",
+            message: "An active tutor account is required.",
+          });
+        if (!["PENDING", "INTERVIEW"].includes(app.status))
+          throw new TRPCError({
+            code: "CONFLICT",
+            message: "Only open qualification requests can be recalled.",
+          });
+        if (app.updatedAt.getTime() !== input.expectedUpdatedAt.getTime())
+          staleConflict();
+        await tx.tutorApplication.update({
+          where: { id: app.id },
+          data: {
+            status: "RECALLED",
+            recalledAt: new Date(),
+            recalledById: user.id,
+          },
+        });
+        await tx.auditLog.create({
+          data: {
+            userId: user.id,
+            entity: "TutorApplication",
+            entityId: app.id,
+            action: "Recalled subject qualification request",
+          },
+        });
+        return { ok: true };
       }),
     ),
 

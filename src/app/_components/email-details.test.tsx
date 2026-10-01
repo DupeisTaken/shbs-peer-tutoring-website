@@ -57,6 +57,19 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
+it("moves the full academic record into User Details without needing an email or login", () => {
+  show({ email: null, showPolicyHistory: true, academic: {
+    status: "REPORTED", gradeLevel: 10, rawGrade: null, schoolYear: "26-27",
+    expectedGraduationYear: 2029, confirmedAt: null, needsConfirmation: true,
+  } });
+  expect(screen.queryByText("Grade 10")).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "User details" }));
+  expect(screen.getByRole("heading", { name: "Academic Details" })).toBeTruthy();
+  expect(screen.getByText("Grade 10")).toBeTruthy();
+  expect(screen.getByText("School year 26-27")).toBeTruthy();
+  expect(screen.getByText("Expected graduation: 2029")).toBeTruthy();
+  expect(screen.getByText(en.academics.needsConfirmation)).toBeTruthy();
+});
 it("opens policy history by account ID even when email is missing, without cross-user carryover", () => {
   const view = show({
     email: null,
@@ -66,7 +79,7 @@ it("opens policy history by account ID even when email is missing, without cross
   expect(mocks.history).not.toHaveBeenCalled();
   fireEvent.click(screen.getByRole("button", { name: "User details" }));
   expect(
-    screen.getByRole("dialog", { name: "User details · Alice" }),
+    screen.getByRole("dialog", { name: "User Details · Alice" }),
   ).toBeTruthy();
   expect(screen.getByText("No email")).toBeTruthy();
   expect(mocks.history).toHaveBeenLastCalledWith({
@@ -171,7 +184,7 @@ it("only sends verification on click and sends the account ID instead of a clien
 it("does not create links or send verification for an unlinked tutor contact", () => {
   show({ tutorId: "unlinked-tutor", canSendSetup: true });
   fireEvent.click(screen.getByRole("button", { name: "Show email" }));
-  expect(screen.getByText("Account setup required")).toBeTruthy();
+  expect(screen.getByText("Participant record · no login")).toBeTruthy();
   expect(
     screen
       .getByRole("link", {

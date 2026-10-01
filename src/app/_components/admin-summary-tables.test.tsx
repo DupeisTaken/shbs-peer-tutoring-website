@@ -16,6 +16,7 @@ import ServiceHoursPage from "../(admin)/admin/service-hours/page";
 import HistoryPage from "../(admin)/admin/history/page";
 
 const state = vi.hoisted(() => {
+  const permissions: { accountRole: string | null } = { accountRole: "HEAD" };
   const date = new Date("2026-09-15T08:00:00Z");
   const tutor = {
     tutorId: "tutor-1",
@@ -29,6 +30,7 @@ const state = vi.hoisted(() => {
   };
   return {
     readOnly: false,
+    ...permissions,
     undo: vi.fn(),
     review: vi.fn(),
     correction: vi.fn(),
@@ -235,6 +237,16 @@ vi.mock("~/trpc/react", () => ({
       },
     }),
     program: { features: { useQuery: () => ({ data: {} }) } },
+    account: {
+      me: {
+        useQuery: () => ({
+          data:
+            state.accountRole === null
+              ? undefined
+              : { role: state.accountRole },
+        }),
+      },
+    },
     admin: {
       auditLog: { useQuery: () => ({ data: state.audit }) },
       undoAudit: {
@@ -273,6 +285,7 @@ const wrapper = ({ children }: { children: React.ReactNode }) => (
 beforeEach(() => {
   vi.clearAllMocks();
   state.readOnly = false;
+  state.accountRole = "HEAD";
   state.sessions[0]!.mergeGroupId = null;
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
     configurable: true,
@@ -548,3 +561,34 @@ it("keeps full signup contact and subject columns in CSV exports after compactin
     ]),
   );
 });
+
+it.each(["ADMIN", "COORDINATOR", "VIEWER", null])(
+  "keeps report detail access without exposing Head-only CSV exports for role %s",
+  (role) => {
+    // A missing account response must not briefly expose privileged exports.
+    state.accountRole = role;
+    render(<HistoryPage />, { wrapper });
+    fireEvent.change(
+      screen.getByRole("combobox", { name: messages.admin.reports.depth }),
+      { target: { value: "full" } },
+    );
+    expect(screen.getAllByRole("table")).toHaveLength(12);
+    expect(
+      screen.queryByRole("button", { name: messages.admin.reports.csv }),
+    ).toBeNull();
+    const adjustments = screen.getByRole("table", {
+      name: messages.admin.reports.sections.adjustments,
+    });
+    fireEvent.click(
+      within(rightmostActions(adjustments)).getByRole("button", {
+        name: /^View details:/,
+      }),
+    );
+    expect(
+      within(screen.getByRole("dialog")).getByText(
+        "Detailed adjustment reason",
+      ),
+    ).toBeTruthy();
+    expect(state.csv).not.toHaveBeenCalled();
+  },
+);

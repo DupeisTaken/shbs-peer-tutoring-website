@@ -50,7 +50,8 @@ When Email 2FA is on, password changes also require an emailed verification code
 | Control | Scope / timing |
 | --- | --- |
 | Program timezone | ADMIN/HEAD saves a supported IANA region after reviewing consequences; dates and deadlines use it consistently. Existing instants remain fixed; weekly slots remain school wall-clock times |
-| Signup opening and preview link | ADMIN/HEAD changes the current intake immediately; a scheduled opening requires an HTTP(S) preview link. Clearing the opening time opens intake immediately |
+| Tutor and tutee recruitment | ADMIN/HEAD saves each active-period window separately: acceptance switch, optional start/end times and optional preview link. Clearing a start time still respects the switch, end time and setup requirements; see [recruitment windows](#tutor-and-tutee-recruitment-windows) |
+| Names and grades | ADMIN/HEAD sets offered grades and independently controls **Use preferred names** and **Show names in another language**; see [name fields and display settings](user-guide.md#configure-signup-forms) |
 | Subjects, levels, slots and rooms | Management catalogues used by application, availability and pairing workflows |
 | Policy versions | Published database revisions require new acceptance for participation; changing a bundled policy draft does not publish it |
 | School calendar | Staff define holidays and make-up days used for school-day appeal deadlines |
@@ -61,11 +62,11 @@ When Email 2FA is on, password changes also require an emailed verification code
 
 ## Optional email notifications
 
-ADMIN or HEAD can enable **Email notifications** in **Program & Refresh**. This immediate setting defaults off and is separate from staged modules and email 2FA. Production requires configured email delivery. Individuals then choose private-message and information/program categories, and whether verified secondary addresses receive copies; see [personal preferences](user-guide.md#optional-email-notifications).
+ADMIN or HEAD can enable **Email Notifications** in **Program & Refresh**. This immediate setting defaults off and is separate from staged modules and email 2FA. Production requires configured email delivery. Individuals then choose private-message and information/program categories, and whether verified secondary addresses receive copies; see [personal preferences](user-guide.md#optional-email-notifications).
 
 Disabling the setting cancels pending optional notices and preserves personal preferences. Users cannot enable notifications themselves while this program switch is off. Security alerts remain mandatory.
 
-The independent **Secondary-email binding** switch is also immediate and editable only by ADMIN/HEAD; coordinators cannot propose changes to either email switch. Binding availability defaults on to preserve the existing workflow. Turning it off blocks add/resend/confirm operations, including a code issued before the switch changed. It preserves existing account addresses, sign-in/recovery, primary-email changes and removal/cancellation. A secondary email is never required for signup, setup or use. This switch does not require notification emails to be enabled.
+The independent **Secondary-Email Binding** switch is also immediate and editable only by ADMIN/HEAD; coordinators cannot propose changes to either email switch. Binding availability defaults on to preserve the existing workflow. Turning it off blocks add/resend/confirm operations, including a code issued before the switch changed. It preserves existing account addresses, sign-in/recovery, primary-email changes and removal/cancellation. A secondary email is never required for signup, setup or use. This switch does not require notification emails to be enabled.
 
 The settings panel reports terminal delivery failures; operators should inspect the safe failure summaries in `EmailDelivery` and follow the [delivery operations guide](deployment.md#optional-notification-delivery). Essential authentication mail remains independent.
 
@@ -83,11 +84,11 @@ Changing a catalog slot's clock times also updates previously recorded sessions 
 
 The applied **Quarter System** setting controls labels: Q1/Q2 display in semester one and Q3/Q4 in semester two when quarters are disabled. Requests display their original intake, not whichever intake is currently active. Staged module changes take effect only at refresh; labels do not rewrite stored deadlines or attendance.
 
-**Subjects & Levels** configures each subject group once. Select its offered levels and enter a separate base name for each: Standard “Intro to Computer Science” displays without a prefix, while AP “Computer Science A” displays as “AP Computer Science A”. Level prefixes are editable; leave the Standard prefix empty. Reorder groups to control the management group display and reorder levels along the **Beginner → Advanced** scale. Course pickers (including both tutee choices and tutor applications) follow that level scale first, then alphabetize by the underlying course name within each level. Courses with no level appear alongside the unprefixed/regular tier without changing their saved level. Group order does not affect picker order. Each group displays beginner levels first. Use **Import subjects** with a JSON file to create complete groups with multiple offerings. [Download an example](../public/examples/course-groups.json). Each group has a `name` and an `offerings` array; each offering has a `baseName` without a prefix and a `level` matching an existing active level name (case-insensitive), or `null` for no level. The format is `{ "groups": [{ "name": "Computer Science", "offerings": [{ "baseName": "Intro to Computer Science", "level": "Standard" }, { "baseName": "Computer Science A", "level": "AP" }] }] }`. Create the levels first. Import at most 500 offerings in a file of at most 1 MB. New groups are appended in file order; offerings follow the configured level order. Exact repeats are skipped. Existing groups with different offerings, archived variants, duplicate names/levels and unknown levels cause the whole JSON import to fail without partial changes. Edit existing groups explicitly to resolve conflicts. Coordinator imports require approval. The `name,level` CSV import remains available and starts a separate group for each new row. To consolidate existing subjects, edit a group and select its existing variants explicitly. No grouping is guessed from similar names.
+**Subjects & Levels** configures each subject group once. Select its offered levels and enter a separate base name for each: Standard “Intro to Computer Science” displays without a prefix, while AP “Computer Science A” displays as “AP Computer Science A”. Level prefixes are editable; leave the Standard prefix empty. Reorder groups to control the management group display and reorder levels along the **Beginner → Advanced** scale. Course pickers (including both tutee choices and tutor applications) follow that level scale first, then alphabetize by the underlying course name within each level. Courses with no level appear alongside the unprefixed/regular tier without changing their saved level. Group order does not affect picker order. Each group displays beginner levels first. Use **Import Subjects** with a JSON file to create complete groups with multiple offerings. [Download an example](../public/examples/course-groups.json). Each group has a `name` and an `offerings` array; each offering has a `baseName` without a prefix and a `level` matching an existing active level name (case-insensitive), or `null` for no level. The format is `{ "groups": [{ "name": "Computer Science", "offerings": [{ "baseName": "Intro to Computer Science", "level": "Standard" }, { "baseName": "Computer Science A", "level": "AP" }] }] }`. Create the levels first. Import at most 500 offerings in a file of at most 1 MB. New groups are appended in file order; offerings follow the configured level order. Exact repeats are skipped. Existing groups with different offerings, archived variants, duplicate names/levels and unknown levels cause the whole JSON import to fail without partial changes. Edit existing groups explicitly to resolve conflicts. Coordinator imports require approval. The `name,level` CSV import remains available and starts a separate group for each new row. To consolidate existing subjects, edit a group and select its existing variants explicitly. No grouping is guessed from similar names.
 
 The default demo seed uses **Standard → Honors → AP**, with ranks 0, 1 and 2 respectively. Standard has no display prefix; only AP accepts an AP score. Reseeding the disposable demo restores this order using the same level IDs. This default does not overwrite an existing school's custom ordering during migration or normal startup.
 
-Staff approve qualifications in **Interviews & Panelists**. Approval records the selected variant and every lower offered level in the same group. Application selections alone confer no eligibility. Later level reordering or newly offered variants never expand or revoke those recorded grants; future approvals use the new order. Expanding an approval shows its recorded subjects. Removing an approval removes only its own grants; overlapping approvals remain valid. Tutor assignment and interview checks use these recorded grants.
+Staff manage recorded qualifications in **Subject Availability**; application decisions and interviews are in **Tutor Applications**. Approval records the selected variant and every lower offered level in the same group. Application selections alone confer no eligibility. Later level reordering or newly offered variants never expand or revoke those recorded grants; future approvals use the new order. Expanding an approval shows its recorded subjects. Removing an approval removes only its own grants; overlapping approvals remain valid. Tutor assignment and interview checks use these recorded grants.
 
 Unselecting or removing a subject archives it while retaining choices, assignments and qualifications. Levels with existing variants cannot be deleted, and a variant with recorded grants cannot be changed to a different level. Rename its base name or prefix without replacing its identity. Existing subject and qualification migration preserves all IDs, labels and exact approved eligibility. Management catalogue and qualification writes require ADMIN/HEAD authority; coordinators submit proposals for review, and viewers cannot write.
 
@@ -99,11 +100,39 @@ ADMIN or HEAD runs refresh in **Program & Refresh** after checking the displayed
 | --- | --- |
 | Advance the period | Pending and active tutees become inactive and must sign up again; past pairings remain historical |
 | Cross a semester boundary | Continuing active tutors become pending and must choose whether they are available or opting out |
-| Graduate senior tutors | Active tutors in grade 12 or above graduate on entry to Q4 in quarter mode, or at the school-year boundary in semester mode |
-| Cross a school-year boundary | Remaining active tutors with a recorded grade advance one grade |
+| Graduate senior tutors | Active tutors with confirmed G12 for the graduating reference year graduate on entry to Q4 in quarter mode, or at the school-year boundary in semester mode |
+| Cross a school-year boundary | Reported grades remain unchanged; academic profiles need reconfirmation for the new year |
 | Preserve evidence | Attendance, service hours, policy acceptances and audit records remain; current-period totals and participation are evaluated separately |
 
 Reload if another administrator has already changed the period. After refresh, check applied switches, tutor availability, intake settings and new assignments before resuming the program.
+
+## School departure and viewer access
+
+Graduated and transferred students keep their personal dashboards and historical records.
+Confirmed departure adds **Enter viewer portal** to the tutor or student workspace. The
+portal shows the same permitted summaries and masked private fields as a standalone Viewer.
+It does not convert the account to the exclusive Viewer membership.
+
+Use **School Departure** in personal account settings to request graduation, transfer or
+return. Head reviews requests through **Management Actions**; pending requests grant no
+access. Staff can also open **Users & Roles → Edit Profile → School Departure**. Head can
+apply the reviewed change directly; other management accounts submit a proposal.
+Academic self-reports and imported roster records do not grant observer access.
+
+Confirmation ends tutoring and tutee participation, removes current assignments and requeues
+affected learners. Historical attendance, pairings and service hours remain. School transfer
+does not change academic graduation or grade reports. Separately assigned crew, translator
+and management permissions remain in place for independent review.
+
+Head can revoke or restore departure-based observer access without erasing departure
+history. Account suspension takes precedence. Revoked tutor access also blocks an observer
+grant derived from that tutor membership. A reviewed return removes the departure grant,
+puts an eligible tutor back into pending activation, and requires fresh tutee enrollment;
+it never reconstructs old assignments. Ordinary archived/opted-out accounts acquire no
+observer access merely from those statuses.
+
+Program refresh records eligible senior graduation automatically. Existing graduated tutor
+accounts require the explicit migration described in the deployment guide.
 
 ## Review attendance flags
 
@@ -123,11 +152,69 @@ HEAD and ADMIN can apply additions and deletions. Coordinator writes become appr
 
 Open **Reports** (`/admin/history`) and choose a school year and quarter, semester or whole-year scope. **Summary** shows totals and tutors; **Detailed** adds sessions, cards, meetings, meeting attendance, adjustments, crew and attendance flags; **Full** also includes applications, signups, removals and tutor participation requests. Sections follow enabled modules.
 
-Download a displayed table as CSV, or use **Print / Save as PDF** and the browser's print dialog. Review the private-data masking option before sharing; VIEWER responses are always masked by the server. Exports reflect the chosen scope and current records. They are not backups or substitutes for the separate audit and policy-acceptance histories.
+HEAD can download a displayed table as CSV. Use **Print / Save as PDF** and the browser's print dialog for a printable report. Review the private-data masking option before sharing; VIEWER responses are always masked by the server. Report exports reflect the chosen scope and current records. They are not database backups and do not use the import format below.
 
-## Program time zone
+## Import and export program records
 
-HEAD or ADMIN selects a supported IANA region in **Program & Refresh → Program time zone**; coordinators can read it. The default is Asia/Shanghai. Review the current/proposed time preview and confirm before saving. Reload a stale editor or other open pages after another staff member changes the setting.
+Only **HEAD** can open **Program records** (`/admin/records`), download CSV archives/templates, preview an import or commit it. ADMIN and COORDINATOR cannot submit imports for approval. Access is checked against the current database role, including after a demotion or suspension.
+
+**Export CSV archive** downloads one ZIP containing a CSV for every supported record type plus `README.txt`. **Download CSV templates** supplies the same headers without data. Use these templates for past records from spreadsheets: rename/map the source columns to the template columns, keep the filenames, and provide stable IDs for each record and its references. An export includes all available program periods, independent of the Reports page filters.
+
+Historical participants can remain accountless. After import, use [historical record views and reviewed account linking](historical-participant-transition.md) to inspect original enrollment information or give an eligible verified account access to its own history. Importing records or linking history does not grant current participation or departure-based observer access.
+
+| Included records | CSV families |
+| --- | --- |
+| People and reference data | Tutor, Tutee, User account references, Term, SubjectLevel, CourseGroup, Subject, Room, TimeSlot, SchoolCalendarDay |
+| Scheduling | RoomUnavailability, TutorAvailability, TuteeAvailability, TutorSubjectWillingness, Pairing, PairingTutee |
+| Attendance and hours | Session, SessionTutee, TutorMeeting, MeetingAttendance, ServiceHourAdjustment, Patrol, PatrolObservation, SessionFlag |
+| Applications and membership history | TutorApplication, ApplicationSubjectIntent, InterviewAssignment, InterviewVote, TutorStatusRequest, TuteeRemovalRequest, CrewApplication, CrewStatusRequest |
+| Student and academic history | StudentSurvey, StudentRequestReview, StudentQuarterBlock, StudentProfileOwnership, PolicyAcceptance, StudentFeedback, StudentAppeal, TutorQualification, QualificationGrant, AcademicProfile, AcademicConfirmation |
+| Announcements | Announcement, AnnouncementAck |
+
+This is a program-record archive, not a full deployment backup. It excludes account passwords, roles and access settings; verification/registration/reset tokens; private messages; executable approval and audit payloads; live program configuration; website content; and uploaded files. `User.csv` contains reference IDs, names and emails only. Its accounts must already exist with matching values; importing never creates logins or changes account privileges. New tutor handles cannot collide with account handles, and account-owned email addresses must be reconciled through account management first. Existing users retain their own account-to-tutor links; the archive does not create those links by matching names or email addresses. Student ownership rows use explicit IDs and cannot claim a profile linked to another account. Imported survey verification hashes are newly randomized, so an old verification link cannot become usable again.
+
+### Prepare CSV files
+
+- Use UTF-8, unchanged case-sensitive filenames such as `Tutor.csv`, and exact column names from the templates. Quoted commas, quotes and multiline text are supported.
+- Provide each primary key, including all columns of a composite key. Keep IDs unchanged on retries. Omit columns with defaults to use those defaults; otherwise supply every required column. Do not leave a required timestamp or number empty.
+- Use `true`/`false`, numeric quantities, enum values from the application's schema, and ISO timestamps with `Z` or a timezone offset. Use JSON inside a quoted cell for arrays and objects.
+- `\N` means a database null. An empty cell means empty text. Double a literal leading backslash or apostrophe. Exports prefix formula-like text with an apostrophe for spreadsheet safety; the importer reverses that prefix.
+- New terms must have `active=false`. New pairings and sessions must belong to inactive terms. Importing history never changes the active program period. Stored historical service hours are retained, rather than recalculated with a later policy.
+- Select related CSV files together; the importer orders them by dependency. References must point to another selected record or an existing database record. A transfer supports up to **5 MiB of expanded CSV data and 5,000 records**. For larger complete exports, use an operator-managed database backup.
+
+For example, import these three files together to add an archived tutor and pairing. IDs are synthetic; replace them with your own stable identifiers. The tutor record does not create a login.
+
+`Tutor.csv`:
+
+```csv
+id,englishName,status
+legacy-tutor-001,Example Tutor,GRADUATED
+```
+
+`Term.csv`:
+
+```csv
+id,schoolYear,quarter,name,active
+legacy-term-001,24-25,Q1,24-25 Q1,false
+```
+
+`Pairing.csv`:
+
+```csv
+id,tutorId,termId,subject,dayOfWeek,startMin,endMin
+legacy-pairing-001,legacy-tutor-001,legacy-term-001,Mathematics,2,600,630
+```
+
+### Preview and import
+
+1. Select the CSV files together or select an exported ZIP, then choose **Preview import**.
+2. Review the counts of new and already-present records. Preview saves no records. An invalid row reports its filename and CSV row number; correct it and select the files again.
+3. Check the confirmation box and choose **Import records**. Confirmation authorizes exactly the previewed files for 15 minutes. Changing files clears the preview.
+4. Check the success message and Audit Log. All new records and import evidence commit together. A failed import leaves no partial records. A network retry with the same IDs and values skips existing records; a conflicting ID or unique value rejects the whole batch. If records changed after preview, correct the conflict and preview again.
+
+## Program Time Zone
+
+HEAD or ADMIN selects a supported IANA region in **Program & Refresh → Program Time Zone**; coordinators can read it. The default is Asia/Shanghai. Review the current/proposed time preview and confirm before saving. Reload a stale editor or other open pages after another staff member changes the setting.
 
 Options show the readable region, a localized zone name, an abbreviation where available, and a GMT offset. Use **Preview date** to compare seasonal offsets at 12:00 UTC on that date; this preview does not save a setting. New York shows EST (GMT-05:00) in winter and EDT (GMT-04:00) in summer. UTC and fractional offsets such as India's GMT+05:30 are supported. The selected label also appears below the dropdown so its full text remains readable on narrow screens.
 
@@ -137,9 +224,12 @@ Signup opening notices, opening-time inputs and patrol correction inputs resolve
 - Saved appointments and deadlines keep their instants and display in the selected zone.
 - Calendar-only attendance dates keep their recorded day.
 - New date validation, appeal school-day calculations, crew observations and datetime inputs use the selected zone.
+- Existing cards' appeal deadlines are derived again using the selected zone, so their appeal windows can change. Reconciliation of historical crew observations also uses the current zone when rerun.
 - Existing service-hour totals are not recalculated.
 
 Inputs in skipped or repeated daylight-saving hours are rejected; choose an unambiguous time. Each change records the previous and new zones in the audit log. No host operating-system or environment change is needed.
+
+Database connections always use UTC independently of this school setting. Saving a program timezone does not rewrite stored timestamps or start a bulk recalculation; it writes the setting and audit entry and refreshes the current page.
 
 ## Publish an announcement
 
@@ -151,7 +241,7 @@ The published audience is fixed. For coordinator proposals, approval freezes the
 
 ## Message permissions and supervision
 
-HEAD/ADMIN configure **Message supervision → Contact permissions**. Management roles default to all available accounts; other roles default to management. Select a union of groups:
+HEAD/ADMIN configure **Message Supervision → Contact permissions**. Management roles default to all available accounts; other roles default to management. Select a union of groups:
 
 | Group | Who it includes |
 | --- | --- |
@@ -184,3 +274,11 @@ Participants can always read `/tutor-signup` and `/signup`. Before the start, af
 Publish the English source of both policies through **Policy Documents**, configure active **Subjects & Levels**, and add **Time Slots** when tutee availability is required. Missing or empty policy publication is shown as incomplete setup, rather than a retryable loading error. Real database/network failures still show Retry. Tutee submission also requires working transactional email.
 
 The server rechecks the current recruitment window on every submission. Open browser tabs update timed boundaries and poll schedule changes every 30 seconds. A form submitted after closing is rejected even before its next poll. Schedule saves reject an ending time at or before the start and reject a stale active-period ID. Existing opening times and external preview links survive the recruitment migration.
+
+## CAPTCHA verification
+
+Management → Program & Refresh includes an immediate CAPTCHA Verification switch
+for public tutee and viewer signup/resend. ADMIN/HEAD can change it; other authorized
+readers see status. Enabling requires local provider configuration and uses paid
+Aliyun checks. Disabling leaves signup quotas active and never needs a provider
+call. See [setup, costs and outage procedure](captcha.md).

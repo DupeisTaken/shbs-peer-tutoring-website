@@ -12,6 +12,8 @@ import {
   TableActions,
   TableDetails,
 } from "~/app/_components/ui/summary-table";
+import { visibleTutors } from "~/lib/tutor-visibility";
+import { PastTutorsToggle } from "~/app/_components/past-tutors-toggle";
 
 export default function SubmissionsPage() {
   const programFormat = useFormatter();
@@ -20,6 +22,7 @@ export default function SubmissionsPage() {
   const [month, setMonth] = useState(currentMonth());
   const [tutorId, setTutorId] = useState("");
   const tutors = api.admin.tutors.useQuery();
+  const [showPast, setShowPast] = useState(false);
   const sessions = api.admin.sessions.useQuery({
     month: month || undefined,
     tutorId: tutorId || undefined,
@@ -42,12 +45,13 @@ export default function SubmissionsPage() {
           className="select field-auto min-w-48"
         >
           <option value="">{t("admin.submissions.allTutors")}</option>
-          {(tutors.data ?? []).map((t) => (
+          {visibleTutors(tutors.data ?? [], showPast, [tutorId]).map((t) => (
             <option key={t.id} value={t.id}>
               {t.englishName}
             </option>
           ))}
         </select>
+        <PastTutorsToggle showPast={showPast} onChange={setShowPast} />
       </div>
 
       <div className="card">

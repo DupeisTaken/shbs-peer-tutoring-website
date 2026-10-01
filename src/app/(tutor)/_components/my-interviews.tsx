@@ -8,7 +8,7 @@ import { api } from "~/trpc/react";
 
 import { programDateTimeInput, parseProgramDateTime } from "~/lib/program-time";
 
-type Status = "PENDING" | "INTERVIEW" | "ACCEPTED" | "REJECTED";
+type Status = "PENDING" | "INTERVIEW" | "ACCEPTED" | "REJECTED" | "RECALLED";
 
 function HeadScheduler({
   applicationId,
@@ -80,7 +80,7 @@ function VoteForm({
   const t = useTranslations();
   const utils = api.useUtils();
   const [comment, setComment] = useState(myVote?.comment ?? "");
-  const votingClosed = status === "ACCEPTED" || status === "REJECTED";
+  const votingClosed = status !== "INTERVIEW";
   const cast = api.tutor.castInterviewVote.useMutation({
     onSuccess: () => utils.tutor.myInterviews.invalidate(),
   });
@@ -318,7 +318,11 @@ export function MyInterviews() {
                 })}
               </p>
 
-              {a.isHead ? (
+              {a.status === "RECALLED" ? (
+                <p className="badge-slate mt-2">
+                  {t("qualificationRequests.RECALLED")}
+                </p>
+              ) : a.isHead ? (
                 <HeadScheduler applicationId={a.id} current={a.interviewAt} />
               ) : (
                 <p className="muted mt-2">
@@ -367,6 +371,7 @@ export function MyInterviews() {
                   />
                 )}
               {a.isHead &&
+                a.status !== "RECALLED" &&
                 (a.type === "ADDITIONAL_SUBJECT" ||
                   a.type === "HIGHER_LEVEL") && (
                   <a

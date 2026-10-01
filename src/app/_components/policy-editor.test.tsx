@@ -62,8 +62,8 @@ afterEach(cleanup);
 
 it("creates both first policies through the existing save mutation without demo data", () => {
   render(<PoliciesPage />, { wrapper });
-  expect(screen.getByRole("heading", { name: "Tutee policy" })).toBeTruthy();
-  expect(screen.getByRole("heading", { name: "Tutor policy" })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Tutee Policy" })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Tutor Policy" })).toBeTruthy();
   expect(
     screen
       .getAllByRole("combobox")
@@ -115,7 +115,7 @@ it("waits for loaded content and still offers the other missing policy", () => {
   ];
   view.rerender(<PoliciesPage />);
   expect(screen.getByDisplayValue("Preserve existing content")).toBeTruthy();
-  expect(screen.getByRole("heading", { name: "Tutor policy" })).toBeTruthy();
+  expect(screen.getByRole("heading", { name: "Tutor Policy" })).toBeTruthy();
   expect(state.save).not.toHaveBeenCalled();
 });
 

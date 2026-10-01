@@ -1,4 +1,8 @@
-import Link from "next/link";
+import {
+  PublicFormPage,
+  PublicFormCard,
+  PublicFormRoute,
+} from "~/app/_components/public-form-page";
 import { redirect } from "next/navigation";
 import { cookies } from "next/headers";
 import { getTranslations } from "next-intl/server";
@@ -6,82 +10,82 @@ import { getTranslations } from "next-intl/server";
 import { auth } from "~/server/auth";
 import { SESSION_RECOVERY_COOKIE } from "~/lib/session-recovery";
 import { SignInForm } from "./sign-in-form";
-import { FloatingLanguageSwitcher } from "~/app/_components/floating-language-switcher";
 import { db } from "~/server/db";
 import { getFeatures } from "~/server/program/features";
+import { returnDestination } from "~/lib/return-destination";
 
 export default async function SignInPage({
   searchParams,
 }: {
-  searchParams: Promise<{ reason?: string }>;
+  searchParams: Promise<{ reason?: string; callbackUrl?: string }>;
 }) {
-  // Already signed in — send them home (which routes to the right area by role).
+  // An authenticated email click can continue directly; otherwise retain the same
+  // validated destination through both form steps. Home is the safe fallback.
   const session = await auth();
-  if (session?.user) redirect("/");
+  const params = await searchParams;
+  const callbackUrl = returnDestination(
+    params.callbackUrl,
+    process.env.AUTH_URL ?? "http://localhost:3000",
+  );
+  if (session?.user) redirect(callbackUrl);
 
   const [t, features] = await Promise.all([getTranslations(), getFeatures(db)]);
-  const reason = (await searchParams).reason;
+  const reason = params.reason;
   const passwordChanged = reason === "password-changed";
   const expired =
     reason === "session-expired" ||
     (await cookies()).has(SESSION_RECOVERY_COOKIE);
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center px-4">
-      <FloatingLanguageSwitcher />
-      <div className="w-full max-w-sm text-center">
-        <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
-          {t("auth.signinTitle")}
-        </h1>
-        <p className="muted mt-1">{t("auth.signinSubtitle")}</p>
-        {(expired || passwordChanged) && (
+    <PublicFormPage
+      title={t("auth.signinTitle")}
+      description={t("auth.signinSubtitle")}
+      backLabel={t("common.backToMain")}
+      notice={
+        (expired || passwordChanged) && (
           <p
             role="status"
-            className="mt-4 rounded-lg border border-amber-200 bg-amber-50 p-3 text-sm text-amber-950"
+            className="rounded-xl border border-amber-200 bg-amber-50 p-4 text-center text-sm leading-6 text-amber-950"
           >
-            {t(passwordChanged ? "auth.passwordChangedSignIn" : "auth.sessionExpired")}
-          </p>
-        )}
-        <div className="card mt-6 p-6 text-left">
-          <SignInForm />
-          <p className="mt-4 text-sm">
-            <Link href="/signup" className="link">
-              {t("survey.requestTutor")}
-            </Link>
-          </p>
-          {/* Name each signup destination explicitly: viewers never receive invitations. */}
-          <div className="mt-4 flex flex-col items-start gap-2 text-sm">
-            <Link
-              href="/register"
-              className="link inline-flex min-h-11 items-center"
-            >
-              {t("auth.signupRoutes.invitationLink")}
-            </Link>
-            {features.VIEWER_SIGNUP && (
-              <p>
-                {t("auth.signupRoutes.viewerHelp")}{" "}
-                <Link
-                  href="/viewer-signup"
-                  className="link inline-flex min-h-11 items-center"
-                >
-                  {t("auth.signupRoutes.viewerLink")}
-                </Link>
-              </p>
+            {t(
+              passwordChanged
+                ? "auth.passwordChangedSignIn"
+                : "auth.sessionExpired",
             )}
-            <Link
-              href="/forgot-password"
-              className="link inline-flex min-h-11 items-center"
-            >
-              {t("auth.forgotPassword")}
-            </Link>
+          </p>
+        )
+      }
+      footer={
+        <div className="space-y-4">
+          <div className="flex flex-wrap justify-center gap-x-5">
+            <PublicFormRoute href="/signup" label={t("survey.requestTutor")} />
+            <PublicFormRoute
+              href="/register"
+              label={t("auth.signupRoutes.invitationLink")}
+            />
           </div>
+          {features.VIEWER_SIGNUP && (
+            <div className="border-t border-slate-200 pt-4">
+              <PublicFormRoute
+                href="/viewer-signup"
+                label={t("auth.signupRoutes.viewerLink")}
+              >
+                {t("auth.signupRoutes.viewerHelp")}
+              </PublicFormRoute>
+            </div>
+          )}
         </div>
-        <p className="mt-6">
-          <Link href="/" className="link">
-            {t("common.backToMain")}
-          </Link>
-        </p>
-      </div>
-    </main>
+      }
+    >
+      <PublicFormCard>
+        <SignInForm callbackUrl={callbackUrl} />
+        <div className="mt-3 text-center">
+          <PublicFormRoute
+            href="/forgot-password"
+            label={t("auth.forgotPassword")}
+          />
+        </div>
+      </PublicFormCard>
+    </PublicFormPage>
   );
 }

@@ -4,7 +4,7 @@ export const announcementAudienceSchema = z.object({
   mode: z.enum(["all", "filtered", "specific"]).default("all"),
   grades: z.array(z.number().int().min(1).max(12)).default([]),
   statuses: z
-    .array(z.enum(["ACTIVE", "PENDING", "OPTED_OUT", "GRADUATED", "ARCHIVED"]))
+    .array(z.enum(["ACTIVE", "PENDING", "OPTED_OUT", "GRADUATED", "TRANSFERRED", "ARCHIVED"]))
     .default([]),
   subjects: z.array(z.string().min(1)).default([]),
   assignment: z.enum(["any", "with", "without"]).default("any"),

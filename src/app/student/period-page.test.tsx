@@ -3,6 +3,7 @@ import { expect, it, vi } from "vitest";
 import { renderToStaticMarkup } from "react-dom/server";
 import StudentPage from "./page";
 const state = vi.hoisted(() => ({ quarters: true }));
+vi.mock("~/server/auth", () => ({ auth: async () => null }));
 vi.mock("~/server/db", () => ({ db: {} }));
 vi.mock("~/server/period", () => ({
   getActivePeriodOrNull: async () => ({ schoolYear: "26-27", quarter: "Q3" }),

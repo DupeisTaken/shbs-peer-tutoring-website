@@ -39,7 +39,7 @@ export function RecipientPicker({
     "ACTIVE",
     "PENDING",
     "OPTED_OUT",
-    "GRADUATED",
+    "GRADUATED", "TRANSFERRED",
     "ARCHIVED",
   ] as const;
   const toggle = <T,>(values: T[], value: T) =>

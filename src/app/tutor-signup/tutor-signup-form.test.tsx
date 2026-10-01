@@ -20,6 +20,18 @@ vi.mock("next-intl", () => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
+    program: {
+      profilePolicy: {
+        useQuery: () => ({
+          data: {
+            requireLatinNames: false,
+            offeredGrades: Array.from({ length: 12 }, (_, i) => i + 1),
+            currentSchoolYear: "26-27",
+          },
+          refetch: async () => ({ data: {} }),
+        }),
+      },
+    },
     application: {
       options: { useQuery: mocks.options },
       policy: { useQuery: mocks.policy },
@@ -142,12 +154,19 @@ it("keeps a required third subject in its original position when the second is h
   fireEvent.change(selectors[0]!, { target: { value: "math" } });
   fireEvent.change(selectors[1]!, { target: { value: "science" } });
   fireEvent.change(
-    screen.getByLabelText("public.tutorSignup.fields.fullName"),
+    screen.getByLabelText(
+      "firstName signupFields.required",
+    ),
     { target: { value: "Tutor" } },
   );
-  fireEvent.change(screen.getByLabelText("public.tutorSignup.fields.email"), {
-    target: { value: "tutor@example.test" },
-  });
+  fireEvent.change(
+    screen.getByLabelText(
+      "public.tutorSignup.fields.email signupFields.required",
+    ),
+    {
+      target: { value: "tutor@example.test" },
+    },
+  );
   fireEvent.click(screen.getByLabelText("Accept policy"));
   fireEvent.click(
     screen.getByRole("button", { name: "public.tutorSignup.submit" }),
@@ -239,3 +258,29 @@ it.each(["paused", "scheduled", "ended"])(
     expect(screen.getByText("Tutor policy").closest("details")).toBeTruthy();
   },
 );
+
+it("labels qualification answers and their conditional details", () => {
+  render(<TutorSignupForm />);
+  expect(
+    screen
+      .getByLabelText(
+        "firstName signupFields.required",
+      )
+      .hasAttribute("required"),
+  ).toBe(true);
+  fireEvent.change(
+    screen.getByRole("combobox", {
+      name: "signupFields.labels.firstSubject signupFields.required",
+    }),
+    { target: { value: "math" } },
+  );
+  const taken = screen.getByRole("checkbox", {
+    name: "public.tutorSignup.qual.taken signupFields.optional",
+  });
+  fireEvent.click(taken);
+  expect(
+    screen
+      .getByLabelText("public.tutorSignup.fields.grade signupFields.optional")
+      .hasAttribute("required"),
+  ).toBe(false);
+});

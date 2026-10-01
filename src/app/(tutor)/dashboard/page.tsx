@@ -1,3 +1,4 @@
+import { DepartureBanner } from "~/app/_components/school-departure";
 import { PolicyConsent } from "~/app/_components/policy-consent";
 import { redirect } from "next/navigation";
 
@@ -15,6 +16,7 @@ import { TutorMeetings } from "~/app/(tutor)/_components/tutor-meetings";
 import { TutorActivation } from "~/app/(tutor)/_components/tutor-activation";
 import { TutorDiscipline } from "~/app/(tutor)/_components/tutor-discipline";
 import { QualificationRequests } from "~/app/(tutor)/_components/qualification-requests";
+import { SubjectWillingness } from "~/app/(tutor)/_components/subject-willingness";
 import { getTranslations } from "next-intl/server";
 
 import { RoomGrid } from "~/app/_components/room-grid";
@@ -49,6 +51,7 @@ export default async function TutorDashboard() {
       <AnnouncementsBanner />
       <PolicyConsent slug="tutor-policy" />
 
+      <DepartureBanner />
       {pending && <TutorActivation />}
 
       {inactive && !pending && (
@@ -116,6 +119,7 @@ export default async function TutorDashboard() {
       </section>
 
       {/* Pending interviews + session-time confirmations (self-hides when none). */}
+      <SubjectWillingness />
       <QualificationRequests active={!inactive} />
       {!inactive && features.INTERVIEWS && <MyInterviews />}
 

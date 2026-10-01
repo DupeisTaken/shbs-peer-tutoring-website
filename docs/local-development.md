@@ -141,10 +141,12 @@ While `npm run dev` is running, sign in with a local demo account and open `/ui-
 
 Resize the browser to test the actual viewport and breakpoints; a narrow card inside a desktop window does not simulate mobile CSS. Check the form save scope, selection state, tab keyboard navigation, dialog focus, brief table columns, rightmost text-link detail entries, comparison-table scrolling and recovery controls. Confirm actions remain reachable before and after horizontal scrolling. Follow [AGENTS.md](../AGENTS.md) for rendered control measurements. Store screenshots in ignored `outputs/` or `.validation/` and include real pages in visual verification.
 
+The composition examples include a wide editor with nested review and policy reader, four-part participant identity, a wrapping filter toolbar, explicit disclosure lifetimes, three different settings/save models, versioned change review and background failures that retain drafts. Exercise nested Escape and focus return, save failure/retry, preview invalidation and collapse/reopen. The public card reuses production framing. These examples use synthetic state; verify domain permissions and real versioned writes on the actual pages as well.
+
 The `/ui-gallery` server page calls `notFound()` in production, and normal authentication still applies in development. Focused gallery tests require no database:
 
 ```bash
-npx vitest run src/app/ui-gallery/gallery.test.tsx src/app/ui-gallery/page.test.tsx --maxWorkers=1
+npx vitest run src/app/ui-gallery --maxWorkers=1
 ```
 
 See [contributor guidance](contributing.md#reuse-interaction-patterns) for adding patterns and [technical boundaries](technical-report.md#shared-ui-patterns) for their responsibilities.
@@ -178,10 +180,20 @@ allowlists; an arbitrary `_test` name does not satisfy every suite. Create the d
 `DATABASE_URL` for both `npm run db:migrate` and `npm test -- --maxWorkers=1`, and never point these
 destructive fixtures at a development site or production database.
 
+For the tutor creation layout regression, run `node scripts/test-tutor-form-layout.mjs`
+against a running loopback site with synthetic data. Set `TEST_BASE_URL`,
+`SHBS_BROWSER_STATE` to an authenticated staff Playwright storage-state file, and
+optionally `SHBS_BROWSER_MODULE` to an existing Playwright module URL and
+`SHBS_BROWSER_CHANNEL` to your installed browser channel. `SHBS_BROWSER_OUTPUT`
+selects the ignored evidence directory. The script checks English/Chinese at five
+widths, dialog opening/dismissal, draft retention, keyboard focus, native validation
+and enlarged text, captures screenshots and submits no data. The component suite
+also covers pending/error/success states and read-only access to the creation dialog.
+
 Lint and type-check the same way CI does:
 
 ```bash
-npm run check       # eslint . + tsc --noEmit
+npm run check       # next typegen + eslint . + tsc --noEmit
 npm run docs:check  # documentation links, headings and maintenance regressions
 ```
 

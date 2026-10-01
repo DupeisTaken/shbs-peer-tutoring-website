@@ -1,3 +1,5 @@
+import { lockUsernameNamespace } from "~/server/auth/username";
+import { retryUsernameSnapshot } from "~/server/auth/username-snapshot";
 import { isAssignmentOperation } from "~/lib/assignment-qualification";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
@@ -66,7 +68,7 @@ export const approvalRouter = createTRPCRouter({
           ? input.requestId
             ? undefined
             : input.requesterId
-          : ctx.session.user.id,
+          : { in: await accountHistoryIds(ctx.db, ctx.session.user.id) },
       };
       const [rows, total, requesters] = await Promise.all([
         ctx.db.approvalRequest.findMany({
@@ -109,10 +111,15 @@ export const approvalRouter = createTRPCRouter({
           })
         : null;
       const attendanceApproval = initial && isAttendanceApproval(initial.operation);
-      const result = await ctx.db.$transaction(
+      // Fence identity-capable replays before profile locks or mutation callbacks. A stale
+      // Serializable snapshot may retry here; no callback/email has executed at that point.
+      const identityApproval = !!initial && ["admin.createTutor", "admin.updateTutor", "admin.setUserCanTutor",
+        "admin.setMemberships", "admin.setApplicationStatus", "tutor.decideInterview"].includes(initial.operation);
+      const runDecision = () => ctx.db.$transaction(
         async (tx) =>
           databaseScope.run(tx, () =>
             approvalScope.run(input.id, async () => {
+              if (identityApproval) await lockUsernameNamespace(tx);
               if (attendanceApproval)
                 await lockAttendanceApproval(tx, initial.operation, [
                   ctx.session.user.id,
@@ -159,7 +166,7 @@ export const approvalRouter = createTRPCRouter({
                 if (
                   !requester ||
                   requester.suspendedAt ||
-                  (request.operation !== "admin.setMemberships" && !["COORDINATOR", "ADMIN", "HEAD"].includes(requester.role))
+                  (!["admin.setMemberships", "departure.setState"].includes(request.operation) && !["COORDINATOR", "ADMIN", "HEAD"].includes(requester.role))
                 )
                   throw new TRPCError({
                     code: "CONFLICT",
@@ -257,7 +264,9 @@ export const approvalRouter = createTRPCRouter({
                     userId: request.requesterId,
                     title: `Change ${input.approve ? "approved" : "rejected"}`,
                     body: `${reviewerName}: ${input.note}`,
-                    link: `/admin/approvals?request=${request.id}`,
+                    link: request.operation === "departure.setState"
+                      ? "/student?view=account"
+                      : `/admin/approvals?request=${request.id}`,
                   },
                 });
               return result;
@@ -265,6 +274,7 @@ export const approvalRouter = createTRPCRouter({
           ),
         { isolationLevel: attendanceApproval ? "ReadCommitted" : "Serializable", timeout: 20000 },
       );
+      const result = identityApproval ? await retryUsernameSnapshot(runDecision) : await runDecision();
       // SMTP happens only after the durable decision commits. A failed send is explicitly retryable.
       let emailSent: boolean | null = null;
       if (input.approve && result.operation === "studentWorkflow.assign") {
@@ -326,3 +336,4 @@ export const approvalRouter = createTRPCRouter({
       }),
     ),
 });
+import { accountHistoryIds } from "~/server/account-history";

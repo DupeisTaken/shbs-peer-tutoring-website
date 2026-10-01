@@ -47,6 +47,7 @@ it.each([undefined, "Campus Peer Support"])(
     expect(mocks.connection).toHaveBeenCalledTimes(2);
     const { emailSender } = await import("./email/sender");
     await emailSender.send({
+      category: "SECURITY",
       to: "recipient@example.test",
       subject: "Test",
       text: "Test",
@@ -54,6 +55,8 @@ it.each([undefined, "Campus Peer Support"])(
     expect(mocks.sendMail).toHaveBeenLastCalledWith(
       expect.objectContaining({
         from: { name: expected, address: "sender@example.test" },
+        text: "Test",
+        html: expect.stringContaining(expected) as string,
       }),
     );
     expect(JSON.stringify(BRANDING)).not.toContain("private-smtp-sentinel");
@@ -64,6 +67,7 @@ it("allows a separate server-only sender display name", async () => {
   vi.stubEnv("EMAIL_FROM_NAME", "School Mail Office");
   const { emailSender } = await import("./email/sender");
   await emailSender.send({
+    category: "SECURITY",
     to: "recipient@example.test",
     subject: "Test",
     text: "Test",

@@ -129,7 +129,7 @@ it("opens an accessible person-scoped dialog on demand, with separate qualificat
   expect(mocks.details).not.toHaveBeenCalled();
   open();
   expect(
-    screen.getByRole("dialog", { name: "User details · Synthetic Tutor" }),
+    screen.getByRole("dialog", { name: "User Details · Synthetic Tutor" }),
   ).toBeTruthy();
   expect(mocks.details).toHaveBeenCalledWith({ tutorId: "synthetic-tutor" });
   const rows = screen.getAllByRole("listitem");

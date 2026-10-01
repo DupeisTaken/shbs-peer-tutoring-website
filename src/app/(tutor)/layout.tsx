@@ -1,3 +1,4 @@
+import { accountPortalAccess } from "~/server/portal-access";
 import { WorkspaceHeader } from "~/app/_components/workspace-header";
 import Link from "next/link";
 import { redirect } from "next/navigation";
@@ -48,7 +49,8 @@ export default async function TutorLayout({
     session.role === "COORDINATOR";
 
   // VIEWER can return to management without gaining elevated write permissions.
-  const canEnterManagement = isElevated || session.role === "VIEWER";
+  const access = await accountPortalAccess(session.user.id);
+  const canEnterManagement = access.canReadManagement;
 
   // Stale-session guard: `session.tutorId` lives in the JWT and can outlive the Tutor row it
   // points to (e.g. after a dev DB reseed). Tutor queries (`tutor.me`, …) use it and would throw
@@ -77,7 +79,7 @@ export default async function TutorLayout({
   // turned off (the link is kept only to preserve the record) — so this account is NOT permitted in
   // the tutor area; send them back to their admin area. (A genuine ARCHIVED *pure* tutor isn't
   // management and keeps read-only access to their own history per the lifecycle, so it's unaffected.)
-  if (canEnterManagement && linkedTutor.status === "ARCHIVED")
+  if ((isElevated || session.role === "VIEWER") && linkedTutor.status === "ARCHIVED")
     redirect("/admin");
 
   // First-login gate: confirm contact email + set a real password (auto-provisioned
@@ -89,7 +91,7 @@ export default async function TutorLayout({
   const workspaceItems = [
     { href: "/student", label: t("components.userMenu.enterTutee") },
     ...(canEnterManagement
-      ? [{ href: "/admin", label: t("components.userMenu.backToManagement") }]
+      ? [{ href: "/admin", label: t(access.managementReadOnly ? "schoolDeparture.enter" : "components.userMenu.backToManagement") }]
       : []),
   ];
   const accountItems = [

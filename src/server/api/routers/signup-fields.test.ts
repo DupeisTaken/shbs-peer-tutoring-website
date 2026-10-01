@@ -172,7 +172,7 @@ it("enforces current tutee requirements, strips hidden answers, and preserves ea
   const original = await db.studentSurvey.findFirstOrThrow();
   await change("tutee", "phone", "required");
   await expect(
-    caller().tutee.submitSurvey({ ...input, email: "new@example.test" }),
+    caller().tutee.submitSurvey({ ...input, email: "missing-phone@example.test" }),
   ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   await change("tutee", "phone", "hidden");
   await change("tutee", "preferredContact", "hidden");
@@ -180,7 +180,7 @@ it("enforces current tutee requirements, strips hidden answers, and preserves ea
   await change("tutee", "signatureName", "optional");
   await change("tutee", "secondSubject", "required");
   await expect(
-    caller().tutee.submitSurvey({ ...input, email: "new@example.test" }),
+    caller().tutee.submitSurvey({ ...input, email: "missing-subject@example.test" }),
   ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   await caller().tutee.submitSurvey({
     ...input,

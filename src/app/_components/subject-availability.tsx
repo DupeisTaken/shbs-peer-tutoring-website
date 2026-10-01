@@ -5,6 +5,8 @@ import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { tutorSubjectRows } from "~/lib/subject-availability";
 import { DisclosureIcon } from "./icons";
+import { ChoiceButton } from "./ui/button";
+import { FilterToolbar } from "./ui/patterns";
 
 export function SubjectAvailability() {
   const t = useTranslations("subjectAvailability");
@@ -26,6 +28,10 @@ export function SubjectAvailability() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState("ALL");
   const [expanded, setExpanded] = useState<Set<string>>(new Set());
+  // Each expanded tutor owns one toggle filter; selecting it again restores all rows.
+  const [tutorFilters, setTutorFilters] = useState<
+    Record<string, string | null>
+  >({});
   const toggle = (id: string) =>
     setExpanded((previous) => {
       const next = new Set(previous);
@@ -41,6 +47,7 @@ export function SubjectAvailability() {
     qualifications,
     grants,
     willingness: intents,
+    pendingRequests,
   } = data.data;
   const needle = search.trim().toLocaleLowerCase();
   const groups = tutors
@@ -58,7 +65,8 @@ export function SubjectAvailability() {
       (tutor) =>
         tutor.status === "ACTIVE" ||
         tutor.rows.some(
-          (row) => row.qualification !== null || row.willing !== null || row.qualified,
+          (row) =>
+            row.qualification !== null || row.willing !== null || row.qualified,
         ),
     )
     .map((tutor) => ({
@@ -121,6 +129,21 @@ export function SubjectAvailability() {
       {groups.map((tutor) => {
         const open = expanded.has(tutor.id);
         const id = `subject-availability-${tutor.id}`;
+        const selected = tutorFilters[tutor.id] ?? null;
+        const visible = tutor.visible.filter((row) =>
+          selected === "qualified"
+            ? row.qualified
+            : selected === "pendingReview"
+              ? row.qualification === "PENDING" ||
+                pendingRequests.some(
+                  (request) =>
+                    request.requestedTutorId === tutor.id &&
+                    request.requestedSubjectId === row.id,
+                )
+              : selected === "willing"
+                ? row.willing === true
+                : true,
+        );
         return (
           <section className="card overflow-hidden" key={tutor.id}>
             <button
@@ -132,8 +155,7 @@ export function SubjectAvailability() {
             >
               <DisclosureIcon open={open} />
               <span className="min-w-0 flex-1 [overflow-wrap:anywhere]">
-                <span className="block font-semibold">{tutor.englishName}</span>
-                {" "}
+                <span className="block font-semibold">{tutor.englishName}</span>{" "}
                 <span className="muted mt-1 block text-sm">
                   {t("summary", {
                     qualified: tutor.rows.filter((row) => row.qualified).length,
@@ -150,7 +172,34 @@ export function SubjectAvailability() {
             {/* Mount only expanded catalogues; large rosters should not create hidden form trees. */}
             {open && (
               <div id={id} className="space-y-3 border-t border-slate-100 p-4">
-                {tutor.visible.map((row) => (
+                <FilterToolbar
+                  label={t("filtersFor", { name: tutor.englishName })}
+                >
+                  <div
+                    role="group"
+                    aria-label={t("filtersFor", { name: tutor.englishName })}
+                    className="flex flex-wrap gap-2 lg:justify-end"
+                  >
+                    {(["qualified", "pendingReview", "willing"] as const).map(
+                      (value) => (
+                        <ChoiceButton
+                          key={value}
+                          selected={selected === value}
+                          onClick={() =>
+                            setTutorFilters((previous) => ({
+                              ...previous,
+                              [tutor.id]:
+                                previous[tutor.id] === value ? null : value,
+                            }))
+                          }
+                        >
+                          {t(value)}
+                        </ChoiceButton>
+                      ),
+                    )}
+                  </div>
+                </FilterToolbar>
+                {visible.map((row) => (
                   <article
                     key={row.id}
                     className="grid gap-4 rounded-lg border border-slate-200 p-4 lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)_minmax(0,1fr)]"
@@ -265,8 +314,10 @@ export function SubjectAvailability() {
                     </div>
                   </article>
                 ))}
-                {tutor.visible.length === 0 && (
-                  <p className="muted">{t("emptySubjects")}</p>
+                {visible.length === 0 && (
+                  <p role="status" className="muted">
+                    {t("noMatchingSubjects")}
+                  </p>
                 )}
               </div>
             )}

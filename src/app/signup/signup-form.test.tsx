@@ -18,10 +18,22 @@ vi.mock("next-intl", () => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
+    program: {
+      profilePolicy: {
+        useQuery: () => ({
+          data: {
+            requireLatinNames: false,
+            offeredGrades: Array.from({ length: 12 }, (_, i) => i + 1),
+            currentSchoolYear: "26-27",
+          },
+          refetch: async () => ({ data: {} }),
+        }),
+      },
+    },
     tutee: {
       signupOptions: { useQuery: mocks.options },
       surveyPolicy: { useQuery: mocks.policy },
-      submitSurvey: { useMutation: () => ({ mutate: mocks.mutate }) },
+      submitSurvey: { useMutation: () => ({ mutateAsync: mocks.mutate, mutate: mocks.mutate }) },
     },
   },
 }));
@@ -129,13 +141,23 @@ it("hides configured tutee fields and allows submission without hidden required 
   expect(
     screen.queryByLabelText(/signupFields.labels.signatureName/),
   ).toBeNull();
-  fireEvent.change(screen.getByLabelText("public.signup.fields.fullName"), {
-    target: { value: "Student" },
-  });
+  fireEvent.change(
+    screen.getByLabelText(
+      "firstName signupFields.required",
+    ),
+    {
+      target: { value: "Student" },
+    },
+  );
   fireEvent.change(screen.getByLabelText(/survey.emailLabel/), {
     target: { value: "student@example.test" },
   });
-  fireEvent.change(screen.getByRole("combobox"), { target: { value: "math" } });
+  fireEvent.change(
+    screen.getByRole("combobox", {
+      name: "public.signup.fields.firstChoice signupFields.required",
+    }),
+    { target: { value: "math" } },
+  );
   fireEvent.click(screen.getByLabelText("Accept policy"));
   fireEvent.click(screen.getByRole("button", { name: "public.signup.submit" }));
   expect(mocks.mutate).toHaveBeenCalledWith(
@@ -198,7 +220,7 @@ it("uses the server's runtime title in policy consent", () => {
 it.each(["paused", "scheduled", "ended"])(
   "keeps %s recruitment visible but prevents every response edit and direct form submit",
   (state) => {
-    const existing = mocks.options() as {data: Record<string, unknown>};
+    const existing = mocks.options() as { data: Record<string, unknown> };
     mocks.options.mockReturnValue({
       ...existing,
       data: {
@@ -227,3 +249,27 @@ it.each(["paused", "scheduled", "ended"])(
     expect(screen.getByText("Policy").closest("details")).toBeTruthy();
   },
 );
+
+it("labels fixed and configurable requirements consistently", () => {
+  render(<SignupForm />);
+  for (const name of ["firstName", "survey.emailLabel"])
+    expect(
+      screen
+        .getByLabelText(new RegExp(name + " signupFields.required"))
+        .hasAttribute("required"),
+    ).toBe(true);
+  expect(
+    screen
+      .getByLabelText("public.signup.fields.phone signupFields.optional")
+      .hasAttribute("required"),
+  ).toBe(false);
+  expect(
+    screen
+      .getByLabelText(
+        /signupFields.labels.preferredContact signupFields.required/,
+      )
+      .hasAttribute("required"),
+  ).toBe(true);
+});
+
+vi.mock("~/app/_components/signup-captcha", () => ({ useSignupCaptcha: () => ({ run: (work: (grant?: string) => Promise<unknown>) => work(), panel: null, pending: false }), CaptchaError: ({ error }: { error: { message: string } }) => <>{error.message}</> }));

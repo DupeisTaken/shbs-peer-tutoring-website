@@ -1,9 +1,17 @@
 "use client";
+import { PersonNameFields } from "~/app/_components/person-name-fields";
+import { nameDraft, fullPersonName } from "~/lib/person-name";
+
+import { SignupError } from "~/app/_components/signup-error";
+import { useSignupCaptcha, CaptchaError } from "~/app/_components/signup-captcha";
+
+import { FieldRequirement } from "~/app/_components/field-requirement";
 
 import { useState } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 
+import { ProfilePolicyHint } from "~/app/_components/profile-policy";
 import { api } from "~/trpc/react";
 
 type Step = "details" | "code" | "password" | "done";
@@ -16,9 +24,11 @@ export function ViewerSignupFlow() {
   const t = useTranslations();
   const [step, setStep] = useState<Step>("details");
 
-  const [name, setName] = useState("");
+  const [names, setNames] = useState(() => nameDraft());
+  const name = fullPersonName(names);
   const [affiliation, setAffiliation] = useState("");
   const [email, setEmail] = useState("");
+  const captcha = useSignupCaptcha("viewer.start", email);
   const [code, setCode] = useState("");
   const [completionProof, setCompletionProof] = useState("");
   const [password, setPassword] = useState("");
@@ -33,38 +43,48 @@ export function ViewerSignupFlow() {
   const mismatch = password.length > 0 && confirm.length > 0 && password !== confirm;
 
   return (
-    <div className="card space-y-4 p-6">
+    <div className="space-y-5">
       {/* Step 1 — identity + email */}
       {step === "details" && (
         <form
-          className="space-y-3"
+          className="space-y-5"
           onSubmit={(e) => {
             e.preventDefault();
             if (detailsValid)
-              start.mutate({ name: name.trim(), affiliation: affiliation.trim(), email: email.trim() });
+              void captcha.run((captchaGrant) =>
+                start.mutateAsync({
+                  ...names,
+                  name: name.trim(),
+                  affiliation: affiliation.trim(),
+                  email: email.trim(),
+                  captchaGrant,
+                }),
+              );
           }}
         >
-          <div>
-            <label className="label" htmlFor="obs-name">
-              {t("public.viewerSignup.fields.name")}
-            </label>
-            <input id="obs-name" value={name} onChange={(e) => setName(e.target.value)} className="input w-full" />
-          </div>
+          <PersonNameFields value={names} onChange={setNames} />
+          <ProfilePolicyHint />
           <div>
             <label className="label" htmlFor="obs-aff">
               {t("public.viewerSignup.fields.affiliation")}
+              <FieldRequirement state="required" />
             </label>
             <input
               id="obs-aff"
               value={affiliation}
               onChange={(e) => setAffiliation(e.target.value)}
-              placeholder={t("public.viewerSignup.fields.affiliationPlaceholder")}
+              aria-describedby="obs-aff-hint"
               className="input w-full"
             />
+            {/* Examples wrap below the field instead of being clipped in a mobile placeholder. */}
+            <p id="obs-aff-hint" className="mt-2 text-xs leading-5 text-slate-500">
+              {t("public.viewerSignup.fields.affiliationPlaceholder")}
+            </p>
           </div>
           <div>
             <label className="label" htmlFor="obs-email">
               {t("public.viewerSignup.fields.email")}
+              <FieldRequirement state="required" />
             </label>
             <input
               id="obs-email"
@@ -74,9 +94,19 @@ export function ViewerSignupFlow() {
               className="input w-full"
             />
           </div>
-          {start.error && <p className="text-sm text-red-600">{start.error.message}</p>}
-          <button className="btn-primary w-full" disabled={!detailsValid || start.isPending}>
-            {start.isPending ? t("public.viewerSignup.sending") : t("public.viewerSignup.sendCode")}
+          {captcha.panel}
+          {start.error && (
+            <p role="alert" className="text-sm text-red-600">
+              <CaptchaError error={start.error} />
+            </p>
+          )}
+          <button
+            className="btn-primary w-full"
+            disabled={!detailsValid || start.isPending || captcha.pending}
+          >
+            {start.isPending
+              ? t("public.viewerSignup.sending")
+              : t("public.viewerSignup.sendCode")}
           </button>
         </form>
       )}
@@ -84,7 +114,7 @@ export function ViewerSignupFlow() {
       {/* Step 2 — email code */}
       {step === "code" && (
         <form
-          className="space-y-3"
+          className="space-y-5"
           onSubmit={(e) => {
             e.preventDefault();
             if (/^[0-9A-Z]{5}$/.test(code)) verify.mutate({ email: email.trim(), code });
@@ -93,6 +123,7 @@ export function ViewerSignupFlow() {
           <p className="text-sm text-slate-700">{t("public.viewerSignup.sent", { email })}</p>
           <label className="label" htmlFor="obs-code">
             {t("public.viewerSignup.fields.code")}
+            <FieldRequirement state="required" />
           </label>
           <input
             id="obs-code"
@@ -104,16 +135,38 @@ export function ViewerSignupFlow() {
             placeholder="XXXXX"
             className="input w-full text-center text-2xl tracking-[0.4em] uppercase"
           />
-          {verify.error && <p className="text-sm text-red-600">{verify.error.message}</p>}
-          {start.error && <p className="text-sm text-red-600">{start.error.message}</p>}
-          <button className="btn-primary w-full" disabled={!/^[0-9A-Z]{5}$/.test(code) || verify.isPending}>
+          {verify.error && (
+            <p role="alert" className="text-sm text-red-600">
+              <SignupError error={verify.error} />
+            </p>
+          )}
+          {captcha.panel}
+          {start.error && (
+            <p role="alert" className="text-sm text-red-600">
+              <CaptchaError error={start.error} />
+            </p>
+          )}
+          <button
+            className="btn-primary w-full"
+            disabled={!/^[0-9A-Z]{5}$/.test(code) || verify.isPending}
+          >
             {t("public.viewerSignup.verify")}
           </button>
           <button
             type="button"
             className="link text-sm"
-            onClick={() => start.mutate({ name: name.trim(), affiliation: affiliation.trim(), email: email.trim() })}
-            disabled={start.isPending}
+            onClick={() =>
+              void captcha.run((captchaGrant) =>
+                start.mutateAsync({
+                  ...names,
+                  name: name.trim(),
+                  affiliation: affiliation.trim(),
+                  email: email.trim(),
+                  captchaGrant,
+                }),
+              )
+            }
+            disabled={start.isPending || captcha.pending}
           >
             {t("public.viewerSignup.resend")}
           </button>
@@ -123,15 +176,16 @@ export function ViewerSignupFlow() {
       {/* Step 3 — password */}
       {step === "password" && (
         <form
-          className="space-y-3"
+          className="space-y-5"
           onSubmit={(e) => {
             e.preventDefault();
-            if (password.length >= 8 && confirm === password && completionProof && !start.isPending) complete.mutate({ email: email.trim(), password, completionProof });
+            if (password.length >= 8 && confirm === password && completionProof && !start.isPending && !captcha.pending) complete.mutate({ email: email.trim(), password, completionProof });
           }}
         >
           <div>
             <label className="label" htmlFor="obs-pass">
               {t("public.viewerSignup.fields.password")}
+              <FieldRequirement state="required" />
             </label>
             <input
               id="obs-pass"
@@ -145,6 +199,7 @@ export function ViewerSignupFlow() {
           <div>
             <label className="label" htmlFor="obs-confirm">
               {t("public.viewerSignup.fields.confirm")}
+              <FieldRequirement state="required" />
             </label>
             <input
               id="obs-confirm"
@@ -154,14 +209,52 @@ export function ViewerSignupFlow() {
               className="input w-full"
             />
           </div>
-          {mismatch && <p className="text-sm text-red-600">{t("public.viewerSignup.mismatch")}</p>}
-          {complete.error && <p className="text-sm text-red-600">{complete.error.message}</p>}
-          <button className="btn-primary w-full" disabled={password.length < 8 || confirm !== password || start.isPending || complete.isPending}>
-            {complete.isPending ? t("public.viewerSignup.creating") : t("public.viewerSignup.createAccount")}
+          {mismatch && (
+            <p role="alert" className="text-sm text-red-600">
+              {t("public.viewerSignup.mismatch")}
+            </p>
+          )}
+          {complete.error && (
+            <p role="alert" className="text-sm text-red-600">
+              <SignupError error={complete.error} />
+            </p>
+          )}
+          <button
+            className="btn-primary w-full"
+            disabled={
+              password.length < 8 ||
+              confirm !== password ||
+              start.isPending ||
+              complete.isPending ||
+              captcha.pending
+            }
+          >
+            {complete.isPending
+              ? t("public.viewerSignup.creating")
+              : t("public.viewerSignup.createAccount")}
           </button>
-          {start.error && <p className="text-sm text-red-600">{start.error.message}</p>}
-          <button type="button" className="link text-sm" disabled={start.isPending || complete.isPending}
-            onClick={() => start.mutate({ name: name.trim(), affiliation: affiliation.trim(), email: email.trim() })}>
+          {captcha.panel}
+          {start.error && (
+            <p role="alert" className="text-sm text-red-600">
+              <CaptchaError error={start.error} />
+            </p>
+          )}
+          <button
+            type="button"
+            className="link text-sm"
+            disabled={start.isPending || complete.isPending || captcha.pending}
+            onClick={() =>
+              void captcha.run((captchaGrant) =>
+                start.mutateAsync({
+                  ...names,
+                  name: name.trim(),
+                  affiliation: affiliation.trim(),
+                  email: email.trim(),
+                  captchaGrant,
+                }),
+              )
+            }
+          >
             {t("public.viewerSignup.resend")}
           </button>
         </form>

@@ -1,6 +1,8 @@
 "use client";
+import { PersonNameFields } from "~/app/_components/person-name-fields";
+import { nameDraft, personNameEdit } from "~/lib/person-name";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -8,7 +10,10 @@ import { useTranslations } from "next-intl";
 import { Button } from "./ui/button";
 import { FormSection } from "./ui/patterns";
 import { MembershipEditor } from "./membership-editor";
+import { SchoolDeparturePanel } from "~/app/_components/school-departure";
+import { AcademicPanel } from "./academic-profile";
 import { accountMembership } from "~/lib/account-membership";
+import { ProfilePolicyError } from "~/app/_components/profile-policy";
 import { api } from "~/trpc/react";
 import { SYMBOLS } from "~/lib/symbols";
 import { signInAfterPasswordChange } from "~/lib/password-session";
@@ -49,19 +54,51 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
   const features = api.program.features.useQuery();
   const email2fa = features.data?.EMAIL_2FA ?? false;
 
+  // A synchronous guard covers the interval before mutation state disables the form.
+  const nameSubmitting = useRef(false);
+  const [nameReloading, setNameReloading] = useState(false);
   const updateName = api.account.updateName.useMutation({
-    onSuccess: () => utils.account.me.invalidate(),
+    onSettled: () => {
+      nameSubmitting.current = false;
+    },
+    onSuccess: async () => {
+      await utils.account.me.invalidate();
+      router.refresh();
+    },
   });
 
   // Name form — seeded from the loaded account.
-  const [name, setName] = useState("");
-  const [alternativeNames, setAlternativeNames] = useState("");
-  useEffect(() => {
+  const [names, setNames] = useState(() => nameDraft());
+  const [originalNames, setOriginalNames] = useState(() => nameDraft());
+  const [legacyName, setLegacyName] = useState<string | null | undefined>();
+  const identity = personNameEdit(names, originalNames, legacyName);
+  const name = identity.name;
+  const [nameDraftVersion, setNameDraftVersion] = useState<
+    number | undefined
+  >();
+  const [nameDirty, setNameDirty] = useState(false);
+  const nameBusy = !me.data || updateName.isPending || nameReloading;
+  const cancelNameDraft = () => {
+    if (nameBusy || nameSubmitting.current) return;
+    // Cancel is an explicit discard. Background refreshes alone never adopt a new version.
     if (me.data) {
-      setName(me.data.name ?? "");
-      setAlternativeNames(me.data.alternativeNames ?? "");
+      setNames(nameDraft(me.data));
+      setOriginalNames(nameDraft(me.data));
+      setLegacyName(me.data.legacyName ?? me.data.name);
+      setNameDraftVersion(me.data.profileVersion);
     }
-  }, [me.data]);
+    setNameDirty(false);
+    updateName.reset();
+  };
+  useEffect(() => {
+    // Other profile sections refetch this query. Keep unsaved identity edits and their version.
+    if (me.data && !nameDirty && !nameBusy) {
+      setNames(nameDraft(me.data));
+      setOriginalNames(nameDraft(me.data));
+      setLegacyName(me.data?.legacyName ?? me.data?.name);
+      setNameDraftVersion(me.data.profileVersion);
+    }
+  }, [me.data, nameDirty, nameBusy]);
 
   // Password form — a two-step flow: verify the current password to get an emailed code, then
   // submit the code with the new password (step-up email 2FA).
@@ -177,7 +214,9 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
               </div>
               <p className="mt-1 flex flex-wrap items-center gap-x-2 gap-y-0.5 text-sm">
                 <span className="text-accent-700 font-mono font-medium">
-                  {me.data?.username ? `@${me.data.username}` : "—"}
+                  {me.data?.username
+                    ? `@${me.data.username}`
+                    : t("academics.usernameMissing")}
                 </span>
                 {me.data?.email && (
                   <>
@@ -194,29 +233,41 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
           </div>
         </div>
 
-        {/* Both names belong to this one commit; security and membership forms remain independent. */}
+        {/* Identity uses one deliberate commit; security and membership retain independent authority. */}
         <div className="space-y-4 border-t border-slate-100 px-5 py-5 sm:px-6">
           <form
             onSubmit={(event) => {
               event.preventDefault();
-              if (!me.data || updateName.isPending || !name.trim()) return;
-              updateName.mutate({
-                name: name.trim(),
-                alternativeNames: alternativeNames.trim() || null,
-                expectedProfileVersion: me.data.profileVersion,
-              });
+              if (
+                nameBusy ||
+                nameSubmitting.current ||
+                !me.data ||
+                (!identity.preserved && !names.firstName.trim())
+              )
+                return;
+              nameSubmitting.current = true;
+              updateName.mutate(
+                {
+                  ...identity.fields,
+                  name,
+                  expectedProfileVersion: nameDraftVersion,
+                },
+                { onSuccess: () => setNameDirty(false) },
+              );
             }}
           >
             <FormSection
               title={t("uiPatterns.profile")}
-              description={t("accountProfile.canonicalHelp")}
-              busy={!me.data || updateName.isPending}
+              busy={nameBusy}
               actions={
                 <>
                   <Button
                     type="submit"
                     variant="primary"
-                    disabled={!name.trim()}
+                    disabled={
+                      !me.data ||
+                      (!identity.preserved && !names.firstName.trim())
+                    }
                   >
                     {t(
                       updateName.isPending
@@ -224,54 +275,54 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
                         : "uiPatterns.saveProfile",
                     )}
                   </Button>
-                  <Button
-                    onClick={() => {
-                      setName(me.data?.name ?? "");
-                      setAlternativeNames(me.data?.alternativeNames ?? "");
-                      updateName.reset();
-                    }}
-                  >
+                  <Button onClick={cancelNameDraft}>
                     {t("uiPatterns.cancel")}
                   </Button>
                 </>
               }
             >
-              <label className="block space-y-1">
-                <span className="label">{t("tutor.settings.name")}</span>
-                <input
-                  className="input control-standard"
-                  value={name}
-                  onChange={(event) => {
-                    setName(event.target.value);
-                    updateName.reset();
-                  }}
-                  required
-                  maxLength={100}
-                />
-              </label>
-              <label className="block space-y-1">
-                <span className="label">
-                  {t("accountProfile.alternativeNames")}
-                </span>
-                <input
-                  className="input control-standard"
-                  value={alternativeNames}
-                  onChange={(event) => {
-                    setAlternativeNames(event.target.value);
-                    updateName.reset();
-                  }}
-                  maxLength={200}
-                />
-              </label>
+              <PersonNameFields
+                value={names}
+                onChange={(value) => {
+                  setNames(value);
+                  setNameDirty(true);
+                  if (updateName.isSuccess) updateName.reset();
+                }}
+                legacyName={legacyName}
+                originalValue={originalNames}
+              />
               {updateName.isSuccess && (
                 <p role="status" className="text-sm text-green-700">
                   {t("tutor.settings.saved")}
                 </p>
               )}
               {updateName.error && (
-                <p role="alert" className="text-sm text-red-700">
-                  {updateName.error.message}
+                <p role="alert" className="text-sm text-red-600">
+                  <ProfilePolicyError message={updateName.error.message} />
                 </p>
+              )}
+              {updateName.error?.data?.code === "CONFLICT" && (
+                <Button
+                  onClick={async () => {
+                    if (nameBusy || nameSubmitting.current) return;
+                    nameSubmitting.current = true;
+                    setNameReloading(true);
+                    try {
+                      const result = await me.refetch();
+                      // A failed refetch can still contain stale cached data. Only a successful
+                      // reload authorizes discarding this draft and its original version.
+                      if (result.isSuccess) {
+                        setNameDirty(false);
+                        updateName.reset();
+                      }
+                    } finally {
+                      nameSubmitting.current = false;
+                      setNameReloading(false);
+                    }
+                  }}
+                >
+                  {t("accountProfile.reloadIdentity")}
+                </Button>
               )}
             </FormSection>
           </form>
@@ -286,6 +337,9 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
           )}
         </div>
       </section>
+
+      <AcademicPanel />
+      <SchoolDeparturePanel />
 
       {/* Password — two-step: verify current password to email a code, then submit code + new pw. */}
       <section className="card space-y-4 p-5 sm:p-6">

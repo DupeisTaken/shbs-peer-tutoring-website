@@ -1,3 +1,7 @@
+import { optionalPersonNameFields } from "~/lib/person-name";
+import { accountHistoryIds } from "~/server/account-history";
+import { currentAcademicInput, academicSummary } from "~/lib/academics";
+import { confirmCurrentAccountAcademics } from "~/server/academics";
 import { membershipSchema } from "~/lib/account-membership";
 import { queueProposal } from "~/server/approvals";
 import { updateAccountProfile } from "~/server/account-profile";
@@ -30,6 +34,12 @@ import {
  * Kept separate from the tutor router so an account without a linked tutor can use it.
  */
 export const accountRouter = createTRPCRouter({
+  updateAcademics: protectedProcedure.input(currentAcademicInput).mutation(({ ctx, input }) =>
+    confirmCurrentAccountAcademics(ctx.db, ctx.session.user.id, input, { actorId: ctx.session.user.id, source: "SELF_SERVICE" })),
+  academicHistory: protectedProcedure.query(async ({ ctx }) => ctx.db.academicConfirmation.findMany({
+    where: { userId: { in: await accountHistoryIds(ctx.db, ctx.session.user.id) } }, orderBy: { confirmedAt: "desc" }, take: 50,
+    select: { id: true, status: true, gradeLevel: true, rawGrade: true, schoolYear: true, confirmedAt: true, source: true, reason: true },
+  })),
   // Any active account may request its own badges. Only Head can apply the resulting proposal.
   requestMemberships: protectedProcedure.input(membershipSchema).mutation(async ({ ctx, input }) => {
     const request = await queueProposal(ctx.session, "admin.setMemberships", { userId: ctx.session.user.id, membership: input });
@@ -62,7 +72,7 @@ export const accountRouter = createTRPCRouter({
       enabled: program?.emailNotificationsEnabled ?? false,
       secondaryEmailBindingEnabled:
         program?.secondaryEmailBindingEnabled ?? true,
-      deliveryAvailable: isEmailDeliveryAvailable(),
+      deliveryAvailable: isEmailDeliveryAvailable("SECURITY"),
     };
   }),
   setEmailPreferences: protectedProcedure
@@ -185,8 +195,13 @@ export const accountRouter = createTRPCRouter({
       where: { id: ctx.session.user.id },
       select: {
         name: true,
+        firstName: true,
+        lastName: true,
+        preferredName: true,
+        legacyName: true,
         alternativeNames: true,
         profileVersion: true,
+        academicProfile: true,
         id: true,
         tutorId: true,
         tutorAccessRevoked: true,
@@ -201,7 +216,9 @@ export const accountRouter = createTRPCRouter({
         tutor: { select: { id: true, status: true } },
       },
     });
-    return user;
+    const term = await ctx.db.term.findFirst({ where: { active: true }, select: { schoolYear: true } });
+    const { academicProfile, ...identity } = user;
+    return { ...identity, academic: academicSummary(academicProfile, term?.schoolYear), currentSchoolYear: term?.schoolYear ?? null };
   }),
 
   /** The caller's suspension state + their latest appeal — drives the /suspended screen. */
@@ -263,7 +280,8 @@ export const accountRouter = createTRPCRouter({
   updateName: protectedProcedure
     .input(
       z.object({
-        name: z.string().trim().min(1, "Enter a name.").max(100),
+        ...optionalPersonNameFields,
+        name: z.string().trim().min(1, "Enter a name.").max(200),
         alternativeNames: z.string().trim().max(200).nullable().optional(),
         expectedProfileVersion: z.number().int().nonnegative().optional(),
       }),
@@ -307,7 +325,7 @@ export const accountRouter = createTRPCRouter({
               "Email two-factor authentication is disabled for this program.",
           });
         }
-        if (!isEmailDeliveryAvailable()) {
+        if (!isEmailDeliveryAvailable("SECURITY")) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "Email delivery is unavailable. Contact the program team.",
@@ -351,7 +369,7 @@ export const accountRouter = createTRPCRouter({
             "Email two-factor authentication is disabled for this program.",
         });
       }
-      if (!isEmailDeliveryAvailable()) {
+      if (!isEmailDeliveryAvailable("SECURITY")) {
         throw new TRPCError({
           code: "BAD_REQUEST",
           message: "Email delivery is unavailable. Contact the program team.",
@@ -394,7 +412,7 @@ export const accountRouter = createTRPCRouter({
       // password is sufficient; with it on, a delivery outage fails closed below.
       const { EMAIL_2FA } = await getFeatures(ctx.db);
       if (EMAIL_2FA) {
-        if (!isEmailDeliveryAvailable()) {
+        if (!isEmailDeliveryAvailable("SECURITY")) {
           throw new TRPCError({
             code: "BAD_REQUEST",
             message: "Email delivery is unavailable. Contact the program team.",

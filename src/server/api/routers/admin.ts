@@ -1,3 +1,27 @@
+import { optionalPersonNameFields, fullPersonName } from "~/lib/person-name";
+import {
+  changeSchoolDeparture,
+  requireSchoolParticipation,
+  requireStudentSchoolParticipation,
+} from "~/server/school-departure";
+import {
+  currentAcademicInput,
+  academicSummary,
+  normalizeGrade,
+} from "~/lib/academics";
+import {
+  accountAcademics,
+  confirmCurrentAccountAcademics,
+  initializeAccountAcademics,
+  legacyAcademic,
+} from "~/server/academics";
+import {
+  assertPrimaryName,
+  parsePersonNames,
+  assertOfferedGrade,
+} from "~/server/program/profile-policy";
+import { historicalOwners } from "~/server/tutee-history";
+import { isHistoricalTutee } from "~/lib/tutee-history";
 import { REGISTRATION_KINDS, isManagementCode } from "~/lib/registration-kind";
 import { enforceAssignmentQualification } from "~/server/assignment-qualification";
 import { accountUsernameSchema, updateAccountUsername } from "~/server/account-username";
@@ -58,6 +82,9 @@ import { recruitmentStatus, recruitmentWindow } from "~/lib/recruitment";
 import {
   defaultUsername,
   ensureUniqueUsername,
+  canonicalUsername,
+  lockUsernameNamespace,
+  backfillStudentUsernames,
   ensureUserUsername,
   splitDisplayName,
 } from "~/server/auth/username";
@@ -83,7 +110,6 @@ import {
   type Quarter,
   crossesSemester,
   crossesYear,
-  graduationYear,
   nextPeriod,
   periodLabel,
   quarterSemester,
@@ -95,7 +121,6 @@ import {
   assertFeatureEnabled,
   getFeatures,
 } from "~/server/program/features";
-import type { db as dbClient } from "~/server/db";
 import { applyUndo, recordAudit } from "~/server/audit/log";
 import { expectedUpdatedAt, staleConflict } from "~/server/concurrency";
 import {
@@ -106,19 +131,6 @@ import {
   roomBlockForWrite,
 } from "~/server/room-bookings";
 import { studentRequestRows } from "~/server/student-workflow";
-
-/** Class-of year for a grade in the active school year, or null when neither is known. */
-async function activeGradYear(
-  db: typeof dbClient,
-  gradeLevel?: number | null,
-): Promise<number | null> {
-  if (gradeLevel == null) return null;
-  const term = await db.term.findFirst({
-    where: { active: true },
-    select: { schoolYear: true },
-  });
-  return term ? graduationYear(gradeLevel, term.schoolYear) : null;
-}
 
 /**
  * Detach an inactive tutor's active-term tutees from their pairings and re-queue them (set PENDING)
@@ -211,7 +223,7 @@ const TUTEE_STATUS = ["PENDING", "ACTIVE", "INACTIVE"] as const;
 const TUTOR_STATUS = [
   "ACTIVE",
   "PENDING",
-  "GRADUATED",
+  "GRADUATED", "TRANSFERRED",
   "OPTED_OUT",
   "ARCHIVED",
 ] as const;
@@ -320,8 +332,10 @@ export const adminRouter = createTRPCRouter({
   // --------------------------------------------------------------------------
   // Reference lists
   // --------------------------------------------------------------------------
-  tutors: viewerProcedure.query(({ ctx }) =>
-    ctx.db.tutor.findMany({
+  tutors: viewerProcedure.query(async ({ ctx }) => {
+    const [term, tutors] = await Promise.all([
+      ctx.db.term.findFirst({ where: { active: true }, select: { schoolYear: true } }),
+      ctx.db.tutor.findMany({
       orderBy: { englishName: "asc" },
       // Login/account status so the roster can show who still needs to set up their account.
       include: {
@@ -329,9 +343,11 @@ export const adminRouter = createTRPCRouter({
           select: {
             id: true,
             tutorAccessRevoked: true,
+            suspendedAt: true,
             name: true,
             alternativeNames: true,
             profileVersion: true,
+            academicProfile: true,
             username: true,
             email: true,
             emailVerifiedAt: true,
@@ -339,8 +355,13 @@ export const adminRouter = createTRPCRouter({
           },
         },
       },
-    }),
-  ),
+      }),
+    ]);
+    return tutors.map((tutor) => ({ ...tutor, academic: academicSummary(tutor.user?.academicProfile ?? (
+      !tutor.academicallyGraduated && tutor.gradeSchoolYear && tutor.gradeConfirmedAt ? { status: "REPORTED", gradeLevel: tutor.gradeLevel, rawGrade: null,
+        schoolYear: tutor.gradeSchoolYear, confirmedAt: tutor.gradeConfirmedAt, reconfirmRequired: false } : legacyAcademic(tutor.gradeLevel, tutor.academicallyGraduated)
+    ), term?.schoolYear) }));
+  }),
   /**
    * Per-tutee stats for the admin tutees view: session attendance + discipline standing.
    * Aggregated in Postgres (two `GROUP BY`s) so this returns ~one row per tutee instead of
@@ -437,7 +458,7 @@ export const adminRouter = createTRPCRouter({
   }),
 
   tutees: viewerProcedure.query(async ({ ctx }) => {
-    const isViewer = ctx.session.role === "VIEWER";
+    const isViewer = ctx.portalAccess.maskManagementData;
     const active = await getActivePeriodOrNull(ctx.db);
     const periodKey = active ? `${active.schoolYear} ${active.quarter}` : null;
     const [tutees, removed] = await Promise.all([
@@ -450,6 +471,7 @@ export const adminRouter = createTRPCRouter({
               name: true,
               alternativeNames: true,
               profileVersion: true,
+            academicProfile: true,
               username: true,
               email: true,
               emailVerifiedAt: true,
@@ -510,6 +532,15 @@ export const adminRouter = createTRPCRouter({
       removed.map((r) => norm(r.tutee.phone)).filter(Boolean),
     );
 
+    // Resolve enrollment periods in one query; historical grades must never borrow today's year.
+    const [retainedOwners, enrollmentTerms] = await Promise.all([
+      historicalOwners(ctx.db, tutees.map(row => row.id)),
+      ctx.db.term.findMany({
+        where: { id: { in: [...new Set(tutees.flatMap(row => row.intakeTermId ? [row.intakeTermId] : []))] } },
+        select: { id: true, schoolYear: true, quarter: true },
+      }),
+    ]);
+    const periods = new Map(enrollmentTerms.map(({ id, ...period }) => [id, period]));
     return tutees.map((t) => {
       // Flag a (still-pending) re-signup that matches a banned identity this quarter — by exact
       // name / email / phone — so an admin can vet it. Never auto-blocks; it just labels.
@@ -525,9 +556,13 @@ export const adminRouter = createTRPCRouter({
       const bannedMatch =
         match && (match.name || match.email || match.phone) ? match : null;
       // Withhold staff free-text (notes) and the tutee's typed legal-name signature from VIEWER.
+      const owner = t.user ?? retainedOwners.get(t.id) ?? null;
+      const historical = isHistoricalTutee(t, active?.termId ?? null);
+      const enrollmentPeriod = t.intakeTermId ? periods.get(t.intakeTermId) ?? null : null;
+      const academic = academicSummary(owner?.academicProfile ?? legacyAcademic(t.gradeLevel, t.academicallyGraduated), active?.schoolYear);
       return isViewer
-        ? { ...t, notes: null, signatureName: null, bannedMatch }
-        : { ...t, bannedMatch };
+        ? { ...t, notes: null, signatureName: null, bannedMatch, academic, owner, historical, enrollmentPeriod }
+        : { ...t, bannedMatch, academic, owner, historical, enrollmentPeriod };
     });
   }),
   rooms: viewerProcedure.query(({ ctx }) =>
@@ -666,7 +701,7 @@ export const adminRouter = createTRPCRouter({
   // "Current pairings" = those in the active term. A program refresh activates a new term, so
   // the board clears automatically; past terms' pairings remain for history but aren't shown here.
   pairings: viewerProcedure.query(async ({ ctx }) => {
-    const isViewer = ctx.session.role === "VIEWER";
+    const isViewer = ctx.portalAccess.maskManagementData;
     const pairings = await ctx.db.pairing.findMany({
       where: { term: { active: true } },
       orderBy: [{ dayOfWeek: "asc" }, { startMin: "asc" }],
@@ -1058,7 +1093,7 @@ export const adminRouter = createTRPCRouter({
       }
       if (input.month) label = input.month;
 
-      const mask = input.maskPii || ctx.session.role === "VIEWER";
+      const mask = input.maskPii || ctx.portalAccess.maskManagementData;
       const maskContact = (v: string | null | undefined): string | null =>
         mask ? null : (v ?? null);
 
@@ -1642,29 +1677,26 @@ export const adminRouter = createTRPCRouter({
             data: { status: "INACTIVE" },
           });
 
-          // Graduation happens at the START of Q4 (the program's final quarter): G12 (and up)
-          // are marked GRADUATED as the term advances into Q4, so they finish the year inactive.
-          // Aging-up stays at the school-year boundary (Q4 -> next year's Q1) and advances everyone
-          // who remains ACTIVE by one grade — by then the graduates are already inactive and
-          // untouched. (A retained tutor who self-reported staying in their grade simply isn't G12.)
-          // Quarter mode graduates G12 entering Q4 (so they finish the year inactive); semester mode
-          // has no Q4, so it graduates at the school-year boundary alongside aging-up.
+          // A membership break is not an academic gap. Never increment reported grades.
+          // Only a confirmed G12 report for the graduating year may trigger graduation.
           let graduated = 0;
-          let aged = 0;
+          const aged = 0; // Retained response field for older clients; always zero.
           if (semesterMode ? yearCross : np.quarter === "Q4") {
+            const graduating = await tx.tutor.findMany({
+              where: { status: "ACTIVE", gradeLevel: 12, gradeSchoolYear: from.schoolYear, gradeConfirmedAt: { not: null }, OR: [{ user: { is: null } }, { user: { academicProfile: { status: "REPORTED", schoolYear: from.schoolYear, reconfirmRequired: false } } }] },
+              include: { user: { include: { schoolDeparture: true } } },
+            });
             const grad = await tx.tutor.updateMany({
-              where: { status: "ACTIVE", gradeLevel: { gte: 12 } },
+              where: { status: "ACTIVE", gradeLevel: 12, gradeSchoolYear: from.schoolYear,
+                gradeConfirmedAt: { not: null }, OR: [ { user: { is: null } },
+                  { user: { academicProfile: { status: "REPORTED", schoolYear: from.schoolYear, reconfirmRequired: false } } } ] },
               data: { status: "GRADUATED" },
             });
             graduated = grad.count;
+            for (const tutor of graduating) if (tutor.user) await changeSchoolDeparture(tx, { userId: tutor.user.id, action: "GRADUATED", expectedRevision: tutor.user.schoolDeparture?.revision ?? 0, explanation: "Confirmed senior graduation during program refresh" }, ctx.session.user.id, "PROGRAM_REFRESH");
           }
-          if (yearCross) {
-            const age = await tx.tutor.updateMany({
-              where: { status: "ACTIVE", gradeLevel: { not: null } },
-              data: { gradeLevel: { increment: 1 } },
-            });
-            aged = age.count;
-          }
+          // Academic staleness is derived from the new active year. Keeping the report
+          // untouched preserves history and avoids lock inversion with account-profile writers.
 
           // Semester rollover: every continuing ACTIVE tutor must re-confirm availability. Set them
           // PENDING — they reactivate (available) or opt out from their own page, and their status
@@ -1719,36 +1751,55 @@ export const adminRouter = createTRPCRouter({
   // --------------------------------------------------------------------------
   // Tutor / Tutee / Room management
   // --------------------------------------------------------------------------
+  // Deliberate, auditable batches; verified students never acquire handles merely by reading a page.
+  backfillStudentUsernames: headProcedure
+    .input(z.object({ userIds: z.array(cuid).min(1).max(100) }))
+    .mutation(({ ctx, input }) => backfillStudentUsernames(ctx.db, ctx.session.user.id, input.userIds)),
+
   createTutor: adminProcedure
     .input(
       z.object({
-        firstName: z.string().trim().min(1),
-        lastName: z.string().trim().min(1),
-        // Free-text, full Unicode (e.g. Chinese name) — no charset restriction.
+        ...optionalPersonNameFields,
+        firstName: optionalPersonNameFields.firstName.unwrap(),
+        lastName: optionalPersonNameFields.lastName
+          .unwrap()
+          .refine((value) => !!value),
+        // Optional name in another language; Unicode is preserved.
         alternativeNames: z.string().trim().max(200).optional(),
         email: z.string().email().optional(),
-        gradeLevel: z.number().int().min(6).max(12).nullable().optional(),
+        gradeLevel: z.number().int().min(1).max(12).nullable().optional(),
+        academicallyGraduated: z.boolean().optional(),
         status: z.enum(TUTOR_STATUS).default("ACTIVE"),
       }),
     )
     .mutation(async ({ ctx, input }) => {
-      const gradYear = await activeGradYear(ctx.db, input.gradeLevel);
-      const username = await ensureUniqueUsername(
-        defaultUsername(input.firstName, input.lastName, gradYear),
-      );
-      const tutor = await ctx.db.tutor.create({
-        data: {
-          firstName: input.firstName,
-          lastName: input.lastName,
-          englishName: `${input.firstName} ${input.lastName}`,
-          alternativeNames: input.alternativeNames?.trim()
-            ? input.alternativeNames.trim()
-            : null,
-          username,
-          status: input.status,
-          gradeLevel: input.gradeLevel ?? null,
-          email: input.email?.trim() ? input.email.trim().toLowerCase() : null,
-        },
+      if (input.academicallyGraduated && input.gradeLevel != null)
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Graduated cannot have a current grade." });
+      const tutor = await inTransaction(ctx.db, async (tx) => {
+        await assertPrimaryName(tx, `${input.firstName} ${input.lastName}`);
+
+        await assertOfferedGrade(tx, input.gradeLevel);
+        await lockUsernameNamespace(tx);
+        const username = await ensureUniqueUsername(
+          defaultUsername(input.firstName, input.lastName), {}, tx,
+        );
+        return await tx.tutor.create({
+          data: {
+            preferredName: input.preferredName,
+            nameFieldsConfirmed: true,
+            firstName: input.firstName,
+            lastName: input.lastName,
+            englishName: `${input.firstName} ${input.lastName}`,
+            alternativeNames: input.alternativeNames?.trim()
+              ? input.alternativeNames.trim()
+              : null,
+            username,
+            status: input.status,
+            gradeLevel: input.gradeLevel ?? null,
+            academicallyGraduated: input.academicallyGraduated ?? false,
+            email: input.email?.trim() ? input.email.trim().toLowerCase() : null,
+          },
+        });
       });
       // Manually-added tutors have no login yet — remind the team to send a setup link.
       await notifyAdmins(
@@ -1767,17 +1818,19 @@ export const adminRouter = createTRPCRouter({
       z.object({
         id: cuid,
         expectedUpdatedAt: expectedUpdatedAt.optional(),
-        firstName: z.string().trim().min(1),
-        lastName: z.string().trim(),
+        ...optionalPersonNameFields,
         alternativeNames: z.string().trim().max(200).nullable().optional(),
-        // Login usernames are managed only through the Head account editor.
+        // Head can correct an unlinked handle; linked logins use the account editor.
         username: z.string().trim().optional(),
         email: z.string().email().nullable().optional(),
-        gradeLevel: z.number().int().min(6).max(12).nullable().optional(),
+        gradeLevel: z.number().int().min(1).max(12).nullable().optional(),
+        academicallyGraduated: z.boolean().optional(),
         status: z.enum(TUTOR_STATUS),
       }),
     )
     .mutation(async ({ ctx, input }) => {
+      if (input.academicallyGraduated && input.gradeLevel != null)
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Graduated cannot have a current grade." });
       const account = await ctx.db.user.findUnique({
         where: { tutorId: input.id },
         select: { id: true, email: true },
@@ -1794,18 +1847,83 @@ export const adminRouter = createTRPCRouter({
         });
       }
       const roster = await ctx.db.tutor.findUniqueOrThrow({ where: { id: input.id } });
-      if (input.username !== undefined && input.username.trim().toLowerCase() !== (roster.username ?? ""))
+      if (account && input.gradeLevel !== undefined && input.gradeLevel !== roster.gradeLevel)
+        throw new TRPCError({ code: "BAD_REQUEST", message: "ACADEMIC_SHARED_EDITOR_REQUIRED" });
+      if (account && input.academicallyGraduated !== undefined && input.academicallyGraduated !== roster.academicallyGraduated)
+        throw new TRPCError({ code: "BAD_REQUEST", message: "ACADEMIC_SHARED_EDITOR_REQUIRED" });
+      if (account && input.username !== undefined && input.username.trim().toLowerCase() !== (roster.username ?? ""))
         throw new TRPCError({ code: "FORBIDDEN", message: "Edit login usernames through Users & Roles as Head." });
       const prev = await ctx.db.tutor.findUnique({
         where: { id: input.id },
         select: { status: true },
       });
       const updated = await inTransaction(ctx.db, async (tx) => {
+        await lockEntity(tx, "program:period");
+        await lockUsernameNamespace(tx);
         if (account) await lockAccountProfile(tx, account.id);
         await lockEntity(tx, `tutor:${input.id}`);
         const before = await tx.tutor.findUniqueOrThrow({
           where: { id: input.id },
         });
+        // Setup and profile edits share the namespace lock. Recheck linkage before
+        // writing so a concurrently created login cannot bypass verified email changes.
+        const linkedNow = await tx.user.findUnique({ where: { tutorId: input.id }, select: { id: true } });
+        if ((linkedNow?.id ?? null) !== (account?.id ?? null)) staleConflict();
+        let username = before.username;
+        if (input.username !== undefined && input.username.trim().toLowerCase() !== (before.username ?? "")) {
+          if (account || ctx.session.role !== "HEAD")
+            throw new TRPCError({ code: "FORBIDDEN", message: "Only Head may edit an unlinked tutor username." });
+          const parsed = accountUsernameSchema.safeParse(input.username);
+          if (!parsed.success)
+            throw new TRPCError({ code: "BAD_REQUEST", message: "Use 1–64 letters or numbers for the username." });
+          username = parsed.data;
+          const [userClash, tutorClash] = await Promise.all([
+            tx.user.findFirst({ where: { username: { equals: username, mode: "insensitive" } } }),
+            tx.tutor.findFirst({ where: { username: { equals: username, mode: "insensitive" }, id: { not: input.id } } }),
+          ]);
+          if (userClash || tutorClash)
+            throw new TRPCError({ code: "CONFLICT", message: "That username is already taken." });
+        }
+        const email = input.email?.trim().toLowerCase();
+        if (!account && email && email !== before.email?.toLowerCase()) {
+          const [userClash, tutorClash, secondaryClash] = await Promise.all([
+            tx.user.findFirst({ where: { email: { equals: email, mode: "insensitive" } } }),
+            tx.tutor.findFirst({ where: { email: { equals: email, mode: "insensitive" }, id: { not: input.id } } }),
+            tx.accountEmail.findFirst({ where: { email: { equals: email, mode: "insensitive" }, verifiedAt: { not: null } } }),
+          ]);
+          if (userClash || tutorClash || secondaryClash)
+            throw new TRPCError({ code: "CONFLICT", message: "That email is already in use." });
+        }
+        if (
+          (input.academicallyGraduated ?? before.academicallyGraduated) &&
+          (input.gradeLevel === undefined
+            ? before.gradeLevel
+            : input.gradeLevel) != null
+        )
+          throw new TRPCError({
+            code: "BAD_REQUEST",
+            message: "Graduated cannot have a current grade.",
+          });
+        // Omitted Latin fields preserve the locked legacy identity. Any explicit
+        // edit is validated as a complete name, including partial API updates.
+        const explicitNames =
+          input.firstName !== undefined || input.lastName !== undefined || input.preferredName !== undefined
+            ? parsePersonNames({
+                ...before,
+                ...input,
+                firstName: input.firstName ?? before.firstName ?? "",
+                lastName: input.lastName ?? before.lastName ?? "",
+              })
+            : null;
+
+        if (!account && input.gradeLevel !== before.gradeLevel)
+          await assertOfferedGrade(tx, input.gradeLevel);
+        const changedAcademicChoice =
+          !account &&
+          ((input.gradeLevel !== undefined &&
+            input.gradeLevel !== before.gradeLevel) ||
+            (input.academicallyGraduated !== undefined &&
+              input.academicallyGraduated !== before.academicallyGraduated));
         // The middleware's routing decision is not authority for a later state transition.
         if (before.status !== input.status && ctx.session.role !== "HEAD")
           throw new TRPCError({ code: "CONFLICT", message: "Tutor membership changed. Ask Head to review this status change." });
@@ -1814,34 +1932,48 @@ export const adminRouter = createTRPCRouter({
           before.updatedAt.getTime() !== input.expectedUpdatedAt.getTime()
         )
           staleConflict();
+        if (account && before.status !== input.status) {
+          if (["ACTIVE", "PENDING"].includes(input.status)) await requireSchoolParticipation(tx, account.id);
+          if (input.status === "GRADUATED" || input.status === "TRANSFERRED") {
+            const departure = await tx.schoolDeparture.findUnique({ where: { userId: account.id } });
+            await changeSchoolDeparture(tx, { userId: account.id, action: input.status, expectedRevision: departure?.revision ?? 0, explanation: "Head confirmed departure through tutor roster" }, ctx.session.user.id);
+          }
+        }
         const updated = await tx.tutor.update({
           where: { id: input.id },
           data: {
-            firstName: input.firstName,
-            lastName: input.lastName,
-            englishName: [input.firstName, input.lastName]
-              .filter(Boolean)
-              .join(" "),
-            alternativeNames: input.alternativeNames?.trim()
-              ? input.alternativeNames.trim()
-              : null,
-            username: before.username,
-            status: input.status,
-            ...(input.gradeLevel === undefined
+            ...(explicitNames
+              ? {
+                  nameFieldsConfirmed: true,
+                  preferredName: explicitNames.preferredName,
+                  firstName: explicitNames.firstName,
+                  lastName: explicitNames.lastName,
+                  englishName: fullPersonName(explicitNames),
+                }
+              : {}),
+            ...(input.alternativeNames === undefined
               ? {}
-              : { gradeLevel: input.gradeLevel }),
+              : { alternativeNames: blankToNull(input.alternativeNames) }),
+            username,
+            status: input.status,
+            // Linked academic mirrors are written only by the versioned academic workflow.
+            ...(account ? {} : {
+              ...(input.gradeLevel === undefined ? {} : { gradeLevel: input.gradeLevel }),
+              ...(input.academicallyGraduated === undefined ? {} : { academicallyGraduated: input.academicallyGraduated }),
+              ...(changedAcademicChoice ? { gradeSchoolYear: null, gradeConfirmedAt: null } : {}),
+            }),
             ...(input.email === undefined
               ? {}
               : { email: blankToNull(input.email)?.toLowerCase() ?? null }),
           },
         });
         if (account) {
-          await tx.user.update({
-            where: { id: account.id },
-            data: { username: before.username },
-          });
+          updated.username = await ensureUserUsername(account.id, tx);
           await updateAccountProfile(tx, account.id, {
-            name: updated.englishName,
+            firstName: input.firstName,
+            lastName: input.lastName,
+            preferredName: input.preferredName,
+            name: explicitNames ? fullPersonName(explicitNames) : undefined,
             alternativeNames: updated.alternativeNames,
             expectedTutorId: input.id,
           });
@@ -1892,32 +2024,43 @@ export const adminRouter = createTRPCRouter({
   createTutee: adminProcedure
     .input(
       z.object({
+        ...optionalPersonNameFields,
         englishName: z.string().trim().min(1),
         email: z.string().email().nullable().optional(),
         phone: z.string().trim().nullable().optional(),
         gradeLevel: z.string().trim().nullable().optional(),
+        academicallyGraduated: z.boolean().optional(),
         notes: z.string().trim().nullable().optional(),
         status: z.enum(TUTEE_STATUS).default("ACTIVE"),
         firstChoiceId: cuid.nullable().optional(),
         secondChoiceId: cuid.nullable().optional(),
       }),
     )
-    .mutation(({ ctx, input }) =>
-      ctx.db.tutee.create({
+    .mutation(async ({ ctx, input }) => {
+      if (input.academicallyGraduated && input.gradeLevel != null)
+        throw new TRPCError({ code: "BAD_REQUEST", message: "Graduated cannot have a current grade." });
+      await assertPrimaryName(ctx.db, input.englishName);
+      await assertOfferedGrade(ctx.db, normalizeGrade(input.gradeLevel).gradeLevel);
+      return ctx.db.tutee.create({
         data: {
           // Persist entry provenance at creation; subsequent edits/links retain it.
           signupSource: "STAFF",
+          firstName: input.firstName,
+          lastName: input.lastName,
+          preferredName: input.preferredName,
+          alternativeNames: input.alternativeNames,
           englishName: input.englishName,
           email: blankToNull(input.email)?.toLowerCase() ?? null,
           phone: blankToNull(input.phone),
           gradeLevel: blankToNull(input.gradeLevel),
+          academicallyGraduated: input.academicallyGraduated ?? false,
           notes: blankToNull(input.notes),
           status: input.status,
           firstChoiceId: input.firstChoiceId ?? null,
           secondChoiceId: input.secondChoiceId ?? null,
         },
-      }),
-    ),
+      });
+    }),
 
   updateTutee: adminProcedure
     .input(
@@ -1926,11 +2069,13 @@ export const adminRouter = createTRPCRouter({
         expectedUpdatedAt,
         preferredContact: z.string().trim().max(200).nullable().optional(),
         slotIds: z.array(cuid).optional(),
+        ...optionalPersonNameFields,
         englishName: z.string().trim().min(1),
         alternativeNames: z.string().trim().max(200).nullable().optional(),
         email: z.string().email().nullable().optional(),
         phone: z.string().trim().nullable().optional(),
         gradeLevel: z.string().trim().nullable().optional(),
+        academicallyGraduated: z.boolean().optional(),
         notes: z.string().trim().nullable().optional(),
         status: z.enum(TUTEE_STATUS),
         firstChoiceId: cuid.nullable().optional(),
@@ -1939,16 +2084,29 @@ export const adminRouter = createTRPCRouter({
     )
     .mutation(async ({ ctx, input }) =>
       inTransaction(ctx.db, async (tx) => {
+        if (input.academicallyGraduated && input.gradeLevel != null)
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Graduated cannot have a current grade." });
+        // Serialize profile restoration with departure, including historically owned profiles.
+        await lockEntity(tx, "program:period");
         const linkedStudent = await tx.user.findUnique({
           where: { studentId: input.id },
           select: { id: true, email: true },
         });
         if (linkedStudent) await lockAccountProfile(tx, linkedStudent.id);
+        if (input.status !== "INACTIVE") await requireStudentSchoolParticipation(tx, input.id);
         await lockEntity(tx, `tutee:${input.id}`);
         const before = await tx.tutee.findUniqueOrThrow({
           where: { id: input.id },
           include: { availabilities: true },
         });
+        if ((input.academicallyGraduated ?? before.academicallyGraduated) &&
+          (input.gradeLevel === undefined ? before.gradeLevel : input.gradeLevel) != null)
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Graduated cannot have a current grade." });
+        if (input.englishName !== before.englishName)
+          await assertPrimaryName(tx, input.englishName, before.firstName ? before.englishName : before.legacyName ?? before.englishName);
+
+        if (!linkedStudent && input.gradeLevel !== before.gradeLevel)
+          await assertOfferedGrade(tx, normalizeGrade(input.gradeLevel).gradeLevel);
         if (before.updatedAt.getTime() !== input.expectedUpdatedAt.getTime())
           staleConflict();
         if (
@@ -1961,6 +2119,10 @@ export const adminRouter = createTRPCRouter({
             message:
               "Tutee login emails must be changed through verified account settings.",
           });
+        if (linkedStudent && input.gradeLevel !== undefined && input.gradeLevel !== before.gradeLevel)
+          throw new TRPCError({ code: "BAD_REQUEST", message: "ACADEMIC_SHARED_EDITOR_REQUIRED" });
+        if (linkedStudent && input.academicallyGraduated !== undefined && input.academicallyGraduated !== before.academicallyGraduated)
+          throw new TRPCError({ code: "BAD_REQUEST", message: "ACADEMIC_SHARED_EDITOR_REQUIRED" });
         const { id, expectedUpdatedAt: _version, slotIds, ...fields } = input;
         void _version;
         if (
@@ -2000,6 +2162,9 @@ export const adminRouter = createTRPCRouter({
         });
         if (linkedStudent)
           await updateAccountProfile(tx, linkedStudent.id, {
+            firstName: fields.firstName,
+            lastName: fields.lastName,
+            preferredName: fields.preferredName,
             name: fields.englishName,
             alternativeNames: fields.alternativeNames,
             expectedStudentId: input.id,
@@ -2204,6 +2369,7 @@ export const adminRouter = createTRPCRouter({
       // Keep status, current roster removal and audit atomic; historical assignments survive.
       await lockEntity(tx, "program:period");
       await lockEntity(tx, `tutee:${input.id}`);
+      if (input.status !== "INACTIVE") await requireStudentSchoolParticipation(tx, input.id);
       const prev = await tx.tutee.findUniqueOrThrow({
         where: { id: input.id },
         select: { status: true, englishName: true },
@@ -2688,7 +2854,7 @@ export const adminRouter = createTRPCRouter({
   adjustments: viewerProcedure
     .input(z.object({ month: monthInput.optional() }).optional())
     .query(async ({ ctx, input }) => {
-      const isViewer = ctx.session.role === "VIEWER";
+      const isViewer = ctx.portalAccess.maskManagementData;
       const rows = await ctx.db.serviceHourAdjustment.findMany({
         where: input?.month ? { month: input.month } : {},
         orderBy: { createdAt: "desc" },
@@ -2732,7 +2898,7 @@ export const adminRouter = createTRPCRouter({
   // Tutor applications + interview assignment
   // --------------------------------------------------------------------------
   tutorApplications: viewerProcedure.query(async ({ ctx }) => {
-    const isViewer = ctx.session.role === "VIEWER";
+    const isViewer = ctx.portalAccess.maskManagementData;
     const apps = await ctx.db.tutorApplication.findMany({
       orderBy: [{ status: "asc" }, { createdAt: "desc" }],
       include: {
@@ -2811,8 +2977,19 @@ export const adminRouter = createTRPCRouter({
         await lockEntity(tx, `interview:${input.applicationId}`);
         const lockedApplication = await tx.tutorApplication.findUniqueOrThrow({ where: { id: input.applicationId } });
         if (lockedApplication.type !== "INITIAL") {
-          if (ctx.session.tutorId === lockedApplication.requestedTutorId || await tx.user.count({ where: { id: ctx.session.user.id, tutorId: lockedApplication.requestedTutorId } }))
-            throw new TRPCError({ code: "FORBIDDEN", message: "Another Admin or Head must choose your review panel." });
+          if (
+            ctx.session.tutorId === lockedApplication.requestedTutorId ||
+            (await tx.user.count({
+              where: {
+                id: ctx.session.user.id,
+                tutorId: lockedApplication.requestedTutorId,
+              },
+            }))
+          )
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "Another Admin or Head must choose your review panel.",
+            });
           if (!["ADMIN", "HEAD"].includes(ctx.session.role))
             throw new TRPCError({ code: "FORBIDDEN" });
           if (lockedApplication.status !== "PENDING")
@@ -2900,6 +3077,9 @@ export const adminRouter = createTRPCRouter({
             message: "Application not found.",
           });
 
+        // Recalled qualification requests cannot enter the legacy status/undo workflow.
+        if (prev.status === "RECALLED")
+          throw new TRPCError({ code: "CONFLICT", message: "This qualification request was recalled." });
         const interviewsEnabled = (await getFeatures(tx)).INTERVIEWS;
         const hasInterviewHistory =
           prev.status === "INTERVIEW" ||
@@ -2969,7 +3149,7 @@ export const adminRouter = createTRPCRouter({
   // --------------------------------------------------------------------------
   /** All open (PENDING) tutor lifecycle requests, with eligibility and affected-tutee counts. */
   tutorRequests: viewerProcedure.query(async ({ ctx }) => {
-    const isViewer = ctx.session.role === "VIEWER";
+    const isViewer = ctx.portalAccess.maskManagementData;
     const now = new Date();
     const active = await getActivePeriodOrNull(ctx.db);
     const requests = await ctx.db.tutorStatusRequest.findMany({
@@ -3070,7 +3250,7 @@ export const adminRouter = createTRPCRouter({
    * so the page reflects auto-approvals lazily (no scheduler).
    */
   tuteeRemovalRequests: viewerProcedure.query(async ({ ctx }) => {
-    const isViewer = ctx.session.role === "VIEWER";
+    const isViewer = ctx.portalAccess.maskManagementData;
     await finalizeDueOptOuts(ctx.db);
     const [pending, finalized] = await Promise.all([
       ctx.db.tuteeRemovalRequest.findMany({
@@ -3218,8 +3398,9 @@ export const adminRouter = createTRPCRouter({
    */
   reinstateTutee: adminProcedure
     .input(z.object({ requestId: cuid }))
-    .mutation(async ({ ctx, input }) => {
-      const req = await ctx.db.tuteeRemovalRequest.findUniqueOrThrow({
+    .mutation(async ({ ctx, input }) => inTransaction(ctx.db, async (tx) => {
+      await lockEntity(tx, "program:period");
+      const req = await tx.tuteeRemovalRequest.findUniqueOrThrow({
         where: { id: input.requestId },
         select: {
           id: true,
@@ -3234,12 +3415,12 @@ export const adminRouter = createTRPCRouter({
           message: "This removal isn't in effect.",
         });
       }
-      await ctx.db.$transaction([
-        ctx.db.tutee.update({
+      await requireStudentSchoolParticipation(tx, req.tuteeId);
+      await tx.tutee.update({
           where: { id: req.tuteeId },
           data: { status: "PENDING" },
-        }),
-        ctx.db.tuteeRemovalRequest.update({
+        });
+      await tx.tuteeRemovalRequest.update({
           where: { id: req.id },
           data: {
             state: "REINSTATED",
@@ -3247,17 +3428,16 @@ export const adminRouter = createTRPCRouter({
             resolvedById: ctx.session.user.id,
             resolvedByName: ctx.session.user.name,
           },
-        }),
-      ]);
+        });
       await recordAudit({
         userId: ctx.session.user.id,
         userName: ctx.session.user.name,
         action: `Reinstated ${req.tutee.englishName}`,
         entity: "TuteeRemovalRequest",
         entityId: req.id,
-      });
+      }, tx);
       return { ok: true };
-    }),
+    })),
 
   // --------------------------------------------------------------------------
   // Crew patrols — membership + patrol order config, and the attendance-flag review queue
@@ -3294,8 +3474,17 @@ export const adminRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) => {
       const target = await ctx.db.user.findUniqueOrThrow({
         where: { id: input.userId },
-        select: { id: true, role: true, name: true, email: true },
+        select: { id: true, role: true, name: true, email: true, mergedIntoId: true },
       });
+      if (
+        target.mergedIntoId ||
+        (await ctx.db.user.count({ where: { mergedIntoId: target.id } }))
+      )
+        throw new TRPCError({
+          code: "CONFLICT",
+          message:
+            "Combined account history must be retained. Change the surviving account's crew status instead.",
+        });
       if (target.role !== "CREW") {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -3325,9 +3514,9 @@ export const adminRouter = createTRPCRouter({
   /** Crew members (anyone with a crewStatus) + their patrol tally. Crew hours are separate from
    *  tutoring. Crew-only logins (role CREW) can be hard-deleted; tutor-crew are managed via status. */
   crewRoster: viewerProcedure.query(async ({ ctx }) => {
-    const [users, agg] = await Promise.all([
+    const [users, agg, retired] = await Promise.all([
       ctx.db.user.findMany({
-        where: { crewStatus: { not: null } },
+        where: { crewStatus: { not: null }, mergedIntoId: null },
         orderBy: { name: "asc" },
         // Fall back to username (never email) for the label — emails are PII masked from VIEWER, and
         // the unmasked `name` key must never carry one.
@@ -3345,13 +3534,17 @@ export const adminRouter = createTRPCRouter({
         _sum: { hours: true },
         _count: { _all: true },
       }),
+      ctx.db.user.findMany({ where: { mergedIntoId: { not: null } }, select: { id: true, mergedIntoId: true } }),
     ]);
-    const byUser = new Map(
-      agg.map((p) => [
-        p.crewUserId,
-        { hours: p._sum.hours ?? 0, count: p._count._all },
-      ]),
-    );
+    // Attribute current totals through the explicit merge map; patrol evidence keeps
+    // its original author, while each live crew member appears only once.
+    const survivorById = new Map(retired.map((user) => [user.id, user.mergedIntoId!]));
+    const byUser = new Map<string, { hours: number; count: number }>();
+    for (const patrol of agg) {
+      const id = survivorById.get(patrol.crewUserId) ?? patrol.crewUserId;
+      const previous = byUser.get(id) ?? { hours: 0, count: 0 };
+      byUser.set(id, { hours: previous.hours + (patrol._sum.hours ?? 0), count: previous.count + patrol._count._all });
+    }
     const rank = { ACTIVE: 0, OPTED_OUT: 1, INACTIVE: 2 } as Record<
       string,
       number
@@ -3415,7 +3608,7 @@ export const adminRouter = createTRPCRouter({
 
   /** Pending crew applications (public "apply to be crew" submissions), earliest-first. */
   crewApplications: viewerProcedure.query(async ({ ctx }) => {
-    const isViewer = ctx.session.role === "VIEWER";
+    const isViewer = ctx.portalAccess.maskManagementData;
     const apps = await ctx.db.crewApplication.findMany({
       where: { status: "PENDING" },
       orderBy: { createdAt: "asc" },
@@ -3437,7 +3630,7 @@ export const adminRouter = createTRPCRouter({
    *  stays visible on /admin/crew where it was issued. The code is withheld from the VIEWER.
    *  Revoking the code on /admin/registration-codes reverts the application to PENDING. */
   crewIssuedCodes: viewerProcedure.query(async ({ ctx }) => {
-    const canSee = ctx.session.role !== "VIEWER";
+    const canSee = !ctx.portalAccess.maskManagementData;
     const codes = await ctx.db.registrationCode.findMany({
       where: {
         crewApplicationId: { not: null },
@@ -3529,7 +3722,7 @@ export const adminRouter = createTRPCRouter({
   /** Pending crew opt-out/reentry requests (member-initiated), earliest-first. Opt-out becomes
    *  approvable only after its recall cooldown elapses. */
   crewRequests: viewerProcedure.query(async ({ ctx }) => {
-    const isViewer = ctx.session.role === "VIEWER";
+    const isViewer = ctx.portalAccess.maskManagementData;
     const now = new Date();
     const reqs = await ctx.db.crewStatusRequest.findMany({
       where: { state: "PENDING" },
@@ -3721,7 +3914,7 @@ export const adminRouter = createTRPCRouter({
   registrationCodes: viewerProcedure.query(async ({ ctx }) => {
     const now = new Date();
     // The code + issuer email are withheld from the read-only VIEWER.
-    const canSee = ctx.session.role !== "VIEWER";
+    const canSee = !ctx.portalAccess.maskManagementData;
     const codes = await ctx.db.registrationCode.findMany({
       where: ctx.session.role === "HEAD" ? {} : { kind: { in: ["TUTOR", "CREW"] } },
       orderBy: { createdAt: "desc" },
@@ -3856,6 +4049,13 @@ export const adminRouter = createTRPCRouter({
    * tutor's account/setup status and a `isSelf` flag; `caller` lets the client gate controls
    * (coordinators may only send links + toggle their own "can tutor"). ADMIN or COORDINATOR only.
    */
+  accountAcademics: adminProcedure.input(z.object({ userId: cuid })).query(async ({ ctx, input }) => ({
+    ...(await accountAcademics(ctx.db, input.userId)),
+    history: await ctx.db.academicConfirmation.findMany({ where: { userId: { in: await accountHistoryIds(ctx.db, input.userId) } }, orderBy: { confirmedAt: "desc" }, take: 50 }),
+  })),
+  updateAccountAcademics: adminProcedure.input(currentAcademicInput.extend({ userId: cuid }))
+    .mutation(({ ctx, input }) => confirmCurrentAccountAcademics(ctx.db, input.userId, input, { actorId: ctx.session.user.id, source: "STAFF" })),
+
   updateAccountUsername: headProcedure
     .input(z.object({ userId: cuid, username: accountUsernameSchema, expectedProfileVersion: z.number().int().nonnegative() }))
     .mutation(({ ctx, input }) => updateAccountUsername(ctx.db, ctx.session.user.id, input)),
@@ -3864,7 +4064,8 @@ export const adminRouter = createTRPCRouter({
     .input(
       z.object({
         userId: cuid,
-        name: z.string().trim().min(1).max(100),
+        ...optionalPersonNameFields,
+        name: z.string().trim().min(1).max(200),
         alternativeNames: z.string().trim().max(200).nullable(),
         expectedProfileVersion: z.number().int().nonnegative(),
       }),
@@ -3880,18 +4081,24 @@ export const adminRouter = createTRPCRouter({
 
   accounts: adminProcedure.query(async ({ ctx }) => {
     const now = new Date();
-    const [term, users, unlinkedTutors, openCodes] = await Promise.all([
+    const [term, users, unlinkedTutors, openCodes, historyOwners] = await Promise.all([
       ctx.db.term.findFirst({
         where: { active: true },
-        select: { schoolYear: true },
+        select: { id: true, schoolYear: true },
       }),
       ctx.db.user.findMany({
+        where: { mergedIntoId: null },
         orderBy: { email: "asc" },
         select: {
           id: true,
           name: true,
+          firstName: true,
+          lastName: true,
+          preferredName: true,
+          legacyName: true,
           alternativeNames: true,
           profileVersion: true,
+            academicProfile: true,
           email: true,
           username: true,
           role: true,
@@ -3903,6 +4110,7 @@ export const adminRouter = createTRPCRouter({
           suspendedAt: true,
           emailVerifiedAt: true,
           mustChangePassword: true,
+          student: { select: { status: true, intakeTermId: true } },
           tutorId: true,
           tutor: {
             select: {
@@ -3910,6 +4118,7 @@ export const adminRouter = createTRPCRouter({
               status: true,
               username: true,
               gradeLevel: true,
+              academicallyGraduated: true,
               email: true,
             },
           },
@@ -3924,6 +4133,7 @@ export const adminRouter = createTRPCRouter({
           status: true,
           username: true,
           gradeLevel: true,
+          academicallyGraduated: true,
           email: true,
         },
       }),
@@ -3932,20 +4142,23 @@ export const adminRouter = createTRPCRouter({
         where: { usedAt: null, expiresAt: { gt: now } },
         select: { tutorId: true, email: true },
       }),
+      ctx.db.studentProfileOwnership.findMany({ select: { userId: true }, distinct: ["userId"] }),
     ]);
 
     // Uphold the "every account has a username" invariant: backfill any login that predates the
     // field (e.g. a bootstrap admin who never had a tutor record), then reflect the new handles.
-    const missingUsername = users.filter((u) => !u.username);
+    const missingUsername = users.filter((u) => !u.username && (u.tutorId !== null || !["STUDENT", "VIEWER"].includes(u.role)));
     if (missingUsername.length > 0) {
       await Promise.all(missingUsername.map((u) => ensureUserUsername(u.id)));
       const filled = await ctx.db.user.findMany({
         where: { id: { in: missingUsername.map((u) => u.id) } },
-        select: { id: true, username: true },
+        select: { id: true, username: true, profileVersion: true },
       });
-      const byId = new Map(filled.map((f) => [f.id, f.username]));
-      for (const u of missingUsername)
-        u.username = byId.get(u.id) ?? u.username;
+      const byId = new Map(filled.map((f) => [f.id, f]));
+      for (const u of missingUsername) {
+        const current = byId.get(u.id);
+        if (current) { u.username = current.username; u.profileVersion = current.profileVersion; }
+      }
     }
 
     const codedTutorIds = new Set(
@@ -3961,15 +4174,14 @@ export const adminRouter = createTRPCRouter({
       (tutorId != null && codedTutorIds.has(tutorId)) ||
       (!!email && codedEmails.has(email.toLowerCase()));
 
-    // Class-of year for a grade in the active school year (null if neither is known).
-    const classOf = (gradeLevel: number | null | undefined) =>
-      gradeLevel != null && term
-        ? graduationYear(gradeLevel, term.schoolYear)
-        : null;
-
+    const historicalOwnerIds = new Set(historyOwners.map(owner => owner.userId));
     const userRows = users.map((u) => ({
       userId: u.id,
       name: u.name ?? u.email,
+      firstName: u.firstName,
+      lastName: u.lastName,
+      preferredName: u.preferredName,
+      legacyName: u.legacyName,
       alternativeNames: u.alternativeNames,
       profileVersion: u.profileVersion,
       emailVerifiedAt: u.emailVerifiedAt,
@@ -3980,9 +4192,12 @@ export const adminRouter = createTRPCRouter({
       tutorId: u.tutorId,
       tutor: u.tutor,
       tutorStatus: u.tutor?.status ?? null,
-      classOf: classOf(u.tutor?.gradeLevel),
+      classOf: academicSummary(u.academicProfile, term?.schoolYear).expectedGraduationYear,
+      academic: academicSummary(u.academicProfile, term?.schoolYear),
       canTranslate: u.canTranslate,
       tuteeMember: u.tuteeMember,
+      hasTuteeHistory: historicalOwnerIds.has(u.id) || (!!u.student && isHistoricalTutee(u.student, term?.id ?? null)),
+      currentTutee: u.tuteeMember && !!u.student && !isHistoricalTutee(u.student, term?.id ?? null),
       tutorAccessRevoked: u.tutorAccessRevoked,
       crewStatus: u.crewStatus,
       tutorHasEmail: !!u.tutor?.email,
@@ -3998,6 +4213,10 @@ export const adminRouter = createTRPCRouter({
     const tutorRows = unlinkedTutors.map((tu) => ({
       userId: null,
       name: tu.englishName,
+      firstName: null,
+      lastName: null,
+      preferredName: null,
+      legacyName: tu.englishName,
       alternativeNames: null,
       profileVersion: null,
       emailVerifiedAt: null,
@@ -4014,9 +4233,12 @@ export const adminRouter = createTRPCRouter({
         email: tu.email,
       },
       tutorStatus: tu.status,
-      classOf: classOf(tu.gradeLevel),
+      classOf: null,
+      academic: academicSummary(legacyAcademic(tu.gradeLevel, tu.academicallyGraduated), term?.schoolYear),
       canTranslate: false,
       tuteeMember: false,
+      currentTutee: false,
+      hasTuteeHistory: false,
       tutorAccessRevoked: false,
       crewStatus: null,
       tutorHasEmail: !!tu.email,
@@ -4062,28 +4284,68 @@ export const adminRouter = createTRPCRouter({
   setMemberships: headProcedure
     .input(z.object({ userId: cuid, membership: membershipSchema, confirmPassword: z.string().min(1).optional() }))
     .mutation(async ({ ctx, input }) => {
-      if (!approvalScope.getStore()) await assertCallerPassword(ctx.session.user.id, input.confirmPassword ?? "");
-      return inTransaction(ctx.db, (tx) => databaseScope.run(databaseScope.getStore() ?? tx, async () => {
-        await lockEntity(tx, "program:leadership");
-        await lockAccountProfile(tx, input.userId);
-        if ((await tx.user.findUniqueOrThrow({ where: { id: ctx.session.user.id } })).role !== "HEAD")
-          throw new TRPCError({ code: "FORBIDDEN", message: "Head access required." });
-        const target = await tx.user.findUniqueOrThrow({ where: { id: input.userId }, include: { tutor: true } });
-        const value = input.membership;
-        if ((target.role === "HEAD") !== (value.rank === "HEAD"))
-          throw new TRPCError({ code: "FORBIDDEN", message: "Use leadership transfer to change the Head." });
-        const role = value.viewer ? "VIEWER" : value.rank !== "NONE" ? value.rank : value.tutor ? "TUTOR" : value.crew ? "CREW" : "STUDENT";
-        // Leave Viewer before assigning any capability; the database enforces exclusivity too.
-        await tx.user.update({ where: { id: target.id }, data: {
-          role, tuteeMember: value.tutee, tutorAccessRevoked: !value.tutor, canTranslate: value.translator,
-          crewStatus: value.crew ? target.crewStatus ?? "ACTIVE" : null,
-        } });
-        if (accountMembership(target).tutor !== value.tutor) {
-          const { createCaller } = await import("../root");
-          await createCaller({ ...ctx, db: ctx.db }).admin.setUserCanTutor({ userId: target.id, canTutor: value.tutor });
-        }
-        return { ok: true };
-      }));
+      if (!approvalScope.getStore())
+        await assertCallerPassword(
+          ctx.session.user.id,
+          input.confirmPassword ?? "",
+        );
+      return inTransaction(ctx.db, (tx) =>
+        databaseScope.run(databaseScope.getStore() ?? tx, async () => {
+          // This wrapper can delegate tutor creation; take the namespace before account locks.
+          await lockUsernameNamespace(tx);
+          await lockEntity(tx, "program:leadership");
+          await lockAccountProfile(tx, input.userId);
+          if (
+            (
+              await tx.user.findUniqueOrThrow({
+                where: { id: ctx.session.user.id },
+              })
+            ).role !== "HEAD"
+          )
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "Head access required.",
+            });
+          const target = await tx.user.findUniqueOrThrow({
+            where: { id: input.userId },
+            include: { tutor: true },
+          });
+          const value = input.membership;
+          if ((target.role === "HEAD") !== (value.rank === "HEAD"))
+            throw new TRPCError({
+              code: "FORBIDDEN",
+              message: "Use leadership transfer to change the Head.",
+            });
+          const role = value.viewer
+            ? "VIEWER"
+            : value.rank !== "NONE"
+              ? value.rank
+              : value.tutor
+                ? "TUTOR"
+                : value.crew
+                  ? "CREW"
+                  : "STUDENT";
+          // Leave Viewer before assigning any capability; the database enforces exclusivity too.
+          await tx.user.update({
+            where: { id: target.id },
+            data: {
+              role,
+              tuteeMember: value.tutee,
+              tutorAccessRevoked: !value.tutor,
+              canTranslate: value.translator,
+              crewStatus: value.crew ? (target.crewStatus ?? "ACTIVE") : null,
+            },
+          });
+          if (accountMembership(target).tutor !== value.tutor) {
+            const { createCaller } = await import("../root");
+            await createCaller({ ...ctx, db: ctx.db }).admin.setUserCanTutor({
+              userId: target.id,
+              canTutor: value.tutor,
+            });
+          }
+          return { ok: true };
+        }),
+      );
     }),
 
   /**
@@ -4172,8 +4434,18 @@ export const adminRouter = createTRPCRouter({
             name: true,
             email: true,
             tutorId: true,
+            mergedIntoId: true,
           },
         });
+        if (
+          target.mergedIntoId ||
+          (await tx.user.count({ where: { mergedIntoId: target.id } }))
+        )
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "Combined account history must be retained. Update the surviving account's memberships instead.",
+          });
         if (target.role === "HEAD") {
           throw new TRPCError({
             code: "FORBIDDEN",
@@ -4376,79 +4648,96 @@ export const adminRouter = createTRPCRouter({
           message: "You can only change your own tutoring access.",
         });
       }
-      const user = await ctx.db.user.findUniqueOrThrow({
-        where: { id: input.userId },
-        select: { id: true, name: true, email: true, tutorId: true, role: true },
-      });
-
-      if (user.role === "VIEWER" && input.canTutor)
-        throw new TRPCError({ code: "BAD_REQUEST", message: "Viewer cannot be a Tutor." });
-      if (!input.canTutor) {
-        await ctx.db.user.update({ where: { id: user.id }, data: { tutorAccessRevoked: true } });
-        // Archive the tutor but KEEP the link, so the account keeps its other attributes
-        // (username, class, history) and the toggle is cleanly reversible. Re-enabling
-        // reactivates the same record. (Tutor-area access is denied while ARCHIVED — see the
-        // gate in (tutor)/layout.tsx.)
-        if (user.tutorId) {
-          await ctx.db.tutor.update({
-            where: { id: user.tutorId },
-            data: { status: "ARCHIVED" },
-          });
-          // Don't strand their tutees — re-queue them for reassignment (the chain's inverse).
-          await requeueTutorActiveTermTutees(ctx.db, user.tutorId);
-        }
-        return { ok: true, linked: false };
-      }
-
-      // Enabling: reuse the already-linked tutor, else an existing tutor with the same email,
-      // else create a fresh one from the user's display name.
-      const existing =
-        (user.tutorId
-          ? await ctx.db.tutor.findUnique({
-              where: { id: user.tutorId },
-              select: { id: true },
-            })
-          : null) ??
-        (await ctx.db.tutor.findUnique({
-          where: { email: user.email },
-          select: { id: true },
-        }));
-
-      let tutorId: string;
-      if (existing) {
-        await ctx.db.tutor.update({
-          where: { id: existing.id },
-          data: { status: "ACTIVE" },
-        });
-        tutorId = existing.id;
-      } else {
-        // Derive a tutor name from the display name. A single-word name (e.g. "Admin") keeps an
-        // empty last name — never duplicate it into "Admin Admin" (see splitDisplayName).
-        const { firstName, lastName, englishName } = splitDisplayName(
-          user.name ?? user.email,
-        );
-        const usernameBase = lastName
-          ? defaultUsername(firstName, lastName)
-          : firstName;
-        const username = await ensureUniqueUsername(usernameBase);
-        const created = await ctx.db.tutor.create({
-          data: {
-            firstName,
-            lastName,
-            englishName,
-            username,
-            email: user.email,
-            status: "ACTIVE",
+      return inTransaction(ctx.db, async (tx) => {
+        await lockUsernameNamespace(tx);
+        await lockAccountProfile(tx, input.userId);
+        const user = await tx.user.findUniqueOrThrow({
+          where: { id: input.userId },
+          select: {
+            id: true,
+            name: true,
+            firstName: true,
+            lastName: true,
+            legacyName: true,
+            email: true,
+            tutorId: true,
+            role: true,
+            username: true,
           },
-          select: { id: true },
         });
-        tutorId = created.id;
-      }
-      await ctx.db.user.update({ where: { id: user.id }, data: { tutorId, tutorAccessRevoked: false } });
-      await updateAccountProfile(ctx.db, user.id);
-      // Guarantee the account carries a username (mirrors the linked tutor if it had none).
-      await ensureUserUsername(user.id);
-      return { ok: true, linked: true };
+
+        if (input.canTutor) await requireSchoolParticipation(tx, user.id);
+        if (user.role === "VIEWER" && input.canTutor)
+          throw new TRPCError({ code: "BAD_REQUEST", message: "Viewer cannot be a Tutor." });
+        if (!input.canTutor) {
+          await tx.user.update({ where: { id: user.id }, data: { tutorAccessRevoked: true } });
+          // Archive the tutor but KEEP the link, so the account keeps its other attributes
+          // (username, class, history) and the toggle is cleanly reversible. Re-enabling
+          // reactivates the same record. (Tutor-area access is denied while ARCHIVED — see the
+          // gate in (tutor)/layout.tsx.)
+          if (user.tutorId) {
+            await tx.tutor.update({
+              where: { id: user.tutorId },
+              data: { status: "ARCHIVED" },
+            });
+            // Don't strand their tutees — re-queue them for reassignment (the chain's inverse).
+            await requeueTutorActiveTermTutees(tx, user.tutorId);
+          }
+          return { ok: true, linked: false };
+        }
+
+        // Enabling: reuse the already-linked tutor, else an existing tutor with the same email,
+        // else create a fresh one from the user's display name.
+        const existing =
+          (user.tutorId
+            ? await tx.tutor.findUnique({
+                where: { id: user.tutorId },
+                select: { id: true },
+              })
+            : null) ??
+          (await tx.tutor.findUnique({
+            where: { email: user.email },
+            select: { id: true },
+          }));
+
+        let tutorId: string;
+        if (existing) {
+          await tx.tutor.update({
+            where: { id: existing.id },
+            data: { status: "ACTIVE" },
+          });
+          tutorId = existing.id;
+        } else {
+          // Split only a legacy string for a username suggestion. Explicit identity
+          // fields are mirrored by updateAccountProfile below.
+          const { firstName, lastName } = user.firstName
+            ? { firstName: user.firstName, lastName: user.lastName ?? "" }
+            : splitDisplayName(user.legacyName ?? user.name ?? user.email);
+          const englishName = user.name ?? user.email;
+          const usernameBase = lastName
+            ? defaultUsername(firstName, lastName)
+            : firstName;
+          const username = await canonicalUsername(tx, usernameBase, { excludeUserId: user.id, userUsername: user.username });
+          const created = await tx.tutor.create({
+            data: {
+              firstName: user.firstName,
+              lastName: user.lastName,
+              englishName,
+              username,
+              email: user.email,
+              status: "ACTIVE",
+            },
+            select: { id: true },
+          });
+          tutorId = created.id;
+        }
+        await tx.user.update({ where: { id: user.id }, data: { tutorId, tutorAccessRevoked: false } });
+        await initializeAccountAcademics(tx, user.id);
+        await updateAccountProfile(tx, user.id);
+        // Guarantee the account carries a username (mirrors the linked tutor if it had none).
+        await ensureUserUsername(user.id, tx);
+        return { ok: true, linked: true };
+      });
     }),
 
   // --------------------------------------------------------------------------
@@ -4778,7 +5067,7 @@ export const adminRouter = createTRPCRouter({
   // Disciplinary cards (team recheck of yellow/red cards)
   // --------------------------------------------------------------------------
   disciplinaryCards: viewerProcedure.query(async ({ ctx }) => {
-    const isViewer = ctx.session.role === "VIEWER";
+    const isViewer = ctx.portalAccess.maskManagementData;
     const cards = await ctx.db.disciplinaryCard.findMany({
       orderBy: [{ reviewStatus: "asc" }, { createdAt: "desc" }],
       select: {
@@ -4955,3 +5244,4 @@ export const adminRouter = createTRPCRouter({
       }),
     ),
 });
+import { accountHistoryIds } from "~/server/account-history";

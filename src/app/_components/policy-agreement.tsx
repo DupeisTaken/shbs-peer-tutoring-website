@@ -1,5 +1,7 @@
 "use client";
 
+import { FieldRequirement } from "~/app/_components/field-requirement";
+
 import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
@@ -59,6 +61,7 @@ export function PolicyAgreement({
               </button>
             ),
           })}
+          <FieldRequirement state="required" />
         </span>
       </label>
       {requiresRead && !hasRead && (

@@ -10,6 +10,7 @@ import "dotenv/config";
 import { PrismaPg } from "@prisma/adapter-pg";
 
 import { PrismaClient } from "../generated/prisma";
+import { utcDatabaseUrl } from "../src/server/database-url";
 import { hashPassword } from "../src/server/auth/password";
 import { initializeProgram } from "../src/server/program/bootstrap";
 
@@ -34,7 +35,9 @@ if (!password || password.length < 12) {
 }
 const passwordHash = hashPassword(password);
 
-const db = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
+const db = new PrismaClient({
+  adapter: new PrismaPg({ connectionString: utcDatabaseUrl(connectionString) }),
+});
 
 try {
   const account = await db.$transaction(async (tx) => {
@@ -42,8 +45,12 @@ try {
     const headExists = (await tx.user.count({ where: { role: "HEAD" } })) > 0;
     const existing = await tx.user.findUnique({
       where: { email },
-      select: { role: true },
+      select: { role: true, mergedIntoId: true },
     });
+    // Leadership locking serializes this check with combination: recovery must never revive
+    // a retired identity or silently assign an inaccessible replacement Head.
+    if (existing?.mergedIntoId)
+      throw new Error("This email belongs to a retired login. Use the surviving account for administrator recovery.");
     const role = existing?.role === "HEAD" || !headExists ? "HEAD" : "ADMIN";
     const today = new Date();
     const year = today.getUTCFullYear() - (today.getUTCMonth() < 7 ? 1 : 0);

@@ -1,11 +1,16 @@
 "use client";
 
+import { Button } from "./ui/button";
+import { StatePanel } from "./ui/patterns";
 import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { AcceptanceRecords } from "./acceptance-records";
 import { ProfileDialog } from "./profile-dialog";
 import { useReadOnly } from "./read-only";
+import { isPastTutor } from "~/lib/tutor-visibility";
+import { EnrollmentGrade } from "./tutee-history";
+import { AcademicDetails } from "./academic-profile";
 
 /** Keep the entry in the roster's trailing action column.
  * No detail/history query is mounted until staff explicitly open this person. */
@@ -53,23 +58,47 @@ function TutorDetails({ tutorId }: { tutorId: string }) {
   const t = useTranslations("tutorDetails");
   const common = useTranslations();
   const query = api.tutorDetails.get.useQuery({ tutorId });
-  if (query.isLoading) return <p role="status">{t("loading")}</p>;
-  if (query.error)
+  if (!query.data && !query.error)
+    return <StatePanel kind="loading" title={t("loading")} />;
+  if (!query.data)
     return (
-      <div role="alert" className="space-y-3">
-        <p>{t("error")}</p>
-        <button
-          className="btn-secondary min-h-11 lg:min-h-8"
-          onClick={() => void query.refetch()}
-        >
-          {t("retry")}
-        </button>
-      </div>
+      <StatePanel
+        kind="error"
+        title={t("error")}
+        action={
+          <Button
+            size="compact"
+            disabled={query.isFetching}
+            onClick={() => void query.refetch()}
+          >
+            {t("retry")}
+          </Button>
+        }
+      />
     );
-  if (!query.data) return null;
   const detail = query.data;
   return (
     <div className="space-y-6">
+      {query.error && (
+        <StatePanel
+          kind="error"
+          title={t("error")}
+          action={
+            <Button
+              size="compact"
+              disabled={query.isFetching}
+              onClick={() => void query.refetch()}
+            >
+              {t("retry")}
+            </Button>
+          }
+        />
+      )}
+      {query.isFetching && (
+        <p role="status" className="muted text-sm">
+          {t("loading")}
+        </p>
+      )}
       <section className="space-y-3" aria-label={t("account")}>
         <div className="flex flex-wrap items-center gap-2">
           {detail.badges.map((badge) => (
@@ -83,19 +112,33 @@ function TutorDetails({ tutorId }: { tutorId: string }) {
             {common(`admin.tutorStatus.${detail.status}`)}
           </span>
         </div>
-        {detail.alternativeNames && (
-          <p className="text-sm [overflow-wrap:anywhere]">
-            {detail.alternativeNames}
-          </p>
-        )}
         <dl className="grid gap-3 rounded-xl bg-slate-50 p-4 text-sm sm:grid-cols-2">
           <div>
             <dt className="muted">{t("account")}</dt>
             <dd className="mt-1">{t(detail.userId ? "linked" : "unlinked")}</dd>
           </div>
+          {detail.alternativeNames && (
+            <div>
+              <dt className="muted">
+                {common("accountProfile.alternativeNames")}
+              </dt>
+              <dd className="mt-1 [overflow-wrap:anywhere]">
+                {detail.alternativeNames}
+              </dd>
+            </div>
+          )}
           <div>
-            <dt className="muted">{common("admin.tutors.colGrade")}</dt>
-            <dd className="mt-1">{detail.gradeLevel ?? "—"}</dd>
+            <dt className="muted">{common("academics.title")}</dt>
+            <dd className="mt-1">
+              {isPastTutor(detail.status) ? (
+                <EnrollmentGrade
+                  grade={detail.gradeLevel?.toString()}
+                  graduated={detail.academicallyGraduated}
+                />
+              ) : (
+                <AcademicDetails academic={detail.academic} />
+              )}
+            </dd>
           </div>
           <div>
             <dt className="muted">{common("admin.tutors.colEmail")}</dt>

@@ -1,4 +1,5 @@
 import { createHash } from "node:crypto";
+import { accountHistoryIds } from "~/server/account-history";
 import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 import {
@@ -42,6 +43,7 @@ const peopleSelect = {
   name: true,
   username: true,
   role: true,
+  mergedIntoId: true,
 } as const;
 const personSearch = (search: string) =>
   search
@@ -79,11 +81,12 @@ export const messagingRouter = createTRPCRouter({
       return { people: rows.slice(0, 50), more: rows.length > 50 };
     }),
   inbox: protectedProcedure.input(pageInput).query(async ({ ctx, input }) => {
+    const ownIds = await accountHistoryIds(ctx.db, ctx.session.user.id);
     const rows = await ctx.db.directMessage.findMany({
       where: {
         OR: [
-          { senderId: ctx.session.user.id },
-          { recipientId: ctx.session.user.id },
+          { senderId: { in: ownIds } },
+          { recipientId: { in: ownIds } },
         ],
       },
       orderBy: [{ createdAt: "desc" }, { id: "desc" }],
@@ -98,8 +101,9 @@ export const messagingRouter = createTRPCRouter({
       }),
       eligibleMessageRecipients(ctx.db, ctx.session.user.id),
     ]);
+    const replyIds = people.map((person) => person.mergedIntoId ?? person.id);
     const replyable = await ctx.db.user.findMany({
-      where: { AND: [eligible, { id: { in: ids } }] },
+      where: { AND: [eligible, { id: { in: replyIds } }] },
       select: { id: true },
     });
     const canReply = new Set(replyable.map((p) => p.id));
@@ -107,14 +111,14 @@ export const messagingRouter = createTRPCRouter({
     // Never serialize the batch key or original hidden content into a participant response.
     return rows.map((r) => ({
       id: r.id,
-      senderId: r.senderId,
+      senderId: names.get(r.senderId)?.mergedIntoId ?? r.senderId,
       recipientId: r.recipientId,
       body: r.hiddenAt ? null : r.body,
       hiddenAt: r.hiddenAt,
       supervisable: r.supervisable,
       createdAt: r.createdAt,
       readAt: r.readAt,
-      incoming: r.recipientId === ctx.session.user.id,
+      incoming: ownIds.includes(r.recipientId),
       sender:
         names.get(r.senderId)?.name ??
         names.get(r.senderId)?.username ??
@@ -125,7 +129,7 @@ export const messagingRouter = createTRPCRouter({
         names.get(r.recipientId)?.name ??
         names.get(r.recipientId)?.username ??
         "Deleted account",
-      canReply: canReply.has(r.senderId),
+      canReply: canReply.has(names.get(r.senderId)?.mergedIntoId ?? r.senderId),
     }));
   }),
   send: protectedProcedure
@@ -267,7 +271,7 @@ export const messagingRouter = createTRPCRouter({
     .input(z.object({ id: z.string() }))
     .mutation(async ({ ctx, input }) => {
       await ctx.db.directMessage.updateMany({
-        where: { id: input.id, recipientId: ctx.session.user.id, readAt: null },
+        where: { id: input.id, recipientId: { in: await accountHistoryIds(ctx.db, ctx.session.user.id) }, readAt: null },
         data: { readAt: new Date() },
       });
       return { ok: true };

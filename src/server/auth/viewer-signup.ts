@@ -1,3 +1,7 @@
+import {
+  assertPrimaryName,
+  parsePersonNames,
+} from "~/server/program/profile-policy";
 /**
  * Public viewer self-registration (read-only VIEWER accounts) — the ONE open account-creation
  * path (everything else is admin-gated). Gated only by email validation: a visitor enters their
@@ -25,14 +29,32 @@ const MAX_ATTEMPTS = 6;
 export async function startViewerSignup(input: {
   email: string;
   name: string;
+  firstName?: string;
+  lastName?: string;
+  preferredName?: string | null;
+  alternativeNames?: string | null;
   affiliation: string;
 }): Promise<{ ok: true; code: string } | { ok: false; error: "email-taken" }> {
   const email = input.email.trim().toLowerCase();
   const existing = await db.user.findUnique({ where: { email }, select: { id: true } });
   if (existing) return { ok: false, error: "email-taken" };
 
+  await assertPrimaryName(db, input.name);
+  if (
+    input.firstName !== undefined ||
+    input.lastName !== undefined ||
+    input.preferredName !== undefined
+  )
+    input = {
+      ...input,
+      ...parsePersonNames({ ...input, lastName: input.lastName ?? "" }),
+    };
   const code = generateRegistrationCode();
   const data = {
+    firstName: input.firstName,
+    lastName: input.lastName,
+    preferredName: input.preferredName,
+    alternativeNames: input.alternativeNames,
     name: input.name.trim(),
     affiliation: input.affiliation.trim(),
     codeHash: hashCode(code),
@@ -49,8 +71,16 @@ export async function startViewerSignup(input: {
 export async function verifyViewerCode(
   email: string,
   code: string,
-): Promise<{ ok: true; completionProof: string } | { ok: false; error: "not-found" | "expired" | "too-many-attempts" | "mismatch" }> {
-  const row = await db.viewerSignup.findUnique({ where: { email: email.trim().toLowerCase() } });
+): Promise<
+  | { ok: true; completionProof: string }
+  | {
+      ok: false;
+      error: "not-found" | "expired" | "too-many-attempts" | "mismatch";
+    }
+> {
+  const row = await db.viewerSignup.findUnique({
+    where: { email: email.trim().toLowerCase() },
+  });
   if (!row || row.usedAt) return { ok: false, error: "not-found" };
   if (row.codeExpiresAt < new Date()) return { ok: false, error: "expired" };
   if (row.attempts >= MAX_ATTEMPTS) return { ok: false, error: "too-many-attempts" };
@@ -74,7 +104,10 @@ export async function completeViewerSignup(
   email: string,
   password: string,
   completionProof: string,
-): Promise<{ ok: true } | { ok: false; error: "not-found" | "email-unverified" | "email-taken" }> {
+): Promise<
+  | { ok: true }
+  | { ok: false; error: "not-found" | "email-unverified" | "email-taken" }
+> {
   const e = email.trim().toLowerCase();
   const row = await db.viewerSignup.findUnique({ where: { email: e } });
   if (!row || row.usedAt) return { ok: false, error: "not-found" };
@@ -94,10 +127,19 @@ export async function completeViewerSignup(
       data: { usedAt: new Date() },
     });
     if (claimed.count !== 1) return { ok: false as const, error: "email-unverified" as const };
+    // Recheck at the actual identity write: a verified challenge may predate a
+    // policy change. Rejection rolls back the claim so the signup is not consumed.
+    await assertPrimaryName(tx, row.name);
+    if (row.firstName !== null)
+      parsePersonNames({ ...row, lastName: row.lastName ?? "" });
     await tx.user.create({
       data: {
         email: e,
         // No username: viewers sign in by email; ensureUserUsername also skips VIEWER accounts.
+        firstName: row.firstName,
+        lastName: row.lastName,
+        preferredName: row.preferredName,
+        alternativeNames: row.alternativeNames,
         name: row.name,
         affiliation: row.affiliation,
         role: "VIEWER",

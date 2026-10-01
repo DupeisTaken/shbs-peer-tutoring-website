@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
+import { AcademicError } from "~/app/_components/academic-error";
 import { useReadOnly } from "~/app/_components/read-only";
 
 /**
@@ -74,7 +75,7 @@ export default function TutorRequestsPage() {
         </div>
       )}
 
-      {decide.error && <p className="text-sm text-red-600">{decide.error.message}</p>}
+      {decide.error && <p role="alert" className="text-sm text-red-600"><AcademicError message={decide.error.message} /></p>}
 
       <div className="space-y-3">
         {list.map((req) => (

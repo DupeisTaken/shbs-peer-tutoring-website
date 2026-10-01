@@ -13,6 +13,7 @@ import {
   TableDetails,
 } from "~/app/_components/ui/summary-table";
 import { DEFAULT_THEME, THEMES, isTheme, type Theme } from "~/lib/theme";
+import { RecipeGallery } from "./recipes";
 
 const en = {
   badge: "Development · synthetic examples",
@@ -658,6 +659,8 @@ export function UIGallery() {
             </div>
           </Example>
         </div>
+
+        <RecipeGallery locale={locale} state={state} />
 
         {dialog && (
           <Modal

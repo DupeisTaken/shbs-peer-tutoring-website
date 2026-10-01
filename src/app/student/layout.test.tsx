@@ -19,7 +19,14 @@ const mocks = vi.hoisted(() => ({
 vi.mock("~/server/auth", () => ({ auth: mocks.auth }));
 vi.mock("~/server/db", () => ({
   db: {
-    user: { findUnique: mocks.user },
+    user: {
+      findUnique: mocks.user,
+      findUniqueOrThrow: async () => {
+        const user = (await mocks.user()) as { role?: string } | null;
+        const session = (await mocks.auth()) as { role?: string } | null;
+        return { ...user, role: user?.role ?? session?.role };
+      },
+    },
     tutor: { findUnique: mocks.tutor },
     policyAcceptance: {
       findUnique: mocks.acceptance,
@@ -29,6 +36,13 @@ vi.mock("~/server/db", () => ({
 }));
 vi.mock("~/server/policy-acceptance", () => ({
   currentPolicy: mocks.currentPolicy,
+  // Layout tests exercise policy-gate rendering; merge-family evidence resolution is
+  // covered by the database integration tests. Preserve current-versus-past fixtures.
+  findAccountPolicy: (_db: unknown, _userId: string, _slug: string, revision?: string) =>
+    (revision ? mocks.acceptance() : mocks.pastAcceptance()) as Promise<unknown>,
+}));
+vi.mock("~/app/_components/school-departure", () => ({
+  DepartureBanner: () => null,
 }));
 vi.mock("~/app/_components/admin-nav", () => ({
   NavSidebar: () => null,
@@ -100,6 +114,49 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
+it.each(["GRADUATED", "TRANSFERRED"])(
+  "offers %s students a viewer entry without requiring new participation consent",
+  async (reason) => {
+    mocks.auth.mockResolvedValue({
+      user: { id: "account" },
+      role: "STUDENT",
+      tutorId: null,
+    });
+    mocks.user.mockResolvedValue({
+      role: "STUDENT",
+      tutor: null,
+      tuteeMember: false,
+      schoolDeparture: { reason, observerRevoked: false, tutorDerived: false },
+    });
+    mocks.acceptance.mockResolvedValue(null);
+    render(await TuteeLayout({ children: <p>Personal history</p> }));
+    expect(screen.getByText("Personal history")).toBeTruthy();
+    expect(
+      screen.getAllByRole("link", { name: "schoolDeparture.enter" }),
+    ).toHaveLength(2);
+  },
+);
+it("admits a departed tutor to read-only management and retains the return link", async () => {
+  mocks.auth.mockResolvedValue({
+    user: { id: "account" },
+    role: "TUTOR",
+    tutorId: "tutor",
+  });
+  mocks.user.mockResolvedValue({
+    role: "TUTOR",
+    tutor: { status: "TRANSFERRED" },
+    schoolDeparture: {
+      reason: "TRANSFERRED",
+      observerRevoked: false,
+      tutorDerived: true,
+    },
+  });
+  render(await AdminLayout({ children: <p>Observer content</p> }));
+  expect(screen.getByText("admin.readOnly.banner")).toBeTruthy();
+  expect(
+    screen.getAllByRole("link", { name: "components.userMenu.enterTutor" }),
+  ).toHaveLength(2);
+});
 // Management membership does not grant tutoring; tutee access stays independent.
 it.each(["HEAD", "ADMIN", "COORDINATOR"])(
   "lets %s without a tutor profile enter tutee and return safely",
@@ -285,7 +342,9 @@ it.each(["HEAD", "TUTOR"])(
   "keeps %s tutee content gated until membership and personal consent exist",
   async (role) => {
     mocks.user.mockResolvedValue({
-      role, tutor: { status: "ACTIVE" }, tuteeMember: false,
+      role,
+      tutor: { status: "ACTIVE" },
+      tuteeMember: false,
     });
     const withoutMembership = render(
       await TuteeLayout({ children: <p>Private tutee content</p> }),
@@ -295,7 +354,9 @@ it.each(["HEAD", "TUTOR"])(
     withoutMembership.unmount();
 
     mocks.user.mockResolvedValue({
-      role, tutor: { status: "ACTIVE" }, tuteeMember: true,
+      role,
+      tutor: { status: "ACTIVE" },
+      tuteeMember: true,
     });
     mocks.acceptance.mockResolvedValue(null);
     const withoutConsent = render(
@@ -306,9 +367,7 @@ it.each(["HEAD", "TUTOR"])(
     withoutConsent.unmount();
 
     mocks.acceptance.mockResolvedValue({ revision: "published-policy" });
-    render(
-      await TuteeLayout({ children: <p>Private tutee content</p> }),
-    );
+    render(await TuteeLayout({ children: <p>Private tutee content</p> }));
     expect(screen.getByText("Private tutee content")).toBeTruthy();
   },
 );
@@ -402,14 +461,7 @@ for (const [area, Layout] of [
   ["tutor", TutorLayout],
   ["tutee", TuteeLayout],
 ] as const) {
-  it.each([
-    "HEAD",
-    "ADMIN",
-    "COORDINATOR",
-    "TUTOR",
-    "CREW",
-    "STUDENT",
-  ])(
+  it.each(["HEAD", "ADMIN", "COORDINATOR", "TUTOR", "CREW", "STUDENT"])(
     `${area} exposes a management return only to authorized %s accounts`,
     async (role) => {
       mocks.auth.mockResolvedValue({
@@ -458,6 +510,7 @@ for (const [area, Layout] of [
 it.each([null, { id: "tutor", status: "ARCHIVED" }])(
   "returns a viewer with an unavailable tutor profile to management (%j)",
   async (tutor) => {
+    mocks.user.mockResolvedValue({ role: "VIEWER" });
     mocks.auth.mockResolvedValue({
       user: { id: "account" },
       role: "VIEWER",

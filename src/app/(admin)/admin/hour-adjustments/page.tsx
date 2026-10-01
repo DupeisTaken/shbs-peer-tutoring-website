@@ -13,12 +13,15 @@ import {
   TableDetails,
 } from "~/app/_components/ui/summary-table";
 import styles from "./page.module.css";
+import { visibleTutors } from "~/lib/tutor-visibility";
+import { PastTutorsToggle } from "~/app/_components/past-tutors-toggle";
 
 export default function AdjustmentsPage() {
   const t = useTranslations();
   const readOnly = useReadOnly();
   const utils = api.useUtils();
   const tutors = api.admin.tutors.useQuery();
+  const [showPast, setShowPast] = useState(false);
   const list = api.admin.adjustments.useQuery({});
   const invalidate = () => utils.admin.adjustments.invalidate();
   const create = api.admin.createAdjustment.useMutation({
@@ -39,6 +42,7 @@ export default function AdjustmentsPage() {
         <p className="muted mt-1 text-sm">{t("admin.adjustments.subtitle")}</p>
       </div>
 
+      {!readOnly && <PastTutorsToggle showPast={showPast} onChange={setShowPast} />}
       {!readOnly && (
         <form
           className={styles.form}
@@ -64,7 +68,7 @@ export default function AdjustmentsPage() {
             <option value="">
               {t("admin.adjustments.form.tutorPlaceholder")}
             </option>
-            {(tutors.data ?? []).map((t) => (
+            {visibleTutors(tutors.data ?? [], showPast, [tutorId]).map((t) => (
               <option key={t.id} value={t.id}>
                 {t.englishName}
               </option>

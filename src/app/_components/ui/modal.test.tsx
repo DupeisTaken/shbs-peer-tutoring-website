@@ -179,6 +179,32 @@ it("uses the first enabled radio when no option is selected", () => {
   );
 });
 
+it("keeps same-name radio groups in independent forms as separate tab stops", () => {
+  render(
+    <Modal title="Independent forms" onClose={vi.fn()} footer={null}>
+      <form>
+        <label>
+          <input type="radio" name="answer" defaultChecked />
+          First form
+        </label>
+      </form>
+      <form>
+        <label>
+          <input type="radio" name="answer" defaultChecked />
+          Second form
+        </label>
+      </form>
+    </Modal>,
+  );
+  const first = screen.getByRole("radio", { name: "First form" });
+  const last = screen.getByRole("radio", { name: "Second form" });
+  last.focus();
+  expect(fireEvent.keyDown(last, { key: "Tab" })).toBe(false);
+  expect(document.activeElement).toBe(first);
+  expect(fireEvent.keyDown(first, { key: "Tab", shiftKey: true })).toBe(false);
+  expect(document.activeElement).toBe(last);
+});
+
 it("keeps focus on the dialog when every control is disabled", () => {
   render(
     <Modal

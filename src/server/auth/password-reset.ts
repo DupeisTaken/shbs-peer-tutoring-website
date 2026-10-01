@@ -1,3 +1,4 @@
+import { initializeAccountAcademics } from "~/server/academics";
 import { signinIdentifiers } from "./signin-identifiers";
 import { lockAccountProfile } from "~/server/account-profile";
 import { updateAccountProfile } from "~/server/account-profile";
@@ -15,8 +16,9 @@ import {
   isEmailDeliveryAvailable,
 } from "~/server/email/sender";
 import { APP_TITLE } from "~/lib/branding";
+import { emailOrigin } from "~/server/email/urls";
 import { hashPassword } from "./password";
-import { ensureUniqueUsername, ensureUserUsername } from "./username";
+import { ensureUserUsername, lockUsernameNamespace } from "./username";
 import { TRPCError } from "@trpc/server";
 import { lockEntity } from "~/server/transactions";
 
@@ -25,11 +27,17 @@ import { lockEntity } from "~/server/transactions";
 export async function issueAccountVerification(
   userId: string,
 ): Promise<{ emailed: boolean }> {
-  if (!isEmailDeliveryAvailable()) return { emailed: false };
+  if (!isEmailDeliveryAvailable("SECURITY")) return { emailed: false };
   const token = randomBytes(32).toString("hex");
   const email = await db.$transaction(async (tx) => {
     await lockEntity(tx, `account-verification:${userId}`);
+    await lockAccountProfile(tx, userId);
     const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
+    if (user.mergedIntoId)
+      throw new TRPCError({
+        code: "BAD_REQUEST",
+        message: "This login has been retired.",
+      });
     if (user.emailVerifiedAt)
       throw new TRPCError({
         code: "BAD_REQUEST",
@@ -55,11 +63,13 @@ export async function issueAccountVerification(
   });
   const link = `${appBaseUrl()}/reset-password?token=${token}`;
   await emailSender.send({
+    category: "SECURITY",
     to: email,
     subject: `Verify and set up your ${APP_TITLE} account`,
+    presentation: { action: { label: "Set up your account", url: link } },
     text: `The program team sent you an account setup link. Open it to verify this email and set your password. This does not change your tutor or tutee participation.\n\n${link}\n\nThe link expires in seven days. Ignore it if you did not request an account.`,
   });
-  return { emailed: isEmailConfigured() };
+  return { emailed: isEmailConfigured("SECURITY") };
 }
 
 /** How long an issued reset token stays valid. */
@@ -70,7 +80,7 @@ const SETUP_TOKEN_TTL_MINUTES = 7 * 24 * 60; // 7 days
 
 /** Base URL for links in emails (no trailing slash). */
 function appBaseUrl(): string {
-  return (process.env.AUTH_URL ?? "http://localhost:3000").replace(/\/+$/, "");
+  return emailOrigin();
 }
 
 /** SHA-256 of the token (the plaintext token is high-entropy, so a fast hash is fine). */
@@ -84,13 +94,13 @@ function hashToken(token: string): string {
  * was found — callers must show an identical message either way (no account enumeration).
  */
 export async function issuePasswordReset(identifier: string): Promise<void> {
-  if (!isEmailDeliveryAvailable()) return;
+  if (!isEmailDeliveryAvailable("SECURITY")) return;
 
   const id = identifier.trim().toLowerCase();
   if (!id) return;
 
   const user = await db.user.findFirst({
-    where: { OR: signinIdentifiers(id) },
+    where: { mergedIntoId: null, OR: signinIdentifiers(id) },
     select: {
       id: true,
       email: true,
@@ -110,6 +120,7 @@ export async function issuePasswordReset(identifier: string): Promise<void> {
     });
     const current = await tx.user.findUniqueOrThrow({ where: { id: user.id } });
     if (
+      current.mergedIntoId ||
       address?.userId !== user.id ||
       (current.email !== targetEmail && !address.verifiedAt)
     )
@@ -135,16 +146,14 @@ async function deliverResetLink(to: string, token: string): Promise<void> {
   const link = `${appBaseUrl()}/reset-password?token=${token}`;
 
   await emailSender.send({
+    category: "SECURITY",
     to,
     subject: `Reset your ${APP_TITLE} password`,
     text:
       `We received a request to reset your ${APP_TITLE} password.\n\n` +
       `Reset it within ${TOKEN_TTL_MINUTES} minutes:\n${link}\n\n` +
       `If you didn't request this, you can safely ignore this email.`,
-    html:
-      `<p>We received a request to reset your <strong>${APP_TITLE}</strong> password.</p>` +
-      `<p><a href="${link}">Reset your password</a> — link valid for ${TOKEN_TTL_MINUTES} minutes.</p>` +
-      `<p>If you didn't request this, you can safely ignore this email.</p>`,
+    presentation: { action: { label: "Reset your password", url: link } },
   });
 }
 
@@ -187,6 +196,7 @@ export async function resetPassword(
       where: { email: grant.targetEmail },
     });
     if (
+      account.mergedIntoId ||
       address?.userId !== account.id ||
       (address.email !== account.email && !address.verifiedAt)
     )
@@ -227,91 +237,124 @@ export async function issueTutorSetupLink(
   tutorId: string,
   actorId: string,
 ): Promise<
-  | { ok: true; emailed: boolean }
-  | { ok: false; error: "no-tutor" | "no-email" }
+  { ok: true; emailed: boolean } | { ok: false; error: "no-tutor" | "no-email" }
 > {
-  if (!isEmailDeliveryAvailable())
-    throw new TRPCError({ code: "PRECONDITION_FAILED", message: "Email delivery must be configured before sending account setup links." });
-  const tutor = await db.tutor.findUnique({
-    where: { id: tutorId },
-    select: {
-      id: true,
-      email: true,
-      englishName: true,
-      alternativeNames: true,
-      username: true,
-      user: { select: { id: true, email: true } },
-    },
-  });
-  if (!tutor) return { ok: false, error: "no-tutor" };
-  // An existing login's primary email is authoritative; editable roster contact is not proof.
-  const email = (tutor.user?.email ?? tutor.email)?.trim().toLowerCase();
-  if (!email) return { ok: false, error: "no-email" };
-
-  let userId = tutor.user?.id ?? null;
-  if (!userId) {
-    const actor = await db.user.findUnique({ where: { id: actorId }, select: { role: true, suspendedAt: true } });
-    if (actor?.role !== "HEAD" || actor.suspendedAt)
-      throw new TRPCError({ code: "FORBIDDEN", message: "Only Head can provision tutor access. Existing account setup links may be resent." });
-    const existing = await db.user.findUnique({
-      where: { email },
-      select: { id: true, role: true, tutorId: true },
+  if (!isEmailDeliveryAvailable("SECURITY"))
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message:
+        "Email delivery must be configured before sending account setup links.",
     });
-    if (existing) {
-      if (existing.role === "VIEWER" || (existing.tutorId && existing.tutorId !== tutor.id))
-        throw new TRPCError({ code: "CONFLICT", message: "Review the existing account membership before linking this tutor." });
-      await db.user.update({
-        where: { id: existing.id },
-        data: { tutorId: tutor.id, tutorAccessRevoked: false },
+  const provisioned = await db.$transaction(async (tx) => {
+    await lockUsernameNamespace(tx);
+    const tutor = await tx.tutor.findUnique({
+      where: { id: tutorId },
+      select: {
+        id: true,
+        email: true,
+        englishName: true,
+        alternativeNames: true,
+        username: true,
+        user: { select: { id: true, email: true } },
+      },
+    });
+    if (!tutor) return { ok: false as const, error: "no-tutor" as const };
+    // An existing login's primary email is authoritative; editable roster contact is not proof.
+    const email = (tutor.user?.email ?? tutor.email)?.trim().toLowerCase();
+    if (!email) return { ok: false as const, error: "no-email" as const };
+
+    let userId = tutor.user?.id ?? null;
+    if (!userId) {
+      const actor = await tx.user.findUnique({
+        where: { id: actorId },
+        select: { role: true, suspendedAt: true },
       });
-      userId = existing.id;
-    } else {
-      // Mirror the tutor's handle onto the login (unique across both spaces).
-      const username = await ensureUniqueUsername(
-        tutor.username ?? tutor.englishName,
-      );
-      const created = await db.user.create({
-        data: {
-          email,
-          username,
-          name: tutor.englishName,
-          alternativeNames: tutor.alternativeNames,
-          role: "TUTOR",
-          tutorId: tutor.id,
-          mustChangePassword: true,
-        },
-        select: { id: true },
+      if (actor?.role !== "HEAD" || actor.suspendedAt)
+        throw new TRPCError({
+          code: "FORBIDDEN",
+          message:
+            "Only Head can provision tutor access. Existing account setup links may be resent.",
+        });
+      const existing = await tx.user.findUnique({
+        where: { email },
+        select: { id: true, role: true, tutorId: true, mergedIntoId: true },
       });
-      userId = created.id;
+      if (existing) {
+        if (existing.mergedIntoId)
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "This email belongs to a retired login. Use the retained account.",
+          });
+        if (
+          existing.role === "VIEWER" ||
+          (existing.tutorId && existing.tutorId !== tutor.id)
+        )
+          throw new TRPCError({
+            code: "CONFLICT",
+            message:
+              "Review the existing account membership before linking this tutor.",
+          });
+        await tx.user.update({
+          where: { id: existing.id },
+          data: { tutorId: tutor.id, tutorAccessRevoked: false },
+        });
+        userId = existing.id;
+      } else {
+        const created = await tx.user.create({
+          data: {
+            email,
+            name: tutor.englishName,
+            alternativeNames: tutor.alternativeNames,
+            role: "TUTOR",
+            tutorId: tutor.id,
+            mustChangePassword: true,
+          },
+          select: { id: true },
+        });
+        userId = created.id;
+      }
     }
-  }
-  await updateAccountProfile(db, userId);
-  // Make sure the (possibly pre-existing) login carries a username.
-  await ensureUserUsername(userId);
+    await initializeAccountAcademics(tx, userId);
+    await updateAccountProfile(tx, userId);
+    // Make sure the (possibly pre-existing) login carries a username.
+    await ensureUserUsername(userId, tx);
+
+    return { ok: true as const, userId, email };
+  });
+  if (!provisioned.ok) return provisioned;
+  const { userId, email } = provisioned;
 
   const token = randomBytes(32).toString("hex");
-  await db.passwordResetToken.create({
-    data: {
-      userId,
-      targetEmail: email,
-      tokenHash: hashToken(token),
-      expiresAt: new Date(Date.now() + SETUP_TOKEN_TTL_MINUTES * 60_000),
-    },
+  await db.$transaction(async (tx) => {
+    await lockAccountProfile(tx, userId);
+    const current = await tx.user.findUniqueOrThrow({ where: { id: userId } });
+    if (current.mergedIntoId || current.email !== email)
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "Account changed. Refresh before sending a setup link.",
+      });
+    await tx.passwordResetToken.create({
+      data: {
+        userId,
+        targetEmail: email,
+        tokenHash: hashToken(token),
+        expiresAt: new Date(Date.now() + SETUP_TOKEN_TTL_MINUTES * 60_000),
+      },
+    });
   });
 
   const link = `${appBaseUrl()}/reset-password?token=${token}`;
   await emailSender.send({
+    category: "SECURITY",
     to: email,
     subject: `Set up your ${APP_TITLE} account`,
     text:
       `An account has been created for you on ${APP_TITLE}.\n\n` +
       `Set your password to finish setting up (link valid for 7 days):\n${link}\n\n` +
       `After that you can sign in with this email or your username.`,
-    html:
-      `<p>An account has been created for you on <strong>${APP_TITLE}</strong>.</p>` +
-      `<p><a href="${link}">Set your password</a> to finish setting up — link valid for 7 days.</p>` +
-      `<p>After that you can sign in with this email or your username.</p>`,
+    presentation: { action: { label: "Set your password", url: link } },
   });
 
-  return { ok: true, emailed: isEmailConfigured() };
+  return { ok: true, emailed: isEmailConfigured("SECURITY") };
 }

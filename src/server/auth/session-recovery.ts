@@ -2,6 +2,7 @@ import { getToken, type JWT } from "next-auth/jwt";
 import { NextResponse, type NextRequest } from "next/server";
 import type { NextAuthConfig } from "next-auth";
 import { SESSION_RECOVERY_COOKIE } from "~/lib/session-recovery";
+import { returnDestination } from "~/lib/return-destination";
 
 const sessionCookie = /^(?:__Secure-)?authjs\.session-token(?:\.\d+)?$/;
 
@@ -84,13 +85,23 @@ export async function recoverInvalidSession(
     "cookie",
     kept.map(({ name, value }) => `${name}=${value}`).join("; "),
   );
-  const reason = request.nextUrl.pathname === "/signin" && request.nextUrl.searchParams.get("reason") === "password-changed"
-    ? "password-changed" : "session-expired";
+  const reason =
+    request.nextUrl.pathname === "/signin" &&
+    request.nextUrl.searchParams.get("reason") === "password-changed"
+      ? "password-changed"
+      : "session-expired";
+  const signInUrl = new URL(`/signin?reason=${reason}`, request.url);
+  const destination = returnDestination(
+    request.nextUrl.pathname === "/signin"
+      ? request.nextUrl.searchParams.get("callbackUrl")
+      : `${request.nextUrl.pathname}${request.nextUrl.search}`,
+    request.nextUrl.origin,
+  );
+  if (destination !== "/")
+    signInUrl.searchParams.set("callbackUrl", destination);
   const response = request.nextUrl.pathname.startsWith("/api/")
     ? NextResponse.next({ request: { headers } })
-    : NextResponse.redirect(
-        new URL(`/signin?reason=${reason}`, request.url),
-      );
+    : NextResponse.redirect(signInUrl);
   for (const name of invalidNames)
     response.cookies.set(name, "", {
       path: "/",

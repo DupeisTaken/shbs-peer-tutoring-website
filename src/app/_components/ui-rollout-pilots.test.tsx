@@ -20,6 +20,9 @@ const mocks = vi.hoisted(() => ({
   account: {
     id: "user-1",
     name: "Sammy Chen",
+    firstName: "Sammy",
+    lastName: "Chen",
+    preferredName: "Sam",
     alternativeNames: "山米",
     profileVersion: 4,
     role: "ADMIN",
@@ -33,6 +36,7 @@ const mocks = vi.hoisted(() => ({
   nameError: null as { message: string } | null,
   updateName: vi.fn(),
   resetName: vi.fn(),
+  settleName: (): void => undefined,
   saveAttendance: vi.fn(),
   resetAttendance: vi.fn(),
   attendancePending: false,
@@ -74,10 +78,15 @@ const mocks = vi.hoisted(() => ({
   ],
 }));
 
-vi.mock("next/navigation", () => ({ useRouter: () => ({ back: vi.fn() }) }));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ back: vi.fn(), refresh: vi.fn() }),
+}));
 vi.mock("~/lib/password-session", () => ({
   signInAfterPasswordChange: vi.fn(),
 }));
+// Independent academic/departure panels have their own integration suites.
+vi.mock("./academic-profile", () => ({ AcademicPanel: () => null }));
+vi.mock("./school-departure", () => ({ SchoolDeparturePanel: () => null }));
 vi.mock("./membership-editor", () => ({ MembershipEditor: () => null }));
 vi.mock("./account-emails", () => ({
   AccountEmails: () => null,
@@ -125,17 +134,20 @@ vi.mock("~/trpc/react", () => ({
         }),
       },
       updateName: {
-        useMutation: () => ({
-          mutate: mocks.updateName,
-          isPending: mocks.namePending,
-          isSuccess: mocks.nameSuccess,
-          error: mocks.nameError,
-          reset: () => {
-            mocks.resetName();
-            mocks.nameError = null;
-            mocks.nameSuccess = false;
-          },
-        }),
+        useMutation: (options: { onSettled: () => void }) => {
+          mocks.settleName = options.onSettled;
+          return {
+            mutate: mocks.updateName,
+            isPending: mocks.namePending,
+            isSuccess: mocks.nameSuccess,
+            error: mocks.nameError,
+            reset: () => {
+              mocks.resetName();
+              mocks.nameError = null;
+              mocks.nameSuccess = false;
+            },
+          };
+        },
       },
       requestPasswordChangeCode: {
         useMutation: () => ({ mutate: vi.fn(), isPending: false }),
@@ -206,17 +218,23 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
-it("places the profile commit after both fields and submits their values together with the version", () => {
+it("places the profile commit after all four name fields and submits them together with the version", () => {
   render(<AccountSettings />, { wrapper });
   const group = screen.getByRole("group", { name: en.uiPatterns.profile });
   const name = within(group).getByRole("textbox", {
-    name: en.tutor.settings.name,
+    name: `${en.personName.firstName} ${en.signupFields.required}`,
   });
   const alternatives = within(group).getByRole("textbox", {
-    name: en.accountProfile.alternativeNames,
+    name: `${en.personName.alternativeNames} ${en.signupFields.optional}`,
   });
   const save = within(group).getByRole("button", {
     name: en.uiPatterns.saveProfile,
+  });
+  const lastName = within(group).getByRole("textbox", {
+    name: `${en.personName.lastName} ${en.signupFields.optional}`,
+  });
+  const preferred = within(group).getByRole("textbox", {
+    name: `${en.personName.preferredName} ${en.signupFields.optional}`,
   });
   // This protects the save-scope defect: the alternate name used to appear after
   // the commit control, visually implying a separate or automatic save.
@@ -227,33 +245,55 @@ it("places the profile commit after both fields and submits their values togethe
     alternatives.compareDocumentPosition(save) &
       Node.DOCUMENT_POSITION_FOLLOWING,
   ).toBeTruthy();
-  fireEvent.change(name, { target: { value: "  Sammy Chen Updated  " } });
-  fireEvent.change(alternatives, { target: { value: "  山米, Sam  " } });
+  for (const field of [name, lastName, preferred, alternatives])
+    expect(
+      field.compareDocumentPosition(save) & Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy();
+  fireEvent.change(name, { target: { value: "Samuel" } });
+  fireEvent.change(lastName, { target: { value: "Chen Updated" } });
+  fireEvent.change(preferred, { target: { value: "Sammy" } });
+  fireEvent.change(alternatives, { target: { value: "山米, Sam" } });
   expect(mocks.updateName).not.toHaveBeenCalled();
   fireEvent.click(save);
-  expect(mocks.updateName).toHaveBeenCalledExactlyOnceWith({
-    name: "Sammy Chen Updated",
-    alternativeNames: "山米, Sam",
-    expectedProfileVersion: 4,
-  });
+  expect(mocks.updateName).toHaveBeenCalledExactlyOnceWith(
+    {
+      name: "Samuel Chen Updated",
+      firstName: "Samuel",
+      lastName: "Chen Updated",
+      preferredName: "Sammy",
+      alternativeNames: "山米, Sam",
+      expectedProfileVersion: 4,
+    },
+    expect.any(Object),
+  );
 });
 
-it("cancels profile edits without saving and restores both current account fields", () => {
+it("cancels profile edits without saving and restores the four current account fields", () => {
   render(<AccountSettings />, { wrapper });
   const group = screen.getByRole("group", { name: en.uiPatterns.profile });
   const name = within(group).getByRole<HTMLInputElement>("textbox", {
-    name: en.tutor.settings.name,
+    name: `${en.personName.firstName} ${en.signupFields.required}`,
   });
   const alternatives = within(group).getByRole<HTMLInputElement>("textbox", {
-    name: en.accountProfile.alternativeNames,
+    name: `${en.personName.alternativeNames} ${en.signupFields.optional}`,
+  });
+  const lastName = within(group).getByRole<HTMLInputElement>("textbox", {
+    name: `${en.personName.lastName} ${en.signupFields.optional}`,
+  });
+  const preferred = within(group).getByRole<HTMLInputElement>("textbox", {
+    name: `${en.personName.preferredName} ${en.signupFields.optional}`,
   });
   fireEvent.change(name, { target: { value: "Draft name" } });
+  fireEvent.change(lastName, { target: { value: "Draft surname" } });
+  fireEvent.change(preferred, { target: { value: "Draft nickname" } });
   fireEvent.change(alternatives, { target: { value: "Draft alternate" } });
   fireEvent.click(
     within(group).getByRole("button", { name: en.uiPatterns.cancel }),
   );
-  expect(name.value).toBe("Sammy Chen");
+  expect(name.value).toBe("Sammy");
   expect(alternatives.value).toBe("山米");
+  expect(lastName.value).toBe("Chen");
+  expect(preferred.value).toBe("Sam");
   expect(mocks.updateName).not.toHaveBeenCalled();
   expect(mocks.resetName).toHaveBeenCalled();
 });
@@ -262,7 +302,7 @@ it("disables the entire profile while pending and preserves the draft when the s
   const view = render(<AccountSettings />, { wrapper });
   const group = screen.getByRole("group", { name: en.uiPatterns.profile });
   const name = within(group).getByRole<HTMLInputElement>("textbox", {
-    name: en.tutor.settings.name,
+    name: `${en.personName.firstName} ${en.signupFields.required}`,
   });
   fireEvent.change(name, { target: { value: "Keep this draft" } });
   fireEvent.click(
@@ -276,6 +316,7 @@ it("disables the entire profile while pending and preserves the draft when the s
   ])
     expect(control.matches(":disabled")).toBe(true);
   mocks.namePending = false;
+  mocks.settleName();
   mocks.nameError = {
     message: "Your profile changed elsewhere. Reload before saving.",
   };
@@ -288,7 +329,7 @@ it("disables the entire profile while pending and preserves the draft when the s
   fireEvent.click(
     within(group).getByRole("button", { name: en.uiPatterns.cancel }),
   );
-  expect(name.value).toBe("Sammy Chen");
+  expect(name.value).toBe("Sammy");
   expect(within(group).queryByRole("alert")).toBeNull();
 });
 

@@ -12,7 +12,7 @@ type PrivacyPolicy = {
   sections: { id: string; title: string; paragraphs: string[] }[];
 };
 
-export const PRIVACY_POLICY_UPDATED = "2026-09-23";
+export const PRIVACY_POLICY_UPDATED = "2026-09-29";
 
 const en: PrivacyPolicy = {
   lang: "en",
@@ -27,11 +27,12 @@ const en: PrivacyPolicy = {
   contactFallback:
     "If you do not have an account, contact the school's peer-tutoring program team through your usual school contact. If you are signed in, you can also use private messages to contact management.",
   sections: [
+    { id: "captcha", title: "Optional bot verification", paragraphs: ["When management enables CAPTCHA, public tutee and viewer signup/resend uses Aliyun CAPTCHA 2.0. Starting verification loads Aliyun scripts that collect device, browser, network and interaction signals for risk assessment in mainland China. Contact the program team if you cannot complete the challenge. Existing-account sign-in and emailed account confirmation do not require this check.", "The application stores keyed hashes for abuse counters, proof-replay prevention and short-lived, action-bound grants. It does not store raw CAPTCHA proofs. Expired security records are removed in bounded batches as requests arrive. Disabling CAPTCHA stops new application-initiated checks as open pages refresh; requests already sent to Aliyun cannot be recalled."] },
     {
       id: "information",
       title: "Information we collect",
       paragraphs: [
-        "Account and contact information includes your name, alternative names, username, email addresses, password hash, verification status and account preferences. Depending on the form and your role, you may also provide your grade, phone number, preferred contact method or school affiliation.",
+        "Account and contact information includes your first and last names, optional preferred name and name in another language, username, email addresses, password hash, verification status and account preferences. Depending on the form and your role, you may also provide your grade, phone number, preferred contact method or school affiliation.",
         "Program records include signup and application answers, subject choices and qualifications, availability, assignments, attendance, service hours, interview notes and votes, patrol observations, feedback, disciplinary records, appeals and membership requests. Policy acceptance records include the accepted text, version, signature and time. Signup information can be stored before you verify your email or finish creating an account.",
         "We store messages, recipients, read status, notifications and delivery records, as well as management decisions and audit history. Security processing uses verification and recovery records and request information, such as an IP address, to limit abuse. The hosting service may also keep technical request and error logs.",
       ],
@@ -99,11 +100,12 @@ const zh: PrivacyPolicy = {
   contactFallback:
     "如果你没有账号，请通过日常学校联系渠道联系同伴辅导项目团队。已登录的用户也可以通过站内私信联系管理人员。",
   sections: [
+    { id: "captcha", title: "可选的机器人验证", paragraphs: ["管理人员开启验证码后，公开学伴和访客报名、重发邮件会使用阿里云验证码 2.0。开始验证将加载阿里云脚本，收集设备、浏览器、网络及交互信号，并在中国内地进行风险评估。若无法完成验证，请联系项目团队。已有账户登录及邮件中的账户确认无需此验证。", "应用仅保存用于频率限制、防重放及短期操作凭证的密钥哈希，不存储原始验证码证明。过期安全记录会在请求到达时分批清理。关闭后，页面刷新设置时会停止发起新的验证；已发送给阿里云的请求无法撤回。"] },
     {
       id: "information",
       title: "我们收集的信息",
       paragraphs: [
-        "账号与联系信息包括姓名、其他姓名、用户名、电子邮箱、密码哈希值、验证状态和账号偏好设置。根据表单和参与角色，你还可能提供年级、电话号码、偏好的联系方式或与学校的关系。",
+        "账号与联系信息包括名和姓、选填的常用名和其他语言姓名、用户名、电子邮箱、密码哈希值、验证状态和账号偏好设置。根据表单和参与角色，你还可能提供年级、电话号码、偏好的联系方式或与学校的关系。",
         "项目记录包括报名与申请内容、科目选择与资格、可用时间、辅导安排、出勤、服务时数、面试记录与投票、巡查记录、反馈、纪律记录、申诉和成员资格申请。政策同意记录包括当时同意的正文、版本、签名和时间。报名信息可能在你验证邮箱或完成账号创建前就已保存。",
         "我们保存消息内容、收件人、已读状态、通知与发送记录，以及管理决定和操作审计记录。安全处理会使用验证与账号恢复记录，以及 IP 地址等请求信息，以限制滥用。托管服务也可能保留技术请求与错误日志。",
       ],

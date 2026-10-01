@@ -157,9 +157,44 @@ beforeEach(async () => {
   });
   revision = (await currentPolicy(db, "tutee-policy")).revision;
 });
-afterAll(() => db.$disconnect());
+afterAll(async () => {
+  // Retired identity guards intentionally reject deletes; isolated fixture cleanup uses TRUNCATE.
+  await db.$executeRawUnsafe('TRUNCATE "User" CASCADE');
+  await db.$disconnect();
+});
 
 describe("survey-first enrollment", () => {
+  it.each([
+    ["Xiaoming Wang", undefined, "xwang"],
+    ["Xiaoming Wang", "Xiaoming Wang", "xwang"],
+    ["Madonna", undefined, "madonna"],
+    ["José García", undefined, "jgarcia"],
+  ])("allocates %s once after verification, with optional spelling %s", async (englishName, preferredLatinName, username) => {
+    await submitSurvey(db, { ...input(), englishName, alternativeNames: "王小明", preferredLatinName, gradeLevel: undefined });
+    expect(await db.user.findUnique({ where: { email } })).toBeNull();
+    const token = lastToken();
+    await confirmSurvey(db, token, password);
+    const account = await db.user.findUniqueOrThrow({ where: { email } });
+    expect(account.username).toBe(username);
+    expect(account.tutorId).toBeNull();
+    await expect(confirmSurvey(db, token, password)).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(await ensureUserUsername(account.id)).toBe(username);
+  });
+  it("gives concurrent same-name verified students distinct stable handles", async () => {
+    await submitSurvey(db, { ...input(), email: "first@example.test", englishName: "Same Name" });
+    const firstToken = lastToken();
+    await submitSurvey(db, { ...input(), email: "second@example.test", englishName: "Same Name" });
+    const secondToken = lastToken();
+    await Promise.all([confirmSurvey(db, firstToken, password), confirmSurvey(db, secondToken, password)]);
+    const accounts = await db.user.findMany({ where: { role: "STUDENT" } });
+    expect(new Set(accounts.map((account) => account.username))).toEqual(new Set(["sname", "snameb"]));
+  });
+  it("retains an existing custom handle when a participant joins as a tutee", async () => {
+    await db.user.create({ data: { email, name: "Established Name", username: "customhandle", role: "CREW", emailVerifiedAt: new Date(), passwordHash: hashPassword(password) } });
+    await submitSurvey(db, { ...input(), englishName: "Different Name", preferredLatinName: "Unrelated Spelling" });
+    await confirmSurvey(db, lastToken());
+    expect(await db.user.findUnique({ where: { email } })).toMatchObject({ username: "customhandle", role: "CREW", tutorId: null });
+  });
   it.each([true, false])(
     "describes the submitted intake in confirmation with quarter mode %s",
     async (enabled) => {
@@ -256,7 +291,7 @@ describe("survey-first enrollment", () => {
     await confirmSurvey(db, lastToken(), password);
     const user = await db.user.findUniqueOrThrow({ where: { email } });
     expect(await resolveTutorLink(db, user.id, email)).toBeNull();
-    expect(await ensureUserUsername(user.id)).toBe("");
+    expect(await ensureUserUsername(user.id)).toBe("sone");
     await db.user.update({
       where: { id: user.id },
       data: { tutorId: tutor.id },
@@ -329,6 +364,7 @@ describe("survey-first enrollment", () => {
     expect(await pendingSurveys(db)).toMatchObject([
       { email, unverified: true, firstChoice: { name: "Mathematics" } },
     ]);
+    expect(send.mock.calls[0]?.[0]).toMatchObject({ category: "PROGRAM" });
     expect(send.mock.calls[0]?.[0].text).toContain("/signup/account?token=");
   });
   it("requires a valid login email and explicit policy acceptance", () => {
@@ -1101,4 +1137,34 @@ describe("student request lifecycle", () => {
       caller.resolveReview({ id: "review", approve: true, ticket: "ticket" }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   });
+});
+
+
+it("rejects student signup for an already retired email without creating a request", async () => {
+  await db.user.create({ data: { id: "surviving-student", email: "survivor@example.test", role: "STUDENT" } });
+  await db.user.create({ data: { email, role: "STUDENT", mergedIntoId: "surviving-student" } });
+  await expect(submitSurvey(db, input())).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect(await db.studentSurvey.count()).toBe(0);
+  expect(send).not.toHaveBeenCalled();
+});
+
+it("refuses an old signup link after its passwordless account is retired", async () => {
+  await db.user.create({ data: { id: "surviving-student", email: "survivor@example.test", role: "STUDENT" } });
+  const account = await db.user.create({ data: { email, role: "STUDENT", passwordHash: null } });
+  await submitSurvey(db, input());
+  const token = lastToken();
+  await db.user.update({ where: { id: account.id }, data: { mergedIntoId: "surviving-student" } });
+  await expect(inspectSurvey(db, token)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(confirmSurvey(db, token, password)).rejects.toMatchObject({ code: "FORBIDDEN" });
+  expect(await db.user.findUniqueOrThrow({ where: { id: account.id } })).toMatchObject({ passwordHash: null, studentId: null, mergedIntoId: "surviving-student" });
+  expect((await db.studentSurvey.findFirstOrThrow()).confirmedAt).toBeNull();
+});
+
+it("preserves all four name fields when staff materialize an intake before account confirmation", async () => {
+  await submitSurvey(db, { ...input(), englishName: "Alexander Chen", firstName: "Alexander", lastName: "Chen", preferredName: "Alex", alternativeNames: "陈晓明" });
+  const row = await db.studentSurvey.findFirstOrThrow();
+  const { materializeStudent } = await import("./student-survey");
+  const profile = await db.$transaction(tx => materializeStudent(tx, row));
+  expect(profile).toMatchObject({ firstName: "Alexander", lastName: "Chen", preferredName: "Alex", alternativeNames: "陈晓明", englishName: "Alexander Chen" });
+  expect(await db.user.findUnique({ where: { email } })).toBeNull();
 });

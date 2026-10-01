@@ -1,12 +1,10 @@
 import { TRPCError } from "@trpc/server";
-import { z } from "zod";
+import { accountUsernameSchema } from "~/lib/username";
+import { lockUsernameNamespace } from "./auth/username";
+export { accountUsernameSchema } from "~/lib/username";
 import { lockAccountProfile } from "./account-profile";
 import { inTransaction, type DomainDb } from "./transactions";
 import { staleConflict } from "./concurrency";
-
-/** Match sign-in normalization, but reject punctuation instead of silently deleting it. */
-export const accountUsernameSchema = z.string().trim().toLowerCase().min(1).max(64)
-  .regex(/^[a-z0-9]+$/, "Use only letters and numbers for the username.");
 
 export async function updateAccountUsername(database: DomainDb, actorId: string, input: {
   userId: string; username: string; expectedProfileVersion: number;
@@ -15,7 +13,7 @@ export async function updateAccountUsername(database: DomainDb, actorId: string,
   return inTransaction(database, async (tx) => {
     // The namespace spans two tables. Serialize against all existing writers, including
     // automatic username allocation, before checking either table or locking a profile.
-    await tx.$executeRaw`LOCK TABLE "User", "Tutor" IN SHARE ROW EXCLUSIVE MODE`;
+    await lockUsernameNamespace(tx);
     const actor = await tx.user.findUnique({ where: { id: actorId } });
     if (actor?.role !== "HEAD" || actor.suspendedAt)
       throw new TRPCError({ code: "FORBIDDEN", message: "Only Head may edit usernames." });

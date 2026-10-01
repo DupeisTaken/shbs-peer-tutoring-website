@@ -1,3 +1,5 @@
+import { academicSummary } from "~/lib/academics";
+import { legacyAcademic } from "~/server/academics";
 import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { accountMembership, membershipBadges } from "~/lib/account-membership";
@@ -19,10 +21,14 @@ export const tutorDetailsRouter = createTRPCRouter({
           username: true,
           email: true,
           gradeLevel: true,
+          academicallyGraduated: true,
+          gradeSchoolYear: true,
+          gradeConfirmedAt: true,
           status: true,
           user: {
             select: {
               id: true,
+              academicProfile: true,
               email: true,
               username: true,
               role: true,
@@ -64,13 +70,34 @@ export const tutorDetailsRouter = createTRPCRouter({
           }),
         ],
       );
+      const term = await ctx.db.term.findFirst({
+        where: { active: true },
+        select: { schoolYear: true },
+      });
       return {
+        academic: academicSummary(
+          tutor.user?.academicProfile ??
+            (!tutor.academicallyGraduated &&
+            tutor.gradeSchoolYear &&
+            tutor.gradeConfirmedAt
+              ? {
+                  status: "REPORTED",
+                  gradeLevel: tutor.gradeLevel,
+                  rawGrade: null,
+                  schoolYear: tutor.gradeSchoolYear,
+                  confirmedAt: tutor.gradeConfirmedAt,
+                  reconfirmRequired: false,
+                }
+              : legacyAcademic(tutor.gradeLevel, tutor.academicallyGraduated)),
+          term?.schoolYear,
+        ),
         id: tutor.id,
         name: tutor.englishName,
         alternativeNames: tutor.alternativeNames,
         username: tutor.user?.username ?? tutor.username,
         email: tutor.user?.email ?? tutor.email,
         gradeLevel: tutor.gradeLevel,
+        academicallyGraduated: tutor.academicallyGraduated,
         status: tutor.status,
         // A historical account link does not imply current tutoring access.
         tutorAccessRevoked: tutor.user?.tutorAccessRevoked ?? false,

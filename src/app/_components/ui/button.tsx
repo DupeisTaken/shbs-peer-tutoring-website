@@ -25,14 +25,18 @@ export function Button({
 /** A persistent choice has a quieter treatment than the action which commits it. */
 export function ChoiceButton({
   selected,
+  size = "compact",
   className = "",
   ...props
-}: ComponentProps<"button"> & { selected: boolean }) {
+}: ComponentProps<"button"> & {
+  selected: boolean;
+  size?: "standard" | "compact";
+}) {
   return (
     <button
       type="button"
       aria-pressed={selected}
-      className={`choice-control control-compact ${className}`}
+      className={`choice-control ${size === "standard" ? "control-standard px-3 py-2" : "control-compact"} ${className}`}
       {...props}
     />
   );

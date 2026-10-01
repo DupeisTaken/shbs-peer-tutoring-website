@@ -1,3 +1,6 @@
+import { optionalPersonNameFields } from "~/lib/person-name";
+import { preferredLatinNameSchema } from "~/lib/username";
+import { isSchoolYear } from "~/lib/period";
 /**
  * Public self-registration flow (no auth). A prospective tutor turns a 6-digit registration code
  * (issued + handed out by an admin/coordinator) into a fully-verified account at /register:
@@ -68,34 +71,40 @@ function enforceRateLimit(key: string, max: number): void {
 
 export const registrationRouter = createTRPCRouter({
   /** Validate a code and return any prefill + email binding so the form can start populated. */
-  check: publicProcedure.input(z.object({ code: codeInput })).mutation(async ({ ctx, input }) => {
-    const ip = clientIp(ctx.headers);
-    enforceRateLimit(`reg:ip:${ip}`, 30);
-    enforceRateLimit(`reg:code:${input.code}`, 10);
+  check: publicProcedure
+    .input(z.object({ code: codeInput }))
+    .mutation(async ({ ctx, input }) => {
+      const ip = clientIp(ctx.headers);
+      enforceRateLimit(`reg:ip:${ip}`, 30);
+      enforceRateLimit(`reg:code:${input.code}`, 10);
 
-    const resolved = await resolveUsableCode(input.code);
-    if (!resolved.ok) codeError(resolved.error);
-    const prefill = await codePrefill(resolved.row);
-    return {
-      kind: resolved.row.kind,
-      boundEmail: prefill.boundEmail,
-      firstName: prefill.firstName,
-      lastName: prefill.lastName,
-      alternativeNames: prefill.alternativeNames,
-      gradeLevel: prefill.gradeLevel,
-      emailVerified: !!resolved.row.emailVerifiedAt,
-      pendingEmail: resolved.row.pendingEmail,
-    };
-  }),
+      const resolved = await resolveUsableCode(input.code);
+      if (!resolved.ok) codeError(resolved.error);
+      const prefill = await codePrefill(resolved.row);
+      return {
+        kind: resolved.row.kind,
+        boundEmail: prefill.boundEmail,
+        legacyName: prefill.legacyName,
+        firstName: prefill.firstName,
+        lastName: prefill.lastName,
+        preferredName: prefill.preferredName,
+        alternativeNames: prefill.alternativeNames,
+        gradeLevel: prefill.gradeLevel,
+        gradeSchoolYear: prefill.gradeSchoolYear,
+        emailVerified: !!resolved.row.emailVerifiedAt,
+        pendingEmail: resolved.row.pendingEmail,
+      };
+    }),
 
   /** Stage email verification and email a 6-digit code to the chosen address. */
   sendEmailCode: publicProcedure
     .input(z.object({ code: codeInput, email: z.string().email() }))
     .mutation(async ({ ctx, input }) => {
-      if (!isEmailDeliveryAvailable()) {
+      if (!isEmailDeliveryAvailable("SECURITY")) {
         throw new TRPCError({
           code: "BAD_REQUEST",
-          message: "Email verification is temporarily unavailable. Contact the program team.",
+          message:
+            "Email verification is temporarily unavailable. Contact the program team.",
         });
       }
       const ip = clientIp(ctx.headers);
@@ -113,15 +122,13 @@ export const registrationRouter = createTRPCRouter({
         });
       }
       await emailSender.send({
+        category: "SECURITY",
         to: input.email.trim().toLowerCase(),
         subject: `Your ${APP_TITLE} verification code`,
         text:
           `Your ${APP_TITLE} email verification code is ${staged.emailCode}.\n\n` +
           `It expires in ${EMAIL_CODE_TTL_MINUTES} minutes. If you didn't request this, ignore this email.`,
-        html:
-          `<p>Your <strong>${APP_TITLE}</strong> email verification code is ` +
-          `<strong style="font-size:1.2em;letter-spacing:2px">${staged.emailCode}</strong>.</p>` +
-          `<p>It expires in ${EMAIL_CODE_TTL_MINUTES} minutes.</p>`,
+        presentation: { code: staged.emailCode, eyebrow: "EMAIL VERIFICATION" },
       });
       return { ok: true };
     }),
@@ -158,10 +165,13 @@ export const registrationRouter = createTRPCRouter({
       z.object({
         code: codeInput,
         completionProof: z.string().regex(/^[a-f0-9]{64}$/),
-        firstName: z.string().trim().min(1).max(80),
-        lastName: z.string().trim().min(1).max(80),
+        ...optionalPersonNameFields,
+        firstName: optionalPersonNameFields.firstName.unwrap(),
+        lastName: optionalPersonNameFields.lastName.unwrap(),
+        preferredLatinName: preferredLatinNameSchema,
         alternativeNames: z.string().trim().max(200).optional(),
-        gradeLevel: z.number().int().min(6).max(12).nullable().optional(),
+        gradeLevel: z.number().int().min(1).max(12).nullable().optional(),
+        gradeSchoolYear: z.string().refine(isSchoolYear).nullable().optional(),
         password: z.string().min(8).max(200),
       }),
     )
@@ -175,10 +185,13 @@ export const registrationRouter = createTRPCRouter({
 
       const done = await completeRegistration(resolved.row, {
         completionProof: input.completionProof,
+        preferredLatinName: input.preferredLatinName,
+        preferredName: input.preferredName,
         firstName: input.firstName,
         lastName: input.lastName,
         alternativeNames: input.alternativeNames,
         gradeLevel: input.gradeLevel ?? null,
+        gradeSchoolYear: input.gradeSchoolYear,
         password: input.password,
       });
       if (!done.ok) {
@@ -188,6 +201,11 @@ export const registrationRouter = createTRPCRouter({
             : "An account already uses this email. Sign in or reset your password; ask Head to change its roles in Users & Roles.";
         throw new TRPCError({ code: "BAD_REQUEST", message });
       }
-      return { ok: true, username: done.username };
+      return {
+        ok: true,
+        username: done.username,
+        academicConfirmationRequired:
+          done.academicConfirmationRequired ?? false,
+      };
     }),
 });

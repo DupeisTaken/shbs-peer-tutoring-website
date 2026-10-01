@@ -5,9 +5,11 @@ import { useTranslations } from "next-intl";
 
 import { signInAction } from "./actions";
 
-export function SignInForm() {
+export function SignInForm({ callbackUrl = "/" }: { callbackUrl?: string }) {
   const t = useTranslations("auth");
-  const [state, formAction, pending] = useActionState(signInAction, { step: "password" });
+  const [state, formAction, pending] = useActionState(signInAction, {
+    step: "password",
+  });
   const [passwordValid, setPasswordValid] = useState(false);
   const [codeValid, setCodeValid] = useState(false);
 
@@ -19,12 +21,17 @@ export function SignInForm() {
         className="flex w-full flex-col gap-4"
       >
         <input type="hidden" name="step" value="code" />
+        <input type="hidden" name="callbackUrl" value={callbackUrl} />
         <input type="hidden" name="userId" value={state.userId} />
         <input type="hidden" name="email" value={state.email} />
 
         <div className="space-y-1">
-          <h2 className="text-sm font-semibold text-slate-900">{t("twoFactor.title")}</h2>
-          <p className="muted text-sm">{t("twoFactor.sent", { email: state.email })}</p>
+          <h2 className="text-sm font-semibold text-slate-900">
+            {t("twoFactor.title")}
+          </h2>
+          <p className="muted text-sm">
+            {t("twoFactor.sent", { email: state.email })}
+          </p>
         </div>
 
         <label className="space-y-1">
@@ -48,11 +55,18 @@ export function SignInForm() {
           </p>
         )}
 
-        <button type="submit" disabled={pending || !codeValid} className="btn-primary mt-1 w-full">
+        <button
+          type="submit"
+          disabled={pending || !codeValid}
+          className="btn-primary mt-1 w-full"
+        >
           {pending ? t("twoFactor.verifying") : t("twoFactor.verify")}
         </button>
 
-        <a href="/signin" className="link text-center text-sm">
+        <a
+          href={`/signin?callbackUrl=${encodeURIComponent(callbackUrl)}`}
+          className="link text-center text-sm"
+        >
           {t("twoFactor.differentAccount")}
         </a>
       </form>
@@ -66,6 +80,7 @@ export function SignInForm() {
       className="flex w-full flex-col gap-4"
     >
       <input type="hidden" name="step" value="password" />
+      <input type="hidden" name="callbackUrl" value={callbackUrl} />
       <label className="space-y-1">
         <span className="label">{t("identifier")}</span>
         <input
@@ -94,7 +109,11 @@ export function SignInForm() {
         </p>
       )}
 
-      <button type="submit" disabled={pending || !passwordValid} className="btn-primary mt-1 w-full">
+      <button
+        type="submit"
+        disabled={pending || !passwordValid}
+        className="btn-primary mt-1 w-full"
+      >
         {pending ? t("signingIn") : t("signIn")}
       </button>
     </form>

@@ -4,8 +4,12 @@ import { accountMembership, membershipBadges } from "~/lib/account-membership";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 
+import { Button } from "~/app/_components/ui/button";
+import { StatePanel } from "~/app/_components/ui/patterns";
 import { EmailDetails } from "~/app/_components/email-details";
+import { CombineAccounts } from "~/app/_components/combine-accounts";
 import { AccountProfileEditor } from "~/app/_components/account-profile-editor";
+import { TutorProfileEditor } from "~/app/_components/tutor-profile-editor";
 import { MultiFilter } from "~/app/_components/multi-filter";
 import {
   emptyUserFilters,
@@ -127,13 +131,26 @@ export default function UsersPage() {
   const utils = api.useUtils();
   const accounts = api.admin.accounts.useQuery();
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
+  const [editingTutorId, setEditingTutorId] = useState<string | null>(null);
+  // Fetch the full roster record only when staff open an unlinked profile.
+  const tutorProfiles = api.admin.tutors.useQuery(undefined, {
+    enabled: !!editingTutorId,
+  });
+  const editingTutor = tutorProfiles.data?.find(
+    (row) => row.id === editingTutorId,
+  );
   const editingProfile = accounts.data?.rows.find(
     (row) => row.userId === editingProfileId,
   );
   const invalidate = () => utils.admin.accounts.invalidate();
 
   // Designed confirm/prompt dialog (replaces native window.prompt for the suspension reason).
-  const { promptText, dialog } = useDialog();
+  const { promptText, confirm: confirmUsername, dialog } = useDialog();
+  const assignUsername = api.admin.backfillStudentUsernames.useMutation({
+    onSuccess: async () => {
+      await Promise.all([invalidate(), utils.account.me.invalidate()]);
+    },
+  });
 
   // Dangerous actions run behind an identity-confirmation dialog (see ConfirmIdentityDialog).
   const [confirm, setConfirm] = useState<{
@@ -264,12 +281,30 @@ export default function UsersPage() {
 
   return (
     <div className="space-y-6">
+      {editingTutor && !editingTutor.user && (
+        <TutorProfileEditor
+          key={editingTutor.id}
+          row={editingTutor}
+          isHead={isHead}
+          onClose={() => setEditingTutorId(null)}
+        />
+      )}
+      {editingTutorId && tutorProfiles.isLoading && (
+        <p role="status">{t("common.loading")}</p>
+      )}
+      {editingTutorId && tutorProfiles.error && (
+        <p role="alert">{tutorProfiles.error.message}</p>
+      )}
       {editingProfile?.userId && editingProfile.profileVersion !== null && (
         <AccountProfileEditor
           profile={{
             userId: editingProfile.userId,
             username: editingProfile.username,
             name: editingProfile.name,
+            firstName: editingProfile.firstName,
+            lastName: editingProfile.lastName,
+            preferredName: editingProfile.preferredName,
+            legacyName: editingProfile.legacyName,
             alternativeNames: editingProfile.alternativeNames,
             profileVersion: editingProfile.profileVersion,
           }}
@@ -287,6 +322,7 @@ export default function UsersPage() {
         </p>
       </div>
 
+      {isHead && <CombineAccounts />}
       <section className="card space-y-3 p-4">
         <p className="muted text-sm">{t("userMultiFilters.hint")}</p>
         <div
@@ -331,20 +367,56 @@ export default function UsersPage() {
             onChange={(account) => updateFilters({ ...filters, account })}
           />
         </div>
-        <div className="flex items-center justify-between gap-3">
+        <div className="flex flex-wrap items-center justify-between gap-3">
           <p role="status" className="muted text-sm">
             {t("userMultiFilters.count", {
               count: rows.length,
               total: accounts.data?.rows.length ?? 0,
             })}
           </p>
-          <button
-            type="button"
-            className="btn-secondary btn-sm min-h-11 lg:min-h-8"
-            onClick={() => updateFilters(emptyUserFilters())}
-          >
-            {t("userMultiFilters.clear")}
-          </button>
+          <div className="flex flex-wrap gap-2">
+            <button
+              type="button"
+              className="btn-secondary btn-sm min-h-11 lg:min-h-8"
+              aria-pressed={filters.showUnverified}
+              onClick={() =>
+                updateFilters({
+                  ...filters,
+                  showUnverified: !filters.showUnverified,
+                })
+              }
+            >
+              {t(
+                filters.showUnverified
+                  ? "tuteeHistory.hideUnverified"
+                  : "tuteeHistory.showUnverified",
+              )}
+            </button>
+            <button
+              type="button"
+              className="btn-secondary btn-sm min-h-11 lg:min-h-8"
+              aria-pressed={filters.showPastTutors}
+              onClick={() =>
+                updateFilters({
+                  ...filters,
+                  showPastTutors: !filters.showPastTutors,
+                })
+              }
+            >
+              {t(
+                filters.showPastTutors
+                  ? "tuteeHistory.hideHistorical"
+                  : "tuteeHistory.showHistorical",
+              )}
+            </button>
+            <button
+              type="button"
+              className="btn-secondary btn-sm min-h-11 lg:min-h-8"
+              onClick={() => updateFilters(emptyUserFilters())}
+            >
+              {t("userMultiFilters.clear")}
+            </button>
+          </div>
         </div>
       </section>
 
@@ -410,6 +482,31 @@ export default function UsersPage() {
         </section>
       )}
 
+      {assignUsername.error && (
+        <p role="alert" className="text-sm text-red-600">
+          {assignUsername.error.message}
+        </p>
+      )}
+      {accounts.error && (
+        <StatePanel
+          kind="error"
+          title={t("uiPatterns.loadFailed")}
+          action={
+            <Button
+              size="compact"
+              disabled={accounts.isFetching}
+              onClick={() => void accounts.refetch()}
+            >
+              {t("uiPatterns.retry")}
+            </Button>
+          }
+        />
+      )}
+      {accounts.data && accounts.isFetching && (
+        <p role="status" className="muted text-sm">
+          {t("common.loading")}
+        </p>
+      )}
       <div className="card">
         <SummaryTable label={t("admin.users.title")}>
           <thead>
@@ -432,6 +529,13 @@ export default function UsersPage() {
             </tr>
           </thead>
           <tbody>
+            {!accounts.data && !accounts.error && (
+              <tr>
+                <td colSpan={5}>
+                  <StatePanel kind="loading" title={t("common.loading")} />
+                </td>
+              </tr>
+            )}
             {rows.map((u) => {
               const key = u.userId ?? `tutor-${u.tutorId}`;
               return (
@@ -440,15 +544,23 @@ export default function UsersPage() {
                   <td>
                     <div className="leading-tight">
                       <p className="font-medium text-slate-900">{u.name}</p>
-                      {(u.username ?? u.tutor?.username) && (
+                      {(u.username ?? u.tutor?.username) ? (
                         <p className="muted text-xs">
                           @{u.username ?? u.tutor?.username}
+                        </p>
+                      ) : (
+                        <p className="muted text-xs">
+                          {t(
+                            u.userId
+                              ? "academics.usernameMissing"
+                              : "tuteeHistory.noAccount",
+                          )}
                         </p>
                       )}
                     </div>
                   </td>
 
-                  {/* Linked tutor: name, class-of year + grade, lifecycle status. */}
+                  {/* Tutor participation remains separate from account-wide academics. */}
                   <td className="text-slate-600">
                     {u.tutor ? (
                       <div className="leading-tight">
@@ -458,6 +570,13 @@ export default function UsersPage() {
                             ? t(`admin.tutorStatus.${u.tutorStatus}`)
                             : ""}
                         </p>
+                        {u.academic.expectedGraduationYear != null && (
+                          <p className="muted text-xs">
+                            {t("admin.tutors.classOf", {
+                              year: u.academic.expectedGraduationYear,
+                            })}
+                          </p>
+                        )}
                       </div>
                     ) : (
                       "—"
@@ -498,6 +617,7 @@ export default function UsersPage() {
                   {/* Contact/profile actions stay available to permitted staff. Only deletion is head-only. */}
                   <TableActions>
                     <EmailDetails
+                      academic={u.academic}
                       showPolicyHistory
                       email={u.email}
                       name={u.name}
@@ -525,20 +645,6 @@ export default function UsersPage() {
                                 {t("admin.users.columns.account")}
                               </dt>
                               <dd>{u.affiliation}</dd>
-                            </div>
-                          )}
-                          {u.tutor && (
-                            <div>
-                              <dt className="muted">
-                                {t("admin.tutors.colGrade")}
-                              </dt>
-                              <dd>
-                                {u.classOf != null
-                                  ? t("admin.tutors.classOf", {
-                                      year: u.classOf,
-                                    })
-                                  : (u.tutor.gradeLevel ?? "—")}
-                              </dd>
                             </div>
                           )}
                         </dl>
@@ -604,6 +710,36 @@ export default function UsersPage() {
                         {t("accountProfile.editProfile")}
                       </TableAction>
                     )}
+                    {!u.userId && u.tutorId && (
+                      <TableAction onClick={() => setEditingTutorId(u.tutorId)}>
+                        {t("accountProfile.editProfile")}
+                      </TableAction>
+                    )}
+                    {isHead &&
+                      u.userId &&
+                      u.role === "STUDENT" &&
+                      u.emailVerifiedAt &&
+                      !u.username && (
+                        <TableAction
+                          disabled={assignUsername.isPending}
+                          onClick={async () => {
+                            if (!u.userId) return;
+                            if (
+                              await confirmUsername({
+                                title: t("identityUsername.assignTitle", {
+                                  name: u.name,
+                                }),
+                                message: t("identityUsername.assignHelp"),
+                                confirmLabel: t("identityUsername.assign"),
+                                cancelLabel: t("common.cancel"),
+                              })
+                            )
+                              assignUsername.mutate({ userIds: [u.userId] });
+                          }}
+                        >
+                          {t("identityUsername.assign")}
+                        </TableAction>
+                      )}
                     {isHead && u.userId && !u.isSelf && u.role !== "HEAD" ? (
                       <TableAction
                         className="text-red-600"
@@ -632,7 +768,7 @@ export default function UsersPage() {
                 </tr>
               );
             })}
-            {rows.length === 0 && (
+            {accounts.data && rows.length === 0 && (
               <tr>
                 <td colSpan={5} className="text-slate-500">
                   {t("admin.users.empty")}

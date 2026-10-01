@@ -1,12 +1,40 @@
 "use client";
 
 import {
+  createContext,
+  useCallback,
+  useContext,
   useEffect,
   useId,
+  useLayoutEffect,
+  useMemo,
   useRef,
+  useState,
   type KeyboardEvent,
   type ReactNode,
 } from "react";
+import { createPortal } from "react-dom";
+
+const DialogWork = createContext<{
+  busy: boolean;
+  register: (id: string) => () => void;
+} | null>(null);
+
+/** Register only this form's write. Returned busy also includes sibling/ancestor writes.
+ * Keep independent forms mounted; their shared dialog cannot dismiss any active write. */
+export function useDialogPending(pending: boolean): boolean {
+  const context = useContext(DialogWork);
+  const register = context?.register;
+  const id = useId();
+  useLayoutEffect(() => {
+    if (pending) return register?.(id);
+  }, [id, pending, register]);
+  return pending || (context?.busy ?? false);
+}
+
+export function useDialogBusy(): boolean {
+  return useContext(DialogWork)?.busy ?? false;
+}
 
 /** Wrap Tab within visible enabled controls, respecting native radio-group tab stops. */
 function containFocus(event: KeyboardEvent<HTMLDialogElement>) {
@@ -26,6 +54,7 @@ function containFocus(event: KeyboardEvent<HTMLDialogElement>) {
   ].filter(
     (el) =>
       el.tabIndex >= 0 &&
+      el.closest("dialog") === dialog &&
       !el.matches(":disabled") &&
       !el.matches('input[type="hidden"]') &&
       !el.closest("[hidden], [inert]") &&
@@ -53,7 +82,8 @@ function containFocus(event: KeyboardEvent<HTMLDialogElement>) {
       (other): other is HTMLInputElement =>
         other instanceof HTMLInputElement &&
         other.type === "radio" &&
-        other.name === el.name,
+        other.name === el.name &&
+        other.form === el.form,
     );
     return el === (group.find((radio) => radio.checked) ?? group[0]);
   });
@@ -75,6 +105,104 @@ function containFocus(event: KeyboardEvent<HTMLDialogElement>) {
   }
 }
 
+/** Shared native behavior, separate from layout: profile headers stay sticky and
+ * readers keep their own scroll regions. Portals preserve React ownership. */
+export function NativeDialog({
+  children,
+  onClose,
+  busy = false,
+  labelledBy,
+  describedBy,
+  className,
+  closeOnBackdrop = false,
+}: {
+  children: ReactNode | ((busy: boolean) => ReactNode);
+  onClose: () => void;
+  busy?: boolean;
+  labelledBy: string;
+  describedBy?: string;
+  className: string;
+  closeOnBackdrop?: boolean;
+}) {
+  const ref = useRef<HTMLDialogElement>(null);
+  const [writes, setWrites] = useState<ReadonlySet<string>>(() => new Set());
+  const register = useCallback((id: string) => {
+    setWrites((current) => new Set(current).add(id));
+    return () =>
+      setWrites((current) => {
+        const next = new Set(current);
+        next.delete(id);
+        return next;
+      });
+  }, []);
+  // Propagate owned writes upward, never the inherited busy state (which would latch).
+  const effectiveBusy = useDialogPending(busy || writes.size > 0);
+  const context = useMemo(
+    () => ({ busy: effectiveBusy, register }),
+    [effectiveBusy, register],
+  );
+  useEffect(() => {
+    const trigger = document.activeElement as HTMLElement | null;
+    const dialog = ref.current;
+    dialog?.showModal();
+    const autofocus = dialog?.querySelector<HTMLElement>(
+      "[data-dialog-autofocus]:not(:disabled)",
+    );
+    (autofocus ?? dialog)?.focus();
+    return () => {
+      dialog?.close();
+      if (trigger?.isConnected) {
+        // A successful child write may close its review before parent refresh
+        // finishes, or clear the required draft. A disabled opener cannot focus.
+        const target = trigger.matches(":disabled")
+          ? trigger.closest<HTMLDialogElement>("dialog")
+          : trigger;
+        target?.focus();
+      }
+    };
+  }, []);
+  useEffect(() => {
+    const active = document.activeElement;
+    if (
+      effectiveBusy &&
+      active instanceof HTMLElement &&
+      active.closest("dialog") === ref.current &&
+      active.matches(":disabled")
+    )
+      ref.current?.focus();
+  }, [effectiveBusy]);
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <DialogWork.Provider value={context}>
+      <dialog
+        ref={ref}
+        tabIndex={-1}
+        aria-labelledby={labelledBy}
+        aria-describedby={describedBy}
+        aria-busy={effectiveBusy}
+        onKeyDown={containFocus}
+        onCancel={(event) => {
+          if (event.target !== event.currentTarget) return;
+          event.preventDefault();
+          if (!effectiveBusy) onClose();
+        }}
+        onClick={(event) => {
+          if (
+            closeOnBackdrop &&
+            !effectiveBusy &&
+            event.target === event.currentTarget
+          )
+            onClose();
+        }}
+        className={className}
+      >
+        {typeof children === "function" ? children(effectiveBusy) : children}
+      </dialog>
+    </DialogWork.Provider>,
+    document.body,
+  );
+}
+
 /** Native modality supplies an inert background. Callers own confirmation rules and mutations. */
 export function Modal({
   title,
@@ -93,54 +221,35 @@ export function Modal({
   busy?: boolean;
   wide?: boolean;
 }) {
-  const ref = useRef<HTMLDialogElement>(null);
   const titleId = useId();
   const descriptionId = useId();
-  useEffect(() => {
-    const trigger = document.activeElement as HTMLElement | null;
-    const dialog = ref.current;
-    dialog?.showModal();
-    // Opt-in focus goes to a reason field or the safe Cancel action, never a destructive action.
-    (
-      dialog?.querySelector<HTMLElement>("[data-dialog-autofocus]") ?? dialog
-    )?.focus();
-    return () => {
-      dialog?.close();
-      if (trigger?.isConnected) trigger.focus();
-    };
-  }, []);
-  useEffect(() => {
-    const active = document.activeElement;
-    if (busy && active instanceof HTMLElement && active.matches(":disabled"))
-      ref.current?.focus();
-  }, [busy]);
   return (
-    <dialog
-      ref={ref}
-      tabIndex={-1}
-      aria-labelledby={titleId}
-      aria-describedby={description ? descriptionId : undefined}
-      aria-busy={busy}
-      onKeyDown={containFocus}
-      onCancel={(event) => {
-        if (event.target !== event.currentTarget) return;
-        event.preventDefault();
-        if (!busy) onClose();
-      }}
+    <NativeDialog
+      labelledBy={titleId}
+      describedBy={description ? descriptionId : undefined}
+      busy={busy}
+      onClose={onClose}
       className={`card fixed inset-0 m-auto max-h-[90dvh] w-[calc(100%_-_2rem)] overflow-y-auto p-5 shadow-xl backdrop:bg-slate-900/50 ${wide ? "max-w-2xl" : "max-w-md"}`}
     >
-      <h2 id={titleId} className="section-title">
-        {title}
-      </h2>
-      {description && (
-        <p id={descriptionId} className="muted mt-2">
-          {description}
-        </p>
+      {(effectiveBusy) => (
+        <>
+          <h2 id={titleId} className="section-title">
+            {title}
+          </h2>
+          {description && (
+            <p id={descriptionId} className="muted mt-2">
+              {description}
+            </p>
+          )}
+          {children && <div className="my-4 min-w-0">{children}</div>}
+          <fieldset
+            disabled={effectiveBusy}
+            className="mt-5 flex min-w-0 flex-wrap items-center justify-end gap-2 border-t border-slate-100 pt-4"
+          >
+            {footer}
+          </fieldset>
+        </>
       )}
-      {children && <div className="my-4 min-w-0">{children}</div>}
-      <div className="mt-5 flex flex-wrap items-center justify-end gap-2 border-t border-slate-100 pt-4">
-        {footer}
-      </div>
-    </dialog>
+    </NativeDialog>
   );
 }

@@ -1,20 +1,51 @@
 "use client";
+import { ProfileEditSection } from "./profile-edit-section";
+import { Button } from "./ui/button";
+import { PersonNameFields } from "~/app/_components/person-name-fields";
+import { nameDraft, personNameEdit } from "~/lib/person-name";
 
 import { useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { ProfileDialog } from "~/app/_components/profile-dialog";
+import { AcademicPanel } from "./academic-profile";
+import { AcademicError } from "./academic-error";
+import {
+  useProfilePolicy,
+  ProfilePolicyHint,
+  OfferedGradeSelect,
+} from "./profile-policy";
+import { useRef, useState } from "react";
+import { GRADUATED_GRADE } from "~/lib/academics";
 
 /** One deliberate save avoids racing field-by-field corrections of the same person. */
 export function TutorProfileEditor({
   row,
   onClose,
+  isHead = false,
 }: {
   row: RouterOutputs["admin"]["tutors"][number];
   onClose: () => void;
+  isHead?: boolean;
 }) {
   const t = useTranslations();
+  const [expectedUpdatedAt] = useState(row.updatedAt);
+  const [names, setNames] = useState(() => nameDraft(row));
+  const [originalNames] = useState(() => nameDraft(row));
+  const [legacyName] = useState(row.legacyName ?? row.englishName);
+  const identity = personNameEdit(names, originalNames, legacyName);
+  const policy = useProfilePolicy();
+  const [grade, setGrade] = useState(
+    row.academicallyGraduated
+      ? GRADUATED_GRADE
+      : (row.gradeLevel?.toString() ?? ""),
+  );
   const utils = api.useUtils();
+  // Guard the interval before mutation state renders, so one request owns this draft.
+  const submitting = useRef(false);
   const save = api.admin.updateTutor.useMutation({
+    onSettled: () => {
+      submitting.current = false;
+    },
     onSuccess: async () => {
       await Promise.all([
         utils.admin.tutors.invalidate(),
@@ -25,103 +56,164 @@ export function TutorProfileEditor({
     },
   });
   return (
-    <ProfileDialog title={t("accountProfile.editProfile")} onClose={onClose}>
+    <ProfileDialog
+      title={t("accountProfile.editProfile")}
+      pending={save.isPending}
+      onClose={onClose}
+    >
       <form
-        className="grid gap-4 sm:grid-cols-2"
         onSubmit={(event) => {
           event.preventDefault();
+          if (save.isPending || submitting.current) return;
           const data = new FormData(event.currentTarget);
           const value = (key: string) => {
             const field = data.get(key);
             return typeof field === "string" ? field.trim() : "";
           };
-          const [firstName, ...rest] = value("name").split(/\s+/);
+
+          submitting.current = true;
           save.mutate({
             id: row.id,
-            expectedUpdatedAt: row.updatedAt,
-            firstName: firstName!,
-            lastName: rest.join(" "),
-            alternativeNames: value("alternativeNames") || null,
+            expectedUpdatedAt,
+            ...identity.fields,
             email: value("email") || null,
-            gradeLevel: value("grade") ? Number(value("grade")) : null,
+            // Unlinked handles still share the login namespace and Head-only authority.
+            ...(!row.user &&
+            isHead &&
+            value("username") !== (row.username ?? "")
+              ? { username: value("username") }
+              : {}),
+            ...(row.user
+              ? {}
+              : {
+                  gradeLevel:
+                    value("grade") && value("grade") !== GRADUATED_GRADE
+                      ? Number(value("grade"))
+                      : null,
+                  academicallyGraduated: value("grade") === GRADUATED_GRADE,
+                }),
             status: value("status") as typeof row.status,
           });
         }}
       >
-        <p className="muted text-sm sm:col-span-2">
-          {t(
-            row.user
-              ? "accountProfile.canonicalHelp"
-              : "accountProfile.setupRequired",
-          )}
-        </p>
-        {(
-          [
-            ["name", t("accountProfile.name"), row.englishName],
-            [
-              "alternativeNames",
-              t("accountProfile.alternativeNames"),
-              row.alternativeNames,
-            ],
-            ["email", t("admin.tutors.colEmail"), row.user?.email ?? row.email],
-            ["grade", t("admin.tutors.colGrade"), row.gradeLevel],
-          ] as const
-        ).map(([key, label, value]) => (
-          <label key={key} className="block">
-            <span className="label">{label}</span>
-            <input
-              className="input w-full"
-              name={key}
-              defaultValue={value ?? ""}
-              required={key === "name"}
-              type={
-                key === "email" ? "email" : key === "grade" ? "number" : "text"
-              }
-              min={key === "grade" ? 6 : undefined}
-              max={key === "grade" ? 12 : undefined}
-              readOnly={key === "email" && !!row.user}
-            />
-            {key === "email" && row.user && (
-              <span className="muted text-xs">
-                {t("accountProfile.emailProtected")}
-              </span>
-            )}
-          </label>
-        ))}
-        <label className="block">
-          <span className="label">{t("admin.tutors.colStatus")}</span>
-          <select
-            className="select w-full"
-            name="status"
-            defaultValue={row.status}
-          >
-            {(
-              [
-                "ACTIVE",
-                "PENDING",
-                "GRADUATED",
-                "OPTED_OUT",
-                "ARCHIVED",
-              ] as const
-            ).map((status) => (
-              <option key={status} value={status}>
-                {t(`admin.tutorStatus.${status}`)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          className="btn-primary justify-self-start"
-          disabled={save.isPending}
+        <ProfileEditSection
+          title={t("uiPatterns.profile")}
+          busy={save.isPending}
+          className="grid gap-4 sm:grid-cols-2"
+          actions={
+            <Button type="submit" variant="primary" disabled={save.isPending}>
+              {t("accountProfile.save")}
+            </Button>
+          }
         >
-          {t("accountProfile.save")}
-        </button>
-        {save.error && (
-          <p role="alert" className="text-sm text-red-600 sm:col-span-2">
-            {save.error.message}
+          <p className="muted text-sm sm:col-span-2">
+            {t(
+              row.user
+                ? "accountProfile.canonicalHelp"
+                : "tuteeHistory.noAccountHelp",
+            )}
           </p>
-        )}
+          {!row.user && (
+            <label className="block">
+              <span className="label">{t("accountProfile.username")}</span>
+              <input
+                className="input w-full"
+                name="username"
+                defaultValue={row.username ?? ""}
+                readOnly={!isHead}
+                autoCapitalize="none"
+                autoCorrect="off"
+                maxLength={64}
+              />
+            </label>
+          )}
+          <div className="sm:col-span-2">
+            <PersonNameFields
+              value={names}
+              onChange={setNames}
+              legacyName={legacyName}
+              originalValue={originalNames}
+            />
+          </div>
+          {(
+            [
+              [
+                "email",
+                t("admin.tutors.colEmail"),
+                row.user?.email ?? row.email,
+              ],
+              ["grade", t("academics.legacyGrade"), row.gradeLevel],
+            ] as const
+          )
+            .filter(([key]) => key !== "grade" || !row.user)
+            .map(([key, label, value]) => (
+              <label key={key} className="block">
+                <span className="label">{label}</span>
+                {key === "grade" ? (
+                  <OfferedGradeSelect
+                    name="grade"
+                    value={grade}
+                    onChange={setGrade}
+                    offeredGrades={policy.offeredGrades}
+                    preserveLegacy
+                    includeGraduated
+                  />
+                ) : (
+                  <input
+                    className="input w-full"
+                    name={key}
+                    defaultValue={value ?? ""}
+                    type={key === "email" ? "email" : "text"}
+                    readOnly={key === "email" && !!row.user}
+                  />
+                )}
+
+                {key === "email" && row.user && (
+                  <span className="muted text-xs">
+                    {t("accountProfile.emailProtected")}
+                  </span>
+                )}
+              </label>
+            ))}
+          <div className="sm:col-span-2">
+            <ProfilePolicyHint />
+            <ProfilePolicyHint field="legal" />
+          </div>
+          <label className="block">
+            <span className="label">{t("admin.tutors.colStatus")}</span>
+            <select
+              className="select w-full"
+              name="status"
+              defaultValue={row.status}
+            >
+              {(
+                [
+                  "ACTIVE",
+                  "PENDING",
+                  "GRADUATED",
+                  "TRANSFERRED",
+                  "OPTED_OUT",
+                  "ARCHIVED",
+                ] as const
+              ).map((status) => (
+                <option key={status} value={status}>
+                  {t(`admin.tutorStatus.${status}`)}
+                </option>
+              ))}
+            </select>
+          </label>
+          {save.error && (
+            <p role="alert" className="text-sm text-red-600 sm:col-span-2">
+              <AcademicError message={save.error.message} />
+            </p>
+          )}
+        </ProfileEditSection>
       </form>
+      {row.user && (
+        <div className="mt-5">
+          <AcademicPanel userId={row.user.id} />
+        </div>
+      )}
     </ProfileDialog>
   );
 }

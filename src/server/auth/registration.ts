@@ -1,3 +1,6 @@
+import { parsePersonNames } from "~/server/program/profile-policy";
+import { requireSchoolParticipation } from "~/server/school-departure";
+import { applyAcademicIntake, synchronizeAcademicMirrors, accountAcademics } from "~/server/academics";
 import {
   lockAccountProfile,
   updateAccountProfile,
@@ -24,14 +27,25 @@ import {
 import { createHmac } from "crypto";
 import { isManagementCode, type RegistrationKind } from "~/lib/registration-kind";
 import { TRPCError } from "@trpc/server";
-import { inTransaction, type DomainDb } from "~/server/transactions";
+import { inTransaction, lockEntity, type DomainDb } from "~/server/transactions";
 import type { TransactionDb } from "~/server/transactions";
 
 import { env } from "~/env";
 import { db } from "~/server/db";
 import { hashPassword } from "./password";
 import { generateRegistrationCode, normalizeRegCode } from "./code";
-import { defaultUsername, ensureUniqueUsername } from "./username";
+import {
+  defaultUsername,
+  ensureUniqueUsername,
+  canonicalUsername,
+  ensureUserUsername,
+  lockUsernameNamespace,
+} from "./username";
+import {
+  assertPrimaryName,
+  assertOfferedGrade,
+} from "~/server/program/profile-policy";
+import { needsAcademicConfirmationForParticipation } from "~/lib/academics";
 import { graduationYear } from "~/lib/period";
 
 /** Registration codes stay valid for one week — long enough to distribute and use. */
@@ -178,53 +192,33 @@ export async function bumpCodeAttempt(id: string): Promise<void> {
  * existing roster Tutor or an accepted application) the known name + grade so the form starts
  * pre-populated.
  */
-export async function codePrefill(row: CodeRow): Promise<{
-  boundEmail: string | null;
-  firstName: string;
-  lastName: string;
-  alternativeNames: string;
-  gradeLevel: number | null;
-}> {
-  let firstName = "";
-  let lastName = "";
-  let alternativeNames = "";
-  let gradeLevel: number | null = null;
-
-  if (row.tutorId) {
-    const tutor = await db.tutor.findUnique({
-      where: { id: row.tutorId },
-      select: {
-        firstName: true,
-        lastName: true,
-        englishName: true,
-        alternativeNames: true,
-        gradeLevel: true,
-      },
-    });
-    if (tutor) {
-      const [efirst, ...erest] = tutor.englishName.trim().split(/\s+/);
-      firstName = tutor.firstName ?? efirst ?? "";
-      lastName = tutor.lastName ?? erest.join(" ");
-      alternativeNames = tutor.alternativeNames ?? "";
-      gradeLevel = tutor.gradeLevel;
-    }
-  } else if (row.applicationId) {
-    const app = await db.tutorApplication.findUnique({
-      where: { id: row.applicationId },
-      select: { name: true },
-    });
-    if (app) {
-      const [afirst, ...arest] = app.name.trim().split(/\s+/);
-      firstName = afirst ?? app.name.trim();
-      lastName = arest.join(" ");
-    }
-  }
+export async function codePrefill(row: CodeRow) {
+  // Only explicit name parts prefill the four-field editor; old full names remain visible context.
+  const source = row.tutorId
+    ? await db.tutor.findUnique({ where: { id: row.tutorId } })
+    : row.applicationId
+      ? await db.tutorApplication.findUnique({
+          where: { id: row.applicationId },
+        })
+      : row.crewApplicationId
+        ? await db.crewApplication.findUnique({
+            where: { id: row.crewApplicationId },
+          })
+        : null;
   return {
     boundEmail: row.email?.toLowerCase() ?? null,
-    firstName,
-    lastName,
-    alternativeNames,
-    gradeLevel,
+    firstName: source?.firstName ?? "",
+    lastName: source?.lastName ?? "",
+    preferredName: source?.preferredName ?? "",
+    alternativeNames: source?.alternativeNames ?? "",
+    legacyName: source
+      ? "englishName" in source
+        ? source.englishName
+        : source.name
+      : null,
+    gradeLevel: source && "gradeLevel" in source ? source.gradeLevel : null,
+    gradeSchoolYear:
+      source && "gradeSchoolYear" in source ? source.gradeSchoolYear : null,
   };
 }
 
@@ -318,8 +312,11 @@ export interface CompleteRegistrationInput {
   completionProof: string;
   firstName: string;
   lastName: string;
+  preferredName?: string | null;
   alternativeNames?: string | null;
   gradeLevel?: number | null;
+  preferredLatinName?: string;
+  gradeSchoolYear?: string | null;
   password: string;
 }
 
@@ -332,7 +329,7 @@ export async function completeRegistration(
   row: CodeRow,
   input: CompleteRegistrationInput,
 ): Promise<
-  | { ok: true; username: string }
+  | { ok: true; username: string; academicConfirmationRequired?: boolean }
   | { ok: false; error: "email-unverified" | "email-taken" }
 > {
   if (!row.emailVerifiedAt || !row.pendingEmail || !row.emailCodeHash ||
@@ -340,6 +337,8 @@ export async function completeRegistration(
       input.completionProof !== registrationCompletionProof("invitation", row.id, row.emailCodeHash, row.emailVerifiedAt)) {
     return { ok: false, error: "email-unverified" };
   }
+  parsePersonNames(input);
+  const preferredName = input.preferredName?.trim() ? input.preferredName.trim() : null;
   const email = (row.email ?? row.pendingEmail).toLowerCase();
   const firstName = input.firstName.trim();
   const lastName = input.lastName.trim();
@@ -348,21 +347,11 @@ export async function completeRegistration(
     : null;
   const gradeLevel = input.gradeLevel ?? null;
 
-  // Class-of year for the username suffix, from the self-reported grade + active school year.
-  const term = await db.term.findFirst({
-    where: { active: true },
-    select: { schoolYear: true },
-  });
-  const gradYear =
-    gradeLevel != null && term
-      ? graduationYear(gradeLevel, term.schoolYear)
-      : null;
-
   // A login may already exist on this email (e.g. a roster tutor invited earlier). Guard against
   // hijacking a DIFFERENT person's account: only reuse it when it's unlinked or links this tutor.
   const existingUser = await db.user.findUnique({
     where: { email },
-    select: { id: true, tutorId: true, role: true, username: true },
+    select: { id: true, tutorId: true, role: true, username: true, mergedIntoId: true },
   });
   if (
     row.kind !== "CREW" &&
@@ -372,7 +361,7 @@ export async function completeRegistration(
     return { ok: false, error: "email-taken" };
   }
 
-  if (existingUser?.role === "VIEWER") return { ok: false, error: "email-taken" };
+  if (existingUser?.mergedIntoId || existingUser?.role === "VIEWER") return { ok: false, error: "email-taken" };
 
   const passwordHash = hashPassword(input.password);
 
@@ -381,6 +370,23 @@ export async function completeRegistration(
   if (isManagementCode(row.kind)) {
     const role = row.kind;
     return db.$transaction(async (tx) => {
+      await lockEntity(tx, "program:period");
+      const term = await tx.term.findFirst({
+        where: { active: true },
+        select: { schoolYear: true },
+      });
+      const gradYear =
+        gradeLevel != null && term
+          ? graduationYear(gradeLevel, term.schoolYear)
+          : null;
+      await assertPrimaryName(
+        tx,
+        [firstName, lastName].filter(Boolean).join(" "),
+      );
+
+      await assertOfferedGrade(tx, gradeLevel);
+      if (gradeLevel != null && !term) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "PROFILE_NO_CURRENT_YEAR" });
+      await lockUsernameNamespace(tx);
       await tx.$executeRaw`LOCK TABLE "User", "AccountEmail", "Tutor" IN SHARE ROW EXCLUSIVE MODE`;
       const owner = await tx.user.findFirst({ where: { OR: [
         { email: { equals: email, mode: "insensitive" } },
@@ -388,27 +394,83 @@ export async function completeRegistration(
       ] } });
       if (owner) return { ok: false as const, error: "email-taken" as const };
       await claimRegistration(tx, row);
-      const username = await ensureUniqueUsername(defaultUsername(firstName, lastName, gradYear), {}, tx);
-      const user = await tx.user.create({ data: {
-        email, username, name: `${firstName} ${lastName}`, alternativeNames, role, gradeLevel,
-        passwordHash, emailVerifiedAt: new Date(), mustChangePassword: false,
-      } });
-      await tx.registrationCode.update({ where: { id: row.id }, data: { usedByUserId: user.id } });
-      await tx.auditLog.create({ data: {
-        userId: user.id, userName: user.name, entity: "RegistrationCode", entityId: row.id,
-        operation: "registration.complete", kind: "ACTION", action: `Redeemed ${role} registration code`,
-        details: { role, issuedById: row.issuedById, recipientId: user.id },
-      } });
+      const username = await ensureUniqueUsername(
+        defaultUsername(
+          firstName,
+          lastName,
+          gradYear,
+          input.preferredLatinName,
+        ),
+        {},
+        tx,
+      );
+      const user = await tx.user.create({
+        data: {
+          email,
+          username,
+          firstName,
+          lastName,
+          preferredName,
+          name: `${firstName} ${lastName}`,
+          alternativeNames,
+          role,
+          gradeLevel,
+          passwordHash,
+          emailVerifiedAt: new Date(),
+          mustChangePassword: false,
+        },
+      });
+      await applyAcademicIntake(
+        tx,
+        user.id,
+        gradeLevel,
+        term?.schoolYear ?? null,
+        new Date(),
+        "REGISTRATION",
+      );
+      await tx.registrationCode.update({
+        where: { id: row.id },
+        data: { usedByUserId: user.id },
+      });
+      await tx.auditLog.create({
+        data: {
+          userId: user.id,
+          userName: user.name,
+          entity: "RegistrationCode",
+          entityId: row.id,
+          operation: "registration.complete",
+          kind: "ACTION",
+          action: `Redeemed ${role} registration code`,
+          details: { role, issuedById: row.issuedById, recipientId: user.id },
+        },
+      });
       return { ok: true as const, username };
     });
   }
 
   // ---- Crew-only registration (no Tutor) -----------------------------------
   if (row.kind === "CREW") {
-    const username = await db.$transaction(async (tx) => {
+    const result = await db.$transaction(async (tx) => {
+      await lockEntity(tx, "program:period");
+      await lockUsernameNamespace(tx);
+      const term = await tx.term.findFirst({ where: { active: true }, select: { schoolYear: true } });
+      const gradYear = gradeLevel != null && term
+        ? graduationYear(gradeLevel, term.schoolYear) : null;
+      const existingUser = await tx.user.findUnique({ where: { email } });
+      await assertPrimaryName(tx, existingUser?.name ?? [firstName, lastName].filter(Boolean).join(" "), existingUser?.name);
+      // Crew invitations keep an existing account identity; only new accounts adopt input.
+
+      await assertOfferedGrade(tx, gradeLevel);
+      if (gradeLevel != null && !term) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "PROFILE_NO_CURRENT_YEAR" });
+      // Namespace locking serializes this check with account combination. Retired identities
+      // reserve their email; an invitation must never attach fresh membership to their history.
+      if (existingUser?.mergedIntoId || existingUser?.role === "VIEWER")
+        throw new TRPCError({ code: "CONFLICT", message: "Account membership changed. Ask Head to review this invitation." });
       await claimRegistration(tx, row);
       if (existingUser) {
-        // A login already exists for this verified email — just grant (re)activate crew access.
+        await lockAccountProfile(tx, existingUser.id);
+        const priorCrewStatus = (await tx.user.findUniqueOrThrow({ where: { id: existingUser.id }, select: { crewStatus: true } })).crewStatus;
+        // A login already exists for this verified email — grant crew access after academic review.
         // Existing credentials/role are left untouched (we don't overwrite a tutor/admin's account).
         await tx.user.update({
           where: { id: existingUser.id },
@@ -418,16 +480,29 @@ export async function completeRegistration(
           where: { id: row.id },
           data: { usedAt: new Date(), usedByUserId: existingUser.id },
         });
-        return existingUser.username ?? "";
+        await applyAcademicIntake(tx, existingUser.id, gradeLevel, term?.schoolYear ?? null, new Date(), "REGISTRATION");
+        await synchronizeAcademicMirrors(tx, existingUser.id);
+        const academicConfirmationRequired = needsAcademicConfirmationForParticipation((await accountAcademics(tx, existingUser.id)).academic);
+        // Crew has no pending state: retain staff suspension, otherwise use its existing reentry flow.
+        if (academicConfirmationRequired) await tx.user.update({
+          where: { id: existingUser.id },
+          data: { crewStatus: priorCrewStatus === "INACTIVE" ? "INACTIVE" : "OPTED_OUT" },
+        });
+        return { username: await ensureUserUsername(existingUser.id, tx, { preferredLatinName: input.preferredLatinName }),
+          ...(academicConfirmationRequired ? { academicConfirmationRequired: true } : {}) };
       }
       const desiredUsername = await ensureUniqueUsername(
-        defaultUsername(firstName, lastName, gradYear),
+        defaultUsername(firstName, lastName, gradYear, input.preferredLatinName),
         {},
+        tx,
       );
       const created = await tx.user.create({
         data: {
           email,
           username: desiredUsername,
+          firstName,
+          lastName,
+          preferredName,
           name: `${firstName} ${lastName}`,
           alternativeNames,
           role: "CREW",
@@ -443,14 +518,42 @@ export async function completeRegistration(
         where: { id: row.id },
         data: { usedAt: new Date(), usedByUserId: created.id },
       });
-      return desiredUsername;
+      await applyAcademicIntake(tx, created.id, gradeLevel, term?.schoolYear ?? null, new Date(), "REGISTRATION");
+      const academicConfirmationRequired = needsAcademicConfirmationForParticipation((await accountAcademics(tx, created.id)).academic);
+      if (academicConfirmationRequired) await tx.user.update({ where: { id: created.id }, data: { crewStatus: "OPTED_OUT" } });
+      return { username: desiredUsername, ...(academicConfirmationRequired ? { academicConfirmationRequired: true } : {}) };
     });
-    return { ok: true, username };
+    return { ok: true, ...result };
   }
 
-  const username = await db.$transaction(async (tx) => {
+  const result = await db.$transaction(async (tx) => {
+    await lockEntity(tx, "program:period");
+    await lockUsernameNamespace(tx);
+    const term = await tx.term.findFirst({ where: { active: true }, select: { schoolYear: true } });
+    const gradYear = gradeLevel != null && term
+      ? graduationYear(gradeLevel, term.schoolYear) : null;
+    let existingUser = await tx.user.findUnique({ where: { email } });
+    if (existingUser) {
+      await lockAccountProfile(tx, existingUser.id);
+      await requireSchoolParticipation(tx, existingUser.id);
+      // The unchanged-name exemption must use the current locked identity. A profile
+      // edit may have committed while registration was waiting for the account lock.
+      existingUser = await tx.user.findUniqueOrThrow({ where: { id: existingUser.id } });
+    }
+    await assertOfferedGrade(tx, gradeLevel);
+    if (gradeLevel != null && !term) throw new TRPCError({ code: "PRECONDITION_FAILED", message: "PROFILE_NO_CURRENT_YEAR" });
+    if (existingUser?.mergedIntoId || existingUser?.role === "VIEWER" || (existingUser?.tutorId && existingUser.tutorId !== row.tutorId))
+      throw new TRPCError({ code: "CONFLICT", message: "Account membership changed. Ask Head to review this invitation." });
     await claimRegistration(tx, row);
-    if (existingUser) await lockAccountProfile(tx, existingUser.id);
+    if (existingUser) {
+      // Resolve academic ownership before allocating a first handle. Conflicting invitation
+      // input cannot stamp the rejected grade onto an account that did not yet have a handle.
+      await applyAcademicIntake(tx, existingUser.id, gradeLevel, term?.schoolYear ?? null, new Date(), "REGISTRATION");
+    }
+    const retainedAcademic = existingUser ? (await accountAcademics(tx, existingUser.id)).academic : null;
+    const usernameGradYear = existingUser
+      ? retainedAcademic?.confirmedAt ? retainedAcademic.expectedGraduationYear : null
+      : gradYear;
     // Resolve (or create) the Tutor.
     let tutorId: string;
     if (row.tutorId) {
@@ -464,13 +567,22 @@ export async function completeRegistration(
       tutorId = byEmail?.id ?? "";
     }
 
-    const desiredUsername = await ensureUniqueUsername(
-      defaultUsername(firstName, lastName, gradYear),
-      {
-        ...(tutorId ? { excludeTutorId: tutorId } : {}),
-        ...(existingUser ? { excludeUserId: existingUser.id } : {}),
-      },
+    const rosterTutor = tutorId ? await tx.tutor.findUniqueOrThrow({ where: { id: tutorId } }) : null;
+    // An invited roster is already an identity too. Preserve its unchanged name when
+    // creating its first login, while any existing canonical account takes precedence.
+    // The namespace lock serializes edits to provisional roster names.
+    await assertPrimaryName(
+      tx,
+      [firstName, lastName].filter(Boolean).join(" "),
+      existingUser ? existingUser.name : rosterTutor?.englishName,
     );
+
+    // Account ownership wins; a genuinely new account adopts its roster's provisional handle.
+    const desiredUsername = await canonicalUsername(tx,
+      defaultUsername(firstName, lastName, usernameGradYear, input.preferredLatinName), {
+        excludeTutorId: tutorId || undefined, excludeUserId: existingUser?.id,
+        userUsername: existingUser?.username, tutorUsername: rosterTutor?.username,
+      });
 
     if (tutorId) {
       await tx.tutor.update({
@@ -478,6 +590,7 @@ export async function completeRegistration(
         data: {
           firstName,
           lastName,
+          preferredName,
           englishName: `${firstName} ${lastName}`,
           alternativeNames,
           gradeLevel,
@@ -491,6 +604,7 @@ export async function completeRegistration(
         data: {
           firstName,
           lastName,
+          preferredName,
           englishName: `${firstName} ${lastName}`,
           alternativeNames,
           gradeLevel,
@@ -512,12 +626,15 @@ export async function completeRegistration(
           tutorId,
           tutorAccessRevoked: false,
           username: desiredUsername,
+          firstName,
+          lastName,
+          preferredName,
           name: `${firstName} ${lastName}`,
           passwordHash,
           mustChangePassword: false,
           emailVerifiedAt: new Date(),
           // Auto-merge: a crew-only login that completes a tutor code becomes a tutor (keeping crew).
-          ...(existingUser.role === "CREW" || existingUser.role === "VIEWER"
+          ...(existingUser.role === "CREW"
             ? { role: "TUTOR" as const }
             : {}),
         },
@@ -528,8 +645,13 @@ export async function completeRegistration(
         data: {
           email,
           username: desiredUsername,
+          firstName,
+          lastName,
+          preferredName,
           name: `${firstName} ${lastName}`,
           role: "TUTOR",
+          // Seed the already-validated legal name so unchanged roster values are preserved.
+          alternativeNames,
           tutorId,
           tutorAccessRevoked: false,
           passwordHash,
@@ -542,19 +664,37 @@ export async function completeRegistration(
     }
 
     await updateAccountProfile(tx, userId, {
+      firstName,
+      lastName,
+      preferredName,
       name: `${firstName} ${lastName}`,
       alternativeNames,
     });
+
+    // Repair legacy divergence without treating the roster alias as a second account identity.
+    if (existingUser?.username && rosterTutor && rosterTutor.username !== desiredUsername)
+      await tx.auditLog.create({ data: {
+        userId, entity: "User", entityId: userId, operation: "identity.reconcileUsername",
+        kind: "ACTION", action: "Synchronized tutor username to account",
+        details: { username: desiredUsername, oldTutorUsername: rosterTutor.username, tutorId },
+      } });
+    if (!existingUser) await applyAcademicIntake(tx, userId, gradeLevel, term?.schoolYear ?? null, new Date(), "REGISTRATION");
+
+    await synchronizeAcademicMirrors(tx, userId);
+    // Completing credentials is safe even when an invitation contradicts retained academics.
+    // The normal activation gate remains available after the participant reviews the report.
+    const academicConfirmationRequired = needsAcademicConfirmationForParticipation((await accountAcademics(tx, userId)).academic);
+    if (academicConfirmationRequired) await tx.tutor.update({ where: { id: tutorId }, data: { status: "PENDING" } });
 
     // Burn the code.
     await tx.registrationCode.update({
       where: { id: row.id },
       data: { usedAt: new Date(), usedByUserId: userId },
     });
-    return desiredUsername;
+    return { username: desiredUsername, ...(academicConfirmationRequired ? { academicConfirmationRequired: true } : {}) };
   });
 
-  return { ok: true, username };
+  return { ok: true, ...result };
 }
 
 /** Atomically reserve the exact verified invitation inside the account-write transaction. */

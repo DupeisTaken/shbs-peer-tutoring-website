@@ -7,6 +7,45 @@ import {
   parseUserFilters,
 } from "./user-filters";
 const admin = { role: "ADMIN", tutorStatus: "ACTIVE", account: "registered" };
+it.each(["ACTIVE", "PENDING", "OPTED_OUT", "ARCHIVED", "GRADUATED", null])(
+  "applies default past-tutor visibility to %s",
+  (tutorStatus) => {
+    const row = { ...admin, role: "TUTOR", tutorStatus };
+    const past = tutorStatus === "ARCHIVED" || tutorStatus === "GRADUATED";
+    expect(matchesUserFilters(row, emptyUserFilters())).toBe(!past);
+    expect(
+      matchesUserFilters(row, { ...emptyUserFilters(), showPastTutors: true }),
+    ).toBe(true);
+  },
+);
+it.each(["ARCHIVED", "GRADUATED"])(
+  "finds explicit %s records despite historical membership",
+  (tutorStatus) => {
+    const filters = emptyUserFilters();
+    filters.role.include = ["TUTOR"];
+    filters.status.include = [tutorStatus];
+    const row = {
+      role: null,
+      tutorStatus,
+      tutorId: "past",
+      tuteeMember: false,
+      account: "none",
+    };
+    expect(matchesUserFilters(row, filters)).toBe(true);
+    filters.status.exclude = [tutorStatus];
+    expect(matchesUserFilters(row, filters)).toBe(false);
+    filters.status.exclude = [];
+    filters.account.exclude = ["none"];
+    expect(matchesUserFilters(row, filters)).toBe(false);
+  },
+);
+it("restores only boolean visibility preferences and defaults older preferences to hidden", () => {
+  expect(parseUserFilters('{"showPastTutors":true}').showPastTutors).toBe(true);
+  expect(parseUserFilters('{"showPastTutors":"true"}').showPastTutors).toBe(
+    false,
+  );
+  expect(parseUserFilters("{}").showPastTutors).toBe(false);
+});
 it("combines OR within includes with AND across filters and exclusion priority", () => {
   const filters = emptyUserFilters();
   filters.role.include = ["ADMIN", "COORDINATOR"];
@@ -41,23 +80,31 @@ it.each([
   [[], ["ADMIN"], false],
   [[], ["TUTOR"], false],
   [["__none__"], [], false],
-] as const)("checks applicability for includes %j and excludes %j", (include, exclude, applicable) => {
-  const filters = emptyUserFilters();
-  filters.role = { include: [...include], exclude: [...exclude] };
-  filters.status = { include: ["ACTIVE"], exclude: ["PENDING"] };
-  expect(isTutorStatusApplicable(filters.role)).toBe(applicable);
-  const normalized = normalizeUserFilters(filters);
-  expect(normalized.status).toEqual(applicable ? filters.status : { include: [], exclude: [] });
-  expect(parseUserFilters(JSON.stringify(filters))).toEqual(normalized);
-  expect(normalized.role).toEqual(filters.role);
-});
+] as const)(
+  "checks applicability for includes %j and excludes %j",
+  (include, exclude, applicable) => {
+    const filters = emptyUserFilters();
+    filters.role = { include: [...include], exclude: [...exclude] };
+    filters.status = { include: ["ACTIVE"], exclude: ["PENDING"] };
+    expect(isTutorStatusApplicable(filters.role)).toBe(applicable);
+    const normalized = normalizeUserFilters(filters);
+    expect(normalized.status).toEqual(
+      applicable ? filters.status : { include: [], exclude: [] },
+    );
+    expect(parseUserFilters(JSON.stringify(filters))).toEqual(normalized);
+    expect(normalized.role).toEqual(filters.role);
+  },
+);
 
 it("clears status across mode transitions without losing account or role exclusions", () => {
   const initial = emptyUserFilters();
   initial.role = { include: ["TUTOR"], exclude: ["HEAD"] };
   initial.status = { include: ["ACTIVE"], exclude: ["PENDING"] };
   initial.account.exclude = ["setup"];
-  const mixed = normalizeUserFilters({ ...initial, role: { ...initial.role, include: ["TUTOR", "ADMIN"] } });
+  const mixed = normalizeUserFilters({
+    ...initial,
+    role: { ...initial.role, include: ["TUTOR", "ADMIN"] },
+  });
   const tutorAgain = normalizeUserFilters({ ...mixed, role: initial.role });
   expect(tutorAgain.status).toEqual({ include: [], exclude: [] });
   expect(tutorAgain.account).toEqual(initial.account);
@@ -66,15 +113,30 @@ it("clears status across mode transitions without losing account or role exclusi
 });
 
 it("matches composable Tutor membership but never a revoked or archived historical link", () => {
-  const combined = { ...admin, tutorId: "synthetic-tutor", tuteeMember: true, tutorAccessRevoked: false, canTranslate: true, crewStatus: "ACTIVE" };
+  const combined = {
+    ...admin,
+    tutorId: "synthetic-tutor",
+    tuteeMember: true,
+    tutorAccessRevoked: false,
+    canTranslate: true,
+    crewStatus: "ACTIVE",
+  };
   const filters = emptyUserFilters();
   filters.role.include = ["TUTOR"];
   filters.status.include = ["ACTIVE"];
   expect(matchesUserFilters(combined, filters)).toBe(true);
-  expect(matchesUserFilters({ ...combined, tutorAccessRevoked: true }, filters)).toBe(false);
-  expect(matchesUserFilters({ ...combined, tutorStatus: "ARCHIVED" }, filters)).toBe(false);
-  expect(matchesUserFilters({ ...combined, tutorId: null }, filters)).toBe(false);
-  expect(matchesUserFilters({ ...combined, tutorStatus: "PENDING" }, filters)).toBe(false);
+  expect(
+    matchesUserFilters({ ...combined, tutorAccessRevoked: true }, filters),
+  ).toBe(false);
+  expect(
+    matchesUserFilters({ ...combined, tutorStatus: "ARCHIVED" }, filters),
+  ).toBe(false);
+  expect(matchesUserFilters({ ...combined, tutorId: null }, filters)).toBe(
+    false,
+  );
+  expect(
+    matchesUserFilters({ ...combined, tutorStatus: "PENDING" }, filters),
+  ).toBe(false);
   filters.status.exclude = ["ACTIVE"];
   expect(matchesUserFilters(combined, filters)).toBe(false);
   filters.role.include.push("ADMIN");
@@ -88,4 +150,70 @@ it("restores selections and survives missing or corrupted preferences", () => {
   expect(parseUserFilters(JSON.stringify(filters))).toEqual(filters);
   expect(parseUserFilters("{broken")).toEqual(emptyUserFilters());
   expect(parseUserFilters(null)).toEqual(emptyUserFilters());
+});
+
+it.each(["ADMIN", "HEAD", "COORDINATOR", "VIEWER"])(
+  "keeps %s visible with an archived tutor identity",
+  (role) => {
+    expect(
+      matchesUserFilters(
+        { role, tutorStatus: "ARCHIVED", account: "registered" },
+        emptyUserFilters(),
+      ),
+    ).toBe(true);
+  },
+);
+it("keeps independently current tutee, crew and translator participation visible", () => {
+  const row = {
+    role: "STUDENT",
+    tutorStatus: "GRADUATED",
+    account: "registered",
+  };
+  for (const extra of [
+    { currentTutee: true },
+    { crewStatus: "ACTIVE" },
+    { canTranslate: true },
+  ])
+    expect(matchesUserFilters({ ...row, ...extra }, emptyUserFilters())).toBe(
+      true,
+    );
+  expect(
+    matchesUserFilters({ ...row, currentTutee: false }, emptyUserFilters()),
+  ).toBe(false);
+});
+it("hides unverified logins by default but supports explicit recovery without deleting records", () => {
+  const row = {
+    ...admin,
+    userId: "pending",
+    emailVerifiedAt: null,
+    account: "setup",
+  };
+  expect(matchesUserFilters(row, emptyUserFilters())).toBe(false);
+  expect(
+    matchesUserFilters(row, { ...emptyUserFilters(), showUnverified: true }),
+  ).toBe(true);
+  const filters = emptyUserFilters();
+  filters.account.include = ["setup"];
+  expect(matchesUserFilters(row, filters)).toBe(true);
+  expect(parseUserFilters('{"showUnverified":true}').showUnverified).toBe(true);
+});
+
+it("hides historical-only tutee accounts while preserving another current membership", () => {
+  const row = {
+    role: "STUDENT",
+    tutorStatus: null,
+    account: "registered",
+    hasTuteeHistory: true,
+    currentTutee: false,
+  };
+  expect(matchesUserFilters(row, emptyUserFilters())).toBe(false);
+  expect(
+    matchesUserFilters(row, { ...emptyUserFilters(), showPastTutors: true }),
+  ).toBe(true);
+  expect(
+    matchesUserFilters({ ...row, currentTutee: true }, emptyUserFilters()),
+  ).toBe(true);
+  expect(
+    matchesUserFilters({ ...row, tutorStatus: "ACTIVE" }, emptyUserFilters()),
+  ).toBe(true);
 });

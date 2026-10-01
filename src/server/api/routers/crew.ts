@@ -1,3 +1,6 @@
+import { optionalPersonNameFields } from "~/lib/person-name";
+import { accountHistoryIds } from "~/server/account-history";
+import { assertPrimaryName, assertOfferedGrade } from "~/server/program/profile-policy";
 import { getProgramTimeZone } from "~/server/program/time-zone";
 import { programDateKey } from "~/lib/program-time";
 import { requestMembership, recallMembership } from "~/server/membership";
@@ -41,7 +44,7 @@ export const crewRouter = createTRPCRouter({
         select: { id: true, name: true },
       }),
       ctx.db.patrol.aggregate({
-        where: { crewUserId: ctx.session.user.id },
+        where: { crewUserId: { in: await accountHistoryIds(ctx.db, ctx.session.user.id) } },
         _sum: { hours: true },
         _count: { _all: true },
       }),
@@ -54,9 +57,9 @@ export const crewRouter = createTRPCRouter({
   }),
 
   /** The caller's recent patrols (with per-room observations) for their history view. */
-  myPatrols: protectedProcedure.query(({ ctx }) =>
+  myPatrols: protectedProcedure.query(async ({ ctx }) =>
     ctx.db.patrol.findMany({
-      where: { crewUserId: ctx.session.user.id },
+      where: { crewUserId: { in: await accountHistoryIds(ctx.db, ctx.session.user.id) } },
       orderBy: { createdAt: "desc" },
       take: 20,
       select: {
@@ -187,9 +190,10 @@ export const crewRouter = createTRPCRouter({
   submitApplication: publicProcedure
     .input(
       z.object({
-        name: z.string().trim().min(1).max(120),
+        ...optionalPersonNameFields,
+        name: z.string().trim().min(1).max(200),
         email: z.string().trim().email().max(254),
-        gradeLevel: z.number().int().min(6).max(12).nullable().optional(),
+        gradeLevel: z.number().int().min(1).max(12).nullable().optional(),
         preferredContact: z.string().trim().max(200).optional(),
         message: z.string().trim().max(1000).optional(),
       }),
@@ -207,8 +211,15 @@ export const crewRouter = createTRPCRouter({
           tx,
           { kind: "crew", email: input.email, headers: ctx.headers },
           async (email) => {
+            // Check current policy only for a new record; historical retries stay idempotent.
+            await assertPrimaryName(tx, input.name);
+            await assertOfferedGrade(tx, input.gradeLevel);
             await tx.crewApplication.create({
               data: {
+                firstName: input.firstName,
+                lastName: input.lastName,
+                preferredName: input.preferredName,
+                alternativeNames: input.alternativeNames,
                 name: input.name,
                 email,
                 gradeLevel: input.gradeLevel ?? null,

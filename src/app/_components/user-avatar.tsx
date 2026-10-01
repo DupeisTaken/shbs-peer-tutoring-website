@@ -62,7 +62,9 @@ export async function UserAvatar({
           {email && <p className="muted truncate text-xs">{email}</p>}
           {role && (
             <span className="badge-slate mt-2 inline-block text-[10px]">
-              {t.has(`admin.users.roles.${role}`) ? t(`admin.users.roles.${role}`) : role}
+              {t.has(`admin.users.roles.${role}`)
+                ? t(`admin.users.roles.${role}`)
+                : role}
             </span>
           )}
         </div>
@@ -71,17 +73,22 @@ export async function UserAvatar({
             compactAtDesktop ? "lg:gap-0 lg:pt-1" : ""
           }`}
         >
-          {items.map((item) => (
-            <Link
-              key={item.href}
-              href={item.href}
-              className={`nav-link flex min-h-11 items-center text-sm ${
-                compactAtDesktop ? "lg:min-h-0 lg:py-1.5" : ""
-              }`}
-            >
-              {item.label}
-            </Link>
-          ))}
+          {[...items, { href: "/history", label: t("tuteeHistory.myHistory") }]
+            .filter(
+              (item, index, all) =>
+                all.findIndex((other) => other.href === item.href) === index,
+            )
+            .map((item) => (
+              <Link
+                key={item.href}
+                href={item.href}
+                className={`nav-link flex min-h-11 items-center text-sm ${
+                  compactAtDesktop ? "lg:min-h-0 lg:py-1.5" : ""
+                }`}
+              >
+                {item.label}
+              </Link>
+            ))}
         </div>
         <div className={compactAtDesktop ? "pt-2 lg:pt-1" : "pt-2"}>
           <SignOutButton

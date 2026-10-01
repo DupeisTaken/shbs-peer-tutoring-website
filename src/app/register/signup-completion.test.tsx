@@ -11,38 +11,84 @@ const mocks = vi.hoisted(() => ({
   resendError: false,
   resendPending: false,
   proof: "a".repeat(64),
+  completionResult: null as null | {
+    username: string;
+    academicConfirmationRequired: boolean;
+  },
 }));
 vi.mock("~/trpc/react", () => {
   const mutation = (data: object, isResend = false, isComplete = false) => ({
     useMutation: (options: { onSuccess: (data: object) => void }) => ({
       isPending: isResend && mocks.resendPending,
-      error: isResend && mocks.resendError ? { message: "Mail could not be delivered" } : null,
+      error:
+        isResend && mocks.resendError
+          ? { message: "Mail could not be delivered" }
+          : null,
+      mutateAsync: async (_input: object) => {
+        if (!(isResend && mocks.resendError)) options.onSuccess(data);
+      },
       mutate: (input: object) => {
-        if (isComplete) mocks.complete(input);
-        else if (!(isResend && mocks.resendError)) options.onSuccess(data);
+        if (isComplete) {
+          mocks.complete(input);
+          if (mocks.completionResult) options.onSuccess(mocks.completionResult);
+        } else if (!(isResend && mocks.resendError)) options.onSuccess(data);
       },
     }),
   });
-  return { api: {
-    registration: {
-      check: mutation({ kind: "TUTOR", boundEmail: "person@example.test", emailVerified: true }),
-      sendEmailCode: mutation({}, true),
-      verifyEmail: mutation({ completionProof: mocks.proof }),
-      complete: mutation({}, false, true),
+  return {
+    api: {
+      program: {
+        profilePolicy: {
+          useQuery: () => ({
+            data: {
+              requireLatinNames: false,
+              offeredGrades: [1, 9, 12],
+              currentSchoolYear: "26-27",
+            },
+            refetch: async () => ({ data: {} }),
+          }),
+        },
+      },
+      registration: {
+        check: mutation({
+          kind: "TUTOR",
+          boundEmail: "person@example.test",
+          emailVerified: true,
+        }),
+        sendEmailCode: mutation({}, true),
+        verifyEmail: mutation({ completionProof: mocks.proof }),
+        complete: mutation({}, false, true),
+      },
+      viewer: {
+        start: mutation({}, true),
+        verify: mutation({ completionProof: mocks.proof }),
+        complete: mutation({}, false, true),
+      },
     },
-    viewer: {
-      start: mutation({}, true),
-      verify: mutation({ completionProof: mocks.proof }),
-      complete: mutation({}, false, true),
-    },
-  } };
+  };
 });
-afterEach(() => { cleanup(); mocks.complete.mockClear(); mocks.resendError = false; mocks.resendPending = false; });
-const wrap = (viewer: boolean) => <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
-  {viewer ? <ViewerSignupFlow /> : <RegisterFlow />}
-</NextIntlClientProvider>;
+afterEach(() => {
+  cleanup();
+  mocks.complete.mockClear();
+  mocks.resendError = false;
+  mocks.resendPending = false;
+  mocks.completionResult = null;
+});
+const wrap = (viewer: boolean) => (
+  <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+    {viewer ? <ViewerSignupFlow /> : <RegisterFlow />}
+  </NextIntlClientProvider>
+);
 function fill(id: string, value: string) {
-  const field = document.getElementById(id);
+  const names: Record<string, string> = {
+    "obs-name": "firstName",
+    "reg-first": "firstName",
+    "reg-last": "lastName",
+    "reg-alt": "alternativeNames",
+  };
+  const field = names[id]
+    ? document.querySelector('[name="' + names[id] + '"]')
+    : document.getElementById(id);
   if (!field) throw Error(`Missing field ${id}`);
   fireEvent.change(field, { target: { value } });
 }
@@ -53,36 +99,195 @@ function submit() {
 }
 function reachEmailCode(viewer: boolean) {
   if (viewer) {
-    fill("obs-name", "Person"); fill("obs-aff", "Family"); fill("obs-email", "person@example.test"); submit();
+    fill("obs-name", "Person");
+    fill("obs-aff", "Family");
+    fill("obs-email", "person@example.test");
+    submit();
   } else {
-    fill("reg-code", "ABCDE"); submit();
+    fill("reg-code", "ABCDE");
+    submit();
     // A shared verifiedAt flag must no longer skip the current browser's email proof.
     expect(document.getElementById("reg-email")).not.toBeNull();
     submit();
   }
 }
-it.each([false, true])("passes verifier proof and requires matching password confirmation (viewer=%s)", (viewer) => {
-  const rendered = render(wrap(viewer));
-  reachEmailCode(viewer);
-  fill(viewer ? "obs-code" : "reg-emailcode", "FGHJK"); submit();
-  if (!viewer) { fill("reg-first", "Person"); fill("reg-last", "One"); }
-  fill(viewer ? "obs-pass" : "reg-pass", "Password123!");
-  submit(); expect(mocks.complete).not.toHaveBeenCalled();
-  fill(viewer ? "obs-confirm" : "reg-confirm", "DifferentPassword!");
-  submit(); expect(mocks.complete).not.toHaveBeenCalled();
-  fill(viewer ? "obs-confirm" : "reg-confirm", "Password123!"); submit();
-  expect(mocks.complete).toHaveBeenCalledWith(expect.objectContaining({ completionProof: mocks.proof, password: "Password123!" }));
-  mocks.complete.mockClear(); mocks.resendPending = true;
-  rendered.rerender(wrap(viewer)); submit();
-  expect(mocks.complete).not.toHaveBeenCalled();
-  mocks.resendError = true;
-  rendered.rerender(wrap(viewer));
-  expect(screen.getByText("Mail could not be delivered")).toBeTruthy();
+it("keeps the affiliation example readable and associated with its input", () => {
+  render(wrap(true));
+  const affiliation = screen.getByLabelText(
+    `${en.public.viewerSignup.fields.affiliation} ${en.signupFields.required}`,
+  );
+  const hint = document.getElementById(
+    affiliation.getAttribute("aria-describedby") ?? "",
+  );
+  expect(hint?.textContent).toBe(
+    en.public.viewerSignup.fields.affiliationPlaceholder,
+  );
+  expect(affiliation.getAttribute("placeholder")).toBeNull();
 });
-it.each([false, true])("shows resend failures beside the email-code form (viewer=%s)", (viewer) => {
-  const rendered = render(wrap(viewer));
-  reachEmailCode(viewer);
-  mocks.resendError = true;
-  rendered.rerender(wrap(viewer));
-  expect(screen.getByText("Mail could not be delivered")).toBeTruthy();
+
+it("shows the viewer completion action after verification and matching passwords", () => {
+  mocks.completionResult = {
+    username: "visual",
+    academicConfirmationRequired: false,
+  };
+  render(wrap(true));
+  reachEmailCode(true);
+  fill("obs-code", "FGHJK");
+  submit();
+  fill("obs-pass", "Password123!");
+  fill("obs-confirm", "Password123!");
+  submit();
+  expect(screen.getByText(en.public.viewerSignup.doneTitle)).toBeTruthy();
+  expect(
+    screen
+      .getByRole("link", { name: en.public.viewerSignup.signIn })
+      .getAttribute("href"),
+  ).toBe("/signin");
 });
+
+it("uses offered grades and the current program year without sending a client-selected year", () => {
+  render(wrap(false));
+  reachEmailCode(false);
+  fill("reg-emailcode", "FGHJK");
+  submit();
+  fill("reg-first", "Person");
+  fill("reg-last", "One");
+  fill("reg-pass", "Password123!");
+  fill("reg-confirm", "Password123!");
+  fill("reg-grade", "1");
+  expect(
+    screen.getByLabelText(
+      `${en.auth.register.step.profile.grade} ${en.signupFields.optional}`,
+    ).tagName,
+  ).toBe("SELECT");
+  expect(
+    screen.queryByRole("textbox", { name: en.academics.schoolYear }),
+  ).toBeNull();
+  expect(
+    screen.getByText("Uses the current program school year: 26-27."),
+  ).toBeTruthy();
+  submit();
+  expect(mocks.complete).toHaveBeenCalledWith(
+    expect.objectContaining({ gradeLevel: 1 }),
+  );
+  expect(mocks.complete.mock.calls[0]?.[0]).not.toHaveProperty(
+    "gradeSchoolYear",
+  );
+});
+
+it.each([false, true])(
+  "passes verifier proof and requires matching password confirmation (viewer=%s)",
+  (viewer) => {
+    const rendered = render(wrap(viewer));
+    reachEmailCode(viewer);
+    fill(viewer ? "obs-code" : "reg-emailcode", "FGHJK");
+    submit();
+    if (!viewer) {
+      fill("reg-first", "Person");
+      fill("reg-last", "One");
+    }
+    fill(viewer ? "obs-pass" : "reg-pass", "Password123!");
+    submit();
+    expect(mocks.complete).not.toHaveBeenCalled();
+    fill(viewer ? "obs-confirm" : "reg-confirm", "DifferentPassword!");
+    submit();
+    expect(mocks.complete).not.toHaveBeenCalled();
+    fill(viewer ? "obs-confirm" : "reg-confirm", "Password123!");
+    submit();
+    expect(mocks.complete).toHaveBeenCalledWith(
+      expect.objectContaining({
+        completionProof: mocks.proof,
+        password: "Password123!",
+      }),
+    );
+    mocks.complete.mockClear();
+    mocks.resendPending = true;
+    rendered.rerender(wrap(viewer));
+    submit();
+    expect(mocks.complete).not.toHaveBeenCalled();
+    mocks.resendError = true;
+    rendered.rerender(wrap(viewer));
+    expect(screen.getByText("Mail could not be delivered")).toBeTruthy();
+  },
+);
+it.each([false, true])(
+  "shows resend failures beside the email-code form (viewer=%s)",
+  (viewer) => {
+    const rendered = render(wrap(viewer));
+    reachEmailCode(viewer);
+    mocks.resendError = true;
+    rendered.rerender(wrap(viewer));
+    expect(screen.getByText("Mail could not be delivered")).toBeTruthy();
+  },
+);
+
+it.each([true, false])(
+  "registration completion explains pending academic review: %s",
+  (academicConfirmationRequired) => {
+    mocks.completionResult = {
+      username: "stablecustom",
+      academicConfirmationRequired,
+    };
+    render(wrap(false));
+    reachEmailCode(false);
+    fill("reg-emailcode", "FGHJK");
+    submit();
+    fill("reg-first", "Person");
+    fill("reg-last", "One");
+    fill("reg-pass", "Password123!");
+    fill("reg-confirm", "Password123!");
+    submit();
+    expect(screen.getByText(en.auth.register.done.title)).toBeTruthy();
+    expect(screen.queryByRole("status") !== null).toBe(
+      academicConfirmationRequired,
+    );
+    if (academicConfirmationRequired) {
+      expect(screen.getByRole("status").textContent).toContain(
+        en.academics.confirmationRequired,
+      );
+      expect(
+        screen
+          .getByRole("link", { name: en.academics.review })
+          .getAttribute("href"),
+      ).toBe("/my-account");
+    }
+  },
+);
+
+it.each([false, true])(
+  "labels requirements through every registration step (viewer=%s)",
+  (viewer) => {
+    render(wrap(viewer));
+    const assertLabels = () => {
+      for (const label of document.querySelectorAll("form label.label"))
+        expect(label.textContent).toMatch(/ (Required|Optional)$/);
+    };
+    assertLabels();
+    reachEmailCode(viewer);
+    assertLabels();
+    fill(viewer ? "obs-code" : "reg-emailcode", "FGHJK");
+    submit();
+    assertLabels();
+    if (!viewer) {
+      expect(screen.getByLabelText("First Name Required")).toBeTruthy();
+      for (const label of [
+        "Last Name",
+        "Preferred Name",
+        "Name in Another Language",
+        "Grade",
+      ])
+        expect(screen.getByLabelText(label + " Optional")).toBeTruthy();
+    }
+  },
+);
+
+vi.mock("~/app/_components/signup-captcha", () => ({
+  useSignupCaptcha: () => ({
+    run: (work: (grant?: string) => Promise<unknown>) => work(),
+    panel: null,
+    pending: false,
+  }),
+  CaptchaError: ({ error }: { error: { message: string } }) => (
+    <>{error.message}</>
+  ),
+}));

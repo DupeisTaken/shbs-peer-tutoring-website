@@ -11,8 +11,9 @@ import SuperJSON from "superjson";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { humanizeOperation, proposalConfirmation } from "~/lib/approval-policy";
 import { TimedActionDialog } from "~/app/_components/timed-action-dialog";
-import { RoomBlockReview } from "~/app/_components/room-block-review";
-import { roomBlockReview } from "~/lib/room-block-review";
+import { ApprovalReviewDetails } from "./approval-review-details";
+import { ChoiceButton } from "./ui/button";
+import { FilterToolbar } from "./ui/patterns";
 
 type Request = RouterOutputs["approval"]["list"]["rows"][number];
 type State = "PENDING" | "APPROVED" | "REJECTED" | "CANCELLED";
@@ -51,60 +52,6 @@ function RequestCard({
     request.payload as unknown as Parameters<typeof SuperJSON.deserialize>[0],
   );
   const confirmation = proposalConfirmation(request.operation, payload);
-  const blockSummary = roomBlockReview(
-    request.operation,
-    payload,
-    request.targets,
-  );
-  const records = Object.values(request.targets as Record<string, unknown>)
-    .flatMap((value): unknown[] =>
-      Array.isArray(value) ? (value as unknown[]) : [],
-    )
-    .map((item) => {
-      if (item && typeof item === "object" && "record" in item) return item;
-      return { record: item };
-    });
-  const labels = new Map<string, string>();
-  for (const item of records) {
-    const row = (item as { record?: Record<string, unknown> }).record;
-    const surveyName =
-      row?.payload &&
-      typeof row.payload === "object" &&
-      "englishName" in row.payload
-        ? row.payload.englishName
-        : null;
-    if (row && typeof row.id === "string")
-      labels.set(
-        row.id,
-        [row.englishName, row.name, row.title, surveyName, row.id].find(
-          (value): value is string => typeof value === "string",
-        ) ?? row.id,
-      );
-  }
-  const display = (value: unknown): string => {
-    if (value instanceof Date)
-      return format.dateTime(value, {
-        dateStyle: "medium",
-        timeStyle: "short",
-      });
-    if (typeof value === "string") return labels.get(value) ?? value;
-    if (value === null || value === undefined) return "—";
-    if (Array.isArray(value)) return value.map(display).join(", ") || "—";
-    if (typeof value === "object")
-      return Object.entries(value)
-        .map(([key, v]) => `${humanizeOperation(key)}: ${display(v)}`)
-        .join(" · ");
-    return typeof value === "number" || typeof value === "boolean"
-      ? String(value)
-      : "—";
-  };
-  const fields =
-    payload && typeof payload === "object"
-      ? Object.entries(payload).filter(
-          ([key]) =>
-            !["expectedUpdatedAt", "ticket", "overrideTicket"].includes(key),
-        )
-      : [];
   const approve = (ticket?: string) => {
     setConfirming(false);
     if (isAssignmentOperation(request.operation)) setOverrideReview({ ticket });
@@ -144,20 +91,12 @@ function RequestCard({
           onCancel={() => setConfirming(false)}
           onConfirm={approve}
         >
-          <dl className="space-y-3">
-            {fields.map(([key, value]) => (
-              <div key={key}>
-                <dt className="text-xs text-slate-500">
-                  {key === "id"
-                    ? t("record")
-                    : humanizeOperation(key.replace(/Ids?$/, ""))}
-                </dt>
-                <dd className="text-sm break-words whitespace-pre-wrap">
-                  {display(value)}
-                </dd>
-              </div>
-            ))}
-          </dl>
+          <ApprovalReviewDetails
+            operation={request.operation}
+            payload={payload}
+            targets={request.targets}
+            compact
+          />
           <p className="text-sm whitespace-pre-wrap">{note}</p>
         </TimedActionDialog>
       )}
@@ -169,11 +108,17 @@ function RequestCard({
                 className="hover:underline"
                 href={`/admin/approvals?request=${encodeURIComponent(request.id)}`}
               >
-                {humanizeOperation(request.operation)}
+                {t.has(
+                  `review.operations.${request.operation.replaceAll(".", "_")}`,
+                )
+                  ? t(
+                      `review.operations.${request.operation.replaceAll(".", "_")}`,
+                    )
+                  : humanizeOperation(request.operation)}
               </Link>
             </h2>
             <p className="mt-1 text-sm text-slate-500">
-              {request.requesterName} ·{" "}
+              {t("review.requestedBy", { name: request.requesterName })} ·{" "}
               {format.dateTime(new Date(request.createdAt), {
                 dateStyle: "medium",
                 timeStyle: "short",
@@ -201,70 +146,11 @@ function RequestCard({
         >
           {t(`effects.${request.state}`)}
         </p>
-        <h3 className="text-sm font-semibold text-slate-800">
-          {t("proposedChanges")}
-        </h3>
-        {blockSummary && <RoomBlockReview summary={blockSummary} />}
-        {!blockSummary && (
-          <dl className="grid gap-x-6 gap-y-3 rounded-lg bg-slate-50 p-4 sm:grid-cols-2">
-            {fields.map(([key, value]) => (
-              <div key={key} className="min-w-0">
-                <dt className="text-xs font-medium text-slate-500">
-                  {key === "id"
-                    ? t("record")
-                    : humanizeOperation(key.replace(/Ids?$/, ""))}
-                </dt>
-                <dd className="mt-1 text-sm break-words whitespace-pre-wrap text-slate-900">
-                  {display(value)}
-                </dd>
-              </div>
-            ))}
-          </dl>
-        )}
-        <details>
-          <summary className="link min-h-11 cursor-pointer content-center text-sm lg:min-h-8">
-            {t("evidence")}
-          </summary>
-          <div className="mt-3 space-y-3">
-            {blockSummary && (
-              <dl className="grid gap-2 rounded-lg border border-slate-200 p-3 sm:grid-cols-2">
-                {fields.map(([key, value]) => (
-                  <div key={key} className="min-w-0 text-xs">
-                    <dt className="text-slate-500">{humanizeOperation(key)}</dt>
-                    <dd className="break-words whitespace-pre-wrap">
-                      {display(value)}
-                    </dd>
-                  </div>
-                ))}
-              </dl>
-            )}
-            {records.map((item, index) => {
-              const row = (item as { record?: Record<string, unknown> }).record;
-              return row ? (
-                <dl
-                  key={index}
-                  className="grid gap-2 rounded-lg border border-slate-200 p-3 sm:grid-cols-2"
-                >
-                  {Object.entries(row)
-                    .filter(
-                      ([key]) =>
-                        !["id", "createdAt", "updatedAt"].includes(key),
-                    )
-                    .map(([key, value]) => (
-                      <div key={key} className="min-w-0 text-xs">
-                        <dt className="text-slate-500">
-                          {humanizeOperation(key)}
-                        </dt>
-                        <dd className="break-words whitespace-pre-wrap">
-                          {display(value)}
-                        </dd>
-                      </div>
-                    ))}
-                </dl>
-              ) : null;
-            })}
-          </div>
-        </details>
+        <ApprovalReviewDetails
+          operation={request.operation}
+          payload={payload}
+          targets={request.targets}
+        />
         {request.reviewedAt && (
           <div className="rounded-lg border-l-4 border-slate-300 bg-slate-50 p-4">
             <p className="text-xs font-medium text-slate-500">
@@ -285,8 +171,22 @@ function RequestCard({
         )}
         {pending && canReview && (
           <div className="space-y-3 border-t border-slate-100 pt-4">
+            <h3 className="text-sm font-semibold text-slate-800">
+              {t("review.yourDecision")}
+            </h3>
+            <p className="text-sm text-slate-600">
+              {t(
+                payload &&
+                  typeof payload === "object" &&
+                  ["approve", "accept", "overturn", "action"].some(
+                    (key) => key in payload,
+                  )
+                  ? "review.decisionRequestHelp"
+                  : "review.decisionHelp",
+              )}
+            </p>
             <label className="block">
-              <span className="label">{t("note")}</span>
+              <span className="label">{t("review.noteRequired")}</span>
               <textarea
                 className="input mt-1 w-full"
                 rows={2}
@@ -316,9 +216,20 @@ function RequestCard({
             </div>
           </div>
         )}
+        {pending && !canReview && (
+          <p className="rounded-lg bg-slate-50 p-3 text-sm text-slate-600">
+            {t(
+              HEAD_APPROVAL_OPERATIONS.has(request.operation)
+                ? "review.headRequired"
+                : canCancel
+                  ? "review.otherReviewer"
+                  : "review.waitingReviewer",
+            )}
+          </p>
+        )}
         {pending && canCancel && (
           <button
-            className="btn-secondary btn-sm"
+            className="btn-secondary min-h-11 lg:min-h-10"
             disabled={busy}
             onClick={() => cancel.mutate({ id: request.id })}
           >
@@ -408,70 +319,70 @@ function ApprovalQueue({
         </p>
         <p className="muted mt-2 max-w-2xl text-sm">{t("reviewPermissions")}</p>
       </header>
-      <div className="card flex flex-wrap items-end gap-3 p-4">
-        {!requestId && (
-          <div
-            role="group"
-            aria-label={t("status")}
-            className="flex flex-wrap gap-2"
-          >
-            {(
-              ["PENDING", "APPROVED", "REJECTED", "CANCELLED", ""] as const
-            ).map((value) => (
-              <button
-                type="button"
-                key={value}
-                aria-pressed={state === value}
-                className={state === value ? "btn-primary" : "btn-secondary"}
-                onClick={() => {
-                  setState(value);
+      <div className="card p-4">
+        <FilterToolbar label={t("status")}>
+          {!requestId && (
+            <div
+              role="group"
+              aria-label={t("status")}
+              className="flex flex-wrap gap-2"
+            >
+              {(
+                ["PENDING", "APPROVED", "REJECTED", "CANCELLED", ""] as const
+              ).map((value) => (
+                <ChoiceButton
+                  key={value}
+                  selected={state === value}
+                  onClick={() => {
+                    setState(value);
+                    setPage(0);
+                    navigateList({ state: value, page: 0 });
+                  }}
+                >
+                  {value ? t(`states.${value}`) : t("allStates")}
+                </ChoiceButton>
+              ))}
+            </div>
+          )}
+          {queue.data?.canReview && !requestId && (
+            <label className="min-w-48">
+              <span className="label">{t("requester")}</span>
+              <select
+                className="input mt-1 block w-full"
+                value={requesterId}
+                onChange={(e) => {
+                  setRequesterId(e.target.value);
                   setPage(0);
-                  navigateList({ state: value, page: 0 });
+                  navigateList({ requesterId: e.target.value, page: 0 });
                 }}
               >
-                {value ? t(`states.${value}`) : t("allStates")}
-              </button>
-            ))}
-          </div>
-        )}
-        {queue.data?.canReview && !requestId && (
-          <label className="min-w-48">
-            <span className="label">{t("requester")}</span>
-            <select
-              className="input mt-1 block w-full"
-              value={requesterId}
-              onChange={(e) => {
-                setRequesterId(e.target.value);
-                setPage(0);
-                navigateList({ requesterId: e.target.value, page: 0 });
-              }}
-            >
-              <option value="">{t("allUsers")}</option>
-              {queue.data.requesters.map((u) => (
-                <option key={u.id} value={u.id}>
-                  {u.label}
-                </option>
-              ))}
-            </select>
-          </label>
-        )}
-        <button
-          className="btn-secondary"
-          onClick={() => void refresh()}
-          disabled={queue.isFetching}
-        >
-          {t("refresh")}
-        </button>
-        {requestId && (
-          <Link className="link" href="/admin/approvals?status=all">
-            {t("allRequests")}
-          </Link>
-        )}
-        {queue.data && (
-          <p className="muted ml-auto text-sm">
-            {t("count", { count: queue.data.total })}
-          </p>
-        )}
+                <option value="">{t("allUsers")}</option>
+                {queue.data.requesters.map((u) => (
+                  <option key={u.id} value={u.id}>
+                    {u.label}
+                  </option>
+                ))}
+              </select>
+            </label>
+          )}
+          <button
+            className="btn-secondary"
+            onClick={() => void refresh()}
+            disabled={queue.isFetching}
+          >
+            {t("refresh")}
+          </button>
+          {requestId && (
+            <Link className="link" href="/admin/approvals?status=all">
+              {t("allRequests")}
+            </Link>
+          )}
+          {queue.data && (
+            <p className="muted ml-auto text-sm">
+              {t("count", { count: queue.data.total })}
+            </p>
+          )}
+        </FilterToolbar>
       </div>
       {queue.isLoading && (
         <p role="status" className="muted">
@@ -489,7 +400,8 @@ function ApprovalQueue({
           request={request}
           canReview={
             queue.data.canReview &&
-            (request.requesterId !== queue.data.viewerId || queue.data.headReviewer) &&
+            (request.requesterId !== queue.data.viewerId ||
+              queue.data.headReviewer) &&
             (!HEAD_APPROVAL_OPERATIONS.has(request.operation) ||
               queue.data.headReviewer)
           }

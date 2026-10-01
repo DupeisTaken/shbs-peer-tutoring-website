@@ -9,6 +9,7 @@ import {
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import messages from "../../../messages/en.json";
+import zh from "../../../messages/zh.json";
 import { NotificationViewport, SaveNotifications } from "./save-notifications";
 import { ApprovalNotice } from "./approval-notice";
 import { createQueryClient, isAdminSaveMutation } from "~/trpc/query-client";
@@ -21,6 +22,32 @@ afterEach(() => {
   cleanup();
   vi.useRealTimers();
 });
+
+it.each([
+  ["en", messages, "PROFILE_LATIN_NAME_REQUIRED", "latinRequired"],
+  ["en", messages, "PROFILE_LATIN_LEGAL_NAME_REQUIRED", "latinLegalRequired"],
+  ["zh", zh, "PROFILE_LATIN_LEGAL_NAME_REQUIRED", "latinLegalRequired"],
+] as const)(
+  "translates name-policy notification case %#",
+  (locale, catalog, code, key) => {
+    render(
+      <NextIntlClientProvider locale={locale} messages={catalog}>
+        <SaveNotifications />
+      </NextIntlClientProvider>,
+    );
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent("admin-save-result", {
+          detail: { kind: "error", message: code },
+        }),
+      );
+    });
+    expect(screen.getByRole("alert").textContent).toContain(
+      catalog.profilePolicy[key],
+    );
+    expect(screen.getByRole("alert").textContent).not.toContain(code);
+  },
+);
 
 it("retains failed saves across later successes and deduplicates repeated errors", () => {
   vi.useFakeTimers();

@@ -209,6 +209,15 @@
     @apply font-medium text-red-600 hover:text-red-700 hover:underline;
   }
 
+  /* Account actions share a quiet, right-aligned stack. No inter-action gap: the
+     targets themselves provide 28px desktop / 44px touch spacing without clipping labels. */
+  .table-account-actions {
+    @apply flex min-w-28 flex-col items-stretch;
+  }
+  .table-account-action {
+    @apply focus-visible:ring-accent-500 inline-flex min-h-11 w-full items-center justify-end rounded-sm py-1 text-right text-sm leading-5 whitespace-normal focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 lg:min-h-7;
+  }
+
   /* Form controls --------------------------------------------------------- */
   .label {
     @apply block text-sm font-medium text-slate-700;
@@ -241,6 +250,26 @@
   }
   .muted {
     @apply text-sm text-slate-500;
+  }
+
+  /* Public entry forms share a calm surface and predictable control rhythm.
+     Scope these rules so workspace headers and compact table controls keep
+     their own height hierarchy. Minimum heights allow translations to wrap. */
+  .public-form .card {
+    @apply rounded-2xl border-slate-200 shadow-sm;
+  }
+  .public-form :is(.input, .select, .btn-primary, .btn-secondary) {
+    @apply min-h-11 lg:min-h-10;
+  }
+  .public-form .label {
+    @apply mb-1.5;
+  }
+  .public-form-link {
+    @apply text-accent-700 hover:text-accent-800 focus-visible:ring-accent-500 inline-flex min-h-11 max-w-full items-center justify-center rounded-md px-1 py-1 font-medium text-wrap underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none lg:min-h-8;
+  }
+  /* Header controls keep the 32px desktop / 44px mobile contract. */
+  .public-form > div:first-child .select {
+    @apply min-h-11 lg:min-h-8;
   }
 
   /* Data tables ----------------------------------------------------------- */

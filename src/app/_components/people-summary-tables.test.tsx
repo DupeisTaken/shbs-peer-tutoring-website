@@ -35,6 +35,13 @@ const state = vi.hoisted(() => ({
       username: "tutor",
       alternativeNames: "Tutor alternate identity",
       gradeLevel: 11,
+      academic: {
+        status: "REPORTED",
+        gradeLevel: 11,
+        expectedGraduationYear: 2028,
+        schoolYear: "26-27",
+        needsConfirmation: false,
+      },
       status: "ACTIVE",
       email: "tutor@example.test",
       user: null,
@@ -46,6 +53,13 @@ const state = vi.hoisted(() => ({
       englishName: "Synthetic Tutee",
       alternativeNames: "Tutee alternate identity",
       gradeLevel: "10",
+      historical: false,
+      academic: {
+        status: "UNKNOWN",
+        gradeLevel: null,
+        needsConfirmation: true,
+      },
+      enrollmentPeriod: { schoolYear: "26-27", quarter: "Q1" },
       status: "ACTIVE",
       email: "tutee@example.test",
       user: null,
@@ -117,6 +131,27 @@ vi.mock("~/app/_components/patrol-corrections", () => ({
 vi.mock("~/trpc/react", () => ({
   api: {
     useUtils: () => ({}),
+    program: {
+      profilePolicy: {
+        useQuery: () => ({
+          data: { offeredGrades: [10, 11, 12], currentSchoolYear: "26-27" },
+        }),
+      },
+    },
+    tuteeHistory: {
+      permissions: {
+        useQuery: () => ({
+          data: {
+            canLink: !state.readOnly,
+            isHead: state.callerRole === "HEAD",
+          },
+        }),
+      },
+    },
+    accountCombine: {
+      candidates: { useQuery: () => ({ data: [] }) },
+      combine: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
+    },
     admin: {
       accounts: {
         useQuery: () => ({
@@ -140,7 +175,13 @@ vi.mock("~/trpc/react", () => ({
                   gradeLevel: 11,
                 },
                 tutorStatus: "ACTIVE",
-                classOf: 2028,
+                academic: {
+                  status: "REPORTED",
+                  gradeLevel: 11,
+                  expectedGraduationYear: 2028,
+                  schoolYear: "26-27",
+                  needsConfirmation: false,
+                },
                 isSelf: false,
                 profileVersion: null,
               },
@@ -151,6 +192,11 @@ vi.mock("~/trpc/react", () => ({
                 username: "viewer",
                 alternativeNames: "Viewer alternate identity",
                 role: "VIEWER",
+                academic: {
+                  status: "NOT_APPLICABLE",
+                  gradeLevel: null,
+                  needsConfirmation: false,
+                },
                 account: "registered",
                 email: "viewer@example.test",
                 affiliation:
@@ -162,6 +208,9 @@ vi.mock("~/trpc/react", () => ({
             ],
           },
         }),
+      },
+      backfillStudentUsernames: {
+        useMutation: () => ({ mutate: vi.fn(), isPending: false }),
       },
       appeals: { useQuery: () => ({ data: state.empty }) },
       deleteUser: {
@@ -246,6 +295,13 @@ beforeEach(() => {
       alternativeNames: "Tutor alternate identity",
       username: "tutor",
       gradeLevel: 11,
+      academic: {
+        status: "REPORTED",
+        gradeLevel: 11,
+        schoolYear: "26-27",
+        expectedGraduationYear: 2028,
+        needsConfirmation: false,
+      },
       status: "ACTIVE",
       badges: ["TUTOR"],
       groups: [],
@@ -380,13 +436,10 @@ describe("people summary tables", () => {
       }),
     ).toBeNull();
     expect(state.details).not.toHaveBeenCalled();
-    fireEvent.click(
-      within(screen.getByRole("table")).getByRole("button", {
-        name: `${en.tablePatterns.details}: Synthetic Tutor`,
-      }),
-    );
+    // Sorting remains available to viewers; row-specific private actions do not.
+    expect(screen.getByRole("table").querySelector("tbody button")).toBeNull();
     expect(
-      within(screen.getByRole("dialog")).getByText("Tutor alternate identity"),
+      within(screen.getByRole("table")).getByText("Grade 11"),
     ).toBeTruthy();
     expect(state.details).not.toHaveBeenCalled();
   });
@@ -407,7 +460,7 @@ describe("people summary tables", () => {
     ).toBe("/admin/discipline");
     fireEvent.click(
       within(table).getByRole("button", {
-        name: `${en.tablePatterns.details}: Synthetic Tutee`,
+        name: `${en.tablePatterns.details}: Synthetic Tutee · ${en.admin.tutees.colCourses}`,
       }),
     );
     expect(
@@ -416,13 +469,24 @@ describe("people summary tables", () => {
       ),
     ).toBeTruthy();
     expect(
-      within(screen.getByRole("dialog")).getByText("Tutee alternate identity"),
-    ).toBeTruthy();
+      within(screen.getByRole("dialog")).queryByText("tutee@example.test"),
+    ).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: en.tablePatterns.close }),
+    );
+    fireEvent.click(
+      within(table).getByRole("button", { name: en.accountProfile.showEmail }),
+    );
     expect(
       within(screen.getByRole("dialog")).getByText("tutee@example.test"),
     ).toBeTruthy();
+    expect(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: en.accountProfile.copyEmail,
+      }),
+    ).toBeTruthy();
     fireEvent.click(
-      screen.getByRole("button", { name: en.tablePatterns.close }),
+      screen.getByRole("button", { name: en.accountProfile.close }),
     );
     fireEvent.click(
       within(table).getByRole("button", {
@@ -437,7 +501,7 @@ describe("people summary tables", () => {
   it("puts pairing participants behind Details while preserving the unscheduled state", () => {
     render(<TuteesPage />, { wrapper });
     fireEvent.click(
-      screen.getByRole("button", { name: en.admin.tutees.viewTutors }),
+      screen.getByRole("tab", { name: en.admin.tutees.viewTutors }),
     );
     const table = screen.getByRole("table", {
       name: en.admin.tutees.viewTutors,
@@ -476,15 +540,18 @@ describe("people summary tables", () => {
     ).toBeNull();
     fireEvent.click(
       within(table).getByRole("button", {
-        name: `${en.tablePatterns.details}: Synthetic Tutee`,
+        name: `${en.tablePatterns.details}: Synthetic Tutee · ${en.admin.tutees.colCourses}`,
       }),
     );
     expect(
       within(screen.getByRole("dialog")).getByText(
-        en.accountProfile.privateEmail,
+        "Advanced comparative mathematics course",
       ),
     ).toBeTruthy();
     expect(screen.queryByText("tutee@example.test")).toBeNull();
+    expect(
+      within(table).queryByRole("button", { name: en.tuteeHistory.details }),
+    ).toBeNull();
     expect(state.deleteTutee).not.toHaveBeenCalled();
   });
 

@@ -1,11 +1,24 @@
 "use client";
+import { Button } from "~/app/_components/ui/button";
+import { StatePanel } from "~/app/_components/ui/patterns";
+import { PersonNameFields } from "~/app/_components/person-name-fields";
+import { FieldRequirement } from "~/app/_components/field-requirement";
+import { nameDraft } from "~/lib/person-name";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { EmailDetails } from "~/app/_components/email-details";
+import { AcademicDetails } from "~/app/_components/academic-profile";
 import { TutorProfileEditor } from "~/app/_components/tutor-profile-editor";
 import { TutorDetailsButton } from "~/app/_components/tutor-details";
+import { ProfileDialog } from "~/app/_components/profile-dialog";
+import {
+  useProfilePolicy,
+  ProfilePolicyHint,
+  ProfilePolicyError,
+  OfferedGradeSelect,
+} from "~/app/_components/profile-policy";
 import { api } from "~/trpc/react";
 import { SortHeader, useSort, compare } from "~/app/_components/sortable";
 import { useReadOnly } from "~/app/_components/read-only";
@@ -13,40 +26,62 @@ import {
   SummaryTable,
   TableActions,
   TableAction,
-  TableDetails,
 } from "~/app/_components/ui/summary-table";
+import { GRADUATED_GRADE } from "~/lib/academics";
+import { EnrollmentGrade } from "~/app/_components/tutee-history";
+import { isPastTutor, visibleTutors } from "~/lib/tutor-visibility";
+import { PastTutorsToggle } from "~/app/_components/past-tutors-toggle";
 
 export default function TutorsPage() {
   const t = useTranslations();
+  const policy = useProfilePolicy();
   const readOnly = useReadOnly();
   // Translate a tutor status outside the row map, where `t` is shadowed by the row variable.
   const statusLabel = (s: string) => t(`admin.tutorStatus.${s}`);
   const utils = api.useUtils();
   const tutors = api.admin.tutors.useQuery();
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [altNames, setAltNames] = useState("");
+  const [showPast, setShowPast] = useState(false);
+  const [names, setNames] = useState(() => nameDraft());
+  const { firstName, lastName } = names;
   const [email, setEmail] = useState("");
   const [grade, setGrade] = useState("");
+  // Draft values belong to the page, so dismissing the dialog does not discard them.
+  const [createOpen, setCreateOpen] = useState(false);
+  const [created, setCreated] = useState(false);
+  const addTrigger = useRef<HTMLButtonElement>(null);
+  const restoreCreateFocus = useRef(false);
 
   const sort = useSort("lastName");
 
   const invalidate = () => utils.admin.tutors.invalidate();
   const create = api.admin.createTutor.useMutation({
     onSuccess: async () => {
-      setFirstName("");
-      setLastName("");
-      setAltNames("");
+      setNames(nameDraft());
       setEmail("");
       setGrade("");
+      setCreateOpen(false);
+      setCreated(true);
+      restoreCreateFocus.current = true;
       await invalidate();
     },
   });
+  useEffect(() => {
+    // Success can close the dialog while invalidation still keeps its trigger disabled.
+    if (!createOpen && !create.isPending && restoreCreateFocus.current) {
+      restoreCreateFocus.current = false;
+      addTrigger.current?.focus();
+    }
+  }, [createOpen, create.isPending]);
+  const closeCreate = () => {
+    if (create.isPending) return;
+    restoreCreateFocus.current = true;
+    setCreateOpen(false);
+  };
   const [editingId, setEditingId] = useState<string | null>(null);
   const editing = tutors.data?.find((row) => row.id === editingId);
 
   const rows = useMemo(() => {
-    const data = tutors.data ?? [];
+    const data = visibleTutors(tutors.data ?? [], showPast);
     const dir = sort.dir === "asc" ? 1 : -1;
     return [...data].sort((a, b) => {
       switch (sort.key) {
@@ -62,7 +97,9 @@ export default function TutorsPage() {
         case "email":
           return compare(a.email ?? "", b.email ?? "") * dir;
         case "grade":
-          return ((a.gradeLevel ?? 0) - (b.gradeLevel ?? 0)) * dir;
+          return (
+            ((a.academic.gradeLevel ?? 0) - (b.academic.gradeLevel ?? 0)) * dir
+          );
         case "status":
           return compare(a.status, b.status) * dir;
         case "lastName":
@@ -73,76 +110,124 @@ export default function TutorsPage() {
           );
       }
     });
-  }, [tutors.data, sort.key, sort.dir]);
+  }, [tutors.data, sort.key, sort.dir, showPast]);
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="page-title">{t("admin.tutors.title")}</h1>
-        <p className="muted mt-1">{t("admin.tutors.help")}</p>
-      </div>
-
-      {!readOnly && (
-        <form
-          className="flex flex-wrap gap-2"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (firstName.trim() && lastName.trim())
-              create.mutate({
-                firstName: firstName.trim(),
-                lastName: lastName.trim(),
-                alternativeNames: altNames.trim() || undefined,
-                email: email.trim() || undefined,
-                gradeLevel: grade.trim() ? Number(grade) : undefined,
-              });
-          }}
-        >
-          <input
-            value={firstName}
-            onChange={(e) => setFirstName(e.target.value)}
-            placeholder={t("admin.tutors.phFirstName")}
-            className="input field-auto min-w-36"
-          />
-          <input
-            value={lastName}
-            onChange={(e) => setLastName(e.target.value)}
-            placeholder={t("admin.tutors.phLastName")}
-            className="input field-auto min-w-36"
-          />
-          <input
-            value={altNames}
-            onChange={(e) => setAltNames(e.target.value)}
-            placeholder={t("admin.tutors.phAltNames")}
-            className="input field-auto min-w-40"
-          />
-          <input
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            type="email"
-            placeholder={t("admin.tutors.phEmail")}
-            className="input field-auto min-w-48"
-          />
-          <input
-            value={grade}
-            onChange={(e) => setGrade(e.target.value)}
-            type="number"
-            min={6}
-            max={12}
-            placeholder={t("admin.tutors.phGrade")}
-            className="input field-auto min-w-20"
-          />
+        {!readOnly && (
           <button
-            className="btn-primary"
-            disabled={!firstName.trim() || !lastName.trim() || create.isPending}
+            ref={addTrigger}
+            type="button"
+            className="btn-primary min-h-11 lg:min-h-10"
+            aria-haspopup="dialog"
+            disabled={create.isPending}
+            onClick={() => {
+              setCreated(false);
+              setCreateOpen(true);
+            }}
           >
             {t("admin.tutors.addTutor")}
           </button>
-        </form>
-      )}
-      {!readOnly && create.error && (
-        <p className="text-sm text-red-600">{create.error.message}</p>
+        )}
+      </div>
+      <p
+        role="status"
+        className={created ? "text-sm text-green-700" : "sr-only"}
+      >
+        {created ? t("admin.tutors.created") : ""}
+      </p>
+
+      {!readOnly && createOpen && (
+        <ProfileDialog
+          title={t("admin.tutors.addTutor")}
+          size="wide"
+          pending={create.isPending}
+          onClose={closeCreate}
+        >
+          <div className="mb-5 space-y-2">
+            <p className="muted text-sm">{t("admin.tutors.createDraftHint")}</p>
+            <p className="muted text-sm">{t("admin.tutors.help")}</p>
+            <ProfilePolicyHint />
+            <ProfilePolicyHint field="legal" />
+          </div>
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!create.isPending && firstName.trim() && lastName.trim())
+                create.mutate({
+                  ...names,
+                  email: email.trim() || undefined,
+                  gradeLevel:
+                    grade && grade !== GRADUATED_GRADE
+                      ? Number(grade)
+                      : undefined,
+                  academicallyGraduated: grade === GRADUATED_GRADE,
+                });
+            }}
+          >
+            <fieldset
+              disabled={create.isPending}
+              className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"
+            >
+              <legend className="sr-only">{t("admin.tutors.addTutor")}</legend>
+              <div className="min-w-0">
+                <PersonNameFields
+                  value={names}
+                  onChange={setNames}
+                  requireLastName
+                />
+              </div>
+              {/* Single-line controls live inside labels, never as stretchable peers
+              of the multirow name block. Labels can wrap without sizing inputs. */}
+              <div className="flex min-w-0 flex-col gap-4">
+                <label className="block min-w-0">
+                  <span className="label">
+                    {t("admin.tutors.colEmail")}
+                    <FieldRequirement state="optional" />
+                  </span>
+                  <input
+                    name="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    type="email"
+                    autoComplete="email"
+                    className="input min-h-11 w-full lg:min-h-10"
+                  />
+                </label>
+                <label className="block min-w-0">
+                  <span className="label">
+                    {t("admin.tutors.colGrade")}
+                    <FieldRequirement state="optional" />
+                  </span>
+                  <OfferedGradeSelect
+                    value={grade}
+                    onChange={setGrade}
+                    offeredGrades={policy.offeredGrades}
+                    includeGraduated
+                  />
+                </label>
+                <button
+                  className="btn-primary min-h-11 self-start lg:min-h-10"
+                  disabled={
+                    !firstName.trim() || !lastName.trim() || create.isPending
+                  }
+                >
+                  {t("admin.tutors.addTutor")}
+                </button>
+              </div>
+            </fieldset>
+            {create.error && (
+              <p role="alert" className="mt-4 text-sm text-red-600">
+                <ProfilePolicyError message={create.error.message} />
+              </p>
+            )}
+          </form>
+        </ProfileDialog>
       )}
       <p className="muted text-xs">{t("admin.tutors.accountMovedNote")}</p>
+      <PastTutorsToggle showPast={showPast} onChange={setShowPast} />
 
       {editing && !readOnly && (
         <TutorProfileEditor
@@ -150,6 +235,27 @@ export default function TutorsPage() {
           row={editing}
           onClose={() => setEditingId(null)}
         />
+      )}
+      {/* A failed refresh keeps cached rows available; only a cold load replaces the rows. */}
+      {tutors.error && (
+        <StatePanel
+          kind="error"
+          title={t("uiPatterns.loadFailed")}
+          action={
+            <Button
+              size="compact"
+              disabled={tutors.isFetching}
+              onClick={() => void tutors.refetch()}
+            >
+              {t("uiPatterns.retry")}
+            </Button>
+          }
+        />
+      )}
+      {tutors.data && tutors.isFetching && (
+        <p role="status" className="muted text-sm">
+          {t("common.loading")}
+        </p>
       )}
       <div className="card">
         <SummaryTable label={t("admin.tutors.title")}>
@@ -159,7 +265,7 @@ export default function TutorsPage() {
                 {t("accountProfile.name")}
               </SortHeader>
               <SortHeader sort={sort} sortKey="grade">
-                {t("admin.tutors.colGrade")}
+                {t("academics.title")}
               </SortHeader>
               <SortHeader sort={sort} sortKey="status">
                 {t("admin.tutors.colStatus")}
@@ -170,6 +276,23 @@ export default function TutorsPage() {
             </tr>
           </thead>
           <tbody>
+            {!tutors.data && !tutors.error && (
+              <tr>
+                <td colSpan={4}>
+                  <StatePanel kind="loading" title={t("common.loading")} />
+                </td>
+              </tr>
+            )}
+            {tutors.data && rows.length === 0 && (
+              <tr>
+                <td colSpan={4}>
+                  <StatePanel
+                    kind="empty"
+                    title={t("tablePatterns.records", { count: 0 })}
+                  />
+                </td>
+              </tr>
+            )}
             {rows.map((row) => (
               <tr key={row.id}>
                 <td className="max-w-60 min-w-40">
@@ -181,11 +304,25 @@ export default function TutorsPage() {
                   )}
                   {!row.user && (
                     <p className="muted mt-1 text-xs">
-                      {t("accountProfile.setupRequired")}
+                      {t("tuteeHistory.noAccount")}
                     </p>
                   )}
                 </td>
-                <td>{row.gradeLevel ?? "—"}</td>
+                <td className="min-w-52">
+                  {/* Keep the roster concise; full details retain the reference year. */}
+                  {isPastTutor(row.status) ? (
+                    <EnrollmentGrade
+                      grade={row.gradeLevel?.toString()}
+                      graduated={row.academicallyGraduated}
+                    />
+                  ) : (
+                    <AcademicDetails
+                      academic={row.academic}
+                      showSchoolYear={false}
+                      compact
+                    />
+                  )}
+                </td>
                 {/* Keep translated status badges readable inside the scrolling roster. */}
                 <td className="whitespace-nowrap">
                   <span
@@ -198,24 +335,7 @@ export default function TutorsPage() {
                 </td>
                 <TableActions>
                   {/* Private details remain query-on-demand; viewers retain the public identity metadata. */}
-                  {readOnly ? (
-                    <TableDetails title={row.englishName}>
-                      <dl>
-                        <dt className="muted">
-                          {t("accountProfile.alternativeNames")}
-                        </dt>
-                        <dd>{row.alternativeNames ?? "—"}</dd>
-                      </dl>
-                      <p>
-                        {row.username
-                          ? `@${row.username}`
-                          : t("accountProfile.setupRequired")}
-                      </p>
-                      <p className="muted">
-                        {t("accountProfile.privateEmail")}
-                      </p>
-                    </TableDetails>
-                  ) : (
+                  {!readOnly && (
                     <TutorDetailsButton
                       tutorId={row.id}
                       name={row.englishName}

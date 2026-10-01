@@ -42,8 +42,11 @@ vi.mock("~/trpc/react", () => ({
           data: [
             {
               id: "synthetic-tutor",
+              status: "ACTIVE",
               englishName: state.rows[0]!.tutor.englishName,
             },
+            { id: "synthetic-archived", englishName: "Past Archived Tutor", status: "ARCHIVED" },
+            { id: "synthetic-graduated", englishName: "Past Graduated Tutor", status: "GRADUATED" },
           ],
         }),
       },
@@ -108,6 +111,21 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
+
+it("reveals past choices and retains a selected past tutor after hiding the others", () => {
+  renderPage();
+  expect(screen.queryByRole("option", { name: "Past Archived Tutor" })).toBeNull();
+  fireEvent.click(screen.getByRole("button", { name: "Show past tutors" }));
+  expect(screen.getByRole("option", { name: "Past Graduated Tutor" })).toBeTruthy();
+  const select = screen.getByRole<HTMLSelectElement>("combobox", { name: en.admin.adjustments.table.tutor });
+  fireEvent.change(select, { target: { value: "synthetic-archived" } });
+  fireEvent.click(screen.getByRole("button", { name: "Hide past tutors" }));
+  expect(select.value).toBe("synthetic-archived");
+  expect(screen.getByRole("option", { name: "Past Archived Tutor" })).toBeTruthy();
+  expect(screen.queryByRole("option", { name: "Past Graduated Tutor" })).toBeNull();
+  // Historical adjustment rows are independent of the current-work picker.
+  expect(screen.getByRole("table").textContent).toContain(state.rows[0]!.tutor.englishName);
+});
 
 it.each(["en", "zh"])(
   "keeps brief columns and opens the complete reason from rightmost text actions in %s",

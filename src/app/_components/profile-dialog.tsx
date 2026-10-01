@@ -1,89 +1,57 @@
 "use client";
 
-import { useEffect, useId, useRef, type ReactNode } from "react";
-import { createPortal } from "react-dom";
+import { useId, type ReactNode } from "react";
 import { useTranslations } from "next-intl";
+import { NativeDialog } from "./ui/modal";
 
-/** Native modal dialogs trap focus, restore the trigger and escape table/scroll clipping. */
+/** Long profile surfaces share keyboard/pending behavior while keeping their wide
+ * layout and visible Close header. Each independent child form owns its draft. */
 export function ProfileDialog({
   title,
   onClose,
   children,
+  size = "default",
+  pending = false,
 }: {
   title: string;
   onClose: () => void;
   children: ReactNode;
+  size?: "default" | "wide";
+  /** This owner's write; children register independent writes with useDialogPending. */
+  pending?: boolean;
 }) {
   const t = useTranslations("accountProfile");
   const titleId = useId();
-  const ref = useRef<HTMLDialogElement>(null);
-  useEffect(() => {
-    const trigger = document.activeElement;
-    const dialog = ref.current;
-    dialog?.showModal();
-    // React removes conditional dialogs on close, so restore the opener explicitly
-    // after leaving native modality rather than relying on browser removal behavior.
-    return () => {
-      dialog?.close();
-      if (trigger instanceof HTMLElement && trigger.isConnected)
-        trigger.focus();
-    };
-  }, []);
-  return createPortal(
-    <dialog
-      ref={ref}
-      aria-labelledby={titleId}
-      onCancel={(event) => {
-        // Portals preserve React ancestry: a child dialog owns its cancellation.
-        if (event.target !== event.currentTarget) return;
-        event.preventDefault();
-        onClose();
-      }}
-      onKeyDown={(event) => {
-        if (event.key !== "Tab") return;
-        if (
-          event.target instanceof Element &&
-          event.target.closest("dialog") !== event.currentTarget
-        )
-          return;
-        // Native modal inertness excludes the page, but a single-control dialog can
-        // still tab into browser chrome. Wrap its visible controls explicitly.
-        const controls = Array.from(
-          event.currentTarget.querySelectorAll<HTMLElement>(
-            'button:not(:disabled),a[href],input:not(:disabled),select:not(:disabled),textarea:not(:disabled),summary,[tabindex]:not([tabindex="-1"])',
-          ),
-        ).filter(
-          (element) =>
-            element.tabIndex >= 0 && (element.checkVisibility?.() ?? true),
-        );
-        const first = controls[0];
-        const last = controls.at(-1);
-        if (
-          first &&
-          last &&
-          ((event.shiftKey && document.activeElement === first) ||
-            (!event.shiftKey && document.activeElement === last))
-        ) {
-          event.preventDefault();
-          (event.shiftKey ? last : first).focus();
-        }
-      }}
-      className="m-auto max-h-[min(88dvh,850px)] w-[calc(100%-2rem)] max-w-2xl overflow-y-auto rounded-2xl border border-slate-200 bg-white p-0 text-slate-900 shadow-2xl backdrop:bg-slate-950/40"
+  return (
+    <NativeDialog
+      labelledBy={titleId}
+      busy={pending}
+      onClose={onClose}
+      className={`m-auto max-h-[min(88dvh,850px)] w-[calc(100%-2rem)] ${size === "wide" ? "max-w-4xl" : "max-w-2xl"} overflow-y-auto rounded-2xl border border-slate-200 bg-white p-0 text-slate-900 shadow-2xl backdrop:bg-slate-950/40`}
     >
-      <div className="sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-slate-200 bg-white px-5 py-4">
-        <h2 id={titleId} className="section-title">
-          {title}
-        </h2>
-        <button
-          type="button"
-          className="btn-secondary btn-sm min-h-11 lg:min-h-8"
-          onClick={onClose}
-        >
-          {t("close")}
-        </button>
-      </div>
-      <div className="p-5">{children}</div>
-    </dialog>,
-    document.body,
+      {(busy) => (
+        <>
+          <div
+            className={`sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-slate-200 bg-white py-4 ${size === "wide" ? "px-4 sm:px-6" : "px-5"}`}
+          >
+            <h2 id={titleId} className="section-title">
+              {title}
+            </h2>
+            <button
+              type="button"
+              data-dialog-autofocus
+              className="btn-secondary btn-sm min-h-11 lg:min-h-8"
+              onClick={onClose}
+              disabled={busy}
+            >
+              {t("close")}
+            </button>
+          </div>
+          <div className={size === "wide" ? "p-4 sm:p-6" : "p-5"}>
+            {children}
+          </div>
+        </>
+      )}
+    </NativeDialog>
   );
 }

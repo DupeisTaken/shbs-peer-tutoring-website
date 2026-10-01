@@ -5,6 +5,7 @@ import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { ChoiceButton } from "~/app/_components/ui/button";
+import { AcademicError } from "~/app/_components/academic-error";
 
 type Headcount = "ZERO" | "ONE" | "TWO" | "THREE" | "FOUR_PLUS";
 const BUCKETS: { value: Headcount; label: string }[] = [
@@ -134,6 +135,7 @@ export default function PatrolPage() {
                 {t("crew.patrol.reentry.request")}
               </button>
             )}
+            {reentry.error && <p role="alert" className="mt-2 text-sm text-red-700"><AcademicError message={reentry.error.message} selfService /></p>}
           </div>
         </section>
       )}

@@ -1,19 +1,63 @@
 "use client";
 
-import { useState } from "react";
+import { useId, useState } from "react";
+import { ChoiceButton } from "~/app/_components/ui/button";
+import { FilterToolbar } from "~/app/_components/ui/patterns";
 import { useFormatter, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
+import { useDialog } from "~/app/_components/confirm-dialog";
+
+const HISTORY_FILTERS = [
+  "PENDING",
+  "ACCEPTED",
+  "REJECTED",
+  "RECALLED",
+] as const;
+type HistoryFilter = (typeof HISTORY_FILTERS)[number];
 
 /** Self-only query supplies choices, actual grants and history; pending intents never appear approved. */
 export function QualificationRequests({ active }: { active: boolean }) {
   const t = useTranslations("qualificationRequests");
   const format = useFormatter();
   const utils = api.useUtils();
+  const { confirm, dialog } = useDialog();
   const query = api.qualificationApplication.mine.useQuery();
   const [subjectId, setSubjectId] = useState("");
   const [reason, setReason] = useState("");
+  const [historyFilter, setHistoryFilter] = useState<HistoryFilter>("PENDING");
+  const [historyExpanded, setHistoryExpanded] = useState(true);
+  const historyId = useId();
+  // Interviews are still awaiting a decision. Derive groups from fresh query data
+  // so recalls/decisions update counts without resetting the tutor's chosen filter.
+  const historyGroups = HISTORY_FILTERS.map((status) => ({
+    status,
+    requests: (query.data?.requests ?? []).filter((request) =>
+      status === "PENDING"
+        ? request.status === "PENDING" || request.status === "INTERVIEW"
+        : request.status === status,
+    ),
+  }));
+  const visibleRequests =
+    historyGroups.find((group) => group.status === historyFilter)?.requests ??
+    [];
+  // Refresh both participant history and staff/panel caches after withdrawing a request.
+  const refreshRecall = () =>
+    Promise.all([
+      utils.qualificationApplication.mine.invalidate(),
+      utils.admin.tutorApplications.invalidate(),
+      utils.interviewManagement.options.invalidate(),
+      utils.tutor.myInterviews.invalidate(),
+    ]);
+  const recall = api.qualificationApplication.recall.useMutation({
+    onSuccess: async () => {
+      submit.reset();
+      await refreshRecall();
+    },
+    onError: refreshRecall,
+  });
   const submit = api.qualificationApplication.submit.useMutation({
     onSuccess: async () => {
+      recall.reset();
       setSubjectId("");
       setReason("");
       await utils.qualificationApplication.mine.invalidate();
@@ -25,6 +69,7 @@ export function QualificationRequests({ active }: { active: boolean }) {
       className="card scroll-mt-6 p-4 sm:p-5"
     >
       <h2 className="section-title">{t("title")}</h2>
+      {dialog}
       <p className="muted mt-1">{t("help")}</p>
       {query.isLoading && (
         <p role="status" className="mt-3">
@@ -116,66 +161,169 @@ export function QualificationRequests({ active }: { active: boolean }) {
               )}
             </form>
           )}
-          <h3 className="mt-6 font-semibold">{t("history")}</h3>
-          {!query.data.requests.length && (
-            <p className="muted mt-1">{t("empty")}</p>
-          )}
-          <ul className="mt-3 space-y-3">
-            {query.data.requests.map((request) => (
-              <li
-                key={request.id}
-                className="rounded-lg border border-slate-200 p-3"
+          <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
+            <h3 className="font-semibold">{t("history")}</h3>
+            <button
+              type="button"
+              className="btn-secondary min-h-11 max-w-full gap-2 whitespace-normal lg:min-h-8 lg:py-0"
+              aria-expanded={historyExpanded}
+              aria-controls={historyId}
+              onClick={() => setHistoryExpanded((expanded) => !expanded)}
+            >
+              {t(historyExpanded ? "collapseHistory" : "expandHistory")}
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 20 20"
+                fill="none"
+                stroke="currentColor"
+                strokeWidth="1.5"
+                className={`h-4 w-4 shrink-0 ${historyExpanded ? "rotate-180" : ""}`}
               >
-                <div className="flex flex-wrap items-center gap-2">
-                  <span className="font-medium">
-                    {request.requestedSubject?.name}
-                  </span>
-                  <span className="badge-slate">{t(request.type)}</span>
-                  <span
-                    className={
-                      request.status === "ACCEPTED"
-                        ? "badge-green"
-                        : request.status === "REJECTED"
-                          ? "badge-red"
-                          : "badge-amber"
-                    }
+                <path d="m5 7.5 5 5 5-5" />
+              </svg>
+            </button>
+          </div>
+          {recall.error && (
+            <p role="alert" className="mt-2 text-sm text-red-700">
+              {recall.error.message}
+            </p>
+          )}
+          {recall.isSuccess && (
+            <p role="status" className="mt-2 text-sm text-green-700">
+              {t("recalled")}
+            </p>
+          )}
+          <div id={historyId} hidden={!historyExpanded} className="pt-3">
+            <FilterToolbar label={t("historyFilters")}>
+              <div
+                role="group"
+                aria-label={t("historyFilters")}
+                className="flex flex-wrap gap-2"
+              >
+                {historyGroups.map((group) => (
+                  <ChoiceButton
+                    key={group.status}
+                    selected={historyFilter === group.status}
+                    onClick={() => setHistoryFilter(group.status)}
+                    className="max-w-full gap-2"
                   >
-                    {t(request.status)}
-                  </span>
-                </div>
-                <p className="muted mt-1 text-xs">
-                  {format.dateTime(request.createdAt, { dateStyle: "medium" })}
-                </p>
-                {request.interviewAt && (
-                  <p className="mt-2 text-sm">
-                    {t("scheduled", {
-                      date: format.dateTime(request.interviewAt, {
-                        dateStyle: "medium",
-                        timeStyle: "short",
-                      }),
+                    {t(
+                      group.status === "PENDING"
+                        ? "pendingFilter"
+                        : group.status,
+                    )}{" "}
+                    <span className="rounded-full bg-current/10 px-1.5 text-xs tabular-nums">
+                      {format.number(group.requests.length)}
+                    </span>
+                  </ChoiceButton>
+                ))}
+              </div>
+            </FilterToolbar>
+            {!visibleRequests.length && (
+              <p role="status" className="muted mt-3">
+                {t(query.data.requests.length ? "emptyFilter" : "empty")}
+              </p>
+            )}
+            <ul className="mt-3 space-y-3">
+              {visibleRequests.map((request) => (
+                <li
+                  key={request.id}
+                  className="rounded-lg border border-slate-200 p-3"
+                >
+                  <div className="flex flex-wrap items-center gap-2">
+                    <span className="font-medium">
+                      {request.requestedSubject?.name}
+                    </span>
+                    <span className="badge-slate">{t(request.type)}</span>
+                    <span
+                      className={
+                        request.status === "ACCEPTED"
+                          ? "badge-green"
+                          : request.status === "REJECTED"
+                            ? "badge-red"
+                            : request.status === "RECALLED"
+                              ? "badge-slate"
+                              : "badge-amber"
+                      }
+                    >
+                      {t(request.status)}
+                    </span>
+                  </div>
+                  <p className="muted mt-1 text-xs">
+                    {format.dateTime(request.createdAt, {
+                      dateStyle: "medium",
                     })}
                   </p>
-                )}
-                <p className="mt-2 text-sm break-words whitespace-pre-wrap">
-                  {request.qualificationReason}
-                </p>
-                {request.decisionComment && (
+                  {request.recalledAt && (
+                    <p className="muted mt-1 text-xs">
+                      {t("recalledOn", {
+                        date: format.dateTime(request.recalledAt, {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        }),
+                      })}
+                    </p>
+                  )}
+                  {request.interviewAt && request.status !== "RECALLED" && (
+                    <p className="mt-2 text-sm">
+                      {t("scheduled", {
+                        date: format.dateTime(request.interviewAt, {
+                          dateStyle: "medium",
+                          timeStyle: "short",
+                        }),
+                      })}
+                    </p>
+                  )}
                   <p className="mt-2 text-sm break-words whitespace-pre-wrap">
-                    {t("result", { comment: request.decisionComment })}
+                    {request.qualificationReason}
                   </p>
-                )}
-                {!!request.qualificationSnapshot.length && (
-                  <p className="mt-2 text-sm">
-                    {t("granted", {
-                      subjects: request.qualificationSnapshot
-                        .map((subject) => subject.name)
-                        .join(", "),
-                    })}
-                  </p>
-                )}
-              </li>
-            ))}
-          </ul>
+                  {request.decisionComment && (
+                    <p className="mt-2 text-sm break-words whitespace-pre-wrap">
+                      {t("result", { comment: request.decisionComment })}
+                    </p>
+                  )}
+                  {!!request.qualificationSnapshot.length && (
+                    <p className="mt-2 text-sm">
+                      {t("granted", {
+                        subjects: request.qualificationSnapshot
+                          .map((subject) => subject.name)
+                          .join(", "),
+                      })}
+                    </p>
+                  )}
+                  {active &&
+                    (request.status === "PENDING" ||
+                      request.status === "INTERVIEW") && (
+                      <button
+                        type="button"
+                        className="btn-secondary mt-3 min-h-11 max-w-full whitespace-normal lg:min-h-8 lg:py-0"
+                        disabled={recall.isPending}
+                        onClick={async () => {
+                          if (
+                            await confirm({
+                              title: t("recallTitle"),
+                              message: t("recallHelp", {
+                                subject: request.requestedSubject?.name ?? "",
+                              }),
+                              confirmLabel: t("recall"),
+                              cancelLabel: t("keepRequest"),
+                            })
+                          )
+                            recall.mutate({
+                              id: request.id,
+                              expectedUpdatedAt: request.updatedAt,
+                            });
+                        }}
+                      >
+                        {recall.isPending && recall.variables?.id === request.id
+                          ? t("recalling")
+                          : t("recall")}
+                      </button>
+                    )}
+                </li>
+              ))}
+            </ul>
+          </div>
         </>
       )}
     </section>

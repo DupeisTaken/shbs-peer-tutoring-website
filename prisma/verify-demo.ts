@@ -2,6 +2,7 @@ import "dotenv/config";
 import assert from "node:assert/strict";
 import { PrismaPg } from "@prisma/adapter-pg";
 import { PrismaClient } from "../generated/prisma";
+import { utcDatabaseUrl } from "../src/server/database-url";
 import { assertDemoDatabase, seedId } from "./demo-support";
 import {
   validatePanel,
@@ -13,7 +14,9 @@ import { surveyInput } from "../src/server/student-survey";
 
 const connectionString = process.env.DATABASE_URL!;
 assertDemoDatabase(connectionString);
-const db = new PrismaClient({ adapter: new PrismaPg({ connectionString }) });
+const db = new PrismaClient({
+  adapter: new PrismaPg({ connectionString: utcDatabaseUrl(connectionString) }),
+});
 try {
   // Use actual workflow validators, not merely row counts: visible records must be actionable.
   for (const key of ["fiona", "george", "hana"]) {
