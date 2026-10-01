@@ -51,6 +51,9 @@ weight, not an arbitrary height difference.
 - Compose `SummaryTable`, `TableActions`, `TableAction` and `TableDetails` from
   `src/app/_components/ui/summary-table.tsx`. Existing domain dialogs may use the same
   text-action class; their authorization and confirmation rules remain authoritative.
+- Keep stacked text actions compact, as established in PR #172: **28 px minimum
+  on desktop, 44 px below `lg`, and no added gap between links**. Let wrapped or
+  enlarged labels grow naturally; the hit targets provide their own spacing.
 - Keep trailing actions reachable on narrow screens while the table scrolls locally.
   Preserve 44 px mobile hit targets, clear focus, brief column values and full detail
   access. Do not hide actions outside the viewport or replace them with hover-only UI.
