@@ -34,6 +34,12 @@ vi.mock("~/trpc/react", () => ({
   },
 }));
 beforeEach(() => {
+  Object.defineProperty(HTMLDialogElement.prototype, "close", {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.open = false;
+    },
+  });
   vi.clearAllMocks();
   Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
     configurable: true,

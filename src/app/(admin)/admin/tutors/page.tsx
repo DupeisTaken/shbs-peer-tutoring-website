@@ -9,6 +9,12 @@ import { TutorDetailsButton } from "~/app/_components/tutor-details";
 import { api } from "~/trpc/react";
 import { SortHeader, useSort, compare } from "~/app/_components/sortable";
 import { useReadOnly } from "~/app/_components/read-only";
+import {
+  SummaryTable,
+  TableActions,
+  TableAction,
+  TableDetails,
+} from "~/app/_components/ui/summary-table";
 
 export default function TutorsPage() {
   const t = useTranslations();
@@ -145,25 +151,21 @@ export default function TutorsPage() {
           onClose={() => setEditingId(null)}
         />
       )}
-      <div className="card overflow-x-auto">
-        <table className="data-table">
+      <div className="card">
+        <SummaryTable label={t("admin.tutors.title")}>
           <thead>
             <tr>
               <SortHeader sort={sort} sortKey="firstName">
                 {t("accountProfile.name")}
               </SortHeader>
-              <th>{t("admin.tutors.colEmail")}</th>
               <SortHeader sort={sort} sortKey="grade">
                 {t("admin.tutors.colGrade")}
               </SortHeader>
               <SortHeader sort={sort} sortKey="status">
                 {t("admin.tutors.colStatus")}
               </SortHeader>
-              {/* Anchor the absolute sr-only label inside the scrolling table. */}
-              <th className="relative">
-                <span className="sr-only">
-                  {t("accountProfile.editProfile")}
-                </span>
+              <th className="table-actions-heading">
+                {t("tablePatterns.actions")}
               </th>
             </tr>
           </thead>
@@ -174,11 +176,6 @@ export default function TutorsPage() {
                   <p className="font-medium [overflow-wrap:anywhere] text-slate-900">
                     {row.englishName}
                   </p>
-                  {row.alternativeNames && (
-                    <p className="muted text-xs [overflow-wrap:anywhere]">
-                      {row.alternativeNames}
-                    </p>
-                  )}
                   {row.username && (
                     <p className="muted mt-1 text-xs">@{row.username}</p>
                   )}
@@ -187,20 +184,6 @@ export default function TutorsPage() {
                       {t("accountProfile.setupRequired")}
                     </p>
                   )}
-                  <TutorDetailsButton tutorId={row.id} name={row.englishName} />
-                </td>
-                <td>
-                  <EmailDetails
-                    email={row.user?.email ?? row.email}
-                    name={row.englishName}
-                    verifiedAt={row.user?.emailVerifiedAt}
-                    userId={row.user?.id}
-                    tutorId={row.id}
-                    linked={!!row.user}
-                    canSendSetup={
-                      !readOnly && (!row.user || row.user.email === row.email)
-                    }
-                  />
                 </td>
                 <td>{row.gradeLevel ?? "—"}</td>
                 {/* Keep translated status badges readable inside the scrolling roster. */}
@@ -213,20 +196,52 @@ export default function TutorsPage() {
                     {statusLabel(row.status)}
                   </span>
                 </td>
-                <td className="text-right whitespace-nowrap">
-                  {!readOnly && (
-                    <button
-                      className="link"
-                      onClick={() => setEditingId(row.id)}
-                    >
-                      {t("accountProfile.editProfile")}
-                    </button>
+                <TableActions>
+                  {/* Private details remain query-on-demand; viewers retain the public identity metadata. */}
+                  {readOnly ? (
+                    <TableDetails title={row.englishName}>
+                      <dl>
+                        <dt className="muted">
+                          {t("accountProfile.alternativeNames")}
+                        </dt>
+                        <dd>{row.alternativeNames ?? "—"}</dd>
+                      </dl>
+                      <p>
+                        {row.username
+                          ? `@${row.username}`
+                          : t("accountProfile.setupRequired")}
+                      </p>
+                      <p className="muted">
+                        {t("accountProfile.privateEmail")}
+                      </p>
+                    </TableDetails>
+                  ) : (
+                    <TutorDetailsButton
+                      tutorId={row.id}
+                      name={row.englishName}
+                    />
                   )}
-                </td>
+                  {!readOnly && (row.user?.email ?? row.email) && (
+                    <EmailDetails
+                      email={row.user?.email ?? row.email}
+                      name={row.englishName}
+                      verifiedAt={row.user?.emailVerifiedAt}
+                      userId={row.user?.id}
+                      tutorId={row.id}
+                      linked={!!row.user}
+                      canSendSetup={!row.user || row.user.email === row.email}
+                    />
+                  )}
+                  {!readOnly && (
+                    <TableAction onClick={() => setEditingId(row.id)}>
+                      {t("accountProfile.editProfile")}
+                    </TableAction>
+                  )}
+                </TableActions>
               </tr>
             ))}
           </tbody>
-        </table>
+        </SummaryTable>
       </div>
     </div>
   );

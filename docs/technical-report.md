@@ -22,6 +22,20 @@ The application runs as a persistent Next.js 16 / React 19 Node server with tRPC
 | Change dates or intake labels            | [Program time](../src/lib/program-time.ts) and [period display](../src/lib/period.ts)                                                                                                            |
 | Change delivery or deadline processing   | [Email sender](../src/server/email/sender.ts), [instrumentation](../src/instrumentation.ts) and [deadline worker](../src/server/student-deadline-worker.ts)                                      |
 
+### Shared UI patterns
+
+[UI components](../src/app/_components/ui) provide behavior and composition without owning domain mutations. `Button` exposes action emphasis separately from context size; `ChoiceButton` uses pressed state for a selection; `Switch` exposes checked state. `SectionTabs` uses manual keyboard activation so arrow-key exploration does not switch an editor and discard its draft. `FormSection` groups one save scope and disables its fields/actions while busy. `StatePanel` keeps loading, empty, error and denied states distinct.
+
+`Modal` uses native dialog modality, contains keyboard focus and restores focus to the invoking control. Callers supply the safe initial-focus target, action labels, pending state and mutation/confirmation rules. The shared confirmation dialog composes this behavior, while server authorization, approval policy and action tickets remain authoritative.
+
+`SummaryTable` provides a named keyboard-scrollable region around a semantic table. Only brief information stays in its cells; every row's detail/editor links live in a trailing `TableActions` cell, sticky at the right edge so they remain reachable on narrow screens. `TableAction` preserves button semantics with the existing accent text-link appearance. `TableDetails` mounts a native modal through a portal only when opened, avoiding query work for closed details and avoiding inherited table alignment/nowrap styles. Matrices retain compact comparison cells and use the same trailing detail entry. History exports and printed reports preserve full detail; screen summaries do not alter source data.
+
+The first feature integrations are Account Settings (one save scope for both names), Meetings (attendance choices, responsive records and comparison tables), and Landing Editor (server access gate, tabs, explicit failure recovery and shared confirmations). Other pages may still use older patterns; [issue #219](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/219) tracks wider migration.
+
+Tutor availability keeps a local draft once editing begins, so background query updates cannot discard it. A successful mutation is followed by an explicit throwing refetch before releasing the draft: the server filters inactive slot IDs and returns only a count, so the submitted list is not authoritative. If synchronization fails, the submitted choices remain visible and locked with a read-only retry; only the refreshed result unlocks editing. See [issue #223](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/223).
+
+The [development gallery](../src/app/ui-gallery/gallery.tsx) imports the same components and styles. It owns only local synthetic state, including locale and temporary theme previews; its [server route](../src/app/ui-gallery/page.tsx) refuses production rendering. See [local verification](local-development.md#ui-pattern-gallery) and [contribution rules](contributing.md#reuse-interaction-patterns).
+
 ## Identity and authorization
 
 Account role, linked tutor profile, crew membership and translator assignment are separate capabilities. Protected requests reload current role, linkage and suspension state. Navigation and client controls do not replace server authorization. Student records require explicit account/profile ownership; a matching name or email never grants access.

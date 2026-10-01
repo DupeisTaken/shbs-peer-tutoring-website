@@ -5,6 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 
+import { Button } from "./ui/button";
+import { FormSection } from "./ui/patterns";
 import { MembershipEditor } from "./membership-editor";
 import { accountMembership } from "~/lib/account-membership";
 import { api } from "~/trpc/react";
@@ -83,7 +85,10 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
     onSuccess: (data) => setSentTo(data.email),
   });
   const changePassword = api.account.changePassword.useMutation({
-    onSuccess: () => { resetPasswordForm(); signInAfterPasswordChange(); },
+    onSuccess: () => {
+      resetPasswordForm();
+      signInAfterPasswordChange();
+    },
   });
 
   // Step 1: validate the new password locally, then ask for the emailed code.
@@ -189,55 +194,87 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
           </div>
         </div>
 
-        {/* Editable display name + the optional tutor cross-link. */}
+        {/* Both names belong to this one commit; security and membership forms remain independent. */}
         <div className="space-y-4 border-t border-slate-100 px-5 py-5 sm:px-6">
-          <label className="block space-y-1">
-            <span className="label">{t("tutor.settings.name")}</span>
-            <div className="flex flex-wrap items-center gap-2">
-              <input
-                value={name}
-                onChange={(e) => setName(e.target.value)}
-                className="input min-w-60 flex-1"
-              />
-              <button
-                className="btn-secondary"
-                disabled={updateName.isPending || !name.trim()}
-                onClick={() =>
-                  updateName.mutate({
-                    name: name.trim(),
-                    alternativeNames: alternativeNames.trim() || null,
-                    expectedProfileVersion: me.data?.profileVersion,
-                  })
-                }
-              >
-                {updateName.isPending
-                  ? t("tutor.settings.saving")
-                  : t("tutor.settings.save")}
-              </button>
-            </div>
-          </label>
-          <label className="block space-y-1">
-            <span className="label">
-              {t("accountProfile.alternativeNames")}
-            </span>
-            <input
-              className="input w-full"
-              value={alternativeNames}
-              onChange={(event) => setAlternativeNames(event.target.value)}
-              maxLength={200}
-            />
-            <span className="muted text-xs">
-              {t("accountProfile.canonicalHelp")}
-            </span>
-          </label>
-          {updateName.isSuccess && (
-            <p className="text-sm text-green-600">
-              {t("tutor.settings.saved")}
-            </p>
-          )}
-          {updateName.error && (
-            <p className="text-sm text-red-600">{updateName.error.message}</p>
-          )}
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (!me.data || updateName.isPending || !name.trim()) return;
+              updateName.mutate({
+                name: name.trim(),
+                alternativeNames: alternativeNames.trim() || null,
+                expectedProfileVersion: me.data.profileVersion,
+              });
+            }}
+          >
+            <FormSection
+              title={t("uiPatterns.profile")}
+              description={t("accountProfile.canonicalHelp")}
+              busy={!me.data || updateName.isPending}
+              actions={
+                <>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    disabled={!name.trim()}
+                  >
+                    {t(
+                      updateName.isPending
+                        ? "tutor.settings.saving"
+                        : "uiPatterns.saveProfile",
+                    )}
+                  </Button>
+                  <Button
+                    onClick={() => {
+                      setName(me.data?.name ?? "");
+                      setAlternativeNames(me.data?.alternativeNames ?? "");
+                      updateName.reset();
+                    }}
+                  >
+                    {t("uiPatterns.cancel")}
+                  </Button>
+                </>
+              }
+            >
+              <label className="block space-y-1">
+                <span className="label">{t("tutor.settings.name")}</span>
+                <input
+                  className="input control-standard"
+                  value={name}
+                  onChange={(event) => {
+                    setName(event.target.value);
+                    updateName.reset();
+                  }}
+                  required
+                  maxLength={100}
+                />
+              </label>
+              <label className="block space-y-1">
+                <span className="label">
+                  {t("accountProfile.alternativeNames")}
+                </span>
+                <input
+                  className="input control-standard"
+                  value={alternativeNames}
+                  onChange={(event) => {
+                    setAlternativeNames(event.target.value);
+                    updateName.reset();
+                  }}
+                  maxLength={200}
+                />
+              </label>
+              {updateName.isSuccess && (
+                <p role="status" className="text-sm text-green-700">
+                  {t("tutor.settings.saved")}
+                </p>
+              )}
+              {updateName.error && (
+                <p role="alert" className="text-sm text-red-700">
+                  {updateName.error.message}
+                </p>
+              )}
+            </FormSection>
+          </form>
 
           {me.data?.tutor && (
             <p className="muted flex items-center gap-1.5 border-t border-slate-100 pt-4 text-sm">
@@ -392,7 +429,13 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
         </div>
       </section>
 
-      {me.data && <MembershipEditor userId={me.data.id} initial={accountMembership(me.data)} selfService />}
+      {me.data && (
+        <MembershipEditor
+          userId={me.data.id}
+          initial={accountMembership(me.data)}
+          selfService
+        />
+      )}
       <AccountEmails />
       <EmailPreferences />
       <TwoFactorSettings />

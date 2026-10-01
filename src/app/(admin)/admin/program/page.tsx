@@ -7,6 +7,7 @@ import { useTranslations } from "next-intl";
 import { ProgramTimeZoneSettings } from "~/app/_components/program-time-zone-settings";
 import { RecruitmentSettings } from "~/app/_components/recruitment-settings";
 import { api } from "~/trpc/react";
+import { Switch } from "~/app/_components/ui/button";
 
 type RefreshResult = {
   name: string;
@@ -204,24 +205,15 @@ function FeatureToggles() {
                 </span>
               )}
               {data.canEdit && (
-                <button
-                  type="button"
-                  role="switch"
-                  aria-checked={target}
+                // Keep the staged-setting behavior while giving each compact switch a named touch target.
+                <Switch
+                  label={t(`admin.program.features.name.${f.key}`)}
+                  checked={target}
                   disabled={setPending.isPending}
-                  onClick={() =>
-                    setPending.mutate({ key: f.key, enabled: !target })
+                  onChange={(enabled) =>
+                    setPending.mutate({ key: f.key, enabled })
                   }
-                  className={`relative inline-flex h-6 w-11 shrink-0 items-center rounded-full transition-colors ${
-                    target ? "bg-accent-600" : "bg-slate-300"
-                  } ${setPending.isPending ? "opacity-50" : ""}`}
-                >
-                  <span
-                    className={`inline-block h-4 w-4 rounded-full bg-white shadow transition-transform ${
-                      target ? "translate-x-6" : "translate-x-1"
-                    }`}
-                  />
-                </button>
+                />
               )}
             </li>
           );

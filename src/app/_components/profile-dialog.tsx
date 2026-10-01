@@ -18,15 +18,34 @@ export function ProfileDialog({
   const titleId = useId();
   const ref = useRef<HTMLDialogElement>(null);
   useEffect(() => {
-    ref.current?.showModal();
+    const trigger = document.activeElement;
+    const dialog = ref.current;
+    dialog?.showModal();
+    // React removes conditional dialogs on close, so restore the opener explicitly
+    // after leaving native modality rather than relying on browser removal behavior.
+    return () => {
+      dialog?.close();
+      if (trigger instanceof HTMLElement && trigger.isConnected)
+        trigger.focus();
+    };
   }, []);
   return createPortal(
     <dialog
       ref={ref}
       aria-labelledby={titleId}
-      onCancel={onClose}
+      onCancel={(event) => {
+        // Portals preserve React ancestry: a child dialog owns its cancellation.
+        if (event.target !== event.currentTarget) return;
+        event.preventDefault();
+        onClose();
+      }}
       onKeyDown={(event) => {
         if (event.key !== "Tab") return;
+        if (
+          event.target instanceof Element &&
+          event.target.closest("dialog") !== event.currentTarget
+        )
+          return;
         // Native modal inertness excludes the page, but a single-control dialog can
         // still tab into browser chrome. Wrap its visible controls explicitly.
         const controls = Array.from(

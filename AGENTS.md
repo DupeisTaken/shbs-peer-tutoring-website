@@ -40,6 +40,25 @@ weight, not an arbitrary height difference.
 - At desktop widths retain a single compact row, 18 px branding, and 32 px workspace
   buttons/language selector. Keep only one instance of each interactive control.
 
+## Table summaries and detail submenus
+
+- Use one table language throughout the application: columns contain brief names,
+  dates, counts and statuses. Long explanations, contact details, full lists and
+  editing forms belong in detail dialogs or editors.
+- Put every row's detail/editor entry in the **rightmost Actions column**, using
+  text links visually (semantic buttons when opening a dialog). Follow Users & Roles.
+  Do not place boxed detail buttons below names or reveal controls in other cells.
+- Compose `SummaryTable`, `TableActions`, `TableAction` and `TableDetails` from
+  `src/app/_components/ui/summary-table.tsx`. Existing domain dialogs may use the same
+  text-action class; their authorization and confirmation rules remain authoritative.
+- Keep trailing actions reachable on narrow screens while the table scrolls locally.
+  Preserve 44 px mobile hit targets, clear focus, brief column values and full detail
+  access. Do not hide actions outside the viewport or replace them with hover-only UI.
+- Comparison matrices follow the same rule: compact cell values, full explanations
+  behind a rightmost row-detail link. Preserve full exports and printed report data.
+- Mount detail queries on demand. Verify summary, open-detail, editing, read-only,
+  keyboard and translated states in the gallery and actual affected pages.
+
 <!-- BEGIN:nextjs-agent-rules -->
 
 # This is NOT the Next.js you know

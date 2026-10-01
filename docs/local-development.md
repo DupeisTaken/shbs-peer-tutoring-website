@@ -135,6 +135,20 @@ Try the public forms (no login required):
 
 Follow the [role guide](user-guide.md) using the [demo accounts](#demo-accounts-and-workflows). Real SMTP setup and final school policy approval remain launch configuration work; local capture delivers no external mail.
 
+### UI pattern gallery
+
+While `npm run dev` is running, sign in with a local demo account and open `/ui-gallery`. The gallery renders real shared components with synthetic data and no application mutations. Language, accent theme and form-state controls expose English/Chinese, all six palettes and editable/saving/error/read-only examples. Theme previews do not write the theme cookie and restore the previous theme when leaving the gallery. Reload resets the example data.
+
+Resize the browser to test the actual viewport and breakpoints; a narrow card inside a desktop window does not simulate mobile CSS. Check the form save scope, selection state, tab keyboard navigation, dialog focus, brief table columns, rightmost text-link detail entries, comparison-table scrolling and recovery controls. Confirm actions remain reachable before and after horizontal scrolling. Follow [AGENTS.md](../AGENTS.md) for rendered control measurements. Store screenshots in ignored `outputs/` or `.validation/` and include real pages in visual verification.
+
+The `/ui-gallery` server page calls `notFound()` in production, and normal authentication still applies in development. Focused gallery tests require no database:
+
+```bash
+npx vitest run src/app/ui-gallery/gallery.test.tsx src/app/ui-gallery/page.test.tsx --maxWorkers=1
+```
+
+See [contributor guidance](contributing.md#reuse-interaction-patterns) for adding patterns and [technical boundaries](technical-report.md#shared-ui-patterns) for their responsibilities.
+
 ## 5. Run the tests
 
 ```bash

@@ -7,12 +7,16 @@ import { api } from "~/trpc/react";
 import { AttendanceCorrection } from "~/app/_components/attendance-correction";
 import { useReadOnly } from "~/app/_components/read-only";
 import { currentMonth } from "~/lib/time";
+import {
+  SummaryTable,
+  TableActions,
+  TableDetails,
+} from "~/app/_components/ui/summary-table";
 
 export default function SubmissionsPage() {
   const programFormat = useFormatter();
   const t = useTranslations();
   const readOnly = useReadOnly();
-  const [editingId, setEditingId] = useState<string | null>(null);
   const [month, setMonth] = useState(currentMonth());
   const [tutorId, setTutorId] = useState("");
   const tutors = api.admin.tutors.useQuery();
@@ -46,19 +50,8 @@ export default function SubmissionsPage() {
         </select>
       </div>
 
-      {editingId && !readOnly && (
-        <section className="card space-y-3 p-5">
-          <button
-            className="btn-secondary btn-sm"
-            onClick={() => setEditingId(null)}
-          >
-            {t("common.cancel")}
-          </button>
-          <AttendanceCorrection key={editingId} id={editingId} />
-        </section>
-      )}
-      <div className="card overflow-x-auto">
-        <table className="data-table">
+      <div className="card">
+        <SummaryTable label={t("admin.submissions.title")}>
           <thead>
             <tr>
               <th>{t("admin.submissions.colDate")}</th>
@@ -67,41 +60,69 @@ export default function SubmissionsPage() {
               <th>{t("admin.submissions.colStatus")}</th>
               <th>{t("admin.submissions.colTutees")}</th>
               <th className="text-right">{t("admin.submissions.colSH")}</th>
+              <th className="table-actions-heading">
+                {t("tablePatterns.actions")}
+              </th>
             </tr>
           </thead>
           <tbody>
             {(sessions.data ?? []).map((s) => (
               <tr key={s.id}>
                 <td>
-                  {programFormat.dateTime(new Date(s.date), { dateStyle: "medium", timeZone: "UTC" })}
+                  {programFormat.dateTime(new Date(s.date), {
+                    dateStyle: "medium",
+                    timeZone: "UTC",
+                  })}
                 </td>
                 <td>{s.tutor.englishName}</td>
                 <td>{s.pairing.subject}</td>
                 <td className="text-slate-500">{s.tutorStatus}</td>
-                <td>{s.tutees.map((t) => t.tutee.englishName).join(", ")}</td>
-                <td className="text-right">
-                  {s.shCount.toFixed(1)}
+                <td>{s.tutees.length}</td>
+                <td className="text-right">{s.shCount.toFixed(1)}</td>
+                <TableActions>
+                  <TableDetails
+                    title={`${s.tutor.englishName} · ${s.pairing.subject}`}
+                  >
+                    <p>
+                      {programFormat.dateTime(new Date(s.date), {
+                        dateStyle: "full",
+                        timeZone: "UTC",
+                      })}{" "}
+                      · {s.tutorStatus}
+                    </p>
+                    <h3 className="font-semibold">
+                      {t("admin.submissions.colTutees")}
+                    </h3>
+                    <ul className="list-inside list-disc">
+                      {s.tutees.map((entry, index) => (
+                        <li key={index}>{entry.tutee.englishName}</li>
+                      ))}
+                    </ul>
+                    <p>
+                      {t("admin.submissions.colSH")}: {s.shCount.toFixed(1)}
+                    </p>
+                  </TableDetails>
                   {!readOnly &&
                     (!s.mergeGroupId || s.mergeGroupId === s.id) && (
-                      <button
-                        className="link ml-2"
-                        onClick={() => setEditingId(s.id)}
+                      <TableDetails
+                        label={t("corrections.editAttendance")}
+                        title={`${s.tutor.englishName} · ${s.pairing.subject}`}
                       >
-                        {t("corrections.editAttendance")}
-                      </button>
+                        <AttendanceCorrection id={s.id} />
+                      </TableDetails>
                     )}
-                </td>
+                </TableActions>
               </tr>
             ))}
             {sessions.data?.length === 0 && (
               <tr>
-                <td colSpan={6} className="text-slate-500">
+                <td colSpan={7} className="text-slate-500">
                   {t("admin.submissions.empty")}
                 </td>
               </tr>
             )}
           </tbody>
-        </table>
+        </SummaryTable>
       </div>
     </div>
   );

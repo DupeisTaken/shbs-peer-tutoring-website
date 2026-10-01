@@ -141,6 +141,8 @@ Use combined attendance when several assigned subjects share one block: shared t
 
 ### Manage your participation
 
+In **My Availability**, select your time slots and choose **Save Availability**, or **Cancel** to restore the last loaded selection. Choices stay fixed during saving. If the save succeeds but refreshing the result fails, use **Retry** to load the accepted selection before editing again; it does not submit another save. A failed save keeps your draft available for correction.
+
 An active tutor can request opt-out and recall a pending request. Participation continues until staff approval, which is allowed only after seven days. An opted-out tutor can request reentry without another waiting period, but approval is still required. Only one pending membership request is allowed. At a semester refresh, continuing active tutors become pending and choose whether they are available or opting out; check your status before teaching in the new period.
 
 For a student enrolled outside the survey flow, the tutor can relay the student's request to leave their current active assignment. The seven-day recall window ends in automatic processing unless recalled or cancelled by staff. If the program refreshes or the originating assignment is removed before processing, the outdated relay is cancelled and does not remove a new enrollment. Survey students instead request whole-period withdrawal in their own workspace. Use schedule rejection for an assignment conflict.
@@ -190,6 +192,8 @@ Use the request state and **Requested by** filters to find proposals; the coordi
 
 ### Find records and confirm saves
 
+Tables show brief information for scanning. Use the text links in the rightmost **Actions** column to open full details or an editor. On a narrow screen, that column stays reachable while the other columns scroll sideways. Closing a detail dialog returns you to its link. Detailed report exports and printed history retain their full content.
+
 On desktop, the navigation and content scroll independently. On mobile, open **Menu**, choose a page, or close it with Escape. Navigation follows your role and enabled modules.
 
 **Changes saved** appears after a successful write. A persistent error needs attention even if a later edit succeeds; check the affected record before retrying. **Submitted for approval** means a coordinator proposal is pending, not saved to live records.
@@ -208,6 +212,8 @@ In **Subjects & Levels**, use the **Offered course catalogue** above the subject
 
 ### Run the program
 
+- In **Meetings**, open a meeting to edit attendance, choose statuses, then use the attendance save action. On a narrow screen, individual records show labels and keep their actions visible. The multi-meeting comparison remains a table; scroll its own region horizontally to compare columns. Deletion opens a confirmation that names the affected meeting; cancel returns to the same record.
+- In **Landing Editor**, use the section tabs to move between layout, fixed content, sections, news, pages and images. With a keyboard, arrow keys move between tab labels; Enter or Space opens the focused tab. If your role lacks editing access, the page explains this and offers a return to management. A failed load shows an error and retry action instead of an indefinite loading state. Editor access follows the same permission rule as landing preview.
 - In **Tutor Roster**, choose **View user details** below a tutor's name. HEAD, administrators and coordinators can inspect grouped subjects and named level variants, saved approval/inherited qualifications, and independent teaching willingness. **Not recorded** means no willingness choice has been saved; qualification alone does not mean willing. Catalogue reordering does not change saved qualification grants. Only subjects with recorded qualification or willingness appear; unrelated catalogue entries are omitted. Archived subjects with recorded evidence remain visible. Tutor status, account access, schedules and capacity still constrain assignments.
 - The roster details also show linked-login status and the same account-scoped policy history described below, including tutee policy acceptance. Unlinked tutors have no account acceptance history. Revoked tutoring access keeps historical evidence but removes the Tutor badge; active Tutor membership suppresses a redundant Tutee badge. Opening details grants no role-edit permissions. Viewers cannot open these private details.
 - Maintain subjects, slots, rooms, rosters and assignments; check current intake and availability before matching. Use the [program configuration guide](program-reference.md) for schedules, timezones, announcements and contact permissions.
@@ -271,6 +277,8 @@ Translator and Coordinator edits create private drafts, including all five text 
 ## Account settings and private support
 
 Use **Account Settings** to edit your name and optional names in other languages, change your password or request a verified email change. Current explicitly linked tutor/tutee profiles share those names; signed agreements and submitted survey records retain their original text. Editing a contact field is not email verification. Keep account links and codes private. If email delivery is unavailable, contact management; a success message from another action does not prove an email arrived.
+
+The profile section places **Save profile** and **Cancel** after both name fields. Save applies both fields together; Cancel restores their last loaded values. Saving disables this section while it is pending, and a failed save keeps the draft visible for correction or retry. Password, email and membership controls have their own actions and are not submitted by Save profile.
 
 Changing or resetting your password signs out every existing session, including the browser making the change. Account Settings and tutor Settings return you to Sign In; use your new password. Other browsers require sign-in on their next request. Your account, permissions and tutoring history remain. This update also requires one fresh sign-in for sessions created before session revocation was introduced. Existing email two-factor requirements remain in effect.
 

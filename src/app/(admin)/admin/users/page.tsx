@@ -18,6 +18,11 @@ import {
 import { api } from "~/trpc/react";
 import { SortHeader, useSort, compare } from "~/app/_components/sortable";
 import { useDialog } from "~/app/_components/confirm-dialog";
+import {
+  SummaryTable,
+  TableActions,
+  TableAction,
+} from "~/app/_components/ui/summary-table";
 
 const ALL_ROLES = [
   "STUDENT",
@@ -199,7 +204,11 @@ export default function UsersPage() {
     setFilterState({ userId: viewerId, filters: restored });
     // Repair this account's saved preference after reading it, including stale hidden status.
     try {
-      if (raw !== null) localStorage.setItem(`shbs:user-filters:${viewerId}:v1`, JSON.stringify(restored));
+      if (raw !== null)
+        localStorage.setItem(
+          `shbs:user-filters:${viewerId}:v1`,
+          JSON.stringify(restored),
+        );
     } catch {
       /* Storage restrictions must not prevent the normalized in-memory result. */
     }
@@ -280,31 +289,38 @@ export default function UsersPage() {
 
       <section className="card space-y-3 p-4">
         <p className="muted text-sm">{t("userMultiFilters.hint")}</p>
-        <div className={`grid items-start gap-3 ${isTutorStatusApplicable(filters.role) ? "md:grid-cols-3" : "md:grid-cols-2"}`}>
+        <div
+          className={`grid items-start gap-3 ${isTutorStatusApplicable(filters.role) ? "md:grid-cols-3" : "md:grid-cols-2"}`}
+        >
           <MultiFilter
             label={t("admin.users.filters.role")}
             options={[
               ...ALL_ROLES.map((value) => ({
                 value,
-                label: value === "TRANSLATOR" ? t("membership.translator") : t(`admin.users.roles.${value}`),
+                label:
+                  value === "TRANSLATOR"
+                    ? t("membership.translator")
+                    : t(`admin.users.roles.${value}`),
               })),
               { value: "__none__", label: t("userMultiFilters.noRole") },
             ]}
             value={filters.role}
             onChange={(role) => updateFilters({ ...filters, role })}
           />
-          {isTutorStatusApplicable(filters.role) && <MultiFilter
-            label={t("admin.users.filters.status")}
-            options={[
-              ...TUTOR_STATUSES.map((value) => ({
-                value,
-                label: t(`admin.tutorStatus.${value}`),
-              })),
-              { value: "__none__", label: t("userMultiFilters.noTutor") },
-            ]}
-            value={filters.status}
-            onChange={(status) => updateFilters({ ...filters, status })}
-          />}
+          {isTutorStatusApplicable(filters.role) && (
+            <MultiFilter
+              label={t("admin.users.filters.status")}
+              options={[
+                ...TUTOR_STATUSES.map((value) => ({
+                  value,
+                  label: t(`admin.tutorStatus.${value}`),
+                })),
+                { value: "__none__", label: t("userMultiFilters.noTutor") },
+              ]}
+              value={filters.status}
+              onChange={(status) => updateFilters({ ...filters, status })}
+            />
+          )}
           <MultiFilter
             label={t("admin.users.filters.account")}
             options={ACCOUNT_STATES.map((value) => ({
@@ -394,8 +410,8 @@ export default function UsersPage() {
         </section>
       )}
 
-      <div className="card overflow-x-auto">
-        <table className="data-table">
+      <div className="card">
+        <SummaryTable label={t("admin.users.title")}>
           <thead>
             <tr>
               <SortHeader sort={sort} sortKey="name">
@@ -410,7 +426,9 @@ export default function UsersPage() {
               <SortHeader sort={sort} sortKey="role">
                 {t("admin.users.columns.role")}
               </SortHeader>
-              <th>{t("admin.users.columns.actions")}</th>
+              <th className="table-actions-heading">
+                {t("tablePatterns.actions")}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -427,9 +445,6 @@ export default function UsersPage() {
                           @{u.username ?? u.tutor?.username}
                         </p>
                       )}
-                      {u.alternativeNames && (
-                        <p className="muted text-xs">{u.alternativeNames}</p>
-                      )}
                     </div>
                   </td>
 
@@ -439,11 +454,6 @@ export default function UsersPage() {
                       <div className="leading-tight">
                         <p>{u.tutor.englishName}</p>
                         <p className="muted text-xs">
-                          {u.classOf != null
-                            ? `${t("admin.tutors.classOf", { year: u.classOf })} · `
-                            : u.tutor.gradeLevel != null
-                              ? `G${u.tutor.gradeLevel} · `
-                              : ""}
                           {u.tutorStatus
                             ? t(`admin.tutorStatus.${u.tutorStatus}`)
                             : ""}
@@ -454,153 +464,171 @@ export default function UsersPage() {
                     )}
                   </td>
 
-                  {/* Account: setup/login status + invite/resend (only for linked tutors). */}
+                  {/* Account columns summarize state; provisioning and moderation live in Actions. */}
                   <td>
-                    {u.tutorId ? (
-                      <div className="space-y-1 leading-tight">
-                        <div>
-                          <span className={accountBadge(u.account)}>
-                            {t(`admin.tutors.account.${u.account}`)}
-                          </span>
-                        </div>
-                        {/* Provision a login only for tutors who don't have a finished one yet.
-                            A registered user self-serves via /forgot-password — no admin resend. */}
-                        {(u.account === "none" || u.account === "setup") && (
-                          <div>
-                            <button
-                              className="link text-xs whitespace-nowrap"
-                              disabled={!u.tutorHasEmail || sendSetup.isPending}
-                              title={
-                                !u.tutorHasEmail
-                                  ? t("admin.tutors.account.needEmail")
-                                  : undefined
-                              }
-                              onClick={() =>
-                                u.tutorId &&
-                                sendSetup.mutate({ tutorId: u.tutorId })
-                              }
-                            >
-                              {t("admin.tutors.account.sendSetup")}
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ) : u.role === "VIEWER" && u.userId ? (
-                      // Viewer (self-registered read-only) account: affiliation + suspend control.
-                      <div className="space-y-1 leading-tight">
-                        {u.affiliation && (
-                          <p className="muted text-xs">{u.affiliation}</p>
-                        )}
-                        {u.suspended && (
-                          <span className="badge-red">
-                            {t("admin.users.suspended")}
-                          </span>
-                        )}
-                        {!u.isSelf &&
-                          (u.suspended ? (
-                            <div>
-                              <button
-                                className="link text-xs"
-                                disabled={reinstateUser.isPending}
-                                onClick={() =>
-                                  reinstateUser.mutate({ userId: u.userId })
-                                }
-                              >
-                                {t("admin.users.reinstate")}
-                              </button>
-                            </div>
-                          ) : (
-                            <div>
-                              <button
-                                className="link text-xs text-red-600"
-                                disabled={suspendUser.isPending}
-                                onClick={async () => {
-                                  const reason = await promptText({
-                                    title: t("admin.users.suspendTitle"),
-                                    reasonLabel: t("admin.users.suspendPrompt"),
-                                    confirmLabel: t("admin.users.suspend"),
-                                    cancelLabel: t("common.cancel"),
-                                    danger: true,
-                                  });
-                                  if (reason === null) return; // cancelled
-                                  const userId = u.userId;
-                                  if (!userId) return;
-                                  suspendUser.mutate({
-                                    userId,
-                                    reason:
-                                      reason.length > 0 ? reason : undefined,
-                                  });
-                                }}
-                              >
-                                {t("admin.users.suspend")}
-                              </button>
-                            </div>
-                          ))}
-                      </div>
-                    ) : (
-                      <span className="text-slate-400">—</span>
-                    )}
+                    <span
+                      className={
+                        u.suspended ? "badge-red" : accountBadge(u.account)
+                      }
+                    >
+                      {u.suspended
+                        ? t("admin.users.suspended")
+                        : t(`admin.tutors.account.${u.account}`)}
+                    </span>
                   </td>
 
                   {/* Readable, composable badges; assignments live inside Edit Profile. */}
-                  <td><div className="flex flex-wrap gap-1.5">
-                    {membershipBadges(accountMembership(u)).map(badge => (
-                      <span key={badge} className={badge === "HEAD" ? "badge-green" : "badge-slate"}>
-                        {badge === "TRANSLATOR" ? t("membership.translator") : t(`admin.users.roles.${badge}`)}
-                      </span>
-                    ))}
-                  </div></td>
+                  <td>
+                    <div className="flex flex-wrap gap-1.5">
+                      {membershipBadges(accountMembership(u)).map((badge) => (
+                        <span
+                          key={badge}
+                          className={
+                            badge === "HEAD" ? "badge-green" : "badge-slate"
+                          }
+                        >
+                          {badge === "TRANSLATOR"
+                            ? t("membership.translator")
+                            : t(`admin.users.roles.${badge}`)}
+                        </span>
+                      ))}
+                    </div>
+                  </td>
 
                   {/* Contact/profile actions stay available to permitted staff. Only deletion is head-only. */}
-                  <td>
-                    <div className="flex flex-col items-end gap-1.5 whitespace-nowrap">
-                      <EmailDetails
-                        showPolicyHistory
-                        email={u.email}
-                        name={u.name}
-                        verifiedAt={u.emailVerifiedAt}
-                        userId={u.userId}
-                        tutorId={u.tutorId}
-                        linked={!!u.userId}
-                        canSendSetup={
-                          !!u.userId ||
-                          (!!u.tutorId && u.email === u.tutor?.email)
-                        }
-                      />
-                      {u.userId && (
-                        <button
-                          className="link mt-1 block text-xs"
-                          onClick={() => setEditingProfileId(u.userId)}
+                  <TableActions>
+                    <EmailDetails
+                      showPolicyHistory
+                      email={u.email}
+                      name={u.name}
+                      verifiedAt={u.emailVerifiedAt}
+                      userId={u.userId}
+                      tutorId={u.tutorId}
+                      linked={!!u.userId}
+                      canSendSetup={
+                        !!u.userId ||
+                        (!!u.tutorId && u.email === u.tutor?.email)
+                      }
+                      details={
+                        <dl className="mb-4 space-y-3 text-sm">
+                          {u.alternativeNames && (
+                            <div>
+                              <dt className="muted">
+                                {t("accountProfile.alternativeNames")}
+                              </dt>
+                              <dd>{u.alternativeNames}</dd>
+                            </div>
+                          )}
+                          {u.affiliation && (
+                            <div>
+                              <dt className="muted">
+                                {t("admin.users.columns.account")}
+                              </dt>
+                              <dd>{u.affiliation}</dd>
+                            </div>
+                          )}
+                          {u.tutor && (
+                            <div>
+                              <dt className="muted">
+                                {t("admin.tutors.colGrade")}
+                              </dt>
+                              <dd>
+                                {u.classOf != null
+                                  ? t("admin.tutors.classOf", {
+                                      year: u.classOf,
+                                    })
+                                  : (u.tutor.gradeLevel ?? "—")}
+                              </dd>
+                            </div>
+                          )}
+                        </dl>
+                      }
+                    />
+                    {/* Registered accounts recover access themselves; only unfinished tutor logins are provisioned. */}
+                    {u.tutorId &&
+                      (u.account === "none" || u.account === "setup") && (
+                        <TableAction
+                          disabled={!u.tutorHasEmail || sendSetup.isPending}
+                          title={
+                            !u.tutorHasEmail
+                              ? t("admin.tutors.account.needEmail")
+                              : undefined
+                          }
+                          onClick={() =>
+                            u.tutorId &&
+                            sendSetup.mutate({ tutorId: u.tutorId })
+                          }
                         >
-                          {t("accountProfile.editProfile")}
-                        </button>
+                          {t("admin.tutors.account.sendSetup")}
+                        </TableAction>
                       )}
-                      {isHead && u.userId && !u.isSelf && u.role !== "HEAD" ? (
-                        <button
-                          className="link-danger text-xs whitespace-nowrap"
-                          onClick={() => {
-                            const userId = u.userId;
-                            if (!userId) return;
-                            setConfirmError(null);
-                            setConfirm({
-                              title: t("admin.users.confirm.deleteTitle"),
-                              body: t("admin.users.confirm.deleteBody", {
-                                name: u.name,
-                              }),
-                              confirmLabel: t("admin.users.delete"),
-                              run: (pwd) =>
-                                deleteUser.mutate({
-                                  userId,
-                                  confirmPassword: pwd,
-                                }),
+                    {!u.tutorId &&
+                      u.role === "VIEWER" &&
+                      u.userId &&
+                      !u.isSelf &&
+                      (u.suspended ? (
+                        <TableAction
+                          disabled={reinstateUser.isPending}
+                          onClick={() =>
+                            reinstateUser.mutate({ userId: u.userId })
+                          }
+                        >
+                          {t("admin.users.reinstate")}
+                        </TableAction>
+                      ) : (
+                        <TableAction
+                          className="text-red-600"
+                          disabled={suspendUser.isPending}
+                          onClick={async () => {
+                            const reason = await promptText({
+                              title: t("admin.users.suspendTitle"),
+                              reasonLabel: t("admin.users.suspendPrompt"),
+                              confirmLabel: t("admin.users.suspend"),
+                              cancelLabel: t("common.cancel"),
+                              danger: true,
+                            });
+                            if (reason === null || !u.userId) return;
+                            suspendUser.mutate({
+                              userId: u.userId,
+                              reason: reason.length > 0 ? reason : undefined,
                             });
                           }}
                         >
-                          {t("admin.users.delete")}
-                        </button>
-                      ) : null}
-                    </div>
-                  </td>
+                          {t("admin.users.suspend")}
+                        </TableAction>
+                      ))}
+                    {u.userId && (
+                      <TableAction
+                        onClick={() => setEditingProfileId(u.userId)}
+                      >
+                        {t("accountProfile.editProfile")}
+                      </TableAction>
+                    )}
+                    {isHead && u.userId && !u.isSelf && u.role !== "HEAD" ? (
+                      <TableAction
+                        className="text-red-600"
+                        onClick={() => {
+                          const userId = u.userId;
+                          if (!userId) return;
+                          setConfirmError(null);
+                          setConfirm({
+                            title: t("admin.users.confirm.deleteTitle"),
+                            body: t("admin.users.confirm.deleteBody", {
+                              name: u.name,
+                            }),
+                            confirmLabel: t("admin.users.delete"),
+                            run: (pwd) =>
+                              deleteUser.mutate({
+                                userId,
+                                confirmPassword: pwd,
+                              }),
+                          });
+                        }}
+                      >
+                        {t("admin.users.delete")}
+                      </TableAction>
+                    ) : null}
+                  </TableActions>
                 </tr>
               );
             })}
@@ -612,16 +640,11 @@ export default function UsersPage() {
               </tr>
             )}
           </tbody>
-        </table>
+        </SummaryTable>
       </div>
       {/* Errors from the dangerous (dialog-gated) actions surface inside the dialog itself. */}
       {sendSetup.error && (
-        <p className="text-sm text-red-600">
-          {
-            sendSetup.error
-              ?.message
-          }
-        </p>
+        <p className="text-sm text-red-600">{sendSetup.error?.message}</p>
       )}
 
       {confirm && (

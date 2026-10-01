@@ -11,6 +11,12 @@ import { SortHeader, useSort, compare } from "~/app/_components/sortable";
 import { useReadOnly } from "~/app/_components/read-only";
 import { EmailDetails } from "~/app/_components/email-details";
 import { TuteeEditor } from "~/app/_components/tutee-editor";
+import {
+  SummaryTable,
+  TableActions,
+  TableAction,
+  TableDetails,
+} from "~/app/_components/ui/summary-table";
 
 type Status = "PENDING" | "ACTIVE" | "INACTIVE";
 
@@ -56,15 +62,11 @@ function StatsCells({
       </td>
       <td>
         {s.removalPending ? (
-          <Link href="/admin/discipline" className="hover:opacity-80">
-            <span className="badge-red">{removalLabel}</span>
-          </Link>
+          <span className="badge-red">{removalLabel}</span>
         ) : s.effectiveReds >= 1 ? (
-          <Link href="/admin/discipline" className="hover:opacity-80">
-            <span className="badge-amber">
-              {s.validRed}🟥 {s.validYellow}🟨
-            </span>
-          </Link>
+          <span className="badge-amber">
+            {s.validRed}🟥 {s.validYellow}🟨
+          </span>
         ) : (
           <span className="muted text-xs">
             {s.validRed}🟥 {s.validYellow}🟨
@@ -272,8 +274,8 @@ export default function TuteesPage() {
       </div>
 
       {view === "tutors" && (
-        <section className="card overflow-x-auto">
-          <table className="data-table">
+        <section className="card">
+          <SummaryTable label={t("admin.tutees.viewTutors")}>
             <thead>
               <tr>
                 <th>{t("admin.tutees.colTutor")}</th>
@@ -281,6 +283,9 @@ export default function TuteesPage() {
                 <th>{t("admin.tutees.colDayTime")}</th>
                 <th>{t("admin.tutees.colTimeSlot")}</th>
                 <th>{t("admin.tutees.colPairedTutees")}</th>
+                <th className="table-actions-heading">
+                  {t("tablePatterns.actions")}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -295,6 +300,9 @@ export default function TuteesPage() {
                       <td colSpan={4} className="text-slate-400">
                         {t("admin.tutees.noPairings")}
                       </td>
+                      <TableActions>
+                        <span className="text-slate-400">—</span>
+                      </TableActions>
                     </tr>,
                   ];
                 }
@@ -303,28 +311,78 @@ export default function TuteesPage() {
                     <td className="font-medium text-slate-800">
                       {i === 0 ? tutor.englishName : ""}
                     </td>
-                    <td>{p.subject}</td>
+                    <td>
+                      <span className="block max-w-52 truncate">
+                        {p.subject}
+                      </span>
+                    </td>
                     <td className="text-slate-600">
                       {pairingScheduleText(p, t("scheduling.awaiting"))}
                     </td>
                     <td className="text-slate-600">
-                      {p.timeSlot?.label ?? t("admin.tutees.tbd")}
+                      <span className="block max-w-40 truncate">
+                        {p.timeSlot?.label ?? t("admin.tutees.tbd")}
+                      </span>
                     </td>
-                    <td className="text-slate-600">
-                      {p.tutees.map((t) => t.tutee.englishName).join(", ") ||
-                        "—"}
-                    </td>
+                    <td className="text-slate-600">{p.tutees.length}</td>
+                    <TableActions>
+                      {/* Rosters summarize the pairing; long subject and participant lists belong in details. */}
+                      <TableDetails
+                        title={`${tutor.englishName} · ${p.subject}`}
+                      >
+                        <dl className="space-y-3">
+                          <div>
+                            <dt className="muted">
+                              {t("admin.tutees.colSubject")}
+                            </dt>
+                            <dd>{p.subject}</dd>
+                          </div>
+                          <div>
+                            <dt className="muted">
+                              {t("admin.tutees.colDayTime")}
+                            </dt>
+                            <dd>
+                              {pairingScheduleText(p, t("scheduling.awaiting"))}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="muted">
+                              {t("admin.tutees.colTimeSlot")}
+                            </dt>
+                            <dd>
+                              {p.timeSlot?.label ?? t("admin.tutees.tbd")}
+                            </dd>
+                          </div>
+                          <div>
+                            <dt className="muted">
+                              {t("admin.tutees.colPairedTutees")}
+                            </dt>
+                            <dd>
+                              {p.tutees.length ? (
+                                <ul className="list-disc pl-5">
+                                  {p.tutees.map(({ tutee }) => (
+                                    <li key={tutee.id}>{tutee.englishName}</li>
+                                  ))}
+                                </ul>
+                              ) : (
+                                "—"
+                              )}
+                            </dd>
+                          </div>
+                        </dl>
+                      </TableDetails>
+                    </TableActions>
                   </tr>
                 ));
               })}
             </tbody>
-          </table>
+          </SummaryTable>
         </section>
       )}
 
       {view === "tutees" && (
-        <section className="card overflow-x-auto">
-          <table className="data-table [&_td]:px-2 [&_th]:px-2">
+        <section className="card">
+          <SummaryTable label={t("admin.tutees.viewTutees")}>
             <thead>
               <tr>
                 <SortHeader sort={sort} sortKey="name">
@@ -340,11 +398,12 @@ export default function TuteesPage() {
                 <SortHeader sort={sort} sortKey="discipline">
                   {t("admin.tutees.colDiscipline")}
                 </SortHeader>
-                <th>{t("admin.tutees.colContact")}</th>
                 <SortHeader sort={sort} sortKey="status">
                   {t("admin.tutees.colStatus")}
                 </SortHeader>
-                <th></th>
+                <th className="table-actions-heading">
+                  {t("tablePatterns.actions")}
+                </th>
               </tr>
             </thead>
             <tbody>
@@ -354,11 +413,6 @@ export default function TuteesPage() {
                     <p className="font-medium [overflow-wrap:anywhere] text-slate-900">
                       {t2.englishName}
                     </p>
-                    {t2.alternativeNames && (
-                      <p className="muted text-xs [overflow-wrap:anywhere]">
-                        {t2.alternativeNames}
-                      </p>
-                    )}
                     <p className="muted mt-1 text-xs">
                       {t2.user?.username
                         ? `@${t2.user.username}`
@@ -366,30 +420,13 @@ export default function TuteesPage() {
                     </p>
                   </td>
                   <td>{t2.gradeLevel ?? "—"}</td>
-                  <td className="w-36 max-w-36 whitespace-normal text-slate-600">
-                    <ul className="space-y-1 text-sm">
-                      {[t2.firstChoice, t2.secondChoice]
-                        .filter((subject) => subject !== null)
-                        .map((subject) => (
-                          <li key={subject.id}>{subject.name}</li>
-                        ))}
-                    </ul>
-                    {!t2.firstChoice && !t2.secondChoice && "—"}
+                  <td className="text-slate-600">
+                    {[t2.firstChoice, t2.secondChoice].filter(Boolean).length}
                   </td>
                   <StatsCells
                     s={stats.data?.[t2.id]}
                     removalLabel={t("admin.tutees.removalBadge")}
                   />
-                  <td className="text-slate-600">
-                    <EmailDetails
-                      name={t2.englishName}
-                      email={t2.user?.email ?? t2.email}
-                      verifiedAt={t2.user?.emailVerifiedAt}
-                      userId={t2.user?.id}
-                      canSendSetup={!readOnly && !!t2.user}
-                      linked={!!t2.user}
-                    />
-                  </td>
                   {/* Status is read-only here — transitions follow the procedures: assignment on
                       /admin/requests, removal & reinstatement on /admin/tutee-requests. */}
                   <td>
@@ -398,38 +435,88 @@ export default function TuteesPage() {
                       label={statusLabel(t2.status)}
                     />
                   </td>
-                  {/* Reserve one unbroken action group even when other columns grow. */}
-                  <td className="w-px text-right whitespace-nowrap">
-                    <div className="inline-flex flex-col items-end justify-center gap-2">
-                      {!readOnly && (
-                        <button
-                          className="link whitespace-nowrap"
-                          onClick={() => setEditingId(t2.id)}
-                        >
-                          {t("accountProfile.editProfile")}
-                        </button>
-                      )}
-                      {!readOnly && (
-                        <button
-                          className="link-danger whitespace-nowrap"
-                          onClick={() => del.mutate({ id: t2.id })}
-                        >
-                          {t("admin.tutees.deleteBtn")}
-                        </button>
-                      )}
-                    </div>
-                  </td>
+                  <TableActions>
+                    <TableDetails title={t2.englishName}>
+                      <dl className="space-y-3">
+                        <div>
+                          <dt className="muted">
+                            {t("accountProfile.alternativeNames")}
+                          </dt>
+                          <dd>{t2.alternativeNames ?? "—"}</dd>
+                        </div>
+                        <div>
+                          <dt className="muted">
+                            {t("admin.tutees.colCourses")}
+                          </dt>
+                          <dd>
+                            <ul>
+                              {[t2.firstChoice, t2.secondChoice]
+                                .filter((subject) => subject !== null)
+                                .map((subject) => (
+                                  <li key={subject.id}>{subject.name}</li>
+                                ))}
+                            </ul>
+                            {!t2.firstChoice && !t2.secondChoice && "—"}
+                          </dd>
+                        </div>
+                        <div>
+                          <dt className="muted">
+                            {t("admin.tutees.colContact")}
+                          </dt>
+                          <dd>
+                            {readOnly
+                              ? t("accountProfile.privateEmail")
+                              : (t2.user?.email ??
+                                t2.email ??
+                                t("accountProfile.noEmail"))}
+                          </dd>
+                        </div>
+                      </dl>
+                    </TableDetails>
+                    {!readOnly && (t2.user?.email ?? t2.email) && (
+                      <EmailDetails
+                        name={t2.englishName}
+                        email={t2.user?.email ?? t2.email}
+                        verifiedAt={t2.user?.emailVerifiedAt}
+                        userId={t2.user?.id}
+                        canSendSetup={!!t2.user}
+                        linked={!!t2.user}
+                      />
+                    )}
+                    {((stats.data?.[t2.id]?.removalPending ?? false) ||
+                      (stats.data?.[t2.id]?.effectiveReds ?? 0) >= 1) && (
+                      <Link
+                        href="/admin/discipline"
+                        className="table-action-link"
+                      >
+                        {t("admin.tutees.colDiscipline")}
+                      </Link>
+                    )}
+                    {!readOnly && (
+                      <TableAction onClick={() => setEditingId(t2.id)}>
+                        {t("accountProfile.editProfile")}
+                      </TableAction>
+                    )}
+                    {!readOnly && (
+                      <TableAction
+                        className="text-red-600"
+                        onClick={() => del.mutate({ id: t2.id })}
+                      >
+                        {t("admin.tutees.deleteBtn")}
+                      </TableAction>
+                    )}
+                  </TableActions>
                 </tr>
               ))}
               {rows.length === 0 && (
                 <tr>
-                  <td colSpan={8} className="text-slate-500">
+                  <td colSpan={7} className="text-slate-500">
                     {t("admin.tutees.emptyTutees")}
                   </td>
                 </tr>
               )}
             </tbody>
-          </table>
+          </SummaryTable>
         </section>
       )}
     </div>

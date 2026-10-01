@@ -34,6 +34,8 @@
  */
 :root,
 [data-theme="indigo"] {
+  --action-background: var(--accent-600);
+  --action-hover: var(--accent-700);
   --accent-50: var(--color-indigo-50);
   --accent-100: var(--color-indigo-100);
   --accent-200: var(--color-indigo-200);
@@ -60,6 +62,8 @@
   --accent-950: var(--color-violet-950);
 }
 [data-theme="emerald"] {
+  --action-background: var(--accent-700);
+  --action-hover: var(--accent-800);
   --accent-50: var(--color-emerald-50);
   --accent-100: var(--color-emerald-100);
   --accent-200: var(--color-emerald-200);
@@ -86,6 +90,8 @@
   --accent-950: var(--color-rose-950);
 }
 [data-theme="amber"] {
+  --action-background: var(--accent-700);
+  --action-hover: var(--accent-800);
   --accent-50: var(--color-amber-50);
   --accent-100: var(--color-amber-100);
   --accent-200: var(--color-amber-200);
@@ -99,6 +105,8 @@
   --accent-950: var(--color-amber-950);
 }
 [data-theme="sky"] {
+  --action-background: var(--accent-700);
+  --action-hover: var(--accent-800);
   --accent-50: var(--color-sky-50);
   --accent-100: var(--color-sky-100);
   --accent-200: var(--color-sky-200);
@@ -146,6 +154,14 @@
   /* Buttons --------------------------------------------------------------- */
   .btn-primary {
     @apply btn bg-accent-600 hover:bg-accent-700 active:bg-accent-800 text-white;
+    /* Bright palettes keep their hue, with a deeper surface for readable white labels. */
+    background-color: var(--action-background);
+    &:hover {
+      background-color: var(--action-hover);
+    }
+    &:active {
+      background-color: var(--accent-800);
+    }
   }
   .btn-secondary {
     @apply btn border border-slate-300 bg-white text-slate-700 hover:bg-slate-50;
@@ -160,6 +176,29 @@
   /* Size modifier — declared after variants so it overrides their padding. */
   .btn-sm {
     @apply px-3 py-1.5 text-xs;
+  }
+
+  /* Context sizes shared by the gallery and product; long translations may grow. */
+  .control-standard {
+    @apply min-h-11 min-w-11 lg:min-h-10;
+  }
+  .control-compact {
+    @apply min-h-11 min-w-11 px-3 py-2 lg:min-h-8 lg:py-1;
+  }
+  .choice-control {
+    @apply focus-visible:ring-accent-500 inline-flex items-center justify-center rounded-md border border-slate-300 bg-white text-sm font-medium text-slate-600 focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50;
+  }
+  .choice-control[aria-pressed="true"] {
+    @apply border-accent-500 bg-accent-50 text-accent-800;
+  }
+  .section-tab {
+    @apply focus-visible:ring-accent-500 -mb-px border-b-2 border-transparent text-sm font-medium text-slate-600 focus-visible:ring-2 focus-visible:outline-none;
+  }
+  .section-tab[aria-selected="true"] {
+    @apply border-accent-600 text-accent-800;
+  }
+  .switch-control {
+    @apply focus-visible:ring-accent-500 inline-flex min-h-11 min-w-11 shrink-0 items-center justify-center rounded-md focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none disabled:opacity-50 lg:min-h-8;
   }
 
   /* Inline text links (table actions etc.) -------------------------------- */
@@ -230,6 +269,38 @@
     @apply bg-slate-50/60;
   }
 
+  /* Brief summary columns share one trailing text-action column on every viewport.
+     Only the table scrolls; sticky actions remain available without hunting sideways. */
+  .summary-table-scroll {
+    @apply focus-visible:ring-accent-500 relative max-w-full overflow-x-auto rounded-lg focus-visible:ring-2 focus-visible:outline-none;
+  }
+  .summary-table {
+    @apply w-full;
+  }
+  .summary-table .table-actions,
+  .summary-table .table-actions-heading {
+    @apply sticky right-0 z-10 bg-white text-right;
+    box-shadow: -1px 0 0 var(--color-slate-200);
+  }
+  .summary-table .table-actions-heading {
+    @apply bg-slate-50;
+  }
+  .table-action-list {
+    @apply flex min-w-24 flex-col items-end gap-1;
+  }
+  .table-action-link {
+    @apply text-accent-700 focus-visible:ring-accent-500 inline-flex min-h-11 min-w-11 items-center justify-end rounded px-1 text-right text-xs font-medium hover:underline focus-visible:ring-2 focus-visible:outline-none disabled:cursor-not-allowed disabled:opacity-50 lg:min-h-8;
+  }
+  @media print {
+    .summary-table-scroll {
+      overflow: visible;
+    }
+    .summary-table .table-actions,
+    .summary-table .table-actions-heading {
+      display: none;
+    }
+  }
+
   /* Badges ---------------------------------------------------------------- */
   .badge-green {
     @apply badge bg-green-100 text-green-700;
@@ -286,6 +357,10 @@
   }
   .print-only {
     display: block;
+  }
+  .summary-table th.print-only,
+  .summary-table td.print-only {
+    display: table-cell;
   }
 
   /* Document base: dark ink, aligned numerals (ledger columns), colours/rules print as-is. */

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import { ProfileDialog } from "~/app/_components/profile-dialog";
@@ -18,6 +18,8 @@ type EmailDetailsProps = {
   linked?: boolean;
   contactOnly?: boolean;
   showPolicyHistory?: boolean;
+  /** Optional identity metadata shares the on-demand dialog instead of widening summary cells. */
+  details?: ReactNode;
 };
 
 /** Long addresses live in an accessible detail dialog, never in a roster's width calculation. */
@@ -34,7 +36,8 @@ export function EmailDetails(props: EmailDetailsProps) {
     <>
       <button
         type="button"
-        className="link text-xs whitespace-nowrap"
+        className="table-action-link"
+        aria-haspopup="dialog"
         onClick={() => setOpen(true)}
       >
         {t(props.showPolicyHistory ? "showDetails" : "showEmail")}
@@ -46,6 +49,7 @@ export function EmailDetails(props: EmailDetailsProps) {
           })}
           onClose={() => setOpen(false)}
         >
+          {props.details}
           {props.email ? (
             <EmailContent {...props} email={props.email} />
           ) : (

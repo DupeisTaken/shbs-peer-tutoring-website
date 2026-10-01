@@ -7,7 +7,7 @@ import { AcceptanceRecords } from "./acceptance-records";
 import { ProfileDialog } from "./profile-dialog";
 import { useReadOnly } from "./read-only";
 
-/** Keep the entry beside the tutor's name, within reach on horizontally scrolling rosters.
+/** Keep the entry in the roster's trailing action column.
  * No detail/history query is mounted until staff explicitly open this person. */
 export function TutorDetailsButton({
   tutorId,
@@ -26,7 +26,7 @@ export function TutorDetailsButton({
       <button
         ref={trigger}
         type="button"
-        className="btn-secondary btn-sm mt-2 min-h-11 text-left whitespace-normal lg:min-h-8"
+        className="table-action-link"
         aria-label={t("openFor", { name })}
         aria-haspopup="dialog"
         onClick={() => setOpen(true)}

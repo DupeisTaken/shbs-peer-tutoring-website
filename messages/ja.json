@@ -1,4 +1,36 @@
 {
+  "uiPatterns": {
+    "meetingDate": "会議日",
+    "profile": "プロフィール",
+    "saveProfile": "プロフィールを保存",
+    "cancel": "キャンセル",
+    "retry": "再試行",
+    "loadFailed": "このセクションを読み込めませんでした",
+    "editorDenied": "トップページの編集画面にアクセスできません",
+    "editorDeniedHelp": "トップページの内容を編集・プレビューするには、管理ロールと明示的な翻訳担当者の権限付与の両方が必要です。プログラム責任者にアクセス権の確認を依頼してください。",
+    "returnManagement": "管理画面に戻る",
+    "scrollTable": "すべての列を比較するには横にスクロールしてください。",
+    "deleteMeeting": "会議を削除しますか？",
+    "deleteMeetingHelp": "「{title}」とその出席記録を削除しますか？この操作は取り消せません。",
+    "attendanceFor": "{name}の出席状況"
+  },
+  "tablePatterns": {
+    "actions": "操作",
+    "details": "詳細を見る",
+    "edit": "編集",
+    "close": "閉じる",
+    "summary": "概要",
+    "records": "{count, plural, other {#件}}",
+    "schedule": "予定を見る",
+    "occupied": "使用中",
+    "available": "利用可能",
+    "unavailable": "利用不可",
+    "reason": "理由",
+    "slot": "時間枠",
+    "room": "教室",
+    "select": "選択",
+    "selected": "選択済み"
+  },
   "scheduling": {
     "awaiting": "日程調整待ち",
     "noLinkedSlot": "登録時間枠の紐付けなし",
@@ -1265,7 +1297,7 @@
       "pendingReview": "確認待ち",
       "nothingPending": "確認待ちの内容はありません。",
       "standingHeading": "生徒の状況",
-      "standingHelp": "🟥は3枠、🟨は1枠を占めます（有効なカードのみ）。6枠すべてで退出保留。名前をクリックするとカードの詳細を表示します。",
+      "standingHelp": "🟥は3枠、🟨は1枠を占めます（有効なカードのみ）。6枠すべてが埋まると、プログラムからの除外処理待ちになります。カードを見るには、右端の列の詳細リンクを使ってください。",
       "standing": {
         "removalPending": "退出保留",
         "onWarning": "警告中",
@@ -1840,6 +1872,7 @@
       "empty": "まだ公開されているタイムスロットはありません。",
       "save": "空き時間を保存",
       "saving": "保存中…",
+      "refreshFailed": "保存は受け付けられましたが、更新後の空き時間を読み込めませんでした。続けて変更する前に、読み込みを再試行してください。",
       "saved": "保存しました。"
     },
     "interviews": {
