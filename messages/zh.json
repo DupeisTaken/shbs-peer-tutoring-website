@@ -3772,6 +3772,7 @@
     "lastNameHelp": "请用拉丁字母填写您的姓。",
     "preferredNameHelp": "您希望我们代替名字使用的称呼。请使用拉丁字母。",
     "alternativeNamesHelp": "用其他语言或文字书写的姓名，例如张小明。",
+    "legacyPreserved": "原记录姓名：{name}。保持拉丁字母姓名字段不变即可保留原姓名；如需更改，请填写名。",
     "legacy": "原记录姓名：{name}。请分别填写名和姓以更新个人资料。"
   }
 }

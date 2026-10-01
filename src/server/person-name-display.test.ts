@@ -261,3 +261,196 @@ it("preserves accents and Unicode alternate names in the shared validator", () =
     alternativeNames: "王小明 / Николай",
   });
 });
+
+it.each([false, true])(
+  "preserves legacy tutee identity during notes-only edits (linked=%s)",
+  async (linked) => {
+    const row = await db.tutee.create({
+      data: { englishName: "张小明", status: "INACTIVE" },
+    });
+    if (linked)
+      await db.user.create({
+        data: {
+          name: "张小明",
+          email: "legacy@example.test",
+          studentId: row.id,
+        },
+      });
+    await caller().admin.updateTutee({
+      id: row.id,
+      expectedUpdatedAt: row.updatedAt,
+      englishName: row.englishName,
+      status: "INACTIVE",
+      notes: "Corrected notes",
+    });
+    expect(
+      await db.tutee.findUniqueOrThrow({ where: { id: row.id } }),
+    ).toMatchObject({
+      englishName: "张小明",
+      firstName: null,
+      lastName: null,
+      notes: "Corrected notes",
+    });
+  },
+);
+it.each([false, true])(
+  "preserves legacy tutor identity and confirmation provenance (linked=%s)",
+  async (linked) => {
+    const row = await db.tutor.create({
+      data: {
+        englishName: "王小明",
+        status: "ARCHIVED",
+        alternativeNames: "Original alias",
+        nameFieldsConfirmed: false,
+      },
+    });
+    if (linked)
+      await db.user.create({
+        data: {
+          name: "王小明",
+          email: "legacy@example.test",
+          tutorId: row.id,
+          alternativeNames: "Original alias",
+          username: "legacyuser",
+        },
+      });
+    await caller().admin.updateTutor({
+      id: row.id,
+      expectedUpdatedAt: row.updatedAt,
+      status: "ARCHIVED",
+    });
+    expect(
+      await db.tutor.findUniqueOrThrow({ where: { id: row.id } }),
+    ).toMatchObject({
+      englishName: "王小明",
+      firstName: null,
+      lastName: null,
+      preferredName: null,
+      alternativeNames: "Original alias",
+      nameFieldsConfirmed: false,
+    });
+  },
+);
+it.each([
+  { lastName: "Chen" },
+  { preferredName: "Alex" },
+  { firstName: "王" },
+  { firstName: "" },
+])(
+  "rejects incomplete or non-Latin legacy tutor conversions: %j",
+  async (fields) => {
+    const row = await db.tutor.create({
+      data: { englishName: "王小明", status: "ARCHIVED" },
+    });
+    await expect(
+      caller().admin.updateTutor({ id: row.id, status: "ARCHIVED", ...fields }),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(
+      await db.tutor.findUniqueOrThrow({ where: { id: row.id } }),
+    ).toMatchObject({ englishName: "王小明", firstName: null });
+  },
+);
+it("converts a legacy tutor only when a valid explicit first name is supplied", async () => {
+  const row = await db.tutor.create({
+    data: { englishName: "王小明", status: "ARCHIVED" },
+  });
+  await caller().admin.updateTutor({
+    id: row.id,
+    status: "ARCHIVED",
+    firstName: "José",
+    lastName: "García",
+  });
+  expect(
+    await db.tutor.findUniqueOrThrow({ where: { id: row.id } }),
+  ).toMatchObject({
+    englishName: "José García",
+    firstName: "José",
+    lastName: "García",
+    nameFieldsConfirmed: true,
+  });
+});
+it("allows an account alias correction without inventing structured legacy names", async () => {
+  const account = await db.user.create({
+    data: { name: "张小明", email: "legacy@example.test" },
+  });
+  await caller().admin.updateAccountProfile({
+    userId: account.id,
+    name: "张小明",
+    alternativeNames: "小明",
+    expectedProfileVersion: 0,
+  });
+  expect(
+    await db.user.findUniqueOrThrow({ where: { id: account.id } }),
+  ).toMatchObject({
+    name: "张小明",
+    firstName: null,
+    lastName: null,
+    alternativeNames: "小明",
+  });
+});
+
+it.each([false, true])(
+  "repeated legacy edits preserve the source name with alternate display enabled (linked=%s)",
+  async (linked) => {
+    await caller().program.setProfilePolicy({
+      ...defaults,
+      showAlternateNames: true,
+      expectedPolicy: defaults,
+    });
+    const row = await db.tutee.create({
+      data: {
+        englishName: "张小明",
+        alternativeNames: "Original alias",
+        status: "INACTIVE",
+      },
+    });
+    const user = linked
+      ? await db.user.create({
+          data: {
+            name: "张小明",
+            email: "legacy@example.test",
+            studentId: row.id,
+            alternativeNames: "Original alias",
+          },
+        })
+      : null;
+    for (const alias of ["New alias", "Final alias"]) {
+      const latest = await db.tutee.findUniqueOrThrow({
+        where: { id: row.id },
+      });
+      await caller().admin.updateTutee({
+        id: row.id,
+        expectedUpdatedAt: latest.updatedAt,
+        englishName: "张小明",
+        alternativeNames: alias,
+        status: "INACTIVE",
+        notes: alias,
+      });
+      expect(
+        await db.tutee.findUniqueOrThrow({ where: { id: row.id } }),
+      ).toMatchObject({
+        englishName: `张小明 · ${alias}`,
+        legacyName: "张小明",
+        firstName: null,
+      });
+    }
+    if (user) {
+      const latest = await db.user.findUniqueOrThrow({
+        where: { id: user.id },
+      });
+      await caller().admin.updateAccountProfile({
+        userId: user.id,
+        expectedProfileVersion: latest.profileVersion,
+        name: "张小明",
+        alternativeNames: "Account alias",
+      });
+      expect(
+        await db.user.findUniqueOrThrow({ where: { id: user.id } }),
+      ).toMatchObject({
+        name: "张小明 · Account alias",
+        legacyName: "张小明",
+        firstName: null,
+      });
+    }
+  },
+);
