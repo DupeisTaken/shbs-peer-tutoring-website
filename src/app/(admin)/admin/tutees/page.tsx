@@ -125,6 +125,7 @@ export default function TuteesPage() {
 
   const invalidate = () => invalidateTuteeViews(utils);
   const create = api.admin.createTutee.useMutation({ onSuccess: invalidate });
+  const creationApprovalId = create.error?.data?.approvalId;
   const del = api.admin.deleteTutee.useMutation({ onSuccess: invalidate });
   useEffect(() => {
     // Mutation callbacks can run while the trigger is still disabled. Restore
@@ -326,84 +327,96 @@ export default function TuteesPage() {
             {/* Freeze every draft field while the submitted snapshot is saved. */}
             <fieldset
               disabled={create.isPending}
-              className="flex min-w-0 flex-wrap items-end gap-3"
+              className="grid max-w-2xl min-w-0 gap-4 [&_.input:disabled]:bg-slate-50 [&_.select:disabled]:bg-slate-50"
             >
-              <div className="w-full max-w-2xl">
-                <PersonNameFields value={names} onChange={setNames} />
-              </div>
-              <label className="space-y-1">
-                <span className="label">
-                  {t("admin.tutees.grade")}
-                  <FieldRequirement state="optional" />
-                </span>
-                <OfferedGradeSelect
-                  value={gradeLevel}
-                  onChange={setGradeLevel}
-                  offeredGrades={policy.offeredGrades}
-                  includeGraduated
-                />
-              </label>
-              <label className="space-y-1">
-                <span className="label">
-                  {t("admin.tutees.firstChoice")}
-                  <FieldRequirement state="optional" />
-                </span>
-                <select
-                  value={firstChoiceId}
-                  onChange={(e) => setFirstChoiceId(e.target.value)}
-                  className="select field-auto min-w-40"
-                >
-                  <option value="">—</option>
-                  {courseList.map((c) => (
-                    <option key={c.id} value={c.id}>
-                      {c.name}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <label className="space-y-1">
-                <span className="label">
-                  {t("admin.tutees.secondChoice")}
-                  <FieldRequirement state="optional" />
-                </span>
-                <select
-                  value={secondChoiceId}
-                  onChange={(e) => setSecondChoiceId(e.target.value)}
-                  className="select field-auto min-w-40"
-                >
-                  <option value="">—</option>
-                  {courseList
-                    .filter((c) => c.id !== firstChoiceId)
-                    .map((c) => (
+              <PersonNameFields value={names} onChange={setNames} />
+              {/* Keep choices in their own aligned row; wrapping the whole name
+                  block beside Grade made the final name row look misaligned. */}
+              <div className="grid min-w-0 items-end gap-3 sm:grid-cols-3">
+                <label className="min-w-0 space-y-1">
+                  <span className="label">
+                    {t("admin.tutees.grade")}
+                    <FieldRequirement state="optional" />
+                  </span>
+                  <OfferedGradeSelect
+                    value={gradeLevel}
+                    onChange={setGradeLevel}
+                    offeredGrades={policy.offeredGrades}
+                    includeGraduated
+                  />
+                </label>
+                <label className="min-w-0 space-y-1">
+                  <span className="label">
+                    {t("admin.tutees.firstChoice")}
+                    <FieldRequirement state="optional" />
+                  </span>
+                  <select
+                    value={firstChoiceId}
+                    onChange={(e) => setFirstChoiceId(e.target.value)}
+                    className="select min-h-11 w-full lg:min-h-10"
+                  >
+                    <option value="">—</option>
+                    {courseList.map((c) => (
                       <option key={c.id} value={c.id}>
                         {c.name}
                       </option>
                     ))}
-                </select>
-              </label>
-              <button
-                className="btn-primary min-h-11 lg:min-h-10"
-                disabled={!name.trim() || create.isPending}
-              >
-                {t("admin.tutees.addTuteeBtn")}
-              </button>
-              <button
-                type="button"
-                className="btn-secondary min-h-11 lg:min-h-10"
-                disabled={create.isPending}
-                onClick={() => {
-                  if (create.isPending || creationSubmitting.current) return;
-                  setCreationOpen(false);
-                  addTrigger.current?.focus();
-                }}
-              >
-                {t("admin.tutees.hideAddForm")}
-              </button>
+                  </select>
+                </label>
+                <label className="min-w-0 space-y-1">
+                  <span className="label">
+                    {t("admin.tutees.secondChoice")}
+                    <FieldRequirement state="optional" />
+                  </span>
+                  <select
+                    value={secondChoiceId}
+                    onChange={(e) => setSecondChoiceId(e.target.value)}
+                    className="select min-h-11 w-full lg:min-h-10"
+                  >
+                    <option value="">—</option>
+                    {courseList
+                      .filter((c) => c.id !== firstChoiceId)
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              </div>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  className="btn-primary min-h-11 lg:min-h-10"
+                  disabled={!name.trim() || create.isPending}
+                >
+                  {t("admin.tutees.addTuteeBtn")}
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary min-h-11 lg:min-h-10"
+                  disabled={create.isPending}
+                  onClick={() => {
+                    if (create.isPending || creationSubmitting.current) return;
+                    setCreationOpen(false);
+                    addTrigger.current?.focus();
+                  }}
+                >
+                  {t("admin.tutees.hideAddForm")}
+                </button>
+              </div>
             </fieldset>
           </form>
           {create.error && (
-            <p role="alert" className="mt-3 text-sm text-red-600">
-              <ProfilePolicyError message={create.error.message} />
+            <p
+              role={creationApprovalId ? "status" : "alert"}
+              className={`mt-3 text-sm ${creationApprovalId ? "text-emerald-700" : "text-red-600"}`}
+            >
+              {/* Queued approval is an expected outcome, not a failed save. */}
+              {creationApprovalId ? (
+                t("approvals.queuedBody")
+              ) : (
+                <ProfilePolicyError message={create.error.message} />
+              )}
             </p>
           )}
         </section>
@@ -570,7 +583,7 @@ export default function TuteesPage() {
                 <th>{t("admin.users.columns.actions")}</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody aria-busy={tutees.isPending}>
               {rows.map((t2) => (
                 <tr key={t2.id}>
                   <td className="max-w-52 min-w-40">
@@ -650,7 +663,16 @@ export default function TuteesPage() {
                   </td>
                 </tr>
               ))}
-              {rows.length === 0 && (
+              {tutees.isPending && (
+                <tr>
+                  <td colSpan={8} className="text-slate-500">
+                    {h("loading")}
+                  </td>
+                </tr>
+              )}
+              {/* Absence of loaded data is not an empty roster. Read failures
+                  already have a retryable error above the table. */}
+              {!tutees.isPending && !tutees.error && rows.length === 0 && (
                 <tr>
                   <td colSpan={8} className="text-slate-500">
                     {h(
