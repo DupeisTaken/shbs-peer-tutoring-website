@@ -39,3 +39,17 @@ it("bounds inputs without trimming, rejects passwordless accounts, and isolates 
   const long = "x".repeat(1024);
   expect(confirm(randomUUID(), long, password.hashPassword(long))).toBe(true);
 });
+
+it("recovers one slot at a time in a sliding window rather than resetting the whole bucket", () => {
+  const id = randomUUID();
+  const verify = vi.spyOn(password, "verifyPassword").mockReturnValue(true);
+  confirm(id, "valid", hash);
+  vi.advanceTimersByTime(60_000);
+  for (let i = 1; i < LIMIT; i++) confirm(id, "valid", hash);
+  vi.advanceTimersByTime(WINDOW - 60_000);
+  expect(confirm(id, "valid", hash)).toBe(true);
+  expect(() => confirm(id, "valid", hash)).toThrow(/Too many/);
+  expect(verify).toHaveBeenCalledTimes(LIMIT + 1);
+  vi.advanceTimersByTime(60_000);
+  expect(confirm(id, "valid", hash)).toBe(true);
+});
