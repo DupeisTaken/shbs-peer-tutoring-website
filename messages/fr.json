@@ -3770,6 +3770,7 @@
     "lastNameHelp": "Votre nom de famille, écrit en lettres latines.",
     "preferredNameHelp": "Le prénom que vous souhaitez que nous utilisions. Utilisez des lettres latines.",
     "alternativeNamesHelp": "Votre nom dans une autre langue ou écriture, par exemple 张小明.",
+    "legacyPreserved": "Nom enregistré : {name}. Laissez les champs du nom en lettres latines inchangés pour le conserver. Saisissez un prénom pour le remplacer.",
     "legacy": "Nom enregistré : {name}. Saisissez séparément votre prénom et votre nom de famille pour mettre à jour le profil."
   }
 }

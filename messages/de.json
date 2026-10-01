@@ -3770,6 +3770,7 @@
     "lastNameHelp": "Ihr Familienname in lateinischen Buchstaben.",
     "preferredNameHelp": "Der Name, den wir statt Ihres Vornamens verwenden sollen. Bitte lateinische Buchstaben verwenden.",
     "alternativeNamesHelp": "Ihr Name in einer anderen Sprache oder Schrift, zum Beispiel 张小明.",
+    "legacyPreserved": "Bisheriger Name: {name}. Lassen Sie die lateinischen Namensfelder unverändert, um ihn zu behalten. Geben Sie einen Vornamen ein, um ihn zu ersetzen.",
     "legacy": "Bisheriger Name: {name}. Geben Sie Vor- und Nachnamen getrennt ein, um das Profil zu aktualisieren."
   }
 }

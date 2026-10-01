@@ -1,6 +1,6 @@
 "use client";
 import { PersonNameFields } from "~/app/_components/person-name-fields";
-import { nameDraft, fullPersonName } from "~/lib/person-name";
+import { nameDraft, personNameEdit } from "~/lib/person-name";
 
 import { SchoolDeparturePanel } from "./school-departure";
 import { MembershipEditor } from "./membership-editor";
@@ -36,7 +36,12 @@ export function AccountProfileEditor({
 }) {
   const t = useTranslations("accountProfile");
   const [names, setNames] = useState(() => nameDraft(profile));
-  const name = fullPersonName(names);
+  const [originalNames, setOriginalNames] = useState(() => nameDraft(profile));
+  const [legacyName, setLegacyName] = useState(
+    profile.legacyName ?? profile.name,
+  );
+  const identity = personNameEdit(names, originalNames, legacyName);
+  const name = identity.name;
   const [expectedProfileVersion, setExpectedProfileVersion] = useState(
     profile.profileVersion,
   );
@@ -63,7 +68,7 @@ export function AccountProfileEditor({
           save.mutate({
             userId: profile.userId,
             name,
-            ...names,
+            ...identity.fields,
             expectedProfileVersion,
           });
         }}
@@ -72,7 +77,8 @@ export function AccountProfileEditor({
         <PersonNameFields
           value={names}
           onChange={setNames}
-          legacyName={profile.legacyName ?? profile.name}
+          legacyName={legacyName}
+          originalValue={originalNames}
         />
         <button
           className="btn-primary min-h-11 lg:min-h-10"
@@ -96,6 +102,8 @@ export function AccountProfileEditor({
               );
               if (latest?.profileVersion != null) {
                 setNames(nameDraft(latest));
+                setOriginalNames(nameDraft(latest));
+                setLegacyName(latest.legacyName ?? latest.name);
                 setExpectedProfileVersion(latest.profileVersion);
                 save.reset();
               }

@@ -3770,6 +3770,7 @@
     "lastNameHelp": "Tu apellido, escrito con letras latinas.",
     "preferredNameHelp": "El nombre que quieres que usemos en lugar de tu nombre de pila. Usa letras latinas.",
     "alternativeNamesHelp": "Tu nombre en otro idioma o sistema de escritura, como 张小明.",
+    "legacyPreserved": "Nombre registrado: {name}. Deja los campos de nombre en letras latinas sin cambios para conservarlo. Introduce un nombre para reemplazarlo.",
     "legacy": "Nombre registrado: {name}. Introduce el nombre y el apellido por separado para actualizar el perfil."
   }
 }

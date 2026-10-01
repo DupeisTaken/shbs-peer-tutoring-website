@@ -77,8 +77,18 @@ export async function updateAccountProfile(
           "Update the first and last name fields to change this profile.",
       });
     // Validate each intentional name change independently against the locked profile.
-    if (input.name !== undefined && !explicit)
-      await assertPrimaryName(tx, input.name, current.name);
+    if (
+      input.name !== undefined &&
+      !explicit &&
+      input.name.trim() !== current.name?.trim()
+    )
+      // A display label may append another script. The original unsplit name is
+      // also an unchanged identity, not an intentional replacement of that label.
+      await assertPrimaryName(
+        tx,
+        input.name,
+        current.firstName ? current.name : (current.legacyName ?? current.name),
+      );
 
     const alternative = input.alternativeNames?.trim() ?? "";
     const alternativeNames =

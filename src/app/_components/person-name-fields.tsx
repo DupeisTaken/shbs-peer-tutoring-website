@@ -3,7 +3,7 @@
 import { useId, useState } from "react";
 import { useTranslations } from "next-intl";
 import { FieldRequirement } from "./field-requirement";
-import type { PersonNameDraft } from "~/lib/person-name";
+import { preservesLegacyName, type PersonNameDraft } from "~/lib/person-name";
 import { isLatinPrimaryName } from "~/lib/profile-policy";
 
 /** One accessible layout for intake and profile editing; legacy names are shown without guessing a split. */
@@ -11,11 +11,13 @@ export function PersonNameFields({
   value,
   onChange,
   legacyName,
+  originalValue,
   requireLastName = false,
 }: {
   value: PersonNameDraft;
   onChange: (value: PersonNameDraft) => void;
   legacyName?: string | null;
+  originalValue?: PersonNameDraft;
   requireLastName?: boolean;
 }) {
   const t = useTranslations("personName");
@@ -24,18 +26,20 @@ export function PersonNameFields({
     Partial<Record<keyof PersonNameDraft, boolean>>
   >({});
   const id = useId();
+  const preserved = preservesLegacyName(value, originalValue, legacyName);
   return (
     <div className="grid min-w-0 gap-4 sm:grid-cols-2">
       {legacyName && !value.firstName && (
         <p className="rounded-md bg-amber-50 p-3 text-sm text-amber-900 sm:col-span-2">
-          {t("legacy", { name: legacyName })}
+          {t(preserved ? "legacyPreserved" : "legacy", { name: legacyName })}
         </p>
       )}
       {(
         ["firstName", "lastName", "preferredName", "alternativeNames"] as const
       ).map((key) => {
         const required =
-          key === "firstName" || (key === "lastName" && requireLastName);
+          !preserved &&
+          (key === "firstName" || (key === "lastName" && requireLastName));
         const invalid =
           key !== "alternativeNames" &&
           !!value[key].trim() &&
