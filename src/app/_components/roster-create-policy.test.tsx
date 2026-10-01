@@ -89,7 +89,6 @@ it.each([
       fireEvent.click(
         screen.getByRole("button", {
           name: messages.admin.tutors.addTutor,
-          exact: true,
         }),
       );
       fireEvent.change(
