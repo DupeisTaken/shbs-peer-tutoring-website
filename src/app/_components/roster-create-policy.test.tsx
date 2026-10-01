@@ -89,7 +89,6 @@ it.each([
       fireEvent.click(
         screen.getByRole("button", {
           name: messages.admin.tutors.addTutor,
-          exact: true,
         }),
       );
       fireEvent.change(
@@ -105,7 +104,6 @@ it.each([
       fireEvent.click(
         screen.getByRole("button", {
           name: messages.admin.tutees.addTutee,
-          exact: true,
         }),
       );
       fireEvent.change(screen.getByLabelText(messages.personName.firstName + " " + messages.signupFields.required), {
