@@ -449,7 +449,9 @@
         "linkEmailed": "Die Einrichtungs-E-Mail wurde an den Kontoinhaber gesendet.",
         "linkManual": "Der E-Mail-Versand ist nicht eingerichtet. Wenden Sie sich vor dem Versand von Kontoeinrichtungs-E-Mails an die für die Bereitstellung zuständige Person.",
         "dismiss": "Schließen"
-      }
+      },
+      "createDraftHint": "Beim Schließen dieses Dialogs bleiben Ihre Eingaben erhalten, bis Sie diese Seite verlassen.",
+      "created": "Tutor hinzugefügt."
     },
     "tutorStatus": {
       "ACTIVE": "Aktiv",
@@ -3646,6 +3648,10 @@
     }
   },
   "tuteeHistory": {
+    "noSearchMatches": "Keine Teilnehmenden entsprechen Ihrer Suche.",
+    "emptyHistory": "Keine historischen Lernenden-Datensätze anzuzeigen.",
+    "emptyCurrent": "Keine aktuellen Lernenden anzuzeigen.",
+    "emptyAll": "Keine Lernenden-Datensätze anzuzeigen.",
     "gradeClass": "Grade & Class",
     "classOf": "Class of {year}",
     "reviewNeeded": "Review needed",
@@ -3773,6 +3779,7 @@
     "lastNameHelp": "Ihr Familienname in lateinischen Buchstaben.",
     "preferredNameHelp": "Der Name, den wir statt Ihres Vornamens verwenden sollen. Bitte lateinische Buchstaben verwenden.",
     "alternativeNamesHelp": "Ihr Name in einer anderen Sprache oder Schrift, zum Beispiel 张小明.",
+    "legacyPreserved": "Bisheriger Name: {name}. Lassen Sie die lateinischen Namensfelder unverändert, um ihn zu behalten. Geben Sie einen Vornamen ein, um ihn zu ersetzen.",
     "legacy": "Bisheriger Name: {name}. Geben Sie Vor- und Nachnamen getrennt ein, um das Profil zu aktualisieren."
   }
 }

@@ -1,6 +1,6 @@
 "use client";
 import { PersonNameFields } from "~/app/_components/person-name-fields";
-import { nameDraft, fullPersonName } from "~/lib/person-name";
+import { nameDraft, personNameEdit } from "~/lib/person-name";
 
 import { useEffect, useState } from "react";
 import Link from "next/link";
@@ -61,7 +61,10 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
 
   // Name form — seeded from the loaded account.
   const [names, setNames] = useState(() => nameDraft());
-  const name = fullPersonName(names);
+  const [originalNames, setOriginalNames] = useState(() => nameDraft());
+  const [legacyName, setLegacyName] = useState<string | null | undefined>();
+  const identity = personNameEdit(names, originalNames, legacyName);
+  const name = identity.name;
   const [nameDraftVersion, setNameDraftVersion] = useState<
     number | undefined
   >();
@@ -70,6 +73,8 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
     // Other profile sections refetch this query. Keep unsaved identity edits and their version.
     if (me.data && !nameDirty) {
       setNames(nameDraft(me.data));
+      setOriginalNames(nameDraft(me.data));
+      setLegacyName(me.data?.legacyName ?? me.data?.name);
       setNameDraftVersion(me.data.profileVersion);
     }
   }, [me.data, nameDirty]);
@@ -215,14 +220,22 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
               setNames(value);
               setNameDirty(true);
             }}
-            legacyName={me.data?.legacyName ?? me.data?.name}
+            legacyName={legacyName}
+            originalValue={originalNames}
           />
           <button
             className="btn-secondary min-h-11 lg:min-h-10"
-            disabled={updateName.isPending || !names.firstName.trim()}
+            disabled={
+              updateName.isPending ||
+              (!identity.preserved && !names.firstName.trim())
+            }
             onClick={() =>
               updateName.mutate(
-                { ...names, name, expectedProfileVersion: nameDraftVersion },
+                {
+                  ...identity.fields,
+                  name,
+                  expectedProfileVersion: nameDraftVersion,
+                },
                 { onSuccess: () => setNameDirty(false) },
               )
             }

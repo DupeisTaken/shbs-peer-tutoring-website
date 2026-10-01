@@ -9,6 +9,50 @@ import { PersonNameFields } from "./person-name-fields";
 import { nameDraft } from "~/lib/person-name";
 afterEach(cleanup);
 
+it.each([en, zh])(
+  "permits native submission only while the legacy Latin identity is unchanged",
+  (messages) => {
+    function Form() {
+      const [value, setValue] = useState(nameDraft());
+      return (
+        <form>
+          <PersonNameFields
+            value={value}
+            originalValue={nameDraft()}
+            legacyName="张小明"
+            onChange={setValue}
+          />
+          <button>Save</button>
+        </form>
+      );
+    }
+    const { container } = render(
+      <NextIntlClientProvider
+        locale={messages === zh ? "zh" : "en"}
+        messages={messages}
+      >
+        <Form />
+      </NextIntlClientProvider>,
+    );
+    const form = container.querySelector("form")!;
+    const first =
+      container.querySelector<HTMLInputElement>('[name="firstName"]')!;
+    expect(form.checkValidity()).toBe(true);
+    expect(first.required).toBe(false);
+    fireEvent.change(container.querySelector('[name="alternativeNames"]')!, {
+      target: { value: "小明" },
+    });
+    expect(form.checkValidity()).toBe(true);
+    fireEvent.change(container.querySelector('[name="preferredName"]')!, {
+      target: { value: "Alex" },
+    });
+    expect(first.required).toBe(true);
+    expect(form.checkValidity()).toBe(false);
+    fireEvent.change(first, { target: { value: "Alexander" } });
+    expect(form.checkValidity()).toBe(true);
+  },
+);
+
 it.each([false, true])(
   "labels all four fields and preserves requirement semantics (Chinese=%s)",
   (chinese) => {

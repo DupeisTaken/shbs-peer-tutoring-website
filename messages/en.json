@@ -449,7 +449,9 @@
         "linkEmailed": "Setup email sent to the account holder.",
         "linkManual": "Email delivery is not configured. Contact the deployment administrator before sending account setup mail.",
         "dismiss": "Dismiss"
-      }
+      },
+      "createDraftHint": "Closing this dialog keeps your entries until you leave this page.",
+      "created": "Tutor added."
     },
     "tutorStatus": {
       "ACTIVE": "Active",
@@ -3646,6 +3648,10 @@
     }
   },
   "tuteeHistory": {
+    "noSearchMatches": "No tutees match your search.",
+    "emptyHistory": "No historical tutee records to show.",
+    "emptyCurrent": "No current tutees to show.",
+    "emptyAll": "No tutee records to show.",
     "gradeClass": "Grade & Class",
     "classOf": "Class of {year}",
     "reviewNeeded": "Review needed",
@@ -3773,6 +3779,7 @@
     "lastNameHelp": "Your family name, written with Latin letters.",
     "preferredNameHelp": "The name you would like us to use instead of your first name. Use Latin letters.",
     "alternativeNamesHelp": "Your name in another language or writing system, such as 张小明.",
+    "legacyPreserved": "Previously recorded name: {name}. Leave the Latin name fields unchanged to keep it. Enter a first name to replace it.",
     "legacy": "Previously recorded name: {name}. Enter your first and last names separately to update this profile."
   }
 }

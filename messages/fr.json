@@ -449,7 +449,9 @@
         "linkEmailed": "L’e-mail de configuration a été envoyé au titulaire du compte.",
         "linkManual": "L’envoi d’e-mails n’est pas configuré. Contactez l’administrateur du déploiement avant d’envoyer un e-mail de configuration de compte.",
         "dismiss": "Fermer"
-      }
+      },
+      "createDraftHint": "Fermer cette fenêtre conserve vos saisies jusqu’à ce que vous quittiez cette page.",
+      "created": "Tuteur ajouté."
     },
     "tutorStatus": {
       "ACTIVE": "Actif",
@@ -3646,6 +3648,10 @@
     }
   },
   "tuteeHistory": {
+    "noSearchMatches": "Aucun élève ne correspond à votre recherche.",
+    "emptyHistory": "Aucun dossier historique d’élève à afficher.",
+    "emptyCurrent": "Aucun élève actuel à afficher.",
+    "emptyAll": "Aucun dossier d’élève à afficher.",
     "gradeClass": "Grade & Class",
     "classOf": "Class of {year}",
     "reviewNeeded": "Review needed",
@@ -3773,6 +3779,7 @@
     "lastNameHelp": "Votre nom de famille, écrit en lettres latines.",
     "preferredNameHelp": "Le prénom que vous souhaitez que nous utilisions. Utilisez des lettres latines.",
     "alternativeNamesHelp": "Votre nom dans une autre langue ou écriture, par exemple 张小明.",
+    "legacyPreserved": "Nom enregistré : {name}. Laissez les champs du nom en lettres latines inchangés pour le conserver. Saisissez un prénom pour le remplacer.",
     "legacy": "Nom enregistré : {name}. Saisissez séparément votre prénom et votre nom de famille pour mettre à jour le profil."
   }
 }

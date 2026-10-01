@@ -449,7 +449,9 @@
         "linkEmailed": "계정 소유자에게 설정 이메일을 보냈습니다.",
         "linkManual": "이메일 전송이 설정되지 않았습니다. 계정 설정 이메일을 보내기 전에 배포 관리자에게 문의하세요.",
         "dismiss": "닫기"
-      }
+      },
+      "createDraftHint": "이 대화상자를 닫아도 이 페이지를 떠날 때까지 입력 내용이 유지됩니다.",
+      "created": "튜터가 추가되었습니다."
     },
     "tutorStatus": {
       "ACTIVE": "활성",
@@ -3646,6 +3648,10 @@
     }
   },
   "tuteeHistory": {
+    "noSearchMatches": "검색과 일치하는 학습 파트너가 없습니다.",
+    "emptyHistory": "표시할 학습 파트너의 과거 기록이 없습니다.",
+    "emptyCurrent": "표시할 현재 학습 파트너가 없습니다.",
+    "emptyAll": "표시할 학습 파트너 기록이 없습니다.",
     "gradeClass": "Grade & Class",
     "classOf": "Class of {year}",
     "reviewNeeded": "Review needed",
@@ -3773,6 +3779,7 @@
     "lastNameHelp": "성을 라틴 문자로 입력하세요.",
     "preferredNameHelp": "이름 대신 불러드릴 이름을 라틴 문자로 입력하세요.",
     "alternativeNamesHelp": "다른 언어나 문자로 쓴 이름입니다. 예: 张小明.",
+    "legacyPreserved": "기존 이름: {name}. 라틴 문자 이름 필드를 변경하지 않으면 기존 이름이 유지됩니다. 변경하려면 이름을 입력하세요.",
     "legacy": "기존 이름: {name}. 프로필을 수정하려면 이름과 성을 따로 입력하세요."
   }
 }

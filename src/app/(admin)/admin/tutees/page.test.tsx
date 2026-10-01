@@ -20,6 +20,7 @@ const mocks = vi.hoisted(() => ({
   create: vi.fn(),
   pending: false,
   error: null as { message: string } | null,
+  searchRows: null as Record<string, unknown>[] | null,
 }));
 vi.mock("~/trpc/react", () => {
   const empty = { useQuery: () => ({ data: [] }) };
@@ -52,7 +53,7 @@ vi.mock("~/trpc/react", () => {
         tuteeStats: { useQuery: () => ({ data: {} }) },
         tutees: {
           useQuery: () => ({
-            data: [
+            data: mocks.searchRows ?? [
               {
                 id: "tutee-1",
                 historical: false,
@@ -130,6 +131,7 @@ afterEach(() => {
   mocks.moreHistory = false;
   mocks.pending = false;
   mocks.error = null;
+  mocks.searchRows = null;
 });
 function mount(chinese = false, readOnly = false) {
   return render(
@@ -393,3 +395,85 @@ it("restores focus after pending state ends, rather than focusing a disabled tri
     screen.getByRole("button", { name: en.admin.tutees.addTutee }),
   );
 });
+it.each([
+  [false, false],
+  [true, false],
+  [false, true],
+  [true, true],
+])(
+  "searches saved canonical and preferred identity with display toggles %s/%s",
+  (preferred, alternate) => {
+    const display = `${preferred ? "Sasha" : "Alexander"} Chen${alternate ? " · 陈晓明" : ""}`;
+    mocks.searchRows = [
+      {
+        id: "names",
+        firstChoice: null,
+        secondChoice: null,
+        firstName: "Alexander",
+        lastName: "Chen",
+        preferredName: "Sasha",
+        alternativeNames: "陈晓明",
+        englishName: display,
+        historical: true,
+        status: "INACTIVE",
+        academic: { status: "UNKNOWN" },
+      },
+    ];
+    mount();
+    fireEvent.click(screen.getByRole("button", { name: "History" }));
+    for (const query of [
+      "Alexander",
+      "Alexander Chen",
+      "Sasha",
+      "Sasha Chen",
+      "陈晓明",
+    ]) {
+      fireEvent.change(
+        screen.getByRole("textbox", { name: en.tuteeHistory.searchRecords }),
+        { target: { value: query } },
+      );
+      expect(screen.getByText(display)).toBeTruthy();
+    }
+  },
+);
+it.each([false, true])(
+  "distinguishes empty Current, History and All from no search matches (Chinese=%s)",
+  (chinese) => {
+    const messages = chinese ? zh : en;
+    mount(chinese);
+    for (const view of ["current", "historical", "all"] as const) {
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: messages.tuteeHistory[view],
+        }),
+      );
+      fireEvent.change(
+        screen.getByRole("textbox", {
+          name: messages.tuteeHistory.searchRecords,
+        }),
+        { target: { value: "No such person" } },
+      );
+      expect(
+        screen.getByText(messages.tuteeHistory.noSearchMatches),
+      ).toBeTruthy();
+    }
+    cleanup();
+    mocks.searchRows = [];
+    mount(chinese);
+    for (const [view, key] of [
+      ["current", "emptyCurrent"],
+      ["historical", "emptyHistory"],
+      ["all", "emptyAll"],
+    ] as const) {
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: messages.tuteeHistory[view],
+        }),
+      );
+      expect(screen.getByText(messages.tuteeHistory[key])).toBeTruthy();
+      expect(
+        screen.queryByText(messages.tuteeHistory.noSearchMatches),
+      ).toBeNull();
+    }
+  },
+);

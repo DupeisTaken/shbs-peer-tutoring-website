@@ -1,6 +1,6 @@
 "use client";
 import { PersonNameFields } from "~/app/_components/person-name-fields";
-import { nameDraft } from "~/lib/person-name";
+import { nameDraft, personNameEdit } from "~/lib/person-name";
 
 import { useEffect, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
@@ -49,6 +49,9 @@ export default function SettingsPage() {
 
   // Profile form — seeded from the loaded profile.
   const [names, setNames] = useState(() => nameDraft());
+  const [originalNames, setOriginalNames] = useState(() => nameDraft());
+  const [legacyName, setLegacyName] = useState<string | null | undefined>();
+  const identity = personNameEdit(names, originalNames, legacyName);
   const [profileVersion, setProfileVersion] = useState<number>();
   const [profileDirty, setProfileDirty] = useState(false);
   const [email, setEmail] = useState("");
@@ -56,6 +59,8 @@ export default function SettingsPage() {
   useEffect(() => {
     if (profile.data && !profileDirty) {
       setNames(nameDraft(profile.data));
+      setOriginalNames(nameDraft(profile.data));
+      setLegacyName(profile.data?.legacyName ?? profile.data?.englishName);
       setProfileVersion(profile.data.profileVersion);
       setEmail(profile.data.email ?? "");
     }
@@ -146,7 +151,8 @@ export default function SettingsPage() {
 
         <PersonNameFields
           value={names}
-          legacyName={profile.data?.legacyName ?? profile.data?.englishName}
+          legacyName={legacyName}
+          originalValue={originalNames}
           onChange={(value) => {
             setNames(value);
             setProfileDirty(true);
@@ -162,11 +168,14 @@ export default function SettingsPage() {
         <div className="flex items-center gap-3">
           <button
             className="btn-primary"
-            disabled={updateProfile.isPending || !names.firstName.trim()}
+            disabled={
+              updateProfile.isPending ||
+              (!identity.preserved && !names.firstName.trim())
+            }
             onClick={() =>
               updateProfile.mutate(
                 {
-                  ...names,
+                  ...identity.fields,
                   expectedProfileVersion: profileVersion,
                 },
                 { onSuccess: () => setProfileDirty(false) },

@@ -449,7 +449,9 @@
         "setup": "待完成设置",
         "invited": "已发放验证码"
       },
-      "colStatus": "状态"
+      "colStatus": "状态",
+      "createDraftHint": "关闭此对话框会保留已填写的内容，直到你离开此页面。",
+      "created": "已添加辅导伙伴。"
     },
     "tutees": {
       "title": "学习伙伴名册",
@@ -3646,6 +3648,10 @@
     }
   },
   "tuteeHistory": {
+    "noSearchMatches": "没有匹配搜索条件的学习伙伴。",
+    "emptyHistory": "暂无可显示的学习伙伴历史记录。",
+    "emptyCurrent": "暂无可显示的当前学习伙伴。",
+    "emptyAll": "暂无可显示的学习伙伴记录。",
     "gradeClass": "年级与毕业届别",
     "classOf": "{year}届",
     "reviewNeeded": "待确认",
@@ -3773,6 +3779,7 @@
     "lastNameHelp": "请用拉丁字母填写您的姓。",
     "preferredNameHelp": "您希望我们代替名字使用的称呼。请使用拉丁字母。",
     "alternativeNamesHelp": "用其他语言或文字书写的姓名，例如张小明。",
+    "legacyPreserved": "原记录姓名：{name}。保持拉丁字母姓名字段不变即可保留原姓名；如需更改，请填写名。",
     "legacy": "原记录姓名：{name}。请分别填写名和姓以更新个人资料。"
   }
 }
