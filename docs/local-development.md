@@ -170,7 +170,9 @@ against a running loopback site with synthetic data. Set `TEST_BASE_URL`,
 optionally `SHBS_BROWSER_MODULE` to an existing Playwright module URL and
 `SHBS_BROWSER_CHANNEL` to your installed browser channel. `SHBS_BROWSER_OUTPUT`
 selects the ignored evidence directory. The script checks English/Chinese at five
-widths, native validation and enlarged text, captures screenshots and submits no data.
+widths, dialog opening/dismissal, draft retention, keyboard focus, native validation
+and enlarged text, captures screenshots and submits no data. The component suite
+also covers pending/error/success states and read-only access to the creation dialog.
 
 Lint and type-check the same way CI does:
 

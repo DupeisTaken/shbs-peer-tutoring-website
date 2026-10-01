@@ -449,7 +449,9 @@
         "setup": "待完成设置",
         "invited": "已发放验证码"
       },
-      "colStatus": "状态"
+      "colStatus": "状态",
+      "createDraftHint": "关闭此对话框会保留已填写的内容，直到你离开此页面。",
+      "created": "已添加导师。"
     },
     "tutees": {
       "title": "学习伙伴名册",

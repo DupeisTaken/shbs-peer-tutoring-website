@@ -3,13 +3,14 @@ import { PersonNameFields } from "~/app/_components/person-name-fields";
 import { FieldRequirement } from "~/app/_components/field-requirement";
 import { nameDraft } from "~/lib/person-name";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { EmailDetails } from "~/app/_components/email-details";
 import { AcademicDetails } from "~/app/_components/academic-profile";
 import { TutorProfileEditor } from "~/app/_components/tutor-profile-editor";
 import { TutorDetailsButton } from "~/app/_components/tutor-details";
+import { ProfileDialog } from "~/app/_components/profile-dialog";
 import {
   useProfilePolicy,
   ProfilePolicyHint,
@@ -37,6 +38,11 @@ export default function TutorsPage() {
   const { firstName, lastName } = names;
   const [email, setEmail] = useState("");
   const [grade, setGrade] = useState("");
+  // Draft values belong to the page, so dismissing the dialog does not discard them.
+  const [createOpen, setCreateOpen] = useState(false);
+  const [created, setCreated] = useState(false);
+  const addTrigger = useRef<HTMLButtonElement>(null);
+  const restoreCreateFocus = useRef(false);
 
   const sort = useSort("lastName");
 
@@ -46,9 +52,24 @@ export default function TutorsPage() {
       setNames(nameDraft());
       setEmail("");
       setGrade("");
+      setCreateOpen(false);
+      setCreated(true);
+      restoreCreateFocus.current = true;
       await invalidate();
     },
   });
+  useEffect(() => {
+    // Success can close the dialog while invalidation still keeps its trigger disabled.
+    if (!createOpen && !create.isPending && restoreCreateFocus.current) {
+      restoreCreateFocus.current = false;
+      addTrigger.current?.focus();
+    }
+  }, [createOpen, create.isPending]);
+  const closeCreate = () => {
+    if (create.isPending) return;
+    restoreCreateFocus.current = true;
+    setCreateOpen(false);
+  };
   const [editingId, setEditingId] = useState<string | null>(null);
   const editing = tutors.data?.find((row) => row.id === editingId);
 
@@ -86,85 +107,117 @@ export default function TutorsPage() {
 
   return (
     <div className="space-y-6">
-      <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <h1 className="page-title">{t("admin.tutors.title")}</h1>
-        <p className="muted mt-1">{t("admin.tutors.help")}</p>
+        {!readOnly && (
+          <button
+            ref={addTrigger}
+            type="button"
+            className="btn-primary min-h-11 lg:min-h-10"
+            aria-haspopup="dialog"
+            disabled={create.isPending}
+            onClick={() => {
+              setCreated(false);
+              setCreateOpen(true);
+            }}
+          >
+            {t("admin.tutors.addTutor")}
+          </button>
+        )}
       </div>
+      <p
+        role="status"
+        className={created ? "text-sm text-green-700" : "sr-only"}
+      >
+        {created ? t("admin.tutors.created") : ""}
+      </p>
 
-      {!readOnly && (
-        <form
-          className="grid items-start gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"
-          onSubmit={(e) => {
-            e.preventDefault();
-            if (firstName.trim() && lastName.trim())
-              create.mutate({
-                ...names,
-                email: email.trim() || undefined,
-                gradeLevel:
-                  grade && grade !== GRADUATED_GRADE
-                    ? Number(grade)
-                    : undefined,
-                academicallyGraduated: grade === GRADUATED_GRADE,
-              });
-          }}
+      {!readOnly && createOpen && (
+        <ProfileDialog
+          title={t("admin.tutors.addTutor")}
+          size="wide"
+          pending={create.isPending}
+          onClose={closeCreate}
         >
-          <div className="min-w-0">
-            <PersonNameFields
-              value={names}
-              onChange={setNames}
-              requireLastName
-            />
+          <div className="mb-5 space-y-2">
+            <p className="muted text-sm">{t("admin.tutors.createDraftHint")}</p>
+            <p className="muted text-sm">{t("admin.tutors.help")}</p>
+            <ProfilePolicyHint />
+            <ProfilePolicyHint field="legal" />
           </div>
-          {/* Single-line controls live inside labels, never as stretchable peers
-              of the multirow name block. Labels can wrap without sizing inputs. */}
-          <div className="flex min-w-0 flex-col gap-4">
-            <label className="block min-w-0">
-              <span className="label">
-                {t("admin.tutors.colEmail")}
-                <FieldRequirement state="optional" />
-              </span>
-              <input
-                name="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                type="email"
-                autoComplete="email"
-                className="input min-h-11 w-full lg:min-h-10"
-              />
-            </label>
-            <label className="block min-w-0">
-              <span className="label">
-                {t("admin.tutors.colGrade")}
-                <FieldRequirement state="optional" />
-              </span>
-              <OfferedGradeSelect
-                value={grade}
-                onChange={setGrade}
-                offeredGrades={policy.offeredGrades}
-                includeGraduated
-              />
-            </label>
-            <button
-              className="btn-primary min-h-11 self-start lg:min-h-10"
-              disabled={
-                !firstName.trim() || !lastName.trim() || create.isPending
-              }
+          <form
+            onSubmit={(e) => {
+              e.preventDefault();
+              if (!create.isPending && firstName.trim() && lastName.trim())
+                create.mutate({
+                  ...names,
+                  email: email.trim() || undefined,
+                  gradeLevel:
+                    grade && grade !== GRADUATED_GRADE
+                      ? Number(grade)
+                      : undefined,
+                  academicallyGraduated: grade === GRADUATED_GRADE,
+                });
+            }}
+          >
+            <fieldset
+              disabled={create.isPending}
+              className="grid min-w-0 items-start gap-4 xl:grid-cols-[minmax(0,2fr)_minmax(0,1fr)]"
             >
-              {t("admin.tutors.addTutor")}
-            </button>
-          </div>
-        </form>
-      )}
-      {!readOnly && (
-        <>
-          <ProfilePolicyHint />
-          <ProfilePolicyHint field="legal" />
-        </>
-      )}
-      {!readOnly && create.error && (
-        <p role="alert" className="text-sm text-red-600">
-          <ProfilePolicyError message={create.error.message} />
-        </p>
+              <legend className="sr-only">{t("admin.tutors.addTutor")}</legend>
+              <div className="min-w-0">
+                <PersonNameFields
+                  value={names}
+                  onChange={setNames}
+                  requireLastName
+                />
+              </div>
+              {/* Single-line controls live inside labels, never as stretchable peers
+              of the multirow name block. Labels can wrap without sizing inputs. */}
+              <div className="flex min-w-0 flex-col gap-4">
+                <label className="block min-w-0">
+                  <span className="label">
+                    {t("admin.tutors.colEmail")}
+                    <FieldRequirement state="optional" />
+                  </span>
+                  <input
+                    name="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    type="email"
+                    autoComplete="email"
+                    className="input min-h-11 w-full lg:min-h-10"
+                  />
+                </label>
+                <label className="block min-w-0">
+                  <span className="label">
+                    {t("admin.tutors.colGrade")}
+                    <FieldRequirement state="optional" />
+                  </span>
+                  <OfferedGradeSelect
+                    value={grade}
+                    onChange={setGrade}
+                    offeredGrades={policy.offeredGrades}
+                    includeGraduated
+                  />
+                </label>
+                <button
+                  className="btn-primary min-h-11 self-start lg:min-h-10"
+                  disabled={
+                    !firstName.trim() || !lastName.trim() || create.isPending
+                  }
+                >
+                  {t("admin.tutors.addTutor")}
+                </button>
+              </div>
+            </fieldset>
+            {create.error && (
+              <p role="alert" className="mt-4 text-sm text-red-600">
+                <ProfilePolicyError message={create.error.message} />
+              </p>
+            )}
+          </form>
+        </ProfileDialog>
       )}
       <p className="muted text-xs">{t("admin.tutors.accountMovedNote")}</p>
       <PastTutorsToggle showPast={showPast} onChange={setShowPast} />

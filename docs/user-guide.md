@@ -271,7 +271,7 @@ In **Subjects & Levels**, use the **Offered Course Catalogue** above the subject
 
 ### Run the program
 
-In **Tutors**, **Add Tutor** requires First Name and Last Name; Email and Grade are optional. An omitted email keeps the new roster record accountless until a separate setup step. On wide screens the contact controls sit beside the name fields; on narrower screens they follow them.
+In **Tutors**, choose **Add Tutor** beside the page title to open the creation dialog. The roster stays visible underneath. First Name and Last Name are required; Email and Grade are optional. An omitted email keeps the new roster record accountless until a separate setup step. On wide screens the contact controls sit beside the name fields; on narrower screens they follow them. **Close** or Escape keeps the draft until you leave or reload the page. A successful save clears the draft, closes the dialog and returns focus to **Add Tutor**. The dialog stays open while saving, and failed saves keep your entries with the error shown inside the dialog.
 
 In **Tutees**, use **Current**, **History** or **All Records**, then **View History** to inspect attendance and original enrollment academics. Accountless tutees remain in this roster, even though they have no Users & Roles entry. **Refresh** reloads roster and related records. Admin/Head can review history links and invitations; see the [historical participant workflow](historical-participant-transition.md).
 

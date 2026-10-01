@@ -449,7 +449,9 @@
         "linkEmailed": "Setup email sent to the account holder.",
         "linkManual": "Email delivery is not configured. Contact the deployment administrator before sending account setup mail.",
         "dismiss": "Dismiss"
-      }
+      },
+      "createDraftHint": "Closing this dialog keeps your entries until you leave this page.",
+      "created": "Tutor added."
     },
     "tutorStatus": {
       "ACTIVE": "Active",
