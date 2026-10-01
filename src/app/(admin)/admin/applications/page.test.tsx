@@ -5,6 +5,8 @@ import { NextIntlClientProvider } from "next-intl";
 import en from "../../../../../messages/en.json";
 import ApplicationsPage from "./page";
 import { ReadOnlyProvider } from "~/app/_components/read-only";
+import { projectManagementRead } from "~/server/management-read-models";
+import { applicationRow, PRIVATE } from "~/test/management-read-fixtures";
 
 const mocks = vi.hoisted(() => ({
   enabled: true,
@@ -13,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   additional: false,
   role: "HEAD",
   decide: vi.fn(),
+  minimized: false,
 }));
 vi.mock("~/app/_components/confirm-dialog", () => ({
   useDialog: () => ({ confirm: vi.fn(), dialog: null }),
@@ -51,58 +54,65 @@ vi.mock("~/trpc/react", () => ({
     admin: {
       tutorApplications: {
         useQuery: () => ({
-          data: [
-            {
-              id: "candidate",
-              type: mocks.additional ? "ADDITIONAL_SUBJECT" : "INITIAL",
-              requestedTutorId: mocks.additional ? "candidate-tutor" : null,
-              qualificationReason: mocks.additional
-                ? "New subject evidence"
-                : null,
-              qualificationSnapshot: null,
-              name: "Candidate One",
-              email: "candidate@example.test",
-              preferredContact: null,
-              status: mocks.additional ? "PENDING" : "ACCEPTED",
-              updatedAt: new Date("2026-09-01"),
-              interviewAt: null,
-              subjectIntents: mocks.additional
-                ? [
-                    {
-                      subjectId: "literature",
-                      taken: false,
-                      grade: null,
-                      hasApScore: false,
-                      apScore: null,
-                      selfStudied: false,
-                      selfStudyNote: null,
-                      subject: { name: "AP Literature", level: { name: "AP" } },
-                    },
-                  ]
-                : [],
-              interviewers: mocks.additional
-                ? []
-                : [
-                    {
-                      isHead: true,
-                      tutor: { id: "chair", englishName: "Panel Chair" },
-                    },
-                  ],
-              votes: mocks.additional
-                ? []
-                : [
-                    {
-                      accept: true,
-                      comment: "Preserved vote",
-                      tutor: { englishName: "Panel Chair" },
-                    },
-                  ],
-              decisionComment: mocks.additional ? null : "Preserved decision",
-              decidedByTutor: mocks.additional
-                ? null
-                : { englishName: "Panel Chair" },
-            },
-          ],
+          data: mocks.minimized
+            ? projectManagementRead("admin.tutorApplications", [applicationRow])
+            : [
+                {
+                  id: "candidate",
+                  type: mocks.additional ? "ADDITIONAL_SUBJECT" : "INITIAL",
+                  requestedTutorId: mocks.additional ? "candidate-tutor" : null,
+                  qualificationReason: mocks.additional
+                    ? "New subject evidence"
+                    : null,
+                  qualificationSnapshot: null,
+                  name: "Candidate One",
+                  email: "candidate@example.test",
+                  preferredContact: null,
+                  status: mocks.additional ? "PENDING" : "ACCEPTED",
+                  updatedAt: new Date("2026-09-01"),
+                  interviewAt: null,
+                  subjectIntents: mocks.additional
+                    ? [
+                        {
+                          subjectId: "literature",
+                          taken: false,
+                          grade: null,
+                          hasApScore: false,
+                          apScore: null,
+                          selfStudied: false,
+                          selfStudyNote: null,
+                          subject: {
+                            name: "AP Literature",
+                            level: { name: "AP" },
+                          },
+                        },
+                      ]
+                    : [],
+                  interviewers: mocks.additional
+                    ? []
+                    : [
+                        {
+                          isHead: true,
+                          tutor: { id: "chair", englishName: "Panel Chair" },
+                        },
+                      ],
+                  votes: mocks.additional
+                    ? []
+                    : [
+                        {
+                          accept: true,
+                          comment: "Preserved vote",
+                          tutor: { englishName: "Panel Chair" },
+                        },
+                      ],
+                  decisionComment: mocks.additional
+                    ? null
+                    : "Preserved decision",
+                  decidedByTutor: mocks.additional
+                    ? null
+                    : { englishName: "Panel Chair" },
+                },
+              ],
         }),
       },
       subjectEligibility: { useQuery: () => ({ data: [], isLoading: false }) },
@@ -118,6 +128,7 @@ beforeEach(() => {
   mocks.enabled = true;
   mocks.additional = false;
   mocks.role = "HEAD";
+  mocks.minimized = false;
 });
 afterEach(cleanup);
 const show = (viewer = false) =>
@@ -173,6 +184,21 @@ it("does not mount the staff-only completion query for a viewer", () => {
   expect(mocks.history).not.toHaveBeenCalled();
   expect(screen.queryByText("Interview history destination")).toBeNull();
 });
+
+it.each(["VIEWER", "TUTOR"])(
+  "renders projected application summaries for read-only %s access",
+  (role) => {
+    mocks.role = role;
+    mocks.minimized = true;
+    show(true);
+    fireEvent.click(screen.getByRole("button", { name: /Applicant One/ }));
+    expect(screen.getAllByText(/Math/).length).toBeGreaterThan(0);
+    expect(screen.getAllByText(/Tutor One/).length).toBeGreaterThan(0);
+    expect(document.body.textContent).not.toContain(PRIVATE);
+    expect(mocks.history).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
+  },
+);
 
 it("keeps additional qualification review alongside consolidated history without account setup or deletion", () => {
   mocks.additional = true;

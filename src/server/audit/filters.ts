@@ -22,6 +22,7 @@ export const auditFilters = z
 /** Compose every filter with AND, before paging. Dates use a half-open UTC interval. */
 export function auditWhere(
   input?: z.infer<typeof auditFilters>,
+  observer = false,
 ): Prisma.AuditLogWhereInput {
   return {
     userId: input?.userId === "__system__" ? null : input?.userId,
@@ -30,7 +31,15 @@ export function auditWhere(
     entity: input?.entity,
     approvalId: input?.approvalId,
     ...(input?.search
-      ? { action: { contains: input.search, mode: "insensitive" } }
+      ? // Searching hidden action text would still disclose it through matching rows.
+        // Observers search only metadata present in their summary, before pagination.
+        observer
+        ? {
+            OR: ["userName", "entity", "operation"].map((field) => ({
+              [field]: { contains: input.search, mode: "insensitive" as const },
+            })),
+          }
+        : { action: { contains: input.search, mode: "insensitive" } }
       : {}),
     ...(input?.from || input?.until
       ? { createdAt: { gte: input.from, lt: input.until } }

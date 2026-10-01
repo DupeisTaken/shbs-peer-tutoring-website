@@ -1,4 +1,5 @@
 import { portalAccess } from "~/lib/portal-access";
+import { projectManagementRead } from "~/server/management-read-models";
 import { SignupRetry } from "~/server/signup-admission";
 import { accountHistoryIds } from "~/server/account-history";
 import { ApprovalQueued, queueProposal } from "~/server/approvals";
@@ -589,38 +590,15 @@ export const crewProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   return next();
 });
 
-/** Personal/contact fields hidden from the read-only VIEWER role. Names are NOT masked. */
-const VIEWER_MASKED_KEYS = new Set([
-  "email",
-  "phone",
-  "preferredContact",
-  "details",
-  "undoData",
-  "passwordHash",
-]);
-
-/** Recursively null out PII keys in a query result (leaves Dates and everything else intact). */
-function maskViewerPII(value: unknown): unknown {
-  if (Array.isArray(value)) return value.map(maskViewerPII);
-  if (value && typeof value === "object" && !(value instanceof Date)) {
-    const out: Record<string, unknown> = {};
-    for (const [k, v] of Object.entries(value)) {
-      out[k] = VIEWER_MASKED_KEYS.has(k) ? null : maskViewerPII(v);
-    }
-    return out;
-  }
-  return value;
-}
-
 /**
- * Read procedure for the admin area: ADMIN, COORDINATOR, or the read-only VIEWER. Use this for
- * admin QUERIES; keep mutations on `adminProcedure`/`adminOnlyProcedure` so VIEWER can browse
- * but never write. For VIEWER callers the result is run through `maskViewerPII`, so contact
- * details (emails / phone / preferred contact) never reach a viewer — names and stats remain.
+ * Management queries share an explicit observer response boundary. Viewer and
+ * departure-based observer access use the same per-procedure safe read model;
+ * authorized staff keep their full responses. Own-account/participant reads use
+ * their separate ownership guards and are deliberately outside this boundary.
  */
-export const viewerProcedure = protectedProcedure.use(async ({ ctx, next }) => {
+export const viewerProcedure = protectedProcedure.use(async ({ ctx, next, path, type }) => {
   const { role } = ctx.session;
-  if (!ctx.portalAccess.canReadManagement) {
+  if (!ctx.portalAccess.canReadManagement || type !== "query") {
     throw new TRPCError({
       code: "FORBIDDEN",
       message: "Admin access required.",
@@ -641,7 +619,7 @@ export const viewerProcedure = protectedProcedure.use(async ({ ctx, next }) => {
   }
   const result = await next();
   if (ctx.portalAccess.maskManagementData && result.ok) {
-    return { ...result, data: maskViewerPII(result.data) };
+    return { ...result, data: projectManagementRead(path, result.data) };
   }
   return result;
 });
