@@ -3645,6 +3645,10 @@
     }
   },
   "tuteeHistory": {
+    "noSearchMatches": "検索に一致する学習パートナーはいません。",
+    "emptyHistory": "表示できる学習パートナーの履歴はありません。",
+    "emptyCurrent": "表示できる現在の学習パートナーはいません。",
+    "emptyAll": "表示できる学習パートナーの記録はありません。",
     "gradeClass": "Grade & Class",
     "classOf": "Class of {year}",
     "reviewNeeded": "Review needed",

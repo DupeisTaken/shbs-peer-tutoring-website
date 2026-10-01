@@ -3645,6 +3645,10 @@
     }
   },
   "tuteeHistory": {
+    "noSearchMatches": "Aucun élève ne correspond à votre recherche.",
+    "emptyHistory": "Aucun dossier historique d’élève à afficher.",
+    "emptyCurrent": "Aucun élève actuel à afficher.",
+    "emptyAll": "Aucun dossier d’élève à afficher.",
     "gradeClass": "Grade & Class",
     "classOf": "Class of {year}",
     "reviewNeeded": "Review needed",

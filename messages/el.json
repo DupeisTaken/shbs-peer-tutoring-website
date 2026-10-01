@@ -3645,6 +3645,10 @@
     }
   },
   "tuteeHistory": {
+    "noSearchMatches": "Δεν βρέθηκαν μαθητές που να ταιριάζουν στην αναζήτηση.",
+    "emptyHistory": "Δεν υπάρχουν ιστορικές εγγραφές μαθητών για εμφάνιση.",
+    "emptyCurrent": "Δεν υπάρχουν τρέχοντες μαθητές για εμφάνιση.",
+    "emptyAll": "Δεν υπάρχουν εγγραφές μαθητών για εμφάνιση.",
     "gradeClass": "Grade & Class",
     "classOf": "Class of {year}",
     "reviewNeeded": "Review needed",

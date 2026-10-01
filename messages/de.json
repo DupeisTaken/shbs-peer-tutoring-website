@@ -3645,6 +3645,10 @@
     }
   },
   "tuteeHistory": {
+    "noSearchMatches": "Keine Teilnehmenden entsprechen Ihrer Suche.",
+    "emptyHistory": "Keine historischen Lernenden-Datensätze anzuzeigen.",
+    "emptyCurrent": "Keine aktuellen Lernenden anzuzeigen.",
+    "emptyAll": "Keine Lernenden-Datensätze anzuzeigen.",
     "gradeClass": "Grade & Class",
     "classOf": "Class of {year}",
     "reviewNeeded": "Review needed",

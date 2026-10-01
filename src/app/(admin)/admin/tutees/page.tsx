@@ -1,6 +1,7 @@
 "use client";
 import { PersonNameFields } from "~/app/_components/person-name-fields";
 import { nameDraft, fullPersonName } from "~/lib/person-name";
+import { matchesPersonSearch } from "~/lib/person-search";
 
 import { invalidateTuteeViews } from "~/lib/tutee-cache";
 import { visibleTutors } from "~/lib/tutor-visibility";
@@ -134,24 +135,27 @@ export default function TuteesPage() {
 
   const statusLabel = (s: Status) => t(`admin.tutees.status.${s}`);
 
-  // Active + inactive tutees, sorted by the chosen column.
+  // Keep the visible roster scope separate from search so empty views and no
+  // matches can explain different outcomes without bypassing visibility filters.
+  const scopedRows = useMemo(
+    () =>
+      (tutees.data ?? []).filter((row) => {
+        const owner = row.owner ?? row.user;
+        return (
+          (historyView === "all" ||
+            (historyView === "historical"
+              ? row.historical
+              : !row.historical)) &&
+          (showUnverified || !owner || !!owner.emailVerifiedAt)
+        );
+      }),
+    [tutees.data, historyView, showUnverified],
+  );
+
   const rows = useMemo(() => {
-    // Pending profiles also need corrections before staff can assign them.
-    const rest = (tutees.data ?? []).filter((row) => {
+    const rest = scopedRows.filter((row) => {
       const owner = row.owner ?? row.user;
-      return (
-        (historyView === "all" ||
-          (historyView === "historical" ? row.historical : !row.historical)) &&
-        (showUnverified || !owner || !!owner.emailVerifiedAt) &&
-        [
-          row.englishName,
-          row.alternativeNames,
-          owner?.username,
-          owner?.email,
-        ].some((value) =>
-          value?.toLowerCase().includes(search.trim().toLowerCase()),
-        )
-      );
+      return matchesPersonSearch(row, search, [owner?.username, owner?.email]);
     });
     const dir = sort.dir === "asc" ? 1 : -1;
     return rest.sort((a, b) => {
@@ -181,15 +185,7 @@ export default function TuteesPage() {
           return compare(a.englishName, b.englishName) * dir;
       }
     });
-  }, [
-    tutees.data,
-    stats.data,
-    sort.key,
-    sort.dir,
-    historyView,
-    showUnverified,
-    search,
-  ]);
+  }, [scopedRows, stats.data, sort.key, sort.dir, search]);
 
   // Group pairings by tutor for the tutor-centric view.
   const pairingsByTutor = new Map<string, typeof pairings.data>();
@@ -562,7 +558,15 @@ export default function TuteesPage() {
               {rows.length === 0 && (
                 <tr>
                   <td colSpan={8} className="text-slate-500">
-                    {t("admin.tutees.emptyTutees")}
+                    {h(
+                      scopedRows.length > 0 && search.trim()
+                        ? "noSearchMatches"
+                        : historyView === "historical"
+                          ? "emptyHistory"
+                          : historyView === "current"
+                            ? "emptyCurrent"
+                            : "emptyAll",
+                    )}
                   </td>
                 </tr>
               )}

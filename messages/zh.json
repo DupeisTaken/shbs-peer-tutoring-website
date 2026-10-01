@@ -3645,6 +3645,10 @@
     }
   },
   "tuteeHistory": {
+    "noSearchMatches": "没有匹配搜索条件的学习伙伴。",
+    "emptyHistory": "暂无可显示的学习伙伴历史记录。",
+    "emptyCurrent": "暂无可显示的当前学习伙伴。",
+    "emptyAll": "暂无可显示的学习伙伴记录。",
     "gradeClass": "年级与毕业届别",
     "classOf": "{year}届",
     "reviewNeeded": "待确认",

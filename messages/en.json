@@ -3645,6 +3645,10 @@
     }
   },
   "tuteeHistory": {
+    "noSearchMatches": "No tutees match your search.",
+    "emptyHistory": "No historical tutee records to show.",
+    "emptyCurrent": "No current tutees to show.",
+    "emptyAll": "No tutee records to show.",
     "gradeClass": "Grade & Class",
     "classOf": "Class of {year}",
     "reviewNeeded": "Review needed",
