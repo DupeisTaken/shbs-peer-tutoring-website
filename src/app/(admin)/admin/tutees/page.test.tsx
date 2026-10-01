@@ -19,7 +19,10 @@ const mocks = vi.hoisted(() => ({
   moreHistory: false,
   create: vi.fn(),
   pending: false,
-  error: null as { message: string } | null,
+  error: null as { message: string; data?: { approvalId?: string } } | null,
+  rosterPending: false,
+  rosterError: null as { message: string } | null,
+  rosterRefetch: vi.fn(),
   searchRows: null as Record<string, unknown>[] | null,
 }));
 vi.mock("~/trpc/react", () => {
@@ -53,6 +56,10 @@ vi.mock("~/trpc/react", () => {
         tuteeStats: { useQuery: () => ({ data: {} }) },
         tutees: {
           useQuery: () => ({
+            isPending: mocks.rosterPending,
+            isFetching: mocks.rosterPending,
+            error: mocks.rosterError,
+            refetch: mocks.rosterRefetch,
             data: mocks.searchRows ?? [
               {
                 id: "tutee-1",
@@ -131,6 +138,8 @@ afterEach(() => {
   mocks.moreHistory = false;
   mocks.pending = false;
   mocks.error = null;
+  mocks.rosterPending = false;
+  mocks.rosterError = null;
   mocks.searchRows = null;
 });
 function mount(chinese = false, readOnly = false) {
@@ -146,6 +155,119 @@ function mount(chinese = false, readOnly = false) {
     </NextIntlClientProvider>,
   );
 }
+
+it.each([false, true])(
+  "distinguishes loading and failed reads from an empty roster (Chinese=%s)",
+  (chinese) => {
+    const messages = chinese ? zh : en;
+    mocks.searchRows = [];
+    mocks.rosterPending = true;
+    mount(chinese, true);
+    expect(
+      within(screen.getByRole("table")).getByText(
+        messages.tuteeHistory.loading,
+      ),
+    ).toBeTruthy();
+    expect(screen.queryByText(messages.tuteeHistory.emptyCurrent)).toBeNull();
+    expect(document.querySelector("tbody")?.getAttribute("aria-busy")).toBe(
+      "true",
+    );
+    cleanup();
+    mocks.rosterPending = false;
+    mocks.rosterError = { message: "Roster request failed" };
+    mount(chinese, true);
+    expect(screen.getByRole("alert").textContent).toContain(
+      messages.tuteeHistory.failed,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.uiPatterns.retry }),
+    );
+    expect(mocks.rosterRefetch).toHaveBeenCalledOnce();
+    expect(screen.queryByText(messages.tuteeHistory.emptyCurrent)).toBeNull();
+    cleanup();
+    mocks.rosterError = null;
+    mount(chinese, true);
+    expect(screen.getByText(messages.tuteeHistory.emptyCurrent)).toBeTruthy();
+  },
+);
+
+it.each([false, true])(
+  "announces queued approval as a status and keeps the editable draft (Chinese=%s)",
+  (chinese) => {
+    const messages = chinese ? zh : en;
+    mocks.error = { message: "Queued", data: { approvalId: "approval-1" } };
+    mount(chinese);
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.admin.tutees.addTutee }),
+    );
+    const first = screen.getByLabelText<HTMLInputElement>(
+      `${messages.personName.firstName} ${messages.signupFields.required}`,
+    );
+    fireEvent.change(first, { target: { value: "Proposal" } });
+    expect(
+      within(document.querySelector<HTMLElement>("#add-tutee-form")!).getByRole(
+        "status",
+      ).textContent,
+    ).toBe(messages.approvals.queuedBody);
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(first.matches(":disabled")).toBe(false);
+    fireEvent.click(
+      screen.getAllByRole("button", {
+        name: messages.admin.tutees.hideAddForm,
+      })[0]!,
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.admin.tutees.addTutee }),
+    );
+    expect(first.value).toBe("Proposal");
+    expect(screen.queryByText(messages.admin.tutees.addSaved)).toBeNull();
+  },
+);
+
+it.each([false, true])(
+  "keeps cached rows, final actions, and the creation draft through a failed refresh and recovery (Chinese=%s)",
+  (chinese) => {
+    const messages = chinese ? zh : en;
+    mocks.rosterError = { message: "Background refresh failed" };
+    const view = mount(chinese);
+    const row = screen.getByText("Example Tutee").closest("tr")!;
+    expect(
+      within(row).getByRole("button", {
+        name: messages.accountProfile.editProfile,
+      }),
+    ).toBeTruthy();
+    expect(screen.queryByText(messages.tuteeHistory.emptyCurrent)).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.admin.tutees.addTutee }),
+    );
+    const first = screen.getByLabelText<HTMLInputElement>(
+      `${messages.personName.firstName} ${messages.signupFields.required}`,
+    );
+    fireEvent.change(first, { target: { value: "Draft" } });
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.uiPatterns.retry }),
+    );
+    expect(mocks.rosterRefetch).toHaveBeenCalledOnce();
+    mocks.rosterError = null;
+    view.rerender(
+      <NextIntlClientProvider
+        locale={chinese ? "zh" : "en"}
+        messages={messages}
+        timeZone="Asia/Shanghai"
+      >
+        <ReadOnlyProvider value={false}>
+          <TuteesPage />
+        </ReadOnlyProvider>
+      </NextIntlClientProvider>,
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(first.value).toBe("Draft");
+    expect(screen.getByText("Example Tutee")).toBeTruthy();
+    expect(document.querySelector("tbody")?.getAttribute("aria-busy")).toBe(
+      "false",
+    );
+  },
+);
 
 it.each([false, true])(
   "places contact disclosure in trailing Actions beside compact academics (Chinese=%s)",

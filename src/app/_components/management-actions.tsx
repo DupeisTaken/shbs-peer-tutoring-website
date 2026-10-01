@@ -12,7 +12,7 @@ import { api, type RouterOutputs } from "~/trpc/react";
 import { humanizeOperation, proposalConfirmation } from "~/lib/approval-policy";
 import { TimedActionDialog } from "~/app/_components/timed-action-dialog";
 import { ApprovalReviewDetails } from "./approval-review-details";
-import { ChoiceButton } from "./ui/button";
+import { Button, ChoiceButton } from "./ui/button";
 import { FilterToolbar } from "./ui/patterns";
 
 type Request = RouterOutputs["approval"]["list"]["rows"][number];
@@ -347,8 +347,10 @@ function ApprovalQueue({
           {queue.data?.canReview && !requestId && (
             <label className="min-w-48">
               <span className="label">{t("requester")}</span>
+              {/* Native inputs declare their own padding/min-height after shared
+                  controls; keep this toolbar's desktop baseline explicit. */}
               <select
-                className="input mt-1 block w-full"
+                className="input control-compact mt-1 block w-full lg:min-h-8 lg:py-1"
                 value={requesterId}
                 onChange={(e) => {
                   setRequesterId(e.target.value);
@@ -365,13 +367,13 @@ function ApprovalQueue({
               </select>
             </label>
           )}
-          <button
-            className="btn-secondary"
+          <Button
+            size="compact"
             onClick={() => void refresh()}
             disabled={queue.isFetching}
           >
             {t("refresh")}
-          </button>
+          </Button>
           {requestId && (
             <Link className="link" href="/admin/approvals?status=all">
               {t("allRequests")}

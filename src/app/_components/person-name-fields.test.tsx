@@ -118,3 +118,52 @@ it("reports a non-Latin preferred name on blur while allowing another writing sy
       .value,
   ).toBe("何塞");
 });
+
+it.each([en, zh])(
+  "native validity rejects invalid Latin fields before submit and updates with external drafts",
+  (messages) => {
+    const onChange = vi.fn();
+    const locale = messages === zh ? "zh" : "en";
+    const tree = (
+      firstName: string,
+      lastName: string,
+      preferredName: string,
+    ) => (
+      <NextIntlClientProvider locale={locale} messages={messages}>
+        <form>
+          <PersonNameFields
+            value={nameDraft({
+              firstName,
+              lastName,
+              preferredName,
+              alternativeNames: "张小明",
+            })}
+            onChange={onChange}
+          />
+        </form>
+      </NextIntlClientProvider>
+    );
+    const view = render(tree("无效", "", ""));
+    const form = view.container.querySelector("form")!;
+    for (const [index, values] of [
+      [0, ["无效", "", ""]],
+      [1, ["José", "张", ""]],
+      [2, ["José", "Smith", "小明"]],
+    ] as const) {
+      view.rerender(tree(values[0], values[1], values[2]));
+      const inputs = view.container.querySelectorAll<HTMLInputElement>("input");
+      expect(inputs[index]!.validity.customError).toBe(true);
+      expect(inputs[index]!.validationMessage).toBe(
+        messages.profilePolicy.latinRequired,
+      );
+      expect(form.checkValidity()).toBe(false);
+      expect(inputs[3]!.validity.customError).toBe(false);
+    }
+    // External reset/correction must clear custom validity as well as the values.
+    view.rerender(tree("José", "O’Neil", "Zoë"));
+    expect(form.checkValidity()).toBe(true);
+    view.rerender(tree("Ada", "", ""));
+    expect(form.checkValidity()).toBe(true);
+    expect(onChange).not.toHaveBeenCalled();
+  },
+);
