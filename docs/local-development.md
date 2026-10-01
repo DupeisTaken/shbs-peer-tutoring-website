@@ -62,6 +62,35 @@ matching credentials. On Windows run it from WSL; on Linux/macOS run it directly
 ./start-database.sh
 ```
 
+The helper publishes `127.0.0.1:<DATABASE_URL port>:5432` by default, independently
+of the URL's hostname. Local clients can use `127.0.0.1` explicitly if `localhost`
+resolves only to IPv6. PostgreSQL still requires the configured password.
+`DB_BIND_ADDRESS` is an optional **host-only** setting in `.env` or the command's
+environment; unset/empty means `127.0.0.1`. Only literal IPv4 addresses are accepted.
+For deliberate remote development, set it to a specific private host address and
+allow only trusted clients in the network/firewall policy. `0.0.0.0` is an explicit
+all-interface opt-in, never the default. Prefer an authenticated SSH/VPN tunnel
+while retaining loopback publishing. Production Compose leaves PostgreSQL unpublished.
+
+Existing containers are checked before reuse or start. A mismatched, wildcard,
+additional PostgreSQL binding, or host-network container is refused; changing
+`.env` cannot change a container's existing port mapping. The helper never deletes
+or recreates it automatically. Back up the database, inspect its mounts with
+`docker inspect --format '{{json .Mounts}}' <container>` (or Podman), and plan a
+recreation that retains/restores those data. An old anonymous volume or writable
+container layer must not be discarded. Until then, review/stop an exposed local
+container manually; refusal by the helper does not stop one already running.
+
+After starting a disposable container, verify its effective mapping with
+`docker port <container> 5432/tcp` (or `podman port`): expect only
+`127.0.0.1:<port>` by default. Check local authenticated connectivity with `psql`
+using the local `DATABASE_URL`, then confirm a separate LAN host cannot connect.
+Review the daemon's routing/firewall configuration too: Docker documents a
+[localhost-publishing caveat before Engine 28.0.0](https://docs.docker.com/engine/network/port-publishing/).
+The daemon-free regression suite is `npm run test:deployment` (requires Bash;
+on Windows set `SHBS_TEST_BASH` to the Git Bash executable). It executes the real
+helper against stub commands, so it does not start Docker/Podman or a database.
+
 ### Option B — An existing local Postgres
 
 Create a database and point `DATABASE_URL` at it, e.g.:

@@ -2,9 +2,33 @@
 # reverse-proxies to the internal `app` service. The DNS A record for $DOMAIN
 # must point at this server before the first start (so the ACME challenge passes).
 
+(browser_security_headers) {
+	# Apply at the public boundary after upstream headers, including redirects.
+	# Only this hostname opts into HSTS; do not includeSubDomains or preload.
+	header {
+		defer
+		Strict-Transport-Security "max-age=86400"
+		X-Content-Type-Options "nosniff"
+		Referrer-Policy "strict-origin-when-cross-origin"
+		X-Frame-Options "DENY"
+		Content-Security-Policy "frame-ancestors 'none'; object-src 'none'; base-uri 'self'"
+		# Observe resource violations without blocking Next's inline scripts or CAPTCHA.
+		# No collector is configured: review browser console evidence before enforcing.
+		Content-Security-Policy-Report-Only "default-src 'self'; script-src 'self' https://o.alicdn.com; style-src 'self' 'unsafe-inline'; img-src 'self' data: blob:; font-src 'self'; connect-src 'self'; frame-src 'self'; form-action 'self'"
+		-X-Powered-By
+	}
+}
+
 {$DOMAIN} {
+	import browser_security_headers
 	reverse_proxy app:3000 {
 		# Single public proxy: overwrite, never append a client-supplied identity.
 		header_up X-Signup-Client-IP {remote_host}
+	}
+	# Deferred response headers do not run when an upstream connection fails.
+	# Reuse the policy on that error path without exposing internal error details.
+	handle_errors {
+		import browser_security_headers
+		respond "" {err.status_code}
 	}
 }

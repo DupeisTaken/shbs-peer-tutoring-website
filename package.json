@@ -23,6 +23,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:pr-size": "node --test scripts/pr-size.test.mjs",
+    "test:deployment": "node --test --test-concurrency=1 scripts/deployment-config.test.mjs",
     "typecheck": "tsc --noEmit",
     "docs:check": "node scripts/check-docs.mjs && node --test scripts/docs.test.mjs"
   },

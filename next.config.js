@@ -12,6 +12,8 @@ const workspaceRoot = process.env.SHBS_WORKSPACE_ROOT ?? import.meta.dirname;
 
 /** @type {import("next").NextConfig} */
 const config = {
+  // Caddy owns the public security policy; omit framework identification at source too.
+  poweredByHeader: false,
   // Self-contained server build for the Docker runtime image (.next/standalone).
   output: "standalone",
   // Pin the output file-tracing root to this project (good hygiene for standalone output and

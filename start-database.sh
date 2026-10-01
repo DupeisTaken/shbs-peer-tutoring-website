@@ -13,12 +13,25 @@
 
 # import env variables from .env
 set -a
-source .env
+source .env || exit 1
+set +a
 
 DB_PASSWORD=$(echo "$DATABASE_URL" | awk -F':' '{print $3}' | awk -F'@' '{print $1}')
 DB_PORT=$(echo "$DATABASE_URL" | awk -F':' '{print $4}' | awk -F'\/' '{print $1}')
 DB_NAME=$(echo "$DATABASE_URL" | awk -F'/' '{print $4}')
 DB_CONTAINER_NAME="$DB_NAME-postgres"
+
+# Publishing without a host IP exposes PostgreSQL on every host interface.
+# Remote access must be an explicit, reviewed choice, independent of DATABASE_URL.
+DB_BIND_ADDRESS="${DB_BIND_ADDRESS:-127.0.0.1}"
+if ! [[ "$DB_BIND_ADDRESS" =~ ^(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})\.(0|[1-9][0-9]{0,2})$ ]] ||
+  (( BASH_REMATCH[1] > 255 || BASH_REMATCH[2] > 255 || BASH_REMATCH[3] > 255 || BASH_REMATCH[4] > 255 )); then
+  echo "DB_BIND_ADDRESS must be a literal IPv4 address (default: 127.0.0.1)." >&2
+  exit 1
+fi
+if [[ "$DB_BIND_ADDRESS" != 127.* ]]; then
+  echo "Warning: PostgreSQL will be published on $DB_BIND_ADDRESS; review network access and authentication."
+fi
 
 if ! [ -x "$(command -v docker)" ] && ! [ -x "$(command -v podman)" ]; then
   echo -e "Docker or Podman is not installed. Please install docker or podman and try again.\nDocker install guide: https://docs.docker.com/engine/install/\nPodman install guide: https://podman.io/getting-started/installation"
@@ -37,6 +50,24 @@ if ! $DOCKER_CMD info > /dev/null 2>&1; then
   exit 1
 fi
 
+# A restart cannot change a container's publishing configuration. Refuse old broad
+# bindings rather than silently reusing them or deleting a developer's database.
+EXISTING_CONTAINER=$($DOCKER_CMD ps -a -q -f "name=^/?${DB_CONTAINER_NAME}$") || exit 1
+if [ -n "$EXISTING_CONTAINER" ]; then
+  EXISTING_BINDINGS=$($DOCKER_CMD inspect --format '{{range (index .HostConfig.PortBindings "5432/tcp")}}{{.HostIp}}:{{.HostPort}}{{"\n"}}{{end}}' "$DB_CONTAINER_NAME") || exit 1
+  EXISTING_NETWORK=$($DOCKER_CMD inspect --format '{{.HostConfig.NetworkMode}}' "$DB_CONTAINER_NAME") || exit 1
+  if [ "$EXISTING_BINDINGS" != "$DB_BIND_ADDRESS:$DB_PORT" ] || [ "$EXISTING_NETWORK" = "host" ]; then
+    echo "Existing container '$DB_CONTAINER_NAME' does not match the requested PostgreSQL binding." >&2
+    echo "Back up its data and review its mounts before recreating it; see docs/local-development.md." >&2
+    exit 1
+  fi
+  EXISTING_RUNNING=$($DOCKER_CMD inspect --format '{{.State.Running}}' "$DB_CONTAINER_NAME") || exit 1
+  if [ "$EXISTING_RUNNING" = "true" ]; then
+    echo "Database container '$DB_CONTAINER_NAME' already running with the requested binding"
+    exit 0
+  fi
+fi
+
 if command -v nc >/dev/null 2>&1; then
   if nc -z localhost "$DB_PORT" 2>/dev/null; then
     echo "Port $DB_PORT is already in use."
@@ -51,13 +82,8 @@ else
   fi
 fi
 
-if [ "$($DOCKER_CMD ps -q -f name=$DB_CONTAINER_NAME)" ]; then
-  echo "Database container '$DB_CONTAINER_NAME' already running"
-  exit 0
-fi
-
-if [ "$($DOCKER_CMD ps -q -a -f name=$DB_CONTAINER_NAME)" ]; then
-  $DOCKER_CMD start "$DB_CONTAINER_NAME"
+if [ -n "$EXISTING_CONTAINER" ]; then
+  $DOCKER_CMD start "$DB_CONTAINER_NAME" || exit 1
   echo "Existing database container '$DB_CONTAINER_NAME' started"
   exit 0
 fi
@@ -80,9 +106,9 @@ if [ "$DB_PASSWORD" = "password" ]; then
 fi
 
 $DOCKER_CMD run -d \
-  --name $DB_CONTAINER_NAME \
+  --name "$DB_CONTAINER_NAME" \
   -e POSTGRES_USER="postgres" \
   -e POSTGRES_PASSWORD="$DB_PASSWORD" \
   -e POSTGRES_DB="$DB_NAME" \
-  -p "$DB_PORT":5432 \
+  -p "$DB_BIND_ADDRESS:$DB_PORT:5432" \
   docker.io/postgres && echo "Database container '$DB_CONTAINER_NAME' was successfully created"
