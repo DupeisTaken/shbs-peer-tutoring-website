@@ -99,10 +99,17 @@ it.each([
         screen.getByLabelText(messages.personName.lastName + " " + messages.signupFields.required),
         { target: { value: "Name" } },
       );
-    } else
+    } else {
+      // Creation policy is exercised through the visible panel, as a user opens it.
+      fireEvent.click(
+        screen.getByRole("button", {
+          name: messages.admin.tutees.addTutee,
+        }),
+      );
       fireEvent.change(screen.getByLabelText(messages.personName.firstName + " " + messages.signupFields.required), {
         target: { value: "Draft Name" },
       });
+    }
     fireEvent.submit(document.querySelector("form")!);
     expect(mock.mutate).toHaveBeenCalledOnce();
     // A rejected mutation leaves its error beside the same form and retains the user's input.

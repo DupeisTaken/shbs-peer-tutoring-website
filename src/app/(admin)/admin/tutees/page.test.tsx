@@ -1,6 +1,7 @@
 /** @vitest-environment jsdom */
 import { afterEach, expect, it, vi } from "vitest";
 import {
+  act,
   cleanup,
   fireEvent,
   render,
@@ -16,6 +17,9 @@ import TuteesPage from "./page";
 const mocks = vi.hoisted(() => ({
   remove: vi.fn(),
   moreHistory: false,
+  create: vi.fn(),
+  pending: false,
+  error: null as { message: string } | null,
   searchRows: null as Record<string, unknown>[] | null,
 }));
 vi.mock("~/trpc/react", () => {
@@ -36,7 +40,14 @@ vi.mock("~/trpc/react", () => {
         },
       },
       admin: {
-        subjects: empty,
+        subjects: {
+          useQuery: () => ({
+            data: [
+              { id: "math", name: "Math", active: true },
+              { id: "english", name: "English", active: true },
+            ],
+          }),
+        },
         tutors: empty,
         pairings: empty,
         tuteeStats: { useQuery: () => ({ data: {} }) },
@@ -96,7 +107,13 @@ vi.mock("~/trpc/react", () => {
             ],
           }),
         },
-        createTutee: { useMutation: () => ({}) },
+        createTutee: {
+          useMutation: () => ({
+            mutate: mocks.create,
+            isPending: mocks.pending,
+            error: mocks.error,
+          }),
+        },
         deleteTutee: { useMutation: () => ({ mutate: mocks.remove }) },
       },
     },
@@ -112,6 +129,8 @@ afterEach(() => {
   cleanup();
   vi.clearAllMocks();
   mocks.moreHistory = false;
+  mocks.pending = false;
+  mocks.error = null;
   mocks.searchRows = null;
 });
 function mount(chinese = false, readOnly = false) {
@@ -229,6 +248,153 @@ it("sorts historical rows by original grades instead of the owner's current grad
   expect(names[1]).toContain("Later Grade");
 });
 
+it.each([false, true])(
+  "starts with roster search and keeps a hidden creation draft (Chinese=%s)",
+  (chinese) => {
+    const messages = chinese ? zh : en;
+    mount(chinese);
+    expect(
+      screen.getByRole("textbox", {
+        name: messages.tuteeHistory.searchRecords,
+      }),
+    ).toBeTruthy();
+    expect(
+      screen.queryByRole("textbox", {
+        name: `${messages.personName.firstName} ${messages.signupFields.required}`,
+      }),
+    ).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.admin.tutees.addTutee }),
+    );
+    const region = screen.getByRole("region", {
+      name: messages.admin.tutees.addTutee,
+    });
+    const first = within(region).getByLabelText<HTMLInputElement>(
+      `${messages.personName.firstName} ${messages.signupFields.required}`,
+    );
+    expect(first.required).toBe(true);
+    fireEvent.change(first, { target: { value: "Draft" } });
+    fireEvent.change(
+      within(region).getByRole("combobox", {
+        name: `${messages.admin.tutees.grade} ${messages.signupFields.optional}`,
+      }),
+      { target: { value: "9" } },
+    );
+    fireEvent.change(
+      within(region).getByRole("combobox", {
+        name: `${messages.admin.tutees.firstChoice} ${messages.signupFields.optional}`,
+      }),
+      { target: { value: "math" } },
+    );
+    fireEvent.change(
+      within(region).getByRole("combobox", {
+        name: `${messages.admin.tutees.secondChoice} ${messages.signupFields.optional}`,
+      }),
+      { target: { value: "english" } },
+    );
+    fireEvent.click(
+      within(region).getByRole("button", {
+        name: messages.admin.tutees.hideAddForm,
+      }),
+    );
+    const trigger = screen.getByRole("button", {
+      name: messages.admin.tutees.addTutee,
+    });
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    expect(document.activeElement).toBe(trigger);
+    expect(mocks.create).not.toHaveBeenCalled();
+    fireEvent.click(trigger);
+    expect(first.value).toBe("Draft");
+    fireEvent.click(
+      within(region).getByRole("button", {
+        name: messages.admin.tutees.addTuteeBtn,
+      }),
+    );
+    expect(mocks.create).toHaveBeenCalledWith(
+      expect.objectContaining({
+        firstName: "Draft",
+        gradeLevel: "9",
+        firstChoiceId: "math",
+        secondChoiceId: "english",
+      }),
+      expect.any(Object),
+    );
+    // A successful mutation is the only hide interaction that clears the draft.
+    const callbacks = mocks.create.mock.calls[0]![1] as {
+      onSuccess: () => void;
+    };
+    act(() => callbacks.onSuccess());
+    expect(document.activeElement).toBe(trigger);
+    expect(trigger.getAttribute("aria-expanded")).toBe("false");
+    fireEvent.click(trigger);
+    expect(first.value).toBe("");
+    for (const select of region.querySelectorAll("select"))
+      expect(select.value).toBe("");
+  },
+);
+it("hides creation from read-only viewers", () => {
+  mount(false, true);
+  expect(
+    screen.queryByRole("button", { name: en.admin.tutees.addTutee }),
+  ).toBeNull();
+  expect(document.querySelector("#add-tutee-form")).toBeNull();
+});
+it("prevents hiding during a pending creation and retains failures for retry", () => {
+  mocks.error = { message: "Try again" };
+  mount();
+  fireEvent.click(
+    screen.getByRole("button", { name: en.admin.tutees.addTutee }),
+  );
+  expect(screen.getByRole("alert").textContent).toBe("Try again");
+  cleanup();
+  mocks.pending = true;
+  mount();
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: en.admin.tutees.addTutee,
+    }).disabled,
+  ).toBe(true);
+});
+
+it("restores focus after pending state ends, rather than focusing a disabled trigger", () => {
+  const view = mount();
+  const tree = (
+    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+      <ReadOnlyProvider value={false}>
+        <TuteesPage />
+      </ReadOnlyProvider>
+    </NextIntlClientProvider>
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: en.admin.tutees.addTutee }),
+  );
+  fireEvent.change(screen.getByLabelText("First Name Required"), {
+    target: { value: "Ada" },
+  });
+  fireEvent.click(
+    screen.getByRole("button", { name: en.admin.tutees.addTuteeBtn }),
+  );
+  mocks.pending = true;
+  view.rerender(tree);
+  const callbacks = mocks.create.mock.calls[0]![1] as { onSuccess: () => void };
+  act(() => callbacks.onSuccess());
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: en.admin.tutees.addTutee,
+    }).disabled,
+  ).toBe(true);
+  mocks.pending = false;
+  view.rerender(
+    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+      <ReadOnlyProvider value={false}>
+        <TuteesPage />
+      </ReadOnlyProvider>
+    </NextIntlClientProvider>,
+  );
+  expect(document.activeElement).toBe(
+    screen.getByRole("button", { name: en.admin.tutees.addTutee }),
+  );
+});
 it.each([
   [false, false],
   [true, false],
