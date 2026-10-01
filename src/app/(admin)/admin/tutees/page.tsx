@@ -109,6 +109,7 @@ export default function TuteesPage() {
   const [creationOpen, setCreationOpen] = useState(false);
   const addTrigger = useRef<HTMLButtonElement>(null);
   const restoreAddFocus = useRef(false);
+  const creationSubmitting = useRef(false);
   const [editingId, setEditingId] = useState<string | null>(null);
   const utils = api.useUtils();
   const tutees = api.admin.tutees.useQuery();
@@ -220,7 +221,13 @@ export default function TuteesPage() {
               aria-expanded={creationOpen}
               aria-controls="add-tutee-form"
               disabled={create.isPending}
-              onClick={() => setCreationOpen((open) => !open)}
+              onClick={() => {
+                if (create.isPending || creationSubmitting.current) return;
+                // A completed save belongs to that draft only. Preserve failed
+                // drafts and their errors when hiding/reopening the form.
+                if (!creationOpen && create.isSuccess) create.reset();
+                setCreationOpen((open) => !open);
+              }}
             >
               {t(
                 creationOpen
@@ -274,10 +281,19 @@ export default function TuteesPage() {
           <p className="muted mt-1 text-sm">{t("admin.tutees.addDraftHelp")}</p>
           <ProfilePolicyHint />
           <form
-            className="mt-3 flex flex-wrap items-end gap-3"
+            className="mt-3"
+            aria-busy={create.isPending}
             onSubmit={(e) => {
               e.preventDefault();
-              if (!name.trim()) return;
+              if (
+                !name.trim() ||
+                create.isPending ||
+                creationSubmitting.current
+              )
+                return;
+              // Block a second submit before the pending render disables the
+              // form, so only one request owns this draft until it settles.
+              creationSubmitting.current = true;
               create.mutate(
                 {
                   ...names,
@@ -300,80 +316,90 @@ export default function TuteesPage() {
                     restoreAddFocus.current = true;
                     setCreationOpen(false);
                   },
+                  onSettled: () => {
+                    creationSubmitting.current = false;
+                  },
                 },
               );
             }}
           >
-            <div className="w-full max-w-2xl">
-              <PersonNameFields value={names} onChange={setNames} />
-            </div>
-            <label className="space-y-1">
-              <span className="label">
-                {t("admin.tutees.grade")}
-                <FieldRequirement state="optional" />
-              </span>
-              <OfferedGradeSelect
-                value={gradeLevel}
-                onChange={setGradeLevel}
-                offeredGrades={policy.offeredGrades}
-                includeGraduated
-              />
-            </label>
-            <label className="space-y-1">
-              <span className="label">
-                {t("admin.tutees.firstChoice")}
-                <FieldRequirement state="optional" />
-              </span>
-              <select
-                value={firstChoiceId}
-                onChange={(e) => setFirstChoiceId(e.target.value)}
-                className="select field-auto min-w-40"
-              >
-                <option value="">—</option>
-                {courseList.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            <label className="space-y-1">
-              <span className="label">
-                {t("admin.tutees.secondChoice")}
-                <FieldRequirement state="optional" />
-              </span>
-              <select
-                value={secondChoiceId}
-                onChange={(e) => setSecondChoiceId(e.target.value)}
-                className="select field-auto min-w-40"
-              >
-                <option value="">—</option>
-                {courseList
-                  .filter((c) => c.id !== firstChoiceId)
-                  .map((c) => (
+            {/* Freeze every draft field while the submitted snapshot is saved. */}
+            <fieldset
+              disabled={create.isPending}
+              className="flex min-w-0 flex-wrap items-end gap-3"
+            >
+              <div className="w-full max-w-2xl">
+                <PersonNameFields value={names} onChange={setNames} />
+              </div>
+              <label className="space-y-1">
+                <span className="label">
+                  {t("admin.tutees.grade")}
+                  <FieldRequirement state="optional" />
+                </span>
+                <OfferedGradeSelect
+                  value={gradeLevel}
+                  onChange={setGradeLevel}
+                  offeredGrades={policy.offeredGrades}
+                  includeGraduated
+                />
+              </label>
+              <label className="space-y-1">
+                <span className="label">
+                  {t("admin.tutees.firstChoice")}
+                  <FieldRequirement state="optional" />
+                </span>
+                <select
+                  value={firstChoiceId}
+                  onChange={(e) => setFirstChoiceId(e.target.value)}
+                  className="select field-auto min-w-40"
+                >
+                  <option value="">—</option>
+                  {courseList.map((c) => (
                     <option key={c.id} value={c.id}>
                       {c.name}
                     </option>
                   ))}
-              </select>
-            </label>
-            <button
-              className="btn-primary min-h-11 lg:min-h-10"
-              disabled={!name.trim() || create.isPending}
-            >
-              {t("admin.tutees.addTuteeBtn")}
-            </button>
-            <button
-              type="button"
-              className="btn-secondary min-h-11 lg:min-h-10"
-              disabled={create.isPending}
-              onClick={() => {
-                setCreationOpen(false);
-                addTrigger.current?.focus();
-              }}
-            >
-              {t("admin.tutees.hideAddForm")}
-            </button>
+                </select>
+              </label>
+              <label className="space-y-1">
+                <span className="label">
+                  {t("admin.tutees.secondChoice")}
+                  <FieldRequirement state="optional" />
+                </span>
+                <select
+                  value={secondChoiceId}
+                  onChange={(e) => setSecondChoiceId(e.target.value)}
+                  className="select field-auto min-w-40"
+                >
+                  <option value="">—</option>
+                  {courseList
+                    .filter((c) => c.id !== firstChoiceId)
+                    .map((c) => (
+                      <option key={c.id} value={c.id}>
+                        {c.name}
+                      </option>
+                    ))}
+                </select>
+              </label>
+              <button
+                className="btn-primary min-h-11 lg:min-h-10"
+                disabled={!name.trim() || create.isPending}
+              >
+                {t("admin.tutees.addTuteeBtn")}
+              </button>
+              <button
+                type="button"
+                className="btn-secondary min-h-11 lg:min-h-10"
+                disabled={create.isPending}
+                onClick={() => {
+                  if (create.isPending || creationSubmitting.current) return;
+                  setCreationOpen(false);
+                  addTrigger.current?.focus();
+                }}
+              >
+                {t("admin.tutees.hideAddForm")}
+              </button>
+            </fieldset>
           </form>
           {create.error && (
             <p role="alert" className="mt-3 text-sm text-red-600">

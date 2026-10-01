@@ -322,8 +322,12 @@ it.each([false, true])(
     // A successful mutation is the only hide interaction that clears the draft.
     const callbacks = mocks.create.mock.calls[0]![1] as {
       onSuccess: () => void;
+      onSettled: () => void;
     };
-    act(() => callbacks.onSuccess());
+    act(() => {
+      callbacks.onSuccess();
+      callbacks.onSettled();
+    });
     expect(document.activeElement).toBe(trigger);
     expect(trigger.getAttribute("aria-expanded")).toBe("false");
     fireEvent.click(trigger);
