@@ -3661,7 +3661,7 @@ export const adminRouter = createTRPCRouter({
       code: canSee ? c.code : null,
       name:
         (c.crewApplicationId ? nameById.get(c.crewApplicationId) : null) ??
-        c.label ??
+        (canSee ? c.label : null) ??
         "—",
       expiresAt: c.expiresAt,
     }));
@@ -5164,7 +5164,7 @@ export const adminRouter = createTRPCRouter({
     .input(auditFilters.optional())
     .query(({ ctx, input }) =>
       ctx.db.auditLog.findMany({
-        where: auditWhere(input),
+        where: auditWhere(input, ctx.portalAccess.maskManagementData),
         orderBy: [{ createdAt: "desc" }, { id: "desc" }],
         take: 100,
         ...(input?.cursor ? { cursor: { id: input.cursor }, skip: 1 } : {}),

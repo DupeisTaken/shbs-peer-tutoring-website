@@ -12,7 +12,7 @@ type PrivacyPolicy = {
   sections: { id: string; title: string; paragraphs: string[] }[];
 };
 
-export const PRIVACY_POLICY_UPDATED = "2026-09-29";
+export const PRIVACY_POLICY_UPDATED = "2026-10-02";
 
 const en: PrivacyPolicy = {
   lang: "en",
@@ -49,7 +49,7 @@ const en: PrivacyPolicy = {
       id: "access",
       title: "Who can access information",
       paragraphs: [
-        "Access depends on role, participation and assignment. Participants can access their own records and the information made available for their tutoring or crew duties. Authorized program staff can access records needed for management and review. Viewer accounts receive permitted read-only information with personal contact details masked; masking contact details does not make every program record anonymous.",
+        "Access depends on role, participation and assignment. Participants can access their own records and the information made available for their tutoring or crew duties. Authorized program staff can access records needed for management and review. Viewers and departure-based observers receive permitted read-only summaries, including names, schedules, statuses, attendance ratings and totals. Contact details, signatures, private comments, absence reasons, application evidence and decision notes are withheld. Audit entries show category summaries without private action text. These summaries are not anonymous.",
         "Private messages are available to their sender and recipient. Messages marked for supervision can also be reviewed by authorized administrators and the program head; a review records the reviewer and reason. Private messaging is not end-to-end encrypted.",
         "The configured hosting, database and email services process information needed to run the website and deliver messages. Website operators with infrastructure access may also access stored data and backups. Ask program management for the providers and storage locations used by your school.",
       ],
@@ -122,7 +122,7 @@ const zh: PrivacyPolicy = {
       id: "access",
       title: "谁可以访问信息",
       paragraphs: [
-        "访问范围取决于角色、参与情况与任务安排。参与者可以访问自己的记录，以及履行辅导或巡查职责所需的信息。获授权的项目人员可以访问管理与审核所需的记录。观察员账号可以查看允许范围内的只读信息，其中个人联系方式会被遮蔽；遮蔽联系方式并不代表所有项目记录都已匿名化。",
+        "访问范围取决于角色、参与情况与任务安排。参与者可以访问自己的记录，以及履行辅导或巡查职责所需的信息。获授权的项目人员可以访问管理与审核所需的记录。观察员及离校后获准观察的用户可以查看允许范围内的只读摘要，包括姓名、时间安排、状态、出勤评分和汇总数据。联系方式、签名、私人评论、缺席原因、申请证明材料及决定说明不会显示。审计记录仅显示类别摘要，不包含私人操作说明。这些摘要并非匿名数据。",
         "私信的发送者和接收者可以查看消息。标记为可监督的消息也可由获授权的管理员和项目负责人审核；审核会记录审核人和原因。站内私信不采用端到端加密。",
         "网站配置的托管、数据库和邮件服务会处理运行网站与发送消息所需的信息。拥有基础设施访问权限的网站运营人员也可能访问存储的数据与备份。如需了解学校使用的服务商和存储地点，请联系项目管理团队。",
       ],

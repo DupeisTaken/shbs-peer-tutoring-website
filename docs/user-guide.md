@@ -357,7 +357,9 @@ In **Users & Roles → Edit profile**, Head can save a username for any login ac
 
 When viewer signup is enabled, use the public viewer registration form, provide your name, affiliation and email, confirm the emailed code, then set your password. If that email already has an account, sign in or recover it instead. Email delivery must be available.
 
-Viewers can browse permitted read-only management summaries. Personal contact details are masked, and management mutations are unavailable. Viewer access does not expose private message conversations or another person’s tutee records. Viewer cannot coexist with tutoring, tutee, translation or crew membership. Request a replacement membership from Account settings and wait for HEAD approval before participating.
+Viewers and departure-based observers can browse permitted read-only management summaries, including names, schedules, statuses, attendance ratings and totals. Contact details, signatures, private comments, absence reasons, application evidence and decision notes are withheld. Audit entries show category summaries; audit search matches actor names, entities and operations rather than private action text. Published policies and announcements remain readable for management observation. These summaries are not anonymous.
+
+Management mutations are unavailable. Observation does not grant private conversations or another person's participant history; your own account and explicitly owned history retain their usual access. Viewer cannot coexist with tutoring, tutee, translation or crew membership. Request a replacement membership from Account settings and wait for HEAD approval before participating.
 
 If you need a different role or access to your own participation record, request the change in Account settings. Do not create another account to work around permissions.
 

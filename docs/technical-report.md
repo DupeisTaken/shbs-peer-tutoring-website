@@ -44,9 +44,26 @@ Account role, linked tutor profile, crew membership and translator assignment ar
 | `crewProcedure`                           | Permitted active crew or management access with the crew module enabled      |
 | `adminProcedure`                          | Management; sensitive coordinator mutations enter review                     |
 | `adminOnlyProcedure` / `headProcedure`    | ADMIN or HEAD / HEAD only                                                    |
-| `viewerProcedure`                         | Permitted management reads with masked VIEWER responses                      |
+| `viewerProcedure`                         | Management queries; explicit safe projections for Viewers and observers      |
 | `translatorProcedure`                     | Explicit assigned translators; management rank does not grant editing access |
 | `translationReviewerProcedure`            | Management reviewers or assigned translators reading their own drafts        |
+
+Management observation uses the per-procedure [read models](../src/server/management-read-models.ts)
+at the tRPC response boundary. Only listed scalar fields and recursively projected relations
+reach Viewers and departure-based observers; unknown fields and unregistered reads fail closed.
+Names, schedules, statuses, attendance ratings, school-grade summaries and totals remain visible.
+Contact details, signatures, private narratives, application scores/evidence, raw academic text,
+account/policy snapshots, invitation labels/codes and attendance submission fingerprints are
+withheld. Published policies and announcements remain readable, consistent with the publication
+workflow's explicit Viewer oversight (including announcements with selected tutor recipients).
+
+Audit observations contain actor/time/category metadata and a fixed category label, never the
+stored action text, details or undo payload. Observer audit search matches actor names, entity
+and operation metadata before pagination; it never searches hidden narratives. This also covers
+historical actions containing appeal/correction explanations. Staff responses and staff audit
+search retain their existing behavior. Own-account and explicitly owned participant history
+remain under their separate ownership guards. When adding management queries or relations,
+update the read-model inventory and its RPC regression tests rather than adding blacklist keys.
 
 [Composable membership](../src/lib/account-membership.ts) keeps the exact management rank in `User.role`, tutor identity in `tutorId` with independent `tutorAccessRevoked`, crew lifecycle in `crewStatus`, explicit translation permission in `canTranslate`, and tutee membership in `tuteeMember`. `PolicyAcceptance` remains separate immutable evidence. Viewer exclusivity is validated by the complete membership schema and a database constraint. Legacy mixed Viewer accounts lose read-only management access and retain their explicit participant capabilities; migration never inserts policy acceptance. Outstanding pre-migration registration codes expire because they have no durable Head grant evidence; Head must issue fresh codes.
 
