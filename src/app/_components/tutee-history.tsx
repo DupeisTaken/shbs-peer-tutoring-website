@@ -1,7 +1,7 @@
 "use client";
 import { invalidateTuteeViews } from "~/lib/tutee-cache";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { ProfileDialog } from "./profile-dialog";
@@ -11,7 +11,11 @@ export function HistoryError({ message }: { message: string }) {
   const t = useTranslations("tuteeHistory");
   return (
     <p role="alert" className="rounded-lg bg-red-50 p-3 text-sm text-red-800">
-      {t.has(message) ? t(message) : t("failed")}
+      {message === "SIGNUP_RETRY"
+        ? t("HISTORY_RATE_LIMIT")
+        : t.has(message)
+          ? t(message)
+          : t("failed")}
     </p>
   );
 }
@@ -93,7 +97,17 @@ export function TuteeHistoryDialog({
                       ? `@${data.owner.username}`
                       : (data.owner.name ?? t("linkedAccount"))}
                   </p>
-                  <AcademicDetails academic={data.owner.academic} />
+                  {/* Missing current academics are expected for alumni; viewing
+                      personal evidence must not imply a new enrollment requirement. */}
+                  {personal &&
+                  data.owner.academic.status === "UNKNOWN" &&
+                  !data.owner.academic.rawGrade ? (
+                    <p className="muted text-sm">
+                      {t("currentAcademicsOptional")}
+                    </p>
+                  ) : (
+                    <AcademicDetails academic={data.owner.academic} />
+                  )}
                 </>
               ) : (
                 <p className="muted text-sm">{t("noAccountHelp")}</p>
@@ -173,12 +187,15 @@ export function TuteeHistoryLinkForm({
   row,
   isHead,
   onLinked,
+  onPendingChange,
 }: {
   row: RouterOutputs["admin"]["tutees"][number];
   isHead: boolean;
   onLinked: () => void;
+  onPendingChange?: (pending: boolean) => void;
 }) {
   const t = useTranslations("tuteeHistory");
+  const format = useFormatter();
   const utils = api.useUtils();
   const [search, setSearch] = useState("");
   const [query, setQuery] = useState("");
@@ -193,6 +210,18 @@ export function TuteeHistoryLinkForm({
   const [reviewing, setReviewing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const [cancelled, setCancelled] = useState(false);
+  const invitation = api.tuteeHistory.invitationStatus.useQuery({
+    tuteeId: row.id,
+  });
+  const cancelInvitation = api.tuteeHistory.cancelInvitation.useMutation({
+    onSuccess: async () => {
+      setSent(false);
+      setCancelled(true);
+      await invitation.refetch();
+    },
+    onError: (e) => setError(e.message),
+  });
   const candidates = api.tuteeHistory.candidates.useQuery(
     { search: query },
     { enabled: query.length >= 2 },
@@ -216,10 +245,24 @@ export function TuteeHistoryLinkForm({
     },
   });
   const invite = api.tuteeHistory.invite.useMutation({
-    onSuccess: () => setSent(true),
+    onSuccess: async () => {
+      setSent(true);
+      setCancelled(false);
+      await invitation.refetch();
+    },
     onError: (e) => setError(e.message),
   });
-  const pending = link.isPending || invite.isPending || reviewing;
+  const pending =
+    link.isPending ||
+    invite.isPending ||
+    cancelInvitation.isPending ||
+    reviewing;
+  // The enclosing native dialog owns dismissal/focus. Keep it mounted until the
+  // exact history write settles so closing it cannot conceal an in-flight result.
+  useEffect(() => {
+    onPendingChange?.(pending);
+    return () => onPendingChange?.(false);
+  }, [pending, onPendingChange]);
   return (
     <div className="space-y-5">
       <div>
@@ -394,6 +437,43 @@ export function TuteeHistoryLinkForm({
         <section className="space-y-3 rounded-xl border border-slate-200 p-4">
           <h3 className="font-semibold">{t("invitation")}</h3>
           <p className="muted text-sm">{t("inviteHelp")}</p>
+          {invitation.error && (
+            <HistoryError message={invitation.error.message} />
+          )}
+          {cancelled && (
+            <p role="status" className="text-sm">
+              {t("invitationCancelled")}
+            </p>
+          )}
+          {invitation.data && (
+            <div className="space-y-2 rounded-lg bg-slate-50 p-3 text-sm">
+              <p className="break-all">
+                {t("invitationRecipient", { email: invitation.data.email })}
+              </p>
+              <p>
+                {t("invitationExpiry", {
+                  date: format.dateTime(invitation.data.expiresAt, {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  }),
+                })}
+              </p>
+              <button
+                type="button"
+                className="btn-secondary min-h-11 lg:min-h-10"
+                disabled={pending}
+                onClick={() => {
+                  setError(null);
+                  cancelInvitation.mutate({
+                    tuteeId: row.id,
+                    revision: invitation.data!.revision,
+                  });
+                }}
+              >
+                {t("cancelInvitation")}
+              </button>
+            </div>
+          )}
           <form
             className="space-y-3"
             onSubmit={(e) => {

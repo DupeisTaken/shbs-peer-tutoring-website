@@ -56,6 +56,9 @@ export function HistoryClaim({ token }: { token: string }) {
           </button>
         </>
       )}
+      <Link className="link inline-flex min-h-11 items-center" href="/history">
+        {t("myHistory")}
+      </Link>
     </section>
   );
 }

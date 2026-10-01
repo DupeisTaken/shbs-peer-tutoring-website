@@ -161,6 +161,7 @@ Try the public forms (no login required):
 - **Student signup** at `/signup` reserves a survey timestamp before account verification. The request queue (`/admin/requests`) tracks verified and unverified demand. The local email link confirms the request and creates the account; assignment starts a fixed verification deadline if it is still unverified.
 - **Tutor application** at `/tutor-signup` starts recruitment. Assign at least three active tutor accounts, a highest-ranking management chair, and explicit subject qualification coverage. Every panelist votes; the majority determines the outcome and the chair breaks ties. A coordinator chair's decision requires ADMIN/HEAD approval.
 - **Crew application** at `/crew-signup` starts the separate crew membership workflow.
+- **History-only access** starts from a staff-reviewed historical tutee invitation at `/history/claim`. Rehearse with synthetic archive records: send the invitation in the roster editor, verify a separate email code, create credentials, sign in and explicitly claim the record. No current enrollment or policy acceptance is needed. Keep development email tokens/codes in ignored local logs, never public evidence.
 
 Follow the [role guide](user-guide.md) using the [demo accounts](#demo-accounts-and-workflows). Real SMTP setup and final school policy approval remain launch configuration work; local capture delivers no external mail.
 
@@ -211,6 +212,8 @@ npm run docs:check  # documentation links, headings and maintenance regressions
 ```
 
 Email ownership and notification regressions live in `src/server/auth/account-emails.test.ts`, with migration compatibility in `account-email-migration.test.ts` and component interaction coverage in `src/app/_components/account-emails.test.tsx`. Include expiry, failed delivery, legitimate registration, simultaneous claims, removal/recovery, gating and retry scenarios. Use synthetic accounts and captured mail for browser rehearsal; follow [email operations](deployment.md#optional-notification-delivery) for real deployments.
+
+History-only credentials and cancellation use `src/server/history-account-setup.test.ts` alongside `src/server/api/routers/tutee-history.test.ts`. These suites require the isolated `shbs_shipping_test` database and check archive preservation, shared email ownership, retries, cancellation/expiry, access scoping and transaction rollback. Include the existing account-combination and school-departure regressions when changing this boundary.
 
 ## 6. Smoke-test the production Docker stack (optional)
 

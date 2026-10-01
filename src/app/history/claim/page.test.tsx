@@ -10,9 +10,16 @@ vi.mock("next-intl/server", () => ({
     en.tuteeHistory[key as keyof typeof en.tuteeHistory],
 }));
 vi.mock("./history-claim", () => ({ HistoryClaim: () => null }));
+vi.mock("./history-account-setup", () => ({
+  HistoryAccountSetup: () => <div>Account setup form</div>,
+}));
+vi.mock("~/app/_components/language-switcher", () => ({
+  LanguageSwitcher: () => null,
+}));
+vi.mock("./actions", () => ({ switchHistoryAccount: vi.fn() }));
 afterEach(cleanup);
 
-it("preserves the invitation through sign-in and explains that tutor signup is a new application", async () => {
+it("preserves the invitation through sign-in and provides recovery and history-only setup", async () => {
   const token = "a".repeat(64);
   render(await HistoryClaimPage({ searchParams: Promise.resolve({ token }) }));
   const signin = screen.getByRole("link", { name: en.tuteeHistory.signIn });
@@ -23,10 +30,14 @@ it("preserves the invitation through sign-in and explains that tutor signup is a
   );
   expect(
     screen
-      .getByRole("link", { name: en.tuteeHistory.signup })
+      .getByRole("link", { name: en.tuteeHistory.recoverAccount })
       .getAttribute("href"),
-  ).toBe("/signup");
-  expect(screen.getByText(en.tuteeHistory.signupHelp)).toBeTruthy();
+  ).toBe("/forgot-password");
+  expect(screen.getByText("Account setup form")).toBeTruthy();
+  expect(screen.getByText(en.tuteeHistory.historySupport)).toBeTruthy();
+  expect(
+    screen.queryByRole("link", { name: en.tuteeHistory.signup }),
+  ).toBeNull();
 });
 
 it("encodes malformed token content as data in a fixed local return route", async () => {

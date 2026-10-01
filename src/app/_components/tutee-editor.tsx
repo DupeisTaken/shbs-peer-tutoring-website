@@ -35,6 +35,7 @@ export function TuteeEditor({
   // Keep explicit name drafts mounted while historical linking refreshes roster data.
   const historySection = useRef<HTMLDetailsElement>(null);
   const [historyLinked, setHistoryLinked] = useState(false);
+  const [historyPending, setHistoryPending] = useState(false);
   const [names, setNames] = useState(() => nameDraft(row));
   const [originalNames] = useState(() => nameDraft(row));
   const [legacyName] = useState(row.legacyName ?? row.englishName);
@@ -58,7 +59,7 @@ export function TuteeEditor({
     },
   });
   return (
-    <ProfileDialog title={profileText("editProfile")} onClose={onClose}>
+    <ProfileDialog title={profileText("editProfile")} onClose={onClose} pending={save.isPending || historyPending}>
       <p className="muted text-sm">
         {row.user ? profileText("canonicalHelp") : history("noAccountHelp")}
       </p>
@@ -230,6 +231,7 @@ export function TuteeEditor({
               <TuteeHistoryLinkForm
                 row={row}
                 isHead={historyPermissions.isHead}
+                onPendingChange={setHistoryPending}
                 onLinked={() => {
                   setHistoryLinked(true);
                   if (historySection.current) {
