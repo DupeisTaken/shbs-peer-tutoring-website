@@ -16,17 +16,30 @@ import { useRef, useState } from "react";
 import { TuteeHistoryLinkForm } from "./tutee-history";
 import { invalidateTuteeViews } from "~/lib/tutee-cache";
 import { GRADUATED_GRADE } from "~/lib/academics";
+import { useDialogPending } from "./ui/modal";
 
-/** Profile correction stays separate from assignment/removal, while the version protects both. */
-export function TuteeEditor({
-  row,
-  onClose,
-  historyPermissions,
-}: {
+type TuteeEditorProps = {
   row: RouterOutputs["admin"]["tutees"][number];
   onClose: () => void;
   historyPermissions?: { canLink: boolean; isHead: boolean };
-}) {
+};
+
+/** Mount every independently versioned form inside the same pending-work context. */
+export function TuteeEditor(props: TuteeEditorProps) {
+  const profileText = useTranslations("accountProfile");
+  return (
+    <ProfileDialog title={profileText("editProfile")} onClose={props.onClose}>
+      <TuteeEditorContents {...props} />
+    </ProfileDialog>
+  );
+}
+
+/** Profile correction stays separate from assignment/removal, while the version protects both. */
+function TuteeEditorContents({
+  row,
+  onClose,
+  historyPermissions,
+}: TuteeEditorProps) {
   const t = useTranslations("profileCorrection");
   const history = useTranslations("tuteeHistory");
   const profileText = useTranslations("accountProfile");
@@ -58,15 +71,11 @@ export function TuteeEditor({
       onClose();
     },
   });
-  // Each section reports only its own request. Both forms respect the combined
-  // busy state so one success cannot close the other section's outstanding write.
-  const pending = save.isPending || historyPending;
+  // Register owned work only; the returned state also guards against academic
+  // writes in this dialog, without feeding sibling work back into the registry.
+  const pending = useDialogPending(save.isPending || historyPending);
   return (
-    <ProfileDialog
-      title={profileText("editProfile")}
-      onClose={onClose}
-      pending={pending}
-    >
+    <>
       <p className="muted text-sm">
         {row.user ? profileText("canonicalHelp") : history("noAccountHelp")}
       </p>
@@ -265,6 +274,6 @@ export function TuteeEditor({
           )}
         </section>
       )}
-    </ProfileDialog>
+    </>
   );
 }

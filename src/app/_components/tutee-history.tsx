@@ -5,6 +5,7 @@ import { useLayoutEffect, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { ProfileDialog } from "./profile-dialog";
+import { useDialogBusy } from "./ui/modal";
 import { AcademicDetails } from "./academic-profile";
 
 export function HistoryError({ message }: { message: string }) {
@@ -259,7 +260,8 @@ export function TuteeHistoryLinkForm({
     invite.isPending ||
     cancelInvitation.isPending ||
     reviewing;
-  const pending = ownPending || parentPending;
+  const dialogBusy = useDialogBusy();
+  const pending = ownPending || parentPending || dialogBusy;
   // Report only owned work. Feeding the inherited busy state back to the parent
   // would latch both forms disabled after either request finished. Layout timing
   // disables sibling actions before another painted interaction can submit them.

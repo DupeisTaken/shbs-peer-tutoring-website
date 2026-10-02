@@ -13,6 +13,7 @@ import {
   ProfilePolicyLoadError,
 } from "./profile-policy";
 import { academicInput, type AcademicSummary } from "~/lib/academics";
+import { useDialogBusy, useDialogPending } from "./ui/modal";
 
 /** Grade and graduation share one reference year; participation never determines academics. */
 export function AcademicDetails({
@@ -104,6 +105,8 @@ export function AcademicForm({
   onCancel: () => void;
 }) {
   const t = useTranslations("academics");
+  const dialogBusy = useDialogBusy();
+  const busy = pending || dialogBusy;
   const [status, setStatus] = useState(snapshot.academic.status);
   const [grade, setGrade] = useState(
     snapshot.academic.gradeLevel?.toString() ?? "",
@@ -139,10 +142,10 @@ export function AcademicForm({
       className="space-y-4"
       onSubmit={(event) => {
         event.preventDefault();
-        if (valid && !pending) onSave(draft);
+        if (valid && !busy) onSave(draft);
       }}
     >
-      <fieldset disabled={pending} className="space-y-4">
+      <fieldset disabled={busy} aria-busy={busy} className="space-y-4">
         <legend className="sr-only">{t("edit")}</legend>
         <label className="block">
           <span className="label">{t("status")}</span>
@@ -212,14 +215,17 @@ export function AcademicForm({
           <button
             type="submit"
             className="btn-primary min-h-11 lg:min-h-10"
-            disabled={!valid}
+            disabled={!valid || busy}
           >
             {t(pending ? "saving" : "confirm")}
           </button>
           <button
             type="button"
             className="btn-secondary min-h-11 lg:min-h-10"
-            onClick={onCancel}
+            disabled={busy}
+            onClick={() => {
+              if (!busy) onCancel();
+            }}
           >
             {t("cancel")}
           </button>
@@ -253,6 +259,7 @@ export function AcademicPanel({ userId }: { userId?: string }) {
   const history = userId ? staff.data?.history : selfHistory.data;
   const [snapshot, setSnapshot] = useState<AcademicSnapshot | null>(null);
   const [saved, setSaved] = useState(false);
+  const [reloading, setReloading] = useState(false);
   const refresh = async () => {
     // These records also appear in rosters, workspaces and server-rendered headers.
     await Promise.all([
@@ -262,7 +269,7 @@ export function AcademicPanel({ userId }: { userId?: string }) {
       utils.admin.accounts.invalidate(),
       utils.admin.tutors.invalidate(),
       utils.admin.tutees.invalidate(),
-        utils.tuteeHistory.invalidate(),
+      utils.tuteeHistory.invalidate(),
       utils.tutor.me.invalidate(),
       utils.tutor.myProfile.invalidate(),
       utils.tutorDetails.invalidate(),
@@ -278,8 +285,12 @@ export function AcademicPanel({ userId }: { userId?: string }) {
     onSuccess: refresh,
   });
   const mutation = userId ? staffSave : ownSave;
+  // The panel outlives its editable snapshot, so registration covers the whole
+  // write and awaited refresh. Never register the inherited dialog busy state.
+  const pending = useDialogPending(mutation.isPending || reloading);
   const query = userId ? staff : self;
   const beginEdit = () => {
+    if (pending) return;
     if (data && policy.data) {
       mutation.reset();
       setSaved(false);
@@ -302,7 +313,7 @@ export function AcademicPanel({ userId }: { userId?: string }) {
           <button
             type="button"
             className="btn-secondary min-h-11 lg:min-h-10"
-            disabled={!policy.data}
+            disabled={!policy.data || pending}
             onClick={beginEdit}
           >
             {t(data.academic.needsConfirmation ? "review" : "edit")}
@@ -335,12 +346,13 @@ export function AcademicPanel({ userId }: { userId?: string }) {
                 ? t("conflict")
                 : mutation.error?.message
           }
-          onSave={(draft) =>
-            userId
-              ? staffSave.mutate({ ...draft, userId })
-              : ownSave.mutate(draft)
-          }
+          onSave={(draft) => {
+            if (pending) return;
+            if (userId) staffSave.mutate({ ...draft, userId });
+            else ownSave.mutate(draft);
+          }}
           onCancel={() => {
+            if (pending) return;
             setSnapshot(null);
             mutation.reset();
           }}
@@ -352,15 +364,22 @@ export function AcademicPanel({ userId }: { userId?: string }) {
         <button
           type="button"
           className="btn-secondary min-h-11 lg:min-h-10"
+          disabled={pending}
           onClick={async () => {
+            if (pending) return;
             // Reload is explicit because it discards the conflicting academic draft only.
-            const [result] = await Promise.all([
-              query.refetch(),
-              policy.refetch(),
-            ]);
-            if (result.data) {
-              setSnapshot(null);
-              mutation.reset();
+            setReloading(true);
+            try {
+              const [result] = await Promise.all([
+                query.refetch(),
+                policy.refetch(),
+              ]);
+              if (result.data) {
+                setSnapshot(null);
+                mutation.reset();
+              }
+            } finally {
+              setReloading(false);
             }
           }}
         >

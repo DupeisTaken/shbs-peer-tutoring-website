@@ -21,6 +21,14 @@ const mock = vi.hoisted(() => ({
   link: vi.fn(),
   preview: vi.fn(),
   invalidate: vi.fn(),
+  academicSave: vi.fn(),
+  selfAcademicSave: vi.fn(),
+  academicRefetch: vi.fn(),
+  routerRefresh: vi.fn(),
+  academicVersion: 7,
+}));
+vi.mock("next/navigation", () => ({
+  useRouter: () => ({ refresh: mock.routerRefresh }),
 }));
 vi.mock("~/trpc/react", async () => {
   const { useMutation } = await import("@tanstack/react-query");
@@ -46,7 +54,11 @@ vi.mock("~/trpc/react", async () => {
           pairings: invalidation,
           accounts: invalidation,
           tutors: invalidation,
+          accountAcademics: invalidation,
         },
+        account: { me: invalidation, academicHistory: invalidation },
+        tutor: { me: invalidation, myProfile: invalidation },
+        tutorDetails: invalidation,
         student: invalidation,
         tuteeHistory: { ...invalidation, preview: { fetch: mock.preview } },
       }),
@@ -54,10 +66,11 @@ vi.mock("~/trpc/react", async () => {
         profilePolicy: {
           useQuery: () => ({
             data: {
-              offeredGrades: [9],
+              offeredGrades: [9, 10],
               requireLatinNames: true,
               currentSchoolYear: "26-27",
             },
+            refetch: mock.academicRefetch,
           }),
         },
       },
@@ -65,6 +78,27 @@ vi.mock("~/trpc/react", async () => {
         updateTutee: mutation(mock.save),
         subjects: { useQuery: () => ({ data: [] }) },
         timeSlots: { useQuery: () => ({ data: [] }) },
+        accountAcademics: {
+          useQuery: () => ({
+            data: {
+              academic: {
+                status: "REPORTED",
+                gradeLevel: 9,
+                schoolYear: "26-27",
+                needsConfirmation: false,
+              },
+              profileVersion: mock.academicVersion,
+              history: [],
+            },
+            refetch: mock.academicRefetch,
+          }),
+        },
+        updateAccountAcademics: mutation(mock.academicSave),
+      },
+      account: {
+        me: { useQuery: () => ({}) },
+        academicHistory: { useQuery: () => ({ data: [] }) },
+        updateAcademics: mutation(mock.selfAcademicSave),
       },
       tuteeHistory: {
         invite: mutation(mock.invite),
@@ -130,12 +164,16 @@ const preview = {
 let client: QueryClient;
 beforeEach(() => {
   vi.resetAllMocks();
+  mock.academicVersion = 7;
   for (const mutation of [
     mock.save,
     mock.invite,
     mock.cancel,
     mock.link,
     mock.invalidate,
+    mock.academicSave,
+    mock.selfAcademicSave,
+    mock.academicRefetch,
   ])
     mutation.mockResolvedValue({});
   mock.preview.mockResolvedValue(preview);
@@ -148,7 +186,7 @@ afterEach(() => {
   client.clear();
 });
 
-function mount() {
+function renderEditor(editorRow = row) {
   const close = vi.fn();
   render(
     <QueryClientProvider client={client}>
@@ -158,13 +196,17 @@ function mount() {
         timeZone="Asia/Shanghai"
       >
         <TuteeEditor
-          row={row}
+          row={editorRow}
           onClose={close}
           historyPermissions={{ canLink: true, isHead: false }}
         />
       </NextIntlClientProvider>
     </QueryClientProvider>,
   );
+  return close;
+}
+function mount() {
+  const close = renderEditor();
   fireEvent.click(
     screen.getByText(en.tuteeHistory.linkTitle, { selector: "summary" }),
   );
@@ -368,3 +410,239 @@ it.each(["invite", "cancel", "link"] as const)(
     await waitFor(() => expect(ui.close).toHaveBeenCalledOnce());
   },
 );
+
+function mountLinked() {
+  const close = renderEditor({
+    ...row,
+    user: { id: "linked", email: "linked@example.test" },
+  } as typeof row);
+  fireEvent.click(screen.getByRole("button", { name: en.academics.edit }));
+  fireEvent.click(
+    screen.getByText(en.tuteeHistory.linkTitle, { selector: "summary" }),
+  );
+  const notes = screen.getByRole<HTMLTextAreaElement>("textbox", {
+    name: en.profileCorrection.notes,
+  });
+  const evidence = screen.getByLabelText<HTMLTextAreaElement>(
+    en.tuteeHistory.evidence,
+  );
+  const reason = screen.getByLabelText<HTMLTextAreaElement>(
+    en.academics.reason,
+  );
+  const grade = screen.getByRole<HTMLSelectElement>("combobox", {
+    name: en.academics.grade,
+  });
+  const profileSave = screen.getByRole<HTMLButtonElement>("button", {
+    name: en.profileCorrection.save,
+  });
+  const academicSave = screen.getByRole<HTMLButtonElement>("button", {
+    name: en.academics.confirm,
+  });
+  fireEvent.change(notes, { target: { value: "Linked profile draft" } });
+  fireEvent.change(evidence, {
+    target: { value: "Verified retained enrollment identity" },
+  });
+  fireEvent.change(reason, { target: { value: "Independent academic draft" } });
+  fireEvent.change(grade, { target: { value: "10" } });
+  return {
+    close,
+    notes,
+    evidence,
+    reason,
+    grade,
+    profileSave,
+    academicSave,
+    profileForm: profileSave.closest("form")!,
+    academicForm: academicSave.closest("form")!,
+  };
+}
+function expectLinkedDrafts(ui: ReturnType<typeof mountLinked>) {
+  expect(ui.notes.value).toBe("Linked profile draft");
+  expect(ui.evidence.value).toBe("Verified retained enrollment identity");
+  expect(ui.reason.value).toBe("Independent academic draft");
+  expect(ui.grade.value).toBe("10");
+}
+function expectDismissalBlocked(close: ReturnType<typeof vi.fn>) {
+  const dialog = screen.getByRole("dialog");
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: en.accountProfile.close,
+    }).disabled,
+  ).toBe(true);
+  for (let attempt = 0; attempt < 3; attempt++)
+    expect(fireEvent.keyDown(dialog, { key: "Escape" })).toBe(false);
+  fireEvent(dialog, new Event("cancel", { cancelable: true }));
+  expect(close).not.toHaveBeenCalled();
+}
+
+it("registers a linked academic save, blocks profile/history handlers and preserves independent versions on failure", async () => {
+  const ui = mountLinked();
+  await selectOwner();
+  const work = deferred();
+  mock.academicSave.mockReturnValueOnce(work.promise);
+  fireEvent.submit(ui.academicForm);
+  await waitFor(() => expect(ui.profileSave.disabled).toBe(true));
+  expect(ui.notes.matches(":disabled")).toBe(true);
+  expect(ui.evidence.matches(":disabled")).toBe(true);
+  expectDismissalBlocked(ui.close);
+  fireEvent.submit(ui.profileForm);
+  fireEvent.submit(ui.academicForm);
+  fireEvent.click(screen.getByRole("button", { name: en.tuteeHistory.link }));
+  fireEvent.click(screen.getByRole("button", { name: en.academics.cancel }));
+  await flushMutationJobs();
+  expect(mock.save).not.toHaveBeenCalled();
+  expect(mock.link).not.toHaveBeenCalled();
+  expect(mock.academicSave).toHaveBeenCalledTimes(1);
+  // A background account version change must not silently rebase this open draft.
+  mock.academicVersion = 8;
+  await act(async () => {
+    work.reject(new Error("PROFILE_STALE"));
+  });
+  await waitFor(() => expect(ui.profileSave.disabled).toBe(false));
+  expectLinkedDrafts(ui);
+  fireEvent.submit(ui.academicForm);
+  await screen.findByText(en.academics.saved);
+  expect(mock.academicSave).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      userId: "linked",
+      expectedProfileVersion: 7,
+      expectedSchoolYear: "26-27",
+      schoolYear: "26-27",
+      gradeLevel: 10,
+      reason: "Independent academic draft",
+    }),
+  );
+  expect(mock.selfAcademicSave).not.toHaveBeenCalled();
+  await waitFor(() => expect(ui.profileSave.disabled).toBe(false));
+  expect(ui.notes.value).toBe("Linked profile draft");
+  fireEvent.submit(ui.profileForm);
+  await waitFor(() => expect(ui.close).toHaveBeenCalledOnce());
+  expect(mock.save).toHaveBeenCalledWith(
+    expect.objectContaining({ expectedUpdatedAt: row.updatedAt }),
+  );
+  expect(mock.save.mock.calls[0]![0]).not.toHaveProperty("gradeLevel");
+  expect(mock.save.mock.calls[0]![0]).not.toHaveProperty(
+    "academicallyGraduated",
+  );
+});
+
+it("blocks linked academic submission during profile save and recovers every draft after failure", async () => {
+  const ui = mountLinked();
+  const work = deferred();
+  mock.save.mockReturnValueOnce(work.promise);
+  fireEvent.submit(ui.profileForm);
+  await waitFor(() => expect(ui.academicSave.disabled).toBe(true));
+  expect(ui.grade.matches(":disabled")).toBe(true);
+  expectDismissalBlocked(ui.close);
+  fireEvent.submit(ui.academicForm);
+  fireEvent.submit(ui.profileForm);
+  await flushMutationJobs();
+  expect(mock.academicSave).not.toHaveBeenCalled();
+  expect(mock.save).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    work.reject(new Error("PROFILE_STALE"));
+  });
+  await waitFor(() => expect(ui.academicSave.disabled).toBe(false));
+  expectLinkedDrafts(ui);
+  fireEvent.submit(ui.academicForm);
+  await screen.findByText(en.academics.saved);
+  await waitFor(() => expect(ui.profileSave.disabled).toBe(false));
+  fireEvent.submit(ui.profileForm);
+  await waitFor(() => expect(ui.close).toHaveBeenCalledOnce());
+});
+
+it("blocks linked academic submission during a historical link and restores it on failure", async () => {
+  const ui = mountLinked();
+  await selectOwner();
+  const work = deferred();
+  mock.link.mockReturnValueOnce(work.promise);
+  fireEvent.click(screen.getByRole("button", { name: en.tuteeHistory.link }));
+  await waitFor(() => expect(ui.academicSave.disabled).toBe(true));
+  expectDismissalBlocked(ui.close);
+  fireEvent.submit(ui.academicForm);
+  fireEvent.submit(ui.profileForm);
+  await flushMutationJobs();
+  expect(mock.academicSave).not.toHaveBeenCalled();
+  expect(mock.save).not.toHaveBeenCalled();
+  await act(async () => {
+    work.reject(new Error("HISTORY_STALE"));
+  });
+  await waitFor(() => expect(ui.academicSave.disabled).toBe(false));
+  expectLinkedDrafts(ui);
+});
+
+it.each(["academic", "profile", "history"] as const)(
+  "guards all linked forms until %s refresh has settled",
+  async (operation) => {
+    const ui = mountLinked();
+    if (operation === "history") await selectOwner();
+    const refresh = deferred();
+    mock.invalidate.mockReturnValue(refresh.promise);
+    if (operation === "history")
+      fireEvent.click(
+        screen.getByRole("button", { name: en.tuteeHistory.link }),
+      );
+    else
+      fireEvent.submit(
+        operation === "academic" ? ui.academicForm : ui.profileForm,
+      );
+    await waitFor(() => expect(mock.invalidate).toHaveBeenCalled());
+    expect(ui.academicSave.disabled).toBe(true);
+    expect(ui.profileSave.disabled).toBe(true);
+    expectDismissalBlocked(ui.close);
+    const calls = [
+      mock.save.mock.calls.length,
+      mock.academicSave.mock.calls.length,
+    ];
+    fireEvent.submit(ui.academicForm);
+    fireEvent.submit(ui.profileForm);
+    await flushMutationJobs();
+    expect([
+      mock.save.mock.calls.length,
+      mock.academicSave.mock.calls.length,
+    ]).toEqual(calls);
+    expectLinkedDrafts(ui);
+    await act(async () => {
+      refresh.resolve();
+    });
+    if (operation === "profile")
+      await waitFor(() => expect(ui.close).toHaveBeenCalledOnce());
+    else {
+      await waitFor(() => expect(ui.profileSave.disabled).toBe(false));
+      expect(ui.close).not.toHaveBeenCalled();
+      expect(ui.notes.value).toBe("Linked profile draft");
+      if (operation === "academic")
+        expect(mock.routerRefresh).toHaveBeenCalledOnce();
+      else expectLinkedDrafts(ui);
+    }
+  },
+);
+
+it("keeps profile/history guarded during explicit academic conflict reload without discarding their drafts", async () => {
+  const ui = mountLinked();
+  mock.academicSave.mockRejectedValueOnce(
+    Object.assign(new Error("Outdated academics"), {
+      data: { code: "CONFLICT" },
+    }),
+  );
+  fireEvent.submit(ui.academicForm);
+  const reload = await screen.findByRole("button", {
+    name: en.academics.reload,
+  });
+  const refetch = deferred();
+  mock.academicRefetch.mockReturnValue(refetch.promise);
+  fireEvent.click(reload);
+  await waitFor(() => expect(ui.profileSave.disabled).toBe(true));
+  expectDismissalBlocked(ui.close);
+  fireEvent.submit(ui.profileForm);
+  fireEvent.submit(ui.academicForm);
+  await flushMutationJobs();
+  expect(mock.save).not.toHaveBeenCalled();
+  expect(mock.academicSave).toHaveBeenCalledTimes(1);
+  await act(async () => {
+    refetch.resolve({ data: {} });
+  });
+  await waitFor(() => expect(ui.profileSave.disabled).toBe(false));
+  expect(ui.notes.value).toBe("Linked profile draft");
+  expect(ui.evidence.value).toBe("Verified retained enrollment identity");
+});
