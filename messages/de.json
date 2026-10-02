@@ -3154,6 +3154,8 @@
     "scheduleEmpty": "No tutoring sessions are assigned yet. Follow your request under Requests or use the request form to get started."
   },
   "accountProfile": {
+    "sectionSaved": "Gespeichert. Schließe den Editor und öffne ihn erneut, um diesen Abschnitt wieder zu ändern. Die Entwürfe der anderen Abschnitte bleiben erhalten.",
+    "sectionRefreshFailed": "Das Speichern war erfolgreich, aber die Datensätze konnten nicht aktualisiert werden. Schließe den Editor und öffne ihn erneut, um sie neu zu laden.",
     "username": "Benutzername",
     "usernameHelp": "Nur Head. Verwende 1–64 Buchstaben oder Ziffern. Melde dich mit dem neuen Namen oder deiner bisherigen E-Mail an; das Passwort bleibt gleich.",
     "saveUsername": "Benutzernamen speichern",

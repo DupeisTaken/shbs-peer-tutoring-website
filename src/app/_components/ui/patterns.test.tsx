@@ -15,6 +15,26 @@ import { SectionTabs } from "./section-tabs";
 
 afterEach(cleanup);
 
+it("keeps a completed section disabled without announcing pending work", () => {
+  const view = render(
+    <FormSection title="Completed profile" disabled>
+      <input aria-label="Saved name" />
+      <Button>Save</Button>
+    </FormSection>,
+  );
+  const group = screen.getByRole("group", { name: "Completed profile" });
+  expect(group.getAttribute("aria-busy")).toBe("false");
+  expect(screen.getByLabelText("Saved name").matches(":disabled")).toBe(true);
+  expect(screen.getByRole("button").matches(":disabled")).toBe(true);
+  view.rerender(
+    <FormSection title="Completed profile" disabled busy>
+      <input aria-label="Saved name" />
+      <Button>Save</Button>
+    </FormSection>,
+  );
+  expect(group.getAttribute("aria-busy")).toBe("true");
+});
+
 it("keeps button actions from submitting surrounding forms unless explicitly requested", () => {
   const submit = vi.fn();
   const act = vi.fn();

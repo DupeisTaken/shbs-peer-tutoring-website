@@ -15,7 +15,7 @@ import {
   ProfilePolicyHint,
   OfferedGradeSelect,
 } from "./profile-policy";
-import { useEffect, useRef, useState, type ComponentProps } from "react";
+import { useRef, useState, type ComponentProps } from "react";
 import { useDialogPending } from "./ui/modal";
 import { TuteeHistoryLinkForm } from "./tutee-history";
 import { invalidateTuteeViews } from "~/lib/tutee-cache";
@@ -34,11 +34,7 @@ export function TuteeEditor({
   const profileText = useTranslations("accountProfile");
   return (
     <ProfileDialog title={profileText("editProfile")} onClose={onClose}>
-      <TuteeProfileForm
-        row={row}
-        onClose={onClose}
-        historyPermissions={historyPermissions}
-      />
+      <TuteeProfileForm row={row} historyPermissions={historyPermissions} />
     </ProfileDialog>
   );
 }
@@ -46,10 +42,11 @@ export function TuteeEditor({
 /** Keep this independent form inside the dialog's pending context. */
 function TuteeProfileForm({
   row,
-  onClose,
   historyPermissions,
-}: ComponentProps<typeof TuteeEditor>) {
-  const [closeRequested, setCloseRequested] = useState(false);
+}: Omit<ComponentProps<typeof TuteeEditor>, "onClose">) {
+  const [saved, setSaved] = useState(false);
+  const [refreshFailed, setRefreshFailed] = useState(false);
+  const committed = useRef(false);
   const common = useTranslations();
   const t = useTranslations("profileCorrection");
   const history = useTranslations("tuteeHistory");
@@ -79,17 +76,20 @@ function TuteeProfileForm({
       submitting.current = false;
     },
     onSuccess: async () => {
-      await Promise.all([
-        invalidateTuteeViews(utils),
-        utils.admin.tutors.invalidate(),
-      ]);
-      setCloseRequested(true);
+      // A completed profile must not discard an independent academic/link error or draft.
+      committed.current = true;
+      setSaved(true);
+      try {
+        await Promise.all([
+          invalidateTuteeViews(utils),
+          utils.admin.tutors.invalidate(),
+        ]);
+      } catch {
+        setRefreshFailed(true);
+      }
     },
   });
   const busy = useDialogPending(save.isPending);
-  useEffect(() => {
-    if (closeRequested && !busy) onClose();
-  }, [closeRequested, busy, onClose]);
   return (
     <>
       <p className="muted text-sm">
@@ -121,7 +121,7 @@ function TuteeProfileForm({
           className="mt-3 max-w-3xl"
           onSubmit={(e) => {
             e.preventDefault();
-            if (busy || submitting.current || closeRequested) return;
+            if (busy || submitting.current || committed.current) return;
             const data = new FormData(e.currentTarget);
             const value = (key: string) =>
               (typeof data.get(key) === "string"
@@ -157,6 +157,8 @@ function TuteeProfileForm({
           <ProfileEditSection
             title={common("uiPatterns.profile")}
             busy={save.isPending}
+            saved={saved}
+            refreshFailed={refreshFailed}
             className="grid gap-4 sm:grid-cols-2"
             actions={
               <Button
