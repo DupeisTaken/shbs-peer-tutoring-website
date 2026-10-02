@@ -32,7 +32,11 @@ export async function invalidateAndReport(
     { throwOnError: false },
   );
   for (const [query, previousErrors] of reads) {
-    if (query.state.errorUpdateCount > previousErrors)
-      throw query.state.error ?? new Error("A requested refresh failed.");
+    if (query.state.errorUpdateCount > previousErrors) {
+      const error = query.state.error;
+      throw error instanceof Error
+        ? error
+        : new Error("A requested refresh failed.");
+    }
   }
 }
