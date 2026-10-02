@@ -3,6 +3,7 @@ import { ProfileEditSection } from "./profile-edit-section";
 import { Button } from "./ui/button";
 import { PersonNameFields } from "~/app/_components/person-name-fields";
 import { nameDraft, personNameEdit } from "~/lib/person-name";
+import { settleRefreshes } from "~/lib/settle-refreshes";
 
 import { SchoolDeparturePanel } from "./school-departure";
 import { MembershipEditor } from "./membership-editor";
@@ -87,12 +88,12 @@ function AccountProfileForm({
       committed.current = true;
       setSaved(true);
       try {
-        await Promise.all([
-          utils.admin.accounts.invalidate(),
-          utils.admin.tutors.invalidate(),
-          utils.admin.tutees.invalidate(),
-          utils.tuteeHistory.invalidate(),
-          utils.account.me.invalidate(),
+        await settleRefreshes([
+          () => utils.admin.accounts.invalidate(),
+          () => utils.admin.tutors.invalidate(),
+          () => utils.admin.tutees.invalidate(),
+          () => utils.tuteeHistory.invalidate(),
+          () => utils.account.me.invalidate(),
         ]);
       } catch {
         setRefreshFailed(true);

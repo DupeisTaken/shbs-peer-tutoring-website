@@ -28,8 +28,8 @@ const transport = vi.hoisted(() => ({
   requests: [] as Request[],
   commits: [] as string[],
   version: 7,
-  refreshGate: null as Promise<void> | null,
-  invalidations: 0,
+  refreshGates: new Map<string, Promise<void>>(),
+  invalidations: [] as string[],
   routerRefresh: vi.fn(),
 }));
 vi.mock("next/navigation", () => ({
@@ -110,26 +110,35 @@ vi.mock("~/trpc/react", async () => {
     api: {
       useUtils() {
         const client = useQueryClient();
-        const invalidate = async () => {
-          transport.invalidations++;
-          if (transport.refreshGate) await transport.refreshGate;
+        const invalidate = async (path: string) => {
+          transport.invalidations.push(path);
+          const gate = transport.refreshGates.get(path);
+          if (gate) await gate;
           await client.invalidateQueries();
         };
-        const invalidator = { invalidate };
+        const invalidator = (path: string) => ({
+          invalidate: () => invalidate(path),
+        });
         return {
-          invalidate,
-          account: { me: invalidator, academicHistory: invalidator },
-          admin: {
-            accounts: invalidator,
-            tutors: invalidator,
-            tutees: invalidator,
-            accountAcademics: invalidator,
-            tuteeStats: invalidator,
-            pairings: invalidator,
+          invalidate: () => invalidate("*"),
+          account: {
+            me: invalidator("account.me"),
+            academicHistory: invalidator("account.academicHistory"),
           },
-          tutor: { me: invalidator, myProfile: invalidator },
-          tutorDetails: invalidator,
-          tuteeHistory: invalidator,
+          admin: {
+            accounts: invalidator("admin.accounts"),
+            tutors: invalidator("admin.tutors"),
+            tutees: invalidator("admin.tutees"),
+            accountAcademics: invalidator("admin.accountAcademics"),
+            tuteeStats: invalidator("admin.tuteeStats"),
+            pairings: invalidator("admin.pairings"),
+          },
+          tutor: {
+            me: invalidator("tutor.me"),
+            myProfile: invalidator("tutor.myProfile"),
+          },
+          tutorDetails: invalidator("tutorDetails"),
+          tuteeHistory: invalidator("tuteeHistory"),
         };
       },
       program: {
@@ -175,8 +184,8 @@ beforeEach(() => {
   transport.requests = [];
   transport.commits = [];
   transport.version = 7;
-  transport.refreshGate = null;
-  transport.invalidations = 0;
+  transport.refreshGates.clear();
+  transport.invalidations = [];
   transport.routerRefresh.mockClear();
   client = new QueryClient({
     defaultOptions: {
@@ -487,42 +496,100 @@ it.each(cases)(
   },
 );
 
-it.each(["account", "tutor", "tutee", "username"] as const)(
-  "does not replay the committed %s operation while refresh is held or fails",
-  async (kind) => {
-    const close = mount(kind === "username" ? "account" : kind);
+function refreshGate() {
+  let resolve!: () => void;
+  let reject!: (error: Error) => void;
+  const promise = new Promise<void>((resolveValue, rejectValue) => {
+    resolve = resolveValue;
+    reject = rejectValue;
+  });
+  return { promise, resolve, reject };
+}
+const refreshCases = [
+  { kind: "account", failed: "admin.accounts", held: "account.me" },
+  { kind: "tutor", failed: "admin.tutors", held: "admin.accounts" },
+  { kind: "username", failed: "admin.accounts", held: "account.me" },
+  // Both sides of the nested boundary matter: the outer aggregate cannot repair an
+  // early-rejecting inner group, and the inner group cannot protect an early outer exit.
+  { kind: "tutee", failed: "admin.tutees", held: "tuteeHistory" },
+  { kind: "tutee", failed: "admin.tutors", held: "admin.pairings" },
+  { kind: "tutee", failed: "admin.accounts", held: "admin.tutors" },
+] as const;
+it.each(
+  refreshCases.flatMap((entry) =>
+    (["success", "failure"] as const).map((lastOutcome) => ({
+      ...entry,
+      lastOutcome,
+    })),
+  ),
+)(
+  "keeps committed $kind pending after $failed rejects until $held settles ($lastOutcome)",
+  async ({ kind, failed, held, lastOutcome }) => {
+    const editorKind = kind === "username" ? "account" : kind;
+    const close = mount(editorKind);
     const primary = await operation(
-      kind === "username" ? "account" : kind,
+      editorKind,
       kind === "username" ? "username" : "profile",
       "Primary",
     );
-    let rejectRefresh!: (error: Error) => void;
-    transport.refreshGate = new Promise<void>((_, reject) => {
-      rejectRefresh = reject;
-    });
+    const sibling = await operation(editorKind, "academic", "Sibling");
+    const failedRead = refreshGate();
+    const heldRead = refreshGate();
+    transport.refreshGates.set(failed, failedRead.promise);
+    transport.refreshGates.set(held, heldRead.promise);
     act(() => {
       primary.submit();
       primary.submit();
     });
     await waitFor(() => expect(transport.requests).toHaveLength(1));
     await act(async () => transport.requests[0]!.resolve());
-    await waitFor(() => expect(transport.invalidations).toBeGreaterThan(0));
+    await waitFor(() => {
+      expect(transport.invalidations).toContain(failed);
+      expect(transport.invalidations).toContain(held);
+    });
     expect(screen.getByText(en.accountProfile.sectionSaved)).toBeTruthy();
     blocked(close);
     act(() => primary.submit());
     expect(transport.requests).toHaveLength(1);
-    await act(async () =>
-      rejectRefresh(new Error("Read synchronization failed")),
-    );
+    await act(async () => {
+      failedRead.reject(new Error("First read synchronization failed"));
+      // Let the rejection and mutation lifecycle run; a fail-fast aggregate would now
+      // settle even though the other independently controlled refresh is still held.
+      await new Promise<void>((resolve) => setTimeout(resolve, 0));
+    });
+    expect(client.isMutating()).toBe(1);
+    expect(
+      screen.queryByText(en.accountProfile.sectionRefreshFailed),
+    ).toBeNull();
+    blocked(close);
+    expect(sibling.field.matches(":disabled")).toBe(true);
+    act(() => {
+      primary.submit();
+      sibling.submit();
+    });
+    expect(transport.requests).toHaveLength(1);
+    expect(transport.routerRefresh).not.toHaveBeenCalled();
+    await act(async () => {
+      if (lastOutcome === "success") heldRead.resolve();
+      else heldRead.reject(new Error("Last read synchronization failed"));
+    });
     await waitFor(() => expect(client.isMutating()).toBe(0));
     expect(
       screen.getByText(en.accountProfile.sectionRefreshFailed),
     ).toBeTruthy();
     expect(primary.field.matches(":disabled")).toBe(true);
+    expect(primary.field.closest("fieldset")?.getAttribute("aria-busy")).toBe(
+      "false",
+    );
+    expect(sibling.field.isConnected).toBe(true);
+    expect(sibling.field.value).toBe(sibling.initialDraft);
+    expect(sibling.field.matches(":disabled")).toBe(false);
     expect(screen.getByRole("dialog").getAttribute("aria-busy")).toBe("false");
     act(() => primary.submit());
     expect(transport.requests).toHaveLength(1);
     expect(transport.commits).toEqual([primary.path]);
+    if (kind === "username")
+      expect(transport.routerRefresh).toHaveBeenCalledOnce();
     deliberatelyClose(close);
   },
 );

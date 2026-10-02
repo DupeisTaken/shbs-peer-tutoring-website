@@ -7,6 +7,7 @@ import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
+import { settleRefreshes } from "~/lib/settle-refreshes";
 
 /** Separate from ordinary profile edits: this operation always requires live Head authority. */
 export function AccountUsernameEditor({
@@ -44,10 +45,10 @@ export function AccountUsernameEditor({
       committed.current = true;
       setSaved(true);
       try {
-        await Promise.all([
-          utils.admin.accounts.invalidate(),
-          utils.admin.tutors.invalidate(),
-          utils.account.me.invalidate(),
+        await settleRefreshes([
+          () => utils.admin.accounts.invalidate(),
+          () => utils.admin.tutors.invalidate(),
+          () => utils.account.me.invalidate(),
         ]);
       } catch {
         setRefreshFailed(true);

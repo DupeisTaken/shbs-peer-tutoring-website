@@ -19,6 +19,7 @@ import { useRef, useState, type ComponentProps } from "react";
 import { useDialogPending } from "./ui/modal";
 import { TuteeHistoryLinkForm } from "./tutee-history";
 import { invalidateTuteeViews } from "~/lib/tutee-cache";
+import { settleRefreshes } from "~/lib/settle-refreshes";
 import { GRADUATED_GRADE } from "~/lib/academics";
 
 /** Profile correction stays separate from assignment/removal, while the version protects both. */
@@ -80,9 +81,11 @@ function TuteeProfileForm({
       committed.current = true;
       setSaved(true);
       try {
-        await Promise.all([
-          invalidateTuteeViews(utils),
-          utils.admin.tutors.invalidate(),
+        await settleRefreshes([
+          async () => {
+            await invalidateTuteeViews(utils);
+          },
+          () => utils.admin.tutors.invalidate(),
         ]);
       } catch {
         setRefreshFailed(true);
