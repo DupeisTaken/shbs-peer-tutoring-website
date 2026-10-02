@@ -1700,6 +1700,13 @@ model TuteeHistoryInvitation {
   reason String
   expiresAt DateTime
   createdAt DateTime @default(now())
+  /// A separate, short-lived email challenge creates credentials, never enrollment.
+  setupCodeHash String?
+  setupCodeExpiresAt DateTime?
+  setupAttempts Int @default(0)
+  setupVerifiedAt DateTime?
+  /// Receipt permits safe completion retries without changing an existing password.
+  setupUserId String?
 }
 
 /// Short-lived, user/action-bound confirmation tickets enforce the popup delay on the server.
