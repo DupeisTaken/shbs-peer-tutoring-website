@@ -141,9 +141,13 @@ function PendingCard({
               setReloading(true);
               setReloadError(null);
               try {
-                const latest = (
-                  await utils.admin.disciplinaryCards.fetch()
-                ).find((row) => row.id === card.id);
+                const latest =
+                  // Explicit Reload must bypass the normal 30-second query cache.
+                  (
+                    await utils.admin.disciplinaryCards.fetch(undefined, {
+                      staleTime: 0,
+                    })
+                  ).find((row) => row.id === card.id);
                 if (latest) {
                   setNote(latest.reviewNote ?? "");
                   setExpectedUpdatedAt(latest.updatedAt);

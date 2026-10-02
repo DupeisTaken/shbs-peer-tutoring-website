@@ -9,6 +9,7 @@ import {
   waitFor,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import { QueryClient } from "@tanstack/react-query";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import { AccountUsernameEditor } from "./account-username-editor";
@@ -65,14 +66,87 @@ beforeEach(() => {
   mocks.conflict = false;
   mocks.pending = false;
   mocks.manual = false;
-  mocks.fetch
-    .mockReset()
-    .mockResolvedValue({
-      rows: [{ userId: "head", username: "latesthead", profileVersion: 5 }],
-    });
+  mocks.fetch.mockReset().mockResolvedValue({
+    rows: [{ userId: "head", username: "latesthead", profileVersion: 5 }],
+  });
   mocks.reset.mockReset();
 });
 afterEach(cleanup);
+
+it("requires a successful server read before replacing a username from a fresh cache", async () => {
+  const client = new QueryClient({
+    defaultOptions: { queries: { staleTime: 30_000, retry: false } },
+  });
+  const queryKey = ["accounts"];
+  client.setQueryData(queryKey, {
+    rows: [{ userId: "head", username: "cached", profileVersion: 3 }],
+  });
+  const queryFn = vi.fn(async () => ({
+    rows: [
+      { userId: "someone-else", username: "wrong", profileVersion: 90 },
+      { userId: "head", username: "serverhead", profileVersion: 8 },
+    ],
+  }));
+  queryFn.mockRejectedValueOnce(new Error("Fresh username read failed"));
+  mocks.fetch.mockImplementation((_input, options: { staleTime?: number }) =>
+    client.fetchQuery({ queryKey, queryFn, ...options }),
+  );
+  mocks.conflict = true;
+  try {
+    render(
+      <NextIntlClientProvider locale="en" messages={en}>
+        <AccountUsernameEditor
+          userId="head"
+          username="original"
+          profileVersion={3}
+          onSaved={vi.fn()}
+        />
+      </NextIntlClientProvider>,
+    );
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "retaineddraft" },
+    });
+    const reload = screen.getByRole("button", {
+      name: en.accountProfile.reloadUsername,
+    });
+    await act(async () => {
+      fireEvent.click(reload);
+    });
+    expect(queryFn).toHaveBeenCalledOnce();
+    expect(screen.getByText("Fresh username read failed")).toBeTruthy();
+    expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe(
+      "retaineddraft",
+    );
+    expect(mocks.reset).not.toHaveBeenCalled();
+    fireEvent.click(
+      screen.getByRole("button", { name: en.accountProfile.saveUsername }),
+    );
+    expect(mocks.mutate).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        expectedProfileVersion: 3,
+        username: "retaineddraft",
+      }),
+    );
+    await act(async () => {
+      fireEvent.click(reload);
+    });
+    expect(queryFn).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe(
+      "serverhead",
+    );
+    fireEvent.click(
+      screen.getByRole("button", { name: en.accountProfile.saveUsername }),
+    );
+    expect(mocks.mutate).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        expectedProfileVersion: 8,
+        username: "serverhead",
+      }),
+    );
+  } finally {
+    client.clear();
+  }
+});
 
 it("retains the username draft's original version when academic changes refresh props", async () => {
   const onSaved = vi.fn();
@@ -123,6 +197,7 @@ it("explicitly reloads the username and matching version after a conflict", asyn
       "latesthead",
     ),
   );
+  expect(mocks.fetch).toHaveBeenCalledWith(undefined, { staleTime: 0 });
   fireEvent.click(
     screen.getByRole("button", { name: en.accountProfile.saveUsername }),
   );
