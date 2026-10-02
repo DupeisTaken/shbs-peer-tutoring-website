@@ -458,7 +458,8 @@
       "GRADUATED": "Graduated",
       "OPTED_OUT": "Opted Out",
       "PENDING": "Pending",
-      "ARCHIVED": "Archived"
+      "ARCHIVED": "Archived",
+      "TRANSFERRED": "Transferred"
     },
     "tutees": {
       "title": "Tutee Roster",
@@ -1314,7 +1315,7 @@
       "pendingReview": "Pending Review",
       "nothingPending": "Nothing awaiting review.",
       "standingHeading": "Tutee Standing",
-      "standingHelp": "🟥 fills 3 slots, 🟨 fills 1 (only valid cards). A full 6 = removal pending. Click a name for the card details.",
+      "standingHelp": "🟥 fills 3 slots, 🟨 fills 1 (only valid cards). A full 6 = removal pending. Use the details link in the rightmost column to view cards.",
       "standing": {
         "removalPending": "removal pending",
         "onWarning": "on warning",
@@ -1890,6 +1891,7 @@
       "empty": "No time slots have been published yet.",
       "save": "Save Availability",
       "saving": "Saving…",
+      "refreshFailed": "Your save was accepted, but the updated availability could not be loaded. Retry loading before making more changes.",
       "saved": "Saved."
     },
     "interviews": {
@@ -3120,6 +3122,8 @@
     "scheduleEmpty": "No tutoring sessions are assigned yet. Follow your request under Requests or use the request form to get started."
   },
   "accountProfile": {
+    "sectionSaved": "Saved. Close and reopen this editor to change this section again. Other sections keep their drafts.",
+    "sectionRefreshFailed": "The save succeeded, but refreshing the records failed. Close and reopen the editor to load them again.",
     "username": "Username",
     "usernameHelp": "Head only. Use 1–64 letters or numbers. Sign in with the new username or your existing email; your password stays the same.",
     "saveUsername": "Save username",
@@ -3468,6 +3472,38 @@
     "empty": "No subjects yet.",
     "emptyHelp": "Try another search or clear the filters to see the full catalogue."
   },
+  "uiPatterns": {
+    "meetingDate": "Meeting date",
+    "profile": "Profile",
+    "saveProfile": "Save profile",
+    "cancel": "Cancel",
+    "retry": "Try again",
+    "loadFailed": "Unable to load this section",
+    "editorDenied": "Landing editor access is unavailable",
+    "editorDeniedHelp": "Editing and previewing landing content requires a management role and an explicit Translator assignment. Ask the program Head to review your access.",
+    "returnManagement": "Return to management",
+    "scrollTable": "Scroll sideways to compare all columns.",
+    "deleteMeeting": "Delete meeting?",
+    "deleteMeetingHelp": "Delete “{title}” and its attendance records? This action cannot be undone.",
+    "attendanceFor": "Attendance for {name}"
+  },
+  "tablePatterns": {
+    "actions": "Actions",
+    "details": "View details",
+    "edit": "Edit",
+    "close": "Close",
+    "summary": "Summary",
+    "records": "{count, plural, one {# record} other {# records}}",
+    "schedule": "View schedule",
+    "occupied": "Occupied",
+    "available": "Available",
+    "unavailable": "Unavailable",
+    "reason": "Reason",
+    "slot": "Time slot",
+    "room": "Room",
+    "select": "Select",
+    "selected": "Selected"
+  },
   "identityUsername": {
     "preferredLatinName": "Latin Spelling",
     "preferredLatinHelp": "If you use a Latin spelling of your name, enter it here for your first username. Otherwise we use a neutral member handle. Existing usernames stay unchanged; email sign-in remains available.",
@@ -3508,6 +3544,7 @@
     "loading": "Loading academic details…",
     "conflict": "This profile changed while you were editing. Reload the latest details, then review and try again. Your draft has not been saved.",
     "reload": "Discard Draft and Reload",
+    "reloadFailed": "Could not reload the latest academic details and settings. Your draft is unchanged. Please try again.",
     "confirmed": "Last confirmed {date}",
     "history": "Confirmation History",
     "noHistory": "No confirmations recorded yet.",
@@ -3645,7 +3682,8 @@
       "patrols": "Patrols retained",
       "academicConfirmations": "Academic confirmations retained",
       "tuteeProfiles": "Tutee ownership links moved"
-    }
+    },
+    "noCandidates": "No accounts are available to combine."
   },
   "tuteeHistory": {
     "noSearchMatches": "No tutees match your search.",

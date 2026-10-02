@@ -164,6 +164,51 @@ Try the public forms (no login required):
 
 Follow the [role guide](user-guide.md) using the [demo accounts](#demo-accounts-and-workflows). Real SMTP setup and final school policy approval remain launch configuration work; local capture delivers no external mail.
 
+### UI pattern gallery
+
+While `npm run dev` is running, sign in with a local demo account and open `/ui-gallery`. The gallery renders real shared components with synthetic data and no application mutations. Language, accent theme and form-state controls expose English/Chinese, all six palettes and editable/saving/error/read-only examples. Theme previews do not write the theme cookie and restore the previous theme when leaving the gallery. Reload resets the example data.
+
+Resize the browser to test the actual viewport and breakpoints; a narrow card inside a desktop window does not simulate mobile CSS. Check the form save scope, selection state, tab keyboard navigation, dialog focus, brief table columns, rightmost text-link detail entries, comparison-table scrolling and recovery controls. Confirm actions remain reachable before and after horizontal scrolling. Follow [AGENTS.md](../AGENTS.md) for rendered control measurements. Store screenshots in ignored `outputs/` or `.validation/` and include real pages in visual verification.
+
+The composition examples include a wide editor with nested review and policy reader, four-part participant identity, a wrapping filter toolbar, explicit disclosure lifetimes, three different settings/save models, versioned change review and background failures that retain drafts. Exercise nested Escape and focus return, save failure/retry, preview invalidation and collapse/reopen. The public card reuses production framing. These examples use synthetic state; verify domain permissions and real versioned writes on the actual pages as well.
+
+The `/ui-gallery` server page calls `notFound()` in production, and normal authentication still applies in development. Focused gallery tests require no database:
+
+```bash
+npx vitest run src/app/ui-gallery --maxWorkers=1
+```
+
+See [contributor guidance](contributing.md#reuse-interaction-patterns) for adding patterns and [technical boundaries](technical-report.md#shared-ui-patterns) for their responsibilities.
+
+### UI verification matrix
+
+Use one running local site with synthetic data and one browser session at a time.
+Record the commit, role, language, viewport, interaction and observed result beside
+the screenshots. Verify the affected application pages; a gallery screenshot alone
+does not establish authorization, native browser focus or persisted behavior.
+
+| Surface | Check in the running application |
+| --- | --- |
+| Tables | Brief cells; authorized text actions at the right edge before/after local scrolling; named region reachable by keyboard; populated, empty, error and read-only states |
+| Forms and dialogs | Save scope; pending fields/dismissal; failed-save draft retention; nested Escape/Tab and focus return; successful child write with pending refetch; actual long-content scrolling |
+| Cached queries | Initial loading/error/empty are distinct; background failure retains content and draft; Retry completes; explicit conflict Reload adopts data only on success |
+| Filters and settings | Pressed selections versus content tabs; filter/page reset rules; consistent control heights; immediate switches, unknown/yes/no choices and staged saves keep their own semantics |
+| Participant/public flows | Native invalid-name correction, legacy names, requirement markers, creation collapse/reopen, translated back/language navigation and existing consent boundaries |
+
+Use an actual narrow viewport such as 390 CSS pixels and a desktop viewport such
+as 1440 pixels; include the 1024 px boundary when sizing rules change. Check
+English/Chinese, long labels and enlarged text, and inspect all six accent palettes
+when shared styles change. Measure control bounds with `getBoundingClientRect()`
+against [the height hierarchy](../AGENTS.md#control-height-hierarchy). Check normal,
+hover, selected, disabled and focus states where the patch changes them. Distinguish
+palette layout checks from measured foreground/background contrast.
+
+Take clean screenshots after loading completes and separate captures for deliberate
+failure/pending scenarios. Wait for the specific recovery notice to clear before
+claiming Retry succeeded; another query may have its own error banner. Keep full
+mobile forms reviewable across multiple captures. Inspect the screenshots, record
+test limitations, and stop owned browser/server/database processes after checking.
+
 ## 5. Run the tests
 
 ```bash

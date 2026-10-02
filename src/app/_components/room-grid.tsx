@@ -1,4 +1,8 @@
+"use client";
+
+import { useTranslations } from "next-intl";
 import { DAY_NAMES, minToHm } from "~/lib/time";
+import { SummaryTable, TableActions, TableDetails } from "./ui/summary-table";
 
 type GridRoom = { id: string; name: string };
 type GridSlot = {
@@ -26,8 +30,8 @@ type GridBlock = {
 };
 
 /**
- * Schedule grid: rows are time slots (day + time), columns are rooms. Each cell shows the
- * pairing occupying that room/slot, or a blackout when the room is unavailable then.
+ * Schedule grid: room cells contain only availability/count summaries. Each time slot's
+ * rightmost text link reveals full pairings and block reasons in a detail dialog.
  * Presentational only — used by the admin Pairings page and (read-only) the tutor page.
  */
 export function RoomGrid({
@@ -44,6 +48,7 @@ export function RoomGrid({
   /** When set, pairings for this tutor are emphasised (used on the tutor page). */
   highlightTutorId?: string | null;
 }) {
+  const t = useTranslations("tablePatterns");
   if (rooms.length === 0 || slots.length === 0) {
     return (
       <p className="muted">
@@ -58,12 +63,12 @@ export function RoomGrid({
     block.endMin > slot.startMin;
 
   return (
-    <div className="card overflow-x-auto">
-      <table className="min-w-[44rem] border-collapse text-xs">
+    <div className="card">
+      <SummaryTable label={t("schedule")}>
         <thead>
           <tr>
             <th className="sticky left-0 z-10 border-b border-slate-200 bg-white p-2 text-left font-semibold text-slate-500">
-              Slot
+              {t("slot")}
             </th>
             {rooms.map((r) => (
               <th
@@ -73,6 +78,9 @@ export function RoomGrid({
                 {r.name}
               </th>
             ))}
+            <th scope="col" className="table-actions-heading">
+              {t("actions")}
+            </th>
           </tr>
         </thead>
         <tbody>
@@ -97,40 +105,75 @@ export function RoomGrid({
                     }`}
                   >
                     {blocked ? (
-                      <span title={blocked.reason ?? "Unavailable"}>
-                        ✕ {blocked.reason ?? "Unavailable"}
-                      </span>
+                      <span>{t("unavailable")}</span>
                     ) : cellPairings.length === 0 ? (
-                      <span className="text-slate-300">·</span>
+                      <span className="text-slate-500">{t("available")}</span>
                     ) : (
-                      cellPairings.map((p) => {
-                        const mine =
-                          highlightTutorId && p.tutorId === highlightTutorId;
-                        return (
-                          <div
-                            key={p.id}
-                            className={`mb-1 rounded px-1.5 py-0.5 ${
-                              mine
-                                ? "bg-accent-100 text-accent-800 font-medium"
-                                : "bg-slate-50 text-slate-700"
-                            }`}
-                          >
-                            {p.subject}
-                            <span className="text-slate-400">
-                              {" "}
-                              · {p.tutor.englishName}
-                            </span>
-                          </div>
-                        );
-                      })
+                      <span
+                        className={
+                          cellPairings.some(
+                            (p) => p.tutorId === highlightTutorId,
+                          )
+                            ? "badge-green"
+                            : "badge-slate"
+                        }
+                      >
+                        {t("records", { count: cellPairings.length })}
+                      </span>
                     )}
                   </td>
                 );
               })}
+              <TableActions>
+                <TableDetails
+                  label={t("schedule")}
+                  title={`${DAY_NAMES[slot.dayOfWeek]} ${minToHm(slot.startMin)}–${minToHm(slot.endMin)}`}
+                >
+                  {rooms.map((room) => {
+                    const blocked = blocks.find(
+                      (b) => b.roomId === room.id && overlaps(b, slot),
+                    );
+                    const occupants = pairings.filter(
+                      (p) => p.roomId === room.id && p.timeSlotId === slot.id,
+                    );
+                    return (
+                      <section
+                        key={room.id}
+                        className="space-y-2 rounded-lg border border-slate-200 p-4"
+                      >
+                        <h3 className="font-semibold">{room.name}</h3>
+                        {blocked ? (
+                          <p>
+                            {t("unavailable")}
+                            {blocked.reason ? ` · ${blocked.reason}` : ""}
+                          </p>
+                        ) : occupants.length ? (
+                          <ul className="space-y-2">
+                            {occupants.map((p) => (
+                              <li
+                                key={p.id}
+                                className={
+                                  p.tutorId === highlightTutorId
+                                    ? "text-accent-800 font-medium"
+                                    : ""
+                                }
+                              >
+                                {p.subject} · {p.tutor.englishName}
+                              </li>
+                            ))}
+                          </ul>
+                        ) : (
+                          <p className="muted">{t("available")}</p>
+                        )}
+                      </section>
+                    );
+                  })}
+                </TableDetails>
+              </TableActions>
             </tr>
           ))}
         </tbody>
-      </table>
+      </SummaryTable>
     </div>
   );
 }

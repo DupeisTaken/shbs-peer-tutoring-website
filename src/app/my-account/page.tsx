@@ -5,7 +5,7 @@ export default async function Page() {
   const t = await getTranslations("workflows");
   return (
     <WorkflowShell title={t("settings")}>
-      <AccountSettings />
+      <AccountSettings embedded />
     </WorkflowShell>
   );
 }

@@ -1,4 +1,36 @@
 {
+  "uiPatterns": {
+    "meetingDate": "会議日",
+    "profile": "プロフィール",
+    "saveProfile": "プロフィールを保存",
+    "cancel": "キャンセル",
+    "retry": "再試行",
+    "loadFailed": "このセクションを読み込めませんでした",
+    "editorDenied": "トップページの編集画面にアクセスできません",
+    "editorDeniedHelp": "トップページの内容を編集・プレビューするには、管理ロールと明示的な翻訳担当者の権限付与の両方が必要です。プログラム責任者にアクセス権の確認を依頼してください。",
+    "returnManagement": "管理画面に戻る",
+    "scrollTable": "すべての列を比較するには横にスクロールしてください。",
+    "deleteMeeting": "会議を削除しますか？",
+    "deleteMeetingHelp": "「{title}」とその出席記録を削除しますか？この操作は取り消せません。",
+    "attendanceFor": "{name}の出席状況"
+  },
+  "tablePatterns": {
+    "actions": "操作",
+    "details": "詳細を見る",
+    "edit": "編集",
+    "close": "閉じる",
+    "summary": "概要",
+    "records": "{count, plural, other {#件}}",
+    "schedule": "予定を見る",
+    "occupied": "使用中",
+    "available": "利用可能",
+    "unavailable": "利用不可",
+    "reason": "理由",
+    "slot": "時間枠",
+    "room": "教室",
+    "select": "選択",
+    "selected": "選択済み"
+  },
   "scheduling": {
     "awaiting": "日程調整待ち",
     "noLinkedSlot": "登録時間枠の紐付けなし",
@@ -458,7 +490,8 @@
       "GRADUATED": "卒業済み",
       "OPTED_OUT": "離脱済み",
       "PENDING": "保留中",
-      "ARCHIVED": "アーカイブ済み"
+      "ARCHIVED": "アーカイブ済み",
+      "TRANSFERRED": "転校済み"
     },
     "tutees": {
       "title": "生徒名簿",
@@ -1314,7 +1347,7 @@
       "pendingReview": "確認待ち",
       "nothingPending": "確認待ちの内容はありません。",
       "standingHeading": "生徒の状況",
-      "standingHelp": "🟥は3枠、🟨は1枠を占めます（有効なカードのみ）。6枠すべてで退出保留。名前をクリックするとカードの詳細を表示します。",
+      "standingHelp": "🟥は3枠、🟨は1枠を占めます（有効なカードのみ）。6枠すべてが埋まると、プログラムからの除外処理待ちになります。カードを見るには、右端の列の詳細リンクを使ってください。",
       "standing": {
         "removalPending": "退出保留",
         "onWarning": "警告中",
@@ -1890,6 +1923,7 @@
       "empty": "まだ公開されているタイムスロットはありません。",
       "save": "空き時間を保存",
       "saving": "保存中…",
+      "refreshFailed": "保存は受け付けられましたが、更新後の空き時間を読み込めませんでした。続けて変更する前に、読み込みを再試行してください。",
       "saved": "保存しました。"
     },
     "interviews": {
@@ -3120,6 +3154,8 @@
     "scheduleEmpty": "No tutoring sessions are assigned yet. Follow your request under Requests or use the request form to get started."
   },
   "accountProfile": {
+    "sectionSaved": "保存しました。このセクションを再度変更するには、編集画面を閉じて開き直してください。他のセクションの下書きは保持されます。",
+    "sectionRefreshFailed": "保存は成功しましたが、記録の再読み込みに失敗しました。編集画面を閉じて開き直し、再読み込みしてください。",
     "username": "ユーザー名",
     "usernameHelp": "Headのみ変更できます。半角英数字1～64文字を使用してください。新しいユーザー名または現在のメールアドレスでログインできます。パスワードは変わりません。",
     "saveUsername": "ユーザー名を保存",
@@ -3508,6 +3544,7 @@
     "loading": "Loading academic details…",
     "conflict": "This profile changed while you were editing. Reload the latest details, then review and try again. Your draft has not been saved.",
     "reload": "Discard Draft and Reload",
+    "reloadFailed": "Could not reload the latest academic details and settings. Your draft is unchanged. Please try again.",
     "confirmed": "Last confirmed {date}",
     "history": "Confirmation History",
     "noHistory": "No confirmations recorded yet.",
@@ -3645,7 +3682,8 @@
       "patrols": "Patrols retained",
       "academicConfirmations": "Academic confirmations retained",
       "tuteeProfiles": "Tutee ownership links moved"
-    }
+    },
+    "noCandidates": "統合できるアカウントはありません。"
   },
   "tuteeHistory": {
     "noSearchMatches": "検索に一致する学習パートナーはいません。",

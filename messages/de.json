@@ -1,4 +1,36 @@
 {
+  "uiPatterns": {
+    "meetingDate": "Besprechungsdatum",
+    "profile": "Profil",
+    "saveProfile": "Profil speichern",
+    "cancel": "Abbrechen",
+    "retry": "Erneut versuchen",
+    "loadFailed": "Dieser Bereich konnte nicht geladen werden",
+    "editorDenied": "Kein Zugriff auf den Startseiteneditor",
+    "editorDeniedHelp": "Zum Bearbeiten und zur Vorschau der Startseiteninhalte sind eine Verwaltungsrolle und eine ausdrückliche Zuweisung als Übersetzer erforderlich. Bitte die Programmleitung, deinen Zugriff zu prüfen.",
+    "returnManagement": "Zurück zur Verwaltung",
+    "scrollTable": "Scrolle seitwärts, um alle Spalten zu vergleichen.",
+    "deleteMeeting": "Besprechung löschen?",
+    "deleteMeetingHelp": "„{title}“ und die zugehörigen Anwesenheitsdaten löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
+    "attendanceFor": "Anwesenheit von {name}"
+  },
+  "tablePatterns": {
+    "actions": "Aktionen",
+    "details": "Details anzeigen",
+    "edit": "Bearbeiten",
+    "close": "Schließen",
+    "summary": "Zusammenfassung",
+    "records": "{count, plural, one {# Eintrag} other {# Einträge}}",
+    "schedule": "Zeitplan anzeigen",
+    "occupied": "Belegt",
+    "available": "Verfügbar",
+    "unavailable": "Nicht verfügbar",
+    "reason": "Begründung",
+    "slot": "Zeitfenster",
+    "room": "Raum",
+    "select": "Auswählen",
+    "selected": "Ausgewählt"
+  },
   "scheduling": {
     "awaiting": "Termin noch offen",
     "noLinkedSlot": "Kein Katalogzeitfenster verknüpft",
@@ -458,7 +490,8 @@
       "GRADUATED": "Abgegangen",
       "OPTED_OUT": "Ausgetreten",
       "PENDING": "Ausstehend",
-      "ARCHIVED": "Archiviert"
+      "ARCHIVED": "Archiviert",
+      "TRANSFERRED": "Schulwechsel"
     },
     "tutees": {
       "title": "Liste der Lernenden",
@@ -1314,7 +1347,7 @@
       "pendingReview": "Prüfung ausstehend",
       "nothingPending": "Nichts zur Prüfung.",
       "standingHeading": "Standing der Lernenden",
-      "standingHelp": "🟥 belegt 3 Felder, 🟨 belegt 1 (nur gültige Karten). Volle 6 = Entfernung ausstehend. Auf einen Namen klicken für die Kartendetails.",
+      "standingHelp": "🟥 belegt 3 Felder, 🟨 belegt 1 (nur gültige Karten). Sind alle 6 Felder belegt, steht der Ausschluss aus dem Programm aus. Über den Detail-Link in der Spalte ganz rechts kannst du die Karten ansehen.",
       "standing": {
         "removalPending": "Entfernung ausstehend",
         "onWarning": "Verwarnung",
@@ -1890,6 +1923,7 @@
       "empty": "Noch keine Zeitfenster veröffentlicht.",
       "save": "Verfügbarkeit speichern",
       "saving": "Wird gespeichert…",
+      "refreshFailed": "Die Speicherung wurde bestätigt, aber die aktualisierte Verfügbarkeit konnte nicht geladen werden. Versuche das Laden erneut, bevor du weitere Änderungen vornimmst.",
       "saved": "Gespeichert."
     },
     "interviews": {
@@ -3120,6 +3154,8 @@
     "scheduleEmpty": "No tutoring sessions are assigned yet. Follow your request under Requests or use the request form to get started."
   },
   "accountProfile": {
+    "sectionSaved": "Gespeichert. Schließe den Editor und öffne ihn erneut, um diesen Abschnitt wieder zu ändern. Die Entwürfe der anderen Abschnitte bleiben erhalten.",
+    "sectionRefreshFailed": "Das Speichern war erfolgreich, aber die Datensätze konnten nicht aktualisiert werden. Schließe den Editor und öffne ihn erneut, um sie neu zu laden.",
     "username": "Benutzername",
     "usernameHelp": "Nur Head. Verwende 1–64 Buchstaben oder Ziffern. Melde dich mit dem neuen Namen oder deiner bisherigen E-Mail an; das Passwort bleibt gleich.",
     "saveUsername": "Benutzernamen speichern",
@@ -3508,6 +3544,7 @@
     "loading": "Loading academic details…",
     "conflict": "This profile changed while you were editing. Reload the latest details, then review and try again. Your draft has not been saved.",
     "reload": "Discard Draft and Reload",
+    "reloadFailed": "Could not reload the latest academic details and settings. Your draft is unchanged. Please try again.",
     "confirmed": "Last confirmed {date}",
     "history": "Confirmation History",
     "noHistory": "No confirmations recorded yet.",
@@ -3645,7 +3682,8 @@
       "patrols": "Patrols retained",
       "academicConfirmations": "Academic confirmations retained",
       "tuteeProfiles": "Tutee ownership links moved"
-    }
+    },
+    "noCandidates": "Es stehen keine Konten zum Zusammenführen zur Verfügung."
   },
   "tuteeHistory": {
     "noSearchMatches": "Keine Teilnehmenden entsprechen Ihrer Suche.",

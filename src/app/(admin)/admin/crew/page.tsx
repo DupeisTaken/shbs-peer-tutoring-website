@@ -9,6 +9,12 @@ import { AcademicError } from "~/app/_components/academic-error";
 import { useReadOnly } from "~/app/_components/read-only";
 import { PatrolCorrections } from "~/app/_components/patrol-corrections";
 import { useDialog } from "~/app/_components/confirm-dialog";
+import {
+  SummaryTable,
+  TableActions,
+  TableAction,
+  TableDetails,
+} from "~/app/_components/ui/summary-table";
 
 /**
  * Crew admin hub: review crew applications, approve opt-out/reentry requests, manage the crew
@@ -339,18 +345,20 @@ export default function CrewPage() {
       </section>
 
       {/* Crew roster */}
-      <section className="card overflow-x-auto">
+      <section className="card">
         <div className="flex items-center justify-between px-5 py-3">
           <h2 className="section-title">{t("admin.crew.rosterHeading")}</h2>
         </div>
-        <table className="data-table">
+        <SummaryTable label={t("admin.crew.rosterHeading")}>
           <thead>
             <tr>
               <th>{t("admin.crew.col.member")}</th>
               <th>{t("admin.crew.col.status")}</th>
               <th className="text-right">{t("admin.crew.col.patrols")}</th>
               <th className="text-right">{t("admin.crew.col.hours")}</th>
-              <th>{t("admin.crew.col.actions")}</th>
+              <th className="table-actions-heading">
+                {t("tablePatterns.actions")}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -361,15 +369,6 @@ export default function CrewPage() {
               >
                 <td>
                   <span className="font-medium text-slate-800">{u.name}</span>
-                  {u.tutor ? (
-                    <span className="muted ml-2 text-xs">
-                      {t("admin.crew.alsoTutor")}
-                    </span>
-                  ) : (
-                    <span className="muted ml-2 text-xs">
-                      {t("admin.crew.crewOnly")}
-                    </span>
-                  )}
                 </td>
                 <td>
                   <span
@@ -388,23 +387,45 @@ export default function CrewPage() {
                 <td className="text-right">
                   {u.hours > 0 ? `${u.hours.toFixed(1)} h` : ""}
                 </td>
-                <td>
+                <TableActions>
+                  {/* Membership context and status changes share the trailing text-link entry point. */}
+                  <TableDetails title={u.name}>
+                    <p>
+                      {t(
+                        u.tutor
+                          ? "admin.crew.alsoTutor"
+                          : "admin.crew.crewOnly",
+                      )}
+                    </p>
+                    <dl className="space-y-3">
+                      <div>
+                        <dt className="muted">{t("admin.crew.col.status")}</dt>
+                        <dd>{t(`admin.crew.status.${u.status}`)}</dd>
+                      </div>
+                      <div>
+                        <dt className="muted">{t("admin.crew.col.patrols")}</dt>
+                        <dd>{u.patrols}</dd>
+                      </div>
+                      <div>
+                        <dt className="muted">{t("admin.crew.col.hours")}</dt>
+                        <dd>{u.hours.toFixed(1)} h</dd>
+                      </div>
+                    </dl>
+                  </TableDetails>
                   {!readOnly && (
-                    <div className="flex flex-wrap gap-2">
+                    <>
                       {u.status !== "ACTIVE" && (
-                        <button
-                          className="btn-secondary btn-sm"
+                        <TableAction
                           disabled={busy}
                           onClick={() =>
                             setStatus.mutate({ userId: u.id, status: "ACTIVE" })
                           }
                         >
                           {t("admin.crew.enable")}
-                        </button>
+                        </TableAction>
                       )}
                       {u.status === "ACTIVE" && (
-                        <button
-                          className="btn-secondary btn-sm"
+                        <TableAction
                           disabled={busy}
                           onClick={() =>
                             setStatus.mutate({
@@ -414,11 +435,11 @@ export default function CrewPage() {
                           }
                         >
                           {t("admin.crew.softRemove")}
-                        </button>
+                        </TableAction>
                       )}
                       {u.crewOnly && (
-                        <button
-                          className="btn-danger btn-sm"
+                        <TableAction
+                          className="text-red-600"
                           disabled={busy}
                           onClick={async () => {
                             if (
@@ -436,11 +457,11 @@ export default function CrewPage() {
                           }}
                         >
                           {t("admin.crew.delete")}
-                        </button>
+                        </TableAction>
                       )}
-                    </div>
+                    </>
                   )}
-                </td>
+                </TableActions>
               </tr>
             ))}
             {(roster.data ?? []).length === 0 && (
@@ -451,7 +472,7 @@ export default function CrewPage() {
               </tr>
             )}
           </tbody>
-        </table>
+        </SummaryTable>
       </section>
       {dialog}
     </div>

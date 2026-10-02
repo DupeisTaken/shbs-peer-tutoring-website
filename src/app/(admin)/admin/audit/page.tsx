@@ -11,6 +11,12 @@ import {
 
 import { api } from "~/trpc/react";
 import { useReadOnly } from "~/app/_components/read-only";
+import {
+  SummaryTable,
+  TableActions,
+  TableAction,
+  TableDetails,
+} from "~/app/_components/ui/summary-table";
 
 /**
  * Audit trail of admin mutations. Entries that carry undo data can be reverted with one
@@ -64,15 +70,17 @@ function AuditLog() {
         </p>
       )}
 
-      <div className="card overflow-x-auto">
-        <table className="data-table">
+      <div className="card">
+        <SummaryTable label={t("admin.audit.title")}>
           <thead>
             <tr>
               <th>{t("admin.audit.columns.when")}</th>
               <th>{t("admin.audit.columns.who")}</th>
               <th>{t("auditFilters.kind")}</th>
               <th>{t("admin.audit.columns.action")}</th>
-              <th></th>
+              <th className="table-actions-heading">
+                {t("tablePatterns.actions")}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -106,44 +114,49 @@ function AuditLog() {
                   </span>
                 </td>
                 <td className="text-slate-800">
-                  {e.action}
-                  {!readOnly && e.approvalId && (
-                    <Link
-                      className="link mt-1 block text-xs"
-                      href={`/admin/approvals?request=${e.approvalId}`}
-                    >
-                      {t("approvals.viewRequest")}
-                    </Link>
-                  )}
-                  {!readOnly && e.details != null && (
-                    <details className="mt-2">
-                      <summary className="link cursor-pointer text-xs">
-                        {t("auditFilters.details")}
-                      </summary>
-                      <pre className="mt-2 max-h-64 max-w-md overflow-auto text-xs whitespace-pre-wrap">
-                        {JSON.stringify(e.details, null, 2)}
-                      </pre>
-                    </details>
-                  )}
+                  <span className="block max-w-72 truncate" title={e.action}>
+                    {e.action}
+                  </span>
                   {e.undone && (
                     <span className="badge-slate ml-2">
                       {t("admin.audit.undone")}
                     </span>
                   )}
                 </td>
-                <td className="text-right">
+                <TableActions>
+                  <TableDetails title={`${e.action} · ${e.userName ?? "—"}`}>
+                    <p>
+                      {format.dateTime(new Date(e.createdAt), {
+                        dateStyle: "full",
+                        timeStyle: "short",
+                      })}
+                    </p>
+                    <p>{e.userName ?? "—"}</p>
+                    <p>{e.action}</p>
+                    {/* Retain the existing viewer restriction on audit payloads. */}
+                    {!readOnly && e.details != null && (
+                      <pre className="max-h-80 overflow-auto text-xs whitespace-pre-wrap">
+                        {JSON.stringify(e.details, null, 2)}
+                      </pre>
+                    )}
+                  </TableDetails>
+                  {!readOnly && e.approvalId && (
+                    <Link
+                      className="table-action-link"
+                      href={`/admin/approvals?request=${e.approvalId}`}
+                    >
+                      {t("approvals.viewRequest")}
+                    </Link>
+                  )}
                   {!readOnly && e.undoData != null && !e.undone ? (
-                    <button
-                      className="btn-secondary btn-sm"
+                    <TableAction
                       disabled={undo.isPending}
                       onClick={() => undo.mutate({ id: e.id })}
                     >
                       {t("admin.audit.undo")}
-                    </button>
-                  ) : (
-                    <span className="muted text-xs">—</span>
-                  )}
-                </td>
+                    </TableAction>
+                  ) : null}
+                </TableActions>
               </tr>
             ))}
             {!log.isLoading && !log.error && entries.length === 0 && (
@@ -154,7 +167,7 @@ function AuditLog() {
               </tr>
             )}
           </tbody>
-        </table>
+        </SummaryTable>
       </div>
       <div className="flex gap-2">
         <button

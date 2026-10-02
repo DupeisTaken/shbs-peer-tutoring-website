@@ -1,11 +1,13 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 
 import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
 import { DAY_NAMES, minToHm } from "~/lib/time";
+import { Button, ChoiceButton } from "~/app/_components/ui/button";
+import { FormActions } from "~/app/_components/ui/patterns";
 
 /**
  * Lets a tutor mark which catalog time slots they can teach. Slots are reference-only;
@@ -13,19 +15,39 @@ import { DAY_NAMES, minToHm } from "~/lib/time";
  */
 export function AvailabilityEditor() {
   const t = useTranslations();
-  const utils = api.useUtils();
   const query = api.tutor.myAvailability.useQuery();
+  // Follow live server data until editing starts; background refetches must not
+  // replace an unsaved selection or a draft retained after a failed request.
+  const [draft, setDraft] = useState<string[] | null>(null);
+  const [sync, setSync] = useState<
+    { status: "idle" | "refreshing" } | { status: "failed"; message: string }
+  >({ status: "idle" });
+  const selected = draft ?? query.data?.selectedSlotIds ?? [];
+
+  const refreshSavedSelection = async () => {
+    setSync({ status: "refreshing" });
+    try {
+      // The mutation returns a count and may filter inactive slots. Only a fresh
+      // GET can tell us the accepted IDs; invalidation alone can swallow failure.
+      await query.refetch({ throwOnError: true });
+      setDraft(null);
+      setSync({ status: "idle" });
+    } catch (error) {
+      setSync({
+        status: "failed",
+        message:
+          error instanceof Error ? error.message : t("uiPatterns.loadFailed"),
+      });
+    }
+  };
   const save = api.tutor.setAvailability.useMutation({
-    onSuccess: () => utils.tutor.myAvailability.invalidate(),
+    onSuccess: refreshSavedSelection,
   });
+  // After a successful write, keep the submitted selection visible but prevent
+  // another write or Cancel from restoring a stale cache until refresh succeeds.
+  const locked = save.isPending || sync.status !== "idle";
 
   const slots = useMemo(() => query.data?.slots ?? [], [query.data]);
-  const [selected, setSelected] = useState<string[]>([]);
-
-  // Seed local selection once the server data arrives.
-  useEffect(() => {
-    if (query.data) setSelected(query.data.selectedSlotIds);
-  }, [query.data]);
 
   const slotsByDay = useMemo(() => {
     const map = new Map<number, typeof slots>();
@@ -37,63 +59,99 @@ export function AvailabilityEditor() {
     return [...map.entries()].sort((a, b) => a[0] - b[0]);
   }, [slots]);
 
-  const toggle = (id: string) =>
-    setSelected((cur) =>
-      cur.includes(id) ? cur.filter((s) => s !== id) : [...cur, id],
-    );
+  const toggle = (id: string) => {
+    if (locked) return;
+    setDraft((current) => {
+      const selection = current ?? query.data?.selectedSlotIds ?? [];
+      return selection.includes(id)
+        ? selection.filter((slotId) => slotId !== id)
+        : [...selection, id];
+    });
+    save.reset();
+  };
 
-  if (query.isLoading) return <p className="muted">{t("tutor.availability.loading")}</p>;
+  if (query.isLoading)
+    return <p className="muted">{t("tutor.availability.loading")}</p>;
   if (slots.length === 0)
     return <p className="muted">{t("tutor.availability.empty")}</p>;
 
   return (
-    <div className="space-y-3">
+    <div
+      className="space-y-3"
+      aria-busy={save.isPending || sync.status === "refreshing"}
+    >
       {slotsByDay.map(([day, daySlots]) => (
         <div key={day}>
           <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
             {DAY_NAMES[day]}
           </p>
-          <div className="mt-1 flex flex-wrap gap-2">
+          <div
+            role="group"
+            aria-label={DAY_NAMES[day]}
+            className="mt-1 flex flex-wrap gap-2"
+          >
             {daySlots.map((s) => {
               const checked = selected.includes(s.id);
               return (
-                <label
+                // The visible control owns focus and pressed state, including keyboard selection.
+                <ChoiceButton
                   key={s.id}
-                  className={`cursor-pointer rounded-md border px-3 py-1.5 text-sm transition ${
-                    checked
-                      ? "border-accent-500 bg-accent-50 text-accent-700"
-                      : "border-slate-300 bg-white text-slate-600 hover:bg-slate-50"
-                  }`}
+                  selected={checked}
+                  disabled={locked}
+                  onClick={() => toggle(s.id)}
                 >
-                  <input
-                    type="checkbox"
-                    className="sr-only"
-                    checked={checked}
-                    onChange={() => toggle(s.id)}
-                  />
                   {s.label}{" "}
-                  <span className="text-slate-400">
+                  <span className="text-slate-500">
                     ({minToHm(s.startMin)}–{minToHm(s.endMin)})
                   </span>
-                </label>
+                </ChoiceButton>
               );
             })}
           </div>
         </div>
       ))}
 
-      <div className="flex items-center gap-3 pt-1">
-        <button
-          className="btn-primary btn-sm"
-          onClick={() => save.mutate({ slotIds: selected })}
-          disabled={save.isPending}
+      <FormActions>
+        <Button
+          variant="primary"
+          onClick={() => {
+            if (!locked) save.mutate({ slotIds: selected });
+          }}
+          disabled={locked}
         >
-          {save.isPending ? t("tutor.availability.saving") : t("tutor.availability.save")}
-        </button>
-        {save.isSuccess && (
-          <span className="text-sm text-green-600">{t("tutor.availability.saved")}</span>
+          {save.isPending || sync.status === "refreshing"
+            ? t("tutor.availability.saving")
+            : t("tutor.availability.save")}
+        </Button>
+        <Button
+          disabled={locked}
+          onClick={() => {
+            setDraft(null);
+            save.reset();
+          }}
+        >
+          {t("uiPatterns.cancel")}
+        </Button>
+        {save.isSuccess && sync.status === "idle" && (
+          <span role="status" className="text-sm text-green-700">
+            {t("tutor.availability.saved")}
+          </span>
         )}
-      </div>
+        {save.error && (
+          <span role="alert" className="text-sm text-red-700">
+            {save.error.message}
+          </span>
+        )}
+      </FormActions>
+      {sync.status === "failed" && (
+        <div role="alert" className="space-y-2 text-sm text-red-700">
+          <p>{t("tutor.availability.refreshFailed")}</p>
+          <p>{sync.message}</p>
+          <Button onClick={refreshSavedSelection}>
+            {t("uiPatterns.retry")}
+          </Button>
+        </div>
+      )}
     </div>
   );
 }

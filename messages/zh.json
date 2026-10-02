@@ -1240,7 +1240,7 @@
       "pendingReview": "待复核",
       "nothingPending": "暂无待复核项。",
       "standingHeading": "学习伙伴纪律状态",
-      "standingHelp": "🟥 占 3 格，🟨 占 1 格（仅统计有效卡片）。满 6 格 = 待移除。点击姓名查看卡片详情。",
+      "standingHelp": "🟥 占 3 格，🟨 占 1 格（仅统计有效卡片）。满 6 格 = 待移除。点击最右侧列的详情链接查看卡片。",
       "standing": {
         "removalPending": "待移除",
         "onWarning": "警告中",
@@ -1269,7 +1269,8 @@
       "GRADUATED": "已毕业",
       "OPTED_OUT": "已退出",
       "PENDING": "待激活",
-      "ARCHIVED": "已归档"
+      "ARCHIVED": "已归档",
+      "TRANSFERRED": "已转学"
     },
     "registrationCodes": {
       "kindAdmin": "管理员",
@@ -1882,6 +1883,7 @@
       "empty": "尚未发布任何时间段。",
       "save": "保存可用时间",
       "saving": "保存中…",
+      "refreshFailed": "保存请求已成功处理，但无法加载更新后的可用时间。请先重试加载，再继续修改。",
       "saved": "已保存。"
     },
     "interviews": {
@@ -3120,6 +3122,8 @@
     "scheduleEmpty": "暂无已安排的辅导课程。可在申请页面查看进展，或填写申请表开始申请。"
   },
   "accountProfile": {
+    "sectionSaved": "已保存。如需再次修改此部分，请关闭后重新打开编辑器。其他部分的草稿会保留。",
+    "sectionRefreshFailed": "保存成功，但刷新记录失败。请关闭后重新打开编辑器以再次加载。",
     "username": "用户名",
     "usernameHelp": "仅负责人可修改。请输入 1–64 个英文字母或数字。修改后使用新用户名或原有邮箱登录，密码保持不变。",
     "saveUsername": "保存用户名",
@@ -3468,6 +3472,38 @@
     "empty": "暂无课程。",
     "emptyHelp": "尝试其他关键词，或清除筛选以查看完整目录。"
   },
+  "uiPatterns": {
+    "meetingDate": "会议日期",
+    "profile": "个人资料",
+    "saveProfile": "保存个人资料",
+    "cancel": "取消",
+    "retry": "重试",
+    "loadFailed": "无法加载此部分",
+    "editorDenied": "暂时无法使用首页编辑器",
+    "editorDeniedHelp": "编辑和预览首页内容需要管理角色以及明确授予的翻译员权限。请联系项目负责人确认你的权限。",
+    "returnManagement": "返回管理页面",
+    "scrollTable": "横向滚动以比较所有列。",
+    "deleteMeeting": "删除会议？",
+    "deleteMeetingHelp": "删除“{title}”及其出勤记录？此操作无法撤销。",
+    "attendanceFor": "{name}的出勤情况"
+  },
+  "tablePatterns": {
+    "actions": "操作",
+    "details": "查看详情",
+    "edit": "编辑",
+    "close": "关闭",
+    "summary": "摘要",
+    "records": "{count} 条记录",
+    "schedule": "查看安排",
+    "occupied": "已占用",
+    "available": "可用",
+    "unavailable": "不可用",
+    "reason": "原因",
+    "slot": "时间段",
+    "room": "教室",
+    "select": "选择",
+    "selected": "已选"
+  },
   "identityUsername": {
     "preferredLatinName": "拉丁字母拼写",
     "preferredLatinHelp": "如果您的姓名有常用的拉丁字母拼写，可填写于此，用于首次生成用户名。留空则使用中性的 member 用户名。已有用户名不会更改，您仍可使用邮箱登录。",
@@ -3508,6 +3544,7 @@
     "loading": "正在加载学业信息…",
     "conflict": "编辑期间，此档案已被更改。请重新加载最新信息，核对后重试。当前草稿尚未保存。",
     "reload": "放弃草稿并重新加载",
+    "reloadFailed": "无法重新加载最新学业信息和设置。你的草稿保持不变，请重试。",
     "confirmed": "最近确认：{date}",
     "history": "确认历史",
     "noHistory": "暂无确认记录。",
@@ -3645,7 +3682,8 @@
       "patrols": "保留的巡查记录",
       "academicConfirmations": "保留的学业确认",
       "tuteeProfiles": "转移的学习伙伴归属记录"
-    }
+    },
+    "noCandidates": "没有可合并的账号。"
   },
   "tuteeHistory": {
     "noSearchMatches": "没有匹配搜索条件的学习伙伴。",
