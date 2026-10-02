@@ -62,6 +62,12 @@ dialog recipe demonstrates a failed draft alongside a saved section using
 pending work or blocking idle Close. Verify both completion orders, failed retry,
 all-success and a committed write whose synchronization fails on the actual pages.
 
+Gate refreshes independently when testing save completion. A rejected read must not
+release dismissal or sibling submission while another refresh remains pending.
+Use `settleRefreshes` at each aggregate boundary, including nested groups, and
+present a refresh failure only after the remaining reads settle. Saved state must
+continue to prevent replay of the committed mutation.
+
 For academic conflict Reload, verify academic and policy read failures separately,
 including cached error results and thrown reads. The original draft, version and
 school year must survive a failed read. Discard it only after both required reads

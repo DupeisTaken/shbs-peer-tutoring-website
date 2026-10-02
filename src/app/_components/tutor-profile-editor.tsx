@@ -3,6 +3,7 @@ import { ProfileEditSection } from "./profile-edit-section";
 import { Button } from "./ui/button";
 import { PersonNameFields } from "~/app/_components/person-name-fields";
 import { nameDraft, personNameEdit } from "~/lib/person-name";
+import { settleRefreshes } from "~/lib/settle-refreshes";
 
 import { useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
@@ -68,10 +69,10 @@ function TutorProfileForm({
       committed.current = true;
       setSaved(true);
       try {
-        await Promise.all([
-          utils.admin.tutors.invalidate(),
-          utils.admin.tutees.invalidate(),
-          utils.admin.accounts.invalidate(),
+        await settleRefreshes([
+          () => utils.admin.tutors.invalidate(),
+          () => utils.admin.tutees.invalidate(),
+          () => utils.admin.accounts.invalidate(),
         ]);
       } catch {
         setRefreshFailed(true);
