@@ -12,7 +12,7 @@ import {
   ProfilePolicyHint,
   OfferedGradeSelect,
 } from "./profile-policy";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { TuteeHistoryLinkForm } from "./tutee-history";
 import { invalidateTuteeViews } from "~/lib/tutee-cache";
 import { GRADUATED_GRADE } from "~/lib/academics";
@@ -49,6 +49,7 @@ function TuteeEditorContents({
   const historySection = useRef<HTMLDetailsElement>(null);
   const [historyLinked, setHistoryLinked] = useState(false);
   const [historyPending, setHistoryPending] = useState(false);
+  const [closeRequested, setCloseRequested] = useState(false);
   const [names, setNames] = useState(() => nameDraft(row));
   const [originalNames] = useState(() => nameDraft(row));
   const [legacyName] = useState(row.legacyName ?? row.englishName);
@@ -62,18 +63,27 @@ function TuteeEditorContents({
   const utils = api.useUtils();
   const subjects = api.admin.subjects.useQuery();
   const slots = api.admin.timeSlots.useQuery();
+  // Own the draft immediately, before mutation state can render a second submit.
+  const submitting = useRef(false);
   const save = api.admin.updateTutee.useMutation({
+    onSettled: () => {
+      submitting.current = false;
+    },
     onSuccess: async () => {
       await Promise.all([
         invalidateTuteeViews(utils),
         utils.admin.tutors.invalidate(),
       ]);
-      onClose();
+      setCloseRequested(true);
     },
   });
   // Register owned work only; the returned state also guards against academic
   // writes in this dialog, without feeding sibling work back into the registry.
   const pending = useDialogPending(save.isPending || historyPending);
+  // A previously admitted history/academic operation can finish after this save.
+  useEffect(() => {
+    if (closeRequested && !pending) onClose();
+  }, [closeRequested, pending, onClose]);
   return (
     <>
       <p className="muted text-sm">
@@ -84,13 +94,21 @@ function TuteeEditorContents({
           className="mt-3 max-w-3xl"
           onSubmit={(e) => {
             e.preventDefault();
-            if (pending || subjects.isLoading || slots.isLoading) return;
+            if (
+              pending ||
+              submitting.current ||
+              closeRequested ||
+              subjects.isLoading ||
+              slots.isLoading
+            )
+              return;
             const data = new FormData(e.currentTarget);
             const value = (key: string) =>
               (typeof data.get(key) === "string"
                 ? (data.get(key) as string)
                 : ""
               ).trim() || null;
+            submitting.current = true;
             save.mutate({
               id: row.id,
               expectedUpdatedAt,

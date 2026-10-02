@@ -10,7 +10,7 @@ import {
 } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NextIntlClientProvider } from "next-intl";
-import type { ComponentProps } from "react";
+import { useState, type ComponentProps } from "react";
 import en from "../../../messages/en.json";
 import { TuteeEditor } from "./tutee-editor";
 
@@ -186,8 +186,21 @@ afterEach(() => {
   client.clear();
 });
 
-function renderEditor(editorRow = row) {
+function renderEditor(editorRow = row, unmountOnClose = false) {
   const close = vi.fn();
+  function Host() {
+    const [open, setOpen] = useState(true);
+    return open ? (
+      <TuteeEditor
+        row={editorRow}
+        onClose={() => {
+          close();
+          if (unmountOnClose) setOpen(false);
+        }}
+        historyPermissions={{ canLink: true, isHead: false }}
+      />
+    ) : null;
+  }
   render(
     <QueryClientProvider client={client}>
       <NextIntlClientProvider
@@ -195,11 +208,7 @@ function renderEditor(editorRow = row) {
         messages={en}
         timeZone="Asia/Shanghai"
       >
-        <TuteeEditor
-          row={editorRow}
-          onClose={close}
-          historyPermissions={{ canLink: true, isHead: false }}
-        />
+        <Host />
       </NextIntlClientProvider>
     </QueryClientProvider>,
   );
@@ -411,11 +420,14 @@ it.each(["invite", "cancel", "link"] as const)(
   },
 );
 
-function mountLinked() {
-  const close = renderEditor({
-    ...row,
-    user: { id: "linked", email: "linked@example.test" },
-  } as typeof row);
+function mountLinked(unmountOnClose = false) {
+  const close = renderEditor(
+    {
+      ...row,
+      user: { id: "linked", email: "linked@example.test" },
+    } as typeof row,
+    unmountOnClose,
+  );
   fireEvent.click(screen.getByRole("button", { name: en.academics.edit }));
   fireEvent.click(
     screen.getByText(en.tuteeHistory.linkTitle, { selector: "summary" }),
@@ -646,3 +658,106 @@ it("keeps profile/history guarded during explicit academic conflict reload witho
   expect(ui.notes.value).toBe("Linked profile draft");
   expect(ui.evidence.value).toBe("Verified retained enrollment identity");
 });
+
+it("admits only one same-frame profile submission and releases its own guard after failure", async () => {
+  const ui = mountLinked(true),
+    first = deferred();
+  mock.save.mockReturnValueOnce(first.promise);
+  // Raw events in one batch reproduce the interval before isPending renders.
+  act(() => {
+    for (let attempt = 0; attempt < 2; attempt++)
+      ui.profileForm.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
+      );
+  });
+  await flushMutationJobs();
+  expect(mock.save).toHaveBeenCalledTimes(1);
+  expectDismissalBlocked(ui.close);
+  await act(async () => first.reject(new Error("PROFILE_STALE")));
+  await waitFor(() => expect(ui.profileSave.disabled).toBe(false));
+  expectLinkedDrafts(ui);
+  fireEvent.submit(ui.profileForm);
+  await waitFor(() => expect(ui.close).toHaveBeenCalledOnce());
+  expect(mock.save).toHaveBeenCalledTimes(2);
+  expect(screen.queryByRole("dialog")).toBeNull();
+});
+
+it.each([
+  ["academic", "profile-first", false],
+  ["academic", "sibling-first", false],
+  ["history", "profile-first", false],
+  ["history", "sibling-first", false],
+  ["academic", "profile-first", true],
+  ["history", "profile-first", true],
+] as const)(
+  "waits for already-admitted %s work (%s, sibling failure %s) before closing",
+  async (section, order, siblingFails) => {
+    const ui = mountLinked(true),
+      profile = deferred(),
+      sibling = deferred();
+    if (section === "history") await selectOwner();
+    mock.save.mockReturnValueOnce(profile.promise);
+    const siblingMutation =
+      section === "academic" ? mock.academicSave : mock.link;
+    siblingMutation.mockReturnValueOnce(sibling.promise);
+    const link =
+      section === "history"
+        ? screen.getByRole("button", { name: en.tuteeHistory.link })
+        : null;
+    // Both handlers have already admitted their work before the shared busy render.
+    act(() => {
+      ui.profileForm.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
+      );
+      if (section === "academic")
+        ui.academicForm.dispatchEvent(
+          new Event("submit", { bubbles: true, cancelable: true }),
+        );
+      else link!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await waitFor(() => expect(siblingMutation).toHaveBeenCalledOnce());
+    expect(mock.save).toHaveBeenCalledOnce();
+    expectDismissalBlocked(ui.close);
+    const profileIsSettled = () =>
+      client
+        .getMutationCache()
+        .getAll()
+        .some((mutation) => {
+          const variables = mutation.state.variables as
+            { id?: string } | undefined;
+          return (
+            variables?.id === row.id && mutation.state.status === "success"
+          );
+        });
+    if (order === "profile-first") {
+      await act(async () => profile.resolve({}));
+      await waitFor(() => expect(profileIsSettled()).toBe(true));
+      expectLinkedDrafts(ui);
+    } else {
+      await act(async () => sibling.resolve({}));
+      await waitFor(() => expect(client.isMutating()).toBe(1));
+    }
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    expect(ui.notes.isConnected).toBe(true);
+    expect(ui.notes.value).toBe("Linked profile draft");
+    expectDismissalBlocked(ui.close);
+    fireEvent.submit(ui.profileForm);
+    await flushMutationJobs();
+    expect(mock.save).toHaveBeenCalledOnce();
+    await act(async () => {
+      if (order === "sibling-first") profile.resolve({});
+      else if (siblingFails) sibling.reject(new Error("Operation failed"));
+      else sibling.resolve({});
+    });
+    await waitFor(() => expect(ui.close).toHaveBeenCalledOnce());
+    expect(screen.queryByRole("dialog")).toBeNull();
+    expect(client.isMutating()).toBe(0);
+    expect(mock.save.mock.calls[0]![0]).toEqual(
+      expect.objectContaining({
+        expectedUpdatedAt: row.updatedAt,
+        notes: "Linked profile draft",
+      }),
+    );
+    expect(mock.save.mock.calls[0]![0]).not.toHaveProperty("gradeLevel");
+  },
+);
