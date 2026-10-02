@@ -12,7 +12,8 @@ import {
   ProfilePolicyHint,
   OfferedGradeSelect,
 } from "./profile-policy";
-import { useState } from "react";
+import { useEffect, useRef, useState, type ComponentProps } from "react";
+import { useDialogPending } from "./ui/modal";
 import { GRADUATED_GRADE } from "~/lib/academics";
 
 /** One deliberate save avoids racing field-by-field corrections of the same person. */
@@ -26,6 +27,21 @@ export function TutorProfileEditor({
   isHead?: boolean;
 }) {
   const t = useTranslations();
+  return (
+    <ProfileDialog title={t("accountProfile.editProfile")} onClose={onClose}>
+      <TutorProfileForm row={row} onClose={onClose} isHead={isHead} />
+    </ProfileDialog>
+  );
+}
+
+/** Keep this independent form inside the dialog's pending context. */
+function TutorProfileForm({
+  row,
+  onClose,
+  isHead = false,
+}: ComponentProps<typeof TutorProfileEditor>) {
+  const t = useTranslations();
+  const [closeRequested, setCloseRequested] = useState(false);
   const [expectedUpdatedAt] = useState(row.updatedAt);
   const [names, setNames] = useState(() => nameDraft(row));
   const [originalNames] = useState(() => nameDraft(row));
@@ -38,28 +54,35 @@ export function TutorProfileEditor({
       : (row.gradeLevel?.toString() ?? ""),
   );
   const utils = api.useUtils();
+  const submitting = useRef(false);
   const save = api.admin.updateTutor.useMutation({
+    onSettled: () => { submitting.current = false; },
     onSuccess: async () => {
       await Promise.all([
         utils.admin.tutors.invalidate(),
         utils.admin.tutees.invalidate(),
         utils.admin.accounts.invalidate(),
       ]);
-      onClose();
+      setCloseRequested(true);
     },
   });
+  const busy = useDialogPending(save.isPending);
+  useEffect(() => {
+    if (closeRequested && !busy) onClose();
+  }, [closeRequested, busy, onClose]);
   return (
-    <ProfileDialog title={t("accountProfile.editProfile")} onClose={onClose}>
+    <>
       <form
-        className="grid gap-4 sm:grid-cols-2"
         onSubmit={(event) => {
           event.preventDefault();
+          if (busy || submitting.current || closeRequested) return;
           const data = new FormData(event.currentTarget);
           const value = (key: string) => {
             const field = data.get(key);
             return typeof field === "string" ? field.trim() : "";
           };
 
+          submitting.current = true;
           save.mutate({
             id: row.id,
             expectedUpdatedAt,
@@ -84,6 +107,7 @@ export function TutorProfileEditor({
           });
         }}
       >
+        <fieldset disabled={busy} className="grid min-w-0 gap-4 sm:grid-cols-2">
         <p className="muted text-sm sm:col-span-2">
           {t(
             row.user
@@ -187,12 +211,13 @@ export function TutorProfileEditor({
             <AcademicError message={save.error.message} />
           </p>
         )}
+        </fieldset>
       </form>
       {row.user && (
         <div className="mt-5">
           <AcademicPanel userId={row.user.id} />
         </div>
       )}
-    </ProfileDialog>
+    </>
   );
 }

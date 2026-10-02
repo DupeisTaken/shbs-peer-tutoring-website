@@ -12,7 +12,8 @@ import {
   ProfilePolicyHint,
   OfferedGradeSelect,
 } from "./profile-policy";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState, type ComponentProps } from "react";
+import { useDialogPending } from "./ui/modal";
 import { TuteeHistoryLinkForm } from "./tutee-history";
 import { invalidateTuteeViews } from "~/lib/tutee-cache";
 import { GRADUATED_GRADE } from "~/lib/academics";
@@ -27,6 +28,25 @@ export function TuteeEditor({
   onClose: () => void;
   historyPermissions?: { canLink: boolean; isHead: boolean };
 }) {
+  const profileText = useTranslations("accountProfile");
+  return (
+    <ProfileDialog title={profileText("editProfile")} onClose={onClose}>
+      <TuteeProfileForm
+        row={row}
+        onClose={onClose}
+        historyPermissions={historyPermissions}
+      />
+    </ProfileDialog>
+  );
+}
+
+/** Keep this independent form inside the dialog's pending context. */
+function TuteeProfileForm({
+  row,
+  onClose,
+  historyPermissions,
+}: ComponentProps<typeof TuteeEditor>) {
+  const [closeRequested, setCloseRequested] = useState(false);
   const t = useTranslations("profileCorrection");
   const history = useTranslations("tuteeHistory");
   const profileText = useTranslations("accountProfile");
@@ -50,31 +70,39 @@ export function TuteeEditor({
   const utils = api.useUtils();
   const subjects = api.admin.subjects.useQuery();
   const slots = api.admin.timeSlots.useQuery();
+  const submitting = useRef(false);
   const save = api.admin.updateTutee.useMutation({
+    onSettled: () => { submitting.current = false; },
     onSuccess: async () => {
       await Promise.all([
         invalidateTuteeViews(utils),
         utils.admin.tutors.invalidate(),
       ]);
-      onClose();
+      setCloseRequested(true);
     },
   });
+  const busy = useDialogPending(save.isPending);
+  useEffect(() => {
+    if (closeRequested && !busy) onClose();
+  }, [closeRequested, busy, onClose]);
   return (
-    <ProfileDialog title={profileText("editProfile")} onClose={onClose}>
+    <>
       <p className="muted text-sm">
         {row.user ? profileText("canonicalHelp") : history("noAccountHelp")}
       </p>
       {subjects.data && slots.data && (
         <form
-          className="mt-3 grid max-w-3xl gap-4 sm:grid-cols-2"
+          className="mt-3 max-w-3xl"
           onSubmit={(e) => {
             e.preventDefault();
+            if (busy || submitting.current || closeRequested) return;
             const data = new FormData(e.currentTarget);
             const value = (key: string) =>
               (typeof data.get(key) === "string"
                 ? (data.get(key) as string)
                 : ""
               ).trim() || null;
+            submitting.current = true;
             save.mutate({
               id: row.id,
               expectedUpdatedAt,
@@ -100,6 +128,7 @@ export function TuteeEditor({
             });
           }}
         >
+          <fieldset disabled={busy} className="grid min-w-0 gap-4 sm:grid-cols-2">
           <div className="sm:col-span-2">
             <PersonNameFields
               value={names}
@@ -214,6 +243,7 @@ export function TuteeEditor({
               <AcademicError message={save.error.message} />
             </p>
           )}
+          </fieldset>
         </form>
       )}
       {row.user && (
@@ -250,6 +280,6 @@ export function TuteeEditor({
           )}
         </section>
       )}
-    </ProfileDialog>
+    </>
   );
 }
