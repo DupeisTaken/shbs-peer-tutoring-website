@@ -7,6 +7,8 @@ import { useEffect, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
+import { settleRefreshes } from "~/lib/settle-refreshes";
 import { DisclosureIcon } from "~/app/_components/icons";
 import { useReadOnly } from "~/app/_components/read-only";
 import { useDialog } from "~/app/_components/confirm-dialog";
@@ -83,7 +85,7 @@ function ApplicationCard({
 }: {
   app: Application;
   tutors: PanelTutor[];
-  onChanged: (throwOnError?: boolean) => Promise<unknown> | void;
+  onChanged: (reportErrors?: boolean) => Promise<unknown> | void;
 }) {
   const programFormat = useFormatter();
   const t = useTranslations();
@@ -412,15 +414,13 @@ export default function ApplicationsPage() {
   const readOnly = useReadOnly();
   // Qualification decisions distinguish a committed write from failed cache
   // synchronization. Other callers retain their existing refresh behavior.
-  const invalidate = (throwOnError = false) =>
-    Promise.all([
-      utils.admin.tutorApplications.invalidate(undefined, undefined, {
-        throwOnError,
-      }),
-      utils.interviewManagement.options.invalidate(undefined, undefined, {
-        throwOnError,
-      }),
-    ]);
+  const invalidate = (reportErrors = false) =>
+    settleRefreshes(
+      [utils.admin.tutorApplications, utils.interviewManagement.options].map(
+        (view) => () =>
+          reportErrors ? invalidateAndReport(view) : view.invalidate(),
+      ),
+    );
 
   const [filters, setFilters] = useState(emptyApplicationFilters);
   // History links reveal their destination even when a previous filter hid it.

@@ -4,6 +4,8 @@ import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { qualificationSnapshot } from "~/lib/qualification-applications";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
+import { settleRefreshes } from "~/lib/settle-refreshes";
 import { useReadOnly } from "./read-only";
 import { Button } from "./ui/button";
 import { Modal } from "./ui/modal";
@@ -27,7 +29,7 @@ export function QualificationReview({
     requestedTutorId?: string | null;
     interviewers?: { isHead: boolean; tutor: { id: string } }[];
   };
-  onChanged: (throwOnError?: boolean) => Promise<unknown> | void;
+  onChanged: (reportErrors?: boolean) => Promise<unknown> | void;
 }) {
   const t = useTranslations("qualificationRequests");
   const ui = useTranslations("uiPatterns");
@@ -52,27 +54,26 @@ export function QualificationReview({
     try {
       // A committed decision cannot be submitted again when a subsequent read
       // fails. Retry only synchronization, including the independent detail cache.
-      const results = await Promise.allSettled([
-        onChanged(true),
-        utils.qualificationApplication.mine.invalidate(undefined, undefined, {
-          throwOnError: true,
-        }),
-        utils.subjectAvailability.options.invalidate(undefined, undefined, {
-          throwOnError: true,
-        }),
-        utils.admin.tutors.invalidate(undefined, undefined, {
-          throwOnError: true,
-        }),
-        app.requestedTutorId
-          ? utils.tutorDetails.get.invalidate(
-              { tutorId: app.requestedTutorId },
-              undefined,
-              { throwOnError: true },
-            )
-          : Promise.resolve(),
+      const requestedTutorId = app.requestedTutorId;
+      await settleRefreshes([
+        async () => {
+          await onChanged(true);
+        },
+        () => invalidateAndReport(utils.qualificationApplication.mine),
+        () => invalidateAndReport(utils.subjectAvailability.options),
+        () => invalidateAndReport(utils.admin.tutors),
+        () =>
+          requestedTutorId
+            ? invalidateAndReport({
+                invalidate: (_input, filters, options) =>
+                  utils.tutorDetails.get.invalidate(
+                    { tutorId: requestedTutorId },
+                    filters,
+                    options,
+                  ),
+              })
+            : Promise.resolve(),
       ]);
-      const failed = results.find((result) => result.status === "rejected");
-      if (failed?.status === "rejected") throw failed.reason;
       setReviewOpen(false);
       setDraft(null);
     } catch (error) {
