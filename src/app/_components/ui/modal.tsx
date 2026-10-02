@@ -165,9 +165,12 @@ export function NativeDialog({
     const active = document.activeElement;
     if (
       effectiveBusy &&
-      active instanceof HTMLElement &&
-      active.closest("dialog") === ref.current &&
-      active.matches(":disabled")
+      // Browsers can blur a newly disabled fieldset control straight to body.
+      // Recover focus there too, without taking it from a nested child dialog.
+      (active === document.body ||
+        (active instanceof HTMLElement &&
+          active.closest("dialog") === ref.current &&
+          active.matches(":disabled")))
     )
       ref.current?.focus();
   }, [effectiveBusy]);
@@ -180,7 +183,23 @@ export function NativeDialog({
         aria-labelledby={labelledBy}
         aria-describedby={describedBy}
         aria-busy={effectiveBusy}
-        onKeyDown={containFocus}
+        // Disable the native close watcher as well: its later cancel events can
+        // be non-cancellable. The key/cancel handlers cover older browsers.
+        closedby={effectiveBusy ? "none" : "closerequest"}
+        onKeyDown={(event) => {
+          // Repeated Escape requests can produce a non-cancellable native close.
+          // Suppress the key's default action while this dialog owns pending work.
+          if (
+            effectiveBusy &&
+            event.key === "Escape" &&
+            event.target instanceof Element &&
+            event.target.closest("dialog") === event.currentTarget
+          ) {
+            event.preventDefault();
+            return;
+          }
+          containFocus(event);
+        }}
         onCancel={(event) => {
           if (event.target !== event.currentTarget) return;
           event.preventDefault();
