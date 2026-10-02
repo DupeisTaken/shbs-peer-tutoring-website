@@ -1,6 +1,12 @@
 /** @vitest-environment jsdom */
 import { useState, type ComponentProps } from "react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  QueryClient,
+  QueryClientProvider,
+  QueryObserver,
+  type InvalidateOptions,
+  type InvalidateQueryFilters,
+} from "@tanstack/react-query";
 import {
   act,
   cleanup,
@@ -110,17 +116,34 @@ vi.mock("~/trpc/react", async () => {
     api: {
       useUtils() {
         const client = useQueryClient();
-        const invalidate = async (path: string) => {
+        const invalidate = async (
+          path: string,
+          filters?: InvalidateQueryFilters,
+          options?: InvalidateOptions,
+        ) => {
           transport.invalidations.push(path);
           const gate = transport.refreshGates.get(path);
           if (gate) await gate;
-          await client.invalidateQueries();
+          // Match the installed tRPC adapter: forward both filter and error options,
+          // and constrain invalidation to the procedure/router prefix it represents.
+          await client.invalidateQueries(
+            { ...filters, queryKey: path === "*" ? undefined : [path] },
+            options,
+          );
         };
         const invalidator = (path: string) => ({
-          invalidate: () => invalidate(path),
+          invalidate: (
+            _input?: unknown,
+            filters?: InvalidateQueryFilters,
+            options?: InvalidateOptions,
+          ) => invalidate(path, filters, options),
         });
         return {
-          invalidate: () => invalidate("*"),
+          invalidate: (
+            _input?: unknown,
+            filters?: InvalidateQueryFilters,
+            options?: InvalidateOptions,
+          ) => invalidate("*", filters, options),
           account: {
             me: invalidator("account.me"),
             academicHistory: invalidator("account.academicHistory"),
@@ -493,6 +516,147 @@ it.each(cases)(
       expect(failed.field.matches(":disabled")).toBe(false);
     } else expect(transport.commits).toHaveLength(2);
     deliberatelyClose(close);
+  },
+);
+
+const observedRefreshCases = [
+  { kind: "account", path: "admin.accounts" },
+  { kind: "tutor", path: "admin.tutors" },
+  { kind: "tutee", path: "admin.tutees" },
+  { kind: "username", path: "admin.accounts" },
+] as const;
+it.each(
+  observedRefreshCases.flatMap((entry) =>
+    (["success", "failure"] as const).flatMap((firstOutcome) =>
+      (["success", "failure"] as const).map((lastOutcome) => ({
+        ...entry,
+        firstOutcome,
+        lastOutcome,
+      })),
+    ),
+  ),
+)(
+  "owns both active $path reads after committed $kind ($firstOutcome then $lastOutcome)",
+  async ({ kind, path, firstOutcome, lastOutcome }) => {
+    const editorKind = kind === "username" ? "account" : kind;
+    const close = mount(editorKind);
+    const primary = await operation(
+      editorKind,
+      kind === "username" ? "username" : "profile",
+      "Primary",
+    );
+    const sibling = await operation(editorKind, "academic", "Sibling");
+    const firstRead = refreshGate();
+    const lastRead = refreshGate();
+    const firstError = new Error("First actual GET failed");
+    const lastError = new Error("Last actual GET failed");
+    const firstFetch = vi.fn(async () => {
+      await firstRead.promise;
+      return [{ id: "first-fresh" }];
+    });
+    const lastFetch = vi.fn(async () => {
+      await lastRead.promise;
+      return [{ id: "last-fresh" }];
+    });
+    // Two real active cache entries under one procedure prefix expose QueryClient's
+    // inner aggregate. Errors originate in query functions, not mocked invalidations.
+    const firstObserver = new QueryObserver(client, {
+      queryKey: [path, { page: 1 }],
+      queryFn: firstFetch,
+      initialData: [{ id: "first-cached" }],
+      staleTime: Infinity,
+    });
+    const lastObserver = new QueryObserver(client, {
+      queryKey: [path, { page: 2 }],
+      queryFn: lastFetch,
+      initialData: [{ id: "last-cached" }],
+      staleTime: Infinity,
+    });
+    const stopFirst = firstObserver.subscribe(() => undefined);
+    const stopLast = lastObserver.subscribe(() => undefined);
+    try {
+      expect(firstFetch).not.toHaveBeenCalled();
+      expect(lastFetch).not.toHaveBeenCalled();
+      act(() => primary.submit());
+      await waitFor(() => expect(transport.requests).toHaveLength(1));
+      await act(async () => transport.requests[0]!.resolve());
+      await waitFor(() => {
+        expect(firstFetch).toHaveBeenCalledOnce();
+        expect(lastFetch).toHaveBeenCalledOnce();
+      });
+      blocked(close);
+      expect(screen.getByText(en.accountProfile.sectionSaved)).toBeTruthy();
+      await act(async () => {
+        if (firstOutcome === "failure") firstRead.reject(firstError);
+        else firstRead.resolve();
+        // Flush the installed query/mutation lifecycle so an early aggregate rejection
+        // cannot pass merely because React Query has not yet delivered its notifications.
+        await new Promise<void>((resolve) => setTimeout(resolve, 0));
+      });
+      expect(firstObserver.getCurrentResult().isFetching).toBe(false);
+      expect(firstObserver.getCurrentResult().error).toBe(
+        firstOutcome === "failure" ? firstError : null,
+      );
+      expect(lastObserver.getCurrentResult().isFetching).toBe(true);
+      expect(client.isMutating()).toBe(1);
+      expect(
+        screen.queryByText(en.accountProfile.sectionRefreshFailed),
+      ).toBeNull();
+      blocked(close);
+      expect(sibling.field.matches(":disabled")).toBe(true);
+      act(() => {
+        primary.submit();
+        sibling.submit();
+      });
+      expect(transport.requests).toHaveLength(1);
+      expect(transport.routerRefresh).not.toHaveBeenCalled();
+      await act(async () => {
+        if (lastOutcome === "failure") lastRead.reject(lastError);
+        else lastRead.resolve();
+      });
+      await waitFor(() => expect(client.isMutating()).toBe(0));
+      expect(lastObserver.getCurrentResult().isFetching).toBe(false);
+      expect(lastObserver.getCurrentResult().error).toBe(
+        lastOutcome === "failure" ? lastError : null,
+      );
+      expect(firstObserver.getCurrentResult().data).toEqual([
+        { id: firstOutcome === "failure" ? "first-cached" : "first-fresh" },
+      ]);
+      expect(lastObserver.getCurrentResult().data).toEqual([
+        { id: lastOutcome === "failure" ? "last-cached" : "last-fresh" },
+      ]);
+      if (firstOutcome === "failure" || lastOutcome === "failure")
+        expect(
+          screen.getByText(en.accountProfile.sectionRefreshFailed),
+        ).toBeTruthy();
+      else
+        expect(
+          screen.queryByText(en.accountProfile.sectionRefreshFailed),
+        ).toBeNull();
+      expect(primary.field.matches(":disabled")).toBe(true);
+      expect(primary.field.closest("fieldset")?.getAttribute("aria-busy")).toBe(
+        "false",
+      );
+      expect(sibling.field.isConnected).toBe(true);
+      expect(sibling.field.value).toBe(sibling.initialDraft);
+      expect(sibling.field.matches(":disabled")).toBe(false);
+      expect(screen.getByRole("dialog").getAttribute("aria-busy")).toBe(
+        "false",
+      );
+      expect(close).not.toHaveBeenCalled();
+      act(() => primary.submit());
+      expect(transport.requests).toHaveLength(1);
+      expect(transport.commits).toEqual([primary.path]);
+      // The correction must neither retry the GET nor replay a committed POST.
+      expect(firstFetch).toHaveBeenCalledOnce();
+      expect(lastFetch).toHaveBeenCalledOnce();
+      if (kind === "username")
+        expect(transport.routerRefresh).toHaveBeenCalledOnce();
+      deliberatelyClose(close);
+    } finally {
+      stopFirst();
+      stopLast();
+    }
   },
 );
 
