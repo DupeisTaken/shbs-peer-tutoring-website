@@ -9,7 +9,8 @@ import { MembershipEditor } from "./membership-editor";
 import { AcademicPanel } from "./academic-profile";
 import { AccountUsernameEditor } from "./account-username-editor";
 import type { AccountMembership } from "~/lib/account-membership";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState, type ComponentProps } from "react";
+import { useDialogPending } from "./ui/modal";
 import { useTranslations } from "next-intl";
 import { ProfilePolicyError } from "~/app/_components/profile-policy";
 import { api } from "~/trpc/react";
@@ -37,6 +38,31 @@ export function AccountProfileEditor({
   isHead?: boolean;
 }) {
   const t = useTranslations("accountProfile");
+  return (
+    <ProfileDialog title={t("editProfile")} onClose={onClose}>
+      <AccountProfileForm
+        profile={profile}
+        onClose={onClose}
+        membership={membership}
+        isHead={isHead}
+      />
+    </ProfileDialog>
+  );
+}
+
+/** Run the form inside its dialog so both submission and completion see sibling writes. */
+function AccountProfileForm({
+  profile,
+  onClose,
+  membership,
+  isHead,
+}: ComponentProps<typeof AccountProfileEditor>) {
+  const t = useTranslations("accountProfile");
+  const common = useTranslations("uiPatterns");
+  const [closeRequested, setCloseRequested] = useState(false);
+  const [reloading, setReloading] = useState(false);
+  const [reloadError, setReloadError] = useState<string | null>(null);
+  const reloadPending = useRef(false);
   const [names, setNames] = useState(() => nameDraft(profile));
   const [originalNames, setOriginalNames] = useState(() => nameDraft(profile));
   const [legacyName, setLegacyName] = useState(
@@ -63,20 +89,27 @@ export function AccountProfileEditor({
         utils.tuteeHistory.invalidate(),
         utils.account.me.invalidate(),
       ]);
-      onClose();
+      setCloseRequested(true);
     },
   });
+  const busy = useDialogPending(save.isPending);
+  // A successful profile save must not unmount an independently pending section.
+  useEffect(() => {
+    if (closeRequested && !busy) onClose();
+  }, [closeRequested, busy, onClose]);
   return (
-    <ProfileDialog
-      title={t("editProfile")}
-      pending={save.isPending}
-      onClose={onClose}
-    >
+    <>
       <form
         className="space-y-4"
         onSubmit={(event) => {
           event.preventDefault();
-          if (save.isPending || submitting.current) return;
+          if (
+            busy ||
+            submitting.current ||
+            reloadPending.current ||
+            closeRequested
+          )
+            return;
           submitting.current = true;
           save.mutate({
             userId: profile.userId,
@@ -88,7 +121,7 @@ export function AccountProfileEditor({
       >
         <ProfileEditSection
           title={t("name")}
-          busy={save.isPending}
+          busy={save.isPending || reloading}
           actions={
             <Button
               type="submit"
@@ -116,21 +149,43 @@ export function AccountProfileEditor({
               type="button"
               className="btn-secondary min-h-11 lg:min-h-10"
               onClick={async () => {
-                const accounts = await utils.admin.accounts.fetch();
-                const latest = accounts.rows.find(
-                  (row) => row.userId === profile.userId,
-                );
-                if (latest?.profileVersion != null) {
-                  setNames(nameDraft(latest));
-                  setOriginalNames(nameDraft(latest));
-                  setLegacyName(latest.legacyName ?? latest.name);
-                  setExpectedProfileVersion(latest.profileVersion);
-                  save.reset();
+                if (busy || submitting.current || reloadPending.current) return;
+                // A reload may replace this draft, so exclude concurrent saves without
+                // registering a cancellable GET as an owned dialog write.
+                reloadPending.current = true;
+                setReloading(true);
+                setReloadError(null);
+                try {
+                  const accounts = await utils.admin.accounts.fetch();
+                  const latest = accounts.rows.find(
+                    (row) => row.userId === profile.userId,
+                  );
+                  if (latest?.profileVersion != null) {
+                    setNames(nameDraft(latest));
+                    setOriginalNames(nameDraft(latest));
+                    setLegacyName(latest.legacyName ?? latest.name);
+                    setExpectedProfileVersion(latest.profileVersion);
+                    save.reset();
+                  }
+                } catch (error) {
+                  setReloadError(
+                    error instanceof Error
+                      ? error.message
+                      : common("loadFailed"),
+                  );
+                } finally {
+                  reloadPending.current = false;
+                  setReloading(false);
                 }
               }}
             >
               {t("reloadIdentity")}
             </button>
+          )}
+          {reloadError && (
+            <p role="alert" className="text-sm text-red-600">
+              {reloadError}
+            </p>
           )}
         </ProfileEditSection>
       </form>
@@ -142,7 +197,7 @@ export function AccountProfileEditor({
           userId={profile.userId}
           username={profile.username}
           profileVersion={profile.profileVersion}
-          onSaved={onClose}
+          onSaved={() => setCloseRequested(true)}
         />
       )}
       {membership && (
@@ -153,6 +208,6 @@ export function AccountProfileEditor({
         />
       )}
       <SchoolDeparturePanel userId={profile.userId} />
-    </ProfileDialog>
+    </>
   );
 }

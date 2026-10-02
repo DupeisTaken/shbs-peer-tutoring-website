@@ -18,12 +18,14 @@ import { useDialogPending } from "./ui/modal";
 const state = vi.hoisted(() => ({
   pending: false,
   childPending: false,
-  error: null as { message: string } | null,
+  error: null as { message: string; data?: { code: string } } | null,
   subjects: [] as unknown[] | undefined,
   slots: [] as unknown[] | undefined,
   subjectError: null as { message: string } | null,
   slotError: null as { message: string } | null,
   mutate: vi.fn(),
+  fetchAccounts: vi.fn(),
+  reset: vi.fn(),
   retrySubjects: vi.fn(),
   retrySlots: vi.fn(),
   success: () => Promise.resolve(),
@@ -41,6 +43,7 @@ vi.mock("~/trpc/react", () => {
       mutate: state.mutate,
       isPending: state.pending,
       error: state.error,
+      reset: state.reset,
     };
   };
   const invalidation = { invalidate: () => Promise.resolve() };
@@ -48,7 +51,7 @@ vi.mock("~/trpc/react", () => {
     api: {
       useUtils: () => ({
         admin: {
-          accounts: invalidation,
+          accounts: { ...invalidation, fetch: state.fetchAccounts },
           tutors: invalidation,
           tutees: invalidation,
           pairings: invalidation,
@@ -232,11 +235,45 @@ it.each<Kind>(["account", "tutor", "tutee"])(
     expect(
       screen.getByRole<HTMLButtonElement>("button", { name: "Close" }).disabled,
     ).toBe(true);
+    // Disabled fieldsets do not guard a dispatched/programmatic form submission.
+    const form = screen.getByLabelText("First Name Required").closest("form")!;
+    fireEvent.submit(form);
+    expect(state.mutate).not.toHaveBeenCalled();
     state.childPending = false;
     view.rerender(editor(kind, close));
     expect(
       screen.getByLabelText("First Name Required").matches(":disabled"),
     ).toBe(false);
+    fireEvent.submit(form);
+    expect(state.mutate).toHaveBeenCalledOnce();
+  },
+);
+
+it.each<Kind>(["account", "tutor", "tutee"])(
+  "keeps the %s editor mounted when its save completes before another section",
+  async (kind) => {
+    const close = vi.fn();
+    const view = render(editor(kind, close));
+    const name = screen.getByLabelText<HTMLInputElement>("First Name Required");
+    fireEvent.change(name, { target: { value: "Saved parent draft" } });
+    fireEvent.submit(name.closest("form")!);
+    // Exercise an already admitted overlap, including independent completion order.
+    state.pending = true;
+    state.childPending = true;
+    view.rerender(editor(kind, close));
+    await act(() => state.success());
+    expect(close).not.toHaveBeenCalled();
+    state.pending = false;
+    state.settled();
+    view.rerender(editor(kind, close));
+    expect(close).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog").getAttribute("aria-busy")).toBe("true");
+    expect(name.value).toBe("Saved parent draft");
+    fireEvent.submit(name.closest("form")!);
+    expect(state.mutate).toHaveBeenCalledOnce();
+    state.childPending = false;
+    view.rerender(editor(kind, close));
+    expect(close).toHaveBeenCalledOnce();
   },
 );
 
@@ -245,6 +282,43 @@ it("closes the account profile only after successful invalidation", async () => 
   render(editor("account", close));
   await act(() => state.success());
   expect(close).toHaveBeenCalledOnce();
+});
+
+it("keeps account Reload distinct from writes and preserves the draft after a failed read", async () => {
+  state.error = { message: "Conflict", data: { code: "CONFLICT" } };
+  let reject!: (error: Error) => void;
+  state.fetchAccounts.mockReturnValue(
+    new Promise((_, fail) => {
+      reject = fail;
+    }),
+  );
+  render(editor("account", vi.fn()));
+  const name = screen.getByLabelText<HTMLInputElement>("First Name Required");
+  fireEvent.change(name, { target: { value: "Keep this draft" } });
+  fireEvent.click(
+    screen.getByRole("button", { name: en.accountProfile.reloadIdentity }),
+  );
+  expect(name.matches(":disabled")).toBe(true);
+  fireEvent.submit(name.closest("form")!);
+  expect(state.mutate).not.toHaveBeenCalled();
+  expect(screen.getByRole("dialog").getAttribute("aria-busy")).toBe("false");
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", { name: "Close" }).disabled,
+  ).toBe(false);
+  await act(async () => {
+    reject(new Error("Reload unavailable"));
+  });
+  expect(screen.getByText("Reload unavailable")).toBeTruthy();
+  expect(name.value).toBe("Keep this draft");
+  expect(name.matches(":disabled")).toBe(false);
+  expect(state.reset).not.toHaveBeenCalled();
+  fireEvent.submit(name.closest("form")!);
+  expect(state.mutate).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      firstName: "Keep this draft",
+      expectedProfileVersion: 7,
+    }),
+  );
 });
 
 it.each(["subjects", "slots"] as const)(
