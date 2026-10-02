@@ -46,13 +46,15 @@ A role and a tutor or crew membership are different things. A management account
 
 Sign In names the invitation and viewer routes separately. The invitation and viewer pages link to each other and to Request a Tutor, so you can switch if you opened the wrong form. Viewer links are hidden when public viewer signup is disabled. If you already have an account, sign in or recover your password rather than registering again.
 
+Registration shows numbered steps and focuses the new step heading. Use **Back**, **Review or edit email**, **Edit invitation code** or **Edit Identity** to correct earlier details. Editing clears the current verification evidence and requires email verification again; other entries remain while you stay on the page. A different invitation clears the previous identity and password. An invitation bound to an email keeps that email read only. Use **Resend** after delivery or expiry problems. Browser navigation works normally; leaving or refreshing the page can discard unsaved entries.
+
 ### Switch workspaces
 
 Management headers and account menus show **Enter Tutor Page**, then **Enter Tutee Page** together when eligible. The tutor shortcut requires a linked, non-archived profile with tutoring access. Tutee workspace access preserves personal records, while new participation follows the onboarding and departure rules above. Management accounts without tutor eligibility can still open the tutee workspace and return to management.
 
 Tutor and tutee workspaces show **Back to Management** for HEAD, ADMIN, COORDINATOR and VIEWER. This shortcut does not grant write access to viewers. Archived pure tutors retain their existing read-only history access.
 
-On mobile, the shared header places the brand and language selector first, global controls second, and available workspace switches below a divider. Management's hamburger button opens the navigation drawer; Escape, its close button or selecting a link closes it. Desktop management keeps the sidebar and main content independently scrollable below the header. Workspace shortcuts wrap on narrow screens and preserve touch targets.
+On mobile, the shared header places the brand and language selector first, global controls second, and available workspace switches below a divider. Management's hamburger button opens the navigation drawer; Escape, its close button or selecting a link closes it. Public pages keep the brand and language selector on the first row and navigation/theme on the second. Patrol, Translations, Messages and Account Settings share the workspace header. Desktop management keeps the sidebar and main content independently scrollable below the header. Workspace shortcuts wrap on narrow screens and preserve touch targets.
 
 ## Graduation and school transfers
 
@@ -403,6 +405,8 @@ Use password recovery when you cannot sign in. Personal email two-factor authent
 The notification menu shows your own recent notices and unread count. Follow a notice to its related task, mark it read, or mark all as read. Private message bodies and recipient lists are excluded from notifications.
 
 Use **Messages** to send separate private deliveries to allowed contacts. Search by name or username, select up to 20 people, and keep selections while searching or paging. New messages deliver immediately and may be reviewed or hidden by HEAD/ADMIN; reviews and moderation are recorded. Recipients cannot see other recipients or their replies. Historical messages sent under the old participant-only notice remain participant-only. Notifications omit message bodies. Replies follow current permissions; history remains readable after contact eligibility changes. If any selected recipient becomes ineligible before a send, nothing is delivered: review your selections and retry. Retrying the same send does not duplicate deliveries. A messaging restriction prevents new sending and incoming eligibility while retaining history; account suspension instead leads to the appeal page. For a suspended account, use the appeal option on the suspension page. See [contact permissions and supervision](program-reference.md#message-permissions-and-supervision) for management configuration.
+
+**Reply** opens a composer with the sender’s name and username, then moves keyboard focus to its message field. Your general message and other reply drafts remain separate while the page stays open. **Cancel reply** restores the general draft and returns focus to the Reply button. Sending a reply also restores the general draft. Pending sending prevents recipient changes; permission errors offer Retry and keep your text. Drafts are not stored after leaving or refreshing the page.
 
 On the Tutee page, **Messages** and **Account** open inside the same navigation and header. Account settings use your shared profile, verified email changes, password changes and two-factor settings. HEAD, ADMIN and COORDINATOR open Messages inside the management shell at `/admin/messages`. HEAD/ADMIN also have **Message Supervision** for audited review, reversible hiding, messaging restrictions and role/user contact permissions; coordinators cannot supervise other conversations.
 

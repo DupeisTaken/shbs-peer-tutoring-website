@@ -289,7 +289,7 @@ export default async function AdminHome() {
                 <td>{s.pairing.subject}</td>
                 <td>
                   <span className={STATUS_TONE[s.tutorStatus] ?? "badge-slate"}>
-                    {s.tutorStatus}
+                    {t(`tutor.attendance.tutorStatusOpt.${s.tutorStatus}`)}
                   </span>
                 </td>
                 <td className="text-right font-semibold text-slate-900 tabular-nums">
@@ -304,7 +304,7 @@ export default async function AdminHome() {
                         dateStyle: "full",
                         timeZone: "UTC",
                       })}{" "}
-                      · {s.tutorStatus}
+                      · {t(`tutor.attendance.tutorStatusOpt.${s.tutorStatus}`)}
                     </p>
                     <h3 className="font-semibold">
                       {t("admin.submissions.colTutees")}

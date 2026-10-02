@@ -194,7 +194,10 @@
     "saved": "Saved with audit evidence.",
     "inherit": "Remove override / inherit role",
     "resetDefault": "Restore default policy",
-    "ownInbox": "Your inbox"
+    "ownInbox": "Your inbox",
+    "replyContext": "Respondiendo a {name}",
+    "cancelReply": "Cancelar Respuesta",
+    "replyDraftHelp": "Se conserva tu borrador anterior. Al cancelar, también se conserva este borrador de respuesta en la página."
   },
   "common": {
     "cancel": "Cancelar",
@@ -3819,5 +3822,31 @@
     "alternativeNamesHelp": "Tu nombre en otro idioma o sistema de escritura, como 张小明.",
     "legacyPreserved": "Nombre registrado: {name}. Deja los campos de nombre en letras latinas sin cambios para conservarlo. Introduce un nombre para reemplazarlo.",
     "legacy": "Nombre registrado: {name}. Introduce el nombre y el apellido por separado para actualizar el perfil."
+  },
+  "registrationFlow": {
+    "progressTitle": "Progreso del Registro",
+    "stepCount": "Paso {current} de {total}",
+    "invitationTitle": "Código de Invitación",
+    "emailTitle": "Correo Electrónico",
+    "verifyTitle": "Verificar Correo",
+    "profileTitle": "Perfil y Contraseña",
+    "identityTitle": "Identidad y Correo",
+    "passwordTitle": "Establecer Contraseña",
+    "back": "Atrás",
+    "editIdentity": "Editar Identidad",
+    "editEmail": "Revisar o Editar Correo",
+    "editInvitation": "Editar Código de Invitación",
+    "reverifyHelp": "Volver a los datos anteriores requiere verificar de nuevo el correo. Las otras entradas se conservan en este formulario.",
+    "working": "Espera…"
+  },
+  "signupSections": {
+    "identityTitle": "Identidad y Contacto",
+    "subjectsTitle": "Materias",
+    "agreementTitle": "Acuerdo",
+    "applicationTitle": "Detalles de la Solicitud"
+  },
+  "pageRecovery": {
+    "title": "Página No Encontrada",
+    "body": "Esta página puede haberse movido o ya no estar disponible. Vuelve al inicio o inicia sesión para continuar."
   }
 }

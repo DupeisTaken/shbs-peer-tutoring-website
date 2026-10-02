@@ -63,3 +63,7 @@ it("encodes malformed token content as data in a fixed local return route", asyn
     "/history/claim?token=x%26callbackUrl%3D%2F%2Fevil.test",
   );
 });
+
+vi.mock("~/app/_components/theme-switcher", () => ({
+  ThemeSwitcher: () => null,
+}));

@@ -162,7 +162,10 @@
     "saved": "Saved with audit evidence.",
     "inherit": "Remove override / inherit role",
     "resetDefault": "Restore default policy",
-    "ownInbox": "Your inbox"
+    "ownInbox": "Your inbox",
+    "replyContext": "Replying to {name}",
+    "cancelReply": "Cancel Reply",
+    "replyDraftHelp": "Your previous draft is kept while you reply. Cancelling keeps this reply draft on this page."
   },
   "common": {
     "cancel": "Cancel",
@@ -3819,5 +3822,31 @@
     "alternativeNamesHelp": "Your name in another language or writing system, such as 张小明.",
     "legacyPreserved": "Previously recorded name: {name}. Leave the Latin name fields unchanged to keep it. Enter a first name to replace it.",
     "legacy": "Previously recorded name: {name}. Enter your first and last names separately to update this profile."
+  },
+  "registrationFlow": {
+    "progressTitle": "Registration Progress",
+    "stepCount": "Step {current} of {total}",
+    "invitationTitle": "Invitation Code",
+    "emailTitle": "Email Address",
+    "verifyTitle": "Verify Email",
+    "profileTitle": "Profile and Password",
+    "identityTitle": "Identity and Email",
+    "passwordTitle": "Set a Password",
+    "back": "Back",
+    "editIdentity": "Edit Identity",
+    "editEmail": "Review or Edit Email",
+    "editInvitation": "Edit Invitation Code",
+    "reverifyHelp": "Returning to earlier details requires email verification again. Your other entries stay in this form.",
+    "working": "Please wait…"
+  },
+  "signupSections": {
+    "identityTitle": "Identity and Contact",
+    "subjectsTitle": "Subjects",
+    "agreementTitle": "Agreement",
+    "applicationTitle": "Application Details"
+  },
+  "pageRecovery": {
+    "title": "Page Not Found",
+    "body": "This page may have moved or is no longer available. Return to the home page or sign in to continue."
   }
 }

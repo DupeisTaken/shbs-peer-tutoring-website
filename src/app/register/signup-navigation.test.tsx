@@ -45,6 +45,9 @@ vi.mock("~/app/_components/language-switcher", () => ({
     </select>
   ),
 }));
+vi.mock("~/app/_components/theme-switcher", () => ({
+  ThemeSwitcher: () => null,
+}));
 vi.mock("./register-flow", () => ({
   RegisterFlow: () => <div>Invitation form</div>,
 }));

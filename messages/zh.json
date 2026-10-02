@@ -162,7 +162,10 @@
     "saved": "已保存并记录审计证据。",
     "inherit": "移除单独设置／继承角色规则",
     "resetDefault": "恢复默认规则",
-    "ownInbox": "我的收件箱"
+    "ownInbox": "我的收件箱",
+    "replyContext": "正在回复 {name}",
+    "cancelReply": "取消回复",
+    "replyDraftHelp": "回复期间会保留之前的草稿。取消后，本条回复草稿也会保留在此页面中。"
   },
   "common": {
     "cancel": "取消",
@@ -3819,5 +3822,31 @@
     "alternativeNamesHelp": "用其他语言或文字书写的姓名，例如张小明。",
     "legacyPreserved": "原记录姓名：{name}。保持拉丁字母姓名字段不变即可保留原姓名；如需更改，请填写名。",
     "legacy": "原记录姓名：{name}。请分别填写名和姓以更新个人资料。"
+  },
+  "registrationFlow": {
+    "progressTitle": "注册进度",
+    "stepCount": "第 {current} 步，共 {total} 步",
+    "invitationTitle": "邀请码",
+    "emailTitle": "邮箱地址",
+    "verifyTitle": "验证邮箱",
+    "profileTitle": "个人资料与密码",
+    "identityTitle": "身份与邮箱",
+    "passwordTitle": "设置密码",
+    "back": "上一步",
+    "editIdentity": "编辑身份信息",
+    "editEmail": "查看或编辑邮箱",
+    "editInvitation": "编辑邀请码",
+    "reverifyHelp": "返回之前的信息步骤后需要重新验证邮箱。表单中的其他内容会保留。",
+    "working": "请稍候…"
+  },
+  "signupSections": {
+    "identityTitle": "身份与联系方式",
+    "subjectsTitle": "科目",
+    "agreementTitle": "参与协议",
+    "applicationTitle": "申请说明"
+  },
+  "pageRecovery": {
+    "title": "页面不存在",
+    "body": "此页面可能已移动或不再可用。请返回首页，或登录后继续。"
   }
 }

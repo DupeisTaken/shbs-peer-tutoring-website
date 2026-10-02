@@ -34,13 +34,14 @@ Review the development-only [UI gallery](local-development.md#ui-pattern-gallery
 
 Start by identifying the save boundary, query lifetime and authorized audience, then select a composition. Use an existing feature integration as well as a gallery example: long editors, immediate settings and staged forms intentionally have different save behavior. Keep new domain logic in the owning feature; a generic component must not infer permissions or expected versions from its visual state.
 
-The seven [gallery compositions](../src/app/ui-gallery/recipes.tsx) have these
+The [gallery compositions](../src/app/ui-gallery/recipes.tsx) have these
 production references and boundaries. Each example supports English and Chinese;
 verify it at real desktop and mobile viewports. The global form-state selector
 controls the participant example; other recipes expose their own state transitions.
 
 | Recipe and intent | First production references | States to verify | Boundary / non-goal |
 | --- | --- | --- | --- |
+| Navigation and registration: distinguish routes from local steps | [Public header](../src/app/_components/public-header.tsx), [tutee navigation](../src/app/student/navigation.tsx), [invitation flow](../src/app/register/register-flow.tsx) | One utility instance, wrapping labels, native Back/Forward, numbered progress and focused headings ([#221](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/221)) | The demo does not verify identities; features own proof invalidation, draft lifetime and server permissions |
 | Long dialog: keep a large editor or reader usable | [Profile editor](../src/app/_components/profile-dialog.tsx), [policy reader](../src/app/_components/current-policy-dialog.tsx) | Nested Escape/Tab, exact focus return, long scroll, pending dismissal, rejection ([#231](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/231)) | Does not decide consent, review consequences or write authorization |
 | Participant form: group one identity save | [Account](../src/app/_components/account-profile-editor.tsx), [tutor](../src/app/_components/tutor-profile-editor.tsx), [tutee](../src/app/_components/tutee-editor.tsx) editors | Editable, pending, failed and read-only; four-part/legacy names and retained drafts ([#232](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/232)) | Academic, membership and historical-link writes retain separate drafts and versions |
 | Filter toolbar: select which records to show | [Management actions](../src/app/_components/management-actions.tsx), [account roster](../src/app/(admin)/admin/users/page.tsx) | Selected filters, native search/select, reset/count, pending refresh and pagination reset ([#237](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/237)) | Filters are not content tabs or commit actions |

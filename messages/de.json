@@ -194,7 +194,10 @@
     "saved": "Saved with audit evidence.",
     "inherit": "Remove override / inherit role",
     "resetDefault": "Restore default policy",
-    "ownInbox": "Your inbox"
+    "ownInbox": "Your inbox",
+    "replyContext": "Antwort an {name}",
+    "cancelReply": "Antwort Abbrechen",
+    "replyDraftHelp": "Ihr vorheriger Entwurf bleibt erhalten. Beim Abbrechen bleibt auch dieser Antwortentwurf auf dieser Seite."
   },
   "common": {
     "cancel": "Abbrechen",
@@ -3819,5 +3822,31 @@
     "alternativeNamesHelp": "Ihr Name in einer anderen Sprache oder Schrift, zum Beispiel 张小明.",
     "legacyPreserved": "Bisheriger Name: {name}. Lassen Sie die lateinischen Namensfelder unverändert, um ihn zu behalten. Geben Sie einen Vornamen ein, um ihn zu ersetzen.",
     "legacy": "Bisheriger Name: {name}. Geben Sie Vor- und Nachnamen getrennt ein, um das Profil zu aktualisieren."
+  },
+  "registrationFlow": {
+    "progressTitle": "Registrierungsfortschritt",
+    "stepCount": "Schritt {current} von {total}",
+    "invitationTitle": "Einladungscode",
+    "emailTitle": "E-Mail-Adresse",
+    "verifyTitle": "E-Mail Bestätigen",
+    "profileTitle": "Profil und Passwort",
+    "identityTitle": "Identität und E-Mail",
+    "passwordTitle": "Passwort Festlegen",
+    "back": "Zurück",
+    "editIdentity": "Identität Bearbeiten",
+    "editEmail": "E-Mail Prüfen oder Bearbeiten",
+    "editInvitation": "Einladungscode Bearbeiten",
+    "reverifyHelp": "Nach der Rückkehr zu früheren Angaben muss die E-Mail erneut bestätigt werden. Andere Eingaben bleiben in diesem Formular erhalten.",
+    "working": "Bitte warten…"
+  },
+  "signupSections": {
+    "identityTitle": "Identität und Kontakt",
+    "subjectsTitle": "Fächer",
+    "agreementTitle": "Vereinbarung",
+    "applicationTitle": "Bewerbungsdetails"
+  },
+  "pageRecovery": {
+    "title": "Seite Nicht Gefunden",
+    "body": "Diese Seite wurde möglicherweise verschoben oder ist nicht mehr verfügbar. Kehren Sie zur Startseite zurück oder melden Sie sich an."
   }
 }

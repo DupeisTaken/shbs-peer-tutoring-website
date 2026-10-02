@@ -10,6 +10,8 @@ import {
 } from "@testing-library/react";
 import { UIGallery } from "./gallery";
 
+vi.mock("./navigation-recipes", () => ({ NavigationRecipes: () => null }));
+
 beforeEach(() => {
   // jsdom does not implement native dialog modality; browser checks cover the inert background.
   Object.defineProperties(HTMLDialogElement.prototype, {

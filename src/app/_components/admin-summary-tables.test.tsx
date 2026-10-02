@@ -8,6 +8,7 @@ import {
   within,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import zh from "../../../messages/zh.json";
 import messages from "../../../messages/en.json";
 import AuditPage from "../(admin)/admin/audit/page";
 import AttendancePage from "../(admin)/admin/attendance/page";
@@ -590,5 +591,36 @@ it.each(["ADMIN", "COORDINATOR", "VIEWER", null])(
       ),
     ).toBeTruthy();
     expect(state.csv).not.toHaveBeenCalled();
+  },
+);
+
+it.each(["en", "zh"] as const)(
+  "localizes attendance in both viewer summary and expanded detail (%s)",
+  (locale) => {
+    state.readOnly = true;
+    const copy = locale === "en" ? messages : zh;
+    render(
+      <NextIntlClientProvider
+        locale={locale}
+        messages={copy}
+        timeZone="Asia/Shanghai"
+      >
+        <AttendancePage />
+      </NextIntlClientProvider>,
+    );
+    expect(screen.getByRole("table").textContent).toContain(
+      copy.tutor.attendance.tutorStatusOpt.PRESENT,
+    );
+    expect(screen.getByRole("table").textContent).not.toContain("PRESENT");
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: new RegExp(`^${copy.tablePatterns.details}:`),
+      }),
+    );
+    expect(screen.getByRole("dialog").textContent).toContain(
+      copy.tutor.attendance.tutorStatusOpt.PRESENT,
+    );
+    expect(screen.getByRole("dialog").textContent).not.toContain("PRESENT");
+    expect(state.correction).not.toHaveBeenCalled();
   },
 );

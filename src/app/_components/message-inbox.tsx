@@ -1,9 +1,12 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { MAX_MESSAGE_RECIPIENTS, type MessageGroup } from "~/lib/messaging";
 import { Pager } from "./student-portal";
+import { Button } from "./ui/button";
+import { FormActions, InlineNotice, StatePanel } from "./ui/patterns";
+import { focusVisibleContext } from "./focus-visible-context";
 
 type Contact = {
   id: string;
@@ -11,6 +14,7 @@ type Contact = {
   username: string | null;
   role: string;
 };
+type MessageDraft = { selected: Contact[]; body: string; clientKey: string };
 export function MessageInbox() {
   const format = useFormatter();
   const t = useTranslations("workflows");
@@ -23,6 +27,27 @@ export function MessageInbox() {
   const [selected, setSelected] = useState<Contact[]>([]);
   const [body, setBody] = useState("");
   const [clientKey, setClientKey] = useState(() => crypto.randomUUID());
+  const [replyTo, setReplyTo] = useState<Contact | null>(null);
+  const previousDraft = useRef<MessageDraft | null>(null);
+  const replyDrafts = useRef(new Map<string, MessageDraft>());
+  const replyOpener = useRef<HTMLButtonElement | null>(null);
+  const bodyField = useRef<HTMLTextAreaElement>(null);
+  const composerContext = useRef<HTMLDivElement>(null);
+  const requestedFocus = useRef<HTMLElement | null>(null);
+  const [focusRequest, setFocusRequest] = useState(0);
+  useEffect(() => {
+    // Wait for the composer to expand/collapse before measuring the target.
+    const opener = requestedFocus.current;
+    const usable =
+      opener?.isConnected &&
+      !opener.matches(':disabled, [aria-disabled="true"]') &&
+      !opener.closest("[hidden], [inert]");
+    if (focusRequest)
+      focusVisibleContext(
+        usable ? opener : bodyField.current,
+        usable ? null : composerContext.current,
+      );
+  }, [focusRequest]);
   const contacts = api.messaging.recipients.useQuery({
     search,
     page: contactPage,
@@ -34,9 +59,11 @@ export function MessageInbox() {
   );
   const send = api.messaging.send.useMutation({
     onSuccess: async () => {
-      setBody("");
-      setSelected([]);
-      setClientKey(crypto.randomUUID());
+      if (replyTo) replyDrafts.current.delete(replyTo.id);
+      // A reply is a separate payload. Sending it must not erase a general draft.
+      restoreDraft(replyTo ? previousDraft.current : null);
+      setReplyTo(null);
+      previousDraft.current = null;
       await inbox.refetch();
     },
   });
@@ -48,6 +75,43 @@ export function MessageInbox() {
     setClientKey(crypto.randomUUID());
     send.reset();
   }
+  const permissionReady =
+    !!permission.data && !permission.error && !permission.data.restricted;
+  function restoreDraft(draft: MessageDraft | null) {
+    setBody(draft?.body ?? "");
+    setSelected(draft?.selected ?? []);
+    setClientKey(draft?.clientKey ?? crypto.randomUUID());
+  }
+  function beginReply(contact: Contact, opener: HTMLButtonElement) {
+    if (send.isPending || !permissionReady) return;
+    const current = { selected, body, clientKey };
+    // Preserve payload and retry key independently for every recipient. Never
+    // silently redirect an existing general message to the clicked sender.
+    if (replyTo) replyDrafts.current.set(replyTo.id, current);
+    else previousDraft.current = current;
+    restoreDraft(
+      replyDrafts.current.get(contact.id) ?? {
+        selected: [contact],
+        body: "",
+        clientKey: crypto.randomUUID(),
+      },
+    );
+    setReplyTo(contact);
+    replyOpener.current = opener;
+    requestedFocus.current = null;
+    send.reset();
+    setFocusRequest((request) => request + 1);
+  }
+  function cancelReply() {
+    if (send.isPending || !replyTo) return;
+    replyDrafts.current.set(replyTo.id, { selected, body, clientKey });
+    restoreDraft(previousDraft.current);
+    previousDraft.current = null;
+    setReplyTo(null);
+    send.reset();
+    requestedFocus.current = replyOpener.current;
+    setFocusRequest((request) => request + 1);
+  }
   return (
     <div className="space-y-5">
       <aside className="rounded-xl border border-blue-200 bg-blue-50 p-4 text-sm text-slate-800">
@@ -57,9 +121,18 @@ export function MessageInbox() {
       </aside>
       <div className="grid items-start gap-6 xl:grid-cols-[minmax(0,2fr)_minmax(0,3fr)]">
         <form
+          aria-label={t("send")}
+          aria-busy={send.isPending}
           className="card min-w-0 space-y-4 p-5"
           onSubmit={(e) => {
             e.preventDefault();
+            if (
+              send.isPending ||
+              !permissionReady ||
+              !selected.length ||
+              !body.trim()
+            )
+              return;
             send.mutate({
               recipientIds: selected.map((c) => c.id),
               body,
@@ -82,9 +155,28 @@ export function MessageInbox() {
               })}
             </p>
           )}
-          {permission.data?.restricted && <p role="alert">{m("restricted")}</p>}
+          {!permission.data && !permission.error && (
+            <StatePanel kind="loading" title={m("loading")} />
+          )}
+          {permission.error && (
+            <StatePanel
+              kind={
+                permission.error.data?.code === "FORBIDDEN" ? "denied" : "error"
+              }
+              title={permission.error.message}
+              action={
+                <Button onClick={() => void permission.refetch()}>
+                  {m("retry")}
+                </Button>
+              }
+            />
+          )}
+          {permission.data?.restricted && (
+            <StatePanel kind="denied" title={m("restricted")} />
+          )}
           <fieldset
-            disabled={send.isPending || permission.data?.restricted}
+            hidden={!!replyTo}
+            disabled={send.isPending || !permissionReady || !!replyTo}
             className="min-w-0 space-y-3"
             onKeyDown={(e) => {
               // Enter while exploring recipients must not implicitly send a drafted batch.
@@ -121,7 +213,7 @@ export function MessageInbox() {
                   <li key={c.id}>
                     <button
                       type="button"
-                      className="rounded-full border border-blue-200 bg-blue-50 px-3 py-1 text-sm text-slate-900"
+                      className="control-compact rounded-full border border-blue-200 bg-blue-50 text-sm text-slate-900"
                       aria-label={m("remove", {
                         name: `${c.name ?? c.username ?? c.id} (@${c.username ?? c.id})`,
                       })}
@@ -156,7 +248,7 @@ export function MessageInbox() {
                 return (
                   <label
                     key={c.id}
-                    className="flex cursor-pointer items-start gap-3 rounded-md p-2 hover:bg-slate-50"
+                    className="flex min-h-11 cursor-pointer items-start gap-3 rounded-md p-2 hover:bg-slate-50"
                   >
                     <input
                       type="checkbox"
@@ -189,77 +281,104 @@ export function MessageInbox() {
             {contacts.error && (
               <div role="alert">
                 <p>{contacts.error.message}</p>
-                <button
-                  type="button"
-                  className="btn-secondary btn-sm"
-                  onClick={() => void contacts.refetch()}
-                >
+                <Button size="compact" onClick={() => void contacts.refetch()}>
                   {m("retry")}
-                </button>
+                </Button>
               </div>
             )}
             <div className="flex items-center justify-between gap-2">
-              <button
-                type="button"
-                className="btn-secondary btn-sm"
+              <Button
+                size="compact"
                 disabled={contactPage === 0}
                 onClick={() => setContactPage((p) => p - 1)}
               >
                 {m("previous")}
-              </button>
+              </Button>
               <span className="muted text-xs">
                 {m("page", { page: contactPage + 1 })}
               </span>
-              <button
-                type="button"
-                className="btn-secondary btn-sm"
+              <Button
+                size="compact"
                 disabled={!contacts.data?.more}
                 onClick={() => setContactPage((p) => p + 1)}
               >
                 {m("next")}
-              </button>
+              </Button>
             </div>
           </fieldset>
-          <label className="block">
-            <span className="label">{t("body")}</span>
-            <textarea
-              className="input min-h-36 w-full"
-              required
-              maxLength={4000}
-              disabled={send.isPending}
-              value={body}
-              onChange={(e) => {
-                setBody(e.target.value);
-                setClientKey(crypto.randomUUID());
-                send.reset();
-              }}
-            />
-          </label>
-          <button
-            className="btn-primary"
-            disabled={
-              send.isPending ||
-              !selected.length ||
-              !body.trim() ||
-              permission.data?.restricted
-            }
-          >
-            {send.isPending ? m("sending") : t("send")}
-          </button>
+          <div ref={composerContext} className="space-y-3">
+            {replyTo && (
+              <InlineNotice>
+                <p id="reply-context" className="font-semibold break-words">
+                  {m("replyContext", {
+                    name: `${replyTo.name ?? replyTo.username ?? replyTo.id}${replyTo.username ? ` (@${replyTo.username})` : ""}`,
+                  })}
+                </p>
+                <p className="mt-1">{m("replyDraftHelp")}</p>
+              </InlineNotice>
+            )}
+            <label className="block">
+              <span className="label">{t("body")}</span>
+              <textarea
+                ref={bodyField}
+                aria-describedby={replyTo ? "reply-context" : undefined}
+                className="input min-h-36 w-full"
+                required
+                maxLength={4000}
+                disabled={send.isPending}
+                value={body}
+                onChange={(e) => {
+                  setBody(e.target.value);
+                  setClientKey(crypto.randomUUID());
+                  send.reset();
+                }}
+              />
+            </label>
+          </div>
+          <FormActions>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={
+                send.isPending ||
+                !permissionReady ||
+                !selected.length ||
+                !body.trim() ||
+                permission.data?.restricted
+              }
+            >
+              {send.isPending ? m("sending") : t("send")}
+            </Button>
+            {replyTo && (
+              <Button disabled={send.isPending} onClick={cancelReply}>
+                {m("cancelReply")}
+              </Button>
+            )}
+          </FormActions>
           {send.isSuccess && (
             <p role="status" className="text-emerald-700">
               {m("sentCount", { count: send.data.count })}
             </p>
           )}
-          {(send.error ?? permission.error) && (
-            <p role="alert">{(send.error ?? permission.error)?.message}</p>
-          )}
+          {send.error && <p role="alert">{send.error.message}</p>}
         </form>
         <section className="min-w-0 space-y-4" aria-label={m("inbox")}>
           <h2 className="section-title">{m("inbox")}</h2>
-          {inbox.isLoading && <p role="status">{m("loading")}</p>}
+          {inbox.isLoading && (
+            <StatePanel kind="loading" title={m("loading")} />
+          )}
           {(inbox.error ?? read.error) && (
-            <p role="alert">{(inbox.error ?? read.error)?.message}</p>
+            <StatePanel
+              kind="error"
+              title={(inbox.error ?? read.error)!.message}
+              action={
+                inbox.error ? (
+                  <Button size="compact" onClick={() => void inbox.refetch()}>
+                    {m("retry")}
+                  </Button>
+                ) : undefined
+              }
+            />
           )}
           {inbox.data?.length === 0 && (
             <p className="card muted p-6">{t("empty")}</p>
@@ -288,33 +407,34 @@ export function MessageInbox() {
               </p>
               <div className="flex flex-wrap gap-3">
                 {msg.incoming && (
-                  <button
-                    type="button"
-                    className="btn-secondary btn-sm"
-                    disabled={!msg.canReply || send.isPending}
-                    onClick={() => {
-                      changeSelection([
+                  <Button
+                    size="compact"
+                    disabled={
+                      !msg.canReply || send.isPending || !permissionReady
+                    }
+                    onClick={(event) => {
+                      beginReply(
                         {
                           id: msg.senderId,
                           name: msg.sender,
                           username: msg.senderUsername,
                           role: msg.senderRole ?? "STUDENT",
                         },
-                      ]);
+                        event.currentTarget,
+                      );
                     }}
                   >
                     {t("reply")}
-                  </button>
+                  </Button>
                 )}
                 {msg.incoming && !msg.readAt && (
-                  <button
-                    type="button"
-                    className="btn-secondary btn-sm"
+                  <Button
+                    size="compact"
                     disabled={read.isPending}
                     onClick={() => read.mutate({ id: msg.id })}
                   >
                     {t("read")}
-                  </button>
+                  </Button>
                 )}
               </div>
               {msg.incoming && !msg.canReply && (
@@ -354,7 +474,10 @@ export function MessageGroupChoices({
     <fieldset className="space-y-2" disabled={disabled}>
       <legend className="label">{t("allowedGroups")}</legend>
       {groups.map((g) => (
-        <label key={g} className="flex items-start gap-2 text-sm">
+        <label
+          key={g}
+          className="flex min-h-11 items-start gap-2 text-sm lg:min-h-10"
+        >
           <input
             type="checkbox"
             className="mt-1"

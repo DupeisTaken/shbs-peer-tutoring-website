@@ -1,12 +1,9 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
-import { LanguageSwitcher } from "~/app/_components/language-switcher";
-import { ThemeSwitcher } from "~/app/_components/theme-switcher";
-import { NotificationBell } from "~/app/_components/notification-bell";
+import { WorkspaceHeader } from "~/app/_components/workspace-header";
 import { SignOutButton } from "~/app/_components/sign-out-button";
 import { NavSidebar, NavMobileRow } from "~/app/_components/admin-nav";
 import { TEAM_TITLE } from "~/lib/branding";
@@ -60,49 +57,26 @@ export default async function LocalizationLayout({
           : "min-h-screen"
       }
     >
-      {/* Mobile rows keep brand/language first, navigation/account second, and return last. */}
-      <header className="sticky top-0 z-20 shrink-0 border-b border-slate-200 bg-white">
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-6">
-          <Link
-            href={home}
-            className="text-xl font-bold text-slate-900 lg:text-lg"
-          >
-            {TEAM_TITLE}
-          </Link>
-          <div className="ml-auto lg:order-3 lg:ml-0">
-            <LanguageSwitcher compactAtDesktop />
+      <WorkspaceHeader
+        href={home}
+        title={TEAM_TITLE}
+        items={elevated ? [] : [{ href: home, label: t("localization.back") }]}
+        navigation={
+          elevated ? <NavMobileRow role={me.role} embedded /> : undefined
+        }
+        identity={
+          <div className="text-right leading-tight">
+            <p className="text-sm font-medium">{session.user.name}</p>
+            <p className="muted text-xs">
+              {me.tutor?.username ? `@${me.tutor.username} · ` : ""}
+              {t(`admin.users.roles.${me.role}`)}
+            </p>
           </div>
-          <div className="flex w-full flex-wrap items-center justify-end gap-2 sm:gap-3 lg:order-2 lg:ml-auto lg:w-auto">
-            {elevated && (
-              <div className="mr-auto lg:hidden">
-                <NavMobileRow role={me.role} embedded />
-              </div>
-            )}
-            <div className="hidden text-right leading-tight sm:block">
-              <p className="text-sm font-medium text-slate-900">
-                {session.user.name}
-              </p>
-              <p className="muted text-xs">
-                {me?.tutor?.username ? `@${me.tutor.username} · ` : ""}
-                {t(`admin.users.roles.${me.role}`)}
-              </p>
-            </div>
-            <ThemeSwitcher />
-            <NotificationBell />
-            <SignOutButton className="btn-secondary btn-sm min-h-11 lg:min-h-8 lg:py-0" />
-          </div>
-          {!elevated && (
-            <div className="w-full border-t border-slate-200 pt-3 lg:order-4 lg:w-auto lg:border-0 lg:pt-0">
-              <Link
-                href={home}
-                className="btn-secondary btn-sm min-h-11 lg:min-h-8 lg:py-0"
-              >
-                {t("localization.back")}
-              </Link>
-            </div>
-          )}
-        </div>
-      </header>
+        }
+        account={
+          <SignOutButton className="btn-secondary btn-sm min-h-11 lg:min-h-8 lg:py-0" />
+        }
+      />
 
       {/* Staff get the full admin sidebar; tutor-translators get a focused, sidebar-free page. */}
       {elevated ? (
