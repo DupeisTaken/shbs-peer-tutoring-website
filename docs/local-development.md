@@ -90,6 +90,11 @@ Review the daemon's routing/firewall configuration too: Docker documents a
 The daemon-free regression suite is `npm run test:deployment` (requires Bash;
 on Windows set `SHBS_TEST_BASH` to the Git Bash executable). It executes the real
 helper against stub commands, so it does not start Docker/Podman or a database.
+The same serial suite tests the [private network evidence collector](deployment.md#collect-a-private-host-inventory)
+against synthetic listener/Docker commands, including timeouts, permission errors,
+output/inventory limits and secret exclusion. It never queries the real daemon or
+probes production. Production acceptance still requires the operator worksheet and
+independent external checks in the deployment runbook.
 
 ### Option B — An existing local Postgres
 

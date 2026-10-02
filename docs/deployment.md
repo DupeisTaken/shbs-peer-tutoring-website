@@ -132,22 +132,51 @@ operator identities may be sensitive. Do not paste full `.env`, `docker inspect`
 | Effective containers | `docker compose ps --all` plus `docker ps --format 'table {{.Names}}\t{{.Ports}}'` for other stacks. Inspect actual container mappings, network mode and network options as below; source Compose alone does not cover overrides, stale containers or direct routing. |
 | Cloud perimeter | Review the instance's attached security groups, ingress rules, IPv4/IPv6 ranges, load balancers/NAT and any alternate public addresses in the cloud console. Record approved sources per administrative port; retain a sanitized rule inventory. |
 | Host firewall | `sudo ufw status verbose`, `sudo nft list ruleset`, and/or `sudo iptables-save` / `sudo ip6tables-save`, as applicable to the active backend. Inspect Docker forwarding/NAT and direct-routing rules, not only INPUT. Do not disable Docker's firewall management as a shortcut. |
-| SSH | `sudo sshd -T` and `sudo sshd -T -C user=<operator>,addr=<client-ip>,host=<client-hostname>` for each relevant `Match` context. Review `listenaddress`, `port`, `permitrootlogin`, `pubkeyauthentication`, `passwordauthentication`, `kbdinteractiveauthentication`, `authenticationmethods`, `allowusers`/`allowgroups` and any deny rules. Confirm intended keys/MFA and trusted source or VPN restrictions. |
+| SSH | `sudo sshd -T` and `sudo sshd -T -C user=<operator>,addr=<client-ip>,host=<client-hostname>,laddr=<server-ip>,lport=<ssh-port>` for each relevant `Match` context. Review `listenaddress`, `port`, `permitrootlogin`, `pubkeyauthentication`, `passwordauthentication`, `kbdinteractiveauthentication`, `authenticationmethods`, `allowusers`/`allowgroups` and any deny rules. Confirm intended keys/MFA and trusted source or VPN restrictions. |
 | Independent external vantage | Verify DNS A/AAAA against the cloud IPs and use a network outside the server and local proxy/TUN. Check protocol responses as well as host/cloud rules. A TCP handshake alone may come from an interception proxy; timeout/no protocol reply is **inconclusive**, not proof a port is closed. |
 
-From the deployment directory, inspect only the fields needed (these do not print
-container environment secrets):
+#### Collect a private host inventory
+
+First agree with the operator on the canonical hostname, public IPv4/IPv6 addresses,
+HTTP/HTTPS behavior, SSH port, trusted source ranges/VPN and required keys/MFA/root
+policy. Identify who can review the cloud rules and an independent external network.
+If these details or authorized host access are unavailable, record them as missing;
+do not guess credentials, scan addresses or change access rules.
+
+On the actual Linux VPS, from an existing authorized session, use the optional
+[collector](../scripts/collect-network-evidence.sh). It needs Bash, GNU coreutils,
+`ss`/`ip` (iproute2) and the existing Docker CLI; it installs nothing and never invokes `sudo`.
+Run as an operator already permitted to inspect the daemon. Without sufficient
+privileges, `ss` may omit process identities even when it exits successfully;
+have the operator complete that gap separately.
 
 ```bash
-for service in app db caddy; do
-  container_id=$(docker compose ps --all -q "$service")
-  test -n "$container_id" || { echo "Missing service: $service"; continue; }
-  docker inspect --format '{{.Name}} network={{.HostConfig.NetworkMode}} configured={{json .HostConfig.PortBindings}} effective={{json .NetworkSettings.Ports}}' "$container_id"
-  docker inspect --format '{{json .NetworkSettings.Networks}}' "$container_id"
-done
-# Inspect each named network from the preceding output, including routing options.
-docker network inspect <network-name> --format '{{.Name}} internal={{.Internal}} options={{json .Options}}'
+cd /opt/shbs  # existing deployment checkout; do not update or deploy for this check
+(umask 077; mkdir -p local-operations)
+bash scripts/collect-network-evidence.sh local-operations
 ```
+
+Review/copy the script to the operator host through the approved channel if it is
+not yet in that checkout. Each run creates a new mode-700 directory and mode-600
+`evidence.txt`. Keep it private: selected fields exclude container environment,
+logs, arbitrary labels and arbitrary network driver options, but IPs, mounts and
+image names still reveal infrastructure. Listener, interface-address and IPv4/IPv6
+route snapshots stay in that file. Failed-command stdout/stderr are omitted.
+The script never reads `.env`, interpolates Compose, connects to a registry, probes
+public ports, starts/stops containers or changes volumes/firewall/SSH. Ambient
+Docker remote contexts and TLS options are ignored: every Docker call targets
+`unix:///var/run/docker.sock`. Rootless/other daemons, Swarm services and other
+container engines need a separate explicit inventory; an empty rootful daemon is
+not proof that the deployed services are absent.
+
+Collection is serial: at most 12 containers, 8 networks, 64 KiB per command,
+8 seconds per command and a 120-second command budget (plus bounded termination
+overhead). Exit **2** or `UNAVAILABLE` means collection gaps, including truncation,
+missing commands, denied access or a timeout. Exit **0** only means those commands
+completed; all outputs retain **OPERATOR VERIFICATION PENDING**. No automatic
+port-policy verdict is made. A report without `finished_utc` was interrupted and
+must be treated as incomplete. A snapshot can race a deployment: collect during a
+quiet interval and resolve inconsistent image/container identities before review.
 
 `app`/`db` should have no host publication; Caddy should publish only 80/443.
 Caddy's admin endpoint should remain container-local. `ss` alone can miss
@@ -157,6 +186,68 @@ host's actual iptables/nftables backend before planning changes. Public SSH by
 itself is not a vulnerability: document the effective source/authentication policy.
 Any hardening change requires a separate maintenance plan with tested recovery
 console access and a second verified operator session to avoid lockout.
+
+#### Complete the effective-policy worksheet
+
+Keep one private worksheet next to the inventory. Record observation time in UTC,
+host alias, operator reviewer, approved policy, evidence file/command or console
+reference, observed result and disposition (**verified**, **mismatch**, **unknown**)
+for every row. A screenshot of a cloud rule is useful only when its attachment to
+this host/interface and its IPv4/IPv6 scope are established. Use sanitized aliases
+in shared summaries and retain exact addresses/account names privately.
+
+| Review row | Completion evidence |
+| --- | --- |
+| Scope and intended access | Canonical domain, all public IPs/A/AAAA records, approved TCP 80/443 behavior, administrative port/source ranges or VPN, operator authentication and root-login requirements. Explicitly account for absent IPv6 and for any intended UDP 443/QUIC; the supplied Compose only publishes TCP. |
+| Listener and container paths | Explain every IPv4/IPv6 TCP/UDP listener and match the expected `app`, `db`, `caddy` services to their actual Compose project labels. Review other stacks, host/macvlan/ipvlan networking, direct routing, IPv6 and alternate ports. Empty port mappings alone are insufficient. |
+| Caddy administration | Review the running proxy's startup options, mounted configuration and any API-loaded configuration privately. Establish the admin listener's actual namespace/interface and absence of external routing. A repository Caddyfile or mount path alone cannot establish the runtime setting. Do not export the full admin API/configuration publicly. |
+| Cloud ingress and host forwarding | Review every attached security group/ACL, load balancer/NAT/public address and the active host INPUT, forwarding and NAT policy for both families. Account for Docker's active firewall backend and daemon direct-routing settings. Record effective administrative source restrictions, not just a UFW summary. |
+| Effective SSH policy | Inspect the actual service/socket unit, startup flags and configuration path privately, then run bounded `sshd -T` checks with the same `-f`/`-o` overrides and each relevant user/source/local-address/local-port `Match` context. Include approved operator, root, another/disallowed user, and trusted/untrusted source cases; explain `Include`, PAM/MFA, allow/deny and key-command behavior. Do not copy keys, authorized-key contents or helper credentials into evidence. |
+| Data and operator access preserved | Record the existing Compose project and actual database mount type/name/source/destination, plus Caddy certificate volumes. This collection makes no changes; verify the authorized operator session and intended web access still work. Use existing backup/record evidence privately; do not restart, reset, reseed or test restoration on production just to collect evidence. |
+| Image/source identity | App and Caddy container image IDs and RepoDigests, app OCI revision/source, reviewed mounted files/overrides and matching successful CI publish run. Record missing/mismatched identity as unknown. |
+| Independent external check | Complete the bounded matrix below from approved trusted and untrusted sources, for every public address/family and any relevant direct-routing address. Correlate outcomes with host/cloud rules. |
+
+For host policy commands in the table above, use
+`sudo -n timeout --kill-after=1s 8s ...` where authorized; permission failures remain **unknown**, not a reason to
+change privileges. Review raw firewall and service output locally, since comments,
+paths and command arguments may be private. [OpenSSH's test mode](https://man.openbsd.org/sshd)
+applies `Match` contexts; its result must correspond to the daemon's actual startup
+options. Do not send a signal, reload SSH, enable a firewall or rerun host setup.
+
+#### Independent external verification
+
+Have the operator approve a finite address/port/protocol matrix first. Use an
+independent network outside the VPS, its LAN and local proxy/TUN, and identify its
+source address privately. Check one endpoint at a time, one attempt per approved
+cell, with a 3-second connect timeout and 8-second total limit. Stop on an
+unexpected service response and review its path before testing further; do not
+expand into a port sweep, credential attempt or vulnerability scan.
+
+| Approved target | Expected observation and interpretation |
+| --- | --- |
+| Canonical HTTP/HTTPS, each public A/AAAA address | HTTP redirects to the intended HTTPS host; HTTPS validates its certificate and serves sign-in/health. Resolve each approved address explicitly when several exist, preserving hostname/SNI. Verify intended web access from both trusted and ordinary external clients. |
+| Approved SSH port | Trusted source/VPN: operator confirms normal access using their existing approved method. Untrusted source: source restrictions prevent the SSH protocol from being reached. A public SSH banner with effective source policy still unknown is an exposure observation, not evidence of compromise. Do not attempt passwords, keys or root logins to test denial. |
+| App 3000, DB 5432, Caddy admin 2019, Studio 5555, alternate web 8080, plus reviewed override ports | No unintended external service path. A protocol response is a mismatch requiring investigation. TCP success alone, a timeout or lack of a protocol reply is **inconclusive**; corroborate negative results with effective routing/firewall policy and an independently controlled vantage. |
+
+For an approved public-web cell, a bounded unauthenticated request can be recorded
+without cookies, headers or body. Substitute the approved hostname; `--disable`
+ignores local curl configuration and `--noproxy` avoids an explicit HTTP proxy.
+Neither option proves absence of transparent interception or VPN routing.
+
+```bash
+curl --disable --noproxy '*' --connect-timeout 3 --max-time 8 \
+  --silent --show-error --output /dev/null \
+  --write-out 'remote=%{remote_ip} code=%{http_code} tls=%{ssl_verify_result}\n' \
+  https://tutoring.example.edu/signin
+```
+
+Do not use `--insecure`. Record the selected address/family, vantage, UTC time,
+command exit and protocol outcome; review redirects and health privately using
+the [update checks](#verify-either-update). For private/admin service cells, agree
+the minimal protocol observation with the operator in advance; the collector does
+not issue those probes. A client-side timeout by itself cannot close the issue.
+
+#### Correlate the release and decide completion
 
 Record what is actually running, separately from the checkout or mutable tag:
 
@@ -172,10 +263,20 @@ docker image inspect --format 'digests={{json .RepoDigests}} revision={{index .C
 
 Match the digest/revision to the exact successful CI publish run. A local build may
 lack a registry digest or revision label; record that gap instead of assuming the
-checkout is deployed. Record the Caddy image ID/digest and mounted configuration
+checkout is deployed. The local image ID is not the registry manifest digest;
+record both, and do not use a mutable `latest` tag as release proof. Record the
+Caddy image ID/digest and mounted configuration
 too, including any Compose overrides. The effective network/SSH review remains
 **operator verification pending** until host, cloud and independent external
 evidence agree. Missing host access does not resolve issue #242; keep it open.
+Publish only a sanitized acceptance summary: approved public services, whether each
+administrative/private boundary met its policy, verified image revision/digest,
+evidence timestamps/references and unresolved rows. **Unknown or mismatched rows
+keep issue #242 open.** Source defaults and successful collector tests do not meet
+its production acceptance criteria. If changes are needed, prepare a separate
+reviewed maintenance plan with recovery console, backup/volume preservation,
+second-session access, rollback and explicit production authorization; this
+read-only procedure authorizes none of those changes.
 
 ## 3. Configure runtime settings and secrets
 
