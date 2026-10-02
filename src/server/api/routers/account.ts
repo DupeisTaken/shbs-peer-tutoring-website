@@ -15,7 +15,7 @@ import { z } from "zod";
 import { TRPCError } from "@trpc/server";
 
 import { createTRPCRouter, protectedProcedure } from "~/server/api/trpc";
-import { verifyPassword } from "~/server/auth/password";
+import { verifyPasswordConfirmation } from "~/server/auth/password-confirmation";
 import { changeVerifiedPassword } from "~/server/auth/session-version";
 import { ensureUserUsername } from "~/server/auth/username";
 import { issueStepUpCode, verifyStepUpCode } from "~/server/auth/step-up";
@@ -113,7 +113,7 @@ export const accountRouter = createTRPCRouter({
     .input(
       z.object({
         email: z.string().trim().email().max(254),
-        currentPassword: z.string().min(1),
+        currentPassword: z.string().min(1).max(1024),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -149,7 +149,7 @@ export const accountRouter = createTRPCRouter({
     .input(
       z.object({
         email: z.string().trim().email().max(254),
-        currentPassword: z.string().min(1),
+        currentPassword: z.string().min(1).max(1024),
         action: z.enum(["primary", "remove"]),
       }),
     )
@@ -166,7 +166,7 @@ export const accountRouter = createTRPCRouter({
     .input(
       z.object({
         email: z.string().email(),
-        currentPassword: z.string().min(1),
+        currentPassword: z.string().min(1).max(1024),
       }),
     )
     .mutation(async ({ ctx, input }) => {
@@ -299,7 +299,7 @@ export const accountRouter = createTRPCRouter({
    */
   setTwoFactorEnabled: protectedProcedure
     .input(
-      z.object({ enabled: z.boolean(), currentPassword: z.string().min(1) }),
+      z.object({ enabled: z.boolean(), currentPassword: z.string().min(1).max(1024) }),
     )
     .mutation(async ({ ctx, input }) => {
       const user = await ctx.db.user.findUniqueOrThrow({
@@ -307,8 +307,7 @@ export const accountRouter = createTRPCRouter({
         select: { passwordHash: true },
       });
       if (
-        !user.passwordHash ||
-        !verifyPassword(input.currentPassword, user.passwordHash)
+        !verifyPasswordConfirmation(ctx.session.user.id, input.currentPassword, user.passwordHash)
       ) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -346,15 +345,14 @@ export const accountRouter = createTRPCRouter({
    * `changePassword`. Fails closed for a passwordless account (finish setup first).
    */
   requestPasswordChangeCode: protectedProcedure
-    .input(z.object({ currentPassword: z.string().min(1) }))
+    .input(z.object({ currentPassword: z.string().min(1).max(1024) }))
     .mutation(async ({ ctx, input }) => {
       const user = await ctx.db.user.findUniqueOrThrow({
         where: { id: ctx.session.user.id },
         select: { passwordHash: true },
       });
       if (
-        !user.passwordHash ||
-        !verifyPassword(input.currentPassword, user.passwordHash)
+        !verifyPasswordConfirmation(ctx.session.user.id, input.currentPassword, user.passwordHash)
       ) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -389,8 +387,8 @@ export const accountRouter = createTRPCRouter({
   changePassword: protectedProcedure
     .input(
       z.object({
-        currentPassword: z.string().min(1),
-        newPassword: z.string().min(8, "Use at least 8 characters."),
+        currentPassword: z.string().min(1).max(1024),
+        newPassword: z.string().min(8, "Use at least 8 characters.").max(1024),
         code: z.string().trim().optional(),
       }),
     )
@@ -400,8 +398,7 @@ export const accountRouter = createTRPCRouter({
         select: { passwordHash: true },
       });
       if (
-        !user.passwordHash ||
-        !verifyPassword(input.currentPassword, user.passwordHash)
+        !verifyPasswordConfirmation(ctx.session.user.id, input.currentPassword, user.passwordHash)
       ) {
         throw new TRPCError({
           code: "BAD_REQUEST",

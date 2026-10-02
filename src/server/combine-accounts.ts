@@ -9,7 +9,7 @@ import {
 } from "./transactions";
 import { lockAccountProfile, updateAccountProfile } from "./account-profile";
 import { lockUsernameNamespace } from "./auth/username";
-import { verifyPassword } from "./auth/password";
+import { verifyPasswordConfirmation } from "./auth/password-confirmation";
 import { effectiveMessagePermission } from "./messaging-permissions";
 import { rateLimit } from "./rate-limit";
 
@@ -344,8 +344,7 @@ export async function combineAccounts(
         message: "Only the current active Head can combine accounts.",
       });
     if (
-      !actor.passwordHash ||
-      !verifyPassword(input.confirmPassword, actor.passwordHash)
+      !verifyPasswordConfirmation(actorId, input.confirmPassword, actor.passwordHash)
     )
       throw new TRPCError({
         code: "FORBIDDEN",

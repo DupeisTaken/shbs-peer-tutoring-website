@@ -4,7 +4,7 @@ import { lockAccountProfile } from "~/server/account-profile";
 import { lockEntity, type TransactionDb } from "~/server/transactions";
 import { rateLimit } from "~/server/rate-limit";
 import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
-import { verifyPassword } from "./password";
+import { verifyPasswordConfirmation } from "./password-confirmation";
 import { hashCode } from "./registration";
 import { generateRegistrationCode, normalizeRegCode } from "./code";
 
@@ -80,7 +80,7 @@ export async function authenticateEmailAction(
   const user = await tx.user.findUniqueOrThrow({ where: { id: userId } });
   if (user.mergedIntoId)
     throw new TRPCError({ code: "FORBIDDEN", message: "This login has been retired." });
-  if (!user.passwordHash || !verifyPassword(password, user.passwordHash))
+  if (!verifyPasswordConfirmation(userId, password, user.passwordHash))
     throw new TRPCError({
       code: "BAD_REQUEST",
       message: "Current password is incorrect.",

@@ -4262,7 +4262,7 @@ export const adminRouter = createTRPCRouter({
    * adminOnlyProcedure already restricts the caller to ADMIN or HEAD.
    */
   setUserRole: headProcedure
-    .input(z.object({ userId: cuid, role: z.enum(["STUDENT", "VIEWER", "TUTOR", "COORDINATOR", "ADMIN"]), confirmPassword: z.string().min(1) }))
+    .input(z.object({ userId: cuid, role: z.enum(["STUDENT", "VIEWER", "TUTOR", "COORDINATOR", "ADMIN"]), confirmPassword: z.string().min(1).max(1024) }))
     .mutation(async ({ ctx, input }) => {
       await assertCallerPassword(ctx.session.user.id, input.confirmPassword);
       return inTransaction(ctx.db, async (tx) => {
@@ -4282,7 +4282,7 @@ export const adminRouter = createTRPCRouter({
   /** Apply a complete badge set atomically. Approval replays use the Head's fresh identity;
    * password values are never stored inside proposal evidence. Links/history survive removal. */
   setMemberships: headProcedure
-    .input(z.object({ userId: cuid, membership: membershipSchema, confirmPassword: z.string().min(1).optional() }))
+    .input(z.object({ userId: cuid, membership: membershipSchema, confirmPassword: z.string().min(1).max(1024).optional() }))
     .mutation(async ({ ctx, input }) => {
       if (!approvalScope.getStore())
         await assertCallerPassword(
@@ -4354,7 +4354,7 @@ export const adminRouter = createTRPCRouter({
    * and the head can't accidentally leave the program leaderless.
    */
   transferHead: headProcedure
-    .input(z.object({ userId: cuid, confirmPassword: z.string().min(1) }))
+    .input(z.object({ userId: cuid, confirmPassword: z.string().min(1).max(1024) }))
     .mutation(async ({ ctx, input }) => {
       await assertCallerPassword(ctx.session.user.id, input.confirmPassword);
       if (input.userId === ctx.session.user.id) {
@@ -4407,7 +4407,7 @@ export const adminRouter = createTRPCRouter({
    * delete yourself or another head — transfer leadership first.
    */
   deleteUser: headProcedure
-    .input(z.object({ userId: cuid, confirmPassword: z.string().min(1) }))
+    .input(z.object({ userId: cuid, confirmPassword: z.string().min(1).max(1024) }))
     .mutation(async ({ ctx, input }) => {
       await assertCallerPassword(ctx.session.user.id, input.confirmPassword);
       if (input.userId === ctx.session.user.id) {

@@ -11,7 +11,7 @@ import { inTransaction, lockEntity } from "~/server/transactions";
 import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
 import { hashCode } from "./registration";
 import { generateRegistrationCode } from "./code";
-import { verifyPassword } from "./password";
+import { verifyPasswordConfirmation } from "./password-confirmation";
 
 /** Reauthentication plus proof of the destination replaces unsafe email-only identity relinking. */
 export async function requestEmailChange(
@@ -30,7 +30,7 @@ export async function requestEmailChange(
       message: "Too many attempts. Try again later.",
     });
   const user = await db.user.findUniqueOrThrow({ where: { id: userId } });
-  if (!user.passwordHash || !verifyPassword(password, user.passwordHash))
+  if (!verifyPasswordConfirmation(userId, password, user.passwordHash))
     throw new TRPCError({
       code: "BAD_REQUEST",
       message: "Current password is incorrect.",
