@@ -21,6 +21,23 @@ beforeEach(() => {
 });
 afterEach(cleanup);
 
+it("suppresses repeated Escape defaults while busy and restores native dismissal afterward", () => {
+  const close = vi.fn();
+  const view = render(
+    <Modal title="Saving changes" busy onClose={close} footer={null} />,
+  );
+  const dialog = screen.getByRole("dialog", { name: "Saving changes" });
+  expect(dialog.getAttribute("closedby")).toBe("none");
+  for (let attempt = 0; attempt < 3; attempt++)
+    expect(fireEvent.keyDown(dialog, { key: "Escape" })).toBe(false);
+  expect(close).not.toHaveBeenCalled();
+  view.rerender(<Modal title="Saving changes" onClose={close} footer={null} />);
+  expect(dialog.getAttribute("closedby")).toBe("closerequest");
+  expect(fireEvent.keyDown(dialog, { key: "Escape" })).toBe(true);
+  fireEvent(dialog, new Event("cancel", { cancelable: true }));
+  expect(close).toHaveBeenCalledOnce();
+});
+
 it("names the dialog, initially focuses the safe action, and restores the opener", () => {
   const opener = document.createElement("button");
   opener.textContent = "Delete meeting";
@@ -253,4 +270,21 @@ it("blocks cancellation while busy and recovers focus when the active control be
   fireEvent(dialog, idleCancel);
   expect(idleCancel.defaultPrevented).toBe(true);
   expect(onClose).toHaveBeenCalledOnce();
+});
+
+it("recovers dialog focus after the browser blurs a disabled fieldset control to body", () => {
+  const content = (busy: boolean) => (
+    <Modal title="Save profile" busy={busy} onClose={vi.fn()} footer={null}>
+      <fieldset disabled={busy}>
+        <button data-dialog-autofocus>Save</button>
+      </fieldset>
+    </Modal>
+  );
+  const view = render(content(false));
+  screen.getByRole<HTMLButtonElement>("button", { name: "Save" }).blur();
+  expect(document.activeElement).toBe(document.body);
+  view.rerender(content(true));
+  const dialog = screen.getByRole("dialog");
+  expect(document.activeElement).toBe(dialog);
+  expect(fireEvent.keyDown(dialog, { key: "Escape" })).toBe(false);
 });
