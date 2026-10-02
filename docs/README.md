@@ -17,6 +17,7 @@ These guides describe the current application. Choose the task you need to compl
 | Report a bug, enhancement, feature or documentation request | [Issue guide](issues.md) |
 | Review the identity, academic profile and program policy fixes with screenshots | [Issue-fix verification reports](evidence/issues-145-154/README.md) |
 | Review email notification rendering and destination-link checks | [Email redesign verification](evidence/issue-192/README.md) |
+| Continue the pending read-only production evidence work in a cloud checkout | [Issue 242 continuation checkpoint](continuation/issue-242.md) |
 
 ## Maintaining the guides
 
