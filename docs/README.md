@@ -19,6 +19,7 @@ These guides describe the current application. Choose the task you need to compl
 | Report a bug, enhancement, feature or documentation request | [Issue guide](issues.md) |
 | Review the identity, academic profile and program policy fixes with screenshots | [Issue-fix verification reports](evidence/issues-145-154/README.md) |
 | Review email notification rendering and destination-link checks | [Email redesign verification](evidence/issue-192/README.md) |
+| Resume the draft navigation and form recovery work | [Issue #221 cloud continuation](continuation/issue-221.md) |
 
 ## Maintaining the guides
 
