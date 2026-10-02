@@ -2,11 +2,13 @@
 import { PersonNameFields } from "~/app/_components/person-name-fields";
 import { nameDraft, personNameEdit } from "~/lib/person-name";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 
+import { Button } from "./ui/button";
+import { FormSection } from "./ui/patterns";
 import { MembershipEditor } from "./membership-editor";
 import { SchoolDeparturePanel } from "~/app/_components/school-departure";
 import { AcademicPanel } from "./academic-profile";
@@ -52,7 +54,13 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
   const features = api.program.features.useQuery();
   const email2fa = features.data?.EMAIL_2FA ?? false;
 
+  // A synchronous guard covers the interval before mutation state disables the form.
+  const nameSubmitting = useRef(false);
+  const [nameReloading, setNameReloading] = useState(false);
   const updateName = api.account.updateName.useMutation({
+    onSettled: () => {
+      nameSubmitting.current = false;
+    },
     onSuccess: async () => {
       await utils.account.me.invalidate();
       router.refresh();
@@ -69,15 +77,28 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
     number | undefined
   >();
   const [nameDirty, setNameDirty] = useState(false);
+  const nameBusy = !me.data || updateName.isPending || nameReloading;
+  const cancelNameDraft = () => {
+    if (nameBusy || nameSubmitting.current) return;
+    // Cancel is an explicit discard. Background refreshes alone never adopt a new version.
+    if (me.data) {
+      setNames(nameDraft(me.data));
+      setOriginalNames(nameDraft(me.data));
+      setLegacyName(me.data.legacyName ?? me.data.name);
+      setNameDraftVersion(me.data.profileVersion);
+    }
+    setNameDirty(false);
+    updateName.reset();
+  };
   useEffect(() => {
     // Other profile sections refetch this query. Keep unsaved identity edits and their version.
-    if (me.data && !nameDirty) {
+    if (me.data && !nameDirty && !nameBusy) {
       setNames(nameDraft(me.data));
       setOriginalNames(nameDraft(me.data));
       setLegacyName(me.data?.legacyName ?? me.data?.name);
       setNameDraftVersion(me.data.profileVersion);
     }
-  }, [me.data, nameDirty]);
+  }, [me.data, nameDirty, nameBusy]);
 
   // Password form — a two-step flow: verify the current password to get an emailed code, then
   // submit the code with the new password (step-up email 2FA).
@@ -212,24 +233,19 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
           </div>
         </div>
 
-        {/* Editable display name + the optional tutor cross-link. */}
+        {/* Identity uses one deliberate commit; security and membership retain independent authority. */}
         <div className="space-y-4 border-t border-slate-100 px-5 py-5 sm:px-6">
-          <PersonNameFields
-            value={names}
-            onChange={(value) => {
-              setNames(value);
-              setNameDirty(true);
-            }}
-            legacyName={legacyName}
-            originalValue={originalNames}
-          />
-          <button
-            className="btn-secondary min-h-11 lg:min-h-10"
-            disabled={
-              updateName.isPending ||
-              (!identity.preserved && !names.firstName.trim())
-            }
-            onClick={() =>
+          <form
+            onSubmit={(event) => {
+              event.preventDefault();
+              if (
+                nameBusy ||
+                nameSubmitting.current ||
+                !me.data ||
+                (!identity.preserved && !names.firstName.trim())
+              )
+                return;
+              nameSubmitting.current = true;
               updateName.mutate(
                 {
                   ...identity.fields,
@@ -237,36 +253,79 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
                   expectedProfileVersion: nameDraftVersion,
                 },
                 { onSuccess: () => setNameDirty(false) },
-              )
-            }
+              );
+            }}
           >
-            {updateName.isPending
-              ? t("tutor.settings.saving")
-              : t("tutor.settings.save")}
-          </button>
-          {updateName.isSuccess && (
-            <p className="text-sm text-green-600">
-              {t("tutor.settings.saved")}
-            </p>
-          )}
-          {updateName.error && (
-            <p role="alert" className="text-sm text-red-600">
-              <ProfilePolicyError message={updateName.error.message} />
-            </p>
-          )}
-          {updateName.error?.data?.code === "CONFLICT" && (
-            <button
-              type="button"
-              className="btn-secondary min-h-11 lg:min-h-10"
-              onClick={async () => {
-                await me.refetch();
-                setNameDirty(false);
-                updateName.reset();
-              }}
+            <FormSection
+              title={t("uiPatterns.profile")}
+              busy={nameBusy}
+              actions={
+                <>
+                  <Button
+                    type="submit"
+                    variant="primary"
+                    disabled={
+                      !me.data ||
+                      (!identity.preserved && !names.firstName.trim())
+                    }
+                  >
+                    {t(
+                      updateName.isPending
+                        ? "tutor.settings.saving"
+                        : "uiPatterns.saveProfile",
+                    )}
+                  </Button>
+                  <Button onClick={cancelNameDraft}>
+                    {t("uiPatterns.cancel")}
+                  </Button>
+                </>
+              }
             >
-              {t("accountProfile.reloadIdentity")}
-            </button>
-          )}
+              <PersonNameFields
+                value={names}
+                onChange={(value) => {
+                  setNames(value);
+                  setNameDirty(true);
+                  if (updateName.isSuccess) updateName.reset();
+                }}
+                legacyName={legacyName}
+                originalValue={originalNames}
+              />
+              {updateName.isSuccess && (
+                <p role="status" className="text-sm text-green-700">
+                  {t("tutor.settings.saved")}
+                </p>
+              )}
+              {updateName.error && (
+                <p role="alert" className="text-sm text-red-600">
+                  <ProfilePolicyError message={updateName.error.message} />
+                </p>
+              )}
+              {updateName.error?.data?.code === "CONFLICT" && (
+                <Button
+                  onClick={async () => {
+                    if (nameBusy || nameSubmitting.current) return;
+                    nameSubmitting.current = true;
+                    setNameReloading(true);
+                    try {
+                      const result = await me.refetch();
+                      // A failed refetch can still contain stale cached data. Only a successful
+                      // reload authorizes discarding this draft and its original version.
+                      if (result.isSuccess) {
+                        setNameDirty(false);
+                        updateName.reset();
+                      }
+                    } finally {
+                      nameSubmitting.current = false;
+                      setNameReloading(false);
+                    }
+                  }}
+                >
+                  {t("accountProfile.reloadIdentity")}
+                </Button>
+              )}
+            </FormSection>
+          </form>
 
           {me.data?.tutor && (
             <p className="muted flex items-center gap-1.5 border-t border-slate-100 pt-4 text-sm">

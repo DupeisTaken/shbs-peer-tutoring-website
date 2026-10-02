@@ -6,6 +6,8 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { Markdown } from "~/app/_components/markdown";
+import { Modal } from "./ui/modal";
+import { Button } from "./ui/button";
 
 type Policy = { title: string; body: string } | null | undefined;
 
@@ -99,12 +101,7 @@ function PolicyModal({
     const el = scrollRef.current;
     // A policy short enough to fit without scrolling counts as read-to-end right away.
     if (el && el.scrollHeight <= el.clientHeight + 4) setAtBottom(true);
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") onClose();
-    };
-    document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  }, []);
 
   const onScroll = () => {
     const el = scrollRef.current;
@@ -113,50 +110,38 @@ function PolicyModal({
   };
 
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center bg-slate-900/50 p-4"
-      onClick={onClose}
-      role="dialog"
-      aria-modal="true"
+    <Modal
+      title={title}
+      onClose={onClose}
+      wide
+      footer={
+        <>
+          <span className="muted mr-auto text-xs">
+            {t(
+              atBottom
+                ? "public.policy.readPrompt"
+                : "public.policy.scrollPrompt",
+            )}
+          </span>
+          <Button data-dialog-autofocus onClick={onClose}>
+            {t("public.policy.close")}
+          </Button>
+          <Button variant="primary" disabled={!atBottom} onClick={onRead}>
+            {t("public.policy.done")}
+          </Button>
+        </>
+      }
     >
       <div
-        className="card flex max-h-[85vh] w-full max-w-2xl flex-col"
-        onClick={(e) => e.stopPropagation()}
+        ref={scrollRef}
+        onScroll={onScroll}
+        tabIndex={0}
+        role="region"
+        aria-label={title}
+        className="max-h-[50dvh] overflow-y-auto py-2 text-sm leading-relaxed text-slate-700"
       >
-        <div className="flex items-center justify-between border-b border-slate-100 px-5 py-3">
-          <h2 className="section-title">{title}</h2>
-          <button
-            type="button"
-            onClick={onClose}
-            aria-label={t("public.policy.close")}
-            className="flex min-h-11 min-w-11 items-center justify-center text-slate-400 hover:text-slate-700"
-          >
-            ✕
-          </button>
-        </div>
-        <div
-          ref={scrollRef}
-          onScroll={onScroll}
-          className="overflow-y-auto px-5 py-4 text-sm leading-relaxed text-slate-700"
-        >
-          <Markdown>{body}</Markdown>
-        </div>
-        <div className="flex items-center justify-between gap-3 border-t border-slate-100 px-5 py-3">
-          <span className="muted text-xs">
-            {atBottom
-              ? t("public.policy.readPrompt")
-              : t("public.policy.scrollPrompt")}
-          </span>
-          <button
-            type="button"
-            className="btn-primary min-h-11 lg:min-h-10"
-            disabled={!atBottom}
-            onClick={onRead}
-          >
-            {t("public.policy.done")}
-          </button>
-        </div>
+        <Markdown>{body}</Markdown>
       </div>
-    </div>
+    </Modal>
   );
 }

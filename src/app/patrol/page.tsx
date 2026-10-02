@@ -4,6 +4,7 @@ import { useState, useRef } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
+import { ChoiceButton } from "~/app/_components/ui/button";
 import { AcademicError } from "~/app/_components/academic-error";
 
 type Headcount = "ZERO" | "ONE" | "TWO" | "THREE" | "FOUR_PLUS";
@@ -165,20 +166,21 @@ export default function PatrolPage() {
                     <span className="min-w-28 flex-1 font-medium text-slate-800">
                       {room.name}
                     </span>
-                    <div className="flex flex-wrap gap-1">
+                    {/* Room grouping names repeated choices; pressed state exposes the recorded value. */}
+                    <div
+                      role="group"
+                      aria-label={room.name}
+                      className="flex flex-wrap gap-2"
+                    >
                       {BUCKETS.map((b) => (
-                        <button
+                        <ChoiceButton
                           key={b.value}
-                          type="button"
+                          selected={chosen === b.value}
                           onClick={() => pick(room.id, b.value)}
-                          className={`h-9 w-10 rounded-md text-sm font-semibold transition-colors ${
-                            chosen === b.value
-                              ? "bg-accent-600 text-white"
-                              : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100"
-                          }`}
+                          className="font-semibold"
                         >
                           {b.label}
-                        </button>
+                        </ChoiceButton>
                       ))}
                     </div>
                   </div>
@@ -226,8 +228,11 @@ export default function PatrolPage() {
                 {(history.data ?? []).map((p) => (
                   <div key={p.id} className="px-4 py-3">
                     <p className="text-sm font-medium text-slate-800">
-                      {programFormat.dateTime(new Date(p.createdAt), { dateStyle: "medium", timeStyle: "short" })} ·{" "}
-                      {p.hours.toFixed(1)} h
+                      {programFormat.dateTime(new Date(p.createdAt), {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      })}{" "}
+                      · {p.hours.toFixed(1)} h
                     </p>
                     <p className="muted mt-0.5 text-xs">
                       {p.observations

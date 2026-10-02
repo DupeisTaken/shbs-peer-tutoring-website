@@ -2,10 +2,13 @@
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { CaptchaError } from "./signup-captcha";
+import { Button, Switch } from "./ui/button";
+import { InlineNotice, SettingRow, StatePanel } from "./ui/patterns";
 
 /** Immediate operational setting, with a version token to reject stale tabs (including ABA). */
 export function ProgramCaptchaSettings() {
   const t = useTranslations("captcha");
+  const patterns = useTranslations("uiPatterns");
   const utils = api.useUtils();
   const settings = api.program.captchaSettings.useQuery(undefined, {
     refetchInterval: 15_000,
@@ -19,6 +22,14 @@ export function ProgramCaptchaSettings() {
     },
   });
   const data = settings.data;
+  const retry = (
+    <Button
+      disabled={settings.isFetching}
+      onClick={() => void settings.refetch()}
+    >
+      {t("retry")}
+    </Button>
+  );
   return (
     <section
       className="card space-y-3 p-5"
@@ -37,50 +48,52 @@ export function ProgramCaptchaSettings() {
       <p className="muted text-sm">{t("scope")}</p>
       <p className="text-sm text-slate-700">{t("cost")}</p>
       {data ? (
-        <>
-          <p
-            role="status"
-            className={`rounded-lg p-3 text-sm ${data.ready ? "bg-slate-50 text-slate-700" : "bg-amber-50 text-amber-900"}`}
-          >
-            {t(data.ready ? "ready" : "notReady")}
-          </p>
-          {data.canEdit ? (
-            <label className="flex min-h-11 cursor-pointer items-center gap-3 rounded-lg border border-slate-200 p-3 text-sm font-medium">
-              <input
-                type="checkbox"
-                role="switch"
+        <SettingRow
+          label={t("title")}
+          control={
+            data.canEdit ? (
+              <Switch
+                label={t("title")}
                 checked={data.enabled}
                 disabled={save.isPending || (!data.enabled && !data.ready)}
-                onChange={(event) =>
+                onChange={(enabled) =>
                   save.mutate({
-                    enabled: event.target.checked,
+                    enabled,
                     expectedVersion: data.version,
                   })
                 }
               />
-              <span>{t("title")}</span>
-            </label>
-          ) : (
-            <p className="muted text-sm">{t("readOnly")}</p>
-          )}
-        </>
-      ) : (
-        <p role="status" className="muted">
-          {t("loading")}
-        </p>
-      )}
-      {(settings.error ?? save.error) && (
+            ) : (
+              <p className="muted text-sm">{t("readOnly")}</p>
+            )
+          }
+          feedback={
+            <InlineNotice
+              tone={data.ready ? "info" : "warning"}
+              announcement="status"
+            >
+              {t(data.ready ? "ready" : "notReady")}
+            </InlineNotice>
+          }
+        />
+      ) : !settings.error ? (
+        <StatePanel kind="loading" title={t("loading")} />
+      ) : null}
+      {/* An initial failure replaces loading; a refetch failure keeps cached controls. */}
+      {settings.error &&
+        (data ? (
+          <InlineNotice tone="error" announcement="alert" action={retry}>
+            <CaptchaError error={settings.error} />
+          </InlineNotice>
+        ) : (
+          <StatePanel kind="error" title={patterns("loadFailed")} action={retry}>
+            <CaptchaError error={settings.error} />
+          </StatePanel>
+        ))}
+      {save.error && (
         <p role="alert" className="text-sm text-red-700">
-          <CaptchaError error={(settings.error ?? save.error)!} />
+          <CaptchaError error={save.error} />
         </p>
-      )}
-      {settings.error && (
-        <button
-          className="btn-secondary min-h-11"
-          onClick={() => void settings.refetch()}
-        >
-          {t("retry")}
-        </button>
       )}
       <p className="muted text-xs">{t("billingBoundary")}</p>
     </section>

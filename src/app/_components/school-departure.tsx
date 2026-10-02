@@ -7,6 +7,10 @@ import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { ProfileDialog } from "./profile-dialog";
+import { useDialogPending } from "./ui/modal";
+import { Button } from "./ui/button";
+import { ChangeReview } from "./ui/patterns";
+import { DisclosureSection } from "./ui/disclosure-section";
 const ManagementActions = dynamic(() =>
   import("./management-actions").then((module) => module.ManagementActions),
 );
@@ -50,7 +54,6 @@ export function SchoolDeparturePanel({ userId }: { userId?: string }) {
   >("TRANSFERRED");
   const [explanation, setExplanation] = useState("");
   const [confirming, setConfirming] = useState(false);
-  const [showRequests, setShowRequests] = useState(false);
   const [outcome, setOutcome] = useState<string | null>(null);
   const router = useRouter();
   const utils = api.useUtils();
@@ -77,9 +80,11 @@ export function SchoolDeparturePanel({ userId }: { userId?: string }) {
     (save.error?.data?.approvalId ? null : save.error) ??
     request.error ??
     state.error;
-  const busy = save.isPending || request.isPending;
+  const ownPending = save.isPending || request.isPending;
+  const busy = useDialogPending(ownPending);
   const departed = !!state.data?.departure?.reason;
   const submit = () => {
+    if (busy) return;
     const input = {
       action,
       explanation,
@@ -138,13 +143,12 @@ export function SchoolDeparturePanel({ userId }: { userId?: string }) {
           />
         </label>
       </div>
-      <button
-        className="btn-secondary min-h-11 lg:min-h-10"
+      <Button
         disabled={!state.data || !explanation.trim() || busy}
         onClick={() => setConfirming(true)}
       >
         {t(userId && state.data?.role === "HEAD" ? "review" : "request")}
-      </button>
+      </Button>
       {outcome && (
         <p role="status" className="text-sm text-teal-800">
           {outcome}
@@ -156,64 +160,60 @@ export function SchoolDeparturePanel({ userId }: { userId?: string }) {
         </p>
       )}
       {confirming && (
-        <ProfileDialog title={t("review")} onClose={() => setConfirming(false)}>
-          <div className="space-y-4">
-            <p className="font-semibold">
-              {t(
-                action === "TRANSFERRED"
-                  ? "transferred"
-                  : action === "GRADUATED"
-                    ? "graduated"
-                    : action === "RETURN"
-                      ? "return"
-                      : action === "REVOKE"
-                        ? "revoke"
-                        : "restore",
-              )}
-            </p>
-            <p className="text-sm">
-              {t(
-                action === "RETURN"
-                  ? "returnHelp"
-                  : action === "REVOKE" || action === "RESTORE"
-                    ? "accessHelp"
-                    : "consequences",
-              )}
-            </p>
-            <p className="rounded-lg bg-slate-50 p-3 text-sm">
-              {t("retained")}
-            </p>
-            <p className="text-sm">{explanation}</p>
-            <button
-              className="btn-primary min-h-11 lg:min-h-10"
-              disabled={busy}
-              onClick={submit}
-            >
-              {t("confirm")}
-            </button>
-            {error && (
-              <p role="alert" className="text-sm text-red-700">
-                {error.message}
-              </p>
+        <ProfileDialog
+          title={t("review")}
+          pending={ownPending}
+          onClose={() => setConfirming(false)}
+        >
+          <ChangeReview
+            title={t(
+              action === "TRANSFERRED"
+                ? "transferred"
+                : action === "GRADUATED"
+                  ? "graduated"
+                  : action === "RETURN"
+                    ? "return"
+                    : action === "REVOKE"
+                      ? "revoke"
+                      : "restore",
             )}
-          </div>
+            evidence={<p className="text-sm">{explanation}</p>}
+            consequences={
+              <>
+                <p className="text-sm">
+                  {t(
+                    action === "RETURN"
+                      ? "returnHelp"
+                      : action === "REVOKE" || action === "RESTORE"
+                        ? "accessHelp"
+                        : "consequences",
+                  )}
+                </p>
+                <p className="rounded-lg bg-slate-50 p-3 text-sm">
+                  {t("retained")}
+                </p>
+              </>
+            }
+            actions={
+              <Button variant="primary" disabled={busy} onClick={submit}>
+                {t("confirm")}
+              </Button>
+            }
+          />
+          {error && (
+            <p role="alert" className="text-sm text-red-700">
+              {error.message}
+            </p>
+          )}
         </ProfileDialog>
       )}
       {!userId && (
-        <details
-          onToggle={(event) => setShowRequests(event.currentTarget.open)}
-        >
-          <summary className="cursor-pointer py-3 text-sm font-medium">
-            {t("requests")}
-          </summary>
-          {showRequests && <ManagementActions reviewer={false} />}
-        </details>
+        <DisclosureSection title={t("requests")} lifetime="lazy">
+          <ManagementActions reviewer={false} />
+        </DisclosureSection>
       )}
       {!!state.data?.events.length && (
-        <details>
-          <summary className="cursor-pointer py-3 text-sm font-medium">
-            {t("history")}
-          </summary>
+        <DisclosureSection title={t("history")} lifetime="mounted">
           <ol className="space-y-2 text-sm">
             {state.data.events.map((event) => (
               <li key={event.id} className="rounded-lg bg-slate-50 p-3">
@@ -234,7 +234,7 @@ export function SchoolDeparturePanel({ userId }: { userId?: string }) {
               </li>
             ))}
           </ol>
-        </details>
+        </DisclosureSection>
       )}
     </section>
   );

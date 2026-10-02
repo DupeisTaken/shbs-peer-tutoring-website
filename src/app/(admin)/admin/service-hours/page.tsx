@@ -5,12 +5,20 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
+import {
+  SummaryTable,
+  TableActions,
+  TableDetails,
+} from "~/app/_components/ui/summary-table";
+import { ServiceHoursComparison } from "~/app/_components/service-hours-comparison";
 
 export default function SummaryPage() {
   const t = useTranslations();
   // Empty → the active period's current semester; a month ("YYYY-MM") narrows to that month.
   const [month, setMonth] = useState("");
-  const summary = api.admin.periodSummary.useQuery(month ? { month } : undefined);
+  const summary = api.admin.periodSummary.useQuery(
+    month ? { month } : undefined,
+  );
   const scope = summary.data?.scope.label;
 
   return (
@@ -25,7 +33,9 @@ export default function SummaryPage() {
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <label className="muted text-sm">{t("admin.summary.monthLabel")}</label>
+          <label className="muted text-sm">
+            {t("admin.summary.monthLabel")}
+          </label>
           <input
             type="month"
             value={month}
@@ -43,16 +53,18 @@ export default function SummaryPage() {
         </div>
       </div>
 
-      <div className="card overflow-x-auto">
-        <table className="data-table">
+      <div className="card">
+        <SummaryTable label={t("admin.summary.title")}>
           <thead>
             <tr>
               <th>{t("admin.summary.columns.tutor")}</th>
-              <th className="text-right">{t("admin.summary.columns.sessions")}</th>
-              <th className="text-right">{t("admin.summary.columns.earned")}</th>
-              <th className="text-right">{t("admin.summary.columns.extras")}</th>
-              <th className="text-right">{t("admin.summary.columns.penalties")}</th>
+              <th className="text-right">
+                {t("admin.summary.columns.sessions")}
+              </th>
               <th className="text-right">{t("admin.summary.columns.total")}</th>
+              <th className="table-actions-heading">
+                {t("tablePatterns.actions")}
+              </th>
             </tr>
           </thead>
           <tbody>
@@ -63,15 +75,31 @@ export default function SummaryPage() {
                   {!r.active && ` ${t("admin.summary.inactive")}`}
                 </td>
                 <td className="text-right">{r.sessions}</td>
-                <td className="text-right">{r.earned.toFixed(1)}</td>
-                <td className="text-right">{r.extras.toFixed(1)}</td>
-                <td className="text-right">{r.punishments.toFixed(1)}</td>
-                <td className="text-right font-semibold">{r.total.toFixed(1)}</td>
+                <td className="text-right font-semibold">
+                  {r.total.toFixed(1)}
+                </td>
+                <TableActions>
+                  <TableDetails title={r.englishName}>
+                    <dl className="grid grid-cols-2 gap-3">
+                      <dt>{t("admin.summary.columns.sessions")}</dt>
+                      <dd>{r.sessions}</dd>
+                      <dt>{t("admin.summary.columns.earned")}</dt>
+                      <dd>{r.earned.toFixed(1)}</dd>
+                      <dt>{t("admin.summary.columns.extras")}</dt>
+                      <dd>{r.extras.toFixed(1)}</dd>
+                      <dt>{t("admin.summary.columns.penalties")}</dt>
+                      <dd>{r.punishments.toFixed(1)}</dd>
+                      <dt>{t("admin.summary.columns.total")}</dt>
+                      <dd className="font-semibold">{r.total.toFixed(1)}</dd>
+                    </dl>
+                  </TableDetails>
+                </TableActions>
               </tr>
             ))}
           </tbody>
-        </table>
+        </SummaryTable>
       </div>
+      {summary.data && <ServiceHoursComparison rows={summary.data.rows} />}
     </div>
   );
 }

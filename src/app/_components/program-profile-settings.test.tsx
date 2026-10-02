@@ -1,10 +1,20 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
-import { ProfilePolicyEditor } from "./program-profile-settings";
+import {
+  ProgramProfileSettings,
+  ProfilePolicyEditor,
+} from "./program-profile-settings";
+import type { ProfilePolicy } from "~/lib/profile-policy";
 import { ProfilePolicyHint, ProfilePolicyError } from "./profile-policy";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
@@ -14,6 +24,9 @@ const mock = vi.hoisted(() => ({
   requireLatinNames: false,
   requireLatinLegalNames: false,
   error: null as null | { message: string; data: { code: string } },
+  settings: undefined as undefined | (ProfilePolicy & { canEdit: boolean }),
+  queryError: null as Error | null,
+  refetch: vi.fn(),
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
@@ -25,6 +38,13 @@ vi.mock("~/trpc/react", () => ({
       },
     }),
     program: {
+      profilePolicySettings: {
+        useQuery: () => ({
+          data: mock.settings,
+          error: mock.queryError,
+          refetch: mock.refetch,
+        }),
+      },
       profilePolicy: {
         useQuery: () => ({
           data: {
@@ -66,8 +86,101 @@ beforeEach(() => {
   mock.error = null;
   mock.requireLatinNames = false;
   mock.requireLatinLegalNames = false;
+  mock.settings = { ...policy, canEdit: true };
+  mock.queryError = null;
+  mock.refetch.mockResolvedValue({ isSuccess: true, data: mock.settings });
 });
 afterEach(cleanup);
+
+it("replaces initial loading with an actionable error before any settings exist", () => {
+  mock.settings = undefined;
+  const view = render(wrap(<ProgramProfileSettings />));
+  expect(
+    screen.getByRole("heading", { name: en.profilePolicy.title }),
+  ).toBeTruthy();
+  expect(screen.getByRole("status").textContent).toContain(
+    en.profilePolicy.loading,
+  );
+  mock.queryError = new Error("offline");
+  view.rerender(wrap(<ProgramProfileSettings />));
+  expect(screen.queryByRole("status")).toBeNull();
+  expect(screen.getByRole("alert").textContent).toContain(
+    en.profilePolicy.loadFailed,
+  );
+  fireEvent.click(screen.getByRole("button", { name: en.profilePolicy.retry }));
+  expect(mock.refetch).toHaveBeenCalledOnce();
+  expect(screen.queryByRole("checkbox")).toBeNull();
+});
+
+it("retains mounted draft fields and the original version through cached query failure and retry", async () => {
+  const view = render(wrap(<ProgramProfileSettings />));
+  const checkbox = screen.getByRole<HTMLInputElement>("checkbox", {
+    name: "Grade 1",
+  });
+  fireEvent.click(checkbox);
+  mock.queryError = new Error("offline");
+  view.rerender(wrap(<ProgramProfileSettings />));
+  expect(screen.getByRole("checkbox", { name: "Grade 1" })).toBe(checkbox);
+  expect(checkbox.checked).toBe(true);
+  await act(async () =>
+    fireEvent.click(
+      screen.getByRole("button", { name: en.profilePolicy.retry }),
+    ),
+  );
+  mock.queryError = null;
+  mock.settings = { ...policy, canEdit: true, offeredGrades: [12] };
+  view.rerender(wrap(<ProgramProfileSettings />));
+  expect(screen.getByRole("checkbox", { name: "Grade 1" })).toBe(checkbox);
+  expect(checkbox.checked).toBe(true);
+  fireEvent.click(screen.getByRole("button", { name: en.profilePolicy.save }));
+  expect(mock.mutate).toHaveBeenCalledWith(
+    expect.objectContaining({
+      offeredGrades: [1, 9, 10, 11, 12],
+      expectedPolicy: policy,
+    }),
+  );
+});
+
+it("resets a conflict draft only after explicit successful reload, never cached data on failed reload", async () => {
+  mock.error = {
+    message: "PROFILE_POLICY_CHANGED",
+    data: { code: "CONFLICT" },
+  };
+  const view = render(wrap(<ProgramProfileSettings />));
+  fireEvent.click(screen.getByRole("checkbox", { name: "Grade 1" }));
+  mock.refetch.mockResolvedValueOnce({
+    isSuccess: false,
+    data: mock.settings,
+    error: new Error("offline"),
+  });
+  await act(async () =>
+    fireEvent.click(
+      screen.getByRole("button", { name: en.profilePolicy.reload }),
+    ),
+  );
+  expect(
+    screen.getByRole<HTMLInputElement>("checkbox", { name: "Grade 1" }).checked,
+  ).toBe(true);
+  mock.settings = { ...policy, canEdit: true, offeredGrades: [12] };
+  view.rerender(wrap(<ProgramProfileSettings />));
+  await act(async () =>
+    fireEvent.click(
+      screen.getByRole("button", { name: en.profilePolicy.reload }),
+    ),
+  );
+  expect(
+    screen.getByRole<HTMLInputElement>("checkbox", { name: "Grade 1" }).checked,
+  ).toBe(false);
+  expect(
+    screen.getByRole<HTMLInputElement>("checkbox", { name: "Grade 9" }).checked,
+  ).toBe(false);
+  fireEvent.click(screen.getByRole("button", { name: en.profilePolicy.save }));
+  expect(mock.mutate).toHaveBeenCalledWith(
+    expect.objectContaining({
+      expectedPolicy: { ...policy, offeredGrades: [12] },
+    }),
+  );
+});
 
 it("saves the selected grades and toggle against the original policy snapshot", () => {
   const view = render(

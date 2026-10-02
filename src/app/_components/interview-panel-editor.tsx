@@ -4,6 +4,8 @@ import { useId, useState } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { groupAssignmentTutors } from "~/lib/assignment-qualification";
+import { Button } from "./ui/button";
+import { FormActions } from "./ui/patterns";
 
 export type PanelTutor = {
   id: string;
@@ -193,9 +195,11 @@ export function InterviewPanelEditor({
               </div>
               {/* Native selects keep one line; expose the complete selected name
                   and qualifications below on narrow screens so nothing is lost. */}
-              {selectedTutor && (
+              {(selectedTutor ?? retained) && (
                 <p className="muted mt-1 text-xs break-words lg:hidden">
-                  {labelFor(selectedTutor)}
+                  {selectedTutor
+                    ? labelFor(selectedTutor)
+                    : t("picker.unavailable", { name: retained!.englishName })}
                 </p>
               )}
             </div>
@@ -203,17 +207,15 @@ export function InterviewPanelEditor({
         })}
       </div>
       <div className="flex flex-wrap gap-3">
-        <button
-          type="button"
-          className="btn-secondary btn-sm"
+        <Button
+          size="compact"
           disabled={picks.length >= 8 || assign.isPending}
           onClick={() => setPicks((current) => [...current, ""])}
         >
           {workflow("addPanelist")}
-        </button>
-        <button
-          type="button"
-          className="btn-secondary btn-sm"
+        </Button>
+        <Button
+          size="compact"
           disabled={picks.length <= 3 || assign.isPending}
           onClick={() => {
             setPicks((current) => current.slice(0, -1));
@@ -221,12 +223,11 @@ export function InterviewPanelEditor({
           }}
         >
           {workflow("removePanelist")}
-        </button>
+        </Button>
       </div>
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="button"
-          className="btn-primary btn-sm"
+      <FormActions>
+        <Button
+          variant="primary"
           disabled={!canAssign}
           onClick={() =>
             assign.mutate({
@@ -238,7 +239,7 @@ export function InterviewPanelEditor({
           }
         >
           {assign.isPending ? t("saving") : t("savePanel")}
-        </button>
+        </Button>
         {!canAssign && !assign.isPending && (
           <span className="muted text-xs">{t("pickHint", { n: 3 })}</span>
         )}
@@ -252,7 +253,7 @@ export function InterviewPanelEditor({
             {assign.error.message}
           </span>
         )}
-      </div>
+      </FormActions>
     </div>
   );
 }

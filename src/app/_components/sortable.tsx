@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import { Button } from "~/app/_components/ui/button";
 
 export type SortDir = "asc" | "desc";
 export type Sort = {
@@ -27,7 +28,10 @@ export function useSort(defaultKey: string, defaultDir: SortDir = "asc"): Sort {
 /** Locale-aware comparator (numeric-aware) for use inside an array sort. */
 export function compare(a: string | number, b: string | number): number {
   if (typeof a === "number" && typeof b === "number") return a - b;
-  return String(a).localeCompare(String(b), undefined, { numeric: true, sensitivity: "base" });
+  return String(a).localeCompare(String(b), undefined, {
+    numeric: true,
+    sensitivity: "base",
+  });
 }
 
 /** A clickable `<th>` that drives the shared sort state and shows the active direction. */
@@ -42,17 +46,31 @@ export function SortHeader({
 }) {
   const active = sort.key === sortKey;
   return (
-    <th>
-      <button
-        type="button"
+    // Announce direction on the column itself; decorative arrows do not enter the action's name.
+    <th
+      scope="col"
+      aria-sort={
+        active ? (sort.dir === "asc" ? "ascending" : "descending") : undefined
+      }
+    >
+      <Button
+        variant="ghost"
+        size="compact"
         onClick={() => sort.toggle(sortKey)}
-        className="group inline-flex items-center gap-1 font-semibold tracking-wide text-inherit uppercase hover:text-slate-700"
+        className="group gap-1 px-1 text-xs font-semibold tracking-wide text-inherit uppercase hover:text-slate-700"
       >
         {children}
-        <span className={active ? "text-accent-600" : "text-slate-300 group-hover:text-slate-400"}>
+        <span
+          aria-hidden="true"
+          className={
+            active
+              ? "text-accent-600"
+              : "text-slate-300 group-hover:text-slate-400"
+          }
+        >
           {active ? (sort.dir === "asc" ? "▲" : "▼") : "↕"}
         </span>
-      </button>
+      </Button>
     </th>
   );
 }

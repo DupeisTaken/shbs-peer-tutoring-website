@@ -2,6 +2,7 @@ import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { auth } from "~/server/auth";
 import { HistoryClaim } from "./history-claim";
+import { PublicFormPage } from "~/app/_components/public-form-page";
 
 export default async function HistoryClaimPage({
   searchParams,
@@ -15,9 +16,12 @@ export default async function HistoryClaimPage({
   // data in a fixed local route, never an arbitrary redirect destination.
   const destination = `/history/claim?token=${encodeURIComponent(token)}`;
   return (
-    <main className="mx-auto max-w-xl space-y-5 p-4 py-10">
-      <h1 className="page-title">{t("claimTitle")}</h1>
-      <p className="muted">{t("linkHelp")}</p>
+    <PublicFormPage
+      title={t("claimTitle")}
+      description={t("linkHelp")}
+      backLabel={t("back")}
+      wide
+    >
       {session?.user ? (
         <HistoryClaim key={token} token={token} />
       ) : (
@@ -37,6 +41,6 @@ export default async function HistoryClaimPage({
           <p className="muted text-sm">{t("signupHelp")}</p>
         </section>
       )}
-    </main>
+    </PublicFormPage>
   );
 }
