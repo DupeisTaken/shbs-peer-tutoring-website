@@ -184,6 +184,8 @@ The `/ui-gallery` server page calls `notFound()` in production, and normal authe
 npx vitest run src/app/ui-gallery --maxWorkers=1
 ```
 
+For the additional-qualification entry dialog, run `npx vitest run src/app/_components/qualification-review.test.tsx src/app/_components/qualification-review-dialog.test.tsx src/app/_components/qualification-review-cache.test.tsx --maxWorkers=1`. The real-database counterpart is `npx vitest run src/server/qualification-applications.test.ts --maxWorkers=1` against the isolated `shbs_shipping_test` database described below. On `/admin/applications`, rehearse both additional-subject and higher-level requests: initially closed review, entry without a write, Cancel/Escape and focus return, required notes, direct approval with no reject action, rejection only through the interview chair/voting workflow, delayed/failed writes, stale draft Reload, and saved-decision refresh recovery. Include server refusal of direct rejection for both request types and Admin/Head roles, interviews enabled/disabled, assigned-panel non-bypass and restricted roles at desktop/mobile sizes in English/Chinese.
+
 See [contributor guidance](contributing.md#reuse-interaction-patterns) for adding patterns and [technical boundaries](technical-report.md#shared-ui-patterns) for their responsibilities.
 
 ### UI verification matrix

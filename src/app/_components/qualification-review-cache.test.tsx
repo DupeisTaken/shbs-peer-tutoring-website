@@ -2,7 +2,7 @@
 import React from "react";
 import { QueryClient } from "@tanstack/react-query";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { cleanup, render } from "@testing-library/react";
+import { act, cleanup, render } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import messages from "../../../messages/en.json";
 import { QualificationReview } from "./qualification-review";
@@ -18,7 +18,9 @@ const mocks = vi.hoisted(() => ({
 vi.mock("~/trpc/react", () => ({
   api: {
     account: {
-      me: { useQuery: () => ({ data: { role: "ADMIN", tutorId: "reviewer" } }) },
+      me: {
+        useQuery: () => ({ data: { role: "ADMIN", tutorId: "reviewer" } }),
+      },
     },
     qualificationApplication: {
       decide: {
@@ -30,7 +32,9 @@ vi.mock("~/trpc/react", () => ({
     },
     useUtils: () => ({
       qualificationApplication: { mine: { invalidate: mocks.invalidateMine } },
-      subjectAvailability: { options: { invalidate: mocks.invalidateAvailability } },
+      subjectAvailability: {
+        options: { invalidate: mocks.invalidateAvailability },
+      },
       admin: { tutors: { invalidate: mocks.invalidateRoster } },
       tutorDetails: { get: { invalidate: mocks.invalidateDetails } },
     }),
@@ -65,6 +69,9 @@ function show(requestedTutorId: string | null | undefined) {
       <QualificationReview
         app={{
           id: "additional-request",
+          name: "Synthetic Tutor",
+          type: "ADDITIONAL_SUBJECT",
+          subjectIntents: [{ subject: { name: "History" } }],
           status: "PENDING",
           updatedAt: new Date("2026-09-01T00:00:00Z"),
           decisionComment: null,
@@ -84,22 +91,28 @@ it("refetches fresh cached details when the approved tutor is reopened, leaving 
   const fetchDetails = vi.fn().mockResolvedValue(newDetails);
   expect(
     await client.fetchQuery({
-      queryKey: detailKey("applicant"), queryFn: fetchDetails,
+      queryKey: detailKey("applicant"),
+      queryFn: fetchDetails,
     }),
   ).toEqual(oldDetails);
   expect(fetchDetails).not.toHaveBeenCalled();
 
   show("applicant");
   expect(mocks.success).toBeDefined();
-  await mocks.success!();
+  await act(async () => {
+    await mocks.success!();
+  });
 
-  expect(client.getQueryState(detailKey("applicant"))?.isInvalidated).toBe(true);
+  expect(client.getQueryState(detailKey("applicant"))?.isInvalidated).toBe(
+    true,
+  );
   expect(client.getQueryState(detailKey("other"))?.isInvalidated).toBe(false);
   // Reopening while the original 30-second freshness window is still in effect
   // must load the new approval without changing willingness or membership data.
   expect(
     await client.fetchQuery({
-      queryKey: detailKey("applicant"), queryFn: fetchDetails,
+      queryKey: detailKey("applicant"),
+      queryFn: fetchDetails,
     }),
   ).toEqual(newDetails);
   expect(fetchDetails).toHaveBeenCalledTimes(1);
@@ -108,11 +121,16 @@ it("refetches fresh cached details when the approved tutor is reopened, leaving 
   expect(mocks.invalidateRoster).toHaveBeenCalledTimes(1);
 });
 
-it.each([null, undefined])("does not invalidate every tutor when the request has no tutor ID (%s)", async (tutorId) => {
-  client.setQueryData(detailKey("other"), { qualified: true });
-  show(tutorId);
-  expect(mocks.success).toBeDefined();
-  await mocks.success!();
-  expect(mocks.invalidateDetails).not.toHaveBeenCalled();
-  expect(client.getQueryState(detailKey("other"))?.isInvalidated).toBe(false);
-});
+it.each([null, undefined])(
+  "does not invalidate every tutor when the request has no tutor ID (%s)",
+  async (tutorId) => {
+    client.setQueryData(detailKey("other"), { qualified: true });
+    show(tutorId);
+    expect(mocks.success).toBeDefined();
+    await act(async () => {
+      await mocks.success!();
+    });
+    expect(mocks.invalidateDetails).not.toHaveBeenCalled();
+    expect(client.getQueryState(detailKey("other"))?.isInvalidated).toBe(false);
+  },
+);
