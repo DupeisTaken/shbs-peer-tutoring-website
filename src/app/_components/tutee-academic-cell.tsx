@@ -13,12 +13,12 @@ export function TuteeAcademicCell({
   const t = useTranslations("tuteeHistory");
   const a = useTranslations("academics");
   const enrollment = row.historical || !(row.owner ?? row.user);
-  const grade = enrollment ? normalizeGrade(row.gradeLevel) : row.academic;
+  const grade = enrollment ? normalizeGrade(row.enrollmentCorrection ? row.enrollmentCorrection.rawGrade : row.gradeLevel) : row.academic;
   const year = enrollment
-    ? row.enrollmentPeriod?.schoolYear
+    ? row.enrollmentCorrection ? row.enrollmentCorrection.schoolYear : row.enrollmentPeriod?.schoolYear
     : row.academic.schoolYear;
   const graduated = enrollment
-    ? row.academicallyGraduated
+    ? !row.enrollmentCorrection && row.academicallyGraduated
     : row.academic.status === "GRADUATED";
   const review =
     !enrollment &&
@@ -51,7 +51,7 @@ export function TuteeAcademicCell({
       {year && (
         <p className="muted text-xs">
           {year}
-          {enrollment && row.enrollmentPeriod?.quarter
+          {enrollment && !row.enrollmentCorrection && row.enrollmentPeriod?.quarter
             ? ` · ${row.enrollmentPeriod.quarter}`
             : ""}
         </p>

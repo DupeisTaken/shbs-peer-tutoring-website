@@ -68,6 +68,7 @@ function fixture(access: Access = "VIEWER") {
     },
     tutor: empty(),
     tutee: empty(),
+    historicalAcademicRecord: empty(),
     subject: empty(),
     subjectLevel: empty(),
     courseGroup: empty(),
@@ -327,6 +328,10 @@ describe.each<Access>(["VIEWER", "observer"])(
         ],
       };
       mock.tutee.findMany.mockResolvedValue([student]);
+      // Historical raw text can contain private evidence, just like account raw grades.
+      mock.historicalAcademicRecord.findMany.mockResolvedValue([
+        { tuteeId: "tutee", corrections: [{ rawGrade: PRIVATE, schoolYear: "24-25" }] },
+      ]);
       mock.tutor.findMany.mockResolvedValue([
         {
           id: "tutor",
@@ -346,6 +351,7 @@ describe.each<Access>(["VIEWER", "observer"])(
       expect(rows[0]).toMatchObject({
         englishName: "Tutee One",
         gradeLevel: null,
+        enrollmentCorrection: { rawGrade: null, schoolYear: "24-25" },
         owner: { name: "Owner One", email: null },
         availabilities: [{ slot: { label: "Monday" } }],
       });

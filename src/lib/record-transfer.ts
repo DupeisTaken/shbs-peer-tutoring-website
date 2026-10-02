@@ -124,6 +124,11 @@ IDs are stable references. Assign unique IDs to new records and reuse them in re
 Omit columns with defaults to use database defaults. Primary keys must always be supplied.
 User.csv is reference-only: accounts must already exist with the same ID and email.
 Imports add records only: exact repeats are skipped; conflicting existing records reject the batch.
+HistoricalAcademicRecord.csv records accountless period evidence: id, exactly one tuteeId/tutorId,
+rawGrade (any original text or null), schoolYear (adjacent YY-YY or null), source, originalConfirmedAt.
+Omit originalConfirmedAt or use null when no original confirmation evidence exists.
+Use a distinct stable record ID for each original academic report/reference period.
+Historical correction overlays and audit are not executable archive inputs; use Academic Corrections.
 New terms must be inactive. Pairings and sessions can only be added to inactive terms.
 Account passwords, tokens, roles, permissions, private messages, audit/approval execution data,
 website content, live configuration and uploaded files are outside this program-record archive.

@@ -6,6 +6,7 @@ import { useFormatter, useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { ProfileDialog } from "./profile-dialog";
 import { AcademicDetails } from "./academic-profile";
+import { HistoricalAcademicEvidence } from "./historical-academic-evidence";
 
 export function HistoryError({ message }: { message: string }) {
   const t = useTranslations("tuteeHistory");
@@ -100,6 +101,7 @@ export function TuteeHistoryDialog({
               )}
             </section>
           </div>
+          {data.historicalAcademics && <HistoricalAcademicEvidence records={data.historicalAcademics} />}
           <p className="muted text-sm">
             {t("sessionCount", { count: data.count })}
           </p>

@@ -20,6 +20,7 @@ export const HEAD_APPROVAL_OPERATIONS = new Set([
   "tutor.decideInterview",
 ]);
 export const APPROVAL_OPERATIONS: Record<string, string> = {
+  "historicalAcademics.correctBatch": "HistoricalAcademicRecord",
   "departure.setState": "User",
   "corrections.correctAttendance": "Session",
   "corrections.correctPatrol": "Patrol",
@@ -119,6 +120,8 @@ export const APPROVAL_OPERATIONS: Record<string, string> = {
 };
 
 export const COORDINATOR_DIRECT_OPERATIONS = new Set([
+  // Read-only preview uses POST so academic CSV contents never enter a query URL.
+  "historicalAcademics.preview",
   "assignment.prepare",
   "assignment.cancel",
   "admin.sendTutorSetup",
