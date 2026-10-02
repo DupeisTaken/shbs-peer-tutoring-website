@@ -9,7 +9,7 @@ import { MembershipEditor } from "./membership-editor";
 import { AcademicPanel } from "./academic-profile";
 import { AccountUsernameEditor } from "./account-username-editor";
 import type { AccountMembership } from "~/lib/account-membership";
-import { useEffect, useRef, useState, type ComponentProps } from "react";
+import { useRef, useState, type ComponentProps } from "react";
 import { useDialogPending } from "./ui/modal";
 import { useTranslations } from "next-intl";
 import { ProfilePolicyError } from "~/app/_components/profile-policy";
@@ -42,7 +42,6 @@ export function AccountProfileEditor({
     <ProfileDialog title={t("editProfile")} onClose={onClose}>
       <AccountProfileForm
         profile={profile}
-        onClose={onClose}
         membership={membership}
         isHead={isHead}
       />
@@ -53,13 +52,14 @@ export function AccountProfileEditor({
 /** Run the form inside its dialog so both submission and completion see sibling writes. */
 function AccountProfileForm({
   profile,
-  onClose,
   membership,
   isHead,
-}: ComponentProps<typeof AccountProfileEditor>) {
+}: Omit<ComponentProps<typeof AccountProfileEditor>, "onClose">) {
   const t = useTranslations("accountProfile");
   const common = useTranslations("uiPatterns");
-  const [closeRequested, setCloseRequested] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [refreshFailed, setRefreshFailed] = useState(false);
+  const committed = useRef(false);
   const [reloading, setReloading] = useState(false);
   const [reloadError, setReloadError] = useState<string | null>(null);
   const reloadPending = useRef(false);
@@ -82,21 +82,24 @@ function AccountProfileForm({
       submitting.current = false;
     },
     onSuccess: async () => {
-      await Promise.all([
-        utils.admin.accounts.invalidate(),
-        utils.admin.tutors.invalidate(),
-        utils.admin.tutees.invalidate(),
-        utils.tuteeHistory.invalidate(),
-        utils.account.me.invalidate(),
-      ]);
-      setCloseRequested(true);
+      // A committed section cannot be submitted again, even if its refresh fails.
+      // Keep the editor mounted: settled sibling work may have failed and retained a draft.
+      committed.current = true;
+      setSaved(true);
+      try {
+        await Promise.all([
+          utils.admin.accounts.invalidate(),
+          utils.admin.tutors.invalidate(),
+          utils.admin.tutees.invalidate(),
+          utils.tuteeHistory.invalidate(),
+          utils.account.me.invalidate(),
+        ]);
+      } catch {
+        setRefreshFailed(true);
+      }
     },
   });
   const busy = useDialogPending(save.isPending);
-  // A successful profile save must not unmount an independently pending section.
-  useEffect(() => {
-    if (closeRequested && !busy) onClose();
-  }, [closeRequested, busy, onClose]);
   return (
     <>
       <form
@@ -107,7 +110,7 @@ function AccountProfileForm({
             busy ||
             submitting.current ||
             reloadPending.current ||
-            closeRequested
+            committed.current
           )
             return;
           submitting.current = true;
@@ -122,6 +125,8 @@ function AccountProfileForm({
         <ProfileEditSection
           title={t("name")}
           busy={save.isPending || reloading}
+          saved={saved}
+          refreshFailed={refreshFailed}
           actions={
             <Button
               type="submit"
@@ -149,7 +154,13 @@ function AccountProfileForm({
               type="button"
               className="btn-secondary min-h-11 lg:min-h-10"
               onClick={async () => {
-                if (busy || submitting.current || reloadPending.current) return;
+                if (
+                  busy ||
+                  submitting.current ||
+                  reloadPending.current ||
+                  committed.current
+                )
+                  return;
                 // A reload may replace this draft, so exclude concurrent saves without
                 // registering a cancellable GET as an owned dialog write.
                 reloadPending.current = true;
@@ -200,7 +211,6 @@ function AccountProfileForm({
           userId={profile.userId}
           username={profile.username}
           profileVersion={profile.profileVersion}
-          onSaved={() => setCloseRequested(true)}
         />
       )}
       {membership && (

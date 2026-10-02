@@ -9,6 +9,8 @@ import {
   within,
 } from "@testing-library/react";
 import { RecipeGallery } from "./recipes";
+import en from "../../../messages/en.json";
+import zh from "../../../messages/zh.json";
 
 beforeEach(() => {
   Object.defineProperties(HTMLDialogElement.prototype, {
@@ -30,6 +32,59 @@ afterEach(() => {
   cleanup();
   vi.useRealTimers();
 });
+
+it.each(["en", "zh"] as const)(
+  "keeps the %s failed draft beside a completed independent section",
+  (locale) => {
+    vi.useFakeTimers();
+    render(<RecipeGallery locale={locale} state="normal" />);
+    const english = locale === "en";
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: english ? "Open wide participant editor" : "打开宽版参与者编辑器",
+      }),
+    );
+    const dialog = screen.getByRole("dialog");
+    const draft = within(dialog).getByLabelText<HTMLInputElement>(
+      english ? "Draft note" : "草稿备注",
+    );
+    fireEvent.change(draft, { target: { value: "Keep the failed draft" } });
+    fireEvent.click(
+      within(dialog).getByRole("button", {
+        name: english ? "Simulate a failed save" : "模拟保存失败",
+      }),
+    );
+    act(() => {
+      vi.advanceTimersByTime(900);
+    });
+    const savedDraft = within(dialog).getByLabelText<HTMLInputElement>(
+      english ? "Independent profile draft" : "独立个人资料草稿",
+    );
+    fireEvent.change(savedDraft, { target: { value: "Committed section" } });
+    fireEvent.click(
+      within(dialog).getByRole("button", {
+        name: english ? "Save the other section" : "保存另一部分",
+      }),
+    );
+    expect(within(dialog).getByRole("alert")).toBeTruthy();
+    expect(
+      within(dialog).getByText((english ? en : zh).accountProfile.sectionSaved),
+    ).toBeTruthy();
+    expect(draft.value).toBe("Keep the failed draft");
+    expect(draft.matches(":disabled")).toBe(false);
+    expect(savedDraft.matches(":disabled")).toBe(true);
+    expect(dialog.getAttribute("aria-busy")).toBe("false");
+    expect(savedDraft.closest("fieldset")?.getAttribute("aria-busy")).toBe(
+      "false",
+    );
+    fireEvent.click(
+      within(dialog).getByRole("button", {
+        name: (english ? en : zh).accountProfile.close,
+      }),
+    );
+    expect(screen.queryByRole("dialog")).toBeNull();
+  },
+);
 
 it("keeps a nested wide editor draft through Escape and pending failure", () => {
   vi.useFakeTimers();

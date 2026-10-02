@@ -11,6 +11,7 @@ import { AcademicDetails } from "~/app/_components/academic-profile";
 import { ApprovalReviewDetails } from "~/app/_components/approval-review-details";
 import { PublicFormCard } from "~/app/_components/public-form-page";
 import { ProfileDialog } from "~/app/_components/profile-dialog";
+import { ProfileEditSection } from "~/app/_components/profile-edit-section";
 import { CurrentPolicyDialog } from "~/app/_components/current-policy-dialog";
 import { Button, ChoiceButton, Switch } from "~/app/_components/ui/button";
 import { Modal, useDialogPending } from "~/app/_components/ui/modal";
@@ -40,6 +41,9 @@ const en = {
     "This review is nested inside the participant editor. Closing it preserves the editor draft.",
   cancel: "Cancel review",
   failSave: "Simulate a failed save",
+  otherSection: "Independent profile section",
+  otherDraft: "Independent profile draft",
+  saveOther: "Save the other section",
   saving: "Saving example…",
   failed: "The example save failed. Your draft is retained.",
   participant: "Participant form",
@@ -118,6 +122,9 @@ const zh: Record<keyof typeof en, string> = {
   childHelp: "此审核嵌套在参与者编辑器中。关闭审核会保留编辑器草稿。",
   cancel: "取消审核",
   failSave: "模拟保存失败",
+  otherSection: "独立个人资料部分",
+  otherDraft: "独立个人资料草稿",
+  saveOther: "保存另一部分",
   saving: "正在保存示例…",
   failed: "示例保存失败，草稿已保留。",
   participant: "参与者表单",
@@ -224,6 +231,7 @@ function DialogDraft({ t }: { t: Copy }) {
   const [review, setReview] = useState(false);
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
+  const [otherSaved, setOtherSaved] = useState(false);
   const busy = useDialogPending(pending);
   // Demonstration only; cancelled on unmount and never connected to a mutation.
   useEffect(() => {
@@ -256,6 +264,22 @@ function DialogDraft({ t }: { t: Copy }) {
           {t.failed}
         </InlineNotice>
       )}
+      <ProfileEditSection
+        title={t.otherSection}
+        busy={false}
+        saved={otherSaved}
+        actions={
+          <Button
+            onClick={() => {
+              if (!busy && !otherSaved) setOtherSaved(true);
+            }}
+          >
+            {t.saveOther}
+          </Button>
+        }
+      >
+        <DraftNote label={t.otherDraft} />
+      </ProfileEditSection>
       {review && (
         <Modal
           title={t.child}

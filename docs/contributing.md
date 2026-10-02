@@ -53,6 +53,15 @@ For a recipe migration, link its feature issue and the corresponding running-pag
 and gallery screenshots in the local verification report. Record language, viewport,
 role and state for each capture; keep the images and report in ignored `outputs/`.
 
+In profile editors, completion of one section must not dismiss a failed independent
+draft. Profile and username saves therefore keep the editor open for deliberate
+Close, even when every operation succeeds. The saved section becomes read-only
+until reopening; other sections retain their own drafts and versions. The long
+dialog recipe demonstrates a failed draft alongside a saved section using
+`ProfileEditSection`. Completed state disables that section without registering
+pending work or blocking idle Close. Verify both completion orders, failed retry,
+all-success and a committed write whose synchronization fails on the actual pages.
+
 For a new reusable pattern, add an interactive example and behavior tests after implementation. Follow the [UI verification matrix](local-development.md#ui-verification-matrix), including English/Chinese, keyboard focus, all six accent palettes, long labels and narrow screens. Capture screenshots from the running application as well as the gallery; gallery fixtures cannot prove feature permissions or mutations. Check the [technical boundaries](technical-report.md#shared-ui-patterns) before migrating existing workflows.
 
 File new proposals using the [issue conventions](issues.md), with the affected workflow, expected behavior, validation and behavior to preserve. The remaining page migrations are tracked in [issue #219](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/219); the current gallery and pilot pages do not imply a complete site migration.
