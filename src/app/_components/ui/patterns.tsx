@@ -7,15 +7,22 @@ export function FormSection({
   children,
   actions,
   busy = false,
+  disabled = false,
 }: {
   title: string;
   description?: string;
   children: ReactNode;
   actions?: ReactNode;
   busy?: boolean;
+  /** A completed/read-only section is disabled without announcing ongoing work. */
+  disabled?: boolean;
 }) {
   return (
-    <fieldset disabled={busy} aria-busy={busy} className="min-w-0 space-y-4">
+    <fieldset
+      disabled={busy || disabled}
+      aria-busy={busy}
+      className="min-w-0 space-y-4"
+    >
       <legend className="section-title">{title}</legend>
       {description && <p className="muted">{description}</p>}
       {children}

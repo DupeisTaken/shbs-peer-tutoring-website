@@ -54,6 +54,36 @@ For a recipe migration, link its feature issue and the corresponding running-pag
 and gallery screenshots in the local verification report. Record language, viewport,
 role and state for each capture; keep the images and report in ignored `outputs/`.
 
+In profile editors, completion of one section must not dismiss a failed independent
+draft. Profile and username saves therefore keep the editor open for deliberate
+Close, even when every operation succeeds. The saved section becomes read-only
+until reopening; other sections retain their own drafts and versions. The long
+dialog recipe demonstrates a failed draft alongside a saved section using
+`ProfileEditSection`. Completed state disables that section without registering
+pending work or blocking idle Close. Verify both completion orders, failed retry,
+all-success and a committed write whose synchronization fails on the actual pages.
+
+Gate refreshes independently when testing save completion. A rejected read must not
+release dismissal or sibling submission while another refresh remains pending.
+Use `settleRefreshes` at each aggregate boundary, including nested groups, and
+present a refresh failure only after the remaining reads settle. Saved state must
+continue to prevent replay of the committed mutation.
+
+Also test two active query variants under the same procedure prefix using the
+installed QueryClient. Default invalidation can suppress GET errors; enabling
+`throwOnError` alone can reject before another matching query finishes. The save's
+refresh boundary must report actual read failures and own every matching read.
+Mocked invalidation promises alone cannot establish either behavior.
+Use `invalidateAndReport` inside `settleRefreshes` for these saved-section handlers:
+it retains ordinary all-read waiting, then reports newly recorded errors from the
+matching queries. `invalidateTuteeViews` exposes this behavior through its scoped
+`reportErrors` option; its other callers retain their existing error handling.
+
+For academic conflict Reload, verify academic and policy read failures separately,
+including cached error results and thrown reads. The original draft, version and
+school year must survive a failed read. Discard it only after both required reads
+succeed; keep the reload guard until both settle even when the first read fails.
+
 For a new reusable pattern, add an interactive example and behavior tests after implementation. Follow the [UI verification matrix](local-development.md#ui-verification-matrix), including English/Chinese, keyboard focus, all six accent palettes, long labels and narrow screens. Capture screenshots from the running application as well as the gallery; gallery fixtures cannot prove feature permissions or mutations. Check the [technical boundaries](technical-report.md#shared-ui-patterns) before migrating existing workflows.
 
 File new proposals using the [issue conventions](issues.md), with the affected workflow, expected behavior, validation and behavior to preserve. The remaining page migrations are tracked in [issue #219](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/219); the current gallery and pilot pages do not imply a complete site migration.

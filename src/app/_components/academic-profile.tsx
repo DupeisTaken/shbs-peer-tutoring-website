@@ -1,5 +1,4 @@
 "use client";
-import { useDialogPending } from "./ui/modal";
 
 import { useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
@@ -14,6 +13,7 @@ import {
   ProfilePolicyLoadError,
 } from "./profile-policy";
 import { academicInput, type AcademicSummary } from "~/lib/academics";
+import { useDialogBusy, useDialogPending } from "./ui/modal";
 
 /** Grade and graduation share one reference year; participation never determines academics. */
 export function AcademicDetails({
@@ -105,6 +105,8 @@ export function AcademicForm({
   onCancel: () => void;
 }) {
   const t = useTranslations("academics");
+  const dialogBusy = useDialogBusy();
+  const busy = pending || dialogBusy;
   const [status, setStatus] = useState(snapshot.academic.status);
   const [grade, setGrade] = useState(
     snapshot.academic.gradeLevel?.toString() ?? "",
@@ -140,10 +142,10 @@ export function AcademicForm({
       className="space-y-4"
       onSubmit={(event) => {
         event.preventDefault();
-        if (valid && !pending) onSave(draft);
+        if (valid && !busy) onSave(draft);
       }}
     >
-      <fieldset disabled={pending} className="space-y-4">
+      <fieldset disabled={busy} aria-busy={busy} className="space-y-4">
         <legend className="sr-only">{t("edit")}</legend>
         <label className="block">
           <span className="label">{t("status")}</span>
@@ -213,14 +215,17 @@ export function AcademicForm({
           <button
             type="submit"
             className="btn-primary min-h-11 lg:min-h-10"
-            disabled={!valid}
+            disabled={!valid || busy}
           >
             {t(pending ? "saving" : "confirm")}
           </button>
           <button
             type="button"
             className="btn-secondary min-h-11 lg:min-h-10"
-            onClick={onCancel}
+            disabled={busy}
+            onClick={() => {
+              if (!busy) onCancel();
+            }}
           >
             {t("cancel")}
           </button>
@@ -254,6 +259,8 @@ export function AcademicPanel({ userId }: { userId?: string }) {
   const history = userId ? staff.data?.history : selfHistory.data;
   const [snapshot, setSnapshot] = useState<AcademicSnapshot | null>(null);
   const [saved, setSaved] = useState(false);
+  const [reloading, setReloading] = useState(false);
+  const [reloadFailed, setReloadFailed] = useState(false);
   const refresh = async () => {
     // These records also appear in rosters, workspaces and server-rendered headers.
     await Promise.all([
@@ -279,12 +286,15 @@ export function AcademicPanel({ userId }: { userId?: string }) {
     onSuccess: refresh,
   });
   const mutation = userId ? staffSave : ownSave;
-  // Independent academic writes protect the enclosing profile draft and dismissal.
-  const busy = useDialogPending(mutation.isPending);
+  // The panel outlives its editable snapshot, so registration covers the whole
+  // write and awaited refresh. Never register the inherited dialog busy state.
+  const pending = useDialogPending(mutation.isPending || reloading);
   const query = userId ? staff : self;
   const beginEdit = () => {
-    if (!busy && data && policy.data) {
+    if (pending) return;
+    if (data && policy.data) {
       mutation.reset();
+      setReloadFailed(false);
       setSaved(false);
       setSnapshot({
         academic: data.academic,
@@ -305,7 +315,7 @@ export function AcademicPanel({ userId }: { userId?: string }) {
           <button
             type="button"
             className="btn-secondary min-h-11 lg:min-h-10"
-            disabled={busy || !policy.data}
+            disabled={!policy.data || pending}
             onClick={beginEdit}
           >
             {t(data.academic.needsConfirmation ? "review" : "edit")}
@@ -329,7 +339,7 @@ export function AcademicPanel({ userId }: { userId?: string }) {
       {snapshot ? (
         <AcademicForm
           snapshot={snapshot}
-          pending={busy}
+          pending={mutation.isPending}
           error={
             mutation.error?.data?.approvalId
               ? undefined
@@ -338,14 +348,16 @@ export function AcademicPanel({ userId }: { userId?: string }) {
                 ? t("conflict")
                 : mutation.error?.message
           }
-          onSave={(draft) =>
-            userId
-              ? staffSave.mutate({ ...draft, userId })
-              : ownSave.mutate(draft)
-          }
+          onSave={(draft) => {
+            if (pending) return;
+            if (userId) staffSave.mutate({ ...draft, userId });
+            else ownSave.mutate(draft);
+          }}
           onCancel={() => {
+            if (pending) return;
             setSnapshot(null);
             mutation.reset();
+            setReloadFailed(false);
           }}
         />
       ) : (
@@ -355,21 +367,46 @@ export function AcademicPanel({ userId }: { userId?: string }) {
         <button
           type="button"
           className="btn-secondary min-h-11 lg:min-h-10"
-          disabled={busy}
+          disabled={pending}
           onClick={async () => {
+            if (pending) return;
             // Reload is explicit because it discards the conflicting academic draft only.
-            const [result] = await Promise.all([
-              query.refetch(),
-              policy.refetch(),
-            ]);
-            if (result.data) {
-              setSnapshot(null);
-              mutation.reset();
+            setReloading(true);
+            setReloadFailed(false);
+            try {
+              // Failed refetches can retain cached data. Both reads must report
+              // success before discarding the draft; wait for both even if one throws.
+              const [academicRead, policyRead] = await Promise.allSettled([
+                (async () => query.refetch())(),
+                (async () => policy.refetch())(),
+              ]);
+              if (
+                academicRead.status === "fulfilled" &&
+                policyRead.status === "fulfilled" &&
+                academicRead.value.isSuccess &&
+                policyRead.value.isSuccess &&
+                academicRead.value.data &&
+                policyRead.value.data
+              ) {
+                setSnapshot(null);
+                mutation.reset();
+              } else {
+                setReloadFailed(true);
+              }
+            } catch {
+              setReloadFailed(true);
+            } finally {
+              setReloading(false);
             }
           }}
         >
           {t("reload")}
         </button>
+      )}
+      {snapshot && reloadFailed && (
+        <p role="alert" className="text-sm text-red-700">
+          {t("reloadFailed")}
+        </p>
       )}
       {saved && (
         <p role="status" className="text-sm text-green-700">
