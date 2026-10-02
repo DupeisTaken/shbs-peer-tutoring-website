@@ -9,6 +9,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
+import { QueryClient } from "@tanstack/react-query";
 import en from "../../../../../messages/en.json";
 import zh from "../../../../../messages/zh.json";
 import CardsPage from "./page";
@@ -222,6 +223,64 @@ it("keeps the review version until an explicit successful reload", async () => {
   expect(state.mutate).toHaveBeenLastCalledWith(
     expect.objectContaining({ expectedUpdatedAt: state.version }),
   );
+});
+
+it("reloads the server version while the normal query cache is still fresh", async () => {
+  const client = new QueryClient({
+    defaultOptions: { queries: { staleTime: 30_000, retry: false } },
+  });
+  const queryKey = ["disciplinaryCards"];
+  const latestVersion = new Date("2026-09-02");
+  client.setQueryData(queryKey, [
+    { id: "card", updatedAt: state.version, reviewNote: "Cached note" },
+  ]);
+  const queryFn = vi.fn(async () => [
+    { id: "card", updatedAt: latestVersion, reviewNote: "Server note" },
+  ]);
+  queryFn.mockRejectedValueOnce(new Error("Fresh read failed"));
+  state.fetch.mockImplementation((_input, options: { staleTime?: number }) =>
+    client.fetchQuery({ queryKey, queryFn, ...options }),
+  );
+  state.error = { message: "Conflict", data: { code: "CONFLICT" } };
+  try {
+    render(page());
+    fireEvent.click(screen.getByRole("button", { name: /^Edit:/ }));
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "Retained draft" },
+    });
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole("button", { name: en.academics.reload }),
+      );
+    });
+    expect(queryFn).toHaveBeenCalledOnce();
+    expect(screen.getByText("Fresh read failed")).toBeTruthy();
+    expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe(
+      "Retained draft",
+    );
+    expect(state.reset).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Valid" }));
+    expect(state.mutate).toHaveBeenLastCalledWith(
+      expect.objectContaining({ expectedUpdatedAt: state.version }),
+    );
+    state.options.onSettled();
+    await act(async () => {
+      fireEvent.click(
+        screen.getByRole("button", { name: en.academics.reload }),
+      );
+    });
+    expect(queryFn).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe(
+      "Server note",
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Valid" }));
+    expect(state.mutate).toHaveBeenLastCalledWith(
+      expect.objectContaining({ expectedUpdatedAt: latestVersion }),
+    );
+  } finally {
+    client.clear();
+    state.fetch.mockReset();
+  }
 });
 
 it("keeps Viewer details read only", () => {
