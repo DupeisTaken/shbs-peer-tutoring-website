@@ -125,7 +125,14 @@ function TuteeProfileForm({
           className="mt-3 max-w-3xl"
           onSubmit={(e) => {
             e.preventDefault();
-            if (busy || submitting.current || committed.current) return;
+            if (
+              busy ||
+              submitting.current ||
+              committed.current ||
+              subjects.isLoading ||
+              slots.isLoading
+            )
+              return;
             const data = new FormData(e.currentTarget);
             const value = (key: string) =>
               (typeof data.get(key) === "string"

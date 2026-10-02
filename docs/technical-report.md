@@ -204,6 +204,8 @@ The original survey submission determines queue priority. Confirmation creates o
 
 [Historical linking and invitations](historical-participant-transition.md) add retained ownership after staff review or an explicit claim by the invited verified account. They preserve original enrollment academics, current membership and recorded attendance. Accountless tutees remain roster records; personal `/history` reads require ownership, while general observer access never grants private history. See the guide's [technical map](historical-participant-transition.md#technical-map) for endpoints and shared cache invalidation.
 
+History-only account setup reuses the exact-record invitation and shared email-claim registry. A separate HMAC email code and purpose-bound completion proof precede credential creation; invitation expiry/cancellation, record freshness and issuer authority are checked inside the identity transaction at every step. A neutral STUDENT rank with no participation links/memberships does not grant observer or current tutoring access. The receipt supports a lost-response retry without overwriting credentials. The explicit signed-in claim still establishes ownership separately. Personal tutor history reads only existing account-linked identities and Head-combination ownership, without invoking participation, profile synchronization or hour recalculation.
+
 Deadline timestamps live in PostgreSQL. The Node worker checks at startup and every minute; workflow entry points also enforce expiry. Database locks serialize transitions across instances, and downtime never extends a deadline. Keep the SQL constraints and triggers in the migration chain; `db push` alone does not reproduce them.
 
 ### Membership changes

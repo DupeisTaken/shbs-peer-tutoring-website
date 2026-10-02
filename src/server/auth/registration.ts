@@ -80,7 +80,7 @@ export function hashCode(code: string): string {
  * The exact challenge hash and verification timestamp invalidate grants on resend/reverification.
  * Expiry and single use are enforced by the account-write transaction, not by browser state. */
 export function registrationCompletionProof(
-  purpose: "viewer" | "invitation",
+  purpose: "viewer" | "invitation" | "history",
   id: string,
   codeHash: string,
   verifiedAt: Date,

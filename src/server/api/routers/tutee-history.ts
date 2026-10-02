@@ -5,9 +5,23 @@ import {
   adminProcedure,
   adminOnlyProcedure,
   protectedProcedure,
+  publicProcedure,
 } from "../trpc";
 import { ownedStudentIds } from "~/server/student-ownership";
 import { rateLimit } from "~/server/rate-limit";
+import {
+  ownedTutorHistory,
+  personalTutorHistory,
+} from "~/server/personal-tutor-history";
+import { normalizeRegCode } from "~/server/auth/code";
+import { withSignupAdmission } from "~/server/signup-admission";
+import {
+  startHistoryAccount,
+  verifyHistoryAccount,
+  completeHistoryAccount,
+  historyInvitationStatus,
+  cancelHistoryInvitation,
+} from "~/server/history-account-setup";
 import {
   historyPairInput,
   historyLinkInput,
@@ -25,6 +39,14 @@ const detailInput = z.object({
   page: z.number().int().min(0).max(10000).default(0),
 });
 const tokenInput = z.object({ token: z.string().regex(/^[a-f0-9]{64}$/) });
+const setupInput = tokenInput.extend({
+  email: z
+    .string()
+    .trim()
+    .email()
+    .max(254)
+    .transform((v) => v.toLowerCase()),
+});
 function limit(actorId: string) {
   if (
     !rateLimit(`history-link:${actorId}`, { max: 20, windowMs: 15 * 60000 }).ok
@@ -38,6 +60,78 @@ function limit(actorId: string) {
 /** Historical ownership is independent of current tutee membership. Every personal read
  * is scoped again on the server; knowing another record ID never grants access. */
 export const tuteeHistoryRouter = createTRPCRouter({
+  myTutorRecords: protectedProcedure.query(({ ctx }) =>
+    ownedTutorHistory(ctx.db, ctx.session.user.id),
+  ),
+  myTutorDetails: protectedProcedure
+    .input(
+      z.object({
+        tutorId: z.string().min(1).max(128),
+        page: z.number().int().min(0).max(10000).default(0),
+      }),
+    )
+    .query(({ ctx, input }) =>
+      personalTutorHistory(
+        ctx.db,
+        ctx.session.user.id,
+        input.tutorId,
+        input.page,
+      ),
+    ),
+  // Possession of an exact staff invitation replaces open signup admission; delivery/CPU
+  // budgets still apply. Signed-in people use their existing account and claim explicitly.
+  startAccount: publicProcedure.input(setupInput).mutation(({ ctx, input }) => {
+    if (ctx.session?.user)
+      throw new TRPCError({ code: "CONFLICT", message: "HISTORY_EMAIL_TAKEN" });
+    return withSignupAdmission(ctx.db, ctx.headers, "mail", input.email, () =>
+      startHistoryAccount(ctx.db, input),
+    );
+  }),
+  verifyAccount: publicProcedure
+    .input(
+      setupInput.extend({
+        code: z.string().max(30).transform(normalizeRegCode),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      withSignupAdmission(ctx.db, ctx.headers, "complete", input.email, () =>
+        verifyHistoryAccount(ctx.db, input),
+      ),
+    ),
+  completeAccount: publicProcedure
+    .input(
+      setupInput.extend({
+        completionProof: z.string().regex(/^[a-f0-9]{64}$/),
+        password: z.string().min(8).max(200),
+      }),
+    )
+    .mutation(({ ctx, input }) => {
+      if (ctx.session?.user)
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "HISTORY_EMAIL_TAKEN",
+        });
+      return withSignupAdmission(
+        ctx.db,
+        ctx.headers,
+        "complete",
+        input.email,
+        () => completeHistoryAccount(ctx.db, input),
+      );
+    }),
+  invitationStatus: adminOnlyProcedure
+    .input(z.object({ tuteeId: z.string().min(1).max(128) }))
+    .query(({ ctx, input }) => historyInvitationStatus(ctx.db, input.tuteeId)),
+  cancelInvitation: adminOnlyProcedure
+    .input(
+      z.object({
+        tuteeId: z.string().min(1).max(128),
+        revision: z.string().length(64),
+      }),
+    )
+    .mutation(({ ctx, input }) =>
+      cancelHistoryInvitation(ctx.db, ctx.session.user.id, input),
+    ),
   permissions: protectedProcedure.query(({ ctx }) => ({
     canLink: ["HEAD", "ADMIN"].includes(ctx.session.role),
     isHead: ctx.session.role === "HEAD",

@@ -76,7 +76,9 @@ export default function PatrolPage() {
         utils.crew.myPatrols.invalidate(),
       ]);
     },
-    onSettled: () => { submissionInFlight.current = false; },
+    onSettled: () => {
+      submissionInFlight.current = false;
+    },
   });
 
   const pick = (roomId: string, headcount: Headcount) => {
@@ -155,7 +157,11 @@ export default function PatrolPage() {
                 {t("crew.patrol.reentry.request")}
               </button>
             )}
-            {reentry.error && <p role="alert" className="mt-2 text-sm text-red-700"><AcademicError message={reentry.error.message} selfService /></p>}
+            {reentry.error && (
+              <p role="alert" className="mt-2 text-sm text-red-700">
+                <AcademicError message={reentry.error.message} selfService />
+              </p>
+            )}
           </div>
         </section>
       )}
@@ -215,7 +221,8 @@ export default function PatrolPage() {
               value={note}
               disabled={submit.isPending}
               onChange={(e) => {
-                if (!submissionInFlight.current && !submit.isPending) setNote(e.target.value);
+                if (!submissionInFlight.current && !submit.isPending)
+                  setNote(e.target.value);
               }}
               placeholder={t("crew.patrol.notePlaceholder")}
               rows={2}
@@ -233,7 +240,11 @@ export default function PatrolPage() {
               </button>
               {submit.isSuccess && (
                 <span role="status" className="text-sm text-green-700">
-                  {t(submit.data?.hours === 0 ? "crew.patrol.recordedWithoutCredit" : "crew.patrol.submitted")}
+                  {t(
+                    submit.data?.hours === 0
+                      ? "crew.patrol.recordedWithoutCredit"
+                      : "crew.patrol.submitted",
+                  )}
                 </span>
               )}
               {submit.error && (

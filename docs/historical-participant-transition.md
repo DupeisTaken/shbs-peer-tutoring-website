@@ -31,18 +31,27 @@ A Head must resolve an existing retained-owner conflict and confirm their passwo
 
 Concurrent profile/record changes invalidate the preview. Refresh and review again. Each successful link records the actor, target, previous owner and staff evidence in the audit log.
 
-## Invite someone who will join later
+## Invite an alumnus without a login
 
-After checking identity, an Admin or Head can send an invitation from the specific accountless historical row. The participant must sign in to an eligible account with that primary or secondary email verified, review the record and explicitly confirm ownership. New participants complete the existing signup/verification flow and reopen the invitation email.
+After checking identity, an Admin or Head sends an invitation from the specific accountless historical tutee row. Record the reviewed identity evidence and use an email address the person can still access. The invited person can either sign in to an eligible account with that primary or secondary email verified, or choose **Create history-only account** on the invitation page.
 
-- The invitation creates no login or enrollment.
+For a new login, enter the invited email, verify the separately emailed code and set a password of at least eight characters. The reviewed archive label supplies the account name without guessing legal-name parts. No current grade, participation policy or tutoring application is required. Sign in and explicitly choose **Link My History** after reviewing the named record. Creating credentials and claiming ownership are separate steps; neither grants current tutee/tutor membership, crew, management, translation or general observer access.
+
+- Sending or opening the invitation creates no login or enrollment. Only successful email verification and password submission create credentials.
 - Tokens expire in seven days, are stored only as hashes, and cannot be exported with Program Records.
 - Opening/scanning the URL does not claim anything. Only the explicit confirmation writes ownership.
-- A completed link consumes the invitation. Expiry, record edits, or suspension/demotion of its issuing manager invalidate it.
+- A completed link consumes the invitation. Expiry, record edits, or suspension/demotion of its issuing manager invalidate every setup/claim step. Staff can inspect the recipient and expiry and choose **Cancel invitation** in the same editor. Cancellation does not delete an already created account or revoke completed ownership.
+- The profile and historical-link sections share a pending guard: while either section is saving or reviewing a link, both sections pause edits and submissions through refresh. Close and repeated Escape requests remain blocked during that work. Failed requests leave the editor open with both drafts intact so staff can correct or retry the action.
+- A successful profile save keeps the editor open and makes that saved section read-only until reopening. Other sections retain their drafts and errors, including when an already-started academic or history operation fails before or after the profile save. Use **Close** when all requests have settled; completion never dismisses another section's failed draft. If the write succeeds but refreshing its views fails, the saved section still cannot submit twice, and the editor explains that reopening will load the latest records.
+- For a linked account, the current academic form joins the same guard. Its save and refresh pause profile/history actions, and their work pauses academic submission. Failed requests preserve the independent academic draft and its original version; the retained enrollment's original grade is still separate from current account academics.
+- After an academic conflict, **Discard Draft and Reload** discards the draft only when both academic details and current name/grade settings reload successfully. A failed read keeps the grade, reason, original version and conflict visible, with an error and the same reload action available for another attempt.
+- Email codes last 15 minutes and allow six incorrect attempts. Wait at least one minute before resending; a new code replaces the previous code and completion proof. Repeating successful account creation returns the existing completion receipt without resetting its password.
 - A failed replacement email leaves the existing invitation intact. If delivery succeeds but the transaction fails, staff must send a new invitation.
 - The sender's configured AUTH_URL and security email delivery must be available. No production email is used in local verification.
 
-Invitations are for people joining or already holding a verified account. This does not create a separate alumni registration flow.
+If the school email is unavailable, use the verified program support contact shown on the invitation page (or contact the school team when no email is configured). Staff must review identity evidence and the exact record, cancel the old invitation, and send a replacement to an accessible address. Email changes, matching names and knowledge of a record ID never establish ownership. Existing primary/secondary email owners use **Recover existing account**, not another registration; genuine duplicate logins and conflicting ownership remain Head-only decisions.
+
+**My Tutoring History** also shows retained tutor sessions, stored hours, meeting attendance and hour amendments for tutor identities already linked to the account, including supported Head-reviewed account combinations. Revoked tutor capability or observer access does not hide this personal evidence. Missing tutor identity links require staff review through the existing ownership/account tools; this first account-creation route starts from an exact historical tutee invitation and does not introduce self-service tutor matching or change the Head-only account-combination blockers. Staff can keep all unclaimed tutor/tutee archives without creating any login.
 
 ## Website action coverage
 
@@ -56,17 +65,20 @@ All supported operational actions below have website controls; staff do not need
 | Correct an accountless participant profile | Tutee row → Edit profile | Individual correction; school-year confirmation history and bulk corrections remain #195. |
 | Link an existing verified account | Historical row → Edit Profile → Link Historical Records → search → Review Link → Confirm Link | Admin/Head, identity evidence and acknowledgement required. |
 | Correct retained ownership | Same link section → Head password → Confirm Link | Current login ownership conflicts require Head review through Combine accounts and its conflict checks. |
-| Invite a later participant | Historical row → Edit Profile → Link Historical Records → invited email → Send Invitation | Record must be accountless; email configuration is required in production. |
-| Accept an invitation | Email link → Sign In → review → Link My History | Sign-in returns to the same claim. Signup requires reopening the email after verification. |
-| Read personal historical attendance | Account menu → My Tutoring History → View History | Does not reactivate participation or restore revoked observer access. |
+| Invite an alumnus | Historical row → Edit Profile → Link Historical Records → invited email → Send Invitation | Exact accountless record and reviewed identity evidence; security email must be available. |
+| Create history-only credentials | Email link → Create history-only account → verify email code → set password | No membership, current academics or participation consent is created. |
+| Cancel or replace an invitation | Same staff link section → Cancel invitation / Send Invitation | Cancellation/expiry invalidates outstanding setup and claim; completed ownership remains. |
+| Accept an invitation | Email link → Sign In → review → Link My History | Sign-in returns to the exact claim. Existing primary or verified secondary email must match. |
+| Recover access | Invitation page → Recover existing account, or verified program support | Staff reviews a lost-email replacement; Head handles conflicts and genuine duplicate logins. |
+| Read personal historical attendance | My Tutoring History → View History | Includes explicitly owned tutor evidence; does not reactivate participation or restore revoked observer access. |
 | Refresh roster after edits | Automatic invalidation or Tutees → Refresh | Other sessions can explicitly refresh; no polling is added. |
 | Reveal hidden Users & Roles entries | Show historical records / Show unverified accounts | Filters retain records and do not change access. |
 
-**Unimplemented boundary:** a history invitation is not an account-creation invitation. The existing public tutee signup requests current tutoring. A departed person without a login who only wants past records cannot self-create a history-only account in this change; contact the program team. Their archive remains available to staff without creating a dummy login. Do not use tutor/crew/management registration codes merely to grant historical access.
+Current participation remains a separate, explicit application and consent workflow. Do not use tutor/crew/management registration codes merely to grant historical access.
 
 ## Boundaries and deployment
 
-Apply the additive `20260929150000_tutee_history_invitations` migration before deploying. It adds an invitation table; it does not migrate participant identities or remove accounts. Normal backups and migration procedures still apply.
+Apply the complete migration chain, including `20261002080000_history_account_setup`, before deploying. The new nullable setup challenge and receipt columns preserve outstanding invitations, participant identities and every archive row. Normal backups and migration procedures still apply.
 
 Transfer is not inferred from ARCHIVED status, nor graduation from inactivity. Follow the implemented [school departure and viewer-access workflow](program-reference.md#school-departure-and-viewer-access) for those decisions. Bulk on-screen and CSV academic correction tools remain supporting follow-up work in #195; the additive archive importer still rejects changed existing IDs instead of silently overwriting history.
 
@@ -80,6 +92,8 @@ New interface copy is provided in English and Chinese; the other bundled languag
 | --- | --- |
 | Current/history predicate | `src/lib/tutee-history.ts` |
 | Retained ownership and invitations | `src/server/tutee-history.ts` |
+| Email-verified history credentials and cancellation | `src/server/history-account-setup.ts` |
+| Owned tutor evidence without participation | `src/server/personal-tutor-history.ts` |
 | Staff and owner-scoped endpoints | `src/server/api/routers/tutee-history.ts` |
 | Roster and linking dialogs | `src/app/_components/tutee-history.tsx` |
 | Personal history and explicit claim | `src/app/history/` |

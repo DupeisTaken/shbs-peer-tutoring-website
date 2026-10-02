@@ -10,6 +10,8 @@ import {
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
+import zh from "../../../messages/zh.json";
+import { academicSummary } from "~/lib/academics";
 import type { RouterOutputs } from "~/trpc/react";
 import { TuteeHistoryDialog, TuteeHistoryLinkForm } from "./tutee-history";
 import { Modal } from "./ui/modal";
@@ -19,6 +21,13 @@ const mock = vi.hoisted(() => ({
   link: vi.fn(),
   invite: vi.fn(),
   claim: vi.fn(),
+  cancel: vi.fn(),
+  details: null as RouterOutputs["tuteeHistory"]["myDetails"] | null,
+  invitation: null as null | {
+    email: string;
+    expiresAt: Date;
+    revision: string;
+  },
   success: undefined as undefined | (() => Promise<void>),
   invalidate: vi.fn(async () => undefined),
   pending: false,
@@ -55,6 +64,10 @@ vi.mock("~/trpc/react", () => ({
         useQuery: (input: unknown, options: unknown) =>
           mock.ownDetails(input, options),
       },
+      invitationStatus: {
+        useQuery: () => ({ data: mock.invitation, refetch: mock.invalidate }),
+      },
+      cancelInvitation: { useMutation: () => ({ mutate: mock.cancel }) },
       candidates: {
         useQuery: () => ({
           data: [
@@ -126,8 +139,14 @@ beforeEach(() => {
       ],
     },
   };
-  mock.staffDetails.mockReturnValue(details);
-  mock.ownDetails.mockReturnValue(details);
+  mock.details = null;
+  mock.staffDetails.mockImplementation(() =>
+    mock.details ? { data: mock.details } : details,
+  );
+  mock.ownDetails.mockImplementation(() =>
+    mock.details ? { data: mock.details } : details,
+  );
+  mock.invitation = null;
   mock.preview.mockResolvedValue({
     fingerprint: "a".repeat(64),
     record: { name: "Alex Historical", sessions: 6 },
@@ -135,6 +154,31 @@ beforeEach(() => {
     conflict: false,
     currentConflict: false,
   });
+});
+
+it("shows invitation delivery metadata and cancels the exact displayed grant without losing the identity draft", () => {
+  mock.invitation = {
+    email: "alumni@example.test",
+    expiresAt: new Date("2026-10-09T00:00:00Z"),
+    revision: "b".repeat(64),
+  };
+  mount();
+  const evidence = screen.getByRole<HTMLTextAreaElement>("textbox", {
+    name: en.tuteeHistory.evidence,
+  });
+  fireEvent.change(evidence, {
+    target: { value: "Reviewed identity evidence stays in this draft" },
+  });
+  expect(screen.getByText(/alumni@example.test/)).toBeTruthy();
+  fireEvent.click(
+    screen.getByRole("button", { name: en.tuteeHistory.cancelInvitation }),
+  );
+  expect(mock.cancel).toHaveBeenCalledWith({
+    tuteeId: "record",
+    revision: "b".repeat(64),
+  });
+  expect(evidence.value).toBe("Reviewed identity evidence stays in this draft");
+  expect(mock.invite).not.toHaveBeenCalled();
 });
 afterEach(cleanup);
 
@@ -220,6 +264,51 @@ it("registers historical writes with the parent dialog and locks the whole histo
     "Verified archive evidence",
   );
 });
+it.each(["en", "zh"])(
+  "does not imply current-grade confirmation is required for personal history (%s)",
+  (locale) => {
+    const messages = locale === "zh" ? zh : en;
+    mock.details = {
+      record: {
+        id: "past",
+        name: "Alex",
+        gradeLevel: "9",
+        academicallyGraduated: false,
+        updatedAt: new Date(),
+        alternativeNames: null,
+      },
+      owner: {
+        id: "owner",
+        name: "Alex",
+        username: null,
+        emailVerified: true,
+        academic: academicSummary(null),
+      },
+      term: null,
+      count: 0,
+      sessions: [],
+      page: 0,
+    };
+    const content = (personal: boolean) => (
+      <NextIntlClientProvider locale={locale} messages={messages}>
+        <TuteeHistoryDialog
+          tuteeId="past"
+          personal={personal}
+          onClose={vi.fn()}
+        />
+      </NextIntlClientProvider>
+    );
+    const view = render(content(true));
+    expect(
+      screen.getByText(messages.tuteeHistory.currentAcademicsOptional),
+    ).toBeTruthy();
+    expect(screen.queryByText(messages.academics.needsConfirmation)).toBeNull();
+    // Staff still sees the unresolved profile; the personal-view copy changes no evidence.
+    view.rerender(content(false));
+    expect(screen.getByText(messages.academics.needsConfirmation)).toBeTruthy();
+    expect(mock.details.owner?.academic.needsConfirmation).toBe(true);
+  },
+);
 async function review() {
   fireEvent.change(screen.getByRole("combobox"), {
     target: { value: "account" },

@@ -21,6 +21,12 @@ vi.mock("next-intl/server", () => ({
 vi.mock("./personal-history", () => ({
   PersonalTuteeHistory: () => <div>Historical enrollments</div>,
 }));
+vi.mock("./personal-tutor-history", () => ({
+  PersonalTutorHistory: () => <div>Retained tutor history</div>,
+}));
+vi.mock("~/app/_components/sign-out-button", () => ({
+  SignOutButton: () => <button>Sign out</button>,
+}));
 vi.mock("~/app/_components/language-switcher", () => ({
   LanguageSwitcher: ({ compactAtDesktop }: { compactAtDesktop: boolean }) => (
     <select aria-label="Language" data-compact-desktop={compactAtDesktop}>
@@ -40,6 +46,13 @@ it("offers the shared language and home navigation beside retained personal hist
     screen.getByRole("heading", { name: en.tuteeHistory.myHistory }),
   ).toBeTruthy();
   expect(screen.getByText("Historical enrollments")).toBeTruthy();
+  expect(screen.getByText("Retained tutor history")).toBeTruthy();
+  expect(
+    screen
+      .getByRole("link", { name: en.tuteeHistory.settings })
+      .getAttribute("href"),
+  ).toBe("/my-account");
+  expect(screen.getByRole("button", { name: "Sign out" })).toBeTruthy();
   expect(
     screen
       .getByRole("link", { name: en.tuteeHistory.back })

@@ -96,7 +96,7 @@ function mount(tutor: boolean, linked: boolean) {
 it.each([true, false])(
   "preserves an unchanged historical roster grade and offers only current choices (tutor=%s)",
   (tutor) => {
-    mount(tutor, false);
+    const firstEditor = mount(tutor, false);
     const grade = screen.getByLabelText<HTMLSelectElement>(
       en.academics.legacyGrade,
     );
@@ -108,9 +108,12 @@ it.each([true, false])(
     expect(mock.mutate).toHaveBeenLastCalledWith(
       expect.objectContaining({ gradeLevel: tutor ? 2 : "IB year 1" }),
     );
-    // Finish the first request before deliberately submitting the next correction.
-    mock.settled();
-    fireEvent.change(grade, { target: { value: "12" } });
+    // These are independent profile edits; a submitted draft cannot be replayed.
+    firstEditor.unmount();
+    mount(tutor, false);
+    fireEvent.change(screen.getByLabelText(en.academics.legacyGrade), {
+      target: { value: "12" },
+    });
     fireEvent.submit(document.querySelector("form")!);
     expect(mock.mutate).toHaveBeenLastCalledWith(
       expect.objectContaining({ gradeLevel: tutor ? 12 : "12" }),
