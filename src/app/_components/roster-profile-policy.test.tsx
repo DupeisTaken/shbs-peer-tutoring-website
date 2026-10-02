@@ -1,13 +1,21 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { NextIntlClientProvider } from "next-intl";
 import type { ComponentProps } from "react";
 import en from "../../../messages/en.json";
 import { TutorProfileEditor } from "./tutor-profile-editor";
 import { TuteeEditor } from "./tutee-editor";
 const mock = vi.hoisted(() => ({
-  mutate: vi.fn(),
+  mutate: vi.fn<(input: unknown) => Promise<unknown>>(),
   error: undefined as undefined | { message: string },
 }));
 vi.mock("./tutee-history", () => ({
@@ -25,37 +33,77 @@ vi.mock("~/app/_components/profile-dialog", () => ({
     <div>{children}</div>
   ),
 }));
-vi.mock("~/trpc/react", () => ({
-  api: {
-    useUtils: () => ({}),
-    program: {
-      profilePolicy: {
-        useQuery: () => ({
-          data: {
-            requireLatinNames: true,
-            offeredGrades: [9, 12],
-            currentSchoolYear: "26-27",
-          },
-        }),
+vi.mock("~/trpc/react", async () => {
+  const { useMutation } = await import("@tanstack/react-query");
+  // Replace transport only: React Query must settle failures before another save.
+  const useRosterMutation = (options: {
+    onSuccess: () => Promise<void>;
+    onSettled: () => void;
+  }) => {
+    const mutation = useMutation({
+      mutationFn: (input: unknown) => mock.mutate(input),
+      retry: false,
+      ...options,
+    });
+    return { ...mutation, error: mutation.error ?? mock.error };
+  };
+  const invalidation = { invalidate: () => Promise.resolve() };
+  return {
+    api: {
+      useUtils: () => ({
+        admin: {
+          tutors: invalidation,
+          tutees: invalidation,
+          tuteeStats: invalidation,
+          pairings: invalidation,
+          accounts: invalidation,
+        },
+        tuteeHistory: invalidation,
+      }),
+      program: {
+        profilePolicy: {
+          useQuery: () => ({
+            data: {
+              requireLatinNames: true,
+              offeredGrades: [9, 12],
+              currentSchoolYear: "26-27",
+            },
+          }),
+        },
+      },
+      admin: {
+        subjects: { useQuery: () => ({ data: [] }) },
+        timeSlots: { useQuery: () => ({ data: [] }) },
+        updateTutor: {
+          useMutation: useRosterMutation,
+        },
+        updateTutee: {
+          useMutation: useRosterMutation,
+        },
       },
     },
-    admin: {
-      subjects: { useQuery: () => ({ data: [] }) },
-      timeSlots: { useQuery: () => ({ data: [] }) },
-      updateTutor: {
-        useMutation: () => ({ mutate: mock.mutate, error: mock.error }),
-      },
-      updateTutee: {
-        useMutation: () => ({ mutate: mock.mutate, error: mock.error }),
-      },
-    },
-  },
-}));
-afterEach(cleanup);
+  };
+});
+const clients = new Set<QueryClient>();
+afterEach(() => {
+  cleanup();
+  for (const client of clients) client.clear();
+  clients.clear();
+});
 beforeEach(() => {
-  mock.mutate.mockReset();
+  mock.mutate
+    .mockReset()
+    .mockImplementation(() => new Promise(() => undefined));
   mock.error = undefined;
 });
+function renderEditor(children: React.ReactNode) {
+  const client = new QueryClient();
+  clients.add(client);
+  const view = render(
+    <QueryClientProvider client={client}>{children}</QueryClientProvider>,
+  );
+  return { ...view, client };
+}
 function mount(tutor: boolean, linked: boolean) {
   const row = {
     id: "roster",
@@ -68,7 +116,7 @@ function mount(tutor: boolean, linked: boolean) {
     email: "person@example.test",
     availabilities: [],
   };
-  return render(
+  return renderEditor(
     <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
       {tutor ? (
         <TutorProfileEditor
@@ -87,9 +135,17 @@ function mount(tutor: boolean, linked: boolean) {
   );
 }
 it.each([true, false])(
-  "preserves an unchanged historical roster grade and offers only current choices (tutor=%s)",
-  (tutor) => {
-    mount(tutor, false);
+  "preserves a legacy grade and permits an offered correction after a failed save (tutor=%s)",
+  async (tutor) => {
+    let reject!: (error: Error) => void;
+    mock.mutate
+      .mockReturnValueOnce(
+        new Promise((_, fail) => {
+          reject = fail;
+        }),
+      )
+      .mockResolvedValueOnce(undefined);
+    const { client } = mount(tutor, false);
     const grade = screen.getByLabelText<HTMLSelectElement>(
       en.academics.legacyGrade,
     );
@@ -97,25 +153,65 @@ it.each([true, false])(
     expect(screen.queryByRole("option", { name: "Grade 10" })).toBeNull();
     expect(screen.getByRole("option", { name: "Grade 9" })).toBeTruthy();
     expect(screen.getByText(en.profilePolicy.nameHint)).toBeTruthy();
-    fireEvent.submit(document.querySelector("form")!);
-    expect(mock.mutate).toHaveBeenLastCalledWith(
-      expect.objectContaining({ gradeLevel: tutor ? 2 : "IB year 1" }),
+    const form = grade.closest("form")!;
+    act(() => {
+      fireEvent.submit(form);
+      // A same-frame duplicate must not reach transport before pending renders.
+      fireEvent.submit(form);
+    });
+    await waitFor(() => expect(mock.mutate).toHaveBeenCalledTimes(1));
+    expect(mock.mutate).toHaveBeenNthCalledWith(
+      1,
+      expect.objectContaining({
+        gradeLevel: tutor ? 2 : "IB year 1",
+        academicallyGraduated: false,
+        expectedUpdatedAt: new Date("2026-09-01"),
+      }),
     );
+    await waitFor(() => expect(grade.matches(":disabled")).toBe(true));
+    await act(async () => {
+      reject(new Error("Save failed"));
+    });
+    expect((await screen.findByRole("alert")).textContent).toBe("Save failed");
+    expect(screen.getByLabelText(en.academics.legacyGrade)).toBe(grade);
+    expect(grade.value).toBe(tutor ? "2" : "IB year 1");
+    expect(grade.matches(":disabled")).toBe(false);
     fireEvent.change(grade, { target: { value: "12" } });
-    fireEvent.submit(document.querySelector("form")!);
-    expect(mock.mutate).toHaveBeenLastCalledWith(
-      expect.objectContaining({ gradeLevel: tutor ? 12 : "12" }),
+    fireEvent.submit(form);
+    await waitFor(() => expect(mock.mutate).toHaveBeenCalledTimes(2));
+    expect(mock.mutate).toHaveBeenNthCalledWith(
+      2,
+      expect.objectContaining({
+        gradeLevel: tutor ? 12 : "12",
+        academicallyGraduated: false,
+        expectedUpdatedAt: new Date("2026-09-01"),
+      }),
     );
+    expect((await screen.findByRole("status")).textContent).toBe(
+      en.accountProfile.sectionSaved,
+    );
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    await waitFor(() => expect(client.isMutating()).toBe(0));
+    expect(grade.matches(":disabled")).toBe(true);
+    // A successful section remains read-only; settlement is not permission to replay it.
+    await act(async () => {
+      fireEvent.submit(form);
+    });
+    expect(mock.mutate).toHaveBeenCalledTimes(2);
   },
 );
 it.each([true, false])(
   "keeps linked roster academics in the canonical editor (tutor=%s)",
-  (tutor) => {
+  async (tutor) => {
     mount(tutor, true);
     expect(screen.queryByLabelText(en.academics.legacyGrade)).toBeNull();
     expect(screen.getByText("Shared academics: account")).toBeTruthy();
     fireEvent.submit(document.querySelector("form")!);
+    await waitFor(() => expect(mock.mutate).toHaveBeenCalledTimes(1));
     expect(mock.mutate.mock.calls[0]?.[0]).not.toHaveProperty("gradeLevel");
+    expect(mock.mutate.mock.calls[0]?.[0]).not.toHaveProperty(
+      "academicallyGraduated",
+    );
   },
 );
 it.each([true, false])(
@@ -131,7 +227,7 @@ it.each([true, false])(
 
 it.each([true, false])(
   "gates embedded linking and preserves unsaved profile edits (allowed=%s)",
-  (canLink) => {
+  async (canLink) => {
     const row = {
       id: "past",
       englishName: "Alex",
@@ -142,7 +238,7 @@ it.each([true, false])(
       updatedAt: new Date(),
     } as unknown as ComponentProps<typeof TuteeEditor>["row"];
     const close = vi.fn();
-    const { container } = render(
+    const { container } = renderEditor(
       <NextIntlClientProvider locale="en" messages={en}>
         <TuteeEditor
           row={row}
@@ -185,6 +281,7 @@ it.each([true, false])(
     }
     expect(notes.value).toBe("Keep this draft");
     fireEvent.submit(container.querySelector("form")!);
+    await waitFor(() => expect(mock.mutate).toHaveBeenCalledTimes(1));
     expect(mock.mutate).toHaveBeenLastCalledWith(
       expect.objectContaining({
         ...drafts,
