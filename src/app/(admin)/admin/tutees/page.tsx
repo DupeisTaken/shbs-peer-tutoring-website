@@ -183,11 +183,11 @@ export default function TuteesPage() {
           // Sort the grade shown in the row: historical evidence is independent
           // of the linked account's current academic profile.
           return (
-            ((a.historical
-              ? (normalizeGrade(a.gradeLevel).gradeLevel ?? 0)
+            ((a.historical || !(a.owner ?? a.user)
+              ? (normalizeGrade(a.enrollmentCorrection ? a.enrollmentCorrection.rawGrade : a.gradeLevel).gradeLevel ?? 0)
               : (a.academic.gradeLevel ?? 0)) -
-              (b.historical
-                ? (normalizeGrade(b.gradeLevel).gradeLevel ?? 0)
+              (b.historical || !(b.owner ?? b.user)
+                ? (normalizeGrade(b.enrollmentCorrection ? b.enrollmentCorrection.rawGrade : b.gradeLevel).gradeLevel ?? 0)
                 : (b.academic.gradeLevel ?? 0))) *
             dir
           );

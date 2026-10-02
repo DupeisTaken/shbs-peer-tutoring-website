@@ -177,6 +177,15 @@ it("shows invitation delivery metadata and cancels the exact displayed grant wit
     tuteeId: "record",
     revision: "b".repeat(64),
   });
+  // Even before the mutation hook reports pending, duplicate/cross-action dispatch
+  // must not reuse the displayed cancellation grant or submit an invitation.
+  fireEvent.click(
+    screen.getByRole("button", { name: en.tuteeHistory.cancelInvitation }),
+  );
+  expect(mock.cancel).toHaveBeenCalledOnce();
+  const email = screen.getByLabelText<HTMLInputElement>(en.tuteeHistory.email);
+  fireEvent.change(email, { target: { value: "another@example.test" } });
+  fireEvent.submit(email.closest("form")!);
   expect(evidence.value).toBe("Reviewed identity evidence stays in this draft");
   expect(mock.invite).not.toHaveBeenCalled();
 });
@@ -269,6 +278,7 @@ it.each(["en", "zh"])(
   (locale) => {
     const messages = locale === "zh" ? zh : en;
     mock.details = {
+      historicalAcademics: [],
       record: {
         id: "past",
         name: "Alex",

@@ -63,7 +63,7 @@ export const recordTransferRouter = createTRPCRouter({
       try {
         await ctx.db.$transaction(
           async (tx) => {
-            if (input.files.some((f) => f.name === "Tutor.csv"))
+            if (input.files.some((f) => ["Tutor.csv", "HistoricalAcademicRecord.csv"].includes(f.name)))
               await lockUsernameNamespace(tx);
             await assertHead(tx, ctx.session.user.id);
             await lockEntity(tx, "program-record-transfer");
@@ -91,7 +91,7 @@ export const recordTransferRouter = createTRPCRouter({
       verifyPreviewTicket(input.files, ctx.session.user.id, input.ticket);
       return ctx.db.$transaction(
         async (tx) => {
-          if (input.files.some((f) => f.name === "Tutor.csv"))
+          if (input.files.some((f) => ["Tutor.csv", "HistoricalAcademicRecord.csv"].includes(f.name)))
             await lockUsernameNamespace(tx);
           await assertHead(tx, ctx.session.user.id);
           await lockEntity(tx, "program-record-transfer");

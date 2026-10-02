@@ -6,6 +6,7 @@ import { approvalReview, reviewTechnicalFields } from "~/lib/approval-review";
 import { minToHm } from "~/lib/time";
 import { roomBlockReview } from "~/lib/room-block-review";
 import { RoomBlockReview } from "./room-block-review";
+import { HistoricalCorrectionReview, historicalReviewRecords } from "./historical-correction-review";
 
 /** Both the card and the final consequence dialog show this exact same proposal. */
 export function ApprovalReviewDetails({
@@ -22,6 +23,10 @@ export function ApprovalReviewDetails({
   const t = useTranslations("approvals.review");
   const departureText = useTranslations("schoolDeparture");
   const format = useFormatter();
+  if (operation === "historicalAcademics.correctBatch" && targets && typeof targets === "object" && "historicalAcademics" in targets) {
+    const review = historicalReviewRecords.safeParse(targets.historicalAcademics);
+    if (review.success) return <HistoricalCorrectionReview records={review.data} />;
+  }
   const model = approvalReview(operation, payload, targets);
   const block = roomBlockReview(operation, payload, targets);
   const departureAction =

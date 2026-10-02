@@ -143,6 +143,46 @@ it("does not refocus a trigger removed with its enclosing view", () => {
 });
 afterEach(cleanup);
 
+// Nested writes must register with both dialogs independently of editor composition.
+it("a nested owned write guards both dialogs against repeated Escape and releases them after settlement", () => {
+  const parentClose = vi.fn();
+  const childClose = vi.fn();
+  const content = (pending: boolean) => (
+    <NextIntlClientProvider locale="en" messages={en}>
+      <ProfileDialog title="Parent editor" onClose={parentClose}>
+        <ProfileDialog
+          title="Nested review"
+          pending={pending}
+          onClose={childClose}
+        >
+          <p>Confirm</p>
+        </ProfileDialog>
+      </ProfileDialog>
+    </NextIntlClientProvider>
+  );
+  const view = render(content(true));
+  for (const dialog of screen.getAllByRole("dialog")) {
+    expect(dialog.getAttribute("closedby")).toBe("none");
+    for (let attempt = 0; attempt < 3; attempt++)
+      expect(fireEvent.keyDown(dialog, { key: "Escape" })).toBe(false);
+    expect(
+      within(dialog).getByRole<HTMLButtonElement>("button", { name: "Close" })
+        .disabled,
+    ).toBe(true);
+    fireEvent(dialog, new Event("cancel", { bubbles: true, cancelable: true }));
+  }
+  expect(parentClose).not.toHaveBeenCalled();
+  expect(childClose).not.toHaveBeenCalled();
+  view.rerender(content(false));
+  for (const dialog of screen.getAllByRole("dialog")) {
+    expect(dialog.getAttribute("closedby")).toBe("closerequest");
+    expect(
+      within(dialog).getByRole<HTMLButtonElement>("button", { name: "Close" })
+        .disabled,
+    ).toBe(false);
+  }
+});
+
 it("keeps Tab and Shift+Tab on the sole close control in an empty detail dialog", () => {
   render(
     <NextIntlClientProvider locale="en" messages={en}>

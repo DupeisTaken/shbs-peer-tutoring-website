@@ -54,6 +54,8 @@ function TuteeProfileForm({
   const history = useTranslations("tuteeHistory");
   const profileText = useTranslations("accountProfile");
   const academicText = useTranslations("academics");
+  const correctionText = useTranslations("historicalAcademics");
+  const historicalGrade = row.historical || !!row.enrollmentCorrection;
   const [expectedUpdatedAt] = useState(row.updatedAt);
   // Keep explicit name drafts mounted while historical linking refreshes roster data.
   const historySection = useRef<HTMLDetailsElement>(null);
@@ -149,7 +151,7 @@ function TuteeProfileForm({
               email: value("email"),
               phone: value("phone"),
               preferredContact: value("preferredContact"),
-              ...(row.user
+              ...(row.user || historicalGrade
                 ? {}
                 : {
                     gradeLevel:
@@ -199,7 +201,9 @@ function TuteeProfileForm({
                 ["preferredContact", t("contact"), row.preferredContact],
               ] as const
             )
-              .filter(([name]) => name !== "grade" || !row.user)
+              .filter(
+                ([name]) => name !== "grade" || (!row.user && !historicalGrade),
+              )
               .map(([name, label, value]) => (
                 <label key={name} className="block">
                   <span className="label">{label}</span>
@@ -298,6 +302,11 @@ function TuteeProfileForm({
         <div className="mt-5">
           <AcademicPanel userId={row.user.id} />
         </div>
+      )}
+      {historicalGrade && (
+        <p className="mt-4 rounded-lg bg-slate-50 p-3 text-sm">
+          {correctionText("HISTORICAL_EDITOR_REQUIRED")}
+        </p>
       )}
       {row.historical && historyPermissions?.canLink && (
         <section className="mt-5 border-t border-slate-200 pt-4">

@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import dynamic from "next/dynamic";
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
@@ -55,40 +55,75 @@ export function SchoolDeparturePanel({ userId }: { userId?: string }) {
   const [explanation, setExplanation] = useState("");
   const [confirming, setConfirming] = useState(false);
   const [outcome, setOutcome] = useState<string | null>(null);
+  const [expectedRevision, setExpectedRevision] = useState<number | null>(null);
+  // The reason and its original revision stay together through failed writes/refetches.
+  if (expectedRevision === null && state.data)
+    setExpectedRevision(state.data.departure?.revision ?? 0);
+  const submitting = useRef(false);
+  const [completion, setCompletion] = useState<{
+    clearDraft: boolean;
+    requested: boolean;
+  } | null>(null);
   const router = useRouter();
   const utils = api.useUtils();
   const success = async () => {
-    setConfirming(false);
-    setExplanation("");
-    setOutcome(
-      t(userId && state.data?.role === "HEAD" ? "saved" : "requested"),
-    );
     await utils.invalidate();
     router.refresh();
+    setCompletion({
+      clearDraft: true,
+      requested: !(userId && state.data?.role === "HEAD"),
+    });
+  };
+  const settled = () => {
+    submitting.current = false;
   };
   const save = api.departure.setState.useMutation({
+    onSettled: settled,
     onSuccess: success,
     onError: (error) => {
       if (error.data?.approvalId) {
-        setConfirming(false);
-        setOutcome(t("requested"));
+        setCompletion({ clearDraft: false, requested: true });
       }
     },
   });
-  const request = api.departure.request.useMutation({ onSuccess: success });
+  const request = api.departure.request.useMutation({
+    onSuccess: success,
+    onSettled: settled,
+  });
   const error =
     (save.error?.data?.approvalId ? null : save.error) ??
     request.error ??
     state.error;
   const ownPending = save.isPending || request.isPending;
   const busy = useDialogPending(ownPending);
+  // Keep the nested review mounted through callbacks/refresh and any registered sibling write.
+  // Never register the inherited aggregate back into the parent context.
+  useEffect(() => {
+    if (!completion || busy) return;
+    setConfirming(false);
+    if (completion.clearDraft) {
+      setExplanation("");
+      setExpectedRevision(null);
+    }
+    setOutcome(t(completion.requested ? "requested" : "saved"));
+    setCompletion(null);
+  }, [completion, busy, t]);
   const departed = !!state.data?.departure?.reason;
   const submit = () => {
-    if (busy) return;
+    if (
+      busy ||
+      submitting.current ||
+      completion ||
+      !confirming ||
+      expectedRevision === null ||
+      !explanation.trim()
+    )
+      return;
+    submitting.current = true;
     const input = {
       action,
       explanation,
-      expectedRevision: state.data?.departure?.revision ?? 0,
+      expectedRevision,
     };
     if (userId) save.mutate({ ...input, userId });
     else request.mutate(input);
@@ -145,7 +180,16 @@ export function SchoolDeparturePanel({ userId }: { userId?: string }) {
       </div>
       <Button
         disabled={!state.data || !explanation.trim() || busy}
-        onClick={() => setConfirming(true)}
+        onClick={() => {
+          if (
+            !busy &&
+            !submitting.current &&
+            !completion &&
+            state.data &&
+            explanation.trim()
+          )
+            setConfirming(true);
+        }}
       >
         {t(userId && state.data?.role === "HEAD" ? "review" : "request")}
       </Button>

@@ -277,6 +277,7 @@ it.each<Kind>(["account", "tutor", "tutee"])(
     expect(close).not.toHaveBeenCalled();
     expect(screen.getByRole("dialog").getAttribute("aria-busy")).toBe("false");
     expect(name.matches(":disabled")).toBe(true);
+    expect(screen.getByText(en.accountProfile.sectionSaved)).toBeTruthy();
     fireEvent.submit(name.closest("form")!);
     expect(state.mutate).toHaveBeenCalledOnce();
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
@@ -284,7 +285,7 @@ it.each<Kind>(["account", "tutor", "tutee"])(
   },
 );
 
-it("keeps a synchronized account save mounted until deliberate Close", async () => {
+it("keeps a successfully synchronized account section read-only until deliberate Close", async () => {
   const close = vi.fn();
   render(editor("account", close));
   await act(() => state.success());
@@ -448,3 +449,35 @@ it("keeps an edited tutee draft visible during a failed dependency refresh", () 
     screen.getByLabelText<HTMLInputElement>("First Name Required").value,
   ).toBe("Unsaved");
 });
+// The historical editor must retain its audit boundary after moving under dialog context.
+it.each(["historical", "corrected"] as const)(
+  "keeps %s academic evidence out of a contact/profile write",
+  (kind) => {
+    const historicalRow = {
+      ...row,
+      user: null,
+      historical: kind === "historical",
+      enrollmentCorrection: kind === "corrected" ? { rawGrade: "G8" } : null,
+      gradeLevel: "初三",
+    } as unknown as ComponentProps<typeof TuteeEditor>["row"];
+    render(
+      <NextIntlClientProvider locale="en" messages={en}>
+        <TuteeEditor row={historicalRow} onClose={vi.fn()} />
+      </NextIntlClientProvider>,
+    );
+    expect(
+      screen.getByText(en.historicalAcademics.HISTORICAL_EDITOR_REQUIRED),
+    ).toBeTruthy();
+    const form = screen.getByLabelText("First Name Required").closest("form")!;
+    expect(form.querySelector('[name="grade"]')).toBeNull();
+    fireEvent.change(screen.getByLabelText(en.profileCorrection.phone), {
+      target: { value: "123456" },
+    });
+    fireEvent.submit(form);
+    const payload = state.mutate.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(payload.phone).toBe("123456");
+    expect(payload).not.toHaveProperty("gradeLevel");
+    expect(payload).not.toHaveProperty("academicallyGraduated");
+    expect(payload.expectedUpdatedAt).toBe(row.updatedAt);
+  },
+);

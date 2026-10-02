@@ -26,6 +26,7 @@ These guides describe the current application. Choose the task you need to compl
 | Resume the draft navigation and form recovery work | [Issue #221 cloud continuation](continuation/issue-221.md) |
 | Resume the approved patrol-credit change in a fresh cloud checkout | [Issue 240 continuation](continuation/issue-240.md) |
 | Continue the pending read-only production evidence work in a cloud checkout | [Issue 242 continuation checkpoint](continuation/issue-242.md) |
+| Continue the incomplete historical-correction draft from a fresh cloud checkout | [Issue 195 continuation checkpoint](continuation/issue-195.md) |
 
 ## Maintaining the guides
 
