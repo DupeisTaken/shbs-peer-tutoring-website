@@ -6,6 +6,12 @@ import { useState } from "react";
 import { api } from "~/trpc/react";
 import { currentMonth } from "~/lib/time";
 import { useReadOnly } from "~/app/_components/read-only";
+import {
+  SummaryTable,
+  TableActions,
+  TableAction,
+  TableDetails,
+} from "~/app/_components/ui/summary-table";
 import styles from "./page.module.css";
 import { visibleTutors } from "~/lib/tutor-visibility";
 import { PastTutorsToggle } from "~/app/_components/past-tutors-toggle";
@@ -129,14 +135,9 @@ export default function AdjustmentsPage() {
         </p>
       )}
 
-      <div className={`card ${styles.records}`}>
-        {/* One table and one action per record: explicit roles retain table semantics when
-            narrow screens reflow the rows into labelled cards. Text is never truncated. */}
-        <table
-          role="table"
-          aria-label={t("admin.adjustments.title")}
-          className={`data-table ${styles.table}`}
-        >
+      <div className="card">
+        {/* Free-form reasons belong to the detail dialog; the month and amount stay easy to scan. */}
+        <SummaryTable label={t("admin.adjustments.title")}>
           <thead role="rowgroup">
             <tr role="row">
               <th role="columnheader" scope="col">
@@ -151,69 +152,57 @@ export default function AdjustmentsPage() {
               <th role="columnheader" scope="col" className="text-right">
                 {t("admin.adjustments.table.amount")}
               </th>
-              <th role="columnheader" scope="col">
-                {t("admin.adjustments.table.reason")}
+              <th scope="col" className="table-actions-heading">
+                {t("tablePatterns.actions")}
               </th>
-              {!readOnly && (
-                <th role="columnheader" scope="col">
-                  <span className="sr-only">
-                    {t("admin.adjustments.table.delete")}
-                  </span>
-                </th>
-              )}
             </tr>
           </thead>
           <tbody role="rowgroup">
             {(list.data ?? []).map((a) => (
               <tr role="row" key={a.id}>
-                <td role="cell" className={styles.tutor}>
-                  <span aria-hidden="true" className={styles.mobileLabel}>
-                    {t("admin.adjustments.table.tutor")}
-                  </span>
-                  {a.tutor.englishName}
-                </td>
+                <td role="cell">{a.tutor.englishName}</td>
                 <td role="cell">
-                  <span aria-hidden="true" className={styles.mobileLabel}>
-                    {t("admin.adjustments.table.month")}
-                  </span>
                   <time dateTime={a.month} className={styles.month}>
                     {a.month}
                   </time>
                 </td>
                 <td role="cell" className="text-slate-500">
-                  <span aria-hidden="true" className={styles.mobileLabel}>
-                    {t("admin.adjustments.table.type")}
-                  </span>
                   {t(`admin.adjustments.typeLabel.${a.type}`)}
                 </td>
                 <td role="cell" className="text-right">
-                  <span aria-hidden="true" className={styles.mobileLabel}>
-                    {t("admin.adjustments.table.amount")}
-                  </span>
                   {a.amount.toFixed(1)}
                 </td>
-                <td role="cell">
-                  <span aria-hidden="true" className={styles.mobileLabel}>
-                    {t("admin.adjustments.table.reason")}
-                  </span>
-                  {a.reason}
-                </td>
-                {!readOnly && (
-                  <td role="cell" className="text-right">
-                    <button
+                <TableActions>
+                  <TableDetails title={`${a.tutor.englishName} · ${a.month}`}>
+                    <dl className="space-y-2">
+                      <dt className="font-semibold">
+                        {t("admin.adjustments.table.type")}
+                      </dt>
+                      <dd>
+                        {t(`admin.adjustments.typeLabel.${a.type}`)} ·{" "}
+                        {a.amount.toFixed(1)}
+                      </dd>
+                      <dt className="font-semibold">
+                        {t("admin.adjustments.table.reason")}
+                      </dt>
+                      <dd className="whitespace-pre-wrap">{a.reason ?? "—"}</dd>
+                    </dl>
+                  </TableDetails>
+                  {!readOnly && (
+                    <TableAction
                       onClick={() => del.mutate({ id: a.id })}
                       disabled={del.isPending}
                       aria-label={`${t("admin.adjustments.table.delete")}: ${a.tutor.englishName}, ${a.month}`}
-                      className={`link-danger ${styles.delete}`}
+                      className="text-red-700"
                     >
                       {t("admin.adjustments.table.delete")}
-                    </button>
-                  </td>
-                )}
+                    </TableAction>
+                  )}
+                </TableActions>
               </tr>
             ))}
           </tbody>
-        </table>
+        </SummaryTable>
       </div>
     </div>
   );

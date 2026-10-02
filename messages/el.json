@@ -1,4 +1,36 @@
 {
+  "uiPatterns": {
+    "meetingDate": "Ημερομηνία συνάντησης",
+    "profile": "Προφίλ",
+    "saveProfile": "Αποθήκευση προφίλ",
+    "cancel": "Ακύρωση",
+    "retry": "Δοκιμάστε ξανά",
+    "loadFailed": "Δεν ήταν δυνατή η φόρτωση αυτής της ενότητας",
+    "editorDenied": "Δεν έχετε πρόσβαση στην επεξεργασία της αρχικής σελίδας",
+    "editorDeniedHelp": "Για να επεξεργαστείτε ή να δείτε σε προεπισκόπηση το περιεχόμενο της αρχικής σελίδας, χρειάζεστε ρόλο διαχείρισης και ρητή ανάθεση ως μεταφραστής. Ζητήστε από τον επικεφαλής του προγράμματος να ελέγξει την πρόσβασή σας.",
+    "returnManagement": "Επιστροφή στη διαχείριση",
+    "scrollTable": "Κάντε οριζόντια κύλιση για να συγκρίνετε όλες τις στήλες.",
+    "deleteMeeting": "Διαγραφή συνάντησης;",
+    "deleteMeetingHelp": "Να διαγραφεί η συνάντηση «{title}» και τα αρχεία παρουσιών της; Αυτή η ενέργεια δεν αναιρείται.",
+    "attendanceFor": "Παρουσίες για {name}"
+  },
+  "tablePatterns": {
+    "actions": "Ενέργειες",
+    "details": "Προβολή λεπτομερειών",
+    "edit": "Επεξεργασία",
+    "close": "Κλείσιμο",
+    "summary": "Σύνοψη",
+    "records": "{count, plural, one {# εγγραφή} other {# εγγραφές}}",
+    "schedule": "Προβολή προγράμματος",
+    "occupied": "Κατειλημμένο",
+    "available": "Διαθέσιμο",
+    "unavailable": "Μη διαθέσιμο",
+    "reason": "Αιτιολογία",
+    "slot": "Χρονική θυρίδα",
+    "room": "Αίθουσα",
+    "select": "Επιλογή",
+    "selected": "Επιλεγμένο"
+  },
   "scheduling": {
     "awaiting": "Αναμένεται προγραμματισμός",
     "noLinkedSlot": "Δεν έχει συνδεθεί ώρα καταλόγου",
@@ -162,7 +194,10 @@
     "saved": "Saved with audit evidence.",
     "inherit": "Remove override / inherit role",
     "resetDefault": "Restore default policy",
-    "ownInbox": "Your inbox"
+    "ownInbox": "Your inbox",
+    "replyContext": "Απάντηση σε {name}",
+    "cancelReply": "Ακύρωση Απάντησης",
+    "replyDraftHelp": "Το προηγούμενο πρόχειρο διατηρείται. Η ακύρωση διατηρεί και αυτό το πρόχειρο απάντησης στη σελίδα."
   },
   "common": {
     "cancel": "Άκυρο",
@@ -458,7 +493,8 @@
       "GRADUATED": "Αποφοίτησε",
       "OPTED_OUT": "Αποχώρησε",
       "PENDING": "Σε εκκρεμότητα",
-      "ARCHIVED": "Αρχειοθετήθηκε"
+      "ARCHIVED": "Αρχειοθετήθηκε",
+      "TRANSFERRED": "Μετεγγραφή"
     },
     "tutees": {
       "title": "Κατάλογος μαθητών",
@@ -1314,7 +1350,7 @@
       "pendingReview": "Εκκρεμεί έλεγχος",
       "nothingPending": "Τίποτα δεν αναμένει έλεγχο.",
       "standingHeading": "Κατάσταση μαθητών",
-      "standingHelp": "🟥 καταλαμβάνει 3 θέσεις, 🟨 καταλαμβάνει 1 (μόνο έγκυρες κάρτες). Πλήρες 6 = εκκρεμεί αφαίρεση. Κάντε κλικ σε όνομα για τις λεπτομέρειες κάρτας.",
+      "standingHelp": "Η 🟥 καταλαμβάνει 3 θέσεις και η 🟨 1 (μόνο έγκυρες κάρτες). Όταν συμπληρωθούν και οι 6, εκκρεμεί απομάκρυνση από το πρόγραμμα. Χρησιμοποιήστε τον σύνδεσμο λεπτομερειών στην τελευταία στήλη δεξιά για να δείτε τις κάρτες.",
       "standing": {
         "removalPending": "εκκρεμεί αφαίρεση",
         "onWarning": "σε προειδοποίηση",
@@ -1890,6 +1926,7 @@
       "empty": "Δεν έχουν δημοσιευτεί ακόμη χρονοθυρίδες.",
       "save": "Αποθήκευση διαθεσιμότητας",
       "saving": "Αποθήκευση…",
+      "refreshFailed": "Η αποθήκευση έγινε δεκτή, αλλά δεν ήταν δυνατή η φόρτωση της ενημερωμένης διαθεσιμότητας. Δοκιμάστε ξανά τη φόρτωση πριν κάνετε άλλες αλλαγές.",
       "saved": "Αποθηκεύτηκε."
     },
     "interviews": {
@@ -3120,6 +3157,8 @@
     "scheduleEmpty": "No tutoring sessions are assigned yet. Follow your request under Requests or use the request form to get started."
   },
   "accountProfile": {
+    "sectionSaved": "Αποθηκεύτηκε. Κλείστε και ανοίξτε ξανά τον επεξεργαστή για να αλλάξετε αυτή την ενότητα. Τα προσχέδια των άλλων ενοτήτων διατηρούνται.",
+    "sectionRefreshFailed": "Η αποθήκευση ολοκληρώθηκε, αλλά η ανανέωση των εγγραφών απέτυχε. Κλείστε και ανοίξτε ξανά τον επεξεργαστή για να φορτωθούν ξανά.",
     "username": "Όνομα χρήστη",
     "usernameHelp": "Μόνο Head. Χρησιμοποιήστε 1–64 λατινικά γράμματα ή αριθμούς. Συνδεθείτε με το νέο όνομα ή το υπάρχον email· ο κωδικός πρόσβασης παραμένει ίδιος.",
     "saveUsername": "Αποθήκευση ονόματος χρήστη",
@@ -3508,6 +3547,7 @@
     "loading": "Loading academic details…",
     "conflict": "This profile changed while you were editing. Reload the latest details, then review and try again. Your draft has not been saved.",
     "reload": "Discard Draft and Reload",
+    "reloadFailed": "Could not reload the latest academic details and settings. Your draft is unchanged. Please try again.",
     "confirmed": "Last confirmed {date}",
     "history": "Confirmation History",
     "noHistory": "No confirmations recorded yet.",
@@ -3645,7 +3685,8 @@
       "patrols": "Patrols retained",
       "academicConfirmations": "Academic confirmations retained",
       "tuteeProfiles": "Tutee ownership links moved"
-    }
+    },
+    "noCandidates": "Δεν υπάρχουν διαθέσιμοι λογαριασμοί για συγχώνευση."
   },
   "tuteeHistory": {
     "noSearchMatches": "Δεν βρέθηκαν μαθητές που να ταιριάζουν στην αναζήτηση.",
@@ -3781,5 +3822,31 @@
     "alternativeNamesHelp": "Το όνομά σας σε άλλη γλώσσα ή γραφή, όπως 张小明.",
     "legacyPreserved": "Προηγούμενο όνομα: {name}. Αφήστε αμετάβλητα τα πεδία ονόματος με λατινικούς χαρακτήρες για να το διατηρήσετε. Εισαγάγετε μικρό όνομα για να το αντικαταστήσετε.",
     "legacy": "Καταχωρισμένο όνομα: {name}. Εισαγάγετε ξεχωριστά όνομα και επώνυμο για να ενημερώσετε το προφίλ."
+  },
+  "registrationFlow": {
+    "progressTitle": "Πρόοδος Εγγραφής",
+    "stepCount": "Βήμα {current} από {total}",
+    "invitationTitle": "Κωδικός Πρόσκλησης",
+    "emailTitle": "Διεύθυνση Email",
+    "verifyTitle": "Επαλήθευση Email",
+    "profileTitle": "Προφίλ και Κωδικός",
+    "identityTitle": "Ταυτότητα και Email",
+    "passwordTitle": "Ορισμός Κωδικού",
+    "back": "Πίσω",
+    "editIdentity": "Επεξεργασία Στοιχείων",
+    "editEmail": "Έλεγχος ή Επεξεργασία Email",
+    "editInvitation": "Επεξεργασία Κωδικού Πρόσκλησης",
+    "reverifyHelp": "Η επιστροφή σε προηγούμενα στοιχεία απαιτεί νέα επαλήθευση email. Οι άλλες καταχωρίσεις διατηρούνται στη φόρμα.",
+    "working": "Παρακαλώ περιμένετε…"
+  },
+  "signupSections": {
+    "identityTitle": "Ταυτότητα και Επικοινωνία",
+    "subjectsTitle": "Μαθήματα",
+    "agreementTitle": "Συμφωνία",
+    "applicationTitle": "Στοιχεία Αίτησης"
+  },
+  "pageRecovery": {
+    "title": "Η Σελίδα Δεν Βρέθηκε",
+    "body": "Η σελίδα ενδέχεται να έχει μετακινηθεί ή να μην είναι πλέον διαθέσιμη. Επιστρέψτε στην αρχική σελίδα ή συνδεθείτε."
   }
 }

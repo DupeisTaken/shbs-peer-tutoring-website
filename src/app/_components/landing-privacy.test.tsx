@@ -9,7 +9,10 @@ import {
 } from "@testing-library/react";
 import { LandingView } from "./landing-view";
 
-const mocks = vi.hoisted(() => ({ locale: "en" }));
+const mocks = vi.hoisted(() => ({
+  locale: "en",
+  blocks: [] as { id: string; type: "HERO" }[],
+}));
 vi.mock("next-intl/server", () => ({
   getLocale: async () => mocks.locale,
   getTranslations: async () => (key: string) => key,
@@ -24,7 +27,9 @@ vi.mock("~/server/home/news", () => ({ getLandingNews: async () => [] }));
 vi.mock("~/server/home/sections", () => ({
   getLandingSections: async () => [],
 }));
-vi.mock("~/server/home/blocks", () => ({ getLandingLayout: async () => [] }));
+vi.mock("~/server/home/blocks", () => ({
+  getLandingLayout: async () => mocks.blocks,
+}));
 vi.mock("~/server/home/pages", () => ({ getNavPages: async () => [] }));
 vi.mock("~/app/_components/language-switcher", () => ({
   LanguageSwitcher: () => null,
@@ -41,7 +46,10 @@ vi.mock("~/app/_components/page-blocks", () => ({
   ButtonsBlock: () => null,
   ColumnsBlock: () => null,
 }));
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  mocks.blocks = [];
+});
 
 it.each([
   ["en", "Privacy policy"],
@@ -65,5 +73,17 @@ it.each([
           .getAttribute("href"),
       ).toBe("/privacy");
     }
+  },
+);
+
+it.each([0, 1, 2])(
+  "keeps one page H1 with %s configured hero blocks",
+  async (count) => {
+    mocks.blocks = Array.from({ length: count }, (_, index) => ({
+      id: `hero-${index}`,
+      type: "HERO",
+    }));
+    render(await LandingView({}));
+    expect(screen.getAllByRole("heading", { level: 1 })).toHaveLength(1);
   },
 );

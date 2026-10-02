@@ -1,4 +1,36 @@
 {
+  "uiPatterns": {
+    "meetingDate": "Date de la réunion",
+    "profile": "Profil",
+    "saveProfile": "Enregistrer le profil",
+    "cancel": "Annuler",
+    "retry": "Réessayer",
+    "loadFailed": "Impossible de charger cette section",
+    "editorDenied": "Accès à l’éditeur de la page d’accueil indisponible",
+    "editorDeniedHelp": "Pour modifier ou prévisualiser le contenu de la page d’accueil, vous devez avoir un rôle de gestion et être explicitement désigné comme traducteur. Demandez au responsable du programme de vérifier vos droits d’accès.",
+    "returnManagement": "Retour à la gestion",
+    "scrollTable": "Faites défiler horizontalement pour comparer toutes les colonnes.",
+    "deleteMeeting": "Supprimer la réunion ?",
+    "deleteMeetingHelp": "Supprimer « {title} » et ses relevés de présence ? Cette action est irréversible.",
+    "attendanceFor": "Présences de {name}"
+  },
+  "tablePatterns": {
+    "actions": "Actions",
+    "details": "Voir les détails",
+    "edit": "Modifier",
+    "close": "Fermer",
+    "summary": "Résumé",
+    "records": "{count, plural, one {# enregistrement} other {# enregistrements}}",
+    "schedule": "Voir le planning",
+    "occupied": "Occupé",
+    "available": "Disponible",
+    "unavailable": "Indisponible",
+    "reason": "Motif",
+    "slot": "Créneau horaire",
+    "room": "Salle",
+    "select": "Sélectionner",
+    "selected": "Sélectionné"
+  },
   "scheduling": {
     "awaiting": "Horaire en attente",
     "noLinkedSlot": "Aucun créneau du catalogue lié",
@@ -162,7 +194,10 @@
     "saved": "Saved with audit evidence.",
     "inherit": "Remove override / inherit role",
     "resetDefault": "Restore default policy",
-    "ownInbox": "Your inbox"
+    "ownInbox": "Your inbox",
+    "replyContext": "Réponse à {name}",
+    "cancelReply": "Annuler la Réponse",
+    "replyDraftHelp": "Votre brouillon précédent est conservé. L’annulation conserve aussi ce brouillon de réponse sur cette page."
   },
   "common": {
     "cancel": "Annuler",
@@ -458,7 +493,8 @@
       "GRADUATED": "Diplômé",
       "OPTED_OUT": "Retrait",
       "PENDING": "En attente",
-      "ARCHIVED": "Archivé"
+      "ARCHIVED": "Archivé",
+      "TRANSFERRED": "Transféré"
     },
     "tutees": {
       "title": "Liste des élèves",
@@ -1314,7 +1350,7 @@
       "pendingReview": "En attente de révision",
       "nothingPending": "Rien en attente de révision.",
       "standingHeading": "Bilan des élèves",
-      "standingHelp": "🟥 occupe 3 cases, 🟨 occupe 1 (cartes valides uniquement). 6 cases pleines = retrait en attente. Cliquez sur un nom pour voir les détails des cartes.",
+      "standingHelp": "🟥 occupe 3 cases et 🟨 en occupe 1 (cartes valides uniquement). Lorsque les 6 cases sont remplies, le retrait du programme est en attente. Utilisez le lien de détails dans la colonne tout à droite pour consulter les cartes.",
       "standing": {
         "removalPending": "retrait en attente",
         "onWarning": "en avertissement",
@@ -1890,6 +1926,7 @@
       "empty": "Aucun créneau horaire n'a encore été publié.",
       "save": "Enregistrer les disponibilités",
       "saving": "Enregistrement…",
+      "refreshFailed": "L’enregistrement a été accepté, mais les disponibilités actualisées n’ont pas pu être chargées. Réessayez de les charger avant d’apporter d’autres modifications.",
       "saved": "Enregistré."
     },
     "interviews": {
@@ -3120,6 +3157,8 @@
     "scheduleEmpty": "No tutoring sessions are assigned yet. Follow your request under Requests or use the request form to get started."
   },
   "accountProfile": {
+    "sectionSaved": "Enregistré. Fermez puis rouvrez cet éditeur pour modifier à nouveau cette section. Les brouillons des autres sections sont conservés.",
+    "sectionRefreshFailed": "L’enregistrement a réussi, mais l’actualisation des données a échoué. Fermez puis rouvrez l’éditeur pour les charger à nouveau.",
     "username": "Nom d’utilisateur",
     "usernameHelp": "Head uniquement. Utilisez 1 à 64 lettres ou chiffres. Connectez-vous avec le nouveau nom ou votre adresse e-mail actuelle ; le mot de passe reste identique.",
     "saveUsername": "Enregistrer le nom d’utilisateur",
@@ -3508,6 +3547,7 @@
     "loading": "Loading academic details…",
     "conflict": "This profile changed while you were editing. Reload the latest details, then review and try again. Your draft has not been saved.",
     "reload": "Discard Draft and Reload",
+    "reloadFailed": "Could not reload the latest academic details and settings. Your draft is unchanged. Please try again.",
     "confirmed": "Last confirmed {date}",
     "history": "Confirmation History",
     "noHistory": "No confirmations recorded yet.",
@@ -3645,7 +3685,8 @@
       "patrols": "Patrols retained",
       "academicConfirmations": "Academic confirmations retained",
       "tuteeProfiles": "Tutee ownership links moved"
-    }
+    },
+    "noCandidates": "Aucun compte ne peut être fusionné."
   },
   "tuteeHistory": {
     "noSearchMatches": "Aucun élève ne correspond à votre recherche.",
@@ -3781,5 +3822,31 @@
     "alternativeNamesHelp": "Votre nom dans une autre langue ou écriture, par exemple 张小明.",
     "legacyPreserved": "Nom enregistré : {name}. Laissez les champs du nom en lettres latines inchangés pour le conserver. Saisissez un prénom pour le remplacer.",
     "legacy": "Nom enregistré : {name}. Saisissez séparément votre prénom et votre nom de famille pour mettre à jour le profil."
+  },
+  "registrationFlow": {
+    "progressTitle": "Progression de l’Inscription",
+    "stepCount": "Étape {current} sur {total}",
+    "invitationTitle": "Code d’Invitation",
+    "emailTitle": "Adresse E-mail",
+    "verifyTitle": "Vérifier l’E-mail",
+    "profileTitle": "Profil et Mot de Passe",
+    "identityTitle": "Identité et E-mail",
+    "passwordTitle": "Définir un Mot de Passe",
+    "back": "Retour",
+    "editIdentity": "Modifier l’Identité",
+    "editEmail": "Vérifier ou Modifier l’E-mail",
+    "editInvitation": "Modifier le Code d’Invitation",
+    "reverifyHelp": "Revenir aux informations précédentes nécessite une nouvelle vérification de l’e-mail. Les autres saisies sont conservées dans ce formulaire.",
+    "working": "Veuillez patienter…"
+  },
+  "signupSections": {
+    "identityTitle": "Identité et Contact",
+    "subjectsTitle": "Matières",
+    "agreementTitle": "Accord",
+    "applicationTitle": "Détails de la Candidature"
+  },
+  "pageRecovery": {
+    "title": "Page Introuvable",
+    "body": "Cette page a peut-être été déplacée ou n’est plus disponible. Revenez à l’accueil ou connectez-vous pour continuer."
   }
 }

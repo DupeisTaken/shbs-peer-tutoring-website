@@ -106,6 +106,7 @@ function queue(
   canReview = false,
   total = rows.length,
   headReviewer = false,
+  isFetching = false,
 ) {
   mocks.list.mockReturnValue({
     data: {
@@ -119,6 +120,7 @@ function queue(
         : [],
     },
     refetch: mocks.refetch,
+    isFetching,
   });
 }
 function view(reviewer = false, locale = "en") {
@@ -363,6 +365,63 @@ it("shows reviewer filters and refreshes after a decision", () => {
     note: "Checked evidence",
   });
   expect(mocks.refetch).toHaveBeenCalled();
+});
+
+it("aligns compact filter controls while preserving filter resets and pending refresh behavior", () => {
+  mocks.params = "status=REJECTED&page=2";
+  queue([row("REJECTED")], true, 80);
+  const rendered = render(view(true));
+  const requester = screen.getByRole("combobox", {
+    name: en.approvals.requester,
+  });
+  const refresh = screen.getByRole<HTMLButtonElement>("button", {
+    name: en.approvals.refresh,
+  });
+  const statuses = within(
+    screen.getByRole("group", { name: en.approvals.status }),
+  );
+  for (const control of [
+    requester,
+    refresh,
+    ...statuses.getAllByRole("button"),
+  ]) {
+    expect(control.classList.contains("control-compact")).toBe(true);
+  }
+  // Inputs have later base CSS rules: these utilities retain the 32px desktop
+  // baseline while control-compact keeps the 44px mobile minimum.
+  expect(requester.classList.contains("lg:min-h-8")).toBe(true);
+  expect(requester.classList.contains("lg:py-1")).toBe(true);
+  fireEvent.change(requester, { target: { value: "coordinator" } });
+  expect(mocks.replace).toHaveBeenLastCalledWith(
+    "/admin/approvals?status=REJECTED&requester=coordinator",
+    { scroll: false },
+  );
+  expect(mocks.list).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      state: "REJECTED",
+      requesterId: "coordinator",
+      page: 0,
+    }),
+  );
+  fireEvent.click(
+    statuses.getByRole("button", { name: en.approvals.states.APPROVED }),
+  );
+  expect(mocks.replace).toHaveBeenLastCalledWith(
+    "/admin/approvals?status=APPROVED&requester=coordinator",
+    { scroll: false },
+  );
+  fireEvent.click(refresh);
+  expect(mocks.refetch).toHaveBeenCalledOnce();
+  queue([row("APPROVED")], true, 80, false, true);
+  rendered.rerender(view(true));
+  expect(refresh.disabled).toBe(true);
+  fireEvent.click(refresh);
+  expect(mocks.refetch).toHaveBeenCalledOnce();
+  expect(
+    statuses
+      .getByRole("button", { name: en.approvals.states.APPROVED })
+      .getAttribute("aria-pressed"),
+  ).toBe("true");
 });
 
 it("resets pagination/filters for a detail link and returns to the full list", () => {

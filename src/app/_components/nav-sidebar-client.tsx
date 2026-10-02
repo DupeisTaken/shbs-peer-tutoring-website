@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useId, useState } from "react";
 
 import { NavLink } from "~/app/_components/nav-link";
 import { DisclosureIcon } from "~/app/_components/icons";
+import { Button } from "~/app/_components/ui/button";
 
 export type NavSection = {
   key: string;
@@ -31,6 +32,7 @@ export function NavSidebarClient({
 }) {
   const [collapsed, setCollapsed] = useState<Record<string, boolean>>({});
   const [hydrated, setHydrated] = useState(false);
+  const navId = useId();
 
   useEffect(() => {
     try {
@@ -51,40 +53,50 @@ export function NavSidebarClient({
     }
   };
 
-  const toggle = (key: string) => persist({ ...collapsed, [key]: !collapsed[key] });
-  const allCollapsed = hydrated && sections.length > 0 && sections.every((s) => collapsed[s.key]);
+  const toggle = (key: string) =>
+    persist({ ...collapsed, [key]: !collapsed[key] });
+  const allCollapsed =
+    hydrated && sections.length > 0 && sections.every((s) => collapsed[s.key]);
   const setAll = (value: boolean) =>
     persist(Object.fromEntries(sections.map((s) => [s.key, value])));
 
   return (
     <nav className={sticky ? "sticky top-20 space-y-3" : "space-y-3"}>
-      <button
-        type="button"
+      <Button
+        variant="ghost"
+        size="compact"
         className="link px-3 text-xs"
         onClick={() => setAll(!allCollapsed)}
       >
         {allCollapsed ? expandAllLabel : collapseAllLabel}
-      </button>
+      </Button>
       {sections.map((section) => {
         const isCollapsed = hydrated && !!collapsed[section.key];
+        // Desktop and drawer instances need distinct disclosure destinations.
+        const sectionId = `${navId}-${section.key}`;
         return (
           <div key={section.key}>
-            <button
-              type="button"
+            <Button
+              variant="ghost"
+              size="compact"
               onClick={() => toggle(section.key)}
               aria-expanded={!isCollapsed}
-              className="flex w-full items-center gap-1 px-3 pb-1 text-xs font-semibold tracking-wide text-slate-400 uppercase transition-colors hover:text-slate-600"
+              aria-controls={sectionId}
+              className="w-full justify-start gap-1 px-3 text-left text-xs font-semibold tracking-wide text-slate-500 uppercase hover:text-slate-700"
             >
               <DisclosureIcon open={!isCollapsed} />
               <span>{section.title}</span>
-            </button>
-            {!isCollapsed && (
-              <div className="space-y-0.5">
-                {section.items.map((item) => (
-                  <NavLink key={item.href} href={item.href} label={item.label} exact={item.exact} />
-                ))}
-              </div>
-            )}
+            </Button>
+            <div id={sectionId} hidden={isCollapsed} className="space-y-0.5">
+              {section.items.map((item) => (
+                <NavLink
+                  key={item.href}
+                  href={item.href}
+                  label={item.label}
+                  exact={item.exact}
+                />
+              ))}
+            </div>
           </div>
         );
       })}

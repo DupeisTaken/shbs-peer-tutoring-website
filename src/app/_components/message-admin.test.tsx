@@ -114,9 +114,7 @@ it("requires a reason to inspect content and sends moderation as a separate audi
 });
 it("shows effective user permissions, saves an empty override, and explicitly restores inheritance", () => {
   render(ui());
-  fireEvent.click(
-    screen.getByRole("button", { name: en.messaging.permissions }),
-  );
+  fireEvent.click(screen.getByRole("tab", { name: en.messaging.permissions }));
   fireEvent.click(screen.getByRole("button", { name: /Alex · @alex/ }));
   expect(
     screen.getByText("Effective permission source: role policy"),
@@ -149,4 +147,19 @@ it("shows effective user permissions, saves an empty override, and explicitly re
     groups: null,
     reason: "Limit new contacts temporarily",
   });
+});
+
+it("retains the review reason across local permission tabs", () => {
+  render(ui());
+  fireEvent.change(screen.getByRole("textbox", { name: en.messaging.reason }), {
+    target: { value: "Retain this audit context" },
+  });
+  fireEvent.click(screen.getByRole("tab", { name: en.messaging.permissions }));
+  fireEvent.click(
+    screen.getByRole("tab", { name: en.messaging.reviewMessages }),
+  );
+  expect(
+    screen.getByRole<HTMLInputElement>("textbox", { name: en.messaging.reason })
+      .value,
+  ).toBe("Retain this audit context");
 });

@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { ProfileDialog } from "~/app/_components/profile-dialog";
+import { useDialogPending } from "~/app/_components/ui/modal";
 import styles from "./subject-willingness.module.css";
 
 /** Keep subject intent discoverable beside qualifications, independent of timetable slots. */
@@ -56,7 +57,12 @@ function WillingnessEditor() {
   const query = api.subjectAvailability.mySubjects.useQuery();
   const utils = api.useUtils();
   const [search, setSearch] = useState("");
+  // A click owns one write until settlement, including the render before isPending updates.
+  const submitting = useRef(false);
   const save = api.subjectAvailability.setMine.useMutation({
+    onSettled: () => {
+      submitting.current = false;
+    },
     onSuccess: async () => {
       await Promise.all([
         utils.subjectAvailability.mySubjects.invalidate(),
@@ -66,12 +72,16 @@ function WillingnessEditor() {
       ]);
     },
   });
+  // Register only this mutation, even through query loading/error returns. Inherited
+  // dialog work disables controls but must never be registered back as our own write.
+  const busy = useDialogPending(save.isPending);
   if (query.error)
     return (
       <div role="alert">
         <p>{query.error.message}</p>
         <button
           className="btn-secondary mt-3 min-h-11 lg:min-h-10"
+          disabled={busy}
           onClick={() => void query.refetch()}
         >
           {t("retry")}
@@ -111,6 +121,7 @@ function WillingnessEditor() {
             className="input min-h-11 w-full lg:min-h-10"
             placeholder={t("searchMine")}
             value={search}
+            disabled={busy}
             onChange={(event) => setSearch(event.target.value)}
           />
         </label>
@@ -154,13 +165,19 @@ function WillingnessEditor() {
                   aria-pressed={row.willing === willing}
                   className={styles.choice}
                   disabled={
-                    !query.data.canEdit ||
-                    save.isPending ||
-                    (willing && !row.active)
+                    !query.data.canEdit || busy || (willing && !row.active)
                   }
                   onClick={() => {
-                    if (row.willing !== willing)
-                      save.mutate({ subjectId: row.id, willing });
+                    if (
+                      busy ||
+                      submitting.current ||
+                      !query.data?.canEdit ||
+                      (willing && !row.active) ||
+                      row.willing === willing
+                    )
+                      return;
+                    submitting.current = true;
+                    save.mutate({ subjectId: row.id, willing });
                   }}
                 >
                   <span className={styles.indicator} aria-hidden="true">

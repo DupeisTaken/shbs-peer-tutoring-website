@@ -1,6 +1,20 @@
 import Link from "next/link";
 import type { ReactNode } from "react";
-import { LanguageSwitcher } from "./language-switcher";
+import { PublicHeader } from "./public-header";
+
+/** Public forms and personal history share one in-flow responsive public header. */
+export function PublicPageNavigation({ backLabel }: { backLabel: string }) {
+  return (
+    <PublicHeader
+      sticky={false}
+      navigation={
+        <Link href="/" className="public-form-link text-sm">
+          {backLabel}
+        </Link>
+      }
+    />
+  );
+}
 
 /** Shared server-rendered frame. Keep navigation in flow so enlarged text and
  * mobile keyboards never leave the language control overlapping a form. */
@@ -22,15 +36,10 @@ export function PublicFormPage({
   wide?: boolean;
 }) {
   return (
-    <main className="public-form min-h-screen px-4 pb-12 sm:px-6">
-      <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 py-4">
-        <Link href="/" className="public-form-link text-sm">
-          {backLabel}
-        </Link>
-        <LanguageSwitcher compactAtDesktop />
-      </div>
-      <div
-        className={`mx-auto w-full pt-6 sm:pt-10 ${wide ? "max-w-2xl" : "max-w-md"}`}
+    <div className="min-h-screen">
+      <PublicPageNavigation backLabel={backLabel} />
+      <main
+        className={`public-form mx-auto w-full px-4 pt-6 pb-12 sm:px-6 sm:pt-10 ${wide ? "max-w-3xl" : "max-w-lg"}`}
       >
         <header className="mb-7 text-center">
           <div
@@ -53,8 +62,8 @@ export function PublicFormPage({
             {footer}
           </div>
         )}
-      </div>
-    </main>
+      </main>
+    </div>
   );
 }
 

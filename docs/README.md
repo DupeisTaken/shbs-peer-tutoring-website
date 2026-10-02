@@ -8,6 +8,8 @@ These guides describe the current application. Choose the task you need to compl
 | Deploy, create the first administrator, configure email or restore a backup | [Deployment runbook](deployment.md) |
 | Reset an existing deployment and start fresh | [Reset and redeploy](deployment.md#start-fresh-from-an-existing-deployment) |
 | Contribute changes and maintain repository files | [Contributor guidance](contributing.md) |
+| Choose shared UI patterns and preserve interaction rules | [Agent component map](../AGENTS.md#start-with-the-shared-patterns) and [component boundaries](technical-report.md#shared-ui-patterns) |
+| Verify UI changes in the gallery and running application | [UI verification matrix](local-development.md#ui-verification-matrix) |
 | Find implementation files and understand authorization or transaction rules | [Technical guide](technical-report.md) |
 | Use the website as a tutee, tutor, crew member, coordinator, administrator, HEAD, viewer or translator | [User guide](user-guide.md) |
 | Understand the four name fields and display settings | [Name fields](design/name-fields.md) |
@@ -17,6 +19,7 @@ These guides describe the current application. Choose the task you need to compl
 | Report a bug, enhancement, feature or documentation request | [Issue guide](issues.md) |
 | Review the identity, academic profile and program policy fixes with screenshots | [Issue-fix verification reports](evidence/issues-145-154/README.md) |
 | Review email notification rendering and destination-link checks | [Email redesign verification](evidence/issue-192/README.md) |
+| Resume the draft navigation and form recovery work | [Issue #221 cloud continuation](continuation/issue-221.md) |
 
 ## Maintaining the guides
 

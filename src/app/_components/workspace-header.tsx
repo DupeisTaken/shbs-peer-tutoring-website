@@ -25,12 +25,15 @@ export function WorkspaceHeader({
   navigation?: ReactNode;
 }) {
   return (
-    <header className="sticky top-0 z-20 shrink-0 border-b border-slate-200 bg-white">
+    <header
+      data-sticky-header
+      className="sticky top-0 z-20 shrink-0 border-b border-slate-200 bg-white"
+    >
       <div className="grid min-w-0 grid-cols-[auto_minmax(0,1fr)_auto] items-center gap-x-2 gap-y-3 px-4 py-4 lg:flex lg:gap-2 lg:px-6 lg:py-3">
         <Link
           href={href}
           title={title}
-          className="col-span-2 col-start-1 row-start-1 flex min-h-11 min-w-0 items-center truncate text-xl font-bold text-slate-900 lg:order-1 lg:mr-auto lg:text-lg"
+          className="col-span-2 col-start-1 row-start-1 flex min-h-11 min-w-0 items-center text-xl font-bold break-words text-slate-900 lg:order-1 lg:mr-auto lg:min-h-8 lg:text-lg"
         >
           {title}
         </Link>

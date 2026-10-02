@@ -1,7 +1,8 @@
 /** @vitest-environment jsdom */
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
+import zh from "../../../messages/zh.json";
 import en from "../../../messages/en.json";
 import { RegisterFlow } from "./register-flow";
 import { ViewerSignupFlow } from "../viewer-signup/viewer-signup-flow";
@@ -19,19 +20,30 @@ const mocks = vi.hoisted(() => ({
 vi.mock("~/trpc/react", () => {
   const mutation = (data: object, isResend = false, isComplete = false) => ({
     useMutation: (options: { onSuccess: (data: object) => void }) => ({
+      reset: vi.fn(),
       isPending: isResend && mocks.resendPending,
       error:
         isResend && mocks.resendError
           ? { message: "Mail could not be delivered" }
           : null,
       mutateAsync: async (_input: object) => {
-        if (!(isResend && mocks.resendError)) options.onSuccess(data);
+        if (!(isResend && mocks.resendError))
+          options.onSuccess(
+            "completionProof" in data
+              ? { ...data, completionProof: mocks.proof }
+              : data,
+          );
       },
       mutate: (input: object) => {
         if (isComplete) {
           mocks.complete(input);
           if (mocks.completionResult) options.onSuccess(mocks.completionResult);
-        } else if (!(isResend && mocks.resendError)) options.onSuccess(data);
+        } else if (!(isResend && mocks.resendError))
+          options.onSuccess(
+            "completionProof" in data
+              ? { ...data, completionProof: mocks.proof }
+              : data,
+          );
       },
     }),
   });
@@ -67,15 +79,24 @@ vi.mock("~/trpc/react", () => {
     },
   };
 });
+beforeEach(() => {
+  vi.spyOn(window, "scrollBy").mockImplementation(() => undefined);
+});
 afterEach(() => {
+  vi.restoreAllMocks();
+  mocks.proof = "a".repeat(64);
   cleanup();
   mocks.complete.mockClear();
   mocks.resendError = false;
   mocks.resendPending = false;
   mocks.completionResult = null;
 });
-const wrap = (viewer: boolean) => (
-  <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+const wrap = (viewer: boolean, locale: "en" | "zh" = "en") => (
+  <NextIntlClientProvider
+    locale={locale}
+    messages={locale === "en" ? en : zh}
+    timeZone="Asia/Shanghai"
+  >
     {viewer ? <ViewerSignupFlow /> : <RegisterFlow />}
   </NextIntlClientProvider>
 );
@@ -291,3 +312,129 @@ vi.mock("~/app/_components/signup-captcha", () => ({
     <>{error.message}</>
   ),
 }));
+
+it.each([false, true])(
+  "keeps profile drafts across identity editing but requires a new proof (viewer=%s)",
+  (viewer) => {
+    render(wrap(viewer));
+    reachEmailCode(viewer);
+    fill(viewer ? "obs-code" : "reg-emailcode", "FGHJK");
+    submit();
+    if (!viewer) {
+      fill("reg-first", "Draft name");
+      fill("reg-last", "Family");
+    }
+    fill(viewer ? "obs-pass" : "reg-pass", "Password123!");
+    fill(viewer ? "obs-confirm" : "reg-confirm", "Password123!");
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: viewer
+          ? en.registrationFlow.editIdentity
+          : en.registrationFlow.editEmail,
+      }),
+    );
+    expect(
+      screen.queryByLabelText(
+        viewer
+          ? en.public.viewerSignup.fields.password
+          : en.auth.register.step.profile.password,
+      ),
+    ).toBeNull();
+    if (viewer) {
+      expect(
+        (document.getElementById("obs-aff") as HTMLInputElement).value,
+      ).toBe("Family");
+      fill("obs-email", "changed@example.test");
+    } else {
+      expect(
+        (document.getElementById("reg-email") as HTMLInputElement).readOnly,
+      ).toBe(true);
+    }
+    submit();
+    expect(mocks.complete).not.toHaveBeenCalled();
+    mocks.proof = "b".repeat(64);
+    fill(viewer ? "obs-code" : "reg-emailcode", "NEW12");
+    submit();
+    expect(
+      (
+        document.getElementById(
+          viewer ? "obs-pass" : "reg-pass",
+        ) as HTMLInputElement
+      ).value,
+    ).toBe("Password123!");
+    if (!viewer)
+      expect(
+        document.querySelector<HTMLInputElement>('[name="firstName"]')!.value,
+      ).toBe("Draft name");
+    submit();
+    expect(mocks.complete).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        completionProof: "b".repeat(64),
+        ...(viewer ? { email: "changed@example.test" } : {}),
+      }),
+    );
+  },
+);
+it.each(["en", "zh"] as const)(
+  "announces numbered progress and focuses the next heading in %s",
+  (locale) => {
+    const copy = locale === "en" ? en : zh;
+    render(wrap(false, locale));
+    const progress = screen.getByRole("list", {
+      name: copy.registrationFlow.progressTitle,
+    });
+    expect(progress.children).toHaveLength(5);
+    expect(
+      progress.querySelector('[aria-current="step"]')?.textContent,
+    ).toContain(copy.registrationFlow.invitationTitle);
+    fill("reg-code", "ABCDE");
+    submit();
+    const heading = screen.getByRole("heading", {
+      name: copy.registrationFlow.emailTitle,
+    });
+    expect(document.activeElement).toBe(heading);
+    fireEvent.click(
+      screen.getByRole("button", { name: copy.registrationFlow.back }),
+    );
+    expect(
+      (document.getElementById("reg-code") as HTMLInputElement).value,
+    ).toBe("ABCDE");
+    expect(document.activeElement).toBe(
+      screen.getByRole("heading", {
+        name: copy.registrationFlow.invitationTitle,
+      }),
+    );
+  },
+);
+it("rechecking the same invitation retains drafts; a different invitation clears them", () => {
+  render(wrap(false));
+  reachEmailCode(false);
+  fill("reg-emailcode", "FGHJK");
+  submit();
+  fill("reg-first", "Retained name");
+  fill("reg-pass", "Password123!");
+  fireEvent.click(
+    screen.getByRole("button", { name: en.registrationFlow.editInvitation }),
+  );
+  submit();
+  submit();
+  fill("reg-emailcode", "FGHJK");
+  submit();
+  expect(
+    document.querySelector<HTMLInputElement>('[name="firstName"]')!.value,
+  ).toBe("Retained name");
+  fireEvent.click(
+    screen.getByRole("button", { name: en.registrationFlow.editInvitation }),
+  );
+  fill("reg-code", "OTHER");
+  submit();
+  submit();
+  fill("reg-emailcode", "FGHJK");
+  submit();
+  expect((document.getElementById("reg-pass") as HTMLInputElement).value).toBe(
+    "",
+  );
+  expect(
+    document.querySelector<HTMLInputElement>('[name="firstName"]')!.value,
+  ).toBe("");
+});

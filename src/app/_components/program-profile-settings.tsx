@@ -6,33 +6,54 @@ import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { ALL_GRADES, type ProfilePolicy } from "~/lib/profile-policy";
 import { ProfilePolicyError } from "./profile-policy";
+import { Button } from "./ui/button";
+import { StatePanel } from "./ui/patterns";
 
 export function ProgramProfileSettings() {
   const t = useTranslations("profilePolicy");
   const query = api.program.profilePolicySettings.useQuery();
   const [generation, setGeneration] = useState(0);
-  if (query.error)
-    return (
-      <p role="alert">
-        <ProfilePolicyError message={query.error.message} />
-      </p>
-    );
+  const loadError = query.error ? (
+    <StatePanel
+      kind="error"
+      title={t("loadFailed")}
+      action={
+        <Button
+          disabled={query.isFetching}
+          onClick={() => void query.refetch()}
+        >
+          {t("retry")}
+        </Button>
+      }
+    >
+      <ProfilePolicyError message={query.error.message} />
+    </StatePanel>
+  ) : null;
   if (!query.data)
     return (
-      <p role="status" className="muted">
-        {t("loading")}
-      </p>
+      <section className="card space-y-4 p-5 sm:p-6">
+        <div>
+          <h2 className="section-title">{t("title")}</h2>
+          <p className="muted mt-1 text-sm">{t("help")}</p>
+        </div>
+        {loadError ?? <StatePanel kind="loading" title={t("loading")} />}
+      </section>
     );
   return (
-    <ProfilePolicyEditor
-      key={generation}
-      policy={query.data}
-      canEdit={query.data.canEdit}
-      onReload={async () => {
-        const result = await query.refetch();
-        if (result.data) setGeneration((value) => value + 1);
-      }}
-    />
+    <div className="space-y-4">
+      {loadError}
+      {/* Cached-query failures must not unmount the editor or discard its draft.
+          Only an explicit, successful conflict reload replaces its snapshot. */}
+      <ProfilePolicyEditor
+        key={generation}
+        policy={query.data}
+        canEdit={query.data.canEdit}
+        onReload={async () => {
+          const result = await query.refetch();
+          if (result.isSuccess) setGeneration((value) => value + 1);
+        }}
+      />
+    </div>
   );
 }
 

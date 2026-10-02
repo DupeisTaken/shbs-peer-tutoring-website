@@ -1,4 +1,36 @@
 {
+  "uiPatterns": {
+    "meetingDate": "Fecha de la reunión",
+    "profile": "Perfil",
+    "saveProfile": "Guardar perfil",
+    "cancel": "Cancelar",
+    "retry": "Intentar de nuevo",
+    "loadFailed": "No se pudo cargar esta sección",
+    "editorDenied": "No tienes acceso al editor de la página de inicio",
+    "editorDeniedHelp": "Para editar y previsualizar el contenido de la página de inicio se necesita un rol de administración y una asignación explícita como Traductor. Pide a la persona responsable del programa que revise tu acceso.",
+    "returnManagement": "Volver a la administración",
+    "scrollTable": "Desplázate horizontalmente para comparar todas las columnas.",
+    "deleteMeeting": "¿Eliminar la reunión?",
+    "deleteMeetingHelp": "¿Eliminar «{title}» y sus registros de asistencia? Esta acción no se puede deshacer.",
+    "attendanceFor": "Asistencia de {name}"
+  },
+  "tablePatterns": {
+    "actions": "Acciones",
+    "details": "Ver detalles",
+    "edit": "Editar",
+    "close": "Cerrar",
+    "summary": "Resumen",
+    "records": "{count, plural, one {# registro} other {# registros}}",
+    "schedule": "Ver horario",
+    "occupied": "Ocupada",
+    "available": "Disponible",
+    "unavailable": "No disponible",
+    "reason": "Motivo",
+    "slot": "Franja horaria",
+    "room": "Aula",
+    "select": "Seleccionar",
+    "selected": "Seleccionado"
+  },
   "scheduling": {
     "awaiting": "Horario pendiente",
     "noLinkedSlot": "Sin franja del catálogo vinculada",
@@ -162,7 +194,10 @@
     "saved": "Saved with audit evidence.",
     "inherit": "Remove override / inherit role",
     "resetDefault": "Restore default policy",
-    "ownInbox": "Your inbox"
+    "ownInbox": "Your inbox",
+    "replyContext": "Respondiendo a {name}",
+    "cancelReply": "Cancelar Respuesta",
+    "replyDraftHelp": "Se conserva tu borrador anterior. Al cancelar, también se conserva este borrador de respuesta en la página."
   },
   "common": {
     "cancel": "Cancelar",
@@ -1240,7 +1275,7 @@
       "pendingReview": "Pendiente de revisión",
       "nothingPending": "Nada en espera de revisión.",
       "standingHeading": "Situación del estudiante",
-      "standingHelp": "🟥 llena 3 casillas, 🟨 llena 1 (solo tarjetas válidas). Un total de 6 = expulsión pendiente. Haz clic en un nombre para ver los detalles de las tarjetas.",
+      "standingHelp": "🟥 ocupa 3 casillas y 🟨 ocupa 1 (solo tarjetas válidas). Si se llenan las 6, la expulsión queda pendiente. Usa el enlace de detalles de la última columna a la derecha para ver las tarjetas.",
       "standing": {
         "removalPending": "expulsión pendiente",
         "onWarning": "en advertencia",
@@ -1269,7 +1304,8 @@
       "GRADUATED": "Graduado",
       "OPTED_OUT": "Dado de baja",
       "PENDING": "Pendiente",
-      "ARCHIVED": "Archivado"
+      "ARCHIVED": "Archivado",
+      "TRANSFERRED": "Trasladado"
     },
     "registrationCodes": {
       "kindAdmin": "Admin",
@@ -1882,6 +1918,7 @@
       "empty": "Aún no se han publicado horarios.",
       "save": "Guardar disponibilidad",
       "saving": "Guardando…",
+      "refreshFailed": "Se aceptó el guardado, pero no se pudo cargar la disponibilidad actualizada. Vuelve a intentar cargarla antes de realizar más cambios.",
       "saved": "Guardado."
     },
     "interviews": {
@@ -3120,6 +3157,8 @@
     "scheduleEmpty": "No tutoring sessions are assigned yet. Follow your request under Requests or use the request form to get started."
   },
   "accountProfile": {
+    "sectionSaved": "Guardado. Cierra y vuelve a abrir el editor para modificar esta sección de nuevo. Los borradores de las demás secciones se conservan.",
+    "sectionRefreshFailed": "Se guardó correctamente, pero no se pudieron actualizar los registros. Cierra y vuelve a abrir el editor para cargarlos de nuevo.",
     "username": "Nombre de usuario",
     "usernameHelp": "Solo Head. Usa entre 1 y 64 letras o números. Inicia sesión con el nuevo nombre o tu correo actual; la contraseña no cambia.",
     "saveUsername": "Guardar nombre de usuario",
@@ -3508,6 +3547,7 @@
     "loading": "Loading academic details…",
     "conflict": "This profile changed while you were editing. Reload the latest details, then review and try again. Your draft has not been saved.",
     "reload": "Discard Draft and Reload",
+    "reloadFailed": "Could not reload the latest academic details and settings. Your draft is unchanged. Please try again.",
     "confirmed": "Last confirmed {date}",
     "history": "Confirmation History",
     "noHistory": "No confirmations recorded yet.",
@@ -3645,7 +3685,8 @@
       "patrols": "Patrols retained",
       "academicConfirmations": "Academic confirmations retained",
       "tuteeProfiles": "Tutee ownership links moved"
-    }
+    },
+    "noCandidates": "No hay cuentas disponibles para combinar."
   },
   "tuteeHistory": {
     "noSearchMatches": "Ningún alumno coincide con la búsqueda.",
@@ -3781,5 +3822,31 @@
     "alternativeNamesHelp": "Tu nombre en otro idioma o sistema de escritura, como 张小明.",
     "legacyPreserved": "Nombre registrado: {name}. Deja los campos de nombre en letras latinas sin cambios para conservarlo. Introduce un nombre para reemplazarlo.",
     "legacy": "Nombre registrado: {name}. Introduce el nombre y el apellido por separado para actualizar el perfil."
+  },
+  "registrationFlow": {
+    "progressTitle": "Progreso del Registro",
+    "stepCount": "Paso {current} de {total}",
+    "invitationTitle": "Código de Invitación",
+    "emailTitle": "Correo Electrónico",
+    "verifyTitle": "Verificar Correo",
+    "profileTitle": "Perfil y Contraseña",
+    "identityTitle": "Identidad y Correo",
+    "passwordTitle": "Establecer Contraseña",
+    "back": "Atrás",
+    "editIdentity": "Editar Identidad",
+    "editEmail": "Revisar o Editar Correo",
+    "editInvitation": "Editar Código de Invitación",
+    "reverifyHelp": "Volver a los datos anteriores requiere verificar de nuevo el correo. Las otras entradas se conservan en este formulario.",
+    "working": "Espera…"
+  },
+  "signupSections": {
+    "identityTitle": "Identidad y Contacto",
+    "subjectsTitle": "Materias",
+    "agreementTitle": "Acuerdo",
+    "applicationTitle": "Detalles de la Solicitud"
+  },
+  "pageRecovery": {
+    "title": "Página No Encontrada",
+    "body": "Esta página puede haberse movido o ya no estar disponible. Vuelve al inicio o inicia sesión para continuar."
   }
 }

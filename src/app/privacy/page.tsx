@@ -1,8 +1,7 @@
 import Link from "next/link";
 import { getLocale, getTranslations } from "next-intl/server";
 
-import { LanguageSwitcher } from "~/app/_components/language-switcher";
-import { ThemeSwitcher } from "~/app/_components/theme-switcher";
+import { PublicHeader } from "~/app/_components/public-header";
 import { APP_TITLE, ORG_NAME, SUPPORT_EMAIL } from "~/lib/branding";
 import { getPrivacyPolicy, PRIVACY_POLICY_UPDATED } from "~/lib/privacy-policy";
 
@@ -24,20 +23,7 @@ export default async function PrivacyPage() {
 
   return (
     <div className="min-h-screen">
-      <header className="border-b border-slate-200 bg-white">
-        <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3 px-4 py-3">
-          <Link
-            href="/"
-            className="flex min-h-11 items-center text-xl font-extrabold tracking-tight text-slate-900 lg:min-h-8 lg:text-lg"
-          >
-            {APP_TITLE}
-          </Link>
-          <div className="flex items-center gap-2">
-            <ThemeSwitcher compactAtDesktop />
-            <LanguageSwitcher compactAtDesktop />
-          </div>
-        </div>
-      </header>
+      <PublicHeader sticky={false} />
 
       <main className="mx-auto max-w-5xl px-4 py-8 sm:py-12">
         <Link

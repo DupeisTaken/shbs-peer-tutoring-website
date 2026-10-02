@@ -58,3 +58,7 @@ it("uses semester wording in the pre-opening notice while retaining a form previ
   expect(html).toContain("Opens: 2026–27 S2");
   expect(html).toContain("Request form");
 });
+
+vi.mock("~/app/_components/theme-switcher", () => ({
+  ThemeSwitcher: () => null,
+}));

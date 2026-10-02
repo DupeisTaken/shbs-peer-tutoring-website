@@ -1,4 +1,10 @@
 "use client";
+import { Button } from "~/app/_components/ui/button";
+import {
+  FormSection,
+  FormActions,
+  InlineNotice,
+} from "~/app/_components/ui/patterns";
 import { PersonNameFields } from "~/app/_components/person-name-fields";
 import { nameDraft, fullPersonName } from "~/lib/person-name";
 
@@ -102,6 +108,8 @@ export function TutorSignupForm() {
   const readOnly = status !== "open" || missing.length > 0;
   const canSubmit =
     !readOnly &&
+    !options.isError &&
+    !policy.isError &&
     name.trim() &&
     email.trim() &&
     !fieldMissing(fields, "preferredContact", preferredContact) &&
@@ -141,7 +149,7 @@ export function TutorSignupForm() {
 
   // An empty picker or an unreadable policy is not an actionable application form.
   // Keep retry local to these reads; submitting again is never the recovery action.
-  if (options.isError || policy.isError)
+  if ((options.isError && !options.data) || (policy.isError && !policy.data))
     return (
       <section className="card space-y-4 p-6">
         <p role="alert">{t("public.tutorSignup.loadFailed")}</p>
@@ -157,7 +165,10 @@ export function TutorSignupForm() {
         </button>
       </section>
     );
-  if (options.isLoading || policy.isLoading)
+  if (
+    (options.isLoading && !options.data) ||
+    (policy.isLoading && !policy.data)
+  )
     return (
       <p role="status" className="card p-6">
         {t("workflows.loading")}
@@ -165,6 +176,25 @@ export function TutorSignupForm() {
     );
   return (
     <>
+      {/* Cached prerequisites and controlled drafts stay mounted during recovery. */}
+      {(options.isError || policy.isError) && (
+        <InlineNotice
+          tone="error"
+          announcement="alert"
+          action={
+            <Button
+              onClick={() => {
+                void options.refetch();
+                void policy.refetch();
+              }}
+            >
+              {t("survey.retry")}
+            </Button>
+          }
+        >
+          {t("survey.loadFailed")}
+        </InlineNotice>
+      )}
       {readOnly && (
         <RecruitmentNotice
           status={status}
@@ -204,92 +234,142 @@ export function TutorSignupForm() {
       >
         {/* Native fieldset prevents mouse, keyboard and assistive-input edits in preview mode. */}
         <fieldset
-          disabled={readOnly}
+          disabled={readOnly || submit.isPending}
+          aria-busy={submit.isPending}
           className="min-w-0 space-y-6"
           aria-label={t("recruitment.responses")}
         >
-          <div>
-            <p className="label">{t("public.tutorSignup.fields.courses")}</p>
-            <p className="muted mb-2">{t("public.tutorSignup.coursesHelp")}</p>
-            <div className="space-y-3">
-              {rows.map((row, i) => {
-                if (fields[subjectFieldKey(i)] === "hidden") return null;
-                const usedElsewhere = rows
-                  .filter(
-                    (_, idx) =>
-                      idx !== i && fields[subjectFieldKey(idx)] !== "hidden",
-                  )
-                  .map((r) => r.subjectId);
-                const selected = courses.find((c) => c.id === row.subjectId);
-                // Preview includes conditional AP questions without requiring a subject selection.
-                const isAp = readOnly || (selected?.level?.apScored ?? false);
-                return (
-                  <div
-                    key={i}
-                    className="space-y-3 rounded-lg border border-slate-200 p-3"
-                  >
-                    <div className="flex flex-wrap items-end gap-2">
-                      <label className="min-w-0 flex-1 space-y-1">
-                        <span className="label">
-                          {t(`signupFields.labels.${subjectFieldKey(i)}`)}
-                          <FieldRequirement
-                            state={fields[subjectFieldKey(i)]}
-                          />
-                        </span>
-                        <select
-                          className="select field-auto min-h-11 max-w-full min-w-0 lg:min-h-10"
-                          aria-describedby={
-                            selected ? `tutor-subject-${i}` : undefined
-                          }
-                          required={fields[subjectFieldKey(i)] === "required"}
-                          value={row.subjectId}
-                          onChange={(e) =>
-                            // Reset the AP-score flag if the new course isn't AP.
-                            setRow(i, {
-                              subjectId: e.target.value,
-                              hasApScore: undefined,
-                              apScore: "",
-                            })
-                          }
-                        >
-                          <option value="">
-                            {t("public.tutorSignup.placeholders.selectCourse")}
-                          </option>
-                          {courses
-                            .filter(
-                              (c) =>
-                                c.id === row.subjectId ||
-                                !usedElsewhere.includes(c.id),
-                            )
-                            .map((c) => (
-                              <option key={c.id} value={c.id}>
-                                {c.name}
-                                {c.level ? ` (${c.level.name})` : ""}
-                              </option>
-                            ))}
-                        </select>
-                      </label>
-                      {selected?.level && (
-                        <span className="badge-slate mb-2">
-                          {selected.level.name}
-                        </span>
-                      )}
-                      {/* Native selects cannot wrap a long selected label; keep the complete name readable. */}
-                      {selected && (
-                        <p
-                          id={`tutor-subject-${i}`}
-                          className="muted w-full min-w-0 text-xs break-words"
-                        >
-                          {selected.name}
-                        </p>
-                      )}
-                    </div>
+          <FormSection title={t("signupSections.identityTitle")}>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+              <div className="sm:col-span-2">
+                <PersonNameFields value={names} onChange={setNames} />
+              </div>
+              <label className="space-y-1">
+                <span className="label">
+                  {t("public.tutorSignup.fields.email")}
+                  <FieldRequirement state="required" />
+                </span>
+                <input
+                  type="email"
+                  className="input min-h-11 lg:min-h-10"
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  autoComplete="email"
+                  required
+                />
+              </label>
+            </div>
 
-                    {/* Required flags ask for an answer, never require a positive qualification. */}
-                    {(readOnly || row.subjectId) && (
-                      <div className="flex flex-wrap items-center gap-3">
-                        {(["taken", "hasApScore", "selfStudied"] as const).map(
-                          (key) => {
+            <ProfilePolicyHint />
+
+            {fields.preferredContact !== "hidden" && (
+              <label className="space-y-1">
+                <span className="label">
+                  {t("signupFields.labels.preferredContact")}
+                  <FieldRequirement state={fields.preferredContact} />
+                </span>
+                <input
+                  className="input min-h-11 lg:min-h-10"
+                  value={preferredContact}
+                  onChange={(e) => setPreferredContact(e.target.value)}
+                  placeholder={t(
+                    "public.tutorSignup.placeholders.preferredContact",
+                  )}
+                  required={fields.preferredContact === "required"}
+                />
+                <span className="muted text-xs">
+                  {t("public.tutorSignup.help.preferredContact")}
+                </span>
+              </label>
+            )}
+          </FormSection>
+          <FormSection title={t("signupSections.subjectsTitle")}>
+            <div>
+              <p className="muted mb-2">
+                {t("public.tutorSignup.coursesHelp")}
+              </p>
+              <div className="space-y-3">
+                {rows.map((row, i) => {
+                  if (fields[subjectFieldKey(i)] === "hidden") return null;
+                  const usedElsewhere = rows
+                    .filter(
+                      (_, idx) =>
+                        idx !== i && fields[subjectFieldKey(idx)] !== "hidden",
+                    )
+                    .map((r) => r.subjectId);
+                  const selected = courses.find((c) => c.id === row.subjectId);
+                  // Preview includes conditional AP questions without requiring a subject selection.
+                  const isAp = readOnly || (selected?.level?.apScored ?? false);
+                  return (
+                    <div
+                      key={i}
+                      className="space-y-3 rounded-lg border border-slate-200 p-3"
+                    >
+                      <div className="flex flex-wrap items-end gap-2">
+                        <label className="min-w-0 flex-1 space-y-1">
+                          <span className="label">
+                            {t(`signupFields.labels.${subjectFieldKey(i)}`)}
+                            <FieldRequirement
+                              state={fields[subjectFieldKey(i)]}
+                            />
+                          </span>
+                          <select
+                            className="select min-h-11 w-full max-w-full min-w-0 lg:min-h-10"
+                            aria-describedby={
+                              selected ? `tutor-subject-${i}` : undefined
+                            }
+                            required={fields[subjectFieldKey(i)] === "required"}
+                            value={row.subjectId}
+                            onChange={(e) =>
+                              // Reset the AP-score flag if the new course isn't AP.
+                              setRow(i, {
+                                subjectId: e.target.value,
+                                hasApScore: undefined,
+                                apScore: "",
+                              })
+                            }
+                          >
+                            <option value="">
+                              {t(
+                                "public.tutorSignup.placeholders.selectCourse",
+                              )}
+                            </option>
+                            {courses
+                              .filter(
+                                (c) =>
+                                  c.id === row.subjectId ||
+                                  !usedElsewhere.includes(c.id),
+                              )
+                              .map((c) => (
+                                <option key={c.id} value={c.id}>
+                                  {c.name}
+                                  {c.level ? ` (${c.level.name})` : ""}
+                                </option>
+                              ))}
+                          </select>
+                        </label>
+                        {selected?.level && (
+                          <span className="badge-slate mb-2">
+                            {selected.level.name}
+                          </span>
+                        )}
+                        {/* Native selects cannot wrap a long selected label; keep the complete name readable. */}
+                        {selected && (
+                          <p
+                            id={`tutor-subject-${i}`}
+                            className="muted w-full min-w-0 text-xs break-words"
+                          >
+                            {selected.name}
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Required flags ask for an answer, never require a positive qualification. */}
+                      {(readOnly || row.subjectId) && (
+                        <div className="flex flex-wrap items-center gap-3">
+                          {(
+                            ["taken", "hasApScore", "selfStudied"] as const
+                          ).map((key) => {
                             if (
                               fields[key] === "hidden" ||
                               (key === "hasApScore" && !isAp)
@@ -344,143 +424,102 @@ export function TutorSignupForm() {
                                 )}
                               </label>
                             );
-                          },
+                          })}
+                        </div>
+                      )}
+
+                      {/* Detail boxes — each appears only when its tick is set. */}
+                      {(readOnly || row.subjectId) &&
+                        fields.taken !== "hidden" &&
+                        fields.grade !== "hidden" &&
+                        (readOnly || row.taken) && (
+                          <label className="block space-y-1">
+                            <span className="label">
+                              {t("public.tutorSignup.fields.grade")}
+                              <FieldRequirement state={fields.grade} />
+                            </span>
+                            <input
+                              className="input min-h-11 w-full lg:min-h-10"
+                              required={fields.grade === "required"}
+                              value={row.grade}
+                              onChange={(e) =>
+                                setRow(i, { grade: e.target.value })
+                              }
+                              placeholder={t(
+                                "public.tutorSignup.placeholders.grade",
+                              )}
+                            />
+                          </label>
                         )}
-                      </div>
-                    )}
 
-                    {/* Detail boxes — each appears only when its tick is set. */}
-                    {(readOnly || row.subjectId) &&
-                      fields.taken !== "hidden" &&
-                      fields.grade !== "hidden" &&
-                      (readOnly || row.taken) && (
-                        <label className="block space-y-1">
-                          <span className="label">
-                            {t("public.tutorSignup.fields.grade")}
-                            <FieldRequirement state={fields.grade} />
-                          </span>
-                          <input
-                            className="input field-auto min-h-11 min-w-32 lg:min-h-10"
-                            required={fields.grade === "required"}
-                            value={row.grade}
-                            onChange={(e) =>
-                              setRow(i, { grade: e.target.value })
-                            }
-                            placeholder={t(
-                              "public.tutorSignup.placeholders.grade",
-                            )}
-                          />
-                        </label>
-                      )}
+                      {(readOnly || row.subjectId) &&
+                        isAp &&
+                        fields.hasApScore !== "hidden" &&
+                        fields.apScore !== "hidden" &&
+                        (readOnly || row.hasApScore) && (
+                          <label className="block space-y-1">
+                            <span className="label">
+                              {t("public.tutorSignup.fields.apScore")}
+                              <FieldRequirement state={fields.apScore} />
+                            </span>
+                            <input
+                              className="input min-h-11 w-full lg:min-h-10"
+                              required={fields.apScore === "required"}
+                              value={row.apScore}
+                              onChange={(e) =>
+                                setRow(i, { apScore: e.target.value })
+                              }
+                              placeholder={t(
+                                "public.tutorSignup.placeholders.apScore",
+                              )}
+                            />
+                          </label>
+                        )}
 
-                    {(readOnly || row.subjectId) &&
-                      isAp &&
-                      fields.hasApScore !== "hidden" &&
-                      fields.apScore !== "hidden" &&
-                      (readOnly || row.hasApScore) && (
-                        <label className="block space-y-1">
-                          <span className="label">
-                            {t("public.tutorSignup.fields.apScore")}
-                            <FieldRequirement state={fields.apScore} />
-                          </span>
-                          <input
-                            className="input field-auto min-h-11 min-w-32 lg:min-h-10"
-                            required={fields.apScore === "required"}
-                            value={row.apScore}
-                            onChange={(e) =>
-                              setRow(i, { apScore: e.target.value })
-                            }
-                            placeholder={t(
-                              "public.tutorSignup.placeholders.apScore",
-                            )}
-                          />
-                        </label>
-                      )}
-
-                    {(readOnly || row.subjectId) &&
-                      fields.selfStudied !== "hidden" &&
-                      fields.selfStudyNote !== "hidden" &&
-                      (readOnly || row.selfStudied) && (
-                        <label className="block space-y-1">
-                          <span className="label">
-                            {t("public.tutorSignup.fields.selfStudyNote")}
-                            <FieldRequirement state={fields.selfStudyNote} />
-                          </span>
-                          <textarea
-                            className="textarea w-full"
-                            rows={2}
-                            required={fields.selfStudyNote === "required"}
-                            value={row.selfStudyNote}
-                            onChange={(e) =>
-                              setRow(i, { selfStudyNote: e.target.value })
-                            }
-                            placeholder={t(
-                              "public.tutorSignup.placeholders.selfStudyNote",
-                            )}
-                          />
-                        </label>
-                      )}
-                  </div>
-                );
-              })}
+                      {(readOnly || row.subjectId) &&
+                        fields.selfStudied !== "hidden" &&
+                        fields.selfStudyNote !== "hidden" &&
+                        (readOnly || row.selfStudied) && (
+                          <label className="block space-y-1">
+                            <span className="label">
+                              {t("public.tutorSignup.fields.selfStudyNote")}
+                              <FieldRequirement state={fields.selfStudyNote} />
+                            </span>
+                            <textarea
+                              className="textarea w-full"
+                              rows={2}
+                              required={fields.selfStudyNote === "required"}
+                              value={row.selfStudyNote}
+                              onChange={(e) =>
+                                setRow(i, { selfStudyNote: e.target.value })
+                              }
+                              placeholder={t(
+                                "public.tutorSignup.placeholders.selfStudyNote",
+                              )}
+                            />
+                          </label>
+                        )}
+                    </div>
+                  );
+                })}
+              </div>
             </div>
-          </div>
-
-          {/* Policy agreement (gated on reading the policy) */}
-          <PolicyAgreement
-            key={policy.data?.revision}
-            messageKey="public.tutorSignup.agree"
-            appTitle={APP_TITLE}
-            policy={policy.data}
-            checked={agreed}
-            onChange={(value) =>
-              setAgreedRevision(value ? (policy.data?.revision ?? null) : null)
-            }
-          />
-
-          {/* Contact details last — who they are and how to reach them. */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <div className="sm:col-span-2">
-              <PersonNameFields value={names} onChange={setNames} />
-            </div>
-            <label className="space-y-1">
-              <span className="label">
-                {t("public.tutorSignup.fields.email")}
-                <FieldRequirement state="required" />
-              </span>
-              <input
-                type="email"
-                className="input min-h-11 lg:min-h-10"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                autoComplete="email"
-                required
-              />
-            </label>
-          </div>
-
-          <ProfilePolicyHint />
-
-          {fields.preferredContact !== "hidden" && (
-            <label className="space-y-1">
-              <span className="label">
-                {t("signupFields.labels.preferredContact")}
-                <FieldRequirement state={fields.preferredContact} />
-              </span>
-              <input
-                className="input min-h-11 lg:min-h-10"
-                value={preferredContact}
-                onChange={(e) => setPreferredContact(e.target.value)}
-                placeholder={t(
-                  "public.tutorSignup.placeholders.preferredContact",
-                )}
-                required={fields.preferredContact === "required"}
-              />
-              <span className="muted text-xs">
-                {t("public.tutorSignup.help.preferredContact")}
-              </span>
-            </label>
-          )}
+          </FormSection>
+          <FormSection title={t("signupSections.agreementTitle")}>
+            {/* Policy agreement (gated on reading the policy) */}
+            <PolicyAgreement
+              key={policy.data?.revision}
+              messageKey="public.tutorSignup.agree"
+              appTitle={APP_TITLE}
+              policy={policy.data}
+              checked={agreed}
+              onChange={(value) =>
+                setAgreedRevision(
+                  value ? (policy.data?.revision ?? null) : null,
+                )
+              }
+            />
+          </FormSection>
 
           {submit.error && (
             <p role="alert" className="text-sm text-red-600">
@@ -488,15 +527,18 @@ export function TutorSignupForm() {
             </p>
           )}
 
-          <button
-            type="submit"
-            className="btn-primary min-h-11 w-full lg:min-h-10"
-            disabled={!canSubmit}
-          >
-            {submit.isPending
-              ? t("public.tutorSignup.submitting")
-              : t("public.tutorSignup.submit")}
-          </button>
+          <FormActions>
+            <Button
+              type="submit"
+              variant="primary"
+              className="w-full"
+              disabled={!canSubmit}
+            >
+              {submit.isPending
+                ? t("public.tutorSignup.submitting")
+                : t("public.tutorSignup.submit")}
+            </Button>
+          </FormActions>
         </fieldset>
       </form>
     </>
