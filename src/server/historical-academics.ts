@@ -28,8 +28,8 @@ export const historicalListInput = z.object({
   page: z.number().int().min(0).max(10000).default(0),
 });
 
-/** The legacy key is deterministic, but materialization is deferred until a deliberate
- * correction. Merely browsing history must not create evidence or confirmation dates. */
+/** The legacy key is deterministic; corrections, exact archive restores and status
+ * reactivation may preserve it. Browsing never creates evidence or confirmation dates. */
 export async function historicalAcademicSnapshot(
   db: DomainDb,
   recordId: string,

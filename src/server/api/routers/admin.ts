@@ -22,7 +22,8 @@ import {
 } from "~/server/program/profile-policy";
 import { historicalOwners } from "~/server/tutee-history";
 import { isHistoricalTutee } from "~/lib/tutee-history";
-import { legacyAcademicRecordId } from "~/lib/historical-academics";
+import { isHistoricalTutor, legacyAcademicRecordId } from "~/lib/historical-academics";
+import { historicalAcademicSnapshot } from "~/server/historical-academics";
 import { REGISTRATION_KINDS, isManagementCode } from "~/lib/registration-kind";
 import { enforceAssignmentQualification } from "~/server/assignment-qualification";
 import { accountUsernameSchema, updateAccountUsername } from "~/server/account-username";
@@ -358,7 +359,12 @@ export const adminRouter = createTRPCRouter({
       },
       }),
     ]);
-    return tutors.map((tutor) => ({ ...tutor, academic: academicSummary(tutor.user?.academicProfile ?? (
+    const preservedAcademics = await ctx.db.historicalAcademicRecord.findMany({
+      where: { id: { in: tutors.map((tutor) => legacyAcademicRecordId("TUTOR", tutor.id)) } },
+      select: { tutorId: true },
+    });
+    const preservedTutorIds = new Set(preservedAcademics.map((record) => record.tutorId));
+    return tutors.map((tutor) => ({ ...tutor, historicalGrade: isHistoricalTutor(tutor) || preservedTutorIds.has(tutor.id), academic: academicSummary(tutor.user?.academicProfile ?? (
       !tutor.academicallyGraduated && tutor.gradeSchoolYear && tutor.gradeConfirmedAt ? { status: "REPORTED", gradeLevel: tutor.gradeLevel, rawGrade: null,
         schoolYear: tutor.gradeSchoolYear, confirmedAt: tutor.gradeConfirmedAt, reconfirmRequired: false } : legacyAcademic(tutor.gradeLevel, tutor.academicallyGraduated)
     ), term?.schoolYear) }));
@@ -1923,14 +1929,28 @@ export const adminRouter = createTRPCRouter({
               })
             : null;
 
-        if (!account && input.gradeLevel !== before.gradeLevel)
-          await assertOfferedGrade(tx, input.gradeLevel);
         const changedAcademicChoice =
           !account &&
           ((input.gradeLevel !== undefined &&
             input.gradeLevel !== before.gradeLevel) ||
             (input.academicallyGraduated !== undefined &&
               input.academicallyGraduated !== before.academicallyGraduated));
+        const recordId = legacyAcademicRecordId("TUTOR", before.id);
+        const historicalGrade = isHistoricalTutor(before) || !!await tx.historicalAcademicRecord.count({ where: { id: recordId } });
+        if (changedAcademicChoice && historicalGrade)
+          throw new TRPCError({ code: "BAD_REQUEST", message: "HISTORICAL_EDITOR_REQUIRED" });
+        if (!account && input.gradeLevel !== before.gradeLevel)
+          await assertOfferedGrade(tx, input.gradeLevel);
+        // Preserve a virtual original before a status-only reactivation can make it
+        // look provisional again. This creates no correction or confirmation date.
+        if (isHistoricalTutor(before) && !isHistoricalTutor({ status: input.status })) {
+          await lockEntity(tx, `historical-academic:${recordId}`);
+          const { original } = await historicalAcademicSnapshot(tx, recordId);
+          await tx.historicalAcademicRecord.upsert({
+            where: { id: recordId }, update: {},
+            create: { id: recordId, tutorId: before.id, ...original },
+          });
+        }
         // The middleware's routing decision is not authority for a later state transition.
         if (before.status !== input.status && ctx.session.role !== "HEAD")
           throw new TRPCError({ code: "CONFLICT", message: "Tutor membership changed. Ask Head to review this status change." });

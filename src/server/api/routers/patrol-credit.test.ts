@@ -326,3 +326,65 @@ it("fences a correction waiting behind account combination, then permits retry w
     release.resolve(); await Promise.allSettled([combining, ...(correction ? [correction] : [])]); spy.mockRestore();
   }
 });
+
+it.each(["explicit", "default hours", "default creation time"] as const)("retries explicit-null legacy patrol credit with %s values without reopening evidence or changing timestamps", async (mode) => {
+  const patrol = {
+    id: "null-credit-patrol", crewUserId: crewId,
+    ...(mode === "default hours" ? {} : { hours: 0.5 }),
+    creditAwardedAt: null,
+    ...(mode === "default creation time" ? {} : { createdAt: new Date().toISOString() }),
+    updatedAt: new Date().toISOString(),
+  };
+  const observation = { id: "null-credit-observation", patrolId: patrol.id, roomId, headcount: "ONE", observedAt: new Date().toISOString() };
+  const files = [
+    { name: "Patrol.csv", text: recordCsv(Object.keys(patrol), [patrol]) },
+    { name: "PatrolObservation.csv", text: recordCsv(Object.keys(observation), [observation]) },
+  ];
+  const staff = caller(headId, "HEAD");
+  const preview = await staff.recordTransfer.preview({ files });
+  await staff.recordTransfer.import({ files, ticket: preview.ticket });
+  const before = await db.patrol.findUniqueOrThrow({ where: { id: patrol.id }, include: { creditWindows: true } });
+  expect(before.creditAwardedAt).toEqual(before.createdAt);
+  expect(before.creditWindows).toHaveLength(1);
+  expect(before.hours).toBe(0.5);
+  expect(before.updatedAt.toISOString()).toBe(patrol.updatedAt);
+  const retry = await staff.recordTransfer.preview({ files });
+  expect(retry.summary.every((row) => row.created === 0)).toBe(true);
+  await staff.recordTransfer.import({ files, ticket: retry.ticket });
+  expect(await db.patrol.findUnique({ where: { id: patrol.id }, include: { creditWindows: true } })).toEqual(before);
+  expect((await caller().crew.submitPatrol(input())).hours).toBe(0);
+  expect(await caller().crew.patrolConfig()).toMatchObject({ myHours: 0.5 });
+});
+
+it("retains explicit-null zero-credit archives without inventing award evidence", async () => {
+  const patrol = { id: "uncredited-patrol", crewUserId: crewId, hours: 0, creditAwardedAt: null, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() };
+  const files = [{ name: "Patrol.csv", text: recordCsv(Object.keys(patrol), [patrol]) }];
+  const staff = caller(headId, "HEAD");
+  const preview = await staff.recordTransfer.preview({ files });
+  await staff.recordTransfer.import({ files, ticket: preview.ticket });
+  const retry = await staff.recordTransfer.preview({ files });
+  expect(retry.summary).toEqual([{ table: "Patrol", created: 0, skipped: 1 }]);
+  await staff.recordTransfer.import({ files, ticket: retry.ticket });
+  expect(await db.patrol.findUnique({ where: { id: patrol.id }, include: { creditWindows: true } })).toMatchObject({
+    hours: 0, creditAwardedAt: null, creditWindows: [],
+  });
+  // Omitted columns remain unspecified for existing records, even though new
+  // patrols would receive the schema's positive-hours default.
+  const { hours: _hours, ...partial } = patrol;
+  void _hours;
+  expect((await staff.recordTransfer.preview({
+    files: [{ name: "Patrol.csv", text: recordCsv(Object.keys(partial), [partial]) }],
+  })).summary).toEqual([{ table: "Patrol", created: 0, skipped: 1 }]);
+});
+
+it("does not treat explicit-null patrol credit as a wildcard for a different award time", async () => {
+  const patrol = await db.patrol.create({ data: {
+    id: "different-award", crewUserId: crewId, hours: 0.5,
+    createdAt: new Date("2026-09-01T07:00:00Z"), creditAwardedAt: new Date("2026-09-01T08:00:00Z"),
+  } });
+  const row = { id: patrol.id, crewUserId: crewId, hours: 0.5, creditAwardedAt: null, createdAt: patrol.createdAt.toISOString(), updatedAt: patrol.updatedAt.toISOString() };
+  await expect(caller(headId, "HEAD").recordTransfer.preview({
+    files: [{ name: "Patrol.csv", text: recordCsv(Object.keys(row), [row]) }],
+  })).rejects.toThrow("This ID already exists with different values");
+  expect(await db.patrol.findUnique({ where: { id: patrol.id } })).toEqual(patrol);
+});

@@ -10,10 +10,11 @@ import {
   TRANSFER_MAX_ROWS,
   type TransferFile,
 } from "~/lib/record-transfer";
-import type { TransactionDb } from "~/server/transactions";
+import { lockEntity, type TransactionDb } from "~/server/transactions";
 import { canonicalUsername } from "~/server/auth/username";
 import { reservePatrolEvidence } from "~/server/crew/patrol-credit";
 import { historicalYear, legacyAcademicRecordId } from "~/lib/historical-academics";
+import { historicalAcademicSnapshot } from "~/server/historical-academics";
 
 // Explicit domain allowlist, in dependency order. Never expand this to every database table:
 // executable approvals, account privileges, credentials and private messages are not archives.
@@ -282,12 +283,20 @@ export async function applyRecords(tx: TransactionDb, files: TransferFile[]) {
         const key = JSON.stringify(keys.map((k) => row[k]));
         if (seen.has(key)) fail("Duplicate primary key in this file.");
         seen.add(key);
+        // Legacy positive credit uses its creation time as award evidence. Apply the
+        // same normalization before comparison and insertion; omitted creation times
+        // use the stored row's creation time on retry and the DB default on first import.
+        const legacyPatrolCredit = table === "Patrol" && row.creditAwardedAt === null && Number(row.hours ?? 0.5) > 0;
+        if (legacyPatrolCredit && row.createdAt != null)
+          row.creditAwardedAt = row.createdAt;
         // Compare typed JSON through PostgreSQL so equivalent dates/JSON key order are equal.
         const existing = await tx.$queryRaw<{ matches: boolean }[]>(Prisma.sql`
           SELECT ${Prisma.join(
             file.columns.map(
               (c) =>
-                Prisma.sql`current_row.${identifier(c.name)} IS NOT DISTINCT FROM incoming.${identifier(c.name)}`,
+                legacyPatrolCredit && c.name === "creditAwardedAt"
+                  ? Prisma.sql`current_row."creditAwardedAt" IS NOT DISTINCT FROM CASE WHEN current_row.hours > 0 THEN COALESCE(incoming."creditAwardedAt", current_row."createdAt") ELSE NULL END`
+                  : Prisma.sql`current_row.${identifier(c.name)} IS NOT DISTINCT FROM incoming.${identifier(c.name)}`,
             ),
             " AND ",
           )} AS matches
@@ -314,6 +323,30 @@ export async function applyRecords(tx: TransactionDb, files: TransferFile[]) {
             "Account reference not found. Create/link accounts through the normal account workflow first.",
           );
         validateDomainRow(table, row);
+        if (table === "HistoricalAcademicRecord" && String(row.id).startsWith("legacy-")) {
+          const kind = row.tuteeId ? "TUTEE" : "TUTOR";
+          const participantId = String(row.tuteeId ?? row.tutorId);
+          const participantTable = kind === "TUTEE" ? "Tutee" : "Tutor";
+          // A newly restored participant may have a newer roster mirror than its
+          // preserved original. Existing participants already have virtual evidence,
+          // which an additive archive must not replace by materializing different values.
+          if (!inserted.some((entry) => entry.table === participantTable && entry.row.id === participantId)) {
+            // The caller holds the username namespace before acquiring participant
+            // and evidence locks, matching corrections and profile/link workflows.
+            await lockEntity(tx, `${kind.toLowerCase()}:${participantId}`);
+            await tx.$queryRaw(Prisma.sql`SELECT id FROM ${identifier(participantTable)} WHERE id=${participantId} FOR UPDATE`);
+            await lockEntity(tx, `historical-academic:${String(row.id)}`);
+            const { original } = await historicalAcademicSnapshot(tx, String(row.id));
+            if (
+              (row.rawGrade ?? null) !== original.rawGrade ||
+              (row.schoolYear ?? null) !== original.schoolYear ||
+              (row.academicallyGraduated ?? false) !== original.academicallyGraduated ||
+              row.source !== original.source ||
+              (row.originalConfirmedAt ?? null) !== (original.originalConfirmedAt?.toISOString() ?? null)
+            )
+              fail("Reserved legacy academic evidence must match the participant's original grade, year, graduation, source and confirmation. Use Academic Corrections for changes.");
+          }
+        }
         if (table === "Tutor") {
           if (typeof row.username === "string")
             await canonicalUsername(tx, row.username, {

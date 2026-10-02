@@ -81,3 +81,8 @@ export function historicalCorrectionCsv(rows: HistoricalCorrectionRow[]) {
 export function legacyAcademicRecordId(kind: "TUTEE" | "TUTOR", id: string) {
   return `legacy-${kind.toLowerCase()}:${id}`;
 }
+
+/** Departure/archive states protect the retained roster report, even without a login. */
+export function isHistoricalTutor(row: { status: string }) {
+  return ["ARCHIVED", "GRADUATED", "TRANSFERRED"].includes(row.status);
+}

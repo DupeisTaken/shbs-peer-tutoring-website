@@ -105,7 +105,7 @@ function TutorProfileForm({
             value("username") !== (row.username ?? "")
               ? { username: value("username") }
               : {}),
-            ...(row.user
+            ...(row.user || row.historicalGrade
               ? {}
               : {
                   gradeLevel:
@@ -169,7 +169,7 @@ function TutorProfileForm({
               ["grade", t("academics.legacyGrade"), row.gradeLevel],
             ] as const
           )
-            .filter(([key]) => key !== "grade" || !row.user)
+            .filter(([key]) => key !== "grade" || (!row.user && !row.historicalGrade))
             .map(([key, label, value]) => (
               <label key={key} className="block">
                 <span className="label">{label}</span>
@@ -237,6 +237,11 @@ function TutorProfileForm({
         <div className="mt-5">
           <AcademicPanel userId={row.user.id} />
         </div>
+      )}
+      {row.historicalGrade && (
+        <p className="mt-4 rounded-lg bg-slate-50 p-3 text-sm">
+          {t("historicalAcademics.HISTORICAL_EDITOR_REQUIRED")}
+        </p>
       )}
     </>
   );

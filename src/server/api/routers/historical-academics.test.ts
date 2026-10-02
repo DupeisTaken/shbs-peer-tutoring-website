@@ -34,7 +34,9 @@ const caller = (role: Session["role"] = "HEAD") =>
 const key = (id: string) => legacyAcademicRecordId("TUTEE", id);
 const file = (name: string, rows: Record<string, unknown>[]) => ({
   name: `${name}.csv`,
-  text: recordCsv(Object.keys(rows[0]!), rows),
+  text: recordCsv(Object.keys(rows[0]!), rows.map((row) => Object.fromEntries(
+    Object.entries(row).map(([key, value]) => [key, value instanceof Date ? value.toISOString() : value]),
+  ))),
 });
 
 async function reset() {
@@ -631,3 +633,160 @@ it.each([
     expect(await db.historicalAcademicRecord.count()).toBe(0);
   },
 );
+
+async function legacyTutor(status: "ACTIVE" | "ARCHIVED" | "GRADUATED" | "TRANSFERRED" = "ARCHIVED") {
+  return db.tutor.create({
+    data: {
+      id: "legacy-tutor",
+      englishName: "Historical Tutor",
+      status,
+      gradeLevel: 9,
+      gradeSchoolYear: "24-25",
+      gradeConfirmedAt: new Date("2024-10-01T00:00:00Z"),
+    },
+  });
+}
+
+it.each(["TUTEE", "TUTOR"] as const)(
+  "rejects a reserved %s archive original that replaces an unmaterialized baseline",
+  async (kind) => {
+    const participant = kind === "TUTEE"
+      ? await db.tutee.update({ where: { id: "a" }, data: { gradeLevel: "9" } })
+      : await legacyTutor();
+    const recordId = legacyAcademicRecordId(kind, participant.id);
+    const original = await historicalAcademicSnapshot(db, recordId);
+    const files = [file("HistoricalAcademicRecord", [{
+      id: recordId,
+      ...(kind === "TUTEE" ? { tuteeId: participant.id } : { tutorId: participant.id }),
+      rawGrade: "12",
+      schoolYear: "25-26",
+      source: "Arbitrary replacement evidence",
+    }])];
+    await expect(caller().recordTransfer.preview({ files })).rejects.toThrow("Reserved legacy academic evidence must match");
+    expect(await historicalAcademicSnapshot(db, recordId)).toEqual(original);
+    expect(await db.historicalAcademicRecord.count()).toBe(0);
+    expect(await db.historicalAcademicCorrection.count()).toBe(0);
+  },
+);
+
+it.each(["rawGrade", "schoolYear", "source", "academicallyGraduated", "originalConfirmedAt"] as const)(
+  "checks the reserved legacy original's %s independently",
+  async (field) => {
+    const tutor = await legacyTutor();
+    const recordId = legacyAcademicRecordId("TUTOR", tutor.id);
+    const { original } = await historicalAcademicSnapshot(db, recordId);
+    const changed = {
+      rawGrade: "12",
+      schoolYear: "25-26",
+      source: "Replacement source",
+      academicallyGraduated: true,
+      originalConfirmedAt: new Date("2024-11-01T00:00:00Z"),
+    };
+    await expect(caller().recordTransfer.preview({
+      files: [file("HistoricalAcademicRecord", [{ id: recordId, tutorId: tutor.id, ...original, [field]: changed[field] }])],
+    })).rejects.toThrow("Reserved legacy academic evidence must match");
+  },
+);
+
+it.each(["ARCHIVED", "GRADUATED", "TRANSFERRED", "corrected"] as const)(
+  "protects %s tutor evidence from roster academic edits but permits contact edits",
+  async (status) => {
+    const tutor = await legacyTutor(status === "corrected" ? "ACTIVE" : status);
+    const recordId = legacyAcademicRecordId("TUTOR", tutor.id);
+    if (status === "corrected")
+      await caller().historicalAcademics.correctBatch(await prepared(await input([recordId])));
+    const original = await historicalAcademicSnapshot(db, recordId);
+    const fields = { id: tutor.id, expectedUpdatedAt: tutor.updatedAt, status: tutor.status };
+    await expect(caller().admin.updateTutor({ ...fields, gradeLevel: 10 })).rejects.toThrow("HISTORICAL_EDITOR_REQUIRED");
+    await expect(caller().admin.updateTutor({ ...fields, gradeLevel: null, academicallyGraduated: true })).rejects.toThrow("HISTORICAL_EDITOR_REQUIRED");
+    await caller().admin.updateTutor({ ...fields, firstName: "Historical", lastName: "Tutor", email: "archive-contact@example.test" });
+    expect(await db.tutor.findUnique({ where: { id: tutor.id } })).toMatchObject({
+      gradeLevel: 9,
+      gradeSchoolYear: "24-25",
+      gradeConfirmedAt: tutor.gradeConfirmedAt,
+      firstName: "Historical",
+      lastName: "Tutor",
+      email: "archive-contact@example.test",
+    });
+    expect((await historicalAcademicSnapshot(db, recordId)).original).toEqual(original.original);
+    expect((await caller().admin.tutors()).find((row) => row.id === tutor.id)).toMatchObject({ historicalGrade: true });
+  },
+);
+
+it("preserves ordinary current accountless tutor grade editing", async () => {
+  const tutor = await legacyTutor("ACTIVE");
+  await caller().admin.updateTutor({ id: tutor.id, expectedUpdatedAt: tutor.updatedAt, status: tutor.status, gradeLevel: 10 });
+  expect(await db.tutor.findUnique({ where: { id: tutor.id } })).toMatchObject({ gradeLevel: 10, gradeSchoolYear: null, gradeConfirmedAt: null });
+  expect(await db.historicalAcademicRecord.count()).toBe(0);
+});
+
+it.each(["TUTEE", "TUTOR"] as const)(
+  "accepts exact reserved %s evidence and preserves correction overlays on archive retry",
+  async (kind) => {
+    const participant = kind === "TUTEE"
+      ? await db.tutee.findUniqueOrThrow({ where: { id: "a" } })
+      : await legacyTutor();
+    const recordId = legacyAcademicRecordId(kind, participant.id);
+    const { original } = await historicalAcademicSnapshot(db, recordId);
+    const files = [file("HistoricalAcademicRecord", [{
+      id: recordId,
+      ...(kind === "TUTEE" ? { tuteeId: participant.id } : { tutorId: participant.id }),
+      ...original,
+    }])];
+    const preview = await caller().recordTransfer.preview({ files });
+    expect(await db.historicalAcademicRecord.count()).toBe(0);
+    await caller().recordTransfer.import({ files, ticket: preview.ticket });
+    await caller().historicalAcademics.correctBatch(await prepared(await input([recordId])));
+    const snapshot = await historicalAcademicSnapshot(db, recordId);
+    const retry = await caller().recordTransfer.preview({ files });
+    expect(retry.summary).toEqual([{ table: "HistoricalAcademicRecord", created: 0, skipped: 1 }]);
+    await caller().recordTransfer.import({ files, ticket: retry.ticket });
+    expect(await historicalAcademicSnapshot(db, recordId)).toEqual(snapshot);
+    expect(snapshot.original).toEqual(original);
+    expect(snapshot.revision).toBe(1);
+  },
+);
+
+it("restores a new participant and its preserved original together even after roster mirrors advanced", async () => {
+  const tutor = await legacyTutor("ACTIVE");
+  const recordId = legacyAcademicRecordId("TUTOR", tutor.id);
+  await caller().historicalAcademics.correctBatch(await prepared(await input([recordId])));
+  await db.tutor.update({ where: { id: tutor.id }, data: { gradeLevel: 11, gradeSchoolYear: "26-27" } });
+  const archive = await caller().recordTransfer.export({});
+  const files = archive.files.filter((row) => ["Tutor.csv", "HistoricalAcademicRecord.csv"].includes(row.name));
+  const original = (await historicalAcademicSnapshot(db, recordId)).original;
+  await db.historicalAcademicCorrection.deleteMany();
+  await db.historicalAcademicRecord.deleteMany();
+  await db.tutor.deleteMany();
+  const preview = await caller().recordTransfer.preview({ files });
+  await caller().recordTransfer.import({ files, ticket: preview.ticket });
+  expect((await historicalAcademicSnapshot(db, recordId)).original).toEqual(original);
+  expect(await db.tutor.findUnique({ where: { id: tutor.id } })).toMatchObject({ gradeLevel: 11, gradeSchoolYear: "26-27" });
+  expect(await db.historicalAcademicCorrection.count()).toBe(0);
+});
+
+it("rechecks reserved baselines at import and atomically rolls back earlier archive rows", async () => {
+  const { original } = await historicalAcademicSnapshot(db, key("a"));
+  const files = [
+    file("SubjectLevel", [{ id: "atomic-level", name: "Earlier archive row" }]),
+    file("HistoricalAcademicRecord", [{ id: key("a"), tuteeId: "a", ...original }]),
+  ];
+  const preview = await caller().recordTransfer.preview({ files });
+  await db.tutee.update({ where: { id: "a" }, data: { gradeLevel: "9" } });
+  const audits = await db.auditLog.count();
+  await expect(caller().recordTransfer.import({ files, ticket: preview.ticket })).rejects.toThrow("Reserved legacy academic evidence must match");
+  expect(await db.subjectLevel.count({ where: { id: "atomic-level" } })).toBe(0);
+  expect(await db.historicalAcademicRecord.count()).toBe(0);
+  expect(await db.auditLog.count()).toBe(audits);
+});
+
+it("preserves tutor originals across status-only reactivation and subsequent profile edits", async () => {
+  const tutor = await legacyTutor();
+  const recordId = legacyAcademicRecordId("TUTOR", tutor.id);
+  const { original } = await historicalAcademicSnapshot(db, recordId);
+  await caller().admin.updateTutor({ id: tutor.id, expectedUpdatedAt: tutor.updatedAt, status: "ACTIVE" });
+  const current = await db.tutor.findUniqueOrThrow({ where: { id: tutor.id } });
+  await expect(caller().admin.updateTutor({ id: tutor.id, expectedUpdatedAt: current.updatedAt, status: "ACTIVE", gradeLevel: 10 })).rejects.toThrow("HISTORICAL_EDITOR_REQUIRED");
+  expect((await historicalAcademicSnapshot(db, recordId)).original).toEqual(original);
+  expect(await db.historicalAcademicCorrection.count()).toBe(0);
+});

@@ -481,3 +481,53 @@ it.each(["historical", "corrected"] as const)(
     expect(payload.expectedUpdatedAt).toBe(row.updatedAt);
   },
 );
+
+it.each(["ARCHIVED", "GRADUATED", "TRANSFERRED", "corrected"] as const)(
+  "omits %s tutor academics from contact controls and payload",
+  (kind) => {
+    const tutorRow = {
+      ...row,
+      user: null,
+      status: kind === "corrected" ? "ACTIVE" : kind,
+      historicalGrade: true,
+      gradeLevel: 9,
+    } as unknown as ComponentProps<typeof TutorProfileEditor>["row"];
+    render(
+      <NextIntlClientProvider locale="en" messages={en}>
+        <TutorProfileEditor row={tutorRow} onClose={vi.fn()} />
+      </NextIntlClientProvider>,
+    );
+    const form = screen.getByLabelText("First Name Required").closest("form")!;
+    expect(form.querySelector('[name="grade"]')).toBeNull();
+    expect(screen.getByText(en.historicalAcademics.HISTORICAL_EDITOR_REQUIRED)).toBeTruthy();
+    fireEvent.change(screen.getByLabelText(en.admin.tutors.colEmail), {
+      target: { value: "archive-contact@example.test" },
+    });
+    fireEvent.submit(form);
+    const payload = state.mutate.mock.calls[0]?.[0] as Record<string, unknown>;
+    expect(payload.email).toBe("archive-contact@example.test");
+    expect(payload).not.toHaveProperty("gradeLevel");
+    expect(payload).not.toHaveProperty("academicallyGraduated");
+    expect(payload.expectedUpdatedAt).toBe(row.updatedAt);
+  },
+);
+
+it("keeps linked current tutor academics separate from protected historical evidence", () => {
+  render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <TutorProfileEditor
+        row={{ ...row, historicalGrade: true } as unknown as ComponentProps<typeof TutorProfileEditor>["row"]}
+        onClose={vi.fn()}
+      />
+    </NextIntlClientProvider>,
+  );
+  const form = screen.getByLabelText("First Name Required").closest("form")!;
+  expect(form.querySelector('[name="grade"]')).toBeNull();
+  expect(screen.getByLabelText("Independent academic draft")).toBeTruthy();
+  expect(screen.getByText(en.historicalAcademics.HISTORICAL_EDITOR_REQUIRED)).toBeTruthy();
+  fireEvent.change(screen.getByLabelText("First Name Required"), { target: { value: "Updated" } });
+  fireEvent.submit(form);
+  expect(state.mutate.mock.calls[0]?.[0]).toMatchObject({ firstName: "Updated" });
+  expect(state.mutate.mock.calls[0]?.[0]).not.toHaveProperty("gradeLevel");
+  expect(state.mutate.mock.calls[0]?.[0]).not.toHaveProperty("academicallyGraduated");
+});
