@@ -1,4 +1,6 @@
 "use client";
+import { Button } from "~/app/_components/ui/button";
+import { FormActions, FormSection } from "~/app/_components/ui/patterns";
 import { PersonNameFields } from "~/app/_components/person-name-fields";
 import { nameDraft, fullPersonName } from "~/lib/person-name";
 
@@ -53,7 +55,7 @@ export function CrewSignupForm() {
       className="card space-y-4 p-6"
       onSubmit={(e) => {
         e.preventDefault();
-        if (!valid) return;
+        if (!valid || apply.isPending) return;
         apply.mutate({
           ...names,
           name: name.trim(),
@@ -64,71 +66,87 @@ export function CrewSignupForm() {
         });
       }}
     >
-      <PersonNameFields value={names} onChange={setNames} />
-      <ProfilePolicyHint />
-      <div>
-        <label className="label" htmlFor="crew-email">
-          {t("public.crewSignup.fields.email")}
-          <FieldRequirement state="required" />
-        </label>
-        <input
-          id="crew-email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          className="input w-full"
-        />
-      </div>
-      <div>
-        <label className="label" htmlFor="crew-grade">
-          {t("public.crewSignup.fields.grade")}
-          <FieldRequirement state="optional" />
-        </label>
-        <OfferedGradeSelect
-          id="crew-grade"
-          value={grade}
-          onChange={setGrade}
-          offeredGrades={policy.offeredGrades}
-        />
-      </div>
-      <div>
-        <label className="label" htmlFor="crew-contact">
-          {t("public.crewSignup.fields.contact")}
-          <FieldRequirement state="optional" />
-        </label>
-        <input
-          id="crew-contact"
-          value={contact}
-          onChange={(e) => setContact(e.target.value)}
-          className="input w-full"
-        />
-      </div>
-      <div>
-        <label className="label" htmlFor="crew-message">
-          {t("public.crewSignup.fields.message")}
-          <FieldRequirement state="optional" />
-        </label>
-        <textarea
-          id="crew-message"
-          rows={3}
-          value={message}
-          onChange={(e) => setMessage(e.target.value)}
-          className="textarea w-full"
-        />
-      </div>
+      <FormSection
+        title={t("signupSections.identityTitle")}
+        busy={apply.isPending}
+      >
+        <PersonNameFields value={names} onChange={setNames} />
+        <ProfilePolicyHint />
+        <div>
+          <label className="label" htmlFor="crew-email">
+            {t("public.crewSignup.fields.email")}
+            <FieldRequirement state="required" />
+          </label>
+          <input
+            id="crew-email"
+            type="email"
+            autoComplete="email"
+            required
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="input w-full"
+          />
+        </div>
+        <div>
+          <label className="label" htmlFor="crew-grade">
+            {t("public.crewSignup.fields.grade")}
+            <FieldRequirement state="optional" />
+          </label>
+          <OfferedGradeSelect
+            id="crew-grade"
+            value={grade}
+            onChange={setGrade}
+            offeredGrades={policy.offeredGrades}
+          />
+        </div>
+        <div>
+          <label className="label" htmlFor="crew-contact">
+            {t("public.crewSignup.fields.contact")}
+            <FieldRequirement state="optional" />
+          </label>
+          <input
+            id="crew-contact"
+            value={contact}
+            onChange={(e) => setContact(e.target.value)}
+            className="input w-full"
+          />
+        </div>
+      </FormSection>
+      <FormSection
+        title={t("signupSections.applicationTitle")}
+        busy={apply.isPending}
+      >
+        <div>
+          <label className="label" htmlFor="crew-message">
+            {t("public.crewSignup.fields.message")}
+            <FieldRequirement state="optional" />
+          </label>
+          <textarea
+            id="crew-message"
+            rows={3}
+            value={message}
+            onChange={(e) => setMessage(e.target.value)}
+            className="textarea w-full"
+          />
+        </div>
+      </FormSection>
       {apply.error && (
-        <p className="text-sm text-red-600">
+        <p role="alert" className="text-sm text-red-600">
           <ProfilePolicyError message={apply.error.message} />
         </p>
       )}
-      <button
-        className="btn-primary w-full"
-        disabled={!valid || apply.isPending}
-      >
-        {apply.isPending
-          ? t("public.crewSignup.submitting")
-          : t("public.crewSignup.submit")}
-      </button>
+      <FormActions>
+        <Button
+          type="submit"
+          variant="primary"
+          className="w-full"
+          disabled={!valid || apply.isPending}
+        >
+          {apply.isPending
+            ? t("public.crewSignup.submitting")
+            : t("public.crewSignup.submit")}
+        </Button>
+      </FormActions>
     </form>
   );
 }

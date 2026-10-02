@@ -374,10 +374,13 @@ export default function ReportsPage() {
                       calendarDate(s.date),
                       s.tutor,
                       s.subject,
-                      s.tutorStatus,
+                      t(`tutor.attendance.tutorStatusOpt.${s.tutorStatus}`),
                       Number(s.shCount.toFixed(2)),
                       s.tutees
-                        .map((tt) => `${tt.name} (${tt.status})`)
+                        .map(
+                          (tt) =>
+                            `${tt.name} (${t(`tutor.attendance.tuteeStatusOpt.${tt.status}`)})`,
+                        )
                         .join("; "),
                       s.comments,
                     ]),
@@ -404,11 +407,16 @@ export default function ReportsPage() {
                     </td>
                     <td>{s.tutor}</td>
                     <td>{s.subject}</td>
-                    <td className="text-slate-500">{s.tutorStatus}</td>
+                    <td className="text-slate-500">
+                      {t(`tutor.attendance.tutorStatusOpt.${s.tutorStatus}`)}
+                    </td>
                     <td className="text-right">{s.shCount.toFixed(1)}</td>
                     <td className="text-slate-600">
                       {s.tutees
-                        .map((tt) => `${tt.name} (${tt.status})`)
+                        .map(
+                          (tt) =>
+                            `${tt.name} (${t(`tutor.attendance.tuteeStatusOpt.${tt.status}`)})`,
+                        )
                         .join(", ") || "—"}
                     </td>
                   </tr>
@@ -1030,9 +1038,11 @@ function ReportTable({
     <section className="space-y-2">
       <div className="report-section-head flex items-center justify-between">
         <h3 className="section-title">{title}</h3>
-        {canExport && <button className="no-print link text-sm" onClick={onCsv}>
-          {csvLabel}
-        </button>}
+        {canExport && (
+          <button className="no-print link text-sm" onClick={onCsv}>
+            {csvLabel}
+          </button>
+        )}
       </div>
       <div className="card">
         <SummaryTable label={title}>

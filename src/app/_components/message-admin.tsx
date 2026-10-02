@@ -1,5 +1,8 @@
 "use client";
-import { useState } from "react";
+import { Activity, useState } from "react";
+import { SectionTabs } from "./ui/section-tabs";
+import { Button, ChoiceButton } from "./ui/button";
+import { FormActions } from "./ui/patterns";
 import { useFormatter, useTranslations } from "next-intl";
 import { api, type RouterInputs } from "~/trpc/react";
 import { MessageGroupChoices } from "./message-inbox";
@@ -7,28 +10,31 @@ import { MessageGroupChoices } from "./message-inbox";
 export function MessageAdmin() {
   const t = useTranslations("messaging");
   const [view, setView] = useState<"review" | "settings">("review");
+  const [settingsOpened, setSettingsOpened] = useState(false);
   return (
     <div className="space-y-6">
-      <nav aria-label={t("supervision")} className="flex flex-wrap gap-2">
-        <button
-          type="button"
-          className={view === "review" ? "btn-primary" : "btn-secondary"}
-          aria-pressed={view === "review"}
-          onClick={() => setView("review")}
-        >
-          {t("reviewMessages")}
-        </button>
-        <button
-          type="button"
-          className={view === "settings" ? "btn-primary" : "btn-secondary"}
-          aria-pressed={view === "settings"}
-          onClick={() => setView("settings")}
-        >
-          {t("permissions")}
-        </button>
-      </nav>
       <p className="muted text-sm">{t("supervisionHelp")}</p>
-      {view === "review" ? <Supervision /> : <Permissions />}
+      <SectionTabs<"review" | "settings">
+        label={t("supervision")}
+        value={view}
+        items={[
+          { value: "review", label: t("reviewMessages") },
+          { value: "settings", label: t("permissions") },
+        ]}
+        onChange={(next) => {
+          setView(next);
+          if (next === "settings") setSettingsOpened(true);
+        }}
+      >
+        <Activity mode={view === "review" ? "visible" : "hidden"}>
+          <Supervision />
+        </Activity>
+        {settingsOpened && (
+          <Activity mode={view === "settings" ? "visible" : "hidden"}>
+            <Permissions />
+          </Activity>
+        )}
+      </SectionTabs>
     </div>
   );
 }
@@ -318,16 +324,14 @@ function Permissions() {
         {people.isLoading && <p role="status">{t("loading")}</p>}
         <div className="flex max-h-48 flex-wrap gap-2 overflow-y-auto">
           {people.data?.people.map((p) => (
-            <button
-              type="button"
+            <ChoiceButton
               key={p.id}
-              className="btn-secondary btn-sm"
-              aria-pressed={user?.id === p.id}
+              selected={user?.id === p.id}
               onClick={() => setUser(p)}
             >
               {p.name ?? p.username} · {p.username ? `@${p.username}` : p.id} ·{" "}
               {roles(p.role)}
-            </button>
+            </ChoiceButton>
           ))}
         </div>
         {people.data?.people.length === 0 && (
@@ -456,22 +460,21 @@ function PermissionEditor({
         disabled={save.isPending}
       />
       <Reason value={reason} setValue={setReason} />
-      <div className="flex flex-wrap gap-2">
-        <button
-          className="btn-primary btn-sm"
+      <FormActions>
+        <Button
+          type="submit"
+          variant="primary"
           disabled={save.isPending || reason.trim().length < 5}
         >
           {t("save")}
-        </button>
-        <button
-          type="button"
-          className="btn-secondary btn-sm"
+        </Button>
+        <Button
           disabled={save.isPending || reason.trim().length < 5}
           onClick={() => save.mutate({ target, groups: null, reason })}
         >
           {t(target.type === "USER" ? "inherit" : "resetDefault")}
-        </button>
-      </div>
+        </Button>
+      </FormActions>
       {save.error && <p role="alert">{save.error.message}</p>}
       {save.isSuccess && <p role="status">{t("saved")}</p>}
     </form>

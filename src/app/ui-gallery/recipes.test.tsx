@@ -8,9 +8,23 @@ import {
   screen,
   within,
 } from "@testing-library/react";
+import en from "../../../messages/en.json";
 import { RecipeGallery } from "./recipes";
 
+vi.mock("next/navigation", () => ({ usePathname: () => "/ui-gallery" }));
+vi.mock("~/app/_components/language-switcher", () => ({
+  LanguageSwitcher: () => (
+    <select aria-label="Language">
+      <option>English</option>
+    </select>
+  ),
+}));
+vi.mock("~/app/_components/theme-switcher", () => ({
+  ThemeSwitcher: () => <button>Theme</button>,
+}));
+
 beforeEach(() => {
+  vi.spyOn(window, "scrollBy").mockImplementation(() => undefined);
   Object.defineProperties(HTMLDialogElement.prototype, {
     showModal: {
       configurable: true,
@@ -29,6 +43,7 @@ beforeEach(() => {
 afterEach(() => {
   cleanup();
   vi.useRealTimers();
+  vi.restoreAllMocks();
 });
 
 it("keeps a nested wide editor draft through Escape and pending failure", () => {
@@ -154,4 +169,19 @@ it("translates the recipe compositions and keeps policy reading separate from co
   );
   expect(within(reader).queryByRole("checkbox")).toBeNull();
   expect(within(reader).getAllByRole("button")).toHaveLength(1);
+});
+
+it("uses links for destinations and focuses a wizard heading after a deliberate step", () => {
+  render(<RecipeGallery locale="en" state="normal" />);
+  const link = screen.getByRole("link", { name: "UI gallery" });
+  expect(link.getAttribute("aria-current")).toBe("page");
+  expect(
+    screen
+      .getByRole("link", { name: "Invitation registration" })
+      .getAttribute("href"),
+  ).toBe("/register");
+  fireEvent.click(screen.getByRole("button", { name: "Next step (example)" }));
+  expect(document.activeElement).toBe(
+    screen.getByRole("heading", { name: en.registrationFlow.verifyTitle }),
+  );
 });

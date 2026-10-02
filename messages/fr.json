@@ -194,7 +194,10 @@
     "saved": "Saved with audit evidence.",
     "inherit": "Remove override / inherit role",
     "resetDefault": "Restore default policy",
-    "ownInbox": "Your inbox"
+    "ownInbox": "Your inbox",
+    "replyContext": "Réponse à {name}",
+    "cancelReply": "Annuler la Réponse",
+    "replyDraftHelp": "Votre brouillon précédent est conservé. L’annulation conserve aussi ce brouillon de réponse sur cette page."
   },
   "common": {
     "cancel": "Annuler",
@@ -3816,5 +3819,31 @@
     "alternativeNamesHelp": "Votre nom dans une autre langue ou écriture, par exemple 张小明.",
     "legacyPreserved": "Nom enregistré : {name}. Laissez les champs du nom en lettres latines inchangés pour le conserver. Saisissez un prénom pour le remplacer.",
     "legacy": "Nom enregistré : {name}. Saisissez séparément votre prénom et votre nom de famille pour mettre à jour le profil."
+  },
+  "registrationFlow": {
+    "progressTitle": "Progression de l’Inscription",
+    "stepCount": "Étape {current} sur {total}",
+    "invitationTitle": "Code d’Invitation",
+    "emailTitle": "Adresse E-mail",
+    "verifyTitle": "Vérifier l’E-mail",
+    "profileTitle": "Profil et Mot de Passe",
+    "identityTitle": "Identité et E-mail",
+    "passwordTitle": "Définir un Mot de Passe",
+    "back": "Retour",
+    "editIdentity": "Modifier l’Identité",
+    "editEmail": "Vérifier ou Modifier l’E-mail",
+    "editInvitation": "Modifier le Code d’Invitation",
+    "reverifyHelp": "Revenir aux informations précédentes nécessite une nouvelle vérification de l’e-mail. Les autres saisies sont conservées dans ce formulaire.",
+    "working": "Veuillez patienter…"
+  },
+  "signupSections": {
+    "identityTitle": "Identité et Contact",
+    "subjectsTitle": "Matières",
+    "agreementTitle": "Accord",
+    "applicationTitle": "Détails de la Candidature"
+  },
+  "pageRecovery": {
+    "title": "Page Introuvable",
+    "body": "Cette page a peut-être été déplacée ou n’est plus disponible. Revenez à l’accueil ou connectez-vous pour continuer."
   }
 }

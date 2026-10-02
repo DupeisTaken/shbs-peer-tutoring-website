@@ -67,3 +67,7 @@ it("retains the recovery form and both return destinations", async () => {
       .getAttribute("href"),
   ).toBe("/");
 });
+
+vi.mock("~/app/_components/theme-switcher", () => ({
+  ThemeSwitcher: () => null,
+}));

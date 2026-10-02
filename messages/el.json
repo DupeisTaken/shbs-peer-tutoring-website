@@ -194,7 +194,10 @@
     "saved": "Saved with audit evidence.",
     "inherit": "Remove override / inherit role",
     "resetDefault": "Restore default policy",
-    "ownInbox": "Your inbox"
+    "ownInbox": "Your inbox",
+    "replyContext": "Απάντηση σε {name}",
+    "cancelReply": "Ακύρωση Απάντησης",
+    "replyDraftHelp": "Το προηγούμενο πρόχειρο διατηρείται. Η ακύρωση διατηρεί και αυτό το πρόχειρο απάντησης στη σελίδα."
   },
   "common": {
     "cancel": "Άκυρο",
@@ -3816,5 +3819,31 @@
     "alternativeNamesHelp": "Το όνομά σας σε άλλη γλώσσα ή γραφή, όπως 张小明.",
     "legacyPreserved": "Προηγούμενο όνομα: {name}. Αφήστε αμετάβλητα τα πεδία ονόματος με λατινικούς χαρακτήρες για να το διατηρήσετε. Εισαγάγετε μικρό όνομα για να το αντικαταστήσετε.",
     "legacy": "Καταχωρισμένο όνομα: {name}. Εισαγάγετε ξεχωριστά όνομα και επώνυμο για να ενημερώσετε το προφίλ."
+  },
+  "registrationFlow": {
+    "progressTitle": "Πρόοδος Εγγραφής",
+    "stepCount": "Βήμα {current} από {total}",
+    "invitationTitle": "Κωδικός Πρόσκλησης",
+    "emailTitle": "Διεύθυνση Email",
+    "verifyTitle": "Επαλήθευση Email",
+    "profileTitle": "Προφίλ και Κωδικός",
+    "identityTitle": "Ταυτότητα και Email",
+    "passwordTitle": "Ορισμός Κωδικού",
+    "back": "Πίσω",
+    "editIdentity": "Επεξεργασία Στοιχείων",
+    "editEmail": "Έλεγχος ή Επεξεργασία Email",
+    "editInvitation": "Επεξεργασία Κωδικού Πρόσκλησης",
+    "reverifyHelp": "Η επιστροφή σε προηγούμενα στοιχεία απαιτεί νέα επαλήθευση email. Οι άλλες καταχωρίσεις διατηρούνται στη φόρμα.",
+    "working": "Παρακαλώ περιμένετε…"
+  },
+  "signupSections": {
+    "identityTitle": "Ταυτότητα και Επικοινωνία",
+    "subjectsTitle": "Μαθήματα",
+    "agreementTitle": "Συμφωνία",
+    "applicationTitle": "Στοιχεία Αίτησης"
+  },
+  "pageRecovery": {
+    "title": "Η Σελίδα Δεν Βρέθηκε",
+    "body": "Η σελίδα ενδέχεται να έχει μετακινηθεί ή να μην είναι πλέον διαθέσιμη. Επιστρέψτε στην αρχική σελίδα ή συνδεθείτε."
   }
 }

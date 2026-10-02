@@ -194,7 +194,8 @@
   .section-tab {
     @apply focus-visible:ring-accent-500 -mb-px border-b-2 border-transparent text-sm font-medium text-slate-600 focus-visible:ring-2 focus-visible:outline-none;
   }
-  .section-tab[aria-selected="true"] {
+  .section-tab[aria-selected="true"],
+  .section-tab[aria-current="page"] {
     @apply border-accent-600 text-accent-800;
   }
   .switch-control {
@@ -266,10 +267,6 @@
   }
   .public-form-link {
     @apply text-accent-700 hover:text-accent-800 focus-visible:ring-accent-500 inline-flex min-h-11 max-w-full items-center justify-center rounded-md px-1 py-1 font-medium text-wrap underline-offset-4 hover:underline focus-visible:ring-2 focus-visible:ring-offset-2 focus-visible:outline-none lg:min-h-8;
-  }
-  /* Header controls keep the 32px desktop / 44px mobile contract. */
-  .public-form > div:first-child .select {
-    @apply min-h-11 lg:min-h-8;
   }
 
   /* Data tables ----------------------------------------------------------- */

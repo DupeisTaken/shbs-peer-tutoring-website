@@ -1,4 +1,10 @@
 "use client";
+import { Button } from "~/app/_components/ui/button";
+import {
+  FormSection,
+  FormActions,
+  InlineNotice,
+} from "~/app/_components/ui/patterns";
 import { PersonNameFields } from "~/app/_components/person-name-fields";
 import { nameDraft, fullPersonName } from "~/lib/person-name";
 
@@ -96,6 +102,8 @@ export function SignupForm() {
   const readOnly = status !== "open" || missing.length > 0;
   const canSubmit =
     !readOnly &&
+    !options.isError &&
+    !policy.isError &&
     (!gradeLevel || profilePolicy.offeredGrades.includes(Number(gradeLevel))) &&
     englishName.trim() &&
     email.trim() &&
@@ -104,7 +112,8 @@ export function SignupForm() {
       .length === 0 &&
     firstChoiceId &&
     agreed &&
-    !submit.isPending && !captcha.pending;
+    !submit.isPending &&
+    !captcha.pending;
 
   if (submit.isSuccess) {
     return (
@@ -128,7 +137,7 @@ export function SignupForm() {
   }
 
   // Distinguish pending reads and configuration gaps from a usable signup form.
-  if (options.isError || policy.isError)
+  if ((options.isError && !options.data) || (policy.isError && !policy.data))
     return (
       <section className="card space-y-4 p-6">
         <p role="alert">{t("survey.loadFailed")}</p>
@@ -144,7 +153,10 @@ export function SignupForm() {
         </button>
       </section>
     );
-  if (options.isLoading || policy.isLoading)
+  if (
+    (options.isLoading && !options.data) ||
+    (policy.isLoading && !policy.data)
+  )
     return (
       <p role="status" className="card p-6">
         {t("workflows.loading")}
@@ -152,6 +164,25 @@ export function SignupForm() {
     );
   return (
     <>
+      {/* Cached prerequisites and controlled drafts stay mounted during recovery. */}
+      {(options.isError || policy.isError) && (
+        <InlineNotice
+          tone="error"
+          announcement="alert"
+          action={
+            <Button
+              onClick={() => {
+                void options.refetch();
+                void policy.refetch();
+              }}
+            >
+              {t("survey.retry")}
+            </Button>
+          }
+        >
+          {t("survey.loadFailed")}
+        </InlineNotice>
+      )}
       {readOnly && (
         <RecruitmentNotice
           status={status}
@@ -192,123 +223,124 @@ export function SignupForm() {
       >
         {/* Native fieldset prevents mouse, keyboard and assistive-input edits in preview mode. */}
         <fieldset
-          disabled={readOnly}
+          disabled={readOnly || submit.isPending || captcha.pending}
+          aria-busy={submit.isPending}
           className="min-w-0 space-y-6"
           aria-label={t("recruitment.responses")}
         >
-          {/* Identity */}
-          {/* Align identity labels with the email help trigger's mobile touch target. */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 [&_.label]:min-h-11 [&_.label]:content-center lg:[&_.label]:min-h-0">
-            <div className="sm:col-span-2">
-              <PersonNameFields value={names} onChange={setNames} />
+          <FormSection title={t("signupSections.identityTitle")}>
+            {/* Align identity labels with the email help trigger's mobile touch target. */}
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 [&_.label]:min-h-11 [&_.label]:content-center lg:[&_.label]:min-h-0">
+              <div className="sm:col-span-2">
+                <PersonNameFields value={names} onChange={setNames} />
+              </div>
+              {fields.gradeLevel !== "hidden" && (
+                <label className="space-y-1">
+                  <span className="label">
+                    {t("public.signup.fields.gradeLevel")}
+                    <FieldRequirement state={fields.gradeLevel} />
+                  </span>
+                  <OfferedGradeSelect
+                    required={fields.gradeLevel === "required"}
+                    value={gradeLevel}
+                    onChange={setGradeLevel}
+                    offeredGrades={profilePolicy.offeredGrades}
+                  />
+                </label>
+              )}
+              <SignupEmailField
+                value={email}
+                onChange={setEmail}
+                disabled={readOnly}
+              />
+              {fields.phone !== "hidden" && (
+                <label className="space-y-1">
+                  <span className="label">
+                    {t("public.signup.fields.phone")}
+                    <FieldRequirement state={fields.phone} />
+                  </span>
+                  <input
+                    className="input min-h-11 lg:min-h-10"
+                    required={fields.phone === "required"}
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                  />
+                </label>
+              )}
             </div>
-            {fields.gradeLevel !== "hidden" && (
+
+            {/* Preferred contact — make it unmistakable how to reach this student. */}
+            {fields.preferredContact !== "hidden" && (
               <label className="space-y-1">
                 <span className="label">
-                  {t("public.signup.fields.gradeLevel")}
-                  <FieldRequirement state={fields.gradeLevel} />
-                </span>
-                <OfferedGradeSelect
-                  required={fields.gradeLevel === "required"}
-                  value={gradeLevel}
-                  onChange={setGradeLevel}
-                  offeredGrades={profilePolicy.offeredGrades}
-                />
-              </label>
-            )}
-            <SignupEmailField
-              value={email}
-              onChange={setEmail}
-              disabled={readOnly}
-            />
-            {fields.phone !== "hidden" && (
-              <label className="space-y-1">
-                <span className="label">
-                  {t("public.signup.fields.phone")}
-                  <FieldRequirement state={fields.phone} />
+                  {t("signupFields.labels.preferredContact")}
+                  <FieldRequirement state={fields.preferredContact} />
                 </span>
                 <input
                   className="input min-h-11 lg:min-h-10"
-                  required={fields.phone === "required"}
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
+                  value={preferredContact}
+                  onChange={(e) => setPreferredContact(e.target.value)}
+                  placeholder={t("public.signup.placeholders.preferredContact")}
+                  required={fields.preferredContact === "required"}
                 />
+                <span className="muted text-xs">
+                  {t("public.signup.help.preferredContact")}
+                </span>
               </label>
             )}
-          </div>
-
-          {/* Preferred contact — make it unmistakable how to reach this student. */}
-          {fields.preferredContact !== "hidden" && (
-            <label className="space-y-1">
-              <span className="label">
-                {t("signupFields.labels.preferredContact")}
-                <FieldRequirement state={fields.preferredContact} />
-              </span>
-              <input
-                className="input min-h-11 lg:min-h-10"
-                value={preferredContact}
-                onChange={(e) => setPreferredContact(e.target.value)}
-                placeholder={t("public.signup.placeholders.preferredContact")}
-                required={fields.preferredContact === "required"}
-              />
-              <span className="muted text-xs">
-                {t("public.signup.help.preferredContact")}
-              </span>
-            </label>
-          )}
-
-          {/* Course choices */}
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-            <label className="space-y-1">
-              <span className="label">
-                {t("public.signup.fields.firstChoice")}
-                <FieldRequirement state="required" />
-              </span>
-              <select
-                className="select min-h-11 lg:min-h-10"
-                value={firstChoiceId}
-                onChange={(e) => setFirstChoiceId(e.target.value)}
-                required
-              >
-                <option value="">
-                  {t("public.signup.placeholders.selectCourse")}
-                </option>
-                {courses.map((c) => (
-                  <option key={c.id} value={c.id}>
-                    {c.name}
-                  </option>
-                ))}
-              </select>
-            </label>
-            {fields.secondSubject !== "hidden" && (
+          </FormSection>
+          <FormSection title={t("signupSections.subjectsTitle")}>
+            <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
               <label className="space-y-1">
                 <span className="label">
-                  {t("signupFields.labels.secondSubject")}
-                  <FieldRequirement state={fields.secondSubject} />
+                  {t("public.signup.fields.firstChoice")}
+                  <FieldRequirement state="required" />
                 </span>
                 <select
                   className="select min-h-11 lg:min-h-10"
-                  required={fields.secondSubject === "required"}
-                  value={secondChoiceId}
-                  onChange={(e) => setSecondChoiceId(e.target.value)}
+                  value={firstChoiceId}
+                  onChange={(e) => setFirstChoiceId(e.target.value)}
+                  required
                 >
-                  <option value="">{t("public.signup.options.none")}</option>
-                  {courses
-                    .filter((c) => c.id !== firstChoiceId)
-                    .map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.name}
-                      </option>
-                    ))}
+                  <option value="">
+                    {t("public.signup.placeholders.selectCourse")}
+                  </option>
+                  {courses.map((c) => (
+                    <option key={c.id} value={c.id}>
+                      {c.name}
+                    </option>
+                  ))}
                 </select>
               </label>
-            )}
-          </div>
-
-          {/* Availability */}
+              {fields.secondSubject !== "hidden" && (
+                <label className="space-y-1">
+                  <span className="label">
+                    {t("signupFields.labels.secondSubject")}
+                    <FieldRequirement state={fields.secondSubject} />
+                  </span>
+                  <select
+                    className="select min-h-11 lg:min-h-10"
+                    required={fields.secondSubject === "required"}
+                    value={secondChoiceId}
+                    onChange={(e) => setSecondChoiceId(e.target.value)}
+                  >
+                    <option value="">{t("public.signup.options.none")}</option>
+                    {courses
+                      .filter((c) => c.id !== firstChoiceId)
+                      .map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.name}
+                        </option>
+                      ))}
+                  </select>
+                </label>
+              )}
+            </div>
+          </FormSection>
+          {/* Availability retains native checkbox selection and configured marking. */}
           {fields.availability !== "hidden" && (
-            <fieldset>
-              <legend className="label">
+            <fieldset className="min-w-0 space-y-3">
+              <legend className="section-title">
                 {t("signupFields.labels.availability")}
                 <FieldRequirement state={fields.availability} />
               </legend>
@@ -355,7 +387,7 @@ export function SignupForm() {
           )}
 
           {/* Policy agreement (gated on reading the policy) + signature */}
-          <div className="space-y-4">
+          <FormSection title={t("signupSections.agreementTitle")}>
             <PolicyAgreement
               key={policy.data?.revision}
               messageKey="public.signup.agree"
@@ -383,7 +415,7 @@ export function SignupForm() {
                 />
               </label>
             )}
-          </div>
+          </FormSection>
 
           {captcha.panel}
           {submit.error && (
@@ -392,15 +424,18 @@ export function SignupForm() {
             </p>
           )}
 
-          <button
-            type="submit"
-            className="btn-primary min-h-11 w-full lg:min-h-10"
-            disabled={!canSubmit}
-          >
-            {submit.isPending
-              ? t("public.signup.submitting")
-              : t("public.signup.submit")}
-          </button>
+          <FormActions>
+            <Button
+              type="submit"
+              variant="primary"
+              className="w-full"
+              disabled={!canSubmit}
+            >
+              {submit.isPending
+                ? t("public.signup.submitting")
+                : t("public.signup.submit")}
+            </Button>
+          </FormActions>
         </fieldset>
       </form>
     </>

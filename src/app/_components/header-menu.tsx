@@ -119,7 +119,10 @@ export function HeaderMenu({
   };
 
   return (
-    <div ref={rootRef} className={`relative shrink-0 ${className ?? ""}`}>
+    <div
+      ref={rootRef}
+      className={`relative max-w-full shrink-0 ${className ?? ""}`}
+    >
       <button
         ref={triggerRef}
         type="button"
@@ -127,11 +130,11 @@ export function HeaderMenu({
         aria-expanded={open}
         aria-haspopup="dialog"
         onClick={toggle}
-        className={`btn-sm flex cursor-pointer items-center gap-2 ${
-          compact ? "" : "min-h-11"
+        className={`btn-sm flex max-w-full cursor-pointer items-center gap-2 whitespace-normal ${
+          compact ? "min-h-11 lg:min-h-8 lg:py-0" : "min-h-11"
         } ${tone === "primary" ? "btn-primary" : "btn-secondary"}`}
       >
-        <span>{label}</span>
+        <span className="min-w-0 break-words">{label}</span>
         {showDisclosure ? <DisclosureIcon open={open} /> : null}
       </button>
 

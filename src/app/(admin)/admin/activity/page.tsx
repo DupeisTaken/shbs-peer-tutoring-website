@@ -548,7 +548,9 @@ export default function ActivityPage() {
               {s.tutor.englishName}
             </span>
             <span className="muted text-xs">{s.pairing.subject}</span>
-            <span className="text-xs text-slate-500">{s.tutorStatus}</span>
+            <span className="text-xs text-slate-500">
+              {t(`tutor.attendance.tutorStatusOpt.${s.tutorStatus}`)}
+            </span>
             <span className="muted ml-auto text-xs">
               {t("admin.activity.panels.surveys.hours", {
                 hours: s.shCount.toFixed(1),

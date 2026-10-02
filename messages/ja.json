@@ -194,7 +194,10 @@
     "saved": "Saved with audit evidence.",
     "inherit": "Remove override / inherit role",
     "resetDefault": "Restore default policy",
-    "ownInbox": "Your inbox"
+    "ownInbox": "Your inbox",
+    "replyContext": "{name} に返信中",
+    "cancelReply": "返信をキャンセル",
+    "replyDraftHelp": "以前の下書きは保持されます。キャンセルしても、この返信の下書きはこのページに保持されます。"
   },
   "common": {
     "cancel": "キャンセル",
@@ -3816,5 +3819,31 @@
     "alternativeNamesHelp": "別の言語や文字で書いた氏名（例：张小明）。",
     "legacyPreserved": "以前の登録名：{name}。ラテン文字の氏名欄を変更しなければ、元の名前を保持します。変更する場合は名を入力してください。",
     "legacy": "現在の記録：{name}。プロフィールを更新するには、名と姓を分けて入力してください。"
+  },
+  "registrationFlow": {
+    "progressTitle": "登録の進捗",
+    "stepCount": "全 {total} ステップ中 {current}",
+    "invitationTitle": "招待コード",
+    "emailTitle": "メールアドレス",
+    "verifyTitle": "メールの確認",
+    "profileTitle": "プロフィールとパスワード",
+    "identityTitle": "本人情報とメール",
+    "passwordTitle": "パスワードの設定",
+    "back": "戻る",
+    "editIdentity": "本人情報を編集",
+    "editEmail": "メールを確認・編集",
+    "editInvitation": "招待コードを編集",
+    "reverifyHelp": "前の情報入力に戻るとメールの再確認が必要です。その他の入力内容はフォームに保持されます。",
+    "working": "お待ちください…"
+  },
+  "signupSections": {
+    "identityTitle": "本人情報と連絡先",
+    "subjectsTitle": "科目",
+    "agreementTitle": "同意事項",
+    "applicationTitle": "申請の詳細"
+  },
+  "pageRecovery": {
+    "title": "ページが見つかりません",
+    "body": "このページは移動したか、利用できなくなった可能性があります。ホームに戻るか、ログインして続行してください。"
   }
 }

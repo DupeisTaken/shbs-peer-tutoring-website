@@ -1,5 +1,11 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+} from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
@@ -13,6 +19,10 @@ const mocks = vi.hoisted(() => ({
   error: false,
   loading: false,
   more: false,
+  permission: "ready",
+  replies: false,
+  sending: false,
+  onSent: undefined as undefined | (() => Promise<void>),
 }));
 vi.mock("./student-portal", () => ({ Pager: () => null }));
 vi.mock("~/trpc/react", () => ({
@@ -20,11 +30,19 @@ vi.mock("~/trpc/react", () => ({
     messaging: {
       permission: {
         useQuery: () => ({
-          data: {
-            groups: ["MANAGEMENT"],
-            source: "DEFAULT",
-            restricted: false,
-          },
+          error:
+            mocks.permission === "error"
+              ? { message: "Permission unavailable" }
+              : null,
+          refetch: mocks.refetch,
+          data:
+            mocks.permission === "loading"
+              ? undefined
+              : {
+                  groups: ["MANAGEMENT"],
+                  source: "DEFAULT",
+                  restricted: mocks.permission === "denied",
+                },
         }),
       },
       recipients: {
@@ -61,8 +79,36 @@ vi.mock("~/trpc/react", () => ({
           refetch: mocks.refetch,
         }),
       },
-      inbox: { useQuery: () => ({ data: [], refetch: mocks.refetch }) },
-      send: { useMutation: () => ({ mutate: mocks.send, reset: mocks.reset }) },
+      inbox: {
+        useQuery: () => ({
+          data: mocks.replies
+            ? ["1", "2"].map((id) => ({
+                id: `message-${id}`,
+                senderId: id,
+                sender: `Sender ${id}`,
+                senderUsername: `sender-${id}`,
+                senderRole: "HEAD",
+                recipient: "You",
+                createdAt: new Date("2026-09-01T03:00:00Z"),
+                incoming: true,
+                canReply: true,
+                readAt: new Date(),
+                body: `Incoming message ${id}`,
+              }))
+            : [],
+          refetch: mocks.refetch,
+        }),
+      },
+      send: {
+        useMutation: (options: { onSuccess: () => Promise<void> }) => {
+          mocks.onSent = options.onSuccess;
+          return {
+            mutate: mocks.send,
+            reset: mocks.reset,
+            isPending: mocks.sending,
+          };
+        },
+      },
       markRead: { useMutation: () => ({ mutate: vi.fn() }) },
     },
   },
@@ -72,18 +118,28 @@ beforeEach(() => {
   mocks.error = false;
   mocks.loading = false;
   mocks.more = false;
+  mocks.permission = "ready";
+  mocks.replies = false;
+  mocks.sending = false;
+  vi.spyOn(window, "scrollBy").mockImplementation(() => undefined);
 });
-afterEach(cleanup);
-function show(locale: "en" | "zh" = "en") {
-  return render(
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
+function ui(locale: "en" | "zh" = "en") {
+  return (
     <NextIntlClientProvider
       locale={locale}
       messages={locale === "en" ? en : zh}
       timeZone="Asia/Shanghai"
     >
       <MessageInbox />
-    </NextIntlClientProvider>,
+    </NextIntlClientProvider>
   );
+}
+function show(locale: "en" | "zh" = "en") {
+  return render(ui(locale));
 }
 it.each([
   { locale: "en" as const, messages: en },
@@ -205,4 +261,144 @@ it("provides explicit loading, error retry and no-match states", () => {
     target: { value: "Nobody" },
   });
   expect(screen.getByText(en.messaging.noMatches)).toBeTruthy();
+});
+
+// General messages and replies are separate in-memory payloads, including retry keys.
+it.each(["en", "zh"] as const)(
+  "reveals reply context, restores drafts and returns focus in %s",
+  (locale) => {
+    mocks.replies = true;
+    show(locale);
+    const copy = locale === "en" ? en : zh;
+    const body = screen.getByRole<HTMLTextAreaElement>("textbox", {
+      name: copy.workflows.body,
+    });
+    fireEvent.click(screen.getByRole("checkbox", { name: /Pat @pat/ }));
+    fireEvent.change(body, { target: { value: "Unsent general message" } });
+    fireEvent.click(screen.getByRole("button", { name: copy.workflows.send }));
+    const original = mocks.send.mock.calls[0]?.[0] as { clientKey: string };
+    const [first, second] = screen.getAllByRole("button", {
+      name: copy.workflows.reply,
+    });
+    fireEvent.click(first!);
+    expect(body.value).toBe("");
+    expect(document.activeElement).toBe(body);
+    expect(screen.getByText(/Sender 1 \(@sender-1\)/)).toBeTruthy();
+    expect(screen.queryByRole("checkbox")).toBeNull();
+    fireEvent.change(body, { target: { value: "First reply" } });
+    fireEvent.click(screen.getByRole("button", { name: copy.workflows.send }));
+    const reply = mocks.send.mock.calls[1]?.[0] as { clientKey: string };
+    fireEvent.click(second!);
+    expect(body.value).toBe("");
+    fireEvent.change(body, { target: { value: "Second reply" } });
+    fireEvent.click(first!);
+    expect(body.value).toBe("First reply");
+    fireEvent.click(screen.getByRole("button", { name: copy.workflows.send }));
+    expect(mocks.send.mock.calls[2]?.[0]).toMatchObject({
+      body: "First reply",
+      recipientIds: ["1"],
+      clientKey: reply.clientKey,
+    });
+    fireEvent.click(
+      screen.getByRole("button", { name: copy.messaging.cancelReply }),
+    );
+    expect(document.activeElement).toBe(first);
+    expect(body.value).toBe("Unsent general message");
+    fireEvent.click(screen.getByRole("button", { name: copy.workflows.send }));
+    expect(mocks.send.mock.calls[3]?.[0]).toMatchObject({
+      body: "Unsent general message",
+      recipientIds: ["3"],
+      clientKey: original.clientKey,
+    });
+  },
+);
+it.each(["loading", "error", "denied"])(
+  "blocks sending/reply when permission is %s while retaining drafts",
+  (permission) => {
+    mocks.replies = true;
+    const view = show();
+    const body = screen.getByRole<HTMLTextAreaElement>("textbox", {
+      name: en.workflows.body,
+    });
+    fireEvent.change(body, { target: { value: "Keep my draft" } });
+    mocks.permission = permission;
+    view.rerender(ui());
+    expect(body.value).toBe("Keep my draft");
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", { name: en.workflows.send })
+        .disabled,
+    ).toBe(true);
+    for (const reply of screen.getAllByRole<HTMLButtonElement>("button", {
+      name: en.workflows.reply,
+    }))
+      expect(reply.disabled).toBe(true);
+    if (permission === "error") {
+      fireEvent.click(screen.getByRole("button", { name: en.messaging.retry }));
+      expect(mocks.refetch).toHaveBeenCalledOnce();
+    }
+    expect(mocks.send).not.toHaveBeenCalled();
+  },
+);
+it("locks reply transitions while the payload is being sent", () => {
+  mocks.replies = true;
+  const view = show();
+  fireEvent.click(
+    screen.getAllByRole("button", { name: en.workflows.reply })[0]!,
+  );
+  mocks.sending = true;
+  view.rerender(ui());
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: en.messaging.cancelReply,
+    }).disabled,
+  ).toBe(true);
+  expect(
+    screen.getByRole<HTMLTextAreaElement>("textbox", {
+      name: en.workflows.body,
+    }).disabled,
+  ).toBe(true);
+});
+
+it("restores the general draft after a successful reply and clears only that reply", async () => {
+  mocks.replies = true;
+  show();
+  const body = screen.getByRole<HTMLTextAreaElement>("textbox", {
+    name: en.workflows.body,
+  });
+  fireEvent.change(body, { target: { value: "General draft" } });
+  const replies = screen.getAllByRole("button", { name: en.workflows.reply });
+  fireEvent.click(replies[1]!);
+  fireEvent.change(body, { target: { value: "Other reply" } });
+  fireEvent.click(replies[0]!);
+  fireEvent.change(body, { target: { value: "Delivered reply" } });
+  await act(async () => {
+    await mocks.onSent?.();
+  });
+  expect(body.value).toBe("General draft");
+  expect(
+    screen.queryByRole("button", { name: en.messaging.cancelReply }),
+  ).toBeNull();
+  fireEvent.click(replies[0]!);
+  expect(body.value).toBe("");
+  fireEvent.click(replies[1]!);
+  expect(body.value).toBe("Other reply");
+});
+
+it("falls back to the restored composer when permission revokes the reply opener", () => {
+  mocks.replies = true;
+  const view = show();
+  const body = screen.getByRole<HTMLTextAreaElement>("textbox", {
+    name: en.workflows.body,
+  });
+  fireEvent.change(body, { target: { value: "General draft" } });
+  fireEvent.click(
+    screen.getAllByRole("button", { name: en.workflows.reply })[0]!,
+  );
+  mocks.permission = "denied";
+  view.rerender(ui());
+  fireEvent.click(
+    screen.getByRole("button", { name: en.messaging.cancelReply }),
+  );
+  expect(body.value).toBe("General draft");
+  expect(document.activeElement).toBe(body);
 });

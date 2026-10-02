@@ -80,7 +80,9 @@ export default function SubmissionsPage() {
                 </td>
                 <td>{s.tutor.englishName}</td>
                 <td>{s.pairing.subject}</td>
-                <td className="text-slate-500">{s.tutorStatus}</td>
+                <td className="text-slate-500">
+                  {t(`tutor.attendance.tutorStatusOpt.${s.tutorStatus}`)}
+                </td>
                 <td>{s.tutees.length}</td>
                 <td className="text-right">{s.shCount.toFixed(1)}</td>
                 <TableActions>
@@ -92,7 +94,7 @@ export default function SubmissionsPage() {
                         dateStyle: "full",
                         timeZone: "UTC",
                       })}{" "}
-                      · {s.tutorStatus}
+                      · {t(`tutor.attendance.tutorStatusOpt.${s.tutorStatus}`)}
                     </p>
                     <h3 className="font-semibold">
                       {t("admin.submissions.colTutees")}

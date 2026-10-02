@@ -58,3 +58,7 @@ it("preserves the existing sign-in return destination", async () => {
   await expect(HistoryPage()).rejects.toThrow("REDIRECT");
   expect(mock.redirect).toHaveBeenCalledWith("/signin?callbackUrl=%2Fhistory");
 });
+
+vi.mock("~/app/_components/theme-switcher", () => ({
+  ThemeSwitcher: () => null,
+}));

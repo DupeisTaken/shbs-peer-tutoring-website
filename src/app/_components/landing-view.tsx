@@ -19,8 +19,7 @@ import {
   ColumnsBlock,
 } from "~/app/_components/page-blocks";
 import { HeaderMenu, HeaderMenuGroup } from "~/app/_components/header-menu";
-import { LanguageSwitcher } from "~/app/_components/language-switcher";
-import { ThemeSwitcher } from "~/app/_components/theme-switcher";
+import { PublicHeader } from "~/app/_components/public-header";
 
 /**
  * The public landing page body, shared by the live route (`/`) and the admin preview
@@ -71,6 +70,8 @@ export async function LandingView({ preview = false }: { preview?: boolean }) {
       : []),
   ];
 
+  // The page owns one primary heading even when editors remove or repeat a hero.
+  const primaryHero = layout.find((block) => block.type === "HERO");
   const renderBlock = (block: Block) => {
     switch (block.type) {
       case "HERO":
@@ -82,7 +83,10 @@ export async function LandingView({ preview = false }: { preview?: boolean }) {
             />
             <div className="relative mx-auto max-w-3xl px-4 py-14 text-center sm:py-24 lg:py-28">
               <span className="badge-slate mb-5">{text("tagline")}</span>
-              <GradientTitle text={text("heroTitle")} />
+              <GradientTitle
+                text={text("heroTitle")}
+                primary={block === primaryHero}
+              />
               {heroImageId && (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img
@@ -203,67 +207,55 @@ export async function LandingView({ preview = false }: { preview?: boolean }) {
     <div className="flex min-h-screen flex-col">
       {preview && <PreviewRibbon />}
 
-      {/* Top banner: single-line brand left, compact entry menus right. */}
-      <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-6xl items-center gap-3 px-4 lg:h-11">
-          <Link
-            href="/"
-            className="flex min-h-11 min-w-0 flex-1 items-center truncate text-left text-lg font-extrabold tracking-tight whitespace-nowrap text-slate-900"
-          >
-            {APP_TITLE}
-          </Link>
-          <HeaderMenuGroup className="flex shrink-0 items-center lg:hidden">
-            <HeaderMenu
-              label={t("nav.menu")}
-              align="right"
-              panelWidth="wide"
-              items={[
-                ...informationItems.map((item) => ({
-                  ...item,
-                  group: t("nav.accessProgramInformation"),
-                })),
-                ...joinItems.map((item) => ({
-                  ...item,
-                  group: t("nav.joinProgram"),
-                })),
-                {
-                  href: "/signin",
-                  label: t("nav.teamSignin"),
-                  separatorBefore: true,
-                },
-              ]}
-            >
-              <ThemeSwitcher embedded />
-              <LanguageSwitcher embedded />
-            </HeaderMenu>
-          </HeaderMenuGroup>
-          <HeaderMenuGroup className="hidden min-w-0 items-center justify-end gap-2 lg:flex">
-            <HeaderMenu
-              label={t("nav.accessProgramInformation")}
-              items={informationItems}
-              compact
-            />
-            <HeaderMenu
-              label={t("nav.joinProgram")}
-              tone="primary"
-              align="right"
-              items={joinItems}
-              compact
-            />
-            <Link href="/signin" className="btn-secondary btn-sm shrink-0">
-              {t("nav.teamSignin")}
-            </Link>
-            <div className="shrink-0">
-              <ThemeSwitcher compact />
+      <PublicHeader
+        navigation={
+          <HeaderMenuGroup className="flex min-w-0 flex-wrap items-center gap-2">
+            <div className="lg:hidden">
+              <HeaderMenu
+                label={t("nav.menu")}
+                panelWidth="wide"
+                items={[
+                  ...informationItems.map((item) => ({
+                    ...item,
+                    group: t("nav.accessProgramInformation"),
+                  })),
+                  ...joinItems.map((item) => ({
+                    ...item,
+                    group: t("nav.joinProgram"),
+                  })),
+                  {
+                    href: "/signin",
+                    label: t("nav.teamSignin"),
+                    separatorBefore: true,
+                  },
+                ]}
+              />
             </div>
-            <div className="shrink-0">
-              <LanguageSwitcher compact />
+            <div className="hidden flex-wrap items-center gap-2 lg:flex">
+              <HeaderMenu
+                label={t("nav.accessProgramInformation")}
+                items={informationItems}
+                compact
+              />
+              <HeaderMenu
+                label={t("nav.joinProgram")}
+                items={joinItems}
+                align="right"
+                compact
+              />
+              <Link
+                href="/signin"
+                className="btn-secondary btn-sm min-h-8 py-0"
+              >
+                {t("nav.teamSignin")}
+              </Link>
             </div>
           </HeaderMenuGroup>
-        </div>
-      </header>
+        }
+      />
 
       <main className="flex-1">
+        {!primaryHero && <h1 className="sr-only">{APP_TITLE}</h1>}
         {layout.map((block) => (
           <div key={block.id}>{renderBlock(block)}</div>
         ))}
@@ -273,7 +265,10 @@ export async function LandingView({ preview = false }: { preview?: boolean }) {
         <p className="muted text-center text-sm">{text("footer")}</p>
         {/* Keep the privacy notice discoverable even when editors remove every landing block. */}
         <p className="mt-2 text-center text-sm">
-          <Link href="/privacy" className="link inline-flex min-h-11 items-center px-3">
+          <Link
+            href="/privacy"
+            className="link inline-flex min-h-11 items-center px-3"
+          >
             {getPrivacyPolicy(locale).title}
           </Link>
         </p>
@@ -332,10 +327,11 @@ function FeatureCard({
   );
 }
 
-function GradientTitle({ text }: { text: string }) {
+function GradientTitle({ text, primary }: { text: string; primary: boolean }) {
+  const Heading = primary ? "h1" : "h2";
   const words = text.trim().split(/\s+/).filter(Boolean);
   return (
-    <h1 className="mx-auto flex max-w-sm flex-wrap justify-center gap-x-2 text-3xl leading-tight font-extrabold tracking-tight sm:max-w-none sm:text-5xl lg:text-6xl">
+    <Heading className="mx-auto flex max-w-sm flex-wrap justify-center gap-x-2 text-3xl leading-tight font-extrabold tracking-tight sm:max-w-none sm:text-5xl lg:text-6xl">
       {words.length > 0 ? (
         words.map((word, i) => (
           <span
@@ -350,6 +346,6 @@ function GradientTitle({ text }: { text: string }) {
           {text}
         </span>
       )}
-    </h1>
+    </Heading>
   );
 }

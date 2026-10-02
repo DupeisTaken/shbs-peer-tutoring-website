@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   settings: vi.fn(),
 }));
 vi.mock("next/navigation", () => ({
+  usePathname: () => "/student",
   useSearchParams: () => new URLSearchParams({ view: mocks.view }),
 }));
 vi.mock("next-intl", () => ({
@@ -178,21 +179,44 @@ it("a full attendance page can move forward while retaining the selected section
   expect(screen.queryByRole("heading", { name: "cards" })).toBeNull();
 });
 
-
 it("shows the assigned tutor while awaiting a schedule and counts only confirmed subjects", () => {
-  const common = { dayOfWeek: 1, startMin: 930, endMin: 990, room: null, tutor: { englishName: "Tutor A" } };
-  mocks.personal.mockReturnValue({ data: {
-    user: { name: "Sam" }, sessions: [], cards: [], appeals: [],
-    schedule: [
-      { ...common, id: "pending", subject: "Math", scheduleConfirmed: false },
-      { ...common, id: "scheduled", subject: "English", scheduleConfirmed: true },
-    ],
-  } });
+  const common = {
+    dayOfWeek: 1,
+    startMin: 930,
+    endMin: 990,
+    room: null,
+    tutor: { englishName: "Tutor A" },
+  };
+  mocks.personal.mockReturnValue({
+    data: {
+      user: { name: "Sam" },
+      sessions: [],
+      cards: [],
+      appeals: [],
+      schedule: [
+        { ...common, id: "pending", subject: "Math", scheduleConfirmed: false },
+        {
+          ...common,
+          id: "scheduled",
+          subject: "English",
+          scheduleConfirmed: true,
+        },
+      ],
+    },
+  });
   const { unmount } = render(<TuteeOverview />);
-  expect(screen.getByRole("link", { name: /schedule 1 scheduledSubjects/ })).toBeTruthy();
+  expect(
+    screen.getByRole("link", { name: /schedule 1 scheduledSubjects/ }),
+  ).toBeTruthy();
   unmount();
   render(<StudentPortal view="schedule" />);
-  expect(screen.getByText("Math · Tutor A").parentElement?.textContent).toContain("awaiting");
-  expect(screen.getByText("Math · Tutor A").parentElement?.textContent).not.toContain("15:30");
-  expect(screen.getByText("English · Tutor A").parentElement?.textContent).toContain("15:30–16:30");
+  expect(
+    screen.getByText("Math · Tutor A").parentElement?.textContent,
+  ).toContain("awaiting");
+  expect(
+    screen.getByText("Math · Tutor A").parentElement?.textContent,
+  ).not.toContain("15:30");
+  expect(
+    screen.getByText("English · Tutor A").parentElement?.textContent,
+  ).toContain("15:30–16:30");
 });

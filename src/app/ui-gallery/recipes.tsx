@@ -1,5 +1,6 @@
 "use client";
 
+import { NavigationRecipes } from "./navigation-recipes";
 import { useEffect, useState, type ReactNode } from "react";
 import { NextIntlClientProvider } from "next-intl";
 import enMessages from "../../../messages/en.json";
@@ -652,6 +653,7 @@ export function RecipeGallery({
           </div>
         </Recipe>
       </div>
+      <NavigationRecipes locale={locale} />
       {dialog === "editor" && (
         <ProfileDialog
           title={t.editor}

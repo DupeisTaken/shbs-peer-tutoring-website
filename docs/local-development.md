@@ -193,6 +193,8 @@ does not establish authorization, native browser focus or persisted behavior.
 | Forms and dialogs | Save scope; pending fields/dismissal; failed-save draft retention; nested Escape/Tab and focus return; successful child write with pending refetch; actual long-content scrolling |
 | Cached queries | Initial loading/error/empty are distinct; background failure retains content and draft; Retry completes; explicit conflict Reload adopts data only on success |
 | Filters and settings | Pressed selections versus content tabs; filter/page reset rules; consistent control heights; immediate switches, unknown/yes/no choices and staged saves keep their own semantics |
+| Headers and navigation | Public, patrol, localization, management, tutor, tutee and standalone account headers: single utilities, 32 px desktop / 44 px narrow controls, wrapping labels, one H1; native route Back/Forward and manual local tab activation with retained drafts |
+| Registration and reply | EN/ZH step count and heading focus; bound email, edit/reverify, resend failure and pending locks; reply below the sticky header, recipient context, separate drafts, cancel focus return, retry keys and permission failures |
 | Participant/public flows | Native invalid-name correction, legacy names, requirement markers, creation collapse/reopen, translated back/language navigation and existing consent boundaries |
 
 Use an actual narrow viewport such as 390 CSS pixels and a desktop viewport such

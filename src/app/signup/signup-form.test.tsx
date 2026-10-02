@@ -33,7 +33,12 @@ vi.mock("~/trpc/react", () => ({
     tutee: {
       signupOptions: { useQuery: mocks.options },
       surveyPolicy: { useQuery: mocks.policy },
-      submitSurvey: { useMutation: () => ({ mutateAsync: mocks.mutate, mutate: mocks.mutate }) },
+      submitSurvey: {
+        useMutation: () => ({
+          mutateAsync: mocks.mutate,
+          mutate: mocks.mutate,
+        }),
+      },
     },
   },
 }));
@@ -141,14 +146,9 @@ it("hides configured tutee fields and allows submission without hidden required 
   expect(
     screen.queryByLabelText(/signupFields.labels.signatureName/),
   ).toBeNull();
-  fireEvent.change(
-    screen.getByLabelText(
-      "firstName signupFields.required",
-    ),
-    {
-      target: { value: "Student" },
-    },
-  );
+  fireEvent.change(screen.getByLabelText("firstName signupFields.required"), {
+    target: { value: "Student" },
+  });
   fireEvent.change(screen.getByLabelText(/survey.emailLabel/), {
     target: { value: "student@example.test" },
   });
@@ -272,4 +272,44 @@ it("labels fixed and configurable requirements consistently", () => {
   ).toBe(true);
 });
 
-vi.mock("~/app/_components/signup-captcha", () => ({ useSignupCaptcha: () => ({ run: (work: (grant?: string) => Promise<unknown>) => work(), panel: null, pending: false }), CaptchaError: ({ error }: { error: { message: string } }) => <>{error.message}</> }));
+vi.mock("~/app/_components/signup-captcha", () => ({
+  useSignupCaptcha: () => ({
+    run: (work: (grant?: string) => Promise<unknown>) => work(),
+    panel: null,
+    pending: false,
+  }),
+  CaptchaError: ({ error }: { error: { message: string } }) => (
+    <>{error.message}</>
+  ),
+}));
+
+it("retains entered identity and groups when cached prerequisites fail", () => {
+  const view = render(<SignupForm />);
+  const name = screen.getByLabelText<HTMLInputElement>(
+    "firstName signupFields.required",
+  );
+  fireEvent.change(name, { target: { value: "Retained draft" } });
+  const cached = mocks.options.mock.results[0]?.value as object;
+  mocks.options.mockReturnValue({
+    ...cached,
+    isError: true,
+    error: { message: "Offline" },
+  });
+  view.rerender(<SignupForm />);
+  expect(screen.getByRole("alert")).toBeTruthy();
+  expect(
+    screen.getByLabelText<HTMLInputElement>("firstName signupFields.required")
+      .value,
+  ).toBe("Retained draft");
+  expect(
+    screen.getByRole("group", { name: "signupSections.identityTitle" }),
+  ).toBeTruthy();
+  expect(
+    screen.getByRole("group", { name: "signupSections.agreementTitle" }),
+  ).toBeTruthy();
+  expect(
+    screen
+      .getByRole("button", { name: "public.signup.submit" })
+      .matches(":disabled"),
+  ).toBe(true);
+});
