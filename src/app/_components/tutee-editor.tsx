@@ -12,9 +12,10 @@ import {
   ProfilePolicyHint,
   OfferedGradeSelect,
 } from "./profile-policy";
-import { useEffect, useRef, useState } from "react";
+import { useRef, useState } from "react";
 import { TuteeHistoryLinkForm } from "./tutee-history";
 import { invalidateTuteeViews } from "~/lib/tutee-cache";
+import { settleRefreshes } from "~/lib/settle-refreshes";
 import { GRADUATED_GRADE } from "~/lib/academics";
 import { useDialogPending } from "./ui/modal";
 
@@ -29,7 +30,10 @@ export function TuteeEditor(props: TuteeEditorProps) {
   const profileText = useTranslations("accountProfile");
   return (
     <ProfileDialog title={profileText("editProfile")} onClose={props.onClose}>
-      <TuteeEditorContents {...props} />
+      <TuteeEditorContents
+        row={props.row}
+        historyPermissions={props.historyPermissions}
+      />
     </ProfileDialog>
   );
 }
@@ -37,9 +41,8 @@ export function TuteeEditor(props: TuteeEditorProps) {
 /** Profile correction stays separate from assignment/removal, while the version protects both. */
 function TuteeEditorContents({
   row,
-  onClose,
   historyPermissions,
-}: TuteeEditorProps) {
+}: Omit<TuteeEditorProps, "onClose">) {
   const t = useTranslations("profileCorrection");
   const history = useTranslations("tuteeHistory");
   const profileText = useTranslations("accountProfile");
@@ -49,7 +52,9 @@ function TuteeEditorContents({
   const historySection = useRef<HTMLDetailsElement>(null);
   const [historyLinked, setHistoryLinked] = useState(false);
   const [historyPending, setHistoryPending] = useState(false);
-  const [closeRequested, setCloseRequested] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [refreshFailed, setRefreshFailed] = useState(false);
+  const committed = useRef(false);
   const [names, setNames] = useState(() => nameDraft(row));
   const [originalNames] = useState(() => nameDraft(row));
   const [legacyName] = useState(row.legacyName ?? row.englishName);
@@ -70,20 +75,30 @@ function TuteeEditorContents({
       submitting.current = false;
     },
     onSuccess: async () => {
-      await Promise.all([
-        invalidateTuteeViews(utils),
-        utils.admin.tutors.invalidate(),
-      ]);
-      setCloseRequested(true);
+      // A successful profile write must not discard an independent failed draft.
+      // Freeze this committed section even if refreshing its views later fails.
+      committed.current = true;
+      setSaved(true);
+      try {
+        await settleRefreshes([
+          async () => {
+            await invalidateTuteeViews(utils, { throwOnError: true });
+          },
+          () =>
+            utils.admin.tutors.invalidate(undefined, undefined, {
+              throwOnError: true,
+            }),
+        ]);
+      } catch {
+        setRefreshFailed(true);
+      }
     },
   });
   // Register owned work only; the returned state also guards against academic
   // writes in this dialog, without feeding sibling work back into the registry.
   const pending = useDialogPending(save.isPending || historyPending);
-  // A previously admitted history/academic operation can finish after this save.
-  useEffect(() => {
-    if (closeRequested && !pending) onClose();
-  }, [closeRequested, pending, onClose]);
+  // Only deliberate Close dismisses the editor. Idle alone says nothing about
+  // whether another section failed and still needs its mounted draft/error.
   return (
     <>
       <p className="muted text-sm">
@@ -97,7 +112,7 @@ function TuteeEditorContents({
             if (
               pending ||
               submitting.current ||
-              closeRequested ||
+              committed.current ||
               subjects.isLoading ||
               slots.isLoading
             )
@@ -135,7 +150,7 @@ function TuteeEditorContents({
           }}
         >
           <fieldset
-            disabled={pending}
+            disabled={pending || saved}
             aria-busy={pending}
             className="grid min-w-0 gap-4 sm:grid-cols-2"
           >
@@ -245,7 +260,9 @@ function TuteeEditorContents({
             </label>
             <button
               className="btn-primary self-end justify-self-start"
-              disabled={pending || subjects.isLoading || slots.isLoading}
+              disabled={
+                pending || saved || subjects.isLoading || slots.isLoading
+              }
             >
               {t("save")}
             </button>
@@ -255,6 +272,16 @@ function TuteeEditorContents({
               </p>
             )}
           </fieldset>
+          {saved && (
+            <p role="status" className="mt-3 text-sm text-green-800">
+              {profileText("sectionSaved")}
+            </p>
+          )}
+          {refreshFailed && (
+            <p role="alert" className="mt-3 text-sm text-red-700">
+              {profileText("sectionRefreshFailed")}
+            </p>
+          )}
         </form>
       )}
       {row.user && (

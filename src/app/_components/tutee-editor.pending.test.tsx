@@ -21,6 +21,9 @@ const mock = vi.hoisted(() => ({
   link: vi.fn(),
   preview: vi.fn(),
   invalidate: vi.fn(),
+  refreshTutees: vi.fn(),
+  refreshTuteeStats: vi.fn(),
+  refreshTutors: vi.fn(),
   academicSave: vi.fn(),
   selfAcademicSave: vi.fn(),
   academicRefetch: vi.fn(),
@@ -49,11 +52,11 @@ vi.mock("~/trpc/react", async () => {
     api: {
       useUtils: () => ({
         admin: {
-          tutees: invalidation,
-          tuteeStats: invalidation,
+          tutees: { invalidate: mock.refreshTutees },
+          tuteeStats: { invalidate: mock.refreshTuteeStats },
           pairings: invalidation,
           accounts: invalidation,
-          tutors: invalidation,
+          tutors: { invalidate: mock.refreshTutors },
           accountAcademics: invalidation,
         },
         account: { me: invalidation, academicHistory: invalidation },
@@ -177,6 +180,12 @@ beforeEach(() => {
   ])
     mutation.mockResolvedValue({});
   mock.preview.mockResolvedValue(preview);
+  for (const refresh of [
+    mock.refreshTutees,
+    mock.refreshTuteeStats,
+    mock.refreshTutors,
+  ])
+    refresh.mockImplementation(() => mock.invalidate() as Promise<void>);
   client = new QueryClient({
     defaultOptions: { mutations: { retry: false }, queries: { retry: false } },
   });
@@ -317,7 +326,7 @@ it.each(["invite", "cancel", "link", "preview"] as const)(
     expect(ui.email.value).toBe("alumni@example.test");
     expect(ui.invite.disabled).toBe(false);
     fireEvent.submit(ui.profileForm);
-    await waitFor(() => expect(ui.close).toHaveBeenCalledOnce());
+    await closeSavedEditor(ui.close);
     expect(mock.save).toHaveBeenCalledWith(
       expect.objectContaining({ notes: "Unsaved personal draft" }),
     );
@@ -370,10 +379,10 @@ it("blocks every history write during profile save, then allows a failed save to
   await waitFor(() => expect(ui.save.disabled).toBe(false));
   expect(ui.close).not.toHaveBeenCalled();
   fireEvent.submit(ui.profileForm);
-  await waitFor(() => expect(ui.close).toHaveBeenCalledOnce());
+  await closeSavedEditor(ui.close);
 });
 
-it("keeps history unavailable through successful profile invalidation before closing", async () => {
+it("keeps history unavailable through successful profile invalidation before deliberate Close", async () => {
   const ui = mount();
   const refresh = deferred();
   mock.invalidate.mockReturnValue(refresh.promise);
@@ -387,7 +396,7 @@ it("keeps history unavailable through successful profile invalidation before clo
   await act(async () => {
     refresh.resolve();
   });
-  await waitFor(() => expect(ui.close).toHaveBeenCalledOnce());
+  await closeSavedEditor(ui.close);
 });
 
 it.each(["invite", "cancel", "link"] as const)(
@@ -416,7 +425,7 @@ it.each(["invite", "cancel", "link"] as const)(
     await waitFor(() => expect(ui.save.disabled).toBe(false));
     expect(ui.notes.value).toBe("Unsaved personal draft");
     fireEvent.submit(ui.profileForm);
-    await waitFor(() => expect(ui.close).toHaveBeenCalledOnce());
+    await closeSavedEditor(ui.close);
   },
 );
 
@@ -487,6 +496,18 @@ function expectDismissalBlocked(close: ReturnType<typeof vi.fn>) {
   expect(close).not.toHaveBeenCalled();
 }
 
+async function closeSavedEditor(close: ReturnType<typeof vi.fn>) {
+  await screen.findByText(en.accountProfile.sectionSaved);
+  const button = screen.getByRole<HTMLButtonElement>("button", {
+    name: en.accountProfile.close,
+  });
+  await waitFor(() => expect(button.disabled).toBe(false));
+  expect(screen.getByRole("dialog").getAttribute("aria-busy")).toBe("false");
+  expect(close).not.toHaveBeenCalled();
+  fireEvent.click(button);
+  await waitFor(() => expect(close).toHaveBeenCalledOnce());
+}
+
 it("registers a linked academic save, blocks profile/history handlers and preserves independent versions on failure", async () => {
   const ui = mountLinked();
   await selectOwner();
@@ -528,7 +549,7 @@ it("registers a linked academic save, blocks profile/history handlers and preser
   await waitFor(() => expect(ui.profileSave.disabled).toBe(false));
   expect(ui.notes.value).toBe("Linked profile draft");
   fireEvent.submit(ui.profileForm);
-  await waitFor(() => expect(ui.close).toHaveBeenCalledOnce());
+  await closeSavedEditor(ui.close);
   expect(mock.save).toHaveBeenCalledWith(
     expect.objectContaining({ expectedUpdatedAt: row.updatedAt }),
   );
@@ -560,7 +581,7 @@ it("blocks linked academic submission during profile save and recovers every dra
   await screen.findByText(en.academics.saved);
   await waitFor(() => expect(ui.profileSave.disabled).toBe(false));
   fireEvent.submit(ui.profileForm);
-  await waitFor(() => expect(ui.close).toHaveBeenCalledOnce());
+  await closeSavedEditor(ui.close);
 });
 
 it("blocks linked academic submission during a historical link and restores it on failure", async () => {
@@ -617,8 +638,7 @@ it.each(["academic", "profile", "history"] as const)(
     await act(async () => {
       refresh.resolve();
     });
-    if (operation === "profile")
-      await waitFor(() => expect(ui.close).toHaveBeenCalledOnce());
+    if (operation === "profile") await closeSavedEditor(ui.close);
     else {
       await waitFor(() => expect(ui.profileSave.disabled).toBe(false));
       expect(ui.close).not.toHaveBeenCalled();
@@ -677,7 +697,7 @@ it("admits only one same-frame profile submission and releases its own guard aft
   await waitFor(() => expect(ui.profileSave.disabled).toBe(false));
   expectLinkedDrafts(ui);
   fireEvent.submit(ui.profileForm);
-  await waitFor(() => expect(ui.close).toHaveBeenCalledOnce());
+  await closeSavedEditor(ui.close);
   expect(mock.save).toHaveBeenCalledTimes(2);
   expect(screen.queryByRole("dialog")).toBeNull();
 });
@@ -688,9 +708,11 @@ it.each([
   ["history", "profile-first", false],
   ["history", "sibling-first", false],
   ["academic", "profile-first", true],
+  ["academic", "sibling-first", true],
   ["history", "profile-first", true],
+  ["history", "sibling-first", true],
 ] as const)(
-  "waits for already-admitted %s work (%s, sibling failure %s) before closing",
+  "retains already-admitted %s work (%s, sibling failure %s) until deliberate Close",
   async (section, order, siblingFails) => {
     const ui = mountLinked(true),
       profile = deferred(),
@@ -700,6 +722,12 @@ it.each([
     const siblingMutation =
       section === "academic" ? mock.academicSave : mock.link;
     siblingMutation.mockReturnValueOnce(sibling.promise);
+    const siblingError =
+      section === "academic"
+        ? Object.assign(new Error("Outdated academics"), {
+            data: { code: "CONFLICT" },
+          })
+        : new Error("HISTORY_STALE");
     const link =
       section === "history"
         ? screen.getByRole("button", { name: en.tuteeHistory.link })
@@ -730,11 +758,15 @@ it.each([
           );
         });
     if (order === "profile-first") {
+      mock.academicVersion = 8;
       await act(async () => profile.resolve({}));
       await waitFor(() => expect(profileIsSettled()).toBe(true));
       expectLinkedDrafts(ui);
     } else {
-      await act(async () => sibling.resolve({}));
+      await act(async () => {
+        if (siblingFails) sibling.reject(siblingError);
+        else sibling.resolve({});
+      });
       await waitFor(() => expect(client.isMutating()).toBe(1));
     }
     expect(screen.getByRole("dialog")).toBeTruthy();
@@ -745,13 +777,22 @@ it.each([
     await flushMutationJobs();
     expect(mock.save).toHaveBeenCalledOnce();
     await act(async () => {
-      if (order === "sibling-first") profile.resolve({});
-      else if (siblingFails) sibling.reject(new Error("Operation failed"));
+      if (order === "sibling-first") {
+        mock.academicVersion = 8;
+        profile.resolve({});
+      } else if (siblingFails) sibling.reject(siblingError);
       else sibling.resolve({});
     });
-    await waitFor(() => expect(ui.close).toHaveBeenCalledOnce());
-    expect(screen.queryByRole("dialog")).toBeNull();
-    expect(client.isMutating()).toBe(0);
+    await waitFor(() => expect(client.isMutating()).toBe(0));
+    await screen.findByText(en.accountProfile.sectionSaved);
+    expect(ui.close).not.toHaveBeenCalled();
+    expect(ui.notes.isConnected).toBe(true);
+    expect(ui.notes.matches(":disabled")).toBe(true);
+    expect(ui.profileSave.disabled).toBe(true);
+    expect(screen.getByRole("dialog").getAttribute("aria-busy")).toBe("false");
+    fireEvent.submit(ui.profileForm);
+    await flushMutationJobs();
+    expect(mock.save).toHaveBeenCalledOnce();
     expect(mock.save.mock.calls[0]![0]).toEqual(
       expect.objectContaining({
         expectedUpdatedAt: row.updatedAt,
@@ -759,5 +800,172 @@ it.each([
       }),
     );
     expect(mock.save.mock.calls[0]![0]).not.toHaveProperty("gradeLevel");
+    if (siblingFails) {
+      expectLinkedDrafts(ui);
+      const errorText =
+        section === "academic"
+          ? en.academics.conflict
+          : en.tuteeHistory.HISTORY_STALE;
+      expect(screen.getByText(errorText)).toBeTruthy();
+      const retry = deferred();
+      siblingMutation.mockReturnValueOnce(retry.promise);
+      if (section === "academic") {
+        expect(ui.academicSave.disabled).toBe(false);
+        fireEvent.submit(ui.academicForm);
+      } else {
+        // Failed linking discards the old preview/acknowledgement, not identity evidence.
+        expect(
+          screen.queryByRole("checkbox", {
+            name: en.tuteeHistory.confirmIdentity,
+          }),
+        ).toBeNull();
+        mock.preview.mockResolvedValueOnce({
+          ...preview,
+          fingerprint: "c".repeat(64),
+        });
+        await selectOwner();
+        fireEvent.click(
+          screen.getByRole("button", { name: en.tuteeHistory.link }),
+        );
+      }
+      await waitFor(() => expect(siblingMutation).toHaveBeenCalledTimes(2));
+      expectDismissalBlocked(ui.close);
+      expect(siblingMutation).toHaveBeenLastCalledWith(
+        expect.objectContaining(
+          section === "academic"
+            ? {
+                expectedProfileVersion: 7,
+                expectedSchoolYear: "26-27",
+                gradeLevel: 10,
+                reason: "Independent academic draft",
+              }
+            : {
+                fingerprint: "c".repeat(64),
+                reason: "Verified retained enrollment identity",
+              },
+        ),
+      );
+      await act(async () => retry.reject(siblingError));
+      await waitFor(() => expect(client.isMutating()).toBe(0));
+      expect(screen.getByText(errorText)).toBeTruthy();
+      expectLinkedDrafts(ui);
+      expect(mock.save).toHaveBeenCalledOnce();
+    }
+    await closeSavedEditor(ui.close);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  },
+);
+
+it("keeps a committed profile read-only after refresh fails without freezing sibling retry or Close", async () => {
+  const ui = mountLinked(true);
+  mock.invalidate.mockRejectedValue(new Error("Refresh unavailable"));
+  fireEvent.submit(ui.profileForm);
+  await screen.findByText(en.accountProfile.sectionRefreshFailed);
+  await waitFor(() => expect(client.isMutating()).toBe(0));
+  expect(screen.getByText(en.accountProfile.sectionSaved)).toBeTruthy();
+  expect(ui.notes.matches(":disabled")).toBe(true);
+  expect(ui.grade.matches(":disabled")).toBe(false);
+  expectLinkedDrafts(ui);
+  fireEvent.submit(ui.profileForm);
+  await flushMutationJobs();
+  expect(mock.save).toHaveBeenCalledOnce();
+  await closeSavedEditor(ui.close);
+  expect(screen.queryByRole("dialog")).toBeNull();
+});
+
+it.each(["outer", "nested"] as const)(
+  "holds the saved profile and dialog until the independent %s refresh settles after a read failure",
+  async (group) => {
+    const ui = mountLinked(true),
+      held = deferred();
+    mock.refreshTutees.mockRejectedValue(new Error("Roster refresh failed"));
+    const delayed =
+      group === "outer" ? mock.refreshTutors : mock.refreshTuteeStats;
+    delayed.mockReturnValue(held.promise);
+    fireEvent.submit(ui.profileForm);
+    await screen.findByText(en.accountProfile.sectionSaved);
+    await waitFor(() => expect(delayed).toHaveBeenCalledOnce());
+    await flushMutationJobs();
+    expectDismissalBlocked(ui.close);
+    expect(
+      screen.queryByText(en.accountProfile.sectionRefreshFailed),
+    ).toBeNull();
+    expectLinkedDrafts(ui);
+    fireEvent.submit(ui.profileForm);
+    fireEvent.submit(ui.academicForm);
+    await flushMutationJobs();
+    expect(mock.save).toHaveBeenCalledOnce();
+    expect(mock.academicSave).not.toHaveBeenCalled();
+    await act(async () => held.resolve());
+    await screen.findByText(en.accountProfile.sectionRefreshFailed);
+    await waitFor(() => expect(ui.academicSave.disabled).toBe(false));
+    expect(ui.profileSave.disabled).toBe(true);
+    expect(ui.notes.matches(":disabled")).toBe(true);
+    expectLinkedDrafts(ui);
+    await closeSavedEditor(ui.close);
+    expect(screen.queryByRole("dialog")).toBeNull();
+  },
+);
+
+it.each([
+  ["academic", "profile-first"],
+  ["academic", "sibling-first"],
+  ["history", "profile-first"],
+  ["history", "sibling-first"],
+] as const)(
+  "retains a failed profile beside successful %s work (%s) and permits its original-version retry",
+  async (section, order) => {
+    const ui = mountLinked(true),
+      profile = deferred(),
+      sibling = deferred();
+    if (section === "history") await selectOwner();
+    mock.save.mockReturnValueOnce(profile.promise);
+    const siblingMutation =
+      section === "academic" ? mock.academicSave : mock.link;
+    siblingMutation.mockReturnValueOnce(sibling.promise);
+    const link =
+      section === "history"
+        ? screen.getByRole("button", { name: en.tuteeHistory.link })
+        : null;
+    act(() => {
+      ui.profileForm.dispatchEvent(
+        new Event("submit", { bubbles: true, cancelable: true }),
+      );
+      if (section === "academic")
+        ui.academicForm.dispatchEvent(
+          new Event("submit", { bubbles: true, cancelable: true }),
+        );
+      else link!.dispatchEvent(new MouseEvent("click", { bubbles: true }));
+    });
+    await waitFor(() => expect(siblingMutation).toHaveBeenCalledOnce());
+    expect(mock.save).toHaveBeenCalledOnce();
+    await act(async () => {
+      if (order === "profile-first") profile.reject(new Error("PROFILE_STALE"));
+      else sibling.resolve({});
+    });
+    await waitFor(() => expect(client.isMutating()).toBe(1));
+    expectDismissalBlocked(ui.close);
+    expect(ui.notes.value).toBe("Linked profile draft");
+    await act(async () => {
+      if (order === "profile-first") sibling.resolve({});
+      else profile.reject(new Error("PROFILE_STALE"));
+    });
+    await waitFor(() => expect(ui.profileSave.disabled).toBe(false));
+    expect(ui.notes.isConnected).toBe(true);
+    expect(ui.notes.value).toBe("Linked profile draft");
+    expect(screen.getByRole("alert")).toBeTruthy();
+    expect(screen.queryByText(en.accountProfile.sectionSaved)).toBeNull();
+    expect(ui.close).not.toHaveBeenCalled();
+    fireEvent.submit(ui.profileForm);
+    await screen.findByText(en.accountProfile.sectionSaved);
+    expect(mock.save).toHaveBeenCalledTimes(2);
+    expect(mock.save).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        expectedUpdatedAt: row.updatedAt,
+        notes: "Linked profile draft",
+      }),
+    );
+    await closeSavedEditor(ui.close);
+    expect(screen.queryByRole("dialog")).toBeNull();
   },
 );

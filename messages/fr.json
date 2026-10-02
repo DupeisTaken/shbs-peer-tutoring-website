@@ -3120,6 +3120,8 @@
     "scheduleEmpty": "No tutoring sessions are assigned yet. Follow your request under Requests or use the request form to get started."
   },
   "accountProfile": {
+    "sectionSaved": "Enregistré. Fermez puis rouvrez cet éditeur pour modifier à nouveau cette section. Les brouillons des autres sections sont conservés.",
+    "sectionRefreshFailed": "L’enregistrement a réussi, mais l’actualisation des données a échoué. Fermez puis rouvrez l’éditeur pour les charger à nouveau.",
     "username": "Nom d’utilisateur",
     "usernameHelp": "Head uniquement. Utilisez 1 à 64 lettres ou chiffres. Connectez-vous avec le nouveau nom ou votre adresse e-mail actuelle ; le mot de passe reste identique.",
     "saveUsername": "Enregistrer le nom d’utilisateur",
