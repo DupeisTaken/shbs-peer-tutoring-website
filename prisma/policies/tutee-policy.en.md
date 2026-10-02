@@ -1,6 +1,6 @@
 # SHBS Peer Tutoring Tutee Policy
 
-**Revision:** 2026.09.24 | **Status:** Draft for school review
+**Revision:** 2026.10.02 | **Status:** Draft for school review
 
 This policy establishes expectations for tutees in the SHBS Peer Tutoring Program, respecting everyone's time and effort. It retains the structure of the April 2025 policy and incorporates the program website. “Tutee” means a student receiving peer tutoring.
 
@@ -102,4 +102,4 @@ Acceptance records the exact revision, text, signature and time without changing
 
 By explicitly accepting the school's published version, tutees agree to these responsibilities and procedures. Contact management with questions before accepting.
 
-**The Peer Tutoring Team** | **Revision:** 2026.09.24 | **Draft for school review**
+**The Peer Tutoring Team** | **Revision:** 2026.10.02 | **Draft for school review**

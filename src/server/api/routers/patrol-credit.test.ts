@@ -63,6 +63,22 @@ it("serializes fresh-key concurrent awards and leaves another crew member indepe
   expect((await caller(otherId).crew.submitPatrol(input())).hours).toBe(0.5);
 });
 
+it("returns the original award for simultaneous identical retries, even after a correction", async () => {
+  const original = input();
+  const results = await Promise.all(Array.from({ length: 3 }, () => caller().crew.submitPatrol(original)));
+  expect(results).toEqual(Array.from({ length: 3 }, () => results[0]));
+  expect(results[0]?.hours).toBe(0.5);
+  expect(await db.patrol.count()).toBe(1);
+  const before = await db.patrol.findUniqueOrThrow({ where: { id: results[0]!.id }, include: { observations: true } });
+  await caller(headId, "HEAD").corrections.correctPatrol({
+    id: before.id, expectedUpdatedAt: before.updatedAt, reason: "Correct count", note: "Reviewed",
+    observations: before.observations.map((row) => ({ id: row.id, roomId, headcount: "TWO", observedAt: row.observedAt })),
+  });
+  vi.setSystemTime(new Date(Date.now() + PATROL_CREDIT_INTERVAL_MS));
+  expect(await caller().crew.submitPatrol(original)).toEqual(results[0]);
+  expect(await db.patrol.count()).toBe(1);
+});
+
 it("uses server elapsed time for omitted/backdated timestamps and blocks boundary splitting", async () => {
   const omitted = { submissionKey: randomUUID(), observations: [{ roomId, headcount: "ONE" as const }] };
   expect((await caller().crew.submitPatrol(omitted)).hours).toBe(0.5);
@@ -111,7 +127,10 @@ it("corrections preserve hours and old reservations while reserving corrected ev
 });
 
 it("checks combined account history without rewriting original authors or reopening credit", async () => {
-  await caller(otherId).crew.submitPatrol(input());
+  vi.setSystemTime(new Date("2026-09-01T08:20:00Z"));
+  const original = input();
+  const first = await caller(otherId).crew.submitPatrol(original);
+  const snapshot = await db.patrol.findUniqueOrThrow({ where: { id: first.id }, include: { observations: true, creditWindows: true } });
   const pair = { survivorId: crewId, duplicateId: otherId };
   const preview = await previewCombine(db, pair);
   expect(preview.conflicts).toEqual([]);
@@ -120,6 +139,10 @@ it("checks combined account history without rewriting original authors or reopen
   expect(await caller().crew.patrolConfig()).toMatchObject({ myHours: 0.5, myPatrols: 2 });
   expect(await db.patrolCreditWindow.findFirst()).toMatchObject({ crewUserId: otherId });
   await expect(caller(otherId).crew.submitPatrol(input())).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  expect(await db.patrol.findUniqueOrThrow({ where: { id: first.id }, include: { observations: true, creditWindows: true } })).toEqual(snapshot);
+  vi.setSystemTime(new Date("2026-09-01T08:40:00Z"));
+  expect((await caller().crew.submitPatrol({ ...original, submissionKey: randomUUID() })).hours).toBe(0);
+  expect((await caller().crew.submitPatrol(input())).hours).toBe(0.5);
 });
 
 it("rolls back award time, reservations and observations together when later work fails", async () => {
@@ -156,6 +179,73 @@ it("exports credit history and backfills legacy archive reservations without rew
   expect((await caller().crew.submitPatrol(input())).hours).toBe(0);
   const archive = await staff.recordTransfer.export({});
   expect(archive.files.find((file) => file.name === "PatrolCreditWindow.csv")?.text).toContain(oldPatrol.id);
+});
+
+it("round-trips corrected credit reservations, with idempotent archive retries and original timestamps", async () => {
+  vi.setSystemTime(new Date("2026-09-01T08:20:00Z"));
+  const first = await caller().crew.submitPatrol(input());
+  const before = await db.patrol.findUniqueOrThrow({ where: { id: first.id }, include: { observations: true } });
+  await caller(headId, "HEAD").corrections.correctPatrol({
+    id: before.id, expectedUpdatedAt: before.updatedAt, reason: "Correct device clock", note: "Reviewed",
+    observations: before.observations.map((row) => ({ id: row.id, roomId, headcount: "TWO", observedAt: new Date("2026-09-01T08:19:59Z") })),
+  });
+  const saved = await db.patrol.findUniqueOrThrow({ where: { id: first.id }, include: { observations: true, creditWindows: { orderBy: { windowStart: "asc" } } } });
+  const staff = caller(headId, "HEAD");
+  const archive = await staff.recordTransfer.export({});
+  const files = archive.files.filter((file) => ["Patrol.csv", "PatrolObservation.csv", "PatrolCreditWindow.csv"].includes(file.name));
+  // Existing archives must compare composite timestamp keys by their database type.
+  const retry = await staff.recordTransfer.preview({ files });
+  expect(retry.summary.every((row) => row.created === 0)).toBe(true);
+  await staff.recordTransfer.import({ files, ticket: retry.ticket });
+  // Simulate restoration into empty patrol tables while keeping the explicit account references.
+  await db.patrol.deleteMany();
+  const restore = await staff.recordTransfer.preview({ files });
+  expect(await db.patrol.count()).toBe(0);
+  await staff.recordTransfer.import({ files, ticket: restore.ticket });
+  const restored = await db.patrol.findUniqueOrThrow({ where: { id: first.id }, include: { observations: true, creditWindows: { orderBy: { windowStart: "asc" } } } });
+  expect(restored).toEqual(saved);
+  vi.setSystemTime(new Date("2026-09-01T08:40:00Z"));
+  expect((await caller().crew.submitPatrol(input(new Date("2026-09-01T08:20:00Z")))).hours).toBe(0);
+  expect((await caller().crew.submitPatrol(input())).hours).toBe(0.5);
+});
+
+it("rejects an archive reservation assigned to a different patrol author and rolls back", async () => {
+  const first = await caller().crew.submitPatrol(input());
+  const claim = { crewUserId: otherId, patrolId: first.id, windowStart: "2026-09-01T08:20:00.000Z" };
+  const files = [{ name: "PatrolCreditWindow.csv", text: recordCsv(Object.keys(claim), [claim]) }];
+  await expect(caller(headId, "HEAD").recordTransfer.preview({ files })).rejects.toThrow(/credit owner must match/);
+  expect(await db.patrolCreditWindow.count()).toBe(1);
+});
+
+it("restores overlapping legacy awards and an observation-free patrol without changing historical totals", async () => {
+  const patrols = [
+    { id: "first", crewUserId: crewId, hours: 0.5, createdAt: "2026-09-01T08:10:00.000Z", updatedAt: "2026-09-01T08:30:00.000Z" },
+    { id: "duplicate", crewUserId: crewId, hours: 1, createdAt: "2026-09-01T08:11:00.000Z", updatedAt: "2026-09-01T08:11:00.000Z" },
+    { id: "empty", crewUserId: crewId, hours: 1.5, createdAt: "2026-09-01T08:20:00.000Z", updatedAt: "2026-09-01T08:20:00.000Z" },
+    { id: "zero", crewUserId: otherId, hours: 0, createdAt: "2026-09-01T08:40:00.000Z", updatedAt: "2026-09-01T08:40:00.000Z" },
+  ];
+  const observations = [
+    { id: "first-observation", patrolId: "first", roomId, headcount: "ONE", observedAt: "2026-09-01T08:00:00.000Z" },
+    { id: "duplicate-observation", patrolId: "duplicate", roomId, headcount: "TWO", observedAt: "2026-09-01T08:19:59.999Z" },
+  ];
+  const files = [
+    { name: "Patrol.csv", text: recordCsv(Object.keys(patrols[0]!), patrols) },
+    { name: "PatrolObservation.csv", text: recordCsv(Object.keys(observations[0]!), observations) },
+  ];
+  const staff = caller(headId, "HEAD");
+  const preview = await staff.recordTransfer.preview({ files });
+  await staff.recordTransfer.import({ files, ticket: preview.ticket });
+  expect(await db.patrolCreditWindow.findMany({ orderBy: { windowStart: "asc" }, select: { patrolId: true, windowStart: true } })).toEqual([
+    { patrolId: "first", windowStart: new Date("2026-09-01T08:00:00Z") },
+    { patrolId: "empty", windowStart: new Date("2026-09-01T08:20:00Z") },
+  ]);
+  for (const patrol of patrols) {
+    expect(await db.patrol.findUniqueOrThrow({ where: { id: patrol.id } })).toMatchObject({
+      ...patrol, createdAt: new Date(patrol.createdAt), updatedAt: new Date(patrol.updatedAt),
+      creditAwardedAt: patrol.hours > 0 ? new Date(patrol.createdAt) : null,
+    });
+  }
+  expect((await caller().crew.patrolConfig()).myHours).toBe(3);
 });
 
 it("waits for an in-flight correction before deciding whether its corrected interval can earn credit", async () => {

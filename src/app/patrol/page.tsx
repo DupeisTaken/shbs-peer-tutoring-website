@@ -17,8 +17,9 @@ const BUCKETS: { value: Headcount; label: string }[] = [
 
 /**
  * Crew patrol portal: walk the rooms (in the set patrol order), tap each room's student count, and
- * submit the sweep. An eligible sweep credits 0.5h within the server-enforced 20-minute budget. Only ACTIVE crew (or elevated admins) can
- * patrol; opted-out / paused members see a read-only notice and can request reentry.
+ * submit the sweep. An eligible sweep credits 0.5h within the server-enforced 20-minute budget.
+ * Only ACTIVE crew (or elevated admins) can patrol; opted-out / paused members see a read-only
+ * notice and can request reentry.
  */
 export default function PatrolPage() {
   const programFormat = useFormatter();
@@ -171,7 +172,7 @@ export default function PatrolPage() {
                           key={b.value}
                           type="button"
                           onClick={() => pick(room.id, b.value)}
-                          className={`h-9 w-10 rounded-md text-sm font-semibold transition-colors ${
+                          className={`h-11 w-11 rounded-md text-sm font-semibold transition-colors lg:h-9 lg:w-10 ${
                             chosen === b.value
                               ? "bg-accent-600 text-white"
                               : "bg-white text-slate-600 ring-1 ring-slate-200 hover:bg-slate-100"
@@ -206,12 +207,12 @@ export default function PatrolPage() {
                   : t("crew.patrol.submit", { count: recorded })}
               </button>
               {submit.isSuccess && (
-                <span role="status" className="text-sm text-green-600">
+                <span role="status" className="text-sm text-green-700">
                   {t(submit.data?.hours === 0 ? "crew.patrol.recordedWithoutCredit" : "crew.patrol.submitted")}
                 </span>
               )}
               {submit.error && (
-                <span className="text-sm text-red-600">
+                <span role="alert" className="text-sm text-red-600">
                   {submit.error.message}
                 </span>
               )}
