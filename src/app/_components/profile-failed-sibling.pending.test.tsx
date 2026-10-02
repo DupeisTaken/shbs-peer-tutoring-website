@@ -370,6 +370,18 @@ function mount(kind: Kind, locale: Locale) {
     labels: locale === "en" ? en : zh,
   };
 }
+it.each(["en", "zh"] as const)(
+  "renders the existing transferred tutor option with a translated %s label",
+  (locale) => {
+    const ui = mount("tutor", locale);
+    expect(
+      screen.getByRole<HTMLOptionElement>("option", {
+        name: ui.labels.schoolDeparture.transferred,
+      }).value,
+    ).toBe("TRANSFERRED");
+  },
+);
+
 type Action = {
   element: HTMLElement;
   field: HTMLInputElement | HTMLTextAreaElement | HTMLSelectElement;
@@ -392,7 +404,8 @@ async function prepare(
     operation === "tuteeProfile"
   ) {
     const field = screen.getByLabelText<HTMLInputElement>(
-      new RegExp(labels.personName.firstName),
+      `${labels.personName.firstName} ${labels.signupFields.required}`,
+      { exact: true },
     );
     fireEvent.change(field, { target: { value: "Retained" } });
     return { field, element: field.closest("form")!, kind: "submit" };
@@ -631,6 +644,14 @@ it.each(cases)(
       if (order === "primary-first") independent.reject(failure);
       else first.resolve({});
     });
+    // Assert the outcome before querying the dialog, so an old auto-closing
+    // parent fails for discarding the independent draft rather than missing DOM.
+    await waitFor(() => expect(client.isMutating()).toBe(0));
+    expect(
+      ui.close,
+      "Parent completion must not discard the independent failed draft",
+    ).not.toHaveBeenCalled();
+    expect(siblingAction.field.isConnected).toBe(true);
     await idle();
     expect(ui.close).not.toHaveBeenCalled();
     retained(sibling, siblingAction, ui.labels);
@@ -703,7 +724,8 @@ it.each(cases)(
     const reopened = screen.getByLabelText<HTMLInputElement>(
       primary === "username"
         ? ui.labels.accountProfile.username
-        : new RegExp(ui.labels.personName.firstName),
+        : `${ui.labels.personName.firstName} ${ui.labels.signupFields.required}`,
+      { exact: true },
     );
     expect(reopened.matches(":disabled")).toBe(false);
   },

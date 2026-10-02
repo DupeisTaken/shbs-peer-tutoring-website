@@ -533,6 +533,7 @@
       "created": "튜터가 추가되었습니다."
     },
     "tutorStatus": {
+      "TRANSFERRED": "Transferred to another school",
       "ACTIVE": "활성",
       "GRADUATED": "졸업",
       "OPTED_OUT": "탈퇴",

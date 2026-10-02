@@ -1344,6 +1344,7 @@
       "tableEmpty": "暂无卡片。"
     },
     "tutorStatus": {
+      "TRANSFERRED": "已转学",
       "ACTIVE": "参与中",
       "GRADUATED": "已毕业",
       "OPTED_OUT": "已退出",

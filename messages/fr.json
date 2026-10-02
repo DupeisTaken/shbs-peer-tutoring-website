@@ -533,6 +533,7 @@
       "created": "Tuteur ajouté."
     },
     "tutorStatus": {
+      "TRANSFERRED": "Transferred to another school",
       "ACTIVE": "Actif",
       "GRADUATED": "Diplômé",
       "OPTED_OUT": "Retrait",

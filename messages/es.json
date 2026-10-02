@@ -1344,6 +1344,7 @@
       "tableEmpty": "Aún no hay tarjetas."
     },
     "tutorStatus": {
+      "TRANSFERRED": "Transferred to another school",
       "ACTIVE": "Activo",
       "GRADUATED": "Graduado",
       "OPTED_OUT": "Dado de baja",

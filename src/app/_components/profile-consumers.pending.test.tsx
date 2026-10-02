@@ -239,7 +239,8 @@ it.each(["en", "zh"] as const)(
       labels.membership.password,
     );
     const firstName = screen.getByLabelText<HTMLInputElement>(
-      new RegExp(labels.personName.firstName),
+      `${labels.personName.firstName} ${labels.signupFields.required}`,
+      { exact: true },
     );
     fireEvent.change(firstName, { target: { value: "Retained parent" } });
     fireEvent.click(screen.getByLabelText(labels.membership.translator));

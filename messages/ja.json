@@ -533,6 +533,7 @@
       "created": "チューターを追加しました。"
     },
     "tutorStatus": {
+      "TRANSFERRED": "Transferred to another school",
       "ACTIVE": "有効",
       "GRADUATED": "卒業済み",
       "OPTED_OUT": "離脱済み",

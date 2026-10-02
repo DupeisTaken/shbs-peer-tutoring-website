@@ -533,6 +533,7 @@
       "created": "Ο διδάσκων προστέθηκε."
     },
     "tutorStatus": {
+      "TRANSFERRED": "Transferred to another school",
       "ACTIVE": "Ενεργός",
       "GRADUATED": "Αποφοίτησε",
       "OPTED_OUT": "Αποχώρησε",

@@ -243,7 +243,8 @@ it.each(["en", "zh"] as const)(
     view.rerender(ui(locale));
     blocked();
     const firstName = screen.getByLabelText<HTMLInputElement>(
-      new RegExp(labels.personName.firstName),
+      `${labels.personName.firstName} ${labels.signupFields.required}`,
+      { exact: true },
     );
     expect(firstName.matches(":disabled")).toBe(true);
     expect(
