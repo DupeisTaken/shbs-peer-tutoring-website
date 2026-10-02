@@ -459,7 +459,9 @@ it.each(cases)(
     expect(siblingRequest).toBeTruthy();
     await waitFor(() => expect(client.isMutating()).toBe(2));
     blocked(close);
-    act(() => first.submit());
+    act(() => {
+      first.submit();
+    });
     expect(transport.requests).toHaveLength(2);
     const complete = async (request: Request, failed: boolean) => {
       await act(async () => {
@@ -491,7 +493,9 @@ it.each(cases)(
       expect(first.field.closest("fieldset")?.getAttribute("aria-busy")).toBe(
         "false",
       );
-      act(() => first.submit());
+      act(() => {
+        first.submit();
+      });
       expect(transport.requests).toHaveLength(2);
     }
     if (outcome !== "all-success") {
@@ -506,7 +510,9 @@ it.each(cases)(
       ).toBeGreaterThan(0);
       // A background refresh after the unrelated success may change cached versions, but
       // retry must still use the failed draft's captured request. It must not replay the commit.
-      act(() => failed.submit());
+      act(() => {
+        failed.submit();
+      });
       await waitFor(() => expect(transport.requests).toHaveLength(3));
       expect(transport.requests[2]!.input).toEqual(failedRequest.input);
       expect(transport.commits).toHaveLength(1);
@@ -577,7 +583,9 @@ it.each(
     try {
       expect(firstFetch).not.toHaveBeenCalled();
       expect(lastFetch).not.toHaveBeenCalled();
-      act(() => primary.submit());
+      act(() => {
+        primary.submit();
+      });
       await waitFor(() => expect(transport.requests).toHaveLength(1));
       await act(async () => transport.requests[0]!.resolve());
       await waitFor(() => {
@@ -644,7 +652,9 @@ it.each(
         "false",
       );
       expect(close).not.toHaveBeenCalled();
-      act(() => primary.submit());
+      act(() => {
+        primary.submit();
+      });
       expect(transport.requests).toHaveLength(1);
       expect(transport.commits).toEqual([primary.path]);
       // The correction must neither retry the GET nor replay a committed POST.
@@ -713,7 +723,9 @@ it.each(
     });
     expect(screen.getByText(en.accountProfile.sectionSaved)).toBeTruthy();
     blocked(close);
-    act(() => primary.submit());
+    act(() => {
+      primary.submit();
+    });
     expect(transport.requests).toHaveLength(1);
     await act(async () => {
       failedRead.reject(new Error("First read synchronization failed"));
@@ -749,7 +761,9 @@ it.each(
     expect(sibling.field.value).toBe(sibling.initialDraft);
     expect(sibling.field.matches(":disabled")).toBe(false);
     expect(screen.getByRole("dialog").getAttribute("aria-busy")).toBe("false");
-    act(() => primary.submit());
+    act(() => {
+      primary.submit();
+    });
     expect(transport.requests).toHaveLength(1);
     expect(transport.commits).toEqual([primary.path]);
     if (kind === "username")
