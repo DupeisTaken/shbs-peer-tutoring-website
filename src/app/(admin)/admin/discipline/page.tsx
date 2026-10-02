@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
@@ -8,6 +8,7 @@ import { disciplineStanding } from "~/lib/discipline";
 import { NativeDisclosureIcon } from "~/app/_components/icons";
 import { DisciplineSlots } from "~/app/_components/discipline-slots";
 import { useReadOnly } from "~/app/_components/read-only";
+import { useDialogPending } from "~/app/_components/ui/modal";
 
 type Card = {
   id: string;
@@ -29,11 +30,33 @@ function PendingCard({ card, onChanged }: { card: Card; onChanged: () => void })
   const programFormat = useFormatter();
   const t = useTranslations();
   const readOnly = useReadOnly();
+  const utils = api.useUtils();
   const [note, setNote] = useState("");
+  const [expectedUpdatedAt, setExpectedUpdatedAt] = useState(card.updatedAt);
+  const [reloadError, setReloadError] = useState<string | null>(null);
+  const [reloading, setReloading] = useState(false);
+  const reloadPending = useRef(false);
+  const submitting = useRef(false);
   const review = api.admin.reviewCard.useMutation({
     onSuccess: onChanged,
-    onError: onChanged, // refresh on a stale-write conflict so the version updates
+    // Failed/queued writes keep the draft mounted; only explicit Reload adopts a version.
+    onSettled: () => {
+      submitting.current = false;
+    },
   });
+  // Register this write only; inherited busy freezes the note and sibling actions.
+  const busy = useDialogPending(review.isPending);
+  const controlsBusy = busy || reloading;
+  const submit = (reviewStatus: "VALID" | "INVALID") => {
+    if (busy || submitting.current || reloadPending.current || readOnly) return;
+    submitting.current = true;
+    review.mutate({
+      id: card.id,
+      reviewStatus,
+      reviewNote: note || undefined,
+      expectedUpdatedAt,
+    });
+  };
 
   return (
     <div className="rounded-lg border border-slate-200 p-3">
@@ -58,41 +81,79 @@ function PendingCard({ card, onChanged }: { card: Card; onChanged: () => void })
           <input
             className="input min-w-[12rem] flex-1"
             placeholder={t("admin.cards.reviewNotePlaceholder")}
+            aria-label={t("admin.cards.reviewNotePlaceholder")}
             value={note}
+            disabled={controlsBusy}
             onChange={(e) => setNote(e.target.value)}
           />
           <button
             className="btn-secondary btn-sm"
-            disabled={review.isPending}
-            onClick={() =>
-              review.mutate({
-                id: card.id,
-                reviewStatus: "VALID",
-                reviewNote: note || undefined,
-                expectedUpdatedAt: card.updatedAt,
-              })
-            }
+            disabled={controlsBusy}
+            onClick={() => submit("VALID")}
           >
             {t("admin.cards.valid")}
           </button>
           <button
             className="btn-secondary btn-sm"
-            disabled={review.isPending}
-            onClick={() =>
-              review.mutate({
-                id: card.id,
-                reviewStatus: "INVALID",
-                reviewNote: note || undefined,
-                expectedUpdatedAt: card.updatedAt,
-              })
-            }
+            disabled={controlsBusy}
+            onClick={() => submit("INVALID")}
           >
             {t("admin.cards.invalid")}
           </button>
         </div>
       )}
-      {!readOnly && review.error && (
-        <p className="mt-1 text-sm text-red-600">{review.error.message}</p>
+      {!readOnly &&
+        review.error &&
+        (review.error.data?.approvalId ? (
+          <p role="status" className="mt-1 text-sm text-amber-800">
+            {t("approvals.queuedBody")}
+          </p>
+        ) : (
+          <p role="alert" className="mt-1 text-sm text-red-600">
+            {review.error.message}
+          </p>
+        ))}
+      {!readOnly &&
+        review.error?.data?.code === "CONFLICT" &&
+        !review.error.data.approvalId && (
+          <button
+            type="button"
+            className="btn-secondary mt-2"
+            disabled={controlsBusy}
+            onClick={async () => {
+              if (busy || submitting.current || reloadPending.current) return;
+              // Reload is a read, not a registered write, but it must not reset an active save.
+              reloadPending.current = true;
+              setReloading(true);
+              setReloadError(null);
+              try {
+                const latest = (
+                  await utils.admin.disciplinaryCards.fetch()
+                ).find((row) => row.id === card.id);
+                if (latest) {
+                  setNote(latest.reviewNote ?? "");
+                  setExpectedUpdatedAt(latest.updatedAt);
+                  review.reset();
+                }
+              } catch (error) {
+                setReloadError(
+                  error instanceof Error
+                    ? error.message
+                    : t("uiPatterns.loadFailed"),
+                );
+              } finally {
+                reloadPending.current = false;
+                setReloading(false);
+              }
+            }}
+          >
+            {t("academics.reload")}
+          </button>
+        )}
+      {!readOnly && reloadError && (
+        <p role="alert" className="mt-1 text-sm text-red-600">
+          {reloadError}
+        </p>
       )}
     </div>
   );
