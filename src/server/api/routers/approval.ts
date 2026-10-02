@@ -114,7 +114,8 @@ export const approvalRouter = createTRPCRouter({
       // Fence identity-capable replays before profile locks or mutation callbacks. A stale
       // Serializable snapshot may retry here; no callback/email has executed at that point.
       const identityApproval = !!initial && ["admin.createTutor", "admin.updateTutor", "admin.setUserCanTutor",
-        "admin.setMemberships", "admin.setApplicationStatus", "tutor.decideInterview"].includes(initial.operation);
+        "admin.setMemberships", "admin.setApplicationStatus", "tutor.decideInterview",
+        "historicalAcademics.correctBatch"].includes(initial.operation);
       const runDecision = () => ctx.db.$transaction(
         async (tx) =>
           databaseScope.run(tx, () =>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { useRouter } from "next/navigation";
 import { api } from "~/trpc/react";
@@ -94,19 +94,21 @@ type AcademicDraft = Parameters<
 export function AcademicForm({
   snapshot,
   pending,
+  disabled = false,
   error,
   onSave,
   onCancel,
 }: {
   snapshot: AcademicSnapshot;
   pending: boolean;
+  disabled?: boolean;
   error?: string;
   onSave: (draft: AcademicDraft) => void;
   onCancel: () => void;
 }) {
   const t = useTranslations("academics");
   const dialogBusy = useDialogBusy();
-  const busy = pending || dialogBusy;
+  const busy = pending || dialogBusy || disabled;
   const [status, setStatus] = useState(snapshot.academic.status);
   const [grade, setGrade] = useState(
     snapshot.academic.gradeLevel?.toString() ?? "",
@@ -261,6 +263,12 @@ export function AcademicPanel({ userId }: { userId?: string }) {
   const [saved, setSaved] = useState(false);
   const [reloading, setReloading] = useState(false);
   const [reloadFailed, setReloadFailed] = useState(false);
+  // Own refs exclude a second submit/reload before mutation state reaches a render.
+  const submitting = useRef(false);
+  const reloadPending = useRef(false);
+  const settled = () => {
+    submitting.current = false;
+  };
   const refresh = async () => {
     // These records also appear in rosters, workspaces and server-rendered headers.
     await Promise.all([
@@ -281,17 +289,20 @@ export function AcademicPanel({ userId }: { userId?: string }) {
   };
   const ownSave = api.account.updateAcademics.useMutation({
     onSuccess: refresh,
+    onSettled: settled,
   });
   const staffSave = api.admin.updateAccountAcademics.useMutation({
     onSuccess: refresh,
+    onSettled: settled,
   });
   const mutation = userId ? staffSave : ownSave;
   // The panel outlives its editable snapshot, so registration covers the whole
-  // write and awaited refresh. Never register the inherited dialog busy state.
+  // write and awaited refresh, plus both required explicit Reload reads.
+  // Never register the inherited dialog busy state.
   const pending = useDialogPending(mutation.isPending || reloading);
   const query = userId ? staff : self;
   const beginEdit = () => {
-    if (pending) return;
+    if (pending || submitting.current || reloadPending.current) return;
     if (data && policy.data) {
       mutation.reset();
       setReloadFailed(false);
@@ -340,6 +351,7 @@ export function AcademicPanel({ userId }: { userId?: string }) {
         <AcademicForm
           snapshot={snapshot}
           pending={mutation.isPending}
+          disabled={reloading}
           error={
             mutation.error?.data?.approvalId
               ? undefined
@@ -349,12 +361,13 @@ export function AcademicPanel({ userId }: { userId?: string }) {
                 : mutation.error?.message
           }
           onSave={(draft) => {
-            if (pending) return;
+            if (pending || submitting.current || reloadPending.current) return;
+            submitting.current = true;
             if (userId) staffSave.mutate({ ...draft, userId });
             else ownSave.mutate(draft);
           }}
           onCancel={() => {
-            if (pending) return;
+            if (pending || submitting.current || reloadPending.current) return;
             setSnapshot(null);
             mutation.reset();
             setReloadFailed(false);
@@ -369,8 +382,9 @@ export function AcademicPanel({ userId }: { userId?: string }) {
           className="btn-secondary min-h-11 lg:min-h-10"
           disabled={pending}
           onClick={async () => {
-            if (pending) return;
+            if (pending || submitting.current || reloadPending.current) return;
             // Reload is explicit because it discards the conflicting academic draft only.
+            reloadPending.current = true;
             setReloading(true);
             setReloadFailed(false);
             try {
@@ -396,6 +410,7 @@ export function AcademicPanel({ userId }: { userId?: string }) {
             } catch {
               setReloadFailed(true);
             } finally {
+              reloadPending.current = false;
               setReloading(false);
             }
           }}

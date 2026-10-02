@@ -284,16 +284,11 @@ async function flushMutationJobs() {
   });
 }
 
-it.each(["invite", "cancel", "link", "preview"] as const)(
+it.each(["invite", "cancel", "link"] as const)(
   "blocks profile submission during %s and recovers both drafts after failure",
   async (operation) => {
     const ui = mount();
     if (operation === "link") await selectOwner();
-    if (operation === "preview")
-      fireEvent.change(
-        screen.getByRole("combobox", { name: en.tuteeHistory.chooseAccount }),
-        { target: { value: "owner" } },
-      );
     const work = deferred();
     mock[operation].mockReturnValueOnce(work.promise);
     const names = {
@@ -338,6 +333,79 @@ it.each(["invite", "cancel", "link", "preview"] as const)(
     );
   },
 );
+
+it("keeps an identity preview dismissible while freezing its local draft and excluding all history writes", async () => {
+  const ui = mount();
+  fireEvent.change(
+    screen.getByRole("combobox", { name: en.tuteeHistory.chooseAccount }),
+    { target: { value: "owner" } },
+  );
+  const work = deferred();
+  mock.preview.mockReturnValueOnce(work.promise);
+  fireEvent.click(
+    screen.getByRole("button", { name: en.tuteeHistory.preview }),
+  );
+  await waitFor(() => expect(mock.preview).toHaveBeenCalledOnce());
+  expect(screen.getByRole("dialog").getAttribute("aria-busy")).toBe("false");
+  expect(ui.save.disabled).toBe(false);
+  expect(ui.notes.matches(":disabled")).toBe(false);
+  expect(ui.evidence.matches(":disabled")).toBe(true);
+  expect(ui.invite.matches(":disabled")).toBe(true);
+  fireEvent.submit(ui.inviteForm);
+  fireEvent.click(
+    screen.getByRole("button", { name: en.tuteeHistory.cancelInvitation }),
+  );
+  expect(mock.invite).not.toHaveBeenCalled();
+  expect(mock.cancel).not.toHaveBeenCalled();
+  expect(mock.link).not.toHaveBeenCalled();
+  fireEvent(
+    screen.getByRole("dialog"),
+    new Event("cancel", { cancelable: true }),
+  );
+  expect(ui.close).toHaveBeenCalledOnce();
+  await act(async () => {
+    work.reject(new Error("HISTORY_STALE"));
+  });
+  expect(ui.evidence.value).toBe("Exact archived identity evidence reviewed");
+  expect(ui.email.value).toBe("alumni@example.test");
+  expect(ui.notes.value).toBe("Unsaved personal draft");
+  expect(ui.invite.matches(":disabled")).toBe(false);
+  expect(screen.getByRole("alert").textContent).toContain(
+    en.tuteeHistory.HISTORY_STALE,
+  );
+});
+
+it("ignores a late identity preview after deliberate dismissal without starting any write", async () => {
+  const close = renderEditor(row, true);
+  fireEvent.click(
+    screen.getByText(en.tuteeHistory.linkTitle, { selector: "summary" }),
+  );
+  fireEvent.change(
+    screen.getByRole("combobox", { name: en.tuteeHistory.chooseAccount }),
+    {
+      target: { value: "owner" },
+    },
+  );
+  const work = deferred();
+  mock.preview.mockReturnValueOnce(work.promise);
+  fireEvent.click(
+    screen.getByRole("button", { name: en.tuteeHistory.preview }),
+  );
+  await waitFor(() => expect(mock.preview).toHaveBeenCalledOnce());
+  fireEvent.click(
+    screen.getByRole("button", { name: en.accountProfile.close }),
+  );
+  expect(close).toHaveBeenCalledOnce();
+  expect(screen.queryByRole("dialog")).toBeNull();
+  await act(async () => {
+    work.resolve(preview);
+  });
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(mock.save).not.toHaveBeenCalled();
+  expect(mock.invite).not.toHaveBeenCalled();
+  expect(mock.cancel).not.toHaveBeenCalled();
+  expect(mock.link).not.toHaveBeenCalled();
+});
 
 it("blocks every history write during profile save, then allows a failed save to be retried without latching", async () => {
   const ui = mount();

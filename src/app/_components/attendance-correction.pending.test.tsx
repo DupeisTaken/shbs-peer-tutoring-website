@@ -108,6 +108,43 @@ beforeEach(() => {
   };
 });
 afterEach(cleanup);
+
+it("retains the actual inline attendance draft and version through a failed write", () => {
+  const inline = () => (
+    <NextIntlClientProvider locale="en" messages={en}>
+      <AttendanceCorrection id="session" />
+    </NextIntlClientProvider>
+  );
+  const view = render(inline());
+  const reason = screen.getByRole<HTMLTextAreaElement>("textbox", {
+    name: en.corrections.reason,
+  });
+  fireEvent.change(reason, { target: { value: "Inline attendance draft" } });
+  const originalVersion = state.version;
+  fireEvent.submit(reason.closest("form")!);
+  state.pending = true;
+  view.rerender(inline());
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(reason.matches(":disabled")).toBe(true);
+  expect(fireEvent.click(screen.getByText(en.corrections.editAttendance))).toBe(
+    false,
+  );
+  state.pending = false;
+  state.version = new Date("2026-09-08");
+  state.error = { message: "Save failed" };
+  state.options.onSettled();
+  view.rerender(inline());
+  expect(reason.value).toBe("Inline attendance draft");
+  expect(screen.getByRole("alert").textContent).toBe("Save failed");
+  fireEvent.submit(reason.closest("form")!);
+  expect(state.mutate).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      reason: "Inline attendance draft",
+      expectedUpdatedAt: originalVersion,
+    }),
+  );
+});
+
 function page(locale: "en" | "zh" = "en", ancestorPending?: boolean) {
   const correction = (
     <TableDetails title="Session details">

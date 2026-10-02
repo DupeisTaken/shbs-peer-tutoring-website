@@ -13,6 +13,7 @@ import {
 } from "~/lib/approval-policy";
 import { validateInterviewDecision } from "./interviews";
 import { validateRoomBlockProposal } from "./room-block-proposals";
+import { historicalApplyInput, lockHistoricalCorrections, previewHistoricalCorrections, verifyHistoricalPreview } from "./historical-academics";
 import { db } from "./db";
 import { inTransaction, lockEntity, type TransactionDb } from "./transactions";
 import { announcementCandidates } from "./announcement-recipients";
@@ -98,6 +99,14 @@ export async function proposalTargets(
     payload as Parameters<typeof superjson.deserialize>[0],
   );
   const fields = z.record(z.unknown()).parse(input);
+  if (operation === "historicalAcademics.correctBatch") {
+    const { ticket, ...proposal } = historicalApplyInput.parse(input);
+    verifyHistoricalPreview(proposal, ticket);
+    await lockHistoricalCorrections(client, proposal);
+    // Save exact named before/after records, original evidence and ownership. Rebuilding
+    // this snapshot during approval rejects drift before any correction is appended.
+    return JSON.parse(JSON.stringify({ historicalAcademics: await previewHistoricalCorrections(client, proposal) })) as Prisma.InputJsonValue;
+  }
   // A tutor may update intent while a staff proposal is pending. Lock the same
   // compound record as live writes before capturing/rechecking review evidence.
   if (operation === "subjectAvailability.setWillingness") {

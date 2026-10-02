@@ -58,6 +58,13 @@ it("uses recorded academics for accountless current participants", () => {
   mount({ historical: false, owner: null });
   expect(screen.getByText("Grade 9")).toBeTruthy();
 });
+it("shows deliberate historical corrections without replacing unknown values or demanding current confirmation", () => {
+  mount({ enrollmentCorrection: { rawGrade: null, schoolYear: null } });
+  expect(screen.queryByText("Grade 9")).toBeNull();
+  expect(screen.queryByText("24-25 · Q1")).toBeNull();
+  expect(screen.queryByText("Review needed")).toBeNull();
+  expect(screen.queryByText(/Class of/)).toBeNull();
+});
 it("requires review instead of presenting stale academics as current", () => {
   mount({
     historical: false,

@@ -3,6 +3,8 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { academicSummary } from "~/lib/academics";
 import { isHistoricalTutee } from "~/lib/tutee-history";
+import { legacyAcademicRecordId } from "~/lib/historical-academics";
+import { historicalAcademicSnapshot } from "./historical-academics";
 import { lockAccountProfile } from "./account-profile";
 import { lockUsernameNamespace } from "./auth/username";
 import { authenticateEmailAction } from "./auth/account-emails";
@@ -431,7 +433,14 @@ export async function tuteeHistoryDetails(
         select: { name: true, schoolYear: true },
       })
     : null;
+  const academicRecords = await db.historicalAcademicRecord.findMany({ where: { tuteeId }, select: { id: true }, orderBy: { id: "asc" } });
+  const historicalAcademics = [];
+  for (const id of new Set([legacyAcademicRecordId("TUTEE", tuteeId), ...academicRecords.map(row => row.id)])) {
+    const evidence = await historicalAcademicSnapshot(db, id);
+    historicalAcademics.push({ recordId: evidence.recordId, original: evidence.original, current: evidence.current, revision: evidence.revision, correction: evidence.correction });
+  }
   return {
+    historicalAcademics,
     record: {
       id: record.id,
       name: record.englishName,

@@ -22,6 +22,7 @@ import {
 } from "~/server/program/profile-policy";
 import { historicalOwners } from "~/server/tutee-history";
 import { isHistoricalTutee } from "~/lib/tutee-history";
+import { legacyAcademicRecordId } from "~/lib/historical-academics";
 import { REGISTRATION_KINDS, isManagementCode } from "~/lib/registration-kind";
 import { enforceAssignmentQualification } from "~/server/assignment-qualification";
 import { accountUsernameSchema, updateAccountUsername } from "~/server/account-username";
@@ -533,13 +534,18 @@ export const adminRouter = createTRPCRouter({
     );
 
     // Resolve enrollment periods in one query; historical grades must never borrow today's year.
-    const [retainedOwners, enrollmentTerms] = await Promise.all([
+    const [retainedOwners, enrollmentTerms, correctedAcademics] = await Promise.all([
       historicalOwners(ctx.db, tutees.map(row => row.id)),
       ctx.db.term.findMany({
         where: { id: { in: [...new Set(tutees.flatMap(row => row.intakeTermId ? [row.intakeTermId] : []))] } },
         select: { id: true, schoolYear: true, quarter: true },
       }),
+      ctx.db.historicalAcademicRecord.findMany({
+        where: { id: { in: tutees.map(row => legacyAcademicRecordId("TUTEE", row.id)) } },
+        select: { tuteeId: true, corrections: { orderBy: { revision: "desc" }, take: 1, select: { rawGrade: true, schoolYear: true } } },
+      }),
     ]);
+    const correctionsByTutee = new Map(correctedAcademics.map(row => [row.tuteeId, row.corrections[0] ?? null]));
     const periods = new Map(enrollmentTerms.map(({ id, ...period }) => [id, period]));
     return tutees.map((t) => {
       // Flag a (still-pending) re-signup that matches a banned identity this quarter — by exact
@@ -560,9 +566,10 @@ export const adminRouter = createTRPCRouter({
       const historical = isHistoricalTutee(t, active?.termId ?? null);
       const enrollmentPeriod = t.intakeTermId ? periods.get(t.intakeTermId) ?? null : null;
       const academic = academicSummary(owner?.academicProfile ?? legacyAcademic(t.gradeLevel, t.academicallyGraduated), active?.schoolYear);
+      const enrollmentCorrection = correctionsByTutee.get(t.id) ?? null;
       return isViewer
-        ? { ...t, notes: null, signatureName: null, bannedMatch, academic, owner, historical, enrollmentPeriod }
-        : { ...t, bannedMatch, academic, owner, historical, enrollmentPeriod };
+        ? { ...t, notes: null, signatureName: null, bannedMatch, academic, owner, historical, enrollmentPeriod, enrollmentCorrection }
+        : { ...t, bannedMatch, academic, owner, historical, enrollmentPeriod, enrollmentCorrection };
     });
   }),
   rooms: viewerProcedure.query(({ ctx }) =>
@@ -2099,6 +2106,15 @@ export const adminRouter = createTRPCRouter({
           where: { id: input.id },
           include: { availabilities: true },
         });
+        const historicalGradeChange =
+          (input.gradeLevel !== undefined && input.gradeLevel !== before.gradeLevel) ||
+          (input.academicallyGraduated !== undefined && input.academicallyGraduated !== before.academicallyGraduated);
+        if (historicalGradeChange) {
+          const activeTerm = await tx.term.findFirst({ where: { active: true }, select: { id: true } });
+          if (isHistoricalTutee(before, activeTerm?.id ?? null) ||
+            await tx.historicalAcademicRecord.count({ where: { id: legacyAcademicRecordId("TUTEE", before.id) } }))
+            throw new TRPCError({ code: "BAD_REQUEST", message: "HISTORICAL_EDITOR_REQUIRED" });
+        }
         if ((input.academicallyGraduated ?? before.academicallyGraduated) &&
           (input.gradeLevel === undefined ? before.gradeLevel : input.gradeLevel) != null)
           throw new TRPCError({ code: "BAD_REQUEST", message: "Graduated cannot have a current grade." });

@@ -336,3 +336,36 @@ it("does not let an explicit reload read reset a concurrent review write", async
   fireEvent.click(within(dialog).getByRole("button", { name: "Valid" }));
   expect(state.mutate).toHaveBeenCalledOnce();
 });
+
+it("retains the actual table-detail discipline draft and original version after a failed write", () => {
+  const inline = () => (
+    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+      <ReadOnlyProvider value={false}>
+        <CardsPage />
+      </ReadOnlyProvider>
+    </NextIntlClientProvider>
+  );
+  const view = render(inline());
+  fireEvent.click(screen.getByRole("button", { name: /^Edit:/ }));
+  const note = screen.getByRole<HTMLInputElement>("textbox");
+  fireEvent.change(note, { target: { value: "Inline review draft" } });
+  const originalVersion = state.version;
+  fireEvent.click(screen.getByRole("button", { name: en.admin.cards.valid }));
+  state.pending = true;
+  view.rerender(inline());
+  expect(screen.getByRole("dialog").getAttribute("aria-busy")).toBe("true");
+  expect(note.disabled).toBe(true);
+  state.pending = false;
+  state.version = new Date("2026-09-02");
+  state.error = { message: "Conflict", data: { code: "CONFLICT" } };
+  state.options.onSettled();
+  view.rerender(inline());
+  expect(note.value).toBe("Inline review draft");
+  fireEvent.click(screen.getByRole("button", { name: en.admin.cards.valid }));
+  expect(state.mutate).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      reviewNote: "Inline review draft",
+      expectedUpdatedAt: originalVersion,
+    }),
+  );
+});

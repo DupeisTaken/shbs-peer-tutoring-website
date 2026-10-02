@@ -157,6 +157,26 @@ Keep pending requirements outside completed-history disclosures. Use retained
 child lifetimes for collapsible editors so collapsing is not an implicit Cancel.
 Test applied versus queued outcomes, cancellation without writes, failed drafts,
 permission changes and keyboard focus in addition to visual layout.
+## Profile editor completion
+
+Profile and username completion must leave independent drafts mounted. Keep saved
+sections read-only until the user closes and reopens the editor; completion does
+not register pending work or prevent idle Close. Test failure in both completion
+orders, primary failure with sibling success, all-success, same-frame duplicate
+submission, unchanged versions on retry, and deliberate dismissal. Use actual
+child components and the installed QueryClient for this composition coverage.
+
+Gate refreshes independently after a committed save. Use `settleRefreshes` at
+each aggregate boundary and `invalidateAndReport` to report fresh errors only
+after every matching query finishes. Opt into reporting through
+`invalidateTuteeViews` only where saved-section feedback handles it. Include two
+active variants of one procedure and reads from separate procedures; a mocked
+invalidation promise alone cannot establish error reporting or complete waiting.
+
+Academic Reload retains its approved two-read contract: cached error data,
+rejections and synchronous throws preserve the draft; only two successful reads
+with data permit replacement. Historical identity previews remain separate,
+dismissible reads, and a failed link needs a fresh preview and acknowledgment.
 
 ## Chinese peer-tutoring wording
 

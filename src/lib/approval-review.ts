@@ -20,6 +20,7 @@ export const reviewTechnicalFields = new Set([
   "expectedUpdatedAt",
   "expectedRevision",
   "expectedProfileVersion",
+  "expectedFingerprint",
   "ticket",
   "overrideTicket",
   "confirmPassword",

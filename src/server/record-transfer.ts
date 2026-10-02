@@ -13,6 +13,7 @@ import {
 import type { TransactionDb } from "~/server/transactions";
 import { canonicalUsername } from "~/server/auth/username";
 import { reservePatrolEvidence } from "~/server/crew/patrol-credit";
+import { historicalYear, legacyAcademicRecordId } from "~/lib/historical-academics";
 
 // Explicit domain allowlist, in dependency order. Never expand this to every database table:
 // executable approvals, account privileges, credentials and private messages are not archives.
@@ -24,6 +25,7 @@ export const RECORD_TABLES = [
   "Term",
   "Tutor",
   "Tutee",
+  "HistoricalAcademicRecord",
   "Room",
   "TimeSlot",
   "RoomUnavailability",
@@ -449,6 +451,20 @@ function databaseError(error: unknown) {
 }
 
 function validateDomainRow(table: Table, row: Row) {
+  if (table === "HistoricalAcademicRecord") {
+    if (!!row.tuteeId === !!row.tutorId)
+      fail("Historical academics require exactly one stable tuteeId or tutorId.");
+    if (!historicalYear.safeParse(row.schoolYear ?? null).success)
+      fail("Historical schoolYear must be an adjacent reference year or null.");
+    if (typeof row.source !== "string" || !row.source.trim() || row.source.length > 500)
+      fail("Historical academics require original source evidence (at most 500 characters).");
+    if (row.rawGrade != null && (typeof row.rawGrade !== "string" || row.rawGrade.length > 200))
+      fail("Historical rawGrade must be text (at most 200 characters) or null.");
+    if (typeof row.originalConfirmedAt === "string" && Date.parse(row.originalConfirmedAt) > Date.now())
+      fail("Original confirmation evidence cannot be in the future.");
+    if (String(row.id).startsWith("legacy-") && row.id !== legacyAcademicRecordId(row.tuteeId ? "TUTEE" : "TUTOR", String(row.tuteeId ?? row.tutorId)))
+      fail("Reserved legacy academic IDs must identify their exact participant.");
+  }
   if (table === "Term" && row.active === true)
     fail("Imported terms must be inactive (active=false).");
   for (const field of ["englishName", "name", "title"])

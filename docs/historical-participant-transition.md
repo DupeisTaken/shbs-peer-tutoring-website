@@ -12,6 +12,24 @@ This workflow preserves pre-site tutoring records without requiring each histori
 
 An unknown historical grade remains unknown. A record without a login is labelled as a participant record, not an unfinished signup. The original enrollment grade is not replaced by today's grade when an account is linked.
 
+## Correct historical academics
+
+Open **Academic Corrections** in the management navigation. Admin/Head can apply corrections; coordinators submit the entire batch for Admin/Head approval. Other roles cannot browse this tool or its private evidence. Correction is optional: missing grades or school years never prevent an otherwise valid history import.
+
+1. Choose tutor or tutee records, then find the participant by name or exact ID. Search helps locate a record; saving always targets its stable **Academic record ID**. Duplicate names never establish identity.
+2. Select up to 50 records and enter the historical grade, reference school year, evidence and reason. Leave grade/year blank when genuinely unknown. Other-school-system text is retained verbatim; numeric grades are not advanced automatically. A participant may have distinct reports for multiple years.
+3. Alternatively, download selected records (or the current page) as a correction CSV. Keep `recordId` and `expectedFingerprint` unchanged. Columns are `recordId,expectedFingerprint,rawGrade,schoolYear,evidence,reason`. Use `\N` for unknown grade/year; empty text remains empty text. The CSV uses the archive's reversible formula-safe escaping. Maximum: 50 rows and 256 KiB.
+4. Preview every named record, its before/after grade and year, and original source. Acknowledge the preview, then apply the entire batch or submit it for approval. Closing review retains your draft; clearing drafts requires confirmation. Saving a website batch preserves any separate CSV draft, and saving a CSV preserves website drafts. Their original fingerprints still require a fresh preview if affected records changed.
+5. **View all corrections** shows successive revisions, dates, actors, evidence and reasons. The tutee history view separates original evidence, corrected historical reports and the linked account's current academics. Its compact historical roster cell uses corrections to the original enrollment report; additional period reports stay in View History.
+
+Each batch is all-or-nothing. Invalid rows, changed profiles, changed ownership, stale fingerprints or database failures prevent every write. Coordinators' proposals recheck the same evidence during approval. A stale proposal must be rejected and prepared again. Refresh does not silently replace a draft's fingerprint: download fresh records or clear and reselect, then deliberately reapply and review your edits. A successful save followed by a refresh failure is reported separately; refresh instead of resubmitting.
+
+Original imported rows are preserved. A correction adds an immutable revision and records today's **correction** date; it never invents an original confirmation date, stamps today's program year on past evidence, creates a User, changes ownership, or confirms current academics. Linking an account retains the historical report alongside any newer account report. Conflicting ownership must be resolved through the existing reviewed link/account workflows before correcting evidence.
+
+For additional original reports, use `HistoricalAcademicRecord.csv` in Program Records. Supply a stable `id`, exactly one existing `tuteeId` or `tutorId`, `rawGrade`, `schoolYear`, `source`, and optional `originalConfirmedAt` only when supported by original evidence. Use distinct IDs for separate reports/years. Legacy enrollment/roster reports use reserved `legacy-tutee:<participantId>` / `legacy-tutor:<participantId>` IDs. Previewing these virtual baselines writes nothing; the first correction preserves their source snapshot. Academic records and their corrections retain the participant through a restrictive foreign key, so deleting the participant cannot erase the audit trail.
+
+Archive retries remain additive: identical original rows are skipped and changed IDs reject the archive. The correction CSV is a separate reviewed format, not an archive overwrite mode. Program Records exports original historical academic evidence; correction revisions and management audit require a full database backup and are not executable archive inputs. Do not use a CSV export as a backup of corrected records.
+
 ## Account lists
 
 Users & Roles contains login accounts and the existing unlinked tutor entries; accountless tutees remain in the tutee roster. An absent tutee row in Users & Roles does not imply missing attendance.
@@ -62,7 +80,8 @@ All supported operational actions below have website controls; staff do not need
 | Import historical sessions, attendance, meetings and hour amendments | Program Records → preview → import | Existing additive import; changed existing rows are not a bulk update. |
 | Find past/accountless tutees | Tutees → History or All Records → search | Show unverified accounts when needed. |
 | Read original academics and attendance | Tutee row → View History | Staff or the linked owner; general observers cannot read private details. |
-| Correct an accountless participant profile | Tutee row → Edit profile | Individual correction; school-year confirmation history and bulk corrections remain #195. |
+| Correct an accountless participant profile | Tutee row → Edit profile | Individual contact/profile editing; use Academic Corrections for audited period-specific academic changes. |
+| Correct historical academics on screen or by CSV | Academic Corrections → select/upload → preview → apply/propose | Stable record IDs, original evidence retained, atomic batch and stale/ownership checks. |
 | Link an existing verified account | Historical row → Edit Profile → Link Historical Records → search → Review Link → Confirm Link | Admin/Head, identity evidence and acknowledgement required. |
 | Correct retained ownership | Same link section → Head password → Confirm Link | Current login ownership conflicts require Head review through Combine accounts and its conflict checks. |
 | Invite an alumnus | Historical row → Edit Profile → Link Historical Records → invited email → Send Invitation | Exact accountless record and reviewed identity evidence; security email must be available. |
@@ -80,7 +99,7 @@ Current participation remains a separate, explicit application and consent workf
 
 Apply the complete migration chain, including `20261002080000_history_account_setup`, before deploying. The new nullable setup challenge and receipt columns preserve outstanding invitations, participant identities and every archive row. Normal backups and migration procedures still apply.
 
-Transfer is not inferred from ARCHIVED status, nor graduation from inactivity. Follow the implemented [school departure and viewer-access workflow](program-reference.md#school-departure-and-viewer-access) for those decisions. Bulk on-screen and CSV academic correction tools remain supporting follow-up work in #195; the additive archive importer still rejects changed existing IDs instead of silently overwriting history.
+Transfer is not inferred from ARCHIVED status, nor graduation from inactivity. Follow the implemented [school departure and viewer-access workflow](program-reference.md#school-departure-and-viewer-access) for those decisions. Apply `20261002010000_historical_academic_corrections` and regenerate Prisma before using Academic Corrections. This additive migration creates no accounts or backfilled confirmation dates. The archive importer still rejects changed existing IDs instead of silently overwriting history.
 
 The original imported ZIP was unavailable for this task. Validation uses synthetic records covering the owner-confirmed families: sessions, stored service credit, tutee attendance, meetings, meeting attendance and hour amendments. It does not claim a new reconciliation of the deployed archive.
 
@@ -98,6 +117,9 @@ New interface copy is provided in English and Chinese; the other bundled languag
 | Roster and linking dialogs | `src/app/_components/tutee-history.tsx` |
 | Personal history and explicit claim | `src/app/history/` |
 | Shared cache invalidation | `src/lib/tutee-cache.ts` |
+| Historical academic records, preview and atomic correction | `src/server/historical-academics.ts` |
+| Historical correction CSV validation | `src/lib/historical-academics.ts` |
+| Website correction and shared approval review | `src/app/_components/historical-academic-corrections.tsx` and `historical-correction-review.tsx` |
 | Users & Roles default filters | `src/lib/user-filters.ts` |
 
 [Website audit and screenshots](evidence/historical-participant-transition/README.md)

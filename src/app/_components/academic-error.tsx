@@ -13,10 +13,11 @@ export function AcademicError({
   selfService?: boolean;
 }) {
   const t = useTranslations("academics");
+  const h = useTranslations("historicalAcademics");
   const requiresConfirmation = message === "ACADEMIC_CONFIRMATION_REQUIRED";
   return (
     <>
-      {requiresConfirmation ? (
+      {message === "HISTORICAL_EDITOR_REQUIRED" ? h("HISTORICAL_EDITOR_REQUIRED") : requiresConfirmation ? (
         t("confirmationRequired")
       ) : message === "ACADEMIC_SHARED_EDITOR_REQUIRED" ? (
         t("useSharedEditor")

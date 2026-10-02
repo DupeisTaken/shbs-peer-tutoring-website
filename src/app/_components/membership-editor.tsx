@@ -1,7 +1,7 @@
 "use client";
 import { useDialogPending } from "./ui/modal";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
@@ -29,6 +29,11 @@ export function MembershipEditor({
   const [password, setPassword] = useState("");
   const [outcome, setOutcome] = useState<string | null>(null);
   const [transfer, setTransfer] = useState(false);
+  // A click claims this editor before mutation.isPending reaches the next render.
+  const submitting = useRef(false);
+  const settled = () => {
+    submitting.current = false;
+  };
   const utils = api.useUtils();
   const router = useRouter();
   const refresh = async () => {
@@ -41,6 +46,7 @@ export function MembershipEditor({
     router.refresh();
   };
   const save = api.admin.setMemberships.useMutation({
+    onSettled: settled,
     onSuccess: refresh,
     onError: (error) => {
       if (error.data?.approvalId) setOutcome(t("requested"));
@@ -48,9 +54,14 @@ export function MembershipEditor({
   });
   const request = api.account.requestMemberships.useMutation({
     onSuccess: () => setOutcome(t("requested")),
+    onSettled: settled,
   });
-  const makeHead = api.admin.transferHead.useMutation({ onSuccess: refresh });
+  const makeHead = api.admin.transferHead.useMutation({
+    onSuccess: refresh,
+    onSettled: settled,
+  });
   const parsed = membershipSchema.safeParse(value);
+  // Confirmation is still cancellable; only actual owned writes register upward.
   const pending = useDialogPending(
     save.isPending || request.isPending || makeHead.isPending,
   );
@@ -138,6 +149,14 @@ export function MembershipEditor({
             pending || !parsed.success || (isHead && !selfService && !password)
           }
           onClick={() => {
+            if (
+              pending ||
+              submitting.current ||
+              !parsed.success ||
+              (isHead && !selfService && !password)
+            )
+              return;
+            submitting.current = true;
             setOutcome(null);
             if (selfService) request.mutate(value);
             else
@@ -157,7 +176,9 @@ export function MembershipEditor({
               type="button"
               className="btn-secondary min-h-11 lg:min-h-10"
               disabled={pending}
-              onClick={() => setTransfer(!transfer)}
+              onClick={() => {
+                if (!pending && !submitting.current) setTransfer(!transfer);
+              }}
             >
               {t("makeHead")}
             </button>
@@ -170,9 +191,20 @@ export function MembershipEditor({
             type="button"
             className="btn-primary min-h-11 lg:min-h-10"
             disabled={pending || !password}
-            onClick={() =>
-              makeHead.mutate({ userId, confirmPassword: password })
-            }
+            onClick={() => {
+              if (
+                pending ||
+                submitting.current ||
+                !password ||
+                !isHead ||
+                selfService ||
+                !transfer
+              )
+                return;
+              submitting.current = true;
+              setOutcome(null);
+              makeHead.mutate({ userId, confirmPassword: password });
+            }}
           >
             {t("confirmTransfer")}
           </button>
