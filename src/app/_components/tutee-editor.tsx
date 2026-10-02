@@ -176,7 +176,7 @@ function TuteeProfileForm({
                 type="submit"
                 variant="primary"
                 disabled={
-                  save.isPending || subjects.isLoading || slots.isLoading
+                  busy || saved || subjects.isLoading || slots.isLoading
                 }
               >
                 {t("save")}
