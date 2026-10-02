@@ -273,13 +273,13 @@ it("takes inheritance at decision time and not submission time", async () => {
 // The entry dialog calls this same route for both request types, regardless of
 // interview availability. Exercise blank-note rejection and the committed effects.
 it.each([
-  { higher: false, interviews: true, accept: true },
-  { higher: false, interviews: false, accept: false },
-  { higher: true, interviews: true, accept: false },
-  { higher: true, interviews: false, accept: true },
+  { higher: false, interviews: true },
+  { higher: false, interviews: false },
+  { higher: true, interviews: true },
+  { higher: true, interviews: false },
 ])(
-  "requires a note and preserves direct-review effects ($higher/$interviews/$accept)",
-  async ({ higher, interviews, accept }) => {
+  "requires a note and preserves direct approval effects ($higher/$interviews)",
+  async ({ higher, interviews }) => {
     await db.programFeature.create({
       data: { key: "INTERVIEWS", enabled: interviews },
     });
@@ -294,13 +294,12 @@ it.each([
         willing: false,
       },
     });
-    const prior = await eligibleSubjectIds(db, "applicant-tutor");
     const { id } = await request();
     const app = await db.tutorApplication.findUniqueOrThrow({ where: { id } });
     expect(app.type).toBe(higher ? "HIGHER_LEVEL" : "ADDITIONAL_SUBJECT");
     const input = {
       id,
-      accept,
+      accept: true,
       expectedUpdatedAt: app.updatedAt,
       comment: " \n ",
     };
@@ -322,15 +321,13 @@ it.each([
     expect(
       await db.tutorApplication.findUniqueOrThrow({ where: { id } }),
     ).toMatchObject({
-      status: accept ? "ACCEPTED" : "REJECTED",
+      status: "ACCEPTED",
       decisionComment: "Reviewed evidence",
       qualificationDecidedById: "admin",
     });
     expect(
       (await eligibleSubjectIds(db, "applicant-tutor")).includes("history-ap"),
-    ).toBe(accept);
-    if (!accept)
-      expect(await eligibleSubjectIds(db, "applicant-tutor")).toEqual(prior);
+    ).toBe(true);
     expect(
       await db.tutorSubjectWillingness.findFirst({
         where: { tutorId: "applicant-tutor", subjectId: "history-ap" },
@@ -361,25 +358,70 @@ it.each([
   },
 );
 
-it("cannot use a direct decision to bypass an assigned panel when interviews are disabled", async () => {
-  const { id } = await request();
-  await panel(id);
-  await db.programFeature.create({
-    data: { key: "INTERVIEWS", enabled: false },
-  });
-  await expect(decide(id, true, "admin")).rejects.toMatchObject({
-    code: "FORBIDDEN",
-  });
-  expect(
-    (await db.tutorApplication.findUniqueOrThrow({ where: { id } })).status,
-  ).toBe("INTERVIEW");
-  expect(
-    await db.interviewAssignment.count({ where: { applicationId: id } }),
-  ).toBe(3);
-  expect(
-    (await eligibleSubjectIds(db, "applicant-tutor")).includes("history-ap"),
-  ).toBe(false);
-});
+it.each(
+  [false, true].flatMap((higher) =>
+    [false, true].flatMap((interviews) =>
+      ["admin", "head"].map((reviewer) => ({ higher, interviews, reviewer })),
+    ),
+  ),
+)(
+  "refuses direct rejection without side effects ($higher/$interviews/$reviewer)",
+  async ({ higher, interviews, reviewer }) => {
+    await db.programFeature.create({
+      data: { key: "INTERVIEWS", enabled: interviews },
+    });
+    if (higher)
+      await db.$transaction((tx) =>
+        approveQualification(tx, "applicant-tutor", "history-standard", "head"),
+      );
+    const { id } = await request();
+    const before = await db.tutorApplication.findUniqueOrThrow({
+      where: { id },
+    });
+    const grants = await eligibleSubjectIds(db, "applicant-tutor");
+    const notifications = await db.notification.count();
+    expect(before.type).toBe(higher ? "HIGHER_LEVEL" : "ADDITIONAL_SUBJECT");
+    await expect(decide(id, false, reviewer)).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+      message:
+        "An interview is required before rejecting a qualification request.",
+    });
+    // Failed decisions preserve the request's version, evidence and prior grants.
+    expect(
+      await db.tutorApplication.findUniqueOrThrow({ where: { id } }),
+    ).toEqual(before);
+    expect(await eligibleSubjectIds(db, "applicant-tutor")).toEqual(grants);
+    expect(await db.notification.count()).toBe(notifications);
+    expect(
+      await db.auditLog.count({
+        where: { operation: "qualificationApplication.decide" },
+      }),
+    ).toBe(0);
+  },
+);
+
+it.each([true, false])(
+  "cannot bypass an assigned panel when interviews are disabled (accept=%s)",
+  async (accept) => {
+    const { id } = await request();
+    await panel(id);
+    await db.programFeature.create({
+      data: { key: "INTERVIEWS", enabled: false },
+    });
+    await expect(decide(id, accept, "admin")).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    expect(
+      (await db.tutorApplication.findUniqueOrThrow({ where: { id } })).status,
+    ).toBe("INTERVIEW");
+    expect(
+      await db.interviewAssignment.count({ where: { applicationId: id } }),
+    ).toBe(3);
+    expect(
+      (await eligibleSubjectIds(db, "applicant-tutor")).includes("history-ap"),
+    ).toBe(false);
+  },
+);
 
 it.each(["TUTOR", "VIEWER", "COORDINATOR"] as const)(
   "refuses direct qualification decisions for a current %s despite forged Head session claims",
@@ -481,7 +523,7 @@ it.each([true, false])(
         }),
       ]),
     );
-    await expect(decide(id)).rejects.toMatchObject({
+    await expect(decide(id, accept)).rejects.toMatchObject({
       code: "PRECONDITION_FAILED",
     });
     for (const voter of ["admin", "panel-a", "panel-b"])
@@ -518,6 +560,13 @@ it.each([true, false])(
 
 it("preserves old qualifications after rejection, permits resubmission, and never archives the existing tutor", async () => {
   const first = await request();
+  await panel(first.id);
+  for (const voter of ["admin", "panel-a", "panel-b"])
+    await caller(voter).tutor.castInterviewVote({
+      applicationId: first.id,
+      accept: false,
+      comment: "Interview evidence reviewed",
+    });
   await decide(first.id, false);
   await reconcileApplication(db, first.id);
   expect(await eligibleSubjectIds(db, "applicant-tutor")).toEqual([
@@ -764,6 +813,15 @@ it.each([true, false])(
   "cannot recall a completed decision (accepted=%s)",
   async (accept) => {
     const { id } = await request();
+    if (!accept) {
+      await panel(id);
+      for (const voter of ["admin", "panel-a", "panel-b"])
+        await caller(voter).tutor.castInterviewVote({
+          applicationId: id,
+          accept: false,
+          comment: "Interview evidence reviewed",
+        });
+    }
     await decide(id, accept);
     await expect(recall(id)).rejects.toMatchObject({ code: "CONFLICT" });
   },

@@ -152,6 +152,9 @@ it.each(["ADDITIONAL_SUBJECT", "HIGHER_LEVEL"] as const)(
     });
     expect(within(dialog).getByText("Ada Chen")).toBeTruthy();
     expect(within(dialog).getByText(/AP History/)).toBeTruthy();
+    expect(
+      within(dialog).queryByRole("button", { name: "Reject request" }),
+    ).toBeNull();
     expect(document.activeElement).toBe(
       within(dialog).getByRole("button", { name: "Cancel" }),
     );
@@ -208,16 +211,22 @@ it.each(["ADMIN", "HEAD"])(
   },
 );
 
-it("rejects with the existing endpoint and required note", async () => {
-  show({ ...base, type: "HIGHER_LEVEL" });
-  openReview();
+it("lets the assigned chair reject after an interview with the existing endpoint and required note", async () => {
+  show({
+    ...base,
+    type: "HIGHER_LEVEL",
+    status: "INTERVIEW",
+    interviewers: [{ isHead: true, tutor: { id: "reviewer" } }],
+  });
   const reject = screen.getByRole<HTMLButtonElement>("button", {
     name: "Reject request",
   });
   expect(reject.disabled).toBe(true);
+  writeNote(" \n ");
+  expect(reject.disabled).toBe(true);
   writeNote("More evidence needed");
   fireEvent.click(reject);
-  await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+  await waitFor(() => expect(mocks.changed).toHaveBeenCalledWith(true));
   expect(mocks.decide).toHaveBeenCalledExactlyOnceWith({
     id: base.id,
     accept: false,
@@ -286,7 +295,7 @@ it("does not expose the chair controls with revoked tutor access", () => {
   expect(screen.queryByRole("button")).toBeNull();
 });
 
-it("blocks duplicate/opposite decisions, note changes and dismissal while writing and refreshing", async () => {
+it("blocks duplicate approvals, note changes and dismissal while writing and refreshing", async () => {
   const write = deferred(),
     refresh = deferred();
   mocks.decide.mockReturnValue(write.promise);
@@ -295,11 +304,9 @@ it("blocks duplicate/opposite decisions, note changes and dismissal while writin
   openReview();
   writeNote();
   const yes = screen.getByRole("button", { name: "Approve qualification" });
-  const no = screen.getByRole("button", { name: "Reject request" });
   act(() => {
     yes.click();
     yes.click();
-    no.click();
   });
   expect(mocks.decide).toHaveBeenCalledTimes(1);
   expect(screen.getByRole<HTMLTextAreaElement>("textbox").disabled).toBe(true);
@@ -313,6 +320,31 @@ it("blocks duplicate/opposite decisions, note changes and dismissal while writin
   expect(screen.getByRole("dialog").getAttribute("aria-busy")).toBe("true");
   await act(async () => refresh.resolve());
   await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+});
+
+it("blocks opposite interview decisions in the same tick", async () => {
+  const write = deferred();
+  mocks.decide.mockReturnValue(write.promise);
+  show({
+    ...base,
+    status: "INTERVIEW",
+    interviewers: [{ isHead: true, tutor: { id: "reviewer" } }],
+  });
+  writeNote();
+  const yes = screen.getByRole("button", { name: "Approve qualification" });
+  const no = screen.getByRole("button", { name: "Reject request" });
+  act(() => {
+    no.click();
+    yes.click();
+    no.click();
+  });
+  expect(mocks.decide).toHaveBeenCalledExactlyOnceWith({
+    id: base.id,
+    accept: false,
+    comment: "Evidence reviewed",
+    expectedUpdatedAt: base.updatedAt,
+  });
+  await act(async () => write.resolve());
 });
 
 it("preserves the failed draft/version through background refresh and retry; explicit reload replaces it only after a successful read", async () => {
@@ -429,6 +461,6 @@ it("renders the shared prompt and actions in Chinese", () => {
     screen.getByRole("button", { name: zh.qualificationRequests.approve }),
   ).toBeTruthy();
   expect(
-    screen.getByRole("button", { name: zh.qualificationRequests.reject }),
-  ).toBeTruthy();
+    screen.queryByRole("button", { name: zh.qualificationRequests.reject }),
+  ).toBeNull();
 });

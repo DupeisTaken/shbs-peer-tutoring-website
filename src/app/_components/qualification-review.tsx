@@ -122,6 +122,7 @@ export function QualificationReview({
     if (
       !canReview ||
       !open ||
+      (!accept && !hasPanel) ||
       locked ||
       submitted.current ||
       !draft?.comment.trim()
@@ -202,7 +203,8 @@ export function QualificationReview({
   );
   const actions = (
     <>
-      {[true, false].map((accept) => (
+      {/* Rejection belongs to the assigned chair's interview workflow only. */}
+      {(hasPanel ? [true, false] : [true]).map((accept) => (
         <Button
           key={String(accept)}
           variant={accept ? "primary" : "secondary"}
