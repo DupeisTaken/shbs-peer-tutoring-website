@@ -1,13 +1,15 @@
-import type {
-  InvalidateOptions,
-  Query,
-  QueryFilters,
-} from "@tanstack/react-query";
+import type { InvalidateOptions } from "@tanstack/react-query";
+
+// Only the error revision is needed; using this structural view also accepts
+// tRPC queries with procedure-specific data and error types without casts.
+type RefreshRead = {
+  state: { errorUpdateCount: number; error: unknown };
+};
 
 export type InvalidationTarget = {
   invalidate: (
     input?: undefined,
-    filters?: Pick<QueryFilters, "predicate">,
+    filters?: { predicate?: (query: RefreshRead) => boolean },
     options?: Pick<InvalidateOptions, "throwOnError">,
   ) => Promise<void>;
 };
@@ -18,7 +20,7 @@ export type InvalidationTarget = {
 export async function invalidateAndReport(
   target: InvalidationTarget,
 ): Promise<void> {
-  const reads = new Map<Query, number>();
+  const reads = new Map<RefreshRead, number>();
   await target.invalidate(
     undefined,
     {
