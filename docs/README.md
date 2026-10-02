@@ -10,6 +10,7 @@ These guides describe the current application. Choose the task you need to compl
 | Contribute changes and maintain repository files | [Contributor guidance](contributing.md) |
 | Choose shared UI patterns and preserve interaction rules | [Agent component map](../AGENTS.md#start-with-the-shared-patterns) and [component boundaries](technical-report.md#shared-ui-patterns) |
 | Verify UI changes in the gallery and running application | [UI verification matrix](local-development.md#ui-verification-matrix) |
+| Continue the incomplete shared UI integration checkpoint | [Shared UI cloud continuation](continuation/shared-ui-integration.md) |
 | Find implementation files and understand authorization or transaction rules | [Technical guide](technical-report.md) |
 | Use the website as a tutee, tutor, crew member, coordinator, administrator, HEAD, viewer or translator | [User guide](user-guide.md) |
 | Understand the four name fields and display settings | [Name fields](design/name-fields.md) |
