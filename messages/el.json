@@ -3586,6 +3586,7 @@
     "loading": "Loading academic details…",
     "conflict": "This profile changed while you were editing. Reload the latest details, then review and try again. Your draft has not been saved.",
     "reload": "Discard Draft and Reload",
+    "reloadFailed": "Could not reload the latest academic details and settings. Your draft is unchanged. Please try again.",
     "confirmed": "Last confirmed {date}",
     "history": "Confirmation History",
     "noHistory": "No confirmations recorded yet.",

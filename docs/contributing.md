@@ -62,6 +62,11 @@ dialog recipe demonstrates a failed draft alongside a saved section using
 pending work or blocking idle Close. Verify both completion orders, failed retry,
 all-success and a committed write whose synchronization fails on the actual pages.
 
+For academic conflict Reload, verify academic and policy read failures separately,
+including cached error results and thrown reads. The original draft, version and
+school year must survive a failed read. Discard it only after both required reads
+succeed; keep the reload guard until both settle even when the first read fails.
+
 For a new reusable pattern, add an interactive example and behavior tests after implementation. Follow the [UI verification matrix](local-development.md#ui-verification-matrix), including English/Chinese, keyboard focus, all six accent palettes, long labels and narrow screens. Capture screenshots from the running application as well as the gallery; gallery fixtures cannot prove feature permissions or mutations. Check the [technical boundaries](technical-report.md#shared-ui-patterns) before migrating existing workflows.
 
 File new proposals using the [issue conventions](issues.md), with the affected workflow, expected behavior, validation and behavior to preserve. The remaining page migrations are tracked in [issue #219](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/219); the current gallery and pilot pages do not imply a complete site migration.
