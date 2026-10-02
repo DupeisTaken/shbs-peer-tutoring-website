@@ -9,6 +9,7 @@ import ja from "../../messages/ja.json";
 import ko from "../../messages/ko.json";
 import zh from "../../messages/zh.json";
 import { LOCALES, type Locale } from "./config";
+import { TutorStatus } from "../../generated/prisma";
 
 const bundledMessages = {
   en,
@@ -25,6 +26,45 @@ const bundledMessages = {
 >;
 
 describe("bundled header translations", () => {
+  it("provides qualification direct-review and recovery copy in every bundled locale", () => {
+    for (const locale of LOCALES) {
+      const copy = bundledMessages[locale].qualificationRequests;
+      for (const key of [
+        "approveWithoutInterview",
+        "reviewTitle",
+        "reviewHelp",
+        "reloadReview",
+        "reloadHelp",
+        "decisionSaved",
+        "decisionRefreshFailed",
+      ] as const) {
+        expect(copy[key], `${locale}: ${key}`).toMatch(/\S/);
+      }
+    }
+    expect(en.qualificationRequests.approveWithoutInterview).toBe(
+      "Approve without Interview",
+    );
+    expect(en.qualificationRequests.approve).not.toBe(
+      en.qualificationRequests.approveWithoutInterview,
+    );
+  });
+  it("labels every persisted tutor status and the combine-account empty state", () => {
+    // New historical states must render a readable label rather than a message key.
+    for (const locale of LOCALES) {
+      const messages = bundledMessages[locale];
+      for (const status of Object.values(TutorStatus)) {
+        expect(
+          messages.admin.tutorStatus[status],
+          `${locale}: ${status}`,
+        ).toMatch(/\S/);
+      }
+      expect(
+        messages.combineAccounts.noCandidates,
+        `${locale}: empty combine list`,
+      ).toMatch(/\S/);
+    }
+  });
+
   it("limits the viewer banner to permitted management summaries", () => {
     for (const locale of LOCALES) {
       expect(bundledMessages[locale].admin.readOnly.banner, locale).toMatch(

@@ -6,6 +6,8 @@ import { useFormatter, useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { ProfileDialog } from "./profile-dialog";
 import { AcademicDetails } from "./academic-profile";
+import { ScrollTable } from "./ui/patterns";
+import { useDialogPending } from "./ui/modal";
 
 export function HistoryError({ message }: { message: string }) {
   const t = useTranslations("tuteeHistory");
@@ -103,8 +105,7 @@ export function TuteeHistoryDialog({
           <p className="muted text-sm">
             {t("sessionCount", { count: data.count })}
           </p>
-          <p className="muted text-xs sm:hidden">{t("scrollHint")}</p>
-          <div className="overflow-x-auto">
+          <ScrollTable label={t("details")} hint={t("scrollHint")}>
             <table className="data-table min-w-[38rem]">
               <thead>
                 <tr>
@@ -138,7 +139,7 @@ export function TuteeHistoryDialog({
                 )}
               </tbody>
             </table>
-          </div>
+          </ScrollTable>
           <div className="flex flex-wrap items-center justify-between gap-3">
             <button
               className="btn-secondary min-h-11 lg:min-h-9"
@@ -219,9 +220,17 @@ export function TuteeHistoryLinkForm({
     onSuccess: () => setSent(true),
     onError: (e) => setError(e.message),
   });
-  const pending = link.isPending || invite.isPending || reviewing;
+  // Register owned work with the profile dialog and respect writes in sibling forms.
+  const pending = useDialogPending(
+    link.isPending || invite.isPending || reviewing,
+  );
   return (
-    <div className="space-y-5">
+    <fieldset
+      disabled={pending}
+      aria-busy={pending}
+      className="min-w-0 space-y-5"
+    >
+      <legend className="sr-only">{t("link")}</legend>
       <div>
         <p className="font-semibold">{row.englishName}</p>
         <p className="muted text-xs break-all">
@@ -246,6 +255,7 @@ export function TuteeHistoryLinkForm({
           className="flex flex-wrap items-end gap-2"
           onSubmit={(e) => {
             e.preventDefault();
+            if (pending) return;
             setQuery(search.trim());
             setUserId("");
             setPreview(null);
@@ -304,6 +314,7 @@ export function TuteeHistoryLinkForm({
           className="btn-secondary min-h-11 lg:min-h-9"
           disabled={!userId || pending}
           onClick={async () => {
+            if (pending) return;
             setReviewing(true);
             setError(null);
             setAcknowledged(false);
@@ -398,6 +409,7 @@ export function TuteeHistoryLinkForm({
             className="space-y-3"
             onSubmit={(e) => {
               e.preventDefault();
+              if (pending) return;
               setError(null);
               invite.mutate({
                 tuteeId: row.id,
@@ -437,6 +449,6 @@ export function TuteeHistoryLinkForm({
         </section>
       )}
       {error && <HistoryError message={error} />}
-    </div>
+    </fieldset>
   );
 }

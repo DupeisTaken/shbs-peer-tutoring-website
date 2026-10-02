@@ -1,8 +1,9 @@
 "use client";
 
-import { useEffect, useId, useRef } from "react";
+import { useId } from "react";
 import { useLocale, useTranslations } from "next-intl";
 import { Markdown } from "./markdown";
+import { NativeDialog, useDialogBusy } from "./ui/modal";
 
 /** Read-only policy viewer: native modality traps focus and keeps the page inert. */
 export function CurrentPolicyDialog({
@@ -25,35 +26,19 @@ export function CurrentPolicyDialog({
 }) {
   const t = useTranslations();
   const locale = useLocale();
-  const ref = useRef<HTMLDialogElement>(null);
+  const busy = useDialogBusy();
   const titleId = useId();
   const document =
     documents?.find((doc) => doc.locale === locale && doc.body.trim()) ??
     documents?.find((doc) => doc.locale === "en" && doc.body.trim());
 
-  useEffect(() => {
-    const previous = window.document.activeElement as HTMLElement | null;
-    const dialog = ref.current;
-    dialog?.showModal();
-    return () => {
-      dialog?.close();
-      previous?.focus();
-    };
-  }, []);
-
   // Hide cached content while refreshing or on failure rather than label it latest.
   const ready = !loading && !error && document;
   return (
-    <dialog
-      ref={ref}
-      aria-labelledby={titleId}
-      onCancel={(event) => {
-        event.preventDefault();
-        onClose();
-      }}
-      onClick={(event) => {
-        if (event.target === event.currentTarget) onClose();
-      }}
+    <NativeDialog
+      labelledBy={titleId}
+      onClose={onClose}
+      closeOnBackdrop
       className="m-auto max-h-[90dvh] w-[calc(100%-2rem)] max-w-2xl overflow-hidden rounded-2xl border border-slate-200 bg-white p-0 text-slate-900 shadow-2xl backdrop:bg-slate-950/60"
     >
       <div className="flex max-h-[90dvh] flex-col">
@@ -68,7 +53,9 @@ export function CurrentPolicyDialog({
           </div>
           <button
             type="button"
+            data-dialog-autofocus
             onClick={onClose}
+            disabled={busy}
             aria-label={t("public.policy.close")}
             className="btn-secondary min-h-11 min-w-11 shrink-0"
           >
@@ -100,6 +87,6 @@ export function CurrentPolicyDialog({
           )}
         </div>
       </div>
-    </dialog>
+    </NativeDialog>
   );
 }

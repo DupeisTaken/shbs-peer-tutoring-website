@@ -1240,7 +1240,7 @@
       "pendingReview": "待复核",
       "nothingPending": "暂无待复核项。",
       "standingHeading": "学习伙伴纪律状态",
-      "standingHelp": "🟥 占 3 格，🟨 占 1 格（仅统计有效卡片）。满 6 格 = 待移除。点击姓名查看卡片详情。",
+      "standingHelp": "🟥 占 3 格，🟨 占 1 格（仅统计有效卡片）。满 6 格 = 待移除。点击最右侧列的详情链接查看卡片。",
       "standing": {
         "removalPending": "待移除",
         "onWarning": "警告中",
@@ -1269,7 +1269,8 @@
       "GRADUATED": "已毕业",
       "OPTED_OUT": "已退出",
       "PENDING": "待激活",
-      "ARCHIVED": "已归档"
+      "ARCHIVED": "已归档",
+      "TRANSFERRED": "已转学"
     },
     "registrationCodes": {
       "kindAdmin": "管理员",
@@ -1882,6 +1883,7 @@
       "empty": "尚未发布任何时间段。",
       "save": "保存可用时间",
       "saving": "保存中…",
+      "refreshFailed": "保存请求已成功处理，但无法加载更新后的可用时间。请先重试加载，再继续修改。",
       "saved": "已保存。"
     },
     "interviews": {
@@ -3294,7 +3296,14 @@
     "scheduled": "面试时间：{date}",
     "result": "审核决定：{comment}",
     "granted": "批准时授予的资格：{subjects}",
-    "directHelp": "填写意见后可直接批准或拒绝，也可在下方安排面试小组。直接批准无需面试。",
+    "approveWithoutInterview": "无需面试审批",
+    "reviewTitle": "审核任教学科资格申请",
+    "reviewHelp": "填写决定说明后，无需面试即可批准此申请。拒绝申请必须先进行面试。打开审核窗口不会提交决定。",
+    "reloadReview": "重新加载审核",
+    "reloadHelp": "说明保留原申请版本。重新加载将清空说明并显示最新申请。",
+    "decisionSaved": "决定已保存。",
+    "decisionRefreshFailed": "决定已保存，但刷新失败。请重试刷新以加载最新记录。",
+    "directHelp": "打开直接审核后，可填写说明并批准申请。拒绝申请必须先进行面试。启用面试时，仍可分配面试小组。",
     "interviewReview": "所有面试官投票后，由担任组长的管理员或负责人根据多数意见记录最终决定。",
     "reviewerOnly": "此申请须由另一位管理员或负责人审核。",
     "decisionNote": "审核意见",
@@ -3467,6 +3476,38 @@
     "noMatches": "没有符合筛选条件的课程。",
     "empty": "暂无课程。",
     "emptyHelp": "尝试其他关键词，或清除筛选以查看完整目录。"
+  },
+  "uiPatterns": {
+    "meetingDate": "会议日期",
+    "profile": "个人资料",
+    "saveProfile": "保存个人资料",
+    "cancel": "取消",
+    "retry": "重试",
+    "loadFailed": "无法加载此部分",
+    "editorDenied": "暂时无法使用首页编辑器",
+    "editorDeniedHelp": "编辑和预览首页内容需要管理角色以及明确授予的翻译员权限。请联系项目负责人确认你的权限。",
+    "returnManagement": "返回管理页面",
+    "scrollTable": "横向滚动以比较所有列。",
+    "deleteMeeting": "删除会议？",
+    "deleteMeetingHelp": "删除“{title}”及其出勤记录？此操作无法撤销。",
+    "attendanceFor": "{name}的出勤情况"
+  },
+  "tablePatterns": {
+    "actions": "操作",
+    "details": "查看详情",
+    "edit": "编辑",
+    "close": "关闭",
+    "summary": "摘要",
+    "records": "{count} 条记录",
+    "schedule": "查看安排",
+    "occupied": "已占用",
+    "available": "可用",
+    "unavailable": "不可用",
+    "reason": "原因",
+    "slot": "时间段",
+    "room": "教室",
+    "select": "选择",
+    "selected": "已选"
   },
   "identityUsername": {
     "preferredLatinName": "拉丁字母拼写",
@@ -3645,7 +3686,8 @@
       "patrols": "保留的巡查记录",
       "academicConfirmations": "保留的学业确认",
       "tuteeProfiles": "转移的学习伙伴归属记录"
-    }
+    },
+    "noCandidates": "没有可合并的账号。"
   },
   "tuteeHistory": {
     "noSearchMatches": "没有匹配搜索条件的学习伙伴。",

@@ -1,4 +1,5 @@
 "use client";
+import { useDialogPending } from "./ui/modal";
 
 import { useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
@@ -262,7 +263,7 @@ export function AcademicPanel({ userId }: { userId?: string }) {
       utils.admin.accounts.invalidate(),
       utils.admin.tutors.invalidate(),
       utils.admin.tutees.invalidate(),
-        utils.tuteeHistory.invalidate(),
+      utils.tuteeHistory.invalidate(),
       utils.tutor.me.invalidate(),
       utils.tutor.myProfile.invalidate(),
       utils.tutorDetails.invalidate(),
@@ -278,9 +279,11 @@ export function AcademicPanel({ userId }: { userId?: string }) {
     onSuccess: refresh,
   });
   const mutation = userId ? staffSave : ownSave;
+  // Independent academic writes protect the enclosing profile draft and dismissal.
+  const busy = useDialogPending(mutation.isPending);
   const query = userId ? staff : self;
   const beginEdit = () => {
-    if (data && policy.data) {
+    if (!busy && data && policy.data) {
       mutation.reset();
       setSaved(false);
       setSnapshot({
@@ -302,7 +305,7 @@ export function AcademicPanel({ userId }: { userId?: string }) {
           <button
             type="button"
             className="btn-secondary min-h-11 lg:min-h-10"
-            disabled={!policy.data}
+            disabled={busy || !policy.data}
             onClick={beginEdit}
           >
             {t(data.academic.needsConfirmation ? "review" : "edit")}
@@ -326,7 +329,7 @@ export function AcademicPanel({ userId }: { userId?: string }) {
       {snapshot ? (
         <AcademicForm
           snapshot={snapshot}
-          pending={mutation.isPending}
+          pending={busy}
           error={
             mutation.error?.data?.approvalId
               ? undefined
@@ -352,6 +355,7 @@ export function AcademicPanel({ userId }: { userId?: string }) {
         <button
           type="button"
           className="btn-secondary min-h-11 lg:min-h-10"
+          disabled={busy}
           onClick={async () => {
             // Reload is explicit because it discards the conflicting academic draft only.
             const [result] = await Promise.all([

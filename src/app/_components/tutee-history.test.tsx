@@ -11,7 +11,8 @@ import {
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
 import type { RouterOutputs } from "~/trpc/react";
-import { TuteeHistoryLinkForm } from "./tutee-history";
+import { TuteeHistoryDialog, TuteeHistoryLinkForm } from "./tutee-history";
+import { Modal } from "./ui/modal";
 import { HistoryClaim } from "../history/claim/history-claim";
 const mock = vi.hoisted(() => ({
   preview: vi.fn(),
@@ -20,6 +21,10 @@ const mock = vi.hoisted(() => ({
   claim: vi.fn(),
   success: undefined as undefined | (() => Promise<void>),
   invalidate: vi.fn(async () => undefined),
+  pending: false,
+  staffDetails:
+    vi.fn<(input: unknown, options: unknown) => { data: unknown }>(),
+  ownDetails: vi.fn<(input: unknown, options: unknown) => { data: unknown }>(),
 }));
 vi.mock("./profile-dialog", () => ({
   ProfileDialog: ({ children }: { children: React.ReactNode }) => (
@@ -42,6 +47,14 @@ vi.mock("~/trpc/react", () => ({
       },
     }),
     tuteeHistory: {
+      details: {
+        useQuery: (input: unknown, options: unknown) =>
+          mock.staffDetails(input, options),
+      },
+      myDetails: {
+        useQuery: (input: unknown, options: unknown) =>
+          mock.ownDetails(input, options),
+      },
       candidates: {
         useQuery: () => ({
           data: [
@@ -56,7 +69,7 @@ vi.mock("~/trpc/react", () => ({
       link: {
         useMutation: (options: { onSuccess: () => Promise<void> }) => {
           mock.success = options.onSuccess;
-          return { mutate: mock.link };
+          return { mutate: mock.link, isPending: mock.pending };
         },
       },
       invite: { useMutation: () => ({ mutate: mock.invite }) },
@@ -86,6 +99,35 @@ const mount = (head = false) =>
   );
 beforeEach(() => {
   vi.clearAllMocks();
+  mock.pending = false;
+  const details = {
+    data: {
+      record: {
+        id: "record",
+        name: "Alex Historical",
+        gradeLevel: "Grade 9",
+        academicallyGraduated: false,
+      },
+      term: { name: "2024 Autumn" },
+      owner: null,
+      count: 1,
+      sessions: [
+        {
+          status: "PRESENT",
+          session: {
+            id: "session",
+            date: new Date("2024-10-01"),
+            schoolYear: "24-25",
+            quarter: "Q1",
+            pairing: { subject: "Mathematics" },
+            tutor: { englishName: "Taylor Tutor" },
+          },
+        },
+      ],
+    },
+  };
+  mock.staffDetails.mockReturnValue(details);
+  mock.ownDetails.mockReturnValue(details);
   mock.preview.mockResolvedValue({
     fingerprint: "a".repeat(64),
     record: { name: "Alex Historical", sessions: 6 },
@@ -95,6 +137,89 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
+
+it.each([false, true])(
+  "provides a named keyboard-scrollable read-only history region (personal=%s)",
+  (personal) => {
+    render(
+      <NextIntlClientProvider
+        locale="en"
+        messages={en}
+        timeZone="Asia/Shanghai"
+      >
+        <TuteeHistoryDialog
+          tuteeId="record"
+          personal={personal}
+          onClose={vi.fn()}
+        />
+      </NextIntlClientProvider>,
+    );
+    const region = screen.getByRole("region", {
+      name: en.tuteeHistory.details,
+    });
+    expect(region.getAttribute("tabindex")).toBe("0");
+    expect(region.textContent).toContain("Mathematics");
+    expect(region.textContent).toContain("24-25");
+    expect(screen.getByText(en.tuteeHistory.scrollHint)).toBeTruthy();
+    expect(mock.staffDetails).toHaveBeenCalledWith(
+      { tuteeId: "record", page: 0 },
+      { enabled: !personal },
+    );
+    expect(mock.ownDetails).toHaveBeenCalledWith(
+      { tuteeId: "record", page: 0 },
+      { enabled: personal },
+    );
+  },
+);
+
+it("registers historical writes with the parent dialog and locks the whole historical form", () => {
+  Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.setAttribute("open", "");
+    },
+  });
+  Object.defineProperty(HTMLDialogElement.prototype, "close", {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.removeAttribute("open");
+    },
+  });
+  const close = vi.fn();
+  const contents = () => (
+    <NextIntlClientProvider locale="en" messages={en}>
+      <Modal title="Profile" onClose={close} footer={null}>
+        <TuteeHistoryLinkForm row={row} isHead={false} onLinked={vi.fn()} />
+      </Modal>
+    </NextIntlClientProvider>
+  );
+  const view = render(contents());
+  const evidence = screen.getByRole("textbox", {
+    name: en.tuteeHistory.evidence,
+  });
+  fireEvent.change(evidence, {
+    target: { value: "Verified archive evidence" },
+  });
+  mock.pending = true;
+  view.rerender(contents());
+  expect(
+    screen.getByRole("dialog", { name: "Profile" }).getAttribute("aria-busy"),
+  ).toBe("true");
+  expect(evidence.closest("fieldset")?.disabled).toBe(true);
+  fireEvent(
+    screen.getByRole("dialog"),
+    new Event("cancel", { bubbles: true, cancelable: true }),
+  );
+  expect(close).not.toHaveBeenCalled();
+  for (const form of document.querySelectorAll("form")) fireEvent.submit(form);
+  expect(mock.invite).not.toHaveBeenCalled();
+  mock.pending = false;
+  view.rerender(contents());
+  expect(evidence.closest("fieldset")?.disabled).toBe(false);
+  expect((evidence as HTMLTextAreaElement).value).toBe(
+    "Verified archive evidence",
+  );
+});
 async function review() {
   fireEvent.change(screen.getByRole("combobox"), {
     target: { value: "account" },

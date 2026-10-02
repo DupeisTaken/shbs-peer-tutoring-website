@@ -109,7 +109,16 @@ export async function decideQualificationApplication(
       message: "Another Admin or Head must review your qualification request.",
     });
   let chairId: string | null = null;
-  if (app.status === "INTERVIEW" || app.interviewers.length) {
+  const hasPanel = app.status === "INTERVIEW" || app.interviewers.length > 0;
+  // Direct review permits approval only; rejection must satisfy the chair and
+  // completed panel-vote checks below, even when called outside the UI.
+  if (!input.accept && !hasPanel)
+    throw new TRPCError({
+      code: "PRECONDITION_FAILED",
+      message:
+        "An interview is required before rejecting a qualification request.",
+    });
+  if (hasPanel) {
     await assertFeatureEnabled(tx, "INTERVIEWS");
     chairId = app.interviewers.find((person) => person.isHead)?.tutorId ?? null;
     if (!chairId || chairId !== actor.tutorId)

@@ -458,7 +458,8 @@
       "GRADUATED": "Graduated",
       "OPTED_OUT": "Opted Out",
       "PENDING": "Pending",
-      "ARCHIVED": "Archived"
+      "ARCHIVED": "Archived",
+      "TRANSFERRED": "Transferred"
     },
     "tutees": {
       "title": "Tutee Roster",
@@ -1314,7 +1315,7 @@
       "pendingReview": "Pending Review",
       "nothingPending": "Nothing awaiting review.",
       "standingHeading": "Tutee Standing",
-      "standingHelp": "🟥 fills 3 slots, 🟨 fills 1 (only valid cards). A full 6 = removal pending. Click a name for the card details.",
+      "standingHelp": "🟥 fills 3 slots, 🟨 fills 1 (only valid cards). A full 6 = removal pending. Use the details link in the rightmost column to view cards.",
       "standing": {
         "removalPending": "removal pending",
         "onWarning": "on warning",
@@ -1890,6 +1891,7 @@
       "empty": "No time slots have been published yet.",
       "save": "Save Availability",
       "saving": "Saving…",
+      "refreshFailed": "Your save was accepted, but the updated availability could not be loaded. Retry loading before making more changes.",
       "saved": "Saved."
     },
     "interviews": {
@@ -3294,7 +3296,14 @@
     "scheduled": "Interview: {date}",
     "result": "Decision: {comment}",
     "granted": "Granted at approval: {subjects}",
-    "directHelp": "Approve or reject with a note, or assign an interview panel below. Direct approval can skip an interview.",
+    "approveWithoutInterview": "Approve without Interview",
+    "reviewTitle": "Review Qualification Request",
+    "reviewHelp": "Record a decision note, then approve this request without an interview. Rejection requires an interview. Opening this review does not submit a decision.",
+    "reloadReview": "Reload review",
+    "reloadHelp": "Your note keeps its original version. Reload to clear the note and review the latest application.",
+    "decisionSaved": "Decision saved.",
+    "decisionRefreshFailed": "Decision saved, but refresh failed. Retry refresh to load the updated records.",
+    "directHelp": "Open direct review to approve with a note. Rejection requires an interview. Interview panel assignment remains available when interviews are enabled.",
     "interviewReview": "The assigned Admin or Head chair records the decision after every panelist has voted. The panel majority applies.",
     "reviewerOnly": "Another Admin or Head must review this request.",
     "decisionNote": "Decision note",
@@ -3467,6 +3476,38 @@
     "noMatches": "No subjects match these filters.",
     "empty": "No subjects yet.",
     "emptyHelp": "Try another search or clear the filters to see the full catalogue."
+  },
+  "uiPatterns": {
+    "meetingDate": "Meeting date",
+    "profile": "Profile",
+    "saveProfile": "Save profile",
+    "cancel": "Cancel",
+    "retry": "Try again",
+    "loadFailed": "Unable to load this section",
+    "editorDenied": "Landing editor access is unavailable",
+    "editorDeniedHelp": "Editing and previewing landing content requires a management role and an explicit Translator assignment. Ask the program Head to review your access.",
+    "returnManagement": "Return to management",
+    "scrollTable": "Scroll sideways to compare all columns.",
+    "deleteMeeting": "Delete meeting?",
+    "deleteMeetingHelp": "Delete “{title}” and its attendance records? This action cannot be undone.",
+    "attendanceFor": "Attendance for {name}"
+  },
+  "tablePatterns": {
+    "actions": "Actions",
+    "details": "View details",
+    "edit": "Edit",
+    "close": "Close",
+    "summary": "Summary",
+    "records": "{count, plural, one {# record} other {# records}}",
+    "schedule": "View schedule",
+    "occupied": "Occupied",
+    "available": "Available",
+    "unavailable": "Unavailable",
+    "reason": "Reason",
+    "slot": "Time slot",
+    "room": "Room",
+    "select": "Select",
+    "selected": "Selected"
   },
   "identityUsername": {
     "preferredLatinName": "Latin Spelling",
@@ -3645,7 +3686,8 @@
       "patrols": "Patrols retained",
       "academicConfirmations": "Academic confirmations retained",
       "tuteeProfiles": "Tutee ownership links moved"
-    }
+    },
+    "noCandidates": "No accounts are available to combine."
   },
   "tuteeHistory": {
     "noSearchMatches": "No tutees match your search.",

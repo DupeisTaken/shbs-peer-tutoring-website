@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
+import { SummaryTable, TableActions, TableDetails } from "./ui/summary-table";
 
 type Subject = {
   id: string;
@@ -28,6 +29,7 @@ export function CourseCatalogueTable({
   onApply: (input: Batch) => Promise<unknown>;
 }) {
   const t = useTranslations("courseCatalogue");
+  const table = useTranslations("tablePatterns");
   const [search, setSearch] = useState("");
   const [level, setLevel] = useState("all");
   const [status, setStatus] = useState("all");
@@ -242,66 +244,75 @@ export function CourseCatalogueTable({
           )}
         </div>
       )}
-      <div className="overflow-x-auto">
-        <table className="w-full text-left text-sm">
-          <thead>
-            <tr className="border-b border-slate-200 text-slate-500">
-              {!readOnly && (
-                <th className="py-3 pr-2">
-                  <span className="sr-only">{t("selection")}</span>
-                </th>
-              )}
-              <th className="px-2 py-3">{t("name")}</th>
-              <th className="px-2 py-3">{t("level")}</th>
-              <th className="px-2 py-3">{t("status")}</th>
-            </tr>
-          </thead>
-          <tbody>
-            {visible.map((subject) => (
-              <tr
-                key={subject.id}
-                className="border-b border-slate-100 last:border-0"
-              >
+      {/* Bulk selection stays in the action column; summary fields contain no controls. */}
+      <SummaryTable label={t("title")}>
+        <thead>
+          <tr>
+            <th>{t("name")}</th>
+            <th>{t("level")}</th>
+            <th>{t("status")}</th>
+            <th className="table-actions-heading">{table("actions")}</th>
+          </tr>
+        </thead>
+        <tbody>
+          {visible.map((subject) => (
+            <tr key={subject.id}>
+              <td className="font-medium">{subject.name}</td>
+              <td>
+                {levels.find((level) => level.id === subject.levelId)?.name ??
+                  t("noLevel")}
+              </td>
+              <td>
+                <span className="badge-slate">
+                  {t(subject.active ? "active" : "inactive")}
+                </span>
+              </td>
+              <TableActions>
+                <TableDetails title={subject.name}>
+                  <dl className="space-y-3">
+                    <div>
+                      <dt className="label">{t("name")}</dt>
+                      <dd>{subject.name}</dd>
+                    </div>
+                    <div>
+                      <dt className="label">{t("level")}</dt>
+                      <dd>
+                        {levels.find((level) => level.id === subject.levelId)
+                          ?.name ?? t("noLevel")}
+                      </dd>
+                    </div>
+                    <div>
+                      <dt className="label">{t("status")}</dt>
+                      <dd>{t(subject.active ? "active" : "inactive")}</dd>
+                    </div>
+                  </dl>
+                  <p className="muted">{t("help")}</p>
+                </TableDetails>
                 {!readOnly && (
-                  <td className="pr-2">
-                    <label className="flex min-h-11 min-w-11 items-center justify-center lg:min-h-10 lg:min-w-9">
-                      <span className="sr-only">
-                        {t("select", { name: subject.name })}
-                      </span>
-                      <input
-                        type="checkbox"
-                        checked={selected.has(subject.id)}
-                        disabled={pending}
-                        onChange={(e) => {
-                          const checked = e.target.checked;
-                          setSelected((current) => {
-                            const next = new Set(current);
-                            if (checked) next.add(subject.id);
-                            else next.delete(subject.id);
-                            return next;
-                          });
-                        }}
-                      />
-                    </label>
-                  </td>
+                  <label className="flex min-h-11 items-center gap-2 text-sm lg:min-h-8">
+                    <input
+                      type="checkbox"
+                      aria-label={t("select", { name: subject.name })}
+                      checked={selected.has(subject.id)}
+                      disabled={pending}
+                      onChange={(event) => {
+                        const checked = event.target.checked;
+                        setSelected((current) => {
+                          const next = new Set(current);
+                          if (checked) next.add(subject.id);
+                          else next.delete(subject.id);
+                          return next;
+                        });
+                      }}
+                    />
+                    {table(selected.has(subject.id) ? "selected" : "select")}
+                  </label>
                 )}
-                <td className="px-2 py-3 font-medium [overflow-wrap:anywhere]">
-                  {subject.name}
-                </td>
-                <td className="px-2 py-3">
-                  {levels.find((l) => l.id === subject.levelId)?.name ??
-                    t("noLevel")}
-                </td>
-                <td className="px-2 py-3">
-                  <span className="badge-slate">
-                    {subject.active ? t("active") : t("inactive")}
-                  </span>
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
-      </div>
+              </TableActions>
+            </tr>
+          ))}
+        </tbody>
+      </SummaryTable>
       {!visible.length && (
         <div className="py-6 text-center">
           <p className="font-medium">

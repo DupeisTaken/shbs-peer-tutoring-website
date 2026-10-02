@@ -1,5 +1,5 @@
 // @vitest-environment jsdom
-import { afterEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
   cleanup,
   fireEvent,
@@ -13,6 +13,22 @@ import en from "../../../messages/en.json";
 import { CourseCatalogueTable } from "./course-catalogue-table";
 
 afterEach(cleanup);
+beforeEach(() => {
+  Object.defineProperties(HTMLDialogElement.prototype, {
+    showModal: {
+      configurable: true,
+      value: function (this: HTMLDialogElement) {
+        this.open = true;
+      },
+    },
+    close: {
+      configurable: true,
+      value: function (this: HTMLDialogElement) {
+        this.open = false;
+      },
+    },
+  });
+});
 const subjects = [
   { id: "1", name: "Algebra", levelId: null, active: false },
   { id: "2", name: "AP Biology", levelId: "ap", active: true },
@@ -174,4 +190,37 @@ it("excludes removed rows after refresh, disables pending writes and handles an 
     </NextIntlClientProvider>,
   );
   expect(screen.getByText("No subjects yet.")).toBeTruthy();
+});
+
+it("keeps selections and detail links in the final column without exposing controls in summary fields", () => {
+  show();
+  const row = within(screen.getByRole("table")).getAllByRole("row")[1]!;
+  const cells = within(row).getAllByRole("cell");
+  for (const cell of cells.slice(0, -1)) {
+    expect(within(cell).queryByRole("button")).toBeNull();
+    expect(within(cell).queryByRole("checkbox")).toBeNull();
+  }
+  expect(
+    within(cells.at(-1)!).getByRole("checkbox", { name: "Select Algebra" }),
+  ).toBeTruthy();
+  const trigger = within(cells.at(-1)!).getByRole("button", {
+    name: "View details: Algebra",
+  });
+  trigger.focus();
+  fireEvent.click(trigger);
+  const dialog = screen.getByRole("dialog", { name: "Algebra" });
+  expect(within(dialog).getByText("No level")).toBeTruthy();
+  expect(within(dialog).getByText("Inactive")).toBeTruthy();
+  fireEvent.click(within(dialog).getByRole("button", { name: "Close" }));
+  expect(document.activeElement).toBe(trigger);
+});
+
+it("opens read-only catalogue details without enabling batch changes", () => {
+  const { onApply } = show({ readOnly: true });
+  fireEvent.click(
+    screen.getByRole("button", { name: "View details: AP Biology" }),
+  );
+  expect(screen.getByRole("dialog", { name: "AP Biology" })).toBeTruthy();
+  expect(screen.queryByRole("checkbox")).toBeNull();
+  expect(onApply).not.toHaveBeenCalled();
 });

@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
   error: null as { message: string; data?: { approvalId?: string } } | null,
   rosterPending: false,
   rosterError: null as { message: string } | null,
+  rosterRefetch: vi.fn(),
   searchRows: null as Record<string, unknown>[] | null,
 }));
 vi.mock("~/trpc/react", () => {
@@ -58,6 +59,7 @@ vi.mock("~/trpc/react", () => {
             isPending: mocks.rosterPending,
             isFetching: mocks.rosterPending,
             error: mocks.rosterError,
+            refetch: mocks.rosterRefetch,
             data: mocks.searchRows ?? [
               {
                 id: "tutee-1",
@@ -174,9 +176,13 @@ it.each([false, true])(
     mocks.rosterPending = false;
     mocks.rosterError = { message: "Roster request failed" };
     mount(chinese, true);
-    expect(screen.getByRole("alert").textContent).toBe(
+    expect(screen.getByRole("alert").textContent).toContain(
       messages.tuteeHistory.failed,
     );
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.uiPatterns.retry }),
+    );
+    expect(mocks.rosterRefetch).toHaveBeenCalledOnce();
     expect(screen.queryByText(messages.tuteeHistory.emptyCurrent)).toBeNull();
     cleanup();
     mocks.rosterError = null;
@@ -219,22 +225,67 @@ it.each([false, true])(
 );
 
 it.each([false, true])(
-  "places email before compact academics with matching headers (Chinese=%s)",
+  "keeps cached rows, final actions, and the creation draft through a failed refresh and recovery (Chinese=%s)",
+  (chinese) => {
+    const messages = chinese ? zh : en;
+    mocks.rosterError = { message: "Background refresh failed" };
+    const view = mount(chinese);
+    const row = screen.getByText("Example Tutee").closest("tr")!;
+    expect(
+      within(row).getByRole("button", {
+        name: messages.accountProfile.editProfile,
+      }),
+    ).toBeTruthy();
+    expect(screen.queryByText(messages.tuteeHistory.emptyCurrent)).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.admin.tutees.addTutee }),
+    );
+    const first = screen.getByLabelText<HTMLInputElement>(
+      `${messages.personName.firstName} ${messages.signupFields.required}`,
+    );
+    fireEvent.change(first, { target: { value: "Draft" } });
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.uiPatterns.retry }),
+    );
+    expect(mocks.rosterRefetch).toHaveBeenCalledOnce();
+    mocks.rosterError = null;
+    view.rerender(
+      <NextIntlClientProvider
+        locale={chinese ? "zh" : "en"}
+        messages={messages}
+        timeZone="Asia/Shanghai"
+      >
+        <ReadOnlyProvider value={false}>
+          <TuteesPage />
+        </ReadOnlyProvider>
+      </NextIntlClientProvider>,
+    );
+    expect(screen.queryByRole("alert")).toBeNull();
+    expect(first.value).toBe("Draft");
+    expect(screen.getByText("Example Tutee")).toBeTruthy();
+    expect(document.querySelector("tbody")?.getAttribute("aria-busy")).toBe(
+      "false",
+    );
+  },
+);
+
+it.each([false, true])(
+  "places contact disclosure in trailing Actions beside compact academics (Chinese=%s)",
   (chinese) => {
     mount(chinese);
     const messages = chinese ? zh : en;
     const headers = screen.getAllByRole("columnheader");
-    expect(headers[1]!.textContent).toBe(messages.admin.tutees.colContact);
-    expect(headers[2]!.textContent).toContain(messages.tuteeHistory.gradeClass);
+    expect(headers[1]!.textContent).toContain(messages.tuteeHistory.gradeClass);
+    expect(headers.at(-1)!.textContent).toBe(messages.tablePatterns.actions);
     const row = screen.getByText("Example Tutee").closest("tr")!;
     const cells = within(row).getAllByRole("cell");
     expect(
-      within(cells[1]!).getByRole("button", {
+      within(cells.at(-1)!).getByRole("button", {
         name: messages.accountProfile.showEmail,
       }),
     ).toBeTruthy();
     expect(
-      Array.from(cells[2]!.querySelectorAll("p"), (p) => p.textContent),
+      Array.from(cells[1]!.querySelectorAll("p"), (p) => p.textContent),
     ).toEqual([messages.tuteeHistory.notRecorded]);
     const actions = within(cells.at(-1)!);
     const edit = actions.getByRole("button", {
@@ -243,8 +294,8 @@ it.each([false, true])(
     const remove = actions.getByRole("button", {
       name: messages.admin.tutees.deleteBtn,
     });
-    expect(edit.classList.contains("table-account-action")).toBe(true);
-    expect(remove.classList.contains("link-danger")).toBe(true);
+    expect(edit.classList.contains("table-action-link")).toBe(true);
+    expect(remove.classList.contains("text-red-600")).toBe(true);
     fireEvent.click(edit);
     expect(screen.getByRole("dialog").textContent).toBe("Editing tutee-1");
     fireEvent.click(remove);
@@ -255,8 +306,16 @@ it.each([false, true])(
 it("hides private account actions for read-only viewers", () => {
   mount(false, true);
   const row = screen.getByText("Example Tutee").closest("tr")!;
-  expect(within(row).queryByRole("button")).toBeNull();
-  expect(within(row).getByText(en.accountProfile.privateEmail)).toBeTruthy();
+  expect(within(row).getAllByRole("button")).toHaveLength(1);
+  expect(
+    within(row).getByRole("button", { name: /View details/ }),
+  ).toBeTruthy();
+  expect(
+    within(row).queryByRole("button", { name: en.tuteeHistory.details }),
+  ).toBeNull();
+  expect(
+    within(row).queryByRole("button", { name: en.accountProfile.showEmail }),
+  ).toBeNull();
   expect(within(row).getByText(en.tuteeHistory.notRecorded)).toBeTruthy();
 });
 
@@ -283,6 +342,7 @@ it("reveals historical and unverified records independently without setup or cur
       .getAllByRole("button")
       .map((button) => button.textContent),
   ).toEqual([
+    en.tablePatterns.details,
     en.tuteeHistory.details,
     en.accountProfile.editProfile,
     en.admin.tutees.deleteBtn,
@@ -552,3 +612,26 @@ it.each([false, true])(
     }
   },
 );
+
+it("uses manually activated tabs for views and pressed choices for record filters", () => {
+  mount();
+  const tutees = screen.getByRole("tab", { name: en.admin.tutees.viewTutees });
+  const tutors = screen.getByRole("tab", { name: en.admin.tutees.viewTutors });
+  tutees.focus();
+  fireEvent.keyDown(tutees, { key: "ArrowRight" });
+  expect(document.activeElement).toBe(tutors);
+  expect(tutees.getAttribute("aria-selected")).toBe("true");
+  expect(screen.getByText("Example Tutee")).toBeTruthy();
+  fireEvent.click(tutors);
+  expect(tutors.getAttribute("aria-selected")).toBe("true");
+  expect(screen.getByRole("tabpanel").getAttribute("aria-labelledby")).toBe(
+    tutors.id,
+  );
+  fireEvent.click(tutees);
+  const history = screen.getByRole("button", {
+    name: en.tuteeHistory.historical,
+  });
+  fireEvent.click(history);
+  expect(history.getAttribute("aria-pressed")).toBe("true");
+  expect(screen.getByText("Archive Learner")).toBeTruthy();
+});

@@ -1,4 +1,36 @@
 {
+  "uiPatterns": {
+    "meetingDate": "Besprechungsdatum",
+    "profile": "Profil",
+    "saveProfile": "Profil speichern",
+    "cancel": "Abbrechen",
+    "retry": "Erneut versuchen",
+    "loadFailed": "Dieser Bereich konnte nicht geladen werden",
+    "editorDenied": "Kein Zugriff auf den Startseiteneditor",
+    "editorDeniedHelp": "Zum Bearbeiten und zur Vorschau der Startseiteninhalte sind eine Verwaltungsrolle und eine ausdrückliche Zuweisung als Übersetzer erforderlich. Bitte die Programmleitung, deinen Zugriff zu prüfen.",
+    "returnManagement": "Zurück zur Verwaltung",
+    "scrollTable": "Scrolle seitwärts, um alle Spalten zu vergleichen.",
+    "deleteMeeting": "Besprechung löschen?",
+    "deleteMeetingHelp": "„{title}“ und die zugehörigen Anwesenheitsdaten löschen? Diese Aktion kann nicht rückgängig gemacht werden.",
+    "attendanceFor": "Anwesenheit von {name}"
+  },
+  "tablePatterns": {
+    "actions": "Aktionen",
+    "details": "Details anzeigen",
+    "edit": "Bearbeiten",
+    "close": "Schließen",
+    "summary": "Zusammenfassung",
+    "records": "{count, plural, one {# Eintrag} other {# Einträge}}",
+    "schedule": "Zeitplan anzeigen",
+    "occupied": "Belegt",
+    "available": "Verfügbar",
+    "unavailable": "Nicht verfügbar",
+    "reason": "Begründung",
+    "slot": "Zeitfenster",
+    "room": "Raum",
+    "select": "Auswählen",
+    "selected": "Ausgewählt"
+  },
   "scheduling": {
     "awaiting": "Termin noch offen",
     "noLinkedSlot": "Kein Katalogzeitfenster verknüpft",
@@ -458,7 +490,8 @@
       "GRADUATED": "Abgegangen",
       "OPTED_OUT": "Ausgetreten",
       "PENDING": "Ausstehend",
-      "ARCHIVED": "Archiviert"
+      "ARCHIVED": "Archiviert",
+      "TRANSFERRED": "Schulwechsel"
     },
     "tutees": {
       "title": "Liste der Lernenden",
@@ -1314,7 +1347,7 @@
       "pendingReview": "Prüfung ausstehend",
       "nothingPending": "Nichts zur Prüfung.",
       "standingHeading": "Standing der Lernenden",
-      "standingHelp": "🟥 belegt 3 Felder, 🟨 belegt 1 (nur gültige Karten). Volle 6 = Entfernung ausstehend. Auf einen Namen klicken für die Kartendetails.",
+      "standingHelp": "🟥 belegt 3 Felder, 🟨 belegt 1 (nur gültige Karten). Sind alle 6 Felder belegt, steht der Ausschluss aus dem Programm aus. Über den Detail-Link in der Spalte ganz rechts kannst du die Karten ansehen.",
       "standing": {
         "removalPending": "Entfernung ausstehend",
         "onWarning": "Verwarnung",
@@ -1890,6 +1923,7 @@
       "empty": "Noch keine Zeitfenster veröffentlicht.",
       "save": "Verfügbarkeit speichern",
       "saving": "Wird gespeichert…",
+      "refreshFailed": "Die Speicherung wurde bestätigt, aber die aktualisierte Verfügbarkeit konnte nicht geladen werden. Versuche das Laden erneut, bevor du weitere Änderungen vornimmst.",
       "saved": "Gespeichert."
     },
     "interviews": {
@@ -3294,7 +3328,14 @@
     "scheduled": "Interview: {date}",
     "result": "Decision: {comment}",
     "granted": "Granted at approval: {subjects}",
-    "directHelp": "Approve or reject with a note, or assign an interview panel below. Direct approval can skip an interview.",
+    "approveWithoutInterview": "Ohne Vorstellungsgespräch genehmigen",
+    "reviewTitle": "Qualifikationsantrag prüfen",
+    "reviewHelp": "Begründen Sie Ihre Entscheidung und genehmigen Sie den Antrag ohne Vorstellungsgespräch. Eine Ablehnung erfordert ein Vorstellungsgespräch. Das Öffnen dieser Prüfung übermittelt keine Entscheidung.",
+    "reloadReview": "Prüfung neu laden",
+    "reloadHelp": "Ihre Notiz behält die ursprüngliche Version. Laden Sie neu, um die Notiz zu löschen und den aktuellen Antrag zu prüfen.",
+    "decisionSaved": "Entscheidung gespeichert.",
+    "decisionRefreshFailed": "Die Entscheidung wurde gespeichert, aber die Aktualisierung ist fehlgeschlagen. Versuchen Sie die Aktualisierung erneut.",
+    "directHelp": "Öffnen Sie die direkte Prüfung, um mit einer Notiz zu genehmigen. Eine Ablehnung erfordert ein Vorstellungsgespräch. Bei aktivierten Vorstellungsgesprächen kann weiterhin ein Gremium zugewiesen werden.",
     "interviewReview": "The assigned Admin or Head chair records the decision after every panelist has voted. The panel majority applies.",
     "reviewerOnly": "Another Admin or Head must review this request.",
     "decisionNote": "Decision note",
@@ -3645,7 +3686,8 @@
       "patrols": "Patrols retained",
       "academicConfirmations": "Academic confirmations retained",
       "tuteeProfiles": "Tutee ownership links moved"
-    }
+    },
+    "noCandidates": "Es stehen keine Konten zum Zusammenführen zur Verfügung."
   },
   "tuteeHistory": {
     "noSearchMatches": "Keine Teilnehmenden entsprechen Ihrer Suche.",

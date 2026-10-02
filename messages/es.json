@@ -1,4 +1,36 @@
 {
+  "uiPatterns": {
+    "meetingDate": "Fecha de la reunión",
+    "profile": "Perfil",
+    "saveProfile": "Guardar perfil",
+    "cancel": "Cancelar",
+    "retry": "Intentar de nuevo",
+    "loadFailed": "No se pudo cargar esta sección",
+    "editorDenied": "No tienes acceso al editor de la página de inicio",
+    "editorDeniedHelp": "Para editar y previsualizar el contenido de la página de inicio se necesita un rol de administración y una asignación explícita como Traductor. Pide a la persona responsable del programa que revise tu acceso.",
+    "returnManagement": "Volver a la administración",
+    "scrollTable": "Desplázate horizontalmente para comparar todas las columnas.",
+    "deleteMeeting": "¿Eliminar la reunión?",
+    "deleteMeetingHelp": "¿Eliminar «{title}» y sus registros de asistencia? Esta acción no se puede deshacer.",
+    "attendanceFor": "Asistencia de {name}"
+  },
+  "tablePatterns": {
+    "actions": "Acciones",
+    "details": "Ver detalles",
+    "edit": "Editar",
+    "close": "Cerrar",
+    "summary": "Resumen",
+    "records": "{count, plural, one {# registro} other {# registros}}",
+    "schedule": "Ver horario",
+    "occupied": "Ocupada",
+    "available": "Disponible",
+    "unavailable": "No disponible",
+    "reason": "Motivo",
+    "slot": "Franja horaria",
+    "room": "Aula",
+    "select": "Seleccionar",
+    "selected": "Seleccionado"
+  },
   "scheduling": {
     "awaiting": "Horario pendiente",
     "noLinkedSlot": "Sin franja del catálogo vinculada",
@@ -1240,7 +1272,7 @@
       "pendingReview": "Pendiente de revisión",
       "nothingPending": "Nada en espera de revisión.",
       "standingHeading": "Situación del estudiante",
-      "standingHelp": "🟥 llena 3 casillas, 🟨 llena 1 (solo tarjetas válidas). Un total de 6 = expulsión pendiente. Haz clic en un nombre para ver los detalles de las tarjetas.",
+      "standingHelp": "🟥 ocupa 3 casillas y 🟨 ocupa 1 (solo tarjetas válidas). Si se llenan las 6, la expulsión queda pendiente. Usa el enlace de detalles de la última columna a la derecha para ver las tarjetas.",
       "standing": {
         "removalPending": "expulsión pendiente",
         "onWarning": "en advertencia",
@@ -1269,7 +1301,8 @@
       "GRADUATED": "Graduado",
       "OPTED_OUT": "Dado de baja",
       "PENDING": "Pendiente",
-      "ARCHIVED": "Archivado"
+      "ARCHIVED": "Archivado",
+      "TRANSFERRED": "Trasladado"
     },
     "registrationCodes": {
       "kindAdmin": "Admin",
@@ -1882,6 +1915,7 @@
       "empty": "Aún no se han publicado horarios.",
       "save": "Guardar disponibilidad",
       "saving": "Guardando…",
+      "refreshFailed": "Se aceptó el guardado, pero no se pudo cargar la disponibilidad actualizada. Vuelve a intentar cargarla antes de realizar más cambios.",
       "saved": "Guardado."
     },
     "interviews": {
@@ -3294,7 +3328,14 @@
     "scheduled": "Interview: {date}",
     "result": "Decision: {comment}",
     "granted": "Granted at approval: {subjects}",
-    "directHelp": "Approve or reject with a note, or assign an interview panel below. Direct approval can skip an interview.",
+    "approveWithoutInterview": "Aprobar sin entrevista",
+    "reviewTitle": "Revisar solicitud de cualificación",
+    "reviewHelp": "Escriba una nota de decisión y apruebe la solicitud sin entrevista. Para rechazarla se requiere una entrevista. Abrir esta revisión no envía ninguna decisión.",
+    "reloadReview": "Recargar revisión",
+    "reloadHelp": "Su nota conserva la versión original. Recargue para borrar la nota y revisar la solicitud más reciente.",
+    "decisionSaved": "Decisión guardada.",
+    "decisionRefreshFailed": "La decisión se guardó, pero falló la actualización. Reintente la actualización para cargar los registros actualizados.",
+    "directHelp": "Abra la revisión directa para aprobar con una nota. Para rechazar se requiere una entrevista. La asignación de un panel sigue disponible cuando las entrevistas están habilitadas.",
     "interviewReview": "The assigned Admin or Head chair records the decision after every panelist has voted. The panel majority applies.",
     "reviewerOnly": "Another Admin or Head must review this request.",
     "decisionNote": "Decision note",
@@ -3645,7 +3686,8 @@
       "patrols": "Patrols retained",
       "academicConfirmations": "Academic confirmations retained",
       "tuteeProfiles": "Tutee ownership links moved"
-    }
+    },
+    "noCandidates": "No hay cuentas disponibles para combinar."
   },
   "tuteeHistory": {
     "noSearchMatches": "Ningún alumno coincide con la búsqueda.",
