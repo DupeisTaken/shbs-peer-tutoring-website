@@ -1,4 +1,4 @@
-# Policy revision review: 2026.09.24
+# Policy revision review: 2026.10.02
 
 [Policy sources and publication](README.md)
 
@@ -43,6 +43,7 @@ These drafts describe the repository implementation and preserve compatible prog
 | Hour rounding | Nearest half-hour; examples use scheduled duration | Uses recorded duration rounded before the attendance multiplier, with explicit boundary examples matching the [calculator](../../src/lib/service-hours.ts). Combined blocks count time and distinct present students once. |
 | Tutor absence penalties | Three total absences, 1-hour session deductions and 0.125-hour meeting deductions | Not carried forward. Current automation allows three unexcused meeting absences per semester, then deducts 0.25 hours per additional absence. Excused absences do not consume that allowance. Other adjustments require recorded authorized decisions. See [meeting reconciliation](../../src/server/meeting-hours.ts). |
 | Meetings | Monday lunch | Follow published dates. The one-hour advance excuse requirement remains. |
+| Crew credit | Separate crew membership; no credit interval specified | Eligible sweeps earn 0.5 hours at most once every 20 server minutes across combined accounts. Reused UTC evidence intervals, old observations and cooldown submissions add no hours; corrections preserve prior claims. See [crew instructions](../user-guide.md#crew). |
 | Interview panels | At least two tutors | At least three active tutors with accounts, management presence and recorded subject qualification; highest-ranking management chair. All votes required, majority then chair tie-break, coordinator outcome subject to approval. See [panel validation](../../src/server/interviews.ts). |
 | Interview format | Topic 24 hours ahead, demonstration 15–20 minutes | Retained as staff-organized expectations, not automatic website constraints. |
 | Recruitment and reshuffles | Twice per semester and P&B orientation | Use current recruitment windows, quarter/semester configuration and published orientation arrangements. No automatic fixed calendar is promised. |

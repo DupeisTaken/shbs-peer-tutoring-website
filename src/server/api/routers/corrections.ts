@@ -19,6 +19,7 @@ import { lockAttendanceSchedule } from "~/server/attendance-schedule";
 import { syncPunishmentRemoval } from "~/server/discipline/removal";
 import { getFeatures } from "~/server/program/features";
 import { assertObservedTimes } from "~/server/crew/observation-time";
+import { lockPatrolCreditOwner, reservePatrolEvidence } from "~/server/crew/patrol-credit";
 
 const reason = z.string().trim().min(1, "Explain the correction.").max(1000);
 const rating = z.number().int().min(1).max(5).nullable();
@@ -326,6 +327,8 @@ export const correctionsRouter = createTRPCRouter({
     .mutation(async ({ ctx, input }) =>
       inTransaction(ctx.db, async (tx) => {
         await lockAttendanceSchedule(tx);
+        const author = await tx.patrol.findUniqueOrThrow({ where: { id: input.id }, select: { crewUserId: true } });
+        await lockPatrolCreditOwner(tx, author.crewUserId, true);
         await lockEntity(tx, `patrol:${input.id}`);
         assertObservedTimes(input.observations);
         const before = await tx.patrol.findUniqueOrThrow({
@@ -355,6 +358,8 @@ export const correctionsRouter = createTRPCRouter({
         });
         for (const { id, ...data } of input.observations)
           await tx.patrolObservation.update({ where: { id }, data });
+        if (before.hours > 0)
+          await reservePatrolEvidence(tx, before, input.observations, true);
         // Query both old and new evidence windows so moved observations clear old discrepancies.
         const evidence = [...before.observations, ...input.observations];
         const timeZone = await getProgramTimeZone(tx);

@@ -2249,7 +2249,7 @@
     },
     "patrol": {
       "title": "教室巡回",
-      "subtitle": "順番に各教室を回り、いる生徒の人数をタップします。1回の巡回提出で0.5時間が加算されます。",
+      "subtitle": "Record room headcounts. A sweep with all observations from the last 20 minutes can earn 0.5 hours, at most once every 20 minutes. Older or repeated observations are saved without extra credit.",
       "myHours": "自分の巡回時間",
       "patrolCount": "{count, plural, other {# 回の巡回}}",
       "noRooms": "巡回する教室がまだありません。",
@@ -2257,6 +2257,7 @@
       "submit": "巡回を提出（{count}）",
       "submitting": "送信中…",
       "submitted": "巡回を記録しました。",
+      "recordedWithoutCredit": "Observations saved with no additional hours. Credit requires a recent sweep and an unused 20-minute allowance. Existing credit is unchanged.",
       "recent": "最近の巡回",
       "optedOut": {
         "title": "巡回班を退会しました",

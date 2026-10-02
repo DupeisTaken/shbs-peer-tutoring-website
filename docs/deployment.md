@@ -698,3 +698,9 @@ migration if the ownership decision needs correction. Never remove the database 
 or reuse a retired identifier as a shortcut. The application checks retirement on login,
 JWT validation, recovery, signup and live API authorization. Concurrent credential issuance
 is fenced by a User-row lock, and the merge's actor/evidence audit commits atomically.
+
+## Patrol credit migration
+
+Apply `20261002010000_patrol_credit_budget` before starting the updated application. It adds server award timestamps and unique UTC 20-minute evidence reservations. Existing positive-hour patrols retain their hours, notes, observations and update timestamps; their recorded creation time becomes the historical award time. All observed intervals are reserved. A patrol without observations reserves its creation interval. For overlapping legacy awards, the earliest submission owns the reservation, with ID as the tie-breaker. No duplicates are deleted and no historical totals are reduced. Zero-hour records receive no award time or reservation.
+
+Combined identities retain their original authors and reservations; the application checks their union. Corrections retain original reservations and add corrected intervals without creating another award. Program-record exports include the interval ledger. Importing an older archive backfills reservations and missing award times in the same transaction without changing its hour totals or update timestamps. Back up before migration and review legacy duplicate totals separately if needed. Do not run older application code after migrating: it would create unbudgeted awards without reservations. Test the migration and schema agreement on a disposable database before deployment.

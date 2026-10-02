@@ -2,7 +2,7 @@
 
 [Documentation hub](../README.md) · [User guide](../user-guide.md) · [Technical report](../technical-report.md#policy-documents-and-translations)
 
-The bundled English and Chinese documents are **policy review drafts**, not approved school policies. Revision 2026.09.24 preserves the legacy tutor I–VIII and tutee I–IV structure while incorporating current website workflows. The [revision review](revision-notes.md) identifies retained expectations, changed rules, legacy sources and printable PDF export instructions. Adapt the drafts to enabled modules and school requirements, supply contact details and an effective date, and approve both languages before publication. Their source revision is defined by `POLICY_VERSION` in [the catalog](../../prisma/policies.ts).
+The bundled English and Chinese documents are **policy review drafts**, not approved school policies. Revision 2026.10.02 preserves the legacy tutor I–VIII and tutee I–IV structure while incorporating current website workflows. The [revision review](revision-notes.md) identifies retained expectations, changed rules, legacy sources and printable PDF export instructions. Adapt the drafts to enabled modules and school requirements, supply contact details and an effective date, and approve both languages before publication. Their source revision is defined by `POLICY_VERSION` in [the catalog](../../prisma/policies.ts).
 
 | Audience | English | 中文 |
 | --- | --- | --- |

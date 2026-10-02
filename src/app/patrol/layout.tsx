@@ -43,26 +43,32 @@ export default async function PatrolLayout({ children }: { children: React.React
   return (
     <div className="min-h-screen">
       <header className="sticky top-0 z-20 border-b border-slate-200 bg-white">
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-6">
-          <Link href="/patrol" className="text-lg font-bold text-slate-900">
+        {/* Keep language beside the brand on mobile and workspace links on their own row.
+            Existing compact props align every desktop control without changing shared shells. */}
+        <div className="grid grid-cols-[minmax(0,1fr)_auto] items-center gap-x-3 gap-y-2 px-4 py-3 lg:flex lg:flex-wrap lg:gap-3 lg:px-6">
+          <Link href="/patrol" className="flex min-h-11 items-center text-xl font-bold text-slate-900 lg:mr-auto lg:min-h-8 lg:text-lg">
             {t("crew.brand", { team: TEAM_TITLE })}
           </Link>
-          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
+          <div className="justify-self-end lg:order-3">
+            <LanguageSwitcher compactAtDesktop />
+          </div>
+          <div className="col-span-2 flex flex-wrap items-center justify-end gap-2 sm:gap-3 lg:order-2">
             <div className="hidden text-right leading-tight sm:block">
               <p className="text-sm font-medium text-slate-900">{session.user.name}</p>
               <p className="muted text-xs">{t("crew.role")}</p>
             </div>
-            <Link href="/student" prefetch={false} className="btn-secondary btn-sm">
+            <ThemeSwitcher compactAtDesktop />
+            <SignOutButton className="btn-secondary btn-sm min-h-11 lg:min-h-8 lg:py-0" />
+          </div>
+          <div className="col-span-2 flex flex-wrap items-center gap-2 border-t border-slate-100 pt-2 lg:order-1 lg:border-0 lg:pt-0">
+            <Link href="/student" prefetch={false} className="btn-secondary btn-sm min-h-11 lg:min-h-8 lg:py-0">
               {t("components.userMenu.enterTutee")}
             </Link>
-            <ThemeSwitcher />
-            <LanguageSwitcher />
             {backHref && (
-              <Link href={backHref} className="btn-secondary btn-sm">
+              <Link href={backHref} className="btn-secondary btn-sm min-h-11 lg:min-h-8 lg:py-0">
                 {t("crew.exit")}
               </Link>
             )}
-            <SignOutButton />
           </div>
         </div>
       </header>

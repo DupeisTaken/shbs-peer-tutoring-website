@@ -2249,7 +2249,7 @@
     },
     "patrol": {
       "title": "Ronde des salles",
-      "subtitle": "Parcourez les salles dans l'ordre et indiquez combien d'élèves se trouvent dans chacune. Soumettre une ronde crédite 0,5 heure de service.",
+      "subtitle": "Record room headcounts. A sweep with all observations from the last 20 minutes can earn 0.5 hours, at most once every 20 minutes. Older or repeated observations are saved without extra credit.",
       "myHours": "Mes heures de ronde",
       "patrolCount": "{count, plural, =1 {# ronde} other {# rondes}}",
       "noRooms": "Aucune salle à parcourir pour l'instant.",
@@ -2257,6 +2257,7 @@
       "submit": "Soumettre la ronde ({count})",
       "submitting": "Envoi…",
       "submitted": "Ronde enregistrée.",
+      "recordedWithoutCredit": "Observations saved with no additional hours. Credit requires a recent sweep and an unused 20-minute allowance. Existing credit is unchanged.",
       "recent": "Rondes récentes",
       "optedOut": {
         "title": "Vous avez quitté la ronde",
