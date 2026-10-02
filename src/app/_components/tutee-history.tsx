@@ -1,7 +1,7 @@
 "use client";
 import { invalidateTuteeViews } from "~/lib/tutee-cache";
 
-import { useEffect, useState } from "react";
+import { useLayoutEffect, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { ProfileDialog } from "./profile-dialog";
@@ -188,11 +188,13 @@ export function TuteeHistoryLinkForm({
   isHead,
   onLinked,
   onPendingChange,
+  parentPending = false,
 }: {
   row: RouterOutputs["admin"]["tutees"][number];
   isHead: boolean;
   onLinked: () => void;
   onPendingChange?: (pending: boolean) => void;
+  parentPending?: boolean;
 }) {
   const t = useTranslations("tuteeHistory");
   const format = useFormatter();
@@ -252,19 +254,26 @@ export function TuteeHistoryLinkForm({
     },
     onError: (e) => setError(e.message),
   });
-  const pending =
+  const ownPending =
     link.isPending ||
     invite.isPending ||
     cancelInvitation.isPending ||
     reviewing;
-  // The enclosing native dialog owns dismissal/focus. Keep it mounted until the
-  // exact history write settles so closing it cannot conceal an in-flight result.
-  useEffect(() => {
-    onPendingChange?.(pending);
+  const pending = ownPending || parentPending;
+  // Report only owned work. Feeding the inherited busy state back to the parent
+  // would latch both forms disabled after either request finished. Layout timing
+  // disables sibling actions before another painted interaction can submit them.
+  useLayoutEffect(() => {
+    onPendingChange?.(ownPending);
     return () => onPendingChange?.(false);
-  }, [pending, onPendingChange]);
+  }, [ownPending, onPendingChange]);
   return (
-    <div className="space-y-5">
+    <fieldset
+      disabled={pending}
+      aria-busy={pending}
+      className="min-w-0 space-y-5"
+    >
+      <legend className="sr-only">{t("linkTitle")}</legend>
       <div>
         <p className="font-semibold">{row.englishName}</p>
         <p className="muted text-xs break-all">
@@ -289,6 +298,7 @@ export function TuteeHistoryLinkForm({
           className="flex flex-wrap items-end gap-2"
           onSubmit={(e) => {
             e.preventDefault();
+            if (pending) return;
             setQuery(search.trim());
             setUserId("");
             setPreview(null);
@@ -347,6 +357,7 @@ export function TuteeHistoryLinkForm({
           className="btn-secondary min-h-11 lg:min-h-9"
           disabled={!userId || pending}
           onClick={async () => {
+            if (pending) return;
             setReviewing(true);
             setError(null);
             setAcknowledged(false);
@@ -414,7 +425,8 @@ export function TuteeHistoryLinkForm({
                     reason.trim().length < 10 ||
                     (preview.conflict && !password)
                   }
-                  onClick={() =>
+                  onClick={() => {
+                    if (pending) return;
                     link.mutate({
                       tuteeId: row.id,
                       userId,
@@ -423,8 +435,8 @@ export function TuteeHistoryLinkForm({
                       ...(preview.conflict
                         ? { confirmPassword: password }
                         : {}),
-                    })
-                  }
+                    });
+                  }}
                 >
                   {t("link")}
                 </button>
@@ -463,6 +475,7 @@ export function TuteeHistoryLinkForm({
                 className="btn-secondary min-h-11 lg:min-h-10"
                 disabled={pending}
                 onClick={() => {
+                  if (pending) return;
                   setError(null);
                   cancelInvitation.mutate({
                     tuteeId: row.id,
@@ -478,6 +491,7 @@ export function TuteeHistoryLinkForm({
             className="space-y-3"
             onSubmit={(e) => {
               e.preventDefault();
+              if (pending) return;
               setError(null);
               invite.mutate({
                 tuteeId: row.id,
@@ -517,6 +531,6 @@ export function TuteeHistoryLinkForm({
         </section>
       )}
       {error && <HistoryError message={error} />}
-    </div>
+    </fieldset>
   );
 }

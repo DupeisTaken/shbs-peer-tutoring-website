@@ -58,16 +58,24 @@ export function TuteeEditor({
       onClose();
     },
   });
+  // Each section reports only its own request. Both forms respect the combined
+  // busy state so one success cannot close the other section's outstanding write.
+  const pending = save.isPending || historyPending;
   return (
-    <ProfileDialog title={profileText("editProfile")} onClose={onClose} pending={save.isPending || historyPending}>
+    <ProfileDialog
+      title={profileText("editProfile")}
+      onClose={onClose}
+      pending={pending}
+    >
       <p className="muted text-sm">
         {row.user ? profileText("canonicalHelp") : history("noAccountHelp")}
       </p>
       {subjects.data && slots.data && (
         <form
-          className="mt-3 grid max-w-3xl gap-4 sm:grid-cols-2"
+          className="mt-3 max-w-3xl"
           onSubmit={(e) => {
             e.preventDefault();
+            if (pending || subjects.isLoading || slots.isLoading) return;
             const data = new FormData(e.currentTarget);
             const value = (key: string) =>
               (typeof data.get(key) === "string"
@@ -99,120 +107,127 @@ export function TuteeEditor({
             });
           }}
         >
-          <div className="sm:col-span-2">
-            <PersonNameFields
-              value={names}
-              onChange={setNames}
-              legacyName={legacyName}
-              originalValue={originalNames}
-            />
-          </div>
-          {(
-            [
-              ["grade", academicText("legacyGrade"), row.gradeLevel],
-              ["email", t("email"), row.user?.email ?? row.email],
-              ["phone", t("phone"), row.phone],
-              ["preferredContact", t("contact"), row.preferredContact],
-            ] as const
-          )
-            .filter(([name]) => name !== "grade" || !row.user)
-            .map(([name, label, value]) => (
-              <label key={name} className="block">
-                <span className="label">{label}</span>
-                {name === "grade" ? (
-                  <OfferedGradeSelect
-                    name="grade"
-                    value={grade}
-                    onChange={setGrade}
-                    offeredGrades={policy.offeredGrades}
-                    preserveLegacy
-                    includeGraduated
-                  />
-                ) : (
-                  <input
-                    className="input w-full"
-                    name={name}
-                    defaultValue={value ?? ""}
-                    type={name === "email" ? "email" : "text"}
-                    readOnly={name === "email" && !!row.user}
-                  />
-                )}
+          <fieldset
+            disabled={pending}
+            aria-busy={pending}
+            className="grid min-w-0 gap-4 sm:grid-cols-2"
+          >
+            <legend className="sr-only">{profileText("editProfile")}</legend>
+            <div className="sm:col-span-2">
+              <PersonNameFields
+                value={names}
+                onChange={setNames}
+                legacyName={legacyName}
+                originalValue={originalNames}
+              />
+            </div>
+            {(
+              [
+                ["grade", academicText("legacyGrade"), row.gradeLevel],
+                ["email", t("email"), row.user?.email ?? row.email],
+                ["phone", t("phone"), row.phone],
+                ["preferredContact", t("contact"), row.preferredContact],
+              ] as const
+            )
+              .filter(([name]) => name !== "grade" || !row.user)
+              .map(([name, label, value]) => (
+                <label key={name} className="block">
+                  <span className="label">{label}</span>
+                  {name === "grade" ? (
+                    <OfferedGradeSelect
+                      name="grade"
+                      value={grade}
+                      onChange={setGrade}
+                      offeredGrades={policy.offeredGrades}
+                      preserveLegacy
+                      includeGraduated
+                    />
+                  ) : (
+                    <input
+                      className="input w-full"
+                      name={name}
+                      defaultValue={value ?? ""}
+                      type={name === "email" ? "email" : "text"}
+                      readOnly={name === "email" && !!row.user}
+                    />
+                  )}
 
-                {name === "email" && row.user && (
-                  <span className="muted text-xs">
-                    {profileText("emailProtected")}
-                  </span>
-                )}
-              </label>
-            ))}
-          <div className="sm:col-span-2">
-            {!row.historical && (
-              <>
-                <ProfilePolicyHint />
-                <ProfilePolicyHint field="legal" />
-              </>
-            )}
-          </div>
-          {(
-            [
-              ["firstChoice", t("first"), row.firstChoiceId],
-              ["secondChoice", t("second"), row.secondChoiceId],
-            ] as const
-          ).map(([name, label, id]) => (
-            <label key={name} className="block">
-              <span className="label">{label}</span>
-              <select
-                className="select w-full"
-                name={name}
-                defaultValue={id ?? ""}
-              >
-                <option value="">{t("none")}</option>
-                {subjects.data?.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                    {s.active ? "" : t("inactive")}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ))}
-          <fieldset>
-            <legend className="label">{t("availability")}</legend>
-            {slots.data
-              ?.filter((s) => s.active)
-              .map((s) => (
-                <label className="flex items-center gap-2" key={s.id}>
-                  <input
-                    type="checkbox"
-                    name="slot"
-                    value={s.id}
-                    defaultChecked={row.availabilities.some(
-                      (a) => a.slot.id === s.id,
-                    )}
-                  />
-                  {s.label}
+                  {name === "email" && row.user && (
+                    <span className="muted text-xs">
+                      {profileText("emailProtected")}
+                    </span>
+                  )}
                 </label>
               ))}
+            <div className="sm:col-span-2">
+              {!row.historical && (
+                <>
+                  <ProfilePolicyHint />
+                  <ProfilePolicyHint field="legal" />
+                </>
+              )}
+            </div>
+            {(
+              [
+                ["firstChoice", t("first"), row.firstChoiceId],
+                ["secondChoice", t("second"), row.secondChoiceId],
+              ] as const
+            ).map(([name, label, id]) => (
+              <label key={name} className="block">
+                <span className="label">{label}</span>
+                <select
+                  className="select w-full"
+                  name={name}
+                  defaultValue={id ?? ""}
+                >
+                  <option value="">{t("none")}</option>
+                  {subjects.data?.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                      {s.active ? "" : t("inactive")}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ))}
+            <fieldset>
+              <legend className="label">{t("availability")}</legend>
+              {slots.data
+                ?.filter((s) => s.active)
+                .map((s) => (
+                  <label className="flex items-center gap-2" key={s.id}>
+                    <input
+                      type="checkbox"
+                      name="slot"
+                      value={s.id}
+                      defaultChecked={row.availabilities.some(
+                        (a) => a.slot.id === s.id,
+                      )}
+                    />
+                    {s.label}
+                  </label>
+                ))}
+            </fieldset>
+            <label className="block">
+              <span className="label">{t("notes")}</span>
+              <textarea
+                className="input w-full"
+                name="notes"
+                defaultValue={row.notes ?? ""}
+              />
+            </label>
+            <button
+              className="btn-primary self-end justify-self-start"
+              disabled={pending || subjects.isLoading || slots.isLoading}
+            >
+              {t("save")}
+            </button>
+            {save.error && (
+              <p role="alert" className="text-sm text-red-600">
+                <AcademicError message={save.error.message} />
+              </p>
+            )}
           </fieldset>
-          <label className="block">
-            <span className="label">{t("notes")}</span>
-            <textarea
-              className="input w-full"
-              name="notes"
-              defaultValue={row.notes ?? ""}
-            />
-          </label>
-          <button
-            className="btn-primary self-end justify-self-start"
-            disabled={save.isPending || subjects.isLoading || slots.isLoading}
-          >
-            {t("save")}
-          </button>
-          {save.error && (
-            <p role="alert" className="text-sm text-red-600">
-              <AcademicError message={save.error.message} />
-            </p>
-          )}
         </form>
       )}
       {row.user && (
@@ -232,6 +247,7 @@ export function TuteeEditor({
                 row={row}
                 isHead={historyPermissions.isHead}
                 onPendingChange={setHistoryPending}
+                parentPending={save.isPending}
                 onLinked={() => {
                   setHistoryLinked(true);
                   if (historySection.current) {

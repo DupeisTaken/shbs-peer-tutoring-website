@@ -41,6 +41,7 @@ For a new login, enter the invited email, verify the separately emailed code and
 - Tokens expire in seven days, are stored only as hashes, and cannot be exported with Program Records.
 - Opening/scanning the URL does not claim anything. Only the explicit confirmation writes ownership.
 - A completed link consumes the invitation. Expiry, record edits, or suspension/demotion of its issuing manager invalidate every setup/claim step. Staff can inspect the recipient and expiry and choose **Cancel invitation** in the same editor. Cancellation does not delete an already created account or revoke completed ownership.
+- The profile and historical-link sections share a pending guard: while either section is saving or reviewing a link, both sections pause edits and submissions through refresh. Close and repeated Escape requests remain blocked during that work. Failed requests leave the editor open with both drafts intact so staff can correct or retry the action.
 - Email codes last 15 minutes and allow six incorrect attempts. Wait at least one minute before resending; a new code replaces the previous code and completion proof. Repeating successful account creation returns the existing completion receipt without resetting its password.
 - A failed replacement email leaves the existing invitation intact. If delivery succeeds but the transaction fails, staff must send a new invitation.
 - The sender's configured AUTH_URL and security email delivery must be available. No production email is used in local verification.
