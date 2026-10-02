@@ -66,7 +66,7 @@ it.each(["rejected", "synchronous"])(
     for (const view of [...Object.values(utils.admin), utils.tuteeHistory])
       expect(view.invalidate).toHaveBeenCalledWith(
         undefined,
-        { predicate: expect.any(Function) },
+        { predicate: expect.any(Function) as unknown },
         {
           throwOnError: false,
         },
