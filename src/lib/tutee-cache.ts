@@ -1,15 +1,13 @@
 import { settleRefreshes } from "./settle-refreshes";
+import {
+  invalidateAndReport,
+  type InvalidationTarget,
+} from "./invalidate-refresh";
 
 /** A changed enrollment affects roster rows, ownership labels, attendance summaries and
  * pairing membership together. Keep these invalidations shared across decision screens. */
-type RefreshOptions = { throwOnError?: boolean };
-type Invalidator = {
-  invalidate: (
-    input?: undefined,
-    filters?: undefined,
-    options?: RefreshOptions,
-  ) => Promise<void>;
-};
+type RefreshOptions = { reportErrors?: boolean };
+type Invalidator = InvalidationTarget;
 export function invalidateTuteeViews(
   utils: {
     admin: {
@@ -22,8 +20,7 @@ export function invalidateTuteeViews(
   },
   options?: RefreshOptions,
 ) {
-  // Callers that show a saved-but-refresh-failed state must opt into rejection:
-  // React Query otherwise resolves invalidation even when refetching failed.
+  // Optional reporting preserves React Query's wait for every matching read.
   return settleRefreshes(
     [
       utils.admin.tutees,
@@ -33,9 +30,7 @@ export function invalidateTuteeViews(
       utils.tuteeHistory,
     ].map(
       (view) => () =>
-        options
-          ? view.invalidate(undefined, undefined, options)
-          : view.invalidate(),
+        options?.reportErrors ? invalidateAndReport(view) : view.invalidate(),
     ),
   );
 }

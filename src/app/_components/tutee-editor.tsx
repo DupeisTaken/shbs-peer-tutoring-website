@@ -16,6 +16,7 @@ import { useRef, useState } from "react";
 import { TuteeHistoryLinkForm } from "./tutee-history";
 import { invalidateTuteeViews } from "~/lib/tutee-cache";
 import { settleRefreshes } from "~/lib/settle-refreshes";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { GRADUATED_GRADE } from "~/lib/academics";
 import { useDialogPending } from "./ui/modal";
 
@@ -82,12 +83,9 @@ function TuteeEditorContents({
       try {
         await settleRefreshes([
           async () => {
-            await invalidateTuteeViews(utils, { throwOnError: true });
+            await invalidateTuteeViews(utils, { reportErrors: true });
           },
-          () =>
-            utils.admin.tutors.invalidate(undefined, undefined, {
-              throwOnError: true,
-            }),
+          () => invalidateAndReport(utils.admin.tutors),
         ]);
       } catch {
         setRefreshFailed(true);

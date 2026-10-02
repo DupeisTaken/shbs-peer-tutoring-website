@@ -51,7 +51,7 @@ it.each(["rejected", "synchronous"])(
       tuteeHistory: { invalidate: vi.fn(async () => undefined) },
     };
     let settled = false;
-    const refresh = invalidateTuteeViews(utils, { throwOnError: true }).then(
+    const refresh = invalidateTuteeViews(utils, { reportErrors: true }).then(
       () => {
         settled = true;
         return null;
@@ -64,9 +64,13 @@ it.each(["rejected", "synchronous"])(
     await new Promise((resolve) => setTimeout(resolve, 0));
     expect(settled).toBe(false);
     for (const view of [...Object.values(utils.admin), utils.tuteeHistory])
-      expect(view.invalidate).toHaveBeenCalledWith(undefined, undefined, {
-        throwOnError: true,
-      });
+      expect(view.invalidate).toHaveBeenCalledWith(
+        undefined,
+        { predicate: expect.any(Function) },
+        {
+          throwOnError: false,
+        },
+      );
     finish();
     expect(await refresh).toBe(problem);
     expect(settled).toBe(true);
@@ -94,8 +98,11 @@ it("reports an actual cached React Query refetch failure when the caller opts in
         {
           admin: {
             tutees: {
-              invalidate: (_input, _filters, options) =>
-                client.invalidateQueries({ queryKey: ["tutees"] }, options),
+              invalidate: (_input, filters, options) =>
+                client.invalidateQueries(
+                  { queryKey: ["tutees"], ...filters },
+                  options,
+                ),
             },
             tuteeStats: quiet,
             pairings: quiet,
@@ -103,7 +110,7 @@ it("reports an actual cached React Query refetch failure when the caller opts in
           },
           tuteeHistory: quiet,
         },
-        { throwOnError: true },
+        { reportErrors: true },
       ),
     ).rejects.toBe(problem);
     expect(observer.getCurrentResult().isError).toBe(true);

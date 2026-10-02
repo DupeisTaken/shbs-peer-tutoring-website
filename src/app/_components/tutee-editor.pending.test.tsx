@@ -8,7 +8,13 @@ import {
   screen,
   waitFor,
 } from "@testing-library/react";
-import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
+import {
+  QueryClient,
+  QueryClientProvider,
+  QueryObserver,
+  type QueryFilters,
+  type InvalidateOptions,
+} from "@tanstack/react-query";
 import { NextIntlClientProvider } from "next-intl";
 import { useState, type ComponentProps } from "react";
 import en from "../../../messages/en.json";
@@ -784,8 +790,9 @@ it.each([
       else sibling.resolve({});
     });
     await waitFor(() => expect(client.isMutating()).toBe(0));
-    await screen.findByText(en.accountProfile.sectionSaved);
     expect(ui.close).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toBeTruthy();
+    await screen.findByText(en.accountProfile.sectionSaved);
     expect(ui.notes.isConnected).toBe(true);
     expect(ui.notes.matches(":disabled")).toBe(true);
     expect(ui.profileSave.disabled).toBe(true);
@@ -860,10 +867,11 @@ it("keeps a committed profile read-only after refresh fails without freezing sib
   const ui = mountLinked(true);
   mock.invalidate.mockRejectedValue(new Error("Refresh unavailable"));
   fireEvent.submit(ui.profileForm);
-  await screen.findByText(en.accountProfile.sectionRefreshFailed);
+  await waitFor(() => expect(mock.save).toHaveBeenCalledOnce());
   await waitFor(() => expect(client.isMutating()).toBe(0));
-  expect(screen.getByText(en.accountProfile.sectionSaved)).toBeTruthy();
   expect(ui.notes.matches(":disabled")).toBe(true);
+  expect(screen.getByText(en.accountProfile.sectionSaved)).toBeTruthy();
+  expect(screen.getByText(en.accountProfile.sectionRefreshFailed)).toBeTruthy();
   expect(ui.grade.matches(":disabled")).toBe(false);
   expectLinkedDrafts(ui);
   fireEvent.submit(ui.profileForm);
@@ -883,7 +891,6 @@ it.each(["outer", "nested"] as const)(
       group === "outer" ? mock.refreshTutors : mock.refreshTuteeStats;
     delayed.mockReturnValue(held.promise);
     fireEvent.submit(ui.profileForm);
-    await screen.findByText(en.accountProfile.sectionSaved);
     await waitFor(() => expect(delayed).toHaveBeenCalledOnce());
     await flushMutationJobs();
     expectDismissalBlocked(ui.close);
@@ -906,6 +913,68 @@ it.each(["outer", "nested"] as const)(
     expect(screen.queryByRole("dialog")).toBeNull();
   },
 );
+
+it("owns two active query reads under one invalidation prefix until the held read settles after its sibling fails", async () => {
+  const held = deferred();
+  const failedObserver = new QueryObserver(client, {
+    queryKey: ["roster", "failed"],
+    queryFn: async () => {
+      throw new Error("One roster read failed");
+    },
+    initialData: ["cached failed row"],
+    staleTime: Infinity,
+    retry: false,
+  });
+  const heldObserver = new QueryObserver(client, {
+    queryKey: ["roster", "held"],
+    queryFn: () => held.promise,
+    initialData: ["cached held row"],
+    staleTime: Infinity,
+    retry: false,
+  });
+  const stops = [
+    failedObserver.subscribe(() => undefined),
+    heldObserver.subscribe(() => undefined),
+  ];
+  try {
+    mock.refreshTutees.mockImplementation(
+      (
+        _input: undefined,
+        filters?: QueryFilters,
+        options?: InvalidateOptions,
+      ) =>
+        client.invalidateQueries({ queryKey: ["roster"], ...filters }, options),
+    );
+    const ui = mountLinked(true);
+    fireEvent.submit(ui.profileForm);
+    await waitFor(() =>
+      expect(failedObserver.getCurrentResult().isError).toBe(true),
+    );
+    expect(heldObserver.getCurrentResult().isFetching).toBe(true);
+    await flushMutationJobs();
+    expectDismissalBlocked(ui.close);
+    expect(
+      screen.queryByText(en.accountProfile.sectionRefreshFailed),
+    ).toBeNull();
+    expectLinkedDrafts(ui);
+    fireEvent.submit(ui.profileForm);
+    fireEvent.submit(ui.academicForm);
+    await flushMutationJobs();
+    expect(mock.save).toHaveBeenCalledOnce();
+    expect(mock.academicSave).not.toHaveBeenCalled();
+    await act(async () => held.resolve(["fresh held row"]));
+    await screen.findByText(en.accountProfile.sectionRefreshFailed);
+    await waitFor(() => expect(ui.academicSave.disabled).toBe(false));
+    expect(ui.profileSave.disabled).toBe(true);
+    expect(client.isMutating()).toBe(0);
+    fireEvent.submit(ui.profileForm);
+    await flushMutationJobs();
+    expect(mock.save).toHaveBeenCalledOnce();
+    await closeSavedEditor(ui.close);
+  } finally {
+    stops.forEach((stop) => stop());
+  }
+});
 
 it.each([
   ["academic", "profile-first"],
