@@ -68,6 +68,12 @@ Use `settleRefreshes` at each aggregate boundary, including nested groups, and
 present a refresh failure only after the remaining reads settle. Saved state must
 continue to prevent replay of the committed mutation.
 
+Also test two active query variants under the same procedure prefix using the
+installed QueryClient. Default invalidation can suppress GET errors; enabling
+`throwOnError` alone can reject before another matching query finishes. The save's
+refresh boundary must report actual read failures and own every matching read.
+Mocked invalidation promises alone cannot establish either behavior.
+
 For academic conflict Reload, verify academic and policy read failures separately,
 including cached error results and thrown reads. The original draft, version and
 school year must survive a failed read. Discard it only after both required reads
