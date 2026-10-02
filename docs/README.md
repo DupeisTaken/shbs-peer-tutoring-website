@@ -29,3 +29,5 @@ For contribution checks and where to add information, see [documentation ownersh
 [Public signup protection and operational limits](signup-protection.md).
 
 [Optional Aliyun CAPTCHA, costs and rollout](captcha.md).
+
+[Issue #239 cloud continuation checkpoint](continuation/issue-239.md).
