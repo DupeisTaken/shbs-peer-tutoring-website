@@ -10,6 +10,7 @@ import {
   TableActions,
   TableDetails,
 } from "~/app/_components/ui/summary-table";
+import { ServiceHoursComparison } from "~/app/_components/service-hours-comparison";
 
 export default function SummaryPage() {
   const t = useTranslations();
@@ -98,6 +99,7 @@ export default function SummaryPage() {
           </tbody>
         </SummaryTable>
       </div>
+      {summary.data && <ServiceHoursComparison rows={summary.data.rows} />}
     </div>
   );
 }

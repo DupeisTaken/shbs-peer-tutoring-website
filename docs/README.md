@@ -8,6 +8,7 @@ These guides describe the current application. Choose the task you need to compl
 | Deploy, create the first administrator, configure email or restore a backup | [Deployment runbook](deployment.md) |
 | Reset an existing deployment and start fresh | [Reset and redeploy](deployment.md#start-fresh-from-an-existing-deployment) |
 | Contribute changes and maintain repository files | [Contributor guidance](contributing.md) |
+| Continue the incomplete tutor-task draft in a fresh cloud checkout | [Issue #222 continuation](continuation/issue-222.md) |
 | Choose shared UI patterns and preserve interaction rules | [Agent component map](../AGENTS.md#start-with-the-shared-patterns) and [component boundaries](technical-report.md#shared-ui-patterns) |
 | Verify UI changes in the gallery and running application | [UI verification matrix](local-development.md#ui-verification-matrix) |
 | Continue the incomplete shared UI integration checkpoint | [Shared UI cloud continuation](continuation/shared-ui-integration.md) |

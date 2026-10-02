@@ -65,7 +65,8 @@ vi.mock("~/trpc/react", async () => {
   const mutation = {
     useMutation: (options: { onSuccess: () => Promise<void> }) =>
       useMutation({
-        mutationFn: async (input: unknown) => mock.save(input) as Promise<unknown>,
+        mutationFn: async (input: unknown) =>
+          mock.save(input) as Promise<unknown>,
         retry: false,
         ...options,
       }),

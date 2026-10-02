@@ -135,6 +135,29 @@ See the [tutee policy draft](../prisma/policies/tutee-policy.en.md) or [中文�
 
 ## Tutors
 
+The dashboard starts with **Your Next Steps**. Its links move keyboard focus to
+attendance, pairings, unresolved interviews, meetings and pending qualifications.
+Today's regular schedule uses the program time zone and confirmed weekly times;
+check announcements for holidays or one-off changes. Attendance comes before
+optional editors. Pending participation, policy and request notices remain visible.
+Completed interview details and optional editors can be expanded without losing an
+in-progress draft when collapsed. Pending qualification requests remain visible
+even when completed history is collapsed or filtered.
+
+Pending tutors confirm whether to participate before tutoring actions appear.
+Inactive tutors retain their records but cannot edit pairings or submit attendance.
+Changing a pairing's linked time slot, requesting or recalling a removal, and
+recording an interview decision names the affected record before submission.
+Cancel leaves live records unchanged. A relayed opt-out stays pending during its
+seven-day recall window, then processes automatically unless recalled or cancelled.
+An inactive tutor can still recall their pending relay. A queued management proposal
+requires staff approval; neither pending result is an applied change.
+
+Meeting-excuse, qualification and interview drafts remain available after a failed
+save. Correct the problem and retry. Attendance keeps its successful receipt and
+locks that entry; choose **Submit Another** to start a fresh record. If a saved
+entry's totals fail to refresh, retry the refresh without resubmitting attendance.
+
 Existing tutors can use **Subject Qualifications** on their dashboard to request another subject or a higher offered level in a subject they already teach. Choose a subject, explain your qualifications and submit; the request history shows outcomes, the decision note, and the subjects granted on approval. Under **Your Requests**, filter by **Pending** (including interviews), **Approved**, **Rejected**, or **Recalled**; counts show how many requests are in each category. History starts with Pending. Use **Collapse** / **Expand** to hide or show the history without losing the selected filter. Active tutors can **Recall request** while a request is pending or under interview. Confirming recall stops review, records who recalled it and when, and retains the request and panel history. A recalled request cannot be approved or reopened; submit a new request for that subject and level when ready. Approved and rejected decisions cannot be recalled. Pending, rejected and recalled requests do not change current qualifications. Duplicate open requests for the same subject and level are blocked. Inactive tutors retain read-only history.
 
 In **Tutor Applications**, additional-subject and higher-level requests have distinct badges. Only Admin or Head may approve directly, reject with a decision note, or assign an interview panel. Direct approval is available even when interviews are enabled. An interview uses the existing votes and majority rules with an Admin/Head tutor as chair; that chair records the outcome in Tutor Applications. Panelists see the requested course and the tutor's qualification explanation on their dashboard. Coordinators cannot make or queue these decisions. Applicants cannot review themselves. Review history and final decisions are retained. Approval records the requested level and lower offered levels in that course group under the ordering at approval time; reordering later does not change those grants. Subject willingness remains a separate choice in Subject Availability.
@@ -227,7 +250,7 @@ Use the request state and **Requested by** filters to find proposals; the coordi
 
 Tables show brief information for scanning. Use the text links in the rightmost **Actions** column to open full details or an editor. On a narrow screen, that column stays reachable while the other columns scroll sideways. Closing a detail dialog returns you to its link. Detailed report exports and printed history retain their full content.
 
-Profile sections save independently. While any section inside an editor is saving, its fields and the editor's dismissal controls are temporarily unavailable. A failed save keeps your draft for correction or retry. Closing a nested review returns to the profile rather than closing both. In **Names and Grades**, retrying a failed background refresh keeps unsaved choices; **Reload** after a version conflict replaces them only when the new settings load successfully.
+Profile sections save independently. While any section inside an editor is saving, its fields and the editor's dismissal controls are temporarily unavailable. A failed save keeps your draft for correction or retry. A successful profile or Head username save leaves the editor open: the completed section becomes read-only, while other sections keep their drafts and errors. Choose **Close** when you are ready; reopen the editor to change a completed section again. If refreshing records fails after a successful save, the editor shows a separate warning and keeps the saved section read-only so it cannot submit the same write again. Closing a nested review returns to the profile rather than closing both. In **Names and Grades**, retrying a failed background refresh keeps unsaved choices; **Reload** after a version conflict replaces them only when the new settings load successfully.
 
 Roster course counts open their full lists from **Actions**. Contact, account details and historical records remain separate links with their existing access rules. Read-only history tables scroll horizontally and can be focused with the keyboard; they do not need an action column. Public history and invitation pages include a language selector and a return link.
 
@@ -318,6 +341,11 @@ Tutor and crew opt-out/reentry requests remain pending until reviewed. Opt-out a
 
 ### Review records and reports
 
+**Service Hours** keeps each tutor's total and Details action in the compact
+summary. Expand **Compare Hour Breakdowns** to compare earned hours, extras and
+penalties across tutors. On a narrow screen, scroll inside that labelled table;
+keyboard users can focus it and use the left/right arrow keys.
+
 Use [Attendance Flags](program-reference.md#review-attendance-flags) to assess crew evidence before applying a decision. Use [Reports](program-reference.md#reports-and-exports) to choose a period, review totals, download table CSVs or print a report. Check the privacy setting before sharing. Audits and policy acceptance history remain separate evidence views.
 
 CSV exports preserve numeric quantities and quote names or comments containing commas, quotes or newlines. Text beginning with spreadsheet formula markers or control characters receives a protective apostrophe so it is treated as text on initial import. That apostrophe may be visible in other CSV readers; preserve it when handling the export. Spreadsheet edits or re-saving the file can change how another import interprets it.
@@ -364,7 +392,7 @@ automatic-allocation policy; an explicitly assigned existing handle remains vali
 
 ### Head username editing
 
-In **Users & Roles → Edit profile**, Head can save a username for any login account, including their own. Use 1–64 ASCII letters or digits; surrounding whitespace is trimmed and letters are lowercased. Taken usernames in either the login or tutor roster are rejected. The linked tutor is updated atomically, so the old handle no longer signs in. Email sign-in, passwords, IDs, badges and history remain unchanged. Ordinary roster name edits retain the username. Admins and coordinators cannot rename accounts. Saves record the actor and old/new handles and refresh the account list and current header. An unchanged save is a no-op; stale profile versions require reopening the editor.
+In **Users & Roles → Edit profile**, Head can save a username for any login account, including their own. Use 1–64 ASCII letters or digits; surrounding whitespace is trimmed and letters are lowercased. Taken usernames in either the login or tutor roster are rejected. The linked tutor is updated atomically, so the old handle no longer signs in. Email sign-in, passwords, IDs, badges and history remain unchanged. Ordinary roster name edits retain the username. Admins and coordinators cannot rename accounts. Saves record the actor and old/new handles and refresh the account list and current header. An unchanged save is a no-op. A version conflict requires an explicit **Reload** before retrying; a failed read keeps the username draft and original version. Successful saves leave the completed section read-only until you close and reopen the editor.
 
 ## Viewers
 

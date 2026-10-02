@@ -6,6 +6,7 @@ import { FilterToolbar } from "~/app/_components/ui/patterns";
 import { useFormatter, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { useDialog } from "~/app/_components/confirm-dialog";
+import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
 
 const HISTORY_FILTERS = [
   "PENDING",
@@ -37,9 +38,16 @@ export function QualificationRequests({ active }: { active: boolean }) {
         : request.status === status,
     ),
   }));
-  const visibleRequests =
-    historyGroups.find((group) => group.status === historyFilter)?.requests ??
-    [];
+  // Pending requests remain outside the history disclosure, including when the
+  // user inspects a terminal filter. They are unresolved work, never history.
+  const pendingRequests = historyGroups[0]?.requests ?? [];
+  const visibleRequests = [
+    ...pendingRequests,
+    ...(historyExpanded && historyFilter !== "PENDING"
+      ? (historyGroups.find((group) => group.status === historyFilter)
+          ?.requests ?? [])
+      : []),
+  ];
   // Refresh both participant history and staff/panel caches after withdrawing a request.
   const refreshRecall = () =>
     Promise.all([
@@ -66,6 +74,7 @@ export function QualificationRequests({ active }: { active: boolean }) {
   return (
     <section
       id="qualification-requests"
+      tabIndex={-1}
       className="card scroll-mt-6 p-4 sm:p-5"
     >
       <h2 className="section-title">{t("title")}</h2>
@@ -95,74 +104,95 @@ export function QualificationRequests({ active }: { active: boolean }) {
               t("noApproved")}
           </p>
           {active && (
-            <form
-              className="mt-4 space-y-3"
-              onSubmit={(event) => {
-                event.preventDefault();
-                if (subjectId && reason.trim())
-                  submit.mutate({ subjectId, reason });
-              }}
-            >
-              <label
-                className="block text-sm font-medium"
-                htmlFor="qualification-subject"
+            <DisclosureSection title={t("submit")} lifetime="retained">
+              <form
+                className="mt-4 space-y-3"
+                onSubmit={(event) => {
+                  event.preventDefault();
+                  if (subjectId && reason.trim())
+                    submit.mutate({ subjectId, reason });
+                }}
               >
-                {t("subject")}
-              </label>
-              <select
-                id="qualification-subject"
-                className="select min-h-11 lg:min-h-10"
-                value={subjectId}
-                required
-                disabled={submit.isPending || !query.data.options.length}
-                onChange={(event) => setSubjectId(event.target.value)}
-              >
-                <option value="">{t("choose")}</option>
-                {query.data.options.map((subject) => (
-                  <option key={subject.id} value={subject.id}>
-                    {subject.name} · {t(subject.type)}
-                  </option>
-                ))}
-              </select>
-              {!query.data.options.length && (
-                <p className="muted text-sm">{t("noOptions")}</p>
-              )}
-              <label
-                className="block text-sm font-medium"
-                htmlFor="qualification-reason"
-              >
-                {t("reason")}
-              </label>
-              <textarea
-                id="qualification-reason"
-                className="textarea w-full"
-                rows={3}
-                required
-                maxLength={2000}
-                value={reason}
-                disabled={submit.isPending}
-                onChange={(event) => setReason(event.target.value)}
-              />
-              <button
-                className="btn-primary min-h-11 max-w-full whitespace-normal lg:min-h-10"
-                disabled={submit.isPending || !subjectId || !reason.trim()}
-              >
-                {submit.isPending ? t("saving") : t("submit")}
-              </button>
-              {submit.error && (
-                <p role="alert" className="text-sm text-red-700">
-                  {submit.error.message}
-                </p>
-              )}
-              {submit.isSuccess && (
-                <p role="status" className="text-sm text-green-700">
-                  {t("submitted")}
-                </p>
-              )}
-            </form>
+                <label
+                  className="block text-sm font-medium"
+                  htmlFor="qualification-subject"
+                >
+                  {t("subject")}
+                </label>
+                <select
+                  id="qualification-subject"
+                  className="select min-h-11 lg:min-h-10"
+                  value={subjectId}
+                  required
+                  disabled={submit.isPending || !query.data.options.length}
+                  onChange={(event) => setSubjectId(event.target.value)}
+                >
+                  <option value="">{t("choose")}</option>
+                  {query.data.options.map((subject) => (
+                    <option key={subject.id} value={subject.id}>
+                      {subject.name} · {t(subject.type)}
+                    </option>
+                  ))}
+                </select>
+                {!query.data.options.length && (
+                  <p className="muted text-sm">{t("noOptions")}</p>
+                )}
+                <label
+                  className="block text-sm font-medium"
+                  htmlFor="qualification-reason"
+                >
+                  {t("reason")}
+                </label>
+                <textarea
+                  id="qualification-reason"
+                  className="textarea w-full"
+                  rows={3}
+                  required
+                  maxLength={2000}
+                  value={reason}
+                  disabled={submit.isPending}
+                  onChange={(event) => setReason(event.target.value)}
+                />
+                <button
+                  className="btn-primary min-h-11 max-w-full whitespace-normal lg:min-h-10"
+                  disabled={submit.isPending || !subjectId || !reason.trim()}
+                >
+                  {submit.isPending ? t("saving") : t("submit")}
+                </button>
+                <button
+                  type="button"
+                  className="btn-secondary ml-2"
+                  disabled={submit.isPending}
+                  onClick={() => {
+                    setSubjectId("");
+                    setReason("");
+                    submit.reset();
+                  }}
+                >
+                  {t("cancelDraft")}
+                </button>
+                {submit.error && (
+                  <p role="alert" className="text-sm text-red-700">
+                    {submit.error.message}
+                  </p>
+                )}
+                {submit.isSuccess && (
+                  <p role="status" className="text-sm text-green-700">
+                    {t("submitted")}
+                  </p>
+                )}
+              </form>
+            </DisclosureSection>
           )}
           <div className="mt-6 flex flex-wrap items-center justify-between gap-2">
-            <h3 className="font-semibold">{t("history")}</h3>
+            <h3 className="font-semibold">
+              {t("history")}{" "}
+              <span className="muted text-sm">
+                {t("completedCount", {
+                  count: query.data.requests.length - pendingRequests.length,
+                })}
+              </span>
+            </h3>
             <button
               type="button"
               className="btn-secondary min-h-11 max-w-full gap-2 whitespace-normal lg:min-h-8 lg:py-0"
@@ -183,6 +213,11 @@ export function QualificationRequests({ active }: { active: boolean }) {
               </svg>
             </button>
           </div>
+          {pendingRequests.length > 0 && (
+            <p className="mt-2 text-sm text-amber-800">
+              {t("pendingAlwaysVisible", { count: pendingRequests.length })}
+            </p>
+          )}
           {recall.error && (
             <p role="alert" className="mt-2 text-sm text-red-700">
               {recall.error.message}
@@ -219,111 +254,111 @@ export function QualificationRequests({ active }: { active: boolean }) {
                 ))}
               </div>
             </FilterToolbar>
-            {!visibleRequests.length && (
-              <p role="status" className="muted mt-3">
-                {t(query.data.requests.length ? "emptyFilter" : "empty")}
-              </p>
-            )}
-            <ul className="mt-3 space-y-3">
-              {visibleRequests.map((request) => (
-                <li
-                  key={request.id}
-                  className="rounded-lg border border-slate-200 p-3"
-                >
-                  <div className="flex flex-wrap items-center gap-2">
-                    <span className="font-medium">
-                      {request.requestedSubject?.name}
-                    </span>
-                    <span className="badge-slate">{t(request.type)}</span>
-                    <span
-                      className={
-                        request.status === "ACCEPTED"
-                          ? "badge-green"
-                          : request.status === "REJECTED"
-                            ? "badge-red"
-                            : request.status === "RECALLED"
-                              ? "badge-slate"
-                              : "badge-amber"
-                      }
-                    >
-                      {t(request.status)}
-                    </span>
-                  </div>
+          </div>
+          {!visibleRequests.length && historyExpanded && (
+            <p role="status" className="muted mt-3">
+              {t(query.data.requests.length ? "emptyFilter" : "empty")}
+            </p>
+          )}
+          <ul className="mt-3 space-y-3">
+            {visibleRequests.map((request) => (
+              <li
+                key={request.id}
+                className="rounded-lg border border-slate-200 p-3"
+              >
+                <div className="flex flex-wrap items-center gap-2">
+                  <span className="font-medium">
+                    {request.requestedSubject?.name}
+                  </span>
+                  <span className="badge-slate">{t(request.type)}</span>
+                  <span
+                    className={
+                      request.status === "ACCEPTED"
+                        ? "badge-green"
+                        : request.status === "REJECTED"
+                          ? "badge-red"
+                          : request.status === "RECALLED"
+                            ? "badge-slate"
+                            : "badge-amber"
+                    }
+                  >
+                    {t(request.status)}
+                  </span>
+                </div>
+                <p className="muted mt-1 text-xs">
+                  {format.dateTime(request.createdAt, {
+                    dateStyle: "medium",
+                  })}
+                </p>
+                {request.recalledAt && (
                   <p className="muted mt-1 text-xs">
-                    {format.dateTime(request.createdAt, {
-                      dateStyle: "medium",
+                    {t("recalledOn", {
+                      date: format.dateTime(request.recalledAt, {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      }),
                     })}
                   </p>
-                  {request.recalledAt && (
-                    <p className="muted mt-1 text-xs">
-                      {t("recalledOn", {
-                        date: format.dateTime(request.recalledAt, {
-                          dateStyle: "medium",
-                          timeStyle: "short",
-                        }),
-                      })}
-                    </p>
-                  )}
-                  {request.interviewAt && request.status !== "RECALLED" && (
-                    <p className="mt-2 text-sm">
-                      {t("scheduled", {
-                        date: format.dateTime(request.interviewAt, {
-                          dateStyle: "medium",
-                          timeStyle: "short",
-                        }),
-                      })}
-                    </p>
-                  )}
-                  <p className="mt-2 text-sm break-words whitespace-pre-wrap">
-                    {request.qualificationReason}
+                )}
+                {request.interviewAt && request.status !== "RECALLED" && (
+                  <p className="mt-2 text-sm">
+                    {t("scheduled", {
+                      date: format.dateTime(request.interviewAt, {
+                        dateStyle: "medium",
+                        timeStyle: "short",
+                      }),
+                    })}
                   </p>
-                  {request.decisionComment && (
-                    <p className="mt-2 text-sm break-words whitespace-pre-wrap">
-                      {t("result", { comment: request.decisionComment })}
-                    </p>
+                )}
+                <p className="mt-2 text-sm break-words whitespace-pre-wrap">
+                  {request.qualificationReason}
+                </p>
+                {request.decisionComment && (
+                  <p className="mt-2 text-sm break-words whitespace-pre-wrap">
+                    {t("result", { comment: request.decisionComment })}
+                  </p>
+                )}
+                {!!request.qualificationSnapshot.length && (
+                  <p className="mt-2 text-sm">
+                    {t("granted", {
+                      subjects: request.qualificationSnapshot
+                        .map((subject) => subject.name)
+                        .join(", "),
+                    })}
+                  </p>
+                )}
+                {active &&
+                  (request.status === "PENDING" ||
+                    request.status === "INTERVIEW") && (
+                    <button
+                      type="button"
+                      className="btn-secondary mt-3 min-h-11 max-w-full whitespace-normal lg:min-h-8 lg:py-0"
+                      disabled={recall.isPending}
+                      onClick={async () => {
+                        if (
+                          await confirm({
+                            title: t("recallTitle"),
+                            message: t("recallHelp", {
+                              subject: request.requestedSubject?.name ?? "",
+                            }),
+                            confirmLabel: t("recall"),
+                            cancelLabel: t("keepRequest"),
+                          })
+                        )
+                          recall.mutate({
+                            id: request.id,
+                            expectedUpdatedAt: request.updatedAt,
+                          });
+                      }}
+                    >
+                      {recall.isPending && recall.variables?.id === request.id
+                        ? t("recalling")
+                        : t("recall")}
+                    </button>
                   )}
-                  {!!request.qualificationSnapshot.length && (
-                    <p className="mt-2 text-sm">
-                      {t("granted", {
-                        subjects: request.qualificationSnapshot
-                          .map((subject) => subject.name)
-                          .join(", "),
-                      })}
-                    </p>
-                  )}
-                  {active &&
-                    (request.status === "PENDING" ||
-                      request.status === "INTERVIEW") && (
-                      <button
-                        type="button"
-                        className="btn-secondary mt-3 min-h-11 max-w-full whitespace-normal lg:min-h-8 lg:py-0"
-                        disabled={recall.isPending}
-                        onClick={async () => {
-                          if (
-                            await confirm({
-                              title: t("recallTitle"),
-                              message: t("recallHelp", {
-                                subject: request.requestedSubject?.name ?? "",
-                              }),
-                              confirmLabel: t("recall"),
-                              cancelLabel: t("keepRequest"),
-                            })
-                          )
-                            recall.mutate({
-                              id: request.id,
-                              expectedUpdatedAt: request.updatedAt,
-                            });
-                        }}
-                      >
-                        {recall.isPending && recall.variables?.id === request.id
-                          ? t("recalling")
-                          : t("recall")}
-                      </button>
-                    )}
-                </li>
-              ))}
-            </ul>
-          </div>
+              </li>
+            ))}
+          </ul>
         </>
       )}
     </section>

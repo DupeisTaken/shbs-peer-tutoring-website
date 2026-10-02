@@ -18,6 +18,8 @@ import { TutorDiscipline } from "~/app/(tutor)/_components/tutor-discipline";
 import { QualificationRequests } from "~/app/(tutor)/_components/qualification-requests";
 import { SubjectWillingness } from "~/app/(tutor)/_components/subject-willingness";
 import { getTranslations } from "next-intl/server";
+import { DashboardTasks } from "~/app/(tutor)/_components/dashboard-tasks";
+import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
 
 import { RoomGrid } from "~/app/_components/room-grid";
 
@@ -47,29 +49,6 @@ export default async function TutorDashboard() {
 
   return (
     <div className="mx-auto max-w-6xl space-y-7 px-4 py-5 sm:space-y-8 sm:py-8">
-      {/* Team announcements — shown on every login until acknowledged. */}
-      <AnnouncementsBanner />
-      <PolicyConsent slug="tutor-policy" />
-
-      <DepartureBanner />
-      {pending && <TutorActivation />}
-
-      {inactive && !pending && (
-        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-4 text-amber-800">
-          <p className="font-semibold">{t("tutor.dashboard.inactive.title")}</p>
-          <p className="mt-1 text-sm">
-            {t("tutor.dashboard.inactive.body", {
-              status: t(`tutor.status.${me.status}`),
-            })}
-          </p>
-          {me.status === "OPTED_OUT" && (
-            <p className="mt-2 text-sm">
-              {t("tutor.dashboard.inactive.reentryHint")}
-            </p>
-          )}
-        </div>
-      )}
-
       {/* Header + monthly service-hour earnings */}
       <section className="border-accent-100 bg-accent-50/45 rounded-xl border px-4 py-5 sm:px-6 sm:py-6">
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_auto] lg:items-end">
@@ -118,19 +97,48 @@ export default async function TutorDashboard() {
         </div>
       </section>
 
-      {/* Pending interviews + session-time confirmations (self-hides when none). */}
-      <SubjectWillingness />
-      <QualificationRequests active={!inactive} />
-      {!inactive && features.INTERVIEWS && <MyInterviews />}
+      <DashboardTasks
+        status={me.status}
+        interviewsEnabled={features.INTERVIEWS}
+        meetingsEnabled={features.MEETINGS}
+        now={new Date()}
+      />
+      {/* Team announcements — shown on every login until acknowledged. */}
+      <AnnouncementsBanner />
+      <PolicyConsent slug="tutor-policy" />
 
-      {/* Upcoming meetings + self-excuse (self-hides when none). */}
-      {!inactive && features.MEETINGS && <TutorMeetings />}
+      <DepartureBanner />
+      {pending && (
+        <div id="tutor-activation" tabIndex={-1} className="scroll-mt-6">
+          <TutorActivation />
+        </div>
+      )}
+
+      {inactive && !pending && (
+        <div className="rounded-lg border border-amber-200 bg-amber-50 px-4 py-4 text-amber-800">
+          <p className="font-semibold">{t("tutor.dashboard.inactive.title")}</p>
+          <p className="mt-1 text-sm">
+            {t("tutor.dashboard.inactive.body", {
+              status: t(`tutor.status.${me.status}`),
+            })}
+          </p>
+          {me.status === "OPTED_OUT" && (
+            <p className="mt-2 text-sm">
+              {t("tutor.dashboard.inactive.reentryHint")}
+            </p>
+          )}
+        </div>
+      )}
 
       <MergeProvider>
         <div className="grid grid-cols-1 items-start gap-5 lg:grid-cols-5 lg:gap-6">
           {/* Attendance form */}
           {!inactive && (
-            <section className="card p-4 sm:p-5 lg:order-2 lg:col-span-3">
+            <section
+              id="attendance"
+              tabIndex={-1}
+              className="card scroll-mt-6 p-4 sm:p-5 lg:col-span-3"
+            >
               <h2 className="section-title">
                 {t("dashboard.attendance.title")}
               </h2>
@@ -142,33 +150,53 @@ export default async function TutorDashboard() {
           )}
 
           {/* Pairings + availability */}
-          <div className="space-y-5 lg:order-1 lg:col-span-2 lg:space-y-6">
-            <section className="card p-4 sm:p-5">
+          <div
+            className={`space-y-5 lg:space-y-6 ${inactive ? "lg:col-span-5" : "lg:col-span-2"}`}
+          >
+            <section
+              id="tutor-pairings"
+              tabIndex={-1}
+              className="card scroll-mt-6 p-4 sm:p-5"
+            >
               <h2 className="section-title">{t("dashboard.pairings.title")}</h2>
               <p className="muted mt-1 mb-2">{t("dashboard.pairings.help")}</p>
-              <TutorPairings />
+              <TutorPairings active={!inactive} />
             </section>
-
-            {!inactive && (
-              <section className="card p-4 sm:p-5">
-                <h2 className="section-title">
-                  {t("dashboard.availability.title")}
-                </h2>
-                <p className="muted mt-1 mb-3">
-                  {t("dashboard.availability.help")}
-                </p>
-                <AvailabilityEditor />
-              </section>
-            )}
           </div>
         </div>
       </MergeProvider>
+
+      {/* Unresolved work remains expanded. Only optional editors and completed
+          evidence use disclosures, which retain mounted drafts when collapsed. */}
+      {!inactive && features.INTERVIEWS && <MyInterviews />}
+      {!inactive && features.MEETINGS && <TutorMeetings />}
+      <QualificationRequests active={!inactive} />
+      <section
+        id="tutor-preferences"
+        tabIndex={-1}
+        className="scroll-mt-6 space-y-4"
+      >
+        <SubjectWillingness />
+        {!inactive && (
+          <DisclosureSection
+            title={t("dashboard.availability.title")}
+            lifetime="retained"
+          >
+            <p className="muted mb-3">{t("dashboard.availability.help")}</p>
+            <AvailabilityEditor />
+          </DisclosureSection>
+        )}
+      </section>
 
       {/* Punishment history for the tutor's tutees (reason-free; self-hides when none). */}
       {!inactive && features.DISCIPLINE && <TutorDiscipline />}
 
       {/* Room assignments (read-only schedule grid; your pairings are highlighted) */}
-      <section className="space-y-2">
+      <section
+        id="room-schedule"
+        tabIndex={-1}
+        className="scroll-mt-6 space-y-2"
+      >
         <div className="text-center sm:text-left">
           <h2 className="section-title">{t("dashboard.schedule.title")}</h2>
           <p className="muted">{t("dashboard.schedule.help")}</p>

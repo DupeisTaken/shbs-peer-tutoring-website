@@ -689,6 +689,9 @@
       }
     },
     "summary": {
+      "compareTitle": "比较服务时数明细（{count} 人）",
+      "compareLabel": "服务时数明细比较表",
+      "compareHelp": "逐项比较各辅导伙伴的时数。窄屏可在表格内横向滚动；键盘用户可聚焦表格后使用左右方向键。",
       "title": "辅导伙伴服务时数",
       "subtitleMonthly": "各辅导伙伴的服务时数。",
       "scope": "本学期 · {label}",
@@ -1770,6 +1773,42 @@
     }
   },
   "tutor": {
+    "tasks": {
+      "pendingOptOuts": "撤回期内的退出请求（{count}）",
+      "membershipPending": "参与状态申请待审核",
+      "reloadDecision": "重新加载申请并清除决定草稿",
+      "title": "下一步",
+      "activeHelp": "优先记录出勤。打开任务查看详情；待审核申请尚未更改当前记录。",
+      "readonlyHelp": "你目前未参与辅导。可以查看状态和记录；激活后才能使用辅导操作。",
+      "activation": "确认本期参与",
+      "attendance": "记录出勤",
+      "pairings": "辅导配对（{count}）",
+      "scheduleReview": "时间安排待跟进（{count}）",
+      "interviews": "未完成面试（{count}）",
+      "meetings": "即将举行的会议（{count}）",
+      "qualifications": "资格待审核（{count}）",
+      "preferences": "科目与可用时间",
+      "roomSchedule": "教室时间表",
+      "loading": "正在加载任务…",
+      "loadError": "部分任务加载失败。你可以继续查看已有记录，并重试加载。",
+      "retry": "重试",
+      "today": "今日常规安排 · {date}",
+      "scheduleHelp": "以下为按项目时区显示的每周已确认时间。节假日或临时变更请查看公告；出勤记录应填写实际时间。",
+      "noSessions": "今天没有已确认的常规辅导。",
+      "noRoom": "尚未分配教室",
+      "confirmRemoval": "通过{subject}配对转达{name}退出辅导的请求？参与状态在七天撤回期内保持有效。期满后将自动处理移除，除非你撤回或管理人员取消。",
+      "recallRemoval": "撤回{name}在{subject}的移除申请？配对将保持有效。",
+      "removalSubmitted": "已转达退出请求。参与状态在七天撤回期内保持有效；期满后自动处理移除，除非请求被撤回或取消。",
+      "recallDeadline": "撤回期截止时间：{date}",
+      "changeSchedule": "更改辅导配对时间",
+      "confirmSchedule": "将{subject}设为“{slot}”？选择时段会更新配对的日期和时间。解除时段关联会保留已确认的时间。",
+      "confirmActivate": "确认本期可以参与辅导？你的账户将立即设为参与中。",
+      "confirmOptOut": "本期不参与辅导？辅导操作将不可用。重新参与需要提交申请并经管理人员批准。",
+      "confirmDecision": "为{name}记录{outcome}的决定？系统会核验面试投票和当前申请版本。如果需要批准，只会创建待审核提案，不会立即生效。",
+      "completedInterview": "已完成面试 · {name}（{count}）",
+      "savedRefreshError": "出勤已保存，但未能刷新时数。请勿重复提交此记录。",
+      "verificationDeadline": "验证截止时间：{date}"
+    },
     "activate": {
       "title": "确认你的参与",
       "body": "新学期已开始。激活账户以继续辅导，或暂时退出。",
@@ -3276,6 +3315,9 @@
     "working": "正在分配…"
   },
   "qualificationRequests": {
+    "completedCount": "（已完成 {count} 项）",
+    "pendingAlwaysVisible": "{count} 项申请尚未完成审核，筛选或折叠历史时仍会显示。",
+    "cancelDraft": "取消草稿",
     "title": "科目辅导资格",
     "help": "申请新增科目或更高等级。审核期间，现有获批资格保持不变。",
     "loading": "正在加载资格…",
