@@ -34,6 +34,8 @@ Self-service and non-Head decisions use the Head approval queue; stale revisions
 See [migration instructions](deployment.md#school-departure-migration) for the explicit
 legacy graduation backfill and [program behavior](program-reference.md) for access rules.
 
+[Authenticated password confirmations](../src/server/auth/password-confirmation.ts) share ten attempts per account in a sliding fifteen-minute window across account/tutor settings, email ownership actions, privileged reauthentication and account combination. The server rejects empty or over-1024-character confirmation inputs before hashing. Both correct and incorrect checks consume a slot; a successful password, later MFA failure or rolled-back action does not reset the budget. Blocked calls do not extend it; waiting for attempts to expire restores access. Keys use the caller's stable account ID, so another account on the school network is unaffected. Existing stricter action limits, sign-in limits, MFA codes and live authorization checks remain separate. Like the existing sign-in limiter this store is per process and resets on restart; horizontal scaling requires a shared limiter. Passwords and attempted values are never added to audit payloads.
+
 Account role, linked tutor profile, crew membership and translator assignment are separate capabilities. Protected requests reload current role, linkage and suspension state. Navigation and client controls do not replace server authorization. Student records require explicit account/profile ownership; a matching name or email never grants access.
 
 | Procedure family                          | Intended callers                                                             |
