@@ -16,7 +16,7 @@ import {
   type InvalidateQueryFilters,
   type InvalidateOptions,
 } from "@tanstack/react-query";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi, type Mock } from "vitest";
 import { useState, type ComponentProps } from "react";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
@@ -49,8 +49,9 @@ type MutationOptions = {
   onError?: (error: Failure) => unknown;
   onSettled?: () => unknown;
 };
+type Write = (input: unknown) => Promise<unknown>;
 const mock = vi.hoisted(() => ({
-  writes: {} as Record<Operation, ReturnType<typeof vi.fn>>,
+  writes: {} as Record<Operation, Mock<Write>>,
   invalidate: vi.fn(),
   preview: vi.fn(),
   refetch: vi.fn(),
@@ -72,8 +73,8 @@ vi.mock("~/trpc/react", async () => {
     useMutation: (options: MutationOptions = {}) =>
       useMutation({
         mutationKey: [operation],
-        mutationFn: async (input: unknown): Promise<unknown> =>
-          mock.writes[operation](input) as unknown,
+        mutationFn: (input: unknown): Promise<unknown> =>
+          mock.writes[operation](input),
         retry: false,
         ...options,
       }),
@@ -254,7 +255,7 @@ beforeEach(() => {
   mock.role = "HEAD";
   mock.updatedAt = originalTimestamp;
   for (const operation of operations)
-    mock.writes[operation] = vi.fn().mockResolvedValue({});
+    mock.writes[operation] = vi.fn<Write>().mockResolvedValue({});
   mock.invalidate.mockResolvedValue(undefined);
   mock.refetch.mockResolvedValue({ isSuccess: true, data: {} });
   mock.preview.mockResolvedValue({
@@ -413,7 +414,6 @@ async function prepare(
   if (operation === "username") {
     const field = screen.getByRole<HTMLInputElement>("textbox", {
       name: labels.accountProfile.username,
-      exact: true,
     });
     fireEvent.change(field, { target: { value: "retainedhandle" } });
     return { field, element: field.closest("form")!, kind: "submit" };
@@ -571,13 +571,23 @@ const pairings = [
   ["tutor", "tutorProfile", "academic"],
 ] as const;
 const cases = pairings.flatMap(([kind, primary, sibling]) =>
-  (["primary-first", "failure-first"] as const).map((order) => ({
-    kind,
-    primary,
-    sibling,
-    order,
-    locale: "en" as Locale,
-  })),
+  (["primary-first", "failure-first"] as const).map(
+    (
+      order,
+    ): {
+      kind: typeof kind;
+      primary: typeof primary;
+      sibling: typeof sibling;
+      order: typeof order;
+      locale: Locale;
+    } => ({
+      kind,
+      primary,
+      sibling,
+      order,
+      locale: "en",
+    }),
+  ),
 );
 // Repeat the principal historical/membership/departure surfaces with their actual Chinese labels.
 cases.push(
@@ -589,7 +599,7 @@ cases.push(
           test.primary === "accountProfile" &&
           ["membership", "departure"].includes(test.sibling)),
     )
-    .map((test) => ({ ...test, locale: "zh" as Locale })),
+    .map((test): (typeof cases)[number] => ({ ...test, locale: "zh" })),
 );
 it.each(cases)(
   "keeps $kind mounted after $primary succeeds and $sibling fails ($order, $locale)",

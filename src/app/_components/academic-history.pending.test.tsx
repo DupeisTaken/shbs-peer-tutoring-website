@@ -8,7 +8,7 @@ import {
   screen,
   within,
 } from "@testing-library/react";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi, type Mock } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import type { ComponentProps } from "react";
 import en from "../../../messages/en.json";
@@ -24,18 +24,25 @@ type Callbacks = {
   onError?: (error: Failure) => unknown;
   onSettled?: () => unknown;
 };
-const state = vi.hoisted(() => ({
-  pending: {} as Partial<Record<Operation, boolean>>,
-  errors: {} as Partial<Record<Operation, Failure>>,
-  callbacks: {} as Partial<Record<Operation, Callbacks>>,
-  mutations: {} as Partial<Record<Operation, ReturnType<typeof vi.fn>>>,
-  version: 7,
-  updatedAt: new Date("2024-10-01T00:00:00Z"),
-  preview: vi.fn(),
-  refetch: vi.fn(),
-  refetchPolicy: vi.fn(),
-  invalidate: vi.fn(async (): Promise<void> => {}),
-}));
+const state = vi.hoisted(() => {
+  const pending: Partial<Record<Operation, boolean>> = {};
+  const errors: Partial<Record<Operation, Failure>> = {};
+  const callbacks: Partial<Record<Operation, Callbacks>> = {};
+  const mutations: Partial<Record<Operation, Mock<(input: unknown) => void>>> =
+    {};
+  return {
+    pending,
+    errors,
+    callbacks,
+    mutations,
+    version: 7,
+    updatedAt: new Date("2024-10-01T00:00:00Z"),
+    preview: vi.fn(),
+    refetch: vi.fn(),
+    refetchPolicy: vi.fn(),
+    invalidate: vi.fn(async (): Promise<void> => undefined),
+  };
+});
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 // The complete historical tutee editor and its academic/link sections are real imports.
 vi.mock("~/trpc/react", () => {

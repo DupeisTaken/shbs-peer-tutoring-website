@@ -7,7 +7,7 @@ import {
   screen,
   within,
 } from "@testing-library/react";
-import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, expect, it, vi, type Mock } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
@@ -35,15 +35,22 @@ type Callbacks = {
   onError?: (error: Failure) => unknown;
   onSettled?: () => unknown;
 };
-const state = vi.hoisted(() => ({
-  pending: {} as Partial<Record<Operation, boolean>>,
-  errors: {} as Partial<Record<Operation, Failure>>,
-  callbacks: {} as Partial<Record<Operation, Callbacks>>,
-  mutations: {} as Partial<Record<Operation, ReturnType<typeof vi.fn>>>,
-  revision: 2,
-  role: "HEAD",
-  invalidate: vi.fn(async (): Promise<void> => {}),
-}));
+const state = vi.hoisted(() => {
+  const pending: Partial<Record<Operation, boolean>> = {};
+  const errors: Partial<Record<Operation, Failure>> = {};
+  const callbacks: Partial<Record<Operation, Callbacks>> = {};
+  const mutations: Partial<Record<Operation, Mock<(input: unknown) => void>>> =
+    {};
+  return {
+    pending,
+    errors,
+    callbacks,
+    mutations,
+    revision: 2,
+    role: "HEAD",
+    invalidate: vi.fn(async (): Promise<void> => undefined),
+  };
+});
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
 vi.mock("./management-actions", () => ({ ManagementActions: () => null }));
 // Only transport/query state is mocked: parent, nested dialogs and all profile sections are real imports.
