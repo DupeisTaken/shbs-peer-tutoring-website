@@ -73,6 +73,10 @@ installed QueryClient. Default invalidation can suppress GET errors; enabling
 `throwOnError` alone can reject before another matching query finishes. The save's
 refresh boundary must report actual read failures and own every matching read.
 Mocked invalidation promises alone cannot establish either behavior.
+Use `invalidateAndReport` inside `settleRefreshes` for these saved-section handlers:
+it retains ordinary all-read waiting, then reports newly recorded errors from the
+matching queries. `invalidateTuteeViews` exposes this behavior through its scoped
+`reportErrors` option; its other callers retain their existing error handling.
 
 For academic conflict Reload, verify academic and policy read failures separately,
 including cached error results and thrown reads. The original draft, version and
