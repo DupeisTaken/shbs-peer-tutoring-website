@@ -15,7 +15,8 @@ import {
   ProfilePolicyHint,
   OfferedGradeSelect,
 } from "./profile-policy";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState, type ComponentProps } from "react";
+import { useDialogPending } from "./ui/modal";
 import { TuteeHistoryLinkForm } from "./tutee-history";
 import { invalidateTuteeViews } from "~/lib/tutee-cache";
 import { GRADUATED_GRADE } from "~/lib/academics";
@@ -30,6 +31,25 @@ export function TuteeEditor({
   onClose: () => void;
   historyPermissions?: { canLink: boolean; isHead: boolean };
 }) {
+  const profileText = useTranslations("accountProfile");
+  return (
+    <ProfileDialog title={profileText("editProfile")} onClose={onClose}>
+      <TuteeProfileForm
+        row={row}
+        onClose={onClose}
+        historyPermissions={historyPermissions}
+      />
+    </ProfileDialog>
+  );
+}
+
+/** Keep this independent form inside the dialog's pending context. */
+function TuteeProfileForm({
+  row,
+  onClose,
+  historyPermissions,
+}: ComponentProps<typeof TuteeEditor>) {
+  const [closeRequested, setCloseRequested] = useState(false);
   const common = useTranslations();
   const t = useTranslations("profileCorrection");
   const history = useTranslations("tuteeHistory");
@@ -63,15 +83,15 @@ export function TuteeEditor({
         invalidateTuteeViews(utils),
         utils.admin.tutors.invalidate(),
       ]);
-      onClose();
+      setCloseRequested(true);
     },
   });
+  const busy = useDialogPending(save.isPending);
+  useEffect(() => {
+    if (closeRequested && !busy) onClose();
+  }, [closeRequested, busy, onClose]);
   return (
-    <ProfileDialog
-      title={profileText("editProfile")}
-      pending={save.isPending}
-      onClose={onClose}
-    >
+    <>
       <p className="muted text-sm">
         {row.user ? profileText("canonicalHelp") : history("noAccountHelp")}
       </p>
@@ -101,7 +121,7 @@ export function TuteeEditor({
           className="mt-3 max-w-3xl"
           onSubmit={(e) => {
             e.preventDefault();
-            if (save.isPending || submitting.current) return;
+            if (busy || submitting.current || closeRequested) return;
             const data = new FormData(e.currentTarget);
             const value = (key: string) =>
               (typeof data.get(key) === "string"
@@ -294,6 +314,6 @@ export function TuteeEditor({
           )}
         </section>
       )}
-    </ProfileDialog>
+    </>
   );
 }

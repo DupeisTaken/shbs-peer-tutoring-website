@@ -14,7 +14,8 @@ import {
   ProfilePolicyHint,
   OfferedGradeSelect,
 } from "./profile-policy";
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState, type ComponentProps } from "react";
+import { useDialogPending } from "./ui/modal";
 import { GRADUATED_GRADE } from "~/lib/academics";
 
 /** One deliberate save avoids racing field-by-field corrections of the same person. */
@@ -28,6 +29,21 @@ export function TutorProfileEditor({
   isHead?: boolean;
 }) {
   const t = useTranslations();
+  return (
+    <ProfileDialog title={t("accountProfile.editProfile")} onClose={onClose}>
+      <TutorProfileForm row={row} onClose={onClose} isHead={isHead} />
+    </ProfileDialog>
+  );
+}
+
+/** Keep this independent form inside the dialog's pending context. */
+function TutorProfileForm({
+  row,
+  onClose,
+  isHead = false,
+}: ComponentProps<typeof TutorProfileEditor>) {
+  const t = useTranslations();
+  const [closeRequested, setCloseRequested] = useState(false);
   const [expectedUpdatedAt] = useState(row.updatedAt);
   const [names, setNames] = useState(() => nameDraft(row));
   const [originalNames] = useState(() => nameDraft(row));
@@ -52,19 +68,19 @@ export function TutorProfileEditor({
         utils.admin.tutees.invalidate(),
         utils.admin.accounts.invalidate(),
       ]);
-      onClose();
+      setCloseRequested(true);
     },
   });
+  const busy = useDialogPending(save.isPending);
+  useEffect(() => {
+    if (closeRequested && !busy) onClose();
+  }, [closeRequested, busy, onClose]);
   return (
-    <ProfileDialog
-      title={t("accountProfile.editProfile")}
-      pending={save.isPending}
-      onClose={onClose}
-    >
+    <>
       <form
         onSubmit={(event) => {
           event.preventDefault();
-          if (save.isPending || submitting.current) return;
+          if (busy || submitting.current || closeRequested) return;
           const data = new FormData(event.currentTarget);
           const value = (key: string) => {
             const field = data.get(key);
@@ -214,6 +230,6 @@ export function TutorProfileEditor({
           <AcademicPanel userId={row.user.id} />
         </div>
       )}
-    </ProfileDialog>
+    </>
   );
 }
