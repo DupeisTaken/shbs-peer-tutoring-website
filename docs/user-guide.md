@@ -133,6 +133,29 @@ See the [tutee policy draft](../prisma/policies/tutee-policy.en.md) or [中文�
 
 ## Tutors
 
+The dashboard starts with **Your Next Steps**. Its links move keyboard focus to
+attendance, pairings, unresolved interviews, meetings and pending qualifications.
+Today's regular schedule uses the program time zone and confirmed weekly times;
+check announcements for holidays or one-off changes. Attendance comes before
+optional editors. Pending participation, policy and request notices remain visible.
+Completed interview details and optional editors can be expanded without losing an
+in-progress draft when collapsed. Pending qualification requests remain visible
+even when completed history is collapsed or filtered.
+
+Pending tutors confirm whether to participate before tutoring actions appear.
+Inactive tutors retain their records but cannot edit pairings or submit attendance.
+Changing a pairing's linked time slot, requesting or recalling a removal, and
+recording an interview decision names the affected record before submission.
+Cancel leaves live records unchanged. A relayed opt-out stays pending during its
+seven-day recall window, then processes automatically unless recalled or cancelled.
+An inactive tutor can still recall their pending relay. A queued management proposal
+requires staff approval; neither pending result is an applied change.
+
+Meeting-excuse, qualification and interview drafts remain available after a failed
+save. Correct the problem and retry. Attendance keeps its successful receipt and
+locks that entry; choose **Submit Another** to start a fresh record. If a saved
+entry's totals fail to refresh, retry the refresh without resubmitting attendance.
+
 Existing tutors can use **Subject Qualifications** on their dashboard to request another subject or a higher offered level in a subject they already teach. Choose a subject, explain your qualifications and submit; the request history shows outcomes, the decision note, and the subjects granted on approval. Under **Your Requests**, filter by **Pending** (including interviews), **Approved**, **Rejected**, or **Recalled**; counts show how many requests are in each category. History starts with Pending. Use **Collapse** / **Expand** to hide or show the history without losing the selected filter. Active tutors can **Recall request** while a request is pending or under interview. Confirming recall stops review, records who recalled it and when, and retains the request and panel history. A recalled request cannot be approved or reopened; submit a new request for that subject and level when ready. Approved and rejected decisions cannot be recalled. Pending, rejected and recalled requests do not change current qualifications. Duplicate open requests for the same subject and level are blocked. Inactive tutors retain read-only history.
 
 In **Tutor Applications**, additional-subject and higher-level requests have distinct badges. Only Admin or Head may approve directly, reject with a decision note, or assign an interview panel. Direct approval is available even when interviews are enabled. An interview uses the existing votes and majority rules with an Admin/Head tutor as chair; that chair records the outcome in Tutor Applications. Panelists see the requested course and the tutor's qualification explanation on their dashboard. Coordinators cannot make or queue these decisions. Applicants cannot review themselves. Review history and final decisions are retained. Approval records the requested level and lower offered levels in that course group under the ordering at approval time; reordering later does not change those grants. Subject willingness remains a separate choice in Subject Availability.
@@ -315,6 +338,11 @@ Staff use **Withdrawal Requests & Removals** to review self-submitted requests a
 Tutor and crew opt-out/reentry requests remain pending until reviewed. Opt-out approval requires seven days to have elapsed; reentry has no seven-day wait. Recall controls depend on the request type; crew members can recall a pending opt-out. After approving a tutor opt-out, use the explicit student-requeue action to return affected students for matching. If the member's status has changed since submission, decline the stale request and review the current roster.
 
 ### Review records and reports
+
+**Service Hours** keeps each tutor's total and Details action in the compact
+summary. Expand **Compare Hour Breakdowns** to compare earned hours, extras and
+penalties across tutors. On a narrow screen, scroll inside that labelled table;
+keyboard users can focus it and use the left/right arrow keys.
 
 Use [Attendance Flags](program-reference.md#review-attendance-flags) to assess crew evidence before applying a decision. Use [Reports](program-reference.md#reports-and-exports) to choose a period, review totals, download table CSVs or print a report. Check the privacy setting before sharing. Audits and policy acceptance history remain separate evidence views.
 

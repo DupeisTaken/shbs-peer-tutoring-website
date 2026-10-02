@@ -200,6 +200,18 @@ Application locks protect supported API writes. Do not import directly into requ
 
 ## Scheduling, hours and discipline
 
+The tutor dashboard's task summary reuses the same tRPC query keys as its feature
+sections, including explicit unknown/error states. It uses the program-zone date
+and only confirmed weekly pairing times; this is a regular timetable, not a
+holiday or attendance-completion inference. Active membership controls attendance
+and pairing writes; pending/inactive membership keeps read-only records and
+unresolved requirements. Hash shortcuts focus their section for keyboard users.
+Attendance freezes its submitted fields and distinguishes a saved entry from a
+failed totals refresh. Pending qualification records stay outside history filters;
+completed interview evidence and optional editor disclosures retain mounted drafts.
+The [contributor action inventory](contributing.md#consequential-action-inventory)
+documents draft, reversible and confirmed action boundaries.
+
 `Pairing.scheduleConfirmed` separates assigned tutors from agreed schedules. New request assignments default false; catalog-slot creation or selection sets true. Clearing a slot link retains the flag and copied times. Lists expose the awaiting state, dashboard counts exclude it, and attendance requires explicit actual start/end values whenever any selected pairing is unconfirmed. Recording actual attendance never confirms the recurring schedule. The [scheduling migration](../prisma/migrations/20260922200100_pairing_scheduling/migration.sql) conservatively marks preexisting rows true because copied-time provenance is unknown; new rows default false. No historical schedule or session time is inferred or rewritten.
 
 Confirmed planned room bookings cannot overlap within a program period or conflict with a recurring blackout. Unconfirmed numeric placeholders do not reserve rooms, and changing only the confirmation flag still invokes the database room guard. Adjacent bookings are allowed. Shared transaction locks keep application validation coherent; database triggers enforce the final constraint. Actual historical attendance can differ from a plan and is recorded with conflict warnings and management notification.

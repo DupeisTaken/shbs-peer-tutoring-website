@@ -718,6 +718,9 @@
       }
     },
     "summary": {
+      "compareTitle": "Compare Hour Breakdowns ({count} Tutors)",
+      "compareLabel": "Service hour breakdown comparison",
+      "compareHelp": "Compare each tutor's earned hours, extras and penalties. On narrow screens, scroll within the table; keyboard users can focus the table and use the left and right arrow keys.",
       "title": "Horas de servicio de tutores",
       "subtitleMonthly": "Horas de servicio por tutor.",
       "scope": "Semestre actual · {label}",
@@ -1799,6 +1802,42 @@
     }
   },
   "tutor": {
+    "tasks": {
+      "pendingOptOuts": "Opt-outs in recall window ({count})",
+      "membershipPending": "Participation request awaiting review",
+      "reloadDecision": "Reload application and clear decision draft",
+      "title": "Your Next Steps",
+      "activeHelp": "Start with attendance. Open a task to review its details; pending requests have not changed live records.",
+      "readonlyHelp": "Your participation is not active. Review your status and records; tutoring actions become available after activation.",
+      "activation": "Confirm participation",
+      "attendance": "Record attendance",
+      "pairings": "Pairings ({count})",
+      "scheduleReview": "Schedule follow-up ({count})",
+      "interviews": "Open interviews ({count})",
+      "meetings": "Upcoming meetings ({count})",
+      "qualifications": "Pending qualifications ({count})",
+      "preferences": "Subjects and availability",
+      "roomSchedule": "Room timetable",
+      "loading": "Loading your tasks…",
+      "loadError": "Some tasks could not be loaded. Keep reviewing the available records and retry.",
+      "retry": "Try again",
+      "today": "Today's regular schedule · {date}",
+      "scheduleHelp": "Your confirmed weekly times in the program time zone. Check announcements for holidays or one-off changes; record the actual session time.",
+      "noSessions": "No confirmed regular sessions today.",
+      "noRoom": "Room not assigned",
+      "confirmRemoval": "Relay {name}'s request to leave tutoring, from {subject}? Participation stays active during the 7-day recall window. After that, removal is processed automatically unless you recall it or staff cancel it.",
+      "recallRemoval": "Withdraw the pending removal request for {name} in {subject}? Their assignment will remain active.",
+      "removalSubmitted": "Opt-out relayed. Participation stays active during the 7-day recall window, then removal is processed automatically unless recalled or cancelled.",
+      "recallDeadline": "Recall window ends: {date}",
+      "changeSchedule": "Change pairing schedule",
+      "confirmSchedule": "Set {subject} to “{slot}”? Choosing a slot updates the pairing's day and time. Removing its slot link retains the confirmed time.",
+      "confirmActivate": "Confirm that you are available for tutoring this term? Your account becomes active immediately.",
+      "confirmOptOut": "Opt out of tutoring this term? Tutoring actions will become unavailable. Returning requires a reentry request and staff approval.",
+      "confirmDecision": "Record {outcome} for {name}? The panel vote and current application version will be checked. If approval is required, this creates a pending proposal and does not apply the decision.",
+      "completedInterview": "Completed interview · {name} ({count})",
+      "savedRefreshError": "Attendance was saved, but the refreshed totals could not be loaded. Do not resubmit this entry.",
+      "verificationDeadline": "Verification due: {date}"
+    },
     "activate": {
       "title": "Confirma tu disponibilidad",
       "body": "Ha comenzado un nuevo período. Activa tu cuenta para seguir como tutor u opta por salir por ahora.",
@@ -3303,6 +3342,9 @@
     "working": "Assigning…"
   },
   "qualificationRequests": {
+    "completedCount": "({count} completed)",
+    "pendingAlwaysVisible": "{count} requests are still awaiting a decision and stay visible when history is filtered or collapsed.",
+    "cancelDraft": "Cancel draft",
     "title": "Subject Qualifications",
     "help": "Apply for another subject or a higher level. Existing approvals stay in place while your request is reviewed.",
     "loading": "Loading qualifications…",

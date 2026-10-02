@@ -118,8 +118,8 @@ beforeEach(() => {
   mocks.recallSuccess = false;
 });
 afterEach(cleanup);
-const show = (active = true) =>
-  render(
+const show = (active = true) => {
+  const view = render(
     <NextIntlClientProvider
       locale="en"
       timeZone="Asia/Shanghai"
@@ -128,6 +128,13 @@ const show = (active = true) =>
       <QualificationRequests active={active} />
     </NextIntlClientProvider>,
   );
+  const details = view.container.querySelector("details");
+  if (details) {
+    details.open = true;
+    fireEvent(details, new Event("toggle"));
+  }
+  return view;
+};
 
 const filter = (name: string, count: number) =>
   screen.getByRole("button", { name: `${name} ${count}` });
@@ -281,11 +288,11 @@ it("starts with pending and interview requests and filters every terminal status
     fireEvent.click(filter(label, 1));
     expect(filter(label, 1).getAttribute("aria-pressed")).toBe("true");
     expect(filter("Pending", 2).getAttribute("aria-pressed")).toBe("false");
-    expect(screen.getAllByRole("listitem")).toHaveLength(1);
-    expect(screen.getByRole("listitem").textContent).toContain(
-      `History ${status}`,
-    );
-    expect(screen.queryByRole("button", { name: "Recall request" })).toBeNull();
+    expect(screen.getAllByRole("listitem")).toHaveLength(3);
+    expect(screen.getByText(`History ${status}`)).toBeTruthy();
+    expect(
+      screen.getAllByRole("button", { name: "Recall request" }),
+    ).toHaveLength(2);
     if (status === "ACCEPTED")
       expect(
         screen.getByText("Granted at approval: Granted subject"),
@@ -359,4 +366,17 @@ it("updates groups after a recall without resetting selection or collapse state"
   expect(filter("Recalled", 1).getAttribute("aria-pressed")).toBe("true");
   expect(filter("Pending", 0)).toBeTruthy();
   expect(screen.getByText(/^Recalled on/)).toBeTruthy();
+});
+
+it("never collapses pending requirements with completed history", () => {
+  mocks.status = "PENDING";
+  mocks.extraStatuses = ["INTERVIEW", "REJECTED"];
+  show();
+  fireEvent.click(filter("Rejected", 1));
+  fireEvent.click(screen.getByRole("button", { name: "Collapse" }));
+  expect(screen.getAllByRole("listitem")).toHaveLength(2);
+  expect(
+    screen.getAllByRole("button", { name: "Recall request" }),
+  ).toHaveLength(2);
+  expect(screen.queryByText("History REJECTED")).toBeNull();
 });

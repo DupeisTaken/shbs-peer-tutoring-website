@@ -5,6 +5,8 @@ import { useState } from "react";
 import { useFormatter, useTranslations, useTimeZone } from "next-intl";
 
 import { api } from "~/trpc/react";
+import { useDialog } from "~/app/_components/confirm-dialog";
+import { DisclosureSection } from "~/app/_components/ui/disclosure-section";
 
 import { programDateTimeInput, parseProgramDateTime } from "~/lib/program-time";
 
@@ -35,6 +37,7 @@ function HeadScheduler({
         className="input min-h-11 w-auto max-w-full lg:min-h-10"
         aria-label={t("tutor.interviews.setTime")}
         value={value}
+        disabled={save.isPending}
         onChange={(e) => setValue(e.target.value)}
       />
       <button
@@ -58,9 +61,21 @@ function HeadScheduler({
           ? t("tutor.interviews.saving")
           : t("tutor.interviews.setTime")}
       </button>
+      <button
+        className="btn-secondary btn-sm min-h-11 lg:min-h-10"
+        disabled={save.isPending}
+        onClick={() => {
+          setValue(current ? programDateTimeInput(current, timeZone) : "");
+          setInputError("");
+          save.reset();
+        }}
+      >
+        {t("common.cancel")}
+      </button>
       {inputError && <p role="alert">{inputError}</p>}
+      {save.error && <p role="alert">{save.error.message}</p>}
       {save.isSuccess && (
-        <span className="text-sm text-green-600">
+        <span role="status" className="text-sm text-green-600">
           {t("tutor.interviews.saved")}
         </span>
       )}
@@ -136,13 +151,37 @@ function VoteForm({
             })}
           </span>
         )}
+        {!votingClosed && (
+          <button
+            type="button"
+            className="btn-secondary btn-sm min-h-11 lg:min-h-8"
+            disabled={cast.isPending}
+            onClick={() => {
+              setComment(myVote?.comment ?? "");
+              cast.reset();
+            }}
+          >
+            {t("common.cancel")}
+          </button>
+        )}
       </div>
+      {cast.error && (
+        <p role="alert" className="text-sm text-red-700">
+          {cast.error.message}
+        </p>
+      )}
+      {cast.isSuccess && (
+        <p role="status" className="text-sm text-green-700">
+          {t("tutor.interviews.saved")}
+        </p>
+      )}
     </div>
   );
 }
 
 function HeadDecision({
   applicationId,
+  name,
   status,
   tally,
   panelSize,
@@ -151,6 +190,7 @@ function HeadDecision({
   expectedUpdatedAt,
 }: {
   applicationId: string;
+  name: string;
   status: Status;
   tally: { accepts: number; rejects: number };
   panelSize: number;
@@ -161,12 +201,45 @@ function HeadDecision({
   const t = useTranslations();
   const utils = api.useUtils();
   const [comment, setComment] = useState("");
+  const { confirm, dialog } = useDialog();
+  const [version, setVersion] = useState(expectedUpdatedAt);
+  const [reloading, setReloading] = useState(false);
+  const [reloadError, setReloadError] = useState("");
   const decide = api.tutor.decideInterview.useMutation({
     onSuccess: () => utils.tutor.myInterviews.invalidate(),
     onError: () => utils.tutor.myInterviews.invalidate(),
   });
 
   const decided = status === "ACCEPTED" || status === "REJECTED";
+  const queued = !!decide.error?.data?.approvalId;
+  const recordDecision = async (accept: boolean) => {
+    if (
+      await confirm({
+        title: t(
+          accept ? "tutor.interviews.approve" : "tutor.interviews.reject",
+        ),
+        message: t("tutor.tasks.confirmDecision", {
+          name,
+          outcome: t(
+            accept
+              ? "tutor.interviews.voteAccept"
+              : "tutor.interviews.voteReject",
+          ),
+        }),
+        confirmLabel: t(
+          accept ? "tutor.interviews.approve" : "tutor.interviews.reject",
+        ),
+        cancelLabel: t("common.cancel"),
+        danger: !accept,
+      })
+    )
+      decide.mutate({
+        applicationId,
+        accept,
+        comment: comment.trim(),
+        expectedUpdatedAt: version,
+      });
+  };
   // Simple majority admits; on a tie the head's own vote breaks it (policy §VII.4).
   const majority =
     tally.accepts > tally.rejects
@@ -193,6 +266,7 @@ function HeadDecision({
 
   return (
     <div className="mt-2 space-y-2 border-t border-slate-100 pt-2">
+      {dialog}
       <p className="text-xs font-semibold tracking-wide text-slate-400 uppercase">
         {t("tutor.interviews.headDecision")}
       </p>
@@ -207,6 +281,8 @@ function HeadDecision({
         className="input w-full"
         placeholder={t("tutor.interviews.decisionCommentPlaceholder")}
         value={comment}
+        aria-label={t("tutor.interviews.decisionCommentPlaceholder")}
+        disabled={decide.isPending || queued || reloading}
         onChange={(e) => setComment(e.target.value)}
       />
       <div className="flex flex-wrap items-center gap-2">
@@ -215,17 +291,13 @@ function HeadDecision({
           disabled={
             !comment.trim() ||
             decide.isPending ||
+            queued ||
+            reloading ||
+            status !== "INTERVIEW" ||
             tally.accepts + tally.rejects < panelSize ||
             tally.accepts < tally.rejects
           }
-          onClick={() =>
-            decide.mutate({
-              applicationId,
-              accept: true,
-              comment: comment.trim(),
-              expectedUpdatedAt,
-            })
-          }
+          onClick={() => void recordDecision(true)}
         >
           {t("tutor.interviews.approve")}
         </button>
@@ -234,22 +306,73 @@ function HeadDecision({
           disabled={
             !comment.trim() ||
             decide.isPending ||
+            queued ||
+            reloading ||
+            status !== "INTERVIEW" ||
             tally.accepts + tally.rejects < panelSize ||
             tally.rejects < tally.accepts
           }
-          onClick={() =>
-            decide.mutate({
-              applicationId,
-              accept: false,
-              comment: comment.trim(),
-              expectedUpdatedAt,
-            })
-          }
+          onClick={() => void recordDecision(false)}
         >
           {t("tutor.interviews.reject")}
         </button>
-        {decide.error && (
-          <span className="text-sm text-red-600">{decide.error.message}</span>
+        {decide.error && !queued && (
+          <span role="alert" className="text-sm text-red-600">
+            {decide.error.message}
+          </span>
+        )}
+        <button
+          type="button"
+          className="btn-secondary btn-sm"
+          disabled={decide.isPending || queued || reloading}
+          onClick={() => {
+            setComment("");
+            setReloadError("");
+            decide.reset();
+          }}
+        >
+          {t("common.cancel")}
+        </button>
+        {decide.error && !queued && (
+          <button
+            className="btn-secondary btn-sm"
+            disabled={reloading || decide.isPending}
+            onClick={async () => {
+              setReloading(true);
+              setReloadError("");
+              try {
+                // Only an explicit successful reload replaces this draft's version.
+                // Background invalidation must never silently rebase a failed decision.
+                const rows = await utils.tutor.myInterviews.fetch();
+                const current = rows.find((row) => row.id === applicationId);
+                if (!current) throw new Error(t("tutor.tasks.loadError"));
+                setVersion(current.updatedAt);
+                setComment("");
+                decide.reset();
+              } catch (error) {
+                setReloadError(
+                  error instanceof Error
+                    ? error.message
+                    : t("tutor.tasks.loadError"),
+                );
+              } finally {
+                setReloading(false);
+              }
+            }}
+          >
+            {t("tutor.tasks.reloadDecision")}
+          </button>
+        )}
+        {reloadError && <p role="alert">{reloadError}</p>}
+        {queued && (
+          <p role="status" className="text-sm text-amber-800">
+            {t("approvals.queuedBody")}
+          </p>
+        )}
+        {decide.isSuccess && (
+          <p role="status" className="text-sm text-green-700">
+            {t("tutor.interviews.saved")}
+          </p>
         )}
       </div>
     </div>
@@ -262,16 +385,33 @@ export function MyInterviews() {
   const interviews = api.tutor.myInterviews.useQuery();
   const list = interviews.data ?? [];
 
-  if (list.length === 0) return null;
+  if (list.length === 0 && !interviews.error && !interviews.isLoading)
+    return null;
 
   return (
-    <section className="card p-5">
+    <section
+      id="tutor-interviews"
+      tabIndex={-1}
+      className="card scroll-mt-6 p-5"
+    >
       <h2 className="section-title">{t("dashboard.interviews.title")}</h2>
       <p className="muted mt-1 mb-3">{t("tutor.interviews.help")}</p>
+      {interviews.isLoading && <p role="status">{t("tutor.tasks.loading")}</p>}
+      {interviews.error && (
+        <p role="alert">
+          {interviews.error.message}{" "}
+          <button
+            className="btn-secondary btn-sm"
+            onClick={() => void interviews.refetch()}
+          >
+            {t("tutor.tasks.retry")}
+          </button>
+        </p>
+      )}
       <div className="space-y-3">
         {list.map((a) => {
           const votes = a.votes;
-          return (
+          const content = (
             <div key={a.id} className="rounded-lg border border-slate-200 p-3">
               <div className="flex flex-wrap items-center justify-between gap-2">
                 <p className="font-medium text-slate-900">
@@ -322,7 +462,8 @@ export function MyInterviews() {
                 <p className="badge-slate mt-2">
                   {t("qualificationRequests.RECALLED")}
                 </p>
-              ) : a.isHead ? (
+              ) : a.isHead &&
+                (a.status === "PENDING" || a.status === "INTERVIEW") ? (
                 <HeadScheduler applicationId={a.id} current={a.interviewAt} />
               ) : (
                 <p className="muted mt-2">
@@ -362,6 +503,7 @@ export function MyInterviews() {
                 a.type !== "HIGHER_LEVEL" && (
                   <HeadDecision
                     applicationId={a.id}
+                    name={a.name}
                     status={a.status}
                     tally={a.tally}
                     panelSize={a.interviewers.length}
@@ -403,6 +545,20 @@ export function MyInterviews() {
                   </div>
                 )}
             </div>
+          );
+          return a.status === "PENDING" || a.status === "INTERVIEW" ? (
+            content
+          ) : (
+            <DisclosureSection
+              key={a.id}
+              title={t("tutor.tasks.completedInterview", {
+                name: a.name,
+                count: 1,
+              })}
+              lifetime="retained"
+            >
+              {content}
+            </DisclosureSection>
           );
         })}
       </div>

@@ -106,6 +106,27 @@ these tests.
 - Keep bundled policy drafts separate from published database documents. Follow [policy publication](policies/README.md) when wording changes.
 - Before changing Next.js behavior, read the relevant bundled guide under `node_modules/next/dist/docs/`. Use the existing Turbopack build command and local resource settings rather than global runtime changes.
 
+### Consequential action inventory
+
+Choose interaction by consequence, retaining the domain's stronger requirements.
+Canceling a draft or confirmation must not invoke a write. A failed write retains
+the editable draft and actionable error; freeze that draft during a pending write.
+An approval ID means a queued proposal, never a successful application.
+
+| Surface / action | Interaction and preserved safeguards |
+| --- | --- |
+| Subject willingness, announcement acknowledgement, meeting-excuse recall | Immediate action with pending protection and visible result/error |
+| Availability, qualification evidence, meeting excuse, interview time/comment, roster profile or creation | Local draft with explicit Save/Submit and Cancel; retain failed drafts and independent editor snapshots |
+| Tutor activation/opt-out, pairing schedule, legacy removal request/recall, interview final decision | Named consequence confirmation; preserve current version, panel vote, role and server permission checks |
+| Student schedule conflict, policy acceptance, withdrawal and assignment | Existing domain dialog, server confirmation ticket, review delay, policy revision and immutable evidence remain authoritative |
+| Tutors/Tutees/Users membership, school departure, account combination and deletion | Existing named domain confirmation/review; retain password checks, role restrictions, versions, proposals and before/after evidence |
+| Service Hours breakdown comparison, room timetables and attendance history | Read-only comparison matrices in named keyboard-scroll regions; no artificial action column. The compact Service Hours summary retains its real Details action |
+
+Keep pending requirements outside completed-history disclosures. Use retained
+child lifetimes for collapsible editors so collapsing is not an implicit Cancel.
+Test applied versus queued outcomes, cancellation without writes, failed drafts,
+permission changes and keyboard focus in addition to visual layout.
+
 ## Chinese peer-tutoring wording
 
 Use **辅导伙伴** for Tutor and **学习伙伴** for Tutee in role labels, participant workflows, notifications and policy drafts. Both are fellow students; these names describe their roles in a particular tutoring relationship, not a teacher/student hierarchy. Use **辅导** for tutoring and **参与中** for active participation, rather than 授课 or 在职. Keep genuine school references such as 学生家长、数学教师 and the calendar's 上课日. Keep message keys, ICU arguments/plural branches, role enums and permission rules unchanged when editing display text.

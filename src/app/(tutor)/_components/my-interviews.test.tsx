@@ -29,7 +29,11 @@ vi.mock("~/trpc/react", () => ({
     tutor: {
       setInterviewTime: { useMutation: () => ({ mutate: state.schedule }) },
       castInterviewVote: {
-        useMutation: () => ({ mutate: vi.fn(), isPending: false }),
+        useMutation: () => ({
+          mutate: vi.fn(),
+          reset: vi.fn(),
+          isPending: false,
+        }),
       },
       myInterviews: {
         useQuery: () => ({
@@ -73,6 +77,17 @@ vi.mock("~/trpc/react", () => ({
 
 import { MyInterviews } from "./my-interviews";
 
+function show() {
+  const view = render(<MyInterviews />);
+  // Inspect completed evidence by deliberately expanding its retained disclosure.
+  const details = view.container.querySelector("details");
+  if (details) {
+    details.open = true;
+    fireEvent(details, new Event("toggle"));
+  }
+  return view;
+}
+
 afterEach(() => {
   cleanup();
   state.status = "ACCEPTED";
@@ -85,7 +100,7 @@ it.each(["ACCEPTED", "REJECTED"] as const)(
   "renders completed %s panel voting as read-only while retaining votes and outcome",
   (status) => {
     state.status = status;
-    render(<MyInterviews />);
+    show();
 
     const acceptButton = screen.getByRole("button", {
       name: /tutor\.interviews\.accept/,
@@ -118,7 +133,7 @@ it("gives an additional-request chair labelled scheduling controls and routes de
   state.status = "INTERVIEW";
   state.type = "HIGHER_LEVEL";
   state.isHead = true;
-  render(<MyInterviews />);
+  show();
   expect(screen.getByText("Mathematics", { exact: true })).toBeTruthy();
   expect(screen.queryByText(/Mathematics ·/)).toBeNull();
   expect(screen.getByText(/Completed advanced coursework/)).toBeTruthy();
@@ -150,7 +165,7 @@ it("retains recalled interview evidence with voting and scheduling closed", () =
   state.status = "RECALLED";
   state.type = "HIGHER_LEVEL";
   state.isHead = true;
-  render(<MyInterviews />);
+  show();
   expect(screen.getByText("qualificationRequests.RECALLED")).toBeTruthy();
   expect(screen.getByText(/Strong demo/)).toBeTruthy();
   expect(
