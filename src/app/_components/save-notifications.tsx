@@ -20,6 +20,7 @@ export function NotificationViewport({
 /** Only settled mutation results enter this live region; errors stay until dismissed. */
 export function SaveNotifications() {
   const t = useTranslations("saveNotifications");
+  const historical = useTranslations("historicalAcademics");
   const [results, setResults] = useState<Result[]>([]);
   useEffect(() => {
     let sequence = 0;
@@ -82,7 +83,14 @@ export function SaveNotifications() {
       </div>
       {result.kind === "error" && (
         <p className="mt-2 text-sm">
-          <ProfilePolicyError message={result.message} />
+          {/* The page and global notice must describe the same recoverable conflict
+              in the active language, never expose a stable server code as UI text. */}
+          {result.message?.startsWith("HISTORICAL_") &&
+          historical.has(result.message) ? (
+            historical(result.message)
+          ) : (
+            <ProfilePolicyError message={result.message} />
+          )}
         </p>
       )}
     </aside>

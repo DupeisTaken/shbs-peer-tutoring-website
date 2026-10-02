@@ -434,6 +434,7 @@ model Term {
 }
 
 model Tutor {
+  historicalAcademics HistoricalAcademicRecord[]
   qualificationApplications TutorApplication[] @relation("QualificationApplicant")
   id          String   @id @default(cuid())
   /// Explicit fields feed the materialized program display label in englishName.
@@ -637,6 +638,7 @@ enum SignupSource {
 }
 
 model Tutee {
+  historicalAcademics HistoricalAcademicRecord[]
   historyInvitation TuteeHistoryInvitation?
   user User?
   /// Entry provenance only; never an approval state or a priority override.
@@ -1964,6 +1966,48 @@ model AcademicConfirmation {
   source String
   reason String?
   @@index([userId, confirmedAt])
+}
+
+/// Original period-specific evidence belongs to the participant, never a fabricated login.
+/// Corrections are append-only overlays; archive retries still compare the original values.
+model HistoricalAcademicRecord {
+  id String @id
+  tutorId String?
+  tutor Tutor? @relation(fields: [tutorId], references: [id], onDelete: Restrict)
+  tuteeId String?
+  tutee Tutee? @relation(fields: [tuteeId], references: [id], onDelete: Restrict)
+  rawGrade String?
+  /// Retain an explicit legacy graduation choice separately from missing/raw grade text.
+  academicallyGraduated Boolean @default(false)
+  schoolYear String?
+  source String
+  originalConfirmedAt DateTime?
+  recordedAt DateTime @default(now())
+  corrections HistoricalAcademicCorrection[]
+
+  @@index([tutorId])
+  @@index([tuteeId])
+}
+
+/// A correction date is distinct from original confirmation evidence and reference year.
+/// Actor IDs are retained as audit evidence even if an account is later combined.
+model HistoricalAcademicCorrection {
+  id String @id @default(cuid())
+  recordId String
+  record HistoricalAcademicRecord @relation(fields: [recordId], references: [id], onDelete: Restrict)
+  revision Int
+  rawGrade String?
+  schoolYear String?
+  evidence String
+  reason String
+  actorId String
+  actorName String
+  approvalId String?
+  method String
+  correctedAt DateTime @default(now())
+  before Json
+
+  @@unique([recordId, revision])
 }
 
 /// Shared write fence: even repeatable-read/serializable identity transactions must see a fresh namespace.

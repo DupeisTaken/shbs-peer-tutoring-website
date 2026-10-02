@@ -1,11 +1,13 @@
 "use client";
 import { invalidateTuteeViews } from "~/lib/tutee-cache";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { ProfileDialog } from "./profile-dialog";
+import { useDialogPending } from "./ui/modal";
 import { AcademicDetails } from "./academic-profile";
+import { HistoricalAcademicEvidence } from "./historical-academic-evidence";
 
 export function HistoryError({ message }: { message: string }) {
   const t = useTranslations("tuteeHistory");
@@ -100,6 +102,9 @@ export function TuteeHistoryDialog({
               )}
             </section>
           </div>
+          {data.historicalAcademics && (
+            <HistoricalAcademicEvidence records={data.historicalAcademics} />
+          )}
           <p className="muted text-sm">
             {t("sessionCount", { count: data.count })}
           </p>
@@ -193,11 +198,19 @@ export function TuteeHistoryLinkForm({
   const [reviewing, setReviewing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [sent, setSent] = useState(false);
+  const [expectedUpdatedAt] = useState(row.updatedAt);
+  const submitting = useRef(false);
+  const reviewPending = useRef(false);
+  const [linked, setLinked] = useState(false);
+  const settled = () => {
+    submitting.current = false;
+  };
   const candidates = api.tuteeHistory.candidates.useQuery(
     { search: query },
     { enabled: query.length >= 2 },
   );
   const link = api.tuteeHistory.link.useMutation({
+    onSettled: settled,
     onSuccess: async () => {
       await Promise.all([
         invalidateTuteeViews(utils),
@@ -207,7 +220,7 @@ export function TuteeHistoryLinkForm({
       setPreview(null);
       setAcknowledged(false);
       setPassword("");
-      onLinked();
+      setLinked(true);
     },
     onError: (e) => {
       setError(e.message);
@@ -216,10 +229,18 @@ export function TuteeHistoryLinkForm({
     },
   });
   const invite = api.tuteeHistory.invite.useMutation({
+    onSettled: settled,
     onSuccess: () => setSent(true),
     onError: (e) => setError(e.message),
   });
-  const pending = link.isPending || invite.isPending || reviewing;
+  // Read-only preview remains dismissible. Register only actual link/invitation writes.
+  const busy = useDialogPending(link.isPending || invite.isPending);
+  const pending = busy || reviewing || linked;
+  useEffect(() => {
+    if (!linked || busy) return;
+    setLinked(false);
+    onLinked();
+  }, [linked, busy, onLinked]);
   return (
     <div className="space-y-5">
       <div>
@@ -233,6 +254,7 @@ export function TuteeHistoryLinkForm({
         <span className="label">{t("evidence")}</span>
         <textarea
           className="input w-full"
+          disabled={pending}
           rows={3}
           value={reason}
           minLength={10}
@@ -246,6 +268,13 @@ export function TuteeHistoryLinkForm({
           className="flex flex-wrap items-end gap-2"
           onSubmit={(e) => {
             e.preventDefault();
+            if (
+              pending ||
+              submitting.current ||
+              reviewPending.current ||
+              search.trim().length < 2
+            )
+              return;
             setQuery(search.trim());
             setUserId("");
             setPreview(null);
@@ -257,6 +286,7 @@ export function TuteeHistoryLinkForm({
             <span className="label">{t("searchAccount")}</span>
             <input
               className="input w-full"
+              disabled={pending}
               value={search}
               onChange={(e) => setSearch(e.target.value)}
               maxLength={100}
@@ -304,19 +334,28 @@ export function TuteeHistoryLinkForm({
           className="btn-secondary min-h-11 lg:min-h-9"
           disabled={!userId || pending}
           onClick={async () => {
+            if (
+              pending ||
+              submitting.current ||
+              reviewPending.current ||
+              !userId
+            )
+              return;
+            reviewPending.current = true;
             setReviewing(true);
             setError(null);
             setAcknowledged(false);
             try {
               setPreview(
-                await utils.tuteeHistory.preview.fetch({
-                  tuteeId: row.id,
-                  userId,
-                }),
+                await utils.tuteeHistory.preview.fetch(
+                  { tuteeId: row.id, userId },
+                  { staleTime: 0 },
+                ),
               );
             } catch (e) {
               setError(e instanceof Error ? e.message : "HISTORY_STALE");
             } finally {
+              reviewPending.current = false;
               setReviewing(false);
             }
           }}
@@ -348,6 +387,7 @@ export function TuteeHistoryLinkForm({
                       <input
                         className="input w-full"
                         type="password"
+                        disabled={pending}
                         autoComplete="current-password"
                         value={password}
                         onChange={(e) => setPassword(e.target.value)}
@@ -358,6 +398,7 @@ export function TuteeHistoryLinkForm({
                 <label className="flex min-h-11 items-center gap-2 text-sm">
                   <input
                     type="checkbox"
+                    disabled={pending}
                     checked={acknowledged}
                     onChange={(e) => setAcknowledged(e.target.checked)}
                   />
@@ -371,7 +412,20 @@ export function TuteeHistoryLinkForm({
                     reason.trim().length < 10 ||
                     (preview.conflict && !password)
                   }
-                  onClick={() =>
+                  onClick={() => {
+                    if (
+                      pending ||
+                      submitting.current ||
+                      reviewPending.current ||
+                      !acknowledged ||
+                      reason.trim().length < 10 ||
+                      !userId ||
+                      preview.currentConflict ||
+                      (preview.conflict && (!isHead || !password))
+                    )
+                      return;
+                    submitting.current = true;
+                    setError(null);
                     link.mutate({
                       tuteeId: row.id,
                       userId,
@@ -380,8 +434,8 @@ export function TuteeHistoryLinkForm({
                       ...(preview.conflict
                         ? { confirmPassword: password }
                         : {}),
-                    })
-                  }
+                    });
+                  }}
                 >
                   {t("link")}
                 </button>
@@ -398,11 +452,23 @@ export function TuteeHistoryLinkForm({
             className="space-y-3"
             onSubmit={(e) => {
               e.preventDefault();
+              if (
+                pending ||
+                submitting.current ||
+                reviewPending.current ||
+                reason.trim().length < 10 ||
+                !email ||
+                sent ||
+                row.owner ||
+                row.user
+              )
+                return;
+              submitting.current = true;
               setError(null);
               invite.mutate({
                 tuteeId: row.id,
                 email,
-                expectedUpdatedAt: row.updatedAt,
+                expectedUpdatedAt,
                 reason,
               });
             }}

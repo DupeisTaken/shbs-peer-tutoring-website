@@ -1,7 +1,8 @@
 "use client";
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
+import { useDialogPending } from "./ui/modal";
 
 const ratings = [
   "ratingPreparedness",
@@ -21,49 +22,90 @@ const minutes = (value: string) => {
 export function AttendanceCorrection({ id }: { id: string }) {
   const t = useTranslations("corrections");
   const attendanceText = useTranslations("tutor.attendance");
+  const common = useTranslations();
   const [open, setOpen] = useState(true);
+  const [closeRequested, setCloseRequested] = useState(false);
+  const [reloading, setReloading] = useState(false);
+  const reloadPending = useRef(false);
+  const submitting = useRef(false);
   const utils = api.useUtils();
   const records = api.corrections.attendance.useQuery(
     { id },
     { enabled: open },
   );
   const rooms = api.admin.rooms.useQuery(undefined, { enabled: open });
+  // The uncontrolled fields and expected version belong to this one draft.
+  // Background refreshes cannot replace either; reopening/reload is deliberate.
+  const [snapshot, setSnapshot] = useState<typeof records.data>();
+  const [draftRevision, setDraftRevision] = useState(0);
+  if (open && !snapshot && records.data && rooms.data)
+    setSnapshot(records.data);
   const save = api.corrections.correctAttendance.useMutation({
+    onSettled: () => {
+      submitting.current = false;
+    },
     onSuccess: async () => {
       await Promise.all([
         utils.admin.sessions.invalidate(),
         utils.corrections.attendance.invalidate(),
         utils.admin.auditLog.invalidate(),
       ]);
-      setOpen(false);
+      setCloseRequested(true);
     },
   });
-  const primary = records.data?.find(
+  const busy = useDialogPending(save.isPending);
+  // A successful write can request collapse before mutation callbacks have settled.
+  const expanded = open && (!closeRequested || busy);
+  const primary = snapshot?.find(
     (s) => !s.mergeGroupId || s.mergeGroupId === s.id,
   );
   const students = [
     ...new Map(
-      records.data?.flatMap((s) => s.tutees).map((s) => [s.tuteeId, s]),
+      snapshot?.flatMap((s) => s.tutees).map((s) => [s.tuteeId, s]),
     ).values(),
   ];
   return (
     <details
-      open={open}
-      onToggle={(e) => setOpen(e.currentTarget.open)}
+      open={expanded}
+      onToggle={(e) => {
+        if (busy) {
+          e.currentTarget.open = expanded;
+          return;
+        }
+        setOpen(e.currentTarget.open);
+        if (!e.currentTarget.open) setSnapshot(undefined);
+      }}
       className="text-left"
     >
-      <summary className="link cursor-pointer">{t("editAttendance")}</summary>
-      {open && primary && rooms.data && (
+      <summary
+        className="link cursor-pointer"
+        aria-disabled={busy}
+        onClick={(event) => {
+          if (busy) event.preventDefault();
+          else if (!expanded) setCloseRequested(false);
+        }}
+      >
+        {t("editAttendance")}
+      </summary>
+      {expanded && primary && rooms.data && (
         <form
-          key={primary.updatedAt.toISOString()}
-          className="mt-3 grid max-w-3xl gap-4 sm:grid-cols-2"
+          key={draftRevision}
+          className="mt-3 max-w-3xl"
           onSubmit={(e) => {
             e.preventDefault();
+            if (
+              busy ||
+              submitting.current ||
+              reloadPending.current ||
+              closeRequested
+            )
+              return;
             const data = new FormData(e.currentTarget);
             const value = (key: string) =>
               typeof data.get(key) === "string"
                 ? (data.get(key) as string)
                 : "";
+            submitting.current = true;
             save.mutate({
               id: primary.id,
               expectedUpdatedAt: primary.updatedAt,
@@ -102,151 +144,187 @@ export function AttendanceCorrection({ id }: { id: string }) {
             });
           }}
         >
-          <p className="muted text-sm sm:col-span-2">{t("attendanceHelp")}</p>
-          <label className="block">
-            <span className="label">{t("date")}</span>
-            <input
-              className="input"
-              name="date"
-              type="date"
-              required
-              defaultValue={primary.date.toISOString().slice(0, 10)}
-            />
-          </label>
-          <div className="grid grid-cols-2 gap-2">
-            {(["start", "end"] as const).map((key) => (
-              <label key={key}>
-                <span className="label">{t(key)}</span>
-                <input
-                  className="input"
-                  type="time"
-                  name={key}
-                  required
-                  defaultValue={clock(
-                    key === "start" ? primary.startMin : primary.endMin,
-                  )}
-                />
-              </label>
-            ))}
-          </div>
-          <label className="block">
-            <span className="label">{t("tutorStatus")}</span>
-            <select
-              className="select"
-              name="status"
-              defaultValue={primary.tutorStatus}
-            >
-              {["PRESENT", "RESCHEDULED", "EXTRA", "TUTOR_ABSENT"].map((s) => (
-                <option key={s} value={s}>
-                  {attendanceText(`tutorStatusOpt.${s}`)}
-                </option>
-              ))}
-            </select>
-          </label>
-          <label className="block">
-            <span className="label">{t("absence")}</span>
-            <input
-              className="input"
-              name="absence"
-              defaultValue={primary.tutorAbsentReason ?? ""}
-            />
-          </label>
-          <label className="flex items-center gap-2 self-start">
-            <input
-              type="checkbox"
-              name="online"
-              defaultChecked={primary.online}
-            />
-            {t("online")}
-          </label>
-          <label className="block">
-            <span className="label">{t("room")}</span>
-            <select
-              className="select"
-              name="room"
-              defaultValue={primary.actualRoomId ?? ""}
-            >
-              <option value="">{t("none")}</option>
-              {rooms.data?.map((r) => (
-                <option key={r.id} value={r.id}>
-                  {r.name}
-                </option>
-              ))}
-            </select>
-          </label>
-          {students.map((s) => (
-            <fieldset
-              key={s.tuteeId}
-              className="space-y-2 border-t border-slate-200 pt-2"
-            >
-              <legend className="font-medium">{s.tutee.englishName}</legend>
-              <label className="block">
-                <span className="label">{t("studentStatus")}</span>
-                <select
-                  className="select"
-                  name={`status-${s.tuteeId}`}
-                  defaultValue={s.status}
-                >
-                  {["PRESENT", "EXCUSED_ABSENT", "UNEXCUSED_ABSENT"].map(
-                    (status) => (
-                      <option key={status} value={status}>
-                        {attendanceText(`tuteeStatusOpt.${status}`)}
-                      </option>
-                    ),
-                  )}
-                </select>
-              </label>
-              <label className="block">
-                <span className="label">{t("absence")}</span>
-                <input
-                  className="input"
-                  name={`absence-${s.tuteeId}`}
-                  defaultValue={s.absenceReason ?? ""}
-                />
-              </label>
-            </fieldset>
-          ))}
-          <div className="grid grid-cols-2 gap-2">
-            {ratings.map((key) => (
-              <label key={key}>
-                <span className="label">{t(key)}</span>
-                <input
-                  className="input"
-                  type="number"
-                  min={1}
-                  max={5}
-                  name={key}
-                  defaultValue={primary[key] ?? ""}
-                />
-              </label>
-            ))}
-          </div>
-          <label className="block">
-            <span className="label">{t("comments")}</span>
-            <textarea
-              className="input"
-              name="comments"
-              defaultValue={primary.comments ?? ""}
-            />
-          </label>
-          <label className="block">
-            <span className="label">{t("reason")}</span>
-            <textarea className="input" name="reason" required />
-          </label>
-          <button
-            className="btn-primary"
-            disabled={save.isPending || rooms.isLoading}
+          <fieldset
+            disabled={busy || reloading}
+            className="grid min-w-0 gap-4 sm:grid-cols-2"
           >
-            {t("save")}
-          </button>
-          {save.error && (
-            <p role="alert" className="text-sm text-red-600">
-              {save.error.message}
-            </p>
-          )}
+            <p className="muted text-sm sm:col-span-2">{t("attendanceHelp")}</p>
+            <label className="block">
+              <span className="label">{t("date")}</span>
+              <input
+                className="input"
+                name="date"
+                type="date"
+                required
+                defaultValue={primary.date.toISOString().slice(0, 10)}
+              />
+            </label>
+            <div className="grid grid-cols-2 gap-2">
+              {(["start", "end"] as const).map((key) => (
+                <label key={key}>
+                  <span className="label">{t(key)}</span>
+                  <input
+                    className="input"
+                    type="time"
+                    name={key}
+                    required
+                    defaultValue={clock(
+                      key === "start" ? primary.startMin : primary.endMin,
+                    )}
+                  />
+                </label>
+              ))}
+            </div>
+            <label className="block">
+              <span className="label">{t("tutorStatus")}</span>
+              <select
+                className="select"
+                name="status"
+                defaultValue={primary.tutorStatus}
+              >
+                {["PRESENT", "RESCHEDULED", "EXTRA", "TUTOR_ABSENT"].map(
+                  (s) => (
+                    <option key={s} value={s}>
+                      {attendanceText(`tutorStatusOpt.${s}`)}
+                    </option>
+                  ),
+                )}
+              </select>
+            </label>
+            <label className="block">
+              <span className="label">{t("absence")}</span>
+              <input
+                className="input"
+                name="absence"
+                defaultValue={primary.tutorAbsentReason ?? ""}
+              />
+            </label>
+            <label className="flex items-center gap-2 self-start">
+              <input
+                type="checkbox"
+                name="online"
+                defaultChecked={primary.online}
+              />
+              {t("online")}
+            </label>
+            <label className="block">
+              <span className="label">{t("room")}</span>
+              <select
+                className="select"
+                name="room"
+                defaultValue={primary.actualRoomId ?? ""}
+              >
+                <option value="">{t("none")}</option>
+                {rooms.data?.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name}
+                  </option>
+                ))}
+              </select>
+            </label>
+            {students.map((s) => (
+              <fieldset
+                key={s.tuteeId}
+                className="space-y-2 border-t border-slate-200 pt-2"
+              >
+                <legend className="font-medium">{s.tutee.englishName}</legend>
+                <label className="block">
+                  <span className="label">{t("studentStatus")}</span>
+                  <select
+                    className="select"
+                    name={`status-${s.tuteeId}`}
+                    defaultValue={s.status}
+                  >
+                    {["PRESENT", "EXCUSED_ABSENT", "UNEXCUSED_ABSENT"].map(
+                      (status) => (
+                        <option key={status} value={status}>
+                          {attendanceText(`tuteeStatusOpt.${status}`)}
+                        </option>
+                      ),
+                    )}
+                  </select>
+                </label>
+                <label className="block">
+                  <span className="label">{t("absence")}</span>
+                  <input
+                    className="input"
+                    name={`absence-${s.tuteeId}`}
+                    defaultValue={s.absenceReason ?? ""}
+                  />
+                </label>
+              </fieldset>
+            ))}
+            <div className="grid grid-cols-2 gap-2">
+              {ratings.map((key) => (
+                <label key={key}>
+                  <span className="label">{t(key)}</span>
+                  <input
+                    className="input"
+                    type="number"
+                    min={1}
+                    max={5}
+                    name={key}
+                    defaultValue={primary[key] ?? ""}
+                  />
+                </label>
+              ))}
+            </div>
+            <label className="block">
+              <span className="label">{t("comments")}</span>
+              <textarea
+                className="input"
+                name="comments"
+                defaultValue={primary.comments ?? ""}
+              />
+            </label>
+            <label className="block">
+              <span className="label">{t("reason")}</span>
+              <textarea className="input" name="reason" required />
+            </label>
+            <button className="btn-primary" disabled={busy || rooms.isLoading}>
+              {t("save")}
+            </button>
+            {save.error &&
+              (save.error.data?.approvalId ? (
+                <p role="status" className="text-sm text-amber-800">
+                  {common("approvals.queuedBody")}
+                </p>
+              ) : (
+                <p role="alert" className="text-sm text-red-600">
+                  {save.error.message}
+                </p>
+              ))}
+            {save.error?.data?.code === "CONFLICT" &&
+              !save.error.data.approvalId && (
+                <button
+                  type="button"
+                  className="btn-secondary"
+                  onClick={async () => {
+                    if (busy || submitting.current || reloadPending.current)
+                      return;
+                    // Freeze this draft while its explicit read can replace it; never register GET as a write.
+                    reloadPending.current = true;
+                    setReloading(true);
+                    try {
+                      const result = await records.refetch();
+                      if (result.isSuccess && result.data) {
+                        setSnapshot(result.data);
+                        setDraftRevision((revision) => revision + 1);
+                        save.reset();
+                      }
+                    } finally {
+                      reloadPending.current = false;
+                      setReloading(false);
+                    }
+                  }}
+                >
+                  {common("academics.reload")}
+                </button>
+              )}
+          </fieldset>
         </form>
       )}
-      {open && records.error && <p role="alert">{records.error.message}</p>}
+      {expanded && records.error && <p role="alert">{records.error.message}</p>}
     </details>
   );
 }

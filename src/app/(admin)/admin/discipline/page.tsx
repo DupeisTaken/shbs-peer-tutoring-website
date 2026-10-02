@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
@@ -8,6 +8,7 @@ import { disciplineStanding } from "~/lib/discipline";
 import { NativeDisclosureIcon } from "~/app/_components/icons";
 import { DisciplineSlots } from "~/app/_components/discipline-slots";
 import { useReadOnly } from "~/app/_components/read-only";
+import { useDialogPending } from "~/app/_components/ui/modal";
 
 type Card = {
   id: string;
@@ -25,15 +26,43 @@ type Card = {
 
 const dot = (color: "YELLOW" | "RED") => (color === "RED" ? "🟥" : "🟨");
 
-function PendingCard({ card, onChanged }: { card: Card; onChanged: () => void }) {
+function PendingCard({
+  card,
+  onChanged,
+}: {
+  card: Card;
+  onChanged: () => void;
+}) {
   const programFormat = useFormatter();
   const t = useTranslations();
   const readOnly = useReadOnly();
+  const utils = api.useUtils();
   const [note, setNote] = useState("");
+  const [expectedUpdatedAt, setExpectedUpdatedAt] = useState(card.updatedAt);
+  const [reloadError, setReloadError] = useState<string | null>(null);
+  const [reloading, setReloading] = useState(false);
+  const reloadPending = useRef(false);
+  const submitting = useRef(false);
   const review = api.admin.reviewCard.useMutation({
     onSuccess: onChanged,
-    onError: onChanged, // refresh on a stale-write conflict so the version updates
+    // Failed/queued writes keep the draft mounted; only explicit Reload adopts a version.
+    onSettled: () => {
+      submitting.current = false;
+    },
   });
+  // Register this write only; inherited busy freezes the note and sibling actions.
+  const busy = useDialogPending(review.isPending);
+  const controlsBusy = busy || reloading;
+  const submit = (reviewStatus: "VALID" | "INVALID") => {
+    if (busy || submitting.current || reloadPending.current || readOnly) return;
+    submitting.current = true;
+    review.mutate({
+      id: card.id,
+      reviewStatus,
+      reviewNote: note || undefined,
+      expectedUpdatedAt,
+    });
+  };
 
   return (
     <div className="rounded-lg border border-slate-200 p-3">
@@ -45,9 +74,12 @@ function PendingCard({ card, onChanged }: { card: Card; onChanged: () => void })
               {card.source === "AUTO"
                 ? t("admin.cards.autoIssued")
                 : t("admin.cards.issuedBy", {
-                    name: card.issuedByTutor?.englishName ?? t("admin.cards.tutor"),
+                    name:
+                      card.issuedByTutor?.englishName ?? t("admin.cards.tutor"),
                   })}
-              {card.session ? ` · ${programFormat.dateTime(new Date(card.session.date), { dateStyle: "medium", timeZone: "UTC" })}` : ""}
+              {card.session
+                ? ` · ${programFormat.dateTime(new Date(card.session.date), { dateStyle: "medium", timeZone: "UTC" })}`
+                : ""}
             </span>
           </p>
           <p className="muted mt-1 text-sm">{card.reason ?? "—"}</p>
@@ -58,41 +90,83 @@ function PendingCard({ card, onChanged }: { card: Card; onChanged: () => void })
           <input
             className="input min-w-[12rem] flex-1"
             placeholder={t("admin.cards.reviewNotePlaceholder")}
+            aria-label={t("admin.cards.reviewNotePlaceholder")}
             value={note}
+            disabled={controlsBusy}
             onChange={(e) => setNote(e.target.value)}
           />
           <button
             className="btn-secondary btn-sm"
-            disabled={review.isPending}
-            onClick={() =>
-              review.mutate({
-                id: card.id,
-                reviewStatus: "VALID",
-                reviewNote: note || undefined,
-                expectedUpdatedAt: card.updatedAt,
-              })
-            }
+            disabled={controlsBusy}
+            onClick={() => submit("VALID")}
           >
             {t("admin.cards.valid")}
           </button>
           <button
             className="btn-secondary btn-sm"
-            disabled={review.isPending}
-            onClick={() =>
-              review.mutate({
-                id: card.id,
-                reviewStatus: "INVALID",
-                reviewNote: note || undefined,
-                expectedUpdatedAt: card.updatedAt,
-              })
-            }
+            disabled={controlsBusy}
+            onClick={() => submit("INVALID")}
           >
             {t("admin.cards.invalid")}
           </button>
         </div>
       )}
-      {!readOnly && review.error && (
-        <p className="mt-1 text-sm text-red-600">{review.error.message}</p>
+      {!readOnly &&
+        review.error &&
+        (review.error.data?.approvalId ? (
+          <p role="status" className="mt-1 text-sm text-amber-800">
+            {t("approvals.queuedBody")}
+          </p>
+        ) : (
+          <p role="alert" className="mt-1 text-sm text-red-600">
+            {review.error.message}
+          </p>
+        ))}
+      {!readOnly &&
+        review.error?.data?.code === "CONFLICT" &&
+        !review.error.data.approvalId && (
+          <button
+            type="button"
+            className="btn-secondary mt-2"
+            disabled={controlsBusy}
+            onClick={async () => {
+              if (busy || submitting.current || reloadPending.current) return;
+              // Reload is a read, not a registered write, but it must not reset an active save.
+              reloadPending.current = true;
+              setReloading(true);
+              setReloadError(null);
+              try {
+                const latest =
+                  // Explicit Reload must bypass the normal 30-second query cache.
+                  (
+                    await utils.admin.disciplinaryCards.fetch(undefined, {
+                      staleTime: 0,
+                    })
+                  ).find((row) => row.id === card.id);
+                if (latest) {
+                  setNote(latest.reviewNote ?? "");
+                  setExpectedUpdatedAt(latest.updatedAt);
+                  review.reset();
+                }
+              } catch (error) {
+                setReloadError(
+                  error instanceof Error
+                    ? error.message
+                    : t("uiPatterns.loadFailed"),
+                );
+              } finally {
+                reloadPending.current = false;
+                setReloading(false);
+              }
+            }}
+          >
+            {t("academics.reload")}
+          </button>
+        )}
+      {!readOnly && reloadError && (
+        <p role="alert" className="mt-1 text-sm text-red-600">
+          {reloadError}
+        </p>
       )}
     </div>
   );
@@ -112,7 +186,10 @@ export default function CardsPage() {
   const standings = useMemo(() => {
     const byTutee = new Map<string, { name: string; cards: Card[] }>();
     for (const c of all) {
-      const entry = byTutee.get(c.tutee.id) ?? { name: c.tutee.englishName, cards: [] };
+      const entry = byTutee.get(c.tutee.id) ?? {
+        name: c.tutee.englishName,
+        cards: [],
+      };
       entry.cards.push(c);
       byTutee.set(c.tutee.id, entry);
     }
@@ -122,7 +199,10 @@ export default function CardsPage() {
         name: v.name,
         cards: v.cards,
         ...disciplineStanding(
-          v.cards.map((c) => ({ color: c.color, reviewStatus: c.reviewStatus })),
+          v.cards.map((c) => ({
+            color: c.color,
+            reviewStatus: c.reviewStatus,
+          })),
         ),
       }))
       .sort((a, b) => b.effectiveReds - a.effectiveReds);
@@ -144,7 +224,9 @@ export default function CardsPage() {
           {pending.map((c) => (
             <PendingCard key={c.id} card={c} onChanged={invalidate} />
           ))}
-          {pending.length === 0 && <p className="muted">{t("admin.cards.nothingPending")}</p>}
+          {pending.length === 0 && (
+            <p className="muted">{t("admin.cards.nothingPending")}</p>
+          )}
         </div>
       </section>
 
@@ -156,20 +238,31 @@ export default function CardsPage() {
             <details key={s.id} className="group py-2">
               <summary className="flex cursor-pointer flex-wrap items-center gap-3 [&::-webkit-details-marker]:hidden">
                 <NativeDisclosureIcon />
-                <span className="w-40 truncate font-medium text-slate-800 group-open:text-accent-700">
+                <span className="group-open:text-accent-700 w-40 truncate font-medium text-slate-800">
                   {s.name}
                 </span>
-                <DisciplineSlots validRed={s.validRed} validYellow={s.validYellow} />
+                <DisciplineSlots
+                  validRed={s.validRed}
+                  validYellow={s.validYellow}
+                />
                 {s.removalPending ? (
-                  <span className="badge-red">{t("admin.cards.standing.removalPending")}</span>
+                  <span className="badge-red">
+                    {t("admin.cards.standing.removalPending")}
+                  </span>
                 ) : s.effectiveReds >= 1 ? (
-                  <span className="badge-amber">{t("admin.cards.standing.onWarning")}</span>
+                  <span className="badge-amber">
+                    {t("admin.cards.standing.onWarning")}
+                  </span>
                 ) : (
-                  <span className="badge-slate">{t("admin.cards.standing.ok")}</span>
+                  <span className="badge-slate">
+                    {t("admin.cards.standing.ok")}
+                  </span>
                 )}
                 {s.pendingYellow + s.pendingRed > 0 && (
                   <span className="muted text-xs">
-                    {t("admin.cards.pendingCount", { n: s.pendingYellow + s.pendingRed })}
+                    {t("admin.cards.pendingCount", {
+                      n: s.pendingYellow + s.pendingRed,
+                    })}
                   </span>
                 )}
               </summary>
@@ -179,7 +272,9 @@ export default function CardsPage() {
                     {dot(c.color)}{" "}
                     <span
                       className={
-                        c.reviewStatus === "INVALID" ? "text-slate-400 line-through" : ""
+                        c.reviewStatus === "INVALID"
+                          ? "text-slate-400 line-through"
+                          : ""
                       }
                     >
                       {c.reason ?? "—"}
@@ -188,8 +283,11 @@ export default function CardsPage() {
                       · {t(`admin.cards.reviewStatus.${c.reviewStatus}`)} ·{" "}
                       {c.source === "AUTO"
                         ? t("admin.cards.auto")
-                        : (c.issuedByTutor?.englishName ?? t("admin.cards.tutor"))}
-                      {c.session ? ` · ${programFormat.dateTime(new Date(c.session.date), { dateStyle: "medium", timeZone: "UTC" })}` : ""}
+                        : (c.issuedByTutor?.englishName ??
+                          t("admin.cards.tutor"))}
+                      {c.session
+                        ? ` · ${programFormat.dateTime(new Date(c.session.date), { dateStyle: "medium", timeZone: "UTC" })}`
+                        : ""}
                     </span>
                   </li>
                 ))}
@@ -224,11 +322,15 @@ export default function CardsPage() {
               </thead>
               <tbody>
                 {[...all]
-                  .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
+                  .sort(
+                    (a, b) => +new Date(b.createdAt) - +new Date(a.createdAt),
+                  )
                   .map((c) => (
                     <tr key={c.id}>
                       <td className="text-xs text-slate-500">
-                        {programFormat.dateTime(new Date(c.createdAt), { dateStyle: "medium" })}
+                        {programFormat.dateTime(new Date(c.createdAt), {
+                          dateStyle: "medium",
+                        })}
                       </td>
                       <td className="text-slate-700">{c.tutee.englishName}</td>
                       <td>{dot(c.color)}</td>
@@ -236,7 +338,8 @@ export default function CardsPage() {
                       <td className="text-slate-500">
                         {c.source === "AUTO"
                           ? t("admin.cards.auto")
-                          : (c.issuedByTutor?.englishName ?? t("admin.cards.tutor"))}
+                          : (c.issuedByTutor?.englishName ??
+                            t("admin.cards.tutor"))}
                       </td>
                       <td>
                         <span

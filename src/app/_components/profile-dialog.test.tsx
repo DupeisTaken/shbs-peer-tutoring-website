@@ -1,6 +1,6 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
 import { ProfileDialog } from "./profile-dialog";
@@ -14,6 +14,47 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
+
+// This branch has the smaller profile test baseline. Keep the reviewed shared
+// commit's nested pending fixture and assertions without importing feature tests.
+it("a nested owned write guards both dialogs against repeated Escape and releases them after settlement", () => {
+  const parentClose = vi.fn();
+  const childClose = vi.fn();
+  const content = (pending: boolean) => (
+    <NextIntlClientProvider locale="en" messages={en}>
+      <ProfileDialog title="Parent editor" onClose={parentClose}>
+        <ProfileDialog
+          title="Nested review"
+          pending={pending}
+          onClose={childClose}
+        >
+          <p>Confirm</p>
+        </ProfileDialog>
+      </ProfileDialog>
+    </NextIntlClientProvider>
+  );
+  const view = render(content(true));
+  for (const dialog of screen.getAllByRole("dialog")) {
+    expect(dialog.getAttribute("closedby")).toBe("none");
+    for (let attempt = 0; attempt < 3; attempt++)
+      expect(fireEvent.keyDown(dialog, { key: "Escape" })).toBe(false);
+    expect(
+      within(dialog).getByRole<HTMLButtonElement>("button", { name: "Close" })
+        .disabled,
+    ).toBe(true);
+    fireEvent(dialog, new Event("cancel", { bubbles: true, cancelable: true }));
+  }
+  expect(parentClose).not.toHaveBeenCalled();
+  expect(childClose).not.toHaveBeenCalled();
+  view.rerender(content(false));
+  for (const dialog of screen.getAllByRole("dialog")) {
+    expect(dialog.getAttribute("closedby")).toBe("closerequest");
+    expect(
+      within(dialog).getByRole<HTMLButtonElement>("button", { name: "Close" })
+        .disabled,
+    ).toBe(false);
+  }
+});
 
 it("keeps Tab and Shift+Tab on the sole close control in an empty detail dialog", () => {
   render(
