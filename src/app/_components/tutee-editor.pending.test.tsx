@@ -640,7 +640,7 @@ it("keeps profile/history guarded during explicit academic conflict reload witho
   expect(mock.save).not.toHaveBeenCalled();
   expect(mock.academicSave).toHaveBeenCalledTimes(1);
   await act(async () => {
-    refetch.resolve({ data: {} });
+    refetch.resolve({ data: {}, isSuccess: true });
   });
   await waitFor(() => expect(ui.profileSave.disabled).toBe(false));
   expect(ui.notes.value).toBe("Linked profile draft");

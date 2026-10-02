@@ -260,6 +260,7 @@ export function AcademicPanel({ userId }: { userId?: string }) {
   const [snapshot, setSnapshot] = useState<AcademicSnapshot | null>(null);
   const [saved, setSaved] = useState(false);
   const [reloading, setReloading] = useState(false);
+  const [reloadFailed, setReloadFailed] = useState(false);
   const refresh = async () => {
     // These records also appear in rosters, workspaces and server-rendered headers.
     await Promise.all([
@@ -293,6 +294,7 @@ export function AcademicPanel({ userId }: { userId?: string }) {
     if (pending) return;
     if (data && policy.data) {
       mutation.reset();
+      setReloadFailed(false);
       setSaved(false);
       setSnapshot({
         academic: data.academic,
@@ -355,6 +357,7 @@ export function AcademicPanel({ userId }: { userId?: string }) {
             if (pending) return;
             setSnapshot(null);
             mutation.reset();
+            setReloadFailed(false);
           }}
         />
       ) : (
@@ -369,15 +372,29 @@ export function AcademicPanel({ userId }: { userId?: string }) {
             if (pending) return;
             // Reload is explicit because it discards the conflicting academic draft only.
             setReloading(true);
+            setReloadFailed(false);
             try {
-              const [result] = await Promise.all([
-                query.refetch(),
-                policy.refetch(),
+              // Failed refetches can retain cached data. Both reads must report
+              // success before discarding the draft; wait for both even if one throws.
+              const [academicRead, policyRead] = await Promise.allSettled([
+                (async () => query.refetch())(),
+                (async () => policy.refetch())(),
               ]);
-              if (result.data) {
+              if (
+                academicRead.status === "fulfilled" &&
+                policyRead.status === "fulfilled" &&
+                academicRead.value.isSuccess &&
+                policyRead.value.isSuccess &&
+                academicRead.value.data &&
+                policyRead.value.data
+              ) {
                 setSnapshot(null);
                 mutation.reset();
+              } else {
+                setReloadFailed(true);
               }
+            } catch {
+              setReloadFailed(true);
             } finally {
               setReloading(false);
             }
@@ -385,6 +402,11 @@ export function AcademicPanel({ userId }: { userId?: string }) {
         >
           {t("reload")}
         </button>
+      )}
+      {snapshot && reloadFailed && (
+        <p role="alert" className="text-sm text-red-700">
+          {t("reloadFailed")}
+        </p>
       )}
       {saved && (
         <p role="status" className="text-sm text-green-700">
