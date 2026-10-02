@@ -3200,6 +3200,8 @@
     "scheduleEmpty": "No tutoring sessions are assigned yet. Follow your request under Requests or use the request form to get started."
   },
   "accountProfile": {
+    "sectionSaved": "Αποθηκεύτηκε. Κλείστε και ανοίξτε ξανά τον επεξεργαστή για να αλλάξετε αυτή την ενότητα. Τα προσχέδια των άλλων ενοτήτων διατηρούνται.",
+    "sectionRefreshFailed": "Η αποθήκευση ολοκληρώθηκε, αλλά η ανανέωση των εγγραφών απέτυχε. Κλείστε και ανοίξτε ξανά τον επεξεργαστή για να φορτωθούν ξανά.",
     "username": "Όνομα χρήστη",
     "usernameHelp": "Μόνο Head. Χρησιμοποιήστε 1–64 λατινικά γράμματα ή αριθμούς. Συνδεθείτε με το νέο όνομα ή το υπάρχον email· ο κωδικός πρόσβασης παραμένει ίδιος.",
     "saveUsername": "Αποθήκευση ονόματος χρήστη",

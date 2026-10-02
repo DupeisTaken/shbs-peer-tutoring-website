@@ -274,14 +274,28 @@ it.each<Kind>(["account", "tutor", "tutee"])(
     expect(state.mutate).toHaveBeenCalledOnce();
     state.childPending = false;
     view.rerender(editor(kind, close));
+    expect(close).not.toHaveBeenCalled();
+    expect(name.matches(":disabled")).toBe(true);
+    expect(screen.getByText(en.accountProfile.sectionSaved)).toBeTruthy();
+    expect(screen.getByRole("dialog").getAttribute("aria-busy")).toBe("false");
+    fireEvent.click(
+      screen.getByRole("button", { name: en.accountProfile.close }),
+    );
     expect(close).toHaveBeenCalledOnce();
   },
 );
 
-it("closes the account profile only after successful invalidation", async () => {
+it("keeps a successfully synchronized account section read-only until deliberate Close", async () => {
   const close = vi.fn();
   render(editor("account", close));
   await act(() => state.success());
+  expect(close).not.toHaveBeenCalled();
+  expect(
+    screen.getByLabelText("First Name Required").matches(":disabled"),
+  ).toBe(true);
+  fireEvent.click(
+    screen.getByRole("button", { name: en.accountProfile.close }),
+  );
   expect(close).toHaveBeenCalledOnce();
 });
 

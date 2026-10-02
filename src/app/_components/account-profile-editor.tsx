@@ -1,13 +1,16 @@
 "use client";
 import { PersonNameFields } from "~/app/_components/person-name-fields";
 import { nameDraft, personNameEdit } from "~/lib/person-name";
+import { settleRefreshes } from "~/lib/settle-refreshes";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
+import { ProfileEditSection } from "./profile-edit-section";
 
 import { SchoolDeparturePanel } from "./school-departure";
 import { MembershipEditor } from "./membership-editor";
 import { AcademicPanel } from "./academic-profile";
 import { AccountUsernameEditor } from "./account-username-editor";
 import type { AccountMembership } from "~/lib/account-membership";
-import { useEffect, useRef, useState, type ComponentProps } from "react";
+import { useRef, useState, type ComponentProps } from "react";
 import { useDialogPending } from "./ui/modal";
 import { useTranslations } from "next-intl";
 import { ProfilePolicyError } from "~/app/_components/profile-policy";
@@ -40,7 +43,6 @@ export function AccountProfileEditor({
     <ProfileDialog title={t("editProfile")} onClose={onClose}>
       <AccountProfileForm
         profile={profile}
-        onClose={onClose}
         membership={membership}
         isHead={isHead}
       />
@@ -51,13 +53,14 @@ export function AccountProfileEditor({
 /** Run the form inside its dialog so both submission and completion see sibling writes. */
 function AccountProfileForm({
   profile,
-  onClose,
   membership,
   isHead,
-}: ComponentProps<typeof AccountProfileEditor>) {
+}: Omit<ComponentProps<typeof AccountProfileEditor>, "onClose">) {
   const t = useTranslations("accountProfile");
   const common = useTranslations("uiPatterns");
-  const [closeRequested, setCloseRequested] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [refreshFailed, setRefreshFailed] = useState(false);
+  const committed = useRef(false);
   const [reloading, setReloading] = useState(false);
   const [reloadError, setReloadError] = useState<string | null>(null);
   const reloadPending = useRef(false);
@@ -79,21 +82,23 @@ function AccountProfileForm({
       submitting.current = false;
     },
     onSuccess: async () => {
-      await Promise.all([
-        utils.admin.accounts.invalidate(),
-        utils.admin.tutors.invalidate(),
-        utils.admin.tutees.invalidate(),
-        utils.tuteeHistory.invalidate(),
-        utils.account.me.invalidate(),
-      ]);
-      setCloseRequested(true);
+      // A successful section cannot be replayed or discard a failed sibling's draft.
+      committed.current = true;
+      setSaved(true);
+      try {
+        await settleRefreshes([
+          () => invalidateAndReport(utils.admin.accounts),
+          () => invalidateAndReport(utils.admin.tutors),
+          () => invalidateAndReport(utils.admin.tutees),
+          () => invalidateAndReport(utils.tuteeHistory),
+          () => invalidateAndReport(utils.account.me),
+        ]);
+      } catch {
+        setRefreshFailed(true);
+      }
     },
   });
   const busy = useDialogPending(save.isPending);
-  // A successful profile save must not unmount an independently pending section.
-  useEffect(() => {
-    if (closeRequested && !busy) onClose();
-  }, [closeRequested, busy, onClose]);
   return (
     <>
       <form
@@ -104,7 +109,7 @@ function AccountProfileForm({
             busy ||
             submitting.current ||
             reloadPending.current ||
-            closeRequested
+            committed.current
           )
             return;
           submitting.current = true;
@@ -117,7 +122,11 @@ function AccountProfileForm({
         }}
       >
         {/* Retain this branch's layout while freezing only this form's controls. */}
-        <fieldset disabled={busy || reloading} className="min-w-0 space-y-4">
+        <ProfileEditSection
+          busy={save.isPending || reloading}
+          saved={saved}
+          refreshFailed={refreshFailed}
+        >
           <p className="muted text-sm">{t("canonicalHelp")}</p>
           <PersonNameFields
             value={names}
@@ -141,7 +150,13 @@ function AccountProfileForm({
               type="button"
               className="btn-secondary min-h-11 lg:min-h-10"
               onClick={async () => {
-                if (busy || submitting.current || reloadPending.current) return;
+                if (
+                  busy ||
+                  submitting.current ||
+                  reloadPending.current ||
+                  committed.current
+                )
+                  return;
                 // A reload may replace this draft, so exclude concurrent saves without
                 // registering a cancellable GET as an owned dialog write.
                 reloadPending.current = true;
@@ -182,7 +197,7 @@ function AccountProfileForm({
               {reloadError}
             </p>
           )}
-        </fieldset>
+        </ProfileEditSection>
       </form>
       <div className="mt-5">
         <AcademicPanel userId={profile.userId} />
@@ -192,7 +207,6 @@ function AccountProfileForm({
           userId={profile.userId}
           username={profile.username}
           profileVersion={profile.profileVersion}
-          onSaved={() => setCloseRequested(true)}
         />
       )}
       {membership && (

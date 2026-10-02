@@ -1,6 +1,9 @@
 "use client";
 import { PersonNameFields } from "~/app/_components/person-name-fields";
 import { nameDraft, personNameEdit } from "~/lib/person-name";
+import { settleRefreshes } from "~/lib/settle-refreshes";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
+import { ProfileEditSection } from "./profile-edit-section";
 
 import { useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
@@ -12,7 +15,7 @@ import {
   ProfilePolicyHint,
   OfferedGradeSelect,
 } from "./profile-policy";
-import { useEffect, useRef, useState, type ComponentProps } from "react";
+import { useRef, useState, type ComponentProps } from "react";
 import { useDialogPending } from "./ui/modal";
 import { GRADUATED_GRADE } from "~/lib/academics";
 
@@ -29,7 +32,7 @@ export function TutorProfileEditor({
   const t = useTranslations();
   return (
     <ProfileDialog title={t("accountProfile.editProfile")} onClose={onClose}>
-      <TutorProfileForm row={row} onClose={onClose} isHead={isHead} />
+      <TutorProfileForm row={row} isHead={isHead} />
     </ProfileDialog>
   );
 }
@@ -37,11 +40,12 @@ export function TutorProfileEditor({
 /** Keep this independent form inside the dialog's pending context. */
 function TutorProfileForm({
   row,
-  onClose,
   isHead = false,
-}: ComponentProps<typeof TutorProfileEditor>) {
+}: Omit<ComponentProps<typeof TutorProfileEditor>, "onClose">) {
   const t = useTranslations();
-  const [closeRequested, setCloseRequested] = useState(false);
+  const [saved, setSaved] = useState(false);
+  const [refreshFailed, setRefreshFailed] = useState(false);
+  const committed = useRef(false);
   const [expectedUpdatedAt] = useState(row.updatedAt);
   const [names, setNames] = useState(() => nameDraft(row));
   const [originalNames] = useState(() => nameDraft(row));
@@ -60,24 +64,27 @@ function TutorProfileForm({
       submitting.current = false;
     },
     onSuccess: async () => {
-      await Promise.all([
-        utils.admin.tutors.invalidate(),
-        utils.admin.tutees.invalidate(),
-        utils.admin.accounts.invalidate(),
-      ]);
-      setCloseRequested(true);
+      // Only deliberate Close dismisses independently editable sections and their outcomes.
+      committed.current = true;
+      setSaved(true);
+      try {
+        await settleRefreshes([
+          () => invalidateAndReport(utils.admin.tutors),
+          () => invalidateAndReport(utils.admin.tutees),
+          () => invalidateAndReport(utils.admin.accounts),
+        ]);
+      } catch {
+        setRefreshFailed(true);
+      }
     },
   });
   const busy = useDialogPending(save.isPending);
-  useEffect(() => {
-    if (closeRequested && !busy) onClose();
-  }, [closeRequested, busy, onClose]);
   return (
     <>
       <form
         onSubmit={(event) => {
           event.preventDefault();
-          if (busy || submitting.current || closeRequested) return;
+          if (busy || submitting.current || committed.current) return;
           const data = new FormData(event.currentTarget);
           const value = (key: string) => {
             const field = data.get(key);
@@ -109,7 +116,12 @@ function TutorProfileForm({
           });
         }}
       >
-        <fieldset disabled={busy} className="grid min-w-0 gap-4 sm:grid-cols-2">
+        <ProfileEditSection
+          busy={save.isPending}
+          saved={saved}
+          refreshFailed={refreshFailed}
+          className="grid gap-4 sm:grid-cols-2"
+        >
           <p className="muted text-sm sm:col-span-2">
             {t(
               row.user
@@ -217,7 +229,7 @@ function TutorProfileForm({
               <AcademicError message={save.error.message} />
             </p>
           )}
-        </fieldset>
+        </ProfileEditSection>
       </form>
       {row.user && (
         <div className="mt-5">
