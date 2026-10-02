@@ -192,7 +192,7 @@ export function SignupForm() {
         />
       )}
       <form
-        className="card p-6"
+        className="card space-y-6 p-6"
         onSubmit={(e) => {
           e.preventDefault();
           if (!canSubmit || !policy.data) return;
@@ -417,7 +417,6 @@ export function SignupForm() {
             )}
           </FormSection>
 
-          {captcha.panel}
           {submit.error && (
             <p role="alert" className="text-sm text-red-600">
               <CaptchaError error={submit.error} />
@@ -437,6 +436,9 @@ export function SignupForm() {
             </Button>
           </FormActions>
         </fieldset>
+        {/* Freeze the captured application draft, but keep the challenge's own
+            Verify/Cancel/Retry controls outside the disabled form controls. */}
+        {captcha.panel}
       </form>
     </>
   );
