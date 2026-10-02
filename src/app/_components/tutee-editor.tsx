@@ -20,6 +20,7 @@ import { useDialogPending } from "./ui/modal";
 import { TuteeHistoryLinkForm } from "./tutee-history";
 import { invalidateTuteeViews } from "~/lib/tutee-cache";
 import { settleRefreshes } from "~/lib/settle-refreshes";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
 import { GRADUATED_GRADE } from "~/lib/academics";
 
 /** Profile correction stays separate from assignment/removal, while the version protects both. */
@@ -83,9 +84,9 @@ function TuteeProfileForm({
       try {
         await settleRefreshes([
           async () => {
-            await invalidateTuteeViews(utils);
+            await invalidateTuteeViews(utils, { reportErrors: true });
           },
-          () => utils.admin.tutors.invalidate(),
+          () => invalidateAndReport(utils.admin.tutors),
         ]);
       } catch {
         setRefreshFailed(true);

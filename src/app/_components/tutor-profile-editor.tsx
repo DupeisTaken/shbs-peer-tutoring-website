@@ -4,6 +4,7 @@ import { Button } from "./ui/button";
 import { PersonNameFields } from "~/app/_components/person-name-fields";
 import { nameDraft, personNameEdit } from "~/lib/person-name";
 import { settleRefreshes } from "~/lib/settle-refreshes";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
 
 import { useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
@@ -70,9 +71,9 @@ function TutorProfileForm({
       setSaved(true);
       try {
         await settleRefreshes([
-          () => utils.admin.tutors.invalidate(),
-          () => utils.admin.tutees.invalidate(),
-          () => utils.admin.accounts.invalidate(),
+          () => invalidateAndReport(utils.admin.tutors),
+          () => invalidateAndReport(utils.admin.tutees),
+          () => invalidateAndReport(utils.admin.accounts),
         ]);
       } catch {
         setRefreshFailed(true);

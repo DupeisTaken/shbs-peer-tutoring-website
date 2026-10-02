@@ -4,6 +4,7 @@ import { Button } from "./ui/button";
 import { PersonNameFields } from "~/app/_components/person-name-fields";
 import { nameDraft, personNameEdit } from "~/lib/person-name";
 import { settleRefreshes } from "~/lib/settle-refreshes";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
 
 import { SchoolDeparturePanel } from "./school-departure";
 import { MembershipEditor } from "./membership-editor";
@@ -89,11 +90,11 @@ function AccountProfileForm({
       setSaved(true);
       try {
         await settleRefreshes([
-          () => utils.admin.accounts.invalidate(),
-          () => utils.admin.tutors.invalidate(),
-          () => utils.admin.tutees.invalidate(),
-          () => utils.tuteeHistory.invalidate(),
-          () => utils.account.me.invalidate(),
+          () => invalidateAndReport(utils.admin.accounts),
+          () => invalidateAndReport(utils.admin.tutors),
+          () => invalidateAndReport(utils.admin.tutees),
+          () => invalidateAndReport(utils.tuteeHistory),
+          () => invalidateAndReport(utils.account.me),
         ]);
       } catch {
         setRefreshFailed(true);
