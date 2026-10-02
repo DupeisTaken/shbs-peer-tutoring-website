@@ -80,7 +80,10 @@ export function AccountUsernameEditor({ userId, username: initial, profileVersio
               setReloading(true);
               setReloadError(null);
               try {
-                const accounts = await utils.admin.accounts.fetch();
+                // Explicit Reload must read the server even when the list cache is fresh.
+                const accounts = await utils.admin.accounts.fetch(undefined, {
+                  staleTime: 0,
+                });
                 const latest = accounts.rows.find(
                   (row) => row.userId === userId,
                 );

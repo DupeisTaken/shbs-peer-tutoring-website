@@ -8,6 +8,7 @@ import {
   screen,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
+import { QueryClient } from "@tanstack/react-query";
 import type { ComponentProps } from "react";
 import en from "../../../messages/en.json";
 import { AccountProfileEditor } from "./account-profile-editor";
@@ -284,6 +285,86 @@ it("closes the account profile only after successful invalidation", async () => 
   expect(close).toHaveBeenCalledOnce();
 });
 
+it("requires a successful fresh server read before replacing the account name and version", async () => {
+  const client = new QueryClient({
+    defaultOptions: { queries: { staleTime: 30_000, retry: false } },
+  });
+  const queryKey = ["accounts"];
+  client.setQueryData(queryKey, {
+    rows: [
+      {
+        ...row,
+        userId: "account",
+        name: "Cached Person",
+        firstName: "Cached",
+        profileVersion: 7,
+      },
+    ],
+  });
+  const queryFn = vi.fn(async () => ({
+    rows: [
+      {
+        ...row,
+        userId: "someone-else",
+        name: "Wrong Person",
+        firstName: "Wrong",
+        profileVersion: 90,
+      },
+      {
+        ...row,
+        userId: "account",
+        name: "Server Person",
+        firstName: "Server",
+        profileVersion: 8,
+      },
+    ],
+  }));
+  queryFn.mockRejectedValueOnce(new Error("Fresh identity read failed"));
+  state.fetchAccounts.mockImplementation(
+    (_input, options: { staleTime?: number }) =>
+      client.fetchQuery({ queryKey, queryFn, ...options }),
+  );
+  state.error = { message: "Conflict", data: { code: "CONFLICT" } };
+  try {
+    render(editor("account", vi.fn()));
+    const name = screen.getByLabelText<HTMLInputElement>("First Name Required");
+    fireEvent.change(name, { target: { value: "Retained" } });
+    const reload = screen.getByRole("button", {
+      name: en.accountProfile.reloadIdentity,
+    });
+    await act(async () => {
+      fireEvent.click(reload);
+    });
+    expect(queryFn).toHaveBeenCalledOnce();
+    expect(screen.getByText("Fresh identity read failed")).toBeTruthy();
+    expect(name.value).toBe("Retained");
+    expect(state.reset).not.toHaveBeenCalled();
+    fireEvent.submit(name.closest("form")!);
+    expect(state.mutate).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        firstName: "Retained",
+        expectedProfileVersion: 7,
+      }),
+    );
+    state.settled();
+    await act(async () => {
+      fireEvent.click(reload);
+    });
+    expect(queryFn).toHaveBeenCalledTimes(2);
+    expect(name.value).toBe("Server");
+    fireEvent.submit(name.closest("form")!);
+    expect(state.mutate).toHaveBeenLastCalledWith(
+      expect.objectContaining({
+        firstName: "Server",
+        expectedProfileVersion: 8,
+      }),
+    );
+  } finally {
+    client.clear();
+    state.fetchAccounts.mockReset();
+  }
+});
+
 it("keeps account Reload distinct from writes and preserves the draft after a failed read", async () => {
   state.error = { message: "Conflict", data: { code: "CONFLICT" } };
   let reject!: (error: Error) => void;
@@ -299,6 +380,7 @@ it("keeps account Reload distinct from writes and preserves the draft after a fa
     screen.getByRole("button", { name: en.accountProfile.reloadIdentity }),
   );
   expect(name.matches(":disabled")).toBe(true);
+  expect(state.fetchAccounts).toHaveBeenCalledWith(undefined, { staleTime: 0 });
   fireEvent.submit(name.closest("form")!);
   expect(state.mutate).not.toHaveBeenCalled();
   expect(screen.getByRole("dialog").getAttribute("aria-busy")).toBe("false");

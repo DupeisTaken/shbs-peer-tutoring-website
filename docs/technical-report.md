@@ -32,6 +32,8 @@ Discipline review and attendance correction retain this branch's inline layouts 
 
 Account name and Head-only username Reloads exclude their own Save through refs and disabled fields. Failed reads preserve the draft, version and mutation error; a successful explicit read adopts only the matching account. Reads never register as dialog writes, so Close/Escape remains available. Username authority, audit and server-version checks stay on the server. Only registered child forms participate in the shared guard; broader academic, membership, departure and historical-link consumer integration must retain its separately reviewed behavior.
 
+Explicit Reload in discipline review and the account name/username editors bypasses the normal 30-second query freshness window. A still-fresh cached list cannot clear a conflict or replace the draft; the requested server read must succeed first.
+
 ## Identity and authorization
 
 Confirmed school departures are stored separately in `SchoolDeparture`, with versioned
