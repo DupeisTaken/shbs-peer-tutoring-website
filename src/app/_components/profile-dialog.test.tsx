@@ -317,6 +317,9 @@ it("a nested owned write guards the child and parent without latching after sett
   );
   const view = render(content(true));
   for (const dialog of screen.getAllByRole("dialog")) {
+    expect(dialog.getAttribute("closedby")).toBe("none");
+    for (let attempt = 0; attempt < 3; attempt++)
+      expect(fireEvent.keyDown(dialog, { key: "Escape" })).toBe(false);
     expect(
       within(dialog).getByRole<HTMLButtonElement>("button", { name: "Close" })
         .disabled,
@@ -326,11 +329,13 @@ it("a nested owned write guards the child and parent without latching after sett
   expect(parentClose).not.toHaveBeenCalled();
   expect(childClose).not.toHaveBeenCalled();
   view.rerender(content(false));
-  for (const dialog of screen.getAllByRole("dialog"))
+  for (const dialog of screen.getAllByRole("dialog")) {
+    expect(dialog.getAttribute("closedby")).toBe("closerequest");
     expect(
       within(dialog).getByRole<HTMLButtonElement>("button", { name: "Close" })
         .disabled,
     ).toBe(false);
+  }
 });
 
 it("keeps focus inside the parent when a completed review leaves its opener disabled", () => {
