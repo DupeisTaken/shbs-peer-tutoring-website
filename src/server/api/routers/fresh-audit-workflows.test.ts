@@ -463,6 +463,7 @@ it("audit: future patrol observations cannot earn credit but clock skew and hist
     ],
   };
   const saved = await tutor().crew.submitPatrol(historical);
+  expect(saved.hours).toBe(0); // Historical observations remain evidence, not fresh earned activity.
   expect(await tutor().crew.submitPatrol(historical)).toMatchObject({
     id: saved.id,
   });
@@ -473,7 +474,7 @@ it("audit: future patrol observations cannot earn credit but clock skew and hist
     ],
   });
   expect(await db.patrol.aggregate({ _sum: { hours: true } })).toEqual({
-    _sum: { hours: 1 },
+    _sum: { hours: 0.5 },
   });
 });
 

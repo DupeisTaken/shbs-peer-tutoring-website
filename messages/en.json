@@ -2293,7 +2293,7 @@
     },
     "patrol": {
       "title": "Room Patrol",
-      "subtitle": "Walk the rooms in order and tap how many tutees are in each. Submitting a sweep credits 0.5 service hours.",
+      "subtitle": "Record room headcounts. A sweep with all observations from the last 20 minutes can earn 0.5 hours, at most once every 20 minutes. Older or repeated observations are saved without extra credit.",
       "myHours": "My Crew Hours",
       "patrolCount": "{count, plural, =1 {# patrol} other {# patrols}}",
       "noRooms": "No rooms to patrol yet.",
@@ -2301,6 +2301,7 @@
       "submit": "Submit Patrol ({count})",
       "submitting": "Submitting…",
       "submitted": "Patrol recorded.",
+      "recordedWithoutCredit": "Observations saved with no additional hours. Credit requires a recent sweep and an unused 20-minute allowance. Existing credit is unchanged.",
       "recent": "Recent Patrols",
       "optedOut": {
         "title": "You've Opted Out of the Crew",

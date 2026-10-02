@@ -22,6 +22,7 @@ These guides describe the current application. Choose the task you need to compl
 | Review the identity, academic profile and program policy fixes with screenshots | [Issue-fix verification reports](evidence/issues-145-154/README.md) |
 | Review email notification rendering and destination-link checks | [Email redesign verification](evidence/issue-192/README.md) |
 | Resume the draft navigation and form recovery work | [Issue #221 cloud continuation](continuation/issue-221.md) |
+| Resume the approved patrol-credit change in a fresh cloud checkout | [Issue 240 continuation](continuation/issue-240.md) |
 
 ## Maintaining the guides
 

@@ -230,6 +230,9 @@ describe.each<Access>(["VIEWER", "observer"])(
           hours: 0.5,
           note: PRIVATE,
           submissionKey: PRIVATE,
+          // New internal credit metadata stays outside #246's explicit Viewer projection.
+          creditAwardedAt: date,
+          creditWindows: [{ windowStart: date, patrolId: PRIVATE }],
           crewUser: { name: "Crew One" },
           observations: [
             {
@@ -252,6 +255,8 @@ describe.each<Access>(["VIEWER", "observer"])(
         hours: 0.5,
         observations: [{ headcount: "TWO", room: { name: "Library" } }],
       });
+      expect(result.patrols[0]).not.toHaveProperty("creditAwardedAt");
+      expect(result.patrols[0]).not.toHaveProperty("creditWindows");
     });
 
     it("does not reuse private code labels as public names", async () => {

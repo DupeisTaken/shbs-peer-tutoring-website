@@ -12,6 +12,7 @@ import {
 } from "~/lib/record-transfer";
 import type { TransactionDb } from "~/server/transactions";
 import { canonicalUsername } from "~/server/auth/username";
+import { reservePatrolEvidence } from "~/server/crew/patrol-credit";
 
 // Explicit domain allowlist, in dependency order. Never expand this to every database table:
 // executable approvals, account privileges, credentials and private messages are not archives.
@@ -46,6 +47,7 @@ export const RECORD_TABLES = [
   "CrewStatusRequest",
   "Patrol",
   "PatrolObservation",
+  "PatrolCreditWindow",
   "SessionFlag",
   "DisciplinaryCard",
   "StudentSurvey",
@@ -391,6 +393,11 @@ export async function applyRecords(tx: TransactionDb, files: TransferFile[]) {
     TutorQualification: { tutorId: "Tutor", subjectId: "Subject" },
   };
   for (const { table, row, line } of inserted) {
+    if (table === "PatrolCreditWindow") {
+      const patrol = await tx.patrol.findUniqueOrThrow({ where: { id: String(row.patrolId) }, select: { crewUserId: true } });
+      if (patrol.crewUserId !== row.crewUserId)
+        fail(`${table}.csv, row ${line}: credit owner must match the patrol author.`);
+    }
     for (const [field, target] of Object.entries(references[table] ?? {})) {
       if (row[field] == null) continue;
       const found = await tx.$queryRaw<{ id: string }[]>(
@@ -410,6 +417,22 @@ export async function applyRecords(tx: TransactionDb, files: TransferFile[]) {
         fail(
           `${table}.csv, row ${line}: this student profile belongs to another account.`,
         );
+    }
+  }
+  // Older archives have no credit ledger. Preserve their awarded hours and timestamps,
+  // but reserve their evidence just as the migration does; restoring cannot reopen credit.
+  const patrolIds = [...new Set(inserted.flatMap(({ table, row }) =>
+    table === "Patrol" ? [String(row.id)] : table === "PatrolObservation" ? [String(row.patrolId)] : [],
+  ))];
+  if (patrolIds.length) {
+    const patrols = await tx.patrol.findMany({
+      where: { id: { in: patrolIds }, hours: { gt: 0 } }, include: { observations: true },
+      orderBy: [{ createdAt: "asc" }, { id: "asc" }],
+    });
+    for (const patrol of patrols) {
+      if (!patrol.creditAwardedAt)
+        await tx.$executeRaw`UPDATE "Patrol" SET "creditAwardedAt" = "createdAt" WHERE id = ${patrol.id} AND "creditAwardedAt" IS NULL`;
+      await reservePatrolEvidence(tx, patrol, patrol.observations.length ? patrol.observations : [{ observedAt: patrol.createdAt }], true);
     }
   }
   return summary;

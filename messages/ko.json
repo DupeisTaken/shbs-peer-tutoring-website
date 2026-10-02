@@ -2325,7 +2325,7 @@
     },
     "patrol": {
       "title": "교실 순찰",
-      "subtitle": "순서대로 교실을 돌며 각 교실의 학생 수를 누르세요. 순찰 한 번 제출 시 0.5 봉사시간이 적립됩니다.",
+      "subtitle": "Record room headcounts. A sweep with all observations from the last 20 minutes can earn 0.5 hours, at most once every 20 minutes. Older or repeated observations are saved without extra credit.",
       "myHours": "내 순찰 시간",
       "patrolCount": "{count, plural, other {# 회 순찰}}",
       "noRooms": "아직 순찰할 교실이 없습니다.",
@@ -2333,6 +2333,7 @@
       "submit": "순찰 제출 ({count})",
       "submitting": "제출 중…",
       "submitted": "순찰이 기록되었습니다.",
+      "recordedWithoutCredit": "Observations saved with no additional hours. Credit requires a recent sweep and an unused 20-minute allowance. Existing credit is unchanged.",
       "recent": "최근 순찰",
       "optedOut": {
         "title": "순찰조에서 탈퇴했습니다",

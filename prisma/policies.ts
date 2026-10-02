@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 
 /** Review drafts for development; school approval and runtime publication remain separate. */
-export const POLICY_VERSION = "2026.09.24";
+export const POLICY_VERSION = "2026.10.02";
 
 // Include only the maintained English/Chinese drafts in development seeds.
 // Missing policy locales already fall back to English in the runtime policy loader.

@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 
-import { api } from "~/trpc/react";
+import { api, type RouterInputs } from "~/trpc/react";
 import { ChoiceButton } from "~/app/_components/ui/button";
 import { AcademicError } from "~/app/_components/academic-error";
 
@@ -18,8 +18,9 @@ const BUCKETS: { value: Headcount; label: string }[] = [
 
 /**
  * Crew patrol portal: walk the rooms (in the set patrol order), tap each room's student count, and
- * submit the sweep. One submitted patrol credits 0.5h. Only ACTIVE crew (or elevated admins) can
- * patrol; opted-out / paused members see a read-only notice and can request reentry.
+ * submit the sweep. An eligible sweep credits 0.5h within the server-enforced 20-minute budget.
+ * Only ACTIVE crew (or elevated admins) can patrol; opted-out / paused members see a read-only
+ * notice and can request reentry.
  */
 export default function PatrolPage() {
   const programFormat = useFormatter();
@@ -36,7 +37,15 @@ export default function PatrolPage() {
     enabled: canPatrol,
   });
   const history = api.crew.myPatrols.useQuery();
-  const submissionKey = useRef<string | null>(null);
+  // Keep a submitted intent intact across uncertain network outcomes. A changed payload gets
+  // a new key; an unchanged retry reuses the original observations, timestamps and request.
+  const lastSubmission = useRef<{
+    fingerprint: string;
+    input: RouterInputs["crew"]["submitPatrol"];
+  } | null>(null);
+  // React's pending state renders the disabled controls; this synchronous guard also fences
+  // rapid/programmatic events before that render and throughout the success refresh.
+  const submissionInFlight = useRef(false);
 
   // roomId -> chosen headcount + the time it was recorded.
   const [counts, setCounts] = useState<
@@ -59,7 +68,7 @@ export default function PatrolPage() {
 
   const submit = api.crew.submitPatrol.useMutation({
     onSuccess: async () => {
-      submissionKey.current = null;
+      lastSubmission.current = null;
       setCounts({});
       setNote("");
       await Promise.all([
@@ -67,18 +76,22 @@ export default function PatrolPage() {
         utils.crew.myPatrols.invalidate(),
       ]);
     },
+    onSettled: () => { submissionInFlight.current = false; },
   });
 
-  const pick = (roomId: string, headcount: Headcount) =>
+  const pick = (roomId: string, headcount: Headcount) => {
+    if (submissionInFlight.current || submit.isPending) return;
     setCounts((c) => ({
       ...c,
       [roomId]: { headcount, at: new Date().toISOString() },
     }));
+  };
 
   const rooms = config.data?.rooms ?? [];
   const recorded = Object.keys(counts).length;
 
   const onSubmit = () => {
+    if (submissionInFlight.current || submit.isPending) return;
     const observations = Object.entries(counts).map(([roomId, v]) => ({
       roomId,
       headcount: v.headcount,
@@ -86,12 +99,19 @@ export default function PatrolPage() {
     }));
     if (observations.length === 0) return;
     const trimmed = note.trim();
-    submissionKey.current ??= crypto.randomUUID();
-    submit.mutate({
-      submissionKey: submissionKey.current,
+    const payload = {
       note: trimmed.length > 0 ? trimmed : undefined,
       observations,
-    });
+    };
+    const fingerprint = JSON.stringify(payload);
+    if (lastSubmission.current?.fingerprint !== fingerprint) {
+      lastSubmission.current = {
+        fingerprint,
+        input: { submissionKey: crypto.randomUUID(), ...payload },
+      };
+    }
+    submissionInFlight.current = true;
+    submit.mutate(lastSubmission.current.input);
   };
 
   return (
@@ -176,6 +196,7 @@ export default function PatrolPage() {
                         <ChoiceButton
                           key={b.value}
                           selected={chosen === b.value}
+                          disabled={submit.isPending}
                           onClick={() => pick(room.id, b.value)}
                           className="font-semibold"
                         >
@@ -192,12 +213,15 @@ export default function PatrolPage() {
           <div className="space-y-3">
             <textarea
               value={note}
-              onChange={(e) => setNote(e.target.value)}
+              disabled={submit.isPending}
+              onChange={(e) => {
+                if (!submissionInFlight.current && !submit.isPending) setNote(e.target.value);
+              }}
               placeholder={t("crew.patrol.notePlaceholder")}
               rows={2}
               className="textarea"
             />
-            <div className="flex items-center gap-3">
+            <div className="flex flex-wrap items-center gap-3">
               <button
                 className="btn-primary"
                 disabled={recorded === 0 || submit.isPending}
@@ -208,12 +232,12 @@ export default function PatrolPage() {
                   : t("crew.patrol.submit", { count: recorded })}
               </button>
               {submit.isSuccess && (
-                <span className="text-sm text-green-600">
-                  {t("crew.patrol.submitted")}
+                <span role="status" className="text-sm text-green-700">
+                  {t(submit.data?.hours === 0 ? "crew.patrol.recordedWithoutCredit" : "crew.patrol.submitted")}
                 </span>
               )}
               {submit.error && (
-                <span className="text-sm text-red-600">
+                <span role="alert" className="text-sm text-red-600">
                   {submit.error.message}
                 </span>
               )}
