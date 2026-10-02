@@ -91,10 +91,16 @@ afterEach(cleanup);
  * the same consumer registers correctly when composed inside a shared dialog. */
 function DialogHost() {
   const [open, setOpen] = useState(false);
-  return <>
-    <button onClick={() => setOpen(true)}>Open review</button>
-    {open && <ProfileDialog title="Discipline review" onClose={() => setOpen(false)}><CardsPage /></ProfileDialog>}
-  </>;
+  return (
+    <>
+      <button onClick={() => setOpen(true)}>Open review</button>
+      {open && (
+        <ProfileDialog title="Discipline review" onClose={() => setOpen(false)}>
+          <CardsPage />
+        </ProfileDialog>
+      )}
+    </>
+  );
 }
 const page = (locale: "en" | "zh" = "en", readOnly = false) => (
   <NextIntlClientProvider
@@ -107,6 +113,38 @@ const page = (locale: "en" | "zh" = "en", readOnly = false) => (
     </ReadOnlyProvider>
   </NextIntlClientProvider>
 );
+
+it("retains the actual inline discipline draft without requiring a dialog host", () => {
+  const inline = () => (
+    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+      <ReadOnlyProvider value={false}>
+        <CardsPage />
+      </ReadOnlyProvider>
+    </NextIntlClientProvider>
+  );
+  const view = render(inline());
+  const note = screen.getByRole<HTMLInputElement>("textbox");
+  fireEvent.change(note, { target: { value: "Inline review draft" } });
+  const originalVersion = state.version;
+  fireEvent.click(screen.getByRole("button", { name: en.admin.cards.valid }));
+  state.pending = true;
+  view.rerender(inline());
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(note.disabled).toBe(true);
+  state.pending = false;
+  state.version = new Date("2026-09-02");
+  state.error = { message: "Conflict", data: { code: "CONFLICT" } };
+  state.options.onSettled();
+  view.rerender(inline());
+  expect(note.value).toBe("Inline review draft");
+  fireEvent.click(screen.getByRole("button", { name: en.admin.cards.valid }));
+  expect(state.mutate).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      reviewNote: "Inline review draft",
+      expectedUpdatedAt: originalVersion,
+    }),
+  );
+});
 
 it.each(["en", "zh"] as const)(
   "retains the %s review through pending, failure and queued approval",
@@ -255,7 +293,7 @@ it("reloads the server version while the normal query cache is still fresh", asy
   state.error = { message: "Conflict", data: { code: "CONFLICT" } };
   try {
     render(page());
-    fireEvent.click(screen.getByRole("button", { name: /^Edit:/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Open review" }));
     fireEvent.change(screen.getByRole("textbox"), {
       target: { value: "Retained draft" },
     });

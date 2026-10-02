@@ -1,4 +1,7 @@
 {
+  "uiPatterns": {
+    "loadFailed": "无法加载此部分"
+  },
   "historicalAcademics": {
     "graduatedRecorded": "原始资料另有已毕业标记；本次更正不会改变参与资格或离校状态。",
     "invalidRow": "第 {row} 条记录：请检查「{field}」。",

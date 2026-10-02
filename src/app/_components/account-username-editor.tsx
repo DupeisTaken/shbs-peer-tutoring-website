@@ -7,8 +7,16 @@ import { api } from "~/trpc/react";
 import { useDialogPending } from "./ui/modal";
 
 /** Separate from ordinary profile edits: this operation always requires live Head authority. */
-export function AccountUsernameEditor({ userId, username: initial, profileVersion, onSaved }: {
-  userId: string; username?: string | null; profileVersion: number; onSaved: () => void;
+export function AccountUsernameEditor({
+  userId,
+  username: initial,
+  profileVersion,
+  onSaved,
+}: {
+  userId: string;
+  username?: string | null;
+  profileVersion: number;
+  onSaved: () => void;
 }) {
   const t = useTranslations("accountProfile");
   const common = useTranslations("uiPatterns");
@@ -18,7 +26,8 @@ export function AccountUsernameEditor({ userId, username: initial, profileVersio
   const reloadPending = useRef(false);
   const submitting = useRef(false);
   // Academic saves refetch this same account. Keep the version that belongs to this draft.
-  const [expectedProfileVersion, setExpectedProfileVersion] = useState(profileVersion);
+  const [expectedProfileVersion, setExpectedProfileVersion] =
+    useState(profileVersion);
   const utils = api.useUtils();
   const router = useRouter();
   const save = api.admin.updateAccountUsername.useMutation({
@@ -26,7 +35,11 @@ export function AccountUsernameEditor({ userId, username: initial, profileVersio
       submitting.current = false;
     },
     onSuccess: async () => {
-      await Promise.all([utils.admin.accounts.invalidate(), utils.admin.tutors.invalidate(), utils.account.me.invalidate()]);
+      await Promise.all([
+        utils.admin.accounts.invalidate(),
+        utils.admin.tutors.invalidate(),
+        utils.account.me.invalidate(),
+      ]);
       // Server-rendered headers also show the username, including the Head's own handle.
       router.refresh();
       onSaved();
@@ -60,7 +73,10 @@ export function AccountUsernameEditor({ userId, username: initial, profileVersio
           />
           <span className="muted text-xs">{t("usernameHelp")}</span>
         </label>
-        <button className="btn-secondary min-h-11 lg:min-h-10" disabled={!username.trim()}>
+        <button
+          className="btn-secondary min-h-11 lg:min-h-10"
+          disabled={!username.trim()}
+        >
           {t("saveUsername")}
         </button>
         {save.error && (

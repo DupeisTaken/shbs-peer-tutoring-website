@@ -72,7 +72,9 @@ function TuteeProfileForm({
   const slots = api.admin.timeSlots.useQuery();
   const submitting = useRef(false);
   const save = api.admin.updateTutee.useMutation({
-    onSettled: () => { submitting.current = false; },
+    onSettled: () => {
+      submitting.current = false;
+    },
     onSuccess: async () => {
       await Promise.all([
         invalidateTuteeViews(utils),
@@ -128,121 +130,126 @@ function TuteeProfileForm({
             });
           }}
         >
-          <fieldset disabled={busy} className="grid min-w-0 gap-4 sm:grid-cols-2">
-          <div className="sm:col-span-2">
-            <PersonNameFields
-              value={names}
-              onChange={setNames}
-              legacyName={legacyName}
-              originalValue={originalNames}
-            />
-          </div>
-          {(
-            [
-              ["grade", academicText("legacyGrade"), row.gradeLevel],
-              ["email", t("email"), row.user?.email ?? row.email],
-              ["phone", t("phone"), row.phone],
-              ["preferredContact", t("contact"), row.preferredContact],
-            ] as const
-          )
-            .filter(([name]) => name !== "grade" || (!row.user && !historicalGrade))
-            .map(([name, label, value]) => (
-              <label key={name} className="block">
-                <span className="label">{label}</span>
-                {name === "grade" ? (
-                  <OfferedGradeSelect
-                    name="grade"
-                    value={grade}
-                    onChange={setGrade}
-                    offeredGrades={policy.offeredGrades}
-                    preserveLegacy
-                    includeGraduated
-                  />
-                ) : (
-                  <input
-                    className="input w-full"
-                    name={name}
-                    defaultValue={value ?? ""}
-                    type={name === "email" ? "email" : "text"}
-                    readOnly={name === "email" && !!row.user}
-                  />
-                )}
+          <fieldset
+            disabled={busy}
+            className="grid min-w-0 gap-4 sm:grid-cols-2"
+          >
+            <div className="sm:col-span-2">
+              <PersonNameFields
+                value={names}
+                onChange={setNames}
+                legacyName={legacyName}
+                originalValue={originalNames}
+              />
+            </div>
+            {(
+              [
+                ["grade", academicText("legacyGrade"), row.gradeLevel],
+                ["email", t("email"), row.user?.email ?? row.email],
+                ["phone", t("phone"), row.phone],
+                ["preferredContact", t("contact"), row.preferredContact],
+              ] as const
+            )
+              .filter(
+                ([name]) => name !== "grade" || (!row.user && !historicalGrade),
+              )
+              .map(([name, label, value]) => (
+                <label key={name} className="block">
+                  <span className="label">{label}</span>
+                  {name === "grade" ? (
+                    <OfferedGradeSelect
+                      name="grade"
+                      value={grade}
+                      onChange={setGrade}
+                      offeredGrades={policy.offeredGrades}
+                      preserveLegacy
+                      includeGraduated
+                    />
+                  ) : (
+                    <input
+                      className="input w-full"
+                      name={name}
+                      defaultValue={value ?? ""}
+                      type={name === "email" ? "email" : "text"}
+                      readOnly={name === "email" && !!row.user}
+                    />
+                  )}
 
-                {name === "email" && row.user && (
-                  <span className="muted text-xs">
-                    {profileText("emailProtected")}
-                  </span>
-                )}
-              </label>
-            ))}
-          <div className="sm:col-span-2">
-            {!row.historical && (
-              <>
-                <ProfilePolicyHint />
-                <ProfilePolicyHint field="legal" />
-              </>
-            )}
-          </div>
-          {(
-            [
-              ["firstChoice", t("first"), row.firstChoiceId],
-              ["secondChoice", t("second"), row.secondChoiceId],
-            ] as const
-          ).map(([name, label, id]) => (
-            <label key={name} className="block">
-              <span className="label">{label}</span>
-              <select
-                className="select w-full"
-                name={name}
-                defaultValue={id ?? ""}
-              >
-                <option value="">{t("none")}</option>
-                {subjects.data?.map((s) => (
-                  <option key={s.id} value={s.id}>
-                    {s.name}
-                    {s.active ? "" : t("inactive")}
-                  </option>
-                ))}
-              </select>
-            </label>
-          ))}
-          <fieldset>
-            <legend className="label">{t("availability")}</legend>
-            {slots.data
-              ?.filter((s) => s.active)
-              .map((s) => (
-                <label className="flex items-center gap-2" key={s.id}>
-                  <input
-                    type="checkbox"
-                    name="slot"
-                    value={s.id}
-                    defaultChecked={row.availabilities.some(
-                      (a) => a.slot.id === s.id,
-                    )}
-                  />
-                  {s.label}
+                  {name === "email" && row.user && (
+                    <span className="muted text-xs">
+                      {profileText("emailProtected")}
+                    </span>
+                  )}
                 </label>
               ))}
-          </fieldset>
-          <label className="block">
-            <span className="label">{t("notes")}</span>
-            <textarea
-              className="input w-full"
-              name="notes"
-              defaultValue={row.notes ?? ""}
-            />
-          </label>
-          <button
-            className="btn-primary self-end justify-self-start"
-            disabled={save.isPending || subjects.isLoading || slots.isLoading}
-          >
-            {t("save")}
-          </button>
-          {save.error && (
-            <p role="alert" className="text-sm text-red-600">
-              <AcademicError message={save.error.message} />
-            </p>
-          )}
+            <div className="sm:col-span-2">
+              {!row.historical && (
+                <>
+                  <ProfilePolicyHint />
+                  <ProfilePolicyHint field="legal" />
+                </>
+              )}
+            </div>
+            {(
+              [
+                ["firstChoice", t("first"), row.firstChoiceId],
+                ["secondChoice", t("second"), row.secondChoiceId],
+              ] as const
+            ).map(([name, label, id]) => (
+              <label key={name} className="block">
+                <span className="label">{label}</span>
+                <select
+                  className="select w-full"
+                  name={name}
+                  defaultValue={id ?? ""}
+                >
+                  <option value="">{t("none")}</option>
+                  {subjects.data?.map((s) => (
+                    <option key={s.id} value={s.id}>
+                      {s.name}
+                      {s.active ? "" : t("inactive")}
+                    </option>
+                  ))}
+                </select>
+              </label>
+            ))}
+            <fieldset>
+              <legend className="label">{t("availability")}</legend>
+              {slots.data
+                ?.filter((s) => s.active)
+                .map((s) => (
+                  <label className="flex items-center gap-2" key={s.id}>
+                    <input
+                      type="checkbox"
+                      name="slot"
+                      value={s.id}
+                      defaultChecked={row.availabilities.some(
+                        (a) => a.slot.id === s.id,
+                      )}
+                    />
+                    {s.label}
+                  </label>
+                ))}
+            </fieldset>
+            <label className="block">
+              <span className="label">{t("notes")}</span>
+              <textarea
+                className="input w-full"
+                name="notes"
+                defaultValue={row.notes ?? ""}
+              />
+            </label>
+            <button
+              className="btn-primary self-end justify-self-start"
+              disabled={save.isPending || subjects.isLoading || slots.isLoading}
+            >
+              {t("save")}
+            </button>
+            {save.error && (
+              <p role="alert" className="text-sm text-red-600">
+                <AcademicError message={save.error.message} />
+              </p>
+            )}
           </fieldset>
         </form>
       )}
@@ -251,7 +258,11 @@ function TuteeProfileForm({
           <AcademicPanel userId={row.user.id} />
         </div>
       )}
-      {historicalGrade && <p className="mt-4 rounded-lg bg-slate-50 p-3 text-sm">{correctionText("HISTORICAL_EDITOR_REQUIRED")}</p>}
+      {historicalGrade && (
+        <p className="mt-4 rounded-lg bg-slate-50 p-3 text-sm">
+          {correctionText("HISTORICAL_EDITOR_REQUIRED")}
+        </p>
+      )}
       {row.historical && historyPermissions?.canLink && (
         <section className="mt-5 border-t border-slate-200 pt-4">
           {/* Separate forms preserve unsaved profile edits and avoid nested dialogs/forms. */}

@@ -419,10 +419,14 @@ it.each(["historical", "corrected"] as const)(
         <TuteeEditor row={historicalRow} onClose={vi.fn()} />
       </NextIntlClientProvider>,
     );
-    expect(screen.getByText(en.historicalAcademics.HISTORICAL_EDITOR_REQUIRED)).toBeTruthy();
+    expect(
+      screen.getByText(en.historicalAcademics.HISTORICAL_EDITOR_REQUIRED),
+    ).toBeTruthy();
     const form = screen.getByLabelText("First Name Required").closest("form")!;
     expect(form.querySelector('[name="grade"]')).toBeNull();
-    fireEvent.change(screen.getByLabelText("Phone"), { target: { value: "123456" } });
+    fireEvent.change(screen.getByLabelText(en.profileCorrection.phone), {
+      target: { value: "123456" },
+    });
     fireEvent.submit(form);
     const payload = state.mutate.mock.calls[0]?.[0] as Record<string, unknown>;
     expect(payload.phone).toBe("123456");

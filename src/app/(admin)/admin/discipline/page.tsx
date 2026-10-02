@@ -26,7 +26,13 @@ type Card = {
 
 const dot = (color: "YELLOW" | "RED") => (color === "RED" ? "🟥" : "🟨");
 
-function PendingCard({ card, onChanged }: { card: Card; onChanged: () => void }) {
+function PendingCard({
+  card,
+  onChanged,
+}: {
+  card: Card;
+  onChanged: () => void;
+}) {
   const programFormat = useFormatter();
   const t = useTranslations();
   const readOnly = useReadOnly();
@@ -68,9 +74,12 @@ function PendingCard({ card, onChanged }: { card: Card; onChanged: () => void })
               {card.source === "AUTO"
                 ? t("admin.cards.autoIssued")
                 : t("admin.cards.issuedBy", {
-                    name: card.issuedByTutor?.englishName ?? t("admin.cards.tutor"),
+                    name:
+                      card.issuedByTutor?.englishName ?? t("admin.cards.tutor"),
                   })}
-              {card.session ? ` · ${programFormat.dateTime(new Date(card.session.date), { dateStyle: "medium", timeZone: "UTC" })}` : ""}
+              {card.session
+                ? ` · ${programFormat.dateTime(new Date(card.session.date), { dateStyle: "medium", timeZone: "UTC" })}`
+                : ""}
             </span>
           </p>
           <p className="muted mt-1 text-sm">{card.reason ?? "—"}</p>
@@ -177,7 +186,10 @@ export default function CardsPage() {
   const standings = useMemo(() => {
     const byTutee = new Map<string, { name: string; cards: Card[] }>();
     for (const c of all) {
-      const entry = byTutee.get(c.tutee.id) ?? { name: c.tutee.englishName, cards: [] };
+      const entry = byTutee.get(c.tutee.id) ?? {
+        name: c.tutee.englishName,
+        cards: [],
+      };
       entry.cards.push(c);
       byTutee.set(c.tutee.id, entry);
     }
@@ -187,7 +199,10 @@ export default function CardsPage() {
         name: v.name,
         cards: v.cards,
         ...disciplineStanding(
-          v.cards.map((c) => ({ color: c.color, reviewStatus: c.reviewStatus })),
+          v.cards.map((c) => ({
+            color: c.color,
+            reviewStatus: c.reviewStatus,
+          })),
         ),
       }))
       .sort((a, b) => b.effectiveReds - a.effectiveReds);
@@ -209,7 +224,9 @@ export default function CardsPage() {
           {pending.map((c) => (
             <PendingCard key={c.id} card={c} onChanged={invalidate} />
           ))}
-          {pending.length === 0 && <p className="muted">{t("admin.cards.nothingPending")}</p>}
+          {pending.length === 0 && (
+            <p className="muted">{t("admin.cards.nothingPending")}</p>
+          )}
         </div>
       </section>
 
@@ -221,20 +238,31 @@ export default function CardsPage() {
             <details key={s.id} className="group py-2">
               <summary className="flex cursor-pointer flex-wrap items-center gap-3 [&::-webkit-details-marker]:hidden">
                 <NativeDisclosureIcon />
-                <span className="w-40 truncate font-medium text-slate-800 group-open:text-accent-700">
+                <span className="group-open:text-accent-700 w-40 truncate font-medium text-slate-800">
                   {s.name}
                 </span>
-                <DisciplineSlots validRed={s.validRed} validYellow={s.validYellow} />
+                <DisciplineSlots
+                  validRed={s.validRed}
+                  validYellow={s.validYellow}
+                />
                 {s.removalPending ? (
-                  <span className="badge-red">{t("admin.cards.standing.removalPending")}</span>
+                  <span className="badge-red">
+                    {t("admin.cards.standing.removalPending")}
+                  </span>
                 ) : s.effectiveReds >= 1 ? (
-                  <span className="badge-amber">{t("admin.cards.standing.onWarning")}</span>
+                  <span className="badge-amber">
+                    {t("admin.cards.standing.onWarning")}
+                  </span>
                 ) : (
-                  <span className="badge-slate">{t("admin.cards.standing.ok")}</span>
+                  <span className="badge-slate">
+                    {t("admin.cards.standing.ok")}
+                  </span>
                 )}
                 {s.pendingYellow + s.pendingRed > 0 && (
                   <span className="muted text-xs">
-                    {t("admin.cards.pendingCount", { n: s.pendingYellow + s.pendingRed })}
+                    {t("admin.cards.pendingCount", {
+                      n: s.pendingYellow + s.pendingRed,
+                    })}
                   </span>
                 )}
               </summary>
@@ -244,7 +272,9 @@ export default function CardsPage() {
                     {dot(c.color)}{" "}
                     <span
                       className={
-                        c.reviewStatus === "INVALID" ? "text-slate-400 line-through" : ""
+                        c.reviewStatus === "INVALID"
+                          ? "text-slate-400 line-through"
+                          : ""
                       }
                     >
                       {c.reason ?? "—"}
@@ -253,8 +283,11 @@ export default function CardsPage() {
                       · {t(`admin.cards.reviewStatus.${c.reviewStatus}`)} ·{" "}
                       {c.source === "AUTO"
                         ? t("admin.cards.auto")
-                        : (c.issuedByTutor?.englishName ?? t("admin.cards.tutor"))}
-                      {c.session ? ` · ${programFormat.dateTime(new Date(c.session.date), { dateStyle: "medium", timeZone: "UTC" })}` : ""}
+                        : (c.issuedByTutor?.englishName ??
+                          t("admin.cards.tutor"))}
+                      {c.session
+                        ? ` · ${programFormat.dateTime(new Date(c.session.date), { dateStyle: "medium", timeZone: "UTC" })}`
+                        : ""}
                     </span>
                   </li>
                 ))}
@@ -289,11 +322,15 @@ export default function CardsPage() {
               </thead>
               <tbody>
                 {[...all]
-                  .sort((a, b) => +new Date(b.createdAt) - +new Date(a.createdAt))
+                  .sort(
+                    (a, b) => +new Date(b.createdAt) - +new Date(a.createdAt),
+                  )
                   .map((c) => (
                     <tr key={c.id}>
                       <td className="text-xs text-slate-500">
-                        {programFormat.dateTime(new Date(c.createdAt), { dateStyle: "medium" })}
+                        {programFormat.dateTime(new Date(c.createdAt), {
+                          dateStyle: "medium",
+                        })}
                       </td>
                       <td className="text-slate-700">{c.tutee.englishName}</td>
                       <td>{dot(c.color)}</td>
@@ -301,7 +338,8 @@ export default function CardsPage() {
                       <td className="text-slate-500">
                         {c.source === "AUTO"
                           ? t("admin.cards.auto")
-                          : (c.issuedByTutor?.englishName ?? t("admin.cards.tutor"))}
+                          : (c.issuedByTutor?.englishName ??
+                            t("admin.cards.tutor"))}
                       </td>
                       <td>
                         <span

@@ -56,7 +56,9 @@ function TutorProfileForm({
   const utils = api.useUtils();
   const submitting = useRef(false);
   const save = api.admin.updateTutor.useMutation({
-    onSettled: () => { submitting.current = false; },
+    onSettled: () => {
+      submitting.current = false;
+    },
     onSuccess: async () => {
       await Promise.all([
         utils.admin.tutors.invalidate(),
@@ -108,109 +110,113 @@ function TutorProfileForm({
         }}
       >
         <fieldset disabled={busy} className="grid min-w-0 gap-4 sm:grid-cols-2">
-        <p className="muted text-sm sm:col-span-2">
-          {t(
-            row.user
-              ? "accountProfile.canonicalHelp"
-              : "tuteeHistory.noAccountHelp",
-          )}
-        </p>
-        {!row.user && (
-          <label className="block">
-            <span className="label">{t("accountProfile.username")}</span>
-            <input
-              className="input w-full"
-              name="username"
-              defaultValue={row.username ?? ""}
-              readOnly={!isHead}
-              autoCapitalize="none"
-              autoCorrect="off"
-              maxLength={64}
-            />
-          </label>
-        )}
-        <div className="sm:col-span-2">
-          <PersonNameFields
-            value={names}
-            onChange={setNames}
-            legacyName={legacyName}
-            originalValue={originalNames}
-          />
-        </div>
-        {(
-          [
-            ["email", t("admin.tutors.colEmail"), row.user?.email ?? row.email],
-            ["grade", t("academics.legacyGrade"), row.gradeLevel],
-          ] as const
-        )
-          .filter(([key]) => key !== "grade" || !row.user)
-          .map(([key, label, value]) => (
-            <label key={key} className="block">
-              <span className="label">{label}</span>
-              {key === "grade" ? (
-                <OfferedGradeSelect
-                  name="grade"
-                  value={grade}
-                  onChange={setGrade}
-                  offeredGrades={policy.offeredGrades}
-                  preserveLegacy
-                  includeGraduated
-                />
-              ) : (
-                <input
-                  className="input w-full"
-                  name={key}
-                  defaultValue={value ?? ""}
-                  type={key === "email" ? "email" : "text"}
-                  readOnly={key === "email" && !!row.user}
-                />
-              )}
-
-              {key === "email" && row.user && (
-                <span className="muted text-xs">
-                  {t("accountProfile.emailProtected")}
-                </span>
-              )}
-            </label>
-          ))}
-        <div className="sm:col-span-2">
-          <ProfilePolicyHint />
-          <ProfilePolicyHint field="legal" />
-        </div>
-        <label className="block">
-          <span className="label">{t("admin.tutors.colStatus")}</span>
-          <select
-            className="select w-full"
-            name="status"
-            defaultValue={row.status}
-          >
-            {(
-              [
-                "ACTIVE",
-                "PENDING",
-                "GRADUATED",
-                "TRANSFERRED",
-                "OPTED_OUT",
-                "ARCHIVED",
-              ] as const
-            ).map((status) => (
-              <option key={status} value={status}>
-                {t(`admin.tutorStatus.${status}`)}
-              </option>
-            ))}
-          </select>
-        </label>
-        <button
-          className="btn-primary justify-self-start"
-          disabled={save.isPending}
-        >
-          {t("accountProfile.save")}
-        </button>
-        {save.error && (
-          <p role="alert" className="text-sm text-red-600 sm:col-span-2">
-            <AcademicError message={save.error.message} />
+          <p className="muted text-sm sm:col-span-2">
+            {t(
+              row.user
+                ? "accountProfile.canonicalHelp"
+                : "tuteeHistory.noAccountHelp",
+            )}
           </p>
-        )}
+          {!row.user && (
+            <label className="block">
+              <span className="label">{t("accountProfile.username")}</span>
+              <input
+                className="input w-full"
+                name="username"
+                defaultValue={row.username ?? ""}
+                readOnly={!isHead}
+                autoCapitalize="none"
+                autoCorrect="off"
+                maxLength={64}
+              />
+            </label>
+          )}
+          <div className="sm:col-span-2">
+            <PersonNameFields
+              value={names}
+              onChange={setNames}
+              legacyName={legacyName}
+              originalValue={originalNames}
+            />
+          </div>
+          {(
+            [
+              [
+                "email",
+                t("admin.tutors.colEmail"),
+                row.user?.email ?? row.email,
+              ],
+              ["grade", t("academics.legacyGrade"), row.gradeLevel],
+            ] as const
+          )
+            .filter(([key]) => key !== "grade" || !row.user)
+            .map(([key, label, value]) => (
+              <label key={key} className="block">
+                <span className="label">{label}</span>
+                {key === "grade" ? (
+                  <OfferedGradeSelect
+                    name="grade"
+                    value={grade}
+                    onChange={setGrade}
+                    offeredGrades={policy.offeredGrades}
+                    preserveLegacy
+                    includeGraduated
+                  />
+                ) : (
+                  <input
+                    className="input w-full"
+                    name={key}
+                    defaultValue={value ?? ""}
+                    type={key === "email" ? "email" : "text"}
+                    readOnly={key === "email" && !!row.user}
+                  />
+                )}
+
+                {key === "email" && row.user && (
+                  <span className="muted text-xs">
+                    {t("accountProfile.emailProtected")}
+                  </span>
+                )}
+              </label>
+            ))}
+          <div className="sm:col-span-2">
+            <ProfilePolicyHint />
+            <ProfilePolicyHint field="legal" />
+          </div>
+          <label className="block">
+            <span className="label">{t("admin.tutors.colStatus")}</span>
+            <select
+              className="select w-full"
+              name="status"
+              defaultValue={row.status}
+            >
+              {(
+                [
+                  "ACTIVE",
+                  "PENDING",
+                  "GRADUATED",
+                  "TRANSFERRED",
+                  "OPTED_OUT",
+                  "ARCHIVED",
+                ] as const
+              ).map((status) => (
+                <option key={status} value={status}>
+                  {t(`admin.tutorStatus.${status}`)}
+                </option>
+              ))}
+            </select>
+          </label>
+          <button
+            className="btn-primary justify-self-start"
+            disabled={save.isPending}
+          >
+            {t("accountProfile.save")}
+          </button>
+          {save.error && (
+            <p role="alert" className="text-sm text-red-600 sm:col-span-2">
+              <AcademicError message={save.error.message} />
+            </p>
+          )}
         </fieldset>
       </form>
       {row.user && (

@@ -1,4 +1,7 @@
 {
+  "uiPatterns": {
+    "loadFailed": "Δεν ήταν δυνατή η φόρτωση αυτής της ενότητας"
+  },
   "historicalAcademics": {
     "graduatedRecorded": "The original record also marked academic graduation. This correction does not change participation or school-departure status.",
     "invalidRow": "Record {row}: check {field}.",

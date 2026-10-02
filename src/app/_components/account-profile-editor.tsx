@@ -75,7 +75,9 @@ function AccountProfileForm({
   const utils = api.useUtils();
   const submitting = useRef(false);
   const save = api.admin.updateAccountProfile.useMutation({
-    onSettled: () => { submitting.current = false; },
+    onSettled: () => {
+      submitting.current = false;
+    },
     onSuccess: async () => {
       await Promise.all([
         utils.admin.accounts.invalidate(),
@@ -123,7 +125,10 @@ function AccountProfileForm({
             legacyName={legacyName}
             originalValue={originalNames}
           />
-          <button className="btn-primary min-h-11 lg:min-h-10" disabled={!name.trim()}>
+          <button
+            className="btn-primary min-h-11 lg:min-h-10"
+            disabled={!name.trim()}
+          >
             {t("save")}
           </button>
           {save.error && (

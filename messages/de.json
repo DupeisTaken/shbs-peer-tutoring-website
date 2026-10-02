@@ -1,4 +1,7 @@
 {
+  "uiPatterns": {
+    "loadFailed": "Dieser Bereich konnte nicht geladen werden"
+  },
   "historicalAcademics": {
     "graduatedRecorded": "The original record also marked academic graduation. This correction does not change participation or school-departure status.",
     "invalidRow": "Record {row}: check {field}.",

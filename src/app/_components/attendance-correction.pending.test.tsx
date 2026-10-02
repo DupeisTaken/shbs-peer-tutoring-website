@@ -12,8 +12,8 @@ import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
 import zh from "../../../messages/zh.json";
 import { AttendanceCorrection } from "./attendance-correction";
-import { TableDetails } from "./ui/summary-table";
 import { ProfileDialog } from "./profile-dialog";
+import { useState, type ReactNode } from "react";
 
 const state = vi.hoisted(() => ({
   pending: false,
@@ -108,11 +108,63 @@ beforeEach(() => {
   };
 });
 afterEach(cleanup);
+
+it("retains the actual inline attendance draft and version through a failed write", () => {
+  const inline = () => (
+    <NextIntlClientProvider locale="en" messages={en}>
+      <AttendanceCorrection id="session" />
+    </NextIntlClientProvider>
+  );
+  const view = render(inline());
+  const reason = screen.getByRole<HTMLTextAreaElement>("textbox", {
+    name: en.corrections.reason,
+  });
+  fireEvent.change(reason, { target: { value: "Inline attendance draft" } });
+  const originalVersion = state.version;
+  fireEvent.submit(reason.closest("form")!);
+  state.pending = true;
+  view.rerender(inline());
+  expect(screen.queryByRole("dialog")).toBeNull();
+  expect(reason.matches(":disabled")).toBe(true);
+  expect(fireEvent.click(screen.getByText(en.corrections.editAttendance))).toBe(
+    false,
+  );
+  state.pending = false;
+  state.version = new Date("2026-09-08");
+  state.error = { message: "Save failed" };
+  state.options.onSettled();
+  view.rerender(inline());
+  expect(reason.value).toBe("Inline attendance draft");
+  expect(screen.getByRole("alert").textContent).toBe("Save failed");
+  fireEvent.submit(reason.closest("form")!);
+  expect(state.mutate).toHaveBeenLastCalledWith(
+    expect.objectContaining({
+      reason: "Inline attendance draft",
+      expectedUpdatedAt: originalVersion,
+    }),
+  );
+});
+
+/** The baseline page is inline. This fixture additionally verifies owned pending
+ * registration when that existing consumer is hosted in a native dialog. */
+function CorrectionDialogHost({ children }: { children: ReactNode }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <>
+      <button onClick={() => setOpen(true)}>Open correction</button>
+      {open && (
+        <ProfileDialog title="Session details" onClose={() => setOpen(false)}>
+          {children}
+        </ProfileDialog>
+      )}
+    </>
+  );
+}
 function page(locale: "en" | "zh" = "en", ancestorPending?: boolean) {
   const correction = (
-    <TableDetails title="Session details">
+    <CorrectionDialogHost>
       <AttendanceCorrection id="session" />
-    </TableDetails>
+    </CorrectionDialogHost>
   );
   return (
     <NextIntlClientProvider
@@ -141,7 +193,7 @@ it.each(["en", "zh"] as const)(
     const messages = locale === "en" ? en : zh;
     const view = render(page(locale));
     const opener = screen.getByRole("button", {
-      name: `${messages.tablePatterns.details}: Session details`,
+      name: "Open correction",
     });
     opener.focus();
     fireEvent.click(opener);
@@ -220,7 +272,7 @@ it.each(["en", "zh"] as const)(
     expect(dialog.getAttribute("aria-busy")).toBe("false");
     fireEvent.click(
       within(dialog).getByRole("button", {
-        name: messages.tablePatterns.close,
+        name: messages.accountProfile.close,
       }),
     );
     expect(screen.queryByRole("dialog")).toBeNull();
@@ -232,7 +284,7 @@ it("collapses only after an applied correction has synchronized and settled", as
   const view = render(page());
   fireEvent.click(
     screen.getByRole("button", {
-      name: `${en.tablePatterns.details}: Session details`,
+      name: "Open correction",
     }),
   );
   const reason = screen.getByRole<HTMLTextAreaElement>("textbox", {
@@ -256,7 +308,7 @@ it("blocks direct submission while an ancestor writes and releases without latch
   const view = render(page("en", false));
   fireEvent.click(
     screen.getByRole("button", {
-      name: `${en.tablePatterns.details}: Session details`,
+      name: "Open correction",
     }),
   );
   const reason = screen.getByRole<HTMLTextAreaElement>("textbox", {
@@ -277,7 +329,7 @@ it("replaces a conflicting draft only after explicit successful reload, even at 
   const view = render(page());
   fireEvent.click(
     screen.getByRole("button", {
-      name: `${en.tablePatterns.details}: Session details`,
+      name: "Open correction",
     }),
   );
   const reason = screen.getByRole<HTMLTextAreaElement>("textbox", {
@@ -348,7 +400,7 @@ it("blocks direct save during an explicit reload without treating the read as a 
   render(page());
   fireEvent.click(
     screen.getByRole("button", {
-      name: `${en.tablePatterns.details}: Session details`,
+      name: "Open correction",
     }),
   );
   const dialog = screen.getByRole("dialog");
@@ -365,7 +417,7 @@ it("blocks direct save during an explicit reload without treating the read as a 
   expect(dialog.getAttribute("aria-busy")).toBe("false");
   expect(
     within(dialog)
-      .getByRole<HTMLButtonElement>("button", { name: en.tablePatterns.close })
+      .getByRole<HTMLButtonElement>("button", { name: en.accountProfile.close })
       .matches(":disabled"),
   ).toBe(false);
   await act(async () => {
