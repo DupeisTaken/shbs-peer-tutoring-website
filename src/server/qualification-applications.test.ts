@@ -270,6 +270,142 @@ it("takes inheritance at decision time and not submission time", async () => {
   ]);
 });
 
+// The entry dialog calls this same route for both request types, regardless of
+// interview availability. Exercise blank-note rejection and the committed effects.
+it.each([
+  { higher: false, interviews: true, accept: true },
+  { higher: false, interviews: false, accept: false },
+  { higher: true, interviews: true, accept: false },
+  { higher: true, interviews: false, accept: true },
+])(
+  "requires a note and preserves direct-review effects ($higher/$interviews/$accept)",
+  async ({ higher, interviews, accept }) => {
+    await db.programFeature.create({
+      data: { key: "INTERVIEWS", enabled: interviews },
+    });
+    if (higher)
+      await db.$transaction((tx) =>
+        approveQualification(tx, "applicant-tutor", "history-standard", "head"),
+      );
+    await db.tutorSubjectWillingness.create({
+      data: {
+        tutorId: "applicant-tutor",
+        subjectId: "history-ap",
+        willing: false,
+      },
+    });
+    const prior = await eligibleSubjectIds(db, "applicant-tutor");
+    const { id } = await request();
+    const app = await db.tutorApplication.findUniqueOrThrow({ where: { id } });
+    expect(app.type).toBe(higher ? "HIGHER_LEVEL" : "ADDITIONAL_SUBJECT");
+    const input = {
+      id,
+      accept,
+      expectedUpdatedAt: app.updatedAt,
+      comment: " \n ",
+    };
+    await expect(
+      caller("admin").qualificationApplication.decide(input),
+    ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+    expect(
+      (await db.tutorApplication.findUniqueOrThrow({ where: { id } })).status,
+    ).toBe("PENDING");
+    expect(
+      await db.auditLog.count({
+        where: { operation: "qualificationApplication.decide" },
+      }),
+    ).toBe(0);
+    await caller("admin").qualificationApplication.decide({
+      ...input,
+      comment: " Reviewed evidence ",
+    });
+    expect(
+      await db.tutorApplication.findUniqueOrThrow({ where: { id } }),
+    ).toMatchObject({
+      status: accept ? "ACCEPTED" : "REJECTED",
+      decisionComment: "Reviewed evidence",
+      qualificationDecidedById: "admin",
+    });
+    expect(
+      (await eligibleSubjectIds(db, "applicant-tutor")).includes("history-ap"),
+    ).toBe(accept);
+    if (!accept)
+      expect(await eligibleSubjectIds(db, "applicant-tutor")).toEqual(prior);
+    expect(
+      await db.tutorSubjectWillingness.findFirst({
+        where: { tutorId: "applicant-tutor", subjectId: "history-ap" },
+      }),
+    ).toMatchObject({ willing: false });
+    expect(
+      await db.notification.count({
+        where: {
+          userId: "applicant",
+          link: "/dashboard#qualification-requests",
+        },
+      }),
+    ).toBe(1);
+    expect(
+      await db.auditLog.count({
+        where: {
+          operation: "qualificationApplication.decide",
+          userId: "admin",
+        },
+      }),
+    ).toBe(1);
+    await expect(
+      caller("admin").qualificationApplication.decide({
+        ...input,
+        comment: "Duplicate decision",
+      }),
+    ).rejects.toMatchObject({ code: "CONFLICT" });
+  },
+);
+
+it("cannot use a direct decision to bypass an assigned panel when interviews are disabled", async () => {
+  const { id } = await request();
+  await panel(id);
+  await db.programFeature.create({
+    data: { key: "INTERVIEWS", enabled: false },
+  });
+  await expect(decide(id, true, "admin")).rejects.toMatchObject({
+    code: "FORBIDDEN",
+  });
+  expect(
+    (await db.tutorApplication.findUniqueOrThrow({ where: { id } })).status,
+  ).toBe("INTERVIEW");
+  expect(
+    await db.interviewAssignment.count({ where: { applicationId: id } }),
+  ).toBe(3);
+  expect(
+    (await eligibleSubjectIds(db, "applicant-tutor")).includes("history-ap"),
+  ).toBe(false);
+});
+
+it.each(["TUTOR", "VIEWER", "COORDINATOR"] as const)(
+  "refuses direct qualification decisions for a current %s despite forged Head session claims",
+  async (role) => {
+    const { id } = await request();
+    await db.user.update({
+      where: { id: "other" },
+      data: {
+        role,
+        ...(role === "VIEWER" ? { tutorAccessRevoked: true } : {}),
+      },
+    });
+    await expect(decide(id, true, "other")).rejects.toMatchObject({
+      code: "FORBIDDEN",
+    });
+    expect(
+      (await db.tutorApplication.findUniqueOrThrow({ where: { id } })).status,
+    ).toBe("PENDING");
+    expect(
+      await db.auditLog.count({
+        where: { operation: "qualificationApplication.decide" },
+      }),
+    ).toBe(0);
+  },
+);
+
 it("serializes duplicate submissions and refuses already approved or inactive subjects", async () => {
   const attempts = await Promise.allSettled([request(), request()]);
   expect(

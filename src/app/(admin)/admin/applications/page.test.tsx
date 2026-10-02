@@ -200,23 +200,36 @@ it.each(["VIEWER", "TUTOR"])(
   },
 );
 
-it("keeps additional qualification review alongside consolidated history without account setup or deletion", () => {
-  mocks.additional = true;
-  show();
-  expect(screen.getAllByText("Additional subject").length).toBeGreaterThan(0);
-  fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
-  expect(screen.getByText("New subject evidence")).toBeTruthy();
-  expect(screen.getAllByText("AP Literature").length).toBeGreaterThan(0);
-  expect(screen.queryByText(/no qualification given/i)).toBeNull();
-  expect(
-    screen.getByRole("button", { name: "Approve qualification" }),
-  ).toBeTruthy();
-  expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
-  expect(screen.queryByRole("link", { name: /account/i })).toBeNull();
-  expect(mocks.history).toHaveBeenCalledWith(
-    expect.objectContaining({ enabled: true }),
-  );
-});
+it.each([true, false])(
+  "keeps additional qualification review alongside history with interviews=%s",
+  (enabled) => {
+    mocks.additional = true;
+    mocks.enabled = enabled;
+    show();
+    expect(screen.getAllByText("Additional subject").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
+    expect(screen.getByText("New subject evidence")).toBeTruthy();
+    expect(screen.getAllByText("AP Literature").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/no qualification given/i)).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Approve without Interview" }),
+    ).toBeTruthy();
+    expect(screen.queryByLabelText("Decision note")).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Approve without Interview" }),
+    );
+    expect(
+      screen.getByRole("dialog", { name: "Review Qualification Request" }),
+    ).toBeTruthy();
+    expect(screen.getByLabelText("Decision note")).toBeTruthy();
+    expect(mocks.decide).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
+    expect(screen.queryByRole("link", { name: /account/i })).toBeNull();
+    expect(mocks.history).toHaveBeenCalledWith(
+      expect.objectContaining({ enabled }),
+    );
+  },
+);
 
 it("does not expose additional request decisions or panel setup to Coordinators", () => {
   mocks.additional = true;

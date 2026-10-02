@@ -32,6 +32,9 @@ vi.mock("~/trpc/react", () => ({
 }));
 const base = {
   id: "request",
+  name: "Ada Chen",
+  type: "ADDITIONAL_SUBJECT" as const,
+  subjectIntents: [{ subject: { name: "AP History" } }],
   status: "PENDING",
   updatedAt: new Date("2026-09-01T00:00:00Z"),
   decisionComment: null,
@@ -56,6 +59,9 @@ it.each(["ADMIN", "HEAD"])(
   (role) => {
     mocks.role = role;
     show();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Approve without Interview" }),
+    );
     const approve = screen.getByRole<HTMLButtonElement>("button", {
       name: "Approve qualification",
     });

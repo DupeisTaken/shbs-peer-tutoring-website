@@ -83,7 +83,7 @@ function ApplicationCard({
 }: {
   app: Application;
   tutors: PanelTutor[];
-  onChanged: () => Promise<unknown> | void;
+  onChanged: (throwOnError?: boolean) => Promise<unknown> | void;
 }) {
   const programFormat = useFormatter();
   const t = useTranslations();
@@ -410,10 +410,16 @@ export default function ApplicationsPage() {
   const tutors = api.admin.tutors.useQuery();
   const features = api.program.features.useQuery();
   const readOnly = useReadOnly();
-  const invalidate = () =>
+  // Qualification decisions distinguish a committed write from failed cache
+  // synchronization. Other callers retain their existing refresh behavior.
+  const invalidate = (throwOnError = false) =>
     Promise.all([
-      utils.admin.tutorApplications.invalidate(),
-      utils.interviewManagement.options.invalidate(),
+      utils.admin.tutorApplications.invalidate(undefined, undefined, {
+        throwOnError,
+      }),
+      utils.interviewManagement.options.invalidate(undefined, undefined, {
+        throwOnError,
+      }),
     ]);
 
   const [filters, setFilters] = useState(emptyApplicationFilters);

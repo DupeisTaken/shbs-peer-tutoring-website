@@ -26,6 +26,28 @@ const bundledMessages = {
 >;
 
 describe("bundled header translations", () => {
+  it("provides qualification direct-review and recovery copy in every bundled locale", () => {
+    for (const locale of LOCALES) {
+      const copy = bundledMessages[locale].qualificationRequests;
+      for (const key of [
+        "approveWithoutInterview",
+        "reviewTitle",
+        "reviewHelp",
+        "reloadReview",
+        "reloadHelp",
+        "decisionSaved",
+        "decisionRefreshFailed",
+      ] as const) {
+        expect(copy[key], `${locale}: ${key}`).toMatch(/\S/);
+      }
+    }
+    expect(en.qualificationRequests.approveWithoutInterview).toBe(
+      "Approve without Interview",
+    );
+    expect(en.qualificationRequests.approve).not.toBe(
+      en.qualificationRequests.approveWithoutInterview,
+    );
+  });
   it("labels every persisted tutor status and the combine-account empty state", () => {
     // New historical states must render a readable label rather than a message key.
     for (const locale of LOCALES) {
