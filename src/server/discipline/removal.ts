@@ -2,6 +2,7 @@ import { z } from "zod";
 import { standingFromCounts } from "~/lib/discipline";
 import { getActivePeriodOrNull } from "~/server/period";
 import { notifyAdmins, notifyUsers } from "~/server/notifications/create";
+import { preserveHistoricalAcademics } from "~/server/historical-academics";
 import {
   inTransaction,
   lockEntity,
@@ -116,6 +117,7 @@ export async function syncPunishmentRemoval(
           },
           select: { id: true },
         });
+        await preserveHistoricalAcademics(tx, "TUTEE", tuteeId);
         await tx.pairingTutee.createMany({
           data: pairings.map((p) => ({ pairingId: p.id, tuteeId })),
           skipDuplicates: true,

@@ -23,7 +23,7 @@ import {
 import { historicalOwners } from "~/server/tutee-history";
 import { isHistoricalTutee } from "~/lib/tutee-history";
 import { isHistoricalTutor, legacyAcademicRecordId } from "~/lib/historical-academics";
-import { historicalAcademicSnapshot } from "~/server/historical-academics";
+import { preserveHistoricalAcademics } from "~/server/historical-academics";
 import { REGISTRATION_KINDS, isManagementCode } from "~/lib/registration-kind";
 import { enforceAssignmentQualification } from "~/server/assignment-qualification";
 import { accountUsernameSchema, updateAccountUsername } from "~/server/account-username";
@@ -570,12 +570,13 @@ export const adminRouter = createTRPCRouter({
       // Withhold staff free-text (notes) and the tutee's typed legal-name signature from VIEWER.
       const owner = t.user ?? retainedOwners.get(t.id) ?? null;
       const historical = isHistoricalTutee(t, active?.termId ?? null);
+      const historicalGrade = historical || correctionsByTutee.has(t.id);
       const enrollmentPeriod = t.intakeTermId ? periods.get(t.intakeTermId) ?? null : null;
       const academic = academicSummary(owner?.academicProfile ?? legacyAcademic(t.gradeLevel, t.academicallyGraduated), active?.schoolYear);
       const enrollmentCorrection = correctionsByTutee.get(t.id) ?? null;
       return isViewer
-        ? { ...t, notes: null, signatureName: null, bannedMatch, academic, owner, historical, enrollmentPeriod, enrollmentCorrection }
-        : { ...t, bannedMatch, academic, owner, historical, enrollmentPeriod, enrollmentCorrection };
+        ? { ...t, notes: null, signatureName: null, bannedMatch, academic, owner, historical, historicalGrade, enrollmentPeriod, enrollmentCorrection }
+        : { ...t, bannedMatch, academic, owner, historical, historicalGrade, enrollmentPeriod, enrollmentCorrection };
     });
   }),
   rooms: viewerProcedure.query(({ ctx }) =>
@@ -1943,14 +1944,8 @@ export const adminRouter = createTRPCRouter({
           await assertOfferedGrade(tx, input.gradeLevel);
         // Preserve a virtual original before a status-only reactivation can make it
         // look provisional again. This creates no correction or confirmation date.
-        if (isHistoricalTutor(before) && !isHistoricalTutor({ status: input.status })) {
-          await lockEntity(tx, `historical-academic:${recordId}`);
-          const { original } = await historicalAcademicSnapshot(tx, recordId);
-          await tx.historicalAcademicRecord.upsert({
-            where: { id: recordId }, update: {},
-            create: { id: recordId, tutorId: before.id, ...original },
-          });
-        }
+        if (isHistoricalTutor(before) && !isHistoricalTutor({ status: input.status }))
+          await preserveHistoricalAcademics(tx, "TUTOR", before.id);
         // The middleware's routing decision is not authority for a later state transition.
         if (before.status !== input.status && ctx.session.role !== "HEAD")
           throw new TRPCError({ code: "CONFLICT", message: "Tutor membership changed. Ask Head to review this status change." });
@@ -2179,6 +2174,8 @@ export const adminRouter = createTRPCRouter({
             code: "BAD_REQUEST",
             message: "Choose active time slots.",
           });
+        if (input.status !== "INACTIVE" && before.status !== input.status)
+          await preserveHistoricalAcademics(tx, "TUTEE", id);
         const updated = await tx.tutee.update({
           where: { id },
           data: {
@@ -2262,6 +2259,7 @@ export const adminRouter = createTRPCRouter({
       return inTransaction(ctx.db, async (tx) => {
         await enforceAssignmentQualification(tx, ctx.session.user.id, "admin.assignTuteeToTutor", input);
         await assertStudentRequestAssignable(tx, input.tuteeId);
+        await preserveHistoricalAcademics(tx, "TUTEE", input.tuteeId);
 
         const pairing = await tx.pairing.create({
           data: {
@@ -2410,6 +2408,8 @@ export const adminRouter = createTRPCRouter({
         where: { id: input.id },
         select: { status: true, englishName: true },
       });
+      if (input.status !== "INACTIVE" && prev.status !== input.status)
+        await preserveHistoricalAcademics(tx, "TUTEE", input.id);
       const updated = await tx.tutee.updateMany({
         where: { id: input.id, updatedAt: input.expectedUpdatedAt },
         data: { status: input.status },
@@ -3452,6 +3452,7 @@ export const adminRouter = createTRPCRouter({
         });
       }
       await requireStudentSchoolParticipation(tx, req.tuteeId);
+      await preserveHistoricalAcademics(tx, "TUTEE", req.tuteeId);
       await tx.tutee.update({
           where: { id: req.tuteeId },
           data: { status: "PENDING" },
@@ -4738,6 +4739,7 @@ export const adminRouter = createTRPCRouter({
 
         let tutorId: string;
         if (existing) {
+          await preserveHistoricalAcademics(tx, "TUTOR", existing.id);
           await tx.tutor.update({
             where: { id: existing.id },
             data: { status: "ACTIVE" },

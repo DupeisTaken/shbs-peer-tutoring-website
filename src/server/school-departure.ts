@@ -5,6 +5,7 @@ import { lockAccountProfile } from "./account-profile";
 import { inTransaction, lockEntity, type DomainDb } from "./transactions";
 import { ownedStudentIds } from "./student-ownership";
 import { recordAudit } from "./audit/log";
+import { preserveHistoricalAcademics } from "./historical-academics";
 
 /** Shared by intake, restoration and assignment paths, including approval replay. */
 export async function requireSchoolParticipation(db: DomainDb, userId: string) {
@@ -169,6 +170,7 @@ export async function changeSchoolDeparture(
       ["GRADUATED", "TRANSFERRED"].includes(user.tutor?.status ?? "")
     ) {
       // Return grants no assignments or active participation. The normal activation gate remains.
+      await preserveHistoricalAcademics(tx, "TUTOR", user.tutorId);
       await tx.tutor.update({
         where: { id: user.tutorId },
         data: { status: "PENDING" },

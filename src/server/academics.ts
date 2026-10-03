@@ -12,6 +12,7 @@ import { staleConflict } from "./concurrency";
 import { inTransaction, lockEntity, type DomainDb } from "./transactions";
 import { assertOfferedGrade } from "./program/profile-policy";
 import type { z } from "zod";
+import { preserveHistoricalAcademics } from "./historical-academics";
 
 export async function accountAcademics(db: DomainDb, userId: string) {
   const [user, term] = await Promise.all([
@@ -114,7 +115,8 @@ export async function confirmAccountAcademics(
       where: { id: userId },
       data: { gradeLevel: data.gradeLevel, profileVersion: { increment: 1 } },
     });
-    if (user.tutorId)
+    if (user.tutorId) {
+      await preserveHistoricalAcademics(tx, "TUTOR", user.tutorId);
       await tx.tutor.update({
         where: { id: user.tutorId },
         data: {
@@ -124,11 +126,14 @@ export async function confirmAccountAcademics(
           gradeConfirmedAt: data.confirmedAt,
         },
       });
-    if (user.studentId)
+    }
+    if (user.studentId) {
+      await preserveHistoricalAcademics(tx, "TUTEE", user.studentId);
       await tx.tutee.update({
         where: { id: user.studentId },
         data: { academicallyGraduated: data.status === "GRADUATED" },
       });
+    }
     return { profileVersion: updated.profileVersion };
   });
 }
@@ -242,7 +247,8 @@ export async function synchronizeAcademicMirrors(db: DomainDb, userId: string) {
       where: { id: userId },
       data: { gradeLevel: profile.gradeLevel },
     });
-    if (user.tutorId)
+    if (user.tutorId) {
+      await preserveHistoricalAcademics(tx, "TUTOR", user.tutorId);
       await tx.tutor.update({
         where: { id: user.tutorId },
         data: {
@@ -252,11 +258,14 @@ export async function synchronizeAcademicMirrors(db: DomainDb, userId: string) {
           gradeConfirmedAt: profile.confirmedAt,
         },
       });
-    if (user.studentId)
+    }
+    if (user.studentId) {
+      await preserveHistoricalAcademics(tx, "TUTEE", user.studentId);
       await tx.tutee.update({
         where: { id: user.studentId },
         data: { academicallyGraduated: profile.status === "GRADUATED" },
       });
+    }
   });
 }
 

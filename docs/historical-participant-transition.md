@@ -30,6 +30,8 @@ For additional original reports, use `HistoricalAcademicRecord.csv` in Program R
 
 Historical or previously preserved tutor academics are read-only in Edit Profile; contact and name changes remain available. A status-only reactivation preserves the unchanged original before returning the tutor to current membership, so later profile saves cannot bypass Academic Corrections. A linked account's current academic form remains separate.
 
+The same preservation applies when an accepted reapplication, a registration invitation, a tutoring-access change or a reviewed school return reuses a historical tutor. Current account confirmations and academic mirror synchronization also preserve any historical tutor original before updating the current report. Tutee restoration, reassignment and removal reversals preserve the same original before returning an inactive enrollment to the current roster. These transitions retain unknown values and original confirmation dates; they do not create historical correction revisions or replace an already preserved original.
+
 Archive retries remain additive: identical original rows are skipped and changed IDs reject the archive. The correction CSV is a separate reviewed format, not an archive overwrite mode. Program Records exports original historical academic evidence; correction revisions and management audit require a full database backup and are not executable archive inputs. Do not use a CSV export as a backup of corrected records.
 
 ## Account lists

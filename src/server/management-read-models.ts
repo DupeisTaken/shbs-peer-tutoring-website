@@ -76,7 +76,7 @@ const room = summary("id name patrolOrder createdAt", {
   ).optional(),
 });
 const tutee = summary(
-  "id englishName firstName lastName preferredName legacyName alternativeNames gradeLevel academicallyGraduated status firstChoiceId secondChoiceId signedRulebook signedAt createdAt updatedAt signupSource intakeTermId signupSubmittedAt historical",
+  "id englishName firstName lastName preferredName legacyName alternativeNames gradeLevel academicallyGraduated status firstChoiceId secondChoiceId signedRulebook signedAt createdAt updatedAt signupSource intakeTermId signupSubmittedAt historical historicalGrade",
   {
     gradeLevel: schoolGrade,
     user: account.nullish(),

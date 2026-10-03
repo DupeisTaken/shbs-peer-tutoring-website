@@ -252,6 +252,31 @@ export async function applyRecords(tx: TransactionDb, files: TransferFile[]) {
   if (count > TRANSFER_MAX_ROWS)
     fail("Import at most 5,000 records at a time.");
   if (!count) fail("The selected CSV files contain no records.");
+  // A reserved archive can list Tutee before Tutor, while a dual-linked account's
+  // academic/name mirrors lock Tutor before Tutee. Take reserved participant advisory
+  // and row locks in that shared order before inserting anything. Decode only the stable ID
+  // here; ordinary validation below keeps its exact filename/row diagnostics.
+  const academics = byTable.get("HistoricalAcademicRecord");
+  const academicIdIndex = academics?.columns.findIndex((column) => column.name === "id") ?? -1;
+  const participants = new Map<string, "tutor" | "tutee">();
+  if (academics && academicIdIndex >= 0) {
+    for (const cells of academics.rows) {
+      const recordId = decodeRecordCell(cells[academicIdIndex] ?? "");
+      const reserved = /^legacy-(tutor|tutee):(.+)$/.exec(recordId ?? "");
+      if (reserved) {
+        const kind = reserved[1] as "tutor" | "tutee";
+        participants.set(`${kind}:${reserved[2]!}`, kind);
+      }
+    }
+  }
+  for (const [key, kind] of [...participants].sort(([left, leftKind], [right, rightKind]) =>
+    leftKind === rightKind ? left.localeCompare(right) : leftKind === "tutor" ? -1 : 1,
+  )) {
+    await lockEntity(tx, key);
+    const table = kind === "tutor" ? "Tutor" : "Tutee";
+    const id = key.slice(kind.length + 1);
+    await tx.$queryRaw(Prisma.sql`SELECT id FROM ${identifier(table)} WHERE id=${id} FOR NO KEY UPDATE`);
+  }
   for (const table of RECORD_TABLES) {
     const file = byTable.get(table);
     if (!file?.rows.length) continue;
@@ -334,7 +359,7 @@ export async function applyRecords(tx: TransactionDb, files: TransferFile[]) {
             // The caller holds the username namespace before acquiring participant
             // and evidence locks, matching corrections and profile/link workflows.
             await lockEntity(tx, `${kind.toLowerCase()}:${participantId}`);
-            await tx.$queryRaw(Prisma.sql`SELECT id FROM ${identifier(participantTable)} WHERE id=${participantId} FOR UPDATE`);
+            await tx.$queryRaw(Prisma.sql`SELECT id FROM ${identifier(participantTable)} WHERE id=${participantId} FOR NO KEY UPDATE`);
             await lockEntity(tx, `historical-academic:${String(row.id)}`);
             const { original } = await historicalAcademicSnapshot(tx, String(row.id));
             if (

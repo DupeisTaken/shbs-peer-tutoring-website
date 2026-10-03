@@ -10,6 +10,8 @@ vi.mock("~/server/email/sender", () => ({
 import { db } from "~/server/db";
 import { createCaller } from "~/server/api/root";
 import { updateAccountProfile } from "~/server/account-profile";
+import { historicalAcademicSnapshot } from "~/server/historical-academics";
+import { legacyAcademicRecordId } from "~/lib/historical-academics";
 
 const caller = (id = "profile-admin", role: Session["role"] = "ADMIN") =>
   createCaller({
@@ -380,9 +382,18 @@ it("ordinary tutor profile edits preserve handles and reject the legacy rename p
 it("edits an unlinked archived tutor without creating a login, sending mail or reactivating", async () => {
   const head = await headCaller();
   const tutor = await db.tutor.create({ data: { id: "profile-past", englishName: "Past Tutor", username: "pasttutor", status: "ARCHIVED" } });
+  const recordId = legacyAcademicRecordId("TUTOR", tutor.id);
+  const { original } = await historicalAcademicSnapshot(db, recordId);
+  // Historical academics use the reviewed correction workflow; ordinary identity
+  // edits remain available even when the original grade is unknown.
+  await expect(head.admin.updateTutor({ id: tutor.id, expectedUpdatedAt: tutor.updatedAt,
+    firstName: "Not Saved", lastName: "Tutor", gradeLevel: 10, status: "ARCHIVED" })).rejects.toThrow("HISTORICAL_EDITOR_REQUIRED");
+  expect(await db.tutor.findUnique({ where: { id: tutor.id } })).toEqual(tutor);
   const saved = await head.admin.updateTutor({ id: tutor.id, expectedUpdatedAt: tutor.updatedAt,
-    firstName: "Corrected", lastName: "Tutor", username: "Corrected93", email: "corrected@example.test", gradeLevel: 10, status: "ARCHIVED" });
-  expect(saved).toMatchObject({ englishName: "Corrected Tutor", username: "corrected93", email: "corrected@example.test", gradeLevel: 10, status: "ARCHIVED" });
+    firstName: "Corrected", lastName: "Tutor", username: "Corrected93", email: "corrected@example.test", status: "ARCHIVED" });
+  expect(saved).toMatchObject({ englishName: "Corrected Tutor", username: "corrected93", email: "corrected@example.test", gradeLevel: null, status: "ARCHIVED" });
+  expect((await historicalAcademicSnapshot(db, recordId)).original).toEqual(original);
+  expect(await db.historicalAcademicRecord.count({ where: { id: recordId } })).toBe(0);
   expect(await db.user.findUnique({ where: { tutorId: tutor.id } })).toBeNull();
   expect(delivery.send).not.toHaveBeenCalled();
   expect((await head.admin.accounts()).rows.find((row) => row.tutorId === tutor.id)).toMatchObject({ account: "none", tutorHasEmail: true });

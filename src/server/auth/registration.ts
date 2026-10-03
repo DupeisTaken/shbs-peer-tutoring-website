@@ -47,6 +47,7 @@ import {
 } from "~/server/program/profile-policy";
 import { needsAcademicConfirmationForParticipation } from "~/lib/academics";
 import { graduationYear } from "~/lib/period";
+import { preserveHistoricalAcademics } from "~/server/historical-academics";
 
 /** Registration codes stay valid for one week — long enough to distribute and use. */
 export const CODE_TTL_DAYS = 7;
@@ -585,6 +586,7 @@ export async function completeRegistration(
       });
 
     if (tutorId) {
+      await preserveHistoricalAcademics(tx, "TUTOR", tutorId);
       await tx.tutor.update({
         where: { id: tutorId },
         data: {

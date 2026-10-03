@@ -55,7 +55,7 @@ function TuteeProfileForm({
   const profileText = useTranslations("accountProfile");
   const academicText = useTranslations("academics");
   const correctionText = useTranslations("historicalAcademics");
-  const historicalGrade = row.historical || !!row.enrollmentCorrection;
+  const historicalGrade = row.historicalGrade || row.historical || !!row.enrollmentCorrection;
   const [expectedUpdatedAt] = useState(row.updatedAt);
   // Keep explicit name drafts mounted while historical linking refreshes roster data.
   const historySection = useRef<HTMLDetailsElement>(null);

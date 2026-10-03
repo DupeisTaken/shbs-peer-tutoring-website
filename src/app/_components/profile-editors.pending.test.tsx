@@ -450,13 +450,14 @@ it("keeps an edited tutee draft visible during a failed dependency refresh", () 
   ).toBe("Unsaved");
 });
 // The historical editor must retain its audit boundary after moving under dialog context.
-it.each(["historical", "corrected"] as const)(
+it.each(["historical", "corrected", "preserved"] as const)(
   "keeps %s academic evidence out of a contact/profile write",
   (kind) => {
     const historicalRow = {
       ...row,
       user: null,
       historical: kind === "historical",
+      historicalGrade: kind === "preserved",
       enrollmentCorrection: kind === "corrected" ? { rawGrade: "G8" } : null,
       gradeLevel: "初三",
     } as unknown as ComponentProps<typeof TuteeEditor>["row"];
@@ -512,11 +513,12 @@ it.each(["ARCHIVED", "GRADUATED", "TRANSFERRED", "corrected"] as const)(
   },
 );
 
-it("keeps linked current tutor academics separate from protected historical evidence", () => {
+it.each(["tutor", "tutee"] as const)("keeps linked current %s academics separate from protected historical evidence", (kind) => {
+  const Editor = kind === "tutor" ? TutorProfileEditor : TuteeEditor;
   render(
     <NextIntlClientProvider locale="en" messages={en}>
-      <TutorProfileEditor
-        row={{ ...row, historicalGrade: true } as unknown as ComponentProps<typeof TutorProfileEditor>["row"]}
+      <Editor
+        row={{ ...row, historical: false, historicalGrade: true, enrollmentCorrection: null } as unknown as ComponentProps<typeof TutorProfileEditor>["row"] & ComponentProps<typeof TuteeEditor>["row"]}
         onClose={vi.fn()}
       />
     </NextIntlClientProvider>,

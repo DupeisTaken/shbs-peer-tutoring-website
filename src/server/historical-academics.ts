@@ -4,6 +4,8 @@ import { z } from "zod";
 import { env } from "~/env";
 import {
   historicalCorrectionInput,
+  isHistoricalTutor,
+  legacyAcademicRecordId,
   type HistoricalCorrectionInput,
 } from "~/lib/historical-academics";
 import {
@@ -15,6 +17,7 @@ import {
 import { lockUsernameNamespace } from "./auth/username";
 import { lockAccountProfile } from "./account-profile";
 import { approvalScope } from "./db-scope";
+import { isHistoricalTutee } from "~/lib/tutee-history";
 import { Prisma } from "../../generated/prisma";
 
 const digest = (value: unknown) =>
@@ -27,6 +30,39 @@ export const historicalListInput = z.object({
   search: z.string().trim().max(100).default(""),
   page: z.number().int().min(0).max(10000).default(0),
 });
+
+/** Preserve the original before historical membership or academic mirrors change.
+ * Callers acquire any identity/account locks first. Match corrections/import: participant
+ * advisory lock, participant row, then evidence. Never acquire an account/namespace lock
+ * here, since academic writers already hold the account lock. Read only after the row lock
+ * so a concurrent lifecycle change cannot turn an old snapshot into new evidence. */
+export async function preserveHistoricalAcademics(
+  tx: TransactionDb,
+  kind: "TUTEE" | "TUTOR",
+  participantId: string,
+) {
+  await lockEntity(tx, `${kind.toLowerCase()}:${participantId}`);
+  const table = Prisma.raw(kind === "TUTEE" ? '"Tutee"' : '"Tutor"');
+  // Evidence fields are non-key values. Fence their writers without blocking the
+  // KEY SHARE reads needed to insert pairings referencing both Tutor and Tutee.
+  await tx.$queryRaw(Prisma.sql`SELECT id FROM ${table} WHERE id=${participantId} FOR NO KEY UPDATE`);
+  if (kind === "TUTEE") {
+    const tutee = await tx.tutee.findUniqueOrThrow({ where: { id: participantId } });
+    const activeTerm = await tx.term.findFirst({ where: { active: true }, select: { id: true } });
+    if (!isHistoricalTutee(tutee, activeTerm?.id ?? null)) return;
+  } else {
+    const tutor = await tx.tutor.findUniqueOrThrow({ where: { id: participantId }, select: { status: true } });
+    if (!isHistoricalTutor(tutor)) return;
+  }
+  const recordId = legacyAcademicRecordId(kind, participantId);
+  await lockEntity(tx, `historical-academic:${recordId}`);
+  const { original, tuteeId, tutorId } = await historicalAcademicSnapshot(tx, recordId);
+  await tx.historicalAcademicRecord.upsert({
+    where: { id: recordId },
+    update: {},
+    create: { id: recordId, tuteeId, tutorId, ...original },
+  });
+}
 
 /** The legacy key is deterministic; corrections, exact archive restores and status
  * reactivation may preserve it. Browsing never creates evidence or confirmation dates. */

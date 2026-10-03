@@ -1,6 +1,7 @@
 import { requireSchoolParticipation } from "~/server/school-departure";
 import { assertPrimaryName } from "~/server/program/profile-policy";
 import { initializeAccountAcademics } from "~/server/academics";
+import { preserveHistoricalAcademics } from "~/server/historical-academics";
 import {
   lockAccountProfile,
   updateAccountProfile,
@@ -71,6 +72,7 @@ export async function promoteApplicantToTutor(
     });
     let tutorId: string;
     if (existing) {
+      await preserveHistoricalAcademics(db, "TUTOR", existing.id);
       await db.tutor.update({
         where: { id: existing.id },
         data: { status: "ACTIVE" },

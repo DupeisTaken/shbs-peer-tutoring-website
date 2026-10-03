@@ -1,3 +1,4 @@
+import { preserveHistoricalAcademics } from "~/server/historical-academics";
 import { approvalScope } from "~/server/db-scope";
 /**
  * Audit log + typed undo. Every admin mutation that's hard to reverse by hand records an
@@ -186,6 +187,8 @@ export async function applyUndo(
         return true;
       }
       case "tutee.status":
+        if (undo.payload.status !== "INACTIVE")
+          await preserveHistoricalAcademics(tx, "TUTEE", undo.payload.id);
         await tx.tutee.update({
           where: { id: undo.payload.id },
           data: { status: undo.payload.status },
