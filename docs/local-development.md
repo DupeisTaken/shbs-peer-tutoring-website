@@ -22,6 +22,13 @@ Normal builds retain Next's default cache behavior. `SHBS_BUILD_CPUS=1` limits l
 
 Keep local screenshots and verification logs in ignored `outputs/` or `.validation/`.
 
+CAPTCHA grant/admission tests use an isolated provider fixture, including the SDK
+configuration and runtime-option constructors. The separate
+`src/server/captcha/aliyun-runtime.test.ts` compatibility test constructs the real
+installed SDK client and models, replacing only its network method. Run both when
+changing that boundary. A focused pass does not replace a complete-suite pass;
+retain failed full-run receipts when investigating timing failures.
+
 ## Prerequisites
 
 - **Node 22 (CI baseline)** and **npm**

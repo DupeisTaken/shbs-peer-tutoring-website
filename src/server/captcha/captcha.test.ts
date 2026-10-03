@@ -16,6 +16,25 @@ vi.mock("@alicloud/captcha20230305", () => ({
     }
   },
 }));
+// This suite exercises grant/admission persistence with a provider fixture.
+// Keep its complete SDK boundary isolated; aliyun-runtime.test.ts separately
+// constructs the genuine installed client, request and runtime-option classes.
+vi.mock("@alicloud/openapi-core", () => ({
+  $OpenApiUtil: {
+    Config: class {
+      constructor(input: object) {
+        Object.assign(this, input);
+      }
+    },
+  },
+}));
+vi.mock("@darabonba/typescript", () => ({
+  RuntimeOptions: class {
+    constructor(input: object) {
+      Object.assign(this, input);
+    }
+  },
+}));
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 vi.mock("~/server/email/sender", () => ({
   emailSender: { send: vi.fn().mockResolvedValue(undefined) },
