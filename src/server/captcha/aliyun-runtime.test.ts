@@ -21,13 +21,11 @@ it("constructs the real installed SDK with valid runtime types while mocking onl
     ALIYUN_CAPTCHA_ACCESS_KEY_SECRET: "test-secret-long-enough",
   }))
     vi.stubEnv(key, value);
-  let actualClient: Client | undefined;
   const verify = vi
     .spyOn(Client.prototype, "verifyIntelligentCaptchaWithOptions")
-    .mockImplementation(function (this: Client) {
+    .mockImplementation(() => {
       // Replace only network delivery, retaining real SDK construction and
       // model classes so the functional suite's fixture cannot hide incompatibility.
-      actualClient = this;
       return Promise.resolve(
         new VerifyIntelligentCaptchaResponse({
           statusCode: 200,
@@ -43,7 +41,8 @@ it("constructs the real installed SDK with valid runtime types while mocking onl
     "accepted",
   );
   expect(verify).toHaveBeenCalledOnce();
-  expect(actualClient).toBeInstanceOf(Client);
+  // The spy records the real SDK receiver without replacing its constructor.
+  expect(verify.mock.contexts[0]).toBeInstanceOf(Client);
   const [request, runtime] = verify.mock.calls[0]!;
   expect(request).toBeInstanceOf(VerifyIntelligentCaptchaRequest);
   expect(request).toMatchObject({
