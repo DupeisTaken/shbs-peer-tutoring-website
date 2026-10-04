@@ -150,6 +150,14 @@
   @apply w-auto max-w-full;
 }
 
+/* Wrapping forms can opt into a preferred minimum that never exceeds their
+   available width, even when rem-based sizing grows with enlarged text. Keep
+   this separate from field-auto so existing callers' fixed minima are intact. */
+@utility field-auto-bounded {
+  @apply field-auto;
+  min-width: min(100%, var(--field-min-width, 0px));
+}
+
 @layer components {
   /* Buttons --------------------------------------------------------------- */
   .btn-primary {

@@ -120,26 +120,28 @@ export default function MeetingsPage() {
             }
           }}
         >
+          {/* Preferred widths shrink to the form width at enlarged text sizes;
+              fixed rem minimums would override the controls' max-width. */}
           <input
             value={title}
             onChange={(e) => setTitle(e.target.value)}
             placeholder={t("admin.meetings.titlePlaceholder")}
             aria-label={t("admin.meetings.titlePlaceholder")}
-            className="input field-auto min-w-48"
+            className="input field-auto-bounded [--field-min-width:12rem]"
           />
           <input
             aria-label={t("uiPatterns.meetingDate")}
             type="date"
             value={date}
             onChange={(e) => setDate(e.target.value)}
-            className="input field-auto min-w-36"
+            className="input field-auto-bounded [--field-min-width:9rem]"
           />
           <input
             type="time"
             value={time}
             onChange={(e) => setTime(e.target.value)}
             aria-label={t("admin.meetings.timeLabel")}
-            className="input field-auto min-w-28"
+            className="input field-auto-bounded [--field-min-width:7rem]"
           />
           <button
             className="btn-primary"

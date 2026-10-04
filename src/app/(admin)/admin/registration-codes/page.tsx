@@ -144,7 +144,9 @@ export default function RegistrationCodesPage() {
             });
           }}
         >
-          <div>
+          {/* Bound each flex item as well as its content-sized control; otherwise
+              a long draft gives the wrapper an overflowing intrinsic width. */}
+          <div className="min-w-0 max-w-full">
             <label className="label" htmlFor="invite-kind">
               {t("admin.registrationCodes.kindField")}
             </label>
@@ -152,7 +154,7 @@ export default function RegistrationCodesPage() {
               id="invite-kind"
               value={kind}
               onChange={(e) => setKind(e.target.value as RegistrationKind)}
-              className="select field-auto min-h-11 min-w-32 lg:min-h-10"
+              className="select field-auto-bounded min-h-11 [--field-min-width:8rem] lg:min-h-10"
             >
               {REGISTRATION_KINDS.map((value) => (
                 <option key={value} value={value}>
@@ -161,7 +163,7 @@ export default function RegistrationCodesPage() {
               ))}
             </select>
           </div>
-          <div>
+          <div className="min-w-0 max-w-full">
             <label className="label">
               {t("admin.registrationCodes.labelField")}
             </label>
@@ -169,10 +171,10 @@ export default function RegistrationCodesPage() {
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               placeholder={t("admin.registrationCodes.labelPlaceholder")}
-              className="input field-auto min-h-11 min-w-44 lg:min-h-10"
+              className="input field-auto-bounded min-h-11 [--field-min-width:11rem] lg:min-h-10"
             />
           </div>
-          <div>
+          <div className="min-w-0 max-w-full">
             <label className="label">
               {t("admin.registrationCodes.emailField")}
             </label>
@@ -181,7 +183,7 @@ export default function RegistrationCodesPage() {
               onChange={(e) => setEmail(e.target.value)}
               type="email"
               placeholder={t("admin.registrationCodes.emailPlaceholder")}
-              className="input field-auto min-h-11 min-w-52 lg:min-h-10"
+              className="input field-auto-bounded min-h-11 [--field-min-width:13rem] lg:min-h-10"
             />
           </div>
           <button
