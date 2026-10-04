@@ -89,7 +89,7 @@ it("compiles mobile wrapping and preserves the desktop contents layout", async (
   const output = parse(compiler.build([...group.classList]));
   expect(declarationsFor(output, ".flex")).toMatchObject({ display: "flex" });
   expect(declarationsFor(output, ".min-w-0")).toMatchObject({
-    "min-width": "calc(var(--spacing) * 0)",
+    "min-width": "0",
   });
   expect(declarationsFor(output, ".flex-wrap")).toMatchObject({
     "flex-wrap": "wrap",
