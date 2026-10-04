@@ -204,7 +204,8 @@ function Recipe({
     <section className="card min-w-0 space-y-5 p-5 sm:p-6">
       <header className="space-y-2 border-b border-slate-100 pb-4">
         <h2 className="text-lg font-semibold text-slate-900">{title}</h2>
-        <p className="text-sm leading-6 text-slate-600">{help}</p>
+        {/* Component names in explanatory copy must wrap even at enlarged text sizes. */}
+        <p className="text-sm leading-6 wrap-break-word text-slate-600">{help}</p>
         <code className="block text-xs break-words text-slate-500">
           {components}
         </code>
@@ -672,7 +673,9 @@ export function RecipeGallery({
         >
           <div className="public-form">
             <PublicFormCard>
-              <p className="text-sm text-slate-700">{t.publicHelp}</p>
+              <p className="text-sm wrap-break-word text-slate-700">
+                {t.publicHelp}
+              </p>
             </PublicFormCard>
           </div>
         </Recipe>

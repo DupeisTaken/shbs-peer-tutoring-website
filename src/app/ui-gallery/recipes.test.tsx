@@ -1,5 +1,6 @@
 /** @vitest-environment jsdom */
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
+import { compile } from "tailwindcss";
 import {
   act,
   cleanup,
@@ -46,6 +47,44 @@ afterEach(() => {
   vi.useRealTimers();
   vi.restoreAllMocks();
 });
+
+it.each(["en", "zh"] as const)(
+  "wraps full component names in both %s public-card descriptions",
+  async (locale) => {
+    render(<RecipeGallery locale={locale} state="normal" />);
+    const section = screen
+      .getByRole("heading", {
+        name: locale === "en" ? "Public form card" : "公开表单卡片",
+      })
+      .closest("section")!;
+    const descriptions = Array.from(
+      section.querySelectorAll<HTMLElement>("header > p, .public-form-card > p"),
+    );
+    expect(descriptions).toHaveLength(2);
+    expect(descriptions[0]!.textContent).toBe(descriptions[1]!.textContent);
+
+    // Compile the classes on the actual consumers: a misspelled/unsupported
+    // utility or a fix applied to only one description must fail. jsdom verifies
+    // the CSS contract; real EN/ZH 390px checks at 200% verify text geometry.
+    const compiler = await compile("@tailwind utilities;");
+    const stylesheet = document.createElement("style");
+    const candidates = descriptions.flatMap((element) => [...element.classList]);
+    stylesheet.textContent = compiler.build([...new Set(candidates)]);
+    document.head.append(stylesheet);
+    try {
+      for (const description of descriptions) {
+        expect(description.textContent).toContain("PublicPageNavigation");
+        const style = getComputedStyle(description);
+        expect(style.overflowWrap).toBe("break-word");
+        expect(style.wordBreak).not.toBe("break-all");
+        expect(style.textOverflow).not.toBe("ellipsis");
+        expect(["hidden", "clip"]).not.toContain(style.overflowX);
+      }
+    } finally {
+      stylesheet.remove();
+    }
+  },
+);
 
 it.each(["en", "zh"] as const)(
   "keeps the %s failed draft beside a completed independent section",

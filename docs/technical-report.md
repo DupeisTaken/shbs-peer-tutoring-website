@@ -64,6 +64,13 @@ The [development gallery](../src/app/ui-gallery/gallery.tsx) imports the same co
 
 The [composition examples](../src/app/ui-gallery/recipes.tsx) cover reusable workflows including navigation/registration steps, long dialogs, participant forms, filter toolbars, disclosure lifetimes, setting rows, change review and inline recovery. Existing feature implementations remain the reference for domain behavior: [profile policy settings](../src/app/_components/program-profile-settings.tsx) demonstrate cached draft/version recovery, [management actions](../src/app/_components/management-actions.tsx) demonstrate compact mixed controls, and [profile dialog tests](../src/app/_components/profile-dialog.test.tsx) cover child-write registration and focus ownership. Use the [agent component map](../AGENTS.md#start-with-the-shared-patterns) to choose the composition and the [verification matrix](local-development.md#ui-verification-matrix) to check its integration.
 
+Gallery recipe descriptions allow long component names to wrap, including inside
+the nested public-form card. Verify both English and Chinese at 390 px with 200%
+root font size: text can paint beyond a correctly sized paragraph, so inspect
+text rectangles and page scroll width as well as element bounds. Capture enlarged
+failures before restoring the font size; CSS-contract tests alone do not establish
+browser layout acceptance.
+
 ## Identity and authorization
 
 Confirmed school departures are stored separately in `SchoolDeparture`, with versioned
