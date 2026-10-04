@@ -51,7 +51,10 @@ export function WorkspaceHeader({
           </div>
         ) : null}
         <div className="hidden shrink-0 lg:order-3 lg:block">{identity}</div>
-        <div className="col-span-2 col-start-2 row-start-2 flex items-center justify-end gap-2 lg:contents">
+        {/* Enlarged touch targets may outgrow these two mobile grid columns.
+            Wrap within their area instead of overflowing left onto navigation;
+            desktop still places the same controls directly in its flex row. */}
+        <div className="col-span-2 col-start-2 row-start-2 flex min-w-0 flex-wrap items-center justify-end gap-2 lg:contents">
           <div className="shrink-0 lg:order-4">
             <ThemeSwitcher compactAtDesktop />
           </div>
