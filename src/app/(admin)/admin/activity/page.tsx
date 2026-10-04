@@ -231,8 +231,9 @@ export default function ActivityPage() {
         )}
       </div>
 
-      {/* Hero — how much is waiting, and where it concentrates. */}
-      <section className="card bg-accent-50/40 grid gap-6 p-6 lg:grid-cols-5 lg:p-7">
+      {/* An explicit minmax(0, 1fr) mobile column keeps enlarged chart labels
+          from sizing an implicit track wider than the padded card. */}
+      <section className="card bg-accent-50/40 grid grid-cols-1 gap-6 p-6 lg:grid-cols-5 lg:p-7">
         <div className="lg:col-span-2">
           <p className="text-accent-700 text-[11px] font-semibold tracking-[0.14em] uppercase">
             {t("admin.activity.hero.title")}
