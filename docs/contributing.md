@@ -20,6 +20,20 @@ Integration tests reset fixtures. Use the isolated loopback `shbs_shipping_test`
 
 The [CI workflow](../.github/workflows/docker-build.yml) also checks dependency installation, migrations, schema agreement, dependency audit, production build and image boot/restart. Use its result for the commit being reviewed; old test totals are not current verification.
 
+The `@next/eslint-plugin-next` override replaces only its `fast-glob` dependency
+with the local adapter in `tools/next-lint-glob`, backed by `tinyglobby` 0.2.17.
+It implements only Next's CommonJS `globSync` call with `onlyDirectories`,
+preserving literal-directory and absolute-path behavior and rejecting unsupported
+options. This removes the unpatched `braces`
+dependency ([GHSA-vfj7-8cjw-p6xm](https://github.com/advisories/GHSA-vfj7-8cjw-p6xm))
+without disabling any lint rules or audit findings. Run `npm run test:lint-glob`
+and `npm audit` when updating the lint dependencies; CI runs both. The tests
+exercise Next's installed root-discovery helper and internal-link rule. Remove
+the scoped override when Next ships an unaffected dependency chain.
+The direct development dependency anchors the local package at the repository
+root; the override references it with `$fast-glob`. Keep the adapter's Docker
+`COPY` before `npm ci` so clean image builds resolve the same package.
+
 ## Reuse interaction patterns
 
 Review the development-only [UI gallery](local-development.md#ui-pattern-gallery) before building a new interaction. Its examples use the same [shared components](../src/app/_components/ui) as the application. Keep the existing slate surfaces, white cards and accent themes. The [agent entry point](../AGENTS.md#start-with-the-shared-patterns) maps interactions to components and owns the control-height, table-action and responsive-header conventions.
