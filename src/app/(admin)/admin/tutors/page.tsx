@@ -1,4 +1,6 @@
 "use client";
+import { Button } from "~/app/_components/ui/button";
+import { StatePanel } from "~/app/_components/ui/patterns";
 import { PersonNameFields } from "~/app/_components/person-name-fields";
 import { FieldRequirement } from "~/app/_components/field-requirement";
 import { nameDraft } from "~/lib/person-name";
@@ -20,6 +22,11 @@ import {
 import { api } from "~/trpc/react";
 import { SortHeader, useSort, compare } from "~/app/_components/sortable";
 import { useReadOnly } from "~/app/_components/read-only";
+import {
+  SummaryTable,
+  TableActions,
+  TableAction,
+} from "~/app/_components/ui/summary-table";
 import { GRADUATED_GRADE } from "~/lib/academics";
 import { EnrollmentGrade } from "~/app/_components/tutee-history";
 import { isPastTutor, visibleTutors } from "~/lib/tutor-visibility";
@@ -229,29 +236,63 @@ export default function TutorsPage() {
           onClose={() => setEditingId(null)}
         />
       )}
-      <div className="card overflow-x-auto">
-        <table className="data-table">
+      {/* A failed refresh keeps cached rows available; only a cold load replaces the rows. */}
+      {tutors.error && (
+        <StatePanel
+          kind="error"
+          title={t("uiPatterns.loadFailed")}
+          action={
+            <Button
+              size="compact"
+              disabled={tutors.isFetching}
+              onClick={() => void tutors.refetch()}
+            >
+              {t("uiPatterns.retry")}
+            </Button>
+          }
+        />
+      )}
+      {tutors.data && tutors.isFetching && (
+        <p role="status" className="muted text-sm">
+          {t("common.loading")}
+        </p>
+      )}
+      <div className="card">
+        <SummaryTable label={t("admin.tutors.title")}>
           <thead>
             <tr>
               <SortHeader sort={sort} sortKey="firstName">
                 {t("accountProfile.name")}
               </SortHeader>
-              <th>{t("admin.tutors.colEmail")}</th>
               <SortHeader sort={sort} sortKey="grade">
                 {t("academics.title")}
               </SortHeader>
               <SortHeader sort={sort} sortKey="status">
                 {t("admin.tutors.colStatus")}
               </SortHeader>
-              {/* Anchor the absolute sr-only label inside the scrolling table. */}
-              <th className="relative">
-                <span className="sr-only">
-                  {t("accountProfile.editProfile")}
-                </span>
+              <th className="table-actions-heading">
+                {t("tablePatterns.actions")}
               </th>
             </tr>
           </thead>
           <tbody>
+            {!tutors.data && !tutors.error && (
+              <tr>
+                <td colSpan={4}>
+                  <StatePanel kind="loading" title={t("common.loading")} />
+                </td>
+              </tr>
+            )}
+            {tutors.data && rows.length === 0 && (
+              <tr>
+                <td colSpan={4}>
+                  <StatePanel
+                    kind="empty"
+                    title={t("tablePatterns.records", { count: 0 })}
+                  />
+                </td>
+              </tr>
+            )}
             {rows.map((row) => (
               <tr key={row.id}>
                 <td className="max-w-60 min-w-40">
@@ -266,19 +307,6 @@ export default function TutorsPage() {
                       {t("tuteeHistory.noAccount")}
                     </p>
                   )}
-                </td>
-                <td>
-                  <EmailDetails
-                    email={row.user?.email ?? row.email}
-                    name={row.englishName}
-                    verifiedAt={row.user?.emailVerifiedAt}
-                    userId={row.user?.id}
-                    tutorId={row.id}
-                    linked={!!row.user}
-                    canSendSetup={
-                      !readOnly && (!row.user || row.user.email === row.email)
-                    }
-                  />
                 </td>
                 <td className="min-w-52">
                   {/* Keep the roster concise; full details retain the reference year. */}
@@ -305,26 +333,35 @@ export default function TutorsPage() {
                     {statusLabel(row.status)}
                   </span>
                 </td>
-                <td className="min-w-40 text-right">
-                  <div className="table-account-actions">
+                <TableActions>
+                  {/* Private details remain query-on-demand; viewers retain the public identity metadata. */}
+                  {!readOnly && (
                     <TutorDetailsButton
                       tutorId={row.id}
                       name={row.englishName}
                     />
-                    {!readOnly && (
-                      <button
-                        className="link table-account-action"
-                        onClick={() => setEditingId(row.id)}
-                      >
-                        {t("accountProfile.editProfile")}
-                      </button>
-                    )}
-                  </div>
-                </td>
+                  )}
+                  {!readOnly && (row.user?.email ?? row.email) && (
+                    <EmailDetails
+                      email={row.user?.email ?? row.email}
+                      name={row.englishName}
+                      verifiedAt={row.user?.emailVerifiedAt}
+                      userId={row.user?.id}
+                      tutorId={row.id}
+                      linked={!!row.user}
+                      canSendSetup={!row.user || row.user.email === row.email}
+                    />
+                  )}
+                  {!readOnly && (
+                    <TableAction onClick={() => setEditingId(row.id)}>
+                      {t("accountProfile.editProfile")}
+                    </TableAction>
+                  )}
+                </TableActions>
               </tr>
             ))}
           </tbody>
-        </table>
+        </SummaryTable>
       </div>
     </div>
   );

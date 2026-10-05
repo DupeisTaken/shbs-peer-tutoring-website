@@ -4,6 +4,8 @@ import { accountMembership, membershipBadges } from "~/lib/account-membership";
 import { useEffect, useMemo, useState } from "react";
 import { useTranslations } from "next-intl";
 
+import { Button } from "~/app/_components/ui/button";
+import { StatePanel } from "~/app/_components/ui/patterns";
 import { EmailDetails } from "~/app/_components/email-details";
 import { CombineAccounts } from "~/app/_components/combine-accounts";
 import { AccountProfileEditor } from "~/app/_components/account-profile-editor";
@@ -20,6 +22,11 @@ import {
 import { api } from "~/trpc/react";
 import { SortHeader, useSort, compare } from "~/app/_components/sortable";
 import { useDialog } from "~/app/_components/confirm-dialog";
+import {
+  SummaryTable,
+  TableActions,
+  TableAction,
+} from "~/app/_components/ui/summary-table";
 
 const ALL_ROLES = [
   "STUDENT",
@@ -126,8 +133,12 @@ export default function UsersPage() {
   const [editingProfileId, setEditingProfileId] = useState<string | null>(null);
   const [editingTutorId, setEditingTutorId] = useState<string | null>(null);
   // Fetch the full roster record only when staff open an unlinked profile.
-  const tutorProfiles = api.admin.tutors.useQuery(undefined, { enabled: !!editingTutorId });
-  const editingTutor = tutorProfiles.data?.find((row) => row.id === editingTutorId);
+  const tutorProfiles = api.admin.tutors.useQuery(undefined, {
+    enabled: !!editingTutorId,
+  });
+  const editingTutor = tutorProfiles.data?.find(
+    (row) => row.id === editingTutorId,
+  );
   const editingProfile = accounts.data?.rows.find(
     (row) => row.userId === editingProfileId,
   );
@@ -136,7 +147,9 @@ export default function UsersPage() {
   // Designed confirm/prompt dialog (replaces native window.prompt for the suspension reason).
   const { promptText, confirm: confirmUsername, dialog } = useDialog();
   const assignUsername = api.admin.backfillStudentUsernames.useMutation({
-    onSuccess: async () => { await Promise.all([invalidate(), utils.account.me.invalidate()]); },
+    onSuccess: async () => {
+      await Promise.all([invalidate(), utils.account.me.invalidate()]);
+    },
   });
 
   // Dangerous actions run behind an identity-confirmation dialog (see ConfirmIdentityDialog).
@@ -362,19 +375,47 @@ export default function UsersPage() {
             })}
           </p>
           <div className="flex flex-wrap gap-2">
-          <button type="button" className="btn-secondary btn-sm min-h-11 lg:min-h-8"
-            aria-pressed={filters.showUnverified}
-            onClick={() => updateFilters({ ...filters, showUnverified: !filters.showUnverified })}>
-            {t(filters.showUnverified ? "tuteeHistory.hideUnverified" : "tuteeHistory.showUnverified")}
-          </button>
-          <button type="button" className="btn-secondary btn-sm min-h-11 lg:min-h-8" aria-pressed={filters.showPastTutors} onClick={() => updateFilters({ ...filters, showPastTutors: !filters.showPastTutors })}>{t(filters.showPastTutors ? "tuteeHistory.hideHistorical" : "tuteeHistory.showHistorical")}</button>
-          <button
-            type="button"
-            className="btn-secondary btn-sm min-h-11 lg:min-h-8"
-            onClick={() => updateFilters(emptyUserFilters())}
-          >
-            {t("userMultiFilters.clear")}
-          </button>
+            <button
+              type="button"
+              className="btn-secondary btn-sm min-h-11 lg:min-h-8"
+              aria-pressed={filters.showUnverified}
+              onClick={() =>
+                updateFilters({
+                  ...filters,
+                  showUnverified: !filters.showUnverified,
+                })
+              }
+            >
+              {t(
+                filters.showUnverified
+                  ? "tuteeHistory.hideUnverified"
+                  : "tuteeHistory.showUnverified",
+              )}
+            </button>
+            <button
+              type="button"
+              className="btn-secondary btn-sm min-h-11 lg:min-h-8"
+              aria-pressed={filters.showPastTutors}
+              onClick={() =>
+                updateFilters({
+                  ...filters,
+                  showPastTutors: !filters.showPastTutors,
+                })
+              }
+            >
+              {t(
+                filters.showPastTutors
+                  ? "tuteeHistory.hideHistorical"
+                  : "tuteeHistory.showHistorical",
+              )}
+            </button>
+            <button
+              type="button"
+              className="btn-secondary btn-sm min-h-11 lg:min-h-8"
+              onClick={() => updateFilters(emptyUserFilters())}
+            >
+              {t("userMultiFilters.clear")}
+            </button>
           </div>
         </div>
       </section>
@@ -446,8 +487,28 @@ export default function UsersPage() {
           {assignUsername.error.message}
         </p>
       )}
-      <div className="card overflow-x-auto">
-        <table className="data-table">
+      {accounts.error && (
+        <StatePanel
+          kind="error"
+          title={t("uiPatterns.loadFailed")}
+          action={
+            <Button
+              size="compact"
+              disabled={accounts.isFetching}
+              onClick={() => void accounts.refetch()}
+            >
+              {t("uiPatterns.retry")}
+            </Button>
+          }
+        />
+      )}
+      {accounts.data && accounts.isFetching && (
+        <p role="status" className="muted text-sm">
+          {t("common.loading")}
+        </p>
+      )}
+      <div className="card">
+        <SummaryTable label={t("admin.users.title")}>
           <thead>
             <tr>
               <SortHeader sort={sort} sortKey="name">
@@ -462,10 +523,19 @@ export default function UsersPage() {
               <SortHeader sort={sort} sortKey="role">
                 {t("admin.users.columns.role")}
               </SortHeader>
-              <th>{t("admin.users.columns.actions")}</th>
+              <th className="table-actions-heading">
+                {t("tablePatterns.actions")}
+              </th>
             </tr>
           </thead>
           <tbody>
+            {!accounts.data && !accounts.error && (
+              <tr>
+                <td colSpan={5}>
+                  <StatePanel kind="loading" title={t("common.loading")} />
+                </td>
+              </tr>
+            )}
             {rows.map((u) => {
               const key = u.userId ?? `tutor-${u.tutorId}`;
               return (
@@ -480,7 +550,11 @@ export default function UsersPage() {
                         </p>
                       ) : (
                         <p className="muted text-xs">
-                          {t(u.userId ? "academics.usernameMissing" : "tuteeHistory.noAccount")}
+                          {t(
+                            u.userId
+                              ? "academics.usernameMissing"
+                              : "tuteeHistory.noAccount",
+                          )}
                         </p>
                       )}
                     </div>
@@ -497,7 +571,11 @@ export default function UsersPage() {
                             : ""}
                         </p>
                         {u.academic.expectedGraduationYear != null && (
-                          <p className="muted text-xs">{t("admin.tutors.classOf", { year: u.academic.expectedGraduationYear })}</p>
+                          <p className="muted text-xs">
+                            {t("admin.tutors.classOf", {
+                              year: u.academic.expectedGraduationYear,
+                            })}
+                          </p>
                         )}
                       </div>
                     ) : (
@@ -505,92 +583,17 @@ export default function UsersPage() {
                     )}
                   </td>
 
-                  {/* Account: setup/login status + invite/resend (only for linked tutors). */}
+                  {/* Account columns summarize state; provisioning and moderation live in Actions. */}
                   <td>
-                    {u.tutorId ? (
-                      <div className="space-y-1 leading-tight">
-                        <div>
-                          <span className={accountBadge(u.account)}>
-                            {t(`admin.tutors.account.${u.account}`)}
-                          </span>
-                        </div>
-                        {/* Provision a login only for tutors who don't have a finished one yet.
-                            A registered user self-serves via /forgot-password — no admin resend. */}
-                        {(u.account === "none" || u.account === "setup") && (
-                          <div>
-                            <button
-                              className="link text-xs whitespace-nowrap"
-                              disabled={!u.tutorHasEmail || sendSetup.isPending}
-                              title={
-                                !u.tutorHasEmail
-                                  ? t("admin.tutors.account.needEmail")
-                                  : undefined
-                              }
-                              onClick={() =>
-                                u.tutorId &&
-                                sendSetup.mutate({ tutorId: u.tutorId })
-                              }
-                            >
-                              {t("admin.tutors.account.sendSetup")}
-                            </button>
-                          </div>
-                        )}
-                      </div>
-                    ) : u.role === "VIEWER" && u.userId ? (
-                      // Viewer (self-registered read-only) account: affiliation + suspend control.
-                      <div className="space-y-1 leading-tight">
-                        {u.affiliation && (
-                          <p className="muted text-xs">{u.affiliation}</p>
-                        )}
-                        {u.suspended && (
-                          <span className="badge-red">
-                            {t("admin.users.suspended")}
-                          </span>
-                        )}
-                        {!u.isSelf &&
-                          (u.suspended ? (
-                            <div>
-                              <button
-                                className="link text-xs"
-                                disabled={reinstateUser.isPending}
-                                onClick={() =>
-                                  reinstateUser.mutate({ userId: u.userId })
-                                }
-                              >
-                                {t("admin.users.reinstate")}
-                              </button>
-                            </div>
-                          ) : (
-                            <div>
-                              <button
-                                className="link text-xs text-red-600"
-                                disabled={suspendUser.isPending}
-                                onClick={async () => {
-                                  const reason = await promptText({
-                                    title: t("admin.users.suspendTitle"),
-                                    reasonLabel: t("admin.users.suspendPrompt"),
-                                    confirmLabel: t("admin.users.suspend"),
-                                    cancelLabel: t("common.cancel"),
-                                    danger: true,
-                                  });
-                                  if (reason === null) return; // cancelled
-                                  const userId = u.userId;
-                                  if (!userId) return;
-                                  suspendUser.mutate({
-                                    userId,
-                                    reason:
-                                      reason.length > 0 ? reason : undefined,
-                                  });
-                                }}
-                              >
-                                {t("admin.users.suspend")}
-                              </button>
-                            </div>
-                          ))}
-                      </div>
-                    ) : (
-                      <span className="text-slate-400">—</span>
-                    )}
+                    <span
+                      className={
+                        u.suspended ? "badge-red" : accountBadge(u.account)
+                      }
+                    >
+                      {u.suspended
+                        ? t("admin.users.suspended")
+                        : t(`admin.tutors.account.${u.account}`)}
+                    </span>
                   </td>
 
                   {/* Readable, composable badges; assignments live inside Edit Profile. */}
@@ -612,85 +615,168 @@ export default function UsersPage() {
                   </td>
 
                   {/* Contact/profile actions stay available to permitted staff. Only deletion is head-only. */}
-                  <td>
-                    <div className="table-account-actions">
-                      <EmailDetails
-                        academic={u.academic}
-                        triggerClassName="table-account-action"
-                        showPolicyHistory
-                        email={u.email}
-                        name={u.name}
-                        verifiedAt={u.emailVerifiedAt}
-                        userId={u.userId}
-                        tutorId={u.tutorId}
-                        linked={!!u.userId}
-                        canSendSetup={
-                          !!u.userId ||
-                          (!!u.tutorId && u.email === u.tutor?.email)
-                        }
-                      />
-                      {u.userId && (
-                        <button
-                          className="link table-account-action"
-                          onClick={() => setEditingProfileId(u.userId)}
+                  <TableActions>
+                    <EmailDetails
+                      academic={u.academic}
+                      showPolicyHistory
+                      email={u.email}
+                      name={u.name}
+                      verifiedAt={u.emailVerifiedAt}
+                      userId={u.userId}
+                      tutorId={u.tutorId}
+                      linked={!!u.userId}
+                      canSendSetup={
+                        !!u.userId ||
+                        (!!u.tutorId && u.email === u.tutor?.email)
+                      }
+                      details={
+                        <dl className="mb-4 space-y-3 text-sm">
+                          {u.alternativeNames && (
+                            <div>
+                              <dt className="muted">
+                                {t("accountProfile.alternativeNames")}
+                              </dt>
+                              <dd>{u.alternativeNames}</dd>
+                            </div>
+                          )}
+                          {u.affiliation && (
+                            <div>
+                              <dt className="muted">
+                                {t("admin.users.columns.account")}
+                              </dt>
+                              <dd>{u.affiliation}</dd>
+                            </div>
+                          )}
+                        </dl>
+                      }
+                    />
+                    {/* Registered accounts recover access themselves; only unfinished tutor logins are provisioned. */}
+                    {u.tutorId &&
+                      (u.account === "none" || u.account === "setup") && (
+                        <TableAction
+                          disabled={!u.tutorHasEmail || sendSetup.isPending}
+                          title={
+                            !u.tutorHasEmail
+                              ? t("admin.tutors.account.needEmail")
+                              : undefined
+                          }
+                          onClick={() =>
+                            u.tutorId &&
+                            sendSetup.mutate({ tutorId: u.tutorId })
+                          }
                         >
-                          {t("accountProfile.editProfile")}
-                        </button>
+                          {t("admin.tutors.account.sendSetup")}
+                        </TableAction>
                       )}
-                      {!u.userId && u.tutorId && (
-                        <button className="link table-account-action"
-                          onClick={() => setEditingTutorId(u.tutorId)}>
-                          {t("accountProfile.editProfile")}
-                        </button>
-                      )}
-                      {isHead && u.userId && u.role === "STUDENT" && u.emailVerifiedAt && !u.username && (
-                        <button className="link table-account-action max-w-48"
-                          disabled={assignUsername.isPending}
+                    {!u.tutorId &&
+                      u.role === "VIEWER" &&
+                      u.userId &&
+                      !u.isSelf &&
+                      (u.suspended ? (
+                        <TableAction
+                          disabled={reinstateUser.isPending}
+                          onClick={() =>
+                            reinstateUser.mutate({ userId: u.userId })
+                          }
+                        >
+                          {t("admin.users.reinstate")}
+                        </TableAction>
+                      ) : (
+                        <TableAction
+                          className="text-red-600"
+                          disabled={suspendUser.isPending}
                           onClick={async () => {
-                            if (!u.userId) return;
-                            if (await confirmUsername({ title: t("identityUsername.assignTitle", { name: u.name }),
-                              message: t("identityUsername.assignHelp"), confirmLabel: t("identityUsername.assign"), cancelLabel: t("common.cancel") }))
-                              assignUsername.mutate({ userIds: [u.userId] });
-                          }}>{t("identityUsername.assign")}</button>
-                      )}
-                      {isHead && u.userId && !u.isSelf && u.role !== "HEAD" ? (
-                        <button
-                          className="link-danger table-account-action"
-                          onClick={() => {
-                            const userId = u.userId;
-                            if (!userId) return;
-                            setConfirmError(null);
-                            setConfirm({
-                              title: t("admin.users.confirm.deleteTitle"),
-                              body: t("admin.users.confirm.deleteBody", {
-                                name: u.name,
-                              }),
-                              confirmLabel: t("admin.users.delete"),
-                              run: (pwd) =>
-                                deleteUser.mutate({
-                                  userId,
-                                  confirmPassword: pwd,
-                                }),
+                            const reason = await promptText({
+                              title: t("admin.users.suspendTitle"),
+                              reasonLabel: t("admin.users.suspendPrompt"),
+                              confirmLabel: t("admin.users.suspend"),
+                              cancelLabel: t("common.cancel"),
+                              danger: true,
+                            });
+                            if (reason === null || !u.userId) return;
+                            suspendUser.mutate({
+                              userId: u.userId,
+                              reason: reason.length > 0 ? reason : undefined,
                             });
                           }}
                         >
-                          {t("admin.users.delete")}
-                        </button>
-                      ) : null}
-                    </div>
-                  </td>
+                          {t("admin.users.suspend")}
+                        </TableAction>
+                      ))}
+                    {u.userId && (
+                      <TableAction
+                        onClick={() => setEditingProfileId(u.userId)}
+                      >
+                        {t("accountProfile.editProfile")}
+                      </TableAction>
+                    )}
+                    {!u.userId && u.tutorId && (
+                      <TableAction onClick={() => setEditingTutorId(u.tutorId)}>
+                        {t("accountProfile.editProfile")}
+                      </TableAction>
+                    )}
+                    {isHead &&
+                      u.userId &&
+                      u.role === "STUDENT" &&
+                      u.emailVerifiedAt &&
+                      !u.username && (
+                        <TableAction
+                          disabled={assignUsername.isPending}
+                          onClick={async () => {
+                            if (!u.userId) return;
+                            if (
+                              await confirmUsername({
+                                title: t("identityUsername.assignTitle", {
+                                  name: u.name,
+                                }),
+                                message: t("identityUsername.assignHelp"),
+                                confirmLabel: t("identityUsername.assign"),
+                                cancelLabel: t("common.cancel"),
+                              })
+                            )
+                              assignUsername.mutate({ userIds: [u.userId] });
+                          }}
+                        >
+                          {t("identityUsername.assign")}
+                        </TableAction>
+                      )}
+                    {isHead && u.userId && !u.isSelf && u.role !== "HEAD" ? (
+                      <TableAction
+                        className="text-red-600"
+                        onClick={() => {
+                          const userId = u.userId;
+                          if (!userId) return;
+                          setConfirmError(null);
+                          setConfirm({
+                            title: t("admin.users.confirm.deleteTitle"),
+                            body: t("admin.users.confirm.deleteBody", {
+                              name: u.name,
+                            }),
+                            confirmLabel: t("admin.users.delete"),
+                            run: (pwd) =>
+                              deleteUser.mutate({
+                                userId,
+                                confirmPassword: pwd,
+                              }),
+                          });
+                        }}
+                      >
+                        {t("admin.users.delete")}
+                      </TableAction>
+                    ) : null}
+                  </TableActions>
                 </tr>
               );
             })}
-            {rows.length === 0 && (
+            {accounts.data && rows.length === 0 && (
               <tr>
-                <td colSpan={6} className="text-slate-500">
+                <td colSpan={5} className="text-slate-500">
                   {t("admin.users.empty")}
                 </td>
               </tr>
             )}
           </tbody>
-        </table>
+        </SummaryTable>
       </div>
       {/* Errors from the dangerous (dialog-gated) actions surface inside the dialog itself. */}
       {sendSetup.error && (

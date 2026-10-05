@@ -3,7 +3,10 @@ import { PersonNameFields } from "~/app/_components/person-name-fields";
 
 import { FieldRequirement } from "~/app/_components/field-requirement";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
+import { Button } from "~/app/_components/ui/button";
+import { FormActions } from "~/app/_components/ui/patterns";
+import { RegistrationProgress } from "~/app/_components/registration-progress";
 import { AcademicError } from "~/app/_components/academic-error";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
@@ -22,13 +25,15 @@ import {
 type Step = "code" | "email" | "emailCode" | "profile" | "done";
 
 /**
- * Multi-step self-registration: redeem a 6-digit security key, verify email with a second emailed
+ * Multi-step self-registration: redeem a 5-character security key, verify email with a second emailed
  * code, then set name / grade / password. All validation + account creation happen server-side
  * (registration router); this component only drives the wizard.
  */
 export function RegisterFlow() {
   const t = useTranslations();
   const policy = useProfilePolicy();
+  const flow = useTranslations("registrationFlow");
+  const checkedCode = useRef("");
   const [kind, setKind] = useState<RegistrationKind | null>(null);
   const [step, setStep] = useState<Step>("code");
 
@@ -55,12 +60,19 @@ export function RegisterFlow() {
       setKind(data.kind);
       setLegacyName(data.legacyName);
       setBoundEmail(data.boundEmail);
-      if (data.boundEmail) setEmail(data.boundEmail);
-      if (data.firstName) setFirstName(data.firstName);
-      if (data.lastName) setLastName(data.lastName);
-      if (data.alternativeNames) setAltNames(data.alternativeNames);
-      if (data.preferredName) setPreferredName(data.preferredName);
-      if (data.gradeLevel != null) setGrade(String(data.gradeLevel));
+      // Rechecking the same invitation must not overwrite an edited profile.
+      // A different invitation is a different identity: replace its prefill and credentials.
+      if (checkedCode.current !== code) {
+        setEmail(data.boundEmail ?? "");
+        setFirstName(data.firstName ?? "");
+        setLastName(data.lastName ?? "");
+        setAltNames(data.alternativeNames ?? "");
+        setPreferredName(data.preferredName ?? "");
+        setGrade(data.gradeLevel != null ? String(data.gradeLevel) : "");
+        setPassword("");
+        setConfirm("");
+      } else if (data.boundEmail) setEmail(data.boundEmail);
+      checkedCode.current = code;
       // Database verification belongs to its original browser; checking an invitation is not proof.
       setCompletionProof("");
       setStep("email");
@@ -70,6 +82,8 @@ export function RegisterFlow() {
     onSuccess: () => {
       setCompletionProof("");
       setEmailCode("");
+      verifyEmail.reset();
+      complete.reset();
       setStep("emailCode");
     },
   });
@@ -90,9 +104,46 @@ export function RegisterFlow() {
   const passwordMismatch =
     password.length > 0 && confirm.length > 0 && password !== confirm;
 
+  const busy =
+    check.isPending ||
+    sendCode.isPending ||
+    verifyEmail.isPending ||
+    complete.isPending;
+  const steps: Step[] = ["code", "email", "emailCode", "profile", "done"];
+  const titles = [
+    flow("invitationTitle"),
+    flow("emailTitle"),
+    flow("verifyTitle"),
+    flow("profileTitle"),
+    t("auth.register.done.title"),
+  ];
+  function returnTo(next: Step) {
+    if (busy) return;
+    // Local evidence never survives identity editing; the existing server send/verify
+    // endpoints issue a new proof. Other profile drafts remain in this component.
+    setCompletionProof("");
+    setEmailCode("");
+    check.reset();
+    sendCode.reset();
+    verifyEmail.reset();
+    complete.reset();
+    setStep(next);
+  }
+
   return (
-    <div className="space-y-4">
-      {kind && (
+    <fieldset
+      disabled={busy}
+      aria-busy={busy}
+      aria-label={flow("progressTitle")}
+      className="min-w-0 space-y-4"
+    >
+      <RegistrationProgress
+        steps={titles}
+        current={steps.indexOf(step)}
+        title={titles[steps.indexOf(step)]!}
+        busy={busy}
+      />
+      {kind && step !== "code" && (
         <p className="rounded-lg bg-slate-50 p-3 text-sm font-semibold">
           {t("auth.register.grantedRole", {
             role: t(`admin.registrationCodes.${registrationKindLabel[kind]}`),
@@ -105,6 +156,7 @@ export function RegisterFlow() {
           className="space-y-3"
           onSubmit={(e) => {
             e.preventDefault();
+            if (busy) return;
             if (/^[0-9A-Z]{5}$/.test(code)) check.mutate({ code });
           }}
         >
@@ -116,6 +168,7 @@ export function RegisterFlow() {
             id="reg-code"
             autoCapitalize="characters"
             autoComplete="one-time-code"
+            required
             maxLength={5}
             value={code}
             onChange={(e) =>
@@ -131,14 +184,18 @@ export function RegisterFlow() {
           />
           <p className="muted text-xs">{t("auth.register.step.code.help")}</p>
           {check.error && (
-            <p className="text-sm text-red-600">{check.error.message}</p>
+            <p role="alert" className="text-sm text-red-600">
+              {check.error.message}
+            </p>
           )}
-          <button
-            className="btn-primary w-full"
+          <Button
+            type="submit"
+            variant="primary"
+            className="w-full"
             disabled={!/^[0-9A-Z]{5}$/.test(code) || check.isPending}
           >
             {t("auth.register.step.code.submit")}
-          </button>
+          </Button>
         </form>
       )}
 
@@ -148,6 +205,7 @@ export function RegisterFlow() {
           className="space-y-3"
           onSubmit={(e) => {
             e.preventDefault();
+            if (busy) return;
             if (email.trim()) sendCode.mutate({ code, email: email.trim() });
           }}
         >
@@ -157,6 +215,8 @@ export function RegisterFlow() {
           </label>
           <input
             id="reg-email"
+            required
+            autoComplete="email"
             type="email"
             value={email}
             readOnly={!!boundEmail}
@@ -170,14 +230,22 @@ export function RegisterFlow() {
             </p>
           )}
           {sendCode.error && (
-            <p className="text-sm text-red-600">{sendCode.error.message}</p>
+            <p role="alert" className="text-sm text-red-600">
+              {sendCode.error.message}
+            </p>
           )}
-          <button
-            className="btn-primary w-full"
+          <Button
+            type="submit"
+            variant="primary"
+            className="w-full"
             disabled={!email.trim() || sendCode.isPending}
           >
             {t("auth.register.step.email.send")}
-          </button>
+          </Button>
+          <FormActions>
+            <Button onClick={() => returnTo("code")}>{flow("back")}</Button>
+          </FormActions>
+          <p className="muted text-xs">{flow("reverifyHelp")}</p>
         </form>
       )}
 
@@ -187,6 +255,7 @@ export function RegisterFlow() {
           className="space-y-3"
           onSubmit={(e) => {
             e.preventDefault();
+            if (busy) return;
             if (/^[0-9A-Z]{5}$/.test(emailCode))
               verifyEmail.mutate({ code, emailCode });
           }}
@@ -202,6 +271,7 @@ export function RegisterFlow() {
             id="reg-emailcode"
             autoCapitalize="characters"
             autoComplete="one-time-code"
+            required
             maxLength={5}
             value={emailCode}
             onChange={(e) =>
@@ -216,25 +286,40 @@ export function RegisterFlow() {
             className="input w-full text-center text-2xl tracking-[0.4em] uppercase"
           />
           {verifyEmail.error && (
-            <p className="text-sm text-red-600">{verifyEmail.error.message}</p>
+            <p role="alert" className="text-sm text-red-600">
+              {verifyEmail.error.message}
+            </p>
           )}
           {sendCode.error && (
-            <p className="text-sm text-red-600">{sendCode.error.message}</p>
+            <p role="alert" className="text-sm text-red-600">
+              {sendCode.error.message}
+            </p>
           )}
-          <button
-            className="btn-primary w-full"
+          <Button
+            type="submit"
+            variant="primary"
+            className="w-full"
             disabled={!/^[0-9A-Z]{5}$/.test(emailCode) || verifyEmail.isPending}
           >
             {t("auth.register.step.email.verify")}
-          </button>
-          <button
+          </Button>
+          <Button
             type="button"
-            className="link text-sm"
+            variant="ghost"
             onClick={() => sendCode.mutate({ code, email: email.trim() })}
             disabled={sendCode.isPending}
           >
             {t("auth.register.step.email.resend")}
-          </button>
+          </Button>
+          <FormActions>
+            <Button onClick={() => returnTo("email")}>
+              {flow("editEmail")}
+            </Button>
+            <Button onClick={() => returnTo("code")}>
+              {flow("editInvitation")}
+            </Button>
+          </FormActions>
+          <p className="muted text-xs">{flow("reverifyHelp")}</p>
         </form>
       )}
 
@@ -244,6 +329,7 @@ export function RegisterFlow() {
           className="space-y-3"
           onSubmit={(e) => {
             e.preventDefault();
+            if (busy) return;
             if (
               firstName.trim() &&
               password.length >= 8 &&
@@ -267,6 +353,9 @@ export function RegisterFlow() {
             }
           }}
         >
+          <p className="rounded-lg bg-slate-50 p-3 text-sm break-words">
+            {email}
+          </p>
           <PersonNameFields
             legacyName={legacyName}
             value={{
@@ -309,6 +398,10 @@ export function RegisterFlow() {
             <input
               id="reg-pass"
               type="password"
+              required
+              minLength={8}
+              maxLength={200}
+              autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               className="input w-full"
@@ -325,23 +418,29 @@ export function RegisterFlow() {
             <input
               id="reg-confirm"
               type="password"
+              required
+              minLength={8}
+              maxLength={200}
+              autoComplete="new-password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               className="input w-full"
             />
           </div>
           {passwordMismatch && (
-            <p className="text-sm text-red-600">
+            <p role="alert" className="text-sm text-red-600">
               {t("auth.register.step.profile.mismatch")}
             </p>
           )}
           {complete.error && (
-            <p className="text-sm text-red-600">
+            <p role="alert" className="text-sm text-red-600">
               <ProfilePolicyError message={complete.error.message} />
             </p>
           )}
-          <button
-            className="btn-primary w-full"
+          <Button
+            type="submit"
+            variant="primary"
+            className="w-full"
             disabled={
               !firstName.trim() ||
               (!!grade.trim() &&
@@ -349,33 +448,42 @@ export function RegisterFlow() {
                   !policy.offeredGrades.includes(Number(grade)))) ||
               password.length < 8 ||
               confirm !== password ||
+              !completionProof ||
               sendCode.isPending ||
               passwordMismatch ||
               complete.isPending
             }
           >
             {t("auth.register.step.profile.submit")}
-          </button>
+          </Button>
           {sendCode.error && (
-            <p className="text-sm text-red-600">{sendCode.error.message}</p>
+            <p role="alert" className="text-sm text-red-600">
+              {sendCode.error.message}
+            </p>
           )}
-          <button
+          <Button
             type="button"
-            className="link text-sm"
+            variant="ghost"
             disabled={sendCode.isPending || complete.isPending}
             onClick={() => sendCode.mutate({ code, email: email.trim() })}
           >
             {t("auth.register.step.email.resend")}
-          </button>
+          </Button>
+          <FormActions>
+            <Button onClick={() => returnTo("email")}>
+              {flow("editEmail")}
+            </Button>
+            <Button onClick={() => returnTo("code")}>
+              {flow("editInvitation")}
+            </Button>
+          </FormActions>
+          <p className="muted text-xs">{flow("reverifyHelp")}</p>
         </form>
       )}
 
       {/* Done */}
       {step === "done" && (
         <div className="space-y-4 text-center">
-          <p className="text-lg font-semibold text-slate-900">
-            {t("auth.register.done.title")}
-          </p>
           <p className="text-sm text-slate-700">
             {t("auth.register.done.body", { username })}
           </p>
@@ -395,6 +503,6 @@ export function RegisterFlow() {
           </Link>
         </div>
       )}
-    </div>
+    </fieldset>
   );
 }

@@ -3,6 +3,8 @@
  * program.setEmailNotifications and program.setSecondaryEmailBinding require ADMIN/HEAD directly. */
 // program.setSignupField is a direct Head-only setting; it cannot be proposed or replayed.
 // recordTransfer.* requires HEAD directly. Imports/exports cannot be proposed or replayed.
+// tuteeHistory.invite/link/cancelInvitation require ADMIN/HEAD directly. Conflict correction
+// additionally reauthenticates Head; public history account setup grants no membership.
 /** These operations assign or restore account capabilities. Only Head can apply/review them.
  * qualificationApplication.decide deliberately uses adminOnlyProcedure instead: subject grants
  * do not change account badges and coordinators cannot submit/replay these decisions. */
@@ -20,6 +22,7 @@ export const HEAD_APPROVAL_OPERATIONS = new Set([
   "tutor.decideInterview",
 ]);
 export const APPROVAL_OPERATIONS: Record<string, string> = {
+  "historicalAcademics.correctBatch": "HistoricalAcademicRecord",
   "departure.setState": "User",
   "corrections.correctAttendance": "Session",
   "corrections.correctPatrol": "Patrol",
@@ -119,6 +122,8 @@ export const APPROVAL_OPERATIONS: Record<string, string> = {
 };
 
 export const COORDINATOR_DIRECT_OPERATIONS = new Set([
+  // Read-only preview uses POST so academic CSV contents never enter a query URL.
+  "historicalAcademics.preview",
   "assignment.prepare",
   "assignment.cancel",
   "admin.sendTutorSetup",

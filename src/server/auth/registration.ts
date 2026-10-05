@@ -47,6 +47,7 @@ import {
 } from "~/server/program/profile-policy";
 import { needsAcademicConfirmationForParticipation } from "~/lib/academics";
 import { graduationYear } from "~/lib/period";
+import { preserveHistoricalAcademics } from "~/server/historical-academics";
 
 /** Registration codes stay valid for one week — long enough to distribute and use. */
 export const CODE_TTL_DAYS = 7;
@@ -80,7 +81,7 @@ export function hashCode(code: string): string {
  * The exact challenge hash and verification timestamp invalidate grants on resend/reverification.
  * Expiry and single use are enforced by the account-write transaction, not by browser state. */
 export function registrationCompletionProof(
-  purpose: "viewer" | "invitation",
+  purpose: "viewer" | "invitation" | "history",
   id: string,
   codeHash: string,
   verifiedAt: Date,
@@ -585,6 +586,7 @@ export async function completeRegistration(
       });
 
     if (tutorId) {
+      await preserveHistoricalAcademics(tx, "TUTOR", tutorId);
       await tx.tutor.update({
         where: { id: tutorId },
         data: {

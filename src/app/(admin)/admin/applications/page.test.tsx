@@ -1,6 +1,15 @@
 // @vitest-environment jsdom
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import { QueryClient, QueryObserver } from "@tanstack/react-query";
+import type { InvalidationTarget } from "~/lib/invalidate-refresh";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../../../messages/en.json";
 import ApplicationsPage from "./page";
@@ -16,6 +25,9 @@ const mocks = vi.hoisted(() => ({
   role: "HEAD",
   decide: vi.fn(),
   minimized: false,
+  success: undefined as undefined | (() => Promise<void>),
+  invalidateApplications: vi.fn<InvalidationTarget["invalidate"]>(),
+  invalidateOptions: vi.fn<InvalidationTarget["invalidate"]>(),
 }));
 vi.mock("~/app/_components/confirm-dialog", () => ({
   useDialog: () => ({ confirm: vi.fn(), dialog: null }),
@@ -33,10 +45,11 @@ vi.mock("~/trpc/react", () => ({
   api: {
     useUtils: () => ({
       admin: {
-        tutorApplications: { invalidate: mocks.invalidate },
+        tutorApplications: { invalidate: mocks.invalidateApplications },
         tutors: { invalidate: mocks.invalidate },
       },
-      interviewManagement: { options: { invalidate: mocks.invalidate } },
+      interviewManagement: { options: { invalidate: mocks.invalidateOptions } },
+      tutorDetails: { get: { invalidate: mocks.invalidate } },
       qualificationApplication: { mine: { invalidate: mocks.invalidate } },
       subjectAvailability: { options: { invalidate: mocks.invalidate } },
     }),
@@ -46,7 +59,18 @@ vi.mock("~/trpc/react", () => ({
       },
     },
     qualificationApplication: {
-      decide: { useMutation: () => ({ mutate: mocks.decide }) },
+      decide: {
+        useMutation: (callbacks: {
+          onSuccess: () => Promise<void>;
+          onSettled: () => void;
+        }) => {
+          mocks.success = async () => {
+            await callbacks.onSuccess();
+            callbacks.onSettled();
+          };
+          return { mutate: mocks.decide };
+        },
+      },
     },
     program: {
       features: { useQuery: () => ({ data: { INTERVIEWS: mocks.enabled } }) },
@@ -124,7 +148,11 @@ vi.mock("~/trpc/react", () => ({
   },
 }));
 beforeEach(() => {
-  vi.clearAllMocks();
+  vi.resetAllMocks();
+  mocks.success = undefined;
+  mocks.invalidate.mockResolvedValue(undefined);
+  mocks.invalidateApplications.mockResolvedValue(undefined);
+  mocks.invalidateOptions.mockResolvedValue(undefined);
   mocks.enabled = true;
   mocks.additional = false;
   mocks.role = "HEAD";
@@ -200,23 +228,36 @@ it.each(["VIEWER", "TUTOR"])(
   },
 );
 
-it("keeps additional qualification review alongside consolidated history without account setup or deletion", () => {
-  mocks.additional = true;
-  show();
-  expect(screen.getAllByText("Additional subject").length).toBeGreaterThan(0);
-  fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
-  expect(screen.getByText("New subject evidence")).toBeTruthy();
-  expect(screen.getAllByText("AP Literature").length).toBeGreaterThan(0);
-  expect(screen.queryByText(/no qualification given/i)).toBeNull();
-  expect(
-    screen.getByRole("button", { name: "Approve qualification" }),
-  ).toBeTruthy();
-  expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
-  expect(screen.queryByRole("link", { name: /account/i })).toBeNull();
-  expect(mocks.history).toHaveBeenCalledWith(
-    expect.objectContaining({ enabled: true }),
-  );
-});
+it.each([true, false])(
+  "keeps additional qualification review alongside history with interviews=%s",
+  (enabled) => {
+    mocks.additional = true;
+    mocks.enabled = enabled;
+    show();
+    expect(screen.getAllByText("Additional subject").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
+    expect(screen.getByText("New subject evidence")).toBeTruthy();
+    expect(screen.getAllByText("AP Literature").length).toBeGreaterThan(0);
+    expect(screen.queryByText(/no qualification given/i)).toBeNull();
+    expect(
+      screen.getByRole("button", { name: "Approve without Interview" }),
+    ).toBeTruthy();
+    expect(screen.queryByLabelText("Decision note")).toBeNull();
+    fireEvent.click(
+      screen.getByRole("button", { name: "Approve without Interview" }),
+    );
+    expect(
+      screen.getByRole("dialog", { name: "Review Qualification Request" }),
+    ).toBeTruthy();
+    expect(screen.getByLabelText("Decision note")).toBeTruthy();
+    expect(mocks.decide).not.toHaveBeenCalled();
+    expect(screen.queryByRole("button", { name: "Delete" })).toBeNull();
+    expect(screen.queryByRole("link", { name: /account/i })).toBeNull();
+    expect(mocks.history).toHaveBeenCalledWith(
+      expect.objectContaining({ enabled }),
+    );
+  },
+);
 
 it("does not expose additional request decisions or panel setup to Coordinators", () => {
   mocks.additional = true;
@@ -231,3 +272,107 @@ it("does not expose additional request decisions or panel setup to Coordinators"
     screen.getByText("Another Admin or Head must review this request."),
   ).toBeTruthy();
 });
+
+it.each([
+  { failedTarget: "options", heldTarget: "applications" },
+  { failedTarget: "applications", heldTarget: "options" },
+  { failedTarget: "applications", heldTarget: "applications" },
+  { failedTarget: "options", heldTarget: "options" },
+])(
+  "retains qualification review after $failedTarget fails while $heldTarget is held",
+  async ({ failedTarget, heldTarget }) => {
+    const client = new QueryClient({
+      defaultOptions: { queries: { retry: false } },
+    });
+    let release!: () => void;
+    const held = new Promise<string>((resolve) => {
+      release = () => resolve("fresh held");
+    });
+    const heldRead = vi.fn(() => held);
+    const failedRead = vi
+      .fn<() => Promise<string>>()
+      .mockRejectedValueOnce(new Error("Page refresh unavailable"))
+      .mockResolvedValue("fresh failed");
+    // Cover both the nested page aggregate and multiple active variants matching
+    // one procedure prefix. Cached data keeps the retained review usable.
+    const pending = new QueryObserver(client, {
+      queryKey: [heldTarget, "held"],
+      queryFn: heldRead,
+      initialData: "cached held",
+      staleTime: Infinity,
+    });
+    const failed = new QueryObserver(client, {
+      queryKey: [failedTarget, "failed"],
+      queryFn: failedRead,
+      initialData: "cached failed",
+      staleTime: Infinity,
+    });
+    const stopPending = pending.subscribe(() => undefined);
+    const stopFailed = failed.subscribe(() => undefined);
+    mocks.invalidateApplications.mockImplementation(
+      (_input, filters, options) =>
+        client.invalidateQueries(
+          { queryKey: ["applications"], ...filters },
+          options,
+        ),
+    );
+    mocks.invalidateOptions.mockImplementation((_input, filters, options) =>
+      client.invalidateQueries({ queryKey: ["options"], ...filters }, options),
+    );
+    let completion: Promise<void> | undefined;
+    try {
+      mocks.additional = true;
+      show();
+      fireEvent.click(screen.getByRole("button", { name: /Candidate One/ }));
+      fireEvent.click(
+        screen.getByRole("button", { name: "Approve without Interview" }),
+      );
+      fireEvent.change(screen.getByLabelText("Decision note"), {
+        target: { value: "Reviewed synthetic evidence" },
+      });
+      fireEvent.click(
+        screen.getByRole("button", { name: "Approve qualification" }),
+      );
+      expect(mocks.decide).toHaveBeenCalledOnce();
+      await act(async () => {
+        completion = mocks.success!();
+        await new Promise((resolve) => setTimeout(resolve, 0));
+      });
+      await waitFor(() => expect(failed.getCurrentResult().isError).toBe(true));
+      expect(failed.getCurrentResult().data).toBe("cached failed");
+      expect(pending.getCurrentResult().isFetching).toBe(true);
+      expect(heldRead).toHaveBeenCalledOnce();
+      const dialog = screen.getByRole("dialog", {
+        name: "Review Qualification Request",
+      });
+      expect(dialog.getAttribute("aria-busy")).toBe("true");
+      expect(
+        screen.getByRole<HTMLButtonElement>("button", { name: "Cancel" })
+          .disabled,
+      ).toBe(true);
+      expect(screen.queryByText("Page refresh unavailable")).toBeNull();
+      fireEvent(dialog, new Event("cancel", { cancelable: true }));
+      expect(dialog.isConnected).toBe(true);
+      await act(async () => {
+        release();
+        await completion;
+      });
+      expect(screen.getByText("Page refresh unavailable")).toBeTruthy();
+      expect(dialog.getAttribute("aria-busy")).toBe("false");
+      expect(
+        screen.queryByRole("button", { name: "Approve qualification" }),
+      ).toBeNull();
+      fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+      await waitFor(() => expect(screen.queryByRole("dialog")).toBeNull());
+      expect(failedRead).toHaveBeenCalledTimes(2);
+      expect(heldRead).toHaveBeenCalledTimes(2);
+      expect(mocks.decide).toHaveBeenCalledOnce();
+    } finally {
+      release();
+      await completion;
+      stopPending();
+      stopFailed();
+      client.clear();
+    }
+  },
+);

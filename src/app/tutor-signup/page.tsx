@@ -3,7 +3,7 @@ import { getTranslations } from "next-intl/server";
 
 import { brandingMetadata } from "~/server/branding-metadata";
 import { TutorSignupForm } from "./tutor-signup-form";
-import { FloatingLanguageSwitcher } from "~/app/_components/floating-language-switcher";
+import { PublicFormPage } from "~/app/_components/public-form-page";
 
 export async function generateMetadata() {
   return brandingMetadata("Become a tutor");
@@ -12,16 +12,12 @@ export async function generateMetadata() {
 export default async function TutorSignupPage() {
   const t = await getTranslations();
   return (
-    <main className="mx-auto min-h-screen max-w-2xl px-4 py-12">
-      <FloatingLanguageSwitcher />
-      <Link href="/" className="link text-sm">
-        {t("common.backToMain")}
-      </Link>
-      <div className="mb-8 text-center">
-        <h1 className="page-title">{t("public.tutorSignup.title")}</h1>
-        <p className="muted mt-2">{t("public.tutorSignup.intro")}</p>
-      </div>
-
+    <PublicFormPage
+      wide
+      title={t("public.tutorSignup.title")}
+      description={t("public.tutorSignup.intro")}
+      backLabel={t("common.backToMain")}
+    >
       <ol
         aria-label={t("public.tutorSignup.journey.title")}
         className="mb-6 grid gap-3 sm:grid-cols-3"
@@ -48,6 +44,6 @@ export default async function TutorSignupPage() {
           {t("public.tutorSignup.signIn")}
         </Link>
       </p>
-    </main>
+    </PublicFormPage>
   );
 }

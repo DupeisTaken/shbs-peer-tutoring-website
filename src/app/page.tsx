@@ -8,9 +8,10 @@ export default async function Home() {
   // Signed-in users skip the landing page and go straight to their area.
   const session = await auth();
   if (session?.user) {
-    const account = await db.user.findUnique({ where: { id: session.user.id }, select: { suspendedAt: true } });
+    const account = await db.user.findUnique({ where: { id: session.user.id }, select: { suspendedAt: true, studentId: true, tuteeMember: true } });
     if (account?.suspendedAt) redirect("/suspended");
-    if (session.role === "STUDENT") redirect("/student");
+    // Neutral alumni logins land on personal evidence without a current-consent detour.
+    if (session.role === "STUDENT") redirect(account && !account.studentId && !account.tuteeMember ? "/history" : "/student");
     const adminArea =
       session.role === "HEAD" ||
       session.role === "ADMIN" ||

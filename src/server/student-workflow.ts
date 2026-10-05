@@ -1,3 +1,4 @@
+import { preserveHistoricalAcademics } from "~/server/historical-academics";
 import { findAccountPolicy } from "./policy-acceptance";
 import { enforceAssignmentQualification } from "./assignment-qualification";
 import { approveLegacyStudentWithdrawal } from "./legacy-student-withdrawal";
@@ -224,6 +225,7 @@ export async function assignStudentRequest(
     if (!subject?.active || tutor?.status !== "ACTIVE")
       fail("Choose an active subject and tutor.");
     const student = await materializeStudent(tx, row);
+    await preserveHistoricalAcademics(tx, "TUTEE", student.id);
     const existing = await tx.pairingTutee.findFirst({
       where: {
         tuteeId: student.id,
@@ -503,6 +505,7 @@ export async function resolveStudentReview(
           fail(
             "The tutor assignment changed. Decline this outdated application.",
           );
+        await preserveHistoricalAcademics(tx, "TUTEE", review.legacyTuteeId!);
         const detached = await tx.pairingTutee.deleteMany({
           where: {
             pairingId: review.pairingId!,
@@ -609,6 +612,7 @@ export async function resolveStudentReview(
         row,
         "Schedule rejection approved; rematching needed / 时间冲突申请通过，待重新匹配",
       );
+      await preserveHistoricalAcademics(tx, "TUTEE", row.tuteeId!);
       await tx.pairingTutee.deleteMany({
         where: { pairingId: review.pairingId!, tuteeId: row.tuteeId! },
       });

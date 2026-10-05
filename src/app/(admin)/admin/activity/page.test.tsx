@@ -1,5 +1,9 @@
 // @vitest-environment jsdom
-import { cleanup, render, screen } from "@testing-library/react";
+import { readFileSync } from "node:fs";
+import { createRequire } from "node:module";
+import { cleanup, render, screen, within } from "@testing-library/react";
+import { parse } from "postcss";
+import { compile } from "tailwindcss";
 import { afterEach, expect, it, vi } from "vitest";
 
 const state = vi.hoisted(() => ({
@@ -8,6 +12,7 @@ const state = vi.hoisted(() => ({
   featuresLoading: false,
   featuresError: false,
   disabledFeatureError: false,
+  pendingRequests: 0,
 }));
 
 vi.mock("next-intl", () => ({
@@ -35,7 +40,7 @@ vi.mock("~/trpc/react", () => ({
                 data: {
                   linkedTuteeIds: [],
                   intakeRows: [],
-                  unverified: 0,
+                  unverified: state.pendingRequests,
                   matching: 0,
                   studentReviews: 0,
                   studentAppeals: 0,
@@ -126,6 +131,7 @@ afterEach(() => {
   state.featuresLoading = false;
   state.featuresError = false;
   state.disabledFeatureError = false;
+  state.pendingRequests = 0;
 });
 
 it("does not claim all clear when the activity summary fails", () => {
@@ -168,4 +174,41 @@ it("shows all clear for successful empty data even when disabled queues error", 
   expect(screen.getByText("admin.activity.hero.allClear")).toBeTruthy();
   expect(screen.getByText("0", { selector: "p" })).toBeTruthy();
   expect(screen.queryByRole("alert")).toBeNull();
+});
+
+it("bounds the populated mobile hero grid without changing desktop columns or queue links", async () => {
+  state.pendingRequests = 30;
+  render(<ActivityPage />);
+  const hero = screen.getByText("admin.activity.hero.title").closest("section")!;
+  expect(within(hero).getByText("30", { selector: "p" })).toBeTruthy();
+  expect(
+    within(hero)
+      .getByText("workflow.unverified")
+      .closest("a")
+      ?.getAttribute("href"),
+  ).toBe("/admin/requests");
+
+  // Compile classes from the rendered populated card. A zero-minimum track
+  // allows the existing chart to fit; clipping the card would conceal the bug.
+  // Real EN/ZH 390px/200% geometry remains a separate browser check.
+  const require = createRequire(import.meta.url);
+  const theme = readFileSync(require.resolve("tailwindcss/theme.css"), "utf8");
+  const compiler = await compile(`${theme}\n@tailwind utilities;`);
+  const output = parse(compiler.build([...hero.classList]));
+  const columns: Record<string, string> = {};
+  output.walkRules((rule) => {
+    rule.walkDecls("grid-template-columns", (declaration) => {
+      columns[rule.selector] = declaration.value;
+    });
+  });
+  expect(columns[".grid-cols-1"]).toBe("repeat(1, minmax(0, 1fr))");
+  expect(columns[".lg\\:grid-cols-5"]).toBe("repeat(5, minmax(0, 1fr))");
+  const desktopMedia: string[] = [];
+  output.walkRules(".lg\\:grid-cols-5", (rule) => {
+    rule.walkAtRules("media", (media) => {
+      desktopMedia.push(media.params);
+    });
+  });
+  expect(desktopMedia).toContain("(width >= 64rem)");
+  expect(hero.className).not.toMatch(/\boverflow-(hidden|clip)\b/);
 });

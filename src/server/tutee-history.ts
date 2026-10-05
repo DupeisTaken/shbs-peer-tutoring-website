@@ -3,6 +3,8 @@ import { TRPCError } from "@trpc/server";
 import { z } from "zod";
 import { academicSummary } from "~/lib/academics";
 import { isHistoricalTutee } from "~/lib/tutee-history";
+import { legacyAcademicRecordId } from "~/lib/historical-academics";
+import { historicalAcademicSnapshot } from "./historical-academics";
 import { lockAccountProfile } from "./account-profile";
 import { lockUsernameNamespace } from "./auth/username";
 import { authenticateEmailAction } from "./auth/account-emails";
@@ -32,8 +34,9 @@ export const historyInviteInput = z.object({
   expectedUpdatedAt: z.date(),
   reason: z.string().trim().min(10).max(1000),
 });
-const digest = (value: string) =>
+export const historyTokenDigest = (value: string) =>
   createHash("sha256").update(value).digest("hex");
+const digest = historyTokenDigest;
 export const historyAccountSelect = {
   id: true,
   name: true,
@@ -143,7 +146,7 @@ export async function previewHistoryLink(
   };
 }
 
-async function requireManager(tx: DomainDb, actorId: string) {
+export async function requireHistoryManager(tx: DomainDb, actorId: string) {
   const actor = await tx.user.findUniqueOrThrow({ where: { id: actorId } });
   if (
     actor.mergedIntoId ||
@@ -156,6 +159,7 @@ async function requireManager(tx: DomainDb, actorId: string) {
     });
   return actor;
 }
+const requireManager = requireHistoryManager;
 
 /** Namespace → account → tutee locks match signup/merge ordering. The transaction only
  * changes ownership; current enrollment, academics, roles and every event row stay intact. */
@@ -228,7 +232,7 @@ async function writeOwnership(
 }
 
 /** A staff-reviewed, exact-record invitation is delivered before replacing its predecessor.
- * It creates no account and grants no membership. GET/scanner visits never claim records. */
+ * Account setup requires a separate email challenge. GET/scanner visits never claim records. */
 export async function inviteTuteeHistory(
   db: DomainDb,
   actorId: string,
@@ -283,7 +287,7 @@ export async function inviteTuteeHistory(
       category: "SECURITY",
       to: input.email,
       subject: "Link your historical tutoring records / 关联历史学习记录",
-      text: `The program team has invited you to link your past tutoring records. Sign in with a verified account using this email, then reopen this link and review the claim:\n${url.href}\n\nIf you are joining for the first time, complete the normal signup and email verification, then reopen this link. It expires in seven days. Linking history does not enroll you in the current program.\n\n项目团队邀请你关联历史学习记录。请使用此邮箱的已验证账号登录，再打开上面的链接确认。首次加入请先完成正常报名和邮箱验证。链接七天内有效；关联历史记录不会自动加入当前项目。`,
+      text: `The program team has reviewed your identity and invited you to link your past tutoring records:\n${url.href}\n\nSign in with your existing verified account, or use Create history-only account on this page and verify the separate email code. Then review and claim your records. The invitation expires in seven days and can be cancelled by staff. Account creation and claiming history do not enroll you or grant observer access. If your old email is unavailable, contact the program team for a reviewed replacement invitation.\n\n项目团队已核实你的身份并邀请你关联历史记录。请使用已有的已验证账号登录，或在页面选择创建仅供历史记录访问的账号并验证单独发送的邮箱验证码，然后确认关联。邀请七天内有效，管理人员可取消。创建账号和关联历史记录不会加入当前项目或授予观察员权限。如旧邮箱已无法使用，请联系项目团队核实后重新邀请。`,
     });
     const data = {
       email: input.email,
@@ -292,6 +296,11 @@ export async function inviteTuteeHistory(
       expiresAt,
       issuedById: actorId,
       reason: input.reason,
+      setupCodeHash: null,
+      setupCodeExpiresAt: null,
+      setupAttempts: 0,
+      setupVerifiedAt: null,
+      setupUserId: null,
     };
     await tx.tuteeHistoryInvitation.upsert({
       where: { tuteeId: input.tuteeId },
@@ -424,7 +433,14 @@ export async function tuteeHistoryDetails(
         select: { name: true, schoolYear: true },
       })
     : null;
+  const academicRecords = await db.historicalAcademicRecord.findMany({ where: { tuteeId }, select: { id: true }, orderBy: { id: "asc" } });
+  const historicalAcademics = [];
+  for (const id of new Set([legacyAcademicRecordId("TUTEE", tuteeId), ...academicRecords.map(row => row.id)])) {
+    const evidence = await historicalAcademicSnapshot(db, id);
+    historicalAcademics.push({ recordId: evidence.recordId, original: evidence.original, current: evidence.current, revision: evidence.revision, correction: evidence.correction });
+  }
   return {
+    historicalAcademics,
     record: {
       id: record.id,
       name: record.englishName,

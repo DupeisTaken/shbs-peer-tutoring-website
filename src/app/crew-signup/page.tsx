@@ -4,7 +4,7 @@ import { getTranslations } from "next-intl/server";
 
 import { brandingMetadata } from "~/server/branding-metadata";
 import { CrewSignupForm } from "./crew-signup-form";
-import { FloatingLanguageSwitcher } from "~/app/_components/floating-language-switcher";
+import { PublicFormPage } from "~/app/_components/public-form-page";
 import { db } from "~/server/db";
 import { getFeatures } from "~/server/program/features";
 
@@ -19,16 +19,12 @@ export default async function CrewSignupPage() {
 
   const t = await getTranslations();
   return (
-    <main className="mx-auto min-h-screen max-w-2xl px-4 py-12">
-      <FloatingLanguageSwitcher />
-      <Link href="/" className="link text-sm">
-        {t("common.backToMain")}
-      </Link>
-      <div className="mb-8 text-center">
-        <h1 className="page-title">{t("public.crewSignup.title")}</h1>
-        <p className="muted mt-2">{t("public.crewSignup.intro")}</p>
-      </div>
-
+    <PublicFormPage
+      wide
+      title={t("public.crewSignup.title")}
+      description={t("public.crewSignup.intro")}
+      backLabel={t("common.backToMain")}
+    >
       <CrewSignupForm />
 
       <p className="muted mt-6 text-center">
@@ -37,6 +33,6 @@ export default async function CrewSignupPage() {
           {t("public.crewSignup.signIn")}
         </Link>
       </p>
-    </main>
+    </PublicFormPage>
   );
 }

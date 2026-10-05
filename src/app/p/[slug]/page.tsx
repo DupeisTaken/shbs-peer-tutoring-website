@@ -16,8 +16,7 @@ import { APP_TITLE } from "~/lib/branding";
 import { Markdown } from "~/app/_components/markdown";
 import { PageBlocks } from "~/app/_components/page-blocks";
 import { HeaderMenu, HeaderMenuGroup } from "~/app/_components/header-menu";
-import { ThemeSwitcher } from "~/app/_components/theme-switcher";
-import { LanguageSwitcher } from "~/app/_components/language-switcher";
+import { PublicHeader } from "~/app/_components/public-header";
 
 /**
  * Public page at /p/<slug>. The slug resolves to either a standalone custom page (a block layout) or
@@ -90,40 +89,24 @@ async function Shell({
   }));
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-10 border-b border-slate-200 bg-white/80 backdrop-blur">
-        <div className="mx-auto flex h-14 max-w-4xl items-center gap-3 px-4 lg:h-11">
-          <Link
-            href="/"
-            className="flex min-w-0 flex-1 items-center truncate text-left text-lg font-extrabold tracking-tight whitespace-nowrap text-slate-900"
-          >
-            {APP_TITLE}
-          </Link>
-          <HeaderMenuGroup className="flex shrink-0 items-center lg:hidden">
-            <HeaderMenu
-              label={t("nav.menu")}
-              align="right"
-              panelWidth="wide"
-              items={navItems}
-            >
-              <ThemeSwitcher embedded />
-              <LanguageSwitcher embedded />
-            </HeaderMenu>
-          </HeaderMenuGroup>
-          <HeaderMenuGroup className="hidden min-w-0 items-center justify-end gap-2 lg:flex">
+      <PublicHeader
+        navigation={
+          <HeaderMenuGroup className="flex min-w-0 items-center">
             <HeaderMenu
               label={t("nav.accessProgramInformation")}
               items={navItems}
+              className="hidden lg:block"
               compact
             />
-            <div className="shrink-0">
-              <ThemeSwitcher compact />
-            </div>
-            <div className="shrink-0">
-              <LanguageSwitcher compact />
-            </div>
+            <HeaderMenu
+              label={t("nav.menu")}
+              items={navItems}
+              className="lg:hidden"
+              panelWidth="wide"
+            />
           </HeaderMenuGroup>
-        </div>
-      </header>
+        }
+      />
 
       <main className="flex-1">
         <div className="mx-auto max-w-3xl px-4 pt-12">

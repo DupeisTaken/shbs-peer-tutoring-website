@@ -126,6 +126,7 @@ model User {
 
   /// Patrols this user (as a crew member) submitted, and their crew opt-out/reentry requests.
   patrols           Patrol[]
+  patrolCreditWindows PatrolCreditWindow[]
   crewStatusRequests CrewStatusRequest[]
   /// Appeals this user filed after being suspended.
   appeals           AccountAppeal[]
@@ -434,6 +435,7 @@ model Term {
 }
 
 model Tutor {
+  historicalAcademics HistoricalAcademicRecord[]
   qualificationApplications TutorApplication[] @relation("QualificationApplicant")
   id          String   @id @default(cuid())
   /// Explicit fields feed the materialized program display label in englishName.
@@ -637,6 +639,7 @@ enum SignupSource {
 }
 
 model Tutee {
+  historicalAcademics HistoricalAcademicRecord[]
   historyInvitation TuteeHistoryInvitation?
   user User?
   /// Entry provenance only; never an approval state or a priority override.
@@ -1009,7 +1012,7 @@ enum Headcount {
   FOUR_PLUS
 }
 
-/// One crew sweep. Credits 0.5h to the crew member on submit.
+/// One crew sweep. Eligible submissions credit 0.5h within the server-side 20-minute budget.
 model Patrol {
   updatedAt DateTime @updatedAt
   /// Browser-generated key makes network retries credit the same patrol once.
@@ -1022,13 +1025,30 @@ model Patrol {
   term        Term?    @relation(fields: [termId], references: [id])
   /// Service hours credited for this patrol (0.5 by policy; stored so the rate can change later).
   hours       Float    @default(0.5)
+  /// Server award time drives the rolling cooldown; null for evidence-only submissions.
+  creditAwardedAt DateTime?
   note        String?
   createdAt   DateTime @default(now())
 
   observations PatrolObservation[]
+  creditWindows PatrolCreditWindow[]
 
   @@index([crewUserId])
   @@index([termId])
+  @@index([crewUserId, creditAwardedAt])
+}
+
+/// Immutable evidence intervals consumed by a credited sweep, including corrected windows.
+/// One interval can back only one new award for an account; merged history is checked together.
+model PatrolCreditWindow {
+  crewUserId String
+  crewUser User @relation(fields: [crewUserId], references: [id], onDelete: Cascade)
+  windowStart DateTime
+  patrolId String
+  patrol Patrol @relation(fields: [patrolId], references: [id], onDelete: Cascade)
+
+  @@id([crewUserId, windowStart])
+  @@index([patrolId])
 }
 
 /// One room's headcount during a patrol, with the time it was observed.
@@ -1700,6 +1720,13 @@ model TuteeHistoryInvitation {
   reason String
   expiresAt DateTime
   createdAt DateTime @default(now())
+  /// A separate, short-lived email challenge creates credentials, never enrollment.
+  setupCodeHash String?
+  setupCodeExpiresAt DateTime?
+  setupAttempts Int @default(0)
+  setupVerifiedAt DateTime?
+  /// Receipt permits safe completion retries without changing an existing password.
+  setupUserId String?
 }
 
 /// Short-lived, user/action-bound confirmation tickets enforce the popup delay on the server.
@@ -1964,6 +1991,48 @@ model AcademicConfirmation {
   source String
   reason String?
   @@index([userId, confirmedAt])
+}
+
+/// Original period-specific evidence belongs to the participant, never a fabricated login.
+/// Corrections are append-only overlays; archive retries still compare the original values.
+model HistoricalAcademicRecord {
+  id String @id
+  tutorId String?
+  tutor Tutor? @relation(fields: [tutorId], references: [id], onDelete: Restrict)
+  tuteeId String?
+  tutee Tutee? @relation(fields: [tuteeId], references: [id], onDelete: Restrict)
+  rawGrade String?
+  /// Retain an explicit legacy graduation choice separately from missing/raw grade text.
+  academicallyGraduated Boolean @default(false)
+  schoolYear String?
+  source String
+  originalConfirmedAt DateTime?
+  recordedAt DateTime @default(now())
+  corrections HistoricalAcademicCorrection[]
+
+  @@index([tutorId])
+  @@index([tuteeId])
+}
+
+/// A correction date is distinct from original confirmation evidence and reference year.
+/// Actor IDs are retained as audit evidence even if an account is later combined.
+model HistoricalAcademicCorrection {
+  id String @id @default(cuid())
+  recordId String
+  record HistoricalAcademicRecord @relation(fields: [recordId], references: [id], onDelete: Restrict)
+  revision Int
+  rawGrade String?
+  schoolYear String?
+  evidence String
+  reason String
+  actorId String
+  actorName String
+  approvalId String?
+  method String
+  correctedAt DateTime @default(now())
+  before Json
+
+  @@unique([recordId, revision])
 }
 
 /// Shared write fence: even repeatable-read/serializable identity transactions must see a fresh namespace.

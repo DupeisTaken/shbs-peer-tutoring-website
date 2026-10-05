@@ -43,6 +43,7 @@ const en: PrivacyPolicy = {
       paragraphs: [
         "Information supports account access and recovery, matching learning partners with tutors, scheduling, attendance and service-hour records, recruitment, program communication, feedback, appeals and management review. Security and audit records help prevent misuse and investigate problems.",
         "You can manage available profile, email and notification settings in your account. Optional email notices depend on your preferences and program settings; account security notices are sent independently of optional notification preferences.",
+        "Staff-reviewed historical-record invitations use the invited email, a separate verification code and a password to create a personal login when needed. Staff record identity-review evidence; the account name comes from the reviewed archive. Creating this login does not enroll you or accept a current participation agreement. Personal historical access is limited to records explicitly owned by your account.",
       ],
     },
     {
@@ -116,6 +117,7 @@ const zh: PrivacyPolicy = {
       paragraphs: [
         "这些信息用于账号访问与恢复、学习伙伴和辅导伙伴匹配、时间安排、出勤与服务时数记录、招募、项目沟通、反馈、申诉和管理审核。安全与审计记录帮助防止滥用并调查问题。",
         "你可以在账号中修改可用的个人资料、邮箱与通知设置。可选邮件通知取决于你的偏好和项目设置；账号安全通知不受可选通知偏好限制。",
+        "经管理人员审核的历史记录邀请可使用受邀邮箱、单独的验证码和密码创建个人登录账号。管理人员记录身份审核依据，账号姓名来自已审核的档案。创建此账号不会加入当前项目或接受当前参与协议，个人历史访问仅限于明确归属该账号的记录。",
       ],
     },
     {

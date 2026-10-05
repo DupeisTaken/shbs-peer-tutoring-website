@@ -10,6 +10,8 @@ RUN apk add --no-cache libc6-compat openssl
 # .npmrc carries legacy-peer-deps=true (next-auth v5 ⇄ nodemailer optional-peer clash), so
 # `npm ci` needs it to resolve. Schema is needed because `postinstall` runs `prisma generate`.
 COPY package.json package-lock.json .npmrc ./
+# The development-only Next lint override is a local package required by npm ci.
+COPY tools/next-lint-glob ./tools/next-lint-glob
 COPY prisma ./prisma
 RUN npm ci
 

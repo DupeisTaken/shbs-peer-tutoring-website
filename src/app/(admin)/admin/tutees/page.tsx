@@ -24,12 +24,18 @@ import { REFERENCE_STALE_TIME } from "~/lib/query";
 import { SortHeader, useSort, compare } from "~/app/_components/sortable";
 import { useReadOnly } from "~/app/_components/read-only";
 import { EmailDetails } from "~/app/_components/email-details";
+import { Button, ChoiceButton } from "~/app/_components/ui/button";
+import { SectionTabs } from "~/app/_components/ui/section-tabs";
+import { StatePanel } from "~/app/_components/ui/patterns";
 import { TuteeEditor } from "~/app/_components/tutee-editor";
-import { TuteeAcademicCell } from "~/app/_components/tutee-academic-cell";
 import {
-  HistoryError,
-  TuteeHistoryDialog,
-} from "~/app/_components/tutee-history";
+  SummaryTable,
+  TableActions,
+  TableAction,
+  TableDetails,
+} from "~/app/_components/ui/summary-table";
+import { TuteeAcademicCell } from "~/app/_components/tutee-academic-cell";
+import { TuteeHistoryDialog } from "~/app/_components/tutee-history";
 import { type TuteeHistoryView } from "~/lib/tutee-history";
 import { GRADUATED_GRADE, normalizeGrade } from "~/lib/academics";
 
@@ -77,15 +83,11 @@ function StatsCells({
       </td>
       <td>
         {s.removalPending ? (
-          <Link href="/admin/discipline" className="hover:opacity-80">
-            <span className="badge-red">{removalLabel}</span>
-          </Link>
+          <span className="badge-red">{removalLabel}</span>
         ) : s.effectiveReds >= 1 ? (
-          <Link href="/admin/discipline" className="hover:opacity-80">
-            <span className="badge-amber">
-              {s.validRed}🟥 {s.validYellow}🟨
-            </span>
-          </Link>
+          <span className="badge-amber">
+            {s.validRed}🟥 {s.validYellow}🟨
+          </span>
         ) : (
           <span className="muted text-xs">
             {s.validRed}🟥 {s.validYellow}🟨
@@ -143,6 +145,7 @@ export default function TuteesPage() {
   const [secondChoiceId, setSecondChoiceId] = useState("");
 
   const all = tutees.data ?? [];
+  const rosterLoading = tutees.isPending || (!tutees.data && !tutees.error);
   const editing = all.find((row) => row.id === editingId);
   const pendingCount = all.filter((t) => t.status === "PENDING").length;
   const courseList = courses.data ?? [];
@@ -180,11 +183,11 @@ export default function TuteesPage() {
           // Sort the grade shown in the row: historical evidence is independent
           // of the linked account's current academic profile.
           return (
-            ((a.historical
-              ? (normalizeGrade(a.gradeLevel).gradeLevel ?? 0)
+            ((a.historical || !(a.owner ?? a.user)
+              ? (normalizeGrade(a.enrollmentCorrection ? a.enrollmentCorrection.rawGrade : a.gradeLevel).gradeLevel ?? 0)
               : (a.academic.gradeLevel ?? 0)) -
-              (b.historical
-                ? (normalizeGrade(b.gradeLevel).gradeLevel ?? 0)
+              (b.historical || !(b.owner ?? b.user)
+                ? (normalizeGrade(b.enrollmentCorrection ? b.enrollmentCorrection.rawGrade : b.gradeLevel).gradeLevel ?? 0)
                 : (b.academic.gradeLevel ?? 0))) *
             dir
           );
@@ -429,268 +432,397 @@ export default function TuteesPage() {
       )}
 
       {/* Bottom table — toggled between the tutee list and the tutor/pairings view */}
-      <div className="flex gap-2">
-        <button
-          className={
-            view === "tutees" ? "btn-primary btn-sm" : "btn-secondary btn-sm"
-          }
-          onClick={() => setView("tutees")}
-        >
-          {t("admin.tutees.viewTutees")}
-        </button>
-        <button
-          className={
-            view === "tutors" ? "btn-primary btn-sm" : "btn-secondary btn-sm"
-          }
-          onClick={() => setView("tutors")}
-        >
-          {t("admin.tutees.viewTutors")}
-        </button>
-      </div>
-
-      {view === "tutors" && (
-        <PastTutorsToggle showPast={showPast} onChange={setShowPast} />
-      )}
-      {view === "tutors" && (
-        <section className="card overflow-x-auto">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <th>{t("admin.tutees.colTutor")}</th>
-                <th>{t("admin.tutees.colSubject")}</th>
-                <th>{t("admin.tutees.colDayTime")}</th>
-                <th>{t("admin.tutees.colTimeSlot")}</th>
-                <th>{t("admin.tutees.colPairedTutees")}</th>
-              </tr>
-            </thead>
-            <tbody>
-              {visibleTutors(tutors.data ?? [], showPast, [
-                ...pairingsByTutor.keys(),
-              ]).flatMap((tutor) => {
-                const tps = pairingsByTutor.get(tutor.id) ?? [];
-                if (tps.length === 0) {
-                  return [
-                    <tr key={tutor.id}>
+      <SectionTabs
+        label={t("admin.tutees.title")}
+        value={view}
+        onChange={setView}
+        items={[
+          { value: "tutees", label: t("admin.tutees.viewTutees") },
+          { value: "tutors", label: t("admin.tutees.viewTutors") },
+        ]}
+      >
+        {view === "tutors" && (
+          <PastTutorsToggle showPast={showPast} onChange={setShowPast} />
+        )}
+        {view === "tutors" &&
+          (Boolean(tutors.error) || Boolean(pairings.error)) && (
+            <StatePanel
+              kind="error"
+              title={t("uiPatterns.loadFailed")}
+              action={
+                <Button
+                  size="compact"
+                  disabled={tutors.isFetching || pairings.isFetching}
+                  onClick={() =>
+                    void Promise.all([tutors.refetch(), pairings.refetch()])
+                  }
+                >
+                  {t("uiPatterns.retry")}
+                </Button>
+              }
+            />
+          )}
+        {view === "tutors" && (
+          <section className="card">
+            <SummaryTable label={t("admin.tutees.viewTutors")}>
+              <thead>
+                <tr>
+                  <th>{t("admin.tutees.colTutor")}</th>
+                  <th>{t("admin.tutees.colSubject")}</th>
+                  <th>{t("admin.tutees.colDayTime")}</th>
+                  <th>{t("admin.tutees.colTimeSlot")}</th>
+                  <th>{t("admin.tutees.colPairedTutees")}</th>
+                  <th className="table-actions-heading">
+                    {t("tablePatterns.actions")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody>
+                {(!tutors.data || !pairings.data) &&
+                  !tutors.error &&
+                  !pairings.error && (
+                    <tr>
+                      <td colSpan={6}>
+                        <StatePanel
+                          kind="loading"
+                          title={t("common.loading")}
+                        />
+                      </td>
+                    </tr>
+                  )}
+                {tutors.data &&
+                  pairings.data &&
+                  visibleTutors(tutors.data, showPast, [
+                    ...pairingsByTutor.keys(),
+                  ]).length === 0 && (
+                    <tr>
+                      <td colSpan={6}>
+                        <StatePanel
+                          kind="empty"
+                          title={t("tablePatterns.records", { count: 0 })}
+                        />
+                      </td>
+                    </tr>
+                  )}
+                {visibleTutors(tutors.data ?? [], showPast, [
+                  ...pairingsByTutor.keys(),
+                ]).flatMap((tutor) => {
+                  const tps = pairingsByTutor.get(tutor.id) ?? [];
+                  if (tps.length === 0) {
+                    return [
+                      <tr key={tutor.id}>
+                        <td className="font-medium text-slate-800">
+                          {tutor.englishName}
+                        </td>
+                        <td colSpan={4} className="text-slate-400">
+                          {t("admin.tutees.noPairings")}
+                        </td>
+                        <TableActions>
+                          <span className="text-slate-400">—</span>
+                        </TableActions>
+                      </tr>,
+                    ];
+                  }
+                  return tps.map((p, i) => (
+                    <tr key={p.id}>
                       <td className="font-medium text-slate-800">
-                        {tutor.englishName}
+                        {i === 0 ? tutor.englishName : ""}
                       </td>
-                      <td colSpan={4} className="text-slate-400">
-                        {t("admin.tutees.noPairings")}
+                      <td>
+                        <span className="block max-w-52 truncate">
+                          {p.subject}
+                        </span>
                       </td>
-                    </tr>,
-                  ];
-                }
-                return tps.map((p, i) => (
-                  <tr key={p.id}>
-                    <td className="font-medium text-slate-800">
-                      {i === 0 ? tutor.englishName : ""}
-                    </td>
-                    <td>{p.subject}</td>
-                    <td className="text-slate-600">
-                      {pairingScheduleText(p, t("scheduling.awaiting"))}
-                    </td>
-                    <td className="text-slate-600">
-                      {p.timeSlot?.label ?? t("admin.tutees.tbd")}
-                    </td>
-                    <td className="text-slate-600">
-                      {p.tutees.map((t) => t.tutee.englishName).join(", ") ||
-                        "—"}
-                    </td>
-                  </tr>
-                ));
-              })}
-            </tbody>
-          </table>
-        </section>
-      )}
+                      <td className="text-slate-600">
+                        {pairingScheduleText(p, t("scheduling.awaiting"))}
+                      </td>
+                      <td className="text-slate-600">
+                        <span className="block max-w-40 truncate">
+                          {p.timeSlot?.label ?? t("admin.tutees.tbd")}
+                        </span>
+                      </td>
+                      <td className="text-slate-600">{p.tutees.length}</td>
+                      <TableActions>
+                        {/* Rosters summarize the pairing; long subject and participant lists belong in details. */}
+                        <TableDetails
+                          title={`${tutor.englishName} · ${p.subject}`}
+                        >
+                          <dl className="space-y-3">
+                            <div>
+                              <dt className="muted">
+                                {t("admin.tutees.colSubject")}
+                              </dt>
+                              <dd>{p.subject}</dd>
+                            </div>
+                            <div>
+                              <dt className="muted">
+                                {t("admin.tutees.colDayTime")}
+                              </dt>
+                              <dd>
+                                {pairingScheduleText(
+                                  p,
+                                  t("scheduling.awaiting"),
+                                )}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt className="muted">
+                                {t("admin.tutees.colTimeSlot")}
+                              </dt>
+                              <dd>
+                                {p.timeSlot?.label ?? t("admin.tutees.tbd")}
+                              </dd>
+                            </div>
+                            <div>
+                              <dt className="muted">
+                                {t("admin.tutees.colPairedTutees")}
+                              </dt>
+                              <dd>
+                                {p.tutees.length ? (
+                                  <ul className="list-disc pl-5">
+                                    {p.tutees.map(({ tutee }) => (
+                                      <li key={tutee.id}>
+                                        {tutee.englishName}
+                                      </li>
+                                    ))}
+                                  </ul>
+                                ) : (
+                                  "—"
+                                )}
+                              </dd>
+                            </div>
+                          </dl>
+                        </TableDetails>
+                      </TableActions>
+                    </tr>
+                  ));
+                })}
+              </tbody>
+            </SummaryTable>
+          </section>
+        )}
 
-      {view === "tutees" && (
-        <section className="space-y-3" aria-label={h("filterTitle")}>
-          <div className="flex flex-wrap items-center gap-2">
-            {(["current", "historical", "all"] as const).map((value) => (
-              <button
-                key={value}
-                className={`${historyView === value ? "btn-primary" : "btn-secondary"} btn-sm min-h-11 lg:h-8 lg:min-h-8 lg:py-0`}
-                aria-pressed={historyView === value}
-                onClick={() => setHistoryView(value)}
+        {view === "tutees" && (
+          <section className="space-y-3" aria-label={h("filterTitle")}>
+            <div className="flex flex-wrap items-center gap-2">
+              {(["current", "historical", "all"] as const).map((value) => (
+                <ChoiceButton
+                  key={value}
+                  selected={historyView === value}
+                  onClick={() => setHistoryView(value)}
+                >
+                  {h(value)}
+                </ChoiceButton>
+              ))}
+              <Button
+                size="compact"
+                disabled={tutees.isFetching}
+                onClick={() => void invalidate()}
               >
-                {h(value)}
-              </button>
-            ))}
-            <button
-              className="btn-secondary btn-sm min-h-11 lg:h-8 lg:min-h-8 lg:py-0"
-              disabled={tutees.isFetching}
-              onClick={() => void invalidate()}
-            >
-              {h("refresh")}
-            </button>
-          </div>
-          <p className="muted text-sm">{h("historyHelp")}</p>
-          <div className="flex flex-wrap items-center gap-3">
-            <label className="flex-1">
-              <span className="sr-only">{h("searchRecords")}</span>
-              <input
-                className="input min-h-11 w-full lg:min-h-10"
-                value={search}
-                onChange={(e) => setSearch(e.target.value)}
-                placeholder={h("searchRecords")}
+                {h("refresh")}
+              </Button>
+            </div>
+            <p className="muted text-sm">{h("historyHelp")}</p>
+            <div className="flex flex-wrap items-center gap-3">
+              <label className="flex-1">
+                <span className="sr-only">{h("searchRecords")}</span>
+                <input
+                  className="input min-h-11 w-full lg:min-h-10"
+                  value={search}
+                  onChange={(e) => setSearch(e.target.value)}
+                  placeholder={h("searchRecords")}
+                />
+              </label>
+              <label className="flex min-h-11 items-center gap-2 text-sm">
+                <input
+                  type="checkbox"
+                  checked={showUnverified}
+                  onChange={(e) => setShowUnverified(e.target.checked)}
+                />
+                {h("showUnverified")}
+              </label>
+            </div>
+            <p className="muted text-xs" role="status">
+              {tutees.isFetching
+                ? h("loading")
+                : h("visibleCount", {
+                    count: rows.length,
+                    total: all.length,
+                  })}{" "}
+              · {h("allPeriods")}
+            </p>
+            {tutees.error && (
+              <StatePanel
+                kind="error"
+                title={
+                  h.has(tutees.error.message)
+                    ? h(tutees.error.message)
+                    : h("failed")
+                }
+                action={
+                  <Button
+                    size="compact"
+                    disabled={tutees.isFetching}
+                    onClick={() => void tutees.refetch()}
+                  >
+                    {t("uiPatterns.retry")}
+                  </Button>
+                }
               />
-            </label>
-            <label className="flex min-h-11 items-center gap-2 text-sm">
-              <input
-                type="checkbox"
-                checked={showUnverified}
-                onChange={(e) => setShowUnverified(e.target.checked)}
-              />
-              {h("showUnverified")}
-            </label>
-          </div>
-          <p className="muted text-xs" role="status">
-            {tutees.isFetching
-              ? h("loading")
-              : h("visibleCount", {
-                  count: rows.length,
-                  total: all.length,
-                })}{" "}
-            · {h("allPeriods")}
-          </p>
-          {tutees.error && <HistoryError message={tutees.error.message} />}
-          <p className="muted text-xs lg:hidden">{h("scrollHint")}</p>
-        </section>
-      )}
-      {view === "tutees" && (
-        <section className="card overflow-x-auto">
-          <table className="data-table">
-            <thead>
-              <tr>
-                <SortHeader sort={sort} sortKey="name">
-                  {t("admin.tutees.colName")}
-                </SortHeader>
-                <th>{t("admin.tutees.colContact")}</th>
-                <SortHeader sort={sort} sortKey="grade">
-                  {h("gradeClass")}
-                </SortHeader>
-                <th>{t("admin.tutees.colCourses")}</th>
-                <SortHeader sort={sort} sortKey="sessions">
-                  {t("admin.tutees.colSessions")}
-                </SortHeader>
-                <SortHeader sort={sort} sortKey="discipline">
-                  {t("admin.tutees.colDiscipline")}
-                </SortHeader>
-                <SortHeader sort={sort} sortKey="status">
-                  {t("admin.tutees.colStatus")}
-                </SortHeader>
-                <th>{t("admin.users.columns.actions")}</th>
-              </tr>
-            </thead>
-            <tbody aria-busy={tutees.isPending}>
-              {rows.map((t2) => (
-                <tr key={t2.id}>
-                  <td className="max-w-52 min-w-40">
-                    <p className="font-medium [overflow-wrap:anywhere] text-slate-900">
-                      {t2.englishName}
-                    </p>
-                    {/* The display name already applies the program's additional-name setting. */}
-                    {(t2.owner ?? t2.user)?.username && (
-                      <p className="muted text-xs">
-                        @{(t2.owner ?? t2.user)?.username}
+            )}
+            <p className="muted text-xs lg:hidden">{h("scrollHint")}</p>
+          </section>
+        )}
+        {view === "tutees" && (
+          <section className="card">
+            <SummaryTable label={t("admin.tutees.viewTutees")}>
+              <thead>
+                <tr>
+                  <SortHeader sort={sort} sortKey="name">
+                    {t("admin.tutees.colName")}
+                  </SortHeader>
+                  <SortHeader sort={sort} sortKey="grade">
+                    {h("gradeClass")}
+                  </SortHeader>
+                  <th>{t("admin.tutees.colCourses")}</th>
+                  <SortHeader sort={sort} sortKey="sessions">
+                    {t("admin.tutees.colSessions")}
+                  </SortHeader>
+                  <SortHeader sort={sort} sortKey="discipline">
+                    {t("admin.tutees.colDiscipline")}
+                  </SortHeader>
+                  <SortHeader sort={sort} sortKey="status">
+                    {t("admin.tutees.colStatus")}
+                  </SortHeader>
+                  <th className="table-actions-heading">
+                    {t("tablePatterns.actions")}
+                  </th>
+                </tr>
+              </thead>
+              <tbody aria-busy={rosterLoading}>
+                {rows.map((t2) => (
+                  <tr key={t2.id}>
+                    <td className="max-w-52 min-w-40">
+                      <p className="font-medium [overflow-wrap:anywhere] text-slate-900">
+                        {t2.englishName}
                       </p>
-                    )}
-                  </td>
-                  <td className="text-slate-600">
-                    <EmailDetails
-                      name={t2.englishName}
-                      email={t2.owner?.email ?? t2.user?.email ?? t2.email}
-                      verifiedAt={(t2.owner ?? t2.user)?.emailVerifiedAt}
-                      userId={(t2.owner ?? t2.user)?.id}
-                      canSendSetup={!readOnly && !!t2.user}
-                      linked={!!(t2.owner ?? t2.user)}
+                      {/* The display name already applies the program's additional-name setting. */}
+                      {(t2.owner ?? t2.user)?.username && (
+                        <p className="muted text-xs">
+                          @{(t2.owner ?? t2.user)?.username}
+                        </p>
+                      )}
+                    </td>
+                    <td className="min-w-40 text-slate-600">
+                      <TuteeAcademicCell row={t2} />
+                    </td>
+                    <td className="text-slate-600">
+                      {[t2.firstChoice, t2.secondChoice].filter(Boolean).length}
+                    </td>
+                    <StatsCells
+                      s={stats.data?.[t2.id]}
+                      removalLabel={t("admin.tutees.removalBadge")}
                     />
-                  </td>
-                  <td className="min-w-40 text-slate-600">
-                    <TuteeAcademicCell row={t2} />
-                  </td>
-                  <td className="w-36 max-w-36 whitespace-normal text-slate-600">
-                    <ul className="space-y-1 text-sm">
-                      {[t2.firstChoice, t2.secondChoice]
-                        .filter((subject) => subject !== null)
-                        .map((subject) => (
-                          <li key={subject.id}>{subject.name}</li>
-                        ))}
-                    </ul>
-                    {!t2.firstChoice && !t2.secondChoice && "—"}
-                  </td>
-                  <StatsCells
-                    s={stats.data?.[t2.id]}
-                    removalLabel={t("admin.tutees.removalBadge")}
-                  />
-                  {/* Status is read-only here — transitions follow the procedures: assignment on
+                    {/* Status is read-only here — transitions follow the procedures: assignment on
                       /admin/requests, removal & reinstatement on /admin/tutee-requests. */}
-                  <td>
-                    <StatusBadge
-                      status={t2.status}
-                      label={statusLabel(t2.status)}
-                    />
-                  </td>
-                  {/* Shared account actions keep the same rhythm across management tables. */}
-                  <td className="w-px text-right">
-                    <div className="table-account-actions">
+                    <td>
+                      <StatusBadge
+                        status={t2.status}
+                        label={statusLabel(t2.status)}
+                      />
+                    </td>
+                    <TableActions>
+                      {/* Course details preserve the original public roster scope; history and contact remain separately authorized. */}
+                      <TableDetails
+                        title={`${t2.englishName} · ${t("admin.tutees.colCourses")}`}
+                      >
+                        <h3 className="font-semibold">
+                          {t("admin.tutees.colCourses")}
+                        </h3>
+                        <ul className="space-y-1">
+                          {[t2.firstChoice, t2.secondChoice]
+                            .filter((subject) => subject !== null)
+                            .map((subject) => (
+                              <li key={subject.id}>{subject.name}</li>
+                            ))}
+                        </ul>
+                        {!t2.firstChoice && !t2.secondChoice && <p>—</p>}
+                      </TableDetails>
                       {!readOnly && (
-                        <button
-                          className="link table-account-action"
-                          onClick={() => setDetailsId(t2.id)}
-                        >
+                        <TableAction onClick={() => setDetailsId(t2.id)}>
                           {h("details")}
-                        </button>
+                        </TableAction>
                       )}
-                      {!readOnly && (
-                        <button
-                          className="link table-account-action"
-                          onClick={() => setEditingId(t2.id)}
+                      {!readOnly &&
+                        (t2.owner?.email ?? t2.user?.email ?? t2.email) && (
+                          <EmailDetails
+                            name={t2.englishName}
+                            email={
+                              t2.owner?.email ?? t2.user?.email ?? t2.email
+                            }
+                            verifiedAt={(t2.owner ?? t2.user)?.emailVerifiedAt}
+                            userId={(t2.owner ?? t2.user)?.id}
+                            canSendSetup={!!t2.user}
+                            linked={!!(t2.owner ?? t2.user)}
+                          />
+                        )}
+                      {((stats.data?.[t2.id]?.removalPending ?? false) ||
+                        (stats.data?.[t2.id]?.effectiveReds ?? 0) >= 1) && (
+                        <Link
+                          href="/admin/discipline"
+                          className="table-action-link"
                         >
-                          {t("accountProfile.editProfile")}
-                        </button>
+                          {t("admin.tutees.colDiscipline")}
+                        </Link>
                       )}
                       {!readOnly && (
-                        <button
-                          className="link-danger table-account-action"
+                        <TableAction onClick={() => setEditingId(t2.id)}>
+                          {t("accountProfile.editProfile")}
+                        </TableAction>
+                      )}
+                      {!readOnly && (
+                        <TableAction
+                          className="text-red-600"
+                          disabled={del.isPending}
                           onClick={() => del.mutate({ id: t2.id })}
                         >
                           {t("admin.tutees.deleteBtn")}
-                        </button>
+                        </TableAction>
                       )}
-                    </div>
-                  </td>
-                </tr>
-              ))}
-              {tutees.isPending && (
-                <tr>
-                  <td colSpan={8} className="text-slate-500">
-                    {h("loading")}
-                  </td>
-                </tr>
-              )}
-              {/* Absence of loaded data is not an empty roster. Read failures
-                  already have a retryable error above the table. */}
-              {!tutees.isPending && !tutees.error && rows.length === 0 && (
-                <tr>
-                  <td colSpan={8} className="text-slate-500">
-                    {h(
-                      scopedRows.length > 0 && search.trim()
-                        ? "noSearchMatches"
-                        : historyView === "historical"
-                          ? "emptyHistory"
-                          : historyView === "current"
-                            ? "emptyCurrent"
-                            : "emptyAll",
-                    )}
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
-        </section>
-      )}
+                    </TableActions>
+                  </tr>
+                ))}
+                {rosterLoading && (
+                  <tr>
+                    <td colSpan={7}>
+                      <StatePanel kind="loading" title={h("loading")} />
+                    </td>
+                  </tr>
+                )}
+                {/* Failed reads, including refetches with an empty cache, do not prove the roster is empty. */}
+                {tutees.data &&
+                  !rosterLoading &&
+                  !tutees.error &&
+                  rows.length === 0 && (
+                    <tr>
+                      <td colSpan={7} className="text-slate-500">
+                        {h(
+                          scopedRows.length > 0 && search.trim()
+                            ? "noSearchMatches"
+                            : historyView === "historical"
+                              ? "emptyHistory"
+                              : historyView === "current"
+                                ? "emptyCurrent"
+                                : "emptyAll",
+                        )}
+                      </td>
+                    </tr>
+                  )}
+              </tbody>
+            </SummaryTable>
+          </section>
+        )}
+      </SectionTabs>
     </div>
   );
 }

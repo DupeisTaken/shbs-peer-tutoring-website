@@ -8,6 +8,14 @@ import { api } from "~/trpc/react";
 import { DAY_NAMES, hmToMin, minToHm } from "~/lib/time";
 import { REFERENCE_STALE_TIME } from "~/lib/query";
 import { useReadOnly } from "~/app/_components/read-only";
+import {
+  SummaryTable,
+  TableActions,
+  TableAction,
+  TableDetails,
+} from "~/app/_components/ui/summary-table";
+import { Modal } from "~/app/_components/ui/modal";
+import { Button } from "~/app/_components/ui/button";
 
 const EMPTY = { label: "", dayOfWeek: 1, startTime: "15:30", endTime: "16:30" };
 
@@ -145,185 +153,71 @@ export default function TimeSlotsPage() {
         </p>
       )}
 
-      <div className="card overflow-x-auto">
-        <table className="data-table">
+      <div className="card overflow-hidden">
+        <SummaryTable label={t("admin.timeslots.title")}>
           <thead>
             <tr>
               <th>{t("admin.timeslots.colLabel")}</th>
               <th>{t("admin.timeslots.colDay")}</th>
               <th>{t("admin.timeslots.colTime")}</th>
               <th>{t("admin.timeslots.colActive")}</th>
-              <th></th>
+              <th className="table-actions-heading">
+                {t("tablePatterns.actions")}
+              </th>
             </tr>
           </thead>
           <tbody>
             {(slots.data ?? []).map((s) => (
-              <tr
-                key={s.id}
-                className={editing?.id === s.id ? "bg-sky-50/70" : undefined}
-              >
-                <td>
-                  {readOnly ? (
-                    <span>{s.label}</span>
-                  ) : editing?.id === s.id ? (
-                    <input
-                      value={editing.label}
-                      aria-label={t("admin.timeslots.label")}
-                      className="input field-auto min-w-40"
-                      onChange={(event) =>
-                        setEditing((draft) =>
-                          draft
-                            ? { ...draft, label: event.target.value }
-                            : draft,
-                        )
-                      }
-                    />
-                  ) : (
-                    <span className="font-medium text-slate-900">
-                      {s.label}
-                    </span>
-                  )}
+              <tr key={s.id}>
+                <td className="font-medium text-slate-900">{s.label}</td>
+                <td>{DAY_NAMES[s.dayOfWeek]}</td>
+                <td className="font-mono text-slate-700">
+                  {minToHm(s.startMin)}–{minToHm(s.endMin)}
                 </td>
                 <td>
-                  {editing?.id === s.id ? (
-                    <select
-                      value={editing.dayOfWeek}
-                      aria-label={t("admin.timeslots.day")}
-                      className="select field-auto min-w-28"
-                      onChange={(event) =>
-                        setEditing((draft) =>
-                          draft
-                            ? {
-                                ...draft,
-                                dayOfWeek: Number(event.target.value),
-                              }
-                            : draft,
-                        )
-                      }
-                    >
-                      {[1, 2, 3, 4, 5, 6, 7].map((day) => (
-                        <option key={day} value={day}>
-                          {DAY_NAMES[day]}
-                        </option>
-                      ))}
-                    </select>
-                  ) : (
-                    DAY_NAMES[s.dayOfWeek]
+                  {t(
+                    s.active
+                      ? "courseCatalogue.active"
+                      : "courseCatalogue.inactive",
                   )}
                 </td>
-                <td>
-                  {editing?.id === s.id ? (
-                    <div className="flex min-w-64 items-center gap-2">
-                      <input
-                        type="time"
-                        value={editing.startTime}
-                        aria-label={t("admin.timeslots.start")}
-                        className="input field-auto min-w-28"
-                        onChange={(event) =>
-                          setEditing((draft) =>
-                            draft
-                              ? { ...draft, startTime: event.target.value }
-                              : draft,
-                          )
-                        }
-                      />
-                      <span aria-hidden className="text-slate-400">
-                        –
-                      </span>
-                      <input
-                        type="time"
-                        value={editing.endTime}
-                        aria-label={t("admin.timeslots.end")}
-                        className="input field-auto min-w-28"
-                        onChange={(event) =>
-                          setEditing((draft) =>
-                            draft
-                              ? { ...draft, endTime: event.target.value }
-                              : draft,
-                          )
-                        }
-                      />
-                    </div>
-                  ) : (
-                    <span className="font-mono text-slate-700">
-                      {minToHm(s.startMin)}–{minToHm(s.endMin)}
-                    </span>
-                  )}
-                </td>
-                <td>
-                  {readOnly ? (
-                    <span>{s.active ? "✓" : "✗"}</span>
-                  ) : editing?.id === s.id ? (
-                    <input
-                      type="checkbox"
-                      checked={editing.active}
-                      aria-label={t("admin.timeslots.colActive")}
-                      onChange={(event) =>
-                        setEditing((draft) =>
-                          draft
-                            ? { ...draft, active: event.target.checked }
-                            : draft,
-                        )
-                      }
-                    />
-                  ) : (
-                    <input
-                      type="checkbox"
-                      checked={s.active}
-                      onChange={(e) =>
-                        update.mutate({
-                          id: s.id,
-                          label: s.label,
-                          dayOfWeek: s.dayOfWeek,
-                          startMin: s.startMin,
-                          endMin: s.endMin,
-                          active: e.target.checked,
-                        })
-                      }
-                    />
-                  )}
-                </td>
-                <td>
-                  {!readOnly && editing?.id === s.id ? (
-                    <div className="flex justify-end gap-2">
-                      <button
-                        type="button"
-                        className="btn-primary"
-                        disabled={!editingIsValid || update.isPending}
-                        onClick={() => {
-                          if (!editingIsValid) return;
-                          update.mutate({
-                            id: editing.id,
-                            label: editing.label.trim(),
-                            dayOfWeek: editing.dayOfWeek,
-                            startMin: hmToMin(editing.startTime),
-                            endMin: hmToMin(editing.endTime),
-                            active: editing.active,
-                          });
-                        }}
-                      >
-                        {update.isPending
-                          ? t("admin.timeslots.saving")
-                          : t("admin.timeslots.save")}
-                      </button>
-                      <button
-                        type="button"
-                        className="btn-secondary"
+                <TableActions>
+                  <TableDetails title={s.label}>
+                    <dl className="space-y-3">
+                      <div>
+                        <dt className="label">{t("admin.timeslots.colDay")}</dt>
+                        <dd>{DAY_NAMES[s.dayOfWeek]}</dd>
+                      </div>
+                      <div>
+                        <dt className="label">
+                          {t("admin.timeslots.colTime")}
+                        </dt>
+                        <dd>
+                          {minToHm(s.startMin)}–{minToHm(s.endMin)}
+                        </dd>
+                      </div>
+                      <div>
+                        <dt className="label">
+                          {t("admin.timeslots.colActive")}
+                        </dt>
+                        <dd>
+                          {t(
+                            s.active
+                              ? "courseCatalogue.active"
+                              : "courseCatalogue.inactive",
+                          )}
+                        </dd>
+                      </div>
+                    </dl>
+                    <p className="muted">
+                      {t("admin.timeslots.propagationNote")}
+                    </p>
+                  </TableDetails>
+                  {!readOnly && (
+                    <>
+                      <TableAction
                         disabled={update.isPending}
-                        onClick={() => {
-                          update.reset();
-                          setEditing(null);
-                        }}
-                      >
-                        {t("admin.timeslots.cancel")}
-                      </button>
-                    </div>
-                  ) : !readOnly ? (
-                    <div className="flex justify-end gap-3 whitespace-nowrap">
-                      <button
-                        type="button"
-                        className="link"
-                        disabled={update.isPending}
+                        aria-label={`${t("admin.timeslots.edit")}: ${s.label}`}
                         onClick={() => {
                           update.reset();
                           setEditing({
@@ -337,18 +231,17 @@ export default function TimeSlotsPage() {
                         }}
                       >
                         {t("admin.timeslots.edit")}
-                      </button>
-                      <button
-                        type="button"
-                        className="link-danger"
+                      </TableAction>
+                      <TableAction
+                        className="text-red-700"
                         disabled={del.isPending || update.isPending}
                         onClick={() => del.mutate({ id: s.id })}
                       >
                         {t("admin.timeslots.delete")}
-                      </button>
-                    </div>
-                  ) : null}
-                </td>
+                      </TableAction>
+                    </>
+                  )}
+                </TableActions>
               </tr>
             ))}
             {slots.data?.length === 0 && (
@@ -359,8 +252,129 @@ export default function TimeSlotsPage() {
               </tr>
             )}
           </tbody>
-        </table>
+        </SummaryTable>
       </div>
+      {/* One editor owns the entire draft; summary rows never become input grids. */}
+      {!readOnly && editing && (
+        <Modal
+          title={`${t("admin.timeslots.edit")}: ${editing.label}`}
+          wide
+          busy={update.isPending}
+          onClose={() => {
+            update.reset();
+            setEditing(null);
+          }}
+          footer={
+            <>
+              <Button
+                data-dialog-autofocus
+                disabled={update.isPending}
+                onClick={() => {
+                  update.reset();
+                  setEditing(null);
+                }}
+              >
+                {t("admin.timeslots.cancel")}
+              </Button>
+              <Button
+                variant="primary"
+                disabled={!editingIsValid || update.isPending}
+                onClick={() => {
+                  if (!editingIsValid) return;
+                  update.mutate({
+                    id: editing.id,
+                    label: editing.label.trim(),
+                    dayOfWeek: editing.dayOfWeek,
+                    startMin: hmToMin(editing.startTime),
+                    endMin: hmToMin(editing.endTime),
+                    active: editing.active,
+                  });
+                }}
+              >
+                {t(
+                  update.isPending
+                    ? "admin.timeslots.saving"
+                    : "admin.timeslots.save",
+                )}
+              </Button>
+            </>
+          }
+        >
+          <p className="muted mb-4">{t("admin.timeslots.propagationNote")}</p>
+          <fieldset
+            disabled={update.isPending}
+            className="grid min-w-0 gap-4 sm:grid-cols-2"
+          >
+            <label>
+              <span className="label">{t("admin.timeslots.label")}</span>
+              <input
+                className="input"
+                required
+                value={editing.label}
+                onChange={(event) =>
+                  setEditing({ ...editing, label: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              <span className="label">{t("admin.timeslots.day")}</span>
+              <select
+                className="select"
+                value={editing.dayOfWeek}
+                onChange={(event) =>
+                  setEditing({
+                    ...editing,
+                    dayOfWeek: Number(event.target.value),
+                  })
+                }
+              >
+                {[1, 2, 3, 4, 5, 6, 7].map((day) => (
+                  <option key={day} value={day}>
+                    {DAY_NAMES[day]}
+                  </option>
+                ))}
+              </select>
+            </label>
+            <label>
+              <span className="label">{t("admin.timeslots.start")}</span>
+              <input
+                className="input"
+                type="time"
+                value={editing.startTime}
+                onChange={(event) =>
+                  setEditing({ ...editing, startTime: event.target.value })
+                }
+              />
+            </label>
+            <label>
+              <span className="label">{t("admin.timeslots.end")}</span>
+              <input
+                className="input"
+                type="time"
+                value={editing.endTime}
+                onChange={(event) =>
+                  setEditing({ ...editing, endTime: event.target.value })
+                }
+              />
+            </label>
+            <label className="flex min-h-11 items-center gap-2">
+              <input
+                type="checkbox"
+                checked={editing.active}
+                onChange={(event) =>
+                  setEditing({ ...editing, active: event.target.checked })
+                }
+              />
+              {t("admin.timeslots.colActive")}
+            </label>
+          </fieldset>
+          {update.error && (
+            <p role="alert" className="mt-3 text-sm text-red-700">
+              {update.error.message}
+            </p>
+          )}
+        </Modal>
+      )}
     </div>
   );
 }

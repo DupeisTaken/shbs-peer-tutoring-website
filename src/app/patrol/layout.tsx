@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 
@@ -6,8 +5,7 @@ import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { getFeatures } from "~/server/program/features";
 import { SignOutButton } from "~/app/_components/sign-out-button";
-import { LanguageSwitcher } from "~/app/_components/language-switcher";
-import { ThemeSwitcher } from "~/app/_components/theme-switcher";
+import { WorkspaceHeader } from "~/app/_components/workspace-header";
 import { TEAM_TITLE } from "~/lib/branding";
 
 /**
@@ -15,7 +13,11 @@ import { TEAM_TITLE } from "~/lib/branding";
  * crew) or an elevated role (admins/coordinators oversee the crew). Server-enforced, in addition to
  * the `crewProcedure` on every mutation.
  */
-export default async function PatrolLayout({ children }: { children: React.ReactNode }) {
+export default async function PatrolLayout({
+  children,
+}: {
+  children: React.ReactNode;
+}) {
   const session = await auth();
   if (!session?.user) redirect("/signin");
   // Keep appeal access available even when crew access or the entire module is disabled.
@@ -30,7 +32,9 @@ export default async function PatrolLayout({ children }: { children: React.React
   if (!features.CREW) redirect("/");
 
   const elevated =
-    session.role === "HEAD" || session.role === "ADMIN" || session.role === "COORDINATOR";
+    session.role === "HEAD" ||
+    session.role === "ADMIN" ||
+    session.role === "COORDINATOR";
   // Crew (any status) and crew-only logins reach the portal; the page itself gates patrolling on
   // ACTIVE and shows a read-only notice otherwise. Elevated roles oversee the crew.
   const isCrew = me?.crewStatus != null || session.role === "CREW";
@@ -42,30 +46,26 @@ export default async function PatrolLayout({ children }: { children: React.React
 
   return (
     <div className="min-h-screen">
-      <header className="sticky top-0 z-20 border-b border-slate-200 bg-white">
-        <div className="flex flex-wrap items-center justify-between gap-3 px-4 py-3 lg:px-6">
-          <Link href="/patrol" className="text-lg font-bold text-slate-900">
-            {t("crew.brand", { team: TEAM_TITLE })}
-          </Link>
-          <div className="flex flex-wrap items-center justify-end gap-2 sm:gap-3">
-            <div className="hidden text-right leading-tight sm:block">
-              <p className="text-sm font-medium text-slate-900">{session.user.name}</p>
-              <p className="muted text-xs">{t("crew.role")}</p>
-            </div>
-            <Link href="/student" prefetch={false} className="btn-secondary btn-sm">
-              {t("components.userMenu.enterTutee")}
-            </Link>
-            <ThemeSwitcher />
-            <LanguageSwitcher />
-            {backHref && (
-              <Link href={backHref} className="btn-secondary btn-sm">
-                {t("crew.exit")}
-              </Link>
-            )}
-            <SignOutButton />
+      <WorkspaceHeader
+        href="/patrol"
+        title={t("crew.brand", { team: TEAM_TITLE })}
+        items={[
+          ...(session.role !== "VIEWER"
+            ? [{ href: "/student", label: t("components.userMenu.enterTutee") }]
+            : []),
+          ...(backHref ? [{ href: backHref, label: t("crew.exit") }] : []),
+        ]}
+        identity={
+          <div className="text-right leading-tight">
+            <p className="text-sm font-medium">{session.user.name}</p>
+            <p className="muted text-xs">{t("crew.role")}</p>
           </div>
-        </div>
-      </header>
+        }
+        account={
+          <SignOutButton className="btn-secondary btn-sm min-h-11 lg:min-h-8 lg:py-0" />
+        }
+      />
+
       <main className="mx-auto max-w-3xl px-4 py-8">{children}</main>
     </div>
   );

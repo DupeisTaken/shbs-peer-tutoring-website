@@ -76,6 +76,42 @@ it("retains failed saves across later successes and deduplicates repeated errors
   expect(screen.queryByRole("alert")).toBeNull();
 });
 
+it.each([
+  ["en", messages],
+  ["zh", zh],
+] as const)(
+  "translates historical correction failures in %s global notices",
+  (locale, catalog) => {
+    render(
+      <NextIntlClientProvider locale={locale} messages={catalog}>
+        <SaveNotifications />
+      </NextIntlClientProvider>,
+    );
+    const codes = [
+      "HISTORICAL_STALE",
+      "HISTORICAL_OWNERSHIP_CONFLICT",
+      "HISTORICAL_PREVIEW_REQUIRED",
+      "HISTORICAL_EDITOR_REQUIRED",
+    ] as const;
+    act(() => {
+      for (const message of codes)
+        window.dispatchEvent(
+          new CustomEvent("admin-save-result", {
+            detail: { kind: "error", message },
+          }),
+        );
+    });
+    const notices = screen
+      .getAllByRole("alert")
+      .map((item) => item.textContent)
+      .join(" ");
+    for (const code of codes) {
+      expect(notices).toContain(catalog.historicalAcademics[code]);
+      expect(notices).not.toContain(code);
+    }
+  },
+);
+
 it("keeps a queued approval and a later direct save in the same non-overlapping viewport", () => {
   render(
     <NotificationViewport>

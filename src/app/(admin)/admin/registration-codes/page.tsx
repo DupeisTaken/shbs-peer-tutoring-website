@@ -1,5 +1,9 @@
 "use client";
-import { REGISTRATION_KINDS, registrationKindLabel, type RegistrationKind } from "~/lib/registration-kind";
+import {
+  REGISTRATION_KINDS,
+  registrationKindLabel,
+  type RegistrationKind,
+} from "~/lib/registration-kind";
 import { EmailDetails } from "~/app/_components/email-details";
 
 import { useEffect, useState } from "react";
@@ -9,6 +13,7 @@ import { api } from "~/trpc/react";
 import { useBranding } from "~/app/_components/branding-provider";
 import { DisclosureIcon } from "~/app/_components/icons";
 import { useReadOnly } from "~/app/_components/read-only";
+import { Button } from "~/app/_components/ui/button";
 
 /**
  * A compact, screenshot-ready setup card for a new tutor: the heading, the code in a two-line box
@@ -35,7 +40,9 @@ function ShareCard({
         {t("admin.registrationCodes.share.heading", { appTitle: APP_TITLE })}
       </p>
 
-      <p className="mt-2 font-semibold text-slate-700">{t(`admin.registrationCodes.${registrationKindLabel[kind]}`)}</p>
+      <p className="mt-2 font-semibold text-slate-700">
+        {t(`admin.registrationCodes.${registrationKindLabel[kind]}`)}
+      </p>
       {/* The code box — two centered lines: label + digits (same dashed-green scheme). */}
       <div className="mt-3 inline-block rounded-lg border-2 border-dashed border-green-300 bg-green-50 px-6 py-3 text-center">
         <p className="text-xs font-semibold tracking-wide text-green-700 uppercase">
@@ -120,7 +127,9 @@ export default function RegistrationCodesPage() {
       <div>
         <h1 className="page-title">{t("admin.registrationCodes.title")}</h1>
         <p className="muted mt-1">{t("admin.registrationCodes.help")}</p>
-        <p className="muted mt-2 text-sm">{t("admin.registrationCodes.managementHelp")}</p>
+        <p className="muted mt-2 text-sm">
+          {t("admin.registrationCodes.managementHelp")}
+        </p>
       </div>
 
       {!readOnly && (
@@ -135,7 +144,9 @@ export default function RegistrationCodesPage() {
             });
           }}
         >
-          <div>
+          {/* Bound each flex item as well as its content-sized control; otherwise
+              a long draft gives the wrapper an overflowing intrinsic width. */}
+          <div className="min-w-0 max-w-full">
             <label className="label" htmlFor="invite-kind">
               {t("admin.registrationCodes.kindField")}
             </label>
@@ -143,12 +154,16 @@ export default function RegistrationCodesPage() {
               id="invite-kind"
               value={kind}
               onChange={(e) => setKind(e.target.value as RegistrationKind)}
-              className="select field-auto min-h-11 min-w-32 lg:min-h-10"
+              className="select field-auto-bounded min-h-11 [--field-min-width:8rem] lg:min-h-10"
             >
-              {REGISTRATION_KINDS.map((value) => <option key={value} value={value}>{t(`admin.registrationCodes.${registrationKindLabel[value]}`)}</option>)}
+              {REGISTRATION_KINDS.map((value) => (
+                <option key={value} value={value}>
+                  {t(`admin.registrationCodes.${registrationKindLabel[value]}`)}
+                </option>
+              ))}
             </select>
           </div>
-          <div>
+          <div className="min-w-0 max-w-full">
             <label className="label">
               {t("admin.registrationCodes.labelField")}
             </label>
@@ -156,10 +171,10 @@ export default function RegistrationCodesPage() {
               value={label}
               onChange={(e) => setLabel(e.target.value)}
               placeholder={t("admin.registrationCodes.labelPlaceholder")}
-              className="input field-auto min-h-11 min-w-44 lg:min-h-10"
+              className="input field-auto-bounded min-h-11 [--field-min-width:11rem] lg:min-h-10"
             />
           </div>
-          <div>
+          <div className="min-w-0 max-w-full">
             <label className="label">
               {t("admin.registrationCodes.emailField")}
             </label>
@@ -168,10 +183,13 @@ export default function RegistrationCodesPage() {
               onChange={(e) => setEmail(e.target.value)}
               type="email"
               placeholder={t("admin.registrationCodes.emailPlaceholder")}
-              className="input field-auto min-h-11 min-w-52 lg:min-h-10"
+              className="input field-auto-bounded min-h-11 [--field-min-width:13rem] lg:min-h-10"
             />
           </div>
-          <button className="btn-primary min-h-11 lg:min-h-10" disabled={issue.isPending}>
+          <button
+            className="btn-primary min-h-11 lg:min-h-10"
+            disabled={issue.isPending}
+          >
             {t("admin.registrationCodes.issue")}
           </button>
         </form>
@@ -218,34 +236,41 @@ export default function RegistrationCodesPage() {
           const open = expandedId === c.id;
           return (
             <div key={c.id} className="rounded-lg border border-slate-200 p-4">
-              {/* Header: disclosure + label + status; expiry + revoke on the right (always shown). */}
+              {/* Both groups may shrink and wrap: long labels must never push record actions offscreen. */}
               <div className="flex flex-wrap items-start justify-between gap-3">
-                <div className="flex min-w-0 items-start gap-2">
-                  <button
-                    type="button"
-                    className="mt-0.5 shrink-0 text-slate-400 hover:text-slate-700"
-                    aria-label={
+                <div className="flex max-w-full min-w-0 items-start gap-2">
+                  <Button
+                    variant="ghost"
+                    size="compact"
+                    className="shrink-0 px-2 text-slate-500 hover:text-slate-700"
+                    aria-expanded={open}
+                    aria-controls={`registration-code-${c.id}`}
+                    aria-label={`${
                       open
                         ? t("admin.registrationCodes.collapse")
                         : t("admin.registrationCodes.expand")
-                    }
+                    }: ${c.label ?? c.tutorName ?? "—"}`}
                     onClick={() => setExpandedId(open ? null : c.id)}
                   >
                     <DisclosureIcon open={open} />
-                  </button>
+                  </Button>
                   <div className="min-w-0">
-                    <p className="font-medium text-slate-900">
+                    <p className="font-medium [overflow-wrap:anywhere] text-slate-900">
                       {c.label ?? c.tutorName ?? "—"}
                       <span className={`${statusBadge(c.status)} ml-2`}>
                         {t(`admin.registrationCodes.status.${c.status}`)}
                       </span>
-                      <span className="badge-slate ml-2">{t(`admin.registrationCodes.${registrationKindLabel[c.kind]}`)}</span>
+                      <span className="badge-slate ml-2">
+                        {t(
+                          `admin.registrationCodes.${registrationKindLabel[c.kind]}`,
+                        )}
+                      </span>
                     </p>
                   </div>
                 </div>
-                <div className="flex shrink-0 flex-wrap items-center justify-end gap-3">
+                <div className="flex w-full min-w-0 flex-wrap items-center gap-3 lg:w-auto lg:justify-end">
                   {/* Issuer account + bound email, to the left of the expiry. */}
-                  <div className="text-right text-xs leading-tight text-slate-500">
+                  <div className="min-w-0 text-xs leading-tight [overflow-wrap:anywhere] text-slate-500 lg:text-right">
                     <p>
                       {t("admin.registrationCodes.colIssuedBy")}:{" "}
                       {c.issuedByName ?? "—"}
@@ -285,9 +310,13 @@ export default function RegistrationCodesPage() {
                 </div>
               </div>
 
-              {open && (
-                <div className="mt-3 space-y-3 border-t border-slate-100 pt-3">
-                  {c.code && c.status === "active" ? (
+              <div
+                id={`registration-code-${c.id}`}
+                hidden={!open}
+                className="mt-3 space-y-3 border-t border-slate-100 pt-3"
+              >
+                {open &&
+                  (c.code && c.status === "active" ? (
                     <ShareCard
                       code={c.code}
                       kind={c.kind}
@@ -311,9 +340,8 @@ export default function RegistrationCodesPage() {
                     <p className="muted text-sm">
                       {t("admin.registrationCodes.noCode")}
                     </p>
-                  )}
-                </div>
-              )}
+                  ))}
+              </div>
             </div>
           );
         })}

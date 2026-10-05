@@ -1,18 +1,29 @@
 "use client";
 import { useState } from "react";
-import { useTranslations } from "next-intl";
+import { useFormatter, useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
 import { TimedActionDialog } from "~/app/_components/timed-action-dialog";
 import { DAY_NAMES, minToHm } from "~/lib/time";
 type Row = RouterOutputs["studentWorkflow"]["tutorRoster"][number];
-export function StudentScheduleAction({ row }: { row: Row }) {
+export function StudentScheduleAction({
+  row,
+  active = true,
+  name = "",
+}: {
+  row: Row;
+  active?: boolean;
+  name?: string;
+}) {
   const t = useTranslations("workflow");
+  const tasks = useTranslations("tutor.tasks");
+  const format = useFormatter();
   const utils = api.useUtils();
   const [open, setOpen] = useState(false);
   const [reason, setReason] = useState("");
   const request = api.studentWorkflow.rejectSchedule.useMutation({
     onSuccess: async () => {
       setOpen(false);
+      setReason("");
       await utils.studentWorkflow.tutorRoster.invalidate();
     },
   });
@@ -24,6 +35,16 @@ export function StudentScheduleAction({ row }: { row: Row }) {
         )}
         {row.editedAt && <span className="badge-amber">{t("edited")}</span>}
       </div>
+      {!row.verified && row.verificationDueAt && (
+        <p className="text-sm font-medium text-amber-800">
+          {tasks("verificationDeadline", {
+            date: format.dateTime(row.verificationDueAt, {
+              dateStyle: "medium",
+              timeStyle: "short",
+            }),
+          })}
+        </p>
+      )}
       <p className="muted text-xs">
         {t("availability")}:{" "}
         {row.slots
@@ -35,22 +56,21 @@ export function StudentScheduleAction({ row }: { row: Row }) {
       </p>
       {row.pending ? (
         <span className="badge-amber">{t("needsReview")}</span>
-      ) : (
+      ) : active ? (
         <button
-          className="link text-xs"
+          className="link inline-flex min-h-11 items-center text-xs lg:min-h-7"
           onClick={() => {
-            setReason("");
             setOpen(true);
           }}
         >
           {t("scheduleReject")}
         </button>
-      )}
+      ) : null}
       {open && (
         <TimedActionDialog
           action="SCHEDULE"
           target={`${row.pairingId}:${row.tuteeId}`}
-          title={t("scheduleReject")}
+          title={`${t("scheduleReject")}${name ? `: ${name}` : ""}`}
           message={t("scheduleConsequences")}
           busy={request.isPending}
           error={request.error?.message}
@@ -72,6 +92,7 @@ export function StudentScheduleAction({ row }: { row: Row }) {
               rows={3}
               maxLength={2000}
               value={reason}
+              disabled={request.isPending}
               onChange={(e) => setReason(e.target.value)}
             />
           </label>

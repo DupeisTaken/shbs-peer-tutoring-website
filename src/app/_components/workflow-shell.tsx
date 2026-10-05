@@ -1,12 +1,11 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { getTranslations } from "next-intl/server";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
-import { NotificationBell } from "./notification-bell";
-import { LanguageSwitcher } from "./language-switcher";
+import { WorkspaceHeader } from "./workspace-header";
+import { SectionLinks } from "./section-links";
+import { APP_TITLE } from "~/lib/branding";
 import { SignOutButton } from "./sign-out-button";
-import { ThemeSwitcher } from "./theme-switcher";
 
 /** Shared, small shell for participant and management workflows; APIs enforce data ownership. */
 export async function WorkflowShell({
@@ -28,48 +27,37 @@ export async function WorkflowShell({
   const t = await getTranslations("workflows");
   const account = await getTranslations("components.userMenu");
   return (
-    <main className="mx-auto max-w-5xl space-y-6 px-4 py-6">
-      <header className="flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 pb-4">
-        <nav className="flex flex-wrap gap-4 text-sm">
-          {staff && (
-            <Link className="btn-secondary btn-sm" href="/admin">
-              {account("enterAdmin")}
-            </Link>
-          )}
-          <Link className="link" href="/my-account">
-            {t("settings")}
-          </Link>
-          <Link className="link" href="/">
-            {t("home")}
-          </Link>
-          {/* Viewers must request a membership change before entering tutee onboarding. */}
-          {user.role !== "VIEWER" && (
-            <Link
-              className="btn-secondary btn-sm"
-              href="/student"
-              prefetch={false}
-            >
-              {account("enterTutee")}
-            </Link>
-          )}
-          <Link className="link" href="/messages">
-            {t("messages")}
-          </Link>
-          {staff && (
-            <Link className="link" href="/student-support">
-              {t("support")}
-            </Link>
-          )}
-        </nav>
-        <div className="flex items-center gap-2">
-          <ThemeSwitcher />
-          <NotificationBell />
-          <LanguageSwitcher />
-          <SignOutButton />
-        </div>
-      </header>
-      <h1 className="page-title">{title}</h1>
-      {children}
-    </main>
+    <div className="min-h-screen">
+      <WorkspaceHeader
+        href="/"
+        title={APP_TITLE}
+        items={[
+          ...(staff ? [{ href: "/admin", label: account("enterAdmin") }] : []),
+          // A Viewer must change membership before entering participant onboarding.
+          ...(user.role !== "VIEWER"
+            ? [{ href: "/student", label: account("enterTutee") }]
+            : []),
+        ]}
+        identity={<span className="text-sm font-medium">{user.name}</span>}
+        account={
+          <SignOutButton className="btn-secondary btn-sm min-h-11 lg:min-h-8 lg:py-0" />
+        }
+      />
+      <main className="mx-auto max-w-5xl space-y-6 px-4 py-6">
+        <SectionLinks
+          label={title}
+          items={[
+            { href: "/my-account", label: t("settings") },
+            { href: "/", label: t("home") },
+            { href: "/messages", label: t("messages") },
+            ...(staff
+              ? [{ href: "/student-support", label: t("support") }]
+              : []),
+          ]}
+        />
+        <h1 className="page-title">{title}</h1>
+        {children}
+      </main>
+    </div>
   );
 }

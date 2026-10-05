@@ -5,6 +5,8 @@ import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { tutorSubjectRows } from "~/lib/subject-availability";
 import { DisclosureIcon } from "./icons";
+import { ChoiceButton } from "./ui/button";
+import { FilterToolbar } from "./ui/patterns";
 
 export function SubjectAvailability() {
   const t = useTranslations("subjectAvailability");
@@ -170,31 +172,33 @@ export function SubjectAvailability() {
             {/* Mount only expanded catalogues; large rosters should not create hidden form trees. */}
             {open && (
               <div id={id} className="space-y-3 border-t border-slate-100 p-4">
-                <div
-                  role="group"
-                  aria-label={t("filtersFor", { name: tutor.englishName })}
-                  className="flex flex-wrap gap-2 lg:justify-end"
+                <FilterToolbar
+                  label={t("filtersFor", { name: tutor.englishName })}
                 >
-                  {(["qualified", "pendingReview", "willing"] as const).map(
-                    (value) => (
-                      <button
-                        key={value}
-                        type="button"
-                        aria-pressed={selected === value}
-                        className={`${selected === value ? "btn-primary" : "btn-secondary"} btn-sm min-h-11 whitespace-normal lg:min-h-8`}
-                        onClick={() =>
-                          setTutorFilters((previous) => ({
-                            ...previous,
-                            [tutor.id]:
-                              previous[tutor.id] === value ? null : value,
-                          }))
-                        }
-                      >
-                        {t(value)}
-                      </button>
-                    ),
-                  )}
-                </div>
+                  <div
+                    role="group"
+                    aria-label={t("filtersFor", { name: tutor.englishName })}
+                    className="flex flex-wrap gap-2 lg:justify-end"
+                  >
+                    {(["qualified", "pendingReview", "willing"] as const).map(
+                      (value) => (
+                        <ChoiceButton
+                          key={value}
+                          selected={selected === value}
+                          onClick={() =>
+                            setTutorFilters((previous) => ({
+                              ...previous,
+                              [tutor.id]:
+                                previous[tutor.id] === value ? null : value,
+                            }))
+                          }
+                        >
+                          {t(value)}
+                        </ChoiceButton>
+                      ),
+                    )}
+                  </div>
+                </FilterToolbar>
                 {visible.map((row) => (
                   <article
                     key={row.id}

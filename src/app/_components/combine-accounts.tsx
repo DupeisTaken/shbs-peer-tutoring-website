@@ -3,11 +3,14 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { api, type RouterOutputs } from "~/trpc/react";
+import { Button } from "./ui/button";
+import { StatePanel } from "./ui/patterns";
 
 /** Kept independent of roster filters: a deliberate pair selection never follows matching names.
  * Any selection change discards the preview and password, preventing stale confirmation. */
 export function CombineAccounts() {
   const t = useTranslations("combineAccounts");
+  const patterns = useTranslations("uiPatterns");
   const utils = api.useUtils();
   const [open, setOpen] = useState(false);
   const [survivorId, setSurvivorId] = useState("");
@@ -93,6 +96,30 @@ export function CombineAccounts() {
           <p className="rounded-lg bg-amber-50 p-3 text-sm text-amber-950">
             {t("warning")}
           </p>
+          {candidates.error && (
+            <StatePanel
+              kind="error"
+              title={patterns("loadFailed")}
+              action={
+                <Button
+                  disabled={candidates.isFetching}
+                  onClick={() => void candidates.refetch()}
+                >
+                  {patterns("retry")}
+                </Button>
+              }
+            >
+              {candidates.error.message}
+            </StatePanel>
+          )}
+          {!candidates.data && !candidates.error && (
+            <StatePanel kind="loading" title={t("loading")} />
+          )}
+          {candidates.data?.length === 0 && (
+            <StatePanel kind="empty" title={t("noCandidates")} />
+          )}
+          {/* Keep cached identities visible after a transient failure; only initial
+              unavailability prevents selection. Preview authority stays server-side. */}
           <div className="grid gap-4 md:grid-cols-2">
             {(["survivor", "duplicate"] as const).map((kind) => (
               <label key={kind} className="space-y-1 text-sm font-medium">
@@ -100,7 +127,7 @@ export function CombineAccounts() {
                 <select
                   className="input min-h-11 w-full"
                   value={kind === "survivor" ? survivorId : duplicateId}
-                  disabled={pending}
+                  disabled={pending || !candidates.data?.length}
                   onChange={(event) => {
                     resetReview();
                     (kind === "survivor" ? setSurvivorId : setDuplicateId)(
@@ -126,16 +153,12 @@ export function CombineAccounts() {
               </label>
             ))}
           </div>
-          {candidates.error && (
-            <p role="alert" className="text-sm text-red-700">
-              {candidates.error.message}
-            </p>
-          )}
           <button
             type="button"
             className="btn-secondary min-h-11"
             disabled={
               pending ||
+              !candidates.data?.length ||
               !survivorId ||
               !duplicateId ||
               survivorId === duplicateId

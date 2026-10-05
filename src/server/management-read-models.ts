@@ -76,13 +76,14 @@ const room = summary("id name patrolOrder createdAt", {
   ).optional(),
 });
 const tutee = summary(
-  "id englishName firstName lastName preferredName legacyName alternativeNames gradeLevel academicallyGraduated status firstChoiceId secondChoiceId signedRulebook signedAt createdAt updatedAt signupSource intakeTermId signupSubmittedAt historical",
+  "id englishName firstName lastName preferredName legacyName alternativeNames gradeLevel academicallyGraduated status firstChoiceId secondChoiceId signedRulebook signedAt createdAt updatedAt signupSource intakeTermId signupSubmittedAt historical historicalGrade",
   {
     gradeLevel: schoolGrade,
     user: account.nullish(),
     owner: account.nullish(),
     academic: academic.optional(),
     enrollmentPeriod: summary("schoolYear quarter").nullish(),
+    enrollmentCorrection: summary("schoolYear", { rawGrade: schoolGrade }).nullish(),
     firstChoice: subject.nullish(),
     secondChoice: subject.nullish(),
     availabilities: list(summary("tuteeId slotId", { slot })).optional(),

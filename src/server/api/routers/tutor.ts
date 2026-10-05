@@ -31,7 +31,7 @@ import { semesterQuarters } from "~/lib/period";
 import { getActivePeriodOrNull } from "~/server/period";
 import { reconcileApplication } from "~/server/tutors/application-status";
 import { notifyAdmins, notifyTutors } from "~/server/notifications/create";
-import { verifyPassword } from "~/server/auth/password";
+import { verifyPasswordConfirmation } from "~/server/auth/password-confirmation";
 import { changeVerifiedPassword } from "~/server/auth/session-version";
 import { issueStepUpCode, verifyStepUpCode } from "~/server/auth/step-up";
 import { isEmailDeliveryAvailable } from "~/server/email/sender";
@@ -947,15 +947,14 @@ export const tutorRouter = createTRPCRouter({
    * code (step-up 2FA). Returns the masked address. The code is required in `changePassword`.
    */
   requestPasswordChangeCode: tutorProcedure
-    .input(z.object({ currentPassword: z.string().min(1) }))
+    .input(z.object({ currentPassword: z.string().min(1).max(1024) }))
     .mutation(async ({ ctx, input }) => {
       const user = await ctx.db.user.findUniqueOrThrow({
         where: { id: ctx.session.user.id },
         select: { passwordHash: true },
       });
       if (
-        !user.passwordHash ||
-        !verifyPassword(input.currentPassword, user.passwordHash)
+        !verifyPasswordConfirmation(ctx.session.user.id, input.currentPassword, user.passwordHash)
       ) {
         throw new TRPCError({
           code: "BAD_REQUEST",
@@ -990,8 +989,8 @@ export const tutorRouter = createTRPCRouter({
   changePassword: tutorProcedure
     .input(
       z.object({
-        currentPassword: z.string().min(1),
-        newPassword: z.string().min(8, "Use at least 8 characters."),
+        currentPassword: z.string().min(1).max(1024),
+        newPassword: z.string().min(8, "Use at least 8 characters.").max(1024),
         code: z.string().trim().optional(),
       }),
     )
@@ -1001,8 +1000,7 @@ export const tutorRouter = createTRPCRouter({
         select: { passwordHash: true },
       });
       if (
-        !user.passwordHash ||
-        !verifyPassword(input.currentPassword, user.passwordHash)
+        !verifyPasswordConfirmation(ctx.session.user.id, input.currentPassword, user.passwordHash)
       ) {
         throw new TRPCError({
           code: "BAD_REQUEST",

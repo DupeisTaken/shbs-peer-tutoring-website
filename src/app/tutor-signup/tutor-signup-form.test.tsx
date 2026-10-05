@@ -153,12 +153,9 @@ it("keeps a required third subject in its original position when the second is h
   ).toBeNull();
   fireEvent.change(selectors[0]!, { target: { value: "math" } });
   fireEvent.change(selectors[1]!, { target: { value: "science" } });
-  fireEvent.change(
-    screen.getByLabelText(
-      "firstName signupFields.required",
-    ),
-    { target: { value: "Tutor" } },
-  );
+  fireEvent.change(screen.getByLabelText("firstName signupFields.required"), {
+    target: { value: "Tutor" },
+  });
   fireEvent.change(
     screen.getByLabelText(
       "public.tutorSignup.fields.email signupFields.required",
@@ -263,9 +260,7 @@ it("labels qualification answers and their conditional details", () => {
   render(<TutorSignupForm />);
   expect(
     screen
-      .getByLabelText(
-        "firstName signupFields.required",
-      )
+      .getByLabelText("firstName signupFields.required")
       .hasAttribute("required"),
   ).toBe(true);
   fireEvent.change(
@@ -283,4 +278,35 @@ it("labels qualification answers and their conditional details", () => {
       .getByLabelText("public.tutorSignup.fields.grade signupFields.optional")
       .hasAttribute("required"),
   ).toBe(false);
+});
+
+it("retains entered identity and groups when cached prerequisites fail", () => {
+  const view = render(<TutorSignupForm />);
+  const name = screen.getByLabelText<HTMLInputElement>(
+    "firstName signupFields.required",
+  );
+  fireEvent.change(name, { target: { value: "Retained draft" } });
+  const cached = mocks.options.mock.results[0]?.value as object;
+  mocks.options.mockReturnValue({
+    ...cached,
+    isError: true,
+    error: { message: "Offline" },
+  });
+  view.rerender(<TutorSignupForm />);
+  expect(screen.getByRole("alert")).toBeTruthy();
+  expect(
+    screen.getByLabelText<HTMLInputElement>("firstName signupFields.required")
+      .value,
+  ).toBe("Retained draft");
+  expect(
+    screen.getByRole("group", { name: "signupSections.identityTitle" }),
+  ).toBeTruthy();
+  expect(
+    screen.getByRole("group", { name: "signupSections.agreementTitle" }),
+  ).toBeTruthy();
+  expect(
+    screen
+      .getByRole("button", { name: "public.tutorSignup.submit" })
+      .matches(":disabled"),
+  ).toBe(true);
 });

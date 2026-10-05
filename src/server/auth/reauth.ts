@@ -11,7 +11,7 @@
 import { TRPCError } from "@trpc/server";
 
 import { db } from "~/server/db";
-import { verifyPassword } from "./password";
+import { verifyPasswordConfirmation } from "./password-confirmation";
 
 /**
  * Throw unless `password` matches the signed-in user's current password. Used to gate dangerous
@@ -29,7 +29,7 @@ export async function assertCallerPassword(userId: string, password: string): Pr
       message: "Set a password on your account before performing this action.",
     });
   }
-  if (!verifyPassword(password, user.passwordHash)) {
+  if (!verifyPasswordConfirmation(userId, password, user.passwordHash)) {
     throw new TRPCError({ code: "FORBIDDEN", message: "Password is incorrect." });
   }
 }

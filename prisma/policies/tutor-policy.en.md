@@ -1,6 +1,6 @@
 # SHBS Peer Tutoring Tutor Policy
 
-**Revision:** 2026.09.24 | **Status:** Draft for school review
+**Revision:** 2026.10.02 | **Status:** Draft for school review
 
 This policy establishes expectations, responsibilities and procedures for tutors in the SHBS Peer Tutoring Program. It retains the structure of the October 2025 policy and incorporates the program website.
 
@@ -73,7 +73,7 @@ For example, 35 minutes with two present tutees earns 1 × (1 + 2) = 3 hours. A 
 
 Completed interviews credit actual recorded minutes divided by 60 to recorded attendees. Scheduling alone earns nothing. Management records completion, duration and attendees; corrections replace earlier automatic credits. Authorized extra hours and deductions appear separately in period totals.
 
-Tutor status does not grant crew membership. An active crew member's submitted patrol with at least one room observation earns 0.5 crew hours separately from tutoring. Record actual observation times and headcounts; retries do not add credit. Crew opt-out requires a seven-day wait and approval; reentry requires approval without that wait.
+Tutor status does not grant crew membership. An active crew member's eligible patrol with at least one room observation earns 0.5 crew hours separately from tutoring, at most once every 20 minutes measured by the server across combined accounts. All observations must be from the preceding 20 minutes, with a one-minute future allowance for device clock differences. Older observations, repeated evidence and patrols submitted during the cooldown are saved with zero additional hours. Each 20-minute observation interval can support credit only once across all rooms, even if room order, counts or notes change. Record actual observation times and headcounts; identical retries return the original result. Corrections preserve hours and reservations for both original and corrected evidence. Crew opt-out requires a seven-day wait and approval; reentry requires approval without that wait.
 
 ## IV. Policy Enforcement and Penalties
 
@@ -157,4 +157,4 @@ Keep passwords, codes and account links private. Change login email through veri
 
 By explicitly accepting the school's published version, tutors agree to these responsibilities and procedures. Contact management with questions before accepting.
 
-**The Peer Tutoring Team** | **Revision:** 2026.09.24 | **Draft for school review**
+**The Peer Tutoring Team** | **Revision:** 2026.10.02 | **Draft for school review**

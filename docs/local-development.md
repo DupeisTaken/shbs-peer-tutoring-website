@@ -22,6 +22,13 @@ Normal builds retain Next's default cache behavior. `SHBS_BUILD_CPUS=1` limits l
 
 Keep local screenshots and verification logs in ignored `outputs/` or `.validation/`.
 
+CAPTCHA grant/admission tests use an isolated provider fixture, including the SDK
+configuration and runtime-option constructors. The separate
+`src/server/captcha/aliyun-runtime.test.ts` compatibility test constructs the real
+installed SDK client and models, replacing only its network method. Run both when
+changing that boundary. A focused pass does not replace a complete-suite pass;
+retain failed full-run receipts when investigating timing failures.
+
 ## Prerequisites
 
 - **Node 22 (CI baseline)** and **npm**
@@ -90,6 +97,11 @@ Review the daemon's routing/firewall configuration too: Docker documents a
 The daemon-free regression suite is `npm run test:deployment` (requires Bash;
 on Windows set `SHBS_TEST_BASH` to the Git Bash executable). It executes the real
 helper against stub commands, so it does not start Docker/Podman or a database.
+The same serial suite tests the [private network evidence collector](deployment.md#collect-a-private-host-inventory)
+against synthetic listener/Docker commands, including timeouts, permission errors,
+output/inventory limits and secret exclusion. It never queries the real daemon or
+probes production. Production acceptance still requires the operator worksheet and
+independent external checks in the deployment runbook.
 
 ### Option B — An existing local Postgres
 
@@ -161,8 +173,59 @@ Try the public forms (no login required):
 - **Student signup** at `/signup` reserves a survey timestamp before account verification. The request queue (`/admin/requests`) tracks verified and unverified demand. The local email link confirms the request and creates the account; assignment starts a fixed verification deadline if it is still unverified.
 - **Tutor application** at `/tutor-signup` starts recruitment. Assign at least three active tutor accounts, a highest-ranking management chair, and explicit subject qualification coverage. Every panelist votes; the majority determines the outcome and the chair breaks ties. A coordinator chair's decision requires ADMIN/HEAD approval.
 - **Crew application** at `/crew-signup` starts the separate crew membership workflow.
+- **History-only access** starts from a staff-reviewed historical tutee invitation at `/history/claim`. Rehearse with synthetic archive records: send the invitation in the roster editor, verify a separate email code, create credentials, sign in and explicitly claim the record. No current enrollment or policy acceptance is needed. Keep development email tokens/codes in ignored local logs, never public evidence.
 
 Follow the [role guide](user-guide.md) using the [demo accounts](#demo-accounts-and-workflows). Real SMTP setup and final school policy approval remain launch configuration work; local capture delivers no external mail.
+
+### UI pattern gallery
+
+While `npm run dev` is running, sign in with a local demo account and open `/ui-gallery`. The gallery renders real shared components with synthetic data and no application mutations. Language, accent theme and form-state controls expose English/Chinese, all six palettes and editable/saving/error/read-only examples. Theme previews do not write the theme cookie and restore the previous theme when leaving the gallery. Reload resets the example data.
+
+Resize the browser to test the actual viewport and breakpoints; a narrow card inside a desktop window does not simulate mobile CSS. Check the form save scope, selection state, tab keyboard navigation, dialog focus, brief table columns, rightmost text-link detail entries, comparison-table scrolling and recovery controls. Confirm actions remain reachable before and after horizontal scrolling. Follow [AGENTS.md](../AGENTS.md) for rendered control measurements. Store screenshots in ignored `outputs/` or `.validation/` and include real pages in visual verification.
+
+The composition examples include a wide editor with nested review and policy reader, four-part participant identity, a wrapping filter toolbar, explicit disclosure lifetimes, three different settings/save models, versioned change review and background failures that retain drafts. Exercise nested Escape and focus return, save failure/retry, preview invalidation and collapse/reopen. The public card reuses production framing. These examples use synthetic state; verify domain permissions and real versioned writes on the actual pages as well.
+
+The `/ui-gallery` server page calls `notFound()` in production, and normal authentication still applies in development. Focused gallery tests require no database:
+
+```bash
+npx vitest run src/app/ui-gallery --maxWorkers=1
+```
+
+For the additional-qualification entry dialog, run `npx vitest run src/app/_components/qualification-review.test.tsx src/app/_components/qualification-review-dialog.test.tsx src/app/_components/qualification-review-cache.test.tsx --maxWorkers=1`. The real-database counterpart is `npx vitest run src/server/qualification-applications.test.ts --maxWorkers=1` against the isolated `shbs_shipping_test` database described below. On `/admin/applications`, rehearse both additional-subject and higher-level requests: initially closed review, entry without a write, Cancel/Escape and focus return, required notes, direct approval with no reject action, rejection only through the interview chair/voting workflow, delayed/failed writes, stale draft Reload, and saved-decision refresh recovery. Include server refusal of direct rejection for both request types and Admin/Head roles, interviews enabled/disabled, assigned-panel non-bypass and restricted roles at desktop/mobile sizes in English/Chinese.
+
+See [contributor guidance](contributing.md#reuse-interaction-patterns) for adding patterns and [technical boundaries](technical-report.md#shared-ui-patterns) for their responsibilities.
+
+### UI verification matrix
+
+Use one running local site with synthetic data and one browser session at a time.
+Record the commit, role, language, viewport, interaction and observed result beside
+the screenshots. Verify the affected application pages; a gallery screenshot alone
+does not establish authorization, native browser focus or persisted behavior.
+
+| Surface | Check in the running application |
+| --- | --- |
+| Tables | Brief cells; authorized text actions at the right edge before/after local scrolling; named region reachable by keyboard; populated, empty, error and read-only states |
+| Forms and dialogs | Save scope; pending fields/dismissal; failed-save draft retention; nested Escape/Tab and focus return; successful child write with pending refetch; actual long-content scrolling |
+| Cached queries | Initial loading/error/empty are distinct; background failure retains content and draft; Retry completes; explicit conflict Reload adopts data only on success |
+| Filters and settings | Pressed selections versus content tabs; filter/page reset rules; consistent control heights; immediate switches, unknown/yes/no choices and staged saves keep their own semantics |
+| Headers and navigation | Public, patrol, localization, management, tutor, tutee and standalone account headers: single utilities, 32 px desktop / 44 px narrow controls, wrapping labels, one H1; native route Back/Forward and manual local tab activation with retained drafts. At 200% text size, check actual control bounds and pixels for overlap: workspace utilities may wrap within their mobile grid area, preserving target sizes and keeping navigation unobscured. Document width alone cannot detect controls overlapping inside the header. |
+| Registration and reply | EN/ZH step count and heading focus; bound email, edit/reverify, resend failure and pending locks; reply below the sticky header, recipient context, separate drafts, cancel focus return, retry keys and permission failures |
+| Enabled signup CAPTCHA | Use an isolated local SDK fixture without paid provider calls. On tutee signup and Viewer identity/code/password resends, check native Verify/Cancel/Retry reachability outside disabled ancestors, frozen drafts, cancellation/rejection recovery, one write per accepted proof and rejection of a spent server grant |
+| Participant/public flows | Native invalid-name correction, legacy names, requirement markers, creation collapse/reopen, translated back/language navigation and existing consent boundaries |
+
+Use an actual narrow viewport such as 390 CSS pixels and a desktop viewport such
+as 1440 pixels; include the 1024 px boundary when sizing rules change. Check
+English/Chinese, long labels and enlarged text, and inspect all six accent palettes
+when shared styles change. Measure control bounds with `getBoundingClientRect()`
+against [the height hierarchy](../AGENTS.md#control-height-hierarchy). Check normal,
+hover, selected, disabled and focus states where the patch changes them. Distinguish
+palette layout checks from measured foreground/background contrast.
+
+Take clean screenshots after loading completes and separate captures for deliberate
+failure/pending scenarios. Wait for the specific recovery notice to clear before
+claiming Retry succeeded; another query may have its own error banner. Keep full
+mobile forms reviewable across multiple captures. Inspect the screenshots, record
+test limitations, and stop owned browser/server/database processes after checking.
 
 ## 5. Run the tests
 
@@ -211,6 +274,8 @@ npm run docs:check  # documentation links, headings and maintenance regressions
 ```
 
 Email ownership and notification regressions live in `src/server/auth/account-emails.test.ts`, with migration compatibility in `account-email-migration.test.ts` and component interaction coverage in `src/app/_components/account-emails.test.tsx`. Include expiry, failed delivery, legitimate registration, simultaneous claims, removal/recovery, gating and retry scenarios. Use synthetic accounts and captured mail for browser rehearsal; follow [email operations](deployment.md#optional-notification-delivery) for real deployments.
+
+History-only credentials and cancellation use `src/server/history-account-setup.test.ts` alongside `src/server/api/routers/tutee-history.test.ts`. These suites require the isolated `shbs_shipping_test` database and check archive preservation, shared email ownership, retries, cancellation/expiry, access scoping and transaction rollback. Include the existing account-combination and school-departure regressions when changing this boundary.
 
 ## 6. Smoke-test the production Docker stack (optional)
 

@@ -1,0 +1,9 @@
+{
+  "name": "@shbs/next-lint-glob",
+  "version": "1.0.0",
+  "private": true,
+  "main": "index.cjs",
+  "dependencies": {
+    "tinyglobby": "0.2.17"
+  }
+}

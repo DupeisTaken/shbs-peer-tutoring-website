@@ -14,6 +14,7 @@ vi.mock("next-intl/server", () => ({
   getTranslations: async () => (key: string) => key,
 }));
 vi.mock("next/navigation", () => ({
+  usePathname: () => "/messages",
   redirect: (path: string) => {
     throw new Error(path);
   },

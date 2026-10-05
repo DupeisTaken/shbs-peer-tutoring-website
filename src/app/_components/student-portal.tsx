@@ -21,121 +21,149 @@ export function canSubmitCardAppeal({
   return reviewStatus !== "INVALID" && !hasExistingAppeal && deadline >= now;
 }
 
-export function StudentPortal({ view = "all" }: { view?: "all" | "schedule" | "attendance" | "support" }) {
+export function StudentPortal({
+  view = "all",
+}: {
+  view?: "all" | "schedule" | "attendance" | "support";
+}) {
   const programFormat = useFormatter();
   const t = useTranslations("workflows");
   const portal = useTranslations("tuteePortal");
+  const attendance = useTranslations("tutor.attendance.tuteeStatusOpt");
   const scheduling = useTranslations("scheduling");
   const [page, setPage] = useState(0);
   const data = api.student.me.useQuery({ page });
-  const shared = api.student.feedbackSettings.useQuery(undefined, { enabled: view === "all" || view === "attendance" });
+  const shared = api.student.feedbackSettings.useQuery(undefined, {
+    enabled: view === "all" || view === "attendance",
+  });
   const { promptText, dialog } = useDialog();
   const appeal = api.student.appeal.useMutation({
     onSuccess: () => data.refetch(),
   });
   if (data.error) return <p role="alert">{data.error.message}</p>;
-  if (!data.data) return <p>{t("loading")}</p>;
+  if (!data.data) return <p role="status">{t("loading")}</p>;
   const { schedule, sessions, cards, appeals } = data.data;
   return (
     <div className="space-y-6">
       {dialog}
-      {(view === "all" || view === "schedule") && <section className="card p-6">
-        <h2 className="section-title">{t("schedule")}</h2>
-        {!schedule.length && (
-          <p className="muted mt-3">{portal("scheduleEmpty")}</p>
-        )}
-        {schedule.map((p) => (
-          <div key={p.id} className="mt-3 rounded-lg bg-slate-50 p-4">
-            <p className="font-semibold">
-              {p.subject} · {p.tutor.englishName}
-            </p>
-            <p className="muted">
-              {pairingScheduleText(p, scheduling("awaiting"))}
-              {p.scheduleConfirmed && p.room ? ` · ${p.room.name}` : ""}
-            </p>
-          </div>
-        ))}
-      </section>}
-      {(view === "all" || view === "attendance") && <section className="card space-y-4 p-6">
-        <h2 className="section-title">{t("attendance")}</h2>
-        <p className="muted text-sm">
-          {t(shared.data ? "sharedFeedback" : "privateFeedback")}
-        </p>
-        {!sessions.length && <p>{t("empty")}</p>}
-        {sessions.map((row) => (
-          <div
-            key={row.session.id}
-            className="rounded-lg border border-slate-200 p-4"
-          >
-            <p className="font-medium">
-              {programFormat.dateTime(row.session.date, { dateStyle: "medium", timeZone: "UTC" })} ·{" "}
-              {row.session.pairing.subject} · {row.status}
-            </p>
-            <FeedbackForm sessionId={row.session.id} initial={row.feedback} />
-          </div>
-        ))}
-      </section>}
-      {(view === "all" || view === "support") && <><section className="card space-y-4 p-6">
-        <h2 className="section-title">{t("cards")}</h2>
-        {!cards.length && <p className="muted">{t("empty")}</p>}
-        {cards.map((card) => (
-          <div key={card.id} className="rounded-lg border border-slate-200 p-4">
-            <p className="font-medium">
-              {card.color} · {card.reviewStatus}
-            </p>
-            <p>{card.reason}</p>
-            <p className="muted text-xs">
-              {t("deadline")}: {programFormat.dateTime(card.deadline, { dateStyle: "medium", timeStyle: "short" })}
-            </p>
-            {card.reviewStatus !== "INVALID" && (
-              <button
-                className="btn-secondary mt-3"
-                disabled={
-                  appeal.isPending ||
-                  !canSubmitCardAppeal({
-                    reviewStatus: card.reviewStatus,
-                    hasExistingAppeal: card.hasExistingAppeal,
-                    deadline: card.deadline,
-                  })
-                }
-                onClick={async () => {
-                  const body = await promptText({
-                    title: t("appeal"),
-                    reasonLabel: t("body"),
-                    confirmLabel: t("submit"),
-                    cancelLabel: t("cancel"),
-                    required: true,
-                  });
-                  if (body) appeal.mutate({ cardId: card.id, body });
-                }}
+      {(view === "all" || view === "schedule") && (
+        <section className="card p-6">
+          <h2 className="section-title">{t("schedule")}</h2>
+          {!schedule.length && (
+            <p className="muted mt-3">{portal("scheduleEmpty")}</p>
+          )}
+          {schedule.map((p) => (
+            <div key={p.id} className="mt-3 rounded-lg bg-slate-50 p-4">
+              <p className="font-semibold">
+                {p.subject} · {p.tutor.englishName}
+              </p>
+              <p className="muted">
+                {pairingScheduleText(p, scheduling("awaiting"))}
+                {p.scheduleConfirmed && p.room ? ` · ${p.room.name}` : ""}
+              </p>
+            </div>
+          ))}
+        </section>
+      )}
+      {(view === "all" || view === "attendance") && (
+        <section className="card space-y-4 p-6">
+          <h2 className="section-title">{t("attendance")}</h2>
+          <p className="muted text-sm">
+            {t(shared.data ? "sharedFeedback" : "privateFeedback")}
+          </p>
+          {!sessions.length && <p>{t("empty")}</p>}
+          {sessions.map((row) => (
+            <div
+              key={row.session.id}
+              className="rounded-lg border border-slate-200 p-4"
+            >
+              <p className="font-medium">
+                {programFormat.dateTime(row.session.date, {
+                  dateStyle: "medium",
+                  timeZone: "UTC",
+                })}{" "}
+                · {row.session.pairing.subject} · {attendance(row.status)}
+              </p>
+              <FeedbackForm sessionId={row.session.id} initial={row.feedback} />
+            </div>
+          ))}
+        </section>
+      )}
+      {(view === "all" || view === "support") && (
+        <>
+          <section className="card space-y-4 p-6">
+            <h2 className="section-title">{t("cards")}</h2>
+            {!cards.length && <p className="muted">{t("empty")}</p>}
+            {cards.map((card) => (
+              <div
+                key={card.id}
+                className="rounded-lg border border-slate-200 p-4"
               >
-                {t("appeal")}
-              </button>
-            )}
-          </div>
-        ))}
-        {appeal.error && <p role="alert">{appeal.error.message}</p>}
-      </section>
-      <section className="card space-y-3 p-6">
-        <h2 className="section-title">{t("appeals")}</h2>
-        {!appeals.length && <p className="muted">{t("empty")}</p>}
-        {appeals.map((a) => (
-          <div key={a.id} className="border-b border-slate-100 py-3">
-            <p>{a.body}</p>
-            <p className="muted">
-              {a.state} · {a.decision}
-            </p>
-          </div>
-        ))}
-      </section>
-      </>}
-      {view !== "schedule" && <Pager
-        page={page}
-        setPage={setPage}
-        more={
-          (view !== "support" && sessions.length === 20) || (view !== "attendance" && (cards.length === 20 || appeals.length === 20))
-        }
-      />}
+                <p className="font-medium">
+                  {card.color} · {card.reviewStatus}
+                </p>
+                <p>{card.reason}</p>
+                <p className="muted text-xs">
+                  {t("deadline")}:{" "}
+                  {programFormat.dateTime(card.deadline, {
+                    dateStyle: "medium",
+                    timeStyle: "short",
+                  })}
+                </p>
+                {card.reviewStatus !== "INVALID" && (
+                  <button
+                    className="btn-secondary mt-3"
+                    disabled={
+                      appeal.isPending ||
+                      !canSubmitCardAppeal({
+                        reviewStatus: card.reviewStatus,
+                        hasExistingAppeal: card.hasExistingAppeal,
+                        deadline: card.deadline,
+                      })
+                    }
+                    onClick={async () => {
+                      const body = await promptText({
+                        title: t("appeal"),
+                        reasonLabel: t("body"),
+                        confirmLabel: t("submit"),
+                        cancelLabel: t("cancel"),
+                        required: true,
+                      });
+                      if (body) appeal.mutate({ cardId: card.id, body });
+                    }}
+                  >
+                    {t("appeal")}
+                  </button>
+                )}
+              </div>
+            ))}
+            {appeal.error && <p role="alert">{appeal.error.message}</p>}
+          </section>
+          <section className="card space-y-3 p-6">
+            <h2 className="section-title">{t("appeals")}</h2>
+            {!appeals.length && <p className="muted">{t("empty")}</p>}
+            {appeals.map((a) => (
+              <div key={a.id} className="border-b border-slate-100 py-3">
+                <p>{a.body}</p>
+                <p className="muted">
+                  {a.state} · {a.decision}
+                </p>
+              </div>
+            ))}
+          </section>
+        </>
+      )}
+      {view !== "schedule" && (
+        <Pager
+          page={page}
+          setPage={setPage}
+          more={
+            (view !== "support" && sessions.length === 20) ||
+            (view !== "attendance" &&
+              (cards.length === 20 || appeals.length === 20))
+          }
+        />
+      )}
     </div>
   );
 }

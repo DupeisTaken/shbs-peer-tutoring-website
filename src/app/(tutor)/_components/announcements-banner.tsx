@@ -22,10 +22,35 @@ export function AnnouncementsBanner() {
   const unacked = list.filter((a) => !a.acked);
   const pinnedAcked = list.filter((a) => a.acked && a.pinned);
 
-  if (unacked.length === 0 && pinnedAcked.length === 0) return null;
+  if (
+    unacked.length === 0 &&
+    pinnedAcked.length === 0 &&
+    !announcements.error &&
+    !announcements.isLoading
+  )
+    return null;
 
   return (
     <section className="space-y-3" aria-label={t("tutor.announcements.label")}>
+      {announcements.isLoading && (
+        <p role="status">{t("tutor.tasks.loading")}</p>
+      )}
+      {announcements.error && (
+        <p role="alert">
+          {t("tutor.tasks.loadError")}{" "}
+          <button
+            className="btn-secondary btn-sm"
+            onClick={() => void announcements.refetch()}
+          >
+            {t("tutor.tasks.retry")}
+          </button>
+        </p>
+      )}
+      {ack.error && (
+        <p role="alert" className="text-sm text-red-700">
+          {ack.error.message}
+        </p>
+      )}
       {unacked.map((a) => (
         <div
           key={a.id}
@@ -45,7 +70,9 @@ export function AnnouncementsBanner() {
                 {a.body}
               </p>
               <p className="text-accent-400 mt-1 text-xs">
-                {programFormat.dateTime(new Date(a.createdAt), { dateStyle: "medium" })}
+                {programFormat.dateTime(new Date(a.createdAt), {
+                  dateStyle: "medium",
+                })}
               </p>
             </div>
             <button

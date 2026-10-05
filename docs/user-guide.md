@@ -46,13 +46,15 @@ A role and a tutor or crew membership are different things. A management account
 
 Sign In names the invitation and viewer routes separately. The invitation and viewer pages link to each other and to Request a Tutor, so you can switch if you opened the wrong form. Viewer links are hidden when public viewer signup is disabled. If you already have an account, sign in or recover your password rather than registering again.
 
+Registration shows numbered steps and focuses the new step heading. Use **Back**, **Review or edit email**, **Edit invitation code** or **Edit Identity** to correct earlier details. Editing clears the current verification evidence and requires email verification again; other entries remain while you stay on the page. A different invitation clears the previous identity and password. An invitation bound to an email keeps that email read only. Use **Resend** after delivery or expiry problems. Browser navigation works normally; leaving or refreshing the page can discard unsaved entries.
+
 ### Switch workspaces
 
 Management headers and account menus show **Enter Tutor Page**, then **Enter Tutee Page** together when eligible. The tutor shortcut requires a linked, non-archived profile with tutoring access. Tutee workspace access preserves personal records, while new participation follows the onboarding and departure rules above. Management accounts without tutor eligibility can still open the tutee workspace and return to management.
 
 Tutor and tutee workspaces show **Back to Management** for HEAD, ADMIN, COORDINATOR and VIEWER. This shortcut does not grant write access to viewers. Archived pure tutors retain their existing read-only history access.
 
-On mobile, the shared header places the brand and language selector first, global controls second, and available workspace switches below a divider. Management's hamburger button opens the navigation drawer; Escape, its close button or selecting a link closes it. Desktop management keeps the sidebar and main content independently scrollable below the header. Workspace shortcuts wrap on narrow screens and preserve touch targets.
+On mobile, the shared header places the brand and language selector first, global controls second, and available workspace switches below a divider. Management's hamburger button opens the navigation drawer; Escape, its close button or selecting a link closes it. Public pages keep the brand and language selector on the first row and navigation/theme on the second. Patrol, Translations, Messages and Account Settings share the workspace header. Desktop management keeps the sidebar and main content independently scrollable below the header. Workspace shortcuts wrap on narrow screens and preserve touch targets.
 
 ## Graduation and school transfers
 
@@ -121,7 +123,7 @@ Open **Requests → Participation → Request withdrawal…**. The button names 
 
 Use **My Tutors & Schedule** for current assignments, **Attendance** for recorded sessions and feedback, and **Support** for disciplinary cards and appeals. Records remain linked to your account across new intakes and verified email changes.
 
-For imported or earlier enrollments, open **My Tutoring History** in the account menu, then **View History**. If records are missing, ask staff to review an explicit history link. A history invitation requires a verified account and your confirmation; it does not create an account or enroll you. People without an account who only need past records should contact the program team. See [historical record access](historical-participant-transition.md#invite-someone-who-will-join-later).
+For imported or earlier enrollments, open **My Tutoring History** in the account menu, then **View History**. This includes retained tutor evidence already owned by your account, even when participation access is revoked. If records are missing, ask staff to review the exact record. Accountless alumni can use a staff-reviewed historical tutee invitation: **Create history-only account → verify email code → set password → Sign In → Link My History**. No current tutoring request, grade or participation agreement is required to read owned history. Existing logins use sign-in/password recovery; unavailable old email requires staff identity review and a replacement invitation. Head handles ownership conflicts and genuine duplicate accounts. See [historical record access](historical-participant-transition.md#invite-an-alumnus-without-a-login).
 
 - Submit feedback for one of your recorded sessions. The portal explains whether management has enabled sharing with that session’s tutor. Feedback is management-only by default; a later visibility change also affects earlier feedback.
 - Appeal your own card once, by the end of the **fifth school day** after its recorded issue date in the program timezone. Holidays and make-up days follow the school calendar maintained by staff. A pending appeal does not invalidate the card or suspend its effects.
@@ -133,9 +135,34 @@ See the [tutee policy draft](../prisma/policies/tutee-policy.en.md) or [中文�
 
 ## Tutors
 
+The dashboard starts with **Your Next Steps**. Its links move keyboard focus to
+attendance, pairings, unresolved interviews, meetings and pending qualifications.
+Today's regular schedule uses the program time zone and confirmed weekly times;
+check announcements for holidays or one-off changes. Attendance comes before
+optional editors. Pending participation, policy and request notices remain visible.
+Completed interview details and optional editors can be expanded without losing an
+in-progress draft when collapsed. Pending qualification requests remain visible
+even when completed history is collapsed or filtered.
+
+Pending tutors confirm whether to participate before tutoring actions appear.
+Inactive tutors retain their records but cannot edit pairings or submit attendance.
+Changing a pairing's linked time slot, requesting or recalling a removal, and
+recording an interview decision names the affected record before submission.
+Cancel leaves live records unchanged. A relayed opt-out stays pending during its
+seven-day recall window, then processes automatically unless recalled or cancelled.
+An inactive tutor can still recall their pending relay. A queued management proposal
+requires staff approval; neither pending result is an applied change.
+
+Meeting-excuse, qualification and interview drafts remain available after a failed
+save. Correct the problem and retry. Attendance keeps its successful receipt and
+locks that entry; choose **Submit Another** to start a fresh record. If a saved
+entry's totals fail to refresh, retry the refresh without resubmitting attendance.
+
 Existing tutors can use **Subject Qualifications** on their dashboard to request another subject or a higher offered level in a subject they already teach. Choose a subject, explain your qualifications and submit; the request history shows outcomes, the decision note, and the subjects granted on approval. Under **Your Requests**, filter by **Pending** (including interviews), **Approved**, **Rejected**, or **Recalled**; counts show how many requests are in each category. History starts with Pending. Use **Collapse** / **Expand** to hide or show the history without losing the selected filter. Active tutors can **Recall request** while a request is pending or under interview. Confirming recall stops review, records who recalled it and when, and retains the request and panel history. A recalled request cannot be approved or reopened; submit a new request for that subject and level when ready. Approved and rejected decisions cannot be recalled. Pending, rejected and recalled requests do not change current qualifications. Duplicate open requests for the same subject and level are blocked. Inactive tutors retain read-only history.
 
-In **Tutor Applications**, additional-subject and higher-level requests have distinct badges. Only Admin or Head may approve directly, reject with a decision note, or assign an interview panel. Direct approval is available even when interviews are enabled. An interview uses the existing votes and majority rules with an Admin/Head tutor as chair; that chair records the outcome in Tutor Applications. Panelists see the requested course and the tutor's qualification explanation on their dashboard. Coordinators cannot make or queue these decisions. Applicants cannot review themselves. Review history and final decisions are retained. Approval records the requested level and lower offered levels in that course group under the ordering at approval time; reordering later does not change those grants. Subject willingness remains a separate choice in Subject Availability.
+In **Tutor Applications**, additional-subject and higher-level requests have distinct badges. Only Admin or Head may approve directly or assign an interview panel. Rejection requires an interview and a decision note. Direct approval is available even when interviews are enabled. An interview uses the existing votes and majority rules with an Admin/Head tutor as chair; that chair records the outcome in Tutor Applications. Panelists see the requested course and the tutor's qualification explanation on their dashboard. Coordinators cannot make or queue these decisions. Applicants cannot review themselves. Review history and final decisions are retained. Approval records the requested level and lower offered levels in that course group under the ordering at approval time; reordering later does not change those grants. Subject willingness remains a separate choice in Subject Availability.
+
+For a pending additional-subject or higher-level request without an assigned panel, select **Approve without Interview** to open its review. Check the applicant and subject, enter the required **Decision note**, then choose **Approve qualification**. This dialog has no reject action: **Reject request** is available only to the assigned Admin/Head chair after all interview panelists have voted, following the panel majority. Opening the dialog submits nothing. **Cancel** or Escape closes it and retains the note while the application card remains mounted. Failed submissions keep the note for retry; **Reload review** clears it only after the latest application loads successfully. A saved decision whose refresh fails offers **Try again** to refresh records without repeating the decision. Interview-stage requests keep the chair/voting workflow, and initial applications keep their existing screening process.
 
 Use **My Subject Willingness → Edit willingness** on the Tutor Dashboard to change your own subject choices. Only subjects with saved approved qualifications, including inherited qualifications, appear. Choose **Willing to Tutor** or **Unwilling to Tutor**; an unanswered subject shows **Not recorded** with neither selected. Each change saves immediately; check the saved result or error before continuing. Inactive tutors have read-only access. If no subjects qualify, request qualification in **Subject Qualifications**. Willingness does not change qualifications or timetable availability.
 
@@ -168,6 +195,8 @@ Use combined attendance when several assigned subjects share one block: shared t
 
 ### Manage your participation
 
+In **My Availability**, select your time slots and choose **Save Availability**, or **Cancel** to restore the last loaded selection. Choices stay fixed during saving. If the save succeeds but refreshing the result fails, use **Retry** to load the accepted selection before editing again; it does not submit another save. A failed save keeps your draft available for correction.
+
 An active tutor can request opt-out and recall a pending request. Participation continues until staff approval, which is allowed only after seven days. An opted-out tutor can request reentry without another waiting period, but approval is still required. Only one pending membership request is allowed. At a semester refresh, continuing active tutors become pending and choose whether they are available or opting out; check your status before teaching in the new period.
 
 For a student enrolled outside the survey flow, the tutor can relay the student's request to leave their current active assignment. The seven-day recall window ends in automatic processing unless recalled or cancelled by staff. If the program refreshes or the originating assignment is removed before processing, the outdated relay is cancelled and does not remove a new enrollment. Survey students instead request whole-period withdrawal in their own workspace. Use schedule rejection for an assignment conflict.
@@ -183,7 +212,7 @@ Read addressed announcements and acknowledge them when prompted. Review session 
 
 ## Crew
 
-Apply through the public crew application. Review can issue a registration code; the application itself is not a login. Active crew members use **Patrol** to record each visited room once with the actual observation time and student headcount: 0, 1, 2, 3 or 4+. Submit at least one observation. Observation times cannot be in the future; a one-minute allowance accommodates differences between your device clock and the server. This also applies to management corrections. Each submitted patrol earns **0.5 crew service hours**, separately from tutoring credit; an identical retry does not duplicate it. Report mistakes to management with enough context to identify the record. Historical patrol corrections require a reason and audit evidence; coordinator corrections wait for approval.
+Apply through the public crew application. Review can issue a registration code; the application itself is not a login. Active crew members use **Patrol** to record each visited room once with the actual observation time and student headcount: 0, 1, 2, 3 or 4+. Submit at least one observation. Observation times cannot be in the future; a one-minute allowance accommodates differences between your device clock and the server. This also applies to management corrections. An eligible sweep earns **0.5 crew service hours**, separately from tutoring credit, at most once every **20 minutes per crew member**, measured by the server. All observations must be from the last 20 minutes (with the same one-minute clock allowance). Older observations and additional sweeps during the cooldown are still saved with **0 hours**, and the success message states that no hours were added. A long sweep or offline submission with any observation older than 20 minutes therefore retains its evidence but receives no automatic credit; do not change observation times to claim freshness. A sweep reserves every 20-minute observation interval it covers, across all rooms; changing notes, counts or a request key does not reopen those intervals. An identical retry returns the original record. Combined-account history shares the same allowance; corrections retain hours and prevent reuse of both original and corrected evidence. Report mistakes to management with enough context to identify the record. Historical patrol corrections require a reason and audit evidence; coordinator corrections wait for approval.
 
 Crew access depends on membership and the program's crew module. A crew-only account does not automatically receive tutor assignments or management powers. Opt-out requires a seven-day wait and staff approval; reentry requires approval without that wait. A pending opt-out can be recalled. Check the decision before assuming membership has changed. Observations can flag an apparent attendance mismatch for [management review](program-reference.md#review-attendance-flags); a flag alone does not impose a penalty.
 
@@ -220,6 +249,12 @@ Reviewers enter **Your decision note (required)** before either decision. **Appr
 Use the request state and **Requested by** filters to find proposals; the coordinator’s **My Approval Requests** shows their own history. **All Requests** returns from a detail to the queue. Requester labels retain readable identities even when an account has been removed. Only the current active Head may review their own proposal. Other reviewers cannot, including after promotion to Admin. A coordinator interview chair remains the author of their proposed outcome. A failed email after a successful assignment does not undo that assignment; use the link resend control and investigate delivery.
 
 ### Find records and confirm saves
+
+Tables show brief information for scanning. Use the text links in the rightmost **Actions** column to open full details or an editor. On a narrow screen, that column stays reachable while the other columns scroll sideways. Closing a detail dialog returns you to its link. Detailed report exports and printed history retain their full content.
+
+Profile sections save independently. While any section inside an editor is saving, its fields and the editor's dismissal controls are temporarily unavailable. A failed save keeps your draft for correction or retry. A successful profile or Head username save leaves the editor open: the completed section becomes read-only, while other sections keep their drafts and errors. Choose **Close** when you are ready; reopen the editor to change a completed section again. If refreshing records fails after a successful save, the editor shows a separate warning and keeps the saved section read-only so it cannot submit the same write again. Closing a nested review returns to the profile rather than closing both. In **Names and Grades**, retrying a failed background refresh keeps unsaved choices; **Reload** after a version conflict replaces them only when the new settings load successfully.
+
+Roster course counts open their full lists from **Actions**. Contact, account details and historical records remain separate links with their existing access rules. Read-only history tables scroll horizontally and can be focused with the keyboard; they do not need an action column. Public history and invitation pages include a language selector and a return link.
 
 On desktop, the navigation and content scroll independently. On mobile, open **Menu**, choose a page, or close it with Escape. Navigation follows your role and enabled modules.
 
@@ -271,6 +306,9 @@ In **Subjects & Levels**, use the **Offered Course Catalogue** above the subject
 
 ### Run the program
 
+- In **Meetings**, open a meeting to edit attendance, choose statuses, then use the attendance save action. On a narrow screen, individual records show labels and keep their actions visible. The multi-meeting comparison remains a table; scroll its own region horizontally to compare columns. Deletion opens a confirmation that names the affected meeting; cancel returns to the same record.
+- In **Landing Editor**, use the section tabs to move between layout, fixed content, sections, news, pages and images. With a keyboard, arrow keys move between tab labels; Enter or Space opens the focused tab. If your role lacks editing access, the page explains this and offers a return to management. A failed load shows an error and retry action instead of an indefinite loading state. Editor access follows the same permission rule as landing preview.
+
 In **Tutors**, choose **Add Tutor** beside the page title to open the creation dialog. The roster stays visible underneath. First Name and Last Name are required; Email and Grade are optional. An omitted email keeps the new roster record accountless until a separate setup step. On wide screens the contact controls sit beside the name fields; on narrower screens they follow them. **Close** or Escape keeps the draft until you leave or reload the page. A successful save clears the draft, closes the dialog and returns focus to **Add Tutor**. The dialog stays open while saving, and failed saves keep your entries with the error shown inside the dialog.
 
 In **Tutees**, use **Current**, **History** or **All Records**, then **View History** to inspect attendance and original enrollment academics. Accountless tutees remain in this roster, even though they have no Users & Roles entry. **Refresh** reloads roster and related records. Admin/Head can review history links and invitations; see the [historical participant workflow](historical-participant-transition.md). Search matches saved first, last, preferred and additional-language names, including full first/last and preferred/last combinations, regardless of name display settings. An empty roster view is distinguished from a search with no matches.
@@ -304,6 +342,11 @@ Staff use **Withdrawal Requests & Removals** to review self-submitted requests a
 Tutor and crew opt-out/reentry requests remain pending until reviewed. Opt-out approval requires seven days to have elapsed; reentry has no seven-day wait. Recall controls depend on the request type; crew members can recall a pending opt-out. After approving a tutor opt-out, use the explicit student-requeue action to return affected students for matching. If the member's status has changed since submission, decline the stale request and review the current roster.
 
 ### Review records and reports
+
+**Service Hours** keeps each tutor's total and Details action in the compact
+summary. Expand **Compare Hour Breakdowns** to compare earned hours, extras and
+penalties across tutors. On a narrow screen, scroll inside that labelled table;
+keyboard users can focus it and use the left/right arrow keys.
 
 Use [Attendance Flags](program-reference.md#review-attendance-flags) to assess crew evidence before applying a decision. Use [Reports](program-reference.md#reports-and-exports) to choose a period, review totals, download table CSVs or print a report. Check the privacy setting before sharing. Audits and policy acceptance history remain separate evidence views.
 
@@ -351,7 +394,7 @@ automatic-allocation policy; an explicitly assigned existing handle remains vali
 
 ### Head username editing
 
-In **Users & Roles → Edit profile**, Head can save a username for any login account, including their own. Use 1–64 ASCII letters or digits; surrounding whitespace is trimmed and letters are lowercased. Taken usernames in either the login or tutor roster are rejected. The linked tutor is updated atomically, so the old handle no longer signs in. Email sign-in, passwords, IDs, badges and history remain unchanged. Ordinary roster name edits retain the username. Admins and coordinators cannot rename accounts. Saves record the actor and old/new handles and refresh the account list and current header. An unchanged save is a no-op; stale profile versions require reopening the editor.
+In **Users & Roles → Edit profile**, Head can save a username for any login account, including their own. Use 1–64 ASCII letters or digits; surrounding whitespace is trimmed and letters are lowercased. Taken usernames in either the login or tutor roster are rejected. The linked tutor is updated atomically, so the old handle no longer signs in. Email sign-in, passwords, IDs, badges and history remain unchanged. Ordinary roster name edits retain the username. Admins and coordinators cannot rename accounts. Saves record the actor and old/new handles and refresh the account list and current header. An unchanged save is a no-op. A version conflict requires an explicit **Reload** before retrying; a failed read keeps the username draft and original version. Successful saves leave the completed section read-only until you close and reopen the editor.
 
 ## Viewers
 
@@ -379,9 +422,17 @@ Expected graduation is the reference school year's ending year plus the remainin
 
 Staff **Edit Profile** dialogs show grade, reference year and expected graduation together, independently of tutor participation; tutor and tutee rosters use the same canonical account information. A roster record without an account retains its original unconfirmed grade. Academic saves preserve usernames, participation, signed agreements and historical survey answers. An account without a username explicitly shows **Username not assigned**. If another edit changes the profile while a draft is open, review the conflict and deliberately reload before retrying; unsaved drafts are not silently replaced.
 
-Tutor and tutee roster cells summarize unknown or unconfirmed grades as **Unknown Grade Level**, followed by **Needs Review & Confirmation**. Original reports and full academic details remain available in the profile/detail views. Tutee contact/email appears immediately before academic details. Account actions in Tutors, Tutees and Users & Roles use the same compact, right-aligned text stack, with destructive actions in red and larger touch targets on narrow screens.
+Current account roster cells summarize unknown or unconfirmed grades as **Unknown Grade Level**, followed by **Needs Review & Confirmation**. Historical/accountless tutee enrollment evidence can remain unknown without a current-participation action. Original reports and full academic details remain available in the profile/detail views. Tutee contact/email appears immediately before academic details. Account actions in Tutors, Tutees and Users & Roles use the same compact, right-aligned text stack, with destructive actions in red and larger touch targets on narrow screens.
+
+For period-specific history, management uses **Academic Corrections** to edit selected records or upload a validated correction CSV. Both show the same before/after preview, retain original evidence and reject stale changes. Admin/Head apply whole batches; coordinators request approval. Historical correction dates and reference years are separate from current academic confirmations. Follow the [historical correction procedure](historical-participant-transition.md#correct-historical-academics) for identifiers, CSV limits, provenance and recovery.
+
+The profile section places **Save profile** and **Cancel** after both name fields. Save applies both fields together; Cancel restores their last loaded values. Saving disables this section while it is pending, and a failed save keeps the draft visible for correction or retry. Password, email and membership controls have their own actions and are not submitted by Save profile.
 
 Changing or resetting your password signs out every existing session, including the browser making the change. Account Settings and tutor Settings return you to Sign In; use your new password. Other browsers require sign-in on their next request. Your account, permissions and tutoring history remain. This update also requires one fresh sign-in for sessions created before session revocation was introduced. Existing email two-factor requirements remain in effect.
+
+Signed-in password confirmations share a limit of ten checks per account within fifteen minutes, including successful checks. This covers password and two-factor settings, email-address changes and privileged confirmations. Switching pages or signing in again does not provide more attempts. If you see **Too many password confirmations**, wait fifteen minutes before retrying; blocked retries do not extend the wait. Other accounts have their own allowance. Sign-in and email verification codes retain their separate limits, and email changes may reach a stricter action limit first.
+
+Password confirmations accept up to 1,024 characters. If an older password exceeds this limit, use **Forgot Password** to choose a replacement of 8–1,024 characters before changing account settings.
 
 Legacy accounts that need email verification or a new password receive a setup link at their existing account email. Open that link to prove mailbox ownership and set the password. The setup page shows your current email address; it cannot be changed there. If you cannot access the address, contact the program team. Two-factor preferences stay unchanged and can be managed after sign-in.
 
@@ -390,6 +441,8 @@ Use password recovery when you cannot sign in. Personal email two-factor authent
 The notification menu shows your own recent notices and unread count. Follow a notice to its related task, mark it read, or mark all as read. Private message bodies and recipient lists are excluded from notifications.
 
 Use **Messages** to send separate private deliveries to allowed contacts. Search by name or username, select up to 20 people, and keep selections while searching or paging. New messages deliver immediately and may be reviewed or hidden by HEAD/ADMIN; reviews and moderation are recorded. Recipients cannot see other recipients or their replies. Historical messages sent under the old participant-only notice remain participant-only. Notifications omit message bodies. Replies follow current permissions; history remains readable after contact eligibility changes. If any selected recipient becomes ineligible before a send, nothing is delivered: review your selections and retry. Retrying the same send does not duplicate deliveries. A messaging restriction prevents new sending and incoming eligibility while retaining history; account suspension instead leads to the appeal page. For a suspended account, use the appeal option on the suspension page. See [contact permissions and supervision](program-reference.md#message-permissions-and-supervision) for management configuration.
+
+**Reply** opens a composer with the sender’s name and username, then moves keyboard focus to its message field. Your general message and other reply drafts remain separate while the page stays open. **Cancel reply** restores the general draft and returns focus to the Reply button. Sending a reply also restores the general draft. Pending sending prevents recipient changes; permission errors offer Retry and keep your text. Drafts are not stored after leaving or refreshing the page.
 
 On the Tutee page, **Messages** and **Account** open inside the same navigation and header. Account settings use your shared profile, verified email changes, password changes and two-factor settings. HEAD, ADMIN and COORDINATOR open Messages inside the management shell at `/admin/messages`. HEAD/ADMIN also have **Message Supervision** for audited review, reversible hiding, messaging restrictions and role/user contact permissions; coordinators cannot supervise other conversations.
 

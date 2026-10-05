@@ -12,6 +12,8 @@ type MergeState = {
   setPrimaryPairingId: (id: string) => void;
   mergeIds: string[];
   setMergeIds: React.Dispatch<React.SetStateAction<string[]>>;
+  attendanceLocked: boolean;
+  setAttendanceLocked: (locked: boolean) => void;
 };
 
 const MergeContext = createContext<MergeState | null>(null);
@@ -19,9 +21,17 @@ const MergeContext = createContext<MergeState | null>(null);
 export function MergeProvider({ children }: { children: React.ReactNode }) {
   const [primaryPairingId, setPrimaryPairingId] = useState("");
   const [mergeIds, setMergeIds] = useState<string[]>([]);
+  const [attendanceLocked, setAttendanceLocked] = useState(false);
   return (
     <MergeContext.Provider
-      value={{ primaryPairingId, setPrimaryPairingId, mergeIds, setMergeIds }}
+      value={{
+        primaryPairingId,
+        setPrimaryPairingId,
+        mergeIds,
+        setMergeIds,
+        attendanceLocked,
+        setAttendanceLocked,
+      }}
     >
       {children}
     </MergeContext.Provider>

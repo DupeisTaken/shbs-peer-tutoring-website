@@ -68,6 +68,7 @@ function fixture(access: Access = "VIEWER") {
     },
     tutor: empty(),
     tutee: empty(),
+    historicalAcademicRecord: empty(),
     subject: empty(),
     subjectLevel: empty(),
     courseGroup: empty(),
@@ -230,6 +231,9 @@ describe.each<Access>(["VIEWER", "observer"])(
           hours: 0.5,
           note: PRIVATE,
           submissionKey: PRIVATE,
+          // New internal credit metadata stays outside #246's explicit Viewer projection.
+          creditAwardedAt: date,
+          creditWindows: [{ windowStart: date, patrolId: PRIVATE }],
           crewUser: { name: "Crew One" },
           observations: [
             {
@@ -252,6 +256,8 @@ describe.each<Access>(["VIEWER", "observer"])(
         hours: 0.5,
         observations: [{ headcount: "TWO", room: { name: "Library" } }],
       });
+      expect(result.patrols[0]).not.toHaveProperty("creditAwardedAt");
+      expect(result.patrols[0]).not.toHaveProperty("creditWindows");
     });
 
     it("does not reuse private code labels as public names", async () => {
@@ -327,6 +333,10 @@ describe.each<Access>(["VIEWER", "observer"])(
         ],
       };
       mock.tutee.findMany.mockResolvedValue([student]);
+      // Historical raw text can contain private evidence, just like account raw grades.
+      mock.historicalAcademicRecord.findMany.mockResolvedValue([
+        { tuteeId: "tutee", corrections: [{ rawGrade: PRIVATE, schoolYear: "24-25" }] },
+      ]);
       mock.tutor.findMany.mockResolvedValue([
         {
           id: "tutor",
@@ -346,6 +356,7 @@ describe.each<Access>(["VIEWER", "observer"])(
       expect(rows[0]).toMatchObject({
         englishName: "Tutee One",
         gradeLevel: null,
+        enrollmentCorrection: { rawGrade: null, schoolYear: "24-25" },
         owner: { name: "Owner One", email: null },
         availabilities: [{ slot: { label: "Monday" } }],
       });
