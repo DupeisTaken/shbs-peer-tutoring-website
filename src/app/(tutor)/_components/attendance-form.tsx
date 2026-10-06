@@ -76,6 +76,10 @@ export function AttendanceForm() {
   const schedule = api.tutor.schedule.useQuery();
   const { confirm, dialog } = useDialog();
   const [refreshFailed, setRefreshFailed] = useState(false);
+  // Native disabled fields update on render. Own submission admission immediately
+  // too, including async form validation and the accepted-write refresh interval.
+  // Server attendance deduplication remains authoritative across clients/retries.
+  const submissionState = useRef<"idle" | "pending" | "saved">("idle");
   const features = api.program.features.useQuery().data;
   const refreshSavedTotals = async () => {
     const results = await Promise.allSettled([
@@ -94,7 +98,15 @@ export function AttendanceForm() {
     router.refresh();
   };
   const submit = api.tutor.submitAttendance.useMutation({
-    onSuccess: refreshSavedTotals,
+    onSuccess: async () => {
+      submissionState.current = "saved";
+      await refreshSavedTotals();
+    },
+    onError: () => {
+      // A read failure after acceptance must never reopen this write for retry.
+      if (submissionState.current === "pending")
+        submissionState.current = "idle";
+    },
   });
 
   // Per-tutee attendance + per-tutee card requests, keyed by tuteeId.
@@ -242,7 +254,13 @@ export function AttendanceForm() {
   ]);
 
   const onSubmit = (values: FormValues) => {
-    if (!selectedPairing) return;
+    if (
+      submissionState.current !== "idle" ||
+      submit.isPending ||
+      submit.isSuccess ||
+      !selectedPairing
+    )
+      return;
     const status = values.tutorStatus as TutorStatus;
 
     // Per-tutee attendance across the whole block (default present).
@@ -303,6 +321,7 @@ export function AttendanceForm() {
     }
     setFormError(null);
 
+    submissionState.current = "pending";
     submit.mutate({
       pairingId: values.pairingId,
       mergePairingIds: mergeIds.length > 0 ? mergeIds : undefined,
@@ -800,6 +819,7 @@ export function AttendanceForm() {
         <button
           type="button"
           onClick={() => {
+            submissionState.current = "idle";
             reset();
             setTuteeState({});
             setCards({});

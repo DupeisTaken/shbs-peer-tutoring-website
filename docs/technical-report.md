@@ -28,6 +28,14 @@ The application runs as a persistent Next.js 16 / React 19 Node server with tRPC
 
 `NativeDialog` supplies native modality, portal event ownership, radio-aware keyboard focus and exact trigger restoration. `Modal`, the wide/sticky `ProfileDialog`, and `CurrentPolicyDialog` share this behavior while retaining their own layout and scrolling. A nested review owns its Escape event. Independent forms call `useDialogPending(ownPending)` to prevent dismissal during any registered write; its return value disables sibling controls. Register only the form's own pending state, never the returned aggregate, so the guard releases when writes settle. Callers retain validation, versions, permissions, approval policy and action tickets.
 
+`TimedActionDialog` retains its separate ticket/countdown and mandatory-policy
+contract. Like `NativeDialog`, it disables native close requests and suppresses
+Escape's default action while busy; mandatory consent keeps those protections
+while idle, with its explicit Sign out action still available. A cancel handler
+alone cannot reliably block repeated native Escape requests. Component tests
+cover the key and close-watcher contracts; actual browser verification must cover
+repeated Escape during a held write and dismissal after failure.
+
 Account, tutor and tutee profile forms run inside that dialog context: direct submission checks sibling work as well as the form's own same-tick guard. Profile and Head username saves leave the editor open for deliberate Close, including when all sections succeed. Pending becoming false does not prove that independently admitted sibling writes succeeded. Failed academic, membership, departure, username or profile drafts remain mounted with their errors and original versions for retry. A committed section shows its saved status and becomes read-only until the editor is reopened; it cannot resubmit even if synchronization fails. Synchronization failure is shown separately from write failure. Saved/failed outcomes never register as pending writes, and idle Close/Escape remain available. `FormSection.disabled` disables a completed section without incorrectly announcing `aria-busy`.
 
 Those four profile/username save handlers use `settleRefreshes` to keep their mutation pending until every invalidation settles. It starts all callbacks even if one throws synchronously, preserves successful results and forwards a failure only after the whole group finishes. The nested `invalidateTuteeViews` group uses the same boundary, so an early roster error cannot hide a still-running attendance, pairing, account or history refresh. That helper retains its existing five view targets and rejection semantics for its other callers; their surrounding workflows are unchanged. The committed section remains read-only throughout, and the refresh warning and idle Close become available only after settlement.
@@ -48,6 +56,14 @@ Historical or corrected tutee contact saves and historical or preserved tutor pr
 
 `FilterToolbar`, `SettingRow`, `ChangeReview` and `InlineNotice` are presentation compositions with caller-owned state. A filter uses pressed choices; only actual content views use tabs. Immediate switches, explicit unknown/yes/no willingness and staged checkbox settings preserve their distinct save behavior. Change review accepts domain-owned immutable evidence such as `ApprovalReviewDetails`; it never generates authorization or confirmation tickets. Announce new failures or completions explicitly and avoid wrapping existing alerts in another alert.
 
+Discipline review, the Service Hours month filter and Session Flags use compact
+actions beside native fields with explicit desktop padding/min-height overrides.
+Measure their rendered rows; class names alone do not establish equal height.
+Session Flags distinguishes unknown/loading, failed, denied and successfully
+empty reads. Cached failures retain review drafts with editing disabled until
+recovery. Pending writes freeze notes and penalty hours, and an approval ID is
+announced as queued rather than applied.
+
 Content-sized controls in wrapping forms can use `.field-auto-bounded` with a preferred minimum such as `[--field-min-width:12rem]`. The shared utility caps that minimum at the available width, so enlarged text cannot make a rem-based minimum override `max-width: 100%`; existing `.field-auto` callers keep their own minimum-width behavior. Constrain intervening flex field wrappers with `min-w-0 max-w-full` too; otherwise a long draft can size the wrapper beyond the form. Registration Codes and Meetings use this contract. Verify long EN/ZH drafts at 390 px with 200% root font size in the running application; compiled CSS checks do not establish browser layout acceptance.
 
 Stacked card grids should declare their narrow layout explicitly, such as `grid-cols-1` before `lg:grid-cols-5`. The Activity summary uses this zero-minimum track so enlarged chart labels cannot expand an implicit grid column beyond the padded card. Verify the populated chart at 200% text size as well as its normal and desktop layouts; preserve queue destinations and avoid concealing overflow on the card.
@@ -61,6 +77,14 @@ Stacked card grids should declare their narrow layout explicitly, such as `grid-
 Feature integrations include the three participant/account editors, roster actions, account identity settings, meeting attendance, interview panels, profile/CAPTCHA settings, combine-account candidates and public history. Cached query failures retain usable content and drafts. Background refetches preserve the profile policy snapshot; successful saves and explicit successful Reloads update it. Other pages may still use older patterns; [issue #219](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/219) tracks wider migration.
 
 Tutor availability keeps a local draft once editing begins, so background query updates cannot discard it. A successful mutation is followed by an explicit throwing refetch before releasing the draft: the server filters inactive slot IDs and returns only a count, so the submitted list is not authoritative. If synchronization fails, the submitted choices remain visible and locked with a read-only retry; only the refreshed result unlocks editing. See [issue #223](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/223).
+
+Tutor attendance also admits a submission synchronously, before React can render
+disabled controls. A failed write releases admission without replacing the draft;
+acceptance keeps it locked through totals refresh and read-only recovery until
+Submit another entry. The server's attendance deduplication remains authoritative
+across clients and retries. The form's real-mutation lifecycle tests cover
+same-turn submissions, rejection/retry, accepted writes with failed refresh and
+local validation correction; they do not establish database persistence.
 
 The [development gallery](../src/app/ui-gallery/gallery.tsx) imports the same components and styles. It owns only local synthetic state, including locale and temporary theme previews; its [server route](../src/app/ui-gallery/page.tsx) refuses production rendering. See [local verification](local-development.md#ui-pattern-gallery) and [contribution rules](contributing.md#reuse-interaction-patterns).
 

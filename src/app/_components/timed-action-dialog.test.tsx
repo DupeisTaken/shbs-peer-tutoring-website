@@ -45,20 +45,22 @@ afterEach(() => {
   vi.useRealTimers();
   vi.clearAllMocks();
 });
-const show = (mandatory = false) =>
-  render(
-    <NextIntlClientProvider locale="en" messages={en}>
-      <TimedActionDialog
-        action="RECALL"
-        target="request-1"
-        title="Recall request"
-        message="This request closes permanently and admins will be notified."
-        mandatory={mandatory}
-        onConfirm={mocks.confirm}
-        onCancel={mocks.cancel}
-      />
-    </NextIntlClientProvider>,
-  );
+const element = (mandatory = false, busy = false) => (
+  <NextIntlClientProvider locale="en" messages={en}>
+    <TimedActionDialog
+      action="RECALL"
+      target="request-1"
+      title="Recall request"
+      message="This request closes permanently and admins will be notified."
+      mandatory={mandatory}
+      busy={busy}
+      onConfirm={mocks.confirm}
+      onCancel={mocks.cancel}
+    />
+  </NextIntlClientProvider>
+);
+const show = (mandatory = false, busy = false) =>
+  render(element(mandatory, busy));
 
 it("shows consequences and prevents confirmation before the timer ends", async () => {
   show();
@@ -106,3 +108,40 @@ it("cannot dismiss mandatory policy confirmation with Escape", () => {
   expect(mocks.cancel).not.toHaveBeenCalled();
   expect(screen.getByRole("button", { name: "Sign out" })).toBeTruthy();
 });
+
+it.each([false, true])(
+  "blocks repeated Escape during a write and restores the idle dismissal rule (mandatory: %s)",
+  (mandatory) => {
+    const view = show(mandatory, true);
+    const dialog = screen.getByRole("dialog");
+    const cancel = screen.getByRole<HTMLButtonElement>("button", {
+      name: mandatory ? "Sign out" : "Cancel",
+    });
+    expect(dialog.getAttribute("closedby")).toBe("none");
+    expect(cancel.disabled).toBe(true);
+    // jsdom cannot emulate a browser's non-cancellable repeated close request.
+    // Assert key-default suppression as well as the native watcher contract;
+    // the reserved browser matrix must verify the actual dialog stays open.
+    for (let attempt = 0; attempt < 3; attempt++) {
+      expect(
+        fireEvent.keyDown(dialog, { key: "Escape", repeat: attempt > 0 }),
+      ).toBe(false);
+      fireEvent(dialog, new Event("cancel", { cancelable: true }));
+    }
+    expect(mocks.cancel).not.toHaveBeenCalled();
+
+    view.rerender(element(mandatory));
+    expect(cancel.disabled).toBe(false);
+    expect(dialog.getAttribute("closedby")).toBe(
+      mandatory ? "none" : "closerequest",
+    );
+    expect(fireEvent.keyDown(cancel, { key: "Escape" })).toBe(!mandatory);
+    fireEvent(dialog, new Event("cancel", { cancelable: true }));
+    expect(mocks.cancel).toHaveBeenCalledTimes(mandatory ? 0 : 1);
+    if (mandatory) {
+      fireEvent.click(cancel);
+      expect(mocks.cancel).toHaveBeenCalledOnce();
+    }
+    expect(mocks.confirm).not.toHaveBeenCalled();
+  },
+);

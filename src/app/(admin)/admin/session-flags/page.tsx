@@ -6,6 +6,8 @@ import { useFormatter, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { minToHm } from "~/lib/time";
 import { useReadOnly } from "~/app/_components/read-only";
+import { Button } from "~/app/_components/ui/button";
+import { StatePanel } from "~/app/_components/ui/patterns";
 
 /**
  * Attendance discrepancy review: the crew saw fewer students than a tutor marked present. Each flag
@@ -27,7 +29,11 @@ export default function SessionFlagsPage() {
 
   const list = flags.data ?? [];
 
-  const act = (id: string, action: "DISMISS" | "WARN" | "PENALIZE" | "ESCALATE") => {
+  const act = (
+    id: string,
+    action: "DISMISS" | "WARN" | "PENALIZE" | "ESCALATE",
+  ) => {
+    if (readOnly || decide.isPending || flags.error) return;
     const noteText = note[id]?.trim() ?? "";
     // Empty / zero / non-numeric input falls back to the default 0.5h penalty.
     const parsed = Number(hours[id] ?? "0.5");
@@ -47,7 +53,33 @@ export default function SessionFlagsPage() {
         <p className="muted mt-1">{t("admin.sessionFlags.help")}</p>
       </div>
 
-      {decide.error && <p className="text-sm text-red-600">{decide.error.message}</p>}
+      {decide.error &&
+        (decide.error.data?.approvalId ? (
+          <p role="status" className="text-sm text-amber-800">
+            {t("approvals.queuedBody")}
+          </p>
+        ) : (
+          <p role="alert" className="text-sm text-red-600">
+            {decide.error.message}
+          </p>
+        ))}
+
+      {/* A missing result is unknown, not an empty queue. Keep cached records and
+          their review drafts mounted beside recoverable background failures. */}
+      {flags.isLoading && !flags.data && (
+        <StatePanel kind="loading" title={t("common.loading")} />
+      )}
+      {flags.error && (
+        <StatePanel
+          kind={flags.error.data?.code === "FORBIDDEN" ? "denied" : "error"}
+          title={flags.error.message}
+          action={
+            <Button size="compact" onClick={() => void flags.refetch()}>
+              {t("uiPatterns.retry")}
+            </Button>
+          }
+        />
+      )}
 
       <div className="space-y-3">
         {list.map((f) => (
@@ -57,13 +89,19 @@ export default function SessionFlagsPage() {
                 <p className="font-medium text-slate-900">
                   {f.tutor} · {f.subject}{" "}
                   <span className="badge-red ml-1">
-                    {t("admin.sessionFlags.discrepancy", { observed: f.observed, expected: f.expected })}
+                    {t("admin.sessionFlags.discrepancy", {
+                      observed: f.observed,
+                      expected: f.expected,
+                    })}
                   </span>
                 </p>
                 <p className="muted mt-1 text-xs">
                   {t("admin.sessionFlags.context", {
                     room: f.room ?? "—",
-                    date: programFormat.dateTime(new Date(f.date), { dateStyle: "medium", timeZone: "UTC" }),
+                    date: programFormat.dateTime(new Date(f.date), {
+                      dateStyle: "medium",
+                      timeZone: "UTC",
+                    }),
                     start: minToHm(f.startMin),
                     end: minToHm(f.endMin),
                   })}
@@ -72,59 +110,71 @@ export default function SessionFlagsPage() {
             </div>
 
             {!readOnly && (
-              <div className="mt-3 space-y-2 border-t border-slate-100 pt-3">
+              <fieldset
+                disabled={decide.isPending || !!flags.error}
+                aria-busy={decide.isPending}
+                className="mt-3 min-w-0 space-y-2 border-t border-slate-100 pt-3"
+              >
                 <input
                   className="input w-full text-sm"
+                  aria-label={t("admin.sessionFlags.notePlaceholder")}
                   placeholder={t("admin.sessionFlags.notePlaceholder")}
                   value={note[f.id] ?? ""}
-                  onChange={(e) => setNote((n) => ({ ...n, [f.id]: e.target.value }))}
+                  onChange={(e) =>
+                    setNote((n) => ({ ...n, [f.id]: e.target.value }))
+                  }
                 />
                 <div className="flex flex-wrap items-center gap-2">
-                  <button
-                    className="btn-secondary btn-sm"
+                  <Button
+                    size="compact"
                     disabled={decide.isPending}
                     onClick={() => act(f.id, "DISMISS")}
                   >
                     {t("admin.sessionFlags.dismiss")}
-                  </button>
-                  <button
-                    className="btn-secondary btn-sm"
+                  </Button>
+                  <Button
+                    size="compact"
                     disabled={decide.isPending}
                     onClick={() => act(f.id, "WARN")}
                   >
                     {t("admin.sessionFlags.warn")}
-                  </button>
+                  </Button>
                   <span className="flex items-center gap-1">
                     <input
                       type="number"
                       step="0.25"
                       min="0"
                       value={hours[f.id] ?? "0.5"}
-                      onChange={(e) => setHours((h) => ({ ...h, [f.id]: e.target.value }))}
+                      onChange={(e) =>
+                        setHours((h) => ({ ...h, [f.id]: e.target.value }))
+                      }
                       aria-label={t("admin.sessionFlags.penaltyHours")}
-                      className="input field-auto w-16 text-sm"
+                      className="input control-compact w-16 lg:min-h-8 lg:py-1"
                     />
-                    <button
-                      className="btn-secondary btn-sm"
+                    <Button
+                      size="compact"
                       disabled={decide.isPending}
                       onClick={() => act(f.id, "PENALIZE")}
                     >
                       {t("admin.sessionFlags.penalize")}
-                    </button>
+                    </Button>
                   </span>
-                  <button
-                    className="btn-danger btn-sm"
+                  <Button
+                    variant="danger"
+                    size="compact"
                     disabled={decide.isPending}
                     onClick={() => act(f.id, "ESCALATE")}
                   >
                     {t("admin.sessionFlags.escalate")}
-                  </button>
+                  </Button>
                 </div>
-              </div>
+              </fieldset>
             )}
           </div>
         ))}
-        {list.length === 0 && <p className="muted">{t("admin.sessionFlags.empty")}</p>}
+        {flags.data && !flags.error && list.length === 0 && (
+          <p className="muted">{t("admin.sessionFlags.empty")}</p>
+        )}
       </div>
     </div>
   );

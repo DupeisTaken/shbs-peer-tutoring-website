@@ -5,6 +5,8 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 
 import { api } from "~/trpc/react";
+import { Button } from "~/app/_components/ui/button";
+import { FilterToolbar } from "~/app/_components/ui/patterns";
 import {
   SummaryTable,
   TableActions,
@@ -32,25 +34,27 @@ export default function SummaryPage() {
               : t("admin.summary.subtitleMonthly")}
           </p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          <label className="muted text-sm">
+        <FilterToolbar label={t("admin.summary.monthLabel")}>
+          <label className="muted self-center text-sm" htmlFor="summary-month">
             {t("admin.summary.monthLabel")}
           </label>
           <input
+            id="summary-month"
             type="month"
             value={month}
             onChange={(e) => setMonth(e.target.value)}
-            className="input w-[10rem]"
+            // Native input padding otherwise overrides the compact toolbar size.
+            className="input control-compact w-[10rem] max-w-full lg:min-h-8 lg:py-1"
           />
           {month && (
-            <button className="link text-sm" onClick={() => setMonth("")}>
+            <Button variant="ghost" size="compact" onClick={() => setMonth("")}>
               {t("admin.summary.clearMonth")}
-            </button>
+            </Button>
           )}
-          <Link href="/admin/history" className="btn-secondary btn-sm">
+          <Link href="/admin/history" className="btn-secondary control-compact">
             {t("admin.summary.viewHistory")}
           </Link>
-        </div>
+        </FilterToolbar>
       </div>
 
       <div className="card">

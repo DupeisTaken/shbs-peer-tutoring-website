@@ -66,6 +66,19 @@ export function TimedActionDialog({
       ref={ref}
       aria-labelledby={titleId}
       aria-describedby={descriptionId}
+      // Match NativeDialog's close-watcher guard. Repeated Escape can bypass a
+      // cancelled native close request; mandatory policy review also blocks it
+      // while idle, without treating the policy's Sign out action as pending.
+      closedby={busy || mandatory ? "none" : "closerequest"}
+      onKeyDown={(event) => {
+        if (
+          (busy || mandatory) &&
+          event.key === "Escape" &&
+          event.target instanceof Element &&
+          event.target.closest("dialog") === event.currentTarget
+        )
+          event.preventDefault();
+      }}
       onCancel={(e) => {
         e.preventDefault();
         if (!mandatory && !busy) onCancel();

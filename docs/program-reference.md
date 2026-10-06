@@ -140,6 +140,12 @@ accounts require the explicit migration described in the deployment guide.
 
 A lower exact headcount creates a pending flag. Management reviews the evidence and chooses **Dismiss**, **Warn**, **Penalize** or **Escalate**; coordinator decisions need approval. A penalty records a service-hour deduction for the session's period, defaulting to 0.5 hours unless another allowed amount is entered. Escalation requests further review and does not itself remove the tutor. Attendance or patrol corrections can reopen review and remove its linked deduction. Use corrections to fix the underlying record, and retain a clear decision note.
 
+Loading or failed reads do not mean there are no flags. Use **Try again** after a
+read failure; existing review notes and penalty amounts stay visible, with editing
+paused until recovery. Those fields also pause while a decision is being sent.
+A failed decision keeps the draft for retry; a queued proposal is labelled as
+awaiting approval and has not applied a penalty or another decision.
+
 ## Tutor hour adjustments
 
 Open **Hour Adjustments** (`/admin/hour-adjustments`) to add extra hours or a punishment deduction for a tutor and month. Amounts remain positive; the type determines whether they add or deduct hours. The active program period is recorded with each adjustment. The service-hours module must be enabled for writes.
