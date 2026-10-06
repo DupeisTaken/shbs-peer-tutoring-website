@@ -84,6 +84,7 @@ const tutee = summary(
     academic: academic.optional(),
     enrollmentPeriod: summary("schoolYear quarter").nullish(),
     enrollmentCorrection: summary("schoolYear", { rawGrade: schoolGrade }).nullish(),
+    enrollmentOriginal: summary("schoolYear academicallyGraduated", { rawGrade: schoolGrade }).nullish(),
     firstChoice: subject.nullish(),
     secondChoice: subject.nullish(),
     availabilities: list(summary("tuteeId slotId", { slot })).optional(),

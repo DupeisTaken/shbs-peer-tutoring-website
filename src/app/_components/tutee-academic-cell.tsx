@@ -13,12 +13,20 @@ export function TuteeAcademicCell({
   const t = useTranslations("tuteeHistory");
   const a = useTranslations("academics");
   const enrollment = row.historical || !(row.owner ?? row.user);
-  const grade = enrollment ? normalizeGrade(row.enrollmentCorrection ? row.enrollmentCorrection.rawGrade : row.gradeLevel) : row.academic;
+  // A saved original outranks mutable roster mirrors even when its values are null.
+  const original = row.enrollmentOriginal;
+  const report = row.enrollmentCorrection ?? original;
+  const grade = enrollment
+    ? normalizeGrade(report ? report.rawGrade : row.gradeLevel)
+    : row.academic;
   const year = enrollment
-    ? row.enrollmentCorrection ? row.enrollmentCorrection.schoolYear : row.enrollmentPeriod?.schoolYear
+    ? report
+      ? report.schoolYear
+      : row.enrollmentPeriod?.schoolYear
     : row.academic.schoolYear;
   const graduated = enrollment
-    ? !row.enrollmentCorrection && row.academicallyGraduated
+    ? !row.enrollmentCorrection &&
+      (original ? original.academicallyGraduated : row.academicallyGraduated)
     : row.academic.status === "GRADUATED";
   const review =
     !enrollment &&
@@ -51,7 +59,7 @@ export function TuteeAcademicCell({
       {year && (
         <p className="muted text-xs">
           {year}
-          {enrollment && !row.enrollmentCorrection && row.enrollmentPeriod?.quarter
+          {enrollment && !row.enrollmentCorrection && year === row.enrollmentPeriod?.schoolYear && row.enrollmentPeriod?.quarter
             ? ` · ${row.enrollmentPeriod.quarter}`
             : ""}
         </p>
