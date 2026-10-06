@@ -126,20 +126,29 @@ deployed image/source identity. Keep raw output private: mappings, addresses and
 operator identities may be sensitive. Do not paste full `.env`, `docker inspect`,
 `docker compose config` or authenticated response headers into public issues.
 
+For the current [issue #242 review](continuation/issue-242.md), preserve and report
+the existing operational policy, including root password login under the current
+maintenance constraints. This review does not impose key-only authentication,
+disable root/password login or require a new source allowlist/VPN. Have the
+operator confirm the intended current policy separately from observed settings:
+an observed setting alone is not approval, and a missing policy remains unknown.
+Compare evidence with that confirmed policy, without changing access rules.
+
 | Boundary | Required evidence and expected result |
 | --- | --- |
 | Host listeners | `sudo ss -lntup` for IPv4 **and** IPv6, including listening address/process; explain every listener. Public HTTP/HTTPS are intended. App 3000, PostgreSQL 5432, Caddy admin 2019, Prisma Studio 5555 and alternate web 8080 must not have unintended Internet paths. |
 | Effective containers | `docker compose ps --all` plus `docker ps --format 'table {{.Names}}\t{{.Ports}}'` for other stacks. Inspect actual container mappings, network mode and network options as below; source Compose alone does not cover overrides, stale containers or direct routing. |
 | Cloud perimeter | Review the instance's attached security groups, ingress rules, IPv4/IPv6 ranges, load balancers/NAT and any alternate public addresses in the cloud console. Record approved sources per administrative port; retain a sanitized rule inventory. |
 | Host firewall | `sudo ufw status verbose`, `sudo nft list ruleset`, and/or `sudo iptables-save` / `sudo ip6tables-save`, as applicable to the active backend. Inspect Docker forwarding/NAT and direct-routing rules, not only INPUT. Do not disable Docker's firewall management as a shortcut. |
-| SSH | `sudo sshd -T` and `sudo sshd -T -C user=<operator>,addr=<client-ip>,host=<client-hostname>,laddr=<server-ip>,lport=<ssh-port>` for each relevant `Match` context. Review `listenaddress`, `port`, `permitrootlogin`, `pubkeyauthentication`, `passwordauthentication`, `kbdinteractiveauthentication`, `authenticationmethods`, `allowusers`/`allowgroups` and any deny rules. Confirm intended keys/MFA and trusted source or VPN restrictions. |
+| SSH | `sudo sshd -T` and `sudo sshd -T -C user=<operator>,addr=<client-ip>,host=<client-hostname>,laddr=<server-ip>,lport=<ssh-port>` for each relevant `Match` context. Review `listenaddress`, `port`, `permitrootlogin`, `pubkeyauthentication`, `passwordauthentication`, `kbdinteractiveauthentication`, `authenticationmethods`, `allowusers`/`allowgroups` and any deny rules. Record effective authentication, root-login and source-access behavior against the operator-confirmed current policy, including password login or unrestricted sources where intended. |
 | Independent external vantage | Verify DNS A/AAAA against the cloud IPs and use a network outside the server and local proxy/TUN. Check protocol responses as well as host/cloud rules. A TCP handshake alone may come from an interception proxy; timeout/no protocol reply is **inconclusive**, not proof a port is closed. |
 
 #### Collect a private host inventory
 
 First agree with the operator on the canonical hostname, public IPv4/IPv6 addresses,
-HTTP/HTTPS behavior, SSH port, trusted source ranges/VPN and required keys/MFA/root
-policy. Identify who can review the cloud rules and an independent external network.
+HTTP/HTTPS behavior, SSH port, current source-access policy (including any trusted
+ranges/VPN or unrestricted sources) and password/key/MFA/root-login policy.
+Identify who can review the cloud rules and an independent external network.
 If these details or authorized host access are unavailable, record them as missing;
 do not guess credentials, scan addresses or change access rules.
 
@@ -198,10 +207,10 @@ in shared summaries and retain exact addresses/account names privately.
 
 | Review row | Completion evidence |
 | --- | --- |
-| Scope and intended access | Canonical domain, all public IPs/A/AAAA records, approved TCP 80/443 behavior, administrative port/source ranges or VPN, operator authentication and root-login requirements. Explicitly account for absent IPv6 and for any intended UDP 443/QUIC; the supplied Compose only publishes TCP. |
+| Scope and intended access | Canonical domain, all public IPs/A/AAAA records, approved TCP 80/443 behavior, administrative ports and current source policy (restricted ranges/VPN or unrestricted), operator authentication and root-login requirements. Explicitly account for absent IPv6 and for any intended UDP 443/QUIC; the supplied Compose only publishes TCP. |
 | Listener and container paths | Explain every IPv4/IPv6 TCP/UDP listener and match the expected `app`, `db`, `caddy` services to their actual Compose project labels. Review other stacks, host/macvlan/ipvlan networking, direct routing, IPv6 and alternate ports. Empty port mappings alone are insufficient. |
 | Caddy administration | Review the running proxy's startup options, mounted configuration and any API-loaded configuration privately. Establish the admin listener's actual namespace/interface and absence of external routing. A repository Caddyfile or mount path alone cannot establish the runtime setting. Do not export the full admin API/configuration publicly. |
-| Cloud ingress and host forwarding | Review every attached security group/ACL, load balancer/NAT/public address and the active host INPUT, forwarding and NAT policy for both families. Account for Docker's active firewall backend and daemon direct-routing settings. Record effective administrative source restrictions, not just a UFW summary. |
+| Cloud ingress and host forwarding | Review every attached security group/ACL, load balancer/NAT/public address and the active host INPUT, forwarding and NAT policy for both families. Account for Docker's active firewall backend and daemon direct-routing settings. Record effective administrative source rules, including unrestricted access if present, not just a UFW summary. |
 | Effective SSH policy | Inspect the actual service/socket unit, startup flags and configuration path privately, then run bounded `sshd -T` checks with the same `-f`/`-o` overrides and each relevant user/source/local-address/local-port `Match` context. Include approved operator, root, another/disallowed user, and trusted/untrusted source cases; explain `Include`, PAM/MFA, allow/deny and key-command behavior. Do not copy keys, authorized-key contents or helper credentials into evidence. |
 | Data and operator access preserved | Record the existing Compose project and actual database mount type/name/source/destination, plus Caddy certificate volumes. This collection makes no changes; verify the authorized operator session and intended web access still work. Use existing backup/record evidence privately; do not restart, reset, reseed or test restoration on production just to collect evidence. |
 | Image/source identity | App and Caddy container image IDs and RepoDigests, app OCI revision/source, reviewed mounted files/overrides and matching successful CI publish run. Record missing/mismatched identity as unknown. |
@@ -226,7 +235,7 @@ expand into a port sweep, credential attempt or vulnerability scan.
 | Approved target | Expected observation and interpretation |
 | --- | --- |
 | Canonical HTTP/HTTPS, each public A/AAAA address | HTTP redirects to the intended HTTPS host; HTTPS validates its certificate and serves sign-in/health. Resolve each approved address explicitly when several exist, preserving hostname/SNI. Verify intended web access from both trusted and ordinary external clients. |
-| Approved SSH port | Trusted source/VPN: operator confirms normal access using their existing approved method. Untrusted source: source restrictions prevent the SSH protocol from being reached. A public SSH banner with effective source policy still unknown is an exposure observation, not evidence of compromise. Do not attempt passwords, keys or root logins to test denial. |
+| Approved SSH port | Operator confirms normal access using their existing approved method. From an independent external source, compare reachability with the confirmed current source policy: intended source restrictions should prevent the SSH protocol from being reached by excluded clients; intended unrestricted access may expose the SSH protocol. A public banner alone does not establish authentication policy or compromise. Unknown policy remains unknown; do not treat root password login or unrestricted SSH as a mismatch against an invented stricter policy. Do not attempt passwords, keys or root logins to test denial. |
 | App 3000, DB 5432, Caddy admin 2019, Studio 5555, alternate web 8080, plus reviewed override ports | No unintended external service path. A protocol response is a mismatch requiring investigation. TCP success alone, a timeout or lack of a protocol reply is **inconclusive**; corroborate negative results with effective routing/firewall policy and an independently controlled vantage. |
 
 For an approved public-web cell, a bounded unauthenticated request can be recorded
