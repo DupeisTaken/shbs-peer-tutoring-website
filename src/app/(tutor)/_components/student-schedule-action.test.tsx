@@ -5,10 +5,10 @@ import { NextIntlClientProvider } from "next-intl";
 import type { ComponentProps } from "react";
 import messages from "../../../../messages/en.json";
 import { StudentScheduleAction } from "./student-schedule-action";
-import type { TimedActionDialog } from "~/app/_components/timed-action-dialog";
 
 const state = vi.hoisted(() => ({
   mutate: vi.fn(),
+  prepare: vi.fn(),
   pending: false,
   error: "",
 }));
@@ -18,6 +18,12 @@ vi.mock("~/trpc/react", () => ({
       studentWorkflow: { tutorRoster: { invalidate: vi.fn() } },
     }),
     studentWorkflow: {
+      prepareAction: {
+        useMutation: () => ({
+          mutate: state.prepare,
+          data: { id: "issued-server-ticket", readyAt: new Date(0) },
+        }),
+      },
       rejectSchedule: {
         useMutation: () => ({
           mutate: state.mutate,
@@ -28,28 +34,8 @@ vi.mock("~/trpc/react", () => ({
     },
   },
 }));
-// The shared dialog has its own real countdown tests. This verifies that the
-// feature preserves its action/target contract and forwards the issued ticket.
-vi.mock("~/app/_components/timed-action-dialog", () => ({
-  TimedActionDialog: (props: ComponentProps<typeof TimedActionDialog>) => (
-    <div role="dialog" aria-label={props.title}>
-      <p>
-        {props.action}:{props.target}
-      </p>
-      {props.children}
-      {props.error && <p role="alert">{props.error}</p>}
-      <button disabled={props.busy} onClick={props.onCancel}>
-        Cancel review
-      </button>
-      <button
-        disabled={(props.busy ?? false) || !props.canConfirm}
-        onClick={() => props.onConfirm("issued-server-ticket")}
-      >
-        Confirm review
-      </button>
-    </div>
-  ),
-}));
+// Keep the real timed dialog: transport fixtures cannot stand in for its Escape
+// handling, failed draft lifetime or feature-specific action/ticket contract.
 
 const row: ComponentProps<typeof StudentScheduleAction>["row"] = {
   pairingId: "pairing",
@@ -84,20 +70,21 @@ it("retains canceled/failed reasons and passes the unchanged server ticket and t
       screen.getByRole("button", { name: messages.workflow.scheduleReject }),
     );
   open();
-  expect(screen.getByRole("dialog").getAttribute("aria-label")).toContain(
-    "Sample Learner",
-  );
-  expect(screen.getByText("SCHEDULE:pairing:tutee")).toBeTruthy();
+  expect(screen.getByRole("dialog", { name: /Sample Learner/ })).toBeTruthy();
+  expect(state.prepare).toHaveBeenCalledWith({
+    action: "SCHEDULE",
+    target: "pairing:tutee",
+  });
   fireEvent.change(screen.getByRole("textbox"), {
     target: { value: "Schedule conflict draft" },
   });
-  fireEvent.click(screen.getByRole("button", { name: "Cancel review" }));
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
   expect(state.mutate).not.toHaveBeenCalled();
   open();
   expect(screen.getByRole<HTMLTextAreaElement>("textbox").value).toBe(
     "Schedule conflict draft",
   );
-  fireEvent.click(screen.getByRole("button", { name: "Confirm review" }));
+  fireEvent.click(screen.getByRole("button", { name: "Yes, confirm" }));
   expect(state.mutate).toHaveBeenCalledWith({
     pairingId: "pairing",
     tuteeId: "tutee",
@@ -107,6 +94,13 @@ it("retains canceled/failed reasons and passes the unchanged server ticket and t
   state.pending = true;
   view.rerender(element());
   expect(screen.getByRole<HTMLTextAreaElement>("textbox").disabled).toBe(true);
+  const dialog = screen.getByRole("dialog");
+  for (let attempt = 0; attempt < 3; attempt++) {
+    expect(fireEvent.keyDown(dialog, { key: "Escape" })).toBe(false);
+    fireEvent(dialog, new Event("cancel", { cancelable: true }));
+  }
+  expect(screen.getByRole("dialog")).toBe(dialog);
+  expect(state.mutate).toHaveBeenCalledOnce();
   state.pending = false;
   state.error = "Review failed";
   view.rerender(element());
@@ -114,6 +108,11 @@ it("retains canceled/failed reasons and passes the unchanged server ticket and t
   expect(screen.getByRole<HTMLTextAreaElement>("textbox").value).toBe(
     "Schedule conflict draft",
   );
+  fireEvent.click(screen.getByRole("button", { name: "Yes, confirm" }));
+  expect(state.mutate).toHaveBeenCalledTimes(2);
+  expect(state.mutate.mock.calls[1]).toEqual(state.mutate.mock.calls[0]);
+  fireEvent(dialog, new Event("cancel", { cancelable: true }));
+  expect(screen.queryByRole("dialog")).toBeNull();
 });
 it("shows the verification deadline without offering inactive tutors a new request", () => {
   render(element(false));

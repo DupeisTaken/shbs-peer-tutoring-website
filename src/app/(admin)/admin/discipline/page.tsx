@@ -9,6 +9,7 @@ import { NativeDisclosureIcon } from "~/app/_components/icons";
 import { DisciplineSlots } from "~/app/_components/discipline-slots";
 import { useReadOnly } from "~/app/_components/read-only";
 import { useDialogPending } from "~/app/_components/ui/modal";
+import { Button } from "~/app/_components/ui/button";
 import {
   SummaryTable,
   TableActions,
@@ -93,27 +94,29 @@ function PendingCard({
       {!readOnly && (
         <div className="mt-2 flex flex-wrap items-center gap-2">
           <input
-            className="input min-w-[12rem] flex-1"
+            // Match the review actions while allowing the preferred width to
+            // shrink inside a narrow or enlarged-text detail dialog.
+            className="input field-auto-bounded control-compact flex-1 [--field-min-width:12rem] lg:min-h-8 lg:py-1"
             placeholder={t("admin.cards.reviewNotePlaceholder")}
             aria-label={t("admin.cards.reviewNotePlaceholder")}
             value={note}
             disabled={controlsBusy}
             onChange={(e) => setNote(e.target.value)}
           />
-          <button
-            className="btn-secondary btn-sm"
+          <Button
+            size="compact"
             disabled={controlsBusy}
             onClick={() => submit("VALID")}
           >
             {t("admin.cards.valid")}
-          </button>
-          <button
-            className="btn-secondary btn-sm"
+          </Button>
+          <Button
+            size="compact"
             disabled={controlsBusy}
             onClick={() => submit("INVALID")}
           >
             {t("admin.cards.invalid")}
-          </button>
+          </Button>
         </div>
       )}
       {!readOnly &&
