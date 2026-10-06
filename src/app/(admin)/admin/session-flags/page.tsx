@@ -139,7 +139,7 @@ export default function SessionFlagsPage() {
                   >
                     {t("admin.sessionFlags.warn")}
                   </Button>
-                  <span className="flex items-center gap-1">
+                  <span className="flex min-w-0 max-w-full flex-wrap items-center gap-1">
                     <input
                       type="number"
                       step="0.25"
@@ -149,7 +149,7 @@ export default function SessionFlagsPage() {
                         setHours((h) => ({ ...h, [f.id]: e.target.value }))
                       }
                       aria-label={t("admin.sessionFlags.penaltyHours")}
-                      className="input control-compact w-16 lg:min-h-8 lg:py-1"
+                      className="input field-auto-bounded control-compact [--field-min-width:4rem] lg:min-h-8 lg:py-1"
                     />
                     <Button
                       size="compact"
