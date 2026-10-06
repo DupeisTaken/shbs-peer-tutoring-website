@@ -335,7 +335,7 @@ describe.each<Access>(["VIEWER", "observer"])(
       mock.tutee.findMany.mockResolvedValue([student]);
       // Historical raw text can contain private evidence, just like account raw grades.
       mock.historicalAcademicRecord.findMany.mockResolvedValue([
-        { tuteeId: "tutee", corrections: [{ rawGrade: PRIVATE, schoolYear: "24-25" }] },
+        { tuteeId: "tutee", rawGrade: PRIVATE, schoolYear: "23-24", academicallyGraduated: false, corrections: [{ rawGrade: PRIVATE, schoolYear: "24-25" }] },
       ]);
       mock.tutor.findMany.mockResolvedValue([
         {
@@ -357,6 +357,7 @@ describe.each<Access>(["VIEWER", "observer"])(
         englishName: "Tutee One",
         gradeLevel: null,
         enrollmentCorrection: { rawGrade: null, schoolYear: "24-25" },
+        enrollmentOriginal: { rawGrade: null, schoolYear: "23-24", academicallyGraduated: false },
         owner: { name: "Owner One", email: null },
         availabilities: [{ slot: { label: "Monday" } }],
       });

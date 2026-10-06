@@ -548,10 +548,15 @@ export const adminRouter = createTRPCRouter({
       }),
       ctx.db.historicalAcademicRecord.findMany({
         where: { id: { in: tutees.map(row => legacyAcademicRecordId("TUTEE", row.id)) } },
-        select: { tuteeId: true, corrections: { orderBy: { revision: "desc" }, take: 1, select: { rawGrade: true, schoolYear: true } } },
+        select: { tuteeId: true, rawGrade: true, schoolYear: true, academicallyGraduated: true, corrections: { orderBy: { revision: "desc" }, take: 1, select: { rawGrade: true, schoolYear: true } } },
       }),
     ]);
     const correctionsByTutee = new Map(correctedAcademics.map(row => [row.tuteeId, row.corrections[0] ?? null]));
+    // Current-account synchronization can change roster mirrors after preservation.
+    // Summaries must prefer the saved original, including deliberately unknown values.
+    const originalsByTutee = new Map(correctedAcademics.map(({ tuteeId, rawGrade, schoolYear, academicallyGraduated }) =>
+      [tuteeId, { rawGrade, schoolYear, academicallyGraduated }],
+    ));
     const periods = new Map(enrollmentTerms.map(({ id, ...period }) => [id, period]));
     return tutees.map((t) => {
       // Flag a (still-pending) re-signup that matches a banned identity this quarter — by exact
@@ -574,9 +579,10 @@ export const adminRouter = createTRPCRouter({
       const enrollmentPeriod = t.intakeTermId ? periods.get(t.intakeTermId) ?? null : null;
       const academic = academicSummary(owner?.academicProfile ?? legacyAcademic(t.gradeLevel, t.academicallyGraduated), active?.schoolYear);
       const enrollmentCorrection = correctionsByTutee.get(t.id) ?? null;
+      const enrollmentOriginal = originalsByTutee.get(t.id) ?? null;
       return isViewer
-        ? { ...t, notes: null, signatureName: null, bannedMatch, academic, owner, historical, historicalGrade, enrollmentPeriod, enrollmentCorrection }
-        : { ...t, bannedMatch, academic, owner, historical, historicalGrade, enrollmentPeriod, enrollmentCorrection };
+        ? { ...t, notes: null, signatureName: null, bannedMatch, academic, owner, historical, historicalGrade, enrollmentPeriod, enrollmentCorrection, enrollmentOriginal }
+        : { ...t, bannedMatch, academic, owner, historical, historicalGrade, enrollmentPeriod, enrollmentCorrection, enrollmentOriginal };
     });
   }),
   rooms: viewerProcedure.query(({ ctx }) =>

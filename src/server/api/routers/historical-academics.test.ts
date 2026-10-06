@@ -866,7 +866,42 @@ it.each([
   expect(await db.academicProfile.findUnique({ where: { userId: account.id } })).toMatchObject({ status: "GRADUATED", gradeLevel: null });
   expect(await db.tutee.findUnique({ where: { id: "a" } })).toMatchObject({ academicallyGraduated: true });
   expect((await historicalAcademicSnapshot(db, key("a"))).original).toEqual(original);
+  // Exercise the read paths as well as storage: the original panel and compact roster
+  // must not label historical attendance with the account's new graduation choice.
+  const roster = (await caller().admin.tutees()).find((row) => row.id === "a");
+  expect(roster).toMatchObject({
+    historical: true,
+    enrollmentOriginal: {
+      rawGrade: original.rawGrade,
+      schoolYear: original.schoolYear,
+      academicallyGraduated: false,
+    },
+    enrollmentCorrection: null,
+  });
+  const details = await caller().tuteeHistory.myDetails({ tuteeId: "a" });
+  expect(details.record).toMatchObject({ gradeLevel: original.rawGrade, academicallyGraduated: false });
+  expect(details.owner?.academic.status).toBe("GRADUATED");
   expect(await db.historicalAcademicCorrection.count()).toBe(0);
+});
+
+it("shows a restored reserved original separately from newer enrollment mirrors", async () => {
+  // Archive writes use SQL, so Prisma's client-managed updatedAt has to be supplied.
+  // This roster timestamp is independent of the original academic confirmation date.
+  const files = [
+    file("Tutee", [{ id: "restored", englishName: "Restored Learner", gradeLevel: "12", academicallyGraduated: true, status: "INACTIVE", intakeTermId: "current", updatedAt: new Date("2026-09-01T00:00:00Z") }]),
+    file("HistoricalAcademicRecord", [{ id: key("restored"), tuteeId: "restored", rawGrade: null, schoolYear: "23-24", academicallyGraduated: false, source: "LEGACY_TUTEE", originalConfirmedAt: null }]),
+  ];
+  const preview = await caller().recordTransfer.preview({ files });
+  await caller().recordTransfer.import({ files, ticket: preview.ticket });
+  const row = (await caller().admin.tutees()).find((entry) => entry.id === "restored");
+  expect(row).toMatchObject({
+    gradeLevel: "12",
+    enrollmentOriginal: { rawGrade: null, schoolYear: "23-24", academicallyGraduated: false },
+    enrollmentCorrection: null,
+  });
+  const details = await caller().tuteeHistory.details({ tuteeId: "restored" });
+  expect(details.record).toMatchObject({ gradeLevel: null, academicallyGraduated: false });
+  expect(details.historicalAcademics[0]?.original).toMatchObject({ schoolYear: "23-24", originalConfirmedAt: null });
 });
 
 it.each([false, true])("preserves originals before tutoring access links/synchronizes a historical tutor (linked=%s)", async (linked) => {

@@ -14,6 +14,9 @@ import {
 import { ProfileDialog } from "./profile-dialog";
 import { HistoricalAcademicEvidence } from "./historical-academic-evidence";
 import { HistoricalCorrectionReview } from "./historical-correction-review";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
+import { settleRefreshes } from "~/lib/settle-refreshes";
+import { InlineNotice } from "./ui/patterns";
 
 type AcademicRow =
   RouterOutputs["historicalAcademics"]["list"]["records"][number];
@@ -49,6 +52,13 @@ export function HistoricalAcademicCorrections({
   const [auditId, setAuditId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [notice, setNotice] = useState<string | null>(null);
+  const [applying, setApplying] = useState(false);
+  const [refreshing, setRefreshing] = useState(false);
+  const [refreshFailed, setRefreshFailed] = useState(false);
+  const applyingRef = useRef(false);
+  const refreshingRef = useRef(false);
+  const previewingRef = useRef(false);
+  const consumedReview = useRef(false);
   const generation = useRef(0);
   const fileInput = useRef<HTMLInputElement>(null);
   const reviewOpener = useRef<HTMLElement | null>(null);
@@ -59,7 +69,8 @@ export function HistoricalAcademicCorrections({
   });
   const preview = api.historicalAcademics.preview.useMutation();
   const save = api.historicalAcademics.correctBatch.useMutation();
-  const busy = reading || preview.isPending || save.isPending;
+  const busy =
+    reading || preview.isPending || save.isPending || applying || refreshing;
   const selected = Object.values(drafts);
   const dirty = selected.length > 0 || csv !== null;
 
@@ -104,6 +115,11 @@ export function HistoricalAcademicCorrections({
     setError(t.has(message) ? t(message) : t(fallback));
   }
   async function openPreview(input: HistoricalCorrectionInput) {
+    if (
+      busy || applyingRef.current || refreshingRef.current ||
+      previewingRef.current || review
+    ) return;
+    previewingRef.current = true;
     // The preview request disables its opener before the dialog mounts. Preserve
     // that control now rather than relying on focus captured after the request.
     reviewOpener.current =
@@ -116,13 +132,17 @@ export function HistoricalAcademicCorrections({
     try {
       const validated = historicalCorrectionInput.parse(input);
       const result = await preview.mutateAsync(validated);
+      consumedReview.current = false;
       setReviewInput(validated);
       setReview(result);
     } catch (cause) {
       showError(cause);
+    } finally {
+      previewingRef.current = false;
     }
   }
   function closeReview() {
+    if (applyingRef.current) return;
     setReview(null);
     setReviewInput(null);
     setError(null);
@@ -130,14 +150,41 @@ export function HistoricalAcademicCorrections({
       if (reviewOpener.current?.isConnected) reviewOpener.current.focus();
     });
   }
+  async function refreshRecords() {
+    if (refreshingRef.current) return;
+    refreshingRef.current = true;
+    setRefreshing(true);
+    // Query invalidation normally suppresses GET failures. Report them only after
+    // every matching read and every affected view settles; retry performs reads only.
+    try {
+      await settleRefreshes([
+        () => invalidateAndReport(utils.historicalAcademics),
+        () => invalidateAndReport(utils.admin.tutees),
+        () => invalidateAndReport(utils.tuteeHistory),
+      ]);
+      setRefreshFailed(false);
+    } catch {
+      setRefreshFailed(true);
+    } finally {
+      refreshingRef.current = false;
+      setRefreshing(false);
+    }
+  }
   async function apply() {
-    if (!review || !reviewInput || !acknowledged) return;
+    if (
+      !review || !reviewInput || !acknowledged ||
+      applyingRef.current || consumedReview.current
+    ) return;
+    // Own both the write and its synchronization, including the same render frame.
+    applyingRef.current = true;
+    setApplying(true);
     setError(null);
     try {
       const result = await save.mutateAsync({
         ...reviewInput,
         ticket: review.ticket,
       });
+      consumedReview.current = true;
       setReview(null);
       setReviewInput(null);
       // Only consume the reviewed workflow. A CSV save must not discard a separate
@@ -154,15 +201,7 @@ export function HistoricalAcademicCorrections({
       }
       setNotice(t("saved", { count: result.count }));
       // A committed save stays a success even if network refresh fails. Never resubmit it.
-      try {
-        await Promise.all([
-          utils.historicalAcademics.invalidate(),
-          utils.admin.tutees.invalidate(),
-          utils.tuteeHistory.invalidate(),
-        ]);
-      } catch {
-        setError(t("refreshFailed"));
-      }
+      await refreshRecords();
     } catch (cause) {
       if (
         cause &&
@@ -170,10 +209,14 @@ export function HistoricalAcademicCorrections({
         "data" in cause &&
         (cause.data as { approvalId?: string } | undefined)?.approvalId
       ) {
+        consumedReview.current = true;
         setReview(null);
         setReviewInput(null);
         setNotice(t("queued"));
       } else showError(cause);
+    } finally {
+      applyingRef.current = false;
+      setApplying(false);
     }
   }
   async function readFile(file: File | undefined) {
@@ -233,6 +276,11 @@ export function HistoricalAcademicCorrections({
           {error}
         </p>
       )}
+      {refreshFailed && (
+        <InlineNotice tone="warning" announcement="alert">
+          {t("refreshFailed")}
+        </InlineNotice>
+      )}
       <section
         className="card space-y-4 p-4 sm:p-6"
         aria-labelledby="historical-csv-title"
@@ -289,7 +337,10 @@ export function HistoricalAcademicCorrections({
           <button
             className="btn-secondary min-h-11 lg:min-h-10"
             disabled={busy || list.isFetching}
-            onClick={() => void list.refetch()}
+            onClick={() => {
+              if (!busy && !applyingRef.current && !refreshingRef.current)
+                void (refreshFailed ? refreshRecords() : list.refetch());
+            }}
           >
             {t("refresh")}
           </button>
@@ -539,7 +590,7 @@ export function HistoricalAcademicCorrections({
         <ProfileDialog
           title={t("reviewTitle")}
           size="wide"
-          pending={save.isPending}
+          pending={save.isPending || applying}
           onClose={closeReview}
         >
           <HistoricalCorrectionReview records={review.records} />
@@ -555,7 +606,7 @@ export function HistoricalAcademicCorrections({
             <input
               type="checkbox"
               className="h-5 w-5"
-              disabled={save.isPending}
+              disabled={save.isPending || applying}
               checked={acknowledged}
               onChange={(event) => setAcknowledged(event.target.checked)}
             />
@@ -563,10 +614,10 @@ export function HistoricalAcademicCorrections({
           </label>
           <button
             className="btn-primary min-h-11 lg:min-h-10"
-            disabled={!acknowledged || save.isPending}
+            disabled={!acknowledged || save.isPending || applying}
             onClick={() => void apply()}
           >
-            {t(save.isPending ? "working" : coordinator ? "propose" : "apply")}
+            {t(save.isPending || applying ? "working" : coordinator ? "propose" : "apply")}
           </button>
         </ProfileDialog>
       )}

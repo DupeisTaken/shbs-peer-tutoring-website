@@ -379,6 +379,22 @@ it("sorts historical rows by original grades instead of the owner's current grad
   expect(names[1]).toContain("Later Grade");
 });
 
+it("sorts preserved originals and corrected grades rather than newer roster mirrors", () => {
+  // The roster RPC includes both optional subject relations as null when absent.
+  mocks.searchRows = [
+    { id: "first", englishName: "First Learner", historical: true, status: "INACTIVE", firstChoice: null, secondChoice: null, gradeLevel: "12", academic: { status: "UNKNOWN" }, enrollmentOriginal: { rawGrade: "8", schoolYear: "23-24", academicallyGraduated: false } },
+    { id: "second", englishName: "Second Learner", historical: true, status: "INACTIVE", firstChoice: null, secondChoice: null, gradeLevel: "1", academic: { status: "UNKNOWN" }, enrollmentOriginal: { rawGrade: "7", schoolYear: "22-23", academicallyGraduated: false }, enrollmentCorrection: { rawGrade: "9", schoolYear: "24-25" } },
+  ];
+  mount();
+  fireEvent.click(screen.getByRole("button", { name: en.tuteeHistory.historical }));
+  fireEvent.click(screen.getByRole("button", { name: new RegExp(en.tuteeHistory.gradeClass) }));
+  const rows = screen.getAllByRole("row").slice(1);
+  expect(rows[0]!.textContent).toContain("First Learner");
+  expect(rows[0]!.textContent).toContain("Grade 8");
+  expect(rows[1]!.textContent).toContain("Second Learner");
+  expect(rows[1]!.textContent).toContain("Grade 9");
+});
+
 it.each([false, true])(
   "starts with roster search and keeps a hidden creation draft (Chinese=%s)",
   (chinese) => {

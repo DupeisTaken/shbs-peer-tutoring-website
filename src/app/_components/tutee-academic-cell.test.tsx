@@ -42,6 +42,44 @@ it("shows current confirmed grade and graduating class", () => {
   expect(screen.getByText("Class of 2028")).toBeTruthy();
   expect(screen.getByText("26-27")).toBeTruthy();
 });
+it("uses the preserved original period and graduation choice after roster mirrors advance", () => {
+  mount({
+    gradeLevel: "12",
+    academicallyGraduated: true,
+    enrollmentPeriod: { schoolYear: "26-27", quarter: "Q1" },
+    enrollmentOriginal: { rawGrade: "9", schoolYear: "24-25", academicallyGraduated: false },
+  });
+  expect(screen.getByText("Grade 9")).toBeTruthy();
+  expect(screen.getByText("Class of 2028")).toBeTruthy();
+  expect(screen.getByText("24-25")).toBeTruthy();
+  expect(screen.queryByText("24-25 · Q1")).toBeNull();
+  expect(screen.queryByText("Graduated")).toBeNull();
+});
+it("retains unknown original values instead of falling back to newer roster fields", () => {
+  mount({ enrollmentOriginal: { rawGrade: null, schoolYear: null, academicallyGraduated: false } });
+  expect(screen.queryByText("Grade 9")).toBeNull();
+  expect(screen.queryByText(/Class of/)).toBeNull();
+  expect(screen.queryByText(/24-25/)).toBeNull();
+  expect(screen.queryByText("Review needed")).toBeNull();
+});
+it("gives an explicit correction precedence over the preserved original", () => {
+  mount({
+    enrollmentOriginal: { rawGrade: "9", schoolYear: "24-25", academicallyGraduated: true },
+    enrollmentCorrection: { rawGrade: "8", schoolYear: "23-24" },
+  });
+  expect(screen.getByText("Grade 8")).toBeTruthy();
+  expect(screen.getByText("23-24")).toBeTruthy();
+  expect(screen.queryByText("Graduated")).toBeNull();
+});
+it("keeps linked current participants on their current report when an original is preserved", () => {
+  mount({
+    historical: false,
+    enrollmentOriginal: { rawGrade: "9", schoolYear: "24-25", academicallyGraduated: false },
+  });
+  expect(screen.getByText("Grade 11")).toBeTruthy();
+  expect(screen.getByText("26-27")).toBeTruthy();
+  expect(screen.queryByText("Grade 9")).toBeNull();
+});
 it.each([
   { gradeLevel: null },
   { enrollmentPeriod: null },
