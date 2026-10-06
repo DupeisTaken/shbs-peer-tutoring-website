@@ -439,14 +439,17 @@ export async function tuteeHistoryDetails(
     const evidence = await historicalAcademicSnapshot(db, id);
     historicalAcademics.push({ recordId: evidence.recordId, original: evidence.original, current: evidence.current, revision: evidence.revision, correction: evidence.correction });
   }
+  // The deterministic enrollment record is first. Its original remains authoritative
+  // after current-account mirrors advance; corrections are shown separately below it.
+  const originalEnrollment = historicalAcademics[0]!.original;
   return {
     historicalAcademics,
     record: {
       id: record.id,
       name: record.englishName,
       alternativeNames: record.alternativeNames,
-      gradeLevel: record.gradeLevel,
-      academicallyGraduated: record.academicallyGraduated,
+      gradeLevel: originalEnrollment.rawGrade,
+      academicallyGraduated: originalEnrollment.academicallyGraduated,
       updatedAt: record.updatedAt,
     },
     owner:

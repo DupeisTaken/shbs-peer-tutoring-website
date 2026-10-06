@@ -179,18 +179,21 @@ export default function TuteesPage() {
       const sa = stats.data?.[a.id];
       const sb = stats.data?.[b.id];
       switch (sort.key) {
-        case "grade":
+        case "grade": {
           // Sort the grade shown in the row: historical evidence is independent
           // of the linked account's current academic profile.
+          const aEnrollment = a.enrollmentCorrection ?? a.enrollmentOriginal;
+          const bEnrollment = b.enrollmentCorrection ?? b.enrollmentOriginal;
           return (
             ((a.historical || !(a.owner ?? a.user)
-              ? (normalizeGrade(a.enrollmentCorrection ? a.enrollmentCorrection.rawGrade : a.gradeLevel).gradeLevel ?? 0)
+              ? (normalizeGrade(aEnrollment ? aEnrollment.rawGrade : a.gradeLevel).gradeLevel ?? 0)
               : (a.academic.gradeLevel ?? 0)) -
               (b.historical || !(b.owner ?? b.user)
-                ? (normalizeGrade(b.enrollmentCorrection ? b.enrollmentCorrection.rawGrade : b.gradeLevel).gradeLevel ?? 0)
+                ? (normalizeGrade(bEnrollment ? bEnrollment.rawGrade : b.gradeLevel).gradeLevel ?? 0)
                 : (b.academic.gradeLevel ?? 0))) *
             dir
           );
+        }
         case "sessions":
           return ((sa?.sessions ?? 0) - (sb?.sessions ?? 0)) * dir;
         case "discipline":
