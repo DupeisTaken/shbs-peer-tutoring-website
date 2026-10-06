@@ -23,7 +23,8 @@ const mocks = vi.hoisted(() => ({
   preview: vi.fn(),
   apply: vi.fn(),
   refresh: vi.fn(),
-  invalidate: vi.fn(),
+  // Refresh mocks keep the real asynchronous contract so settlement is testable.
+  invalidate: vi.fn<() => Promise<void>>(),
   historicalInvalidate: vi.fn(),
   tuteesInvalidate: vi.fn(),
   historyInvalidate: vi.fn(),
