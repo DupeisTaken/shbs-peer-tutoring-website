@@ -4,7 +4,7 @@ vi.mock("~/server/auth", () => ({ auth: async () => null }));
 vi.mock("~/server/rate-limit", () => ({ rateLimit: () => ({ ok: true }) }));
 import { db } from "~/server/db";
 import { createCaller } from "~/server/api/root";
-import { ALL_GRADES } from "~/lib/profile-policy";
+import { ALL_GRADES, profilePolicySchema } from "~/lib/profile-policy";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { confirmAccountAcademics } from "~/server/academics";
 import { issueRegistrationCode, setEmailVerification, confirmEmailCode, completeRegistration } from "~/server/auth/registration";
@@ -12,7 +12,7 @@ import { issueRegistrationCode, setEmailVerification, confirmEmailCode, complete
 const defaults = {
   requireLatinNames: true,
   requireLatinLegalNames: false,
-  usePreferredNames: false,
+  usePreferredNames: true,
   showAlternateNames: false,
   offeredGrades: ALL_GRADES,
 };
@@ -37,6 +37,24 @@ beforeEach(async () => {
   await db.term.create({ data: { id: "policy-term", active: true, schoolYear: "26-27", quarter: "Q1", name: "2026 Q1" } });
 });
 afterAll(() => db.$disconnect());
+
+it("defaults omitted name-display fields on/off while preserving explicit opt-out", async () => {
+  const input = {
+    requireLatinNames: true,
+    requireLatinLegalNames: false,
+    offeredGrades: ALL_GRADES,
+  };
+  expect(profilePolicySchema.parse(input)).toEqual(defaults);
+  expect(profilePolicySchema.parse({ ...input, usePreferredNames: false }))
+    .toEqual({ ...defaults, usePreferredNames: false });
+  expect(await caller().program.profilePolicy()).toMatchObject(defaults);
+  expect(await db.programSettings.create({ data: { id: "program" } }))
+    .toMatchObject({ usePreferredNames: true, showAlternateNames: false });
+  await caller("HEAD").program.setProfilePolicy({
+    ...defaults, usePreferredNames: false, expectedPolicy: defaults,
+  });
+  expect(await caller().program.profilePolicy()).toMatchObject({ usePreferredNames: false });
+});
 
 it("audits independent alternate-name display and detects stale drafts", async () => {
   const changed = await caller("HEAD").program.setProfilePolicy({

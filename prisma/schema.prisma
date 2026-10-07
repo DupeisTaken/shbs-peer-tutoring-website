@@ -1903,7 +1903,7 @@ model ProgramSettings {
   /// Independent legal-name script rule; alternativeNames retains its storage key.
   requireLatinLegalNames       Boolean  @default(false)
   /// Display switches never remove any of the four stored name fields.
-  usePreferredNames            Boolean  @default(false)
+  usePreferredNames            Boolean  @default(true)
   showAlternateNames           Boolean  @default(false)
   offeredGrades                Int[]    @default([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12])
   /// Immediate ADMIN/HEAD switch, independent of staged program modules and authentication mail.

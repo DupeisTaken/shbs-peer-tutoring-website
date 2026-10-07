@@ -11,7 +11,7 @@ import { personNameSchema } from "~/lib/person-name";
 const defaults = {
   requireLatinNames: true,
   requireLatinLegalNames: false,
-  usePreferredNames: false,
+  usePreferredNames: true,
   showAlternateNames: false,
   offeredGrades: [1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12],
 };
@@ -76,6 +76,35 @@ beforeEach(async () => {
   });
 });
 afterAll(() => db.$disconnect());
+
+it("uses preferred names before settings exist and refreshes linked labels on the first opt-out", async () => {
+  const read = () => db.user.findUniqueOrThrow({
+    where: { id: "name-user" }, include: { tutor: true, student: true },
+  });
+  expect(await db.programSettings.findUnique({ where: { id: "program" } })).toBeNull();
+  expect(await read()).toMatchObject({
+    name: "Alex Chen", tutor: { englishName: "Alex Chen" }, student: { englishName: "Alex Chen" },
+  });
+  await caller().program.setProfilePolicy({
+    ...defaults, usePreferredNames: false, expectedPolicy: defaults,
+  });
+  expect(await read()).toMatchObject({
+    name: "Alexander Chen", preferredName: "Alex", username: "stablehandle",
+    tutor: { englishName: "Alexander Chen" },
+    student: { englishName: "Alexander Chen", signatureName: "Original signature" },
+  });
+});
+
+it.each([undefined, null, "", "   "])(
+  "falls back to legal name for preferred name %s under the new default",
+  async (preferredName) => {
+    const user = await db.user.create({ data: {
+      email: "fallback@example.test",
+      name: "Original label", firstName: "Alexander", lastName: "Chen", preferredName,
+    } });
+    expect(user.name).toBe("Alexander Chen");
+  },
+);
 it.each([
   [false, false, "Alexander Chen"],
   [true, false, "Alex Chen"],
@@ -114,7 +143,7 @@ it.each([
       expectedPolicy: settings,
     });
     expect(await db.user.findUnique({ where: { id: user.id } })).toMatchObject({
-      name: "Alexander Chen",
+      name: "Alex Chen",
       preferredName: "Alex",
       alternativeNames: "陈晓明",
     });
@@ -153,7 +182,7 @@ it.each(["firstName", "lastName", "preferredName"] as const)(
     });
     expect(
       await db.user.findUnique({ where: { id: "name-user" } }),
-    ).toMatchObject({ name: "Alexander Chen", profileVersion: 1 });
+    ).toMatchObject({ name: "Alex Chen", profileVersion: 1 });
   },
 );
 it("preserves unstructured names and unconfirmed historical tutor splits through display changes", async () => {
@@ -196,7 +225,7 @@ it("refuses an old display-string edit to structured fields instead of silently 
   ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   expect(
     await db.user.findUnique({ where: { id: "name-user" } }),
-  ).toMatchObject({ name: "Alexander Chen", profileVersion: 1 });
+  ).toMatchObject({ name: "Alex Chen", profileVersion: 1 });
 });
 it("refreshes settings atomically after a concurrent account edit", async () => {
   let unlock!: () => void;
