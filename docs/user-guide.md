@@ -524,6 +524,8 @@ Profiles and signup forms have **First Name**, **Last Name**, **Preferred Name**
 
 In **Program → Names and Grades**, Head and administrators can turn **Use preferred names** and **Show names in another language** on independently. The first setting uses Preferred Name instead of First Name, retaining Last Name; when blank, it falls back to First Name. The second appends the additional name when supplied. A live example previews the result. Turning either setting off retains the saved text. Coordinators can view these settings. Display changes apply to current profiles and rosters; historical submissions, signatures and audit snapshots retain their original names. Usernames do not change. If another administrator saves while a settings draft is open, reload and review before saving. The same section controls offered grades (at least one of Grades 1–12).
 
+**Use preferred names** is on by default, while **Show names in another language** defaults off. Upgrades enable preferred names when no administrator has saved the name-display settings, and preserve administrator choices recorded in the audit history. Head or an administrator can change the setting here. An empty preferred name uses the saved First Name and Last Name as the fallback.
+
 Academic confirmation uses the current program year and calculates graduation from that year and the selected grade. There is no separate editable year or graduation field. A form opened before a school-year rollover requires a reload before confirmation. When no current year is configured, staff must set the program period before a reported grade can be confirmed; unknown and not-applicable reports remain available.
 
 ### Retrying public signup
