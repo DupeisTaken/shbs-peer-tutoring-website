@@ -1,6 +1,6 @@
 # Name fields and display wording
 
-Implemented behavior for [issue #205](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/205).
+Implemented behavior for [issue #205](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/205), with preferred-name defaults updated for [issue #261](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/261).
 
 ## Field labels
 
@@ -31,6 +31,11 @@ Introduction: **Choose how participant names appear across the program.**
 | Show names in another language | Show the additional name alongside the main name when one is provided. |
 
 Supporting text: **These settings change how names are shown. They do not remove saved names.**
+
+**Use preferred names** defaults on for new or unconfigured programs; **Show names in
+another language** defaults off. Upgrades enable untouched preferred-name defaults
+and preserve audited administrator choices, including off. An administrator can
+change the setting for an existing program in this section.
 
 “Use” makes the replacement behavior explicit. “Show” describes an additional name. Avoid a generic “Display Preferred Name” toggle whose effect on the first and last names is unclear.
 

@@ -14,7 +14,7 @@ import {
   ProgramProfileSettings,
   ProfilePolicyEditor,
 } from "./program-profile-settings";
-import type { ProfilePolicy } from "~/lib/profile-policy";
+import { profilePolicySchema, type ProfilePolicy } from "~/lib/profile-policy";
 import { ProfilePolicyHint, ProfilePolicyError } from "./profile-policy";
 
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));
@@ -91,6 +91,26 @@ beforeEach(() => {
   mock.refetch.mockResolvedValue({ isSuccess: true, data: mock.settings });
 });
 afterEach(cleanup);
+
+it.each([en, zh])("previews preferred names from the default policy in each language", (messages) => {
+  mock.settings = {
+    ...profilePolicySchema.parse({
+      requireLatinNames: true,
+      requireLatinLegalNames: false,
+      offeredGrades: [9, 10, 11, 12],
+    }),
+    canEdit: true,
+  };
+  render(
+    <NextIntlClientProvider locale={messages === en ? "en" : "zh"} messages={messages}>
+      <ProgramProfileSettings />
+    </NextIntlClientProvider>,
+  );
+  expect(screen.getByRole<HTMLInputElement>("checkbox", {
+    name: messages.profilePolicy.usePreferredNames,
+  }).checked).toBe(true);
+  expect(screen.getByText("Alex Chen")).toBeTruthy();
+});
 
 it("replaces initial loading with an actionable error before any settings exist", () => {
   mock.settings = undefined;

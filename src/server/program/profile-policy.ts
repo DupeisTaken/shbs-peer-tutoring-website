@@ -18,7 +18,7 @@ export function parsePersonNames(input: unknown) {
   return result.data;
 }
 
-/** Missing settings preserve the existing program until an administrator chooses a policy. */
+/** Unconfigured programs use preferred names; explicit saved choices remain authoritative. */
 export async function getProfilePolicy(db: DomainDb): Promise<ProfilePolicy> {
   const settings = await db.programSettings.findUnique({
     where: { id: "program" },
@@ -32,7 +32,7 @@ export async function getProfilePolicy(db: DomainDb): Promise<ProfilePolicy> {
   return {
     requireLatinNames: true,
     requireLatinLegalNames: false,
-    usePreferredNames: settings?.usePreferredNames ?? false,
+    usePreferredNames: settings?.usePreferredNames ?? true,
     showAlternateNames: settings?.showAlternateNames ?? false,
     offeredGrades: settings?.offeredGrades ?? [...ALL_GRADES],
   };

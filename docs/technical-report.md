@@ -427,7 +427,7 @@ spaces, apostrophes and hyphens allowed. Alternate names accept Unicode. Blank o
 names are allowed. The legacy policy booleans remain for wire/storage compatibility; the
 current API always reports true/false and ignores attempts to change the fixed rules.
 
-`ProgramSettings.usePreferredNames` and `showAlternateNames` default off. ADMIN/HEAD
+`ProgramSettings.usePreferredNames` defaults on; `showAlternateNames` defaults off. ADMIN/HEAD
 can change them with stale-draft checking and an audit record. The preferred name replaces
 only the first name; the alternate name is appended with a middle-dot separator. PostgreSQL
 triggers materialize this label in `User.name` and roster `englishName`, so existing
@@ -436,6 +436,17 @@ username namespace lock then identity table locks before refreshing labels in on
 Saving invalid names rolls back the profile operation. Shared account writes copy explicit
 fields to linked rosters; they never split a display label. Username generation uses the
 explicit fields rather than the display label.
+
+Migration `20261007010000_preferred_names_default` aligns the database default,
+API/schema defaults and PostgreSQL formatter's missing-settings fallback. It enables
+preferred names for untouched defaults, including the singleton created by earlier
+migrations on a fresh install. An audit with operation `program.setProfilePolicy`
+and `details.after.usePreferredNames` preserves the current saved choice, including
+`false`; older Latin/grade-only audits do not count as a display choice. Direct database
+edits without that audit are treated as untouched defaults. The alternate-name setting
+is retained. Current labels refresh when the effective policy changes, including when
+settings are absent or first created with an explicit opt-out. Blank preferred names
+fall back to First Name, retaining Last Name when supplied.
 
 Migration `20260930010000_four_name_fields` preserves original labels in `legacyName`
 and copies only already-explicit matching tutor fields. Unconfirmed old tutor splits retain

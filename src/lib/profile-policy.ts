@@ -4,7 +4,7 @@ export const ALL_GRADES = Array.from({ length: 12 }, (_, index) => index + 1);
 export const profilePolicySchema = z.object({
   requireLatinNames: z.boolean(),
   requireLatinLegalNames: z.boolean(),
-  usePreferredNames: z.boolean().default(false),
+  usePreferredNames: z.boolean().default(true),
   showAlternateNames: z.boolean().default(false),
   offeredGrades: z
     .array(z.number().int().min(1).max(12))
