@@ -1165,6 +1165,8 @@ it("preserves all four name fields when staff materialize an intake before accou
   const row = await db.studentSurvey.findFirstOrThrow();
   const { materializeStudent } = await import("./student-survey");
   const profile = await db.$transaction(tx => materializeStudent(tx, row));
-  expect(profile).toMatchObject({ firstName: "Alexander", lastName: "Chen", preferredName: "Alex", alternativeNames: "陈晓明", englishName: "Alexander Chen" });
+  // Current profiles use the preferred-name default; submitted evidence retains its original names.
+  expect(profile).toMatchObject({ firstName: "Alexander", lastName: "Chen", preferredName: "Alex", alternativeNames: "陈晓明", englishName: "Alex Chen" });
+  expect((await db.studentSurvey.findUniqueOrThrow({ where: { id: row.id } })).payload).toEqual(row.payload);
   expect(await db.user.findUnique({ where: { email } })).toBeNull();
 });
