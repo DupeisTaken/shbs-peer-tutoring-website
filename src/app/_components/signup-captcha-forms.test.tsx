@@ -99,6 +99,7 @@ vi.mock("~/trpc/react", () => ({
     tutee: {
       signupOptions: {
         useQuery: () => ({
+          isFetchedAfterMount: true,
           data: {
             subjects: [{ id: "math", name: "Math" }],
             slots: [],

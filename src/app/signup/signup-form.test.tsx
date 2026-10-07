@@ -1,5 +1,17 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import {
+  act,
+  cleanup,
+  fireEvent,
+  render,
+  screen,
+  waitFor,
+} from "@testing-library/react";
+import {
+  QueryClient,
+  QueryClientProvider,
+  useQuery,
+} from "@tanstack/react-query";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { BrandingProvider } from "~/app/_components/branding-provider";
 import { resolveBranding } from "~/lib/branding-config";
@@ -66,6 +78,7 @@ vi.mock("./survey-resend", () => ({ SurveyResend: () => null }));
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.options.mockReturnValue({
+    isFetchedAfterMount: true,
     data: {
       subjects: [{ id: "math", name: "Math" }],
       slots: [{ id: "slot", dayOfWeek: 1, startMin: 900, endMin: 960 }],
@@ -77,7 +90,10 @@ beforeEach(() => {
     refetch: mocks.retry,
   });
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.useRealTimers();
+});
 it("keeps a loading request from pretending no time slots exist", () => {
   mocks.options.mockReturnValue({ isLoading: true });
   render(<SignupForm />);
@@ -96,6 +112,7 @@ it.each(["subjects", "slots", "policy"])(
     if (missing === "policy") mocks.policy.mockReturnValue({ data: null });
     else
       mocks.options.mockReturnValue({
+        isFetchedAfterMount: true,
         data: {
           subjects:
             missing === "subjects" ? [] : [{ id: "math", name: "Math" }],
@@ -125,6 +142,7 @@ it("shows a ready request form with submission disabled until completed", () => 
 
 it("hides configured tutee fields and allows submission without hidden required defaults", () => {
   mocks.options.mockReturnValue({
+    isFetchedAfterMount: true,
     data: {
       subjects: [{ id: "math", name: "Math" }],
       slots: [],
@@ -183,7 +201,7 @@ it("marks configured optional fields required and resets consent when the policy
       },
     }).tutee,
   };
-  mocks.options.mockReturnValue({ data });
+  mocks.options.mockReturnValue({ data, isFetchedAfterMount: true });
   const view = render(<SignupForm />);
   for (const field of [
     "public.signup.fields.gradeLevel",
@@ -312,4 +330,168 @@ it("retains entered identity and groups when cached prerequisites fail", () => {
       .getByRole("button", { name: "public.signup.submit" })
       .matches(":disabled"),
   ).toBe(true);
+  expect(name.matches(":disabled")).toBe(true);
+});
+
+it("opens and closes a mounted form on server time while retaining its draft", async () => {
+  vi.useFakeTimers({
+    toFake: ["setInterval", "clearInterval", "performance", "Date"],
+  });
+  vi.setSystemTime(new Date("1990-01-01"));
+  const cached = mocks.options() as { data: object };
+  mocks.options.mockReturnValue({
+    ...cached,
+    isFetchedAfterMount: true,
+    data: {
+      ...cached.data,
+      recruitment: {
+        enabled: true,
+        opensAt: "2030-09-01T08:00:01Z",
+        closesAt: "2030-09-01T08:00:03Z",
+        previewUrl: null,
+        serverNow: "2030-09-01T08:00:00Z",
+      },
+    },
+  });
+  render(<SignupForm />);
+  const name = screen.getByLabelText<HTMLInputElement>(
+    "firstName signupFields.required",
+  );
+  expect(name.matches(":disabled")).toBe(true);
+  await act(async () => vi.advanceTimersByTimeAsync(1000));
+  expect(name.matches(":disabled")).toBe(false);
+  fireEvent.change(name, { target: { value: "Retained at closing" } });
+  await act(async () => vi.advanceTimersByTimeAsync(2000));
+  expect(screen.getByRole("status").textContent).toContain("ended");
+  expect(name.matches(":disabled")).toBe(true);
+  expect(name.value).toBe("Retained at closing");
+});
+
+// Use the actual query observer: a mocked isLoading flag misses a fresh cached
+// result that is immediately reused on workspace -> signup navigation.
+it.each(["scheduled", "ended"])(
+  "rechecks a cached open window before enabling the form when it is now %s",
+  async (state) => {
+    const cached = (mocks.options() as { data: object }).data;
+    const client = new QueryClient({
+      defaultOptions: { queries: { staleTime: 30_000, retry: false } },
+    });
+    const recruitment = {
+      enabled: true,
+      opensAt: null as Date | null,
+      closesAt: null as Date | null,
+      previewUrl: null,
+      serverNow: new Date().toISOString(),
+    };
+    client.setQueryData(["signup-options"], { ...cached, recruitment });
+    let finish!: (value: object) => void;
+    const fetchOptions = vi.fn(
+      () =>
+        new Promise<object>((resolve) => {
+          finish = resolve;
+        }),
+    );
+    mocks.options.mockImplementation(function useOptions(
+      _input,
+      options: object,
+    ) {
+      return useQuery({
+        queryKey: ["signup-options"],
+        queryFn: fetchOptions,
+        ...options,
+      });
+    });
+    const view = render(
+      <QueryClientProvider client={client}>
+        <SignupForm />
+      </QueryClientProvider>,
+    );
+    try {
+      expect(screen.getByRole("status").textContent).toContain("loading");
+      expect(screen.queryByRole("textbox")).toBeNull();
+      await waitFor(() => expect(fetchOptions).toHaveBeenCalledOnce());
+      await act(async () =>
+        finish({
+          ...cached,
+          recruitment: {
+            ...recruitment,
+            opensAt:
+              state === "scheduled" ? new Date(Date.now() + 60_000) : null,
+            closesAt: state === "ended" ? new Date(Date.now() - 60_000) : null,
+          },
+        }),
+      );
+      await waitFor(() =>
+        expect(screen.getByRole("status").textContent).toContain(state),
+      );
+      expect(
+        screen
+          .getAllByRole("textbox")
+          .every((input) => input.matches(":disabled")),
+      ).toBe(true);
+      fireEvent.submit(view.container.querySelector("form")!);
+      expect(mocks.mutate).not.toHaveBeenCalled();
+    } finally {
+      view.unmount();
+      client.clear();
+    }
+  },
+);
+
+it("does not unlock cached fields after a failed entry check, then recovers without discarding drafts", async () => {
+  const cached = (mocks.options() as { data: object }).data;
+  const client = new QueryClient({
+    defaultOptions: { queries: { staleTime: 30_000, retry: false } },
+  });
+  client.setQueryData(["signup-options"], cached);
+  const fetchOptions = vi
+    .fn()
+    .mockRejectedValueOnce(new Error("Offline"))
+    .mockResolvedValue(cached);
+  mocks.options.mockImplementation(function useOptions(
+    _input,
+    options: object,
+  ) {
+    return useQuery({
+      queryKey: ["signup-options"],
+      queryFn: fetchOptions,
+      ...options,
+    });
+  });
+  const view = render(
+    <QueryClientProvider client={client}>
+      <SignupForm />
+    </QueryClientProvider>,
+  );
+  try {
+    await screen.findByRole("alert");
+    expect(
+      screen
+        .getAllByRole("textbox")
+        .every((input) => input.matches(":disabled")),
+    ).toBe(true);
+    fireEvent.submit(view.container.querySelector("form")!);
+    expect(mocks.mutate).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "survey.retry" }));
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    const name = screen.getByLabelText<HTMLInputElement>(
+      "firstName signupFields.required",
+    );
+    expect(name.matches(":disabled")).toBe(false);
+    fireEvent.change(name, { target: { value: "Retained draft" } });
+    fetchOptions.mockRejectedValueOnce(new Error("Offline again"));
+    await act(async () => {
+      await client.refetchQueries({ queryKey: ["signup-options"] });
+    });
+    await screen.findByRole("alert");
+    expect(name.value).toBe("Retained draft");
+    expect(name.matches(":disabled")).toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "survey.retry" }));
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    expect(name.value).toBe("Retained draft");
+    expect(name.matches(":disabled")).toBe(false);
+  } finally {
+    view.unmount();
+    client.clear();
+  }
 });

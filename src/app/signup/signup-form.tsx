@@ -45,6 +45,9 @@ export function SignupForm() {
   const profilePolicy = useProfilePolicy();
   const locale = useLocale();
   const options = api.tutee.signupOptions.useQuery(undefined, {
+    // Returning from the tutee workspace must recheck intake dates even while
+    // the shared query cache considers the previous visit's options fresh.
+    refetchOnMount: "always",
     refetchInterval: 30_000,
   });
   const policy = api.tutee.surveyPolicy.useQuery({ locale });
@@ -101,6 +104,7 @@ export function SignupForm() {
   ];
   const readOnly = status !== "open" || missing.length > 0;
   const canSubmit =
+    options.isFetchedAfterMount &&
     !readOnly &&
     !options.isError &&
     !policy.isError &&
@@ -154,6 +158,7 @@ export function SignupForm() {
       </section>
     );
   if (
+    (!options.isFetchedAfterMount && !options.isError) ||
     (options.isLoading && !options.data) ||
     (policy.isLoading && !policy.data)
   )
@@ -223,7 +228,14 @@ export function SignupForm() {
       >
         {/* Native fieldset prevents mouse, keyboard and assistive-input edits in preview mode. */}
         <fieldset
-          disabled={readOnly || submit.isPending || captcha.pending}
+          disabled={
+            !options.isFetchedAfterMount ||
+            options.isError ||
+            policy.isError ||
+            readOnly ||
+            submit.isPending ||
+            captcha.pending
+          }
           aria-busy={submit.isPending}
           className="min-w-0 space-y-6"
           aria-label={t("recruitment.responses")}

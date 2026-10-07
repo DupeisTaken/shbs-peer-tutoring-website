@@ -86,6 +86,12 @@ still apply. Independently assigned management, crew and translator permissions 
 
 An account link lasts 24 hours. Request a new link if it expires; a successful resend replaces the previous link. Staff may assign a tutor before you confirm. That first assignment starts a fixed seven-day verification deadline. Reassignment and link resends do not extend it. An unverified request closes when its deadline passes and its assignments are released; you must submit a new request with a new priority timestamp.
 
+The configured tutee signup opening and closing times apply to new requests even
+when you are already signed in. Returning to the form checks the current intake
+settings before enabling its fields. Outside that window, the form is a read-only
+preview. If the check fails, use Retry; existing requests and their separate email
+confirmation deadlines remain unchanged.
+
 ### Find your way around
 
 The tutee page uses the same top bar, account menu, theme and card layout as the tutor page. Choose a section from its navigation:
