@@ -280,6 +280,17 @@ Email ownership and notification regressions live in `src/server/auth/account-em
 
 History-only credentials and cancellation use `src/server/history-account-setup.test.ts` alongside `src/server/api/routers/tutee-history.test.ts`. These suites require the isolated `shbs_shipping_test` database and check archive preservation, shared email ownership, retries, cancellation/expiry, access scoping and transaction rollback. Include the existing account-combination and school-departure regressions when changing this boundary.
 
+Historical tutor linking uses `src/server/tutor-history.test.ts` and
+`src/app/_components/tutor-history-link.test.tsx`. Include account-combination,
+historical-academic, registration and roster-editor regressions when changing its
+ownership boundary. Apply `20261007010000_tutor_history_ownership` to the isolated
+database first. On the running site, check **Tutors → Show past tutors → Edit Profile →
+Link Historical Records**, then verify **My Tutoring History** with the target login.
+Cover Admin/Head linking, Coordinator denial, a competing current login, retained-owner
+correction, several archives alongside a current tutor, and unchanged stored hours.
+Use EN/ZH at 1440/390 px and enlarged text; verify native selector names and actual
+control heights as well as pending/error recovery in the component tests.
+
 ## 6. Smoke-test the production Docker stack (optional)
 
 This exercises the same `docker-compose.yml` used in production (app + Postgres + Caddy),

@@ -304,6 +304,15 @@ data migration. Accounts with school-departure history, including reviewed retur
 also require a reviewed data migration that preserves departure decisions and access
 revocations. Original identifiers are never assigned to another person.
 
+### Link historical tutor records
+
+For an accountless archived tutor, use **Tutors → Show past tutors → Edit Profile →
+Link Historical Records**. Admin or Head reviews an existing verified account and
+identity evidence before confirming. Several archived tutor records may belong to
+one login without replacing its current tutor profile or reactivating the archives.
+Head password confirmation is required to correct a retained owner. See the
+[archived tutor procedure](historical-participant-transition.md#link-archived-tutor-history).
+
 ### Find and batch-edit offered courses
 
 In **Subjects & Levels**, use the **Offered Course Catalogue** above the subject groups. Search names without regard to case, choose a configured level (or **No level**), and choose **All statuses**, **Active** or **Inactive**. Filters combine, and the count shows matches out of the full catalogue. **Clear filters** restores all rows. Filtering is available to read-only viewers and never changes signup offerings.

@@ -809,6 +809,17 @@ or reuse a retired identifier as a shortcut. The application checks retirement o
 JWT validation, recovery, signup and live API authorization. Concurrent credential issuance
 is fenced by a User-row lock, and the merge's actor/evidence audit commits atomically.
 
+## Historical tutor ownership migration
+
+Before deploying historical tutor linking, apply `20261007010000_tutor_history_ownership`
+and regenerate Prisma. It adds explicit retained ownership with restrictive foreign keys
+and guards against a different current login claiming the same tutor. It performs no
+automatic matching or historical data rewrite. These ownership decisions and their
+audit evidence require a full database backup; Program Records CSV exports are not an
+ownership backup. Keep the new table and guards during application rollback; an older
+application will not display retained tutor links. Review any ownership correction through
+the staff workflow, and never remove guards to force a conflicting account attachment.
+
 ## Patrol credit migration
 
 Apply `20261002010000_patrol_credit_budget` before starting the updated application. It adds server award timestamps and unique UTC 20-minute evidence reservations. Existing positive-hour patrols retain their hours, notes, observations and update timestamps; their recorded creation time becomes the historical award time. All observed intervals are reserved. A patrol without observations reserves its creation interval. For overlapping legacy awards, the earliest submission owns the reservation, with ID as the tie-breaker. No duplicates are deleted and no historical totals are reduced. Zero-hour records receive no award time or reservation.

@@ -3735,7 +3735,8 @@
       "notifications": "Notifications moved",
       "patrols": "Patrols retained",
       "academicConfirmations": "Academic confirmations retained",
-      "tuteeProfiles": "Tutee ownership links moved"
+      "tuteeProfiles": "Tutee ownership links moved",
+      "tutorProfiles": "Tutor history ownership links moved"
     },
     "noCandidates": "No hay cuentas disponibles para combinar."
   },
@@ -3856,7 +3857,7 @@
     "HISTORY_CODE_MISMATCH": "That code is incorrect. Check the latest verification email and try again.",
     "settings": "Account settings",
     "tutorHistory": "Retained tutor history",
-    "tutorHistoryHelp": "Only tutor records already owned by this account are shown, including Head-reviewed account combinations. Missing or disputed records require staff review; names and emails do not establish ownership.",
+    "tutorHistoryHelp": "Tutor records explicitly owned by this account are shown, including staff-reviewed historical links and Head-reviewed account combinations. Missing or disputed records require staff review; names and emails do not establish ownership.",
     "storedHours": "Stored service hours: {hours}",
     "meetings": "Meeting attendance",
     "amendments": "Hour amendments",
@@ -4006,5 +4007,37 @@
     "HISTORICAL_MANAGER_REQUIRED": "An active Admin or Head must apply these corrections.",
     "correctedEvidence": "Historical academic evidence",
     "openCorrections": "Open academic corrections"
+  },
+  "tutorHistory": {
+    "title": "Link Historical Records",
+    "existingAccount": "Existing Verified Account",
+    "help": "Link this tutor archive for personal history access. Current tutor membership, archived status, account details and original records stay unchanged.",
+    "searchAccount": "Search by name, username or email",
+    "search": "Search",
+    "chooseAccount": "Choose an account",
+    "noAccounts": "No eligible verified accounts found.",
+    "evidence": "Identity evidence and reason (at least 10 characters)",
+    "preview": "Review Link",
+    "reviewTitle": "Review Historical Tutor Ownership",
+    "summary": "Link the tutor history of {name} to {account}.",
+    "counts": "{sessions} sessions · {meetings} meeting attendance records · {amendments} hour amendments",
+    "previousOwner": "Recorded history owner: {account}",
+    "headCorrection": "This replaces the recorded history owner. Review the identity evidence and enter your Head password.",
+    "password": "Current password",
+    "confirmIdentity": "I have checked that this record and account belong to the same person.",
+    "confirm": "Confirm Link",
+    "alreadyLinked": "This account already owns this tutor history.",
+    "saved": "Historical tutor records linked. The tutor status and current account membership are unchanged.",
+    "refreshFailed": "The link was saved, but the displayed data could not refresh. Retry refresh; do not submit the link again.",
+    "failed": "Could not complete this request. Review the link and try again.",
+    "loading": "Loading…",
+    "HISTORY_NOT_FOUND": "This tutor record or account is unavailable.",
+    "HISTORY_NOT_HISTORICAL": "Only archived, graduated or transferred tutor records can be linked here.",
+    "HISTORY_ACCOUNT_NOT_READY": "Choose an account with completed setup and a verified email.",
+    "HISTORY_MANAGER_REQUIRED": "An active Admin or Head must approve this link.",
+    "HISTORY_STALE": "The record or account changed. Review the link again before confirming.",
+    "HISTORY_USE_MERGE": "Another login owns this tutor profile. Use Head-reviewed Combine accounts; its conflict checks still apply.",
+    "HISTORY_HEAD_REQUIRED": "This history has a different owner. Only the Head can correct its ownership.",
+    "HISTORY_RATE_LIMIT": "Too many attempts. Try again in 15 minutes."
   }
 }

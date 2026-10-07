@@ -38,6 +38,9 @@ vi.mock("./profile-dialog", () => ({
   ),
 }));
 vi.mock("./academic-profile", () => ({ AcademicPanel: () => null }));
+vi.mock("./tutor-history-link", () => ({
+  TutorHistorySection: ({ tutorId }: { tutorId: string }) => <div>History linking: {tutorId}</div>,
+}));
 const row = {
   id: "past-tutor",
   updatedAt: new Date("2026-09-01"),
@@ -56,6 +59,13 @@ function mount(isHead = true, tutor = row) {
 }
 beforeEach(() => { state.save.mockReset(); state.error = null; });
 afterEach(cleanup);
+it("offers historical linking only for archived, graduated and transferred tutors", () => {
+  mount();
+  expect(screen.getByText("History linking: past-tutor")).toBeTruthy();
+  cleanup();
+  mount(true, { ...row, status: "ACTIVE" });
+  expect(screen.queryByText("History linking: past-tutor")).toBeNull();
+});
 it("saves an archived unlinked correction without an email and preserves status", () => {
   mount();
   fireEvent.change(screen.getByLabelText("First Name Required"), {

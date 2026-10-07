@@ -17,6 +17,13 @@ vi.mock("./profile-dialog", () => ({
 const state = vi.hoisted(() => ({ mutate: vi.fn() }));
 vi.mock("~/trpc/react", () => ({
   api: {
+    // Archived profiles also mount the history permission query. Keep this test
+    // focused on preserving unsplit names without opening a separate link form.
+    tutorHistory: {
+      permissions: {
+        useQuery: () => ({ data: { canLink: false, isHead: false } }),
+      },
+    },
     useUtils: () => ({}),
     admin: {
       updateTutee: { useMutation: () => ({ mutate: state.mutate }) },

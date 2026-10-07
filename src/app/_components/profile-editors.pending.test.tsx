@@ -50,6 +50,13 @@ vi.mock("~/trpc/react", () => {
   const invalidation = { invalidate: () => Promise.resolve() };
   return {
     api: {
+      // Keep the real historical section mounted with its permission dependency;
+      // this suite exercises contact drafts, not the independently tested link form.
+      tutorHistory: {
+        permissions: {
+          useQuery: () => ({ data: { canLink: false, isHead: false } }),
+        },
+      },
       useUtils: () => ({
         admin: {
           accounts: { ...invalidation, fetch: state.fetchAccounts },

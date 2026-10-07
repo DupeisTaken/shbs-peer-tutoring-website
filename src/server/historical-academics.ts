@@ -96,7 +96,7 @@ export async function historicalAcademicSnapshot(
       : null,
     tuteeId
       ? db.studentProfileOwnership.findUnique({ where: { tuteeId } })
-      : null,
+      : tutorId ? db.tutorProfileOwnership.findUnique({ where: { tutorId } }) : null,
   ]);
   const participant = tutee ?? tutor;
   if (!participant)
