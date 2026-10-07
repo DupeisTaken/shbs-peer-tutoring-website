@@ -37,6 +37,7 @@ enum Role {
 }
 
 model User {
+  retainedTutorProfiles TutorProfileOwnership[]
   studentId                String?                @unique
   student                  Tutee?                 @relation(fields: [studentId], references: [id], onDelete: SetNull)
   id                       String                 @id @default(cuid())
@@ -435,6 +436,7 @@ model Term {
 }
 
 model Tutor {
+  retainedOwner TutorProfileOwnership?
   historicalAcademics HistoricalAcademicRecord[]
   qualificationApplications TutorApplication[] @relation("QualificationApplicant")
   id          String   @id @default(cuid())
@@ -1705,6 +1707,16 @@ model StudentQuarterBlock {
 model StudentProfileOwnership {
   tuteeId String @id
   userId String
+  @@index([userId])
+}
+
+/// Staff-reviewed historical read ownership; never grants current tutor membership.
+model TutorProfileOwnership {
+  tutorId String @id
+  userId String
+  revision Int @default(1)
+  tutor Tutor @relation(fields: [tutorId], references: [id], onDelete: Restrict, onUpdate: Restrict)
+  user User @relation(fields: [userId], references: [id], onDelete: Restrict, onUpdate: Restrict)
   @@index([userId])
 }
 

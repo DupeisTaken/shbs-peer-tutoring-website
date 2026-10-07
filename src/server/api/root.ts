@@ -3,6 +3,7 @@ import { historicalAcademicsRouter } from "./routers/historical-academics";
 import { assignmentRouter } from "./routers/assignment";
 import { tuteeHistoryRouter } from "./routers/tutee-history";
 import { accountCombineRouter } from "./routers/account-combine";
+import { tutorHistoryRouter } from "./routers/tutor-history";
 import { recordTransferRouter } from "./routers/record-transfer";
 import { approvalRouter } from "./routers/approval";
 import { qualificationApplicationRouter } from "./routers/qualification-application";
@@ -46,6 +47,7 @@ export const appRouter = createTRPCRouter({
   tuteeHistory: tuteeHistoryRouter,
   departure: departureRouter,
   accountCombine: accountCombineRouter,
+  tutorHistory: tutorHistoryRouter,
   recordTransfer: recordTransferRouter,
   assignment: assignmentRouter,
   qualificationApplication: qualificationApplicationRouter,

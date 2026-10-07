@@ -3535,6 +3535,8 @@ export const adminRouter = createTRPCRouter({
             "Only crew-only logins can be deleted here. Use Users & Roles for other accounts.",
         });
       }
+      if (await ctx.db.tutorProfileOwnership.count({ where: { userId: target.id } }))
+        throw new TRPCError({ code: "CONFLICT", message: "Retained tutor history must be preserved. Review historical ownership before deleting this account." });
       await ctx.db.user.delete({ where: { id: target.id } });
       await recordAudit({
         userId: ctx.session.user.id,
@@ -4497,6 +4499,8 @@ export const adminRouter = createTRPCRouter({
         }
         // Preserve the tutor: detach it from the login before deleting so the roster row
         // (username, class, attendance history) survives.
+        if (await tx.tutorProfileOwnership.count({ where: { userId: target.id } }))
+          throw new TRPCError({ code: "CONFLICT", message: "Retained tutor history must be preserved. Review historical ownership before deleting this account." });
         if (target.tutorId) {
           await tx.user.update({
             where: { id: target.id },

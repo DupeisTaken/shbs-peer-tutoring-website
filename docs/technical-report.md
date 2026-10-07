@@ -160,6 +160,18 @@ Account names synchronize only to explicitly linked current profiles. Shared pro
 
 Head-only [account combination](../src/server/combine-accounts.ts) requires a preview, identity acknowledgement and the Head's password. `User.mergedIntoId` retains the duplicate as historical identity while live authorization and database guards retire its credentials and reserve its identifiers. Ownership-aware reads include retained history without rewriting original actors. Departure history and incompatible account state block this generic workflow; see [identity retention and migration limits](deployment.md#combined-account-identity-retention) and the [operator procedure](user-guide.md#combine-duplicate-accounts-head-only).
 
+[Historical tutor linking](../src/server/tutor-history.ts) records a separate
+`TutorProfileOwnership` read grant rather than replacing `User.tutorId`. Admin/Head
+review an exact historical profile and verified account; correcting a retained owner
+requires Head password confirmation. The fingerprint includes the ownership revision,
+record version/counts and target profile snapshot. Namespace, account and Tutor row
+locks serialize with signup, profile edits and account combination. Database guards
+prevent current-login assignment to a competing retained owner; restrictive foreign
+keys preserve owned identities. Audit evidence commits with ownership. Personal tutor
+history reads the union of current and retained identities without granting tutor
+membership or altering recorded credits. Combine transfers retained ownership and
+includes it in its preview fingerprint. Academic corrections recognize retained owners.
+
 The client cache is replaced when the server-supplied account or role identity changes. Route changes and tab focus/visibility share one live session check. Private content stays mounted but hidden while verification is pending, preserving form edits. A failed check or changed identity clears the cache and reloads the server layout. Once the same identity is verified, content is restored immediately; stale active queries refresh in the background without cancelling an existing request. Fresh queries are retained. Deterministic authentication, authorization and precondition errors are not retried; transient failures retain bounded retries.
 
 The global participation-policy query uses this shared navigation/focus refresh. It fetches on initial enable and separately on query-only student tab changes; it does not install competing focus listeners. A verified return to the tab resets dismissal, while ordinary navigation preserves dismissal of the same published revision. Participation mutations always validate current policy acceptance on the server.

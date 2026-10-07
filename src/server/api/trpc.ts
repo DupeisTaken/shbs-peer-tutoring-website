@@ -375,7 +375,7 @@ export const protectedProcedure = t.procedure
     // Attribute every successful signed-in mutation, including participant actions.
     // Store only operation metadata: passwords, message bodies and tokens never enter this log.
     // Record transfer writes their audit evidence inside the transaction; previews roll back.
-    if (type === "mutation" && result.ok && !path.startsWith("approval.") && !path.startsWith("recordTransfer.") && !path.startsWith("accountCombine.") && !path.startsWith("historicalAcademics.")) {
+    if (type === "mutation" && result.ok && !path.startsWith("approval.") && !path.startsWith("recordTransfer.") && !path.startsWith("accountCombine.") && !path.startsWith("historicalAcademics.") && !path.startsWith("tutorHistory.")) {
       await ctx.db.auditLog.create({
         data: {
           userId: ctx.session.user.id,

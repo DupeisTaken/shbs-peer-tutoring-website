@@ -5,8 +5,12 @@ import type { DomainDb } from "./transactions";
 /** A revoked tutor capability does not erase an explicit identity link. Read only personal
  * evidence here; no email matching, profile synchronization or meeting recalculation occurs. */
 export async function ownedTutorHistory(db: DomainDb, userId: string) {
+  const ownerIds = await accountHistoryIds(db, userId);
   return db.tutor.findMany({
-    where: { user: { id: { in: await accountHistoryIds(db, userId) } } },
+    where: { OR: [
+      { user: { id: { in: ownerIds } } },
+      { retainedOwner: { userId: { in: ownerIds } } },
+    ] },
     select: { id: true, englishName: true },
     orderBy: { id: "asc" },
   });

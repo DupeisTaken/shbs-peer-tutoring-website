@@ -267,6 +267,10 @@ export async function previewCombine(db: DomainDb, input: Pair) {
         select: { englishName: true },
       })
     : null;
+  const tutorOwners = await db.tutorProfileOwnership.findMany({
+    where: { userId: { in: [survivor.id, duplicate.id] } },
+    orderBy: { tutorId: "asc" },
+  });
   const fingerprint = createHash("sha256")
     .update(
       JSON.stringify({
@@ -274,6 +278,7 @@ export async function previewCombine(db: DomainDb, input: Pair) {
         duplicate,
         result,
         owners,
+        tutorOwners,
         counts,
         tutor,
         student,
@@ -309,6 +314,7 @@ export async function previewCombine(db: DomainDb, input: Pair) {
       patrols: counts[3],
       academicConfirmations: counts[4],
       tuteeProfiles: owners.filter((o) => o.userId === duplicate.id).length,
+      tutorProfiles: tutorOwners.filter((o) => o.userId === duplicate.id).length,
     },
     retiredEmails: duplicate.emails.map((address) => address.email),
   };
@@ -335,7 +341,7 @@ export async function combineAccounts(
     for (const id of accountIds) await lockEntity(tx, `account-profile:${id}`);
     // Take table locks before User row locks so another writer cannot hold a table write
     // lock while waiting for one of our rows (which would create a lock-upgrade deadlock).
-    await tx.$executeRaw`LOCK TABLE "User", "Tutor", "Tutee", "AcademicProfile", "AccountEmail", "MessagePermission", "MessageRestriction", "StudentProfileOwnership", "PolicyAcceptance", "ApprovalRequest", "CrewStatusRequest", "StudentRequestReview", "StudentSurvey" IN SHARE ROW EXCLUSIVE MODE`;
+    await tx.$executeRaw`LOCK TABLE "User", "Tutor", "Tutee", "AcademicProfile", "AccountEmail", "MessagePermission", "MessageRestriction", "StudentProfileOwnership", "TutorProfileOwnership", "PolicyAcceptance", "ApprovalRequest", "CrewStatusRequest", "StudentRequestReview", "StudentSurvey" IN SHARE ROW EXCLUSIVE MODE`;
     for (const id of accountIds) await lockAccountProfile(tx, id);
     const actor = await tx.user.findUnique({ where: { id: actorId } });
     if (actor?.role !== "HEAD" || actor.suspendedAt || actor.mergedIntoId)
@@ -379,10 +385,13 @@ export async function combineAccounts(
         twoFactorEnabled: false,
       },
     });
-    await tx.user.update({
-      where: { id: survivorId },
-      data: preview.result,
+    // Move retained read ownership after releasing the duplicate's unique tutor link,
+    // before attaching it to the survivor; database guards forbid competing owners.
+    await tx.tutorProfileOwnership.updateMany({
+      where: { userId: duplicateId },
+      data: { userId: survivorId, revision: { increment: 1 } },
     });
+    await tx.user.update({ where: { id: survivorId }, data: preview.result });
     // The surviving current profile remains canonical; immutable intake/signature evidence
     // stays on its original rows while the linked live roster mirrors that profile.
     await updateAccountProfile(tx, survivorId);

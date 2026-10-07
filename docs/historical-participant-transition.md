@@ -1,6 +1,6 @@
 # Historical participant transition
 
-This workflow preserves pre-site tutoring records without requiring each historical participant to register. It reuses the existing Tutor, Tutee and StudentProfileOwnership tables and the existing [Combine accounts feature](user-guide.md#combine-duplicate-accounts-head-only).
+This workflow preserves pre-site tutoring records without requiring each historical participant to register. It uses the Tutor and Tutee records, explicit StudentProfileOwnership and TutorProfileOwnership links, and the existing [Combine accounts feature](user-guide.md#combine-duplicate-accounts-head-only).
 
 ## Import and inspect
 
@@ -57,6 +57,33 @@ A Head must resolve an existing retained-owner conflict and confirm their passwo
 
 Concurrent profile/record changes invalidate the preview. Refresh and review again. Each successful link records the actor, target, previous owner and staff evidence in the audit log.
 
+## Link archived tutor history
+
+In **Tutors**, enable **Show past tutors**, then open the historical tutor's rightmost
+**Edit Profile** action. At the bottom of the editor, expand **Link Historical Records**.
+This section is available to Admin and Head for **Archived, Graduated and Transferred**
+records. An old name or missing login alone does not make an active record historical.
+
+Search for an existing verified account, select the exact person, record identity
+evidence, and choose **Review Link**. Check the named tutor, account and counts of
+sessions, meeting attendance and hour amendments. Acknowledge that they belong to
+the same person, then **Confirm Link**. Matching names or emails never establishes
+ownership automatically. A retained-owner correction requires the Head's password.
+
+One account can retain several historical tutor profiles alongside its current tutor
+profile. Linking grants personal read access through **My Tutoring History**. It does
+not change the current tutor link, memberships, credentials, original names/academics,
+archive status, stored hours, or departure/observer decisions. Records and credit are
+not collapsed or recalculated. Another login's current tutor link blocks history
+linking; use Combine accounts and its existing conflict checks. Two distinct current
+tutor profiles still cannot be combined by that tool.
+
+A failed write keeps the evidence draft and requires another review. If linking
+succeeds but refresh fails, **Retry** only refreshes data; it does not repeat the link.
+Tutor invitations and new history-only tutor account creation are not part of this
+existing-account linking workflow. [Issue #265](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/265)
+tracks this extension of historical ownership.
+
 ## Invite an alumnus without a login
 
 After checking identity, an Admin or Head sends an invitation from the specific accountless historical tutee row. Record the reviewed identity evidence and use an email address the person can still access. The invited person can either sign in to an eligible account with that primary or secondary email verified, or choose **Create history-only account** on the invitation page.
@@ -78,7 +105,7 @@ For a new login, enter the invited email, verify the separately emailed code and
 
 If the school email is unavailable, use the verified program support contact shown on the invitation page (or contact the school team when no email is configured). Staff must review identity evidence and the exact record, cancel the old invitation, and send a replacement to an accessible address. Email changes, matching names and knowledge of a record ID never establish ownership. Existing primary/secondary email owners use **Recover existing account**, not another registration; genuine duplicate logins and conflicting ownership remain Head-only decisions.
 
-**My Tutoring History** also shows retained tutor sessions, stored hours, meeting attendance and hour amendments for tutor identities already linked to the account, including supported Head-reviewed account combinations. Revoked tutor capability or observer access does not hide this personal evidence. Missing tutor identity links require staff review through the existing ownership/account tools; this first account-creation route starts from an exact historical tutee invitation and does not introduce self-service tutor matching or change the Head-only account-combination blockers. Staff can keep all unclaimed tutor/tutee archives without creating any login.
+**My Tutoring History** also shows retained tutor sessions, stored hours, meeting attendance and hour amendments for current tutor identities and explicitly linked historical tutor records, including supported Head-reviewed account combinations. Revoked tutor capability or observer access does not hide this personal evidence. Missing tutor identity links require staff review through **Tutors → Edit Profile → Link Historical Records**; this account-creation route still starts from an exact historical tutee invitation and does not introduce self-service tutor matching or change the Head-only account-combination blockers. Staff can keep all unclaimed tutor/tutee archives without creating any login.
 
 ## Website action coverage
 
