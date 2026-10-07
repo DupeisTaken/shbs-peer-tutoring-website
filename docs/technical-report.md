@@ -373,6 +373,15 @@ Run `npm run docs:check` to validate Markdown links, heading anchors, guide disc
 
 `src/lib/signup-fields.ts` defines the fixed field order, immutable essentials, defaults and shared normalization. `ProgramSettings.signupFields` stores per-form states; hidden/required cannot coexist. `program.setSignupField` uses Head authorization, a transaction lock, an expected-state conflict guard and an audit record. Unknown/custom fields and essential changes are rejected. The public forms consume the same settings; each new submission reads current settings on the server and strips hidden answers. Existing survey payloads are decoded without applying current configuration, preserving historical answers and confirmation flows.
 
+The tutee request form always refetches signup options on mount and waits for that
+visit's check before enabling responses. The shared query cache's 30-second
+freshness cannot authorize a returning participant to use earlier intake dates.
+Failed reads disable responses while retaining mounted drafts for Retry. The
+server still checks the current active term's intake window under its transaction
+lock for both `submitSurvey` and the legacy `requestSignup` alias, independently of
+login state. Opening is inclusive; closing is exclusive. Confirmation of a request
+submitted while intake was open retains its separate verification rules.
+
 An enabled signup CAPTCHA stages a submission intent before obtaining a one-use server grant. Keep identity/draft fields and feature actions frozen during that intent, but render the CAPTCHA panel outside every disabled fieldset so its Verify, Cancel and Retry controls remain operable. The viewer's identity and resend steps share one panel. Form integration tests use the real hook with a local SDK fixture and native button clicks, including failure recovery and duplicate-callback guards.
 
 Tutor application submission requires explicit agreement and the current published policy revision. New applications store exact policy documents, revision and acceptance time together; historical applications retain null evidence. This application-level evidence never fabricates a user-level `PolicyAcceptance`. Qualification answers and subject intents remain application data, never qualification grants. Secondary-email availability belongs to the program email configuration; the existing signup forms collect only primary sign-in email.

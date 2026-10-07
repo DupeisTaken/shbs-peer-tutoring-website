@@ -388,6 +388,120 @@ describe("survey-first enrollment", () => {
     });
     expect(await db.studentSurvey.count()).toBe(0);
   });
+  it.each([
+    ["before opening", -1, false],
+    ["at opening", 0, true],
+    ["before closing", 59_999, true],
+    ["at closing", 60_000, false],
+    ["after closing", 60_001, false],
+  ] as const)(
+    "applies the same intake boundary %s to signed-in and anonymous submissions",
+    async (_label, offset, allowed) => {
+      const opensAt = new Date("2030-09-01T08:00:00Z");
+      await db.term.update({
+        where: { id: "survey-term" },
+        data: {
+          signupOpensAt: opensAt,
+          signupClosesAt: new Date(opensAt.getTime() + 60_000),
+        },
+      });
+      const caller = createCallerFactory(tuteeRouter);
+      // Only the wall clock is frozen; database I/O and admission timers stay real.
+      vi.useFakeTimers({ toFake: ["Date"] });
+      vi.setSystemTime(opensAt.getTime() + offset);
+      try {
+        for (const signedIn of [false, true]) {
+          for (const operation of ["submitSurvey", "requestSignup"] as const) {
+            // Distinct identities let both real admission paths reach the deadline
+            // check without tripping the independent per-email send cooldown.
+            const accountEmail = `${signedIn ? "signed-in" : "signed-out"}-${operation.toLowerCase()}@example.test`;
+            const account = await db.user.create({
+              data: {
+                email: accountEmail,
+                name: "Existing Student",
+                role: "STUDENT",
+                tuteeMember: true,
+                emailVerifiedAt: new Date(),
+              },
+            });
+            const api = caller({
+              db,
+              headers: new Headers(),
+              session: signedIn
+                ? {
+                    user: {
+                      id: account.id,
+                      name: account.name,
+                      email: accountEmail,
+                    },
+                    role: "STUDENT",
+                    tutorId: null,
+                    expires: "2099-01-01T00:00:00Z",
+                  }
+                : null,
+            });
+            const request = api[operation]({ ...input(), email: accountEmail });
+            if (allowed)
+              await expect(request).resolves.toMatchObject({ ok: true });
+            else
+              await expect(request).rejects.toMatchObject({
+                code: "PRECONDITION_FAILED",
+                message:
+                  "Tutee recruitment is currently closed. You can still preview the form.",
+              });
+          }
+        }
+        expect(await db.studentSurvey.count()).toBe(allowed ? 4 : 0);
+        expect(await db.tutee.count()).toBe(0);
+        if (!allowed) expect(send).not.toHaveBeenCalled();
+      } finally {
+        vi.useRealTimers();
+      }
+    },
+  );
+  it("rejects a signed-in stale form after dates change while preserving an earlier request and its confirmation", async () => {
+    const account = await db.user.create({
+      data: {
+        email,
+        name: "Existing Student",
+        role: "STUDENT",
+        emailVerifiedAt: new Date(),
+        passwordHash: hashPassword(password),
+      },
+    });
+    const api = createCallerFactory(tuteeRouter)({
+      db,
+      headers: new Headers(),
+      session: {
+        user: { id: account.id, name: account.name, email },
+        role: "STUDENT",
+        tutorId: null,
+        expires: "2099-01-01T00:00:00Z",
+      },
+    });
+    await api.signupOptions();
+    // Seed the earlier request through the domain workflow so the attempted API
+    // submission reaches the intake check rather than an email-send cooldown.
+    await submitSurvey(db, input());
+    const token = lastToken();
+    const original = await db.studentSurvey.findFirstOrThrow();
+    await db.term.update({
+      where: { id: "survey-term" },
+      data: { signupClosesAt: new Date(Date.now() - 1) },
+    });
+    send.mockClear();
+    await expect(api.submitSurvey(input())).rejects.toMatchObject({
+      code: "PRECONDITION_FAILED",
+    });
+    expect(await db.studentSurvey.findFirstOrThrow()).toEqual(original);
+    expect(send).not.toHaveBeenCalled();
+    await api.confirmSurvey({ token });
+    expect(await db.studentSurvey.findFirstOrThrow()).toMatchObject({
+      submittedAt: original.submittedAt,
+      state: "OPEN",
+    });
+    expect(await db.tutee.count()).toBe(1);
+  });
   it("rejects stale consent and inactive subjects or slots without reserving a timestamp", async () => {
     await expect(
       submitSurvey(db, { ...input(), policyRevision: "old" }),
