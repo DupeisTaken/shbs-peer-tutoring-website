@@ -919,6 +919,9 @@
       }
     },
     "registrationCodes": {
+      "exportImage": "이미지 내보내기",
+      "exportingImage": "내보내는 중…",
+      "exportImageError": "이미지를 내보낼 수 없습니다. 코드가 아직 유효한지 확인하고 다시 시도하세요.",
       "kindAdmin": "관리자",
       "kindCoordinator": "코디네이터",
       "managementHelp": "모든 역할 초대는 Head가 승인합니다. 다른 직원은 승인을 요청합니다. 관리 코드는 Head만 확인하거나 공유할 수 있습니다. 관리 코드는 관리 전용 새 계정을 만듭니다. 기존 계정은 사용자 및 역할에서 Head에게 역할 변경을 요청하세요.",

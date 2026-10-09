@@ -919,6 +919,9 @@
       }
     },
     "registrationCodes": {
+      "exportImage": "Exporter une image",
+      "exportingImage": "Exportation…",
+      "exportImageError": "Impossible d’exporter l’image. Vérifiez que le code est toujours actif et réessayez.",
       "kindAdmin": "Admin",
       "kindCoordinator": "Coordinateur",
       "managementHelp": "Head autorise chaque invitation de rôle. Les autres membres du personnel soumettent une demande. Seul Head peut voir et partager les codes de gestion. Ces codes créent de nouveaux comptes de gestion uniquement ; pour un compte existant, demandez à Head de modifier les rôles.",
