@@ -1,4 +1,5 @@
 "use client";
+import { useProfileReloadFocus } from "./use-profile-reload-focus";
 import { ProfileEditSection } from "./profile-edit-section";
 import { Button } from "./ui/button";
 import { PersonNameFields } from "~/app/_components/person-name-fields";
@@ -63,6 +64,8 @@ function AccountProfileForm({
   const [refreshFailed, setRefreshFailed] = useState(false);
   const committed = useRef(false);
   const [reloading, setReloading] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const reloadFocus = useProfileReloadFocus(formRef, reloading);
   const [reloadError, setReloadError] = useState<string | null>(null);
   const reloadPending = useRef(false);
   const [names, setNames] = useState(() => nameDraft(profile));
@@ -105,6 +108,7 @@ function AccountProfileForm({
   return (
     <>
       <form
+        ref={formRef}
         className="space-y-4"
         onSubmit={(event) => {
           event.preventDefault();
@@ -129,6 +133,45 @@ function AccountProfileForm({
           busy={save.isPending || reloading}
           saved={saved}
           refreshFailed={refreshFailed}
+          restartBusy={reloading}
+          restartError={saved ? reloadError : null}
+          onEditAgain={() => {
+            if (busy || submitting.current || reloadPending.current) return;
+            reloadFocus.beginReload();
+            reloadPending.current = true;
+            setReloading(true);
+            setReloadError(null);
+            // Restart only this saved section; a failed read leaves its commit guard intact.
+            void (async () => {
+              try {
+                const accounts = await utils.admin.accounts.fetch(undefined, {
+                  staleTime: 0,
+                });
+                const latest = accounts.rows.find(
+                  (row) => row.userId === profile.userId,
+                );
+                if (latest?.profileVersion == null)
+                  throw new Error(common("loadFailed"));
+                setNames(nameDraft(latest));
+                setOriginalNames(nameDraft(latest));
+                setLegacyName(latest.legacyName ?? latest.name);
+                setExpectedProfileVersion(latest.profileVersion);
+                save.reset();
+                setRefreshFailed(false);
+                setSaved(false);
+                committed.current = false;
+                reloadFocus.finishReload(true);
+              } catch (error) {
+                reloadFocus.finishReload(false);
+                setReloadError(
+                  error instanceof Error ? error.message : common("loadFailed"),
+                );
+              } finally {
+                reloadPending.current = false;
+                setReloading(false);
+              }
+            })();
+          }}
           actions={
             <Button
               type="submit"
@@ -198,7 +241,7 @@ function AccountProfileForm({
               {t("reloadIdentity")}
             </button>
           )}
-          {reloadError && (
+          {reloadError && !saved && (
             <p role="alert" className="text-sm text-red-600">
               {reloadError}
             </p>

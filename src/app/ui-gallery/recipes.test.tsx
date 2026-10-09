@@ -174,6 +174,22 @@ it.each(["en", "zh"] as const)(
     );
     fireEvent.click(
       within(dialog).getByRole("button", {
+        name: (english ? en : zh).accountProfile.editAgain,
+      }),
+    );
+    expect(savedDraft.matches(":disabled")).toBe(false);
+    expect(draft.value).toBe("Keep the failed draft");
+    expect(within(dialog).getByRole("alert")).toBeTruthy();
+    fireEvent.change(savedDraft, { target: { value: "Second correction" } });
+    fireEvent.click(
+      within(dialog).getByRole("button", {
+        name: english ? "Save the other section" : "保存另一部分",
+      }),
+    );
+    expect(savedDraft.matches(":disabled")).toBe(true);
+    expect(savedDraft.value).toBe("Second correction");
+    fireEvent.click(
+      within(dialog).getByRole("button", {
         name: (english ? en : zh).accountProfile.close,
       }),
     );

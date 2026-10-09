@@ -1,4 +1,5 @@
 "use client";
+import { useProfileReloadFocus } from "./use-profile-reload-focus";
 import { ProfileEditSection } from "./profile-edit-section";
 import { StatePanel } from "./ui/patterns";
 import { Button } from "./ui/button";
@@ -43,9 +44,18 @@ export function TuteeEditor({
 
 /** Keep this independent form inside the dialog's pending context. */
 function TuteeProfileForm({
-  row,
+  row: initialRow,
   historyPermissions,
 }: Omit<ComponentProps<typeof TuteeEditor>, "onClose">) {
+  const [row, setRow] = useState(initialRow);
+  // Profile restart must not remount independent academic or historical drafts.
+  const [siblingRow] = useState(initialRow);
+  const [draftKey, setDraftKey] = useState(0);
+  const [reloading, setReloading] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const reloadFocus = useProfileReloadFocus(formRef, reloading);
+  const [reloadError, setReloadError] = useState<string | null>(null);
+  const reloadPending = useRef(false);
   const [saved, setSaved] = useState(false);
   const [refreshFailed, setRefreshFailed] = useState(false);
   const committed = useRef(false);
@@ -55,14 +65,17 @@ function TuteeProfileForm({
   const profileText = useTranslations("accountProfile");
   const academicText = useTranslations("academics");
   const correctionText = useTranslations("historicalAcademics");
-  const historicalGrade = row.historicalGrade || row.historical || !!row.enrollmentCorrection;
-  const [expectedUpdatedAt] = useState(row.updatedAt);
+  const historicalGrade =
+    row.historicalGrade || row.historical || !!row.enrollmentCorrection;
+  const [expectedUpdatedAt, setExpectedUpdatedAt] = useState(row.updatedAt);
   // Keep explicit name drafts mounted while historical linking refreshes roster data.
   const historySection = useRef<HTMLDetailsElement>(null);
   const [historyLinked, setHistoryLinked] = useState(false);
   const [names, setNames] = useState(() => nameDraft(row));
-  const [originalNames] = useState(() => nameDraft(row));
-  const [legacyName] = useState(row.legacyName ?? row.englishName);
+  const [originalNames, setOriginalNames] = useState(() => nameDraft(row));
+  const [legacyName, setLegacyName] = useState(
+    row.legacyName ?? row.englishName,
+  );
   const identity = personNameEdit(names, originalNames, legacyName);
   const policy = useProfilePolicy();
   const [grade, setGrade] = useState(
@@ -124,6 +137,8 @@ function TuteeProfileForm({
       )}
       {subjects.data && slots.data && (
         <form
+          ref={formRef}
+          key={draftKey}
           className="mt-3 max-w-3xl"
           onSubmit={(e) => {
             e.preventDefault();
@@ -131,6 +146,7 @@ function TuteeProfileForm({
               busy ||
               submitting.current ||
               committed.current ||
+              reloadPending.current ||
               subjects.isLoading ||
               slots.isLoading
             )
@@ -169,9 +185,56 @@ function TuteeProfileForm({
         >
           <ProfileEditSection
             title={common("uiPatterns.profile")}
-            busy={save.isPending}
+            busy={save.isPending || reloading}
             saved={saved}
             refreshFailed={refreshFailed}
+            restartBusy={reloading}
+            restartError={reloadError}
+            onEditAgain={() => {
+              if (busy || submitting.current || reloadPending.current) return;
+              reloadFocus.beginReload();
+              reloadPending.current = true;
+              setReloading(true);
+              setReloadError(null);
+              void (async () => {
+                try {
+                  // Load the committed roster snapshot only after explicit restart.
+                  // Background refreshes never rebase this section or its siblings.
+                  const rows = await utils.admin.tutees.fetch(undefined, {
+                    staleTime: 0,
+                  });
+                  const latest = rows.find((item) => item.id === row.id);
+                  if (!latest) throw new Error(common("uiPatterns.loadFailed"));
+                  setRow(latest);
+                  setExpectedUpdatedAt(latest.updatedAt);
+                  setNames(nameDraft(latest));
+                  setOriginalNames(nameDraft(latest));
+                  setLegacyName(latest.legacyName ?? latest.englishName);
+                  setGrade(
+                    latest.academicallyGraduated
+                      ? GRADUATED_GRADE
+                      : (latest.gradeLevel?.toString() ?? ""),
+                  );
+                  // Remount only this form to reset contacts, choices and availability.
+                  setDraftKey((key) => key + 1);
+                  save.reset();
+                  setRefreshFailed(false);
+                  setSaved(false);
+                  committed.current = false;
+                  reloadFocus.finishReload(true);
+                } catch (error) {
+                  reloadFocus.finishReload(false);
+                  setReloadError(
+                    error instanceof Error
+                      ? error.message
+                      : common("uiPatterns.loadFailed"),
+                  );
+                } finally {
+                  reloadPending.current = false;
+                  setReloading(false);
+                }
+              })();
+            }}
             className="grid gap-4 sm:grid-cols-2"
             actions={
               <Button
@@ -298,9 +361,9 @@ function TuteeProfileForm({
           </ProfileEditSection>
         </form>
       )}
-      {row.user && (
+      {siblingRow.user && (
         <div className="mt-5">
-          <AcademicPanel userId={row.user.id} />
+          <AcademicPanel userId={siblingRow.user.id} />
         </div>
       )}
       {historicalGrade && (
@@ -308,7 +371,7 @@ function TuteeProfileForm({
           {correctionText("HISTORICAL_EDITOR_REQUIRED")}
         </p>
       )}
-      {row.historical && historyPermissions?.canLink && (
+      {siblingRow.historical && historyPermissions?.canLink && (
         <section className="mt-5 border-t border-slate-200 pt-4">
           {/* Separate forms preserve unsaved profile edits and avoid nested dialogs/forms. */}
           <details ref={historySection}>
@@ -317,7 +380,7 @@ function TuteeProfileForm({
             </summary>
             <div className="pt-4">
               <TuteeHistoryLinkForm
-                row={row}
+                row={siblingRow}
                 isHead={historyPermissions.isHead}
                 onLinked={() => {
                   setHistoryLinked(true);

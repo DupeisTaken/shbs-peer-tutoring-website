@@ -2,7 +2,7 @@
 
 import { NavigationRecipes } from "./navigation-recipes";
 import { ActionReviewRecipe } from "./action-review-recipe";
-import { useEffect, useState, type ReactNode } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { NextIntlClientProvider } from "next-intl";
 import enMessages from "../../../messages/en.json";
 import zhMessages from "../../../messages/zh.json";
@@ -237,7 +237,15 @@ function DialogDraft({ t }: { t: Copy }) {
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
   const [otherSaved, setOtherSaved] = useState(false);
+  const otherSection = useRef<HTMLDivElement>(null);
+  const focusRestart = useRef(false);
   const busy = useDialogPending(pending);
+  useEffect(() => {
+    if (!otherSaved && focusRestart.current) {
+      focusRestart.current = false;
+      otherSection.current?.querySelector("input")?.focus();
+    }
+  }, [otherSaved]);
   // Demonstration only; cancelled on unmount and never connected to a mutation.
   useEffect(() => {
     if (!pending) return;
@@ -269,22 +277,32 @@ function DialogDraft({ t }: { t: Copy }) {
           {t.failed}
         </InlineNotice>
       )}
-      <ProfileEditSection
-        title={t.otherSection}
-        busy={false}
-        saved={otherSaved}
-        actions={
-          <Button
-            onClick={() => {
-              if (!busy && !otherSaved) setOtherSaved(true);
-            }}
-          >
-            {t.saveOther}
-          </Button>
-        }
-      >
-        <DraftNote label={t.otherDraft} />
-      </ProfileEditSection>
+      <div ref={otherSection}>
+        <ProfileEditSection
+          title={t.otherSection}
+          busy={false}
+          saved={otherSaved}
+          onEditAgain={() => {
+            // This local example has no server snapshot; production sections first
+            // read their latest authorized fields/version before allowing more edits.
+            if (!busy) {
+              focusRestart.current = true;
+              setOtherSaved(false);
+            }
+          }}
+          actions={
+            <Button
+              onClick={() => {
+                if (!busy && !otherSaved) setOtherSaved(true);
+              }}
+            >
+              {t.saveOther}
+            </Button>
+          }
+        >
+          <DraftNote label={t.otherDraft} />
+        </ProfileEditSection>
+      </div>
       {review && (
         <Modal
           title={t.child}

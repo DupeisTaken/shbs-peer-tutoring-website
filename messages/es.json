@@ -3246,8 +3246,9 @@
     "scheduleEmpty": "No tutoring sessions are assigned yet. Follow your request under Requests or use the request form to get started."
   },
   "accountProfile": {
-    "sectionSaved": "Guardado. Cierra y vuelve a abrir el editor para modificar esta sección de nuevo. Los borradores de las demás secciones se conservan.",
-    "sectionRefreshFailed": "Se guardó correctamente, pero no se pudieron actualizar los registros. Cierra y vuelve a abrir el editor para cargarlos de nuevo.",
+    "editAgain": "Editar de nuevo",
+    "sectionSaved": "Guardado. Elige Editar de nuevo para cargar esta sección y hacer otro cambio. Los borradores de las demás secciones se conservan.",
+    "sectionRefreshFailed": "Se guardó correctamente, pero no se pudieron actualizar los registros. Elige Editar de nuevo para volver a cargar esta sección antes de hacer otro cambio.",
     "username": "Nombre de usuario",
     "usernameHelp": "Solo Head. Usa entre 1 y 64 letras o números. Inicia sesión con el nuevo nombre o tu correo actual; la contraseña no cambia.",
     "saveUsername": "Guardar nombre de usuario",

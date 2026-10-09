@@ -1,4 +1,5 @@
 "use client";
+import { useProfileReloadFocus } from "./use-profile-reload-focus";
 import { useDialogPending } from "./ui/modal";
 import { Button } from "./ui/button";
 import { ProfileEditSection } from "./profile-edit-section";
@@ -29,6 +30,8 @@ export function AccountUsernameEditor({
   const [refreshFailed, setRefreshFailed] = useState(false);
   const committed = useRef(false);
   const [reloading, setReloading] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const reloadFocus = useProfileReloadFocus(formRef, reloading);
   const [reloadError, setReloadError] = useState<string | null>(null);
   const reloadPending = useRef(false);
   const submitting = useRef(false);
@@ -61,8 +64,41 @@ export function AccountUsernameEditor({
   });
   const busy = useDialogPending(save.isPending);
   const controlsBusy = busy || reloading;
+  const reloadUsername = async () => {
+    if (busy || submitting.current || reloadPending.current) return;
+    // A new edit owns a fresh username/version snapshot. Reading only this section
+    // leaves sibling drafts intact and cannot replay the already committed write.
+    reloadFocus.beginReload();
+    reloadPending.current = true;
+    setReloading(true);
+    setReloadError(null);
+    try {
+      const accounts = await utils.admin.accounts.fetch(undefined, {
+        staleTime: 0,
+      });
+      const latest = accounts.rows.find((row) => row.userId === userId);
+      if (latest?.profileVersion == null) throw new Error(common("loadFailed"));
+      setUsername(latest.username ?? "");
+      setExpectedProfileVersion(latest.profileVersion);
+      setSaved(false);
+      setRefreshFailed(false);
+      committed.current = false;
+      reloadFocus.finishReload(true);
+      save.reset();
+    } catch (error) {
+      reloadFocus.finishReload(false);
+      // A failed read leaves completion and its fence untouched; Retry remains a GET.
+      setReloadError(
+        error instanceof Error ? error.message : common("loadFailed"),
+      );
+    } finally {
+      reloadPending.current = false;
+      setReloading(false);
+    }
+  };
   return (
     <form
+      ref={formRef}
       className="mt-5 space-y-3 border-t border-slate-200 pt-4"
       onSubmit={(event) => {
         event.preventDefault();
@@ -82,6 +118,9 @@ export function AccountUsernameEditor({
         busy={controlsBusy}
         saved={saved}
         refreshFailed={refreshFailed}
+        onEditAgain={() => void reloadUsername()}
+        restartBusy={controlsBusy}
+        restartError={reloadError}
         actions={
           <Button type="submit" disabled={controlsBusy || !username.trim()}>
             {t("saveUsername")}
@@ -112,49 +151,10 @@ export function AccountUsernameEditor({
           <button
             type="button"
             className="btn-secondary min-h-11 lg:min-h-10"
-            onClick={async () => {
-              if (
-                busy ||
-                submitting.current ||
-                reloadPending.current ||
-                committed.current
-              )
-                return;
-              // Reload may replace this draft. Exclude writes immediately, but keep
-              // dialog dismissal available for this cancellable read.
-              reloadPending.current = true;
-              setReloading(true);
-              setReloadError(null);
-              try {
-                // Explicit Reload must read the server even when the list cache is fresh.
-                const accounts = await utils.admin.accounts.fetch(undefined, {
-                  staleTime: 0,
-                });
-                const latest = accounts.rows.find(
-                  (row) => row.userId === userId,
-                );
-                if (latest?.profileVersion != null) {
-                  setUsername(latest.username ?? "");
-                  setExpectedProfileVersion(latest.profileVersion);
-                  save.reset();
-                }
-              } catch (error) {
-                setReloadError(
-                  error instanceof Error ? error.message : common("loadFailed"),
-                );
-              } finally {
-                reloadPending.current = false;
-                setReloading(false);
-              }
-            }}
+            onClick={() => void reloadUsername()}
           >
             {t("reloadUsername")}
           </button>
-        )}
-        {reloadError && (
-          <p role="alert" className="text-sm text-red-600">
-            {reloadError}
-          </p>
         )}
       </ProfileEditSection>
     </form>
