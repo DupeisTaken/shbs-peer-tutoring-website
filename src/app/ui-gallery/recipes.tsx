@@ -237,7 +237,18 @@ function DialogDraft({ t }: { t: Copy }) {
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
   const [otherSaved, setOtherSaved] = useState(false);
-  const busy = useDialogPending(pending);
+  const [otherPending, setOtherPending] = useState(false);
+  const busy = useDialogPending(pending || otherPending);
+  useEffect(() => {
+    if (!otherPending) return;
+    // Production saves await an authorized fresh snapshot before re-enabling
+    // their own fields. This local timer demonstrates that same lifetime.
+    const timer = setTimeout(() => {
+      setOtherPending(false);
+      setOtherSaved(true);
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [otherPending]);
   // Demonstration only; cancelled on unmount and never connected to a mutation.
   useEffect(() => {
     if (!pending) return;
@@ -269,22 +280,25 @@ function DialogDraft({ t }: { t: Copy }) {
           {t.failed}
         </InlineNotice>
       )}
-      <ProfileEditSection
-        title={t.otherSection}
-        busy={false}
-        saved={otherSaved}
-        actions={
-          <Button
-            onClick={() => {
-              if (!busy && !otherSaved) setOtherSaved(true);
-            }}
-          >
-            {t.saveOther}
-          </Button>
-        }
-      >
-        <DraftNote label={t.otherDraft} />
-      </ProfileEditSection>
+      <div onChangeCapture={() => setOtherSaved(false)}>
+        <ProfileEditSection
+          title={t.otherSection}
+          busy={otherPending}
+          saved={otherSaved}
+          readOnly={false}
+          actions={
+            <Button
+              onClick={() => {
+                if (!busy) setOtherPending(true);
+              }}
+            >
+              {t.saveOther}
+            </Button>
+          }
+        >
+          <DraftNote label={t.otherDraft} />
+        </ProfileEditSection>
+      </div>
       {review && (
         <Modal
           title={t.child}

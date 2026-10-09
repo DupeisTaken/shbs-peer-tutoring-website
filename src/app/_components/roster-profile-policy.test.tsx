@@ -14,10 +14,15 @@ import type { ComponentProps } from "react";
 import en from "../../../messages/en.json";
 import { TutorProfileEditor } from "./tutor-profile-editor";
 import { TuteeEditor } from "./tutee-editor";
-const mock = vi.hoisted(() => ({
-  mutate: vi.fn<(input: unknown) => Promise<unknown>>(),
-  error: undefined as undefined | { message: string },
-}));
+const mock = vi.hoisted(() => {
+  const freshRow: Record<string, unknown> = {};
+  return {
+    mutate: vi.fn<(input: unknown) => Promise<unknown>>(),
+    error: undefined as undefined | { message: string },
+    freshRow,
+    fetch: vi.fn<() => Promise<Record<string, unknown>[]>>(),
+  };
+});
 vi.mock("./tutee-history", () => ({
   TuteeHistoryLinkForm: ({ onLinked }: { onLinked: () => void }) => (
     <button onClick={onLinked}>Complete test link</button>
@@ -41,7 +46,16 @@ vi.mock("~/trpc/react", async () => {
     onSettled: () => void;
   }) => {
     const mutation = useMutation({
-      mutationFn: (input: unknown) => mock.mutate(input),
+      mutationFn: async (input: unknown) => {
+        const result = await mock.mutate(input);
+        // Only admitted successes change the server fixture; failed drafts keep their fence.
+        mock.freshRow = {
+          ...mock.freshRow,
+          ...(input as Record<string, unknown>),
+          updatedAt: new Date("2026-09-02"),
+        };
+        return result;
+      },
       retry: false,
       ...options,
     });
@@ -52,8 +66,8 @@ vi.mock("~/trpc/react", async () => {
     api: {
       useUtils: () => ({
         admin: {
-          tutors: invalidation,
-          tutees: invalidation,
+          tutors: { ...invalidation, fetch: mock.fetch },
+          tutees: { ...invalidation, fetch: mock.fetch },
           tuteeStats: invalidation,
           pairings: invalidation,
           accounts: invalidation,
@@ -95,6 +109,8 @@ beforeEach(() => {
     .mockReset()
     .mockImplementation(() => new Promise(() => undefined));
   mock.error = undefined;
+  mock.freshRow = {};
+  mock.fetch.mockReset().mockImplementation(async () => [mock.freshRow]);
 });
 function renderEditor(children: React.ReactNode) {
   const client = new QueryClient();
@@ -116,6 +132,7 @@ function mount(tutor: boolean, linked: boolean) {
     email: "person@example.test",
     availabilities: [],
   };
+  mock.freshRow = row;
   return renderEditor(
     <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
       {tutor ? (
@@ -192,12 +209,28 @@ it.each([true, false])(
     );
     await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
     await waitFor(() => expect(client.isMutating()).toBe(0));
-    expect(grade.matches(":disabled")).toBe(true);
-    // A successful section remains read-only; settlement is not permission to replay it.
-    await act(async () => {
-      fireEvent.submit(form);
+    const freshGrade = screen.getByLabelText<HTMLSelectElement>(
+      en.academics.legacyGrade,
+    );
+    expect(freshGrade.matches(":disabled")).toBe(false);
+    expect(freshGrade.value).toBe("12");
+    expect(mock.fetch).toHaveBeenCalledExactlyOnceWith(undefined, {
+      staleTime: 0,
     });
+    expect(screen.queryByRole("option", { name: "Grade 10" })).toBeNull();
+    // Refresh prepares another explicit correction without replaying the committed write.
     expect(mock.mutate).toHaveBeenCalledTimes(2);
+    fireEvent.change(freshGrade, { target: { value: "9" } });
+    fireEvent.submit(freshGrade.closest("form")!);
+    await waitFor(() => expect(mock.mutate).toHaveBeenCalledTimes(3));
+    expect(mock.mutate).toHaveBeenNthCalledWith(
+      3,
+      expect.objectContaining({
+        gradeLevel: tutor ? 9 : "9",
+        academicallyGraduated: false,
+        expectedUpdatedAt: new Date("2026-09-02"),
+      }),
+    );
   },
 );
 it.each([true, false])(

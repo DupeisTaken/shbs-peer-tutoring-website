@@ -1,4 +1,5 @@
 "use client";
+import { useProfileReloadFocus } from "./use-profile-reload-focus";
 import { useDialogPending } from "./ui/modal";
 import { InlineNotice } from "./ui/patterns";
 import { Button } from "./ui/button";
@@ -30,9 +31,12 @@ export function AccountUsernameEditor({
   const approvals = useTranslations("approvals");
   const [username, setUsername] = useState(initial ?? "");
   const [saved, setSaved] = useState(false);
+  const [needsRefresh, setNeedsRefresh] = useState(false);
   const [refreshFailed, setRefreshFailed] = useState(false);
   const committed = useRef(false);
   const [reloading, setReloading] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const reloadFocus = useProfileReloadFocus(formRef, reloading);
   const [reloadError, setReloadError] = useState<string | null>(null);
   const reloadPending = useRef(false);
   const submitting = useRef(false);
@@ -49,15 +53,8 @@ export function AccountUsernameEditor({
       // This success owns only the username section, never the enclosing profile dialog.
       committed.current = true;
       setSaved(true);
-      try {
-        await settleRefreshes([
-          () => invalidateAndReport(utils.admin.accounts),
-          () => invalidateAndReport(utils.admin.tutors),
-          () => invalidateAndReport(utils.account.me),
-        ]);
-      } catch {
-        setRefreshFailed(true);
-      }
+      setNeedsRefresh(true);
+      await reloadUsername(true);
       // Server-rendered headers also show the username, including the Head's own handle.
       router.refresh();
       onSaved?.();
@@ -65,9 +62,49 @@ export function AccountUsernameEditor({
   });
   const busy = useDialogPending(save.isPending);
   const controlsBusy = busy || reloading;
+  const reloadUsername = async (afterSave: boolean) => {
+    reloadPending.current = true;
+    setReloading(true);
+    setReloadError(null);
+    try {
+      if (afterSave) {
+        await settleRefreshes([
+          () => invalidateAndReport(utils.admin.accounts),
+          () => invalidateAndReport(utils.admin.tutors),
+          () => invalidateAndReport(utils.account.me),
+        ]);
+      }
+      const accounts = await utils.admin.accounts.fetch(undefined, {
+        staleTime: 0,
+      });
+      const latest = accounts.rows.find((row) => row.userId === userId);
+      if (latest?.profileVersion == null) throw new Error(common("loadFailed"));
+      // Only this section adopts its fresh snapshot; sibling drafts are independent.
+      setUsername(latest.username ?? "");
+      setExpectedProfileVersion(latest.profileVersion);
+      setRefreshFailed(false);
+      setNeedsRefresh(false);
+      committed.current = false;
+      return true;
+    } catch (error) {
+      // A committed write remains fenced; its recovery retries reads, never the rename.
+      if (afterSave) setRefreshFailed(true);
+      setReloadError(
+        error instanceof Error ? error.message : common("loadFailed"),
+      );
+      return false;
+    } finally {
+      reloadPending.current = false;
+      setReloading(false);
+    }
+  };
   return (
     <form
+      ref={formRef}
       className="mt-5 space-y-3 border-t border-slate-200 pt-4"
+      onChangeCapture={() => {
+        if (!committed.current) setSaved(false);
+      }}
       onSubmit={(event) => {
         event.preventDefault();
         if (
@@ -86,6 +123,17 @@ export function AccountUsernameEditor({
         busy={controlsBusy}
         saved={saved}
         refreshFailed={refreshFailed}
+        readOnly={needsRefresh}
+        refreshBusy={controlsBusy}
+        refreshError={saved ? reloadError : null}
+        onRefresh={() => {
+          if (busy || submitting.current || reloadPending.current) return;
+          reloadFocus.beginReload();
+          void reloadUsername(true).then((succeeded) => {
+            if (succeeded) save.reset();
+            reloadFocus.finishReload(succeeded);
+          });
+        }}
         actions={
           <Button type="submit" disabled={controlsBusy || !username.trim()}>
             {canApply ? t("saveUsername") : approvals("requestHead")}
@@ -125,38 +173,16 @@ export function AccountUsernameEditor({
                 committed.current
               )
                 return;
-              // Reload may replace this draft. Exclude writes immediately, but keep
-              // dialog dismissal available for this cancellable read.
-              reloadPending.current = true;
-              setReloading(true);
-              setReloadError(null);
-              try {
-                // Explicit Reload must read the server even when the list cache is fresh.
-                const accounts = await utils.admin.accounts.fetch(undefined, {
-                  staleTime: 0,
-                });
-                const latest = accounts.rows.find(
-                  (row) => row.userId === userId,
-                );
-                if (latest?.profileVersion != null) {
-                  setUsername(latest.username ?? "");
-                  setExpectedProfileVersion(latest.profileVersion);
-                  save.reset();
-                }
-              } catch (error) {
-                setReloadError(
-                  error instanceof Error ? error.message : common("loadFailed"),
-                );
-              } finally {
-                reloadPending.current = false;
-                setReloading(false);
-              }
+              reloadFocus.beginReload();
+              const succeeded = await reloadUsername(false);
+              if (succeeded) save.reset();
+              reloadFocus.finishReload(succeeded);
             }}
           >
             {t("reloadUsername")}
           </button>
         )}
-        {reloadError && (
+        {reloadError && !saved && (
           <p role="alert" className="text-sm text-red-600">
             {reloadError}
           </p>

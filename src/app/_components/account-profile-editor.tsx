@@ -1,4 +1,5 @@
 "use client";
+import { useProfileReloadFocus } from "./use-profile-reload-focus";
 import { ProfileEditSection } from "./profile-edit-section";
 import { InlineNotice } from "./ui/patterns";
 import { Button } from "./ui/button";
@@ -66,9 +67,12 @@ function AccountProfileForm({
   const common = useTranslations("uiPatterns");
   const approvals = useTranslations("approvals");
   const [saved, setSaved] = useState(false);
+  const [needsRefresh, setNeedsRefresh] = useState(false);
   const [refreshFailed, setRefreshFailed] = useState(false);
   const committed = useRef(false);
   const [reloading, setReloading] = useState(false);
+  const formRef = useRef<HTMLFormElement>(null);
+  const reloadFocus = useProfileReloadFocus(formRef, reloading);
   const [reloadError, setReloadError] = useState<string | null>(null);
   const reloadPending = useRef(false);
   const [names, setNames] = useState(() => nameDraft(profile));
@@ -90,11 +94,20 @@ function AccountProfileForm({
       submitting.current = false;
     },
     onSuccess: async () => {
-      // A committed section cannot be submitted again, even if its refresh fails.
-      // Keep the editor mounted: settled sibling work may have failed and retained a draft.
+      // Synchronize only this committed section; sibling drafts retain their snapshots.
       committed.current = true;
       setSaved(true);
-      try {
+      setNeedsRefresh(true);
+      await refreshIdentity(true);
+    },
+  });
+  const busy = useDialogPending(save.isPending);
+  const refreshIdentity = async (afterSave: boolean) => {
+    reloadPending.current = true;
+    setReloading(true);
+    setReloadError(null);
+    try {
+      if (afterSave) {
         await settleRefreshes([
           () => invalidateAndReport(utils.admin.accounts),
           () => invalidateAndReport(utils.admin.tutors),
@@ -102,16 +115,40 @@ function AccountProfileForm({
           () => invalidateAndReport(utils.tuteeHistory),
           () => invalidateAndReport(utils.account.me),
         ]);
-      } catch {
-        setRefreshFailed(true);
       }
-    },
-  });
-  const busy = useDialogPending(save.isPending);
+      const accounts = await utils.admin.accounts.fetch(undefined, {
+        staleTime: 0,
+      });
+      const latest = accounts.rows.find((row) => row.userId === profile.userId);
+      if (latest?.profileVersion == null) throw new Error(common("loadFailed"));
+      // Adopt only a complete, matching read; failed reads never replace the draft.
+      setNames(nameDraft(latest));
+      setOriginalNames(nameDraft(latest));
+      setLegacyName(latest.legacyName ?? latest.name);
+      setExpectedProfileVersion(latest.profileVersion);
+      setRefreshFailed(false);
+      setNeedsRefresh(false);
+      committed.current = false;
+      return true;
+    } catch (error) {
+      if (afterSave) setRefreshFailed(true);
+      setReloadError(
+        error instanceof Error ? error.message : common("loadFailed"),
+      );
+      return false;
+    } finally {
+      reloadPending.current = false;
+      setReloading(false);
+    }
+  };
   return (
     <>
       <form
+        ref={formRef}
         className="space-y-4"
+        onChangeCapture={() => {
+          if (!committed.current) setSaved(false);
+        }}
         onSubmit={(event) => {
           event.preventDefault();
           if (
@@ -135,6 +172,17 @@ function AccountProfileForm({
           busy={save.isPending || reloading}
           saved={saved}
           refreshFailed={refreshFailed}
+          readOnly={needsRefresh}
+          refreshBusy={reloading}
+          refreshError={saved ? reloadError : null}
+          onRefresh={() => {
+            if (busy || submitting.current || reloadPending.current) return;
+            reloadFocus.beginReload();
+            void refreshIdentity(true).then((succeeded) => {
+              if (succeeded) save.reset();
+              reloadFocus.finishReload(succeeded);
+            });
+          }}
           actions={
             <Button
               type="submit"
@@ -170,42 +218,17 @@ function AccountProfileForm({
                   committed.current
                 )
                   return;
-                // A reload may replace this draft, so exclude concurrent saves without
-                // registering a cancellable GET as an owned dialog write.
-                reloadPending.current = true;
-                setReloading(true);
-                setReloadError(null);
-                try {
-                  // Explicit Reload must read the server even when the list cache is fresh.
-                  const accounts = await utils.admin.accounts.fetch(undefined, {
-                    staleTime: 0,
-                  });
-                  const latest = accounts.rows.find(
-                    (row) => row.userId === profile.userId,
-                  );
-                  if (latest?.profileVersion != null) {
-                    setNames(nameDraft(latest));
-                    setOriginalNames(nameDraft(latest));
-                    setLegacyName(latest.legacyName ?? latest.name);
-                    setExpectedProfileVersion(latest.profileVersion);
-                    save.reset();
-                  }
-                } catch (error) {
-                  setReloadError(
-                    error instanceof Error
-                      ? error.message
-                      : common("loadFailed"),
-                  );
-                } finally {
-                  reloadPending.current = false;
-                  setReloading(false);
-                }
+                reloadFocus.beginReload();
+                const succeeded = await refreshIdentity(false);
+                // The helper reports errors through state; reset only after a matching read.
+                if (succeeded) save.reset();
+                reloadFocus.finishReload(succeeded);
               }}
             >
               {t("reloadIdentity")}
             </button>
           )}
-          {reloadError && (
+          {reloadError && !saved && (
             <p role="alert" className="text-sm text-red-600">
               {reloadError}
             </p>
