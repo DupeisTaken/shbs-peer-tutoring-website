@@ -1,3 +1,4 @@
+import { continueInEmailedInvitation } from "~/server/auth/legacy-invitation";
 import { optionalPersonNameFields } from "~/lib/person-name";
 import { captchaGrantInput } from "~/lib/captcha";
 import { withProtectedSignup } from "~/server/captcha";
@@ -153,12 +154,12 @@ export const viewerRouter = createTRPCRouter({
         async () => {
           await assertEnabled(ctx.db);
 
-          const invitation = await issueViewerAccountInvitation(
+          await issueViewerAccountInvitation(
             ctx.db,
             input.email,
             input.completionProof,
           );
-          return { ok: true, ...invitation };
+          return continueInEmailedInvitation();
         },
       ),
     ),

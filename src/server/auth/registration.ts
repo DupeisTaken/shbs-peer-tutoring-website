@@ -224,16 +224,16 @@ export async function bumpCodeAttempt(id: string): Promise<void> {
  * existing roster Tutor or an accepted application) the known name + grade so the form starts
  * pre-populated.
  */
-export async function codePrefill(row: CodeRow) {
+export async function codePrefill(row: CodeRow, client: DomainDb = db) {
   // Only explicit name parts prefill the four-field editor; old full names remain visible context.
   const source = row.tutorId
-    ? await db.tutor.findUnique({ where: { id: row.tutorId } })
+    ? await client.tutor.findUnique({ where: { id: row.tutorId } })
     : row.applicationId
-      ? await db.tutorApplication.findUnique({
+      ? await client.tutorApplication.findUnique({
           where: { id: row.applicationId },
         })
       : row.crewApplicationId
-        ? await db.crewApplication.findUnique({
+        ? await client.crewApplication.findUnique({
             where: { id: row.crewApplicationId },
           })
         : null;
@@ -579,8 +579,9 @@ export async function completeRegistration(
       const existingUser = await tx.user.findUnique({ where: { email } });
       await assertPrimaryName(
         tx,
-        existingUser?.name?.trim() ||
-          [firstName, lastName].filter(Boolean).join(" "),
+        existingUser?.name?.trim()
+          ? existingUser.name
+          : [firstName, lastName].filter(Boolean).join(" "),
         existingUser?.name,
       );
       // Crew invitations keep an existing account identity; only new accounts adopt input.
@@ -802,8 +803,9 @@ export async function completeRegistration(
     // The namespace lock serializes edits to provisional roster names.
     await assertPrimaryName(
       tx,
-      existingUser?.name?.trim() ||
-        [firstName, lastName].filter(Boolean).join(" "),
+      existingUser?.name?.trim()
+        ? existingUser.name
+        : [firstName, lastName].filter(Boolean).join(" "),
       existingUser ? existingUser.name : rosterTutor?.englishName,
     );
 
@@ -832,8 +834,9 @@ export async function completeRegistration(
           firstName,
           lastName,
           preferredName,
-          englishName:
-            existingUser?.name?.trim() || `${firstName} ${lastName}`.trim(),
+          englishName: existingUser?.name?.trim()
+            ? existingUser.name
+            : `${firstName} ${lastName}`.trim(),
           alternativeNames,
           gradeLevel,
           email,
@@ -847,8 +850,9 @@ export async function completeRegistration(
           firstName,
           lastName,
           preferredName,
-          englishName:
-            existingUser?.name?.trim() || `${firstName} ${lastName}`.trim(),
+          englishName: existingUser?.name?.trim()
+            ? existingUser.name
+            : `${firstName} ${lastName}`.trim(),
           alternativeNames,
           gradeLevel,
           email,
@@ -876,8 +880,7 @@ export async function completeRegistration(
                 emailVerifiedAt: new Date(),
               }
             : {}),
-          // Auto-merge: a crew-only login that completes a tutor code becomes a tutor (keeping crew).
-          ...(existingUser.role === "CREW" ? { role: "TUTOR" as const } : {}),
+          // Tutor capability comes from the new tutor link; retain the established role.
         },
       });
       userId = existingUser.id;

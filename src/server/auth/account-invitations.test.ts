@@ -201,8 +201,96 @@ it.each(["TUTOR", "CREW"] as const)(
   },
 );
 
+it.each(["TUTOR", "VIEWER"] as const)(
+  "accepting %s proof verifies the primary without replacing established credentials",
+  async (kind) => {
+    const account = await owner({
+      emailVerifiedAt: null,
+      mustChangePassword: true,
+    });
+    const invite = kind === "VIEWER" ? await viewer() : await staff();
+    expect(
+      (await db.user.findUniqueOrThrow({ where: { id: account.id } }))
+        .emailVerifiedAt,
+    ).toBeNull();
+    await redeemAccountInvitation(db, { ...profile, ...invite }, account.id);
+    const after = await db.user.findUniqueOrThrow({
+      where: { id: account.id },
+    });
+    expect(after.emailVerifiedAt).toBeInstanceOf(Date);
+    expect(after).toMatchObject({
+      passwordHash: account.passwordHash,
+      mustChangePassword: true,
+      name: account.name,
+      email: account.email,
+    });
+    if (kind === "VIEWER") expect(after.role).toBe(account.role);
+  },
+);
+
+it("adding Tutor participation preserves an existing Crew role and membership", async () => {
+  const account = await owner({
+    role: "CREW",
+    crewStatus: "ACTIVE",
+  });
+  const invite = await staff();
+  await redeemAccountInvitation(db, { ...profile, ...invite }, account.id);
+  const after = await db.user.findUniqueOrThrow({ where: { id: account.id } });
+  expect(after.tutorId).toBeTruthy();
+  expect(after).toMatchObject({
+    role: "CREW",
+    crewStatus: "ACTIVE",
+    passwordHash: account.passwordHash,
+    name: account.name,
+  });
+});
+
+it("sign-in-only completion consumes a Viewer source once and rejects participation invitations", async () => {
+  const account = await owner({ emailVerifiedAt: null });
+  const invite = await viewer();
+  await expect(
+    redeemAccountInvitation(db, { ...profile, ...invite }, undefined, true),
+  ).rejects.toMatchObject({ code: "UNAUTHORIZED" });
+  await redeemAccountInvitation(
+    db,
+    { ...profile, ...invite },
+    account.id,
+    true,
+  );
+  await redeemAccountInvitation(
+    db,
+    { ...profile, ...invite },
+    account.id,
+    true,
+  );
+  expect(
+    await db.auditLog.count({
+      where: { operation: "accountInvitation.redeem" },
+    }),
+  ).toBe(1);
+  expect(
+    (await db.viewerSignup.findUniqueOrThrow({ where: { email } })).usedAt,
+  ).toBeInstanceOf(Date);
+  expect(
+    await db.user.findUniqueOrThrow({ where: { id: account.id } }),
+  ).toMatchObject({
+    role: "STUDENT",
+    passwordHash: account.passwordHash,
+    name: account.name,
+  });
+  const participation = await staff();
+  await expect(
+    redeemAccountInvitation(
+      db,
+      { ...profile, ...participation },
+      account.id,
+      true,
+    ),
+  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+});
+
 it("resolves verified secondary email without replacing the primary identity or password", async () => {
-  const account = await owner();
+  const account = await owner({ emailVerifiedAt: null });
   await db.accountEmail.create({
     data: {
       email: "alias@example.test",
@@ -222,11 +310,24 @@ it("resolves verified secondary email without replacing the primary identity or 
     (await db.user.findUniqueOrThrow({ where: { id: account.id } }))
       .passwordHash,
   ).toBe(account.passwordHash);
+  expect(
+    (await db.user.findUniqueOrThrow({ where: { id: account.id } }))
+      .emailVerifiedAt,
+  ).toBeNull();
 });
 
 it.each(["TUTOR", "CREW"] as const)(
   "%s invitation preserves canonical academics and ignores posted profile changes",
   async (kind) => {
+    await db.term.create({
+      data: {
+        id: "academic-term",
+        name: "Current",
+        active: true,
+        schoolYear: "26-27",
+        quarter: "Q1",
+      },
+    });
     const account = await owner({ gradeLevel: 11 });
     await db.academicProfile.create({
       data: {
@@ -242,7 +343,7 @@ it.each(["TUTOR", "CREW"] as const)(
       where: { userId: account.id },
     });
     const invite = await staff(kind);
-    await redeemAccountInvitation(
+    const receipt = await redeemAccountInvitation(
       db,
       {
         ...profile,
@@ -253,6 +354,13 @@ it.each(["TUTOR", "CREW"] as const)(
       },
       account.id,
     );
+    expect(receipt.academicConfirmationRequired).toBe(true);
+    expect(
+      await redeemAccountInvitation(db, { ...profile, ...invite }, account.id),
+    ).toEqual(receipt);
+    expect(
+      await inspectAccountInvitation(db, { ...invite, userId: account.id }),
+    ).toMatchObject({ completed: true, academicConfirmationRequired: true });
     expect(
       await db.academicProfile.findUniqueOrThrow({
         where: { userId: account.id },
@@ -267,6 +375,24 @@ it.each(["TUTOR", "CREW"] as const)(
     });
   },
 );
+
+it("preserves an accountless bound roster's exact legacy identity in the invitation preview", async () => {
+  const roster = await db.tutor.create({
+    data: { englishName: "Original Unsplit Roster Name", email },
+  });
+  const invite = await staff();
+  await db.registrationCode.update({
+    where: { id: invite.row.id },
+    data: { tutorId: roster.id },
+  });
+  expect(await inspectAccountInvitation(db, invite)).toMatchObject({
+    name: roster.englishName,
+    legacyName: roster.englishName,
+    firstName: "",
+    lastName: "",
+    existing: false,
+  });
+});
 
 it("uses a distinct Viewer invitation and creates credentials only after its explicit review", async () => {
   const invite = await viewer();
@@ -715,6 +841,14 @@ it("tutee email confirmation issues an invitation before credentials or request 
   )![1]!;
   const before = await db.studentSurvey.findFirstOrThrow();
   const invite = await issueSurveyAccountInvitation(db, token);
+  await expect(
+    anonymous().tutee.confirmSurvey({ token, password: profile.password }),
+  ).rejects.toThrow(/Open the invitation we emailed/);
+  expect(
+    await db.accountInvitation.findUnique({
+      where: { id: invite.invitationId },
+    }),
+  ).not.toBeNull();
   expect(await db.user.findUnique({ where: { email } })).toBeNull();
   expect((await db.studentSurvey.findFirstOrThrow()).confirmedAt).toBeNull();
   const proof = await verifyAccountInvitation(db, {
@@ -806,4 +940,157 @@ it("history-only credentials preserve the archived record until a separate expli
     }),
   ).toMatchObject({ userId: account.id });
   expect(await db.policyAcceptance.count()).toBe(0);
+});
+
+async function stagedSurvey(target: string) {
+  await db.term.upsert({
+    where: { id: "term" },
+    update: {},
+    create: {
+      id: "term",
+      name: "Intake",
+      schoolYear: "26-27",
+      quarter: "Q1",
+      active: true,
+    },
+  });
+  await db.subject.upsert({
+    where: { id: "math" },
+    update: {},
+    create: { id: "math", name: "Math" },
+  });
+  await db.timeSlot.upsert({
+    where: { id: "slot" },
+    update: {},
+    create: {
+      id: "slot",
+      label: "After school",
+      dayOfWeek: 1,
+      startMin: 960,
+      endMin: 1020,
+    },
+  });
+  if (!(await db.policyDocument.count()))
+    await db.policyDocument.create({
+      data: {
+        slug: "tutee-policy",
+        locale: "en",
+        title: "Policy",
+        body: "Respect your partner.",
+      },
+    });
+  const policy = await currentPolicy(db, "tutee-policy");
+  await submitSurvey(
+    db,
+    surveyInput.parse({
+      englishName: "Invited Student",
+      email: target,
+      preferredContact: target,
+      firstChoiceId: "math",
+      slotIds: ["slot"],
+      signatureName: "Invited Student",
+      agreed: true,
+      policyRevision: policy.revision,
+    }),
+  );
+  return /token=([a-f0-9]{64})/.exec(mail.send.mock.calls.at(-1)![0].text)![1]!;
+}
+async function surveyInvitation(target: string, token: string) {
+  const invite = await issueSurveyAccountInvitation(db, token);
+  const verified = await verifyAccountInvitation(db, {
+    ...invite,
+    email: target,
+    code: code(),
+  });
+  return { ...invite, ...verified };
+}
+it.each([false, true])(
+  "quarter withdrawal prevents verified-alias enrollment (alias linked after submission=%s)",
+  async (late) => {
+    const account = await owner(),
+      alias = "survey-alias@example.test";
+    let token = "";
+    if (late) token = await stagedSurvey(alias);
+    await db.accountEmail.create({
+      data: { userId: account.id, email: alias, verifiedAt: new Date() },
+    });
+    await db.studentQuarterBlock.create({
+      data: { userId: account.id, email, intakeTermId: "term" },
+    });
+    if (!late)
+      await expect(stagedSurvey(alias)).rejects.toMatchObject({
+        code: "FORBIDDEN",
+      });
+    else {
+      const invite = await surveyInvitation(alias, token);
+      await expect(
+        redeemAccountInvitation(db, { ...profile, ...invite }, account.id),
+      ).rejects.toMatchObject({ code: "FORBIDDEN" });
+      expect(
+        (
+          await db.accountInvitation.findUniqueOrThrow({
+            where: { id: invite.invitationId },
+          })
+        ).completedAt,
+      ).toBeNull();
+    }
+    expect(await db.tutee.count()).toBe(0);
+    expect(
+      (await db.user.findUniqueOrThrow({ where: { id: account.id } }))
+        .tuteeMember,
+    ).toBe(false);
+  },
+);
+it.each([false, true])(
+  "an existing confirmed request rejects an alias duplicate (alias linked after submission=%s)",
+  async (late) => {
+    const account = await owner(),
+      alias = "survey-alias@example.test";
+    const aliasToken = late ? await stagedSurvey(alias) : "";
+    const original = await surveyInvitation(email, await stagedSurvey(email));
+    await redeemAccountInvitation(db, { ...profile, ...original }, account.id);
+    await db.accountEmail.create({
+      data: { userId: account.id, email: alias, verifiedAt: new Date() },
+    });
+    if (!late)
+      await expect(stagedSurvey(alias)).rejects.toMatchObject({
+        code: "CONFLICT",
+      });
+    else {
+      const invite = await surveyInvitation(alias, aliasToken);
+      await expect(
+        redeemAccountInvitation(db, { ...profile, ...invite }, account.id),
+      ).rejects.toMatchObject({ code: "CONFLICT" });
+    }
+    expect(await db.tutee.count()).toBe(1);
+    expect(
+      await db.studentSurvey.count({ where: { confirmedAt: { not: null } } }),
+    ).toBe(1);
+  },
+);
+it("a first valid verified-alias survey preserves canonical credentials and submission evidence", async () => {
+  const account = await owner({ emailVerifiedAt: null }),
+    alias = "survey-alias@example.test";
+  await db.accountEmail.create({
+    data: { userId: account.id, email: alias, verifiedAt: new Date() },
+  });
+  const token = await stagedSurvey(alias),
+    before = await db.studentSurvey.findFirstOrThrow();
+  const invite = await surveyInvitation(alias, token);
+  await redeemAccountInvitation(db, { ...profile, ...invite }, account.id);
+  expect(
+    await db.user.findUniqueOrThrow({ where: { id: account.id } }),
+  ).toMatchObject({
+    email,
+    emailVerifiedAt: null,
+    name: account.name,
+    passwordHash: account.passwordHash,
+    tuteeMember: true,
+  });
+  expect((await db.studentSurvey.findFirstOrThrow()).submittedAt).toEqual(
+    before.submittedAt,
+  );
+  expect((await db.policyAcceptance.findFirstOrThrow()).acceptedAt).toEqual(
+    before.submittedAt,
+  );
 });

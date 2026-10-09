@@ -217,6 +217,12 @@ function receiptKind(row: AccountInvitation) {
   const receipt = z.object({ kind: z.string() }).safeParse(row.receipt);
   return receipt.success ? receipt.data.kind : row.kind;
 }
+function receiptAcademicConfirmation(row: AccountInvitation) {
+  const receipt = z
+    .object({ academicConfirmationRequired: z.boolean() })
+    .safeParse(row.receipt);
+  return receipt.success && receipt.data.academicConfirmationRequired;
+}
 
 /** Validate live source authority under the same transaction as verification/redemption.
  * The source's own completion still performs its full domain checks before writing. */
@@ -256,8 +262,7 @@ async function sourceState(
       where: { id: source.id },
     });
     if (
-      !viewer ||
-      viewer.email !== row.email ||
+      viewer?.email !== row.email ||
       viewer.usedAt ||
       viewer.codeHash !== source.challenge ||
       viewer.verifiedAt?.toISOString() !== source.verifiedAt ||
@@ -405,9 +410,11 @@ export async function inspectAccountInvitation(
         kind: receiptKind(row),
         email: row.email,
         completed: true,
+        academicConfirmationRequired: receiptAcademicConfirmation(row),
         needsPassword: false,
         existing: true,
         name: owner?.name ?? "",
+        legacyName: null as string | null,
         firstName: "",
         lastName: "",
         preferredName: "",
@@ -429,7 +436,7 @@ export async function inspectAccountInvitation(
           gradeLevel: owner.gradeLevel,
         }
       : state.staff
-        ? await codePrefill(state.staff)
+        ? await codePrefill(state.staff, tx)
         : state.viewer
           ? {
               firstName: state.viewer.firstName ?? "",
@@ -450,16 +457,20 @@ export async function inspectAccountInvitation(
     const mfaRequired = Boolean(
       owner?.twoFactorEnabled && (await getFeatures(tx)).EMAIL_2FA,
     );
+    const legacyName = "legacyName" in identity ? identity.legacyName : null;
     return {
       kind: owner && state.source.type === "viewer" ? "LOGIN" : row.kind,
       email: row.email,
       completed: false,
+      academicConfirmationRequired: false,
       existing: Boolean(owner),
       name:
         owner?.name ??
         state.viewer?.name ??
         state.history?.record.englishName ??
+        legacyName ??
         "",
+      legacyName,
       firstName: identity.firstName ?? "",
       lastName: identity.lastName ?? "",
       preferredName: identity.preferredName ?? "",
@@ -537,8 +548,7 @@ export async function consumeInvitationLogin(
       where: { id: invitationId },
     });
     if (
-      !row ||
-      !row.verifiedAt ||
+      !row?.verifiedAt ||
       row.expiresAt <= new Date() ||
       row.loginUsedAt ||
       !equal(proof, proofFor(row))
@@ -587,6 +597,7 @@ export async function redeemAccountInvitation(
   client: DomainDb,
   input: z.infer<typeof invitationProfile>,
   userId?: string,
+  loginOnly = false,
 ) {
   return inTransaction(client, async (tx) => {
     await lockEntity(tx, "program:period");
@@ -595,14 +606,21 @@ export async function redeemAccountInvitation(
     const row = await tx.accountInvitation.findUnique({
       where: { id: input.invitationId },
     });
-    if (!row || !row.verifiedAt || !equal(input.proof, proofFor(row)))
-      throw invalid();
+    if (!row?.verifiedAt || !equal(input.proof, proofFor(row))) throw invalid();
     if (row.completedAt)
-      return { ok: true, completed: true, kind: receiptKind(row) };
+      return {
+        ok: true,
+        completed: true,
+        kind: receiptKind(row),
+        academicConfirmationRequired: receiptAcademicConfirmation(row),
+      };
     if (row.expiresAt <= new Date() || row.attempts >= MAX_ATTEMPTS)
       throw invalid();
     const state = await sourceState(tx, row);
     const owner = await lockedInvitationOwner(tx, row);
+    // Server sign-in may finish only an established account's Viewer request. Every
+    // invitation that adds participation retains the explicit user review boundary.
+    if (loginOnly && (!state.viewer || !owner?.passwordHash)) throw invalid();
     if (owner) {
       await lockAccountProfile(tx, owner.id);
       if (
@@ -639,6 +657,14 @@ export async function redeemAccountInvitation(
           ...(row.email === owner.email ? { emailVerifiedAt: new Date() } : {}),
         },
       });
+    // Accepting a code delivered to the canonical primary address proves that address,
+    // even when credentials already exist. A verified alias never proves the primary.
+    if (row.email === owner?.email && !owner.emailVerifiedAt)
+      await tx.user.update({
+        where: { id: owner.id },
+        data: { emailVerifiedAt: new Date() },
+      });
+    let academicConfirmationRequired = false;
     if (state.staff) {
       const staff = state.staff;
       const result = await completeRegistration(
@@ -656,6 +682,9 @@ export async function redeemAccountInvitation(
         tx,
       );
       if (!result.ok) throw conflict();
+      academicConfirmationRequired = Boolean(
+        result.academicConfirmationRequired,
+      );
     } else if (state.viewer) {
       if (owner) {
         await tx.viewerSignup.update({
@@ -716,7 +745,11 @@ export async function redeemAccountInvitation(
         completedUserId: account.id,
         accountId: account.id,
         sessionVersion: account.sessionVersion,
-        receipt: { kind: resultKind, userId: account.id },
+        receipt: {
+          kind: resultKind,
+          userId: account.id,
+          academicConfirmationRequired,
+        },
       },
     });
     await tx.auditLog.create({
@@ -734,6 +767,11 @@ export async function redeemAccountInvitation(
         },
       },
     });
-    return { ok: true, completed: true, kind: resultKind };
+    return {
+      ok: true,
+      completed: true,
+      kind: resultKind,
+      academicConfirmationRequired,
+    };
   });
 }

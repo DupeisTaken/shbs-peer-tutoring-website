@@ -1,3 +1,4 @@
+import { continueInEmailedInvitation } from "~/server/auth/legacy-invitation";
 import { TRPCError } from "@trpc/server";
 import {
   issueHistoryAccountInvitation,
@@ -134,7 +135,10 @@ export const tuteeHistoryRouter = createTRPCRouter({
         ctx.headers,
         "complete",
         input.email,
-        () => issueHistoryAccountInvitation(ctx.db, input),
+        async () => {
+          await issueHistoryAccountInvitation(ctx.db, input);
+          return continueInEmailedInvitation();
+        },
       );
     }),
   invitationStatus: adminOnlyProcedure

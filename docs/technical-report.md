@@ -21,6 +21,16 @@ email owner without changing their password. Enabled and enforced email two-fact
 retain their password-plus-email sign-in; the return destination resumes the same invitation.
 Source proof and membership consent are distinct: a session alone does not redeem an invitation,
 and accepting an invitation does not fabricate policies, academics, assignment or historical ownership.
+Accepted proof for the exact primary address confirms it independently of password setup;
+verified-secondary proof does not confirm the primary. Cached legacy completion endpoints
+commit invitation delivery, then return an explicit continuation precondition error outside
+that transaction, so old clients cannot misreport a credential write that never happened.
+The sign-in action automatically completes only an established account's Viewer-source
+LOGIN receipt after the session exchange succeeds (or the exact recipient's existing session
+is verified). The domain independently rejects this automatic path for participation sources.
+Academic confirmation outcomes persist in the completion receipt and remain visible on recovery.
+Tutee submission and final redemption both resolve verified aliases and recheck quarter withdrawal
+and current-request ownership; late alias linking cannot bypass either participation restriction.
 
 First successful Viewer/history verification starts a fixed 15-minute review window; retries retain its original timestamp. Envelope expiry is capped by source and authorization deadlines, and email states the exact expiry. Sending replacements never extends staff authorization or Tutee verification deadlines.
 

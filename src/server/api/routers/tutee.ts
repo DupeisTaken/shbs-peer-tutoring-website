@@ -1,3 +1,4 @@
+import { continueInEmailedInvitation } from "~/server/auth/legacy-invitation";
 import { captchaGrantInput } from "~/lib/captcha";
 import { withProtectedSignup } from "~/server/captcha";
 import { withSignupAdmission } from "~/server/signup-admission";
@@ -104,7 +105,10 @@ export const tuteeRouter = createTRPCRouter({
         ctx.headers,
         "complete",
         input.token,
-        () => issueSurveyAccountInvitation(ctx.db, input.token),
+        async () => {
+          await issueSurveyAccountInvitation(ctx.db, input.token);
+          return continueInEmailedInvitation();
+        },
       );
     }),
   pendingSurveys: adminProcedure.query(({ ctx }) => pendingSurveys(ctx.db)),

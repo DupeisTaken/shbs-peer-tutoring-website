@@ -26,6 +26,7 @@ export default async function StudentAccountPage({
       wide
     >
       <StudentRegistration
+        key={token ?? "missing-token"}
         token={token ?? ""}
         signedInEmail={session?.user.email ?? null}
       />

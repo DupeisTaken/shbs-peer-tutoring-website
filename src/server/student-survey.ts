@@ -31,7 +31,7 @@ import {
   type TransactionDb,
 } from "~/server/transactions";
 import { currentPolicy } from "~/server/policy-acceptance";
-import { retainStudentOwnership } from "./student-ownership";
+import { retainStudentOwnership, ownedStudentIds } from "./student-ownership";
 import { recruitmentStatus, recruitmentWindow } from "~/lib/recruitment";
 import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
 import { hashPassword } from "~/server/auth/password";
@@ -148,6 +148,50 @@ async function deliver(
   }
 }
 
+/** Submission and final redemption share account-aware intake restrictions. Recheck after
+ * mailbox proof because an address can become a verified alias after the original request. */
+async function assertIntakeEligibility(
+  tx: TransactionDb,
+  intakeTermId: string,
+  email: string,
+  account: { id: string; email: string } | null,
+  excludeSurveyId?: string,
+) {
+  const block = await tx.studentQuarterBlock.findFirst({
+    where: {
+      intakeTermId,
+      OR: [
+        { email },
+        ...(account ? [{ userId: account.id }, { email: account.email }] : []),
+      ],
+    },
+  });
+  if (block)
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message:
+        "You left the program this quarter and cannot submit another request until a new quarter.",
+    });
+  if (account) {
+    const owned = await ownedStudentIds(tx, account.id);
+    if (
+      await tx.studentSurvey.count({
+        where: {
+          intakeTermId,
+          state: "OPEN",
+          confirmedAt: { not: null },
+          tuteeId: { in: owned },
+          ...(excludeSurveyId ? { id: { not: excludeSurveyId } } : {}),
+        },
+      })
+    )
+      throw new TRPCError({
+        code: "CONFLICT",
+        message: "You already have a current request. Sign in to manage it.",
+      });
+  }
+}
+
 export async function submitSurvey(
   db: DomainDb,
   input: z.infer<typeof surveyInput>,
@@ -163,6 +207,7 @@ export async function submitSurvey(
   const token = randomBytes(32).toString("hex");
   const result = await inTransaction(db, async (tx) => {
     await lockEntity(tx, "program:period");
+    await lockUsernameNamespace(tx);
     await lockEntity(tx, `student-survey:${input.email}`);
     await lockEntity(tx, "policy:tutee-policy");
     const term = await activeIntake(tx);
@@ -172,11 +217,19 @@ export async function submitSurvey(
         message:
           "Tutee recruitment is currently closed. You can still preview the form.",
       });
-    const account = await tx.user.findUnique({
-      where: { email: input.email },
+    const account = await tx.user.findFirst({
+      where: {
+        OR: [
+          { email: input.email },
+          {
+            emails: { some: { email: input.email, verifiedAt: { not: null } } },
+          },
+        ],
+      },
       select: {
         id: true,
         profileVersion: true,
+        email: true,
         name: true,
         mergedIntoId: true,
       },
@@ -187,44 +240,17 @@ export async function submitSurvey(
         code: "FORBIDDEN",
         message: "Contact the team about your account.",
       });
-    const block = await tx.studentQuarterBlock.findFirst({
-      where: {
-        intakeTermId: term.id,
-        OR: [
-          { email: input.email },
-          ...(account ? [{ userId: account.id }] : []),
-        ],
-      },
-    });
-    if (block)
-      throw new TRPCError({
-        code: "FORBIDDEN",
-        message:
-          "You left the program this quarter and cannot submit another request until a new quarter.",
-      });
     const previous = await tx.studentSurvey.findFirst({
       where: { email: input.email, intakeTermId: term.id, state: "OPEN" },
       orderBy: { submittedAt: "desc" },
     });
-    // A verified account may change its email, but still has just one open request per intake.
-    if (!previous && account) {
-      const { ownedStudentIds } = await import("./student-ownership");
-      const owned = await ownedStudentIds(tx, account.id);
-      if (
-        await tx.studentSurvey.count({
-          where: {
-            intakeTermId: term.id,
-            state: "OPEN",
-            confirmedAt: { not: null },
-            tuteeId: { in: owned },
-          },
-        })
-      )
-        throw new TRPCError({
-          code: "CONFLICT",
-          message: "You already have a current request. Sign in to manage it.",
-        });
-    }
+    await assertIntakeEligibility(
+      tx,
+      term.id,
+      input.email,
+      account,
+      previous?.id,
+    );
     // Duplicate submissions keep the first payload and timestamp; the email owner can review it.
     if (previous) return { row: previous, duplicate: true };
     // Validate new submissions only; later configuration never revalidates historical payloads.
@@ -430,6 +456,7 @@ export async function confirmSurvey(
   const initial = await validSurvey(db, token, identity?.tokenIsDigest);
   return inTransaction(db, async (tx) => {
     await lockEntity(tx, "program:period");
+    await lockUsernameNamespace(tx);
     await lockEntity(tx, `student-survey:${initial.email}`);
     const row = await validSurvey(tx, token, identity?.tokenIsDigest);
     const term = await activeIntake(tx);
@@ -468,6 +495,13 @@ export async function confirmSurvey(
       await lockAccountProfile(tx, user.id);
       await requireSchoolParticipation(tx, user.id);
     }
+    await assertIntakeEligibility(
+      tx,
+      row.intakeTermId,
+      row.email,
+      user,
+      row.id,
+    );
     // A retired login also has no password. Do not mistake it for an unfinished invitation.
     // The namespace lock above serializes this decision with account combination.
     if (user?.mergedIntoId || user?.suspendedAt || user?.role === "VIEWER")

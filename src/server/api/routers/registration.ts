@@ -1,3 +1,4 @@
+import { continueInEmailedInvitation } from "~/server/auth/legacy-invitation";
 import { optionalPersonNameFields } from "~/lib/person-name";
 import { preferredLatinNameSchema } from "~/lib/username";
 import { isSchoolYear } from "~/lib/period";
@@ -215,17 +216,12 @@ export const registrationRouter = createTRPCRouter({
         });
       // Cached pre-deployment clients exchange their valid proof for the shared invitation.
       // This adapter never creates credentials or attaches participation on the old endpoint.
-      const invitation = await deliverAccountInvitation(ctx.db, {
+      await deliverAccountInvitation(ctx.db, {
         kind: row.kind,
         email: row.pendingEmail,
         sourceKey: "staff:" + row.id + ":" + row.emailCodeHash,
         source: { type: "staff", id: row.id, challenge: row.emailCodeHash },
       });
-      return {
-        ok: true,
-        username: "",
-        academicConfirmationRequired: false,
-        ...invitation,
-      };
+      return continueInEmailedInvitation();
     }),
 });

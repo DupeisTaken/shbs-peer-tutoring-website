@@ -213,12 +213,18 @@ it.each(REGISTRATION_KINDS)(
       code: issued.code,
       emailCode: otp,
     });
-    const legacy = await client.registration.complete({
-      code: issued.code,
-      completionProof,
-      ...profile,
-    });
-    expect(legacy.invitationId).toBe(invitation.invitationId);
+    await expect(
+      client.registration.complete({
+        code: issued.code,
+        completionProof,
+        ...profile,
+      }),
+    ).rejects.toThrow(/Open the invitation we emailed/);
+    expect(
+      await db.accountInvitation.findUnique({
+        where: { id: invitation.invitationId },
+      }),
+    ).not.toBeNull();
     expect(
       await db.user.findUnique({ where: { email: "new@example.test" } }),
     ).toBeNull();

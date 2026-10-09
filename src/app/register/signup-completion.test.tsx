@@ -14,44 +14,50 @@ import zh from "../../../messages/zh.json";
 import { InvitationRedemption } from "./invitation-redemption";
 import { RegisterFlow } from "./register-flow";
 
-const state = vi.hoisted(() => ({
-  verify: vi.fn(),
-  complete: vi.fn(),
-  send: vi.fn(),
-  login: vi.fn(),
-  refresh: vi.fn(),
-  callbacks: {} as Record<
-    string,
-    { onSuccess?: (data: never) => void; onSettled?: () => void }
-  >,
-  pending: "",
-  error: null as { message: string } | null,
-  saved: false,
-  readError: null as { message: string } | null,
-  info: {
-    kind: "TUTOR",
-    email: "person@example.test",
-    name: "Person One",
-    firstName: "Person",
-    lastName: "One",
-    preferredName: "",
-    alternativeNames: "",
-    gradeLevel: 9 as number | null,
-    completed: false,
-    existing: false,
-    needsPassword: true,
-    requiresSignIn: false,
-    mfaRequired: false,
-    completionProof: "a".repeat(64),
-  },
-}));
+type MutationCallbacks = {
+  onSuccess?: (data: unknown) => void;
+  onSettled?: () => void;
+};
+const state = vi.hoisted(() => {
+  const callbacks: Record<string, MutationCallbacks> = {};
+  return {
+    verify: vi.fn(),
+    complete: vi.fn(),
+    send: vi.fn(),
+    login: vi.fn(),
+    refresh: vi.fn(),
+    callbacks,
+    pending: "",
+    error: null as { message: string } | null,
+    saved: false,
+    readError: null as { message: string } | null,
+    info: {
+      kind: "TUTOR",
+      email: "person@example.test",
+      name: "Person One",
+      firstName: "Person",
+      lastName: "One",
+      preferredName: "",
+      alternativeNames: "",
+      gradeLevel: 9,
+      completed: false,
+      existing: false,
+      needsPassword: true,
+      requiresSignIn: false,
+      mfaRequired: false,
+      completionProof: "a".repeat(64),
+      academicConfirmationRequired: false,
+      legacyName: null as string | null,
+    },
+  };
+});
 vi.mock("./actions", () => ({
   invitationSignIn: state.login,
   switchInvitationAccount: vi.fn(),
 }));
 vi.mock("~/trpc/react", () => {
   const mutation = (name: string, action: (...args: unknown[]) => unknown) => ({
-    useMutation: (options: (typeof state.callbacks)[string]) => {
+    useMutation: (options: MutationCallbacks) => {
       state.callbacks[name] = options;
       return {
         mutate: action,
@@ -108,7 +114,7 @@ function view(locale: "en" | "zh" = "en", initial = false, signedIn = false) {
 }
 async function verified() {
   await act(async () => {
-    state.callbacks.verify!.onSuccess!({ proof: "a".repeat(64) } as never);
+    state.callbacks.verify!.onSuccess!({ proof: "a".repeat(64) });
     state.callbacks.verify!.onSettled?.();
   });
 }
@@ -121,6 +127,8 @@ beforeEach(() => {
   Object.assign(state.info, {
     kind: "TUTOR",
     completed: false,
+    academicConfirmationRequired: false,
+    legacyName: null,
     existing: false,
     needsPassword: true,
     requiresSignIn: false,
@@ -268,6 +276,100 @@ it("existing accounts review access without password/name editors", async () => 
   expect(state.complete.mock.calls[0]![0]).not.toHaveProperty("password");
 });
 
+it("a recovered saved receipt retains the required academic next step", () => {
+  Object.assign(state.info, {
+    completed: true,
+    existing: true,
+    needsPassword: false,
+    academicConfirmationRequired: true,
+  });
+  render(view("en", false, true));
+  expect(screen.getByText(en.academics.confirmationRequired)).toBeTruthy();
+  expect(
+    screen
+      .getByRole("link", { name: en.academics.review })
+      .getAttribute("href"),
+  ).toBe("/my-account");
+  expect(screen.queryByRole("checkbox")).toBeNull();
+});
+
+it("navigating to a different invitation discards the prior proof, password and identity draft", async () => {
+  const { rerender } = render(view());
+  await verified();
+  fireEvent.change(screen.getByLabelText(/^Create password/), {
+    target: { value: "OldInvitationPassword!" },
+  });
+  rerender(
+    <NextIntlClientProvider locale="en" messages={en} timeZone="Asia/Shanghai">
+      <InvitationRedemption invitationId="different-invitation" />
+    </NextIntlClientProvider>,
+  );
+  expect(
+    screen.getByRole("heading", { name: en.accountInvitation.enterCode }),
+  ).toBeTruthy();
+  expect(screen.queryByLabelText(/^Create password/)).toBeNull();
+  expect(screen.getByLabelText<HTMLInputElement>(/^Invited email/).value).toBe(
+    "",
+  );
+  expect(state.complete).not.toHaveBeenCalled();
+});
+
+it("an existing account with missing identity can fill its name without replacing canonical academics", async () => {
+  Object.assign(state.info, {
+    existing: true,
+    name: "",
+    firstName: "",
+    lastName: "",
+    needsPassword: false,
+  });
+  render(view());
+  await verified();
+  expect(
+    screen.getByLabelText(new RegExp(`^${en.personName.firstName}`)),
+  ).toBeTruthy();
+  expect(screen.queryByRole("combobox")).toBeNull();
+});
+
+it("shows the exact unsplit roster identity without guessing a first name", async () => {
+  Object.assign(state.info, {
+    name: "Historical Roster Label",
+    legacyName: "Historical Roster Label",
+    firstName: "",
+    lastName: "",
+  });
+  render(view());
+  await verified();
+  expect(
+    screen.getByText("Historical Roster Label", { exact: true }),
+  ).toBeTruthy();
+  const first = screen.getByLabelText<HTMLInputElement>(
+    new RegExp(`^${en.personName.firstName}`),
+  );
+  expect(first.value).toBe("");
+  expect(first.required).toBe(true);
+});
+
+it("an existing Viewer-request recipient continues after code sign-in without an access review", async () => {
+  Object.assign(state.info, {
+    kind: "LOGIN",
+    existing: true,
+    needsPassword: false,
+  });
+  state.login.mockResolvedValue({ signedIn: true, completedLogin: true });
+  render(view());
+  await verified();
+  await waitFor(() =>
+    expect(
+      screen.getByRole("heading", { name: en.accountInvitation.doneTitle }),
+    ).toBeTruthy(),
+  );
+  expect(screen.queryByRole("checkbox")).toBeNull();
+  expect(
+    screen.queryByRole("button", { name: en.accountInvitation.accept }),
+  ).toBeNull();
+  expect(state.complete).not.toHaveBeenCalled();
+});
+
 it.each([false, true])(
   "retains the draft read-only when preview recovery fails (signed-in resume=%s)",
   async (signedIn) => {
@@ -344,9 +446,7 @@ it("shows a saved write separately from failed sign-in and never offers resubmis
   await verified();
   state.saved = true;
   state.login.mockResolvedValue({ signedIn: false, mfaRequired: false });
-  await act(async () =>
-    state.callbacks.complete!.onSuccess!({ ok: true } as never),
-  );
+  await act(async () => state.callbacks.complete!.onSuccess!({ ok: true }));
   rerender(view());
   await waitFor(() =>
     expect(
@@ -366,7 +466,7 @@ it("staff-key navigation focuses its next heading and Back retains the key", asy
   await act(async () => {
     state.callbacks.check!.onSuccess!({
       boundEmail: "person@example.test",
-    } as never);
+    });
     state.callbacks.check!.onSettled?.();
   });
   expect(document.activeElement).toBe(

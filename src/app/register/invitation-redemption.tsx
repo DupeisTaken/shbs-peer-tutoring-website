@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useRef, useState, useTransition } from "react";
+import { useEffect, useRef, useState, useTransition } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { PersonNameFields } from "~/app/_components/person-name-fields";
@@ -11,6 +11,7 @@ import { RegistrationProgress } from "~/app/_components/registration-progress";
 import { Button } from "~/app/_components/ui/button";
 import { FormActions } from "~/app/_components/ui/patterns";
 import { SignupError } from "~/app/_components/signup-error";
+import { AcademicError } from "~/app/_components/academic-error";
 import {
   OfferedGradeSelect,
   ProfilePolicyLoadError,
@@ -20,15 +21,20 @@ import { invitationSignIn, switchInvitationAccount } from "./actions";
 
 /** One credential editor for every invited account. Proof/password drafts stay in memory;
  * a committed write remains locked while session synchronization is recovered separately. */
-export function InvitationRedemption({
-  invitationId,
-  signedIn = false,
-  focusOnMount = false,
-}: {
+type InvitationRedemptionProps = {
   invitationId: string;
   signedIn?: boolean;
   focusOnMount?: boolean;
-}) {
+};
+export function InvitationRedemption(props: InvitationRedemptionProps) {
+  return <InvitationRedemptionFlow key={props.invitationId} {...props} />;
+}
+
+function InvitationRedemptionFlow({
+  invitationId,
+  signedIn = false,
+  focusOnMount = false,
+}: InvitationRedemptionProps) {
   const t = useTranslations("accountInvitation");
   const policy = useProfilePolicy();
   const utils = api.useUtils();
@@ -42,6 +48,7 @@ export function InvitationRedemption({
   const [reviewed, setReviewed] = useState(false);
   const [seeded, setSeeded] = useState(false);
   const [loginFailed, setLoginFailed] = useState(false);
+  const [completedLogin, setCompletedLogin] = useState(false);
   const [sessionPending, startSession] = useTransition();
   const admitted = useRef(false);
   const verifying = useRef(false);
@@ -60,7 +67,7 @@ export function InvitationRedemption({
     setGrade(info.gradeLevel == null ? "" : String(info.gradeLevel));
     setSeeded(true);
   }
-  const effectiveProof = proof || info?.completionProof || "";
+  const effectiveProof = proof || (info?.completionProof ?? "");
   function login(recipientProof: string) {
     startSession(async () => {
       try {
@@ -69,6 +76,7 @@ export function InvitationRedemption({
           proof: recipientProof,
         });
         setLoginFailed(!result.signedIn);
+        setCompletedLogin(Boolean(result.completedLogin));
         await utils.accountInvitation.inspect.invalidate();
       } catch {
         setLoginFailed(true);
@@ -94,7 +102,21 @@ export function InvitationRedemption({
       admitted.current = false;
     },
   });
-  const saved = complete.isSuccess || info?.completed;
+  const resumedLogin = useRef(false);
+  useEffect(() => {
+    if (
+      !proof &&
+      info?.kind === "LOGIN" &&
+      !info.requiresSignIn &&
+      !info.needsPassword &&
+      !info.completed &&
+      !resumedLogin.current
+    ) {
+      resumedLogin.current = true;
+      login(info.completionProof);
+    }
+  });
+  const saved = complete.isSuccess || info?.completed || completedLogin;
   const busy =
     verify.isPending ||
     complete.isPending ||
@@ -123,6 +145,15 @@ export function InvitationRedemption({
       {saved ? (
         <section className="space-y-4" aria-live="polite">
           <p>{t("saved")}</p>
+          {(complete.data?.academicConfirmationRequired ||
+            info?.academicConfirmationRequired) && (
+            <div className="rounded-lg bg-amber-50 p-3 text-sm" role="status">
+              <AcademicError
+                message="ACADEMIC_CONFIRMATION_REQUIRED"
+                selfService
+              />
+            </div>
+          )}
           <p className="muted text-sm">
             {t(info?.kind === "HISTORY" ? "historyNext" : "nextHelp")}
           </p>
@@ -222,19 +253,21 @@ export function InvitationRedemption({
                     <PersonNameFields
                       value={names}
                       onChange={setNames}
-                      legacyName={null}
+                      legacyName={info.legacyName}
                     />
-                    <label className="block">
-                      <span className="label">
-                        {t("grade")}
-                        <FieldRequirement state="optional" />
-                      </span>
-                      <OfferedGradeSelect
-                        value={grade}
-                        onChange={setGrade}
-                        offeredGrades={policy.offeredGrades}
-                      />
-                    </label>
+                    {!info.existing && (
+                      <label className="block">
+                        <span className="label">
+                          {t("grade")}
+                          <FieldRequirement state="optional" />
+                        </span>
+                        <OfferedGradeSelect
+                          value={grade}
+                          onChange={setGrade}
+                          offeredGrades={policy.offeredGrades}
+                        />
+                      </label>
+                    )}
                   </>
                 )}
                 {info.needsPassword && (
@@ -278,31 +311,55 @@ export function InvitationRedemption({
                     )}
                   </div>
                 )}
-                <label className="flex min-h-11 items-start gap-3 text-sm leading-6">
-                  <input
-                    className="mt-1.5"
-                    type="checkbox"
-                    required
-                    checked={reviewed}
-                    onChange={(event) => setReviewed(event.target.checked)}
-                  />
-                  {t(info.kind === "LOGIN" ? "reviewLogin" : "reviewAccess")}
-                </label>
-                <FormActions>
-                  <Button
-                    type="submit"
-                    disabled={
-                      !reviewed ||
-                      Boolean(
-                        editableIdentity && (policy.isLoading || policy.error),
-                      ) ||
-                      (info.needsPassword &&
-                        (!password || password !== confirm))
-                    }
-                  >
-                    {t("accept")}
-                  </Button>
-                </FormActions>
+                {!(info.kind === "LOGIN" && !info.needsPassword) && (
+                  <>
+                    <label className="flex min-h-11 items-start gap-3 text-sm leading-6">
+                      <input
+                        className="mt-1.5"
+                        type="checkbox"
+                        required
+                        checked={reviewed}
+                        onChange={(event) => setReviewed(event.target.checked)}
+                      />
+                      {t(
+                        info.kind === "LOGIN" ? "reviewLogin" : "reviewAccess",
+                      )}
+                    </label>
+                    <FormActions>
+                      <Button
+                        type="submit"
+                        disabled={
+                          !reviewed ||
+                          Boolean(
+                            editableIdentity &&
+                            (policy.isLoading || policy.error),
+                          ) ||
+                          (info.needsPassword &&
+                            (!password || password !== confirm))
+                        }
+                      >
+                        {t("accept")}
+                      </Button>
+                    </FormActions>
+                  </>
+                )}
+                {info.kind === "LOGIN" &&
+                  !info.needsPassword &&
+                  loginFailed && (
+                    <div role="alert" className="space-y-3">
+                      <p>{t("signInRequired")}</p>
+                      <Link className="link" href={signInUrl}>
+                        {t("signIn")}
+                      </Link>
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        onClick={() => login(effectiveProof)}
+                      >
+                        {t("retry")}
+                      </Button>
+                    </div>
+                  )}
               </>
             )}
           </fieldset>

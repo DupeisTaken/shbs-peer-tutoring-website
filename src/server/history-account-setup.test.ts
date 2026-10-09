@@ -213,12 +213,14 @@ it("creates a verified neutral login then explicitly claims unchanged owned hist
     email,
     code,
   });
-  await anonymous().tuteeHistory.completeAccount({
-    token,
-    email,
-    password,
-    ...proof,
-  });
+  await expect(
+    anonymous().tuteeHistory.completeAccount({
+      token,
+      email,
+      password,
+      ...proof,
+    }),
+  ).rejects.toThrow(/Open the invitation we emailed/);
   expect(await db.user.findUnique({ where: { email } })).toBeNull();
   const invitationCode = (
     mail.send.mock.lastCall![0] as { presentation: { code: string } }

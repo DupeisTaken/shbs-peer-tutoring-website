@@ -10,14 +10,19 @@ email proves who is accepting it. A staff-visible key alone cannot sign in as it
 | --- | --- | --- |
 | Tutor, Crew or management staff key | Enter the key and recipient email; receive a separate email invitation code. | The authorized participation or new management account, subject to existing eligibility. |
 | Tutee request | Submit the request and policy agreement, open its email link, then explicitly confirm the email to receive an invitation. | Confirm the original request without changing its submission priority; assignment remains separate. |
-| Public Viewer request | Verify the initial email code, then receive a distinct invitation code. | A new address creates a read-only Viewer; an existing account signs in without adding Viewer or changing any membership. |
+| Public Viewer request | Verify the initial email code, then receive a distinct invitation code. | A new address creates a read-only Viewer after review; an existing account signs in and continues immediately without adding Viewer or changing any membership. |
 | Historical tutee invitation | Verify the exact invited email and redeem its account invitation. | Create/use credentials, then separately review and choose **Link My History** for the exact record. No current participation is added. |
 | Accountless tutor setup sent by Head | Receive a Tutor invitation. | The roster remains accountless until its recipient accepts; no placeholder login is created by sending mail. |
 
 Enter the recipient email and the code using the link in the invitation message. Codes
 last up to 15 minutes; the exact expiry is shown in the email. Earlier staff authorization or application deadlines still apply. For an existing account, entering the recipient-delivered code
 signs in without replacing its password, name or memberships. Primary and verified secondary
-emails resolve to the same account. Adding participation still requires an explicit review.
+emails resolve to the same account. Accepting proof for the primary address also confirms
+that address; proof for a secondary address does not confirm a different primary address.
+Adding participation still requires an explicit review.
+An existing account using the public Viewer request has no added access to review; successful
+code sign-in completes that request directly. When canonical academics still need confirmation,
+the saved participation receipt shows the required next step and a link to **My Account**.
 If the account enforces password plus email verification, complete that existing sign-in
 flow and return to the invitation; an invitation does not disable two-factor protection.
 
@@ -31,6 +36,8 @@ fails, the page identifies the saved result and offers sign-in recovery without 
 the write. Expired or replaced invitations return to their original request route; the
 original application, policy evidence and historical records remain retained. Outstanding
 older verification links and staff keys remain valid entry points to this shared flow.
+An old browser still displaying the previous completion screen will ask you to open the
+newly emailed invitation; it will not report account creation before that review succeeds.
 
 Account readiness, email verification, suspension, membership, active participation and
 historical ownership are distinct states. A ready login has a password, verified primary

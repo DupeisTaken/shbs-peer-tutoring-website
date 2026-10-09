@@ -57,6 +57,7 @@ export default async function RegisterPage({
     >
       <PublicFormCard>
         <RegisterFlow
+          key={params?.invitation ?? "staff-key"}
           invitationId={params?.invitation}
           signedIn={Boolean(session?.user)}
           viewerSignupAvailable={features.VIEWER_SIGNUP}

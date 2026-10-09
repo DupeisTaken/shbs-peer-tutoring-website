@@ -77,7 +77,7 @@ it("rejects another browser that knows a verified email but lacks its proof", as
       password,
       completionProof: verified.completionProof,
     }),
-  ).resolves.toMatchObject({ ok: true });
+  ).rejects.toThrow(/Open the invitation we emailed/);
   expect(await db.user.findUnique({ where: { email } })).toBeNull();
   const sent = mail.send.mock.lastCall![0] as {
     presentation: { code: string };

@@ -4,7 +4,11 @@ import { AuthError } from "next-auth";
 import { z } from "zod";
 import { auth, signIn, signOut } from "~/server/auth";
 import { db } from "~/server/db";
-import { inspectAccountInvitation } from "~/server/auth/account-invitations";
+import {
+  inspectAccountInvitation,
+  invitationEmailOwner,
+  redeemAccountInvitation,
+} from "~/server/auth/account-invitations";
 
 /** Mailbox-proof login is a separate, single-use Auth.js exchange. A failed session
  * response never repeats the participation write; the UI offers sign-in recovery. */
@@ -23,7 +27,29 @@ export async function invitationSignIn(input: {
     ...parsed,
     userId: session?.user.id,
   });
-  if (!details.requiresSignIn) return { signedIn: true, mfaRequired: false };
+  async function acceptedSession() {
+    if (
+      details.kind === "LOGIN" &&
+      !details.needsPassword &&
+      !details.completed
+    ) {
+      const owner = await invitationEmailOwner(db, details.email);
+      if (!owner) throw new Error("Invitation recipient changed");
+      await redeemAccountInvitation(
+        db,
+        { ...parsed, reviewed: true, firstName: "", lastName: "" },
+        owner.id,
+        true,
+      );
+      return { signedIn: true, mfaRequired: false, completedLogin: true };
+    }
+    return {
+      signedIn: true,
+      mfaRequired: false,
+      completedLogin: details.completed && details.kind === "LOGIN",
+    };
+  }
+  if (!details.requiresSignIn) return acceptedSession();
   if (details.mfaRequired) return { signedIn: false, mfaRequired: true };
   try {
     await signIn("credentials", {
@@ -31,7 +57,7 @@ export async function invitationSignIn(input: {
       ...parsed,
       redirect: false,
     });
-    return { signedIn: true, mfaRequired: false };
+    return acceptedSession();
   } catch (error) {
     if (error instanceof AuthError)
       return { signedIn: false, mfaRequired: false };
