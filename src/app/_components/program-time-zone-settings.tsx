@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
 import { useLocale, useTranslations } from "next-intl";
+import { InlineNotice } from "./ui/patterns";
 import { api } from "~/trpc/react";
 import { isProgramTimeZone, programDateTimeInput } from "~/lib/program-time";
 import { programTimeZoneLabel } from "~/lib/program-time-zone-label";
@@ -10,25 +11,42 @@ import { programTimeZoneLabel } from "~/lib/program-time-zone-label";
 export function ProgramTimeZoneSettings() {
   const settings = api.program.timeZoneSettings.useQuery();
   const t = useTranslations("programTimeZone");
-  if (settings.error) return <p role="alert">{settings.error.message}</p>;
+  const common = useTranslations("uiPatterns");
+  const [generation, setGeneration] = useState(0);
+  if (settings.error && !settings.data) return <p role="alert">{settings.error.message}</p>;
   if (!settings.data) return <p className="muted">{t("loading")}</p>;
-  return <TimeZoneEditor key={settings.data.timeZone} {...settings.data} />;
+  return <div className="space-y-3">
+    {settings.error && <InlineNotice tone="error" announcement="alert" action={<button className="btn-secondary" onClick={() => void settings.refetch()}>{common("retry")}</button>}>{settings.error.message}</InlineNotice>}
+    {/* Background recovery retains the draft; only an explicit successful reload adopts new evidence. */}
+    <TimeZoneEditor key={generation} {...settings.data} onReload={async () => {
+      const result = await settings.refetch();
+      if (result.isSuccess) setGeneration((value) => value + 1);
+    }} />
+  </div>;
 }
 
 export function TimeZoneEditor({
-  timeZone,
+  timeZone: initialTimeZone,
   canEdit,
+  canApply = true,
   timeZoneOptions,
+  onReload,
 }: {
   timeZone: string;
   canEdit: boolean;
+  canApply?: boolean;
   timeZoneOptions: string[];
+  onReload?: () => Promise<void>;
 }) {
   const t = useTranslations("programTimeZone");
+  const approvals = useTranslations("approvals");
+  const profile = useTranslations("profilePolicy");
   const router = useRouter();
   const locale = useLocale();
   const utils = api.useUtils();
-  const [zone, setZone] = useState(timeZone);
+  const [timeZone, setTimeZone] = useState(initialTimeZone);
+  const [zone, setZone] = useState(initialTimeZone);
+  const [reloading, setReloading] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
   const [saved, setSaved] = useState(false);
   const [example, setExample] = useState(
@@ -48,6 +66,7 @@ export function TimeZoneEditor({
   const save = api.program.setTimeZone.useMutation({
     onSuccess: async () => {
       setSaved(true);
+      setTimeZone(zone);
       await utils.program.timeZoneSettings.invalidate();
       // Reload server i18n context so client and server render the same new zone.
       router.refresh();
@@ -59,6 +78,7 @@ export function TimeZoneEditor({
         <h2 className="section-title">{t("title")}</h2>
         <p className="muted mt-1">{t("help")}</p>
       </div>
+      {canEdit && !canApply && <p className="muted text-sm">{approvals("sensitiveHelp")}</p>}
       <label className="block space-y-1">
         <span className="label">{t("referenceDate")}</span>
         <input
@@ -78,7 +98,7 @@ export function TimeZoneEditor({
           className="input min-h-11 w-full min-w-0 lg:min-h-10"
           aria-describedby="program-time-zone-label"
           value={zone}
-          disabled={!canEdit || save.isPending}
+          disabled={!canEdit || save.isPending || reloading}
           onChange={(e) => {
             setZone(e.target.value);
             setConfirmed(false);
@@ -155,7 +175,7 @@ export function TimeZoneEditor({
               type="checkbox"
               checked={confirmed}
               onChange={(e) => setConfirmed(e.target.checked)}
-              disabled={zone === timeZone || !valid}
+              disabled={zone === timeZone || !valid || save.isPending || reloading}
               className="mt-1"
             />
             <span>{t("confirm")}</span>
@@ -163,19 +183,24 @@ export function TimeZoneEditor({
           <button
             className="btn-primary min-h-11 lg:min-h-10"
             disabled={
-              !valid || !confirmed || zone === timeZone || save.isPending
+              !valid || !confirmed || zone === timeZone || save.isPending || reloading
             }
             onClick={() =>
               save.mutate({ timeZone: zone, expectedTimeZone: timeZone })
             }
           >
-            {save.isPending ? t("saving") : t("save")}
+            {save.isPending ? t("saving") : canApply ? t("save") : approvals("requestHead")}
           </button>
+          {onReload && <button type="button" className="btn-secondary min-h-11 lg:min-h-10" disabled={save.isPending || reloading} onClick={async () => {
+            setReloading(true);
+            try { await onReload(); } finally { setReloading(false); }
+          }}>{profile("reload")}</button>}
         </>
       ) : (
         <p className="muted">{t("readOnly")}</p>
       )}
-      {save.error && (
+      {save.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{approvals("queuedBody")}</InlineNotice>}
+      {save.error && !save.error.data?.approvalId && (
         <p role="alert" className="text-sm text-red-700">
           {save.error.message}
         </p>

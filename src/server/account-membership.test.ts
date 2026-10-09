@@ -87,7 +87,10 @@ it("rejects every Viewer combination through schema and database constraints", a
   for (const data of [{ canTranslate: true }, { crewStatus: "ACTIVE" as const }, { tuteeMember: true }])
     await expect(db.user.update({ where: { id: viewer }, data })).rejects.toThrow();
   await expect(caller().admin.setUserCanTranslate({ userId: viewer, canTranslate: true })).rejects.toMatchObject({ code: "BAD_REQUEST" });
-  await expect(caller(admin).admin.setUserRole({ userId: viewer, role: "STUDENT", confirmPassword: password })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(caller(admin).admin.setUserRole({ userId: viewer, role: "STUDENT", confirmPassword: password })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect((await db.user.findUniqueOrThrow({ where: { id: viewer } })).role).toBe("VIEWER");
+  const request = await db.approvalRequest.findFirstOrThrow({ where: { operation: "admin.setUserRole" } });
+  await expect(caller(admin).approval.decide({ id: request.id, approve: true, note: "Admin cannot change rank" })).rejects.toMatchObject({ code: "FORBIDDEN" });
 });
 
 it("requires explicit Translator even for management, before coordinator queueing", async () => {
@@ -150,7 +153,7 @@ it("converts historical participants to sole Viewer without deleting identity or
   await expect(caller(person).student.me()).rejects.toMatchObject({ code: "FORBIDDEN" });
 });
 
-it("rejects a concurrent Admin status restore after Head removes participation", async () => {
+it("queues a concurrent Admin status restore without reversing Head removal", async () => {
   await caller().admin.setMemberships({ userId: person, membership: { ...base, tutor: true }, confirmPassword: password });
   const user = await db.user.findUniqueOrThrow({ where: { id: person } });
   const original = db.tutor.findUnique.bind(db.tutor);
@@ -164,7 +167,11 @@ it("rejects a concurrent Admin status restore after Head removes participation",
     return result;
   })() as unknown as ReturnType<typeof original>);
   try {
-    await expect(caller(admin).admin.updateTutor({ id: user.tutorId!, firstName: "Synthetic", lastName: "Participant", status: "ACTIVE" })).rejects.toMatchObject({ code: "CONFLICT" });
+    await expect(caller(admin).admin.updateTutor({ id: user.tutorId!, firstName: "Synthetic", lastName: "Participant", status: "ACTIVE" })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    expect(first).toBe(false);
     expect((await db.tutor.findUniqueOrThrow({ where: { id: user.tutorId! } })).status).toBe("ARCHIVED");
+    const request = await db.approvalRequest.findFirstOrThrow({ where: { operation: "admin.updateTutor" } });
+    expect(request.state).toBe("PENDING");
+    await expect(caller(admin).approval.decide({ id: request.id, approve: true, note: "Admin cannot reverse removal" })).rejects.toMatchObject({ code: "FORBIDDEN" });
   } finally { spy.mockRestore(); }
 });

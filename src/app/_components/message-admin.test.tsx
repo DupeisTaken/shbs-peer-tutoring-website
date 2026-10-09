@@ -11,6 +11,7 @@ import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
 import { MessageAdmin } from "./message-admin";
 const mocks = vi.hoisted(() => ({
+  role: "HEAD",
   review: vi.fn(),
   moderate: vi.fn(),
   save: vi.fn(),
@@ -20,6 +21,7 @@ const mocks = vi.hoisted(() => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
+    account: { me: { useQuery: () => ({ data: { role: mocks.role } }) } },
     messaging: {
       supervision: {
         useQuery: () => ({
@@ -162,4 +164,16 @@ it("retains the review reason across local permission tabs", () => {
     screen.getByRole<HTMLInputElement>("textbox", { name: en.messaging.reason })
       .value,
   ).toBe("Retain this audit context");
+});
+
+it("disables significant messaging permission drafts for Coordinators", () => {
+  mocks.role = "COORDINATOR";
+  render(<NextIntlClientProvider locale="en" messages={en}><MessageAdmin /></NextIntlClientProvider>);
+  fireEvent.click(screen.getByRole("tab", { name: en.messaging.permissions }));
+  for (const button of screen.getAllByRole<HTMLButtonElement>("button", { name: en.messaging.save })) {
+    expect(button.closest("fieldset")?.disabled).toBe(true);
+    fireEvent.submit(button.closest("form")!);
+  }
+  expect(mocks.save).not.toHaveBeenCalled();
+  mocks.role = "HEAD";
 });

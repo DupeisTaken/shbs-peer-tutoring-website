@@ -7,6 +7,18 @@ import zh from "../../../messages/zh.json";
 import { ApprovalReviewDetails } from "./approval-review-details";
 
 afterEach(cleanup);
+it.each(["en", "zh"])("localizes known signup field request values (%s)", (locale) => {
+  show("program.setSignupField", { form: "tutee", field: "phone", state: "required", expectedState: "optional" }, {}, locale);
+  const copy = locale === "en" ? en : zh;
+  expect(screen.getByText(copy.signupFields.tutee)).toBeTruthy();
+  expect(screen.getByText(copy.signupFields.labels.phone)).toBeTruthy();
+  expect(screen.getByText(copy.signupFields.required)).toBeTruthy();
+  expect(screen.queryByText("expectedState")).toBeNull();
+});
+it("retains unknown signup field values and unrelated literal text", () => {
+  show("program.setSignupField", { form: "legacy", field: "retiredField", state: "retiredState", reason: "required" });
+  for (const value of ["legacy", "retiredField", "retiredState", "required"]) expect(screen.getByText(value)).toBeTruthy();
+});
 it.each(["GRADUATED", "TRANSFERRED", "RETURN", "REVOKE", "RESTORE"])(
   "preserves readable departure actions and their consequences (%s)",
   (action) => {

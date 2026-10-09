@@ -49,11 +49,19 @@ beforeEach(async () => {
 });
 afterAll(() => db.$disconnect());
 
-it("defaults to Shanghai, permits admin changes and records before/after evidence", async () => {
+it("keeps Admin timezone requests pending until Head applies the parsed change", async () => {
+  await expect(caller("ADMIN").program.setTimeZone({ timeZone: "UTC", expectedTimeZone: "Asia/Shanghai" })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect(await db.programSettings.count()).toBe(0);
+  const request = await db.approvalRequest.findFirstOrThrow({ where: { operation: "program.setTimeZone" } });
+  await caller("HEAD").approval.decide({ id: request.id, approve: true, note: "Review school timezone" });
+  expect((await caller("ADMIN").program.timeZoneSettings()).timeZone).toBe("UTC");
+});
+
+it("defaults to Shanghai, permits Head changes and records before/after evidence", async () => {
   expect((await caller("ADMIN").program.timeZoneSettings()).timeZone).toBe(
     "Asia/Shanghai",
   );
-  await caller("ADMIN").program.setTimeZone({
+  await caller("HEAD").program.setTimeZone({
     timeZone: "America/New_York",
     expectedTimeZone: "Asia/Shanghai",
   });
@@ -81,7 +89,7 @@ it("rejects unauthorized, invalid and stale changes without changing settings", 
       }),
     ).rejects.toMatchObject({ code: "FORBIDDEN" });
   await expect(
-    caller("ADMIN").program.setTimeZone({
+    caller("HEAD").program.setTimeZone({
       timeZone: "Fake/Zone",
       expectedTimeZone: "Asia/Shanghai",
     }),
@@ -93,13 +101,13 @@ it("rejects unauthorized, invalid and stale changes without changing settings", 
     "EDT",
   ])
     await expect(
-      caller("ADMIN").program.setTimeZone({
+      caller("HEAD").program.setTimeZone({
         timeZone,
         expectedTimeZone: "Asia/Shanghai",
       }),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   await expect(
-    caller("ADMIN").program.setTimeZone({
+    caller("HEAD").program.setTimeZone({
       timeZone: "UTC",
       expectedTimeZone: "Europe/London",
     }),
@@ -145,7 +153,7 @@ it("calculates school-day appeal deadlines in the configured zone across DST", (
 });
 
 it("matches evening crew observations after UTC midnight to their school calendar session", async () => {
-  await caller("ADMIN").program.setTimeZone({
+  await caller("HEAD").program.setTimeZone({
     timeZone: "America/Los_Angeles",
     expectedTimeZone: "Asia/Shanghai",
   });

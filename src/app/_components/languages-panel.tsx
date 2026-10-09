@@ -1,5 +1,6 @@
 "use client";
 
+import { InlineNotice } from "./ui/patterns";
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
@@ -8,6 +9,8 @@ import { useDialog } from "./confirm-dialog";
 /** Separate catalog administration from translator-only text editing and catalog creation. */
 export function LanguagesPanel({ canAdd }: { canAdd: boolean }) {
   const t = useTranslations();
+  const identity = api.account.me.useQuery();
+  const eligible = !identity.error && ["HEAD", "ADMIN"].includes(identity.data?.role ?? "");
   const { confirm, dialog } = useDialog();
   const utils = api.useUtils();
   const languages = api.i18n.managedLanguages.useQuery();
@@ -42,7 +45,7 @@ export function LanguagesPanel({ canAdd }: { canAdd: boolean }) {
   const move = (index: number, dir: -1 | 1) => {
     const next = [...list];
     const j = index + dir;
-    if (j < 0 || j >= next.length) return;
+    if (!eligible || j < 0 || j >= next.length) return;
     [next[index], next[j]] = [next[j]!, next[index]!];
     reorder.mutate({ codes: next.map((l) => l.code) });
   };
@@ -59,6 +62,7 @@ export function LanguagesPanel({ canAdd }: { canAdd: boolean }) {
         {t("localization.languagesHelp")}
       </div>
 
+      <p className="muted text-sm">{t("approvals.sensitiveHelp")}</p>
       <ul className="divide-y divide-slate-100">
         {list.map((l, i) => (
           <li
@@ -86,7 +90,7 @@ export function LanguagesPanel({ canAdd }: { canAdd: boolean }) {
                 {t("localization.required")}
               </span>
             )}
-            {canManage.data && (
+            {(canManage.data && eligible) && (
               <div className="ml-auto flex w-full flex-wrap items-center justify-end gap-1 sm:w-auto">
                 <button
                   type="button"
@@ -181,10 +185,11 @@ export function LanguagesPanel({ canAdd }: { canAdd: boolean }) {
           <p className="muted text-xs">{t("localization.newLanguageHint")}</p>
         </>
       )}
-      {add.error && <p className="text-sm text-red-600">{add.error.message}</p>}
-      {(reorder.error ?? del.error ?? setEnabled.error) && (
+      {[add.error, reorder.error, del.error, setEnabled.error].some((error) => error?.data?.approvalId) && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
+      {add.error && !add.error.data?.approvalId && <p className="text-sm text-red-600">{add.error.message}</p>}
+      {([reorder.error, del.error, setEnabled.error].find((error) => error && !error.data?.approvalId)) && (
         <p className="text-sm text-red-600">
-          {(reorder.error ?? del.error ?? setEnabled.error)?.message}
+          {([reorder.error, del.error, setEnabled.error].find((error) => error && !error.data?.approvalId))?.message}
         </p>
       )}
       {dialog}

@@ -1,5 +1,6 @@
 "use client";
 
+import { InlineNotice } from "~/app/_components/ui/patterns";
 import { useFormatter, useTranslations } from "next-intl";
 import { useMemo, useState } from "react";
 
@@ -51,6 +52,7 @@ function PolicyVersionEditor({
   const [title, setTitle] = useState(doc?.title ?? "");
   const [version, setVersion] = useState(doc?.version ?? "");
   const [body, setBody] = useState(doc?.body ?? "");
+  const identity = api.account.me.useQuery();
   const upsert = api.admin.upsertPolicy.useMutation({ onSuccess: onSaved });
 
   const dirty =
@@ -118,12 +120,13 @@ function PolicyVersionEditor({
             })
           }
         >
-          {upsert.isPending ? t("admin.policies.editor.saving") : t("admin.policies.editor.save")}
+          {upsert.isPending ? t("admin.policies.editor.saving") : identity.data?.role === "ADMIN" ? t("approvals.requestHead") : t("admin.policies.editor.save")}
         </button>
         {upsert.isSuccess && !dirty && (
           <span className="text-sm text-green-600">{t("admin.policies.editor.saved")}</span>
         )}
-        {upsert.error && <span className="text-sm text-red-600">{upsert.error.message}</span>}
+        {upsert.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
+        {upsert.error && !upsert.error.data?.approvalId && <span className="text-sm text-red-600">{upsert.error.message}</span>}
       </div>
       )}
     </div>
@@ -333,6 +336,7 @@ function PolicyCard({ slug, byLocale, archivesByLocale, languages, readOnly, onS
         </div>
       )}
       <VersionHistory archives={archivesByLocale.get(active) ?? []} />
+      {del.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{t("approvals.queuedBody")}</InlineNotice>}
       {dialog}
     </section>
   );
@@ -340,7 +344,9 @@ function PolicyCard({ slug, byLocale, archivesByLocale, languages, readOnly, onS
 
 export default function PoliciesPage() {
   const t = useTranslations();
-  const readOnly = useReadOnly();
+  const viewerReadOnly = useReadOnly();
+  const identity = api.account.me.useQuery();
+  const readOnly = viewerReadOnly || !!identity.error || !["HEAD", "ADMIN"].includes(identity.data?.role ?? "");
   const utils = api.useUtils();
   const policies = api.admin.policies.useQuery();
   const archives = api.admin.policyArchives.useQuery();

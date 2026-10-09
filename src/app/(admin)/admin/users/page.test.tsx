@@ -372,3 +372,10 @@ it("reveals unverified accounts explicitly and resets the saved choice", () => {
   );
   expect(screen.queryByText("Unverified student")).toBeNull();
 });
+
+it("keeps account profiles and ranks out of Coordinator edit actions", () => {
+  fixture.role = "COORDINATOR";
+  mount();
+  const management = screen.getByText("Management account").closest("tr")!;
+  expect(within(management).queryByRole("button", { name: messages.accountProfile.editProfile })).toBeNull();
+});

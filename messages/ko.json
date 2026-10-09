@@ -825,7 +825,7 @@
       },
       "features": {
         "heading": "선택 기능",
-        "help": "프로그램에서 쓰지 않는 모듈을 끌 수 있습니다. 책임자만 변경할 수 있으며, 변경은 다음 새로고침 때 적용됩니다.",
+        "help": "Switch off modules your program does not use. Head stages changes directly; Admin requests Head approval. Approved changes take effect at the next program refresh.",
         "on": "켜짐",
         "off": "꺼짐",
         "pending": "대기 중: 다음 새로고침에 {state}",
@@ -858,7 +858,7 @@
     "users": {
       "title": "사용자 및 역할",
       "subtitle": "로그인, 역할, 튜터 계정을 관리합니다. 저장한 역할 변경은 다음 요청부터 적용됩니다. 탐색 메뉴를 업데이트하려면 페이지를 새로 고치세요.",
-      "coordinatorHint": "As a coordinator you can send setup links and request changes to your own tutoring access. Other account permissions require an administrator.",
+      "coordinatorHint": "Coordinators can inspect accounts and send eligible setup links. Admin submits profile and management-role changes for Head review.",
       "columns": {
         "user": "사용자",
         "name": "이름",
@@ -924,9 +924,9 @@
       "exportImageError": "이미지를 내보낼 수 없습니다. 코드가 아직 유효한지 확인하고 다시 시도하세요.",
       "kindAdmin": "관리자",
       "kindCoordinator": "코디네이터",
-      "managementHelp": "모든 역할 초대는 Head가 승인합니다. 다른 직원은 승인을 요청합니다. 관리 코드는 Head만 확인하거나 공유할 수 있습니다. 관리 코드는 관리 전용 새 계정을 만듭니다. 기존 계정은 사용자 및 역할에서 Head에게 역할 변경을 요청하세요.",
+      "managementHelp": "Head와 Admin은 Tutor 및 Crew 코드를 직접 발급할 수 있으며, Coordinator는 Head 승인을 요청해야 합니다. Admin/Coordinator 코드는 Head의 승인이 필요하며 Admin만 요청할 수 있습니다. 관리 코드는 Head만 확인하거나 공유할 수 있습니다. Admin/Coordinator 코드는 관리 전용 계정을 만들거나 기존 계정에 Head가 승인한 관리 권한을 부여합니다. 로그인 정보, 신원 및 참여 상태를 유지하며 더 높은 역할을 낮추지 않습니다.",
       "title": "등록 코드",
-      "help": "새 계정용 일회용 보안 키를 발급합니다. 유효한 동안 다시 확인할 수 있습니다. 지정된 수신자에게만 공유하세요. 7일 후 만료되며 사용하거나 취소한 후에는 사용할 수 없습니다.",
+      "help": "새 계정을 만들거나 기존 계정에 승인된 접근 권한을 부여하는 일회용 초대를 발급합니다. 유효한 동안 다시 확인할 수 있습니다. 지정된 수신자에게만 공유하세요. 7일 후 만료되며 사용하거나 취소한 후에는 사용할 수 없습니다.",
       "labelField": "대상 (레이블)",
       "labelPlaceholder": "예: 홍길동 (G11)",
       "emailField": "이메일 연결 (선택)",
@@ -1026,7 +1026,8 @@
         "help": "모든 회의 기준.",
         "tutor": "튜터",
         "empty": "아직 기록된 출석이 없습니다."
-      }
+      },
+      "correctAttendance": "Submit attendance correction"
     },
     "timeslots": {
       "title": "시간대",
@@ -2858,7 +2859,7 @@
     "proposedChanges": "Proposed Changes",
     "withdrawnBy": "Withdrawn by {name}",
     "effects": {
-      "PENDING": "Not applied — awaiting administrator review.",
+      "PENDING": "Not applied — awaiting an authorized reviewer.",
       "APPROVED": "Applied when approved. See the decision below.",
       "REJECTED": "Not applied — rejected with feedback.",
       "CANCELLED": "Not applied — withdrawn by the requester."
@@ -2995,7 +2996,24 @@
         "requestReason": "Reason for this correction",
         "explanation": "Request explanation",
         "expectedSchoolYear": "Program school year at submission",
-        "rawGrade": "Original grade entry"
+        "rawGrade": "Original grade entry",
+        "enabled": "Enabled",
+        "usePreferredNames": "Display preferred names",
+        "showAlternateNames": "Display alternative names",
+        "offeredGrades": "Offered grades",
+        "form": "Signup form",
+        "field": "Signup field",
+        "timeZone": "Program time zone",
+        "opensAt": "Recruitment opens",
+        "closesAt": "Recruitment closes",
+        "previewUrl": "Recruitment preview link",
+        "code": "Language code",
+        "codes": "Languages, in requested order",
+        "username": "Username",
+        "target": "Messaging permission target",
+        "groups": "Allowed messaging groups",
+        "hide": "Hide message",
+        "restricted": "Messaging restricted"
       },
       "values": {
         "ACTIVE": "Active",
@@ -3067,7 +3085,12 @@
         "roomBlockContext": "Room",
         "willingness": "Tutoring willingness",
         "academic": "Saved academic profile",
-        "departure": "Saved school departure"
+        "departure": "Saved school departure",
+        "programSettings": "Program settings",
+        "programFeature": "Program features",
+        "term": "Program period",
+        "languages": "Languages",
+        "messagePermissions": "Messaging permissions"
       },
       "operations": {
         "corrections_correctAttendance": "Correct a session's attendance",
@@ -3166,10 +3189,33 @@
         "home_deletePage": "Delete a website page",
         "departure_setState": "Change school departure or viewer access",
         "admin_updateAccountAcademics": "Change account grade and graduating class",
-        "historicalAcademics_correctBatch": "Correct Historical Academics"
+        "historicalAcademics_correctBatch": "Correct Historical Academics",
+        "program_setCaptcha": "Change signup CAPTCHA verification",
+        "program_setProfilePolicy": "Change name display and offered grades",
+        "program_setSignupField": "Change a signup field requirement",
+        "program_setEmailNotifications": "Change program email notifications",
+        "program_setSecondaryEmailBinding": "Change secondary email binding availability",
+        "program_setTimeZone": "Change the program time zone",
+        "program_setSignupWindow": "Change a recruitment window",
+        "program_setFeaturePending": "Stage a program feature change",
+        "admin_refresh": "Start a new program period",
+        "i18n_setLanguageEnabled": "Change language visibility",
+        "i18n_deleteLanguage": "Delete a language",
+        "i18n_reorderLanguages": "Reorder languages",
+        "messaging_setPermission": "Change messaging permissions",
+        "admin_updateAccountUsername": "Change an account username",
+        "admin_setUserRole": "Change an account management role",
+        "admin_revokeRegistrationCode": "Revoke a registration code",
+        "messaging_moderate": "Hide or restore a message",
+        "messaging_restrict": "Change an account messaging restriction"
       },
-      "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision."
-    }
+      "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision.",
+      "confirmPassword": "Confirm your Head account password"
+    },
+    "requestHead": "Request Head Approval",
+    "sensitiveHelp": "Head applies these changes directly. Admin submits requests for Head review; Coordinators have read-only access. Pending requests do not change live settings.",
+    "requestChange": "Request change: {setting}",
+    "reversalHelp": "Head applies reversals directly. Other authorized staff request Head approval before an applied action is reversed."
   },
   "auditEventDetails": {
     "event": "기록된 이벤트",
@@ -3401,7 +3447,7 @@
     "on": "켜짐",
     "off": "꺼짐",
     "enable": "이메일 알림 켜기",
-    "essential": "즉시 적용됩니다. 비활성화하면 개인 설정은 유지되고 대기 중인 선택적 알림은 취소됩니다. 인증, 복구 및 보안 이메일은 계속 전송됩니다.",
+    "essential": "When Head applies the change, it takes effect immediately. Turning notifications off preserves preferences and discards queued optional notices. Verification, recovery and security emails continue.",
     "unavailable": "알림을 켜기 전에 이메일 서비스를 설정하세요.",
     "failed": "재시도 후에도 {count}건의 전송에 실패했습니다. 이메일 서비스와 전송 기록을 확인하세요.",
     "saved": "이메일 설정이 저장되었습니다.",
@@ -3553,7 +3599,7 @@
     "hidden": "숨김",
     "configure": "설정",
     "configureField": "{field} 설정",
-    "popupHelp": "변경 사항은 새 제출에 즉시 적용됩니다. 숨긴 항목은 무시되며 제출을 막지 않습니다. 기존 답변은 보존됩니다.",
+    "popupHelp": "After Head applies the change, new submissions use this field requirement. Hidden fields are ignored and never block submission. Existing answers are preserved. Pending requests do not change the live form.",
     "state": "항목 상태",
     "save": "항목 저장",
     "saving": "저장 중…",

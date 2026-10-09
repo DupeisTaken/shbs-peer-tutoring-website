@@ -25,8 +25,27 @@ const publicCaller = () =>
   createCaller({ db, session: null, headers: new Headers() });
 
 async function cleanup() {
+  await db.approvalRequest.deleteMany({ where: { requesterId: adminSession.user.id } });
   await db.messageOverride.deleteMany({ where: { locale: LANGUAGE } });
   await db.language.deleteMany({ where: { code: LANGUAGE } });
+}
+
+/** Admin controls propose structural changes; the current Head applies the same
+ * immutable input. A promoted Head may review their own request under the existing policy. */
+async function applyStructural(operation: string, apply: () => Promise<unknown>) {
+  const actor = await db.user.findUniqueOrThrow({ where: { id: adminSession.user.id } });
+  if (actor.role === "HEAD") return apply();
+  const before = await db.language.findMany({ where: { code: LANGUAGE } });
+  await expect(apply()).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect(await db.language.findMany({ where: { code: LANGUAGE } })).toEqual(before);
+  const request = await db.approvalRequest.findFirstOrThrow({ where: { requesterId: actor.id, operation, state: "PENDING" } });
+  await expect(admin().approval.decide({ id: request.id, approve: true, note: "Admin cannot apply global language settings" })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await db.user.update({ where: { id: actor.id }, data: { role: "HEAD" } });
+  try {
+    return await admin().approval.decide({ id: request.id, approve: true, note: "Reviewed global language configuration" });
+  } finally {
+    await db.user.update({ where: { id: actor.id }, data: { role: "ADMIN" } });
+  }
 }
 
 beforeEach(async () => {
@@ -74,8 +93,8 @@ describe("language publishing", () => {
           (l) => l.code === LANGUAGE,
         ),
       ).toBe(true);
-      await admin().i18n.setLanguageEnabled({ code: LANGUAGE, enabled: true });
-      await admin().i18n.reorderLanguages({ codes: [LANGUAGE] });
+      await applyStructural("i18n.setLanguageEnabled", () => admin().i18n.setLanguageEnabled({ code: LANGUAGE, enabled: true }));
+      await applyStructural("i18n.reorderLanguages", () => admin().i18n.reorderLanguages({ codes: [LANGUAGE] }));
       expect(
         await db.language.findUnique({ where: { code: LANGUAGE } }),
       ).toMatchObject({ enabled: true, sortOrder: 0 });
@@ -84,7 +103,7 @@ describe("language publishing", () => {
           (l) => l.code === LANGUAGE,
         ),
       ).toBe(true);
-      await admin().i18n.setLanguageEnabled({ code: LANGUAGE, enabled: false });
+      await applyStructural("i18n.setLanguageEnabled", () => admin().i18n.setLanguageEnabled({ code: LANGUAGE, enabled: false }));
       expect(
         (await publicCaller().i18n.languages()).some(
           (l) => l.code === LANGUAGE,
@@ -171,7 +190,7 @@ describe("language publishing", () => {
       ),
     ).toMatchObject({ enabled: false, builtIn: false });
 
-    await admin().i18n.setLanguageEnabled({ code: LANGUAGE, enabled: true });
+    await applyStructural("i18n.setLanguageEnabled", () => admin().i18n.setLanguageEnabled({ code: LANGUAGE, enabled: true }));
     expect(
       (await publicCaller().i18n.languages()).find(
         (language) => language.code === LANGUAGE,
@@ -197,6 +216,7 @@ describe("language publishing", () => {
   );
 
   it("does not allow the required English fallback to be hidden", async () => {
+    await db.user.update({ where: { id: adminSession.user.id }, data: { role: "HEAD" } });
     await expect(
       admin().i18n.setLanguageEnabled({ code: "en", enabled: false }),
     ).rejects.toMatchObject({ code: "BAD_REQUEST" });

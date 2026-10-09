@@ -3,10 +3,10 @@ import { optionalPersonNameFields } from "~/lib/person-name";
 import { preferredLatinNameSchema } from "~/lib/username";
 import { isSchoolYear } from "~/lib/period";
 /**
- * Public self-registration flow (no auth). A prospective tutor turns a 6-digit registration code
+ * Public self-registration flow (no auth). A prospective tutor turns a five-character registration code
  * (issued + handed out by an admin/coordinator) into a fully-verified account at /register:
  *   check       -> validate the code, return any prefill / email binding
- *   sendEmailCode -> email a 6-digit code to the chosen address
+ *   sendEmailCode -> email a five-character code to the chosen address
  *   verifyEmail -> confirm that emailed code
  *   complete    -> set name / grade / password, creating + linking the Tutor and login
  *
@@ -98,7 +98,7 @@ export const registrationRouter = createTRPCRouter({
       };
     }),
 
-  /** Stage email verification and email a 6-digit code to the chosen address. */
+  /** Stage email verification and email a five-character code to the chosen address. */
   sendEmailCode: publicProcedure
     .input(z.object({ code: codeInput, email: z.string().email() }))
     .mutation(async ({ ctx, input }) => {

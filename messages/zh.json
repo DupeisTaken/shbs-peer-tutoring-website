@@ -785,11 +785,11 @@
       },
       "features": {
         "heading": "可选功能",
-        "help": "关闭你的项目不使用的模块。仅负责人可更改，且更改在下次刷新时生效。",
+        "help": "关闭项目不使用的模块。负责人直接设置变更，管理员申请负责人审核；已批准的变更在下一次项目刷新时生效。",
         "on": "开",
         "off": "关",
         "pending": "待定：下次刷新{state}",
-        "headOnly": "仅负责人可更改。",
+        "headOnly": "负责人执行更改；管理员可申请负责人审批。",
         "quarterNote": "开：按季度（Q1–Q4）· 关：按学期（S1/S2）",
         "name": {
           "CREW": "巡查队",
@@ -805,7 +805,7 @@
     },
     "audit": {
       "title": "审计日志",
-      "subtitle": "最近的管理操作。可逆操作可在此撤销；其他操作请在各自页面手动还原。",
+      "subtitle": "已执行操作及其审批记录。负责人可撤销符合条件的操作；其他有权限的工作人员需申请负责人审批。",
       "columns": {
         "when": "时间",
         "who": "操作者",
@@ -818,7 +818,7 @@
     "users": {
       "title": "用户与角色",
       "subtitle": "管理登录账户、角色和辅导伙伴账户设置。已保存的角色更改会在下一次请求时生效；请刷新页面以更新导航。",
-      "coordinatorHint": "协调员可以发送设置链接，并申请调整自己的辅导权限。其他账户权限由管理员管理。",
+      "coordinatorHint": "协调员可查看账号并发送符合条件的设置链接。资料和管理角色变更由管理员申请负责人审核。",
       "columns": {
         "user": "用户",
         "name": "姓名",
@@ -916,7 +916,8 @@
         "help": "统计所有会议。",
         "tutor": "辅导伙伴",
         "empty": "暂无出勤记录。"
-      }
+      },
+      "correctAttendance": "提交出席更正"
     },
     "timeslots": {
       "title": "时间段",
@@ -1291,9 +1292,9 @@
       "exportImageError": "无法导出图片。请确认注册码仍有效后重试。",
       "kindAdmin": "管理员",
       "kindCoordinator": "协调员",
-      "managementHelp": "所有角色邀请须由负责人授权。其他管理人员可提交申请，等待负责人审批。管理角色邀请码仅负责人可查看和分享。管理员／协调员邀请码仅创建新的管理账号；已有账号请负责人在用户与角色页面修改身份。",
+      "managementHelp": "负责人和管理员可直接签发辅导伙伴及巡视员注册码；协调员须申请负责人审批。管理员及协调员注册码须由负责人授权，且仅管理员可提交申请。只有负责人能查看或分享管理注册码。管理员或协调员注册码可创建管理专用账户，或为现有账户授予经负责人授权的管理权限，同时保留登录凭据、身份及参与记录，且不会降低更高角色。",
       "title": "注册码",
-      "help": "为新账号签发一次性安全密钥。有效期内可再次查看。请只分享给指定收件人；密钥将在 7 天后过期，兑换或撤销后不能再使用。",
+      "help": "签发一次性邀请，用于创建新账号或为现有账号授予经授权的访问权限。有效期内可再次查看。请只分享给指定收件人；密钥将在 7 天后过期，兑换或撤销后不能再使用。",
       "labelField": "备注（标签）",
       "labelPlaceholder": "例如：Jane Doe（G11）",
       "emailField": "绑定邮箱（可选）",
@@ -2782,11 +2783,11 @@
     "sourceHelp": "来源说明报名的录入方式，不会改变审批、优先顺序或参与规则。“早期报名”表示原始录入来源尚无法确认。"
   },
   "approvals": {
-    "reviewPermissions": "管理员和负责人可以审核一般管理申请。角色和身份变更仅由负责人审核。负责人可以审核自己的申请；其他人须由另一位具备权限的审核人处理。",
+    "reviewPermissions": "管理员和负责人审批日常管理操作。重大设置、管理账户资料与权限、注册码授权申请及撤销操作由负责人审批。管理员和负责人可直接签发辅导伙伴及巡视员注册码。负责人可审批自己提交的请求；其他人员需要另一位有权限的审批人员。",
     "title": "管理操作",
     "subtitle": "先核对申请的操作及变更内容，再做决定。待审核申请尚未更改实时记录。可使用状态筛选查看历史决定。",
-    "queued": "已提交管理员审批",
-    "queuedBody": "提案正在等待审批。管理员批准前，现有记录不会更改。",
+    "queued": "已提交审批",
+    "queuedBody": "请求正在等待审批。授权审批人员批准并执行前，现有记录保持不变。",
     "dismiss": "关闭",
     "viewRequest": "查看申请",
     "evidence": "提交时的现有记录",
@@ -2805,10 +2806,10 @@
     "count": "{count} 条申请",
     "loading": "正在加载…",
     "empty": "没有符合筛选条件的申请",
-    "emptyHint": "协调员提交的新提案将在此等待审批。",
+    "emptyHint": "新的管理请求将在此显示，等待审批。",
     "previous": "较新",
     "next": "较早",
-    "trainingBanner": "您是正在培训的协调员。提交的敏感变更需经管理员批准后才能生效。",
+    "trainingBanner": "协调员提交的日常操作由管理员或负责人审批。重大设置和管理账户编辑只能由管理员或负责人提交；撤销已执行操作需负责人批准。",
     "myRequests": "我的审批申请",
     "states": {
       "PENDING": "待审批",
@@ -2826,7 +2827,7 @@
     "proposedChanges": "拟议变更",
     "withdrawnBy": "由{name}撤回",
     "effects": {
-      "PENDING": "尚未生效，等待管理员审批。",
+      "PENDING": "尚未生效，等待有权审核的管理人员决定。",
       "APPROVED": "已在批准时执行。下方展示的是该次申请的内容，实时记录之后可能已有变化。",
       "REJECTED": "尚未生效，已驳回并提供反馈。",
       "CANCELLED": "尚未生效，已由申请人撤回。"
@@ -2963,7 +2964,24 @@
         "requestReason": "本次更正的原因",
         "explanation": "申请说明",
         "expectedSchoolYear": "提交时的项目学年",
-        "rawGrade": "原始年级记录"
+        "rawGrade": "原始年级记录",
+        "enabled": "已启用",
+        "usePreferredNames": "显示常用名",
+        "showAlternateNames": "显示其他姓名",
+        "offeredGrades": "可选年级",
+        "form": "报名表",
+        "field": "报名字段",
+        "timeZone": "项目时区",
+        "opensAt": "招募开始时间",
+        "closesAt": "招募结束时间",
+        "previewUrl": "招募预览链接",
+        "code": "语言代码",
+        "codes": "语言（按申请顺序）",
+        "username": "用户名",
+        "target": "消息权限对象",
+        "groups": "允许发送消息的群组",
+        "hide": "隐藏消息",
+        "restricted": "限制消息功能"
       },
       "values": {
         "ACTIVE": "参与中",
@@ -3035,7 +3053,12 @@
         "roomBlockContext": "教室",
         "willingness": "教学意愿",
         "academic": "已保存的学业资料",
-        "departure": "已保存的离校记录"
+        "departure": "已保存的离校记录",
+        "programSettings": "项目设置",
+        "programFeature": "项目功能",
+        "term": "项目周期",
+        "languages": "语言",
+        "messagePermissions": "消息权限"
       },
       "operations": {
         "corrections_correctAttendance": "更正课次考勤",
@@ -3134,10 +3157,33 @@
         "home_deletePage": "删除网站页面",
         "departure_setState": "更改离校状态或浏览权限",
         "admin_updateAccountAcademics": "更改账户的年级与毕业届别",
-        "historicalAcademics_correctBatch": "更正历史学业资料"
+        "historicalAcademics_correctBatch": "更正历史学业资料",
+        "program_setCaptcha": "更改报名验证码验证设置",
+        "program_setProfilePolicy": "更改姓名显示和可选年级",
+        "program_setSignupField": "更改报名字段要求",
+        "program_setEmailNotifications": "更改项目邮件通知设置",
+        "program_setSecondaryEmailBinding": "更改备用邮箱绑定设置",
+        "program_setTimeZone": "更改项目时区",
+        "program_setSignupWindow": "更改招募开放时间",
+        "program_setFeaturePending": "设置待生效的项目功能变更",
+        "admin_refresh": "开始新的项目周期",
+        "i18n_setLanguageEnabled": "更改语言可见性",
+        "i18n_deleteLanguage": "删除语言",
+        "i18n_reorderLanguages": "调整语言顺序",
+        "messaging_setPermission": "更改消息权限",
+        "admin_updateAccountUsername": "更改账号用户名",
+        "admin_setUserRole": "更改账号管理角色",
+        "admin_revokeRegistrationCode": "撤销注册码",
+        "messaging_moderate": "隐藏或恢复消息",
+        "messaging_restrict": "更改账号消息限制"
       },
-      "decisionRequestHelp": "“批准并执行”将执行申请的操作，包括申请中要求的拒绝决定。“拒绝并反馈”只拒绝此申请，不做任何更改。两种决定都需要说明。"
-    }
+      "decisionRequestHelp": "“批准并执行”将执行申请的操作，包括申请中要求的拒绝决定。“拒绝并反馈”只拒绝此申请，不做任何更改。两种决定都需要说明。",
+      "confirmPassword": "确认负责人账户密码"
+    },
+    "requestHead": "申请负责人审批",
+    "sensitiveHelp": "负责人可直接执行这些更改。管理员提交请求由负责人审批；协调员仅可查看。待审批请求不会更改现有设置。",
+    "requestChange": "申请更改：{setting}",
+    "reversalHelp": "负责人可直接执行撤销。其他有权限的工作人员须先申请负责人审批，才能撤销已执行的操作。"
   },
   "auditEventDetails": {
     "event": "已记录事件",
@@ -3369,7 +3415,7 @@
     "on": "已启用",
     "off": "已关闭",
     "enable": "启用邮件通知",
-    "essential": "立即生效。关闭后保留个人偏好，并取消排队中的可选通知。验证、账户找回和安全邮件继续发送。",
+    "essential": "负责人批准并执行后立即生效。关闭通知会保留个人偏好并丢弃待发送的可选通知。验证、恢复和安全邮件仍会继续发送。",
     "unavailable": "开启通知前，请先配置邮件服务。",
     "failed": "重试后仍有 {count} 封邮件发送失败。请检查邮件服务和发送记录。",
     "saved": "邮箱设置已保存。",
@@ -3511,7 +3557,7 @@
     "conditionalHelp": "仅当显示的上级问题回答为“是”时才需填写相应资格详情；AP问题仅适用于AP计分科目。必答的是非题可以选择任一答案。",
     "emailEnabled": "项目设置已启用备用邮箱绑定。报名表仅收集必填的登录邮箱；其他邮箱在开户后管理。",
     "emailDisabled": "项目设置已禁用备用邮箱绑定。登录邮箱仍然可用且必须填写。",
-    "readOnly": "只有负责人可以修改报名字段。你可以查看当前设置。",
+    "readOnly": "负责人执行字段更改；管理员可申请负责人审批。协调员仅可查看。",
     "form": "报名表",
     "tutee": "学习伙伴报名",
     "tutor": "辅导伙伴报名",
@@ -3521,7 +3567,7 @@
     "hidden": "隐藏",
     "configure": "配置",
     "configureField": "配置{field}",
-    "popupHelp": "修改立即适用于新提交。隐藏字段会被忽略且不会阻止提交。现有答案保持不变。",
+    "popupHelp": "负责人批准并执行变更后，新提交的报名表将使用该字段要求。隐藏字段会被忽略，不会阻止提交。已提交的报名资料保持不变。等待审核的申请不会更改当前报名表。",
     "state": "字段状态",
     "save": "保存字段",
     "saving": "保存中…",
@@ -3754,7 +3800,7 @@
     "gradesHelp": "请至少选择一个年级。已有学业资料与报名记录保持不变；之后确认年级时将使用这些选项。",
     "grade": "{grade} 年级",
     "atLeastOne": "请至少选择一个可选年级。",
-    "readOnly": "负责人和管理员可以修改这些设置，协调员仅可查看。",
+    "readOnly": "负责人执行这些设置；管理员可申请负责人审批。协调员仅可查看。",
     "save": "保存姓名与年级设置",
     "saving": "保存中…",
     "saved": "姓名与年级设置已保存。",
@@ -4072,7 +4118,7 @@
     "title": "历史学业资料更正",
     "intro": "更正参与者的历史学业资料，包括未注册账号的参与者。原始记录与账号的当前学业资料分别保留。",
     "atomicHelp": "每批更正须全部成功后才会保存。如记录过期、归属冲突或保存失败，整批记录均保持不变。",
-    "coordinatorHelp": "协调员须将整批更正提交管理员或主管审核。获批前不会修改记录；资料发生变化时须重新预览。",
+    "coordinatorHelp": "管理员提交整批更正由负责人审批。批准前，现有记录保持不变；证据变更后需重新预览。",
     "csvTitle": "通过 CSV 更正",
     "csvHelp": "下载所选记录（未选择时下载本页），保留 recordId 和 expectedFingerprint，填写更正值、依据和原因。每批最多 50 行、256 KiB。年级或学年未知时使用 \\N。系统不会按姓名匹配记录。",
     "download": "下载更正 CSV",

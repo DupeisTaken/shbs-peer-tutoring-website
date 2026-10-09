@@ -1,8 +1,8 @@
 // @vitest-environment jsdom
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { RecruitmentSettings } from "./recruitment-settings";
-const mocks = vi.hoisted(() => ({ mutate: vi.fn(), invalidate: vi.fn() }));
+const mocks = vi.hoisted(() => ({ mutate: vi.fn(), invalidate: vi.fn(), fetch: vi.fn(), error: null as null | { message: string; data: { approvalId: string } } }));
 vi.mock("next-intl", () => ({
   useLocale: () => "en",
   useTimeZone: () => "Asia/Shanghai",
@@ -11,16 +11,16 @@ vi.mock("next-intl", () => ({
 vi.mock("~/trpc/react", () => ({
   api: {
     useUtils: () => ({
-      admin: { currentPeriod: { invalidate: mocks.invalidate } },
+      admin: { currentPeriod: { invalidate: mocks.invalidate, fetch: mocks.fetch } },
       application: { options: { invalidate: mocks.invalidate } },
       tutee: { signupOptions: { invalidate: mocks.invalidate } },
     }),
     program: {
-      setSignupWindow: { useMutation: () => ({ mutate: mocks.mutate }) },
+      setSignupWindow: { useMutation: () => ({ mutate: mocks.mutate, error: mocks.error }) },
     },
   },
 }));
-beforeEach(() => vi.clearAllMocks());
+beforeEach(() => { vi.clearAllMocks(); mocks.error = null; });
 afterEach(cleanup);
 const window = {
   enabled: true,
@@ -90,4 +90,39 @@ it("rejects reversed dates before sending a save", () => {
   fireEvent.submit(container.querySelector("form")!);
   expect(screen.getByRole("alert").textContent).toBe("invalidOrder");
   expect(mocks.mutate).not.toHaveBeenCalled();
+});
+
+it("keeps Coordinator recruitment fields read-only even for a direct form submit", () => {
+  const { container } = render(<RecruitmentSettings termId="term" audience="tutor" window={window} canEdit={false} canApply={false} />);
+  expect(screen.getByLabelText("enabled").closest("fieldset")?.disabled).toBe(true);
+  fireEvent.submit(container.querySelector("form")!);
+  expect(mocks.mutate).not.toHaveBeenCalled();
+});
+it("retains an Admin proposal draft without announcing a successful settings save", () => {
+  mocks.error = { message: "Queued", data: { approvalId: "proposal-1" } };
+  render(<RecruitmentSettings termId="term" audience="tutor" window={window} canEdit canApply={false} />);
+  fireEvent.change(screen.getByRole("textbox"), { target: { value: "https://example.test/preview" } });
+  expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe("https://example.test/preview");
+  expect(screen.getByRole("status").textContent).toBe("queuedBody");
+  expect(screen.queryByRole("alert")).toBeNull();
+  expect(screen.getByRole("button", { name: "requestHead" })).toBeTruthy();
+  expect(mocks.invalidate).not.toHaveBeenCalled();
+});
+it("keeps an Admin's recruitment draft across a changed live window and failed reload", async () => {
+  mocks.error = { message: "Queued", data: { approvalId: "request" } };
+  const view = render(<RecruitmentSettings termId="term" audience="tutor" window={window} canEdit canApply={false} />);
+  fireEvent.change(screen.getByRole("textbox"), { target: { value: "https://example.test/draft" } });
+  view.rerender(<RecruitmentSettings termId="new-term" audience="tutor" window={{ ...window, enabled: false, previewUrl: "https://example.test/live" }} canEdit canApply={false} />);
+  expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe("https://example.test/draft");
+  expect(screen.getByRole("status").textContent).toBe("queuedBody");
+  mocks.fetch.mockRejectedValueOnce(new Error("Reload failed"));
+  fireEvent.click(screen.getByRole("button", { name: "reload" }));
+  await waitFor(() => expect(screen.getByRole("alert").textContent).toBe("Reload failed"));
+  fireEvent.submit(view.container.querySelector("form")!);
+  expect(mocks.mutate).toHaveBeenLastCalledWith(expect.objectContaining({ expectedTermId: "term", previewUrl: "https://example.test/draft" }));
+  mocks.fetch.mockResolvedValueOnce({ termId: "new-term", recruitment: { tutor: { ...window, enabled: false, previewUrl: "https://example.test/live" } } });
+  fireEvent.click(screen.getByRole("button", { name: "reload" }));
+  await waitFor(() => expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe("https://example.test/live"));
+  fireEvent.submit(view.container.querySelector("form")!);
+  expect(mocks.mutate).toHaveBeenLastCalledWith(expect.objectContaining({ expectedTermId: "new-term" }));
 });

@@ -2,6 +2,7 @@ import { beforeEach, afterAll, expect, it, vi } from "vitest";
 import type { Session } from "next-auth";
 import { readFile } from "node:fs/promises";
 import { Client } from "pg";
+import type { PrismaClient } from "../../generated/prisma";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 vi.mock("~/server/rate-limit", () => ({ rateLimit: () => ({ ok: true }) }));
 const mail = vi.hoisted(() => ({ send: vi.fn() }));
@@ -26,9 +27,9 @@ import {
   confirmEmailCode,
 } from "./auth/registration";
 import { submitSurvey, confirmSurvey, surveyInput } from "./student-survey";
-const caller = (id: string, role: Session["role"] = "STUDENT") =>
+const caller = (id: string, role: Session["role"] = "STUDENT", client: PrismaClient = db) =>
   createCaller({
-    db,
+    db: client,
     headers: new Headers(),
     session: { user: { id }, role, tutorId: null, expires: "2099-01-01" },
   });
@@ -239,7 +240,7 @@ it("protects ownership, staff authority, stale versions and concurrent edits", a
   ).rejects.toMatchObject({ code: "FORBIDDEN" });
   const outcomes = await Promise.allSettled([
     caller("academic-person").account.updateAcademics(reported()),
-    caller("academic-admin", "ADMIN").admin.updateAccountAcademics({
+    caller("academic-head", "HEAD").admin.updateAccountAcademics({
       ...reported(0, 11),
       userId: "academic-person",
     }),
@@ -275,7 +276,7 @@ it("preserves historical enrollments, signatures, same-name records and handles 
     where: { id: "academic-person" },
     data: { studentId: "academic-current" },
   });
-  await caller("academic-admin", "ADMIN").admin.updateAccountAcademics({
+  await caller("academic-head", "HEAD").admin.updateAccountAcademics({
     ...reported(),
     userId: "academic-person",
   });
@@ -763,7 +764,7 @@ it("linking roster evidence fills only an empty legacy profile and records confl
   ).toMatchObject({ details: { gradeLevel: 9 } });
 });
 it.each([false, true])(
-  "coordinator academic corrections queue and reject stale approval: %s",
+  "Admin academic corrections require Head and reject stale approval: %s",
   async (stale) => {
     await db.user.create({
       data: {
@@ -772,6 +773,7 @@ it.each([false, true])(
         role: "COORDINATOR",
       },
     });
+    // Management-profile proposals reject Coordinator before creating immutable requests.
     await expect(
       caller(
         "academic-coordinator",
@@ -780,7 +782,11 @@ it.each([false, true])(
         ...reported(),
         userId: "academic-person",
       }),
-    ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+    ).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect(await db.approvalRequest.count()).toBe(0);
+    await expect(caller("academic-admin", "ADMIN").admin.updateAccountAcademics({
+      ...reported(), userId: "academic-person",
+    })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
     expect(
       await db.academicProfile.findUnique({
         where: { userId: "academic-person" },
@@ -791,7 +797,11 @@ it.each([false, true])(
     });
     if (stale)
       await caller("academic-person").account.updateAcademics(reported(0, 11));
-    const decision = caller("academic-admin", "ADMIN").approval.decide({
+    await expect(caller("academic-admin", "ADMIN").approval.decide({
+      id: proposal.id, approve: true, note: "Admin cannot apply management academic correction",
+    })).rejects.toMatchObject({ code: "FORBIDDEN" });
+    expect((await db.approvalRequest.findUniqueOrThrow({ where: { id: proposal.id } })).state).toBe("PENDING");
+    const decision = caller("academic-head", "HEAD").approval.decide({
       id: proposal.id,
       approve: true,
       note: "Reviewed academic correction",
@@ -821,35 +831,27 @@ it("a roster edit started before academic confirmation cannot overwrite its mirr
     data: { tutorId: "academic-tutor" },
   });
   await caller("academic-person").account.updateAcademics(reported());
-  // Interleave the real queries after the resolver's compatibility read, before its transaction.
-  const originalRead = db.tutor.findUniqueOrThrow.bind(db.tutor);
-  const interleavedRead = async (
-    args: Parameters<typeof db.tutor.findUniqueOrThrow>[0],
-  ) => {
-    const original = await originalRead(args);
-    await confirmAccountAcademics(db, "academic-person", reported(1, 11), {
-      actorId: "academic-person",
-      source: "SELF_SERVICE",
-    });
+  // Query extensions follow Prisma into the audited transaction. Advance the canonical
+  // profile just after the compatibility read, so the stale roster draft is exercised.
+  let interleaved = false;
+  const interleavedDb = db.$extends({ query: { tutor: { async findUniqueOrThrow({ args, query }) {
+    const original = await query(args);
+    if (!interleaved) {
+      interleaved = true;
+      await confirmAccountAcademics(db, "academic-person", reported(1, 11), {
+        actorId: "academic-person", source: "SELF_SERVICE",
+      });
+    }
     return original;
-  };
-  // This awaited test seam does not use Prisma's fluent relation accessors.
-  const read = vi
-    .spyOn(db.tutor, "findUniqueOrThrow")
-    .mockImplementationOnce(
-      interleavedRead as unknown as typeof db.tutor.findUniqueOrThrow,
-    );
-  try {
-    await caller("academic-admin", "ADMIN").admin.updateTutor({
+  } } } });
+  await caller("academic-head", "HEAD", interleavedDb as unknown as PrismaClient).admin.updateTutor({
       id: "academic-tutor",
       firstName: "Changed",
       lastName: "Person",
       gradeLevel: 10,
       status: "ACTIVE",
-    });
-  } finally {
-    read.mockRestore();
-  }
+  });
+  expect(interleaved).toBe(true);
   expect(
     (await db.tutor.findUniqueOrThrow({ where: { id: "academic-tutor" } }))
       .gradeLevel,

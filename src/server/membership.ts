@@ -79,7 +79,7 @@ export async function requestMembership(
         body: `${current.name} asked ${kind === "OPT_OUT" ? "to opt out (review after the cooldown)" : "to rejoin"}.`,
         link: member.kind === "tutor" ? "/admin/tutor-requests" : "/admin/crew",
       },
-      undefined,
+      { headOnly: true },
       tx,
     );
     return { ok: true, id: request.id, eligibleAt };

@@ -1,30 +1,56 @@
 "use client";
 
+import { InlineNotice } from "./ui/patterns";
 import { useState } from "react";
 import { useLocale, useTimeZone, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { programDateTimeInput, parseProgramDateTime } from "~/lib/program-time";
 import { programTimeZoneInputLabel } from "~/lib/program-time-zone-label";
 import type { RecruitmentAudience, RecruitmentWindow } from "~/lib/recruitment";
+import { DEFAULT_TIME_ZONE } from "~/i18n/config";
 
 /** Separate editors prevent saving one audience from overwriting the other's schedule. */
 export function RecruitmentSettings(props: {
   termId: string;
   audience: RecruitmentAudience;
   window: RecruitmentWindow;
+  canEdit?: boolean;
+  canApply?: boolean;
 }) {
-  const zone = useTimeZone();
+  const zone = useTimeZone() ?? DEFAULT_TIME_ZONE;
   const t = useTranslations("admin.program.signupWindow");
+  const common = useTranslations("profilePolicy");
+  const utils = api.useUtils();
   const [saved, setSaved] = useState(false);
-  // A refreshed server value or timezone replaces the draft only after a successful save/refetch.
+  const [snapshot, setSnapshot] = useState(() => ({ termId: props.termId, window: props.window, timeZone: zone }));
+  const [generation, setGeneration] = useState(0);
+  const [reloading, setReloading] = useState(false);
+  const [reloadError, setReloadError] = useState<string | null>(null);
+  // Keep each audience's period and timezone evidence with its draft across live-query updates.
   return (
     <div>
       <Editor
-        key={`${zone}-${JSON.stringify(props.window)}`}
+        key={generation}
         {...props}
+        {...snapshot}
+        reloading={reloading}
+        onReload={async () => {
+          setReloading(true);
+          setReloadError(null);
+          try {
+            const current = await utils.admin.currentPeriod.fetch();
+            if (!current) throw new Error(common("loadFailed"));
+            setSnapshot({ termId: current.termId, window: current.recruitment[props.audience], timeZone: zone });
+            setGeneration((value) => value + 1);
+            setSaved(false);
+          } catch (error) {
+            setReloadError(error instanceof Error ? error.message : common("loadFailed"));
+          } finally { setReloading(false); }
+        }}
         onSaved={() => setSaved(true)}
         onDirty={() => setSaved(false)}
       />
+      {reloadError && <InlineNotice tone="error" announcement="alert">{reloadError}</InlineNotice>}
       {saved && (
         <p role="status" className="mt-2 text-sm text-green-700">
           {t("saved")}
@@ -37,17 +63,28 @@ function Editor({
   termId,
   audience,
   window,
+  canEdit = true,
+  canApply = true,
   onSaved,
   onDirty,
+  timeZone,
+  reloading,
+  onReload,
 }: {
   termId: string;
   audience: RecruitmentAudience;
   window: RecruitmentWindow;
+  canEdit?: boolean;
+  canApply?: boolean;
   onSaved: () => void;
   onDirty: () => void;
+  timeZone: string;
+  reloading: boolean;
+  onReload: () => Promise<void>;
 }) {
   const t = useTranslations("recruitment");
-  const timeZone = useTimeZone();
+  const approvals = useTranslations("approvals");
+  const common = useTranslations("profilePolicy");
   const locale = useLocale();
   const utils = api.useUtils();
   const [enabled, setEnabled] = useState(window.enabled);
@@ -86,7 +123,8 @@ function Editor({
         onChange={onDirty}
         onSubmit={(event) => {
           event.preventDefault();
-          if (save.isPending) return;
+          // Mirror proposal eligibility even for synthetic submit events on a disabled form.
+          if (!canEdit || save.isPending || reloading) return;
           try {
             const opensAt = startEnabled
               ? parseProgramDateTime(start, timeZone)
@@ -112,6 +150,9 @@ function Editor({
           }
         }}
       >
+        <p className="muted text-sm">{approvals("sensitiveHelp")}</p>
+        <fieldset disabled={!canEdit || save.isPending || reloading} className="min-w-0 space-y-4">
+        <legend className="sr-only">{t(audience)}</legend>
         <label className="flex min-h-11 items-center gap-3 font-medium">
           <input
             type="checkbox"
@@ -182,7 +223,8 @@ function Editor({
           />
           <span className="muted block text-xs">{t("previewHelp")}</span>
         </label>
-        {(error || save.error) && (
+        {save.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{approvals("queuedBody")}</InlineNotice>}
+        {(error || (save.error && !save.error.data?.approvalId)) && (
           <p role="alert" className="text-sm text-red-700">
             {error || save.error?.message}
           </p>
@@ -191,8 +233,10 @@ function Editor({
           className="btn-primary min-h-11 lg:min-h-10"
           disabled={save.isPending}
         >
-          {t(save.isPending ? "saving" : "save")}
+          {save.isPending ? t("saving") : canApply ? t("save") : approvals("requestHead")}
         </button>
+        <button type="button" className="btn-secondary min-h-11 lg:min-h-10" onClick={() => void onReload()}>{common("reload")}</button>
+        </fieldset>
         <a
           className="link ml-4 inline-flex min-h-11 items-center"
           href={audience === "tutor" ? "/tutor" : "/tutee"}

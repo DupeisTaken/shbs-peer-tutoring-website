@@ -7,7 +7,7 @@ import { api } from "~/trpc/react";
 import { ALL_GRADES, type ProfilePolicy } from "~/lib/profile-policy";
 import { ProfilePolicyError } from "./profile-policy";
 import { Button } from "./ui/button";
-import { StatePanel } from "./ui/patterns";
+import { InlineNotice, StatePanel } from "./ui/patterns";
 
 export function ProgramProfileSettings() {
   const t = useTranslations("profilePolicy");
@@ -48,6 +48,7 @@ export function ProgramProfileSettings() {
         key={generation}
         policy={query.data}
         canEdit={query.data.canEdit}
+        canApply={query.data.canApply}
         onReload={async () => {
           const result = await query.refetch();
           if (result.isSuccess) setGeneration((value) => value + 1);
@@ -61,13 +62,16 @@ export function ProgramProfileSettings() {
 export function ProfilePolicyEditor({
   policy,
   canEdit,
+  canApply = true,
   onReload,
 }: {
   policy: ProfilePolicy;
   canEdit: boolean;
+  canApply?: boolean;
   onReload: () => Promise<void>;
 }) {
   const t = useTranslations("profilePolicy");
+  const approvals = useTranslations("approvals");
   const utils = api.useUtils();
   const router = useRouter();
   const [expectedPolicy, setExpectedPolicy] = useState<ProfilePolicy>(() => ({
@@ -100,6 +104,7 @@ export function ProfilePolicyEditor({
         <h2 className="section-title">{t("title")}</h2>
         <p className="muted mt-1 text-sm">{t("help")}</p>
       </div>
+      {canEdit && !canApply && <p className="muted text-sm">{approvals("sensitiveHelp")}</p>}
       {!canEdit && <p className="muted text-sm">{t("readOnly")}</p>}
       <form
         className="space-y-4"
@@ -197,11 +202,12 @@ export function ProfilePolicyEditor({
               className="btn-primary min-h-11 lg:min-h-10"
               disabled={!offeredGrades.length}
             >
-              {t(save.isPending ? "saving" : "save")}
+              {save.isPending ? t("saving") : canApply ? t("save") : approvals("requestHead")}
             </button>
           )}
         </fieldset>
-        {save.error && (
+        {save.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{approvals("queuedBody")}</InlineNotice>}
+        {save.error && !save.error.data?.approvalId && (
           <p role="alert" className="text-sm text-red-700">
             <ProfilePolicyError message={save.error.message} />
           </p>

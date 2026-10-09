@@ -10,6 +10,7 @@ vi.mock("./sender", () => ({
   verifyEmailTransport: vi.fn(),
 }));
 import { db } from "~/server/db";
+import { afterCommitScope, flushCommittedEffects } from "~/server/db-scope";
 import { assertIsolatedTestDatabase } from "~/test/database-guard";
 import { deliverNotifications } from "./notification-delivery";
 import { getEmailDeliveryStatus } from "./delivery-status";
@@ -53,6 +54,56 @@ afterAll(async () => {
   await db.user.deleteMany({ where: { id: uid } });
   await db.$disconnect();
 });
+
+it.each([false, true])(
+  "defers leasing, SMTP and delivery status until audit commit (SMTP failure=%s)",
+  async (fails) => {
+    await db.notification.create({
+      data: { userId: uid, title: "Synthetic update", link: "/messages" },
+    });
+    if (fails) mail.send.mockRejectedValue(new Error("Synthetic SMTP failure"));
+    const queue = {
+      effects: [] as Array<() => Promise<void>>,
+      committed: false,
+      onFailure: vi.fn(async () => undefined),
+    };
+    await afterCommitScope.run(queue, async () => {
+      await deliverNotifications();
+      expect(mail.send).not.toHaveBeenCalled();
+      const pending = await db.emailDelivery.findMany({
+        where: { userId: uid },
+      });
+      expect(pending).toHaveLength(2);
+      expect(
+        pending.every(
+          (row) =>
+            row.status === "PENDING" &&
+            row.leaseUntil === null &&
+            row.attempts === 0,
+        ),
+      ).toBe(true);
+      await flushCommittedEffects();
+    });
+    expect(mail.send).toHaveBeenCalledTimes(2);
+    const delivered = await db.emailDelivery.findMany({
+      where: { userId: uid },
+    });
+    expect(
+      delivered.every(
+        (row) =>
+          row.status === (fails ? "PENDING" : "SENT") &&
+          row.leaseUntil === null &&
+          row.attempts === 1,
+      ),
+    ).toBe(true);
+    for (const [message] of mail.send.mock.calls) {
+      expect(message.presentation?.unsubscribeUrl).toBeDefined();
+      expect(message.text).toContain("Unsubscribe:");
+    }
+    // SMTP failures belong to the durable worker retry, not the audit effect failure receipt.
+    expect(queue.onFailure).not.toHaveBeenCalled();
+  },
+);
 
 it("persists distinct notification destinations for all verified recipients and delivers identical HTML/text actions", async () => {
   const paths = [
@@ -218,7 +269,10 @@ it.each(["unchanged", "opted-out", "secondary-removed"])(
     expect(mail.send).not.toHaveBeenCalled();
     if (scenario === "opted-out") {
       // The notification trigger classifies /messages destinations as private-message mail.
-      await db.user.update({ where: { id: uid }, data: { emailMessages: false } });
+      await db.user.update({
+        where: { id: uid },
+        data: { emailMessages: false },
+      });
     }
     if (scenario === "secondary-removed")
       await db.accountEmail.deleteMany({

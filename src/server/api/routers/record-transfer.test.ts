@@ -298,7 +298,8 @@ it("rejects conflicts introduced after preview and tampered/expired tickets", as
     caller().recordTransfer.import({ files, ticket: preview.ticket }),
   ).rejects.toThrow(/different values/i);
   expect(await db.term.count()).toBe(0);
-  expect(await db.auditLog.count()).toBe(0);
+  expect(await db.auditLog.count({ where: { kind: { not: "ATTEMPT" } } })).toBe(0);
+  expect(await db.auditLog.count({ where: { kind: "ATTEMPT", operation: "recordTransfer.import" } })).toBe(3);
 });
 
 it("exports re-importable files and excludes credentials and verification tokens", async () => {

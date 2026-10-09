@@ -200,7 +200,7 @@ export async function verifyCrewApplication(
         async (acceptedEmail) => {
           await assertPrimaryName(tx, draft.name);
           await assertOfferedGrade(tx, draft.gradeLevel);
-          await tx.crewApplication.create({
+          const application = await tx.crewApplication.create({
             data: {
               ...draft,
               email: acceptedEmail,
@@ -209,13 +209,28 @@ export async function verifyCrewApplication(
               message: optionalText(draft.message),
             },
           });
+          // A proved public application has no authenticated account actor.
+          // Its safe creation receipt commits with intake, capacity and proof;
+          // audit failure must preserve the unverified draft for an explicit retry.
+          await recordAudit(
+            {
+              userName: "System",
+              action: "Received verified crew application",
+              entity: "CrewApplication",
+              entityId: application.id,
+              operation: "crew.verifyApplication",
+              before: {},
+              after: application,
+            },
+            tx,
+          );
           await notifyAdmins(
             {
-              title: "New crew application",
+              title: "New crew application awaiting Head review",
               body: `${draft.name} applied to join the crew.`,
               link: "/admin/crew",
             },
-            undefined,
+            { headOnly: true },
             tx,
           );
         },
@@ -390,7 +405,7 @@ export async function decideCrewApplication(
             tx,
           )
         : null;
-    await tx.crewApplication.update({
+    const decided = await tx.crewApplication.update({
       where: { id: application.id },
       data: {
         status: input.action === "ACCEPT" ? "ACCEPTED" : "REJECTED",
@@ -406,6 +421,12 @@ export async function decideCrewApplication(
         action: `${input.action === "ACCEPT" ? "Accepted" : "Rejected"} crew application from ${application.name}`,
         entity: "CrewApplication",
         entityId: application.id,
+        operation: "admin.decideCrewApplication",
+        role: currentActor.role,
+        // Store the saved decision only; mailbox proofs and the invitation code
+        // remain outside historical review evidence.
+        before: application,
+        after: decided,
       },
       tx,
     );

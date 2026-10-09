@@ -1,5 +1,7 @@
 import { preserveHistoricalAcademics } from "~/server/historical-academics";
-import { approvalScope } from "~/server/db-scope";
+import { approvalScope, auditActorScope } from "~/server/db-scope";
+import { safeAuditSnapshot } from "./evidence";
+import type { Prisma } from "../../../generated/prisma";
 /**
  * Audit log + typed undo. Every admin mutation that's hard to reverse by hand records an
  * AuditLog entry carrying a typed `undo` describing its inverse, so it can be reverted from
@@ -79,12 +81,20 @@ export interface RecordAuditArgs {
   entity: string;
   entityId?: string | null;
   undo?: UndoData;
+  operation?: string;
+  role?: string;
+  before?: unknown;
+  after?: unknown;
+  originalActionId?: string;
+  reason?: string;
+  effects?: Prisma.InputJsonValue;
 }
 
 export async function recordAudit(
   args: RecordAuditArgs,
   client: TransactionDb = db,
 ): Promise<void> {
+  const actor = auditActorScope.getStore();
   await client.auditLog.create({
     data: {
       userId: args.userId ?? null,
@@ -94,6 +104,15 @@ export async function recordAudit(
       entityId: args.entityId ?? null,
       undoData: args.undo ?? undefined,
       approvalId: approvalScope.getStore(),
+      operation: args.operation,
+      details: {
+        evidenceVersion: 1, actorRole: args.userId ? args.role ?? actor?.role ?? "UNKNOWN_LEGACY" : "SYSTEM",
+        outcome: "APPLIED", before: safeAuditSnapshot(args.before, args.entity), after: safeAuditSnapshot(args.after, args.entity),
+        ...(args.before === undefined && args.after === undefined ? { detailAvailability: "Before/after details were not captured by this writer" } : {}),
+        ...(args.originalActionId ? { originalActionId: args.originalActionId } : {}),
+        ...(args.reason ? { reason: args.reason } : {}),
+        ...(args.effects ? { effects: args.effects } : {}),
+      },
     },
   });
 }

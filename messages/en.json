@@ -793,11 +793,11 @@
       },
       "features": {
         "heading": "Optional Features",
-        "help": "Switch off modules your program doesn't use. Only the head can change these, and changes take effect at the next refresh.",
+        "help": "Switch off modules your program does not use. Head stages changes directly; Admin requests Head approval. Approved changes take effect at the next program refresh.",
         "on": "On",
         "off": "Off",
         "pending": "Pending: {state} next refresh",
-        "headOnly": "Only the head can change these.",
+        "headOnly": "Head applies changes; Admin can request Head approval.",
         "quarterNote": "On: quarters (Q1–Q4) · Off: semesters (S1/S2)",
         "name": {
           "CREW": "Crew patrols",
@@ -813,7 +813,7 @@
     },
     "audit": {
       "title": "Audit Log",
-      "subtitle": "Recent admin actions. Reversible ones can be undone here; others have a manual inverse on their own page.",
+      "subtitle": "Applied actions and their review evidence. Head can reverse eligible actions; other authorized staff request Head review.",
       "columns": {
         "when": "When",
         "who": "Who",
@@ -826,7 +826,7 @@
     "users": {
       "title": "Users & Roles",
       "subtitle": "Manage logins, roles, and tutor account setup. Saved role changes apply on the next request; refresh the page to update navigation.",
-      "coordinatorHint": "As a coordinator you can send setup links and request changes to your own tutoring access. Other account permissions require an administrator.",
+      "coordinatorHint": "Coordinators can inspect accounts and send eligible setup links. Admin submits profile and management-role changes for Head review.",
       "columns": {
         "user": "User",
         "name": "Name",
@@ -892,9 +892,9 @@
       "exportImageError": "Could not export the image. Check that the code is still active and try again.",
       "kindAdmin": "Admin",
       "kindCoordinator": "Coordinator",
-      "managementHelp": "Head authorizes every role invitation. Other staff submit requests for Head approval. Only Head can view or share management codes. Admin/Coordinator codes create a new management-only account; for existing accounts, ask Head to edit roles in Users & Roles.",
+      "managementHelp": "Head and Admin issue Tutor and Crew codes directly; Coordinators request Head approval. Admin/Coordinator codes require Head authorization and may be requested by Admin only. Only Head can view or share management codes. Admin/Coordinator codes create management-only accounts or grant Head-authorized management access to existing accounts, preserving credentials, identity and participation without lowering a higher role.",
       "title": "Registration Codes",
-      "help": "Issue a single-use security key for a new account. Codes can be viewed again while active. Share only with the intended recipient; codes expire after 7 days and cannot be used after redemption or revocation.",
+      "help": "Issue a single-use invitation for a new account or authorized access on an existing account. Codes can be viewed again while active. Share only with the intended recipient; codes expire after 7 days and cannot be used after redemption or revocation.",
       "labelField": "For (Label)",
       "labelPlaceholder": "e.g. Jane Doe (G11)",
       "emailField": "Bind to Email (Optional)",
@@ -994,7 +994,8 @@
         "help": "Across all meetings.",
         "tutor": "Tutor",
         "empty": "No attendance recorded yet."
-      }
+      },
+      "correctAttendance": "Submit attendance correction"
     },
     "timeslots": {
       "title": "Time Slots",
@@ -2782,11 +2783,11 @@
     "sourceHelp": "Source describes how a signup was entered. It does not change approval, priority or participation rules. Earlier signup means the original entry source is unconfirmed."
   },
   "approvals": {
-    "reviewPermissions": "Admin and Head review ordinary management requests. Only Head reviews role and badge changes. Head may review their own requests; everyone else needs another eligible reviewer.",
+    "reviewPermissions": "Admin and Head review daily operations. Head reviews significant settings, management profiles and roles, requested registration-code grants and reversals. Admin and Head issue Tutor/Crew codes directly. Head may review their own requests; everyone else needs another eligible reviewer.",
     "title": "Management Actions",
     "subtitle": "Review the requested action and compare its values before deciding. Pending requests have not changed live records. Use the status filters to view past decisions.",
-    "queued": "Submitted for Admin Approval",
-    "queuedBody": "Your proposal is pending. The live records stay unchanged until an admin approves it.",
+    "queued": "Submitted for Review",
+    "queuedBody": "Your request is pending review. Live records stay unchanged until an authorized reviewer approves and applies it.",
     "dismiss": "Dismiss",
     "viewRequest": "View Request",
     "evidence": "Current Records at Submission",
@@ -2805,10 +2806,10 @@
     "count": "{count, plural, one {# request} other {# requests}}",
     "loading": "Loading…",
     "empty": "No requests match these filters",
-    "emptyHint": "New coordinator proposals will appear here for review.",
+    "emptyHint": "New management requests will appear here for review.",
     "previous": "Newer",
     "next": "Older",
-    "trainingBanner": "You are a coordinator in training. Sensitive changes you submit are sent to an admin for approval before taking effect.",
+    "trainingBanner": "Coordinators submit daily operations for Admin or Head review. Significant settings and management account edits require Admin or Head submission; reversals require Head approval.",
     "myRequests": "My Approval Requests",
     "states": {
       "PENDING": "Pending Review",
@@ -2826,7 +2827,7 @@
     "proposedChanges": "Proposed Changes",
     "withdrawnBy": "Withdrawn by {name}",
     "effects": {
-      "PENDING": "Not applied — awaiting administrator review.",
+      "PENDING": "Not applied — awaiting an authorized reviewer.",
       "APPROVED": "Applied when approved. The values below describe that request; live records may have changed since then.",
       "REJECTED": "Not applied — rejected with feedback.",
       "CANCELLED": "Not applied — withdrawn by the requester."
@@ -2963,7 +2964,24 @@
         "requestReason": "Reason for this correction",
         "explanation": "Request explanation",
         "expectedSchoolYear": "Program school year at submission",
-        "rawGrade": "Original grade entry"
+        "rawGrade": "Original grade entry",
+        "enabled": "Enabled",
+        "usePreferredNames": "Display preferred names",
+        "showAlternateNames": "Display alternative names",
+        "offeredGrades": "Offered grades",
+        "form": "Signup form",
+        "field": "Signup field",
+        "timeZone": "Program time zone",
+        "opensAt": "Recruitment opens",
+        "closesAt": "Recruitment closes",
+        "previewUrl": "Recruitment preview link",
+        "code": "Language code",
+        "codes": "Languages, in requested order",
+        "username": "Username",
+        "target": "Messaging permission target",
+        "groups": "Allowed messaging groups",
+        "hide": "Hide message",
+        "restricted": "Messaging restricted"
       },
       "values": {
         "ACTIVE": "Active",
@@ -3035,7 +3053,12 @@
         "roomBlockContext": "Room",
         "willingness": "Tutoring willingness",
         "academic": "Saved academic profile",
-        "departure": "Saved school departure"
+        "departure": "Saved school departure",
+        "programSettings": "Program settings",
+        "programFeature": "Program features",
+        "term": "Program period",
+        "languages": "Languages",
+        "messagePermissions": "Messaging permissions"
       },
       "operations": {
         "corrections_correctAttendance": "Correct a session's attendance",
@@ -3134,10 +3157,33 @@
         "home_deletePage": "Delete a website page",
         "departure_setState": "Change school departure or viewer access",
         "admin_updateAccountAcademics": "Change account grade and graduating class",
-        "historicalAcademics_correctBatch": "Correct Historical Academics"
+        "historicalAcademics_correctBatch": "Correct Historical Academics",
+        "program_setCaptcha": "Change signup CAPTCHA verification",
+        "program_setProfilePolicy": "Change name display and offered grades",
+        "program_setSignupField": "Change a signup field requirement",
+        "program_setEmailNotifications": "Change program email notifications",
+        "program_setSecondaryEmailBinding": "Change secondary email binding availability",
+        "program_setTimeZone": "Change the program time zone",
+        "program_setSignupWindow": "Change a recruitment window",
+        "program_setFeaturePending": "Stage a program feature change",
+        "admin_refresh": "Start a new program period",
+        "i18n_setLanguageEnabled": "Change language visibility",
+        "i18n_deleteLanguage": "Delete a language",
+        "i18n_reorderLanguages": "Reorder languages",
+        "messaging_setPermission": "Change messaging permissions",
+        "admin_updateAccountUsername": "Change an account username",
+        "admin_setUserRole": "Change an account management role",
+        "admin_revokeRegistrationCode": "Revoke a registration code",
+        "messaging_moderate": "Hide or restore a message",
+        "messaging_restrict": "Change an account messaging restriction"
       },
-      "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision."
-    }
+      "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision.",
+      "confirmPassword": "Confirm your Head account password"
+    },
+    "requestHead": "Request Head Approval",
+    "sensitiveHelp": "Head applies these changes directly. Admin submits requests for Head review; Coordinators have read-only access. Pending requests do not change live settings.",
+    "requestChange": "Request change: {setting}",
+    "reversalHelp": "Head applies reversals directly. Other authorized staff request Head approval before an applied action is reversed."
   },
   "auditEventDetails": {
     "event": "Recorded event",
@@ -3369,7 +3415,7 @@
     "on": "Enabled",
     "off": "Disabled",
     "enable": "Enable email notifications",
-    "essential": "Applies immediately. Turning this off preserves preferences and discards queued optional notices. Verification, recovery and security emails continue.",
+    "essential": "When Head applies the change, it takes effect immediately. Turning notifications off preserves preferences and discards queued optional notices. Verification, recovery and security emails continue.",
     "unavailable": "Configure email delivery before enabling notifications.",
     "failed": "Emails that exhausted delivery retries: {count}. Check the email service and delivery records.",
     "saved": "Email settings saved.",
@@ -3511,7 +3557,7 @@
     "conditionalHelp": "Qualification details apply only when their visible parent answer is Yes; AP answers apply only to AP-scored subjects. Required Yes/No questions allow either answer.",
     "emailEnabled": "Secondary-email binding is enabled in Program settings. These signup forms collect only the required sign-in email; additional addresses are managed after account setup.",
     "emailDisabled": "Secondary-email binding is disabled in Program settings. Sign-in email remains required and available.",
-    "readOnly": "Only Head can change signup fields. You can review the current settings.",
+    "readOnly": "Head applies field changes; Admin can request Head approval. Coordinators have read-only access.",
     "form": "Signup form",
     "tutee": "Tutee signup",
     "tutor": "Tutor signup",
@@ -3521,7 +3567,7 @@
     "hidden": "Hidden",
     "configure": "Configure",
     "configureField": "Configure {field}",
-    "popupHelp": "Changes apply to new submissions immediately. Hidden fields are ignored and never block submission. Existing answers are preserved.",
+    "popupHelp": "After Head applies the change, new submissions use this field requirement. Hidden fields are ignored and never block submission. Existing answers are preserved. Pending requests do not change the live form.",
     "state": "Field state",
     "save": "Save field",
     "saving": "Saving…",
@@ -3754,7 +3800,7 @@
     "gradesHelp": "Choose at least one grade. Existing academic and enrollment records remain unchanged; future confirmations use these choices.",
     "grade": "Grade {grade}",
     "atLeastOne": "Select at least one offered grade.",
-    "readOnly": "Head and administrators can change these settings. Coordinators have read-only access.",
+    "readOnly": "Head applies these settings; Admin can request Head approval. Coordinators have read-only access.",
     "save": "Save Name and Grade Settings",
     "saving": "Saving…",
     "saved": "Name and grade settings saved.",
@@ -4072,7 +4118,7 @@
     "title": "Academic Corrections",
     "intro": "Correct historical academic evidence for participant records, including people without accounts. Original records and current account academics remain separate.",
     "atomicHelp": "Each batch saves all records together. A stale record, ownership conflict or failed save leaves the whole batch unchanged.",
-    "coordinatorHelp": "Coordinators submit the whole batch for Admin/Head review. No live records change until approval; changed evidence requires a new preview.",
+    "coordinatorHelp": "Admin submits the whole batch for Head review. Live records stay unchanged until approval; changed evidence requires a new preview.",
     "csvTitle": "Correct with CSV",
     "csvHelp": "Download selected records (or this page), keep recordId and expectedFingerprint unchanged, edit values and add evidence and a reason. Upload up to 50 rows / 256 KiB. Use \\N for unknown grade or year. Names are never used to match records.",
     "download": "Download correction CSV",

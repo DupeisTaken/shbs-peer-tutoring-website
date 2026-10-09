@@ -10,12 +10,12 @@ import {
   updateAccountProfile,
 } from "~/server/account-profile";
 /**
- * Self-registration via a 6-digit security key (RegistrationCode).
+ * Self-registration via a five-character authorization key (RegistrationCode).
  *
  * Admins/coordinators issue a single-use code (optionally bound to an email and/or an existing
  * roster Tutor, or generated when an application is accepted) and hand it to the intended person.
  * The registrant then, at /register: (1) enters the code, (2) verifies their email with a second
- * emailed 6-digit code, and (3) sets their name / grade / password — which creates (or links) a
+ * emailed five-character code, and (3) sets their name / grade / password — which creates (or links) a
  * Tutor and a fully-verified login. This guarantees every account has a validated email and
  * self-set credentials.
  *
@@ -43,6 +43,7 @@ import type { TransactionDb } from "~/server/transactions";
 
 import { env } from "~/env";
 import { db } from "~/server/db";
+import { approvalScope } from "~/server/db-scope";
 import { hashPassword } from "./password";
 import { generateRegistrationCode, normalizeRegCode } from "./code";
 import {
@@ -162,13 +163,16 @@ export async function issueRegistrationCode(
 
 async function createRegistrationCode(
   opts: IssueCodeOptions,
-  client: DomainDb,
+  client: TransactionDb,
 ) {
   const expiresAt = new Date(Date.now() + CODE_TTL_DAYS * 24 * 60 * 60 * 1000);
   const email = opts.email?.trim() ? opts.email.trim().toLowerCase() : null;
   const crewChallenge = opts.crewApplicationId
     ? await client.crewSignupVerification.findFirst({
-        where: { applicationId: opts.crewApplicationId, codeExpiresAt: { gt: new Date() } },
+        where: {
+          applicationId: opts.crewApplicationId,
+          codeExpiresAt: { gt: new Date() },
+        },
         select: { codeHash: true },
       })
     : null;
@@ -200,6 +204,35 @@ async function createRegistrationCode(
       },
       select: { id: true },
     });
+    const issuer = opts.issuedById
+      ? await client.user.findUnique({
+          where: { id: opts.issuedById },
+          select: { id: true, role: true, name: true },
+        })
+      : null;
+    await client.auditLog.create({
+      data: {
+        userId: issuer?.id ?? null,
+        userName: issuer?.name ?? "System",
+        entity: "RegistrationCode",
+        entityId: row.id,
+        operation: "registration.issue",
+        action: "Issued registration invitation",
+        approvalId: approvalScope.getStore(),
+        details: {
+          actorRole: issuer?.role ?? "SYSTEM",
+          outcome: "APPLIED",
+          before: { issued: false },
+          after: { issued: true },
+          kind: opts.kind ?? "TUTOR",
+          issuedById: opts.issuedById ?? null,
+          tutorId: opts.tutorId ?? null,
+          applicationId: opts.applicationId ?? null,
+          crewApplicationId: opts.crewApplicationId ?? null,
+          expiresAt: expiresAt.toISOString(),
+        },
+      },
+    });
     return { id: row.id, code, expiresAt };
   }
   throw new Error("Could not generate a unique registration code.");
@@ -207,17 +240,73 @@ async function createRegistrationCode(
 
 /** Public-application grants remain bound to their live approval and module.
  * Manual crew keys without an application retain their existing authorization. */
-export async function assertCrewRegistrationSource(client: DomainDb, row: { kind: string; crewApplicationId: string | null }) {
+export async function assertCrewRegistrationSource(
+  client: DomainDb,
+  row: { kind: string; crewApplicationId: string | null },
+) {
   if (row.kind !== "CREW" || !row.crewApplicationId) return;
   if (!(await getFeatures(client)).CREW)
     throw new TRPCError({ code: "FORBIDDEN", message: "CREW_DISABLED" });
   await client.$queryRaw`SELECT id FROM "CrewApplication" WHERE id = ${row.crewApplicationId} FOR UPDATE`;
-  const application = await client.crewApplication.findUnique({ where: { id: row.crewApplicationId }, select: { status: true } });
+  const application = await client.crewApplication.findUnique({
+    where: { id: row.crewApplicationId },
+    select: { status: true },
+  });
   if (application?.status !== "ACCEPTED")
     throw new TRPCError({ code: "BAD_REQUEST", message: "INVITATION_INVALID" });
 }
 
 type CodeRow = NonNullable<Awaited<ReturnType<typeof loadCode>>>;
+
+/** Keep invitation evidence useful without copying its plaintext code, email or proof. */
+async function recordRedemption(
+  tx: TransactionDb,
+  row: CodeRow,
+  userId: string,
+  rankChange?: { before: string; after: string },
+) {
+  const recipient = await tx.user.findUniqueOrThrow({
+    where: { id: userId },
+    select: { name: true, role: true },
+  });
+  const issuance = await tx.auditLog.findFirst({
+    where: {
+      entity: "RegistrationCode",
+      entityId: row.id,
+      operation: "registration.issue",
+    },
+    orderBy: { createdAt: "asc" },
+    select: { id: true },
+  });
+  await tx.auditLog.create({
+    data: {
+      userId,
+      userName: recipient.name,
+      entity: "RegistrationCode",
+      entityId: row.id,
+      operation: "registration.complete",
+      kind: "ACTION",
+      action: `Redeemed ${row.kind} registration invitation`,
+      details: {
+        actorRole: recipient.role,
+        outcome: "APPLIED",
+        kind: row.kind,
+        issuedById: row.issuedById,
+        recipientId: userId,
+        before: {
+          used: false,
+          ...(rankChange ? { role: rankChange.before } : {}),
+        },
+        after: {
+          used: true,
+          ...(rankChange ? { role: rankChange.after } : {}),
+        },
+        originalActionId: issuance?.id ?? null,
+        originalEvidence: issuance ? "RECORDED" : "LEGACY_UNAVAILABLE",
+      },
+    },
+  });
+}
 
 /** Load a code row by its plaintext value (no validity checks). */
 async function loadCode(code: string) {
@@ -572,21 +661,9 @@ export async function completeRegistration(
           where: { id: row.id },
           data: { usedByUserId: recipient.id },
         });
-        await tx.auditLog.create({
-          data: {
-            userId: recipient.id,
-            entity: "RegistrationCode",
-            entityId: row.id,
-            operation: "registration.complete",
-            kind: "ACTION",
-            action: "Accepted management invitation",
-            details: {
-              before: recipient.role,
-              after: nextRole,
-              issuedById: row.issuedById,
-              recipientId: recipient.id,
-            },
-          },
+        await recordRedemption(tx, row, recipient.id, {
+          before: recipient.role,
+          after: nextRole,
         });
         return {
           ok: true as const,
@@ -632,18 +709,7 @@ export async function completeRegistration(
         where: { id: row.id },
         data: { usedByUserId: user.id },
       });
-      await tx.auditLog.create({
-        data: {
-          userId: user.id,
-          userName: user.name,
-          entity: "RegistrationCode",
-          entityId: row.id,
-          operation: "registration.complete",
-          kind: "ACTION",
-          action: `Redeemed ${role} registration code`,
-          details: { role, issuedById: row.issuedById, recipientId: user.id },
-        },
-      });
+      await recordRedemption(tx, row, user.id);
       return { ok: true as const, username };
     });
   }
@@ -708,7 +774,9 @@ export async function completeRegistration(
         await tx.user.update({
           where: { id: existingUser.id },
           data: {
-            crewStatus: "ACTIVE",
+            // An invitation grants missing access; it cannot undo an applied opt-out.
+            crewStatus:
+              priorCrewStatus === "OPTED_OUT" ? "OPTED_OUT" : "ACTIVE",
             ...(existingUser.role === "VIEWER"
               ? { role: "CREW" as const }
               : {}),
@@ -747,6 +815,7 @@ export async function completeRegistration(
                 priorCrewStatus === "INACTIVE" ? "INACTIVE" : "OPTED_OUT",
             },
           });
+        await recordRedemption(tx, row, existingUser.id);
         return {
           username: await ensureUserUsername(existingUser.id, tx, {
             preferredLatinName: input.preferredLatinName,
@@ -805,6 +874,7 @@ export async function completeRegistration(
           where: { id: created.id },
           data: { crewStatus: "OPTED_OUT" },
         });
+      await recordRedemption(tx, row, created.id);
       return {
         username: desiredUsername,
         ...(academicConfirmationRequired
@@ -871,6 +941,7 @@ export async function completeRegistration(
         where: { id: row.id },
         data: { usedByUserId: existingUser.id },
       });
+      await recordRedemption(tx, row, existingUser.id);
       return { username: await ensureUserUsername(existingUser.id, tx) };
     }
     const retainedAcademic = existingUser
@@ -942,7 +1013,14 @@ export async function completeRegistration(
           gradeLevel,
           email,
           username: desiredUsername,
-          status: "ACTIVE",
+          // Existing lifecycle decisions require their Head-reviewed restoration flow.
+          status:
+            rosterTutor &&
+            ["OPTED_OUT", "ARCHIVED", "GRADUATED", "TRANSFERRED"].includes(
+              rosterTutor.status,
+            )
+              ? rosterTutor.status
+              : "ACTIVE",
         },
       });
     } else {
@@ -1061,7 +1139,10 @@ export async function completeRegistration(
       needsAcademicConfirmationForParticipation(
         (await accountAcademics(tx, userId)).academic,
       );
-    if (academicConfirmationRequired)
+    if (
+      academicConfirmationRequired &&
+      (!rosterTutor || ["ACTIVE", "PENDING"].includes(rosterTutor.status))
+    )
       await tx.tutor.update({
         where: { id: tutorId },
         data: { status: "PENDING" },
@@ -1072,6 +1153,7 @@ export async function completeRegistration(
       where: { id: row.id },
       data: { usedAt: new Date(), usedByUserId: userId },
     });
+    await recordRedemption(tx, row, userId);
     return {
       username: desiredUsername,
       ...(academicConfirmationRequired

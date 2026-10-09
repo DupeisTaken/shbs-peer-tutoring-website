@@ -1,9 +1,14 @@
 "use client";
+import { InlineNotice } from "./ui/patterns";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { formText } from "~/lib/form-values";
 export function SchoolCalendar() {
   const t = useTranslations("workflows");
+  const approvals = useTranslations("approvals");
+  const identity = api.account.me.useQuery();
+  const canEdit = !identity.error && (identity.data?.role === "HEAD" || identity.data?.role === "ADMIN");
+  const canApply = identity.data?.role === "HEAD";
   const calendar = api.student.calendar.useQuery();
   const save = api.student.setCalendarDay.useMutation({
     onSuccess: () => calendar.refetch(),
@@ -12,10 +17,13 @@ export function SchoolCalendar() {
     <section className="card space-y-4 p-6">
       <h2 className="section-title">{t("calendar")}</h2>
       <p className="muted text-sm">{t("calendarHelp")}</p>
+      <p className="muted text-sm">{approvals("sensitiveHelp")}</p>
+      <fieldset disabled={!canEdit || save.isPending} className="min-w-0">
       <form
         className="flex flex-wrap items-end gap-4"
         onSubmit={(e) => {
           e.preventDefault();
+          if (!canEdit || save.isPending) return;
           const f = new FormData(e.currentTarget);
           save.mutate({
             date: formText(f, "date"),
@@ -37,9 +45,10 @@ export function SchoolCalendar() {
           {t("schoolDay")}
         </label>
         <button className="btn-primary" disabled={save.isPending}>
-          {t("save")}
+          {canApply ? t("save") : approvals("requestHead")}
         </button>
       </form>
+      </fieldset>
       <div className="max-h-64 space-y-2 overflow-auto">
         {calendar.data?.map((d) => (
           <p key={d.date}>
@@ -47,8 +56,9 @@ export function SchoolCalendar() {
           </p>
         ))}
       </div>
-      {(calendar.error ?? save.error) && (
-        <p role="alert">{(calendar.error ?? save.error)?.message}</p>
+      {save.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{approvals("queuedBody")}</InlineNotice>}
+      {(calendar.error ?? (save.error?.data?.approvalId ? null : save.error)) && (
+        <p role="alert">{(calendar.error ?? (save.error?.data?.approvalId ? null : save.error))?.message}</p>
       )}
     </section>
   );

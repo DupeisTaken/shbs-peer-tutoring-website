@@ -60,7 +60,8 @@ it("cuts off real cross-action hashes, leaves state unchanged, and recovers with
     .rejects.toMatchObject({ code: "TOO_MANY_REQUESTS" });
   expect(verify).toHaveBeenCalledTimes(10);
   expect((await db.user.findUniqueOrThrow({ where: { id: userId } })).twoFactorEnabled).toBe(true);
-  expect(await db.auditLog.count({ where: { userId } })).toBe(0);
+  expect(await db.auditLog.count({ where: { userId, kind: { not: "ATTEMPT" } } })).toBe(0);
+  expect(await db.auditLog.count({ where: { userId, kind: "ATTEMPT" } })).toBe(6);
 
   // Expiry uses the original admitted attempts, even after a last-millisecond denial.
   time.mockReturnValue(now + PASSWORD_CONFIRMATION_WINDOW_MS);
@@ -69,8 +70,8 @@ it("cuts off real cross-action hashes, leaves state unchanged, and recovers with
   expect(verify).toHaveBeenCalledTimes(11);
   expect((await db.user.findUniqueOrThrow({ where: { id: userId } })).twoFactorEnabled).toBe(false);
   const audit = await db.auditLog.findMany({ where: { userId } });
-  expect(audit).toHaveLength(1);
-  expect(audit[0]).toMatchObject({ operation: "account.setTwoFactorEnabled" });
+  expect(audit.filter(row => row.kind !== "ATTEMPT")).toHaveLength(1);
+  expect(audit.find(row => row.kind !== "ATTEMPT")).toMatchObject({ operation: "account.setTwoFactorEnabled" });
   expect(JSON.stringify(audit)).not.toContain(password);
   expect(JSON.stringify(audit)).not.toContain("scrypt$");
 });
@@ -88,7 +89,10 @@ it("does not refund a successful password check when its enclosing transaction r
     .rejects.toMatchObject({ code: "TOO_MANY_REQUESTS" });
   expect(verify).toHaveBeenCalledTimes(10);
   expect((await db.user.findUniqueOrThrow({ where: { id: userId } })).twoFactorEnabled).toBe(true);
-  expect(await db.auditLog.count({ where: { userId } })).toBe(0);
+  expect(await db.auditLog.count({ where: { userId, kind: { not: "ATTEMPT" } } })).toBe(0);
+  expect(await db.auditLog.findFirst({ where: { userId, kind: "ATTEMPT" } })).toMatchObject({
+    details: { outcome: "FAILED", errorCode: "TOO_MANY_REQUESTS", applied: false },
+  });
 });
 
 it("keeps the same account budget after handle changes while preserving sign-in and another network peer", async () => {

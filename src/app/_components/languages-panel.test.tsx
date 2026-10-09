@@ -8,6 +8,7 @@ import {
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 const state = vi.hoisted(() => ({
+  role: "HEAD",
   manage: true,
   loading: false,
   error: null as Error | null,
@@ -25,6 +26,7 @@ vi.mock("./confirm-dialog", () => ({
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
+    account: { me: { useQuery: () => ({ data: { role: state.role } }) } },
     useUtils: () => ({
       i18n: {
         managedLanguages: { invalidate: state.managedInvalidation },
@@ -155,4 +157,12 @@ it("reports loading and query failures instead of showing an empty catalog", () 
   state.error = new Error("Catalog unavailable");
   rerender(<LanguagesPanel canAdd={false} />);
   expect(screen.getByRole("alert").textContent).toBe("Catalog unavailable");
+});
+
+it("keeps significant language settings read-only for Coordinators even with catalog capabilities", () => {
+  state.role = "COORDINATOR";
+  render(<LanguagesPanel canAdd={false} />);
+  expect(screen.queryByRole("button", { name: "localization.disableLanguage" })).toBeNull();
+  expect(screen.queryByRole("button", { name: "localization.addLanguageBtn" })).toBeNull();
+  state.role = "HEAD";
 });

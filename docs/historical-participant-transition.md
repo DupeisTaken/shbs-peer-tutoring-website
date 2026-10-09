@@ -14,7 +14,7 @@ An unknown historical grade remains unknown. A record without a login is labelle
 
 ## Correct historical academics
 
-Open **Academic Corrections** in the management navigation. Admin/Head can apply corrections; coordinators submit the entire batch for Admin/Head approval. Other roles cannot browse this tool or its private evidence. Correction is optional: missing grades or school years never prevent an otherwise valid history import.
+Open **Academic Corrections** in the management navigation. Head applies corrections; Admin submits the entire batch for Head review. Coordinators may inspect records but cannot submit corrections. Other roles cannot browse this tool or its private evidence. Correction is optional: missing grades or school years never prevent an otherwise valid history import.
 
 1. Choose tutor or tutee records, then find the participant by name or exact ID. Search helps locate a record; saving always targets its stable **Academic record ID**. Duplicate names never establish identity.
 2. Select up to 50 records and enter the historical grade, reference school year, evidence and reason. Leave grade/year blank when genuinely unknown. Other-school-system text is retained verbatim; numeric grades are not advanced automatically. A participant may have distinct reports for multiple years.
@@ -22,7 +22,7 @@ Open **Academic Corrections** in the management navigation. Admin/Head can apply
 4. Preview every named record, its before/after grade and year, and original source. Acknowledge the preview, then apply the entire batch or submit it for approval. Closing review retains your draft; clearing drafts requires confirmation. Saving a website batch preserves any separate CSV draft, and saving a CSV preserves website drafts. Their original fingerprints still require a fresh preview if affected records changed.
 5. **View all corrections** shows successive revisions, dates, actors, evidence and reasons. The tutee history view separates original evidence, corrected historical reports and the linked account's current academics. Its compact historical roster cell uses corrections to the original enrollment report; additional period reports stay in View History.
 
-Each batch is all-or-nothing. Invalid rows, changed profiles, changed ownership, stale fingerprints or database failures prevent every write. Coordinators' proposals recheck the same evidence during approval. A stale proposal must be rejected and prepared again. Refresh does not silently replace a draft's fingerprint: download fresh records or clear and reselect, then deliberately reapply and review your edits. A successful save followed by a refresh failure is reported separately; refresh instead of resubmitting.
+Each batch is all-or-nothing. Invalid rows, changed profiles, changed ownership, stale fingerprints or database failures prevent every write. Admins' proposals recheck the same evidence during approval. A stale proposal must be rejected and prepared again. Refresh does not silently replace a draft's fingerprint: download fresh records or clear and reselect, then deliberately reapply and review your edits. A successful save followed by a refresh failure is reported separately; refresh instead of resubmitting.
 
 After a saved batch, correction controls and CSV download wait for all affected reads to finish. If any read fails, **Refresh records** retries the correction, roster and history reads without submitting another correction. The warning clears only after that recovery succeeds; any independent draft keeps its captured fingerprint.
 

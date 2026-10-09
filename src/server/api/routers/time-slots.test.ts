@@ -25,22 +25,23 @@ const MERGED_SIBLING = "test-slot-session-sibling";
 const OTHER_SESSION = "test-slot-session-other";
 const SESSION_IDS = [CREDITED_SESSION, MERGED_SIBLING, OTHER_SESSION];
 
-const adminSession: Session = {
+// Historical attendance propagation requires Head authority; Admin request paths have separate coverage.
+const headSession: Session = {
   user: {
     id: "test-slot-admin",
-    name: "Schedule Admin",
+    name: "Schedule Head",
     email: "admin@example.com",
   },
-  role: "ADMIN",
+  role: "HEAD",
   tutorId: null,
   expires: new Date(Date.now() + 3_600_000).toISOString(),
 };
 
 const caller = () =>
-  createCaller({ db, session: adminSession, headers: new Headers() });
+  createCaller({ db, session: headSession, headers: new Headers() });
 
 async function cleanup() {
-  await db.user.deleteMany({ where: { id: adminSession.user.id } });
+  await db.user.deleteMany({ where: { id: headSession.user.id } });
   await db.session.deleteMany({ where: { id: { in: SESSION_IDS } } });
   await db.pairing.deleteMany({ where: { id: PAIRING } });
   await db.timeSlot.deleteMany({ where: { id: { in: [SLOT, OTHER_SLOT] } } });
@@ -52,10 +53,10 @@ beforeAll(async () => {
   await cleanup();
   await db.user.create({
     data: {
-      id: adminSession.user.id,
-      email: adminSession.user.email!,
-      name: adminSession.user.name,
-      role: "ADMIN",
+      id: headSession.user.id,
+      email: headSession.user.email!,
+      name: headSession.user.name,
+      role: "HEAD",
     },
   });
   await db.term.create({

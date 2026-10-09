@@ -1,15 +1,44 @@
-/** Explicitly reviewed management operations. Unknown coordinator writes fail closed.
- * Account privileges, program configuration and irreversible file deletion are never proposals.
- * program.setEmailNotifications, program.setSecondaryEmailBinding and program.resendStuckEmails
- * require ADMIN/HEAD directly. */
-// program.setSignupField is a direct Head-only setting; it cannot be proposed or replayed.
+/** Explicit management authority inventory. Unknown coordinator writes fail closed.
+ * Participant self-service remains owned by its separate account/tutor/student procedures. */
+// program.resendStuckEmails remains immediate ADMIN/HEAD authority: it retries existing delivery evidence.
 // recordTransfer.* requires HEAD directly. Imports/exports cannot be proposed or replayed.
 // tuteeHistory.invite/link/cancelInvitation require ADMIN/HEAD directly. Conflict correction
 // additionally reauthenticates Head; public history account setup grants no membership.
-/** These operations assign or restore account capabilities. Only Head can apply/review them.
+/** These operations assign or restore account capabilities and retain Head review.
+ * classifyApproval explicitly allows Admin to issue Tutor/Crew invitations directly.
  * qualificationApplication.decide deliberately uses adminOnlyProcedure instead: subject grants
  * do not change account badges and coordinators cannot submit/replay these decisions. */
 export const HEAD_APPROVAL_OPERATIONS = new Set([
+  "program.setCaptcha",
+  "program.setProfilePolicy",
+  "program.setSignupField",
+  "program.setEmailNotifications",
+  "program.setSecondaryEmailBinding",
+  "program.setTimeZone",
+  "program.setSignupWindow",
+  "program.setFeaturePending",
+  "admin.refresh",
+  "i18n.setLanguageEnabled",
+  "i18n.deleteLanguage",
+  "i18n.reorderLanguages",
+  "messaging.setPermission",
+  "student.setCalendarDay",
+  "student.setFeedbackSettings",
+  "admin.upsertPolicy",
+  "admin.deletePolicyLocale",
+  "admin.updateAccountProfile",
+  "admin.updateAccountAcademics",
+  "admin.updateAccountUsername",
+  "admin.updateTutee",
+  "admin.setUserRole",
+  "admin.undoAudit",
+  "admin.reinstateTutee",
+  "admin.reinstateUser",
+  "admin.deleteAdjustment",
+  "admin.revokeRegistrationCode",
+  "corrections.correctAttendance",
+  "corrections.correctPatrol",
+  "historicalAcademics.correctBatch",
   "departure.setState",
   "admin.setMemberships",
   "admin.setUserCanTutor",
@@ -23,6 +52,24 @@ export const HEAD_APPROVAL_OPERATIONS = new Set([
   "tutor.decideInterview",
 ]);
 export const APPROVAL_OPERATIONS: Record<string, string> = {
+  "program.setCaptcha": "ProgramSettings",
+  "program.setProfilePolicy": "ProgramSettings",
+  "program.setSignupField": "ProgramSettings",
+  "program.setEmailNotifications": "ProgramSettings",
+  "program.setSecondaryEmailBinding": "ProgramSettings",
+  "program.setTimeZone": "ProgramSettings",
+  "program.setSignupWindow": "Term",
+  "program.setFeaturePending": "ProgramFeature",
+  "admin.refresh": "Term",
+  "i18n.setLanguageEnabled": "Language",
+  "i18n.deleteLanguage": "Language",
+  "i18n.reorderLanguages": "Language",
+  "messaging.setPermission": "MessagePermission",
+  "admin.updateAccountUsername": "User",
+  "admin.setUserRole": "User",
+  "admin.revokeRegistrationCode": "RegistrationCode",
+  "messaging.moderate": "DirectMessage",
+  "messaging.restrict": "User",
   "historicalAcademics.correctBatch": "HistoricalAcademicRecord",
   "departure.setState": "User",
   "corrections.correctAttendance": "Session",
@@ -88,8 +135,8 @@ export const APPROVAL_OPERATIONS: Record<string, string> = {
   "admin.deleteApplication": "TutorApplication",
   "admin.decideTutorRequest": "TutorStatusRequest",
   "admin.requeueTutorTutees": "Tutor",
-  "admin.cancelTuteeOptOut": "Tutee",
-  "admin.reinstateTutee": "Tutee",
+  "admin.cancelTuteeOptOut": "TuteeRemovalRequest",
+  "admin.reinstateTutee": "TuteeRemovalRequest",
   "admin.setCrewStatus": "User",
   "admin.setPatrolOrder": "Room",
   "admin.decideCrewApplication": "CrewApplication",
@@ -134,6 +181,88 @@ export const COORDINATOR_DIRECT_OPERATIONS = new Set([
   "studentWorkflow.resend",
   // Tutors/crew still perform their own duties through their participant procedures.
 ]);
+
+export type ManagementRole = "HEAD" | "ADMIN" | "COORDINATOR";
+export type ApprovalAuthority = {
+  category: "SIGNIFICANT_SETTING" | "ACCOUNT_ACCESS" | "REVERSAL" | "DAILY_OPERATION";
+  directRoles: readonly string[];
+  requesterRoles: readonly string[];
+  reviewerRoles: readonly ManagementRole[];
+};
+
+const significantSettings = new Set([
+  "program.setCaptcha", "program.setProfilePolicy", "program.setSignupField",
+  "program.setEmailNotifications", "program.setSecondaryEmailBinding",
+  "program.setTimeZone", "program.setSignupWindow", "program.setFeaturePending",
+  "admin.refresh", "i18n.setLanguageEnabled", "i18n.deleteLanguage", "i18n.reorderLanguages", "messaging.setPermission",
+  "student.setCalendarDay", "student.setFeedbackSettings", "admin.upsertPolicy",
+  "admin.deletePolicyLocale",
+]);
+const managementEdits = new Set([
+  "admin.updateAccountProfile", "admin.updateAccountAcademics", "admin.updateAccountUsername",
+  "admin.setUserRole", "admin.setMemberships", "admin.setUserCanTutor", "admin.setCrewStatus",
+  "admin.updateTutor", "admin.updateTutee",
+]);
+const reversals = new Set([
+  "admin.undoAudit", "admin.reinstateTutee", "admin.reinstateUser",
+  "admin.deleteAdjustment", "admin.revokeRegistrationCode",
+  // A correction may remove a reviewed deduction and restore dependent participation.
+  // Review the complete correction with Head before applying any part of it.
+  "corrections.correctAttendance", "corrections.correctPatrol", "historicalAcademics.correctBatch",
+]);
+
+/** Authority depends on effects, including legacy payloads. Context comes from live DB state;
+ * callers cannot claim that a tutor's status is unchanged in order to avoid Head review. */
+export function classifyApproval(
+  operation: string,
+  input?: unknown,
+  context: { currentTutorStatus?: string; currentCardReviewStatus?: string; currentTuteeStatus?: string;
+    currentNewsStatus?: string; currentAnnouncementActive?: boolean; interviewCompleted?: boolean;
+    changesRecordedMeetingAttendance?: boolean; meetingHasAttendance?: boolean; changesRecordedSlotAttendance?: boolean;
+    currentRegistrationKind?: string; restoresArchivedRecord?: boolean } = {},
+): ApprovalAuthority | null {
+  if (!Object.hasOwn(APPROVAL_OPERATIONS, operation)) return null;
+  const value = input && typeof input === "object" ? input as Record<string, unknown> : {};
+  if (significantSettings.has(operation))
+    return { category: "SIGNIFICANT_SETTING", directRoles: ["HEAD"], requesterRoles: ["ADMIN", "HEAD"], reviewerRoles: ["HEAD"] };
+  if (managementEdits.has(operation))
+    return { category: "ACCOUNT_ACCESS", directRoles: ["HEAD"], requesterRoles: ["ADMIN", "HEAD"], reviewerRoles: ["HEAD"] };
+  if (reversals.has(operation) || context.restoresArchivedRecord === true ||
+      (operation === "messaging.moderate" && value.hide === false) ||
+      (operation === "messaging.restrict" && value.restricted === false) ||
+      (operation === "admin.decideAppeal" && value.action === "APPROVE") ||
+      (operation === "student.decideAppeal" && value.overturn === true) ||
+      (operation === "admin.setTuteeStatus" && context.currentTuteeStatus === "INACTIVE" && value.status !== "INACTIVE") ||
+      (operation === "admin.assignTuteeToTutor" && context.currentTuteeStatus === "INACTIVE") ||
+      (operation === "home.updateNews" && context.currentNewsStatus === "ARCHIVED" && value.status !== undefined && value.status !== "ARCHIVED") ||
+      (operation === "admin.updateAnnouncement" && context.currentAnnouncementActive === false && value.active === true) ||
+      (operation === "interviewManagement.qualify" && value.qualified === false) ||
+      (operation === "interviewManagement.complete" && context.interviewCompleted === true) ||
+      (operation === "admin.recordMeetingAttendance" && context.changesRecordedMeetingAttendance === true) ||
+      (operation === "admin.deleteMeeting" && context.meetingHasAttendance === true) ||
+      (operation === "admin.updateTimeSlot" && context.changesRecordedSlotAttendance === true) ||
+      (operation === "admin.reviewCard" && context.currentCardReviewStatus !== "PENDING"))
+    return { category: "REVERSAL", directRoles: ["HEAD"], requesterRoles: operation.startsWith("messaging.") || operation === "historicalAcademics.correctBatch" ||
+      (operation === "admin.revokeRegistrationCode" && ["ADMIN", "COORDINATOR"].includes(context.currentRegistrationKind ?? ""))
+      ? ["ADMIN", "HEAD"] : ["COORDINATOR", "ADMIN", "HEAD"], reviewerRoles: ["HEAD"] };
+  // Supervision remains immediate Admin/Head authority; only restorations enter this queue.
+  if (operation.startsWith("messaging."))
+    return { category: "DAILY_OPERATION", directRoles: ["ADMIN", "HEAD"], requesterRoles: ["ADMIN", "HEAD"], reviewerRoles: ["ADMIN", "HEAD"] };
+  const tutorStatusChange = operation === "admin.updateTutor" &&
+    (context.currentTutorStatus === undefined || value.status !== context.currentTutorStatus);
+  if (HEAD_APPROVAL_OPERATIONS.has(operation) &&
+      (operation !== "admin.updateTutor" || tutorStatusChange)) {
+    const managementCode = operation === "admin.issueRegistrationCode" && ["ADMIN", "COORDINATOR"].includes(String(value.kind));
+    // Admin may issue participation invitations directly. Coordinator proposals still
+    // go to Head, and this exception never extends to management grants or revocation.
+    const participationCode = operation === "admin.issueRegistrationCode" &&
+      (value.kind === undefined || value.kind === "TUTOR" || value.kind === "CREW");
+    return { category: "ACCOUNT_ACCESS", directRoles: participationCode ? ["ADMIN", "HEAD"] : ["HEAD"],
+      requesterRoles: managementCode ? ["ADMIN", "HEAD"] : operation === "tutor.decideInterview" ? ["TUTOR", "COORDINATOR", "ADMIN", "HEAD"] : ["COORDINATOR", "ADMIN", "HEAD"],
+      reviewerRoles: ["HEAD"] };
+  }
+  return { category: "DAILY_OPERATION", directRoles: ["ADMIN", "HEAD"], requesterRoles: ["COORDINATOR", "ADMIN", "HEAD"], reviewerRoles: ["ADMIN", "HEAD"] };
+}
 
 /** Messaging supervision is immediate ADMIN/HEAD authority, never a coordinator proposal.
  * Participant sends/read receipts retain protectedProcedure ownership checks. */

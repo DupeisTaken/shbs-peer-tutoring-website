@@ -56,6 +56,14 @@ it("defaults omitted name-display fields on/off while preserving explicit opt-ou
   expect(await caller().program.profilePolicy()).toMatchObject({ usePreferredNames: false });
 });
 
+it("queues Admin policy requests while Head applies the normalized policy", async () => {
+  await expect(caller("ADMIN").program.setProfilePolicy({ ...defaults, offeredGrades: [12, 10, 11], expectedPolicy: defaults })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  expect((await caller().program.profilePolicy()).offeredGrades).toEqual(ALL_GRADES);
+  const request = await db.approvalRequest.findFirstOrThrow({ where: { operation: "program.setProfilePolicy" } });
+  await caller("HEAD").approval.decide({ id: request.id, approve: true, note: "Reviewed offered grades" });
+  expect((await caller().program.profilePolicy()).offeredGrades).toEqual([10, 11, 12]);
+});
+
 it("audits independent alternate-name display and detects stale drafts", async () => {
   const changed = await caller("HEAD").program.setProfilePolicy({
     ...defaults,
@@ -69,7 +77,7 @@ it("audits independent alternate-name display and detects stale drafts", async (
     }),
   ).toMatchObject({ details: { before: defaults, after: changed } });
   await expect(
-    caller("ADMIN").program.setProfilePolicy({
+    caller("HEAD").program.setProfilePolicy({
       ...defaults,
       requireLatinNames: true,
       expectedPolicy: defaults,
@@ -78,7 +86,7 @@ it("audits independent alternate-name display and detects stale drafts", async (
   expect(await caller().program.profilePolicy()).toMatchObject(changed);
 });
 
-it("publishes safe defaults and permits audited, immediate, reversible administrator settings", async () => {
+it("publishes safe defaults and permits audited, immediate, reversible Head settings", async () => {
   expect(
     await createCaller({
       db,
@@ -92,7 +100,7 @@ it("publishes safe defaults and permits audited, immediate, reversible administr
   const beforeUser = await db.user.findUniqueOrThrow({
     where: { id: "policy-STUDENT" },
   });
-  const changed = await caller("ADMIN").program.setProfilePolicy({
+  const changed = await caller("HEAD").program.setProfilePolicy({
     ...defaults,
     offeredGrades: [12, 10, 11],
     expectedPolicy: defaults,
@@ -127,7 +135,7 @@ it("rejects unauthorized, invalid and stale policy changes", async () => {
   for (const grades of [[], [0], [13], [9, 9]])
     await expect(caller("HEAD").program.setProfilePolicy({ ...defaults, offeredGrades: grades, expectedPolicy: defaults })).rejects.toMatchObject({ code: "BAD_REQUEST" });
   await caller("HEAD").program.setProfilePolicy({ ...defaults, offeredGrades: [9, 10], expectedPolicy: defaults });
-  await expect(caller("ADMIN").program.setProfilePolicy({ ...defaults, expectedPolicy: defaults })).rejects.toMatchObject({ code: "CONFLICT", message: "PROFILE_POLICY_CHANGED" });
+  await expect(caller("HEAD").program.setProfilePolicy({ ...defaults, expectedPolicy: defaults })).rejects.toMatchObject({ code: "CONFLICT", message: "PROFILE_POLICY_CHANGED" });
 });
 
 it("ignores a forged school year and records the active program year for self-service and staff", async () => {

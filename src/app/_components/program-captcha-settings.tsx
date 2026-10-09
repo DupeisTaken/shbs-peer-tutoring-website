@@ -5,16 +5,17 @@ import { CaptchaError } from "./signup-captcha";
 import { Button, Switch } from "./ui/button";
 import { InlineNotice, SettingRow, StatePanel } from "./ui/patterns";
 
-/** Immediate operational setting, with a version token to reject stale tabs (including ABA). */
+/** Head applies this sensitive setting; Admin proposals retain the live version, with a version token to reject stale tabs (including ABA). */
 export function ProgramCaptchaSettings() {
   const t = useTranslations("captcha");
+  const approvals = useTranslations("approvals");
   const patterns = useTranslations("uiPatterns");
   const utils = api.useUtils();
   const settings = api.program.captchaSettings.useQuery(undefined, {
     refetchInterval: 15_000,
   });
   const save = api.program.setCaptcha.useMutation({
-    onSettled: async () => {
+    onSuccess: async () => {
       await Promise.all([
         utils.program.captchaSettings.invalidate(),
         utils.program.captchaPublic.invalidate(),
@@ -46,6 +47,7 @@ export function ProgramCaptchaSettings() {
         )}
       </div>
       <p className="muted text-sm">{t("scope")}</p>
+      {data?.canEdit && data.canApply === false && <p className="muted text-sm">{approvals("sensitiveHelp")}</p>}
       <p className="text-sm text-slate-700">{t("cost")}</p>
       {data ? (
         <SettingRow
@@ -53,7 +55,7 @@ export function ProgramCaptchaSettings() {
           control={
             data.canEdit ? (
               <Switch
-                label={t("title")}
+                label={data.canApply === false ? approvals("requestChange", { setting: t("title") }) : t("title")}
                 checked={data.enabled}
                 disabled={save.isPending || (!data.enabled && !data.ready)}
                 onChange={(enabled) =>
@@ -90,7 +92,8 @@ export function ProgramCaptchaSettings() {
             <CaptchaError error={settings.error} />
           </StatePanel>
         ))}
-      {save.error && (
+      {save.error?.data?.approvalId && <InlineNotice tone="warning" announcement="status">{approvals("queuedBody")}</InlineNotice>}
+      {save.error && !save.error.data?.approvalId && (
         <p role="alert" className="text-sm text-red-700">
           <CaptchaError error={save.error} />
         </p>

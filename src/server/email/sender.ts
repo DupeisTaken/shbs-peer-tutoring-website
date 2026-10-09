@@ -15,6 +15,7 @@ import { Socket } from "node:net";
 import { env } from "~/env";
 import { APP_TITLE } from "~/lib/branding";
 import { renderEmail, type EmailPresentation } from "./template";
+import { deferUntilCommit } from "~/server/db-scope";
 import { emailOrigin } from "./urls";
 
 export type EmailCategory = "SECURITY" | "PROGRAM";
@@ -227,6 +228,9 @@ export async function verifyEmailTransport(
 /** Resolve per message so availability checks and delivery use identical category routing. */
 export const emailSender: EmailSender = {
   async send(message) {
+    // Audited mutations commit their durable evidence before an external recipient is
+    // contacted. Outside that scope callers retain synchronous delivery/failure semantics.
+    if (deferUntilCommit(() => emailSender.send(message))) return;
     const account = senderAccount(message.category);
     if (account) return sendSmtp(message, account);
     if (env.NODE_ENV === "production") {

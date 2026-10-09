@@ -8,6 +8,7 @@ import {
   render,
   screen,
   waitFor,
+  within,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -22,7 +23,7 @@ type Request = {
   path: string;
   input: Record<string, unknown>;
   resolve: () => void;
-  reject: (message: string, code?: string) => void;
+  reject: (message: string, code?: string, approvalId?: string) => void;
 };
 const transport = vi.hoisted(() => {
   const latest: Record<string, unknown> = {};
@@ -60,10 +61,10 @@ vi.mock("~/trpc/react", async () => {
                 path,
                 input,
                 resolve: () => resolve({}),
-                reject: (message, code) =>
+                reject: (message, code, approvalId) =>
                   reject(
                     Object.assign(new Error(message), {
-                      data: code ? { code } : undefined,
+                      data: code || approvalId ? { code, approvalId } : undefined,
                     }),
                   ),
               });
@@ -264,17 +265,22 @@ afterEach(() => {
   client.clear();
 });
 
-function mount(kind: Kind) {
+function mount(kind: Kind, canApply = true) {
   const close = vi.fn();
   const node =
     kind === "account" ? (
-      <AccountProfileEditor profile={original} onClose={close} />
+      <AccountProfileEditor
+        profile={original}
+        onClose={close}
+        canRequestHead={!canApply}
+      />
     ) : kind === "username" ? (
       <ProfileDialog title="Username editor" onClose={close}>
         <AccountUsernameEditor
           userId="account"
           username={original.username}
           profileVersion={7}
+          canApply={canApply}
         />
       </ProfileDialog>
     ) : kind === "tutor" ? (
@@ -285,11 +291,13 @@ function mount(kind: Kind) {
           >["row"]
         }
         onClose={close}
+        canApply={canApply}
       />
     ) : (
       <TuteeEditor
         row={original as unknown as ComponentProps<typeof TuteeEditor>["row"]}
         onClose={close}
+        canApply={canApply}
       />
     );
   render(
@@ -663,3 +671,50 @@ it("retains tutor sibling editors across automatic reactivation refresh and refr
   expect(currentField("tutor").matches(":disabled")).toBe(false);
   expect(close).not.toHaveBeenCalled();
 });
+
+// A queued proposal is an unapplied error result, so automatic post-save reads must not run.
+it.each(kinds)(
+  "keeps queued Head-review %s drafts editable with their original fence",
+  async (kind) => {
+    const { field, form, close } = mount(kind, false);
+    const draft = kind === "username" ? "queuedusername" : "Queued";
+    fireEvent.change(field, { target: { value: draft } });
+    expect(within(form).getByRole("button", { name: en.approvals.requestHead })).toBeTruthy();
+    fireEvent.submit(form);
+    await waitFor(() => expect(transport.requests).toHaveLength(1));
+    const proposal = transport.requests[0]!;
+    const fence = kind === "account" || kind === "username"
+      ? { expectedProfileVersion: original.profileVersion }
+      : { expectedUpdatedAt: original.updatedAt };
+    expect(proposal.input).toMatchObject(fence);
+    await act(async () => proposal.reject("Review queued", "FORBIDDEN", "approval-queued"));
+    await waitFor(() => expect(client.isMutating()).toBe(0));
+    expect(screen.getByText(en.approvals.queuedBody)).toBeTruthy();
+    expect(screen.queryByText("Review queued")).toBeNull();
+    expect(screen.queryByText(en.accountProfile.sectionSaved)).toBeNull();
+    expect(screen.queryByText(en.accountProfile.sectionRefreshFailed)).toBeNull();
+    expect(currentField(kind).value).toBe(draft);
+    expect(currentField(kind).readOnly).toBe(false);
+    expect(currentField(kind).matches(":disabled")).toBe(false);
+    expect(transport.fetch).not.toHaveBeenCalled();
+    expect(transport.invalidate).not.toHaveBeenCalled();
+    expect(transport.routerRefresh).not.toHaveBeenCalled();
+    expect(close).not.toHaveBeenCalled();
+
+    // Editing and re-requesting remains deliberate, using the captured pre-review version.
+    const revised = kind === "username" ? "revisedusername" : "Revised";
+    fireEvent.change(currentField(kind), { target: { value: revised } });
+    expect(currentField(kind).value).toBe(revised);
+    fireEvent.submit(form);
+    await waitFor(() => expect(transport.requests).toHaveLength(2));
+    expect(transport.requests[1]!.input).toMatchObject(fence);
+    await act(async () => transport.requests[1]!.reject("Review queued", "FORBIDDEN", "approval-revised"));
+    await waitFor(() => expect(client.isMutating()).toBe(0));
+    expect(screen.getByText(en.approvals.queuedBody)).toBeTruthy();
+    expect(screen.queryByText(en.accountProfile.sectionSaved)).toBeNull();
+    expect(currentField(kind).matches(":disabled")).toBe(false);
+    expect(transport.fetch).not.toHaveBeenCalled();
+    expect(transport.invalidate).not.toHaveBeenCalled();
+    expect(transport.routerRefresh).not.toHaveBeenCalled();
+  },
+);

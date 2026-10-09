@@ -36,6 +36,28 @@ describe("immutable approval presentation", () => {
         expect(messages.approvals.review.operations).toHaveProperty(key);
     }
   });
+  it("compares settings and management roles without presenting concurrency evidence as edits", () => {
+    const settings = approvalReview(
+      "program.setTimeZone",
+      { timeZone: "Asia/Shanghai", expectedTimeZone: "UTC" },
+      { programSettings: { id: "program", timeZone: "UTC" } },
+    );
+    expect(settings.changes).toEqual([
+      { key: "timeZone", before: "UTC", requested: "Asia/Shanghai", hasBefore: true },
+    ]);
+    expect(approvalReview("admin.setUserRole", { userId: "person", role: "ADMIN", confirmPassword: "secret" }, {
+      User: [{ record: { id: "person", role: "COORDINATOR" } }],
+    }).changes).toEqual([
+      { key: "role", before: "COORDINATOR", requested: "ADMIN", hasBefore: true },
+    ]);
+  });
+  it("matches the requested language in immutable language visibility evidence", () => {
+    expect(approvalReview("i18n.setLanguageEnabled", { code: "zh", enabled: false }, {
+      languages: [{ code: "en", enabled: false }, { code: "zh", enabled: true }],
+    }).changes.find(({ key }) => key === "enabled")).toEqual({
+      key: "enabled", before: true, requested: false, hasBefore: true,
+    });
+  });
   it("compares only submitted fields against the exact target and separates unchanged values", () => {
     const model = approvalReview(
       "admin.updateRoom",

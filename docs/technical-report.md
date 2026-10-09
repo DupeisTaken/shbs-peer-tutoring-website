@@ -182,6 +182,12 @@ Focused regressions live in `src/app/(admin)/admin/users`, `src/lib/user-filters
 
 ### Shared UI patterns
 
+Management editors distinguish `canEdit` (permission to prepare a proposal) from `canApply`
+(direct authority). Admin-sensitive editors retain drafts and show the approval link after
+submission; Coordinator-sensitive controls are read-only. The same operation classification
+governs submission, reviewer eligibility and replay. See the
+[responsibility matrix](program-reference.md#management-responsibilities-and-review).
+
 The [named action review](../src/app/_components/ui/action-review.tsx) composes
 `Modal`, `Button` and `InlineNotice` for destructive management records. Each
 feature supplies its unchanged mutation payload, a read-only refresh callback and
@@ -212,7 +218,7 @@ Each of those handlers uses `invalidateAndReport` to report actual read failures
 
 Discipline review and attendance correction also register their own writes inside table details. Their notes and correction fields freeze with dismissal while saving, and queued approvals retain the draft with an explicit pending-approval message. Background refreshes preserve each draft's expected version; explicit successful Reload replaces it. Attendance correction collapses only after an applied write has synchronized and settled.
 
-Account name and Head-only username Reloads exclude their own Save immediately through refs as well as disabled form fields. A failed read preserves the draft, version and mutation error; a successful explicit read adopts only the matching account. These reads never register as dialog writes, so Close/Escape remains available. Username writes keep their existing live Head authority, audit and server-version checks.
+Account name and management username Reloads exclude their own Save immediately through refs as well as disabled form fields. A failed read preserves the draft, version and mutation error; a successful explicit read adopts only the matching account. These reads never register as dialog writes, so Close/Escape remains available. Username writes keep their existing live Head authority, audit and server-version checks.
 
 Explicit Reload in discipline review and the account name/username editors bypasses the normal 30-second query freshness window. A still-fresh cached list cannot clear a conflict or replace the draft; the requested server read must succeed first.
 
@@ -373,7 +379,7 @@ automatic-allocation policy; an explicitly assigned existing handle remains vali
 
 ### Head username editing
 
-In **Users & Roles → Edit profile**, Head can save a username for any login account, including their own. Use 1–64 ASCII letters or digits; surrounding whitespace is trimmed and letters are lowercased. Taken usernames in either the login or tutor roster are rejected. The linked tutor is updated atomically, so the old handle no longer signs in. Email sign-in, passwords, IDs, badges and history remain unchanged. Ordinary roster name edits retain the username. Admins and coordinators cannot rename accounts. Saves record the actor and old/new handles and refresh the account list and current header. An unchanged save is a no-op; stale profile versions require explicit **Reload**. After a successful save, the section automatically reads its current username and profile version, then allows another explicit Save in the same dialog. Other sections retain their drafts and version snapshots.
+In **Users & Roles → Edit profile**, Head can save a username for any login account, including their own. Use 1–64 ASCII letters or digits; surrounding whitespace is trimmed and letters are lowercased. Taken usernames in either the login or tutor roster are rejected. The linked tutor is updated atomically, so the old handle no longer signs in. Email sign-in, passwords, IDs, badges and history remain unchanged. Ordinary roster name edits retain the username. Admins may submit username changes for Head review; Coordinators cannot submit them. Saves record the actor and old/new handles and refresh the account list and current header. An unchanged save is a no-op; stale profile versions require explicit **Reload**. After a successful save, the section automatically reads its current username and profile version, then allows another explicit Save in the same dialog. Other sections retain their drafts and version snapshots.
 
 ## Approval transactions
 
@@ -385,10 +391,10 @@ Successful additional-qualification decisions invalidate the affected tutor's `t
 
 The tutor's qualification history derives status filters and counts from the self-only `qualificationApplication.mine` result. Pending includes interviews; approved, rejected and recalled requests have separate filters. Filter selection and collapse state stay local to the component and survive query refreshes. Collapsing history hides its controls and records while keeping submission, current approvals and recall feedback available.
 
-Classify every management write in the [approval policy](../src/lib/approval-policy.ts). Unknown coordinator operations fail closed. A sensitive coordinator write creates an immutable proposal; it has not applied the change.
+Classify every management write in the [approval policy](../src/lib/approval-policy.ts). Unknown coordinator operations fail closed. An eligible request creates an immutable proposal; it has not applied the change. Coordinators submit daily operations to Admin/Head, while significant settings and staff account/profile/rank edits accept only Admin requests for Head review.
 
 1. Capture validated input, affected records, active period and a fingerprint of review evidence.
-2. Consume the coordinator's confirmation ticket when queuing a ticketed action.
+2. Consume the requester's confirmation ticket when queuing a ticketed action.
 3. Recheck requester/reviewer status, permit self-review only for the active Head and compare current evidence before approval.
 4. Replay the original parser and resolver under reviewer privileges. Ticketed actions require the reviewer's own fresh confirmation.
 5. Commit the domain change, proposal decision, related notifications and decision audit together. Competing reviewers cannot apply a proposal twice.
@@ -402,7 +408,7 @@ Use [database scope](../src/server/db-scope.ts) so helpers participate in the en
 
 Subject willingness UI: `subjectAvailability.mySubjects` loads on dialog open and scopes qualifications, saved grants and intent to the authenticated tutor. Only subjects backed by approved saved grants (direct or inherited) are returned; unqualified or pending-only subjects are hidden without deleting their historical intent. Staff retains the complete catalogue. The tutor editor uses two mutually exclusive pressed-state buttons; absent intent selects neither, and clicking a confirmed choice does not clear it. Aligned subject rows use paired controls with a checkmark as well as theme colour for selection. The dialog opts into a wider layout; existing profile dialogs keep their default width. On narrow screens, choices stack below each subject and retain equal touch-target heights. Save feedback occupies a stable footer slot. `setMine` retains fresh authorization and cannot accept another tutor ID. Confirmed values are refreshed after immediate saves, including staff/detail caches; failed saves do not present optimistic success. The editor registers only its own mutation with `useDialogPending` before query-state returns, keeping dismissal and controls locked until the write and successful refresh work settle. A same-tick submission guard prevents duplicate writes; failure retains the search and confirmed per-subject choices for retry, and inherited dialog work does not latch the editor's busy state. Management card filters use one nullable selection per tutor and mount only inside expanded cards. Pending Review includes open qualification applications without converting them to grants.
 
-Audit events identify actors by stable account ID. Generic mutation summaries record operations without raw passwords or tokens; detailed correction and approval evidence is retained separately. The audit is not a page-access log, and a generic summary does not guarantee that every direct operation and audit insert share one transaction. Review metadata and undo payloads are not exposed to VIEWER accounts.
+Audit events identify actors by stable account ID and current role. The default signed-in mutation boundary commits domain writes and safe before/after evidence atomically; workflows that own their transactions retain their isolation/retry contracts and write evidence inside those boundaries. Failure/denial receipts are independent of rolled-back changes. The audit records actions rather than page access. Review metadata and undo payloads are not exposed to VIEWER accounts.
 
 `admin.auditLogDetail` is an on-demand, live-staff-authorized projection of one
 stored event. It selects recorded metadata, evidence and undo status/time, excluding
@@ -528,7 +534,7 @@ Optional notification delivery adds a signed, 90-day unsubscribe link to HTML an
 
 ### Management registration codes
 
-Registration Codes supports Tutor, Crew, Admin and Coordinator invitations. Every code grants only its displayed role. Head can issue directly; other staff submit a proposal requiring Head approval. Only Head can list, share or revoke Admin/Coordinator codes. The selected role appears in the list, share card and every redemption step after code validation. There is no Head code; leadership transfer remains separate.
+Registration Codes supports Tutor, Crew, Admin and Coordinator invitations. Every code grants only its displayed role. Head can issue directly; Admin can issue Tutor/Crew codes directly (including the legacy omitted-kind Tutor default), but requests Head review for Admin/Coordinator codes. Coordinators can request Tutor/Crew invitations for Head review but cannot request management-role invitations. The input-dependent authority policy preserves Head review of Coordinator proposals while recording direct Admin issuance in the same transactional audit trail. Only Head can list or share Admin/Coordinator codes and apply their revocation; Admin may request Head review of revocation. The selected role appears in the list, share card and every redemption step after code validation. There is no Head code; leadership transfer remains separate.
 
 Admin/Coordinator redemption requires mailbox proof and explicit review. New accounts receive management access without Tutor, Crew, Tutee or Translator participation. Existing primary or verified-secondary email owners retain credentials, identity and participant attachments; the resulting rank is the higher of the existing and invited management ranks. An exclusive Viewer transitions out of Viewer when accepting this authorized upgrade. No code grants Head or demotes a higher rank. Expiry, rate limits, email binding, issuer authority and single use remain enforced, and issuer/recipient history is retained. The additive registration-kind migration preserves outstanding Tutor/Crew invitations. Apply migrations before starting the updated application.
 
@@ -589,7 +595,38 @@ Tutor application submission requires explicit agreement and the current publish
 
 ### Reviewing your own management requests
 
-Admin and Head can review eligible ordinary Management Actions. Only the current active Head can review role/badge changes or their own pending requests. Other reviewers cannot decide their own requests, including after promotion to Admin. Current database permissions apply after promotion, demotion or suspension. Head self-review preserves required notes, consequence confirmations, stale-record checks and atomic application; requester and reviewer audit identities remain recorded even when they match. This exception applies to Management Actions, not participant interview voting or qualification decisions.
+Admin and Head can review eligible daily Management Actions. Only the current active Head can review significant settings, management profile/rank changes, reversals or their own pending requests. Other reviewers cannot decide their own requests, including after promotion to Admin. Current database permissions apply after promotion, demotion or suspension. Head self-review preserves required notes, consequence confirmations, stale-record checks and atomic application; requester and reviewer audit identities remain recorded even when they match. This exception applies to Management Actions, not participant interview voting or qualification decisions.
+
+`classifyApproval` is the common direct/request/reviewer policy. `proposalAuthority` supplies
+live context for payload-dependent restorations, initial versus already-reviewed cards,
+qualification removal and corrections to completed interview/meeting attendance. Central
+authorization runs before proposal creation and resolver gates, then is repeated for the
+requester and reviewer during application. Sensitive proposals require an Admin requester;
+an obsolete Coordinator proposal cannot retain permission after the policy changes.
+Participant badge requests carry a server-created self-service marker and cannot request
+management rank. Notification fanout uses the same reviewer classification and active accounts.
+
+Modern proposal evidence includes an authority-context version and relevant global settings,
+active term and dependent records. Its canonical fingerprint tolerates JSONB object-key order;
+legacy immutable requests retain their original evidence algorithm. Changed evidence fails
+closed. Legacy role-change input strips the original password before persistence and requires
+the Head reviewer's fresh password during replay.
+
+The audit boundary composes database writes and safe before/after evidence in one transaction,
+including helpers that import the shared database. Database-owned workflows retain their
+existing isolation and retry boundaries. Bulk writes retain every captured affected record
+and safe submitted relationship rather than sampling the first fifty rows, so storage and
+transaction work grow with the batch. Safe snapshots use an explicit field allowlist;
+established account/roster contact edits are retained for authorized staff, while observer
+projections mask the details. Management review notes and correction/discipline reasons
+are retained only for explicitly allowed domain models; attendance self-excuses and
+participant appeal bodies remain private. Passwords, invitation/proof codes, credential
+hashes, verification recipients and private message bodies cannot enter fallback evidence.
+Failure/denial receipts are recorded separately from rolled-back changes. Expiry and removal
+helpers write system-attributed evidence within their own transactions. Registration issue,
+redemption and revocation have explicit lifecycle events, including issuance linkage where
+available. External delivery follows commit and cannot turn a committed program change into
+a reported failed write. Credential verification retains its own attempt/consumption boundaries.
 
 ### Username allocation and bounded student backfill
 
@@ -608,7 +645,7 @@ For explicit batches, Head can invoke `admin.backfillStudentUsernames` with `{ u
 transaction, leaves established handles unchanged, records each assignment and rejects other
 roles/unverified accounts. It does not scan or migrate all users automatically. Review the intended
 IDs in Users & Roles before invoking the staff API; repeat with the next explicit batch as needed.
-Only Head's authorized, audited username editor deliberately changes an established handle.
+Only Head application through the authorized, audited username editor or approved Admin proposal deliberately changes an established handle.
 
 `src/server/auth/username.test.ts` exercises real PostgreSQL same-table/cross-table races,
 rename versus allocation, simultaneous backfill, rollback, setup, promotion and canonical mirror
@@ -667,9 +704,9 @@ migrations. New grade reports must still use an offered grade.
 
 See [name-field wording and behavior](design/name-fields.md) for labels and display examples.
 
-Self-service writes own the current authenticated account. ADMIN/HEAD can correct other
-accounts; coordinator corrections follow the same proposal/approval workflow as account
-name edits. Academic and name changes share the account advisory/row lock and
+Self-service writes own the current authenticated account. Head applies staff corrections to other
+accounts; Admin submits corrections for Head review. Coordinators cannot submit staff profile or
+academic corrections. Academic and name changes share the account advisory/row lock and
 `User.profileVersion`; two concurrent edits cannot silently replace one another. Linked
 Tutor grade fields are compatibility mirrors. Historical `Tutee.gradeLevel`, surveys,
 policy/signature snapshots and unrelated names/emails are never rewritten. Roster APIs
@@ -726,7 +763,7 @@ non-retryable failures.
 
 Historical academic evidence lives in `HistoricalAcademicRecord`, linked to exactly one Tutor or Tutee (database check and restrictive foreign keys), independently of User. `HistoricalAcademicCorrection` is an append-only overlay with a unique record/revision, before values, new raw grade/year, evidence, reason, method, actor, approval ID and correction timestamp. Original confirmation evidence is nullable and never inferred from import/correction time. Additional years have distinct stable IDs; legacy roster/enrollment IDs are deterministic and materialize on first correction, an exact-baseline archive restore, or historical tutor reactivation. Reads alone never materialize them. Linking an account does not copy these records into its current AcademicProfile.
 
-`historical-academics.ts` shares website/CSV validation and signs exact previews. Apply takes the username namespace fence, sorted account locks, participant row locks and record locks; it rechecks every fingerprint and live role before appending within one transaction. Fingerprints cover original/latest evidence, source rows, ownership and owner academic versions. Coordinator proposals store named before/after evidence and recheck it in the enclosing approval transaction. Late failures roll back all revisions and audit. Preview uses a read-only POST to keep uploaded evidence out of query URLs. Managers alone can browse correction/audit endpoints; observer roster projections permit only normalized grade/year summaries.
+`historical-academics.ts` shares website/CSV validation and signs exact previews. Apply takes the username namespace fence, sorted account locks, participant row locks and record locks; it rechecks every fingerprint and live role before appending within one transaction. Fingerprints cover original/latest evidence, source rows, ownership and owner academic versions. Admin proposals require Head review, store named before/after evidence and recheck it in the enclosing approval transaction. Late failures roll back all revisions and audit. Preview uses a read-only POST to keep uploaded evidence out of query URLs. Managers alone can browse correction/audit endpoints; observer roster projections permit only normalized grade/year summaries.
 
 The correction screen owns the write and its complete refresh group, with immediate guards for preview and apply. Accepted or queued reviews cannot replay through the same mounted handler. `settleRefreshes` and `invalidateAndReport` retain all matching reads and surface actual cache errors; failed synchronization offers read-only recovery without rebasing independent drafts. Roster responses expose an `enrollmentOriginal` summary separately from the latest correction. Historical display and grade sorting prefer those reports over mutable roster mirrors, preserving nulls. History's original-academics panel uses the same saved baseline; the observer allowlist strips unsupported raw text from both original and corrected summaries.
 

@@ -1,4 +1,5 @@
 import { db } from "~/server/db";
+import { deferUntilCommit } from "~/server/db-scope";
 import { emailSender, isEmailDeliveryAvailable } from "./sender";
 import { emailUrl, notificationDestination } from "./urls";
 import { notificationUnsubscribeUrl } from "./unsubscribe-token";
@@ -17,6 +18,9 @@ const descriptions: Record<string, string> = {
  * SMTP has no exactly-once guarantee: a crash after acceptance may retry, but ordinary concurrent
  * dispatches cannot send the same row. A stable Message-ID further identifies retries. */
 export async function deliverNotifications(limit = 10) {
+  // Defer the entire lease/send/status workflow, otherwise a deferred SMTP call would
+  // mark an outbox row SENT before transport actually accepted it.
+  if (deferUntilCommit(() => deliverNotifications(limit))) return;
   const settings = await db.programSettings.findUnique({
     where: { id: "program" },
   });
