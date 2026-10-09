@@ -133,6 +133,9 @@ vi.mock("~/app/_components/acceptance-records", () => ({
 vi.mock("~/app/_components/patrol-corrections", () => ({
   PatrolCorrections: () => null,
 }));
+vi.mock("~/app/_components/acceptance-records", () => ({
+  AcceptanceRecords: () => null,
+}));
 vi.mock("~/trpc/react", () => ({
   api: {
     useUtils: () => ({
@@ -325,6 +328,9 @@ beforeEach(() => {
   state.history.mockReturnValue({
     data: { current: [], rows: [], more: false },
   });
+  state.accountDetails.mockReturnValue({
+    data: { attached: [], retained: [], membership: null },
+  });
 });
 afterEach(cleanup);
 
@@ -377,6 +383,7 @@ describe("people summary tables", () => {
     expect(within(table).queryByText("Viewer alternate identity")).toBeNull();
     expect(within(table).queryByText(/A very detailed affiliation/)).toBeNull();
     expect(state.history).not.toHaveBeenCalled();
+    expect(state.accountDetails).not.toHaveBeenCalled();
     fireEvent.click(
       within(rowFor(table, "Synthetic Tutor")).getByRole("button", {
         name: en.admin.tutors.account.sendSetup,
@@ -398,7 +405,10 @@ describe("people summary tables", () => {
     expect(
       within(dialog).getByText(/A very detailed affiliation/),
     ).toBeTruthy();
-    expect(state.accountDetails).toHaveBeenCalledWith({ userId: "viewer" });
+    expect(state.accountDetails).toHaveBeenCalledWith(
+      { userId: "viewer" },
+      expect.any(Object),
+    );
   });
 
   it("preserves head-only deletion and the existing password check", () => {
