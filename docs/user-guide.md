@@ -2,7 +2,8 @@
 
 ## Account invitations and sign-in
 
-All website account creation finishes through the shared invitation review at `/register`.
+All website account creation finishes through the shared invitation review at `/register-account`.
+Published `/register` links redirect there and retain their invitation parameters.
 The invitation page, Viewer signup and tutee application remain separate starting points.
 An invitation authorizes a specific task; verified email ownership proves who is accepting it.
 A staff-visible key or a copied invitation code alone cannot sign in as its recipient.
@@ -13,7 +14,7 @@ A staff-visible key or a copied invitation code alone cannot sign in as its reci
 | Tutee request | Submit the full request and policy agreement, then verify the emailed code. The existing email link remains usable. | The invitation popup continues to shared account review; confirmation preserves original submission priority and assignment remains separate. |
 | Public Viewer request | Submit details and verify the initial email code, then open the invitation popup. | A new address creates a read-only Viewer after review; an existing account signs in and continues without adding Viewer or changing membership. |
 | Public Crew application | Submit details and verify the mailbox to send the application for staff review. After approval, verify the mailbox again to retrieve its invitation popup. | Shared account review creates missing credentials or adds approved Crew participation to the existing account; email verification alone grants no access. |
-| Historical tutee invitation | Verify the exact invited email, then continue from the invitation receipt popup to `/register`. | Create/use credentials, then separately review and choose **Link My History** for the exact record. No current participation is added. |
+| Historical tutee invitation | Verify the exact invited email, then continue from the invitation receipt popup to `/register-account`. | Create/use credentials, then separately review and choose **Link My History** for the exact record. No current participation is added. |
 | Accountless tutor setup sent by Head | Receive a Tutor invitation. | The roster remains accountless until its recipient accepts; no placeholder login is created by sending mail. |
 
 The invitation page opens with one centered code field and a full-width **Continue** button.
@@ -119,6 +120,17 @@ Sign In names the invitation and viewer routes separately. The invitation and vi
 
 After the initial code card, registration shows numbered steps and focuses the new step heading. Use **Back** or **Edit Identity** before verification to correct earlier details. Editing clears current verification evidence and requires verification again; other entries remain while you stay on the page. A different invitation starts a fresh account review. Staff keys bound to an email keep that email read only. Use the original request's resend action if verification mail is missing or evidence expires. Browser navigation works normally; leaving or refreshing can discard unsaved entries. Existing signed-in recipients can use **Add access** in the account menu or Account Settings to enter a code and review its authorized addition.
 
+### Previewing applications outside recruitment
+
+The tutor application and tutee request are separate forms with separate recruitment periods. When a period has not started, has ended, is paused, or is awaiting setup, you can still read the questions and any published policy. The response fields and submission button are disabled. Return when recruitment opens to complete your application. Any additional sheet link is supplied by the team for viewing; it is not a list of other participants' responses.
+
+### Retrying public signup
+
+If signup asks you to wait, keep your form open and retry after the displayed
+interval. Tutee resends preserve your original submission time and place. A failed
+email does not mean you need to submit a new survey. Contact the team if delivery
+continues to fail. Existing emailed verification links remain independently usable.
+
 ### Switch workspaces
 
 Management headers and account menus show **Enter Tutor Page**, then **Enter Tutee Page** together when eligible. The tutor shortcut requires a linked, non-archived profile with tutoring access. Tutee workspace access preserves personal records, while new participation follows the onboarding and departure rules above. Management accounts without tutor eligibility can still open the tutee workspace and return to management.
@@ -200,7 +212,7 @@ Open **Requests → Participation → Request withdrawal…**. The button names 
 
 Use **My Tutors & Schedule** for current assignments, **Attendance** for recorded sessions and feedback, and **Support** for disciplinary cards and appeals. Records remain linked to your account across new intakes and verified email changes.
 
-For imported or earlier enrollments, open **My Tutoring History** in the account menu, then **View History**. This includes retained tutor evidence already owned by your account, even when participation access is revoked. If records are missing, ask staff to review the exact record. Accountless alumni can use a staff-reviewed historical tutee invitation: **Create history-only account → verify email code → invitation popup → shared account review at `/register` → Link My History**. The popup supports copying the code, optional email delivery and a prefilled continuation link. No current tutoring request, grade or participation agreement is required to read owned history. Existing logins use sign-in/password recovery; unavailable old email requires staff identity review and a replacement invitation. Head handles ownership conflicts and genuine duplicate accounts. See [historical record access](historical-participant-transition.md#invite-an-alumnus-without-a-login).
+For imported or earlier enrollments, open **My Tutoring History** in the account menu, then **View History**. This includes retained tutor evidence already owned by your account, even when participation access is revoked. If records are missing, ask staff to review the exact record. Accountless alumni can use a staff-reviewed historical tutee invitation: **Create history-only account → verify email code → invitation popup → shared account review at `/register-account` → Link My History**. The popup supports copying the code, optional email delivery and a prefilled continuation link. No current tutoring request, grade or participation agreement is required to read owned history. Existing logins use sign-in/password recovery; unavailable old email requires staff identity review and a replacement invitation. Head handles ownership conflicts and genuine duplicate accounts. See [historical record access](historical-participant-transition.md#invite-an-alumnus-without-a-login).
 
 - Submit feedback for one of your recorded sessions. The portal explains whether management has enabled sharing with that session’s tutor. Feedback is management-only by default; a later visibility change also affects earlier feedback.
 - Appeal your own card once, by the end of the **fifth school day** after its recorded issue date in the program timezone. Holidays and make-up days follow the school calendar maintained by staff. A pending appeal does not invalidate the card or suspend its effects.
@@ -283,7 +295,7 @@ For a student enrolled outside the survey flow, the tutor can relay the student'
 - If an assigned tutee’s availability cannot work, submit a reasoned schedule-rejection request. The assignment continues until approval.
 - Submit or cancel your own meeting excuse at least **60 minutes** before the start. The first three unexcused tutor-meeting absences in a semester have no automatic deduction; each further one deducts **0.25 hours**. Excused absences do not consume this allowance. Staff-recorded statuses require staff correction.
 - On an interview panel, review the application and submit your own vote. Every panelist must vote before a final decision. The majority decides; a tie is resolved by the selected highest-ranking management chair.
-- A coordinator chair’s outcome goes to Head for approval. The reviewer preserves the chair’s decision and identity. Hours are earned from recorded interview completion and attendance, not scheduling alone.
+- For an initial tutor application, a chair who is not Head submits the outcome for Head approval. The reviewer preserves the chair’s decision and identity. Hours are earned from recorded interview completion and attendance, not scheduling alone.
 
 Read addressed announcements and acknowledge them when prompted. Review session hours, interview credits, meeting deductions and manual adjustments in your period totals. See the [tutor policy draft](../prisma/policies/tutor-policy.en.md) or [中文辅导伙伴政策草案](../prisma/policies/tutor-policy.zh.md); follow the school's published version when participating.
 
@@ -291,7 +303,7 @@ Read addressed announcements and acknowledge them when prompted. Review session 
 
 Apply at `/crew-signup` and verify the emailed code. Verification sends the application for staff review; it creates no login or crew membership. An application under review keeps its original answers when retried. Contact the team to correct them.
 
-To check an application, enter its email on the same page and verify a fresh mailbox code. Pending and rejected applications show their status without an invitation. Staff approval remains required. An approved application with an available invitation opens the shared receipt popup: copy the code, optionally email it, or continue to `/register` with application details prefilled. A new account creates missing credentials; an existing account reviews the approved Crew addition while keeping its password, identity and other access. Close and reopen the receipt without repeating that mailbox check. If the approval's invitation was revoked, expired or already used, follow the displayed guidance or contact the team; checking status never grants membership. Resending or editing the email requires a new verification code.
+To check an application, enter its email on the same page and verify a fresh mailbox code. Pending and rejected applications show their status without an invitation. Staff approval remains required. An approved application with an available invitation opens the shared receipt popup: copy the code, optionally email it, or continue to `/register-account` with application details prefilled. A new account creates missing credentials; an existing account reviews the approved Crew addition while keeping its password, identity and other access. Close and reopen the receipt without repeating that mailbox check. If the approval's invitation was revoked, expired or already used, follow the displayed guidance or contact the team; checking status never grants membership. Resending or editing the email requires a new verification code.
 
 Active crew members use **Patrol** to record each visited room once with the actual observation time and student headcount: 0, 1, 2, 3 or 4+. Submit at least one observation. Observation times cannot be in the future; a one-minute allowance accommodates differences between your device clock and the server. This also applies to management corrections. An eligible sweep earns **0.5 crew service hours**, separately from tutoring credit, at most once every **20 minutes per crew member**, measured by the server. All observations must be from the last 20 minutes (with the same one-minute clock allowance). Older observations and additional sweeps during the cooldown are still saved with **0 hours**, and the success message states that no hours were added. A long sweep or offline submission with any observation older than 20 minutes therefore retains its evidence but receives no automatic credit; do not change observation times to claim freshness. A sweep reserves every 20-minute observation interval it covers, across all rooms; changing notes, counts or a request key does not reopen those intervals. An identical retry returns the original record. Combined-account history shares the same allowance; corrections retain hours and prevent reuse of both original and corrected evidence. Report mistakes to management with enough context to identify the record. Historical patrol corrections require a reason and audit evidence; Admin and eligible Coordinator corrections wait for Head approval.
 
@@ -328,7 +340,7 @@ Reviewers enter **Your decision note (required)** before either decision. **Appr
 Apply ordinary daily operations directly and review Coordinator requests. For significant program
 settings, staff profile/academic/username edits, roles and reversals, use **Request Head review**.
 No live change occurs until Head applies it. Requests notify every eligible reviewer. Registration
-codes for Tutor and management roles also need Head authority before issuance. A queued message is
+codes for Tutor/Crew may be issued directly by Admin; management codes require Head approval. A queued message is
 distinct from **Changes saved**; follow its request link to see the decision and audit evidence.
 
 ### Review a coordinator change
@@ -340,6 +352,34 @@ distinct from **Changes saved**; follow its request link to see the decision and
 5. Check the applied state and audit link. If the target changed, reject and request a fresh proposal. If application fails, the request remains pending; do not report it as approved.
 
 Use the request state and **Requested by** filters to find proposals; the coordinator’s **My Approval Requests** shows their own history. **All Requests** returns from a detail to the queue. Requester labels retain readable identities even when an account has been removed. Only the current active Head may review their own proposal. Other reviewers cannot, including after promotion to Admin. A coordinator interview chair remains the author of their proposed outcome. A failed email after a successful assignment does not undo that assignment; use the link resend control and investigate delivery.
+
+### Reviewing your own management requests
+
+Admin and Head can review eligible ordinary Management Actions. Only the current active Head can review significant settings, staff profiles/roles/badges, code grants and reversals, or their own pending requests. Other reviewers cannot decide their own requests, including after promotion to Admin. Current database permissions apply after promotion, demotion or suspension. Head self-review preserves required notes, consequence confirmations, stale-record checks and atomic application; requester and reviewer audit identities remain recorded even when they match. This exception applies to Management Actions, not participant interview voting or qualification decisions.
+
+### Significant settings and pending requests
+
+Program intake timing and preview links, staged modules and refresh, CAPTCHA, program email delivery, secondary-email binding, name/grade policy, signup requirements, school calendar, feedback sharing, policy publication, language visibility/order/deletion and messaging contact permissions require Head application. Admin can submit supported requests; Coordinators have read-only controls. Creating an untranslated language catalog retains the separate explicit Translator capability and does not publish it.
+
+A settings request leaves the effective switch, schedule and policy version unchanged. The editor shows a pending review status rather than a saved confirmation. Failed writes and queued requests preserve the original draft; use an explicit successful Reload to replace stale evidence. Approved module switches still take effect at program refresh. Requests notify every currently eligible reviewer once.
+
+### Configure signup forms
+
+Open **Management → Signup Forms** and choose Tutor signup or Tutee signup. Head and Admin can open **Configure** beside an existing field and choose Required, Optional, or Hidden. Head applies directly; Admin uses **Request Head Approval**, preserving the draft and live settings until approval. Coordinators can review settings but cannot submit them. Applied changes affect new submissions, including a form opened before the change; reload that form if validation reports changed requirements. Existing submissions and their original answers remain unchanged.
+
+Name, sign-in email, the first subject and policy acceptance are locked as visible and required. Additional subject choices can be configured independently, without reordering or adding fields. Required qualification questions ask for an explicit Yes or No, not a positive qualification. Grade, AP score and self-study details are required only when their visible parent answer is Yes; AP questions apply only to AP-scored subjects. Hidden questions and their dependent details cannot block submission.
+
+Visible fields show translated **Required** or **Optional** text beside the label. On the tutee form, hover, focus or tap the email label to read its guidance; Escape or an outside interaction closes it.
+
+Program secondary-email binding settings do not disable the required sign-in email. These forms contain no secondary-email field; additional addresses are managed after account setup, subject to the program switch. The configuration popup supports keyboard navigation, Escape to cancel, and returns focus to Configure when closed.
+
+### Names and academic details
+
+Profiles and signup forms have **First Name**, **Last Name**, **Preferred Name** and **Name in Another Language**. First, last and preferred names use Latin letters, including accents; spaces, apostrophes and hyphens are accepted. Name in Another Language accepts other writing systems. Required/Optional markers show each form's requirements. Existing unsplit names remain visible until the person or staff supplies explicit fields; the system never guesses a split.
+
+In **Program → Names and Grades**, Head can apply **Use preferred names** and **Show names in another language** independently; Admin can draft each choice and request Head approval. The first setting uses Preferred Name instead of First Name, retaining Last Name; when blank, it falls back to First Name. The second appends the additional name when supplied. A live example previews the result. Turning either setting off retains the saved text. Coordinators can view these settings. Display changes apply to current profiles and rosters; historical submissions, signatures and audit snapshots retain their original names. Usernames do not change. If Head applies another change while a settings draft is open, explicitly reload and review before resubmitting. The same section controls offered grades (at least one of Grades 1–12).
+
+**Use preferred names** is on by default, while **Show names in another language** defaults off. Upgrades enable preferred names when no administrator has saved the name-display settings, and preserve administrator choices recorded in the audit history. Head can apply the setting here; Admin can request Head approval. An empty preferred name uses the saved First Name and Last Name as the fallback.
 
 ### Find records and confirm saves
 
@@ -398,6 +438,12 @@ be deleted or restored; combining an already combined account requires a reviewe
 data migration. Accounts with school-departure history, including reviewed returns,
 also require a reviewed data migration that preserves departure decisions and access
 revocations. Original identifiers are never assigned to another person.
+
+### Past tutor records and unlinked profiles
+
+Current-work tutor lists hide Archived and Graduated records by default. Use **Show past tutors** in the Tutors roster, Attendance tutor filter, Hour Adjustments selector, the Tutees tutor view or an expanded Meeting attendance editor when you need them. Hiding past tutors keeps an already selected tutor visible. Existing pairings and recorded meeting attendance retain their tutor names; historical reports and summaries retain all records. Assignment selectors continue to enforce their existing Active-tutor eligibility rules; revealing a record does not make it eligible.
+
+In **Users & Roles**, use **Show historical records** and choose **Edit profile** on an unlinked tutor row. Head can correct First Name, Last Name, Preferred Name, Name in Another Language, email and grade in the same editor used by the Tutors roster; Admin can submit those changes for Head approval. Coordinators can inspect roster details but cannot open profile editing controls. Head can also correct its username; the shared username rules and uniqueness checks apply. Profile edits and status changes submitted by Admin retain Head review. Saving leaves the record unlinked and preserves its selected status: it does not invite, create a login or reactivate the tutor. After saving a valid email, the same row enables **Send setup link**, which remains a separate action. Identifier conflicts and stale edits show an error. Linked account email changes continue through verified account settings.
 
 ### Link historical tutor records
 
@@ -540,19 +586,23 @@ If you need a different role or access to your own participation record, request
 
 ## Translators
 
-Translator access requires an explicit HEAD-approved assignment, even for management accounts. **Translations** opens the integrated editor: **Interface text**, **Website text**, and **Draft review**. Management without Translator assignment can review drafts. ADMIN/HEAD also have a **Languages** tab to show/hide languages in the public selector, move them up/down, and remove custom languages. These controls do not require Translator assignment; English remains enabled as the fallback. Assigned translators use the same tab to add languages, which start hidden until ADMIN/HEAD enables them. Choose the correct language and destination, preserve meaning, and submit for review. Interface text submits when focus leaves a changed field; website text has an explicit submission button.
+Translator access requires an explicit HEAD-approved assignment, even for management accounts. **Translations** opens the integrated editor: **Interface text**, **Website text**, and **Draft review**. Management without Translator assignment can review drafts. ADMIN/HEAD also have a **Languages** tab to show/hide languages in the public selector, move them up/down, and remove custom languages. These controls do not require Translator assignment; English remains enabled as the fallback. Assigned translators use the same tab to add languages, which start hidden until Head enables them. Head applies language visibility, ordering and deletion; Admin requests Head review. Choose the correct language and destination, preserve meaning, and submit for review. Interface text submits when focus leaves a changed field; website text has an explicit submission button.
 
 Translator and Coordinator edits create private drafts, including all five text destinations. Only ADMIN/HEAD can approve and publish or reject a draft. Coordinators can **Request Admin/Head approval**, which leaves the draft pending. ADMIN/HEAD with an explicit Translator assignment may also publish their own direct edits; the editor identifies these as live changes. Filter draft review by pending, published, rejected or all drafts. Historical drafts remain available, and old review bookmarks open this editor. If the destination changes before approval, submit a fresh draft against the current text. Translator assignment does not permit structural page deletion, account administration or unilateral policy publication. Policy translations require the separate [policy review process](policies/README.md).
 
 ## Account settings and private support
 
-Use **Account Settings** to edit your First Name, Last Name, Preferred Name and Name in Another Language, change your password or request a verified email change. Program settings determine how saved names appear; see [name fields and display settings](#configure-signup-forms). Current explicitly linked tutor/tutee profiles share those names; signed agreements and submitted survey records retain their original text. Editing a contact field is not email verification. Keep account links and codes private. If email delivery is unavailable, contact management; a success message from another action does not prove an email arrived.
+Use **Account Settings** to edit your First Name, Last Name, Preferred Name and Name in Another Language, change your password or request a verified email change. Program settings determine how saved names appear; see [name fields and display settings](#names-and-academic-details). Current explicitly linked tutor/tutee profiles share those names; signed agreements and submitted survey records retain their original text. Editing a contact field is not email verification. Keep account links and codes private. If email delivery is unavailable, contact management; a success message from another action does not prove an email arrived.
 
 **Add access** appears in the account menu and Account Settings. It opens `/register` to accept an invitation for the signed-in account. Review the exact authorized access before accepting; entering or inspecting a code does not grant it. Existing credentials, identity, participant history and other access are preserved, subject to the exclusive Viewer transition. Management upgrades never lower an existing rank. Switching accounts and verifying email remain distinct requirements; participation grants also retain policy and school departure checks. School departure alone does not block an authorized management rank upgrade.
+
+An invitation can finish creating or linking a login while an old or conflicting academic report still needs confirmation. The completion screen directs you to **Account Settings → Academic Details**. After confirming, tutors complete the normal dashboard activation; crew members request reentry from the crew workspace. Crew access remains opted out until that request is approved. Previously inactive crew accounts remain inactive and need staff restoration. Optional unknown or nonstandard grades do not prevent participation. An explicit conflict with a previous **Not Applicable** report does require review.
 
 **Academic Details** is shared across Account Settings, tutor Settings and staff **Edit Profile** dialogs. It is available to tutees, tutors, crew, management and accounts with multiple participation types. Choose **Review Academic Details** or **Edit Academic Details**, select one of the program’s offered grades, then confirm. The current program school year is filled automatically and cannot be edited. This is self-reported information: participants can correct their own records. Head corrects other accounts directly. Admin requests Head approval for staff corrections; Coordinators cannot submit account academic edits. Confirmation History records the reported values, date, source and optional correction context.
 
 Expected graduation is the reference school year's ending year plus the remaining grades through Grade 12. For example, Grade 10 in `26-27` gives 2029. It is an estimate, not a separate editable graduation field. Grades do not advance automatically: after a gap, repeated year or new school year, confirm the grade that actually applies in the current program school year. Stale or imported values are marked for review. Choose **Unknown** when the grade is not known; an imported original grade can still be retained without a graduation estimate. Choose **Graduated** when the student has completed school, or **Not Applicable** for a non-student account. Graduated is an academic detail and does not change tutor participation status.
+
+A form opened before a school-year rollover requires a reload before confirmation. When no current year is configured, staff must set the program period before a reported grade can be confirmed; unknown and not-applicable reports remain available.
 
 Staff **Edit Profile** dialogs show grade, reference year and expected graduation together, independently of tutor participation; tutor and tutee rosters use the same canonical account information. A roster record without an account retains its original unconfirmed grade. Academic saves preserve usernames, participation, signed agreements and historical survey answers. An account without a username explicitly shows **Username not assigned**. If another edit changes the profile while a draft is open, review the conflict and deliberately reload before retrying; unsaved drafts are not silently replaced.
 
@@ -560,7 +610,7 @@ Current account roster cells summarize unknown or unconfirmed grades as **Unknow
 
 For period-specific history, management uses **Academic Corrections** to edit selected records or upload a validated correction CSV. Both show the same before/after preview, retain original evidence and reject stale changes. Head applies whole batches; Admin requests Head approval. Coordinators cannot submit historical academic batches. Historical correction dates and reference years are separate from current academic confirmations. Follow the [historical correction procedure](historical-participant-transition.md#correct-historical-academics) for identifiers, CSV limits, provenance and recovery.
 
-The profile section places **Save profile** and **Cancel** after both name fields. Save applies both fields together; Cancel restores their last loaded values. Saving disables this section while it is pending, and a failed save keeps the draft visible for correction or retry. Password, email and membership controls have their own actions and are not submitted by Save profile.
+The profile section places **Save profile** and **Cancel** after the name fields. Save applies all name fields together; Cancel restores their last loaded values. Saving disables this section while it is pending, and a failed save keeps the draft visible for correction or retry. Password, email and membership controls have their own actions and are not submitted by Save profile.
 
 Changing or resetting your password signs out every existing session, including the browser making the change. Account Settings and tutor Settings return you to Sign In; use your new password. Other browsers require sign-in on their next request. Your account, permissions and tutoring history remain. This update also requires one fresh sign-in for sessions created before session revocation was introduced. Existing email two-factor requirements remain in effect.
 
@@ -636,51 +686,3 @@ For a private account, disciplinary or attendance matter, contact management thr
 Use synthetic examples and remove tutee names, contact details, private messages, account links and codes from public reports. [Creating issues](issues.md) explains what information is useful.
 
 [Documentation home](README.md) · [Technical report](technical-report.md) · [Policy drafts](policies/README.md)
-
-## Configure signup forms
-
-Open **Management → Signup Forms** and choose Tutor signup or Tutee signup. Head and Admin can open **Configure** beside an existing field and choose Required, Optional, or Hidden. Head applies directly; Admin uses **Request Head Approval**, preserving the draft and live settings until approval. Coordinators can review settings but cannot submit them. Applied changes affect new submissions, including a form opened before the change; reload that form if validation reports changed requirements. Existing submissions and their original answers remain unchanged.
-
-Name, sign-in email, the first subject and policy acceptance are locked as visible and required. Additional subject choices can be configured independently, without reordering or adding fields. Required qualification questions ask for an explicit Yes or No, not a positive qualification. Grade, AP score and self-study details are required only when their visible parent answer is Yes; AP questions apply only to AP-scored subjects. Hidden questions and their dependent details cannot block submission.
-
-Visible fields show translated **Required** or **Optional** text beside the label. On the tutee form, hover, focus or tap the email label to read its guidance; Escape or an outside interaction closes it.
-
-Program secondary-email binding settings do not disable the required sign-in email. These forms contain no secondary-email field; additional addresses are managed after account setup, subject to the program switch. The configuration popup supports keyboard navigation, Escape to cancel, and returns focus to Configure when closed.
-
-### Reviewing your own management requests
-
-Admin and Head can review eligible ordinary Management Actions. Only the current active Head can review significant settings, staff profiles/roles/badges, code grants and reversals, or their own pending requests. Other reviewers cannot decide their own requests, including after promotion to Admin. Current database permissions apply after promotion, demotion or suspension. Head self-review preserves required notes, consequence confirmations, stale-record checks and atomic application; requester and reviewer audit identities remain recorded even when they match. This exception applies to Management Actions, not participant interview voting or qualification decisions.
-
-### Previewing applications outside recruitment
-
-The tutor application and tutee request are separate forms with separate recruitment periods. When a period has not started, has ended, is paused, or is awaiting setup, you can still read the questions and any published policy. The response fields and submission button are disabled. Return when recruitment opens to complete your application. Any additional sheet link is supplied by the team for viewing; it is not a list of other participants' responses.
-
-An invitation can finish creating or linking a login while an old or conflicting academic report still needs confirmation. The completion screen directs you to **Account Settings → Academic Details**. After confirming, tutors complete the normal dashboard activation; crew members request reentry from the crew workspace. Crew access remains opted out until that request is approved. Previously inactive crew accounts remain inactive and need staff restoration. Optional unknown or nonstandard grades do not prevent participation. An explicit conflict with a previous **Not Applicable** report does require review.
-
-Profiles and signup forms have **First Name**, **Last Name**, **Preferred Name** and **Name in Another Language**. First, last and preferred names use Latin letters, including accents; spaces, apostrophes and hyphens are accepted. Name in Another Language accepts other writing systems. Required/Optional markers show each form's requirements. Existing unsplit names remain visible until the person or staff supplies explicit fields; the system never guesses a split.
-
-In **Program → Names and Grades**, Head can apply **Use preferred names** and **Show names in another language** independently; Admin can draft each choice and request Head approval. The first setting uses Preferred Name instead of First Name, retaining Last Name; when blank, it falls back to First Name. The second appends the additional name when supplied. A live example previews the result. Turning either setting off retains the saved text. Coordinators can view these settings. Display changes apply to current profiles and rosters; historical submissions, signatures and audit snapshots retain their original names. Usernames do not change. If Head applies another change while a settings draft is open, explicitly reload and review before resubmitting. The same section controls offered grades (at least one of Grades 1–12).
-
-**Use preferred names** is on by default, while **Show names in another language** defaults off. Upgrades enable preferred names when no administrator has saved the name-display settings, and preserve administrator choices recorded in the audit history. Head can apply the setting here; Admin can request Head approval. An empty preferred name uses the saved First Name and Last Name as the fallback.
-
-Academic confirmation uses the current program year and calculates graduation from that year and the selected grade. There is no separate editable year or graduation field. A form opened before a school-year rollover requires a reload before confirmation. When no current year is configured, staff must set the program period before a reported grade can be confirmed; unknown and not-applicable reports remain available.
-
-### Retrying public signup
-
-If signup asks you to wait, keep your form open and retry after the displayed
-interval. Tutee resends preserve your original submission time and place. A failed
-email does not mean you need to submit a new survey. Contact the team if delivery
-continues to fail. Existing emailed verification links remain independently usable.
-
-### Past tutor records and unlinked profiles
-
-Current-work tutor lists hide Archived and Graduated records by default. Use **Show past tutors** in the Tutors roster, Attendance tutor filter, Hour Adjustments selector, the Tutees tutor view or an expanded Meeting attendance editor when you need them. Hiding past tutors keeps an already selected tutor visible. Existing pairings and recorded meeting attendance retain their tutor names; historical reports and summaries retain all records. Assignment selectors continue to enforce their existing Active-tutor eligibility rules; revealing a record does not make it eligible.
-
-In **Users & Roles**, use **Show historical records** and choose **Edit profile** on an unlinked tutor row. Head can correct First Name, Last Name, Preferred Name, Name in Another Language, email and grade in the same editor used by the Tutors roster; Admin can submit those changes for Head approval. Coordinators can inspect roster details but cannot open profile editing controls. Head can also correct its username; the shared username rules and uniqueness checks apply. Profile edits and status changes submitted by Admin retain Head review. Saving leaves the record unlinked and preserves its selected status: it does not invite, create a login or reactivate the tutor. After saving a valid email, the same row enables **Send setup link**, which remains a separate action. Identifier conflicts and stale edits show an error. Linked account email changes continue through verified account settings.
-
-
-### Significant settings and pending requests
-
-Program intake timing and preview links, staged modules and refresh, CAPTCHA, program email delivery, secondary-email binding, name/grade policy, signup requirements, school calendar, feedback sharing, policy publication, language visibility/order/deletion and messaging contact permissions require Head application. Admin can submit supported requests; Coordinators have read-only controls. Creating an untranslated language catalog retains the separate explicit Translator capability and does not publish it.
-
-A settings request leaves the effective switch, schedule and policy version unchanged. The editor shows a pending review status rather than a saved confirmation. Failed writes and queued requests preserve the original draft; use an explicit successful Reload to replace stale evidence. Approved module switches still take effect at program refresh. Requests notify every currently eligible reviewer once.

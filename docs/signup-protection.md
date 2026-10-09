@@ -18,9 +18,9 @@ first admission, not monthly traffic estimates. Values below cover these public 
 | --- | --- | --- |
 | `SIGNUP_MAIL_GLOBAL` | 400 | Submit / resend attempts per 15 minutes, all networks |
 | `SIGNUP_MAIL_NETWORK` | 300 | Submit / resend attempts per 15 minutes, one network |
-| `SIGNUP_COMPLETE_GLOBAL` | 2000 | Confirmation / inspection / viewer verify / complete per 15 minutes |
+| `SIGNUP_COMPLETE_GLOBAL` | 2000 | Tutee confirmation / inspection, Viewer verification / completion and Crew mailbox verification per 15 minutes |
 | `SIGNUP_COMPLETE_NETWORK` | 1200 | Same, one network |
-| `SIGNUP_READ_GLOBAL` | 6000 | Public tutee options and policy reads per 15 minutes |
+| `SIGNUP_READ_GLOBAL` | 6000 | Tutee options/policies, public CAPTCHA configuration and Crew application status reads per 15 minutes |
 | `SIGNUP_READ_NETWORK` | 3000 | Same, one network |
 | `SIGNUP_RESEND_SECONDS` | 60 | Minimum interval between mail-producing attempts for one normalized email |
 
@@ -31,10 +31,10 @@ availability guarantees: an attacker can intentionally exhaust a global budget.
 Tune using actual admissions and legitimate peak demand. Invalid overrides fail
 closed. Restart the application after changing environment limits.
 
-Before sessions or JSON parsing, HTTP requests allow at most 20 tRPC operations,
-32 KiB bodies for batches containing protected routes, a 32 KiB query string, and
-a five-second body deadline. Other API bodies allow 32 MiB to retain existing
-record-transfer capacity. A process accepts at most 32 concurrent HTTP requests.
+Before sessions or JSON parsing, tRPC HTTP requests allow at most 20 operations,
+32 KiB bodies for batches containing signup-protected public procedures, a 32 KiB query string, and
+a five-second body deadline. Other tRPC request bodies allow 32 MiB to retain existing
+record-transfer capacity. A process accepts at most 32 concurrent tRPC HTTP requests.
 Each public operation in a batch counts separately, including malformed input.
 Three independent memory burst stores permit 240 operations/network/minute and
 600 globally/minute, with at most 2048 keys each; unknown keys fail closed at

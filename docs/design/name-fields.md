@@ -34,8 +34,8 @@ Supporting text: **These settings change how names are shown. They do not remove
 
 **Use preferred names** defaults on for new or unconfigured programs; **Show names in
 another language** defaults off. Upgrades enable untouched preferred-name defaults
-and preserve audited administrator choices, including off. An administrator can
-change the setting for an existing program in this section.
+and preserve audited administrator choices, including off. Head applies changes
+in this section; Admin can request Head review, and Coordinators can inspect settings.
 
 “Use” makes the replacement behavior explicit. “Show” describes an additional name. Avoid a generic “Display Preferred Name” toggle whose effect on the first and last names is unclear.
 

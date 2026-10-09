@@ -426,7 +426,7 @@ SMTP_PASSWORD="<the SMTP password from step 4>"
 
 | Category | Messages | Dedicated account |
 | --- | --- | --- |
-| `SECURITY` | Account/tutor setup and reset links; sign-in and step-up codes; email changes and binding; registration and viewer verification; account security notices | `EMAIL_SECURITY_FROM`, `SMTP_SECURITY_PASSWORD`, optional `SMTP_SECURITY_USER` |
+| `SECURITY` | Account/tutor setup and reset links; sign-in and step-up codes; email changes and binding; registration, Viewer and Crew mailbox verification; account security notices | `EMAIL_SECURITY_FROM`, `SMTP_SECURITY_PASSWORD`, optional `SMTP_SECURITY_USER` |
 | `PROGRAM` | Student signup confirmation links and already-confirmed reminders; program, information, and private-message notification emails | `EMAIL_PROGRAM_FROM`, `SMTP_PROGRAM_PASSWORD`, optional `SMTP_PROGRAM_USER` |
 
 Viewer registration proves account ownership, so it is security mail. Student signup confirmation
@@ -732,10 +732,13 @@ Restore:
 
 ```bash
 # Rehearse restoration into a NEW disposable database first; never overlay a running database.
-docker compose exec -T db createdb -U "$POSTGRES_USER" shbs_restore_test
-gunzip -c backups/<file>.sql.gz | docker compose exec -T db psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" shbs_restore_test
+docker compose exec -T db sh -c 'createdb -U "$POSTGRES_USER" shbs_restore_test'
+gunzip -c backups/<file>.sql.gz | docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" shbs_restore_test'
 # Check restored records and application behavior before planning a production recovery.
 ```
+
+The quoted commands read `POSTGRES_USER` inside the database container; Compose's
+`.env` interpolation does not export that variable into the host shell.
 
 ## Troubleshooting
 
@@ -768,7 +771,7 @@ The same panel checks SECURITY and PROGRAM SMTP connection/authentication separa
 
 After correcting the transport, ADMIN/HEAD can use **Resend stuck emails** to queue up to 100 oldest eligible failed or retrying notifications for the normal worker. This starts a fresh retry cycle; the result reports how many were queued, not delivered. Active leases, completed/skipped mail and untouched pending mail are excluded. Unconfigured production categories and disabled optional notifications stay excluded; security notices remain independent. The worker rechecks current preferences and recipient ownership before sending and retains each message's existing ID. Repeated or concurrent clicks cannot requeue a row that is already waiting with a fresh retry budget. Each request records an aggregate audit entry. SMTP still cannot guarantee exactly-once delivery across an expired lease or a process failure after acceptance. If queuing succeeds but status refresh fails, use the read-only **Refresh status** recovery rather than submitting the resend again.
 
-Configure and test the real email transport before enabling the immediate ADMIN/HEAD switch. Disabling cancels queued optional notices without discarding preferences; security alerts continue through the same worker, and essential authentication mail remains independent. The optional-email availability migration adds the independent secondary-binding flag (default on) without changing stored addresses or preferences, and updates enqueue rules so security alerts cannot be suppressed. Apply the migration and updated dispatcher together; legacy `emailSecurity` values are retained but no longer control delivery. See [notification controls](program-reference.md#optional-email-notifications) and [personal preferences](user-guide.md#optional-email-notifications).
+Configure and test the real email transport before enabling optional notifications. Head applies switch changes; Admin submits them for Head review. Disabling cancels queued optional notices without discarding preferences; security alerts continue through the same worker, and essential authentication mail remains independent. The optional-email availability migration adds the independent secondary-binding flag (default on) without changing stored addresses or preferences, and updates enqueue rules so security alerts cannot be suppressed. Apply the migration and updated dispatcher together; legacy `emailSecurity` values are retained but no longer control delivery. See [notification controls](program-reference.md#optional-email-notifications) and [personal preferences](user-guide.md#optional-email-notifications).
 
 ## Verify before opening intake
 
