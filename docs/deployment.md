@@ -470,9 +470,22 @@ Pushing to `main` triggers `.github/workflows/docker-build.yml`, which builds an
 `ghcr.io/<owner>/shbs-peer-tutoring-website:latest`.
 
 Only a push or manual dispatch for the `main` ref can publish. Runs for the same pull request or
-ref cancel older runs, and the publish job rechecks that its commit is still the current
-`origin/main` immediately before building and pushing. A superseded run fails closed, so a slower
-older build cannot replace `latest`; the accompanying SHA tag identifies the published revision.
+ref cancel older runs. Static checks, two isolated test shards, and the production image
+build/boot checks run in parallel, followed by the required `verify` gate. Every prerequisite
+must succeed; failed, cancelled or skipped jobs cannot authorize publication.
+
+The image job applies OCI metadata before building and smoke-testing. On publishable runs,
+it saves that image as a one-day artifact. The publishing job downloads that exact artifact
+by ID from the same run, loads it, and checks its image ID against the build output. It does
+not rebuild or export a second build cache. It pushes the SHA tag first, then `latest`,
+rechecking `origin/main` immediately before each push. A stale commit or image mismatch
+fails closed. As with any check followed by a registry write, the remote check and push
+are not atomic; concurrency cancellation also limits superseded runs.
+
+PR runs exercise the full build and smoke checks without uploading the image or publishing.
+Test JSON reports are retained for seven days; use them to investigate failures and shard
+imbalance. If the one-day image artifact has expired, rerun image verification before
+retrying publication. A publish-only retry reuses the original successful image job's artifact.
 
 If the package is private, authenticate the VPS to GHCR once:
 
