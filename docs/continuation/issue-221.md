@@ -1,5 +1,46 @@
 # Continue issue #221: navigation and form recovery
 
+## 2026-10-09 invitation and public-form completion
+
+Official [PR #276](https://github.com/DupeisTaken/shbs-peer-tutoring-website/pull/276)
+completes the remaining public-form acceptance with issue #268. It follows #274
+and #275; close #221 only after the stack is merged. This section supersedes the
+public-work hold in the earlier shared checkpoint and all historical runtime holds.
+
+Application source `7158366` includes consistent invitation guidance in all eight
+languages and shrinkable invitation fieldsets for 200% mobile text. The initial
+112 actual-page states were captured at `3b60671`; 70 real issuance/recovery states,
+six final layout cases and eight CAPTCHA cases use the final application source.
+English/Chinese and 1440/390 px cover new accounts, existing account code sign-in,
+participation review, wrong codes, expired invitations, Back/Edit Identity, resend,
+browser history, disabled pending forms and exact step focus. MFA is completed
+through password plus emailed second factor. A deliberately failed post-save
+session action recovers through sign-in without repeating the account write.
+
+The separate database audit verifies 33 outcomes: preserved existing identity,
+password and role, one completed receipt, recipient verification, explicit historical
+claim preserving old grade/term/status, and retained MFA. A fixture's redundant
+display-name expectation was corrected to its database-trigger-derived stored name;
+the sign-in flow did not change that identity.
+
+Two additional EN/ZH mobile cases exercise the exact existing-email public request
+from initial verification through a distinct invitation to automatic sign-in, with
+no password prompt or extra access checkbox and unchanged identity/membership.
+
+CAPTCHA checks use the actual forms, hook, application grants, admission rules and
+database writes. Only the browser SDK and Aliyun HTTPS response are controlled.
+Cancellation, SDK/provider rejection/unavailability, retry, duplicate callbacks,
+business failure after grant consumption, held pending writes, replay denial and
+resend are exercised. Tutee resend preserves original submission priority. Local
+resend cooldown is one second; these cases do not certify the paid provider UI or
+production email delivery. Development mail stays in the local log sink.
+
+Local regression phases include 96 repaired legacy-flow tests, 41 route/locale
+tests and 18 redemption UI tests; overlapping runs are not summed. Full TypeScript
+and affected lint passed. Full-suite CI is linked on the official PR at its final
+publication commit. Screenshots, exact phase revisions, measured bounds and database
+receipts remain in ignored `outputs/onboarding/` and the consolidated HTML report.
+
 ## 2026-10-09 verified shared completion
 
 Official [PR #275](https://github.com/DupeisTaken/shbs-peer-tutoring-website/pull/275)
