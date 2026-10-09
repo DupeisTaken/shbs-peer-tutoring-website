@@ -11,6 +11,7 @@ import {
 
 import { api } from "~/trpc/react";
 import { useReadOnly } from "~/app/_components/read-only";
+import { AuditEventDetails } from "~/app/_components/audit-event-details";
 import {
   SummaryTable,
   TableActions,
@@ -125,19 +126,21 @@ function AuditLog() {
                 </td>
                 <TableActions>
                   <TableDetails title={`${e.action} · ${e.userName ?? "—"}`}>
-                    <p>
-                      {format.dateTime(new Date(e.createdAt), {
-                        dateStyle: "full",
-                        timeStyle: "short",
-                      })}
-                    </p>
-                    <p>{e.userName ?? "—"}</p>
-                    <p>{e.action}</p>
-                    {/* Retain the existing viewer restriction on audit payloads. */}
-                    {!readOnly && e.details != null && (
-                      <pre className="max-h-80 overflow-auto text-xs whitespace-pre-wrap">
-                        {JSON.stringify(e.details, null, 2)}
-                      </pre>
+                    {/* Staff evidence is fetched only while this dialog is open.
+                        Observers retain the existing server-projected summary. */}
+                    {readOnly ? (
+                      <>
+                        <p>
+                          {format.dateTime(new Date(e.createdAt), {
+                            dateStyle: "full",
+                            timeStyle: "short",
+                          })}
+                        </p>
+                        <p>{e.userName ?? "—"}</p>
+                        <p>{e.action}</p>
+                      </>
+                    ) : (
+                      <AuditEventDetails id={e.id} />
                     )}
                   </TableDetails>
                   {!readOnly && e.approvalId && (
