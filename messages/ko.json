@@ -1094,7 +1094,7 @@
       "requestRename": "이름 변경 요청",
       "requestDeleteRoom": "교실 삭제 요청",
       "requestAddRoom": "새 교실 요청",
-      "confirmDeleteRoom": "교실 “{name}”을 삭제할까요? 코디네이터의 변경에는 승인이 필요합니다.",
+      "confirmDeleteRoom": "교실 “{name}”을 삭제할까요?",
       "viewerHelp": "주간 사용 제한 시간을 볼 수 있습니다. 이 계정은 사용 가능 시간을 변경할 수 없습니다.",
       "coordinatorHelp": "추가, 편집, 해제를 요청하세요. Admin 또는 Head가 승인한 후에 적용됩니다.",
       "adminHelp": "주간 사용 제한 시간을 추가, 편집, 해제하세요. 시간 중복 및 현재 예약과의 충돌은 허용되지 않습니다.",

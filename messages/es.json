@@ -1016,7 +1016,7 @@
       "requestRename": "Solicitar cambio de nombre",
       "requestDeleteRoom": "Solicitar eliminación del aula",
       "requestAddRoom": "Solicitar aula nueva",
-      "confirmDeleteRoom": "¿Eliminar el aula «{name}»? Los cambios del coordinador requieren aprobación.",
+      "confirmDeleteRoom": "¿Eliminar el aula «{name}»?",
       "viewerHelp": "Puede consultar los bloqueos semanales. Su cuenta no puede cambiar la disponibilidad.",
       "coordinatorHelp": "Solicite altas, cambios o eliminaciones. Admin o Head debe aprobar cada solicitud antes de cambiar la disponibilidad.",
       "adminHelp": "Añada, edite o elimine bloqueos semanales. No se permiten solapamientos ni conflictos con reservas actuales.",

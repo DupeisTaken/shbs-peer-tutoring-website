@@ -1094,7 +1094,7 @@
       "requestRename": "Namensänderung beantragen",
       "requestDeleteRoom": "Raumlöschung beantragen",
       "requestAddRoom": "Neuen Raum beantragen",
-      "confirmDeleteRoom": "Raum „{name}“ löschen? Änderungen durch Koordinatoren erfordern eine Freigabe.",
+      "confirmDeleteRoom": "Raum „{name}“ löschen?",
       "viewerHelp": "Wöchentliche Sperrzeiten ansehen. Ihr Konto darf die Verfügbarkeit nicht ändern.",
       "coordinatorHelp": "Ergänzungen, Änderungen oder Aufhebungen beantragen. Admin oder Head muss jeden Antrag freigeben.",
       "adminHelp": "Wöchentliche Sperrzeiten hinzufügen, bearbeiten oder aufheben. Überschneidungen und Konflikte mit aktuellen Buchungen sind nicht erlaubt.",

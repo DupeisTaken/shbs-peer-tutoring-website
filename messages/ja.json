@@ -1094,7 +1094,7 @@
       "requestRename": "名称変更を申請",
       "requestDeleteRoom": "教室削除を申請",
       "requestAddRoom": "教室追加を申請",
-      "confirmDeleteRoom": "教室「{name}」を削除しますか？コーディネーターの変更は承認が必要です。",
+      "confirmDeleteRoom": "教室「{name}」を削除しますか？",
       "viewerHelp": "毎週の利用不可時間を確認できます。このアカウントでは変更できません。",
       "coordinatorHelp": "追加・編集・解除を申請できます。AdminまたはHeadの承認後に反映されます。",
       "adminHelp": "毎週の利用不可時間を追加・編集・解除できます。時間帯の重複や現在の予約との競合は許可されません。",

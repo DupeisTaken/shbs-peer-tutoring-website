@@ -984,7 +984,7 @@
       "requestRename": "申请更改名称",
       "requestDeleteRoom": "申请删除教室",
       "requestAddRoom": "申请新增教室",
-      "confirmDeleteRoom": "删除教室“{name}”？协调员的更改须经批准。",
+      "confirmDeleteRoom": "删除教室“{name}”？",
       "viewerHelp": "可查看每周禁用时段。您的账户不能更改教室可用时间。",
       "coordinatorHelp": "可申请新增、编辑或移除时段。管理员或负责人批准后，教室可用时间才会更改。",
       "adminHelp": "可新增、编辑或移除每周禁用时段。禁用时段不能重叠，也不能与当前预约冲突。",

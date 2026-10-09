@@ -1094,7 +1094,7 @@
       "requestRename": "Demander un changement de nom",
       "requestDeleteRoom": "Demander la suppression de la salle",
       "requestAddRoom": "Demander une nouvelle salle",
-      "confirmDeleteRoom": "Supprimer la salle « {name} » ? Les changements du coordinateur nécessitent une validation.",
+      "confirmDeleteRoom": "Supprimer la salle « {name} » ?",
       "viewerHelp": "Consultez les blocages hebdomadaires. Votre compte ne peut pas modifier la disponibilité.",
       "coordinatorHelp": "Demandez un ajout, une modification ou une suppression. Admin ou Head doit valider chaque demande avant tout changement.",
       "adminHelp": "Ajoutez, modifiez ou supprimez les blocages hebdomadaires. Les chevauchements et conflits avec les réservations actuelles sont interdits.",

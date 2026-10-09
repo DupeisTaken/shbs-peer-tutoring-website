@@ -1062,7 +1062,7 @@
       "requestRename": "Request name change",
       "requestDeleteRoom": "Request room deletion",
       "requestAddRoom": "Request new room",
-      "confirmDeleteRoom": "Delete room “{name}”? Coordinator changes require approval.",
+      "confirmDeleteRoom": "Delete room “{name}”?",
       "viewerHelp": "View recurring blocked periods. Your account cannot change room availability.",
       "coordinatorHelp": "Request additions, edits or removals. An Admin or Head must approve each request before room availability changes.",
       "adminHelp": "Add, edit or remove recurring blocks. Overlapping blocks and conflicts with current bookings are not allowed.",
