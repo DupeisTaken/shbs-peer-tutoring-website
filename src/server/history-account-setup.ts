@@ -21,14 +21,15 @@ const taken = () =>
 
 /** No public name search: the staff-reviewed token and recipient address must both match.
  * Recheck issuer, record freshness and ownership on every step, including retries. */
-async function setupInvitation(
+export async function setupInvitation(
   tx: TransactionDb,
   token: string,
   email: string,
+  tokenIsDigest = false,
 ) {
   await lockUsernameNamespace(tx);
   const invite = await tx.tuteeHistoryInvitation.findUnique({
-    where: { tokenHash: historyTokenDigest(token) },
+    where: { tokenHash: tokenIsDigest ? token : historyTokenDigest(token) },
   });
   if (!invite || invite.expiresAt <= new Date()) throw invalid();
   if (email !== invite.email)
@@ -75,11 +76,7 @@ export async function startHistoryAccount(
     });
   return inTransaction(db, async (tx) => {
     const { invite } = await setupInvitation(tx, input.token, input.email);
-    if (
-      invite.setupUserId ||
-      (await tx.accountEmail.findUnique({ where: { email: invite.email } }))
-    )
-      throw taken();
+    if (invite.setupUserId) throw taken();
     // A persisted cooldown limits delivery even across app instances. Failed mail rolls back,
     // preserving the previous challenge; resending deliberately invalidates its completion proof.
     if (
@@ -136,7 +133,12 @@ export async function verifyHistoryAccount(
     const verifiedAt = invite.setupVerifiedAt ?? new Date();
     await tx.tuteeHistoryInvitation.update({
       where: { tuteeId: invite.tuteeId },
-      data: { setupVerifiedAt: verifiedAt },
+      data: {
+        setupVerifiedAt: verifiedAt,
+        ...(!invite.setupVerifiedAt
+          ? { setupCodeExpiresAt: new Date(+verifiedAt + 15 * 60_000) }
+          : {}),
+      },
     });
     return {
       completionProof: registrationCompletionProof(
@@ -160,6 +162,7 @@ export async function completeHistoryAccount(
     email: string;
     completionProof: string;
     password: string;
+    tokenIsDigest?: true;
   },
 ) {
   return inTransaction(db, async (tx) => {
@@ -167,6 +170,7 @@ export async function completeHistoryAccount(
       tx,
       input.token,
       input.email,
+      input.tokenIsDigest,
     );
     if (
       !invite.setupVerifiedAt ||

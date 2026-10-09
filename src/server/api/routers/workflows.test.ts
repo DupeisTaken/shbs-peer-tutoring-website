@@ -16,7 +16,10 @@ import { reconcileApplication } from "~/server/tutors/application-status";
 import { hashPassword } from "~/server/auth/password";
 import { syncSessionFlag } from "~/server/crew/flags";
 import * as flags from "~/server/crew/flags";
-import { completeRegistration, registrationCompletionProof } from "~/server/auth/registration";
+import {
+  completeRegistration,
+  registrationCompletionProof,
+} from "~/server/auth/registration";
 import { initializeProgram } from "~/server/program/bootstrap";
 import { confirmEmailChange } from "~/server/auth/email-change";
 import { hashCode } from "~/server/auth/registration";
@@ -29,13 +32,29 @@ const password = "ReviewPassword123!";
 
 // The responsive adjustment view must preserve the same server-side data and permissions.
 it("hour adjustments preserve month, fractional amount and full reason through create/list/delete", async () => {
-  const reason = "Synthetic adjustment explanation. " + "UnbrokenReason".repeat(20);
+  const reason =
+    "Synthetic adjustment explanation. " + "UnbrokenReason".repeat(20);
   const adjustment = await caller().admin.createAdjustment({
-    tutorId: "review-tutor", month: "2026-09", type: "EXTRA", amount: 1.5, reason,
+    tutorId: "review-tutor",
+    month: "2026-09",
+    type: "EXTRA",
+    amount: 1.5,
+    reason,
   });
-  expect(adjustment).toMatchObject({ month: "2026-09", amount: 1.5, reason, schoolYear: "26-27", quarter: "Q1" });
+  expect(adjustment).toMatchObject({
+    month: "2026-09",
+    amount: 1.5,
+    reason,
+    schoolYear: "26-27",
+    quarter: "Q1",
+  });
   expect(await caller().admin.adjustments({ month: "2026-09" })).toEqual([
-    expect.objectContaining({ id: adjustment.id, month: "2026-09", amount: 1.5, reason }),
+    expect.objectContaining({
+      id: adjustment.id,
+      month: "2026-09",
+      amount: 1.5,
+      reason,
+    }),
   ]);
   expect(await caller().admin.adjustments({ month: "2026-10" })).toEqual([]);
   await caller().admin.deleteAdjustment({ id: adjustment.id });
@@ -43,59 +62,125 @@ it("hour adjustments preserve month, fractional amount and full reason through c
 });
 
 it("hour adjustments redact viewer reasons and reject direct viewer writes", async () => {
-  const input = { tutorId: "review-tutor", month: "2026-09", type: "PUNISHMENT" as const, amount: 0.5, reason: "Private synthetic reason" };
+  const input = {
+    tutorId: "review-tutor",
+    month: "2026-09",
+    type: "PUNISHMENT" as const,
+    amount: 0.5,
+    reason: "Private synthetic reason",
+  };
   const adjustment = await caller().admin.createAdjustment(input);
   const viewer = caller("VIEWER", "review-viewer");
   expect(await viewer.admin.adjustments({})).toEqual([
-    expect.objectContaining({ id: adjustment.id, month: "2026-09", reason: null }),
+    expect.objectContaining({
+      id: adjustment.id,
+      month: "2026-09",
+      reason: null,
+    }),
   ]);
-  await expect(viewer.admin.createAdjustment(input)).rejects.toMatchObject({ code: "FORBIDDEN" });
-  await expect(viewer.admin.deleteAdjustment({ id: adjustment.id })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(viewer.admin.createAdjustment(input)).rejects.toMatchObject({
+    code: "FORBIDDEN",
+  });
+  await expect(
+    viewer.admin.deleteAdjustment({ id: adjustment.id }),
+  ).rejects.toMatchObject({ code: "FORBIDDEN" });
   expect(await db.serviceHourAdjustment.count()).toBe(1);
 });
 
 it("hour adjustments reject tutor access and malformed month input", async () => {
-  const input = { tutorId: "review-tutor", month: "2026-09", type: "EXTRA" as const, amount: 1 };
-  await expect(tutor().admin.adjustments({})).rejects.toMatchObject({ code: "FORBIDDEN" });
-  await expect(tutor().admin.createAdjustment(input)).rejects.toMatchObject({ code: "FORBIDDEN" });
-  await expect(caller().admin.createAdjustment({ ...input, month: "2026-9" })).rejects.toMatchObject({ code: "BAD_REQUEST" });
-  await expect(caller().admin.createAdjustment({ ...input, amount: 0 })).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  const input = {
+    tutorId: "review-tutor",
+    month: "2026-09",
+    type: "EXTRA" as const,
+    amount: 1,
+  };
+  await expect(tutor().admin.adjustments({})).rejects.toMatchObject({
+    code: "FORBIDDEN",
+  });
+  await expect(tutor().admin.createAdjustment(input)).rejects.toMatchObject({
+    code: "FORBIDDEN",
+  });
+  await expect(
+    caller().admin.createAdjustment({ ...input, month: "2026-9" }),
+  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
+  await expect(
+    caller().admin.createAdjustment({ ...input, amount: 0 }),
+  ).rejects.toMatchObject({ code: "BAD_REQUEST" });
   expect(await db.serviceHourAdjustment.count()).toBe(0);
 });
 
 it("hour adjustments cannot be written when the service-hours module is disabled", async () => {
-  const input = { tutorId: "review-tutor", month: "2026-09", type: "EXTRA" as const, amount: 1 };
+  const input = {
+    tutorId: "review-tutor",
+    month: "2026-09",
+    type: "EXTRA" as const,
+    amount: 1,
+  };
   const adjustment = await caller().admin.createAdjustment(input);
-  await db.programFeature.create({ data: { key: "SERVICE_HOURS", enabled: false } });
-  await expect(caller().admin.createAdjustment(input)).rejects.toMatchObject({ code: "FORBIDDEN" });
-  await expect(caller().admin.deleteAdjustment({ id: adjustment.id })).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await db.programFeature.create({
+    data: { key: "SERVICE_HOURS", enabled: false },
+  });
+  await expect(caller().admin.createAdjustment(input)).rejects.toMatchObject({
+    code: "FORBIDDEN",
+  });
+  await expect(
+    caller().admin.deleteAdjustment({ id: adjustment.id }),
+  ).rejects.toMatchObject({ code: "FORBIDDEN" });
   expect(await db.serviceHourAdjustment.count()).toBe(1);
 });
 
 it("hour adjustments queue coordinator writes without changing live records", async () => {
-  await db.user.update({ where: { id: "review-viewer" }, data: { role: "COORDINATOR" } });
+  await db.user.update({
+    where: { id: "review-viewer" },
+    data: { role: "COORDINATOR" },
+  });
   const coordinator = caller("COORDINATOR", "review-viewer");
-  const input = { tutorId: "review-tutor", month: "2026-09", type: "EXTRA" as const, amount: 1 };
-  await expect(coordinator.admin.createAdjustment(input)).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  const input = {
+    tutorId: "review-tutor",
+    month: "2026-09",
+    type: "EXTRA" as const,
+    amount: 1,
+  };
+  await expect(coordinator.admin.createAdjustment(input)).rejects.toMatchObject(
+    { code: "PRECONDITION_FAILED" },
+  );
   expect(await db.serviceHourAdjustment.count()).toBe(0);
   const adjustment = await caller().admin.createAdjustment(input);
-  await expect(coordinator.admin.deleteAdjustment({ id: adjustment.id })).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
+  await expect(
+    coordinator.admin.deleteAdjustment({ id: adjustment.id }),
+  ).rejects.toMatchObject({ code: "PRECONDITION_FAILED" });
   expect(await db.serviceHourAdjustment.count()).toBe(1);
   expect(await db.approvalRequest.count()).toBe(2);
 });
 
 it("keeps completed and decided interview history when no panel assignments remain", async () => {
-  const completed = await db.tutorApplication.create({ data: {
-    name: "Historical completed candidate", email: "history-completed@example.test", status: "ACCEPTED",
-    interviewCompletedAt: new Date("2026-09-01"), interviewDurationMin: 40,
-  } });
-  const decided = await db.tutorApplication.create({ data: {
-    name: "Historical decided candidate", email: "history-decided@example.test", status: "REJECTED", decisionComment: "Retained panel decision",
-  } });
+  const completed = await db.tutorApplication.create({
+    data: {
+      name: "Historical completed candidate",
+      email: "history-completed@example.test",
+      status: "ACCEPTED",
+      interviewCompletedAt: new Date("2026-09-01"),
+      interviewDurationMin: 40,
+    },
+  });
+  const decided = await db.tutorApplication.create({
+    data: {
+      name: "Historical decided candidate",
+      email: "history-decided@example.test",
+      status: "REJECTED",
+      decisionComment: "Retained panel decision",
+    },
+  });
   const all = await caller().interviewManagement.options({ completion: "ALL" });
-  expect(all.applications.rows.map((row) => row.id)).toEqual(expect.arrayContaining([completed.id, decided.id]));
-  const history = await caller().interviewManagement.options({ completion: "COMPLETED" });
-  expect(history.applications.rows.map((row) => row.id)).toEqual([completed.id]);
+  expect(all.applications.rows.map((row) => row.id)).toEqual(
+    expect.arrayContaining([completed.id, decided.id]),
+  );
+  const history = await caller().interviewManagement.options({
+    completion: "COMPLETED",
+  });
+  expect(history.applications.rows.map((row) => row.id)).toEqual([
+    completed.id,
+  ]);
 });
 
 it("keeps willingness independent of approved grants with interviews disabled", async () => {
@@ -172,59 +257,144 @@ it("enforces staff-only subject reads/writes and fresh tutor access for self wil
 });
 
 it("binds self willingness to the authenticated tutor even if input includes another tutor ID", async () => {
-  const other = await db.tutor.create({ data: { englishName: "Other willing tutor" } });
-  const forged = { tutorId: other.id, subjectId: "review-subject", willing: true };
+  const other = await db.tutor.create({
+    data: { englishName: "Other willing tutor" },
+  });
+  const forged = {
+    tutorId: other.id,
+    subjectId: "review-subject",
+    willing: true,
+  };
   await tutor().subjectAvailability.setMine(forged);
   expect(await db.tutorSubjectWillingness.findMany()).toEqual([
-    expect.objectContaining({ tutorId: "review-tutor", subjectId: "review-subject", willing: true }),
+    expect.objectContaining({
+      tutorId: "review-tutor",
+      subjectId: "review-subject",
+      willing: true,
+    }),
   ]);
-  expect((await tutor().subjectAvailability.mine()).every((row) => row.tutorId === "review-tutor")).toBe(true);
+  expect(
+    (await tutor().subjectAvailability.mine()).every(
+      (row) => row.tutorId === "review-tutor",
+    ),
+  ).toBe(true);
 });
 
 it("loads only the authenticated tutor's subject evidence and preserves unknown intent", async () => {
-  const other = await db.tutor.create({ data: { englishName: "Private tutor", status: "ACTIVE" } });
-  await db.tutorSubjectWillingness.create({ data: { tutorId: other.id, subjectId: "review-subject", willing: true } });
+  const other = await db.tutor.create({
+    data: { englishName: "Private tutor", status: "ACTIVE" },
+  });
+  await db.tutorSubjectWillingness.create({
+    data: { tutorId: other.id, subjectId: "review-subject", willing: true },
+  });
   const own = await tutor().subjectAvailability.mySubjects();
   expect(own.canEdit).toBe(true);
-  expect(own.rows.find((row) => row.id === "review-subject")).toMatchObject({ willing: null });
-  await tutor().subjectAvailability.setMine({ subjectId: "review-subject", willing: false });
-  expect((await tutor().subjectAvailability.mySubjects()).rows.find((row) => row.id === "review-subject")?.willing).toBe(false);
-  await db.tutor.update({ where: { id: "review-tutor" }, data: { status: "OPTED_OUT" } });
+  expect(own.rows.find((row) => row.id === "review-subject")).toMatchObject({
+    willing: null,
+  });
+  await tutor().subjectAvailability.setMine({
+    subjectId: "review-subject",
+    willing: false,
+  });
+  expect(
+    (await tutor().subjectAvailability.mySubjects()).rows.find(
+      (row) => row.id === "review-subject",
+    )?.willing,
+  ).toBe(false);
+  await db.tutor.update({
+    where: { id: "review-tutor" },
+    data: { status: "OPTED_OUT" },
+  });
   expect((await tutor().subjectAvailability.mySubjects()).canEdit).toBe(false);
-  await expect(caller("VIEWER", "review-viewer").subjectAvailability.mySubjects()).rejects.toMatchObject({ code: "FORBIDDEN" });
+  await expect(
+    caller("VIEWER", "review-viewer").subjectAvailability.mySubjects(),
+  ).rejects.toMatchObject({ code: "FORBIDDEN" });
 });
 
 it("shows only qualified subjects to tutors, including inherited grants, while retaining staff history", async () => {
-  await db.subject.createMany({ data: [
-    { id: "unqualified", name: "Unqualified subject" },
-    { id: "pending", name: "Pending subject" },
-    { id: "inherited", name: "Inherited subject" },
-  ] });
-  await db.tutorQualification.create({ data: { tutorId: "review-tutor", subjectId: "pending", status: "PENDING", approvedById: "review-head" } });
+  await db.subject.createMany({
+    data: [
+      { id: "unqualified", name: "Unqualified subject" },
+      { id: "pending", name: "Pending subject" },
+      { id: "inherited", name: "Inherited subject" },
+    ],
+  });
+  await db.tutorQualification.create({
+    data: {
+      tutorId: "review-tutor",
+      subjectId: "pending",
+      status: "PENDING",
+      approvedById: "review-head",
+    },
+  });
   // Inheritance follows the persisted grant, not current catalogue ordering or willingness.
-  await db.qualificationGrant.create({ data: { tutorId: "review-tutor", sourceSubjectId: "review-subject", subjectId: "inherited" } });
-  await db.tutorSubjectWillingness.createMany({ data: [
-    { tutorId: "review-tutor", subjectId: "unqualified", willing: true },
-    { tutorId: "review-tutor", subjectId: "pending", willing: true },
-    { tutorId: "review-tutor", subjectId: "inherited", willing: false },
-  ] });
+  await db.qualificationGrant.create({
+    data: {
+      tutorId: "review-tutor",
+      sourceSubjectId: "review-subject",
+      subjectId: "inherited",
+    },
+  });
+  await db.tutorSubjectWillingness.createMany({
+    data: [
+      { tutorId: "review-tutor", subjectId: "unqualified", willing: true },
+      { tutorId: "review-tutor", subjectId: "pending", willing: true },
+      { tutorId: "review-tutor", subjectId: "inherited", willing: false },
+    ],
+  });
   const own = await tutor().subjectAvailability.mySubjects();
-  expect(own.rows.map((row) => row.id).sort()).toEqual(["inherited", "review-subject"]);
-  expect(own.rows.find((row) => row.id === "inherited")).toMatchObject({ qualified: true, willing: false, inheritedFrom: ["Review Math"] });
+  expect(own.rows.map((row) => row.id).sort()).toEqual([
+    "inherited",
+    "review-subject",
+  ]);
+  expect(own.rows.find((row) => row.id === "inherited")).toMatchObject({
+    qualified: true,
+    willing: false,
+    inheritedFrom: ["Review Math"],
+  });
   const staff = await caller().subjectAvailability.options();
-  expect(staff.subjects.map((row) => row.id)).toEqual(expect.arrayContaining(["unqualified", "pending"]));
+  expect(staff.subjects.map((row) => row.id)).toEqual(
+    expect.arrayContaining(["unqualified", "pending"]),
+  );
   expect(staff.willingness).toHaveLength(3);
-  await caller().interviewManagement.qualify({ tutorId: "review-tutor", subjectId: "review-subject", qualified: false });
+  await caller().interviewManagement.qualify({
+    tutorId: "review-tutor",
+    subjectId: "review-subject",
+    qualified: false,
+  });
   expect((await tutor().subjectAvailability.mySubjects()).rows).toEqual([]);
   expect(await tutor().subjectAvailability.mine()).toHaveLength(3);
 });
 
 it("exposes only open additional qualification requests to the pending-review filter", async () => {
-  const data = { name: "Pending tutor", qualificationReason: "Synthetic qualification evidence", email: "pending@example.test", type: "ADDITIONAL_SUBJECT" as const, requestedTutorId: "review-tutor", requestedSubjectId: "review-subject" };
-  const request = await db.tutorApplication.create({ data: { ...data, status: "INTERVIEW" } });
-  expect((await caller().subjectAvailability.options()).pendingRequests).toEqual([{ requestedTutorId: "review-tutor", requestedSubjectId: "review-subject" }]);
-  await db.tutorApplication.update({ where: { id: request.id }, data: { status: "REJECTED", decisionComment: "Reviewed", qualificationDecidedById: "review-head", decidedAt: new Date() } });
-  expect((await caller().subjectAvailability.options()).pendingRequests).toEqual([]);
+  const data = {
+    name: "Pending tutor",
+    qualificationReason: "Synthetic qualification evidence",
+    email: "pending@example.test",
+    type: "ADDITIONAL_SUBJECT" as const,
+    requestedTutorId: "review-tutor",
+    requestedSubjectId: "review-subject",
+  };
+  const request = await db.tutorApplication.create({
+    data: { ...data, status: "INTERVIEW" },
+  });
+  expect(
+    (await caller().subjectAvailability.options()).pendingRequests,
+  ).toEqual([
+    { requestedTutorId: "review-tutor", requestedSubjectId: "review-subject" },
+  ]);
+  await db.tutorApplication.update({
+    where: { id: request.id },
+    data: {
+      status: "REJECTED",
+      decisionComment: "Reviewed",
+      qualificationDecidedById: "review-head",
+      decidedAt: new Date(),
+    },
+  });
+  expect(
+    (await caller().subjectAvailability.options()).pendingRequests,
+  ).toEqual([]);
 });
 
 it("queues coordinator willingness changes and applies them only after independent approval", async () => {
@@ -505,7 +675,8 @@ it("prompts for both participant capabilities and rejects cross-policy tickets e
   });
   await db.policyAcceptance.deleteMany({ where: { userId: "review-user" } });
   const studentPolicy = await studentPolicyStatus(db, "review-user");
-  if (studentPolicy?.state !== "review") throw new Error("Expected a published policy review");
+  if (studentPolicy?.state !== "review")
+    throw new Error("Expected a published policy review");
   const tutorPolicy = await currentPolicy(db, "tutor-policy");
   expect(studentPolicy?.slug).toBe("tutee-policy");
   expect(studentPolicy?.revision).toBe(tutorPolicy.revision);
@@ -538,7 +709,10 @@ it("prompts for both participant capabilities and rejects cross-policy tickets e
     studentPolicy.revision,
     studentTicket,
   );
-  expect(await studentPolicyStatus(db, "review-user")).toMatchObject({state:"review",slug:"tutor-policy"});
+  expect(await studentPolicyStatus(db, "review-user")).toMatchObject({
+    state: "review",
+    slug: "tutor-policy",
+  });
   const tutorTicket = await readyPolicy(
     policyActionTarget("tutor-policy", tutorPolicy.revision),
   );
@@ -1896,7 +2070,13 @@ it("F14: an existing tutor account can add crew membership using a CREW invite",
   expect(
     (
       await completeRegistration(row, {
-        completionProof: registrationCompletionProof("invitation", row.id, row.emailCodeHash!, row.emailVerifiedAt!),
+        authenticatedUserId: "review-user",
+        completionProof: registrationCompletionProof(
+          "invitation",
+          row.id,
+          row.emailCodeHash!,
+          row.emailVerifiedAt!,
+        ),
         firstName: "Review",
         lastName: "Tutor",
         password,
@@ -1920,7 +2100,13 @@ it("F15: an unchanged completed registration must not be executable twice", asyn
   });
   // Two HTTP requests can resolve the same usable row before either consumes it.
   await completeRegistration(row, {
-        completionProof: registrationCompletionProof("invitation", row.id, row.emailCodeHash!, row.emailVerifiedAt!),
+    authenticatedUserId: "review-user",
+    completionProof: registrationCompletionProof(
+      "invitation",
+      row.id,
+      row.emailCodeHash!,
+      row.emailVerifiedAt!,
+    ),
     firstName: "Review",
     lastName: "Tutor",
     password,
@@ -1928,7 +2114,13 @@ it("F15: an unchanged completed registration must not be executable twice", asyn
   let second;
   try {
     second = await completeRegistration(row, {
-        completionProof: registrationCompletionProof("invitation", row.id, row.emailCodeHash!, row.emailVerifiedAt!),
+      authenticatedUserId: "review-user",
+      completionProof: registrationCompletionProof(
+        "invitation",
+        row.id,
+        row.emailCodeHash!,
+        row.emailVerifiedAt!,
+      ),
       firstName: "Changed",
       lastName: "Again",
       password: "DifferentReviewPassword!",

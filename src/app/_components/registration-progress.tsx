@@ -11,15 +11,17 @@ export function RegistrationProgress({
   current,
   title,
   busy,
+  focusOnMount = false,
 }: {
   steps: string[];
   current: number;
   title: string;
   busy: boolean;
+  focusOnMount?: boolean;
 }) {
   const t = useTranslations("registrationFlow");
   const heading = useRef<HTMLHeadingElement>(null);
-  const previous = useRef(current);
+  const previous = useRef(focusOnMount ? -1 : current);
   useEffect(() => {
     if (previous.current !== current) focusVisibleContext(heading.current);
     previous.current = current;

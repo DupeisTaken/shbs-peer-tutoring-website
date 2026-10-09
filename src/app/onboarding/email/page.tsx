@@ -5,8 +5,12 @@ import { brandingMetadata } from "~/server/branding-metadata";
 import { auth } from "~/server/auth";
 import { db } from "~/server/db";
 import { APP_TITLE } from "~/lib/branding";
+import { hasReadyCredentials } from "~/lib/account-readiness";
 import { OnboardingForm } from "./onboarding-form";
-import { FloatingLanguageSwitcher } from "~/app/_components/floating-language-switcher";
+import {
+  PublicFormPage,
+  PublicFormCard,
+} from "~/app/_components/public-form-page";
 
 export async function generateMetadata() {
   return brandingMetadata("Confirm your email");
@@ -23,34 +27,37 @@ export default async function OnboardingEmailPage() {
 
   const user = await db.user.findUnique({
     where: { id: session.user.id },
-    select: { email: true, emailVerifiedAt: true, mustChangePassword: true },
+    select: {
+      email: true,
+      emailVerifiedAt: true,
+      mustChangePassword: true,
+      passwordHash: true,
+    },
   });
 
   const isElevated =
     session.role === "HEAD" ||
     session.role === "ADMIN" ||
     session.role === "COORDINATOR";
-  if (user?.emailVerifiedAt && !user.mustChangePassword) redirect(isElevated ? "/admin" : "/dashboard");
+  if (user && hasReadyCredentials(user))
+    redirect(isElevated ? "/admin" : "/dashboard");
 
   const t = await getTranslations();
 
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center px-4 py-12">
-      <FloatingLanguageSwitcher />
-      <div className="w-full max-w-sm text-center">
-        <span className="badge-slate mb-3">
+    <PublicFormPage
+      title={t("auth.onboarding.title")}
+      description={t("auth.onboarding.intro")}
+      backLabel={t("common.backToMain")}
+      notice={
+        <p className="text-center text-sm text-slate-600">
           {t("auth.onboarding.welcome", { appTitle: APP_TITLE })}
-        </span>
-        <h1 className="text-2xl font-extrabold tracking-tight text-slate-900">
-          {t("auth.onboarding.title")}
-        </h1>
-        <p className="muted mt-1">{t("auth.onboarding.intro")}</p>
-        <div className="card mt-6 p-6 text-left">
-          <OnboardingForm
-            defaultEmail={user?.email ?? ""}
-          />
-        </div>
-      </div>
-    </main>
+        </p>
+      }
+    >
+      <PublicFormCard>
+        <OnboardingForm defaultEmail={user?.email ?? ""} />
+      </PublicFormCard>
+    </PublicFormPage>
   );
 }

@@ -667,21 +667,22 @@ it.each([true, false])(
         gradeSchoolYear: "26-27",
         password: "RegistrationPassword42",
         completionProof: confirmed.completionProof,
+        authenticatedUserId: "academic-person",
       }),
-    ).toMatchObject({ ok: true, academicConfirmationRequired: true });
+    ).toMatchObject({ ok: true });
     expect(
       (await accountAcademics(db, "academic-person")).academic,
     ).toMatchObject({
       gradeLevel: 10,
       expectedGraduationYear: 2029,
-      needsConfirmation: true,
+      needsConfirmation: false,
     });
     expect(
       await db.tutor.findUnique({ where: { id: "academic-tutor" } }),
     ).toMatchObject({
       gradeLevel: 10,
       gradeSchoolYear: "26-27",
-      status: "PENDING",
+      status: "ACTIVE",
       username: hasHandle ? "stablecustom" : "cperson29",
     });
     expect(
@@ -689,16 +690,19 @@ it.each([true, false])(
         .username,
     ).toBe(hasHandle ? "stablecustom" : "cperson29");
     await expect(
-      caller("academic-person", "TUTOR").tutor.activateAccount({
-        available: true,
-      }),
-    ).rejects.toMatchObject({ message: "ACADEMIC_CONFIRMATION_REQUIRED" });
+      requireAcademicConfirmation(db, "academic-person"),
+    ).resolves.toBeUndefined();
     const current = await accountAcademics(db, "academic-person");
     await caller("academic-person", "TUTOR").account.updateAcademics(
       reported(current.profileVersion),
     );
-    await caller("academic-person", "TUTOR").tutor.activateAccount({
-      available: true,
+    // Adding participation retained the already active, confirmed academic identity.
+    await expect(
+      caller("academic-person", "TUTOR").tutor.activateAccount({
+        available: true,
+      }),
+    ).rejects.toMatchObject({
+      message: "Your account isn't awaiting activation.",
     });
     expect(
       (await db.tutor.findUniqueOrThrow({ where: { id: "academic-tutor" } }))
@@ -931,7 +935,10 @@ it("verified student keeps a name in another language with confirmed year and re
   const policy = await currentPolicy(db, "tutee-policy");
   const input = surveyInput.parse({
     email: "unicode@example.test",
-    englishName: "Xiaoming Wang", firstName: "Xiaoming", lastName: "Wang", alternativeNames: "王小明",
+    englishName: "Xiaoming Wang",
+    firstName: "Xiaoming",
+    lastName: "Wang",
+    alternativeNames: "王小明",
     gradeLevel: "G10",
     firstChoiceId: "academic-subject",
     slotIds: ["academic-slot"],
@@ -1007,7 +1014,7 @@ it("explicit student backfill uses the canonical reference year", async () => {
   ).toBe("mgomez29");
 });
 
-/** Exercise the public completion API: the success response must distinguish login creation from activation. */
+/** Domain adapter preserves canonical academics; the universal API exercises email proof separately. */
 async function redeemAcademicInvitation(
   kind: "CREW" | "TUTOR",
   gradeLevel?: number,
@@ -1028,8 +1035,11 @@ async function redeemAcademicInvitation(
   });
   const proof = await confirmEmailCode(row, staged.emailCode);
   if (!proof.ok) throw Error("Expected proof");
-  const result = await caller("academic-person").registration.complete({
-    code: issued.code,
+  row = await db.registrationCode.findUniqueOrThrow({
+    where: { id: issued.id },
+  });
+  const result = await completeRegistration(row, {
+    authenticatedUserId: "academic-person",
     completionProof: proof.completionProof,
     firstName: "Returning",
     lastName: "Person",
@@ -1041,10 +1051,14 @@ async function redeemAcademicInvitation(
     (await db.registrationCode.findUniqueOrThrow({ where: { id: issued.id } }))
       .usedAt,
   ).not.toBeNull();
-  return result;
+  if (!result.ok) throw Error("Expected completion");
+  return {
+    ...result,
+    academicConfirmationRequired: result.academicConfirmationRequired ?? false,
+  };
 }
 
-it.each(["OPTED_OUT", "INACTIVE", "ACTIVE"] as const)(
+it.each(["OPTED_OUT", "ACTIVE"] as const)(
   "crew invitation preserves pending academic review from %s",
   async (crewStatus) => {
     await db.user.update({
@@ -1065,7 +1079,7 @@ it.each(["OPTED_OUT", "INACTIVE", "ACTIVE"] as const)(
     expect(
       (await db.user.findUniqueOrThrow({ where: { id: "academic-person" } }))
         .crewStatus,
-    ).toBe(crewStatus === "INACTIVE" ? "INACTIVE" : "OPTED_OUT");
+    ).toBe("OPTED_OUT");
     await expect(
       requireAcademicConfirmation(db, "academic-person"),
     ).rejects.toMatchObject({ message: "ACADEMIC_CONFIRMATION_REQUIRED" });
@@ -1080,7 +1094,7 @@ it.each(["OPTED_OUT", "INACTIVE", "ACTIVE"] as const)(
 );
 
 it.each(["CREW", "TUTOR"] as const)(
-  "%s invitations expose a conflict with Not Applicable",
+  "%s invitations preserve canonical Not Applicable despite posted grade",
   async (kind) => {
     await caller("academic-person").account.updateAcademics({
       expectedProfileVersion: 0,
@@ -1093,18 +1107,18 @@ it.each(["CREW", "TUTOR"] as const)(
         .needsConfirmation,
     ).toBe(false);
     const result = await redeemAcademicInvitation(kind, 10, "26-27");
-    expect(result.academicConfirmationRequired).toBe(true);
+    expect(result.academicConfirmationRequired).toBe(false);
     expect(
       (await accountAcademics(db, "academic-person")).academic,
     ).toMatchObject({
       status: "NOT_APPLICABLE",
       gradeLevel: null,
       expectedGraduationYear: null,
-      needsConfirmation: true,
+      needsConfirmation: false,
     });
     await expect(
       requireAcademicConfirmation(db, "academic-person"),
-    ).rejects.toMatchObject({ message: "ACADEMIC_CONFIRMATION_REQUIRED" });
+    ).resolves.toBeUndefined();
   },
 );
 

@@ -3,12 +3,18 @@ import type { ReactNode } from "react";
 import { PublicHeader } from "./public-header";
 
 /** Public forms and personal history share one in-flow responsive public header. */
-export function PublicPageNavigation({ backLabel }: { backLabel: string }) {
+export function PublicPageNavigation({
+  backLabel,
+  backHref = "/",
+}: {
+  backLabel: string;
+  backHref?: string;
+}) {
   return (
     <PublicHeader
       sticky={false}
       navigation={
-        <Link href="/" className="public-form-link text-sm">
+        <Link href={backHref} className="public-form-link text-sm">
           {backLabel}
         </Link>
       }
@@ -22,6 +28,7 @@ export function PublicFormPage({
   title,
   description,
   backLabel,
+  backHref,
   children,
   footer,
   notice,
@@ -30,6 +37,8 @@ export function PublicFormPage({
   title: string;
   description?: ReactNode;
   backLabel: string;
+  /** The owning form selects its return route; ordinary public forms return home. */
+  backHref?: string;
   children: ReactNode;
   footer?: ReactNode;
   notice?: ReactNode;
@@ -37,7 +46,7 @@ export function PublicFormPage({
 }) {
   return (
     <div className="min-h-screen">
-      <PublicPageNavigation backLabel={backLabel} />
+      <PublicPageNavigation backLabel={backLabel} backHref={backHref} />
       <main
         className={`public-form mx-auto w-full px-4 pt-6 pb-12 sm:px-6 sm:pt-10 ${wide ? "max-w-3xl" : "max-w-lg"}`}
       >

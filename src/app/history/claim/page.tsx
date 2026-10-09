@@ -10,14 +10,18 @@ import { switchHistoryAccount } from "./actions";
 export default async function HistoryClaimPage({
   searchParams,
 }: {
-  searchParams: Promise<{ token?: string }>;
+  searchParams: Promise<{ token?: string; invitation?: string }>;
 }) {
   const session = await auth();
   const t = await getTranslations("tuteeHistory");
-  const token = (await searchParams).token ?? "";
+  const params = await searchParams;
+  const token = params.token ?? "";
+  const invitationId = params.invitation;
   // Keep the exact claim through the existing two-step sign-in flow. The token is
   // data in a fixed local route, never an arbitrary redirect destination.
-  const destination = `/history/claim?token=${encodeURIComponent(token)}`;
+  const destination = invitationId
+    ? `/history/claim?invitation=${encodeURIComponent(invitationId)}`
+    : `/history/claim?token=${encodeURIComponent(token)}`;
   return (
     <PublicFormPage
       title={t("claimTitle")}
@@ -27,7 +31,7 @@ export default async function HistoryClaimPage({
     >
       <div className="flex flex-wrap justify-end gap-2">
         {session?.user && (
-          <form action={switchHistoryAccount.bind(null, token)}>
+          <form action={switchHistoryAccount.bind(null, token, invitationId)}>
             <button className="btn-secondary btn-sm min-h-11 lg:min-h-8 lg:py-0">
               {t("switchAccount")}
             </button>
@@ -35,7 +39,11 @@ export default async function HistoryClaimPage({
         )}
       </div>
       {session?.user ? (
-        <HistoryClaim key={token} token={token} />
+        <HistoryClaim
+          key={token || invitationId}
+          token={token}
+          invitationId={invitationId}
+        />
       ) : (
         <>
           <section className="card space-y-4 p-5">
@@ -52,7 +60,7 @@ export default async function HistoryClaimPage({
               </Link>
             </div>
           </section>
-          <HistoryAccountSetup key={token} token={token} />
+          {!invitationId && <HistoryAccountSetup key={token} token={token} />}
         </>
       )}
       <aside className="space-y-2 border-t border-slate-200 pt-4 text-sm">

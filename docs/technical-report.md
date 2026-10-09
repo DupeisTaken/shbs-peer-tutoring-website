@@ -1,5 +1,125 @@
 # Technical report
 
+## Universal account invitation contract
+
+The account-flow decisions for [#268](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/268)
+retain User/Tutor/Tutee identities and the original authorization sources. `AccountInvitation`
+is an additive recipient-only envelope, not a new person model. Its mailbox code is HMAC-hashed;
+the source reference, recipient email, credential generation and completion receipt are stored
+separately. Staff-visible `RegistrationCode` keys never authenticate an existing account.
+
+| Source | Authorization and email proof | Redemption writes | Preserved boundary |
+| --- | --- | --- | --- |
+| Tutor/Crew/management key | Existing staff authorization plus separate recipient-delivered mailbox code | Original registration transaction adds authorized access with canonical-account preservation | Management rank becomes the higher of the existing rank and invitation rank; no Head grant or demotion. |
+| Tutee request | Full submitted application and policy evidence precede mailbox-code verification; the legacy survey link remains valid | Receipt popup hands off to the original confirmation transaction, retained ownership and policy snapshot | Original request priority, intake/deadline rules and assignment stay separate. |
+| Viewer request | Initial mailbox verification issues a distinct invitation and verified-browser proof | Receipt popup hands off to new Viewer credentials, or sign-in-only for an existing account | Viewer exclusivity and the public signup feature gate remain authoritative. |
+| Public Crew application | Mailbox verification creates a pending application; staff approval and fresh mailbox verification authorize invitation retrieval | The approved staff source issues the shared receipt for explicit new-account or additive Crew review | No Crew access before staff approval and account review; revocation and the Crew feature gate remain authoritative. |
+| Historical tutee invitation | Exact staff-reviewed record, source revision and mailbox proof | Receipt popup hands off to neutral history-only credentials and an envelope receipt | The signed-in owner must separately claim the original historical record. |
+| Head tutor setup | Head authorizes a Tutor invitation to the roster contact | No login before recipient redemption | Existing login recovery is delivered to its canonical address; staff never receive recovery secrets. |
+
+An invitation's displayed entry code authorizes inspection but never authenticates its recipient.
+Verified-browser proof or a separately delivered mailbox code establishes the existing
+primary/verified-secondary email owner without changing their password. Enabled and enforced email two-factor accounts
+retain their password-plus-email sign-in; the return destination resumes the same invitation.
+Source proof and membership consent are distinct: a session alone does not redeem an invitation,
+and accepting an invitation does not fabricate policies, academics, assignment or historical ownership.
+Tutor, Crew and tutee redemption add their authorized participation while preserving unrelated
+access and credentials. A valid participation or management invitation can replace an exclusive
+Viewer role; it never combines Viewer with participant badges. Management redemption uses the
+higher of the existing and invited ranks and preserves participant attachments. Live suspension,
+issuer authority and source eligibility remain checked before writes. Participation writes retain
+revocation and school departure checks; departure alone does not block a management rank grant.
+Accepted proof for the exact primary address confirms it independently of password setup;
+verified-secondary proof does not confirm the primary. Cached legacy completion endpoints
+commit invitation delivery, then return an explicit continuation precondition error outside
+that transaction, so old clients cannot misreport a credential write that never happened.
+The sign-in action automatically completes only an established account's Viewer-source
+LOGIN receipt after the session exchange succeeds (or the exact recipient's existing session
+is verified). The domain independently rejects this automatic path for participation sources.
+Academic confirmation outcomes persist in the completion receipt and remain visible on recovery.
+An expired completed receipt is readable only by its exact authenticated recipient after the
+existing account ownership/generation checks. Expired mailbox proofs, login exchanges and
+unfinished invitations remain invalid.
+Tutee submission and final redemption both resolve verified aliases and recheck quarter withdrawal
+and current-request ownership; late alias linking cannot bypass either participation restriction.
+
+First successful Viewer/history verification starts a fixed 15-minute review window; retries retain its original timestamp. Envelope expiry is capped by source and authorization deadlines, and email states the exact expiry. Sending replacements never extends staff authorization or Tutee verification deadlines.
+
+Each envelope captures its account ID and `sessionVersion` at issue. Verification, preview,
+login exchange and redemption recheck source validity and email ownership; account reads are
+repeated after the credential lock. Password rotation, alias transfer/removal and account
+combination invalidate stale evidence. The login exchange is single-use independently of the
+membership write. The source write and completion receipt commit in one transaction, permitting
+lost-response retries without duplicating accounts, resetting passwords or replaying participation.
+An explicit receipt is distinguishable from failed session synchronization in the public form.
+
+The three public entrypoints stay separate: `/register` has one centered invitation code field
+and full-width Continue action; `/viewer-signup` collects Viewer details; `/signup` collects the
+complete tutee application before verification and issuance. Viewer/tutee mailbox verification
+opens `InvitationReceipt`, using the shared native `Modal` for the displayed invitation code,
+copy action, optional email delivery and prefilled `/register` link. Historical tutee account
+setup uses the same popup after verifying the exact invited mailbox. Closing retains the receipt;
+failed optional delivery does not repeat verification or the application write. A new account's
+shared review adopts source prefill once, while established account identity remains authoritative.
+`UserAvatar` and shared `AccountSettings` expose Add access to the same code entry for signed-in users.
+
+### Crew application verification and status
+
+`CrewSignupVerification` keeps the email-unique draft and mailbox challenge separate from the durable, staff-reviewed `CrewApplication`. `crew.submitApplication` stages details and sends a challenge; it creates no application or notification before mailbox verification. `crew.verifyApplication` commits the first verified pending application and its notification together. Retries retain the original answers and decision workflow rather than replacing a record under review.
+
+`crew.requestStatus` accepts only email and returns the same public response for known and unknown addresses. Mailbox verification returns a short-lived status proof; `crew.applicationStatus` requires that proof before returning `PENDING`, `REJECTED`, `ACCEPTED` or `NOT_FOUND`. Challenges and status proofs expire after 15 minutes, and resending invalidates prior proof. Private status and invitation data are never authorized by a matching email alone.
+
+Only an accepted application's live, unused staff-issued Crew code permits receipt retrieval. Fresh mailbox proof opens the existing `InvitationReceipt` with the approved application name/grade prefill; no new invitation kind or applicant-selected membership payload is introduced. Retrieval itself writes no credentials or membership. Shared redemption rechecks staff authorization, recipient ownership, current account restrictions and Crew availability before explicitly adding Crew participation. Revoked, expired or used authorization cannot issue a fresh redeemable receipt, and status refresh does not reopen an already completed membership write.
+
+Crew submit/status mail uses the existing durable signup mail admission and optional CAPTCHA, reusing the configured tutee scene with distinct `crew.submit` and `crew.status` purpose-bound grants. Verification and status reads retain independent admission. The additive `20261009210000_crew_signup_verification` migration adds the challenge table and indexes only; it neither creates accounts nor approves existing applications.
+
+### Opaque invitation codes
+
+New displayed invitations and staff keys use the shared five-character
+Steam-style alphabet `023456789ABCDEFGHIJKMNPQRSTUVWXYZ`, with both letters and digits.
+Entry canonicalizes `O`/`o` to `0` and, for five-character codes only, `1` to `I`.
+The shared browser-safe normalizer keeps input, lookup and quota identity consistent;
+longer legacy hexadecimal receipts and OTPs retain digit `1`. Existing displayed receipts
+are re-derived with the current or original alphabet only when the persisted hash matches,
+so retries and optional mail preserve their code; an unmatched hash fails closed.
+Keep the legacy centered, uppercase, widely spaced `XXXXX` code card. Outstanding
+twelve-character invitations remain accepted for compatibility; code length must not
+determine a new invitation's source or authorization. Server resolution distinguishes
+staff keys from displayed invitations, retains proof and exact recipient checks, and
+avoids ambiguous code issuance through the shared database namespace lock.
+Mailbox verification remains a separate secret: tutee verification uses six hexadecimal
+characters, while the resulting invitation uses five Steam-style characters.
+
+The code is opaque: no character or position encodes a role, account identity or
+invitation type. The server resolves its value against authorization records and checks
+the recipient and purpose there. Expiring invitation, verification and application records
+live in the existing database; there is no separate temporary database. Completion applies
+the authorized account/access change atomically, preserving original intake and policy evidence.
+The additive `20261009190000_short_invitation_codes` migration stores the collision-retry
+nonce used to reproduce a displayed code; a null nonce preserves older receipts.
+
+`rememberInvitation` validates the proof on the server and sets a 15-minute HttpOnly, SameSite=Lax
+cookie scoped to `/register-account`, Secure in production. The short `/register` link redirects
+to this canonical page without carrying proof in the URL. A cookie scoped to `/register` would
+not match `/register-account`. The link carries only the invitation identifier
+and displayed entry code; mailbox/completion proof and credentials never enter URLs, history or
+JavaScript storage. Without the verified-browser handoff, copied codes require mailbox verification.
+The additive `20261009170000_invitation_code_handoff` migration adds the displayed-code lookup,
+invitation mailbox challenge fields and tutee verification attempt counter without replacing
+source intake or policy evidence.
+
+All website credential creation passes through `/register`. Existing staff keys and old survey,
+Viewer and historical setup proofs remain compatible entry points: public legacy completion
+endpoints exchange their proof for an invitation instead of creating credentials themselves.
+Internal domain completion helpers remain responsible for their specific policy and evidence.
+Password recovery and the deployment-only first-Head bootstrap are separate deliberate operations.
+
+Apply `20261009090000_universal_account_invitations` before deploying the application. It only
+adds an envelope table and indexes; it changes no existing accounts, archived records or grants.
+Outstanding source links remain usable. Rollback to the previous application requires retaining
+the additive table and acknowledging that emailed envelope links need this version to redeem;
+do not drop stored receipts or erase original source evidence during rollback.
+
 Use this guide to find the code responsible for current behavior and understand the invariants a change must preserve. For setup commands, see [local development](local-development.md); for operating the server, see [deployment](deployment.md).
 
 ## Public signup URL convention
@@ -10,7 +130,7 @@ query values, including repeated parameters, invitation prefill and callbacks.
 
 | Published href | Canonical page | Purpose |
 | --- | --- | --- |
-| `/register` | `/register-account` | Redeem a staff invitation |
+| `/register` | `/register-account` | Review a shared account or access invitation |
 | `/tutee` | `/tutee-signup` | Request tutoring |
 | `/tutor` | `/tutor-signup` | Apply to tutor |
 | `/viewer` | `/viewer-signup` | Register read-only Viewer access when enabled |
@@ -23,8 +143,8 @@ corresponding tutee pages. [Next configuration](../next.config.js) owns redirect
 prefix exemptions. Adjacent paths still require sign-in. Feature gates, API
 authorization, invitation formats, approval rules and account workflows stay in
 their existing features. The canonical pages reuse the original feature modules.
-This implementation has no registration proof cookie; future credential handoffs
-must choose their cookie scope explicitly when relocating routes.
+Verified-browser invitation handoffs use the canonical `/register-account` cookie
+scope described above; the published short link redirects without exposing proof.
 
 [CMS href presentation](../src/lib/public-signup-links.ts) maps exact root-relative
 signup destinations to short links in buttons and Markdown while keeping stored
@@ -126,7 +246,7 @@ Stacked card grids should declare their narrow layout explicitly, such as `grid-
 
 `PublicHeader` composes the shared `PublicHeaderFrame` with real preference controls; the gallery supplies local controls without changing preferences. It shares one responsive brand/language/navigation/theme arrangement across public pages; `WorkspaceHeader` also serves patrol, localization and standalone workflows. `SectionLinks` keeps route destinations as native links with `aria-current`; tutee browser history stays native. Translation and supervision panels use manually activated `SectionTabs`, mounting on first access and retaining drafts in React `Activity` while hidden. Capability checks sit outside retained panels so revocation unmounts them. Cached identity refresh errors retain drafts but disable editing until Retry succeeds.
 
-`RegistrationProgress` owns only numbered progress and deliberate step-heading focus. Registration features own data, pending guards and proof lifetime: every identity edit clears the local completion proof and code, a different invitation resets prefill/credentials, and server verification is always required in this browser. Credentials and proofs never enter URLs, browser history or persistent storage. Reply uses separate in-memory general/per-recipient drafts with each payload’s idempotency key. Cancel restores the prior draft and opener focus; pending sends and unresolved permission queries block retargeting. `focusVisibleContext` measures the actual sticky header before revealing a focused target.
+`RegistrationProgress` owns only numbered progress and deliberate step-heading focus after invitation code entry. Registration features own data, pending guards and proof lifetime: every identity edit clears the local completion proof and code, a different invitation resets prefill/credentials, and the server revalidates browser proof. Credentials and proofs never enter URLs, browser history or JavaScript storage; the verified public-form handoff uses the short-lived HttpOnly cookie described above. Reply uses separate in-memory general/per-recipient drafts with each payload’s idempotency key. Cancel restores the prior draft and opener focus; pending sends and unresolved permission queries block retargeting. `focusVisibleContext` measures the actual sticky header before revealing a focused target.
 
 Feature integrations include the three participant/account editors, roster actions, account identity settings, meeting attendance, interview panels, profile/CAPTCHA settings, combine-account candidates and public history. Cached query failures retain usable content and drafts. Background refetches preserve the profile policy snapshot; successful saves and explicit successful Reloads update it. Other pages may still use older patterns; [issue #219](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/219) tracks wider migration.
 
@@ -307,12 +427,12 @@ real QueryClient regressions cover the denial/retry/reopen sequence.
 
 ## Student lifecycle and ownership
 
-The original survey submission determines queue priority. Confirmation creates or links an account without replacing its existing role or password. Account links expire after 24 hours. First assignment of an unverified request starts a fixed seven-day deadline; neither resends nor reassignment extends it.
+The original survey submission determines queue priority. Mailbox-code verification or explicit legacy-link confirmation issues the receipt shown in the popup; final shared invitation review creates or links the account and confirms the original request. Existing credentials and unrelated access remain, while an exclusive Viewer transitions to tutee participation. Account links expire after 24 hours. First assignment of an unverified request starts a fixed seven-day deadline; neither resends nor reassignment extends it.
 
 | Action                          | Invariant                                                                                   |
 | ------------------------------- | ------------------------------------------------------------------------------------------- |
 | Submit or repeat an open survey | Preserve the first payload, timestamp and exact accepted policy snapshot                    |
-| Confirm the email link          | Consume a single-use challenge; merely opening a link does not confirm it                   |
+| Verify mailbox code or confirm the email link | Issue an invitation after explicit proof; opening a link alone does not confirm participation |
 | Resend a link                   | Failed delivery preserves the usable link; successful delivery replaces it                  |
 | Edit availability               | Preserve subjects, priority and assignments                                                 |
 | Recall an unassigned request    | Close it permanently; a later application receives a new request and priority               |
@@ -324,7 +444,7 @@ The original survey submission determines queue priority. Confirmation creates o
 
 [Historical linking and invitations](historical-participant-transition.md) add retained ownership after staff review or an explicit claim by the invited verified account. They preserve original enrollment academics, current membership and recorded attendance. Accountless tutees remain roster records; personal `/history` reads require ownership, while general observer access never grants private history. See the guide's [technical map](historical-participant-transition.md#technical-map) for endpoints and shared cache invalidation.
 
-History-only account setup reuses the exact-record invitation and shared email-claim registry. A separate HMAC email code and purpose-bound completion proof precede credential creation; invitation expiry/cancellation, record freshness and issuer authority are checked inside the identity transaction at every step. A neutral STUDENT rank with no participation links/memberships does not grant observer or current tutoring access. The receipt supports a lost-response retry without overwriting credentials. The explicit signed-in claim still establishes ownership separately. Personal tutor history reads only existing account-linked identities and Head-combination ownership, without invoking participation, profile synchronization or hour recalculation.
+History-only account setup reuses the exact-record invitation and shared email-claim registry. A separate HMAC email code and purpose-bound completion proof open the shared receipt popup, whose optional email and prefilled link hand off to credential review at `/register`; invitation expiry/cancellation, record freshness and issuer authority are checked inside the identity transaction at every step. A neutral STUDENT rank with no participation links/memberships does not grant observer or current tutoring access. The receipt supports a lost-response retry without overwriting credentials. The explicit signed-in claim still establishes ownership separately. Personal tutor history reads only existing account-linked identities and Head-combination ownership, without invoking participation, profile synchronization or hour recalculation.
 
 Deadline timestamps live in PostgreSQL. The Node worker checks at startup and every minute; workflow entry points also enforce expiry. Database locks serialize transitions across instances, and downtime never extends a deadline. Keep the SQL constraints and triggers in the migration chain; `db push` alone does not reproduce them.
 
@@ -416,7 +536,7 @@ Optional notification delivery adds a signed, 90-day unsubscribe link to HTML an
 
 Registration Codes supports Tutor, Crew, Admin and Coordinator invitations. Every code grants only its displayed role. Head can issue directly; Admin can issue Tutor/Crew codes directly (including the legacy omitted-kind Tutor default), but requests Head review for Admin/Coordinator codes. Coordinators can request Tutor/Crew invitations for Head review but cannot request management-role invitations. The input-dependent authority policy preserves Head review of Coordinator proposals while recording direct Admin issuance in the same transactional audit trail. Only Head can list or share Admin/Coordinator codes and apply their revocation; Admin may request Head review of revocation. The selected role appears in the list, share card and every redemption step after code validation. There is no Head code; leadership transfer remains separate.
 
-Admin/Coordinator redemption requires email verification and creates a new management-only account without Tutor, Crew, Tutee or Translator participation. Existing primary or secondary email owners must sign in and ask Head to change roles in Users & Roles; a code never resets their credentials or replaces their roles. Expiry, rate limits, email binding and single use remain enforced, and issuer/recipient history is retained. The additive registration-kind migration preserves outstanding Tutor/Crew invitations. Apply migrations before starting the updated application.
+Admin/Coordinator redemption requires mailbox proof and explicit review. New accounts receive management access without Tutor, Crew, Tutee or Translator participation. Existing primary or verified-secondary email owners retain credentials, identity and participant attachments; the resulting rank is the higher of the existing and invited management ranks. An exclusive Viewer transitions out of Viewer when accepting this authorized upgrade. No code grants Head or demotes a higher rank. Expiry, rate limits, email binding, issuer authority and single use remain enforced, and issuer/recipient history is retained. The additive registration-kind migration preserves outstanding Tutor/Crew invitations. Apply migrations before starting the updated application.
 
 ## Policy documents and translations
 
@@ -544,7 +664,7 @@ Interactive confirmations and invitation registration take the reference school 
 from the active program term on the server. Clients cannot supply an alternative year.
 The editor sends its observed year so a concurrent program-year change rejects the stale
 confirmation. Internal historical confirmations retain their original reference year.
-Users & Roles keeps academics in User details. Its four-column summary separates login setup from suspension and permissions/participation; setup readiness and filter predicates remain unchanged.
+Users & Roles keeps academics in User details. Its four-column summary separates login setup from suspension and permissions/participation; setup readiness requires password presence, a verified primary email and no required password change. The shared predicate returns only the status; credential hashes never leave the server.
 
 Current identity records (User, Tutor, Tutee) store explicit `firstName`, `lastName`,
 `preferredName`, and `alternativeNames` (the UI's Name in Another Language).

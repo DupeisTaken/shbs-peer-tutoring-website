@@ -31,12 +31,12 @@ export function ProgramEmailSettings() {
   return (
     <section className="card space-y-3 p-5">
       <div className="flex items-start justify-between gap-4">
-        <div>
+        <div className="min-w-0 flex-1">
           <h2 className="section-title">{t("title")}</h2>
           <p className="muted mt-1 text-sm">{t("help")}</p>
         </div>
         {data && (
-          <span className={data.enabled ? "badge-green" : "badge-slate"}>
+          <span className={`shrink-0 whitespace-nowrap ${data.enabled ? "badge-green" : "badge-slate"}`}>
             {t(data.enabled ? "on" : "off")}
           </span>
         )}

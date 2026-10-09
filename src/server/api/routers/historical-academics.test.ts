@@ -938,7 +938,7 @@ it.each(["GRADUATED", "TRANSFERRED"] as const)("preserves originals on a reviewe
   expect(await db.historicalAcademicCorrection.count()).toBe(0);
 });
 
-it.each([false, true])("preserves originals when registration reuses a historical tutor (bound=%s)", async (bound) => {
+it.each([false, true])("preserves originals and archived status when registration reuses a historical tutor (bound=%s)", async (bound) => {
   const tutor = await legacyTutor();
   const email = "returning-registration@example.test";
   await db.tutor.update({ where: { id: tutor.id }, data: { email } });
@@ -953,7 +953,9 @@ it.each([false, true])("preserves originals when registration reuses a historica
   if (!verified.ok) throw new Error("Expected verified invitation");
   row = await db.registrationCode.findUniqueOrThrow({ where: { id: row.id } });
   expect(await completeRegistration(row, { firstName: "Historical", lastName: "Tutor", gradeLevel: 11, password: "Synthetic-password-123!", completionProof: verified.completionProof })).toMatchObject({ ok: true });
-  expect(await db.tutor.findUnique({ where: { id: tutor.id } })).toMatchObject({ status: "ACTIVE", gradeLevel: 11, gradeSchoolYear: "26-27" });
+  // Creating credentials updates the current academic mirror without reversing
+  // the archived participation decision; restoration belongs to Head review.
+  expect(await db.tutor.findUnique({ where: { id: tutor.id } })).toMatchObject({ status: "ARCHIVED", gradeLevel: 11, gradeSchoolYear: "26-27" });
   expect((await historicalAcademicSnapshot(db, recordId)).original).toEqual(original);
   expect(await db.historicalAcademicCorrection.count()).toBe(0);
 });

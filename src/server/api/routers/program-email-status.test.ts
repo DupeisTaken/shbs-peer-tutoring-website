@@ -93,6 +93,25 @@ it.each(["COORDINATOR", "STUDENT", "TUTOR", "VIEWER"] as const)(
       code: "FORBIDDEN",
     });
     expect(mocks.resend).not.toHaveBeenCalled();
-    expect(mock.auditLog.create).not.toHaveBeenCalled();
+    // A denied mutation leaves delivery untouched but records the live actor's attempt.
+    expect(mock.auditLog.create).toHaveBeenCalledExactlyOnceWith({
+      data: {
+        userId: "email-status-reader",
+        userName: "Synthetic reader",
+        action: "Denied: Resend Stuck Emails",
+        entity: "program",
+        approvalId: undefined,
+        operation: "program.resendStuckEmails",
+        kind: "ATTEMPT",
+        details: {
+          actorRole: role,
+          applied: false,
+          errorCode: "FORBIDDEN",
+          evidenceVersion: 1,
+          outcome: "DENIED",
+        },
+      },
+    });
+    expect(mock.emailDelivery.count).not.toHaveBeenCalled();
   },
 );

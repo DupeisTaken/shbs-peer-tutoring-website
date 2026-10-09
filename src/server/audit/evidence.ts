@@ -44,6 +44,7 @@ const contactFields = new Set(["email", "phone", "preferredContact"]);
 // reason/note. Participant appeals, messages and credential payloads stay private.
 const decisionFields = new Map<string, ReadonlySet<string>>([
   ["ApprovalRequest", new Set(["reviewNote"])],
+  ["CrewApplication", new Set(["decisionComment", "decidedByName", "decidedAt"])],
   ["DisciplinaryCard", new Set(["reason", "reviewNote"])],
   ["SessionFlag", new Set(["decisionNote"])],
   ["MeetingAttendance", new Set(["reason"])],

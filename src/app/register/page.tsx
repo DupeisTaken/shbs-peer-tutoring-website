@@ -9,21 +9,29 @@ import { brandingMetadata } from "~/server/branding-metadata";
 import { RegisterFlow } from "./register-flow";
 import { db } from "~/server/db";
 import { getFeatures } from "~/server/program/features";
+import { auth } from "~/server/auth";
+import { cookies } from "next/headers";
 
 export async function generateMetadata() {
   return brandingMetadata("Register");
 }
 
 /**
- * Invited members redeem a staff-issued registration code. Keep the public viewer and
- * tutee routes visible so visitors without an invitation can find the right starting point.
+ * All invitation sources converge here. Keep the public viewer and tutee routes
+ * visible so visitors without a code can find the right starting point.
  */
-export default async function RegisterPage() {
-  const [t, features] = await Promise.all([getTranslations(), getFeatures(db)]);
+export default async function RegisterPage({
+  searchParams,
+}: { searchParams?: Promise<{ invitation?: string; code?: string }> } = {}) {
+  const [t, features, params, session] = await Promise.all([
+    getTranslations(),
+    getFeatures(db),
+    searchParams,
+    auth(),
+  ]);
   return (
     <PublicFormPage
-      title={t("auth.register.title")}
-      description={t("auth.register.subtitle")}
+      title={t("accountInvitation.pageTitle")}
       backLabel={t("common.backToMain")}
       footer={
         <div className="space-y-4">
@@ -48,7 +56,18 @@ export default async function RegisterPage() {
       }
     >
       <PublicFormCard>
-        <RegisterFlow />
+        <RegisterFlow
+          key={params?.invitation ?? "staff-key"}
+          invitationId={params?.invitation}
+          initialCode={params?.code?.slice(0, 12)}
+          initialProof={
+            params?.invitation
+              ? (await cookies()).get(`invitation-${params.invitation}`)?.value
+              : undefined
+          }
+          signedIn={Boolean(session?.user)}
+          viewerSignupAvailable={features.VIEWER_SIGNUP}
+        />
       </PublicFormCard>
     </PublicFormPage>
   );

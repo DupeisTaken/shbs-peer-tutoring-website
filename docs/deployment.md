@@ -96,12 +96,26 @@ through gated paths: the first admin is created by `npm run admin:create`;
 recruits follow **`/register`** to **`/register-account`** with an admin-issued single-use code plus an emailed
 verification code; and outsiders can self-register a **read-only viewer (VIEWER)** account at
 **`/viewer` → `/viewer-signup`** (email-validated, behind the `VIEWER_SIGNUP` feature flag). The public tutee
-signup (`/tutee` → `/tutee-signup`) first saves a survey; email confirmation then creates or links a student login. Tutor application (`/tutor` → `/tutor-signup`) and crew application (`/crew` → `/crew-signup`) create pending records for review. Credential sign-in, the
+signup (`/tutee` → `/tutee-signup`) first saves the full application and policy agreement; mailbox code or legacy
+email-link confirmation opens an invitation popup before shared account/access review. Displaying
+an invitation alone creates no credentials or participation. Tutor application (`/tutor` → `/tutor-signup`)
+creates pending records for review. Crew application (`/crew` → `/crew-signup`) first verifies
+the mailbox before creating a pending record; staff approval and fresh mailbox proof
+then permit shared invitation retrieval. Credential sign-in, the
 registration steps, and viewer signup are all **rate-limited in-app** (per IP + per code / email /
-identifier; `src/server/rate-limit.ts`). Public tutee/viewer signup also uses [durable signup quotas](signup-protection.md) and supports [optional Aliyun CAPTCHA](captcha.md), disabled by default.
+identifier; `src/server/rate-limit.ts`). Public tutee/viewer signup and Crew verification/status
+mail also use [durable signup quotas](signup-protection.md) and support
+[optional Aliyun CAPTCHA](captcha.md), disabled by default.
 Transactional email (reset links plus sign-in and password-change 2FA codes) goes through Aliyun
 Direct Mail — see "Email" below. Sign-in 2FA is enforced when the `EMAIL_2FA` program feature and
 the user's 2FA preference are both enabled.
+
+New invitation and staff registration codes use the five-character uppercase Steam-style
+format, containing both letters and digits, including canonical `0` and `I`. Input accepts
+`O`/`o` as `0` and, in five-character codes, `1` as `I`. Existing receipt hashes select
+the original derivation, preserving older invitations without a new migration.
+Mailbox verification remains separate and retains its existing formats. The additive
+short-code migration preserves older receipt lookup while recording new code retry nonces.
 
 Website/CMS/email hrefs publish the short paths. Permanent redirects retain query
 values; `/signup` and `/signup/account` remain compatible with existing bookmarks
@@ -109,7 +123,7 @@ and confirmation mail. See the [public signup URL convention](technical-report.m
 
 Public tutor and crew intake share database-backed limits: five distinct accepted submissions per normalized email in 24 hours, and 500 per network address in one hour. Pending retries return the same confirmation without another record, counter increment or notification; tutor applications awaiting an interview also count as pending. Decided applications may be submitted again within these limits. Counters, application writes and in-app notifications commit together, and counters survive server restarts and multiple instances. New distinct submissions prune hashed counter keys that expired more than seven days ago, in bounded batches; an idle deployment retains those expired keys until intake resumes.
 
-Tutor/crew intake and credential sign-in use the proxy-supplied `X-Forwarded-For`/`X-Real-IP`; configure the proxy to replace visitor-supplied values and keep the application port private. Tutee/viewer signup instead requires the dedicated `X-Signup-Client-IP` boundary and `SIGNUP_TRUST_PROXY=true`, already configured in the supplied Caddy/Compose stack; see [proxy trust and network buckets](signup-protection.md#trusted-network-boundary). Network addresses are abuse signals, not identity. Tutor/crew application forms do not verify email ownership.
+Tutor intake and credential sign-in use the proxy-supplied `X-Forwarded-For`/`X-Real-IP`; configure the proxy to replace visitor-supplied values and keep the application port private. Tutee/viewer signup and Crew verification/status use the dedicated `X-Signup-Client-IP` boundary and `SIGNUP_TRUST_PROXY=true`, already configured in the supplied Caddy/Compose stack; see [proxy trust and network buckets](signup-protection.md#trusted-network-boundary). Network addresses are abuse signals, not identity. Tutor applications do not verify email ownership; Crew applications do so before entering review.
 
 ## 2. Host setup (once)
 
@@ -776,6 +790,8 @@ On a fresh deployment, inspect the public `tutee.signupOptions`, `application.op
 Apply migration `20260922140000_recruitment_windows` with the release, regenerate the Prisma client when running from source, and restart the app. The updated public policy reads return an explicit absent-policy state; forms render a read-only preview with the missing prerequisites listed. Database/network failures still surface as loading errors. Use **Policy Documents**, **Subjects & Levels**, **Time Slots**, and the separate recruitment panels in **Program & Refresh** to complete setup. Publish reviewed school policy content; do not seed demo data in production. Verify both public forms before and after their configured opening/closing boundaries.
 
 ## Public signup abuse controls
+
+Apply `20261009210000_crew_signup_verification` before deploying Crew application verification. The additive table stores pending drafts, mailbox challenges and private-status proof state; existing reviewed Crew applications and registration codes remain unchanged. No migration approves applications or creates accounts. Crew mail submission/status checks require the same trusted signup proxy configuration as tutee and Viewer signup. If CAPTCHA is enabled, Crew reuses the configured tutee scene with its own action-bound grants; no additional provider scene or paid service activation is required by this change.
 
 Apply migrations and review [public signup protection](signup-protection.md) for
 quota defaults, the trusted Caddy boundary, SMTP deadlines and outage troubleshooting.
