@@ -1,5 +1,66 @@
 # Shared UI integration: cloud continuation
 
+## 2026-10-09 completion checkpoint
+
+The remaining shared rollout is implemented and verified in official
+[PR #275](https://github.com/DupeisTaken/shbs-peer-tutoring-website/pull/275), stacked
+on [PR #274](https://github.com/DupeisTaken/shbs-peer-tutoring-website/pull/274).
+Application source `d8a702bdad22c0130dab86add5b2e15d2b919557` passed
+[CI run 37877853524](https://github.com/DupeisTaken/shbs-peer-tutoring-website/actions/runs/37877853524):
+3,162 tests in 323 files, migrations/drift, lint/typecheck, documentation/deployment
+checks, audit, production build, runnable image and runtime boot/recreate smoke.
+No merge, deployment or production write was performed. A documentation-only
+publication does not change that tested application source.
+
+Current real-page evidence completes the earlier held shared matrix:
+
+- **16 real-write profile cases:** account, tutor, tutee and username editors in
+  EN/ZH at 1440/390 px. Held/failed roster reads follow accepted versioned writes;
+  sibling reasons/versions survive and unchanged Retry receives a real conflict.
+  Explicit Reload admits a fresh academic save, both saved sections require manual
+  Close, and reopening verifies persistence before restoring the synthetic identity.
+- The before/after database audit verifies exactly 16 new academic confirmations,
+  version increases of 24/12/12 for edited accounts and zero for the actor, restored
+  identities/permissions and unchanged prior confirmation hashes. The 22 policy
+  acceptances, three request reviews, eight surveys and 69 sessions are unchanged.
+  Historical-academic record/correction tables are empty here; zero counts do not
+  establish populated-table coverage. Original archive grade/year presentation is
+  separately inspected in integrated Users details and covered by domain tests.
+- **24 controlled composed-editor cases** admit independent writes before settling
+  both orders, covering either failure and all-success. **Five explicit-read cases**
+  cover dual academic/policy settlement, failed Reload retention, identity/username
+  Reload and accepted-read recovery. These streamed fixtures prove UI state and are
+  distinguished from real database writes.
+- **32 Head/Viewer roster, gallery and keyboard cases** verify authorized details,
+  Viewer Users denial, rightmost actions reachable before/after local scrolling,
+  named keyboard-scroll regions, the six-column Service Hours comparison, native
+  rating arrow keys and saved/failed gallery sections. Gallery writes are local.
+- Other current receipts contain 72 action/role/meeting layout cases, 32 integrated
+  Users/header/gallery cases, 23 policy/history/breakpoint/directory cases and six
+  post-200%-text header checks. The [#221](issue-221.md) and [#222](issue-222.md)
+  checkpoints describe workflow coverage. Counts overlap and are per harness.
+
+Rendered controls measure 32 px for desktop workspace links/language and at least
+44 px below 1024 px; meeting form rows are 40/44 px and table actions at least
+28/44 px. EN/ZH widths include 375, 390, 768, 1024 and 1440 px. Six translated role
+headers have no overlap/page overflow at 200% text and retain 44 px targets. All
+six accent palettes' normal/hover primary contrast was measured after transitions
+settled; the minimum is **4.53:1**. Independent GPT-6.1 Sol xhigh review accepted
+the final application source with no remaining findings.
+
+Ignored evidence lives in `outputs/shared-ui-completion/evidence-manifest.json`
+and self-contained `report.html`: exact revisions, screenshot hashes, controlled
+versus real boundaries and raw receipts. Desktop/mobile report inspection and
+filtering, zoom, native Escape and exact focus return passed. Owned browser contexts,
+loopback app/fixture servers and PostgreSQL were stopped; unrelated processes and
+shared dependency caches were untouched.
+
+Public onboarding/wizards/CAPTCHA belong to #268 / PR #276, which carries the
+remaining #221 closure. PR #275 completes shared #219/#222 scope. The historical
+draft/runtime/report holds below describe October 2 and are not current instructions.
+
+## Historical October 2 checkpoint
+
 This is an incomplete checkpoint for continued development, not merge or deployment approval. Source and automated checks received partial review; current-composition live verification and the whole HTML report remain held.
 
 ## Checkout identity and scope

@@ -1,5 +1,53 @@
 # Issue #222 cloud continuation
 
+## 2026-10-09 verified completion
+
+Official [PR #275](https://github.com/DupeisTaken/shbs-peer-tutoring-website/pull/275)
+completes the remaining shared task/consequential-action scope. Tested application
+source is `d8a702bdad22c0130dab86add5b2e15d2b919557`; the
+[shared ledger](shared-ui-integration.md) records the passing 3,162-test CI run,
+16 real profile cases and immutable-record audit, layouts, independent review and
+visually verified self-contained HTML report. No merge or deployment was performed.
+
+The current task matrix covers active/pending/inactive/suspended roles in EN/ZH at
+desktop/mobile widths, with actionable work before optional history/preferences.
+Twelve workflow cases cover willingness, discipline, attendance correction, nested
+departure, raw timed schedule dialogs and attendance. Pending writes block repeated
+Escape and editing; rejected drafts retain their reasons and original versions.
+Schedule preparation uses real server tickets. Attendance retains all 25 native
+rating choices with 44 px mobile targets; keyboard arrows work. Failed writes retry
+the original payload, accepted-write/totals-read failure retries only reads, and
+Submit Another opens a fresh enabled draft without another POST.
+
+Twelve additional task/navigation cases cover meeting reason rejection/retry,
+pairing and activation cancellation without writes, the actual interview chair's
+decision comment/version retention, pending qualifications outside collapsed or
+terminal-filter history, explicit fresh discipline/attendance Reload and route
+navigation/access restrictions. The meeting form row measures 40 px desktop and
+44 px mobile.
+
+All 13 migrated review families have EN/ZH desktop/mobile named-target, keyboard,
+Cancel-without-write and layout receipts. Real room deletion and reversible Crew
+status changes prove accepted-result lifetime and read-only recovery after Close.
+Six additional caller-specific workflows cover hour adjustments, pairings, time
+slots, subject levels, tutees and invitation revocation: controlled rejection,
+unchanged Retry, one accepted response, held/failed read, Close, read-only Retry and
+post-delete list removal. Those streamed outcomes are explicitly simulated; they
+do not claim six real deletions. The real coordinator queued-proposal receipt is
+separately attributed to `8631228` and remains distinct from an applied result.
+
+The Head/Viewer roster and gallery matrix now includes authorized detail access,
+Viewer Users denial, rightmost actions reachable before/after local keyboard scroll,
+six-column Service Hours comparison and independent saved/failed gallery sections.
+Six translated headers are measured after 200% text enlargement, with no overlap or
+page overflow and retained touch targets. Owned runtime processes are stopped.
+
+Public onboarding/wizards/CAPTCHA remain assigned to #268 / PR #276 as the separate
+remaining #221 layer. The draft/runtime/report holds below are historical records,
+not current limitations or instructions to repeat completed implementation.
+
+## Historical checkpoint
+
 > Historical checkpoint: the tutor-task implementation below was subsequently
 > integrated by PR #257 and refined by PR #259. Its old draft/publication and
 > runtime limitations describe that session, not current task instructions. The
