@@ -1,0 +1,40 @@
+name: Production network observation
+
+on:
+  workflow_dispatch:
+  pull_request:
+    paths:
+      - scripts/observe-production-network.mjs
+      - scripts/observe-production-network.test.mjs
+      - .github/workflows/production-network-observation.yml
+
+permissions:
+  contents: read
+
+concurrency:
+  group: production-network-observation
+  cancel-in-progress: false
+
+jobs:
+  observe:
+    # This finite unauthenticated matrix is for the repository's canonical deployment.
+    # Forks do not acquire an automatic production probe; no secrets are used here.
+    if: github.event_name == 'workflow_dispatch' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: Verify bounds and result sanitization
+        run: node --test scripts/observe-production-network.test.mjs
+      - name: Observe fixed public protocol matrix
+        run: node scripts/observe-production-network.mjs > network-observations.json
+      - uses: actions/upload-artifact@v4
+        with:
+          name: production-network-observations
+          path: network-observations.json
+          retention-days: 7

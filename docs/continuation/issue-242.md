@@ -41,6 +41,27 @@ policy and complete an independent external protocol check. Keep #242 open until
 those rows have evidence. Public SSH and root-password authentication are reported
 as the existing operational policy, not judged against an invented key-only policy.
 
+### Independent hosted observation
+
+The `Production network observation` workflow collects the fixed canonical-host
+matrix from a GitHub-hosted Ubuntu runner without credentials or production writes.
+It resolves `pt.shbs.org.cn`, visits each returned address serially (at most four),
+and makes one bounded observation on TCP 22, 80, 443, 3000, 5432, 2019, 5555 and
+8080. HTTP uses `/signin`, HTTPS validates the certificate with the canonical SNI,
+SSH reads only its greeting, and PostgreSQL receives only an unauthenticated SSL
+negotiation request. No redirect is followed and no login is attempted.
+
+Each connection has a five-second wall-clock deadline and a 4 KiB response cap;
+the job has a five-minute outer limit. Only sanitized protocol summaries are saved
+in a seven-day CI artifact. Silent or refused connections remain inconclusive and
+must be assessed beside host and cloud rules. A successful collection job does not
+mean the perimeter is approved. Synthetic regression tests exercise bounds and
+response-data exclusion; the hosted run supplies the actual external observations.
+
+The workflow runs for same-repository PR changes to its own script/test/workflow,
+or by explicit dispatch after merge. It does not run on ordinary application PRs
+and does not grant fork PRs access to production probing or repository secrets.
+
 ## Earlier source-only checkpoint
 
 The sections below retain the earlier source-tooling handoff and its historical
