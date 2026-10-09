@@ -2,10 +2,12 @@
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import {
   cleanup,
+  act,
   fireEvent,
   render,
   screen,
   within,
+  waitFor,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
@@ -43,6 +45,7 @@ const mock = vi.hoisted(() => ({
   mutate: vi.fn(),
   binding: vi.fn(),
   query: vi.fn(),
+  resend: vi.fn(),
 }));
 vi.mock("~/trpc/react", () => ({
   api: {
@@ -51,6 +54,9 @@ vi.mock("~/trpc/react", () => ({
       account: { emailSettings: { invalidate: vi.fn() } },
     }),
     program: {
+      resendStuckEmails: {
+        useMutation: () => ({ mutateAsync: mock.resend, isPending: false }),
+      },
       emailNotificationSettings: {
         useQuery: () => ({
           data: mock.settings,
@@ -109,7 +115,10 @@ beforeEach(() => {
   mock.statusError = null;
   mock.fetching = false;
   mock.pending = false;
-  mock.refetch.mockResolvedValue({});
+  mock.refetch.mockImplementation(() =>
+    Promise.resolve({ isSuccess: true, data: mock.status }),
+  );
+  mock.resend.mockResolvedValue({ queued: 1 });
 });
 afterEach(cleanup);
 function content(chinese = false) {
@@ -218,7 +227,9 @@ it("keeps cached results and unrelated drafts visible during failure, then recov
   fireEvent.click(
     screen.getByRole("button", { name: en.programEmail.refreshStatus }),
   );
-  await Promise.resolve();
+  await act(async () => {
+    await Promise.resolve();
+  });
   mock.statusError = null;
   view.rerender(content());
   expect(screen.queryByRole("alert")).toBeNull();
@@ -243,8 +254,9 @@ it("admits one refresh before React disables its button", async () => {
   fireEvent.click(button);
   fireEvent.click(button);
   expect(mock.refetch).toHaveBeenCalledOnce();
-  resolve({});
-  await Promise.resolve();
+  await act(async () => {
+    resolve({ isSuccess: true, data: mock.status });
+  });
   fireEvent.click(button);
   expect(mock.refetch).toHaveBeenCalledTimes(2);
 });
@@ -301,4 +313,186 @@ it("preserves toggle payloads and freezes cached controls after a failed setting
       name: en.programEmail.retrySettings,
     }),
   ).toBeTruthy();
+});
+
+it.each([false, true])(
+  "queues an explicit batch and reports queued, not delivered (Chinese=%s)",
+  async (chinese) => {
+    mock.status!.failed = 4;
+    mock.resend.mockResolvedValue({ queued: 4 });
+    render(content(chinese));
+    const messages = (chinese ? zh : en).programEmail;
+    fireEvent.change(screen.getByRole("textbox"), {
+      target: { value: "Preserve this draft" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: messages.resendStuck }));
+    await waitFor(() =>
+      expect(
+        screen.getByText(messages.resendQueued.replace("{count}", "4")),
+      ).toBeTruthy(),
+    );
+    expect(mock.resend).toHaveBeenCalledExactlyOnceWith();
+    expect(mock.refetch).toHaveBeenCalledOnce();
+    expect(screen.getByRole<HTMLInputElement>("textbox").value).toBe(
+      "Preserve this draft",
+    );
+    expect(mock.mutate).not.toHaveBeenCalled();
+    expect(mock.binding).not.toHaveBeenCalled();
+  },
+);
+
+it("holds admission through the write and status synchronization", async () => {
+  mock.status!.failed = 2;
+  let finishWrite!: (value: { queued: number }) => void;
+  let finishRead!: (value: object) => void;
+  mock.resend.mockReturnValue(
+    new Promise((resolve) => {
+      finishWrite = resolve;
+    }),
+  );
+  mock.refetch.mockReturnValue(
+    new Promise((resolve) => {
+      finishRead = resolve;
+    }),
+  );
+  render(content());
+  const button = screen.getByRole<HTMLButtonElement>("button", {
+    name: en.programEmail.resendStuck,
+  });
+  fireEvent.click(button);
+  fireEvent.click(button);
+  expect(mock.resend).toHaveBeenCalledOnce();
+  expect(button.disabled).toBe(true);
+  await act(async () => {
+    finishWrite({ queued: 2 });
+  });
+  expect(button.disabled).toBe(true);
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: en.programEmail.refreshStatus,
+    }).disabled,
+  ).toBe(true);
+  await act(async () => {
+    finishRead({ isSuccess: true, data: mock.status });
+  });
+  expect(button.disabled).toBe(false);
+  expect(mock.resend).toHaveBeenCalledOnce();
+});
+
+it.each(["result", "throw"])(
+  "keeps accepted batch locked after %s read failure; recovery never replays it",
+  async (failure) => {
+    mock.status!.failed = 1;
+    if (failure === "throw")
+      mock.refetch.mockRejectedValueOnce(new Error("network failed"));
+    else
+      mock.refetch.mockResolvedValueOnce({
+        isSuccess: false,
+        data: mock.status,
+        error: new Error("network failed"),
+      });
+    render(content());
+    fireEvent.click(
+      screen.getByRole("button", { name: en.programEmail.resendStuck }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.getByText(en.programEmail.resendRefreshFailed),
+      ).toBeTruthy(),
+    );
+    expect(
+      screen.getByText(en.programEmail.resendQueued.replace("{count}", "1")),
+    ).toBeTruthy();
+    expect(screen.queryByText(en.programEmail.resendFailed)).toBeNull();
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", {
+        name: en.programEmail.resendStuck,
+      }).disabled,
+    ).toBe(true);
+    fireEvent.click(
+      screen.getByRole("button", { name: en.programEmail.resendStuck }),
+    );
+    expect(mock.resend).toHaveBeenCalledOnce();
+    fireEvent.click(
+      screen.getByRole("button", { name: en.programEmail.refreshStatus }),
+    );
+    await waitFor(() =>
+      expect(
+        screen.queryByText(en.programEmail.resendRefreshFailed),
+      ).toBeNull(),
+    );
+    expect(mock.resend).toHaveBeenCalledOnce();
+    expect(mock.refetch).toHaveBeenCalledTimes(2);
+    // Another batch is deliberate and possible only after the successful read.
+    fireEvent.click(
+      screen.getByRole("button", { name: en.programEmail.resendStuck }),
+    );
+    await waitFor(() => expect(mock.resend).toHaveBeenCalledTimes(2));
+  },
+);
+
+it("reports zero eligible emails without claiming a send", async () => {
+  mock.status!.retrying = 2;
+  mock.resend.mockResolvedValue({ queued: 0 });
+  render(content());
+  fireEvent.click(
+    screen.getByRole("button", { name: en.programEmail.resendStuck }),
+  );
+  await waitFor(() =>
+    expect(screen.getByText(en.programEmail.resendNone)).toBeTruthy(),
+  );
+  expect(mock.refetch).toHaveBeenCalledOnce();
+});
+
+it("allows retry after a rejected write without treating it as accepted", async () => {
+  mock.status!.failed = 1;
+  mock.resend.mockRejectedValueOnce(new Error("internal database detail"));
+  render(content());
+  fireEvent.click(
+    screen.getByRole("button", { name: en.programEmail.resendStuck }),
+  );
+  await waitFor(() =>
+    expect(screen.getByText(en.programEmail.resendFailed)).toBeTruthy(),
+  );
+  expect(mock.refetch).not.toHaveBeenCalled();
+  expect(screen.queryByText("internal database detail")).toBeNull();
+  fireEvent.click(
+    screen.getByRole("button", { name: en.programEmail.resendStuck }),
+  );
+  await waitFor(() =>
+    expect(
+      screen.getByText(en.programEmail.resendQueued.replace("{count}", "1")),
+    ).toBeTruthy(),
+  );
+  expect(mock.resend).toHaveBeenCalledTimes(2);
+});
+
+it("hides resend for read-only staff and disables it without trustworthy queue/settings data", () => {
+  mock.settings!.canEdit = false;
+  const view = render(content());
+  expect(
+    screen.queryByRole("button", { name: en.programEmail.resendStuck }),
+  ).toBeNull();
+  mock.settings!.canEdit = true;
+  view.rerender(content());
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: en.programEmail.resendStuck,
+    }).disabled,
+  ).toBe(true);
+  mock.status!.failed = 1;
+  mock.settingsError = new Error("settings read failed");
+  view.rerender(content());
+  expect(
+    screen.getByRole<HTMLButtonElement>("button", {
+      name: en.programEmail.resendStuck,
+    }).disabled,
+  ).toBe(true);
+  mock.settingsError = null;
+  mock.statusError = new Error("status read failed");
+  view.rerender(content());
+  fireEvent.click(
+    screen.getByRole("button", { name: en.programEmail.resendStuck }),
+  );
+  expect(mock.resend).not.toHaveBeenCalled();
 });

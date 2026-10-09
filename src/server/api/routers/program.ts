@@ -20,6 +20,7 @@ import {
 import { recordAudit } from "~/server/audit/log";
 import { isEmailDeliveryAvailable } from "~/server/email/sender";
 import { getEmailDeliveryStatus } from "~/server/email/delivery-status";
+import { resendStuckEmails } from "~/server/email/resend-stuck";
 
 import { getProgramTimeZone } from "~/server/program/time-zone";
 import { isProgramTimeZone } from "~/lib/program-time";
@@ -244,6 +245,9 @@ export const programRouter = createTRPCRouter({
   // Separate diagnostics keep slow SMTP authentication out of immediate settings reads.
   emailDeliveryStatus: adminProcedure.query(({ ctx }) =>
     getEmailDeliveryStatus(ctx.db),
+  ),
+  resendStuckEmails: adminOnlyProcedure.mutation(({ ctx }) =>
+    resendStuckEmails(ctx.db, ctx.session.user),
   ),
   emailNotificationSettings: adminProcedure.query(async ({ ctx }) => {
     const settings = await ctx.db.programSettings.findUnique({

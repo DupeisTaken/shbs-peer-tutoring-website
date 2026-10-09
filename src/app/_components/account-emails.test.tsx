@@ -40,6 +40,9 @@ vi.mock("~/trpc/react", () => ({
       },
     },
     program: {
+      resendStuckEmails: {
+        useMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
+      },
       emailDeliveryStatus: {
         useQuery: () => ({
           data: {

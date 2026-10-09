@@ -3335,7 +3335,14 @@
       "UNAVAILABLE": "La connexion SMTP ou l’authentification a échoué. L’envoi d’e-mails est peut-être indisponible. Demandez à l’administrateur du déploiement de vérifier le service de messagerie.",
       "UNCONFIGURED": "L’envoi par SMTP n’est pas configuré. Demandez à l’administrateur du déploiement de configurer cet expéditeur.",
       "LOCAL": "Les messages sont uniquement consignés dans les journaux de développement. Aucun e-mail n’est envoyé dans une boîte de réception."
-    }
+    },
+    "resendStuck": "Renvoyer les e-mails bloqués",
+    "resending": "Mise en file d’attente des e-mails…",
+    "resendHelp": "Ajoute jusqu’à 100 e-mails admissibles en échec ou en attente d’une nouvelle tentative à la file d’envoi en arrière-plan, selon les paramètres actuels et les préférences des destinataires. Les e-mails déjà envoyés ne sont pas renvoyés.",
+    "resendQueued": "E-mails en attente d’une nouvelle tentative d’envoi : {count}. La livraison n’est pas encore confirmée.",
+    "resendNone": "Aucun e-mail ne remplissait les conditions pour une nouvelle tentative.",
+    "resendFailed": "Impossible d’ajouter les e-mails à la file d’attente. Réessayez.",
+    "resendRefreshFailed": "La demande de renvoi a été acceptée, mais l’état n’a pas pu être actualisé. Utilisez Actualiser l’état pour vérifier la file d’attente avant de lancer un autre lot."
   },
   "membership": {
     "title": "Roles and Participation",

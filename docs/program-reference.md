@@ -70,6 +70,8 @@ The independent **Secondary-Email Binding** switch is also immediate and editabl
 
 The settings panel checks both security and program SMTP connection/authentication, warns about unavailable or missing transport, and reports retrying and terminal notification failures separately. **Refresh status** reads diagnostics without sending mail or changing the program; checks may be cached for one minute. Passing the check does not guarantee inbox delivery. Operators should inspect the safe failure summaries in `EmailDelivery` and follow the [delivery operations guide](deployment.md#optional-notification-delivery). Essential authentication mail remains independent.
 
+ADMIN/HEAD can use **Resend stuck emails** to queue up to 100 eligible failed or retrying notifications after transport recovery. It excludes active leases, completed/skipped mail, unconfigured production categories and disabled optional notifications. The normal worker applies current preferences and recipient ownership before delivery. This immediate, audited action cannot be proposed by coordinators; a successful result confirms queuing rather than inbox delivery.
+
 ## Schedule rooms and periods
 
 Use **Time Slots**, **Rooms** and **Pairings** to plan recurring sessions. A room cannot host overlapping pairings in one program period or a pairing during a recurring blackout; back-to-back sessions are allowed. Availability helps participants agree on a slot and does not prevent staff from assigning a tutor before that agreement. New assignments display **Awaiting schedule** until a tutor or manager selects a catalog slot. These assignments do not reserve rooms or count as scheduled subjects; the assigned tutor remains visible to the tutee.

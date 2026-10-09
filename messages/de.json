@@ -3335,7 +3335,14 @@
       "UNAVAILABLE": "SMTP-Verbindung oder Authentifizierung fehlgeschlagen. Der E-Mail-Versand ist möglicherweise nicht verfügbar. Bitte die für die Bereitstellung zuständige Administration, den E-Mail-Dienst zu prüfen.",
       "UNCONFIGURED": "Der SMTP-Versand ist nicht konfiguriert. Bitte die für die Bereitstellung zuständige Administration, diesen Absender zu konfigurieren.",
       "LOCAL": "Es erfolgt nur eine Protokollierung in der Entwicklungsumgebung. Es werden keine E-Mails an einen Posteingang gesendet."
-    }
+    },
+    "resendStuck": "Festhängende E-Mails erneut senden",
+    "resending": "E-Mails werden eingereiht…",
+    "resendHelp": "Reiht bis zu 100 geeignete fehlgeschlagene oder auf einen weiteren Versuch wartende E-Mails für den Versand im Hintergrund ein. Dabei gelten die aktuellen Einstellungen und Empfängerpräferenzen. Bereits gesendete E-Mails werden nicht erneut gesendet.",
+    "resendQueued": "Für einen weiteren Versandversuch eingereihte E-Mails: {count}. Die Zustellung ist noch nicht bestätigt.",
+    "resendNone": "Keine E-Mails kamen für einen weiteren Versuch infrage.",
+    "resendFailed": "Die E-Mails konnten nicht eingereiht werden. Versuche es erneut.",
+    "resendRefreshFailed": "Die Anfrage zum erneuten Senden wurde angenommen, aber der Status konnte nicht aktualisiert werden. Prüfe die Warteschlange mit Status aktualisieren, bevor du einen weiteren Stapel startest."
   },
   "membership": {
     "title": "Roles and Participation",

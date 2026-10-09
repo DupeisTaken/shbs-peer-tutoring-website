@@ -3335,7 +3335,14 @@
       "UNAVAILABLE": "Falló la conexión SMTP o la autenticación. Es posible que no se puedan enviar correos. Pide al administrador del despliegue que revise el servicio de correo.",
       "UNCONFIGURED": "El envío por SMTP no está configurado. Pide al administrador del despliegue que configure este remitente.",
       "LOCAL": "Solo se registra en los registros de desarrollo. No se envían correos a ninguna bandeja de entrada."
-    }
+    },
+    "resendStuck": "Reenviar correos atascados",
+    "resending": "Añadiendo correos a la cola…",
+    "resendHelp": "Añade hasta 100 correos elegibles fallidos o pendientes de reintento a la cola de envío en segundo plano, según la configuración actual y las preferencias de los destinatarios. Los correos ya enviados no se reenvían.",
+    "resendQueued": "Correos en cola para un nuevo intento de envío: {count}. La entrega aún no está confirmada.",
+    "resendNone": "No había correos que cumplieran los requisitos para otro intento.",
+    "resendFailed": "No se pudieron añadir los correos a la cola. Vuelve a intentarlo.",
+    "resendRefreshFailed": "La solicitud de reenvío fue aceptada, pero no se pudo actualizar el estado. Usa Actualizar estado para revisar la cola antes de iniciar otro lote."
   },
   "membership": {
     "title": "Roles y participación",
