@@ -116,7 +116,7 @@ function InvitationRedemptionFlow({
       login(info.completionProof);
     }
   });
-  const saved = complete.isSuccess || info?.completed || completedLogin;
+  const saved = complete.isSuccess || info?.completed === true || completedLogin;
   const busy =
     verify.isPending ||
     complete.isPending ||
@@ -145,8 +145,8 @@ function InvitationRedemptionFlow({
       {saved ? (
         <section className="space-y-4" aria-live="polite">
           <p>{t("saved")}</p>
-          {(complete.data?.academicConfirmationRequired ||
-            info?.academicConfirmationRequired) && (
+          {(complete.data?.academicConfirmationRequired === true ||
+            info?.academicConfirmationRequired === true) && (
             <div className="rounded-lg bg-amber-50 p-3 text-sm" role="status">
               <AcademicError
                 message="ACADEMIC_CONFIRMATION_REQUIRED"
