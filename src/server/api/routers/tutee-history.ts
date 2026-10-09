@@ -109,10 +109,14 @@ export const tuteeHistoryRouter = createTRPCRouter({
         input.email,
         async () => {
           const verified = await verifyHistoryAccount(ctx.db, input);
-          const invitation = await issueHistoryAccountInvitation(ctx.db, {
-            ...input,
-            completionProof: verified.completionProof,
-          });
+          const invitation = await issueHistoryAccountInvitation(
+            ctx.db,
+            {
+              ...input,
+              completionProof: verified.completionProof,
+            },
+            true,
+          );
           return { ...verified, ...invitation };
         },
       ),

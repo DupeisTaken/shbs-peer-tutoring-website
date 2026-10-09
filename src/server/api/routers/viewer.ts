@@ -126,6 +126,7 @@ export const viewerRouter = createTRPCRouter({
             ctx.db,
             input.email,
             res.completionProof,
+            true,
           );
           return {
             ok: true,

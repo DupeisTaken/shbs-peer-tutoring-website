@@ -25,6 +25,9 @@ type InvitationRedemptionProps = {
   invitationId: string;
   signedIn?: boolean;
   focusOnMount?: boolean;
+  initialProof?: string;
+  initialEmail?: string;
+  onBack?: () => void;
 };
 export function InvitationRedemption(props: InvitationRedemptionProps) {
   return <InvitationRedemptionFlow key={props.invitationId} {...props} />;
@@ -34,13 +37,16 @@ function InvitationRedemptionFlow({
   invitationId,
   signedIn = false,
   focusOnMount = false,
+  initialProof = "",
+  initialEmail = "",
+  onBack,
 }: InvitationRedemptionProps) {
   const t = useTranslations("accountInvitation");
   const policy = useProfilePolicy();
   const utils = api.useUtils();
-  const [email, setEmail] = useState("");
+  const [email, setEmail] = useState(initialEmail);
   const [code, setCode] = useState("");
-  const [proof, setProof] = useState("");
+  const [proof, setProof] = useState(initialProof);
   const [names, setNames] = useState(() => nameDraft());
   const [grade, setGrade] = useState("");
   const [password, setPassword] = useState("");
@@ -104,6 +110,11 @@ function InvitationRedemptionFlow({
   });
   const resumedLogin = useRef(false);
   useEffect(() => {
+    if (initialProof && !resumedLogin.current) {
+      resumedLogin.current = true;
+      login(initialProof);
+      return;
+    }
     if (
       !proof &&
       info?.kind === "LOGIN" &&
@@ -116,7 +127,8 @@ function InvitationRedemptionFlow({
       login(info.completionProof);
     }
   });
-  const saved = complete.isSuccess || info?.completed === true || completedLogin;
+  const saved =
+    complete.isSuccess || info?.completed === true || completedLogin;
   const busy =
     verify.isPending ||
     complete.isPending ||
@@ -373,7 +385,11 @@ function InvitationRedemptionFlow({
             verify.mutate({ invitationId, email, code });
           }}
         >
-          <fieldset disabled={busy} aria-busy={busy} className="min-w-0 space-y-4">
+          <fieldset
+            disabled={busy}
+            aria-busy={busy}
+            className="min-w-0 space-y-4"
+          >
             <p className="muted text-sm">{t("codeHelp")}</p>
             <label className="block">
               <span className="label">
@@ -392,7 +408,7 @@ function InvitationRedemptionFlow({
             </label>
             <label className="block">
               <span className="label">
-                {t("code")}
+                {t("verificationCode")}
                 <FieldRequirement state="required" />
               </span>
               <input
@@ -406,9 +422,15 @@ function InvitationRedemptionFlow({
             </label>
             <FormActions>
               <Button type="submit">{t("verify")}</Button>
-              <Link className="link" href="/register">
-                {t("back")}
-              </Link>
+              {onBack ? (
+                <Button variant="secondary" onClick={onBack}>
+                  {t("back")}
+                </Button>
+              ) : (
+                <Link className="link" href="/register">
+                  {t("back")}
+                </Link>
+              )}
             </FormActions>
           </fieldset>
         </form>

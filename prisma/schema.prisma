@@ -597,6 +597,10 @@ model AccountInvitation {
   sourceKey String @unique
   source Json
   codeHash String
+  /// Displayed invitations authorize access; a separate mailbox challenge proves identity.
+  displayedCode Boolean @default(false)
+  emailCodeHash String?
+  emailCodeExpiresAt DateTime?
   expiresAt DateTime
   attempts Int @default(0)
   verifiedAt DateTime?
@@ -609,6 +613,7 @@ model AccountInvitation {
   receipt Json?
   createdAt DateTime @default(now())
   @@index([email, createdAt])
+  @@index([codeHash])
   @@index([expiresAt])
 }
 
@@ -1667,6 +1672,7 @@ model StudentSurvey {
   policySnapshot Json
   submittedAt DateTime @default(now())
   tokenHash String @unique
+  verificationAttempts Int @default(0)
   expiresAt DateTime
   confirmedAt DateTime?
   /// Terminal requests are immutable history. A fresh submission receives a new id and priority.

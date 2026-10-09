@@ -14,7 +14,10 @@ import { useRef, useState } from "react";
 import { Button } from "~/app/_components/ui/button";
 import { FormActions } from "~/app/_components/ui/patterns";
 import { RegistrationProgress } from "~/app/_components/registration-progress";
-import { InvitationRedemption } from "../register/invitation-redemption";
+import {
+  InvitationReceipt,
+  type InvitationReceiptData,
+} from "../register/invitation-receipt";
 import { useTranslations } from "next-intl";
 
 import { ProfilePolicyHint } from "~/app/_components/profile-policy";
@@ -26,7 +29,7 @@ type Step = "details" | "code";
  * Public identity request and mailbox verification. A separate recipient invitation then
  * enters the shared account flow; an established account receives sign-in only.
  */
-export function ViewerSignupFlow({ signedIn = false }: { signedIn?: boolean }) {
+export function ViewerSignupFlow(_props: { signedIn?: boolean }) {
   const t = useTranslations();
   const flow = useTranslations("registrationFlow");
   const [step, setStep] = useState<Step>("details");
@@ -38,11 +41,13 @@ export function ViewerSignupFlow({ signedIn = false }: { signedIn?: boolean }) {
   const captcha = useSignupCaptcha("viewer.start", email);
   const [code, setCode] = useState("");
   const [invitationId, setInvitationId] = useState("");
+  const [receipt, setReceipt] = useState<InvitationReceiptData | null>(null);
   const verifying = useRef(false);
 
   const start = api.viewer.start.useMutation({
     onSuccess: () => {
       setInvitationId("");
+      setReceipt(null);
       setCode("");
       verify.reset();
       setStep("code");
@@ -51,6 +56,7 @@ export function ViewerSignupFlow({ signedIn = false }: { signedIn?: boolean }) {
   const verify = api.viewer.verify.useMutation({
     onSuccess: (data) => {
       setInvitationId(data.invitationId);
+      setReceipt(data);
     },
     onSettled: () => {
       verifying.current = false;
@@ -70,6 +76,7 @@ export function ViewerSignupFlow({ signedIn = false }: { signedIn?: boolean }) {
     // Details are restaged through viewer.start; a proof for the old identity
     // cannot authorize completion after editing.
     setInvitationId("");
+    setReceipt(null);
     setCode("");
     start.reset();
     verify.reset();
@@ -88,14 +95,8 @@ export function ViewerSignupFlow({ signedIn = false }: { signedIn?: boolean }) {
     );
   }
 
-  if (invitationId)
-    return (
-      <InvitationRedemption
-        invitationId={invitationId}
-        signedIn={signedIn}
-        focusOnMount
-      />
-    );
+  if (invitationId && receipt)
+    return <InvitationReceipt invitation={receipt} />;
   return (
     <div className="space-y-5">
       <fieldset

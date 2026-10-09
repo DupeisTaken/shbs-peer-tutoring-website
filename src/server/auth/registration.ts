@@ -409,7 +409,6 @@ export async function completeRegistration(
     owner &&
     (owner.mergedIntoId ||
       owner.suspendedAt ||
-      owner.role === "VIEWER" ||
       input.authenticatedUserId !== owner.id)
   )
     return { ok: false, error: "email-taken" };
@@ -449,15 +448,15 @@ export async function completeRegistration(
     },
   });
   if (
-    row.kind !== "CREW" &&
+    row.kind === "TUTOR" &&
+    row.tutorId &&
     existingUser?.tutorId &&
     existingUser.tutorId !== row.tutorId
   ) {
     return { ok: false, error: "email-taken" };
   }
 
-  if (existingUser?.mergedIntoId || existingUser?.role === "VIEWER")
-    return { ok: false, error: "email-taken" };
+  if (existingUser?.mergedIntoId) return { ok: false, error: "email-taken" };
 
   if (!owner?.passwordHash && !input.password)
     throw new TRPCError({
@@ -466,8 +465,8 @@ export async function completeRegistration(
     });
   const passwordHash = owner?.passwordHash ?? hashPassword(input.password!);
 
-  // Elevated codes only create new accounts. Existing primary/secondary email owners
-  // must use Head's profile workflow; redemption never resets credentials or ranks.
+  // A Head-issued management invitation also upgrades its verified existing recipient.
+  // Rank only increases; credentials and independent participation remain intact.
   if (isManagementCode(row.kind)) {
     const role = row.kind;
     return inTransaction(client, async (tx) => {
@@ -482,7 +481,10 @@ export async function completeRegistration(
           : null;
       await assertPrimaryName(
         tx,
-        [firstName, lastName].filter(Boolean).join(" "),
+        owner?.name?.trim()
+          ? owner.name
+          : [firstName, lastName].filter(Boolean).join(" "),
+        owner?.name,
       );
 
       if (!existingUser) {
@@ -495,7 +497,7 @@ export async function completeRegistration(
       }
       await lockUsernameNamespace(tx);
       await tx.$executeRaw`LOCK TABLE "User", "AccountEmail", "Tutor" IN SHARE ROW EXCLUSIVE MODE`;
-      const owner = await tx.user.findFirst({
+      const recipient = await tx.user.findFirst({
         where: {
           OR: [
             { email: { equals: email, mode: "insensitive" } },
@@ -507,7 +509,58 @@ export async function completeRegistration(
           ],
         },
       });
-      if (owner) return { ok: false as const, error: "email-taken" as const };
+      if (recipient) {
+        if (
+          recipient.id !== input.authenticatedUserId ||
+          recipient.mergedIntoId ||
+          recipient.suspendedAt
+        )
+          return { ok: false as const, error: "email-taken" as const };
+        await lockAccountProfile(tx, recipient.id);
+        await claimRegistration(tx, row);
+        const rank = { HEAD: 3, ADMIN: 2, COORDINATOR: 1 };
+        const currentRank =
+          recipient.role in rank
+            ? rank[recipient.role as keyof typeof rank]
+            : 0;
+        const nextRole = currentRank >= rank[role] ? recipient.role : role;
+        await tx.user.update({
+          where: { id: recipient.id },
+          data: { role: nextRole },
+        });
+        if (!recipient.name?.trim())
+          await updateAccountProfile(tx, recipient.id, {
+            firstName,
+            lastName,
+            preferredName,
+            alternativeNames,
+            name: `${firstName} ${lastName}`.trim(),
+          });
+        await tx.registrationCode.update({
+          where: { id: row.id },
+          data: { usedByUserId: recipient.id },
+        });
+        await tx.auditLog.create({
+          data: {
+            userId: recipient.id,
+            entity: "RegistrationCode",
+            entityId: row.id,
+            operation: "registration.complete",
+            kind: "ACTION",
+            action: "Accepted management invitation",
+            details: {
+              before: recipient.role,
+              after: nextRole,
+              issuedById: row.issuedById,
+              recipientId: recipient.id,
+            },
+          },
+        });
+        return {
+          ok: true as const,
+          username: await ensureUserUsername(recipient.id, tx),
+        };
+      }
       await claimRegistration(tx, row);
       const username = await ensureUniqueUsername(
         defaultUsername(
@@ -596,7 +649,7 @@ export async function completeRegistration(
       }
       // Namespace locking serializes this check with account combination. Retired identities
       // reserve their email; an invitation must never attach fresh membership to their history.
-      if (existingUser?.mergedIntoId || existingUser?.role === "VIEWER")
+      if (existingUser?.mergedIntoId)
         throw new TRPCError({
           code: "CONFLICT",
           message:
@@ -623,6 +676,9 @@ export async function completeRegistration(
           where: { id: existingUser.id },
           data: {
             crewStatus: "ACTIVE",
+            ...(existingUser.role === "VIEWER"
+              ? { role: "CREW" as const }
+              : {}),
             ...(!existingUser.passwordHash
               ? {
                   passwordHash,
@@ -765,8 +821,9 @@ export async function completeRegistration(
     }
     if (
       existingUser?.mergedIntoId ||
-      existingUser?.role === "VIEWER" ||
-      (existingUser?.tutorId && existingUser.tutorId !== row.tutorId)
+      (row.tutorId &&
+        existingUser?.tutorId &&
+        existingUser.tutorId !== row.tutorId)
     )
       throw new TRPCError({
         code: "CONFLICT",
@@ -774,6 +831,15 @@ export async function completeRegistration(
           "Account membership changed. Ask Head to review this invitation.",
       });
     await claimRegistration(tx, row);
+    // A generic grant for an already-linked tutor is idempotent. It must not
+    // reactivate an opted-out/historical record or replay academic/profile intake.
+    if (existingUser?.tutorId && !row.tutorId) {
+      await tx.registrationCode.update({
+        where: { id: row.id },
+        data: { usedByUserId: existingUser.id },
+      });
+      return { username: await ensureUserUsername(existingUser.id, tx) };
+    }
     const retainedAcademic = existingUser
       ? (await accountAcademics(tx, existingUser.id)).academic
       : null;
@@ -786,6 +852,8 @@ export async function completeRegistration(
     let tutorId: string;
     if (row.tutorId) {
       tutorId = row.tutorId;
+    } else if (existingUser?.tutorId) {
+      tutorId = existingUser.tutorId;
     } else {
       // Reuse an existing tutor on this email if present, else create one.
       const byEmail = await tx.tutor.findUnique({
@@ -872,6 +940,7 @@ export async function completeRegistration(
         data: {
           tutorId,
           tutorAccessRevoked: false,
+          ...(existingUser.role === "VIEWER" ? { role: "TUTOR" as const } : {}),
           username: desiredUsername,
           ...(!existingUser.passwordHash
             ? {

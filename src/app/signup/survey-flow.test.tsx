@@ -164,7 +164,7 @@ it("keeps the request review mounted after failure and freezes pending confirmat
   expect(screen.getByRole("alert")).toBeTruthy();
   expect(screen.getByText("Student One")).toBeTruthy();
 });
-it("enters shared redemption with the exact invitation and signed-in state", () => {
+it("finishes with the exact invitation receipt before shared redemption", () => {
   mocks.data = { invitationId: "tutee-invitation" };
   wrap(
     <StudentRegistration
@@ -172,22 +172,14 @@ it("enters shared redemption with the exact invitation and signed-in state", () 
       signedInEmail="student@example.test"
     />,
   );
-  expect(
-    screen.getByText("Shared invitation tutee-invitation signed in"),
-  ).toBeTruthy();
+  expect(screen.getByText("Invitation receipt tutee-invitation")).toBeTruthy();
 });
-vi.mock("../register/invitation-redemption", () => ({
-  InvitationRedemption: ({
-    invitationId,
-    signedIn,
+vi.mock("../register/invitation-receipt", () => ({
+  InvitationReceipt: ({
+    invitation,
   }: {
-    invitationId: string;
-    signedIn: boolean;
-  }) => (
-    <p>
-      Shared invitation {invitationId} {signedIn ? "signed in" : "signed out"}
-    </p>
-  ),
+    invitation: { invitationId: string };
+  }) => <p>Invitation receipt {invitation.invitationId}</p>,
 }));
 
 vi.mock("~/app/_components/signup-captcha", () => ({

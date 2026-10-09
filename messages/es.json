@@ -4193,6 +4193,23 @@
     "pageTitle": "Invitación de cuenta",
     "pageHelp": "Introduce la invitación recibida por correo o usa una clave del equipo para solicitarla.",
     "requestTitle": "Solicitar una invitación de cuenta",
-    "requestHelp": "Verifica tu correo para recibir un código de invitación independiente. Las cuentas nuevas obtienen acceso Viewer de solo lectura. Para una cuenta existente, el código enviado por correo inicia sesión y conserva la contraseña, identidad y participaciones. La verificación adicional sigue siendo obligatoria si está activada."
+    "requestHelp": "Verifica tu correo para recibir un código de invitación independiente. Las cuentas nuevas obtienen acceso Viewer de solo lectura. Para una cuenta existente, el código enviado por correo inicia sesión y conserva la contraseña, identidad y participaciones. La verificación adicional sigue siendo obligatoria si está activada.",
+    "receiptTitle": "Your invitation is ready",
+    "receiptHelp": "Keep this code to continue with your account. Your email is verified.",
+    "showCode": "Show invitation code",
+    "continueSignup": "Continue to signup",
+    "close": "Close",
+    "copyCode": "Copy code",
+    "copied": "Copied",
+    "emailCode": "Email me this code",
+    "emailed": "Emailed",
+    "emailSent": "The invitation has been sent to your verified email.",
+    "handoffRecovery": "Continue with your code. You may be asked to verify your email again.",
+    "verificationCode": "Email verification code",
+    "emailTitle": "Verify your email",
+    "verifyEmailHelp": "Verify your email to connect this invitation to your account.",
+    "sendVerification": "Send verification code",
+    "addAccess": "Add access with an invitation",
+    "addAccessHelp": "Enter an invitation to add tutor, crew or management access to your existing account."
   }
 }

@@ -73,7 +73,11 @@ export async function UserAvatar({
             compactAtDesktop ? "lg:gap-0 lg:pt-1" : ""
           }`}
         >
-          {[...items, { href: "/history", label: t("tuteeHistory.myHistory") }]
+          {[
+            ...items,
+            { href: "/register", label: t("accountInvitation.addAccess") },
+            { href: "/history", label: t("tuteeHistory.myHistory") },
+          ]
             .filter(
               (item, index, all) =>
                 all.findIndex((other) => other.href === item.href) === index,

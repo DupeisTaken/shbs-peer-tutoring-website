@@ -1,5 +1,8 @@
 "use client";
-import { InvitationRedemption } from "../../register/invitation-redemption";
+import {
+  InvitationReceipt,
+  type InvitationReceiptData,
+} from "../../register/invitation-receipt";
 import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
@@ -13,7 +16,9 @@ export function HistoryAccountSetup({ token }: { token: string }) {
   const a = useTranslations("accountInvitation");
   const [email, setEmail] = useState("");
   const [code, setCode] = useState("");
-  const [invitationId, setInvitationId] = useState("");
+  const [invitation, setInvitation] = useState<InvitationReceiptData | null>(
+    null,
+  );
   const [sent, setSent] = useState(false);
   const codeRef = useRef<HTMLInputElement>(null);
   const admitted = useRef(false);
@@ -28,7 +33,7 @@ export function HistoryAccountSetup({ token }: { token: string }) {
     },
   });
   const verify = api.tuteeHistory.verifyAccount.useMutation({
-    onSuccess: (data) => setInvitationId(data.invitationId),
+    onSuccess: setInvitation,
     onSettled: () => {
       admitted.current = false;
     },
@@ -37,8 +42,7 @@ export function HistoryAccountSetup({ token }: { token: string }) {
   const error = send.error ?? verify.error;
   if (!/^[a-f0-9]{64}$/.test(token))
     return <HistoryError message="HISTORY_INVITATION_INVALID" />;
-  if (invitationId)
-    return <InvitationRedemption invitationId={invitationId} focusOnMount />;
+  if (invitation) return <InvitationReceipt invitation={invitation} />;
   return (
     <details className="card p-5">
       <summary className="flex min-h-11 cursor-pointer items-center font-semibold">
@@ -92,7 +96,7 @@ export function HistoryAccountSetup({ token }: { token: string }) {
             </label>
           )}
           <button className="btn-primary" type="submit">
-            {sent ? a("verify") : a("sendInvitation")}
+            {sent ? a("verify") : a("sendVerification")}
           </button>
           {sent && (
             <button

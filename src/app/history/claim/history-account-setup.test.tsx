@@ -25,10 +25,12 @@ vi.mock("~/app/_components/tutee-history", () => ({
     <p role="alert">{message}</p>
   ),
 }));
-vi.mock("../../register/invitation-redemption", () => ({
-  InvitationRedemption: ({ invitationId }: { invitationId: string }) => (
-    <p>Shared invitation {invitationId}</p>
-  ),
+vi.mock("../../register/invitation-receipt", () => ({
+  InvitationReceipt: ({
+    invitation,
+  }: {
+    invitation: { invitationId: string };
+  }) => <p>Shared invitation {invitation.invitationId}</p>,
 }));
 vi.mock("~/trpc/react", () => ({
   api: {

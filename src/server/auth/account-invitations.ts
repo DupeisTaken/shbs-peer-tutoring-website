@@ -89,6 +89,7 @@ export async function issueViewerAccountInvitation(
   client: DomainDb,
   email: string,
   proof: string,
+  display = false,
 ) {
   const row = await client.viewerSignup.findUnique({
     where: { email: email.trim().toLowerCase() },
@@ -109,6 +110,7 @@ export async function issueViewerAccountInvitation(
   )
     throw invalid();
   return deliverAccountInvitation(client, {
+    display,
     kind: "VIEWER",
     email: row.email,
     sourceKey: `viewer:${row.id}:${row.codeHash}:${row.verifiedAt.toISOString()}`,
@@ -124,6 +126,7 @@ export async function issueViewerAccountInvitation(
 export async function issueHistoryAccountInvitation(
   client: DomainDb,
   input: { token: string; email: string; completionProof: string },
+  display = false,
 ) {
   return inTransaction(client, async (tx) => {
     const { invite } = await setupInvitation(tx, input.token, input.email);
@@ -144,6 +147,7 @@ export async function issueHistoryAccountInvitation(
     )
       throw invalid();
     return deliverAccountInvitation(tx, {
+      display,
       kind: "HISTORY",
       email: invite.email,
       sourceKey: `history:${invite.tokenHash}:${invite.setupCodeHash}`,
@@ -298,9 +302,10 @@ export async function deliverAccountInvitation(
     source: InvitationSource;
     sourceKey: string;
     code?: string;
+    display?: boolean;
   },
 ) {
-  if (!isEmailDeliveryAvailable("SECURITY"))
+  if (!input.display && !isEmailDeliveryAvailable("SECURITY"))
     throw new TRPCError({
       code: "SERVICE_UNAVAILABLE",
       message: "SIGNUP_MAIL_FAILED",
@@ -313,15 +318,27 @@ export async function deliverAccountInvitation(
       where: { sourceKey: input.sourceKey },
     });
     if (prior?.completedAt) throw invalid();
-    if (prior && prior.createdAt > new Date(Date.now() - 60_000)) {
+    if (
+      prior &&
+      ((input.display && prior.displayedCode) ||
+        (!input.display &&
+          !prior.displayedCode &&
+          prior.createdAt > new Date(Date.now() - 60_000)))
+    ) {
+      if (prior.expiresAt <= new Date() || prior.attempts >= MAX_ATTEMPTS)
+        throw invalid();
       await sourceState(tx, prior);
       await lockedInvitationOwner(tx, prior);
-      return { invitationId: prior.id };
+      return invitationReceipt(prior);
     }
     const owner = await invitationEmailOwner(tx, email);
     // Combined identities never acquire a fresh session or participation through a retired alias.
     if (owner?.mergedIntoId) throw conflict();
-    let code = input.code ?? generateRegistrationCode();
+    // The displayed authorization has a separate length/namespace from five-character
+    // staff keys. Derive it from the server secret so a lost response can recover it.
+    let code = input.display
+      ? displayedInvitationCode(input.sourceKey)
+      : (input.code ?? generateRegistrationCode());
     // Viewer/history verification and invitation are deliberately distinct secrets.
     while (
       !input.code &&
@@ -334,11 +351,14 @@ export async function deliverAccountInvitation(
       email,
       source: input.source,
       codeHash: hashCode(code),
+      displayedCode: Boolean(input.display),
+      emailCodeHash: null,
+      emailCodeExpiresAt: null,
       expiresAt: new Date(Date.now() + TTL),
       accountId: owner?.id ?? null,
       sessionVersion: owner?.sessionVersion ?? null,
       attempts: 0,
-      verifiedAt: null,
+      verifiedAt: input.display ? new Date() : null,
       loginUsedAt: null,
       createdAt: new Date(),
     };
@@ -370,6 +390,7 @@ export async function deliverAccountInvitation(
       where: { id: row.id },
       data: { expiresAt },
     });
+    if (input.display) return invitationReceipt(row);
     const url = `${emailOrigin()}/register?invitation=${encodeURIComponent(row.id)}`;
     await emailSender.send({
       category: "SECURITY",
@@ -381,6 +402,147 @@ export async function deliverAccountInvitation(
         eyebrow: "ACCOUNT INVITATION",
         action: { label: "Review invitation / 查看邀请", url },
       },
+    });
+    return invitationReceipt(row);
+  });
+}
+
+function displayedInvitationCode(sourceKey: string) {
+  return registrationCompletionProof(
+    "invitation",
+    `display:${sourceKey}`,
+    "display",
+    new Date(0),
+  )
+    .slice(0, 12)
+    .toUpperCase();
+}
+
+function invitationReceipt(row: AccountInvitation) {
+  return {
+    invitationId: row.id,
+    ...(row.displayedCode
+      ? {
+          code: displayedInvitationCode(row.sourceKey),
+          proof: proofFor(row),
+          email: row.email,
+        }
+      : {}),
+  };
+}
+
+/** A displayed code is access authorization only. The original verified browser or
+ * exact signed-in recipient can continue; everyone else must verify their mailbox. */
+export async function enterDisplayedInvitation(
+  client: DomainDb,
+  input: { code: string; proof?: string; userId?: string },
+) {
+  return inTransaction(client, async (tx) => {
+    await lockUsernameNamespace(tx);
+    const rows = await tx.accountInvitation.findMany({
+      where: {
+        codeHash: hashCode(normalizeRegCode(input.code)),
+        displayedCode: true,
+      },
+      take: 2,
+    });
+    const row = rows.length === 1 ? rows[0] : undefined;
+    if (!row) throw invalid();
+    const owner = await lockedInvitationOwner(tx, row);
+    const authenticated = owner !== null && owner.id === input.userId;
+    const verified =
+      authenticated ||
+      (input.proof !== undefined && equal(input.proof, proofFor(row)));
+    // Recover a committed receipt without replaying its consumed source. Expired
+    // receipts remain available only to the exact authenticated current recipient.
+    if (
+      row.completedAt &&
+      verified &&
+      (authenticated || row.expiresAt > new Date())
+    )
+      return { invitationId: row.id, proof: proofFor(row), email: row.email };
+    if (
+      row.completedAt ||
+      row.expiresAt <= new Date() ||
+      row.attempts >= MAX_ATTEMPTS
+    )
+      throw invalid();
+    await sourceState(tx, row);
+    return {
+      invitationId: row.id,
+      ...(verified ? { proof: proofFor(row), email: row.email } : {}),
+    };
+  });
+}
+
+/** Optional delivery never rotates the invitation or loses the onscreen receipt. */
+export async function emailDisplayedInvitation(
+  client: DomainDb,
+  input: { invitationId: string; proof: string },
+) {
+  if (!isEmailDeliveryAvailable("SECURITY"))
+    throw new TRPCError({
+      code: "SERVICE_UNAVAILABLE",
+      message: "SIGNUP_MAIL_FAILED",
+    });
+  const info = await inspectAccountInvitation(client, input);
+  const row = await client.accountInvitation.findUniqueOrThrow({
+    where: { id: input.invitationId },
+  });
+  if (!row.displayedCode || info.completed) throw invalid();
+  const code = displayedInvitationCode(row.sourceKey);
+  const url = `${emailOrigin()}/register?invitation=${encodeURIComponent(row.id)}&code=${code}`;
+  await emailSender.send({
+    category: "SECURITY",
+    to: row.email,
+    subject: "Your account invitation / 账号邀请码",
+    text: `Your invitation code is ${code}. Continue at ${url}. Expires ${row.expiresAt.toISOString()}. / 您的邀请码是 ${code}。请通过链接继续注册。`,
+    presentation: {
+      code,
+      action: { label: "Continue to signup / 继续注册", url },
+    },
+  });
+  return { ok: true };
+}
+
+export async function sendInvitationVerification(
+  client: DomainDb,
+  input: { invitationId: string; code: string; email: string },
+) {
+  if (!isEmailDeliveryAvailable("SECURITY"))
+    throw new TRPCError({
+      code: "SERVICE_UNAVAILABLE",
+      message: "SIGNUP_MAIL_FAILED",
+    });
+  return inTransaction(client, async (tx) => {
+    await lockUsernameNamespace(tx);
+    await lockEntity(tx, `account-invitation-id:${input.invitationId}`);
+    const row = await tx.accountInvitation.findUnique({
+      where: { id: input.invitationId },
+    });
+    if (
+      !row?.displayedCode ||
+      row.completedAt ||
+      row.expiresAt <= new Date() ||
+      row.attempts >= MAX_ATTEMPTS ||
+      row.email !== input.email.trim().toLowerCase() ||
+      !equal(row.codeHash, hashCode(normalizeRegCode(input.code)))
+    )
+      throw invalid();
+    await sourceState(tx, row);
+    await lockedInvitationOwner(tx, row);
+    const code = generateRegistrationCode();
+    const expiresAt = new Date(Math.min(+row.expiresAt, Date.now() + TTL));
+    await emailSender.send({
+      category: "SECURITY",
+      to: row.email,
+      subject: "Verify your email / 验证邮箱",
+      text: `Your email verification code is ${code}. / 您的邮箱验证码是 ${code}。`,
+      presentation: { code },
+    });
+    await tx.accountInvitation.update({
+      where: { id: row.id },
+      data: { emailCodeHash: hashCode(code), emailCodeExpiresAt: expiresAt },
     });
     return { invitationId: row.id };
   });
@@ -513,7 +675,14 @@ export async function verifyAccountInvitation(
       return null;
     if (
       row.email !== input.email.trim().toLowerCase() ||
-      !equal(hashCode(normalizeRegCode(input.code)), row.codeHash)
+      (row.displayedCode &&
+        (!row.emailCodeHash ||
+          !row.emailCodeExpiresAt ||
+          row.emailCodeExpiresAt <= new Date())) ||
+      !equal(
+        hashCode(normalizeRegCode(input.code)),
+        row.displayedCode ? (row.emailCodeHash ?? "") : row.codeHash,
+      )
     ) {
       await tx.accountInvitation.update({
         where: { id: row.id },

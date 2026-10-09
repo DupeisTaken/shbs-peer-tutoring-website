@@ -19,6 +19,13 @@ export function SignupError({
     INVITATION_SIGN_IN_REQUIRED: "signInRequired",
     INVITATION_PARTICIPATION_RESTRICTED: "restricted",
     INVITATION_PASSWORD_REQUIRED: "passwordRequired",
+    // Retain compatibility with outstanding staff-key endpoints while presenting
+    // the same translated failure at the shared invitation entry.
+    "That registration code isn't valid.": "invalid",
+    "This registration code has already been used.": "invalid",
+    "This registration code has expired. Ask for a new one.": "invalid",
+    "Too many attempts on this code. Ask for a new one.": "invalid",
+    "This code is tied to a different email address.": "invalid",
   };
   if (invitationErrors[error.message])
     return <>{invitation(invitationErrors[error.message]!)}</>;

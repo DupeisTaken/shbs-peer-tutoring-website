@@ -8,9 +8,9 @@ This is the supported single-program website. Account role, tutor participation,
 
 | Purpose | User entry | Management entry / outcome |
 | --- | --- | --- |
-| Request tutoring | Home → Request a Tutor; `/signup` | Signup Requests (`/admin/requests`): verify demand, match at original survey priority, review current and processed requests |
+| Request tutoring | Home → Request a Tutor; full application at `/signup` → mailbox code or legacy email-link confirmation → invitation popup → `/register` review | Signup Requests (`/admin/requests`): verify demand, match at original survey priority, review current and processed requests |
 | Become a tutor | Home → Become a Tutor; `/tutor-signup` | Tutor Applications: select qualified panel and chair, interview, vote and decide; record actual completion in `/admin/applications#interview-records` |
-| Create an accepted tutor account | Registration code at `/register`, then emailed verification/setup | Registration Codes and Users & Roles; an application or roster row alone is not a login |
+| Create an accepted tutor account or add invited access | Single code card at `/register`, then required mailbox verification and shared account/access review | Registration Codes and Users & Roles; an application, roster row or displayed invitation alone is not a login or access grant |
 | Participate as a tutee | `/student`, with Dashboard, Schedule, Requests, Attendance, Support, Messages and Account tabs | Tutee Roster, Pairings, withdrawals and discipline; explicit account ownership controls records |
 | Teach and record attendance | Tutor Dashboard (`/dashboard`), Settings (`/settings`), Handbook (`/handbook`) | Attendance Submissions, Attendance Flags, Service Hours and Hour Adjustments |
 | Schedule teaching | Tutors maintain availability and pairing defaults | Subjects & Levels, Time Slots, Rooms and Pairings; room blocks warn against conflicts |
@@ -19,12 +19,22 @@ This is the supported single-program website. Account role, tutor participation,
 | Communicate | Workspace Messages and notifications | Announcements support immutable recipient snapshots, filters and individual overrides; private deliveries remain isolated per recipient; disclosed new messages allow audited HEAD/ADMIN supervision ([contact controls](#message-permissions-and-supervision)) |
 | Get support | Tutee Support tab, session feedback, card appeals and private messages | Tutee Support (`/admin/student-support`) handles shared feedback, appeals and school calendar; Users & Roles → User details holds account-scoped policy acceptance history |
 | Review sensitive changes | Coordinators prepare changes | Management Actions: ADMIN/HEAD recheck evidence before applying or declining; pending is not applied |
-| Observe the program | `/viewer-signup`, verify email, then read-only management area | VIEWER sees permitted summaries with private contact data masked; observer access does not grant management writes |
+| Observe the program | `/viewer-signup` → verify email → invitation popup with copy, optional email and prefilled `/register` link → account review | New VIEWER sees permitted summaries with private contact data masked; an existing account's LOGIN invitation preserves access and credentials |
 | Patrol rooms | Apply at `/crew-signup`; active crew member → `/patrol` | Crew maintains applications, membership, room order, patrols and corrections; observations support attendance review |
-| Maintain accounts | Shared Account settings; verified email changes and password recovery | Users & Roles manages identities, invitation/setup, capability assignment, suspension and leadership boundaries |
+| Maintain accounts | Shared Account settings; Add access in settings/account menu; verified email changes and password recovery | Users & Roles manages identities, invitation/setup, capability assignment, suspension and leadership boundaries |
 | Publish program information | Home, program information menu and custom pages | Landing Page edits content, media, menus and custom pages; Policy Documents publishes versioned runtime policies |
 | Translate | Assigned translator → Translations (`/localization`) | Draft/review/publish translations and control language visibility; hidden languages need wording review before launch |
 | Report and audit | Reports (`/admin/history`) and permitted read-only views | Period summaries, detailed records, CSV exports and browser printing; Audit Log identifies actual actor accounts and reviewed changes |
+
+The invitation, Viewer signup and tutee application routes remain separate. Verified public
+applications hand off to `/register` using a short-lived HttpOnly cookie; their links contain no
+mailbox proof or password. New accounts review prefilled details and create missing credentials.
+Existing accounts explicitly accept authorized Tutor, Crew or tutee access without losing other
+access. An authorized participation or management invitation replaces the exclusive Viewer role;
+a public Viewer-source LOGIN invitation adds no access. Management invitations retain the higher
+of the existing and authorized ranks, never demote and never grant Head. MFA and suspension
+remain enforced. Participation grants retain school departure checks, intake priority, policy
+evidence and historical ownership; departure alone does not block a management rank grant.
 
 ## Optional modules
 

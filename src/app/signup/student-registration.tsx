@@ -4,7 +4,7 @@ import { useRef } from "react";
 import { useFormatter, useTranslations } from "next-intl";
 import { api } from "~/trpc/react";
 import { SignupError } from "~/app/_components/signup-error";
-import { InvitationRedemption } from "../register/invitation-redemption";
+import { InvitationReceipt } from "../register/invitation-receipt";
 import { SurveyResend } from "./survey-resend";
 import { DAY_NAMES, minToHm } from "~/lib/time";
 import { InlineNotice } from "~/app/_components/ui/patterns";
@@ -13,7 +13,6 @@ import { InlineNotice } from "~/app/_components/ui/patterns";
  * an invitation; credentials and access are reviewed in the shared redemption flow. */
 export function StudentRegistration({
   token,
-  signedInEmail = null,
 }: {
   token: string;
   signedInEmail?: string | null;
@@ -33,14 +32,7 @@ export function StudentRegistration({
       admitted.current = false;
     },
   });
-  if (complete.data)
-    return (
-      <InvitationRedemption
-        invitationId={complete.data.invitationId}
-        signedIn={Boolean(signedInEmail)}
-        focusOnMount
-      />
-    );
+  if (complete.data) return <InvitationReceipt invitation={complete.data} />;
   if (
     request.error &&
     !request.data &&

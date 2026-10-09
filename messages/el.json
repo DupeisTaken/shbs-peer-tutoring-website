@@ -4193,6 +4193,23 @@
     "pageTitle": "Πρόσκληση λογαριασμού",
     "pageHelp": "Εισαγάγετε την πρόσκληση email ή χρησιμοποιήστε το κλειδί του προσωπικού για να ζητήσετε μία.",
     "requestTitle": "Ζητήστε πρόσκληση λογαριασμού",
-    "requestHelp": "Επιβεβαιώστε το email σας για να λάβετε ξεχωριστό κωδικό πρόσκλησης. Οι νέοι λογαριασμοί αποκτούν πρόσβαση Viewer μόνο για ανάγνωση. Σε υπάρχοντα λογαριασμό, ο κωδικός email σάς συνδέει διατηρώντας τον κωδικό πρόσβασης, την ταυτότητα και τις συμμετοχές σας. Τυχόν πρόσθετη επαλήθευση εξακολουθεί να ισχύει."
+    "requestHelp": "Επιβεβαιώστε το email σας για να λάβετε ξεχωριστό κωδικό πρόσκλησης. Οι νέοι λογαριασμοί αποκτούν πρόσβαση Viewer μόνο για ανάγνωση. Σε υπάρχοντα λογαριασμό, ο κωδικός email σάς συνδέει διατηρώντας τον κωδικό πρόσβασης, την ταυτότητα και τις συμμετοχές σας. Τυχόν πρόσθετη επαλήθευση εξακολουθεί να ισχύει.",
+    "receiptTitle": "Your invitation is ready",
+    "receiptHelp": "Keep this code to continue with your account. Your email is verified.",
+    "showCode": "Show invitation code",
+    "continueSignup": "Continue to signup",
+    "close": "Close",
+    "copyCode": "Copy code",
+    "copied": "Copied",
+    "emailCode": "Email me this code",
+    "emailed": "Emailed",
+    "emailSent": "The invitation has been sent to your verified email.",
+    "handoffRecovery": "Continue with your code. You may be asked to verify your email again.",
+    "verificationCode": "Email verification code",
+    "emailTitle": "Verify your email",
+    "verifyEmailHelp": "Verify your email to connect this invitation to your account.",
+    "sendVerification": "Send verification code",
+    "addAccess": "Add access with an invitation",
+    "addAccessHelp": "Enter an invitation to add tutor, crew or management access to your existing account."
   }
 }

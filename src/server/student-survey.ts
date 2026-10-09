@@ -35,6 +35,7 @@ import { retainStudentOwnership, ownedStudentIds } from "./student-ownership";
 import { recruitmentStatus, recruitmentWindow } from "~/lib/recruitment";
 import { emailSender, isEmailDeliveryAvailable } from "~/server/email/sender";
 import { hashPassword } from "~/server/auth/password";
+import { registrationCompletionProof } from "~/server/auth/registration";
 import { expireStudentRequests } from "./student-request-state";
 import { rateLimit } from "~/server/rate-limit";
 import { getFeatures } from "~/server/program/features";
@@ -68,6 +69,50 @@ export const surveyInput = z.object({
 export const surveyToken = z.string().regex(/^[a-f0-9]{64}$/);
 const digest = (token: string) =>
   createHash("sha256").update(token).digest("hex");
+
+/** The mailbox challenge rotates with the secret link, preserving intake priority. */
+export function surveyEmailCode(tokenHash: string) {
+  return registrationCompletionProof(
+    "invitation",
+    "survey-email",
+    tokenHash,
+    new Date(0),
+  )
+    .slice(0, 6)
+    .toUpperCase();
+}
+
+export async function verifySurveyEmail(
+  db: DomainDb,
+  email: string,
+  code: string,
+) {
+  const row = await inTransaction(db, async (tx) => {
+    await lockEntity(tx, `student-survey:${email}`);
+    const current = await tx.studentSurvey.findFirst({
+      where: { email, state: "OPEN", confirmedAt: null },
+      orderBy: { submittedAt: "desc" },
+    });
+    if (
+      !current ||
+      current.expiresAt <= new Date() ||
+      current.verificationAttempts >= 6 ||
+      (current.verificationDueAt && current.verificationDueAt <= new Date())
+    )
+      return null;
+    if (surveyEmailCode(current.tokenHash) !== code.trim().toUpperCase()) {
+      await tx.studentSurvey.update({
+        where: { id: current.id },
+        data: { verificationAttempts: { increment: 1 } },
+      });
+      return null;
+    }
+    return current;
+  });
+  if (!row)
+    throw new TRPCError({ code: "BAD_REQUEST", message: "INVITATION_INVALID" });
+  return row;
+}
 
 export function surveyLimit(key: string, max = 6) {
   if (!rateLimit(`survey:${key}`, { max, windowMs: 15 * 60_000 }).ok)
@@ -134,12 +179,13 @@ async function deliver(
       to,
       subject: "Tutoring signup received — confirm your email",
       presentation: {
+        code: surveyEmailCode(digest(token)),
         action: {
           label: "Confirm your tutoring request",
           url: `${origin}/signup/account?token=${token}`,
         },
       },
-      text: `${deadline ? `Verify by ${deadline.toISOString()}. Your request will be permanently disqualified and all assignments released after this deadline. Resends do not extend it. 验证截止时间：${deadline.toISOString()}。逾期将永久取消申请资格并解除辅导伙伴安排，重发邮件不会延长期限。\n\n` : ""}Your tutoring survey has been saved. Priority is based on when you first submitted it after signup opened, not when you create your account.\n\nReview your request and confirm this email to receive your account invitation:\n${origin}/signup/account?token=${token}\n\nYour recipient-delivered invitation signs in an existing account without replacing its password. Review and accept the invitation to complete this request. The confirmation link expires in 24 hours. You can request another link without losing your submission time. If you did not submit this survey, ignore this email.`,
+      text: `Your email verification code is ${surveyEmailCode(digest(token))}. / 您的邮箱验证码是 ${surveyEmailCode(digest(token))}。\n\n${deadline ? `Verify by ${deadline.toISOString()}. Your request will be permanently disqualified and all assignments released after this deadline. Resends do not extend it. 验证截止时间：${deadline.toISOString()}。逾期将永久取消申请资格并解除辅导伙伴安排，重发邮件不会延长期限。\n\n` : ""}Your tutoring survey has been saved. Priority is based on when you first submitted it after signup opened, not when you create your account.\n\nReview your request and confirm this email to receive your account invitation:\n${origin}/signup/account?token=${token}\n\nYour recipient-delivered invitation signs in an existing account without replacing its password. Review and accept the invitation to complete this request. The confirmation link expires in 24 hours. You can request another link without losing your submission time. If you did not submit this survey, ignore this email.`,
     });
     return true;
   } catch {
@@ -361,6 +407,7 @@ export async function resendSurvey(
       data: {
         lastLinkSentAt: new Date(),
         tokenHash: digest(token),
+        verificationAttempts: 0,
         expiresAt: new Date(Date.now() + 24 * 3600000),
       },
     });
@@ -504,7 +551,7 @@ export async function confirmSurvey(
     );
     // A retired login also has no password. Do not mistake it for an unfinished invitation.
     // The namespace lock above serializes this decision with account combination.
-    if (user?.mergedIntoId || user?.suspendedAt || user?.role === "VIEWER")
+    if (user?.mergedIntoId || user?.suspendedAt)
       throw new TRPCError({
         code: "FORBIDDEN",
         message: "Contact the team about your account.",
@@ -553,6 +600,7 @@ export async function confirmSurvey(
       data: {
         studentId: student.id,
         tuteeMember: true,
+        ...(user.role === "VIEWER" ? { role: "STUDENT" as const } : {}),
         // Proof of a verified secondary address must not mark the primary address verified.
         emailVerifiedAt:
           user.emailVerifiedAt ??

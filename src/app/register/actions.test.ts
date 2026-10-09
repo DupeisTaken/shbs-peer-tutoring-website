@@ -5,6 +5,7 @@ const state = vi.hoisted(() => ({
   inspect: vi.fn(),
   owner: vi.fn(),
   redeem: vi.fn(),
+  cookie: vi.fn(),
 }));
 vi.mock("~/server/auth", () => ({
   auth: state.auth,
@@ -12,13 +13,36 @@ vi.mock("~/server/auth", () => ({
   signOut: vi.fn(),
 }));
 vi.mock("~/server/db", () => ({ db: {} }));
+vi.mock("next/headers", () => ({
+  cookies: async () => ({ set: state.cookie }),
+}));
 vi.mock("~/server/auth/account-invitations", () => ({
   inspectAccountInvitation: state.inspect,
   invitationEmailOwner: state.owner,
   redeemAccountInvitation: state.redeem,
 }));
-import { invitationSignIn } from "./actions";
+import { invitationSignIn, rememberInvitation } from "./actions";
 const input = { invitationId: "recipient-invitation", proof: "a".repeat(64) };
+
+it("stores only server-validated short-lived HttpOnly handoff proof", async () => {
+  const handoff = { invitationId: "receipt123", proof: "a".repeat(64) };
+  await rememberInvitation(handoff);
+  expect(state.inspect).toHaveBeenCalledWith({}, handoff);
+  expect(state.cookie).toHaveBeenCalledWith(
+    "invitation-receipt123",
+    handoff.proof,
+    expect.objectContaining({
+      httpOnly: true,
+      sameSite: "lax",
+      path: "/register",
+      maxAge: 900,
+    }),
+  );
+  state.cookie.mockClear();
+  state.inspect.mockRejectedValueOnce(Error("invalid proof"));
+  await expect(rememberInvitation(handoff)).rejects.toThrow("invalid proof");
+  expect(state.cookie).not.toHaveBeenCalled();
+});
 beforeEach(() => {
   vi.clearAllMocks();
   state.auth.mockResolvedValue(null);

@@ -24,13 +24,22 @@ import {
   issueSurveyAccountInvitation,
   issueHistoryAccountInvitation,
   historyInvitationDigest,
+  enterDisplayedInvitation,
+  emailDisplayedInvitation,
+  sendInvitationVerification,
 } from "./account-invitations";
 import {
   startHistoryAccount,
   verifyHistoryAccount,
 } from "~/server/history-account-setup";
 import { claimTuteeHistory } from "~/server/tutee-history";
-import { submitSurvey, surveyInput } from "~/server/student-survey";
+import {
+  submitSurvey,
+  surveyInput,
+  verifySurveyEmail,
+  surveyEmailCode,
+  resendSurvey,
+} from "~/server/student-survey";
 import { currentPolicy } from "~/server/policy-acceptance";
 import { lockAccountProfile } from "~/server/account-profile";
 import * as accountProfile from "~/server/account-profile";
@@ -166,6 +175,263 @@ async function viewer(target = email) {
     secret,
   };
 }
+
+async function displayedViewer() {
+  const started = await startViewerSignup({
+    email,
+    name: "New Viewer",
+    affiliation: "Family",
+  });
+  if (!started.ok) throw Error("Expected request");
+  const verified = await verifyViewerCode(email, started.code);
+  if (!verified.ok) throw Error("Expected verified email");
+  return issueViewerAccountInvitation(
+    db,
+    email,
+    verified.completionProof,
+    true,
+  );
+}
+
+it("fills genuinely missing identity when an existing account accepts management access", async () => {
+  const account = await owner({ name: "", firstName: null, lastName: null });
+  const invite = await staff("ADMIN");
+  await redeemAccountInvitation(db, { ...profile, ...invite }, account.id);
+  expect(
+    await db.user.findUniqueOrThrow({ where: { id: account.id } }),
+  ).toMatchObject({
+    role: "ADMIN",
+    name: "New Member",
+    firstName: "New",
+    lastName: "Member",
+    passwordHash: account.passwordHash,
+  });
+});
+
+it("recovers a completed displayed invitation after refresh without replaying access or expired login proof", async () => {
+  const invite = await displayedViewer();
+  await redeemAccountInvitation(db, {
+    ...profile,
+    invitationId: invite.invitationId,
+    proof: invite.proof!,
+  });
+  const account = await db.user.findUniqueOrThrow({ where: { email } });
+  expect(
+    await enterDisplayedInvitation(db, {
+      code: invite.code!,
+      userId: account.id,
+    }),
+  ).toMatchObject({ invitationId: invite.invitationId });
+  await db.accountInvitation.update({
+    where: { id: invite.invitationId },
+    data: { expiresAt: new Date(0) },
+  });
+  expect(
+    await enterDisplayedInvitation(db, {
+      code: invite.code!,
+      userId: account.id,
+    }),
+  ).toMatchObject({ proof: invite.proof });
+  await expect(
+    enterDisplayedInvitation(db, { code: invite.code!, proof: invite.proof }),
+  ).rejects.toThrow();
+  expect(await db.user.count({ where: { email } })).toBe(1);
+});
+
+it("rank-only management invitations do not require returning to school participation", async () => {
+  const account = await owner();
+  await db.schoolDeparture.create({
+    data: {
+      userId: account.id,
+      reason: "GRADUATED",
+      revision: 1,
+      source: "HEAD",
+    },
+  });
+  const invite = await staff("ADMIN");
+  await redeemAccountInvitation(db, { ...profile, ...invite }, account.id);
+  expect(
+    await db.user.findUniqueOrThrow({ where: { id: account.id } }),
+  ).toMatchObject({
+    role: "ADMIN",
+    tutorId: null,
+    passwordHash: account.passwordHash,
+  });
+  expect(
+    (
+      await db.schoolDeparture.findUniqueOrThrow({
+        where: { userId: account.id },
+      })
+    ).reason,
+  ).toBe("GRADUATED");
+});
+
+it("a redundant generic tutor invitation preserves an opted-out existing tutor", async () => {
+  const account = await owner();
+  const first = await staff("TUTOR");
+  await redeemAccountInvitation(db, { ...profile, ...first }, account.id);
+  const linked = await db.user.findUniqueOrThrow({ where: { id: account.id } });
+  await db.tutor.update({
+    where: { id: linked.tutorId! },
+    data: { status: "OPTED_OUT" },
+  });
+  const before = await db.tutor.findUniqueOrThrow({
+    where: { id: linked.tutorId! },
+  });
+  const second = await staff("TUTOR");
+  await redeemAccountInvitation(db, { ...profile, ...second }, account.id);
+  expect(
+    await db.tutor.findUniqueOrThrow({ where: { id: before.id } }),
+  ).toEqual(before);
+  expect(await db.tutor.count()).toBe(1);
+});
+
+it("displays an invitation without mail, preserves its receipt, and requires separate identity proof", async () => {
+  const invite = await displayedViewer();
+  expect(invite.code).toMatch(/^[A-F0-9]{12}$/);
+  expect(mail.send).not.toHaveBeenCalled();
+  expect(await enterDisplayedInvitation(db, { code: invite.code! })).toEqual({
+    invitationId: invite.invitationId,
+  });
+  expect(
+    await enterDisplayedInvitation(db, {
+      code: invite.code!,
+      proof: invite.proof,
+    }),
+  ).toMatchObject({ proof: invite.proof, email });
+  await expect(
+    verifyAccountInvitation(db, {
+      invitationId: invite.invitationId,
+      email,
+      code: invite.code!,
+    }),
+  ).rejects.toThrow("INVITATION_INVALID");
+  await sendInvitationVerification(db, {
+    invitationId: invite.invitationId,
+    email,
+    code: invite.code!,
+  });
+  const otp = code();
+  expect(otp).not.toBe(invite.code);
+  expect(
+    await verifyAccountInvitation(db, {
+      invitationId: invite.invitationId,
+      email,
+      code: otp,
+    }),
+  ).toEqual({ proof: invite.proof });
+  const before = await db.accountInvitation.findUniqueOrThrow({
+    where: { id: invite.invitationId },
+  });
+  mail.send.mockRejectedValueOnce(Error("offline"));
+  await expect(
+    emailDisplayedInvitation(db, {
+      invitationId: invite.invitationId,
+      proof: invite.proof!,
+    }),
+  ).rejects.toThrow("offline");
+  expect(
+    await db.accountInvitation.findUniqueOrThrow({
+      where: { id: invite.invitationId },
+    }),
+  ).toEqual(before);
+  await emailDisplayedInvitation(db, {
+    invitationId: invite.invitationId,
+    proof: invite.proof!,
+  });
+  expect(code()).toBe(invite.code);
+  expect(mail.send.mock.calls.at(-1)?.[0].text).toContain(
+    `&code=${invite.code}`,
+  );
+});
+
+it("resending manual verification invalidates the old OTP without replacing the invitation", async () => {
+  const invite = await displayedViewer();
+  const input = {
+    invitationId: invite.invitationId,
+    email,
+    code: invite.code!,
+  };
+  await sendInvitationVerification(db, input);
+  const first = code();
+  await sendInvitationVerification(db, input);
+  const second = code();
+  await expect(
+    verifyAccountInvitation(db, { ...input, code: first }),
+  ).rejects.toThrow();
+  expect(await verifyAccountInvitation(db, { ...input, code: second })).toEqual(
+    { proof: invite.proof },
+  );
+  await expect(
+    sendInvitationVerification(db, { ...input, email: "other@example.test" }),
+  ).rejects.toThrow();
+});
+
+it.each(["TUTOR", "CREW", "ADMIN", "COORDINATOR"] as const)(
+  "upgrades a verified Viewer through a %s invitation atomically",
+  async (kind) => {
+    const account = await owner({ role: "VIEWER" });
+    const invitation = await staff(kind);
+    await redeemAccountInvitation(
+      db,
+      { ...profile, ...invitation },
+      account.id,
+    );
+    const after = await db.user.findUniqueOrThrow({
+      where: { id: account.id },
+    });
+    expect(after).toMatchObject({
+      role: kind,
+      passwordHash: account.passwordHash,
+      name: account.name,
+    });
+    expect(after.id).toBe(account.id);
+  },
+);
+
+it("an already granted tutor capability is reused and lower management invitations never demote", async () => {
+  const account = await owner({ role: "ADMIN" });
+  const first = await staff("TUTOR");
+  await redeemAccountInvitation(db, { ...profile, ...first }, account.id);
+  const tutor = (await db.user.findUniqueOrThrow({ where: { id: account.id } }))
+    .tutorId;
+  const second = await staff("TUTOR");
+  await redeemAccountInvitation(db, { ...profile, ...second }, account.id);
+  const coordinator = await staff("COORDINATOR");
+  await redeemAccountInvitation(db, { ...profile, ...coordinator }, account.id);
+  expect(
+    await db.user.findUniqueOrThrow({ where: { id: account.id } }),
+  ).toMatchObject({
+    role: "ADMIN",
+    tutorId: tutor,
+    passwordHash: account.passwordHash,
+  });
+  expect(await db.tutor.count()).toBe(1);
+});
+
+it("tutee mailbox codes preserve priority, commit failed guesses and rotate on resend", async () => {
+  await stagedSurvey(email);
+  const before = await db.studentSurvey.findFirstOrThrow({ where: { email } });
+  const initial = surveyEmailCode(before.tokenHash);
+  expect(mail.send.mock.calls.at(-1)?.[0].text).toContain(initial);
+  await expect(verifySurveyEmail(db, email, "WRONG")).rejects.toThrow();
+  expect(
+    (await db.studentSurvey.findUniqueOrThrow({ where: { id: before.id } }))
+      .verificationAttempts,
+  ).toBe(1);
+  expect((await verifySurveyEmail(db, email, initial)).id).toBe(before.id);
+  await resendSurvey(db, email, false);
+  await expect(verifySurveyEmail(db, email, initial)).rejects.toThrow();
+  const after = await db.studentSurvey.findUniqueOrThrow({
+    where: { id: before.id },
+  });
+  expect(after.submittedAt).toEqual(before.submittedAt);
+  expect(after.payload).toEqual(before.payload);
+  expect(after.verificationDueAt).toEqual(before.verificationDueAt);
+  expect(
+    (await verifySurveyEmail(db, email, surveyEmailCode(after.tokenHash))).id,
+  ).toBe(before.id);
+});
 
 it.each(["TUTOR", "CREW"] as const)(
   "preserves established credentials and identity while reviewing %s participation",
@@ -600,27 +866,32 @@ it("finishes missing credentials but does not overwrite an established forced-ch
 });
 
 it.each(["ADMIN", "COORDINATOR"] as const)(
-  "management %s invitation cannot elevate an existing account",
+  "management %s invitation upgrades its verified existing account without replacing credentials",
   async (kind) => {
     const account = await owner();
     const invite = await staff(kind);
     await expect(
       redeemAccountInvitation(db, { ...profile, ...invite }, account.id),
-    ).rejects.toMatchObject({ code: "CONFLICT" });
+    ).resolves.toMatchObject({ ok: true });
     expect(
       await db.user.findUniqueOrThrow({ where: { id: account.id } }),
-    ).toEqual(account);
+    ).toMatchObject({
+      id: account.id,
+      role: kind,
+      name: account.name,
+      passwordHash: account.passwordHash,
+    });
     expect(
       (
         await db.registrationCode.findUniqueOrThrow({
           where: { id: invite.row.id },
         })
       ).usedAt,
-    ).toBeNull();
+    ).not.toBeNull();
   },
 );
 
-it.each(["suspended", "departure", "crewInactive", "viewer"] as const)(
+it.each(["suspended", "departure", "crewInactive"] as const)(
   "cannot restore restricted participation: %s",
   async (state) => {
     const account = await owner(
@@ -628,9 +899,7 @@ it.each(["suspended", "departure", "crewInactive", "viewer"] as const)(
         ? { suspendedAt: new Date() }
         : state === "crewInactive"
           ? { crewStatus: "INACTIVE" }
-          : state === "viewer"
-            ? { role: "VIEWER" }
-            : {},
+          : {},
     );
     if (state === "departure")
       await db.schoolDeparture.create({

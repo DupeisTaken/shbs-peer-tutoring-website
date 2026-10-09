@@ -161,12 +161,17 @@ vi.mock("./policy-agreement", () => ({
 }));
 vi.mock("../signup/signin-access", () => ({ SigninAccess: () => null }));
 vi.mock("../signup/survey-resend", () => ({ SurveyResend: () => null }));
+vi.mock("../signup/survey-verification", () => ({
+  SurveyVerification: () => <div>Verify saved application email</div>,
+}));
 // Email verification hands off to shared redemption; it must never create a
 // Viewer-specific password stage or reuse the mailbox code as an invitation.
-vi.mock("../register/invitation-redemption", () => ({
-  InvitationRedemption: ({ invitationId }: { invitationId: string }) => (
-    <div data-testid="recipient-invitation">{invitationId}</div>
-  ),
+vi.mock("../register/invitation-receipt", () => ({
+  InvitationReceipt: ({
+    invitation,
+  }: {
+    invitation: { invitationId: string };
+  }) => <div data-testid="recipient-invitation">{invitation.invitationId}</div>,
 }));
 
 let callbacks: Promise<unknown>[];

@@ -79,6 +79,8 @@ vi.mock("~/trpc/react", () => {
         },
       },
       accountInvitation: {
+        enter: mutation("enter", vi.fn()),
+        sendVerification: mutation("sendDisplayed", vi.fn()),
         verify: mutation("verify", state.verify),
         complete: mutation("complete", state.complete),
         inspect: {
@@ -178,7 +180,7 @@ it("verifies recipient email/code once even when two submits happen in the same 
   fireEvent.change(screen.getByLabelText(/^Invited email/), {
     target: { value: "person@example.test" },
   });
-  fireEvent.change(screen.getByLabelText(/^Invitation code/), {
+  fireEvent.change(screen.getByLabelText(/^Email verification code/), {
     target: { value: "ABC12" },
   });
   act(() => {
@@ -459,9 +461,7 @@ it("shows a saved write separately from failed sign-in and never offers resubmis
 
 it("staff-key navigation focuses its next heading and Back retains the key", async () => {
   render(view("en", true));
-  const input = screen.getByLabelText(
-    new RegExp(en.auth.register.step.code.label),
-  );
+  const input = screen.getByLabelText(new RegExp(en.accountInvitation.code));
   fireEvent.change(input, { target: { value: "ABC12" } });
   await act(async () => {
     state.callbacks.check!.onSuccess!({
@@ -470,14 +470,14 @@ it("staff-key navigation focuses its next heading and Back retains the key", asy
     state.callbacks.check!.onSettled?.();
   });
   expect(document.activeElement).toBe(
-    screen.getByRole("heading", { name: en.accountInvitation.sendInvitation }),
+    screen.getByRole("heading", { name: en.accountInvitation.emailTitle }),
   );
   fireEvent.click(
     screen.getByRole("button", { name: en.accountInvitation.back }),
   );
   expect(
     screen.getByLabelText<HTMLInputElement>(
-      new RegExp(en.auth.register.step.code.label),
+      new RegExp(en.accountInvitation.code),
     ).value,
   ).toBe("ABC12");
 });
