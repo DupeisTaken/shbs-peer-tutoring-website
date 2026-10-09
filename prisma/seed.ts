@@ -1032,8 +1032,8 @@ async function main() {
           type: "BUTTONS",
           align: "center",
           buttons: [
-            { label: { en: "Request a tutor", zh: "申请同伴辅导" }, href: "/signup", style: "primary" },
-            { label: { en: "Become a tutor", zh: "成为辅导伙伴" }, href: "/tutor-signup", style: "secondary" },
+            { label: { en: "Request a tutor", zh: "申请同伴辅导" }, href: "/tutee", style: "primary" },
+            { label: { en: "Become a tutor", zh: "成为辅导伙伴" }, href: "/tutor", style: "secondary" },
           ],
         },
       ],

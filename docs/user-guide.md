@@ -103,10 +103,17 @@ A role and a tutor or crew membership are different things. A management account
 
 ### Choose the right registration form
 
-- **Register with an Invitation Code** (`/register`) opens the shared code card. Enter an invitation code or a five-character staff key and choose **Continue**. A code without this browser's verified proof requires email verification before review.
-- **Register as a Viewer** (`/viewer-signup`) collects Viewer details and verifies the mailbox when viewer signup is enabled. Its popup offers the invitation code, optional email delivery and a prefilled invitation link. A new account receives read-only Viewer access; an existing account signs in without changing its access. No staff key is needed.
-- **Request a Tutor** (`/signup`) collects the full tutee application before email verification and invitation issuance. Enter the emailed verification code, or use the existing email link and explicitly confirm it. Continue from the invitation popup to review your request and any missing credentials.
-- **Join the crew** (`/crew-signup`) collects application details and verifies the mailbox before sending the application for staff review. Use the same page to check an existing application with a fresh emailed code; an approved application can continue through the shared invitation popup and account review.
+Published website and email links use `/register`, `/tutee`, `/tutor`, `/viewer`
+and `/crew`; the address bar then shows the corresponding descriptive signup page.
+Old `/signup` and `/signup/account` bookmarks and email links remain valid, including
+their confirmation parameters. Tutor and crew applications open at `/tutor-signup`
+and `/crew-signup` and retain the existing review process. See the
+[URL convention](technical-report.md#public-signup-url-convention) for the full mapping.
+
+- **Register with an Invitation Code** (`/register` → `/register-account`) opens the shared code card. Enter an invitation code or a five-character staff key and choose **Continue**. A code without this browser's verified proof requires email verification before review.
+- **Register as a Viewer** (`/viewer` → `/viewer-signup`) collects Viewer details and verifies the mailbox when viewer signup is enabled. Its popup offers the invitation code, optional email delivery and a prefilled invitation link. A new account receives read-only Viewer access; an existing account signs in without changing its access. No staff key is needed.
+- **Request a Tutor** (`/tutee` → `/tutee-signup`) collects the full tutee application before email verification and invitation issuance. Enter the emailed verification code, or use the existing email link and explicitly confirm it. Continue from the invitation popup to review your request and any missing credentials.
+- **Join the crew** (`/crew` → `/crew-signup`) collects application details and verifies the mailbox before sending the application for staff review. Use the same page to check an existing application with a fresh emailed code; an approved application can continue through the shared invitation popup and account review.
 
 Sign In names the invitation and viewer routes separately. The invitation and viewer pages link to each other and to Request a Tutor, so you can switch if you opened the wrong form. Viewer links are hidden when public viewer signup is disabled. Existing accounts can use their normal sign-in, password recovery, or a recipient-delivered invitation; invitations never replace an established password.
 

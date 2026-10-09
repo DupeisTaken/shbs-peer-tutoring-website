@@ -410,7 +410,10 @@ describe("survey-first enrollment", () => {
       { email, unverified: true, firstChoice: { name: "Mathematics" } },
     ]);
     expect(send.mock.calls[0]?.[0]).toMatchObject({ category: "PROGRAM" });
-    expect(send.mock.calls[0]?.[0].text).toContain("/signup/account?token=");
+    expect(send.mock.calls[0]?.[0].text).toContain("/tutee/account?token=");
+    expect(send.mock.calls[0]?.[0].presentation?.action?.url).toContain(
+      "/tutee/account?token=",
+    );
   });
   it("requires a valid login email and explicit policy acceptance", () => {
     expect(surveyInput.safeParse({ ...input(), email: "" }).success).toBe(

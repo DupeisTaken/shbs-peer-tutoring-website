@@ -24,7 +24,7 @@ vi.mock("~/server/auth/account-invitations", () => ({
 import { invitationSignIn, rememberInvitation } from "./actions";
 const input = { invitationId: "recipient-invitation", proof: "a".repeat(64) };
 
-it("stores only server-validated short-lived HttpOnly handoff proof", async () => {
+it("scopes server-validated HttpOnly proof to the canonical account page", async () => {
   const handoff = { invitationId: "receipt123", proof: "a".repeat(64) };
   await rememberInvitation(handoff);
   expect(state.inspect).toHaveBeenCalledWith({}, handoff);
@@ -34,7 +34,7 @@ it("stores only server-validated short-lived HttpOnly handoff proof", async () =
     expect.objectContaining({
       httpOnly: true,
       sameSite: "lax",
-      path: "/register",
+      path: "/register-account",
       maxAge: 900,
     }),
   );

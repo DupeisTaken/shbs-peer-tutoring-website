@@ -99,7 +99,9 @@ The additive `20261009190000_short_invitation_codes` migration stores the collis
 nonce used to reproduce a displayed code; a null nonce preserves older receipts.
 
 `rememberInvitation` validates the proof on the server and sets a 15-minute HttpOnly, SameSite=Lax
-cookie scoped to `/register`, Secure in production. The link carries only the invitation identifier
+cookie scoped to `/register-account`, Secure in production. The short `/register` link redirects
+to this canonical page without carrying proof in the URL. A cookie scoped to `/register` would
+not match `/register-account`. The link carries only the invitation identifier
 and displayed entry code; mailbox/completion proof and credentials never enter URLs, history or
 JavaScript storage. Without the verified-browser handoff, copied codes require mailbox verification.
 The additive `20261009170000_invitation_code_handoff` migration adds the displayed-code lookup,
@@ -119,6 +121,36 @@ the additive table and acknowledging that emailed envelope links need this versi
 do not drop stored receipts or erase original source evidence during rollback.
 
 Use this guide to find the code responsible for current behavior and understand the invariants a change must preserve. For setup commands, see [local development](local-development.md); for operating the server, see [deployment](deployment.md).
+
+## Public signup URL convention
+
+Website and email hrefs publish short links. Descriptive routes render the existing
+forms; the exact short paths permanently redirect with HTTP 308 and preserve all
+query values, including repeated parameters, invitation prefill and callbacks.
+
+| Published href | Canonical page | Purpose |
+| --- | --- | --- |
+| `/register` | `/register-account` | Review a shared account or access invitation |
+| `/tutee` | `/tutee-signup` | Request tutoring |
+| `/tutor` | `/tutor-signup` | Apply to tutor |
+| `/viewer` | `/viewer-signup` | Register read-only Viewer access when enabled |
+| `/crew` | `/crew-signup` | Apply to the crew when enabled |
+| `/tutee/account` | `/tutee-signup/account` | Confirm a tutoring request and set up an account if needed |
+
+`/signup` and `/signup/account` remain permanent compatibility redirects to the
+corresponding tutee pages. [Next configuration](../next.config.js) owns redirects;
+[authentication](../src/server/auth/config.ts) lists exact public entries without
+prefix exemptions. Adjacent paths still require sign-in. Feature gates, API
+authorization, invitation formats, approval rules and account workflows stay in
+their existing features. The canonical pages reuse the original feature modules.
+Verified-browser invitation handoffs use the canonical `/register-account` cookie
+scope described above; the published short link redirects without exposing proof.
+
+[CMS href presentation](../src/lib/public-signup-links.ts) maps exact root-relative
+signup destinations to short links in buttons and Markdown while keeping stored
+content, query strings, fragments, external URLs and private destinations intact.
+Seed buttons and editor defaults use the same published convention. Absolute URLs
+in stored content retain their explicit origin and destination.
 
 ## Architecture
 

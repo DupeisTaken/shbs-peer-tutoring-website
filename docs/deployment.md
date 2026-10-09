@@ -93,13 +93,13 @@ options so the reset targets the intended stack.
 
 Sign-in is username or email + password (no external identity provider to register). Logins are created only
 through gated paths: the first admin is created by `npm run admin:create`;
-recruits self-register at **`/register`** with an admin-issued single-use code plus an emailed
+recruits follow **`/register`** to **`/register-account`** with an admin-issued single-use code plus an emailed
 verification code; and outsiders can self-register a **read-only viewer (VIEWER)** account at
-**`/viewer-signup`** (email-validated, behind the `VIEWER_SIGNUP` feature flag). The public tutee
-signup (`/signup`) first saves the full application and policy agreement; mailbox code or legacy
+**`/viewer` → `/viewer-signup`** (email-validated, behind the `VIEWER_SIGNUP` feature flag). The public tutee
+signup (`/tutee` → `/tutee-signup`) first saves the full application and policy agreement; mailbox code or legacy
 email-link confirmation opens an invitation popup before shared account/access review. Displaying
-an invitation alone creates no credentials or participation. Tutor application (`/tutor-signup`)
-creates pending records for review. Crew application (`/crew-signup`) first verifies
+an invitation alone creates no credentials or participation. Tutor application (`/tutor` → `/tutor-signup`)
+creates pending records for review. Crew application (`/crew` → `/crew-signup`) first verifies
 the mailbox before creating a pending record; staff approval and fresh mailbox proof
 then permit shared invitation retrieval. Credential sign-in, the
 registration steps, and viewer signup are all **rate-limited in-app** (per IP + per code / email /
@@ -116,6 +116,10 @@ format, containing both letters and digits, including canonical `0` and `I`. Inp
 the original derivation, preserving older invitations without a new migration.
 Mailbox verification remains separate and retains its existing formats. The additive
 short-code migration preserves older receipt lookup while recording new code retry nonces.
+
+Website/CMS/email hrefs publish the short paths. Permanent redirects retain query
+values; `/signup` and `/signup/account` remain compatible with existing bookmarks
+and confirmation mail. See the [public signup URL convention](technical-report.md#public-signup-url-convention).
 
 Public tutor and crew intake share database-backed limits: five distinct accepted submissions per normalized email in 24 hours, and 500 per network address in one hour. Pending retries return the same confirmation without another record, counter increment or notification; tutor applications awaiting an interview also count as pending. Decided applications may be submitted again within these limits. Counters, application writes and in-app notifications commit together, and counters survive server restarts and multiple instances. New distinct submissions prune hashed counter keys that expired more than seven days ago, in bounded batches; an idle deployment retains those expired keys until intake resumes.
 

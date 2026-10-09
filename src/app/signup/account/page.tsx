@@ -23,6 +23,7 @@ export default async function StudentAccountPage({
       title={t("accountTitle")}
       description={t("priority")}
       backLabel={t("back")}
+      backHref="/tutee"
       wide
     >
       <StudentRegistration

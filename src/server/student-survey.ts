@@ -182,10 +182,10 @@ async function deliver(
         code: surveyEmailCode(digest(token)),
         action: {
           label: "Confirm your tutoring request",
-          url: `${origin}/signup/account?token=${token}`,
+          url: `${origin}/tutee/account?token=${token}`,
         },
       },
-      text: `Your email verification code is ${surveyEmailCode(digest(token))}. / 您的邮箱验证码是 ${surveyEmailCode(digest(token))}。\n\n${deadline ? `Verify by ${deadline.toISOString()}. Your request will be permanently disqualified and all assignments released after this deadline. Resends do not extend it. 验证截止时间：${deadline.toISOString()}。逾期将永久取消申请资格并解除辅导伙伴安排，重发邮件不会延长期限。\n\n` : ""}Your tutoring survey has been saved. Priority is based on when you first submitted it after signup opened, not when you create your account.\n\nReview your request and confirm this email to receive your account invitation:\n${origin}/signup/account?token=${token}\n\nYour recipient-delivered invitation signs in an existing account without replacing its password. Review and accept the invitation to complete this request. The confirmation link expires in 24 hours. You can request another link without losing your submission time. If you did not submit this survey, ignore this email.`,
+      text: `Your email verification code is ${surveyEmailCode(digest(token))}. / 您的邮箱验证码是 ${surveyEmailCode(digest(token))}。\n\n${deadline ? `Verify by ${deadline.toISOString()}. Your request will be permanently disqualified and all assignments released after this deadline. Resends do not extend it. 验证截止时间：${deadline.toISOString()}。逾期将永久取消申请资格并解除辅导伙伴安排，重发邮件不会延长期限。\n\n` : ""}Your tutoring survey has been saved. Priority is based on when you first submitted it after signup opened, not when you create your account.\n\nReview your request and confirm this email to receive your account invitation:\n${origin}/tutee/account?token=${token}\n\nYour recipient-delivered invitation signs in an existing account without replacing its password. Review and accept the invitation to complete this request. The confirmation link expires in 24 hours. You can request another link without losing your submission time. If you did not submit this survey, ignore this email.`,
     });
     return true;
   } catch {

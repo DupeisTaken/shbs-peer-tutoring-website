@@ -31,7 +31,9 @@ export async function rememberInvitation(input: {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
-    path: "/register",
+    // The short /register link redirects before rendering; only the canonical
+    // account page needs proof. A /register cookie does not match /register-account.
+    path: "/register-account",
     maxAge: 15 * 60,
   });
 }

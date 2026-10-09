@@ -11,6 +11,9 @@ const state = vi.hoisted(() => ({
   locale: "en",
   signedIn: false,
   expiredCookie: false,
+  invitationProof: null as string | null,
+  registerProps: vi.fn(),
+  studentProps: vi.fn(),
 }));
 vi.mock("~/server/db", () => ({ db: {} }));
 vi.mock("~/server/branding-metadata", () => ({ brandingMetadata: vi.fn() }));
@@ -21,7 +24,13 @@ vi.mock("~/server/auth", () => ({
   auth: async () => (state.signedIn ? { user: { id: "test" } } : null),
 }));
 vi.mock("next/headers", () => ({
-  cookies: async () => ({ has: () => state.expiredCookie }),
+  cookies: async () => ({
+    has: () => state.expiredCookie,
+    get: (name: string) =>
+      name === "invitation-receipt123" && state.invitationProof
+        ? { value: state.invitationProof }
+        : undefined,
+  }),
 }));
 vi.mock("next/navigation", () => ({
   redirect: (path: string) => {
@@ -29,9 +38,9 @@ vi.mock("next/navigation", () => ({
   },
 }));
 vi.mock("next-intl/server", () => ({
-  getTranslations: async () => (key: string) => {
+  getTranslations: async (namespace?: string) => (key: string) => {
     let value: unknown = state.locale === "zh" ? zh : en;
-    for (const part of key.split("."))
+    for (const part of (namespace ? `${namespace}.${key}` : key).split("."))
       value = (value as Record<string, unknown>)[part];
     if (typeof value !== "string")
       throw new Error(`Missing translation: ${key}`);
@@ -49,7 +58,16 @@ vi.mock("~/app/_components/theme-switcher", () => ({
   ThemeSwitcher: () => null,
 }));
 vi.mock("./register-flow", () => ({
-  RegisterFlow: () => <div>Invitation form</div>,
+  RegisterFlow: (props: unknown) => {
+    state.registerProps(props);
+    return <div>Invitation form</div>;
+  },
+}));
+vi.mock("../signup/student-registration", () => ({
+  StudentRegistration: (props: unknown) => {
+    state.studentProps(props);
+    return <div>Tutee confirmation form</div>;
+  },
 }));
 vi.mock("../viewer-signup/viewer-signup-flow", () => ({
   ViewerSignupFlow: () => <div>Viewer form</div>,
@@ -58,7 +76,9 @@ vi.mock("../signin/sign-in-form", () => ({
   SignInForm: () => <div>Sign-in form</div>,
 }));
 
-import RegisterPage from "./page";
+import RegisterPage from "../register-account/page";
+import StudentAccountPage from "../tutee-signup/account/page";
+import LegacyStudentAccountPage from "../signup/account/page";
 import ViewerSignupPage from "../viewer-signup/page";
 import SignInPage from "../signin/page";
 
@@ -67,8 +87,48 @@ beforeEach(() => {
   state.locale = "en";
   state.signedIn = false;
   state.expiredCookie = false;
+  state.invitationProof = null;
+  state.registerProps.mockClear();
+  state.studentProps.mockClear();
 });
 afterEach(cleanup);
+
+// Canonical route wrappers must preserve the feature's private server bootstrap,
+// rather than merely render an equivalent-looking registration card.
+it("restores invitation proof on the canonical page without adding it to links", async () => {
+  state.invitationProof = "a".repeat(64);
+  render(
+    await RegisterPage({
+      searchParams: Promise.resolve({
+        invitation: "receipt123",
+        code: "AB2C3",
+      }),
+    }),
+  );
+  expect(state.registerProps).toHaveBeenCalledWith(
+    expect.objectContaining({
+      invitationId: "receipt123",
+      initialCode: "AB2C3",
+      initialProof: state.invitationProof,
+    }),
+  );
+  for (const link of screen.getAllByRole("link"))
+    expect(link.getAttribute("href")).not.toContain(state.invitationProof);
+});
+
+it("keeps canonical and legacy tutee confirmation on the same invitation workflow", async () => {
+  expect(StudentAccountPage).toBe(LegacyStudentAccountPage);
+  const token = "b".repeat(64);
+  render(
+    await StudentAccountPage({ searchParams: Promise.resolve({ token }) }),
+  );
+  expect(state.studentProps).toHaveBeenCalledWith(
+    expect.objectContaining({ token, signedInEmail: null }),
+  );
+  expect(
+    screen.getByRole("link", { name: en.survey.back }).getAttribute("href"),
+  ).toBe("/tutee");
+});
 
 it("keeps recovery next to sign-in and alternate account routes outside the form card", async () => {
   render(await SignInPage({ searchParams: Promise.resolve({}) }));
@@ -139,7 +199,7 @@ it.each(["en", "zh"])(
       screen
         .getByRole("link", { name: copy.auth.signupRoutes.viewerLink })
         .getAttribute("href"),
-    ).toBe("/viewer-signup");
+    ).toBe("/viewer");
     expect(
       screen.getByText(copy.auth.signupRoutes.viewerHelp, { exact: false }),
     ).toBeTruthy();
@@ -147,7 +207,7 @@ it.each(["en", "zh"])(
       screen
         .getByRole("link", { name: copy.survey.requestTutor })
         .getAttribute("href"),
-    ).toBe("/signup");
+    ).toBe("/tutee");
     cleanup();
     render(await ViewerSignupPage());
     expect(
@@ -165,7 +225,7 @@ it.each(["en", "zh"])(
       screen
         .getByRole("link", { name: copy.survey.requestTutor })
         .getAttribute("href"),
-    ).toBe("/signup");
+    ).toBe("/tutee");
     cleanup();
     render(await SignInPage({ searchParams: Promise.resolve({}) }));
     expect(
@@ -177,7 +237,7 @@ it.each(["en", "zh"])(
       screen
         .getByRole("link", { name: copy.auth.signupRoutes.viewerLink })
         .getAttribute("href"),
-    ).toBe("/viewer-signup");
+    ).toBe("/viewer");
   },
 );
 
@@ -195,7 +255,7 @@ it("omits closed viewer registration without hiding member or tutee routes", asy
       screen
         .getByRole("link", { name: en.survey.requestTutor })
         .getAttribute("href"),
-    ).toBe("/signup");
+    ).toBe("/tutee");
     cleanup();
   }
   await expect(ViewerSignupPage()).rejects.toThrow("redirect:/");

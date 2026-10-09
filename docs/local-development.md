@@ -244,6 +244,14 @@ test limitations, and stop owned browser/server/database processes after checkin
 
 ## 5. Run the tests
 
+For public signup URL changes, run `node --test --test-concurrency=1
+scripts/test-public-signup-urls.mjs` against a running synthetic local site with
+`TEST_BASE_URL` set to its loopback origin. This checks permanent redirects,
+repeated/encoded query values and adjacent private routes. Capture the canonical
+forms at desktop/mobile widths in English/Chinese, including legacy-link arrival,
+native Back/Forward and feature-disabled Viewer/Crew access. The full mapping is
+in the [URL convention](technical-report.md#public-signup-url-convention).
+
 ```bash
 npm test            # one-shot
 npm run test:watch  # watch mode

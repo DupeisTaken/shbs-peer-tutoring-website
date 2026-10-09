@@ -47,7 +47,7 @@ export function StudentWorkspace() {
           <div className="card space-y-3 p-6">
             <p>{t(quarterBlocked ? "abortFinal" : "noActive")}</p>
             {!quarterBlocked && (
-              <Link href="/signup" className="btn-primary">
+              <Link href="/tutee" className="btn-primary">
                 {t("newRequest")}
               </Link>
             )}
