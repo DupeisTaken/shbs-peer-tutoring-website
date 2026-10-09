@@ -18,6 +18,7 @@ const mocks = vi.hoisted(() => ({
   readOnly: false,
   importGroups: vi.fn(),
   importSubjects: vi.fn(),
+  remove: vi.fn(),
 }));
 const levels = [
   { id: "standard", name: "Standard", prefix: "", rank: 0, active: true },
@@ -47,7 +48,9 @@ vi.mock("~/trpc/react", () => ({
       reorderCatalogue: { useMutation: () => ({ mutate: mocks.reorder }) },
       updateSubjectLevel: { useMutation: () => ({ mutate: vi.fn() }) },
       createSubjectLevel: { useMutation: () => ({ mutate: vi.fn() }) },
-      deleteSubjectLevel: { useMutation: () => ({ mutate: vi.fn() }) },
+      deleteSubjectLevel: {
+        useMutation: () => ({ mutateAsync: mocks.remove }),
+      },
       importSubjects: {
         useMutation: () => ({ mutate: mocks.importSubjects, reset: vi.fn() }),
       },
@@ -60,6 +63,18 @@ vi.mock("~/trpc/react", () => ({
 beforeEach(() => {
   vi.clearAllMocks();
   mocks.readOnly = false;
+  Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.setAttribute("open", "");
+    },
+  });
+  Object.defineProperty(HTMLDialogElement.prototype, "close", {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.removeAttribute("open");
+    },
+  });
 });
 afterEach(cleanup);
 const show = () =>
@@ -68,6 +83,21 @@ const show = () =>
       <SubjectsPage />
     </NextIntlClientProvider>,
   );
+
+it("requires named level review and permits cancellation without deletion", async () => {
+  show();
+  fireEvent.click(screen.getAllByRole("button", { name: "Remove" })[0]!);
+  expect(screen.getByRole("dialog").textContent).toContain("Standard");
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(mocks.remove).not.toHaveBeenCalled();
+  fireEvent.click(screen.getAllByRole("button", { name: "Remove" })[0]!);
+  fireEvent.click(
+    within(screen.getByRole("dialog")).getByRole("button", { name: "Remove" }),
+  );
+  await waitFor(() =>
+    expect(mocks.remove).toHaveBeenCalledWith({ id: "standard" }),
+  );
+});
 
 it("selects multiple levels, accepts distinct base names and previews generated names", () => {
   show();

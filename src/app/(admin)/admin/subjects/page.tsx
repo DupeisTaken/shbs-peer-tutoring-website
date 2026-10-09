@@ -7,6 +7,10 @@ import { courseName } from "~/lib/course-catalogue";
 import { MAX_IMPORT_BYTES, parseCourseImport } from "~/lib/course-import";
 import { CourseCatalogueTable } from "~/app/_components/course-catalogue-table";
 import { useReadOnly } from "~/app/_components/read-only";
+import { useActionReview } from "~/app/_components/ui/action-review";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
+import { settleRefreshes } from "~/lib/settle-refreshes";
+import { queuedApprovalId } from "~/lib/approval-outcome";
 
 type Group = RouterOutputs["admin"]["courseGroups"][number];
 type Level = RouterOutputs["admin"]["subjectLevels"][number];
@@ -227,9 +231,9 @@ export default function SubjectsPage() {
       await invalidate();
     },
   });
-  const removeLevel = api.admin.deleteSubjectLevel.useMutation({
-    onSuccess: invalidate,
-  });
+  const removeLevel = api.admin.deleteSubjectLevel.useMutation();
+  const review = useActionReview();
+  const reviewText = useTranslations("actionReview");
   const importSubjects = api.admin.importSubjects.useMutation({
     onSuccess: async (result) => {
       setImportMessage(t("importResult", result));
@@ -264,12 +268,12 @@ export default function SubjectsPage() {
     reorder.error,
     updateLevel.error,
     createLevel.error,
-    removeLevel.error,
   ].filter(Boolean);
   const importFailure =
     importError ?? importSubjects.error?.message ?? importGroups.error?.message;
   return (
     <div className="space-y-6">
+      {!readOnly && review.dialog}
       <div>
         <h1 className="page-title">{t("title")}</h1>
         <p className="muted mt-1">{t("intro")}</p>
@@ -374,8 +378,24 @@ export default function SubjectsPage() {
                   </button>
                   <button
                     className="btn-secondary min-h-11 lg:min-h-9"
-                    disabled={removeLevel.isPending}
-                    onClick={() => removeLevel.mutate({ id: level.id })}
+                    disabled={review.blocked(level.id)}
+                    onClick={() =>
+                      review.open({
+                        key: level.id,
+                        title: reviewText("levelTitle", { name: level.name }),
+                        description: reviewText("levelHelp"),
+                        confirmLabel: t("remove"),
+                        commit: () => removeLevel.mutateAsync({ id: level.id }),
+                        refresh: () =>
+                          settleRefreshes([
+                            () => invalidateAndReport(utils.admin.courseGroups),
+                            () =>
+                              invalidateAndReport(utils.admin.subjectLevels),
+                            () => invalidateAndReport(utils.admin.subjects),
+                          ]),
+                        approvalId: queuedApprovalId,
+                      })
+                    }
                   >
                     {t("remove")}
                   </button>

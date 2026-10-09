@@ -102,13 +102,17 @@ export default function CrewPage() {
         removeCrew.error ??
         setOrder.error) && (
         <p role="alert" className="text-sm text-red-600">
-          <AcademicError message={(
-              decideApp.error ??
-              decideReq.error ??
-              setStatus.error ??
-              removeCrew.error ??
-              setOrder.error
-            )?.message} />
+          <AcademicError
+            message={
+              (
+                decideApp.error ??
+                decideReq.error ??
+                setStatus.error ??
+                removeCrew.error ??
+                setOrder.error
+              )?.message
+            }
+          />
         </p>
       )}
 
@@ -417,9 +421,22 @@ export default function CrewPage() {
                       {u.status !== "ACTIVE" && (
                         <TableAction
                           disabled={busy}
-                          onClick={() =>
-                            setStatus.mutate({ userId: u.id, status: "ACTIVE" })
-                          }
+                          onClick={async () => {
+                            if (
+                              await confirm({
+                                title: t("actionReview.crewEnableTitle", {
+                                  name: u.name,
+                                }),
+                                message: t("actionReview.crewEnableHelp"),
+                                confirmLabel: t("admin.crew.enable"),
+                                cancelLabel: t("common.cancel"),
+                              })
+                            )
+                              setStatus.mutate({
+                                userId: u.id,
+                                status: "ACTIVE",
+                              });
+                          }}
                         >
                           {t("admin.crew.enable")}
                         </TableAction>
@@ -427,12 +444,23 @@ export default function CrewPage() {
                       {u.status === "ACTIVE" && (
                         <TableAction
                           disabled={busy}
-                          onClick={() =>
-                            setStatus.mutate({
-                              userId: u.id,
-                              status: "INACTIVE",
-                            })
-                          }
+                          onClick={async () => {
+                            if (
+                              await confirm({
+                                title: t("actionReview.crewDisableTitle", {
+                                  name: u.name,
+                                }),
+                                message: t("actionReview.crewDisableHelp"),
+                                confirmLabel: t("admin.crew.softRemove"),
+                                cancelLabel: t("common.cancel"),
+                                danger: true,
+                              })
+                            )
+                              setStatus.mutate({
+                                userId: u.id,
+                                status: "INACTIVE",
+                              });
+                          }}
                         >
                           {t("admin.crew.softRemove")}
                         </TableAction>

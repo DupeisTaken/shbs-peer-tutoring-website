@@ -4,6 +4,7 @@ import {
   fireEvent,
   render,
   screen,
+  within,
   waitFor,
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -27,15 +28,23 @@ vi.mock("~/app/_components/read-only", () => ({
 }));
 vi.mock("~/trpc/react", () => {
   const mutation = (operation: string) => ({
-    useMutation: (options: {
+    useMutation: (options?: {
       onSuccess: () => Promise<unknown>;
       onError: (error: NonNullable<typeof mocks.writeError>) => void;
     }) => ({
       isPending: mocks.pending,
       mutate: (input: unknown) => {
         mocks.calls.push({ operation, input });
-        if (mocks.writeError) options.onError(mocks.writeError);
-        else void options.onSuccess();
+        if (mocks.writeError) options?.onError(mocks.writeError);
+        else void options?.onSuccess();
+      },
+      mutateAsync: async (input: unknown) => {
+        mocks.calls.push({ operation, input });
+        if (mocks.writeError)
+          throw Object.assign(
+            new Error(mocks.writeError.message),
+            mocks.writeError,
+          );
       },
     }),
   });
@@ -96,6 +105,18 @@ beforeEach(() => {
   mocks.writeError = null;
   mocks.calls = [];
   vi.clearAllMocks();
+  Object.defineProperty(HTMLDialogElement.prototype, "showModal", {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.setAttribute("open", "");
+    },
+  });
+  Object.defineProperty(HTMLDialogElement.prototype, "close", {
+    configurable: true,
+    value: function (this: HTMLDialogElement) {
+      this.removeAttribute("open");
+    },
+  });
 });
 afterEach(cleanup);
 const show = () =>
@@ -110,6 +131,50 @@ const expand = () =>
       name: /Manage blocked periods|View blocked periods/,
     }),
   );
+
+it("names the room in shared deletion review and cancellation sends no write", async () => {
+  show();
+  expand();
+  screen.getByText("Room settings").closest("details")!.open = true;
+  fireEvent.click(screen.getByRole("button", { name: "Delete Room" }));
+  expect(screen.getByRole("dialog").textContent).toContain("Science room");
+  expect(screen.getByRole("dialog").textContent).toContain(
+    "Rooms currently used by pairings cannot be deleted",
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(mocks.calls).toHaveLength(0);
+  fireEvent.click(screen.getByRole("button", { name: "Delete Room" }));
+  fireEvent.click(
+    within(screen.getByRole("dialog")).getByRole("button", {
+      name: "Delete Room",
+    }),
+  );
+  await waitFor(() =>
+    expect(mocks.calls).toEqual([
+      { operation: "deleteRoom", input: { id: "room" } },
+    ]),
+  );
+});
+
+it("reports coordinator room deletion as a queued request without changing live data", async () => {
+  mocks.role = "COORDINATOR";
+  mocks.writeError = {
+    message: "Queued",
+    data: { approvalId: "room-request" },
+  };
+  show();
+  expand();
+  screen.getByText("Room settings").closest("details")!.open = true;
+  fireEvent.click(
+    screen.getByRole("button", { name: "Request room deletion" }),
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Submit request" }));
+  expect((await screen.findByRole("status")).textContent).toContain(
+    "live record has not changed",
+  );
+  expect(mocks.invalidate).not.toHaveBeenCalled();
+  expect(screen.getByText("Weekly maintenance")).toBeTruthy();
+});
 
 it("makes block controls discoverable and exposes accessible expanded state", () => {
   show();

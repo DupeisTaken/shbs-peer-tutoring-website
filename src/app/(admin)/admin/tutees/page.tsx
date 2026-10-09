@@ -38,6 +38,8 @@ import { TuteeAcademicCell } from "~/app/_components/tutee-academic-cell";
 import { TuteeHistoryDialog } from "~/app/_components/tutee-history";
 import { type TuteeHistoryView } from "~/lib/tutee-history";
 import { GRADUATED_GRADE, normalizeGrade } from "~/lib/academics";
+import { useActionReview } from "~/app/_components/ui/action-review";
+import { queuedApprovalId } from "~/lib/approval-outcome";
 
 type Status = "PENDING" | "ACTIVE" | "INACTIVE";
 
@@ -128,7 +130,8 @@ export default function TuteesPage() {
   const invalidate = () => invalidateTuteeViews(utils);
   const create = api.admin.createTutee.useMutation({ onSuccess: invalidate });
   const creationApprovalId = create.error?.data?.approvalId;
-  const del = api.admin.deleteTutee.useMutation({ onSuccess: invalidate });
+  const del = api.admin.deleteTutee.useMutation();
+  const review = useActionReview();
   useEffect(() => {
     // Mutation callbacks can run while the trigger is still disabled. Restore
     // focus only after React renders the closed form and enabled trigger.
@@ -186,10 +189,14 @@ export default function TuteesPage() {
           const bEnrollment = b.enrollmentCorrection ?? b.enrollmentOriginal;
           return (
             ((a.historical || !(a.owner ?? a.user)
-              ? (normalizeGrade(aEnrollment ? aEnrollment.rawGrade : a.gradeLevel).gradeLevel ?? 0)
+              ? (normalizeGrade(
+                  aEnrollment ? aEnrollment.rawGrade : a.gradeLevel,
+                ).gradeLevel ?? 0)
               : (a.academic.gradeLevel ?? 0)) -
               (b.historical || !(b.owner ?? b.user)
-                ? (normalizeGrade(bEnrollment ? bEnrollment.rawGrade : b.gradeLevel).gradeLevel ?? 0)
+                ? (normalizeGrade(
+                    bEnrollment ? bEnrollment.rawGrade : b.gradeLevel,
+                  ).gradeLevel ?? 0)
                 : (b.academic.gradeLevel ?? 0))) *
             dir
           );
@@ -217,6 +224,7 @@ export default function TuteesPage() {
 
   return (
     <div className="space-y-8">
+      {!readOnly && review.dialog}
       <div>
         <div className="flex flex-wrap items-center justify-between gap-3">
           <h1 className="page-title">{t("admin.tutees.title")}</h1>
@@ -786,8 +794,23 @@ export default function TuteesPage() {
                       {!readOnly && (
                         <TableAction
                           className="text-red-600"
-                          disabled={del.isPending}
-                          onClick={() => del.mutate({ id: t2.id })}
+                          disabled={review.blocked(t2.id)}
+                          onClick={() =>
+                            review.open({
+                              key: t2.id,
+                              title: t("actionReview.tuteeTitle", {
+                                name: t2.englishName,
+                              }),
+                              description: t("actionReview.tuteeHelp"),
+                              confirmLabel: t("admin.tutees.deleteBtn"),
+                              commit: () => del.mutateAsync({ id: t2.id }),
+                              refresh: () =>
+                                invalidateTuteeViews(utils, {
+                                  reportErrors: true,
+                                }),
+                              approvalId: queuedApprovalId,
+                            })
+                          }
                         >
                           {t("admin.tutees.deleteBtn")}
                         </TableAction>

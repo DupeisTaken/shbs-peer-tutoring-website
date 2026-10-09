@@ -6,6 +6,7 @@ import {
   render,
   screen,
   within,
+  waitFor,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
@@ -241,7 +242,7 @@ vi.mock("~/trpc/react", () => ({
       pairings: { useQuery: () => ({ data: state.pairings }) },
       tuteeStats: { useQuery: () => ({ data: state.stats }) },
       createTutee: { useMutation: () => ({ mutate: vi.fn() }) },
-      deleteTutee: { useMutation: () => ({ mutate: state.deleteTutee }) },
+      deleteTutee: { useMutation: () => ({ mutateAsync: state.deleteTutee }) },
       patrolOrder: { useQuery: () => ({ data: state.empty }) },
       crewRoster: { useQuery: () => ({ data: state.crew }) },
       crewApplications: { useQuery: () => ({ data: state.empty }) },
@@ -332,6 +333,27 @@ function rowFor(table: HTMLElement, name: string) {
 }
 
 describe("people summary tables", () => {
+  it("reviews tutee deletion with the participant name and preserves cancellation", async () => {
+    render(<TuteesPage />, { wrapper });
+    const table = screen.getByRole("table", { name: en.admin.tutees.title });
+    fireEvent.click(
+      within(table).getByRole("button", { name: en.admin.tutees.deleteBtn }),
+    );
+    expect(screen.getByRole("dialog").textContent).toContain("Synthetic Tutee");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(state.deleteTutee).not.toHaveBeenCalled();
+    fireEvent.click(
+      within(table).getByRole("button", { name: en.admin.tutees.deleteBtn }),
+    );
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: en.admin.tutees.deleteBtn,
+      }),
+    );
+    await waitFor(() =>
+      expect(state.deleteTutee).toHaveBeenCalledWith({ id: "tutee" }),
+    );
+  });
   it("keeps Users setup and moderation in Actions while full identity/history opens on demand", () => {
     render(<UsersPage />, { wrapper });
     const table = screen.getByRole("table", { name: en.admin.users.title });
@@ -555,7 +577,7 @@ describe("people summary tables", () => {
     expect(state.deleteTutee).not.toHaveBeenCalled();
   });
 
-  it("keeps Crew summary concise and preserves its text-link status action", () => {
+  it("keeps Crew summary concise and confirms its named membership action", async () => {
     const { rerender } = render(<CrewPage />, { wrapper });
     const table = screen.getByRole("table", {
       name: en.admin.crew.rosterHeading,
@@ -565,10 +587,24 @@ describe("people summary tables", () => {
     fireEvent.click(
       within(table).getByRole("button", { name: en.admin.crew.softRemove }),
     );
-    expect(state.crewStatus).toHaveBeenCalledWith({
-      userId: "crew",
-      status: "INACTIVE",
-    });
+    expect(state.crewStatus).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog").textContent).toContain("Synthetic Crew");
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(state.crewStatus).not.toHaveBeenCalled();
+    fireEvent.click(
+      within(table).getByRole("button", { name: en.admin.crew.softRemove }),
+    );
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: en.admin.crew.softRemove,
+      }),
+    );
+    await waitFor(() =>
+      expect(state.crewStatus).toHaveBeenCalledWith({
+        userId: "crew",
+        status: "INACTIVE",
+      }),
+    );
     fireEvent.click(
       within(table).getByRole("button", {
         name: `${en.tablePatterns.details}: Synthetic Crew`,

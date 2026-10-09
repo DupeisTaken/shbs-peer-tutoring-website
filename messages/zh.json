@@ -1005,7 +1005,9 @@
       "block": "屏蔽",
       "namePlaceholder": "新教室名称",
       "addRoom": "添加教室",
-      "empty": "暂无教室。"
+      "empty": "暂无教室。",
+      "deleteConsequence": "此操作将删除教室及其不可用时段。正在被配对使用的教室不能删除。",
+      "deleteRequestConsequence": "此操作将提交删除申请，交由管理人员审核。在批准前，教室及其分配保持不变。"
     },
     "courses": {
       "title": "科目与级别",
@@ -1165,6 +1167,11 @@
         "amount": "数量",
         "reason": "原因",
         "delete": "删除"
+      },
+      "review": {
+        "title": "删除服务时数调整？",
+        "consequence": "此操作将永久删除该调整并更改导师的服务时数总计。请先核对导师、月份和时数。",
+        "confirm": "删除调整"
       }
     },
     "applications": {
@@ -4094,5 +4101,33 @@
       "INACTIVE": "非活跃",
       "BANNED": "已禁止"
     }
+  },
+  "actionReview": {
+    "cancel": "取消",
+    "close": "关闭",
+    "retry": "刷新列表",
+    "failed": "操作未能完成，请重试。",
+    "applied": "更改已生效。",
+    "queued": "申请已提交审核，当前记录尚未更改。",
+    "refreshFailed": "更改已生效，但列表刷新失败。重试只会刷新列表。",
+    "viewRequest": "查看申请",
+    "pairingTitle": "删除配对？",
+    "pairingHelp": "此操作将删除配对及其中的学生分配。有出勤记录的配对不能删除。",
+    "slotTitle": "删除时段“{name}”？",
+    "slotHelp": "此操作将删除时段及导师、学生保存的相关可用时间。配对正在使用的时段不能删除，请改为停用。",
+    "levelTitle": "删除科目级别“{name}”？",
+    "levelHelp": "此操作将删除目录级别。包含科目变体的级别不能删除。",
+    "tuteeTitle": "删除学生“{name}”？",
+    "tuteeHelp": "此操作将删除报名及其配对分配。有出勤记录的学生不能删除，请改为停用。关联的登录账号不会被删除。",
+    "revokeTitle": "撤销注册邀请？",
+    "revokeHelp": "未使用的验证码将永久失效，无法恢复。如果邀请来自巡查组申请，该申请将重新进入待审核状态。已使用的邀请不能撤销。",
+    "crewEnableTitle": "启用{name}的巡查组参与资格？",
+    "crewEnableHelp": "此操作将恢复巡查组参与和巡查资格，保留既有历史记录。",
+    "crewDisableTitle": "将{name}移出活跃巡查组？",
+    "crewDisableHelp": "此操作将结束巡查组参与和巡查资格，保留既有历史记录。",
+    "galleryTitle": "具名操作确认",
+    "galleryHelp": "提交前核对具体记录。操作失败会保留确认内容；已生效的更改只通过读取进行恢复。",
+    "galleryOpen": "查看示例删除确认",
+    "galleryRecord": "合成示例记录"
   }
 }

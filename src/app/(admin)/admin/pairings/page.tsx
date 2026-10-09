@@ -20,6 +20,9 @@ import {
 } from "~/app/_components/ui/summary-table";
 import { Modal } from "~/app/_components/ui/modal";
 import { Button } from "~/app/_components/ui/button";
+import { useActionReview } from "~/app/_components/ui/action-review";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
+import { queuedApprovalId } from "~/lib/approval-outcome";
 
 type PairingForm = {
   id: string | null;
@@ -57,7 +60,8 @@ export default function PairingsPage() {
   const invalidate = () => utils.admin.pairings.invalidate();
   const create = api.admin.createPairing.useMutation({ onSuccess: invalidate });
   const update = api.admin.updatePairing.useMutation({ onSuccess: invalidate });
-  const del = api.admin.deletePairing.useMutation({ onSuccess: invalidate });
+  const del = api.admin.deletePairing.useMutation();
+  const review = useActionReview();
 
   const [form, setForm] = useState<PairingForm>(EMPTY);
   const [confirming, setConfirming] = useState(false);
@@ -108,7 +112,7 @@ export default function PairingsPage() {
     else create.mutate({ ...base, overrideTicket }, { onSuccess });
   };
 
-  const error = create.error ?? update.error ?? del.error;
+  const error = create.error ?? update.error;
 
   // Creation and row editing share the same fields, validation and confirmation ticket flow.
   const editor = (
@@ -353,8 +357,28 @@ export default function PairingsPage() {
                       </TableAction>
                       <TableAction
                         className="text-red-700"
-                        disabled={del.isPending || update.isPending}
-                        onClick={() => del.mutate({ id: p.id })}
+                        disabled={review.blocked(p.id) || update.isPending}
+                        onClick={() =>
+                          review.open({
+                            key: p.id,
+                            title: t("actionReview.pairingTitle"),
+                            description: t("actionReview.pairingHelp"),
+                            confirmLabel: t("admin.pairings.delete"),
+                            details: (
+                              <p>
+                                {p.tutor.englishName} · {p.subject}
+                                <br />
+                                {p.tutees
+                                  .map((entry) => entry.tutee.englishName)
+                                  .join(", ")}
+                              </p>
+                            ),
+                            commit: () => del.mutateAsync({ id: p.id }),
+                            refresh: () =>
+                              invalidateAndReport(utils.admin.pairings),
+                            approvalId: queuedApprovalId,
+                          })
+                        }
                       >
                         {t("admin.pairings.delete")}
                       </TableAction>
@@ -366,6 +390,7 @@ export default function PairingsPage() {
           </tbody>
         </SummaryTable>
       </div>
+      {!readOnly && review.dialog}
     </div>
   );
 }

@@ -1,5 +1,12 @@
 # Continue issue #221: navigation and form recovery
 
+> Historical checkpoint: the implementation below was subsequently integrated by
+> PR #257 and refined by PR #259. Its old draft/publication and runtime limitations
+> describe that session, not current task instructions. Current completion work
+> uses the shared action inventory and UI verification matrix in the existing
+> contributor/local-development guides. Public account-onboarding routes are
+> coordinated separately with issue #268.
+
 This is an incomplete-work checkpoint for [issue #221](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/221). Keep the PR draft. Current-source automation passed; current live verification, whole-change review and HTML approval remain outstanding. Do not close the issue from this checkpoint.
 
 ## Exact source and integration

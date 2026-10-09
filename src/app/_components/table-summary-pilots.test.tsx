@@ -7,6 +7,7 @@ import {
   render,
   screen,
   within,
+  waitFor,
 } from "@testing-library/react";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
@@ -196,7 +197,7 @@ vi.mock("~/trpc/react", () => ({
           isPending: mocks.pending,
         }),
       },
-      deleteTimeSlot: { useMutation: () => ({ mutate: mocks.remove }) },
+      deleteTimeSlot: { useMutation: () => ({ mutateAsync: mocks.remove }) },
       createPairing: { useMutation: () => ({ mutate: vi.fn() }) },
       updatePairing: {
         useMutation: () => ({
@@ -204,7 +205,7 @@ vi.mock("~/trpc/react", () => ({
           isPending: mocks.pending,
         }),
       },
-      deletePairing: { useMutation: () => ({ mutate: mocks.remove }) },
+      deletePairing: { useMutation: () => ({ mutateAsync: mocks.remove }) },
       createMeeting: { useMutation: () => ({ mutate: vi.fn() }) },
       deleteMeeting: { useMutation: () => ({ mutate: mocks.remove }) },
       recordMeetingAttendance: {
@@ -239,6 +240,27 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
+
+it.each([
+  ["time slot", TimeSlotsPage, "Monday block", "slot-1"],
+  ["pairing", PairingsPage, "Alex Tutor", "pair-1"],
+] as const)(
+  "reviews a named %s before deletion and retains cancellation",
+  async (_name, Page, recordName, id) => {
+    render(<Page />, { wrapper });
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    expect(screen.getByRole("dialog").textContent).toContain(recordName);
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(mocks.remove).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: "Delete" }));
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: "Delete",
+      }),
+    );
+    await waitFor(() => expect(mocks.remove).toHaveBeenCalledWith({ id }));
+  },
+);
 
 function expectActionsLast(table: HTMLElement) {
   const headers = within(table).getAllByRole("columnheader");

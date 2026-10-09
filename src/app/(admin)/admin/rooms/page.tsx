@@ -8,6 +8,9 @@ import { hmToMin, minToHm } from "~/lib/time";
 import { REFERENCE_STALE_TIME } from "~/lib/query";
 import { DisclosureIcon } from "~/app/_components/icons";
 import { useReadOnly } from "~/app/_components/read-only";
+import { useActionReview } from "~/app/_components/ui/action-review";
+import { invalidateAndReport } from "~/lib/invalidate-refresh";
+import { queuedApprovalId } from "~/lib/approval-outcome";
 
 type Block = {
   id: string;
@@ -61,11 +64,13 @@ function RoomCard({
   readOnly,
   coordinator,
   onChanged,
+  onDeleted,
 }: {
   room: Room;
   readOnly: boolean;
   coordinator: boolean;
   onChanged: () => Promise<unknown>;
+  onDeleted: () => Promise<unknown>;
 }) {
   const t = useTranslations("admin.rooms");
   const format = useFormatter();
@@ -105,7 +110,8 @@ function RoomCard({
     onError,
   });
   const rename = api.admin.updateRoom.useMutation({ onSuccess, onError });
-  const deleteRoom = api.admin.deleteRoom.useMutation({ onSuccess, onError });
+  const deleteRoom = api.admin.deleteRoom.useMutation();
+  const review = useActionReview();
   const busy =
     add.isPending ||
     edit.isPending ||
@@ -129,6 +135,7 @@ function RoomCard({
   };
   return (
     <article className="card overflow-hidden p-0" aria-label={room.name}>
+      {!readOnly && review.dialog}
       <div className="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-5">
         <div className="min-w-0 space-y-1">
           <h2 className="text-lg font-semibold break-words text-slate-900">
@@ -430,17 +437,24 @@ function RoomCard({
                 <button
                   type="button"
                   className={`btn-ghost text-red-700 ${control}`}
-                  disabled={busy}
-                  onClick={() => {
-                    if (
-                      window.confirm(
-                        t("confirmDeleteRoom", { name: room.name }),
-                      )
-                    ) {
-                      setFeedback(null);
-                      deleteRoom.mutate({ id: room.id });
-                    }
-                  }}
+                  disabled={busy || review.blocked(room.id)}
+                  onClick={() =>
+                    review.open({
+                      key: room.id,
+                      title: t("confirmDeleteRoom", { name: room.name }),
+                      description: t(
+                        coordinator
+                          ? "deleteRequestConsequence"
+                          : "deleteConsequence",
+                      ),
+                      confirmLabel: coordinator
+                        ? t("submitRequest")
+                        : t("deleteRoom"),
+                      commit: () => deleteRoom.mutateAsync({ id: room.id }),
+                      refresh: onDeleted,
+                      approvalId: queuedApprovalId,
+                    })
+                  }
                 >
                   {coordinator ? t("requestDeleteRoom") : t("deleteRoom")}
                 </button>
@@ -556,6 +570,7 @@ export default function RoomsPage() {
             readOnly={readOnly}
             coordinator={coordinator}
             onChanged={invalidate}
+            onDeleted={() => invalidateAndReport(utils.admin.rooms)}
           />
         ))}
       </div>

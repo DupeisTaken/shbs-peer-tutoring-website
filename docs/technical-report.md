@@ -32,6 +32,16 @@ Focused regressions live in `src/app/(admin)/admin/users`, `src/lib/user-filters
 
 ### Shared UI patterns
 
+The [named action review](../src/app/_components/ui/action-review.tsx) composes
+`Modal`, `Button` and `InlineNotice` for destructive management records. Each
+feature supplies its unchanged mutation payload, a read-only refresh callback and
+its proposal-error adapter. An immediate admission guard excludes duplicate
+submissions; the review owns pending writes and refreshes, retains rejection
+feedback, distinguishes queued proposals from applied changes and never replays
+an accepted mutation after a failed read. A failed refresh remains recoverable
+after Close. The [contributor inventory](contributing.md#consequential-action-inventory)
+identifies these consumers and the stronger domain reviews that remain separate.
+
 [UI components](../src/app/_components/ui) provide behavior and composition without owning domain mutations. `Button` exposes action emphasis separately from context size; `ChoiceButton` uses pressed state for a selection; `Switch` exposes checked state. `SectionTabs` uses manual keyboard activation so arrow-key exploration does not switch an editor and discard its draft. `FormSection` groups one save scope and disables its fields/actions while busy. `StatePanel` keeps loading, empty, error and denied states distinct.
 
 `NativeDialog` supplies native modality, portal event ownership, radio-aware keyboard focus and exact trigger restoration. `Modal`, the wide/sticky `ProfileDialog`, and `CurrentPolicyDialog` share this behavior while retaining their own layout and scrolling. A nested review owns its Escape event. Independent forms call `useDialogPending(ownPending)` to prevent dismissal during any registered write; its return value disables sibling controls. Register only the form's own pending state, never the returned aggregate, so the guard releases when writes settle. Callers retain validation, versions, permissions, approval policy and action tickets.

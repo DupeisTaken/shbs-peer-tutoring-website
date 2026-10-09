@@ -111,7 +111,7 @@ export function TutorMeetings() {
                     maxLength={500}
                     onChange={(e) => setReason(e.target.value)}
                     placeholder={t("tutor.meetings.reasonPlaceholder")}
-                    className="input sm:field-auto min-w-0 sm:min-w-44"
+                    className="input sm:field-auto min-w-0 sm:min-w-44 lg:min-h-8 lg:py-1"
                   />
                   <button
                     className="btn-primary btn-sm"

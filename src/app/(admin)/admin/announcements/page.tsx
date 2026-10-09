@@ -135,6 +135,7 @@ function AnnouncementCard({
               if (
                 await confirm({
                   title: t("admin.announcements.card.confirmDelete"),
+                  message: a.title,
                   confirmLabel: t("common.delete"),
                   cancelLabel: t("common.cancel"),
                   danger: true,

@@ -4,6 +4,7 @@ import {
   fireEvent,
   render,
   screen,
+  waitFor,
   within,
 } from "@testing-library/react";
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
@@ -45,8 +46,16 @@ vi.mock("~/trpc/react", () => ({
               status: "ACTIVE",
               englishName: state.rows[0]!.tutor.englishName,
             },
-            { id: "synthetic-archived", englishName: "Past Archived Tutor", status: "ARCHIVED" },
-            { id: "synthetic-graduated", englishName: "Past Graduated Tutor", status: "GRADUATED" },
+            {
+              id: "synthetic-archived",
+              englishName: "Past Archived Tutor",
+              status: "ARCHIVED",
+            },
+            {
+              id: "synthetic-graduated",
+              englishName: "Past Graduated Tutor",
+              status: "GRADUATED",
+            },
           ],
         }),
       },
@@ -66,7 +75,10 @@ vi.mock("~/trpc/react", () => ({
       },
       deleteAdjustment: {
         useMutation: () => ({
-          mutate: state.remove,
+          mutateAsync: async (input: unknown) => {
+            state.remove(input);
+            if (state.deleteError) throw state.deleteError;
+          },
           isPending: state.pending,
           error: state.deleteError,
         }),
@@ -114,17 +126,29 @@ afterEach(cleanup);
 
 it("reveals past choices and retains a selected past tutor after hiding the others", () => {
   renderPage();
-  expect(screen.queryByRole("option", { name: "Past Archived Tutor" })).toBeNull();
+  expect(
+    screen.queryByRole("option", { name: "Past Archived Tutor" }),
+  ).toBeNull();
   fireEvent.click(screen.getByRole("button", { name: "Show past tutors" }));
-  expect(screen.getByRole("option", { name: "Past Graduated Tutor" })).toBeTruthy();
-  const select = screen.getByRole<HTMLSelectElement>("combobox", { name: en.admin.adjustments.table.tutor });
+  expect(
+    screen.getByRole("option", { name: "Past Graduated Tutor" }),
+  ).toBeTruthy();
+  const select = screen.getByRole<HTMLSelectElement>("combobox", {
+    name: en.admin.adjustments.table.tutor,
+  });
   fireEvent.change(select, { target: { value: "synthetic-archived" } });
   fireEvent.click(screen.getByRole("button", { name: "Hide past tutors" }));
   expect(select.value).toBe("synthetic-archived");
-  expect(screen.getByRole("option", { name: "Past Archived Tutor" })).toBeTruthy();
-  expect(screen.queryByRole("option", { name: "Past Graduated Tutor" })).toBeNull();
+  expect(
+    screen.getByRole("option", { name: "Past Archived Tutor" }),
+  ).toBeTruthy();
+  expect(
+    screen.queryByRole("option", { name: "Past Graduated Tutor" }),
+  ).toBeNull();
   // Historical adjustment rows are independent of the current-work picker.
-  expect(screen.getByRole("table").textContent).toContain(state.rows[0]!.tutor.englishName);
+  expect(screen.getByRole("table").textContent).toContain(
+    state.rows[0]!.tutor.englishName,
+  );
 });
 
 it.each(["en", "zh"])(
@@ -181,16 +205,40 @@ it("submits the selected month, half-hour amount and trimmed reason unchanged", 
   });
 });
 
-it("deletes the selected row and disables repeat requests while pending", () => {
+it("reviews the selected record, cancels without a write and deletes only after confirmation", async () => {
   const view = renderPage();
   fireEvent.click(screen.getByRole("button", { name: /^Delete:/ }));
+  expect(state.remove).not.toHaveBeenCalled();
+  expect(screen.getByRole("dialog").textContent).toContain(
+    state.rows[0]!.reason,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+  expect(state.remove).not.toHaveBeenCalled();
+  fireEvent.click(screen.getByRole("button", { name: /^Delete:/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Delete adjustment" }));
+  await waitFor(() =>
+    expect(screen.getByRole("status").textContent).toContain("Change applied"),
+  );
   expect(state.remove).toHaveBeenCalledWith({ id: "synthetic-adjustment" });
   view.unmount();
   state.pending = true;
   renderPage();
-  expect(
-    screen.getByRole("button", { name: /^Delete:/ }).hasAttribute("disabled"),
-  ).toBe(true);
+});
+
+it("retains the adjustment and exact review after a failed deletion", async () => {
+  state.deleteError = new Error("Synthetic delete failure");
+  renderPage();
+  fireEvent.click(screen.getByRole("button", { name: /^Delete:/ }));
+  fireEvent.click(screen.getByRole("button", { name: "Delete adjustment" }));
+  expect((await screen.findByRole("alert")).textContent).toBe(
+    "Synthetic delete failure",
+  );
+  expect(screen.getByRole("dialog").textContent).toContain(
+    state.rows[0]!.tutor.englishName,
+  );
+  state.deleteError = null;
+  fireEvent.click(screen.getByRole("button", { name: "Delete adjustment" }));
+  await waitFor(() => expect(state.remove).toHaveBeenCalledTimes(2));
 });
 
 it("hides mutations while retaining the rightmost detail action for viewers", () => {
@@ -212,7 +260,6 @@ it("announces loading and request errors", () => {
   state.deleteError = new Error("Synthetic delete failure");
   renderPage();
   expect(screen.getAllByRole("alert").map((node) => node.textContent)).toEqual([
-    "Synthetic delete failure",
     "Synthetic list failure",
   ]);
 });

@@ -1,5 +1,11 @@
 # Issue #222 cloud continuation
 
+> Historical checkpoint: the tutor-task implementation below was subsequently
+> integrated by PR #257 and refined by PR #259. Its old draft/publication and
+> runtime limitations describe that session, not current task instructions. The
+> remaining management deletions now use the named review composition described
+> in the contributor action inventory; stronger domain reviews remain in place.
+
 This is an incomplete draft checkpoint for [issue #222](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/222), not approval to merge or deploy. The requested final HTML report remains gated on current live evidence and independent review. Continue the existing branch; do not repeat completed work solely to recreate local receipts.
 
 ## Revision and integration order

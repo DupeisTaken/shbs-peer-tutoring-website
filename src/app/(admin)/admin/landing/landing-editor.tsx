@@ -654,6 +654,7 @@ function NewsPostCard({
                 if (
                   await confirm({
                     title: t("admin.landing.news.actions.confirmDelete"),
+                    message: heading,
                     confirmLabel: t("common.delete"),
                     cancelLabel: t("common.cancel"),
                     danger: true,
@@ -1140,6 +1141,7 @@ function ImageLibrary({
                     if (
                       await confirm({
                         title: t("admin.landing.images.confirmDelete"),
+                        message: img.alt || img.id,
                         confirmLabel: t("common.delete"),
                         cancelLabel: t("common.cancel"),
                         danger: true,
@@ -1382,6 +1384,7 @@ function SectionCard({
                 if (
                   await confirm({
                     title: t("admin.landing.sections.actions.confirmDelete"),
+                    message: heading,
                     confirmLabel: t("common.delete"),
                     cancelLabel: t("common.cancel"),
                     danger: true,
@@ -2523,6 +2526,7 @@ function PageCard({
                 if (
                   await confirm({
                     title: t("admin.landing.pages.confirmDelete"),
+                    message: heading,
                     confirmLabel: t("common.delete"),
                     cancelLabel: t("common.cancel"),
                     danger: true,
