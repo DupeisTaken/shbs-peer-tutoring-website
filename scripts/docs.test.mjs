@@ -354,37 +354,3 @@ test("enhancement requests require context and an outcome while leaving alternat
   }
   assert.deepEqual(validateForm(form), []);
 });
-
-test("image publishing cancels stale runs and fails closed on an old main commit", () => {
-  const workflow = yaml.load(
-    fs.readFileSync(
-      path.join(root, ".github/workflows/docker-build.yml"),
-      "utf8",
-    ),
-  );
-  assert.equal(workflow.concurrency["cancel-in-progress"], true);
-  assert.match(workflow.concurrency.group, /github\.workflow/);
-  assert.match(workflow.concurrency.group, /pull_request\.number/);
-  assert.match(workflow.concurrency.group, /github\.ref/);
-
-  const publish = workflow.jobs.publish;
-  assert.match(publish.if, /refs\/heads\/main/);
-  assert.match(publish.if, /event_name == 'push'/);
-  assert.match(publish.if, /workflow_dispatch/);
-  const guardIndex = publish.steps.findIndex(
-    (step) => step.name === "Confirm commit is current main",
-  );
-  const guard = publish.steps[guardIndex];
-  assert.ok(guard, "publish must recheck the main branch before pushing");
-  assert.match(guard.run, /git ls-remote origin refs\/heads\/main/);
-  assert.match(guard.run, /EXPECTED_SHA/);
-  const pushIndex = publish.steps.findIndex(
-    (step) => step.uses === "docker/build-push-action@v6",
-  );
-  assert.ok(
-    guardIndex < pushIndex,
-    "the current-main guard must precede the image push",
-  );
-  const push = publish.steps[pushIndex];
-  assert.equal(push.with.push, true);
-});

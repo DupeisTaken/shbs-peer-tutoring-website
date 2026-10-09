@@ -24,6 +24,7 @@
     "test:watch": "vitest",
     "test:lint-glob": "node --test scripts/lint-glob.test.mjs",
     "test:pr-size": "node --test scripts/pr-size.test.mjs",
+    "test:ci": "node --test scripts/ci.test.mjs",
     "test:deployment": "node --test --test-concurrency=1 scripts/deployment-config.test.mjs scripts/collect-network-evidence.test.mjs",
     "typecheck": "tsc --noEmit",
     "docs:check": "node scripts/check-docs.mjs && node --test scripts/docs.test.mjs"
