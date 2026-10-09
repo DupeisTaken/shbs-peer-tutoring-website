@@ -1015,7 +1015,12 @@ it.each([false, true])(
       data: { userId: account.id, email: alias, verifiedAt: new Date() },
     });
     await db.studentQuarterBlock.create({
-      data: { userId: account.id, email, intakeTermId: "term" },
+      data: {
+        userId: account.id,
+        email,
+        intakeTermId: "term",
+        surveyId: "retained-withdrawal-source",
+      },
     });
     if (!late)
       await expect(stagedSurvey(alias)).rejects.toMatchObject({

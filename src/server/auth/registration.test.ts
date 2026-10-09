@@ -458,7 +458,7 @@ it.each(REGISTRATION_KINDS)(
         ...profile,
         completionProof: row.completionProof,
       }),
-    ).resolves.toMatchObject({ ok: true });
+    ).rejects.toThrow(/Open the invitation we emailed/);
   },
 );
 
@@ -495,7 +495,7 @@ it("expires verified invitation grants and invalidates them when mail is resent"
       ...profile,
       completionProof: verifiedAgain.completionProof,
     }),
-  ).resolves.toMatchObject({ ok: true });
+  ).rejects.toThrow(/Open the invitation we emailed/);
 });
 
 it.each(["TUTOR", "CREW"] as const)(

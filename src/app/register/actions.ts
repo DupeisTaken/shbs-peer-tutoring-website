@@ -46,11 +46,12 @@ export async function invitationSignIn(input: {
     return {
       signedIn: true,
       mfaRequired: false,
-      completedLogin: details.completed && details.kind === "LOGIN",
+      completedLogin: Boolean(details.completed && details.kind === "LOGIN"),
     };
   }
   if (!details.requiresSignIn) return acceptedSession();
-  if (details.mfaRequired) return { signedIn: false, mfaRequired: true };
+  if (details.mfaRequired)
+    return { signedIn: false, mfaRequired: true, completedLogin: false };
   try {
     await signIn("credentials", {
       intent: "account_invitation",
@@ -60,7 +61,7 @@ export async function invitationSignIn(input: {
     return acceptedSession();
   } catch (error) {
     if (error instanceof AuthError)
-      return { signedIn: false, mfaRequired: false };
+      return { signedIn: false, mfaRequired: false, completedLogin: false };
     throw error;
   }
 }

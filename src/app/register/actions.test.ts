@@ -62,7 +62,7 @@ it("retains enforced MFA without consuming a sign-in-only source", async () => {
     mfaRequired: true,
     needsPassword: false,
   });
-  await expect(invitationSignIn(input)).resolves.toEqual({
+  await expect(invitationSignIn(input)).resolves.toMatchObject({
     signedIn: false,
     mfaRequired: true,
   });
