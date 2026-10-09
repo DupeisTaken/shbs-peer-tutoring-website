@@ -16,9 +16,10 @@ export function ProfileEditSection({
   className,
   saved = false,
   refreshFailed = false,
-  onEditAgain,
-  restartBusy = false,
-  restartError,
+  readOnly = saved,
+  onRefresh,
+  refreshBusy = false,
+  refreshError,
 }: {
   title: string;
   busy: boolean;
@@ -27,9 +28,11 @@ export function ProfileEditSection({
   className?: string;
   saved?: boolean;
   refreshFailed?: boolean;
-  onEditAgain?: () => void;
-  restartBusy?: boolean;
-  restartError?: string | null;
+  /** Saved feedback and write admission are separate after automatic synchronization. */
+  readOnly?: boolean;
+  onRefresh?: () => void;
+  refreshBusy?: boolean;
+  refreshError?: string | null;
 }) {
   const dialogBusy = useDialogBusy();
   const t = useTranslations("accountProfile");
@@ -38,13 +41,13 @@ export function ProfileEditSection({
       <FormSection
         title={title}
         busy={busy || dialogBusy}
-        disabled={saved}
+        disabled={readOnly}
         actions={actions}
       >
         <div className={className ?? "space-y-4"}>{children}</div>
       </FormSection>
       {/* Completion belongs to this section. It never closes a sibling's draft or registers work. */}
-      {(saved || refreshFailed || restartError) && (
+      {(saved || refreshFailed || refreshError) && (
         <div className="mt-4 space-y-3">
           {saved && (
             <InlineNotice tone="success" announcement="status">
@@ -56,20 +59,20 @@ export function ProfileEditSection({
               {t("sectionRefreshFailed")}
             </InlineNotice>
           )}
-          {/* Restart is a read, outside the committed fieldset. The feature adopts
-          a fresh snapshot before unlocking only its own independent draft. */}
-          {saved && onEditAgain && (
+          {/* Recovery is a read outside the committed fieldset; accepted writes
+          are never replayed when automatic synchronization fails. */}
+          {saved && refreshFailed && onRefresh && (
             <Button
               type="button"
-              disabled={busy || dialogBusy || restartBusy}
-              onClick={onEditAgain}
+              disabled={busy || dialogBusy || refreshBusy}
+              onClick={onRefresh}
             >
-              {t("editAgain")}
+              {t("retryRefresh")}
             </Button>
           )}
-          {restartError && (
+          {refreshError && (
             <InlineNotice tone="warning" announcement="alert">
-              {restartError}
+              {refreshError}
             </InlineNotice>
           )}
         </div>

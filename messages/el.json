@@ -3246,9 +3246,8 @@
     "scheduleEmpty": "No tutoring sessions are assigned yet. Follow your request under Requests or use the request form to get started."
   },
   "accountProfile": {
-    "editAgain": "Επεξεργασία ξανά",
-    "sectionSaved": "Αποθηκεύτηκε. Επιλέξτε Επεξεργασία ξανά για να φορτώσετε αυτή την ενότητα για νέα αλλαγή. Τα προσχέδια των άλλων ενοτήτων διατηρούνται.",
-    "sectionRefreshFailed": "Η αποθήκευση ολοκληρώθηκε, αλλά η ανανέωση των εγγραφών απέτυχε. Επιλέξτε Επεξεργασία ξανά για να φορτώσετε αυτή την ενότητα πριν από νέα αλλαγή.",
+    "sectionSaved": "Αποθηκεύτηκε. Αυτή η ενότητα ανανεώνεται αυτόματα και τα άλλα προσχέδιά σας διατηρούνται.",
+    "sectionRefreshFailed": "Η αποθήκευση ολοκληρώθηκε, αλλά η ανανέωση απέτυχε. Επαναλάβετε την ανανέωση πριν επεξεργαστείτε ξανά αυτή την ενότητα. Τα άλλα προσχέδιά σας διατηρούνται.",
     "username": "Όνομα χρήστη",
     "usernameHelp": "Μόνο Head. Χρησιμοποιήστε 1–64 λατινικά γράμματα ή αριθμούς. Συνδεθείτε με το νέο όνομα ή το υπάρχον email· ο κωδικός πρόσβασης παραμένει ίδιος.",
     "saveUsername": "Αποθήκευση ονόματος χρήστη",
@@ -3280,7 +3279,8 @@
     "detailsTitle": "User Details · {name}",
     "noAccountHistory": "Policy acceptance history belongs to a linked account.",
     "reloadIdentity": "Discard Name Draft and Reload",
-    "reloadUsername": "Discard Username Draft and Reload"
+    "reloadUsername": "Discard Username Draft and Reload",
+    "retryRefresh": "Επανάληψη ανανέωσης"
   },
   "policyHistory": {
     "title": "Policy Acceptance History",

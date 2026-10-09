@@ -48,7 +48,7 @@ function TuteeProfileForm({
   historyPermissions,
 }: Omit<ComponentProps<typeof TuteeEditor>, "onClose">) {
   const [row, setRow] = useState(initialRow);
-  // Profile restart must not remount independent academic or historical drafts.
+  // Profile refresh must not remount independent academic or historical drafts.
   const [siblingRow] = useState(initialRow);
   const [draftKey, setDraftKey] = useState(0);
   const [reloading, setReloading] = useState(false);
@@ -57,6 +57,7 @@ function TuteeProfileForm({
   const [reloadError, setReloadError] = useState<string | null>(null);
   const reloadPending = useRef(false);
   const [saved, setSaved] = useState(false);
+  const [needsRefresh, setNeedsRefresh] = useState(false);
   const [refreshFailed, setRefreshFailed] = useState(false);
   const committed = useRef(false);
   const common = useTranslations();
@@ -88,6 +89,51 @@ function TuteeProfileForm({
   const slots = api.admin.timeSlots.useQuery();
   // Guard the interval before mutation state renders, so one request owns this draft.
   const submitting = useRef(false);
+  /** Recover committed saves with reads only, preserving independent sibling drafts. */
+  const refreshProfile = async () => {
+    reloadPending.current = true;
+    setReloading(true);
+    setReloadError(null);
+    try {
+      await settleRefreshes([
+        async () => {
+          await invalidateTuteeViews(utils, { reportErrors: true });
+        },
+        () => invalidateAndReport(utils.admin.tutors),
+      ]);
+      // Adopt the final authorized roster fence, including linked-account mirrors.
+      const rows = await utils.admin.tutees.fetch(undefined, { staleTime: 0 });
+      const latest = rows.find((item) => item.id === row.id);
+      if (!latest) throw new Error(common("uiPatterns.loadFailed"));
+      setRow(latest);
+      setExpectedUpdatedAt(latest.updatedAt);
+      setNames(nameDraft(latest));
+      setOriginalNames(nameDraft(latest));
+      setLegacyName(latest.legacyName ?? latest.englishName);
+      setGrade(
+        latest.academicallyGraduated
+          ? GRADUATED_GRADE
+          : (latest.gradeLevel?.toString() ?? ""),
+      );
+      // Reset only this form's uncontrolled contacts, choices and availability.
+      setDraftKey((key) => key + 1);
+      setRefreshFailed(false);
+      setNeedsRefresh(false);
+      committed.current = false;
+      return true;
+    } catch (error) {
+      setRefreshFailed(true);
+      setReloadError(
+        error instanceof Error
+          ? error.message
+          : common("uiPatterns.loadFailed"),
+      );
+      return false;
+    } finally {
+      reloadPending.current = false;
+      setReloading(false);
+    }
+  };
   const save = api.admin.updateTutee.useMutation({
     onSettled: () => {
       submitting.current = false;
@@ -96,16 +142,8 @@ function TuteeProfileForm({
       // A completed profile must not discard an independent academic/link error or draft.
       committed.current = true;
       setSaved(true);
-      try {
-        await settleRefreshes([
-          async () => {
-            await invalidateTuteeViews(utils, { reportErrors: true });
-          },
-          () => invalidateAndReport(utils.admin.tutors),
-        ]);
-      } catch {
-        setRefreshFailed(true);
-      }
+      setNeedsRefresh(true);
+      await refreshProfile();
     },
   });
   const busy = useDialogPending(save.isPending);
@@ -140,6 +178,9 @@ function TuteeProfileForm({
           ref={formRef}
           key={draftKey}
           className="mt-3 max-w-3xl"
+          onChangeCapture={() => {
+            if (!committed.current) setSaved(false);
+          }}
           onSubmit={(e) => {
             e.preventDefault();
             if (
@@ -188,52 +229,16 @@ function TuteeProfileForm({
             busy={save.isPending || reloading}
             saved={saved}
             refreshFailed={refreshFailed}
-            restartBusy={reloading}
-            restartError={reloadError}
-            onEditAgain={() => {
+            readOnly={needsRefresh}
+            refreshBusy={reloading}
+            refreshError={reloadError}
+            onRefresh={() => {
               if (busy || submitting.current || reloadPending.current) return;
               reloadFocus.beginReload();
-              reloadPending.current = true;
-              setReloading(true);
-              setReloadError(null);
-              void (async () => {
-                try {
-                  // Load the committed roster snapshot only after explicit restart.
-                  // Background refreshes never rebase this section or its siblings.
-                  const rows = await utils.admin.tutees.fetch(undefined, {
-                    staleTime: 0,
-                  });
-                  const latest = rows.find((item) => item.id === row.id);
-                  if (!latest) throw new Error(common("uiPatterns.loadFailed"));
-                  setRow(latest);
-                  setExpectedUpdatedAt(latest.updatedAt);
-                  setNames(nameDraft(latest));
-                  setOriginalNames(nameDraft(latest));
-                  setLegacyName(latest.legacyName ?? latest.englishName);
-                  setGrade(
-                    latest.academicallyGraduated
-                      ? GRADUATED_GRADE
-                      : (latest.gradeLevel?.toString() ?? ""),
-                  );
-                  // Remount only this form to reset contacts, choices and availability.
-                  setDraftKey((key) => key + 1);
-                  save.reset();
-                  setRefreshFailed(false);
-                  setSaved(false);
-                  committed.current = false;
-                  reloadFocus.finishReload(true);
-                } catch (error) {
-                  reloadFocus.finishReload(false);
-                  setReloadError(
-                    error instanceof Error
-                      ? error.message
-                      : common("uiPatterns.loadFailed"),
-                  );
-                } finally {
-                  reloadPending.current = false;
-                  setReloading(false);
-                }
-              })();
+              void refreshProfile().then((refreshed) => {
+                reloadFocus.finishReload(refreshed);
+                if (refreshed) save.reset();
+              });
             }}
             className="grid gap-4 sm:grid-cols-2"
             actions={
@@ -241,7 +246,11 @@ function TuteeProfileForm({
                 type="submit"
                 variant="primary"
                 disabled={
-                  busy || saved || subjects.isLoading || slots.isLoading
+                  busy ||
+                  reloading ||
+                  needsRefresh ||
+                  subjects.isLoading ||
+                  slots.isLoading
                 }
               >
                 {t("save")}

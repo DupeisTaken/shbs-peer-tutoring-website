@@ -2,7 +2,7 @@
 
 import { NavigationRecipes } from "./navigation-recipes";
 import { ActionReviewRecipe } from "./action-review-recipe";
-import { useEffect, useRef, useState, type ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { NextIntlClientProvider } from "next-intl";
 import enMessages from "../../../messages/en.json";
 import zhMessages from "../../../messages/zh.json";
@@ -237,15 +237,18 @@ function DialogDraft({ t }: { t: Copy }) {
   const [pending, setPending] = useState(false);
   const [failed, setFailed] = useState(false);
   const [otherSaved, setOtherSaved] = useState(false);
-  const otherSection = useRef<HTMLDivElement>(null);
-  const focusRestart = useRef(false);
-  const busy = useDialogPending(pending);
+  const [otherPending, setOtherPending] = useState(false);
+  const busy = useDialogPending(pending || otherPending);
   useEffect(() => {
-    if (!otherSaved && focusRestart.current) {
-      focusRestart.current = false;
-      otherSection.current?.querySelector("input")?.focus();
-    }
-  }, [otherSaved]);
+    if (!otherPending) return;
+    // Production saves await an authorized fresh snapshot before re-enabling
+    // their own fields. This local timer demonstrates that same lifetime.
+    const timer = setTimeout(() => {
+      setOtherPending(false);
+      setOtherSaved(true);
+    }, 600);
+    return () => clearTimeout(timer);
+  }, [otherPending]);
   // Demonstration only; cancelled on unmount and never connected to a mutation.
   useEffect(() => {
     if (!pending) return;
@@ -277,23 +280,16 @@ function DialogDraft({ t }: { t: Copy }) {
           {t.failed}
         </InlineNotice>
       )}
-      <div ref={otherSection}>
+      <div onChangeCapture={() => setOtherSaved(false)}>
         <ProfileEditSection
           title={t.otherSection}
-          busy={false}
+          busy={otherPending}
           saved={otherSaved}
-          onEditAgain={() => {
-            // This local example has no server snapshot; production sections first
-            // read their latest authorized fields/version before allowing more edits.
-            if (!busy) {
-              focusRestart.current = true;
-              setOtherSaved(false);
-            }
-          }}
+          readOnly={false}
           actions={
             <Button
               onClick={() => {
-                if (!busy && !otherSaved) setOtherSaved(true);
+                if (!busy) setOtherPending(true);
               }}
             >
               {t.saveOther}

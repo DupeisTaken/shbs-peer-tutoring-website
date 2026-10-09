@@ -27,6 +27,7 @@ export function AccountUsernameEditor({
   const common = useTranslations("uiPatterns");
   const [username, setUsername] = useState(initial ?? "");
   const [saved, setSaved] = useState(false);
+  const [needsRefresh, setNeedsRefresh] = useState(false);
   const [refreshFailed, setRefreshFailed] = useState(false);
   const committed = useRef(false);
   const [reloading, setReloading] = useState(false);
@@ -48,15 +49,8 @@ export function AccountUsernameEditor({
       // This success owns only the username section, never the enclosing profile dialog.
       committed.current = true;
       setSaved(true);
-      try {
-        await settleRefreshes([
-          () => invalidateAndReport(utils.admin.accounts),
-          () => invalidateAndReport(utils.admin.tutors),
-          () => invalidateAndReport(utils.account.me),
-        ]);
-      } catch {
-        setRefreshFailed(true);
-      }
+      setNeedsRefresh(true);
+      await reloadUsername(true);
       // Server-rendered headers also show the username, including the Head's own handle.
       router.refresh();
       onSaved?.();
@@ -64,33 +58,37 @@ export function AccountUsernameEditor({
   });
   const busy = useDialogPending(save.isPending);
   const controlsBusy = busy || reloading;
-  const reloadUsername = async () => {
-    if (busy || submitting.current || reloadPending.current) return;
-    // A new edit owns a fresh username/version snapshot. Reading only this section
-    // leaves sibling drafts intact and cannot replay the already committed write.
-    reloadFocus.beginReload();
+  const reloadUsername = async (afterSave: boolean) => {
     reloadPending.current = true;
     setReloading(true);
     setReloadError(null);
     try {
+      if (afterSave) {
+        await settleRefreshes([
+          () => invalidateAndReport(utils.admin.accounts),
+          () => invalidateAndReport(utils.admin.tutors),
+          () => invalidateAndReport(utils.account.me),
+        ]);
+      }
       const accounts = await utils.admin.accounts.fetch(undefined, {
         staleTime: 0,
       });
       const latest = accounts.rows.find((row) => row.userId === userId);
       if (latest?.profileVersion == null) throw new Error(common("loadFailed"));
+      // Only this section adopts its fresh snapshot; sibling drafts are independent.
       setUsername(latest.username ?? "");
       setExpectedProfileVersion(latest.profileVersion);
-      setSaved(false);
       setRefreshFailed(false);
+      setNeedsRefresh(false);
       committed.current = false;
-      reloadFocus.finishReload(true);
-      save.reset();
+      return true;
     } catch (error) {
-      reloadFocus.finishReload(false);
-      // A failed read leaves completion and its fence untouched; Retry remains a GET.
+      // A committed write remains fenced; its recovery retries reads, never the rename.
+      if (afterSave) setRefreshFailed(true);
       setReloadError(
         error instanceof Error ? error.message : common("loadFailed"),
       );
+      return false;
     } finally {
       reloadPending.current = false;
       setReloading(false);
@@ -100,6 +98,9 @@ export function AccountUsernameEditor({
     <form
       ref={formRef}
       className="mt-5 space-y-3 border-t border-slate-200 pt-4"
+      onChangeCapture={() => {
+        if (!committed.current) setSaved(false);
+      }}
       onSubmit={(event) => {
         event.preventDefault();
         if (
@@ -118,9 +119,17 @@ export function AccountUsernameEditor({
         busy={controlsBusy}
         saved={saved}
         refreshFailed={refreshFailed}
-        onEditAgain={() => void reloadUsername()}
-        restartBusy={controlsBusy}
-        restartError={reloadError}
+        readOnly={needsRefresh}
+        refreshBusy={controlsBusy}
+        refreshError={saved ? reloadError : null}
+        onRefresh={() => {
+          if (busy || submitting.current || reloadPending.current) return;
+          reloadFocus.beginReload();
+          void reloadUsername(true).then((succeeded) => {
+            if (succeeded) save.reset();
+            reloadFocus.finishReload(succeeded);
+          });
+        }}
         actions={
           <Button type="submit" disabled={controlsBusy || !username.trim()}>
             {t("saveUsername")}
@@ -151,10 +160,27 @@ export function AccountUsernameEditor({
           <button
             type="button"
             className="btn-secondary min-h-11 lg:min-h-10"
-            onClick={() => void reloadUsername()}
+            onClick={async () => {
+              if (
+                busy ||
+                submitting.current ||
+                reloadPending.current ||
+                committed.current
+              )
+                return;
+              reloadFocus.beginReload();
+              const succeeded = await reloadUsername(false);
+              if (succeeded) save.reset();
+              reloadFocus.finishReload(succeeded);
+            }}
           >
             {t("reloadUsername")}
           </button>
+        )}
+        {reloadError && !saved && (
+          <p role="alert" className="text-sm text-red-600">
+            {reloadError}
+          </p>
         )}
       </ProfileEditSection>
     </form>

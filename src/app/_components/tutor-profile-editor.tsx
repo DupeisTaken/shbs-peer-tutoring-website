@@ -57,6 +57,7 @@ function TutorProfileForm({
   const [reloadError, setReloadError] = useState<string | null>(null);
   const reloadPending = useRef(false);
   const [saved, setSaved] = useState(false);
+  const [needsRefresh, setNeedsRefresh] = useState(false);
   const [refreshFailed, setRefreshFailed] = useState(false);
   const committed = useRef(false);
   const [expectedUpdatedAt, setExpectedUpdatedAt] = useState(row.updatedAt);
@@ -75,6 +76,48 @@ function TutorProfileForm({
   const utils = api.useUtils();
   // Guard the interval before mutation state renders, so one request owns this draft.
   const submitting = useRef(false);
+  /** A committed write is never replayed: recovery reads and replaces only this form. */
+  const refreshProfile = async () => {
+    reloadPending.current = true;
+    setReloading(true);
+    setReloadError(null);
+    try {
+      await settleRefreshes([
+        () => invalidateAndReport(utils.admin.tutors),
+        () => invalidateAndReport(utils.admin.tutees),
+        () => invalidateAndReport(utils.admin.accounts),
+      ]);
+      // Account mirrors may advance the fence after the initial roster write.
+      const rows = await utils.admin.tutors.fetch(undefined, { staleTime: 0 });
+      const latest = rows.find((item) => item.id === row.id);
+      if (!latest) throw new Error(t("uiPatterns.loadFailed"));
+      setRow(latest);
+      setExpectedUpdatedAt(latest.updatedAt);
+      setNames(nameDraft(latest));
+      setOriginalNames(nameDraft(latest));
+      setLegacyName(latest.legacyName ?? latest.englishName);
+      setGrade(
+        latest.academicallyGraduated
+          ? GRADUATED_GRADE
+          : (latest.gradeLevel?.toString() ?? ""),
+      );
+      // Only primary uncontrolled fields remount; sibling drafts retain their lifetime.
+      setDraftKey((key) => key + 1);
+      setRefreshFailed(false);
+      setNeedsRefresh(false);
+      committed.current = false;
+      return true;
+    } catch (error) {
+      setRefreshFailed(true);
+      setReloadError(
+        error instanceof Error ? error.message : t("uiPatterns.loadFailed"),
+      );
+      return false;
+    } finally {
+      reloadPending.current = false;
+      setReloading(false);
+    }
+  };
   const save = api.admin.updateTutor.useMutation({
     onSettled: () => {
       submitting.current = false;
@@ -83,15 +126,8 @@ function TutorProfileForm({
       // Preserve sibling outcomes; only deliberate Close dismisses the editor.
       committed.current = true;
       setSaved(true);
-      try {
-        await settleRefreshes([
-          () => invalidateAndReport(utils.admin.tutors),
-          () => invalidateAndReport(utils.admin.tutees),
-          () => invalidateAndReport(utils.admin.accounts),
-        ]);
-      } catch {
-        setRefreshFailed(true);
-      }
+      setNeedsRefresh(true);
+      await refreshProfile();
     },
   });
   const busy = useDialogPending(save.isPending);
@@ -100,6 +136,9 @@ function TutorProfileForm({
       <form
         ref={formRef}
         key={draftKey}
+        onChangeCapture={() => {
+          if (!committed.current) setSaved(false);
+        }}
         onSubmit={(event) => {
           event.preventDefault();
           if (
@@ -145,56 +184,24 @@ function TutorProfileForm({
           busy={save.isPending || reloading}
           saved={saved}
           refreshFailed={refreshFailed}
-          restartBusy={reloading}
-          restartError={reloadError}
-          onEditAgain={() => {
+          readOnly={needsRefresh}
+          refreshBusy={reloading}
+          refreshError={reloadError}
+          onRefresh={() => {
             if (busy || submitting.current || reloadPending.current) return;
             reloadFocus.beginReload();
-            reloadPending.current = true;
-            setReloading(true);
-            setReloadError(null);
-            void (async () => {
-              try {
-                // The mutation response can precede linked-account synchronization.
-                // Read the final roster fence rather than reusing that response.
-                const rows = await utils.admin.tutors.fetch(undefined, {
-                  staleTime: 0,
-                });
-                const latest = rows.find((item) => item.id === row.id);
-                if (!latest) throw new Error(t("uiPatterns.loadFailed"));
-                setRow(latest);
-                setExpectedUpdatedAt(latest.updatedAt);
-                setNames(nameDraft(latest));
-                setOriginalNames(nameDraft(latest));
-                setLegacyName(latest.legacyName ?? latest.englishName);
-                setGrade(
-                  latest.academicallyGraduated
-                    ? GRADUATED_GRADE
-                    : (latest.gradeLevel?.toString() ?? ""),
-                );
-                // Only the profile form remounts, resetting its uncontrolled fields.
-                setDraftKey((key) => key + 1);
-                save.reset();
-                setRefreshFailed(false);
-                setSaved(false);
-                committed.current = false;
-                reloadFocus.finishReload(true);
-              } catch (error) {
-                reloadFocus.finishReload(false);
-                setReloadError(
-                  error instanceof Error
-                    ? error.message
-                    : t("uiPatterns.loadFailed"),
-                );
-              } finally {
-                reloadPending.current = false;
-                setReloading(false);
-              }
-            })();
+            void refreshProfile().then((refreshed) => {
+              reloadFocus.finishReload(refreshed);
+              if (refreshed) save.reset();
+            });
           }}
           className="grid gap-4 sm:grid-cols-2"
           actions={
-            <Button type="submit" variant="primary" disabled={save.isPending}>
+            <Button
+              type="submit"
+              variant="primary"
+              disabled={busy || reloading || needsRefresh}
+            >
               {t("accountProfile.save")}
             </Button>
           }

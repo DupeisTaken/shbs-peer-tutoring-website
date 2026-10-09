@@ -132,6 +132,34 @@ vi.mock("~/trpc/react", async () => {
           );
         };
         const invalidator = (path: string) => ({
+          // A forced authorized read returns the committed row, not invalidation's void result.
+          fetch: async () => {
+            const saved = [...transport.requests]
+              .reverse()
+              .find(
+                (request) =>
+                  request.settled &&
+                  transport.commits.includes(request.path) &&
+                  (path === "admin.accounts"
+                    ? request.path.includes("Account")
+                    : path === "admin.tutors"
+                      ? request.path === "admin.updateTutor"
+                      : request.path === "admin.updateTutee"),
+              );
+            const firstName =
+              typeof saved?.input.firstName === "string"
+                ? saved.input.firstName
+                : row.firstName;
+            const fresh = {
+              ...row,
+              ...saved?.input,
+              userId: "account",
+              name: `${firstName} Person`,
+              profileVersion: transport.version,
+              updatedAt: new Date("2026-09-02"),
+            };
+            return path === "admin.accounts" ? { rows: [fresh] } : [fresh];
+          },
           invalidate: (
             _input?: unknown,
             filters?: InvalidateQueryFilters,
@@ -377,11 +405,18 @@ async function operation(kind: Kind, which: Operation, prefix: string) {
   }
   const initialDraft = field.value;
   return {
-    field,
+    get field() {
+      return which === "profile"
+        ? screen.getByLabelText<HTMLInputElement>("First Name Required")
+        : field;
+    },
     path,
     initialDraft,
     submit: () =>
-      action.dispatchEvent(
+      (which === "profile"
+        ? screen.getByLabelText("First Name Required").closest("form")!
+        : action
+      ).dispatchEvent(
         action instanceof HTMLFormElement
           ? new Event("submit", { bubbles: true, cancelable: true })
           : new MouseEvent("click", { bubbles: true }),
@@ -489,13 +524,11 @@ it.each(cases)(
       expect(dialog.getAttribute("aria-busy")).toBe("false");
     if (outcome !== "primary-fails") {
       expect(first.field.isConnected).toBe(true);
-      expect(first.field.matches(":disabled")).toBe(true);
+      expect(first.field.matches(":disabled")).toBe(false);
       expect(first.field.closest("fieldset")?.getAttribute("aria-busy")).toBe(
         "false",
       );
-      act(() => {
-        first.submit();
-      });
+      // A successful section is ready for a new explicit Save; it never submits automatically.
       expect(transport.requests).toHaveLength(2);
     }
     if (outcome !== "all-success") {
@@ -641,7 +674,9 @@ it.each(
         expect(
           screen.queryByText(en.accountProfile.sectionRefreshFailed),
         ).toBeNull();
-      expect(primary.field.matches(":disabled")).toBe(true);
+      expect(primary.field.matches(":disabled")).toBe(
+        firstOutcome === "failure" || lastOutcome === "failure",
+      );
       expect(primary.field.closest("fieldset")?.getAttribute("aria-busy")).toBe(
         "false",
       );
@@ -652,9 +687,11 @@ it.each(
         "false",
       );
       expect(close).not.toHaveBeenCalled();
-      act(() => {
-        primary.submit();
-      });
+      if (firstOutcome === "failure" || lastOutcome === "failure") {
+        act(() => {
+          primary.submit();
+        });
+      }
       expect(transport.requests).toHaveLength(1);
       expect(transport.commits).toEqual([primary.path]);
       // The correction must neither retry the GET nor replay a committed POST.

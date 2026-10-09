@@ -3246,9 +3246,8 @@
     "scheduleEmpty": "No tutoring sessions are assigned yet. Follow your request under Requests or use the request form to get started."
   },
   "accountProfile": {
-    "editAgain": "Erneut bearbeiten",
-    "sectionSaved": "Gespeichert. Wähle „Erneut bearbeiten“, um diesen Abschnitt für eine weitere Änderung zu laden. Die Entwürfe der anderen Abschnitte bleiben erhalten.",
-    "sectionRefreshFailed": "Das Speichern war erfolgreich, aber die Datensätze konnten nicht aktualisiert werden. Wähle „Erneut bearbeiten“, um diesen Abschnitt vor einer weiteren Änderung neu zu laden.",
+    "sectionSaved": "Gespeichert. Dieser Abschnitt wird automatisch aktualisiert; deine anderen Entwürfe bleiben erhalten.",
+    "sectionRefreshFailed": "Gespeichert, aber die Aktualisierung ist fehlgeschlagen. Wiederhole die Aktualisierung, bevor du diesen Abschnitt weiter bearbeitest. Deine anderen Entwürfe bleiben erhalten.",
     "username": "Benutzername",
     "usernameHelp": "Nur Head. Verwende 1–64 Buchstaben oder Ziffern. Melde dich mit dem neuen Namen oder deiner bisherigen E-Mail an; das Passwort bleibt gleich.",
     "saveUsername": "Benutzernamen speichern",
@@ -3280,7 +3279,8 @@
     "detailsTitle": "User Details · {name}",
     "noAccountHistory": "Policy acceptance history belongs to a linked account.",
     "reloadIdentity": "Discard Name Draft and Reload",
-    "reloadUsername": "Discard Username Draft and Reload"
+    "reloadUsername": "Discard Username Draft and Reload",
+    "retryRefresh": "Aktualisierung wiederholen"
   },
   "policyHistory": {
     "title": "Policy Acceptance History",

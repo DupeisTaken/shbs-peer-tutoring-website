@@ -3214,9 +3214,8 @@
     "scheduleEmpty": "No tutoring sessions are assigned yet. Follow your request under Requests or use the request form to get started."
   },
   "accountProfile": {
-    "editAgain": "Edit again",
-    "sectionSaved": "Saved. Choose Edit again to load this section for another change. Other sections keep their drafts.",
-    "sectionRefreshFailed": "The save succeeded, but refreshing the records failed. Choose Edit again to reload this section before making another change.",
+    "sectionSaved": "Saved. This section refreshes automatically; your other drafts are kept.",
+    "sectionRefreshFailed": "The save succeeded, but refreshing failed. Retry refresh before editing this section again. Your other drafts are kept.",
     "username": "Username",
     "usernameHelp": "Head only. Use 1–64 letters or numbers. Sign in with the new username or your existing email; your password stays the same.",
     "saveUsername": "Save username",
@@ -3248,7 +3247,8 @@
     "detailsTitle": "User Details · {name}",
     "noAccountHistory": "Policy acceptance history belongs to a linked account.",
     "reloadIdentity": "Discard Name Draft and Reload",
-    "reloadUsername": "Discard Username Draft and Reload"
+    "reloadUsername": "Discard Username Draft and Reload",
+    "retryRefresh": "Retry refresh"
   },
   "policyHistory": {
     "title": "Policy Acceptance History",

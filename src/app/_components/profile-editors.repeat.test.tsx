@@ -318,9 +318,9 @@ async function committed(form: HTMLFormElement) {
   await waitFor(() => expect(client.isMutating()).toBe(0));
   expect(screen.getByText(en.accountProfile.sectionSaved)).toBeTruthy();
 }
-const editAgain = () =>
+const refresh = () =>
   screen.getByRole<HTMLButtonElement>("button", {
-    name: en.accountProfile.editAgain,
+    name: en.accountProfile.retryRefresh,
   });
 const currentField = (kind: Kind) =>
   screen.getByLabelText<HTMLInputElement>(
@@ -332,106 +332,72 @@ const pathFor = (kind: Kind) =>
     : kind === "tutee"
       ? "admin.tutees"
       : "admin.accounts";
-const fence = (kind: Kind, current = true) =>
-  kind === "account" || kind === "username"
-    ? { expectedProfileVersion: current ? 8 : 7 }
-    : { expectedUpdatedAt: current ? latestTime : original.updatedAt };
+const response = (kind: Kind) =>
+  pathFor(kind) === "admin.accounts"
+    ? { rows: [transport.latest] }
+    : [transport.latest];
 
 it.each(kinds)(
-  "allows a deliberate second %s save with a fresh matching snapshot",
+  "automatically adopts each fresh %s fence across three explicit saves",
   async (kind) => {
-    const { field: originalField, form, close } = mount(kind);
-    let field = originalField;
-    fireEvent.change(field, {
-      target: { value: kind === "username" ? "firstsave" : "Firstsave" },
-    });
-    await committed(form);
-    expect(field.matches(":disabled")).toBe(true);
-    fireEvent.submit(form);
-    expect(transport.requests).toHaveLength(1);
-    await act(async () => {
-      editAgain().focus();
-      fireEvent.click(editAgain());
-    });
-    // Roster forms may replace their own uncontrolled inputs after the explicit read.
-    field = currentField(kind);
-    expect(transport.fetch).toHaveBeenCalledWith(pathFor(kind), undefined, {
-      staleTime: 0,
-    });
-    expect(field.matches(":disabled")).toBe(false);
-    expect(field.value).toBe(
-      kind === "username" ? "synchronizeduser" : "Synchronized",
-    );
-    expect(document.activeElement).toBe(field);
-    expect(screen.queryByText(en.accountProfile.sectionSaved)).toBeNull();
-    if (kind === "tutee") {
+    const { close } = mount(kind);
+    for (let cycle = 0; cycle < 3; cycle++) {
+      const field = currentField(kind);
+      const draft = kind === "username" ? `save${cycle}` : `Save${cycle}`;
+      const expected =
+        kind === "account" || kind === "username"
+          ? { expectedProfileVersion: 7 + cycle }
+          : {
+              expectedUpdatedAt:
+                cycle === 0
+                  ? original.updatedAt
+                  : new Date(`2026-09-0${cycle + 1}T00:00:00Z`),
+            };
+      fireEvent.change(field, { target: { value: draft } });
+      expect(screen.queryByText(en.accountProfile.sectionSaved)).toBeNull();
+      act(() => {
+        fireEvent.submit(field.closest("form")!);
+        fireEvent.submit(field.closest("form")!);
+      });
+      await waitFor(() => expect(transport.requests).toHaveLength(cycle + 1));
+      expect(transport.requests[cycle]!.input).toMatchObject(expected);
+      transport.latest = {
+        ...transport.latest,
+        firstName: draft,
+        username: draft,
+        profileVersion: 8 + cycle,
+        updatedAt: new Date(`2026-09-0${cycle + 2}T00:00:00Z`),
+      };
+      await act(async () => transport.requests[cycle]!.resolve());
+      await waitFor(() => expect(client.isMutating()).toBe(0));
+      expect(currentField(kind).matches(":disabled")).toBe(false);
+      expect(currentField(kind).value).toBe(draft);
+      if (kind === "tutee") {
+        expect(
+          screen.getByLabelText<HTMLInputElement>(en.profileCorrection.phone)
+            .value,
+        ).toBe("222");
+        expect(
+          screen.getByLabelText<HTMLTextAreaElement>(en.profileCorrection.notes)
+            .value,
+        ).toBe("Synchronized note");
+      }
+      expect(screen.getByText(en.accountProfile.sectionSaved)).toBeTruthy();
       expect(
-        screen.getByLabelText<HTMLInputElement>(en.profileCorrection.phone)
-          .value,
-      ).toBe("222");
-      expect(
-        screen.getByLabelText<HTMLTextAreaElement>(en.profileCorrection.notes)
-          .value,
-      ).toBe("Synchronized note");
+        screen.queryByRole("button", { name: en.accountProfile.retryRefresh }),
+      ).toBeNull();
+      expect(transport.fetch).toHaveBeenLastCalledWith(
+        pathFor(kind),
+        undefined,
+        { staleTime: 0 },
+      );
     }
-    fireEvent.change(field, {
-      target: { value: kind === "username" ? "secondsave" : "Secondsave" },
-    });
-    act(() => {
-      fireEvent.submit(field.closest("form")!);
-      fireEvent.submit(field.closest("form")!);
-    });
-    await waitFor(() => expect(transport.requests).toHaveLength(2));
-    expect(transport.requests[1]!.input).toMatchObject({
-      ...fence(kind),
-      ...(kind === "username"
-        ? { username: "secondsave" }
-        : { firstName: "Secondsave" }),
-    });
-    expect(field.matches(":disabled")).toBe(true);
-    expect(
-      screen.getByRole<HTMLButtonElement>("button", {
-        name: en.accountProfile.close,
-      }).disabled,
-    ).toBe(true);
-    await act(async () => transport.requests[1]!.resolve());
-    await waitFor(() => expect(client.isMutating()).toBe(0));
-    expect(screen.getByText(en.accountProfile.sectionSaved)).toBeTruthy();
-    expect(editAgain().disabled).toBe(false);
     expect(close).not.toHaveBeenCalled();
-    // Repeated cycles must adopt each new fence, rather than only fixing the second save.
-    const thirdTime = new Date("2026-09-03T00:00:00Z");
-    transport.latest = {
-      ...transport.latest,
-      profileVersion: 9,
-      updatedAt: thirdTime,
-      firstName: "Secondsave",
-      username: "secondsave",
-    };
-    await act(async () => {
-      editAgain().focus();
-      fireEvent.click(editAgain());
-    });
-    field = currentField(kind);
-    expect(document.activeElement).toBe(field);
-    fireEvent.change(field, {
-      target: { value: kind === "username" ? "thirdsave" : "Thirdsave" },
-    });
-    fireEvent.submit(field.closest("form")!);
-    await waitFor(() => expect(transport.requests).toHaveLength(3));
-    expect(transport.requests[2]!.input).toMatchObject(
-      kind === "account" || kind === "username"
-        ? { expectedProfileVersion: 9 }
-        : { expectedUpdatedAt: thirdTime },
-    );
-    await act(async () => transport.requests[2]!.resolve());
-    await waitFor(() => expect(client.isMutating()).toBe(0));
-    expect(editAgain().disabled).toBe(false);
   },
 );
 
 it.each(kinds)(
-  "recovers committed %s synchronization through reads without replaying its write",
+  "recovers failed %s synchronization and missing rows by reads without replay",
   async (kind) => {
     transport.invalidate.mockRejectedValueOnce(
       new Error("Synchronization offline"),
@@ -441,36 +407,55 @@ it.each(kinds)(
       target: { value: kind === "username" ? "savedusername" : "Saved" },
     });
     await committed(form);
-    expect(
-      screen.getByText(en.accountProfile.sectionRefreshFailed),
-    ).toBeTruthy();
-    transport.fetch.mockRejectedValueOnce(new Error("Fresh profile offline"));
-    await act(async () => {
-      editAgain().focus();
-      fireEvent.click(editAgain());
-    });
-    expect(screen.getByText("Fresh profile offline")).toBeTruthy();
-    expect(field.value).toBe(kind === "username" ? "savedusername" : "Saved");
     expect(field.matches(":disabled")).toBe(true);
+    expect(transport.fetch).not.toHaveBeenCalled();
+    transport.fetch.mockRejectedValueOnce(new Error("Fresh profile offline"));
+    await act(async () => fireEvent.click(refresh()));
+    expect(screen.getByText("Fresh profile offline")).toBeTruthy();
+    transport.fetch.mockResolvedValueOnce(
+      pathFor(kind) === "admin.accounts" ? { rows: [] } : [],
+    );
+    await act(async () => fireEvent.click(refresh()));
+    expect(field.matches(":disabled")).toBe(true);
+    expect(field.value).toBe(kind === "username" ? "savedusername" : "Saved");
     fireEvent.submit(form);
     expect(transport.requests).toHaveLength(1);
-    await act(async () => {
-      editAgain().focus();
-      fireEvent.click(editAgain());
-    });
-    expect(transport.fetch).toHaveBeenCalledTimes(2);
-    expect(transport.requests).toHaveLength(1);
+    await act(async () => fireEvent.click(refresh()));
+    expect(transport.fetch).toHaveBeenCalledTimes(3);
     expect(currentField(kind).matches(":disabled")).toBe(false);
     expect(
       screen.queryByText(en.accountProfile.sectionRefreshFailed),
     ).toBeNull();
+    expect(transport.requests).toHaveLength(1);
   },
 );
 
 it.each(kinds)(
-  "keeps %s locked during an admitted repeat read and allows dismissal",
+  "returns focus from %s Retry refresh to its fresh own field",
   async (kind) => {
-    const { field, form, close } = mount(kind);
+    transport.invalidate.mockRejectedValueOnce(
+      new Error("Synchronization offline"),
+    );
+    const { form } = mount(kind);
+    await committed(form);
+    refresh().focus();
+    await act(async () => fireEvent.click(refresh()));
+    expect(document.activeElement).toBe(currentField(kind));
+    expect(transport.requests).toHaveLength(1);
+  },
+);
+
+it.each<Exclude<Kind, "username">>(["account", "tutor", "tutee"])(
+  "preserves moved sibling focus during a held %s Retry refresh read",
+  async (kind) => {
+    transport.invalidate.mockRejectedValueOnce(
+      new Error("Synchronization offline"),
+    );
+    const { form } = mount(kind);
+    const sibling = screen.getByLabelText<HTMLInputElement>(
+      "Independent academic draft",
+    );
+    fireEvent.change(sibling, { target: { value: "Keep typing" } });
     await committed(form);
     let finish!: (value: unknown) => void;
     transport.fetch.mockImplementationOnce(
@@ -479,61 +464,52 @@ it.each(kinds)(
           finish = resolve;
         }),
     );
-    act(() => {
-      fireEvent.click(editAgain());
-      fireEvent.click(editAgain());
-    });
-    expect(transport.fetch).toHaveBeenCalledOnce();
-    fireEvent.submit(form);
+    refresh().focus();
+    fireEvent.click(refresh());
+    await waitFor(() => expect(transport.fetch).toHaveBeenCalledOnce());
+    expect(sibling.matches(":disabled")).toBe(false);
+    sibling.focus();
+    fireEvent.change(sibling, { target: { value: "Continued while reading" } });
+    await act(async () => finish(response(kind)));
+    expect(currentField(kind).matches(":disabled")).toBe(false);
+    expect(document.activeElement).toBe(sibling);
+    expect(screen.getByLabelText("Independent academic draft")).toBe(sibling);
+    expect(sibling.value).toBe("Continued while reading");
     expect(transport.requests).toHaveLength(1);
-    expect(field.matches(":disabled")).toBe(true);
-    expect(screen.getByRole("dialog").getAttribute("aria-busy")).toBe("false");
-    fireEvent.click(
-      screen.getByRole("button", { name: en.accountProfile.close }),
-    );
-    expect(close).toHaveBeenCalledOnce();
-    await act(async () =>
-      finish(
-        pathFor(kind) === "admin.accounts"
-          ? { rows: [transport.latest] }
-          : [transport.latest],
-      ),
-    );
   },
 );
 
 it.each(kinds)(
-  "does not unlock %s when the fresh response omits its matching record",
+  "locks %s while its automatic fresh read waits without replaying its write",
   async (kind) => {
-    const { field, form } = mount(kind);
-    await committed(form);
-    transport.fetch.mockResolvedValueOnce(
-      pathFor(kind) === "admin.accounts" ? { rows: [] } : [],
+    let finish!: (value: unknown) => void;
+    transport.fetch.mockImplementationOnce(
+      () =>
+        new Promise((resolve) => {
+          finish = resolve;
+        }),
     );
-    await act(async () => {
-      editAgain().focus();
-      fireEvent.click(editAgain());
-    });
-    expect(field.value).toBe(kind === "username" ? "originaluser" : "Original");
+    const { field, form, close } = mount(kind);
+    fireEvent.submit(form);
+    await waitFor(() => expect(transport.requests).toHaveLength(1));
+    await act(async () => transport.requests[0]!.resolve());
+    await waitFor(() => expect(transport.fetch).toHaveBeenCalledOnce());
     expect(field.matches(":disabled")).toBe(true);
     fireEvent.submit(form);
     expect(transport.requests).toHaveLength(1);
-    expect(editAgain().disabled).toBe(false);
+    await act(async () => finish(response(kind)));
+    await waitFor(() => expect(client.isMutating()).toBe(0));
+    expect(currentField(kind).matches(":disabled")).toBe(false);
+    expect(close).not.toHaveBeenCalled();
   },
 );
 
 it.each(kinds)(
-  "retains a conflicting second %s draft and captured fence on retry",
+  "retains a conflicting second %s draft and captured fence on Retry",
   async (kind) => {
     const { form } = mount(kind);
     await committed(form);
-    await act(async () => {
-      editAgain().focus();
-      fireEvent.click(editAgain());
-    });
-    const field = screen.getByLabelText<HTMLInputElement>(
-      kind === "username" ? en.accountProfile.username : "First Name Required",
-    );
+    const field = currentField(kind);
     fireEvent.change(field, {
       target: {
         value: kind === "username" ? "conflictusername" : "Conflicting",
@@ -544,12 +520,14 @@ it.each(kinds)(
     const second = transport.requests[1]!;
     await act(async () => second.reject("Concurrent change", "CONFLICT"));
     await waitFor(() => expect(client.isMutating()).toBe(0));
-    transport.latest.profileVersion = 99;
-    transport.latest.updatedAt = new Date("2026-09-03T00:00:00Z");
+    transport.latest = {
+      ...transport.latest,
+      profileVersion: 99,
+      updatedAt: new Date("2026-09-03T00:00:00Z"),
+    };
     fireEvent.submit(field.closest("form")!);
     await waitFor(() => expect(transport.requests).toHaveLength(3));
     expect(transport.requests[2]!.input).toEqual(second.input);
-    expect(transport.requests[2]!.input).toMatchObject(fence(kind));
     expect(transport.fetch).toHaveBeenCalledOnce();
     await act(async () =>
       transport.requests[2]!.reject("Concurrent change", "CONFLICT"),
@@ -563,7 +541,7 @@ it.each(kinds)(
 );
 
 it.each<Exclude<Kind, "username">>(["account", "tutor", "tutee"])(
-  "preserves a failed sibling draft/version when restarting the %s section",
+  "preserves sibling %s drafts, focus, mounts and original fence during automatic refresh",
   async (kind) => {
     const { form } = mount(kind);
     const sibling = screen.getByLabelText<HTMLInputElement>(
@@ -577,37 +555,6 @@ it.each<Exclude<Kind, "username">>(["account", "tutor", "tutee"])(
     const academic = transport.requests[0]!;
     await act(async () => academic.reject("Academic correction failed"));
     await waitFor(() => expect(client.isMutating()).toBe(0));
-    fireEvent.submit(form);
-    await waitFor(() => expect(transport.requests).toHaveLength(2));
-    await act(async () => transport.requests[1]!.resolve());
-    await waitFor(() => expect(client.isMutating()).toBe(0));
-    await act(async () => {
-      editAgain().focus();
-      fireEvent.click(editAgain());
-    });
-    expect(sibling.value).toBe("Keep academic correction");
-    expect(screen.getByText("Academic correction failed")).toBeTruthy();
-    fireEvent.submit(sibling.closest("form")!);
-    await waitFor(() => expect(transport.requests).toHaveLength(3));
-    expect(transport.requests[2]!.input).toEqual(academic.input);
-    await act(async () =>
-      transport.requests[2]!.reject("Academic correction failed"),
-    );
-    await waitFor(() => expect(client.isMutating()).toBe(0));
-  },
-);
-
-it.each<Exclude<Kind, "username">>(["account", "tutor", "tutee"])(
-  "does not steal sibling focus when a held %s repeat read completes",
-  async (kind) => {
-    const { form } = mount(kind);
-    const sibling = screen.getByLabelText<HTMLInputElement>(
-      "Independent academic draft",
-    );
-    fireEvent.change(sibling, {
-      target: { value: "Keep typing this correction" },
-    });
-    await committed(form);
     let finish!: (value: unknown) => void;
     transport.fetch.mockImplementationOnce(
       () =>
@@ -615,27 +562,33 @@ it.each<Exclude<Kind, "username">>(["account", "tutor", "tutee"])(
           finish = resolve;
         }),
     );
-    editAgain().focus();
-    fireEvent.click(editAgain());
-    expect(transport.fetch).toHaveBeenCalledOnce();
-    // A reload is a read: another section remains usable while it waits.
+    fireEvent.submit(form);
+    await waitFor(() => expect(transport.requests).toHaveLength(2));
+    await act(async () => transport.requests[1]!.resolve());
+    await waitFor(() => expect(transport.fetch).toHaveBeenCalledOnce());
+    // Initial synchronization belongs to the admitted write, so sibling controls stay disabled.
+    // The dialog remains the usable focus destination until that write lifecycle settles.
+    expect(sibling.matches(":disabled")).toBe(true);
+    const dialog = screen.getByRole("dialog");
+    dialog.focus();
+    await act(async () => finish(response(kind)));
+    await waitFor(() => expect(client.isMutating()).toBe(0));
+    expect(screen.getByLabelText("Independent academic draft")).toBe(sibling);
+    expect(sibling.value).toBe("Keep academic correction");
+    expect(document.activeElement).toBe(dialog);
     sibling.focus();
-    fireEvent.change(sibling, { target: { value: "Continued while loading" } });
-    await act(async () =>
-      finish(
-        pathFor(kind) === "admin.accounts"
-          ? { rows: [transport.latest] }
-          : [transport.latest],
-      ),
-    );
-    expect(currentField(kind).matches(":disabled")).toBe(false);
     expect(document.activeElement).toBe(sibling);
-    expect(sibling.value).toBe("Continued while loading");
-    expect(transport.requests).toHaveLength(1);
+    expect(screen.getByText("Academic correction failed")).toBeTruthy();
+    fireEvent.submit(sibling.closest("form")!);
+    await waitFor(() => expect(transport.requests).toHaveLength(3));
+    expect(transport.requests[2]!.input).toEqual(academic.input);
+    await act(async () =>
+      transport.requests[2]!.reject("Academic correction failed"),
+    );
   },
 );
 
-it("retains tutor sibling editors across reactivation and refreshed parent props", async () => {
+it("retains tutor sibling editors across automatic reactivation refresh and refreshed parent props", async () => {
   const archived = { ...original, status: "ARCHIVED", historicalGrade: true };
   const active = {
     ...transport.latest,
@@ -675,8 +628,6 @@ it("retains tutor sibling editors across reactivation and refreshed parent props
   fireEvent.change(screen.getByLabelText(en.admin.tutors.colStatus), {
     target: { value: "ACTIVE" },
   });
-  await committed(currentField("tutor").closest("form")!);
-  expect(transport.requests[0]!.input.status).toBe("ACTIVE");
   let finish!: (value: unknown) => void;
   transport.fetch.mockImplementationOnce(
     () =>
@@ -684,14 +635,19 @@ it("retains tutor sibling editors across reactivation and refreshed parent props
         finish = resolve;
       }),
   );
-  fireEvent.click(editAgain());
-  // The parent list can refresh while the profile owns its separate restart read.
+  fireEvent.submit(currentField("tutor").closest("form")!);
+  await waitFor(() => expect(transport.requests).toHaveLength(1));
+  await act(async () => transport.requests[0]!.resolve());
+  await waitFor(() => expect(transport.fetch).toHaveBeenCalledOnce());
+  expect(transport.requests[0]!.input.status).toBe("ACTIVE");
+  // The parent list can refresh while the profile owns its separate automatic read.
   view.rerender(content(active));
   expect(screen.getByLabelText("Independent historical link draft")).toBe(
     historical,
   );
   expect(screen.getByLabelText("Independent academic draft")).toBe(academic);
   await act(async () => finish([active]));
+  await waitFor(() => expect(client.isMutating()).toBe(0));
   expect(screen.getByLabelText("Independent historical link draft")).toBe(
     historical,
   );

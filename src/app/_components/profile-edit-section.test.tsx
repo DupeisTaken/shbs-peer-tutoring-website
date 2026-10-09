@@ -54,3 +54,51 @@ it.each(["en", "zh"] as const)(
     expect(close).toHaveBeenCalledOnce();
   },
 );
+
+it("keeps saved feedback while an automatically refreshed section is editable", () => {
+  render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <ProfileEditSection
+        title="Profile"
+        actions={null}
+        busy={false}
+        saved
+        readOnly={false}
+      >
+        <input aria-label="Fresh draft" defaultValue="Fresh" />
+      </ProfileEditSection>
+    </NextIntlClientProvider>,
+  );
+  expect(screen.getByLabelText("Fresh draft").matches(":disabled")).toBe(false);
+  expect(screen.getByRole("status").textContent).toBe(
+    en.accountProfile.sectionSaved,
+  );
+  expect(
+    screen.queryByRole("button", { name: en.accountProfile.retryRefresh }),
+  ).toBeNull();
+});
+it("exposes read recovery only for a committed refresh failure", () => {
+  const retry = vi.fn();
+  const content = (failed: boolean) => (
+    <NextIntlClientProvider locale="en" messages={en}>
+      <ProfileEditSection
+        title="Profile"
+        actions={null}
+        busy={false}
+        saved
+        refreshFailed={failed}
+        onRefresh={retry}
+      >
+        <input aria-label="Draft" />
+      </ProfileEditSection>
+    </NextIntlClientProvider>
+  );
+  const view = render(content(false));
+  expect(screen.queryByRole("button")).toBeNull();
+  view.rerender(content(true));
+  fireEvent.click(
+    screen.getByRole("button", { name: en.accountProfile.retryRefresh }),
+  );
+  expect(retry).toHaveBeenCalledOnce();
+  expect(screen.getByLabelText("Draft").matches(":disabled")).toBe(true);
+});
