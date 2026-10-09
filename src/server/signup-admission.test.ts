@@ -253,7 +253,6 @@ it("allows 100 mixed registrations, reads, verification and ordinary retries fro
         proof: verified.proof!,
       });
       await caller().accountInvitation.complete({
-        invitationId: verified.invitationId,
         ...proof,
         proof: proof.proof!,
         reviewed: true,
