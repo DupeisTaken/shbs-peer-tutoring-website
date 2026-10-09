@@ -3604,7 +3604,7 @@
     "confirm": "Confirm Academic Details",
     "cancel": "Cancel",
     "saving": "Saving…",
-    "saved": "Academic details confirmed.",
+    "saved": "Academic details saved.",
     "loading": "Loading academic details…",
     "conflict": "This profile changed while you were editing. Reload the latest details, then review and try again. Your draft has not been saved.",
     "reload": "Discard Draft and Reload",

@@ -50,11 +50,24 @@ export function TimedActionDialog({
   }, [mandatory, onCancel]);
   useEffect(() => {
     const previous = document.activeElement as HTMLElement | null;
-    ref.current?.showModal();
+    const parent = previous?.closest<HTMLDialogElement>("dialog");
+    const dialog = ref.current;
+    dialog?.showModal();
     const timer = setInterval(() => setNow(Date.now()), 250);
     return () => {
       clearInterval(timer);
-      previous?.focus();
+      // Release native inertness before restoring focus. This also makes the
+      // Strict Mode setup/cleanup rehearsal capture the real opener again.
+      dialog?.close();
+      const target =
+        previous?.isConnected &&
+        !previous.matches(':disabled, [aria-disabled="true"]') &&
+        !previous.closest("[hidden], [inert]")
+          ? previous
+          : parent?.isConnected
+            ? parent
+            : null;
+      target?.focus();
     };
   }, []);
   const remaining = prepare.data
