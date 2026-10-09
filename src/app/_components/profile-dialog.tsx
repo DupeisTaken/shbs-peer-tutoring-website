@@ -32,15 +32,19 @@ export function ProfileDialog({
       {(busy) => (
         <>
           <div
-            className={`sticky top-0 z-10 flex items-center justify-between gap-4 border-b border-slate-200 bg-white py-4 ${size === "wide" ? "px-4 sm:px-6" : "px-5"}`}
+            className={`sticky top-0 z-10 flex flex-wrap items-center justify-between gap-4 border-b border-slate-200 bg-white py-4 ${size === "wide" ? "px-4 sm:px-6" : "px-5"}`}
           >
-            <h2 id={titleId} className="section-title">
+            {/* Long names and enlarged text may wrap without pushing Close out of reach. */}
+            <h2
+              id={titleId}
+              className="section-title min-w-0 flex-1 basis-48 [overflow-wrap:anywhere]"
+            >
               {title}
             </h2>
             <button
               type="button"
               data-dialog-autofocus
-              className="btn-secondary btn-sm min-h-11 lg:min-h-8"
+              className="btn-secondary btn-sm ml-auto min-h-11 shrink-0 lg:min-h-8"
               onClick={onClose}
               disabled={busy}
             >

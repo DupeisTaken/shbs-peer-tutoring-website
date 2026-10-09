@@ -26,6 +26,7 @@ const state = vi.hoisted(() => ({
   crewStatus: vi.fn(),
   details: vi.fn(),
   history: vi.fn(),
+  accountDetails: vi.fn(),
   tutors: [
     {
       id: "tutor",
@@ -128,6 +129,9 @@ vi.mock("~/app/_components/account-profile-editor", () => ({
 vi.mock("~/app/_components/patrol-corrections", () => ({
   PatrolCorrections: () => null,
 }));
+vi.mock("~/app/_components/acceptance-records", () => ({
+  AcceptanceRecords: () => null,
+}));
 vi.mock("~/trpc/react", () => ({
   api: {
     useUtils: () => ({}),
@@ -153,6 +157,7 @@ vi.mock("~/trpc/react", () => ({
       combine: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
     },
     admin: {
+      accountDetails: { useQuery: state.accountDetails },
       accounts: {
         useQuery: () => ({
           data: {
@@ -310,6 +315,9 @@ beforeEach(() => {
   state.history.mockReturnValue({
     data: { current: [], rows: [], more: false },
   });
+  state.accountDetails.mockReturnValue({
+    data: { attached: [], retained: [], membership: null },
+  });
 });
 afterEach(cleanup);
 
@@ -339,6 +347,7 @@ describe("people summary tables", () => {
     expect(within(table).queryByText("Viewer alternate identity")).toBeNull();
     expect(within(table).queryByText(/A very detailed affiliation/)).toBeNull();
     expect(state.history).not.toHaveBeenCalled();
+    expect(state.accountDetails).not.toHaveBeenCalled();
     fireEvent.click(
       within(rowFor(table, "Synthetic Tutor")).getByRole("button", {
         name: en.admin.tutors.account.sendSetup,
@@ -351,14 +360,19 @@ describe("people summary tables", () => {
     );
     expect(state.reinstate).toHaveBeenCalledWith({ userId: "viewer" });
     fireEvent.click(
-      viewer.getByRole("button", { name: en.accountProfile.showDetails }),
+      viewer.getByRole("button", {
+        name: `${en.accountProfile.showDetails}: Synthetic Viewer`,
+      }),
     );
     const dialog = screen.getByRole("dialog");
-    expect(within(dialog).getByText("Viewer alternate identity")).toBeTruthy();
+    expect(within(dialog).getByText(/Viewer alternate identity/)).toBeTruthy();
     expect(
       within(dialog).getByText(/A very detailed affiliation/),
     ).toBeTruthy();
-    expect(state.history).toHaveBeenCalledWith({ userId: "viewer", page: 0 });
+    expect(state.accountDetails).toHaveBeenCalledWith(
+      { userId: "viewer" },
+      expect.any(Object),
+    );
   });
 
   it("preserves head-only deletion and the existing password check", () => {

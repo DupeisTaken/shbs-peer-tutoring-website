@@ -22,6 +22,14 @@ The application runs as a persistent Next.js 16 / React 19 Node server with tRPC
 | Change dates or intake labels            | [Program time](../src/lib/program-time.ts) and [period display](../src/lib/period.ts)                                                                                                            |
 | Change delivery or deadline processing   | [Email sender](../src/server/email/sender.ts), [instrumentation](../src/instrumentation.ts) and [deadline worker](../src/server/student-deadline-worker.ts)                                      |
 
+### Users and Roles details
+
+`admin.accountDetails` is an on-demand, `adminProcedure`-protected read. Its feature-owned projection in `account-directory.ts` separates direct participant attachments from retained Tutor/Student ownership (including the recorded account-combination family). It never matches ownership by names/email, creates accounts, changes membership or returns credential hashes/invitation tokens. Original academic snapshots preserve their enrollment year and nulls, independent of an owner's current profile. Preserved tutor originals are also used by the existing Tutor Details dialog after archive reactivation. Viewing details does not materialize historical evidence.
+
+The Users & Roles page composes existing table actions, `ProfileDialog`, `TableDetails`, academic and policy displays. Detail queries and mutation observers mount only on opening. Each opening refreshes the authoritative detail read, even within the shared query cache freshness window, so independent membership, suspension and profile editors cannot leave reopened details stale. Failed background reads retain cached details with read-only Retry. Badge colors are local presentation, independent of the six accent palettes: management indigo, participation teal, Translator amber and Viewer slate. Summary badge suppression and all filtering logic remain in their existing domain helpers; the detail display adds the underlying accepted Tutee membership. The read-only context hides the private entry, and server authorization independently refuses observers and participants, including stale elevated sessions.
+
+Focused regressions live in `src/app/(admin)/admin/users`, `src/lib/user-filters.test.ts`, `src/lib/account-membership.test.ts` and `src/server/account-directory.test.ts`. Include `src/server/tutor-details.test.ts` for the preserved-academics boundary. Browser verification must use the actual Users & Roles page and native nested dialogs in both languages, then measure badge contrast and control bounds; screenshots and HTML evidence belong in ignored `outputs/`.
+
 ### Shared UI patterns
 
 [UI components](../src/app/_components/ui) provide behavior and composition without owning domain mutations. `Button` exposes action emphasis separately from context size; `ChoiceButton` uses pressed state for a selection; `Switch` exposes checked state. `SectionTabs` uses manual keyboard activation so arrow-key exploration does not switch an editor and discard its draft. `FormSection` groups one save scope and disables its fields/actions while busy. `StatePanel` keeps loading, empty, error and denied states distinct.
@@ -438,8 +446,7 @@ Interactive confirmations and invitation registration take the reference school 
 from the active program term on the server. Clients cannot supply an alternative year.
 The editor sends its observed year so a concurrent program-year change rejects the stale
 confirmation. Internal historical confirmations retain their original reference year.
-Users & Roles shows a compact class year where known; full academic evidence is in
-User Details.
+Users & Roles keeps academics in User details. Its four-column summary separates login setup from suspension and permissions/participation; setup readiness and filter predicates remain unchanged.
 
 Current identity records (User, Tutor, Tutee) store explicit `firstName`, `lastName`,
 `preferredName`, and `alternativeNames` (the UI's Name in Another Language).

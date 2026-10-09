@@ -1,4 +1,5 @@
 import { optionalPersonNameFields, fullPersonName } from "~/lib/person-name";
+import { accountDirectoryDetails } from "~/server/account-directory";
 import {
   changeSchoolDeparture,
   requireSchoolParticipation,
@@ -4123,6 +4124,10 @@ export const adminRouter = createTRPCRouter({
   sendAccountVerification: adminProcedure
     .input(z.object({ userId: cuid }))
     .mutation(({ input }) => issueAccountVerification(input.userId)),
+
+  accountDetails: adminProcedure
+    .input(z.union([z.object({ userId: cuid }), z.object({ tutorId: cuid })]))
+    .query(({ ctx, input }) => accountDirectoryDetails(ctx.db, input)),
 
   accounts: adminProcedure.query(async ({ ctx }) => {
     const now = new Date();
