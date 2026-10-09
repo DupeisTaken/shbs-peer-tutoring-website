@@ -1,7 +1,5 @@
-import { initializeAccountAcademics } from "~/server/academics";
 import { signinIdentifiers } from "./signin-identifiers";
 import { lockAccountProfile } from "~/server/account-profile";
-import { updateAccountProfile } from "~/server/account-profile";
 /**
  * Forgot-password flow. The reset link is emailed via the configured provider (Aliyun Direct
  * Mail — see src/server/email/sender.ts). When email isn't configured, the sender logs the
@@ -18,7 +16,6 @@ import {
 import { APP_TITLE } from "~/lib/branding";
 import { emailOrigin } from "~/server/email/urls";
 import { hashPassword } from "./password";
-import { ensureUserUsername, lockUsernameNamespace } from "./username";
 import { TRPCError } from "@trpc/server";
 import { lockEntity } from "~/server/transactions";
 
@@ -228,10 +225,8 @@ export async function resetPassword(
 }
 
 /**
- * Provision (if needed) and invite a tutor to set up their login. Ensures a `User` exists for
- * the tutor — reusing one already on their email, else creating a `TUTOR` account linked to the
- * tutor — then emails a longer-lived setup token. Recovery secrets are delivered only to the
- * account owner: returning one to staff would let a coordinator reset a tutor-linked Head.
+ * Invite an accountless tutor through recipient-owned redemption, or send deliberate recovery
+ * for an existing linked login. Staff never receive a credential or bearer secret.
  */
 export async function issueTutorSetupLink(
   tutorId: string,
@@ -245,116 +240,78 @@ export async function issueTutorSetupLink(
       message:
         "Email delivery must be configured before sending account setup links.",
     });
-  const provisioned = await db.$transaction(async (tx) => {
-    await lockUsernameNamespace(tx);
-    const tutor = await tx.tutor.findUnique({
-      where: { id: tutorId },
-      select: {
-        id: true,
-        email: true,
-        englishName: true,
-        alternativeNames: true,
-        username: true,
-        user: { select: { id: true, email: true } },
-      },
+  const tutor = await db.tutor.findUnique({
+    where: { id: tutorId },
+    include: { user: true },
+  });
+  if (!tutor) return { ok: false, error: "no-tutor" };
+  const email = (tutor.user?.email ?? tutor.email)?.trim().toLowerCase();
+  if (!email) return { ok: false, error: "no-email" };
+  if (tutor.user) {
+    // Existing-account recovery remains deliberate and never returns a bearer secret to staff.
+    await issuePasswordReset(tutor.user.email);
+    return { ok: true, emailed: true };
+  }
+  const { issueRegistrationCode, setEmailVerification } =
+    await import("./registration");
+  const { deliverAccountInvitation } = await import("./account-invitations");
+  const actor = await db.user.findUnique({ where: { id: actorId } });
+  if (actor?.role !== "HEAD" || actor.suspendedAt)
+    throw new TRPCError({
+      code: "FORBIDDEN",
+      message:
+        "Only Head can provision tutor access. Existing account setup links may be resent.",
     });
-    if (!tutor) return { ok: false as const, error: "no-tutor" as const };
-    // An existing login's primary email is authoritative; editable roster contact is not proof.
-    const email = (tutor.user?.email ?? tutor.email)?.trim().toLowerCase();
-    if (!email) return { ok: false as const, error: "no-email" as const };
-
-    let userId = tutor.user?.id ?? null;
-    if (!userId) {
-      const actor = await tx.user.findUnique({
-        where: { id: actorId },
-        select: { role: true, suspendedAt: true },
+  // An accountless roster is not a login. Only recipient redemption creates credentials or links
+  // participation; the staff action merely authorizes and delivers the typed Tutor invitation.
+  await db.$transaction(
+    async (tx) => {
+      const { lockUsernameNamespace } = await import("./username");
+      await lockUsernameNamespace(tx);
+      await lockAccountProfile(tx, actor.id);
+      const currentActor = await tx.user.findUnique({
+        where: { id: actor.id },
       });
-      if (actor?.role !== "HEAD" || actor.suspendedAt)
+      if (currentActor?.role !== "HEAD" || currentActor.suspendedAt)
         throw new TRPCError({
           code: "FORBIDDEN",
-          message:
-            "Only Head can provision tutor access. Existing account setup links may be resent.",
+          message: "Only Head can provision tutor access.",
         });
-      const existing = await tx.user.findUnique({
-        where: { email },
-        select: { id: true, role: true, tutorId: true, mergedIntoId: true },
+      const issued = await issueRegistrationCode(
+        {
+          tutorId,
+          email,
+          kind: "TUTOR",
+          issuedById: actor.id,
+          issuedByName: actor.name,
+        },
+        tx,
+      );
+      const row = await tx.registrationCode.findUniqueOrThrow({
+        where: { id: issued.id },
       });
-      if (existing) {
-        if (existing.mergedIntoId)
-          throw new TRPCError({
-            code: "CONFLICT",
-            message:
-              "This email belongs to a retired login. Use the retained account.",
-          });
-        if (
-          existing.role === "VIEWER" ||
-          (existing.tutorId && existing.tutorId !== tutor.id)
-        )
-          throw new TRPCError({
-            code: "CONFLICT",
-            message:
-              "Review the existing account membership before linking this tutor.",
-          });
-        await tx.user.update({
-          where: { id: existing.id },
-          data: { tutorId: tutor.id, tutorAccessRevoked: false },
+      const staged = await setEmailVerification(row, email, tx);
+      if (!staged.ok)
+        throw new TRPCError({
+          code: "CONFLICT",
+          message: "Invitation changed. Retry sending setup.",
         });
-        userId = existing.id;
-      } else {
-        const created = await tx.user.create({
-          data: {
-            email,
-            name: tutor.englishName,
-            alternativeNames: tutor.alternativeNames,
-            role: "TUTOR",
-            tutorId: tutor.id,
-            mustChangePassword: true,
-          },
-          select: { id: true },
-        });
-        userId = created.id;
-      }
-    }
-    await initializeAccountAcademics(tx, userId);
-    await updateAccountProfile(tx, userId);
-    // Make sure the (possibly pre-existing) login carries a username.
-    await ensureUserUsername(userId, tx);
-
-    return { ok: true as const, userId, email };
-  });
-  if (!provisioned.ok) return provisioned;
-  const { userId, email } = provisioned;
-
-  const token = randomBytes(32).toString("hex");
-  await db.$transaction(async (tx) => {
-    await lockAccountProfile(tx, userId);
-    const current = await tx.user.findUniqueOrThrow({ where: { id: userId } });
-    if (current.mergedIntoId || current.email !== email)
-      throw new TRPCError({
-        code: "CONFLICT",
-        message: "Account changed. Refresh before sending a setup link.",
+      const current = await tx.registrationCode.findUniqueOrThrow({
+        where: { id: issued.id },
       });
-    await tx.passwordResetToken.create({
-      data: {
-        userId,
-        targetEmail: email,
-        tokenHash: hashToken(token),
-        expiresAt: new Date(Date.now() + SETUP_TOKEN_TTL_MINUTES * 60_000),
-      },
-    });
-  });
-
-  const link = `${appBaseUrl()}/reset-password?token=${token}`;
-  await emailSender.send({
-    category: "SECURITY",
-    to: email,
-    subject: `Set up your ${APP_TITLE} account`,
-    text:
-      `An account has been created for you on ${APP_TITLE}.\n\n` +
-      `Set your password to finish setting up (link valid for 7 days):\n${link}\n\n` +
-      `After that you can sign in with this email or your username.`,
-    presentation: { action: { label: "Set your password", url: link } },
-  });
-
-  return { ok: true, emailed: isEmailConfigured("SECURITY") };
+      await deliverAccountInvitation(tx, {
+        kind: "TUTOR",
+        email,
+        code: staged.emailCode,
+        sourceKey: "staff:" + current.id + ":" + current.emailCodeHash,
+        source: {
+          type: "staff",
+          id: current.id,
+          challenge: current.emailCodeHash!,
+        },
+      });
+    },
+    { timeout: 20000 },
+  );
+  return { ok: true, emailed: true };
 }

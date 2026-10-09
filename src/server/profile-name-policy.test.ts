@@ -1,4 +1,6 @@
 import { promoteApplicantToTutor } from "~/server/tutors/promote";
+import type { EmailMessage } from "~/server/email/sender";
+import { stageCrewVerification, verifyCrewApplication } from "~/server/crew/signup";
 import { afterAll, beforeEach, expect, it, vi } from "vitest";
 vi.mock("~/server/auth", () => ({ auth: async () => null }));
 const delivery = vi.hoisted(() => ({
@@ -450,12 +452,18 @@ async function tutorInput(name: string, email = "applicant@example.test") {
     subjects: [{ subjectId: "policy-math" }],
   };
 }
+async function verifiedCrew(input: { name: string; email: string; gradeLevel?: number }) {
+  await stageCrewVerification(db, input.email, input);
+  const code = (delivery.send.mock.calls.at(-1)?.[0] as EmailMessage | undefined)?.presentation?.code;
+  if (!code) throw Error("Expected crew mailbox challenge");
+  return verifyCrewApplication(db, { email: input.email, code }, new Headers());
+}
 it("enforces new tutor and crew application names while preserving historical duplicate submissions", async () => {
   await expect(
     publicCaller().application.submit(await tutorInput("王小明")),
   ).rejects.toMatchObject(policyError);
   await expect(
-    publicCaller().crew.submitApplication({
+    verifiedCrew({
       name: "王小明",
       email: "crew@example.test",
     }),
@@ -466,7 +474,7 @@ it("enforces new tutor and crew application names while preserving historical du
   await setRequired(false);
   await publicCaller().application.submit(await tutorInput("Xiaoming Wang"));
   await db.tutorApplication.updateMany({ data: { name: "王小明" } });
-  await publicCaller().crew.submitApplication({
+  await verifiedCrew({
     name: "Xiaoming Wang",
     email: "crew@example.test",
     gradeLevel: 4,
@@ -478,7 +486,7 @@ it("enforces new tutor and crew application names while preserving historical du
     data: { offeredGrades: [10, 11, 12] },
   });
   await publicCaller().application.submit(await tutorInput("李小明"));
-  await publicCaller().crew.submitApplication({
+  await verifiedCrew({
     name: "李小明",
     email: "crew@example.test",
     gradeLevel: 4,
@@ -491,7 +499,7 @@ it("enforces new tutor and crew application names while preserving historical du
     gradeLevel: 4,
   });
   await expect(
-    publicCaller().crew.submitApplication({
+    verifiedCrew({
       name: "Alice Chen",
       email: "newcrew@example.test",
       gradeLevel: 4,
@@ -513,11 +521,7 @@ it("rechecks an in-flight viewer signup at completion without consuming the veri
   if (!verified.ok) throw Error("Expected verified signup");
   await setRequired(true);
   await expect(
-    publicCaller().viewer.complete({
-      email,
-      password,
-      completionProof: verified.completionProof,
-    }),
+    completeViewerSignup(email, password, verified.completionProof),
   ).rejects.toMatchObject(policyError);
   expect(await db.user.count({ where: { email } })).toBe(0);
   expect(await db.viewerSignup.findUnique({ where: { email } })).toMatchObject({
@@ -570,8 +574,7 @@ it.each(["TUTOR", "CREW"] as const)(
     const invitation = await verifiedInvitation(email, kind);
     await setRequired(true);
     await expect(
-      publicCaller().registration.complete({
-        code: invitation.code,
+      completeRegistration(invitation.row, {
         completionProof: invitation.completionProof,
         firstName: "王小明",
         lastName: "",
@@ -597,7 +600,7 @@ it.each(["TUTOR", "CREW"] as const)(
   },
 );
 
-it("requires explicit Latin fields when an existing account completes tutor registration", async () => {
+it("retains an existing canonical legacy name when adding Tutor participation", async () => {
   const email = "legacy-invitation@example.test";
   const user = await db.user.create({
     data: {
@@ -609,31 +612,22 @@ it("requires explicit Latin fields when an existing account completes tutor regi
     },
   });
   const invitation = await verifiedInvitation(email, "TUTOR");
-  const profile = {
-    lastName: "",
-    password,
-    completionProof: invitation.completionProof,
-  };
-  await expect(
-    completeRegistration(invitation.row, { ...profile, firstName: "李小明" }),
-  ).rejects.toMatchObject(policyError);
-  expect(await db.user.findUnique({ where: { id: user.id } })).toMatchObject({
-    name: "王小明",
-    username: "legacyhandle",
-    tutorId: null,
-  });
   expect(
     await completeRegistration(invitation.row, {
-      ...profile,
-      firstName: "Xiaoming",
-      lastName: "Wang",
-      alternativeNames: "任意文字",
+      authenticatedUserId: user.id,
+      firstName: "Injected",
+      lastName: "Replacement",
+      password,
+      completionProof: invitation.completionProof,
     }),
   ).toMatchObject({ ok: true, username: "legacyhandle" });
   expect(await db.user.findUnique({ where: { id: user.id } })).toMatchObject({
-    name: "Xiaoming Wang",
-    alternativeNames: "任意文字",
+    name: "王小明",
+    alternativeNames: null,
     username: "legacyhandle",
+  });
+  expect(await db.tutor.findUnique({ where: { email } })).toMatchObject({
+    englishName: "王小明",
   });
 });
 
@@ -777,7 +771,7 @@ it("uses an existing verified account's grandfathered name when promotion create
   expect(await db.registrationCode.count()).toBe(0);
 });
 
-it("rejects invalid registration fields before waiting on a concurrent profile edit", async () => {
+it("uses the canonical identity after waiting on a concurrent profile edit", async () => {
   const email = "concurrent-invitation@example.test";
   const user = await db.user.create({
     data: {
@@ -805,6 +799,7 @@ it("rejects invalid registration fields before waiting on a concurrent profile e
   });
   await ready;
   const registration = completeRegistration(invitation.row, {
+    authenticatedUserId: user.id,
     firstName: "王小明",
     lastName: "",
     password,
@@ -813,19 +808,19 @@ it("rejects invalid registration fields before waiting on a concurrent profile e
     (value) => ({ value }),
     (error: unknown) => ({ error }),
   );
-  expect(await registration).toMatchObject({ error: policyError });
   proceed();
   await profileEdit;
-  expect(await registration).toMatchObject({ error: policyError });
+  expect(await registration).toMatchObject({ value: { ok: true } });
   expect(await db.user.findUnique({ where: { id: user.id } })).toMatchObject({
     name: "Xiaoming Wang",
     username: "stablehandle",
-    tutorId: null,
   });
   expect(
     await db.registrationCode.findUnique({ where: { id: invitation.row.id } }),
-  ).toMatchObject({ usedAt: null });
-  expect(await db.tutor.count()).toBe(0);
+  ).toMatchObject({ usedByUserId: user.id });
+  expect(await db.tutor.findUnique({ where: { email } })).toMatchObject({
+    englishName: "Xiaoming Wang",
+  });
 });
 
 it("preserves an invited roster until Latin fields are supplied for its first login", async () => {

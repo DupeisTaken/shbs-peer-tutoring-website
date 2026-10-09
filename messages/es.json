@@ -345,11 +345,11 @@
     "sessionExpired": "Your session expired or could not be verified. Please sign in again.",
     "passwordChangedSignIn": "Tu contraseña ha cambiado. Se han cerrado todas las sesiones, incluida la de este navegador. Vuelve a iniciar sesión con tu nueva contraseña.",
     "signupRoutes": {
-      "viewerHelp": "¿Solo quieres seguir el programa? El registro como observador no requiere código de invitación; deberás verificar tu correo.",
+      "viewerHelp": "Verifica tu correo para recibir una invitación. Las cuentas nuevas obtienen acceso de observador; las existentes inician sesión con el código recibido por correo.",
       "viewerLink": "Registrarse como observador",
-      "invitationHelp": "¿Tienes un código de registro del equipo del programa?",
+      "invitationHelp": "¿Tienes una invitación por correo o un código de autorización del equipo?",
       "invitationLink": "Registrarse con código de invitación",
-      "tuteeHelp": "¿Necesitas tutoría? Envía primero una solicitud. No se requiere código de invitación; configurarás tu cuenta tras confirmar el correo."
+      "tuteeHelp": "¿Necesitas tutoría? Envía una solicitud. Al confirmar el correo recibirás una invitación para configurar la cuenta y revisar la participación."
     }
   },
   "landing": {
@@ -2203,13 +2203,67 @@
     },
     "crewSignup": {
       "title": "Únete a la Ronda",
-      "intro": "La ronda recorre las aulas y registra el conteo de estudiantes para validar la asistencia. Postúlate abajo — un administrador revisará y te enviará un código.",
+      "intro": "La ronda recorre las aulas y registra el conteo de estudiantes para validar la asistencia. Verifica tu correo para enviar una solicitud y espera la aprobación de un administrador. Puedes volver aquí para consultar tu solicitud y obtener la invitación una vez aprobada.",
       "alreadyMember": "¿Ya eres del equipo?",
       "signIn": "Iniciar sesión",
-      "submit": "Enviar solicitud",
+      "submit": "Continuar con la verificación del correo",
       "submitting": "Enviando…",
       "doneTitle": "Solicitud recibida",
-      "doneBody": "¡Gracias! Un administrador revisará tu solicitud y te enviará un código de registro si es aceptada.",
+      "doneBody": "Tu solicitud verificada está pendiente de revisión por un administrador. Vuelve aquí para consultar su estado y obtener tu invitación una vez aprobada.",
+      "modeLabel": "Opciones de solicitud",
+      "newApplication": "Nueva solicitud",
+      "checkApplication": "Consultar una solicitud existente",
+      "detailsTitle": "Detalles de la solicitud",
+      "verifyTitle": "Verifica tu correo",
+      "statusTitle": "Estado de la solicitud",
+      "steps": {
+        "application": "Solicitud",
+        "email": "Verificación del correo",
+        "review": "Revisión del administrador"
+      },
+      "lookupHint": "Usa el correo de tu solicitud original. Lo verificaremos antes de mostrar el estado de la revisión.",
+      "sendCode": "Enviar código de verificación",
+      "sent": "Hemos enviado un código de verificación a {email}.",
+      "verifyHint": "Introduce el código de cinco caracteres. La verificación del correo envía una nueva solicitud para su revisión; no concede acceso a la ronda.",
+      "emailCode": "Código de verificación del correo",
+      "verify": "Verificar correo",
+      "resend": "Reenviar código",
+      "editDetails": "Volver a las opciones de solicitud",
+      "refreshStatus": "Actualizar estado",
+      "verifyAgain": "Enviar un nuevo código de verificación",
+      "proofExpired": "Verifica tu correo de nuevo antes de actualizar el estado u obtener una invitación.",
+      "invalidCode": "El código o la sesión de verificación no tiene validez o ha caducado. Solicita un nuevo código y verifica tu correo de nuevo.",
+      "disabled": "Las solicitudes para la ronda no están disponibles en este momento. Contacta con el equipo.",
+      "statuses": {
+        "PENDING": {
+          "title": "Pendiente de revisión del administrador",
+          "body": "Hemos recibido tu solicitud. Puedes actualizar este estado después de que un administrador la revise, o volver más tarde y verificar tu correo de nuevo."
+        },
+        "REJECTED": {
+          "title": "Solicitud no aprobada",
+          "body": "Tu solicitud no ha sido aprobada. Contacta con el equipo si tienes preguntas o quieres actualizar tu solicitud."
+        },
+        "NOT_FOUND": {
+          "title": "No se ha encontrado ninguna solicitud",
+          "body": "No hemos encontrado una solicitud enviada con este correo. Puedes iniciar una nueva solicitud a continuación."
+        },
+        "AVAILABLE": {
+          "title": "Solicitud aprobada",
+          "body": "Tu invitación a la ronda está lista. Continúa con el comprobante de invitación que aparece abajo para terminar de configurar el acceso a la ronda."
+        },
+        "USED": {
+          "title": "Invitación ya utilizada",
+          "body": "Tu invitación aprobada ya ha sido canjeada. Inicia sesión en tu cuenta; contacta con el equipo si necesitas ayuda para acceder a la ronda."
+        },
+        "EXPIRED": {
+          "title": "Invitación caducada",
+          "body": "Tu invitación aprobada ha caducado. Contacta con el equipo para solicitar una nueva invitación."
+        },
+        "UNAVAILABLE": {
+          "title": "Invitación no disponible",
+          "body": "Tu solicitud ha sido aprobada, pero no hay una invitación activa disponible. Contacta con el equipo para obtener ayuda."
+        }
+      },
       "fields": {
         "fullName": "Nombre",
         "email": "Correo",
@@ -4139,7 +4193,7 @@
     "memberships": "Permisos y pertenencias",
     "attached": "Perfiles de participantes vinculados",
     "historical": "Registros históricos",
-    "setupMeaning": "Configuración completa significa que el correo está verificado y no se exige actualmente un cambio de contraseña. El estado de configuración es independiente del acceso a la cuenta y de la participación activa.",
+    "setupMeaning": "La configuración está completa si hay una contraseña, el correo principal está verificado y no se requiere cambiar la contraseña. La configuración es independiente del acceso y de la participación activa.",
     "noDirectMeaning": "Esta ficha de tutor no tiene una cuenta de acceso vinculada directamente. Puede conservar un titular histórico, indicado junto al registro de abajo. Una invitación no crea por sí sola una cuenta de acceso.",
     "passwordRequired": "Esta cuenta todavía requiere un cambio de contraseña.",
     "restricted": "El acceso a la cuenta está suspendido.",
@@ -4203,6 +4257,80 @@
     "crewDeleteHelp": "This permanently deletes the crew-only login and its patrol and request records. Combined accounts and retained tutor history cannot be deleted here.",
     "crewApplicationHelp": "This records the application decision. Acceptance issues a registration invitation; rejection ends this application. Existing approval rules still apply.",
     "crewRequestHelp": "This records the decision on the named participation request. Approval applies the requested membership change; denial leaves participation unchanged."
+  },
+  "accountInvitation": {
+    "enterCode": "Introduce la invitación recibida por correo",
+    "reviewTitle": "Revisa tu cuenta y acceso",
+    "doneTitle": "Invitación aceptada",
+    "saved": "Tu invitación se ha aceptado. La cuenta y los cambios autorizados se han guardado.",
+    "historyNext": "Tu acceso al historial está listo. Ahora revisa y vincula el registro histórico exacto; no se ha añadido participación actual.",
+    "nextHelp": "El siguiente espacio mostrará las políticas, confirmaciones académicas o pasos de participación que aún debas completar.",
+    "savedLoginFailed": "Los cambios se guardaron, pero no se completó el inicio de sesión. Inicia sesión para continuar; no vuelvas a enviar la invitación.",
+    "signIn": "Iniciar sesión para continuar",
+    "continue": "Continuar",
+    "preserveIdentity": "Tu nombre, contraseña y membresías actuales no cambian. Solo se podrá añadir el acceso que revises aquí.",
+    "newAccount": "Crea una cuenta para esta invitación. La participación y la vinculación del historial mantienen sus requisitos independientes.",
+    "mfaRequired": "Tu cuenta requiere contraseña y verificación por correo. Inicia sesión como de costumbre y vuelve aquí para revisar la invitación.",
+    "signInRequired": "Termina de iniciar sesión en la cuenta invitada antes de aceptar este acceso. Si se interrumpió el inicio de sesión, usa el enlace de recuperación de abajo.",
+    "switchAccount": "Cambiar a la cuenta invitada",
+    "grade": "Curso",
+    "password": "Crear contraseña",
+    "confirmPassword": "Confirmar contraseña",
+    "mismatch": "Las contraseñas deben coincidir.",
+    "reviewLogin": "Entiendo que esta invitación inicia sesión sin cambiar mis membresías.",
+    "reviewAccess": "He revisado esta invitación y acepto añadir a mi cuenta el acceso descrito.",
+    "accept": "Aceptar invitación",
+    "codeHelp": "Usa el código enviado directamente a tu correo antes del vencimiento indicado. Inicia sesión en una cuenta existente; añadir acceso requiere una revisión aparte.",
+    "email": "Correo de la persona invitada",
+    "code": "Código de invitación",
+    "verify": "Verificar y continuar",
+    "back": "Atrás",
+    "recovery": "Si el código caducó o fue sustituido, solicita una nueva invitación desde la página donde empezaste. Se conservan tu solicitud original y los registros guardados.",
+    "retry": "Volver a cargar",
+    "restart": "Volver a introducir la invitación",
+    "staffKey": "Introduce la clave de invitación del personal",
+    "sendInvitation": "Enviarme el código de invitación por correo",
+    "staffHelp": "La clave del personal autoriza el acceso indicado. Enviamos un código de invitación aparte al destinatario para confirmar quién lo utilizará.",
+    "checkKey": "Comprobar clave de invitación",
+    "emailLinkHelp": "¿Ya recibiste un código de invitación por correo? Abre el enlace de invitación incluido en ese mismo mensaje.",
+    "requestCode": "Solicitar invitación pública o código de inicio de sesión",
+    "verifyTuteeTitle": "Confirma tu correo para esta solicitud",
+    "verifyTuteeHelp": "Revisa tu solicitud a continuación. Confirmar este enlace del correo envía tu código de invitación. La solicitud se completa cuando aceptas esa invitación. Se conserva la hora de envío original.",
+    "kind": {
+      "TUTOR": "Añadir participación como tutor",
+      "CREW": "Añadir participación en rondas",
+      "ADMIN": "Crear una cuenta de administrador",
+      "COORDINATOR": "Crear una cuenta de coordinador",
+      "VIEWER": "Crear una cuenta de observador de solo lectura",
+      "TUTEE": "Confirmar tu solicitud de apoyo académico",
+      "HISTORY": "Crear acceso exclusivo al historial",
+      "LOGIN": "Iniciar sesión en tu cuenta existente"
+    },
+    "invalid": "Este código de invitación es incorrecto, ha caducado, ha sido sustituido o ya se ha utilizado.",
+    "accountChanged": "La cuenta invitada ha cambiado. Solicita una nueva invitación o contacta con el responsable para revisar la cuenta.",
+    "restricted": "La participación está restringida. Pide al responsable que revise la suspensión, la revocación o la salida del colegio antes de añadir acceso.",
+    "passwordRequired": "Elige una contraseña para terminar de configurar tu cuenta.",
+    "pageTitle": "Invitación de cuenta",
+    "pageHelp": "Introduce la invitación recibida por correo o usa una clave del equipo para solicitarla.",
+    "requestTitle": "Solicitar una invitación de cuenta",
+    "requestHelp": "Verifica tu correo para recibir un código de invitación independiente. Las cuentas nuevas obtienen acceso Viewer de solo lectura. Para una cuenta existente, el código enviado por correo inicia sesión y conserva la contraseña, identidad y participaciones. La verificación adicional sigue siendo obligatoria si está activada.",
+    "receiptTitle": "Your invitation is ready",
+    "receiptHelp": "Keep this code to continue with your account. Your email is verified.",
+    "showCode": "Show invitation code",
+    "continueSignup": "Continue to signup",
+    "close": "Close",
+    "copyCode": "Copy code",
+    "copied": "Copied",
+    "emailCode": "Email me this code",
+    "emailed": "Emailed",
+    "emailSent": "The invitation has been sent to your verified email.",
+    "handoffRecovery": "Continue with your code. You may be asked to verify your email again.",
+    "verificationCode": "Email verification code",
+    "emailTitle": "Verify your email",
+    "verifyEmailHelp": "Verify your email to connect this invitation to your account.",
+    "sendVerification": "Send verification code",
+    "addAccess": "Add access with an invitation",
+    "addAccessHelp": "Enter an invitation to add tutor, crew or management access to your existing account."
   },
   "unsubscribe": {
     "title": "Preferencias de Correo",

@@ -10,23 +10,26 @@ import {
 
 import { FieldRequirement } from "~/app/_components/field-requirement";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { Button } from "~/app/_components/ui/button";
 import { FormActions } from "~/app/_components/ui/patterns";
 import { RegistrationProgress } from "~/app/_components/registration-progress";
-import Link from "next/link";
+import {
+  InvitationReceipt,
+  type InvitationReceiptData,
+} from "../register/invitation-receipt";
 import { useTranslations } from "next-intl";
 
 import { ProfilePolicyHint } from "~/app/_components/profile-policy";
 import { api } from "~/trpc/react";
 
-type Step = "details" | "code" | "password" | "done";
+type Step = "details" | "code";
 
 /**
- * Public viewer self-registration: enter identity + email, verify an emailed code, set a
- * password. Creates a read-only VIEWER login. All validation happens server-side (viewer router).
+ * Public identity request and mailbox verification. A separate recipient invitation then
+ * enters the shared account flow; an established account receives sign-in only.
  */
-export function ViewerSignupFlow() {
+export function ViewerSignupFlow(_props: { signedIn?: boolean }) {
   const t = useTranslations();
   const flow = useTranslations("registrationFlow");
   const [step, setStep] = useState<Step>("details");
@@ -37,57 +40,46 @@ export function ViewerSignupFlow() {
   const [email, setEmail] = useState("");
   const captcha = useSignupCaptcha("viewer.start", email);
   const [code, setCode] = useState("");
-  const [completionProof, setCompletionProof] = useState("");
-  const [password, setPassword] = useState("");
-  const [confirm, setConfirm] = useState("");
+  const [invitationId, setInvitationId] = useState("");
+  const [receipt, setReceipt] = useState<InvitationReceiptData | null>(null);
+  const verifying = useRef(false);
 
   const start = api.viewer.start.useMutation({
     onSuccess: () => {
-      setCompletionProof("");
+      setInvitationId("");
+      setReceipt(null);
       setCode("");
       verify.reset();
-      complete.reset();
       setStep("code");
     },
   });
   const verify = api.viewer.verify.useMutation({
     onSuccess: (data) => {
-      setCompletionProof(data.completionProof);
-      setStep("password");
+      setInvitationId(data.invitationId);
+      setReceipt(data);
     },
-  });
-  const complete = api.viewer.complete.useMutation({
-    onSuccess: () => setStep("done"),
+    onSettled: () => {
+      verifying.current = false;
+    },
   });
 
   const detailsValid =
     name.trim().length > 0 &&
     affiliation.trim().length > 0 &&
     /^[^@\s]+@[^@\s]+$/.test(email.trim());
-  const mismatch =
-    password.length > 0 && confirm.length > 0 && password !== confirm;
 
-  const busy =
-    start.isPending ||
-    verify.isPending ||
-    complete.isPending ||
-    captcha.pending;
-  const steps: Step[] = ["details", "code", "password", "done"];
-  const titles = [
-    flow("identityTitle"),
-    flow("verifyTitle"),
-    flow("passwordTitle"),
-    t("public.viewerSignup.doneTitle"),
-  ];
+  const busy = start.isPending || verify.isPending || captcha.pending;
+  const steps: Step[] = ["details", "code"];
+  const titles = [flow("identityTitle"), flow("verifyTitle")];
   function returnTo(next: Step) {
     if (busy) return;
     // Details are restaged through viewer.start; a proof for the old identity
-    // cannot authorize completion after editing. Password drafts stay local.
-    setCompletionProof("");
+    // cannot authorize completion after editing.
+    setInvitationId("");
+    setReceipt(null);
     setCode("");
     start.reset();
     verify.reset();
-    complete.reset();
     setStep(next);
   }
   function sendIdentityCode() {
@@ -103,6 +95,8 @@ export function ViewerSignupFlow() {
     );
   }
 
+  if (invitationId && receipt)
+    return <InvitationReceipt invitation={receipt} />;
   return (
     <div className="space-y-5">
       <fieldset
@@ -188,9 +182,11 @@ export function ViewerSignupFlow() {
             className="space-y-5"
             onSubmit={(e) => {
               e.preventDefault();
-              if (busy) return;
-              if (/^[0-9A-Z]{5}$/.test(code))
+              if (busy || verifying.current) return;
+              if (/^[0-9A-Z]{5}$/.test(code)) {
+                verifying.current = true;
                 verify.mutate({ email: email.trim(), code });
+              }
             }}
           >
             <p className="text-sm text-slate-700">
@@ -251,130 +247,6 @@ export function ViewerSignupFlow() {
             </FormActions>
             <p className="muted text-xs">{flow("reverifyHelp")}</p>
           </form>
-        )}
-
-        {/* Step 3 — password */}
-        {step === "password" && (
-          <form
-            className="space-y-5"
-            onSubmit={(e) => {
-              e.preventDefault();
-              if (busy) return;
-              if (
-                password.length >= 8 &&
-                confirm === password &&
-                completionProof &&
-                !start.isPending &&
-                !captcha.pending
-              )
-                complete.mutate({
-                  email: email.trim(),
-                  password,
-                  completionProof,
-                });
-            }}
-          >
-            <p className="rounded-lg bg-slate-50 p-3 text-sm break-words">
-              {name} · {email}
-            </p>
-            <div>
-              <label className="label" htmlFor="obs-pass">
-                {t("public.viewerSignup.fields.password")}
-                <FieldRequirement state="required" />
-              </label>
-              <input
-                id="obs-pass"
-                type="password"
-                required
-                minLength={8}
-                maxLength={200}
-                autoComplete="new-password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="input w-full"
-              />
-              <p className="muted text-xs">
-                {t("public.viewerSignup.passwordHint")}
-              </p>
-            </div>
-            <div>
-              <label className="label" htmlFor="obs-confirm">
-                {t("public.viewerSignup.fields.confirm")}
-                <FieldRequirement state="required" />
-              </label>
-              <input
-                id="obs-confirm"
-                type="password"
-                required
-                minLength={8}
-                maxLength={200}
-                autoComplete="new-password"
-                value={confirm}
-                onChange={(e) => setConfirm(e.target.value)}
-                className="input w-full"
-              />
-            </div>
-            {mismatch && (
-              <p role="alert" className="text-sm text-red-600">
-                {t("public.viewerSignup.mismatch")}
-              </p>
-            )}
-            {complete.error && (
-              <p role="alert" className="text-sm text-red-600">
-                <SignupError error={complete.error} />
-              </p>
-            )}
-            <Button
-              type="submit"
-              variant="primary"
-              className="w-full"
-              disabled={
-                !completionProof ||
-                password.length < 8 ||
-                confirm !== password ||
-                start.isPending ||
-                complete.isPending ||
-                captcha.pending
-              }
-            >
-              {complete.isPending
-                ? t("public.viewerSignup.creating")
-                : t("public.viewerSignup.createAccount")}
-            </Button>
-            {start.error && (
-              <p role="alert" className="text-sm text-red-600">
-                <CaptchaError error={start.error} />
-              </p>
-            )}
-            <Button
-              type="button"
-              variant="ghost"
-              disabled={
-                start.isPending || complete.isPending || captcha.pending
-              }
-              onClick={sendIdentityCode}
-            >
-              {t("public.viewerSignup.resend")}
-            </Button>
-            <FormActions>
-              <Button onClick={() => returnTo("details")}>
-                {flow("editIdentity")}
-              </Button>
-            </FormActions>
-            <p className="muted text-xs">{flow("reverifyHelp")}</p>
-          </form>
-        )}
-
-        {/* Done */}
-        {step === "done" && (
-          <div className="space-y-4 text-center">
-            <p className="text-sm text-slate-700">
-              {t("public.viewerSignup.doneBody")}
-            </p>
-            <Link href="/signin" className="btn-primary inline-block">
-              {t("public.viewerSignup.signIn")}
-            </Link>
-          </div>
         )}
       </fieldset>
       {/* The staged identity stays frozen while the challenge remains operable.

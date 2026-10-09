@@ -491,6 +491,13 @@ export function AccountSettings({ embedded = false }: { embedded?: boolean }) {
         />
       )}
       <AccountEmails />
+      <section className="card space-y-3 p-5">
+        <h2 className="section-title">{t("accountInvitation.addAccess")}</h2>
+        <p className="muted text-sm">{t("accountInvitation.addAccessHelp")}</p>
+        <Link className="btn-secondary" href="/register">
+          {t("accountInvitation.code")}
+        </Link>
+      </section>
       <EmailPreferences />
       <TwoFactorSettings />
     </div>

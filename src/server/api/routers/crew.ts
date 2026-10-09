@@ -1,6 +1,4 @@
-import { optionalPersonNameFields } from "~/lib/person-name";
 import { accountHistoryIds } from "~/server/account-history";
-import { assertPrimaryName, assertOfferedGrade } from "~/server/program/profile-policy";
 import { getProgramTimeZone } from "~/server/program/time-zone";
 import { programDateKey } from "~/lib/program-time";
 import { requestMembership, recallMembership } from "~/server/membership";
@@ -18,11 +16,17 @@ import {
 } from "~/server/api/trpc";
 import { getActivePeriodOrNull } from "~/server/period";
 import { syncSessionFlag } from "~/server/crew/flags";
-import { getFeatures } from "~/server/program/features";
-import { notifyAdmins } from "~/server/notifications/create";
 import { assertObservedTimes } from "~/server/crew/observation-time";
 import { eligiblePatrolCredit, lockPatrolCreditOwner, reservePatrolEvidence, PATROL_HOURS } from "~/server/crew/patrol-credit";
-import { acceptPublicApplication } from "~/server/public-application-intake";
+import { captchaGrantInput } from "~/lib/captcha";
+import { withProtectedSignup } from "~/server/captcha";
+import { withSignupAdmission, signupMetric } from "~/server/signup-admission";
+import {
+  crewApplicationInput,
+  stageCrewVerification,
+  verifyCrewApplication,
+  crewApplicationStatus,
+} from "~/server/crew/signup";
 
 /** Service hours credited per completed patrol (policy). */
 export { PATROL_HOURS } from "~/server/crew/patrol-credit";
@@ -31,6 +35,15 @@ export { PATROL_HOURS } from "~/server/crew/patrol-credit";
 export const CREW_OPT_OUT_COOLDOWN_DAYS = 7;
 
 const HEADCOUNTS = ["ZERO", "ONE", "TWO", "THREE", "FOUR_PLUS"] as const;
+
+async function crewMail<T>(work: () => Promise<T>) {
+  try { return await work(); }
+  catch (error) {
+    if (error instanceof TRPCError) throw error;
+    signupMetric("delivery-failed");
+    throw new TRPCError({ code: "SERVICE_UNAVAILABLE", message: "SIGNUP_MAIL_FAILED" });
+  }
+}
 
 /**
  * Crew patrol router — the roaming team records room headcounts to validate tutor attendance.
@@ -193,64 +206,37 @@ export const crewRouter = createTRPCRouter({
       }),
     ),
 
-  /** Public "apply to be crew" form (no login created — like /signup & /tutor-signup). Creates a
-   *  PENDING CrewApplication an admin reviews; accepting issues a crew registration code. */
+  /** Stage a draft and mailbox challenge; unverified drafts never enter the review queue. */
   submitApplication: publicProcedure
-    .input(
-      z.object({
-        ...optionalPersonNameFields,
-        name: z.string().trim().min(1).max(200),
-        email: z.string().trim().email().max(254),
-        gradeLevel: z.number().int().min(1).max(12).nullable().optional(),
-        preferredContact: z.string().trim().max(200).optional(),
-        message: z.string().trim().max(1000).optional(),
-      }),
-    )
+    .input(crewApplicationInput.extend({ captchaGrant: captchaGrantInput }))
     .mutation(async ({ ctx, input }) =>
-      inTransaction(ctx.db, async (tx) => {
-        const features = await getFeatures(tx);
-        if (!features.CREW) {
-          throw new TRPCError({
-            code: "FORBIDDEN",
-            message: "The crew module is disabled.",
-          });
-        }
-        await acceptPublicApplication(
-          tx,
-          { kind: "crew", email: input.email, headers: ctx.headers },
-          async (email) => {
-            // Check current policy only for a new record; historical retries stay idempotent.
-            await assertPrimaryName(tx, input.name);
-            await assertOfferedGrade(tx, input.gradeLevel);
-            await tx.crewApplication.create({
-              data: {
-                firstName: input.firstName,
-                lastName: input.lastName,
-                preferredName: input.preferredName,
-                alternativeNames: input.alternativeNames,
-                name: input.name,
-                email,
-                gradeLevel: input.gradeLevel ?? null,
-                preferredContact: input.preferredContact?.trim()
-                  ? input.preferredContact.trim()
-                  : null,
-                message: input.message?.trim() ? input.message.trim() : null,
-              },
-            });
-            await notifyAdmins(
-              {
-                title: "New crew application",
-                body: `${input.name} applied to join the crew.`,
-                link: "/admin/crew",
-              },
-              undefined,
-              tx,
-            );
-          },
-        );
-        return { ok: true };
-      }),
+      withProtectedSignup(ctx.db, ctx.headers, "crew.submit", input.email, input.captchaGrant,
+        () => crewMail(() => stageCrewVerification(ctx.db, input.email, input))),
     ),
+
+  /** Generic mail response, including absent applications. Explicit resends preserve
+   * the current draft; an initial status lookup never submits an unverified draft. */
+  requestStatus: publicProcedure
+    .input(z.object({ email: z.string().trim().email().max(254), captchaGrant: captchaGrantInput, resend: z.boolean().optional() }))
+    .mutation(({ ctx, input }) => withProtectedSignup(
+      ctx.db, ctx.headers, "crew.status", input.email, input.captchaGrant,
+      () => crewMail(() => stageCrewVerification(ctx.db, input.email, undefined, input.resend)),
+    )),
+
+  verifyApplication: publicProcedure
+    .input(z.object({ email: z.string().trim().email().max(254), code: z.string().min(1).max(30) }))
+    .mutation(({ ctx, input }) => withSignupAdmission(
+      ctx.db, ctx.headers, "complete", input.email,
+      () => verifyCrewApplication(ctx.db, input, ctx.headers),
+    )),
+
+  /** Mutation because the proved explicit refresh can recover the recipient receipt. */
+  applicationStatus: publicProcedure
+    .input(z.object({ email: z.string().trim().email().max(254), statusProof: z.string().regex(/^[a-f0-9]{64}$/) }))
+    .mutation(({ ctx, input }) => withSignupAdmission(
+      ctx.db, ctx.headers, "read", input.email,
+      () => crewApplicationStatus(ctx.db, input),
+    )),
 
   /** The caller's crew lifecycle state + any pending opt-out/reentry request, for the portal. */
   myStatus: protectedProcedure.query(async ({ ctx }) => {

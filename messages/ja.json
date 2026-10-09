@@ -345,11 +345,11 @@
     "sessionExpired": "Your session expired or could not be verified. Please sign in again.",
     "passwordChangedSignIn": "パスワードを変更しました。このブラウザーを含むすべてのセッションからログアウトしました。新しいパスワードでもう一度ログインしてください。",
     "signupRoutes": {
-      "viewerHelp": "プログラムの閲覧のみをご希望ですか？閲覧者の登録には招待コードは不要ですが、メールアドレスの確認が必要です。",
+      "viewerHelp": "メールアドレスを確認すると招待が届きます。新規アカウントには閲覧者権限が付与され、既存アカウントはメールのコードでログインできます。",
       "viewerLink": "閲覧者として登録",
-      "invitationHelp": "運営チームから登録コードを受け取りましたか？",
+      "invitationHelp": "メールで届いた招待、または運営チームの認可コードをお持ちですか？",
       "invitationLink": "招待コードで登録",
-      "tuteeHelp": "学習支援をご希望ですか？まずチューターを申請してください。招待コードは不要で、メール確認後にアカウントを設定します。"
+      "tuteeHelp": "学習支援をご希望ですか？申請を送信してください。メール確認後、アカウント設定と参加内容の確認に使う招待が発行されます。"
     }
   },
   "landing": {
@@ -2203,13 +2203,67 @@
     },
     "crewSignup": {
       "title": "巡回班に参加",
-      "intro": "巡回班は教室を回り、人数を記録して出席を検証します。下記から申請してください — 管理者が確認し、承認時にコードを送ります。",
+      "intro": "巡回班は教室を回り、人数を記録して出席を検証します。メールアドレスを確認して申請を提出し、管理者の承認をお待ちください。このページに戻って申請状況を確認し、承認後の招待を取得できます。",
       "alreadyMember": "すでにチームの一員ですか？",
       "signIn": "ログイン",
-      "submit": "申請を送信",
+      "submit": "メール確認に進む",
       "submitting": "送信中…",
       "doneTitle": "申請を受け付けました",
-      "doneBody": "ありがとうございます。管理者が申請を確認し、承認された場合は登録コードをメールします。",
+      "doneBody": "メール確認済みの申請は、管理者の審査を待っています。このページに戻って状況を確認し、承認後に招待を取得してください。",
+      "modeLabel": "申請オプション",
+      "newApplication": "新規申請",
+      "checkApplication": "送信済みの申請を確認",
+      "detailsTitle": "申請内容",
+      "verifyTitle": "メールアドレスを確認",
+      "statusTitle": "申請状況",
+      "steps": {
+        "application": "申請",
+        "email": "メール確認",
+        "review": "管理者の審査"
+      },
+      "lookupHint": "申請時に使用したメールアドレスを入力してください。審査状況を表示する前に、そのメールアドレスを確認します。",
+      "sendCode": "確認コードを送信",
+      "sent": "確認コードを {email} に送信しました。",
+      "verifyHint": "5文字のコードを入力してください。メールアドレスの確認が完了すると、新規申請が審査に提出されます。この確認だけでは巡回班へのアクセス権は付与されません。",
+      "emailCode": "メール確認コード",
+      "verify": "メールを確認",
+      "resend": "コードを再送",
+      "editDetails": "申請オプションに戻る",
+      "refreshStatus": "状況を更新",
+      "verifyAgain": "新しい確認コードを送信",
+      "proofExpired": "状況の更新や招待の取得を行う前に、メールアドレスをもう一度確認してください。",
+      "invalidCode": "この確認コードまたはセッションは無効か、有効期限が切れています。新しいコードを取得し、メールアドレスをもう一度確認してください。",
+      "disabled": "現在、巡回班への申請は受け付けていません。チームにお問い合わせください。",
+      "statuses": {
+        "PENDING": {
+          "title": "管理者の審査待ち",
+          "body": "申請を受け付けました。管理者による審査後に状況を更新するか、後ほどこのページに戻ってメールアドレスをもう一度確認してください。"
+        },
+        "REJECTED": {
+          "title": "申請は承認されませんでした",
+          "body": "申請は承認されませんでした。ご質問がある場合や申請内容を変更したい場合は、チームにお問い合わせください。"
+        },
+        "NOT_FOUND": {
+          "title": "申請が見つかりません",
+          "body": "このメールアドレスで送信された申請が見つかりませんでした。下から新規申請を開始できます。"
+        },
+        "AVAILABLE": {
+          "title": "申請が承認されました",
+          "body": "巡回班への招待が用意できました。下に表示される招待内容から進み、巡回班へのアクセス設定を完了してください。"
+        },
+        "USED": {
+          "title": "招待は使用済みです",
+          "body": "承認済みの招待はすでに利用されています。アカウントにログインしてください。巡回班へのアクセスにお困りの場合は、チームにお問い合わせください。"
+        },
+        "EXPIRED": {
+          "title": "招待の有効期限が切れています",
+          "body": "承認済みの招待の有効期限が切れています。新しい招待を希望する場合は、チームにお問い合わせください。"
+        },
+        "UNAVAILABLE": {
+          "title": "招待を利用できません",
+          "body": "申請は承認されていますが、有効な招待を利用できません。チームにお問い合わせください。"
+        }
+      },
       "fields": {
         "fullName": "氏名",
         "email": "メール",
@@ -4139,7 +4193,7 @@
     "memberships": "権限と所属",
     "attached": "直接関連付けられた参加者プロフィール",
     "historical": "履歴記録",
-    "setupMeaning": "設定完了とは、メール確認が済み、現在パスワード変更が求められていない状態です。設定状態はアカウントへのアクセスや現在の参加状況とは別です。",
+    "setupMeaning": "設定完了は、パスワードが設定され、主メールアドレスが確認済みで、パスワードの変更が不要な状態です。設定状況、アクセス権、現在の参加状況は別々に扱います。",
     "noDirectMeaning": "このチューター記録にはログインが直接関連付けられていません。ただし、下の記録に示される履歴所有者が存在する場合があります。招待だけでログインが作成されることはありません。",
     "passwordRequired": "このログインには、まだパスワード変更が必要です。",
     "restricted": "ログインへのアクセスは停止されています。",
@@ -4203,6 +4257,80 @@
     "crewDeleteHelp": "This permanently deletes the crew-only login and its patrol and request records. Combined accounts and retained tutor history cannot be deleted here.",
     "crewApplicationHelp": "This records the application decision. Acceptance issues a registration invitation; rejection ends this application. Existing approval rules still apply.",
     "crewRequestHelp": "This records the decision on the named participation request. Approval applies the requested membership change; denial leaves participation unchanged."
+  },
+  "accountInvitation": {
+    "enterCode": "メールで届いた招待コードを入力",
+    "reviewTitle": "アカウントとアクセス権を確認",
+    "doneTitle": "招待を承諾しました",
+    "saved": "招待を承諾しました。アカウントと許可された変更は保存済みです。",
+    "historyNext": "履歴専用アカウントの準備ができました。次に該当する履歴を確認して関連付けてください。現在の参加資格は追加されていません。",
+    "nextHelp": "次の画面に、規約への同意、学年情報の確認、参加手続きなどの残りの要件が表示されます。",
+    "savedLoginFailed": "変更は保存されましたが、ログインが完了しませんでした。ログインして続行してください。招待を再送信しないでください。",
+    "signIn": "ログインして続行",
+    "continue": "続行",
+    "preserveIdentity": "現在の氏名、パスワード、所属は変更されません。ここで確認したアクセス権のみを追加できます。",
+    "newAccount": "この招待用のアカウントを作成します。参加資格と履歴の所有確認には、それぞれ別の要件があります。",
+    "mfaRequired": "このアカウントにはパスワードとメール認証が必要です。通常の方法でログインし、この画面に戻って招待を確認してください。",
+    "signInRequired": "アクセス権を承諾する前に、招待先のアカウントへのログインを完了してください。ログインが中断された場合は、下の復旧リンクを使用してください。",
+    "switchAccount": "招待先のアカウントに切り替える",
+    "grade": "学年",
+    "password": "パスワードを作成",
+    "confirmPassword": "パスワードを確認",
+    "mismatch": "パスワードが一致していません。",
+    "reviewLogin": "この招待によるログインでは、現在の所属が変更されないことを理解しました。",
+    "reviewAccess": "招待内容を確認し、記載されたアクセス権を自分のアカウントに追加することに同意します。",
+    "accept": "招待を承諾",
+    "codeHelp": "メールに記載された有効期限までに、直接届いたコードを入力してください。既存のアカウントにログインします。アクセス権の追加には別途確認が必要です。",
+    "email": "招待先のメールアドレス",
+    "code": "招待コード",
+    "verify": "認証して続行",
+    "back": "戻る",
+    "recovery": "コードの有効期限が切れた場合や再発行された場合は、手続きを開始した画面から新しい招待をリクエストしてください。元の申請と保存済みの記録は保持されます。",
+    "retry": "読み込みを再試行",
+    "restart": "招待の入力画面に戻る",
+    "staffKey": "スタッフの招待キーを入力",
+    "sendInvitation": "招待コードをメールで受け取る",
+    "staffHelp": "スタッフの招待キーは、記載されたアクセス権を許可するものです。利用者本人を確認するため、受信者に別の招待コードを送信します。",
+    "checkKey": "招待キーを確認",
+    "emailLinkHelp": "招待コードのメールを受け取り済みですか？同じメール内の招待リンクを開いてください。",
+    "requestCode": "一般向け招待またはログインコードをリクエスト",
+    "verifyTuteeTitle": "この申請のメールアドレスを確認",
+    "verifyTuteeHelp": "以下の申請内容を確認してください。メール内のこのリンクを確認すると招待コードが送信されます。招待を承諾すると申請が完了します。最初の申請日時は保持されます。",
+    "kind": {
+      "TUTOR": "チューターとしての参加を追加",
+      "CREW": "巡回班としての参加を追加",
+      "ADMIN": "管理者アカウントを作成",
+      "COORDINATOR": "コーディネーターアカウントを作成",
+      "VIEWER": "閲覧専用アカウントを作成",
+      "TUTEE": "学習支援の申請を確認",
+      "HISTORY": "履歴専用アカウントを作成",
+      "LOGIN": "既存のアカウントにログイン"
+    },
+    "invalid": "この招待コードは正しくないか、期限切れ、再発行済み、または使用済みです。",
+    "accountChanged": "招待先のアカウントが変更されています。新しい招待をリクエストするか、代表にアカウントの確認を依頼してください。",
+    "restricted": "参加が制限されています。アクセス権を追加する前に、代表に利用停止、権限の取り消し、または学校からの離籍状況の確認を依頼してください。",
+    "passwordRequired": "アカウント設定を完了するには、パスワードを設定してください。",
+    "pageTitle": "アカウント招待",
+    "pageHelp": "メールで届いた招待コードを入力するか、スタッフの招待キーを使ってコードを受け取ってください。",
+    "requestTitle": "アカウントの招待を申請",
+    "requestHelp": "メールアドレスを確認すると、別の招待コードが届きます。新規アカウントには閲覧専用のViewer権限が付与されます。既存アカウントではメールのコードでログインし、パスワード、本人情報、参加資格は維持されます。有効な追加認証は引き続き必要です。",
+    "receiptTitle": "Your invitation is ready",
+    "receiptHelp": "Keep this code to continue with your account. Your email is verified.",
+    "showCode": "Show invitation code",
+    "continueSignup": "Continue to signup",
+    "close": "Close",
+    "copyCode": "Copy code",
+    "copied": "Copied",
+    "emailCode": "Email me this code",
+    "emailed": "Emailed",
+    "emailSent": "The invitation has been sent to your verified email.",
+    "handoffRecovery": "Continue with your code. You may be asked to verify your email again.",
+    "verificationCode": "Email verification code",
+    "emailTitle": "Verify your email",
+    "verifyEmailHelp": "Verify your email to connect this invitation to your account.",
+    "sendVerification": "Send verification code",
+    "addAccess": "Add access with an invitation",
+    "addAccessHelp": "Enter an invitation to add tutor, crew or management access to your existing account."
   },
   "unsubscribe": {
     "title": "メール設定",

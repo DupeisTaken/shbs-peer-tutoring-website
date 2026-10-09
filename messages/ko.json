@@ -345,11 +345,11 @@
     "sessionExpired": "Your session expired or could not be verified. Please sign in again.",
     "passwordChangedSignIn": "비밀번호가 변경되었습니다. 현재 브라우저를 포함한 모든 세션에서 로그아웃되었습니다. 새 비밀번호로 다시 로그인하세요.",
     "signupRoutes": {
-      "viewerHelp": "프로그램을 살펴보기만 하시나요? 참관자 등록에는 초대 코드가 필요 없지만 이메일 인증은 필요합니다.",
+      "viewerHelp": "이메일을 인증하면 초대를 받습니다. 새 계정에는 참관자 권한이 부여되며, 기존 계정은 이메일로 받은 코드로 로그인합니다.",
       "viewerLink": "참관자로 등록",
-      "invitationHelp": "프로그램 운영팀에서 등록 코드를 받으셨나요?",
+      "invitationHelp": "이메일 초대 또는 운영팀의 승인 코드가 있나요?",
       "invitationLink": "초대 코드로 등록",
-      "tuteeHelp": "학습 지원이 필요한가요? 먼저 튜터를 신청하세요. 초대 코드는 필요 없으며 이메일 확인 후 계정을 설정합니다."
+      "tuteeHelp": "학습 지원이 필요한가요? 신청서를 제출하세요. 이메일 확인 후 계정 설정과 참여 내용 검토를 위한 초대가 발급됩니다."
     }
   },
   "landing": {
@@ -2203,13 +2203,67 @@
     },
     "crewSignup": {
       "title": "순찰조 지원",
-      "intro": "순찰조는 교실을 돌며 인원을 기록해 출석을 검증합니다. 아래에서 지원하세요 — 관리자가 검토 후 코드를 보내드립니다.",
+      "intro": "순찰조는 교실을 돌며 인원을 기록해 출석을 검증합니다. 이메일을 인증해 지원서를 제출한 뒤 관리자 승인을 기다리세요. 이 페이지로 돌아와 지원 상태를 확인하고 승인된 초대장을 받을 수 있습니다.",
       "alreadyMember": "이미 팀원이신가요?",
       "signIn": "로그인",
-      "submit": "지원서 제출",
+      "submit": "이메일 인증으로 이동",
       "submitting": "제출 중…",
       "doneTitle": "지원서가 접수되었습니다",
-      "doneBody": "감사합니다! 관리자가 지원서를 검토하고 승인 시 등록 코드를 이메일로 보내드립니다.",
+      "doneBody": "이메일 인증을 마친 지원서가 관리자 검토를 기다리고 있습니다. 이 페이지로 돌아와 상태를 확인하고 승인 후 초대장을 받으세요.",
+      "modeLabel": "지원 옵션",
+      "newApplication": "새 지원서",
+      "checkApplication": "기존 지원서 확인",
+      "detailsTitle": "지원서 내용",
+      "verifyTitle": "이메일 인증",
+      "statusTitle": "지원 상태",
+      "steps": {
+        "application": "지원",
+        "email": "이메일 인증",
+        "review": "관리자 검토"
+      },
+      "lookupHint": "처음 지원할 때 사용한 이메일을 입력하세요. 검토 상태를 보여드리기 전에 이메일을 인증합니다.",
+      "sendCode": "인증 코드 보내기",
+      "sent": "{email}(으)로 인증 코드를 보냈습니다.",
+      "verifyHint": "5자리 코드를 입력하세요. 이메일 인증을 완료하면 새 지원서가 검토를 위해 제출됩니다. 이메일 인증만으로 순찰조 접근 권한이 부여되지는 않습니다.",
+      "emailCode": "이메일 인증 코드",
+      "verify": "이메일 인증",
+      "resend": "코드 재전송",
+      "editDetails": "지원 옵션으로 돌아가기",
+      "refreshStatus": "상태 새로고침",
+      "verifyAgain": "새 인증 코드 보내기",
+      "proofExpired": "상태를 새로고침하거나 초대장을 받으려면 이메일을 다시 인증하세요.",
+      "invalidCode": "이 인증 코드 또는 세션이 유효하지 않거나 만료되었습니다. 새 코드를 요청하고 이메일을 다시 인증하세요.",
+      "disabled": "현재 순찰조에 지원할 수 없습니다. 팀에 문의하세요.",
+      "statuses": {
+        "PENDING": {
+          "title": "관리자 검토 대기",
+          "body": "지원서가 접수되었습니다. 관리자가 검토한 뒤 상태를 새로고침하거나, 나중에 이 페이지로 돌아와 이메일을 다시 인증하세요."
+        },
+        "REJECTED": {
+          "title": "지원서가 승인되지 않았습니다",
+          "body": "지원서가 승인되지 않았습니다. 궁금한 점이 있거나 지원서를 수정하고 싶다면 팀에 문의하세요."
+        },
+        "NOT_FOUND": {
+          "title": "지원서를 찾을 수 없습니다",
+          "body": "이 이메일로 제출된 지원서를 찾을 수 없습니다. 아래에서 새 지원서를 작성할 수 있습니다."
+        },
+        "AVAILABLE": {
+          "title": "지원서가 승인되었습니다",
+          "body": "순찰조 초대장이 준비되었습니다. 아래 초대 안내에 따라 순찰조 접근 권한 설정을 완료하세요."
+        },
+        "USED": {
+          "title": "이미 사용한 초대장",
+          "body": "승인된 초대장이 이미 사용되었습니다. 계정에 로그인하세요. 순찰조 접근에 도움이 필요하다면 팀에 문의하세요."
+        },
+        "EXPIRED": {
+          "title": "만료된 초대장",
+          "body": "승인된 초대장이 만료되었습니다. 새 초대장을 요청하려면 팀에 문의하세요."
+        },
+        "UNAVAILABLE": {
+          "title": "초대장을 이용할 수 없습니다",
+          "body": "지원서는 승인되었지만 현재 유효한 초대장을 이용할 수 없습니다. 팀에 문의하세요."
+        }
+      },
       "fields": {
         "fullName": "이름",
         "email": "이메일",
@@ -4139,7 +4193,7 @@
     "memberships": "권한 및 소속",
     "attached": "직접 연결된 참여자 프로필",
     "historical": "과거 기록",
-    "setupMeaning": "설정 완료는 이메일이 확인되었고 현재 비밀번호 변경이 요구되지 않는 상태입니다. 설정 상태는 계정 접근 권한 및 현재 참여 상태와 별개입니다.",
+    "setupMeaning": "설정 완료는 비밀번호가 설정되고 기본 이메일이 인증되었으며 비밀번호 변경이 필요하지 않은 상태입니다. 설정 상태는 계정 접근 및 현재 참여 상태와 별개입니다.",
     "noDirectMeaning": "이 튜터 기록에는 직접 연결된 로그인이 없습니다. 다만 아래 기록에 표시되는 과거 기록 소유자가 유지될 수 있습니다. 초대만으로 로그인이 생성되지는 않습니다.",
     "passwordRequired": "이 로그인은 아직 비밀번호 변경이 필요합니다.",
     "restricted": "로그인 접근이 정지되었습니다.",
@@ -4203,6 +4257,80 @@
     "crewDeleteHelp": "This permanently deletes the crew-only login and its patrol and request records. Combined accounts and retained tutor history cannot be deleted here.",
     "crewApplicationHelp": "This records the application decision. Acceptance issues a registration invitation; rejection ends this application. Existing approval rules still apply.",
     "crewRequestHelp": "This records the decision on the named participation request. Approval applies the requested membership change; denial leaves participation unchanged."
+  },
+  "accountInvitation": {
+    "enterCode": "이메일로 받은 초대 코드 입력",
+    "reviewTitle": "계정과 접근 권한 확인",
+    "doneTitle": "초대를 수락했습니다",
+    "saved": "초대를 수락했습니다. 계정과 허용된 변경 사항이 저장되었습니다.",
+    "historyNext": "기록 전용 계정이 준비되었습니다. 다음으로 해당 과거 기록을 확인하고 연결하세요. 현재 참여 자격은 추가되지 않았습니다.",
+    "nextHelp": "다음 화면에 아직 필요한 정책 동의, 학적 확인 또는 참여 절차가 표시됩니다.",
+    "savedLoginFailed": "변경 사항은 저장되었지만 로그인이 완료되지 않았습니다. 로그인하여 계속하세요. 초대를 다시 제출하지 마세요.",
+    "signIn": "로그인하여 계속",
+    "continue": "계속",
+    "preserveIdentity": "기존 이름, 비밀번호와 소속은 변경되지 않습니다. 여기서 확인한 접근 권한만 추가할 수 있습니다.",
+    "newAccount": "이 초대를 위한 계정을 만드세요. 참여와 과거 기록의 소유 관계에는 각각 별도의 요건이 적용됩니다.",
+    "mfaRequired": "이 계정에는 비밀번호와 이메일 인증이 필요합니다. 평소 방법으로 로그인한 뒤 이 화면으로 돌아와 초대를 확인하세요.",
+    "signInRequired": "이 접근 권한을 수락하기 전에 초대받은 계정으로 로그인을 완료하세요. 로그인이 중단되었다면 아래 복구 링크를 사용하세요.",
+    "switchAccount": "초대받은 계정으로 전환",
+    "grade": "학년",
+    "password": "비밀번호 만들기",
+    "confirmPassword": "비밀번호 확인",
+    "mismatch": "비밀번호가 일치해야 합니다.",
+    "reviewLogin": "이 초대로 로그인해도 기존 소속이 변경되지 않음을 이해했습니다.",
+    "reviewAccess": "초대 내용을 확인했으며 설명된 접근 권한을 내 계정에 추가하는 데 동의합니다.",
+    "accept": "초대 수락",
+    "codeHelp": "이메일에 표시된 만료 시간 전에 직접 받은 코드를 입력하세요. 기존 계정에 로그인하며, 접근 권한 추가는 별도로 확인해야 합니다.",
+    "email": "초대받은 이메일",
+    "code": "초대 코드",
+    "verify": "인증하고 계속",
+    "back": "뒤로",
+    "recovery": "코드가 만료되었거나 재발급되었다면 처음 시작한 페이지에서 새 초대를 요청하세요. 원래 신청과 저장된 기록은 유지됩니다.",
+    "retry": "다시 불러오기",
+    "restart": "초대 입력으로 돌아가기",
+    "staffKey": "운영진의 초대 키 입력",
+    "sendInvitation": "초대 코드를 이메일로 받기",
+    "staffHelp": "운영진의 초대 키는 명시된 접근 권한을 허용합니다. 실제 사용자를 확인하기 위해 수신자에게 별도의 초대 코드를 보냅니다.",
+    "checkKey": "초대 키 확인",
+    "emailLinkHelp": "이미 초대 코드 이메일을 받으셨나요? 같은 이메일에 있는 초대 링크를 여세요.",
+    "requestCode": "공개 초대 또는 로그인 코드 요청",
+    "verifyTuteeTitle": "이 신청의 이메일 확인",
+    "verifyTuteeHelp": "아래 신청 내용을 확인하세요. 이메일의 이 링크를 확인하면 초대 코드가 전송됩니다. 초대를 수락하면 신청이 완료됩니다. 최초 제출 시각은 유지됩니다.",
+    "kind": {
+      "TUTOR": "튜터 참여 추가",
+      "CREW": "순찰조 참여 추가",
+      "ADMIN": "관리자 계정 만들기",
+      "COORDINATOR": "코디네이터 계정 만들기",
+      "VIEWER": "읽기 전용 열람자 계정 만들기",
+      "TUTEE": "학습 지원 신청 확인",
+      "HISTORY": "기록 전용 계정 만들기",
+      "LOGIN": "기존 계정으로 로그인"
+    },
+    "invalid": "초대 코드가 잘못되었거나 만료, 재발급 또는 이미 사용된 코드입니다.",
+    "accountChanged": "초대받은 계정이 변경되었습니다. 새 초대를 요청하거나 대표에게 계정 확인을 요청하세요.",
+    "restricted": "참여가 제한되어 있습니다. 접근 권한을 추가하기 전에 대표에게 정지, 권한 철회 또는 학교 이탈 상태의 확인을 요청하세요.",
+    "passwordRequired": "계정 설정을 완료하려면 비밀번호를 정하세요.",
+    "pageTitle": "계정 초대",
+    "pageHelp": "이메일로 받은 초대 코드를 입력하거나 직원이 제공한 초대 키로 코드를 요청하세요.",
+    "requestTitle": "계정 초대 요청",
+    "requestHelp": "이메일을 확인하면 별도의 초대 코드를 받습니다. 새 계정에는 읽기 전용 Viewer 권한이 부여됩니다. 기존 계정은 이메일 코드로 로그인하며 비밀번호, 신원 정보, 참여 자격은 유지됩니다. 설정된 추가 인증은 계속 필요합니다.",
+    "receiptTitle": "Your invitation is ready",
+    "receiptHelp": "Keep this code to continue with your account. Your email is verified.",
+    "showCode": "Show invitation code",
+    "continueSignup": "Continue to signup",
+    "close": "Close",
+    "copyCode": "Copy code",
+    "copied": "Copied",
+    "emailCode": "Email me this code",
+    "emailed": "Emailed",
+    "emailSent": "The invitation has been sent to your verified email.",
+    "handoffRecovery": "Continue with your code. You may be asked to verify your email again.",
+    "verificationCode": "Email verification code",
+    "emailTitle": "Verify your email",
+    "verifyEmailHelp": "Verify your email to connect this invitation to your account.",
+    "sendVerification": "Send verification code",
+    "addAccess": "Add access with an invitation",
+    "addAccessHelp": "Enter an invitation to add tutor, crew or management access to your existing account."
   },
   "unsubscribe": {
     "title": "이메일 설정",

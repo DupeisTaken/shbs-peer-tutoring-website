@@ -10,9 +10,10 @@ import { brandingMetadata } from "~/server/branding-metadata";
 import { ViewerSignupFlow } from "./viewer-signup-flow";
 import { db } from "~/server/db";
 import { getFeatures } from "~/server/program/features";
+import { auth } from "~/server/auth";
 
 export async function generateMetadata() {
-  return brandingMetadata("Follow the program");
+  return brandingMetadata("Request an account invitation");
 }
 
 export default async function ViewerSignupPage() {
@@ -20,11 +21,11 @@ export default async function ViewerSignupPage() {
   const features = await getFeatures(db);
   if (!features.VIEWER_SIGNUP) redirect("/");
 
-  const t = await getTranslations();
+  const [t, session] = await Promise.all([getTranslations(), auth()]);
   return (
     <PublicFormPage
-      title={t("public.viewerSignup.title")}
-      description={t("public.viewerSignup.intro")}
+      title={t("accountInvitation.requestTitle")}
+      description={t("accountInvitation.requestHelp")}
       backLabel={t("common.backToMain")}
       footer={
         <div className="space-y-4">
@@ -50,7 +51,7 @@ export default async function ViewerSignupPage() {
       }
     >
       <PublicFormCard>
-        <ViewerSignupFlow />
+        <ViewerSignupFlow signedIn={Boolean(session?.user)} />
       </PublicFormCard>
     </PublicFormPage>
   );

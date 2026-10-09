@@ -1,5 +1,68 @@
 # User guide
 
+## Account invitations and sign-in
+
+All website account creation finishes through the shared invitation review at `/register`.
+The invitation page, Viewer signup and tutee application remain separate starting points.
+An invitation authorizes a specific task; verified email ownership proves who is accepting it.
+A staff-visible key or a copied invitation code alone cannot sign in as its recipient.
+
+| Starting point | What happens next | Result after review |
+| --- | --- | --- |
+| Tutor, Crew or management staff key | Enter the key and recipient email, then verify the separate emailed code. | Create missing credentials or add the authorized access to the existing account after review. |
+| Tutee request | Submit the full request and policy agreement, then verify the emailed code. The existing email link remains usable. | The invitation popup continues to shared account review; confirmation preserves original submission priority and assignment remains separate. |
+| Public Viewer request | Submit details and verify the initial email code, then open the invitation popup. | A new address creates a read-only Viewer after review; an existing account signs in and continues without adding Viewer or changing membership. |
+| Public Crew application | Submit details and verify the mailbox to send the application for staff review. After approval, verify the mailbox again to retrieve its invitation popup. | Shared account review creates missing credentials or adds approved Crew participation to the existing account; email verification alone grants no access. |
+| Historical tutee invitation | Verify the exact invited email, then continue from the invitation receipt popup to `/register`. | Create/use credentials, then separately review and choose **Link My History** for the exact record. No current participation is added. |
+| Accountless tutor setup sent by Head | Receive a Tutor invitation. | The roster remains accountless until its recipient accepts; no placeholder login is created by sending mail. |
+
+The invitation page opens with one centered code field and a full-width **Continue** button.
+New invitation and staff registration codes use the legacy Steam-style format: five
+characters containing both uppercase letters and digits from `023456789ABCDEFGHIJKMNPQRSTUVWXYZ`.
+The spaced input shows `XXXXX`; lowercase entry is normalized to uppercase. `O`/`o` is
+accepted as `0`, and `1` is accepted as `I` in five-character codes. Older outstanding
+invitation codes remain usable for compatibility. Mailbox verification is a separate code;
+the tutee verification code retains its six-character format and is not the invitation shown afterward.
+After Viewer or tutee email verification, or verified retrieval of an approved Crew application, a popup shows the invitation code, **Copy code**,
+an optional **Email code** action and a link that prefills the invitation page. Close and
+reopen the popup without repeating verification. Failed optional delivery leaves the code
+available. The verified browser can continue directly; a copied code in another browser
+requires recipient email verification. Browser proof uses a short-lived HttpOnly cookie,
+not a URL or JavaScript storage. Invitations last up to 15 minutes; earlier staff authorization
+and application deadlines still apply. For an existing account, mailbox proof signs in
+without replacing its password or established identity. Primary and verified secondary
+emails resolve to the same account. Accepting proof for the primary address also confirms
+that address; proof for a secondary address does not confirm a different primary address.
+Adding participation still requires an explicit review.
+An existing account using the public Viewer request has no added access to review; successful
+code sign-in completes that request directly. When canonical academics still need confirmation,
+the saved participation receipt shows the required next step and a link to **My Account**.
+If the account enforces password plus email verification, complete that existing sign-in
+flow and return to the invitation; an invitation does not disable two-factor protection.
+
+New accounts review prefilled application details and create missing credentials. An unfinished
+account is asked only for missing credentials. Existing forced password changes and recovery
+remain explicit operations. Authorized Tutor, Crew and tutee access is added to an existing
+account after review, preserving its other access. Accepting an authorized participation or
+management invitation replaces an exclusive Viewer role; Viewer cannot coexist with participant
+badges. A management invitation upgrades to its authorized rank and never demotes a higher
+existing rank. It does not grant Head authority. Suspension remains enforced. Tutor, Crew and
+tutee grants retain participation revocation and school departure checks; an invitation does
+not bypass a required reviewed return. School departure does not by itself block an authorized
+management rank upgrade, which grants no participant access.
+
+A failed request keeps the form draft. If acceptance succeeds but sign-in or refreshing
+fails, the page identifies the saved result and offers sign-in recovery without repeating
+the write. Expired or replaced invitations return to their original request route; the
+original application, policy evidence and historical records remain retained. Outstanding
+older verification links and staff keys remain valid entry points to this shared flow.
+An old browser still displaying the previous completion screen will ask you to open the
+newly emailed invitation; it will not report account creation before that review succeeds.
+
+Account readiness, email verification, suspension, membership, active participation and
+historical ownership are distinct states. A ready login has a password, verified primary
+email and no required password change; readiness never means an assigned or active participant.
+
 Use this guide with the website address supplied by your program. Page names below match the interface. Features and navigation can vary when HEAD disables a program module. A hidden page does not grant permission to use its address directly.
 
 ## Contents
@@ -47,13 +110,14 @@ their confirmation parameters. Tutor and crew applications open at `/tutor-signu
 and `/crew-signup` and retain the existing review process. See the
 [URL convention](technical-report.md#public-signup-url-convention) for the full mapping.
 
-- **Register with an Invitation Code** (`/register` → `/register-account`) is for invited tutors, crew and management. Enter the five-character registration code supplied by the program team, then complete email verification and account setup. The invitation code and emailed verification code are different.
-- **Register as a Viewer** (`/viewer` → `/viewer-signup`) creates read-only access when viewer signup is enabled. Viewers do not receive or need a staff invitation code; the form sends an email verification code after you provide your details. It does not enroll you as a tutee, tutor or crew member.
-- **Request a Tutor** (`/tutee` → `/tutee-signup`) starts a tutee request without an invitation code. Follow the emailed confirmation link to set up your account if needed.
+- **Register with an Invitation Code** (`/register` → `/register-account`) opens the shared code card. Enter an invitation code or a five-character staff key and choose **Continue**. A code without this browser's verified proof requires email verification before review.
+- **Register as a Viewer** (`/viewer` → `/viewer-signup`) collects Viewer details and verifies the mailbox when viewer signup is enabled. Its popup offers the invitation code, optional email delivery and a prefilled invitation link. A new account receives read-only Viewer access; an existing account signs in without changing its access. No staff key is needed.
+- **Request a Tutor** (`/tutee` → `/tutee-signup`) collects the full tutee application before email verification and invitation issuance. Enter the emailed verification code, or use the existing email link and explicitly confirm it. Continue from the invitation popup to review your request and any missing credentials.
+- **Join the crew** (`/crew` → `/crew-signup`) collects application details and verifies the mailbox before sending the application for staff review. Use the same page to check an existing application with a fresh emailed code; an approved application can continue through the shared invitation popup and account review.
 
-Sign In names the invitation and viewer routes separately. The invitation and viewer pages link to each other and to Request a Tutor, so you can switch if you opened the wrong form. Viewer links are hidden when public viewer signup is disabled. If you already have an account, sign in or recover your password rather than registering again.
+Sign In names the invitation and viewer routes separately. The invitation and viewer pages link to each other and to Request a Tutor, so you can switch if you opened the wrong form. Viewer links are hidden when public viewer signup is disabled. Existing accounts can use their normal sign-in, password recovery, or a recipient-delivered invitation; invitations never replace an established password.
 
-Registration shows numbered steps and focuses the new step heading. Use **Back**, **Review or edit email**, **Edit invitation code** or **Edit Identity** to correct earlier details. Editing clears the current verification evidence and requires email verification again; other entries remain while you stay on the page. A different invitation clears the previous identity and password. An invitation bound to an email keeps that email read only. Use **Resend** after delivery or expiry problems. Browser navigation works normally; leaving or refreshing the page can discard unsaved entries.
+After the initial code card, registration shows numbered steps and focuses the new step heading. Use **Back** or **Edit Identity** before verification to correct earlier details. Editing clears current verification evidence and requires verification again; other entries remain while you stay on the page. A different invitation starts a fresh account review. Staff keys bound to an email keep that email read only. Use the original request's resend action if verification mail is missing or evidence expires. Browser navigation works normally; leaving or refreshing can discard unsaved entries. Existing signed-in recipients can use **Add access** in the account menu or Account Settings to enter a code and review its authorized addition.
 
 ### Switch workspaces
 
@@ -88,8 +152,8 @@ still apply. Independently assigned management, crew and translator permissions 
 1. Open **Request a Tutor** on the home page or any section of the tutee page when intake is open. You can start with the form before creating an account.
 2. Enter your name, email, preferred contact method, subject choices and available times. Read the displayed tutee policy and sign the agreement.
 3. Choose **Submit Request**. Your original survey submission sets your priority. Repeating the same open request does not buy an earlier place.
-4. Open the account-confirmation link sent to your email. Create a password if you need an account. Existing accounts retain their role and password.
-5. Sign in and choose **Enter Tutee Page**, then **Requests**, to check your confirmed request and available times. Until you confirm, keep using the emailed confirmation link.
+4. Enter the verification code sent to your email, or open the existing account-confirmation link and explicitly confirm the email. The invitation popup shows a code, optional email delivery and a prefilled link to `/register`. Review the request there and create missing credentials if needed. Existing accounts retain credentials and other access; an exclusive Viewer leaves Viewer when accepting tutee participation.
+5. Continue to **Enter Tutee Page**, then **Requests**, to check your confirmed request and available times. If verification or review is interrupted, use its resend/recovery action or reopen the invitation rather than submitting another application.
 
 An account link lasts 24 hours. Request a new link if it expires; a successful resend replaces the previous link. Staff may assign a tutor before you confirm. That first assignment starts a fixed seven-day verification deadline. Reassignment and link resends do not extend it. An unverified request closes when its deadline passes and its assignments are released; you must submit a new request with a new priority timestamp.
 
@@ -136,7 +200,7 @@ Open **Requests → Participation → Request withdrawal…**. The button names 
 
 Use **My Tutors & Schedule** for current assignments, **Attendance** for recorded sessions and feedback, and **Support** for disciplinary cards and appeals. Records remain linked to your account across new intakes and verified email changes.
 
-For imported or earlier enrollments, open **My Tutoring History** in the account menu, then **View History**. This includes retained tutor evidence already owned by your account, even when participation access is revoked. If records are missing, ask staff to review the exact record. Accountless alumni can use a staff-reviewed historical tutee invitation: **Create history-only account → verify email code → set password → Sign In → Link My History**. No current tutoring request, grade or participation agreement is required to read owned history. Existing logins use sign-in/password recovery; unavailable old email requires staff identity review and a replacement invitation. Head handles ownership conflicts and genuine duplicate accounts. See [historical record access](historical-participant-transition.md#invite-an-alumnus-without-a-login).
+For imported or earlier enrollments, open **My Tutoring History** in the account menu, then **View History**. This includes retained tutor evidence already owned by your account, even when participation access is revoked. If records are missing, ask staff to review the exact record. Accountless alumni can use a staff-reviewed historical tutee invitation: **Create history-only account → verify email code → invitation popup → shared account review at `/register` → Link My History**. The popup supports copying the code, optional email delivery and a prefilled continuation link. No current tutoring request, grade or participation agreement is required to read owned history. Existing logins use sign-in/password recovery; unavailable old email requires staff identity review and a replacement invitation. Head handles ownership conflicts and genuine duplicate accounts. See [historical record access](historical-participant-transition.md#invite-an-alumnus-without-a-login).
 
 - Submit feedback for one of your recorded sessions. The portal explains whether management has enabled sharing with that session’s tutor. Feedback is management-only by default; a later visibility change also affects earlier feedback.
 - Appeal your own card once, by the end of the **fifth school day** after its recorded issue date in the program timezone. Holidays and make-up days follow the school calendar maintained by staff. A pending appeal does not invalidate the card or suspend its effects.
@@ -225,7 +289,11 @@ Read addressed announcements and acknowledge them when prompted. Review session 
 
 ## Crew
 
-Apply through the public crew application. Review can issue a registration code; the application itself is not a login. Active crew members use **Patrol** to record each visited room once with the actual observation time and student headcount: 0, 1, 2, 3 or 4+. Submit at least one observation. Observation times cannot be in the future; a one-minute allowance accommodates differences between your device clock and the server. This also applies to management corrections. An eligible sweep earns **0.5 crew service hours**, separately from tutoring credit, at most once every **20 minutes per crew member**, measured by the server. All observations must be from the last 20 minutes (with the same one-minute clock allowance). Older observations and additional sweeps during the cooldown are still saved with **0 hours**, and the success message states that no hours were added. A long sweep or offline submission with any observation older than 20 minutes therefore retains its evidence but receives no automatic credit; do not change observation times to claim freshness. A sweep reserves every 20-minute observation interval it covers, across all rooms; changing notes, counts or a request key does not reopen those intervals. An identical retry returns the original record. Combined-account history shares the same allowance; corrections retain hours and prevent reuse of both original and corrected evidence. Report mistakes to management with enough context to identify the record. Historical patrol corrections require a reason and audit evidence; coordinator corrections wait for approval.
+Apply at `/crew-signup` and verify the emailed code. Verification sends the application for staff review; it creates no login or crew membership. An application under review keeps its original answers when retried. Contact the team to correct them.
+
+To check an application, enter its email on the same page and verify a fresh mailbox code. Pending and rejected applications show their status without an invitation. Staff approval remains required. An approved application with an available invitation opens the shared receipt popup: copy the code, optionally email it, or continue to `/register` with application details prefilled. A new account creates missing credentials; an existing account reviews the approved Crew addition while keeping its password, identity and other access. Close and reopen the receipt without repeating that mailbox check. If the approval's invitation was revoked, expired or already used, follow the displayed guidance or contact the team; checking status never grants membership. Resending or editing the email requires a new verification code.
+
+Active crew members use **Patrol** to record each visited room once with the actual observation time and student headcount: 0, 1, 2, 3 or 4+. Submit at least one observation. Observation times cannot be in the future; a one-minute allowance accommodates differences between your device clock and the server. This also applies to management corrections. An eligible sweep earns **0.5 crew service hours**, separately from tutoring credit, at most once every **20 minutes per crew member**, measured by the server. All observations must be from the last 20 minutes (with the same one-minute clock allowance). Older observations and additional sweeps during the cooldown are still saved with **0 hours**, and the success message states that no hours were added. A long sweep or offline submission with any observation older than 20 minutes therefore retains its evidence but receives no automatic credit; do not change observation times to claim freshness. A sweep reserves every 20-minute observation interval it covers, across all rooms; changing notes, counts or a request key does not reopen those intervals. An identical retry returns the original record. Combined-account history shares the same allowance; corrections retain hours and prevent reuse of both original and corrected evidence. Report mistakes to management with enough context to identify the record. Historical patrol corrections require a reason and audit evidence; coordinator corrections wait for approval.
 
 Crew access depends on membership and the program's crew module. A crew-only account does not automatically receive tutor assignments or management powers. Opt-out requires a seven-day wait and staff approval; reentry requires approval without that wait. A pending opt-out can be recalled. Check the decision before assuming membership has changed. Observations can flag an apparent attendance mismatch for [management review](program-reference.md#review-attendance-flags); a flag alone does not impose a penalty.
 
@@ -273,13 +341,13 @@ On desktop, the navigation and content scroll independently. On mobile, open **M
 
 **Changes saved** appears after a successful write. A persistent error needs attention even if a later edit succeeds; check the affected record before retrying. **Submitted for approval** means a coordinator proposal is pending, not saved to live records.
 
-**Users & Roles** separates **User | Login setup | Roles & participation | Actions**. **Setup complete** means the email is verified and no password change is required; the existing indicator does not inspect password presence and is not a guarantee of current access. **Setup incomplete** means a login exists but that predicate is not satisfied. **Invitation pending** means a tutor record has a matching unused, unexpired invitation; **No direct login attached** describes the attachment only, not historical ownership. Suspension appears alongside setup rather than replacing it.
+**Users & Roles** separates **User | Login setup | Roles & participation | Actions**. **Setup complete** means a password is set, the primary email is verified and no password change is required; this is not a guarantee of current access. **Setup incomplete** means a login exists but that predicate is not satisfied. **Invitation pending** means a tutor record has a matching unused, unexpired invitation; **No direct login attached** describes the attachment only, not historical ownership. Suspension appears alongside setup rather than replacing it.
 
 Management badges (Head/Admin/Coordinator) use indigo, participation (Tutor/Tutee/Crew) uses teal, Translator uses amber and exclusive read-only Viewer uses slate. Text labels remain authoritative. A Tutor badge does not mean ACTIVE lifecycle or assignment eligibility, and Crew membership can be inactive. The summary keeps its existing Tutor-over-Tutee display; **User details → Permissions and memberships** shows both accepted memberships independently, with policy evidence.
 
 **User details** loads only when opened and separates Login, Permissions and memberships, Attached participant profiles and Historical records. Current account academics and each participant record's academics remain separate. Historical grades and class years use the original enrollment period, including preserved evidence for reactivated profiles. Several retained archives can sit beside a direct profile. A tutor record without a direct login can still display its retained historical owner. Authorized tutor details and tutee history remain available from each record's rightmost Actions column. Historical linking stays in **Edit profile**.
 
-This is a mixed account/tutor list, not a complete person directory: accountless tutees remain in **Tutee List**. The count states how many source records match and how many are hidden by filters. **Which account pathway should I use?** explains tutee request/email confirmation/setup; Tutor/Crew application and invitation; management-only invitation; public Viewer signup when enabled; existing-account membership/policy acceptance; unfinished setup versus Forgot password; exact-record history claims and historical tutee account setup; and Head-reviewed Combine accounts. Existing-account invitations do not reset credentials or grant badges.
+This is a mixed account/tutor list, not a complete person directory: accountless tutees remain in **Tutee List**. The count states how many source records match and how many are hidden by filters. **Which account pathway should I use?** explains tutee request/email confirmation/setup; Tutor/Crew application and invitation; management invitations; public Viewer signup when enabled; existing-account membership/policy acceptance; unfinished setup versus Forgot password; exact-record history claims and historical tutee account setup; and Head-reviewed Combine accounts. Existing-account invitations preserve credentials and existing access; only the authorized participation or management upgrade is added after explicit review.
 
 In **Users & Roles**, combine Role and Account filters. **Tutor Status** appears only when Tutor is the sole included role and Tutor is not excluded. Selecting multiple roles, removing Tutor, or excluding Tutor clears the status selection; a hidden or previously saved status never narrows those results. A person with Admin and Tutor badges still matches a Tutor-only selection, unless another selected exclusion removes them. Historical tutor links with revoked access or archived tutors do not grant a Tutor badge. Alternatives within one filter match any included value; every applicable filter must match, and exclusions win. **No account role** identifies records without displayed role badges.
 
@@ -405,7 +473,7 @@ outside the card and action buttons are excluded.
 Exporting does not change the code or its expiry; share the image only with its
 intended recipient. If export fails, the card stays available so you can retry.
 
-Admin/Coordinator redemption requires email verification and creates a new management-only account without Tutor, Crew, Tutee or Translator participation. Existing primary or secondary email owners must sign in and ask Head to change roles in Users & Roles; a code never resets their credentials or replaces their roles. Expiry, rate limits, email binding and single use remain enforced, and issuer/recipient history is retained. The additive registration-kind migration preserves outstanding Tutor/Crew invitations. Apply migrations before starting the updated application.
+Admin/Coordinator redemption requires email verification. A new account receives management access without Tutor, Crew, Tutee or Translator participation. An existing primary or verified-secondary email owner reviews the authorized upgrade using the same account: credentials, identity and participation remain, and the resulting management rank is the higher of the existing rank and the invitation rank. A Viewer accepting this upgrade leaves the exclusive Viewer role. A Coordinator invitation cannot demote an Admin or Head, and no invitation grants Head authority. Expiry, rate limits, email binding and single use remain enforced, and issuer/recipient history is retained. The additive registration-kind migration preserves outstanding Tutor/Crew invitations. Apply migrations before starting the updated application.
 
 ## HEAD
 
@@ -447,11 +515,11 @@ In **Users & Roles → Edit profile**, Head can save a username for any login ac
 
 ## Viewers
 
-When viewer signup is enabled, use the public viewer registration form, provide your name, affiliation and email, confirm the emailed code, then set your password. If that email already has an account, sign in or recover it instead. Email delivery must be available.
+When Viewer signup is enabled, provide your name, affiliation and email, then verify the emailed code. The invitation popup shows a separate invitation code, optional email delivery and a prefilled link to the shared invitation page. A new account reviews the prefilled details and sets missing credentials. An existing account signs in through the invitation's LOGIN path without adding Viewer or changing any membership; normal recovery and enforced email two-factor sign-in remain available. Initial mailbox verification requires email delivery.
 
 Viewers and departure-based observers can browse permitted read-only management summaries, including names, schedules, statuses, attendance ratings and totals. Contact details, signatures, private comments, absence reasons, application evidence and decision notes are withheld. Audit entries show category summaries; audit search matches actor names, entities and operations rather than private action text. Published policies and announcements remain readable for management observation. These summaries are not anonymous.
 
-Management mutations are unavailable. Observation does not grant private conversations or another person's participant history; your own account and explicitly owned history retain their usual access. Viewer cannot coexist with tutoring, tutee, translation or crew membership. Request a replacement membership from Account settings and wait for HEAD approval before participating.
+Management mutations are unavailable. Observation does not grant private conversations or another person's participant history; your own account and explicitly owned history retain their usual access. Viewer cannot coexist with tutoring, tutee, translation or crew membership. Use **Add access** to accept an authorized participation or management invitation, which replaces the exclusive Viewer role after review. Membership requests in Account Settings retain their existing HEAD approval workflow.
 
 If you need a different role or access to your own participation record, request the change in Account settings. Do not create another account to work around permissions.
 
@@ -464,6 +532,8 @@ Translator and Coordinator edits create private drafts, including all five text 
 ## Account settings and private support
 
 Use **Account Settings** to edit your First Name, Last Name, Preferred Name and Name in Another Language, change your password or request a verified email change. Program settings determine how saved names appear; see [name fields and display settings](#configure-signup-forms). Current explicitly linked tutor/tutee profiles share those names; signed agreements and submitted survey records retain their original text. Editing a contact field is not email verification. Keep account links and codes private. If email delivery is unavailable, contact management; a success message from another action does not prove an email arrived.
+
+**Add access** appears in the account menu and Account Settings. It opens `/register` to accept an invitation for the signed-in account. Review the exact authorized access before accepting; entering or inspecting a code does not grant it. Existing credentials, identity, participant history and other access are preserved, subject to the exclusive Viewer transition. Management upgrades never lower an existing rank. Switching accounts and verifying email remain distinct requirements; participation grants also retain policy and school departure checks. School departure alone does not block an authorized management rank upgrade.
 
 **Academic Details** is shared across Account Settings, tutor Settings and staff **Edit Profile** dialogs. It is available to tutees, tutors, crew, management and accounts with multiple participation types. Choose **Review Academic Details** or **Edit Academic Details**, select one of the program’s offered grades, then confirm. The current program school year is filled automatically and cannot be edited. This is self-reported information: participants can correct their own records. Head and administrators can correct other accounts; coordinators submit corrections for approval. Confirmation History records the reported values, date, source and optional correction context.
 

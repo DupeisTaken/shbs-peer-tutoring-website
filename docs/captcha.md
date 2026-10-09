@@ -5,7 +5,8 @@
 Use **Web/H5 V2**, `VerifyIntelligentCaptcha`, mainland client region `cn`, and
 the fixed HTTPS endpoint `captcha.cn-shanghai.aliyuncs.com` (`cn-shanghai`).
 V3 and invisible verification are not supported by this adapter. Create at most
-two ordinary Web/H5 scenes: one tutee scene, one viewer scene. Choose a supported
+two ordinary Web/H5 scenes: one tutee scene, one viewer scene. Crew application and
+status mail reuse the tutee scene with separate action-bound grants. Choose a supported
 interactive challenge in Aliyun; do not enable paid custom policies by default.
 
 V2 places the billable verification call on the business server. That makes local
@@ -27,7 +28,7 @@ by the application.
 
 Acceptance produces an opaque **two-minute, single-use server grant**, stored only
 as a keyed hash, bound to normalized email, scene, action and setting version.
-Tutee submit (including `requestSignup`), tutee resend and viewer start/resend
+Tutee submit (including `requestSignup`), tutee resend, viewer start/resend and Crew application/status mail
 consume that grant atomically before pending-record writes, token rotation or mail.
 Business failure consumes it too. There is no reusable `captchaPassed` flag.
 Verification reserves #181 capacity once; consuming its grant does not double

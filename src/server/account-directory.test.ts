@@ -145,6 +145,30 @@ beforeEach(async () => {
 });
 afterAll(() => db.$disconnect());
 
+it("requires actual credentials for setup readiness and never exposes their hash", async () => {
+  let { rows } = await caller().admin.accounts();
+  expect(rows.find((row) => row.userId === "person")?.account).toBe("setup");
+  await db.user.update({
+    where: { id: "person" },
+    data: { passwordHash: "synthetic-opaque-hash" },
+  });
+  rows = (await caller().admin.accounts()).rows;
+  expect(rows.find((row) => row.userId === "person")?.account).toBe(
+    "registered",
+  );
+  expect(JSON.stringify(rows)).not.toContain("synthetic-opaque-hash");
+  expect(rows.every((row) => !("passwordHash" in row))).toBe(true);
+  await db.user.update({
+    where: { id: "person" },
+    data: { mustChangePassword: true },
+  });
+  expect(
+    (await caller().admin.accounts()).rows.find(
+      (row) => row.userId === "person",
+    )?.account,
+  ).toBe("setup");
+});
+
 it.each(["HEAD", "ADMIN", "COORDINATOR"] as const)(
   "%s can read separate attachments and several retained records without writes",
   async (role) => {

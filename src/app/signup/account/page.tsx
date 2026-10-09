@@ -1,8 +1,7 @@
-import Link from "next/link";
 import { getTranslations } from "next-intl/server";
 import { StudentRegistration } from "../student-registration";
 import { auth } from "~/server/auth";
-import { FloatingLanguageSwitcher } from "~/app/_components/floating-language-switcher";
+import { PublicFormPage } from "~/app/_components/public-form-page";
 
 export const metadata = {
   title: "Confirm Tutee Signup",
@@ -20,19 +19,18 @@ export default async function StudentAccountPage({
     auth(),
   ]);
   return (
-    <main className="mx-auto min-h-screen max-w-2xl px-4 py-12">
-      <FloatingLanguageSwitcher />
-      <Link className="link text-sm" href="/tutee">
-        {t("back")}
-      </Link>
-      <div className="my-8">
-        <h1 className="page-title">{t("accountTitle")}</h1>
-        <p className="muted mt-2">{t("priority")}</p>
-      </div>
+    <PublicFormPage
+      title={t("accountTitle")}
+      description={t("priority")}
+      backLabel={t("back")}
+      backHref="/tutee"
+      wide
+    >
       <StudentRegistration
+        key={token ?? "missing-token"}
         token={token ?? ""}
         signedInEmail={session?.user.email ?? null}
       />
-    </main>
+    </PublicFormPage>
   );
 }

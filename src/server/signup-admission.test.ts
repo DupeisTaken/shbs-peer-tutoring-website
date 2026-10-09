@@ -142,7 +142,12 @@ it("concurrent viewer starts send one mail and failed delivery retains previous 
     where: { email: input.email },
   });
   await db.signupQuota.deleteMany({
-    where: { OR: [{ key: { startsWith: "mail:cooldown:" } }, { key: { startsWith: "mail:delivery-cooldown:" } }] },
+    where: {
+      OR: [
+        { key: { startsWith: "mail:cooldown:" } },
+        { key: { startsWith: "mail:delivery-cooldown:" } },
+      ],
+    },
   });
   send.mockRejectedValueOnce(new Error("SMTP failed"));
   await expect(caller().viewer.start(input)).rejects.toMatchObject({
@@ -198,8 +203,28 @@ it("allows 100 mixed registrations, reads, verification and ordinary retries fro
         send.mock.calls.at(-1)![0].text,
       )![1]!;
       await caller().tutee.inspectSurvey({ token });
-      await caller().tutee.confirmSurvey({
-        token,
+      const emailCode = /email verification code is ([0-9A-Z]{6})/.exec(
+        send.mock.calls.at(-1)![0].text,
+      )![1]!;
+      const invitation = await caller().accountInvitation.verifySurvey({
+        email,
+        code: emailCode,
+      });
+      // Each applicant also opts into a copy; the browser handoff retains their
+      // existing mailbox proof instead of sending a second mandatory challenge.
+      await caller().accountInvitation.email({
+        invitationId: invitation.invitationId,
+        proof: invitation.proof!,
+      });
+      const proof = await caller().accountInvitation.enter({
+        code: invitation.code!,
+        proof: invitation.proof!,
+      });
+      await caller().accountInvitation.complete({
+        ...invitation,
+        ...proof,
+        proof: proof.proof!,
+        reviewed: true,
         password: "StudentPassword42",
       });
     } else {
@@ -219,13 +244,22 @@ it("allows 100 mixed registrations, reads, verification and ordinary retries fro
           }),
         ).rejects.toThrow();
       const verified = await caller().viewer.verify({ email, code });
-      await caller().viewer.complete({
-        email,
+      await caller().accountInvitation.email({
+        invitationId: verified.invitationId,
+        proof: verified.proof!,
+      });
+      const proof = await caller().accountInvitation.enter({
+        code: verified.code!,
+        proof: verified.proof!,
+      });
+      await caller().accountInvitation.complete({
+        ...proof,
+        proof: proof.proof!,
+        reviewed: true,
         password: "ViewerPassword42",
-        completionProof: verified.completionProof,
       });
     }
   }
   expect(await db.user.count()).toBe(100);
-  expect(send).toHaveBeenCalledTimes(100);
+  expect(send).toHaveBeenCalledTimes(200);
 }, 60_000);

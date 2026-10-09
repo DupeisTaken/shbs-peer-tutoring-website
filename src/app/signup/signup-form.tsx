@@ -36,7 +36,7 @@ import { DAY_NAMES, minToHm } from "~/lib/time";
 import { useBranding } from "~/app/_components/branding-provider";
 import { PolicyAgreement } from "~/app/_components/policy-agreement";
 import { SigninAccess } from "./signin-access";
-import { SurveyResend } from "./survey-resend";
+import { SurveyVerification } from "./survey-verification";
 import { SignupEmailField } from "./signup-email-field";
 
 export function SignupForm() {
@@ -135,7 +135,7 @@ export function SignupForm() {
           </p>
         )}
         <SigninAccess />
-        <SurveyResend initialEmail={email.trim()} />
+        <SurveyVerification email={email.trim()} />
       </div>
     );
   }

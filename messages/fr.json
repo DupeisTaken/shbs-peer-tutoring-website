@@ -345,11 +345,11 @@
     "sessionExpired": "Your session expired or could not be verified. Please sign in again.",
     "passwordChangedSignIn": "Votre mot de passe a été modifié. Toutes les sessions ont été déconnectées, y compris celle de ce navigateur. Reconnectez-vous avec votre nouveau mot de passe.",
     "signupRoutes": {
-      "viewerHelp": "Vous souhaitez seulement suivre le programme ? L’inscription comme observateur ne nécessite aucun code d’invitation ; votre adresse e-mail sera vérifiée.",
+      "viewerHelp": "Vérifiez votre e-mail pour recevoir une invitation. Les nouveaux comptes obtiennent un accès observateur ; les comptes existants se connectent avec le code reçu par e-mail.",
       "viewerLink": "S’inscrire comme observateur",
-      "invitationHelp": "Vous avez reçu un code d’inscription de l’équipe du programme ?",
+      "invitationHelp": "Vous avez une invitation par e-mail ou un code d’autorisation de l’équipe ?",
       "invitationLink": "S’inscrire avec un code d’invitation",
-      "tuteeHelp": "Besoin de tutorat ? Envoyez d’abord une demande. Aucun code d’invitation n’est requis ; vous créerez votre compte après confirmation de votre e-mail."
+      "tuteeHelp": "Besoin de tutorat ? Envoyez une demande. La confirmation de votre e-mail déclenche une invitation pour configurer le compte et vérifier la participation."
     }
   },
   "landing": {
@@ -2203,13 +2203,67 @@
     },
     "crewSignup": {
       "title": "Rejoindre la Ronde",
-      "intro": "La ronde parcourt les salles et compte les élèves pour valider la présence. Postulez ci-dessous — un administrateur examinera et vous enverra un code.",
+      "intro": "La ronde parcourt les salles et compte les élèves pour valider la présence. Vérifiez votre e-mail pour soumettre une candidature, puis attendez l’approbation d’un administrateur. Vous pouvez revenir ici pour consulter votre candidature et récupérer votre invitation une fois votre candidature approuvée.",
       "alreadyMember": "Déjà dans l'équipe ?",
       "signIn": "Se connecter",
-      "submit": "Envoyer la candidature",
+      "submit": "Continuer vers la vérification de l’e-mail",
       "submitting": "Envoi…",
       "doneTitle": "Candidature reçue",
-      "doneBody": "Merci ! Un administrateur examinera votre candidature et vous enverra un code d'inscription si elle est acceptée.",
+      "doneBody": "Votre e-mail a été vérifié et votre candidature attend l’examen d’un administrateur. Revenez ici pour consulter son statut et récupérer votre invitation une fois votre candidature approuvée.",
+      "modeLabel": "Options de candidature",
+      "newApplication": "Nouvelle candidature",
+      "checkApplication": "Consulter une candidature existante",
+      "detailsTitle": "Détails de la candidature",
+      "verifyTitle": "Vérifier votre e-mail",
+      "statusTitle": "Statut de la candidature",
+      "steps": {
+        "application": "Candidature",
+        "email": "Vérification de l’e-mail",
+        "review": "Examen par un administrateur"
+      },
+      "lookupHint": "Utilisez l’adresse e-mail de votre candidature initiale. Nous la vérifierons avant d’afficher le statut de votre candidature.",
+      "sendCode": "Envoyer le code de vérification",
+      "sent": "Nous avons envoyé un code de vérification par e-mail à {email}.",
+      "verifyHint": "Saisissez le code de cinq caractères. La vérification de l’e-mail soumet une nouvelle candidature à l’examen ; elle ne donne pas accès à la ronde.",
+      "emailCode": "Code de vérification de l’e-mail",
+      "verify": "Vérifier l’e-mail",
+      "resend": "Renvoyer le code",
+      "editDetails": "Revenir aux options de candidature",
+      "refreshStatus": "Actualiser le statut",
+      "verifyAgain": "Envoyer un nouveau code de vérification",
+      "proofExpired": "Vérifiez à nouveau votre e-mail avant d’actualiser le statut ou de récupérer une invitation.",
+      "invalidCode": "Ce code de vérification ou cette session est invalide ou a expiré. Demandez un nouveau code et vérifiez à nouveau votre e-mail.",
+      "disabled": "Les candidatures à la ronde sont actuellement indisponibles. Veuillez contacter l’équipe.",
+      "statuses": {
+        "PENDING": {
+          "title": "En attente de l’examen d’un administrateur",
+          "body": "Votre candidature a été reçue. Vous pouvez actualiser ce statut après son examen par un administrateur, ou revenir plus tard et vérifier à nouveau votre e-mail."
+        },
+        "REJECTED": {
+          "title": "Candidature non approuvée",
+          "body": "Votre candidature n’a pas été approuvée. Contactez l’équipe si vous avez des questions ou souhaitez mettre à jour votre candidature."
+        },
+        "NOT_FOUND": {
+          "title": "Aucune candidature trouvée",
+          "body": "Nous n’avons trouvé aucune candidature soumise pour cette adresse e-mail. Vous pouvez commencer une nouvelle candidature ci-dessous."
+        },
+        "AVAILABLE": {
+          "title": "Candidature approuvée",
+          "body": "Votre invitation à la ronde est prête. Utilisez l’invitation affichée ci-dessous pour terminer la configuration de votre accès à la ronde."
+        },
+        "USED": {
+          "title": "Invitation déjà utilisée",
+          "body": "Votre invitation approuvée a déjà été utilisée. Connectez-vous à votre compte ; contactez l’équipe si vous avez besoin d’aide pour accéder à la ronde."
+        },
+        "EXPIRED": {
+          "title": "Invitation expirée",
+          "body": "Votre invitation approuvée a expiré. Contactez l’équipe pour demander une nouvelle invitation."
+        },
+        "UNAVAILABLE": {
+          "title": "Invitation indisponible",
+          "body": "Votre candidature est approuvée, mais aucune invitation active n’est disponible. Contactez l’équipe pour obtenir de l’aide."
+        }
+      },
       "fields": {
         "fullName": "Nom",
         "email": "E-mail",
@@ -4139,7 +4193,7 @@
     "memberships": "Droits et appartenances",
     "attached": "Profils de participants associés",
     "historical": "Dossiers historiques",
-    "setupMeaning": "Configuration terminée signifie que l’e-mail est vérifié et qu’aucun changement de mot de passe n’est actuellement requis. La configuration est indépendante de l’accès au compte et de la participation active.",
+    "setupMeaning": "La configuration est terminée si un mot de passe est défini, l’adresse principale est vérifiée et aucun changement de mot de passe n’est requis. Elle est distincte de l’accès et de la participation active.",
     "noDirectMeaning": "Cette fiche de tuteur n’a pas de compte directement associé. Elle peut conserver un propriétaire historique, indiqué avec le dossier ci-dessous. Une invitation ne crée pas à elle seule un compte de connexion.",
     "passwordRequired": "Ce compte nécessite encore un changement de mot de passe.",
     "restricted": "L’accès au compte est suspendu.",
@@ -4203,6 +4257,80 @@
     "crewDeleteHelp": "This permanently deletes the crew-only login and its patrol and request records. Combined accounts and retained tutor history cannot be deleted here.",
     "crewApplicationHelp": "This records the application decision. Acceptance issues a registration invitation; rejection ends this application. Existing approval rules still apply.",
     "crewRequestHelp": "This records the decision on the named participation request. Approval applies the requested membership change; denial leaves participation unchanged."
+  },
+  "accountInvitation": {
+    "enterCode": "Saisissez l’invitation reçue par e-mail",
+    "reviewTitle": "Vérifiez votre compte et vos accès",
+    "doneTitle": "Invitation acceptée",
+    "saved": "Votre invitation a été acceptée. Le compte et les modifications autorisées ont été enregistrés.",
+    "historyNext": "Votre accès à l’historique est prêt. Vérifiez puis associez le dossier historique exact ; aucune participation actuelle n’a été ajoutée.",
+    "nextHelp": "Le prochain espace indiquera les règles, confirmations scolaires ou étapes de participation qu’il reste à valider.",
+    "savedLoginFailed": "Vos modifications ont été enregistrées, mais la connexion n’a pas abouti. Connectez-vous pour continuer ; ne soumettez pas à nouveau l’invitation.",
+    "signIn": "Se connecter pour continuer",
+    "continue": "Continuer",
+    "preserveIdentity": "Votre nom, votre mot de passe et vos adhésions actuelles restent inchangés. Seul l’accès examiné ici peut être ajouté.",
+    "newAccount": "Créez un compte pour cette invitation. La participation et l’association de dossiers historiques conservent leurs exigences distinctes.",
+    "mfaRequired": "Votre compte exige un mot de passe et une vérification par e-mail. Connectez-vous comme d’habitude, puis revenez examiner cette invitation.",
+    "signInRequired": "Terminez la connexion au compte invité avant d’accepter cet accès. Si la connexion a été interrompue, utilisez le lien de récupération ci-dessous.",
+    "switchAccount": "Passer au compte invité",
+    "grade": "Niveau scolaire",
+    "password": "Créer un mot de passe",
+    "confirmPassword": "Confirmer le mot de passe",
+    "mismatch": "Les mots de passe doivent correspondre.",
+    "reviewLogin": "Je comprends que cette invitation me connecte sans modifier mes adhésions.",
+    "reviewAccess": "J’ai examiné cette invitation et j’accepte d’ajouter à mon compte l’accès décrit.",
+    "accept": "Accepter l’invitation",
+    "codeHelp": "Utilisez le code envoyé directement à votre adresse avant l’expiration indiquée. Il connecte un compte existant ; tout nouvel accès nécessite une confirmation séparée.",
+    "email": "Adresse e-mail invitée",
+    "code": "Code d’invitation",
+    "verify": "Vérifier et continuer",
+    "back": "Retour",
+    "recovery": "Si le code a expiré ou a été remplacé, demandez une nouvelle invitation depuis la page de départ. Votre demande initiale et les dossiers enregistrés sont conservés.",
+    "retry": "Réessayer le chargement",
+    "restart": "Revenir à la saisie de l’invitation",
+    "staffKey": "Saisissez la clé d’invitation du personnel",
+    "sendInvitation": "Recevoir mon code d’invitation par e-mail",
+    "staffHelp": "La clé du personnel autorise l’accès indiqué. Nous envoyons un code d’invitation distinct au destinataire pour confirmer qui l’utilisera.",
+    "checkKey": "Vérifier la clé d’invitation",
+    "emailLinkHelp": "Vous avez déjà reçu un code d’invitation par e-mail ? Ouvrez le lien d’invitation dans ce même message.",
+    "requestCode": "Demander une invitation publique ou un code de connexion",
+    "verifyTuteeTitle": "Confirmez votre e-mail pour cette demande",
+    "verifyTuteeHelp": "Vérifiez votre demande ci-dessous. La confirmation de ce lien reçu par e-mail envoie votre code d’invitation. La demande est finalisée lorsque vous acceptez l’invitation. L’heure de soumission initiale est conservée.",
+    "kind": {
+      "TUTOR": "Ajouter la participation comme tuteur",
+      "CREW": "Ajouter la participation aux rondes",
+      "ADMIN": "Créer un compte administrateur",
+      "COORDINATOR": "Créer un compte coordinateur",
+      "VIEWER": "Créer un compte observateur en lecture seule",
+      "TUTEE": "Confirmer votre demande de soutien scolaire",
+      "HISTORY": "Créer un accès réservé à l’historique",
+      "LOGIN": "Se connecter à votre compte existant"
+    },
+    "invalid": "Ce code d’invitation est incorrect, expiré, remplacé ou déjà utilisé.",
+    "accountChanged": "Le compte invité a changé. Demandez une nouvelle invitation ou contactez le responsable pour examiner le compte.",
+    "restricted": "La participation est restreinte. Demandez au responsable de vérifier la suspension, la révocation ou le départ de l’établissement avant d’ajouter un accès.",
+    "passwordRequired": "Choisissez un mot de passe pour terminer la configuration de votre compte.",
+    "pageTitle": "Invitation de compte",
+    "pageHelp": "Saisissez votre invitation reçue par email ou demandez-en une avec une clé fournie par l’équipe.",
+    "requestTitle": "Demander une invitation de compte",
+    "requestHelp": "Vérifiez votre adresse e-mail pour recevoir un code d’invitation distinct. Un nouveau compte obtient un accès Viewer en lecture seule. Pour un compte existant, le code reçu par e-mail vous connecte sans modifier le mot de passe, l’identité ou les participations. Toute vérification supplémentaire activée reste requise.",
+    "receiptTitle": "Your invitation is ready",
+    "receiptHelp": "Keep this code to continue with your account. Your email is verified.",
+    "showCode": "Show invitation code",
+    "continueSignup": "Continue to signup",
+    "close": "Close",
+    "copyCode": "Copy code",
+    "copied": "Copied",
+    "emailCode": "Email me this code",
+    "emailed": "Emailed",
+    "emailSent": "The invitation has been sent to your verified email.",
+    "handoffRecovery": "Continue with your code. You may be asked to verify your email again.",
+    "verificationCode": "Email verification code",
+    "emailTitle": "Verify your email",
+    "verifyEmailHelp": "Verify your email to connect this invitation to your account.",
+    "sendVerification": "Send verification code",
+    "addAccess": "Add access with an invitation",
+    "addAccessHelp": "Enter an invitation to add tutor, crew or management access to your existing account."
   },
   "unsubscribe": {
     "title": "Préférences E-mail",

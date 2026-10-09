@@ -16,6 +16,7 @@ import { clientIpFromRequest, verifySigninPassword } from "./credentials";
 import { verifyLoginCode } from "./two-factor";
 import { ensureUserUsername } from "./username";
 import { resolveTutorLink } from "./tutor-link";
+import { consumeInvitationLogin } from "./account-invitations";
 
 function bootstrapAdminEmails(): string[] {
   return (env.AUTH_BOOTSTRAP_ADMIN_EMAILS ?? "")
@@ -70,6 +71,8 @@ const {
         intent: { label: "Intent", type: "text" },
         userId: { label: "User ID", type: "text" },
         code: { label: "Verification code", type: "text" },
+        invitationId: { label: "Invitation", type: "text" },
+        proof: { label: "Recipient proof", type: "text" },
       },
       /**
        * Verify identifier (username OR email) + password against the database. Returns the
@@ -77,6 +80,20 @@ const {
        * error — we never reveal whether the identifier or the password was wrong).
        */
       async authorize(raw, request) {
+        if (raw.intent === "account_invitation") {
+          const invitation = z
+            .object({
+              invitationId: z.string().min(1).max(128),
+              proof: z.string().regex(/^[a-f0-9]{64}$/),
+            })
+            .safeParse(raw);
+          return invitation.success
+            ? consumeInvitationLogin(
+                invitation.data.invitationId,
+                invitation.data.proof,
+              )
+            : null;
+        }
         const loginCode = loginCodeSchema.safeParse(raw);
         if (loginCode.success) {
           const user = await db.user.findUnique({
@@ -87,7 +104,8 @@ const {
               email: true,
               twoFactorEnabled: true,
               suspendedAt: true,
-              sessionVersion: true, mergedIntoId: true,
+              sessionVersion: true,
+              mergedIntoId: true,
             },
           });
           // Suspended users still prove both factors before entering the appeal-only area.
@@ -96,7 +114,12 @@ const {
           if (!features.EMAIL_2FA) return null;
           const ok = await verifyLoginCode(user.id, loginCode.data.code);
           return ok
-            ? { id: user.id, name: user.name, email: user.email, sessionVersion: user.sessionVersion }
+            ? {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                sessionVersion: user.sessionVersion,
+              }
             : null;
         }
 
@@ -146,9 +169,19 @@ const {
 
         const identity = await db.user.findUnique({
           where: { id: userId },
-          select: { emailVerifiedAt: true, tutorId: true, sessionVersion: true, mergedIntoId: true },
+          select: {
+            emailVerifiedAt: true,
+            tutorId: true,
+            sessionVersion: true,
+            mergedIntoId: true,
+          },
         });
-        if (!identity || identity.mergedIntoId || identity.sessionVersion !== user.sessionVersion) return null;
+        if (
+          !identity ||
+          identity.mergedIntoId ||
+          identity.sessionVersion !== user.sessionVersion
+        )
+          return null;
         const tutorId = await resolveTutorLink(db, userId, email);
 
         // Bootstrap roles. The FIRST email in AUTH_BOOTSTRAP_ADMIN_EMAILS is the designated HEAD
@@ -164,8 +197,16 @@ const {
           await lockEntity(tx, "program:leadership");
           await lockAccountProfile(tx, userId);
           await tx.$queryRaw`SELECT id FROM "User" WHERE id = ${userId} FOR UPDATE`;
-          const credentialState = await tx.user.findUnique({ where: { id: userId }, select: { sessionVersion: true, mergedIntoId: true } });
-          if (!credentialState || credentialState.mergedIntoId || credentialState.sessionVersion !== user.sessionVersion) return null;
+          const credentialState = await tx.user.findUnique({
+            where: { id: userId },
+            select: { sessionVersion: true, mergedIntoId: true },
+          });
+          if (
+            !credentialState ||
+            credentialState.mergedIntoId ||
+            credentialState.sessionVersion !== user.sessionVersion
+          )
+            return null;
           let roleBump: "HEAD" | "ADMIN" | undefined;
           if (isBootstrapAdmin && identity?.emailVerifiedAt) {
             const [current, headCount] = await Promise.all([
@@ -237,8 +278,17 @@ const {
           },
         });
         // A deleted account must lose its session instead of bouncing between /student and /signin.
-        if (!dbUser || dbUser.mergedIntoId || !Number.isSafeInteger(token.sessionVersion) || dbUser.sessionVersion !== token.sessionVersion) return null;
-        token.tutorId = dbUser.role === "VIEWER" || dbUser.tutorAccessRevoked ? null : dbUser.tutorId;
+        if (
+          !dbUser ||
+          dbUser.mergedIntoId ||
+          !Number.isSafeInteger(token.sessionVersion) ||
+          dbUser.sessionVersion !== token.sessionVersion
+        )
+          return null;
+        token.tutorId =
+          dbUser.role === "VIEWER" || dbUser.tutorAccessRevoked
+            ? null
+            : dbUser.tutorId;
         token.role = dbUser.role;
         token.name = dbUser.name;
       }
