@@ -24,23 +24,35 @@ it("delivers through a caller-owned socket with the installed SMTP runtime", asy
           peer.write("250 queued locally\r\n");
         } else if (data) received += line + "\n";
         else if (line.startsWith("EHLO")) peer.write("250 localhost\r\n");
-        else if (line === "DATA") { data = true; peer.write("354 send message\r\n"); }
-        else if (line === "QUIT") peer.end("221 bye\r\n");
+        else if (line === "DATA") {
+          data = true;
+          peer.write("354 send message\r\n");
+        } else if (line === "QUIT") peer.end("221 bye\r\n");
         else peer.write("250 OK\r\n");
       }
     });
   });
   await new Promise<void>((resolve) => server.listen(0, "127.0.0.1", resolve));
   const address = server.address();
-  if (!address || typeof address === "string") throw new Error("Expected TCP server");
+  if (!address || typeof address === "string")
+    throw new Error("Expected TCP server");
   const socket = new Socket();
   const transport = nodemailer.createTransport({
-    host: "127.0.0.1", port: address.port, socket, secure: false, ignoreTLS: true,
-    connectionTimeout: 1000, greetingTimeout: 1000, socketTimeout: 1000,
+    host: "127.0.0.1",
+    port: address.port,
+    socket,
+    secure: false,
+    ignoreTLS: true,
+    connectionTimeout: 1000,
+    greetingTimeout: 1000,
+    socketTimeout: 1000,
   });
   try {
     const result = await transport.sendMail({
-      from: "sender@example.test", to: "recipient@example.test", subject: "Runtime check", text: "Local fixture only",
+      from: "sender@example.test",
+      to: "recipient@example.test",
+      subject: "Runtime check",
+      text: "Local fixture only",
     });
     expect(result.accepted).toEqual(["recipient@example.test"]);
     expect(received).toContain("Local fixture only");
@@ -48,6 +60,87 @@ it("delivers through a caller-owned socket with the installed SMTP runtime", asy
     socket.destroy();
     transport.close();
     for (const peer of peers) peer.destroy();
-    await new Promise<void>((resolve, reject) => server.close(error => error ? reject(error) : resolve()));
+    await new Promise<void>((resolve, reject) =>
+      server.close((error) => (error ? reject(error) : resolve())),
+    );
   }
 });
+
+it.each([false, true])(
+  "verifies through an owned socket without sending and releases it (stalled greeting=%s)",
+  async (stallGreeting) => {
+    // Exercise the installed dependency's verify path, not just mocks of its interface.
+    // TLS is disabled only for this synthetic loopback transport, never application mail.
+    const commands: string[] = [];
+    const peers = new Set<Socket>();
+    const server = createServer((peer) => {
+      peers.add(peer);
+      peer.on("close", () => peers.delete(peer));
+      if (stallGreeting) return;
+      peer.write("220 localhost synthetic SMTP\r\n");
+      let buffer = "";
+      peer.on("data", (chunk: Buffer) => {
+        buffer += chunk.toString();
+        let end: number;
+        while ((end = buffer.indexOf("\r\n")) >= 0) {
+          const line = buffer.slice(0, end);
+          buffer = buffer.slice(end + 2);
+          commands.push(line.split(" ")[0]!);
+          if (line.startsWith("EHLO")) {
+            peer.write("250-localhost\r\n250 AUTH PLAIN\r\n");
+          } else if (line.startsWith("AUTH")) {
+            peer.write("235 Authentication successful\r\n");
+          } else if (line === "QUIT") {
+            peer.end("221 bye\r\n");
+          } else {
+            peer.write("500 Unexpected command\r\n");
+          }
+        }
+      });
+    });
+    await new Promise<void>((resolve) =>
+      server.listen(0, "127.0.0.1", resolve),
+    );
+    const address = server.address();
+    if (!address || typeof address === "string")
+      throw new Error("Expected TCP server");
+    const socket = new Socket();
+    const transport = nodemailer.createTransport({
+      host: "127.0.0.1",
+      port: address.port,
+      socket,
+      secure: false,
+      ignoreTLS: true,
+      auth: { user: "synthetic", pass: "fixture-only" },
+      connectionTimeout: 1000,
+      greetingTimeout: 1000,
+      socketTimeout: 1000,
+    });
+    try {
+      if (stallGreeting) {
+        // Cancellation uses the same owned socket as the application's overall deadline.
+        // Wait for connect so this proves a live stalled conversation is terminated.
+        socket.once("connect", () => socket.destroy());
+        await expect(transport.verify()).rejects.toThrow();
+        expect(socket.destroyed).toBe(true);
+        expect(commands).toEqual([]);
+      } else {
+        await expect(transport.verify()).resolves.toBe(true);
+        expect(commands).toContain("EHLO");
+        expect(commands).toContain("AUTH");
+      }
+      expect(commands).not.toContain("MAIL");
+      expect(commands).not.toContain("RCPT");
+      expect(commands).not.toContain("DATA");
+    } finally {
+      socket.destroy();
+      transport.close();
+      for (const peer of peers) peer.destroy();
+      await new Promise<void>((resolve, reject) =>
+        server.close((error) => (error ? reject(error) : resolve())),
+      );
+    }
+    expect(socket.destroyed).toBe(true);
+    expect(server.listening).toBe(false);
+  },
+);

@@ -27,10 +27,12 @@ vi.mock("./sender", () => ({
 import { deliverNotifications } from "./notification-delivery";
 import { renderEmail } from "./template";
 import type { EmailMessage } from "./sender";
+import { verifyUnsubscribeToken } from "./unsubscribe-token";
 
 beforeEach(() => {
   vi.resetAllMocks();
   vi.stubEnv("AUTH_URL", "https://school.example.test");
+  vi.stubEnv("AUTH_SECRET", "synthetic-notification-secret");
   mocks.settings.mockResolvedValue({ emailNotificationsEnabled: true });
   mocks.rows.mockResolvedValue([{ id: "notice-1" }]);
   mocks.available.mockReturnValue(true);
@@ -76,7 +78,7 @@ it.each([
     expect(mocks.send).toHaveBeenCalledWith(
       expect.objectContaining({ category: "SECURITY" }),
     );
-    expect(mocks.update).toHaveBeenCalledWith(
+    expect(mocks.updateMany).toHaveBeenCalledWith(
       expect.objectContaining({
         data: expect.objectContaining({ status: "SENT" }) as unknown,
       }),
@@ -108,7 +110,7 @@ it("records a safe failed attempt instead of marking security delivery sent", as
   notice("security", "primary_changed");
   mocks.send.mockRejectedValue(new Error("provider credential sentinel"));
   await deliverNotifications();
-  expect(mocks.update).toHaveBeenCalledWith(
+  expect(mocks.updateMany).toHaveBeenCalledWith(
     expect.objectContaining({
       data: expect.objectContaining({
         status: "PENDING",
@@ -117,7 +119,7 @@ it("records a safe failed attempt instead of marking security delivery sent", as
       }) as unknown,
     }),
   );
-  expect(JSON.stringify(mocks.update.mock.calls)).not.toContain("sentinel");
+  expect(JSON.stringify(mocks.updateMany.mock.calls)).not.toContain("sentinel");
 });
 
 it.each([
@@ -173,3 +175,48 @@ it.each(["security", "information"])(
     );
   },
 );
+
+it.each(["messages", "info", "information"])(
+  "includes a matching signed HTML/plaintext unsubscribe link only for optional %s mail",
+  async (category) => {
+    notice(
+      category,
+      category === "messages" ? "message_received" : "program_update",
+    );
+    await deliverNotifications();
+    const message = mocks.send.mock.calls[0]?.[0] as EmailMessage;
+    const url = new URL(message.presentation!.unsubscribeUrl!);
+    expect(url.origin + url.pathname).toBe(
+      "https://school.example.test/unsubscribe",
+    );
+    expect(verifyUnsubscribeToken(url.searchParams.get("token")!)).toBe(
+      "notice-1",
+    );
+    expect(message.text).toContain(`Unsubscribe: ${url.href}`);
+    expect(url.href).not.toContain("recipient");
+  },
+);
+
+it("never offers an unsubscribe capability in essential security mail", async () => {
+  notice("security", "security_changed");
+  await deliverNotifications();
+  const message = mocks.send.mock.calls[0]?.[0] as EmailMessage;
+  expect(message.presentation?.unsubscribeUrl).toBeUndefined();
+  expect(message.text).not.toContain("Unsubscribe");
+});
+
+it("fails optional delivery safely if a signing secret is unavailable", async () => {
+  notice("messages", "message_received");
+  vi.stubEnv("AUTH_SECRET", "");
+  await deliverNotifications();
+  expect(mocks.send).not.toHaveBeenCalled();
+  expect(mocks.updateMany).toHaveBeenCalledWith(
+    expect.objectContaining({
+      data: expect.objectContaining({
+        status: "PENDING",
+        attempts: 1,
+        leaseUntil: null,
+      }) as unknown,
+    }),
+  );
+});

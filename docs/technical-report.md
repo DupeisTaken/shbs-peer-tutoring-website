@@ -372,6 +372,21 @@ Subject willingness UI: `subjectAvailability.mySubjects` loads on dialog open an
 
 Audit events identify actors by stable account ID. Generic mutation summaries record operations without raw passwords or tokens; detailed correction and approval evidence is retained separately. The audit is not a page-access log, and a generic summary does not guarantee that every direct operation and audit insert share one transaction. Review metadata and undo payloads are not exposed to VIEWER accounts.
 
+`admin.auditLogDetail` is an on-demand, live-staff-authorized projection of one
+stored event. It selects recorded metadata, evidence and undo status/time, excluding
+executable `undoData`; it never joins current actors or targets to reconstruct
+history. The audit page mounts `AuditEventDetails` inside `TableDetails` only for
+staff, refreshing on each opening. Observers keep the existing projected summary
+and cannot call the detail endpoint. The feature renders stored before/after and
+nested evidence with exact field names, an explicit no-evidence state, precise
+local/UTC times and read-only retry. It changes neither writer coverage nor old
+records, approval/undo rules, filtering or pagination. Endpoint, component and
+page regressions cover this boundary; browser evidence belongs in ignored `outputs/`.
+Authorization denial removes that event's private query cache and stays latched
+through failed retries until a fresh successful read. Reopening cannot revive
+revoked evidence. The lazy JSON disclosure preserves primitive types and escaping;
+real QueryClient regressions cover the denial/retry/reopen sequence.
+
 ## Student lifecycle and ownership
 
 The original survey submission determines queue priority. Mailbox-code verification or explicit legacy-link confirmation issues the receipt shown in the popup; final shared invitation review creates or links the account and confirms the original request. Existing credentials and unrelated access remain, while an exclusive Viewer transitions to tutee participation. Account links expire after 24 hours. First assignment of an unverified request starts a fixed seven-day deadline; neither resends nor reassignment extends it.
@@ -472,6 +487,12 @@ Secondary-email requests and confirmations first acquire the `secondary-email-bi
 Database triggers enqueue `EmailDelivery` in the event transaction for account changes and in-app notifications. No-op writes and rollbacks produce no notices. The [delivery worker](../src/server/email/notification-delivery.ts) rechecks program enablement and category preference for optional messages/information, and current recipient ownership for all mail. Security enqueue and dispatch bypass optional gates, including legacy `emailSecurity=false` values. That stored field is preserved but is no longer an editable preference. Disabling program notifications only skips non-security pending rows; previous-primary security notices have the documented ownership exception. Notices contain fixed event descriptions, not profile values, secrets or message bodies. See [operations and retry limits](deployment.md#optional-notification-delivery).
 
 Every [email sender](../src/server/email/sender.ts) call declares SECURITY or PROGRAM purpose; configuration selects a complete sender account per purpose. Student signup confirmation uses PROGRAM, while viewer verification and history invitations use SECURITY. The notification outbox retains the event's internal destination; shared link validation and sign-in callbacks preserve it through password/2FA and session recovery, with current permissions checked at the destination. Shared HTML/plain-text rendering uses runtime branding and program-zone notification timestamps. See [sender setup](deployment.md#email--aliyun-direct-mail-邮件推送) for fallback and delivery checks.
+
+The management-only `program.emailDeliveryStatus` query composes [delivery diagnostics](../src/server/email/delivery-status.ts) with fresh aggregate outbox counts. Each category has a shared in-flight check and a 60-second process-local result cache; checks use separate non-pooled SMTP connections with a 15-second deadline and explicit socket cleanup. Diagnostics never send email or modify the queue. `PENDING` rows with attempts greater than zero surface the first failed attempt, while `FAILED` rows remain a separate exhausted-retry warning. The Program & Refresh email card uses shared notices and a separate read query; failed background reads retain the previous timestamped result with an unknown-current-status warning. Refreshing diagnostics cannot replay a setting mutation or program rollover. No schema changes are needed; direct authentication/signup delivery history is not persisted by these diagnostics.
+
+The ADMIN/HEAD-only `program.resendStuckEmails` mutation [requeues stuck notifications](../src/server/email/resend-stuck.ts) in a transaction with the email-notification setting lock, a bounded `FOR UPDATE SKIP LOCKED` selection and an aggregate audit entry. Only failed or previously attempted pending rows without an active lease qualify, and disabled optional or unavailable production categories are excluded. Resetting the selected rows' attempt budget makes another overlapping request a no-op for those rows. IDs and recipient/payload fields are retained; only the normal worker sends and rechecks current delivery eligibility. The client guards same-tick submissions and keeps accepted-queue state distinct from a failed status refresh, whose recovery only reads. Existing SMTP at-least-once limitations still apply across lease expiry and crashes.
+
+Optional notification delivery adds a signed, 90-day unsubscribe link to HTML and plain text. The public `/unsubscribe` page only reads on GET; an explicit confirmation disables either the originating category or all optional email categories, account-wide across primary and included secondary destinations. The capability cannot enable preferences or suppress essential security/authentication mail. The shared template accepts an optional `unsubscribeUrl`, rejects non-HTTP(S) and credential-bearing URLs, escapes the link, and places an underlined 44 px target after the existing logo, brand and privacy copy. Sender purpose does not imply eligibility: direct student signup confirmation uses PROGRAM but remains essential and has no unsubscribe link.
 
 ### Management registration codes
 

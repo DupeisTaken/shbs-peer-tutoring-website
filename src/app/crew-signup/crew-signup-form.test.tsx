@@ -124,7 +124,7 @@ async function verified(result: unknown = pending) {
   fireEvent.submit(document.querySelector("form")!);
   await waitFor(() =>
     expect(
-      screen.getByRole("heading", { name: "Application status" }),
+      screen.getByRole("heading", { name: "Application Status" }),
     ).toBeTruthy(),
   );
 }
@@ -172,7 +172,7 @@ it("stages all four-part names and answers behind CAPTCHA without showing status
     captchaGrant: "captcha-grant",
   });
   expect(state.captchaRun).toHaveBeenCalledTimes(1);
-  expect(screen.queryByText("Awaiting admin review")).toBeNull();
+  expect(screen.queryByText("Awaiting Admin Review")).toBeNull();
   expect(screen.queryByTestId("invitation-receipt")).toBeNull();
   expect(state.refresh).not.toHaveBeenCalled();
 });
@@ -219,7 +219,7 @@ it("requires mailbox verification for an existing application using the status C
   expect(state.apply).not.toHaveBeenCalled();
   expect(state.verify).not.toHaveBeenCalled();
   expect(state.refresh).not.toHaveBeenCalled();
-  expect(screen.queryByText("Awaiting admin review")).toBeNull();
+  expect(screen.queryByText("Awaiting Admin Review")).toBeNull();
 });
 
 it("normalizes lowercase and pasted O/1 mailbox aliases with the shared five-character rule", async () => {
@@ -239,7 +239,7 @@ it("normalizes lowercase and pasted O/1 mailbox aliases with the shared five-cha
       code: "0IABC",
     }),
   );
-  expect(screen.getByText("Awaiting admin review")).toBeTruthy();
+  expect(screen.getByText("Awaiting Admin Review")).toBeTruthy();
   expect(screen.getByText(en.public.applicationRetryNotice)).toBeTruthy();
 });
 
@@ -265,11 +265,11 @@ it("refreshes status explicitly using the verified proof, then exposes the appro
 });
 
 for (const [status, invitationState, title, body] of [
-  ["REJECTED", undefined, "Application not approved", "Contact the team"],
-  ["NOT_FOUND", undefined, "No application found", "start a new application"],
-  ["ACCEPTED", "USED", "Invitation already used", "Sign in"],
-  ["ACCEPTED", "EXPIRED", "Invitation expired", "request a new invitation"],
-  ["ACCEPTED", "UNAVAILABLE", "Invitation unavailable", "Contact the team"],
+  ["REJECTED", undefined, "Application Not Approved", "Contact the team"],
+  ["NOT_FOUND", undefined, "No Application Found", "start a new application"],
+  ["ACCEPTED", "USED", "Invitation Already Used", "Sign in"],
+  ["ACCEPTED", "EXPIRED", "Invitation Expired", "request a new invitation"],
+  ["ACCEPTED", "UNAVAILABLE", "Invitation Unavailable", "Contact the team"],
 ] as const) {
   it(
     "explains " + (invitationState ?? status) + " without displaying a receipt",
@@ -303,7 +303,7 @@ it("retains the cached review status after refresh failure while removing a stal
   state.refresh.mockRejectedValueOnce(new Error("SIGNUP_MAIL_FAILED"));
   fireEvent.click(screen.getByRole("button", { name: "Refresh status" }));
   await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
-  expect(screen.getByText("Application approved")).toBeTruthy();
+  expect(screen.getByText("Application Approved")).toBeTruthy();
   expect(screen.queryByTestId("invitation-receipt")).toBeNull();
   state.refresh.mockResolvedValueOnce(available);
   fireEvent.click(screen.getByRole("button", { name: "Refresh status" }));
@@ -350,7 +350,7 @@ it("a failed resend invalidates the old receipt/proof and retains cached status 
     screen.getByRole("button", { name: "Send a new verification code" }),
   );
   await waitFor(() => expect(screen.getByRole("alert")).toBeTruthy());
-  expect(screen.getByText("Application approved")).toBeTruthy();
+  expect(screen.getByText("Application Approved")).toBeTruthy();
   expect(screen.queryByTestId("invitation-receipt")).toBeNull();
   expect(screen.queryByRole("button", { name: "Refresh status" })).toBeNull();
 });

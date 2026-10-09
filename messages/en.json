@@ -2181,9 +2181,9 @@
       "modeLabel": "Application options",
       "newApplication": "New application",
       "checkApplication": "Check existing application",
-      "detailsTitle": "Application details",
-      "verifyTitle": "Verify your email",
-      "statusTitle": "Application status",
+      "detailsTitle": "Application Details",
+      "verifyTitle": "Verify Your Email",
+      "statusTitle": "Application Status",
       "steps": {
         "application": "Application",
         "email": "Email verification",
@@ -2204,31 +2204,31 @@
       "disabled": "Crew applications are currently unavailable. Please contact the team.",
       "statuses": {
         "PENDING": {
-          "title": "Awaiting admin review",
+          "title": "Awaiting Admin Review",
           "body": "Your application has been received. You can refresh this status after an admin reviews it, or return later and verify your email again."
         },
         "REJECTED": {
-          "title": "Application not approved",
+          "title": "Application Not Approved",
           "body": "Your application was not approved. Contact the team if you have questions or want to update your application."
         },
         "NOT_FOUND": {
-          "title": "No application found",
+          "title": "No Application Found",
           "body": "We could not find a submitted application for this email. You can start a new application below."
         },
         "AVAILABLE": {
-          "title": "Application approved",
+          "title": "Application Approved",
           "body": "Your crew invitation is ready. Continue with the invitation receipt below to finish setting up crew access."
         },
         "USED": {
-          "title": "Invitation already used",
+          "title": "Invitation Already Used",
           "body": "Your approved invitation has already been redeemed. Sign in to your account; contact the team if you need help accessing crew."
         },
         "EXPIRED": {
-          "title": "Invitation expired",
+          "title": "Invitation Expired",
           "body": "Your approved invitation has expired. Contact the team to request a new invitation."
         },
         "UNAVAILABLE": {
-          "title": "Invitation unavailable",
+          "title": "Invitation Unavailable",
           "body": "Your application is approved, but an active invitation is unavailable. Contact the team for help."
         }
       },
@@ -3139,6 +3139,44 @@
       "decisionRequestHelp": "Approve and Apply carries out the requested action, including a requested rejection. Reject with Feedback declines this proposal and makes no changes. Add a note to explain either decision."
     }
   },
+  "auditEventDetails": {
+    "event": "Recorded event",
+    "action": "Action",
+    "when": "Recorded time",
+    "actor": "Recorded actor name",
+    "actorId": "Actor account ID",
+    "eventId": "Event ID",
+    "kind": "Event kind",
+    "operation": "Operation",
+    "entity": "Target type",
+    "entityId": "Target ID",
+    "approval": "Related approval",
+    "openApproval": "Open approval · {id}",
+    "undoStatus": "Undo status",
+    "undone": "Undone",
+    "notUndone": "Not marked as undone",
+    "undoneAt": "Undo time",
+    "evidence": "Stored evidence",
+    "rawEvidence": "View stored JSON",
+    "rawEvidenceHelp": "JSON preserves value types: quoted text differs from numbers, booleans and null. Internal undo instructions are excluded.",
+    "evidenceHelp": "These are the values saved with this event, not current records. Older events may have only partial details. Field names and supplied text are preserved as recorded.",
+    "noEvidence": "No detailed evidence was recorded for this event.",
+    "before": "Before",
+    "after": "After",
+    "notRecorded": "Not recorded",
+    "nullValue": "Null (explicitly recorded)",
+    "emptyString": "Empty text",
+    "emptyList": "Empty list []",
+    "emptyObject": "Empty object",
+    "trueValue": "True",
+    "falseValue": "False",
+    "loading": "Loading event details…",
+    "accessDenied": "Event details access denied",
+    "accessDeniedHelp": "Your session no longer has access to these details. Cached evidence is hidden.",
+    "loadFailed": "Event details could not be loaded",
+    "refreshFailed": "Event details could not be refreshed. The last loaded evidence remains visible.",
+    "retry": "Retry"
+  },
   "auditFilters": {
     "subtitle": "Trace each user’s actions, proposals, and decisions across the program.",
     "user": "User",
@@ -3332,11 +3370,39 @@
     "enable": "Enable email notifications",
     "essential": "Applies immediately. Turning this off preserves preferences and discards queued optional notices. Verification, recovery and security emails continue.",
     "unavailable": "Configure email delivery before enabling notifications.",
-    "failed": "{count} deliveries failed after retries. Check the email transport and delivery records.",
+    "failed": "Emails that exhausted delivery retries: {count}. Check the email service and delivery records.",
     "saved": "Email settings saved.",
     "bindingTitle": "Secondary-Email Binding",
     "bindingHelp": "Let people optionally add and verify secondary emails. Independent of notifications. Turning this off preserves existing addresses and primary sign-in requirements.",
-    "bindingEnable": "Allow secondary-email binding"
+    "bindingEnable": "Allow secondary-email binding",
+    "loading": "Loading email settings…",
+    "retrySettings": "Retry settings",
+    "settingsFailed": "Email settings could not be loaded. Retry before changing settings.",
+    "deliveryTitle": "Email Delivery Status",
+    "deliveryHelp": "Checks SMTP connection and authentication, not inbox delivery. Checks are shared for up to one minute and update while this page is open. Refreshing status does not resend emails or advance the program.",
+    "refreshStatus": "Refresh status",
+    "checking": "Checking email status…",
+    "statusFailed": "Email status could not be checked. Delivery health is unknown. Refresh status to try again.",
+    "statusStale": "Status refresh failed. The results below are from the last check; current delivery health is unknown.",
+    "checkedAt": "Last checked: {time}",
+    "retrying": "Emails waiting to retry after a delivery error: {count}. Check the email service even if its connection check passes.",
+    "channel": {
+      "SECURITY": "Security emails",
+      "PROGRAM": "Program emails"
+    },
+    "transport": {
+      "READY": "SMTP connection and authentication passed.",
+      "UNAVAILABLE": "SMTP connection or authentication failed. Email delivery may be unavailable. Ask the deployment administrator to check the email service.",
+      "UNCONFIGURED": "SMTP delivery is not configured. Ask the deployment administrator to configure this sender.",
+      "LOCAL": "Development logging only. No email is sent to an inbox."
+    },
+    "resendStuck": "Resend stuck emails",
+    "resending": "Queuing emails…",
+    "resendHelp": "Queues up to 100 eligible failed or retrying emails for background delivery using current settings and recipient preferences. Emails already sent are not resent.",
+    "resendQueued": "Queued for another delivery attempt: {count}. Delivery is not yet confirmed.",
+    "resendNone": "No emails were eligible for another attempt.",
+    "resendFailed": "Could not queue the emails. Try again.",
+    "resendRefreshFailed": "The resend request was accepted, but status could not be refreshed. Use Refresh status to check the queue before starting another batch."
   },
   "membership": {
     "title": "Roles and Participation",
@@ -4265,5 +4331,37 @@
     "sendVerification": "Send verification code",
     "addAccess": "Add access with an invitation",
     "addAccessHelp": "Enter an invitation to add tutor, crew or management access to your existing account."
+  },
+  "unsubscribe": {
+    "title": "Email Preferences",
+    "description": "Choose which notification emails you receive. No sign-in is needed to unsubscribe.",
+    "manage": "Manage all email preferences",
+    "manageHelp": "Sign in to your account to review your preferences or subscribe again.",
+    "loading": "Checking your email link…",
+    "loadErrorTitle": "Unable to Check This Link",
+    "loadErrorHelp": "Please try again. Your email preferences have not been changed by this page.",
+    "retry": "Try again",
+    "invalidTitle": "This Link Is Unavailable",
+    "invalidHelp": "The link may be incomplete or expired. Open a recent notification email, or sign in below to manage your email preferences.",
+    "successTitle": "You’re Unsubscribed",
+    "successAll": "Optional notification emails are now off for this account, including copies to verified secondary addresses.",
+    "successCategory": "{category} emails are now off for this account, including copies to verified secondary addresses.",
+    "home": "Return to the website",
+    "already": "{category} emails are already off for this account. You can also stop all optional notification emails below.",
+    "choiceTitle": "What Would You Like to Stop?",
+    "choiceHelp": "Choose an option, then confirm your unsubscribe request.",
+    "saving": "Unsubscribing…",
+    "confirmAll": "Unsubscribe from all optional emails",
+    "confirmCategory": "Unsubscribe from these emails",
+    "messages": "Private-message notifications",
+    "messagesHelp": "Email alerts when someone sends you a private message. Your website inbox stays available.",
+    "info": "Program notifications",
+    "infoHelp": "Email updates about the tutoring program. Your website notifications stay available.",
+    "all": "All optional notification emails",
+    "allHelp": "Both private-message and program notification emails.",
+    "accountWide": "This changes preferences for the account associated with this link, including copies sent to its verified secondary email addresses.",
+    "saveError": "We couldn’t confirm the update. Your selection is still here. Please try again; repeating an unsubscribe request is safe.",
+    "securityTitle": "Essential Emails Stay On",
+    "securityHelp": "Account security, verification and recovery emails are unaffected. An email already being sent may still arrive."
   }
 }

@@ -1,6 +1,7 @@
 import { db } from "~/server/db";
 import { emailSender, isEmailDeliveryAvailable } from "./sender";
 import { emailUrl, notificationDestination } from "./urls";
+import { notificationUnsubscribeUrl } from "./unsubscribe-token";
 
 const descriptions: Record<string, string> = {
   primary_changed: "Your primary account email changed",
@@ -100,13 +101,20 @@ export async function deliverNotifications(limit = 10) {
       const footer = essential
         ? "If you do not recognize this activity, contact the program team through private support."
         : "Sign in to review the update. You can manage optional email notifications in account settings.";
+      // Only optional notification classes receive this narrowly scoped account capability.
+      const unsubscribeUrl = ["messages", "info", "information"].includes(
+        row.category,
+      )
+        ? notificationUnsubscribeUrl(id)
+        : undefined;
       await emailSender.send({
         category,
         to: row.recipient,
         subject,
         messageId: `<account-notice-${id}@shbs-notifications>`,
-        text: `${subject}.\n\n${time} (${timeZone})\n\n${footer}\n\n${link}`,
+        text: `${subject}.\n\n${time} (${timeZone})\n\n${footer}\n\n${link}${unsubscribeUrl ? `\n\nUnsubscribe: ${unsubscribeUrl}` : ""}`,
         presentation: {
+          ...(unsubscribeUrl ? { unsubscribeUrl } : {}),
           eyebrow: essential
             ? "ACCOUNT SECURITY"
             : row.category === "messages"
@@ -123,8 +131,10 @@ export async function deliverNotifications(limit = 10) {
           },
         },
       });
-      await db.emailDelivery.update({
-        where: { id },
+      // Opt-out can cancel a leased row while SMTP is in flight. Do not resurrect
+      // that cancellation when this attempt eventually completes or fails.
+      await db.emailDelivery.updateMany({
+        where: { id, status: "PENDING" },
         data: {
           status: "SENT",
           completedAt: new Date(),
@@ -136,8 +146,8 @@ export async function deliverNotifications(limit = 10) {
     } catch {
       // Store a safe diagnostic, never provider exceptions containing addresses or credentials.
       const attempts = row.attempts + 1;
-      await db.emailDelivery.update({
-        where: { id },
+      await db.emailDelivery.updateMany({
+        where: { id, status: "PENDING" },
         data: {
           status: attempts >= 5 ? "FAILED" : "PENDING",
           attempts,

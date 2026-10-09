@@ -84,7 +84,9 @@ Disabling the setting cancels pending optional notices and preserves personal pr
 
 The independent **Secondary-Email Binding** switch is also immediate and editable only by ADMIN/HEAD; coordinators cannot propose changes to either email switch. Binding availability defaults on to preserve the existing workflow. Turning it off blocks add/resend/confirm operations, including a code issued before the switch changed. It preserves existing account addresses, sign-in/recovery, primary-email changes and removal/cancellation. A secondary email is never required for signup, setup or use. This switch does not require notification emails to be enabled.
 
-The settings panel reports terminal delivery failures; operators should inspect the safe failure summaries in `EmailDelivery` and follow the [delivery operations guide](deployment.md#optional-notification-delivery). Essential authentication mail remains independent.
+The settings panel checks both security and program SMTP connection/authentication, warns about unavailable or missing transport, and reports retrying and terminal notification failures separately. **Refresh status** reads diagnostics without sending mail or changing the program; checks may be cached for one minute. Passing the check does not guarantee inbox delivery. Operators should inspect the safe failure summaries in `EmailDelivery` and follow the [delivery operations guide](deployment.md#optional-notification-delivery). Essential authentication mail remains independent.
+
+ADMIN/HEAD can use **Resend stuck emails** to queue up to 100 eligible failed or retrying notifications after transport recovery. It excludes active leases, completed/skipped mail, unconfigured production categories and disabled optional notifications. The normal worker applies current preferences and recipient ownership before delivery. This immediate, audited action cannot be proposed by coordinators; a successful result confirms queuing rather than inbox delivery.
 
 ## Schedule rooms and periods
 
