@@ -153,6 +153,9 @@ export default function CrewPage() {
                               }),
                             refresh: refreshReviewed,
                             approvalId: queuedApprovalId,
+                            renderError: (message) => (
+                              <AcademicError message={message} />
+                            ),
                           })
                         }
                       >
@@ -174,6 +177,9 @@ export default function CrewPage() {
                               }),
                             refresh: refreshReviewed,
                             approvalId: queuedApprovalId,
+                            renderError: (message) => (
+                              <AcademicError message={message} />
+                            ),
                           })
                         }
                       >
@@ -282,6 +288,9 @@ export default function CrewPage() {
                             }),
                           refresh: refreshReviewed,
                           approvalId: queuedApprovalId,
+                          renderError: (message) => (
+                            <AcademicError message={message} />
+                          ),
                         })
                       }
                     >
@@ -304,6 +313,9 @@ export default function CrewPage() {
                             }),
                           refresh: refreshReviewed,
                           approvalId: queuedApprovalId,
+                          renderError: (message) => (
+                            <AcademicError message={message} />
+                          ),
                         })
                       }
                     >
@@ -468,6 +480,9 @@ export default function CrewPage() {
                                 }),
                               refresh: refreshReviewed,
                               approvalId: queuedApprovalId,
+                              renderError: (message) => (
+                                <AcademicError message={message} />
+                              ),
                               repeatAfterRefresh: true,
                             })
                           }
@@ -495,6 +510,9 @@ export default function CrewPage() {
                                 }),
                               refresh: refreshReviewed,
                               approvalId: queuedApprovalId,
+                              renderError: (message) => (
+                                <AcademicError message={message} />
+                              ),
                               repeatAfterRefresh: true,
                             })
                           }
@@ -518,6 +536,9 @@ export default function CrewPage() {
                                 removeCrew.mutateAsync({ userId: u.id }),
                               refresh: refreshReviewed,
                               approvalId: queuedApprovalId,
+                              renderError: (message) => (
+                                <AcademicError message={message} />
+                              ),
                             })
                           }
                         >

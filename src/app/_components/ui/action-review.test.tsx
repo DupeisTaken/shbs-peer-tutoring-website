@@ -17,7 +17,7 @@ import { queuedApprovalId } from "~/lib/approval-outcome";
 
 const commit = vi.fn<() => Promise<unknown>>();
 const refresh = vi.fn<() => Promise<unknown>>();
-function Example() {
+function Example({ repeat = false }: { repeat?: boolean }) {
   const review = useActionReview();
   return (
     <>
@@ -33,6 +33,7 @@ function Example() {
             commit,
             refresh,
             approvalId: queuedApprovalId,
+            repeatAfterRefresh: repeat,
           })
         }
       >
@@ -42,14 +43,14 @@ function Example() {
     </>
   );
 }
-const show = (locale = "en") =>
+const show = (locale = "en", repeat = false) =>
   render(
     <NextIntlClientProvider
       locale={locale}
       timeZone="UTC"
       messages={locale === "zh" ? zh : en}
     >
-      <Example />
+      <Example repeat={repeat} />
     </NextIntlClientProvider>,
   );
 const open = () => {
@@ -206,4 +207,25 @@ it("keeps accepted writes locked through refresh and provides read-only recovery
   );
   expect(commit).toHaveBeenCalledOnce();
   expect(refresh).toHaveBeenCalledTimes(2);
+});
+
+it("opens a fresh reversible review after closing and recovering an accepted write", async () => {
+  refresh.mockRejectedValueOnce(new Error("Read failed"));
+  show("en", true);
+  open();
+  fireEvent.click(screen.getByRole("button", { name: "Delete record" }));
+  await screen.findByText(en.actionReview.refreshFailed);
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  fireEvent.click(screen.getByRole("button", { name: "Refresh list" }));
+  await waitFor(() =>
+    expect(
+      screen.getByRole<HTMLButtonElement>("button", { name: "Review record" })
+        .disabled,
+    ).toBe(false),
+  );
+  open();
+  expect(screen.getByRole("dialog")).toBeTruthy();
+  fireEvent.click(screen.getByRole("button", { name: "Delete record" }));
+  await waitFor(() => expect(commit).toHaveBeenCalledTimes(2));
+  await screen.findByText(en.actionReview.applied);
 });

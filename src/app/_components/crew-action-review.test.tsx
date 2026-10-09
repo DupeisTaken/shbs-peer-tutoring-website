@@ -11,11 +11,13 @@ import {
 import { afterEach, beforeEach, expect, it, vi } from "vitest";
 import { NextIntlClientProvider } from "next-intl";
 import en from "../../../messages/en.json";
+import zh from "../../../messages/zh.json";
 import CrewPage from "../(admin)/admin/crew/page";
 import { ReadOnlyProvider } from "./read-only";
 
 const state = vi.hoisted(() => ({
   status: "ACTIVE",
+  requestKind: "OPT_OUT",
   empty: [],
   commit: vi.fn(),
   refresh: vi.fn<(name: string) => Promise<void>>(),
@@ -66,7 +68,7 @@ vi.mock("~/trpc/react", () => ({
                         {
                           id: "request-1",
                           member: "Synthetic requester",
-                          kind: "OPT_OUT",
+                          kind: state.requestKind,
                           approvable: true,
                         },
                       ]
@@ -91,6 +93,7 @@ vi.mock("~/trpc/react", () => ({
 }));
 beforeEach(() => {
   state.status = "ACTIVE";
+  state.requestKind = "OPT_OUT";
   state.error = null;
   vi.resetAllMocks();
   state.refresh.mockResolvedValue(undefined);
@@ -108,9 +111,13 @@ beforeEach(() => {
   });
 });
 afterEach(cleanup);
-const show = (readOnly = false) =>
+const show = (readOnly = false, locale = "en") =>
   render(
-    <NextIntlClientProvider locale="en" messages={en} timeZone="UTC">
+    <NextIntlClientProvider
+      locale={locale}
+      messages={locale === "zh" ? zh : en}
+      timeZone="UTC"
+    >
       <ReadOnlyProvider value={readOnly}>
         <CrewPage />
       </ReadOnlyProvider>
@@ -216,3 +223,28 @@ it("withholds consequential actions from a viewer", () => {
   for (const [label] of cases)
     expect(screen.queryByRole("button", { name: label })).toBeNull();
 });
+
+it.each(["en", "zh"])(
+  "keeps the crew reentry academic guard localized in %s",
+  async (locale) => {
+    const messages = locale === "zh" ? zh : en;
+    state.requestKind = "REENTRY";
+    state.error = new Error("ACADEMIC_CONFIRMATION_REQUIRED");
+    show(false, locale);
+    fireEvent.click(
+      screen.getByRole("button", { name: messages.admin.crew.approve }),
+    );
+    fireEvent.click(
+      within(screen.getByRole("dialog")).getByRole("button", {
+        name: messages.admin.crew.approve,
+      }),
+    );
+    expect((await screen.findByRole("alert")).textContent).toBe(
+      messages.academics.confirmationRequired,
+    );
+    expect(screen.getByRole("dialog").textContent).not.toContain(
+      "ACADEMIC_CONFIRMATION_REQUIRED",
+    );
+    expect(state.refresh).not.toHaveBeenCalled();
+  },
+);

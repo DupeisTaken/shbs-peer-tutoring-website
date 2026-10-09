@@ -16,6 +16,7 @@ const mocks = vi.hoisted(() => ({
   role: "ADMIN",
   pending: false,
   loading: false,
+  removed: false,
   queryError: null as { message: string } | null,
   writeError: null as { message: string; data?: { approvalId: string } } | null,
   calls: [] as { operation: string; input: unknown }[],
@@ -66,21 +67,23 @@ vi.mock("~/trpc/react", () => {
           useQuery: () => ({
             data: mocks.loading
               ? undefined
-              : [
-                  {
-                    id: "room",
-                    name: "Science room",
-                    unavailabilities: [
-                      {
-                        id: "block",
-                        dayOfWeek: 1,
-                        startMin: 1380,
-                        endMin: 1440,
-                        reason: "Weekly maintenance",
-                      },
-                    ],
-                  },
-                ],
+              : mocks.removed
+                ? []
+                : [
+                    {
+                      id: "room",
+                      name: "Science room",
+                      unavailabilities: [
+                        {
+                          id: "block",
+                          dayOfWeek: 1,
+                          startMin: 1380,
+                          endMin: 1440,
+                          reason: "Weekly maintenance",
+                        },
+                      ],
+                    },
+                  ],
             isLoading: mocks.loading,
             error: mocks.queryError,
             refetch: mocks.refetch,
@@ -101,6 +104,7 @@ beforeEach(() => {
   mocks.role = "ADMIN";
   mocks.pending = false;
   mocks.loading = false;
+  mocks.removed = false;
   mocks.queryError = null;
   mocks.writeError = null;
   mocks.calls = [];
@@ -352,4 +356,36 @@ it("shows loading and retry feedback and disables writes while a mutation is pen
       .getByRole("button", { name: "Edit period: Monday 23:00" })
       .hasAttribute("disabled"),
   ).toBe(true);
+});
+
+it("retains the applied receipt when refresh removes the room card", async () => {
+  const view = render(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <RoomsPage />
+    </NextIntlClientProvider>,
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: en.admin.rooms.managePeriods }),
+  );
+  fireEvent.click(
+    screen.getByRole("button", { name: en.admin.rooms.deleteRoom }),
+  );
+  fireEvent.click(
+    within(screen.getByRole("dialog")).getByRole("button", {
+      name: en.admin.rooms.deleteRoom,
+    }),
+  );
+  await screen.findByText(en.actionReview.applied);
+  mocks.removed = true;
+  view.rerender(
+    <NextIntlClientProvider locale="en" messages={en}>
+      <RoomsPage />
+    </NextIntlClientProvider>,
+  );
+  expect(screen.queryByRole("article")).toBeNull();
+  expect(screen.getByRole("dialog").textContent).toContain(
+    en.actionReview.applied,
+  );
+  fireEvent.click(screen.getByRole("button", { name: "Close" }));
+  expect(screen.queryByRole("dialog")).toBeNull();
 });

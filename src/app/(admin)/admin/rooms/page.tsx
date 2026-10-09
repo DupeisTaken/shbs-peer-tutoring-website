@@ -65,12 +65,14 @@ function RoomCard({
   coordinator,
   onChanged,
   onDeleted,
+  review,
 }: {
   room: Room;
   readOnly: boolean;
   coordinator: boolean;
   onChanged: () => Promise<unknown>;
   onDeleted: () => Promise<unknown>;
+  review: ReturnType<typeof useActionReview>;
 }) {
   const t = useTranslations("admin.rooms");
   const format = useFormatter();
@@ -111,7 +113,6 @@ function RoomCard({
   });
   const rename = api.admin.updateRoom.useMutation({ onSuccess, onError });
   const deleteRoom = api.admin.deleteRoom.useMutation();
-  const review = useActionReview();
   const busy =
     add.isPending ||
     edit.isPending ||
@@ -135,7 +136,6 @@ function RoomCard({
   };
   return (
     <article className="card overflow-hidden p-0" aria-label={room.name}>
-      {!readOnly && review.dialog}
       <div className="flex flex-wrap items-center justify-between gap-3 p-4 sm:p-5">
         <div className="min-w-0 space-y-1">
           <h2 className="text-lg font-semibold break-words text-slate-900">
@@ -471,6 +471,8 @@ export default function RoomsPage() {
   const t = useTranslations("admin.rooms");
   const viewer = useReadOnly();
   const utils = api.useUtils();
+  // Deleting a room removes its card; its receipt and read recovery belong to the list.
+  const review = useActionReview();
   const rooms = api.admin.rooms.useQuery(undefined, {
     staleTime: REFERENCE_STALE_TIME,
   });
@@ -502,6 +504,7 @@ export default function RoomsPage() {
   });
   return (
     <div className="space-y-6">
+      {!readOnly && review.dialog}
       <div>
         <h1 className="page-title">{t("title")}</h1>
         <p className="muted mt-1 max-w-3xl">{t("description")}</p>
@@ -569,6 +572,7 @@ export default function RoomsPage() {
             room={room}
             readOnly={readOnly}
             coordinator={coordinator}
+            review={review}
             onChanged={invalidate}
             onDeleted={() => invalidateAndReport(utils.admin.rooms)}
           />

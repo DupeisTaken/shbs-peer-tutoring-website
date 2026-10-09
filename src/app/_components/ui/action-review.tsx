@@ -19,6 +19,8 @@ export type ReviewedAction = {
   refresh: () => Promise<unknown>;
   /** Only the feature may recognize an existing proposal instead of an error. */
   approvalId?: (error: unknown) => string | undefined;
+  /** Features retain translated guidance for their own stable server error codes. */
+  renderError?: (message: string) => ReactNode;
   /** Reversible membership changes may become meaningful again after a fresh read. */
   repeatAfterRefresh?: boolean;
 };
@@ -30,10 +32,16 @@ export function useActionReview() {
   const [blockedKeys, setBlockedKeys] = useState<ReadonlySet<string>>(
     () => new Set(),
   );
+  const [generation, setGeneration] = useState(0);
   const [busy, setBusy] = useState(false);
   const [needsRefresh, setNeedsRefresh] = useState(false);
   const open = (next: ReviewedAction) => {
-    if (!busy && !needsRefresh && !blockedKeys.has(next.key)) setAction(next);
+    if (!busy && !needsRefresh && !blockedKeys.has(next.key)) {
+      // A recovered reversible action can reuse its domain key. Each deliberate
+      // opening needs a fresh dialog lifetime, including after inline recovery.
+      setGeneration((value) => value + 1);
+      setAction(next);
+    }
   };
   return {
     open,
@@ -41,7 +49,7 @@ export function useActionReview() {
     blocked: (key: string) => busy || needsRefresh || blockedKeys.has(key),
     dialog: action ? (
       <ActionReview
-        key={action.key}
+        key={`${generation}:${action.key}`}
         action={action}
         onClose={() => setAction(null)}
         onBusy={setBusy}
@@ -189,7 +197,7 @@ function ActionReview({
       {action.details}
       {error && (
         <InlineNotice tone="error" announcement="alert">
-          {error}
+          {action.renderError ? action.renderError(error) : error}
         </InlineNotice>
       )}
       {result}
