@@ -55,9 +55,9 @@ private-message bodies are excluded; failed attempts are distinct from applied c
 
 | Purpose | User entry | Management entry / outcome |
 | --- | --- | --- |
-| Request tutoring | Home → Request a Tutor; full application at `/signup` → mailbox code or legacy email-link confirmation → invitation popup → `/register` review | Signup Requests (`/admin/requests`): verify demand, match at original survey priority, review current and processed requests |
+| Request tutoring | Home → Request a Tutor; full application at `/tutee-signup` → mailbox code or legacy email-link confirmation → invitation popup → `/register-account` review | Signup Requests (`/admin/requests`): verify demand, match at original survey priority, review current and processed requests |
 | Become a tutor | Home → Become a Tutor; `/tutor-signup` | Tutor Applications: select qualified panel and chair, interview, vote and decide; record actual completion in `/admin/applications#interview-records` |
-| Create an accepted tutor account or add invited access | Single code card at `/register`, then required mailbox verification and shared account/access review | Registration Codes and Users & Roles; an application, roster row or displayed invitation alone is not a login or access grant |
+| Create an accepted tutor account or add invited access | Single code card at `/register-account` (published `/register` links redirect there), then required mailbox verification and shared account/access review | Registration Codes and Users & Roles; an application, roster row or displayed invitation alone is not a login or access grant |
 | Participate as a tutee | `/student`, with Dashboard, Schedule, Requests, Attendance, Support, Messages and Account tabs | Tutee Roster, Pairings, withdrawals and discipline; explicit account ownership controls records |
 | Teach and record attendance | Tutor Dashboard (`/dashboard`), Settings (`/settings`), Handbook (`/handbook`) | Attendance Submissions, Attendance Flags, Service Hours and Hour Adjustments |
 | Schedule teaching | Tutors maintain availability and pairing defaults | Subjects & Levels, Time Slots, Rooms and Pairings; room blocks warn against conflicts |
@@ -114,7 +114,7 @@ When Email 2FA is on, password changes also require an emailed verification code
 | --- | --- |
 | Program timezone | Head applies a supported IANA region; Admin requests Head review. Existing instants remain fixed; weekly slots remain school wall-clock times |
 | Tutor and tutee recruitment | Head applies each active-period window; Admin requests Head review for acceptance, optional start/end times and preview link. Clearing a start time still respects the switch, end time and setup requirements; see [recruitment windows](#tutor-and-tutee-recruitment-windows) |
-| Names and grades | Head applies offered grades and independently controls **Use preferred names** and **Show names in another language**; Admin requests Head review; see [name fields and display settings](user-guide.md#configure-signup-forms) |
+| Names and grades | Head applies offered grades and independently controls **Use preferred names** and **Show names in another language**; Admin requests Head review; see [name fields and display settings](user-guide.md#names-and-academic-details) |
 | Subjects, levels, slots and rooms | Management catalogues used by application, availability and pairing workflows |
 | Policy versions | Published database revisions require new acceptance for participation; changing a bundled policy draft does not publish it |
 | School calendar | Staff define holidays and make-up days used for school-day appeal deadlines |
@@ -237,12 +237,12 @@ Historical participants can remain accountless. After import, use [historical re
 | --- | --- |
 | People and reference data | Tutor, Tutee, User account references, Term, SubjectLevel, CourseGroup, Subject, Room, TimeSlot, SchoolCalendarDay |
 | Scheduling | RoomUnavailability, TutorAvailability, TuteeAvailability, TutorSubjectWillingness, Pairing, PairingTutee |
-| Attendance and hours | Session, SessionTutee, TutorMeeting, MeetingAttendance, ServiceHourAdjustment, Patrol, PatrolObservation, SessionFlag |
+| Attendance and hours | Session, SessionTutee, TutorMeeting, MeetingAttendance, ServiceHourAdjustment, Patrol, PatrolObservation, PatrolCreditWindow, SessionFlag |
 | Applications and membership history | TutorApplication, ApplicationSubjectIntent, InterviewAssignment, InterviewVote, TutorStatusRequest, TuteeRemovalRequest, CrewApplication, CrewStatusRequest |
-| Student and academic history | StudentSurvey, StudentRequestReview, StudentQuarterBlock, StudentProfileOwnership, PolicyAcceptance, StudentFeedback, StudentAppeal, TutorQualification, QualificationGrant, AcademicProfile, AcademicConfirmation |
+| Student and academic history | StudentSurvey, StudentRequestReview, StudentQuarterBlock, StudentProfileOwnership, HistoricalAcademicRecord, PolicyAcceptance, DisciplinaryCard, StudentFeedback, StudentAppeal, TutorQualification, QualificationGrant, AcademicProfile, AcademicConfirmation |
 | Announcements | Announcement, AnnouncementAck |
 
-This is a program-record archive, not a full deployment backup. It excludes account passwords, roles and access settings; verification/registration/reset tokens; private messages; executable approval and audit payloads; live program configuration; website content; and uploaded files. `User.csv` contains reference IDs, names and emails only. Its accounts must already exist with matching values; importing never creates logins or changes account privileges. New tutor handles cannot collide with account handles, and account-owned email addresses must be reconciled through account management first. Existing users retain their own account-to-tutor links; the archive does not create those links by matching names or email addresses. Student ownership rows use explicit IDs and cannot claim a profile linked to another account. Imported survey verification hashes are newly randomized, so an old verification link cannot become usable again.
+This is a program-record archive, not a full deployment backup. It excludes retained tutor ownership links and historical academic correction revisions; account passwords, roles and access settings; verification/registration/reset tokens; private messages; executable approval and audit payloads; live program configuration; website content; and uploaded files. `User.csv` contains reference IDs, names and emails only. Its accounts must already exist with matching values; importing never creates logins or changes account privileges. New tutor handles cannot collide with account handles, and account-owned email addresses must be reconciled through account management first. Existing users retain their own account-to-tutor links; the archive does not create those links by matching names or email addresses. Student ownership rows use explicit IDs and cannot claim a profile linked to another account. Imported survey verification hashes are newly randomized, so an old verification link cannot become usable again.
 
 ### Prepare CSV files
 
@@ -312,7 +312,7 @@ The published audience is fixed. For coordinator proposals, approval freezes the
 
 ## Message permissions and supervision
 
-HEAD/ADMIN configure **Message Supervision → Contact permissions**. Management roles default to all available accounts; other roles default to management. Select a union of groups:
+In **Message Supervision → Contact permissions**, Head applies configuration changes; Admin submits them for Head review. Management roles default to all available accounts; other roles default to management. Select a union of groups:
 
 | Group | Who it includes |
 | --- | --- |
@@ -326,7 +326,7 @@ A user override **replaces** the role groups. An empty override prevents new sen
 
 Messages deliver immediately, with no pre-delivery approval queue. HEAD/ADMIN can search disclosed messages by participant or text and filter visible/hidden content. **View conversation** shows a participant pair; **All conversations** clears that filter. Opening content requires a reason and records review evidence without marking it read for the recipient.
 
-Hiding removes content from participants' responses while retaining it for authorized review; restoring makes it visible again. Both actions require a reason and keep actor/time evidence. There is no message-deletion control. Participant-only messages remain outside supervision, and coordinators cannot inspect other people's conversations. Publish wording that matches this disclosure using the [policy publication procedure](policies/README.md#publish-a-revision).
+Hiding removes content from participants' responses while retaining it for authorized review; restoring makes it visible again. Both actions require a reason and keep actor/time evidence. Admin/Head can hide messages or impose messaging restrictions directly; restoring messages or removing restrictions requires Head application, with Admin requests held for review. There is no message-deletion control. Participant-only messages remain outside supervision, and coordinators cannot inspect other people's conversations. Publish wording that matches this disclosure using the [policy publication procedure](policies/README.md#publish-a-revision).
 
 ## Publish pages and translations
 
@@ -340,7 +340,7 @@ Translations cover interface strings and supported public text such as news, sec
 
 In **Program & Refresh**, Head applies **Tutor recruitment** and **Tutee recruitment** settings separately for the active period; Admin submits each change for Head review. Each panel has an **Accept applications** switch, independently optional starting and ending times, and an optional external preview link. Save each panel separately. Times use the configured program timezone; the start is inclusive and the end is exclusive. An enabled form with neither bound accepts applications immediately, provided its prerequisites are configured. Turning off the switch pauses applications regardless of dates. Period refresh creates a new period with the default open switches and no time bounds; configure its intake before announcing it.
 
-Participants can always read `/tutor-signup` and `/signup`. Before the start, after the end, while paused, or while setup is incomplete, the questions remain visible with disabled response fields. Published policies remain readable. Preview mode never exposes participant responses. An external sheet is optional; its owner must grant viewer-only permissions because the website cannot control a third-party sheet's editing rights.
+Participants can always read `/tutor-signup` and `/tutee-signup`; old `/signup` links redirect to the tutee form. Before the start, after the end, while paused, or while setup is incomplete, the questions remain visible with disabled response fields. Published policies remain readable. Preview mode never exposes participant responses. An external sheet is optional; its owner must grant viewer-only permissions because the website cannot control a third-party sheet's editing rights.
 
 Publish the English source of both policies through **Policy Documents**, configure active **Subjects & Levels**, and add **Time Slots** when tutee availability is required. Missing or empty policy publication is shown as incomplete setup, rather than a retryable loading error. Real database/network failures still show Retry. Tutee submission also requires working transactional email.
 
@@ -349,7 +349,7 @@ The server rechecks the current recruitment window on every submission. Open bro
 ## CAPTCHA verification
 
 Management → Program & Refresh includes an immediate CAPTCHA Verification switch
-for public tutee and viewer signup/resend. ADMIN/HEAD can change it; other authorized
-readers see status. Enabling requires local provider configuration and uses paid
+for public tutee/viewer signup or resend and Crew application/status email. Head applies changes; Admin requests Head
+review, and Coordinators can inspect status. A pending request leaves the effective setting unchanged. Enabling requires local provider configuration and uses paid
 Aliyun checks. Disabling leaves signup quotas active and never needs a provider
 call. See [setup, costs and outage procedure](captcha.md).

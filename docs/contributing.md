@@ -88,6 +88,8 @@ For a recipe migration, link its feature issue and the corresponding running-pag
 and gallery screenshots in the local verification report. Record language, viewport,
 role and state for each capture; keep the images and report in ignored `outputs/`.
 
+### Profile editor completion
+
 In profile editors, completion of one section must not dismiss a failed independent
 draft. Profile and username saves therefore keep the editor open for deliberate
 Close, even when every operation succeeds. The saved section refreshes automatically
@@ -102,7 +104,9 @@ synchronization does not block idle Close. Verify both completion orders, failed
 all-success and a committed write whose synchronization fails on the actual pages.
 For [repeat profile editing (#282)](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/282),
 verify a third edit/save cycle without a restart action, failed automatic reads,
-current version fences, unchanged sibling focus and retained drafts, including history editors.
+current version fences, same-frame duplicate submission, unchanged sibling focus and
+retained drafts, including history editors. Use actual child components and the
+installed QueryClient for composition coverage.
 
 Gate refreshes independently when testing save completion. A rejected read must not
 release dismissal or sibling submission while another refresh remains pending.
@@ -125,10 +129,14 @@ For academic conflict Reload, verify academic and policy read failures separatel
 including cached error results and thrown reads. The original draft, version and
 school year must survive a failed read. Discard it only after both required reads
 succeed; keep the reload guard until both settle even when the first read fails.
+Historical identity previews remain separate, dismissible reads; a failed link
+requires a fresh preview and acknowledgment.
+
+### Verify and document a UI change
 
 For a new reusable pattern, add an interactive example and behavior tests after implementation. Follow the [UI verification matrix](local-development.md#ui-verification-matrix), including English/Chinese, keyboard focus, all six accent palettes, long labels and narrow screens. Capture screenshots from the running application as well as the gallery; gallery fixtures cannot prove feature permissions or mutations. Check the [technical boundaries](technical-report.md#shared-ui-patterns) before migrating existing workflows.
 
-File new proposals using the [issue conventions](issues.md), with the affected workflow, expected behavior, validation and behavior to preserve. The remaining page migrations are tracked in [issue #219](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/219); the current gallery and pilot pages do not imply a complete site migration.
+File new proposals using the [issue conventions](issues.md), with the affected workflow, expected behavior, validation and behavior to preserve. The completed shared-pattern migration is recorded in [issue #219](https://github.com/DupeisTaken/shbs-peer-tutoring-website/issues/219). For subsequent changes, inspect the current page and domain tests rather than treating an old migration checklist as outstanding work.
 
 In a UI PR, state the trigger and resulting behavior, identify the shared patterns and affected page families, and link the issues it addresses. Record the tested commit and distinguish a full-suite run from later focused reruns. Cite measured control heights and the tested languages/viewports; palette fit alone is not a contrast result. Keep generated HTML reports, browser session files and local logs out of the commit. Close specific delivered issues through the PR, while referencing broader migration trackers that still have remaining scope.
 
@@ -169,7 +177,7 @@ these tests.
 ## Implementation conventions
 
 - Validate permissions and invariants on the server. Role, tutor linkage, crew membership and translation assignment are distinct; a matching name or email never establishes student ownership.
-- Classify management writes in [approval-policy.ts](../src/lib/approval-policy.ts). Sensitive coordinator writes queue proposals. Reuse the enclosing approval transaction and keep external delivery after commit.
+- Classify management writes in [approval-policy.ts](../src/lib/approval-policy.ts). `classifyApproval` defines direct, requester and reviewer authority, including payload-dependent reversals. Coordinator daily operations and Admin significant settings/profile edits have different review routes; see the [responsibility matrix](program-reference.md#management-responsibilities-and-review). Reuse the enclosing approval transaction and keep external delivery after commit.
 - Preserve original survey priority, fixed deadlines, terminal request state, explicit historical ownership and exact policy acceptance snapshots. Use shared domain helpers and confirmation tickets.
 - Use [service-hours.ts](../src/lib/service-hours.ts) for session calculations. Interviews use actual duration; meeting penalties use the semester allowance. Do not substitute generic rounding.
 - Prisma CLI configuration lives in [prisma.config.ts](../prisma.config.ts). Schema changes need migrations; `db push` is for disposable experimentation and does not replace committed SQL constraints.
@@ -211,28 +219,6 @@ failed-refresh review leaves an inline read-only retry; another deletion cannot
 replace that recovery until it succeeds. This shared composition does not replace
 timed confirmation tickets, password confirmation, profile versions or assignment
 review. The gallery demonstrates rejected write, accepted write and read recovery.
-## Profile editor completion
-
-Profile and username completion must leave independent drafts mounted. Keep saved
-sections read-only until the automatic refresh successfully loads that section's
-current values and version. Failed reads retain the saved state and expose
-**Retry refresh**; completion does not register pending work or prevent idle Close.
-Other drafts remain local and unsaved until their own Save. Test failure in both completion
-orders, primary failure with sibling success, all-success, same-frame duplicate
-submission, unchanged versions on retry, and deliberate dismissal. Use actual
-child components and the installed QueryClient for this composition coverage.
-
-Gate refreshes independently after a committed save. Use `settleRefreshes` at
-each aggregate boundary and `invalidateAndReport` to report fresh errors only
-after every matching query finishes. Opt into reporting through
-`invalidateTuteeViews` only where saved-section feedback handles it. Include two
-active variants of one procedure and reads from separate procedures; a mocked
-invalidation promise alone cannot establish error reporting or complete waiting.
-
-Academic Reload retains its approved two-read contract: cached error data,
-rejections and synchronous throws preserve the draft; only two successful reads
-with data permit replacement. Historical identity previews remain separate,
-dismissible reads, and a failed link needs a fresh preview and acknowledgment.
 
 ## Chinese peer-tutoring wording
 

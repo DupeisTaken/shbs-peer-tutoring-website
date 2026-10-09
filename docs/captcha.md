@@ -17,7 +17,7 @@ This implementation does not activate a service, buy a resource pack or modify a
 provider account. Verify the actual account storefront before activation.
 
 The browser sends opaque V2 proof unchanged to `program.verifySignupCaptcha`.
-Cheap validation and #181 admission precede any provider call. The server selects
+Cheap validation and [signup admission](signup-protection.md) precede any provider call. The server selects
 the expected scene, claims a keyed hash of its certify ID, and uses the official
 Aliyun SDK with retries disabled, 2-second connect and 3-second read timeouts.
 Only a normal T001 result is accepted. Test-pass T005 is rejected, even locally.
@@ -31,7 +31,7 @@ as a keyed hash, bound to normalized email, scene, action and setting version.
 Tutee submit (including `requestSignup`), tutee resend, viewer start/resend and Crew application/status mail
 consume that grant atomically before pending-record writes, token rotation or mail.
 Business failure consumes it too. There is no reusable `captchaPassed` flag.
-Verification reserves #181 capacity once; consuming its grant does not double
+Verification reserves signup mail capacity once; consuming its grant does not double
 charge admission. A separate send-time cooldown prevents banking grants for a later burst. Already-issued email confirmation and account completion need
 no CAPTCHA and keep independent abuse controls.
 
@@ -66,9 +66,9 @@ No credentials enter browser configuration or the management status response.
 This adapter uses explicit credentials; it does not automatically discover an ECS
 role or refresh STS credentials. Rotate secrets/restart through normal deployment.
 
-In **Management → Program & Refresh → CAPTCHA Verification**, ADMIN or HEAD may
-enable/disable immediately. Other management readers see status but cannot mutate
-or propose it. Enabling validates local configuration; readiness is **not** an
+In **Management → Program & Refresh → CAPTCHA Verification**, Head applies
+enable/disable changes; Admin submits them for Head review. Coordinators can read
+status but cannot propose changes. Enabling validates local configuration; readiness is **not** an
 external health check. Disabling never contacts Aliyun. Version comparisons reject
 stale concurrent updates, including off/on/off changes. Audit entries include the
 actor, time, prior and new values. Period refresh preserves this independent setting.
@@ -83,9 +83,9 @@ when available. Already-loaded provider code/requests cannot be revoked or unbil
 ## Outages and cost controls
 
 Rejections, script-load failures, provider unavailability and application errors
-have separate translated messages. Users retry explicitly, with the #181 cooldown
-still active. During an outage, ADMIN/HEAD can turn the switch off in the portal;
-#181 rate limits/email budgets remain enforced. This intentionally **fails closed**
+have separate translated messages. Users retry explicitly, with the signup cooldown
+still active. During an outage, Head can turn the switch off in the portal;
+signup rate limits/email budgets remain enforced. This intentionally **fails closed**
 for unauthenticated mail-producing operations, unlike Aliyun's general suggestion
 to allow requests on transport errors. Sign-in and existing emailed proof remain
 available under their existing controls.
@@ -97,12 +97,11 @@ aggregate fixed `captcha-accepted`, `captcha-rejected`, `captcha-unavailable` an
 using the deployment's log collector; configure thresholds with the budget variables.
 Budget exhaustion is visible to users and logged at most once per minute.
 
-China-site prices checked 2026-09-28: mainland checks ¥0.005, outside-mainland
-checks ¥0.007; first three scenes free, extra scenes ¥5/day each (published cap ten),
-custom policies ¥30/day. At mainland rates, 100/1,000/10,000 checks cost
-¥0.50/¥5/¥50 before add-ons. Risky requests count; packs can spill into pay-as-you-go.
-International accounts have different USD pricing; check that storefront separately.
-100 peak legitimate requests is not a monthly volume estimate.
+Check the account's current [China-site](https://help.aliyun.com/zh/captcha/captcha2-0/billing)
+or [international billing](https://www.alibabacloud.com/help/en/captcha/captcha2-0/billing)
+terms before activation, including scene/policy fees and usage beyond a resource pack.
+Application reservation limits are not a provider bill cap; estimate volume from
+expected monthly use as well as peak demand.
 
 Before enabling, configure account billing alerts and investigate current
 provider-side restrictions. URL, IP/device policies may be paid custom features
@@ -115,10 +114,11 @@ scenes and managing provider billing are separate operator actions.
 
 The dynamically loaded V2 script is
 `https://o.alicdn.com/captcha-frontend/aliyunCaptcha/AliyunCaptcha.js`. Do not mirror
-or self-host it. This repository currently has no restrictive CSP; if adding one,
-review Aliyun's current script/frame/connect/image domains from a bounded real
-session and allow the required HTTPS origins. Do not guess that permitting only
-the main script is sufficient. The script processes device/network/interaction
+or self-host it. Caddy enforces framing/object/base restrictions and supplies a
+resource CSP in report-only mode; see [browser response policy](deployment.md#browser-response-policy-and-rollout).
+The report-only policy lists the main script origin but does not block additional
+resources. Before enforcing resource restrictions, inventory Aliyun's required
+script/frame/connect/image origins in a bounded real session. The script processes device/network/interaction
 signals in mainland China; the English/Chinese public privacy notice describes it.
 
 Automated tests mock Aliyun and send no paid requests. They cover config errors,

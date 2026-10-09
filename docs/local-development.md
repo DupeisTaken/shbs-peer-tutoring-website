@@ -173,7 +173,7 @@ Try the public forms (no login required):
 - **Student signup** at `/signup` collects the full application and policy agreement and reserves a survey timestamp before account verification. The request queue (`/admin/requests`) tracks verified and unverified demand. Enter the captured mailbox verification code, or explicitly confirm the existing local email link, to open the invitation receipt popup. Continue to `/register` for prefilled account/access review; issuing or displaying the invitation alone does not create credentials or confirm participation. Assignment starts a fixed verification deadline if demand is still unverified; retries preserve the original submission priority and policy evidence.
 - **Viewer signup** at `/viewer-signup` collects identity, affiliation and email, verifies the captured mailbox code, then opens the same receipt popup with copy, optional email delivery and a prefilled invitation link. Existing accounts take the LOGIN path with unchanged credentials and access. Keep synthetic mail and browser proofs in ignored evidence.
 - **Invitation entry** at `/register` is a single code card with Continue. Rehearse a five-character staff key, a displayed invitation code without browser proof and a verified-browser popup handoff. **Add access** in the account menu and Account Settings opens this same entry for signed-in accounts; entering a code alone makes no access write.
-- **Tutor application** at `/tutor-signup` starts recruitment. Assign at least three active tutor accounts, a highest-ranking management chair, and explicit subject qualification coverage. Every panelist votes; the majority determines the outcome and the chair breaks ties. A coordinator chair's decision requires ADMIN/HEAD approval.
+- **Tutor application** at `/tutor-signup` starts recruitment. Assign at least three active tutor accounts, a highest-ranking management chair, and explicit subject qualification coverage. Every panelist votes; the majority determines the outcome and the chair breaks ties. A non-Head chair's initial-application decision requires Head approval.
 - **Crew application** at `/crew-signup` stages details and sends a captured mailbox code. Verify it to create a pending application; no credentials or Crew membership exist yet. Approve the synthetic applicant through `/admin/crew`, then use the public page's existing-application check and fresh mailbox code to retrieve the shared receipt. Continue to `/register` and review a new account or additive Crew access for an existing tutor. Check pending/rejected status, a revoked/expired/used grant, disabled Crew, resend proof invalidation and original-answer retry preservation. Keep staff approval separate from mailbox proof and account review.
 - **History-only access** starts from a staff-reviewed historical tutee invitation at `/history/claim`. Rehearse with synthetic archive records: send the invitation in the roster editor, verify a separate email code, inspect the receipt popup, test copy/optional mail/prefilled continuation to `/register`, create missing credentials and explicitly claim the record after sign-in. Closing or showing the popup does not claim ownership. No current enrollment or policy acceptance is needed. Keep development email tokens/codes in ignored local logs, never public evidence.
 
@@ -365,10 +365,7 @@ See the [user guide](user-guide.md) for record corrections and participant workf
 
 Replace **`src/app/icon.png`** with your logo as an actual PNG image, keeping the
 filename. Use a square image (512 × 512 recommended) with a simple design that
-remains readable at 16 × 16. Transparency is supported. The current artwork is the
-official interlocking PT logo on a green, blue and gold rounded square. It is a
-472 × 472 lossless crop of the supplied artwork, with transparent corners and the
-outer margin and detached marks removed; its lettering and colors are unchanged.
+remains readable at 16 × 16. Transparency is supported.
 
 Next.js serves this file and generates the browser icon link on every page,
 including pages with their own titles. No TypeScript or environment changes are
