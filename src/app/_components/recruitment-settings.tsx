@@ -195,7 +195,7 @@ function Editor({
         </button>
         <a
           className="link ml-4 inline-flex min-h-11 items-center"
-          href={audience === "tutor" ? "/tutor" : "/tutee"}
+          href={audience === "tutor" ? "/tutor-signup" : "/signup"}
           target="_blank"
           rel="noreferrer"
         >

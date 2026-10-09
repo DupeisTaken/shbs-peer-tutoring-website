@@ -35,7 +35,7 @@ export default async function ViewerSignupPage() {
           >
             {t("auth.signupRoutes.invitationHelp")}
           </PublicFormRoute>
-          <PublicFormRoute href="/tutee" label={t("survey.requestTutor")}>
+          <PublicFormRoute href="/signup" label={t("survey.requestTutor")}>
             {t("auth.signupRoutes.tuteeHelp")}
           </PublicFormRoute>
           <div className="border-t border-slate-200 pt-4">

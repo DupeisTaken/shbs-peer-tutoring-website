@@ -72,13 +72,6 @@ export const authConfig = {
         "/forgot-password",
         "/reset-password",
         "/register",
-        "/register-account",
-        "/tutee",
-        "/tutee/account",
-        "/tutee-signup",
-        "/tutee-signup/account",
-        "/tutor",
-        "/viewer",
         "/history/claim",
       ];
       // Public landing-section detail pages (/p/<slug>) — the page itself gates unpublished ones.

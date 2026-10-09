@@ -50,7 +50,7 @@ export default async function StudentPage({
             </p>
           )}
         </div>
-        {!access?.departed && <Link href="/tutee" className="btn-primary" prefetch={false}>
+        {!access?.departed && <Link href="/signup" className="btn-primary" prefetch={false}>
           {t("requestTutor")}
         </Link>}
       </div>

@@ -31,7 +31,7 @@ export async function rememberInvitation(input: {
     httpOnly: true,
     sameSite: "lax",
     secure: process.env.NODE_ENV === "production",
-    path: "/register-account",
+    path: "/register",
     maxAge: 15 * 60,
   });
 }

@@ -34,7 +34,7 @@ it("stores only server-validated short-lived HttpOnly handoff proof", async () =
     expect.objectContaining({
       httpOnly: true,
       sameSite: "lax",
-      path: "/register-account",
+      path: "/register",
       maxAge: 900,
     }),
   );

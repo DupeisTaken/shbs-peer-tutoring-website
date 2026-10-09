@@ -93,26 +93,23 @@ options so the reset targets the intended stack.
 
 Sign-in is username or email + password (no external identity provider to register). Logins are created only
 through gated paths: the first admin is created by `npm run admin:create`;
-recruits follow **`/register`** to **`/register-account`** with an admin-issued single-use code plus an emailed
+recruits self-register at **`/register`** with an admin-issued single-use code plus an emailed
 verification code; and outsiders can self-register a **read-only viewer (VIEWER)** account at
-**`/viewer-signup`**, linked as **`/viewer`** (email-validated, behind the `VIEWER_SIGNUP` feature flag). The public tutee
-form at `/tutee-signup`, linked as `/tutee`, first saves the full application and policy agreement;
-mailbox code or legacy email-link confirmation opens an invitation popup before shared account/access
-review. Displaying an invitation alone creates no credentials or participation. Tutor application
-(`/tutor-signup`, linked as `/tutor`) and crew application (`/crew-signup`) create pending records
-for review. Credential sign-in, the
+**`/viewer-signup`** (email-validated, behind the `VIEWER_SIGNUP` feature flag). The public tutee
+signup (`/signup`) first saves the full application and policy agreement; mailbox code or legacy
+email-link confirmation opens an invitation popup before shared account/access review. Displaying
+an invitation alone creates no credentials or participation. Tutor application (`/tutor-signup`)
+and crew application (`/crew-signup`) create pending records for review. Credential sign-in, the
 registration steps, and viewer signup are all **rate-limited in-app** (per IP + per code / email /
 identifier; `src/server/rate-limit.ts`). Public tutee/viewer signup also uses [durable signup quotas](signup-protection.md) and supports [optional Aliyun CAPTCHA](captcha.md), disabled by default.
 Transactional email (reset links plus sign-in and password-change 2FA codes) goes through Aliyun
 Direct Mail — see "Email" below. Sign-in 2FA is enforced when the `EMAIL_2FA` program feature and
 the user's 2FA preference are both enabled.
 
-Website and email hrefs use the short public routes; redirects retain the complete query string.
-Keep `/signup` and `/signup/account` compatibility for existing tutee forms and confirmation mail.
-The [route contract](technical-report.md#public-onboarding-route-contract) lists canonical pages,
-public aliases and proof-cookie scope. New invitation and staff registration codes use
-the five-character uppercase Steam-style format; preserve outstanding older invitation codes.
-Mailbox verification codes remain separate and retain their existing formats.
+New invitation and staff registration codes use the five-character uppercase Steam-style
+format, containing both letters and digits; preserve outstanding older invitation codes.
+Mailbox verification remains separate and retains its existing formats. The additive
+short-code migration preserves older receipt lookup while recording new code retry nonces.
 
 Public tutor and crew intake share database-backed limits: five distinct accepted submissions per normalized email in 24 hours, and 500 per network address in one hour. Pending retries return the same confirmation without another record, counter increment or notification; tutor applications awaiting an interview also count as pending. Decided applications may be submitted again within these limits. Counters, application writes and in-app notifications commit together, and counters survive server restarts and multiple instances. New distinct submissions prune hashed counter keys that expired more than seven days ago, in bounded batches; an idle deployment retains those expired keys until intake resumes.
 
@@ -370,8 +367,7 @@ The application, Prisma migration CLI, seed/demo utilities and administrator boo
 
 > **Accepted applicants self-register:** accepting a tutor application issues a single-use
 > registration code (bound to their email, re-viewable on `/admin/registration-codes`); the recruit
-> follows `/register` to `/register-account` to verify their email and review missing credentials
-> or added access. No shared default
+> redeems it at `/register` to verify their email and set their own password. No shared default
 > password is involved.
 
 `DATABASE_URL`, `AUTH_URL`, and `AUTH_TRUST_HOST` are set automatically in `docker-compose.yml`.

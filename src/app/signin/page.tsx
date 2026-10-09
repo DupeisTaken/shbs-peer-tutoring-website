@@ -58,7 +58,7 @@ export default async function SignInPage({
       footer={
         <div className="space-y-4">
           <div className="flex flex-wrap justify-center gap-x-5">
-            <PublicFormRoute href="/tutee" label={t("survey.requestTutor")} />
+            <PublicFormRoute href="/signup" label={t("survey.requestTutor")} />
             <PublicFormRoute
               href="/register"
               label={t("auth.signupRoutes.invitationLink")}
@@ -67,7 +67,7 @@ export default async function SignInPage({
           {features.VIEWER_SIGNUP && (
             <div className="border-t border-slate-200 pt-4">
               <PublicFormRoute
-                href="/viewer"
+                href="/viewer-signup"
                 label={t("auth.signupRoutes.viewerLink")}
               >
                 {t("auth.signupRoutes.viewerHelp")}
