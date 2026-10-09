@@ -339,6 +339,9 @@ it("uses chosen policy locale, falls back to English and skips accepted/public p
 });
 it.each([
   "/privacy",
+  "/register", "/register-account", "/tutee", "/tutee/account",
+  "/tutee-signup", "/tutee-signup/account", "/tutor", "/tutor-signup",
+  "/viewer", "/viewer-signup", "/crew", "/crew-signup", "/signup", "/signup/account",
   "/onboarding/email",
   "/forgot-password",
   "/reset-password",

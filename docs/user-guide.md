@@ -40,9 +40,16 @@ A role and a tutor or crew membership are different things. A management account
 
 ### Choose the right registration form
 
-- **Register with an Invitation Code** (`/register`) is for invited tutors, crew and management. Enter the five-character registration code supplied by the program team, then complete email verification and account setup. The invitation code and emailed verification code are different.
-- **Register as a Viewer** (`/viewer-signup`) creates read-only access when viewer signup is enabled. Viewers do not receive or need a staff invitation code; the form sends an email verification code after you provide your details. It does not enroll you as a tutee, tutor or crew member.
-- **Request a Tutor** (`/signup`) starts a tutee request without an invitation code. Follow the emailed confirmation link to set up your account if needed.
+Published website and email links use `/register`, `/tutee`, `/tutor`, `/viewer`
+and `/crew`; the address bar then shows the corresponding descriptive signup page.
+Old `/signup` and `/signup/account` bookmarks and email links remain valid, including
+their confirmation parameters. Tutor and crew applications open at `/tutor-signup`
+and `/crew-signup` and retain the existing review process. See the
+[URL convention](technical-report.md#public-signup-url-convention) for the full mapping.
+
+- **Register with an Invitation Code** (`/register` → `/register-account`) is for invited tutors, crew and management. Enter the five-character registration code supplied by the program team, then complete email verification and account setup. The invitation code and emailed verification code are different.
+- **Register as a Viewer** (`/viewer` → `/viewer-signup`) creates read-only access when viewer signup is enabled. Viewers do not receive or need a staff invitation code; the form sends an email verification code after you provide your details. It does not enroll you as a tutee, tutor or crew member.
+- **Request a Tutor** (`/tutee` → `/tutee-signup`) starts a tutee request without an invitation code. Follow the emailed confirmation link to set up your account if needed.
 
 Sign In names the invitation and viewer routes separately. The invitation and viewer pages link to each other and to Request a Tutor, so you can switch if you opened the wrong form. Viewer links are hidden when public viewer signup is disabled. If you already have an account, sign in or recover your password rather than registering again.
 

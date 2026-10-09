@@ -25,6 +25,14 @@ export function StudentPolicyGate() {
     "/history/claim",
     "/signup",
     "/signup/account",
+    "/register",
+    "/register-account",
+    "/tutee",
+    "/tutee/account",
+    "/tutee-signup",
+    "/tutee-signup/account",
+    "/tutor",
+    "/viewer",
     "/signin",
     "/onboarding/email",
     "/forgot-password",
@@ -32,6 +40,7 @@ export function StudentPolicyGate() {
     "/suspended",
     "/tutor-signup",
     "/crew-signup",
+    "/crew",
     "/viewer-signup",
   ].includes(path);
   const status = api.studentWorkflow.policyStatus.useQuery(

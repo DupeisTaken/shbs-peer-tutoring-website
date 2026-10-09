@@ -93,15 +93,19 @@ options so the reset targets the intended stack.
 
 Sign-in is username or email + password (no external identity provider to register). Logins are created only
 through gated paths: the first admin is created by `npm run admin:create`;
-recruits self-register at **`/register`** with an admin-issued single-use code plus an emailed
+recruits follow **`/register`** to **`/register-account`** with an admin-issued single-use code plus an emailed
 verification code; and outsiders can self-register a **read-only viewer (VIEWER)** account at
-**`/viewer-signup`** (email-validated, behind the `VIEWER_SIGNUP` feature flag). The public tutee
-signup (`/signup`) first saves a survey; email confirmation then creates or links a student login. Tutor application (`/tutor-signup`) and crew application (`/crew-signup`) create pending records for review. Credential sign-in, the
+**`/viewer` → `/viewer-signup`** (email-validated, behind the `VIEWER_SIGNUP` feature flag). The public tutee
+signup (`/tutee` → `/tutee-signup`) first saves a survey; email confirmation then creates or links a student login. Tutor application (`/tutor` → `/tutor-signup`) and crew application (`/crew` → `/crew-signup`) create pending records for review. Credential sign-in, the
 registration steps, and viewer signup are all **rate-limited in-app** (per IP + per code / email /
 identifier; `src/server/rate-limit.ts`). Public tutee/viewer signup also uses [durable signup quotas](signup-protection.md) and supports [optional Aliyun CAPTCHA](captcha.md), disabled by default.
 Transactional email (reset links plus sign-in and password-change 2FA codes) goes through Aliyun
 Direct Mail — see "Email" below. Sign-in 2FA is enforced when the `EMAIL_2FA` program feature and
 the user's 2FA preference are both enabled.
+
+Website/CMS/email hrefs publish the short paths. Permanent redirects retain query
+values; `/signup` and `/signup/account` remain compatible with existing bookmarks
+and confirmation mail. See the [public signup URL convention](technical-report.md#public-signup-url-convention).
 
 Public tutor and crew intake share database-backed limits: five distinct accepted submissions per normalized email in 24 hours, and 500 per network address in one hour. Pending retries return the same confirmation without another record, counter increment or notification; tutor applications awaiting an interview also count as pending. Decided applications may be submitted again within these limits. Counters, application writes and in-app notifications commit together, and counters survive server restarts and multiple instances. New distinct submissions prune hashed counter keys that expired more than seven days ago, in bounded batches; an idle deployment retains those expired keys until intake resumes.
 

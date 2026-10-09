@@ -19,6 +19,23 @@ function pageRequest(url: string, init?: ConstructorParameters<typeof NextReques
 }
 
 const event = { waitUntil: () => undefined } as unknown as NextFetchEvent;
+// Exact public entries must never grant anonymous access to adjacent private paths.
+it("keeps canonical signup pages and aliases public while protecting their neighbors", async () => {
+  const publicPaths = [
+    "/register", "/register-account", "/tutee", "/tutee/account",
+    "/tutee-signup", "/tutee-signup/account", "/tutor", "/tutor-signup",
+    "/viewer", "/viewer-signup", "/crew", "/crew-signup", "/signup", "/signup/account",
+  ];
+  for (const path of publicPaths) {
+    const response = await proxy(pageRequest(`http://localhost:3109${path}?code=AB3D7`), event);
+    expect(response?.headers.get("location"), path).toBeNull();
+    for (const suffix of ["/admin", "-private"]) {
+      const neighbor = await proxy(pageRequest(`http://localhost:3109${path}${suffix}`), event);
+      expect(neighbor?.status, path + suffix).toBe(307);
+      expect(new URL(neighbor!.headers.get("location")!).pathname).toBe("/signin");
+    }
+  }
+});
 it("consumes the API-first recovery notice on the next sign-in response", async () => {
   const response = await proxy(
     pageRequest("http://localhost:3109/signin", {

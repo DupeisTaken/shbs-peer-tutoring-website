@@ -17,7 +17,7 @@ export function TuteeOverview({ departed = false }: { departed?: boolean }) {
         </h2>
         <p className="muted mt-2 max-w-2xl">{t("intro")}</p>
         <div className="mt-5 flex flex-wrap gap-3">
-          {!departed && <Link href="/signup" className="btn-primary" prefetch={false}>
+          {!departed && <Link href="/tutee" className="btn-primary" prefetch={false}>
             {t("requestTutor")}
           </Link>}
           <Link href="/student?view=requests" className="btn-secondary">

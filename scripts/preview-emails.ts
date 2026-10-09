@@ -53,7 +53,7 @@ const samples: {
       eyebrow: "TUTORING SIGNUP",
       action: {
         label: "Confirm your tutoring request",
-        url: `https://tutoring.example.edu/signup/account?token=${"synthetic".repeat(12)}`,
+        url: `https://tutoring.example.edu/tutee/account?token=${"synthetic".repeat(12)}`,
       },
     },
   },
