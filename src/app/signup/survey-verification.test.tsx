@@ -71,8 +71,9 @@ it("blocks resends throughout a held verification and retains the code for retry
   state.pending = true;
   rerender(view());
   expect(
-    screen.getByRole<HTMLButtonElement>("button", { name: en.survey.resend })
-      .disabled,
+    screen
+      .getByRole<HTMLButtonElement>("button", { name: en.survey.resend })
+      .matches(":disabled"),
   ).toBe(true);
   state.pending = false;
   state.settled!();

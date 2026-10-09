@@ -4177,7 +4177,7 @@
     "verifyTuteeTitle": "确认此申请的邮箱",
     "verifyTuteeHelp": "申请已保存。请确认此邮箱，查看邀请码并继续设置账号。",
     "kind": {
-      "TUTOR": "辅导员权限",
+      "TUTOR": "辅导伙伴权限",
       "CREW": "工作人员权限",
       "ADMIN": "管理员权限",
       "COORDINATOR": "协调员权限",
@@ -4210,6 +4210,6 @@
     "verifyEmailHelp": "请验证邮箱，将此邀请关联到您的账号。",
     "sendVerification": "发送验证码",
     "addAccess": "使用邀请码添加权限",
-    "addAccessHelp": "输入邀请码，为现有账号添加辅导员、工作人员或管理权限。"
+    "addAccessHelp": "输入邀请码，为现有账号添加辅导伙伴、工作人员或管理权限。"
   }
 }

@@ -203,18 +203,27 @@ it("allows 100 mixed registrations, reads, verification and ordinary retries fro
         send.mock.calls.at(-1)![0].text,
       )![1]!;
       await caller().tutee.inspectSurvey({ token });
-      const invitation = await caller().accountInvitation.fromSurvey({ token });
-      const invitationCode = /invitation code is ([0-9A-Z]{5})/.exec(
+      const emailCode = /email verification code is ([0-9A-Z]{6})/.exec(
         send.mock.calls.at(-1)![0].text,
       )![1]!;
-      const proof = await caller().accountInvitation.verify({
-        ...invitation,
+      const invitation = await caller().accountInvitation.verifySurvey({
         email,
-        code: invitationCode,
+        code: emailCode,
+      });
+      // Each applicant also opts into a copy; the browser handoff retains their
+      // existing mailbox proof instead of sending a second mandatory challenge.
+      await caller().accountInvitation.email({
+        invitationId: invitation.invitationId,
+        proof: invitation.proof!,
+      });
+      const proof = await caller().accountInvitation.enter({
+        code: invitation.code!,
+        proof: invitation.proof!,
       });
       await caller().accountInvitation.complete({
         ...invitation,
         ...proof,
+        proof: proof.proof!,
         reviewed: true,
         password: "StudentPassword42",
       });
@@ -235,17 +244,18 @@ it("allows 100 mixed registrations, reads, verification and ordinary retries fro
           }),
         ).rejects.toThrow();
       const verified = await caller().viewer.verify({ email, code });
-      const invitationCode = /invitation code is ([0-9A-Z]{5})/.exec(
-        send.mock.calls.at(-1)![0].text,
-      )![1]!;
-      const proof = await caller().accountInvitation.verify({
+      await caller().accountInvitation.email({
         invitationId: verified.invitationId,
-        email,
-        code: invitationCode,
+        proof: verified.proof!,
+      });
+      const proof = await caller().accountInvitation.enter({
+        code: verified.code!,
+        proof: verified.proof!,
       });
       await caller().accountInvitation.complete({
         invitationId: verified.invitationId,
         ...proof,
+        proof: proof.proof!,
         reviewed: true,
         password: "ViewerPassword42",
       });
