@@ -27,6 +27,7 @@ const state = vi.hoisted(() => ({
   crewStatus: vi.fn(),
   details: vi.fn(),
   history: vi.fn(),
+  accountDetails: vi.fn(),
   tutors: [
     {
       id: "tutor",
@@ -126,6 +127,9 @@ vi.mock("~/app/_components/account-profile-editor", () => ({
     <div role="dialog">Editing {profile.name}</div>
   ),
 }));
+vi.mock("~/app/_components/acceptance-records", () => ({
+  AcceptanceRecords: () => null,
+}));
 vi.mock("~/app/_components/patrol-corrections", () => ({
   PatrolCorrections: () => null,
 }));
@@ -160,6 +164,7 @@ vi.mock("~/trpc/react", () => ({
       combine: { useMutation: () => ({ mutate: vi.fn(), isPending: false }) },
     },
     admin: {
+      accountDetails: { useQuery: state.accountDetails },
       accounts: {
         useQuery: () => ({
           data: {
@@ -314,6 +319,9 @@ beforeEach(() => {
       groups: [],
     },
   });
+  state.accountDetails.mockReturnValue({
+    data: { attached: [], retained: [], membership: null },
+  });
   state.history.mockReturnValue({
     data: { current: [], rows: [], more: false },
   });
@@ -341,7 +349,9 @@ function rowFor(table: HTMLElement, name: string) {
 describe("people summary tables", () => {
   it("reviews tutee deletion with the participant name and preserves cancellation", async () => {
     render(<TuteesPage />, { wrapper });
-    const table = screen.getByRole("table", { name: en.admin.tutees.title });
+    const table = screen.getByRole("table", {
+      name: en.admin.tutees.viewTutees,
+    });
     fireEvent.click(
       within(table).getByRole("button", { name: en.admin.tutees.deleteBtn }),
     );
@@ -379,14 +389,16 @@ describe("people summary tables", () => {
     );
     expect(state.reinstate).toHaveBeenCalledWith({ userId: "viewer" });
     fireEvent.click(
-      viewer.getByRole("button", { name: en.accountProfile.showDetails }),
+      viewer.getByRole("button", {
+        name: `${en.accountProfile.showDetails}: Synthetic Viewer`,
+      }),
     );
     const dialog = screen.getByRole("dialog");
-    expect(within(dialog).getByText("Viewer alternate identity")).toBeTruthy();
+    expect(within(dialog).getByText(/Viewer alternate identity/)).toBeTruthy();
     expect(
       within(dialog).getByText(/A very detailed affiliation/),
     ).toBeTruthy();
-    expect(state.history).toHaveBeenCalledWith({ userId: "viewer", page: 0 });
+    expect(state.accountDetails).toHaveBeenCalledWith({ userId: "viewer" });
   });
 
   it("preserves head-only deletion and the existing password check", () => {

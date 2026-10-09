@@ -16,8 +16,9 @@ import { ReadOnlyProvider } from "./read-only";
 
 const state = vi.hoisted(() => ({
   status: "ACTIVE",
+  empty: [],
   commit: vi.fn(),
-  refresh: vi.fn(),
+  refresh: vi.fn<(name: string) => Promise<void>>(),
   error: null as Error | null,
 }));
 vi.mock("./patrol-corrections", () => ({ PatrolCorrections: () => null }));
@@ -69,7 +70,7 @@ vi.mock("~/trpc/react", () => ({
                           approvable: true,
                         },
                       ]
-                    : [],
+                    : state.empty,
           }),
           useMutation: (options?: {
             onSuccess?: (data: unknown, input: unknown) => unknown;

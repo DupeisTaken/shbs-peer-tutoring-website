@@ -1180,7 +1180,7 @@ function ImageLibrary({
                       key: "images:" + img.id,
                       title: t("admin.landing.images.confirmDelete"),
                       description: t("actionReview.imageHelp"),
-                      details: <p>{img.alt || img.id}</p>,
+                      details: <p>{img.alt?.trim() ? img.alt : img.id}</p>,
                       confirmLabel: t("common.delete"),
                       commit: () => del.mutateAsync({ id: img.id }),
                       refresh: () => invalidateAndReport(utils.home.images),
