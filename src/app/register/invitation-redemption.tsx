@@ -214,7 +214,7 @@ function InvitationRedemptionFlow({
           <fieldset
             disabled={busy || previewFailed}
             aria-busy={busy}
-            className="space-y-5"
+            className="min-w-0 space-y-5"
           >
             <div className="rounded-lg border border-slate-200 bg-slate-50 p-4 break-words">
               <p className="font-semibold">{t(`kind.${info.kind}`)}</p>
@@ -373,7 +373,7 @@ function InvitationRedemptionFlow({
             verify.mutate({ invitationId, email, code });
           }}
         >
-          <fieldset disabled={busy} aria-busy={busy} className="space-y-4">
+          <fieldset disabled={busy} aria-busy={busy} className="min-w-0 space-y-4">
             <p className="muted text-sm">{t("codeHelp")}</p>
             <label className="block">
               <span className="label">

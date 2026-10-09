@@ -345,11 +345,11 @@
     "sessionExpired": "Your session expired or could not be verified. Please sign in again.",
     "passwordChangedSignIn": "비밀번호가 변경되었습니다. 현재 브라우저를 포함한 모든 세션에서 로그아웃되었습니다. 새 비밀번호로 다시 로그인하세요.",
     "signupRoutes": {
-      "viewerHelp": "프로그램을 살펴보기만 하시나요? 참관자 등록에는 초대 코드가 필요 없지만 이메일 인증은 필요합니다.",
+      "viewerHelp": "이메일을 인증하면 초대를 받습니다. 새 계정에는 참관자 권한이 부여되며, 기존 계정은 이메일로 받은 코드로 로그인합니다.",
       "viewerLink": "참관자로 등록",
-      "invitationHelp": "프로그램 운영팀에서 등록 코드를 받으셨나요?",
+      "invitationHelp": "이메일 초대 또는 운영팀의 승인 코드가 있나요?",
       "invitationLink": "초대 코드로 등록",
-      "tuteeHelp": "학습 지원이 필요한가요? 먼저 튜터를 신청하세요. 초대 코드는 필요 없으며 이메일 확인 후 계정을 설정합니다."
+      "tuteeHelp": "학습 지원이 필요한가요? 신청서를 제출하세요. 이메일 확인 후 계정 설정과 참여 내용 검토를 위한 초대가 발급됩니다."
     }
   },
   "landing": {

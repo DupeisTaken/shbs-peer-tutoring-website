@@ -307,11 +307,11 @@
       }
     },
     "signupRoutes": {
-      "viewerHelp": "Only following the program? Viewer registration needs no invitation code; you will verify your email.",
+      "viewerHelp": "Verify your email to receive an invitation. New accounts get Viewer access; existing accounts sign in with their emailed code.",
       "viewerLink": "Register as a Viewer",
-      "invitationHelp": "Have a registration code from the program team?",
+      "invitationHelp": "Have an emailed invitation or a staff authorization code?",
       "invitationLink": "Register with an Invitation Code",
-      "tuteeHelp": "Need tutoring? Start a tutee request. No invitation code is required; account setup follows email confirmation."
+      "tuteeHelp": "Need tutoring? Submit a tutee request. Email confirmation issues an invitation for account setup and participation review."
     },
     "staleSession": {
       "title": "Session Out of Date",

@@ -345,11 +345,11 @@
     "sessionExpired": "Your session expired or could not be verified. Please sign in again.",
     "passwordChangedSignIn": "Tu contraseña ha cambiado. Se han cerrado todas las sesiones, incluida la de este navegador. Vuelve a iniciar sesión con tu nueva contraseña.",
     "signupRoutes": {
-      "viewerHelp": "¿Solo quieres seguir el programa? El registro como observador no requiere código de invitación; deberás verificar tu correo.",
+      "viewerHelp": "Verifica tu correo para recibir una invitación. Las cuentas nuevas obtienen acceso de observador; las existentes inician sesión con el código recibido por correo.",
       "viewerLink": "Registrarse como observador",
-      "invitationHelp": "¿Tienes un código de registro del equipo del programa?",
+      "invitationHelp": "¿Tienes una invitación por correo o un código de autorización del equipo?",
       "invitationLink": "Registrarse con código de invitación",
-      "tuteeHelp": "¿Necesitas tutoría? Envía primero una solicitud. No se requiere código de invitación; configurarás tu cuenta tras confirmar el correo."
+      "tuteeHelp": "¿Necesitas tutoría? Envía una solicitud. Al confirmar el correo recibirás una invitación para configurar la cuenta y revisar la participación."
     }
   },
   "landing": {

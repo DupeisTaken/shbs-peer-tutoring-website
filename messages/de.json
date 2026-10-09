@@ -345,11 +345,11 @@
     "sessionExpired": "Your session expired or could not be verified. Please sign in again.",
     "passwordChangedSignIn": "Dein Passwort wurde geändert. Alle Sitzungen wurden abgemeldet, auch in diesem Browser. Melde dich mit deinem neuen Passwort erneut an.",
     "signupRoutes": {
-      "viewerHelp": "Sie möchten das Programm nur verfolgen? Die Registrierung als Beobachter benötigt keinen Einladungscode; Ihre E-Mail-Adresse wird bestätigt.",
+      "viewerHelp": "Bestätigen Sie Ihre E-Mail-Adresse, um eine Einladung zu erhalten. Neue Konten erhalten Beobachterzugriff; bestehende Konten melden sich mit dem per E-Mail gesendeten Code an.",
       "viewerLink": "Als Beobachter registrieren",
-      "invitationHelp": "Haben Sie einen Registrierungscode vom Programmteam erhalten?",
+      "invitationHelp": "Haben Sie eine Einladung per E-Mail oder einen Autorisierungscode vom Programmteam?",
       "invitationLink": "Mit Einladungscode registrieren",
-      "tuteeHelp": "Benötigen Sie Nachhilfe? Stellen Sie zuerst eine Anfrage. Kein Einladungscode erforderlich; nach der E-Mail-Bestätigung richten Sie Ihr Konto ein."
+      "tuteeHelp": "Benötigen Sie Nachhilfe? Stellen Sie eine Anfrage. Nach der E-Mail-Bestätigung erhalten Sie eine Einladung zur Kontoeinrichtung und Prüfung der Teilnahme."
     }
   },
   "landing": {

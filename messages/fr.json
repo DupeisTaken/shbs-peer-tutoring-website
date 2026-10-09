@@ -345,11 +345,11 @@
     "sessionExpired": "Your session expired or could not be verified. Please sign in again.",
     "passwordChangedSignIn": "Votre mot de passe a été modifié. Toutes les sessions ont été déconnectées, y compris celle de ce navigateur. Reconnectez-vous avec votre nouveau mot de passe.",
     "signupRoutes": {
-      "viewerHelp": "Vous souhaitez seulement suivre le programme ? L’inscription comme observateur ne nécessite aucun code d’invitation ; votre adresse e-mail sera vérifiée.",
+      "viewerHelp": "Vérifiez votre e-mail pour recevoir une invitation. Les nouveaux comptes obtiennent un accès observateur ; les comptes existants se connectent avec le code reçu par e-mail.",
       "viewerLink": "S’inscrire comme observateur",
-      "invitationHelp": "Vous avez reçu un code d’inscription de l’équipe du programme ?",
+      "invitationHelp": "Vous avez une invitation par e-mail ou un code d’autorisation de l’équipe ?",
       "invitationLink": "S’inscrire avec un code d’invitation",
-      "tuteeHelp": "Besoin de tutorat ? Envoyez d’abord une demande. Aucun code d’invitation n’est requis ; vous créerez votre compte après confirmation de votre e-mail."
+      "tuteeHelp": "Besoin de tutorat ? Envoyez une demande. La confirmation de votre e-mail déclenche une invitation pour configurer le compte et vérifier la participation."
     }
   },
   "landing": {
