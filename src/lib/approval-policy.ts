@@ -1,6 +1,7 @@
 /** Explicitly reviewed management operations. Unknown coordinator writes fail closed.
  * Account privileges, program configuration and irreversible file deletion are never proposals.
- * program.setEmailNotifications and program.setSecondaryEmailBinding require ADMIN/HEAD directly. */
+ * program.setEmailNotifications, program.setSecondaryEmailBinding and program.resendStuckEmails
+ * require ADMIN/HEAD directly. */
 // program.setSignupField is a direct Head-only setting; it cannot be proposed or replayed.
 // recordTransfer.* requires HEAD directly. Imports/exports cannot be proposed or replayed.
 // tuteeHistory.invite/link/cancelInvitation require ADMIN/HEAD directly. Conflict correction

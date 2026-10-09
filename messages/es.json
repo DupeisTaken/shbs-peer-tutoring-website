@@ -3352,7 +3352,35 @@
     "saved": "Configuración de correo guardada.",
     "bindingTitle": "Vinculación de correos secundarios",
     "bindingHelp": "Permite añadir y verificar correos secundarios de forma opcional, independientemente de las notificaciones. Al desactivar, se conservan los correos existentes y los requisitos del correo principal.",
-    "bindingEnable": "Permitir vincular correos secundarios"
+    "bindingEnable": "Permitir vincular correos secundarios",
+    "loading": "Cargando la configuración del correo…",
+    "retrySettings": "Volver a cargar la configuración",
+    "settingsFailed": "No se pudo cargar la configuración del correo. Vuelve a intentarlo antes de modificarla.",
+    "deliveryTitle": "Estado del envío de correo",
+    "deliveryHelp": "Comprueba la conexión SMTP y la autenticación, pero no la llegada a la bandeja de entrada. Los resultados se comparten durante un máximo de un minuto y se actualizan mientras esta página está abierta. Actualizar el estado no reenvía correos ni avanza el período del programa.",
+    "refreshStatus": "Actualizar estado",
+    "checking": "Comprobando el estado del correo…",
+    "statusFailed": "No se pudo comprobar el estado del correo. Se desconoce si el envío funciona. Actualiza el estado para volver a intentarlo.",
+    "statusStale": "No se pudo actualizar el estado. Los resultados siguientes corresponden a la última comprobación; se desconoce el estado actual del envío.",
+    "checkedAt": "Última comprobación: {time}",
+    "retrying": "Correos pendientes de un nuevo intento tras un error de envío: {count}. Revisa el servicio de correo aunque la comprobación de conexión sea correcta.",
+    "channel": {
+      "SECURITY": "Correos de seguridad",
+      "PROGRAM": "Correos del programa"
+    },
+    "transport": {
+      "READY": "La conexión SMTP y la autenticación se comprobaron correctamente.",
+      "UNAVAILABLE": "Falló la conexión SMTP o la autenticación. Es posible que no se puedan enviar correos. Pide al administrador del despliegue que revise el servicio de correo.",
+      "UNCONFIGURED": "El envío por SMTP no está configurado. Pide al administrador del despliegue que configure este remitente.",
+      "LOCAL": "Solo se registra en los registros de desarrollo. No se envían correos a ninguna bandeja de entrada."
+    },
+    "resendStuck": "Reenviar correos atascados",
+    "resending": "Añadiendo correos a la cola…",
+    "resendHelp": "Añade hasta 100 correos elegibles fallidos o pendientes de reintento a la cola de envío en segundo plano, según la configuración actual y las preferencias de los destinatarios. Los correos ya enviados no se reenvían.",
+    "resendQueued": "Correos en cola para un nuevo intento de envío: {count}. La entrega aún no está confirmada.",
+    "resendNone": "No había correos que cumplieran los requisitos para otro intento.",
+    "resendFailed": "No se pudieron añadir los correos a la cola. Vuelve a intentarlo.",
+    "resendRefreshFailed": "La solicitud de reenvío fue aceptada, pero no se pudo actualizar el estado. Usa Actualizar estado para revisar la cola antes de iniciar otro lote."
   },
   "membership": {
     "title": "Roles y participación",

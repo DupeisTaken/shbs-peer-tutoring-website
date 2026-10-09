@@ -40,6 +40,24 @@ vi.mock("~/trpc/react", () => ({
       },
     },
     program: {
+      resendStuckEmails: {
+        useMutation: () => ({ mutateAsync: vi.fn(), isPending: false }),
+      },
+      emailDeliveryStatus: {
+        useQuery: () => ({
+          data: {
+            channels: ["SECURITY", "PROGRAM"].map((category) => ({
+              category,
+              state: "LOCAL",
+              checkedAt: new Date("2026-10-09T03:00:00Z"),
+            })),
+            retrying: 0,
+            failed: 0,
+          },
+          isFetching: false,
+          refetch: vi.fn(),
+        }),
+      },
       emailNotificationSettings: {
         useQuery: () => ({
           data: {
@@ -62,7 +80,11 @@ import { AccountEmails, EmailPreferences } from "./account-emails";
 import { ProgramEmailSettings } from "./program-email-settings";
 const view = (component: React.ReactNode) =>
   render(
-    <NextIntlClientProvider locale="en" messages={messages}>
+    <NextIntlClientProvider
+      locale="en"
+      messages={messages}
+      timeZone="Asia/Shanghai"
+    >
       {component}
     </NextIntlClientProvider>,
   );

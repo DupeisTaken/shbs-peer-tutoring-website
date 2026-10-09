@@ -3352,7 +3352,35 @@
     "saved": "E-Mail-Einstellungen gespeichert.",
     "bindingTitle": "Weitere E-Mail-Adressen",
     "bindingHelp": "Erlaube das freiwillige Hinzufügen und Bestätigen weiterer Adressen, unabhängig von Benachrichtigungen. Vorhandene Adressen und Anforderungen an die primäre Anmeldung bleiben beim Deaktivieren erhalten.",
-    "bindingEnable": "Weitere E-Mail-Adressen erlauben"
+    "bindingEnable": "Weitere E-Mail-Adressen erlauben",
+    "loading": "E-Mail-Einstellungen werden geladen…",
+    "retrySettings": "Einstellungen erneut laden",
+    "settingsFailed": "Die E-Mail-Einstellungen konnten nicht geladen werden. Versuche es erneut, bevor du Einstellungen änderst.",
+    "deliveryTitle": "Status des E-Mail-Versands",
+    "deliveryHelp": "Prüft die SMTP-Verbindung und Authentifizierung, nicht die Zustellung im Posteingang. Prüfergebnisse werden bis zu einer Minute gemeinsam genutzt und aktualisiert, solange diese Seite geöffnet ist. Die Statusaktualisierung sendet keine E-Mails erneut und wechselt nicht zum nächsten Programmzeitraum.",
+    "refreshStatus": "Status aktualisieren",
+    "checking": "E-Mail-Status wird geprüft…",
+    "statusFailed": "Der E-Mail-Status konnte nicht geprüft werden. Der aktuelle Versandstatus ist unbekannt. Aktualisiere den Status, um es erneut zu versuchen.",
+    "statusStale": "Die Statusaktualisierung ist fehlgeschlagen. Die folgenden Ergebnisse stammen von der letzten Prüfung; der aktuelle Versandstatus ist unbekannt.",
+    "checkedAt": "Zuletzt geprüft: {time}",
+    "retrying": "E-Mails, die nach einem Versandfehler auf einen erneuten Versuch warten: {count}. Prüfe den E-Mail-Dienst auch dann, wenn die Verbindungsprüfung erfolgreich ist.",
+    "channel": {
+      "SECURITY": "Sicherheits-E-Mails",
+      "PROGRAM": "Programm-E-Mails"
+    },
+    "transport": {
+      "READY": "SMTP-Verbindung und Authentifizierung waren erfolgreich.",
+      "UNAVAILABLE": "SMTP-Verbindung oder Authentifizierung fehlgeschlagen. Der E-Mail-Versand ist möglicherweise nicht verfügbar. Bitte die für die Bereitstellung zuständige Administration, den E-Mail-Dienst zu prüfen.",
+      "UNCONFIGURED": "Der SMTP-Versand ist nicht konfiguriert. Bitte die für die Bereitstellung zuständige Administration, diesen Absender zu konfigurieren.",
+      "LOCAL": "Es erfolgt nur eine Protokollierung in der Entwicklungsumgebung. Es werden keine E-Mails an einen Posteingang gesendet."
+    },
+    "resendStuck": "Festhängende E-Mails erneut senden",
+    "resending": "E-Mails werden eingereiht…",
+    "resendHelp": "Reiht bis zu 100 geeignete fehlgeschlagene oder auf einen weiteren Versuch wartende E-Mails für den Versand im Hintergrund ein. Dabei gelten die aktuellen Einstellungen und Empfängerpräferenzen. Bereits gesendete E-Mails werden nicht erneut gesendet.",
+    "resendQueued": "Für einen weiteren Versandversuch eingereihte E-Mails: {count}. Die Zustellung ist noch nicht bestätigt.",
+    "resendNone": "Keine E-Mails kamen für einen weiteren Versuch infrage.",
+    "resendFailed": "Die E-Mails konnten nicht eingereiht werden. Versuche es erneut.",
+    "resendRefreshFailed": "Die Anfrage zum erneuten Senden wurde angenommen, aber der Status konnte nicht aktualisiert werden. Prüfe die Warteschlange mit Status aktualisieren, bevor du einen weiteren Stapel startest."
   },
   "membership": {
     "title": "Roles and Participation",

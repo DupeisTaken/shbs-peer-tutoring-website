@@ -181,21 +181,38 @@ async function sendSmtp(message: EmailMessage, account: SenderAccount) {
 }
 
 /**
- * Diagnostic: open a connection and authenticate against Aliyun **without** sending, so a bad
- * SMTP password / unverified sender / blocked port surfaces explicitly. Returns false (and logs)
- * when email isn't configured or the check fails — never throws, so it's safe in a health check.
+ * Diagnostic: check SMTP connectivity and authentication without sending a message. This cannot
+ * establish sender/recipient acceptance or inbox delivery. Returns false (and logs) when email
+ * is unconfigured or the bounded check fails; provider details never leave this boundary.
  */
 export async function verifyEmailTransport(
   category: EmailCategory,
 ): Promise<boolean> {
   const account = senderAccount(category);
   if (!account) return false;
+  // Diagnostics own a separate socket: cancelling them must never interrupt delivery pools.
+  const socket = new Socket();
+  let transport: ReturnType<typeof createTransport> | undefined;
+  let timer: ReturnType<typeof setTimeout> | undefined;
   try {
-    await transporter(account).verify();
+    transport = createTransport(account, false, socket);
+    await Promise.race([
+      transport.verify(),
+      new Promise<never>((_, reject) => {
+        timer = setTimeout(() => {
+          socket.destroy();
+          reject(new Error("SMTP diagnostic deadline"));
+        }, 15_000);
+      }),
+    ]);
     return true;
   } catch {
     console.error(`[email] ${category} transport verify failed`);
     return false;
+  } finally {
+    clearTimeout(timer);
+    socket.destroy();
+    transport?.close();
   }
 }
 

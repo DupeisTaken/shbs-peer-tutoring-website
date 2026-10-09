@@ -3316,11 +3316,39 @@
     "enable": "Enable email notifications",
     "essential": "Applies immediately. Turning this off preserves preferences and discards queued optional notices. Verification, recovery and security emails continue.",
     "unavailable": "Configure email delivery before enabling notifications.",
-    "failed": "{count} deliveries failed after retries. Check the email transport and delivery records.",
+    "failed": "Emails that exhausted delivery retries: {count}. Check the email service and delivery records.",
     "saved": "Email settings saved.",
     "bindingTitle": "Secondary-Email Binding",
     "bindingHelp": "Let people optionally add and verify secondary emails. Independent of notifications. Turning this off preserves existing addresses and primary sign-in requirements.",
-    "bindingEnable": "Allow secondary-email binding"
+    "bindingEnable": "Allow secondary-email binding",
+    "loading": "Loading email settings…",
+    "retrySettings": "Retry settings",
+    "settingsFailed": "Email settings could not be loaded. Retry before changing settings.",
+    "deliveryTitle": "Email Delivery Status",
+    "deliveryHelp": "Checks SMTP connection and authentication, not inbox delivery. Checks are shared for up to one minute and update while this page is open. Refreshing status does not resend emails or advance the program.",
+    "refreshStatus": "Refresh status",
+    "checking": "Checking email status…",
+    "statusFailed": "Email status could not be checked. Delivery health is unknown. Refresh status to try again.",
+    "statusStale": "Status refresh failed. The results below are from the last check; current delivery health is unknown.",
+    "checkedAt": "Last checked: {time}",
+    "retrying": "Emails waiting to retry after a delivery error: {count}. Check the email service even if its connection check passes.",
+    "channel": {
+      "SECURITY": "Security emails",
+      "PROGRAM": "Program emails"
+    },
+    "transport": {
+      "READY": "SMTP connection and authentication passed.",
+      "UNAVAILABLE": "SMTP connection or authentication failed. Email delivery may be unavailable. Ask the deployment administrator to check the email service.",
+      "UNCONFIGURED": "SMTP delivery is not configured. Ask the deployment administrator to configure this sender.",
+      "LOCAL": "Development logging only. No email is sent to an inbox."
+    },
+    "resendStuck": "Resend stuck emails",
+    "resending": "Queuing emails…",
+    "resendHelp": "Queues up to 100 eligible failed or retrying emails for background delivery using current settings and recipient preferences. Emails already sent are not resent.",
+    "resendQueued": "Queued for another delivery attempt: {count}. Delivery is not yet confirmed.",
+    "resendNone": "No emails were eligible for another attempt.",
+    "resendFailed": "Could not queue the emails. Try again.",
+    "resendRefreshFailed": "The resend request was accepted, but status could not be refreshed. Use Refresh status to check the queue before starting another batch."
   },
   "membership": {
     "title": "Roles and Participation",
